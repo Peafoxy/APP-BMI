@@ -730,6 +730,55 @@ export const appliquerRetenuesCredit = (u, mois, par) =>
     return { ...c, echeances, remboursements, statut: solde ? "solde" : "approuve", date_solde: solde ? today() : c.date_solde };
   });
 
+// ⚠⚠ UN CRÉDIT D'AVANT L'APPLICATION (Timo, 03/10/2026 : « en réalité
+// c'était un ancien crédit dont il restait 400 mil… on n'avait pas l'app en
+// ce moment » → « lance 1 et 2 »). Accorder un crédit écrit une dépense
+// « Prêt au personnel » datée du jour : pour un prêt remis AVANT
+// l'application, c'est une sortie de caisse qui n'a jamais eu lieu.
+// - Enregistrer un crédit d'avant : on saisit ce qui RESTE dû — aucune
+//   dépense, aucune caisse, la marque `anterieur` le dit.
+// - Corriger un crédit déjà accordé par erreur : sa dépense part, le crédit
+//   et ses échéances restent — seulement s'il n'a AUCUN remboursement (un
+//   remboursement a pu être retenu sur un salaire déjà versé).
+export const echeancesCredit = (montant, mensualites, depart) => {
+  const n = Math.max(1, Math.min(36, Number(mensualites) || 1));
+  const part = Math.round(Number(montant) / n);
+  return Array.from({ length: n }, (_, i) => ({ mois: moisPlus(String(depart).trim(), i), montant: i === n - 1 ? Number(montant) - part * (n - 1) : part, paye: false }));
+};
+
+export function construireCreditAnterieur({ reste, mode, mensualites, depart, motif, note }, profile, aujourdhui) {
+  const montant = Number(reste);
+  if (!(montant > 0)) return { refus: "Indiquez ce qui reste dû, supérieur à zéro." };
+  const salaire = mode === "salaire";
+  // Le format du mois est vérifié par demanderMois (ui.jsx), la seule règle de saisie d'un mois.
+  if (salaire && !String(depart || "").trim()) return { refus: "Indiquez le premier mois de retenue." };
+  const echeances = salaire ? echeancesCredit(montant, mensualites, depart) : [];
+  return {
+    credit: {
+      id: uid(), date_demande: aujourdhui, montant_demande: montant, motif: String(motif || "").trim() || "Crédit d'avant l'application",
+      mode: salaire ? "salaire" : "libre", mensualites: echeances.length, statut: "approuve", montant_accorde: montant,
+      echeances, remboursements: [], commentaire: String(note || "").trim(), date_decision: aujourdhui, decide_par: profile.nom,
+      anterieur: { le: aujourdhui, par: profile.nom },
+    },
+  };
+}
+
+// La dépense écrite à l'approbation (auto « credit »), si elle existe encore.
+export const depenseDuCredit = (depenses, credit) =>
+  (depenses || []).find((d) => d.auto === "credit" && d.credit_id === credit?.id) || null;
+
+export function critiqueCreditAnterieur(credit, depenses) {
+  if (!credit) return "Ce crédit est introuvable.";
+  if (credit.anterieur) return "Ce crédit est déjà marqué comme datant d'avant l'application.";
+  if (credit.statut !== "approuve") return "Seul un crédit accordé peut être corrigé ainsi.";
+  if ((credit.remboursements || []).length > 0) return `Ce crédit a déjà un remboursement (${fmt(totalRembourseCredit(credit))}) : il ne se corrige plus ici.`;
+  if (!depenseDuCredit(depenses, credit)) return "La sortie de caisse de ce crédit est introuvable : rien à retirer.";
+  return "";
+}
+
+export const marquerCreditAnterieur = (credit, profile, aujourdhui) =>
+  ({ ...credit, anterieur: { le: aujourdhui, par: profile.nom, corrige: true }, boutique: undefined });
+
 // Caisse « hors boutique » confiée au comptable — c'est un bac UNIQUE et
 // bien réel (onglet « Chez le comptable ») : il n'a pas d'équivalent
 // d'entraînement, et n'est donc jamais proposé à un compte de formation.

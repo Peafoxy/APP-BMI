@@ -8,7 +8,7 @@
 // modification de logique.
 // ============================================================
 
-import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees, MOYENS_ENCAISSEMENT, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT } from "./constants.js";
+import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees, MOYENS_ENCAISSEMENT, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL } from "./constants.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -102,6 +102,24 @@ export function lignesJournal(db, a, b, dansLEspace = null) {
     } else {
       pousser(x.date, "OD", piece, "1048", "Compte de l'exploitant — autres prélèvements", lib, m, "", x.boutique);
       pousser(x.date, "OD", piece, "571", "Caisse", lib, "", m, x.boutique);
+    }
+  });
+
+  // Un PRÊT AU PERSONNEL (Timo, 03/10/2026) n'est pas une charge : hors des
+  // dépenses comptées, il garde ici SON écriture en 421 (créance sur
+  // l'employé). Prêt = débit 421 / crédit trésorerie ; un montant négatif
+  // (remboursement, retenue sur salaire) = débit trésorerie / crédit 421.
+  (db.depenses || []).filter(reel).filter((x) => x.categorie === CATEGORIE_PRET_PERSONNEL && x.validation?.statut !== "attente" && Number(x.montant) && inP(x.date, a, b)).forEach((x) => {
+    const [ct, it] = COMPTE_TRESORERIE(x.paiement || "");
+    const piece = "PRT-" + String(x.id).slice(0, 6).toUpperCase();
+    const lib = `${x.categorie}${x.description ? " — " + x.description : ""}`;
+    const m = Number(x.montant);
+    if (m < 0) {
+      pousser(x.date, "OD", piece, ct, it, lib, -m, "", x.boutique);
+      pousser(x.date, "OD", piece, "421", "Personnel — avances et acomptes", lib, "", -m, x.boutique);
+    } else {
+      pousser(x.date, "OD", piece, "421", "Personnel — avances et acomptes", lib, m, "", x.boutique);
+      pousser(x.date, "OD", piece, ct, it, lib, "", m, x.boutique);
     }
   });
 

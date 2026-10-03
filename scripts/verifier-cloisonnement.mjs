@@ -4923,9 +4923,9 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
   // d'une remise de fonds de caisse (⚙ Paramètres → 💼 Fonds de caisse), qui
   // se corrige depuis que « Régulariser » a daté 50 000 F du mauvais jour.
-  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait »)",
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026 ; RETOURNÉ le 03/10/2026 : ×7, le premier mois de retenue d'un crédit d'avant l'application), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait »)",
     execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
-    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "6"
+    && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "7"
     && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "6");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
     /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds", u\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
@@ -4977,7 +4977,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     && /import \{ CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees \} from "\.\.\/lib\/constants";/.test(dep)
     && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
-    && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep));
+    // ⚠ RETOURNÉ le 03/10/2026 : les prêts au personnel rejoignent la liste, la phrase dit où retrouver chacun.
+    && /Retrouvez les trois premiers dans <b>🔒 Caisse<\/b>/.test(dep) && /les prêts dans <b>👥 Utilisateurs → 🏦 Crédits BMI<\/b>/.test(dep));
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
     (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
     // 13/09/2026 : « appliquer la règle d'archivage aussi à l'historique des dépenses » — LE composant commun, plus de pagination.
@@ -5881,7 +5882,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       rs.lignes[0].resteFonds === 45000 && rs.lignes[0].fondsRemis === 50000 && rs.lignes[0].entrees === 348000 && rs.lignes[1].resteFonds === 0 && rs.lignes[1].fondsRemis === 0 && rs.total.resteFonds === 45000 && rs.total.fondsRemis === 50000 && rs.total.fondsFixe === 100000);
     test("★ le fonds remis n'est ni une charge ni une dépense : CATEGORIES_HORS_CHARGES le porte, horsVersements et depensesComptees l'écartent (tableau de bord, journal, export, écran Dépenses) ; l'écran Dépenses DIT où le retrouver",
       Cs.CATEGORIES_HORS_CHARGES.includes("Fonds de caisse remis") && Cs.horsVersements(dbB.depenses).every((d) => !Vs.estFondsCaisseRemis(d)) && Cs.depensesComptees(dbB.depenses).length === 1 && Cs.horsVersements(dbB.depenses).length === 1
-      && /les <b>fonds de caisse remis par le DG<\/b> et les <b>remboursements de reprise<\/b> ne sont pas des dépenses/.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
+      && /les <b>fonds de caisse remis par le DG<\/b>, les <b>remboursements de reprise<\/b> et les <b>prêts au personnel<\/b> ne sont pas des dépenses/ /* RETOURNÉ le 03/10/2026 : + les prêts */.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
     // La clôture : le jour de la remise, c'est une ENTRÉE du tiroir — jamais une « sortie justifiée » négative.
     const sortieClF = join("node_modules", ".cache", `bmi-cloture-fonds-${process.pid}.mjs`);
     await build({ entryPoints: ["src/lib/cloture.js"], bundle: true, format: "esm", platform: "node", outfile: sortieClF, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
@@ -6292,7 +6293,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   unlinkSync(sortieK2);
   test("★ « Remboursement client » n'est pas une charge : hors tableau de bord, hors journal (horsVersements l'exclut comme le versement)",
     // 12/09/2026 : « Remboursement d'avance de frais » rejoint la liste (la charge est déjà comptée le jour de l'avance).
-    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant" /* 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) */);
+    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant|Prêt au personnel" /* 03/10/2026 : un prêt au personnel non plus (une créance, compte 421) ; 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) */);
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ les MOTS (Timo, 14/09/2026, capture : « Reprise d'un article par BMI ou par le client ? » → « Reprise de l'article par BMI ») : la fenêtre, l'infobulle et le journal disent que BMI reprend ; plus jamais « par le client »",
     /↩ Reprise de l'article par BMI<\/div>/.test(vs) && /title="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) && !/Reprise d'un article par le client|repris par le client/.test(vs)
@@ -6880,6 +6881,53 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     test("★ 💸 un salaire payé « Chez le DG » avec une retenue de crédit : la retenue se lit en ENTRÉE (20 000), jamais en sortie négative — net sorti 100 000",
       dgN.totalSorties === 120000 && dgN.totalEntrees === 20000 && dgN.solde === -100000 && dgN.entrees.some((m) => m.id === "s2" && m.montant === 20000) && !dgN.sorties.some((m) => m.montant < 0));
   }
+  // 📥 UN CRÉDIT D'AVANT L'APPLICATION (Timo, 03/10/2026, « lance 1 et 2, et oui pour la charge ») —
+  // le crédit d'ANGELE : 400 000 F restants d'un prêt remis avant l'application.
+  {
+    const timoA = { id: "u_timo", nom: "TIMO", role: "admin" };
+    const rA = C.construireCreditAnterieur({ reste: 400000, mode: "salaire", mensualites: 4, depart: "2026-11", motif: "" }, timoA, "2026-10-03");
+    test("★ 📥 un crédit d'avant l'application : ce qui RESTE dû devient le montant accordé, les échéances partent du mois choisi et font juste le total, la marque « antérieur » est posée — et aucune dépense n'est fabriquée",
+      !rA.refus && rA.credit.statut === "approuve" && rA.credit.montant_accorde === 400000 && rA.credit.anterieur?.par === "TIMO"
+      && rA.credit.echeances.length === 4 && rA.credit.echeances[0].mois === "2026-11" && rA.credit.echeances[3].mois === "2027-02"
+      && rA.credit.echeances.reduce((x, e) => x + e.montant, 0) === 400000 && C.resteCredit(rA.credit) === 400000 && !("depense" in rA)
+      && /reste dû/.test(C.construireCreditAnterieur({ reste: 0, mode: "libre" }, timoA, "2026-10-03").refus || "")
+      && /premier mois/.test(C.construireCreditAnterieur({ reste: 1000, mode: "salaire", mensualites: 2, depart: "" }, timoA, "2026-10-03").refus || "")
+      && C.construireCreditAnterieur({ reste: 1000, mode: "libre" }, timoA, "2026-10-03").credit.echeances.length === 0);
+    const cAng = { id: "cr1", statut: "approuve", montant_accorde: 400000, remboursements: [], echeances: [{ mois: "2026-11", montant: 100000, paye: false }] };
+    const depAng = { id: "dp1", auto: "credit", credit_id: "cr1", categorie: "Prêt au personnel", montant: 400000, boutique: "APESSITO", date: "2026-10-03" };
+    test("★ ↩ corriger un crédit déjà accordé : permis seulement s'il est accordé, sans remboursement, pas déjà marqué, et que SA sortie de caisse existe ; la marque garde le crédit et ses échéances",
+      C.critiqueCreditAnterieur(cAng, [depAng]) === "" && C.depenseDuCredit([depAng, { id: "x", auto: "credit", credit_id: "autre" }], cAng)?.id === "dp1"
+      && /déjà un remboursement/.test(C.critiqueCreditAnterieur({ ...cAng, remboursements: [{ montant: 100000 }] }, [depAng]))
+      && /introuvable/.test(C.critiqueCreditAnterieur(cAng, []))
+      && /déjà marqué/.test(C.critiqueCreditAnterieur({ ...cAng, anterieur: { le: "x" } }, [depAng]))
+      && /accordé/.test(C.critiqueCreditAnterieur({ ...cAng, statut: "en_attente" }, [depAng]))
+      && (() => { const m = C.marquerCreditAnterieur(cAng, timoA, "2026-10-03"); return m.anterieur.corrige === true && m.statut === "approuve" && m.montant_accorde === 400000 && m.echeances.length === 1; })());
+    const utA = readFileSync("src/screens/Utilisateurs.jsx", "utf8").replace(/\/\/[^\n]*/g, "");
+    const corpsEnr = utA.slice(utA.indexOf("const enregistrerCreditAnterieur"), utA.indexOf("const corrigerCreditAnterieur"));
+    const corpsCor = utA.slice(utA.indexOf("const corrigerCreditAnterieur"), utA.indexOf("const rembourserCredit"));
+    test("★ 👥 Utilisateurs : « 📥 Crédit d'avant l'application » (administrateur, revérifié DANS le geste, employés de l'espace regardé, AUCUNE dépense écrite) et « ↩ Date d'avant l'application » (règle revérifiée sur la fiche FRAÎCHE, SA dépense seule retirée, le crédit gardé)",
+      /refuserSaufAdmin\(profile, "Enregistrer un crédit d'avant l'application"\)/.test(corpsEnr) && /dansMonEspace\.filter/.test(corpsEnr) && /construireCreditAnterieur\(/.test(corpsEnr)
+      && !/depenses:/.test(corpsEnr) && !/nouvelleDepense/.test(corpsEnr) && !/db\.users\.filter/.test(corpsEnr)
+      && /refuserSaufAdmin\(profile, "Corriger un crédit d'avant l'application"\)/.test(corpsCor) && /critiqueCreditAnterieur\(frais, db\.depenses\)/.test(corpsCor)
+      && /depenses: db\.depenses\.filter\(\(d\) => d\.id !== dep\.id\)/.test(corpsCor) && /marquerCreditAnterieur\(y, profile, today\(\)\)/.test(corpsCor)
+      && /data-credit-anterieur/.test(utA) && /↩ Date d'avant l'application/.test(utA) && /D'avant l'application — aucune sortie de caisse/.test(utA));
+    // « Oui pour la charge » : un prêt est une créance, pas une charge.
+    const depPret = [
+      { id: "p1", boutique: "APESSITO", categorie: "Prêt au personnel", montant: 400000, paiement: "Espèces", date: "2026-10-03", par: "TIMO" },
+      { id: "p2", boutique: "APESSITO", categorie: "Prêt au personnel", montant: -20000, paiement: "Espèces", date: "2026-10-05", par: "TIMO" },
+      { id: "p3", boutique: "APESSITO", categorie: "Transport", montant: 3000, paiement: "Espèces", date: "2026-10-05", par: "TIMO" },
+    ];
+    const sortieKP = join("node_modules", ".cache", `bmi-pret-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/constants.js"], bundle: true, format: "esm", platform: "node", outfile: sortieKP, logLevel: "silent" });
+    const KP = await import(pathToFileURL(sortieKP).href);
+    unlinkSync(sortieKP);
+    const jP = Core.lignesJournal({ boutiques: [], ventes: [], dettes: [], depenses: depPret }, "2026-10-01", "2026-10-31");
+    test("★ un PRÊT AU PERSONNEL n'est plus une charge (Timo, 03/10/2026) : hors des dépenses comptées (tableau de bord, « Ce mois », exports), retiré des catégories qu'on saisit à la main, et le journal l'écrit en 421 — prêt 421 / caisse, remboursement caisse / 421 — jamais en compte de charge",
+      KP.CATEGORIES_HORS_CHARGES.includes("Prêt au personnel") && KP.depensesComptees(depPret).map((d) => d.id).join("|") === "p3" && !KP.CATEGORIES.includes("Prêt au personnel")
+      && jP.filter((l) => l[3] === "421").length === 2 && jP.some((l) => l[3] === "421" && l[6] === 400000 && /^PRT-/.test(l[2])) && jP.some((l) => l[3] === "421" && l[7] === 20000)
+      && !jP.some((l) => /^6/.test(String(l[3])) && /Prêt/.test(l[5]))
+      && (() => { const K = readFileSync("src/lib/constants.js", "utf8"); return !/"Prêt au personnel"/.test(K.match(/export const CATEGORIES = \[[^\]]*\]/)[0]) && /CATEGORIE_PRET_PERSONNEL = "Prêt au personnel"/.test(K); })());
+  }
   // La caisse du comptable, sur le même modèle : ses pointages font foi.
   const dbK = { depenses: [
     { id: "m1", boutique: "Chez le comptable", categorie: "Versement de fonds", montant: -70000, versement_id: "x", decaisse_le: "2026-09-11", decaisse_par: "MARIE", description: "Versement du 10/09/2026 reçu de APESSITO" },
@@ -7018,7 +7066,7 @@ titre("📒 LE COMPTE DE L'EXPLOITANT : la caisse de BMI chez le DG, à part de 
     apport.boutique === "Chez le DG" && apport.categorie === "Apport de l'exploitant" && apport.montant === 500000 && apport.date === "2026-09-01" && apport.exploitant.sens === "apport" && apport.exploitant.note === "mise de départ" && apport.par_id === "u_timo" && /Apport de l'exploitant le 01\/09\/2026 par TIMO — mise de départ/.test(apport.description)
     && prelev.categorie === "Prélèvement de l'exploitant" && prelev.exploitant.sens === "prelevement" && prelev.date === "2026-09-20"
     && Ex.estApport(apport) && Ex.estPrelevement(prelev) && !Ex.estMouvementExploitant({ categorie: "Apport de l'exploitant" })
-    && (() => { const K = readFileSync("src/lib/constants.js", "utf8"); return /export const CATEGORIES_HORS_CHARGES = \[CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT\];/.test(K) && !/CATEGORIE_APPORT_EXPLOITANT, /.test(K.match(/export const CATEGORIES = \[[^\]]*\]/)[0]); })());
+    && (() => { const K = readFileSync("src/lib/constants.js", "utf8"); return /export const CATEGORIES_HORS_CHARGES = \[CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL\];/.test(K) /* RETOURNÉ le 03/10/2026 : + le prêt au personnel */ && !/CATEGORIE_APPORT_EXPLOITANT, /.test(K.match(/export const CATEGORIES = \[[^\]]*\]/)[0]); })());
   const c1 = Ex.compteExploitant({ depenses: [...dbE.depenses, apport, prelev] }, noms);
   test("★ avec une mise de départ de 500 000 (le 01/09) et un prélèvement de 100 000 (le 20/09) : la caisse de BMI = 500 000 + 300 000 + 50 000 − 20 000 − 100 000 − 730 000 = 0 ; l'apport automatique tombe à 270 000 ; le compte de l'exploitant = 500 000 + 270 000 − 100 000 = 670 000 — les deux soldes se lisent par UNE marche",
     c1.caisse.solde === 0 && c1.caisse.totalEntrees === 850000 && c1.caisse.totalSorties === 850000 && c1.apportsAuto === 270000

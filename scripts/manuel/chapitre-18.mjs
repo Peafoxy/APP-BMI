@@ -115,7 +115,10 @@ export const CHAPITRE = {
         { titre: "La demande (l'employé)", texte: "💵 Mon salaire → 🏦 Crédit BMI : montant souhaité, **motif** obligatoire, et le remboursement — **par retenue sur salaire** (1 à 36 mensualités) ou **libre**. Une seule demande en examen à la fois ; elle s'annule tant qu'elle attend." },
         { titre: "La décision (administrateur)", texte: "👥 Utilisateurs → 🏦 Crédits BMI → **Approuver** : le montant accordé, le nombre de mensualités, un commentaire, le moyen de remise et « D'où sort l'argent ? » (la même question que le salaire). Une dépense « Prêt au personnel » est écrite. **Refuser** demande un motif, que l'employé lit." },
         { titre: "Le remboursement", texte: "Sur salaire : chaque mois, l'échéance est retirée du net et notée payée au virement. Libre : **+ Remboursement** enregistre ce que l'employé rend (jamais plus que le reste dû)." },
+        { titre: "📥 Crédit d'avant l'application (administrateur)", texte: "Pour un prêt remis AVANT l'application : bouton **📥 Crédit d'avant l'application** en tête de 🏦 Crédits BMI. L'employé, ce qui **reste dû aujourd'hui** (pas le montant d'origine), le remboursement (mensualités et premier mois, ou libre), un motif. **Aucune caisse ne bouge** : l'argent est sorti avant. La ligne porte « 📥 D'avant l'application »." },
+        { titre: "↩ Date d'avant l'application", texte: "Un ancien prêt saisi par erreur avec **Approuver** a écrit une sortie de caisse datée du jour. Sur sa ligne, tant qu'il n'a **aucun remboursement** : **↩ Date d'avant l'application** retire cette sortie et garde le crédit, ce qui reste dû et les retenues." },
       ]],
+      ["note", "**Un prêt au personnel n'est pas une charge** : l'argent doit revenir (compte 421, une créance sur l'employé). Il sort bien de la caisse, mais il ne baisse ni le résultat ni les dépenses du tableau de bord, et il n'apparaît plus dans 📤 Dépenses. Le journal comptable l'écrit en 421."],
 
       ["h3", "G. La CNSS du mois (administrateur)"],
       ["etapes", [
@@ -148,7 +151,7 @@ export const CHAPITRE = {
     { titre: "Ce qui se passe automatiquement derrière", blocs: [
       ["ul", [
         "**Le net se recalcule** à chaque prime, avance, échéance de crédit ou case CNSS changée.",
-        "**Chaque sortie d'argent est une dépense** : « Salaires » (virement, avance), « Prêt au personnel » (crédit accordé), « Cotisations CNSS ». Ce sont des dépenses automatiques : elles ne passent pas par la validation du DG et ne se modifient pas dans 📤 Dépenses.",
+        "**Chaque sortie d'argent s'écrit** : « Salaires » (virement, avance), « Prêt au personnel » (crédit accordé), « Cotisations CNSS ». Ce sont des écritures automatiques : elles ne passent pas par la validation du DG et ne se modifient pas dans 📤 Dépenses. Le prêt au personnel, lui, n'est pas une charge : il ne compte pas dans le résultat.",
         "**La personne qui tient la caisse est prévenue** quand l'argent en sort pour un salaire, une avance ou un crédit.",
         "**Le numéro de compte bancaire ne descend jamais en entier** sur une dépense : seuls les quatre derniers chiffres y figurent.",
         "**Un outil perdu** par un salarié peut être retenu sous forme d'avance du mois (chapitre 19) : il apparaît dans les avances.",
@@ -195,7 +198,8 @@ export const CHAPITRE = {
       ["cas", [
         { situation: "AMA, vendeuse, salaire de base 100 000 F, reçoit une prime de 10 000 F et une avance de 20 000 F en septembre. Elle est assujettie à la CNSS.", reponse: "Retenue CNSS : 9 % de 110 000 = 9 900 F. Net : 100 000 + 10 000 − 20 000 − 9 900 = **80 100 F**. Les 20 000 F sont déjà sortis de la caisse le jour de l'avance." },
         { situation: "L'administrateur verse 50 000 F à AMA le 30, puis le reste le 5.", reponse: "Deux virements du même mois ; « Reste à verser » tombe à 30 100 F puis à 0. Chacun attend sa confirmation." },
-        { situation: "KOFFI, magasinier, demande un crédit de 60 000 F remboursé en 3 mensualités.", reponse: "Une fois approuvé, 20 000 F sont retirés de son net pendant 3 mois ; la caisse a sorti 60 000 F en « Prêt au personnel »." },
+        { situation: "KOFFI, magasinier, demande un crédit de 60 000 F remboursé en 3 mensualités.", reponse: "Une fois approuvé, 20 000 F sont retirés de son net pendant 3 mois ; la caisse a sorti 60 000 F en « Prêt au personnel » — sans toucher au résultat, puisque l'argent revient." },
+        { situation: "ANGELE devait encore 400 000 F d'un prêt reçu avant l'application.", reponse: "📥 Crédit d'avant l'application : 400 000 F restants, ses mensualités, son premier mois. Aucune caisse ne bouge. Si on l'avait approuvé par erreur avec « Approuver », ↩ Date d'avant l'application retire la sortie de caisse." },
         { situation: "Pour septembre, la base CNSS d'AMA est 110 000 F.", reponse: "Part salariale 9 900 F (déjà retenue), part patronale 22,5 % = 24 750 F : environ **34 650 F** à reverser pour elle." },
         { situation: "Un employé est coché assujetti mais sans n° d'assurance.", reponse: "Il est exclu du fichier et du paiement, et l'écran le dit en ambre : on complète avant de déclarer." },
       ]],

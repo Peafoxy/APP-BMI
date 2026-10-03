@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.412";
+export const VERSION = "2.101.413";
 
 // ---- Notifications (13/09/2026) ----
 // La clé PUBLIQUE des notifications : le téléphone n'accepte que les
@@ -112,7 +112,7 @@ export const mobileParMoyen = (moyen) => MOYENS_MOBILES.find((x) => x.moyen === 
 // Outillage quand on envoie un outil chez un réparateur, ou quand il en
 // revient ; « Autre » reste en dernier.
 export const CATEGORIE_REPARATION_OUTIL = "Réparation d'outillage";
-export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Livraison", "Carburant", "Nourriture", "Commande en Chine", "Achat marchandises", CATEGORIE_REPARATION_OUTIL, "Communication", "Impôts / Taxes", "Prêt au personnel", "Autre"];
+export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Livraison", "Carburant", "Nourriture", "Commande en Chine", "Achat marchandises", CATEGORIE_REPARATION_OUTIL, "Communication", "Impôts / Taxes", "Autre"];
 
 // ============ RÔLES ============
 // Salariés : fiche de paie, avancement, primes/avances, virements, crédit BMI.
@@ -167,7 +167,13 @@ export const CATEGORIE_FONDS_CAISSE = "Fonds de caisse remis";
 // Règle : lib/compteExploitant.js. Écrites ICI pour le journal (core.js).
 export const CATEGORIE_APPORT_EXPLOITANT = "Apport de l'exploitant";
 export const CATEGORIE_PRELEVEMENT_EXPLOITANT = "Prélèvement de l'exploitant";
-export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT];
+// Un PRÊT AU PERSONNEL (crédit BMI) n'est pas une charge (Timo, 03/10/2026,
+// « oui pour la charge ») : l'argent doit revenir — c'est une créance sur
+// l'employé (compte 421). La sortie de caisse reste une sortie de caisse ; le
+// résultat, lui, ne bouge pas. Le journal l'écrit en 421 (core.js), et un prêt
+// se suit dans 👥 Utilisateurs → 🏦 Crédits BMI, plus dans 📤 Dépenses.
+export const CATEGORIE_PRET_PERSONNEL = "Prêt au personnel";
+export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
 // ⚠ Timo (12/09/2026) : « seules les dépenses validées comptent ». Une
 // dépense en attente de la validation du DG (5 000 F et plus, saisie par un

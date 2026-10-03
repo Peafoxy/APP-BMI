@@ -19,7 +19,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -979,6 +979,65 @@ export function Users({ db, save, profile }) {
       `Demande de crédit de ${u.nom} refusée (${fmt(c.montant_demande)})`);
   };
 
+  // 📥 Un crédit d'avant l'application (Timo, 03/10/2026) : on saisit ce qui
+  // RESTE dû — aucune dépense, aucune caisse (l'argent est sorti avant
+  // l'application). Règle pure : construireCreditAnterieur (calculs.js).
+  const enregistrerCreditAnterieur = async () => {
+    if (refuserSaufAdmin(profile, "Enregistrer un crédit d'avant l'application")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    // Un libellé par compte (nom + rôle) : deux homonymes ne se confondent pas.
+    const employes = dansMonEspace.filter((x) => x.role !== "client" && !x.bloque)
+      .map((x) => ({ x, libelle: `${x.nom} — ${LIBELLE_ROLE_EMPLOYE[x.role] || x.role}` })).sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
+    if (!employes.length) { uAlert("Aucun employé dans cet espace."); return; }
+    const choix = await uChoix("📥 Crédit d'avant l'application — pour quel employé ?", employes.map((e) => e.libelle));
+    if (choix === null) return;
+    const u = employes.find((e) => e.libelle === choix)?.x;
+    if (!u) return;
+    const v = await uPrompt(`Ce qui RESTE dû par ${u.nom} aujourd'hui (pas le montant d'origine) :`, "");
+    if (v === null) return;
+    const mode = await uChoix(`Comment ${u.nom} rembourse-t-il ?`, ["Retenue sur salaire", "Remboursement libre"]);
+    if (mode === null) return;
+    let mensualites = 0, depart = "";
+    if (mode === "Retenue sur salaire") {
+      const n = await uPrompt("Nombre de mensualités restantes :", "3");
+      if (n === null) return;
+      mensualites = n;
+      depart = await demanderMois("Premier mois de retenue", moisPlus(today().slice(0, 7), 1));
+      if (!depart) return;
+    }
+    const motif = await uPrompt("Motif ou origine du crédit (facultatif) :", "Crédit d'avant l'application");
+    if (motif === null) return;
+    const r = construireCreditAnterieur({ reste: v, mode: mode === "Retenue sur salaire" ? "salaire" : "libre", mensualites, depart, motif }, profile, today());
+    if (r.refus) { uAlert(r.refus); return; }
+    const c = r.credit;
+    const resume = c.mode === "salaire"
+      ? `${c.mensualites} mensualité(s) retenues sur salaire, à partir de ${libelleMoisFR(c.echeances[0].mois)}.`
+      : "Remboursement libre (versements enregistrés par l'administration).";
+    if (!await uConfirm(`Enregistrer un crédit d'avant l'application pour ${u.nom} ?\n\nReste dû : ${fmt(c.montant_accorde)}\n${resume}\n\nAucune sortie de caisse : l'argent a été remis avant l'application.`)) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, credits: [...creditsDe(x), c] } : x)) },
+      `Crédit BMI d'avant l'application enregistré pour ${u.nom} : reste dû ${fmt(c.montant_accorde)} — aucune sortie de caisse`);
+    uAlert(`✅ Crédit d'avant l'application enregistré pour ${u.nom} (${fmt(c.montant_accorde)}). Aucune caisse n'a bougé.`);
+  };
+
+  // ↩ Un crédit accordé ici alors qu'il datait d'avant l'application : sa
+  // sortie de caisse part, le crédit et ses échéances restent (Timo,
+  // 03/10/2026 — le crédit d'ANGELE). Revérifié DANS le geste, fiche fraîche.
+  const corrigerCreditAnterieur = async (u, c) => {
+    if (refuserSaufAdmin(profile, "Corriger un crédit d'avant l'application")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = creditsDe(db.users.find((x) => x.id === u.id) || u).find((y) => y.id === c.id);
+    const refus = critiqueCreditAnterieur(frais, db.depenses);
+    if (refus) { uAlert(refus); return; }
+    const dep = depenseDuCredit(db.depenses, frais);
+    if (!await uConfirm(`Ce crédit de ${fmt(frais.montant_accorde)} à ${u.nom} date d'avant l'application ?\n\nLa sortie de caisse du ${dFR(dep.date)} (${fmt(dep.montant)}, ${dep.boutique}) sera retirée : l'argent n'est pas sorti aujourd'hui.\nLe crédit, ce qui reste dû et les retenues sur salaire ne changent pas.`)) return;
+    save({
+      ...db,
+      users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((y) => (y.id === c.id ? marquerCreditAnterieur(y, profile, today()) : y)) } : x)),
+      depenses: db.depenses.filter((d) => d.id !== dep.id),
+    }, `Crédit BMI de ${u.nom} (${fmt(frais.montant_accorde)}) corrigé : il date d'avant l'application — sortie de caisse du ${dFR(dep.date)} (${fmt(dep.montant)}, ${dep.boutique}) retirée`);
+    uAlert(`✅ Corrigé : la sortie de ${fmt(dep.montant)} est retirée de ${dep.boutique}. Le crédit de ${u.nom} reste en cours.`);
+  };
+
   const rembourserCredit = async (u, c) => {
     if (refuserSaufAdmin(profile, "Enregistrer un remboursement de crédit")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -1429,7 +1488,7 @@ export function Users({ db, save, profile }) {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap justify-between gap-2">
-          <span>🏦 Crédits BMI</span>
+          <span>🏦 Crédits BMI <button onClick={enregistrerCreditAnterieur} className="ml-2 text-xs font-bold text-sky-800 underline" data-credit-anterieur>📥 Crédit d'avant l'application</button></span>
           <span className="text-xs font-semibold text-slate-600">
             En attente : <b className="text-purple-700">{tousCredits.filter(({ c }) => c.statut === "en_attente").length}</b> ·
             Encours total : <b className="text-red-600 tabular-nums">{fmt(tousCredits.reduce((s, { c }) => s + (c.statut === "approuve" ? resteCredit(c) : 0), 0))}</b>
@@ -1458,6 +1517,7 @@ export function Users({ db, save, profile }) {
                           )}
                         </>
                       : "Remboursement libre"}
+                    {c.anterieur && <div className="text-amber-700 font-semibold">📥 D'avant l'application — aucune sortie de caisse</div>}
                   </td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(totalRembourseCredit(c))}</td>
                   <td className="px-3 py-2 tabular-nums font-bold text-red-600">{c.statut === "approuve" ? fmt(resteCredit(c)) : "—"}</td>
@@ -1471,6 +1531,7 @@ export function Users({ db, save, profile }) {
                     {c.statut === "en_attente" && <button onClick={() => approuverCredit(u, c)} className="text-xs font-bold text-green-700 underline mr-2">Approuver</button>}
                     {c.statut === "en_attente" && <button onClick={() => refuserCredit(u, c)} className="text-xs font-bold text-red-600 underline mr-2">Refuser</button>}
                     {c.statut === "approuve" && resteCredit(c) > 0 && <button onClick={() => rembourserCredit(u, c)} className="text-xs font-bold text-sky-800 underline mr-2">+ Remboursement</button>}
+                    {c.statut === "approuve" && !c.anterieur && !(c.remboursements || []).length && depenseDuCredit(db.depenses, c) && <button onClick={() => corrigerCreditAnterieur(u, c)} className="text-xs font-bold text-amber-700 underline mr-2" title="Le prêt a été remis avant l'application : retirer sa sortie de caisse">↩ Date d'avant l'application</button>}
                   </td>
                 </tr>
               ))}

@@ -40,7 +40,7 @@ export const CHAPITRE = {
         "comprendre pourquoi une dépense de **5 000 F et plus attend le DG** et ne compte nulle part avant ;",
         "savoir quand l'application **refuse** une dépense (le tiroir ne contient pas assez) et quelle est la porte de sortie ;",
         "**rattacher** une petite dépense à un chantier, **payer le loyer** d'un local, **se faire rembourser** une avance de poche ;",
-        "reconnaître ce qui **n'est pas une dépense** : un versement, un fonds de caisse, un remboursement de reprise.",
+        "reconnaître ce qui **n'est pas une dépense** : un versement, un fonds de caisse, un remboursement de reprise, un prêt au personnel.",
       ]],
       ["regle", "**Seules les dépenses validées comptent** (Timo, 12/09/2026). À partir de **5 000 F**, une dépense attend la validation du DG : tant qu'il n'a pas dit oui, elle ne sort ni du tiroir, ni du tableau de bord, ni du « Ce mois »."],
     ]},
@@ -171,7 +171,7 @@ export const CHAPITRE = {
       ["ul", [
         "**Une dépense en attente ne compte nulle part** : ni dans le tiroir, ni dans le tableau de bord, ni dans « Ce mois » — la liste le dit à côté (« en attente de validation (non comptées) »).",
         "**La clôture du jour est bloquée** tant qu'une dépense **en espèces payée avec la caisse** attend le DG, jusqu'au jour clôturé inclus. Flooz, avances et argent du DG ne bloquent pas.",
-        "**Un versement n'est jamais une dépense** : ni lui, ni le fonds de caisse remis par le DG, ni un remboursement de reprise n'apparaissent dans 📤 Dépenses. L'écran dit où les retrouver : 🔒 Caisse et l'export « Versements ».",
+        "**Un versement n'est jamais une dépense** : ni lui, ni le fonds de caisse remis par le DG, ni un remboursement de reprise, ni un prêt au personnel (un crédit BMI, que l'employé rend) n'apparaissent dans 📤 Dépenses. L'écran dit où les retrouver : 🔒 Caisse et l'export « Versements » ; les prêts dans 👥 Utilisateurs → 🏦 Crédits BMI. « Prêt au personnel » ne se choisit plus comme catégorie : un prêt passe par 🏦 Crédits BMI.",
         "**Une dépense payée par Flooz ou Mixx** descend le solde de ce compte mobile (carrés 📱 de 🔒 Caisse, chapitre 6).",
         "**La liste s'archive toute seule** : 10 lignes visibles puis on défile ; au-delà des 20 plus récentes, les lignes de plus de 3 mois passent dans « 📁 Dépenses archivées », rangées par mois. Rien n'est effacé.",
         "**Un paiement fait ailleurs crée sa dépense tout seul** : commission (chapitre 16), prime d'installation, salaire (chapitre 18), réparation d'un outil (chapitre 19), règlement d'un fournisseur (chapitre 10).",

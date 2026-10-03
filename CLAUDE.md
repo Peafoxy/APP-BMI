@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2143 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2147 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5220,6 +5220,34 @@ lit mal est pire qu'un banc absent).
     la CNSS, les fournisseurs, le remboursement d'un crédit (une ENTRÉE) —
     ils gardent `choisirBoutiqueDebitG`. Rien à coller. Banc (8 contrôles),
     éprouvé en remettant trois fautes : chacune tombe.
+
+### 📥 UN CRÉDIT BMI D'AVANT L'APPLICATION, ET UN PRÊT N'EST PAS UNE CHARGE (03/10/2026, « lance 1 et 2, et oui pour la charge »)
+- Capture Timo (🕘 Historique) : le crédit d'ANGELE (400 000 F restants d'un
+  prêt remis AVANT l'application) avait été saisi par « Approuver », qui
+  écrit une dépense « Prêt au personnel » DATÉE DU JOUR : une sortie de
+  caisse qui n'a jamais eu lieu. « Créditer 400 000 F la boutique » proposé
+  par lui → déconseillé (deux écritures fausses, le résultat restait faux).
+- **📥 Crédit d'avant l'application** (👥 Utilisateurs → 🏦 Crédits BMI,
+  administrateur, revérifié DANS le geste) : l'employé (espace regardé,
+  libellé nom + rôle contre les homonymes), ce qui RESTE dû, mensualités et
+  premier mois ou remboursement libre. **Aucune dépense, aucune caisse** ;
+  marque `anterieur` lue sur la ligne. Règle pure `construireCreditAnterieur`
+  / `echeancesCredit` (calculs.js).
+- **↩ Date d'avant l'application** sur un crédit accordé : retire SA dépense
+  (`depenseDuCredit`, auto « credit ») et garde le crédit et ses échéances
+  (`marquerCreditAnterieur`) — seulement sans AUCUN remboursement, pas déjà
+  marqué (`critiqueCreditAnterieur`, sur la fiche fraîche). ⚠ Supprimer la
+  dépense dans 📤 Dépenses, lui, remet le crédit « en attente » (voulu).
+- **Un prêt au personnel n'est plus une charge** : `CATEGORIE_PRET_PERSONNEL`
+  dans `CATEGORIES_HORS_CHARGES` (tableau de bord, « Ce mois », exports,
+  liste de 📤 Dépenses, qui DIT où le retrouver) ; retiré des catégories
+  saisies à la main ; la sortie de caisse reste une sortie ; le journal
+  l'écrit en **421** (pièce PRT-, `lignesJournal`). Effet : le salaire
+  compte en charge pour son brut, la retenue de crédit ne le diminue plus.
+- Rien à coller (`credits` est dans la liste « gestion », écrite par
+  l'admin). Banc (4 contrôles), éprouvé en remettant trois fautes ; cinq
+  contrôles RETOURNÉS (demanderMois ×7, les phrases de 📤 Dépenses ×2, la
+  liste hors charges ×2). Chapitres 17 et 18 à jour.
 
 ### 📱 FLOOZ ET MIXX/T-MONEY : LE SOLDE D'UN COMPTE MOBILE (21/09/2026)
 - Timo, après avoir encaissé 160 000 F par Mixx et payé 40 000 F de commission
