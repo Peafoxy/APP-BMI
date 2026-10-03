@@ -20,7 +20,7 @@
 //
 // Règle pure, lue par le serveur : imports écrits avec `.js`.
 // ============================================================
-import { envoiAnniversaire, ligneEnvoiModele, numeroWhatsApp } from "./whatsappModeles.js";
+import { envoiAnniversaire, envoiRappelAnniversaire, alerteConseillerDe, critiqueNumeroAlerte, ligneEnvoiModele, numeroWhatsApp } from "./whatsappModeles.js";
 import { cleConversation, CANAL_WA, construireEntete } from "./whatsappConversations.js";
 import { estCompteFormation, estAdminPrincipalActif } from "./espace.js";
 
@@ -94,20 +94,44 @@ export const enteteApresAnniversaire = ({ tel, employe, ts, entete }) =>
 // Le rappel de la VEILLE (tournée de 17 h), pour l'administrateur PRINCIPAL
 // seul (« un rappel à toi »). null s'il n'y a personne demain.
 // { destinataires, titre, texte, tag } — la tournée le passe à fabriquerEnvoi.
-export function rappelVeilleAnniversaires(db, aujourdhui) {
-  const demain = lendemain(aujourdhui);
-  const fetes = employesFetes(db, demain);
-  if (!fetes.length) return null;
-  const destinataires = (db?.users || []).filter(estAdminPrincipalActif).map((u) => u.id);
-  if (!destinataires.length) return null;
-  const morceaux = fetes.map((u) => {
+// Les fêtés de demain, une ligne par personne (nom, boutique, et « pas de
+// numéro » s'il le faut) — UNE fois pour la notification et le WhatsApp.
+function morceauxDeDemain(db, aujourdhui) {
+  return employesFetes(db, lendemain(aujourdhui)).map((u) => {
     const nom = u.nom_complet || u.nom;
     const ou = u.boutique ? `, ${u.boutique}` : "";
     const sansNumero = numeroWhatsApp(u.tel) ? "" : " — pas de numéro sur sa fiche : aucun message ne lui partira";
     return `${nom}${ou}${sansNumero}`;
   });
-  const texte = fetes.length === 1
+}
+
+export function rappelVeilleAnniversaires(db, aujourdhui) {
+  const demain = lendemain(aujourdhui);
+  const morceaux = morceauxDeDemain(db, aujourdhui);
+  if (!morceaux.length) return null;
+  const destinataires = (db?.users || []).filter(estAdminPrincipalActif).map((u) => u.id);
+  if (!destinataires.length) return null;
+  const texte = morceaux.length === 1
     ? `Demain, c'est l'anniversaire de ${morceaux[0]}.`
     : `Demain, c'est l'anniversaire de : ${morceaux.join(" ; ")}.`;
   return { destinataires, titre: "🎂 Anniversaire demain", texte, tag: `anniv:${demain}` };
+}
+
+// 🎂 « 1c » (03/10/2026) : le même rappel, EN PLUS, par WhatsApp sur le
+// numéro de l'administrateur principal — celui réglé pour l'alerte
+// conseiller (⚙ Paramètres → 🤖 Assistant, boutique RÉELLE), sinon celui de
+// sa fiche. Jamais le numéro BMI lui-même. Rend { tel, envoi } ou null.
+export function rappelWhatsAppVeille(db, aujourdhui) {
+  const morceaux = morceauxDeDemain(db, aujourdhui);
+  if (!morceaux.length) return null;
+  const principal = (db?.users || []).find(estAdminPrincipalActif);
+  const reglage = alerteConseillerDe(db?.boutiques);
+  const brut = reglage?.tel || principal?.tel || "";
+  if (!brut || critiqueNumeroAlerte(brut)) return null;
+  const tel = numeroWhatsApp(brut);
+  const envoi = envoiRappelAnniversaire({
+    administrateur: reglage?.nom || principal?.nom_complet || principal?.nom,
+    employes: morceaux.join(" ; "),
+  });
+  return tel && envoi ? { tel, envoi } : null;
 }

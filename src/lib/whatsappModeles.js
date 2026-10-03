@@ -201,6 +201,11 @@ export const MODELES = {
   // tournée de 7 h. MARKETING (Meta range les vœux dans la promotion).
   // SERVEUR SEUL (lib/anniversaires.js) — aucun écran ne l'envoie.
   anniversaire_employe: { categorie: "marketing", variables: ["employe"] },
+  // 🎂 03/10/2026, Timo « 1c » : la veille à 17 h, EN PLUS de la
+  // notification, un message WhatsApp sur SON numéro (celui réglé pour
+  // l'alerte conseiller, sinon celui de sa fiche). UTILITY : un rappel de
+  // service, rien de commercial. Serveur seul (api/rappels-du-soir.js).
+  rappel_anniversaire: { categorie: "utility", variables: ["administrateur", "employes"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -1631,4 +1636,20 @@ export function envoiAnniversaire({ employe }) {
   const nom = texteVariable(employe?.nom_complet || employe?.nom);
   if (!nom) return null;
   return { modele: "anniversaire_employe", variables: [nom] };
+}
+
+// 🎂 LE RAPPEL DE LA VEILLE À L'ADMINISTRATEUR (03/10/2026, « 1c ») — texte
+// proposé ; s'il est corrigé chez YCloud, le recopier ici mot pour mot.
+export const TEXTE_RAPPEL_ANNIVERSAIRE = [
+  "Bonjour {{1}},",
+  "",
+  "🎂 Rappel : demain, c'est l'anniversaire de {{2}}.",
+  "",
+  "Les vœux partiront automatiquement demain à 7 h du numéro WhatsApp BMI.",
+  "BMI TOGO",
+].join("\n");
+export function envoiRappelAnniversaire({ administrateur, employes }) {
+  const liste = texteVariable(employes);
+  if (!liste) return null;
+  return { modele: "rappel_anniversaire", variables: [texteVariable(administrateur) || "administrateur", liste] };
 }

@@ -11,6 +11,11 @@
 // lesquelles sont dues, pas encore payées, pas encore annoncées, et à qui
 // écrire. L'envoi et la marque vivent dans App.jsx.
 //
+// 🔧 « 2b » (03/10/2026) : le TECHNICIEN reçoit aussi l'avis pour SA PART DES
+// FRAIS D'INSTALLATION (🏠 Clients installés → 🔧 Frais), une fois la
+// répartition faite, le chantier RÉCEPTIONNÉ et le client SOLDÉ (sa vente,
+// sinon la dette de pose). Marque `avise_le` sur sa ligne de l'équipe.
+//
 // ⚠ LE MUR : seulement le RÉEL (un message part vers un vrai numéro) — les
 // boutiques de formation sont écartées ici, quel que soit l'espace regardé.
 // ⚠ LE PASSÉ : une commission devenue due AVANT la mise en service
@@ -19,7 +24,8 @@
 // récente de : la vente, le dernier versement de sa dette, la réception de son
 // chantier.
 // ============================================================
-import { commissionBloquee, commissionPour, partParrainBloquee, posesAvecApporteur, detteDeVente, boutiquesFormation } from "./calculs";
+import { commissionBloquee, commissionPour, partParrainBloquee, posesAvecApporteur, detteDeVente, boutiquesFormation, venteSoldee, statutChantier, resteAPayer } from "./calculs";
+import { chantierDeFormation } from "./rappelEntretien";
 import { envoiCommissionDue } from "./whatsappModeles";
 import { memeNumero } from "./identiteClient";
 import { fmt } from "./core";
@@ -55,6 +61,15 @@ export function envoiDeCommission(db, ref, ctx = contexte(db)) {
     const envoi = envoiCommissionDue({ nom: a.nom, tel: a.tel, montant: Number(a.montant), client: d.client, espace: ctx.aEspace(a.tel), boutique: ctx.boutique(d.boutique_pose || d.boutique), fmt });
     return envoi ? { tel: a.tel, nom: a.nom, envoi } : null;
   }
+  if (ref.type === "chantier") {
+    const c = (db.clients_installes || []).find((x) => x.id === ref.id);
+    const e = (c?.equipe || []).find((y) => y.user_id === ref.user_id);
+    const u = e ? ctx.employes.find((x) => x.id === e.user_id) : null;
+    const montant = Number(e?.montant || 0);
+    const client = [c?.nom, c?.prenom].filter(Boolean).join(" ");
+    const envoi = u && montant > 0 ? envoiCommissionDue({ nom: u.nom_complet || u.nom, tel: u.tel, montant, client, espace: true, fmt }) : null;
+    return envoi ? { tel: u.tel, nom: u.nom, envoi } : null;
+  }
   const v = (db.ventes || []).find((x) => x.id === ref.id);
   if (!v) return null;
   if (ref.qui === "apporteur") {
@@ -72,7 +87,8 @@ export function envoiDeCommission(db, ref, ctx = contexte(db)) {
 
 // Rend [{ cle, ref, tel, nom, envoi }]. `ref` dit où poser la marque :
 // { type: "vente", id, qui: "commercial" | "responsable" | "apporteur" } ou
-// { type: "dette", id } (l'apporteur d'une pose seule).
+// { type: "dette", id } (l'apporteur d'une pose seule) ou
+// { type: "chantier", id, user_id } (la part de frais d'un technicien).
 export function commissionsAAviser(db) {
   const formation = boutiquesFormation(db);
   const reel = (x) => !formation.has(x?.boutique);
@@ -106,12 +122,31 @@ export function commissionsAAviser(db) {
     if (dateDue({ date: d.date }, d, chantier) < DEBUT_AVIS_COMMISSION) return;
     ajouter(`d:${d.id}:apporteur`, { type: "dette", id: d.id });
   });
+
+  // 🔧 La part des frais d'installation de chaque technicien (« 2b »).
+  chantiers.forEach((c) => {
+    if (chantierDeFormation(db, c) || statutChantier(c) !== "receptionne") return;
+    const vente = c.vente_id ? (db.ventes || []).find((v) => v.id === c.vente_id) : null;
+    const dette = c.dette_id ? (db.dettes || []).find((d) => d.id === c.dette_id) : null;
+    const solde = vente ? venteSoldee(db, vente) : dette ? resteAPayer(dette) === 0 : true;
+    if (!solde) return;
+    const quand = dateDue({ date: c.date_repartition }, dette || detteDeVente(db, vente || {}), c);
+    if (quand < DEBUT_AVIS_COMMISSION) return;
+    (c.equipe || []).forEach((e) => {
+      if (!e.user_id || e.paye || e.avise_le || !(Number(e.montant || 0) > 0)) return;
+      ajouter(`c:${c.id}:${e.user_id}`, { type: "chantier", id: c.id, user_id: e.user_id });
+    });
+  });
   return liste;
 }
 
 // La marque « annoncée », posée APRÈS l'accord de WhatsApp — jamais avant.
 export function marquerCommissionAvisee(db, ref, quand) {
   if (!ref) return db;
+  if (ref.type === "chantier") {
+    return { ...db, clients_installes: (db.clients_installes || []).map((c) => (c.id !== ref.id ? c
+      : { ...c, equipe: (c.equipe || []).map((e) => (e.user_id === ref.user_id ? { ...e, avise_le: quand } : e)) })) };
+  }
   if (ref.type === "dette") {
     return { ...db, dettes: (db.dettes || []).map((d) => (d.id === ref.id ? { ...d, apporteur: { ...d.apporteur, avise_le: quand } } : d)) };
   }

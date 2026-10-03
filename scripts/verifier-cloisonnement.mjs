@@ -7023,6 +7023,31 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
         recompose && /^50.000 F$/.test(recompose.envoi.variables[1]) && recompose.envoi.variables[2] === "MR ERIC"
         && /ref: \{ commission_ref: c\.ref \}/.test(readFileSync("src/App.jsx", "utf8"))
         && /m\.wa_modele === "commission_due"[\s\S]{0,120}envoiDeCommission\(db \|\| \{\}, m\.commission_ref\)/.test(readFileSync("src/lib/lignesPrivees.js", "utf8")));
+      // 🔧 « 2b » : la part des frais d'installation d'un technicien.
+      const eq = (extra = {}) => [{ user_id: "t", nom: "TECH", montant: 40000, pct: 40, ...extra }, { user_id: "t2", nom: "TECH2", montant: 0, pct: 0 }];
+      const dbT = {
+        ...dbCD,
+        users: [...dbCD.users, { id: "t", nom: "TECH", nom_complet: "TECH Komi", role: "technicien", tel: "90444444" }, { id: "t2", nom: "TECH2", role: "technicien", tel: "90555555" }],
+        ventes: [{ id: "vc", boutique: "DEMAKPOE", date: "2026-10-05", client: "MR POSE", articles: art, paiement: "Espèces" }, { id: "vf", boutique: "DFORMATION", date: "2026-10-05", client: "ELEVE", articles: art, paiement: "Espèces" }],
+        dettes: [{ id: "dp", pose_seule: true, boutique: "TERRAIN", montant: 300000, paye: 100000 }],
+        clients_installes: [
+          { id: "c1", nom: "MR", prenom: "POSE", vente_id: "vc", statut: "receptionne", receptionne_le: "2026-10-06", date_repartition: "2026-10-06", equipe: eq() },
+          { id: "c2", nom: "EN", vente_id: "vc", statut: "termine", date_repartition: "2026-10-06", equipe: eq() },
+          { id: "c3", nom: "FORM", vente_id: "vf", statut: "receptionne", receptionne_le: "2026-10-06", date_repartition: "2026-10-06", equipe: eq() },
+          { id: "c4", nom: "DOIT", dette_id: "dp", statut: "receptionne", receptionne_le: "2026-10-06", date_repartition: "2026-10-06", equipe: eq() },
+          { id: "c5", nom: "PAYE", vente_id: "vc", statut: "receptionne", receptionne_le: "2026-10-06", date_repartition: "2026-10-06", equipe: eq({ paye: true }) },
+          { id: "c6", nom: "VIEUX", vente_id: "vc", statut: "receptionne", receptionne_le: "2026-09-10", date_repartition: "2026-09-10", equipe: eq() },
+        ],
+      };
+      const aT = CD.commissionsAAviser(dbT).filter((x) => x.ref.type === "chantier");
+      test("★ 🔧 « 2b » : le technicien est prévenu de SA part des frais d'installation — chantier réceptionné ET client soldé, part > 0, pas payée ; jamais un chantier non réceptionné, de formation, une dette de pose non soldée, ni d'avant la mise en service",
+        aT.map((x) => x.cle).join("|") === "c:c1:t" && aT[0].envoi.modele === "commission_due"
+        && aT[0].envoi.variables[0] === "TECH Komi" && /^40.000 F$/.test(aT[0].envoi.variables[1]) && aT[0].envoi.variables[2] === "MR POSE");
+      const dbT2 = CD.marquerCommissionAvisee(dbT, aT[0].ref, "2026-10-07");
+      test("★ 🔧 une part annoncée ne l'est jamais deux fois, et son détail se recompose",
+        CD.commissionsAAviser(dbT2).filter((x) => x.ref.type === "chantier").length === 0
+        && /^40.000 F$/.test(CD.envoiDeCommission(dbT2, aT[0].ref)?.envoi.variables[1] || "")
+        && /\.\.\.\(ancien\?\.avise_le && Number\(ancien\.montant \|\| 0\) === montant \? \{ avise_le: ancien\.avise_le \} : \{\}\)/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
       const appS = readFileSync("src/App.jsx", "utf8");
       test("★ 💰 l'envoi part à l'ouverture, chez l'administrateur PRINCIPAL seul, une fois par jour, sans question ni repli, et la marque n'est posée qu'APRÈS l'accord de WhatsApp",
         /if \(!estAdminPrincipal\(db, profile\) \|\| !peutEcrire\(dbRef\.current, profile\)\) return;/.test(appS)

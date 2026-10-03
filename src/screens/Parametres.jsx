@@ -1972,7 +1972,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <div className="font-semibold text-sm">👨‍💼 Alerte sur votre WhatsApp quand un client demande un conseiller</div>
           <div className="text-xs text-slate-500 mt-1">
             Le numéro BMI vous envoie ce message (modèle « alerte_conseiller », à faire approuver chez YCloud) — une fois par demande, pas à chaque message du client.
-            Une demande de devis n'en envoie pas : elle arrive dans 🧲 Prospects. Laissez vide pour couper. Environ 4 F l'alerte.
+            Une demande de devis n'en envoie pas : elle arrive dans 🧲 Prospects. Laissez vide pour couper. Environ 4 F l'alerte. Ce numéro reçoit aussi, la veille à 17 h, le rappel des anniversaires des employés (vide : celui de votre fiche).
           </div>
           <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded p-2 mt-2">{TEXTE_ALERTE_CONSEILLER}</div>
           <div className="flex flex-wrap items-end gap-2 mt-2">

@@ -725,7 +725,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       const pct = Number(rep.pcts[id] || 0);
       const montant = Math.round((fraisNet * pct) / 100);
       const ancien = (c.equipe || []).find((e) => e.user_id === id);
-      const base = { user_id: id, nom: u ? u.nom : "?", pct, montant, chef: id === rep.chef, paye: false };
+      const base = { user_id: id, nom: u ? u.nom : "?", pct, montant, chef: id === rep.chef, paye: false,
+        // L'avis « commission due » déjà parti reste valable si la part ne change pas.
+        ...(ancien?.avise_le && Number(ancien.montant || 0) === montant ? { avise_le: ancien.avise_le } : {}) };
       if (ancien?.demande_prime && Number(ancien.montant || 0) === montant) {
         return { ...base, demande_prime: true, prime_boutique: ancien.prime_boutique,
                  prime_demandee_par: ancien.prime_demandee_par, prime_demandee_le: ancien.prime_demandee_le };

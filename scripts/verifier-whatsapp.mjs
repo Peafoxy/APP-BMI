@@ -104,10 +104,11 @@ const ATTENDU = {
   // 03/10/2026 : la commission devenue due (texte de Timo).
   commission_due: { categorie: "utility", n: 4 },
   anniversaire_employe: { categorie: "marketing", n: 1 },
+  rappel_anniversaire: { categorie: "utility", n: 2 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les vingt-neuf modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis les vœux d'anniversaire ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les trente modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -132,7 +133,7 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
 // aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
 // RETOURNÉ encore le 26/09/2026 : le rappel d'entretien aussi (même tournée).
 // RETOURNÉ le 29/09/2026 : + le rappel du solde d'une pose (tournée de 7 h).
-const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe"]; /* RETOURNÉ le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h) */
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe", "rappel_anniversaire"]; /* RETOURNÉ le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h), + le rappel de la veille (tournée de 17 h) */
 test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien, la demande d'avis)",
   M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
   && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
@@ -3736,6 +3737,19 @@ titre("㊻ 🎂 LES VŒUX D'ANNIVERSAIRE : LE RAPPEL DE LA VEILLE À 17 H, LES V
   const RS = sansComm(lire("api/rappels-du-soir.js"));
   test("★★ serveur 17 h : la règle pure (rappelVeilleAnniversaires), le secret CRON_SECRET, une notification — et rien d'écrit",
     /rappelVeilleAnniversaires\(db, aujourdhui\)/.test(RS) && /process\.env\.CRON_SECRET/.test(RS) && /envoyerAuxPersonnes\(admin, \[envoi\]\)/.test(RS) && !/\.(insert|upsert|update)\(/.test(RS));
+  // « 1c » : le rappel de la veille part AUSSI par WhatsApp, sur le numéro de l'administrateur.
+  const w1 = A.rappelWhatsAppVeille({ ...db, users: db.users.map((u) => (u.id === "p" ? { ...u, tel: "91130511" } : u)) }, "2026-10-03");
+  const w2 = A.rappelWhatsAppVeille({ ...db, boutiques: [...db.boutiques, { nom: "X", alerte_conseiller: { tel: "92000000", nom: "TIMO" } }] }, "2026-10-03");
+  const w3 = A.rappelWhatsAppVeille({ ...db, boutiques: [...db.boutiques, { nom: "F", formation: true, alerte_conseiller: { tel: "92000000", nom: "TIMO" } }] }, "2026-10-03");
+  const w4 = A.rappelWhatsAppVeille({ ...db, users: db.users.map((u) => (u.id === "p" ? { ...u, tel: "99968488" } : u)) }, "2026-10-03");
+  test("★★ « 1c » : la veille, le WhatsApp à l'administrateur (numéro réglé pour l'alerte, sinon sa fiche ; jamais un réglage de formation, jamais le numéro BMI), les fêtés de demain dans {{2}}",
+    w1 && /91130511$/.test(w1.tel) && w1.envoi.modele === "rappel_anniversaire" && w1.envoi.variables[0] === "TIMO" && /KOSSI Mensah, BMI DEMAKPOE ; AMA/.test(w1.envoi.variables[1])
+    && w2 && /92000000$/.test(w2.tel) && w3 === null && w4 === null
+    && A.rappelWhatsAppVeille(db, "2026-10-05") === null
+    && /\{\{1\}\}[\s\S]*\{\{2\}\}/.test(M4.TEXTE_RAPPEL_ANNIVERSAIRE));
+  test("★ serveur 17 h : le WhatsApp part par LA porte YCloud, avant la notification et sans dépendre d'elle, et n'écrit rien",
+    /rappelWhatsAppVeille\(db, aujourdhui\)/.test(RS) && /from "\.\/_ycloud\.js"/.test(RS)
+    && RS.indexOf("await rappelerParWhatsApp(db, aujourdhui)") > 0 && RS.indexOf("await rappelerParWhatsApp(db, aujourdhui)") < RS.indexOf("if (!configurerWebPush())"));
   test("★ une seule façon de lire une table côté serveur (api/_tables.js), pour les deux tournées",
     /from "\.\/_tables\.js"/.test(RM) && /from "\.\/_tables\.js"/.test(RS) && !/async function lireTable/.test(RM + RS));
 }

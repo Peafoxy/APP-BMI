@@ -127,6 +127,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Il part tout seul, du numéro WhatsApp BMI", texte: "Le jour où une commission devient **due** (réception **et** solde du client), le message « Commission BMI TOGO » part au commercial ou au technicien de la vente, au responsable, au parrain ou à l'apporteur externe — le jour où l'administrateur principal ouvre l'application." },
         { titre: "Ce qu'il dit", texte: "Le montant et le client. Un employé ou un parrain qui a un compte est renvoyé à son espace ; **un apporteur externe est invité à passer à la boutique de la vente**, avec son numéro." },
+        { titre: "Le technicien, pour sa part des frais d'installation", texte: "Une fois la répartition faite (🏠 Clients installés → 🔧 Frais), le chantier **réceptionné** et le client **soldé**, chaque technicien de l'équipe dont la part n'est pas encore payée reçoit le même message avec **sa part** et le nom du client. Une part de 0 F n'envoie rien ; refaire la répartition sans changer sa part ne le renvoie pas." },
         { titre: "Il ne promet pas le paiement du jour", texte: "« Elle vous sera réglée prochainement » : le paiement reste le geste ✓ Payer ci-dessus. Une commission annoncée ne l'est jamais deux fois ; en formation, rien ne part." },
       ]],
       ["h3", "G. Les primes d'installation"],
