@@ -54,7 +54,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
         ["**🙋 Créer un client**", "Le formulaire « 🙋 Créer un compte client » (nom, numéro WhatsApp, « Ce contact est… »), le bouton « 🙋 Créer + envoyer », puis le cadre « Les clients que j'ai amenés » avec « ↻ Renvoyer ses accès »."],
-        ["**👤 Clients**", "La liste des clients **de la boutique regardée** : pastilles de boutique en haut (pour qui n'a pas de boutique attitrée), « Clients — NOM DE LA BOUTIQUE (N) », la ligne « Rechercher un client… », le tableau, 50 lignes par page."],
+        ["**👤 Clients**", "La liste des clients **de la boutique regardée** : pastilles de boutique en haut (pour qui n'a pas de boutique attitrée), « Clients — NOM DE LA BOUTIQUE (N) », la liste « Tous les clients / ⭐ Fidèles — N achats ou plus », la ligne « Rechercher un client… », le tableau, 50 lignes par page."],
         ["**👥 Utilisateurs** (administrateur)", "Tous les comptes, clients compris : le « 📞 numéro » sous le nom avec le logo WhatsApp, « 👁 Voir le mot de passe » (principal), « Autoriser chat libre ». Sous la liste, le bloc **« 🧲 Prospects — devis envoyé, rien acheté »** : ces comptes ne sont pas encore des clients."],
         ["**🧲 Prospects**", "« ✅ Convertir en client » sur la ligne d'un prospect qui a dit oui."],
         ["**💰 Ventes**, **🧾 Dettes**, **🛠 Travaux à crédit**", "La case « Client » et la case « Numéro du client » proposent les clients que la boutique connaît déjà : un clic remplit les deux."],
@@ -90,8 +90,9 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Choisir la boutique", texte: "Les pastilles du haut (pour qui n'a pas de boutique attitrée). La liste est **celle de la boutique regardée** : un client de DEMAKPOE n'apparaît pas dans APESSITO. La boutique choisie est mémorisée pour cet écran." },
         { titre: "Taper dans « Rechercher un client… »", texte: "Le nom **ou le numéro** : « koffi », « 90 55 », « +228 90 ». La règle est celle de toute recherche dans l'application : sans accents ni majuscules, chaque mot tapé dans n'importe quel ordre." },
+        { titre: "Ne voir que les fidèles (facultatif)", texte: "La liste à côté de la recherche : « Tous les clients » d'office, ou **« ⭐ Fidèles — 2, 3, 5 ou 10 achats ou plus »**. Un achat = une vente dans cette boutique ; une dette seule ne compte pas. Les fidèles sont rangés par nombre d'achats, puis par total acheté. La recherche s'applique ensuite à cette liste." },
         { titre: "Lire la ligne", texte: "Client · Téléphone · Achats (combien de fois) · Total acheté · Dette en cours (**en rouge** s'il doit encore quelque chose, en vert sinon) · Dernier achat. Les clients sont rangés du **plus gros total acheté** au plus petit." },
-        { titre: "Cliquer « WhatsApp »", texte: "Au bout de la ligne, si un numéro est connu. WhatsApp s'ouvre sur une conversation **vide** avec ce client, depuis votre appareil. Sans numéro : « Aucun numéro enregistré pour ce client. »" },
+        { titre: "Cliquer « WhatsApp »", texte: "Au bout de la ligne, si un numéro est connu : « Envoyer le mot de fidélité à X du numéro BMI ? ». **OK** : le mot de fidélité part du numéro WhatsApp BMI et se lit ensuite dans 📲 WhatsApp. S'il ne peut pas partir (formation, réseau…), l'application le dit, puis WhatsApp s'ouvre avec le même texte. Sans numéro : « Aucun numéro enregistré pour ce client. » Pour écrire aux fidèles, on filtre d'abord, puis on clique ligne par ligne." },
       ]],
       ["note", "**Cette liste ne vient pas des comptes** : elle est construite à partir des **ventes et des dettes** de la boutique. Un client qui a un compte mais n'a encore rien acheté n'y figure pas ; un client de passage, enregistré sur une vente sans compte, y figure. Pour les comptes, c'est 👥 Utilisateurs (administrateur)."],
 
@@ -121,6 +122,7 @@ export const CHAPITRE = {
       ["h3", "👤 Clients"],
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
         ["Pastilles de boutique", "La boutique dont on lit les clients. Absentes pour un vendeur ou un gérant rattaché à une boutique : c'est la sienne."],
+        ["Tous les clients / ⭐ Fidèles", "N'affiche que les clients qui ont acheté au moins 2, 3, 5 ou 10 fois dans la boutique."],
         ["Rechercher un client…", "Filtre la liste par le nom ou le numéro."],
         ["Achats", "Le nombre de ventes de cette boutique à ce client."],
         ["Total acheté", "La somme de ces ventes."],

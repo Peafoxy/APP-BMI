@@ -8293,6 +8293,23 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("une base vide ne fait pas tomber la règle (aucune vente, aucune dette)",
     CC.clientsConnus({}, "DEMAKPOE").length === 0 && CC.propositionsClients([]).length === 0);
 
+  // ⭐ LES FIDÈLES (03/10/2026, « lance le filtre des fidèles dans Clients »)
+  {
+    const cl = [
+      { nom: "A", achats: 1, totalAchats: 900000 }, { nom: "B", achats: 3, totalAchats: 20000 },
+      { nom: "C", achats: 5, totalAchats: 10000 }, { nom: "D", achats: 3, totalAchats: 50000 },
+      { nom: "E", achats: 0, totalAchats: 0, dette: 70000 },
+    ];
+    test("★ ⭐ un fidèle a ACHETÉ au moins N fois (une dette seule ne compte pas) ; la liste se range par nombre d'achats puis par total ; « Tous » ne retire personne",
+      CC.clientsFideles(cl, 3).map((c) => c.nom).join(",") === "C,D,B"
+      && CC.clientsFideles(cl, 0).length === 5 && CC.clientsFideles(cl, 2).every((c) => c.achats >= 2)
+      && CC.SEUILS_FIDELES.join(",") === "2,3,5,10");
+    const ecranCl = readFileSync("src/screens/Clients.jsx", "utf8");
+    test("★ ⭐ 👤 Clients passe par LA règle des fidèles, « Tous » d'office (aucun filtre maison sur `achats`)",
+      /clientsFideles\(clientsConnus\(db, boutique\)/.test(ecranCl) && /useState\(0\)/.test(ecranCl)
+      && /data-filtre-fideles/.test(ecranCl) && !/\.achats\s*>=/.test(ecranCl));
+  }
+
   // ⚠ Timo, 15/09/2026 : « la présélection n'est pas possible avec le
   // numéro ? » — taper le numéro marchait dans la case du NOM, mais la case
   // du NUMÉRO ne proposait rien. C'est pourtant là qu'on tape un numéro.
@@ -8345,8 +8362,9 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("★ ce qui est TAPÉ n'est jamais transformé : les quatre écrans gardent une case libre (onChange pose la frappe telle quelle), un client de passage se saisit comme avant",
     ecrans.every(([f]) => /onChange=\{\(v\) => set[FR]\w*\(\{ \.\.\.\w+, (client|nom): v \}\)\}/.test(readFileSync(f, "utf8"))));
   test("★ UNE règle, pas deux : 👥 Clients lit clientsConnus au lieu de refaire son propre regroupement (plus de `const map = {}` ni de clé maison)",
-    /import \{ clientsConnus \} from "\.\.\/lib\/clientsConnus";/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
-    && /let clients = clientsConnus\(db, boutique\)\.sort\(\(a, b\) => b\.totalAchats - a\.totalAchats\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+    // RETOURNÉ le 03/10/2026 : la liste passe aussi par le filtre des fidèles (même règle commune).
+    /import \{ clientsConnus, clientsFideles, SEUILS_FIDELES \} from "\.\.\/lib\/clientsConnus";/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+    && /let clients = clientsFideles\(clientsConnus\(db, boutique\)\.sort\(\(a, b\) => b\.totalAchats - a\.totalAchats\), seuilFideles\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
     && !/const key = \(nom, tel\)/.test(readFileSync("src/screens/Clients.jsx", "utf8")));
   // ═══════════════════════════════════════════════════════════
   // 👥 UTILISATEURS : LE NUMÉRO SE VOIT, ET SE CHERCHE (Timo, 16/09/2026)

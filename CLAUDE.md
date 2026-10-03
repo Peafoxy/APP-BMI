@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2166 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2168 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1305,6 +1305,17 @@ lit mal est pire qu'un banc absent).
     dans `screens/Messagerie.jsx` (`libelleRole` : la liste des
     conversations, le choix des membres d'un groupe, la nouvelle
     conversation) : les trois ou aucun, sinon la règle mentirait.
+
+### ⭐ LES FIDÈLES DANS 👤 CLIENTS (03/10/2026, « lance le filtre des fidèles dans Clients »)
+- Liste « Tous les clients » (d'office) / **« ⭐ Fidèles — 2, 3, 5 ou 10
+  achats ou plus »** à côté de la recherche. Règle pure `clientsFideles` /
+  `SEUILS_FIDELES` (lib/clientsConnus.js) : un achat = une VENTE dans la
+  boutique regardée (une dette seule ne compte pas), rangés par nombre
+  d'achats puis total ; la recherche s'applique ensuite. Le mot de fidélité
+  part toujours ligne par ligne (aucun envoi groupé — pas demandé). Rien à
+  coller. Banc (2 contrôles, éprouvé : dette comptée, tri retiré) ; un
+  contrôle RETOURNÉ (la liste passe par `clientsFideles`). Chapitre 3 à jour
+  (et son étape « WhatsApp » qui décrivait encore une conversation vide).
 
 ### 🏢 LE PRÉNOM DU CLIENT, ET L'ENTREPRISE QU'IL REPRÉSENTE (29/09/2026, « A c, B b, C a, lance »)
 - Timo : « demander aussi son prénom… une case à cocher si le client paie au

@@ -85,6 +85,19 @@ export function clientsConnus(db, boutique) {
   return Object.values(map).sort((a, b) => String(b.derniere).localeCompare(String(a.derniere)));
 }
 
+// ⭐ LES FIDÈLES (03/10/2026, Timo : « lance le filtre des fidèles dans
+// Clients »). Un fidèle = un client qui est venu ACHETER au moins `seuil`
+// fois dans la boutique regardée — une vente compte pour un achat, une dette
+// seule n'en est pas un (elle naît d'une vente déjà comptée). « Tous » =
+// seuil 0. La liste des fidèles se range par nombre d'achats, puis par total.
+export const SEUILS_FIDELES = [2, 3, 5, 10];
+export function clientsFideles(clients, seuil) {
+  const n = Number(seuil) || 0;
+  const liste = (clients || []).filter((c) => (c.achats || 0) >= n);
+  if (n <= 0) return liste;
+  return liste.slice().sort((a, b) => (b.achats - a.achats) || (b.totalAchats - a.totalAchats));
+}
+
 // Les propositions du champ à suggestions (components/ChampSuggestions.jsx).
 // • `valeur` = le nom, c'est lui qui remplit la case ;
 // • `detail` = le numéro, le dernier passage, la dette qui reste ;

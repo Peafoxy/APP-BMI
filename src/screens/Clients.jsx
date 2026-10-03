@@ -9,7 +9,7 @@ import { correspond } from "../lib/suggestions";
 // UNE règle pour « les clients que cette boutique connaît » — celle que
 // 💰 Ventes, 💳 Dettes et 🛠 Travaux proposent dans leur case Client
 // (Timo, 15/09/2026). Cet écran avait sa propre copie.
-import { clientsConnus } from "../lib/clientsConnus";
+import { clientsConnus, clientsFideles, SEUILS_FIDELES } from "../lib/clientsConnus";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
@@ -195,7 +195,10 @@ export function Clients({ db, save, profile }) {
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "clients" });
   const [q, setQ] = useState("");
-  let clients = clientsConnus(db, boutique).sort((a, b) => b.totalAchats - a.totalAchats);
+  // ⭐ Le filtre des fidèles (03/10/2026) : « Tous » d'office, rien ne change
+  // pour qui n'y touche pas. LA règle vit dans lib/clientsConnus.js.
+  const [seuilFideles, setSeuilFideles] = useState(0);
+  let clients = clientsFideles(clientsConnus(db, boutique).sort((a, b) => b.totalAchats - a.totalAchats), seuilFideles);
   if (q) clients = clients.filter((c) => correspond(c.nom + " " + (c.tel || ""), q));
   const { pageItems: clientsPage, page, setPage, totalPages } = usePagination(clients, 50);
 
@@ -249,12 +252,18 @@ export function Clients({ db, save, profile }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
           <span className="font-bold text-slate-800">Clients — {boutique} <span className="text-sm font-normal text-slate-500">({clients.length})</span></span>
-          <input className={champRecherche} placeholder="Rechercher un client…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <select className={`${inputCls} sm:w-56`} value={seuilFideles} onChange={(e) => setSeuilFideles(Number(e.target.value))} data-filtre-fideles aria-label="Afficher">
+              <option value={0}>Tous les clients</option>
+              {SEUILS_FIDELES.map((n) => <option key={n} value={n}>⭐ Fidèles — {n} achats ou plus</option>)}
+            </select>
+            <input className={champRecherche} placeholder="Rechercher un client…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
         </div>
         <table className="w-full text-sm min-w-[720px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Téléphone", "Achats", "Total acheté", "Dette en cours", "Dernier achat", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
-            {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucun client trouvé.</td></tr>}
+            {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{seuilFideles > 0 ? `Aucun client n'a encore acheté ${seuilFideles} fois dans cette boutique.` : "Aucun client trouvé."}</td></tr>}
             {clientsPage.map((c, i) => (
               <tr key={i} className="border-t border-slate-100 hover:bg-sky-50">
                 {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo, 25/09/2026 : « dans Clients aussi figer le nom du client »), par LA règle commune. */}
