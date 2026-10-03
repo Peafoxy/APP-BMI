@@ -205,3 +205,19 @@ export const lignesPrivees = () => {
 export const htmlLignePrivee = (lecteurId) => rendre(
   { ...garnie, users: usersPrives, ventes: [venteV9], messages: [...lignesPrivees(), ...garnie.messages] },
   usersPrives.find((u) => u.id === lecteurId), "90112233");
+
+// ---- 📎 UN FICHIER ENVOYÉ PAR BMI (03/10/2026) ----
+// Le fil d'ESSO OUVERT (fenêtre ouverte : son message vient d'arriver), avec
+// une ligne sortante qui porte un fichier ENVOYÉ — le nom seul, jamais le
+// fichier. Le bouton 📎 doit être là, la ligne doit dire « envoyé ».
+export const renduFichierEnvoye = () => {
+  try {
+    const ligne = { id: "waf1", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO",
+      de_id: "TIMO", de_nom: "TIMO", ts: new Date(Date.now() + 1000).toISOString(), date: new Date().toISOString().slice(0, 10),
+      texte: "Voici votre devis", lu_par: ["TIMO"],
+      wa_media: { type: "document", nom: "devis-ESSO.pdf", mime: "application/pdf", taille: 245000, envoye: true } };
+    return rendre({ ...garnie, messages: [...garnie.messages, ligne] }, users[0], "90112233");
+  } catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+export const htmlFichierEnvoye = () => renderToStaticMarkup(
+  <MediaWa message={{ id: "waf2", wa_media: { type: "image", nom: "photo.jpg", mime: "image/jpeg", taille: 310000, envoye: true } }} />);

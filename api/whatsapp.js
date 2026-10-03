@@ -29,10 +29,10 @@ import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable } from "../src/lib/whatsappModeles.js";
-import { CANAL_WA, cleConversation, fenetre, libelleFenetre } from "../src/lib/whatsappConversations.js";
+import { CANAL_WA, cleConversation, fenetre, libelleFenetre, critiqueFichier, typeEnvoiFichier, TAILLE_MAX_ENVOI } from "../src/lib/whatsappConversations.js";
 // ⚠ La porte vers YCloud est écrite UNE fois (api/_ycloud.js) : l'assistant
 // du webhook envoie par la même — la clé et la lecture du refus y vivent.
-import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
+import { configYCloud, envoyerYCloud, corpsTexte, televerserYCloud, corpsMedia } from "./_ycloud.js";
 
 // Les rôles qui n'écrivent jamais au nom de BMI : un client (il a son fil
 // dans 💬 Messages) et un compte bloqué.
@@ -42,16 +42,29 @@ export default async function handler(req, res) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
-  const { jeton, tel, modele, variables, texte } = req.body || {};
+  const { jeton, tel, modele, variables, texte, fichier } = req.body || {};
   if (!jeton) return res.status(401).json({ error: "Reconnectez-vous." });
+
+  // 📎 UN FICHIER (03/10/2026) : c'est une RÉPONSE comme une autre — même
+  // fenêtre de 24 h, mêmes refus — avec une phrase FACULTATIVE. Il arrive
+  // codé (base64) ; on le décode et on le REMESURE ici : la taille annoncée
+  // par l'écran ne se croit pas sur parole. Il n'est rangé nulle part.
+  let piece = null;
+  if (fichier && !modele) {
+    const octets = Buffer.from(String(fichier.donnees || ""), "base64");
+    piece = { nom: String(fichier.nom || "").slice(0, 200), mime: String(fichier.mime || ""), taille: octets.length, octets };
+    if (octets.length > TAILLE_MAX_ENVOI + 1024) return res.status(413).json({ error: critiqueFichier(piece) || "Fichier trop lourd." });
+    const refusFichier = critiqueFichier(piece, texte);
+    if (refusFichier) return res.status(400).json({ error: refusFichier });
+  }
 
   // ⚠ DEUX FORMES, UNE SEULE PORTE (étape 2, 20/09/2026) : un MODÈLE
   // approuvé (le seul qui parte quand on veut), ou une RÉPONSE LIBRE dans
   // la fenêtre de 24 h ouverte par le client. La réponse libre ne porte
   // aucune variable : c'est du texte, écrit par une personne.
-  const reponseLibre = !modele && typeof texte === "string";
+  const reponseLibre = !modele && (typeof texte === "string" || !!piece);
   const motReponse = String(texte || "").trim();
-  if (reponseLibre && !motReponse) return res.status(400).json({ error: "Écrivez d'abord votre message." });
+  if (reponseLibre && !motReponse && !piece) return res.status(400).json({ error: "Écrivez d'abord votre message." });
   if (reponseLibre && motReponse.length > 4000) return res.status(400).json({ error: "Message trop long pour WhatsApp." });
 
   // ⚠ On borne AVANT de regarder quoi que ce soit d'autre : un corps de
@@ -109,7 +122,15 @@ export default async function handler(req, res) {
       if (!f.ouverte) return res.status(403).json({ error: libelleFenetre(f) });
     }
 
-    const corps = reponseLibre
+    // 📎 Le fichier est DÉPOSÉ chez WhatsApp d'abord, puis le message le
+    // cite. Un dépôt refusé arrête tout : rien ne part, et on dit pourquoi.
+    let corpsFichier = null;
+    if (piece) {
+      const depot = await televerserYCloud(cle, expediteur, piece);
+      if (!depot.ok) return res.status(502).json({ error: depot.motif, statut_whatsapp: depot.statut_whatsapp, code_whatsapp: depot.code_whatsapp });
+      corpsFichier = corpsMedia(expediteur, destinataire, { type: typeEnvoiFichier(piece.mime), id: depot.id, legende: motReponse, nom: piece.nom });
+    }
+    const corps = corpsFichier || (reponseLibre
       ? corpsTexte(expediteur, destinataire, motReponse)
       : {
         from: expediteur,
@@ -120,7 +141,7 @@ export default async function handler(req, res) {
           language: { code: LANGUE_MODELES },
           components: [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }],
         },
-      };
+      });
     const resultat = await envoyerYCloud(cle, corps);
     if (!resultat.ok) {
       // ⚠ On rend le motif de WhatsApp tel quel : « modèle non approuvé »,

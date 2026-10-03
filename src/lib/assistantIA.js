@@ -307,7 +307,11 @@ export function messagesPourIA(fil, { max = MAX_MESSAGES_MEMOIRE } = {}) {
   const lignes = (Array.isArray(fil) ? fil : []).filter((m) => m && !m.wa_systeme && m.canal !== "whatsapp_entete").slice(-max);
   const texteDe = (m) => {
     const t = String(m.texte || "").trim();
-    if (m.wa_media && !t) return `[${m.wa_media.type === "image" ? "photo" : m.wa_media.type === "audio" ? "message vocal" : m.wa_media.type === "video" ? "vidéo" : "document"} envoyé par le client — non lisible]`;
+    // 📎 Un fichier ENVOYÉ par BMI (03/10/2026) n'est pas « envoyé par le
+    // client » : l'IA doit savoir de quel côté il est parti.
+    const genre = m.wa_media ? (m.wa_media.type === "image" ? "photo" : m.wa_media.type === "audio" ? "message vocal" : m.wa_media.type === "video" ? "vidéo" : "document") : "";
+    if (m.wa_media && m.wa_media.envoye) return `[${genre} « ${m.wa_media.nom || ""} » envoyé au client par BMI]${t ? " " + t : ""}`;
+    if (m.wa_media && !t) return `[${genre} envoyé par le client — non lisible]`;
     return t;
   };
   const suite = [];

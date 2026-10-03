@@ -182,7 +182,7 @@ const URL_WHATSAPP = BASE ? `${BASE}/api/whatsapp` : "/api/whatsapp";
 // ⚠ DEUX FORMES, UNE SEULE PORTE : un MODÈLE approuvé, ou une RÉPONSE
 // LIBRE (`texte`) dans la fenêtre de 24 h — c'est le serveur qui revérifie
 // la fenêtre sur la base, jamais l'écran.
-export const whatsappEnLigne = ({ tel, modele, variables, texte }) => appelAvecJeton(URL_WHATSAPP, { tel, modele, variables, texte });
+export const whatsappEnLigne = ({ tel, modele, variables, texte, fichier }) => appelAvecJeton(URL_WHATSAPP, { tel, modele, variables, texte, ...(fichier ? { fichier } : {}) });
 
 // ---- 📷 LE FICHIER QU'UN CLIENT A ENVOYÉ (20/09/2026) ----
 // ⚠ Ce n'est PAS du JSON qui revient, c'est le fichier lui-même : cette

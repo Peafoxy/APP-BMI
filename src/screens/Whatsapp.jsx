@@ -30,11 +30,11 @@ import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte, estAdminPrin
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
 import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente } from "../lib/assistantWhatsapp";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION } from "../lib/whatsappConversations";
+import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION, critiqueFichier, mediaEnvoye, tailleLisible } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche, peutLireLignePrivee } from "../lib/whatsappModeles";
 import { texteLignePrivee } from "../lib/lignesPrivees";
 import { motDePasseConnu } from "../lib/comptesClients";
-import { envoyerModele, repondreWhatsApp, chargerMediaWa } from "../whatsapp";
+import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier } from "../whatsapp";
 import { champsEnvoi } from "../lib/suiviEnvoi";
 
 // Libellé du rôle, pour la question « à qui confier ». Même mots que
@@ -82,6 +82,13 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
   const [envoi, setEnvoi] = useState(false);
   const [contact, setContact] = useState(null);
   const [recherche, setRecherche] = useState("");
+  // 📎 Le fichier choisi (03/10/2026), déjà préparé : il part avec la phrase
+  // FACULTATIVE de la case. Changer de conversation le retire — on n'envoie
+  // pas à Paul le devis préparé pour Pierre.
+  const [fichier, setFichier] = useState(null);
+  const [prepare, setPrepare] = useState(false);
+  const champFichier = useRef(null);
+  useEffect(() => { setFichier(null); }, [cleOuverte]);
 
   // ⚠ Ce que la règle rend est DÉJÀ filtré : un commercial ou un technicien
   // à commission n'y trouve que ce qu'il a engagé, plus le support que
@@ -204,19 +211,39 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     return texteAccesAffiche(m, profile, client ? { identifiant: client.nom, motDePasse: motDePasseConnu(client) } : null);
   };
 
+  // 📎 Choisir un fichier : il est préparé (une photo est réduite) et
+  // vérifié TOUT DE SUITE — le refus se dit au choix, pas après avoir écrit.
+  const choisirFichier = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    setPrepare(true);
+    try {
+      const pret = await preparerFichier(f);
+      const refus = critiqueFichier(pret);
+      if (refus) { uAlert(refus); return; }
+      setFichier(pret);
+    } catch {
+      uAlert("Ce fichier n'a pas pu être lu.");
+    } finally { setPrepare(false); }
+  };
+
   const envoyer = async () => {
     const t = texte.trim();
-    if (!t || !ouverte || envoi) return;
-    const refus = critiqueReponse({ profile, conv: ouverte, texte: t, enLigne: navigator.onLine !== false, espaceFormation: regardeFormation });
+    if ((!t && !fichier) || !ouverte || envoi) return;
+    const refus = critiqueReponse({ profile, conv: ouverte, texte: t, fichier, enLigne: navigator.onLine !== false, espaceFormation: regardeFormation });
     if (refus) { uAlert(refus); return; }
     setEnvoi(true);
-    const r = await repondreWhatsApp({ tel: ouverte.tel, texte: t });
+    const r = await repondreWhatsApp({ tel: ouverte.tel, texte: t, fichier });
     setEnvoi(false);
     if (!r.parti) { uAlert(r.motif || "Le message n'est pas parti."); return; }
+    // ⚠ La ligne garde le NOM du fichier, jamais le fichier (décision du
+    // 20/09/2026 : on ne range pas de fichiers dans la base).
     const m = nouveauMessage(profile, {
       canal: CANAL_WA, wa_tel: ouverte.cle, wa_numero: ouverte.tel,
       ...(ouverte.nom ? { wa_nom: ouverte.nom } : {}),
       wa_id: r.id || "", texte: t, ...champsEnvoi(r),
+      ...(fichier ? { wa_media: mediaEnvoye(fichier) } : {}),
       ...(ouverte.proprietaire_id ? { proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom } : {}),
     });
     // ⚠ LA FICHE LÉGÈRE SUIT LE FIL (21/09/2026) : sans ce geste, une
@@ -228,6 +255,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
       derniere: m.ts,
     }) });
     setTexte("");
+    setFichier(null);
   };
 
   // ---- ✍️ ÉCRIRE LE PREMIER À QUELQU'UN (20/09/2026) ----
@@ -539,9 +567,23 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
                 <div>Pour relancer un DEVIS en attente, passez plutôt par 📋 Tous les devis.</div>
               </div>
             ) : (
-              <div className="p-3 border-t border-slate-200 flex gap-2">
-                <input className={inputCls} placeholder="Votre réponse, envoyée du numéro BMI..." value={texte} onChange={(e) => setTexte(e.target.value)} onKeyDown={(e) => e.key === "Enter" && envoyer()} />
-                <button onClick={envoyer} disabled={envoi} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 whitespace-nowrap disabled:opacity-50">{envoi ? "Envoi…" : "Envoyer"}</button>
+              <div className="p-3 border-t border-slate-200 space-y-2">
+                {fichier && (
+                  <div data-fichier-choisi className="flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-slate-700">
+                    <span className="font-bold truncate">📎 {fichier.nom}</span>
+                    <span className="text-slate-500 whitespace-nowrap">{tailleLisible(fichier.taille)}</span>
+                    <button onClick={() => setFichier(null)} title="Retirer le fichier" className="ml-auto font-bold text-slate-500 hover:text-red-600">✕</button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input ref={champFichier} type="file" className="hidden" data-champ-fichier onChange={choisirFichier}
+                    accept="image/*,video/mp4,video/3gpp,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
+                  <button onClick={() => champFichier.current && champFichier.current.click()} disabled={envoi || prepare}
+                    title="Joindre un fichier (photo, PDF, Word, Excel, vidéo, son — 3 Mo au plus)" data-joindre
+                    className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-lg leading-none hover:bg-slate-50 disabled:opacity-50">{prepare ? "…" : "📎"}</button>
+                  <input className={inputCls} placeholder={fichier ? "Phrase facultative pour accompagner le fichier…" : "Votre réponse, envoyée du numéro BMI..."} value={texte} onChange={(e) => setTexte(e.target.value)} onKeyDown={(e) => e.key === "Enter" && envoyer()} />
+                  <button onClick={envoyer} disabled={envoi || prepare} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 whitespace-nowrap disabled:opacity-50">{envoi ? "Envoi…" : "Envoyer"}</button>
+                </div>
               </div>
             )}
           </>
@@ -612,7 +654,7 @@ export function MediaWa({ message }) {
   };
 
   useEffect(() => {
-    if (MEDIA_AUTO.includes(media.type)) ouvrir();
+    if (MEDIA_AUTO.includes(media.type) && !media.envoye) ouvrir();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message.id]);
 
@@ -621,6 +663,13 @@ export function MediaWa({ message }) {
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
 
   const nom = libelleMedia(media);
+
+  // 📎 UN FICHIER QUE BMI A ENVOYÉ (03/10/2026) : la ligne ne garde que son
+  // nom — le fichier n'est pas chez nous, sa copie reste sur le téléphone
+  // BMI. On ne va donc rien chercher : on dit ce qui est parti.
+  if (media.envoye) {
+    return <div data-media-envoye className="text-xs font-bold">📎 {media.nom || nom}{media.taille ? ` · ${tailleLisible(media.taille)}` : ""} <span className="font-normal opacity-80">— envoyé</span></div>;
+  }
 
   if (motif) {
     // ⚠ ON DIT POURQUOI. WhatsApp efface ses fichiers au bout de 30 jours :

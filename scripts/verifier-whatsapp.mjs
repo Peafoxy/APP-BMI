@@ -575,7 +575,11 @@ test("★ l'arrivée d'un message PRÉVIENT son propriétaire (le save de l'appl
 test("★★ l'écran passe par LE seul chemin (src/whatsapp.js), jamais par le serveur lui-même",
   /from "\.\.\/whatsapp"/.test(ecranWa) && !/supabaseClient/.test(ecranWa));
 test("★★ RIEN n'est écrit dans la base tant que le message n'est pas PARTI (un fil qui ment est pire qu'un fil vide)",
-  /if \(!r\.parti\) \{ uAlert\(r\.motif[\s\S]{0,40}return; \}[\s\S]{0,600}save\(/.test(ecranWa));
+  // ⚠ RETOURNÉ le 03/10/2026 (📎 le fichier) : la ligne porte désormais le
+  // nom du fichier, le corps s'est allongé — la règle n'a pas bougé : save()
+  // vient APRÈS le refus, et rien ne s'écrit avant.
+  /if \(!r\.parti\) \{ uAlert\(r\.motif[\s\S]{0,40}return; \}[\s\S]{0,1000}save\(/.test(ecranWa)
+  && ecranWa.indexOf("save(", ecranWa.indexOf("const envoyer = async")) > ecranWa.indexOf("if (!r.parti)", ecranWa.indexOf("const envoyer = async")));
 // ⚠ AFFÛTÉ, PAS ASSOUPLI (20/09/2026) : il lisait le FICHIER entier, ce qui
 // marchait tant que personne d'autre ne posait un propriétaire. Depuis qu'on
 // peut écrire le PREMIER à un client, l'auteur de ce message-là devient
@@ -1138,7 +1142,7 @@ test("★★★ l'écran passe l'espace REGARDÉ (`espaceDuCompte`) à la liste,
   /const regardeFormation = espaceDuCompte\(db, profile\) === true;/.test(codeEcranWa)
   && /conversationsWa\(messages, profile, undefined, \{ espaceFormation: regardeFormation \}\)/.test(codeEcranWa)
   && /const espaceFormation = espaceDuCompte\(db, profile\) === true;\s*return conversationsWa\(messages, profile, undefined, \{ espaceFormation \}\)/.test(codeEcranWa)
-  && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, enLigne: navigator\.onLine !== false, espaceFormation: regardeFormation \}\)/.test(codeEcranWa)
+  && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier, enLigne: navigator\.onLine !== false, espaceFormation: regardeFormation \}\)/.test(codeEcranWa)
   && !/estCompteFormation\(db, profile\)/.test(codeEcranWa));
 test("★★ l'écran vide le DIT, avec la porte de sortie (👁 Je regarde) — jamais une liste vide qui ressemble à une panne",
   /if \(regardeFormation\) \{\s*return \(/.test(codeEcranWa)
@@ -3551,6 +3555,95 @@ titre("㊹ L'ASSISTANT RESTE DANS LA CONVERSATION : réécriture, retour « assi
   test("★★ les calculs techniques sont permis (énergie d'une batterie…), les francs restent aux outils ; 51,2 V = 48 V",
     /LES CALCULS TECHNIQUES qui ne sont pas de l'argent/.test(C) && /Seuls les MONTANTS EN FRANCS viennent des outils/.test(C) && /51,2 V est une batterie « 48 V »/.test(C));
   test("★ la mémoire passe à 40 messages", I.MAX_MESSAGES_MEMOIRE === 40);
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("㊺ 📎 ENVOYER UN FICHIER AU CLIENT, DU NUMÉRO BMI (03/10/2026, « tous les documents », « la phrase facultative »)");
+{
+  const W = await import("../src/lib/whatsappConversations.js");
+  const Y = await import("../api/_ycloud.js");
+  const Mo = 1024 * 1024;
+  // ── La règle
+  test("★★ le type suit WhatsApp : JPEG/PNG = photo, MP4 = vidéo, son = son ; tout le reste (PDF, Word, HEIC…) = document",
+    W.typeEnvoiFichier("image/jpeg") === "image" && W.typeEnvoiFichier("image/png") === "image"
+    && W.typeEnvoiFichier("video/mp4") === "video" && W.typeEnvoiFichier("audio/mpeg") === "audio"
+    && W.typeEnvoiFichier("application/pdf") === "document" && W.typeEnvoiFichier("image/heic") === "document");
+  test("★★ « tous les documents » : PDF, Word, Excel, PowerPoint, texte passent ; un .exe est refusé en le disant",
+    ["devis.pdf", "lettre.docx", "stock.xlsx", "offre.pptx", "note.txt"].every((n) => W.critiqueFichier({ nom: n, mime: "application/octet-stream", taille: 1000 }) === "")
+    && /n'est pas un type que WhatsApp accepte/.test(W.critiqueFichier({ nom: "virus.exe", mime: "application/x-msdownload", taille: 1000 })));
+  test("★★ au plus 3 Mo : 3 Mo passe, un octet de plus est refusé, et le refus dit la taille et la sortie",
+    W.TAILLE_MAX_ENVOI === 3 * Mo && W.critiqueFichier({ nom: "a.pdf", mime: "application/pdf", taille: 3 * Mo }) === ""
+    && /pèse 3,0 Mo : au plus 3,0 Mo/.test(W.critiqueFichier({ nom: "a.pdf", mime: "application/pdf", taille: 3 * Mo + 50000 })));
+  test("★ un fichier vide ou sans nom est refusé", !!W.critiqueFichier({ nom: "", taille: 10 }) && !!W.critiqueFichier({ nom: "a.pdf", taille: 0 }));
+  test("★★ la phrase est FACULTATIVE : un fichier part sans un mot ; sans fichier, une réponse vide reste refusée",
+    (() => {
+      const conv = { cle: "90112233", proprietaire_id: null, fenetre: { ouverte: true } };
+      const p = { id: "TIMO", role: "admin" };
+      return W.critiqueReponse({ profile: p, conv, texte: "", fichier: { nom: "a.pdf", mime: "application/pdf", taille: 10 } }) === ""
+        && /Écrivez d'abord/.test(W.critiqueReponse({ profile: p, conv, texte: "" }));
+    })());
+  test("★★ un fichier suit les règles d'une réponse : fenêtre fermée → refusé ; formation → refusé ; conversation confiée → refusé",
+    (() => {
+      const f = { nom: "a.pdf", mime: "application/pdf", taille: 10 };
+      const p = { id: "KOSSI", role: "vendeur" };
+      return /24 h|fenêtre|fermée/i.test(W.critiqueReponse({ profile: { id: "TIMO", role: "admin" }, conv: { cle: "x", fenetre: { ouverte: false, depuis: null } }, fichier: f }))
+        && W.critiqueReponse({ profile: p, conv: { cle: "x", fenetre: { ouverte: true } }, fichier: f, espaceFormation: true }) === W.MOTIF_WA_FORMATION
+        && W.critiqueReponse({ profile: p, conv: { cle: "x", proprietaire_id: "COM1", proprietaire_nom: "COM1", fenetre: { ouverte: true } }, fichier: f }) !== "";
+    })());
+  test("★ un son part sans phrase (WhatsApp n'en porte pas) : on le DIT au lieu de la perdre ; une phrase trop longue est refusée",
+    /Un son part sans phrase/.test(W.critiqueFichier({ nom: "v.mp3", mime: "audio/mpeg", taille: 10 }, "écoutez")) && W.critiqueFichier({ nom: "v.mp3", mime: "audio/mpeg", taille: 10 }, "") === ""
+    && /au plus 1024 caractères/.test(W.critiqueFichier({ nom: "a.pdf", mime: "application/pdf", taille: 10 }, "x".repeat(1100))));
+  const me = W.mediaEnvoye({ nom: "devis.pdf", mime: "application/pdf", taille: 245000, donnees: "SECRETBASE64" });
+  test("★★ la ligne du fil garde le NOM, le type, la taille — JAMAIS le fichier (décision du 20/09 : rien rangé dans la base)",
+    me.nom === "devis.pdf" && me.type === "document" && me.taille === 245000 && me.envoye === true && !JSON.stringify(me).includes("SECRETBASE64") && !("lien" in me));
+  // ── La porte YCloud
+  test("★★ le message cite le fichier déposé : document avec son nom et sa phrase, photo avec sa phrase, son SANS phrase",
+    JSON.stringify(Y.corpsMedia("+228A", "+228B", { type: "document", id: "M1", legende: "Voici", nom: "d.pdf" })) === JSON.stringify({ from: "+228A", to: "+228B", type: "document", document: { id: "M1", caption: "Voici", filename: "d.pdf" } })
+    && JSON.stringify(Y.corpsMedia("a", "b", { type: "image", id: "M2", legende: "x", nom: "p.jpg" }).image) === JSON.stringify({ id: "M2", caption: "x" })
+    && JSON.stringify(Y.corpsMedia("a", "b", { type: "audio", id: "M3", legende: "x" }).audio) === JSON.stringify({ id: "M3" })
+    && !("caption" in Y.corpsMedia("a", "b", { type: "image", id: "M4", legende: "" }).image));
+  {
+    const vrai = globalThis.fetch; const vus = [];
+    globalThis.fetch = async (url, opts) => { vus.push({ url, opts }); return { ok: true, status: 200, json: async () => ({ id: "MEDIA9" }) }; };
+    const ok1 = await Y.televerserYCloud("CLE", "+22899968488", { octets: Buffer.from("abc"), mime: "application/pdf", nom: "d.pdf" });
+    globalThis.fetch = async () => ({ ok: false, status: 400, json: async () => ({ error: { message: "bad file", code: 131053 } }) });
+    const savedErr = console.error; console.error = () => {};
+    const ko1 = await Y.televerserYCloud("CLE", "+22899968488", { octets: Buffer.from("abc"), mime: "application/pdf", nom: "d.pdf" });
+    console.error = savedErr; globalThis.fetch = vrai;
+    test("★★ le dépôt : la clé dans l'en-tête, le fichier dans un formulaire (« file »), l'adresse du numéro BMI ; il rend le numéro du fichier",
+      ok1.ok === true && ok1.id === "MEDIA9" && vus[0].url === "https://api.ycloud.com/v2/whatsapp/media/%2B22899968488/upload"
+      && vus[0].opts.headers["X-API-Key"] === "CLE" && vus[0].opts.body instanceof FormData && vus[0].opts.body.get("file") !== null);
+    test("★★ un dépôt refusé est RENDU tel quel avec son code (traduit en français par l'application), jamais avalé",
+      ko1.ok === false && ko1.motif === "bad file" && ko1.code_whatsapp === 131053 && ko1.statut_whatsapp === 400);
+  }
+  // ── Le serveur
+  const api = lire("api/whatsapp.js");
+  test("★★ le serveur REMESURE le fichier sur les octets reçus et revérifie la règle (la taille annoncée ne se croit pas)",
+    /const octets = Buffer\.from\(String\(fichier\.donnees \|\| ""\), "base64"\)/.test(api) && /taille: octets\.length/.test(api) && /critiqueFichier\(piece, texte\)/.test(api));
+  test("★★ le serveur DÉPOSE avant d'envoyer, et un dépôt refusé arrête tout (rien ne part)",
+    api.indexOf("televerserYCloud(cle, expediteur, piece)") > -1 && api.indexOf("televerserYCloud(cle, expediteur, piece)") < api.indexOf("envoyerYCloud(cle, corps)")
+    && /if \(!depot\.ok\) return res\.status\(502\)/.test(api));
+  test("★★ un fichier passe par la MÊME fenêtre de 24 h recalculée sur la base que la réponse écrite",
+    /const reponseLibre = !modele && \(typeof texte === "string" \|\| !!piece\)/.test(api) && /if \(reponseLibre\) \{\s*const cleFil/.test(api));
+  test("★ rien n'est rangé : le serveur n'écrit pas le fichier dans la base (aucun insert ni stockage)",
+    !/\.insert\(|storage\.|\.upload\(/.test(api));
+  // ── L'écran
+  const ecr = lire("src/screens/Whatsapp.jsx").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
+  test("★★ l'écran vérifie au CHOIX du fichier (critiqueFichier), puis revérifie DANS le geste (critiqueReponse avec le fichier)",
+    /const refus = critiqueFichier\(pret\)/.test(ecr) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier,/.test(ecr));
+  test("★★ la ligne du fil ne s'écrit qu'APRÈS le départ, et ne porte que mediaEnvoye (jamais les données)",
+    ecr.indexOf("if (!r.parti)") < ecr.indexOf("wa_media: mediaEnvoye(fichier)") && !/donnees:\s*fichier/.test(ecr.slice(ecr.indexOf("const envoyer = async"), ecr.indexOf("const envoyerContact"))));
+  test("★ changer de conversation retire le fichier choisi (on n'envoie pas à l'un le devis préparé pour l'autre)",
+    /useEffect\(\(\) => \{ setFichier\(null\); \}, \[cleOuverte\]\)/.test(ecr));
+  const r1 = monte(V.renduFichierEnvoye), r2 = monte(V.htmlFichierEnvoye);
+  test("★★ l'écran RENDU : le bouton 📎 est là, la ligne dit « 📎 devis-ESSO.pdf · 239 Ko — envoyé » avec sa phrase",
+    r1.includes('data-joindre') && r1.includes("data-media-envoye") && r1.includes("devis-ESSO.pdf") && r1.includes("239 Ko") && r1.includes("Voici votre devis"));
+  test("★★ un fichier envoyé ne va RIEN chercher chez WhatsApp (pas de bouton « ouvrir ») — sa copie est sur le téléphone BMI",
+    r2.includes("data-media-envoye") && r2.includes("photo.jpg") && !/ouvrir/.test(r2));
+  const ia = await import("../src/lib/assistantIA.js");
+  const mem = ia.messagesPourIA([{ wa_entrant: true, texte: "le devis ?" }, { texte: "", wa_media: { type: "document", nom: "devis.pdf", envoye: true } }, { wa_entrant: true, texte: "merci" }]);
+  test("★ l'assistant sait qu'un fichier envoyé l'a été PAR BMI, jamais « par le client »",
+    mem.some((x) => /envoyé au client par BMI/.test(x.content)) && !mem.some((x) => /devis\.pdf.*envoyé par le client/.test(x.content)));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

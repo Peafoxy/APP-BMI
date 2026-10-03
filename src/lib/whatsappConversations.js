@@ -377,13 +377,17 @@ export const motifVerrouillee = (conv) =>
     ? `Cette conversation est confiée à ${conv.proprietaire_nom}. Seule cette personne, ou un administrateur, peut l'ouvrir.`
     : "Cette conversation ne vous est pas accessible.";
 
-export function critiqueReponse({ profile, conv, texte, enLigne = true, maintenant, espaceFormation = false } = {}) {
+export function critiqueReponse({ profile, conv, texte, fichier = null, enLigne = true, maintenant, espaceFormation = false } = {}) {
   // 🎓 Revérifié DANS le geste (22/09/2026) : même si l'écran se trompait,
   // aucune réponse ne part pendant qu'on regarde la formation.
   if (espaceFormation) return MOTIF_WA_FORMATION;
   if (!conv) return "Choisissez d'abord une conversation.";
   if (!peutVoirConversation(profile, conv)) return motifVerrouillee(conv);
-  if (!String(texte || "").trim()) return "Écrivez d'abord votre message.";
+  // 📎 Un fichier part seul ou avec une phrase FACULTATIVE (Timo, 03/10/2026).
+  if (fichier) {
+    const refusFichier = critiqueFichier(fichier, texte);
+    if (refusFichier) return refusFichier;
+  } else if (!String(texte || "").trim()) return "Écrivez d'abord votre message.";
   if (!enLigne) return "Pas de connexion : le message ne peut pas partir du numéro BMI.";
   const f = conv.fenetre || fenetre(conv.fil, maintenant);
   if (!f.ouverte) return libelleFenetre(f);
@@ -431,6 +435,86 @@ export function lireMedia(m) {
     mime: String(bloc.mime_type || bloc.mimeType || ""),
     nom: String(bloc.filename || bloc.fileName || ""),
     legende: String(bloc.caption || ""),
+  };
+}
+
+// ---------------------------------------------------------------
+// 📎 ENVOYER UN FICHIER AU CLIENT, DU NUMÉRO BMI (03/10/2026)
+// ---------------------------------------------------------------
+// Timo : « dans WhatsApp de l'app BMI, ajouter la possibilité d'envoyer les
+// fichiers » → « tous les documents », « la phrase qui accompagne
+// facultative ». C'est une RÉPONSE : seulement dans la fenêtre de 24 h
+// (un modèle ne peut pas porter un fichier choisi au moment de l'envoi),
+// mêmes personnes, jamais en formation.
+// ⚠⚠ AUCUN FICHIER N'EST RANGÉ CHEZ NOUS (sa décision du 20/09/2026) : il
+// traverse le serveur et part chez WhatsApp. Le fil ne garde que son NOM.
+// ⚠ 3 Mo au plus : c'est la limite de notre serveur (Vercel refuse un envoi
+// de plus de 4,5 Mo, et le fichier voyage codé, un tiers plus gros). Une
+// photo est réduite par l'application AVANT, donc elle passe presque
+// toujours ; un PDF trop lourd est refusé, et le refus le dit.
+export const TAILLE_MAX_ENVOI = 3 * 1024 * 1024;
+export const LEGENDE_MAX = 1024; // la limite de Meta pour la phrase d'un fichier
+
+// Les familles que WhatsApp accepte. Une image qui n'est ni JPEG ni PNG (un
+// HEIC d'iPhone que le navigateur n'a pas su réduire, un GIF) part comme
+// DOCUMENT : le client la reçoit quand même, en pièce jointe.
+const MIMES_ENVOI = {
+  image: ["image/jpeg", "image/png"],
+  video: ["video/mp4", "video/3gpp"],
+  audio: ["audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg"],
+};
+const EXTENSIONS_DOCUMENT = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "jpg", "jpeg", "png", "gif", "webp", "heic"];
+
+export function typeEnvoiFichier(mime) {
+  const m = String(mime || "").toLowerCase().split(";")[0].trim();
+  for (const [type, liste] of Object.entries(MIMES_ENVOI)) if (liste.includes(m)) return type;
+  return "document";
+}
+
+const extension = (nom) => {
+  const n = String(nom || "").toLowerCase();
+  const i = n.lastIndexOf(".");
+  return i > -1 ? n.slice(i + 1) : "";
+};
+
+// Mo lisibles, à la française : « 2,4 Mo », « 850 Ko ».
+export function tailleLisible(octets) {
+  const n = Number(octets) || 0;
+  if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1).replace(".", ",")} Mo`;
+  return `${Math.max(1, Math.round(n / 1024))} Ko`;
+}
+
+// Rend "" si le fichier peut partir, sinon le refus en français.
+export function critiqueFichier(fichier, phrase = "") {
+  const f = fichier || {};
+  const nom = String(f.nom || "").trim();
+  const taille = Number(f.taille) || 0;
+  if (!nom || !taille) return "Ce fichier est vide ou illisible.";
+  if (taille > TAILLE_MAX_ENVOI) {
+    return `« ${nom} » pèse ${tailleLisible(taille)} : au plus ${tailleLisible(TAILLE_MAX_ENVOI)} par fichier. Réduisez-le (un PDF s'allège en l'enregistrant « taille réduite ») ou envoyez-le en plusieurs morceaux.`;
+  }
+  const type = typeEnvoiFichier(f.mime);
+  if (type === "document" && !EXTENSIONS_DOCUMENT.includes(extension(nom))) {
+    return `« ${nom} » n'est pas un type que WhatsApp accepte. On peut envoyer : photos, PDF, Word, Excel, PowerPoint, texte, vidéo MP4 et son.`;
+  }
+  const p = String(phrase || "").trim();
+  // Un son ne porte pas de phrase chez WhatsApp : on ne la perd pas en silence.
+  if (type === "audio" && p) return "Un son part sans phrase chez WhatsApp : envoyez le son seul, puis votre phrase dans un message à part.";
+  if (p.length > LEGENDE_MAX) return `La phrase qui accompagne un fichier fait au plus ${LEGENDE_MAX} caractères.`;
+  return "";
+}
+
+// Ce que la ligne du fil garde d'un fichier ENVOYÉ : son nom, son type, sa
+// taille — JAMAIS le fichier. `envoye` dit à l'écran qu'il n'y a rien à
+// aller chercher chez WhatsApp (la copie reste sur le téléphone BMI).
+export function mediaEnvoye(fichier) {
+  const f = fichier || {};
+  return {
+    type: typeEnvoiFichier(f.mime),
+    nom: String(f.nom || ""),
+    mime: String(f.mime || ""),
+    taille: Number(f.taille) || 0,
+    envoye: true,
   };
 }
 

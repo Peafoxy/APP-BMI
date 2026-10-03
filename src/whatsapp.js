@@ -219,12 +219,14 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
 // le numéro BMI. L'ouvrir sur le téléphone du vendeur ferait partir le
 // message d'un AUTRE numéro, et le client ne saurait pas qui lui écrit.
 // Donc : ça part, ou ça ne part pas et on DIT pourquoi.
-export async function repondreWhatsApp({ tel, texte }) {
+export async function repondreWhatsApp({ tel, texte, fichier = null }) {
   if (!enLigne()) return { parti: false, motif: "Pas de connexion : le message ne peut pas partir du numéro BMI." };
   let reponse;
   try {
     const { whatsappEnLigne } = await import("./supabaseClient");
-    reponse = await whatsappEnLigne({ tel, texte });
+    // 📎 Le fichier voyage codé, sans sa taille annoncée : le serveur la
+    // remesure lui-même sur les octets reçus.
+    reponse = await whatsappEnLigne({ tel, texte, fichier: fichier ? { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees } : null });
   } catch (e) {
     return { parti: false, motif: motifEchecWhatsApp({ erreur: e?.message }) };
   }
@@ -233,6 +235,52 @@ export async function repondreWhatsApp({ tel, texte }) {
     return { parti: false, motif: motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }) };
   }
   return { parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
+}
+
+// ---------------------------------------------------------------
+// 📎 PRÉPARER UN FICHIER À ENVOYER (03/10/2026)
+// ---------------------------------------------------------------
+// Une photo de téléphone pèse souvent 3 à 6 Mo : elle est RÉDUITE ici, dans
+// le navigateur, avant de partir (1600 px au plus sur le grand côté, JPEG
+// qualité 0,82 — bien lisible sur un téléphone, environ 300 Ko). Un document
+// part tel quel : on ne touche jamais à un PDF. Une image que le navigateur
+// ne sait pas lire (HEIC sur un PC) part telle quelle, comme document.
+// Rend { nom, mime, taille, donnees } (donnees = le fichier codé en base64).
+export const COTE_MAX_PHOTO = 1600;
+const lireEnBase64 = (blob) => new Promise((ok, ko) => {
+  const r = new FileReader();
+  r.onload = () => ok(String(r.result || "").split(",")[1] || "");
+  r.onerror = () => ko(r.error);
+  r.readAsDataURL(blob);
+});
+async function reduirePhoto(file) {
+  if (!/^image\/(jpeg|png|webp)$/i.test(file.type || "") || typeof createImageBitmap !== "function") return null;
+  if (file.size < 400 * 1024) return null; // déjà légère : on n'y touche pas
+  try {
+    const img = await createImageBitmap(file);
+    const echelle = Math.min(1, COTE_MAX_PHOTO / Math.max(img.width, img.height));
+    const toile = document.createElement("canvas");
+    toile.width = Math.round(img.width * echelle);
+    toile.height = Math.round(img.height * echelle);
+    const ctx = toile.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, toile.width, toile.height); // un PNG transparent ne devient pas noir
+    ctx.drawImage(img, 0, 0, toile.width, toile.height);
+    const blob = await new Promise((ok) => toile.toBlob(ok, "image/jpeg", 0.82));
+    if (!blob || blob.size >= file.size) return null;
+    const nom = String(file.name || "photo").replace(/\.[^.]+$/, "") + ".jpg";
+    return { blob, nom, mime: "image/jpeg" };
+  } catch { return null; }
+}
+export async function preparerFichier(file) {
+  if (!file) return null;
+  const reduite = await reduirePhoto(file);
+  const blob = reduite ? reduite.blob : file;
+  return {
+    nom: reduite ? reduite.nom : String(file.name || "fichier"),
+    mime: reduite ? reduite.mime : String(file.type || "application/octet-stream"),
+    taille: blob.size,
+    donnees: await lireEnBase64(blob),
+  };
 }
 
 // ---------------------------------------------------------------

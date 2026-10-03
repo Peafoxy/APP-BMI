@@ -101,8 +101,10 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Ouvrir la conversation", texte: "Les non lues sont dans « 🔴 Nouveaux messages » ; les autres dans « Conversations » (10 lignes, puis on fait défiler ; les plus vieilles passent dans « Conversations anciennes »). « Rechercher une conversation… » cherche le nom **ou le numéro**, archives comprises. Le fil s'ouvre sur **le dernier message** ; pour relire le début, on remonte dans le fil." },
         { titre: "Écrire « Votre réponse, envoyée du numéro BMI… » puis « Envoyer »", texte: "Le message part **du numéro BMI**. Il ne s'écrit dans le fil **que s'il est vraiment parti** ; sinon l'écran dit pourquoi, en français." },
+        { titre: "📎 Joindre un fichier (facultatif)", texte: "Le bouton **📎** à gauche de la case : photo, PDF, Word, Excel, PowerPoint, texte, vidéo MP4 ou son, **3 Mo au plus**. Une photo de téléphone est **réduite toute seule** avant de partir. Le fichier choisi s'affiche au-dessus (✕ pour le retirer) ; la case devient « Phrase facultative… » : on peut l'envoyer **sans un mot**. Un son part sans phrase (WhatsApp n'en porte pas). Le fil garde « 📎 nom du fichier — envoyé » : **le fichier n'est pas rangé dans l'application**, sa copie reste sur le téléphone BMI." },
         { titre: "Lire les coches", texte: "**✓** parti · **✓✓ gris** arrivé sur son téléphone · **✓✓ bleu** lu · **❌ Non reçu** avec le motif. Un client qui a coupé les confirmations de lecture reste à ✓✓ gris." },
       ]],
+      ["attention", "**Un fichier est une réponse** : il ne part que **dans les 24 h** après le dernier message du client, comme un texte. Fenêtre fermée, on écrit d'abord par « ✍️ Lui écrire quand même » ; le fichier partira quand le client aura répondu. Un PDF de plus de 3 Mo est refusé : on l'enregistre en « taille réduite »."],
       ["note", "**Répondre ne s'approprie pas une conversation** : elle reste au support, visible de tous. Une photo, une note vocale ou un document du client s'ouvrent dans le fil ; WhatsApp les efface au bout de **30 jours**."],
 
       ["h3", "E. 📲 WhatsApp — écrire le premier (✍️ Écrire)"],

@@ -64,7 +64,7 @@ npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet,
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 27 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 793 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe)
+npm run verifier-whatsapp        # 814 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3202,6 +3202,40 @@ lit mal est pire qu'un banc absent).
   « whatsapp-media »). On retire les commentaires avant de chercher. **Même
   famille que le 20/09 au matin, troisième fois** : un contrôle qui lit du
   français au lieu du code se trompe.
+
+### 📎 ENVOYER UN FICHIER AU CLIENT DEPUIS 📲 WHATSAPP (03/10/2026, « tous les documents », « la phrase facultative »)
+- Timo : « dans WhatsApp de app BMI, ajouter la possibilité d'envoyer les
+  fichiers ». Bouton **📎** à gauche de la case de réponse ; le fichier choisi
+  s'affiche au-dessus (✕), la case devient « Phrase facultative… ».
+- **C'est une RÉPONSE** : fenêtre de 24 h (un modèle ne peut pas porter un
+  fichier choisi à l'envoi), mêmes personnes, conversation confiée refusée,
+  jamais en formation — `critiqueReponse({ …, fichier })` revérifié DANS le
+  geste ; le serveur (`api/whatsapp.js`) recalcule la fenêtre sur la base,
+  **remesure** les octets reçus et revérifie `critiqueFichier`.
+- Règle pure `critiqueFichier` / `typeEnvoiFichier` / `mediaEnvoye`
+  (lib/whatsappConversations.js) : **tous les documents** — photos, PDF,
+  Word, Excel, PowerPoint, texte, vidéo MP4, son ; un .exe est refusé en le
+  disant. **3 Mo au plus** (`TAILLE_MAX_ENVOI` — Vercel refuse plus de 4,5 Mo
+  et le fichier voyage codé). **Une photo est réduite dans le navigateur**
+  (`preparerFichier`, src/whatsapp.js : 1600 px, JPEG 0,82, au-delà de
+  400 Ko). Un son part SANS phrase (WhatsApp n'en porte pas) : le refus le
+  dit au lieu de la perdre ; phrase ≤ 1024 caractères.
+- ⚠⚠ **AUCUN FICHIER RANGÉ CHEZ NOUS** (sa décision du 20/09) : le fichier
+  est DÉPOSÉ chez WhatsApp (`televerserYCloud`, api/_ycloud.js) puis le
+  message le cite (`corpsMedia`) ; un dépôt refusé arrête tout. La ligne du
+  fil ne garde que nom, type, taille, `envoye: true` — l'écran dit
+  « 📎 nom · taille — envoyé » et ne va rien chercher (la copie reste sur le
+  téléphone BMI). ⚠ Donc **pas d'aperçu** d'une photo envoyée dans le fil.
+- ⚠ **La forme de l'appel de dépôt YCloud n'a PAS pu être vérifiée** (leur
+  site est fermé depuis le poste) : `POST /v2/whatsapp/media/{numéro}/upload`,
+  formulaire `file`, réponse `id`. Un refus part dans le journal Vercel
+  (« dépôt du fichier refusé ») : au premier essai raté, regarder là.
+- L'assistant sait qu'un fichier envoyé l'a été PAR BMI (`messagesPourIA`).
+  Coût : celui d'une réponse (~4 F, 1 000 offertes par mois). Rien à coller
+  dans Supabase. Banc ㊺ (`verifier-whatsapp`, 19), éprouvé en remettant cinq
+  fautes (taille ignorée, fichier rangé dans la ligne, serveur qui ne
+  revérifie pas, fichier envoyé recherché chez WhatsApp, phrase sur un son) :
+  chacune tombe. Deux contrôles RETOURNÉS (le geste porte `fichier`).
 
 ### ✋ UNE RELANCE SE CONFIRME AVANT DE PARTIR (25/09/2026)
 - Capture Timo, 📋 Dettes : « lorsqu'on appuie sur WhatsApp, il faut qu'on
