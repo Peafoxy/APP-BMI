@@ -13,7 +13,7 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiRecuVente, envoiRecuVenteDetail, envoiBon, envoiVirementSalaire, ligneEnvoiModele } from "./whatsappModeles";
+import { envoiRecuVente, envoiRecuVenteDetail, envoiBon, envoiVirementSalaire, envoiAvancement, ligneEnvoiModele } from "./whatsappModeles";
 import { lignesVente, totalVente, fmt, dFR, numeroBulletin } from "./core";
 import { montantEncaisseVente } from "./versements";
 import { bonReprise, bonRetour, retoursDeVente } from "./bons";
@@ -48,6 +48,14 @@ export function texteLignePrivee(m, db) {
     const v = (u?.virements || []).find((x) => x.id === m.virement_id);
     if (!u || !v) return "";
     const e = envoiVirementSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, moyen: v.moyen, reference: v.ref || numeroBulletin(v.mois, u.id), initiateur: { role: v.par, tel: " " }, retenue: m.wa_modele === "virement_salaire_credit" ? v.retenue_credit : 0, resteCredit: v.reste_credit, fmt, dFR });
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // 📈 L'avis d'avancement : recomposé depuis l'évolution de salaire de la fiche.
+  if (m.wa_modele === "avancement_employe") {
+    const u = (db?.users || []).find((x) => x.id === m.salaire_user_id);
+    const ev = (u?.evolutions_salaire || []).find((x) => x.id === m.evolution_id);
+    if (!u || !ev) return "";
+    const e = envoiAvancement({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "90000000", ancien: ev.ancien, nouveau: ev.nouveau, mois: libelleMoisFR(String(ev.date || "").slice(0, 7)), motif: ev.motif, fmt });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   // 💰 L'avis de commission due : recomposé depuis la vente ou la dette de pose.

@@ -86,6 +86,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "👥 Utilisateurs → ⋯ Gérer → 💵 Salaire", texte: "Le nouveau salaire de base mensuel. Si un **taux d'avancement** est fixé (📈 Taux %), l'application propose le salaire augmenté de ce taux." },
         { titre: "Le motif", texte: "Quand un salaire déjà fixé change, l'application demande le motif (ancienneté, promotion, mérite…). Chaque changement est **archivé** avec l'ancien et le nouveau montant : l'employé le lit dans « 📈 Mon avancement »." },
+        { titre: "L'avis d'avancement, du numéro WhatsApp BMI", texte: "Quand le salaire **augmente**, l'application demande : « Envoyer l'avis d'avancement à … ? ». Oui : l'employé reçoit l'ancien et le nouveau salaire, le mois et le motif (sans motif : « décision de la Direction »). Répondez **Annuler** si ce n'était qu'une correction de saisie. Une baisse ou une première saisie n'envoie rien ; une fiche sans numéro non plus (l'écran le dit). Dans 📲 WhatsApp, la ligne est cachée : seuls celui qui l'a envoyé et l'administrateur principal en lisent le détail." },
       ]],
 
       ["h3", "C. Une prime ou une avance (administrateur)"],

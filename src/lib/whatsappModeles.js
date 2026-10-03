@@ -196,6 +196,11 @@ export const MODELES = {
   // trou 4 = « Détail dans votre espace… » pour qui a un compte, « Passez à
   // la boutique … » pour un apporteur externe (sa décision du jour).
   commission_due: { categorie: "utility", variables: ["beneficiaire", "montant", "client", "suite"] },
+  // 📈 03/10/2026, Timo : « un avancement d'un employé » → « 3 avec
+  // montants » → « on garde le texte que tu as proposé ». UTILITY : une
+  // décision sur sa rémunération. Envoyé de 👥 Utilisateurs, après question,
+  // seulement quand le salaire AUGMENTE.
+  avancement_employe: { categorie: "utility", variables: ["employe", "ancien", "nouveau", "mois", "motif"] },
   // 🎂 03/10/2026, Timo (« 1b », puis « on garde l'ancien texte que tu as
   // proposé ») : les vœux d'anniversaire à l'employé, le jour même, par la
   // tournée de 7 h. MARKETING (Meta range les vœux dans la promotion).
@@ -251,6 +256,8 @@ export const MODELES_EN_SERVICE = [
   // 03/10/2026 : la commission devenue due (envoyée à l'ouverture de
   // l'application par l'administrateur principal, lib/commissionsDues.js).
   "commission_due",
+  // 03/10/2026 : l'avis d'avancement (👥 Utilisateurs → Salaire).
+  "avancement_employe",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -324,7 +331,7 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe"];
 const LIGNES_MASQUEES = {
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
@@ -333,6 +340,7 @@ const LIGNES_MASQUEES = {
   virement_salaire: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   virement_salaire_credit: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   commission_due: "🔒 Avis de commission due envoyé — détail réservé à l'administrateur principal.",
+  avancement_employe: "🔒 Avis d'avancement envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
 };
 export const lignePrivee = (modele) => MODELES_PRIVES.includes(modele);
 export const ligneMasquee = (modele) => LIGNES_MASQUEES[modele] || "";
@@ -743,6 +751,7 @@ const LIGNES_ENVOI = {
   accueil_prospect: ([client]) => `Message d'accueil envoyé au prospect ${client}.`,
   relance_prospect: ([client, auteur, projet]) => `Relance du prospect ${client} par ${auteur} : son projet ${projet}.`,
   anniversaire_employe: ([employe]) => `Vœux d'anniversaire envoyés à ${employe}.`,
+  avancement_employe: ([employe, ancien, nouveau, mois]) => `Avis d'avancement envoyé à ${employe} : salaire ${ancien} → ${nouveau} à compter de ${mois}.`,
   commission_due: ([beneficiaire, montant, client]) => `Avis de commission due envoyé à ${beneficiaire} : ${montant} (client ${client}).`,
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
@@ -1652,4 +1661,29 @@ export function envoiRappelAnniversaire({ administrateur, employes }) {
   const liste = texteVariable(employes);
   if (!liste) return null;
   return { modele: "rappel_anniversaire", variables: [texteVariable(administrateur) || "administrateur", liste] };
+}
+
+// 📈 L'AVIS D'AVANCEMENT — `avancement_employe` (03/10/2026) : le texte
+// proposé, gardé par Timo (« on garde le texte que tu as proposé »).
+export const TEXTE_AVANCEMENT = [
+  "Bonjour {{1}},",
+  "",
+  "Avancement",
+  "",
+  "La Direction de BMI TOGO a le plaisir de vous informer que votre salaire passe de {{2}} à {{3}} à compter du mois de {{4}}.",
+  "Motif : {{5}}.",
+  "",
+  "Félicitations et merci pour votre travail.",
+  "La Direction — BMI TOGO",
+].join("\n");
+export const MOTIF_AVANCEMENT_DEFAUT = "décision de la Direction";
+// Seulement une HAUSSE d'un salaire déjà connu : une baisse, une première
+// saisie ou une correction à l'identique n'envoie rien. Un motif vide prend
+// la phrase par défaut (Meta refuse un trou vide).
+export function envoiAvancement({ employe, tel, ancien, nouveau, mois, motif, fmt }) {
+  const nom = texteVariable(employe);
+  const a = Number(ancien || 0), n = Number(nouveau || 0);
+  if (!nom || !numeroWhatsApp(tel) || !(a > 0) || !(n > a) || !mois) return null;
+  const f = typeof fmt === "function" ? fmt : (x) => `${x} F`;
+  return { modele: "avancement_employe", variables: [nom, f(a), f(n), texteVariable(mois), texteVariable(motif).replace(/[.\s]+$/, "") || MOTIF_AVANCEMENT_DEFAUT] };
 }

@@ -103,12 +103,13 @@ const ATTENDU = {
   virement_salaire_credit: { categorie: "utility", n: 10 },
   // 03/10/2026 : la commission devenue due (texte de Timo).
   commission_due: { categorie: "utility", n: 4 },
+  avancement_employe: { categorie: "utility", n: 5 },
   anniversaire_employe: { categorie: "marketing", n: 1 },
   rappel_anniversaire: { categorie: "utility", n: 2 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les trente modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les trente et un modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1300,7 +1301,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,anniversaire_employe,avenant_reserves,bon_reprise,bon_retour,commission_due,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,commission_due,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3059,8 +3060,8 @@ test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni
   && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
   && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
 // RETOURNÉ le 03/10/2026 : + l'avis de salaire (un salaire ne se lit pas par les collègues).
-test("★ les sept modèles privés : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
-  M.MODELES_PRIVES.slice().sort().join(",") === "bon_reprise,bon_retour,commission_due,recu_vente,recu_vente_detail,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+test("★ les huit modèles privés (RETOURNÉ le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "avancement_employe,bon_reprise,bon_retour,commission_due,recu_vente,recu_vente_detail,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
 {
   // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE (Timo, 03/10/2026, son texte).
   const eS = M.envoiVirementSalaire({ employe: "AKPOSSOGNA Kossiwa", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-202610-ROBS", initiateur: { role: "Comptable", tel: "91123456" }, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
@@ -3752,6 +3753,34 @@ titre("㊻ 🎂 LES VŒUX D'ANNIVERSAIRE : LE RAPPEL DE LA VEILLE À 17 H, LES V
     && RS.indexOf("await rappelerParWhatsApp(db, aujourdhui)") > 0 && RS.indexOf("await rappelerParWhatsApp(db, aujourdhui)") < RS.indexOf("if (!configurerWebPush())"));
   test("★ une seule façon de lire une table côté serveur (api/_tables.js), pour les deux tournées",
     /from "\.\/_tables\.js"/.test(RM) && /from "\.\/_tables\.js"/.test(RS) && !/async function lireTable/.test(RM + RS));
+}
+
+
+titre("㊼ 📈 L'AVIS D'AVANCEMENT D'UN EMPLOYÉ (03/10/2026, « 3 avec montants », « on garde le texte que tu as proposé »)");
+{
+  const M5 = await import("../src/lib/whatsappModeles.js");
+  const f = (x) => `${Number(x).toLocaleString("fr-FR").replace(/\s/g, " ")} F`;
+  const e = M5.envoiAvancement({ employe: "ANGELE KOFFI", tel: "90111111", ancien: 60000, nouveau: 66000, mois: "octobre 2026", motif: "ancienneté.", fmt: f });
+  test("★★ les cinq trous dans l'ordre (nom, ancien, nouveau, mois, motif) — le point final du motif retiré (le texte en met un)",
+    e && e.modele === "avancement_employe" && e.variables[0] === "ANGELE KOFFI" && /^60.000 F$/.test(e.variables[1]) && /^66.000 F$/.test(e.variables[2]) && e.variables[3] === "octobre 2026" && e.variables[4] === "ancienneté"
+    && /passe de \{\{2\}\} à \{\{3\}\} à compter du mois de \{\{4\}\}\.\nMotif : \{\{5\}\}\./.test(M5.TEXTE_AVANCEMENT));
+  test("★★ seulement une HAUSSE d'un salaire connu, avec un numéro : une baisse, une égalité, une première saisie ou une fiche sans numéro n'envoient rien ; un motif vide prend « décision de la Direction »",
+    M5.envoiAvancement({ employe: "A", tel: "90111111", ancien: 60000, nouveau: 50000, mois: "x", fmt: f }) === null
+    && M5.envoiAvancement({ employe: "A", tel: "90111111", ancien: 60000, nouveau: 60000, mois: "x", fmt: f }) === null
+    && M5.envoiAvancement({ employe: "A", tel: "90111111", ancien: 0, nouveau: 60000, mois: "x", fmt: f }) === null
+    && M5.envoiAvancement({ employe: "A", tel: "", ancien: 50000, nouveau: 60000, mois: "x", fmt: f }) === null
+    && M5.envoiAvancement({ employe: "A", tel: "90111111", ancien: 50000, nouveau: 60000, mois: "x", motif: "", fmt: f })?.variables[4] === "décision de la Direction");
+  const sansC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const U = sansC(lire("src/screens/Utilisateurs.jsx"));
+  const corps = U.slice(U.indexOf("const changerSalaire"), U.indexOf("const ajouterMouvementSalaire"));
+  test("★★ 👥 l'envoi part APRÈS l'enregistrement, après une QUESTION, sans repli, le mur = l'espace du COMPTE de l'employé, la ligne liée à l'évolution",
+    corps.indexOf("save({ ...db, users:") > 0 && corps.indexOf("save({ ...db, users:") < corps.indexOf("await uConfirm(`Envoyer l'avis d'avancement")
+    && corps.indexOf("await uConfirm(`Envoyer l'avis d'avancement") < corps.indexOf("envoyerRecuSansQuestion(")
+    && /espaceFormation: estCompteFormation\(db, u\)/.test(corps) && /ref: \{ salaire_user_id: u\.id, evolution_id: evolution\.id \}/.test(corps)
+    && /if \(!\(ancien > 0 && montant > ancien\)\) return;/.test(corps));
+  test("★ la ligne rangée est PRIVÉE et son détail se recompose depuis l'évolution de salaire (même fabrique que l'envoi)",
+    M5.lignePrivee("avancement_employe") && /m\.wa_modele === "avancement_employe"[\s\S]{0,300}envoiAvancement\(/.test(lire("src/lib/lignesPrivees.js"))
+    && /ref\.evolution_id \? \{ evolution_id: ref\.evolution_id \}/.test(lire("src/whatsapp.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

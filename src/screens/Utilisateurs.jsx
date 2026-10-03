@@ -10,8 +10,8 @@ import { Salaire } from "../screens/Salaires";
 import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, envoyerIdentifiantsEmployeWhatsApp } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
-import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { messageIdentifiants, envoiMotFidelite, texteMotFidelite } from "../lib/whatsappModeles";
+import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
+import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
@@ -852,9 +852,22 @@ export function Users({ db, save, profile }) {
     // On archive aussi le taux d'avancement fixé par l'admin au moment du
     // changement, et le pourcentage réellement appliqué (calculé sur les montants).
     const pct = ancien > 0 ? Math.round(((montant - ancien) / ancien) * 1000) / 10 : null;
-    const evolution = { date: today(), ancien, nouveau: montant, motif, par: profile.nom, taux_prevu: taux0 || null, pct };
+    const evolution = { id: uid(), date: today(), ancien, nouveau: montant, motif, par: profile.nom, taux_prevu: taux0 || null, pct };
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, salaire_base: montant, evolutions_salaire: ancien !== montant ? [...(x.evolutions_salaire || []), evolution] : (x.evolutions_salaire || []) } : x)) },
       `Salaire de ${u.nom} : ${ancien ? fmt(ancien) + " → " : ""}${fmt(montant)}${motif ? " (" + motif + ")" : ""}`);
+    // 📈 L'AVIS D'AVANCEMENT (Timo, 03/10/2026, « 3 avec montants », son
+    // texte gardé) : seulement une HAUSSE, après une QUESTION (« non » si ce
+    // n'était qu'une correction de saisie), du numéro BMI, sans repli ; le
+    // mur = l'espace du COMPTE de l'employé ; ligne PRIVÉE dans 📲 WhatsApp.
+    const envoi = envoiAvancement({ employe: u.nom_complet || u.nom, tel: u.tel, ancien, nouveau: montant, mois: libelleMoisFR(today().slice(0, 7)), motif, fmt });
+    if (!(ancien > 0 && montant > ancien)) return;
+    if (!envoi) { uAlert(`✅ Salaire enregistré.\n\n📲 Aucun avis d'avancement : la fiche de ${u.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → 📞).`); return; }
+    if (!await uConfirm(`Envoyer l'avis d'avancement à ${u.nom} (${u.tel}) du numéro WhatsApp BMI ?\n\nSalaire : ${fmt(ancien)} → ${fmt(montant)} à compter de ${libelleMoisFR(today().slice(0, 7))}.\nMotif : ${envoi.variables[4]}.\n\nRépondez « Annuler » si ce n'était qu'une correction de saisie.`)) return;
+    const r = await envoyerRecuSansQuestion({
+      envoi, tel: u.tel, nom: u.nom, espaceFormation: estCompteFormation(db, u), save, profile,
+      ref: { salaire_user_id: u.id, evolution_id: evolution.id }, noms: { titre: "Avis d'avancement", sujet: "L'avis d'avancement" },
+    });
+    uAlert(r || "✅ Salaire enregistré.");
   };
 
   // Enregistre une prime ou une avance sur salaire pour un mois donné.
