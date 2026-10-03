@@ -718,7 +718,7 @@ const LIGNES_ENVOI = {
   avenant_reserves: ([client, pv]) => `Lien de signature de l'avenant de levée de réserves (PV N° ${pv}) envoyé à ${client}.`,
   accueil_prospect: ([client]) => `Message d'accueil envoyé au prospect ${client}.`,
   relance_prospect: ([client, auteur, projet]) => `Relance du prospect ${client} par ${auteur} : son projet ${projet}.`,
-  virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
+  virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
@@ -1474,7 +1474,7 @@ export function variablesAlerte({ administrateur, client, numero } = {}) {
 // Le texte de Timo, mot pour mot chez Meta (UTILITY, fr).
 export const TEXTE_VIREMENT_SALAIRE = [
   "Bonjour {{1}},",
-  "BMI TOGO vous informe que votre salaire de {{2}} a été payé le {{3}}.",
+  "BMI TOGO vous informe que votre salaire du mois de {{2}} a été payé le {{3}}.",
   "Montant : {{4}} {{5}}. Référence : {{6}}.",
   "Merci de confirmer la réception depuis votre espace sur :",
   "gestion.bmitogo.com, dans l\u2019onglet « Salaire ».",

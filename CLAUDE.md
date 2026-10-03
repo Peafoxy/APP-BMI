@@ -5245,7 +5245,7 @@ lit mal est pire qu'un banc absent).
   virement (`texteLignePrivee`) pour celui qui a payé et le principal — le
   salaire d'un collègue ne se lit pas (décision non contredite par Timo).
   ⚠ Salaire seulement (pas les avances ni les commissions — non demandé).
-  ⚠ Son texte dit « salaire de octobre » (pas « d'octobre ») : c'est le sien.
+  Texte corrigé par lui le jour même : « votre salaire du mois de {{2}} ».
 - **À faire par Timo : créer `virement_salaire` chez YCloud** (utility, fr).
   D'ici l'accord, rien ne part et la confirmation dit pourquoi. ~4 F.
   Banc (`verifier-whatsapp`, 4 contrôles), éprouvé. Trois contrôles
