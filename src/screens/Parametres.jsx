@@ -400,6 +400,14 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // pourtant ici qu'on renomme, qu'on supprime et qu'on bascule
   // boutique ↔ magasin : se tromper d'espace y est sans retour.
   const boutiquesDeLEcran = boutiquesVisibles(db, profile, db.boutiques);
+  // ⚠ La caisse TERRAIN est rangée avec les boutiques (c'est ainsi que les
+  // encaissements de chantier, 🔒 Caisse et le tableau de bord la trouvent),
+  // mais ce n'est PAS une boutique (capture Timo, 03/10/2026 : « pourquoi la
+  // caisse terrain est venue comme boutique ? ») : elle a son cadre à part,
+  // sans « En faire un magasin », ni suppression, ni loyer, ni logo.
+  const boutiquesDuTableau = boutiquesDeLEcran.filter((b) => !b.terrain);
+  const caissesTerrain = boutiquesDeLEcran.filter((b) => b.terrain);
+  const MOTIF_TERRAIN = "La caisse de terrain n'est pas une boutique : elle reçoit les encaissements faits sur les chantiers. Ce geste ne la concerne pas.";
   const [accueilTexte, setAccueilTexte] = useState(boutiqueRef.accueil_texte || "");
   const [accueilBadge, setAccueilBadge] = useState(boutiqueRef.accueil_couleur_badge || "#0284c7");
   const [accueilFond, setAccueilFond] = useState(boutiqueRef.accueil_couleur_fond || "#ffffff");
@@ -846,6 +854,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // décision du 25/09/2026 — sinon un gérant changerait son propre loyer).
   const ouvrirLoyer = (b) => {
     if (refuserSaufAdmin(profile, "Renseigner le loyer d'une boutique")) return;
+    if (b.terrain) { uAlert(MOTIF_TERRAIN); return; }
     const actuelle = ficheLoyer(b);
     setLoyerForm(actuelle ? { ...LOYER_VIDE, ...actuelle, montant: String(actuelle.montant || ""), caution: actuelle.caution ? String(actuelle.caution) : "" } : { ...LOYER_VIDE });
     setLoyerPour(b);
@@ -854,6 +863,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     const b = loyerPour;
     if (!b) return;
     if (refuserSaufAdmin(profile, "Renseigner le loyer d'une boutique")) return;
+    if (b.terrain) { uAlert(MOTIF_TERRAIN); return; }
     if (bloquerSiLecture(db, profile)) return;
     const refus = critiqueFicheLoyer(loyerForm);
     if (refus) { uAlert(refus); return; }
@@ -866,6 +876,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
 
   const basculerDepot = async (b) => {
     if (refuserSaufAdmin(profile, "Changer le type d'une boutique (magasin / boutique)")) return;
+    if (b.terrain) { uAlert(MOTIF_TERRAIN); return; }
     if (bloquerSiLecture(db, profile)) return;
     const versDepot = !b.depot;
     if (versDepot && db.ventes.some((v) => v.boutique === b.nom)) {
@@ -878,6 +889,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
 
   const supprimer = async (b) => {
     if (refuserSaufAdmin(profile, "Supprimer une boutique")) return;
+    if (b.terrain) { uAlert(MOTIF_TERRAIN); return; }
     if (bloquerSiLecture(db, profile)) return;
     if (db.boutiques.length <= 1) { uAlert("Gardez au moins une boutique."); return; }
     if (utilisee(b.nom)) { uAlert(`« ${b.nom} » contient des données. Utilisez « Supprimer avec ses données » si vous voulez vraiment la retirer.`); return; }
@@ -889,6 +901,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // commandes). Irréversible — double confirmation obligatoire.
   const supprimerAvecDonnees = async (b) => {
     if (refuserSaufAdminPrincipal(db, profile, "Supprimer une boutique avec toutes ses données")) return;
+    if (b.terrain) { uAlert(MOTIF_TERRAIN); return; }
     if (bloquerSiLecture(db, profile)) return;
     if (db.boutiques.length <= 1) { uAlert("Gardez au moins une boutique."); return; }
     const nom = b.nom;
@@ -923,6 +936,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // base : il se synchronise automatiquement sur toutes les machines)
   const chargerLogo = (b) => {
     if (refuserSaufAdmin(profile, "Changer le logo d'une boutique")) return;
+    if (b.terrain) { uAlert(MOTIF_TERRAIN); return; }
     if (bloquerSiLecture(db, profile)) return;
     const input = document.createElement("input");
     input.type = "file";
@@ -959,6 +973,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
 
   const retirerLogo = async (b) => {
     if (refuserSaufAdmin(profile, "Changer le logo d'une boutique")) return;
+    if (b.terrain) { uAlert(MOTIF_TERRAIN); return; }
     if (bloquerSiLecture(db, profile)) return;
     if (await uConfirm(`Retirer le logo de ${b.nom} ? (le logo BMI sera utilisé sur les reçus)`)) {
       save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, logo: null } : x)) });
@@ -1666,11 +1681,11 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Boutiques ({boutiquesDeLEcran.length})</div>
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Boutiques ({boutiquesDuTableau.length})</div>
         <table className="w-full text-sm min-w-[480px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Logo", "Coordonnées reçu", "Couleur", "Données", ""].map((h) => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr></thead>
           <tbody>
-            {boutiquesDeLEcran.map((b) => (
+            {boutiquesDuTableau.map((b) => (
               <tr key={b.id} data-ligne={b.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-4 py-2"><Badge boutique={b.nom} />
                   <div className="text-xs font-bold mt-1">{b.depot ? <span className="text-purple-700">🏭 Magasin (dépôt)</span> : <span className="text-slate-400">Boutique de vente</span>}</div>
@@ -1711,6 +1726,26 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </tbody>
         </table>
       </div>
+      {caissesTerrain.map((b) => (
+        <div key={b.id} data-ligne={b.id} data-caisse-terrain className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="font-bold text-slate-800">🚐 Caisse de terrain <Badge boutique={b.nom} /></div>
+          <div className="text-xs text-slate-600 mt-1">Ce n'est pas une boutique : elle reçoit les encaissements faits sur les chantiers (les poses seules et leurs versements). On n'y vend rien et elle n'a pas de stock.</div>
+          {b.formation && <div className="text-xs font-bold mt-1 text-amber-700">🎓 Formation — jamais dans les chiffres réels</div>}
+          <div className="text-xs text-slate-600 mt-2 space-y-0.5">
+            <div>
+              Numéros de reçu : <b>{prefixeDe(db, b.nom)}-…</b>
+              <button onClick={() => changerPrefixe(b)} className="ml-2 text-xs font-bold text-sky-800 underline">modifier</button>
+            </div>
+            {b.tel ? <div>Tél : {b.tel}</div> : <div className="text-amber-700">⚠ Sans téléphone : ses reçus WhatsApp indiqueront le numéro BMI principal.</div>}
+            <div className="inline-flex items-center gap-2">Couleur : <span className="w-4 h-4 rounded-full inline-block border border-slate-200" style={{ backgroundColor: col(b.nom) }}></span>Gris (d'office)</div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+            <button onClick={() => modifierInfos(b)} className="text-xs font-bold text-sky-800 underline">📍 Infos reçu</button>
+            <button onClick={() => modifierFondsFixe(b)} className={`text-xs font-bold underline ${b.fonds_caisse_fixe > 0 ? "text-green-700" : "text-sky-800"}`}>💼 Fonds de caisse{b.fonds_caisse_fixe > 0 ? ` ${fmt(b.fonds_caisse_fixe)}` : ""}</button>
+            <button onClick={() => modifierComptesMobiles(b)} className={`text-xs font-bold underline ${MOYENS_MOBILES.some((m) => b[m.champ]) ? "text-green-700" : "text-sky-800"}`}>📱 Comptes mobiles{MOYENS_MOBILES.filter((m) => b[m.champ]).length ? ` (${MOYENS_MOBILES.filter((m) => b[m.champ]).length})` : ""}</button>
+          </div>
+        </div>
+      ))}
       {loyerPour && (<PanneauQuiSeMontre cle={loyerPour.id || loyerPour.nom} retour={loyerPour.id}>
         <div className="rounded-xl p-4 bg-white border-2 border-sky-300 shadow-sm" data-fiche-loyer>
           <div className="font-bold mb-2">🏠 Loyer de <Badge boutique={loyerPour.nom} /></div>

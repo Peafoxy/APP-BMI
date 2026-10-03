@@ -98,6 +98,7 @@ export const CHAPITRE = {
         ["Suppr. avec ses données", "Principal seul : tout est effacé, sur tous les appareils, après avoir **retapé le nom** exact."],
       ]}],
       ["attention", "**Sans téléphone sur la fiche**, le reçu WhatsApp automatique indique le numéro BMI principal : le tableau le signale en ambre."],
+      ["note", "**🚐 La caisse de terrain n'est pas dans ce tableau.** Elle reçoit les encaissements faits sur les chantiers (poses seules et leurs versements) ; elle naît toute seule au premier devis de pose seule validé. Elle a son **cadre à part**, juste sous le tableau, avec seulement **📍 Infos reçu**, **💼 Fonds de caisse**, **📱 Comptes mobiles** et le préfixe de ses reçus. Elle ne se transforme pas en magasin, ne se supprime pas, n'a ni loyer ni logo, et garde la couleur grise."],
 
       ["h3", "D. Le catalogue et les devis"],
       ["ul", [

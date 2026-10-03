@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2124 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2135 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -167,6 +167,13 @@ lit mal est pire qu'un banc absent).
 - La caisse **« Chez le comptable » est réelle et n'a pas de jumelle** ; la
   caisse TERRAIN, elle, a sa jumelle de formation. Seul le contrôle
   d'unicité d'un nom de boutique regarde les deux espaces.
+- **🚐 La caisse TERRAIN n'est pas une boutique** (capture Timo, 03/10/2026 :
+  « pourquoi la caisse terrain est venue comme boutique ? » → « oui ») : elle
+  reste rangée avec les boutiques dans la base, mais ⚙ Paramètres la sort du
+  tableau (`boutiquesDuTableau`) et lui donne un cadre à part (`caissesTerrain`,
+  `data-caisse-terrain`) avec seulement 📍 Infos reçu, 💼 Fonds de caisse,
+  📱 Comptes mobiles et le préfixe ; « En faire un magasin », Suppr., loyer et
+  logo la refusent DANS le geste (`MOTIF_TERRAIN`). Couleur grise d'office.
 - La dérogation `'tous'` doit apparaître dans **chaque** politique
   `espace_cloisonnement` côté Supabase.
 - **L'application et le serveur doivent dire la même chose.** `api/sync-auth.js`

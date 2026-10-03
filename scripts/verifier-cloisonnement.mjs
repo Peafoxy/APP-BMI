@@ -3060,10 +3060,14 @@ titre("Les ecrans d'ADMINISTRATION suivent l'espace regarde, eux aussi");
   const uti = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
   test("★ Parametres affiche la liste filtree, plus db.boutiques brut",
     /const boutiquesDeLEcran = boutiquesVisibles\(db, profile, db\.boutiques\)/.test(par)
-    && /\{boutiquesDeLEcran\.map\(\(b\) => \(/.test(par)
+    // RETOURNÉ le 03/10/2026 : le tableau et le cadre de la caisse de terrain
+    // partent tous deux de la liste FILTRÉE par l'espace regardé.
+    && /const boutiquesDuTableau = boutiquesDeLEcran\.filter\(/.test(par)
+    && /const caissesTerrain = boutiquesDeLEcran\.filter\(/.test(par)
+    && /\{boutiquesDuTableau\.map\(\(b\) => \(/.test(par)
     && !/\{db\.boutiques\.map\(\(b\) => \(/.test(par));
   test("★ le compteur « Boutiques (n) » compte la liste filtree, pas toutes",
-    /Boutiques \(\{boutiquesDeLEcran\.length\}\)/.test(par));
+    /Boutiques \(\{boutiquesDuTableau\.length\}\)/.test(par));
   test("★ Utilisateurs part de utilisateursDeLEspace",
     /const dansMonEspace = utilisateursDeLEspace\(db, profile\)/.test(uti)
     && !/const utilisateursVisibles = jeSuisAdminPrincipal \? db\.users :/.test(uti));
@@ -12345,6 +12349,25 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     test(`★ ${f} : chaque chapitre cité existe dans le manuel`, g.chapitres.every((n) => numerosChapitres.includes(n)));
     test(`★ ${f} : une journée, au moins six épreuves d'examen avec ce qu'on doit voir, et des questions`,
       g.journee.length > 5 && g.examen.epreuves.length >= 6 && g.examen.epreuves.every((e) => e.titre && e.consigne && e.attendu) && g.examen.questions.length >= 3);
+  }
+}
+
+// ── 🚐 La caisse TERRAIN n'est pas une boutique (capture Timo, 03/10/2026) ──
+{
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("🚐 le tableau des boutiques de ⚙ Paramètres écarte la caisse de terrain",
+    /const boutiquesDuTableau = boutiquesDeLEcran\.filter\(\(b\) => !b\.terrain\)/.test(par) && /\{boutiquesDuTableau\.map\(\(b\) =>/.test(par) && !/\{boutiquesDeLEcran\.map\(/.test(par));
+  test("🚐 le compte « Boutiques (N) » ne compte pas la caisse de terrain", /Boutiques \(\{boutiquesDuTableau\.length\}\)/.test(par));
+  const debut = par.indexOf("{caissesTerrain.map((b) =>");
+  const cadre = debut > 0 ? par.slice(debut, par.indexOf("{loyerPour && (", debut)) : "";
+  test("🚐 la caisse de terrain a son cadre à part, qui dit ce qu'elle est", /data-caisse-terrain/.test(cadre) && /Ce n'est pas une boutique/.test(cadre));
+  test("🚐 son cadre garde Infos reçu, Fonds de caisse, Comptes mobiles et le préfixe",
+    ["modifierInfos(b)", "modifierFondsFixe(b)", "modifierComptesMobiles(b)", "changerPrefixe(b)"].every((g) => cadre.includes(g)));
+  test("🚐 son cadre n'offre ni « En faire un magasin », ni suppression, ni loyer, ni logo",
+    !!cadre && !["basculerDepot", "supprimer(", "supprimerAvecDonnees", "ouvrirLoyer", "chargerLogo", "setCouleurPour"].some((g) => cadre.includes(g)));
+  const corps = (nom) => { const i = par.indexOf(`const ${nom} = `); return i < 0 ? "" : par.slice(i, par.indexOf("\n  };", i)); };
+  for (const g of ["basculerDepot", "supprimer", "supprimerAvecDonnees", "ouvrirLoyer", "enregistrerLoyer", "chargerLogo"]) {
+    test(`🚐 ${g} refuse la caisse de terrain DANS le geste`, /if \(b\.terrain\) \{ uAlert\(MOTIF_TERRAIN\); return; \}/.test(corps(g)));
   }
 }
 
