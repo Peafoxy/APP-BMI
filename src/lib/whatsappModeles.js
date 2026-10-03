@@ -1471,13 +1471,19 @@ export function variablesAlerte({ administrateur, client, numero } = {}) {
 // ---------------------------------------------------------------
 // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE — `virement_salaire` (03/10/2026)
 // ---------------------------------------------------------------
-// Le texte de Timo, mot pour mot chez Meta (UTILITY, fr).
+// Le texte de Timo, mot pour mot tel qu'il l'a créé chez YCloud le
+// 03/10/2026 (UTILITY, fr) — titre, lignes vides et double espace compris.
 export const TEXTE_VIREMENT_SALAIRE = [
   "Bonjour {{1}},",
-  "BMI TOGO vous informe que votre salaire du mois de {{2}} a été payé le {{3}}.",
+  "",
+  "Virement de salaire",
+  "",
+  "BMI TOGO vous informe que votre salaire du mois de  {{2}} a été payé le {{3}}.",
   "Montant : {{4}} {{5}}. Référence : {{6}}.",
+  "",
   "Merci de confirmer la réception depuis votre espace sur :",
-  "gestion.bmitogo.com, dans l\u2019onglet « Salaire ».",
+  "gestion.bmitogo.com, dans l'onglet « Salaire ».",
+  "",
   "{{7}}",
   "E-mail : contact@bmitogo.com",
 ].join("\n");

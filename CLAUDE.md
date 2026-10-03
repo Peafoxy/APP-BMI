@@ -5245,9 +5245,11 @@ lit mal est pire qu'un banc absent).
   virement (`texteLignePrivee`) pour celui qui a payé et le principal — le
   salaire d'un collègue ne se lit pas (décision non contredite par Timo).
   ⚠ Salaire seulement (pas les avances ni les commissions — non demandé).
-  Texte corrigé par lui le jour même : « votre salaire du mois de {{2}} ».
-- **À faire par Timo : créer `virement_salaire` chez YCloud** (utility, fr).
-  D'ici l'accord, rien ne part et la confirmation dit pourquoi. ~4 F.
+  Texte corrigé par lui le jour même (« du mois de {{2}} », titre « Virement
+  de salaire », lignes vides) et créé chez YCloud tel quel — recopié mot pour
+  mot dans `TEXTE_VIREMENT_SALAIRE`, double espace avant {{2}} compris.
+- **Créé par Timo chez YCloud le 03/10/2026** (utility, fr).
+  D'ici l'accord de Meta, rien ne part et la confirmation dit pourquoi. ~4 F.
   Banc (`verifier-whatsapp`, 4 contrôles), éprouvé. Trois contrôles
   RETOURNÉS (vingt-six modèles, les modèles à ligne, cinq privés). Rien à
   coller dans Supabase.
