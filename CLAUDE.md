@@ -3226,10 +3226,10 @@ lit mal est pire qu'un banc absent).
   fil ne garde que nom, type, taille, `envoye: true` — l'écran dit
   « 📎 nom · taille — envoyé » et ne va rien chercher (la copie reste sur le
   téléphone BMI). ⚠ Donc **pas d'aperçu** d'une photo envoyée dans le fil.
-- ⚠ **La forme de l'appel de dépôt YCloud n'a PAS pu être vérifiée** (leur
-  site est fermé depuis le poste) : `POST /v2/whatsapp/media/{numéro}/upload`,
-  formulaire `file`, réponse `id`. Un refus part dans le journal Vercel
-  (« dépôt du fichier refusé ») : au premier essai raté, regarder là.
+- ✅ **La forme de l'appel de dépôt YCloud est CONFIRMÉE par un vrai envoi**
+  (Timo, 03/10/2026 : « c'est bon, le fichier est bien arrivé ») :
+  `POST /v2/whatsapp/media/{numéro}/upload`, formulaire `file`, réponse `id`.
+  Un refus futur part dans le journal Vercel (« dépôt du fichier refusé »).
 - L'assistant sait qu'un fichier envoyé l'a été PAR BMI (`messagesPourIA`).
   Coût : celui d'une réponse (~4 F, 1 000 offertes par mois). Rien à coller
   dans Supabase. Banc ㊺ (`verifier-whatsapp`, 19), éprouvé en remettant cinq
