@@ -795,6 +795,31 @@ export function critiqueRetraitCredit(credit, motif) {
 export const retenuesSalaireDuCredit = (credit) =>
   (credit?.remboursements || []).filter((r) => r.source === "salaire").reduce((x, r) => x + Number(r.montant || 0), 0);
 
+// ↪ UNE RETENUE DÉJÀ FAITE SE RATTACHE À UN CRÉDIT (03/10/2026 — défaut de
+// « 🗑 Retirer » : en retirant le crédit de 400 000 F d'ANGELE, la retenue
+// d'octobre partait avec lui ; le bulletin ne la voyait plus et annonçait
+// « reste à percevoir 25 000 F »). Le crédit qui la reçoit garde son RESTE DÛ
+// tel quel (il a été saisi par l'administrateur, c'est lui la vérité) : le
+// montant accordé monte d'autant, l'échéance du mois est marquée retenue.
+export function rattacherRetenues(credit, retenues, par, aujourdhui) {
+  const total = (retenues || []).reduce((x, r) => x + Number(r.montant || 0), 0);
+  if (!credit || total <= 0) return credit;
+  const echeances = [...(credit.echeances || []), ...retenues.map((r) => ({ mois: r.mois, montant: Number(r.montant), paye: true, date_paiement: r.date || aujourdhui }))]
+    .sort((a, b) => String(a.mois).localeCompare(String(b.mois)));
+  const remboursements = [...(credit.remboursements || []), ...retenues.map((r) => ({ date: r.date || aujourdhui, montant: Number(r.montant), par, source: "salaire", note: `Retenue sur salaire ${libelleMoisFR(r.mois)} (rattachée)` }))];
+  return { ...credit, montant_accorde: Number(credit.montant_accorde || 0) + total, echeances, remboursements };
+}
+// Les retenues PRISES par un crédit (ses échéances déjà retenues sur salaire).
+export const retenuesPrises = (credit) =>
+  (credit?.echeances || []).filter((e) => e.paye).map((e) => ({ mois: e.mois, montant: Number(e.montant || 0), date: e.date_paiement }));
+// Les retenues sur salaire écrites en caisse qu'AUCUN crédit ne porte plus.
+export function retenuesOrphelines(u, depenses) {
+  const portes = new Set(creditsDe(u).flatMap((c) => (c.echeances || []).filter((e) => e.paye).map((e) => e.mois)));
+  return (depenses || []).filter((d) => d.auto === "retenue" && d.user_id === u?.id && Number(d.montant) < 0)
+    .map((d) => ({ id: d.id, mois: d.mois || String(d.date || "").slice(0, 7), montant: -Number(d.montant), date: d.date }))
+    .filter((r) => r.mois && !portes.has(r.mois));
+}
+
 export const marquerCreditAnterieur = (credit, profile, aujourdhui) =>
   ({ ...credit, anterieur: { le: aujourdhui, par: profile.nom, corrige: true }, boutique: undefined });
 
@@ -1291,7 +1316,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
     deps.push(nouvelleDepense(profile, {
       boutique: bq, categorie: "Prêt au personnel",
       description: `Remboursement crédit BMI retenu sur salaire ${libelleMoisFR(m)} — ${u.nom}`,
-      montant: -retenue, moyen, auto: "retenue", user_id: u.id,
+      montant: -retenue, moyen, auto: "retenue", user_id: u.id, mois: m,
       ...src.champs,
     }));
   }

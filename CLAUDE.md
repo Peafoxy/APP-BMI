@@ -5260,7 +5260,17 @@ lit mal est pire qu'un banc absent).
   même) : administrateur PRINCIPAL, motif obligatoire, fiche fraîche ; le
   crédit part avec SES lignes d'argent (`lignesDuCredit` : auto « credit » et
   « remboursement » portant son `credit_id`, toutes caisses), jamais la
-  retenue du salaire (auto « retenue », elle va avec le salaire). Et
+  retenue du salaire (auto « retenue », elle va avec le salaire).
+  ⚠⚠ **Défaut de cette première version, réparé en 2.101.417** (bulletin
+  d'ANGELE : « reste à percevoir 25 000 F ») : le crédit retiré emportait
+  l'ÉCHÉANCE d'octobre — or le bulletin lit la retenue du mois sur les
+  échéances (`retenueCreditMois`). Depuis, « Retirer » demande à quel autre
+  crédit rattacher les retenues prises (`retenuesPrises` →
+  `rattacherRetenues` : montant accordé + retenue, échéance marquée retenue,
+  **reste dû inchangé** — il a été saisi par l'administrateur), et
+  **« ↪ Rattacher la retenue »** apparaît sur un crédit accordé tant qu'une
+  ligne « retenue » n'est portée par aucun crédit (`retenuesOrphelines` ; la
+  ligne porte `mois` depuis 2.101.417). Et
   **« ↩ Date d'avant l'application » n'est plus bloqué par une retenue sur
   salaire** (`source: "salaire"`) — seul un versement en caisse le ferme. Une
   retenue se lit dans 📤 Dépenses « retenu sur le salaire — pas sorti de la

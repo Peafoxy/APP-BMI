@@ -6965,6 +6965,24 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
       test("★ 📥 le journal ouvre un crédit d'avant l'application : AN, débit 421 / crédit 471 du montant, aucune trésorerie ; jamais un crédit ordinaire, jamais la formation, jamais hors période",
         jAN.length === 2 && jAN[0][1] === "AN" && jAN[0][3] === "421" && jAN[0][6] === 375000 && jAN[1][3] === "471" && jAN[1][7] === 375000
         && !jAN.some((l) => /^5/.test(l[3])) && Core.lignesJournal(dbAN, "2026-11-01", "2026-11-30").length === 0);
+      // ↪ LA RETENUE D'OCTOBRE NE DISPARAÎT PAS AVEC UN CRÉDIT RETIRÉ (défaut de 2.101.415, bulletin d'ANGELE :
+      // « reste à percevoir 25 000 F » alors que la retenue avait été prise).
+      const cBon = { id: "c1", statut: "approuve", montant_accorde: 375000, anterieur: { le: "2026-10-03" }, remboursements: [], echeances: Array.from({ length: 15 }, (_, i) => ({ mois: `2026-${String(11 + i).padStart(2, "0")}`, montant: 25000, paye: false })) };
+      const angU = { id: "ang", credits: [cBon] };
+      const depsO = [{ id: "t", auto: "retenue", user_id: "ang", date: "2026-10-03", montant: -25000 }];
+      const orph = C.retenuesOrphelines(angU, depsO);
+      const rat = C.rattacherRetenues(cBon, orph, "TIMO", "2026-10-03");
+      test("★ ↪ une retenue sur salaire qu'aucun crédit ne porte se retrouve, et se rattache : le crédit garde son reste dû (375 000), le montant accordé monte à 400 000, le bulletin d'octobre compte de nouveau 25 000 (net 35 000)",
+        orph.length === 1 && orph[0].mois === "2026-10" && orph[0].montant === 25000
+        && rat.montant_accorde === 400000 && C.resteCredit(rat) === 375000 && C.retenueCreditMois({ credits: [rat] }, "2026-10") === 25000
+        && C.retenuesOrphelines({ id: "ang", credits: [rat] }, depsO).length === 0
+        && C.retenuesPrises({ echeances: [{ mois: "2026-10", montant: 25000, paye: true }, { mois: "2026-11", montant: 25000 }] }).length === 1);
+      const uR2 = readFileSync("src/screens/Utilisateurs.jsx", "utf8").replace(/\/\/[^\n]*/g, "");
+      const corpsR2 = uR2.slice(uR2.indexOf("const retirerCredit"), uR2.indexOf("const rattacherRetenueOrpheline"));
+      test("★ 🗑 retirer un crédit propose de rattacher SES retenues déjà prises à un autre crédit (reste dû inchangé) ; sans autre crédit, la confirmation le dit",
+        /const prises = retenuesPrises\(frais\)/.test(corpsR2) && /rattacherRetenues\(y, prises, profile\.nom, today\(\)\)/.test(corpsR2) && /le bulletin de ce mois ne la comptera plus/.test(corpsR2)
+        && /data-rattacher-retenue onClick=\{\(\) => rattacherRetenueOrpheline\(u, c\)\}/.test(uR2)
+        && /auto: "retenue", user_id: u\.id, mois: m,/.test(readFileSync("src/lib/calculs.js", "utf8")));
       const dpR = readFileSync("src/screens/Depenses.jsx", "utf8");
       test("★ 📤 une retenue de crédit sur salaire se lit « retenu sur le salaire — pas sorti de la caisse », un remboursement « argent rentré dans la caisse »",
         /x\.auto === "retenue" \? "retenu sur le salaire — pas sorti de la caisse · " : Number\(x\.montant\) < 0 \? "↩ argent rentré dans la caisse · "/.test(dpR));

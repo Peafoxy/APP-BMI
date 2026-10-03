@@ -19,7 +19,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -1055,14 +1055,39 @@ export function Users({ db, save, profile }) {
     const detail = lignes.length
       ? lignes.map((d) => `• ${Number(d.montant) < 0 ? "entrée" : "sortie"} de ${fmt(Math.abs(Number(d.montant)))} — ${d.boutique}, ${d.paiement || ""}, le ${dFR(d.date)}`).join("\n")
       : "• aucune ligne d'argent";
-    if (!await uConfirm(`Ce qui part avec ce crédit :\n${detail}\n\n${retenues ? `La retenue de ${fmt(retenues)} déjà prise sur le salaire RESTE écrite avec le salaire (l'argent a vraiment été retenu) ; vérifiez que le bon crédit en tient compte.\n\n` : ""}Le crédit disparaît de la liste. Une ligne reste dans l'Historique.`)) return;
+    // La retenue déjà prise sur un salaire ne disparaît JAMAIS avec le crédit :
+    // le bulletin du mois en a besoin. Elle se rattache à un autre crédit.
+    const prises = retenuesPrises(frais);
+    const autres = creditsDe(db.users.find((x) => x.id === u.id) || u).filter((y) => y.id !== c.id && (y.statut === "approuve" || y.statut === "solde"));
+    let cible = null;
+    if (prises.length && autres.length) {
+      const libelles = autres.map((y) => `${fmt(y.montant_accorde)} du ${dFR(y.date_demande || y.date || today())}${y.anterieur ? " (d'avant l'application)" : ""} — reste ${fmt(resteCredit(y))}`);
+      const choix = await uChoix(`La retenue déjà prise sur le salaire (${prises.map((r) => `${libelleMoisFR(r.mois)} : ${fmt(r.montant)}`).join(", ")}) doit rester comptée sur le bulletin.\n\nÀ quel crédit la rattacher ? Son reste dû ne change pas.`, libelles);
+      if (choix === null) return;
+      cible = autres[libelles.indexOf(choix)];
+    }
+    if (!await uConfirm(`Ce qui part avec ce crédit :\n${detail}\n\n${retenues ? (cible ? `La retenue de ${fmt(retenues)} déjà prise sur le salaire est rattachée au crédit choisi (son reste dû ne change pas) : le bulletin la compte toujours.\n\n` : `⚠ La retenue de ${fmt(retenues)} déjà prise sur le salaire n'a aucun autre crédit où se rattacher : le bulletin de ce mois ne la comptera plus.\n\n`) : ""}Le crédit disparaît de la liste. Une ligne reste dans l'Historique.`)) return;
     const ids = new Set(lignes.map((d) => d.id));
     save({
       ...db,
-      users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).filter((y) => y.id !== c.id) } : x)),
+      users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).filter((y) => y.id !== c.id).map((y) => (cible && y.id === cible.id ? rattacherRetenues(y, prises, profile.nom, today()) : y)) } : x)),
       depenses: db.depenses.filter((d) => !ids.has(d.id)),
     }, `Crédit BMI de ${u.nom} (${fmt(frais.montant_accorde || frais.montant_demande)}) retiré — saisi par erreur : ${motif.trim()}${lignes.length ? ` — lignes retirées : ${lignes.map((d) => `${fmt(d.montant)} (${d.boutique})`).join(", ")}` : ""}`);
     uAlert(`✅ Crédit retiré${lignes.length ? `, avec ${lignes.length} ligne(s) d'argent` : ""}.`);
+  };
+
+  // ↪ Une retenue sur salaire qu'aucun crédit ne porte plus (crédit retiré
+  // avant 2.101.417) : on la rattache à ce crédit, son reste dû ne bouge pas.
+  const rattacherRetenueOrpheline = async (u, c) => {
+    if (refuserSaufAdmin(profile, "Rattacher une retenue déjà faite")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const fiche = db.users.find((x) => x.id === u.id) || u;
+    const frais = creditsDe(fiche).find((y) => y.id === c.id);
+    const orph = retenuesOrphelines(fiche, db.depenses);
+    if (!frais || !orph.length) { uAlert("Aucune retenue sur salaire à rattacher."); return; }
+    if (!await uConfirm(`Rattacher à ce crédit la retenue déjà prise sur le salaire de ${u.nom} :\n${orph.map((r) => `• ${libelleMoisFR(r.mois)} : ${fmt(r.montant)}`).join("\n")}\n\nLe crédit passe à ${fmt(Number(frais.montant_accorde || 0) + orph.reduce((x, r) => x + r.montant, 0))} accordés ; le reste dû ne change pas (${fmt(resteCredit(frais))}). Le bulletin du mois compte de nouveau la retenue.`)) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).map((y) => (y.id === c.id ? rattacherRetenues(y, orph, profile.nom, today()) : y)) } : x)) },
+      `Retenue sur salaire rattachée au crédit BMI de ${u.nom} : ${orph.map((r) => `${libelleMoisFR(r.mois)} ${fmt(r.montant)}`).join(", ")}`);
   };
 
   const rembourserCredit = async (u, c) => {
@@ -1559,6 +1584,7 @@ export function Users({ db, save, profile }) {
                     {c.statut === "en_attente" && <button onClick={() => refuserCredit(u, c)} className="text-xs font-bold text-red-600 underline mr-2">Refuser</button>}
                     {c.statut === "approuve" && resteCredit(c) > 0 && <button onClick={() => rembourserCredit(u, c)} className="text-xs font-bold text-sky-800 underline mr-2">+ Remboursement</button>}
                     {c.statut === "approuve" && !c.anterieur && !(c.remboursements || []).some((r) => r.source !== "salaire") && depenseDuCredit(db.depenses, c) && <button onClick={() => corrigerCreditAnterieur(u, c)} className="text-xs font-bold text-amber-700 underline mr-2" title="Le prêt a été remis avant l'application : retirer sa sortie de caisse">↩ Date d'avant l'application</button>}
+                    {c.statut === "approuve" && retenuesOrphelines(u, db.depenses).length > 0 && <button data-rattacher-retenue onClick={() => rattacherRetenueOrpheline(u, c)} className="text-xs font-bold text-amber-700 underline mr-2" title="Une retenue sur salaire n'est plus portée par aucun crédit">↪ Rattacher la retenue</button>}
                     {jeSuisAdminPrincipal && <button data-retirer-credit onClick={() => retirerCredit(u, c)} className="text-xs font-bold text-red-700 underline" title="Crédit saisi par erreur : il part avec sa sortie de prêt et ses remboursements versés en caisse">🗑 Retirer</button>}
                   </td>
                 </tr>
