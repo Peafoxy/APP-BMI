@@ -19,7 +19,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -1038,6 +1038,33 @@ export function Users({ db, save, profile }) {
     uAlert(`✅ Corrigé : la sortie de ${fmt(dep.montant)} est retirée de ${dep.boutique}. Le crédit de ${u.nom} reste en cours.`);
   };
 
+  // 🗑 Un crédit saisi par erreur : il part avec SES lignes d'argent (la sortie
+  // du prêt, les remboursements versés en caisse). Les retenues sur salaire
+  // restent avec le salaire. Administrateur principal, motif, fiche fraîche.
+  const retirerCredit = async (u, c) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Retirer un crédit saisi par erreur")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = creditsDe(db.users.find((x) => x.id === u.id) || u).find((y) => y.id === c.id);
+    if (!frais) { uAlert("Ce crédit est introuvable."); return; }
+    const lignes = lignesDuCredit(db.depenses, frais);
+    const retenues = retenuesSalaireDuCredit(frais);
+    const motif = await uPrompt(`Retirer le crédit de ${fmt(frais.montant_accorde || frais.montant_demande)} de ${u.nom} (saisi par erreur) ?\n\nMotif — obligatoire :`, "");
+    if (motif === null) return;
+    const refus = critiqueRetraitCredit(frais, motif);
+    if (refus) { uAlert(refus); return; }
+    const detail = lignes.length
+      ? lignes.map((d) => `• ${Number(d.montant) < 0 ? "entrée" : "sortie"} de ${fmt(Math.abs(Number(d.montant)))} — ${d.boutique}, ${d.paiement || ""}, le ${dFR(d.date)}`).join("\n")
+      : "• aucune ligne d'argent";
+    if (!await uConfirm(`Ce qui part avec ce crédit :\n${detail}\n\n${retenues ? `La retenue de ${fmt(retenues)} déjà prise sur le salaire RESTE écrite avec le salaire (l'argent a vraiment été retenu) ; vérifiez que le bon crédit en tient compte.\n\n` : ""}Le crédit disparaît de la liste. Une ligne reste dans l'Historique.`)) return;
+    const ids = new Set(lignes.map((d) => d.id));
+    save({
+      ...db,
+      users: db.users.map((x) => (x.id === u.id ? { ...x, credits: creditsDe(x).filter((y) => y.id !== c.id) } : x)),
+      depenses: db.depenses.filter((d) => !ids.has(d.id)),
+    }, `Crédit BMI de ${u.nom} (${fmt(frais.montant_accorde || frais.montant_demande)}) retiré — saisi par erreur : ${motif.trim()}${lignes.length ? ` — lignes retirées : ${lignes.map((d) => `${fmt(d.montant)} (${d.boutique})`).join(", ")}` : ""}`);
+    uAlert(`✅ Crédit retiré${lignes.length ? `, avec ${lignes.length} ligne(s) d'argent` : ""}.`);
+  };
+
   const rembourserCredit = async (u, c) => {
     if (refuserSaufAdmin(profile, "Enregistrer un remboursement de crédit")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -1512,7 +1539,7 @@ export function Users({ db, save, profile }) {
                   <td className="px-3 py-2 text-xs">
                     {c.mode === "salaire"
                       ? <>Retenue sur salaire{c.mensualites ? ` · ${c.mensualites} mois` : ""}
-                          {(c.echeances || []).some((e) => !e.paye) && (
+                          {c.statut === "approuve" && (c.echeances || []).some((e) => !e.paye) && (
                             <div className="text-slate-500">Prochaine : {libelleMoisFR((c.echeances || []).find((e) => !e.paye).mois)} · {fmt((c.echeances || []).find((e) => !e.paye).montant)}</div>
                           )}
                         </>
@@ -1531,7 +1558,8 @@ export function Users({ db, save, profile }) {
                     {c.statut === "en_attente" && <button onClick={() => approuverCredit(u, c)} className="text-xs font-bold text-green-700 underline mr-2">Approuver</button>}
                     {c.statut === "en_attente" && <button onClick={() => refuserCredit(u, c)} className="text-xs font-bold text-red-600 underline mr-2">Refuser</button>}
                     {c.statut === "approuve" && resteCredit(c) > 0 && <button onClick={() => rembourserCredit(u, c)} className="text-xs font-bold text-sky-800 underline mr-2">+ Remboursement</button>}
-                    {c.statut === "approuve" && !c.anterieur && !(c.remboursements || []).length && depenseDuCredit(db.depenses, c) && <button onClick={() => corrigerCreditAnterieur(u, c)} className="text-xs font-bold text-amber-700 underline mr-2" title="Le prêt a été remis avant l'application : retirer sa sortie de caisse">↩ Date d'avant l'application</button>}
+                    {c.statut === "approuve" && !c.anterieur && !(c.remboursements || []).some((r) => r.source !== "salaire") && depenseDuCredit(db.depenses, c) && <button onClick={() => corrigerCreditAnterieur(u, c)} className="text-xs font-bold text-amber-700 underline mr-2" title="Le prêt a été remis avant l'application : retirer sa sortie de caisse">↩ Date d'avant l'application</button>}
+                    {jeSuisAdminPrincipal && <button data-retirer-credit onClick={() => retirerCredit(u, c)} className="text-xs font-bold text-red-700 underline" title="Crédit saisi par erreur : il part avec sa sortie de prêt et ses remboursements versés en caisse">🗑 Retirer</button>}
                   </td>
                 </tr>
               ))}

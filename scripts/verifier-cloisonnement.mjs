@@ -4971,14 +4971,16 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // mois les comptaient encore. Un écran oublié fait mentir une règle.
   test("★ l'écran 💰 Dépenses lui-même ne compte NI les versements de fonds NI les remboursements de reprise (liste et « Ce mois »), et dit où les retrouver",
     // 13/09/2026 : la liste passe en plus par depensesVisibles (un technicien ne voit que les siennes) — horsVersements reste dedans.
-    /const liste = depensesVisibles\(horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\), profile\);/.test(dep)
+    /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste */.test(dep)
     // 12/09/2026 : « Ce mois » passe par depensesComptees (une dépense en attente ne compte pas).
     // ⚠ RETOURNÉ le 30/09/2026 : PAIEMENTS → MOYENS_ENCAISSEMENT (« Crédit (dette) » retiré des dépenses).
-    && /import \{ CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees \} from "\.\.\/lib\/constants";/.test(dep)
+    && /import \{ CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL \} from "\.\.\/lib\/constants";/.test(dep)
     && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
-    // ⚠ RETOURNÉ le 03/10/2026 : les prêts au personnel rejoignent la liste, la phrase dit où retrouver chacun.
-    && /Retrouvez les trois premiers dans <b>🔒 Caisse<\/b>/.test(dep) && /les prêts dans <b>👥 Utilisateurs → 🏦 Crédits BMI<\/b>/.test(dep));
+    // ⚠ RETOURNÉ DEUX FOIS le 03/10/2026 : les prêts avaient quitté la liste (hors charges) ; Timo :
+    // « remets les prêts dans Dépenses » — une sortie du tiroir ne doit jamais être invisible.
+    && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep) && /sont dans la liste \(ils font bouger la caisse\) mais ne comptent pas dans « Ce mois »/.test(dep)
+    && /x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| horsVersements\(\[x\]\)\.length === 1/.test(dep) && /data-pret-personnel/.test(dep));
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
     (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
     // 13/09/2026 : « appliquer la règle d'archivage aussi à l'historique des dépenses » — LE composant commun, plus de pagination.
@@ -5882,7 +5884,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       rs.lignes[0].resteFonds === 45000 && rs.lignes[0].fondsRemis === 50000 && rs.lignes[0].entrees === 348000 && rs.lignes[1].resteFonds === 0 && rs.lignes[1].fondsRemis === 0 && rs.total.resteFonds === 45000 && rs.total.fondsRemis === 50000 && rs.total.fondsFixe === 100000);
     test("★ le fonds remis n'est ni une charge ni une dépense : CATEGORIES_HORS_CHARGES le porte, horsVersements et depensesComptees l'écartent (tableau de bord, journal, export, écran Dépenses) ; l'écran Dépenses DIT où le retrouver",
       Cs.CATEGORIES_HORS_CHARGES.includes("Fonds de caisse remis") && Cs.horsVersements(dbB.depenses).every((d) => !Vs.estFondsCaisseRemis(d)) && Cs.depensesComptees(dbB.depenses).length === 1 && Cs.horsVersements(dbB.depenses).length === 1
-      && /les <b>fonds de caisse remis par le DG<\/b>, les <b>remboursements de reprise<\/b> et les <b>prêts au personnel<\/b> ne sont pas des dépenses/ /* RETOURNÉ le 03/10/2026 : + les prêts */.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
+      && /les <b>fonds de caisse remis par le DG<\/b> et les <b>remboursements de reprise<\/b> ne sont pas des dépenses/ /* RETOURNÉ deux fois le 03/10/2026 : les prêts sont revenus dans la liste */.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
     // La clôture : le jour de la remise, c'est une ENTRÉE du tiroir — jamais une « sortie justifiée » négative.
     const sortieClF = join("node_modules", ".cache", `bmi-cloture-fonds-${process.pid}.mjs`);
     await build({ entryPoints: ["src/lib/cloture.js"], bundle: true, format: "esm", platform: "node", outfile: sortieClF, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
@@ -6917,6 +6919,34 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
       && /déjà marqué/.test(C.critiqueCreditAnterieur({ ...cAng, anterieur: { le: "x" } }, [depAng]))
       && /accordé/.test(C.critiqueCreditAnterieur({ ...cAng, statut: "en_attente" }, [depAng]))
       && (() => { const m = C.marquerCreditAnterieur(cAng, timoA, "2026-10-03"); return m.anterieur.corrige === true && m.statut === "approuve" && m.montant_accorde === 400000 && m.echeances.length === 1; })());
+    // ⚠ RETOURNÉ le 03/10/2026 (les crédits d'ANGELE) : une RETENUE SUR SALAIRE ne bloque plus la correction ;
+    // seul un versement en caisse la ferme (il peut être réel).
+    test("★ ↩ une retenue sur salaire ne bloque plus « Date d'avant l'application » ; un remboursement versé en caisse, si",
+      C.critiqueCreditAnterieur({ ...cAng, remboursements: [{ montant: 25000, source: "salaire" }] }, [depAng]) === ""
+      && /versé en caisse/.test(C.critiqueCreditAnterieur({ ...cAng, remboursements: [{ montant: 25000, source: "salaire" }, { montant: 375000, source: "manuel" }] }, [depAng])));
+    {
+      const cr2 = { id: "cr2", statut: "solde", montant_accorde: 400000, remboursements: [{ montant: 25000, source: "salaire" }, { montant: 375000, source: "manuel" }] };
+      const deps2 = [
+        { id: "p", auto: "credit", credit_id: "cr2", montant: 400000, boutique: "DEMAKPOE" },
+        { id: "r", auto: "remboursement", credit_id: "cr2", montant: -375000, boutique: "APESSITO" },
+        { id: "t", auto: "retenue", user_id: "ang", montant: -25000, boutique: "DEMAKPOE" },
+        { id: "s", auto: "virement", categorie: "Salaires", montant: 60000, boutique: "DEMAKPOE" },
+        { id: "z", auto: "remboursement", credit_id: "autre", montant: -1000, boutique: "DEMAKPOE" },
+      ];
+      const uRet = readFileSync("src/screens/Utilisateurs.jsx", "utf8").replace(/\/\/[^\n]*/g, "");
+      const corpsRet = uRet.slice(uRet.indexOf("const retirerCredit"), uRet.indexOf("const rembourserCredit"));
+      test("★ 🗑 retirer un crédit saisi par erreur : il emporte SA sortie de prêt et SES remboursements versés en caisse (toutes caisses), jamais la retenue du salaire ni le salaire ; motif obligatoire ; administrateur principal, fiche fraîche",
+        C.lignesDuCredit(deps2, cr2).map((d) => d.id).join("|") === "p|r" && C.retenuesSalaireDuCredit(cr2) === 25000
+        && /obligatoire/.test(C.critiqueRetraitCredit(cr2, "  ")) && C.critiqueRetraitCredit(cr2, "doublon") === ""
+        && /refuserSaufAdminPrincipal\(db, profile, "Retirer un crédit saisi par erreur"\)/.test(corpsRet)
+        && /creditsDe\(db\.users\.find\(\(x\) => x\.id === u\.id\) \|\| u\)/.test(corpsRet)
+        && /critiqueRetraitCredit\(frais, motif\)/.test(corpsRet) && /lignesDuCredit\(db\.depenses, frais\)/.test(corpsRet)
+        && /depenses: db\.depenses\.filter\(\(d\) => !ids\.has\(d\.id\)\)/.test(corpsRet)
+        && /\{jeSuisAdminPrincipal && <button data-retirer-credit onClick=\{\(\) => retirerCredit\(u, c\)\}/.test(uRet));
+      const dpR = readFileSync("src/screens/Depenses.jsx", "utf8");
+      test("★ 📤 une retenue de crédit sur salaire se lit « retenu sur le salaire — pas sorti de la caisse », un remboursement « argent rentré dans la caisse »",
+        /x\.auto === "retenue" \? "retenu sur le salaire — pas sorti de la caisse · " : Number\(x\.montant\) < 0 \? "↩ argent rentré dans la caisse · "/.test(dpR));
+    }
     const utA = readFileSync("src/screens/Utilisateurs.jsx", "utf8").replace(/\/\/[^\n]*/g, "");
     const corpsEnr = utA.slice(utA.indexOf("const enregistrerCreditAnterieur"), utA.indexOf("const corrigerCreditAnterieur"));
     const corpsCor = utA.slice(utA.indexOf("const corrigerCreditAnterieur"), utA.indexOf("const rembourserCredit"));
@@ -7933,7 +7963,7 @@ titre("📤 Dépenses ouvert aux techniciens : leurs propres dépenses seulement
   test("★ l'onglet est dans ONGLETS_ROLE pour technicien et technicien_bmi, dans leurs menus d'App (pas dans celui du commercial), et l'écran filtre par depensesVisibles avec le titre « Mes dépenses »",
     /^  technicien: \[.*"depenses"[,\]]/m.test(calD) && /^  technicien_bmi: \[.*"depenses"[,\]]/m.test(calD) && !/^  commercial: \[.*"depenses"/m.test(calD)
     && /\.\.\.\(isTechnicien \? \[\["depenses", "📤 Dépenses"\]\] : \[\]\)/.test(appD) && /\["parc", "🏠 Clients installés"\].*\["depenses", "📤 Dépenses"\]\]/.test(appD)
-    && /const liste = depensesVisibles\(horsVersements\(db\.depenses\)\.filter\(\(x\) => x\.boutique === boutique\), profile\);/.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
+    && /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste */.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
 }
 
 

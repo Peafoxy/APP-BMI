@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { fmt, today, dFR, totalVente } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
-import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees } from "../lib/constants";
+import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE } from "../lib/validationDepenses";
@@ -42,7 +42,10 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
         <tr key={x.id} data-ligne={x.id} className={`border-t border-slate-100 hover:bg-sky-50${estRejetee(x) ? " bg-red-50 text-red-800" : estEnAttente(x) ? " bg-amber-50" : ""}`}>
           {/* Timo (13/09/2026) : la première colonne reste figée (Stocks, Dépenses, Dettes — ordinateur aussi). */}
           <td className={`px-3 py-2 whitespace-nowrap ${celluleFigee(estRejetee(x) ? "bg-red-50" : estEnAttente(x) ? "bg-amber-50" : "bg-white")}`}>{dFR(x.date)}</td>
-          <td className="px-3 py-2 font-semibold">{x.categorie}</td>
+          <td className="px-3 py-2 font-semibold">{x.categorie}
+            {/* Timo (03/10/2026) : un prêt fait bouger le tiroir, il se VOIT ici — sans être une charge. */}
+            {x.categorie === CATEGORIE_PRET_PERSONNEL && <div data-pret-personnel className="text-xs font-normal text-slate-500">{x.auto === "retenue" ? "retenu sur le salaire — pas sorti de la caisse · " : Number(x.montant) < 0 ? "↩ argent rentré dans la caisse · " : ""}n'est pas une charge</div>}
+          </td>
           <td className="px-3 py-2">{x.description || "—"}</td>
           <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(x) ? " line-through" : ""}`}>{fmt(montantOrigine(x))}</td>
           <td className="px-3 py-2">{x.paiement}</td>
@@ -293,7 +296,11 @@ export function Depenses({ db, save, profile }) {
   // « Versements ».
   // Timo (13/09/2026) : un technicien voit l'onglet, mais SES dépenses seulement.
   const mesSeules = neVoitQueSesDepenses(profile);
-  const liste = depensesVisibles(horsVersements(db.depenses).filter((x) => x.boutique === boutique), profile);
+  // Timo (03/10/2026, « remets les prêts dans Dépenses ») : un prêt au personnel
+  // (et son remboursement) n'est pas une charge mais fait bouger le tiroir — il
+  // se lit dans la liste ; « Ce mois » (depensesComptees) ne le compte toujours pas.
+  const liste = depensesVisibles((db.depenses || []).filter((x) => x.boutique === boutique
+    && (x.categorie === CATEGORIE_PRET_PERSONNEL || horsVersements([x]).length === 1)), profile);
   // « Ce mois » ne compte que ce qui compte : validé, ou sans validation requise.
   const totalMois = depensesComptees(liste).filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
   const enAttenteIci = liste.filter(estEnAttente).reduce((s, x) => s + Number(x.montant), 0);
@@ -428,8 +435,8 @@ export function Depenses({ db, save, profile }) {
         <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
         {/* On ne cache pas l'argent : on dit où il est allé. */}
         <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">
-          Les <b>versements de fonds</b>, les <b>fonds de caisse remis par le DG</b>, les <b>remboursements de reprise</b> et les <b>prêts au personnel</b> ne sont pas des dépenses : ils ne comptent pas ici.
-          Retrouvez les trois premiers dans <b>🔒 Caisse</b> et dans l'export « Versements » du tableau de bord ; les prêts dans <b>👥 Utilisateurs → 🏦 Crédits BMI</b>.
+          Les <b>versements de fonds</b>, les <b>fonds de caisse remis par le DG</b> et les <b>remboursements de reprise</b> ne sont pas des dépenses : ils ne comptent pas ici.
+          Retrouvez-les dans <b>🔒 Caisse</b> et dans l'export « Versements » du tableau de bord. Les <b>prêts au personnel</b> et leurs remboursements sont dans la liste (ils font bouger la caisse) mais ne comptent pas dans « Ce mois » ; leur suivi est dans <b>👥 Utilisateurs → 🏦 Crédits BMI</b>.
         </div>
       </div>
     </div>

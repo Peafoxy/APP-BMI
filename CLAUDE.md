@@ -5246,11 +5246,25 @@ lit mal est pire qu'un banc absent).
   marqué (`critiqueCreditAnterieur`, sur la fiche fraîche). ⚠ Supprimer la
   dépense dans 📤 Dépenses, lui, remet le crédit « en attente » (voulu).
 - **Un prêt au personnel n'est plus une charge** : `CATEGORIE_PRET_PERSONNEL`
-  dans `CATEGORIES_HORS_CHARGES` (tableau de bord, « Ce mois », exports,
-  liste de 📤 Dépenses, qui DIT où le retrouver) ; retiré des catégories
+  dans `CATEGORIES_HORS_CHARGES` (tableau de bord, « Ce mois », exports) ;
+  ⚠ **mais il RESTE dans la liste de 📤 Dépenses** (Timo, le soir même :
+  « remets les prêts dans Dépenses » — caché, il vidait le tiroir sans ligne
+  visible), mention « n'est pas une charge » (`data-pret-personnel`, « ↩ argent
+  rentré » pour un remboursement) ; retiré des catégories
   saisies à la main ; la sortie de caisse reste une sortie ; le journal
   l'écrit en **421** (pièce PRT-, `lignesJournal`). Effet : le salaire
   compte en charge pour son brut, la retenue de crédit ne le diminue plus.
+- **🗑 Retirer un crédit saisi par erreur** (03/10/2026, « oui, répare » —
+  ANGELE avait TROIS crédits : le bon 📥 de 375 000, le 400 000 « Approuver »
+  soldé par un faux « + Remboursement » de 375 000, un 📥 en double soldé de
+  même) : administrateur PRINCIPAL, motif obligatoire, fiche fraîche ; le
+  crédit part avec SES lignes d'argent (`lignesDuCredit` : auto « credit » et
+  « remboursement » portant son `credit_id`, toutes caisses), jamais la
+  retenue du salaire (auto « retenue », elle va avec le salaire). Et
+  **« ↩ Date d'avant l'application » n'est plus bloqué par une retenue sur
+  salaire** (`source: "salaire"`) — seul un versement en caisse le ferme. Une
+  retenue se lit dans 📤 Dépenses « retenu sur le salaire — pas sorti de la
+  caisse ». « Prochaine : … » ne s'écrit plus sur un crédit soldé.
 - Rien à coller (`credits` est dans la liste « gestion », écrite par
   l'admin). Banc (4 contrôles), éprouvé en remettant trois fautes ; cinq
   contrôles RETOURNÉS (demanderMois ×7, les phrases de 📤 Dépenses ×2, la

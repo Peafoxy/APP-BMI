@@ -771,10 +771,29 @@ export function critiqueCreditAnterieur(credit, depenses) {
   if (!credit) return "Ce crédit est introuvable.";
   if (credit.anterieur) return "Ce crédit est déjà marqué comme datant d'avant l'application.";
   if (credit.statut !== "approuve") return "Seul un crédit accordé peut être corrigé ainsi.";
-  if ((credit.remboursements || []).length > 0) return `Ce crédit a déjà un remboursement (${fmt(totalRembourseCredit(credit))}) : il ne se corrige plus ici.`;
+  // 03/10/2026 : une RETENUE SUR SALAIRE ne bloque plus — l'argent du salaire a
+  // vraiment été retenu, la sortie du prêt n'en devient pas plus vraie. Seul un
+  // versement en caisse (« + Remboursement », peut-être réel) ferme la porte.
+  const verses = (credit.remboursements || []).filter((r) => r.source !== "salaire");
+  if (verses.length > 0) return `Ce crédit a déjà un remboursement versé en caisse (${fmt(verses.reduce((x, r) => x + Number(r.montant || 0), 0))}) : il ne se corrige plus ici. S'il s'agit d'une erreur de saisie, l'administrateur principal peut « Retirer ce crédit ».`;
   if (!depenseDuCredit(depenses, credit)) return "La sortie de caisse de ce crédit est introuvable : rien à retirer.";
   return "";
 }
+
+// 🗑 RETIRER UN CRÉDIT SAISI PAR ERREUR (Timo, 03/10/2026, « oui, répare » —
+// les trois crédits d'ANGELE). Ses lignes d'argent : la sortie du prêt
+// (auto « credit ») et ses remboursements versés en caisse (auto
+// « remboursement »), où qu'ils aient été encaissés. Les RETENUES SUR SALAIRE
+// (auto « retenue ») n'en font pas partie : elles vont avec le salaire payé.
+export const lignesDuCredit = (depenses, credit) =>
+  (depenses || []).filter((d) => credit && d.credit_id === credit.id && (d.auto === "credit" || d.auto === "remboursement"));
+export function critiqueRetraitCredit(credit, motif) {
+  if (!credit) return "Ce crédit est introuvable.";
+  if (!String(motif || "").trim()) return "Le motif est obligatoire : un crédit retiré doit s'expliquer.";
+  return "";
+}
+export const retenuesSalaireDuCredit = (credit) =>
+  (credit?.remboursements || []).filter((r) => r.source === "salaire").reduce((x, r) => x + Number(r.montant || 0), 0);
 
 export const marquerCreditAnterieur = (credit, profile, aujourdhui) =>
   ({ ...credit, anterieur: { le: aujourdhui, par: profile.nom, corrige: true }, boutique: undefined });
