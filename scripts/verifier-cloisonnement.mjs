@@ -6943,6 +6943,28 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
         && /critiqueRetraitCredit\(frais, motif\)/.test(corpsRet) && /lignesDuCredit\(db\.depenses, frais\)/.test(corpsRet)
         && /depenses: db\.depenses\.filter\(\(d\) => !ids\.has\(d\.id\)\)/.test(corpsRet)
         && /\{jeSuisAdminPrincipal && <button data-retirer-credit onClick=\{\(\) => retirerCredit\(u, c\)\}/.test(uRet));
+      // 💵 LA LIGNE DU SALAIRE DIT CE QUI EST SORTI (Timo, 03/10/2026, décision « a ») et 📥 LE SOLDE D'OUVERTURE AU JOURNAL.
+      const sortieVR = join("node_modules", ".cache", `bmi-retenue-${process.pid}.mjs`);
+      await build({ entryPoints: ["src/lib/validationDepenses.js"], bundle: true, format: "esm", platform: "node", outfile: sortieVR, logLevel: "silent" });
+      const VR = await import(pathToFileURL(sortieVR).href);
+      unlinkSync(sortieVR);
+      const salA = { id: "s", auto: "virement", user_id: "ang", date: "2026-10-03", boutique: "DEMAKPOE", montant: 60000 };
+      const retA = { id: "t", auto: "retenue", user_id: "ang", date: "2026-10-03", boutique: "DEMAKPOE", montant: -25000 };
+      test("★ 💵 un salaire avec retenue : la ligne garde 60 000 (la charge) et dit « sorti de la caisse : 35 000 — 25 000 retenus » ; la retenue se lit sur le salaire ou se retrouve (même employé, jour, caisse) ; jamais sur un autre salaire",
+        VR.retenueDuSalaire([salA, retA], salA) === 25000 && VR.retenueDuSalaire([salA], { ...salA, retenue_credit: 25000 }) === 25000
+        && VR.retenueDuSalaire([salA, { ...retA, user_id: "autre" }], salA) === 0 && VR.retenueDuSalaire([salA, { ...retA, date: "2026-10-04" }], salA) === 0
+        && VR.retenueDuSalaire([salA, retA], { ...salA, auto: "avance" }) === 0
+        && /data-salaire-sorti[\s\S]{0,120}sorti de la caisse : \{fmt\(Number\(x\.montant\) - retenueDuSalaire\(liste, x\)\)\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
+        && /\.\.\.\(retenue > 0 \? \{ retenue_credit: retenue \} : \{\}\)/.test(readFileSync("src/lib/calculs.js", "utf8")));
+      const dbAN = { boutiques: [{ nom: "DEMAKPOE" }, { nom: "DFORMATION", formation: true }], ventes: [], dettes: [], depenses: [],
+        users: [
+          { id: "ang", nom: "ANGELE", role: "vendeur", boutique: "DEMAKPOE", credits: [{ id: "cr1abc", statut: "approuve", montant_accorde: 375000, anterieur: { le: "2026-10-03", par: "TIMO" } }, { id: "cr9", statut: "approuve", montant_accorde: 50000 }] },
+          { id: "f", nom: "ELEVE", role: "vendeur", boutique: "DFORMATION", credits: [{ id: "crf", statut: "approuve", montant_accorde: 9000, anterieur: { le: "2026-10-03" } }] },
+        ] };
+      const jAN = Core.lignesJournal(dbAN, "2026-10-01", "2026-10-31");
+      test("★ 📥 le journal ouvre un crédit d'avant l'application : AN, débit 421 / crédit 471 du montant, aucune trésorerie ; jamais un crédit ordinaire, jamais la formation, jamais hors période",
+        jAN.length === 2 && jAN[0][1] === "AN" && jAN[0][3] === "421" && jAN[0][6] === 375000 && jAN[1][3] === "471" && jAN[1][7] === 375000
+        && !jAN.some((l) => /^5/.test(l[3])) && Core.lignesJournal(dbAN, "2026-11-01", "2026-11-30").length === 0);
       const dpR = readFileSync("src/screens/Depenses.jsx", "utf8");
       test("★ 📤 une retenue de crédit sur salaire se lit « retenu sur le salaire — pas sorti de la caisse », un remboursement « argent rentré dans la caisse »",
         /x\.auto === "retenue" \? "retenu sur le salaire — pas sorti de la caisse · " : Number\(x\.montant\) < 0 \? "↩ argent rentré dans la caisse · "/.test(dpR));

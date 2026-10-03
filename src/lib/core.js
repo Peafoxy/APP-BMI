@@ -123,6 +123,27 @@ export function lignesJournal(db, a, b, dansLEspace = null) {
     }
   });
 
+  // 📥 LE SOLDE D'OUVERTURE D'UN CRÉDIT D'AVANT L'APPLICATION (Timo,
+  // 03/10/2026, « lance aussi la ligne d'ouverture ») : le prêt est sorti AVANT
+  // l'application, aucune écriture ne l'a ouvert — sans cette ligne, le 421
+  // finissait négatif sous les retenues mensuelles. Journal des à-nouveaux
+  // (AN) : débit 421 / crédit 471 (compte d'attente), à rapprocher par le
+  // comptable de ses propres livres. AUCUNE trésorerie touchée.
+  const espaceDeLEmploye = (u) => {
+    const b = (db.boutiques || []).find((x) => x.nom === u.boutique);
+    if (b) return reel({ boutique: b.nom });
+    const repere = (db.boutiques || []).find((x) => !!x.formation === !!u.formation);
+    return reel({ boutique: repere ? repere.nom : null });
+  };
+  (db.users || []).filter((u) => u.role !== "client" && espaceDeLEmploye(u)).forEach((u) => {
+    (u.credits || []).filter((c) => c.anterieur && Number(c.montant_accorde) > 0 && inP(c.anterieur.le, a, b)).forEach((c) => {
+      const piece = "AN-" + String(c.id).slice(0, 6).toUpperCase();
+      const lib = `Crédit BMI d'avant l'application — ${u.nom} — solde d'ouverture à rapprocher de vos livres`;
+      pousser(c.anterieur.le, "AN", piece, "421", "Personnel — avances et acomptes", lib, Number(c.montant_accorde), "", u.boutique || "");
+      pousser(c.anterieur.le, "AN", piece, "471", "Compte d'attente — solde d'ouverture", lib, "", Number(c.montant_accorde), u.boutique || "");
+    });
+  });
+
   // Règlements de dettes clients : débit caisse / crédit clients
   db.dettes.filter(reel).forEach((d) => (d.paiements || []).filter((p) => inP(p.date, a, b)).forEach((p) => {
     const piece = "REG-" + String(p.id).slice(0, 6).toUpperCase();

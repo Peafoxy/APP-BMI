@@ -381,3 +381,16 @@ export function modifierDepense(d, { categorie, description }, par, le) {
     journal: `Dépense du ${dFR(d.date)} (${fmt(d.montant)}, ${d.boutique}) modifiée — ${changes.join(" · ")}`,
   };
 }
+
+// 💵 CE QU'UN SALAIRE A VRAIMENT SORTI DE LA CAISSE (Timo, 03/10/2026 : « dans
+// Dépense, normalement c'est 35 000 qui devrait apparaître ») — la ligne garde
+// le salaire entier (la charge réelle), la retenue de crédit se lit à côté.
+// Le salaire la porte (`retenue_credit`) depuis 2.101.416 ; avant, on la
+// retrouve : même employé, même jour, même caisse, auto « retenue ».
+export function retenueDuSalaire(liste, d) {
+  if (!d || d.auto !== "virement") return 0;
+  if (Number(d.retenue_credit) > 0) return Number(d.retenue_credit);
+  const r = (liste || []).filter((x) => x.auto === "retenue" && x.user_id === d.user_id && x.date === d.date && x.boutique === d.boutique)
+    .reduce((t, x) => t - Number(x.montant || 0), 0);
+  return r > 0 ? r : 0;
+}

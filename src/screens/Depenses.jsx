@@ -10,7 +10,7 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSorti
 import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
@@ -47,7 +47,9 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
             {x.categorie === CATEGORIE_PRET_PERSONNEL && <div data-pret-personnel className="text-xs font-normal text-slate-500">{x.auto === "retenue" ? "retenu sur le salaire — pas sorti de la caisse · " : Number(x.montant) < 0 ? "↩ argent rentré dans la caisse · " : ""}n'est pas une charge</div>}
           </td>
           <td className="px-3 py-2">{x.description || "—"}</td>
-          <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(x) ? " line-through" : ""}`}>{fmt(montantOrigine(x))}</td>
+          <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(x) ? " line-through" : ""}`}>{fmt(montantOrigine(x))}
+            {retenueDuSalaire(liste, x) > 0 && <div data-salaire-sorti className="text-xs font-normal text-slate-500 whitespace-nowrap">sorti de la caisse : {fmt(Number(x.montant) - retenueDuSalaire(liste, x))}<br />{fmt(retenueDuSalaire(liste, x))} retenus sur le crédit</div>}
+          </td>
           <td className="px-3 py-2">{x.paiement}</td>
           <td className="px-3 py-2 text-xs">{x.paye_avec && x.paye_avec !== PAYE_AVEC_CAISSE ? libellePayeAvec(x.paye_avec) : "Caisse"}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
           <td className="px-3 py-2">{x.par}</td>

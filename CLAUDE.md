@@ -5265,6 +5265,16 @@ lit mal est pire qu'un banc absent).
   salaire** (`source: "salaire"`) — seul un versement en caisse le ferme. Une
   retenue se lit dans 📤 Dépenses « retenu sur le salaire — pas sorti de la
   caisse ». « Prochaine : … » ne s'écrit plus sur un crédit soldé.
+- **Décision « a » (03/10/2026)** : la ligne « Salaires » garde le salaire
+  ENTIER (la charge réelle) et dit dessous « sorti de la caisse : 35 000 —
+  25 000 retenus sur le crédit » (`retenueDuSalaire`, validationDepenses.js ;
+  le salaire porte `retenue_credit` depuis 2.101.416, sinon la ligne
+  « retenue » du même employé, jour et caisse). Le « b » (35 000 seulement)
+  a été écarté : 25 000 de charges disparaissaient du résultat chaque mois.
+  **Et le journal ouvre un crédit d'avant l'application** (« lance aussi la
+  ligne d'ouverture ») : journal AN, débit 421 / crédit 471 (compte
+  d'attente) du montant, à la date de la marque — sinon le 421 finissait
+  négatif sous les retenues. Aucune trésorerie touchée.
 - Rien à coller (`credits` est dans la liste « gestion », écrite par
   l'admin). Banc (4 contrôles), éprouvé en remettant trois fautes ; cinq
   contrôles RETOURNÉS (demanderMois ×7, les phrases de 📤 Dépenses ×2, la

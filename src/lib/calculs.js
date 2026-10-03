@@ -1284,6 +1284,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
     boutique: bq, categorie: "Salaires",
     description: `Salaire ${libelleMoisFR(m)} — ${u.nom}`,
     montant: montant + retenue, moyen, auto: "virement", user_id: u.id,
+    ...(retenue > 0 ? { retenue_credit: retenue } : {}),
     ...src.champs,
   })];
   if (retenue > 0) {
