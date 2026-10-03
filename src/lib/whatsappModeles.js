@@ -187,6 +187,10 @@ export const MODELES = {
   // paiement fait). Le trou 7 = le RÔLE et le NUMÉRO de celui qui a payé
   // (« Comptable 91123456 », sa précision).
   virement_salaire: { categorie: "utility", variables: ["employe", "mois", "date", "montant", "moyen", "reference", "initiateur"] },
+  // 💸 Le même avis quand une échéance de crédit BMI est retenue ce mois-là
+  // (décision « b », 03/10/2026) : le salaire, la retenue, le versé et ce qui
+  // reste à rembourser se lisent dans le message.
+  virement_salaire_credit: { categorie: "utility", variables: ["employe", "mois", "date", "salaire", "retenue", "montant", "moyen", "reference", "reste", "initiateur"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -228,7 +232,7 @@ export const MODELES_EN_SERVICE = [
   "lien_signature_pv", "avenant_reserves", "accueil_prospect", "relance_prospect",
   // 03/10/2026 : l'avis de paiement d'un salaire. En service AVANT l'accord
   // de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
-  "virement_salaire",
+  "virement_salaire", "virement_salaire_credit",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -302,13 +306,14 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit"];
 const LIGNES_MASQUEES = {
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   bon_reprise: "🔒 Bon de reprise envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
   bon_retour: "🔒 Bon de retour envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
   virement_salaire: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
+  virement_salaire_credit: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
 };
 export const lignePrivee = (modele) => MODELES_PRIVES.includes(modele);
 export const ligneMasquee = (modele) => LIGNES_MASQUEES[modele] || "";
@@ -718,6 +723,7 @@ const LIGNES_ENVOI = {
   avenant_reserves: ([client, pv]) => `Lien de signature de l'avenant de levée de réserves (PV N° ${pv}) envoyé à ${client}.`,
   accueil_prospect: ([client]) => `Message d'accueil envoyé au prospect ${client}.`,
   relance_prospect: ([client, auteur, projet]) => `Relance du prospect ${client} par ${auteur} : son projet ${projet}.`,
+  virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
@@ -1487,12 +1493,34 @@ export const TEXTE_VIREMENT_SALAIRE = [
   "{{7}}",
   "E-mail : contact@bmitogo.com",
 ].join("\n");
+// Le texte proposé le 03/10/2026 (décision « b ») pour un mois AVEC retenue
+// de crédit. ⚠ Si Timo le crée chez YCloud autrement, on recopie le sien ici.
+export const TEXTE_VIREMENT_SALAIRE_CREDIT = [
+  "Bonjour {{1}},",
+  "",
+  "Virement de salaire",
+  "",
+  "BMI TOGO vous informe que votre salaire du mois de {{2}} a été payé le {{3}}.",
+  "Salaire : {{4}}",
+  "Retenue crédit BMI : {{5}}",
+  "Montant versé : {{6}} {{7}}. Référence : {{8}}.",
+  "Reste à rembourser sur votre crédit : {{9}}.",
+  "",
+  "Merci de confirmer la réception depuis votre espace sur :",
+  "gestion.bmitogo.com, dans l'onglet « Salaire ».",
+  "",
+  "{{10}}",
+  "E-mail : contact@bmitogo.com",
+].join("\n");
 // Rend null sans numéro sur la fiche de l'employé ou sans montant.
 // `reference` = celle tapée au virement, sinon le N° du bulletin (Meta refuse
 // un trou vide). `initiateur` = { role, tel } de celui qui paie — son numéro,
 // sinon celui de BMI. Cette règle n'importe rien : l'écran passe le libellé
 // du rôle, le mois en lettres, le format d'argent et de date.
-export function envoiVirementSalaire({ employe, tel, mois, date, montant, moyen, reference, initiateur, fmt, dFR }) {
+// `retenue` > 0 (une échéance de crédit BMI retenue ce mois-là) → le modèle
+// `virement_salaire_credit`, avec `resteCredit` (ce qui reste dû APRÈS la
+// retenue) ; sinon le modèle simple.
+export function envoiVirementSalaire({ employe, tel, mois, date, montant, moyen, reference, initiateur, retenue = 0, resteCredit = 0, fmt, dFR }) {
   if (!String(tel || "").replace(/\D/g, "")) return null;
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return null;
@@ -1500,6 +1528,24 @@ export function envoiVirementSalaire({ employe, tel, mois, date, montant, moyen,
   const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
   const role = texteVariable(initiateur?.role) || "BMI TOGO";
   const numero = texteVariable(initiateur?.tel) || NUMERO_BMI_PRINCIPAL;
+  const r = Math.max(0, Number(retenue) || 0);
+  if (r > 0) {
+    return {
+      modele: "virement_salaire_credit",
+      variables: [
+        texteVariable(employe) || "cher collaborateur",
+        texteVariable(mois) || "ce mois",
+        d(date) || "aujourd'hui",
+        f(m + r),
+        f(r),
+        f(m),
+        moyenVersement(moyen),
+        texteVariable(reference) || "—",
+        f(Math.max(0, Number(resteCredit) || 0)),
+        `${role} ${numero}`,
+      ],
+    };
+  }
   return {
     modele: "virement_salaire",
     variables: [

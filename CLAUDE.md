@@ -5248,6 +5248,17 @@ lit mal est pire qu'un banc absent).
   Texte corrigé par lui le jour même (« du mois de {{2}} », titre « Virement
   de salaire », lignes vides) et créé chez YCloud tel quel — recopié mot pour
   mot dans `TEXTE_VIREMENT_SALAIRE`, double espace avant {{2}} compris.
+- **Décision « b » (03/10/2026, « les imputations du crédit apparaissent ? »
+  → non avec ce modèle)** : un mois où une échéance de crédit BMI est
+  retenue part par un SECOND modèle, **`virement_salaire_credit`** (utility,
+  10 trous : nom, mois, date, SALAIRE = versé + retenue, RETENUE, VERSÉ,
+  moyen, référence, RESTE À REMBOURSER après la retenue — calculé par
+  `appliquerRetenuesCredit` avant le message —, initiateur ;
+  `TEXTE_VIREMENT_SALAIRE_CREDIT`, le texte PROPOSÉ : si Timo le crée
+  autrement chez YCloud, recopier le sien). Le virement porte
+  `retenue_credit` / `reste_credit` (la ligne privée se recompose). S'il ne
+  part pas (pas encore approuvé), **le modèle simple prend le relais**.
+  Privé aussi. **À créer par Timo chez YCloud.**
 - **Créé par Timo chez YCloud le 03/10/2026** (utility, fr).
   D'ici l'accord de Meta, rien ne part et la confirmation dit pourquoi. ~4 F.
   Banc (`verifier-whatsapp`, 4 contrôles), éprouvé. Trois contrôles

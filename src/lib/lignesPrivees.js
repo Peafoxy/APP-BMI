@@ -42,11 +42,11 @@ export function texteLignePrivee(m, db) {
   if (!m || !m.wa_prive) return "";
   // 💸 L'avis de salaire : recomposé depuis le virement de la fiche (la paie
   // ne descend que chez l'administrateur, le comptable et l'intéressé).
-  if (m.wa_modele === "virement_salaire") {
+  if (m.wa_modele === "virement_salaire" || m.wa_modele === "virement_salaire_credit") {
     const u = (db?.users || []).find((x) => x.id === m.salaire_user_id);
     const v = (u?.virements || []).find((x) => x.id === m.virement_id);
     if (!u || !v) return "";
-    const e = envoiVirementSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, moyen: v.moyen, reference: v.ref || numeroBulletin(v.mois, u.id), initiateur: { role: v.par, tel: " " }, fmt, dFR });
+    const e = envoiVirementSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, moyen: v.moyen, reference: v.ref || numeroBulletin(v.mois, u.id), initiateur: { role: v.par, tel: " " }, retenue: m.wa_modele === "virement_salaire_credit" ? v.retenue_credit : 0, resteCredit: v.reste_credit, fmt, dFR });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   const idVente = m.vente_id || m.bon_vente_id;

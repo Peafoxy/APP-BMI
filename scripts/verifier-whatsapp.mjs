@@ -100,10 +100,11 @@ const ATTENDU = {
   relance_prospect: { categorie: "marketing", n: 3 },
   // 03/10/2026 : l'avis de paiement d'un salaire (texte de Timo).
   virement_salaire: { categorie: "utility", n: 7 },
+  virement_salaire_credit: { categorie: "utility", n: 10 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les vingt-six modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les vingt-sept modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1295,7 +1296,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,avenant_reserves,bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire"); /* RETOURNÉ le 03/10/2026 : + l'avis de salaire */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,avenant_reserves,bon_reprise,bon_retour,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 03/10/2026 : + l'avis de salaire (avec et sans crédit) */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3054,8 +3055,8 @@ test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni
   && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
   && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
 // RETOURNÉ le 03/10/2026 : + l'avis de salaire (un salaire ne se lit pas par les collègues).
-test("★ les cinq modèles privés : les deux reçus de vente, le bon de reprise, le bon de retour, l'avis de salaire — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
-  M.MODELES_PRIVES.slice().sort().join(",") === "bon_reprise,bon_retour,recu_vente,recu_vente_detail,virement_salaire" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+test("★ les six modèles privés : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "bon_reprise,bon_retour,recu_vente,recu_vente_detail,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
 {
   // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE (Timo, 03/10/2026, son texte).
   const eS = M.envoiVirementSalaire({ employe: "AKPOSSOGNA Kossiwa", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-202610-ROBS", initiateur: { role: "Comptable", tel: "91123456" }, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
@@ -3068,13 +3069,23 @@ test("★ les cinq modèles privés : les deux reçus de vente, le bon de repris
     && (() => { const e = M.envoiVirementSalaire({ employe: "X", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 1000, moyen: "Virement bancaire", reference: "", initiateur: { role: "Administrateur" } }); return e && e.variables.every((v) => String(v).trim()) && /\+228 99 96 84 88$/.test(e.variables[6]) && /virement/i.test(e.variables[4]); })());
   test("★ 💸 la ligne rangée dans 📲 WhatsApp ne porte pas le salaire : phrase neutre, lisible par celui qui a payé et le principal",
     M.lignePrivee("virement_salaire") && /détail réservé/.test(M.ligneMasquee("virement_salaire")) && !/35000/.test(M.ligneMasquee("virement_salaire")));
+  // 💸 Décision « b » (03/10/2026) : un mois AVEC retenue de crédit part par le second modèle.
+  const eC = M.envoiVirementSalaire({ employe: "ANGELE", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-1", initiateur: { role: "Administrateur", tel: "91130511" }, retenue: 25000, resteCredit: 350000, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
+  const texteC = eC ? eC.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), M.TEXTE_VIREMENT_SALAIRE_CREDIT) : "";
+  test("★ 💸 avec une retenue de crédit : le modèle virement_salaire_credit, dix trous dans l'ordre — salaire 60 000, retenue 25 000, versé 35 000, reste à rembourser 350 000 ; sans retenue, le modèle simple",
+    !!eC && eC.modele === "virement_salaire_credit" && eC.variables.join("|") === "ANGELE|octobre 2026|03/10/2026|60000 F|25000 F|35000 F|en espèces|BP-1|350000 F|Administrateur 91130511"
+    && /Salaire : 60000 F\nRetenue crédit BMI : 25000 F\nMontant versé : 35000 F en espèces\. Référence : BP-1\.\nReste à rembourser sur votre crédit : 350000 F\./.test(texteC)
+    && M.envoiVirementSalaire({ employe: "X", tel: "90112233", montant: 1000, retenue: 0 }).modele === "virement_salaire");
   const calS = readFileSync("src/lib/calculs.js", "utf8");
   const corpsVS = calS.slice(calS.indexOf("export async function envoyerVirementG"), calS.indexOf("// À partir de ce nombre de clients apportés"));
   test("★ 💸 le virement de salaire envoie l'avis TOUT SEUL (sans question ni repli), APRÈS l'enregistrement, vers la fiche de l'employé ; le mur = l'espace de SON compte ; la référence par défaut = le N° du bulletin",
     /envoiVirementSalaire\(\{/.test(corpsVS) && /envoyerRecuSansQuestion\(\{/.test(corpsVS) && corpsVS.indexOf("save({") < corpsVS.indexOf("envoyerRecuSansQuestion(")
     && /espaceFormation: formation/.test(corpsVS) && /const formation = estCompteFormation\(db, fiche\)/.test(corpsVS)
     && /numeroBulletin\(m, u\.id\)/.test(corpsVS) && /ref: \{ salaire_user_id: u\.id, virement_id: virement\.id \}/.test(corpsVS)
-    && /numeroBulletin\(mois, u\.id\)/.test(readFileSync("src/lib/impression.js", "utf8")));
+    && /numeroBulletin\(mois, u\.id\)/.test(readFileSync("src/lib/impression.js", "utf8"))
+    // le reste dû est calculé APRÈS la retenue du mois, et le modèle simple prend le relais si l'autre ne part pas
+    && /const creditsApres = appliquerRetenuesCredit\(u, m, profile\.nom\)/.test(corpsVS) && /reste_credit: creditsApres/.test(corpsVS)
+    && /retenue, resteCredit: virement\.reste_credit/.test(corpsVS) && /if \(formation \|\| r\.startsWith\("📲"\)\) break;/.test(corpsVS));
 }
 test("★ un envoi ordinaire (devis, relance, dette) garde son texte en clair : il n'est pas privé, et une ligne sans marque ne se « déverrouille » pas",
   !M.lignePrivee("devis_disponible") && !M.lignePrivee("relance_devis") && !M.lignePrivee("rappel_dette") && M.ligneMasquee("relance_devis") === ""

@@ -1302,10 +1302,14 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   const bq = src.boutique;
   const retenue = (u.credits || []).filter((c) => c.statut === "approuve")
     .reduce((s, c) => s + (c.echeances || []).filter((e) => e.mois === m && !e.paye).reduce((t, e) => t + Number(e.montant || 0), 0), 0);
+  // Les crédits APRÈS la retenue de ce mois : ce qui restera à rembourser
+  // (l'avis WhatsApp le dit — décision « b », 03/10/2026).
+  const creditsApres = appliquerRetenuesCredit(u, m, profile.nom);
   if (!await uConfirm(`Envoyer un virement de ${fmt(montant)} à ${u.nom} pour ${libelleMoisFR(m)} ?\n\nSortie : ${src.libelle} — ${fmt(montant)}${retenue ? `\nRetenue crédit BMI comptabilisée : ${fmt(retenue)}` : ""}\n\nIl devra confirmer la réception depuis son espace « Salaire ».`)) return;
   const virement = {
     id: uid(), mois: m, montant, moyen: String(moyen).trim(), ref: String(ref).trim(), boutique: bq,
-    statut: "envoye", date_envoi: today(), par: profile.nom
+    statut: "envoye", date_envoi: today(), par: profile.nom,
+    ...(retenue > 0 ? { retenue_credit: retenue, reste_credit: creditsApres.filter((c) => c.statut === "approuve").reduce((t, c) => t + resteCredit(c), 0) } : {}),
   };
   const deps = [nouvelleDepense(profile, {
     boutique: bq, categorie: "Salaires",
@@ -1339,17 +1343,30 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   const envoi = envoiVirementSalaire({
     employe: fiche.nom_complet || fiche.nom, tel: fiche.tel, mois: libelleMoisFR(m), date: today(),
     montant, moyen, reference: String(ref).trim() || numeroBulletin(m, u.id),
-    initiateur: { role: LIBELLE_ROLE_EMPLOYE[moi.role] || moi.role, tel: moi.tel }, fmt, dFR,
+    initiateur: { role: LIBELLE_ROLE_EMPLOYE[moi.role] || moi.role, tel: moi.tel },
+    retenue, resteCredit: virement.reste_credit || 0, fmt, dFR,
   });
   let note = "";
   if (!envoi) {
     if (!formation) note = `\n\n📲 Aucun avis WhatsApp : la fiche de ${u.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → 📞).`;
   } else {
     const { envoyerRecuSansQuestion } = await import("../whatsapp.js");
-    const r = await envoyerRecuSansQuestion({
-      envoi, tel: fiche.tel, nom: u.nom, espaceFormation: formation, save, profile,
-      ref: { salaire_user_id: u.id, virement_id: virement.id }, noms: { titre: "Avis de salaire", sujet: "L'avis de salaire" },
-    });
+    // Le modèle AVEC le crédit d'abord ; s'il ne part pas (pas encore
+    // approuvé par Meta…), le modèle simple prend le relais — jamais en
+    // formation (rien n'y part).
+    const essais = [envoi, envoi.modele === "virement_salaire_credit" ? envoiVirementSalaire({
+      employe: fiche.nom_complet || fiche.nom, tel: fiche.tel, mois: libelleMoisFR(m), date: today(),
+      montant, moyen, reference: String(ref).trim() || numeroBulletin(m, u.id),
+      initiateur: { role: LIBELLE_ROLE_EMPLOYE[moi.role] || moi.role, tel: moi.tel }, fmt, dFR,
+    }) : null].filter(Boolean);
+    let r = "";
+    for (const e of essais) {
+      r = await envoyerRecuSansQuestion({
+        envoi: e, tel: fiche.tel, nom: u.nom, espaceFormation: formation, save, profile,
+        ref: { salaire_user_id: u.id, virement_id: virement.id }, noms: { titre: "Avis de salaire", sujet: "L'avis de salaire" },
+      });
+      if (formation || r.startsWith("📲")) break;
+    }
     if (r) note = `\n\n${r}`;
   }
   uAlert(`✅ Virement de ${fmt(montant)} envoyé à ${u.nom}. Enregistré en dépense « Salaires » — sortie : ${src.libelle}.${note}`);
