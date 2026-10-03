@@ -82,7 +82,16 @@ export function Users({ db, save, profile }) {
   const archives = sansSuite.filter((c) => c.archive);
   const idsArchives = new Set(archives.map((c) => c.compte.id));
   const [voirArchives, setVoirArchives] = useState(false);
-  const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r && !idsArchives.has(x.id)).length]));
+  // 🧲 LES PROSPECTS (03/10/2026, Timo : « client reste pour les vrais clients
+  // qui ont payé un article ou validé un devis »). Un compte sans suite PAS
+  // ENCORE archivé est un prospect : il quitte, lui aussi, la liste des
+  // clients et son compteur, et se range dans le bloc « 🧲 Prospects » ; la
+  // recherche le trouve toujours, avec tous ses gestes. Le compte, lui, ne
+  // change pas : il devient client à la seconde où il valide ou achète.
+  const prospectsDevis = sansSuite.filter((c) => !c.archive);
+  const idsSansSuite = new Set(sansSuite.map((c) => c.compte.id));
+  const [voirProspects, setVoirProspects] = useState(false);
+  const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r && !idsSansSuite.has(x.id)).length]));
   const rolesPresents = ROLES_LISTE.filter(([r]) => nbParRole[r] > 0);
   const roleAffiche = nbParRole[roleActif] > 0 ? roleActif : (rolesPresents[0]?.[0] || "admin");
   const qU = rechercheU.trim().toLowerCase();
@@ -95,7 +104,7 @@ export function Users({ db, save, profile }) {
     // « 90112233 », « +228 90 11 22 33 » et « 90 11 22 33 » trouvent le même
     // compte. Le filtre reste `correspond` : UNE règle pour toute recherche tapée.
     ? utilisateursVisibles.filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""} ${motsDuNumero(x.tel)}`, qU))
-    : utilisateursVisibles.filter((x) => x.role === roleAffiche && !idsArchives.has(x.id));
+    : utilisateursVisibles.filter((x) => x.role === roleAffiche && !idsSansSuite.has(x.id));
   const vide = { nom: "", prenom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
   const [entCli, setEntCli] = useState(ENTREPRISE_VIDE());
@@ -119,6 +128,14 @@ export function Users({ db, save, profile }) {
   // personne qui clique. Repli : WhatsApp s'ouvre avec le même texte, et
   // l'écran dit pourquoi.
   const envoyerFidelite = async (u) => {
+    // 🧲 03/10/2026 (Timo) : le mot de fidélité dit « merci pour votre
+    // confiance… merci de faire partie de nos clients » — il ne part qu'à un
+    // VRAI client (un achat ou un devis validé), jamais à un prospect.
+    // Revérifié DANS le geste, sur la règle des comptes sans suite.
+    if (idsSansSuite.has(u.id)) {
+      uAlert(`${u.nom_base || u.nom} n'a encore rien acheté ni validé de devis : c'est un prospect.\n\nLe mot de fidélité est réservé aux clients. Pour le relancer, passez par 📋 Tous les devis.`);
+      return;
+    }
     if (!telDigits(u.tel)) { uAlert("Aucun numéro enregistré pour ce client."); return; }
     const nom = u.nom_base || u.nom;
     const envoi = envoiMotFidelite({ nom, avecCompte: true });
@@ -1291,6 +1308,7 @@ export function Users({ db, save, profile }) {
               <tr className={`border-t border-slate-100 hover:bg-sky-50 align-middle ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}>
                 <td className="px-4 py-2 font-semibold">{u.nom}
                   {idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold align-middle" data-client-archive>📁 Archivé</span>}
+                  {idsSansSuite.has(u.id) && !idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-bold align-middle" data-compte-prospect>🧲 Prospect</span>}
                   {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
                   {["commercial", "technicien"].includes(u.role) && filleulsDe(db, u).length > 0 && (
                     <div className={`text-xs font-bold ${estChefEquipe(db, u) ? "text-amber-600" : "text-slate-500"}`}>
@@ -1461,6 +1479,31 @@ export function Users({ db, save, profile }) {
           </tbody>
         </table>
         </div>
+        {prospectsDevis.length > 0 && (
+          <div className="border-t border-slate-200 px-4 py-3" data-comptes-prospects>
+            <button onClick={() => setVoirProspects((x) => !x)} className="text-sm font-bold text-slate-700">
+              🧲 Prospects — devis envoyé, rien acheté ({prospectsDevis.length}) {voirProspects ? "▴" : "▾"}
+            </button>
+            <div className="text-xs text-slate-500 mt-0.5">
+              Ils ont reçu un devis, n'en ont validé aucun et n'ont rien acheté : ce ne sont pas encore des clients (pas de mot de
+              fidélité). Leur compte marche comme celui d'un client — ils peuvent valider et signer. Ils deviennent clients tout seuls
+              au premier devis validé ou au premier achat ; sans suite, ils sont archivés {JOURS_AVANT_ARCHIVE} jours après leur dernier devis.
+              Pour agir sur l'un d'eux, tapez son nom dans la recherche.
+            </div>
+            {voirProspects && (
+              <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+                {prospectsDevis.map((c) => (
+                  <div key={c.compte.id} className="px-3 py-2 text-sm">
+                    <span className="font-semibold">{c.nom}</span>
+                    <span className="block text-xs text-slate-500">
+                      {c.tel || "sans numéro"} · dernier devis le {dFR(c.reference)} · archivé le {dFR(c.archiveLe)} s'il reste sans suite
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {archives.length > 0 && (
           <div className="border-t border-slate-200 px-4 py-3" data-clients-archives>
             <button onClick={() => setVoirArchives((x) => !x)} className="text-sm font-bold text-slate-700">

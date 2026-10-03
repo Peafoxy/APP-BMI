@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2161 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2166 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2451,6 +2451,31 @@ lit mal est pire qu'un banc absent).
   10 contrôles), éprouvé en remettant cinq fautes (archivés dans la liste,
   le journal ignoré, l'achat ignoré, le mur ouvert, la modification
   oubliée) : chacune tombe.
+
+#### 🧲 UN COMPTE QUI N'A REÇU QU'UN DEVIS EST UN PROSPECT, PAS UN CLIENT (03/10/2026, « oui lance, et oui pour la liste dans prospects »)
+- Timo : « quelqu'un à qui on envoie juste un devis est-il un client ? » puis
+  « pour un message de fidélité, c'est cette liste qui est ciblée et non ceux
+  qui viennent acheter ». Un « compte prospect » (rôle à part) a été ÉCARTÉ,
+  dit à Timo : 22 scripts serveur nomment « client », la validation se fait
+  sur SON téléphone (securite-2 / -9 interdisent le changement de rôle) et le
+  rôle ne se relit qu'à la connexion. **UN compte, deux ÉTATS calculés.**
+- **Prospect = compte SANS SUITE** (`clientsSansSuiteDeLEspace`, la règle de
+  l'archivage, réutilisée) ; il devient client à la seconde où il valide un
+  devis ou achète. Rien n'est écrit, rien à coller. `idsComptesProspects`,
+  `devisDuProspect`, `prospectVisiblePour` (calculs.js).
+- **👥 Utilisateurs** : tout compte sans suite (prospect OU archivé) quitte
+  la liste des clients et son compteur (`idsSansSuite`) ; bloc « 🧲 Prospects —
+  devis envoyé, rien acheté » (non archivés), badge « 🧲 Prospect » dans la
+  recherche (qui garde tous ses gestes). **Le mot de fidélité est REFUSÉ DANS
+  le geste à un prospect** (« passez par 📋 Tous les devis »). 👤 Clients
+  (les acheteurs, comptoir compris) n'a pas bougé.
+- **🧲 Prospects** : cadre « 📄 Comptes avec devis, rien acheté » (archivés
+  compris, badge), « 📋 Voir ses devis » → 📋 Tous les devis (`onVoirDevis`).
+  Le commercial n'y voit que les comptes dont il a établi un devis (`par_id`,
+  sinon le nom) ; admin, resp. commercial, chef d'équipe : tous.
+- Banc (`verifier-cloisonnement`, 5 contrôles), éprouvé en remettant trois
+  fautes (fidélité envoyée, commercial qui voit tout, archivés comptés hors
+  prospects) : chacune tombe. Un contrôle RETOURNÉ (`idsSansSuite`).
 
 - **La protection des données est COMPLÈTE** : effacement, dossier d'accès
   (client et employé), libre-service du client, fuite du numéro de compte

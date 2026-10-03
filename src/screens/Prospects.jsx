@@ -17,10 +17,10 @@ import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
-import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis } from "../lib/calculs";
+import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
-export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
+export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirDevis }) {
   const estChef = !!profile.chef_equipe;
   const voitTout = isAdmin || estChef || profile.role === "resp_commercial";
   const categories = db.categories_prospects.filter((c) => c.actif !== false);
@@ -334,6 +334,14 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
   if (q) liste = liste.filter((p) => correspond(p.nom + " " + p.tel + " " + p.localisation + " " + (p.projet || ""), q));
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
+  // 🧲 LES COMPTES AVEC DEVIS, RIEN ACHETÉ (03/10/2026, Timo : « oui pour la
+  // liste dans prospects »). LA règle des comptes sans suite (calculs.js),
+  // déjà filtrée par l'espace regardé ; une LECTURE — le compte reste un
+  // compte client, ses gestes restent dans 📋 Tous les devis. Le commercial
+  // ne voit que les comptes dont il a établi un devis.
+  const comptesAvecDevis = clientsSansSuiteDeLEspace(db, profile).filter((c) => prospectVisiblePour(c, profile, voitTout));
+  const [voirComptesDevis, setVoirComptesDevis] = useState(true);
+
   const aRelancerAujourdhui = (voitTout ? actifs : actifs.filter((p) => p.commercial === profile.nom)).filter((p) => p.relance && p.relance <= today()).length;
 
   return (
@@ -591,6 +599,41 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis }) {
         </table>
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
+      {comptesAvecDevis.length > 0 && (
+        <Panel>
+          <div data-comptes-avec-devis>
+            <button onClick={() => setVoirComptesDevis((x) => !x)} className="font-bold text-slate-800">
+              📄 Comptes avec devis, rien acheté ({comptesAvecDevis.length}) {voirComptesDevis ? "▴" : "▾"}
+            </button>
+            <div className="text-xs text-slate-500 mt-0.5 mb-2">
+              Ils ont reçu un devis, n'en ont validé aucun et n'ont rien acheté : ce sont encore des prospects. Ils deviennent
+              clients tout seuls au premier devis validé ou au premier achat. Pour relancer ou corriger un devis : 📋 Tous les devis.
+            </div>
+            {voirComptesDevis && (
+              <div className="max-h-80 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+                {comptesAvecDevis.map((c) => {
+                  const devis = devisDuProspect(c.compte);
+                  const dernier = devis[0] || {};
+                  return (
+                    <div key={c.compte.id} className="px-3 py-2 text-sm flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <div className="flex-1 min-w-[200px]">
+                        <span className="font-semibold">{c.nom}</span>
+                        {c.archive && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold">📁 Archivé</span>}
+                        <span className="block text-xs text-slate-500">
+                          {c.tel || "sans numéro"} · {devis.length} devis · dernier le {dFR(c.reference)}{dernier.total ? ` (${fmt(dernier.total)})` : ""}{dernier.par ? ` · par ${dernier.par}` : ""}
+                        </span>
+                      </div>
+                      {typeof onVoirDevis === "function" && (
+                        <button onClick={onVoirDevis} className="text-xs font-bold text-sky-700 underline">📋 Voir ses devis</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }

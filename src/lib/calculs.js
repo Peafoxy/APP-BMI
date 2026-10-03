@@ -571,6 +571,25 @@ export const clientsSansSuiteDeLEspace = (db, profile, aujourdhui = today()) => 
 export const idsClientsArchives = (db, profile, aujourdhui = today()) =>
   new Set(clientsSansSuiteDeLEspace(db, profile, aujourdhui).filter((c) => c.archive).map((c) => c.compte.id));
 
+// 🧲 LES COMPTES PROSPECTS (03/10/2026, Timo : « client reste pour les vrais
+// clients qui ont payé un article ou validé un devis… oui lance, et oui pour
+// la liste dans prospects »). Un prospect = un compte client SANS SUITE (un
+// devis au moins, aucun validé, aucun achat) — LA règle de l'archivage,
+// réutilisée, jamais recopiée. Rien n'est écrit : le compte reste un compte
+// client (son espace, sa validation, sa signature ne bougent pas), et il
+// devient client à la seconde où il valide ou achète.
+// `archive` dit en plus s'il est déjà rangé (30 jours après son dernier devis).
+export const idsComptesProspects = (db, profile, aujourdhui = today()) =>
+  new Set(clientsSansSuiteDeLEspace(db, profile, aujourdhui).map((c) => c.compte.id));
+
+// Ses devis, le plus récent d'abord, et ceux qu'a établis `profile`.
+// `voitTout` (administrateur, resp. commercial, chef d'équipe) : tous.
+// Sinon : seulement les comptes dont il a établi au moins un devis.
+export const devisDuProspect = (compte) =>
+  (compte?.devis || []).filter(Boolean).slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+export const prospectVisiblePour = (c, profile, voitTout) =>
+  !!voitTout || devisDuProspect(c?.compte).some((d) => (d.par_id ? d.par_id === profile?.id : d.par === profile?.nom));
+
 // Ce qu'un compte a le droit d'ÉCRIRE (traitements de masse : réception
 // automatique à J+7…). Le principal écrit dans les deux espaces — c'est
 // voulu. Pour AFFICHER, utiliser `chantiersDeLEspaceRegarde` ci-dessus.

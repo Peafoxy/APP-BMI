@@ -94,6 +94,9 @@ export const CHAPITRE = {
         "**« Suppr. »** efface la fiche pour de bon, après confirmation. À réserver à une erreur de saisie : un prospect qui n'aboutit pas **s'archive**, il ne se supprime pas — au bout d'un an, les motifs d'archivage disent pourquoi les projets n'aboutissent pas.",
       ]],
 
+      ["h3", "Les comptes avec devis, rien acheté"],
+      ["p", "Sous le tableau, le cadre **« 📄 Comptes avec devis, rien acheté (N) »** liste les comptes qui ont reçu un devis sans en valider aucun ni rien acheter : ce sont encore des prospects, même si leur compte existe. Chaque ligne dit le numéro, le nombre de devis, la date et le montant du dernier, qui l'a établi, et « 📁 Archivé » s'il dort depuis plus de 30 jours. **« 📋 Voir ses devis »** ouvre 📋 Tous les devis, où l'on relance ou corrige. Le commercial n'y voit que les comptes dont il a établi un devis ; l'administrateur, le responsable commercial et le chef d'équipe, tous. Ils quittent le cadre tout seuls au premier devis validé ou au premier achat."],
+
       ["h3", "D. Convertir en client"],
       ["etapes", [
         { titre: "Quand ?", texte: "**Seulement quand il a dit oui.** La confirmation le rappelle : « À ne faire que s'il a accepté de devenir client. » Avant ça, on lui fait un devis (chapitre 11 ou 12) : le devis, lui, demande un compte client — d'où 🙋 Créer un client (chapitre 3) si le prospect n'en a pas." },

@@ -10777,8 +10777,10 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     const ut = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
     const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
     test("★★ 👥 Utilisateurs : un archivé quitte la liste des clients ET le compteur, reste trouvable par la recherche (badge 📁), et se lit dans « 📁 Clients archivés »",
-      /: utilisateursVisibles\.filter\(\(x\) => x\.role === roleAffiche && !idsArchives\.has\(x\.id\)\)/.test(ut)
-      && /x\.role === r && !idsArchives\.has\(x\.id\)/.test(ut)
+      // RETOURNÉ le 03/10/2026 : tout compte SANS SUITE (archivé OU prospect) quitte la liste des clients.
+      /: utilisateursVisibles\.filter\(\(x\) => x\.role === roleAffiche && !idsSansSuite\.has\(x\.id\)\)/.test(ut)
+      && /x\.role === r && !idsSansSuite\.has\(x\.id\)/.test(ut)
+      && /const idsSansSuite = new Set\(sansSuite\.map\(\(c\) => c\.compte\.id\)\)/.test(ut)
       && /\? utilisateursVisibles\.filter\(\(x\) => correspond\(/.test(ut)
       && /data-client-archive/.test(ut) && /data-clients-archives/.test(ut)
       && /clientsSansSuiteDeLEspace\(db, profile\)/.test(ut));
@@ -10786,6 +10788,49 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       /const proposes = comptesClients\.filter\(\(u\) => !archives\.has\(u\.id\) \|\| u\.id === clientDevis\)/.test(pa)
       && /\{proposes\.map\(/.test(pa) && !/\{comptesClients\.map\(/.test(pa)
       && /const existant = \(db\.users \|\| \[\]\)\.find\(\(u\) => u\.role === "client" && u\.tel && memeNumero\(u\.tel, tel\)\)/.test(pa));
+  }
+  // 🧲 LES COMPTES PROSPECTS (03/10/2026, « oui lance, et oui pour la liste dans prospects »)
+  {
+    const ut = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+    const pr = readFileSync("src/screens/Prospects.jsx", "utf8");
+    const app = readFileSync("src/App.jsx", "utf8");
+    const corpsFid = ut.slice(ut.indexOf("const envoyerFidelite = async"), ut.indexOf("const boutiquesDuFormulaire"));
+    test("★★ 🧲 un compte prospect (devis envoyé, rien validé, rien acheté) est un compte SANS SUITE pas encore archivé — LA règle de l'archivage, et il devient client dès qu'il valide",
+      (() => {
+        const db = { boutiques: [{ id: "b1", nom: "APESSITO" }],
+          users: [{ id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true },
+            { id: "p", nom: "PROSPECT", tel: "90555555", role: "client", devis: [dv("2026-09-25")] },
+            { id: "v", nom: "VALIDE", tel: "90777777", role: "client", devis: [dv("2026-09-25", "valide")] },
+            { id: "a", nom: "ACHETEUR", tel: "90888888", role: "client", devis: [dv("2026-09-25")] },
+            { id: "o", nom: "VIEUX", tel: "90999999", role: "client", devis: [dv("2026-01-01")] }],
+          ventes: [{ client: "ACHETEUR", tel: "90888888", boutique: "APESSITO" }], dettes: [], commandes: [], clients_installes: [] };
+        const timo = { id: "u_timo", role: "admin" };
+        C.setRegardeFormation(false);
+        const ids = C.idsComptesProspects(db, timo, "2026-10-03");
+        const liste = C.clientsSansSuiteDeLEspace(db, timo, "2026-10-03");
+        return ids.has("p") && ids.has("o") && !ids.has("v") && !ids.has("a")
+          && liste.find((c) => c.compte.id === "p").archive === false && liste.find((c) => c.compte.id === "o").archive === true;
+      })());
+    test("★★ 🧲 le commercial ne voit dans 🧲 Prospects que les comptes dont IL a établi un devis (par_id, sinon le nom) ; l'administrateur, tous",
+      (() => {
+        const c = { compte: { devis: [{ ...dv("2026-09-25"), par_id: "k1", par: "KOSSI" }, { ...dv("2026-09-01"), par: "AMA" }] } };
+        return C.prospectVisiblePour(c, { id: "k1", nom: "X" }, false)
+          && C.prospectVisiblePour(c, { id: "z", nom: "AMA" }, false)
+          && !C.prospectVisiblePour(c, { id: "k2", nom: "KOSSI" }, false)
+          && C.prospectVisiblePour(c, { id: "z", nom: "Z" }, true)
+          && C.devisDuProspect(c.compte)[0].par === "KOSSI";
+      })());
+    test("★★ 🧲 le mot de fidélité de 👥 Utilisateurs ne part JAMAIS à un prospect : refusé DANS le geste, avant tout envoi",
+      /if \(idsSansSuite\.has\(u\.id\)\) \{/.test(corpsFid)
+      && corpsFid.indexOf("idsSansSuite.has(u.id)") < corpsFid.indexOf("envoyerModele(")
+      && /📋 Tous les devis/.test(corpsFid));
+    test("★ 🧲 👥 Utilisateurs : badge « 🧲 Prospect » dans la recherche, et le bloc « 🧲 Prospects » (non archivés)",
+      /data-compte-prospect/.test(ut) && /data-comptes-prospects/.test(ut)
+      && /const prospectsDevis = sansSuite\.filter\(\(c\) => !c\.archive\)/.test(ut));
+    test("★★ 🧲 Prospects : la liste « Comptes avec devis » passe par la règle de l'espace regardé et le filtre du commercial — jamais db.users",
+      /clientsSansSuiteDeLEspace\(db, profile\)\.filter\(\(c\) => prospectVisiblePour\(c, profile, voitTout\)\)/.test(pr)
+      && /data-comptes-avec-devis/.test(pr)
+      && /onVoirDevis=\{\(\) => setTab\("tous_devis"\)\}/.test(app));
   }
   test("★ la phrase du client le DIT (et donc son dossier), et le mot d'accueil aussi — une règle qu'on ne lui annonce pas ne vaut rien",
     Cons.phraseConservation(6).includes(Cons.PHRASE_SANS_SUITE) && /archivé 30 jours après son dernier devis/.test(Cons.PHRASE_SANS_SUITE)
