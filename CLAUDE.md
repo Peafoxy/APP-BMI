@@ -5265,6 +5265,30 @@ lit mal est pire qu'un banc absent).
   RETOURNÉS (vingt-six modèles, les modèles à ligne, cinq privés). Rien à
   coller dans Supabase.
 
+### 💰 LA COMMISSION DEVENUE DUE S'ANNONCE DU NUMÉRO BMI (03/10/2026, « 2 due… », « 1 oui, 2 la boutique rattachée, 3 oui »)
+- Modèle **`commission_due`** (UTILITY, 4 trous : bénéficiaire, montant,
+  client, SUITE — `TEXTE_COMMISSION_DUE`, le texte de Timo). {{4}} =
+  `SUITE_ESPACE` (« Détail dans votre espace… ») pour un employé ou un parrain
+  qui a un compte client ; **pour un apporteur externe** = « Pour la recevoir,
+  passez à la boutique X (Tél : …). » (`suiteBoutique`, la boutique de la vente
+  ou de la pose ; décision « 2 »).
+- **Qui** : le commercial (ou technicien à commission) de la vente, le
+  responsable, le parrain / l'apporteur externe d'une vente, l'apporteur d'une
+  pose seule. **Quand** : dès qu'elle est DUE (réception ET solde — les règles
+  `commissionBloquee`, `partParrainBloquee`, `posesAvecApporteur` RÉUTILISÉES),
+  pas payée, pas déjà annoncée. Règle pure **`lib/commissionsDues.js`**
+  (`commissionsAAviser`, `envoiDeCommission` écrit UNE fois — la liste ET le
+  détail relu y passent, `marquerCommissionAvisee`).
+- **Décision « 3 »** : envoyé **le jour où l'administrateur PRINCIPAL ouvre
+  l'application** (effet dans App.jsx, une fois par jour et par appareil,
+  `bmi_avis_commissions:<id>:<jour>`), sans question ni repli ; la marque
+  (`commission_avisee_le`, `commission_resp_avisee_le`, `apporteur.avise_le`)
+  n'est posée qu'APRÈS l'accord de WhatsApp. ⚠ Le passé ne s'annonce pas :
+  date due < `DEBUT_AVIS_COMMISSION` (04/10/2026) = jamais. ⚠ Le mur : réel
+  seulement. **Ligne PRIVÉE** dans 📲 WhatsApp (`commission_ref` sur la ligne,
+  détail recomposé pour le principal). ~4 F. **À créer par Timo chez YCloud.**
+  Banc (cloisonnement 4 contrôles, whatsapp), éprouvé. Rien à coller.
+
 ### 📥 UN CRÉDIT BMI D'AVANT L'APPLICATION, ET UN PRÊT N'EST PAS UNE CHARGE (03/10/2026, « lance 1 et 2, et oui pour la charge »)
 - Capture Timo (🕘 Historique) : le crédit d'ANGELE (400 000 F restants d'un
   prêt remis AVANT l'application) avait été saisi par « Approuver », qui

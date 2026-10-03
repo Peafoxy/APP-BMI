@@ -6983,6 +6983,51 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
         /const prises = retenuesPrises\(frais\)/.test(corpsR2) && /rattacherRetenues\(y, prises, profile\.nom, today\(\)\)/.test(corpsR2) && /le bulletin de ce mois ne la comptera plus/.test(corpsR2)
         && /data-rattacher-retenue onClick=\{\(\) => rattacherRetenueOrpheline\(u, c\)\}/.test(uR2)
         && /auto: "retenue", user_id: u\.id, mois: m,/.test(readFileSync("src/lib/calculs.js", "utf8")));
+      // 💰 LES COMMISSIONS DEVENUES DUES (Timo, 03/10/2026) — la VRAIE règle, sur une base d'essai.
+      const sortieCD = join("node_modules", ".cache", `bmi-comdue-${process.pid}.mjs`);
+      await build({ entryPoints: ["src/lib/commissionsDues.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCD, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+      const CD = await import(pathToFileURL(sortieCD).href);
+      unlinkSync(sortieCD);
+      const art = [{ article: "Panneau", qte: 10, pu: 100000, produit_id: "p1" }];
+      const dbCD = {
+        boutiques: [{ nom: "DEMAKPOE", tel: "91000000" }, { nom: "DFORMATION", formation: true }],
+        users: [
+          { id: "k", nom: "KOSSI", role: "commercial", taux_commission: 5, tel: "90111111" },
+          { id: "c", nom: "AYOKO", role: "client", tel: "90222222" },
+        ],
+        ventes: [
+          { id: "v1", boutique: "DEMAKPOE", date: "2026-10-05", client: "MR ERIC", commercial: "KOSSI", articles: art, paiement: "Espèces", apporteur: { nom: "FIFO", tel: "90333333", montant: 30000 } },
+          { id: "v2", boutique: "DEMAKPOE", date: "2026-10-05", client: "MME A", commercial: "KOSSI", articles: art, paiement: "Espèces", apporteur: { nom: "AYOKO", tel: "90222222", montant: 30000 } },
+          { id: "v3", boutique: "DEMAKPOE", date: "2026-09-01", client: "ANCIEN", commercial: "KOSSI", articles: art, paiement: "Espèces" },
+          { id: "v4", boutique: "DFORMATION", date: "2026-10-05", client: "ELEVE", commercial: "KOSSI", articles: art, paiement: "Espèces" },
+          { id: "v5", boutique: "DEMAKPOE", date: "2026-10-05", client: "CREDIT", commercial: "KOSSI", articles: art, paiement: "Crédit (dette)" },
+          { id: "v6", boutique: "DEMAKPOE", date: "2026-10-05", client: "PAYE", commercial: "KOSSI", articles: art, paiement: "Espèces", commission_payee: true },
+          { id: "v7", boutique: "DEMAKPOE", date: "2026-10-05", client: "RECEP", commercial: "KOSSI", articles: art, paiement: "Espèces", commission_a_la_reception: true },
+        ],
+        dettes: [{ id: "d5", vente_id: "v5", boutique: "DEMAKPOE", montant: 1000000, paye: 0 }],
+        clients_installes: [],
+      };
+      const aA = CD.commissionsAAviser(dbCD);
+      const cles = aA.map((x) => x.cle).sort().join("|");
+      const fifo = aA.find((x) => x.cle === "v:v1:apporteur"), ayoko = aA.find((x) => x.cle === "v:v2:apporteur");
+      test("★ 💰 commission due : annoncée au commercial et à l'apporteur quand elle est DUE (réception ET solde) — jamais une vente de formation, à crédit non soldée, déjà payée, en attente de réception, ni d'avant la mise en service",
+        cles === "v:v1:apporteur|v:v1:commercial|v:v2:apporteur|v:v2:commercial"
+        && /Pour la recevoir, passez à la boutique DEMAKPOE \(Tél : 91000000\)/.test(fifo?.envoi.variables[3] || "")
+        && /espace sur gestion\.bmitogo\.com/.test(ayoko?.envoi.variables[3] || ""));
+      const marque = CD.marquerCommissionAvisee(dbCD, { type: "vente", id: "v1", qui: "apporteur" }, "2026-10-06");
+      const marque2 = CD.marquerCommissionAvisee(marque, { type: "vente", id: "v1", qui: "commercial" }, "2026-10-06");
+      test("★ 💰 une commission annoncée ne l'est jamais deux fois (la marque posée après l'envoi l'écarte)",
+        CD.commissionsAAviser(marque2).map((x) => x.cle).sort().join("|") === "v:v2:apporteur|v:v2:commercial");
+      const recompose = CD.envoiDeCommission(marque2, { type: "vente", id: "v1", qui: "commercial" });
+      test("★ 💰 le détail de l'avis se RECOMPOSE depuis la vente (même fabrique que l'envoi), même une fois annoncé — et la ligne rangée garde sa référence",
+        recompose && /^50.000 F$/.test(recompose.envoi.variables[1]) && recompose.envoi.variables[2] === "MR ERIC"
+        && /ref: \{ commission_ref: c\.ref \}/.test(readFileSync("src/App.jsx", "utf8"))
+        && /m\.wa_modele === "commission_due"[\s\S]{0,120}envoiDeCommission\(db \|\| \{\}, m\.commission_ref\)/.test(readFileSync("src/lib/lignesPrivees.js", "utf8")));
+      const appS = readFileSync("src/App.jsx", "utf8");
+      test("★ 💰 l'envoi part à l'ouverture, chez l'administrateur PRINCIPAL seul, une fois par jour, sans question ni repli, et la marque n'est posée qu'APRÈS l'accord de WhatsApp",
+        /if \(!estAdminPrincipal\(db, profile\) \|\| !peutEcrire\(dbRef\.current, profile\)\) return;/.test(appS)
+        && /bmi_avis_commissions:\$\{profile\.id\}:\$\{today\(\)\}/.test(appS) && /sansRepli: true \}\);\s*if \(!r\.auto\)/.test(appS)
+        && appS.indexOf("if (!r.auto) { console.warn(\"[commission due]") < appS.indexOf("marquerCommissionAvisee(etat, c.ref, quand)"));
       const dpR = readFileSync("src/screens/Depenses.jsx", "utf8");
       test("★ 📤 une retenue de crédit sur salaire se lit « retenu sur le salaire — pas sorti de la caisse », un remboursement « argent rentré dans la caisse »",
         /x\.auto === "retenue" \? "retenu sur le salaire — pas sorti de la caisse · " : Number\(x\.montant\) < 0 \? "↩ argent rentré dans la caisse · "/.test(dpR));

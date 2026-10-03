@@ -191,6 +191,11 @@ export const MODELES = {
   // (décision « b », 03/10/2026) : le salaire, la retenue, le versé et ce qui
   // reste à rembourser se lisent dans le message.
   virement_salaire_credit: { categorie: "utility", variables: ["employe", "mois", "date", "salaire", "retenue", "montant", "moyen", "reference", "reste", "initiateur"] },
+  // 💰 03/10/2026, Timo (son texte) : une commission DEVENUE DUE (réception
+  // ET solde), au commercial, au technicien, au parrain, à l'apporteur. Le
+  // trou 4 = « Détail dans votre espace… » pour qui a un compte, « Passez à
+  // la boutique … » pour un apporteur externe (sa décision du jour).
+  commission_due: { categorie: "utility", variables: ["beneficiaire", "montant", "client", "suite"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -233,6 +238,9 @@ export const MODELES_EN_SERVICE = [
   // 03/10/2026 : l'avis de paiement d'un salaire. En service AVANT l'accord
   // de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
   "virement_salaire", "virement_salaire_credit",
+  // 03/10/2026 : la commission devenue due (envoyée à l'ouverture de
+  // l'application par l'administrateur principal, lib/commissionsDues.js).
+  "commission_due",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -306,7 +314,7 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due"];
 const LIGNES_MASQUEES = {
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
@@ -314,6 +322,7 @@ const LIGNES_MASQUEES = {
   bon_retour: "🔒 Bon de retour envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
   virement_salaire: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   virement_salaire_credit: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
+  commission_due: "🔒 Avis de commission due envoyé — détail réservé à l'administrateur principal.",
 };
 export const lignePrivee = (modele) => MODELES_PRIVES.includes(modele);
 export const ligneMasquee = (modele) => LIGNES_MASQUEES[modele] || "";
@@ -723,6 +732,7 @@ const LIGNES_ENVOI = {
   avenant_reserves: ([client, pv]) => `Lien de signature de l'avenant de levée de réserves (PV N° ${pv}) envoyé à ${client}.`,
   accueil_prospect: ([client]) => `Message d'accueil envoyé au prospect ${client}.`,
   relance_prospect: ([client, auteur, projet]) => `Relance du prospect ${client} par ${auteur} : son projet ${projet}.`,
+  commission_due: ([beneficiaire, montant, client]) => `Avis de commission due envoyé à ${beneficiaire} : ${montant} (client ${client}).`,
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
@@ -1556,6 +1566,43 @@ export function envoiVirementSalaire({ employe, tel, mois, date, montant, moyen,
       moyenVersement(moyen),
       texteVariable(reference) || "—",
       `${role} ${numero}`,
+    ],
+  };
+}
+
+// ---------------------------------------------------------------
+// 💰 LA COMMISSION DEVENUE DUE — `commission_due` (03/10/2026)
+// ---------------------------------------------------------------
+// Le texte de Timo, sa faute de frappe « /? » corrigée et la phrase de
+// l'espace devenue le trou 4 (« 1 oui, 2 … boutique rattachée avec son
+// numéro et les coordonnées de BMI »).
+export const TEXTE_COMMISSION_DUE = [
+  "Bonjour {{1}},",
+  "",
+  "Commission BMI TOGO",
+  "",
+  "Votre commission de {{2}} pour le chantier / la vente de {{3}} est désormais due : les travaux ont été réceptionnés et le client a soldé son paiement.",
+  "Elle vous sera réglée prochainement. {{4}}",
+  "",
+  "BMI TOGO — E-mail : contact@bmitogo.com",
+  "Tel: +228 99 96 84 88 / +228 91 13 05 11",
+].join("\n");
+export const SUITE_ESPACE = "Détail dans votre espace sur gestion.bmitogo.com.";
+// Un apporteur externe n'a pas d'espace : il passe à la boutique rattachée.
+export const suiteBoutique = (boutique) =>
+  `Pour la recevoir, passez à la boutique ${texteVariable(boutique?.nom) || "BMI TOGO"} (Tél : ${texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL}).`;
+export function envoiCommissionDue({ nom, tel, montant, client, espace, boutique, fmt }) {
+  if (!String(tel || "").replace(/\D/g, "")) return null;
+  const m = Number(montant);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  return {
+    modele: "commission_due",
+    variables: [
+      texteVariable(nom) || "cher partenaire",
+      f(m),
+      texteVariable(client) || "votre client",
+      espace ? SUITE_ESPACE : suiteBoutique(boutique),
     ],
   };
 }

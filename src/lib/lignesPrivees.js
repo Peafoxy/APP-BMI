@@ -18,6 +18,7 @@ import { lignesVente, totalVente, fmt, dFR, numeroBulletin } from "./core";
 import { montantEncaisseVente } from "./versements";
 import { bonReprise, bonRetour, retoursDeVente } from "./bons";
 import { libelleMoisFR } from "./calculs";
+import { envoiDeCommission } from "./commissionsDues";
 
 // Les deux reçus d'une vente, le DÉTAILLÉ d'abord (l'ordre de l'envoi).
 // `avance` / `reste` : ceux de la dette née de la vente quand l'écran les a,
@@ -47,6 +48,11 @@ export function texteLignePrivee(m, db) {
     const v = (u?.virements || []).find((x) => x.id === m.virement_id);
     if (!u || !v) return "";
     const e = envoiVirementSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, moyen: v.moyen, reference: v.ref || numeroBulletin(v.mois, u.id), initiateur: { role: v.par, tel: " " }, retenue: m.wa_modele === "virement_salaire_credit" ? v.retenue_credit : 0, resteCredit: v.reste_credit, fmt, dFR });
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // 💰 L'avis de commission due : recomposé depuis la vente ou la dette de pose.
+  if (m.wa_modele === "commission_due") {
+    const e = envoiDeCommission(db || {}, m.commission_ref)?.envoi;
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   const idVente = m.vente_id || m.bon_vente_id;

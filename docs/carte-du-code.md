@@ -26,6 +26,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/apporteurDevis.js` | L'apporteur externe nommé dans le devis : 3 % d'office, le pourcentage changé par l'administrateur principal seul (brouillon), la commission sur les articles ou la pose, la dette de pose qui le porte |
 | `lib/caissesCentrales.js` | Les caisses « Chez le DG », « BANQUE », « Chez le comptable » et leurs relevés |
 | `lib/caissesMobiles.js` | Le solde des comptes Flooz et Mixx/T-Money, boutique par boutique |
+| `lib/commissionsDues.js` | Les commissions devenues dues (réception ET solde) à annoncer par WhatsApp, et leur marque « annoncée » |
 | `lib/compteExploitant.js` | Le compte de l'exploitant (BMI est une entreprise individuelle) : la caisse de BMI chez le DG, à part de ce que BMI lui doit ; ses apports et ses prélèvements |
 | `lib/depensesChantier.js` | Les petites dépenses rattachées à un chantier de devis |
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |

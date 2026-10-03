@@ -123,6 +123,12 @@ export const CHAPITRE = {
         { titre: "Le filleul achète une installation", texte: "À l'encaissement du devis, le parrain est posé comme **apporteur** de la vente, à son taux (3 % d'office)." },
         { titre: "Il voit ses gains", texte: "« À vous verser », « En attente », « Déjà reçu » dans son espace. Il est payé comme un apporteur externe, depuis 👑 Équipe." },
       ]],
+      ["h3", "Le message « commission due »"],
+      ["etapes", [
+        { titre: "Il part tout seul, du numéro WhatsApp BMI", texte: "Le jour où une commission devient **due** (réception **et** solde du client), le message « Commission BMI TOGO » part au commercial ou au technicien de la vente, au responsable, au parrain ou à l'apporteur externe — le jour où l'administrateur principal ouvre l'application." },
+        { titre: "Ce qu'il dit", texte: "Le montant et le client. Un employé ou un parrain qui a un compte est renvoyé à son espace ; **un apporteur externe est invité à passer à la boutique de la vente**, avec son numéro." },
+        { titre: "Il ne promet pas le paiement du jour", texte: "« Elle vous sera réglée prochainement » : le paiement reste le geste ✓ Payer ci-dessus. Une commission annoncée ne l'est jamais deux fois ; en formation, rien ne part." },
+      ]],
       ["h3", "G. Les primes d'installation"],
       ["etapes", [
         { titre: "La répartition (administrateur)", texte: "🏠 Clients installés → 🔧 Frais (chapitre 15)." },

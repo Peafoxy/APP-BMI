@@ -29,6 +29,7 @@ import { ClientsInstalles } from "./screens/ClientsInstalles";
 import { Travaux } from "./screens/Travaux";
 import { Outillage } from "./screens/Outillage";
 import { mesOutils, doitJustifier, peutTenirOutillage } from "./lib/outillage";
+import { commissionsAAviser, marquerCommissionAvisee } from "./lib/commissionsDues";
 import { PrimesRemises } from "./screens/PrimesRemises";
 import { PrimesRecues } from "./screens/PrimesRecues";
 import { ContratsInstallation } from "./screens/ContratsInstallation";
@@ -281,6 +282,35 @@ export default function App() {
     save(next, traces.join(" · "));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, syncInitiale, db?.clients_installes]);
+  // ---- 💰 LES COMMISSIONS DEVENUES DUES (Timo, 03/10/2026 : « 2 due,
+  // commercial et technicien, parrain et apporteur externe », « 3 oui » : le
+  // message part le jour où l'administrateur PRINCIPAL ouvre l'application).
+  // Une fois par jour et par appareil ; chaque message part du numéro BMI
+  // (modèle `commission_due`, sans question ni repli) et la commission n'est
+  // marquée « annoncée » qu'APRÈS l'accord de WhatsApp — refusé (modèle pas
+  // encore approuvé…), on retentera le lendemain. Le réel seulement
+  // (lib/commissionsDues.js), quel que soit l'espace regardé.
+  useEffect(() => {
+    if (!db || !profile || syncInitiale) return;
+    if (!estAdminPrincipal(db, profile) || !peutEcrire(dbRef.current, profile)) return;
+    const cle = `bmi_avis_commissions:${profile.id}:${today()}`;
+    try { if (localStorage.getItem(cle)) return; localStorage.setItem(cle, "1"); } catch { /* navigation privée */ }
+    const aEnvoyer = commissionsAAviser(dbRef.current);
+    if (!aEnvoyer.length) return;
+    (async () => {
+      const { envoyerModele, messagesAvecLigneEnvoi } = await import("./whatsapp.js");
+      for (const c of aEnvoyer) {
+        const r = await envoyerModele({ tel: c.tel, modele: c.envoi.modele, variables: c.envoi.variables, espaceFormation: false, sansRepli: true });
+        if (!r.auto) { console.warn("[commission due] pas partie :", c.nom, r.motif || ""); continue; }
+        const quand = new Date().toISOString();
+        save((etat) => ({
+          ...marquerCommissionAvisee(etat, c.ref, quand),
+          messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: c.tel, nom: c.nom, modele: c.envoi.modele, variables: c.envoi.variables, ref: { commission_ref: c.ref }, envoi: r }),
+        }), `Avis de commission due envoyé du numéro BMI à ${c.nom}`);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, syncInitiale]);
   // Comptes de secours : copie minimale des comptes (voir db.js), utilisée
   // par l'écran de connexion quand la table users est vide (purge + hors ligne).
   const [secours, setSecours] = useState([]);

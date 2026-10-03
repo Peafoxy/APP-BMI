@@ -199,6 +199,7 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.bon_numero ? { bon_numero: ref.bon_numero } : {}),
     ...(ref && ref.bon_vente_id ? { bon_vente_id: ref.bon_vente_id } : {}),
     ...(ref && ref.salaire_user_id ? { salaire_user_id: ref.salaire_user_id, virement_id: ref.virement_id } : {}),
+    ...(ref && ref.commission_ref ? { commission_ref: ref.commission_ref } : {}),
     ...(prive ? { wa_prive: true } : {}),
     ...prop,
     ...champsEnvoi(envoi),
