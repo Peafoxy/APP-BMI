@@ -196,6 +196,11 @@ export const MODELES = {
   // trou 4 = « Détail dans votre espace… » pour qui a un compte, « Passez à
   // la boutique … » pour un apporteur externe (sa décision du jour).
   commission_due: { categorie: "utility", variables: ["beneficiaire", "montant", "client", "suite"] },
+  // 🎂 03/10/2026, Timo (« 1b », puis « on garde l'ancien texte que tu as
+  // proposé ») : les vœux d'anniversaire à l'employé, le jour même, par la
+  // tournée de 7 h. MARKETING (Meta range les vœux dans la promotion).
+  // SERVEUR SEUL (lib/anniversaires.js) — aucun écran ne l'envoie.
+  anniversaire_employe: { categorie: "marketing", variables: ["employe"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -732,6 +737,7 @@ const LIGNES_ENVOI = {
   avenant_reserves: ([client, pv]) => `Lien de signature de l'avenant de levée de réserves (PV N° ${pv}) envoyé à ${client}.`,
   accueil_prospect: ([client]) => `Message d'accueil envoyé au prospect ${client}.`,
   relance_prospect: ([client, auteur, projet]) => `Relance du prospect ${client} par ${auteur} : son projet ${projet}.`,
+  anniversaire_employe: ([employe]) => `Vœux d'anniversaire envoyés à ${employe}.`,
   commission_due: ([beneficiaire, montant, client]) => `Avis de commission due envoyé à ${beneficiaire} : ${montant} (client ${client}).`,
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
@@ -1605,4 +1611,24 @@ export function envoiCommissionDue({ nom, tel, montant, client, espace, boutique
       espace ? SUITE_ESPACE : suiteBoutique(boutique),
     ],
   };
+}
+
+// 🎂 LES VŒUX D'ANNIVERSAIRE — le texte proposé le 03/10/2026 et gardé par
+// Timo (« on garde l'ancien texte que tu as proposé »), mot pour mot chez
+// Meta. Un seul trou : le nom de l'employé (son nom complet s'il est
+// renseigné). L'année de naissance n'est jamais connue : aucun âge.
+export const TEXTE_ANNIVERSAIRE = [
+  "Bonjour {{1}},",
+  "",
+  "🎂 Joyeux anniversaire !",
+  "",
+  "Toute l'équipe de BMI TOGO vous souhaite une excellente journée et une très belle année, pleine de santé et de réussite.",
+  "",
+  "Merci pour votre engagement à nos côtés.",
+  "La Direction — BMI TOGO",
+].join("\n");
+export function envoiAnniversaire({ employe }) {
+  const nom = texteVariable(employe?.nom_complet || employe?.nom);
+  if (!nom) return null;
+  return { modele: "anniversaire_employe", variables: [nom] };
 }

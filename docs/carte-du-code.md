@@ -26,6 +26,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/apporteurDevis.js` | L'apporteur externe nommé dans le devis : 3 % d'office, le pourcentage changé par l'administrateur principal seul (brouillon), la commission sur les articles ou la pose, la dette de pose qui le porte |
 | `lib/caissesCentrales.js` | Les caisses « Chez le DG », « BANQUE », « Chez le comptable » et leurs relevés |
 | `lib/caissesMobiles.js` | Le solde des comptes Flooz et Mixx/T-Money, boutique par boutique |
+| `lib/anniversaires.js` | Les anniversaires des employés : qui est fêté tel jour (le dernier jour du mois pour un jour absent), le rappel de la veille au principal (17 h), les vœux du numéro BMI le jour même (7 h), une fois par an |
 | `lib/commissionsDues.js` | Les commissions devenues dues (réception ET solde) à annoncer par WhatsApp, et leur marque « annoncée » |
 | `lib/compteExploitant.js` | Le compte de l'exploitant (BMI est une entreprise individuelle) : la caisse de BMI chez le DG, à part de ce que BMI lui doit ; ses apports et ses prélèvements |
 | `lib/depensesChantier.js` | Les petites dépenses rattachées à un chantier de devis |
@@ -145,7 +146,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `src/push.js` | Les notifications sur l'appareil — **le seul endroit** où `Notification` et `pushManager` existent |
 | `src/whatsapp.js` | 📲 L'envoi d'un message du numéro BMI — **le seul endroit** qui appelle le serveur WhatsApp, et qui replie sur l'ouverture WhatsApp si ça rate |
 | `src/screens/` | Un écran par onglet (dont `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages ; et `Whatsapp.jsx` : 📲 WhatsApp, séparé de 💬 Messages le 20/09/2026) |
-| `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin, envoi WhatsApp (`whatsapp.js`, qui garde la clé YCloud), réception (`whatsapp-entrant.js`, qui fait aussi répondre l'assistant), la porte vers YCloud écrite une fois (`_ycloud.js`, qui dépose aussi un fichier envoyé au client), la porte vers le service d'IA écrite une fois (`_assistantIA.js` — la SEULE à lire la clé `ANTHROPIC_API_KEY` et le nom du modèle `ASSISTANT_IA_MODELE`, variables Vercel) et ouverture d'un fichier reçu (`whatsapp-media.js`) |
+| `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin (`rappels-du-matin.js`, 7 h) et du soir (`rappels-du-soir.js`, 17 h : le rappel des anniversaires de demain), la lecture d'une table entière écrite une fois pour les deux (`_tables.js`), envoi WhatsApp (`whatsapp.js`, qui garde la clé YCloud), réception (`whatsapp-entrant.js`, qui fait aussi répondre l'assistant), la porte vers YCloud écrite une fois (`_ycloud.js`, qui dépose aussi un fichier envoyé au client), la porte vers le service d'IA écrite une fois (`_assistantIA.js` — la SEULE à lire la clé `ANTHROPIC_API_KEY` et le nom du modèle `ASSISTANT_IA_MODELE`, variables Vercel) et ouverture d'un fichier reçu (`whatsapp-media.js`) |
 | `supabase/securite-*.sql` | Les verrous côté base — **Timo les colle lui-même**, jamais nous |
 | `scripts/` | Le banc : `verifier-*` (application) et `tester-*-sql.sh` (base jetable). Les `_rendu-*.jsx` MONTENT un vrai écran pour le mesurer — seul moyen d'attraper un écran blanc |
 

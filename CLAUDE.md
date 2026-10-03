@@ -56,7 +56,7 @@ npm run verifier-cloisonnement   # 2147 contrôles : la séparation formation / 
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run tester-notifications     # 77  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
+npm run tester-notifications     # 78  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
@@ -64,7 +64,7 @@ npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet,
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 27 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 814 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé)
+npm run verifier-whatsapp        # 835 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -5288,6 +5288,31 @@ lit mal est pire qu'un banc absent).
   seulement. **Ligne PRIVÉE** dans 📲 WhatsApp (`commission_ref` sur la ligne,
   détail recomposé pour le principal). ~4 F. **À créer par Timo chez YCloud.**
   Banc (cloisonnement 4 contrôles, whatsapp), éprouvé. Rien à coller.
+
+### 🎂 LES ANNIVERSAIRES DES EMPLOYÉS : LE RAPPEL DE LA VEILLE, LES VŒUX DU NUMÉRO BMI (03/10/2026, « 1b », « on garde l'ancien texte que tu as proposé »)
+- Règle pure **`lib/anniversaires.js`** (lisible par le serveur). La date vient
+  de la case 🎂 de la fiche (`anniv` = "MM-JJ", jamais l'année). ⚠ Un jour
+  absent du mois (29/02 une année ordinaire, « 31/04 » saisi) se fête le
+  **DERNIER jour du mois** (`estFeteLe`).
+- **La VEILLE à 17 h** : nouvelle tournée **`api/rappels-du-soir.js`** (second
+  cron Vercel `0 17 * * *` — Lomé = GMT+0, CRON_SECRET, n'écrit RIEN), une
+  notification à l'**administrateur PRINCIPAL seul** (`rappelVeilleAnniversaires` :
+  « Demain, c'est l'anniversaire de NOM, BOUTIQUE », et « pas de numéro sur sa
+  fiche : aucun message ne lui partira » s'il le faut ; clic → 👥 Utilisateurs).
+- **Le jour même à 7 h** (`souhaiterLesAnniversaires`, api/rappels-du-matin.js) :
+  le modèle **`anniversaire_employe`** (MARKETING, 1 trou : le nom complet,
+  `TEXTE_ANNIVERSAIRE`), serveur seul. Rien n'est écrit avant l'accord de
+  WhatsApp ; refusé → pas retenté (on ne souhaite pas en retard). La ligne du
+  fil (modèle + `anniversaire_user_id` + `anniversaire_annee`, sans
+  propriétaire) l'empêche une seconde fois **la même année**.
+- ⚠ **LE MUR** : employés RÉELS, actifs, non bloqués — jamais un client ni un
+  compte de formation. `lireTable` est écrit UNE fois (`api/_tables.js`) pour
+  les deux tournées. **À créer par Timo chez YCloud : `anniversaire_employe`**
+  (marketing, fr). ~14 F. Rien à coller dans Supabase. Banc ㊻
+  (`verifier-whatsapp`, 11), éprouvé en remettant quatre fautes (dernier jour
+  du mois, le mur, deux fois par an, tous les administrateurs) : chacune
+  tombe. Contrôles RETOURNÉS : vingt-neuf modèles, serveur seul, modèles à
+  ligne, le cron (`tester-notifications`).
 
 ### 📥 UN CRÉDIT BMI D'AVANT L'APPLICATION, ET UN PRÊT N'EST PAS UNE CHARGE (03/10/2026, « lance 1 et 2, et oui pour la charge »)
 - Capture Timo (🕘 Historique) : le crédit d'ANGELE (400 000 F restants d'un

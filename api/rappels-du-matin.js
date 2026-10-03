@@ -45,20 +45,10 @@ import { soldesPoseDuJour, ligneRappelSolde, enteteApresRappelSolde, detteApresR
 import { idsAdmins } from "../src/lib/espace.js";
 import { fmt, dFR } from "../src/lib/core.js";
 import { randomUUID } from "node:crypto";
+import { lireTable } from "./_tables.js";
+import { anniversairesDuJour, ligneAnniversaire, enteteApresAnniversaire, MODELE_ANNIVERSAIRE } from "../src/lib/anniversaires.js";
 
 const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
-
-async function lireTable(admin, table) {
-  const lignes = [];
-  const PAGE = 1000;
-  for (let de = 0; ; de += PAGE) {
-    const { data, error } = await admin.from(table).select("id, data").range(de, de + PAGE - 1);
-    if (error) throw error;
-    (data || []).forEach((l) => lignes.push({ ...(l.data || {}), id: l.id }));
-    if (!data || data.length < PAGE) break;
-  }
-  return lignes;
-}
 
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
@@ -86,10 +76,14 @@ export default async function handler(req, res) {
     // (Timo, 29/09/2026) : un message au client, une notification à
     // l'administrateur.
     const soldes = await rappelerLesSoldesDePose(admin, db, aujourdhui);
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan });
+    // 🎂 Les vœux d'anniversaire aux employés, du numéro BMI (Timo,
+    // 03/10/2026, « 1b ») — le rappel de la veille part à 17 h
+    // (api/rappels-du-soir.js).
+    const anniversaires = await souhaiterLesAnniversaires(admin, db, aujourdhui);
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires });
     const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...soldes.notifications];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan });
+    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }
@@ -254,6 +248,46 @@ async function demanderLesAvis(admin, db, aujourdhui) {
       }
     } catch (e) {
       console.error("[rappels-du-matin] demande d'avis", e?.message || e);
+    }
+  }
+  return bilan;
+}
+
+// ---- 🎂 LES VŒUX D'ANNIVERSAIRE AUX EMPLOYÉS ----
+// Rend { a_souhaiter, envoyes, refuses }. Rien n'est écrit tant que WhatsApp
+// n'a pas accepté. Refusé (modèle pas encore approuvé…), il n'est pas
+// retenté : la tournée ne passe qu'une fois par jour, et on ne souhaite pas
+// un anniversaire en retard. Le refus part dans le journal Vercel.
+async function souhaiterLesAnniversaires(admin, db, aujourdhui) {
+  const liste = anniversairesDuJour(db, aujourdhui);
+  const bilan = { a_souhaiter: liste.length, envoyes: 0, refuses: 0 };
+  if (!liste.length) return bilan;
+  const { cle, expediteurBrut } = configYCloud();
+  const expediteur = numeroWhatsApp(expediteurBrut);
+  if (!cle || !expediteur) { console.error("[rappels-du-matin] anniversaire : WhatsApp non configuré sur le serveur"); return bilan; }
+  for (const r of liste) {
+    try {
+      const envoi = await envoyerYCloud(cle, {
+        from: expediteur, to: r.tel, type: "template",
+        template: { name: MODELE_ANNIVERSAIRE, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: r.envoi.variables.map((text) => ({ type: "text", text })) }] },
+      });
+      if (!envoi.ok) { bilan.refuses++; console.error("[rappels-du-matin] anniversaire refusé", envoi.code_whatsapp, envoi.motif); continue; }
+      bilan.envoyes++;
+      const ts = new Date().toISOString();
+      const ligneBase = ligneAnniversaire({ id: randomUUID(), tel: r.tel, employe: r.employe, variables: r.envoi.variables, ts });
+      const ligne = ligneBase ? { ...ligneBase, ...champsEnvoi(envoi) } : null;
+      if (ligne) {
+        const { error } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ts });
+        if (error) console.error("[rappels-du-matin] anniversaire : ligne du fil non écrite", error.message);
+        const entete = (db.messages || []).find((m) => m.id === idEntete(cleConversation(r.tel)));
+        const fiche = enteteApresAnniversaire({ tel: r.tel, employe: r.employe, ts, entete });
+        if (fiche) {
+          const { error: e2 } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: ts });
+          if (e2) console.error("[rappels-du-matin] anniversaire : fiche légère non posée", e2.message);
+        }
+      }
+    } catch (e) {
+      console.error("[rappels-du-matin] anniversaire", e?.message || e);
     }
   }
   return bilan;

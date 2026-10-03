@@ -103,10 +103,11 @@ const ATTENDU = {
   virement_salaire_credit: { categorie: "utility", n: 10 },
   // 03/10/2026 : la commission devenue due (texte de Timo).
   commission_due: { categorie: "utility", n: 4 },
+  anniversaire_employe: { categorie: "marketing", n: 1 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les vingt-huit modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les vingt-neuf modèles sont là, et eux seuls (RETOURNÉ le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis les vœux d'anniversaire ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -131,7 +132,7 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
 // aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
 // RETOURNÉ encore le 26/09/2026 : le rappel d'entretien aussi (même tournée).
 // RETOURNÉ le 29/09/2026 : + le rappel du solde d'une pose (tournée de 7 h).
-const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose"];
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe"]; /* RETOURNÉ le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h) */
 test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien, la demande d'avis)",
   M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
   && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
@@ -1298,7 +1299,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,avenant_reserves,bon_reprise,bon_retour,commission_due,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,anniversaire_employe,avenant_reserves,bon_reprise,bon_retour,commission_due,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3687,6 +3688,56 @@ titre("㊺ 📎 ENVOYER UN FICHIER AU CLIENT, DU NUMÉRO BMI (03/10/2026, « tou
   const mem = ia.messagesPourIA([{ wa_entrant: true, texte: "le devis ?" }, { texte: "", wa_media: { type: "document", nom: "devis.pdf", envoye: true } }, { wa_entrant: true, texte: "merci" }]);
   test("★ l'assistant sait qu'un fichier envoyé l'a été PAR BMI, jamais « par le client »",
     mem.some((x) => /envoyé au client par BMI/.test(x.content)) && !mem.some((x) => /devis\.pdf.*envoyé par le client/.test(x.content)));
+}
+
+
+titre("㊻ 🎂 LES VŒUX D'ANNIVERSAIRE : LE RAPPEL DE LA VEILLE À 17 H, LES VŒUX DU NUMÉRO BMI LE JOUR MÊME (03/10/2026, « 1b »)");
+{
+  const A = await import("../src/lib/anniversaires.js");
+  const M4 = await import("../src/lib/whatsappModeles.js");
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★★ un jour qui n'existe pas dans le mois se fête le DERNIER jour (29/02 une année ordinaire, 31/04 saisi)",
+    A.estFeteLe("02-29", "2027-02-28") && !A.estFeteLe("02-29", "2027-02-27") && A.estFeteLe("02-29", "2028-02-29") && !A.estFeteLe("02-29", "2028-02-28")
+    && A.estFeteLe("04-31", "2026-04-30") && A.estFeteLe("10-03", "2026-10-03") && !A.estFeteLe("10-03", "2026-11-03") && !A.estFeteLe("", "2026-10-03"));
+  test("le lendemain passe le mois et l'année", A.lendemain("2026-12-31") === "2027-01-01" && A.lendemain("2026-02-28") === "2026-03-01");
+  const db = {
+    boutiques: [{ nom: "BMI DEMAKPOE" }, { nom: "AFORMATION", formation: true }],
+    users: [
+      { id: "p", nom: "TIMO", role: "admin", admin_principal: true },
+      { id: "a2", nom: "ADJOINT", role: "admin" },
+      { id: "e1", nom: "KOSSI", nom_complet: "KOSSI Mensah", role: "vendeur", boutique: "BMI DEMAKPOE", anniv: "10-04", tel: "90112233" },
+      { id: "e2", nom: "AMA", role: "gerant", boutique: "BMI DEMAKPOE", anniv: "10-04" },
+      { id: "f1", nom: "FORMA", role: "vendeur", boutique: "AFORMATION", anniv: "10-04", tel: "90445566" },
+      { id: "c1", nom: "CLIENT", role: "client", anniv: "10-04", tel: "90778899" },
+      { id: "b1", nom: "PARTI", role: "vendeur", boutique: "BMI DEMAKPOE", anniv: "10-04", tel: "90000001", actif: false },
+    ],
+    messages: [],
+  };
+  const r = A.rappelVeilleAnniversaires(db, "2026-10-03");
+  test("★★ la VEILLE : le rappel va à l'administrateur PRINCIPAL seul, et nomme les fêtés de demain",
+    r && r.destinataires.join(",") === "p" && /Demain, c'est l'anniversaire de : KOSSI Mensah, BMI DEMAKPOE ; AMA, BMI DEMAKPOE — pas de numéro/.test(r.texte) && r.tag === "anniv:2026-10-04");
+  test("★★ LE MUR : jamais un compte de formation, un client ou un compte inactif — ni dans le rappel, ni dans les vœux",
+    !/FORMA|CLIENT|PARTI/.test(r.texte) && A.anniversairesDuJour(db, "2026-10-04").map((x) => x.employe.id).join(",") === "e1");
+  test("pas de rappel quand personne n'est fêté demain", A.rappelVeilleAnniversaires(db, "2026-10-05") === null);
+  const j = A.anniversairesDuJour(db, "2026-10-04")[0];
+  test("★ le modèle : un trou, le nom complet de l'employé ; le texte gardé par Timo",
+    j.envoi.modele === "anniversaire_employe" && j.envoi.variables.join("|") === "KOSSI Mensah"
+    && /Joyeux anniversaire/.test(M4.TEXTE_ANNIVERSAIRE) && /\{\{1\}\}/.test(M4.TEXTE_ANNIVERSAIRE) && !/\{\{2\}\}/.test(M4.TEXTE_ANNIVERSAIRE));
+  const ligne = A.ligneAnniversaire({ id: "x", tel: j.tel, employe: j.employe, variables: j.envoi.variables, ts: "2026-10-04T07:00:00Z" });
+  const db2 = { ...db, messages: [ligne] };
+  test("★★ UNE fois par an : la ligne du fil (modèle + employé + année) empêche une seconde fois, l'année suivante rouvre",
+    A.anniversairesDuJour(db2, "2026-10-04").length === 0 && A.anniversairesDuJour(db2, "2027-10-04").length === 1);
+  test("★ la ligne du fil ne donne la conversation à personne", ligne && !ligne.proprietaire_id && ligne.de_id === "anniversaire-bmi");
+  const RM = sansComm(lire("api/rappels-du-matin.js"));
+  const corps = RM.slice(RM.indexOf("async function souhaiterLesAnniversaires"));
+  test("★★ serveur 7 h : rien n'est écrit tant que WhatsApp n'a pas accepté",
+    /anniversairesDuJour\(db, aujourdhui\)/.test(corps) && corps.indexOf("envoyerYCloud(") > 0
+    && corps.indexOf("if (!envoi.ok)") > corps.indexOf("envoyerYCloud(") && corps.indexOf('from("messages").insert') > corps.indexOf("if (!envoi.ok)"));
+  const RS = sansComm(lire("api/rappels-du-soir.js"));
+  test("★★ serveur 17 h : la règle pure (rappelVeilleAnniversaires), le secret CRON_SECRET, une notification — et rien d'écrit",
+    /rappelVeilleAnniversaires\(db, aujourdhui\)/.test(RS) && /process\.env\.CRON_SECRET/.test(RS) && /envoyerAuxPersonnes\(admin, \[envoi\]\)/.test(RS) && !/\.(insert|upsert|update)\(/.test(RS));
+  test("★ une seule façon de lire une table côté serveur (api/_tables.js), pour les deux tournées",
+    /from "\.\/_tables\.js"/.test(RM) && /from "\.\/_tables\.js"/.test(RS) && !/async function lireTable/.test(RM + RS));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

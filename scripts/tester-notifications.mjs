@@ -292,7 +292,9 @@ titre("Un seul chemin, et rien de secret dans l'application");
   test("★ api/notifier et api/abonner-push exigent le jeton de session (admin.auth.getUser) et prennent l'identité DU JETON", /admin\.auth\.getUser\(jeton\)/.test(notifier) && /admin\.auth\.getUser\(jeton\)/.test(abonner) && /auth\.user\.email\.split\("@"\)\[0\]/.test(notifier) && /auth\.user\.email\.split\("@"\)\[0\]/.test(abonner));
   test("api/notifier refuse un compte bloqué et retire l'appelant de ses propres destinataires", /compte\.actif === false/.test(notifier) && /destinataires\.filter\(\(d\) => d !== id\)/.test(notifier));
   test("★ la tournée du matin exige le secret de Vercel (CRON_SECRET) et importe la règle pure src/lib/rappels.js", /Bearer \$\{secret\}/.test(matin) && /from "\.\.\/src\/lib\/rappels\.js"/.test(matin) && /process\.env\.CRON_SECRET/.test(matin));
-  test("vercel.json lance la tournée chaque matin à 07:00 (Lomé = UTC)", /"crons": \[\{ "path": "\/api\/rappels-du-matin", "schedule": "0 7 \* \* \*" \}\]/.test(lire("vercel.json")));
+  test("vercel.json lance la tournée chaque matin à 07:00 (Lomé = UTC)", /"crons": \[\{ "path": "\/api\/rappels-du-matin", "schedule": "0 7 \* \* \*" \}, \{ "path": "\/api\/rappels-du-soir", "schedule": "0 17 \* \* \*" \}\]/.test(lire("vercel.json")));
+  // RETOURNÉ le 03/10/2026 : une seconde tournée, à 17 h (rappel des anniversaires de demain).
+  test("la tournée du soir exige CRON_SECRET et n'écrit rien", /authorization !== `Bearer \$\{secret\}`/.test(lire("api/rappels-du-soir.js")) && !/\.(insert|upsert|update)\(/.test(lire("api/rappels-du-soir.js")));
   test("les envois reçus sont bornés (destinataires, longueur du texte, nombre) et un appareil mort (404/410) est retiré", /MAX_DESTINATAIRES/.test(push) && /MAX_TEXTE/.test(push) && /code === 404 \|\| code === 410/.test(push) && /\.slice\(0, MAX_ENVOIS\)/.test(notifier));
   test("la clé privée ne vient que de la variable serveur VAPID_PRIVATE_KEY", /process\.env\.VAPID_PRIVATE_KEY/.test(push) && !/VITE_VAPID/.test(push));
   const dettes = lire("src/screens/Dettes.jsx"), devisEcran = lire("src/screens/TousLesDevis.jsx");
