@@ -10847,6 +10847,15 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ 🧲 👥 Utilisateurs : badge « 🧲 Prospect » dans la recherche, et le bloc « 🧲 Prospects » (non archivés)",
       /data-compte-prospect/.test(ut) && /data-comptes-prospects/.test(ut)
       && /const prospectsDevis = sansSuite\.filter\(\(c\) => !c\.archive\)/.test(ut));
+    // 04/10/2026 (capture Timo, « a, lance ») : les deux groupes sont des
+    // BOUTONS de la rangée des rôles, ouverts dans LE tableau — plus de blocs
+    // sous la liste, qui se lisaient comme la suite de la fiche ouverte.
+    test("★★ 🔘 👥 Utilisateurs : « 🧲 Comptes prospects » et « 📁 Clients archivés » sont deux boutons de la rangée des rôles, ouverts dans le tableau ; plus aucun bloc sous la liste",
+      /\["prospects", "🧲 Comptes prospects", prospectsDevis\], \["archives", "📁 Clients archivés", archives\]/.test(ut)
+      && /const rolesPresents = \[\.\.\.ROLES_LISTE, \.\.\.ONGLETS_SANS_SUITE\.map/.test(ut)
+      && /\? ongletSansSuite\[2\]\.map\(\(c\) => c\.compte\)\.filter\(\(x\) => utilisateursVisibles\.some/.test(ut)
+      && /data-ligne-sans-suite/.test(ut)
+      && !/setVoirProspects|setVoirArchives/.test(ut));
     test("★★ 🧲 Prospects : la liste « Comptes avec devis » passe par la règle de l'espace regardé et le filtre du commercial — jamais db.users",
       /clientsSansSuiteDeLEspace\(db, profile\)\.filter\(\(c\) => prospectVisiblePour\(c, profile, voitTout\)\)/.test(pr)
       // 03/10/2026 : du plus NOUVEAU au plus ancien (date du dernier devis, décroissante)

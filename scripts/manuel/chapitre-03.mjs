@@ -55,7 +55,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
         ["**🙋 Créer un client**", "Le formulaire « 🙋 Créer un compte client » (nom, numéro WhatsApp, « Ce contact est… »), le bouton « 🙋 Créer + envoyer », puis le cadre « Les clients que j'ai amenés » avec « ↻ Renvoyer ses accès »."],
         ["**👤 Clients**", "La liste des clients **de la boutique regardée** : pastilles de boutique en haut (pour qui n'a pas de boutique attitrée), « Clients — NOM DE LA BOUTIQUE (N) », la liste « Tous les clients / ⭐ Fidèles — N achats ou plus », la ligne « Rechercher un client… », le tableau, 50 lignes par page."],
-        ["**👥 Utilisateurs** (administrateur)", "Tous les comptes, clients compris : le « 📞 numéro » sous le nom avec le logo WhatsApp, « 👁 Voir le mot de passe » (principal), « Autoriser chat libre ». Sous la liste, le bloc **« 🧲 Prospects — devis envoyé, rien acheté »** : ces comptes ne sont pas encore des clients."],
+        ["**👥 Utilisateurs** (administrateur)", "Tous les comptes, clients compris : le « 📞 numéro » sous le nom avec le logo WhatsApp, « 👁 Voir le mot de passe » (principal), « Autoriser chat libre ». Dans la rangée des rôles, les boutons **« 🧲 Comptes prospects »** et **« 📁 Clients archivés »** : ces comptes ne sont pas encore des clients."],
         ["**🧲 Prospects**", "« ✅ Convertir en client » sur la ligne d'un prospect qui a dit oui."],
         ["**💰 Ventes**, **🧾 Dettes**, **🛠 Travaux à crédit**", "La case « Client » et la case « Numéro du client » proposent les clients que la boutique connaît déjà : un clic remplit les deux."],
         ["**⚙ Paramètres** (administrateur)", "« 🔒 Données personnelles » (principal)."],

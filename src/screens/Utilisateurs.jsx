@@ -76,24 +76,33 @@ export function Users({ db, save, profile }) {
   // 📁 Les clients SANS SUITE (Timo, 30/09/2026 : « b, 30 jours ») : un devis,
   // aucun validé, aucun achat — archivés 30 jours après leur dernier devis.
   // Ils quittent la liste des clients (et le compteur) mais restent trouvables
-  // par la recherche, et dans le bloc « 📁 Clients archivés ». Rien n'est
+  // par la recherche, et sous le bouton « 📁 Clients archivés ». Rien n'est
   // écrit : un nouveau devis ou un achat les en fait sortir tout seuls.
   const sansSuite = clientsSansSuiteDeLEspace(db, profile);
   const archives = sansSuite.filter((c) => c.archive);
   const idsArchives = new Set(archives.map((c) => c.compte.id));
-  const [voirArchives, setVoirArchives] = useState(false);
   // 🧲 LES PROSPECTS (03/10/2026, Timo : « client reste pour les vrais clients
   // qui ont payé un article ou validé un devis »). Un compte sans suite PAS
   // ENCORE archivé est un prospect : il quitte, lui aussi, la liste des
-  // clients et son compteur, et se range dans le bloc « 🧲 Prospects » ; la
+  // clients et son compteur, et se range sous le bouton « 🧲 Comptes prospects » ; la
   // recherche le trouve toujours, avec tous ses gestes. Le compte, lui, ne
   // change pas : il devient client à la seconde où il valide ou achète.
   const prospectsDevis = sansSuite.filter((c) => !c.archive);
   const idsSansSuite = new Set(sansSuite.map((c) => c.compte.id));
-  const [voirProspects, setVoirProspects] = useState(false);
-  const nbParRole = Object.fromEntries(ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r && !idsSansSuite.has(x.id)).length]));
-  const rolesPresents = ROLES_LISTE.filter(([r]) => nbParRole[r] > 0);
+  // 🔘 DEUX BOUTONS DANS LA RANGÉE DES RÔLES, plus deux blocs sous la liste
+  // (capture Timo, 04/10/2026 : « ramener le bouton à côté des boutons des
+  // utilisateurs et renommer compte prospect » → « a ») : le bloc du bas se
+  // lisait comme la suite de la fiche ouverte au-dessus. Les comptes s'ouvrent
+  // dans LE tableau, avec les mêmes gestes ; rien n'est écrit.
+  const sansSuiteParId = new Map(sansSuite.map((c) => [c.compte.id, c]));
+  const ONGLETS_SANS_SUITE = [["prospects", "🧲 Comptes prospects", prospectsDevis], ["archives", "📁 Clients archivés", archives]];
+  const nbParRole = Object.fromEntries([
+    ...ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r && !idsSansSuite.has(x.id)).length]),
+    ...ONGLETS_SANS_SUITE.map(([r, , liste]) => [r, liste.length]),
+  ]);
+  const rolesPresents = [...ROLES_LISTE, ...ONGLETS_SANS_SUITE.map(([r, lbl]) => [r, lbl])].filter(([r]) => nbParRole[r] > 0);
   const roleAffiche = nbParRole[roleActif] > 0 ? roleActif : (rolesPresents[0]?.[0] || "admin");
+  const ongletSansSuite = ONGLETS_SANS_SUITE.find(([r]) => r === roleAffiche);
   const qU = rechercheU.trim().toLowerCase();
   const enRecherche = qU.length > 0;
   const listeAffichee = enRecherche
@@ -104,7 +113,9 @@ export function Users({ db, save, profile }) {
     // « 90112233 », « +228 90 11 22 33 » et « 90 11 22 33 » trouvent le même
     // compte. Le filtre reste `correspond` : UNE règle pour toute recherche tapée.
     ? utilisateursVisibles.filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""} ${motsDuNumero(x.tel)}`, qU))
-    : utilisateursVisibles.filter((x) => x.role === roleAffiche && !idsSansSuite.has(x.id));
+    : ongletSansSuite
+      ? ongletSansSuite[2].map((c) => c.compte).filter((x) => utilisateursVisibles.some((v) => v.id === x.id))
+      : utilisateursVisibles.filter((x) => x.role === roleAffiche && !idsSansSuite.has(x.id));
   const vide = { nom: "", prenom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
   const [f, setF] = useState(vide);
   const [entCli, setEntCli] = useState(ENTREPRISE_VIDE());
@@ -1315,6 +1326,20 @@ export function Users({ db, save, profile }) {
           <input value={rechercheU} onChange={(e) => setRechercheU(e.target.value)}
             placeholder="🔍 Rechercher un utilisateur par son nom (tous rôles confondus)…" className={champRecherche} />
           {enRecherche && <div className="mt-1 text-xs font-semibold text-slate-500">{listeAffichee.length} résultat(s) dans tous les rôles</div>}
+          {!enRecherche && roleAffiche === "prospects" && (
+            <div className="mt-1 text-xs text-slate-500" data-comptes-prospects>
+              Ils ont reçu un devis, n'en ont validé aucun et n'ont rien acheté : ce ne sont pas encore des clients (pas de mot de
+              fidélité). Leur compte marche comme celui d'un client — ils peuvent valider et signer. Ils deviennent clients tout seuls
+              au premier devis validé ou au premier achat ; sans suite, ils sont archivés {JOURS_AVANT_ARCHIVE} jours après leur dernier devis.
+            </div>
+          )}
+          {!enRecherche && roleAffiche === "archives" && (
+            <div className="mt-1 text-xs text-slate-500" data-clients-archives>
+              Aucun achat ni devis validé : archivés {JOURS_AVANT_ARCHIVE} jours après leur dernier devis. Ils ne sont plus proposés
+              dans les listes ; un nouveau devis ou un achat les fait revenir tout seuls. Au bout d'un an d'archive,
+              ⚙ Paramètres → 🔒 Données personnelles propose de les effacer — rien ne part sans le geste de l'administrateur principal.
+            </div>
+          )}
         </div>
         <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
         <table className="w-full text-sm min-w-[760px]">
@@ -1328,6 +1353,13 @@ export function Users({ db, save, profile }) {
                   {idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold align-middle" data-client-archive>📁 Archivé</span>}
                   {idsSansSuite.has(u.id) && !idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-bold align-middle" data-compte-prospect>🧲 Prospect</span>}
                   {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
+                  {sansSuiteParId.has(u.id) && (() => { const c = sansSuiteParId.get(u.id); return (
+                    <div className="text-xs font-normal text-slate-500" data-ligne-sans-suite>
+                      Dernier devis le {dFR(c.reference)} · {c.archive
+                        ? <>archivé le {dFR(c.archiveLe)} · {c.effacable ? <b className="text-amber-700">effacement proposé depuis le {dFR(c.effacableLe)}</b> : <>effacement proposé à partir du {dFR(c.effacableLe)}</>}</>
+                        : <>archivé le {dFR(c.archiveLe)} s'il reste sans suite</>}
+                    </div>
+                  ); })()}
                   {["commercial", "technicien"].includes(u.role) && filleulsDe(db, u).length > 0 && (
                     <div className={`text-xs font-bold ${estChefEquipe(db, u) ? "text-amber-600" : "text-slate-500"}`}>
                       {estChefEquipe(db, u) ? "⭐ Chef d'équipe" : "👥"} — {filleulsDe(db, u).length} recrue(s){!estChefEquipe(db, u) ? ` / ${SEUIL_CHEF_EQUIPE}` : ""}
@@ -1498,56 +1530,6 @@ export function Users({ db, save, profile }) {
           </tbody>
         </table>
         </div>
-        {prospectsDevis.length > 0 && (
-          <div className="border-t border-slate-200 px-4 py-3" data-comptes-prospects>
-            <button onClick={() => setVoirProspects((x) => !x)} className="text-sm font-bold text-slate-700">
-              🧲 Prospects — devis envoyé, rien acheté ({prospectsDevis.length}) {voirProspects ? "▴" : "▾"}
-            </button>
-            <div className="text-xs text-slate-500 mt-0.5">
-              Ils ont reçu un devis, n'en ont validé aucun et n'ont rien acheté : ce ne sont pas encore des clients (pas de mot de
-              fidélité). Leur compte marche comme celui d'un client — ils peuvent valider et signer. Ils deviennent clients tout seuls
-              au premier devis validé ou au premier achat ; sans suite, ils sont archivés {JOURS_AVANT_ARCHIVE} jours après leur dernier devis.
-              Pour agir sur l'un d'eux, tapez son nom dans la recherche.
-            </div>
-            {voirProspects && (
-              <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
-                {prospectsDevis.map((c) => (
-                  <div key={c.compte.id} className="px-3 py-2 text-sm">
-                    <span className="font-semibold">{c.nom}</span>
-                    <span className="block text-xs text-slate-500">
-                      {c.tel || "sans numéro"} · dernier devis le {dFR(c.reference)} · archivé le {dFR(c.archiveLe)} s'il reste sans suite
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {archives.length > 0 && (
-          <div className="border-t border-slate-200 px-4 py-3" data-clients-archives>
-            <button onClick={() => setVoirArchives((x) => !x)} className="text-sm font-bold text-slate-700">
-              📁 Clients archivés ({archives.length}) {voirArchives ? "▴" : "▾"}
-            </button>
-            <div className="text-xs text-slate-500 mt-0.5">
-              Aucun achat ni devis validé : archivés {JOURS_AVANT_ARCHIVE} jours après leur dernier devis. Ils ne sont plus proposés
-              dans les listes ; un nouveau devis ou un achat les fait revenir tout seuls. Au bout d'un an d'archive,
-              ⚙ Paramètres → 🔒 Données personnelles propose de les effacer — rien ne part sans le geste de l'administrateur principal.
-            </div>
-            {voirArchives && (
-              <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
-                {archives.map((c) => (
-                  <div key={c.compte.id} className="px-3 py-2 text-sm">
-                    <span className="font-semibold">{c.nom}</span>
-                    <span className="block text-xs text-slate-500">
-                      {c.tel || "sans numéro"} · dernier devis le {dFR(c.reference)} · archivé le {dFR(c.archiveLe)}
-                      {" "}· {c.effacable ? <b className="text-amber-700">effacement proposé depuis le {dFR(c.effacableLe)}</b> : <>effacement proposé à partir du {dFR(c.effacableLe)}</>}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Les gestes rares et graves, en bas, à part (capture Timo, 12/09/2026 :

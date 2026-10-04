@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2178 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2179 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2480,6 +2480,13 @@ lit mal est pire qu'un banc absent).
   recherche (qui garde tous ses gestes). **Le mot de fidélité est REFUSÉ DANS
   le geste à un prospect** (« passez par 📋 Tous les devis »). 👤 Clients
   (les acheteurs, comptoir compris) n'a pas bougé.
+  ⚠ **RETOURNÉ le 04/10/2026** (capture Timo, « a, lance ») : plus de blocs
+  sous la liste (ils se lisaient comme la suite de la fiche ouverte) —
+  **deux BOUTONS dans la rangée des rôles**, après « Clients » :
+  **« 🧲 Comptes prospects (N) »** et **« 📁 Clients archivés (N) »**
+  (`ONGLETS_SANS_SUITE`), ouverts dans LE tableau avec tous les gestes ;
+  sous le nom, dernier devis, date d'archive, effacement proposé
+  (`data-ligne-sans-suite`). Banc +1, éprouvé sur l'ancien écran.
 - **🧲 Prospects** : cadre « 📄 Comptes avec devis, rien acheté » (archivés
   compris, badge), « 📋 Voir ses devis » → 📋 Tous les devis (`onVoirDevis`).
   **Du plus NOUVEAU au plus ancien** (capture Timo, 03/10/2026) : date du
