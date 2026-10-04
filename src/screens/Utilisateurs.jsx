@@ -19,7 +19,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, premierMoisPaie, critiqueDebutPaie } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -846,6 +846,24 @@ export function Users({ db, save, profile }) {
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, taux_avancement: taux } : x)) }, `Taux d'avancement de ${u.nom} fixé à ${taux} %`);
   };
 
+  // 📅 Le premier mois de paie suivi (04/10/2026, capture du bulletin
+  // d'avril 2026 d'ANGELE) : avant lui, aucun mois n'est proposé, ni dans
+  // son 💵 Mon salaire ni dans 💵 Salaires. Vide = le premier mouvement
+  // enregistré (règle `premierMoisPaie`). Administrateur, revérifié ici.
+  const changerDebutPaie = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer le premier mois de paie suivi")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const v = await uPrompt(`Premier mois de paie suivi dans l'application pour ${u.nom} (AAAA-MM). Les mois d'avant ne seront plus proposés : ils ont été payés hors de l'application. Laissez vide pour prendre le premier versement, prime ou avance enregistré (aujourd'hui : ${libelleMoisFR(premierMoisPaie({ ...frais, paie_debut: "" }))}) :`, String(frais.paie_debut || ""));
+    if (v === null) return;
+    const val = String(v).trim();
+    const refus = critiqueDebutPaie(val);
+    if (refus) { uAlert(refus); return; }
+    const effectif = premierMoisPaie({ ...frais, paie_debut: val });
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, paie_debut: val } : x)) }, val ? `Premier mois de paie suivi de ${u.nom} : ${libelleMoisFR(val)}` : `Premier mois de paie suivi de ${u.nom} : premier versement enregistré`);
+    if (val && effectif < val) uAlert(`C'est noté. ⚠ Un versement, une prime ou une avance est déjà enregistré en ${libelleMoisFR(effectif)} : la liste commence donc à ce mois-là (un argent enregistré n'est jamais caché).`);
+  };
+
   // Avancement : chaque changement de salaire est archivé dans un historique
   // (date, ancien montant, nouveau montant, motif). Si un taux d'avancement
   // est défini pour l'employé, le nouveau montant est pré-calculé
@@ -1443,6 +1461,7 @@ export function Users({ db, save, profile }) {
                       <div className="flex flex-wrap gap-1.5 min-w-0">
                   <button onClick={() => changerSalaire(u)} className={boutonGerer}>💵 Salaire</button>
                   <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
+                  <button data-debut-paie onClick={() => changerDebutPaie(u)} className={boutonGerer} title="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application">📅 Paie suivie depuis {libelleMoisFR(premierMoisPaie(u))}</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "avance")} className={boutonGerer}>− Avance</button>
                   <button onClick={() => changerBanque(u)} className={boutonGerer} title={libelleBanque(u) ? `Banque : ${libelleBanque(u)}` : "Aucune banque sur cette fiche"}>🏦 Banque{banqueDe(u) ? ` · ${banqueDe(u)}` : ""}</button>

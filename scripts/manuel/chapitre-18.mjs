@@ -62,7 +62,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
         ["💵 Salaires → 💵 Salaires", "Le mois ; les cinq cases (masse salariale, déjà versé, reste à verser, à confirmer par l'employé, encours crédits BMI) ; le **Détail par employé** avec 💸 Virement et 🖨 Bulletin ; 📄 Exporter."],
         ["💵 Salaires → 🏦 CNSS", "Une ligne par employé : assujetti, matricule, n° d'assurance, type, date d'embauche, jours travaillés, nature de rémunération, et les cotisations ; les trois boutons de la déclaration."],
-        ["👥 Utilisateurs → ⋯ Gérer → Paie", "💵 Salaire, 📈 Taux %, + Prime, − Avance, 🏦 Banque, 💸 Virement, Annuler virement."],
+        ["👥 Utilisateurs → ⋯ Gérer → Paie", "💵 Salaire, 📈 Taux %, 📅 Paie suivie depuis, + Prime, − Avance, 🏦 Banque, 💸 Virement, Annuler virement."],
         ["👥 Utilisateurs → 🏦 Crédits BMI", "Toutes les demandes et tous les crédits en cours."],
         ["💵 Salaire (l'employé)", "« 💵 Mon salaire — nom » : le mois, les cases, les virements à confirmer, le détail, ses avances de frais, 🏦 Crédit BMI, 📈 Mon avancement, ses informations CNSS."],
       ]}],
@@ -87,7 +87,9 @@ export const CHAPITRE = {
         { titre: "👥 Utilisateurs → ⋯ Gérer → 💵 Salaire", texte: "Le nouveau salaire de base mensuel. Si un **taux d'avancement** est fixé (📈 Taux %), l'application propose le salaire augmenté de ce taux." },
         { titre: "Le motif", texte: "Quand un salaire déjà fixé change, l'application demande le motif (ancienneté, promotion, mérite…). Chaque changement est **archivé** avec l'ancien et le nouveau montant : l'employé le lit dans « 📈 Mon avancement »." },
         { titre: "L'avis d'avancement, du numéro WhatsApp BMI", texte: "Quand le salaire **augmente**, l'application demande : « Envoyer l'avis d'avancement à … ? ». Oui : l'employé reçoit l'ancien et le nouveau salaire, le mois et le motif (sans motif : « décision de la Direction »). Répondez **Annuler** si ce n'était qu'une correction de saisie. Une baisse ou une première saisie n'envoie rien ; une fiche sans numéro non plus (l'écran le dit). Dans 📲 WhatsApp, la ligne est cachée : seuls celui qui l'a envoyé et l'administrateur principal en lisent le détail." },
+        { titre: "📅 Paie suivie depuis", texte: "Le **premier mois de paie suivi dans l'application**. Les mois d'avant ne sont plus proposés, ni dans 💵 Mon salaire de l'employé ni dans 💵 Salaires : ils ont été payés **hors de l'application**, et un bulletin de ces mois-là aurait affiché « reste à percevoir » à tort. Laissée vide, la case prend le premier versement, la première prime ou la première avance enregistrés ; sans rien d'enregistré, seul le mois en cours est proposé. Un mois à venir est refusé, et un argent déjà enregistré avant ce mois n'est jamais caché (la liste commence alors à lui)." },
       ]],
+      ["note", "Dans 💵 Salaires, un employé pas encore suivi le mois regardé n'apparaît pas : il n'est ni « 🔴 Non payé » ni compté dans la masse salariale, et une ligne le dit au-dessus du tableau."],
 
       ["h3", "C. Une prime ou une avance (administrateur)"],
       ["etapes", [
@@ -140,6 +142,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Bouton", "Où", "Ce qu'il fait"], largeurs: [2800, 2300, 4200], lignes: [
         ["💵 Salaire", "⋯ Gérer → Paie", "Fixe le salaire de base ; un changement est archivé dans l'avancement, avec son motif."],
         ["📈 Taux %", "⋯ Gérer → Paie", "Taux d'avancement annuel, proposé au prochain changement de salaire."],
+        ["📅 Paie suivie depuis", "⋯ Gérer → Paie", "Premier mois de paie suivi dans l'application : les mois d'avant ne sont plus proposés (payés hors de l'application)."],
         ["+ Prime / − Avance", "⋯ Gérer → Paie", "Ajoute une prime (payée avec le salaire) ou une avance (sortie de caisse immédiate)."],
         ["🏦 Banque", "⋯ Gérer → Paie", "Nom de la banque et numéro de compte (jamais affiché en entier)."],
         ["💸 Virement", "⋯ Gérer → Paie ; aussi la ligne de 💵 Salaires", "Verse tout ou partie du net du mois."],

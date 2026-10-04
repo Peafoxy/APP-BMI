@@ -2820,6 +2820,55 @@ export function compterNotifsSalaire(db, profile) {
 // Notifications de l'onglet 👥 Utilisateurs (admin) : demandes de crédit à traiter.
 export const compterDemandesCredit = (db) => (db.users || []).reduce((s, u) => s + creditsEnAttente(u).length, 0);
 
+// ============ LE PREMIER MOIS DE PAIE SUIVI (04/10/2026) ============
+// Timo, capture du bulletin d'avril 2026 d'ANGELE (« Reste à percevoir
+// 60 000 F, aucun versement ») : « est-ce bonne chose que les mois qui
+// précèdent son début de paiement dans l'application s'affichent, puisque
+// sur le bulletin un mois antérieur vient toujours comme impayé ? » — non :
+// ce mois-là a été payé HORS de l'application, l'écrire « à percevoir »
+// fait croire que BMI le doit. Décision « première voie » :
+//  - la case « Premier mois de paie suivi » (`paie_debut`, fiche de paie,
+//    👥 Utilisateurs → ⋯ Gérer → Paie, administrateur) ;
+//  - vide : le premier mois où un virement, une prime ou une avance a été
+//    enregistré ; rien du tout : le mois en cours seul.
+// ⚠ On ne CACHE JAMAIS un argent enregistré : un mouvement antérieur à la
+// case l'emporte (le plus ancien des deux). Jamais après le mois en cours.
+// Rien n'est effacé : une façon d'afficher.
+// (Le contrôle du format AAAA-MM n'est écrit qu'UNE fois, dans ui.jsx —
+// calculs.js ne l'importe pas : on vérifie ici sans le recopier.)
+const MOIS_VALIDE = { test: (m) => { const [a, mm, reste] = String(m ?? "").split("-"); return reste === undefined && /^[0-9]+$/.test(`${a}${mm}`) && String(a).length === 4 && String(mm).length === 2 && Number(mm) >= 1 && Number(mm) <= 12; } };
+export const premierMoisPaie = (u, aujourdhui = today()) => {
+  const courant = String(aujourdhui).slice(0, 7);
+  const mouvements = [...(u?.virements || []), ...(u?.primes || []), ...(u?.avances || [])]
+    .map((x) => String(x?.mois || "")).filter((m) => MOIS_VALIDE.test(m));
+  const regle = MOIS_VALIDE.test(String(u?.paie_debut || "")) ? u.paie_debut : null;
+  const candidats = regle ? [...mouvements, regle] : mouvements;
+  if (candidats.length === 0) return courant;
+  const premier = candidats.sort()[0];
+  return premier > courant ? courant : premier;
+};
+export const moisSuiviPour = (u, mois, aujourdhui = today()) => String(mois) >= premierMoisPaie(u, aujourdhui);
+// Les `n` derniers mois (le plus récent d'abord), jamais avant `premier`.
+export const moisRecents = (premier, aujourdhui = today(), n = 12) => {
+  const [a, m] = String(aujourdhui).slice(0, 7).split("-").map(Number);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(Date.UTC(a, m - 1 - i, 1));
+    const cle = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    if (premier && cle < premier) break;
+    out.push(cle);
+  }
+  return out;
+};
+export const moisPaieProposes = (u, aujourdhui = today(), n = 12) => moisRecents(premierMoisPaie(u, aujourdhui), aujourdhui, n);
+export const critiqueDebutPaie = (valeur, aujourdhui = today()) => {
+  const v = String(valeur || "").trim();
+  if (v === "") return "";
+  if (!MOIS_VALIDE.test(v)) return "Mois illisible : choisissez un mois dans le calendrier.";
+  if (v > String(aujourdhui).slice(0, 7)) return "Le premier mois suivi ne peut pas être un mois à venir.";
+  return "";
+};
+
 export function paieMois(u, mois) {
   const base = Number(u.salaire_base || 0);
   const primes = (u.primes || []).filter((p) => p.mois === mois).reduce((s, p) => s + Number(p.montant || 0), 0);

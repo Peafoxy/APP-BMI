@@ -48,6 +48,9 @@
 export const CHAMPS_PAIE = [
   // Rémunération
   "salaire_base", "taux_avancement", "evolutions_salaire", "primes", "avances",
+  // Le premier mois de paie suivi dans l'application (04/10/2026) : avant
+  // lui, aucun mois n'est proposé — il a été payé hors de l'application.
+  "paie_debut",
   // Mouvements d'argent
   "virements", "credits",
   // ⚠⚠ LE NUMÉRO DE COMPTE BANCAIRE (Timo, 18/09/2026 : « et les employés

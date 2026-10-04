@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2168 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2178 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5265,6 +5265,27 @@ lit mal est pire qu'un banc absent).
     la CNSS, les fournisseurs, le remboursement d'un crédit (une ENTRÉE) —
     ils gardent `choisirBoutiqueDebitG`. Rien à coller. Banc (8 contrôles),
     éprouvé en remettant trois fautes : chacune tombe.
+
+### 📅 LE PREMIER MOIS DE PAIE SUIVI (04/10/2026, « lance la première voie »)
+- Capture Timo (bulletin d'avril 2026 d'ANGELE : « Reste à percevoir
+  60 000 F, aucun versement ») : les mois d'AVANT le suivi dans
+  l'application s'affichaient comme impayés — payés hors de l'application.
+- Règles pures `premierMoisPaie` / `moisPaieProposes` / `moisRecents` /
+  `moisSuiviPour` / `critiqueDebutPaie` (calculs.js). Case **« 📅 Paie
+  suivie depuis »** (👥 Utilisateurs → ⋯ Gérer → Paie, administrateur
+  revérifié DANS le geste ; champ `paie_debut`, rangé dans la fiche de PAIE,
+  `CHAMPS_PAIE`). Vide = le premier mois portant un virement, une prime ou
+  une avance ; rien = le mois en cours seul. ⚠ **Un argent enregistré n'est
+  jamais caché** : un mouvement antérieur à la case l'emporte. Jamais après
+  le mois en cours (un mois à venir est refusé).
+- 💵 Mon salaire ne propose que les mois suivis (12 au plus) ; 💵 Salaires
+  (administrateur) s'arrête au plus ancien suivi, et un employé pas encore
+  suivi le mois regardé n'est ni « 🔴 Non payé » ni compté dans la masse
+  (`data-pas-encore-suivis` le dit) — le panneau CNSS suit la même liste.
+- ⚠ Le serveur ne verrouille pas `paie_debut` côté employé (sa propre fiche
+  de paie) : il ne commande que l'AFFICHAGE, aucun argent. Rien à coller.
+  Banc (10 contrôles), éprouvé (argent caché, employé non suivi compté) ;
+  un contrôle RETOURNÉ (`tousEmployes`). Chapitre 18 à jour.
 
 ### 📲 L'AVIS DE PAIEMENT D'UN SALAIRE PART DU NUMÉRO BMI — `virement_salaire` (03/10/2026, le texte de Timo)
 - Timo : « un modèle YCloud pour envoi automatique de message de virement

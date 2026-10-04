@@ -9,7 +9,7 @@ import { uid, fmt, today, dFR, normPaiement, nouvelleDepense } from "../lib/core
 // Timo (12/09/2026) : l'employé voit où en sont ses avances de frais.
 import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement } from "../components/ui";
-import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace } from "../lib/calculs";
+import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { exportCSV } from "../lib/export";
@@ -27,17 +27,17 @@ import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsC
 export function SalairesAdmin({ db, save, profile }) {
   const [modeVue, setModeVue] = useState("salaires"); // "salaires" | "cnss"
   const [mois, setMois] = useState(today().slice(0, 7));
-  const options = [];
-  const d0 = new Date();
-  for (let i = 0; i < 12; i++) {
-    const m = new Date(d0.getFullYear(), d0.getMonth() - i, 1);
-    options.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`);
-  }
-
   // ⚠ RELEVÉ PAR TIMO (05/09/2026) : « dans Salaires aussi les employés
   // formation apparaissent ». La liste lisait db.users brut. Toute liste de
   // personnes passe par utilisateursDeLEspace — c'est l'espace REGARDÉ qui décide.
-  const employes = utilisateursDeLEspace(db, profile).filter((u) => SALARIES.includes(u.role) && u.actif !== false);
+  const tousEmployes = utilisateursDeLEspace(db, profile).filter((u) => SALARIES.includes(u.role) && u.actif !== false);
+  // 📅 04/10/2026 : un mois d'avant le suivi d'un employé (`premierMoisPaie`)
+  // a été payé HORS de l'application — il n'est ni « non payé » ni compté
+  // dans la masse. La liste des mois s'arrête au plus ancien suivi.
+  const premierSuivi = tousEmployes.map((u) => premierMoisPaie(u)).sort()[0];
+  const options = moisRecents(premierSuivi);
+  const employes = tousEmployes.filter((u) => moisSuiviPour(u, mois));
+  const pasEncoreSuivis = tousEmployes.length - employes.length;
   const lignes = employes.map((u) => ({ u, p: paieMois(u, mois), credit: creditsEnCours(u).reduce((s, c) => s + resteCredit(c), 0) }));
 
   const masse = lignes.reduce((s, l) => s + l.p.net, 0);
@@ -94,8 +94,9 @@ export function SalairesAdmin({ db, save, profile }) {
             lignes.map(({ u, p, credit }) => [u.nom, roleCourt(u.role), u.boutique || "Toutes", p.base, p.primes, p.avances, p.retenueCredit, p.retenueCNSS || 0, p.net, p.verse, Math.max(0, p.reste), credit]),
             `Paie ${libelleMoisFR(mois)}`)}>📄 Exporter</button>
         </div>
+        {pasEncoreSuivis > 0 && <div data-pas-encore-suivis className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100">📅 {pasEncoreSuivis} employé(s) pas encore suivi(s) dans l'application en {libelleMoisFR(mois)} : ce mois-là a été payé hors de l'application, il n'est pas compté ici (👥 Utilisateurs → ⋯ Gérer → 📅 Paie suivie depuis).</div>}
         {lignes.length === 0 ? (
-          <div className="text-sm text-slate-400 text-center py-6">Aucun employé salarié actif. Créez des comptes Vendeur, Gérant, Magasinier, Technicien BMI, Responsable commercial ou Comptable.</div>
+          <div className="text-sm text-slate-400 text-center py-6">{pasEncoreSuivis > 0 ? `Aucun employé suivi dans l'application en ${libelleMoisFR(mois)}.` : "Aucun employé salarié actif. Créez des comptes Vendeur, Gérant, Magasinier, Technicien BMI, Responsable commercial ou Comptable."}</div>
         ) : (
           <div className="max-h-[460px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm min-w-[860px]">
@@ -382,13 +383,11 @@ export function Salaire({ db, save, profile }) {
   const moi = db.users.find((u) => u.id === profile.id) || profile;
   const [mois, setMois] = useState(today().slice(0, 7));
 
-  // 12 derniers mois proposés
-  const options = [];
-  const d = new Date();
-  for (let i = 0; i < 12; i++) {
-    const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
-    options.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`);
-  }
+  // Les 12 derniers mois — mais jamais avant le premier mois de paie suivi
+  // dans l'application (04/10/2026, capture du bulletin d'avril 2026
+  // d'ANGELE : un mois payé hors de l'application s'affichait « reste à
+  // percevoir »). Règle `moisPaieProposes` (calculs.js).
+  const options = moisPaieProposes(moi);
   const libelleMois = libelleMoisFR;
 
   const base = Number(moi.salaire_base || 0);

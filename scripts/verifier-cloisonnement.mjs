@@ -4138,8 +4138,10 @@ titre("Toute liste de PERSONNES passe par utilisateursDeLEspace (Salaires, Prosp
   // l'application est la seule barrière, pour tous les rôles. Le balayage des
   // 28 listes de boutiques (2.101.23) n'avait pas balayé les listes de gens.
   const lit = (f) => readFileSync(f, "utf8");
+  // RETOURNÉ le 04/10/2026 : la liste s'appelle `tousEmployes` (puis
+  // `employes` = ceux suivis ce mois-là) — elle passe toujours par l'espace.
   test("★ Salaires : la liste des employés suit l'espace regardé",
-    /const employes = utilisateursDeLEspace\(db, profile\)\.filter\(/.test(lit("src/screens/Salaires.jsx")));
+    /const tousEmployes = utilisateursDeLEspace\(db, profile\)\.filter\(/.test(lit("src/screens/Salaires.jsx")));
   test("★ Prospects : réassigner ne propose que les commerciaux de l'espace",
     /const equipe = utilisateursDeLEspace\(db, profile\)\.filter\(/.test(lit("src/screens/Prospects.jsx")));
   const msg = lit("src/screens/Messagerie.jsx");
@@ -12670,6 +12672,33 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   for (const g of ["basculerDepot", "supprimer", "supprimerAvecDonnees", "ouvrirLoyer", "enregistrerLoyer", "chargerLogo"]) {
     test(`🚐 ${g} refuse la caisse de terrain DANS le geste`, /if \(b\.terrain\) \{ uAlert\(MOTIF_TERRAIN\); return; \}/.test(corps(g)));
   }
+}
+
+// ── 📅 Le premier mois de paie suivi (capture Timo, 04/10/2026 : le bulletin
+// d'avril 2026 d'ANGELE disait « reste à percevoir 60 000 F ») ──
+{
+  const A = "2026-10-04";
+  const angele = { id: "a", virements: [{ mois: "2026-10", montant: 35000 }], avances: [], primes: [] };
+  test("📅 sans case : la liste commence au premier versement enregistré",
+    C.premierMoisPaie(angele, A) === "2026-10" && C.moisPaieProposes(angele, A).join(",") === "2026-10");
+  test("📅 aucun mouvement : le mois en cours seul", C.moisPaieProposes({ id: "b" }, A).join(",") === "2026-10");
+  test("📅 la case recule le début (mois d'avant proposés à partir d'elle)",
+    C.moisPaieProposes({ ...angele, paie_debut: "2026-08" }, A).join(",") === "2026-10,2026-09,2026-08");
+  test("📅 un argent enregistré n'est jamais caché : un versement avant la case l'emporte",
+    C.premierMoisPaie({ ...angele, paie_debut: "2026-10", primes: [{ mois: "2026-07", montant: 1 }] }, A) === "2026-07");
+  test("📅 jamais après le mois en cours, et un mois à venir est refusé",
+    C.premierMoisPaie({ paie_debut: "2027-01" }, A) === "2026-10" && C.critiqueDebutPaie("2027-01", A) !== "" && C.critiqueDebutPaie("", A) === "" && C.critiqueDebutPaie("2026-05", A) === "");
+  test("📅 douze mois au plus", C.moisRecents("2020-01", A).length === 12 && C.moisRecents("2020-01", A)[11] === "2025-11");
+  const sal = readFileSync("src/screens/Salaires.jsx", "utf8");
+  test("📅 💵 Mon salaire ne propose que les mois suivis", /const options = moisPaieProposes\(moi\);/.test(sal) && (sal.match(/for \(let i = 0; i < 12; i\+\+\)/g) || []).length === 0);
+  test("📅 💵 Salaires (administrateur) : un employé pas encore suivi n'est ni « non payé » ni compté",
+    /const employes = tousEmployes\.filter\(\(u\) => moisSuiviPour\(u, mois\)\);/.test(sal) && /const options = moisRecents\(premierSuivi\);/.test(sal) && /data-pas-encore-suivis/.test(sal));
+  const ut = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const debut = ut.indexOf("const changerDebutPaie = async");
+  const corps = debut > 0 ? ut.slice(debut, ut.indexOf("\n  };", debut)) : "";
+  test("📅 la case se règle dans ⋯ Gérer → Paie, administrateur revérifié dans le geste, mois à venir refusé",
+    /refuserSaufAdmin\(profile/.test(corps) && /critiqueDebutPaie\(val\)/.test(corps) && /data-debut-paie onClick=\{\(\) => changerDebutPaie\(u\)\}/.test(ut));
+  test("📅 la case vit dans la fiche de paie (table à part), pas sur la fiche employé", Paie.CHAMPS_PAIE.includes("paie_debut"));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
