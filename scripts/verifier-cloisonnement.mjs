@@ -3701,7 +3701,7 @@ titre("🏦 Les banques : une liste dans Paramètres, la banque sur la fiche, le
   test("★ la fiche porte 🏦 Banque : administrateur, choix dans la liste (ou saisie libre sans liste), banque et numéro de compte enregistrés",
     /refuserSaufAdmin\(profile, "Modifier la banque d'un employé"\)/.test(utiB)
     && /\{ \.\.\.x, banque, compte_bancaire: String\(compte\)\.trim\(\) \}/.test(utiB)
-    && /<BoutonGerer onClick=\{\(\) => changerBanque\(u\)\} nom="🏦 Banque" \/>/.test(utiB));
+    && /<BoutonGerer onClick=\{\(\) => changerBanque\(u\)\} info=\{\(\) => infoGerer\(u, "banque"\)\} nom="🏦 Banque" \/>/.test(utiB));
   test("★ chaque paiement à une personne passe SA fiche à la question, et la prime d'installation garde sa banque",
     /demanderMoyenPaiement\(`pour \$\{c\.u\.nom\}`, "Espèces", "Moyen de paiement", c\.u\)/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8"))
     && /demanderMoyenPaiement\(`pour \$\{st\.u\.nom\}`, "Espèces", "Moyen de paiement", st\.u\)/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8"))
@@ -13194,8 +13194,22 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   test("★★ ⋯ Gérer : UN composant pour tous ses boutons (BoutonGerer), plus aucun bouton maison, et AUCUNE valeur dans un nom (date, contrat, banque, taux, numéro)",
     noms.length === 24 && !/boutonGerer/.test(u)
     && noms.every((n) => n.startsWith('"') || /^\{u\.[a-z_]+ \? "[^"]*" : "[^"]*"\}$/.test(n))
-    && /export function BoutonGerer\(\{ nom, onClick, titre, ton, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
+    && /export function BoutonGerer\(\{ nom, onClick, titre, ton, info, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /\{String\(nom\)\}<\/button>/.test(readFileSync("src/components/ui.jsx", "utf8")));
+  // L'appui MONTRE d'abord (« quand on appuie sur le bouton, il affiche les
+  // infos » → « oui lance ») : 13 boutons qui gardent une information.
+  const blocs = [...u.matchAll(/<BoutonGerer\b[\s\S]*?\/>/g)].map((m) => m[0]);
+  const avecInfo = blocs.filter((b) => / info=\{\(\) => infoGerer\(u, "[a-zA-Z]+"\)\}/.test(b)).map((b) => b.match(/ nom="([^"]*)"/)?.[1]);
+  const uiG = readFileSync("src/components/ui.jsx", "utf8");
+  test("★★ ⋯ Gérer : l'appui MONTRE l'information (Fermer / ✏️ Modifier) sur les 13 boutons qui en gardent une, et fait son geste tout de suite sur les autres (Prime, Avance, Virement, Supprimer, Rôle…)",
+    JSON.stringify(avecInfo.sort()) === JSON.stringify(["🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe"].sort())
+    && blocs.filter((b) => /nom="(\+ Prime|− Avance|💸 Virement|🗑 Supprimer|🎭 Rôle|🔁 Renouveler|👁 Voir le mot de passe)"/.test(b)).every((b) => !/ info=/.test(b)));
+  test("★★ ⋯ Gérer : la fenêtre d'information ne modifie RIEN — seul « ✏️ Modifier » (ou « ✏️ Saisir » si vide) lance le geste ; « Fermer » ne fait rien",
+    /const ok = await uInfo\(/.test(uiG) && /if \(ok\) onClick\?\.\(\);/.test(uiG) && /vues\.length \? "✏️ Modifier" : "✏️ Saisir"/.test(uiG)
+    && /data-info-fermer onClick=\{\(\) => close\(false\)\}/.test(uiG) && /data-info-geste onClick=\{\(\) => close\(true\)\}/.test(uiG)
+    && /const infoGerer = \(u, quoi\) =>/.test(u) && !/save\(/.test(u.slice(u.indexOf("const infoGerer"), u.indexOf("// 📅 L'EMBAUCHE ET LE CONTRAT"))));
+  test("★ ⋯ Gérer : le numéro de compte bancaire ne s'y lit que masqué (libelleBanque), et le parrain vient des comptes de l'espace, jamais de db.users",
+    /banque: \{ titre: `Banque de \$\{u\.nom\}`, lignes: \[libelleBanque\(u\)/.test(u) && /utilisateursDeLEspace\(db, u\)\.find\(\(x\) => x\.id === u\.parrain_id\)/.test(u));
   test("★★ 🔁 le bouton Renouveler n'apparaît que si le contrat se renouvelle encore",
     /\{peutRenouveler\(u, today\(\)\) && <BoutonGerer data-renouveler onClick=\{\(\) => renouvelerContrat\(u\)\}/.test(u));
   test("★ 📄 les boutons 📅 Embauche et contrat et 🚪 Sortie sont dans ⋯ Gérer, et la fin se LIT sous le nom",

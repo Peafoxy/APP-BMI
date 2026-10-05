@@ -170,13 +170,28 @@ export function ListeArticles({ lignes, deplie = false, enfants = null }) {
 // besoin d'afficher les détails… ça reste caché, et lorsqu'on appuie dessus,
 // ça s'affiche » ; « valable pour d'autres boutons… une seule règle »). La
 // valeur (date, contrat, banque, taux, numéro…) se lit dans la QUESTION que le
-// bouton ouvre, préremplie. `nom` est un texte ; un bouton qui BASCULE passe
-// le nom de son geste (« Nommer chef » / « Retirer chef »). Écrit UNE fois ;
-// le banc interdit une valeur dans le nom.
+// bouton ouvre. `nom` est un texte ; un bouton qui BASCULE passe le nom de
+// son geste (« Nommer chef » / « Retirer chef »). Écrit UNE fois ; le banc
+// interdit une valeur dans le nom.
+// ⚠ Et l'appui MONTRE d'abord (Timo, le même jour : « j'avais dit quand on
+// appuie sur le bouton, il affiche les infos » → « oui lance ») : un bouton
+// qui garde une information reçoit `info` — une fonction qui rend
+// { titre, lignes } — et l'appui ouvre une fenêtre qui les AFFICHE, avec
+// « Fermer » et « ✏️ Modifier » (« ✏️ Saisir » si rien n'est renseigné) ;
+// seul ce geste lance la modification. Sans `info` (Prime, Virement,
+// Supprimer…), l'appui fait son geste tout de suite.
 const CLASSE_BOUTON_GERER = "px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100";
 const TON_BOUTON_GERER = { danger: " !text-red-700 !border-red-200", attention: " !text-amber-700 !border-amber-200" };
-export function BoutonGerer({ nom, onClick, titre, ton, ...autres }) {
-  return <button {...autres} onClick={onClick} title={titre} className={CLASSE_BOUTON_GERER + (TON_BOUTON_GERER[ton] || "")}>{String(nom)}</button>;
+export const PAS_RENSEIGNE = "Pas encore renseigné.";
+export function BoutonGerer({ nom, onClick, titre, ton, info, ...autres }) {
+  const appui = async () => {
+    if (!info) return onClick?.();
+    const { titre: t, lignes } = info() || {};
+    const vues = (lignes || []).filter(Boolean);
+    const ok = await uInfo(`${t || nom}\n\n${vues.length ? vues.join("\n") : PAS_RENSEIGNE}`, vues.length ? "✏️ Modifier" : "✏️ Saisir");
+    if (ok) onClick?.();
+  };
+  return <button {...autres} onClick={appui} title={titre} className={CLASSE_BOUTON_GERER + (TON_BOUTON_GERER[ton] || "")}>{String(nom)}</button>;
 }
 
 export const boutonAction = (teinte) => `inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
@@ -394,6 +409,9 @@ export const uPrompt = (m, def = "") => (dialogApi ? dialogApi.open("prompt", m,
 // Choix STRICT parmi une liste fixe de boutons — pas de texte libre, donc pas
 // de faute de frappe ni de valeur inventée possible.
 export const uChoix = (m, options) => (dialogApi ? dialogApi.open("choix", m, null, options) : Promise.resolve(null));
+// Une fenêtre qui MONTRE une information, avec « Fermer » et UN geste
+// (« ✏️ Modifier ») : vrai si on choisit le geste.
+export const uInfo = (m, geste) => (dialogApi ? dialogApi.open("info", m, null, [geste]) : Promise.resolve(false));
 
 // ---- Les questions posées partout, écrites UNE fois (points B1 et B4 du
 // relevé des doublons, Timo : « lance tout », 08/09/2026) ----
@@ -477,9 +495,11 @@ export function DialogHost() {
         )}
         </div>
         <div className="mt-4 flex-none flex justify-end gap-2" data-dialogue-boutons>
-          {d.type !== "alert" && d.type !== "choix" && <button onClick={() => close(d.type === "prompt" ? null : false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
+          {d.type !== "alert" && d.type !== "choix" && d.type !== "info" && <button onClick={() => close(d.type === "prompt" ? null : false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
           {d.type === "choix" && <button onClick={() => close(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
-          {d.type !== "choix" && <button onClick={() => close(d.type === "prompt" ? val : true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">OK</button>}
+          {d.type === "info" && <button data-info-fermer onClick={() => close(false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>}
+          {d.type === "info" && <button data-info-geste onClick={() => close(true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">{d.options[0]}</button>}
+          {d.type !== "choix" && d.type !== "info" && <button onClick={() => close(d.type === "prompt" ? val : true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">OK</button>}
         </div>
       </div>
     </div>

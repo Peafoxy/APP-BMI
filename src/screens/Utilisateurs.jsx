@@ -913,6 +913,35 @@ export function Users({ db, save, profile }) {
   // non déclaré. Elle sert aussi au bulletin et au dossier : elle se saisit
   // ici pour TOUT salarié. Même champ (`cnss_date_embauche`, fiche de paie),
   // jamais un second. Administrateur, revérifié ici.
+  // ⋯ GÉRER : CE QUE L'APPUI MONTRE (05/10/2026, « quand on appuie sur le
+  // bouton, il affiche les infos » → « oui lance »). Une fonction par bouton
+  // qui garde une information ; BoutonGerer (ui.jsx) l'affiche avec « Fermer »
+  // et « ✏️ Modifier ». Rien ici ne modifie quoi que ce soit.
+  const infoGerer = (u, quoi) => {
+    const anniv = u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "";
+    const derniere = (u.evolutions_salaire || []).slice(-1)[0];
+    const parrain = u.parrain_id ? utilisateursDeLEspace(db, u).find((x) => x.id === u.parrain_id) : null;
+    const motif = (CODES_MOTIF_SORTIE.find((x) => String(x.code) === String(u.cnss_code_motif_sortie)) || {}).libelle || "";
+    const fiches = {
+      boutique: { titre: `Boutique de ${u.nom}`, lignes: [u.boutique ? `Boutique : ${u.boutique}` : ""] },
+      affectation: { titre: `Lieu d'affectation de ${u.nom}`, lignes: [u.affectation ? `Lieu : ${u.affectation}` : ""] },
+      telephone: { titre: `Téléphone de ${u.nom}`, lignes: [u.tel ? `Téléphone : ${u.tel}` : ""] },
+      anniversaire: { titre: `Anniversaire de ${u.nom}`, lignes: [anniv ? `Anniversaire : ${anniv}` : ""] },
+      salaire: { titre: `Salaire de ${u.nom}`, lignes: [Number(u.salaire_base) > 0 ? `Salaire de base : ${fmt(u.salaire_base)}` : "",
+        derniere ? `Dernier changement : le ${dFR(derniere.date)}, ${fmt(derniere.ancien)} → ${fmt(derniere.nouveau)}${derniere.motif ? ` (${derniere.motif})` : ""}` : ""] },
+      taux: { titre: `Taux d'avancement de ${u.nom}`, lignes: [Number(u.taux_avancement) > 0 ? `Taux d'avancement : ${u.taux_avancement} %` : ""] },
+      debutPaie: { titre: `Paie suivie de ${u.nom}`, lignes: [`Paie suivie depuis ${libelleMoisFR(premierMoisPaie(u))}${u.paie_debut ? "" : " (le premier mois qui porte un versement, une prime ou une avance)"}`] },
+      contrat: { titre: `Embauche et contrat de ${u.nom}`, lignes: [u.cnss_date_embauche ? `Embauché le ${dFR(u.cnss_date_embauche)}` : "",
+        phraseFinContrat(u, today()) ? `Contrat : ${phraseFinContrat(u, today())}` : phraseContrat(u) ? `Contrat : ${phraseContrat(u)}` : ""] },
+      banque: { titre: `Banque de ${u.nom}`, lignes: [libelleBanque(u) ? `Banque : ${libelleBanque(u)}` : ""] },
+      sortie: { titre: `Sortie de ${u.nom}`, lignes: [u.cnss_date_sortie ? `Sorti le ${dFR(u.cnss_date_sortie)}${motif ? ` — ${motif}` : ""}` : ""] },
+      commission: { titre: `Commission de ${u.nom}`, lignes: [`Taux de commission : ${u.taux_commission ?? 0} %`] },
+      equipe: { titre: `Commission d'équipe de ${u.nom}`, lignes: [`Commission d'équipe : ${u.taux_equipe ?? TAUX_EQUIPE_DEFAUT} %`] },
+      parrain: { titre: `Parrain de ${u.nom}`, lignes: [parrain ? `Parrain : ${parrain.nom}` : ""] },
+    };
+    return fiches[quoi];
+  };
+
   // 📅 L'EMBAUCHE ET LE CONTRAT, EN UN GESTE (05/10/2026, Timo : « on tape la
   // date d'embauche, au suivant on demande le type de contrat… si autre que
   // CDI on demande la durée, il suffit de taper par exemple 6 mois et
@@ -1617,10 +1646,10 @@ export function Users({ db, save, profile }) {
                   {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
                     <BoutonGerer onClick={() => basculerFormation(u)} nom={u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"} />
                   )}
-                  {SALARIES_BOUTIQUE.includes(u.role) && <BoutonGerer onClick={() => changerBoutique(u)} nom="🏬 Boutique" />}
-                  {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
-                  {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} nom="📞 Téléphone" />}
-                  {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} nom="🎂 Anniversaire" />}
+                  {SALARIES_BOUTIQUE.includes(u.role) && <BoutonGerer onClick={() => changerBoutique(u)} info={() => infoGerer(u, "boutique")} nom="🏬 Boutique" />}
+                  {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} info={() => infoGerer(u, "affectation")} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
+                  {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} info={() => infoGerer(u, "telephone")} nom="📞 Téléphone" />}
+                  {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} info={() => infoGerer(u, "anniversaire")} nom="🎂 Anniversaire" />}
                   {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Voir le mot de passe" />}
                   <BoutonGerer onClick={() => supprimerU(u)} ton="danger" nom="🗑 Supprimer" />
                       </div>
@@ -1629,18 +1658,18 @@ export function Users({ db, save, profile }) {
                     <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
                       <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Paie</div>
                       <div className="flex flex-wrap gap-1.5 min-w-0">
-                  <BoutonGerer onClick={() => changerSalaire(u)} nom="💵 Salaire" />
-                  <BoutonGerer onClick={() => changerTauxAvancement(u)} nom="📈 Taux %" />
-                  <BoutonGerer data-debut-paie onClick={() => changerDebutPaie(u)} titre="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application" nom="📅 Paie suivie depuis" />
-                  <BoutonGerer data-embauche-contrat onClick={() => changerEmbaucheContrat(u)} titre="La date d'embauche, le type de contrat et sa durée : la fin se calcule toute seule. Imprimés sur le bulletin, repris par la déclaration CNSS" nom="📅 Embauche et contrat" />
+                  <BoutonGerer onClick={() => changerSalaire(u)} info={() => infoGerer(u, "salaire")} nom="💵 Salaire" />
+                  <BoutonGerer onClick={() => changerTauxAvancement(u)} info={() => infoGerer(u, "taux")} nom="📈 Taux %" />
+                  <BoutonGerer data-debut-paie onClick={() => changerDebutPaie(u)} info={() => infoGerer(u, "debutPaie")} titre="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application" nom="📅 Paie suivie depuis" />
+                  <BoutonGerer data-embauche-contrat onClick={() => changerEmbaucheContrat(u)} info={() => infoGerer(u, "contrat")} titre="La date d'embauche, le type de contrat et sa durée : la fin se calcule toute seule. Imprimés sur le bulletin, repris par la déclaration CNSS" nom="📅 Embauche et contrat" />
                   {peutRenouveler(u, today()) && <BoutonGerer data-renouveler onClick={() => renouvelerContrat(u)} titre="Prolonge le contrat à partir du lendemain de sa fin ; s'affiche 15 jours avant la fin, jusqu'à un mois après" nom="🔁 Renouveler" />}
                   <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "prime")} nom="+ Prime" />
                   <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "avance")} nom="− Avance" />
-                  <BoutonGerer onClick={() => changerBanque(u)} nom="🏦 Banque" />
+                  <BoutonGerer onClick={() => changerBanque(u)} info={() => infoGerer(u, "banque")} nom="🏦 Banque" />
                   <BoutonGerer onClick={() => envoyerVirement(u)} nom="💸 Virement" />
                   {(u.virements || []).some((v) => v.statut !== "accepte") && <BoutonGerer onClick={() => annulerVirement(u)} ton="attention" nom="Annuler virement" />}
                   {/* 🚪 En bout de ligne (Timo, 05/10/2026, « sortie b ») : un départ n'est pas un geste de tous les jours. */}
-                  <BoutonGerer data-sortie onClick={() => changerSortie(u)} titre="Date et motif de sortie, repris par la déclaration CNSS" nom="🚪 Sortie" />
+                  <BoutonGerer data-sortie onClick={() => changerSortie(u)} info={() => infoGerer(u, "sortie")} titre="Date et motif de sortie, repris par la déclaration CNSS" nom="🚪 Sortie" />
                       </div>
                     </div>
                     )}
@@ -1648,9 +1677,9 @@ export function Users({ db, save, profile }) {
                     <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
                       <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Commercial</div>
                       <div className="flex flex-wrap gap-1.5 min-w-0">
-                  <BoutonGerer onClick={() => changerTauxCommission(u)} nom="💰 Commission" />
-                  {["commercial", "technicien"].includes(u.role) && <BoutonGerer onClick={() => changerParrain(u)} nom="🤝 Parrain" />}
-                  {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <BoutonGerer onClick={() => changerTauxEquipe(u)} nom="⭐ Équipe" />}
+                  <BoutonGerer onClick={() => changerTauxCommission(u)} info={() => infoGerer(u, "commission")} nom="💰 Commission" />
+                  {["commercial", "technicien"].includes(u.role) && <BoutonGerer onClick={() => changerParrain(u)} info={() => infoGerer(u, "parrain")} nom="🤝 Parrain" />}
+                  {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <BoutonGerer onClick={() => changerTauxEquipe(u)} info={() => infoGerer(u, "equipe")} nom="⭐ Équipe" />}
                   {["commercial", "technicien", "technicien_bmi"].includes(u.role) && <BoutonGerer onClick={() => basculerChef(u)} nom={u.chef_equipe ? "Retirer chef" : "Nommer chef"} />}
                       </div>
                     </div>
