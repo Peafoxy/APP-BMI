@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2199 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2200 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1205,7 +1205,7 @@ lit mal est pire qu'un banc absent).
   à tort). **Un contrôle s'éprouve en remettant la faute, sinon on ne sait pas
   s'il tient.**
 
-### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES ET 📋 TOUS LES DEVIS (05/10/2026, « Lance, revenir à Toutes périodes »)
+### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES, 📋 TOUS LES DEVIS ET 🧲 PROSPECTS (05/10/2026, « Lance, revenir à Toutes périodes »)
 - Captures Timo : « pas de filtration de période dans ces écrans ». LE filtre
   de 💰 Ventes est écrit UNE fois, **`components/FiltrePeriode.jsx`**
   (`useFiltrePeriode` → `bornes`, `dans(date)`, `libelle`, `selecteur`), et les
@@ -1221,6 +1221,10 @@ lit mal est pire qu'un banc absent).
   (`data-dettes-hors-periode`). Le retard (30 jours) regarde toujours tout.
 - **📋 Tous les devis** : sur la date du devis ; liste ET compteurs des
   pastilles suivent ; **la bande des devis sans réponse non** (une alerte).
+- **🧲 Prospects** (le même jour, « ajoute aussi le filtre de période dans
+  Prospects ») : la liste suit la date du prospect, les « Comptes avec
+  devis » celle de leur dernier devis ; **le compteur « 🔔 À relancer » non**
+  (une alerte). Un contrôle RETOURNÉ (la ligne des comptes avec devis).
 - Rien à coller. Banc (5 contrôles), éprouvé en remettant trois fautes
   (période mémorisée, argent hors période tu, alerte filtrée) : chacune
   tombe. Six contrôles RETOURNÉS (le filtre de Ventes vit dans le composant,

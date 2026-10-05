@@ -58,7 +58,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
         ["**🧲 Prospects**, en haut", "« 📊 Tableau de bord commercial » : quatre cases — Prospects actifs · 🔔 À relancer aujourd'hui · 💤 Dormants · ✅ Taux de conversion — et le lien « Voir les N prospect(s) à relancer → »."],
         ["**🧲 Prospects**, cadre du milieu", "Pour l'administrateur : « Catégories de prospects (gérées par l'administrateur) », les pastilles avec leur ×, « Nouvelle catégorie… » et « Ajouter ». Pour les autres : le formulaire **« Nouveau prospect »** et son bouton « ➕ Enregistrer le prospect »."],
-        ["**🧲 Prospects**, la liste", "« Mes prospects (N) » (ou « Tous les prospects (N) » pour l'administrateur), « Rechercher… », les boutons « Afficher les clients acquis (N) », « 💤 Dormants (N) », « 📦 Archivés (N) », « 🔔 À relancer (N) », puis le tableau, 50 lignes par page."],
+        ["**🧲 Prospects**, la liste", "« Mes prospects (N) » (ou « Tous les prospects (N) » pour l'administrateur), « Rechercher… », la liste de période (« Toute période » d'office), les boutons « Afficher les clients acquis (N) », « 💤 Dormants (N) », « 📦 Archivés (N) », « 🔔 À relancer (N) », puis le tableau, 50 lignes par page."],
         ["**🙋 Créer un client**", "La case « Prospect » y crée un compte client ET une fiche de prospect en même temps (chapitre 3)."],
         ["**☀️ Dimensionnement / 📋 Tous les devis**", "Un devis validé pose « ⏳ Devis validé — attend le paiement » sur la fiche du prospect ; un devis encaissé le fait passer « Client acquis »."],
       ]}],
@@ -139,6 +139,7 @@ export const CHAPITRE = {
         ["Rechercher…", "Nom, numéro, localisation ou projet — la règle de toute recherche (sans accents, chaque mot dans n'importe quel ordre)."],
         ["Afficher les clients acquis (N)", "Remet les convertis dans la liste."],
         ["💤 Dormants (N) / 📦 Archivés (N) / 🔔 À relancer (N)", "Trois filtres ; un second clic revient à la liste active."],
+        ["Le filtre de période", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates, sur la DATE du prospect. La liste et son nombre la suivent, et les « Comptes avec devis » suivent la date de leur DERNIER devis. Le compteur « 🔔 À relancer (N) » regarde toujours tout : une relance en retard ne se cache pas derrière une période."],
         ["Colonnes", "Nom (figé quand on fait défiler) · Date · Numéro · Catégorie / projet · Localisation (+ carte) · Avis (+ pastilles d'état) · Intérêt · Relance · Commercial (administrateur seulement) · les boutons."],
         ["Relance", "Change la date de relance (pas pour l'administrateur)."],
         ["📱 Relancer", "N'apparaît que si la relance est en retard et que le prospect a un numéro. Une question, puis le message du numéro BMI, nommant le projet ; note automatique."],

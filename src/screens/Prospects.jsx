@@ -6,6 +6,7 @@
 import { Fragment, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
+import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
@@ -46,6 +47,11 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   const [q, setQ] = useState("");
   // Le besoin d'UN prospect déplié à la fois (règle de dépliage de 💰 Ventes).
   const [besoinDeplie, setBesoinDeplie] = useState(null);
+  // 📅 LE filtre de période (05/10/2026, « ajoute aussi le filtre de période
+  // dans Prospects ») : « Toute période » à chaque ouverture. Il suit la date
+  // du prospect, et celle du dernier devis pour les comptes avec devis ; le
+  // compteur « 🔔 À relancer » est une alerte, il regarde toujours tout.
+  const periode = useFiltrePeriode();
 
   // ---- Gestion des catégories (Admin uniquement) ----
   const ajouterCategorie = () => {
@@ -331,6 +337,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // jusqu'à ce que quelqu'un la prenne en charge.
   let liste = voitTout ? base : base.filter((p) => p.commercial === profile.nom || estDemandeAssistant(p));
   if (filtreRelance) liste = liste.filter((p) => p.relance && p.relance <= today());
+  liste = liste.filter((p) => periode.dans(p.date));
   if (q) liste = liste.filter((p) => correspond(p.nom + " " + p.tel + " " + p.localisation + " " + (p.projet || ""), q));
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
 
@@ -341,7 +348,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // ne voit que les comptes dont il a établi un devis.
   // Du plus NOUVEAU au plus ancien (capture Timo, 03/10/2026 : « classer du
   // plus nouveau au plus ancien ») : la date du dernier devis, décroissante.
-  const comptesAvecDevis = clientsSansSuiteDeLEspace(db, profile).filter((c) => prospectVisiblePour(c, profile, voitTout))
+  const comptesAvecDevis = clientsSansSuiteDeLEspace(db, profile).filter((c) => prospectVisiblePour(c, profile, voitTout) && periode.dans(c.reference))
     .sort((a, b) => String(b.reference).localeCompare(String(a.reference)));
   const [voirComptesDevis, setVoirComptesDevis] = useState(true);
 
@@ -479,6 +486,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
           <span className="font-bold text-slate-800">{isAdmin ? "Tous les prospects" : "Mes prospects"} ({liste.length})</span>
           <div className="flex items-center gap-2 flex-wrap">
             <input className={champRecherche} placeholder="Rechercher…" value={q} onChange={(e) => setQ(e.target.value)} />
+            {periode.selecteur}
             {acquis.length > 0 && (
               <button onClick={() => setVoirAcquis(!voirAcquis)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${voirAcquis ? "bg-green-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                 {voirAcquis ? "✅ Clients acquis affichés" : `Afficher les clients acquis (${acquis.length})`}
@@ -500,7 +508,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
         <table className="w-full text-sm min-w-[900px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Date", "Numéro", "Catégorie / projet", "Localisation", "Avis", "Intérêt", "Relance", ...(isAdmin ? ["Commercial"] : []), ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
-            {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">Aucun prospect pour l'instant.</td></tr>}
+            {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</td></tr>}
             {listePage.map((p) => {
               const enRetard = p.relance && p.relance <= today();
               const deplie = besoinDeplie === p.id;

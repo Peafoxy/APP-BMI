@@ -10885,7 +10885,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       /export const clientsSansActiviteDeLEspace = \(db, profile\) =>\s*clientsSansActivite\(comptesEtAchatsDeLEspace\(db, profile\)\)/.test(readFileSync("src/lib/calculs.js", "utf8"))
       && /comptes: utilisateursDeLEspace\(db, profile\),\s*ventes: \(db\?\.ventes \|\| \[\]\)\.filter\(f\)/.test(readFileSync("src/lib/calculs.js", "utf8")));
     test("★★ 🧲 Prospects : la liste « Comptes avec devis » passe par la règle de l'espace regardé et le filtre du commercial — jamais db.users",
-      /clientsSansSuiteDeLEspace\(db, profile\)\.filter\(\(c\) => prospectVisiblePour\(c, profile, voitTout\)\)/.test(pr)
+      // 05/10/2026 : RETOURNÉ — le filtre de période s'ajoute à la même ligne.
+      /clientsSansSuiteDeLEspace\(db, profile\)\.filter\(\(c\) => prospectVisiblePour\(c, profile, voitTout\) && periode\.dans\(c\.reference\)\)/.test(pr)
       // 03/10/2026 : du plus NOUVEAU au plus ancien (date du dernier devis, décroissante)
       && /\.sort\(\(a, b\) => String\(b\.reference\)\.localeCompare\(String\(a\.reference\)\)\)/.test(pr)
       && /data-comptes-avec-devis/.test(pr)
@@ -11167,12 +11168,13 @@ titre("✏️ Personnaliser la période (💰 Ventes)");
     const depP = readFileSync("src/screens/Depenses.jsx", "utf8");
     const detP = readFileSync("src/screens/Dettes.jsx", "utf8");
     const tdP = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+    const prP = readFileSync("src/screens/Prospects.jsx", "utf8");
     test("★★ 📅 « Toute période » à CHAQUE ouverture : l'état part de null et n'est mémorisé nulle part (ni navigateur, ni fiche)",
       /const \[index, setIndex\] = useState\(null\);/.test(fpv) && !/localStorage|sessionStorage|save\(/.test(fpv)
       && /<option value="">Toute période<\/option>/.test(fpv));
     test("★★ 📅 UN filtre pour les quatre écrans : Ventes, Dépenses, Dettes et Tous les devis passent par useFiltrePeriode, aucun ne refait sa période",
-      [v, depP, detP, tdP].every((t) => /import \{ useFiltrePeriode \} from "\.\.\/components\/FiltrePeriode";/.test(t) && /const periode = useFiltrePeriode\(\);/.test(t) && /\{periode\.selecteur\}/.test(t))
-      && [v, depP, detP, tdP].every((t) => !/periodes\(\)\[/.test(t) && !/PERIODE_PERSO/.test(t)));
+      [v, depP, detP, tdP, prP].every((t) => /import \{ useFiltrePeriode \} from "\.\.\/components\/FiltrePeriode";/.test(t) && /const periode = useFiltrePeriode\(\);/.test(t) && /\{periode\.selecteur\}/.test(t))
+      && [v, depP, detP, tdP, prP].every((t) => !/periodes\(\)\[/.test(t) && !/PERIODE_PERSO/.test(t)));
     test("★★ 📅 Dépenses : la liste et son total suivent la période ; le cadre des dépenses à valider par le DG n'est PAS filtré",
       /const listeAffichee = liste\.filter\(\(x\) => periode\.dans\(x\.date\)\);/.test(depP)
       && /<TableauDepenses liste=\{listeAffichee\} /.test(depP)
@@ -11190,6 +11192,12 @@ titre("✏️ Personnaliser la période (💰 Ventes)");
       /if \(!periode\.dans\(d\.date\)\) return false;/.test(tdP)
       && tdP.indexOf("if (!periode.dans(d.date)) return false;") > tdP.indexOf("const devisAvantStatut = tousDevis.filter")
       && /const nbARelancer = tousDevis\.filter\(enAttenteDeRelance\)\.length;/.test(tdP));
+    test("★★ 📅 Prospects : la liste suit la date du prospect, les comptes avec devis celle du dernier devis ; le compteur « À relancer » regarde toujours tout",
+      /liste = liste\.filter\(\(p\) => periode\.dans\(p\.date\)\);/.test(prP)
+      && prP.indexOf("periode.dans(p.date)") < prP.indexOf("usePagination(liste, 50)")
+      && /prospectVisiblePour\(c, profile, voitTout\) && periode\.dans\(c\.reference\)/.test(prP)
+      && /const aRelancerAujourdhui = \(voitTout \? actifs : actifs\.filter/.test(prP)
+      && !/aRelancerAujourdhui = [^;]*periode/.test(prP));
   }
   test("la règle vit dans lib/calculs.js, pas dans l'écran",
     !/function bornesPersonnalisees/.test(v) && /export function bornesPersonnalisees/.test(readFileSync("src/lib/calculs.js", "utf8")));
