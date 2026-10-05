@@ -4942,10 +4942,10 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
   // d'une remise de fonds de caisse (⚙ Paramètres → 💼 Fonds de caisse), qui
   // se corrige depuis que « Régulariser » a daté 50 000 F du mauvais jour.
-  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026 ; RETOURNÉ le 03/10/2026 : ×7, le premier mois de retenue d'un crédit d'avant l'application), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait » ; RETOURNÉ le 05/10/2026 : ×7, la date d'embauche dans 👥 Utilisateurs ; RETOURNÉ le même jour : ×9, la fin d'un contrat et la date de sortie)",
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026 ; RETOURNÉ le 03/10/2026 : ×7, le premier mois de retenue d'un crédit d'avant l'application), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait » ; RETOURNÉ le 05/10/2026 : ×7, la date d'embauche dans 👥 Utilisateurs ; RETOURNÉ le même jour : ×9, la fin d'un contrat et la date de sortie ; RETOURNÉ encore : ×8, la fin se CALCULE depuis une durée tapée)",
     execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
     && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "7"
-    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "9");
+    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "8");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
     /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds", u\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
     && /demanderMoyenPaiement\("", "Espèces", "Moyen de paiement reçu"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
@@ -12986,10 +12986,12 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   // 📅 La date d'embauche (05/10/2026, « b ») : saisissable pour TOUT salarié,
   // dans 👥 Utilisateurs ET dans 🏦 CNSS même case décochée — le même champ.
   const srcU = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
-  const corpsE = srcU.slice(srcU.indexOf("const changerEmbauche"), srcU.indexOf("};", srcU.indexOf("const changerEmbauche")));
-  test("★★ 📅 la date d'embauche se saisit dans 👥 Utilisateurs → ⋯ Gérer → Paie, administrateur revérifié dans le geste, sur le champ cnss_date_embauche (jamais un second)",
-    /refuserSaufAdmin\(profile, "Fixer la date d'embauche"\)/.test(corpsE) && /demanderDate\(/.test(corpsE) && /cnss_date_embauche: val/.test(corpsE)
-    && /data-date-embauche onClick=\{\(\) => changerEmbauche\(u\)\}/.test(srcU) && !/date_embauche[^:]*:/.test(corpsE.replace(/cnss_date_embauche/g, "")));
+  // RETOURNÉ le 05/10/2026 : la date d'embauche se saisit dans LE geste
+  // « 📅 Embauche et contrat » (le bouton 📅 Embauche seul est parti).
+  const corpsE = srcU.slice(srcU.indexOf("const changerEmbaucheContrat"), srcU.indexOf("const renouvelerContrat"));
+  test("★★ 📅 la date d'embauche se saisit dans 👥 Utilisateurs → ⋯ Gérer → Paie (📅 Embauche et contrat), administrateur revérifié dans le geste, sur le champ cnss_date_embauche (jamais un second)",
+    /refuserSaufAdmin\(profile, "Fixer l'embauche et le contrat"\)/.test(corpsE) && /demanderDate\(/.test(corpsE) && /cnss_date_embauche: embauche/.test(corpsE)
+    && /data-embauche-contrat onClick=\{\(\) => changerEmbaucheContrat\(u\)\}/.test(srcU) && !/changerEmbauche\(u\)|data-date-embauche/.test(srcU) && !/date_embauche[^:]*:/.test(corpsE.replace(/cnss_date_embauche/g, "")));
   const ligneCnss = readFileSync("src/screens/Salaires.jsx", "utf8").split("\n").find((l) => l.includes("data-date-embauche")) || "";
   test("★★ 📅 dans 🏦 CNSS, la case Date d'embauche n'est plus grisée pour un employé non assujetti",
     ligneCnss.includes('type="date"') && !/disabled=/.test(ligneCnss));
@@ -13150,15 +13152,39 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     && !!CT.rappelFinsDeContrat(dbR, "2026-10-19") && CT.rappelFinsDeContrat(dbR, "2026-10-10") === null
     && CT.rappelFinsDeContrat({ ...dbR, users: dbR.users.map((x) => (x.id === "e1" ? { ...x, cnss_date_sortie: "2026-10-04", cnss_code_motif_sortie: 204 } : x)) }, "2026-10-05") === null);
   const u = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
-  const cC = u.slice(u.indexOf("const changerContrat"), u.indexOf("const changerSortie"));
+  const cC = u.slice(u.indexOf("const changerEmbaucheContrat"), u.indexOf("const renouvelerContrat"));
+  const cR = u.slice(u.indexOf("const renouvelerContrat"), u.indexOf("const changerSortie"));
   const cS = u.slice(u.indexOf("const changerSortie"), u.indexOf("// Avancement : chaque changement"));
   test("★★ 📄 les deux gestes sont à l'administrateur, revérifiés DANS le geste sur la fiche fraîche, et passent par la règle",
-    /refuserSaufAdmin\(profile, "Fixer le contrat de travail"\)/.test(cC) && /const frais = db\.users\.find/.test(cC) && /critiqueContrat\(/.test(cC)
+    /refuserSaufAdmin\(profile, "Fixer l'embauche et le contrat"\)/.test(cC) && /const frais = db\.users\.find/.test(cC) && /critiqueContrat\(/.test(cC)
     && /refuserSaufAdmin\(profile, "Saisir la date de sortie"\)/.test(cS) && /const frais = db\.users\.find/.test(cS) && /critiqueSortie\(/.test(cS));
   test("★★ 📄 UNE seule source pour le type : le geste écrit cnss_code_type (celui de la déclaration CNSS), jamais un second champ",
     /cnss_code_type: type\.code, contrat_fin: fin/.test(cC) && !/type_contrat/.test(u));
-  test("★ 📄 les boutons 📄 Contrat et 🚪 Sortie sont dans ⋯ Gérer, et la fin se LIT sous le nom",
-    /<button data-contrat onClick=\{\(\) => changerContrat\(u\)\}/.test(u) && /<button data-sortie onClick=\{\(\) => changerSortie\(u\)\}/.test(u) && /data-fin-contrat/.test(u));
+  // 📅 Embauche et contrat, et 🔁 Renouveler (05/10/2026, « a la veille, b
+  // choix 2 mais ce bouton disparaît après un mois si pas renouvelé »).
+  test("★★ 📅 la durée se TAPE : « 6 mois », « 1 an », « 45 jours », « 3 semaines », un chiffre seul = des mois ; un mot ou zéro est refusé",
+    JSON.stringify([CT.lireDuree("6 mois"), CT.lireDuree("1 an"), CT.lireDuree("45 jours"), CT.lireDuree("3 semaines"), CT.lireDuree("6"), CT.lireDuree("2 années")])
+      === JSON.stringify([{ mois: 6 }, { mois: 12 }, { jours: 45 }, { jours: 21 }, { mois: 6 }, { mois: 24 }])
+    && CT.lireDuree("deux") === null && CT.lireDuree("0") === null && CT.lireDuree("") === null && CT.lireDuree("6 lunes") === null);
+  test("★★ 📅 la fin = LA VEILLE (décision « a ») : 6 mois dès le 05/10/2026 → 04/04/2027 ; dès le 31/08 → 28/02 ; 45 jours dès le 05/10 → 18/11",
+    CT.finDepuisDuree("2026-10-05", { mois: 6 }) === "2027-04-04" && CT.finDepuisDuree("2026-08-31", { mois: 6 }) === "2027-02-28"
+    && CT.finDepuisDuree("2026-01-01", { mois: 12 }) === "2026-12-31" && CT.finDepuisDuree("2026-10-05", { jours: 45 }) === "2026-11-18");
+  const cdd6 = { cnss_code_type: 5, contrat_fin: "2027-04-04" };
+  test("★★ 🔁 le renouvellement court à partir du LENDEMAIN de la fin (04/04 + 6 mois → 04/10), possible jusqu'à UN MOIS après la fin, jamais après",
+    CT.finApresRenouvellement(cdd6, { mois: 6 }) === "2027-10-04" && CT.peutRenouveler(cdd6, "2027-03-01") && CT.peutRenouveler(cdd6, "2027-05-04")
+    && !CT.peutRenouveler(cdd6, "2027-05-05") && !!CT.critiqueRenouvellement(cdd6, "2027-05-05") && CT.critiqueRenouvellement(cdd6, "2027-05-04") === "");
+  test("★★ 🔁 jamais pour un CDI, un contrat sans fin ou un employé sorti",
+    !CT.peutRenouveler({ cnss_code_type: 1, contrat_fin: "2027-04-04" }, "2027-04-01") && !CT.peutRenouveler({ cnss_code_type: 5 }, "2027-04-01")
+    && !CT.peutRenouveler({ ...cdd6, cnss_date_sortie: "2027-04-04" }, "2027-04-01") && !!CT.critiqueRenouvellement({ cnss_code_type: 1 }, "2027-04-01"));
+  test("★ 🔁 sous le nom : « renouvelable jusqu'au … » le premier mois, puis « nouveau contrat »",
+    /renouvelable jusqu'au 04\/05\/2027/.test(CT.phraseFinContrat(cdd6, "2027-04-10")) && /nouveau contrat/.test(CT.phraseFinContrat(cdd6, "2027-06-10")));
+  test("★★ 📅 le geste calcule la fin par la règle (jamais une date demandée), et 🔁 Renouveler est à l'administrateur, revérifié DANS le geste sur la fiche fraîche",
+    /finDepuisDuree\(embauche, duree\)/.test(cC) && /lireDuree\(/.test(cC) && !/demanderDate\(`Fin du contrat/.test(u)
+    && /refuserSaufAdmin\(profile, "Renouveler un contrat"\)/.test(cR) && /const frais = db\.users\.find/.test(cR) && /critiqueRenouvellement\(frais, today\(\)\)/.test(cR) && /finApresRenouvellement\(frais, duree\)/.test(cR));
+  test("★★ 🔁 le bouton Renouveler n'apparaît que si le contrat se renouvelle encore",
+    /\{peutRenouveler\(u, today\(\)\) && <button data-renouveler onClick=\{\(\) => renouvelerContrat\(u\)\}/.test(u));
+  test("★ 📄 les boutons 📅 Embauche et contrat et 🚪 Sortie sont dans ⋯ Gérer, et la fin se LIT sous le nom",
+    /<button data-embauche-contrat onClick=\{\(\) => changerEmbaucheContrat\(u\)\}/.test(u) && /<button data-sortie onClick=\{\(\) => changerSortie\(u\)\}/.test(u) && /data-fin-contrat/.test(u));
   const paie = readFileSync("src/lib/paie.js", "utf8");
   test("★★ 📄 la date de fin vit dans la fiche de PAIE (protégée), pas sur la fiche que tout le monde télécharge",
     /"contrat_fin",/.test(paie));

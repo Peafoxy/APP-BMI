@@ -98,12 +98,85 @@ export function etatFinContrat(u, aujourdhui) {
 }
 
 // La phrase lue sous le nom : « 📄 CDD — fin le 31/12/2026 (dans 15 j) ».
+// Dépassée : renouvelable encore un mois, puis un NOUVEAU contrat (Timo,
+// 05/10/2026 : « ce bouton disparaît après un mois si pas renouvelé et il
+// faudra un nouveau contrat »).
 export function phraseFinContrat(u, aujourdhui) {
   const e = etatFinContrat(u, aujourdhui);
   if (!e) return "";
-  const quand = e.jours > 1 ? `dans ${e.jours} j` : e.jours === 1 ? "demain" : e.jours === 0 ? "aujourd'hui" : `dépassée de ${-e.jours} j — date de sortie à saisir`;
+  const suite = peutRenouveler(u, aujourdhui)
+    ? `🔁 renouvelable jusqu'au ${dFR(limiteRenouvellement(e.fin))}, ou saisir la sortie`
+    : "nouveau contrat ou date de sortie à saisir";
+  const quand = e.jours > 1 ? `dans ${e.jours} j` : e.jours === 1 ? "demain" : e.jours === 0 ? "aujourd'hui" : `dépassée de ${-e.jours} j — ${suite}`;
   return `${libelleContrat(u) || "Contrat"} — fin le ${dFR(e.fin)} (${quand})`;
 }
+
+// ---- LA DURÉE QU'ON TAPE (05/10/2026, « a la veille, b choix 2… lance ») ----
+// « 6 mois », « 1 an », « 2 ans », « 45 jours », « 3 semaines », ou un chiffre
+// seul (= des mois). Rend { mois } ou { jours }, null si illisible.
+const UNITES_DUREE = [
+  { mots: ["mois", "m"], mois: 1 },
+  { mots: ["an", "ans", "annee", "annees", "a"], mois: 12 },
+  { mots: ["jour", "jours", "j"], jours: 1 },
+  { mots: ["semaine", "semaines", "sem", "s"], jours: 7 },
+];
+export function lireDuree(texte) {
+  const t = String(texte || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\./g, "").trim();
+  if (!t) return null;
+  let i = 0;
+  while (i < t.length && t[i] >= "0" && t[i] <= "9") i++;
+  const n = Number(t.slice(0, i));
+  if (!i || !Number.isInteger(n) || n <= 0 || n > 999) return null;
+  const unite = t.slice(i).trim();
+  if (!unite) return { mois: n };
+  const u = UNITES_DUREE.find((x) => x.mots.includes(unite));
+  if (!u) return null;
+  return u.mois ? { mois: n * u.mois } : { jours: n * u.jours };
+}
+export const dureeEnClair = (d) => (!d ? "" : d.mois ? (d.mois % 12 === 0 ? `${d.mois / 12} an${d.mois > 12 ? "s" : ""}` : `${d.mois} mois`) : `${d.jours} jour${d.jours > 1 ? "s" : ""}`);
+
+const versIso = (y, m0, j) => new Date(Date.UTC(y, m0, j)).toISOString().slice(0, 10);
+const morceaux = (d) => iso(d).split("-").map(Number);
+const joursDuMois = (y, m0) => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+const plusJours = (d, n) => { const [y, m, j] = morceaux(d); return versIso(y, m - 1, j + n); };
+// n mois plus tard, le jour ramené au dernier du mois s'il n'existe pas (31/01 + 1 mois = 28/02).
+const plusMois = (d, n) => {
+  const [y, m, j] = morceaux(d);
+  const ty = y + Math.floor((m - 1 + n) / 12), tm = (m - 1 + n) % 12;
+  return versIso(ty, tm, Math.min(j, joursDuMois(ty, tm)));
+};
+
+// La fin d'un contrat qui COMMENCE le `debut` : LA VEILLE de la même date
+// N mois plus tard (décision « a ») — 6 mois dès le 05/10/2026 → 04/04/2027 ;
+// dès le 31/08 → 28/02 (le dernier jour du mois quand le jour n'existe pas).
+export function finDepuisDuree(debut, duree) {
+  if (!estDate(debut) || !duree) return "";
+  if (duree.jours) return plusJours(debut, duree.jours - 1);
+  const [y, m, j] = morceaux(debut);
+  const ty = y + Math.floor((m - 1 + duree.mois) / 12), tm = (m - 1 + duree.mois) % 12;
+  return j > joursDuMois(ty, tm) ? versIso(ty, tm + 1, 0) : versIso(ty, tm, j - 1);
+}
+
+// ---- 🔁 LE RENOUVELLEMENT (décision « b, choix 2 ») ----
+// Possible jusqu'à UN MOIS après la fin ; au-delà, un nouveau contrat.
+export const limiteRenouvellement = (fin) => plusMois(fin, 1);
+export function peutRenouveler(u, aujourdhui) {
+  const code = codeContrat(u);
+  if (!u || !code || code === CODE_CDI || !estDate(u.contrat_fin) || estDate(u.cnss_date_sortie)) return false;
+  return iso(aujourdhui) <= limiteRenouvellement(u.contrat_fin);
+}
+// "" = accepté. Revérifié DANS le geste, sur la fiche fraîche.
+export function critiqueRenouvellement(u, aujourdhui) {
+  const code = codeContrat(u);
+  if (!code || code === CODE_CDI) return "Un CDI ne se renouvelle pas.";
+  if (!estDate(u?.contrat_fin)) return "Ce contrat n'a pas de date de fin : fixez-la par « 📅 Embauche et contrat ».";
+  if (estDate(u?.cnss_date_sortie)) return `Une date de sortie est saisie (${dFR(u.cnss_date_sortie)}) : un nouveau contrat se fait par « 📅 Embauche et contrat ».`;
+  if (!peutRenouveler(u, aujourdhui)) return `Le contrat a pris fin le ${dFR(u.contrat_fin)} : plus d'un mois est passé (renouvelable jusqu'au ${dFR(limiteRenouvellement(u.contrat_fin))}). Il faut un nouveau contrat : « 📅 Embauche et contrat ».`;
+  return "";
+}
+// La nouvelle fin : la durée court à partir du LENDEMAIN de la fin actuelle.
+export const finApresRenouvellement = (u, duree) => (estDate(u?.contrat_fin) && duree ? finDepuisDuree(plusJours(u.contrat_fin, 1), duree) : "");
+export const MESSAGE_DUREE_ILLISIBLE = "Durée illisible : tapez par exemple « 6 mois », « 1 an » ou « 45 jours ».";
 
 // Le rappel de la tournée du matin, pour l'administrateur PRINCIPAL seul.
 // `db.users` porte la fiche de paie recollée (fusionnerPaie). null = rien.

@@ -19,7 +19,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { peutAvoirAffectation, critiqueAffectation } from "../lib/affectation";
-import { TYPES_CONTRAT, CODE_CDI, CODE_CDD, phraseContrat, critiqueContrat, critiqueSortie, etatFinContrat, phraseFinContrat } from "../lib/contratTravail";
+import { TYPES_CONTRAT, CODE_CDI, CODE_CDD, phraseContrat, critiqueContrat, critiqueSortie, etatFinContrat, phraseFinContrat, lireDuree, dureeEnClair, finDepuisDuree, peutRenouveler, critiqueRenouvellement, finApresRenouvellement, MESSAGE_DUREE_ILLISIBLE } from "../lib/contratTravail";
 import { CODES_MOTIF_SORTIE } from "../lib/cnss";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie } from "../lib/calculs";
@@ -914,40 +914,63 @@ export function Users({ db, save, profile }) {
   // non déclaré. Elle sert aussi au bulletin et au dossier : elle se saisit
   // ici pour TOUT salarié. Même champ (`cnss_date_embauche`, fiche de paie),
   // jamais un second. Administrateur, revérifié ici.
-  const changerEmbauche = async (u) => {
-    if (refuserSaufAdmin(profile, "Fixer la date d'embauche")) return;
+  // 📅 L'EMBAUCHE ET LE CONTRAT, EN UN GESTE (05/10/2026, Timo : « on tape la
+  // date d'embauche, au suivant on demande le type de contrat… si autre que
+  // CDI on demande la durée, il suffit de taper par exemple 6 mois et
+  // l'application calcule automatiquement la fin du contrat »). Le type a UNE
+  // source avec la déclaration CNSS (`cnss_code_type`) ; la fin = la VEILLE
+  // de la même date N mois plus tard (décision « a »). Revérifié DANS le
+  // geste sur la fiche fraîche (lib/contratTravail.js).
+  const changerEmbaucheContrat = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer l'embauche et le contrat")) return;
     if (bloquerSiLecture(db, profile)) return;
     const frais = db.users.find((x) => x.id === u.id) || u;
-    const val = await demanderDate(`Date d'embauche de ${u.nom} — vide pour l'effacer`, String(frais.cnss_date_embauche || ""), true);
-    if (val === null) return;
-    if (val === String(frais.cnss_date_embauche || "")) return;
-    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, cnss_date_embauche: val } : x)) }, val ? `Date d'embauche de ${u.nom} : ${dFR(val)}` : `Date d'embauche de ${u.nom} effacée`);
-  };
-
-  // 📄 Le contrat de travail (05/10/2026, « a et b ») : le type (UNE source
-  // avec la déclaration CNSS, `cnss_code_type`) et, hors CDI, sa date de fin.
-  // Revérifié DANS le geste sur la fiche fraîche (lib/contratTravail.js).
-  const changerContrat = async (u) => {
-    if (refuserSaufAdmin(profile, "Fixer le contrat de travail")) return;
-    if (bloquerSiLecture(db, profile)) return;
-    const frais = db.users.find((x) => x.id === u.id) || u;
+    const embauche = await demanderDate(`Date d'embauche de ${u.nom}`, String(frais.cnss_date_embauche || ""));
+    if (embauche === null) return;
     const actuel = phraseContrat(frais);
     const choix = await uChoix(`Contrat de travail de ${u.nom}${actuel ? ` (actuellement : ${actuel})` : ""} ?`, TYPES_CONTRAT.map((t) => t.long));
     if (!choix) return;
     const type = TYPES_CONTRAT.find((t) => t.long === choix);
     if (!type) return;
     let fin = "";
+    let duree = null;
     if (type.code !== CODE_CDI) {
-      const v = await demanderDate(`Fin du contrat de ${u.nom}${type.code === CODE_CDD ? "" : " — vide si elle n'est pas fixée"}`, String(frais.contrat_fin || ""), type.code !== CODE_CDD);
+      const v = await uPrompt(`Durée du contrat de ${u.nom} à partir du ${dFR(embauche)} — par exemple « 6 mois », « 1 an », « 45 jours »${type.code === CODE_CDD ? "" : " (vide si elle n'est pas fixée)"} :`, "");
       if (v === null) return;
-      fin = v;
+      if (String(v).trim()) {
+        duree = lireDuree(v);
+        if (!duree) { uAlert(MESSAGE_DUREE_ILLISIBLE); return; }
+        fin = finDepuisDuree(embauche, duree);
+      }
     }
-    const refus = critiqueContrat({ code: type.code, fin, embauche: frais.cnss_date_embauche });
+    const refus = critiqueContrat({ code: type.code, fin, embauche });
     if (refus) { uAlert(refus); return; }
-    if (Number(frais.cnss_code_type) === type.code && String(frais.contrat_fin || "") === fin) return;
+    if (String(frais.cnss_date_embauche || "") === embauche && Number(frais.cnss_code_type) === type.code && String(frais.contrat_fin || "") === fin) return;
     const apres = phraseContrat({ cnss_code_type: type.code, contrat_fin: fin });
-    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, cnss_code_type: type.code, contrat_fin: fin } : x)) },
-      `Contrat de travail de ${u.nom} : ${actuel || "non renseigné"} → ${apres}`);
+    if (!await uConfirm(`${u.nom} : embauché le ${dFR(embauche)}, ${type.long}${fin ? `, ${dureeEnClair(duree)}.\n\nFin du contrat : ${dFR(fin)}` : ""}. Confirmer ?`)) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, cnss_date_embauche: embauche, cnss_code_type: type.code, contrat_fin: fin } : x)) },
+      `Embauche et contrat de ${u.nom} : embauché le ${dFR(embauche)} — ${actuel || "non renseigné"} → ${apres}`);
+  };
+
+  // 🔁 RENOUVELER UN CONTRAT (décision « b, choix 2 ») : la durée court à
+  // partir du LENDEMAIN de la fin actuelle. Le bouton n'existe que jusqu'à
+  // UN MOIS après la fin ; au-delà, un nouveau contrat (« 📅 Embauche et
+  // contrat »). Revérifié DANS le geste sur la fiche fraîche.
+  const renouvelerContrat = async (u) => {
+    if (refuserSaufAdmin(profile, "Renouveler un contrat")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const refus = critiqueRenouvellement(frais, today());
+    if (refus) { uAlert(refus); return; }
+    const v = await uPrompt(`Renouveler le contrat de ${u.nom} (${phraseContrat(frais)}) pour combien de temps ? Par exemple « 6 mois », « 1 an », « 45 jours » :`, "");
+    if (v === null || !String(v).trim()) return;
+    const duree = lireDuree(v);
+    if (!duree) { uAlert(MESSAGE_DUREE_ILLISIBLE); return; }
+    const fin = finApresRenouvellement(frais, duree);
+    if (!fin) return;
+    if (!await uConfirm(`Renouveler le contrat de ${u.nom} pour ${dureeEnClair(duree)} ?\n\nFin actuelle : ${dFR(frais.contrat_fin)}\nNouvelle fin : ${dFR(fin)}`)) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, contrat_fin: fin } : x)) },
+      `Contrat de ${u.nom} renouvelé pour ${dureeEnClair(duree)} : fin ${dFR(frais.contrat_fin)} → ${dFR(fin)}`);
   };
 
   // 🚪 La date de sortie (déclaration CNSS) : elle n'avait AUCUNE case.
@@ -1612,8 +1635,8 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerSalaire(u)} className={boutonGerer}>💵 Salaire</button>
                   <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
                   <button data-debut-paie onClick={() => changerDebutPaie(u)} className={boutonGerer} title="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application">📅 Paie suivie depuis {libelleMoisFR(premierMoisPaie(u))}</button>
-                  <button data-date-embauche onClick={() => changerEmbauche(u)} className={boutonGerer} title="Imprimée sur le bulletin de paie, reprise par la déclaration CNSS et le dossier de l'employé">📅 Embauche{u.cnss_date_embauche ? ` · ${dFR(u.cnss_date_embauche)}` : " · à saisir"}</button>
-                  <button data-contrat onClick={() => changerContrat(u)} className={boutonGerer} title="Imprimé sur le bulletin de paie ; le même code que la déclaration CNSS">📄 Contrat · {phraseContrat(u) || "à saisir"}</button>
+                  <button data-embauche-contrat onClick={() => changerEmbaucheContrat(u)} className={boutonGerer} title="La date d'embauche, le type de contrat et sa durée : la fin se calcule toute seule. Imprimés sur le bulletin, repris par la déclaration CNSS">📅 Embauche et contrat{u.cnss_date_embauche ? ` · ${dFR(u.cnss_date_embauche)}` : ""} · {phraseContrat(u) || "à saisir"}</button>
+                  {peutRenouveler(u, today()) && <button data-renouveler onClick={() => renouvelerContrat(u)} className={boutonGerer} title="Prolonge le contrat à partir du lendemain de sa fin ; possible jusqu'à un mois après la fin">🔁 Renouveler</button>}
                   <button data-sortie onClick={() => changerSortie(u)} className={boutonGerer} title="Date et motif de sortie, repris par la déclaration CNSS">🚪 Sortie{u.cnss_date_sortie ? ` · ${dFR(u.cnss_date_sortie)}` : ""}</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "avance")} className={boutonGerer}>− Avance</button>
