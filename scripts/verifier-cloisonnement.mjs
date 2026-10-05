@@ -4986,8 +4986,9 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     // « remets les prêts dans Dépenses » — une sortie du tiroir ne doit jamais être invisible.
     && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep) && /sont dans la liste \(ils font bouger la caisse\) mais ne comptent pas dans « Ce mois »/.test(dep)
     && /x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| horsVersements\(\[x\]\)\.length === 1/.test(dep) && /data-pret-personnel/.test(dep));
-  test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché deux fois (boutique, chez le comptable)",
-    (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 2
+  // RETOURNÉ le 05/10/2026 : un troisième usage, les sorties payées chez le DG ou par la BANQUE.
+  test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché trois fois (boutique, chez le comptable, DG / BANQUE)",
+    (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 3
     // 13/09/2026 : « appliquer la règle d'archivage aussi à l'historique des dépenses » — LE composant commun, plus de pagination.
     && /<HistoriqueArchive lignes=\{liste\} dateDe=\{\(x\) => x\.date\} aujourdhui=\{today\(\)\} vide=\{vide\} titreArchives="Dépenses archivées"/.test(dep) && !/usePagination|<Pagination /.test(dep)
     // 13/09/2026 : le texte « vide » de la boutique dépend du rôle (technicien : « Vous n'avez enregistré aucune dépense… »).
@@ -6870,11 +6871,42 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
       && /\.\.\.\(reel \? \[SOURCE_DG, NOM_CAISSE_COMPTABLE\] : \[\]\)/.test(corpsS) && /D'où sort l'argent \?/.test(corpsS));
     // RETOURNÉ le 03/10/2026 (Timo : « virement veut dire payer… donc pas obligatoirement par banque ») :
     // un virement demande lui aussi d'où sort l'argent — BANQUE, DG ou comptable (réel), puis l'imputation.
-    test("★ 💸 un VIREMENT demande « D'où sort l'argent ? » : 🏦 BANQUE, 👤 Chez le DG, 🧾 Chez le comptable (BANQUE seule en formation), puis la boutique à qui imputer la charge",
-      /normPaiement\(moyen\) === "Virement bancaire"[\s\S]{0,400}reel \? await uChoix\(`\$\{titre\}\\n\\nD'où sort l'argent \?`, \[SOURCE_BANQUE, SOURCE_DG, NOM_CAISSE_COMPTABLE\]\) : SOURCE_BANQUE/.test(corpsS)
-      && /source === SOURCE_DG\) return \{ boutique: bq, champs: \{ paye_avec: PAYE_AVEC_DG \}/.test(corpsS)
-      && /source === NOM_CAISSE_COMPTABLE\) return \{ boutique: bq, champs: \{ paye_avec: PAYE_AVEC_COMPTABLE \}[\s\S]{0,160}notifier: NOM_CAISSE_COMPTABLE/.test(corpsS)
-      && /await imputer\(\)[\s\S]{0,600}BANQUE \(charge imputée/.test(corpsS));
+    // RETOURNÉ le 05/10/2026 (Timo : « une dépense faite par le DG ne devrait plus chercher une boutique,
+    // car le DG a une caisse avec lui aussi ») : plus de « À quelle boutique imputer cette charge ? » en réel —
+    // payé chez le DG, par la BANQUE ou chez le comptable, la dépense est RANGÉE dans cette caisse.
+    test("★ 💸 un VIREMENT demande « D'où sort l'argent ? » : 🏦 BANQUE, 👤 Chez le DG, 🧾 Chez le comptable — et rien d'autre ; la dépense est rangée dans la caisse choisie",
+      /normPaiement\(moyen\) === "Virement bancaire"[\s\S]{0,900}await uChoix\(`\$\{titre\}\\n\\nD'où sort l'argent \?`, \[SOURCE_BANQUE, SOURCE_DG, NOM_CAISSE_COMPTABLE\]\)/.test(corpsS)
+      && /const DG = \{ boutique: DEST_DG, champs: \{ paye_avec: PAYE_AVEC_DG \}/.test(corpsS)
+      && /const COMPTABLE = \{ boutique: NOM_CAISSE_COMPTABLE, champs: \{\}[\s\S]{0,80}notifier: NOM_CAISSE_COMPTABLE/.test(corpsS)
+      && /return \{ boutique: DEST_BANQUE, champs: \{\}, libelle: "🏦 BANQUE", notifier: null \}/.test(corpsS)
+      && /if \(choix === SOURCE_DG\) return DG;/.test(corpsS));
+    test("★ 💸 « À quelle boutique imputer cette charge ? » n'est plus posée qu'en FORMATION (« BANQUE » n'y est pas une caisse : une dépense rangée sous un nom inconnu serait classée RÉELLE)",
+      (corpsS.match(/await imputer\(\)/g) || []).length === 1 && /if \(!reel\) \{\s*const bq = await imputer\(\);/.test(corpsS));
+    {
+      // Les dépenses RANGÉES chez le DG ou à la BANQUE (05/10/2026) se lisent dans leur relevé ;
+      // les apports / prélèvements de l'exploitant, rangés aussi « Chez le DG », jamais deux fois.
+      const dbR = { depenses: [
+        { id: "r1", boutique: "Chez le DG", categorie: "Salaires", montant: 60000, paiement: "Virement bancaire", date: "2026-10-05", par: "TIMO", paye_avec: "dg", auto: "virement" },
+        { id: "r2", boutique: "BANQUE", categorie: "Commissions", montant: 25000, paiement: "Virement bancaire", date: "2026-10-05", par: "TIMO", auto: "commission" },
+        { id: "r3", boutique: "Chez le DG", categorie: "Apport de l'exploitant", montant: 100000, paiement: "Espèces", date: "2026-10-05", par: "TIMO", exploitant: { sens: "apport", note: "x" } },
+        { id: "r4", boutique: "Chez le DG", categorie: "Salaires", montant: 9000, paiement: "Espèces", date: "2026-10-05", par: "TIMO", paye_avec: "dg", validation: { statut: "attente" } },
+      ] };
+      const dR = Cg.mouvementsDG(dbR, ["APESSITO"]), bR = Cg.mouvementsBanque(dbR, ["APESSITO"]);
+      test("★ 💸 une dépense RANGÉE « Chez le DG » sort de la caisse du DG, une rangée « BANQUE » sort de la banque — même sans aucune boutique dans l'espace ; l'apport n'y est pas compté deux fois, l'attente pas du tout",
+        dR.totalSorties === 60000 && dR.sorties.map((m) => m.id).join("|") === "r1" && dR.totalEntrees === 0
+        && bR.totalSorties === 25000 && bR.sorties.map((m) => m.id).join("|") === "r2"
+        && Cg.mouvementsDG(dbR, []).totalSorties === 60000);
+    }
+    {
+      const depS = readFileSync("src/screens/Depenses.jsx", "utf8");
+      test("★ 💸 📤 Dépenses montre (et laisse supprimer) les sorties payées chez le DG ou par la BANQUE — administrateur, en réel ; sans ce cadre elles n'appartiendraient à aucune liste",
+        /const voitCaissesCentrales = profile\.role === "admin" && !afficheChiffresFormation\(db, profile\);/.test(depS)
+        && /\(x\.boutique === DEST_DG \|\| x\.boutique === DEST_BANQUE\) && !x\.exploitant/.test(depS)
+        && /<TableauDepenses liste=\{listeCentrale\} profile=\{profile\} onSupprimer=\{supprimerDepense\}/.test(depS) && /data-depenses-centrales/.test(depS));
+      const impS = readFileSync("src/lib/impression.js", "utf8");
+      test("★ 🧾 le bulletin d'un employé rattaché à aucune boutique ne porte que sa FONCTION — plus « Toutes boutiques »",
+        !/Toutes boutiques/.test(impS) && /\$\{u\.boutique \? `<div><b>Affectation :<\/b> \$\{esc\(u\.boutique\)\}<\/div>` : ""\}/.test(impS));
+    }
     {
       const dbV = { depenses: [
         { id: "v1", boutique: "APESSITO", categorie: "Salaires", montant: 35000, paiement: "Virement bancaire", date: "2026-10-03", par: "TIMO", paye_avec: "dg", validation: { statut: "validee" } },

@@ -6,7 +6,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, today, dFR, totalVente } from "../lib/core";
-import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
+import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser, DEST_DG, DEST_BANQUE } from "../lib/versements";
 import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
@@ -52,7 +52,7 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
             {retenueDuSalaire(liste, x) > 0 && <div data-salaire-sorti className="text-xs font-normal text-slate-500 whitespace-nowrap">sorti de la caisse : {fmt(Number(x.montant) - retenueDuSalaire(liste, x))}<br />{fmt(retenueDuSalaire(liste, x))} retenus sur le crédit</div>}
           </td>
           <td className="px-3 py-2">{x.paiement}</td>
-          <td className="px-3 py-2 text-xs">{x.paye_avec && x.paye_avec !== PAYE_AVEC_CAISSE ? libellePayeAvec(x.paye_avec) : "Caisse"}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
+          <td className="px-3 py-2 text-xs">{x.boutique === DEST_BANQUE ? "🏦 BANQUE" : x.paye_avec && x.paye_avec !== PAYE_AVEC_CAISSE ? libellePayeAvec(x.paye_avec) : "Caisse"}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
           <td className="px-3 py-2">{x.par}</td>
           <td className="px-3 py-2"><BadgeValidation x={x} /></td>
           <td className="px-3 py-2 text-xs">
@@ -316,6 +316,17 @@ export function Depenses({ db, save, profile }) {
   const listeAffichee = liste.filter((x) => periode.dans(x.date));
   const totalPeriode = depensesComptees(listeAffichee).reduce((s, x) => s + Number(x.montant), 0);
   const enAttentePeriode = listeAffichee.filter(estEnAttente).reduce((s, x) => s + Number(x.montant), 0);
+  // 👤🏦 Les sorties RANGÉES chez le DG ou à la BANQUE (Timo, 05/10/2026 :
+  // « une dépense faite par le DG ne devrait plus chercher une boutique »).
+  // Elles n'appartiennent à aucune boutique : sans ce cadre, on ne pourrait ni
+  // les lire ici ni les supprimer. Réelles seulement (ces caisses n'ont pas de
+  // jumelle) ; l'administrateur seul. Les apports et prélèvements du DG ont
+  // leur relevé (📊 → 👤 DG) et ne se suppriment pas : ils n'y sont pas.
+  const voitCaissesCentrales = profile.role === "admin" && !afficheChiffresFormation(db, profile);
+  const listeCentrale = voitCaissesCentrales
+    ? (db.depenses || []).filter((x) => (x.boutique === DEST_DG || x.boutique === DEST_BANQUE) && !x.exploitant && horsVersements([x]).length === 1)
+      .filter((x) => periode.dans(x.date)).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+    : [];
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
@@ -456,6 +467,19 @@ export function Depenses({ db, save, profile }) {
           Retrouvez-les dans <b>🔒 Caisse</b> et dans l'export « Versements » du tableau de bord. Les <b>prêts au personnel</b> et leurs remboursements sont dans la liste (ils font bouger la caisse) mais ne comptent pas dans « Ce mois » ; leur suivi est dans <b>👥 Utilisateurs → 🏦 Crédits BMI</b>.
         </div>
       </div>
+
+      {voitCaissesCentrales && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto" data-depenses-centrales>
+          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
+            <span>👤 Payées chez le DG · 🏦 par la BANQUE</span>
+            <span className="text-sm font-semibold text-slate-500">{periode.actif ? `${periode.libelle} : ` : "Total : "}{fmt(depensesComptees(listeCentrale).reduce((s, x) => s + Number(x.montant), 0))}</span>
+          </div>
+          <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100">
+            Salaires, commissions et autres sorties payées par le DG ou par la banque : elles ne sortent du tiroir d'aucune boutique et ne pèsent sur le résultat d'aucune. Elles comptent dans les dépenses de BMI et dans le relevé de 📊 → 👤 DG ou 🏦 BANQUE.
+          </div>
+          <TableauDepenses liste={listeCentrale} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide="Aucune sortie payée chez le DG ou par la banque." />
+        </div>
+      )}
     </div>
   );
 }

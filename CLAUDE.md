@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2230 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2234 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5426,6 +5426,25 @@ lit mal est pire qu'un banc absent).
     « Remis », le comptable prévenu) — BANQUE seule en formation —, puis la
     boutique à qui IMPUTER la charge : la ligne « Salaires » se lit dans
     📤 Dépenses de CETTE boutique. Jamais compté deux fois (banc éprouvé).
+  - ⚠⚠ **RETOURNÉ le 05/10/2026 — PLUS DE « À quelle boutique imputer cette
+    charge ? » en réel** (Timo : « une dépense faite par le DG ne devrait plus
+    chercher une boutique, car le DG a une caisse avec lui aussi »). « D'où
+    sort l'argent ? » est la SEULE question : 👤 Chez le DG → dépense RANGÉE
+    `boutique: "Chez le DG"` (+ `paye_avec: "dg"`), 🏦 BANQUE → `boutique:
+    "BANQUE"`, 🧾 Chez le comptable → `boutique: "Chez le comptable"`. Elle
+    compte dans les dépenses de BMI (📊 TOUTES), jamais dans le résultat d'une
+    boutique ; `mouvementsDG` / `mouvementsBanque` (caissesCentrales.js) la
+    lisent même hors de `nomsBoutiques` (les apports de l'exploitant, sans
+    `paye_avec`, jamais deux fois). 📤 Dépenses a le cadre **« 👤 Payées chez
+    le DG · 🏦 par la BANQUE »** (administrateur, réel ; `data-depenses-centrales`)
+    — sans lui ces lignes n'appartiendraient à aucune liste et ne se
+    supprimeraient plus. ⚠ **En FORMATION, l'imputation reste** : « BANQUE »
+    n'y est pas une caisse, et le serveur classe RÉELLE toute dépense sous un
+    nom inconnu (`espace_de_boutique`). Les paiements d'AVANT gardent leur
+    boutique. Le bulletin d'un employé sans boutique n'a plus de ligne
+    « Affectation » (sa fonction seule). Rien à coller. Banc (5 contrôles),
+    éprouvé en remettant trois fautes ; deux contrôles RETOURNÉS (le virement,
+    `TableauDepenses` ×3). Chapitres 16, 17, 18 à jour.
   - ⚠ **Pas touchés** (non demandés, à proposer) : la prime d'installation,
     la CNSS, les fournisseurs, le remboursement d'un crédit (une ENTRÉE) —
     ils gardent `choisirBoutiqueDebitG`. Rien à coller. Banc (8 contrôles),

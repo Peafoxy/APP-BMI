@@ -66,7 +66,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["📤 Dépenses", "En haut, les pastilles des boutiques ; le cadre **⏳ Dépenses à valider par le DG** (chez le DG) ; le cadre **🏠 Loyer de la boutique** (local loué) ; la **Nouvelle dépense** ; la liste « Dépenses — boutique » avec « Ce mois »."],
+        ["📤 Dépenses", "En haut, les pastilles des boutiques ; le cadre **⏳ Dépenses à valider par le DG** (chez le DG) ; le cadre **🏠 Loyer de la boutique** (local loué) ; la **Nouvelle dépense** ; la liste « Dépenses — boutique » avec « Ce mois » ; et, pour l'administrateur en réel, le cadre **👤 Payées chez le DG · 🏦 par la BANQUE** — salaires, commissions, avances et crédits payés par le DG ou par la banque : ils ne sortent du tiroir d'aucune boutique, ne pèsent sur le résultat d'aucune, et se suppriment d'ici (chapitre 18)."],
         ["🧾 Chez le comptable", "Les **décaissements de sa caisse** : à remettre, déjà remis ; puis la liste des sorties confiées au comptable."],
         ["🔒 Caisse", "Le cadre **💼 Avances de frais à rembourser**, et le message qui **bloque la clôture** tant qu'une dépense en espèces attend le DG (chapitre 6)."],
         ["📊 Tableau de bord", "Les dépenses de la période, et l'export « Dépenses » ; les versements ont leur export à part."],

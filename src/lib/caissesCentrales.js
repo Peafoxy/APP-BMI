@@ -78,8 +78,13 @@ const entreesFondsRepris = (db, origine, nomsBoutiques) => mouvementsFondsRemis(
 
 export function mouvementsDG(db, nomsBoutiques) {
   const entrees = entreesVersements(db, DEST_DG, nomsBoutiques).concat(entreesFondsRepris(db, DEST_DG, nomsBoutiques));
+  // ⚠ Une dépense RANGÉE dans la caisse « Chez le DG » (Timo, 05/10/2026 : un
+  // salaire, une commission payés par le DG ne cherchent plus de boutique) se
+  // lit ici comme celles des boutiques. Les apports et prélèvements, qui y sont
+  // rangés aussi, ne portent pas `paye_avec` : le compte de l'exploitant les lit
+  // à part, jamais deux fois.
   const sorties = sortiesFondsRemis(db, DEST_DG, nomsBoutiques).concat((db.depenses || []).flatMap((d) => {
-    if (!nomsBoutiques.includes(d.boutique)) return [];
+    if (!nomsBoutiques.includes(d.boutique) && d.boutique !== CAISSE_DG) return [];
     const lignes = [];
     if (d.paye_avec === PAYE_AVEC_DG && compteSigne(d)) {
       lignes.push({ id: d.id, sens: "sortie", date: d.date, montant: Number(d.montant), boutique: d.boutique, par: d.par, libelle: `${d.categorie}${d.description ? ` — ${d.description}` : ""} (${d.boutique}, par ${d.par})` });
@@ -95,7 +100,8 @@ export function mouvementsDG(db, nomsBoutiques) {
 export function mouvementsBanque(db, nomsBoutiques) {
   const entrees = entreesVersements(db, DEST_BANQUE, nomsBoutiques).concat(entreesFondsRepris(db, DEST_BANQUE, nomsBoutiques));
   const sorties = sortiesFondsRemis(db, DEST_BANQUE, nomsBoutiques).concat((db.depenses || [])
-    .filter((d) => nomsBoutiques.includes(d.boutique) && d.paiement === "Virement bancaire" && payeAvecCaisse(d) && !estVersement(d) && compteSigne(d))
+    // Une dépense rangée dans la caisse « BANQUE » (05/10/2026) se lit aussi.
+    .filter((d) => (nomsBoutiques.includes(d.boutique) || d.boutique === CAISSE_BANQUE) && d.paiement === "Virement bancaire" && payeAvecCaisse(d) && !estVersement(d) && compteSigne(d))
     .map((d) => ({ id: d.id, sens: "sortie", date: d.date, montant: Number(d.montant), boutique: d.boutique, par: d.par, libelle: `${d.categorie}${d.description ? ` — ${d.description}` : ""} (${d.boutique}, par ${d.par})` })));
   return parSigne(entrees, sorties);
 }

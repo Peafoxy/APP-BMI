@@ -801,7 +801,9 @@ export function imprimerBulletin(u, mois, db) {
       <div><b>Nom et prénom(s) :</b> ${esc(u.nom_complet || u.nom)}</div>
       ${u.piece_num ? `<div><b>Pièce d'identité :</b> ${esc(u.piece_type || "CNI")} n° ${esc(u.piece_num)}</div>` : ""}
       <div><b>Fonction :</b> ${esc(roleLbl)}</div>
-      <div><b>Affectation :</b> ${esc(u.boutique || "Toutes boutiques")}</div>
+      ${/* Timo (05/10/2026) : un employé qui n'est rattaché à aucune boutique
+            n'a que sa FONCTION sur le bulletin (plus d'affectation « toutes »). */""}
+      ${u.boutique ? `<div><b>Affectation :</b> ${esc(u.boutique)}</div>` : ""}
       ${/* Ce que la fiche de paie porte déjà (05/10/2026, comparaison avec un
             bulletin de solde, « 1 ») : une ligne n'apparaît que si elle est
             renseignée. Le numéro de compte n'est JAMAIS imprimé en entier

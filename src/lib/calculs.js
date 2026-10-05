@@ -26,8 +26,8 @@ import { clientsSansSuite, clientsSansActivite, dossierClient } from "./effaceme
 // 🧰 Un outil perdu se rembourse. Pour un technicien à COMMISSION, il n'y a
 // pas de salaire à amputer : la retenue se prend sur sa part d'installation.
 import { modeRetenue, retenueSurPaiement, appliquerRetenues } from "./outillage";
-import { fondsAVerser, critiqueSortieTiroir } from "./versements";
-import { PAYE_AVEC_DG, PAYE_AVEC_COMPTABLE } from "./validationDepenses";
+import { fondsAVerser, critiqueSortieTiroir, DEST_DG, DEST_BANQUE } from "./versements";
+import { PAYE_AVEC_DG } from "./validationDepenses";
 // ⚠ IMPORT **ET** RÉEXPORT — la deuxième fois que ce piège se présente le
 // même jour. Un import ne rend pas la fonction disponible aux écrans qui
 // importent depuis calculs.js : il faut le dire explicitement. La première
@@ -938,27 +938,37 @@ export async function choisirSourcePaiementG(db, u, titre, profile, moyen, monta
   const imputer = async () => (ordonnes.length === 1 ? ordonnes[0]
     : uChoix(`${titre}\n\nÀ quelle boutique imputer cette charge ?${defaut ? ` (habituellement : ${defaut})` : ""}`, ordonnes));
   const reel = !espaceDuCompte(db, profile);
+  // ⚠⚠ UNE SEULE QUESTION : « D'où sort l'argent ? » (Timo, 05/10/2026 :
+  // « une dépense faite par le DG ne devrait plus chercher une boutique, car
+  // le DG a une caisse avec lui aussi »). Payé chez le DG, par la BANQUE ou
+  // chez le comptable, la dépense est rangée dans CETTE caisse
+  // (`boutique` = « Chez le DG », « BANQUE », « Chez le comptable ») : elle
+  // compte dans les dépenses de BMI, jamais dans le résultat d'une boutique,
+  // et se lit dans le relevé de la caisse qui a payé (caissesCentrales.js).
+  // L'ancienne question « À quelle boutique imputer cette charge ? » ne reste
+  // qu'en FORMATION : « BANQUE » n'y est pas une caisse, et une dépense rangée
+  // sous un nom inconnu serait classée RÉELLE par le serveur (le mur).
+  const DG = { boutique: DEST_DG, champs: { paye_avec: PAYE_AVEC_DG }, libelle: "👤 Chez le DG", notifier: null };
+  const COMPTABLE = { boutique: NOM_CAISSE_COMPTABLE, champs: {}, libelle: `🧾 ${NOM_CAISSE_COMPTABLE}`, notifier: NOM_CAISSE_COMPTABLE };
   if (normPaiement(moyen) === "Virement bancaire") {
     // Timo (03/10/2026) : « virement veut dire payer… donc pas obligatoirement
-    // par banque ». Un virement peut partir du compte de BMI, du DG ou du
-    // comptable ; la charge reste imputée à une boutique dans les trois cas.
-    const source = reel ? await uChoix(`${titre}\n\nD'où sort l'argent ?`, [SOURCE_BANQUE, SOURCE_DG, NOM_CAISSE_COMPTABLE]) : SOURCE_BANQUE;
+    // par banque ». Un virement peut partir du compte de BMI, du DG ou du comptable.
+    if (!reel) {
+      const bq = await imputer();
+      if (bq === null) return null;
+      return { boutique: bq, champs: {}, libelle: `🏦 BANQUE (charge imputée à ${bq})`, notifier: null };
+    }
+    const source = await uChoix(`${titre}\n\nD'où sort l'argent ?`, [SOURCE_BANQUE, SOURCE_DG, NOM_CAISSE_COMPTABLE]);
     if (source === null) return null;
-    const bq = await imputer();
-    if (bq === null) return null;
-    if (source === SOURCE_DG) return { boutique: bq, champs: { paye_avec: PAYE_AVEC_DG }, libelle: `👤 Chez le DG, par virement (charge imputée à ${bq})`, notifier: null };
-    if (source === NOM_CAISSE_COMPTABLE) return { boutique: bq, champs: { paye_avec: PAYE_AVEC_COMPTABLE }, libelle: `🧾 Chez le comptable, par virement (charge imputée à ${bq})`, notifier: NOM_CAISSE_COMPTABLE };
-    return { boutique: bq, champs: {}, libelle: `🏦 BANQUE (charge imputée à ${bq})`, notifier: null };
+    if (source === SOURCE_DG) return { ...DG, libelle: "👤 Chez le DG, par virement" };
+    if (source === NOM_CAISSE_COMPTABLE) return { ...COMPTABLE, libelle: `🧾 ${NOM_CAISSE_COMPTABLE}, par virement` };
+    return { boutique: DEST_BANQUE, champs: {}, libelle: "🏦 BANQUE", notifier: null };
   }
   const options = [...ordonnes.map((n) => PREFIXE_CAISSE + n), ...(reel ? [SOURCE_DG, NOM_CAISSE_COMPTABLE] : [])];
   const choix = options.length === 1 ? options[0] : await uChoix(`${titre}\n\nD'où sort l'argent ?`, options);
   if (choix === null) return null;
-  if (choix === NOM_CAISSE_COMPTABLE) return { boutique: NOM_CAISSE_COMPTABLE, champs: {}, libelle: NOM_CAISSE_COMPTABLE, notifier: NOM_CAISSE_COMPTABLE };
-  if (choix === SOURCE_DG) {
-    const bq = await imputer();
-    if (bq === null) return null;
-    return { boutique: bq, champs: { paye_avec: PAYE_AVEC_DG }, libelle: `👤 Chez le DG (charge imputée à ${bq})`, notifier: null };
-  }
+  if (choix === NOM_CAISSE_COMPTABLE) return COMPTABLE;
+  if (choix === SOURCE_DG) return DG;
   const bq = String(choix).slice(PREFIXE_CAISSE.length);
   if (!noms.includes(bq)) return null;
   if (normPaiement(moyen) === "Espèces") {
