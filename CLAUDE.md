@@ -5569,7 +5569,7 @@ lit mal est pire qu'un banc absent).
   même jour) reprend paie-3 en entier et y ajoute `paie_debut` : plus rien
   de la fiche de paie ne se réécrit côté employé, sauf confirmer un virement
   et demander un crédit. Banc `tester-paie` (77), éprouvé en retirant
-  `paie_debut` : cinq tombent. ⏳ **À coller par Timo** (`true | true`).
+  `paie_debut` : cinq tombent. **Collé par Timo le 05/10/2026 (`true | true`).**
 - Pas construit : une indemnité de fin de CDD (loi à vérifier par le
   comptable). Banc (11 contrôles), éprouvé (sortie ignorée, rappel à tous les
   administrateurs) ; un contrôle RETOURNÉ (`demanderDate` ×9). Chapitres 2 et
