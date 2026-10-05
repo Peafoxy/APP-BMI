@@ -318,6 +318,50 @@ export function useFilSurSaFin(cle, nombre) {
   return { ref, onScroll };
 }
 
+// ============ ✋ L'APPUI LONG (05/10/2026) ============
+// Timo : « possibilité de supprimer les discussions dans WhatsApp de l'app
+// BMI par un appui long ». Le geste des onglets (OngletsDeplacables) DÉPLACE ;
+// celui-ci DÉCLENCHE une action. On tient une demi-seconde SANS BOUGER :
+// le téléphone vibre et l'action part. Un doigt qui bouge fait défiler comme
+// avant ; un appui court reste un clic ; le clic qui suit l'appui long est
+// AVALÉ (sinon la conversation s'ouvrirait en plus). Souris et doigt.
+// `actif` faux : aucun écouteur, la ligne se comporte comme avant.
+export const DUREE_APPUI_LONG_MS = 500;
+const TOLERANCE_APPUI_PX = 10;
+export function useAppuiLong(action, { actif = true, ms = DUREE_APPUI_LONG_MS } = {}) {
+  const minuteur = useRef(null);
+  const depart = useRef(null);
+  const declenche = useRef(false);
+  const arreter = () => { if (minuteur.current) clearTimeout(minuteur.current); minuteur.current = null; };
+  useEffect(() => arreter, []);
+  if (!actif) return {};
+  return {
+    onPointerDown: (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      declenche.current = false;
+      depart.current = { x: e.clientX, y: e.clientY };
+      arreter();
+      minuteur.current = setTimeout(() => {
+        minuteur.current = null;
+        declenche.current = true;
+        try { navigator.vibrate && navigator.vibrate(30); } catch {}
+        action();
+      }, ms);
+    },
+    onPointerMove: (e) => {
+      const d = depart.current;
+      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > TOLERANCE_APPUI_PX) arreter();
+    },
+    onPointerUp: arreter,
+    onPointerLeave: arreter,
+    onPointerCancel: arreter,
+    onContextMenu: (e) => { if (minuteur.current || declenche.current) e.preventDefault(); },
+    onClickCapture: (e) => {
+      if (declenche.current) { declenche.current = false; e.preventDefault(); e.stopPropagation(); }
+    },
+  };
+}
+
 // ============ COMPOSANT DE CHARGEMENT ============
 export function LoadingSpinner() {
   return (

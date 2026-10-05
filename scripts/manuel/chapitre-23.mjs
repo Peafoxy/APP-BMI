@@ -141,7 +141,7 @@ export const CHAPITRE = {
       ]],
 
       ["h3", "I. La corbeille (principal)"],
-      ["p", "Une fiche supprimée y reste **30 jours** : **♻ Restaurer** la remet telle qu'elle était, **Supprimer définitivement** l'efface tout de suite."],
+      ["p", "Une fiche supprimée y reste **30 jours** : **♻ Restaurer** la remet telle qu'elle était, **Supprimer définitivement** l'efface tout de suite. On y trouve les chantiers, les devis, et les **conversations WhatsApp** supprimées par un appui long dans 📲 WhatsApp (une ligne par conversation, avec son nombre de messages)."],
 
       ["h3", "J. L'apparence (principal)"],
       ["ul", [

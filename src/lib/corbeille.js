@@ -36,10 +36,25 @@ export const TABLES_CORBEILLE = ["clients_installes"];
 // `corbeille_devis` porte en plus `corbeille_client_id` / `corbeille_client_nom`
 // — c'est ce qui dit où la remettre.
 export const FAMILLE_DEVIS = "devis";
-export const LIBELLES_CORBEILLE = { clients_installes: "Chantier", devis: "Devis" };
+// ⚠ Les CONVERSATIONS WHATSAPP (05/10/2026, Timo : « supprimer les
+// discussions dans WhatsApp de l'app BMI par un appui long… seul l'admin
+// principal » → « 1 corbeille ») n'ont pas de fiche à elles non plus : une
+// conversation n'est RIEN D'AUTRE que ses lignes dans la table des messages
+// (canal « whatsapp »), plus sa fiche légère (canal « whatsapp_entete »).
+// Chaque ligne porte la marque ; la corbeille les regroupe par NUMÉRO
+// (`wa_tel`) pour n'en montrer QU'UNE entrée par conversation. Les noms des
+// deux canaux sont écrits ici en toutes lettres : ce fichier n'importe rien
+// (ils vivent dans lib/whatsappConversations.js, CANAL_WA / CANAL_WA_ENTETE).
+// ⚠ Les messages de 💬 Messages (sans canal, « support », « groupe ») ne sont
+// JAMAIS regardés ici.
+export const FAMILLE_CONVERSATION_WA = "conversation_wa";
+const CANAUX_WA = ["whatsapp", "whatsapp_entete"];
+const estLigneWa = (m) => !!m && CANAUX_WA.includes(m.canal) && !!m.wa_tel;
+export const LIBELLES_CORBEILLE = { clients_installes: "Chantier", devis: "Devis", conversation_wa: "Conversation WhatsApp" };
 export const cleCorbeille = (table) => `corbeille_${table}`;
 export const CLE_CORBEILLE_DEVIS = cleCorbeille(FAMILLE_DEVIS);
-export const CLES_CORBEILLE = [...TABLES_CORBEILLE.map(cleCorbeille), CLE_CORBEILLE_DEVIS];
+export const CLE_CORBEILLE_WA = cleCorbeille(FAMILLE_CONVERSATION_WA);
+export const CLES_CORBEILLE = [...TABLES_CORBEILLE.map(cleCorbeille), CLE_CORBEILLE_DEVIS, CLE_CORBEILLE_WA];
 const FAMILLES = [...TABLES_CORBEILLE, FAMILLE_DEVIS];
 
 export const estSupprime = (r) => !!(r && r.supprime_le);
@@ -69,6 +84,11 @@ export const separerCorbeille = (db) => {
     });
   }
   sortie[CLE_CORBEILLE_DEVIS] = devisSupprimes;
+  // Les lignes WhatsApp marquées quittent la table des messages, à plat.
+  const messages = Array.isArray(db.messages) ? db.messages : [];
+  const waSupprimees = messages.filter((m) => estLigneWa(m) && estSupprime(m));
+  if (waSupprimees.length) sortie.messages = messages.filter((m) => !(estLigneWa(m) && estSupprime(m)));
+  sortie[CLE_CORBEILLE_WA] = waSupprimees;
   return sortie;
 };
 
@@ -99,7 +119,62 @@ export const fusionnerCorbeille = (db) => {
     });
   }
   delete sortie[CLE_CORBEILLE_DEVIS];
+  // Les lignes WhatsApp retournent dans la table des messages, marquées.
+  const wa = db[CLE_CORBEILLE_WA] || [];
+  if (wa.length) {
+    // ⚠ Une ligne VIVANTE du même id l'emporte sur sa copie marquée : quand le
+    // client réécrit, le serveur repose la fiche légère sans marque — la
+    // remarquer ici ferait disparaître la nouvelle conversation.
+    const vivantes = new Set((db.messages || []).map((m) => m?.id));
+    sortie.messages = [...(db.messages || []), ...wa.filter((m) => !vivantes.has(m?.id))];
+  }
+  delete sortie[CLE_CORBEILLE_WA];
   return sortie;
+};
+
+// ---- 📲 LA CONVERSATION WHATSAPP À LA CORBEILLE (05/10/2026).
+// Toutes ses lignes (messages ET fiche légère) reçoivent la marque, avec qui
+// et quand. Elle disparaît alors de 📲 WhatsApp pour TOUT LE MONDE : chaque
+// appareil met les lignes marquées de côté au chargement. Rien n'est détruit
+// avant 30 jours. ⚠ Le geste est celui de l'administrateur PRINCIPAL, revérifié
+// par l'écran ET par la base (securite-36).
+export const lignesDeLaConversation = (messages, cle) =>
+  (Array.isArray(messages) ? messages : []).filter((m) => estLigneWa(m) && m.wa_tel === cle);
+
+export const mettreConversationALaCorbeille = (db, cle, profile, maintenant = new Date().toISOString()) => {
+  const lignes = lignesDeLaConversation(db?.messages, cle);
+  if (!cle || !lignes.length) return db;
+  const ids = new Set(lignes.map((m) => m.id));
+  const marquees = lignes.map((m) => ({ ...m, supprime_le: maintenant, supprime_par: profile?.nom || "?" }));
+  return {
+    ...db,
+    messages: (db.messages || []).filter((m) => !ids.has(m?.id)),
+    [CLE_CORBEILLE_WA]: [...marquees, ...(db[CLE_CORBEILLE_WA] || []).filter((m) => !ids.has(m?.id))],
+  };
+};
+
+// Une entrée de corbeille par conversation : la fiche qu'on montre porte le
+// NUMÉRO pour id, le nom, le nombre de messages, et la date de suppression
+// la plus récente (une conversation remise puis resupprimée repart à 30 jours).
+const conversationsALaCorbeille = (db) => {
+  const parCle = new Map();
+  (db?.[CLE_CORBEILLE_WA] || []).forEach((m) => {
+    if (!estLigneWa(m)) return;
+    if (!parCle.has(m.wa_tel)) parCle.set(m.wa_tel, []);
+    parCle.get(m.wa_tel).push(m);
+  });
+  return [...parCle.entries()].map(([cle, lignes]) => {
+    const messagesSeuls = lignes.filter((m) => m.canal === "whatsapp");
+    const derniere = lignes.reduce((a, m) => (String(m.supprime_le || "") > String(a.supprime_le || "") ? m : a), lignes[0]);
+    return {
+      id: cle,
+      supprime_le: derniere.supprime_le,
+      supprime_par: derniere.supprime_par,
+      nom: [...lignes].reverse().find((m) => m.wa_nom)?.wa_nom || "",
+      numero: lignes.find((m) => m.wa_numero)?.wa_numero || cle,
+      nb: messagesSeuls.length,
+    };
+  });
 };
 
 // ---- Un devis ne se supprime QUE tant qu'il est ⏳ Proposé. Validé = contrat
@@ -160,6 +235,20 @@ export const mettreALaCorbeille = (db, table, id, profile, maintenant = new Date
 // ---- Restaurer : la fiche revient telle qu'elle était, sans la marque.
 export const restaurerDeLaCorbeille = (db, table, id) => {
   const cle = cleCorbeille(table);
+  if (table === FAMILLE_CONVERSATION_WA) {
+    const lignes = lignesDeLaConversation(db[cle], id);
+    if (!lignes.length) return db;
+    const ids = new Set(lignes.map((m) => m.id));
+    const propres = lignes.map(({ supprime_le, supprime_par, ...m }) => m);
+    // ⚠ Une fiche légère réécrite entre-temps (le client a réécrit : le
+    // serveur l'a reposée, vivante) l'emporte sur la vieille, marquée.
+    const vivantes = new Set((db.messages || []).map((m) => m?.id));
+    return {
+      ...db,
+      messages: [...(db.messages || []), ...propres.filter((m) => !vivantes.has(m.id))],
+      [cle]: (db[cle] || []).filter((m) => !ids.has(m?.id)),
+    };
+  }
   if (table === FAMILLE_DEVIS) {
     const fiche = (db[cle] || []).find((r) => r.id === id);
     if (!fiche || critiqueRestauration(db, table, fiche)) return db;
@@ -184,6 +273,7 @@ export const restaurerDeLaCorbeille = (db, table, id) => {
 // ---- Supprimer pour de bon (à la main, ou par la purge).
 export const supprimerDefinitivement = (db, table, id) => {
   const cle = cleCorbeille(table);
+  if (table === FAMILLE_CONVERSATION_WA) return { ...db, [cle]: (db[cle] || []).filter((m) => !(estLigneWa(m) && m.wa_tel === id)) };
   return { ...db, [cle]: (db[cle] || []).filter((r) => r.id !== id) };
 };
 
@@ -197,9 +287,14 @@ export const joursRestants = (fiche, maintenant = new Date().toISOString()) => {
 
 // Tout ce que contient la corbeille, à plat, la plus récente en tête.
 export const contenuCorbeille = (db, maintenant = new Date().toISOString()) =>
-  FAMILLES.flatMap((table) => (db?.[cleCorbeille(table)] || []).map((fiche) => ({
-    table, fiche, libelle: LIBELLES_CORBEILLE[table] || table, restants: joursRestants(fiche, maintenant),
-  }))).sort((a, b) => String(b.fiche.supprime_le || "").localeCompare(String(a.fiche.supprime_le || "")));
+  [
+    ...FAMILLES.flatMap((table) => (db?.[cleCorbeille(table)] || []).map((fiche) => ({
+      table, fiche, libelle: LIBELLES_CORBEILLE[table] || table, restants: joursRestants(fiche, maintenant),
+    }))),
+    ...conversationsALaCorbeille(db).map((fiche) => ({
+      table: FAMILLE_CONVERSATION_WA, fiche, libelle: LIBELLES_CORBEILLE[FAMILLE_CONVERSATION_WA], restants: joursRestants(fiche, maintenant),
+    })),
+  ].sort((a, b) => String(b.fiche.supprime_le || "").localeCompare(String(a.fiche.supprime_le || "")));
 
 // Ce qui a dépassé les 30 jours.
 export const aPurger = (db, maintenant = new Date().toISOString()) =>
@@ -214,6 +309,10 @@ export const nomDeLaFiche = (table, fiche) => {
   if (table === FAMILLE_DEVIS) {
     const montant = Number(fiche.total) ? ` — ${Math.round(Number(fiche.total)).toLocaleString("fr-FR")} F` : "";
     return `${fiche.corbeille_client_nom || "client"} du ${fiche.date || "?"}${montant}`;
+  }
+  if (table === FAMILLE_CONVERSATION_WA) {
+    const qui = [fiche.nom, fiche.numero].filter(Boolean).join(" — ") || fiche.id;
+    return `${qui} (${fiche.nb || 0} message${(fiche.nb || 0) > 1 ? "s" : ""})`;
   }
   return fiche.nom || fiche.id;
 };

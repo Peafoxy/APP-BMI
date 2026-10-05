@@ -31,6 +31,7 @@ writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { OngletsDeplacables } from "${process.cwd()}/src/components/OngletsDeplacables.jsx";
+import { useAppuiLong } from "${process.cwd()}/src/components/ui.jsx";
 const TABS = [["ventes", "Ventes"], ["commandes", "Commandes"], ["depenses", "Dépenses"], ["dettes", "Dettes"], ["caisse", "Caisse"]];
 window.journal = [];
 function Essai({ sens }) {
@@ -55,6 +56,14 @@ function Etroit() {
     onReordonner={() => {}} className="n"
     classeBouton={(id, actif) => "b " + (actif ? "actif" : "")} />;
 }
+// 05/10/2026 : l'appui long qui DÉCLENCHE (supprimer une conversation de
+// 📲 WhatsApp) — le hook commun, monté tel quel sur deux lignes : l'une
+// active (l'administrateur principal), l'autre inactive (tout autre compte).
+function Ligne({ id, actif }) {
+  const appui = useAppuiLong(() => window.journal.push("appui:" + id), { actif });
+  return <button className="b" data-ligne-appui={id} onClick={() => window.journal.push("clic:" + id)} {...appui}>{id}</button>;
+}
+createRoot(document.getElementById("a")).render(<div><Ligne id="principal" actif={true} /><Ligne id="autre" actif={false} /></div>);
 createRoot(document.getElementById("v")).render(<Essai sens="vertical" />);
 createRoot(document.getElementById("h")).render(<Essai sens="horizontal" />);
 createRoot(document.getElementById("n")).render(<Etroit />);
@@ -62,7 +71,7 @@ createRoot(document.getElementById("n")).render(<Etroit />);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
 const html = join(dossier, "index.html");
-writeFileSync(html, `<!doctype html><html><body><div id="v"></div><div id="h" style="margin-top:40px"></div><div id="n" style="margin-top:40px"></div><script src="bundle.js"></script></body></html>`);
+writeFileSync(html, `<!doctype html><html><body><div id="v"></div><div id="h" style="margin-top:40px"></div><div id="n" style="margin-top:40px"></div><div id="a" style="margin-top:40px"></div><script src="bundle.js"></script></body></html>`);
 
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const ctx = await nav.newContext({ hasTouch: true, viewport: { width: 800, height: 600 } });
@@ -178,6 +187,31 @@ console.log("\nBarre étroite (téléphone) : l'onglet OUVERT est visible (15/09
   const m2 = await mesure();
   test("★ choisir un onglet DÉJÀ visible ne fait pas sauter la barre", m2.id === "ventes" && m2.dedans && m2.scroll === 0,
     `mesuré : ${JSON.stringify(m2)} (avant : ${avant})`);
+}
+console.log("\nL'appui long qui DÉCLENCHE (05/10/2026 — supprimer une conversation de 📲 WhatsApp)");
+{
+  const cdp = await ctx.newCDPSession(page);
+  const toucher = async (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+  const pos = async (id) => { const b = await page.$(`[data-ligne-appui="${id}"]`); const r = await b.boundingBox(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; };
+  await journal();
+  const p = await pos("principal");
+  await page.mouse.move(p.x, p.y); await page.mouse.down(); await attendre(650); await page.mouse.up(); await attendre(150);
+  const j1 = await journal();
+  test("★★ souris : tenir ½ s déclenche l'action UNE fois, et le clic qui suit est AVALÉ (la conversation ne s'ouvre pas en plus)", j1.join("|") === "appui:principal", j1.join("|"));
+  await page.mouse.click(p.x, p.y); await attendre(150);
+  const j2 = await journal();
+  test("★ un clic court reste un clic (la conversation s'ouvre), aucune action", j2.join("|") === "clic:principal", j2.join("|"));
+  await page.mouse.move(p.x, p.y); await page.mouse.down(); await attendre(80);
+  await page.mouse.move(p.x, p.y + 60, { steps: 5 }); await attendre(650); await page.mouse.up(); await attendre(150);
+  const j3 = await journal();
+  test("★ un doigt qui bouge avant le ½ s (défilement) ne déclenche rien", !j3.some((x) => x.startsWith("appui:")), j3.join("|"));
+  await toucher("touchStart", p.x, p.y); await attendre(650); await toucher("touchEnd", 0, 0); await attendre(200);
+  const j4 = await journal();
+  test("★★ au doigt : tenir ½ s déclenche l'action, sans clic parasite", j4.join("|") === "appui:principal", j4.join("|"));
+  const a = await pos("autre");
+  await page.mouse.move(a.x, a.y); await page.mouse.down(); await attendre(650); await page.mouse.up(); await attendre(150);
+  const j5 = await journal();
+  test("★★ chez un autre compte (inactif), l'appui long ne fait RIEN de plus qu'un clic", j5.join("|") === "clic:autre", j5.join("|"));
 }
 test("aucune erreur JavaScript pendant les gestes", erreurs.length === 0, erreurs.join(" | "));
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Rejoue supabase/securite-27, -28, -29 PUIS -30 sur un PostgreSQL
+# Rejoue supabase/securite-27, -28, -29, -30 PUIS -36 sur un PostgreSQL
 # local jetable, dans un environnement qui reproduit celui de Supabase
 # (mêmes tables, mêmes rôles, même auth.jwt(), mêmes politiques de départ,
 # ET la règle des comptes clients déjà posée — client-1-fermer-annuaire).
@@ -270,6 +270,98 @@ psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/securite-30-whatsapp-ree
 compte "après un second passage, la formation ne reçoit toujours rien" "$FORMA" "$WA" "0"
 compte "…et le commercial réel voit toujours les siennes" "$COM1" \
   "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp';" "3"
+
+echo
+echo "▸ 9. 🗑 SUPPRIMER UNE CONVERSATION : LE PRINCIPAL SEUL, LA CORBEILLE NE COMPTE PLUS (securite-36)"
+# Les aides de production dont securite-36 se sert (role_jeton, id_jeton,
+# est_admin_principal, jeton_de_service, refus_role) sont LUES dans leurs
+# fichiers, jamais recopiées : une copie finirait par diverger.
+python3 - > "$D/aides.sql" <<'PYEOF'
+import re
+def fonction(fichier, nom):
+    s = open(fichier, encoding="utf-8").read()
+    i = s.index(f"create or replace function public.{nom}(")
+    j = s.index("$$;", s.index("$$", s.index("$$", i) + 2)) + 3 if False else None
+    # le corps est entre le premier $$ et le $$; suivant
+    a = s.index("$$", i); b = s.index("$$;", a + 2) + 3
+    return s[i:b]
+print(fonction("supabase/securite-4-argent.sql", "role_jeton"))
+print(fonction("supabase/securite-4-argent.sql", "jeton_de_service"))
+print(fonction("supabase/securite-4-argent.sql", "refus_role"))
+print(fonction("supabase/securite-5-comptes.sql", "id_jeton"))
+print(fonction("supabase/securite-5-comptes.sql", "est_admin_principal"))
+PYEOF
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f "$D/aides.sql" >/dev/null
+$P -c "insert into public.users (id, data) values ('ADM2', '{\"nom\":\"ADM2\",\"role\":\"admin\"}');" >/dev/null
+# ⚠ LE JETON PORTE `role: authenticated`, comme en production : sans lui,
+# `jeton_de_service()` le prend pour le serveur et le laisse TOUT faire —
+# le banc aurait « réussi » des refus qui n'en étaient pas.
+VEND9='{"role":"authenticated","email":"KOSSI@bmi.internal","app_metadata":{"role":"vendeur","espace":"reel","ecriture":true}}'
+ADMIN9='{"role":"authenticated","email":"TIMO@bmi.internal","app_metadata":{"role":"admin","espace":"tous","ecriture":true,"principal":true}}'
+ADM2='{"role":"authenticated","email":"ADM2@bmi.internal","app_metadata":{"role":"admin","espace":"reel","ecriture":true,"principal":false}}'
+COM2_9='{"role":"authenticated","email":"COM2@bmi.internal","app_metadata":{"role":"commercial","espace":"reel","ecriture":true}}'
+# ⚠ Un geste qui « passe » sans rien toucher rassure sans protéger (leçon du
+# 29/08) : chaque essai qui doit passer EXIGE une ligne touchée, et tout se
+# défait (rollback) — la base reste celle du départ pour l'essai suivant.
+# ⚠ « 1/0 » écrit tel quel serait calculé d'avance par PostgreSQL (et
+# lèverait toujours) : la division porte sur le compte, donc sur le fait.
+TOUCHE="select case when count(*) = 1 then 1 else 1/(count(*)*0) end from d; rollback;"
+MARQUE='"supprime_le":"2026-10-05T10:00:00Z","supprime_par":"TIMO"'
+# D'ABORD LE TROU, tel qu'il est avec securite-30 : un vendeur efface une
+# ligne WhatsApp du support, et la marque.
+essai "AVANT : un vendeur efface une ligne WhatsApp (le trou)" PASSE "$VEND9" \
+  "begin; with d as (delete from public.messages where id = 'wa2' returning 1) $TOUCHE"
+essai "AVANT : un vendeur met une ligne WhatsApp à la corbeille (le trou)" PASSE "$VEND9" \
+  "begin; with d as (update public.messages set data = data || '{$MARQUE}' where id = 'wa2' returning 1) $TOUCHE"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-36-corbeille-whatsapp.sql >/dev/null
+essai "★★ APRÈS : un vendeur ne peut plus effacer une ligne WhatsApp" REFUSE "$VEND9" \
+  "begin; with d as (delete from public.messages where id = 'wa2' returning 1) $TOUCHE"
+essai "★★ …un autre administrateur non plus (le principal SEUL)" REFUSE "$ADM2" \
+  "begin; with d as (delete from public.messages where id = 'wa2' returning 1) $TOUCHE"
+essai "★ …la fiche légère non plus" REFUSE "$VEND9" \
+  "begin; with d as (delete from public.messages where id = 'waent_90114455' returning 1) $TOUCHE"
+essai "★★ l'administrateur principal efface une ligne WhatsApp" PASSE "$ADMIN9" \
+  "begin; with d as (delete from public.messages where id = 'wa2' returning 1) $TOUCHE"
+essai "★★ un vendeur ne peut pas mettre une conversation à la corbeille (mise à jour)" REFUSE "$VEND9" \
+  "begin; with d as (update public.messages set data = data || '{$MARQUE}' where id = 'wa2' returning 1) $TOUCHE"
+essai "★★ …ni par un UPSERT (le chemin de l'application)" REFUSE "$VEND9" \
+  "begin; with d as (insert into public.messages (id, data) select id, data || '{$MARQUE}' from public.messages where id = 'wa2' on conflict (id) do update set data = excluded.data returning 1) $TOUCHE"
+essai "★ …ni une ligne neuve qui naîtrait déjà marquée" REFUSE "$VEND9" \
+  "begin; with d as (insert into public.messages (id, data) values ('wa9', '{\"canal\":\"whatsapp\",\"wa_tel\":\"90119999\",$MARQUE}') returning 1) $TOUCHE"
+essai "★★ l'administrateur principal met une conversation à la corbeille (UPSERT)" PASSE "$ADMIN9" \
+  "begin; with d as (insert into public.messages (id, data) select id, data || '{$MARQUE}' from public.messages where id = 'wa2' on conflict (id) do update set data = excluded.data returning 1) $TOUCHE"
+# La conversation du support est maintenant À LA CORBEILLE (posée sans jeton).
+$P -c "update public.messages set data = data || '{$MARQUE}' where id in ('wa2', 'waent_90114455');" >/dev/null
+essai "★★ un vendeur ne peut pas la RESTAURER (retirer la marque d'un message)" REFUSE "$VEND9" \
+  "begin; with d as (update public.messages set data = data - 'supprime_le' - 'supprime_par' where id = 'wa2' returning 1) $TOUCHE"
+essai "★★ l'administrateur principal la restaure" PASSE "$ADMIN9" \
+  "begin; with d as (update public.messages set data = data - 'supprime_le' - 'supprime_par' where id = 'wa2' returning 1) $TOUCHE"
+essai "★ la fiche légère, elle, peut revivre sans lui (une conversation qui recommence)" PASSE "$VEND9" \
+  "begin; with d as (update public.messages set data = data - 'supprime_le' - 'supprime_par' where id = 'waent_90114455' returning 1) $TOUCHE"
+essai "★ une ligne marquée garde sa marque quand un vendeur la marque lue" PASSE "$VEND9" \
+  "begin; with d as (update public.messages set data = data || '{\"lu_par\":[\"KOSSI\"]}' where id = 'wa2' returning 1) $TOUCHE"
+# ⚠ Ce qui ne doit PAS bouger : la messagerie interne.
+essai "★★ la messagerie INTERNE n'est pas examinée : un vendeur efface toujours son message" PASSE "$VEND9" \
+  "begin; with d as (delete from public.messages where id = 'int1' returning 1) $TOUCHE"
+essai "…et la modifie toujours" PASSE "$VEND9" \
+  "begin; with d as (update public.messages set data = data || '{\"lu\":true}' where id = 'int1' returning 1) $TOUCHE"
+# (4) LE PROPRIÉTAIRE : une ligne à la corbeille ne compte plus.
+compte "AVANT : COM2 ne voit pas la conversation confiée à COM1" "$COM2_9" \
+  "select count(*) from public.messages where id = 'wa1a';" "0"
+# Toutes les lignes qui portent un propriétaire partent à la corbeille (la
+# conversation en compte plusieurs : celle d'origine et celle d'un « Confier »).
+$P -c "update public.messages set data = data || '{$MARQUE}' where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp' and data ? 'proprietaire_id';" >/dev/null
+compte "★★ les lignes qui la confiaient sont à la corbeille : la conversation revient au SUPPORT (COM2 la voit)" "$COM2_9" \
+  "select count(*) from public.messages where id = 'wa1a';" "1"
+$P -c "update public.messages set data = data - 'supprime_le' - 'supprime_par' where data->>'wa_tel' = '90112233';" >/dev/null
+compte "…et redevient à COM1 seul dès que les lignes sont restaurées" "$COM2_9" \
+  "select count(*) from public.messages where id = 'wa1a';" "0"
+compte "la politique de formation tient toujours" "$FORMA" "$WA" "0"
+verite "★ la phrase de vérification du script répond juste (aucune apostrophe cherchée)" \
+  "select (select count(*) = 1 from pg_trigger where tgname = 'messages_regles_corbeille_wa_trg') and (select prosrc like '%Effacer une conversation WhatsApp%' from pg_proc where proname = 'messages_regles_corbeille_wa') and (select prosrc like '%supprime_le%' from pg_proc where proname = 'wa_proprietaire');"
+VERIF36=$(psql -h /tmp -p $PORT -U postgres -d bmi -tA -f supabase/securite-36-corbeille-whatsapp.sql 2>&1 | tail -1)
+if [ "$VERIF36" = "t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ ★ la vérification du script (second passage, sans danger) répond true | true | true | true"
+else ko=$((ko+1)); echo "  ✗ la vérification du script répond : $VERIF36"; fi
 
 echo
 echo "──────────────────────────────────────────"

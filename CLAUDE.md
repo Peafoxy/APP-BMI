@@ -60,13 +60,13 @@ npm run tester-notifications     # 78  : les notifications (liste A = messages, 
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
-npm run verifier-onglets-deplacables # 13 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt)
+npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 32 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 843 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement)
+npm run verifier-whatsapp        # 855 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement ; ㊽ supprimer une conversation par un appui long, le principal seul, à la corbeille)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
-npm run tester-conversations     # 64  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, et RIEN pour un compte de formation (serveur, base jetable)
+npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 225 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
@@ -3385,6 +3385,58 @@ lit mal est pire qu'un banc absent).
   fautes (taille ignorée, fichier rangé dans la ligne, serveur qui ne
   revérifie pas, fichier envoyé recherché chez WhatsApp, phrase sur un son) :
   chacune tombe. Deux contrôles RETOURNÉS (le geste porte `fichier`).
+
+### 🗑 SUPPRIMER UNE CONVERSATION WHATSAPP PAR UN APPUI LONG (05/10/2026, « 1 corbeille, 2 oui, lance »)
+- Timo : « possibilité de supprimer les discussions dans WhatsApp de l'app BMI
+  par un appui long… seul l'admin principal ». Décrit avant de construire,
+  deux questions → **corbeille 30 jours** (pas un effacement direct) et **le
+  SQL qui ferme la porte côté base**.
+- **Le geste** : 📲 WhatsApp, garder le doigt ou le clic **½ s** sur une ligne
+  de la liste — hook commun **`useAppuiLong`** (components/ui.jsx : un doigt
+  qui bouge fait défiler, un clic court reste un clic, le clic qui suit
+  l'appui est AVALÉ, vibration), posé sur `LigneWa` **seulement pour
+  l'administrateur PRINCIPAL** (`supprimer` n'est passé qu'à lui ; chez les
+  autres la ligne est inchangée). `supprimerConversation` revérifie
+  `refuserSaufAdminPrincipal` EN PREMIER, relit les lignes FRAÎCHES, une
+  confirmation nomme le client et le nombre de messages et dit : corbeille
+  30 jours, le téléphone BMI et le client gardent leur copie, un client qui
+  réécrit recommence au support. Journal : qui, quelle conversation, combien
+  de messages — jamais le contenu.
+- **La corbeille** (lib/corbeille.js, famille `conversation_wa`, clé
+  `corbeille_conversation_wa`) : chaque ligne de la conversation (messages ET
+  fiche légère, canaux écrits en toutes lettres — ce fichier n'importe rien)
+  reçoit `supprime_le` / `supprime_par` (`mettreConversationALaCorbeille`) ;
+  séparées au chargement, refusionnées à l'écriture ; ⚙ Paramètres → 🗑 en
+  montre **une entrée par conversation** (nom, numéro, nombre de messages),
+  ♻ Restaurer / Supprimer définitivement / purge à 30 jours comme les autres.
+  ⚠ **Une fiche légère VIVANTE l'emporte sur sa copie marquée** à la fusion :
+  quand le client réécrit, le serveur la repose sans marque.
+- ⚠⚠ **LE SERVEUR LIT LA TABLE BRUTE** : `estMessageWa` / `estEnteteWa`
+  écartent une ligne marquée (`estALaCorbeille`), et les trois fonctions
+  (`whatsapp-entrant`, `whatsapp`, `whatsapp-media`) passent par
+  `filDeLaConversation` — sinon le client qui réécrit retrouvait l'ancien
+  propriétaire, la fenêtre et la mémoire de l'assistant. ⚠ Les FILETS des
+  tournées (relance du 8e jour, avis, entretien, anniversaire) comptent
+  TOUJOURS les lignes marquées (ils lisent le canal à la main) : une
+  conversation supprimée ne fait pas repartir un message déjà envoyé.
+  ⚠ Ce qui se perd, et c'est dit : les coches ✓✓ de la ligne d'une vente ou
+  d'une dette (elles se lisent dans ces messages).
+- ⚠ **LE COUPLE : `securite-36`** (reprend `securite-30` en entier, donc
+  `-29`/`-28`/`-27` ; **le SEUL à coller**) : effacer une ligne WhatsApp, POSER
+  la marque, la RETIRER d'un message = **le principal seul** (déclencheur
+  `messages_regles_corbeille_wa`, upsert relu, jeton de service libre) ; la
+  fiche légère peut revivre sans lui ; `wa_proprietaire` ignore les lignes
+  marquées. La messagerie interne n'est jamais examinée. Avant lui, la base
+  laissait tout employé effacer ou marquer (seul l'écran gardait le geste).
+  Banc SQL (`tester-conversations`, 86) : le trou AVANT, les refus APRÈS
+  (vendeur, autre administrateur, upsert, ligne née marquée), le principal
+  qui passe, la conversation qui revient au support ; éprouvé en remettant
+  deux fautes. ⚠ **Le jeton du banc porte `role: authenticated`** : sans lui
+  `jeton_de_service()` le prenait pour le serveur et des « refus » passaient
+  pour vrais. **À COLLER PAR TIMO.**
+- Banc ㊽ (`verifier-whatsapp`, 12) et Chromium (`verifier-onglets-deplacables`,
+  +5, souris et doigt), éprouvés (fiche vivante écrasée, serveur qui compte la
+  corbeille, garde du principal retirée, clic non avalé). Chapitres 20 et 23.
 
 ### ✋ UNE RELANCE SE CONFIRME AVANT DE PARTIR (25/09/2026)
 - Capture Timo, 📋 Dettes : « lorsqu'on appuie sur WhatsApp, il faut qu'on

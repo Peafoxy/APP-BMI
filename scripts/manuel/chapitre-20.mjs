@@ -120,6 +120,7 @@ export const CHAPITRE = {
         { titre: "🔁 Confier", texte: "Dans la conversation ouverte : choisir la personne. Une ligne « 🔁 Conversation confiée à … par … » se pose dans le fil. Désormais **seuls cette personne et l'administrateur** peuvent l'ouvrir ; les autres voient **la ligne grisée**, avec le nom de la personne." },
         { titre: "Une ligne grisée", texte: "Un clic dit : « Cette conversation est confiée à KOSSI. Seule cette personne, ou un administrateur, peut l'ouvrir. » Aucun aperçu, aucun compteur." },
         { titre: "🔓 Rendre à tous", texte: "Quand la personne est absente : la conversation repart au support, visible de tous (« 🔓 Conversation rendue à tout le personnel par … »). On peut la reconfier ensuite." },
+        { titre: "🗑 Supprimer une conversation (administrateur principal seul)", texte: "Dans la liste, **garder le doigt (ou le clic) une demi-seconde** sur la conversation. Une question nomme le client et le nombre de messages. Confirmée, la conversation **disparaît de 📲 WhatsApp pour tout le monde** et part à la **corbeille pendant 30 jours** (⚙ Paramètres → 🗑 Corbeille → ♻ Restaurer). Le téléphone BMI et le client gardent leur copie : rien n'est effacé chez WhatsApp. Si le client réécrit, une **nouvelle** conversation commence, au support, et l'assistant se présente de nouveau. Chez les autres comptes, l'appui long ne fait rien." },
       ]],
 
       ["h3", "G. L'assistant du numéro BMI"],
@@ -149,6 +150,7 @@ export const CHAPITRE = {
         ["✍️ Écrire / Envoyer du numéro BMI", "📲 WhatsApp", "Premier message du numéro BMI, par un modèle approuvé."],
         ["✍️ Lui écrire quand même", "📲, fenêtre fermée", "Ouvre « ✍️ Écrire » prérempli avec son nom et son numéro."],
         ["🔁 Confier / 🔓 Rendre à tous", "📲, fil ouvert (admin)", "Donne la conversation à quelqu'un / la rend au support."],
+        ["Appui long sur une conversation", "📲 WhatsApp, la liste (administrateur principal)", "La met à la corbeille 30 jours, pour tout le monde."],
         ["Rechercher une conversation…", "📲 WhatsApp", "Nom ou numéro, archives comprises."],
       ]}],
     ]},

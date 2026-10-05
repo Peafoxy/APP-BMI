@@ -61,7 +61,13 @@ export const CANAL_WA = "whatsapp";
 // conversation, pas une de plus par mot échangé.
 export const CANAL_WA_ENTETE = "whatsapp_entete";
 
-export const estEnteteWa = (m) => !!m && m.canal === CANAL_WA_ENTETE;
+// ⚠ Une ligne À LA CORBEILLE (`supprime_le`, 05/10/2026 — lib/corbeille.js)
+// n'appartient plus à aucune conversation : l'appareil la met de côté au
+// chargement, et le SERVEUR (qui lit la table brute) l'écarte ici. Sans ça,
+// un client qui réécrit retrouverait l'ancien propriétaire, l'ancienne
+// fenêtre et la mémoire de l'assistant d'une conversation supprimée.
+export const estALaCorbeille = (m) => !!(m && m.supprime_le);
+export const estEnteteWa = (m) => !!m && m.canal === CANAL_WA_ENTETE && !estALaCorbeille(m);
 export const idEntete = (cle) => `waent_${cle}`;
 
 // ⚠ AUCUN `texte`, aucun `de_id`, aucun `lu_par` : ce qui n'est pas là ne
@@ -100,7 +106,7 @@ export function messagesAvecEntete(messages, infos) {
 // qui peut ne pas exister.
 export const cleConversation = (tel) => numeroComparable(tel);
 
-export const estMessageWa = (m) => !!m && m.canal === CANAL_WA;
+export const estMessageWa = (m) => !!m && m.canal === CANAL_WA && !estALaCorbeille(m);
 
 // Les messages d'UNE conversation, du plus ancien au plus récent.
 export const filDeLaConversation = (messages, cle) =>

@@ -3783,5 +3783,76 @@ titre("㊼ 📈 L'AVIS D'AVANCEMENT D'UN EMPLOYÉ (03/10/2026, « 3 avec montant
     && /ref\.evolution_id \? \{ evolution_id: ref\.evolution_id \}/.test(lire("src/whatsapp.js")));
 }
 
+titre("㊽ 🗑 SUPPRIMER UNE CONVERSATION PAR UN APPUI LONG — LE PRINCIPAL SEUL, À LA CORBEILLE (05/10/2026, « 1 corbeille, 2 oui »)");
+{
+  const Corb = await import("../src/lib/corbeille.js");
+  const C2 = await import("../src/lib/whatsappConversations.js");
+  const ts = (h) => `2026-10-05T${h}:00:00Z`;
+  const base = {
+    messages: [
+      { id: "i1", de_id: "KOSSI", a_id: "TIMO", texte: "interne", ts: ts("08") },
+      { id: "s1", canal: "support", de_id: "CLI1", texte: "support interne", ts: ts("08") },
+      { id: "k1", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "KOFFI", wa_entrant: true, texte: "bonjour", ts: ts("09") },
+      { id: "k2", canal: "whatsapp", wa_tel: "90112233", texte: "réponse", proprietaire_id: "COM1", proprietaire_nom: "COM1", ts: ts("10") },
+      { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "KOFFI", proprietaire_id: "COM1", derniere: ts("10"), ts: ts("10") },
+      { id: "a1", canal: "whatsapp", wa_tel: "90114455", wa_entrant: true, texte: "autre client", ts: ts("11") },
+    ],
+  };
+  const timo = { id: "TIMO", nom: "TIMO", role: "admin" };
+  const apres = Corb.mettreConversationALaCorbeille(base, "90112233", timo, ts("12"));
+  test("★★ la conversation ENTIÈRE part (ses 2 messages ET sa fiche légère), rien d'autre : la messagerie interne, le support interne et l'autre conversation restent",
+    apres.messages.map((m) => m.id).join(",") === "i1,s1,a1"
+    && apres[Corb.CLE_CORBEILLE_WA].length === 3 && apres[Corb.CLE_CORBEILLE_WA].every((m) => m.supprime_le === ts("12") && m.supprime_par === "TIMO"));
+  const contenu = Corb.contenuCorbeille(apres, ts("13"));
+  test("★★ la corbeille montre UNE entrée par conversation, avec son nom, son numéro et son nombre de messages (la fiche légère ne compte pas)",
+    contenu.length === 1 && contenu[0].table === "conversation_wa" && contenu[0].libelle === "Conversation WhatsApp"
+    && /KOFFI/.test(Corb.nomDeLaFiche(contenu[0].table, contenu[0].fiche)) && /\(2 messages\)/.test(Corb.nomDeLaFiche(contenu[0].table, contenu[0].fiche)) && contenu[0].restants === 30);
+  const fusion = Corb.fusionnerCorbeille(apres);
+  const recharge = Corb.separerCorbeille(fusion);
+  test("★★ à l'écriture les lignes retournent dans la table des messages, MARQUÉES ; au chargement elles repartent de côté (tous les appareils les cachent)",
+    fusion.messages.length === 6 && fusion.messages.filter((m) => m.supprime_le).length === 3 && !(Corb.CLE_CORBEILLE_WA in fusion)
+    && recharge.messages.map((m) => m.id).sort().join(",") === "a1,i1,s1" && recharge[Corb.CLE_CORBEILLE_WA].length === 3
+    && Corb.CLES_CORBEILLE.includes(Corb.CLE_CORBEILLE_WA));
+  test("★ une base sans rien à la corbeille garde son tableau de messages (les écrans comparent par identité)",
+    Corb.separerCorbeille(base).messages === base.messages);
+  const restaure = Corb.restaurerDeLaCorbeille(apres, "conversation_wa", "90112233");
+  test("★★ ♻ restaurer la remet telle quelle, SANS la marque, sur tous les appareils",
+    restaure.messages.length === 6 && !restaure.messages.some((m) => m.supprime_le || m.supprime_par) && restaure[Corb.CLE_CORBEILLE_WA].length === 0);
+  // Le client a réécrit entre-temps : le serveur a reposé une fiche légère VIVANTE.
+  const reecrit = { ...apres, messages: [...apres.messages, { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: "90112233", derniere: ts("14"), ts: ts("14") }] };
+  const fusionVivante = Corb.fusionnerCorbeille(reecrit);
+  test("★★ la fiche légère VIVANTE (le client a réécrit) l'emporte sur sa vieille copie marquée — la nouvelle conversation ne disparaît pas",
+    fusionVivante.messages.filter((m) => m.id === "waent_90112233").length === 1 && !fusionVivante.messages.find((m) => m.id === "waent_90112233").supprime_le);
+  test("★ « Supprimer définitivement » et la purge à 30 jours l'effacent pour de bon",
+    Corb.supprimerDefinitivement(apres, "conversation_wa", "90112233")[Corb.CLE_CORBEILLE_WA].length === 0
+    && Corb.aPurger(apres, "2026-11-04T12:00:00Z").length === 1 && Corb.aPurger(apres, "2026-11-03T11:00:00Z").length === 0
+    && Corb.purgerCorbeille(apres, "2026-11-05T00:00:00Z")[Corb.CLE_CORBEILLE_WA].length === 0);
+  // LE SERVEUR LIT LA TABLE BRUTE : une ligne marquée ne doit plus compter.
+  const brut = Corb.fusionnerCorbeille(apres).messages;
+  test("★★ le serveur (table brute) : la conversation supprimée n'a plus de fil, plus de propriétaire, plus de fenêtre — le client qui réécrit recommence au SUPPORT",
+    C2.filDeLaConversation(brut, "90112233").length === 0 && C2.proprietaireDe(C2.filDeLaConversation(brut, "90112233")).id === ""
+    && C2.fenetre(C2.filDeLaConversation(brut, "90112233"), ts("13")).jamais === true
+    && !C2.conversationsWa(brut, timo, ts("13")).some((c) => c.cle === "90112233"));
+  const sansC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const api = ["api/whatsapp-entrant.js", "api/whatsapp-media.js", "api/whatsapp.js"].map((f) => sansC(lire(f)));
+  test("★★ les trois fonctions serveur passent par filDeLaConversation (qui écarte la corbeille), aucune ne refait le filtre à la main",
+    api.every((t) => /filDeLaConversation\(/.test(t) && !/m\.canal === CANAL_WA && m\.wa_tel ===/.test(t)) && /estALaCorbeille\(ligne\)/.test(api[1]));
+  const W = sansC(lire("src/screens/Whatsapp.jsx"));
+  const corps = W.slice(W.indexOf("const supprimerConversation"), W.indexOf("const supprimer = jeSuisPrincipal"));
+  test("★★ 📲 le geste : l'administrateur PRINCIPAL revérifié EN PREMIER, la liste FRAÎCHE, une confirmation qui dit la corbeille, le téléphone BMI et le support, puis la corbeille",
+    corps.indexOf("refuserSaufAdminPrincipal(db, profile") > 0 && corps.indexOf("refuserSaufAdminPrincipal(db, profile") < corps.indexOf("lignesDeLaConversation(db.messages")
+    && corps.indexOf("await uConfirm(") < corps.indexOf("mettreConversationALaCorbeille(db, c.cle, profile)")
+    && /corbeille pendant \$\{DUREE_CORBEILLE_JOURS\} jours/.test(corps) && /Le téléphone BMI et le client gardent leur copie/.test(corps) && /au support/.test(corps)
+    && /const supprimer = jeSuisPrincipal \? supprimerConversation : null;/.test(W)
+    && (W.match(/supprimer=\{supprimer\}/g) || []).length === 2
+    && /useAppuiLong\(\(\) => supprimer && supprimer\(c\), \{ actif: !!supprimer \}\)/.test(W));
+  test("★★ l'écran RENDU : la ligne porte l'appui long chez l'administrateur principal, PAS chez un vendeur",
+    /Appui long : supprimer cette conversation/.test(V.htmlAdmin()) && !/Appui long : supprimer/.test(V.htmlVendeur()));
+  const S36 = lire("supabase/securite-36-corbeille-whatsapp.sql");
+  test("★ LE COUPLE : securite-36 réserve l'effacement et la marque au principal, et wa_proprietaire ignore la corbeille (le banc SQL l'éprouve : npm run tester-conversations)",
+    /Effacer une conversation WhatsApp/.test(S36) && /before insert or update or delete on public\.messages/.test(S36)
+    && /coalesce\(m\.data ->> 'supprime_le', ''\) = ''/.test(S36) && /qual like '%formation%'/.test(S36));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -22,11 +22,12 @@
 // ============================================================
 import React, { useState, useEffect, useRef } from "react";
 import { dFR, today, nouveauMessage } from "../lib/core";
-import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin } from "../components/ui";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
-import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte, estAdminPrincipal } from "../lib/calculs";
+import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte, estAdminPrincipal, refuserSaufAdminPrincipal, bloquerSiLecture } from "../lib/calculs";
+import { lignesDeLaConversation, mettreConversationALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
 import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente } from "../lib/assistantWhatsapp";
@@ -396,6 +397,38 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     }) }, `📲 WhatsApp — conversation de ${ouverte.nom || ouverte.tel} rendue à tout le personnel par ${profile.nom}`);
   };
 
+  // ---- 🗑 SUPPRIMER UNE CONVERSATION PAR UN APPUI LONG (05/10/2026) ----
+  // Timo : « possibilité de supprimer les discussions dans WhatsApp de l'app
+  // BMI par un appui long… seul l'admin principal » → « 1 corbeille, 2 oui ».
+  // ⚠ L'ADMINISTRATEUR PRINCIPAL SEUL, revérifié DANS le geste (la base le
+  // revérifie aussi : securite-36). Chez tout autre, l'appui long ne fait rien.
+  // ⚠ RIEN N'EST DÉTRUIT : toutes les lignes de la conversation (messages ET
+  // fiche légère) partent à la corbeille 30 jours, d'où elle se remet.
+  // ⚠ Le téléphone BMI et le client gardent leur copie : on ne peut rien
+  // effacer chez WhatsApp, et la confirmation le DIT.
+  // ⚠ La trace nomme la conversation et le nombre de messages, jamais leur
+  // contenu.
+  const jeSuisPrincipal = estAdminPrincipal(db, profile);
+  const supprimerConversation = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Supprimer une conversation WhatsApp")) return;
+    // Sur la liste FRAÎCHE : l'écran peut avoir un état périmé.
+    const lignes = lignesDeLaConversation(db.messages, c.cle);
+    if (!lignes.length) { uAlert("Cette conversation n'existe plus."); return; }
+    const nb = lignes.filter((m) => m.canal === CANAL_WA).length;
+    const qui = [c.nom, c.tel].filter(Boolean).join(" — ") || c.cle;
+    if (!(await uConfirm(
+      `Supprimer la conversation avec ${qui} (${nb} message${nb > 1 ? "s" : ""}) ?\n\n`
+      + `Elle disparaît de 📲 WhatsApp pour tout le monde et part à la corbeille pendant ${DUREE_CORBEILLE_JOURS} jours (⚙ Paramètres → 🗑 Corbeille), d'où vous pouvez la remettre.\n\n`
+      + "Le téléphone BMI et le client gardent leur copie : rien n'est effacé chez WhatsApp.\n"
+      + "Si le client réécrit, une nouvelle conversation commence : au support, et l'assistant se présente de nouveau."
+    ))) return;
+    save(mettreConversationALaCorbeille(db, c.cle, profile),
+      `🗑 WhatsApp — conversation de ${qui} (${nb} message${nb > 1 ? "s" : ""}) mise à la corbeille par ${profile.nom}`);
+    if (cleOuverte === c.cle) setCleOuverte(null);
+  };
+  const supprimer = jeSuisPrincipal ? supprimerConversation : null;
+
   // 🎓 En formation, l'écran le DIT au lieu d'afficher une liste vide qui
   // ressemblerait à une panne. ⚠ Placé APRÈS tous les hooks : un retour
   // anticipé avant un hook est un écran blanc (piège du § 5).
@@ -456,7 +489,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
             <>
               <div className="px-4 py-1.5 text-xs font-bold text-red-700 uppercase bg-red-50" data-whatsapp="nouveaux">🔴 Nouveaux messages</div>
               <table className="w-full"><tbody>
-                {liste.nonLues.map((it) => <LigneWa key={"nouveau" + it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} />)}
+                {liste.nonLues.map((it) => <LigneWa key={"nouveau" + it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} supprimer={supprimer} />)}
               </tbody></table>
             </>
           )}
@@ -478,7 +511,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
               dateDe={(it) => derniereActivite(it.wa)}
               aujourdhui={today()}
               titreArchives="Conversations anciennes"
-              rendre={(it) => <LigneWa key={it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} />}
+              rendre={(it) => <LigneWa key={it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} supprimer={supprimer} />}
               vide="Aucune conversation."
               classeTable="w-full"
             />
@@ -597,8 +630,11 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
 // ⚠ C'est une LIGNE DE TABLEAU : le composant commun d'archivage dessine un
 // <table>, et le bloc des non lues en pose un aussi. UNE seule ligne pour les
 // deux — deux façons de dessiner la même chose finiraient par diverger.
-function LigneWa({ item, cleOuverte, ouvrir }) {
+function LigneWa({ item, cleOuverte, ouvrir, supprimer = null }) {
   const c = item.wa;
+  // 🗑 L'appui long n'existe QUE pour l'administrateur principal (`supprimer`
+  // n'est passé qu'à lui) ; chez les autres, la ligne se comporte comme avant.
+  const appuiLong = useAppuiLong(() => supprimer && supprimer(c), { actif: !!supprimer });
   // ⚠⚠ « ON PEUT VOIR LA DISCUSSION MAIS GRISÉ… PAS JUSTE LA FAIRE
   // DISPARAÎTRE » (Timo, 21/09/2026). La ligne reste à sa place, en gris,
   // avec un cadenas et le nom de la personne à qui elle est confiée : on
@@ -611,8 +647,9 @@ function LigneWa({ item, cleOuverte, ouvrir }) {
   const attente = verrou ? null : attenteConseiller(c.fil);
   return (
     <tr><td className="p-0">
-    <button onClick={() => ouvrir(c)} data-wa-verrou={verrou ? "1" : "0"}
-      className={`w-full text-left px-4 py-3 border-b border-slate-100 flex items-center justify-between ${verrou ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "hover:bg-sky-50"} ${!verrou && cleOuverte === c.cle ? "bg-sky-50" : ""}`}>
+    <button onClick={() => ouvrir(c)} data-wa-verrou={verrou ? "1" : "0"} {...appuiLong}
+      title={supprimer ? "Appui long : supprimer cette conversation (corbeille 30 jours)" : undefined}
+      className={`w-full text-left px-4 py-3 border-b border-slate-100 flex items-center justify-between ${supprimer ? "select-none" : ""} ${verrou ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "hover:bg-sky-50"} ${!verrou && cleOuverte === c.cle ? "bg-sky-50" : ""}`}>
       <span className="text-sm">
         <span className={verrou ? "font-semibold text-slate-500" : "font-semibold"}>{verrou ? "🔒 " : ""}{c.nom || c.tel}</span>
         <span className="block text-xs text-slate-400">

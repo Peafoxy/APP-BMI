@@ -22,7 +22,7 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete } from "../src/lib/whatsappConversations.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { numeroWhatsApp, alerteConseillerDe, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
@@ -113,8 +113,9 @@ export default async function handler(req, res) {
     // devis du numéro BMI (la trace `envoi_whatsapp` existe depuis
     // l'étape 1) ; (3) sinon personne → SUPPORT, visible par tout le
     // personnel (décision « c » de Timo).
-    const fil = messages.filter((m) => m.canal === CANAL_WA && m.wa_tel === cle)
-      .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+    // ⚠ Une conversation mise à la CORBEILLE (05/10/2026) ne compte plus :
+    // le client qui réécrit recommence à zéro (support, présentation).
+    const fil = filDeLaConversation(messages, cle);
     // ⚠ DÉFAUT RÉPARÉ LE 24/09/2026 : cette boucle était écrite ici à la main
     // et ne connaissait pas la marque « rendue à tous » (`MARQUE_RENDUE`,
     // 21/09) : au message suivant du client, l'ANCIEN propriétaire était

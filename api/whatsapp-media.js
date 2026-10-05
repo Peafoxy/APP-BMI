@@ -26,7 +26,7 @@
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
-import { CANAL_WA, proprietaireDe, peutVoirConversation } from "../src/lib/whatsappConversations.js";
+import { CANAL_WA, proprietaireDe, peutVoirConversation, filDeLaConversation, estALaCorbeille } from "../src/lib/whatsappConversations.js";
 
 // 25 Mo : la limite de WhatsApp elle-même. Au-delà, ce n'est pas un fichier
 // qu'un client a envoyé, c'est quelque chose qui ne devrait pas être là.
@@ -60,15 +60,14 @@ export default async function handler(req, res) {
     if (errMsg) throw errMsg;
     const messages = (lignes || []).map((l) => ({ ...(l.data || {}), id: l.id }));
     const ligne = messages.find((m) => m.id === message);
-    if (!ligne || ligne.canal !== CANAL_WA) return res.status(404).json({ error: "Message introuvable." });
+    if (!ligne || ligne.canal !== CANAL_WA || estALaCorbeille(ligne)) return res.status(404).json({ error: "Message introuvable." });
     const media = ligne.wa_media;
     if (!media || !media.lien) return res.status(404).json({ error: "Ce message ne porte aucun fichier." });
 
     // ⚠ LE MUR, REVÉRIFIÉ DANS LE GESTE : c'est le propriétaire du FIL qui
     // décide, pas le message tout seul — une réattribution pose une ligne
     // de plus, elle ne réécrit jamais l'histoire.
-    const fil = messages.filter((m) => m.canal === CANAL_WA && m.wa_tel === ligne.wa_tel)
-      .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+    const fil = filDeLaConversation(messages, ligne.wa_tel);
     const prop = proprietaireDe(fil);
     if (!peutVoirConversation(compte, { proprietaire_id: prop.id })) {
       return res.status(403).json({ error: "Cette conversation ne vous appartient pas." });

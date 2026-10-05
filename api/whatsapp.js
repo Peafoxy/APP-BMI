@@ -29,7 +29,7 @@ import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable } from "../src/lib/whatsappModeles.js";
-import { CANAL_WA, cleConversation, fenetre, libelleFenetre, critiqueFichier, typeEnvoiFichier, TAILLE_MAX_ENVOI } from "../src/lib/whatsappConversations.js";
+import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre, critiqueFichier, typeEnvoiFichier, TAILLE_MAX_ENVOI } from "../src/lib/whatsappConversations.js";
 // ⚠ La porte vers YCloud est écrite UNE fois (api/_ycloud.js) : l'assistant
 // du webhook envoie par la même — la clé et la lecture du refus y vivent.
 import { configYCloud, envoyerYCloud, corpsTexte, televerserYCloud, corpsMedia } from "./_ycloud.js";
@@ -115,9 +115,7 @@ export default async function handler(req, res) {
       const cleFil = cleConversation(tel);
       const { data: lignes, error: errMsg } = await admin.from("messages").select("data");
       if (errMsg) throw errMsg;
-      const fil = (lignes || []).map((l) => l.data || {})
-        .filter((m) => m.canal === CANAL_WA && m.wa_tel === cleFil)
-        .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+      const fil = filDeLaConversation((lignes || []).map((l) => l.data || {}), cleFil);
       const f = fenetre(fil);
       if (!f.ouverte) return res.status(403).json({ error: libelleFenetre(f) });
     }
