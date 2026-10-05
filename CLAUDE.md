@@ -91,6 +91,18 @@ dans le message** (« chapitre 7 à jour » / « chapitres 7 et 13 mis à jour �
 pire qu'un chapitre absent. ⚠ Un chapitre seul reste une version comme une
 autre (sa décision « laisse le 2 tomber, ça reste ainsi ») : VERSION
 incrémentée, tous les chapitres refaits.
+⚠⚠ **LE WORD ET LE PDF DU MANUEL NE PARTENT PLUS DANS LE CODE** (Timo,
+05/10/2026, « b, lance », devant un `git pull` de 4 075 objets à 7 Ko/s) :
+chaque version réécrivait les 66 fichiers de `docs/manuel/` (41 Mo, même un
+chapitre intact change d'octets), et git garde TOUTES les versions — près
+d'1 Go d'historique. Depuis, `docs/manuel/` est dans `.gitignore` : **les
+TEXTES (`scripts/manuel/`) restent dans le code, les fichiers fabriqués
+non.** Quand un chapitre change, on refait le manuel et on **ENVOIE à Timo,
+par `SendUserFile`, seulement le chapitre corrigé et les guides qui le
+contiennent** (Word + PDF), en le disant. Il les range lui-même. Il ne peut
+pas les refaire seul (Node + LibreOffice). L'historique déjà envoyé reste
+lourd : le réécrire a été déconseillé. Ne jamais remettre ces fichiers dans
+un commit.
 
 **⚠ Pousser sur la branche ne déploie rien.** Vercel envoie `main`, rien
 d'autre. On ne dit **jamais « déployée »** avant `git push origin HEAD:main`

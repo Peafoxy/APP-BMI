@@ -8,3 +8,7 @@ dist-electron
 release
 apercu-etiquette.png
 apercu-cases.png
+
+# Le manuel fabriqué (Word, PDF) ne part plus dans le code : seuls ses
+# textes (scripts/manuel/) y restent. Décision Timo, 05/10/2026.
+docs/manuel/
