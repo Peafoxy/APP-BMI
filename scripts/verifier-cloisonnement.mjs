@@ -12850,5 +12850,43 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   test("📅 la case vit dans la fiche de paie (table à part), pas sur la fiche employé", Paie.CHAMPS_PAIE.includes("paie_debut"));
 }
 
+// ── 🧾 Le bulletin de paie (05/10/2026, comparaison avec un bulletin de solde
+// de l'État, « 1 ») : le rôle vient de LA liste des rôles (un comptable était
+// écrit « Vendeur »), et ce que la fiche de paie porte déjà s'imprime —
+// matricule, n° d'assuré, date d'embauche, banque avec le compte MASQUÉ.
+// Le bulletin est IMPRIMÉ pour de vrai (printApi remplacé par un témoin).
+{
+  const sortieBul = join("node_modules", ".cache", `bmi-bulletin-${process.pid}.mjs`);
+  await build({
+    entryPoints: ["src/lib/impression.js"], bundle: true, format: "esm", platform: "node", outfile: sortieBul,
+    logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"],
+    plugins: [{ name: "ui-temoin", setup(b) {
+      // Seul l'import d'impression.js est détourné ; tout le reste de ui.jsx
+      // est le vrai (export * ), printApi devient le témoin.
+      b.onResolve({ filter: /components\/ui(\.jsx)?$/ }, (a) => a.importer.endsWith("impression.js") ? { path: "ui-temoin", namespace: "temoin" } : undefined);
+      b.onLoad({ filter: /.*/, namespace: "temoin" }, () => ({ resolveDir: process.cwd(), loader: "js",
+        contents: 'export * from "./src/components/ui.jsx"; export const printApi = { open: (h) => { globalThis.__bulletin = h; } };' }));
+    } }],
+  });
+  const Imp = await import(pathToFileURL(sortieBul).href);
+  unlinkSync(sortieBul);
+  const db0 = { boutiques: [{ nom: "BMI DEMAKPOE", adresse: "Lomé" }] };
+  const comptable = { id: "c1", nom: "AFI", nom_complet: "AFI Akossiwa", role: "comptable", boutique: "BMI DEMAKPOE", salaire_base: 120000,
+    cnss_matricule: "MLE-007", cnss_numero_assurance: "123456789", cnss_date_embauche: "2025-03-01", banque: "ORABANK", compte_bancaire: "TG0012345678909379" };
+  Imp.imprimerBulletin(comptable, "2026-10", db0);
+  const h1 = String(globalThis.__bulletin || "");
+  const nu = { id: "c2", nom: "KOSSI", role: "resp_commercial", boutique: "BMI DEMAKPOE", salaire_base: 90000 };
+  Imp.imprimerBulletin(nu, "2026-10", db0);
+  const h2 = String(globalThis.__bulletin || "");
+  test("★★ 🧾 le bulletin d'un comptable dit « Comptable », celui d'un responsable commercial « Responsable Commercial » — plus jamais « Vendeur » par défaut",
+    /<b>Fonction :<\/b> Comptable</.test(h1) && /<b>Fonction :<\/b> Responsable Commercial</.test(h2) && !/Vendeur/.test(h1 + h2));
+  test("★★ 🧾 le bulletin imprime le matricule, le n° d'assuré CNSS, la date d'embauche et la banque",
+    h1.includes("MLE-007") && h1.includes("123456789") && h1.includes("01/03/2025") && h1.includes("ORABANK"));
+  test("★★ 🧾 le numéro de compte n'est JAMAIS imprimé en entier : les quatre derniers chiffres seulement",
+    h1.includes("…9379") && !h1.includes("TG0012345678909379"));
+  test("★ 🧾 une fiche sans ces renseignements n'imprime aucune ligne vide",
+    !/Matricule|N° d'assuré|Date d'embauche|<b>Banque/.test(h2) && /NET À PERCEVOIR/.test(h2));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

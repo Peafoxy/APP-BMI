@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2200 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2204 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5367,6 +5367,20 @@ lit mal est pire qu'un banc absent).
   de paie) : il ne commande que l'AFFICHAGE, aucun argent. Rien à coller.
   Banc (10 contrôles), éprouvé (argent caché, employé non suivi compté) ;
   un contrôle RETOURNÉ (`tousEmployes`). Chapitre 18 à jour.
+
+### 🧾 LE BULLETIN DE PAIE COMPARÉ À UN BULLETIN DE SOLDE (05/10/2026, « 1 »)
+- Capture d'un bulletin de l'État, « compare et fais sortir les
+  différences » → trois niveaux proposés, **« 1 » choisi** : `imprimerBulletin`
+  (lib/impression.js) prend le rôle dans **`LIBELLE_ROLE_EMPLOYE`** (la copie
+  locale écrivait « Vendeur » pour un comptable, un resp. commercial —
+  défaut oublié le 30/09) et imprime ce que la fiche de paie porte déjà :
+  matricule, n° d'assuré CNSS, date d'embauche, banque avec le compte
+  **masqué** (`compteMasque`) ; une ligne vide ne s'imprime pas.
+- **Pas construits, à sa demande seulement** : « 2 » (deux colonnes Gains /
+  Retenues, brut, base CNSS, totaux, cumuls de l'année) et « 3 » (l'IRPP —
+  **avis du comptable d'abord** ; la loi n'a pas été vérifiée d'ici).
+- Banc (4 contrôles, le bulletin IMPRIMÉ par un témoin de `printApi`),
+  éprouvé (rôle d'avant, compte en entier). Chapitre 18 à jour. Rien à coller.
 
 ### 📲 L'AVIS DE PAIEMENT D'UN SALAIRE PART DU NUMÉRO BMI — `virement_salaire` (03/10/2026, le texte de Timo)
 - Timo : « un modèle YCloud pour envoi automatique de message de virement

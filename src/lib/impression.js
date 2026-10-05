@@ -11,6 +11,8 @@ import { printApi } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation } from "./calculs";
 import { genererSVGCode128 } from "./barcode";
 import { identiteClient, ligneClient, partieClientContrat } from "./clientEntreprise";
+import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
+import { compteMasque } from "./banques";
 
 // 🏢 29/09/2026 (Timo) : le client d'un reçu — la personne (NOM Prénom), ou
 // l'ENTREPRISE qu'elle représente, avec ses coordonnées et « Représentée
@@ -729,7 +731,11 @@ export function imprimerBulletin(u, mois, db) {
   const primes = (u.primes || []).filter((x) => x.mois === mois);
   const avances = (u.avances || []).filter((x) => x.mois === mois);
   const credits = (u.credits || []).filter((c) => c.statut === "approuve" && resteCredit(c) > 0);
-  const roleLbl = u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "technicien_bmi" ? "Technicien BMI" : "Vendeur";
+  // ⚠ Le libellé du rôle vient de LA liste des rôles (05/10/2026) : la copie
+  // d'ici ne connaissait que trois rôles et écrivait « Vendeur » pour un
+  // comptable ou un responsable commercial — le défaut réparé le 30/09 dans
+  // 💵 Salaires, oublié sur le bulletin imprimé.
+  const roleLbl = LIBELLE_ROLE_EMPLOYE[u.role] || u.role || "—";
   const numero = numeroBulletin(mois, u.id);
 
   const ligne = (lib, montant, signe) =>
@@ -784,6 +790,14 @@ export function imprimerBulletin(u, mois, db) {
       ${u.piece_num ? `<div><b>Pièce d'identité :</b> ${esc(u.piece_type || "CNI")} n° ${esc(u.piece_num)}</div>` : ""}
       <div><b>Fonction :</b> ${esc(roleLbl)}</div>
       <div><b>Affectation :</b> ${esc(u.boutique || "Toutes boutiques")}</div>
+      ${/* Ce que la fiche de paie porte déjà (05/10/2026, comparaison avec un
+            bulletin de solde, « 1 ») : une ligne n'apparaît que si elle est
+            renseignée. Le numéro de compte n'est JAMAIS imprimé en entier
+            (règle du 19/09/2026) : les quatre derniers chiffres. */""}
+      ${u.cnss_matricule ? `<div><b>Matricule :</b> ${esc(u.cnss_matricule)}</div>` : ""}
+      ${u.cnss_numero_assurance ? `<div><b>N° d'assuré CNSS :</b> ${esc(u.cnss_numero_assurance)}</div>` : ""}
+      ${u.cnss_date_embauche ? `<div><b>Date d'embauche :</b> ${esc(dFR(u.cnss_date_embauche))}</div>` : ""}
+      ${u.banque || u.compte_bancaire ? `<div><b>Banque :</b> ${esc(u.banque || "—")}${u.compte_bancaire ? ` · compte ${esc(compteMasque(u.compte_bancaire))}` : ""}</div>` : ""}
       ${Number(u.taux_avancement || 0) > 0 ? `<div><b>Taux d'avancement annuel :</b> ${esc(u.taux_avancement)} %</div>` : ""}
     </div>
 

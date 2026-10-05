@@ -147,7 +147,7 @@ export const CHAPITRE = {
         ["🏦 Banque", "⋯ Gérer → Paie", "Nom de la banque et numéro de compte (jamais affiché en entier)."],
         ["💸 Virement", "⋯ Gérer → Paie ; aussi la ligne de 💵 Salaires", "Verse tout ou partie du net du mois."],
         ["Annuler virement", "⋯ Gérer → Paie", "Retire le dernier virement non confirmé."],
-        ["🖨 Bulletin / 🖨 Imprimer mon bulletin de paie", "💵 Salaires, 💵 Mon salaire", "Le bulletin du mois choisi."],
+        ["🖨 Bulletin / 🖨 Imprimer mon bulletin de paie", "💵 Salaires, 💵 Mon salaire", "Le bulletin du mois choisi : nom, fonction, affectation, et ce que la fiche porte — matricule, n° d'assuré CNSS, date d'embauche, banque avec le numéro de compte réduit à ses quatre derniers chiffres (« …9379 ») ; une ligne non renseignée n'est pas imprimée. Puis les éléments de paie, les versements et le crédit BMI en cours."],
         ["📄 Exporter", "💵 Salaires", "Le détail du mois (CSV)."],
         ["Approuver / Refuser / + Remboursement", "🏦 Crédits BMI", "La vie d'un crédit BMI."],
         ["💾 Enregistrer / 📥 Générer le fichier DRC (Excel) / 💸 Enregistrer le paiement CNSS du mois", "🏦 CNSS", "La déclaration et le paiement du mois."],
