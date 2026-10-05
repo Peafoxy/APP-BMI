@@ -179,6 +179,42 @@ psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/paie-2-compte-bancaire.s
 essai "★ relancer le script ne casse rien et ne raccourcit pas deux fois" PASSE "$ADMIN" \
   "select 1 from public.depenses where id = 'DEP-VIR' and data ->> 'compte_bancaire' = '…6789';"
 
+echo
+echo "▸ 6b. paie-3 : le contrat de travail ne se réécrit que par l'administrateur"
+# ⚠ AVANT : la porte est ouverte (le contrôle prouve que le défaut existait).
+essai "AVANT : l'employé repousse lui-même la fin de son CDD (la porte existe)" PASSE "$VEND" \
+  "update public.paie set data = data || '{\"cnss_code_type\":5,\"contrat_fin\":\"2026-12-31\"}'::jsonb where id='KOSSI';"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/paie-3-contrat.sql >/dev/null 2>&1
+verite "★ la phrase de vérification de paie-3 répond true | true" \
+  "$(sed -n '/^-- VÉRIFICATION/,$p' supabase/paie-3-contrat.sql | grep -v '^--' | tr '\n' ' ' | sed 's/;\s*$//; s/^ *select/select (/; s/ as contrat_verrouille,/) and (/; s/ as declencheur_en_place */)/')"
+essai "★ il confirme toujours un virement reçu" PASSE "$VEND" \
+  "update public.paie set data = jsonb_set(data,'{virements,0,statut}','\"confirme\"') where id='KOSSI';"
+essai "★ il demande toujours un crédit" PASSE "$VEND" \
+  "update public.paie set data = jsonb_set(data,'{credits}', (data->'credits') || '[{\"id\":\"c3\",\"statut\":\"en_attente\",\"montant_demande\":5000}]'::jsonb) where id='KOSSI';"
+essai "★ l'UPSERT de sa fiche inchangée passe toujours" PASSE "$VEND" \
+  "insert into public.paie (id, data) values ('KOSSI', (select data from public.paie where id='KOSSI')) on conflict (id) do update set data = excluded.data;"
+essai "★ il ne repousse PAS la fin de son contrat" REFUSE "$VEND" \
+  "update public.paie set data = jsonb_set(data,'{contrat_fin}','\"2030-01-01\"') where id='KOSSI';"
+essai "★ il n'efface PAS la fin de son contrat" REFUSE "$VEND" \
+  "update public.paie set data = data - 'contrat_fin' where id='KOSSI';"
+essai "★ il ne passe PAS de CDD à CDI" REFUSE "$VEND" \
+  "update public.paie set data = jsonb_set(data,'{cnss_code_type}','1') where id='KOSSI';"
+essai "★ …ni par UPSERT, comme le fait l'application" REFUSE "$VEND" \
+  "insert into public.paie (id, data) values ('KOSSI', (select jsonb_set(data,'{cnss_code_type}','1') from public.paie where id='KOSSI')) on conflict (id) do update set data = excluded.data;"
+essai "★ il ne change PAS sa date d'embauche" REFUSE "$VEND" \
+  "update public.paie set data = data || '{\"cnss_date_embauche\":\"2020-01-01\"}'::jsonb where id='KOSSI';"
+essai "★ il ne se déclare PAS sorti" REFUSE "$VEND" \
+  "update public.paie set data = data || '{\"cnss_date_sortie\":\"2026-10-31\",\"cnss_code_motif_sortie\":2}'::jsonb where id='KOSSI';"
+essai "★ le salaire reste verrouillé comme avant" REFUSE "$VEND" \
+  "update public.paie set data = jsonb_set(data,'{salaire_base}','2000000') where id='KOSSI';"
+essai "★ l'administrateur, lui, fixe le contrat" PASSE "$ADMIN" \
+  "update public.paie set data = data || '{\"cnss_code_type\":1}'::jsonb - 'contrat_fin' where id='KOSSI';"
+essai "★ …et saisit la sortie" PASSE "$ADMIN" \
+  "update public.paie set data = data || '{\"cnss_date_sortie\":\"2026-10-31\",\"cnss_code_motif_sortie\":2}'::jsonb where id='KOSSI';"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -f supabase/paie-3-contrat.sql >/dev/null 2>&1
+essai "★ relancer paie-3 ne change rien (le contrat reste fermé)" REFUSE "$VEND" \
+  "update public.paie set data = jsonb_set(data,'{cnss_code_type}','5') where id='KOSSI';"
+
 echo "▸ 7. Le retour en arrière remet tout en place"
 # Bloc d'annulation extrait du fichier lui-même (lignes commençant par "--   ").
 sed -n '/EN CAS DE PROBLÈME/,/^-- ===/p' supabase/paie-1-table.sql \
