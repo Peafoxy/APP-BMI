@@ -5522,7 +5522,7 @@ lit mal est pire qu'un banc absent).
   si elle arrive, le lieu reste rangé sans s'afficher, et revient si elle part.
 - ⚠ LE COUPLE : **`securite-37`** reprend securite-18 mot pour mot et ajoute
   `affectation` à la liste « gestion » (sans lui, un employé écrirait le sien).
-  **À coller par Timo.** Banc `tester-comptes` (83) éprouvé sans le script :
+  **Collé par Timo le 05/10/2026 (`true | true | true`).** Banc `tester-comptes` (83) éprouvé sans le script :
   quatre contrôles tombent ; `verifier-cloisonnement` éprouvé (boutique qui ne
   l'emporte plus, geste sans revérification). Chapitres 2 et 18 à jour.
 
