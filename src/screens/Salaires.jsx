@@ -352,7 +352,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
                       {CODES_TYPE_ASSURE.map((t) => <option key={t.code} value={t.code}>{t.code} — {t.libelle}</option>)}
                     </select>
                   </td>
-                  <td className="px-3 py-2"><input disabled={!actif} type="date" className={`${inputCls} w-36`} value={b.dateEmbauche} onChange={(e) => maj(u.id, "dateEmbauche", e.target.value)} /></td>
+                  <td className="px-3 py-2"><input data-date-embauche type="date" title="Toujours modifiable : la date d'embauche sert aussi au bulletin et au dossier, même sans CNSS" className={`${inputCls} w-36`} value={b.dateEmbauche} onChange={(e) => maj(u.id, "dateEmbauche", e.target.value)} /></td>
                   <td className="px-3 py-2"><input disabled={!actif} type="number" min="0" max="31" className={`${inputCls} w-20`} value={b.jours} onChange={(e) => maj(u.id, "jours", e.target.value)} placeholder="Obligatoire" /></td>
                   <td className="px-3 py-2">
                     <select disabled={!actif} className={`${inputCls} w-40`} value={b.nature} onChange={(e) => maj(u.id, "nature", e.target.value)}>

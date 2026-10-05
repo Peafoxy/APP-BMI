@@ -62,7 +62,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
         ["💵 Salaires → 💵 Salaires", "Le mois ; les cinq cases (masse salariale, déjà versé, reste à verser, à confirmer par l'employé, encours crédits BMI) ; le **Détail par employé** avec 💸 Virement et 🖨 Bulletin ; 📄 Exporter."],
         ["💵 Salaires → 🏦 CNSS", "Une ligne par employé : assujetti, matricule, n° d'assurance, type, date d'embauche, jours travaillés, nature de rémunération, et les cotisations ; les trois boutons de la déclaration."],
-        ["👥 Utilisateurs → ⋯ Gérer → Paie", "💵 Salaire, 📈 Taux %, 📅 Paie suivie depuis, + Prime, − Avance, 🏦 Banque, 💸 Virement, Annuler virement."],
+        ["👥 Utilisateurs → ⋯ Gérer → Paie", "💵 Salaire, 📈 Taux %, 📅 Paie suivie depuis, 📅 Embauche, + Prime, − Avance, 🏦 Banque, 💸 Virement, Annuler virement."],
         ["👥 Utilisateurs → 🏦 Crédits BMI", "Toutes les demandes et tous les crédits en cours."],
         ["💵 Salaire (l'employé)", "« 💵 Mon salaire — nom » : le mois, les cases, les virements à confirmer, le détail, ses avances de frais, 🏦 Crédit BMI, 📈 Mon avancement, ses informations CNSS."],
       ]}],
@@ -88,6 +88,7 @@ export const CHAPITRE = {
         { titre: "Le motif", texte: "Quand un salaire déjà fixé change, l'application demande le motif (ancienneté, promotion, mérite…). Chaque changement est **archivé** avec l'ancien et le nouveau montant : l'employé le lit dans « 📈 Mon avancement »." },
         { titre: "L'avis d'avancement, du numéro WhatsApp BMI", texte: "Quand le salaire **augmente**, l'application demande : « Envoyer l'avis d'avancement à … ? ». Oui : l'employé reçoit l'ancien et le nouveau salaire, le mois et le motif (sans motif : « décision de la Direction »). Répondez **Annuler** si ce n'était qu'une correction de saisie. Une baisse ou une première saisie n'envoie rien ; une fiche sans numéro non plus (l'écran le dit). Dans 📲 WhatsApp, la ligne est cachée : seuls celui qui l'a envoyé et l'administrateur principal en lisent le détail." },
         { titre: "📅 Paie suivie depuis", texte: "Le **premier mois de paie suivi dans l'application**. Les mois d'avant ne sont plus proposés, ni dans 💵 Mon salaire de l'employé ni dans 💵 Salaires : ils ont été payés **hors de l'application**, et un bulletin de ces mois-là aurait affiché « reste à percevoir » à tort. Laissée vide, la case prend le premier versement, la première prime ou la première avance enregistrés ; sans rien d'enregistré, seul le mois en cours est proposé. Un mois à venir est refusé, et un argent déjà enregistré avant ce mois n'est jamais caché (la liste commence alors à lui)." },
+        { titre: "📅 Embauche", texte: "La **date d'embauche** de l'employé, pour **tout** salarié, déclaré ou non à la CNSS. Le bouton l'affiche (« 📅 Embauche · 01/03/2025 », ou « à saisir ») ; un clic la demande, vide pour l'effacer. C'est la même date que la colonne « Date d'embauche » de 💵 Salaires → 🏦 CNSS : la changer d'un côté la change de l'autre. Elle s'imprime sur le bulletin de paie et figure dans le dossier de l'employé." },
       ]],
       ["note", "Dans 💵 Salaires, un employé pas encore suivi le mois regardé n'apparaît pas : il n'est ni « 🔴 Non payé » ni compté dans la masse salariale, et une ligne le dit au-dessus du tableau."],
 
@@ -129,7 +130,7 @@ export const CHAPITRE = {
 
       ["h3", "G. La CNSS du mois (administrateur)"],
       ["etapes", [
-        { titre: "💵 Salaires → 🏦 CNSS", texte: "Cocher **Assujetti CNSS** pour chaque employé déclaré. Le n° d'assurance, la date d'embauche et le type se renseignent **une fois** ; les **jours travaillés** et la nature de rémunération, **chaque mois**." },
+        { titre: "💵 Salaires → 🏦 CNSS", texte: "Cocher **Assujetti CNSS** pour chaque employé déclaré. Le n° d'assurance, la date d'embauche et le type se renseignent **une fois** (la date d'embauche reste modifiable même case décochée, et se saisit aussi dans 👥 Utilisateurs → ⋯ Gérer → Paie → 📅 Embauche) ; les **jours travaillés** et la nature de rémunération, **chaque mois**." },
         { titre: "💾 Enregistrer", texte: "Tant que ce n'est pas enregistré, un bandeau rouge le dit, et le fichier comme le paiement sont **bloqués**." },
         { titre: "📥 Générer le fichier DRC (Excel)", texte: "La Déclaration des Rémunérations et des Cotisations, mensuelle, à déposer sur le portail de la CNSS. Un employé incomplet (n° d'assurance, date d'embauche, jours) est **exclu** et l'écran le dit." },
         { titre: "💸 Enregistrer le paiement CNSS du mois", texte: "Les trois cases : part patronale (22,5 %), part salariale déjà retenue (9 %), total à reverser. Moyen (« Virement bancaire » d'office), caisse, confirmation : une dépense **« Cotisations CNSS »**. Un second paiement du même mois demande confirmation." },
@@ -143,6 +144,7 @@ export const CHAPITRE = {
         ["💵 Salaire", "⋯ Gérer → Paie", "Fixe le salaire de base ; un changement est archivé dans l'avancement, avec son motif."],
         ["📈 Taux %", "⋯ Gérer → Paie", "Taux d'avancement annuel, proposé au prochain changement de salaire."],
         ["📅 Paie suivie depuis", "⋯ Gérer → Paie", "Premier mois de paie suivi dans l'application : les mois d'avant ne sont plus proposés (payés hors de l'application)."],
+        ["📅 Embauche", "⋯ Gérer → Paie", "Date d'embauche de tout salarié, la même que la colonne de 🏦 CNSS ; imprimée sur le bulletin."],
         ["+ Prime / − Avance", "⋯ Gérer → Paie", "Ajoute une prime (payée avec le salaire) ou une avance (sortie de caisse immédiate)."],
         ["🏦 Banque", "⋯ Gérer → Paie", "Nom de la banque et numéro de compte (jamais affiché en entier)."],
         ["💸 Virement", "⋯ Gérer → Paie ; aussi la ligne de 💵 Salaires", "Verse tout ou partie du net du mois."],

@@ -14,7 +14,7 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, 
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
@@ -886,6 +886,21 @@ export function Users({ db, save, profile }) {
     if (val && effectif < val) uAlert(`C'est noté. ⚠ Un versement, une prime ou une avance est déjà enregistré en ${libelleMoisFR(effectif)} : la liste commence donc à ce mois-là (un argent enregistré n'est jamais caché).`);
   };
 
+  // 📅 La date d'embauche (05/10/2026, « b ») : elle se saisissait seulement
+  // dans 💵 Salaires → 🏦 CNSS, et la case y restait grisée pour un employé
+  // non déclaré. Elle sert aussi au bulletin et au dossier : elle se saisit
+  // ici pour TOUT salarié. Même champ (`cnss_date_embauche`, fiche de paie),
+  // jamais un second. Administrateur, revérifié ici.
+  const changerEmbauche = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer la date d'embauche")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const val = await demanderDate(`Date d'embauche de ${u.nom} — vide pour l'effacer`, String(frais.cnss_date_embauche || ""), true);
+    if (val === null) return;
+    if (val === String(frais.cnss_date_embauche || "")) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, cnss_date_embauche: val } : x)) }, val ? `Date d'embauche de ${u.nom} : ${dFR(val)}` : `Date d'embauche de ${u.nom} effacée`);
+  };
+
   // Avancement : chaque changement de salaire est archivé dans un historique
   // (date, ancien montant, nouveau montant, motif). Si un taux d'avancement
   // est défini pour l'employé, le nouveau montant est pré-calculé
@@ -1517,6 +1532,7 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerSalaire(u)} className={boutonGerer}>💵 Salaire</button>
                   <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
                   <button data-debut-paie onClick={() => changerDebutPaie(u)} className={boutonGerer} title="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application">📅 Paie suivie depuis {libelleMoisFR(premierMoisPaie(u))}</button>
+                  <button data-date-embauche onClick={() => changerEmbauche(u)} className={boutonGerer} title="Imprimée sur le bulletin de paie, reprise par la déclaration CNSS et le dossier de l'employé">📅 Embauche{u.cnss_date_embauche ? ` · ${dFR(u.cnss_date_embauche)}` : " · à saisir"}</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "avance")} className={boutonGerer}>− Avance</button>
                   <button onClick={() => changerBanque(u)} className={boutonGerer} title={libelleBanque(u) ? `Banque : ${libelleBanque(u)}` : "Aucune banque sur cette fiche"}>🏦 Banque{banqueDe(u) ? ` · ${banqueDe(u)}` : ""}</button>

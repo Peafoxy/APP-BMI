@@ -4925,10 +4925,10 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
   // d'une remise de fonds de caisse (⚙ Paramètres → 💼 Fonds de caisse), qui
   // se corrige depuis que « Régulariser » a daté 50 000 F du mauvais jour.
-  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026 ; RETOURNÉ le 03/10/2026 : ×7, le premier mois de retenue d'un crédit d'avant l'application), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait »)",
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026 ; RETOURNÉ le 03/10/2026 : ×7, le premier mois de retenue d'un crédit d'avant l'application), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait » ; RETOURNÉ le 05/10/2026 : ×7, la date d'embauche dans 👥 Utilisateurs)",
     execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
     && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "7"
-    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "6");
+    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "7");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
     /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds", u\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
     && /demanderMoyenPaiement\("", "Espèces", "Moyen de paiement reçu"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
@@ -12906,6 +12906,16 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     /de août 2026 à octobre 2026 \(3 mois\)/.test(h3) && /Brutcumulé<b>320000F/.test(nb(h3)) && /Moisavecversement<b>2\/3/.test(nb(h3)) && /Versé<b>182000F/.test(nb(h3)));
   test("★ 🧾 niveau 2 : un non-assujetti lit « Non assujetti » pour la base CNSS, jamais un montant",
     /BaseCNSS<b>Nonassujetti/.test(nb(h2)));
+  // 📅 La date d'embauche (05/10/2026, « b ») : saisissable pour TOUT salarié,
+  // dans 👥 Utilisateurs ET dans 🏦 CNSS même case décochée — le même champ.
+  const srcU = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const corpsE = srcU.slice(srcU.indexOf("const changerEmbauche"), srcU.indexOf("};", srcU.indexOf("const changerEmbauche")));
+  test("★★ 📅 la date d'embauche se saisit dans 👥 Utilisateurs → ⋯ Gérer → Paie, administrateur revérifié dans le geste, sur le champ cnss_date_embauche (jamais un second)",
+    /refuserSaufAdmin\(profile, "Fixer la date d'embauche"\)/.test(corpsE) && /demanderDate\(/.test(corpsE) && /cnss_date_embauche: val/.test(corpsE)
+    && /data-date-embauche onClick=\{\(\) => changerEmbauche\(u\)\}/.test(srcU) && !/date_embauche[^:]*:/.test(corpsE.replace(/cnss_date_embauche/g, "")));
+  const ligneCnss = readFileSync("src/screens/Salaires.jsx", "utf8").split("\n").find((l) => l.includes("data-date-embauche")) || "";
+  test("★★ 📅 dans 🏦 CNSS, la case Date d'embauche n'est plus grisée pour un employé non assujetti",
+    ligneCnss.includes('type="date"') && !/disabled=/.test(ligneCnss));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

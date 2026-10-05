@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2208 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2210 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5386,6 +5386,12 @@ lit mal est pire qu'un banc absent).
   (`premierMoisPaie`, donc `paie_debut`) au mois du bulletin : brut, CNSS
   retenue, net, versé, mois avec versement (un mois partiellement payé
   compte). Les chiffres sont ceux de `paieMois`, rien de recalculé.
+- **📅 La date d'embauche (05/10/2026, « b »)** : elle ne se saisissait que
+  dans 💵 Salaires → 🏦 CNSS, et la case y était GRISÉE pour un employé non
+  assujetti. Depuis : la case de 🏦 CNSS reste modifiable, et 👥 Utilisateurs
+  → ⋯ Gérer → Paie a « 📅 Embauche » (`changerEmbauche`, administrateur
+  revérifié, `demanderDate` facultative — vide efface). **Le même champ**
+  `cnss_date_embauche` (fiche de paie), jamais un second. Rien à coller.
 - **Pas construit, à sa demande seulement** : « 3 » (l'IRPP — **avis du
   comptable d'abord** ; la loi n'a pas été vérifiée d'ici).
 - Banc (8 contrôles, le bulletin IMPRIMÉ par un témoin de `printApi`),
