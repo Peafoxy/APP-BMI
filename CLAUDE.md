@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2262 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2264 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5539,13 +5539,16 @@ lit mal est pire qu'un banc absent).
   **La fin = LA VEILLE** (« a », `finDepuisDuree` : 05/10/2026 + 6 mois →
   04/04/2027 ; jour absent → dernier du mois). **🔁 Renouveler** (« b, choix
   2 », `renouvelerContrat`) : une durée, comptée à partir du LENDEMAIN de la
-  fin (`finApresRenouvellement`), **le bouton n'existe que jusqu'à UN MOIS
-  après la fin** (`peutRenouveler` / `limiteRenouvellement`, revérifié DANS le
-  geste par `critiqueRenouvellement`) ; au-delà, « nouveau contrat ou date de
+  fin (`finApresRenouvellement`), **le bouton n'existe que de 15 JOURS AVANT
+  la fin** (« après le 1er rappel des 15 j », `debutRenouvellement`) **jusqu'à
+  UN MOIS après la fin** (`peutRenouveler` / `limiteRenouvellement`, revérifié DANS le
+  geste par `critiqueRenouvellement`, qui dit le jour d'ouverture) ; au-delà, « nouveau contrat ou date de
   sortie à saisir » sous le nom, et un nouveau contrat par 📅 Embauche et
   contrat. Aucun champ neuf (le journal garde le renouvellement) ; rien à
-  coller (paie-3 couvre déjà ces cases). Banc (7 contrôles), éprouvé (la
-  veille retirée, le mois de grâce retiré) ; trois contrôles RETOURNÉS (le
+  coller (paie-3 couvre déjà ces cases). **🚪 Sortie en BOUT de la ligne
+  Paie** (« sortie b ») : un départ n'est pas un geste de tous les jours.
+  Banc (9 contrôles), éprouvé (la veille, le mois de grâce, l'ouverture à
+  15 jours retirés) ; trois contrôles RETOURNÉS (le
   geste de l'embauche, les boutons, `demanderDate` ×8).
 - **Bulletin** : « Contrat : CDD jusqu'au 31/12/2026 » (rien si jamais saisi) ;
   💵 Mon salaire et le dossier d'accès le disent aussi.

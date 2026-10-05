@@ -13171,8 +13171,13 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     && CT.finDepuisDuree("2026-01-01", { mois: 12 }) === "2026-12-31" && CT.finDepuisDuree("2026-10-05", { jours: 45 }) === "2026-11-18");
   const cdd6 = { cnss_code_type: 5, contrat_fin: "2027-04-04" };
   test("★★ 🔁 le renouvellement court à partir du LENDEMAIN de la fin (04/04 + 6 mois → 04/10), possible jusqu'à UN MOIS après la fin, jamais après",
-    CT.finApresRenouvellement(cdd6, { mois: 6 }) === "2027-10-04" && CT.peutRenouveler(cdd6, "2027-03-01") && CT.peutRenouveler(cdd6, "2027-05-04")
+    CT.finApresRenouvellement(cdd6, { mois: 6 }) === "2027-10-04" && CT.peutRenouveler(cdd6, "2027-03-20") && CT.peutRenouveler(cdd6, "2027-05-04")
     && !CT.peutRenouveler(cdd6, "2027-05-05") && !!CT.critiqueRenouvellement(cdd6, "2027-05-05") && CT.critiqueRenouvellement(cdd6, "2027-05-04") === "");
+  test("★★ 🔁 le bouton s'OUVRE avec le premier rappel, 15 jours avant la fin (« après le 1er rappel des 15 j ») : pas le 19/03 pour une fin au 04/04, oui le 20/03 ; le geste le refuse avant en disant quand",
+    !CT.peutRenouveler(cdd6, "2027-03-19") && CT.peutRenouveler(cdd6, "2027-03-20") && CT.debutRenouvellement("2027-04-04") === "2027-03-20"
+    && /s'ouvre le 20\/03\/2027/.test(CT.critiqueRenouvellement(cdd6, "2027-01-10")));
+  test("★ 🚪 Sortie en BOUT de ligne Paie (« sortie b ») : après 💸 Virement",
+    u.indexOf("<button data-sortie onClick") > u.indexOf("envoyerVirement(u)} className"));
   test("★★ 🔁 jamais pour un CDI, un contrat sans fin ou un employé sorti",
     !CT.peutRenouveler({ cnss_code_type: 1, contrat_fin: "2027-04-04" }, "2027-04-01") && !CT.peutRenouveler({ cnss_code_type: 5 }, "2027-04-01")
     && !CT.peutRenouveler({ ...cdd6, cnss_date_sortie: "2027-04-04" }, "2027-04-01") && !!CT.critiqueRenouvellement({ cnss_code_type: 1 }, "2027-04-01"));

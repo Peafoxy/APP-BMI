@@ -158,12 +158,16 @@ export function finDepuisDuree(debut, duree) {
 }
 
 // ---- 🔁 LE RENOUVELLEMENT (décision « b, choix 2 ») ----
-// Possible jusqu'à UN MOIS après la fin ; au-delà, un nouveau contrat.
+// Il s'OUVRE avec le premier rappel, 15 jours avant la fin (Timo, 05/10/2026 :
+// « c'est après le 1er rappel des 15 j qu'il devrait s'afficher »), et reste
+// possible jusqu'à UN MOIS après la fin ; au-delà, un nouveau contrat.
+export const debutRenouvellement = (fin) => plusJours(fin, -JOURS_RAPPEL_FIN[0]);
 export const limiteRenouvellement = (fin) => plusMois(fin, 1);
 export function peutRenouveler(u, aujourdhui) {
   const code = codeContrat(u);
   if (!u || !code || code === CODE_CDI || !estDate(u.contrat_fin) || estDate(u.cnss_date_sortie)) return false;
-  return iso(aujourdhui) <= limiteRenouvellement(u.contrat_fin);
+  const j = iso(aujourdhui);
+  return j >= debutRenouvellement(u.contrat_fin) && j <= limiteRenouvellement(u.contrat_fin);
 }
 // "" = accepté. Revérifié DANS le geste, sur la fiche fraîche.
 export function critiqueRenouvellement(u, aujourdhui) {
@@ -171,6 +175,7 @@ export function critiqueRenouvellement(u, aujourdhui) {
   if (!code || code === CODE_CDI) return "Un CDI ne se renouvelle pas.";
   if (!estDate(u?.contrat_fin)) return "Ce contrat n'a pas de date de fin : fixez-la par « 📅 Embauche et contrat ».";
   if (estDate(u?.cnss_date_sortie)) return `Une date de sortie est saisie (${dFR(u.cnss_date_sortie)}) : un nouveau contrat se fait par « 📅 Embauche et contrat ».`;
+  if (iso(aujourdhui) < debutRenouvellement(u.contrat_fin)) return `Le renouvellement s'ouvre le ${dFR(debutRenouvellement(u.contrat_fin))} (15 jours avant la fin, le ${dFR(u.contrat_fin)}). Pour changer la durée avant, passez par « 📅 Embauche et contrat ».`;
   if (!peutRenouveler(u, aujourdhui)) return `Le contrat a pris fin le ${dFR(u.contrat_fin)} : plus d'un mois est passé (renouvelable jusqu'au ${dFR(limiteRenouvellement(u.contrat_fin))}). Il faut un nouveau contrat : « 📅 Embauche et contrat ».`;
   return "";
 }

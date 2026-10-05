@@ -1636,13 +1636,14 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
                   <button data-debut-paie onClick={() => changerDebutPaie(u)} className={boutonGerer} title="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application">📅 Paie suivie depuis {libelleMoisFR(premierMoisPaie(u))}</button>
                   <button data-embauche-contrat onClick={() => changerEmbaucheContrat(u)} className={boutonGerer} title="La date d'embauche, le type de contrat et sa durée : la fin se calcule toute seule. Imprimés sur le bulletin, repris par la déclaration CNSS">📅 Embauche et contrat{u.cnss_date_embauche ? ` · ${dFR(u.cnss_date_embauche)}` : ""} · {phraseContrat(u) || "à saisir"}</button>
-                  {peutRenouveler(u, today()) && <button data-renouveler onClick={() => renouvelerContrat(u)} className={boutonGerer} title="Prolonge le contrat à partir du lendemain de sa fin ; possible jusqu'à un mois après la fin">🔁 Renouveler</button>}
-                  <button data-sortie onClick={() => changerSortie(u)} className={boutonGerer} title="Date et motif de sortie, repris par la déclaration CNSS">🚪 Sortie{u.cnss_date_sortie ? ` · ${dFR(u.cnss_date_sortie)}` : ""}</button>
+                  {peutRenouveler(u, today()) && <button data-renouveler onClick={() => renouvelerContrat(u)} className={boutonGerer} title="Prolonge le contrat à partir du lendemain de sa fin ; s'affiche 15 jours avant la fin, jusqu'à un mois après">🔁 Renouveler</button>}
                   <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "avance")} className={boutonGerer}>− Avance</button>
                   <button onClick={() => changerBanque(u)} className={boutonGerer} title={libelleBanque(u) ? `Banque : ${libelleBanque(u)}` : "Aucune banque sur cette fiche"}>🏦 Banque{banqueDe(u) ? ` · ${banqueDe(u)}` : ""}</button>
                   <button onClick={() => envoyerVirement(u)} className={boutonGerer}>💸 Virement</button>
                   {(u.virements || []).some((v) => v.statut !== "accepte") && <button onClick={() => annulerVirement(u)} className={`${boutonGerer} !text-amber-700 !border-amber-200`}>Annuler virement</button>}
+                  {/* 🚪 En bout de ligne (Timo, 05/10/2026, « sortie b ») : un départ n'est pas un geste de tous les jours. */}
+                  <button data-sortie onClick={() => changerSortie(u)} className={boutonGerer} title="Date et motif de sortie, repris par la déclaration CNSS">🚪 Sortie{u.cnss_date_sortie ? ` · ${dFR(u.cnss_date_sortie)}` : ""}</button>
                       </div>
                     </div>
                     )}

@@ -108,7 +108,7 @@ export const CHAPITRE = {
       ["h3", "F. « ⋯ Gérer » — le panneau sous la ligne"],
       ["table", { entetes: ["Ligne", "Boutons", "Qui"], largeurs: [1700, 5600, 2000], lignes: [
         ["Compte", "🎭 Rôle · 🎓 Formation / Réel · 🏬 Boutique · 📍 Lieu d'affectation (employé sans boutique) · 📞 Téléphone · 🎂 Anniversaire (jour et mois seulement) · 👁 Voir le mot de passe · 🗑 Supprimer", "Rôle, espace et mot de passe : principal ; le reste : administrateur"],
-        ["Paie", "💵 Salaire · 📈 Taux % · 📅 Paie suivie depuis · 📅 Embauche et contrat · 🔁 Renouveler · 🚪 Sortie · + Prime · − Avance · 🏦 Banque · 💸 Virement · Annuler virement · les crédits (Approuver / Refuser / + Remboursement)", "Administrateur — voir le chapitre 18"],
+        ["Paie", "💵 Salaire · 📈 Taux % · 📅 Paie suivie depuis · 📅 Embauche et contrat · 🔁 Renouveler (15 jours avant la fin) · + Prime · − Avance · 🏦 Banque · 💸 Virement · Annuler virement · 🚪 Sortie · les crédits (Approuver / Refuser / + Remboursement)", "Administrateur — voir le chapitre 18"],
         ["Commercial", "💰 Commission (taux) · 🤝 Parrain · ⭐ Équipe (taux du chef) · Nommer chef / Retirer chef", "Administrateur — voir le chapitre 16"],
         ["Client", "Autoriser chat libre / Retirer chat libre", "Administrateur — voir le chapitre 20"],
       ]}],
