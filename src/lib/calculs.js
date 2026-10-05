@@ -2917,6 +2917,33 @@ export function paieMois(u, mois) {
   return { base, primes, primesHorsCnss, remunerationCNSS, avances, retenueCredit, retenueCNSS, net, verse, accepte, enAttente, reste: net - verse, virements: vs };
 }
 
+// 🧾 Les cumuls de l'année d'un bulletin (05/10/2026, « NIVEAU 2 ») : du
+// premier mois de l'année — ou du premier mois SUIVI s'il est plus tard
+// (`premierMoisPaie` : un mois d'avant l'application n'est pas compté) — au
+// mois du bulletin compris. Le brut est la RÉMUNÉRATION (sans les
+// remboursements de frais avancés, qui ne sont pas un salaire).
+export function cumulsPaieAnnee(u, mois, aujourdhui = today()) {
+  const m = String(mois).slice(0, 7);
+  const premier = premierMoisPaie(u, aujourdhui);
+  let debut = `${m.slice(0, 4)}-01`;
+  if (premier > debut) debut = premier;
+  if (debut > m) debut = m;
+  const [a, mm] = debut.split("-").map(Number);
+  const out = { du: debut, au: m, nbMois: 0, moisPayes: 0, brut: 0, retenueCNSS: 0, retenues: 0, net: 0, verse: 0 };
+  for (let i = mm; i <= Number(m.slice(5, 7)); i++) {
+    const cle = `${a}-${String(i).padStart(2, "0")}`;
+    const p = paieMois(u, cle);
+    out.nbMois += 1;
+    out.brut += p.remunerationCNSS;
+    out.retenueCNSS += p.retenueCNSS;
+    out.retenues += p.avances + p.retenueCredit + p.retenueCNSS;
+    out.net += p.net;
+    out.verse += p.verse;
+    if (p.verse > 0) out.moisPayes += 1;
+  }
+  return out;
+}
+
 export const libelleMoisFR = (m) => {
   const noms = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const i = Number(String(m).slice(5, 7)) - 1;

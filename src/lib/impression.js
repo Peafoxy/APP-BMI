@@ -8,7 +8,7 @@ import { today, dFR, fmt, fmtFcfa, numeroBulletin, totalVente, brutVente, lignes
 import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
-import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation } from "./calculs";
+import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation, cumulsPaieAnnee } from "./calculs";
 import { genererSVGCode128 } from "./barcode";
 import { identiteClient, ligneClient, partieClientContrat } from "./clientEntreprise";
 import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
@@ -738,8 +738,13 @@ export function imprimerBulletin(u, mois, db) {
   const roleLbl = LIBELLE_ROLE_EMPLOYE[u.role] || u.role || "—";
   const numero = numeroBulletin(mois, u.id);
 
-  const ligne = (lib, montant, signe) =>
-    `<tr><td>${esc(lib)}</td><td class="${signe === "-" ? "moins" : signe === "+" ? "plus" : ""}">${signe === "-" ? "−" : signe === "+" ? "+" : ""}${fmt(Math.abs(Number(montant) || 0))}</td></tr>`;
+  // 🧾 NIVEAU 2 (05/10/2026) : deux colonnes Gains / Retenues, comme un
+  // bulletin de solde. Une ligne n'a qu'UN montant, dans SA colonne.
+  const ligne = (lib, montant, sens) =>
+    `<tr><td>${esc(lib)}</td><td class="g">${sens === "+" ? fmt(Math.abs(Number(montant) || 0)) : ""}</td><td class="r">${sens === "-" ? fmt(Math.abs(Number(montant) || 0)) : ""}</td></tr>`;
+  const totalGains = p.base + p.primes;
+  const totalRetenues = p.avances + p.retenueCredit + p.retenueCNSS;
+  const cumul = cumulsPaieAnnee(u, mois);
 
   const html = `
   <style>
@@ -759,6 +764,13 @@ export function imprimerBulletin(u, mois, db) {
   #zone-impression .bp table.el td{border:1px solid #d5e2ee;padding:6px}
   #zone-impression .bp table.el td.plus{color:#2e7d32;font-weight:bold}
   #zone-impression .bp table.el td.moins{color:#c62828;font-weight:bold}
+  #zone-impression .bp table.el td.g,#zone-impression .bp table.el td.r,#zone-impression .bp table.el th.n{text-align:right;white-space:nowrap;width:110px}
+  #zone-impression .bp table.el td.g{color:#2e7d32;font-weight:bold}
+  #zone-impression .bp table.el td.r{color:#c62828;font-weight:bold}
+  #zone-impression .bp table.el tr.tot td{background:#f2f6fa;font-weight:bold}
+  #zone-impression .bp table.bases{width:100%;border-collapse:collapse;margin:6px 0}
+  #zone-impression .bp table.bases td{border:1px solid #d5e2ee;padding:5px 6px;text-align:center;font-size:11px}
+  #zone-impression .bp table.bases td b{display:block;font-size:13px;color:#1e5a8a}
   #zone-impression .bp table.el tr.net td{background:#eaf3ea;border-top:2px solid #1e5a8a;font-weight:bold;font-size:14px;color:#1e5a8a}
   #zone-impression .bp .enc{background:#f7f2fb;border:1px solid #e0d3ee;border-radius:6px;padding:8px 10px;margin-top:8px;font-size:11px}
   #zone-impression .bp table.sign{width:100%;border-collapse:collapse;margin-top:30px}
@@ -803,20 +815,36 @@ export function imprimerBulletin(u, mois, db) {
 
     <div class="btitre">ÉLÉMENTS DE PAIE</div>
     <table class="el">
-      <thead><tr><th>Libellé</th><th>Montant (F CFA)</th></tr></thead>
+      <thead><tr><th>Libellé</th><th class="n">Gains (F CFA)</th><th class="n">Retenues (F CFA)</th></tr></thead>
       <tbody>
-        ${ligne("Salaire de base", p.base, "")}
+        ${ligne("Salaire de base", p.base, "+")}
         ${/* ⚠ Seul texte SAISI encore inséré sans échappement dans un document
               HTML : le motif d'une prime ou d'une avance, tapé librement par
               l'administration. Tout le reste (nom du client, nom d'article,
               adresse, garanties) passait déjà par esc(). */""}
-        ${primes.map((x) => ligne(`Prime${x.motif ? " — " + esc(x.motif) : ""}`, x.montant, "+")).join("")}
-        ${avances.map((x) => ligne(`Avance sur salaire${x.motif ? " — " + esc(x.motif) : ""}`, x.montant, "-")).join("")}
+        ${primes.map((x) => ligne(`${x.hors_cnss ? "Remboursement de frais avancés (hors brut)" : "Prime"}${x.motif ? " — " + esc(x.motif) : ""}`, x.montant, "+")).join("")}
+        ${avances.map((x) => ligne(`Avance sur salaire déjà versée${x.motif ? " — " + esc(x.motif) : ""}`, x.montant, "-")).join("")}
         ${p.retenueCredit > 0 ? ligne("Retenue crédit BMI", p.retenueCredit, "-") : ""}
         ${p.retenueCNSS > 0 ? ligne("Retenue CNSS (9 % — pension vieillesse + AMU)", p.retenueCNSS, "-") : ""}
-        <tr class="net"><td>NET À PERCEVOIR</td><td>${fmt(p.net)}</td></tr>
+        <tr class="tot"><td>TOTAUX</td><td class="g">${fmt(totalGains)}</td><td class="r">${fmt(totalRetenues)}</td></tr>
+        <tr class="net"><td>NET À PERCEVOIR</td><td colspan="2">${fmt(p.net)}</td></tr>
       </tbody>
     </table>
+    <table class="bases"><tr>
+      <td>Salaire brut<b>${fmt(p.remunerationCNSS)}</b></td>
+      <td>Base CNSS<b>${u.cnss_assujetti ? fmt(p.remunerationCNSS) : "Non assujetti"}</b></td>
+      <td>Total des gains<b>${fmt(totalGains)}</b></td>
+      <td>Total des retenues<b>${fmt(totalRetenues)}</b></td>
+    </tr></table>
+
+    <div class="btitre">CUMULS ${esc(cumul.au.slice(0, 4))} — de ${esc(libelleMoisFR(cumul.du))} à ${esc(libelleMoisFR(cumul.au))} (${cumul.nbMois} mois)</div>
+    <table class="bases"><tr>
+      <td>Brut cumulé<b>${fmt(cumul.brut)}</b></td>
+      <td>CNSS retenue<b>${fmt(cumul.retenueCNSS)}</b></td>
+      <td>Net cumulé<b>${fmt(cumul.net)}</b></td>
+      <td>Versé<b>${fmt(cumul.verse)}</b></td>
+      <td>Mois avec versement<b>${cumul.moisPayes} / ${cumul.nbMois}</b></td>
+    </tr></table>
 
     <div class="btitre">VERSEMENTS</div>
     <table class="el">

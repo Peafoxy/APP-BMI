@@ -12886,6 +12886,26 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     h1.includes("…9379") && !h1.includes("TG0012345678909379"));
   test("★ 🧾 une fiche sans ces renseignements n'imprime aucune ligne vide",
     !/Matricule|N° d'assuré|Date d'embauche|<b>Banque/.test(h2) && /NET À PERCEVOIR/.test(h2));
+  // 🧾 NIVEAU 2 (05/10/2026) : Gains / Retenues en deux colonnes, brut, base
+  // CNSS, totaux, et les cumuls de l'année (mois SUIVIS seulement).
+  const ama = { id: "c3", nom: "AMA", role: "vendeur", boutique: "BMI DEMAKPOE", salaire_base: 100000, cnss_assujetti: true, paie_debut: "2026-08",
+    primes: [{ mois: "2026-10", montant: 20000, motif: "objectif" }, { mois: "2026-10", montant: 5000, motif: "carburant", hors_cnss: true }],
+    avances: [{ mois: "2026-10", montant: 10000 }],
+    virements: [{ mois: "2026-08", montant: 91000, statut: "accepte", date_envoi: "2026-08-30" }, { mois: "2026-09", montant: 91000, statut: "accepte", date_envoi: "2026-09-30" }] };
+  Imp.imprimerBulletin(ama, "2026-10", db0);
+  const h3 = String(globalThis.__bulletin || "");
+  const nb = (t) => t.replace(/[\u00a0\u202f\s]/g, "");
+  // Gains 125 000 ; retenues : avance 10 000 + CNSS 9 % de 120 000 = 10 800 → 20 800 ; net 104 200.
+  test("★★ 🧾 niveau 2 : le bulletin a DEUX colonnes Gains / Retenues, une ligne TOTAUX (125 000 / 20 800) et le net 104 200",
+    /Gains \(F CFA\)/.test(h3) && /Retenues \(F CFA\)/.test(h3)
+    && /<trclass="tot"><td>TOTAUX<\/td><tdclass="g">125000F<\/td><tdclass="r">20800F<\/td>/.test(nb(h3))
+    && /NETÀPERCEVOIR<\/td><tdcolspan="2">104200F/.test(nb(h3)));
+  test("★★ 🧾 niveau 2 : le salaire brut et la base CNSS = 120 000 (le remboursement de frais n'est pas du salaire), et il est écrit « hors brut »",
+    /Salairebrut<b>120000F/.test(nb(h3)) && /BaseCNSS<b>120000F/.test(nb(h3)) && /Remboursement de frais avancés \(hors brut\)/.test(h3));
+  test("★★ 🧾 niveau 2 : les cumuls ne comptent que les mois SUIVIS (août → octobre : 3 mois, janvier à juillet, avant la case « Paie suivie depuis », ne comptent pas) — brut 320 000, 2 mois avec versement sur 3",
+    /de août 2026 à octobre 2026 \(3 mois\)/.test(h3) && /Brutcumulé<b>320000F/.test(nb(h3)) && /Moisavecversement<b>2\/3/.test(nb(h3)) && /Versé<b>182000F/.test(nb(h3)));
+  test("★ 🧾 niveau 2 : un non-assujetti lit « Non assujetti » pour la base CNSS, jamais un montant",
+    /BaseCNSS<b>Nonassujetti/.test(nb(h2)));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

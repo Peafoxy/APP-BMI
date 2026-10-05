@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2204 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2208 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5376,11 +5376,22 @@ lit mal est pire qu'un banc absent).
   défaut oublié le 30/09) et imprime ce que la fiche de paie porte déjà :
   matricule, n° d'assuré CNSS, date d'embauche, banque avec le compte
   **masqué** (`compteMasque`) ; une ligne vide ne s'imprime pas.
-- **Pas construits, à sa demande seulement** : « 2 » (deux colonnes Gains /
-  Retenues, brut, base CNSS, totaux, cumuls de l'année) et « 3 » (l'IRPP —
-  **avis du comptable d'abord** ; la loi n'a pas été vérifiée d'ici).
-- Banc (4 contrôles, le bulletin IMPRIMÉ par un témoin de `printApi`),
-  éprouvé (rôle d'avant, compte en entier). Chapitre 18 à jour. Rien à coller.
+- **« NIVEAU 2 » (05/10/2026, construit)** : ÉLÉMENTS DE PAIE en deux
+  colonnes **Gains / Retenues** (remboursement de frais avancés = gain
+  « hors brut », avance = retenue « déjà versée »), ligne **TOTAUX**, net ;
+  dessous **salaire brut** = `remunerationCNSS` (sans les remboursements),
+  **base CNSS** (« Non assujetti » sinon), total gains, total retenues. Puis
+  **les cumuls de l'année** : règle pure `cumulsPaieAnnee(u, mois)`
+  (calculs.js) — du 1er janvier OU du premier mois suivi
+  (`premierMoisPaie`, donc `paie_debut`) au mois du bulletin : brut, CNSS
+  retenue, net, versé, mois avec versement (un mois partiellement payé
+  compte). Les chiffres sont ceux de `paieMois`, rien de recalculé.
+- **Pas construit, à sa demande seulement** : « 3 » (l'IRPP — **avis du
+  comptable d'abord** ; la loi n'a pas été vérifiée d'ici).
+- Banc (8 contrôles, le bulletin IMPRIMÉ par un témoin de `printApi`),
+  éprouvé (rôle d'avant, compte en entier, cumul qui ignore le mois suivi,
+  brut avec le remboursement, TOTAUX retiré, versé = net). Regardé rendu
+  dans Chromium. Chapitre 18 à jour. Rien à coller.
 
 ### 📲 L'AVIS DE PAIEMENT D'UN SALAIRE PART DU NUMÉRO BMI — `virement_salaire` (03/10/2026, le texte de Timo)
 - Timo : « un modèle YCloud pour envoi automatique de message de virement
