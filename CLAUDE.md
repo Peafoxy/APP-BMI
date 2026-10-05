@@ -71,7 +71,7 @@ npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 225 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 83  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
-npm run tester-paie              # 67  : la fiche de paie séparée, le numéro de compte bancaire, le contrat de travail et les cases CNSS verrouillés (serveur)
+npm run tester-paie              # 77  : la fiche de paie séparée, le numéro de compte bancaire, le contrat de travail, les cases CNSS et le premier mois de paie verrouillés (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -2336,7 +2336,7 @@ lit mal est pire qu'un banc absent).
     nettoyée doit REDESCENDRE sur les téléphones, sinon leur copie locale
     garderait le numéro. Quelques dizaines de lignes : négligeable.
   - **Aucune nouvelle table, aucune nouvelle règle** : `paie` et ses politiques
-    existent depuis le 19/08/2026. **`npm run tester-paie`** (67 contrôles)
+    existent depuis le 19/08/2026. **`npm run tester-paie`** (77 contrôles)
     rejoue le script sur base jetable et prouve la fuite AVANT, sa fermeture
     APRÈS, et qu'un vendeur ne voit plus le numéro de son collègue — mais
     toujours le sien.
@@ -5466,8 +5466,8 @@ lit mal est pire qu'un banc absent).
   (administrateur) s'arrête au plus ancien suivi, et un employé pas encore
   suivi le mois regardé n'est ni « 🔴 Non payé » ni compté dans la masse
   (`data-pas-encore-suivis` le dit) — le panneau CNSS suit la même liste.
-- ⚠ Le serveur ne verrouille pas `paie_debut` côté employé (sa propre fiche
-  de paie) : il ne commande que l'AFFICHAGE, aucun argent. Rien à coller.
+- ~~Le serveur ne verrouille pas `paie_debut` côté employé~~ — RETOURNÉ le
+  05/10/2026 : `paie-4-debut-paie.sql` le réserve à l'administrateur.
   Banc (10 contrôles), éprouvé (argent caché, employé non suivi compté) ;
   un contrôle RETOURNÉ (`tousEmployes`). Chapitre 18 à jour.
 
@@ -5546,8 +5546,11 @@ lit mal est pire qu'un banc absent).
   l'employé pouvait réécrire tout ça sur SA fiche de paie. Banc
   `tester-paie` (67), éprouvé en retirant chaque groupe : il tombe.
   **Collé par Timo le 05/10/2026 (`true | true`)** — la porte est fermée.
-  ⚠ Reste NON verrouillé côté employé : `paie_debut` (affichage seul, aucun
-  argent — pas demandé).
+  **`paie-4-debut-paie.sql`** (« ferme aussi le premier mois de paie », le
+  même jour) reprend paie-3 en entier et y ajoute `paie_debut` : plus rien
+  de la fiche de paie ne se réécrit côté employé, sauf confirmer un virement
+  et demander un crédit. Banc `tester-paie` (77), éprouvé en retirant
+  `paie_debut` : cinq tombent. ⏳ **À coller par Timo** (`true | true`).
 - Pas construit : une indemnité de fin de CDD (loi à vérifier par le
   comptable). Banc (11 contrôles), éprouvé (sortie ignorée, rappel à tous les
   administrateurs) ; un contrôle RETOURNÉ (`demanderDate` ×9). Chapitres 2 et
