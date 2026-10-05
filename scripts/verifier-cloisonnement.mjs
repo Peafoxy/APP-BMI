@@ -12918,5 +12918,22 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     ligneCnss.includes('type="date"') && !/disabled=/.test(ligneCnss));
 }
 
+// ── 🔒 La fiche des boutiques n'est plus lisible sans connexion (05/10/2026,
+// securite-35 collé par Timo) et les vieux scripts qui défont la sécurité
+// sont rangés dans supabase/archives/ (« oui, range les vieux scripts »).
+{
+  const racine = readdirSync("supabase").filter((f) => f.endsWith(".sql"));
+  const dangereux = ["rouvrir_acces.sql", "schema.sql", "corriger-lecture-boutiques.sql", "corriger-lecture-users.sql", "durcir_securite.sql", "reinitialiser_base.sql", "vider-donnees-demo.sql", "ajouter_groupes.sql", "ajouter_proformas.sql", "activer-rls.sql"];
+  test("★★ 🔒 aucun vieux script qui défait la sécurité ne traîne à la racine de supabase/ : ils sont dans supabase/archives/, avec leur mise en garde",
+    dangereux.every((f) => !racine.includes(f) && existsSync(join("supabase", "archives", f))) && /NE JAMAIS COLLER/.test(readFileSync("supabase/archives/LISEZ-MOI.md", "utf8")));
+  const ouvreBoutiques = racine.filter((f) => /policy[^;]*on\s+(public\.)?boutiques[^;]*\banon\b/is.test(readFileSync(join("supabase", f), "utf8")));
+  test("★★ 🔒 aucun script actif ne rouvre la lecture des boutiques aux visiteurs (securite-35 la ferme)",
+    ouvreBoutiques.length === 0 && /revoke select on public\.boutiques from anon/.test(readFileSync("supabase/securite-35-fermer-lecture-boutiques.sql", "utf8")));
+  const app = readFileSync("src/App.jsx", "utf8").replace(/\/\/[^\n]*/g, "");
+  const sy = readFileSync("src/sync.js", "utf8").replace(/\/\/[^\n]*/g, "");
+  test("★ 🔒 l'application ne lit plus la table des boutiques avant la connexion (amorcerBoutiques retirée) ; l'écran de connexion passe par api/apparence",
+    !/amorcerBoutiques/.test(app + sy) && /chargerApparence\(\)/.test(app));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

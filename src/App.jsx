@@ -77,7 +77,7 @@ import {
 import { TABLES, initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
   memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
 import { rebaser } from "./lib/rebase";
-import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, amorcerBoutiques, reconcilierMiroir, abandonnerGesteRefuse } from "./sync";
+import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, reconcilierMiroir, abandonnerGesteRefuse } from "./sync";
 import { planAbandon, resumeAbandon } from "./lib/abandonLot";
 import { idb } from "./db";
 import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, chargerApparence } from "./supabaseClient";
@@ -522,10 +522,10 @@ export default function App() {
       // correspondant à l'identifiant saisi, et ne l'obtient que si le mot
       // de passe est le bon (api/chercher-compte.js). Rien ne change pour un
       // appareil déjà utilisé : sa copie locale suffit, hors réseau compris.
-      // ⚠ Même besoin que ci-dessus, pour l'écran de connexion : sans ça, la
-      // personnalisation (couleur, badge, image) d'un appareil neuf reste
-      // aux valeurs par défaut jusqu'à la toute première connexion réussie.
-      amorcerBoutiques().then((reussi) => { if (reussi) chargerTout().then(setDb); });
+      // ⚠ La lecture SANS CONNEXION de la table des boutiques est FERMÉE
+      // (05/10/2026, collé par Timo) : sa fiche porte le loyer, le cachet,
+      // les numéros mobiles, l'outillage. L'amorçage qui la lisait ici a été
+      // retiré : l'écran de connexion prend son apparence du serveur.
       // ⚠ Constaté par Timo (20/08/2026) : sur un appareil NEUF, les fiches
       // boutiques ne sont pas encore là — l'écran de connexion s'affichait
       // donc dans son habillage par défaut jusqu'à la première connexion.

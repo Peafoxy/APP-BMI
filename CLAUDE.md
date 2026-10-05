@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2210 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2213 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6221,6 +6221,22 @@ lit mal est pire qu'un banc absent).
   — le banc par UPDATE seul rassurait sans protéger.
 - **Supabase donne les droits par défaut à `anon` sur toute nouvelle table
   ET toute nouvelle fonction.** `revoke from public` ne suffit pas.
+- ⚠⚠ **LA FICHE DES BOUTIQUES N'EST PLUS LISIBLE SANS CONNEXION**
+  (05/10/2026, après un avis extérieur sur les `using (true)` ;
+  **`securite-35` collé par Timo, `false | false`**). La règle
+  `lecture_publique_boutiques` d'août (écran de connexion d'un appareil neuf)
+  publiait, depuis, le loyer, le cachet, les numéros Flooz / Mixx et
+  l'outillage. L'écran de connexion passe par `api/apparence.js` (habillage
+  seul) ; `amorcerBoutiques` est RETIRÉE. **Le site vitrine n'en dépend
+  pas** (vérifié dans `site-bmitogo` : vue `catalogue_public` et fonction
+  `stock_calcule`). Les 7 autres lectures publiques (`contenu_site`,
+  `galerie`, `kits`, `produit_details`, `produit_images`, `realisations`,
+  `temoignages`) sont celles du site vitrine : VOULUES. **Les vieux scripts
+  qui défont la sécurité** (`rouvrir_acces.sql`, `schema.sql`,
+  `corriger-lecture-*.sql`, `durcir_securite.sql`, `reinitialiser_base.sql`…)
+  sont rangés dans `supabase/archives/` avec un LISEZ-MOI « NE JAMAIS
+  COLLER » ; le banc tombe si l'un revient à la racine ou si un script actif
+  rouvre `boutiques` aux visiteurs (éprouvé).
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
 - **Un banc Chromium écrit sa page AVEC `<meta charset="utf-8">`** : sans
   lui, le « × » d'une expression régulière du bundle est lu en deux
