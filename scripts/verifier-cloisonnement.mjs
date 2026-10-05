@@ -3701,7 +3701,7 @@ titre("🏦 Les banques : une liste dans Paramètres, la banque sur la fiche, le
   test("★ la fiche porte 🏦 Banque : administrateur, choix dans la liste (ou saisie libre sans liste), banque et numéro de compte enregistrés",
     /refuserSaufAdmin\(profile, "Modifier la banque d'un employé"\)/.test(utiB)
     && /\{ \.\.\.x, banque, compte_bancaire: String\(compte\)\.trim\(\) \}/.test(utiB)
-    && /🏦 Banque\{banqueDe\(u\) \? ` · \$\{banqueDe\(u\)\}` : ""\}/.test(utiB));
+    && /<BoutonGerer onClick=\{\(\) => changerBanque\(u\)\} nom="🏦 Banque" \/>/.test(utiB));
   test("★ chaque paiement à une personne passe SA fiche à la question, et la prime d'installation garde sa banque",
     /demanderMoyenPaiement\(`pour \$\{c\.u\.nom\}`, "Espèces", "Moyen de paiement", c\.u\)/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8"))
     && /demanderMoyenPaiement\(`pour \$\{st\.u\.nom\}`, "Espèces", "Moyen de paiement", st\.u\)/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8"))
@@ -5347,7 +5347,7 @@ titre("🎭 Changer le rôle d'un compte : l'administrateur principal seul, jama
   test("★ le geste revérifie DANS le geste : lecture seule, administrateur principal, jamais sa propre fiche, jamais un client",
     /const changerRole = async \(u\) => \{\n    if \(bloquerSiLecture\(db, profile\)\) return;\n    if \(refuserSaufAdminPrincipal\(db, profile, "Changer le rôle d'un compte"\)\) return;\n    if \(refusSurSoi\(u, "changer votre propre rôle"\)\) return;\n    if \(u\.role === "client"\)/.test(us));
   test("★ le bouton 🎭 Rôle n'est montré qu'au principal, hors clients et hors sa propre fiche",
-    /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <button onClick=\{\(\) => changerRole\(u\)\}/.test(us));
+    /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <BoutonGerer onClick=\{\(\) => changerRole\(u\)\}/.test(us));
   test("★ la liste des rôles proposés ne contient jamais « client »",
     /const ROLES_CHANGEABLES = \["vendeur", "gerant", "magasinier", "commercial", "technicien", "technicien_bmi", "resp_commercial", "comptable", "admin"\];/.test(us)
     && !/ROLES_CHANGEABLES = \[[^\]]*"client"/.test(us));
@@ -7356,11 +7356,11 @@ titre("👥 La liste des utilisateurs, lisible : quatre boutons ronds + « ⋯ G
     // 12/09/2026 (capture Timo, « classer les actions par ligne et non par colonne ») : un thème = UNE ligne, son nom à gauche, ses boutons à la suite.
     ["Compte", "Paie", "Commercial", "Client"].every((t) => ul.includes(`<div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">${t}</div>`))
     && /<div className="space-y-2 text-sm">/.test(ul) && !/grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm/.test(ul)
-    && /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <button onClick=\{\(\) => changerRole\(u\)\} className=\{boutonGerer\}/.test(ul)
-    && /\{jeSuisAdminPrincipal && !surMaPropreFiche\(u\) && \(\n\s*<button onClick=\{\(\) => basculerFormation\(u\)\} className=\{boutonGerer\}/.test(ul)
+    && /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <BoutonGerer onClick=\{\(\) => changerRole\(u\)\}/.test(ul)
+    && /\{jeSuisAdminPrincipal && !surMaPropreFiche\(u\) && \(\n\s*<BoutonGerer onClick=\{\(\) => basculerFormation\(u\)\}/.test(ul)
     && /\{SALARIES\.includes\(u\.role\) && \(\n\s*<div className="flex flex-wrap items-start gap-x-3 gap-y-1">\n\s*<div className="w-24 shrink-0 pt-1\.5 text-\[11px\] font-bold uppercase text-slate-500">Paie/.test(ul)
     && ["changerBoutique(u)", "changerAnniversaire(u)", "voirPwd(u)", "supprimerU(u)", "changerSalaire(u)", "changerTauxAvancement(u)", 'ajouterMouvementSalaire(u, "prime")', 'ajouterMouvementSalaire(u, "avance")', "envoyerVirement(u)", "annulerVirement(u)", "changerTauxCommission(u)", "changerParrain(u)", "changerTauxEquipe(u)", "basculerChef(u)", "basculerChatLibre(u)"].every((g) => ul.includes(`onClick={() => ${g}}`))
-    && /\{jeSuisAdminPrincipal && <button onClick=\{\(\) => voirPwd\(u\)\}/.test(ul) && /\{SALARIES_BOUTIQUE\.includes\(u\.role\) && <button onClick=\{\(\) => changerBoutique\(u\)\}/.test(ul));
+    && /\{jeSuisAdminPrincipal && <BoutonGerer onClick=\{\(\) => voirPwd\(u\)\}/.test(ul) && /\{SALARIES_BOUTIQUE\.includes\(u\.role\) && <BoutonGerer onClick=\{\(\) => changerBoutique\(u\)\}/.test(ul));
   test("★ rôle, boutique (« Toutes ») et statut en pastilles (+ 🎓 Formation), identité manquante discrète ; les deux gestes graves (formation en masse, retirer Historique + Paramètres) sont en bas dans « Actions groupées », mêmes gardes, plus de lien souligné au-dessus de la liste",
     /teinteRole\(u\.role\)/.test(ul) && /border-slate-200">Toutes<\/span>/.test(ul) && /🎓 Formation<\/span>/.test(ul) && /title="Identité non renseignée : bouton 🆔 Identité">⚠ Identité<\/div>/.test(ul)
     && /Actions groupées/.test(ul) && /\{jeSuisAdminPrincipal && \(\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-1">⚠ Actions groupées/.test(ul)
@@ -8963,7 +8963,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && /ongletsVisites\.equipe && \(isAdmin \|\| isRespCom \|\| \(\(isCommercial \|\| isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appC));
 
   test("★ le bouton « Nommer chef » existe enfin sur la fiche d'un technicien BMI, la case est proposée à la création, et l'étoile ⭐ Chef se VOIT sur sa pastille",
-    /\{\["commercial", "technicien", "technicien_bmi"\]\.includes\(u\.role\) && <button onClick=\{\(\) => basculerChef\(u\)\}/.test(usC)
+    /\{\["commercial", "technicien", "technicien_bmi"\]\.includes\(u\.role\) && <BoutonGerer onClick=\{\(\) => basculerChef\(u\)\}/.test(usC)
     && /\{\(f\.role === "commercial" \|\| f\.role === "technicien" \|\| f\.role === "technicien_bmi"\) && \(\s*\n\s*<label/.test(usC)
     && /if \(f\.role === "technicien_bmi" && f\.chef\) nouvelUser\.chef_equipe = true;/.test(usC)
     && /u\.role === "technicien_bmi" \? `🔧 Technicien BMI \(salarié\).*\$\{u\.chef_equipe \? " ⭐ Chef" : ""\}`/.test(usC));
@@ -13114,7 +13114,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     /refuserSaufAdmin\(profile, "Écrire le lieu d'affectation d'un employé"\)/.test(corps) && /const frais = db\.users\.find\(\(x\) => x\.id === u\.id\) \|\| u;/.test(corps)
     && (corps.match(/critiqueAffectation\(frais, /g) || []).length === 2 && /`Lieu d'affectation de \$\{u\.nom\} : /.test(corps));
   test("★ 📍 le bouton ne s'affiche que là où la règle le permet, et le lieu se LIT sous le nom",
-    /\{peutAvoirAffectation\(u\) && <button data-affectation onClick=\{\(\) => changerAffectation\(u\)\}/.test(u) && /data-ligne-affectation/.test(u));
+    /\{peutAvoirAffectation\(u\) && <BoutonGerer data-affectation onClick=\{\(\) => changerAffectation\(u\)\}/.test(u) && /data-ligne-affectation/.test(u));
   const sql = readFileSync("supabase/securite-37-affectation.sql", "utf8");
   const s18 = readFileSync("supabase/securite-18-banque.sql", "utf8");
   const corpsF = (t) => t.slice(t.indexOf("create or replace function"), t.indexOf("-- ═════════════════════════════════════════════════\n-- VÉRIFICATION")).replace(/--[^\n]*\n/g, "").replace(/\s+/g, " ");
@@ -13177,7 +13177,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     !CT.peutRenouveler(cdd6, "2027-03-19") && CT.peutRenouveler(cdd6, "2027-03-20") && CT.debutRenouvellement("2027-04-04") === "2027-03-20"
     && /s'ouvre le 20\/03\/2027/.test(CT.critiqueRenouvellement(cdd6, "2027-01-10")));
   test("★ 🚪 Sortie en BOUT de ligne Paie (« sortie b ») : après 💸 Virement",
-    u.indexOf("<button data-sortie onClick") > u.indexOf("envoyerVirement(u)} className"));
+    u.indexOf("<BoutonGerer data-sortie onClick") > u.indexOf("envoyerVirement(u)} nom"));
   test("★★ 🔁 jamais pour un CDI, un contrat sans fin ou un employé sorti",
     !CT.peutRenouveler({ cnss_code_type: 1, contrat_fin: "2027-04-04" }, "2027-04-01") && !CT.peutRenouveler({ cnss_code_type: 5 }, "2027-04-01")
     && !CT.peutRenouveler({ ...cdd6, cnss_date_sortie: "2027-04-04" }, "2027-04-01") && !!CT.critiqueRenouvellement({ cnss_code_type: 1 }, "2027-04-01"));
@@ -13186,10 +13186,20 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   test("★★ 📅 le geste calcule la fin par la règle (jamais une date demandée), et 🔁 Renouveler est à l'administrateur, revérifié DANS le geste sur la fiche fraîche",
     /finDepuisDuree\(embauche, duree\)/.test(cC) && /lireDuree\(/.test(cC) && !/demanderDate\(`Fin du contrat/.test(u)
     && /refuserSaufAdmin\(profile, "Renouveler un contrat"\)/.test(cR) && /const frais = db\.users\.find/.test(cR) && /critiqueRenouvellement\(frais, today\(\)\)/.test(cR) && /finApresRenouvellement\(frais, duree\)/.test(cR));
+  // ⋯ GÉRER : un bouton porte son NOM, jamais la valeur qu'il règle (Timo,
+  // 05/10/2026 : « les boutons dans Gérer n'ont pas besoin d'afficher les
+  // détails… une seule règle »). UN composant (BoutonGerer, ui.jsx) ; son nom
+  // est un TEXTE écrit, ou le choix entre deux textes pour un geste qui bascule.
+  const noms = [...u.matchAll(/<BoutonGerer\b[\s\S]*?\/>/g)].map((m) => (m[0].match(/ nom=(\{[^}]*\}|"[^"]*") \/>$/) || [, "?"])[1]);
+  test("★★ ⋯ Gérer : UN composant pour tous ses boutons (BoutonGerer), plus aucun bouton maison, et AUCUNE valeur dans un nom (date, contrat, banque, taux, numéro)",
+    noms.length === 24 && !/boutonGerer/.test(u)
+    && noms.every((n) => n.startsWith('"') || /^\{u\.[a-z_]+ \? "[^"]*" : "[^"]*"\}$/.test(n))
+    && /export function BoutonGerer\(\{ nom, onClick, titre, ton, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
+    && /\{String\(nom\)\}<\/button>/.test(readFileSync("src/components/ui.jsx", "utf8")));
   test("★★ 🔁 le bouton Renouveler n'apparaît que si le contrat se renouvelle encore",
-    /\{peutRenouveler\(u, today\(\)\) && <button data-renouveler onClick=\{\(\) => renouvelerContrat\(u\)\}/.test(u));
+    /\{peutRenouveler\(u, today\(\)\) && <BoutonGerer data-renouveler onClick=\{\(\) => renouvelerContrat\(u\)\}/.test(u));
   test("★ 📄 les boutons 📅 Embauche et contrat et 🚪 Sortie sont dans ⋯ Gérer, et la fin se LIT sous le nom",
-    /<button data-embauche-contrat onClick=\{\(\) => changerEmbaucheContrat\(u\)\}/.test(u) && /<button data-sortie onClick=\{\(\) => changerSortie\(u\)\}/.test(u) && /data-fin-contrat/.test(u));
+    /<BoutonGerer data-embauche-contrat onClick=\{\(\) => changerEmbaucheContrat\(u\)\}/.test(u) && /<BoutonGerer data-sortie onClick=\{\(\) => changerSortie\(u\)\}/.test(u) && /data-fin-contrat/.test(u));
   const paie = readFileSync("src/lib/paie.js", "utf8");
   test("★★ 📄 la date de fin vit dans la fiche de PAIE (protégée), pas sur la fiche que tout le monde télécharge",
     /"contrat_fin",/.test(paie));

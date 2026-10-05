@@ -14,7 +14,7 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, 
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, IconeWhatsApp, champRecherche } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, IconeWhatsApp, champRecherche } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
@@ -33,7 +33,6 @@ const ROLES_CHANGEABLES = ["vendeur", "gerant", "magasinier", "commercial", "tec
 // panneau « Gérer », et la couleur de la pastille de rôle.
 // Le bouton rond commun (ui.jsx), avec `relative` pour la pastille d'alerte.
 const boutonRond = (teinte) => `relative ${boutonAction(teinte)}`;
-const boutonGerer = "px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100";
 const teinteRole = (role) => (role === "admin" ? "bg-slate-800 text-white border-slate-800"
   : role === "gerant" ? "bg-sky-100 text-sky-800 border-sky-200"
   : role === "vendeur" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
@@ -1614,36 +1613,34 @@ export function Users({ db, save, profile }) {
                     <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
                       <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Compte</div>
                       <div className="flex flex-wrap gap-1.5 min-w-0">
-                  {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <button onClick={() => changerRole(u)} className={boutonGerer} title={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"}>🎭 Rôle</button>}
+                  {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <BoutonGerer onClick={() => changerRole(u)} titre={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"} nom="🎭 Rôle" />}
                   {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
-                    <button onClick={() => basculerFormation(u)} className={boutonGerer}>
-                      {u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"}
-                    </button>
+                    <BoutonGerer onClick={() => basculerFormation(u)} nom={u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"} />
                   )}
-                  {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className={boutonGerer}>🏬 Boutique</button>}
-                  {peutAvoirAffectation(u) && <button data-affectation onClick={() => changerAffectation(u)} className={boutonGerer} title="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit">📍 {u.affectation ? u.affectation : "Lieu d'affectation"}</button>}
-                  {u.role !== "client" && <button onClick={() => changerTelephone(u)} className={boutonGerer} title={u.tel ? `Téléphone : ${u.tel}` : "Aucun numéro sur cette fiche"}>📞 {u.tel || "Téléphone"}</button>}
-                  {u.role !== "client" && <button onClick={() => changerAnniversaire(u)} className={boutonGerer}>🎂 {u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "Anniversaire"}</button>}
-                  {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className={boutonGerer}>👁 Voir le mot de passe</button>}
-                  <button onClick={() => supprimerU(u)} className={`${boutonGerer} !text-red-700 !border-red-200`}>🗑 Supprimer</button>
+                  {SALARIES_BOUTIQUE.includes(u.role) && <BoutonGerer onClick={() => changerBoutique(u)} nom="🏬 Boutique" />}
+                  {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
+                  {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} nom="📞 Téléphone" />}
+                  {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} nom="🎂 Anniversaire" />}
+                  {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Voir le mot de passe" />}
+                  <BoutonGerer onClick={() => supprimerU(u)} ton="danger" nom="🗑 Supprimer" />
                       </div>
                     </div>
                     {SALARIES.includes(u.role) && (
                     <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
                       <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Paie</div>
                       <div className="flex flex-wrap gap-1.5 min-w-0">
-                  <button onClick={() => changerSalaire(u)} className={boutonGerer}>💵 Salaire</button>
-                  <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
-                  <button data-debut-paie onClick={() => changerDebutPaie(u)} className={boutonGerer} title="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application">📅 Paie suivie depuis {libelleMoisFR(premierMoisPaie(u))}</button>
-                  <button data-embauche-contrat onClick={() => changerEmbaucheContrat(u)} className={boutonGerer} title="La date d'embauche, le type de contrat et sa durée : la fin se calcule toute seule. Imprimés sur le bulletin, repris par la déclaration CNSS">📅 Embauche et contrat{u.cnss_date_embauche ? ` · ${dFR(u.cnss_date_embauche)}` : ""} · {phraseContrat(u) || "à saisir"}</button>
-                  {peutRenouveler(u, today()) && <button data-renouveler onClick={() => renouvelerContrat(u)} className={boutonGerer} title="Prolonge le contrat à partir du lendemain de sa fin ; s'affiche 15 jours avant la fin, jusqu'à un mois après">🔁 Renouveler</button>}
-                  <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
-                  <button onClick={() => ajouterMouvementSalaire(u, "avance")} className={boutonGerer}>− Avance</button>
-                  <button onClick={() => changerBanque(u)} className={boutonGerer} title={libelleBanque(u) ? `Banque : ${libelleBanque(u)}` : "Aucune banque sur cette fiche"}>🏦 Banque{banqueDe(u) ? ` · ${banqueDe(u)}` : ""}</button>
-                  <button onClick={() => envoyerVirement(u)} className={boutonGerer}>💸 Virement</button>
-                  {(u.virements || []).some((v) => v.statut !== "accepte") && <button onClick={() => annulerVirement(u)} className={`${boutonGerer} !text-amber-700 !border-amber-200`}>Annuler virement</button>}
+                  <BoutonGerer onClick={() => changerSalaire(u)} nom="💵 Salaire" />
+                  <BoutonGerer onClick={() => changerTauxAvancement(u)} nom="📈 Taux %" />
+                  <BoutonGerer data-debut-paie onClick={() => changerDebutPaie(u)} titre="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application" nom="📅 Paie suivie depuis" />
+                  <BoutonGerer data-embauche-contrat onClick={() => changerEmbaucheContrat(u)} titre="La date d'embauche, le type de contrat et sa durée : la fin se calcule toute seule. Imprimés sur le bulletin, repris par la déclaration CNSS" nom="📅 Embauche et contrat" />
+                  {peutRenouveler(u, today()) && <BoutonGerer data-renouveler onClick={() => renouvelerContrat(u)} titre="Prolonge le contrat à partir du lendemain de sa fin ; s'affiche 15 jours avant la fin, jusqu'à un mois après" nom="🔁 Renouveler" />}
+                  <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "prime")} nom="+ Prime" />
+                  <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "avance")} nom="− Avance" />
+                  <BoutonGerer onClick={() => changerBanque(u)} nom="🏦 Banque" />
+                  <BoutonGerer onClick={() => envoyerVirement(u)} nom="💸 Virement" />
+                  {(u.virements || []).some((v) => v.statut !== "accepte") && <BoutonGerer onClick={() => annulerVirement(u)} ton="attention" nom="Annuler virement" />}
                   {/* 🚪 En bout de ligne (Timo, 05/10/2026, « sortie b ») : un départ n'est pas un geste de tous les jours. */}
-                  <button data-sortie onClick={() => changerSortie(u)} className={boutonGerer} title="Date et motif de sortie, repris par la déclaration CNSS">🚪 Sortie{u.cnss_date_sortie ? ` · ${dFR(u.cnss_date_sortie)}` : ""}</button>
+                  <BoutonGerer data-sortie onClick={() => changerSortie(u)} titre="Date et motif de sortie, repris par la déclaration CNSS" nom="🚪 Sortie" />
                       </div>
                     </div>
                     )}
@@ -1651,10 +1648,10 @@ export function Users({ db, save, profile }) {
                     <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
                       <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Commercial</div>
                       <div className="flex flex-wrap gap-1.5 min-w-0">
-                  <button onClick={() => changerTauxCommission(u)} className={boutonGerer}>💰 Commission {u.taux_commission ?? 0} %</button>
-                  {["commercial", "technicien"].includes(u.role) && <button onClick={() => changerParrain(u)} className={boutonGerer}>🤝 Parrain</button>}
-                  {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <button onClick={() => changerTauxEquipe(u)} className={boutonGerer}>⭐ Équipe {u.taux_equipe ?? TAUX_EQUIPE_DEFAUT} %</button>}
-                  {["commercial", "technicien", "technicien_bmi"].includes(u.role) && <button onClick={() => basculerChef(u)} className={boutonGerer}>{u.chef_equipe ? "Retirer chef" : "Nommer chef"}</button>}
+                  <BoutonGerer onClick={() => changerTauxCommission(u)} nom="💰 Commission" />
+                  {["commercial", "technicien"].includes(u.role) && <BoutonGerer onClick={() => changerParrain(u)} nom="🤝 Parrain" />}
+                  {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <BoutonGerer onClick={() => changerTauxEquipe(u)} nom="⭐ Équipe" />}
+                  {["commercial", "technicien", "technicien_bmi"].includes(u.role) && <BoutonGerer onClick={() => basculerChef(u)} nom={u.chef_equipe ? "Retirer chef" : "Nommer chef"} />}
                       </div>
                     </div>
                     )}
@@ -1662,7 +1659,7 @@ export function Users({ db, save, profile }) {
                     <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
                       <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Client</div>
                       <div className="flex flex-wrap gap-1.5 min-w-0">
-                  <button onClick={() => basculerChatLibre(u)} className={boutonGerer}>{u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"}</button>
+                  <BoutonGerer onClick={() => basculerChatLibre(u)} nom={u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"} />
                       </div>
                     </div>
                     )}

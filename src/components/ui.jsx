@@ -165,6 +165,20 @@ export function ListeArticles({ lignes, deplie = false, enfants = null }) {
   );
 }
 // Un bouton d'action rond : l'icône seule, le libellé au survol (title).
+// ⋯ GÉRER : UN BOUTON PORTE SON NOM, JAMAIS LA VALEUR QU'IL RÈGLE (Timo,
+// 05/10/2026, capture de 👥 Utilisateurs : « les boutons dans Gérer n'ont pas
+// besoin d'afficher les détails… ça reste caché, et lorsqu'on appuie dessus,
+// ça s'affiche » ; « valable pour d'autres boutons… une seule règle »). La
+// valeur (date, contrat, banque, taux, numéro…) se lit dans la QUESTION que le
+// bouton ouvre, préremplie. `nom` est un texte ; un bouton qui BASCULE passe
+// le nom de son geste (« Nommer chef » / « Retirer chef »). Écrit UNE fois ;
+// le banc interdit une valeur dans le nom.
+const CLASSE_BOUTON_GERER = "px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100";
+const TON_BOUTON_GERER = { danger: " !text-red-700 !border-red-200", attention: " !text-amber-700 !border-amber-200" };
+export function BoutonGerer({ nom, onClick, titre, ton, ...autres }) {
+  return <button {...autres} onClick={onClick} title={titre} className={CLASSE_BOUTON_GERER + (TON_BOUTON_GERER[ton] || "")}>{String(nom)}</button>;
+}
+
 export const boutonAction = (teinte) => `inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
 // La ligne d'un tableau qu'on déplie au clic (Ventes, Dettes) : UNE ligne
 // dépliée à la fois, fond bleu soutenu + barre épaisse à gauche (couleur de

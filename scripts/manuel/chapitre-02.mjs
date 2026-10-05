@@ -106,6 +106,7 @@ export const CHAPITRE = {
       ]}],
 
       ["h3", "F. « ⋯ Gérer » — le panneau sous la ligne"],
+      ["note", "**Un bouton de « ⋯ Gérer » ne porte que son NOM** (« 🏦 Banque », « 💰 Commission », « 📅 Embauche et contrat »…), jamais la valeur qu'il règle : la valeur actuelle se lit dans la question qu'il ouvre, déjà remplie. Seuls les boutons qui basculent disent leur geste (« Nommer chef » / « Retirer chef »)."],
       ["table", { entetes: ["Ligne", "Boutons", "Qui"], largeurs: [1700, 5600, 2000], lignes: [
         ["Compte", "🎭 Rôle · 🎓 Formation / Réel · 🏬 Boutique · 📍 Lieu d'affectation (employé sans boutique) · 📞 Téléphone · 🎂 Anniversaire (jour et mois seulement) · 👁 Voir le mot de passe · 🗑 Supprimer", "Rôle, espace et mot de passe : principal ; le reste : administrateur"],
         ["Paie", "💵 Salaire · 📈 Taux % · 📅 Paie suivie depuis · 📅 Embauche et contrat · 🔁 Renouveler (15 jours avant la fin) · + Prime · − Avance · 🏦 Banque · 💸 Virement · Annuler virement · 🚪 Sortie · les crédits (Approuver / Refuser / + Remboursement)", "Administrateur — voir le chapitre 18"],
