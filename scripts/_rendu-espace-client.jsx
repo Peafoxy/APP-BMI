@@ -23,7 +23,8 @@
 // ============================================================
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { EspaceClient } from "../src/screens/EspaceClient.jsx";
+import { EspaceClient, SuiviPoseClient } from "../src/screens/EspaceClient.jsx";
+import { validerDevis } from "../src/lib/validationDevis.js";
 // ⚠ 🔒 Mes données est un ÉCRAN à part depuis le 19/09/2026 (Timo : « ramener
 // ça en onglet à côté de message ») : il se rend donc ici aussi, sinon le
 // contrôle qui attrape les écrans blancs ne le couvrirait pas.
@@ -61,3 +62,19 @@ const dbGarni = {
 };
 export const htmlDonnees = rendreDonnees(dbGarni);
 export const htmlDonneesNu = rendreDonnees({ users: [moi], messages: [] });
+
+// 4. 🔧 Une POSE SEULE validée par le client (05/10/2026) : le bloc qu'il lit
+// juste après sa signature, rendu sur la base que fabrique la VRAIE validation.
+const devisPose = { id: "dp", date: "2026-10-05", par: "AMA", statut: "propose", pose_seule: true, boutique: "BMI DEMAKPOE",
+  lignes: [{ article: "Pose et mise en service", categorie: "Installation", qte: 1, pu: 300000, total: 300000 }], total: 300000 };
+const baseP = { users: [{ ...moi, devis: [devisPose] }], boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", tel: "90000000", adresse: "Démakpoé" }],
+  ventes: [], dettes: [], clients_installes: [], messages: [], proformas: [], commandes: [] };
+const rP = validerDevis(baseP, { clientId: "c1", devisId: "dp", infosContrat: { contrat_numero: "BMI-T" }, acteur: { nom: "KOSSI", estClient: true } });
+const dP = rP.db.users[0].devis[0];
+const rendrePose = (db) => renderToStaticMarkup(React.createElement(SuiviPoseClient, { d: dP, db }));
+export const htmlPoseAvant = rendrePose(rP.db);
+const avecPaye = (paye) => ({ ...rP.db, dettes: rP.db.dettes.map((x) => ({ ...x, paye, paiements: paye ? [{ date: "2026-10-06", montant: paye }] : [] })) });
+export const htmlPoseAcompte = rendrePose(avecPaye(210000));
+export const htmlPoseSolde = rendrePose(avecPaye(300000));
+// ⚠ La vraie base d'un téléphone de client ne porte pas les boutiques.
+export const htmlPoseNu = rendrePose({ ...rP.db, boutiques: undefined });

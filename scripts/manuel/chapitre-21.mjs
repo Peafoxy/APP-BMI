@@ -7,7 +7,7 @@
 // screens/EspaceClient.jsx (🎁 Un cadeau vous attend, 🤝 Parrainez vos
 // proches, 📋 Mes devis — ✅ JE VALIDE, ✏️ Demander une modification,
 // ❌ Rejeter ce devis, ⭐ Envoyer mon avis, ⏳ Validé — en attente de votre
-// paiement, 💰 Où en est votre paiement, ✅ Payé, 📄 Télécharger mon
+// paiement, 🔧 Validé — votre chantier est créé (pose seule, 05/10/2026), 💰 Où en est votre paiement, ✅ Payé, 📄 Télécharger mon
 // contrat ; 🏠 Bienvenue : la fiche d'installation, ✉️ Écrire au chef
 // d'équipe, 🔔 Votre installation est terminée, 📄 Lire et signer le PV,
 // ✅ Travaux réceptionnés, ⚠ Vous avez signalé un problème, 📄 Lire et
@@ -84,6 +84,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "« ⏳ Validé — en attente de votre paiement »", texte: "« Passez à la boutique X pour régler … Le vendeur vous attend. » Avec l'adresse, le téléphone et « 🗺️ Voir l'itinéraire sur la carte » si la boutique les a dans ⚙ Paramètres." },
         { titre: "« 💰 Où en est votre paiement »", texte: "Montant total, acompte prévu avant travaux, déjà versé, **Reste à payer**, et chaque versement avec sa date. Avec un plan : « Votre engagement », son état (⏳ en attente de l'accord de BMI TOGO, ❌ refusé avec le motif) et « **Prochain versement** : montant le date » — en rouge « ⚠ Versement en retard » si la date est passée." },
+        { titre: "Une pose seule : « 🔧 Validé — votre chantier est créé »", texte: "« Pour que nos équipes programment l'intervention, réglez l'acompte de 70 % : X F, à la boutique Y ou au chef d'équipe sur le terrain. » Puis : « Le solde de 30 % (Z F) se règle à la signature du procès-verbal de réception, ou dans les 3 jours qui suivent. » Dessous, **« 💰 Où en est votre paiement »** : montant total, acompte de 70 %, déjà versé, **Reste à payer**. Les 70 % versés : « ✅ Acompte reçu — nos équipes vous appellent pour programmer l'intervention. » Tout versé : « ✅ Soldé — merci ! »" },
         { titre: "« ✅ Payé — installation programmée »", texte: "« Nos équipes vous contacteront pour convenir de la date. » et **📄 Télécharger mon contrat**." },
       ]],
 

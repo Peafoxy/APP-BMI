@@ -2,7 +2,7 @@
 // screens/EspaceClient.jsx — Espace du rôle Client : ses devis, ses
 // achats, son chantier, le parrainage et le fil de discussion.
 // ============================================================
-import { ACOMPTE_POSE_PCT } from "../lib/poseSeule";
+import { ACOMPTE_POSE_PCT, acomptePose, etatPose, dettePoseDuDevis } from "../lib/poseSeule";
 import { partieClientContrat } from "../lib/clientEntreprise";
 import { useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
@@ -685,7 +685,14 @@ export function EspaceClient({ db, profile, save, setTab }) {
                       <div className="mt-4 text-xs text-slate-500">⭐ Merci, votre avis sur {d.par} a bien été enregistré.</div>
                     )}
 
-                    {d.statut === "valide" && (() => {
+                    {/* ⚠ 05/10/2026 (en préparant la vidéo pour les clients) : une
+                        POSE SEULE validée lisait le bloc ci-dessous — « Passez à la
+                        boutique (vide) pour régler 300 000 F » : pas de boutique,
+                        le montant entier au lieu des 70 % (règle du 29/09), et
+                        aucun suivi de sa dette de pose. Elle a maintenant le sien. */}
+                    {d.statut === "valide" && d.pose_seule && <SuiviPoseClient d={d} db={db} />}
+
+                    {d.statut === "valide" && !d.pose_seule && (() => {
                       // Lu EN DIRECT depuis la fiche boutique — pas figé au moment de la validation,
                       // pour que le client voie toujours les informations à jour, même si elles ont
                       // été complétées après coup.
@@ -1079,6 +1086,66 @@ export function EspaceClient({ db, profile, save, setTab }) {
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+// 🔧 L'état d'une POSE SEULE validée, chez le client (05/10/2026, en préparant
+// la vidéo pour les clients : il lisait « Passez à la boutique (vide) pour
+// régler 300 000 F » — pas de boutique, le montant entier au lieu des 70 %
+// de la règle du 29/09, et aucun suivi de sa dette de pose). Exporté pour que
+// le banc le rende avec la vraie validation (scripts/_rendu-espace-client.jsx).
+export function SuiviPoseClient({ d, db }) {
+  const dette = dettePoseDuDevis(db.dettes, db.clients_installes, d.id);
+  const e = etatPose(dette);
+  const total = Number(dette?.montant ?? d.total);
+  const acompte = dette ? e.acompte : acomptePose(d.total);
+  const solde30 = Math.max(0, total - acompte);
+  const nomBq = dette?.boutique_pose || d.boutique || "";
+  const infosBq = (db.boutiques || []).find((b) => b.nom === nomBq);
+  const etape = e ? e.etape : "acompte";
+  return (
+    <div className="mt-4 space-y-3" data-pose-client>
+      <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+        <div className="font-bold text-amber-900">🔧 Validé — votre chantier est créé</div>
+        {etape === "acompte" && acompte > 0 && (
+          <div className="text-sm text-slate-700 mt-1">
+            Pour que nos équipes programment l'intervention, réglez l'acompte de {ACOMPTE_POSE_PCT} % : <b>{fmt(e ? e.resteAcompte : acompte)}</b>
+            {nomBq ? <>, à la boutique <b>{nomBq}</b> ou au chef d'équipe sur le terrain.</> : <>, en boutique ou au chef d'équipe sur le terrain.</>}
+            {(infosBq?.adresse || infosBq?.tel) && (
+              <div className="mt-2 pt-2 border-t border-amber-200">
+                {infosBq.adresse && <div>📍 {infosBq.adresse}</div>}
+                {infosBq.tel && <div>📞 {infosBq.tel}</div>}
+              </div>
+            )}
+          </div>
+        )}
+        {etape !== "acompte" && etape !== "solde_ok" && acompte > 0 && (
+          <div className="text-sm font-bold text-green-800 mt-1">✅ Acompte reçu — nos équipes vous appellent pour programmer l'intervention.</div>
+        )}
+        {etape !== "solde_ok" && solde30 > 0 && (
+          <div className="text-xs text-slate-600 mt-2">
+            {acompte > 0 ? <>Le solde de {100 - ACOMPTE_POSE_PCT} % ({fmt(solde30)})</> : <>Le montant</>} se règle à la signature du procès-verbal de réception, ou dans les 3 jours qui suivent.
+          </div>
+        )}
+      </div>
+      {dette && (
+        <div className="rounded-xl border-2 border-sky-300 bg-sky-50 p-3">
+          <div className="font-bold text-sky-900">💰 Où en est votre paiement</div>
+          <div className="text-sm text-slate-700 mt-1 space-y-0.5">
+            <div>Montant total : <b>{fmt(total)}</b></div>
+            {acompte > 0 && <div>Acompte de {ACOMPTE_POSE_PCT} % : {fmt(acompte)}</div>}
+            <div>Déjà versé : {fmt(e.paye)}</div>
+            <div className="text-base font-bold text-sky-900">Reste à payer : {fmt(e.reste)}</div>
+          </div>
+          {(dette.paiements || []).length > 0 && (
+            <div className="mt-2 pt-2 border-t border-sky-200 text-xs text-slate-600">
+              {dette.paiements.map((v, i) => <div key={i}>• {dFR(v.date)} — {fmt(v.montant)}</div>)}
+            </div>
+          )}
+          {etape === "solde_ok" && <div className="mt-1 text-sm font-bold text-green-800">✅ Soldé — merci !</div>}
+        </div>
+      )}
     </div>
   );
 }

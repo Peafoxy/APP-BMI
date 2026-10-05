@@ -12335,7 +12335,7 @@ titre("🔧 L'espace client dit la règle des 70 % de la pose seule, jamais « a
   test("★ la validation d'une pose seule annonce l'acompte AVANT la programmation (ACOMPTE_POSE_PCT), et plus aucune phrase ne dit « au technicien à la fin des travaux »",
     (ec.match(/\$?\{ACOMPTE_POSE_PCT\} % (du montant )?sont à régler avant que l'intervention soit programmée/g) || []).length === 2
     && !/Le règlement se fait au technicien à la fin des travaux/.test(ec)
-    && /import \{ ACOMPTE_POSE_PCT \} from "\.\.\/lib\/poseSeule";/.test(ec));
+    && /import \{ ACOMPTE_POSE_PCT,[^}]*\} from "\.\.\/lib\/poseSeule";/.test(ec));
 }
 
 titre("📄 La pastille « En attente de paiement » d'un contrat suit la même règle que son bouton (29/09/2026)");
@@ -12933,6 +12933,26 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const sy = readFileSync("src/sync.js", "utf8").replace(/\/\/[^\n]*/g, "");
   test("★ 🔒 l'application ne lit plus la table des boutiques avant la connexion (amorcerBoutiques retirée) ; l'écran de connexion passe par api/apparence",
     !/amorcerBoutiques/.test(app + sy) && /chargerApparence\(\)/.test(app));
+}
+
+// ── 🔧 Une POSE SEULE validée, chez le client (05/10/2026, trouvé en préparant
+// la vidéo pour les clients) : « Passez à la boutique (vide) pour régler
+// 300 000 F » — le bloc d'une vente ordinaire. Il lit maintenant les 70 %,
+// la boutique du devis, et le suivi de SA dette de pose.
+{
+  const txt = (h) => String(h || "").replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+  const avant = txt(ecranClient?.htmlPoseAvant), ac = txt(ecranClient?.htmlPoseAcompte), so = txt(ecranClient?.htmlPoseSolde), nu = txt(ecranClient?.htmlPoseNu);
+  test("★★ 🔧 pose seule validée : le client lit l'acompte de 70 % (210 000 F sur 300 000), la boutique du devis ou le chef d'équipe, et le solde de 30 % au procès-verbal",
+    /acompte de 70 % : 210\s000 F/.test(avant) && /BMI DEMAKPOE/.test(avant) && /chef d'équipe/.test(avant) && /solde de 30 % \(90\s000 F\)/.test(avant) && /Reste à payer : 300\s000 F/.test(avant));
+  test("★★ 🔧 pose seule : jamais « Passez à la boutique … pour régler » ni le montant entier comme acompte",
+    !/Passez à la boutique/.test(avant + ac + so) && !/acompte de 70 % : 300/.test(avant));
+  test("★ 🔧 pose seule : acompte versé → « Acompte reçu », plus d'acompte demandé ; tout versé → « Soldé »",
+    /Acompte reçu/.test(ac) && !/réglez l'acompte/.test(ac) && /Reste à payer : 90\s000 F/.test(ac) && /Soldé/.test(so) && !/réglez l'acompte/.test(so));
+  test("★ 🔧 pose seule sur la vraie base d'un téléphone de client (sans boutiques) : l'écran se rend quand même",
+    /acompte de 70 %/.test(nu));
+  const srcEc = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+  test("★ 🔧 le bloc d'une vente ordinaire (« Passez à la boutique ») ne s'affiche plus pour une pose seule",
+    /d\.statut === "valide" && !d\.pose_seule && \(\(\) => \{/.test(srcEc) && /d\.statut === "valide" && d\.pose_seule && <SuiviPoseClient/.test(srcEc));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

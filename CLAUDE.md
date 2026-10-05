@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2213 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2218 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -3518,6 +3518,14 @@ lit mal est pire qu'un banc absent).
   refusé → retenté le lendemain, marque `rappel_solde_le`) et une
   notification aux administrateurs (une fois, `rappel_solde_admin_le`), même
   si le client n'a pas de numéro ou est bloqué. Jamais la formation.
+- **Chez le client, une pose seule validée a SON bloc** (05/10/2026, trouvé en
+  préparant la vidéo pour les clients : il lisait « Passez à la boutique (vide)
+  pour régler 300 000 F », le bloc d'une vente ordinaire) : `SuiviPoseClient`
+  (EspaceClient.jsx) — « 🔧 Validé — votre chantier est créé », l'acompte de
+  70 % à la boutique du devis ou au chef d'équipe, le solde de 30 % au PV, et
+  « 💰 Où en est votre paiement » lu sur SA dette (`dettePoseDuDevis`,
+  lib/poseSeule.js, par le chantier). Banc (5 contrôles, rendu sur la vraie
+  validation), éprouvé.
 - ⚠ **Les dettes de pose d'AVANT** (sans `acompte_attendu`) : jamais
   bloquées, absentes de 🧾 Commandes ; le rappel des 3 jours vaut pour elles.
   **À faire par Timo : créer `rappel_solde_pose` chez YCloud** (utility,

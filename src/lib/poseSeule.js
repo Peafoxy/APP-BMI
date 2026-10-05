@@ -57,6 +57,14 @@ export function etatPose(dette) {
   return { acompte, paye, resteAcompte, reste: r, etape };
 }
 
+// La dette de pose d'UN devis, vue depuis l'espace du client (05/10/2026) :
+// le devis ne la connaît pas, c'est son chantier qui la porte (dette_id).
+// Reçoit les listes que l'appareil a déjà — jamais la base entière.
+export function dettePoseDuDevis(dettes, chantiers, devisId) {
+  const ch = (chantiers || []).find((c) => c.pose_seule && c.devis_id === devisId);
+  return ch ? (dettes || []).find((x) => x.id === ch.dette_id) || null : null;
+}
+
 export const libelleEncaissementPose = (dette) => {
   const e = etatPose(dette);
   if (!e || e.etape === "solde_ok") return "";
