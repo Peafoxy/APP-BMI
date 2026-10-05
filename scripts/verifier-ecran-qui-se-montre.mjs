@@ -17,7 +17,7 @@
 // et qu'aucun écran ne fait défiler la page à sa façon.
 // ============================================================
 import { build } from "esbuild";
-import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -37,7 +37,7 @@ const entree = join(dossier, "entree.jsx");
 writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut, useFilSurSaFin } from "${process.cwd()}/src/components/ui.jsx";
+import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut, useFilSurSaFin, DialogHost, uChoix, uAlert } from "${process.cwd()}/src/components/ui.jsx";
 const LIGNES = Array.from({ length: 60 }, (_, i) => "L" + i);
 function Liste({ ouvrir }) {
   return <table><tbody>{LIGNES.map((id) => (
@@ -90,13 +90,25 @@ function Fil({ regle }) {
   </div>;
 }
 window.remonterEnHaut = remonterEnHaut;
+// 🪟 La fenêtre commune (uChoix, uAlert…) sur un PETIT écran, avec une longue
+// liste — la capture de Timo du 05/10/2026 (« Confier à… »).
+window.ouvrirChoix = () => { window.choisi = "en attente"; uChoix("Confier le brouillon « Villa Agoè » (1 595 000 F) à :",
+  Array.from({ length: 16 }, (_, i) => "COLLÈGUE " + i + " — Gérant de boutique · BMI DEMAKPOE")).then((r) => { window.choisi = r; }); };
+window.ouvrirAlerte = () => { uAlert(Array.from({ length: 60 }, (_, i) => "Ligne " + i + " d'un long message").join(" | ")); };
 const quoi = new URLSearchParams(location.search).get("q");
-createRoot(document.getElementById("r")).render(quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
+createRoot(document.getElementById("r")).render(quoi === "dialogue" ? <DialogHost /> : quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
 const html = join(dossier, "index.html");
 writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0"><div id="r"></div><script src="bundle.js"></script></body></html>`);
+// La fenêtre de question se mesure AVEC le vrai CSS construit (sans lui, les
+// classes Tailwind ne commandent rien et la mesure ne prouve rien) — comme
+// verifier-champs. Un \`npm run build\` doit précéder.
+const cssConstruit = (() => { try { return readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0]; } catch { return null; } })();
+if (!cssConstruit) { console.log("✗ dist/assets/*.css introuvable : lancez d'abord npm run build"); process.exit(1); }
+const htmlDialogue = join(dossier, "dialogue.html");
+writeFileSync(htmlDialogue, `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${join(process.cwd(), "dist/assets", cssConstruit)}"></head><body style="margin:0"><div id="r"></div><script src="bundle.js"></script></body></html>`);
 
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await nav.newPage({ viewport: { width: 800, height: 600 } });
@@ -175,6 +187,45 @@ console.log("\nUn fil de messages s'ouvre sur sa FIN (Timo, 02/10/2026 : « elle
   test("… mais si l'on relit plus haut, un nouveau message ne tire pas vers le bas", (await enHaut()) === 0);
   await page.click('[data-conv="B"]'); await attendre(400);
   test("ouvrir une AUTRE conversation → elle aussi s'ouvre sur sa fin", await dernierVisible());
+}
+console.log("\n🪟 La fenêtre de question ne dépasse jamais l'écran (capture Timo, 05/10/2026 : « impossible de dérouler et annuler pour les petits écrans »)");
+{
+  await page.setViewportSize({ width: 360, height: 560 });
+  await page.goto(`file://${htmlDialogue}?q=dialogue`); await attendre(200);
+  await page.evaluate(() => window.ouvrirChoix()); await attendre(300);
+  // Les mesures cherchent les BOUTONS par leur texte (pas seulement par nos
+  // marques) : remettre l'ancienne fenêtre doit donner un ✗ lisible, pas un
+  // banc qui s'arrête.
+  const boutonVisible = (texte) => page.evaluate((t) => {
+    const b = [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === t);
+    if (!b) return { ok: false, detail: "bouton absent" };
+    const r = b.getBoundingClientRect();
+    return { ok: r.top >= 0 && r.bottom <= innerHeight, detail: `${t} à ${Math.round(r.top)} → ${Math.round(r.bottom)} px, écran ${innerHeight} px` };
+  }, texte);
+  const carte = await page.evaluate(() => {
+    const c = document.querySelector(".fixed.inset-0 > div");
+    if (!c) return { ok: false, detail: "fenêtre absente" };
+    const r = c.getBoundingClientRect();
+    return { ok: r.top >= 0 && r.bottom <= innerHeight, detail: `fenêtre de ${Math.round(r.top)} à ${Math.round(r.bottom)} px, écran ${innerHeight} px` };
+  });
+  test("une longue liste de choix sur un téléphone : la fenêtre tient dans l'écran", carte.ok, carte.detail);
+  const ann = await boutonVisible("Annuler");
+  test("… et « Annuler » est À L'ÉCRAN, sans rien faire défiler", ann.ok, ann.detail);
+  const derniere = await page.evaluate(() => {
+    const c = document.querySelector("[data-dialogue-contenu]");
+    if (!c) return false;
+    c.scrollTop = c.scrollHeight;
+    const b = [...c.querySelectorAll("button")].pop().getBoundingClientRect(); const r = c.getBoundingClientRect();
+    return b.bottom <= r.bottom + 1 && b.top >= r.top - 1 && r.bottom <= innerHeight;
+  });
+  test("… la liste DÉFILE dans son cadre : le dernier collègue s'atteint", derniere);
+  if (ann.ok) await page.click("button >> text=Annuler"); await attendre(200);
+  test("… et « Annuler » ferme la fenêtre sans rien choisir", ann.ok && (await page.evaluate(() => window.choisi)) === null && !(await page.$(".fixed.inset-0")));
+  await page.goto(`file://${htmlDialogue}?q=dialogue`); await attendre(200);
+  await page.evaluate(() => window.ouvrirAlerte()); await attendre(300);
+  const ok2 = await boutonVisible("OK");
+  test("un très long message : « OK » reste à l'écran aussi", ok2.ok, ok2.detail);
+  await page.setViewportSize({ width: 800, height: 600 });
 }
 test("aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
 await nav.close();

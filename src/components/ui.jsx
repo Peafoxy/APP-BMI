@@ -396,8 +396,14 @@ export function DialogHost() {
   // (« la page refuse de quitter »). Une boîte de dialogue doit TOUJOURS
   // être au-dessus de tout (l'aperçu d'impression est à z-[60]).
   return (
-    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+    // ⚠ 05/10/2026 (capture Timo, « Confier à… » sur un petit écran : la liste
+    // des collègues poussait « Annuler » hors de l'écran, impossible de
+    // dérouler ni d'annuler) : la fenêtre ne dépasse JAMAIS l'écran. Le texte
+    // et les choix DÉFILENT dans leur cadre ; les boutons du bas restent
+    // toujours visibles. Mesuré dans Chromium (verifier-ecran-qui-se-montre).
+    <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" data-dialogue>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm max-h-full flex flex-col p-5">
+        <div className="min-h-0 overflow-y-auto -mx-1 px-1" data-dialogue-contenu>
         <div className="text-sm text-slate-800 whitespace-pre-line font-medium">{d.m}</div>
         {d.type === "prompt" && (
           <input autoFocus className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-slate-900"
@@ -411,7 +417,8 @@ export function DialogHost() {
             ))}
           </div>
         )}
-        <div className="mt-4 flex justify-end gap-2">
+        </div>
+        <div className="mt-4 flex-none flex justify-end gap-2" data-dialogue-boutons>
           {d.type !== "alert" && d.type !== "choix" && <button onClick={() => close(d.type === "prompt" ? null : false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
           {d.type === "choix" && <button onClick={() => close(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
           {d.type !== "choix" && <button onClick={() => close(d.type === "prompt" ? val : true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">OK</button>}
