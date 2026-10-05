@@ -378,8 +378,8 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     // demande « Continuer ? » puis un NOM obligatoire.
     const nouveauVide = clientDevis === "__nouveau__" && !nouvClient.nom.trim() && !nouvClient.tel.trim();
     if (!clientDevis || nouveauVide) {
-      if (!await uConfirm("Brouillon sans client. Continuer ?\n\nVous choisirez le client en le reprenant, avant de l'envoyer.")) return;
-      const nom = await uPrompt("Nom de ce brouillon (obligatoire) :", devisAReprendre?.brouillon_nom || "");
+      if (!await uConfirm("Brouillon sans compte client. Continuer ?\n\nTapez seulement le nom du client : son compte se choisit ou se crée en reprenant le brouillon, avant de l'envoyer.")) return;
+      const nom = await uPrompt("Nom du client (obligatoire) :", devisAReprendre?.brouillon_nom || "");
       if (nom === null) return;
       const refus = critiqueNomBrouillon(nom);
       if (refus) { uAlert(refus); return; }
@@ -400,8 +400,8 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     const confie = devisAReprendre?.brouillon_id ? devisAReprendre?.brouillon_confie : null;
     const brouillon = { id: brouillonRepris || uid(), volet, client, ...(nomBrouillon ? { nom: nomBrouillon } : {}), ...(confie ? { confie } : {}), devis, date: today(), ts: new Date().toISOString() };
     const titre = nomDuBrouillon(brouillon);
-    save(ajouterBrouillon(db, profile.id, brouillon), `📝 Brouillon de devis enregistré — ${titre}${client ? "" : " (sans client)"} (${fmt(devis.total)}) par ${profile.nom}`);
-    uAlert(`📝 Brouillon enregistré${client ? ` pour ${client.nom}` : ` : « ${titre} », sans client`}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, confier à un collègue, ou supprimer.`);
+    save(ajouterBrouillon(db, profile.id, brouillon), `📝 Brouillon de devis enregistré — ${titre}${client ? "" : " (sans compte)"} (${fmt(devis.total)}) par ${profile.nom}`);
+    uAlert(`📝 Brouillon enregistré${client ? ` pour ${client.nom}` : ` pour ${titre} — sans compte`}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, confier à un collègue, ou supprimer.`);
   };
 
   return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, convertir, enregistrerBrouillon };

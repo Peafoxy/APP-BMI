@@ -148,7 +148,7 @@ export const retirerBrouillon = (db, profileId, id) => ({
 export const nomDuBrouillon = (b) => b?.client?.nom || b?.nom || "?";
 export const brouillonSansClient = (b) => !b?.client?.id && !b?.client?.nom;
 export const critiqueNomBrouillon = (nom) =>
-  String(nom || "").trim() ? "" : "Un brouillon sans client doit porter un nom (ex. « Villa Agoè 3 chambres »).";
+  String(nom || "").trim() ? "" : "Tapez le nom du client (ex. « WIYAO ») : le brouillon se range sous ce nom.";
 // À qui confier : les personnes de la LISTE reçue (déjà filtrée par l'espace
 // regardé — jamais db.users), actives, qui ont l'onglet Dimensionnement, sans
 // le pouvoir retiré, jamais un client, jamais soi-même.

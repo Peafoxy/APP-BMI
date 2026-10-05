@@ -142,7 +142,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
         Une fois envoyé ou converti en vente, le brouillon disparaît.
       </div>
       {liste.length === 0 ? (
-        <div className="text-sm text-slate-500">Aucun brouillon. Dans un volet, « 📝 Enregistrer un brouillon » — avec ou sans client.</div>
+        <div className="text-sm text-slate-500">Aucun brouillon. Dans un volet, « 📝 Enregistrer un brouillon » — avec ou sans compte client.</div>
       ) : (
         <div className="divide-y divide-slate-100">
           {liste.map((b) => (

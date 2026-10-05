@@ -12996,8 +12996,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
 
   const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
   const corpsE = pa.slice(pa.indexOf("const enregistrerBrouillon = async"), pa.indexOf("return { clientDevis, setClientDevis"));
-  test("★★ 📝 sans client, l'enregistrement demande « Brouillon sans client. Continuer ? » puis un NOM obligatoire (revérifié dans le geste)",
-    /uConfirm\("Brouillon sans client\. Continuer \?/.test(corpsE) && /uPrompt\("Nom de ce brouillon \(obligatoire\)/.test(corpsE) && /critiqueNomBrouillon\(nom\)/.test(corpsE));
+  test("★★ 📝 sans compte, l'enregistrement demande « Brouillon sans compte client. Continuer ? » puis le NOM DU CLIENT obligatoire (revérifié dans le geste) — RETOURNÉ le 05/10/2026 : le nom tapé EST celui du client",
+    /uConfirm\("Brouillon sans compte client\. Continuer \?/.test(corpsE) && /uPrompt\("Nom du client \(obligatoire\)/.test(corpsE) && !/sans client/.test(corpsE) && /critiqueNomBrouillon\(nom\)/.test(corpsE));
   const ligneBouton = pa.split("\n").find((l) => l.includes("data-brouillon-toujours")) || "";
   test("★★ 📝 le bouton « Enregistrer un brouillon » n'est plus grisé sans client",
     !!ligneBouton && !/disabled=/.test(ligneBouton));

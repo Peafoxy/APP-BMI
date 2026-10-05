@@ -114,7 +114,7 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
         <div className="rounded-xl p-3 bg-amber-50 border-2 border-amber-300 flex items-center justify-between flex-wrap gap-2">
           <div className="text-sm text-amber-900">
             {devisAReprendre.brouillon_id ? (
-              <b>📝 Reprise du brouillon {devisAReprendre.client?.nom ? `de ${devisAReprendre.client.nom}` : `« ${devisAReprendre.brouillon_nom || "?"} » (sans client : choisissez-le avant d'envoyer)`} ({fmt(devisAReprendre.devis.total)}) — modifiez, puis « Envoyer par WhatsApp » ou « Enregistrer un brouillon » pour le garder.</b>
+              <b>📝 Reprise du brouillon {devisAReprendre.client?.nom ? `de ${devisAReprendre.client.nom}` : `de ${devisAReprendre.brouillon_nom || "?"} (sans compte : choisissez ou créez son compte avant d'envoyer)`} ({fmt(devisAReprendre.devis.total)}) — modifiez, puis « Envoyer par WhatsApp » ou « Enregistrer un brouillon » pour le garder.</b>
             ) : devisAReprendre.depuis_vente ? (
               <b>📋 Devis créé depuis la vente {devisAReprendre.devis.vente_numero} — ajoutez ce qu'il faut, puis envoyez-le au client{devisAReprendre.client ? ` (${devisAReprendre.client.nom_base || devisAReprendre.client.nom})` : ""}.</b>
             ) : (
