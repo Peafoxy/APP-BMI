@@ -5545,7 +5545,7 @@ lit mal est pire qu'un banc absent).
   `cnss_matricule`, `cnss_numero_assurance`, `cnss_mensuel`. Avant lui,
   l'employé pouvait réécrire tout ça sur SA fiche de paie. Banc
   `tester-paie` (67), éprouvé en retirant chaque groupe : il tombe.
-  ⏳ **À coller par Timo** (vérification attendue : `true | true`).
+  **Collé par Timo le 05/10/2026 (`true | true`)** — la porte est fermée.
   ⚠ Reste NON verrouillé côté employé : `paie_debut` (affichage seul, aucun
   argent — pas demandé).
 - Pas construit : une indemnité de fin de CDD (loi à vérifier par le
