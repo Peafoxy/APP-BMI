@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2242 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2255 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5511,6 +5511,38 @@ lit mal est pire qu'un banc absent).
   (administrateur) garde son 🖨 Bulletin. **Pour rouvrir : `true`, sur sa
   demande seulement.** Le reste de 💵 Mon salaire ne bouge pas. Banc (1
   contrôle), éprouvé. Rien à coller. Chapitre 18 à jour.
+
+### 📄 LE CONTRAT DE TRAVAIL : CDI / CDD, SA FIN, LA SORTIE (05/10/2026, « a et b »)
+- Timo : « employé CDI et CDD, pas de différence de bulletin ou autre
+  info ? » — le type n'existait que dans la case CNSS (grisée hors
+  assujetti), rien sur le bulletin, aucune fin, et la date de sortie n'avait
+  AUCUNE case. Règle pure **`lib/contratTravail.js`** (import : espace.js).
+- **UNE source pour le type : `cnss_code_type`** (le code de la déclaration
+  CNSS : 1 CDI, 5 CDD, 4 apprentissage, 12 stage — `TYPES_CONTRAT`). Jamais
+  un second champ. ⚠ Un type jamais saisi ne s'écrit PAS « CDI »
+  (`phraseContrat` rend "") ; la déclaration CNSS garde son 1 d'office.
+- 👥 Utilisateurs → ⋯ Gérer → Paie : **📄 Contrat** (type, puis date de fin
+  — obligatoire pour un CDD, facultative pour apprentissage / stage, aucune
+  pour un CDI ; `contrat_fin`, dans `CHAMPS_PAIE`) et **🚪 Sortie** (date +
+  motif `CODES_MOTIF_SORTIE`, vide = efface) — administrateur, revérifié DANS
+  le geste sur la fiche fraîche (`critiqueContrat`, `critiqueSortie`). Sous le
+  nom : « 📄 CDD — fin le … (dans N j) » (ambre ≤ 15 j, rouge dépassée) et
+  « 🚪 Sorti le … ». La case « Type » de 🏦 CNSS n'est plus grisée.
+- **Bulletin** : « Contrat : CDD jusqu'au 31/12/2026 » (rien si jamais saisi) ;
+  💵 Mon salaire et le dossier d'accès le disent aussi.
+- **Rappel** : tournée de 7 h (`rappelFinsDeContrat`, la fiche de PAIE
+  recollée par `fusionnerPaie`), notification à l'administrateur PRINCIPAL
+  seul, **15 jours avant et la veille** (`JOURS_RAPPEL_FIN`) ; jamais en
+  formation, jamais un compte inactif, plus rien une fois la sortie saisie.
+  Une tournée manquée ne rattrape pas (le marquage sous le nom, lui, reste).
+- ⚠ **Pas de SQL** : comme `paie_debut`, l'employé pourrait techniquement
+  réécrire SES propres champs de contrat (la fiche de paie ne verrouille
+  côté employé que salaire, primes, avances, virements, crédits) — ils ne
+  commandent aucun argent. Dit à Timo ; un `paie-3` est possible à sa demande.
+- Pas construit : une indemnité de fin de CDD (loi à vérifier par le
+  comptable). Banc (11 contrôles), éprouvé (sortie ignorée, rappel à tous les
+  administrateurs) ; un contrôle RETOURNÉ (`demanderDate` ×9). Chapitres 2 et
+  18 à jour. Rien à coller.
 
 ### 📍 LE LIEU D'AFFECTATION D'UN EMPLOYÉ SANS BOUTIQUE (05/10/2026, « Lance, texte libre, la boutique l'emporte »)
 - Champ `affectation` (texte libre, 80 caractères), **seulement sur un employé

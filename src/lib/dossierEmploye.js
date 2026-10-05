@@ -31,6 +31,7 @@
 // ============================================================
 import { CHAMPS_INTERDITS } from "./dossierPersonnel.js";
 import { compteMasque } from "./banques.js";
+import { phraseContrat } from "./contratTravail.js";
 
 export { CHAMPS_INTERDITS };
 
@@ -104,6 +105,7 @@ export function dossierEmploye(employe, activite = {}, { fmt = (x) => `${x} F`, 
       ["Matricule employeur", txt(u.cnss_matricule) || "non renseigné"],
       ["Numéro d'assuré", txt(u.cnss_numero_assurance) || "non renseigné"],
       ["Date d'embauche", u.cnss_date_embauche ? dFR(u.cnss_date_embauche) : "non renseignée"],
+      ["Contrat de travail", phraseContrat(u) || "non renseigné"],
       ["Date de sortie", u.cnss_date_sortie ? dFR(u.cnss_date_sortie) : "—"],
       ["Pièce d'identité", txt(u.piece_type) ? `${txt(u.piece_type)} n° ${txt(u.piece_num) || "non renseigné"}` : "non renseignée"],
     ], "Rien d'enregistré.", []),

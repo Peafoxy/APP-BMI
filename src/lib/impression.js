@@ -14,6 +14,7 @@ import { identiteClient, ligneClient, partieClientContrat } from "./clientEntrep
 import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { compteMasque } from "./banques";
 import { affectationDe } from "./affectation";
+import { phraseContrat } from "./contratTravail";
 
 // 🏢 29/09/2026 (Timo) : le client d'un reçu — la personne (NOM Prénom), ou
 // l'ENTREPRISE qu'elle représente, avec ses coordonnées et « Représentée
@@ -814,6 +815,7 @@ export function imprimerBulletin(u, mois, db) {
       ${u.cnss_matricule ? `<div><b>Matricule :</b> ${esc(u.cnss_matricule)}</div>` : ""}
       ${u.cnss_numero_assurance ? `<div><b>N° d'assuré CNSS :</b> ${esc(u.cnss_numero_assurance)}</div>` : ""}
       ${u.cnss_date_embauche ? `<div><b>Date d'embauche :</b> ${esc(dFR(u.cnss_date_embauche))}</div>` : ""}
+      ${phraseContrat(u) ? `<div><b>Contrat :</b> ${esc(phraseContrat(u))}</div>` : ""}
       ${u.banque || u.compte_bancaire ? `<div><b>Banque :</b> ${esc(u.banque || "—")}${u.compte_bancaire ? ` · compte ${esc(compteMasque(u.compte_bancaire))}` : ""}</div>` : ""}
       ${Number(u.taux_avancement || 0) > 0 ? `<div><b>Taux d'avancement annuel :</b> ${esc(u.taux_avancement)} %</div>` : ""}
     </div>

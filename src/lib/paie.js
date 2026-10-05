@@ -71,6 +71,9 @@ export const CHAMPS_PAIE = [
   "piece_type", "piece_num",
   "cnss_assujetti", "cnss_matricule", "cnss_numero_assurance", "cnss_mensuel",
   "cnss_code_type", "cnss_date_embauche", "cnss_date_sortie", "cnss_code_motif_sortie",
+  // La fin d'un CDD (05/10/2026, lib/contratTravail.js) — le TYPE, lui, est
+  // `cnss_code_type` ci-dessus : une seule source avec la déclaration CNSS.
+  "contrat_fin",
 ];
 
 const estChampPaie = (cle) => CHAMPS_PAIE.includes(cle);

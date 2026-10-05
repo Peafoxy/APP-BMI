@@ -11,6 +11,7 @@ import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/va
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
+import { phraseContrat } from "../lib/contratTravail";
 import { LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { exportCSV } from "../lib/export";
 import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsCNSS, repartitionCNSS, cnssPret, genererFichierDRC, construireClasseurDRC, memeSaisieCNSS } from "../lib/cnss";
@@ -348,7 +349,7 @@ function PanneauCNSS({ db, save, profile, employes, mois, setMois, options }) {
                   <td className="px-3 py-2"><input disabled={!actif} className={`${inputCls} w-24`} value={b.matricule} onChange={(e) => maj(u.id, "matricule", e.target.value)} /></td>
                   <td className="px-3 py-2"><input disabled={!actif} className={`${inputCls} w-32`} value={b.numeroAssurance} onChange={(e) => maj(u.id, "numeroAssurance", e.target.value)} placeholder="Obligatoire" /></td>
                   <td className="px-3 py-2">
-                    <select disabled={!actif} className={`${inputCls} w-40`} value={b.codeType} onChange={(e) => maj(u.id, "codeType", e.target.value)}>
+                    <select data-type-contrat title="Toujours modifiable : le type de contrat s'imprime aussi sur le bulletin (même sans CNSS)" className={`${inputCls} w-40`} value={b.codeType} onChange={(e) => maj(u.id, "codeType", e.target.value)}>
                       {CODES_TYPE_ASSURE.map((t) => <option key={t.code} value={t.code}>{t.code} — {t.libelle}</option>)}
                     </select>
                   </td>
@@ -468,6 +469,7 @@ export function Salaire({ db, save, profile }) {
       <Panel>
         <div className="font-bold mb-1">💵 Mon salaire — {moi.nom_complet || moi.nom}</div>
         {moi.piece_num && <div className="text-xs text-slate-400 mb-1">{moi.piece_type || "Pièce"} n° {moi.piece_num}</div>}
+        {phraseContrat(moi, CODES_TYPE_ASSURE) && <div data-mon-contrat className="text-xs text-slate-500 mb-1">📄 Contrat : {phraseContrat(moi, CODES_TYPE_ASSURE)}</div>}
         <div className="text-xs text-slate-500 mb-4">Informations indicatives, mois par mois. Pour toute question sur votre paie, adressez-vous à l'administration.{Number(moi.taux_avancement || 0) > 0 ? ` Taux d'avancement annuel : ${moi.taux_avancement} %.` : ""}</div>
         <Field label="Mois">
           <select className={inputCls} value={mois} onChange={(e) => setMois(e.target.value)}>
@@ -726,7 +728,7 @@ export function Salaire({ db, save, profile }) {
             <div><span className="text-slate-500">Matricule :</span> <b>{moi.cnss_matricule || "—"}</b></div>
             <div><span className="text-slate-500">N° Assurance CNSS :</span> <b>{moi.cnss_numero_assurance || "—"}</b></div>
             <div><span className="text-slate-500">Date d'embauche :</span> <b>{moi.cnss_date_embauche ? dFR(moi.cnss_date_embauche) : "—"}</b></div>
-            <div><span className="text-slate-500">Type de contrat :</span> <b>{(CODES_TYPE_ASSURE.find((t) => t.code === Number(moi.cnss_code_type || 1)) || {}).libelle || "—"}</b></div>
+            <div><span className="text-slate-500">Type de contrat :</span> <b>{phraseContrat(moi, CODES_TYPE_ASSURE) || "non renseigné"}</b></div>
           </div>
           {(() => {
             const donneesMois = (moi.cnss_mensuel || {})[mois];

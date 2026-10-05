@@ -19,6 +19,8 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { peutAvoirAffectation, critiqueAffectation } from "../lib/affectation";
+import { TYPES_CONTRAT, CODE_CDI, CODE_CDD, phraseContrat, critiqueContrat, critiqueSortie, etatFinContrat, phraseFinContrat } from "../lib/contratTravail";
+import { CODES_MOTIF_SORTIE } from "../lib/cnss";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie } from "../lib/calculs";
 
@@ -922,6 +924,54 @@ export function Users({ db, save, profile }) {
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, cnss_date_embauche: val } : x)) }, val ? `Date d'embauche de ${u.nom} : ${dFR(val)}` : `Date d'embauche de ${u.nom} effacée`);
   };
 
+  // 📄 Le contrat de travail (05/10/2026, « a et b ») : le type (UNE source
+  // avec la déclaration CNSS, `cnss_code_type`) et, hors CDI, sa date de fin.
+  // Revérifié DANS le geste sur la fiche fraîche (lib/contratTravail.js).
+  const changerContrat = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer le contrat de travail")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const actuel = phraseContrat(frais);
+    const choix = await uChoix(`Contrat de travail de ${u.nom}${actuel ? ` (actuellement : ${actuel})` : ""} ?`, TYPES_CONTRAT.map((t) => t.long));
+    if (!choix) return;
+    const type = TYPES_CONTRAT.find((t) => t.long === choix);
+    if (!type) return;
+    let fin = "";
+    if (type.code !== CODE_CDI) {
+      const v = await demanderDate(`Fin du contrat de ${u.nom}${type.code === CODE_CDD ? "" : " — vide si elle n'est pas fixée"}`, String(frais.contrat_fin || ""), type.code !== CODE_CDD);
+      if (v === null) return;
+      fin = v;
+    }
+    const refus = critiqueContrat({ code: type.code, fin, embauche: frais.cnss_date_embauche });
+    if (refus) { uAlert(refus); return; }
+    if (Number(frais.cnss_code_type) === type.code && String(frais.contrat_fin || "") === fin) return;
+    const apres = phraseContrat({ cnss_code_type: type.code, contrat_fin: fin });
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, cnss_code_type: type.code, contrat_fin: fin } : x)) },
+      `Contrat de travail de ${u.nom} : ${actuel || "non renseigné"} → ${apres}`);
+  };
+
+  // 🚪 La date de sortie (déclaration CNSS) : elle n'avait AUCUNE case.
+  // Vide = l'employé n'est pas sorti (efface la date et le motif).
+  const changerSortie = async (u) => {
+    if (refuserSaufAdmin(profile, "Saisir la date de sortie")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const date = await demanderDate(`Date de sortie de ${u.nom} — vide s'il fait toujours partie du personnel`, String(frais.cnss_date_sortie || ""), true);
+    if (date === null) return;
+    let motif = "";
+    if (date) {
+      const m = await uChoix(`Motif de sortie de ${u.nom} ?`, CODES_MOTIF_SORTIE.map((x) => x.libelle));
+      if (!m) return;
+      motif = (CODES_MOTIF_SORTIE.find((x) => x.libelle === m) || {}).code || "";
+    }
+    const refus = critiqueSortie({ date, motif, embauche: frais.cnss_date_embauche });
+    if (refus) { uAlert(refus); return; }
+    if (String(frais.cnss_date_sortie || "") === date && String(frais.cnss_code_motif_sortie || "") === String(motif)) return;
+    const libMotif = (CODES_MOTIF_SORTIE.find((x) => x.code === motif) || {}).libelle || "";
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, cnss_date_sortie: date, cnss_code_motif_sortie: motif } : x)) },
+      date ? `Date de sortie de ${u.nom} : ${dFR(date)} (${libMotif})` : `Date de sortie de ${u.nom} effacée`);
+  };
+
   // Avancement : chaque changement de salaire est archivé dans un historique
   // (date, ancien montant, nouveau montant, motif). Si un taux d'avancement
   // est défini pour l'employé, le nouveau montant est pré-calculé
@@ -1456,6 +1506,13 @@ export function Users({ db, save, profile }) {
                     </div>
                   )}
                   {peutAvoirAffectation(u) && String(u.affectation || "").trim() && <div data-ligne-affectation className="text-xs font-normal text-slate-500">📍 {u.affectation}</div>}
+                  {u.role !== "client" && (() => {
+                    const e = etatFinContrat(u, today());
+                    if (!e) return null;
+                    const couleur = e.jours < 0 ? "text-red-600" : e.jours <= 15 ? "text-amber-700" : "text-slate-500";
+                    return <div data-fin-contrat className={`text-xs font-normal ${couleur}`}>📄 {phraseFinContrat(u, today())}</div>;
+                  })()}
+                  {u.role !== "client" && u.cnss_date_sortie && <div data-ligne-sortie className="text-xs font-normal text-slate-500">🚪 Sorti le {dFR(u.cnss_date_sortie)}</div>}
                   {u.piece_num
                     ? <div className="text-xs font-normal text-slate-400">{u.piece_type || "Pièce"} n° {u.piece_num}</div>
                     : u.role !== "client" && <div className="text-xs font-normal text-orange-500" title="Identité non renseignée : bouton 🆔 Identité">⚠ Identité</div>}
@@ -1556,6 +1613,8 @@ export function Users({ db, save, profile }) {
                   <button onClick={() => changerTauxAvancement(u)} className={boutonGerer}>📈 Taux %</button>
                   <button data-debut-paie onClick={() => changerDebutPaie(u)} className={boutonGerer} title="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application">📅 Paie suivie depuis {libelleMoisFR(premierMoisPaie(u))}</button>
                   <button data-date-embauche onClick={() => changerEmbauche(u)} className={boutonGerer} title="Imprimée sur le bulletin de paie, reprise par la déclaration CNSS et le dossier de l'employé">📅 Embauche{u.cnss_date_embauche ? ` · ${dFR(u.cnss_date_embauche)}` : " · à saisir"}</button>
+                  <button data-contrat onClick={() => changerContrat(u)} className={boutonGerer} title="Imprimé sur le bulletin de paie ; le même code que la déclaration CNSS">📄 Contrat · {phraseContrat(u) || "à saisir"}</button>
+                  <button data-sortie onClick={() => changerSortie(u)} className={boutonGerer} title="Date et motif de sortie, repris par la déclaration CNSS">🚪 Sortie{u.cnss_date_sortie ? ` · ${dFR(u.cnss_date_sortie)}` : ""}</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "prime")} className={boutonGerer}>+ Prime</button>
                   <button onClick={() => ajouterMouvementSalaire(u, "avance")} className={boutonGerer}>− Avance</button>
                   <button onClick={() => changerBanque(u)} className={boutonGerer} title={libelleBanque(u) ? `Banque : ${libelleBanque(u)}` : "Aucune banque sur cette fiche"}>🏦 Banque{banqueDe(u) ? ` · ${banqueDe(u)}` : ""}</button>

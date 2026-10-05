@@ -47,6 +47,8 @@ import { fmt, dFR } from "../src/lib/core.js";
 import { randomUUID } from "node:crypto";
 import { lireTable } from "./_tables.js";
 import { anniversairesDuJour, ligneAnniversaire, enteteApresAnniversaire, MODELE_ANNIVERSAIRE } from "../src/lib/anniversaires.js";
+import { rappelFinsDeContrat } from "../src/lib/contratTravail.js";
+import { fusionnerPaie } from "../src/lib/paie.js";
 
 const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
 
@@ -64,6 +66,9 @@ export default async function handler(req, res) {
     const db = {};
     for (const t of TABLES) db[t] = await lireTable(admin, t);
     const aujourdhui = new Date().toISOString().slice(0, 10);
+    // 📄 La fin d'un CDD (05/10/2026) : la date vit dans la fiche de PAIE,
+    // recollée ici sur une copie des fiches (lue seulement, jamais réécrite).
+    const finsDeContrat = rappelFinsDeContrat({ ...db, users: fusionnerPaie(db.users, await lireTable(admin, "paie")) }, aujourdhui);
     // ⚠ La relance ne dépend pas des notifications : l'une en panne
     // n'empêche pas l'autre.
     const relances = await relancerLesDevis(admin, db, aujourdhui);
@@ -81,7 +86,8 @@ export default async function handler(req, res) {
     // (api/rappels-du-soir.js).
     const anniversaires = await souhaiterLesAnniversaires(admin, db, aujourdhui);
     if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires });
-    const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...soldes.notifications];
+    const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...soldes.notifications,
+      ...(finsDeContrat ? [fabriquerEnvoi({ ...finsDeContrat, ecran: "users" })].filter(Boolean) : [])];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
     return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires });
   } catch (e) {

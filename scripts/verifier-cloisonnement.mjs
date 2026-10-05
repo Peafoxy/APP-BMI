@@ -174,6 +174,13 @@ await build({ entryPoints: ["src/lib/affectation.js"], bundle: true, format: "es
 const Aff = await import(pathToFileURL(sortieAff).href);
 unlinkSync(sortieAff);
 
+// 📄 Le contrat de travail : CDI / CDD, sa fin, la sortie (05/10/2026).
+const sortieCT = join("node_modules", ".cache", `bmi-contrat-travail-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/contratTravail.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieCT, logLevel: "silent", loader: { ".js": "jsx" } });
+const CT = await import(pathToFileURL(sortieCT).href);
+unlinkSync(sortieCT);
+
 // 📄 Le droit d'accès : le dossier personnel d'un client (18/09/2026).
 const sortieDos = join("node_modules", ".cache", `bmi-dossier-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/dossierPersonnel.js"], bundle: true, format: "esm",
@@ -4935,10 +4942,10 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
   // d'une remise de fonds de caisse (⚙ Paramètres → 💼 Fonds de caisse), qui
   // se corrige depuis que « Régulariser » a daté 50 000 F du mauvais jour.
-  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026 ; RETOURNÉ le 03/10/2026 : ×7, le premier mois de retenue d'un crédit d'avant l'application), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait » ; RETOURNÉ le 05/10/2026 : ×7, la date d'embauche dans 👥 Utilisateurs)",
+  test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026 ; RETOURNÉ le 03/10/2026 : ×7, le premier mois de retenue d'un crédit d'avant l'application), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait » ; RETOURNÉ le 05/10/2026 : ×7, la date d'embauche dans 👥 Utilisateurs ; RETOURNÉ le même jour : ×9, la fin d'un contrat et la date de sortie)",
     execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
     && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "7"
-    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "7");
+    && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "9");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",
     /demanderMoyenPaiement\("", "Espèces", "Moyen de remise des fonds", u\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
     && /demanderMoyenPaiement\("", "Espèces", "Moyen de paiement reçu"\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
@@ -12947,8 +12954,15 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const hAff2 = String(globalThis.__bulletin || "");
   test("★★ 📍 le bulletin d'un employé SANS boutique imprime son lieu d'affectation ; avec une boutique, la boutique l'emporte",
     /<b>Affectation :<\/b> Chantiers Kara</.test(hAff) && /<b>Affectation :<\/b> BMI DEMAKPOE</.test(hAff2) && !hAff2.includes("Siège Lomé"));
+  // 📄 Le contrat de travail (05/10/2026, « a et b »).
+  Imp.imprimerBulletin({ id: "c5", nom: "EDEM", role: "vendeur", boutique: "BMI DEMAKPOE", salaire_base: 60000, cnss_code_type: 5, contrat_fin: "2026-12-31" }, "2026-10", db0);
+  const hCdd = String(globalThis.__bulletin || "");
+  Imp.imprimerBulletin({ id: "c6", nom: "AFI", role: "vendeur", boutique: "BMI DEMAKPOE", salaire_base: 60000, cnss_code_type: 1 }, "2026-10", db0);
+  const hCdi = String(globalThis.__bulletin || "");
+  test("★★ 📄 le bulletin imprime le contrat : « CDD jusqu'au 31/12/2026 », « CDI » — et rien pour une fiche jamais renseignée",
+    /<b>Contrat :<\/b> CDD jusqu'au 31\/12\/2026</.test(hCdd) && /<b>Contrat :<\/b> CDI</.test(hCdi) && !/<b>Contrat :/.test(h2));
   test("★ 🧾 une fiche sans ces renseignements n'imprime aucune ligne vide",
-    !/Matricule|N° d'assuré|Date d'embauche|<b>Banque/.test(h2) && /NET À PERCEVOIR/.test(h2));
+    !/Matricule|N° d'assuré|Date d'embauche|<b>Banque|<b>Contrat :/.test(h2) && /NET À PERCEVOIR/.test(h2));
   // 🧾 NIVEAU 2 (05/10/2026) : Gains / Retenues en deux colonnes, brut, base
   // CNSS, totaux, et les cumuls de l'année (mois SUIVIS seulement).
   const ama = { id: "c3", nom: "AMA", role: "vendeur", boutique: "BMI DEMAKPOE", salaire_base: 100000, cnss_assujetti: true, paie_debut: "2026-08",
@@ -13104,6 +13118,58 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const corpsF = (t) => t.slice(t.indexOf("create or replace function"), t.indexOf("-- ═════════════════════════════════════════════════\n-- VÉRIFICATION")).replace(/--[^\n]*\n/g, "").replace(/\s+/g, " ");
   test("★★ 📍 LE COUPLE : securite-37 reprend securite-18 mot pour mot et n'ajoute que 'affectation' à la liste « gestion »",
     corpsF(sql).replace("'affectation', ", "") === corpsF(s18) && corpsF(sql).includes("'compte_bancaire', 'affectation', "));
+}
+
+// 📄 LE CONTRAT DE TRAVAIL (05/10/2026, « a et b »).
+{
+  const cdd = { id: "e1", nom: "EDEM", role: "vendeur", boutique: "APESSITO", cnss_code_type: 5, contrat_fin: "2026-10-20", cnss_date_embauche: "2026-04-20" };
+  const cdi = { id: "e2", nom: "AFI", role: "vendeur", boutique: "APESSITO", cnss_code_type: 1 };
+  const rien = { id: "e3", nom: "KODJO", role: "vendeur", boutique: "APESSITO" };
+  test("★★ 📄 un type jamais saisi ne s'écrit PAS « CDI » ; CDD et CDI se lisent, la fin d'un CDD aussi",
+    CT.phraseContrat(rien) === "" && CT.phraseContrat(cdi) === "CDI" && CT.phraseContrat(cdd) === "CDD jusqu'au 20/10/2026"
+    && CT.phraseContrat({ cnss_code_type: 1, contrat_fin: "2026-12-31" }) === "CDI");
+  test("★★ 📄 un CDD exige sa date de fin, un CDI n'en a pas, la fin vient après l'embauche",
+    !!CT.critiqueContrat({ code: 5, fin: "" }) && !!CT.critiqueContrat({ code: 1, fin: "2026-12-31" })
+    && !!CT.critiqueContrat({ code: 5, fin: "2026-01-01", embauche: "2026-04-20" }) && !!CT.critiqueContrat({ code: 99 })
+    && CT.critiqueContrat({ code: 5, fin: "2026-12-31", embauche: "2026-04-20" }) === "" && CT.critiqueContrat({ code: 1, fin: "" }) === ""
+    && CT.critiqueContrat({ code: 12, fin: "" }) === "");
+  test("★ 🚪 la sortie exige son motif et ne précède pas l'embauche ; vide = pas sorti",
+    CT.critiqueSortie({ date: "" }) === "" && !!CT.critiqueSortie({ date: "2026-10-01" })
+    && !!CT.critiqueSortie({ date: "2026-01-01", motif: 204, embauche: "2026-04-20" }) && CT.critiqueSortie({ date: "2026-10-20", motif: 204, embauche: "2026-04-20" }) === "");
+  test("★★ 📄 la fin se surveille : jours restants, rien pour un CDI, rien une fois la sortie saisie",
+    CT.etatFinContrat(cdd, "2026-10-05").jours === 15 && CT.etatFinContrat(cdd, "2026-10-25").jours === -5
+    && CT.etatFinContrat(cdi, "2026-10-05") === null && CT.etatFinContrat({ ...cdd, cnss_date_sortie: "2026-10-20" }, "2026-10-05") === null
+    && /dans 15 j/.test(CT.phraseFinContrat(cdd, "2026-10-05")) && /dépassée de 5 j/.test(CT.phraseFinContrat(cdd, "2026-10-25")));
+  const principal = { id: "P", nom: "TIMO", role: "admin", admin_principal: true };
+  const autreAdmin = { id: "A2", nom: "ADMIN2", role: "admin" };
+  const form = { ...cdd, id: "f1", nom: "FORMA", boutique: "AFORMATION" };
+  const dbR = { users: [principal, autreAdmin, cdd, cdi, form, { ...cdd, id: "e4", nom: "PARTI", actif: false }], boutiques: [{ nom: "APESSITO" }, { nom: "AFORMATION", formation: true }] };
+  const r15 = CT.rappelFinsDeContrat(dbR, "2026-10-05");
+  test("★★ 📄 le rappel part 15 jours avant et la veille, à l'administrateur PRINCIPAL seul, jamais pour la formation ni un compte inactif",
+    !!r15 && r15.destinataires.join() === "P" && /EDEM/.test(r15.texte) && !/FORMA|PARTI/.test(r15.texte)
+    && !!CT.rappelFinsDeContrat(dbR, "2026-10-19") && CT.rappelFinsDeContrat(dbR, "2026-10-10") === null
+    && CT.rappelFinsDeContrat({ ...dbR, users: dbR.users.map((x) => (x.id === "e1" ? { ...x, cnss_date_sortie: "2026-10-04", cnss_code_motif_sortie: 204 } : x)) }, "2026-10-05") === null);
+  const u = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const cC = u.slice(u.indexOf("const changerContrat"), u.indexOf("const changerSortie"));
+  const cS = u.slice(u.indexOf("const changerSortie"), u.indexOf("// Avancement : chaque changement"));
+  test("★★ 📄 les deux gestes sont à l'administrateur, revérifiés DANS le geste sur la fiche fraîche, et passent par la règle",
+    /refuserSaufAdmin\(profile, "Fixer le contrat de travail"\)/.test(cC) && /const frais = db\.users\.find/.test(cC) && /critiqueContrat\(/.test(cC)
+    && /refuserSaufAdmin\(profile, "Saisir la date de sortie"\)/.test(cS) && /const frais = db\.users\.find/.test(cS) && /critiqueSortie\(/.test(cS));
+  test("★★ 📄 UNE seule source pour le type : le geste écrit cnss_code_type (celui de la déclaration CNSS), jamais un second champ",
+    /cnss_code_type: type\.code, contrat_fin: fin/.test(cC) && !/type_contrat/.test(u));
+  test("★ 📄 les boutons 📄 Contrat et 🚪 Sortie sont dans ⋯ Gérer, et la fin se LIT sous le nom",
+    /<button data-contrat onClick=\{\(\) => changerContrat\(u\)\}/.test(u) && /<button data-sortie onClick=\{\(\) => changerSortie\(u\)\}/.test(u) && /data-fin-contrat/.test(u));
+  const paie = readFileSync("src/lib/paie.js", "utf8");
+  test("★★ 📄 la date de fin vit dans la fiche de PAIE (protégée), pas sur la fiche que tout le monde télécharge",
+    /"contrat_fin",/.test(paie));
+  const sal = readFileSync("src/screens/Salaires.jsx", "utf8");
+  test("★ 📄 la case Type de 🏦 CNSS n'est plus grisée pour un non-assujetti (le type sert aussi au bulletin)",
+    /<select data-type-contrat title=/.test(sal) && !/<select disabled=\{!actif\} className=\{`\$\{inputCls\} w-40`\} value=\{b\.codeType\}/.test(sal));
+  const api = readFileSync("api/rappels-du-matin.js", "utf8");
+  test("★★ 📄 la tournée du matin lit la fiche de PAIE (recollée) avant de chercher les fins de contrat",
+    /rappelFinsDeContrat\(\{ \.\.\.db, users: fusionnerPaie\(db\.users, await lireTable\(admin, "paie"\)\) \}, aujourdhui\)/.test(api));
+  const dE = DosEmp.dossierEmploye(cdd, {});
+  test("★ 📄 le dossier d'accès de l'employé porte son contrat", dE.sections.some((x) => x.lignes.some(([k, v]) => k === "Contrat de travail" && v === "CDD jusqu'au 20/10/2026")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
