@@ -167,6 +167,13 @@ await build({ entryPoints: ["src/lib/dossierEmploye.js"], bundle: true, format: 
 const DosEmp = await import(pathToFileURL(sortieDosEmp).href);
 unlinkSync(sortieDosEmp);
 
+// 📍 Le lieu d'affectation d'un employé (05/10/2026).
+const sortieAff = join("node_modules", ".cache", `bmi-affectation-${process.pid}.mjs`);
+await build({ entryPoints: ["src/lib/affectation.js"], bundle: true, format: "esm",
+  platform: "node", outfile: sortieAff, logLevel: "silent", loader: { ".js": "jsx" } });
+const Aff = await import(pathToFileURL(sortieAff).href);
+unlinkSync(sortieAff);
+
 // 📄 Le droit d'accès : le dossier personnel d'un client (18/09/2026).
 const sortieDos = join("node_modules", ".cache", `bmi-dossier-${process.pid}.mjs`);
 await build({ entryPoints: ["src/lib/dossierPersonnel.js"], bundle: true, format: "esm",
@@ -6904,8 +6911,10 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
         && /\(x\.boutique === DEST_DG \|\| x\.boutique === DEST_BANQUE\) && !x\.exploitant/.test(depS)
         && /<TableauDepenses liste=\{listeCentrale\} profile=\{profile\} onSupprimer=\{supprimerDepense\}/.test(depS) && /data-depenses-centrales/.test(depS));
       const impS = readFileSync("src/lib/impression.js", "utf8");
-      test("★ 🧾 le bulletin d'un employé rattaché à aucune boutique ne porte que sa FONCTION — plus « Toutes boutiques »",
-        !/Toutes boutiques/.test(impS) && /\$\{u\.boutique \? `<div><b>Affectation :<\/b> \$\{esc\(u\.boutique\)\}<\/div>` : ""\}/.test(impS));
+      // RETOURNÉ le 05/10/2026 : l'affectation passe par `affectationDe` (la
+      // boutique, sinon le lieu écrit par l'administrateur, sinon rien).
+      test("★ 🧾 le bulletin d'un employé rattaché à aucune boutique ne porte que sa FONCTION, sauf lieu d'affectation écrit — plus « Toutes boutiques »",
+        !/Toutes boutiques/.test(impS) && /\$\{affectationDe\(u\) \? `<div><b>Affectation :<\/b> \$\{esc\(affectationDe\(u\)\)\}<\/div>` : ""\}/.test(impS));
     }
     {
       const dbV = { depenses: [
@@ -12931,6 +12940,13 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     h1.includes("MLE-007") && h1.includes("123456789") && h1.includes("01/03/2025") && h1.includes("ORABANK"));
   test("★★ 🧾 le numéro de compte n'est JAMAIS imprimé en entier : les quatre derniers chiffres seulement",
     h1.includes("…9379") && !h1.includes("TG0012345678909379"));
+  // 📍 Le lieu d'affectation (05/10/2026, « Lance, texte libre, la boutique l'emporte »).
+  Imp.imprimerBulletin({ id: "c4", nom: "YAO", role: "technicien_bmi", affectation: "Chantiers Kara", salaire_base: 80000 }, "2026-10", db0);
+  const hAff = String(globalThis.__bulletin || "");
+  Imp.imprimerBulletin({ ...nu, affectation: "Siège Lomé" }, "2026-10", db0);
+  const hAff2 = String(globalThis.__bulletin || "");
+  test("★★ 📍 le bulletin d'un employé SANS boutique imprime son lieu d'affectation ; avec une boutique, la boutique l'emporte",
+    /<b>Affectation :<\/b> Chantiers Kara</.test(hAff) && /<b>Affectation :<\/b> BMI DEMAKPOE</.test(hAff2) && !hAff2.includes("Siège Lomé"));
   test("★ 🧾 une fiche sans ces renseignements n'imprime aucune ligne vide",
     !/Matricule|N° d'assuré|Date d'embauche|<b>Banque/.test(h2) && /NET À PERCEVOIR/.test(h2));
   // 🧾 NIVEAU 2 (05/10/2026) : Gains / Retenues en deux colonnes, brut, base
@@ -13058,6 +13074,36 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     /\{d\.prepare_par && d\.prepare_par !== d\.par \? <span data-prepare-par> · préparé par \{d\.prepare_par\}<\/span> : null\}/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
   test("★ 📝 un brouillon sans client ne part pas de 📝 Mes brouillons : on le reprend pour choisir le client",
     /if \(brouillonSansClient\(b\)\) \{ uAlert\(/.test(corpsEnvB));
+}
+
+// 📍 LE LIEU D'AFFECTATION (05/10/2026, « Lance, texte libre, la boutique l'emporte »).
+{
+  const tech = { id: "t1", nom: "YAO", role: "technicien_bmi", affectation: "Chantiers Kara" };
+  const vend = { id: "v1", nom: "AMA", role: "vendeur", boutique: "APESSITO", affectation: "Ancien lieu" };
+  const cli = { id: "k1", nom: "KOFFI", role: "client", affectation: "X" };
+  test("★★ 📍 le lieu d'affectation ne se propose qu'à un employé SANS boutique — jamais à un client",
+    Aff.peutAvoirAffectation(tech) && !Aff.peutAvoirAffectation(vend) && !Aff.peutAvoirAffectation(cli) && Aff.peutAvoirAffectation({ ...vend, boutique: "" }));
+  test("★★ 📍 la boutique l'emporte : l'ancien lieu reste rangé sans s'afficher, et revient si la boutique part",
+    Aff.affectationDe(tech) === "Chantiers Kara" && Aff.affectationDe(vend) === "APESSITO" && Aff.affectationDe({ ...vend, boutique: "" }) === "Ancien lieu" && Aff.affectationDe(cli) === "");
+  test("★ 📍 refusé sur un employé rattaché à une boutique ou sur un client, et au-delà de 80 caractères ; vide = effacer",
+    !!Aff.critiqueAffectation(vend, "Kara") && !!Aff.critiqueAffectation(cli, "Kara") && !!Aff.critiqueAffectation(tech, "x".repeat(81))
+    && Aff.critiqueAffectation(tech, "") === "" && Aff.critiqueAffectation(tech, "Siège Lomé") === "");
+  const dTech = DosEmp.dossierEmploye(tech, {});
+  const dVend = DosEmp.dossierEmploye(vend, {});
+  test("★ 📍 le dossier d'accès de l'employé porte son lieu d'affectation (sans boutique seulement)",
+    dTech.identite.some(([k, v]) => k === "Lieu d'affectation" && v === "Chantiers Kara") && !dVend.identite.some(([k]) => k === "Lieu d'affectation"));
+  const u = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const corps = u.slice(u.indexOf("const changerAffectation"), u.indexOf("// ---- ANNIVERSAIRE"));
+  test("★★ 📍 le geste est réservé à l'administrateur, revérifié DANS le geste sur la fiche fraîche, passe par la règle, et laisse sa trace au journal",
+    /refuserSaufAdmin\(profile, "Écrire le lieu d'affectation d'un employé"\)/.test(corps) && /const frais = db\.users\.find\(\(x\) => x\.id === u\.id\) \|\| u;/.test(corps)
+    && (corps.match(/critiqueAffectation\(frais, /g) || []).length === 2 && /`Lieu d'affectation de \$\{u\.nom\} : /.test(corps));
+  test("★ 📍 le bouton ne s'affiche que là où la règle le permet, et le lieu se LIT sous le nom",
+    /\{peutAvoirAffectation\(u\) && <button data-affectation onClick=\{\(\) => changerAffectation\(u\)\}/.test(u) && /data-ligne-affectation/.test(u));
+  const sql = readFileSync("supabase/securite-37-affectation.sql", "utf8");
+  const s18 = readFileSync("supabase/securite-18-banque.sql", "utf8");
+  const corpsF = (t) => t.slice(t.indexOf("create or replace function"), t.indexOf("-- ═════════════════════════════════════════════════\n-- VÉRIFICATION")).replace(/--[^\n]*\n/g, "").replace(/\s+/g, " ");
+  test("★★ 📍 LE COUPLE : securite-37 reprend securite-18 mot pour mot et n'ajoute que 'affectation' à la liste « gestion »",
+    corpsF(sql).replace("'affectation', ", "") === corpsF(s18) && corpsF(sql).includes("'compte_bancaire', 'affectation', "));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

@@ -62,6 +62,7 @@ export function dossierEmploye(employe, activite = {}, { fmt = (x) => `${x} F`, 
     ["Téléphone", txt(u.tel) || "non renseigné"],
     ["Rôle", LIBELLE_ROLE[u.role] || txt(u.role)],
     ["Boutique", txt(u.boutique) || "toutes"],
+    ...(!txt(u.boutique) && txt(u.affectation) ? [["Lieu d'affectation", txt(u.affectation)]] : []),
     ["Chef d'équipe", oui(u.chef_equipe)],
     ["Compte actif", u.actif === false ? "non (bloqué)" : "oui"],
     // ⚠ L'ANNÉE de naissance n'est JAMAIS demandée par l'application (ce

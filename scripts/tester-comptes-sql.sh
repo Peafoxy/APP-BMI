@@ -40,6 +40,8 @@ echo "▸ Pose des verrous : supabase/securite-18-banque.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-18-banque.sql >/dev/null 2>&1 || echo "   ❌ securite-18 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-21-chef-technicien-bmi.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-21-chef-technicien-bmi.sql >/dev/null 2>&1 || echo "   ❌ securite-21 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-37-affectation.sql"
+VERIF37=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-37-affectation.sql 2>&1 | tail -1) || echo "   ❌ securite-37 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -133,6 +135,13 @@ essai "un admin secondaire fixe un taux de commission" "PERMIS" "$CALEB" "$(MAJ 
 essai "un admin secondaire enregistre l'identité et l'anniversaire" "PERMIS" "$CALEB" "$(MAJ "data || '{\"nom_complet\":\"KOSSI A.\",\"anniv\":\"04-12\"}'" zv_kossi)"
 essai "★ un admin enregistre la banque et le compte d'un employé" "PERMIS" "$CALEB" "$(MAJ "data || '{\"banque\":\"Ecobank\",\"compte_bancaire\":\"TG0012345678904321\"}'" zv_kossi)"
 essai "un admin secondaire nomme un chef d'équipe" "PERMIS" "$CALEB" "$(MAJ "$(SET chef_equipe true)" zt_tech)"
+# 05/10/2026 (securite-37) : le lieu d'affectation d'un employé sans boutique.
+essai "★ un technicien écrit SON lieu d'affectation" "REFUSE" "$TECHNICIEN" "$(MAJ "$(SET affectation '"Siège Lomé"')" zt_tech)"
+essai "★ …par UPSERT, comme l'application écrit" "REFUSE" "$TECHNICIEN" "$(UPS zt_tech "$(SET affectation '"Siège Lomé"')")"
+essai "★ un gérant écrit le lieu d'affectation d'un commercial" "REFUSE" "$GERANT" "$(MAJ "$(SET affectation '"Kara"')" zo_com)"
+essai "★ un admin secondaire écrit le lieu d'affectation d'un technicien" "PERMIS" "$CALEB" "$(UPS zt_tech "$(SET affectation '"Chantiers Kara"')")"
+if [ "$VERIF37" = "t|t|t" ]; then ok=$((ok+1)); echo "  ✓ la phrase de vérification de securite-37 répond true | true | true";
+else ko=$((ko+1)); echo "  ❌ la phrase de vérification de securite-37 répond « $VERIF37 »"; fi
 
 echo
 echo "── LE MOT DE PASSE D'UN AUTRE COMPTE : admin PRINCIPAL seul ──"

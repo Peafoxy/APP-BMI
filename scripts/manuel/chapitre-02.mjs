@@ -31,7 +31,7 @@ export const CHAPITRE = {
     // ── 2
     { titre: "Qui peut l'utiliser", blocs: [
       ["table", { entetes: ["Le geste", "Qui"], largeurs: [5200, 4100], lignes: [
-        ["Ouvrir 👥 Utilisateurs, créer un compte, 🆔 Identité, 📞 Téléphone, 🏦 Banque, 🏬 Boutique, 🔐 Pouvoirs, ⛔ Bloquer / ✅ Réactiver, 🗑 Supprimer, Nommer chef, les taux de commission", "**Tout administrateur**"],
+        ["Ouvrir 👥 Utilisateurs, créer un compte, 🆔 Identité, 📞 Téléphone, 🏦 Banque, 🏬 Boutique, 📍 Lieu d'affectation, 🔐 Pouvoirs, ⛔ Bloquer / ✅ Réactiver, 🗑 Supprimer, Nommer chef, les taux de commission", "**Tout administrateur**"],
         ["🔑 Changer le mot de passe, 🎭 changer le rôle, 🎓 passer un compte de réel en formation (et l'inverse), 👁 Voir le mot de passe, ⚠ Actions groupées", "**L'administrateur principal seul**"],
         ["👑 Transférer le rôle d'administrateur principal (⚙ Paramètres)", "**L'administrateur principal seul**"],
         ["🙋 Créer un client (onglet à part, sans passer par 👥 Utilisateurs)", "Vendeur, gérant, magasinier, commercial, technicien, comptable, administrateur"],
@@ -93,7 +93,7 @@ export const CHAPITRE = {
         "**🧲 Comptes prospects** (bouton de la rangée des rôles, après « Clients ») : un compte qui a reçu un devis, n'en a validé aucun et n'a rien acheté n'est **pas encore un client**. Il quitte la liste des clients et son compteur, s'ouvre par ce bouton dans le même tableau (sous son nom : date du dernier devis et date d'archive), et la recherche le trouve (badge « 🧲 Prospect ») avec tous ses gestes. Son compte marche comme celui d'un client (il peut valider et signer) ; il devient client **tout seul** au premier devis validé ou au premier achat. Le mot de fidélité ne lui est pas envoyé.",
         "**📁 Clients archivés** (bouton de la rangée des rôles, après « 🧲 Comptes prospects ») : un client qui a reçu un devis mais n'a **jamais rien acheté ni validé de devis** quitte la liste des clients **30 jours après son dernier devis**. Il reste trouvable par la recherche (badge « 📁 Archivé ») et s'ouvre par ce bouton dans le même tableau, avec sa date d'archive et celle où l'effacement sera proposé. **Rien n'est effacé** : un nouveau devis ou un achat le fait revenir tout seul. Un an plus tard, ⚙ Paramètres → 🔒 Données personnelles **propose** de l'effacer ; seul l'administrateur principal décide.",
         "**🆕 Comptes sans activité** (bouton de la rangée des rôles, après « 📁 Clients archivés ») : un compte client créé (🙋 Créer un client, 👥 Utilisateurs…) qui n'a **reçu aucun devis et n'a rien acheté** n'est ni prospect ni client. Il quitte la liste des clients et son compteur, s'ouvre par ce bouton (sous son nom : « Créé le … par … »), et la recherche le trouve (badge « 🆕 Sans activité »). Le mot de fidélité ne lui est pas envoyé. Il devient **prospect** tout seul dès qu'un devis lui part, et **client** dès son premier achat. Rien n'est archivé ni effacé ici. **« Clients » ne contient donc plus que ceux qui ont acheté ou validé un devis.**",
-        "Sur chaque ligne : le nom (le nom complet dessous), **📞 le numéro** avec le logo WhatsApp (sur un vrai client, le clic envoie le mot de fidélité du numéro BMI, après une question), le rôle en pastille (avec « ⭐ Chef », le taux de commission), la boutique (« Toutes » pour un rôle sans boutique), le statut, et **🎓 Formation** pour un compte d'entraînement.",
+        "Sur chaque ligne : le nom (le nom complet dessous), **📞 le numéro** avec le logo WhatsApp (sur un vrai client, le clic envoie le mot de fidélité du numéro BMI, après une question), le rôle en pastille (avec « ⭐ Chef », le taux de commission), la boutique (« Toutes » pour un rôle sans boutique — et, sous le nom, **📍 son lieu d'affectation** s'il est écrit), le statut, et **🎓 Formation** pour un compte d'entraînement.",
         "**« ⚠ Identité »** en orange : la pièce d'identité n'est pas renseignée. Bouton 🆔.",
       ]],
 
@@ -107,7 +107,7 @@ export const CHAPITRE = {
 
       ["h3", "F. « ⋯ Gérer » — le panneau sous la ligne"],
       ["table", { entetes: ["Ligne", "Boutons", "Qui"], largeurs: [1700, 5600, 2000], lignes: [
-        ["Compte", "🎭 Rôle · 🎓 Formation / Réel · 🏬 Boutique · 📞 Téléphone · 🎂 Anniversaire (jour et mois seulement) · 👁 Voir le mot de passe · 🗑 Supprimer", "Rôle, espace et mot de passe : principal ; le reste : administrateur"],
+        ["Compte", "🎭 Rôle · 🎓 Formation / Réel · 🏬 Boutique · 📍 Lieu d'affectation (employé sans boutique) · 📞 Téléphone · 🎂 Anniversaire (jour et mois seulement) · 👁 Voir le mot de passe · 🗑 Supprimer", "Rôle, espace et mot de passe : principal ; le reste : administrateur"],
         ["Paie", "💵 Salaire · 📈 Taux % · 📅 Paie suivie depuis · 📅 Embauche · + Prime · − Avance · 🏦 Banque · 💸 Virement · Annuler virement · les crédits (Approuver / Refuser / + Remboursement)", "Administrateur — voir le chapitre 18"],
         ["Commercial", "💰 Commission (taux) · 🤝 Parrain · ⭐ Équipe (taux du chef) · Nommer chef / Retirer chef", "Administrateur — voir le chapitre 16"],
         ["Client", "Autoriser chat libre / Retirer chat libre", "Administrateur — voir le chapitre 20"],
@@ -151,6 +151,7 @@ export const CHAPITRE = {
         ["« ⋯ Gérer »", "Ligne", "Ouvre le panneau Compte / Paie / Commercial / Client."],
         ["🎭 Rôle · 🎓 Formation / Réel", "⋯ Gérer → Compte (principal)", "Changer le métier ; passer le compte d'un espace à l'autre."],
         ["🏬 Boutique · 📞 · 🎂", "⋯ Gérer → Compte", "Changer la boutique d'un salarié de boutique ; saisir ou corriger le numéro ; l'anniversaire (jour/mois)."],
+        ["📍 Lieu d'affectation", "⋯ Gérer → Compte", "**Seulement pour un employé rattaché à AUCUNE boutique** (comptable, commercial, technicien…) : où il travaille, en texte libre (« Siège Lomé », « Chantiers Kara »), 80 caractères au plus ; vide l'efface. Administrateur seul. **Il ne donne aucun droit** : il se lit sous son nom, sur son bulletin de paie et dans son dossier personnel. Si l'employé reçoit un jour une boutique, **la boutique l'emporte** : le lieu reste rangé sans s'afficher, et revient s'il n'a plus de boutique."],
         ["👁 Voir le mot de passe", "⋯ Gérer → Compte (principal)", "Recalcule le mot de passe d'un client. Pour un employé : « pas consultable, et c'est voulu »."],
         ["🗑 Supprimer", "⋯ Gérer → Compte", "Retire le compte ; l'histoire reste."],
         ["« 🎓 Passer tous les comptes actuels en formation d'un coup (sauf vous) »", "⚠ Actions groupées (principal)", "Le geste de départ pour une répétition générale : tout le monde en formation, vous en réel."],

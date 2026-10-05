@@ -13,6 +13,7 @@ import { genererSVGCode128 } from "./barcode";
 import { identiteClient, ligneClient, partieClientContrat } from "./clientEntreprise";
 import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { compteMasque } from "./banques";
+import { affectationDe } from "./affectation";
 
 // 🏢 29/09/2026 (Timo) : le client d'un reçu — la personne (NOM Prénom), ou
 // l'ENTREPRISE qu'elle représente, avec ses coordonnées et « Représentée
@@ -802,8 +803,10 @@ export function imprimerBulletin(u, mois, db) {
       ${u.piece_num ? `<div><b>Pièce d'identité :</b> ${esc(u.piece_type || "CNI")} n° ${esc(u.piece_num)}</div>` : ""}
       <div><b>Fonction :</b> ${esc(roleLbl)}</div>
       ${/* Timo (05/10/2026) : un employé qui n'est rattaché à aucune boutique
-            n'a que sa FONCTION sur le bulletin (plus d'affectation « toutes »). */""}
-      ${u.boutique ? `<div><b>Affectation :</b> ${esc(u.boutique)}</div>` : ""}
+            n'a que sa FONCTION sur le bulletin (plus d'affectation « toutes »),
+            sauf si l'administrateur lui a écrit un lieu d'affectation — la
+            boutique l'emporte toujours (`affectationDe`). */""}
+      ${affectationDe(u) ? `<div><b>Affectation :</b> ${esc(affectationDe(u))}</div>` : ""}
       ${/* Ce que la fiche de paie porte déjà (05/10/2026, comparaison avec un
             bulletin de solde, « 1 ») : une ligne n'apparaît que si elle est
             renseignée. Le numéro de compte n'est JAMAIS imprimé en entier

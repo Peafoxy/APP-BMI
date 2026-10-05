@@ -18,6 +18,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
+import { peutAvoirAffectation, critiqueAffectation } from "../lib/affectation";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie } from "../lib/calculs";
 
@@ -822,6 +823,26 @@ export function Users({ db, save, profile }) {
       `Téléphone de ${u.nom} : ${tel || "retiré"}`);
   };
 
+  // 📍 Le lieu d'affectation (05/10/2026, « Lance, texte libre, la boutique
+  // l'emporte ») : seulement pour un employé SANS boutique, administrateur
+  // revérifié ici, sur la fiche fraîche. Il ne donne aucun droit. Serveur :
+  // `affectation` rejoint la liste « gestion » (securite-37).
+  const changerAffectation = async (u) => {
+    if (refuserSaufAdmin(profile, "Écrire le lieu d'affectation d'un employé")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const refus0 = critiqueAffectation(frais, "");
+    if (refus0) { uAlert(refus0); return; }
+    const v = await uPrompt(`Lieu d'affectation de ${u.nom} (ex. Siège Lomé, Chantiers Kara) — laisser vide pour l'effacer.\n\nIl ne donne aucun droit : il s'écrit sur sa fiche et sur son bulletin de paie.`, String(frais.affectation || ""));
+    if (v === null) return;
+    const val = String(v).trim();
+    const refus = critiqueAffectation(frais, val);
+    if (refus) { uAlert(refus); return; }
+    if (val === String(frais.affectation || "").trim()) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, affectation: val } : x)) },
+      `Lieu d'affectation de ${u.nom} : ${String(frais.affectation || "").trim() || "aucun"} → ${val || "aucun"}`);
+  };
+
   // ---- ANNIVERSAIRE (jour et mois seulement) ----
   // ⚠ Demande Timo (20/08/2026) : souhaiter automatiquement les anniversaires
   // sur l'écran de connexion. On ne demande PAS l'année : cet écran s'affiche
@@ -1434,6 +1455,7 @@ export function Users({ db, save, profile }) {
                       ))}
                     </div>
                   )}
+                  {peutAvoirAffectation(u) && String(u.affectation || "").trim() && <div data-ligne-affectation className="text-xs font-normal text-slate-500">📍 {u.affectation}</div>}
                   {u.piece_num
                     ? <div className="text-xs font-normal text-slate-400">{u.piece_type || "Pièce"} n° {u.piece_num}</div>
                     : u.role !== "client" && <div className="text-xs font-normal text-orange-500" title="Identité non renseignée : bouton 🆔 Identité">⚠ Identité</div>}
@@ -1519,6 +1541,7 @@ export function Users({ db, save, profile }) {
                     </button>
                   )}
                   {SALARIES_BOUTIQUE.includes(u.role) && <button onClick={() => changerBoutique(u)} className={boutonGerer}>🏬 Boutique</button>}
+                  {peutAvoirAffectation(u) && <button data-affectation onClick={() => changerAffectation(u)} className={boutonGerer} title="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit">📍 {u.affectation ? u.affectation : "Lieu d'affectation"}</button>}
                   {u.role !== "client" && <button onClick={() => changerTelephone(u)} className={boutonGerer} title={u.tel ? `Téléphone : ${u.tel}` : "Aucun numéro sur cette fiche"}>📞 {u.tel || "Téléphone"}</button>}
                   {u.role !== "client" && <button onClick={() => changerAnniversaire(u)} className={boutonGerer}>🎂 {u.anniv ? `${u.anniv.slice(3, 5)}/${u.anniv.slice(0, 2)}` : "Anniversaire"}</button>}
                   {jeSuisAdminPrincipal && <button onClick={() => voirPwd(u)} className={boutonGerer}>👁 Voir le mot de passe</button>}

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2234 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2242 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -69,7 +69,7 @@ npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium 
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 225 : les règles de rôle sur l'argent (serveur)
-npm run tester-comptes           # 78  : les règles de rôle sur les comptes (serveur)
+npm run tester-comptes           # 83  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-paie              # 46  : la fiche de paie séparée, et le numéro de compte bancaire (serveur)
 ```
@@ -5511,6 +5511,20 @@ lit mal est pire qu'un banc absent).
   (administrateur) garde son 🖨 Bulletin. **Pour rouvrir : `true`, sur sa
   demande seulement.** Le reste de 💵 Mon salaire ne bouge pas. Banc (1
   contrôle), éprouvé. Rien à coller. Chapitre 18 à jour.
+
+### 📍 LE LIEU D'AFFECTATION D'UN EMPLOYÉ SANS BOUTIQUE (05/10/2026, « Lance, texte libre, la boutique l'emporte »)
+- Champ `affectation` (texte libre, 80 caractères), **seulement sur un employé
+  rattaché à AUCUNE boutique** (`peutAvoirAffectation`, lib/affectation.js,
+  sans import) : 👥 Utilisateurs → ⋯ Gérer → Compte → 📍, **administrateur**,
+  revérifié DANS le geste sur la fiche fraîche (`critiqueAffectation`), journal
+  « ancien → nouveau ». **Aucun droit** : il se lit sous le nom, sur le bulletin
+  (`affectationDe`) et dans le dossier de l'employé. **La boutique l'emporte** :
+  si elle arrive, le lieu reste rangé sans s'afficher, et revient si elle part.
+- ⚠ LE COUPLE : **`securite-37`** reprend securite-18 mot pour mot et ajoute
+  `affectation` à la liste « gestion » (sans lui, un employé écrirait le sien).
+  **À coller par Timo.** Banc `tester-comptes` (83) éprouvé sans le script :
+  quatre contrôles tombent ; `verifier-cloisonnement` éprouvé (boutique qui ne
+  l'emporte plus, geste sans revérification). Chapitres 2 et 18 à jour.
 
 ### 📲 L'AVIS DE PAIEMENT D'UN SALAIRE PART DU NUMÉRO BMI — `virement_salaire` (03/10/2026, le texte de Timo)
 - Timo : « un modèle YCloud pour envoi automatique de message de virement
