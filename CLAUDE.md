@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2194 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2199 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1204,6 +1204,28 @@ lit mal est pire qu'un banc absent).
   recherche trop large retombait sur le nom des fonctions importées et criait
   à tort). **Un contrôle s'éprouve en remettant la faute, sinon on ne sait pas
   s'il tient.**
+
+### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES ET 📋 TOUS LES DEVIS (05/10/2026, « Lance, revenir à Toutes périodes »)
+- Captures Timo : « pas de filtration de période dans ces écrans ». LE filtre
+  de 💰 Ventes est écrit UNE fois, **`components/FiltrePeriode.jsx`**
+  (`useFiltrePeriode` → `bornes`, `dans(date)`, `libelle`, `selecteur`), et les
+  QUATRE écrans y passent (Ventes compris — un contrôle l'impose, aucun écran
+  ne refait sa période). **« Toute période » à CHAQUE ouverture** (sa
+  décision) : l'état part de null, rien n'est mémorisé.
+- **📤 Dépenses** (et « Chez le comptable ») : la liste suit la période ; le
+  total à droite devient « {période} : X » (« Ce mois » revient sans période) ;
+  **le cadre ⏳ à valider par le DG n'est jamais filtré**.
+- **📋 Dettes** : sur la date de la dette ; liste et « Reste total » suivent ;
+  ⚠ une dette impayée hors période sort de la liste, donc **une bande ambre
+  dit « Hors de cette période : N dettes non soldées, X restants »**
+  (`data-dettes-hors-periode`). Le retard (30 jours) regarde toujours tout.
+- **📋 Tous les devis** : sur la date du devis ; liste ET compteurs des
+  pastilles suivent ; **la bande des devis sans réponse non** (une alerte).
+- Rien à coller. Banc (5 contrôles), éprouvé en remettant trois fautes
+  (période mémorisée, argent hors période tu, alerte filtrée) : chacune
+  tombe. Six contrôles RETOURNÉS (le filtre de Ventes vit dans le composant,
+  la liste de Dépenses et de « Chez le comptable »). Chapitres 7, 13 et 17
+  à jour.
 
 ### 🏦 Les banques, et le moyen de paiement en BOUTONS (15/09/2026)
 - Timo, dans l'ordre : **« et si ce mode était à sélectionner ? »** (la

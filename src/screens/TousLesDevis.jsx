@@ -22,6 +22,7 @@ import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
 import { TYPES_PORTAIL, LABEL_FREQUENCE } from "./dimensionnement/Garage";
 import { STATUT_DEVIS } from "../lib/libellesStatuts";
+import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { STATUT_SANS_SUITE, estSansSuite, peutClasserDevis, critiqueClassement, classerSansSuite, critiqueReouverture, rouvrirDevis, avecDevis, devisDans } from "../lib/devisSansSuite";
 import { mettreDevisALaCorbeille, critiqueSuppressionDevis, critiqueSuppressionDevisDans, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
@@ -163,6 +164,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const [filtreType, setFiltreType] = useState("");
   const [recherche, setRecherche] = useState("");
   const [relanceSeule, setRelanceSeule] = useState(false);
+  // 📅 Le filtre de période (Timo, 05/10/2026 : « Toute période » à chaque
+  // ouverture) — sur la DATE du devis. Les compteurs des pastilles le suivent ;
+  // la bande des devis sans réponse, non (c'est une alerte).
+  const periode = useFiltrePeriode();
 
   // Ouvrir un devis le marque comme « vu » — la pastille rouge ne le comptera plus.
   const ouvrirDevis = (d) => {
@@ -240,6 +245,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // sinon le compteur d'un onglet non sélectionné retomberait toujours à 0.
   const devisAvantStatut = tousDevis.filter((d) => {
     if (relanceSeule && !enAttenteDeRelance(d)) return false;
+    if (!periode.dans(d.date)) return false;
     if (filtreType && (d.type_devis || "solaire") !== filtreType) return false;
     if (recherche) {
       const texte = normNom(`${d.client?.nom_base || d.client?.nom || ""} ${d.par || ""}`);
@@ -442,11 +448,12 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
             <option value="autre">📦 Autre</option>
           </select>
         </div>
+        <div className="flex flex-wrap items-center gap-2 mt-2">{periode.selecteur}</div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {devisFiltres.length === 0 ? (
-          <div className="p-6 text-center text-sm text-slate-400">Aucun devis{voitTout ? "" : " établi par vous"} pour l'instant.</div>
+          <div className="p-6 text-center text-sm text-slate-400">{periode.actif ? "Aucun devis sur cette période." : <>Aucun devis{voitTout ? "" : " établi par vous"} pour l'instant.</>}</div>
         ) : (
           <div className="divide-y divide-slate-100 max-h-[455px] overflow-y-auto">
             {devisPage.map((d) => (

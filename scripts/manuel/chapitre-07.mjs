@@ -2,7 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 7 : Dettes et paiements
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
-// screens/Dettes.jsx (Nouvelle dette client, 💵 Paiement, la relance, la
+// screens/Dettes.jsx, components/FiltrePeriode.jsx (Nouvelle dette client, 💵 Paiement, la relance, la
 // réservation prépayée, 📦 Livrer, Annuler, 🗑, la liste), lib/core.js
 // (prochainNumeroDette, numeroRecuDette, titreRecuDette, documentDeVente,
 // lignesDette), lib/impression.js (imprimerRecuVersement : le reçu de dette,
@@ -117,7 +117,8 @@ export const CHAPITRE = {
     { titre: "Explication de chaque bouton et champ", blocs: [
       ["h3", "La liste des dettes"],
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
-        ["Reste total : X", "Dans le titre : la somme de ce qui reste dû sur la boutique, réservations exclues."],
+        ["Reste total : X", "Dans le titre : la somme de ce qui reste dû sur les dettes AFFICHÉES de la boutique, réservations exclues."],
+        ["Le filtre de période", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates, sur la DATE de la dette. La liste et le « Reste total » la suivent. Une vieille dette impayée sort alors de la liste : une bande ambre le dit (« Hors de cette période : N dettes non soldées, X restants »), l'argent dû ne se perd jamais de vue."],
         ["Date / numéro", "La date de la dette, et son numéro (APE-DET-2026-0003 ; FOR- devant en formation). Colonne figée pendant le défilement."],
         ["Client / téléphone", "Le nom en gras, le numéro dessous."],
         ["Motif", "Les articles de la vente à crédit (avec les frais d'installation et de transport d'un devis), ou le motif tapé. Deux lignes au plus, « + N autres », la suite au clic."],

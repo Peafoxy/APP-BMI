@@ -123,6 +123,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 |---|---|
 | `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
+| `FiltrePeriode.jsx` | 📅 Le filtre de période d'une liste (Toute période, quatre périodes, Personnaliser), écrit une fois pour Ventes, Dépenses, Dettes et Tous les devis |
 | `FicheClient.jsx` | 🗂 La fiche d'un client ouverte d'un clic dans 📋 Clients : achats, dettes, proformas, commandes, devis, chantiers de l'espace regardé |
 | `ChampsEntreprise.jsx` | La case « entreprise cliente » et ses lignes (nom, téléphone, NIF, RCCM), écrite une fois pour Ventes, le devis et la création d'un compte client |
 | `SelecteurArticle.jsx` | La fenêtre « Rechercher un article » |

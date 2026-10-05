@@ -3,6 +3,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { useState } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
@@ -37,6 +38,9 @@ export function Dettes({ db, save, profile }) {
   // restructurer les dettes » — UNE dette dépliée à la fois (la suite des
   // articles au clic sur la ligne, un clic sur une autre la déplie directement).
   const [detteDepliee, setDetteDepliee] = useState(null);
+  // 📅 Le filtre de période de la liste (Timo, 05/10/2026 : « Toute période »
+  // à chaque ouverture) — sur la DATE de la dette.
+  const periode = useFiltrePeriode();
 
   const ajouter = () => {
     if (!f.client || !f.montant) { uAlert("Veuillez saisir le nom du client et le montant."); return; }
@@ -285,7 +289,12 @@ export function Dettes({ db, save, profile }) {
   };
 
   const liste = db.dettes.filter((x) => x.boutique === boutique && !estReservation(x));
-  const { pageItems: listePage, page, setPage, totalPages } = usePagination(liste, 50);
+  // Ce qui est AFFICHÉ. ⚠ Une vieille dette impayée sort de la liste quand on
+  // choisit une période : l'argent dû hors de la période se DIT sous le titre
+  // (horsPeriode), on ne le perd jamais de vue.
+  const listeAffichee = liste.filter((x) => periode.dans(x.date));
+  const horsPeriode = periode.actif ? liste.filter((x) => !periode.dans(x.date) && Math.max(0, x.montant - x.paye) > 0) : [];
+  const { pageItems: listePage, page, setPage, totalPages } = usePagination(listeAffichee, 50);
   const mesReservations = db.dettes.filter((x) => x.boutique === boutique && estReservation(x) && x.statut !== "annulee");
   const statut = (d) => (d.montant - d.paye <= 0 ? "Payée" : d.paye > 0 ? "Partielle" : "En cours");
 
@@ -438,9 +447,15 @@ export function Dettes({ db, save, profile }) {
       </Panel>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">
-          Dettes — {boutique} <span className="text-sm font-normal text-slate-500">· Reste total : {fmt(liste.reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0))}</span>
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
+          <span>Dettes — {boutique} <span className="text-sm font-normal text-slate-500">· Reste total{periode.actif ? ` (${periode.libelle})` : ""} : {fmt(listeAffichee.reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0))}</span></span>
+          <span className="flex flex-wrap items-center gap-2">{periode.selecteur}</span>
         </div>
+        {horsPeriode.length > 0 && (
+          <div className="px-4 py-2 text-xs font-semibold text-amber-800 bg-amber-50 border-b border-amber-200" data-dettes-hors-periode>
+            Hors de cette période : {horsPeriode.length} dette{horsPeriode.length > 1 ? "s" : ""} non soldée{horsPeriode.length > 1 ? "s" : ""}, {fmt(horsPeriode.reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0))} restant{horsPeriode.length > 1 ? "s" : ""}.
+          </div>
+        )}
         {/* Même présentation que la liste des ventes (Timo, 12 et 13/09/2026) :
             date sur une ligne, client en gras avec son téléphone dessous, un
             article par ligne (deux au plus puis « + N autres », la suite au
@@ -452,7 +467,7 @@ export function Dettes({ db, save, profile }) {
             {[["Client", "text-left"], ["Date", "text-left"], ["Motif", "text-left"], ["Dette", "text-right"], ["Payé", "text-right"], ["Reste", "text-right"], ["Statut", "text-left"], ["Actions", "text-right"]].map(([h, al], i) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {liste.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucune dette enregistrée.</td></tr>}
+            {listeAffichee.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucune dette sur cette période." : "Aucune dette enregistrée."}</td></tr>}
             {listePage.map((d, i) => {
               const st = statut(d);
               const jours = joursDeDette(d, today());

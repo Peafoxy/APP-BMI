@@ -24,7 +24,8 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, periodes, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee, recetteDesVentes, totalDesProformas } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas } from "../lib/calculs";
+import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -1275,19 +1276,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // réutilise periodes()/inP() déjà existants (Dashboard.jsx) pour rester
   // cohérent avec le reste de l'app. "Tout" = pas de filtre (comportement
   // d'origine préservé par défaut).
-  const [periodeIndex, setPeriodeIndex] = useState(null);
-  // ✏️ Personnaliser (Timo, 19/09/2026) : deux dates à soi, en plus des cinq
-  // périodes toutes faites. Une borne vide reste ouverte (lib/calculs.js).
-  const [perioDu, setPerioDu] = useState("");
-  const [perioAu, setPerioAu] = useState("");
+  // 📅 Le filtre de période est écrit UNE fois (components/FiltrePeriode.jsx,
+  // 05/10/2026) — Dépenses, Dettes et Tous les devis passent par le même.
+  const periode = useFiltrePeriode();
   const [filtrePaiement, setFiltrePaiement] = useState("");
-  // Les deux bornes appliquées, quelle que soit la façon dont on les a
-  // choisies — null = aucun filtre de période. UN seul calcul, lu par les
-  // deux listes (ventes ET proformas), pour qu'elles ne puissent pas
-  // diverger.
-  const bornesPeriode = periodeIndex === PERIODE_PERSO
-    ? bornesPersonnalisees(perioDu, perioAu)
-    : (periodeIndex === null ? null : [periodes()[periodeIndex][1], periodes()[periodeIndex][2]]);
+  // Les deux bornes appliquées — null = aucun filtre de période. UN seul
+  // calcul, lu par les deux listes (ventes ET proformas), pour qu'elles ne
+  // puissent pas diverger.
+  const bornesPeriode = periode.bornes;
   const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
   // ⚠ RELEVÉ LE 05/09/2026 (question de Timo : « les ventes et les proformas
   // sont-ils cloisonnés ? ») : cette liste lisait db.proformas BRUT. Le
@@ -1550,29 +1546,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               (Ventes et Proformas — une proforma a aussi une date), contrairement
               au filtre de paiement (Crédit/Espèces...) qui n'a pas de sens pour
               une proforma, simple offre de prix jamais réellement encaissée. */}
-          <select value={periodeIndex === null ? "" : periodeIndex}
-            onChange={(e) => {
-              const v = e.target.value;
-              setPeriodeIndex(v === "" ? null : (v === PERIODE_PERSO ? PERIODE_PERSO : Number(v)));
-            }} className={`${inputCls} sm:w-40`}>
-            <option value="">Toute période</option>
-            {periodes().slice(0, 4).map(([label], idx) => (
-              <option key={label} value={idx}>{label}</option>
-            ))}
-            <option value={PERIODE_PERSO}>✏️ Personnaliser…</option>
-          </select>
-          {/* ⚠ Les deux cases n'apparaissent QUE si on les a demandées : le
-              filtre reste aussi simple qu'avant pour qui n'en a pas besoin.
-              Et la phrase à droite DIT la période réellement appliquée —
-              deux dates saisies à l'envers sont remises dans l'ordre, et on
-              ne le fait pas en silence. */}
-          {periodeIndex === PERIODE_PERSO && (
-            <>
-              <input type="date" value={perioDu} onChange={(e) => setPerioDu(e.target.value)} className={`${inputCls} sm:w-40`} title="Du" />
-              <input type="date" value={perioAu} onChange={(e) => setPerioAu(e.target.value)} className={`${inputCls} sm:w-40`} title="Au" />
-              <span className="text-xs font-bold text-sky-800 self-center">{libellePeriodePersonnalisee(perioDu, perioAu)}</span>
-            </>
-          )}
+          {periode.selecteur}
           {/* 💰 LA RECETTE, à côté des dates (Timo, 19/09/2026).
               ⚠ Elle est la somme de ce qui est AFFICHÉ — elle suit donc aussi
               le moyen de paiement et la recherche, pas seulement la période.

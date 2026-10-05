@@ -2,7 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 17 : Dépenses
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
-// screens/Depenses.jsx (📤 Dépenses : Nouvelle dépense — Catégorie
+// screens/Depenses.jsx, components/FiltrePeriode.jsx (📤 Dépenses : Nouvelle dépense — Catégorie
 // « — Choisir — », Description, Montant, Paiement, Payé avec, Chantier à
 // rattacher ; Enregistrer la dépense ; ⏳ Dépenses à valider par le DG,
 // ✅ Valider, ✖ Rejeter ; 🏠 Loyer de la boutique, 💵 Payer le loyer /
@@ -158,6 +158,7 @@ export const CHAPITRE = {
         ["✅ Valider / ✖ Rejeter", "⏳ Dépenses à valider par le DG", "La décision du DG ; le rejet demande un motif."],
         ["💵 Payer le loyer / 💵 Payer d'avance", "🏠 Loyer de la boutique", "Remplit le formulaire pour un ou plusieurs mois."],
         ["✏️ Modifier", "Liste des dépenses", "Change la catégorie et la description (administrateur principal)."],
+        ["Le filtre de période", "Titre de la liste (et « Chez le comptable »)", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates. La liste ne montre que la période, et le total à droite devient celui de la période (« Ce mois » revient avec « Toute période »). Le cadre ⏳ Dépenses à valider par le DG n'est jamais filtré."],
         ["Suppr.", "Liste des dépenses", "Supprime une dépense (administrateur)."],
         ["💵 Rembourser en espèces / 🧾 Avec le salaire / 👤 Par le DG", "🔒 Caisse → 💼 Avances", "Rembourse une avance de poche."],
         ["✅ Remis / ✅ Encaissé", "🧾 Chez le comptable", "Pointage du comptable."],

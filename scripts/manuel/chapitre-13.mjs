@@ -2,7 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 13 : Devis et proformas
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
-// screens/TousLesDevis.jsx (le titre « 📋 Tous les devis » / « — les vôtres » ;
+// screens/TousLesDevis.jsx, components/FiltrePeriode.jsx (le titre « 📋 Tous les devis » / « — les vôtres » ;
 // les filtres 📋 Tous · ⏳ Proposé · ✅ Validé · 💰 Payé · ✏️ Modification ·
 // ❌ Rejeté · 📁 Sans suite, avec leurs compteurs ; la bande « ⚠️ N devis sans
 // réponse depuis plus de 15 jours » ; « Rechercher un client ou un vendeur… » ;
@@ -82,6 +82,7 @@ export const CHAPITRE = {
         ["Les filtres de statut", "**📋 Tous · ⏳ Proposé · ✅ Validé · 💰 Payé · ✏️ Modification · ❌ Rejeté · 📁 Sans suite**, chacun avec son compteur. « Tous » est la liste ACTIVE : un devis classé sans suite n'y est pas."],
         ["La bande jaune", "« ⚠️ N devis sans réponse depuis plus de 15 jours » — un clic ne montre que ceux-là, un second rend la liste entière."],
         ["La recherche et le type", "**« Rechercher un client ou un vendeur… »** et **« Tous les types »** (☀️ Solaire, 🚪 Garage, 📦 Autre)."],
+        ["Le filtre de période", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates, sur la DATE du devis. La liste et les compteurs des pastilles la suivent ; la bande jaune des devis sans réponse, non (c'est une alerte)."],
         ["Une ligne de devis", "Le client, le type, la date, l'auteur et la boutique ; le montant ; les pastilles ; le statut. **Un clic l'ouvre** : le plan de règlement s'il y en a un, les articles, les boutons."],
         ["**☀️ Dimensionnement**", "Où le devis s'établit et part (chapitres 11 et 12). **« ✏️ Modifier et renvoyer »** y ramène, le devis rempli."],
         ["**💰 Ventes**", "Sous le panier : **🧾 Proforma WhatsApp** et **🖨️** (imprimer). Au-dessus de la liste : la vue **🧾 Proformas (N)**."],

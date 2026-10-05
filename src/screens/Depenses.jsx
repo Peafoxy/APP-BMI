@@ -19,6 +19,7 @@ import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER } from "../lib/loyer";
 import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
+import { useFiltrePeriode } from "../components/FiltrePeriode";
 // Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
 // un chantier de devis ; elle sera déduite des frais d'installation avant le
 // partage entre techniciens — règle pure dans lib/depensesChantier.js.
@@ -116,6 +117,10 @@ function useModifDepense(db, save, profile) {
 export function Depenses({ db, save, profile }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "depenses" });
   const [bq, setBq] = useState(profile.boutique || premiere);
+  // 📅 Le filtre de période de la liste (Timo, 05/10/2026 : « Toute période »
+  // à chaque ouverture). Il ne touche QUE la liste et son total : le cadre des
+  // dépenses à valider par le DG reste entier, quelle que soit la date.
+  const periode = useFiltrePeriode();
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
   // vide (écran ouvert pendant la synchronisation d'ouverture) ou désigner
   // une boutique qui n'existe plus (supprimée, ou effacée par une
@@ -306,6 +311,11 @@ export function Depenses({ db, save, profile }) {
   // « Ce mois » ne compte que ce qui compte : validé, ou sans validation requise.
   const totalMois = depensesComptees(liste).filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
   const enAttenteIci = liste.filter(estEnAttente).reduce((s, x) => s + Number(x.montant), 0);
+  // Ce qui est AFFICHÉ, et le total de ce qui est affiché quand une période
+  // est choisie (sans période, « Ce mois » comme avant).
+  const listeAffichee = liste.filter((x) => periode.dans(x.date));
+  const totalPeriode = depensesComptees(listeAffichee).reduce((s, x) => s + Number(x.montant), 0);
+  const enAttentePeriode = listeAffichee.filter(estEnAttente).reduce((s, x) => s + Number(x.montant), 0);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
@@ -431,10 +441,15 @@ export function Depenses({ db, save, profile }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
           <span>{mesSeules ? "Mes dépenses" : "Dépenses"} — {boutique}</span>
-          <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}{enAttenteIci > 0 ? <span className="text-amber-700"> · en attente de validation (non comptées) : {fmt(enAttenteIci)}</span> : null}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            {periode.selecteur}
+            {periode.actif
+              ? <span className="text-sm font-semibold text-slate-500" data-total-periode>{periode.libelle} : {fmt(totalPeriode)}{enAttentePeriode > 0 ? <span className="text-amber-700"> · en attente de validation (non comptées) : {fmt(enAttentePeriode)}</span> : null}</span>
+              : <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)}{enAttenteIci > 0 ? <span className="text-amber-700"> · en attente de validation (non comptées) : {fmt(enAttenteIci)}</span> : null}</span>}
+          </span>
         </div>
         {panneauModif}
-        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide={mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
+        <TableauDepenses liste={listeAffichee} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide={periode.actif ? "Aucune dépense sur cette période." : mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
         {/* On ne cache pas l'argent : on dit où il est allé. */}
         <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">
           Les <b>versements de fonds</b>, les <b>fonds de caisse remis par le DG</b> et les <b>remboursements de reprise</b> ne sont pas des dépenses : ils ne comptent pas ici.
@@ -450,6 +465,9 @@ export function Depenses({ db, save, profile }) {
 // boutique mais confiées au comptable (commissions, salaires, etc. payés
 // « Chez le comptable ») — sinon ces dépenses étaient invisibles nulle part.
 export function ChezComptable({ db, save, profile }) {
+  // 📅 Le même filtre de période que la liste d'une boutique (05/10/2026) :
+  // il ne touche que la liste et ses totaux, jamais le pointage.
+  const periode = useFiltrePeriode();
   // Timo (13/09/2026) : une dépense de boutique « payée avec la caisse du
   // comptable » passe aussi par son pointage « Remis » — elle est une sortie
   // de SA caisse (lib/caissesCentrales.js, mouvementsComptable).
@@ -564,10 +582,15 @@ export function ChezComptable({ db, save, profile }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
           <span>Chez le comptable</span>
-          <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)} · Total : {fmt(total)}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            {periode.selecteur}
+            {periode.actif
+              ? <span className="text-sm font-semibold text-slate-500" data-total-periode>{periode.libelle} : {fmt(liste.filter((x) => periode.dans(x.date)).reduce((s, x) => s + Number(x.montant), 0))}</span>
+              : <span className="text-sm font-semibold text-slate-500">Ce mois : {fmt(totalMois)} · Total : {fmt(total)}</span>}
+          </span>
         </div>
         {panneauModif}
-        <TableauDepenses liste={liste} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide="Aucune sortie de caisse « Chez le comptable » pour l'instant." />
+        <TableauDepenses liste={liste.filter((x) => periode.dans(x.date))} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide="Aucune sortie de caisse « Chez le comptable » pour l'instant." />
       </div>
     </div>
   );

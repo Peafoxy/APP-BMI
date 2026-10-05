@@ -4988,7 +4988,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     // 13/09/2026 : « appliquer la règle d'archivage aussi à l'historique des dépenses » — LE composant commun, plus de pagination.
     && /<HistoriqueArchive lignes=\{liste\} dateDe=\{\(x\) => x\.date\} aujourdhui=\{today\(\)\} vide=\{vide\} titreArchives="Dépenses archivées"/.test(dep) && !/usePagination|<Pagination /.test(dep)
     // 13/09/2026 : le texte « vide » de la boutique dépend du rôle (technicien : « Vous n'avez enregistré aucune dépense… »).
-    && /vide=\{mesSeules \? "Vous n'avez enregistré aucune dépense pour cette boutique\." : "Aucune dépense enregistrée\."\} \/>/.test(dep) && /vide="Aucune sortie de caisse « Chez le comptable » pour l'instant\." \/>/.test(dep));
+    // RETOURNÉ le 05/10/2026 : avec une période choisie, le texte vide le dit d'abord.
+    && /vide=\{periode\.actif \? "Aucune dépense sur cette période\." : mesSeules \? "Vous n'avez enregistré aucune dépense pour cette boutique\." : "Aucune dépense enregistrée\."\} \/>/.test(dep) && /vide="Aucune sortie de caisse « Chez le comptable » pour l'instant\." \/>/.test(dep));
 }
 
 titre("Les appareils du volet solaire : catalogue, abréviations, une faute tolérée, liste qui grandit (Timo, 09/09/2026)");
@@ -11146,16 +11147,50 @@ titre("✏️ Personnaliser la période (💰 Ventes)");
   test("une seule borne se lit en français", L("2026-09-12", "") === "Depuis le 12/09/2026" && L("", "2026-09-18") === "Jusqu'au 18/09/2026");
   test("deux cases vides ne mentent pas", L("", "") === "Toute période");
 
+  // RETOURNÉ le 05/10/2026 : le filtre de 💰 Ventes vit dans
+  // components/FiltrePeriode.jsx (Dépenses, Dettes et Tous les devis le prennent aussi).
   const v = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const fpv = readFileSync("src/components/FiltrePeriode.jsx", "utf8");
   test("★ l'option « Personnaliser » est proposée après les cinq périodes",
-    /<option value=\{PERIODE_PERSO\}>✏️ Personnaliser…<\/option>/.test(v));
+    /<option value=\{PERIODE_PERSO\}>✏️ Personnaliser…<\/option>/.test(fpv) && /\{periode\.selecteur\}/.test(v));
   test("★ les deux cases n'apparaissent QUE si on les demande",
-    /\{periodeIndex === PERIODE_PERSO && \(/.test(v) && (v.match(/type="date"/g) || []).length >= 2);
+    /\{index === PERIODE_PERSO && \(/.test(fpv) && (fpv.match(/type="date"/g) || []).length >= 2);
   test("★★ UN SEUL calcul de bornes, lu par les DEUX listes — ventes et proformas ne peuvent pas diverger",
-    /const bornesPeriode = periodeIndex === PERIODE_PERSO/.test(v)
+    /const bornesPeriode = periode\.bornes;/.test(v)
     && (v.match(/!bornesPeriode \|\| inP\(x\.date, bornesPeriode\[0\], bornesPeriode\[1\]\)/g) || []).length === 2);
   test("★ l'ancien filtre « une période toute faite » marche toujours (index numérique)",
-    /periodes\(\)\[periodeIndex\]\[1\], periodes\(\)\[periodeIndex\]\[2\]/.test(v));
+    /periodes\(\)\[index\]\[1\], periodes\(\)\[index\]\[2\]/.test(fpv));
+  // 📅 05/10/2026 (Timo : « pas de filtration de période dans ces écrans » →
+  // « Lance, revenir à Toutes périodes ») : LE filtre de Ventes, posé dans
+  // 📤 Dépenses, 📋 Dettes et 📋 Tous les devis.
+  {
+    const depP = readFileSync("src/screens/Depenses.jsx", "utf8");
+    const detP = readFileSync("src/screens/Dettes.jsx", "utf8");
+    const tdP = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+    test("★★ 📅 « Toute période » à CHAQUE ouverture : l'état part de null et n'est mémorisé nulle part (ni navigateur, ni fiche)",
+      /const \[index, setIndex\] = useState\(null\);/.test(fpv) && !/localStorage|sessionStorage|save\(/.test(fpv)
+      && /<option value="">Toute période<\/option>/.test(fpv));
+    test("★★ 📅 UN filtre pour les quatre écrans : Ventes, Dépenses, Dettes et Tous les devis passent par useFiltrePeriode, aucun ne refait sa période",
+      [v, depP, detP, tdP].every((t) => /import \{ useFiltrePeriode \} from "\.\.\/components\/FiltrePeriode";/.test(t) && /const periode = useFiltrePeriode\(\);/.test(t) && /\{periode\.selecteur\}/.test(t))
+      && [v, depP, detP, tdP].every((t) => !/periodes\(\)\[/.test(t) && !/PERIODE_PERSO/.test(t)));
+    test("★★ 📅 Dépenses : la liste et son total suivent la période ; le cadre des dépenses à valider par le DG n'est PAS filtré",
+      /const listeAffichee = liste\.filter\(\(x\) => periode\.dans\(x\.date\)\);/.test(depP)
+      && /<TableauDepenses liste=\{listeAffichee\} /.test(depP)
+      && /data-total-periode>\{periode\.libelle\} : \{fmt\(totalPeriode\)\}/.test(depP)
+      && /const totalPeriode = depensesComptees\(listeAffichee\)/.test(depP)
+      && (depP.match(/listeAffichee/g) || []).length === 4);
+    test("★★ 📅 Dettes : la liste et le reste total suivent la période, l'argent dû HORS période se DIT, et le retard regarde toutes les dettes",
+      /const listeAffichee = liste\.filter\(\(x\) => periode\.dans\(x\.date\)\);/.test(detP)
+      && /usePagination\(listeAffichee, 50\)/.test(detP)
+      && /fmt\(listeAffichee\.reduce\(\(s, d\) => s \+ Math\.max\(0, d\.montant - d\.paye\), 0\)\)/.test(detP)
+      && /const horsPeriode = periode\.actif \? liste\.filter\(\(x\) => !periode\.dans\(x\.date\) && Math\.max\(0, x\.montant - x\.paye\) > 0\) : \[\];/.test(detP)
+      && /data-dettes-hors-periode/.test(detP)
+      && /const dettesEnRetard = liste\.filter/.test(detP));
+    test("★★ 📅 Tous les devis : les pastilles suivent la période (date du devis), la bande des devis sans réponse non",
+      /if \(!periode\.dans\(d\.date\)\) return false;/.test(tdP)
+      && tdP.indexOf("if (!periode.dans(d.date)) return false;") > tdP.indexOf("const devisAvantStatut = tousDevis.filter")
+      && /const nbARelancer = tousDevis\.filter\(enAttenteDeRelance\)\.length;/.test(tdP));
+  }
   test("la règle vit dans lib/calculs.js, pas dans l'écran",
     !/function bornesPersonnalisees/.test(v) && /export function bornesPersonnalisees/.test(readFileSync("src/lib/calculs.js", "utf8")));
 }
@@ -11977,7 +12012,8 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     test("★★ « Chez le comptable » : ✏️ Modifier par LA même règle (useModifDepense), panneau affiché, bouton passé au tableau",
       (dsrc.match(/function useModifDepense\(/g) || []).length === 1
       && /const \{ ouvrirModif, panneauModif \} = useModifDepense\(db, save, profile\);/.test(corpsCC)
-      && /\{panneauModif\}\s*<TableauDepenses liste=\{liste\} profile=\{profile\} onSupprimer=\{supprimerDepense\} onModifier=\{ouvrirModif\}/.test(corpsCC)
+      // RETOURNÉ le 05/10/2026 : la liste passe par le filtre de période.
+      && /\{panneauModif\}\s*<TableauDepenses liste=\{liste\.filter\(\(x\) => periode\.dans\(x\.date\)\)\} profile=\{profile\} onSupprimer=\{supprimerDepense\} onModifier=\{ouvrirModif\}/.test(corpsCC)
       && (dsrc.match(/data-fiche-modif-depense/g) || []).length === 1);
     test("★★ « Chez le comptable » : l'entrée d'un versement et les lignes automatiques (salaire, commission, CNSS, avance) ne se modifient pas",
       !!Vd.critiqueModifDepense({ ...d0, categorie: "Transport", montant: -50000, versement_id: "v1" }, { categorie: "Autre" })
