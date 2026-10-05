@@ -22,7 +22,7 @@ import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois 
 // compteClientPour l'appelait sans l'avoir importé, et seul le banc l'a vu.
 import { chiffresTel, memeNumero, numeroComparable } from "./identiteClient";
 import { estCompteFormation as estCompteFormationRegle } from "./espace";
-import { clientsSansSuite, clientsSansActivite } from "./effacementClient";
+import { clientsSansSuite, clientsSansActivite, dossierClient } from "./effacementClient";
 // 🧰 Un outil perdu se rembourse. Pour un technicien à COMMISSION, il n'y a
 // pas de salaire à amputer : la retenue se prend sur sa part d'installation.
 import { modeRetenue, retenueSurPaiement, appliquerRetenues } from "./outillage";
@@ -573,6 +573,24 @@ export const clientsSansSuiteDeLEspace = (db, profile, aujourdhui = today()) =>
 // aucun devis, aucun achat. Même mur, mêmes listes que les sans suite.
 export const clientsSansActiviteDeLEspace = (db, profile) =>
   clientsSansActivite(comptesEtAchatsDeLEspace(db, profile));
+
+// 🗂 LA FICHE D'UN CLIENT DANS 📋 CLIENTS (05/10/2026, Timo : « b, lance ») :
+// tout ce qu'il a fait chez BMI dans TOUTES les boutiques de l'espace
+// regardé. ⚠ UNE source : le dossier du droit d'accès (`dossierClient`),
+// nourri des listes DÉJÀ filtrées par l'espace — jamais db.ventes en entier.
+// Ni messages ni prospection : ils ont leurs propres règles de lecture.
+export const ficheClientDeLEspace = (db, profile, cible) => {
+  const f = filtreEspaceAffichage(db, profile);
+  return dossierClient({
+    comptes: utilisateursDeLEspace(db, profile),
+    ventes: (db?.ventes || []).filter(f),
+    dettes: (db?.dettes || []).filter(f),
+    proformas: (db?.proformas || []).filter(f),
+    commandes: (db?.commandes || []).filter(f),
+    chantiers: chantiersDeLEspaceRegarde(db, profile),
+    prospects: [], messages: [], audits: [],
+  }, cible);
+};
 
 // Les identifiants des comptes ARCHIVÉS (pour les retirer d'une liste).
 export const idsClientsArchives = (db, profile, aujourdhui = today()) =>

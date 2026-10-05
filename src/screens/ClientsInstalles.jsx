@@ -4,6 +4,7 @@
 // en cours → terminé → réceptionné/réserves), frais d'installation
 // répartis entre techniciens avec part majorée du chef de chantier.
 // ============================================================
+import { STATUT_CHANTIER } from "../lib/libellesStatuts";
 import { useState, Fragment } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
@@ -59,17 +60,6 @@ const garantieActive = (c) => {
 };
 
 // ============ RÉCEPTION DES TRAVAUX ============
-// Cycle : en cours → le CHEF DE CHANTIER marque « Terminé » → le CLIENT
-// réceptionne (ou émet des réserves). Tant que le client n'a pas réceptionné,
-// le chantier n'est pas clos : c'est la protection des deux parties.
-const STATUT_CHANTIER = {
-  en_cours: { label: "🔧 En cours", couleur: "text-slate-600 bg-slate-100 border-slate-200" },
-  termine: { label: "⏳ Terminé — en attente du client", couleur: "text-amber-700 bg-amber-50 border-amber-200" },
-  receptionne: { label: "✅ Réceptionné par le client", couleur: "text-green-700 bg-green-50 border-green-200" },
-  reserves: { label: "⚠ Réserves émises par le client", couleur: "text-red-700 bg-red-50 border-red-200" },
-  // 🛠 Travaux à crédit soldés (13/09/2026, option A : une trace).
-  travaux: { label: "🛠 Travaux — soldés", couleur: "text-purple-700 bg-purple-50 border-purple-200" },
-};
 const chefDuChantier = (c) => (c.equipe || []).find((e) => e.chef);
 // Le chef de CE chantier, ou l'administrateur, peut le déclarer terminé.
 const peutTerminer = (c, profile, isAdmin) =>

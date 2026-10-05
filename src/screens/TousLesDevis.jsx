@@ -21,6 +21,7 @@ import { htmlContratInstallation, imprimerContratInstallation } from "../lib/imp
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
 import { TYPES_PORTAIL, LABEL_FREQUENCE } from "./dimensionnement/Garage";
+import { STATUT_DEVIS } from "../lib/libellesStatuts";
 import { STATUT_SANS_SUITE, estSansSuite, peutClasserDevis, critiqueClassement, classerSansSuite, critiqueReouverture, rouvrirDevis, avecDevis, devisDans } from "../lib/devisSansSuite";
 import { mettreDevisALaCorbeille, critiqueSuppressionDevis, critiqueSuppressionDevisDans, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
@@ -31,15 +32,6 @@ export function libelleTypeDevis(d) {
   return "☀️ Solaire";
 }
 
-const STATUT_DEVIS = {
-  propose: ["⏳ Proposé", "bg-amber-100 text-amber-800 border-amber-300"],
-  valide: ["✅ Validé", "bg-sky-100 text-sky-800 border-sky-300"],
-  paye: ["💰 Payé", "bg-green-100 text-green-800 border-green-300"],
-  corrige: ["🔄 Corrigé — en attente de l'accord du client", "bg-indigo-100 text-indigo-800 border-indigo-300"],
-  modification: ["✏️ Modification demandée", "bg-purple-100 text-purple-800 border-purple-300"],
-  rejete: ["❌ Rejeté", "bg-red-100 text-red-800 border-red-300"],
-  [STATUT_SANS_SUITE]: ["📁 Classé sans suite", "bg-slate-100 text-slate-700 border-slate-300"],
-};
 const BadgeStatutDevis = ({ statut }) => {
   const [label, cls] = STATUT_DEVIS[statut || "propose"] || STATUT_DEVIS.propose;
   return <span className={`text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${cls}`}>{label}</span>;

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2182 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2194 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1316,6 +1316,33 @@ lit mal est pire qu'un banc absent).
   coller. Banc (2 contrôles, éprouvé : dette comptée, tri retiré) ; un
   contrôle RETOURNÉ (la liste passe par `clientsFideles`). Chapitre 3 à jour
   (et son étape « WhatsApp » qui décrivait encore une conversation vide).
+
+### 🗂 LA FICHE D'UN CLIENT DANS 📋 CLIENTS (05/10/2026, « b, lance »)
+- Capture Timo : « possible d'avoir l'historique des achats du client et
+  d'autres activités liées au client quand on clique sur sa fiche ? ». Un
+  **clic sur la ligne** ouvre la fiche dessous (`FicheClient`,
+  components/FicheClient.jsx), un second la referme, une seule à la fois ;
+  le lien WhatsApp ne l'ouvre pas (`stopPropagation`). **« Client non
+  renseigné » ne s'ouvre pas** (ventes de personnes différentes).
+- **Décision « b » : TOUTES les boutiques de l'espace regardé** (colonne
+  Boutique), pas seulement celle regardée. **UNE source** :
+  `ficheClientDeLEspace` (calculs.js) → `dossierClient` (le calcul du droit
+  d'accès), sur les listes déjà filtrées — jamais db.ventes en entier.
+- En haut : nom, numéro, entreprise, compte client, total acheté, dette,
+  premier / dernier achat. Sections : 🛒 Achats (🖨 réimprime par
+  `imprimerRecuDeVente`), 📋 Dettes, réservations et versements, 🧾 Proformas
+  (devenue : encaissée / en attente), 📦 Commandes, 📄 Devis, 🏠 Chantiers ;
+  une section vide le DIT. **Lecture seule**, **jamais les messages ni le
+  mot de passe**.
+- Les mots des statuts de devis et de chantier vivent UNE fois dans
+  **`lib/libellesStatuts.js`** (sortis de TousLesDevis et ClientsInstalles).
+- ⚠ **Défaut trouvé et réparé au passage** : le dossier personnel (PDF et CSV
+  du droit d'accès) écrivait « 0 F » sur chaque achat — il lisait `v.total`,
+  qu'une vente ne porte pas (`totalAchat`, lib/dossierPersonnel.js).
+- Rien à coller. Banc (12 contrôles, la fiche RENDUE avec des lignes des deux
+  espaces), éprouvé en remettant trois fautes (mur ouvert, total à 0 F,
+  WhatsApp qui ouvre la fiche) : chacune tombe. Deux contrôles RETOURNÉS
+  (la cellule figée de 📋 Clients, le libellé « travaux »). Chapitre 3 à jour.
 
 ### 🏢 LE PRÉNOM DU CLIENT, ET L'ENTREPRISE QU'IL REPRÉSENTE (29/09/2026, « A c, B b, C a, lance »)
 - Timo : « demander aussi son prénom… une case à cocher si le client paie au

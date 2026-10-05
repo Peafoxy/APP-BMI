@@ -6345,7 +6345,8 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && /celluleFigee\(fondLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\), detteDepliee === d\.id\)\}`\}><div className="font-semibold text-slate-800">\{d\.client\}<\/div>/.test(dj)
       && /\{\[\["Client", "text-left"\], \["Date", "text-left"\]/.test(dj)
       // 25/09/2026 : « dans Clients aussi figer le nom du client » — 📋 Clients fige sa première colonne (le client) par la même règle.
-      && /<td className=\{`px-3 py-2 font-semibold min-w-\[150px\] \$\{celluleFigee\("bg-white"\)\}`\}>\{c\.nom\}<\/td>/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+      // RETOURNÉ le 05/10/2026 : la ligne de 📋 Clients se déplie (sa fiche) — la cellule figée porte le fond de la ligne dépliée.
+      && /<td className=\{`px-3 py-2 font-semibold min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i\), ouverte\)\}`\}>\{c\.nom\}/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
       && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Clients.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(dj)
       && /celluleFigee\(estRejetee\(x\) \? "bg-red-50" : estEnAttente\(x\) \? "bg-amber-50" : "bg-white"\)/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
       && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
@@ -8049,7 +8050,8 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
   const ciT = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ 🏠 Clients installés : une fiche de travaux n'y vient que SOLDÉE, catégorie « 🛠 Travaux soldés », statut « travaux » connu, trace (facturé / coût / marge), pas de Frais, Programmer ni Entretien pour elle",
     /\.filter\(\(c\) => !c\.travaux \|\| travauxSolde\(db, c\)\)/.test(ciT) && /\{ id: "travaux", label: "🛠 Travaux soldés", test: \(c\) => !!c\.travaux \}/.test(ciT)
-    && /travaux: \{ label: "🛠 Travaux — soldés"/.test(ciT) && /Facturé \{fmt\(factureMontant\(db, c\)\)\}/.test(ciT)
+    // RETOURNÉ le 05/10/2026 : les mots des statuts vivent dans lib/libellesStatuts.js.
+    && /travaux: \{ label: "🛠 Travaux — soldés"/.test(readFileSync("src/lib/libellesStatuts.js", "utf8")) && /import \{ STATUT_CHANTIER \} from "\.\.\/lib\/libellesStatuts"/.test(ciT) && /Facturé \{fmt\(factureMontant\(db, c\)\)\}/.test(ciT)
     && /\{!c\.travaux && \(\n\s*<button onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /statutChantier\(c\) !== "receptionne" && !c\.travaux && \(/.test(ciT) && /\{!c\.travaux && <button onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT));
   test("★ le stock : stockVendu et l'index ignorent deja_sorti ; le rattachement d'une dépense refuse des travaux soldés",
     /l\.produit_id === pid && !l\.deja_sorti/.test(calT) && /if \(l\.produit_id && !l\.deja_sorti\) venduParProduit/.test(calT)
@@ -12487,6 +12489,75 @@ titre("🏠 Espace client : un montant ne porte jamais son « F » deux fois (01
   const v = Core.fmtFcfa(1200000);
   test("★ fmtFcfa écrit « 1 200 000 FCFA », une seule unité ; un montant absent reste « — »",
     /^1\s200\s000 FCFA$/.test(v) && !/F F/.test(v) && Core.fmtFcfa(null) === "—");
+}
+
+titre("🗂 La fiche d'un client dans 📋 Clients : tout son historique, toutes les boutiques de l'espace regardé, lecture seule (05/10/2026)");
+{
+  const sortieFc = join("node_modules", ".cache", `bmi-fiche-client-${process.pid}.mjs`);
+  let R = null, erreur = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-fiche-client.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieFc, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server"] });
+    R = await import(pathToFileURL(sortieFc).href);
+  } catch (e) { erreur = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieFc); } catch {}
+  test("la fiche se monte dans le banc" + (erreur ? ` (${erreur})` : ""), !!R);
+  if (R) {
+    const timo = { id: "u1", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: "" };
+    const eric = { id: "c1", nom: "MR ERIC", role: "client", tel: "90569661", pwd: "SECRETPWD", devis: [{ id: "d1", date: "2026-09-01", total: 750000, statut: "valide" }] };
+    const db = {
+      boutiques: [{ id: "b1", nom: "DEMAKPOE" }, { id: "b3", nom: "APESSITO" }, { id: "b2", nom: "DFORMATION", formation: true }],
+      users: [timo, eric], produits: [],
+      ventes: [
+        { id: "v1", date: "2026-09-24", numero: "BMID-0001", boutique: "DEMAKPOE", client: "MR ERIC", tel: "90569661", articles: [{ article: "Panneau 400W", qte: 2, pu: 100000 }], remise: 20000, paiement: "Espèces" },
+        { id: "v2", date: "2026-09-10", numero: "BMIA-0007", boutique: "APESSITO", client: "MR ERIC", tel: "+228 90 56 96 61", articles: [{ article: "Batterie GEL", qte: 1, pu: 50000 }], paiement: "Mobile Money (Flooz)" },
+        { id: "v3", date: "2026-09-12", numero: "ENTRAINEMENT-77", boutique: "DFORMATION", client: "MR ERIC", tel: "90569661", articles: [{ article: "Onduleur", qte: 1, pu: 9 }], paiement: "Espèces" },
+      ],
+      dettes: [{ id: "t1", date: "2026-09-20", numero: "DET-0003", boutique: "DEMAKPOE", client: "MR ERIC", tel: "90569661", motif: "Kit solaire", montant: 1000000, paye: 0, paiements: [] }],
+      proformas: [], commandes: [], depenses: [], ajustements: [], entrees: [], prospects: [], audits: [],
+      clients_installes: [{ id: "ch1", nom: "MR ERIC", tel: "90569661", type_installation: "Solaire", date_installation: "2026-09-25", statut: "termine", garantie_mois: 24, user_id: "c1" }],
+      messages: [{ id: "m1", de_id: "c1", a_id: "u1", texte: "MESSAGE-PRIVE-XYZ" }],
+    };
+    const lisible = (h) => h.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/\u202f|\u00a0/g, " ");
+    let reel = "", form = "";
+    try {
+      R.setRegardeFormation(false); reel = lisible(R.rendreFiche(db, timo, { nom: "MR ERIC", tel: "90569661" }));
+      R.setRegardeFormation(true); form = lisible(R.rendreFiche(db, timo, { nom: "MR ERIC", tel: "90569661" }));
+    } finally { R.setRegardeFormation(false); }
+    test("★★ décision « b » : la fiche montre les achats de TOUTES les boutiques de l'espace (DEMAKPOE et APESSITO, numéro écrit autrement compris), avec leur boutique",
+      /BMID-0001/.test(reel) && /BMIA-0007/.test(reel) && /APESSITO/.test(reel));
+    test("★★ le MUR : regardant le réel, aucune vente d'entraînement ; regardant la formation, seulement elle",
+      !/ENTRAINEMENT-77/.test(reel) && /ENTRAINEMENT-77/.test(form) && !/BMID-0001/.test(form));
+    test("★★ le total d'un achat se CALCULE (2 × 100 000 − 20 000 = 180 000), jamais « 0 F » ; total acheté 230 000 ; dette 1 000 000 en rouge",
+      /180[  ]?000/.test(reel) && /Total acheté : <b>230[  ]?000/.test(reel) && /DET-0003/.test(reel) && /text-red-600">1[  ]?000[  ]?000/.test(reel));
+    test("★ ses devis (statut en mots), son chantier (statut, garantie) ; une section vide le DIT",
+      /✅ Validé/.test(reel) && /750[  ]?000/.test(reel) && /Terminé — en attente du client/.test(reel) && /24 mois/.test(reel)
+      && /Aucune commande\./.test(reel) && /Aucune proforma\./.test(reel));
+    test("★★ jamais le mot de passe, jamais un message",
+      !/SECRETPWD/.test(reel + form) && !/MESSAGE-PRIVE-XYZ/.test(reel + form));
+    test("★ un bouton 🖨 réimprime le reçu de chaque achat, par le chemin de 💰 Ventes",
+      (reel.match(/data-reimprimer/g) || []).length === 2 && /imprimerRecuDeVente\(db, v, infoBq\(v\.boutique\), db\.produits\)/.test(readFileSync("src/components/FicheClient.jsx", "utf8")));
+  }
+  const cl = readFileSync("src/screens/Clients.jsx", "utf8");
+  const fc = readFileSync("src/components/FicheClient.jsx", "utf8");
+  test("★★ 📋 Clients : un clic sur la ligne ouvre la fiche dessous, un second la referme (une seule à la fois) ; le lien WhatsApp ne l'ouvre pas",
+    /setFicheOuverte\(\(o\) => \(o === c\.cle \? null : c\.cle\)\)/.test(cl)
+    && /onClick=\{\(e\) => \{ e\.stopPropagation\(\); contacter\(c\); \}\}/.test(cl)
+    && /\{ouverte && <tr><td colSpan=\{7\}[^]*<FicheClient db=\{db\} profile=\{profile\}/.test(cl));
+  test("★ « Client non renseigné » ne s'ouvre pas : ce n'est pas un client",
+    /const ouvrable = !sansIdentite\(c\)/.test(cl) && /onClick=\{ouvrable \?/.test(cl));
+  test("★★ UNE source : la fiche passe par ficheClientDeLEspace → dossierClient, sur les listes de l'espace regardé — jamais db.ventes ni db.users en entier",
+    /const d = ficheClientDeLEspace\(db, profile, cible\)/.test(fc) && !/db\.(ventes|users|dettes)\b/.test(fc.replace(/\/\/.*$/gm, ""))
+    && /export const ficheClientDeLEspace[^]*?dossierClient\(\{\s*comptes: utilisateursDeLEspace\(db, profile\),\s*ventes: \(db\?\.ventes \|\| \[\]\)\.filter\(f\)/.test(readFileSync("src/lib/calculs.js", "utf8")));
+  test("★ les mots des statuts de devis et de chantier sont écrits UNE fois (lib/libellesStatuts.js), plus dans les écrans",
+    !/const STATUT_DEVIS = \{/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
+    && !/const STATUT_CHANTIER = \{/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8"))
+    && /export const STATUT_DEVIS/.test(readFileSync("src/lib/libellesStatuts.js", "utf8")));
+  test("★★ le dossier personnel calcule le total d'un achat (il lisait v.total, que les ventes n'ont pas : « 0 F » partout)",
+    (() => { const vue = Dos.dossierPersonnel({ ventes: [{ date: "2026-09-24", numero: "N1", articles: [{ article: "A", qte: 2, pu: 100000 }], remise: 20000 }] }, { fmt: (x) => `${x} F` });
+      return vue.sections[0].lignes[0][4] === "180000 F"; })());
 }
 
 titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regardé décide, et un article se chiffre pareil partout (01/10/2026, chapitre 22 du manuel)");

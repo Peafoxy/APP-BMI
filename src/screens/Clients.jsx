@@ -4,14 +4,15 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { useState } from "react";
+import React, { useState } from "react";
 import { correspond } from "../lib/suggestions";
 // UNE règle pour « les clients que cette boutique connaît » — celle que
 // 💰 Ventes, 💳 Dettes et 🛠 Travaux proposent dans leur case Client
 // (Timo, 15/09/2026). Cet écran avait sa propre copie.
 import { clientsConnus, clientsFideles, SEUILS_FIDELES } from "../lib/clientsConnus";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable } from "../components/ui";
+import { FicheClient } from "../components/FicheClient";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 // 🏢 Le prénom et l'entreprise du client (29/09/2026) : UNE règle, UN bloc.
@@ -201,6 +202,12 @@ export function Clients({ db, save, profile }) {
   let clients = clientsFideles(clientsConnus(db, boutique).sort((a, b) => b.totalAchats - a.totalAchats), seuilFideles);
   if (q) clients = clients.filter((c) => correspond(c.nom + " " + (c.tel || ""), q));
   const { pageItems: clientsPage, page, setPage, totalPages } = usePagination(clients, 50);
+  // 🗂 LA FICHE D'UN CLIENT (05/10/2026, Timo : « b, lance ») : un clic sur
+  // la ligne l'ouvre dessous, un second la referme, une seule à la fois (la
+  // règle de 💰 Ventes). ⚠ « Client non renseigné » n'est PAS un client :
+  // ses ventes viennent de personnes différentes, la ligne ne s'ouvre pas.
+  const [ficheOuverte, setFicheOuverte] = useState(null);
+  const sansIdentite = (c) => !telDigits(c.tel) && /non renseign|^\(sans nom\)$/i.test(String(c.nom || "").trim());
 
   // 💙 LE MOT DE FIDÉLITÉ PART DU NUMÉRO BMI (23/09/2026, nouveauté 1 de
   // Timo). Avant : WhatsApp s'ouvrait VIDE sur le téléphone de l'employé.
@@ -264,18 +271,27 @@ export function Clients({ db, save, profile }) {
           <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Téléphone", "Achats", "Total acheté", "Dette en cours", "Dernier achat", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{seuilFideles > 0 ? `Aucun client n'a encore acheté ${seuilFideles} fois dans cette boutique.` : "Aucun client trouvé."}</td></tr>}
-            {clientsPage.map((c, i) => (
-              <tr key={i} className="border-t border-slate-100 hover:bg-sky-50">
+            {clientsPage.map((c, i) => {
+              const ouverte = ficheOuverte === c.cle;
+              const ouvrable = !sansIdentite(c);
+              return (
+              <React.Fragment key={c.cle || i}>
+              <tr onClick={ouvrable ? () => setFicheOuverte((o) => (o === c.cle ? null : c.cle)) : undefined}
+                className={`border-t border-slate-100 align-middle ${ouvrable ? "cursor-pointer" : ""} ${classeLigneDepliable(ouverte, i)}`}
+                title={ouvrable ? (ouverte ? "Cliquer pour refermer la fiche" : "Cliquer pour ouvrir la fiche du client") : "Ventes sans nom : ce n'est pas un client, pas de fiche"} data-ligne-client>
                 {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo, 25/09/2026 : « dans Clients aussi figer le nom du client »), par LA règle commune. */}
-                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee("bg-white")}`}>{c.nom}</td>
+                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{c.nom}{ouvrable && <span className="ml-1 text-[10px] font-normal text-slate-400">{ouverte ? "▴" : "▾"}</span>}</td>
                 <td className="px-3 py-2">{c.tel || "—"}</td>
                 <td className="px-3 py-2 tabular-nums">{c.achats}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(c.totalAchats)}</td>
                 <td className={`px-3 py-2 tabular-nums font-bold ${c.dette > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(c.dette)}</td>
                 <td className="px-3 py-2">{dFR(c.derniere)}</td>
-                <td className="px-3 py-2">{c.tel && <button onClick={() => contacter(c)} className="text-xs font-bold text-green-700 underline">WhatsApp</button>}</td>
+                <td className="px-3 py-2">{c.tel && <button onClick={(e) => { e.stopPropagation(); contacter(c); }} className="text-xs font-bold text-green-700 underline">WhatsApp</button>}</td>
               </tr>
-            ))}
+              {ouverte && <tr><td colSpan={7} className="p-0"><FicheClient db={db} profile={profile} cible={{ nom: c.nom, tel: c.tel }} /></td></tr>}
+              </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />

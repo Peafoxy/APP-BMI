@@ -40,6 +40,14 @@ export const CHAMPS_INTERDITS = [
 ];
 
 const txt = (x) => String(x ?? "").trim();
+// ⚠ Une vente ne porte PAS de champ `total` : son montant se CALCULE (lignes
+// moins remises de ligne, remise, rabais — la formule de totalVente, core.js,
+// que ce fichier ne peut pas importer). Lire `v.total` écrivait « 0 F » à
+// chaque achat du dossier (trouvé le 05/10/2026 en bâtissant la fiche client).
+const totalAchat = (v) => (Array.isArray(v?.articles) && v.articles.length
+  ? v.articles.reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0), 0)
+    - Number(v.remise || 0) - Number(v.rabais || 0)
+  : Number(v?.total ?? v?.montant ?? 0));
 const lignesArticles = (v) => (v?.articles || v?.panier || v?.lignes || [])
   .map((l) => `${l.qte || l.quantite || 1} × ${txt(l.nom || l.article)}`).join(", ");
 
@@ -67,7 +75,7 @@ export function dossierPersonnel(dossier, { fmt = (x) => `${x} F`, dFR = (x) => 
 
   const sections = [
     section("Vos achats", ["Date", "N° de reçu", "Boutique", "Articles", "Total"],
-      (d.ventes || []).map((v) => [dFR(v.date), txt(v.numero), txt(v.boutique), lignesArticles(v), fmt(v.total ?? v.montant ?? 0)]),
+      (d.ventes || []).map((v) => [dFR(v.date), txt(v.numero), txt(v.boutique), lignesArticles(v), fmt(totalAchat(v))]),
       "Aucun achat enregistré.", [4]),
 
     section("Vos dettes et règlements", ["Date", "N°", "Motif", "Montant", "Déjà versé", "Reste"],

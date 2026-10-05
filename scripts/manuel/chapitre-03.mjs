@@ -2,7 +2,8 @@
 // MANUEL DE FORMATION — CHAPITRE 3 : Clients
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
-// screens/Clients.jsx (🙋 Créer un client, 👤 Clients), screens/Utilisateurs.jsx
+// screens/Clients.jsx (🙋 Créer un client, 👤 Clients), components/FicheClient.jsx
+// (la fiche d'un client, ouverte d'un clic), screens/Utilisateurs.jsx
 // (la création par l'administrateur, le logo WhatsApp et le mot de fidélité),
 // screens/Prospects.jsx (✅ Convertir en client), screens/EspaceClient.jsx et
 // screens/MesDonnees.jsx (ce que le client voit), lib/comptesClients.js
@@ -92,6 +93,7 @@ export const CHAPITRE = {
         { titre: "Taper dans « Rechercher un client… »", texte: "Le nom **ou le numéro** : « koffi », « 90 55 », « +228 90 ». La règle est celle de toute recherche dans l'application : sans accents ni majuscules, chaque mot tapé dans n'importe quel ordre." },
         { titre: "Ne voir que les fidèles (facultatif)", texte: "La liste à côté de la recherche : « Tous les clients » d'office, ou **« ⭐ Fidèles — 2, 3, 5 ou 10 achats ou plus »**. Un achat = une vente dans cette boutique ; une dette seule ne compte pas. Les fidèles sont rangés par nombre d'achats, puis par total acheté. La recherche s'applique ensuite à cette liste." },
         { titre: "Lire la ligne", texte: "Client · Téléphone · Achats (combien de fois) · Total acheté · Dette en cours (**en rouge** s'il doit encore quelque chose, en vert sinon) · Dernier achat. Les clients sont rangés du **plus gros total acheté** au plus petit." },
+        { titre: "Ouvrir la fiche du client (facultatif)", texte: "Un **clic sur la ligne** ouvre sa fiche juste dessous ; un second clic la referme, une seule est ouverte à la fois. En haut : son nom, son numéro, son entreprise, s'il a un compte client, total acheté, dette en cours, premier et dernier achat. Dessous, du plus récent au plus ancien : **🛒 Achats** (date, n° de reçu, boutique, articles, total, paiement, et 🖨 pour réimprimer le reçu), **📋 Dettes, réservations et versements**, **🧾 Proformas** (encaissée ou en attente), **📦 Commandes**, **📄 Devis** (avec leur statut), **🏠 Chantiers** (statut, réception, garantie, prochain entretien). Une section vide le dit (« Aucune commande. »). La fiche couvre **toutes les boutiques de l'espace**, pas seulement celle regardée. **Lecture seule** : encaisser, relancer ou reprendre se fait dans leurs écrans. Ni les messages ni le mot de passe n'y figurent. La ligne « Client non renseigné » ne s'ouvre pas : ce sont des ventes de personnes différentes." },
         { titre: "Cliquer « WhatsApp »", texte: "Au bout de la ligne, si un numéro est connu : « Envoyer le mot de fidélité à X du numéro BMI ? ». **OK** : le mot de fidélité part du numéro WhatsApp BMI et se lit ensuite dans 📲 WhatsApp. S'il ne peut pas partir (formation, réseau…), l'application le dit, puis WhatsApp s'ouvre avec le même texte. Sans numéro : « Aucun numéro enregistré pour ce client. » Pour écrire aux fidèles, on filtre d'abord, puis on clique ligne par ligne." },
       ]],
       ["note", "**Cette liste ne vient pas des comptes** : elle est construite à partir des **ventes et des dettes** de la boutique. Un client qui a un compte mais n'a encore rien acheté n'y figure pas ; un client de passage, enregistré sur une vente sans compte, y figure. Pour les comptes, c'est 👥 Utilisateurs (administrateur)."],
