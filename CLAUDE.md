@@ -71,7 +71,7 @@ npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 225 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 83  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
-npm run tester-paie              # 61  : la fiche de paie séparée, le numéro de compte bancaire, et le contrat de travail verrouillé (serveur)
+npm run tester-paie              # 67  : la fiche de paie séparée, le numéro de compte bancaire, le contrat de travail et les cases CNSS verrouillés (serveur)
 ```
 
 Puis `VERSION` dans `src/lib/constants.js` s'incrémente (une version par
@@ -2336,7 +2336,7 @@ lit mal est pire qu'un banc absent).
     nettoyée doit REDESCENDRE sur les téléphones, sinon leur copie locale
     garderait le numéro. Quelques dizaines de lignes : négligeable.
   - **Aucune nouvelle table, aucune nouvelle règle** : `paie` et ses politiques
-    existent depuis le 19/08/2026. **`npm run tester-paie`** (61 contrôles)
+    existent depuis le 19/08/2026. **`npm run tester-paie`** (67 contrôles)
     rejoue le script sur base jetable et prouve la fuite AVANT, sa fermeture
     APRÈS, et qu'un vendeur ne voit plus le numéro de son collègue — mais
     toujours le sien.
@@ -5539,13 +5539,15 @@ lit mal est pire qu'un banc absent).
   porte », 05/10/2026) : il reprend `interdire_escalade_paie` de paie-1 en
   entier et y ajoute UN contrôle — hors administrateur, `cnss_code_type`,
   `contrat_fin`, `cnss_date_embauche`, `cnss_date_sortie`,
-  `cnss_code_motif_sortie` ne bougent pas (upsert compris). Avant lui,
-  l'employé pouvait réécrire SON contrat sur sa fiche de paie. Banc
-  `tester-paie` (61), éprouvé en retirant le contrôle : huit tombent.
+  `cnss_code_motif_sortie` ne bougent pas (upsert compris) — **et les
+  cases CNSS aussi** (« oui, ferme aussi les cases CNSS », le même jour) :
+  `cnss_assujetti` (décochée, la retenue CNSS sortait du net),
+  `cnss_matricule`, `cnss_numero_assurance`, `cnss_mensuel`. Avant lui,
+  l'employé pouvait réécrire tout ça sur SA fiche de paie. Banc
+  `tester-paie` (67), éprouvé en retirant chaque groupe : il tombe.
   ⏳ **À coller par Timo** (vérification attendue : `true | true`).
-  ⚠ Restent NON verrouillés côté employé, dit à Timo : `paie_debut`, et les
-  autres cases CNSS (`cnss_assujetti`, matricule, n° d'assuré, jours du mois)
-  — `cnss_assujetti` change la retenue CNSS du net : à proposer.
+  ⚠ Reste NON verrouillé côté employé : `paie_debut` (affichage seul, aucun
+  argent — pas demandé).
 - Pas construit : une indemnité de fin de CDD (loi à vérifier par le
   comptable). Banc (11 contrôles), éprouvé (sortie ignorée, rappel à tous les
   administrateurs) ; un contrôle RETOURNÉ (`demanderDate` ×9). Chapitres 2 et
