@@ -34,7 +34,7 @@
 // puis devis_disponible pour un client qui n'a pas encore ses accès),
 // screens/dimensionnement/devisCommun.js (calculerTotaux : la remise ne porte
 // que sur les articles ; installation et transport sur le montant plein),
-// screens/dimensionnement/Brouillons.jsx (« ✏️ Reprendre », « 📲 Envoyer par
+// screens/dimensionnement/Brouillons.jsx (« ✏️ Reprendre », « ➡ Confier à… », « 📲 Envoyer par
 // WhatsApp », « Supprimer »), screens/Parametres.jsx (🗂 Catalogue & devis :
 // « 🔩 Prix du rail de fixation (au mètre) », « Longueur d'une barre (m) »,
 // « ☀️ Note affichée sous le dimensionnement » ; 🔌 Appareils), App.jsx (qui
@@ -87,7 +87,7 @@ export const CHAPITRE = {
         ["**Équipements proposés (stock de …)**", "Le tableau : **Catégorie · Article · Besoin calculé · Quantité · Prix unit. · Sous-total · HB**, pour Panneaux solaires, Batteries, Convertisseur, Régulateur MPPT ; puis Rails de fixation, Supports de rail, Étriers."],
         ["**Autres équipements (câbles, protections AC/DC, accessoires…)**", "Des lignes libres : Article · Prix unitaire (F) · Quantité · HB · Retirer ; **« ➕ Ajouter un équipement »**."],
         ["La fin du devis", "La case **« Pose seule »** ; **Remise %**, **Frais d'installation %**, **Transport / livraison %**, le **Total** ; **« 🛒 Convertir en vente »** ; **« 💰 Acompte exigé pour démarrer (%) »** et **« 🗓 Délai d'installation indicatif »**."],
-        ["**📲 Envoyer ce devis au client**", "**Client destinataire** (« — Choisir — », « ➕ Nouveau client (nom + numéro) », puis les clients de l'espace) ; pour un nouveau client : **Nom du client** et **Numéro WhatsApp** ; les boutons **« 📲 Envoyer par WhatsApp »** et **« 📝 Enregistrer un brouillon »**."],
+        ["**📲 Envoyer ce devis au client**", "**Client destinataire** (« — Choisir — », « ➕ Nouveau client (nom + numéro) », puis les clients de l'espace) ; pour un nouveau client : **Nom du client** et **Numéro WhatsApp** ; les boutons **« 📲 Envoyer par WhatsApp »** (client choisi) et **« 📝 Enregistrer un brouillon »** (toujours actif, même sans client)."],
         ["Tout en bas", "La note grise du dimensionnement (réglée dans ⚙ Paramètres) : « Calcul indicatif basé sur des marges de sécurité usuelles… »."],
         ["**⚙ Paramètres** (administrateur)", "🗂 Catalogue & devis : 🔩 Prix du rail de fixation (au mètre), Longueur d'une barre (m), ☀️ Note affichée sous le dimensionnement. 🔌 Appareils : la liste des appareils proposés."],
       ]}],
@@ -140,7 +140,8 @@ export const CHAPITRE = {
         { titre: "Choisir le client", texte: "**Client destinataire** : un client de la liste, ou **« ➕ Nouveau client (nom + numéro) »** avec son nom et son numéro WhatsApp. Pour un nouveau client, l'écran annonce l'identifiant et le mot de passe du compte qui sera créé." },
         { titre: "« 📲 Envoyer par WhatsApp »", texte: "Le devis est rangé dans l'**espace du client** (statut « proposé »), et le client est prévenu **du numéro WhatsApp BMI**. S'il n'a **jamais reçu ses accès**, ils partent **d'abord**, dans un message à part, puis le message du devis. S'il les a déjà (compte créé avant, accès renvoyés, autre devis), le devis part seul. → « ✅ Devis envoyé dans l'espace de X. »" },
         { titre: "Si le numéro BMI ne peut pas envoyer", texte: "(espace formation, réseau, refus de WhatsApp) : **WhatsApp s'ouvre sur l'appareil** avec le texte complet — le devis, le lien de l'espace, l'identifiant et le mot de passe. Le vendeur l'envoie lui-même. Quand ce n'est pas la formation, l'écran dit pourquoi, en français." },
-        { titre: "« 📝 Enregistrer un brouillon »", texte: "Le devis tel qu'il est, avec le client choisi, **sans rien envoyer** et sans créer de compte. Il se retrouve dans **« 📝 Mes brouillons »** : **« ✏️ Reprendre »** (rouvre le volet avec tout ce qui avait été saisi), **« 📲 Envoyer par WhatsApp »** directement, ou **« Supprimer »**. Envoyé ou converti, il disparaît." },
+        { titre: "« 📝 Enregistrer un brouillon »", texte: "Le devis tel qu'il est, **sans rien envoyer** et sans créer de compte. Avec un client choisi, aucune question. **Sans client**, l'application demande « Brouillon sans client. Continuer ? », puis **un nom pour le brouillon, obligatoire** (ex. « Villa Agoè 3 chambres »). Il se retrouve dans **« 📝 Mes brouillons »** : **« ✏️ Reprendre »** (rouvre le volet avec tout ce qui avait été saisi), **« 📲 Envoyer par WhatsApp »** directement (refusé pour un brouillon sans client : on le reprend pour choisir le client), **« ➡ Confier à… »**, ou **« Supprimer »**. Envoyé ou converti, il disparaît." },
+        { titre: "« ➡ Confier à… » un collègue", texte: "Quand on est occupé, on confie son brouillon à un collègue de l'espace qui a l'onglet Dimensionnement. Le brouillon **quitte** vos brouillons et **arrive dans les siens**, client compris ; il reçoit un message. Sa ligne dit « 📨 Confié par … ». **C'est lui qui l'envoie, et le devis part à son nom** ; 📋 Tous les devis écrit « préparé par … » à côté." },
         { titre: "« 🛒 Convertir en vente »", texte: "Pour un client qui paie **tout de suite** : le panier part dans 💰 Ventes, sur la boutique de travail, avec la remise. Rien n'est encore encaissé : l'encaissement se fait dans 💰 Ventes (chapitre 5)." },
       ]],
     ]},
@@ -161,8 +162,8 @@ export const CHAPITRE = {
         ["Pose seule", "Remplace le pourcentage d'installation par un montant fixe de main d'œuvre."],
         ["🛒 Convertir en vente", "Envoie le panier dans 💰 Ventes pour encaissement."],
         ["📲 Envoyer par WhatsApp", "Range le devis chez le client et le prévient ; crée son compte s'il n'en a pas."],
-        ["📝 Enregistrer un brouillon", "Garde le devis dans « Mes brouillons », sans rien envoyer."],
-        ["📝 Mes brouillons → ✏️ Reprendre / 📲 Envoyer / Supprimer", "Reprendre dans le volet, envoyer directement, ou jeter."],
+        ["📝 Enregistrer un brouillon", "Garde le devis dans « Mes brouillons », sans rien envoyer. Toujours actif : sans client, une question puis un nom obligatoire."],
+        ["📝 Mes brouillons → ✏️ Reprendre / 📲 Envoyer / ➡ Confier à… / Supprimer", "Reprendre dans le volet, envoyer directement (pas sans client), confier à un collègue (le brouillon part chez lui), ou jeter."],
         ["Annuler la reprise (bandeau jaune)", "Abandonne la reprise d'un devis ou d'un brouillon ; l'écran revient à la saisie en cours."],
       ]}],
     ]},
@@ -239,6 +240,7 @@ export const CHAPITRE = {
         { situation: "Le client a déjà acheté ses panneaux et ses batteries ailleurs ; BMI pose seulement, pour 150 000 F.", reponse: "Cocher **« Pose seule »**, saisir 150 000 dans « Montant de la main d'œuvre » ; ne garder que les lignes réellement fournies par BMI (fixation, câbles…)." },
         { situation: "Nouveau client, jamais servi, qui n'a pas de compte.", reponse: "« ➕ Nouveau client (nom + numéro) » → Envoyer par WhatsApp. Le compte est créé ; le client reçoit **d'abord ses accès**, puis **le message du devis**, du numéro BMI." },
         { situation: "Le client hésite et rappellera demain.", reponse: "Choisir le client, **« 📝 Enregistrer un brouillon »**. Le lendemain : 📝 Mes brouillons → ✏️ Reprendre (ou 📲 Envoyer par WhatsApp directement)." },
+        { situation: "Vous préparez un devis au téléphone, sans connaître encore le nom du client, puis vous partez sur un chantier.", reponse: "**« 📝 Enregistrer un brouillon »** → « Continuer » → un nom (« Villa Agoè »). Puis 📝 Mes brouillons → **« ➡ Confier à… »** un collègue : il le reprend, choisit le client et l'envoie à son nom." },
         { situation: "Le client paie tout, tout de suite, en boutique.", reponse: "**« 🛒 Convertir en vente »** → 💰 Ventes, panier rempli → encaisser. Le stock sort à ce moment-là." },
       ]],
     ]},

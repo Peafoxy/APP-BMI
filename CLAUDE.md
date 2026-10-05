@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2218 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2229 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -665,6 +665,17 @@ lit mal est pire qu'un banc absent).
   fiche de l'employé (`brouillons_devis`, liste pour la fusion), onglet
   « Mes brouillons » dans Dimensionnement ; envoyé ou converti, il disparaît.
   Un brouillon repris s'AJOUTE chez le client à l'envoi (jamais `idAReprendre`).
+- **📝 Un brouillon SANS client, et 📨 CONFIÉ à un collègue** (05/10/2026,
+  « 1 déplacé, 2 celui qui envoie, lance ») : « Enregistrer un brouillon » est
+  **toujours actif** ; sans client, « Brouillon sans client. Continuer ? » puis
+  un **NOM obligatoire** (`nom`, `critiqueNomBrouillon`) — il ne part pas de
+  📝 Mes brouillons (on le reprend pour choisir le client). **« ➡ Confier
+  à… »** : le brouillon est DÉPLACÉ chez un collègue de l'espace regardé qui a
+  l'onglet Dimensionnement (`destinatairesBrouillon`, `confierBrouillon`,
+  devisCommun.js), client compris, avec `confie` et `devis.prepare_par` ; un
+  message le prévient. **Le devis part au nom de celui qui l'envoie** ;
+  📋 Tous les devis écrit « préparé par … ». Rien à coller (brouillons_devis
+  n'est pas dans la liste « gestion »). Banc (12 contrôles), éprouvé.
 - **✏️ Corriger un devis déjà envoyé** (11/09/2026, « celui qui a proposé le
   devis peut avoir la possibilité de modifier le devis ? ») : « Modifier et
   renvoyer » s'ouvre aussi sur un devis **⏳ Proposé** (avant, il fallait que

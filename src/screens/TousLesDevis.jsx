@@ -462,7 +462,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                   <span className="flex-1 min-w-[180px]">
                     <span className="font-bold text-slate-800">{d.client?.nom_base || d.client?.nom || "Client"}</span>
                     <span className="text-xs text-slate-500 ml-2">{libelleTypeDevis(d)}</span>
-                    <span className="block text-xs text-slate-400">Le {dFR(d.date)} par {d.par} — {d.boutique}</span>
+                    <span className="block text-xs text-slate-400">Le {dFR(d.date)} par {d.par} — {d.boutique}{d.prepare_par && d.prepare_par !== d.par ? <span data-prepare-par> · préparé par {d.prepare_par}</span> : null}</span>
                   </span>
                   {!(d.vu_par || []).includes(profile.id) && (
                     <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" title="Nouveau — pas encore ouvert"></span>

@@ -103,7 +103,7 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
       </div>
       {mode === "brouillons" && (
         <MesBrouillons db={db} profile={profile} save={save} domaines={domaines}
-          onReprendre={(b) => { setBrouillonRepris({ devis: b.devis, client: b.client, brouillon_id: b.id }); }} />
+          onReprendre={(b) => { setBrouillonRepris({ devis: b.devis, client: b.client, brouillon_id: b.id, brouillon_nom: b.nom || "", brouillon_confie: b.confie || null }); }} />
       )}
       {domaines.length === 0 && (
         <div className="rounded-xl p-4 bg-amber-50 border-2 border-amber-300 text-sm text-amber-900">
@@ -114,7 +114,7 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
         <div className="rounded-xl p-3 bg-amber-50 border-2 border-amber-300 flex items-center justify-between flex-wrap gap-2">
           <div className="text-sm text-amber-900">
             {devisAReprendre.brouillon_id ? (
-              <b>📝 Reprise du brouillon de {devisAReprendre.client?.nom} ({fmt(devisAReprendre.devis.total)}) — modifiez, puis « Envoyer par WhatsApp » ou « Enregistrer un brouillon » pour le garder.</b>
+              <b>📝 Reprise du brouillon {devisAReprendre.client?.nom ? `de ${devisAReprendre.client.nom}` : `« ${devisAReprendre.brouillon_nom || "?"} » (sans client : choisissez-le avant d'envoyer)`} ({fmt(devisAReprendre.devis.total)}) — modifiez, puis « Envoyer par WhatsApp » ou « Enregistrer un brouillon » pour le garder.</b>
             ) : devisAReprendre.depuis_vente ? (
               <b>📋 Devis créé depuis la vente {devisAReprendre.devis.vente_numero} — ajoutez ce qu'il faut, puis envoyez-le au client{devisAReprendre.client ? ` (${devisAReprendre.client.nom_base || devisAReprendre.client.nom})` : ""}.</b>
             ) : (

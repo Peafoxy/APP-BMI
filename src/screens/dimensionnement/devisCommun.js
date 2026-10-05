@@ -138,3 +138,39 @@ export const retirerBrouillon = (db, profileId, id) => ({
     ? { ...u, brouillons_devis: brouillonsDe(u).filter((b) => b.id !== id) }
     : u)),
 });
+
+// ---- 📝 Un brouillon SANS client, et 📨 un brouillon CONFIÉ (Timo, 05/10/2026 :
+// « enregistrer un brouillon soit toujours possible… brouillon sans client,
+// continuer ? Si oui, il s'enregistre mais avec obligatoirement un nom » ;
+// « permettre qu'un utilisateur puisse envoyer son brouillon à un autre…
+// pour qu'il délègue » → « 1 déplacé, 2 celui qui envoie »).
+// Le NOM d'un brouillon : le client s'il y en a un, sinon le nom donné.
+export const nomDuBrouillon = (b) => b?.client?.nom || b?.nom || "?";
+export const brouillonSansClient = (b) => !b?.client?.id && !b?.client?.nom;
+export const critiqueNomBrouillon = (nom) =>
+  String(nom || "").trim() ? "" : "Un brouillon sans client doit porter un nom (ex. « Villa Agoè 3 chambres »).";
+// À qui confier : les personnes de la LISTE reçue (déjà filtrée par l'espace
+// regardé — jamais db.users), actives, qui ont l'onglet Dimensionnement, sans
+// le pouvoir retiré, jamais un client, jamais soi-même.
+export function destinatairesBrouillon(personnes, profile, ongletsRole) {
+  return (personnes || []).filter((u) => u && u.id !== profile.id && u.role !== "client" && u.actif !== false
+    && (ongletsRole[u.role] || []).includes("dimensionnement")
+    && !(u.droits_off || []).includes("dimensionnement"))
+    .sort((a, b) => String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" }));
+}
+// Le brouillon QUITTE la fiche de celui qui confie et ARRIVE chez l'autre
+// (déplacé, jamais copié : deux copies partiraient deux fois au client). Il
+// garde tout ; il porte qui l'a confié, et le devis garde « préparé par ».
+// Refusé si le brouillon n'est plus chez celui qui confie (déjà confié,
+// envoyé ou supprimé depuis un autre appareil), ou si le destinataire manque.
+export function confierBrouillon(db, deId, aId, brouillonId, { par, le }) {
+  const de = (db.users || []).find((u) => u.id === deId);
+  const a = (db.users || []).find((u) => u.id === aId);
+  const b = brouillonsDe(de).find((x) => x.id === brouillonId);
+  if (!b) return { erreur: "Ce brouillon n'est plus dans vos brouillons (déjà confié, envoyé ou supprimé)." };
+  if (!a || a.id === deId) return { erreur: "Choisissez la personne à qui confier ce brouillon." };
+  const prepare = b.devis?.prepare_par || par;
+  const confie = { ...b, confie: { par, par_id: deId, le }, devis: { ...(b.devis || {}), prepare_par: prepare } };
+  const db2 = retirerBrouillon(db, deId, brouillonId);
+  return { db: ajouterBrouillon(db2, aId, confie), brouillon: confie, destinataire: a };
+}

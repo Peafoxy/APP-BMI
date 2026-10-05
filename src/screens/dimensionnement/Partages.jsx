@@ -40,7 +40,7 @@ import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../../components/ui"
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives } from "../../lib/calculs";
-import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock } from "./devisCommun";
+import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
 // IMPORTE puis on les RÉEXPORTE : `export { x } from` ne crée pas de nom
@@ -329,7 +329,10 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
     if (!resolu) return;
     const { compte, motDePasse, dbApres, identite } = resolu;
-    const devis = { ...construire(), ...identite };
+    // 📨 Un brouillon confié garde « préparé par » ; il part au nom de celui
+    // qui l'envoie (décision Timo, 05/10/2026 : « celui qui envoie »).
+    const prepare = brouillonRepris ? devisAReprendre?.devis?.prepare_par : null;
+    const devis = { ...construire(), ...identite, ...(prepare ? { prepare_par: prepare } : {}) };
     // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
     // annonçait « ✅ Devis envoyé » et effaçait le brouillon alors que rien
     // n'était parti. On respecte la réponse.
@@ -365,12 +368,23 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   // 📝 Enregistrer un brouillon (demande Timo, 08/09/2026) : le devis tel
   // qu'il est, avec le client choisi — compte existant, ou nom + numéro
   // (aucun compte créé, aucun WhatsApp). Rangé dans MA fiche.
-  const enregistrerBrouillon = ({ totalDevis, messageVide, construire }) => {
+  const enregistrerBrouillon = async ({ totalDevis, messageVide, construire }) => {
     if (bloquerSiLecture(db, profile)) return;
     if (totalDevis <= 0) { uAlert(messageVide); return; }
     if (refusApporteur()) return;
-    let client;
-    if (clientDevis === "__nouveau__") {
+    let client = null, nomBrouillon = "";
+    // 05/10/2026 (Timo) : un brouillon s'enregistre TOUJOURS. Sans client
+    // choisi (rien de sélectionné, ou « Nouveau client » laissé vide), on
+    // demande « Continuer ? » puis un NOM obligatoire.
+    const nouveauVide = clientDevis === "__nouveau__" && !nouvClient.nom.trim() && !nouvClient.tel.trim();
+    if (!clientDevis || nouveauVide) {
+      if (!await uConfirm("Brouillon sans client. Continuer ?\n\nVous choisirez le client en le reprenant, avant de l'envoyer.")) return;
+      const nom = await uPrompt("Nom de ce brouillon (obligatoire) :", devisAReprendre?.brouillon_nom || "");
+      if (nom === null) return;
+      const refus = critiqueNomBrouillon(nom);
+      if (refus) { uAlert(refus); return; }
+      nomBrouillon = String(nom).trim();
+    } else if (clientDevis === "__nouveau__") {
       const nom = nouvClient.nom.trim(), tel = nouvClient.tel.trim();
       if (!nom || chiffresTel(tel).length < 4) { uAlert("Indiquez le nom et le numéro du client."); return; }
       client = { nom, tel, ...champsIdentite({ prenom: nouvClient.prenom }) };
@@ -379,11 +393,15 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
       if (!compte) { uAlert("Choisissez d'abord le client."); return; }
       client = { id: compte.id, nom: compte.nom_base || compte.nom, tel: compte.tel || "" };
     }
-    { const refus = critiqueEntreprise(nouvClient.entreprise); if (refus) { uAlert(refus); return; } }
-    const devis = { ...construire(), ...champsIdentite({ prenom: client.prenom, entreprise: nouvClient.entreprise }) };
-    const brouillon = { id: brouillonRepris || uid(), volet, client, devis, date: today(), ts: new Date().toISOString() };
-    save(ajouterBrouillon(db, profile.id, brouillon), `📝 Brouillon de devis enregistré — ${client.nom} (${fmt(devis.total)}) par ${profile.nom}`);
-    uAlert(`📝 Brouillon enregistré pour ${client.nom}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, ou supprimer.`);
+    if (client) { const refus = critiqueEntreprise(nouvClient.entreprise); if (refus) { uAlert(refus); return; } }
+    // « Préparé par » suit un brouillon confié, même enregistré à nouveau.
+    const prepare = devisAReprendre?.brouillon_id ? devisAReprendre?.devis?.prepare_par : null;
+    const devis = { ...construire(), ...(client ? champsIdentite({ prenom: client.prenom, entreprise: nouvClient.entreprise }) : {}), ...(prepare ? { prepare_par: prepare } : {}) };
+    const confie = devisAReprendre?.brouillon_id ? devisAReprendre?.brouillon_confie : null;
+    const brouillon = { id: brouillonRepris || uid(), volet, client, ...(nomBrouillon ? { nom: nomBrouillon } : {}), ...(confie ? { confie } : {}), devis, date: today(), ts: new Date().toISOString() };
+    const titre = nomDuBrouillon(brouillon);
+    save(ajouterBrouillon(db, profile.id, brouillon), `📝 Brouillon de devis enregistré — ${titre}${client ? "" : " (sans client)"} (${fmt(devis.total)}) par ${profile.nom}`);
+    uAlert(`📝 Brouillon enregistré${client ? ` pour ${client.nom}` : ` : « ${titre} », sans client`}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, confier à un collègue, ou supprimer.`);
   };
 
   return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, convertir, enregistrerBrouillon };
@@ -489,10 +507,10 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         <button onClick={onEnvoyer} disabled={!clientDevis} className={`px-5 py-2 rounded-lg font-bold text-sm ${clientDevis ? "bg-green-600 text-white hover:bg-green-700" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
           📲 Envoyer par WhatsApp
         </button>
-        {/* 📝 Brouillon (demande Timo, 08/09/2026) : même condition que l'envoi —
-            le client est choisi — et aucune autre question. Rien ne part. */}
+        {/* 📝 Brouillon (demande Timo, 08/09/2026) : rien ne part. Depuis le
+            05/10/2026, TOUJOURS possible — sans client, une question et un nom. */}
         {onBrouillon && (
-          <button onClick={onBrouillon} disabled={!clientDevis} className={`px-5 py-2 rounded-lg font-bold text-sm ${clientDevis ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
+          <button onClick={onBrouillon} data-brouillon-toujours className="px-5 py-2 rounded-lg font-bold text-sm bg-amber-500 text-white hover:bg-amber-600">
             📝 Enregistrer un brouillon
           </button>
         )}

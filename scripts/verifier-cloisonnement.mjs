@@ -4413,11 +4413,14 @@ titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé pl
   test("★ les objets d'origine ne sont pas modifiés en place", DC.brouillonsDe(db0.users[0]).length === 0 && DC.brouillonsDe(db2.users[0]).length === 2);
 
   const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
-  test("★ le bouton « 📝 Enregistrer un brouillon » est à côté de l'envoi WhatsApp et ne s'allume qu'une fois le client choisi (aucune question posée)",
-    /<button onClick=\{onBrouillon\} disabled=\{!clientDevis\}/.test(part) && /📝 Enregistrer un brouillon/.test(part)
-    && !/uPrompt\([^)]*brouillon/i.test(part));
-  test("★ enregistrer exige le client (compte, ou nom + numéro), refuse un devis vide et un compte en lecture seule",
-    /const enregistrerBrouillon = \(\{ totalDevis, messageVide, construire \}\) => \{\s*if \(bloquerSiLecture\(db, profile\)\) return;\s*if \(totalDevis <= 0\)/.test(part)
+  // RETOURNÉ le 05/10/2026 (Timo : « enregistrer un brouillon soit toujours
+  // possible ») : le bouton n'est plus grisé ; sans client, une question et un
+  // nom (contrôles du bloc « Brouillon sans client » plus bas).
+  test("★ le bouton « 📝 Enregistrer un brouillon » est à côté de l'envoi WhatsApp et toujours actif ; AVEC un client choisi, aucune question",
+    /<button onClick=\{onBrouillon\} data-brouillon-toujours className=/.test(part) && /📝 Enregistrer un brouillon/.test(part)
+    && /if \(!clientDevis \|\| nouveauVide\) \{/.test(part));
+  test("★ enregistrer un client à moitié saisi exige nom + numéro (sans client : un nom de brouillon), refuse un devis vide et un compte en lecture seule",
+    /const enregistrerBrouillon = async \(\{ totalDevis, messageVide, construire \}\) => \{\s*if \(bloquerSiLecture\(db, profile\)\) return;\s*if \(totalDevis <= 0\)/.test(part)
     && /uAlert\("Indiquez le nom et le numéro du client\."\)/.test(part) && /uAlert\("Choisissez d'abord le client\."\)/.test(part));
   test("★ un brouillon repris n'est PAS un devis déjà chez le client : à l'envoi on l'AJOUTE, et le brouillon disparaît",
     /const idAReprendre = brouillonRepris \? undefined : devisAReprendre\?\.devis\?\.id;/.test(part)
@@ -4434,7 +4437,7 @@ titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé pl
   }
   const idx = readFileSync("src/screens/dimensionnement/index.jsx", "utf8");
   test("★ l'onglet « 📝 Mes brouillons » est dans Dimensionnement, et Reprendre rouvre le volet avec brouillon_id",
-    /📝 Mes brouillons\{nbBrouillons/.test(idx) && /setBrouillonRepris\(\{ devis: b\.devis, client: b\.client, brouillon_id: b\.id \}\)/.test(idx)
+    /📝 Mes brouillons\{nbBrouillons/.test(idx) && /setBrouillonRepris\(\{ devis: b\.devis, client: b\.client, brouillon_id: b\.id, brouillon_nom: b\.nom \|\| "", brouillon_confie: b\.confie \|\| null \}\)/.test(idx)
     && /const devisAReprendre = devisAReprendreProp \|\| brouillonRepris;/.test(idx));
   const br = readFileSync("src/screens/dimensionnement/Brouillons.jsx", "utf8");
   test("★ la liste ne montre que MES brouillons (fiche de profile.id), et Envoyer suit le chemin WhatsApp commun puis retire le brouillon",
@@ -4962,8 +4965,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 32 fabrications (les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026 ; le pourcentage d'apporteur fixé par le principal, 29/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "32"
+  test("★ nouveauMessage sert aux 33 fabrications (le brouillon confié à un collègue, 05/10/2026 ; les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026 ; le pourcentage d'apporteur fixé par le principal, 29/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "33"
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "18");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
@@ -12299,7 +12302,7 @@ titre("🏢 Le prénom du client et l'entreprise qu'il représente — son répo
     /\{clientDevis && \(\s*<div className="mt-2">\s*<ChampsEntreprise valeur=\{nouvClient\.entreprise\}/.test(pa) && /libelle="🏢 Entreprise cliente"/.test(pa)
     && /formulaireDepuisEntreprise\(c && c\.entreprise\)/.test(pa));
   test("★ le devis porte le prénom et l'entreprise, et la fiche du client aussi (ficheAvecIdentite, revérifié dans resoudreClientDevis)",
-    /const devis = \{ \.\.\.construire\(\), \.\.\.identite \};/.test(pa) && /ficheAvecIdentite\(compte, identite\)/.test(resoudre) && /critiqueEntreprise\(nouvClient\.entreprise\)/.test(resoudre));
+    /const devis = \{ \.\.\.construire\(\), \.\.\.identite, \.\.\.\(prepare \? \{ prepare_par: prepare \} : \{\}\) \};/.test(pa) && /ficheAvecIdentite\(compte, identite\)/.test(resoudre) && /critiqueEntreprise\(nouvClient\.entreprise\)/.test(resoudre));
   test("★ les accès vont au numéro du RÉPONDANT : l'envoi garde `compte.tel || nouvClient.tel`, jamais celui de l'entreprise",
     /const telClient = compte\.tel \|\| nouvClient\.tel;/.test(pa) && !/entreprise\.tel/.test(pa));
   const ve = lireE("src/screens/Ventes.jsx");
@@ -12953,6 +12956,64 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const srcEc = readFileSync("src/screens/EspaceClient.jsx", "utf8");
   test("★ 🔧 le bloc d'une vente ordinaire (« Passez à la boutique ») ne s'affiche plus pour une pose seule",
     /d\.statut === "valide" && !d\.pose_seule && \(\(\) => \{/.test(srcEc) && /d\.statut === "valide" && d\.pose_seule && <SuiviPoseClient/.test(srcEc));
+}
+
+// ── 📝 Un brouillon SANS client, et 📨 un brouillon CONFIÉ à un collègue
+// (Timo, 05/10/2026 : « enregistrer un brouillon soit toujours possible… avec
+// obligatoirement un nom » ; « 1 déplacé, 2 celui qui envoie »).
+{
+  titre("📝 Brouillon sans client, 📨 brouillon confié (05/10/2026)");
+  const sortieB = join("node_modules", ".cache", `bmi-brouillons-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm", platform: "node",
+    outfile: sortieB, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+    define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' } });
+  const dc = await import(pathToFileURL(sortieB).href);
+  unlinkSync(sortieB);
+  const bA = { id: "b1", volet: "solaire", client: null, nom: "Villa Agoè", devis: { total: 500000 } };
+  const base = { users: [
+    { id: "k", nom: "KOSSI", role: "commercial", brouillons_devis: [bA] },
+    { id: "a", nom: "AMA", role: "vendeur", brouillons_devis: [] },
+  ] };
+  const r = dc.confierBrouillon(base, "k", "a", "b1", { par: "KOSSI", le: "2026-10-05" });
+  const chezK = dc.brouillonsDe(r.db.users[0]), chezA = dc.brouillonsDe(r.db.users[1]);
+  test("★★ 📨 un brouillon confié est DÉPLACÉ : il quitte celui qui confie et arrive chez l'autre, entier, avec « confié par » et « préparé par »",
+    !r.erreur && chezK.length === 0 && chezA.length === 1 && chezA[0].nom === "Villa Agoè" && chezA[0].devis.total === 500000
+    && chezA[0].confie?.par === "KOSSI" && chezA[0].devis.prepare_par === "KOSSI");
+  const r2 = dc.confierBrouillon(r.db, "a", "k", "b1", { par: "AMA", le: "2026-10-06" });
+  test("★ 📨 confié deux fois, il garde le PREMIER « préparé par »",
+    !r2.erreur && dc.brouillonsDe(r2.db.users[0])[0].devis.prepare_par === "KOSSI" && dc.brouillonsDe(r2.db.users[0])[0].confie.par === "AMA");
+  test("★ 📨 refusé si le brouillon n'est plus là, ou confié à soi-même",
+    !!dc.confierBrouillon(r.db, "k", "a", "b1", { par: "KOSSI" }).erreur && !!dc.confierBrouillon(base, "k", "k", "b1", { par: "KOSSI" }).erreur);
+  const ONG = { commercial: ["dimensionnement"], vendeur: ["dimensionnement"], comptable: ["messages"], client: ["dimensionnement"] };
+  const gens = [{ id: "k", nom: "KOSSI", role: "commercial" }, { id: "a", nom: "AMA", role: "vendeur" }, { id: "c", nom: "COMPTA", role: "comptable" },
+    { id: "x", nom: "CLIENT", role: "client" }, { id: "b", nom: "BLOQUE", role: "vendeur", actif: false }, { id: "o", nom: "OTE", role: "vendeur", droits_off: ["dimensionnement"] }];
+  const dest = dc.destinatairesBrouillon(gens, { id: "k" }, ONG).map((u) => u.id);
+  test("★★ 📨 on ne confie qu'à un collègue qui a l'onglet Dimensionnement — jamais soi-même, un client, un compte bloqué ou à qui le pouvoir est retiré",
+    dest.length === 1 && dest[0] === "a");
+  test("★ 📝 un brouillon sans client exige un nom ; il se nomme par son client sinon par ce nom",
+    !!dc.critiqueNomBrouillon("  ") && !dc.critiqueNomBrouillon("Villa") && dc.nomDuBrouillon(bA) === "Villa Agoè"
+    && dc.nomDuBrouillon({ client: { nom: "MANDA" }, nom: "x" }) === "MANDA" && dc.brouillonSansClient(bA) && !dc.brouillonSansClient({ client: { nom: "MANDA" } }));
+
+  const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  const corpsE = pa.slice(pa.indexOf("const enregistrerBrouillon = async"), pa.indexOf("return { clientDevis, setClientDevis"));
+  test("★★ 📝 sans client, l'enregistrement demande « Brouillon sans client. Continuer ? » puis un NOM obligatoire (revérifié dans le geste)",
+    /uConfirm\("Brouillon sans client\. Continuer \?/.test(corpsE) && /uPrompt\("Nom de ce brouillon \(obligatoire\)/.test(corpsE) && /critiqueNomBrouillon\(nom\)/.test(corpsE));
+  const ligneBouton = pa.split("\n").find((l) => l.includes("data-brouillon-toujours")) || "";
+  test("★★ 📝 le bouton « Enregistrer un brouillon » n'est plus grisé sans client",
+    !!ligneBouton && !/disabled=/.test(ligneBouton));
+  const corpsEnv = pa.slice(pa.indexOf("const envoyer = async ({ totalDevis"), pa.indexOf("const convertir = "));
+  test("★ 📨 le devis envoyé depuis un brouillon confié garde « préparé par » et part au nom de celui qui envoie",
+    /prepare_par: prepare/.test(corpsEnv));
+  const br = readFileSync("src/screens/dimensionnement/Brouillons.jsx", "utf8").replace(/\/\/[^\n]*/g, "");
+  const corpsC = br.slice(br.indexOf("const confier = async"), br.indexOf("const principal ="));
+  test("★★ 📨 « Confier à… » passe par les personnes de l'espace regardé et par la règle commune, prévient le collègue par un message",
+    /destinatairesBrouillon\(utilisateursDeLEspace\(db, profile\)/.test(br) && /confierBrouillon\(db, profile\.id, a\.id, b\.id/.test(corpsC)
+    && /nouveauMessage\(profile, \{ a_id: a\.id/.test(corpsC) && !/db\.users/.test(corpsC) && /data-confier-brouillon/.test(br));
+  const corpsEnvB = br.slice(br.indexOf("const envoyer = async (b)"), br.indexOf("const destinataires"));
+  test("★ 📨 « préparé par » se LIT sur la ligne du devis dans 📋 Tous les devis",
+    /\{d\.prepare_par && d\.prepare_par !== d\.par \? <span data-prepare-par> · préparé par \{d\.prepare_par\}<\/span> : null\}/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
+  test("★ 📝 un brouillon sans client ne part pas de 📝 Mes brouillons : on le reprend pour choisir le client",
+    /if \(brouillonSansClient\(b\)\) \{ uAlert\(/.test(corpsEnvB));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
