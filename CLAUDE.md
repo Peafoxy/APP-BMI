@@ -5535,6 +5535,13 @@ lit mal est pire qu'un banc absent).
   le bulletin imprimé), et **{{7}} = le rôle et le numéro de celui qui paie**
   (« Comptable 91123456 », sa précision ; sans numéro → le numéro BMI).
   `envoiVirementSalaire` (lib/whatsappModeles.js).
+- ⚠ **CONFIDENTIALITÉ — « on laisse d'abord » (05/10/2026)** : Timo a vu que
+  le WhatsApp du téléphone BMI est partagé entre employés, et que la COPIE de
+  ces messages (salaire, retenue de crédit, avancement, commission due) s'y
+  lit en entier — Meta la dessine, l'application n'y peut rien. Proposé :
+  couper ces envois, puis a) message sans montant, b) notification seule,
+  c) laisser. **Sa réponse : laisser tel quel pour le moment.** Ne rien
+  couper sans sa demande ; s'il revient dessus, repartir de ces trois voies.
 - Envoyé par `envoyerVirementG` APRÈS l'enregistrement, **tout seul, sans
   question ni repli** (`envoyerRecuSansQuestion`, chargé à la demande), vers
   le numéro de la fiche de l'employé ; sans numéro, la confirmation le dit.
