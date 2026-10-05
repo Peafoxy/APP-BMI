@@ -439,6 +439,25 @@ export function clientsSansSuite(visible, aujourdhui = new Date().toISOString().
     .sort((a, b) => a.reference.localeCompare(b.reference));
 }
 
+// 🆕 LES COMPTES SANS ACTIVITÉ (05/10/2026, Timo : « a »). Un COMPTE client
+// qui n'a reçu AUCUN devis et n'a jamais rien acheté : ni prospect (pas de
+// devis), ni client (pas d'achat). Il quitte la liste « Clients » pour son
+// propre bouton. ⚠ Même prudence que les sans suite : une vente, une dette,
+// une commande ou un chantier sur son numéro, son nom (sans numéro) ou son
+// compte le garde parmi les clients. Rien n'est écrit, rien n'est archivé :
+// dès qu'un devis lui part il devient prospect, dès qu'il achète, client.
+export function clientsSansActivite(visible) {
+  const v = visible || {};
+  return (v.comptes || [])
+    .filter((u) => u?.role === "client" && !estEfface(u.nom) && !(u.devis || []).filter(Boolean).length)
+    .filter((u) => {
+      const d = dossierClient(v, { nom: u.nom_base || u.nom, tel: u.tel });
+      return !(d.ventes.length || d.dettes.length || d.commandes.length || d.chantiers.length);
+    })
+    .map((u) => ({ compte: u, nom: u.nom, tel: u.tel || "", creeLe: String(u.cree_le || "").slice(0, 10), parNom: u.amene_par_nom || "" }))
+    .sort((a, b) => String(b.creeLe).localeCompare(String(a.creeLe)));
+}
+
 // La ligne du journal d'un effacement GROUPÉ (les clients sans suite archivés
 // depuis plus d'un an, 30/09/2026). Une seule ligne pour un seul geste ; elle
 // ne nomme personne, mais porte la PREMIÈRE et la DERNIÈRE référence, pour

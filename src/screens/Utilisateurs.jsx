@@ -19,7 +19,7 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, premierMoisPaie, critiqueDebutPaie } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie } from "../lib/calculs";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -88,14 +88,21 @@ export function Users({ db, save, profile }) {
   // recherche le trouve toujours, avec tous ses gestes. Le compte, lui, ne
   // change pas : il devient client à la seconde où il valide ou achète.
   const prospectsDevis = sansSuite.filter((c) => !c.archive);
-  const idsSansSuite = new Set(sansSuite.map((c) => c.compte.id));
+  // 🆕 LES COMPTES SANS ACTIVITÉ (05/10/2026, Timo : « a ») : aucun devis,
+  // aucun achat — ni prospects ni clients. Leur propre bouton ; « Clients »
+  // ne garde que ceux qui ont acheté ou validé un devis. Rien n'est écrit.
+  const sansActivite = clientsSansActiviteDeLEspace(db, profile);
+  const sansActiviteParId = new Map(sansActivite.map((c) => [c.compte.id, c]));
+  // Tous les comptes qui ne sont PAS des clients au sens de Timo : ils
+  // quittent la liste « Clients », son compteur, et le mot de fidélité.
+  const idsSansSuite = new Set([...sansSuite.map((c) => c.compte.id), ...sansActivite.map((c) => c.compte.id)]);
   // 🔘 DEUX BOUTONS DANS LA RANGÉE DES RÔLES, plus deux blocs sous la liste
   // (capture Timo, 04/10/2026 : « ramener le bouton à côté des boutons des
   // utilisateurs et renommer compte prospect » → « a ») : le bloc du bas se
   // lisait comme la suite de la fiche ouverte au-dessus. Les comptes s'ouvrent
   // dans LE tableau, avec les mêmes gestes ; rien n'est écrit.
   const sansSuiteParId = new Map(sansSuite.map((c) => [c.compte.id, c]));
-  const ONGLETS_SANS_SUITE = [["prospects", "🧲 Comptes prospects", prospectsDevis], ["archives", "📁 Clients archivés", archives]];
+  const ONGLETS_SANS_SUITE = [["prospects", "🧲 Comptes prospects", prospectsDevis], ["archives", "📁 Clients archivés", archives], ["inactifs", "🆕 Comptes sans activité", sansActivite]];
   const nbParRole = Object.fromEntries([
     ...ROLES_LISTE.map(([r]) => [r, utilisateursVisibles.filter((x) => x.role === r && !idsSansSuite.has(x.id)).length]),
     ...ONGLETS_SANS_SUITE.map(([r, , liste]) => [r, liste.length]),
@@ -143,6 +150,10 @@ export function Users({ db, save, profile }) {
     // confiance… merci de faire partie de nos clients » — il ne part qu'à un
     // VRAI client (un achat ou un devis validé), jamais à un prospect.
     // Revérifié DANS le geste, sur la règle des comptes sans suite.
+    if (sansActiviteParId.has(u.id)) {
+      uAlert(`${u.nom_base || u.nom} n'a reçu aucun devis et n'a rien acheté : son compte est sans activité.\n\nLe mot de fidélité est réservé aux clients.`);
+      return;
+    }
     if (idsSansSuite.has(u.id)) {
       uAlert(`${u.nom_base || u.nom} n'a encore rien acheté ni validé de devis : c'est un prospect.\n\nLe mot de fidélité est réservé aux clients. Pour le relancer, passez par 📋 Tous les devis.`);
       return;
@@ -1333,6 +1344,12 @@ export function Users({ db, save, profile }) {
               au premier devis validé ou au premier achat ; sans suite, ils sont archivés {JOURS_AVANT_ARCHIVE} jours après leur dernier devis.
             </div>
           )}
+          {!enRecherche && roleAffiche === "inactifs" && (
+            <div className="mt-1 text-xs text-slate-500" data-comptes-sans-activite>
+              Un compte créé, mais aucun devis reçu et rien acheté : ni prospect, ni client (pas de mot de fidélité). Il devient
+              prospect tout seul dès qu'un devis lui part, et client dès son premier achat. Rien n'est archivé ni effacé ici.
+            </div>
+          )}
           {!enRecherche && roleAffiche === "archives" && (
             <div className="mt-1 text-xs text-slate-500" data-clients-archives>
               Aucun achat ni devis validé : archivés {JOURS_AVANT_ARCHIVE} jours après leur dernier devis. Ils ne sont plus proposés
@@ -1352,7 +1369,13 @@ export function Users({ db, save, profile }) {
                 <td className="px-4 py-2 font-semibold">{u.nom}
                   {idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold align-middle" data-client-archive>📁 Archivé</span>}
                   {idsSansSuite.has(u.id) && !idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-bold align-middle" data-compte-prospect>🧲 Prospect</span>}
+                  {sansActiviteParId.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold align-middle" data-compte-sans-activite>🆕 Sans activité</span>}
                   {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
+                  {sansActiviteParId.has(u.id) && (() => { const c = sansActiviteParId.get(u.id); return (
+                    <div className="text-xs font-normal text-slate-500" data-ligne-sans-activite>
+                      Créé le {c.creeLe ? dFR(c.creeLe) : "— date inconnue"}{c.parNom ? ` par ${c.parNom}` : ""} · aucun devis, aucun achat
+                    </div>
+                  ); })()}
                   {sansSuiteParId.has(u.id) && (() => { const c = sansSuiteParId.get(u.id); return (
                     <div className="text-xs font-normal text-slate-500" data-ligne-sans-suite>
                       Dernier devis le {dFR(c.reference)} · {c.archive

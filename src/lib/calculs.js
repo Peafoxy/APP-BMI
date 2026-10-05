@@ -22,7 +22,7 @@ import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois 
 // compteClientPour l'appelait sans l'avoir importé, et seul le banc l'a vu.
 import { chiffresTel, memeNumero, numeroComparable } from "./identiteClient";
 import { estCompteFormation as estCompteFormationRegle } from "./espace";
-import { clientsSansSuite } from "./effacementClient";
+import { clientsSansSuite, clientsSansActivite } from "./effacementClient";
 // 🧰 Un outil perdu se rembourse. Pour un technicien à COMMISSION, il n'y a
 // pas de salaire à amputer : la retenue se prend sur sa part d'installation.
 import { modeRetenue, retenueSurPaiement, appliquerRetenues } from "./outillage";
@@ -554,9 +554,9 @@ export const chantiersDeLEspaceRegarde = (db, profile, voirFormation = undefined
 // `effacable` (proposé, jamais automatique) un an plus tard.
 // ⚠ LE MUR : les listes sont filtrées par l'espace regardé AVANT d'être
 // remises à la règle pure — jamais db.users ni db.ventes en entier.
-export const clientsSansSuiteDeLEspace = (db, profile, aujourdhui = today()) => {
+const comptesEtAchatsDeLEspace = (db, profile) => {
   const f = filtreEspaceAffichage(db, profile);
-  return clientsSansSuite({
+  return {
     comptes: utilisateursDeLEspace(db, profile),
     ventes: (db?.ventes || []).filter(f),
     dettes: (db?.dettes || []).filter(f),
@@ -564,8 +564,15 @@ export const clientsSansSuiteDeLEspace = (db, profile, aujourdhui = today()) => 
     // Un chantier à la corbeille porte encore le nom : devant un doute, il
     // protège le client (on n'archive pas quelqu'un qui a eu un chantier).
     chantiers: [...chantiersDeLEspaceRegarde(db, profile), ...(db?.corbeille_clients_installes || [])],
-  }, aujourdhui);
+  };
 };
+export const clientsSansSuiteDeLEspace = (db, profile, aujourdhui = today()) =>
+  clientsSansSuite(comptesEtAchatsDeLEspace(db, profile), aujourdhui);
+
+// 🆕 Les comptes clients SANS ACTIVITÉ de l'espace regardé (05/10/2026) :
+// aucun devis, aucun achat. Même mur, mêmes listes que les sans suite.
+export const clientsSansActiviteDeLEspace = (db, profile) =>
+  clientsSansActivite(comptesEtAchatsDeLEspace(db, profile));
 
 // Les identifiants des comptes ARCHIVÉS (pour les retirer d'une liste).
 export const idsClientsArchives = (db, profile, aujourdhui = today()) =>

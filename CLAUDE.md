@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2179 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2182 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2496,6 +2496,27 @@ lit mal est pire qu'un banc absent).
 - Banc (`verifier-cloisonnement`, 5 contrôles), éprouvé en remettant trois
   fautes (fidélité envoyée, commercial qui voit tout, archivés comptés hors
   prospects) : chacune tombe. Un contrôle RETOURNÉ (`idsSansSuite`).
+
+#### 🆕 LES COMPTES SANS ACTIVITÉ (05/10/2026, « a »)
+- Un compte client **sans aucun devis ni achat** (créé par 🙋 Créer un client,
+  👥 Utilisateurs…) n'est ni prospect ni client : troisième bouton
+  **« 🆕 Comptes sans activité (N) »** dans la rangée des rôles de 👥
+  Utilisateurs (`ONGLETS_SANS_SUITE`), hors de « Clients » et de son compteur
+  (`idsSansSuite` les porte), badge « 🆕 Sans activité » dans la recherche,
+  « Créé le … par … » sous le nom, **mot de fidélité refusé DANS le geste**.
+  **« Clients » = ceux qui ont acheté ou validé un devis, et eux seuls.**
+- Règle pure `clientsSansActivite` (lib/effacementClient.js, même prudence que
+  les sans suite : vente, dette, commande, chantier ou HOMONYME qui a acheté le
+  garde parmi les clients) ; `clientsSansActiviteDeLEspace` (calculs.js) passe
+  par les MÊMES listes de l'espace regardé (`comptesEtAchatsDeLEspace`).
+  Rien n'est écrit, rien n'est archivé ni effacé : un devis en fait un
+  prospect, un achat un client.
+- ⚠ **Le rangement reste CALCULÉ, jamais écrit dans la base** (question de
+  Timo le même jour) : un téléphone ne voit pas toutes les ventes, une
+  étiquette écrite par lui pourrait être fausse et rester. Ne pas le
+  reproposer sans sa demande.
+- Banc (3 contrôles), éprouvé (homonyme ignoré, fidélité non refusée) ; un
+  contrôle RETOURNÉ (`idsSansSuite`). Chapitres 2 et 3 à jour. Rien à coller.
 
 - **La protection des données est COMPLÈTE** : effacement, dossier d'accès
   (client et employé), libre-service du client, fuite du numéro de compte

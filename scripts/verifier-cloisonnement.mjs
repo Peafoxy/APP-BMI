@@ -10800,7 +10800,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       // RETOURNÉ le 03/10/2026 : tout compte SANS SUITE (archivé OU prospect) quitte la liste des clients.
       /: utilisateursVisibles\.filter\(\(x\) => x\.role === roleAffiche && !idsSansSuite\.has\(x\.id\)\)/.test(ut)
       && /x\.role === r && !idsSansSuite\.has\(x\.id\)/.test(ut)
-      && /const idsSansSuite = new Set\(sansSuite\.map\(\(c\) => c\.compte\.id\)\)/.test(ut)
+      // RETOURNÉ le 05/10/2026 : l'ensemble porte aussi les comptes sans activité.
+      && /const idsSansSuite = new Set\(\[\.\.\.sansSuite\.map\(\(c\) => c\.compte\.id\)/.test(ut)
       && /\? utilisateursVisibles\.filter\(\(x\) => correspond\(/.test(ut)
       && /data-client-archive/.test(ut) && /data-clients-archives/.test(ut)
       && /clientsSansSuiteDeLEspace\(db, profile\)/.test(ut));
@@ -10856,6 +10857,30 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /\? ongletSansSuite\[2\]\.map\(\(c\) => c\.compte\)\.filter\(\(x\) => utilisateursVisibles\.some/.test(ut)
       && /data-ligne-sans-suite/.test(ut)
       && !/setVoirProspects|setVoirArchives/.test(ut));
+    // 05/10/2026 (Timo : « a ») : les comptes sans devis ni achat ont LEUR
+    // bouton ; « Clients » ne garde que ceux qui ont acheté ou validé.
+    test("★★ 🆕 la règle des comptes sans activité : aucun devis ET aucun achat ; une vente sur son numéro, une dette sur son compte, un chantier ou un HOMONYME qui a acheté le gardent parmi les clients ; un devis en fait un prospect ; un effacé n'y est jamais",
+      (() => {
+        const c = (id, nom, tel, extra = {}) => ({ id, nom, tel, role: "client", cree_le: "2026-09-0" + id.length, ...extra });
+        const r = Eff.clientsSansActivite({
+          comptes: [c("a", "AFI", "90111111"), c("b", "BEBE", "90222222"), c("k", "KOMLA", ""), c("z", "ZOE", "90333333", { amene_par_nom: "KOSSI" }),
+            c("h", "HOMO", ""), c("d", "DEDE", "90555555", { devis: [dv("2026-09-01")] }), c("x", "CLIENT EFFACÉ N° 2", ""), { id: "v", nom: "VAL", role: "vendeur" }],
+          ventes: [{ client: "AFI DIFFERENT", tel: "+228 90 11 11 11" }, { client: "HOMO", tel: "" }],
+          dettes: [{ client: "?", user_id: "b" }], commandes: [],
+          chantiers: [{ nom: "KOMLA", tel: "" }],
+        });
+        return r.length === 1 && r[0].nom === "ZOE" && r[0].parNom === "KOSSI" && r[0].creeLe === "2026-09-01";
+      })());
+    test("★★ 🆕 👥 Utilisateurs : bouton « 🆕 Comptes sans activité » dans la rangée des rôles, hors de « Clients » et de son compteur, refusé au mot de fidélité DANS le geste, badge et « créé le … par … »",
+      /\["inactifs", "🆕 Comptes sans activité", sansActivite\]/.test(ut)
+      && /const sansActivite = clientsSansActiviteDeLEspace\(db, profile\)/.test(ut)
+      && /const idsSansSuite = new Set\(\[\.\.\.sansSuite\.map\(\(c\) => c\.compte\.id\), \.\.\.sansActivite\.map/.test(ut)
+      && corpsFid.indexOf("sansActiviteParId.has(u.id)") > -1
+      && corpsFid.indexOf("sansActiviteParId.has(u.id)") < corpsFid.indexOf("envoyerModele(")
+      && /data-comptes-sans-activite/.test(ut) && /data-compte-sans-activite/.test(ut) && /data-ligne-sans-activite/.test(ut));
+    test("★★ 🆕 le mur : les comptes sans activité passent par les listes de l'espace regardé (les mêmes que les sans suite) — jamais db.users ni db.ventes en entier",
+      /export const clientsSansActiviteDeLEspace = \(db, profile\) =>\s*clientsSansActivite\(comptesEtAchatsDeLEspace\(db, profile\)\)/.test(readFileSync("src/lib/calculs.js", "utf8"))
+      && /comptes: utilisateursDeLEspace\(db, profile\),\s*ventes: \(db\?\.ventes \|\| \[\]\)\.filter\(f\)/.test(readFileSync("src/lib/calculs.js", "utf8")));
     test("★★ 🧲 Prospects : la liste « Comptes avec devis » passe par la règle de l'espace regardé et le filtre du commercial — jamais db.users",
       /clientsSansSuiteDeLEspace\(db, profile\)\.filter\(\(c\) => prospectVisiblePour\(c, profile, voitTout\)\)/.test(pr)
       // 03/10/2026 : du plus NOUVEAU au plus ancien (date du dernier devis, décroissante)
