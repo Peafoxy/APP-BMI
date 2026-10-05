@@ -3433,7 +3433,8 @@ lit mal est pire qu'un banc absent).
   qui passe, la conversation qui revient au support ; éprouvé en remettant
   deux fautes. ⚠ **Le jeton du banc porte `role: authenticated`** : sans lui
   `jeton_de_service()` le prenait pour le serveur et des « refus » passaient
-  pour vrais. **À COLLER PAR TIMO.**
+  pour vrais. **Collé par Timo le 05/10/2026 (`true | true | true | true`).**
+  ⚠ Effet à la prochaine reconnexion de chacun.
 - Banc ㊽ (`verifier-whatsapp`, 12) et Chromium (`verifier-onglets-deplacables`,
   +5, souris et doigt), éprouvés (fiche vivante écrasée, serveur qui compte la
   corbeille, garde du principal retirée, clic non avalé). Chapitres 20 et 23.
