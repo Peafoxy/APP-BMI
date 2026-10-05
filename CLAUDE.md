@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2229 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2230 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -5429,6 +5429,16 @@ lit mal est pire qu'un banc absent).
   éprouvé (rôle d'avant, compte en entier, cumul qui ignore le mois suivi,
   brut avec le remboursement, TOTAUX retiré, versé = net). Regardé rendu
   dans Chromium. Chapitre 18 à jour. Rien à coller.
+
+### 🖨 LE BULLETIN EST FERMÉ À L'EMPLOYÉ — TEMPORAIREMENT (05/10/2026)
+- Timo, après ma réponse « oui, bonne idée, c'est déjà en place » : « temporairement
+  bloquer le téléchargement du bulletin chez l'employé… lui informer de se
+  référer à l'administration ». `BULLETIN_EMPLOYE_OUVERT = false`
+  (constants.js) : 💵 Mon salaire n'a plus « 🖨 Imprimer mon bulletin de paie »,
+  il affiche `MESSAGE_BULLETIN_FERME` (`data-bulletin-ferme`). 💵 Salaires
+  (administrateur) garde son 🖨 Bulletin. **Pour rouvrir : `true`, sur sa
+  demande seulement.** Le reste de 💵 Mon salaire ne bouge pas. Banc (1
+  contrôle), éprouvé. Rien à coller. Chapitre 18 à jour.
 
 ### 📲 L'AVIS DE PAIEMENT D'UN SALAIRE PART DU NUMÉRO BMI — `virement_salaire` (03/10/2026, le texte de Timo)
 - Timo : « un modèle YCloud pour envoi automatique de message de virement

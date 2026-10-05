@@ -4,7 +4,7 @@
 // gérants, magasiniers) avec bulletin imprimable.
 // ============================================================
 import { useState, useEffect } from "react";
-import { SALARIES } from "../lib/constants";
+import { SALARIES, BULLETIN_EMPLOYE_OUVERT, MESSAGE_BULLETIN_FERME } from "../lib/constants";
 import { uid, fmt, today, dFR, normPaiement, nouvelleDepense } from "../lib/core";
 // Timo (12/09/2026) : l'employé voit où en sont ses avances de frais.
 import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/validationDepenses";
@@ -475,7 +475,9 @@ export function Salaire({ db, save, profile }) {
           </select>
         </Field>
         <div className="mt-3">
-          <button onClick={() => imprimerBulletin(moi, mois, db)} className={btnDark}>🖨 Imprimer mon bulletin de paie</button>
+          {BULLETIN_EMPLOYE_OUVERT
+            ? <button onClick={() => imprimerBulletin(moi, mois, db)} className={btnDark}>🖨 Imprimer mon bulletin de paie</button>
+            : <div data-bulletin-ferme className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3">{MESSAGE_BULLETIN_FERME}</div>}
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
           {/* ⚠ Ici la lecture se fait du point de vue de L'EMPLOYÉ : ce qui

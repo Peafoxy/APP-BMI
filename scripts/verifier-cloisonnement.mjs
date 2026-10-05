@@ -12843,6 +12843,18 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   test("📅 douze mois au plus", C.moisRecents("2020-01", A).length === 12 && C.moisRecents("2020-01", A)[11] === "2025-11");
   const sal = readFileSync("src/screens/Salaires.jsx", "utf8");
   test("📅 💵 Mon salaire ne propose que les mois suivis", /const options = moisPaieProposes\(moi\);/.test(sal) && (sal.match(/for \(let i = 0; i < 12; i\+\+\)/g) || []).length === 0);
+  {
+    // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du
+    // bulletin chez l'employé… lui informer de se référer à l'administration ».
+    const cst = readFileSync("src/lib/constants.js", "utf8");
+    const corpsEmp = sal.slice(sal.indexOf("export function Salaire("));
+    test("★★ 🖨 le bulletin est FERMÉ à l'employé (temporairement) : 💵 Mon salaire renvoie à l'administration, 💵 Salaires garde le sien",
+      /export const BULLETIN_EMPLOYE_OUVERT = false;/.test(cst) && /administration/.test((cst.match(/MESSAGE_BULLETIN_FERME = "([^"]+)"/) || [])[1] || "")
+      && /\{BULLETIN_EMPLOYE_OUVERT\s*\?\s*<button onClick=\{\(\) => imprimerBulletin\(moi, mois, db\)\}/.test(corpsEmp)
+      && /data-bulletin-ferme[^>]*>\{MESSAGE_BULLETIN_FERME\}/.test(corpsEmp)
+      && (corpsEmp.match(/imprimerBulletin\(/g) || []).length === 1
+      && /imprimerBulletin\(u, mois, db\)/.test(sal.slice(0, sal.indexOf("export function Salaire("))));
+  }
   test("📅 💵 Salaires (administrateur) : un employé pas encore suivi n'est ni « non payé » ni compté",
     /const employes = tousEmployes\.filter\(\(u\) => moisSuiviPour\(u, mois\)\);/.test(sal) && /const options = moisRecents\(premierSuivi\);/.test(sal) && /data-pas-encore-suivis/.test(sal));
   const ut = readFileSync("src/screens/Utilisateurs.jsx", "utf8");

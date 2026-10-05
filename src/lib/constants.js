@@ -67,7 +67,14 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.444";
+export const VERSION = "2.101.445";
+
+// 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
+// chez l'employé… lui informer de se référer à l'administration ». Faux =
+// 💵 Mon salaire n'a plus le bouton et renvoie à l'administration ; le
+// bulletin s'imprime depuis 💵 Salaires. Vrai = le bouton revient.
+export const BULLETIN_EMPLOYE_OUVERT = false;
+export const MESSAGE_BULLETIN_FERME = "🖨 Votre bulletin de paie s'obtient auprès de l'administration : adressez-vous à elle pour le recevoir.";
 
 // ---- Notifications (13/09/2026) ----
 // La clé PUBLIQUE des notifications : le téléphone n'accepte que les
