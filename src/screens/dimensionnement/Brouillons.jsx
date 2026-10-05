@@ -126,7 +126,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
                 <div className="flex-1 min-w-[12rem]">
                   <span className="font-bold">{b.devis.apporteur_externe.nom}</span> · <b>{b.devis.apporteur_externe.taux} %</b>
                   {b.devis.apporteur_externe.taux_fixe_par ? <span className="text-xs text-slate-500"> (fixé par {b.devis.apporteur_externe.taux_fixe_par})</span> : null}
-                  <div className="text-xs text-slate-500">{b.client?.nom ? `Client ${b.client.nom}` : `« ${nomDuBrouillon(b)} », sans client`} · {fmt(b.devis?.total)} · brouillon de {u.nom} · {dFR(b.date)}</div>
+                  <div className="text-xs text-slate-500">{b.client?.nom ? `Client ${b.client.nom}` : `« ${nomDuBrouillon(b)} », sans compte`} · {fmt(b.devis?.total)} · brouillon de {u.nom} · {dFR(b.date)}</div>
                 </div>
                 <button onClick={() => fixerTaux({ u, b })} className="px-3 py-1 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">✏️ Fixer le pourcentage</button>
               </div>
@@ -149,8 +149,8 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
             <div key={b.id} className="py-2 flex flex-wrap items-center gap-2 text-sm">
               <div className="flex-1 min-w-[12rem]">
                 <span className="font-bold">{nomDuBrouillon(b)}</span>{b.client?.tel ? <span className="text-slate-500"> · {b.client.tel}</span> : null}
-                {brouillonSansClient(b) && <span className="ml-2 text-[11px] font-bold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5" data-brouillon-sans-client>sans client</span>}
-                <div className="text-xs text-slate-500">{libelleVolet(b)} · {fmt(b.devis?.total)} · {dFR(b.date)}{brouillonSansClient(b) ? " · client à choisir en le reprenant" : b.client?.id ? "" : " · compte à créer à l'envoi"}</div>
+                {brouillonSansClient(b) && <span className="ml-2 text-[11px] font-bold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5" data-brouillon-sans-client>sans compte</span>}
+                <div className="text-xs text-slate-500">{libelleVolet(b)} · {fmt(b.devis?.total)} · {dFR(b.date)}{brouillonSansClient(b) ? " · compte à choisir ou à créer en le reprenant" : b.client?.id ? "" : " · compte à créer à l'envoi"}</div>
                 {b.confie && <div className="text-xs text-sky-800" data-brouillon-confie>📨 Confié par {b.confie.par} le {dFR(b.confie.le)}</div>}
               </div>
               <button onClick={() => onReprendre(b)} className="px-3 py-1 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">✏️ Reprendre</button>
