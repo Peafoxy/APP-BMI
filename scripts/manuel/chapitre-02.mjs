@@ -42,7 +42,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans BMI-Gestion", blocs: [
       ["ul", [
-        "**👥 Utilisateurs** : l'onglet, réservé à l'administrateur. En haut, le formulaire de création ; en dessous, la liste, avec une pastille par rôle (« Vendeur (3) », « Client (42) »…) et la ligne de recherche.",
+        "**👥 Utilisateurs** : l'onglet, réservé à l'administrateur. En haut, le bouton **« ➕ Nouvel utilisateur »** : le formulaire de création n'est PAS affiché d'office, il s'ouvre au clic (« Fermer » le replie, et il se replie tout seul après une création réussie) ; en dessous, la liste, avec une pastille par rôle (« Vendeur (3) », « Client (42) »…) et la ligne de recherche.",
         "**🔐 Pouvoirs** : le bouton rond violet sur la ligne d'un compte.",
         "**⋯ Gérer** : le bouton gris à droite de la ligne, qui ouvre un panneau sous le compte, rangé par thème (Compte, Paie, Commercial, Client).",
         "**⚙ Paramètres → 👑 Administrateur principal** : le transfert du rôle principal.",
@@ -69,6 +69,7 @@ export const CHAPITRE = {
 
       ["h3", "B. Créer un compte d'employé"],
       ["etapes", [
+        { titre: "« ➕ Nouvel utilisateur »", texte: "Le bouton en haut de l'écran : un clic ouvre le formulaire. « Fermer » le replie sans rien créer." },
         { titre: "« Nom »", texte: "Le nom avec lequel la personne se connectera (par exemple ESSO). **Il doit être libre** : si un employé le porte déjà, l'application refuse, nomme qui l'a, et propose un nom libre (le prénom accolé, « ESSO KOSSI », sinon les chiffres du numéro)." },
         { titre: "« Mot de passe »", texte: "Tapé par vous, 6 caractères au moins. Vous ne pourrez plus le relire ensuite : il est rangé chiffré. Notez-le pour le remettre à la personne." },
         { titre: "« Prénom »", texte: "Comme sur la pièce d'identité. Il remplit le **nom complet** qui va sur le bulletin de paie et la déclaration CNSS. Il ne change pas l'identifiant de connexion." },
@@ -81,7 +82,7 @@ export const CHAPITRE = {
 
       ["h3", "C. Créer un compte de client"],
       ["etapes", [
-        { titre: "Rôle « Client »", texte: "Le formulaire se réduit à **« Nom »** et **« Numéro de téléphone »**. Rien d'autre à taper." },
+        { titre: "Rôle « Client »", texte: "Après « ➕ Nouvel utilisateur », le formulaire se réduit à **« Nom »** et **« Numéro de téléphone »**. Rien d'autre à taper." },
         { titre: "Le mot de passe se fabrique tout seul", texte: "**6 caractères pris dans les chiffres de son numéro et les lettres de son nom**, mélangés toujours de la même façon pour ce client — donc recalculables, jamais écrits en clair. L'identifiant, c'est le nom ; si un autre client le porte déjà, l'application y accole des chiffres du numéro. Les deux s'affichent en bleu avant même de cliquer." },
         { titre: "« Créer », puis la confirmation", texte: "« Créer le compte client de … ? 👤 Identifiant … 🔑 Mot de passe … Remettez-lui ces identifiants. » Puis : « Envoyer ces identifiants au client par WhatsApp ? »" },
       ]],
@@ -143,7 +144,8 @@ export const CHAPITRE = {
         ["« Taux de commission (%) »", "Formulaire (commercial, technicien…)", "Le pourcentage sur chaque vente qui lui est attribuée. 0 = aucune."],
         ["« Taux d'avancement annuel (%) »", "Formulaire (salariés)", "Sert à proposer le nouveau salaire au moment d'un avancement (💵 Salaire)."],
         ["« Chef d'équipe »", "Formulaire (commercial, techniciens)", "Donne 👑 Équipe et ✅ Mes tâches : il suit ses hommes et leur donne du travail. Un commercial devient chef aussi tout seul à partir de 5 filleuls."],
-        ["« Créer »", "Formulaire", "Crée le compte et propose l'envoi WhatsApp des identifiants."],
+        ["« ➕ Nouvel utilisateur » / « Fermer »", "Haut de l'écran", "Ouvre le formulaire de création (fermé d'office) ; « Fermer » le replie."],
+        ["« Créer »", "Formulaire", "Crée le compte, propose l'envoi WhatsApp des identifiants, et replie le formulaire."],
         ["Pastilles de rôle, ligne de recherche", "Liste", "Filtrer par rôle ; chercher par nom ou par numéro."],
         ["🔐 Pouvoirs → cases, « Tout rétablir »", "Fenêtre des pouvoirs", "Retirer ou rendre un onglet ou une action, sans changer le rôle."],
         ["🆔 Identité", "Ligne", "Nom complet, type et numéro de pièce."],

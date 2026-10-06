@@ -183,6 +183,10 @@ export function Users({ db, save, profile }) {
   };
   const boutiquesDuFormulaire = db.boutiques.filter((b) => !b.terrain && !!b.formation === !!espaceCree);
   const [msg, setMsg] = useState("");
+  // Le formulaire « Nouvel utilisateur » est FERMÉ d'office (capture Timo,
+  // 06/10/2026 : « transformer en bouton et afficher les infos lorsqu'on clique
+  // dessus, pas par défaut »). Il se referme après une création réussie.
+  const [nouveauOuvert, setNouveauOuvert] = useState(false);
 
   const creer = async () => {
     if (bloquerSiLecture(db, profile)) return;
@@ -215,6 +219,7 @@ export function Users({ db, save, profile }) {
       save({ ...db, users: [...db.users, user], messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])] }, `Compte CLIENT « ${user.nom} » créé par ${profile.nom}`);
       setF(vide);
       setEntCli(ENTREPRISE_VIDE());
+      setNouveauOuvert(false);
       setMsg(`✅ Client créé — identifiant : ${identifiant} · mot de passe : ${motDePasse}`);
       // Envoi automatique des identifiants par WhatsApp.
       if (await uConfirm(`✅ Client créé.\n\n👤 ${identifiant}\n🔑 ${motDePasse}\n\nEnvoyer ces identifiants au client par WhatsApp ?`)) {
@@ -314,6 +319,7 @@ export function Users({ db, save, profile }) {
       }
     }
     setF({ ...vide, boutique: premiere });
+    setNouveauOuvert(false);
     setMsg("✅ Utilisateur créé");
     setTimeout(() => setMsg(""), 3000);
   };
@@ -1336,7 +1342,16 @@ export function Users({ db, save, profile }) {
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4 bg-white border border-slate-200">
-        <div className="font-bold mb-3">Nouvel utilisateur</div>
+        {!nouveauOuvert ? (
+          <div className="flex items-center gap-3 flex-wrap">
+            <button data-nouvel-utilisateur onClick={() => { setNouveauOuvert(true); setMsg(""); }} className={btnDark}>➕ Nouvel utilisateur</button>
+            {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}
+          </div>
+        ) : (<>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="font-bold">Nouvel utilisateur</div>
+          <button data-fermer-nouvel-utilisateur onClick={() => { setNouveauOuvert(false); setMsg(""); }} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50">Fermer</button>
+        </div>
 
         {f.role === "client" && (
           <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 p-2 text-xs text-slate-700">
@@ -1420,6 +1435,7 @@ export function Users({ db, save, profile }) {
           <button onClick={creer} className={btnDark}>Créer</button>
           {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}
         </div>
+        </>)}
         {/* ⚠ Comptes hérités de la 2.100.24 : leur bascule avait posé le
             drapeau sans déplacer le rattachement, elle n'a donc jamais rien
             produit. Ils travaillent normalement (la boutique fait foi), mais

@@ -13210,6 +13210,14 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     && /const infoGerer = \(u, quoi\) =>/.test(u) && !/save\(/.test(u.slice(u.indexOf("const infoGerer"), u.indexOf("// 📅 L'EMBAUCHE ET LE CONTRAT"))));
   test("★ ⋯ Gérer : le numéro de compte bancaire ne s'y lit que masqué (libelleBanque), et le parrain vient des comptes de l'espace, jamais de db.users",
     /banque: \{ titre: `Banque de \$\{u\.nom\}`, lignes: \[libelleBanque\(u\)/.test(u) && /utilisateursDeLEspace\(db, u\)\.find\(\(x\) => x\.id === u\.parrain_id\)/.test(u));
+  // « Nouvel utilisateur » : un BOUTON, le formulaire ne s'ouvre qu'au clic
+  // (capture Timo, 06/10/2026, « pas par défaut ») et se referme après la création.
+  test("★★ 👥 « ➕ Nouvel utilisateur » est un bouton : le formulaire est FERMÉ d'office, s'ouvre au clic, a « Fermer », et se referme après une création réussie (client ET employé)",
+    /const \[nouveauOuvert, setNouveauOuvert\] = useState\(false\);/.test(u)
+    && /\{!nouveauOuvert \? \(/.test(u) && /data-nouvel-utilisateur onClick=\{\(\) => \{ setNouveauOuvert\(true\)/.test(u)
+    && /data-fermer-nouvel-utilisateur onClick=\{\(\) => \{ setNouveauOuvert\(false\)/.test(u)
+    && (u.match(/setNouveauOuvert\(false\);\n\s*setMsg\(/g) || []).length === 2
+    && u.indexOf("{!nouveauOuvert ? (") < u.indexOf("<button onClick={creer}") && u.indexOf("<button onClick={creer}") < u.indexOf("</>)}"));
   test("★★ 🔁 le bouton Renouveler n'apparaît que si le contrat se renouvelle encore",
     /\{peutRenouveler\(u, today\(\)\) && <BoutonGerer data-renouveler onClick=\{\(\) => renouvelerContrat\(u\)\}/.test(u));
   test("★ 📄 les boutons 📅 Embauche et contrat et 🚪 Sortie sont dans ⋯ Gérer, et la fin se LIT sous le nom",
