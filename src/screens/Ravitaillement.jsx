@@ -5,7 +5,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { uid, today, dFR } from "../lib/core";
-import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../components/ui";
+import { Field, inputCls, uAlert, uConfirm, uPrompt, FormulaireRepliable } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles, boutiquesDuMemeEspace, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 import { transfertsStockAValider, historiqueTransfertsStock, validerTransfertStock, refuserTransfertStock, libelleLignes, STATUT_VALIDE, STATUT_REFUSE } from "../lib/transfertsStock";
@@ -19,11 +19,18 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
   const mesDemandes = demandesDe(maBoutique || {});
   const [dem, setDem] = useState({ nom: "", categorie: "", qte: "", note: "" });
   const [panierDem, setPanierDem] = useState([]);
+  // ➕ La demande est fermée d'office (FormulaireRepliable, 06/10/2026) ;
+  // « 🚚 Demander ce ravitaillement » (📦 Stocks) l'OUVRE tout seul, déjà
+  // rempli, et la liste « Mes demandes » reste visible.
+  const [demandeOuverte, setDemandeOuverte] = useState(false);
   // Timo (10/09/2026) : « Demander ce ravitaillement » depuis la liste des
   // articles à réapprovisionner pré-remplit le panier (quantité = le
   // manque), modifiable avant l'envoi. `n` change à chaque clic.
   useEffect(() => {
-    if (panierInitial?.lignes?.length) setPanierDem(panierInitial.lignes.map((l) => ({ nom: l.nom, categorie: l.categorie || "", qte: Number(l.qte) })));
+    if (panierInitial?.lignes?.length) {
+      setPanierDem(panierInitial.lignes.map((l) => ({ nom: l.nom, categorie: l.categorie || "", qte: Number(l.qte) })));
+      setDemandeOuverte(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panierInitial?.n]);
   const magasinsVisibles = new Set(boutiquesDuMemeEspace(db, profile, magasinsDe(db), bq).map((b) => b.nom));
@@ -60,6 +67,7 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
       `Demande de ravitaillement de ${bq} : ${panierDem.length} article(s) (par ${profile.nom})`);
     setPanierDem([]);
     setDem({ nom: "", categorie: "", qte: "", note: "" });
+    setDemandeOuverte(false);
     uAlert("✅ Demande envoyée au magasin.");
   };
 
@@ -72,7 +80,8 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
 
   return (
     <div className="rounded-xl p-4 bg-white border-2 border-blue-200">
-      <div className="font-bold mb-1 text-blue-800">🚚 Demander un ravitaillement au magasin</div>
+      <FormulaireRepliable ouvert={demandeOuverte} onOuvrir={() => setDemandeOuverte(true)} onFermer={() => setDemandeOuverte(false)}
+        bouton="🚚 Demander un ravitaillement" titre={<span className="text-blue-800">🚚 Demander un ravitaillement au magasin</span>}>
       <div className="text-xs text-slate-500 mb-4">Listez ce dont la boutique {bq} a besoin. Le magasinier reçoit la demande et prépare le bon.</div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -119,6 +128,7 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
           <button onClick={envoyerDemande} className="mt-3 px-5 py-2 rounded-lg bg-blue-700 text-white font-bold text-sm hover:bg-blue-800">📤 Envoyer la demande</button>
         </div>
       )}
+      </FormulaireRepliable>
 
       {mesDemandes.length > 0 && (
         <div className="mt-4 overflow-x-auto">

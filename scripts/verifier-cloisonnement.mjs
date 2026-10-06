@@ -13225,6 +13225,11 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
       ["src/screens/Stocks.jsx", "nouvelArticleOuvert", "➕ Nouvel article dans", 2],
       ["src/screens/Parametres.jsx", "boutiqueOuverte", "➕ Ajouter une boutique", 1],
       ["src/screens/Parametres.jsx", "domaineOuvert", "➕ Nouveau domaine", 1],
+      // « b, lance » (06/10/2026) : quatre de plus.
+      ["src/screens/Dettes.jsx", "reservationOuverte", "➕ Réservation prépayée", 1],
+      ["src/screens/Caisse.jsx", "versementOuvert", "💸 Faire un versement", 1],
+      ["src/screens/Ravitaillement.jsx", "demandeOuverte", "🚚 Demander un ravitaillement", 1],
+      ["src/screens/Depenses.jsx", "depenseOuverte", "➕ Nouvelle dépense", 1],
     ];
     const rates = FORMS.filter(([f, etat, bouton, nbFerme]) => {
       const t = readFileSync(f, "utf8");
@@ -13233,7 +13238,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
         && t.includes(`<FormulaireRepliable ouvert={${etat}`) && t.includes(bouton)
         && (t.match(new RegExp(`${set}\\(false\\)`, "g")) || []).length >= nbFerme + 1);
     }).map((x) => x[0] + " " + x[1]);
-    test("★★ ➕ dix formulaires de création sont un BOUTON (FormulaireRepliable) : fermés d'office, « Fermer », repliés après l'enregistrement" + (rates.length ? " — en défaut : " + rates.join(", ") : ""),
+    test("★★ ➕ quatorze formulaires de création sont un BOUTON (FormulaireRepliable) : fermés d'office, « Fermer », repliés après l'enregistrement" + (rates.length ? " — en défaut : " + rates.join(", ") : ""),
       rates.length === 0
       && /export function FormulaireRepliable\(\{ ouvert, onOuvrir, onFermer, bouton, titre, apresBouton, children \}\)/.test(uiF)
       && /data-ouvrir-formulaire onClick=\{onOuvrir\}/.test(uiF) && /data-fermer-formulaire onClick=\{onFermer\}/.test(uiF));
@@ -13241,6 +13246,13 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     test("★★ 📦 ✏️ Corriger ouvre le formulaire tout seul (sinon on ne verrait pas la correction), « Fermer » annule la correction, et l'import Excel reste visible formulaire fermé",
       /ouvert=\{nouvelArticleOuvert \|\| !!enEdition\}/.test(st) && /onFermer=\{\(\) => \(enEdition \? annulerCorrection\(\) : setNouvelArticleOuvert\(false\)\)\}/.test(st)
       && /apresBouton=\{boutonsImport\}/.test(st) && (st.match(/\{boutonsImport\}/g) || []).length === 2);
+    const rv = readFileSync("src/screens/Ravitaillement.jsx", "utf8"), dp = readFileSync("src/screens/Depenses.jsx", "utf8"), ca = readFileSync("src/screens/Caisse.jsx", "utf8");
+    test("★★ ➕ un formulaire pré-rempli s'OUVRE tout seul (« 🚚 Demander ce ravitaillement », « 💵 Payer le loyer ») ; les carrés de 🔒 Caisse et les listes (réservations, Mes demandes, versements) restent hors du formulaire",
+      /setPanierDem\(panierInitial[\s\S]{0,160}setDemandeOuverte\(true\)/.test(rv)
+      && /setF\(\{ \.\.\.formVide, \.\.\.pf \}\);\n\s*setDepenseOuverte\(true\)/.test(dp)
+      && ca.indexOf("Fonds à verser (le tiroir") < ca.indexOf("<FormulaireRepliable ouvert={versementOuvert}")
+      && rv.indexOf("</FormulaireRepliable>") < rv.indexOf("{mesDemandes.length > 0 && (")
+      && ca.indexOf("</FormulaireRepliable>") < ca.indexOf("{mesVersements.length > 0 && ("));
     test("★ ➕ 💰 Ventes et 🛒 Nouvelle commande gardent leur formulaire ouvert (il y est le travail lui-même)",
       !/FormulaireRepliable/.test(readFileSync("src/screens/Ventes.jsx", "utf8")) && !/FormulaireRepliable/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
   }

@@ -11,7 +11,7 @@ import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATE
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
@@ -136,6 +136,9 @@ export function Depenses({ db, save, profile }) {
   // Les chantiers de devis auxquels on peut rattacher une dépense (espace regardé, en cours).
   const chantiersOuverts = chantiersRattachables(db, profile);
   const [f, setF] = useState(formVide);
+  // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
+  // replié après l'enregistrement.
+  const [depenseOuverte, setDepenseOuverte] = useState(false);
   const jeSuisDG = estAdminPrincipal(db, profile);
 
   // ---- 🏠 LE LOYER DE LA BOUTIQUE REGARDÉE (Timo, 25/09/2026) ----
@@ -170,6 +173,7 @@ export function Depenses({ db, save, profile }) {
     const refus = critiquePaiementLoyer(loyer, pf.loyer_mois);
     if (refus) { uAlert(refus); return; }
     setF({ ...formVide, ...pf });
+    setDepenseOuverte(true); // « 💵 Payer le loyer » remplit ET ouvre le formulaire
   };
 
   // Timo (15/09/2026) : « si dépense dépasse fonds de caisse, impossible de
@@ -242,6 +246,7 @@ export function Depenses({ db, save, profile }) {
     const depense = chantierChoisi ? rattacherDepense(depenseLoyer, chantierChoisi) : depenseLoyer;
     save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : ""));
     setF(formVide);
+    setDepenseOuverte(false);
     if (r.aValider && !jeSuisDG) uAlert(`Dépense enregistrée — en attente de validation par le DG.${choixCaisse.boutique !== boutique ? `\n\nElle est rangée sous ${choixCaisse.boutique} : choisissez cette boutique en haut pour la voir.` : ""}`);
     else if (choixCaisse.boutique !== boutique) uAlert(`Dépense enregistrée sur ${choixCaisse.boutique} (sa caisse a payé). Choisissez cette boutique en haut pour la voir.`);
   };
@@ -414,7 +419,8 @@ export function Depenses({ db, save, profile }) {
         </div>
       )}
       <Panel boutique={boutique}>
-        <div className="font-bold mb-3 flex items-center gap-2">Nouvelle dépense <Badge boutique={boutique} /></div>
+        <FormulaireRepliable ouvert={depenseOuverte} onOuvrir={() => setDepenseOuverte(true)} onFermer={() => setDepenseOuverte(false)}
+          bouton="➕ Nouvelle dépense" titre={<>Nouvelle dépense <Badge boutique={boutique} /></>}>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <Field label="Catégorie"><select className={inputCls} value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })} data-categorie-depense><option value="">— Choisir —</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
           <Field label="Description"><input className={inputCls} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
@@ -447,6 +453,7 @@ export function Depenses({ db, save, profile }) {
         )}
         {f.paye_avec === "avance" && <div className="mt-2 text-xs text-slate-500">Une avance personnelle ne sort pas du tiroir : elle vous sera remboursée (caisse, salaire ou DG) une fois qu'elle compte.</div>}
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer la dépense</button>
+        </FormulaireRepliable>
       </Panel>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">

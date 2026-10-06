@@ -100,6 +100,9 @@ export function Dettes({ db, save, profile }) {
   // Le client paie d'avance, par tranches. Rien ne sort du stock avant la livraison.
   const [res, setRes] = useState({ client: "", tel: "", produit_id: "", qte: "", avance: "", moyen: "Espèces", echeance: "" });
   const [panierRes, setPanierRes] = useState([]);
+  // ➕ Le formulaire de réservation est fermé d'office (FormulaireRepliable,
+  // 06/10/2026) ; la liste des réservations en cours, elle, reste visible.
+  const [reservationOuverte, setReservationOuverte] = useState(false);
   const produitsBoutique = db.produits.filter((p) => p.boutique === boutique);
   const totalRes = panierRes.reduce((s, l) => s + Number(l.qte) * Number(l.pu), 0);
 
@@ -136,6 +139,7 @@ export function Dettes({ db, save, profile }) {
     }).then(setNoteRecuWa);
     setPanierRes([]);
     setRes({ client: "", tel: "", produit_id: "", qte: "", avance: "", moyen: "Espèces", echeance: "" });
+    setReservationOuverte(false);
     uAlert("✅ Réservation créée.");
   };
 
@@ -318,7 +322,8 @@ export function Dettes({ db, save, profile }) {
       {noteRecuWa && <div data-recu-whatsapp className="text-xs text-slate-600">{noteRecuWa}</div>}
 
       <div className="rounded-xl p-4 bg-white border-2 border-emerald-200">
-        <div className="font-bold mb-1 text-emerald-800">💰 Réservation prépayée — paiement total avant d'emporter</div>
+        <FormulaireRepliable ouvert={reservationOuverte} onOuvrir={() => setReservationOuverte(true)} onFermer={() => setReservationOuverte(false)}
+          bouton="➕ Réservation prépayée" titre={<span className="text-emerald-800">💰 Réservation prépayée — paiement total avant d'emporter</span>}>
         <div className="text-xs text-slate-500 mb-4">Le prix est bloqué, les versements s'accumulent. La marchandise ne sort du stock qu'au moment de la livraison.</div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -374,6 +379,7 @@ export function Dettes({ db, save, profile }) {
             <button onClick={creerReservation} className="mt-3 px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800">✅ Créer la réservation</button>
           </div>
         )}
+        </FormulaireRepliable>
 
         {mesReservations.length > 0 && (
           <div className="mt-4 overflow-x-auto">

@@ -6,7 +6,7 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
-import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois } from "../components/ui";
+import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois, FormulaireRepliable } from "../components/ui";
 // Timo (12/09/2026) : la clôture est impossible tant qu'une dépense en
 // espèces attend la validation du DG ; les avances de frais se remboursent ici.
 import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
@@ -122,6 +122,10 @@ export function Caisse({ db, save, profile }) {
   // MÊME geste, avec une case de plus. Les espèces d'office : rien ne change
   // pour qui n'y touche pas.
   const [vers, setVers] = useState({ montant: "", source: SOURCE_ESPECES, destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+  // ➕ Le formulaire de versement est fermé d'office (FormulaireRepliable,
+  // 06/10/2026) ; les carrés de la caisse et la liste des versements restent
+  // visibles. Il se replie après un versement enregistré.
+  const [versementOuvert, setVersementOuvert] = useState(false);
   const destinations = destinationsPour(espaceDuCompte(db, profile) === true, vers.source);
   // Les deux comptes mobiles de CETTE boutique (décision « 1b » : chaque
   // boutique a son numéro), lus — rien n'est écrit.
@@ -161,6 +165,7 @@ export function Caisse({ db, save, profile }) {
       messages: [...messagesVersement(db, profile, r.sortie), ...(db.messages || [])],
     }, `Versement de fonds ${fmt(Number(vers.montant))} : ${boutique} → ${libelleDestination(r.versement)} (par ${profile.nom})`);
     setVers({ montant: "", source: SOURCE_ESPECES, destination: destinationDefaut, banque: "", bordereau: "", note: "" });
+    setVersementOuvert(false);
     uAlert(interne ? "Retrait enregistré : l'argent est passé du compte mobile au tiroir." : "Versement enregistré — en attente de validation.");
   };
   // Le DG valide les versements « Chez le DG » et « BANQUE » de toutes les
@@ -366,6 +371,8 @@ export function Caisse({ db, save, profile }) {
           ))}
         </div>
         {ROLES_VERSEMENT.includes(profile.role) && (
+          <FormulaireRepliable ouvert={versementOuvert} onOuvrir={() => setVersementOuvert(true)} onFermer={() => setVersementOuvert(false)}
+            bouton="💸 Faire un versement" titre="Nouveau versement">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* ⚠ La case n'apparaît que si la boutique A un compte mobile qui
                 sert : sur une boutique qui n'encaisse qu'en espèces, le
@@ -418,6 +425,7 @@ export function Caisse({ db, save, profile }) {
             )}
             <div className="flex items-end"><button onClick={verser} className={btnDark}>💸 Verser</button></div>
           </div>
+          </FormulaireRepliable>
         )}
         {!ROLES_VERSEMENT.includes(profile.role) && <div className="text-sm text-slate-500">Le versement des fonds est fait par le gérant.</div>}
         <div className="text-xs text-slate-500 mt-2">Chez le DG et BANQUE : validés par le DG. Chez le comptable : pointés « Encaissé » par le comptable. Tant que ce n'est pas validé, le versement reste en attente. Un versement rejeté compte comme jamais versé : l'argent reste dans la caisse de la boutique.{mobileChoisi ? ` « ${DEST_TIROIR} » est le retrait au guichet : l'argent quitte ${mobileChoisi.court} et devient des billets dans le tiroir — aucune validation, et la clôture du soir le verra.` : ""}</div>

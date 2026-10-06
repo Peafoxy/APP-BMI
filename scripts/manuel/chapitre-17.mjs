@@ -66,7 +66,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["📤 Dépenses", "En haut, les pastilles des boutiques ; le cadre **⏳ Dépenses à valider par le DG** (chez le DG) ; le cadre **🏠 Loyer de la boutique** (local loué) ; la **Nouvelle dépense** ; la liste « Dépenses — boutique » avec « Ce mois » ; et, pour l'administrateur en réel, le cadre **👤 Payées chez le DG · 🏦 par la BANQUE** — salaires, commissions, avances et crédits payés par le DG ou par la banque : ils ne sortent du tiroir d'aucune boutique, ne pèsent sur le résultat d'aucune, et se suppriment d'ici (chapitre 18)."],
+        ["📤 Dépenses", "En haut, les pastilles des boutiques ; le cadre **⏳ Dépenses à valider par le DG** (chez le DG) ; le cadre **🏠 Loyer de la boutique** (local loué) ; le bouton **« ➕ Nouvelle dépense »**, qui ouvre le formulaire (fermé d'office, replié après l'enregistrement ; « 💵 Payer le loyer » l'ouvre tout rempli) ; la liste « Dépenses — boutique » avec « Ce mois » ; et, pour l'administrateur en réel, le cadre **👤 Payées chez le DG · 🏦 par la BANQUE** — salaires, commissions, avances et crédits payés par le DG ou par la banque : ils ne sortent du tiroir d'aucune boutique, ne pèsent sur le résultat d'aucune, et se suppriment d'ici (chapitre 18)."],
         ["🧾 Chez le comptable", "Les **décaissements de sa caisse** : à remettre, déjà remis ; puis la liste des sorties confiées au comptable."],
         ["🔒 Caisse", "Le cadre **💼 Avances de frais à rembourser**, et le message qui **bloque la clôture** tant qu'une dépense en espèces attend le DG (chapitre 6)."],
         ["📊 Tableau de bord", "Les dépenses de la période, et l'export « Dépenses » ; les versements ont leur export à part."],
@@ -131,7 +131,7 @@ export const CHAPITRE = {
       ["h3", "G. Le loyer d'un local loué (gérant, administrateur)"],
       ["etapes", [
         { titre: "Le cadre 🏠 Loyer de la boutique", texte: "Il n'apparaît que si l'administrateur a coché « Ce local est loué » (⚙ Paramètres). Il dit : montant, échéance, propriétaire, **Dernier mois payé**, et l'état — ✅ payé, ⏳ à payer avant le …, ⚠ **Arriérés** (nombre de mois, total, jours de retard)." },
-        { titre: "💵 Payer le loyer / 💵 Payer d'avance", texte: "Trois choix : **le mois le plus ancien**, **tous les mois dus**, ou **payer d'avance** (1 à 24 mois). Le bouton **ne fait que remplir** le formulaire : catégorie Loyer, montant, description." },
+        { titre: "💵 Payer le loyer / 💵 Payer d'avance", texte: "Trois choix : **le mois le plus ancien**, **tous les mois dus**, ou **payer d'avance** (1 à 24 mois). Le bouton **ne fait qu'ouvrir et remplir** le formulaire : catégorie Loyer, montant, description." },
         { titre: "Enregistrer", texte: "Vérifier « Payé avec », puis **Enregistrer la dépense** : elle passe par toutes les règles (DG au-delà de 5 000 F, tiroir). Un mois déjà payé ou déjà saisi est **refusé** : jamais deux fois." },
       ]],
       ["note", "« **Déjà compté** » sous le cadre dit quelles dépenses « Loyer » ont été comptées, par qui. Un chiffre qui surprend vient souvent d'une dépense mise en « Loyer » par erreur : l'administrateur la supprime et la ressaisit dans la bonne catégorie."],

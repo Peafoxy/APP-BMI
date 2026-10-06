@@ -53,7 +53,7 @@ export const GUIDE = {
     ["h3", "Verser les fonds — 🔒 Caisse"],
     ["etapes", [
       { titre: "« Fonds à verser »", texte: "Le carré dit ce que le tiroir contient : la recette. Le fonds de caisse est gardé à part, il n'est pas dedans et **ne se verse jamais**." },
-      { titre: "« 💸 Verser les fonds »", texte: "« D'où part l'argent ? » : le tiroir (espèces, d'office) ou un compte Flooz / Mixx de la boutique. La destination : **Chez le DG** (d'office), **BANQUE** (nom de la banque et numéro de bordereau), **Chez le comptable**." },
+      { titre: "« 💸 Verser les fonds »", texte: "Le bouton « 💸 Faire un versement » ouvre le formulaire. « D'où part l'argent ? » : le tiroir (espèces, d'office) ou un compte Flooz / Mixx de la boutique. La destination : **Chez le DG** (d'office), **BANQUE** (nom de la banque et numéro de bordereau), **Chez le comptable**." },
       { titre: "Un montant différent", texte: "Si je verse autre chose que le montant attendu, la note devient obligatoire : « Justifiez pourquoi le montant n'est pas … »." },
       { titre: "Ensuite", texte: "Le DG valide (ou le comptable pointe « ✅ Encaissé »). Un versement **rejeté** revient comme s'il n'avait jamais eu lieu : l'argent est de nouveau à verser." },
     ]],

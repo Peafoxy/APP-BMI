@@ -69,7 +69,7 @@ export const GUIDE = {
     ["p", "Dans ☀️ Dimensionnement : le volet **Solaire** calcule l'installation à partir des appareils du client ; **Portail** et **Autre** (vidéosurveillance, électricité, forage) listent le matériel. Je choisis le client, puis « 📲 Envoyer ce devis au client », ou « 📝 Enregistrer un brouillon » pour le reprendre plus tard (chapitres 11, 12, 13)."],
 
     ["h3", "Il manque un article"],
-    ["p", "Dans 🚚 Ravitaillement : « 🚚 Demander un ravitaillement au magasin », l'« Article souhaité », la « Quantité », « + Ajouter », puis « 📤 Envoyer la demande ». « Mes demandes » dit où en est chacune : en attente (je peux encore l'annuler), servie, ou refusée avec le motif. **Le stock de ma boutique monte quand le magasinier valide le bon**, pas avant (chapitre 9)."],
+    ["p", "Dans 🚚 Ravitaillement : le bouton « 🚚 Demander un ravitaillement » ouvre le formulaire ; l'« Article souhaité », la « Quantité », « + Ajouter », puis « 📤 Envoyer la demande ». « Mes demandes » dit où en est chacune : en attente (je peux encore l'annuler), servie, ou refusée avec le motif. **Le stock de ma boutique monte quand le magasinier valide le bon**, pas avant (chapitre 9)."],
 
     ["h3", "Un technicien vient chercher sa prime"],
     ["p", "Dans 💰 Primes remises, la demande de paiement adressée à ma caisse : « ✓ Valider et payer ». L'argent sort de la caisse et le technicien est prévenu (chapitre 16)."],

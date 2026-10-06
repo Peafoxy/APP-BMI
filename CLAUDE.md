@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2271 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2272 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6303,12 +6303,17 @@ lit mal est pire qu'un banc absent).
   fournisseur, Nouveau commercial, Nouveau prospect, Nouveau client installé,
   Nouveaux travaux, Nouvel article (📦 — **✏️ Corriger l'ouvre tout seul**,
   « Fermer » annule la correction, l'import Excel reste visible à côté du
-  bouton), Ajouter une boutique, Nouveau domaine (⚙). **Pas pour 💰 Ventes ni
-  🛒 Nouvelle commande** (le formulaire y est le travail lui-même ; le
-  déconseiller pour 📤 Dépenses a été accepté — « a »). Les bandes d'alerte du
-  principal sous le formulaire de 👥 restent visibles. Banc (3 contrôles,
+  bouton), Ajouter une boutique, Nouveau domaine (⚙). **Puis quatre de plus
+  (« b, lance », le même jour)** : 💰 Réservation prépayée (📋 Dettes — la
+  liste des réservations reste visible), 💸 Verser les fonds (🔒 Caisse — bouton
+  « 💸 Faire un versement », les carrés et les versements restent visibles),
+  🚚 Demander un ravitaillement (« 🚚 Demander ce ravitaillement » l'OUVRE tout
+  rempli ; « Mes demandes » reste visible), ➕ Nouvelle dépense (« 💵 Payer le
+  loyer » l'OUVRE tout rempli). **Pas pour 💰 Ventes, 🛒 Nouvelle commande ni
+  🙋 Créer un client** (le formulaire y est le travail lui-même). Les bandes d'alerte du
+  principal sous le formulaire de 👥 restent visibles. Banc (4 contrôles,
   éprouvé) ; un contrôle de `verifier-ecran-stocks` RETOURNÉ (le bouton
-  d'ouverture nomme la boutique). Chapitres 2, 4, 7, 8, 10, 15, 23.
+  d'ouverture nomme la boutique). Chapitres 2, 4, 6, 7, 8, 9, 10, 15, 17, 23.
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :

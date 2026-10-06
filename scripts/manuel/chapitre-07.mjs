@@ -61,7 +61,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
-        ["**🧾 Dettes**, cadre vert « 💰 Réservation prépayée »", "Client · Téléphone · Article (« — Choisir — ») · Quantité · « + Ajouter » ; le panier réservé (TOTAL RÉSERVÉ) ; Avance versée aujourd'hui · Moyen de paiement · Livraison prévue (facultatif) · « ✅ Créer la réservation » ; puis la liste des réservations : Client · Articles réservés · Total · Versé · Reste · Statut (⏳ En cours · 💰 Soldée — à livrer · ✅ Livrée le …) · 🖨 Reçu · + Versement · 📦 Livrer · Annuler."],
+        ["**🧾 Dettes**, cadre vert « 💰 Réservation prépayée » (le formulaire s'ouvre par le bouton « ➕ Réservation prépayée », se replie après la création ; la liste des réservations reste visible)", "Client · Téléphone · Article (« — Choisir — ») · Quantité · « + Ajouter » ; le panier réservé (TOTAL RÉSERVÉ) ; Avance versée aujourd'hui · Moyen de paiement · Livraison prévue (facultatif) · « ✅ Créer la réservation » ; puis la liste des réservations : Client · Articles réservés · Total · Versé · Reste · Statut (⏳ En cours · 💰 Soldée — à livrer · ✅ Livrée le …) · 🖨 Reçu · + Versement · 📦 Livrer · Annuler."],
         ["**🧾 Dettes**, bande rouge", "« ⚠ N dette(s) de plus de 30 jours à relancer » — seulement s'il y en a."],
         ["**🧾 Dettes**, bouton « ➕ Nouvelle dette client » (le formulaire est fermé d'office, il s'ouvre au clic et se replie après l'enregistrement)", "Client · Téléphone · Article / Motif · Montant dette (F) · Déjà payé (F) · (si un acompte) Payé comment ? · « Enregistrer la dette »."],
         ["**🧾 Dettes**, la liste « Dettes — BOUTIQUE · Reste total : X »", "Colonnes Date (numéro dessous) · Client (téléphone dessous) · Motif (un article par ligne, deux au plus, « + N autres », la suite au clic) · Dette · Payé · Reste · Statut (pastille + ancienneté, et la trace 📲) · Actions (🖨 · 💵 · logo WhatsApp · 🗑). 50 lignes par page."],
@@ -139,6 +139,7 @@ export const CHAPITRE = {
         ["Enregistrer la dette", "Le geste. Le numéro DET- est attribué, le journal l'écrit avec l'acompte et son moyen."],
       ]}],
       ["h3", "Le cadre « 💰 Réservation prépayée »"],
+      ["p", "Le formulaire est fermé d'office : **« ➕ Réservation prépayée »** l'ouvre, « Fermer » le replie. Les réservations en cours restent affichées dessous."],
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
         ["Article / Quantité / + Ajouter", "La liste des articles de la boutique, avec leur prix de vente ; le prix est **bloqué** à la réservation."],
         ["TOTAL RÉSERVÉ / Retirer", "Le panier, ligne par ligne."],
