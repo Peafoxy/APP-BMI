@@ -9,7 +9,7 @@ import { correspond } from "../lib/suggestions";
 import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
 import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
 import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
-import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre } from "../components/ui";
+import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, critiqueStockCible, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
@@ -47,6 +47,10 @@ export function Stocks({ db, save, profile }) {
   // avec la fiche existante.
   const [enEdition, setEnEdition] = useState(null); // identifiant de l'article corrigé
   const formulaireRef = useRef(null);
+  // ➕ « Nouvel article » est fermé d'office (règle commune FormulaireRepliable,
+  // 06/10/2026). ✏️ Corriger l'ouvre tout seul (enEdition), sinon on ne
+  // verrait pas la correction ; l'import Excel reste à côté du bouton.
+  const [nouvelArticleOuvert, setNouvelArticleOuvert] = useState(false);
   // ⚠ TERRAIN (boutique virtuelle, sans stock) ne doit jamais apparaître
   // comme destination de transfert — corrigé suite au même bug que
   // BoutiqueTabs (Timo, capture Stocks).
@@ -317,6 +321,7 @@ export function Stocks({ db, save, profile }) {
 
   const articleCorrige = enEdition ? db.produits.find((x) => x.id === enEdition) : null;
 
+
   const corriger = (p) => {
     if (bloquerSiLecture(db, profile)) return;
     setEnEdition(p.id);
@@ -340,6 +345,7 @@ export function Stocks({ db, save, profile }) {
 
   const annulerCorrection = () => {
     setEnEdition(null);
+    setNouvelArticleOuvert(false);
     setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
   };
 
@@ -518,6 +524,7 @@ export function Stocks({ db, save, profile }) {
       puissance_kw: f.puissance_kw ? Number(f.puissance_kw) : "", profondeur_max_m: f.profondeur_max_m ? Number(f.profondeur_max_m) : "",
       debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "", ...(f.hybride ? { hybride: true } : {}), garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim(), note_assistant: (f.note_assistant || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
     setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
+    setNouvelArticleOuvert(false);
     uAlert("Article ajouté !");
   };
 
@@ -779,6 +786,17 @@ export function Stocks({ db, save, profile }) {
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
   if (!bq) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
+  // L'import se voit formulaire fermé (à côté de « ➕ Nouvel article ») comme
+  // ouvert : écrit UNE fois, posé à l'un des deux endroits.
+  const boutonsImport = (
+    <>
+      <button onClick={() => fichierImportRef.current?.click()} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importer un fichier Excel</button>
+      <input ref={fichierImportRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => importerFichier(e)} />
+      <button onClick={() => telechargerModele()} className="px-4 py-2 rounded-lg border border-blue-300 text-blue-800 text-sm font-semibold hover:bg-blue-50">📄 Modèle Excel</button>
+      <button onClick={() => importerArticles()} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">📋 Coller du texte</button>
+    </>
+  );
+
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="stocks" db={db} value={bq} onChange={setBqSel} avecDepots profile={profile} />}
@@ -1048,11 +1066,14 @@ export function Stocks({ db, save, profile }) {
 
       <div ref={formulaireRef}>
       <Panel boutique={enEdition ? articleCorrige?.boutique || bq : bq}>
-        <div className="font-bold mb-3 flex items-center gap-2">
-          {enEdition
+        <FormulaireRepliable ouvert={nouvelArticleOuvert || !!enEdition}
+          onOuvrir={() => setNouvelArticleOuvert(true)}
+          onFermer={() => (enEdition ? annulerCorrection() : setNouvelArticleOuvert(false))}
+          bouton={<>➕ Nouvel article dans <span className="uppercase">{bq}</span></>}
+          apresBouton={boutonsImport}
+          titre={enEdition
             ? <>✏️ Correction de « {articleCorrige?.nom} » <Badge boutique={articleCorrige?.boutique || bq} /></>
-            : <>Nouvel article dans <span className="uppercase">{bq}</span> <Badge boutique={bq} /></>}
-        </div>
+            : <>Nouvel article dans <span className="uppercase">{bq}</span> <Badge boutique={bq} /></>}>
         {argentVerrouille && (
           <div className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
             🔒 Quantité initiale et prix : réservés à l'administrateur. Vous pouvez corriger le reste.
@@ -1229,13 +1250,11 @@ export function Stocks({ db, save, profile }) {
           ) : (
             <>
               <button onClick={ajouter} className={btnDark}>Ajouter à {bq}</button>
-              <button onClick={() => fichierImportRef.current?.click()} className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700">📥 Importer un fichier Excel</button>
-              <input ref={fichierImportRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={importerFichier} />
-              <button onClick={telechargerModele} className="px-4 py-2 rounded-lg border border-blue-300 text-blue-800 text-sm font-semibold hover:bg-blue-50">📄 Modèle Excel</button>
-              <button onClick={importerArticles} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">📋 Coller du texte</button>
+              {boutonsImport}
             </>
           )}
         </div>
+        </FormulaireRepliable>
       </Panel>
       </div>
 

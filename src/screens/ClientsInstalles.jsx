@@ -17,7 +17,7 @@ import { messageIdentifiants, texteEnvoi, envoiLienPv, envoiAvenant } from "../l
 import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
-import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne, FormulaireRepliable } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
@@ -122,6 +122,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   const vide = { nom: "", prenom: "", tel: "", type_installation: TYPES_INSTALLATION[0], date_installation: today(), date_entretien: "", localisation: "", adresse_contrat: "", lat: null, lng: null, user_id: "", vente_id: "", garantie_mois: "24", equipe_prevue: [], chef_prevu: "", materiel: [] };
   const [f, setF] = useState(vide);
+  // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
+  // replié après l'enregistrement.
+  const [nouveauOuvert, setNouveauOuvert] = useState(false);
   const [carteOuverte, setCarteOuverte] = useState(false);
   const [q, setQ] = useState("");
   // 🧾 25/09/2026 : ce que le reçu WhatsApp d'un versement est devenu.
@@ -354,6 +357,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     delete c.equipe_prevue; delete c.chef_prevu;
     save({ ...db, clients_installes: [c, ...(db.clients_installes || [])] }, `Nouveau client installé « ${f.prenom} ${f.nom} » (${f.type_installation})`);
     setF(vide);
+    setNouveauOuvert(false);
     setCarteOuverte(false);
   };
 
@@ -910,7 +914,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     <div className="space-y-4">
       {noteRecuWa && <div data-recu-whatsapp className="text-xs text-slate-600">{noteRecuWa}</div>}
       <Panel>
-        <div className="font-bold mb-3">🏠 Nouveau client installé</div>
+        <FormulaireRepliable ouvert={nouveauOuvert} onOuvrir={() => setNouveauOuvert(true)} onFermer={() => setNouveauOuvert(false)}
+          bouton="➕ Nouveau client installé" titre="🏠 Nouveau client installé">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Field label="Nom"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
           <Field label="Prénom"><input className={inputCls} value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} /></Field>
@@ -1040,6 +1045,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         </div>
 
         <button onClick={ajouter} className="mt-4 px-6 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">Enregistrer le client</button>
+        </FormulaireRepliable>
       </Panel>
 
       {/* ═══════ DOSSIER DE CHANTIER ═══════ */}

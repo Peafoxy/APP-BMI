@@ -6,13 +6,16 @@
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, caVente, fmt, today, dFR, telDigits, inP, lienWhatsApp } from "../lib/core";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat } from "../components/ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat, FormulaireRepliable } from "../components/ui";
 import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte, refuserSaufAdmin, utilisateursDeLEspace, compteDeLAgent, tauxDeLAgent } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ COMMERCIAUX ============
 export function Commerciaux({ db, save, profile }) {
   const [f, setF] = useState({ nom: "", tel: "", zone: "", objectif: "" });
+  // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
+  // replié après l'enregistrement.
+  const [nouveauOuvert, setNouveauOuvert] = useState(false);
   const [periodeIndex, setPeriodeIndex] = useState(2); // Ce mois par défaut
   const [customDebut, setCustomDebut] = useState("");
   const [customFin, setCustomFin] = useState("");
@@ -37,6 +40,7 @@ export function Commerciaux({ db, save, profile }) {
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
     save({ ...db, commerciaux: [...db.commerciaux, { id: uid(), nom: f.nom, tel: f.tel, zone: f.zone, objectif: Number(f.objectif || 0), actif: true, ...marqueEspace(db, profile) }] });
     setF({ nom: "", tel: "", zone: "", objectif: "" });
+    setNouveauOuvert(false);
     uAlert("Commercial ajouté !");
   };
 
@@ -100,7 +104,8 @@ export function Commerciaux({ db, save, profile }) {
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4 bg-white border border-slate-200">
-        <div className="font-bold mb-3">Nouveau commercial</div>
+        <FormulaireRepliable ouvert={nouveauOuvert} onOuvrir={() => setNouveauOuvert(true)} onFermer={() => setNouveauOuvert(false)}
+          bouton="➕ Nouveau commercial" titre="Nouveau commercial">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <Field label="Nom"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
           <Field label="Téléphone"><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
@@ -111,6 +116,7 @@ export function Commerciaux({ db, save, profile }) {
           Le taux de commission n'est plus saisi ici : c'est celui de la fiche d'employé (👥 Utilisateurs → ⋯ Gérer → 💰 Commission), le seul qui sert à payer.
         </div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer</button>
+        </FormulaireRepliable>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">

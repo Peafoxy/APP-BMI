@@ -78,7 +78,7 @@ export const CHAPITRE = {
 
       ["h3", "B. Créer une boutique ou un magasin"],
       ["etapes", [
-        { titre: "Ajouter une boutique", texte: "Nom, localisation et téléphone (facultatifs), couleur. Cocher **🏭 magasin (dépôt)** pour un lieu qui stocke sans vendre." },
+        { titre: "« ➕ Ajouter une boutique »", texte: "Le bouton ouvre le formulaire (fermé d'office, replié après la création). Nom, localisation et téléphone (facultatifs), couleur. Cocher **🏭 magasin (dépôt)** pour un lieu qui stocke sans vendre." },
         { titre: "Ce local est loué ?", texte: "La case fait apparaître montant, échéance, propriétaire, son numéro, début du bail, caution, dernier mois payé (chapitre 17)." },
         { titre: "Lire la phrase sous le formulaire", texte: "Elle dit dans quel espace la boutique sera créée : **celui que vous regardez**. Puis **Créer**." },
       ]],
@@ -167,7 +167,7 @@ export const CHAPITRE = {
         ["💼 Fonds de caisse", "Ligne d'une boutique", "Le montant de l'enveloppe (principal)."],
         ["📱 Comptes mobiles", "Ligne d'une boutique", "Numéros Flooz et Mixx/T-Money."],
         ["✅ Enregistrer le taux / le prix / la longueur", "🗂 Catalogue & devis", "Règle parrainage, rail, stock à prévoir, frottements."],
-        ["Créer le domaine", "🗂 Catalogue & devis", "Un métier sans calcul de plus."],
+        ["« ➕ Nouveau domaine » puis « Créer le domaine »", "🗂 Catalogue & devis", "Un métier sans calcul de plus (le formulaire s'ouvre par le bouton)."],
         ["Couper / Remettre l'assistant", "🗂 Catalogue & devis", "Allume ou éteint l'assistant WhatsApp (principal)."],
         ["➕ Ajouter à la liste", "🔌 Appareils", "Range un appareil tapé dans les devis."],
         ["💾 Exporter une sauvegarde complète", "💾 Données", "Télécharge un fichier de toutes les données."],

@@ -15,7 +15,7 @@ import { PALETTE, LOGO, MOYENS_MOBILES } from "../lib/constants";
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
 import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
@@ -571,6 +571,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // dimensionnement la lira dans la livraison suivante.
   const [domaines, setDomaines] = useState(() => domainesDefinis(db).map((d) => ({ ...d, familles: [...(d.familles || [])] })));
   const [nouvDom, setNouvDom] = useState({ nom: "", icone: "📦", calcul: "libre" });
+  // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
+  // replié après l'enregistrement.
+  const [domaineOuvert, setDomaineOuvert] = useState(false);
   const [nouvFam, setNouvFam] = useState({});
 
   const enregistrerDomaines = (liste, trace) => {
@@ -589,6 +592,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     enregistrerDomaines([...domaines, { id, nom, icone: nouvDom.icone || "📦", calcul: nouvDom.calcul, familles: [] }],
       `Domaine « ${nom} » créé`);
     setNouvDom({ nom: "", icone: "📦", calcul: "libre" });
+    setDomaineOuvert(false);
     uAlert(`✅ Domaine « ${nom} » créé.\n\nAjoutez-lui ses familles de produits juste en dessous.`);
   };
 
@@ -814,6 +818,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false,
     formation: voitLesDeuxEspaces(db, profile) ? false : estCompteFormation(db, profile),
     adresse: "", tel: "", loyer: LOYER_VIDE });
+  // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
+  // replié après l'enregistrement.
+  const [boutiqueOuverte, setBoutiqueOuverte] = useState(false);
   // 🏠 La fiche du loyer d'une boutique existante, ouverte sous le tableau.
   const [loyerPour, setLoyerPour] = useState(null);
   const [loyerForm, setLoyerForm] = useState(LOYER_VIDE);
@@ -847,6 +854,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     const loyer = f.loyer?.loue ? nettoyerFicheLoyer(f.loyer) : undefined;
     save({ ...db, boutiques: [...db.boutiques, { id: uid(), nom, couleur: f.couleur, depot: !!f.depot, formation, adresse: f.adresse.trim(), tel: f.tel.trim(), ...(loyer ? { loyer } : {}) }] });
     setF({ nom: "", couleur: "#2563eb", depot: false, adresse: "", tel: "", loyer: LOYER_VIDE });
+    setBoutiqueOuverte(false);
     uAlert(`${f.depot ? "Magasin" : "Boutique"} ${nom}${formation ? " — espace D'ENTRAÎNEMENT" : ""} créé(e) !`);
   };
 
@@ -1645,7 +1653,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       )}
 
       <div className="rounded-xl p-4 bg-white border border-slate-200">
-        <div className="font-bold mb-3">Ajouter une boutique</div>
+        <FormulaireRepliable ouvert={boutiqueOuverte} onOuvrir={() => setBoutiqueOuverte(true)} onFermer={() => setBoutiqueOuverte(false)}
+          bouton="➕ Ajouter une boutique" titre="Ajouter une boutique">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <Field label="Nom"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} placeholder="Ex : BMISHOP CENTRE" /></Field>
           <Field label="Localisation (facultatif)"><input className={inputCls} value={f.adresse} onChange={(e) => setF({ ...f, adresse: e.target.value })} placeholder="Ex : Agoè, non loin de la station Total" /></Field>
@@ -1678,6 +1687,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         </div>
         <div className="text-xs text-slate-400 mt-2">La localisation et le téléphone pourront toujours être ajoutés ou modifiés plus tard, ci-dessous (« 📍 Infos reçu »).</div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Créer</button>
+        </FormulaireRepliable>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -1818,7 +1828,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         </div>
 
         <div className="mt-4 pt-3 border-t border-slate-200">
-          <div className="font-bold text-sm mb-2">➕ Nouveau domaine</div>
+          <FormulaireRepliable ouvert={domaineOuvert} onOuvrir={() => setDomaineOuvert(true)} onFermer={() => setDomaineOuvert(false)}
+            bouton="➕ Nouveau domaine" titre="Nouveau domaine">
           <div className="flex gap-2 items-end flex-wrap">
             <Field label="Icône">
               <input className={inputCls + " w-16 text-center"} maxLength={2} value={nouvDom.icone}
@@ -1833,6 +1844,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <div className="text-xs text-slate-400 mt-2">
             Il apparaît tout de suite dans ☀️ Dimensionnement, comme un volet sans calcul (un besoin, puis l'article proposé).
           </div>
+          </FormulaireRepliable>
         </div>
       </div>
 

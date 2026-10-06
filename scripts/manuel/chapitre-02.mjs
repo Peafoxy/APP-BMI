@@ -42,7 +42,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans BMI-Gestion", blocs: [
       ["ul", [
-        "**👥 Utilisateurs** : l'onglet, réservé à l'administrateur. En haut, le bouton **« ➕ Nouvel utilisateur »** : le formulaire de création n'est PAS affiché d'office, il s'ouvre au clic (« Fermer » le replie, et il se replie tout seul après une création réussie) ; en dessous, la liste, avec une pastille par rôle (« Vendeur (3) », « Client (42) »…) et la ligne de recherche.",
+        "**👥 Utilisateurs** : l'onglet, réservé à l'administrateur. En haut, le bouton **« ➕ Nouvel utilisateur »** : le formulaire de création n'est PAS affiché d'office, il s'ouvre au clic (« Fermer » le replie, et il se replie tout seul après une création réussie) — la même règle vaut pour tous les formulaires de création de l'application (fournisseur, dette, prospect, article, boutique…), sauf 💰 Ventes et 🛒 Nouvelle commande ; en dessous, la liste, avec une pastille par rôle (« Vendeur (3) », « Client (42) »…) et la ligne de recherche.",
         "**🔐 Pouvoirs** : le bouton rond violet sur la ligne d'un compte.",
         "**⋯ Gérer** : le bouton gris à droite de la ligne, qui ouvre un panneau sous le compte, rangé par thème (Compte, Paie, Commercial, Client).",
         "**⚙ Paramètres → 👑 Administrateur principal** : le transfert du rôle principal.",

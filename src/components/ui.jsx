@@ -182,6 +182,34 @@ export function ListeArticles({ lignes, deplie = false, enfants = null }) {
 // Supprimer…), l'appui fait son geste tout de suite.
 const CLASSE_BOUTON_GERER = "px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100";
 const TON_BOUTON_GERER = { danger: " !text-red-700 !border-red-200", attention: " !text-amber-700 !border-amber-200" };
+// ➕ UN FORMULAIRE DE CRÉATION EST UN BOUTON — UNE règle pour toute
+// l'application (capture Timo, 06/10/2026 : « transformer en bouton et
+// afficher les infos lorsqu'on clique dessus, pas par défaut », puis « a,
+// lance » pour les dix formulaires). Fermé : le bouton seul (et à côté le
+// dernier message, « ✅ … créé »). Ouvert : le titre, « Fermer », le
+// formulaire. L'écran garde l'état (`ouvert`) pour le replier lui-même après
+// un enregistrement réussi. ⚠ Pas pour 💰 Ventes ni 🛒 Nouvelle commande : le
+// formulaire y est le travail lui-même.
+export function FormulaireRepliable({ ouvert, onOuvrir, onFermer, bouton, titre, apresBouton, children }) {
+  if (!ouvert) {
+    return (
+      <div data-formulaire-ferme className="flex items-center gap-3 flex-wrap">
+        <button data-ouvrir-formulaire onClick={onOuvrir} className={btnDark}>{bouton}</button>
+        {apresBouton}
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="font-bold flex items-center gap-2 flex-wrap">{titre}</div>
+        <button data-fermer-formulaire onClick={onFermer} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 shrink-0">Fermer</button>
+      </div>
+      {children}
+    </>
+  );
+}
+
 export const PAS_RENSEIGNE = "Pas encore renseigné.";
 export function BoutonGerer({ nom, onClick, titre, ton, info, ...autres }) {
   const appui = async () => {

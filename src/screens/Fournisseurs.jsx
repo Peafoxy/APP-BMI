@@ -4,12 +4,15 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, normPaiement } from "../lib/core";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement } from "../components/ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement, FormulaireRepliable } from "../components/ui";
 import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte, refuserSaufRoles, ROLES_FOURNISSEURS } from "../lib/calculs";
 
 // ============ FOURNISSEURS ============
 export function Fournisseurs({ db, save, profile }) {
   const [f, setF] = useState({ nom: "", tel: "", adresse: "", site_web: "", produits: "", doit: "", paye: "" });
+  // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
+  // replié après l'enregistrement.
+  const [nouveauOuvert, setNouveauOuvert] = useState(false);
 
   const ajouter = () => {
     if (refuserSaufRoles(profile, ROLES_FOURNISSEURS, "Créer un fournisseur")) return;
@@ -17,6 +20,7 @@ export function Fournisseurs({ db, save, profile }) {
     if (!f.nom) { uAlert("Veuillez saisir un nom."); return; }
     save({ ...db, fournisseurs: [...db.fournisseurs, { id: uid(), nom: f.nom, tel: f.tel, adresse: f.adresse, site_web: f.site_web, produits: f.produits, doit: Number(f.doit || 0), paye: Number(f.paye || 0), ...marqueEspace(db, profile) }] });
     setF({ nom: "", tel: "", adresse: "", site_web: "", produits: "", doit: "", paye: "" });
+    setNouveauOuvert(false);
     uAlert("Fournisseur ajouté !");
   };
 
@@ -83,7 +87,8 @@ export function Fournisseurs({ db, save, profile }) {
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4 bg-white border border-slate-200">
-        <div className="font-bold mb-3">Nouveau fournisseur</div>
+        <FormulaireRepliable ouvert={nouveauOuvert} onOuvrir={() => setNouveauOuvert(true)} onFermer={() => setNouveauOuvert(false)}
+          bouton="➕ Nouveau fournisseur" titre="Nouveau fournisseur">
         <div className="grid sm:grid-cols-2 lg:grid-cols-7 gap-3">
           <Field label="Nom"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} /></Field>
           <Field label="Téléphone"><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
@@ -94,6 +99,7 @@ export function Fournisseurs({ db, save, profile }) {
           <Field label="Réglé (F)"><input type="number" className={inputCls} value={f.paye} onChange={(e) => setF({ ...f, paye: e.target.value })} /></Field>
         </div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer</button>
+        </FormulaireRepliable>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2269 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2271 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6293,13 +6293,22 @@ lit mal est pire qu'un banc absent).
   passe, Rôle) agissent tout de suite. Un clic de plus pour modifier, dit
   avant. Regardé dans Chromium (Fermer ne modifie rien, ✏️ Modifier oui) ;
   banc (+3), éprouvé.
-- **« ➕ NOUVEL UTILISATEUR » EST UN BOUTON** (capture Timo, 06/10/2026 :
-  « transformer en bouton et afficher les infos lorsqu'on clique dessus, pas
-  par défaut ») : dans 👥 Utilisateurs le formulaire de création est FERMÉ
-  d'office (`nouveauOuvert`), s'ouvre au clic, a « Fermer », et se replie
-  après une création réussie (client ET employé) — le message ✅ reste à côté
-  du bouton. Les bandes d'alerte du principal (comptes incohérents, mots de
-  passe en clair) restent visibles. Banc (1 contrôle), éprouvé. Chapitre 2.
+- **➕ UN FORMULAIRE DE CRÉATION EST UN BOUTON — UNE règle** (capture Timo,
+  06/10/2026, 👥 Utilisateurs : « transformer en bouton et afficher les infos
+  lorsqu'on clique dessus, pas par défaut » ; puis « a, lance » pour les
+  autres). `FormulaireRepliable` (ui.jsx, écrit UNE fois) : fermé d'office =
+  le bouton « ➕ … » seul (et à côté le dernier message ✅) ; ouvert = titre,
+  « Fermer », formulaire ; l'écran le replie après un enregistrement réussi.
+  **Dix formulaires** : Nouvel utilisateur, Nouvelle dette client, Nouveau
+  fournisseur, Nouveau commercial, Nouveau prospect, Nouveau client installé,
+  Nouveaux travaux, Nouvel article (📦 — **✏️ Corriger l'ouvre tout seul**,
+  « Fermer » annule la correction, l'import Excel reste visible à côté du
+  bouton), Ajouter une boutique, Nouveau domaine (⚙). **Pas pour 💰 Ventes ni
+  🛒 Nouvelle commande** (le formulaire y est le travail lui-même ; le
+  déconseiller pour 📤 Dépenses a été accepté — « a »). Les bandes d'alerte du
+  principal sous le formulaire de 👥 restent visibles. Banc (3 contrôles,
+  éprouvé) ; un contrôle de `verifier-ecran-stocks` RETOURNÉ (le bouton
+  d'ouverture nomme la boutique). Chapitres 2, 4, 7, 8, 10, 15, 23.
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :

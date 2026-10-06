@@ -11,7 +11,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, dFR, today } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique, FormulaireRepliable } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
@@ -28,6 +28,9 @@ export function Travaux({ db, save, profile, onFacturer }) {
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "travaux" });
   const [f, setF] = useState(ficheVide);
+  // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
+  // replié après l'enregistrement.
+  const [nouveauOuvert, setNouveauOuvert] = useState(false);
   const [ouverte, setOuverte] = useState(null);
   // saisie = ce qui est tapé dans le champ Article (jamais transformé) ;
   // produit_id = l'article lié : par un CLIC sur une proposition, ou parce
@@ -58,6 +61,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
     const c = nouveauTravail(profile, { ...f, boutique, formation: !!marqueEspace(db, profile, boutique).formation }, today());
     save({ ...db, clients_installes: [c, ...(db.clients_installes || [])] }, `Travaux ouverts — ${c.prenom} ${c.nom} (${boutique})`);
     setF(ficheVide);
+    setNouveauOuvert(false);
     setOuverte(c.id);
   };
 
@@ -144,7 +148,8 @@ export function Travaux({ db, save, profile, onFacturer }) {
       {!profile.boutique && <BoutiqueTabs ecran="travaux" db={db} value={bq} onChange={setBq} profile={profile} />}
       {ROLES_FICHE.includes(profile.role) && (
         <Panel boutique={boutique}>
-          <div className="font-bold mb-3 flex items-center gap-2">Nouveaux travaux <Badge boutique={boutique} /></div>
+          <FormulaireRepliable ouvert={nouveauOuvert} onOuvrir={() => setNouveauOuvert(true)} onFermer={() => setNouveauOuvert(false)}
+            bouton="➕ Nouveaux travaux" titre={<>Nouveaux travaux <Badge boutique={boutique} /></>}>
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <Field label="Nom du client *">
               {/* Timo (15/09/2026) : le client déjà connu de la boutique se
@@ -166,6 +171,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
             <Field label="Description"><input className={inputCls} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Plomberie, câblage…" /></Field>
           </div>
           <button onClick={ouvrir} className={`mt-3 ${btnDark}`}>Ouvrir les travaux</button>
+          </FormulaireRepliable>
         </Panel>
       )}
 

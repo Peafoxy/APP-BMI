@@ -17,7 +17,7 @@ import { prospectAcquis, estDemandeAssistant, prendreEnCharge, critiquePriseEnCh
 import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -28,6 +28,9 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   const [nouvelleCat, setNouvelleCat] = useState("");
   const vide = { categorie: categories[0]?.nom || "", projet: "", localisation: "", nom: "", tel: "", nature: "", statut: "Favorable", interet: "Intéressé", relance: "", lat: null, lng: null };
   const [f, setF] = useState(vide);
+  // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
+  // replié après l'enregistrement.
+  const [nouveauOuvert, setNouveauOuvert] = useState(false);
   const [carteOuverte, setCarteOuverte] = useState(false);
   // 🎯 LE PROJET (décision « a », 01/10/2026) : la relance du numéro BMI le
   // nomme (« votre projet d'installation solaire »). La liste = les métiers
@@ -77,6 +80,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f, projet: texteVariable(f.projet), ...marqueEspace(db, profile, f.boutique) };
     save({ ...db, prospects: [p, ...db.prospects] }, `Nouveau prospect « ${f.nom} » (${f.categorie}) — ${profile.nom}`);
     setF(vide);
+    setNouveauOuvert(false);
     setProjetLibre(false);
     setCarteOuverte(false);
     // 📲 01/10/2026 : le message d'accueil part du NUMÉRO BMI (modèle
@@ -401,7 +405,8 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
 
       {!isAdmin && (
         <Panel>
-          <div className="font-bold mb-3">Nouveau prospect</div>
+          <FormulaireRepliable ouvert={nouveauOuvert} onOuvrir={() => setNouveauOuvert(true)} onFermer={() => setNouveauOuvert(false)}
+            bouton="➕ Nouveau prospect" titre="Nouveau prospect">
           {categories.length === 0 ? (
             <div className="text-sm text-slate-600">Aucune catégorie disponible. Demandez à l'administrateur d'en créer : il le fait depuis cet écran 🧲 Prospects (cadre « Catégories de prospects »).</div>
           ) : (
@@ -478,6 +483,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
               <button onClick={ajouter} className={`mt-4 ${btnDark}`}>➕ Enregistrer le prospect</button>
             </>
           )}
+          </FormulaireRepliable>
         </Panel>
       )}
 

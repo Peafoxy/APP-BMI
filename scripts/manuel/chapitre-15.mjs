@@ -77,7 +77,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["🏠 Clients installés → 🏠 Nouveau client installé", "Le formulaire pour créer une fiche à la main."],
+        ["🏠 Clients installés → « ➕ Nouveau client installé »", "Le bouton qui ouvre le formulaire pour créer une fiche à la main (fermé d'office, replié après l'enregistrement)."],
         ["🏠 Clients installés → la liste", "Les pilules par catégorie avec leur nombre, 🔔 Entretien dû, la recherche, et les boutons de chaque ligne."],
         ["La ligne → ▸ Dossier", "Statut, garantie, vente rattachée, équipe ; programmation ; matériel posé ; photos ; observations."],
         ["La ligne → 🔧 Frais", "La répartition des frais d'installation et le paiement des parts."],
@@ -146,7 +146,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "H. Les travaux à crédit (🛠)"],
       ["etapes", [
-        { titre: "Ouvrir les travaux (gérant, administrateur)", texte: "Nom, prénom, numéro, lieu, description, puis **Ouvrir les travaux** : une fiche par travail, hors devis." },
+        { titre: "Ouvrir les travaux (gérant, administrateur)", texte: "Bouton « ➕ Nouveaux travaux » (le formulaire est fermé d'office), puis nom, prénom, numéro, lieu, description, et **Ouvrir les travaux** : une fiche par travail, hors devis." },
         { titre: "📦 Sortir du stock (magasinier, gérant, administrateur)", texte: "L'article se choisit **en tapant son nom** et en cliquant une proposition. **Le stock baisse tout de suite**, l'article est facturé au prix de la boutique. Retirer une ligne le remet en stock (jamais après facturation)." },
         { titre: "Articles HB et prestation", texte: "**+ Ajouter l'article HB** : acheté dehors (câble, tuyau), prix payé et prix facturé. **✏️ Fixer les frais de prestation** : un pourcentage de tous les articles, ou un montant." },
         { titre: "🧾 Facturer le client (vendeur, gérant, administrateur)", texte: "Le panier part dans 💰 Ventes, où l'on encaisse comme une vente (comptant, ou à crédit avec avance). Les articles déjà sortis ne sortent pas une seconde fois." },

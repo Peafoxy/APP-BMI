@@ -60,7 +60,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
-        ["**🚚 Fournisseurs**", "En haut, le cadre **« Nouveau fournisseur »** : Nom · Téléphone · Adresse · Site web · Produits · Dû (F) · Réglé (F), et le bouton **« Enregistrer »**. Dessous, le tableau **« Fournisseurs · Reste à régler : … »** : Nom · Téléphone · Adresse · Site (« Visiter ») · Produits · Dû · Réglé · Reste, et sur chaque ligne **« + Commande »**, **« + Règlement »**, **« Suppr. »**."],
+        ["**🚚 Fournisseurs**", "En haut, le bouton **« ➕ Nouveau fournisseur »** ouvre le formulaire (fermé d'office, replié après l'enregistrement) : Nom · Téléphone · Adresse · Site web · Produits · Dû (F) · Réglé (F), et le bouton **« Enregistrer »**. Dessous, le tableau **« Fournisseurs · Reste à régler : … »** : Nom · Téléphone · Adresse · Site (« Visiter ») · Produits · Dû · Réglé · Reste, et sur chaque ligne **« + Commande »**, **« + Règlement »**, **« Suppr. »**."],
         ["**📦 Stocks**, formulaire d'article", "La liste déroulante **« Fournisseur »** (« — Aucun — », puis les fournisseurs de l'espace). Elle ne propose que des fiches déjà créées dans 🚚 Fournisseurs."],
         ["**📦 Stocks**, tableau", "La colonne **« Fournisseur »** : le nom du fournisseur de l'article, ou **« — Définir — »**. Un clic ouvre la question « Fournisseur de « … » ? » avec la liste des fournisseurs enregistrés. La colonne **« Entrées »** cumule tout ce qui est entré depuis la création de la fiche."],
         ["**📦 Stocks**, sur la ligne d'un article", "**« + Entrée »** : « Quantité reçue pour « … » : »."],
@@ -75,7 +75,7 @@ export const CHAPITRE = {
     { titre: "Procédure pas à pas", blocs: [
       ["h3", "A. Créer un fournisseur"],
       ["etapes", [
-        { titre: "Ouvrir 🚚 Fournisseurs", texte: "Le cadre « Nouveau fournisseur » est en haut. Le **Nom** est le seul champ obligatoire (« Veuillez saisir un nom. »). Téléphone (« +228 … »), Adresse, Site web (« https://… »), Produits (ce qu'il vend, en clair : « panneaux, batteries ») sont facultatifs mais utiles : c'est ce que l'équipe lira." },
+        { titre: "Ouvrir 🚚 Fournisseurs", texte: "Le bouton « ➕ Nouveau fournisseur » est en haut : un clic ouvre le formulaire. Le **Nom** est le seul champ obligatoire (« Veuillez saisir un nom. »). Téléphone (« +228 … »), Adresse, Site web (« https://… »), Produits (ce qu'il vend, en clair : « panneaux, batteries ») sont facultatifs mais utiles : c'est ce que l'équipe lira." },
         { titre: "Reprendre une ardoise existante", texte: "**Dû (F)** et **Réglé (F)** servent à reprendre l'historique d'un fournisseur qu'on connaît déjà : ce qu'on lui doit au total, ce qu'on lui a déjà versé. Pour un fournisseur neuf, on laisse vide. ⚠ Ces deux montants de départ **ne créent aucune dépense** : ils décrivent le passé, avant l'application." },
         { titre: "Enregistrer", texte: "**« Enregistrer »** → « Fournisseur ajouté ! ». La fiche naît dans l'espace regardé (réel ou formation) et apparaît dans le tableau, avec son Reste = Dû − Réglé, en rouge s'il reste quelque chose, en vert sinon." },
       ]],

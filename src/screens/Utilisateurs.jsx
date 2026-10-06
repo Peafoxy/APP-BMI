@@ -14,7 +14,7 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, 
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, IconeWhatsApp, champRecherche } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, FormulaireRepliable, IconeWhatsApp, champRecherche } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
@@ -1342,17 +1342,9 @@ export function Users({ db, save, profile }) {
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4 bg-white border border-slate-200">
-        {!nouveauOuvert ? (
-          <div className="flex items-center gap-3 flex-wrap">
-            <button data-nouvel-utilisateur onClick={() => { setNouveauOuvert(true); setMsg(""); }} className={btnDark}>➕ Nouvel utilisateur</button>
-            {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}
-          </div>
-        ) : (<>
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="font-bold">Nouvel utilisateur</div>
-          <button data-fermer-nouvel-utilisateur onClick={() => { setNouveauOuvert(false); setMsg(""); }} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50">Fermer</button>
-        </div>
-
+        <FormulaireRepliable ouvert={nouveauOuvert} onOuvrir={() => { setNouveauOuvert(true); setMsg(""); }} onFermer={() => { setNouveauOuvert(false); setMsg(""); }}
+          bouton="➕ Nouvel utilisateur" titre="Nouvel utilisateur"
+          apresBouton={msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}>
         {f.role === "client" && (
           <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 p-2 text-xs text-slate-700">
             🔑 <b>Compte client</b> : le mot de passe est <b>généré automatiquement</b> (6 caractères pris dans son numéro et son nom, mélangés).
@@ -1435,7 +1427,7 @@ export function Users({ db, save, profile }) {
           <button onClick={creer} className={btnDark}>Créer</button>
           {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}
         </div>
-        </>)}
+        </FormulaireRepliable>
         {/* ⚠ Comptes hérités de la 2.100.24 : leur bascule avait posé le
             drapeau sans déplacer le rattachement, elle n'a donc jamais rien
             produit. Ils travaillent normalement (la boutique fait foi), mais

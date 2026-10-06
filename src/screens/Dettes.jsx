@@ -7,7 +7,7 @@ import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { useState } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, espaceDeLaDette, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
@@ -30,6 +30,9 @@ export function Dettes({ db, save, profile }) {
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dettes" });
   const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
+  // ➕ Le formulaire « Nouvelle dette client » est fermé d'office (règle commune
+  // FormulaireRepliable, 06/10/2026) et se replie après l'enregistrement.
+  const [nouvelleOuverte, setNouvelleOuverte] = useState(false);
   // 🧾 25/09/2026 : ce que le reçu WhatsApp automatique est devenu, dit
   // discrètement sous les boutiques (jamais une fenêtre).
   const [noteRecuWa, setNoteRecuWa] = useState("");
@@ -61,6 +64,7 @@ export function Dettes({ db, save, profile }) {
     // qui permettra un jour de ne montrer à chacun que SES dettes.
     save({ ...db, dettes: [{ id: uid(), client_user_id: compteClientPour(db, f.tel, f.client), numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client, tel: f.tel, motif: f.motif, montant: Number(f.montant), paye: acompte, paiements, par: profile.nom }, ...db.dettes] }, `Nouvelle dette ${f.client} (${fmt(Number(f.montant))}) — ${boutique}${acompte > 0 ? ` — acompte ${fmt(acompte)} (${normPaiement(f.moyen)})` : ""}`);
     setF({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
+    setNouvelleOuverte(false);
     uAlert("Dette enregistrée avec succès !");
   };
 
@@ -413,7 +417,8 @@ export function Dettes({ db, save, profile }) {
       )}
 
       <Panel boutique={boutique}>
-        <div className="font-bold mb-3 flex items-center gap-2">Nouvelle dette client <Badge boutique={boutique} /></div>
+        <FormulaireRepliable ouvert={nouvelleOuverte} onOuvrir={() => setNouvelleOuverte(true)} onFermer={() => setNouvelleOuverte(false)}
+          bouton="➕ Nouvelle dette client" titre={<>Nouvelle dette client <Badge boutique={boutique} /></>}>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <Field label="Client">
             {/* Timo (15/09/2026) : le client déjà connu de la boutique se
@@ -444,6 +449,7 @@ export function Dettes({ db, save, profile }) {
           )}
         </div>
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer la dette</button>
+        </FormulaireRepliable>
       </Panel>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">

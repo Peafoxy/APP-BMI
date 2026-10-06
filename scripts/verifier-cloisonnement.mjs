@@ -13210,14 +13210,40 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     && /const infoGerer = \(u, quoi\) =>/.test(u) && !/save\(/.test(u.slice(u.indexOf("const infoGerer"), u.indexOf("// 📅 L'EMBAUCHE ET LE CONTRAT"))));
   test("★ ⋯ Gérer : le numéro de compte bancaire ne s'y lit que masqué (libelleBanque), et le parrain vient des comptes de l'espace, jamais de db.users",
     /banque: \{ titre: `Banque de \$\{u\.nom\}`, lignes: \[libelleBanque\(u\)/.test(u) && /utilisateursDeLEspace\(db, u\)\.find\(\(x\) => x\.id === u\.parrain_id\)/.test(u));
-  // « Nouvel utilisateur » : un BOUTON, le formulaire ne s'ouvre qu'au clic
-  // (capture Timo, 06/10/2026, « pas par défaut ») et se referme après la création.
-  test("★★ 👥 « ➕ Nouvel utilisateur » est un bouton : le formulaire est FERMÉ d'office, s'ouvre au clic, a « Fermer », et se referme après une création réussie (client ET employé)",
-    /const \[nouveauOuvert, setNouveauOuvert\] = useState\(false\);/.test(u)
-    && /\{!nouveauOuvert \? \(/.test(u) && /data-nouvel-utilisateur onClick=\{\(\) => \{ setNouveauOuvert\(true\)/.test(u)
-    && /data-fermer-nouvel-utilisateur onClick=\{\(\) => \{ setNouveauOuvert\(false\)/.test(u)
-    && (u.match(/setNouveauOuvert\(false\);\n\s*setMsg\(/g) || []).length === 2
-    && u.indexOf("{!nouveauOuvert ? (") < u.indexOf("<button onClick={creer}") && u.indexOf("<button onClick={creer}") < u.indexOf("</>)}"));
+  // ➕ UN FORMULAIRE DE CRÉATION EST UN BOUTON — UNE règle (capture Timo,
+  // 06/10/2026, « pas par défaut », puis « a, lance » pour dix formulaires).
+  {
+    const uiF = readFileSync("src/components/ui.jsx", "utf8");
+    const FORMS = [
+      ["src/screens/Utilisateurs.jsx", "nouveauOuvert", "➕ Nouvel utilisateur", 2],
+      ["src/screens/Dettes.jsx", "nouvelleOuverte", "➕ Nouvelle dette client", 1],
+      ["src/screens/Fournisseurs.jsx", "nouveauOuvert", "➕ Nouveau fournisseur", 1],
+      ["src/screens/Commerciaux.jsx", "nouveauOuvert", "➕ Nouveau commercial", 1],
+      ["src/screens/Prospects.jsx", "nouveauOuvert", "➕ Nouveau prospect", 1],
+      ["src/screens/ClientsInstalles.jsx", "nouveauOuvert", "➕ Nouveau client installé", 1],
+      ["src/screens/Travaux.jsx", "nouveauOuvert", "➕ Nouveaux travaux", 1],
+      ["src/screens/Stocks.jsx", "nouvelArticleOuvert", "➕ Nouvel article dans", 2],
+      ["src/screens/Parametres.jsx", "boutiqueOuverte", "➕ Ajouter une boutique", 1],
+      ["src/screens/Parametres.jsx", "domaineOuvert", "➕ Nouveau domaine", 1],
+    ];
+    const rates = FORMS.filter(([f, etat, bouton, nbFerme]) => {
+      const t = readFileSync(f, "utf8");
+      const set = "set" + etat[0].toUpperCase() + etat.slice(1);
+      return !(new RegExp(`const \\[${etat}, ${set}\\] = useState\\(false\\);`).test(t)
+        && t.includes(`<FormulaireRepliable ouvert={${etat}`) && t.includes(bouton)
+        && (t.match(new RegExp(`${set}\\(false\\)`, "g")) || []).length >= nbFerme + 1);
+    }).map((x) => x[0] + " " + x[1]);
+    test("★★ ➕ dix formulaires de création sont un BOUTON (FormulaireRepliable) : fermés d'office, « Fermer », repliés après l'enregistrement" + (rates.length ? " — en défaut : " + rates.join(", ") : ""),
+      rates.length === 0
+      && /export function FormulaireRepliable\(\{ ouvert, onOuvrir, onFermer, bouton, titre, apresBouton, children \}\)/.test(uiF)
+      && /data-ouvrir-formulaire onClick=\{onOuvrir\}/.test(uiF) && /data-fermer-formulaire onClick=\{onFermer\}/.test(uiF));
+    const st = readFileSync("src/screens/Stocks.jsx", "utf8");
+    test("★★ 📦 ✏️ Corriger ouvre le formulaire tout seul (sinon on ne verrait pas la correction), « Fermer » annule la correction, et l'import Excel reste visible formulaire fermé",
+      /ouvert=\{nouvelArticleOuvert \|\| !!enEdition\}/.test(st) && /onFermer=\{\(\) => \(enEdition \? annulerCorrection\(\) : setNouvelArticleOuvert\(false\)\)\}/.test(st)
+      && /apresBouton=\{boutonsImport\}/.test(st) && (st.match(/\{boutonsImport\}/g) || []).length === 2);
+    test("★ ➕ 💰 Ventes et 🛒 Nouvelle commande gardent leur formulaire ouvert (il y est le travail lui-même)",
+      !/FormulaireRepliable/.test(readFileSync("src/screens/Ventes.jsx", "utf8")) && !/FormulaireRepliable/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
+  }
   test("★★ 🔁 le bouton Renouveler n'apparaît que si le contrat se renouvelle encore",
     /\{peutRenouveler\(u, today\(\)\) && <BoutonGerer data-renouveler onClick=\{\(\) => renouvelerContrat\(u\)\}/.test(u));
   test("★ 📄 les boutons 📅 Embauche et contrat et 🚪 Sortie sont dans ⋯ Gérer, et la fin se LIT sous le nom",
