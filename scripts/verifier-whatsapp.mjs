@@ -625,7 +625,7 @@ const codeWa = ecranWa.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "
 // une issue qui n'existe pas est pire qu'un écran muet.
 test("★★ fenêtre fermée : l'écran donne une issue qui MARCHE (écrire un modèle depuis ici), pas seulement un renvoi ailleurs",
   /Lui écrire quand même/.test(ecranWa)
-  && /setContact\(\{ nom: ouverte\.nom \|\| "", tel: ouverte\.tel \|\| "", sujet: "" \}\); setCleOuverte\(null\);/.test(ecranWa));
+  && /setContact\(\{ nom: ouverte\.nom \|\| \(ouverte\.origineNom \? ouverte\.nomAffiche : ""\), tel: ouverte\.tel \|\| "", sujet: "" \}\); setCleOuverte\(null\);/.test(ecranWa));
 test("★ les personnes proposées passent par le filtre d'espace, jamais db.users en entier",
   /utilisateursDeLEspace\(db, profile\)/.test(codeWa) && !/db\.users/.test(codeWa));
 test("★ la case de saisie se ferme avec la fenêtre, et dit par où relancer",
@@ -634,8 +634,8 @@ test("★ la case de saisie se ferme avec la fenêtre, et dit par où relancer",
 // ── 🔍 CHERCHER ET ARCHIVER DANS 📲 WHATSAPP (20/09/2026, « lance les 3 »)
 const Arch = await import("../src/lib/archivage.js");
 const Conv = await import("../src/lib/conversations.js");
-test("★★ la recherche passe par LA règle commune et cherche le NOM comme le NUMÉRO",
-  /correspond\(`\$\{c\.nom \|\| ""\} \$\{motsDuNumero\(c\.tel\)\.join\(" "\)\}`, recherche\)/.test(ecranWa)
+test("★★ la recherche passe par LA règle commune et cherche le NOM (donné, compte, WhatsApp) comme le NUMÉRO",
+  /correspond\(`\$\{c\.nomAffiche \|\| ""\} \$\{c\.nom \|\| ""\} \$\{c\.profil \|\| ""\} \$\{motsDuNumero\(c\.tel\)\.join\(" "\)\}`, recherche\)/.test(ecranWa)
   && !/toLowerCase\(\)\.includes/.test(ecranWa));
 test("★★ elle cherche dans TOUTES les conversations, archives comprises — une recherche qui ne voit que l'affiché ment",
   /const convs = !recherche\.trim\(\) \? tousConvs\n/.test(ecranWa)
@@ -1036,8 +1036,8 @@ test("★★ une ligne grisée ne porte NI pastille de non-lus, NI compteur d'on
   /!verrou && item\.nb > 0/.test(codeEcranWa) && /c\.verrouillee \? 0 :/.test(codeEcranWa));
 
 // ── LA FICHE EST POSÉE PARTOUT OÙ LA CONVERSATION BOUGE
-test("★★ les gestes de l'écran posent la fiche : répondre, écrire le premier, confier, rendre à tous, et le rattrapage",
-  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 5);
+test("★★ les gestes de l'écran posent la fiche : répondre, écrire le premier, confier, rendre à tous, le rattrapage, et ✏️ Nommer (06/10/2026)",
+  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 6);
 test("★★★ …et le WEBHOOK aussi, par UPSERT (sinon la ligne grisée resterait figée)",
   /construireEntete\(\{/.test(codeEntrant)
   && /\.upsert\(\{ id: fiche\.id, data: fiche, updated_at: fiche\.ts \}\)/.test(codeEntrant));
@@ -3852,6 +3852,62 @@ titre("㊽ 🗑 SUPPRIMER UNE CONVERSATION PAR UN APPUI LONG — LE PRINCIPAL SE
   test("★ LE COUPLE : securite-36 réserve l'effacement et la marque au principal, et wa_proprietaire ignore la corbeille (le banc SQL l'éprouve : npm run tester-conversations)",
     /Effacer une conversation WhatsApp/.test(S36) && /before insert or update or delete on public\.messages/.test(S36)
     && /coalesce\(m\.data ->> 'supprime_le', ''\) = ''/.test(S36) && /qual like '%formation%'/.test(S36));
+}
+
+
+titre("㊾ 👤 LE NOM D'UNE CONVERSATION — LE NOM DONNÉ, LE COMPTE BMI, LE NOM WHATSAPP, LE NUMÉRO (06/10/2026, « b »)");
+{
+  const C3 = await import("../src/lib/whatsappConversations.js");
+  test("★★ le nom WhatsApp se lit dans les deux formes connues (YCloud customerProfile, Meta contacts[0].profile), nettoyé ; rien → \"\"",
+    C3.lireNomProfil({ whatsappInboundMessage: { from: "+228", customerProfile: { name: "  Kossi\n M. " } } }) === "Kossi M."
+    && C3.lireNomProfil({ contacts: [{ profile: { name: "Ama" } }] }) === "Ama"
+    && C3.lireNomProfil({ whatsappInboundMessage: { from: "+228" } }) === "" && C3.lireNomProfil(null) === ""
+    && C3.lireNomProfil({ whatsappInboundMessage: { customerProfile: { name: "x".repeat(200) } } }).length === C3.LONGUEUR_NOM_CONTACT);
+  test("★★ l'ordre : le nom DONNÉ, puis le compte BMI, puis le nom WhatsApp, puis le numéro",
+    C3.nomDeConversation({ nomDonne: "A", nomCompte: "B", profil: "C", tel: "9" }).origine === "donne"
+    && C3.nomDeConversation({ nomCompte: "B", profil: "C", tel: "9" }).nom === "B"
+    && C3.nomDeConversation({ profil: "C", tel: "9" }).origine === "whatsapp"
+    && C3.nomDeConversation({ tel: "9" }).nom === "9" && C3.nomDeConversation({ tel: "9" }).origine === "");
+  // ⚠⚠ LA FICHE GARDE SES NOMS quand on la réécrit (répondre, confier, la
+  // tournée du matin, le message suivant du client) — sinon le nom donné
+  // disparaîtrait en silence au premier mouvement.
+  const avant = { id: "waent_1", canal: "whatsapp_entete", wa_tel: "1", wa_nom_donne: "PLOMBIER", wa_profil: "Boss" };
+  const apres = C3.messagesAvecEntete([avant], { cle: "1", tel: "1", derniere: "2026-10-06T10:00:00Z" });
+  test("★★ messagesAvecEntete GARDE le nom donné et le nom WhatsApp de la fiche d'avant",
+    apres.length === 1 && apres[0].wa_nom_donne === "PLOMBIER" && apres[0].wa_profil === "Boss");
+  test("★ nom_donne: \"\" RETIRE le nom donné ; un nouveau nom WhatsApp remplace l'ancien",
+    !C3.messagesAvecEntete([avant], { cle: "1", nom_donne: "" })[0].wa_nom_donne
+    && C3.construireEntete({ cle: "1", entete: avant, profil: "Nouveau" }).wa_profil === "Nouveau");
+  const sansC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const tournees = ["anniversaires", "poseSeule", "demandeAvis", "rappelEntretien", "relanceAutoDevis"].map((f) => sansC(lire(`src/lib/${f}.js`)));
+  test("★★ les CINQ tournées du matin passent la fiche d'avant (entete) — le nom donné ne tombe pas à 7 h",
+    tournees.every((t) => /construireEntete\(\{[\s\S]{0,300}derniere: ts, entete,/.test(t)));
+  const EN = sansC(lire("api/whatsapp-entrant.js"));
+  test("★★ le serveur : le nom WhatsApp est lu, rangé sur la ligne et la fiche ; la fiche d'avant est gardée (message ET réponse de l'assistant)",
+    /const profil = lireNomProfil\(req\.body\)/.test(EN) && /wa_profil: profil/.test(EN)
+    && /derniere: ligne\.ts, entete: ficheAvant, profil,/.test(EN) && /derniere: ts, entete \}\)/.test(EN)
+    && /entete: fiche \|\| ficheAvant/.test(EN));
+  test("★ les conversations portent nomAffiche et origineNom, la ligne grisée aussi (depuis la fiche)",
+    (() => { const l = C3.conversationsWa(V.messagesAvecNoms, { id: "KOSSI", nom: "KOSSI", role: "vendeur" });
+      const g = l.find((c) => c.cle === "90114455"); const w = l.find((c) => c.cle === "90117711");
+      return g && g.verrouillee && g.nomAffiche === "AYOKO VILLA ADIDOGOME" && w && w.origineNom === "whatsapp" && w.nomAffiche === "Kossi M."; })());
+  const hA = V.renduNoms("admin"), hV = V.renduNoms("vendeur");
+  test("★★ l'écran RENDU : le nom WhatsApp s'affiche MARQUÉ « (nom WhatsApp) », le nom donné l'emporte et n'est pas marqué",
+    /Kossi M\.<span data-nom-whatsapp[^>]*>\(nom WhatsApp\)/.test(hA) && /PLOMBIER AGOE/.test(hA) && !/😎 Boss/.test(hA));
+  test("★★ la ligne GRISÉE du vendeur porte le nom donné par l'administrateur",
+    /🔒 <!-- -->AYOKO VILLA ADIDOGOME|🔒 AYOKO VILLA ADIDOGOME/.test(hV));
+  test("★★ « ✏️ Nommer » : chez l'administrateur seulement, sur le fil ouvert",
+    /data-nommer/.test(V.renduNoms("admin", "90117711")) && !/data-nommer/.test(V.renduNoms("vendeur", "90117711")));
+  const W2 = sansC(lire("src/screens/Whatsapp.jsx"));
+  const corpsN = W2.slice(W2.indexOf("const nommer = async"), W2.indexOf("const jeSuisPrincipal"));
+  test("★★ le geste : revérifié DANS le geste (critiqueNomContact), sur la liste FRAÎCHE, sans ligne ajoutée au fil (la conversation ne remonte pas), journal",
+    corpsN.indexOf("critiqueNomContact(profile") > 0 && corpsN.indexOf("critiqueNomContact(profile") < corpsN.indexOf("save(")
+    && /messagesAvecEntete\(frais,/.test(corpsN) && /nom_donne: nom/.test(corpsN) && !/nouveauMessage\(/.test(corpsN)
+    && /derniere: fiche\?\.derniere \|\| ouverte\.derniere/.test(corpsN));
+  test("★ la recherche trouve aussi le nom donné et le nom WhatsApp",
+    /correspond\(`\$\{c\.nomAffiche \|\| ""\} \$\{c\.nom \|\| ""\} \$\{c\.profil \|\| ""\}/.test(W2));
+  test("★ critiqueNomContact : l'administrateur seul",
+    C3.critiqueNomContact({ role: "admin" }, "X") === "" && C3.critiqueNomContact({ role: "gerant" }, "X") !== "");
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

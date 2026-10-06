@@ -161,7 +161,7 @@ export function ligneRappelEntretien({ id, tel, compte, chantier, variables, ts 
 export const enteteApresRappel = ({ tel, compte, chantier, ts, entete }) =>
   construireEntete({
     cle: cleConversation(tel), tel, nom: compte?.nom_base || compte?.nom || nomDuChantier(chantier),
-    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts,
+    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts, entete,
   });
 // La marque sur le chantier : pour QUELLE date, ce qui est fait.
 export const chantierApresRappel = (c, { whatsapp_le, tache_le, tache_pour } = {}) => {

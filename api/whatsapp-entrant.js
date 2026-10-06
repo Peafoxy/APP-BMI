@@ -22,7 +22,7 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa } from "../src/lib/whatsappConversations.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { numeroWhatsApp, alerteConseillerDe, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
@@ -84,6 +84,8 @@ export default async function handler(req, res) {
   if (suivi) return traiterSuivi(req, res, suivi);
 
   const { from, texte, media, id, ts } = lireEntrant(req.body);
+  // 👤 Le nom que le client s'est donné dans SON WhatsApp (06/10/2026).
+  const profil = lireNomProfil(req.body);
   const cle = cleConversation(from);
   // ⚠ 200, jamais une erreur : YCloud renverrait le paquet en boucle. On
   // DIT ce qu'on n'a pas su lire — c'est ce qui permettra de l'ajuster.
@@ -116,6 +118,8 @@ export default async function handler(req, res) {
     // ⚠ Une conversation mise à la CORBEILLE (05/10/2026) ne compte plus :
     // le client qui réécrit recommence à zéro (support, présentation).
     const fil = filDeLaConversation(messages, cle);
+    // La fiche d'AVANT porte le nom donné par l'administrateur : on la garde.
+    const ficheAvant = messages.find((m) => m.id === idEntete(cle) && estEnteteWa(m)) || null;
     // ⚠ DÉFAUT RÉPARÉ LE 24/09/2026 : cette boucle était écrite ici à la main
     // et ne connaissait pas la marque « rendue à tous » (`MARQUE_RENDUE`,
     // 21/09) : au message suivant du client, l'ANCIEN propriétaire était
@@ -148,6 +152,7 @@ export default async function handler(req, res) {
       wa_tel: cle,
       wa_numero: String(from),
       wa_nom: client?.nom || "",
+      ...(profil ? { wa_profil: profil } : {}),
       wa_entrant: true,
       wa_id: id,
       de_id: null,
@@ -179,7 +184,7 @@ export default async function handler(req, res) {
     const fiche = construireEntete({
       cle, tel: String(from), nom: client?.nom || "",
       proprietaire_id: proprietaire.id, proprietaire_nom: proprietaire.nom,
-      derniere: ligne.ts,
+      derniere: ligne.ts, entete: ficheAvant, profil,
     });
     if (fiche) {
       const { error: errFiche } = await admin.from("messages")
@@ -199,7 +204,7 @@ export default async function handler(req, res) {
     const boutiques = (bqs || []).map((b) => b.data || {});
     let assistant = { repondu: false, conseiller: false };
     try {
-      assistant = await repondreParAssistant({ admin, boutiques, fil: [...fil, ligne], proprietaireId: proprietaire.id, cle, from, client, ligne });
+      assistant = await repondreParAssistant({ admin, boutiques, fil: [...fil, ligne], proprietaireId: proprietaire.id, cle, from, client, ligne, entete: fiche || ficheAvant });
     } catch (e) {
       // Un assistant qui trébuche ne perd JAMAIS le message du client : il
       // est déjà écrit, une personne le verra.
@@ -217,7 +222,7 @@ export default async function handler(req, res) {
     // perd rien : le message est écrit, la notification suit.
     if (assistant.repondu && assistant.conseiller && !assistant.devis) {
       try {
-        await envoyerAlerteConseiller({ boutiques, client: client?.nom || ligne.wa_nom || "", numero: from });
+        await envoyerAlerteConseiller({ boutiques, client: ficheAvant?.wa_nom_donne || client?.nom || profil || "", numero: from });
       } catch (e) {
         console.error("[whatsapp-entrant] alerte conseiller", e?.message || e);
       }
@@ -298,7 +303,7 @@ async function envoyerAlerteConseiller({ boutiques, client, numero }) {
 // (`articlesPourAssistant` les filtre sur la fiche de boutique) ; une
 // demande de devis naît réelle. Les listes ne sont chargées QUE si l'étape
 // en a besoin (chercher un article) : un « 5 » tapé ne lit pas les ventes.
-async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle, from, client, ligne }) {
+async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle, from, client, ligne, entete = null }) {
   const decision = decisionAssistant({ fil, proprietaireId, actif: assistantActif(boutiques), maintenant: ligne.ts });
   if (!decision.repondre) return { repondu: false, pourquoi: decision.pourquoi };
   const nouvelle = conversationNouvelle(decision);
@@ -441,7 +446,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
 
   // La fiche légère suit (dernier message), SANS propriétaire : l'assistant
   // ne s'approprie rien.
-  const fiche = construireEntete({ cle, tel: String(from), nom: client?.nom || "", proprietaire_id: "", proprietaire_nom: "", derniere: ts });
+  const fiche = construireEntete({ cle, tel: String(from), nom: client?.nom || "", proprietaire_id: "", proprietaire_nom: "", derniere: ts, entete });
   if (fiche) {
     const { error: errFiche } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: fiche.ts });
     if (errFiche) console.error("whatsapp-entrant : fiche de conversation non posée", errFiche);

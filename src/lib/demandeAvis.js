@@ -102,6 +102,6 @@ export function ligneDemandeAvis({ id, tel, compte, chantier, variables, ts }) {
 export const enteteApresAvis = ({ tel, compte, chantier, ts, entete }) =>
   construireEntete({
     cle: cleConversation(tel), tel, nom: compte?.nom_base || compte?.nom || nomDuChantier(chantier),
-    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts,
+    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts, entete,
   });
 export const chantierApresAvis = (c, jour) => ({ ...c, avis_demande_le: String(jour).slice(0, 10) });

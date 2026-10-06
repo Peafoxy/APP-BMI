@@ -221,3 +221,23 @@ export const renduFichierEnvoye = () => {
 };
 export const htmlFichierEnvoye = () => renderToStaticMarkup(
   <MediaWa message={{ id: "waf2", wa_media: { type: "image", nom: "photo.jpg", mime: "image/jpeg", taille: 310000, envoye: true } }} />);
+
+// ---- 👤 LE NOM D'UNE CONVERSATION (06/10/2026, décision « b ») ----
+// Un inconnu qui n'a que son nom WhatsApp ; un inconnu NOMMÉ par
+// l'administrateur ; et AYOKO (confiée à COM1) nommée elle aussi — chez le
+// vendeur, sa ligne GRISÉE doit porter le nom donné, puisqu'elle ne vit que
+// sur la fiche légère.
+const ilYa = (min) => new Date(Date.now() - min * 60000).toISOString();
+const messagesNoms = [
+  ...garnie.messages.filter((m) => m.id !== "waent_90114455"),
+  { id: "wan1", canal: "whatsapp", wa_tel: "90117711", wa_numero: "+22890117711", wa_profil: "Kossi M.", wa_entrant: true, texte: "Bonjour", ts: ilYa(5), lu_par: [] },
+  { id: "waent_90117711", canal: "whatsapp_entete", wa_tel: "90117711", wa_numero: "+22890117711", wa_profil: "Kossi M.", derniere: ilYa(5), ts: ilYa(5) },
+  { id: "wan2", canal: "whatsapp", wa_tel: "90117722", wa_numero: "+22890117722", wa_profil: "😎 Boss", wa_entrant: true, texte: "Prix ?", ts: ilYa(4), lu_par: [] },
+  { id: "waent_90117722", canal: "whatsapp_entete", wa_tel: "90117722", wa_numero: "+22890117722", wa_profil: "😎 Boss", wa_nom_donne: "PLOMBIER AGOE", derniere: ilYa(4), ts: ilYa(4) },
+  { id: "waent_90114455", canal: "whatsapp_entete", wa_tel: "90114455", wa_numero: "+22890114455", wa_nom: "AYOKO", wa_nom_donne: "AYOKO VILLA ADIDOGOME", proprietaire_id: "COM1", proprietaire_nom: "COM1", derniere: "2026-09-21T09:00:00Z", ts: "2026-09-21T09:00:00Z" },
+];
+export const messagesAvecNoms = messagesNoms;
+export const renduNoms = (qui = "admin", ouvrir = null) => {
+  try { return rendre({ ...garnie, messages: messagesNoms }, qui === "admin" ? users[0] : users[2], ouvrir); }
+  catch (e) { return `ERREUR ${e?.message || e}`; }
+};

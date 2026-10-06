@@ -86,7 +86,7 @@ export function ligneRelanceAuto({ id, tel, compte, devis, variables, ts }) {
 export const enteteApresRelance = ({ tel, compte, ts, entete }) =>
   construireEntete({
     cle: cleConversation(tel), tel, nom: compte?.nom_base || compte?.nom || "",
-    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts,
+    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts, entete,
   });
 export const compteApresRelance = (compte, devisId, ts) => ({
   ...compte,

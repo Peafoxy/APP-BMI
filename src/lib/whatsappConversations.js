@@ -72,15 +72,24 @@ export const idEntete = (cle) => `waent_${cle}`;
 
 // ⚠ AUCUN `texte`, aucun `de_id`, aucun `lu_par` : ce qui n'est pas là ne
 // peut pas fuir. Le banc le MESURE, il ne le présume pas.
-export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_nom, derniere } = {}) {
+// ⚠ `entete` = la fiche d'AVANT, quand on la connaît : le nom donné par
+// l'administrateur (`wa_nom_donne`) et le nom WhatsApp du client
+// (`wa_profil`) ne vivent QUE sur elle — une fiche réécrite sans eux les
+// perdrait en silence au message suivant. `profil` / `nom_donne` passés
+// explicitement l'emportent (`nom_donne: ""` retire le nom donné).
+export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_nom, derniere, entete = null, profil, nom_donne } = {}) {
   const k = String(cle || "");
   if (!k) return null;
+  const donne = nom_donne !== undefined ? nettoyerNomContact(nom_donne) : String(entete?.wa_nom_donne || "");
+  const prof = profil ? nettoyerNomContact(profil) : String(entete?.wa_profil || "");
   return {
     id: idEntete(k),
     canal: CANAL_WA_ENTETE,
     wa_tel: k,
     wa_numero: String(tel || k),
     ...(nom ? { wa_nom: String(nom) } : {}),
+    ...(donne ? { wa_nom_donne: donne } : {}),
+    ...(prof ? { wa_profil: prof } : {}),
     ...(proprietaire_id ? { proprietaire_id, proprietaire_nom: proprietaire_nom || "" } : {}),
     derniere: String(derniere || ""),
     ts: String(derniere || ""),
@@ -88,12 +97,54 @@ export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_
 }
 
 // Poser la fiche dans la liste des messages : on REMPLACE celle qui existe
-// (même id), on n'en empile jamais une seconde.
+// (même id), on n'en empile jamais une seconde — en GARDANT ses noms.
 export function messagesAvecEntete(messages, infos) {
-  const fiche = construireEntete(infos);
   const liste = Array.isArray(messages) ? messages : [];
+  const k = String(infos?.cle || "");
+  const avant = k ? liste.find((m) => m && m.id === idEntete(k)) : null;
+  const fiche = construireEntete({ entete: avant, ...infos });
   if (!fiche) return liste;
   return [fiche, ...liste.filter((m) => m && m.id !== fiche.id)];
+}
+
+// ---------------------------------------------------------------
+// 👤 LE NOM D'UNE CONVERSATION (06/10/2026, décision « b » de Timo)
+// ---------------------------------------------------------------
+// « Est-il possible d'afficher les noms des contacts de Messenger ? » —
+// le répertoire du téléphone BMI, NON : ni Meta ni YCloud ne le donnent.
+// Ce qu'on peut : (1) le nom que le client s'est donné dans SON WhatsApp,
+// joint par Meta à chaque message (`wa_profil`) ; (2) un nom donné par
+// l'administrateur, comme dans un répertoire (`wa_nom_donne`, « ✏️ Nommer »).
+// L'ORDRE : le nom donné, puis le compte BMI, puis le nom WhatsApp, puis le
+// numéro. ⚠ Le nom WhatsApp est choisi par le CLIENT (un surnom, un emoji) :
+// il se lit marqué « nom WhatsApp », jamais comme un client vérifié.
+export const LONGUEUR_NOM_CONTACT = 60;
+export const nettoyerNomContact = (s) =>
+  String(s ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, LONGUEUR_NOM_CONTACT);
+
+// Le nom WhatsApp dans le paquet reçu — les deux formes connues : YCloud
+// (`customerProfile.name`) et Meta (`contacts[0].profile.name`). Rien → "".
+export function lireNomProfil(corps) {
+  const c = corps && typeof corps === "object" ? corps : {};
+  const m = c.whatsappInboundMessage || c.inboundMessage || c.message || c.data || c;
+  const brut = m?.customerProfile?.name || c?.customerProfile?.name
+    || m?.contacts?.[0]?.profile?.name || c?.contacts?.[0]?.profile?.name
+    || m?.profile?.name || "";
+  return nettoyerNomContact(typeof brut === "string" ? brut : "");
+}
+
+// { nom, origine } — origine : "donne" | "compte" | "whatsapp" | "" (numéro).
+export function nomDeConversation({ nomDonne = "", nomCompte = "", profil = "", tel = "", cle = "" } = {}) {
+  if (nomDonne) return { nom: nomDonne, origine: "donne" };
+  if (nomCompte) return { nom: nomCompte, origine: "compte" };
+  if (profil) return { nom: profil, origine: "whatsapp" };
+  return { nom: String(tel || cle || ""), origine: "" };
+}
+
+export function critiqueNomContact(profile, nom) {
+  if (!peutReattribuer(profile)) return "Seul un administrateur peut nommer une conversation.";
+  if (String(nom ?? "").length > 200) return `Un nom tient en ${LONGUEUR_NOM_CONTACT} caractères au plus.`;
+  return "";
 }
 
 // ---------------------------------------------------------------
@@ -339,10 +390,15 @@ export function conversationsWa(messages, profile, maintenant = new Date().toISO
       // un message avait échappé à la base, il ne ressortirait pas par ici.
       // Et sans fiche légère, on ne la connaît pas du tout : rien à montrer.
       if (!fiche) return;
+      const telG = String(fiche.wa_numero || cle);
+      const nomG = nomDeConversation({ nomDonne: fiche.wa_nom_donne, nomCompte: fiche.wa_nom, profil: fiche.wa_profil, tel: telG, cle });
       sorties.push({
         cle,
-        tel: String(fiche.wa_numero || cle),
+        tel: telG,
         nom: String(fiche.wa_nom || ""),
+        nomAffiche: nomG.nom,
+        origineNom: nomG.origine,
+        profil: String(fiche.wa_profil || ""),
         proprietaire_id: prop.id,
         proprietaire_nom: prop.nom,
         fil: [],
@@ -354,10 +410,17 @@ export function conversationsWa(messages, profile, maintenant = new Date().toISO
       return;
     }
     const dernier = fil[fil.length - 1] || {};
+    const tel = fil.find((m) => m.wa_numero)?.wa_numero || String(fiche?.wa_numero || cle);
+    const nomCompte = [...fil].reverse().find((m) => m.wa_nom)?.wa_nom || String(fiche?.wa_nom || "");
+    const profil = [...fil].reverse().find((m) => m.wa_profil)?.wa_profil || String(fiche?.wa_profil || "");
+    const nomV = nomDeConversation({ nomDonne: fiche?.wa_nom_donne, nomCompte, profil, tel, cle });
     sorties.push({
       cle,
-      tel: fil.find((m) => m.wa_numero)?.wa_numero || String(fiche?.wa_numero || cle),
-      nom: [...fil].reverse().find((m) => m.wa_nom)?.wa_nom || String(fiche?.wa_nom || ""),
+      tel,
+      nom: nomCompte,
+      nomAffiche: nomV.nom,
+      origineNom: nomV.origine,
+      profil,
       proprietaire_id: prop.id,
       proprietaire_nom: prop.nom,
       fil,

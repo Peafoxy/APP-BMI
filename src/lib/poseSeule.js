@@ -160,7 +160,7 @@ export function ligneRappelSolde({ id, tel, compte, dette, variables, ts }) {
 export const enteteApresRappelSolde = ({ tel, compte, dette, ts, entete }) =>
   construireEntete({
     cle: cleConversation(tel), tel, nom: compte?.nom_base || compte?.nom || dette?.client || "client",
-    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts,
+    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts, entete,
   });
 
 // Qui encaisse une pose : le chef de CE chantier (sur le terrain), ou en

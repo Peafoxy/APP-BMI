@@ -88,7 +88,7 @@ export function ligneAnniversaire({ id, tel, employe, variables, ts }) {
 export const enteteApresAnniversaire = ({ tel, employe, ts, entete }) =>
   construireEntete({
     cle: cleConversation(tel), tel, nom: employe?.nom_complet || employe?.nom || "",
-    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts,
+    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts, entete,
   });
 
 // Le rappel de la VEILLE (tournée de 17 h), pour l'administrateur PRINCIPAL

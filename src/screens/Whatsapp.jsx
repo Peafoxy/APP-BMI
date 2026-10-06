@@ -22,7 +22,7 @@
 // ============================================================
 import React, { useState, useEffect, useRef } from "react";
 import { dFR, today, nouveauMessage } from "../lib/core";
-import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong } from "../components/ui";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
@@ -31,7 +31,7 @@ import { lignesDeLaConversation, mettreConversationALaCorbeille, DUREE_CORBEILLE
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
 import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente } from "../lib/assistantWhatsapp";
-import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION, critiqueFichier, mediaEnvoye, tailleLisible } from "../lib/whatsappConversations";
+import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION, critiqueNomContact, nettoyerNomContact, critiqueFichier, mediaEnvoye, tailleLisible } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche, peutLireLignePrivee } from "../lib/whatsappModeles";
 import { texteLignePrivee } from "../lib/lignesPrivees";
 import { motDePasseConnu } from "../lib/comptesClients";
@@ -117,7 +117,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
   // ne regarde que ce qui est affiché ment — on chercherait justement une
   // vieille conversation qu'on ne voit plus.
   const convs = !recherche.trim() ? tousConvs
-    : tousConvs.filter((c) => correspond(`${c.nom || ""} ${motsDuNumero(c.tel).join(" ")}`, recherche));
+    : tousConvs.filter((c) => correspond(`${c.nomAffiche || ""} ${c.nom || ""} ${c.profil || ""} ${motsDuNumero(c.tel).join(" ")}`, recherche));
   const ouverte = convs.find((c) => c.cle === cleOuverte) || null;
   const fil = ouverte ? filWa(messages, ouverte.cle) : [];
   // Le fil s'ouvre sur son DERNIER message (règle commune, ui.jsx).
@@ -345,7 +345,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     const gens = utilisateursDeLEspace(db, profile).filter((u) => u.actif !== false && aAccesWhatsapp(u));
     if (!gens.length) { uAlert("Aucun membre de l'équipe à qui la confier."); return; }
     const noms = gens.map((u) => `${u.nom} — ${libelleRole(u.role)}`);
-    const choix = await uChoix(`📲 Confier la conversation de ${ouverte.nom || ouverte.tel} à qui ?`, noms);
+    const choix = await uChoix(`📲 Confier la conversation de ${ouverte.nomAffiche || ouverte.tel} à qui ?`, noms);
     if (choix === null) return;
     const u = gens[noms.indexOf(choix)];
     if (!u) return;
@@ -363,7 +363,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
       cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom,
       proprietaire_id: u.id, proprietaire_nom: u.nom,
       derniere: m.ts,
-    }) }, `📲 WhatsApp — conversation de ${ouverte.nom || ouverte.tel} confiée à ${u.nom} par ${profile.nom}`);
+    }) }, `📲 WhatsApp — conversation de ${ouverte.nomAffiche || ouverte.tel} confiée à ${u.nom} par ${profile.nom}`);
   };
 
   // ---- 🔓 RENDRE LA CONVERSATION À TOUT LE MONDE (21/09/2026) ----
@@ -381,7 +381,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     // il n'y a rien à rendre. Revérifié ici, comme partout.
     if (!ouverte.proprietaire_id) { uAlert("Cette conversation n'est confiée à personne : tout le personnel la voit déjà."); return; }
     const qui = ouverte.proprietaire_nom || "quelqu'un";
-    if (!(await uConfirm(`Rendre la conversation de ${ouverte.nom || ouverte.tel} à tout le personnel ?\n\nElle n'appartiendra plus à ${qui} : chacun pourra l'ouvrir et y répondre, comme un client du support.`))) return;
+    if (!(await uConfirm(`Rendre la conversation de ${ouverte.nomAffiche || ouverte.tel} à tout le personnel ?\n\nElle n'appartiendra plus à ${qui} : chacun pourra l'ouvrir et y répondre, comme un client du support.`))) return;
     const m = nouveauMessage(profile, {
       canal: CANAL_WA, wa_tel: ouverte.cle, wa_numero: ouverte.tel,
       ...(ouverte.nom ? { wa_nom: ouverte.nom } : {}),
@@ -394,7 +394,42 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     // propriétaire n'y reste pas.
     save({ ...db, messages: messagesAvecEntete([m, ...messages], {
       cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom, derniere: m.ts,
-    }) }, `📲 WhatsApp — conversation de ${ouverte.nom || ouverte.tel} rendue à tout le personnel par ${profile.nom}`);
+    }) }, `📲 WhatsApp — conversation de ${ouverte.nomAffiche || ouverte.tel} rendue à tout le personnel par ${profile.nom}`);
+  };
+
+  // ---- ✏️ NOMMER UNE CONVERSATION (06/10/2026, décision « b » de Timo) ----
+  // Le répertoire du téléphone BMI n'arrive jamais jusqu'ici : l'administrateur
+  // donne lui-même un nom, comme dans un répertoire. Il passe AVANT le compte
+  // BMI et le nom WhatsApp. ⚠ Il vit sur la FICHE LÉGÈRE (tout le personnel
+  // la reçoit, la ligne grisée aussi) — aucune ligne n'est ajoutée au fil, la
+  // conversation ne remonte pas. Vide = on retire le nom donné.
+  const nommer = async () => {
+    if (!ouverte) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = critiqueNomContact(profile, "");
+    if (refus) { uAlert(refus); return; }
+    const avant = ouverte.origineNom === "donne" ? ouverte.nomAffiche : "";
+    const saisi = await uPrompt(
+      `✏️ Nom de cette conversation (${ouverte.tel})\n\n`
+      + (ouverte.profil ? `Nom WhatsApp du client : ${ouverte.profil}\n` : "")
+      + (ouverte.nom ? `Compte BMI : ${ouverte.nom}\n` : "")
+      + "\nCe nom passe avant tous les autres, pour tout le personnel. Laissez vide pour le retirer.",
+      avant || ouverte.nom || ouverte.profil || "");
+    if (saisi === null) return;
+    const refus2 = critiqueNomContact(profile, saisi);
+    if (refus2) { uAlert(refus2); return; }
+    const nom = nettoyerNomContact(saisi);
+    if (nom === avant) return;
+    // Sur la liste FRAÎCHE : la fiche peut avoir bougé depuis l'ouverture.
+    const frais = db.messages || [];
+    const fiche = frais.find((m) => m && m.id === idEntete(ouverte.cle));
+    save({ ...db, messages: messagesAvecEntete(frais, {
+      cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom,
+      proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom,
+      derniere: fiche?.derniere || ouverte.derniere, nom_donne: nom,
+    }) }, nom
+      ? `📲 WhatsApp — conversation ${ouverte.tel} nommée « ${nom} »${avant ? ` (avant : « ${avant} »)` : ""} par ${profile.nom}`
+      : `📲 WhatsApp — nom « ${avant} » retiré de la conversation ${ouverte.tel} par ${profile.nom}`);
   };
 
   // ---- 🗑 SUPPRIMER UNE CONVERSATION PAR UN APPUI LONG (05/10/2026) ----
@@ -416,7 +451,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
     const lignes = lignesDeLaConversation(db.messages, c.cle);
     if (!lignes.length) { uAlert("Cette conversation n'existe plus."); return; }
     const nb = lignes.filter((m) => m.canal === CANAL_WA).length;
-    const qui = [c.nom, c.tel].filter(Boolean).join(" — ") || c.cle;
+    const qui = [c.nomAffiche !== c.tel ? c.nomAffiche : "", c.tel].filter(Boolean).join(" — ") || c.cle;
     if (!(await uConfirm(
       `Supprimer la conversation avec ${qui} (${nb} message${nb > 1 ? "s" : ""}) ?\n\n`
       + `Elle disparaît de 📲 WhatsApp pour tout le monde et part à la corbeille pendant ${DUREE_CORBEILLE_JOURS} jours (⚙ Paramètres → 🗑 Corbeille), d'où vous pouvez la remettre.\n\n`
@@ -536,7 +571,10 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
           <>
             <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
               <button onClick={() => setCleOuverte(null)} className="lg:hidden text-sky-800 font-bold text-lg leading-none" aria-label="Retour">←</button>
-              <span className="flex-1">📲 {ouverte.nom || ouverte.tel}</span>
+              <span className="flex-1">📲 <NomConversation c={ouverte} /></span>
+              {peutReattribuer(profile) && (
+                <button data-nommer onClick={nommer} className="text-xs font-bold text-sky-800 underline whitespace-nowrap" title="Donner un nom à cette conversation, pour tout le personnel">✏️ Nommer</button>
+              )}
               {peutReattribuer(profile) && ouverte.proprietaire_id && (
                 <button onClick={rendreATous} className="text-xs font-bold text-slate-600 underline whitespace-nowrap" title="Tout le personnel pourra l'ouvrir et y répondre">🔓 Rendre à tous</button>
               )}
@@ -593,7 +631,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
               <div className="p-3 border-t border-slate-200 text-xs text-slate-500 space-y-2">
                 <div>WhatsApp n'accepte plus de réponse libre : la fenêtre s'est fermée. Seul un message approuvé peut repartir — et dès que le client y répond, vous pourrez lui écrire librement pendant 24 h.</div>
                 <button
-                  onClick={() => { setContact({ nom: ouverte.nom || "", tel: ouverte.tel || "", sujet: "" }); setCleOuverte(null); }}
+                  onClick={() => { setContact({ nom: ouverte.nom || (ouverte.origineNom ? ouverte.nomAffiche : ""), tel: ouverte.tel || "", sujet: "" }); setCleOuverte(null); }}
                   className="px-3 py-1.5 rounded-lg bg-sky-800 text-white font-bold text-xs hover:bg-sky-900">
                   ✍️ Lui écrire quand même
                 </button>
@@ -651,7 +689,7 @@ function LigneWa({ item, cleOuverte, ouvrir, supprimer = null }) {
       title={supprimer ? "Appui long : supprimer cette conversation (corbeille 30 jours)" : undefined}
       className={`w-full text-left px-4 py-3 border-b border-slate-100 flex items-center justify-between ${supprimer ? "select-none" : ""} ${verrou ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "hover:bg-sky-50"} ${!verrou && cleOuverte === c.cle ? "bg-sky-50" : ""}`}>
       <span className="text-sm">
-        <span className={verrou ? "font-semibold text-slate-500" : "font-semibold"}>{verrou ? "🔒 " : ""}{c.nom || c.tel}</span>
+        <span className={verrou ? "font-semibold text-slate-500" : "font-semibold"}>{verrou ? "🔒 " : ""}<NomConversation c={c} /></span>
         <span className="block text-xs text-slate-400">
           {verrou
             ? `Confiée à ${c.proprietaire_nom || "quelqu'un d'autre"} — vous ne pouvez pas l'ouvrir`
@@ -664,6 +702,16 @@ function LigneWa({ item, cleOuverte, ouvrir, supprimer = null }) {
     </button>
     </td></tr>
   );
+}
+
+// ---- 👤 LE NOM D'UNE CONVERSATION (06/10/2026) ----
+// ⚠ Le nom WhatsApp est choisi par le CLIENT : il se lit MARQUÉ, jamais comme
+// un client vérifié (un compte BMI ou un nom donné par l'administrateur).
+function NomConversation({ c }) {
+  const nom = c?.nomAffiche || c?.nom || c?.tel || "";
+  return (<>{nom}{c?.origineNom === "whatsapp" && (
+    <span data-nom-whatsapp className="ml-1 text-[10px] font-normal text-slate-500 whitespace-nowrap">(nom WhatsApp)</span>
+  )}</>);
 }
 
 // ---- 📷 CE QUE LE CLIENT A ENVOYÉ QUI N'EST PAS DU TEXTE (20/09/2026) ----

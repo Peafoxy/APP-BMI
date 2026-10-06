@@ -10,7 +10,7 @@
 // screens/Utilisateurs.jsx (Autoriser / Retirer chat libre),
 // screens/Whatsapp.jsx (📲 WhatsApp : ✍️ Écrire, Rechercher une
 // conversation…, Conversations, Conversations anciennes, 🔁 Confier,
-// 🔓 Rendre à tous, la bande de la fenêtre de 24 h, ✍️ Lui écrire quand
+// ✏️ Nommer, 🔓 Rendre à tous, la bande de la fenêtre de 24 h, ✍️ Lui écrire quand
 // même, 🤖 Assistant BMI TOGO, 👨‍💼 attend un conseiller, ✓ ✓✓ ❌),
 // lib/whatsappConversations.js (aAccesWhatsapp, libelleFenetre,
 // motifVerrouillee, critiqueReponse, MOTIF_WA_FORMATION), src/whatsapp.js
@@ -51,7 +51,7 @@ export const CHAPITRE = {
         ["💬 Messages : un client écrit à BMI", "Le client, par « 🛟 Écrire à BMI Togo », et à **son chef d'équipe**. Écrire à toute l'équipe : seulement si l'administrateur lui a donné le **chat libre** (👥 Utilisateurs → ⋯ Gérer)."],
         ["📲 WhatsApp : l'onglet", "Tout le personnel **sauf le comptable** (et jamais un client)."],
         ["📲 WhatsApp : lire une conversation", "Une conversation **non confiée** (le support) : tout le personnel qui a l'onglet. Une conversation **confiée** : la personne à qui elle est confiée, et **l'administrateur** (qui voit tout)."],
-        ["📲 WhatsApp : 🔁 Confier, 🔓 Rendre à tous", "**L'administrateur.**"],
+        ["📲 WhatsApp : 🔁 Confier, 🔓 Rendre à tous, ✏️ Nommer", "**L'administrateur.**"],
       ]}],
       ["attention", "**📲 WhatsApp n'existe qu'en RÉEL.** Une conversation WhatsApp est un vrai client sur le vrai numéro BMI : en formation, l'écran dit « aucune conversation » et rien ne part. On s'entraîne sur 💬 Messages ; WhatsApp se montre en réel, avec le formateur."],
     ]},
@@ -99,7 +99,7 @@ export const CHAPITRE = {
 
       ["h3", "D. 📲 WhatsApp — répondre"],
       ["etapes", [
-        { titre: "Ouvrir la conversation", texte: "Les non lues sont dans « 🔴 Nouveaux messages » ; les autres dans « Conversations » (10 lignes, puis on fait défiler ; les plus vieilles passent dans « Conversations anciennes »). « Rechercher une conversation… » cherche le nom **ou le numéro**, archives comprises. Le fil s'ouvre sur **le dernier message** ; pour relire le début, on remonte dans le fil." },
+        { titre: "Ouvrir la conversation", texte: "Les non lues sont dans « 🔴 Nouveaux messages » ; les autres dans « Conversations » (10 lignes, puis on fait défiler ; les plus vieilles passent dans « Conversations anciennes »). « Rechercher une conversation… » cherche le nom **ou le numéro**, archives comprises. **Le nom d'une conversation** : celui donné par l'administrateur (✏️ Nommer), sinon le compte BMI du client, sinon **le nom que le client s'est donné dans son WhatsApp**, marqué « (nom WhatsApp) » — c'est lui qui l'a choisi, ce n'est pas un client vérifié —, sinon le numéro. ⚠ Les noms du **répertoire du téléphone BMI** n'arrivent jamais dans l'application : WhatsApp ne les donne pas. Le fil s'ouvre sur **le dernier message** ; pour relire le début, on remonte dans le fil." },
         { titre: "Écrire « Votre réponse, envoyée du numéro BMI… » puis « Envoyer »", texte: "Le message part **du numéro BMI**. Il ne s'écrit dans le fil **que s'il est vraiment parti** ; sinon l'écran dit pourquoi, en français." },
         { titre: "📎 Joindre un fichier (facultatif)", texte: "Le bouton **📎** à gauche de la case : photo, PDF, Word, Excel, PowerPoint, texte, vidéo MP4 ou son, **3 Mo au plus**. Une photo de téléphone est **réduite toute seule** avant de partir. Le fichier choisi s'affiche au-dessus (✕ pour le retirer) ; la case devient « Phrase facultative… » : on peut l'envoyer **sans un mot**. Un son part sans phrase (WhatsApp n'en porte pas). Le fil garde « 📎 nom du fichier — envoyé » : **le fichier n'est pas rangé dans l'application**, sa copie reste sur le téléphone BMI." },
         { titre: "Lire les coches", texte: "**✓** parti · **✓✓ gris** arrivé sur son téléphone · **✓✓ bleu** lu · **❌ Non reçu** avec le motif. Un client qui a coupé les confirmations de lecture reste à ✓✓ gris." },
@@ -119,6 +119,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "🔁 Confier", texte: "Dans la conversation ouverte : choisir la personne. Une ligne « 🔁 Conversation confiée à … par … » se pose dans le fil. Désormais **seuls cette personne et l'administrateur** peuvent l'ouvrir ; les autres voient **la ligne grisée**, avec le nom de la personne." },
         { titre: "Une ligne grisée", texte: "Un clic dit : « Cette conversation est confiée à KOSSI. Seule cette personne, ou un administrateur, peut l'ouvrir. » Aucun aperçu, aucun compteur." },
+        { titre: "✏️ Nommer", texte: "Dans la conversation ouverte : taper le nom voulu (« PLOMBIER AGOÈ »), comme dans un répertoire. Il passe **avant** le compte BMI et le nom WhatsApp, **pour tout le personnel**, ligne grisée comprise. Rien ne s'ajoute au fil et la conversation ne remonte pas. **Laisser vide** retire le nom donné." },
         { titre: "🔓 Rendre à tous", texte: "Quand la personne est absente : la conversation repart au support, visible de tous (« 🔓 Conversation rendue à tout le personnel par … »). On peut la reconfier ensuite." },
         { titre: "🗑 Supprimer une conversation (administrateur principal seul)", texte: "Dans la liste, **garder le doigt (ou le clic) une demi-seconde** sur la conversation. Une question nomme le client et le nombre de messages. Confirmée, la conversation **disparaît de 📲 WhatsApp pour tout le monde** et part à la **corbeille pendant 30 jours** (⚙ Paramètres → 🗑 Corbeille → ♻ Restaurer). Le téléphone BMI et le client gardent leur copie : rien n'est effacé chez WhatsApp. Si le client réécrit, une **nouvelle** conversation commence, au support, et l'assistant se présente de nouveau. Chez les autres comptes, l'appui long ne fait rien." },
       ]],
@@ -151,7 +152,8 @@ export const CHAPITRE = {
         ["✍️ Lui écrire quand même", "📲, fenêtre fermée", "Ouvre « ✍️ Écrire » prérempli avec son nom et son numéro."],
         ["🔁 Confier / 🔓 Rendre à tous", "📲, fil ouvert (admin)", "Donne la conversation à quelqu'un / la rend au support."],
         ["Appui long sur une conversation", "📲 WhatsApp, la liste (administrateur principal)", "La met à la corbeille 30 jours, pour tout le monde."],
-        ["Rechercher une conversation…", "📲 WhatsApp", "Nom ou numéro, archives comprises."],
+        ["✏️ Nommer", "📲, fil ouvert (admin)", "Donne un nom à la conversation, pour tout le personnel ; vide = le retire."],
+        ["Rechercher une conversation…", "📲 WhatsApp", "Nom (donné, compte, WhatsApp) ou numéro, archives comprises."],
       ]}],
     ]},
 
