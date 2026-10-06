@@ -707,10 +707,16 @@ function LigneWa({ item, cleOuverte, ouvrir, supprimer = null }) {
 // ---- 👤 LE NOM D'UNE CONVERSATION (06/10/2026) ----
 // ⚠ Le nom WhatsApp est choisi par le CLIENT : il se lit MARQUÉ, jamais comme
 // un client vérifié (un compte BMI ou un nom donné par l'administrateur).
+// ⚠ LE NUMÉRO NE DISPARAÎT JAMAIS (Timo, 06/10/2026 : « afficher aussi le
+// numéro à côté… pas remplacer et faire disparaître le numéro ») : dès qu'un
+// nom s'affiche, le numéro suit sur la même ligne.
 function NomConversation({ c }) {
-  const nom = c?.nomAffiche || c?.nom || c?.tel || "";
+  const tel = String(c?.tel || "");
+  const nom = c?.nomAffiche || c?.nom || tel;
   return (<>{nom}{c?.origineNom === "whatsapp" && (
     <span data-nom-whatsapp className="ml-1 text-[10px] font-normal text-slate-500 whitespace-nowrap">(nom WhatsApp)</span>
+  )}{tel && nom !== tel && (
+    <span data-numero-conversation className="ml-1 text-xs font-normal text-slate-500 whitespace-nowrap">· {tel}</span>
   )}</>);
 }
 

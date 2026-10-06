@@ -3894,6 +3894,10 @@ titre("㊾ 👤 LE NOM D'UNE CONVERSATION — LE NOM DONNÉ, LE COMPTE BMI, LE N
   const hA = V.renduNoms("admin"), hV = V.renduNoms("vendeur");
   test("★★ l'écran RENDU : le nom WhatsApp s'affiche MARQUÉ « (nom WhatsApp) », le nom donné l'emporte et n'est pas marqué",
     /Kossi M\.<span data-nom-whatsapp[^>]*>\(nom WhatsApp\)/.test(hA) && /PLOMBIER AGOE/.test(hA) && !/😎 Boss/.test(hA));
+  test("★★ le NUMÉRO reste à côté du nom (Timo : « pas remplacer et faire disparaître le numéro ») — nom WhatsApp, nom donné et ligne grisée",
+    /Kossi M\.<span data-nom-whatsapp[\s\S]{0,200}<span data-numero-conversation[^>]*>· (?:<!-- -->)?\+22890117711/.test(hA)
+    && /PLOMBIER AGOE<span data-numero-conversation[^>]*>· (?:<!-- -->)?\+22890117722/.test(hA)
+    && /AYOKO VILLA ADIDOGOME<span data-numero-conversation[^>]*>· (?:<!-- -->)?\+22890114455/.test(hV));
   test("★★ la ligne GRISÉE du vendeur porte le nom donné par l'administrateur",
     /🔒 <!-- -->AYOKO VILLA ADIDOGOME|🔒 AYOKO VILLA ADIDOGOME/.test(hV));
   test("★★ « ✏️ Nommer » : chez l'administrateur seulement, sur le fil ouvert",
