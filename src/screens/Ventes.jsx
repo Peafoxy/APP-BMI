@@ -13,7 +13,7 @@ import { LOGO, PAIEMENTS } from "../lib/constants";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
-import { lignesReprenables, montantReprise, moyenParDefaut, critiqueReprise, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
+import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
@@ -22,7 +22,7 @@ import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
-import { bonReprise, bonRetour, retoursDeVente } from "../lib/bons";
+import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas } from "../lib/calculs";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
@@ -1099,34 +1099,43 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [retour, setRetour] = useState(null); // { vente, produit_id, qte, motif, facture, montant, detail }
   // ---- ↩ REPRISE D'UN ARTICLE PAR LE CLIENT (Timo, 10/09/2026 : « Reprise
   // pour l'administrateur principal seul ») — règle pure lib/reprises.js.
-  const [reprise, setReprise] = useState(null); // { vente, produit_id, qte, motif, moyen }
+  // ⚠ PLUSIEURS ARTICLES D'UN COUP (06/10/2026, « 1 oui, 2 oui ») : une case de
+  // quantité par ligne de la vente (`qtes`, 0 d'office — un seul article d'office
+  // à 1 si la vente n'en porte qu'un), UN motif, UN moyen, UN bon.
+  const [reprise, setReprise] = useState(null); // { vente, qtes: { produit_id: "n" }, motif, moyen }
   const jeSuisPrincipal = estAdminPrincipal(db, profile);
   const ouvrirReprise = (v) => {
     if (refuserSaufAdminPrincipal(db, profile, "Reprendre un article vendu")) return;
     const lignes = lignesReprenables(v);
     if (!lignes.length) { uAlert("Cette vente ne porte aucun article de stock à reprendre (ou tout a déjà été repris)."); return; }
-    setReprise({ vente: v, produit_id: lignes[0].produit_id, qte: "1", motif: "", moyen: moyenParDefaut(v) });
+    setReprise({ vente: v, qtes: Object.fromEntries(lignes.map((l) => [l.produit_id, lignes.length === 1 ? "1" : "0"])), motif: "", moyen: moyenParDefaut(v) });
   };
   const apercuReprise = () => {
     if (!reprise) return null;
-    const ligne = lignesReprenables(reprise.vente).find((l) => l.produit_id === reprise.produit_id);
-    const n = Math.floor(Number(reprise.qte || 0));
-    if (!ligne || !(n >= 1)) return null;
-    const montant = montantReprise(reprise.vente, ligne, Math.min(n, ligne.restant));
+    const montant = montantDuChoix(reprise.vente, choixReprise(reprise));
+    if (!(montant > 0)) return null;
     const dette = (db.dettes || []).find((d) => d.vente_id === reprise.vente.id);
     if (!dette) return { montant, rembourse: montant, dette: null };
     const nouveau = Math.max(0, Number(dette.montant || 0) - montant);
     return { montant, rembourse: Math.max(0, Number(dette.paye || 0) - nouveau), dette, nouveau };
   };
+  const choixReprise = (rp) => ({
+    lignes: Object.entries(rp.qtes || {}).map(([produit_id, qte]) => ({ produit_id, qte: Number(qte || 0) })),
+    motif: rp.motif, moyen: rp.moyen,
+  });
   const confirmerReprise = async () => {
     if (refuserSaufAdminPrincipal(db, profile, "Reprendre un article vendu")) return;
     if (bloquerSiLecture(db, profile)) return;
-    const r = construireReprise(db, reprise.vente, { produit_id: reprise.produit_id, qte: Number(reprise.qte), motif: reprise.motif, moyen: reprise.moyen }, profile, today());
+    // Revérifié DANS le geste, sur la vente FRAÎCHE (un autre appareil a pu reprendre entre-temps).
+    const venteFraiche = (db.ventes || []).find((x) => x.id === reprise.vente.id) || reprise.vente;
+    const r = construireReprise(db, venteFraiche, choixReprise(reprise), profile, today());
     if (r.refus) { uAlert(r.refus); return; }
-    const n = r.reprise.qte;
+    const plusieurs = r.reprises.length > 1;
     if (!(await uConfirm(
-      `Reprendre ${n} × « ${r.reprise.article} » (reçu ${numeroRecu(reprise.vente)}) ?\n\n` +
-      `• L'article revient au stock de ${reprise.vente.boutique}\n` +
+      (plusieurs
+        ? `Reprendre ${r.reprises.length} articles (reçu ${numeroRecu(reprise.vente)}) ?\n${r.reprises.map((x) => `  – ${x.qte} × ${x.article} : ${fmt(x.montant)}`).join("\n")}\n\n`
+        : `Reprendre ${r.reprise.qte} × « ${r.reprise.article} » (reçu ${numeroRecu(reprise.vente)}) ?\n\n`) +
+      `• ${plusieurs ? "Les articles reviennent" : "L'article revient"} au stock de ${reprise.vente.boutique}\n` +
       `• Valeur reprise : ${fmt(r.montant)} (prix payé, remises comprises)\n` +
       (r.dette
         ? `• La dette du client passe de ${fmt(r.detteAvant.montant)} à ${fmt(r.dette.montant)}${r.rembourse > 0 ? `\n• ${fmt(r.rembourse)} versés en trop lui sont rendus (${reprise.moyen})` : ""}`
@@ -1186,7 +1195,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   };
   // Les bons d'une vente déjà enregistrés : réimprimables depuis sa ligne.
   const bonsDeVente = (v) => [
-    ...(v.reprises || []).map((r) => ({ bon: bonReprise(db, v, r), libelle: `↩ Bon de reprise ${dFR(r.date)} — ${r.qte} × ${r.article}` })),
+    ...bonsRepriseDeVente(db, v).map((b) => ({ bon: b, libelle: `↩ Bon de reprise ${dFR(b.date)} — ${articlesDuBon(b)}` })),
     ...retoursDeVente(db, v).map((r) => ({ bon: bonRetour(db, v, r), libelle: `🔁 Bon de retour ${dFR(r.date)} — ${r.qte} × ${r.article}` })),
   ];
   const ouvrirBons = async (v) => {
@@ -1687,21 +1696,26 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       {reprise && (() => { const ap = apercuReprise(); return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-3 max-h-[90vh] overflow-y-auto">
-            <div className="font-bold text-slate-900">↩ Reprise de l'article par BMI</div>
+            <div className="font-bold text-slate-900">↩ Reprise d'articles par BMI</div>
             <div className="text-xs text-slate-500">
               Reçu {numeroRecu(reprise.vente)} — {reprise.vente.client || "client de passage"} — {reprise.vente.boutique}.
-              L'article <b>revient au stock</b> ; le reçu et le total encaissé ne changent pas ; le chiffre d'affaires et la commission sont réduits.
+              Les articles <b>reviennent au stock</b> ; le reçu et le total encaissé ne changent pas ; le chiffre d'affaires et la commission sont réduits.
+              Mettez la quantité reprise en face de chaque article que le client rend (0 = gardé).
             </div>
-            <Field label="Article repris">
-              <select className={inputCls} value={reprise.produit_id} onChange={(e) => setReprise({ ...reprise, produit_id: e.target.value, qte: "1" })}>
-                {lignesReprenables(reprise.vente).map((l) => (
-                  <option key={l.produit_id} value={l.produit_id}>{l.article} (reste {l.restant} sur {l.qte})</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Quantité reprise">
-              <input type="number" min="1" className={inputCls} value={reprise.qte} onChange={(e) => setReprise({ ...reprise, qte: e.target.value })} />
-            </Field>
+            <div data-reprise-lignes className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+              {lignesReprenables(reprise.vente).map((l) => (
+                <div key={l.produit_id} className="flex items-center gap-3 px-3 py-2">
+                  <div className="flex-1 text-sm">
+                    <div className="font-semibold text-slate-800">{l.article}</div>
+                    <div className="text-xs text-slate-500">reste {l.restant} sur {l.qte}</div>
+                  </div>
+                  <input type="number" min="0" max={l.restant} aria-label={`Quantité reprise : ${l.article}`}
+                    className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-right"
+                    value={reprise.qtes?.[l.produit_id] ?? "0"}
+                    onChange={(e) => setReprise({ ...reprise, qtes: { ...reprise.qtes, [l.produit_id]: e.target.value } })} />
+                </div>
+              ))}
+            </div>
             <Field label="Motif (obligatoire)">
               <input className={inputCls} placeholder="Ex : le client a changé d'avis sur place" value={reprise.motif} onChange={(e) => setReprise({ ...reprise, motif: e.target.value })} />
             </Field>

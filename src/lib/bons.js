@@ -30,26 +30,49 @@ const trim = (x) => String(x ?? "").trim();
 const motifNu = (m) => trim(m).replace(/^(Échange garantie|Reprise client|Défectueux rendu)\s*(\([^)]*\))?\s*[—-]\s*/u, "");
 
 // ---- Bon de reprise ----
+// ⚠ UNE REPRISE PEUT PORTER PLUSIEURS ARTICLES (06/10/2026, « 1 oui, 2 oui ») :
+// ses lignes partagent le même `ref` dans `vente.reprises`, et elles font UN
+// bon. Le rang compte les REPRISES (les `ref` distincts), pas les lignes —
+// une vente aux reprises d'un seul article garde exactement ses numéros.
+export const refsDeReprises = (vente) => [...new Set((vente?.reprises || []).map((r) => r.ref).filter(Boolean))];
+export const lignesDeLaReprise = (vente, ref) => (vente?.reprises || []).filter((r) => r.ref === ref);
 export const numeroBonReprise = (vente, reprise) => {
-  const rang = (vente?.reprises || []).findIndex((r) => r.ref === reprise?.ref);
-  return `REP-${numeroRecu(vente)}-${(rang >= 0 ? rang : (vente?.reprises || []).length) + 1}`;
+  const refs = refsDeReprises(vente);
+  const rang = refs.indexOf(reprise?.ref);
+  return `REP-${numeroRecu(vente)}-${(rang >= 0 ? rang : refs.length) + 1}`;
 };
 export function bonReprise(db, vente, reprise) {
   if (!vente || !reprise) return null;
-  const dette = reprise.dette_id ? (db?.dettes || []).find((d) => d.id === reprise.dette_id) || null : null;
-  const montant = Number(reprise.montant || 0);
-  const rembourse = Number(reprise.rembourse || 0);
+  // La reprise reçue fait foi pour SA ligne (on peut passer une copie
+  // modifiée) ; les autres lignes du même `ref` viennent de la vente.
+  const memeLigne = (r) => r === reprise || (r.id && r.id === reprise.id) || (!r.id && !reprise.id && r.produit_id === reprise.produit_id);
+  const freres = lignesDeLaReprise(vente, reprise.ref);
+  const toutes = freres.some(memeLigne) ? freres.map((r) => (memeLigne(r) ? reprise : r)) : [reprise, ...freres];
+  const lignes = toutes.map((r) => ({ article: r.article, qte: Number(r.qte || 0), montant: Number(r.montant || 0) }));
+  const tete = reprise;
+  const dette = tete.dette_id ? (db?.dettes || []).find((d) => d.id === tete.dette_id) || null : null;
+  const montant = lignes.reduce((s, l) => s + l.montant, 0);
+  const rembourse = toutes.reduce((s, r) => s + Number(r.rembourse || 0), 0);
   return {
-    type: TYPE_BON_REPRISE, numero: numeroBonReprise(vente, reprise), ref: reprise.ref, date: reprise.date, vente_id: vente.id,
+    type: TYPE_BON_REPRISE, numero: numeroBonReprise(vente, tete), ref: tete.ref, date: tete.date, vente_id: vente.id,
     boutique: vente.boutique, client: vente.client || "", tel: vente.tel || "",
     recu: numeroRecu(vente), dateVente: vente.date,
-    article: reprise.article, qte: Number(reprise.qte || 0), motif: motifNu(reprise.motif),
-    montant, rembourse, moyen: reprise.moyen || "",
+    // Un seul article : comme avant. Plusieurs : `lignes` les porte toutes,
+    // et `article` / `qte` restent ceux de la première (rien ne casse).
+    article: lignes[0].article, qte: lignes[0].qte, lignes, motif: motifNu(tete.motif),
+    montant, rembourse, moyen: tete.moyen || "",
     // La dette du client, si la vente était à crédit : réduite de la valeur reprise.
     dette: dette ? { numero: dette.numero || "", reduction: montant, resteApres: Math.max(0, Number(dette.montant || 0) - Number(dette.paye || 0)) } : null,
-    par: reprise.par || "",
+    par: tete.par || "",
   };
 }
+// Les bons de reprise d'une vente : UN par reprise, quel que soit son nombre d'articles.
+export const bonsRepriseDeVente = (db, vente) => refsDeReprises(vente)
+  .map((ref) => bonReprise(db, vente, lignesDeLaReprise(vente, ref)[0]))
+  .filter(Boolean);
+// « 2 × Support M8 · 1 × Rail » — la liste lisible d'un bon.
+export const articlesDuBon = (bon) => (bon?.lignes?.length ? bon.lignes : [{ article: bon?.article, qte: bon?.qte }])
+  .map((l) => `${l.qte} × ${l.article}`).join(" · ");
 
 // ---- Bon de retour (échange sous garantie) ----
 // Les retours d'une vente vivent dans les ajustements (`echange_garantie` =
@@ -106,7 +129,7 @@ export function texteBon(bon, bq = {}) {
     `Reçu d'origine : ${bon.recu} du ${dFR(bon.dateVente)}`,
     bon.client ? `Client : ${bon.client}` : null,
     "------------------------",
-    `${bon.qte} × ${bon.article}`,
+    ...(bon.lignes?.length > 1 ? bon.lignes.map((l) => `${l.qte} × ${l.article} — ${fmt(l.montant)}`) : [`${bon.qte} × ${bon.article}`]),
     `Motif : ${bon.motif}`,
   ];
   const corps = bon.type === TYPE_BON_REPRISE

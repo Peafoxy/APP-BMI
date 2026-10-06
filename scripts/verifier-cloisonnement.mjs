@@ -6310,6 +6310,45 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   test("★ vente à crédit : la dette diminue de la reprise (22 700 → 11 324), seuls les 3 676 versés au-delà sont rendus ; rien versé en trop → aucune dépense, moyen vide ; les versements passés restent intacts",
     rc.dette.montant === 11324 && rc.rembourse === 3676 && rc.depense.montant === 3676 && rc.dette.paye === 15000 && rc.dette.paiements.length === 1 && rc.dette.reprises[0].montant === 11376
     && rc0.dette.montant === 11324 && rc0.rembourse === 0 && rc0.depense === null && rc0.reprise.moyen === "" && Rp.appliquerReprise(dbc, rc).dettes[0].montant === 11324 && Rp.appliquerReprise(dbc, rc).depenses.length === 1);
+  // ↩ PLUSIEURS ARTICLES EN UNE REPRISE (06/10/2026, « 1 oui, 2 oui » : un motif, un bon).
+  const venteM = { id: "v3", numero: "BMID-2026-0043", boutique: "APESSITO", client: "SENA", tel: "90000000", date: "2026-10-06", paiement: "Espèces", remise: 0,
+    articles: [{ produit_id: "p1", article: "BATTERIE", qte: 2, pu: 12000 }, { produit_id: "p3", article: "SUPPORT M8", qte: 8, pu: 1300 }, { produit_id: "p4", article: "RAIL", qte: 3, pu: 5000 }] };
+  const dbm = { ...dbp, ventes: [venteM] };
+  const choixM = { lignes: [{ produit_id: "p1", qte: 1 }, { produit_id: "p3", qte: 2 }, { produit_id: "p4", qte: 0 }], motif: "pas de sous suffisant", moyen: "Espèces" };
+  const rm = Rp.construireReprise(dbm, venteM, choixM, timo, "2026-10-06");
+  const dbm2 = rm.refus ? dbm : Rp.appliquerReprise(dbm, rm);
+  test("★★ plusieurs articles d'un coup : une ligne à 0 est ignorée ; UN ajustement de stock PAR article (+1 batterie, +2 supports) ; UNE sortie de caisse pour le total (12 000 + 2 600 = 14 600) ; deux lignes dans `reprises` sous le MÊME ref ; la somme des parts rendues = le total",
+    !rm.refus && rm.ajustements?.length === 2 && rm.ajustements.every((a) => a.ref === rm.ref && a.type === "reprise_client") && rm.montant === 14600 && rm.depense.montant === 14600
+    && rm.reprises.length === 2 && rm.reprises.every((x) => x.ref === rm.ref && x.motif === "pas de sous suffisant") && rm.reprises.reduce((s0, x) => s0 + x.rembourse, 0) === 14600
+    && new Set(rm.reprises.map((x) => x.id)).size === 2 && dbm2.ajustements.length === 2 && dbm2.depenses.length === 1
+    && Core.qteReprise(rm.vente, "p1") === 1 && Core.qteReprise(rm.vente, "p3") === 2 && Core.caVente(rm.vente) === Core.caVenteBrut(venteM) - 14600
+    && /1 × BATTERIE, 2 × SUPPORT M8/.test(rm.journal));
+  test("★ critique d'une reprise groupée : rien à reprendre → refus ; une quantité au-delà du restant NOMME l'article ; un même article deux fois → refus ; l'ancienne forme (un article) reste lue",
+    /au moins un article/.test(Rp.critiqueReprise(dbm, venteM, { lignes: [{ produit_id: "p1", qte: 0 }], motif: "x", moyen: "Espèces" }))
+    && /SUPPORT M8/.test(Rp.critiqueReprise(dbm, venteM, { lignes: [{ produit_id: "p3", qte: 9 }], motif: "x", moyen: "Espèces" }))
+    && /deux fois/.test(Rp.critiqueReprise(dbm, venteM, { lignes: [{ produit_id: "p1", qte: 1 }, { produit_id: "p1", qte: 1 }], motif: "x", moyen: "Espèces" }))
+    && Rp.critiqueReprise(dbm, venteM, { produit_id: "p1", qte: 1, motif: "x", moyen: "Espèces" }) === "" && Rp.montantDuChoix(venteM, choixM) === 14600);
+  {
+    const sortieBm = join("node_modules", ".cache", `bmi-bons-m-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/bons.js"], bundle: true, format: "esm", platform: "node", outfile: sortieBm, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+    const Bm = await import(pathToFileURL(sortieBm).href);
+    unlinkSync(sortieBm);
+    const venteAvant = { ...(rm.vente || venteM), reprises: [{ id: "REP-OLD", ref: "REP-OLD", date: "2026-10-05", produit_id: "p4", article: "RAIL", qte: 1, montant: 5000, rembourse: 5000, moyen: "Espèces", motif: "x", par: "TIMO" }, ...((rm.vente || venteM).reprises || [])] };
+    const bons = Bm.bonsRepriseDeVente(dbm2, venteAvant);
+    test("★★ UN bon pour toute la reprise : il liste les deux articles, total 14 600 rendu 14 600 ; le rang compte les REPRISES, pas les lignes (l'ancienne reprise d'un article = REP-…-1, la groupée = REP-…-2) ; le texte et la liste du bouton 🧾 nomment tous les articles",
+      bons.length === 2 && bons[0].numero === "REP-BMID-2026-0043-1" && bons[1].numero === "REP-BMID-2026-0043-2" && bons[1].lignes.length === 2 && bons[1].montant === 14600 && bons[1].rembourse === 14600
+      && Bm.articlesDuBon(bons[1]) === "1 × BATTERIE · 2 × SUPPORT M8" && /1 × BATTERIE — /.test(Bm.texteBon(bons[1])) && /2 × SUPPORT M8 — /.test(Bm.texteBon(bons[1]))
+      && Bm.bonReprise(dbm2, venteAvant, venteAvant.reprises[2])?.numero === "REP-BMID-2026-0043-2"
+      // Une reprise d'UN article APRÈS la groupée : elle est la troisième REPRISE (-3), pas la quatrième ligne (-4).
+      && Bm.numeroBonReprise({ ...venteAvant, reprises: [...venteAvant.reprises, { ref: "REP-NEW" }] }, { ref: "REP-NEW" }) === "REP-BMID-2026-0043-3");
+    const sortieWm = join("node_modules", ".cache", `bmi-wa-m-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/whatsappModeles.js"], bundle: true, format: "esm", platform: "node", outfile: sortieWm, logLevel: "silent" });
+    const Wm = await import(pathToFileURL(sortieWm).href);
+    unlinkSync(sortieWm);
+    const env = Wm.envoiBon({ bon: bons[1], boutique: { adresse: "Lomé" } });
+    test("★ le bon part du numéro BMI en UN message : la case article porte la liste sur UNE ligne (jamais un retour à la ligne : Meta le refuse)",
+      env && env.modele === "bon_reprise" && env.variables[7] === "1 × BATTERIE · 2 × SUPPORT M8" && !/\n/.test(env.variables[7]));
+  }
   const sortieK2 = join("node_modules", ".cache", `bmi-constants-rp-${process.pid}.mjs`);
   await build({ entryPoints: ["src/lib/constants.js"], bundle: true, format: "esm", platform: "node", outfile: sortieK2, logLevel: "silent" });
   const K2 = await import(pathToFileURL(sortieK2).href);
@@ -6319,11 +6358,12 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
     K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant|Prêt au personnel" /* 03/10/2026 : un prêt au personnel non plus (une créance, compte 421) ; 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) */);
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ les MOTS (Timo, 14/09/2026, capture : « Reprise d'un article par BMI ou par le client ? » → « Reprise de l'article par BMI ») : la fenêtre, l'infobulle et le journal disent que BMI reprend ; plus jamais « par le client »",
-    /↩ Reprise de l'article par BMI<\/div>/.test(vs) && /title="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) && !/Reprise d'un article par le client|repris par le client/.test(vs)
+    /↩ Reprise d'articles par BMI<\/div>/.test(vs) /* RETOURNÉ le 06/10/2026 : plusieurs articles d'un coup, le titre dit « d'articles » ; BMI reprend toujours */ && /title="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) && !/Reprise d'un article par le client|repris par le client/.test(vs)
     && /repris par BMI \(reçu/.test(readFileSync("src/lib/reprises.js", "utf8")) && !/repris par le client/.test(readFileSync("src/lib/reprises.js", "utf8")));
   test("★ écran Ventes : « ↩ Reprise » pour l'administrateur PRINCIPAL seul (estAdminPrincipal à l'affichage, refuserSaufAdminPrincipal dans le geste, deux fois), fenêtre avec article / quantité / motif / moyen, aperçu du montant et de la dette, confirmation qui dit que le reçu ne change pas, écriture par appliquerReprise ; la ligne montre « ↩ N repris »",
     /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && \(/.test(vs) && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
-    && /construireReprise\(db, reprise\.vente, \{ produit_id: reprise\.produit_id, qte: Number\(reprise\.qte\), motif: reprise\.motif, moyen: reprise\.moyen \}, profile, today\(\)\)/.test(vs)
+    // RETOURNÉ le 06/10/2026 (« 1 oui, 2 oui ») : une case par ligne de la vente, sur la vente FRAÎCHE.
+    && /const r = construireReprise\(db, venteFraiche, choixReprise\(reprise\), profile, today\(\)\);/.test(vs) && /data-reprise-lignes/.test(vs)
     && /const dbApres = appliquerReprise\(db, r\);\n\s*save\(dbApres, r\.journal\);/.test(vs) /* 14/09/2026 : le bon de reprise est proposé juste après */ && /Le reçu et le total encaissé ne changent pas/.test(vs) && /MOYENS_REMBOURSEMENT\.map/.test(vs)
     // 12/09/2026 (liste des ventes lisible) : le compte des repris vit dans ArticlesVente — « ↩ N repris » toujours sur la ligne.
     && /const repris = \(v\.reprises \|\| \[\]\)\.reduce/.test(vs) && /↩ \{repris\} repris/.test(vs));

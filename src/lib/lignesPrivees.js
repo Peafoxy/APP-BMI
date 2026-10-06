@@ -16,7 +16,7 @@
 import { envoiRecuVente, envoiRecuVenteDetail, envoiBon, envoiVirementSalaire, envoiAvancement, ligneEnvoiModele } from "./whatsappModeles";
 import { lignesVente, totalVente, fmt, dFR, numeroBulletin } from "./core";
 import { montantEncaisseVente } from "./versements";
-import { bonReprise, bonRetour, retoursDeVente } from "./bons";
+import { bonsRepriseDeVente, bonRetour, retoursDeVente } from "./bons";
 import { libelleMoisFR } from "./calculs";
 import { envoiDeCommission } from "./commissionsDues";
 
@@ -34,7 +34,7 @@ export function envoisRecuDeVente(vente, { boutique = {}, dette = null } = {}) {
 
 // Les bons d'une vente (reprises, puis retours sous garantie).
 export const bonsDeLaVente = (db, vente) => [
-  ...(vente?.reprises || []).map((r) => bonReprise(db, vente, r)),
+  ...bonsRepriseDeVente(db, vente),
   ...retoursDeVente(db, vente).map((r) => bonRetour(db, vente, r)),
 ].filter(Boolean);
 

@@ -1460,7 +1460,9 @@ export function envoiBon({ bon, boutique, fmt, dFR }) {
     d(bon.date) || "aujourd'hui",
     `${texteVariable(bon.recu) || "—"}${bon.dateVente ? ` du ${d(bon.dateVente)}` : ""}`,
     !client || /client non renseign/i.test(client) ? "Non renseigné" : client,
-    `${Number(bon.qte) || 1} × ${texteVariable(bon.article) || "article"}`,
+    // Plusieurs articles repris d'un coup (06/10/2026) : la liste sur UNE ligne
+    // (Meta refuse un retour à la ligne dans un trou), la règle du reçu détaillé.
+    bon.lignes?.length > 1 ? listeArticlesRecu(bon.lignes) : `${Number(bon.qte) || 1} × ${texteVariable(bon.article) || "article"}`,
     texteVariable(bon.motif) || "Non précisé",
   ];
   const par = texteVariable(bon.par) || "BMI TOGO";

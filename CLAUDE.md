@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2272 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2276 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6096,6 +6096,20 @@ lit mal est pire qu'un banc absent).
   **Les mots (14/09/2026, capture : « Reprise d'un article par BMI ou par le
   client ? » → « Reprise de l'article par BMI ») : c'est BMI qui REPREND, le
   client REND — fenêtre, infobulle, journal ; jamais « par le client ».**
+- **↩ PLUSIEURS ARTICLES EN UNE REPRISE** (06/10/2026, capture Timo : « pourquoi
+  on ne peut pas reprendre plusieurs articles en même temps » → « 1 oui, 2 oui » :
+  UN motif, UN bon). La fenêtre (« ↩ Reprise d'articles par BMI ») montre toutes
+  les lignes reprenables, une case de quantité chacune (0 d'office, 1 si la vente
+  n'en a qu'une), UN motif, UN moyen. `construireReprise` reçoit `lignes`
+  (`lignesDuChoix` lit encore l'ancienne forme) : **UN ajustement par article**,
+  **UNE sortie de caisse** (ou une baisse de dette) pour le total, et une ligne
+  par article dans `reprises` sous le **MÊME `ref`** — `qteReprise`, `caVente`, la
+  commission et Rentabilité n'ont pas bougé. **UN bon** (`bonsRepriseDeVente`,
+  `lignes`), son rang compte les REPRISES et non les lignes (les anciens numéros
+  ne changent pas) ; WhatsApp : la case article porte la liste sur une ligne
+  (`listeArticlesRecu`), même modèle `bon_reprise`. Revérifié sur la vente
+  fraîche. Rien à coller (securite-13 accepte plusieurs lignes). Banc (4,
+  éprouvé). Chapitre 5 à jour.
 - **🧾 Bon de reprise et bon de retour** (14/09/2026 : « ce n'est pas
   judicieux de sortir un reçu ? comment ça se passe avec les grands
   logiciels ? » → un avoir / bon à part, **jamais le reçu de vente

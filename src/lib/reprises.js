@@ -47,34 +47,66 @@ export const montantReprise = (vente, ligne, n) => {
 // Le moyen proposé d'office : celui de la vente, sinon les espèces.
 export const moyenParDefaut = (vente) => (MOYENS_REMBOURSEMENT.includes(vente?.paiement) ? vente.paiement : "Espèces");
 
+// ↩ PLUSIEURS ARTICLES EN UNE SEULE REPRISE (06/10/2026, Timo : « pourquoi
+// on ne peut pas reprendre plusieurs articles en même temps » → « 1 oui,
+// 2 oui » : UN motif, UN bon pour tous). Le geste porte `lignes` :
+// [{ produit_id, qte }] — une ligne à 0 est ignorée. L'ancienne forme
+// ({ produit_id, qte }) reste lue : c'est une liste d'une ligne.
+// ⚠ SEULE LA SAISIE EST GROUPÉE, PAS LE STOCK : chaque article garde SON
+// ajustement et SA ligne dans `reprises` (qteReprise, caVente, la commission
+// et Rentabilité les lisent ligne par ligne, rien n'a bougé pour eux) ; elles
+// partagent le même `ref`, c'est lui qui en fait UN bon. L'argent, lui, est
+// UNE sortie de caisse (ou UNE baisse de la dette) pour le total.
+export const lignesDuChoix = (choix) => {
+  const brut = Array.isArray(choix?.lignes) ? choix.lignes : [{ produit_id: choix?.produit_id, qte: choix?.qte }];
+  return brut
+    .map((l) => ({ produit_id: l?.produit_id, qte: Math.floor(Number(l?.qte || 0)) }))
+    .filter((l) => l.produit_id && l.qte !== 0);
+};
+
 // "" si la reprise est possible, sinon le motif du refus.
-export function critiqueReprise(db, vente, { produit_id, qte, motif, moyen }) {
+export function critiqueReprise(db, vente, choix) {
   if (!vente) return "Vente introuvable.";
   const chantier = (db.clients_installes || []).find((c) => c.vente_id === vente.id);
   if (chantier) return `Cette vente a créé le chantier de ${chantier.nom} ${chantier.prenom || ""}. Traitez d'abord le chantier (🔧 Clients installés).`;
   if (vente.commission_payee) return `La commission de cette vente a déjà été payée${vente.commercial ? ` à ${vente.commercial}` : ""}. Annulez d'abord le règlement de commission (👑 Équipe).`;
-  const ligne = lignesReprenables(vente).find((l) => l.produit_id === produit_id);
-  if (!ligne) return "Cet article ne figure pas sur cette vente, ou a déjà été entièrement repris.";
-  const n = Math.floor(Number(qte || 0));
-  if (!(n >= 1 && n <= ligne.restant)) return `Quantité invalide : il reste ${ligne.restant} exemplaire(s) de cet article à reprendre sur cette vente.`;
-  if (!String(motif || "").trim()) return "Indiquez pourquoi le client ne prend pas l'article.";
-  if (!MOYENS_REMBOURSEMENT.includes(moyen)) return "Choisissez comment l'argent est rendu (espèces, mobile money, virement).";
+  const lignes = lignesDuChoix(choix);
+  if (!lignes.length) return "Indiquez la quantité reprise d'au moins un article.";
+  const vus = new Set();
+  for (const l of lignes) {
+    if (vus.has(l.produit_id)) return "Un même article apparaît deux fois : une seule quantité par article.";
+    vus.add(l.produit_id);
+    const ligne = lignesReprenables(vente).find((x) => x.produit_id === l.produit_id);
+    if (!ligne) return "Cet article ne figure pas sur cette vente, ou a déjà été entièrement repris.";
+    if (!(l.qte >= 1 && l.qte <= ligne.restant)) return `Quantité invalide pour « ${ligne.article} » : il en reste ${ligne.restant} à reprendre sur cette vente.`;
+  }
+  if (!String(choix?.motif || "").trim()) return "Indiquez pourquoi le client ne prend pas l'article.";
+  if (!MOYENS_REMBOURSEMENT.includes(choix?.moyen)) return "Choisissez comment l'argent est rendu (espèces, mobile money, virement).";
   return "";
 }
 
+// La valeur reprise d'un choix (aperçu de l'écran ET geste : UNE formule).
+export const montantDuChoix = (vente, choix) => lignesDuChoix(choix).reduce((s, l) => {
+  const ligne = lignesReprenables(vente).find((x) => x.produit_id === l.produit_id);
+  return ligne && l.qte >= 1 ? s + montantReprise(vente, ligne, Math.min(l.qte, ligne.restant)) : s;
+}, 0);
+
 // Les écritures d'une reprise. Ne vérifie pas le droit : critiqueReprise
-// d'abord. Renvoie { refus } ou { vente, ajustement, depense, dette,
-// detteAvant, reprise, montant, rembourse, ref }.
+// d'abord. Renvoie { refus } ou { vente, ajustements, ajustement, depense,
+// dette, detteAvant, reprises, reprise, montant, rembourse, ref }.
 export function construireReprise(db, vente, choix, profile, aujourdhui = today()) {
   const refus = critiqueReprise(db, vente, choix);
   if (refus) return { refus };
-  const { produit_id, motif, moyen } = choix;
-  const n = Math.floor(Number(choix.qte));
-  const ligne = lignesReprenables(vente).find((l) => l.produit_id === produit_id);
-  const montant = montantReprise(vente, ligne, n);
+  const { motif, moyen } = choix;
+  const lignes = lignesDuChoix(choix).map((l) => {
+    const ligne = lignesReprenables(vente).find((x) => x.produit_id === l.produit_id);
+    return { produit_id: l.produit_id, n: l.qte, article: ligne.article, montant: montantReprise(vente, ligne, l.qte) };
+  });
+  const montant = lignes.reduce((s, l) => s + l.montant, 0);
   const ref = "REP-" + uid().slice(0, 8).toUpperCase();
   const m = String(motif).trim();
   const qui = profile?.nom || "?";
+  const quoi = lignes.map((l) => `${l.n} × ${l.article}`).join(", ");
 
   // L'argent : la dette de la vente d'abord, le reste est rendu.
   const detteAvant = (db.dettes || []).find((d) => d.vente_id === vente.id) || null;
@@ -88,18 +120,29 @@ export function construireReprise(db, vente, choix, profile, aujourdhui = today(
   // La dépense porte la date de la reprise (`aujourdhui`), pas celle de l'horloge :
   // la règle est pure, le banc la rejoue à date fixe (défaut vu le 11/09/2026).
   const depense = rembourse > 0
-    ? { ...nouvelleDepense(profile, { boutique: vente.boutique, categorie: CATEGORIE_REMBOURSEMENT, description: `Remboursement client — reprise ${ref} : ${n} × ${ligne.article} (reçu ${numeroRecu(vente)}${client})`, montant: rembourse, moyen, vente_id: vente.id, reprise_ref: ref }), date: aujourdhui }
+    ? { ...nouvelleDepense(profile, { boutique: vente.boutique, categorie: CATEGORIE_REMBOURSEMENT, description: `Remboursement client — reprise ${ref} : ${quoi} (reçu ${numeroRecu(vente)}${client})`, montant: rembourse, moyen, vente_id: vente.id, reprise_ref: ref }), date: aujourdhui }
     : null;
-  const ajustement = {
-    id: uid(), date: aujourdhui, produit_id, boutique: vente.boutique, qte: n,
-    type: TYPE_REPRISE_CLIENT, ref, vente_id: vente.id, article: ligne.article,
+  const ajustements = lignes.map((l) => ({
+    id: uid(), date: aujourdhui, produit_id: l.produit_id, boutique: vente.boutique, qte: l.n,
+    type: TYPE_REPRISE_CLIENT, ref, vente_id: vente.id, article: l.article,
     motif: `Reprise client (${ref}) — ${m}`, par: qui, autorise_par: qui,
-  };
-  const reprise = { id: ref, ref, date: aujourdhui, produit_id, article: ligne.article, qte: n, montant, rembourse, moyen: rembourse > 0 ? moyen : "", motif: m, par: qui, depense_id: depense ? depense.id : null, dette_id: dette ? dette.id : null };
+  }));
+  // Ce qui est rendu se partage au prorata des valeurs (le dernier prend le
+  // reste au franc près) : la somme des lignes redonne toujours le total.
+  let resteARendre = rembourse;
+  const reprises = lignes.map((l, i) => {
+    const part = i === lignes.length - 1 ? resteARendre : (montant > 0 ? Math.round((rembourse * l.montant) / montant) : 0);
+    resteARendre -= part;
+    return {
+      id: lignes.length > 1 ? `${ref}-${i + 1}` : ref, ref, date: aujourdhui, produit_id: l.produit_id, article: l.article, qte: l.n,
+      montant: l.montant, rembourse: part, moyen: rembourse > 0 ? moyen : "", motif: m, par: qui,
+      depense_id: depense ? depense.id : null, dette_id: dette ? dette.id : null,
+    };
+  });
   return {
-    vente: { ...vente, reprises: [...(vente.reprises || []), reprise] },
-    ajustement, depense, dette, detteAvant, reprise, montant, rembourse, ref,
-    journal: `↩ Reprise ${ref} : ${n} × ${ligne.article} repris par BMI (reçu ${numeroRecu(vente)}${client}) — ${m}${dette ? ` — dette ramenée à ${dette.montant}` : ""}${rembourse > 0 ? ` — ${rembourse} rendu(s) (${moyen})` : ""} — par ${qui}`,
+    vente: { ...vente, reprises: [...(vente.reprises || []), ...reprises] },
+    ajustements, ajustement: ajustements[0], depense, dette, detteAvant, reprises, reprise: reprises[0], montant, rembourse, ref,
+    journal: `↩ Reprise ${ref} : ${quoi} repris par BMI (reçu ${numeroRecu(vente)}${client}) — ${m}${dette ? ` — dette ramenée à ${dette.montant}` : ""}${rembourse > 0 ? ` — ${rembourse} rendu(s) (${moyen})` : ""} — par ${qui}`,
   };
 }
 
@@ -107,7 +150,7 @@ export function construireReprise(db, vente, choix, profile, aujourdhui = today(
 export const appliquerReprise = (db, r) => ({
   ...db,
   ventes: (db.ventes || []).map((v) => (v.id === r.vente.id ? r.vente : v)),
-  ajustements: [r.ajustement, ...(db.ajustements || [])],
+  ajustements: [...(r.ajustements || [r.ajustement]), ...(db.ajustements || [])],
   ...(r.depense ? { depenses: [r.depense, ...(db.depenses || [])] } : {}),
   ...(r.dette ? { dettes: (db.dettes || []).map((d) => (d.id === r.dette.id ? r.dette : d)) } : {}),
 });
