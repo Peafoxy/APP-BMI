@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2324 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2325 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1460,6 +1460,13 @@ lit mal est pire qu'un banc absent).
   caisse qui a encaissé la dette), placée en tête et nommée ; on peut en
   choisir une autre. Hors liste (TERRAIN) : dite, jamais choisie. Rien à
   coller. Banc (1 contrôle, texte — la fenêtre n'est pas montée), éprouvé.
+- **💰 Primes remises s'ouvre aussi au GÉRANT** (07/10/2026, « à quel niveau
+  le gérant de Demakpoè peut valider ? » → nulle part : la notification
+  « Prime à payer » le visait, l'onglet n'existait que pour le vendeur, et il
+  n'a pas 🏠 Clients installés ; « oui lance ») : `primes_remises` dans
+  `ONGLETS_ROLE.gerant` et son menu, les demandes de SA boutique seulement
+  (même geste, mêmes contrôles). Rien à coller (le serveur ne distingue pas
+  vendeur et gérant sur ces champs). Guide du gérant : chapitre 16 ajouté.
 
 ### Petites dépenses d'un chantier de devis (13/09/2026)
 - Timo : « pour les chantiers nés d'un devis, les petites dépenses [carburant,

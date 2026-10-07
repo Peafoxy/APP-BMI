@@ -783,12 +783,12 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, demande_prime: true, prime_boutique: bq, prime_demandee_par: profile.nom, prime_demandee_le: today() } : y)) }
         : x)),
     }, `Demande de paiement de prime d'installation — ${e.nom} · ${fmt(e.montant)} · ${bq}`);
-    uAlert(`✅ Demande envoyée. Le vendeur de ${bq} peut désormais la valider depuis son onglet « 💰 Primes remises ».`);
+    uAlert(`✅ Demande envoyée. Le vendeur ou le gérant de ${bq} peut désormais la valider depuis son onglet « 💰 Primes remises ».`);
   };
 
   const validerPaiementPrime = async (c, e) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Seul le vendeur de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
+    if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Seul le vendeur ou le gérant de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
     if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : sans ce contrôle, la caisse aurait été débitée une seconde fois.`); return; }
     const moyen = await demanderMoyenPaiement(`pour ${e.nom}`, "Espèces", "Moyen de paiement", ficheParId(db.users, e.user_id));
     if (moyen === null) return;

@@ -13643,5 +13643,18 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     && /Le client a payé à \$\{payeIci\}/.test(calP) && /qui ne peut pas payer cette part ici/.test(calP));
 }
 
+// 💰 Le GÉRANT paie aussi une part d'installation demandée à SA boutique
+// (Timo, 07/10/2026 : il recevait la notification sans avoir l'onglet).
+{
+  const appP = readFileSync("src/App.jsx", "utf8");
+  const prP = readFileSync("src/screens/PrimesRemises.jsx", "utf8");
+  test("★ 💰 Primes remises : listé pour le gérant (ONGLETS_ROLE), dans son menu, monté pour lui ; la notification le vise ; le geste garde « sa boutique seulement »",
+    (C.ONGLETS_ROLE.gerant || []).includes("primes_remises") && (C.ONGLETS_ROLE.vendeur || []).includes("primes_remises")
+    && /\["travaux", "🛠 Travaux à crédit"\], \["primes_remises", "💰 Primes remises"\]\]/.test(appP)
+    && /ongletsVisites\.primes_remises && \(isVendeur \|\| isGerant\) && \(/.test(appP)
+    && /idsDeLaBoutique\(apres, e\.prime_boutique, \["vendeur", "gerant"\]\)/.test(readFileSync("src/lib/notifications.js", "utf8"))
+    && /if \(!isAdmin && profile\.boutique !== e\.prime_boutique\)/.test(prP));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

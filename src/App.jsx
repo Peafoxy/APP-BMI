@@ -1166,7 +1166,7 @@ export default function App() {
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["primes_remises", "💰 Primes remises"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages], ["mes_donnees", "🔒 Mes données"]]
     // ⚠ "parc" (Clients installés) ajouté au menu vendeur — demande Timo :
@@ -1484,7 +1484,10 @@ export default function App() {
           <M.Outillage db={db} save={save} profile={profile} />
         </div>
       )}
-      {ongletsVisites.primes_remises && isVendeur && (
+      {/* 💰 Primes remises : le vendeur ET le gérant de la boutique (Timo,
+          07/10/2026 : le gérant recevait la notification « Prime à payer »
+          sans avoir l'onglet pour la payer). */}
+      {ongletsVisites.primes_remises && (isVendeur || isGerant) && (
         <div style={{ display: tab === "primes_remises" ? "block" : "none" }}>
           <M.PrimesRemises db={db} save={save} profile={profile} />
         </div>

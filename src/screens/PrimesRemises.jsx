@@ -1,5 +1,5 @@
 // ============================================================
-// screens/PrimesRemises.jsx — Le vendeur d'une boutique valide et
+// screens/PrimesRemises.jsx — Le vendeur ou le gérant d'une boutique valide et
 // paie les demandes de prime d'installation adressées à SA caisse
 // (demande Timo : plus besoin de l'administrateur à chaque fois).
 // ============================================================
@@ -16,7 +16,7 @@ export function PrimesRemises({ db, save, profile }) {
   const [historiqueOuvert, setHistoriqueOuvert] = useState(false);
 
   if (!boutique) {
-    return <Panel><div className="text-slate-500 text-sm">Aucune boutique rattachée à votre compte — cet onglet est réservé au vendeur d'une boutique précise.</div></Panel>;
+    return <Panel><div className="text-slate-500 text-sm">Aucune boutique rattachée à votre compte — cet onglet est réservé au vendeur ou au gérant d'une boutique précise.</div></Panel>;
   }
 
   const enAttente = primesEnAttente(db, boutique, profile);

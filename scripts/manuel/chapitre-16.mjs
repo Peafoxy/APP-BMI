@@ -59,7 +59,7 @@ export const CHAPITRE = {
         ["🎯 Commerciaux (agents, performance)", "**L'administrateur.**"],
         ["Fixer un taux de commission, un taux d'équipe, nommer un chef, donner un parrain", "**L'administrateur** (👥 Utilisateurs → ⋯ Gérer)."],
         ["Taux de parrainage par défaut", "**L'administrateur** (⚙ Paramètres)."],
-        ["💰 Primes remises (payer une prime d'installation)", "**Le vendeur** de la boutique désignée ; l'administrateur paie aussi depuis 🏠 Clients installés."],
+        ["💰 Primes remises (payer une prime d'installation)", "**Le vendeur ou le gérant** de la boutique désignée ; l'administrateur paie aussi depuis 🏠 Clients installés."],
         ["💰 Primes reçues", "**Le technicien** (à commission)."],
       ]}],
       ["note", "**Le mur formation / réel s'applique** : 👑 Équipe et 💵 Ma commission ne montrent que les personnes et les ventes de l'espace regardé ; la caisse qui paie est choisie dans cet espace."],
@@ -229,7 +229,7 @@ export const CHAPITRE = {
         "Encaisser une vente à crédit à son nom ; constater « 💰 client doit … » ; solder la dette ; constater que la commission est due.",
         "Payer la commission (✓ Marquer payé) ; retrouver la dépense et le paiement dans 💵 Ma commission du commercial.",
         "Encaisser une vente avec un apporteur externe par Mobile Money ; le payer ; lire le moyen repris.",
-        "(Administrateur) Demander le paiement d'une prime d'installation à une boutique ; (vendeur) la valider dans 💰 Primes remises.",
+        "(Administrateur) Demander le paiement d'une prime d'installation à une boutique ; (vendeur ou gérant) la valider dans 💰 Primes remises.",
       ]],
     ]},
 

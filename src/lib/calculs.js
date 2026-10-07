@@ -2513,7 +2513,7 @@ export const ONGLETS_ROLE = {
   // ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
   technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "messages", "whatsapp", "salaire", "nouveau_client", "contrats", "depenses", "outillage"],
   magasinier: ["stocks", "salaire", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
-  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "whatsapp", "nouveau_client", "contrats", "travaux"],
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "whatsapp", "nouveau_client", "contrats", "travaux", "primes_remises"],
   // ⚠ 01/10/2026 : alignée sur App.jsx — « 📤 Dépenses » retiré (le vendeur
   // ne l'a plus depuis le 15/09), « 🏠 Clients installés » ajouté (il l'a).
   // Pareil pour 🔁 Transfert du gérant et 💰 Ventes du resp. commercial :
