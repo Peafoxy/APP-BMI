@@ -7,7 +7,7 @@ import { useState } from "react";
 import { fmt, dFR } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, demanderMoyenPaiement } from "../components/ui";
 import { ficheParId } from "../lib/banques";
-import { bloquerSiLecture, primesEnAttente, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime } from "../lib/calculs";
+import { bloquerSiLecture, primesEnAttente, construirePaiementPrime, envoyerAvisPrimePayee, primeDejaPayee, retenueOutilPourPrime } from "../lib/calculs";
 
 export function PrimesRemises({ db, save, profile }) {
   const isAdmin = profile.role === "admin";
@@ -47,7 +47,9 @@ export function PrimesRemises({ db, save, profile }) {
     // Relecture après les questions : une synchronisation a pu arriver entre-temps.
     if (primeDejaPayee(db, c, e)) { uAlert(`⚠ La part de ${e.nom} vient d'être payée par quelqu'un d'autre.\n\nRien n'a été enregistré — la caisse n'a pas été débitée deux fois.`); return; }
     save(construirePaiementPrime(db, profile, c, e, moyen, ret), `Prime d'installation validée et payée — ${e.nom} · ${fmt(net)} · ${boutique}${ret.montant > 0 ? ` — retenue outil perdu ${fmt(ret.montant)}` : ""}`);
-    uAlert(ret.montant > 0 ? `✅ ${fmt(net)} payés à ${e.nom} (${fmt(ret.montant)} retenus pour outil perdu).` : `✅ ${fmt(e.montant)} payés à ${e.nom}.`);
+    // 📲 L'avis de paiement part du numéro BMI, tout seul (07/10/2026).
+    const avis = await envoyerAvisPrimePayee({ db, save, profile, c, e, moyen, retenue: ret.montant });
+    uAlert((ret.montant > 0 ? `✅ ${fmt(net)} payés à ${e.nom} (${fmt(ret.montant)} retenus pour outil perdu).` : `✅ ${fmt(e.montant)} payés à ${e.nom}.`) + (avis ? `\n\n${avis}` : ""));
   };
 
   return (

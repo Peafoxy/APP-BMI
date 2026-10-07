@@ -10,7 +10,7 @@
 import { PERTES_PCT_DEFAUT } from "./pompes.js";
 import { PRIX_RAIL_DEFAUT, LONGUEUR_RAIL_DEFAUT, prixRailDesBoutiques, longueurRailDesBoutiques } from "./choixSolaire.js";
 import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME, numeroBulletin } from "./core";
-import { envoiVirementSalaire } from "./whatsappModeles";
+import { envoiVirementSalaire, envoiPrimeInstallationPayee } from "./whatsappModeles";
 import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES, MOYENS_ENCAISSEMENT } from "./constants";
@@ -1069,6 +1069,10 @@ export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {
     // qu'elle était ce jour-là (Timo, 14/09/2026).
     ...mentionVirement(ficheParId(db.users, e.user_id), moyen),
   }) : null;
+  // ⚠ 07/10/2026 : « 💰 Primes reçues » n'existe que pour le technicien à
+  // commission ; les autres (technicien BMI, employé avec une prime de
+  // chantier) lisent leur part dans « 💵 Ma commission ».
+  const ongletDetail = ficheParId(db.users, e.user_id)?.role === "technicien" ? "💰 Primes reçues" : "💵 Ma commission";
   return {
     ...db,
     clients_installes: db.clients_installes.map((x) => (x.id === c.id
@@ -1093,8 +1097,8 @@ export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {
       ...(e.user_id ? [nouveauMessage(profile, {
         a_id: e.user_id,
         texte: pris > 0
-          ? `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} : ${fmt(e.montant)}. Retenue pour outil perdu : ${fmt(pris)}. Vous recevez ${fmt(net)}${net > 0 ? ` (${normPaiement(moyen)})` : ""}. Retrouvez le détail dans « 💰 Primes reçues ».`
-          : `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « 💰 Primes reçues ».`,
+          ? `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} : ${fmt(e.montant)}. Retenue pour outil perdu : ${fmt(pris)}. Vous recevez ${fmt(net)}${net > 0 ? ` (${normPaiement(moyen)})` : ""}. Retrouvez le détail dans « ${ongletDetail} ».`
+          : `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « ${ongletDetail} ».`,
       })] : []),
       ...(net > 0 ? messagesNotifSortieCaisse(db, profile, bq, e.nom, net, "Prime d'installation payée à") : []),
       // ⚠⚠ 07/10/2026 (capture Timo, ANGELE : « 538 opération(s) n'arrivent
@@ -1105,6 +1109,31 @@ export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {
       ...(db.messages || []),
     ],
   };
+}
+
+// 🔧 L'AVIS WHATSAPP D'UNE PART D'INSTALLATION PAYÉE (Timo, 07/10/2026,
+// « b, texte ok, lance ») : APRÈS `construirePaiementPrime`, écrit UNE fois pour
+// 🏠 Clients installés et 💰 Primes remises. Tout seul, sans question et sans
+// repli (comme l'avis de salaire). ⚠ Le mur : jamais si le compte de la
+// personne OU la caisse qui paie est de formation. La ligne du fil est
+// PRIVÉE (celui qui a payé et l'administrateur principal). Rend la phrase à
+// ajouter à la confirmation ("" si rien à dire).
+export async function envoyerAvisPrimePayee({ db, save, profile, c, e, moyen, retenue = 0 }) {
+  const fiche = ficheParId(db.users, e.user_id);
+  if (!fiche) return "";
+  const formation = estCompteFormation(db, fiche) || estBoutiqueFormation(db, e.prime_boutique);
+  const pris = Math.max(0, Math.min(Number(retenue || 0), Number(e.montant || 0)));
+  const envoi = envoiPrimeInstallationPayee({
+    employe: fiche.nom_complet || fiche.nom, tel: fiche.tel,
+    client: [c.nom, c.prenom].filter(Boolean).join(" "), date: today(),
+    montant: Number(e.montant || 0) - pris, moyen, retenue: pris, fmt, dFR,
+  });
+  if (!envoi) return formation ? "" : `📲 Aucun avis WhatsApp : la fiche de ${e.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → 📞).`;
+  const { envoyerRecuSansQuestion } = await import("../whatsapp.js");
+  return envoyerRecuSansQuestion({
+    envoi, tel: fiche.tel, nom: e.nom, espaceFormation: formation, save, profile,
+    ref: { chantier_id: c.id, prime_user_id: e.user_id }, noms: { titre: "Avis de paiement", sujet: "L'avis de paiement" },
+  });
 }
 
 // Toutes les demandes de prime en attente de validation, aplaties depuis

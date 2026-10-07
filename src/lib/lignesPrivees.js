@@ -13,7 +13,7 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiRecuVente, envoiRecuVenteDetail, envoiBon, envoiVirementSalaire, envoiAvancement, ligneEnvoiModele } from "./whatsappModeles";
+import { envoiRecuVente, envoiRecuVenteDetail, envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, ligneEnvoiModele } from "./whatsappModeles";
 import { lignesVente, totalVente, fmt, dFR, numeroBulletin } from "./core";
 import { montantEncaisseVente } from "./versements";
 import { bonsRepriseDeVente, bonRetour, retoursDeVente } from "./bons";
@@ -57,6 +57,18 @@ export function texteLignePrivee(m, db) {
     if (!u || !ev) return "";
     const e = envoiAvancement({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "90000000", ancien: ev.ancien, nouveau: ev.nouveau, mois: libelleMoisFR(String(ev.date || "").slice(0, 7)), motif: ev.motif, fmt });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // 🔧 La part d'installation payée : recomposée depuis la ligne de l'équipe
+  // et SA dépense (le net payé et le moyen ; la retenue = part − net).
+  if (m.wa_modele === "prime_installation_payee") {
+    const c = (db?.clients_installes || []).find((x) => x.id === m.chantier_id);
+    const e = (c?.equipe || []).find((y) => y.user_id === m.prime_user_id);
+    const u = (db?.users || []).find((x) => x.id === m.prime_user_id);
+    if (!c || !e || !e.paye) return "";
+    const dep = e.dep_id ? (db?.depenses || []).find((d) => d.id === e.dep_id) : null;
+    const net = dep ? Number(dep.montant || 0) : 0;
+    const x = envoiPrimeInstallationPayee({ employe: u?.nom_complet || u?.nom || e.nom, tel: m.wa_numero || u?.tel || "0", client: [c.nom, c.prenom].filter(Boolean).join(" "), date: e.date_paiement, montant: net, moyen: dep?.moyen, retenue: Math.max(0, Number(e.montant || 0) - net), fmt, dFR });
+    return x ? ligneEnvoiModele(x.modele, x.variables) : "";
   }
   // 💰 L'avis de commission due : recomposé depuis la vente ou la dette de pose.
   if (m.wa_modele === "commission_due") {

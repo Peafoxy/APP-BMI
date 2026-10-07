@@ -21,7 +21,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demand
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { estPrimeChantier, primesDuChantier, totalPrimesChantier } from "../lib/primeChantier";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, envoyerAvisPrimePayee, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
 import { encaisserDettePose } from "../components/encaissementPose";
@@ -822,9 +822,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     // par quelqu'un d'autre (l'admin et le vendeur peuvent payer tous les deux).
     if (primeDejaPayee(db, c, e)) { uAlert(`⚠ La part de ${e.nom} vient d'être payée par quelqu'un d'autre.\n\nRien n'a été enregistré — la caisse n'a pas été débitée deux fois.`); return; }
     save(construirePaiementPrime(db, profile, c, e, moyen, ret), `Part d'installation payée : ${fmt(net)} à ${e.nom} (chantier ${c.nom})${ret.montant > 0 ? ` — retenue outil perdu ${fmt(ret.montant)}` : ""}`);
-    uAlert(ret.montant > 0
+    // 📲 L'avis de paiement part du numéro BMI, tout seul (07/10/2026).
+    const avis = await envoyerAvisPrimePayee({ db, save, profile, c, e, moyen, retenue: ret.montant });
+    uAlert((ret.montant > 0
       ? `✅ ${fmt(net)} payés à ${e.nom} (${fmt(ret.montant)} retenus pour outil perdu). Sortie de caisse : ${e.prime_boutique}.`
-      : `✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${e.prime_boutique}.`);
+      : `✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${e.prime_boutique}.`) + (avis ? `\n\n${avis}` : ""));
   };
 
   const modifierEntretien = async (c) => {

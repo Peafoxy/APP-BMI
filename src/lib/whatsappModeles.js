@@ -211,6 +211,11 @@ export const MODELES = {
   // l'alerte conseiller, sinon celui de sa fiche). UTILITY : un rappel de
   // service, rien de commercial. Serveur seul (api/rappels-du-soir.js).
   rappel_anniversaire: { categorie: "utility", variables: ["administrateur", "employes"] },
+  // 🔧 07/10/2026, Timo (« b, texte ok, lance ») : la part des frais
+  // d'installation PAYÉE (technicien ou employé avec une prime de chantier),
+  // juste après « ✓ Valider et payer ». UTILITY (un paiement fait). Le trou 6
+  // = « Retenue pour outil perdu : X. » ou « Aucune retenue. »
+  prime_installation_payee: { categorie: "utility", variables: ["employe", "client", "date", "montant", "moyen", "retenue"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -258,6 +263,9 @@ export const MODELES_EN_SERVICE = [
   "commission_due",
   // 03/10/2026 : l'avis d'avancement (👥 Utilisateurs → Salaire).
   "avancement_employe",
+  // 07/10/2026 : la part des frais d'installation payée. En service AVANT
+  // l'accord de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
+  "prime_installation_payee",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -331,8 +339,9 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee"];
 const LIGNES_MASQUEES = {
+  prime_installation_payee: "🔒 Avis de paiement d'une part d'installation envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   bon_reprise: "🔒 Bon de reprise envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
@@ -752,6 +761,7 @@ const LIGNES_ENVOI = {
   relance_prospect: ([client, auteur, projet]) => `Relance du prospect ${client} par ${auteur} : son projet ${projet}.`,
   anniversaire_employe: ([employe]) => `Vœux d'anniversaire envoyés à ${employe}.`,
   avancement_employe: ([employe, ancien, nouveau, mois]) => `Avis d'avancement envoyé à ${employe} : salaire ${ancien} → ${nouveau} à compter de ${mois}.`,
+  prime_installation_payee: ([employe, client, date, montant, moyen, retenue]) => `Avis de paiement envoyé à ${employe} : part d'installation du chantier ${client}, ${montant} (${moyen}) le ${date}. ${retenue}`,
   commission_due: ([beneficiaire, montant, client]) => `Avis de commission due envoyé à ${beneficiaire} : ${montant} (client ${client}).`,
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
@@ -1622,6 +1632,33 @@ export function envoiVirementSalaire({ employe, tel, mois, date, montant, moyen,
       moyenVersement(moyen),
       texteVariable(reference) || "—",
       `${role} ${numero}`,
+    ],
+  };
+}
+
+// ---------------------------------------------------------------
+// 🔧 LA PART DES FRAIS D'INSTALLATION PAYÉE — `prime_installation_payee`
+// (07/10/2026, « b, texte ok, lance ») — le texte proposé, accepté tel quel.
+// ---------------------------------------------------------------
+export const TEXTE_PRIME_INSTALLATION_PAYEE = "Bonjour {{1}}, votre part des frais d'installation du chantier {{2}} vous a été payée le {{3}} : {{4}} ({{5}}). {{6}} Détail dans votre espace sur gestion.bmitogo.com. Merci pour votre travail. BMI TOGO";
+// `montant` = ce qu'il REÇOIT (net de la retenue). Tout retenu → 0 F, et le
+// moyen dit « entièrement retenu ». Rend null sans numéro.
+export function envoiPrimeInstallationPayee({ employe, tel, client, date, montant, moyen, retenue = 0, fmt, dFR }) {
+  if (!String(tel || "").replace(/\D/g, "")) return null;
+  const net = Math.max(0, Number(montant) || 0);
+  const r = Math.max(0, Number(retenue) || 0);
+  if (net <= 0 && r <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
+  return {
+    modele: "prime_installation_payee",
+    variables: [
+      texteVariable(employe) || "cher collaborateur",
+      texteVariable(client) || "votre client",
+      d(date) || "aujourd'hui",
+      f(net),
+      net > 0 ? moyenVersement(moyen) : "entièrement retenu",
+      r > 0 ? `Retenue pour outil perdu : ${f(r)}.` : "Aucune retenue.",
     ],
   };
 }

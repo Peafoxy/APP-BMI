@@ -13716,6 +13716,29 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
   const ids = new Set((apres.messages || []).map((m) => m.id));
   test("★ payer une part d'installation GARDE tous les messages existants (elle n'en ajoute que de nouveaux)",
     ["m1", "m2", "m3"].every((i) => ids.has(i)) && apres.messages.length > 3 && apres.clients_installes[0].equipe[0].paye === true);
+  // 07/10/2026 : « 💰 Primes reçues » n'existe que pour le technicien à
+  // commission — un employé (prime de chantier) ou un technicien BMI est
+  // renvoyé vers « 💵 Ma commission ».
+  const dbAng = { ...dbm, users: [...dbm.users, { id: "a1", nom: "ANGELE2", role: "gerant", boutique: "DEMAKPOE" }],
+    clients_installes: [{ id: "c2", nom: "POUDAMA", equipe: [{ user_id: "a1", nom: "ANGELE2", pct: 0, montant: 5000, prime_employe: true, demande_prime: true, prime_boutique: "DEMAKPOE" }] }] };
+  const apA = C.construirePaiementPrime(dbAng, { id: "v1", nom: "ANGELE", role: "gerant", boutique: "DEMAKPOE" }, dbAng.clients_installes[0], dbAng.clients_installes[0].equipe[0], "Espèces", { montant: 0, lignes: [] });
+  const msgTech = apres.messages.find((m) => m.a_id === "t1")?.texte || "";
+  const msgEmp = apA.messages.find((m) => m.a_id === "a1")?.texte || "";
+  test("★ le message d'une part payée nomme l'onglet que la personne A : « 💰 Primes reçues » au technicien à commission, « 💵 Ma commission » aux autres",
+    /« 💰 Primes reçues »/.test(msgTech) && /« 💵 Ma commission »/.test(msgEmp) && !/Primes reçues/.test(msgEmp));
+  // 📲 L'avis WhatsApp de la part payée (« b, texte ok, lance ») : écrit UNE
+  // fois, appelé APRÈS l'enregistrement dans les deux écrans, le mur = compte
+  // OU caisse de formation.
+  const calP = readFileSync("src/lib/calculs.js", "utf8");
+  const corpsAP = calP.slice(calP.indexOf("export async function envoyerAvisPrimePayee"), calP.indexOf("// Toutes les demandes de prime en attente"));
+  const ciP = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  const prP = readFileSync("src/screens/PrimesRemises.jsx", "utf8");
+  const apresSave = (t) => { const i = t.indexOf("save(construirePaiementPrime("); const j = t.indexOf("await envoyerAvisPrimePayee({ db, save, profile, c, e, moyen, retenue: ret.montant })"); return i > -1 && j > i; };
+  test("★ 📲 la part d'installation payée envoie son avis du numéro BMI TOUT SEUL (sans question ni repli), APRÈS l'enregistrement, dans 🏠 Clients installés ET 💰 Primes remises ; le mur = le compte de la personne OU la caisse qui paie",
+    /const formation = estCompteFormation\(db, fiche\) \|\| estBoutiqueFormation\(db, e\.prime_boutique\);/.test(corpsAP)
+    && /envoyerRecuSansQuestion\(\{/.test(corpsAP) && /espaceFormation: formation/.test(corpsAP)
+    && /ref: \{ chantier_id: c\.id, prime_user_id: e\.user_id \}/.test(corpsAP)
+    && apresSave(ciP) && apresSave(prP));
   // Contrôle GÉNÉRAL : toute liste « messages: [ … ] » écrite dans src emporte les anciens.
   const fautifs = [];
   const parcourir = (dir) => { for (const f of readdirSync(dir, { withFileTypes: true })) {
