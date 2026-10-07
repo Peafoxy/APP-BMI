@@ -23,7 +23,7 @@ import { useFiltrePeriode } from "../components/FiltrePeriode";
 // Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
 // un chantier de devis ; elle sera déduite des frais d'installation avant le
 // partage entre techniciens — règle pure dans lib/depensesChantier.js.
-import { chantiersRattachables, libelleChantier, critiqueRattachement, rattacherDepense } from "../lib/depensesChantier";
+import { chantiersRattachables, libelleChantier, critiqueRattachement, rattacherDepense, critiqueChangementChantier } from "../lib/depensesChantier";
 
 // ============ LE TABLEAU DES DÉPENSES — écrit UNE fois (point B5 du relevé
 // des doublons, 08/09/2026) pour les dépenses d'une boutique et pour
@@ -81,18 +81,28 @@ function useModifDepense(db, save, profile) {
   const [modif, setModif] = useState(null);
   const ouvrirModif = (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
-    setModif({ d, categorie: d.categorie, description: d.description || "" });
+    setModif({ d, categorie: d.categorie, description: d.description || "", chantierId: d.chantier_id || "" });
   };
   const enregistrerModif = () => {
     if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
     if (bloquerSiLecture(db, profile)) return;
     const fraiche = (db.depenses || []).find((x) => x.id === modif.d.id);
-    const refus = critiqueModifDepense(fraiche, modif);
+    // 🏠 Le chantier : undefined = inchangé, null = détaché, { id, nom } = ce chantier.
+    let chantier;
+    if (fraiche && modif.chantierId !== (fraiche.chantier_id || "")) {
+      const ch = modif.chantierId ? (db.clients_installes || []).find((c) => c.id === modif.chantierId) : null;
+      if (modif.chantierId && !ch) { uAlert("Chantier introuvable."); return; }
+      const refusChantier = critiqueChangementChantier(db, profile, fraiche, ch);
+      if (refusChantier) { uAlert(refusChantier); return; }
+      chantier = ch ? { id: ch.id, nom: libelleChantier(ch) } : null;
+    }
+    const refus = critiqueModifDepense(fraiche, { ...modif, chantier });
     if (refus) { uAlert(refus); return; }
-    const r = modifierDepense(fraiche, modif, profile.nom, today());
+    const r = modifierDepense(fraiche, { ...modif, chantier }, profile.nom, today());
     save({ ...db, depenses: db.depenses.map((x) => (x.id === fraiche.id ? r.depense : x)) }, r.journal);
     setModif(null);
   };
+  const chantiersModif = modif ? chantiersRattachables(db, profile) : [];
   const panneauModif = (
     <>
         {modif && (<PanneauQuiSeMontre cle={modif.d.id} retour={modif.d.id}>
@@ -101,7 +111,13 @@ function useModifDepense(db, save, profile) {
             <div className="grid sm:grid-cols-2 gap-3">
               <Field label="Catégorie"><select className={inputCls} value={modif.categorie} onChange={(e) => setModif({ ...modif, categorie: e.target.value })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
               <Field label="Description"><input className={inputCls} value={modif.description} onChange={(e) => setModif({ ...modif, description: e.target.value })} /></Field>
+              <Field label="Chantier rattaché"><select className={inputCls} value={modif.chantierId} onChange={(e) => setModif({ ...modif, chantierId: e.target.value })} data-modif-chantier>
+                <option value="">— Aucun —</option>
+                {modif.d.chantier_id && !chantiersModif.some((c) => c.id === modif.d.chantier_id) && <option value={modif.d.chantier_id}>{modif.d.chantier_nom || "Chantier actuel"}</option>}
+                {chantiersModif.map((c) => <option key={c.id} value={c.id}>{c.travaux ? "" : "🏠 "}{libelleChantier(c)}</option>)}
+              </select></Field>
             </div>
+            <div className="text-xs text-slate-500 mt-2">Le chantier se change seulement tant que le chantier n'est pas réceptionné (ni soldé, ni ses techniciens payés).</div>
             <div className="text-xs text-slate-500 mt-2">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>
             <div className="flex gap-2 mt-2">
               <button onClick={enregistrerModif} className={btnDark}>Enregistrer</button>

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2305 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2309 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -3561,6 +3561,13 @@ lit mal est pire qu'un banc absent).
   « Encaissé / Remis ») ; seul l'administrateur principal voit ✏️. **Décision
   « a » : les lignes automatiques (salaires, commissions, CNSS, avances,
   primes) ne se modifient pas**, ni l'entrée d'un versement (`versement_id`).
+- **🏠 Et le CHANTIER rattaché** (07/10/2026, « oui lance… on peut modifier
+  que pour les dépenses dont les chantiers ne sont pas réceptionnés ») : case
+  « Chantier rattaché » dans ✏️ Modifier (« — Aucun — » le retire).
+  `critiqueChangementChantier` (lib/depensesChantier.js), revérifiée DANS le
+  geste : l'ANCIEN chantier ne doit être ni réceptionné, ni soldé, ni avoir ses
+  techniciens payés ; le NOUVEAU passe par `critiqueRattachement`. Journal
+  « chantier : A → B ». Banc (4 contrôles), éprouvé.
 - Rien à coller : l'administrateur principal écrit déjà les dépenses.
 - Banc (14 contrôles), éprouvé en remettant cinq fautes (le mois déclaré
   ignoré, un mois d'avance repayable, le montant touché, la garde du principal

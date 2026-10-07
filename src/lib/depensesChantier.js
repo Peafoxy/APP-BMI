@@ -86,6 +86,24 @@ export const critiqueRattachement = (db, profile, dep, chantier) => {
   return null;
 };
 
+// ✏️ Changer le chantier d'une dépense déjà saisie (Timo, 07/10/2026 : « on
+// peut modifier que pour les dépenses dont les chantiers ne sont pas
+// réceptionnés »). L'ANCIEN chantier doit encore être ouvert (sinon sa
+// déduction est close, ou ses techniciens ont été payés en la comptant), et le
+// NOUVEAU passe par la règle ordinaire du rattachement.
+export const critiqueChangementChantier = (db, profile, dep, nouveau) => {
+  if (!dep) return "Dépense introuvable.";
+  if (String(nouveau?.id || "") === String(dep.chantier_id || "")) return null;
+  const ancien = dep.chantier_id ? (db.clients_installes || []).find((c) => c.id === dep.chantier_id) : null;
+  if (ancien) {
+    const nom = libelleChantier(ancien);
+    if (statutChantier(ancien) === "receptionne") return `Le chantier ${nom} est déjà réceptionné : le chantier de cette dépense ne se change plus.`;
+    if (travauxSolde(db, ancien)) return `Les travaux ${nom} sont soldés : le chantier de cette dépense ne se change plus.`;
+    if (fraisDejaPayes(ancien)) return `Les techniciens du chantier ${nom} ont déjà été payés en comptant cette dépense : son chantier ne se change plus.`;
+  }
+  return critiqueRattachement(db, profile, dep, nouveau || null);
+};
+
 export const rattacherDepense = (dep, chantier) => {
   if (!chantier) { const { chantier_id, chantier_nom, ...reste } = dep; return reste; }
   return { ...dep, chantier_id: chantier.id, chantier_nom: libelleChantier(chantier) };

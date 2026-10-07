@@ -8005,6 +8005,21 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
     Dc.totalDepensesChantier(dbc, "c1") === 11000 && Dc.depensesDuChantier(dbc, "c1").length === 4);
   test("★ frais à partager = facturés − rattachées, jamais négatif : 100 000 − 11 000 = 89 000 ; 5 000 − 11 000 = 0 ; sans dépense = les frais",
     Dc.fraisAPartager(100000, 11000) === 89000 && Dc.fraisAPartager(5000, 11000) === 0 && Dc.fraisAPartager(100000, 0) === 100000 && Dc.fraisAPartager("100000", undefined) === 100000);
+  // ✏️ Changer le chantier d'une dépense déjà saisie (Timo, 07/10/2026 : « on
+  // peut modifier que pour les dépenses dont les chantiers ne sont pas réceptionnés »).
+  {
+    const c4 = { id: "c4", nom: "NIMAN", travaux: true, type_installation: "Travaux", description: "FORAGE", boutique: "LOME", statut: "travaux", equipe: [] };
+    const dbm = { ...dbc, clients_installes: [...dbc.clients_installes, c4] };
+    const sur = (id) => ({ ...dbc.depenses[0], chantier_id: id });
+    const ch = (id) => dbm.clients_installes.find((c) => c.id === id);
+    test("★ changer de chantier : d'un chantier en cours vers un autre en cours, ou le retirer → accepté ; inchangé → rien à dire",
+      Dc.critiqueChangementChantier(dbm, admin, sur("c1"), ch("c4")) === null && Dc.critiqueChangementChantier(dbm, admin, sur("c1"), null) === null
+      && Dc.critiqueChangementChantier(dbm, admin, dbc.depenses[4], ch("c1")) === null && Dc.critiqueChangementChantier(dbm, admin, sur("c2"), ch("c2")) === null);
+    test("★ …REFUSÉ si l'ANCIEN chantier est réceptionné ou ses techniciens payés, ou si le NOUVEAU est réceptionné, payé ou de l'autre espace",
+      /réceptionné/.test(Dc.critiqueChangementChantier(dbm, admin, sur("c2"), ch("c4")) || "") && /réceptionné/.test(Dc.critiqueChangementChantier(dbm, admin, sur("c2"), null) || "")
+      && /payés/.test(Dc.critiqueChangementChantier(dbm, admin, sur("c3"), ch("c4")) || "")
+      && !!Dc.critiqueChangementChantier(dbm, admin, sur("c1"), ch("c2")) && !!Dc.critiqueChangementChantier(dbm, admin, sur("c1"), ch("c3")) && !!Dc.critiqueChangementChantier(dbm, admin, sur("c1"), ch("cf")));
+  }
   test("★ qui rattache : gérant et admin toujours, l'auteur de la dépense (par_id, ou par nom pour les anciennes), pas un autre vendeur",
     Dc.peutRattacher(admin, dbc.depenses[4]) && Dc.peutRattacher(gerant, dbc.depenses[4]) && Dc.peutRattacher(vendeur, dbc.depenses[4]) && !Dc.peutRattacher(autreVendeur, dbc.depenses[4])
     && Dc.peutRattacher({ id: "z", nom: "AMA", role: "vendeur" }, { par: "AMA" }) && !Dc.peutRattacher({ id: "z", nom: "ESSI", role: "vendeur" }, { par: "AMA" }));
@@ -12108,6 +12123,21 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     test("★★ modifier ne touche QUE la catégorie et la description (montant, paiement, boutique intacts), et laisse sa trace",
       r.depense.categorie === "Transport" && r.depense.description === "taxi" && r.depense.montant === 5000 && r.depense.paiement === "Espèces" && r.depense.boutique === "DEMAKPOE"
       && r.depense.modifie_par === "TIMO" && /catégorie : Loyer → Transport/.test(r.journal));
+    const rc = Vd.modifierDepense({ ...d0, chantier_id: "c1", chantier_nom: "Paul MENSAH" }, { categorie: "Loyer", description: "", chantier: { id: "c4", nom: "🛠 NIMAN · Travaux — FORAGE" } }, "TIMO", "2026-10-07");
+    const rd = Vd.modifierDepense({ ...d0, chantier_id: "c1", chantier_nom: "Paul MENSAH" }, { categorie: "Loyer", description: "", chantier: null }, "TIMO", "2026-10-07");
+    test("★★ modifier change aussi le CHANTIER (07/10/2026) : posé, retiré, dit au journal ; sans chantier passé, il ne bouge pas ; changer le seul chantier n'est pas « rien n'a changé »",
+      rc.depense.chantier_id === "c4" && /chantier : Paul MENSAH → 🛠 NIMAN/.test(rc.journal) && rc.depense.montant === 5000
+      && !("chantier_id" in rd.depense) && !("chantier_nom" in rd.depense) && /→ aucun/.test(rd.journal)
+      && Vd.modifierDepense({ ...d0, chantier_id: "c1" }, { categorie: "Transport", description: "" }, "T", "x").depense.chantier_id === "c1"
+      && Vd.critiqueModifDepense({ ...d0, chantier_id: "c1" }, { categorie: "Loyer", description: "", chantier: null }) === null
+      && /Rien/.test(Vd.critiqueModifDepense({ ...d0, chantier_id: "c1" }, { categorie: "Loyer", description: "", chantier: { id: "c1" } }) || ""));
+    {
+      const dpM = readFileSync("src/screens/Depenses.jsx", "utf8");
+      const corps = (dpM.match(/const enregistrerModif = \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+      test("★ l'écran ✏️ Modifier porte la case « Chantier rattaché » et revérifie DANS le geste (critiqueChangementChantier) avant d'enregistrer",
+        /<Field label="Chantier rattaché">/.test(dpM) && /data-modif-chantier/.test(dpM)
+        && /const refusChantier = critiqueChangementChantier\(db, profile, fraiche, ch\);/.test(corps) && corps.indexOf("critiqueChangementChantier") < corps.indexOf("save("));
+    }
     test("★★ ne se modifient pas : versement, fonds de caisse, apport du DG, dépense automatique, dépense rejetée",
       !!Vd.critiqueModifDepense({ ...d0, categorie: "Versement de fonds", versement: {} }, { categorie: "Transport" })
       && !!Vd.critiqueModifDepense({ ...d0, fonds_caisse: { montant: 1 } }, { categorie: "Transport" })
@@ -12120,7 +12150,7 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     test("★★ modifier = l'administrateur PRINCIPAL seul, revérifié DANS le geste, sur la fiche FRAÎCHE",
       /ouvrirModif: estAdminPrincipal\(db, profile\) \? ouvrirModif : null/.test(dsrc)
       && /const enregistrerModif = \(\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile, "Modifier une dépense"\)\) return;/.test(dsrc)
-      && /const refus = critiqueModifDepense\(fraiche, modif\);/.test(dsrc));
+      && /const refus = critiqueModifDepense\(fraiche, \{ \.\.\.modif, chantier \}\);/.test(dsrc));
     // « Chez le comptable » (Timo, 25/09/2026, décision « a ») : le même bouton,
     // la même règle, écrite UNE fois (useModifDepense) ; le comptable reste en
     // lecture seule ; ni l'entrée d'un versement ni une ligne automatique.

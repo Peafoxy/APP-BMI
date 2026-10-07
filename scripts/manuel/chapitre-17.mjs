@@ -55,7 +55,7 @@ export const CHAPITRE = {
         ["« Le fonds de caisse » dans « Payé avec »", "**Le gérant et l'administrateur**, et seulement quand le tiroir ne suffit pas."],
         ["Rattacher une dépense à un chantier", "Le gérant, l'administrateur, ou **la personne qui a saisi la dépense**."],
         ["🏠 Voir et payer le loyer", "**Le gérant et l'administrateur.** La fiche du loyer se règle dans ⚙ Paramètres par l'administrateur seul."],
-        ["✏️ Modifier (catégorie, description)", "**L'administrateur principal**, seul."],
+        ["✏️ Modifier (catégorie, description, chantier)", "**L'administrateur principal**, seul."],
         ["Suppr.", "**L'administrateur.**"],
         ["Rembourser une avance de poche", "En espèces : **le gérant et l'administrateur** ; avec le salaire ou par le DG : **l'administrateur**. Jamais soi-même (sauf l'administrateur)."],
         ["🧾 Chez le comptable : ✅ Remis / ✅ Encaissé", "**Le comptable.** L'administrateur peut annuler un pointage."],
@@ -138,7 +138,7 @@ export const CHAPITRE = {
 
       ["h3", "H. Corriger une dépense"],
       ["etapes", [
-        { titre: "✏️ Modifier (administrateur principal)", texte: "**La catégorie et la description, rien d'autre.** Le montant, le paiement et « Payé avec » portent de l'argent : un montant faux se **supprime et se ressaisit**. La ligne garde « modifiée le … par … »." },
+        { titre: "✏️ Modifier (administrateur principal)", texte: "**La catégorie, la description et le chantier rattaché, rien d'autre.** Le chantier ne se change que tant qu'il n'est **pas réceptionné** (ni soldé, ni ses techniciens payés) — l'ancien comme le nouveau ; « — Aucun — » le retire. Le montant, le paiement et « Payé avec » portent de l'argent : un montant faux se **supprime et se ressaisit**. La ligne garde « modifiée le … par … »." },
         { titre: "Ce qui ne se modifie pas", texte: "Les versements, fonds de caisse, apports et prélèvements du DG, remboursements, les dépenses **automatiques** (salaires, commissions, CNSS, primes…) et les dépenses **rejetées**." },
         { titre: "Suppr. (administrateur)", texte: "Confirmation. Une dépense née d'un paiement (commission, prime…) annule aussi son statut « payé » : l'écran le dit. Certaines ont leur propre porte de sortie, et l'application y renvoie." },
       ]],
@@ -157,7 +157,7 @@ export const CHAPITRE = {
         ["Enregistrer la dépense", "📤 Dépenses", "Vérifie, demande confirmation, enregistre ; au-delà de 5 000 F, prévient le DG."],
         ["✅ Valider / ✖ Rejeter", "⏳ Dépenses à valider par le DG", "La décision du DG ; le rejet demande un motif."],
         ["💵 Payer le loyer / 💵 Payer d'avance", "🏠 Loyer de la boutique", "Remplit le formulaire pour un ou plusieurs mois."],
-        ["✏️ Modifier", "Liste des dépenses", "Change la catégorie et la description (administrateur principal)."],
+        ["✏️ Modifier", "Liste des dépenses", "Change la catégorie, la description et le chantier rattaché (administrateur principal)."],
         ["Le filtre de période", "Titre de la liste (et « Chez le comptable »)", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates. La liste ne montre que la période, et le total à droite devient celui de la période (« Ce mois » revient avec « Toute période »). Le cadre ⏳ Dépenses à valider par le DG n'est jamais filtré."],
         ["Suppr.", "Liste des dépenses", "Supprime une dépense (administrateur)."],
         ["💵 Rembourser en espèces / 🧾 Avec le salaire / 👤 Par le DG", "🔒 Caisse → 💼 Avances", "Rembourse une avance de poche."],
