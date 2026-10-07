@@ -1,5 +1,5 @@
 import { idb, TABLES, compterEnAttente } from "./db";
-import { planAbandon } from "./lib/abandonLot";
+import { planAbandon, suppressionsParasitesDePrime } from "./lib/abandonLot";
 import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
@@ -248,7 +248,18 @@ export async function synchroniser(options = {}) {
     // saute les suivants qui portent sur le MÊME enregistrement : sinon une
     // suppression pourrait passer avant la création qu'elle est censée annuler.
     try {
-      const ops = await idb.outbox.orderBy("seq").toArray();
+      let ops = await idb.outbox.orderBy("seq").toArray();
+      // ⚠⚠ 07/10/2026 : les effacements de messages emportés par un paiement
+      // de part d'installation (défaut réparé dans construirePaiementPrime)
+      // sont retirés de la file AVANT tout envoi ; les messages sont relus en
+      // entier pour revenir sur l'appareil. Le paiement, lui, part.
+      const parasites = new Set(suppressionsParasitesDePrime(ops));
+      if (parasites.size) {
+        for (const seq of parasites) await idb.outbox.delete(seq);
+        ops = ops.filter((op) => !parasites.has(op.seq));
+        await idb.meta.delete("derniere_sync:messages");
+        console.warn(`${parasites.size} effacement(s) de messages retiré(s) de la file (paiement de part d'installation) : les messages sont relus.`);
+      }
       const bloques = new Set();
       refusEnCours = null; // ce cycle dira s'il y en a encore un
 

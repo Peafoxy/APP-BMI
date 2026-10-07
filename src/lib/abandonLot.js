@@ -62,3 +62,23 @@ export function resumeAbandon(refus, plan) {
     + `et cet appareil reviendra à l'état d'AVANT le geste. Le reste de la file partira normalement.\n\n`
     + `Ce qui a été refusé ne sera PAS enregistré — ni ici, ni au serveur.`;
 }
+
+// ⚠⚠ LES EFFACEMENTS PARASITES D'UN PAIEMENT DE PART D'INSTALLATION
+// (07/10/2026, capture Timo : ANGELE, « 538 opération(s) n'arrivent pas »).
+// `construirePaiementPrime` remplaçait la liste des messages par les deux
+// nouveaux : le geste emportait un effacement de CHAQUE message de
+// l'appareil. Le serveur l'a refusé (lot trop grand), rien n'est perdu chez
+// lui — mais la file d'attente garde ces effacements. On les reconnaît à
+// leur signature EXACTE : un lot qui porte la ligne de journal d'un paiement
+// de part d'installation ne peut JAMAIS effacer un message. Le paiement
+// lui-même (dépense, chantier, journal, messages nouveaux) reste et part.
+export const JOURNAUX_PAIEMENT_PRIME = [/^Part d'installation payée/, /^Prime d'installation validée et payée/];
+export function suppressionsParasitesDePrime(ops) {
+  const lots = new Set();
+  for (const op of ops || []) {
+    if (op?.op === "delete" || op?.table !== "audits" || !op.lot) continue;
+    const action = String(op.data?.action || "");
+    if (JOURNAUX_PAIEMENT_PRIME.some((r) => r.test(action))) lots.add(op.lot);
+  }
+  return (ops || []).filter((op) => op?.op === "delete" && op.table === "messages" && lots.has(op.lot)).map((op) => op.seq);
+}

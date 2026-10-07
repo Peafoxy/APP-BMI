@@ -13698,5 +13698,55 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     && /\(jeSuisApporteur \|\| aUnePrimeDeChantier\) && !tabs\.some/.test(app) && /jeSuisApporteur \|\| aUnePrimeDeChantier \|\| isTechnicienBMI/.test(app));
 }
 
+// ⚠⚠ PAYER UNE PART D'INSTALLATION EFFAÇAIT TOUS LES MESSAGES (07/10/2026,
+// capture Timo : ANGELE, « 538 opération(s) n'arrivent pas ») : la liste des
+// messages était REMPLACÉE par les deux nouveaux. Réparé, et la file de
+// l'appareil est nettoyée de ces effacements.
+{
+  const dbm = { users: [{ id: "t1", nom: "FRED", role: "technicien" }, { id: "v1", nom: "ANGELE", role: "gerant", boutique: "DEMAKPOE", actif: true }],
+    boutiques: [{ nom: "DEMAKPOE" }], depenses: [], messages: [{ id: "m1" }, { id: "m2" }, { id: "m3" }],
+    clients_installes: [{ id: "c1", nom: "POUDAMA", equipe: [{ user_id: "t1", nom: "FRED", pct: 10, montant: 10990, demande_prime: true, prime_boutique: "DEMAKPOE" }] }] };
+  const apres = C.construirePaiementPrime(dbm, { id: "v1", nom: "ANGELE", role: "gerant", boutique: "DEMAKPOE" }, dbm.clients_installes[0], dbm.clients_installes[0].equipe[0], "Espèces", { montant: 0, lignes: [] });
+  const ids = new Set((apres.messages || []).map((m) => m.id));
+  test("★ payer une part d'installation GARDE tous les messages existants (elle n'en ajoute que de nouveaux)",
+    ["m1", "m2", "m3"].every((i) => ids.has(i)) && apres.messages.length > 3 && apres.clients_installes[0].equipe[0].paye === true);
+  // Contrôle GÉNÉRAL : toute liste « messages: [ … ] » écrite dans src emporte les anciens.
+  const fautifs = [];
+  const parcourir = (dir) => { for (const f of readdirSync(dir, { withFileTypes: true })) {
+    const chemin = join(dir, f.name);
+    if (f.isDirectory()) { parcourir(chemin); continue; }
+    if (!/\.(js|jsx)$/.test(f.name)) continue;
+    const t = readFileSync(chemin, "utf8");
+    let i = t.indexOf("messages: [");
+    while (i > -1) {
+      let prof = 0, j = i + "messages: ".length;
+      for (; j < t.length; j++) { if (t[j] === "[") prof++; else if (t[j] === "]") { prof--; if (prof === 0) break; } }
+      const corps = t.slice(i + "messages: [".length, j);
+      if (corps.trim() && !/\.\.\.\(?\s*[\w.]*messages/.test(corps)) fautifs.push(`${chemin}:${t.slice(0, i).split("\n").length}`);
+      i = t.indexOf("messages: [", j);
+    }
+  } };
+  parcourir("src");
+  test(`★ contrôle GÉNÉRAL : aucune liste « messages: [ … ] » ne remplace les messages existants${fautifs.length ? " — fautifs : " + fautifs.join(", ") : ""}`, fautifs.length === 0);
+  const AL = await import(pathToFileURL("src/lib/abandonLot.js").href);
+  const file = [
+    { seq: 1, lot: "L1", table: "depenses", op: "upsert", data: { auto: "installation" } },
+    { seq: 2, lot: "L1", table: "audits", op: "upsert", data: { action: "Prime d'installation validée et payée — FRED · 10 990 F · DEMAKPOE" } },
+    { seq: 3, lot: "L1", table: "messages", op: "upsert", data: { id: "n1" } },
+    { seq: 4, lot: "L1", table: "messages", op: "delete", id: "m1" },
+    { seq: 5, lot: "L1", table: "messages", op: "delete", id: "m2" },
+    { seq: 6, lot: "L1", table: "clients_installes", op: "upsert", data: {} },
+    { seq: 7, lot: "L2", table: "audits", op: "upsert", data: { action: "Client effacé — CLIENT EFFACÉ N° 3" } },
+    { seq: 8, lot: "L2", table: "messages", op: "delete", id: "m9" },
+    { seq: 9, lot: "L3", table: "audits", op: "upsert", data: { action: "Part d'installation payée : 5 000 F à AFI (chantier X)" } },
+    { seq: 10, lot: "L3", table: "messages", op: "delete", id: "m7" }];
+  const retires = AL.suppressionsParasitesDePrime(file);
+  const sy = readFileSync("src/sync.js", "utf8");
+  test("★ la file est nettoyée : seuls les effacements de messages d'un lot de paiement de part sont retirés (pas un autre geste, pas le paiement lui-même) ; sync.js le fait AVANT l'envoi et relit les messages",
+    JSON.stringify(retires) === "[4,5,10]"
+    && sy.indexOf("suppressionsParasitesDePrime(ops)") > -1 && sy.indexOf("suppressionsParasitesDePrime(ops)") < sy.indexOf('supabase.rpc("appliquer_lot"')
+    && /await idb\.meta\.delete\("derniere_sync:messages"\);/.test(sy));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

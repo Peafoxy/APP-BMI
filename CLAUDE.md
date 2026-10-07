@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2328 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2331 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6690,6 +6690,19 @@ lit mal est pire qu'un banc absent).
   sans `sessionDuCompteConnecte`. Banc (6), éprouvé. ⚠ Reste ouvert, dit à
   Timo : des gestes laissés en attente par A partent à la connexion suivante,
   avec la session de B.
+- ⚠⚠ **UNE LISTE DE MESSAGES EMPORTE TOUJOURS LES ANCIENS** (07/10/2026,
+  capture Timo : ANGELE, « 538 opération(s) n'arrivent pas », « Lot trop
+  grand ») : `construirePaiementPrime` écrivait `messages: [nouveaux]` sans
+  `...(db.messages || [])` — le save prenait chaque message absent pour un
+  EFFACEMENT. Le serveur a refusé le lot (> 200) : rien de perdu chez lui.
+  Le défaut datait d'au moins 2.101.187 : un paiement fait quand il y avait
+  peu de messages a pu en effacer (requête de vérification donnée à Timo).
+  Réparé ; **contrôle GÉNÉRAL** du banc (toute liste `messages: [ … ]` de src
+  doit étaler les anciens, il nomme le fichier) ; la file d'un appareil est
+  nettoyée par `suppressionsParasitesDePrime` (lib/abandonLot.js, signature
+  EXACTE : un lot qui porte le journal d'un paiement de part d'installation
+  n'efface jamais un message), appelée par sync.js avant tout envoi, qui
+  relit ensuite les messages en entier.
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
 - **Un banc Chromium écrit sa page AVEC `<meta charset="utf-8">`** : sans
   lui, le « × » d'une expression régulière du bundle est lu en deux

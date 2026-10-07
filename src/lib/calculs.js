@@ -1081,6 +1081,12 @@ export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {
           : `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « 💰 Primes reçues ».`,
       })] : []),
       ...(net > 0 ? messagesNotifSortieCaisse(db, profile, bq, e.nom, net, "Prime d'installation payée à") : []),
+      // ⚠⚠ 07/10/2026 (capture Timo, ANGELE : « 538 opération(s) n'arrivent
+      // pas ») : cette ligne MANQUAIT — la liste des messages était REMPLACÉE
+      // par les deux nouveaux, et l'appareil croyait devoir effacer TOUS les
+      // autres. Le banc interdit désormais toute liste de messages qui
+      // n'emporte pas les anciens.
+      ...(db.messages || []),
     ],
   };
 }
