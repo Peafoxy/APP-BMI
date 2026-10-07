@@ -1,7 +1,7 @@
 {
   "name": "bmi-gestion-boutiques",
   "private": true,
-  "version": "2.101.483",
+  "version": "2.101.484",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -17,6 +17,7 @@
     "verifier-ecran-stocks": "node scripts/verifier-ecran-stocks.mjs",
     "verifier-ecran-ventes": "node scripts/verifier-ecran-ventes.mjs",
     "verifier-ecran-travaux": "node scripts/verifier-ecran-travaux.mjs",
+    "verifier-ecran-solaire": "node scripts/verifier-ecran-solaire.mjs",
     "verifier-partage": "node scripts/verifier-partage.mjs",
     "verifier-onglets-deplacables": "node scripts/verifier-onglets-deplacables.mjs",
     "apercu-etiquette": "node scripts/apercu-etiquette.mjs",

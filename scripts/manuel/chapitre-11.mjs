@@ -149,7 +149,7 @@ export const CHAPITRE = {
     // ── 5
     { titre: "Boutons et fonctions", blocs: [
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3100, 6200], lignes: [
-        ["Pastille de boutique / « Libre »", "La boutique dont le stock et les prix sont proposés, pour tous les volets. **Libre** : aucune boutique, aucun prix — l'écran décrit seulement le matériel nécessaire (panneaux de 550 Wc, batteries de 314 Ah, convertisseur de taille commerciale, modifiables) pour préparer un achat ou une discussion."],
+        ["Pastille de boutique / « Libre »", "La boutique dont le stock et les prix sont proposés, pour tous les volets. **Libre** : aucune boutique, aucun prix — l'écran décrit seulement le matériel nécessaire (panneaux de 550 Wc, batteries de 314 Ah, convertisseur de taille commerciale, modifiables) pour préparer un achat ou une discussion. En revenant sur une boutique, toutes les lignes repartent du stock de cette boutique, y compris celles qu'on avait choisies à la main avant de passer en Libre."],
         ["Appareil (champ à propositions)", "Propose les appareils connus (liste de ⚙ Paramètres → 🔌 Appareils) ; un clic remplit nom et puissance. Une faute d'une lettre est tolérée sur les mots longs ; un mot court doit commencer un mot."],
         ["➕ Ajouter un appareil / Retirer", "Une ligne de besoin de plus, ou de moins."],
         ["🆕 Nouveau devis (tout effacer)", "Visible au-delà de 5 appareils. Après confirmation, efface appareils, équipements, rails, autres équipements, client et conditions ; **garde** autonomie, ensoleillement, tension et type de batterie. La confirmation rappelle d'enregistrer un brouillon d'abord."],

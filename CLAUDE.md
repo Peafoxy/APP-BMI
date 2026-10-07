@@ -60,6 +60,7 @@ npm run tester-notifications     # 81  : les notifications (liste A = messages, 
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
+npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 32 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran
@@ -561,6 +562,15 @@ lit mal est pire qu'un banc absent).
   ⚙ Paramètres → 🔌 Appareils (admin ; écrit `appareils_catalogue` sur les
   boutiques de l'espace regardé) ; « à classer » = les inconnus des devis,
   dérivé, jamais écrit par un vendeur.
+- **↩ APRÈS LE MODE LIBRE, TOUTES LES LIGNES REPARTENT DU STOCK** (captures
+  Timo, 07/10/2026 : « Convertisseur hybride 48V — 3 kW » sans liste ni prix
+  sur DEMAKPOE, « même chose pour la ligne panneaux » → « répare ») : une
+  ligne choisie À LA MAIN avant le mode Libre restait verrouillée, et gardait
+  au retour la spécification du Libre (0 F, aucun lien au stock). Passer en
+  Libre lève tous les verrous (`rolesManuels`, `manuelOuvert`), et le recalcul
+  ne garde jamais une ligne `libre` sur une boutique. Banc Chromium
+  `verifier-ecran-solaire` (le chemin rejoué), éprouvé sans le correctif :
+  deux contrôles tombent. Rien à coller. Chapitre 11 à jour.
 - **🆕 Nouveau devis** (solaire, 09/09/2026) : à côté de « Ajouter un
   appareil », **seulement au-delà de 5 appareils** (en dessous on retire à
   la main) ; confirmation avant d'effacer, qui rappelle « Enregistrer un

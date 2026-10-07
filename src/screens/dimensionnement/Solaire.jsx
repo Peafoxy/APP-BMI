@@ -372,6 +372,15 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // vient d'être restitué du brouillon ; les suivants (réglage changé)
   // recalculent comme avant.
   const sauterPremierCalcul = useRef(!!choixDuBrouillon);
+  // Le mode Libre remplace TOUTES les lignes : les choix faits à la main
+  // avant lui n'existent plus, leurs verrous non plus. Sans ça, au retour sur
+  // une boutique, la ligne verrouillée gardait la spécification du mode Libre
+  // (07/10/2026, convertisseur puis panneaux).
+  useEffect(() => {
+    if (!modeLibre) return;
+    setRolesManuels({});
+    setManuelOuvert({});
+  }, [modeLibre]);
 
   // RÉACTIF à chaque NOUVELLE reprise de devis — pas seulement au tout
   // premier montage. Même piège que Ventes.jsx/Commandes.jsx (2.99.13) :
@@ -420,7 +429,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         // sinon la ligne concernée reste coincée sur l'ancien état et perd
         // l'édition du prix/quantité du mode Libre. Signalé par Timo sur le
         // convertisseur précisément.
-        if (!modeLibre && rolesManuels[role.id]) continue; // ne pas écraser un choix fait à la main
+        // ⚠ 07/10/2026 (Timo : « la ligne reste bloquée… même chose pour la
+        // ligne panneaux ») : une ligne venue du mode Libre n'est JAMAIS un
+        // choix à garder sur une boutique — sans prix, sans lien au stock.
+        if (!modeLibre && rolesManuels[role.id] && !avant[role.id]?.libre) continue; // ne pas écraser un choix fait à la main
         if (role.id === "regulateur") {
           const convChoice = nouveauChoix.convertisseur;
           const conv = convChoice?.type === "stock" && produitsBoutique.find((p) => p.id === convChoice.produit_id);
