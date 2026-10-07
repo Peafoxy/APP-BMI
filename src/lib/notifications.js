@@ -30,6 +30,7 @@ import { payeeParLeComptable } from "./validationDepenses";
 import { estCompteFormation, boutiqueEstFormation, personnesDeLEspace, idsDeLaBoutique, idsParRole, idsAdmins } from "./espace";
 import { fabriquerEnvoi, CAISSE_COMPTABLE } from "./rappels";
 import { TYPE_TRANSFERT_STOCK, STATUT_ATTENTE, STATUT_VALIDE, STATUT_REFUSE, libelleLignes } from "./transfertsStock";
+import { fiche as ficheArgent, soldeArgentChantier, caissesDuRetour } from "./argentChantier";
 
 const parId = (liste) => new Map((liste || []).map((x) => [x.id, x]));
 const nomsLignes = (lignes) => (lignes || []).map((l) => `${l.qte}× ${l.nom}`).join(", ");
@@ -185,6 +186,32 @@ export function infosDepuisDiff(avant, apres) {
       }
       const tachesAvant = parId(u0?.taches);
       const formation = estCompteFormation(apres, u);
+      // 💼 L'argent de chantier RENDU (Timo, 07/10/2026 : « ajoute la
+      // notification au gérant ») : annoncé → le gérant de la boutique dont la
+      // caisse le recevra (+ les administrateurs) ; validé ou refusé → le
+      // technicien. Pour information : rien dans 💬 Messages.
+      const retoursAvant = parId(ficheArgent(u0).retours);
+      ficheArgent(u).retours.forEach((r) => {
+        const r0 = retoursAvant.get(r.id);
+        if (!r0 && r.statut === "attente") {
+          const boutiques = [...new Set(caissesDuRetour(soldeArgentChantier(apres.depenses, u, r.chantier_id)).map((c) => c.boutique))];
+          pousser({
+            destinataires: [...boutiques.flatMap((b) => idsDeLaBoutique(apres, b, ["gerant"])), ...idsAdmins(apres, formation)],
+            titre: `↩ Argent de chantier rendu — ${u.nom}`,
+            texte: `${u.nom} rend ${fmt(r.montant)} (${r.chantier_nom || "chantier"}). Vérifiez l'argent puis validez dans 📤 Dépenses : la caisse est créditée à ce moment-là.`,
+            ecran: "depenses", tag: `retour_chantier:${r.id}`, formation,
+          });
+        } else if (r0 && r0.statut === "attente" && (r.statut === "validee" || r.statut === "rejetee")) {
+          pousser({
+            destinataires: [u.id],
+            titre: r.statut === "validee" ? "✅ Argent rendu, reçu" : "❌ Argent rendu, refusé",
+            texte: r.statut === "validee"
+              ? `${fmt(r.montant)} (${r.chantier_nom || "chantier"}) : reçus par ${r.decide_par}.`
+              : `${fmt(r.montant)} (${r.chantier_nom || "chantier"}) : refusés par ${r.decide_par} — ${r.motif || "sans motif"}. Le reste à justifier revient.`,
+            ecran: "depenses", tag: `retour_chantier:${r.id}:${r.statut}`, formation,
+          });
+        }
+      });
       (u.taches || []).forEach((t) => {
         const t0 = tachesAvant.get(t.id);
         if (!t0) {

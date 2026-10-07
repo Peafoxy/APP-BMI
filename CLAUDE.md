@@ -56,7 +56,7 @@ npm run verifier-cloisonnement   # 2321 contrôles : la séparation formation / 
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run tester-notifications     # 78  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
+npm run tester-notifications     # 81  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
@@ -1510,8 +1510,12 @@ lit mal est pire qu'un banc absent).
   supprime pas si elle est déjà engagée (`refusSuppressionRemise`). Fiche du
   chantier (🛠 Travaux, 🏠 → 🔧 Frais) : `ArgentDuChantier`.
 - ⚠ Aucun déclencheur serveur : le technicien pourrait techniquement écrire sa
-  fiche autrement ; c'est l'application qui décide (dit à Timo). Pas de
-  notification au gérant (le cadre de 📤 Dépenses suffit). Banc (14
+  fiche autrement ; c'est l'application qui décide (dit à Timo).
+  ~~Pas de notification au gérant~~ — **RETOURNÉ le jour même** (« ajoute la
+  notification au gérant ») : liste B (`infosDepuisDiff`, notifications.js) —
+  rendu annoncé → le gérant de la boutique dont la caisse le recevra + les
+  administrateurs ; reçu / refusé → le technicien. Rien dans 💬 Messages.
+  Banc `tester-notifications` (+3), éprouvé (gérant retiré : il tombe). Banc (14
   contrôles), éprouvé (reste dépassé, gérant d'une autre boutique, refus de
   saisie retiré). Deux contrôles RETOURNÉS. Chapitres 15 et 17.
 

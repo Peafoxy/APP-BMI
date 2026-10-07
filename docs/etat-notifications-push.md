@@ -38,6 +38,8 @@ par son sujet, un clic ouvre l'écran concerné :
 | Dépense à pointer par le comptable (payée avec sa caisse, ou saisie chez lui) | Le comptable | 🧾 Chez le comptable |
 | Un article PASSE au seuil (il était au-dessus avant ce geste) | Vendeurs + gérant (magasinier pour un dépôt) + admins | 📦 Stocks |
 | Clôture dépassée (la caisse a bougé après la clôture) | Vendeurs + gérant + admins | 🔒 Caisse |
+| Argent de chantier rendu par un technicien (07/10/2026) | Gérant de la boutique qui le reçoit + admins | 📤 Dépenses |
+| Argent rendu reçu / refusé | Le technicien | 📤 Dépenses |
 | **Chaque matin à 7 h** : caisse d'hier non clôturée | Vendeurs + gérant + admins | 🔒 Caisse |
 | **Chaque matin** : dettes qui passent les 30 jours (le 31e jour, une fois) | Vendeurs + gérant + admins | 📋 Dettes |
 | **Chaque matin** : devis qui atteint 15 jours sans réponse (une fois par relance) | Son auteur + resp. commercial + admins | 📋 Tous les devis |

@@ -303,5 +303,23 @@ titre("Un seul chemin, et rien de secret dans l'application");
   test("web-push est une dépendance du projet (le serveur l'importe)", /"web-push":/.test(lire("package.json")));
 }
 
+titre("💼 L'argent de chantier rendu : le gérant prévenu, puis le technicien (07/10/2026)");
+{
+  // Timo : « ajoute la notification au gérant ».
+  const remise = { id: "rm1", date: "2026-10-01", boutique: "DEMAKPOE", categorie: "Carburant", montant: 20000, paiement: "Espèces", par: "GERANT D", chantier_id: "c1", chantier_nom: "NIMAN", remis_a: { id: "tech1", nom: "TECH1" } };
+  const avant = avec(base(), { depenses: [remise] });
+  const retour = { id: "x1", chantier_id: "c1", chantier_nom: "NIMAN", montant: 5000, le: "2026-10-06", statut: "attente" };
+  const usersAvec = (r) => users.map((u) => (u.id === "tech1" ? { ...u, argent_chantier: { justifs: [], retours: [r] } } : u));
+  const annonce = avec(avant, { users: usersAvec(retour) });
+  const e1 = envoisDe(avant, annonce, { id: "tech1" }).filter((e) => /Argent de chantier rendu/.test(e.titre));
+  test("★ rendu annoncé → le gérant de la boutique dont la caisse le recevra + les administrateurs (jamais un vendeur, jamais l'auteur), écran Dépenses",
+    e1.length === 1 && memes(e1[0].destinataires, ["gerantD", "timo", "adminR"]) && e1[0].ecran === "depenses" && /5\s000 F/.test(e1[0].texte));
+  test("la même demande ne repart pas", envoisDe(annonce, annonce, { id: "tech1" }).filter((e) => /Argent de chantier rendu/.test(e.titre)).length === 0);
+  const valide = avec(annonce, { users: usersAvec({ ...retour, statut: "validee", decide_par: "GERANT D" }) });
+  const e2 = envoisDe(annonce, valide, { id: "gerantD" }).filter((e) => /Argent rendu/.test(e.titre));
+  test("★ validé → le technicien seul (« ✅ Argent rendu, reçu ») ; refusé → le motif", e2.length === 1 && memes(e2[0].destinataires, ["tech1"]) && /reçu/.test(e2[0].titre)
+    && /pas reçu/.test((envoisDe(annonce, avec(annonce, { users: usersAvec({ ...retour, statut: "rejetee", decide_par: "GERANT D", motif: "pas reçu" }) }), { id: "gerantD" }).find((e) => /refusé/.test(e.titre)) || {}).texte || ""));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
