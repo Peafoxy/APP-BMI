@@ -8117,6 +8117,18 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     /refuserSaufAdminPrincipal\(db, profile, "Supprimer des travaux"\)/.test(tvJ) && /const refus = critiqueSuppression\(c\);/.test(tvJ) && /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(tvJ) && /RESTENT dans 📤 Dépenses/.test(tvJ) && /\{jeSuisPrincipal && !vente && \(/.test(tvJ)
     && /refuserSaufRoles\(profile, ROLES_EQUIPE, "Composer l'équipe des travaux"\)/.test(tvJ) && /const equipe = composerEquipe\(techniciens, equipeForm\.ids, equipeForm\.chef\);/.test(tvJ)
     && /const techniciens = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => \["technicien", "technicien_bmi"\]\.includes\(u\.role\) && u\.actif !== false\);/.test(tvJ));
+  // Timo (07/10/2026) : « petite dépense rattachée… en gras, l'utilisateur qui
+  // a fait la dépense, l'administrateur peut la supprimer ; supprimée, l'argent
+  // se repositionne sur la caisse débitée ». LE geste de 📤 Dépenses, revérifié ici.
+  {
+    const corps = (tvJ.match(/const supprimerDepenseRattachee = async \(d\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+    test("★ 🛠 Travaux : chaque petite dépense rattachée en GRAS avec « saisie par … », et 🗑 Supprimer pour l'administrateur seul — le MÊME geste que 📤 Dépenses (refuserSaufAdmin, refusSuppressionDepense, annulerLiensDepense, la ligne retirée de db.depenses : le tiroir se recalcule)",
+      /data-depenses-rattachees/.test(tvJ) && /className="font-bold text-slate-800"/.test(tvJ) && /saisie par \{d\.par \|\| "—"\}/.test(tvJ)
+      && /\{profile\.role === "admin" && <button onClick=\{\(\) => supprimerDepenseRattachee\(d\)\}/.test(tvJ)
+      && /refuserSaufAdmin\(profile, "Supprimer une dépense"\)/.test(corps) && /const refus = refusSuppressionDepense\(db, frais\);/.test(corps)
+      && /\.\.\.annulerLiensDepense\(db, frais\), depenses: db\.depenses\.filter\(\(x\) => x\.id !== frais\.id\)/.test(corps)
+      && corps.indexOf("refuserSaufAdmin(") < corps.indexOf("save("));
+  }
   // Choisir l'article à sortir en tapant son nom (capture Timo, 13/09/2026 :
   // « tous les articles apparaissent… saisie libre avec proposition »).
   const p3 = { id: "p3", nom: "Convertisseur hybride DEYE 6kW", boutique: "LOME", initial: 1, prix_vente: 390000, prix_achat: 300000 };

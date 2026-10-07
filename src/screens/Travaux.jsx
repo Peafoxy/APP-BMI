@@ -15,7 +15,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutiqu
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
-import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, marqueEspace, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
+import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdmin, refusSuppressionDepense, aLienAAnnuler, annulerLiensDepense, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, marqueEspace, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
 import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe, propositionsStock, produitSaisi } from "../lib/travaux";
@@ -101,6 +101,24 @@ export function Travaux({ db, save, profile, onFacturer }) {
     if (refus) { uAlert(refus); return; }
     majFiche({ ...c, prestation: { mode: prest.mode, valeur: Number(prest.valeur) } }, `Travaux ${c.nom} : frais de prestation ${prest.mode === "pct" ? `${prest.valeur} %` : fmt(Number(prest.valeur))}`);
     setPrest(null);
+  };
+
+  // 🗑 Supprimer une petite dépense rattachée (Timo, 07/10/2026 : « possibilité
+  // à l'administrateur de supprimer la dépense ; si elle est supprimée,
+  // l'argent se repositionne sur la caisse débitée »). LE MÊME geste que
+  // 📤 Dépenses (mêmes gardes, mêmes portes de sortie dédiées) : le tiroir, le
+  // fonds à verser et les caisses centrales se RECALCULENT depuis les
+  // dépenses — la retirer remet l'argent dans la caisse qui l'avait payée.
+  const supprimerDepenseRattachee = async (d) => {
+    if (refuserSaufAdmin(profile, "Supprimer une dépense")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = (db.depenses || []).find((x) => x.id === d.id);
+    if (!frais) { uAlert("Cette dépense n'existe plus."); return; }
+    const refus = refusSuppressionDepense(db, frais);
+    if (refus) { uAlert(refus); return; }
+    const avertissement = aLienAAnnuler(frais) ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
+    if (!await uConfirm(`Supprimer la dépense de ${fmt(frais.montant)} (${frais.categorie}${frais.description ? ` — ${frais.description}` : ""}) du ${dFR(frais.date)}, saisie par ${frais.par || "—"} ?\n\nL'argent revient dans la caisse qui l'avait payée (${frais.boutique}).${avertissement}`)) return;
+    save({ ...db, ...annulerLiensDepense(db, frais), depenses: db.depenses.filter((x) => x.id !== frais.id) }, `Suppression dépense ${fmt(frais.montant)} (${frais.categorie}) — ${frais.boutique} — rattachée aux travaux ${frais.chantier_nom || ""}`.trim());
   };
 
   // Timo (13/09/2026) : supprimer tant qu'aucun article n'est rattaché ; les
@@ -326,7 +344,18 @@ export function Travaux({ db, save, profile, onFacturer }) {
                     <div className="text-xs font-bold text-slate-500 uppercase mb-1">🧾 Petites dépenses rattachées — {fmt(totalDepensesChantier(db, c.id))}</div>
                     {deps.length === 0
                       ? <div className="text-xs text-slate-500">Aucune. Saisissez-les dans 📤 Dépenses avec la ligne « Chantier à rattacher » : 🛠 {c.prenom} {c.nom}.</div>
-                      : <div className="text-xs text-slate-600">{deps.map((d) => `${dFR(d.date)} · ${d.categorie}${d.description ? ` — ${d.description}` : ""} · ${fmt(d.montant)}${depenseCompteAuChantier(d) ? "" : " (en attente du DG)"}`).join(" ; ")}</div>}
+                      : <ul className="space-y-1" data-depenses-rattachees>
+                          {deps.map((d) => (
+                            <li key={d.id} className="flex items-center justify-between gap-2 text-sm">
+                              <span className="font-bold text-slate-800">
+                                {dFR(d.date)} · {d.categorie}{d.description ? ` — ${d.description}` : ""} · {fmt(d.montant)}
+                                {!depenseCompteAuChantier(d) && <span className="font-normal text-amber-700"> (en attente du DG)</span>}
+                                <span className="font-normal text-slate-500" data-depense-par> — saisie par {d.par || "—"}</span>
+                              </span>
+                              {profile.role === "admin" && <button onClick={() => supprimerDepenseRattachee(d)} title="Supprimer cette dépense (l'argent revient dans la caisse qui l'avait payée)" className="shrink-0 px-2 py-1 rounded-lg border border-red-300 text-red-700 text-xs font-bold">🗑 Supprimer</button>}
+                            </li>
+                          ))}
+                        </ul>}
                   </div>
 
                   {/* ---- Facture ---- */}
