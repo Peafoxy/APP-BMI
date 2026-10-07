@@ -22,7 +22,11 @@ import { peutAvoirAffectation, critiqueAffectation } from "../lib/affectation";
 import { TYPES_CONTRAT, CODE_CDI, CODE_CDD, phraseContrat, critiqueContrat, critiqueSortie, etatFinContrat, phraseFinContrat, lireDuree, dureeEnClair, finDepuisDuree, peutRenouveler, critiqueRenouvellement, finApresRenouvellement, MESSAGE_DUREE_ILLISIBLE } from "../lib/contratTravail";
 import { CODES_MOTIF_SORTIE } from "../lib/cnss";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie } from "../lib/calculs";
+
+const CHOIX_PRIME_SALAIRE = "💵 Prime sur salaire";
+const CHOIX_PRIME_CHANTIER = "🏠 Prime sur chantier";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie, chantiersDeLEspaceRegarde, boutiqueDuChantier } from "../lib/calculs";
+import { chantiersPourPrime, critiquePrimeChantier, ajouterPrimeChantier, partBmiRestante, MOIS_PRIME_CHANTIER } from "../lib/primeChantier";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -1075,6 +1079,13 @@ export function Users({ db, save, profile }) {
   const ajouterMouvementSalaire = async (u, type) => {
     if (refuserSaufAdmin(profile, "Enregistrer une prime ou une avance")) return;
     if (bloquerSiLecture(db, profile)) return;
+    // 🎁 Timo (07/10/2026) : « la fenêtre prime sur salaire et prime sur
+    // chantier apparaît ». Sur chantier → primeSurChantier (lib/primeChantier.js).
+    if (type === "prime") {
+      const genre = await uChoix(`Quelle prime pour ${u.nom} ?`, [CHOIX_PRIME_SALAIRE, CHOIX_PRIME_CHANTIER]);
+      if (!genre) return;
+      if (genre === CHOIX_PRIME_CHANTIER) { await primeSurChantier(u); return; }
+    }
     const libelle = type === "prime" ? "prime" : "avance sur salaire";
     const mois = await demanderMois(`Mois de la ${libelle} pour ${u.nom}`, today().slice(0, 7));
     if (!mois) return;
@@ -1107,6 +1118,39 @@ export function Users({ db, save, profile }) {
     }
 
     save(next, `${type === "prime" ? "Prime" : "Avance"} de ${fmt(montant)} pour ${u.nom} (${mois.trim()})${motif.trim() ? " — " + motif.trim() : ""}`);
+  };
+
+  // 🎁 LA PRIME DE CHANTIER (Timo, 07/10/2026, « 1b, 2a, 3… lance ») : les
+  // chantiers liés à SA boutique dont le partage des frais est validé depuis
+  // moins de 3 mois ; la prime est prise sur la part de BMI, jamais au-delà ;
+  // elle se paie comme la part d'un technicien et se lit dans 💵 Ma commission.
+  const primeSurChantier = async (u) => {
+    if (refuserSaufAdmin(profile, "Poser une prime de chantier")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const boutiqueDe = (c) => boutiqueDuChantier(db, c);
+    const liste = chantiersPourPrime(chantiersDeLEspaceRegarde(db, profile), u, boutiqueDe, today());
+    if (!liste.length) {
+      uAlert(!u.boutique
+        ? `${u.nom} n'est rattaché à aucune boutique : aucun chantier ne peut lui être proposé.`
+        : `Aucun chantier à proposer pour ${u.nom} : il faut un chantier lié à ${u.boutique}, dont le partage des frais est validé depuis moins de ${MOIS_PRIME_CHANTIER} mois, où il reste une part à BMI et où aucune prime ne lui a déjà été posée.`);
+      return;
+    }
+    const libelles = liste.map((c, i) => `${i + 1}. ${`${c.nom || ""} ${c.prenom || ""}`.trim()} — partage du ${dFR(c.date_repartition)} — part BMI restante ${fmt(partBmiRestante(c))}`);
+    const choix = await uChoix(`Prime de chantier pour ${u.nom} — quel chantier ?`, libelles);
+    if (!choix) return;
+    const chantier = liste[libelles.indexOf(choix)];
+    if (!chantier) return;
+    const v = await uPrompt(`Montant de la prime (F CFA) — au plus ${fmt(partBmiRestante(chantier))}, pris sur la part de BMI :`, "");
+    if (v === null) return;
+    const montant = Number(String(v).replace(/\s/g, ""));
+    const frais = (db.clients_installes || []).find((c) => c.id === chantier.id);
+    const refus = critiquePrimeChantier(frais, u, montant, boutiqueDe, today());
+    if (refus) { uAlert(refus); return; }
+    const nomChantier = `${frais.nom || ""} ${frais.prenom || ""}`.trim();
+    if (!await uConfirm(`Prime de chantier de ${fmt(montant)} pour ${u.nom} — chantier ${nomChantier}.\n\nPrise sur la part de BMI : il lui restera ${fmt(partBmiRestante(frais) - montant)}. Les parts des techniciens ne bougent pas.\n\nElle se paie comme la part d'un technicien : 🏠 Clients installés → 🔧 Frais → 📤 Demander le paiement. ${u.nom} la verra dans 💵 Ma commission.`)) return;
+    save({ ...db, clients_installes: db.clients_installes.map((c) => (c.id === frais.id ? ajouterPrimeChantier(c, u, montant, profile.nom, today()) : c)) },
+      `Prime de chantier de ${fmt(montant)} pour ${u.nom} — chantier ${nomChantier} (prise sur la part de BMI)`);
+    uAlert(`✅ Prime de chantier enregistrée : ${fmt(montant)} pour ${u.nom}.\n\nPour la payer : 🏠 Clients installés → chantier ${nomChantier} → 🔧 Frais → 📤 Demander le paiement.`);
   };
 
   // ---- VIREMENT DE SALAIRE ----

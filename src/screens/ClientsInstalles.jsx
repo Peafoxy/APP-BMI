@@ -20,6 +20,7 @@ import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne, FormulaireRepliable } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
+import { estPrimeChantier, primesDuChantier, totalPrimesChantier } from "../lib/primeChantier";
 import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
@@ -657,19 +658,22 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   const ouvrirRepartition = (c) => {
     if (refuserSaufAdmin(profile, "Répartir les frais d'installation")) return;
-    const equipe = (c.equipe || []).map((e) => e.user_id);
+    // 🎁 Les primes de chantier (07/10/2026) ne sont pas des techniciens : elles
+    // restent hors du partage, et sont remises telles quelles à l'enregistrement.
+    const techs = (c.equipe || []).filter((e) => !estPrimeChantier(e));
+    const equipe = techs.map((e) => e.user_id);
     setChantier(c.id);
     setRep({
       frais: String(c.frais_installation || ""),
       chef: c.chef_id || "",
       // Une ancienne répartition (avant le 29/09/2026) n'a pas de part_bmi :
       // on la déduit de ses parts enregistrées, qui ne bougent pas.
-      partBmi: String(c.part_bmi ?? (Array.isArray(c.equipe) && c.equipe.length
-        ? Math.max(0, Math.round((100 - c.equipe.reduce((s, e) => s + Number(e.pct || 0), 0)) * 10) / 10)
-        : PART_BMI_DEFAUT)),
+      partBmi: String(techs.length
+        ? Math.max(0, Math.round((100 - techs.reduce((s, e) => s + Number(e.pct || 0), 0)) * 10) / 10)
+        : (c.part_bmi ?? PART_BMI_DEFAUT)),
       majChef: String(c.majoration_chef ?? MAJORATION_CHEF_DEFAUT),
       equipe,
-      pcts: Object.fromEntries((c.equipe || []).map((e) => [e.user_id, e.pct])),
+      pcts: Object.fromEntries(techs.map((e) => [e.user_id, e.pct])),
     });
   };
 
@@ -735,9 +739,22 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       if (e.demande_prime && !rep.equipe.includes(e.user_id)) annulees.push(e);
     });
 
-    const resume = equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom} : ${e.pct} % = ${fmt(e.montant)}`).join("\n");
-    const pctBMI = Math.round((100 - totalPct) * 10) / 10;
-    const ligneBMI = pctBMI > 0.5 ? `\n🏢 Part BMI (non distribuée) : ${pctBMI} % = ${fmt(Math.round((fraisNet * pctBMI) / 100))}` : "";
+    // 🎁 Les primes de chantier sont prises sur la part de BMI : elles doivent
+    // encore y tenir (« 2a », 07/10/2026), et elles restent dans l'équipe.
+    const primes = primesDuChantier(c);
+    const totalPrimes = totalPrimesChantier(c);
+    const partTechs = equipe.reduce((s, e) => s + e.montant, 0);
+    if (totalPrimes > 0 && partTechs + totalPrimes > fraisNet) {
+      uAlert(`Impossible : les primes de chantier déjà posées (${fmt(totalPrimes)} — ${primes.map((p) => p.nom).join(", ")}) sont prises sur la part de BMI, et avec ce partage il ne resterait que ${fmt(Math.max(0, fraisNet - partTechs))} à BMI.\n\nAugmentez la part de BMI.`);
+      return;
+    }
+    const resume = [...equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom} : ${e.pct} % = ${fmt(e.montant)}`),
+      ...primes.map((p) => `🎁 ${p.nom} : prime de chantier = ${fmt(p.montant)} (prise sur la part de BMI)`)].join("\n");
+    const resteBmi = Math.max(0, fraisNet - partTechs - totalPrimes);
+    // Sans prime, la formule d'avant mot pour mot ; une prime retire sa part en %.
+    const pctPrimes = fraisNet > 0 ? (totalPrimes / fraisNet) * 100 : 0;
+    const pctBMI = Math.max(0, Math.round((100 - totalPct - pctPrimes) * 10) / 10);
+    const ligneBMI = pctBMI > 0.5 ? `\n🏢 Part BMI (non distribuée) : ${pctBMI} % = ${fmt(resteBmi)}` : "";
     const ligneDeduction = depRattachees > 0 ? `\n🧾 Petites dépenses rattachées : − ${fmt(depRattachees)} → ${fmt(fraisNet)} à partager` : "";
     const ligneAnnulees = annulees.length
       ? `\n\n⚠ ${annulees.length} demande(s) de paiement en attente seront ANNULÉES (le montant a changé ou la personne quitte le chantier) :\n${annulees.map((e) => `• ${e.nom} — ${fmt(e.montant)} chez ${e.prime_boutique}`).join("\n")}\nLes vendeurs concernés seront prévenus.`
@@ -755,7 +772,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, frais_installation: fraisRep, depenses_deduites: depRattachees, frais_a_partager: fraisNet, chef_id: rep.chef, part_bmi: pctBMI, majoration_chef: Number(rep.majChef || 0), equipe, date_repartition: today(), par_repartition: profile.nom }
+        ? { ...x, frais_installation: fraisRep, depenses_deduites: depRattachees, frais_a_partager: fraisNet, chef_id: rep.chef, part_bmi: pctBMI, majoration_chef: Number(rep.majChef || 0), equipe: [...equipe, ...primes], date_repartition: today(), par_repartition: profile.nom }
         : x)),
       ...(avis.length ? { messages: [...avis, ...(db.messages || [])] } : {}),
     }, `Frais d'installation de ${fmt(fraisRep)}${depRattachees > 0 ? ` (− ${fmt(depRattachees)} de dépenses rattachées = ${fmt(fraisNet)})` : ""} répartis — chantier ${c.nom} (chef : ${equipe.find((e) => e.chef)?.nom}${pctBMI > 0.5 ? ` · part BMI ${pctBMI} %` : ""}${annulees.length ? ` · ${annulees.length} demande(s) de prime annulée(s)` : ""})`);
@@ -789,6 +806,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const validerPaiementPrime = async (c, e) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Seul le vendeur ou le gérant de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
+    if (e.user_id === profile.id) { uAlert("Vous ne pouvez pas valider le paiement de votre propre prime : un autre vendeur ou gérant de la boutique, ou l'administrateur, s'en charge."); return; }
     if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : sans ce contrôle, la caisse aurait été débitée une seconde fois.`); return; }
     const moyen = await demanderMoyenPaiement(`pour ${e.nom}`, "Espèces", "Moyen de paiement", ficheParId(db.users, e.user_id));
     if (moyen === null) return;
@@ -1322,8 +1340,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     {(c.equipe || []).map((e) => (
                       <tr key={e.user_id} className="border-t border-slate-100">
                         <td className="px-3 py-2 font-semibold">{e.nom}</td>
-                        <td className="px-3 py-2 text-xs">{e.chef ? <span className="font-bold text-amber-600">⭐ Chef de chantier</span> : "Technicien"}</td>
-                        <td className="px-3 py-2 tabular-nums">{e.pct} %</td>
+                        <td className="px-3 py-2 text-xs">{estPrimeChantier(e) ? <span data-prime-chantier className="font-bold text-purple-700">🎁 Prime de chantier (part BMI)</span> : e.chef ? <span className="font-bold text-amber-600">⭐ Chef de chantier</span> : "Technicien"}</td>
+                        <td className="px-3 py-2 tabular-nums">{estPrimeChantier(e) ? "—" : `${e.pct} %`}</td>
                         <td className="px-3 py-2 tabular-nums font-bold">{fmt(e.montant)}</td>
                         <td className="px-3 py-2">{e.paye
                           ? <span className="text-xs font-bold text-green-700">✅ Payé le {dFR(e.date_paiement)}</span>

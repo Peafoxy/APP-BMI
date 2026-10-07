@@ -31,6 +31,7 @@ export function PrimesRemises({ db, save, profile }) {
   const valider = async ({ client: c, entree: e }) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Cette demande concerne la boutique ${e.prime_boutique}, pas la vôtre.`); return; }
+    if (e.user_id === profile.id) { uAlert("Vous ne pouvez pas valider le paiement de votre propre prime : un autre vendeur ou gérant de la boutique, ou l'administrateur, s'en charge."); return; }
     // ⚠ L'administrateur peut payer cette même part depuis 🏠 Clients installés,
     // et l'application fonctionne hors ligne : sans ce contrôle, la caisse
     // était débitée deux fois pour une seule prime.
@@ -61,7 +62,7 @@ export function PrimesRemises({ db, save, profile }) {
           {enAttente.map(({ client: c, entree: e }) => (
             <div key={`${c.id}-${e.user_id}`} className="flex items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 flex-wrap">
               <div>
-                <div className="font-semibold text-sm">{e.nom}{e.chef ? " ⭐" : ""} <span className="text-slate-400 font-normal">· chantier {c.nom} {c.prenom || ""}</span></div>
+                <div className="font-semibold text-sm">{e.nom}{e.chef ? " ⭐" : ""}{e.prime_employe ? " 🎁 prime de chantier" : ""} <span className="text-slate-400 font-normal">· chantier {c.nom} {c.prenom || ""}</span></div>
                 <div className="text-xs text-slate-500">Demandé le {dFR(e.prime_demandee_le)} par {e.prime_demandee_par}</div>
               </div>
               <div className="flex items-center gap-2">

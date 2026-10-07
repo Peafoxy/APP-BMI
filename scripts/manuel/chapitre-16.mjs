@@ -134,9 +134,10 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "La répartition (administrateur)", texte: "🏠 Clients installés → 🔧 Frais (chapitre 15)." },
         { titre: "📤 Demander le paiement", texte: "L'administrateur choisit **la boutique qui paiera** — la caisse où le client a payé est proposée en premier, il peut en prendre une autre : la demande apparaît dans **💰 Primes remises** de cette boutique." },
-        { titre: "✓ Valider et payer (le vendeur de la boutique)", texte: "Moyen de paiement, confirmation, sortie de caisse ; le technicien est prévenu. Une part **déjà payée** (par l'administrateur, ou sur un autre appareil) est refusée : la caisse n'est jamais débitée deux fois." },
+        { titre: "✓ Valider et payer (le vendeur ou le gérant de la boutique)", texte: "Moyen de paiement, confirmation, sortie de caisse ; le technicien est prévenu. Une part **déjà payée** (par l'administrateur, ou sur un autre appareil) est refusée : la caisse n'est jamais débitée deux fois." },
         { titre: "Outil perdu", texte: "Un technicien **à commission** qui doit un outil perdu voit la retenue **annoncée** et prise sur sa part ; « Il reçoit : … » (chapitre 19)." },
         { titre: "💰 Primes reçues (technicien)", texte: "« En attente de paiement », « Déjà payé », et pour chaque chantier : répartition enregistrée, demandée au vendeur de …, ou payée le …" },
+        { titre: "🎁 La prime de chantier d'un employé de boutique (administrateur)", texte: "Un gérant, un vendeur ou un magasinier qui a suivi un chantier : 👥 Utilisateurs → ⋯ Gérer → Paie → **+ Prime → « 🏠 Prime sur chantier »**. La liste montre les chantiers liés à **sa boutique**, dont le partage des frais est validé depuis **moins de 3 mois**, et sans prime déjà posée pour lui. Le montant est **pris sur la part de BMI** — jamais au-delà, les parts des techniciens ne bougent pas. Elle se paie ensuite **comme une part de technicien** (📤 Demander le paiement, puis ✓ Valider et payer) ; **personne ne valide le paiement de sa propre prime**. L'employé la voit dans **💵 Ma commission** (« 🎁 prime de chantier »), rien à valider de son côté. Refaire le partage garde les primes posées." },
       ]],
     ]},
 

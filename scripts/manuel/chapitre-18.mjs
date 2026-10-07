@@ -96,7 +96,7 @@ export const CHAPITRE = {
 
       ["h3", "C. Une prime ou une avance (administrateur)"],
       ["etapes", [
-        { titre: "+ Prime", texte: "Le mois, le montant, un motif. **Rien ne sort de la caisse** : la prime est payée avec le salaire du mois." },
+        { titre: "+ Prime", texte: "Une question d'abord : **« 💵 Prime sur salaire »** — le mois, le montant, un motif ; **rien ne sort de la caisse**, la prime est payée avec le salaire du mois — ou **« 🏠 Prime sur chantier »** : un chantier de sa boutique partagé depuis moins de 3 mois, un montant pris sur la part de BMI, payé comme une part de technicien (chapitre 16)." },
         { titre: "− Avance", texte: "Le mois, le montant, un motif, puis le **moyen de paiement** (la banque de la fiche est rappelée) et **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** demande aussi d'où il part — 🏦 BANQUE, et en réel 👤 Chez le DG ou 🧾 Chez le comptable. **C'est la seule question** : payée chez le DG, par la BANQUE ou chez le comptable, la dépense reste dans CETTE caisse — elle ne sort du tiroir d'aucune boutique et ne pèse sur le résultat d'aucune ; elle se lit dans 📤 Dépenses (cadre « 👤 Payées chez le DG · 🏦 par la BANQUE », ou « Chez le comptable ») et dans le relevé de la caisse. En formation, un virement part de la BANQUE et demande à quelle boutique compter la charge. L'argent part **tout de suite** : une dépense « Salaires » est écrite, et l'avance sera retirée du net de ce mois." },
       ]],
 

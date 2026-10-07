@@ -231,7 +231,7 @@ export function MaCommission({ db, profile }) {
             {partsAPercevoir.map((x) => (
               <div key={x.chantier.id + "-att"} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
                 <div>
-                  <b>{fmt(x.part.montant)}</b> — chantier {x.chantier.nom} {x.chantier.prenom || ""}
+                  <b>{fmt(x.part.montant)}</b> — chantier {x.chantier.nom} {x.chantier.prenom || ""}{x.part.prime_employe && <span data-prime-chantier className="ml-1 text-xs font-semibold text-purple-700">🎁 prime de chantier</span>}
                   <div className="text-xs text-slate-500">{x.part.pct} % des frais d'installation{x.part.chef ? " · ⭐ chef de chantier" : ""}</div>
                 </div>
                 <span className="text-xs font-bold text-amber-700 whitespace-nowrap">⏳ À percevoir</span>
@@ -240,7 +240,7 @@ export function MaCommission({ db, profile }) {
             {partsPayees.map((x) => (
               <div key={x.chantier.id + "-pay"} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
                 <div>
-                  {fmt(x.part.montant)} — chantier {x.chantier.nom} {x.chantier.prenom || ""}
+                  {fmt(x.part.montant)} — chantier {x.chantier.nom} {x.chantier.prenom || ""}{x.part.prime_employe && <span className="ml-1 text-xs font-semibold text-purple-700">🎁 prime de chantier</span>}
                   <span className="ml-2 text-xs text-slate-400">{x.part.pct} %{x.part.chef ? " · ⭐ chef" : ""}</span>
                 </div>
                 <span className="text-xs font-bold text-green-700 whitespace-nowrap">✅ Payée{x.part.date_paiement ? ` le ${dFR(x.part.date_paiement)}` : ""}</span>

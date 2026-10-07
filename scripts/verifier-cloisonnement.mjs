@@ -1293,8 +1293,8 @@ titre("Répartition des frais d'installation : BMI prend sa part, le chef touche
   test("l'écran dit « Part de BMI » et « Le chef touche en plus », 7 d'office ; plus de « Part du chef de chantier »",
     /label="Part de BMI \(%\)"/.test(srcCI) && /label="Le chef touche en plus \(%\)"/.test(srcCI)
     && /const MAJORATION_CHEF_DEFAUT = 7;/.test(srcCI) && !/Part du chef de chantier/.test(srcCI) && !/part_chef/.test(srcCI));
-  test("la fiche garde la part de BMI réellement restante et la majoration du chef",
-    /part_bmi: pctBMI, majoration_chef: Number\(rep\.majChef \|\| 0\)/.test(srcCI) && /const pctBMI = Math\.round\(\(100 - totalPct\)/.test(srcCI));
+  test("la fiche garde la part de BMI réellement restante (moins les primes de chantier, 07/10/2026) et la majoration du chef",
+    /part_bmi: pctBMI, majoration_chef: Number\(rep\.majChef \|\| 0\)/.test(srcCI) && /const pctBMI = Math\.max\(0, Math\.round\(\(100 - totalPct - pctPrimes\) \* 10\) \/ 10\);/.test(srcCI) && /const pctPrimes = fraisNet > 0 \? \(totalPrimes \/ fraisNet\) \* 100 : 0;/.test(srcCI));
 }
 
 
@@ -13654,6 +13654,48 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     && /ongletsVisites\.primes_remises && \(isVendeur \|\| isGerant\) && \(/.test(appP)
     && /idsDeLaBoutique\(apres, e\.prime_boutique, \["vendeur", "gerant"\]\)/.test(readFileSync("src/lib/notifications.js", "utf8"))
     && /if \(!isAdmin && profile\.boutique !== e\.prime_boutique\)/.test(prP));
+}
+
+// 🎁 LA PRIME DE CHANTIER (Timo, 07/10/2026, « 1b, 2a, 3… lance ») : une ligne
+// de l'équipe, prise sur la part de BMI, sur les chantiers de SA boutique
+// partagés depuis moins de 3 mois, jamais deux fois.
+{
+  const P = await import(pathToFileURL("src/lib/primeChantier.js").href);
+  const ok1 = { id: "p1", nom: "ADJO", boutique: "DEMAKPOE", date_repartition: "2026-09-01", frais_a_partager: 100000,
+    equipe: [{ user_id: "t1", nom: "KOSSI", pct: 30, montant: 30000 }, { user_id: "t2", nom: "AFI", pct: 20, montant: 20000 }] };
+  const gerant = { id: "g1", nom: "ANGELE", role: "gerant", boutique: "DEMAKPOE" };
+  const bq = (c) => c.boutique;
+  const lot = [ok1,
+    { ...ok1, id: "p2", boutique: "APESSITO" },
+    { ...ok1, id: "p3", date_repartition: undefined },
+    { ...ok1, id: "p4", date_repartition: "2026-07-06" },
+    { ...ok1, id: "p5", equipe: [...ok1.equipe, { user_id: "g1", nom: "ANGELE", pct: 0, montant: 5000, prime_employe: true, paye: true }] },
+    { ...ok1, id: "p6", travaux: true },
+    { ...ok1, id: "p7", equipe: [{ user_id: "t1", montant: 100000 }] }];
+  const prop = P.chantiersPourPrime(lot, gerant, bq, "2026-10-07").map((c) => c.id);
+  test("★ prime de chantier : seuls les chantiers de SA boutique, partagés depuis moins de 3 mois, sans prime déjà posée pour lui, où BMI garde encore une part (jamais des travaux)",
+    prop.length === 1 && prop[0] === "p1" && P.limitePrimeChantier("2026-10-07") === "2026-07-07" && P.limitePrimeChantier("2026-05-31") === "2026-02-28"
+    && P.chantiersPourPrime([{ ...ok1, date_repartition: "2026-07-07" }], gerant, bq, "2026-10-07").length === 1);
+  test("★ « 2a » : la prime est prise sur la part de BMI et ne la dépasse JAMAIS ; un montant non entier est refusé ; les techniciens ne bougent pas",
+    P.partBmiRestante(ok1) === 50000 && /ne peut pas la dépasser/.test(P.critiquePrimeChantier(ok1, gerant, 50001, bq, "2026-10-07") || "")
+    && !!P.critiquePrimeChantier(ok1, gerant, 1.5, bq, "2026-10-07") && P.critiquePrimeChantier(ok1, gerant, 50000, bq, "2026-10-07") === null
+    && (() => { const a = P.ajouterPrimeChantier(ok1, gerant, 15000, "TIMO", "2026-10-07"); const l = a.equipe[2];
+      return a.equipe.length === 3 && l.prime_employe === true && l.pct === 0 && l.montant === 15000 && !l.chef && a.part_bmi === 35
+        && a.equipe[0].montant === 30000 && P.partBmiRestante(a) === 35000 && P.critiquePrimeChantier(a, gerant, 100, bq, "2026-10-07") !== null; })());
+  const uti = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const corpsP = (uti.match(/const primeSurChantier = async \(u\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+  const ci = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  const pr = readFileSync("src/screens/PrimesRemises.jsx", "utf8");
+  const app = readFileSync("src/App.jsx", "utf8");
+  test("★ l'écran : « + Prime » demande salaire OU chantier ; la prime de chantier est revérifiée DANS le geste (fiche fraîche) avant d'écrire ; refaire le partage GARDE les primes ; personne ne paie sa propre prime ; l'onglet 💵 Ma commission s'ouvre à qui en a une",
+    /uChoix\(`Quelle prime pour \$\{u\.nom\} \?`, \[CHOIX_PRIME_SALAIRE, CHOIX_PRIME_CHANTIER\]\)/.test(uti)
+    && corpsP.indexOf("refuserSaufAdmin(") > -1 && corpsP.indexOf("critiquePrimeChantier(frais") > -1 && corpsP.indexOf("critiquePrimeChantier(frais") < corpsP.indexOf("save(")
+    && /chantiersPourPrime\(chantiersDeLEspaceRegarde\(db, profile\)/.test(corpsP)
+    && /const techs = \(c\.equipe \|\| \[\]\)\.filter\(\(e\) => !estPrimeChantier\(e\)\);/.test(ci) && /equipe: \[\.\.\.equipe, \.\.\.primes\]/.test(ci)
+    && /partTechs \+ totalPrimes > fraisNet/.test(ci)
+    && /if \(e\.user_id === profile\.id\) \{ uAlert\("Vous ne pouvez pas valider le paiement de votre propre prime/.test(ci)
+    && /if \(e\.user_id === profile\.id\) \{ uAlert\("Vous ne pouvez pas valider le paiement de votre propre prime/.test(pr)
+    && /\(jeSuisApporteur \|\| aUnePrimeDeChantier\) && !tabs\.some/.test(app) && /jeSuisApporteur \|\| aUnePrimeDeChantier \|\| isTechnicienBMI/.test(app));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

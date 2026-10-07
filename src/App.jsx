@@ -1184,7 +1184,10 @@ export default function App() {
     : [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["ravitaillement", labelRavitaillement], ["parc", labelParc], ["travaux", "🛠 Travaux à crédit"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["salaire", labelSalaire], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["primes_remises", "💰 Primes remises"], ["contrats", "📄 Contrats"]];
 
   // Tout utilisateur qui amène un client voit son onglet « Ma commission »
-  const tabsPlus = jeSuisApporteur && !tabs.some(([id]) => id === "commission") && !isClient
+  // 🎁 …et tout employé qui a reçu une PRIME DE CHANTIER (07/10/2026) : c'est
+  // là qu'il la voit, à percevoir puis payée (« rien à valider »).
+  const aUnePrimeDeChantier = !isClient && (db.clients_installes || []).some((c) => (c.equipe || []).some((e) => e.user_id === profile.id && e.prime_employe));
+  const tabsPlus = (jeSuisApporteur || aUnePrimeDeChantier) && !tabs.some(([id]) => id === "commission") && !isClient
     ? [...tabs, ["commission", "💵 Ma commission"]]
     : tabs;
 
@@ -1451,7 +1454,7 @@ export default function App() {
           <M.Historique db={db} profile={profile} />
         </div>
       )}
-      {ongletsVisites.commission && (jeSuisApporteur || isTechnicienBMI || isRespCom || isCommercial || isTechnicien) && (
+      {ongletsVisites.commission && (jeSuisApporteur || aUnePrimeDeChantier || isTechnicienBMI || isRespCom || isCommercial || isTechnicien) && (
         <div style={{ display: tab === "commission" ? "block" : "none" }}>
           <M.MaCommission db={db} profile={profile} />
         </div>

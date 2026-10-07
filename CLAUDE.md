@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2325 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2328 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1467,6 +1467,28 @@ lit mal est pire qu'un banc absent).
   `ONGLETS_ROLE.gerant` et son menu, les demandes de SA boutique seulement
   (même geste, mêmes contrôles). Rien à coller (le serveur ne distingue pas
   vendeur et gérant sur ces champs). Guide du gérant : chapitre 16 ajouté.
+- **🎁 LA PRIME DE CHANTIER D'UN EMPLOYÉ DE BOUTIQUE** (07/10/2026, « 1b,
+  2a, 3… lance ») : 👥 Utilisateurs → ⋯ Gérer → Paie → « + Prime » demande
+  **« 💵 Prime sur salaire »** (l'ancienne, inchangée) ou **« 🏠 Prime sur
+  chantier »** (`primeSurChantier`, administrateur, revérifié DANS le geste
+  sur la fiche fraîche). Règle pure **`lib/primeChantier.js`** (sans import) :
+  chantiers liés à SA boutique (`boutiqueDuChantier`), espace regardé,
+  partage validé depuis **moins de 3 mois** (`limitePrimeChantier`), pas de
+  travaux, pas de prime déjà posée pour lui (proposée ou payée → plus
+  proposé), part de BMI restante > 0. **« 2a » : prise sur la part de BMI,
+  jamais au-delà** (`partBmiRestante`), les techniciens ne bougent pas.
+  ⚠ **C'est UNE LIGNE DE L'ÉQUIPE** (`prime_employe: true`, pct 0) : **« 1b »
+  elle se paie comme la part d'un technicien** (📤 Demander le paiement → ✓
+  Valider et payer, 💰 Primes remises), **personne ne valide sa propre
+  prime** (refus dans les deux écrans), le serveur la garde déjà (montants de
+  l'équipe = admin, securite-6) — rien à coller. L'employé la lit dans
+  **💵 Ma commission** (« 🎁 prime de chantier », rien à valider) : l'onglet
+  s'ouvre à qui en a une (`aUnePrimeDeChantier`, App.jsx, comme un apporteur).
+  **Refaire le partage la garde** (`ouvrirRepartition` l'écarte, `validerRepartition`
+  la remet, refuse si elle ne tient plus dans la part de BMI) ; `part_bmi` =
+  100 − techniciens − primes. Banc (3 contrôles), éprouvé (dépassement de la
+  part BMI, fenêtre des 3 mois, sa propre prime, primes perdues au partage) ;
+  un contrôle RETOURNÉ (`pctBMI`). Chapitres 15, 16 et 18 à jour.
 
 ### Petites dépenses d'un chantier de devis (13/09/2026)
 - Timo : « pour les chantiers nés d'un devis, les petites dépenses [carburant,
