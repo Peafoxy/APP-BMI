@@ -1627,6 +1627,9 @@ lit mal est pire qu'un banc absent).
   l'espace regardé cochés, un responsable ⭐, parts à 0 — admin (le serveur
   réserve la structure de l'équipe à l'admin / resp. commercial).
   Aucune répartition de frais sur des travaux.
+  ⚠ **Un article HB facturé ne crée PAS de dépense** (07/10/2026, « b,
+  laisse comme aujourd'hui ») : son prix payé reste une information de la
+  fiche. Ne pas le reproposer.
 - **L'article à sortir se choisit en TAPANT son nom** (capture Timo,
   13/09/2026 : « tous les articles apparaissent… un grand nombre dans lequel
   il faut chercher son article… saisie libre avec proposition à partir de la
