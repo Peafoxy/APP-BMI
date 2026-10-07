@@ -62,10 +62,13 @@ export const depensesDuChantier = (db, chantierId) => (db.depenses || []).filter
 
 // Une dépense compte pour la déduction si elle compte tout court : pas en
 // attente du DG, pas rejetée (son montant est déjà à 0), montant > 0.
-export const depenseCompteAuChantier = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) > 0;
+export const depenseCompteAuChantier = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) !== 0;
+// ⚠ 07/10/2026 : `!== 0` et non plus `> 0` — l'argent RENDU d'un chantier est
+// une ligne NÉGATIVE (lib/argentChantier.js) : il diminue ce que le chantier a
+// coûté, donc ce qu'on retire des frais avant le partage. Une rejetée vaut 0.
 
-export const totalDepensesChantier = (db, chantierId) => depensesDuChantier(db, chantierId)
-  .filter(depenseCompteAuChantier).reduce((s, d) => s + Number(d.montant || 0), 0);
+export const totalDepensesChantier = (db, chantierId) => Math.max(0, depensesDuChantier(db, chantierId)
+  .filter(depenseCompteAuChantier).reduce((s, d) => s + Number(d.montant || 0), 0));
 
 // Ce qui reste à partager entre les techniciens.
 export const fraisAPartager = (fraisFactures, depensesRattachees) => Math.max(0, Number(fraisFactures || 0) - Number(depensesRattachees || 0));
@@ -94,6 +97,10 @@ export const critiqueRattachement = (db, profile, dep, chantier) => {
 export const critiqueChangementChantier = (db, profile, dep, nouveau) => {
   if (!dep) return "Dépense introuvable.";
   if (String(nouveau?.id || "") === String(dep.chantier_id || "")) return null;
+  // 💼 Une somme REMISE à un technicien pour ce chantier (07/10/2026) : il la
+  // détaille ou la rend sur CE chantier — la déplacer laisserait ses lignes
+  // sans argent en face.
+  if (dep.remis_a?.id) return `Cette somme a été remise à ${dep.remis_a.nom || "un technicien"} pour ce chantier : son chantier ne se change pas. Supprimez-la et ressaisissez-la si elle a été mal rattachée.`;
   const ancien = dep.chantier_id ? (db.clients_installes || []).find((c) => c.id === dep.chantier_id) : null;
   if (ancien) {
     const nom = libelleChantier(ancien);

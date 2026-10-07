@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.474";
+export const VERSION = "2.101.475";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -180,6 +180,12 @@ export const CATEGORIE_PRELEVEMENT_EXPLOITANT = "Prélèvement de l'exploitant";
 // résultat, lui, ne bouge pas. Le journal l'écrit en 421 (core.js), et un prêt
 // se suit dans 👥 Utilisateurs → 🏦 Crédits BMI, plus dans 📤 Dépenses.
 export const CATEGORIE_PRET_PERSONNEL = "Prêt au personnel";
+// L'argent qu'un technicien RAPPORTE d'un chantier (Timo, 07/10/2026 : « s'il
+// reste, il faut rendre le reste, et la caisse de sortie est immédiatement
+// créditée lorsque le gérant valide la somme rendue »). Une ligne de dépense
+// NÉGATIVE : la charge du chantier était plus petite qu'annoncé. Jamais dans
+// CATEGORIES (personne ne la saisit à la main), jamais hors charges.
+export const CATEGORIE_RETOUR_CHANTIER = "Argent rendu d'un chantier";
 export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
 // ⚠ Timo (12/09/2026) : « seules les dépenses validées comptent ». Une

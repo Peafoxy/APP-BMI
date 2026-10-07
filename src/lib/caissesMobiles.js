@@ -34,7 +34,7 @@
 // le téléphone. S'ils diffèrent, c'est qu'un mouvement n'a pas été saisi —
 // exactement comme l'écart de la clôture pour les billets.
 // ============================================================
-import { MOYENS_MOBILES, mobileParMoyen } from "./constants.js";
+import { MOYENS_MOBILES, mobileParMoyen, CATEGORIE_RETOUR_CHANTIER } from "./constants.js";
 import { estVersement, estRejete, libelleDestination, DEST_TIROIR } from "./versements.js";
 import { estEnAttente, estRejetee, payeAvecCaisse } from "./validationDepenses.js";
 import { totalVente, numeroRecu } from "./core.js";
@@ -88,6 +88,13 @@ export function mouvementsMobile(db, moyen, nomsBoutiques) {
   });
 
   (db?.depenses || []).forEach((x) => {
+    // L'argent RENDU d'un chantier sur ce compte (07/10/2026) : une ligne
+    // négative, c'est-à-dire une ENTRÉE du compte.
+    if (dans(x.boutique) && x.paiement === moyen && payeAvecCaisse(x) && x.categorie === CATEGORIE_RETOUR_CHANTIER && Number(x.montant || 0) < 0) {
+      entrees.push({ id: x.id, sens: "entree", date: jour(x.date), heure: x.heure, montant: -Number(x.montant), boutique: x.boutique, par: x.par,
+        libelle: `${x.description || CATEGORIE_RETOUR_CHANTIER} (validé par ${x.par})` });
+      return;
+    }
     if (!dans(x.boutique) || x.paiement !== moyen || !payeAvecCaisse(x) || !compte(x)) return;
     // Un versement parti de ce compte est une SORTIE du compte : l'argent est
     // allé chez le DG, à la banque, ou au guichet. Un versement REJETÉ est

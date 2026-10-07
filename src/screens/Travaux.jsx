@@ -18,6 +18,8 @@ import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/
 import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdmin, refusSuppressionDepense, aLienAAnnuler, annulerLiensDepense, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, marqueEspace, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
+import { refusSuppressionRemise } from "../lib/argentChantier";
+import { ArgentDuChantier } from "../components/ArgentChantier";
 import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe, propositionsStock, produitSaisi } from "../lib/travaux";
 
 const ficheVide = { nom: "", prenom: "", tel: "", lieu: "", description: "" };
@@ -114,7 +116,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
     if (bloquerSiLecture(db, profile)) return;
     const frais = (db.depenses || []).find((x) => x.id === d.id);
     if (!frais) { uAlert("Cette dépense n'existe plus."); return; }
-    const refus = refusSuppressionDepense(db, frais);
+    const refus = refusSuppressionDepense(db, frais) || refusSuppressionRemise(db.depenses, utilisateursDeLEspace(db, profile), frais);
     if (refus) { uAlert(refus); return; }
     const avertissement = aLienAAnnuler(frais) ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
     if (!await uConfirm(`Supprimer la dépense de ${fmt(frais.montant)} (${frais.categorie}${frais.description ? ` — ${frais.description}` : ""}) du ${dFR(frais.date)}, saisie par ${frais.par || "—"} ?\n\nL'argent revient dans la caisse qui l'avait payée (${frais.boutique}).${avertissement}`)) return;
@@ -350,12 +352,13 @@ export function Travaux({ db, save, profile, onFacturer }) {
                               <span className="font-bold text-slate-800">
                                 {dFR(d.date)} · {d.categorie}{d.description ? ` — ${d.description}` : ""} · {fmt(d.montant)}
                                 {!depenseCompteAuChantier(d) && <span className="font-normal text-amber-700"> (en attente du DG)</span>}
-                                <span className="font-normal text-slate-500" data-depense-par> — saisie par {d.par || "—"}</span>
+                                <span className="font-normal text-slate-500" data-depense-par> — saisie par {d.par || "—"}{d.remis_a?.nom ? ` · 💼 remis à ${d.remis_a.nom}` : ""}</span>
                               </span>
                               {profile.role === "admin" && <button onClick={() => supprimerDepenseRattachee(d)} title="Supprimer cette dépense (l'argent revient dans la caisse qui l'avait payée)" className="shrink-0 px-2 py-1 rounded-lg border border-red-300 text-red-700 text-xs font-bold">🗑 Supprimer</button>}
                             </li>
                           ))}
                         </ul>}
+                    <ArgentDuChantier db={db} profile={profile} chantierId={c.id} />
                   </div>
 
                   {/* ---- Facture ---- */}

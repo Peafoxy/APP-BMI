@@ -30,6 +30,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/commissionsDues.js` | Les commissions devenues dues (réception ET solde) à annoncer par WhatsApp, et leur marque « annoncée » |
 | `lib/compteExploitant.js` | Le compte de l'exploitant (BMI est une entreprise individuelle) : la caisse de BMI chez le DG, à part de ce que BMI lui doit ; ses apports et ses prélèvements |
 | `lib/depensesChantier.js` | Les petites dépenses rattachées à un chantier de devis |
+| `lib/argentChantier.js` | L'argent remis à un technicien pour un chantier : son détail, le reste rendu |
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
 | `lib/bons.js` | Le bon de reprise et le bon de retour (des documents, jamais des écritures) |
 | `lib/banques.js` | La liste des banques et la banque d'un employé |
@@ -134,6 +135,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `SelecteurBoutique.jsx` | La rangée de pastilles des boutiques |
 | `OngletsDeplacables.jsx` | La barre d'onglets qu'on déplace par appui long |
 | `HistoriqueArchive.jsx` | LE cadre d'historique qui défile et archive |
+| `ArgentChantier.jsx` | Les cadres de l'argent remis pour un chantier (technicien, gérant, fiche du chantier) |
 | `EcranVerrou.jsx` | La fenêtre du verrou d'inactivité |
 | `ZoneSignature.jsx` | LA zone de signature (les quatre emplacements) |
 | `CarteCaisse.jsx` | LA carte d'une caisse centrale (DG, BANQUE, comptable) |

@@ -28,6 +28,7 @@ import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
 // déduites des frais d'installation AVANT le partage entre techniciens.
 import { totalDepensesChantier, depensesDuChantier, depenseCompteAuChantier, fraisAPartager } from "../lib/depensesChantier";
+import { ArgentDuChantier } from "../components/ArgentChantier";
 import { travauxSolde, filtreEspaceAffichage } from "../lib/calculs";
 import { factureMontant, coutTravaux, margeTravaux } from "../lib/travaux";
 import { dateApresMois, critiqueEntretienFait, marquerEntretienFait, dernierEntretien, MOIS_ENTRE_ENTRETIENS, MARQUE_TACHE_ENTRETIEN } from "../lib/rappelEntretien";
@@ -1265,6 +1266,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                   <div className="font-bold text-purple-900">🧾 Petites dépenses rattachées : − {fmt(depRattachees)} → <span className="tabular-nums">{fmt(fraisNet)}</span> à partager entre les techniciens</div>
                   <div className="mt-1 text-xs text-slate-600">{toutes.filter(depenseCompteAuChantier).map((d) => `${dFR(d.date)} · ${d.categorie}${d.description ? ` — ${d.description}` : ""} · ${fmt(d.montant)} (${d.par})`).join(" ; ")}</div>
                   {attente.length > 0 && <div className="mt-1 text-xs text-amber-700">⏳ {attente.length} dépense(s) en attente de validation du DG ne sont pas encore déduites ({fmt(attente.reduce((s, d) => s + Number(d.montant || 0), 0))}).</div>}
+                  <ArgentDuChantier db={db} profile={profile} chantierId={c.id} />
                 </div>
               );
             })()}

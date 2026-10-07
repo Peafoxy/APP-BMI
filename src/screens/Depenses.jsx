@@ -16,14 +16,16 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uCho
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
+import { MonArgentDeChantier, RetoursAValider } from "../components/ArgentChantier";
 import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER } from "../lib/loyer";
-import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation } from "../lib/calculs";
+import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation, utilisateursDeLEspace } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 // Timo (13/09/2026) : rattacher une petite dépense (carburant, nourriture) à
 // un chantier de devis ; elle sera déduite des frais d'installation avant le
 // partage entre techniciens — règle pure dans lib/depensesChantier.js.
 import { chantiersRattachables, libelleChantier, critiqueRattachement, rattacherDepense, critiqueChangementChantier } from "../lib/depensesChantier";
+import { techniciensProposes, critiqueRemisA, REMIS_A_PERSONNE, refusSuppressionRemise, argentParChantier, critiqueJustif, ajouterJustif, retirerJustif, critiqueDemandeRetour, demanderRetour, retoursEnAttente, caissesDuRetour, libelleCaisseRetour, peutValiderRetour, critiqueValidationRetour, validerRetour, refuserRetour, soldeArgentChantier } from "../lib/argentChantier";
 
 // ============ LE TABLEAU DES DÉPENSES — écrit UNE fois (point B5 du relevé
 // des doublons, 08/09/2026) pour les dépenses d'une boutique et pour
@@ -56,7 +58,7 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
           <td className="px-3 py-2">{x.par}</td>
           <td className="px-3 py-2"><BadgeValidation x={x} /></td>
           <td className="px-3 py-2 text-xs">
-            {x.chantier_id ? <span className="font-semibold text-purple-800">🏠 {x.chantier_nom || "chantier"}</span> : <span className="text-slate-300">—</span>}
+            {x.chantier_id ? <span className="font-semibold text-purple-800">🏠 {x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}</span> : <span className="text-slate-300">—</span>}
           </td>
           <td className="px-3 py-2">
             {onModifier && depenseModifiable(x) && (
@@ -147,7 +149,7 @@ export function Depenses({ db, save, profile }) {
   // ⚠ Aucune catégorie d'office (Timo, 25/09/2026) : « Loyer », la première de
   // la liste, était proposée d'office — une dépense de 5 000 F saisie sans y
   // toucher est tombée en « Loyer » et le cadre du loyer l'a comptée. On CHOISIT.
-  const formVide = { categorie: "", description: "", montant: "", paiement: MOYENS_ENCAISSEMENT[0], paye_avec: "", chantier_id: "" };
+  const formVide = { categorie: "", description: "", montant: "", paiement: MOYENS_ENCAISSEMENT[0], paye_avec: "", chantier_id: "", remis_a: "" };
   const caissesPossibles = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
   // Les chantiers de devis auxquels on peut rattacher une dépense (espace regardé, en cours).
   const chantiersOuverts = chantiersRattachables(db, profile);
@@ -204,6 +206,8 @@ export function Depenses({ db, save, profile }) {
   // apparaît (gérant) ». L'option n'est JAMAIS proposée « au cas où » : il
   // faut le rôle, une enveloppe qui existe, et un tiroir qui ne suffit pas.
   const poches = fondsAVerser(db, boutique, totalVente);
+  const chantierDuChoix = f.chantier_id ? chantiersOuverts.find((c) => c.id === f.chantier_id) : null;
+  const techniciensDuChoix = chantierDuChoix ? techniciensProposes(utilisateursDeLEspace(db, profile), chantierDuChoix) : [];
   const propositionFonds = fondsProposable({ role: profile.role, tiroir: poches.montant, enveloppe: poches.resteFonds, montant: f.montant });
 
   const refusTiroir = (nomBoutique, montant, geste) => {
@@ -231,6 +235,12 @@ export function Depenses({ db, save, profile }) {
     if (f.chantier_id && !chantierChoisi) { uAlert("Ce chantier n'est plus rattachable (réceptionné, ou frais déjà payés). Choisissez-en un autre ou laissez « Aucun »."); return; }
     const refusChantier = chantierChoisi ? critiqueRattachement(db, profile, r.depense, chantierChoisi) : null;
     if (refusChantier) { uAlert(refusChantier); return; }
+    // 💼 Timo (07/10/2026) : « lorsqu'on choisit un chantier, il faut choisir
+    // aussi le technicien qui reçoit l'argent ». Revérifié DANS le geste.
+    const proposes = chantierChoisi ? techniciensProposes(utilisateursDeLEspace(db, profile), chantierChoisi) : [];
+    const refusRemis = critiqueRemisA(chantierChoisi, f.remis_a, proposes);
+    if (refusRemis) { uAlert(refusRemis); return; }
+    const recoit = chantierChoisi && f.remis_a !== REMIS_A_PERSONNE ? proposes.find((u) => u.id === f.remis_a) : null;
     // ⚠ Une dépense EN ATTENTE n'a pas encore vidé le tiroir : on mesure donc
     // le tiroir tel qu'il est, et c'est la VALIDATION qui butera à son tour.
     if (r.depense.paiement === "Espèces" && (!r.depense.paye_avec || r.depense.paye_avec === PAYE_AVEC_CAISSE)) {
@@ -243,7 +253,7 @@ export function Depenses({ db, save, profile }) {
       if (refuserSaufRoles(profile, ROLES_FONDS_CAISSE, "Payer une dépense avec le fonds de caisse")) return;
       if (!propositionFonds.possible) { uAlert(`Le fonds de caisse ne peut pas payer cette dépense.\n\nTiroir de ${boutique} : ${fmt(Math.max(0, poches.montant))} · enveloppe : ${fmt(propositionFonds.reste)}.\n\nOn n'ouvre l'enveloppe que si le tiroir ne suffit pas, et seulement pour ce qu'elle contient.`); return; }
     }
-    const rattache = chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.` : "";
+    const rattache = chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.${recoit ? `\n\n💼 Argent remis à ${recoit.nom} : il détaillera dans son espace ce qu'il en a fait, et rendra le reste.` : ""}` : "";
     // Timo (15/09/2026) : « la dépense prend les 20 000 de la caisse et on
     // passe avec 10 000 de fonds de caisse » — la confirmation DIT le partage.
     const partage = r.depense.paye_avec === PAYE_AVEC_FONDS
@@ -259,8 +269,9 @@ export function Depenses({ db, save, profile }) {
       if (refusL) { uAlert(refusL); return; }
     }
     const depenseLoyer = estLoyerDuMois ? { ...r.depense, loyer_mois: f.loyer_mois, loyer_boutique: f.loyer_boutique } : r.depense;
-    const depense = chantierChoisi ? rattacherDepense(depenseLoyer, chantierChoisi) : depenseLoyer;
-    save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : ""));
+    const rattachee = chantierChoisi ? rattacherDepense(depenseLoyer, chantierChoisi) : depenseLoyer;
+    const depense = recoit ? { ...rattachee, remis_a: { id: recoit.id, nom: recoit.nom } } : rattachee;
+    save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : "") + (recoit ? ` · remis à ${recoit.nom}` : ""));
     setF(formVide);
     setDepenseOuverte(false);
     if (r.aValider && !jeSuisDG) uAlert(`Dépense enregistrée — en attente de validation par le DG.${choixCaisse.boutique !== boutique ? `\n\nElle est rangée sous ${choixCaisse.boutique} : choisissez cette boutique en haut pour la voir.` : ""}`);
@@ -305,7 +316,7 @@ export function Depenses({ db, save, profile }) {
     // ⚠ Certaines dépenses ont une porte de sortie DÉDIÉE, qui vérifie des
     // choses que celle-ci ne vérifie pas. On y renvoie au lieu de laisser
     // faire un geste incomplet.
-    const refus = refusSuppressionDepense(db, d);
+    const refus = refusSuppressionDepense(db, d) || refusSuppressionRemise(db.depenses, utilisateursDeLEspace(db, profile), d);
     if (refus) { uAlert(refus); return; }
     // L'avertissement ne s'affiche que lorsqu'il est VRAI (voir aLienAAnnuler).
     const avertissement = aLienAAnnuler(d) ? "\n\n⚠ Cette dépense a été générée automatiquement par un paiement : le statut « payé » correspondant sera aussi annulé (à repayer si besoin)." : "";
@@ -352,10 +363,14 @@ export function Depenses({ db, save, profile }) {
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
-  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
+  // 💼 L'argent remis pour un chantier (07/10/2026) : le technicien le détaille
+  // et rend le reste ; le gérant valide ce qui est rendu.
+  if (!boutique) return <div className="space-y-4"><MonArgentDeChantier db={db} save={save} profile={profile} /><AucuneBoutique formation={estCompteFormation(db, profile)} /></div>;
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="depenses" db={db} value={bq} onChange={setBq} profile={profile} />}
+      <MonArgentDeChantier db={db} save={save} profile={profile} />
+      {["gerant", "admin"].includes(profile.role) && <RetoursAValider db={db} save={save} profile={profile} />}
       {/* Timo (12/09/2026) : le DG valide les dépenses de 5 000 F et plus —
           l'encadré est PERMANENT (vide, il le dit), sur la boutique regardée
           seule, et dit où il en reste ailleurs sans les mélanger. */}
@@ -455,12 +470,21 @@ export function Depenses({ db, save, profile }) {
               puis, capture : « devant Payé avec, avoir la ligne : chantier à
               rattacher… pas sur la ligne de dépense ». La ligne est TOUJOURS là. */}
           <Field label="Chantier à rattacher">
-            <select className={inputCls} value={f.chantier_id} onChange={(e) => setF({ ...f, chantier_id: e.target.value })}>
+            <select className={inputCls} value={f.chantier_id} onChange={(e) => setF({ ...f, chantier_id: e.target.value, remis_a: "" })}>
               <option value="">— Aucun —</option>
               {chantiersOuverts.length === 0 && <option value="" disabled>Aucun chantier de devis en cours</option>}
               {chantiersOuverts.map((c) => <option key={c.id} value={c.id}>{c.travaux ? "" : "🏠 "}{libelleChantier(c)}</option>)}
             </select>
           </Field>
+          {f.chantier_id && (
+            <Field label="Argent remis à">
+              <select className={inputCls} value={f.remis_a} onChange={(e) => setF({ ...f, remis_a: e.target.value })} data-remis-a>
+                <option value="">— Choisir —</option>
+                {techniciensDuChoix.map((u) => <option key={u.id} value={u.id}>{u.nom}</option>)}
+                <option value={REMIS_A_PERSONNE}>Personne — payé directement</option>
+              </select>
+            </Field>
+          )}
         </div>
         {propositionFonds.possible && <div className="mt-2 text-xs text-amber-800" data-fonds="propose">💼 Le tiroir de {boutique} ne contient que {fmt(Math.max(0, poches.montant))} : le <b>fonds de caisse</b> peut compléter. Le tiroir paiera {fmt(Math.max(0, poches.montant))} et l'enveloppe {fmt(propositionFonds.manqueAuTiroir)} (il y reste {fmt(propositionFonds.reste)}). Choisissez « Le fonds de caisse » dans « Payé avec » ; les prochaines recettes le rembourseront.</div>}
         {f.chantier_id && <div className="mt-2 text-xs text-purple-800">🏠 Cette dépense sera déduite des frais d'installation du chantier avant le partage entre techniciens (une fois qu'elle compte).</div>}

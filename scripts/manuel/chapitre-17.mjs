@@ -109,7 +109,17 @@ export const CHAPITRE = {
         { titre: "Pour quoi", texte: "Les petits frais d'une installation : carburant, nourriture, petit matériel. Elle reste une dépense ordinaire (seuil, DG, caisse)." },
         { titre: "Quels chantiers sont proposés", texte: "Ceux de l'espace regardé, **pas encore réceptionnés**, dont **les frais d'installation n'ont pas encore été payés** aux techniciens, et les 🛠 travaux à crédit non soldés, nommés par la description tapée à leur ouverture (« 🛠 NIMAN · Travaux — FORAGE »). Sans chantier ouvert, la liste le dit." },
         { titre: "Ce qui se passe ensuite", texte: "Au partage des frais (🏠 Clients installés → 🔧 Frais), les techniciens se partagent **les frais facturés moins les dépenses rattachées qui comptent** (ni en attente du DG, ni rejetées) — jamais moins de zéro. La colonne « Chantier » de la liste montre le rattachement." },
+        { titre: "💼 Argent remis à", texte: "Dès qu'un chantier est choisi, la ligne **« Argent remis à »** apparaît : le technicien qui reçoit l'argent (l'équipe du chantier d'abord, tous les techniciens si l'équipe n'est pas choisie), ou **« Personne — payé directement »**. Le choix est **obligatoire**. La ligne de la dépense dit ensuite « 💼 remis à KOSSI »." },
       ]],
+
+      ["h3", "D bis. L'argent remis à un technicien : il détaille, il rend le reste"],
+      ["etapes", [
+        { titre: "Chez le technicien", texte: "📤 Mes dépenses → cadre **« 💼 Argent reçu pour vos chantiers »** : **un total par chantier** (toutes les remises additionnées, le détail de chaque remise en petit), ce qu'il a **détaillé**, ce qu'il a **rendu**, et **« Reste à justifier »**. Une remise en attente du DG n'est pas encore comptée." },
+        { titre: "✏️ Détailler", texte: "À quoi (catégorie), une précision, le montant, la date. **Jamais plus que le reste.** Le détail **ne crée pas de nouvelle dépense** : l'argent est déjà sorti de la caisse une fois, il dit seulement à quoi il a servi. Une ligne se retire avec « Retirer »." },
+        { titre: "↩ Rendre le reste", texte: "Le technicien annonce la somme qu'il rend (jamais plus que le reste) et remet l'argent au gérant. **Rien ne bouge dans la caisse tant que le gérant n'a pas validé.**" },
+        { titre: "Le gérant valide", texte: "📤 Dépenses → cadre **« ↩ Argent de chantier rendu, à valider »** : **✅ Reçu** crédite **tout de suite** la caisse qui avait payé (une ligne « Argent rendu d'un chantier », en négatif) ; **✖ Refuser** demande un motif. Valident : l'administrateur, et le gérant de la boutique qui reçoit l'argent. L'argent venu du DG revient au DG (administrateur). Une avance de poche, la caisse du comptable ou l'enveloppe ne se recréditent pas d'ici : l'argent revient au tiroir de la boutique." },
+      ]],
+      ["note", "L'argent rendu **diminue ce que le chantier a coûté** : il est retiré des dépenses déduites des frais avant le partage. Une somme remise ne change pas de chantier (✏️ Modifier le refuse) et ne se supprime pas si le technicien l'a déjà justifiée ou rendue."],
 
       ["h3", "E. Le DG valide ou rejette (administrateur principal)"],
       ["etapes", [

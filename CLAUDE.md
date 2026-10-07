@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2309 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2321 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1479,6 +1479,41 @@ lit mal est pire qu'un banc absent).
   chantier montre « 🧾 Dépenses rattachées : X ». Aucune commission de
   commercial touchée. Rien à coller dans Supabase (une dépense se modifie
   déjà par tout compte non lecteur ; la répartition reste admin).
+
+### 💼 L'ARGENT REMIS À UN TECHNICIEN POUR UN CHANTIER (07/10/2026, « b, a oui mais rendre le reste… b oui, c oui, lance »)
+- Timo : « le gérant ou l'administrateur qui donne de l'argent lié à un
+  chantier ne peut pas détailler à quoi il a servi… il faut choisir aussi le
+  technicien qui reçoit… ce technicien, dans son espace, peut détailler ».
+  Règle pure **`lib/argentChantier.js`**, cadres **`components/ArgentChantier.jsx`**.
+- **La remise** : 📤 Dépenses, dès qu'un chantier est choisi, **« Argent remis
+  à »** OBLIGATOIRE (`critiqueRemisA`, dans le geste) — l'équipe du chantier,
+  sinon tous les techniciens de l'espace (`techniciensProposes`), ou
+  « Personne — payé directement ». La dépense reste ordinaire (caisse, DG,
+  déduction) et porte `remis_a: { id, nom }` ; sa ligne dit « 💼 remis à ».
+- **« b » : UN total par chantier** (`soldeArgentChantier` : reçu = remises
+  qui comptent, en attente du DG à part ; détaillé ; rendu ; reste). Le
+  **détail** et les **demandes de retour** vivent sur la FICHE du technicien
+  (`argent_chantier: { justifs, retours }`, champ personnel, rien à coller) —
+  **un détail n'est JAMAIS une dépense de plus**. Jamais plus que le reste ;
+  « c » : possible tant qu'il reste quelque chose.
+- **Rendre le reste** : le technicien annonce (≤ reste) → **rien ne bouge**
+  jusqu'à la validation ; **✅ Reçu** (administrateur, ou gérant de la boutique
+  qui reçoit ; argent du DG = administrateur — `peutValiderRetour`, revérifié
+  par `critiqueValidationRetour`) écrit une dépense NÉGATIVE
+  `CATEGORIE_RETOUR_CHANTIER` sur la caisse qui avait payé (`caissesDuRetour` ;
+  avance de poche, comptable ou enveloppe → le tiroir de la boutique) : la
+  caisse est créditée sur-le-champ, la charge du chantier baisse
+  (`depenseCompteAuChantier` : `!== 0`). **✖ Refuser** : motif obligatoire.
+  Le tiroir lit la ligne comme une sortie négative ; le compte mobile comme une
+  entrée ; DG / BANQUE par `compteSigne` ; le journal en « argent qui rentre ».
+- Une remise ne change pas de chantier (`critiqueChangementChantier`) et ne se
+  supprime pas si elle est déjà engagée (`refusSuppressionRemise`). Fiche du
+  chantier (🛠 Travaux, 🏠 → 🔧 Frais) : `ArgentDuChantier`.
+- ⚠ Aucun déclencheur serveur : le technicien pourrait techniquement écrire sa
+  fiche autrement ; c'est l'application qui décide (dit à Timo). Pas de
+  notification au gérant (le cadre de 📤 Dépenses suffit). Banc (14
+  contrôles), éprouvé (reste dépassé, gérant d'une autre boutique, refus de
+  saisie retiré). Deux contrôles RETOURNÉS. Chapitres 15 et 17.
 
 ### 📤 Dépenses pour les techniciens (13/09/2026)
 - Timo : « ouvrir l'onglet Dépenses au technicien, mais ils ne verront que

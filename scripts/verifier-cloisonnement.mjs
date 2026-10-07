@@ -8043,7 +8043,7 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
   test("★ écran Dépenses : la ligne « Chantier à rattacher » TOUJOURS présente à côté de « Payé avec » (chantiersRattachables, « — Aucun — », « Aucun chantier de devis en cours » si vide), la saisie passe par critiqueRattachement puis rattacherDepense, la colonne « Chantier » montre le chantier SANS lien ni rattachement après coup",
     /<Field label="Chantier à rattacher">/.test(dpC) && !/chantiersOuverts\.length > 0 && \(/.test(dpC) && /const chantiersOuverts = chantiersRattachables\(db, profile\);/.test(dpC) && /<option value="">— Aucun —<\/option>/.test(dpC)
     && /Aucun chantier de devis en cours<\/option>/.test(dpC)
-    && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const depense = chantierChoisi \? rattacherDepense\(depenseLoyer, chantierChoisi\) : depenseLoyer;/.test(dpC) && /const depenseLoyer = estLoyerDuMois \? \{ \.\.\.r\.depense, loyer_mois: f\.loyer_mois, loyer_boutique: f\.loyer_boutique \} : r\.depense;/.test(dpC)
+    && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const rattachee = chantierChoisi \? rattacherDepense\(depenseLoyer, chantierChoisi\) : depenseLoyer;/.test(dpC) && /const depenseLoyer = estLoyerDuMois \? \{ \.\.\.r\.depense, loyer_mois: f\.loyer_mois, loyer_boutique: f\.loyer_boutique \} : r\.depense;/.test(dpC)
     && /🏠 \{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && (dpC.match(/uChoix\(/g) || []).length === 1 && /const payerLoyer = async \(\) => \{[\s\S]*?const choix = await uChoix\(`Loyer de/.test(dpC));
   const ciC = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ écran Clients installés : les parts et la part BMI se calculent sur fraisNet (= fraisAPartager(fraisRep, dépenses rattachées)), plus jamais sur fraisRep ; la déduction se lit dans le panneau, se confirme, se mémorise (depenses_deduites, frais_a_partager) ; la fiche montre le total rattaché",
@@ -8140,7 +8140,7 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     test("★ 🛠 Travaux : chaque petite dépense rattachée en GRAS avec « saisie par … », et 🗑 Supprimer pour l'administrateur seul — le MÊME geste que 📤 Dépenses (refuserSaufAdmin, refusSuppressionDepense, annulerLiensDepense, la ligne retirée de db.depenses : le tiroir se recalcule)",
       /data-depenses-rattachees/.test(tvJ) && /className="font-bold text-slate-800"/.test(tvJ) && /saisie par \{d\.par \|\| "—"\}/.test(tvJ)
       && /\{profile\.role === "admin" && <button onClick=\{\(\) => supprimerDepenseRattachee\(d\)\}/.test(tvJ)
-      && /refuserSaufAdmin\(profile, "Supprimer une dépense"\)/.test(corps) && /const refus = refusSuppressionDepense\(db, frais\);/.test(corps)
+      && /refuserSaufAdmin\(profile, "Supprimer une dépense"\)/.test(corps) && /const refus = refusSuppressionDepense\(db, frais\) \|\| refusSuppressionRemise\(db\.depenses, utilisateursDeLEspace\(db, profile\), frais\);/.test(corps)
       && /\.\.\.annulerLiensDepense\(db, frais\), depenses: db\.depenses\.filter\(\(x\) => x\.id !== frais\.id\)/.test(corps)
       && corps.indexOf("refuserSaufAdmin(") < corps.indexOf("save("));
   }
@@ -13528,6 +13528,88 @@ titre("💰 Ventes : sous le total d'une vente reprise, le montant repris et ce 
     /if \(await sessionDuCompteConnecte\(\)\) await reconcilierMiroir\(\)/.test(app) && (app.match(/reconcilierMiroir\(\)/g) || []).length === 1);
   test("★ au retour (F5), une session étrangère se ferme avant la première lecture, et tout se relit",
     /if \(await fermerSessionEtrangere\(u\.id\)\) \{ try \{ await forcerResynchronisation\(\); \} catch \{\} \}\s*setProfile\(u\)/.test(app));
+}
+
+
+titre("💼 L'argent remis à un technicien pour un chantier : le détail, le reste rendu, la caisse créditée à la validation (07/10/2026)");
+{
+  // Timo : « lorsqu'on choisit un chantier, il faut choisir aussi le technicien
+  // qui reçoit l'argent… ce technicien, dans son espace, peut détailler » —
+  // « b » (un total par chantier), « s'il reste, il faut rendre le reste et la
+  // caisse de sortie est immédiatement créditée lorsque le gérant valide ».
+  const AC = await import("../src/lib/argentChantier.js");
+  const V = await import("../src/lib/versements.js");
+  const C = await import("../src/lib/core.js");
+  const sortieM = join("node_modules", ".cache", `bmi-argent-mobile-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/caissesMobiles.js"], bundle: true, format: "esm", platform: "node", outfile: sortieM, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const M = await import(pathToFileURL(sortieM).href);
+  const sortieD = join("node_modules", ".cache", `bmi-argent-dc-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/depensesChantier.js"], bundle: true, format: "esm", platform: "node", outfile: sortieD, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Dc = await import(pathToFileURL(sortieD).href);
+  const kossi = { id: "t1", nom: "KOSSI", role: "technicien" };
+  const ama = { id: "t2", nom: "AMA", role: "technicien" };
+  const dep = [
+    { id: "r1", date: "2026-10-01", boutique: "LOME", categorie: "Carburant", montant: 10000, paiement: "Espèces", par: "GERANT", chantier_id: "c1", chantier_nom: "NIMAN", remis_a: { id: "t1", nom: "KOSSI" } },
+    { id: "r2", date: "2026-10-03", boutique: "LOME", categorie: "Nourriture", montant: 15000, paiement: "Espèces", par: "GERANT", chantier_id: "c1", chantier_nom: "NIMAN", remis_a: { id: "t1", nom: "KOSSI" } },
+    { id: "r3", date: "2026-10-04", boutique: "LOME", categorie: "Carburant", montant: 6000, paiement: "Espèces", par: "GERANT", chantier_id: "c1", remis_a: { id: "t1", nom: "KOSSI" }, validation: { statut: "attente" } },
+    { id: "r4", date: "2026-10-04", boutique: "LOME", categorie: "Carburant", montant: 9000, paiement: "Espèces", par: "GERANT", chantier_id: "c1", remis_a: { id: "t2", nom: "AMA" } },
+  ];
+  let k = { ...kossi, argent_chantier: { justifs: [{ id: "j1", chantier_id: "c1", categorie: "Carburant", montant: 8000 }], retours: [{ id: "x1", chantier_id: "c1", montant: 2000, statut: "attente" }] } };
+  const s = AC.soldeArgentChantier(dep, k, "c1");
+  test("★ « b » : UN total par chantier — reçu 25 000 (les deux remises qui comptent), 6 000 en attente du DG pas comptés, la remise d'AMA jamais chez KOSSI ; détaillé 8 000, 2 000 rendus en attente → reste 15 000",
+    s.recu === 25000 && s.enAttenteDG === 6000 && s.justifie === 8000 && s.retourEnAttente === 2000 && s.reste === 15000 && s.remises.length === 3 && s.chantierNom === "NIMAN");
+  test("★ le détail ne dépasse jamais le reste, exige « à quoi » et un montant ; il n'écrit AUCUNE dépense (sur la fiche du technicien)",
+    !!AC.critiqueJustif(s, { categorie: "Carburant", montant: 15001 }) && AC.critiqueJustif(s, { categorie: "Carburant", montant: 15000 }) === null
+    && !!AC.critiqueJustif(s, { categorie: "", montant: 100 }) && !!AC.critiqueJustif(s, { categorie: "Autre", montant: 0 })
+    && AC.ajouterJustif(k, s, { categorie: "Autre", montant: 500 }, "2026-10-05").argent_chantier.justifs.length === 2
+    && !/depenses/.test(String(AC.ajouterJustif)));
+  test("★ rendre : jamais plus que le reste ; la demande attend le gérant (rien dans aucune caisse avant)",
+    !!AC.critiqueDemandeRetour(s, 15001) && AC.critiqueDemandeRetour(s, 15000) === null
+    && AC.demanderRetour(k, s, 1000, "2026-10-05").argent_chantier.retours.filter((r) => r.statut === "attente").length === 2);
+  const gerant = { id: "g", nom: "GERANT", role: "gerant", boutique: "LOME" };
+  const autreGerant = { id: "g2", nom: "G2", role: "gerant", boutique: "KARA" };
+  const caisses = AC.caissesDuRetour(s);
+  const vr = AC.validerRetour(gerant, k, "x1", caisses[0], "2026-10-06", "10:00");
+  test("★ valider : la dépense NÉGATIVE sur la caisse qui avait payé (Espèces, tiroir de LOME), la demande passe « validée » — le reste ne bouge pas, le rendu monte",
+    vr.depense.montant === -2000 && vr.depense.boutique === "LOME" && vr.depense.paiement === "Espèces" && vr.depense.chantier_id === "c1" && vr.depense.auto === "retour_chantier"
+    && AC.fiche(vr.technicien).retours[0].statut === "validee"
+    && AC.soldeArgentChantier([...dep, vr.depense], vr.technicien, "c1").rendu === 2000 && AC.soldeArgentChantier([...dep, vr.depense], vr.technicien, "c1").reste === 15000);
+  const sansRetour = { boutiques: [{ nom: "LOME" }], ventes: [{ id: "v", boutique: "LOME", date: "2026-10-01", paiement: "Espèces", articles: [{ pu: 50000, qte: 1 }] }], dettes: [], depenses: dep.slice(0, 2) };
+  const tiroirAvant = V.fondsAVerser(sansRetour, "LOME", C.totalVente).montant;
+  const tiroirApres = V.fondsAVerser({ ...sansRetour, depenses: [...sansRetour.depenses, vr.depense] }, "LOME", C.totalVente).montant;
+  test("★ « la caisse de sortie est immédiatement créditée » : le tiroir de LOME passe de " + tiroirAvant + " à " + tiroirApres + " (+2 000) dès la validation",
+    tiroirApres - tiroirAvant === 2000);
+  const mob = { id: "rm", date: "2026-10-06", boutique: "LOME", categorie: "Argent rendu d'un chantier", montant: -3000, paiement: "Mobile Money (Mixx/T-Money)", chantier_id: "c1", retour_chantier: { id: "x9", tech_id: "t1" } };
+  test("★ rendu sur un compte mobile : une ENTRÉE du compte (+3 000)",
+    M.mouvementsMobile({ ventes: [], dettes: [], depenses: [mob] }, "Mobile Money (Mixx/T-Money)", ["LOME"]).solde === 3000);
+  test("★ qui valide : l'administrateur ; le gérant de la boutique qui reçoit l'argent ; jamais le gérant d'une autre ; l'argent du DG revient au DG (administrateur seul)",
+    AC.peutValiderRetour({ role: "admin" }, caisses[0]) && AC.peutValiderRetour(gerant, caisses[0]) && !AC.peutValiderRetour(autreGerant, caisses[0])
+    && !AC.peutValiderRetour(gerant, { boutique: "LOME", paiement: "Espèces", paye_avec: "dg" }) && !AC.peutValiderRetour(kossi, caisses[0])
+    && !!AC.critiqueValidationRetour(autreGerant, k, "x1", caisses[0]) && !!AC.critiqueValidationRetour(gerant, vr.technicien, "x1", caisses[0]));
+  test("★ une avance de poche, la caisse du comptable ou l'enveloppe ne se recréditent pas d'ici : l'argent revient au TIROIR de la boutique",
+    AC.caissesDuRetour({ remises: [{ boutique: "LOME", paiement: "Espèces", paye_avec: "avance" }] })[0].paye_avec === "caisse");
+  test("★ supprimer une remise déjà justifiée est refusé (le reste deviendrait négatif) ; une remise pas encore engagée se supprime",
+    !!AC.refusSuppressionRemise([dep[0]], [{ ...k, argent_chantier: { justifs: [{ chantier_id: "c1", montant: 8000 }], retours: [] } }], dep[0])
+    && AC.refusSuppressionRemise(dep, [{ ...kossi }], dep[1]) === null);
+  test("★ les techniciens proposés : l'équipe du chantier d'abord, tous ceux de l'espace sinon ; « Personne » permis, le choix exigé",
+    AC.techniciensProposes([kossi, ama, { id: "v", role: "vendeur" }], { equipe: [{ user_id: "t2" }] }).map((u) => u.id).join() === "t2"
+    && AC.techniciensProposes([kossi, ama, { id: "v", role: "vendeur" }], { equipe: [] }).map((u) => u.id).join() === "t1,t2"
+    && !!AC.critiqueRemisA({ id: "c1" }, "", [kossi]) && AC.critiqueRemisA({ id: "c1" }, AC.REMIS_A_PERSONNE, []) === null && AC.critiqueRemisA({ id: "c1" }, "t1", [kossi]) === null);
+  test("★ l'argent rendu diminue la charge du chantier (déduite des frais avant le partage)",
+    Dc.totalDepensesChantier({ depenses: [{ chantier_id: "c1", montant: 10000 }, { chantier_id: "c1", montant: -2000, categorie: "Argent rendu d'un chantier" }] }, "c1") === 8000
+    && /Cette somme a été remise/.test(Dc.critiqueChangementChantier({ clients_installes: [] }, { role: "admin" }, { chantier_id: "c1", remis_a: { id: "t1", nom: "KOSSI" } }, { id: "c2" }) || ""));
+  const dpA = readFileSync("src/screens/Depenses.jsx", "utf8");
+  const corpsAj = (dpA.match(/const ajouter = async \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+  const cmpA = readFileSync("src/components/ArgentChantier.jsx", "utf8");
+  const corpsVal = (cmpA.match(/const valider = async \(\{ technicien, retour, caisses \}\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+  test("★ l'écran : « Argent remis à » sous le chantier, revérifié DANS le geste avant d'écrire ; la ligne dit « remis à » ; le cadre du technicien et celui du gérant sont posés ; la suppression revérifie la remise",
+    /data-remis-a/.test(dpA) && corpsAj.indexOf("if (refusRemis) { uAlert(refusRemis); return; }") > corpsAj.indexOf("critiqueRemisA(") && corpsAj.indexOf("critiqueRemisA(") > -1 && corpsAj.indexOf("if (refusRemis) { uAlert(refusRemis); return; }") < corpsAj.indexOf("save(")
+    && /data-remis-a-ligne/.test(dpA) && /<MonArgentDeChantier db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(dpA) && /<RetoursAValider /.test(dpA)
+    && /refusSuppressionRemise\(db\.depenses, utilisateursDeLEspace\(db, profile\), d\)/.test(dpA)
+    && corpsVal.indexOf("critiqueValidationRetour(") > -1 && corpsVal.indexOf("critiqueValidationRetour(") < corpsVal.indexOf("save(")
+    && /if \(!String\(motif\)\.trim\(\)\) \{ uAlert\("Le motif est obligatoire\."\); return; \}/.test(cmpA)
+    && /<ArgentDuChantier /.test(readFileSync("src/screens/Travaux.jsx", "utf8")) && /<ArgentDuChantier /.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8"))
+    && !/db\.users\.filter/.test(cmpA));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
