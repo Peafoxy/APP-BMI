@@ -12766,14 +12766,14 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
       produits: [...db.produits, { id: "p2", nom: "Câble 6 mm", boutique: "DEMAKPOE", categorie: "Câbles", prix_achat: 0, prix_vente: 5000, initial: 10, seuil: 1 }],
       ventes: [{ id: "v1", date: auj, boutique: "DEMAKPOE", paiement: "Espèces", remise: 20000,
         articles: [{ produit_id: "p1", article: "Panneau 400W", qte: 2, pu: 100000 }, { produit_id: "p2", article: "Câble 6 mm", qte: 1, pu: 5000 }, { article: "Frais d'installation", qte: 1, pu: 10000 }] }],
-      depenses: [{ id: "d1", date: auj, boutique: "DEMAKPOE", categorie: "Carburant", montant: 10000 }, { id: "d2", date: auj, boutique: "DEMAKPOE", categorie: "Achat marchandises", montant: 50000 }] };
+      depenses: [{ id: "d1", date: auj, boutique: "DEMAKPOE", categorie: "Carburant", montant: 10000 }, { id: "d2", date: auj, boutique: "DEMAKPOE", categorie: "Achat marchandises", montant: 50000 }, { id: "d3", date: auj, boutique: "DEMAKPOE", categorie: "Commande en Chine", montant: 30000 }] };
     let dashR = "", rentaR = "";
     try { R.setRegardeFormation(false); dashR = lisible(R.rendreDashboard(dbR, timo)); rentaR = lisible(R.rendreRentabilite(dbR, timo)); } catch (e) { dashR = ""; }
     // CA 215 000 − remise 20 000 = 195 000 ; prix d'achat 2 × 60 000 = 120 000 ; dépenses hors achats 10 000 → 65 000.
-    test("★★ 📊 la carte « Résultat » = ventes − prix d'achat des articles vendus − dépenses, SANS les achats de marchandises (195 000 − 120 000 − 10 000 = 65 000)",
+    test("★★ 📊 la carte « Résultat » = ventes − prix d'achat des articles vendus − dépenses, SANS les achats de marchandises ni la « Commande en Chine » (195 000 − 120 000 − 10 000 = 65 000)",
       /Résultat — Aujourd'hui[\s\S]{0,400}?65\s000\sF/.test(dashR) && !/Résultat — Aujourd'hui[\s\S]{0,400}?135\s000\sF/.test(dashR));
     test("★ 📊 le calcul est écrit sous les cartes, chiffre par chiffre, et dit pourquoi les achats de marchandises n'y sont pas",
-      /data-calcul-resultat[\s\S]*ventes 195\s000\sF − prix d'achat des articles vendus 120\s000\sF − dépenses 10\s000\sF \(les achats de marchandises, 50\s000\sF, n'y sont pas/.test(dashR));
+      /data-calcul-resultat[\s\S]*ventes 195\s000\sF − prix d'achat des articles vendus 120\s000\sF − dépenses 10\s000\sF \(les achats de marchandises, 80\s000\sF, n'y sont pas/.test(dashR));
     test("★★ 📊 et 📈 : l'avertissement en ambre nomme l'article vendu sans prix d'achat",
       /data-sans-prix-achat[^>]*>[\s\S]{0,80}1 article vendu sans prix d'achat[\s\S]{0,200}Câble 6 mm/.test(dashR)
       && /data-sans-prix-achat[^>]*>[\s\S]{0,80}1 article vendu sans prix d'achat[\s\S]{0,200}Câble 6 mm/.test(rentaR));

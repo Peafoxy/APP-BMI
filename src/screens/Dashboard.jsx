@@ -135,7 +135,7 @@ export function Dashboard({ db, profile, save }) {
 
   // 💰 Timo (07/10/2026, « c avec l'avertissement ») : le résultat retire aussi
   // le PRIX D'ACHAT des articles vendus (`coutDesVentes`, lib/core.js), et les
-  // dépenses « Achat marchandises » en sortent (sinon la marchandise serait
+  // dépenses « Achat marchandises » et « Commande en Chine » en sortent (sinon la marchandise serait
   // comptée deux fois). UNE fabrique pour la carte ET la synthèse par période.
   const ligneDePeriode = (label, a, b) => {
     const v = {}, d = {}, c = {}, dr = {};

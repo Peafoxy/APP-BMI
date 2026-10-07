@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.468";
+export const VERSION = "2.101.469";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -193,7 +193,8 @@ export const depensesComptees = (liste) => horsVersements(liste).filter((x) => x
 // dépense « Achat marchandises » (dont les règlements de fournisseurs) le
 // compterait une SECONDE fois — elle reste une dépense partout ailleurs, elle
 // sort seulement du calcul de ce résultat.
-export const CATEGORIES_ACHAT_STOCK = ["Achat marchandises"];
+// « Commande en Chine » aussi : c'est l'achat de la marchandise (Timo, 07/10/2026).
+export const CATEGORIES_ACHAT_STOCK = ["Achat marchandises", "Commande en Chine"];
 export const horsAchatsDeStock = (liste) => (liste || []).filter((x) => !CATEGORIES_ACHAT_STOCK.includes(x?.categorie));
 
 // Validité d'une offre de prix (devis) — Timo, 11/09/2026 : 15 jours, comme

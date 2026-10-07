@@ -6404,8 +6404,8 @@ lit mal est pire qu'un banc absent).
   (hors achats) », même fabrique (`ligneDePeriode`, `resultatDe`). La carte
   « Dépenses — … » garde TOUTES les dépenses. **« Non pas obligatoire »** : le
   prix d'achat reste facultatif à la création d'un article — ne pas l'imposer
-  sans sa demande. ⚠ « Commande en Chine » COMPTE comme une dépense dans ce
-  résultat (question posée à Timo). Banc +6 (2282, rendu de l'écran), éprouvé
+  sans sa demande. **« Commande en Chine » en sort aussi** (Timo, 07/10/2026 :
+  « c'est l'achat de marchandise » — `CATEGORIES_ACHAT_STOCK`). Banc +6 (2282, rendu de l'écran), éprouvé
   (zéro silencieux, achats comptés deux fois, avertissement retiré, quantité
   ignorée) ; un contrôle RETOURNÉ (une fabrique, un seul `depensesComptees`).
   Rien à coller.
