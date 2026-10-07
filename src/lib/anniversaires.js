@@ -20,7 +20,7 @@
 //
 // Règle pure, lue par le serveur : imports écrits avec `.js`.
 // ============================================================
-import { envoiAnniversaire, envoiRappelAnniversaire, alerteConseillerDe, critiqueNumeroAlerte, ligneEnvoiModele, numeroWhatsApp } from "./whatsappModeles.js";
+import { envoiAnniversaire, envoiRappelAnniversaire, critiqueNumeroAlerte, ligneEnvoiModele, numeroWhatsApp } from "./whatsappModeles.js";
 import { cleConversation, CANAL_WA, construireEntete } from "./whatsappConversations.js";
 import { estCompteFormation, estAdminPrincipalActif } from "./espace.js";
 
@@ -118,19 +118,21 @@ export function rappelVeilleAnniversaires(db, aujourdhui) {
 }
 
 // 🎂 « 1c » (03/10/2026) : le même rappel, EN PLUS, par WhatsApp sur le
-// numéro de l'administrateur principal — celui réglé pour l'alerte
-// conseiller (⚙ Paramètres → 🤖 Assistant, boutique RÉELLE), sinon celui de
-// sa fiche. Jamais le numéro BMI lui-même. Rend { tel, envoi } ou null.
+// numéro de l'administrateur principal — celui de SA FICHE (👥 Utilisateurs),
+// et lui seul. ~~celui réglé pour l'alerte conseiller~~ RETOURNÉ le
+// 07/10/2026 (Timo : « les anniversaires ont quoi à voir avec les numéros
+// conseiller ? » → « B oui ») : les conseillers sont une liste à part, un
+// anniversaire n'a rien à faire chez eux. Jamais le numéro BMI lui-même.
+// Rend { tel, envoi } ou null.
 export function rappelWhatsAppVeille(db, aujourdhui) {
   const morceaux = morceauxDeDemain(db, aujourdhui);
   if (!morceaux.length) return null;
   const principal = (db?.users || []).find(estAdminPrincipalActif);
-  const reglage = alerteConseillerDe(db?.boutiques);
-  const brut = reglage?.tel || principal?.tel || "";
+  const brut = principal?.tel || "";
   if (!brut || critiqueNumeroAlerte(brut)) return null;
   const tel = numeroWhatsApp(brut);
   const envoi = envoiRappelAnniversaire({
-    administrateur: reglage?.nom || principal?.nom_complet || principal?.nom,
+    administrateur: principal?.nom_complet || principal?.nom,
     employes: morceaux.join(" ; "),
   });
   return tel && envoi ? { tel, envoi } : null;

@@ -25,7 +25,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa } from "../src/lib/whatsappConversations.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
-import { numeroWhatsApp, alerteConseillerDe, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
+import { numeroWhatsApp, conseillersAlerte, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 // 🤖 L'assistant (24/09/2026) : la règle vit dans lib/assistantWhatsapp.js,
 // ce fichier ne fait que l'appeler, envoyer, et écrire ce qui est parti.
 import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, conversationIAEnCours, ETAPE_MENU, ETAPE_PRODUIT } from "../src/lib/assistantWhatsapp.js";
@@ -214,8 +214,8 @@ export default async function handler(req, res) {
     // ---- 👨‍💼 L'ALERTE WHATSAPP À L'ADMINISTRATEUR (25/09/2026) ----
     // Timo : « si un client demande d'être mis en relation, il envoie un
     // message WhatsApp automatiquement à moi l'administrateur ». Le modèle
-    // `alerte_conseiller` part du numéro BMI vers le numéro réglé dans
-    // ⚙ Paramètres. UNE fois par demande : c'est le tour où l'assistant PASSE
+    // `alerte_conseiller` part du numéro BMI vers CHAQUE conseiller réglé
+    // dans ⚙ Paramètres (4 au plus, 07/10/2026). UNE fois par demande : c'est le tour où l'assistant PASSE
     // LA MAIN ; ensuite il se tait, et les messages suivants du client ne
     // repassent pas ici. ⚠ Une demande de DEVIS n'y est pas : elle a sa fiche
     // dans 🧲 Prospects et sa notification. ⚠ Une alerte qui ne part pas ne
@@ -277,24 +277,34 @@ export default async function handler(req, res) {
   }
 }
 
-// ---- 👨‍💼 L'ALERTE : le modèle, vers le numéro réglé ----
-// Rend { envoye, pourquoi }. Rien n'est écrit dans la base : ce n'est pas
-// une conversation avec un client.
+// ---- 👨‍💼 L'ALERTE : le modèle, vers CHAQUE conseiller réglé ----
+// Rend { envoyes, pourquoi }. Rien n'est écrit dans la base : ce n'est pas
+// une conversation avec un client. 👥 Jusqu'à 4 conseillers (07/10/2026,
+// « A oui ») : TOUS la reçoivent, chacun avec SON nom dans « Bonjour {{1}} ».
+// ⚠ Un conseiller refusé (numéro, WhatsApp) n'empêche pas les autres.
 async function envoyerAlerteConseiller({ boutiques, client, numero }) {
-  const reglage = alerteConseillerDe(boutiques);
-  if (!reglage) return { envoye: false, pourquoi: "aucun numéro réglé" };
-  if (critiqueNumeroAlerte(reglage.tel)) return { envoye: false, pourquoi: "numéro réglé refusé" };
+  const conseillers = conseillersAlerte(boutiques).filter((c) => !critiqueNumeroAlerte(c.tel));
+  if (!conseillers.length) return { envoyes: 0, pourquoi: "aucun conseiller réglé" };
   const { cle: cleYCloud, expediteurBrut } = configYCloud();
   const expediteur = numeroWhatsApp(expediteurBrut);
-  const destinataire = numeroWhatsApp(reglage.tel);
-  if (!cleYCloud || !expediteur || !destinataire) return { envoye: false, pourquoi: "WhatsApp non configuré sur le serveur" };
-  const valeurs = variablesAlerte({ administrateur: reglage.nom, client, numero: numeroWhatsApp(numero) || numero });
-  const envoi = await envoyerYCloud(cleYCloud, {
-    from: expediteur, to: destinataire, type: "template",
-    template: { name: "alerte_conseiller", language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }] },
-  });
-  if (!envoi.ok) console.error("[whatsapp-entrant] alerte conseiller : WhatsApp a refusé", envoi.code_whatsapp, envoi.motif);
-  return { envoye: !!envoi.ok, pourquoi: envoi.ok ? "" : envoi.motif };
+  if (!cleYCloud || !expediteur) return { envoyes: 0, pourquoi: "WhatsApp non configuré sur le serveur" };
+  let envoyes = 0;
+  for (const c of conseillers) {
+    const destinataire = numeroWhatsApp(c.tel);
+    if (!destinataire) continue;
+    const valeurs = variablesAlerte({ administrateur: c.nom, client, numero: numeroWhatsApp(numero) || numero });
+    try {
+      const envoi = await envoyerYCloud(cleYCloud, {
+        from: expediteur, to: destinataire, type: "template",
+        template: { name: "alerte_conseiller", language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }] },
+      });
+      if (envoi.ok) envoyes += 1;
+      else console.error("[whatsapp-entrant] alerte conseiller : WhatsApp a refusé", c.nom, envoi.code_whatsapp, envoi.motif);
+    } catch (e) {
+      console.error("[whatsapp-entrant] alerte conseiller", c.nom, e?.message || e);
+    }
+  }
+  return { envoyes, pourquoi: envoyes ? "" : "aucune alerte acceptée" };
 }
 
 // ---- 🤖 L'ASSISTANT, DU CÔTÉ SERVEUR ----

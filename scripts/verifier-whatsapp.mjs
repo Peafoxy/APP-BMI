@@ -2287,22 +2287,36 @@ titre("㉕ L'ALERTE WHATSAPP À L'ADMINISTRATEUR (25/09/2026, « Lance avec ce t
   test("★★ le numéro : vide = coupée ; trop court refusé ; le numéro BMI LUI-MÊME refusé (il ne s'écrit pas à lui-même)",
     W.critiqueNumeroAlerte("") === "" && W.critiqueNumeroAlerte("90112233") === "" && W.critiqueNumeroAlerte("+228 90 11 22 33") === ""
     && /trop court/.test(W.critiqueNumeroAlerte("9011")) && /numéro BMI lui-même/.test(W.critiqueNumeroAlerte("+228 99 96 84 88")));
-  test("★★ LE MUR : le réglage ne se lit QUE sur une boutique réelle",
-    W.alerteConseillerDe([{ nom: "ECOLE", formation: true, alerte_conseiller: { tel: "90000000" } }]) === null
-    && W.alerteConseillerDe(W.poserAlerteConseiller([{ nom: "A" }, { nom: "E", formation: true }], { tel: "90112233", nom: "TIMO" }))?.tel === "90112233"
-    && W.alerteConseillerDe(W.poserAlerteConseiller([{ nom: "A", alerte_conseiller: { tel: "9" } }], null)) === null);
+  // RETOURNÉ le 07/10/2026 (« A oui ») : une LISTE de 4 conseillers au plus, tous reçoivent l'alerte.
+  test("★★ LE MUR : la liste ne se lit QUE sur une boutique réelle ; l'ancien réglage (un seul numéro) se lit encore",
+    W.conseillersAlerte([{ nom: "ECOLE", formation: true, alerte_conseiller: { conseillers: [{ tel: "90000000", nom: "X" }] } }]).length === 0
+    && W.conseillersAlerte([{ nom: "A", alerte_conseiller: { tel: "90112233", nom: "TIMO" } }]).map((c) => c.nom + c.tel).join() === "TIMO90112233"
+    && W.conseillersAlerte(W.poserConseillersAlerte([{ nom: "A" }, { nom: "E", formation: true }], [{ tel: "90112233", nom: "TIMO" }, { tel: "91000000", nom: "KOSSI" }])).length === 2
+    && W.conseillersAlerte(W.poserConseillersAlerte([{ nom: "A", alerte_conseiller: { tel: "90112233" } }], [])).length === 0);
+  test("★★ la liste : 4 au plus, un nom et un vrai numéro chacun, jamais le numéro BMI, jamais deux fois le même numéro, vide = coupée",
+    W.MAX_CONSEILLERS_ALERTE === 4 && W.critiqueConseillersAlerte([]) === ""
+    && W.critiqueConseillersAlerte([{ nom: "TIMO", tel: "90112233" }, { nom: "KOSSI", tel: "+228 91 00 00 00" }]) === ""
+    && /au plus/.test(W.critiqueConseillersAlerte([1, 2, 3, 4, 5].map((i) => ({ nom: `N${i}`, tel: `9${i}000000` }))))
+    && /manque le numéro de KOSSI/.test(W.critiqueConseillersAlerte([{ nom: "KOSSI", tel: "" }]))
+    && /manque le nom/.test(W.critiqueConseillersAlerte([{ nom: "", tel: "90112233" }]))
+    && /numéro BMI lui-même/.test(W.critiqueConseillersAlerte([{ nom: "A", tel: "99968488" }]))
+    && /déjà dans la liste/.test(W.critiqueConseillersAlerte([{ nom: "A", tel: "90112233" }, { nom: "B", tel: "+228 90 11 22 33" }]))
+    && W.critiqueConseillersAlerte([{ nom: "", tel: "" }, { nom: "A", tel: "90112233" }]) === "");
   test("★★ le serveur l'envoie UNE fois par demande (le tour où l'assistant passe la main), jamais pour un devis, et un échec ne coupe rien",
     /if \(assistant\.repondu && assistant\.conseiller && !assistant\.devis\) \{\s*try \{\s*await envoyerAlerteConseiller\(/.test(ent)
     && /console\.error\("\[whatsapp-entrant\] alerte conseiller"/.test(ent)
     && (ent.match(/envoyerAlerteConseiller\(/g) || []).length === 2);
-  test("★★ le serveur relit le réglage ET son refus, envoie le modèle par la porte commune, et n'écrit rien dans la base",
+  test("★★ le serveur relit la liste, écarte un numéro refusé, envoie à CHAQUE conseiller avec SON nom par la porte commune, un refus n'arrête pas les autres, et n'écrit rien",
     (() => { const i = ent.indexOf("async function envoyerAlerteConseiller"); const corps = ent.slice(i, ent.indexOf("\n}", i));
-      return /alerteConseillerDe\(boutiques\)/.test(corps) && /critiqueNumeroAlerte\(reglage\.tel\)/.test(corps)
-        && /name: "alerte_conseiller"/.test(corps) && /envoyerYCloud\(/.test(corps) && !/admin\.from\(/.test(corps); })());
-  test("★ ⚙ Paramètres : principal seul (revérifié dans le geste), le refus du numéro, et le texte montré tel quel",
-    /refuserSaufAdminPrincipal\(db, profile, "Régler l'alerte WhatsApp de l'administrateur"\)/.test(par)
-    && /const motif = critiqueNumeroAlerte\(tel\);/.test(par) && /\{TEXTE_ALERTE_CONSEILLER\}/.test(par)
-    && /poserAlerteConseiller\(db\.boutiques, tel \? \{ tel, nom: profile\.nom \} : null\)/.test(par));
+      return /conseillersAlerte\(boutiques\)\.filter\(\(c\) => !critiqueNumeroAlerte\(c\.tel\)\)/.test(corps)
+        && /for \(const c of conseillers\)/.test(corps) && /administrateur: c\.nom/.test(corps)
+        && /try \{[\s\S]*envoyerYCloud\([\s\S]*\} catch/.test(corps)
+        && /name: "alerte_conseiller"/.test(corps) && !/admin\.from\(/.test(corps) && !/return \{ envoyes: 0, pourquoi: "WhatsApp a refusé/.test(corps); })());
+  test("★ ⚙ Paramètres : principal seul (revérifié dans le geste), la liste critiquée, le texte montré tel quel, ➕ jusqu'à 4",
+    /refuserSaufAdminPrincipal\(db, profile, "Régler l'alerte WhatsApp des conseillers"\)/.test(par)
+    && /const motif = critiqueConseillersAlerte\(conseillers\);/.test(par) && /\{TEXTE_ALERTE_CONSEILLER\}/.test(par)
+    && /poserConseillersAlerte\(db\.boutiques, liste\)/.test(par)
+    && /conseillers\.length < MAX_CONSEILLERS_ALERTE && <button onClick=\{ajouterConseiller\}/.test(par) && /data-liste-conseillers/.test(par));
   test("★ aucun écran ne l'envoie (serveur seul)",
     ["src/screens/Whatsapp.jsx", "src/whatsapp.js", "src/screens/Parametres.jsx"].every((f) => !/modele: "alerte_conseiller"|envoyerModele\([^)]*alerte_conseiller/.test(lire(f))));
 }
@@ -3740,13 +3754,15 @@ titre("㊻ 🎂 LES VŒUX D'ANNIVERSAIRE : LE RAPPEL DE LA VEILLE À 17 H, LES V
     /rappelVeilleAnniversaires\(db, aujourdhui\)/.test(RS) && /process\.env\.CRON_SECRET/.test(RS) && /envoyerAuxPersonnes\(admin, \[envoi\]\)/.test(RS) && !/\.(insert|upsert|update)\(/.test(RS));
   // « 1c » : le rappel de la veille part AUSSI par WhatsApp, sur le numéro de l'administrateur.
   const w1 = A.rappelWhatsAppVeille({ ...db, users: db.users.map((u) => (u.id === "p" ? { ...u, tel: "91130511" } : u)) }, "2026-10-03");
-  const w2 = A.rappelWhatsAppVeille({ ...db, boutiques: [...db.boutiques, { nom: "X", alerte_conseiller: { tel: "92000000", nom: "TIMO" } }] }, "2026-10-03");
-  const w3 = A.rappelWhatsAppVeille({ ...db, boutiques: [...db.boutiques, { nom: "F", formation: true, alerte_conseiller: { tel: "92000000", nom: "TIMO" } }] }, "2026-10-03");
+  const w2 = A.rappelWhatsAppVeille({ ...db, boutiques: [...db.boutiques, { nom: "X", alerte_conseiller: { conseillers: [{ tel: "92000000", nom: "KOSSI" }] } }] }, "2026-10-03");
+  const w3 = A.rappelWhatsAppVeille({ ...db, users: db.users.map((u) => (u.id === "p" ? { ...u, tel: "91130511" } : u)), boutiques: [...db.boutiques, { nom: "X", alerte_conseiller: { tel: "92000000", nom: "KOSSI" } }] }, "2026-10-03");
   const w4 = A.rappelWhatsAppVeille({ ...db, users: db.users.map((u) => (u.id === "p" ? { ...u, tel: "99968488" } : u)) }, "2026-10-03");
-  test("★★ « 1c » : la veille, le WhatsApp à l'administrateur (numéro réglé pour l'alerte, sinon sa fiche ; jamais un réglage de formation, jamais le numéro BMI), les fêtés de demain dans {{2}}",
+  // RETOURNÉ le 07/10/2026 (« B oui ») : le numéro de SA FICHE seul, jamais la liste des conseillers.
+  test("★★ « 1c » : la veille, le WhatsApp à l'administrateur principal, au numéro de SA FICHE seul — jamais un conseiller de l'alerte, jamais le numéro BMI ; les fêtés de demain dans {{2}}",
     w1 && /91130511$/.test(w1.tel) && w1.envoi.modele === "rappel_anniversaire" && w1.envoi.variables[0] === "TIMO" && /KOSSI Mensah, BMI DEMAKPOE ; AMA/.test(w1.envoi.variables[1])
-    && w2 && /92000000$/.test(w2.tel) && w3 === null && w4 === null
+    && w2 === null && w3 && /91130511$/.test(w3.tel) && w3.envoi.variables[0] === "TIMO" && w4 === null
     && A.rappelWhatsAppVeille(db, "2026-10-05") === null
+    && !/alerteConseillerDe|conseillersAlerte/.test(lire("src/lib/anniversaires.js"))
     && /\{\{1\}\}[\s\S]*\{\{2\}\}/.test(M4.TEXTE_RAPPEL_ANNIVERSAIRE));
   test("★ serveur 17 h : le WhatsApp part par LA porte YCloud, avant la notification et sans dépendre d'elle, et n'écrit rien",
     /rappelWhatsAppVeille\(db, aujourdhui\)/.test(RS) && /from "\.\/_ycloud\.js"/.test(RS)

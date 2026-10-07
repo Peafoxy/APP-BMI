@@ -116,7 +116,7 @@ export const CHAPITRE = {
         { titre: "État", texte: "« ● En service » ou « ○ Coupé » ; **Couper l'assistant** / **Remettre l'assistant**." },
         { titre: "Façon de répondre", texte: "**🗣 Conversation par IA** (d'office) ou **🔢 Menu à chiffres**. L'IA a besoin de deux réglages côté serveur : sans eux, le menu répond à sa place." },
         { titre: "📝 Nos choix BMI", texte: "Ce que BMI TOGO recommande ou installe (« Nous installons en 48 V… »), puis **✅ Enregistrer les choix**. En conversation par IA, l'assistant conseille SELON ces choix plutôt qu'en général. **Pas de prix** : l'application refuse un mémo qui en porte (les prix viennent du stock) ; 1 500 caractères au plus." },
-        { titre: "👨‍💼 Alerte", texte: "Votre numéro WhatsApp personnel : le numéro BMI vous prévient une fois par demande de conseiller. Vide = coupée." },
+        { titre: "👨‍💼 Alerte aux conseillers", texte: "Jusqu'à 4 conseillers, chacun avec son nom et son numéro WhatsApp (« ➕ Ajouter un conseiller », ✕ pour retirer). Quand un client demande un conseiller, le numéro BMI les prévient TOUS, une fois par demande, chacun avec son nom. La conversation reste au support : le premier disponible répond. Choisissez des personnes qui ont l'onglet 📲 WhatsApp. Liste vide = alerte coupée. Le rappel des anniversaires ne passe pas par cette liste (il va au numéro de votre fiche)." },
         { titre: "⭐ Avis Google", texte: "Le lien de votre fiche Google ; **Couper** arrête les demandes d'avis." },
       ]],
       ["note", "Ce que l'assistant dit et ne dit pas est au chapitre 20."],

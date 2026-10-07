@@ -28,7 +28,7 @@ import { mesOutils, sortieEnCours } from "../lib/outillage";
 import { clientsEffacables, cleDuClient, dossierClient, critiqueEffacement, avertissementsEffacement, resumeEffacement, effacerClient, journalEffacement, prochainNumeroEffacement, pseudonyme, clientsSansSuite, journalEffacementGroupe } from "../lib/effacementClient";
 import { assistantActif, poserAssistant, TEXTE_ACCUEIL } from "../lib/assistantWhatsapp";
 import { modeAssistant, poserModeAssistant, PHRASE_PRESENTATION, memoAssistant, poserMemoAssistant, critiqueMemoAssistant, MEMO_ASSISTANT_MAX } from "../lib/assistantIA";
-import { alerteConseillerDe, poserAlerteConseiller, critiqueNumeroAlerte, TEXTE_ALERTE_CONSEILLER, TEXTE_DEMANDE_AVIS } from "../lib/whatsappModeles";
+import { conseillersAlerte, poserConseillersAlerte, critiqueConseillersAlerte, MAX_CONSEILLERS_ALERTE, TEXTE_ALERTE_CONSEILLER, TEXTE_DEMANDE_AVIS } from "../lib/whatsappModeles";
 import { lienAvisGoogle, poserAvisGoogle, critiqueLienAvis, LIEN_AVIS_GOOGLE_DEFAUT, JOURS_APRES_RECEPTION } from "../lib/demandeAvis";
 import { dureeConservation, poserDureeConservation, critiqueDuree, clientsDepasses, libelleAnciennete, phraseConservation, DUREE_CONSERVATION_DEFAUT, JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { motsDuNumero } from "../lib/clientsConnus";
@@ -692,23 +692,28 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: poserMemoAssistant(db.boutiques, texte) }, texte ? "Assistant WhatsApp : choix de BMI mis à jour" : "Assistant WhatsApp : choix de BMI vidés");
   };
 
-  // 👨‍💼 L'alerte WhatsApp à l'administrateur (25/09/2026, « Lance avec ce
-  // texte ») : quand l'assistant passe la main, le numéro BMI envoie le
-  // modèle `alerte_conseiller` au numéro réglé ici. Vide = coupée. Principal
-  // seul, revérifié dans le geste ; le serveur relit le réglage.
-  const alerteActuelle = alerteConseillerDe(db.boutiques);
-  const [telAlerte, setTelAlerte] = useState(alerteActuelle?.tel || "");
+  // 👨‍💼 L'alerte WhatsApp aux conseillers (25/09/2026, « Lance avec ce
+  // texte » ; 07/10/2026, « A oui » : jusqu'à 4 conseillers, TOUS la
+  // reçoivent) : quand l'assistant passe la main, le numéro BMI envoie le
+  // modèle `alerte_conseiller` à chacun, avec SON nom. Liste vide = coupée.
+  // Principal seul, revérifié dans le geste ; le serveur relit le réglage.
+  const conseillersActuels = conseillersAlerte(db.boutiques);
+  const [conseillers, setConseillers] = useState(() =>
+    conseillersActuels.length ? conseillersActuels : [{ nom: profile.nom || "", tel: "" }]);
+  const changerConseiller = (i, champ, v) => setConseillers((l) => l.map((c, j) => (j === i ? { ...c, [champ]: v } : c)));
+  const retirerConseiller = (i) => setConseillers((l) => l.filter((_, j) => j !== i));
+  const ajouterConseiller = () => setConseillers((l) => (l.length >= MAX_CONSEILLERS_ALERTE ? l : [...l, { nom: "", tel: "" }]));
   const enregistrerAlerte = async () => {
-    if (refuserSaufAdminPrincipal(db, profile, "Régler l'alerte WhatsApp de l'administrateur")) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Régler l'alerte WhatsApp des conseillers")) return;
     if (bloquerSiLecture(db, profile)) return;
-    const tel = telAlerte.trim();
-    const motif = critiqueNumeroAlerte(tel);
+    const motif = critiqueConseillersAlerte(conseillers);
     if (motif) { uAlert(motif); return; }
-    if (!await uConfirm(tel
-      ? `Envoyer l'alerte au ${tel} ? Chaque fois qu'un client demande à parler à un conseiller, le numéro BMI y enverra un message WhatsApp (environ 4 F l'alerte).`
+    const liste = conseillers.filter((c) => String(c.tel || "").trim()).map((c) => ({ nom: c.nom.trim(), tel: c.tel.trim() }));
+    if (!await uConfirm(liste.length
+      ? `Envoyer l'alerte à ${liste.length === 1 ? "ce conseiller" : `ces ${liste.length} conseillers`} ?\n\n${liste.map((c) => `• ${c.nom} — ${c.tel}`).join("\n")}\n\nChaque fois qu'un client demande à parler à un conseiller, le numéro BMI enverra un message WhatsApp à chacun (environ 4 F par alerte et par conseiller).`
       : "Couper l'alerte WhatsApp ? La notification sur les téléphones continue.")) return;
-    save({ ...db, boutiques: poserAlerteConseiller(db.boutiques, tel ? { tel, nom: profile.nom } : null) },
-      tel ? `Alerte conseiller WhatsApp envoyée au ${tel}` : "Alerte conseiller WhatsApp coupée");
+    save({ ...db, boutiques: poserConseillersAlerte(db.boutiques, liste) },
+      liste.length ? `Alerte conseiller WhatsApp : ${liste.map((c) => `${c.nom} (${c.tel})`).join(", ")}` : "Alerte conseiller WhatsApp coupée");
   };
 
   // ⭐ LA DEMANDE D'AVIS GOOGLE (26/09/2026, « 6 ») : le lien envoyé par la
@@ -1981,21 +1986,36 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </div>
         </div>
         <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="alerte-conseiller">
-          <div className="font-semibold text-sm">👨‍💼 Alerte sur votre WhatsApp quand un client demande un conseiller</div>
+          <div className="font-semibold text-sm">👨‍💼 Alerte WhatsApp aux conseillers quand un client demande un conseiller</div>
           <div className="text-xs text-slate-500 mt-1">
-            Le numéro BMI vous envoie ce message (modèle « alerte_conseiller », à faire approuver chez YCloud) — une fois par demande, pas à chaque message du client.
-            Une demande de devis n'en envoie pas : elle arrive dans 🧲 Prospects. Laissez vide pour couper. Environ 4 F l'alerte. Ce numéro reçoit aussi, la veille à 17 h, le rappel des anniversaires des employés (vide : celui de votre fiche).
+            Le numéro BMI envoie ce message à chaque conseiller de la liste ({MAX_CONSEILLERS_ALERTE} au plus), chacun avec son nom — une fois par demande, pas à chaque message du client.
+            La conversation reste au support : le premier disponible répond. Choisissez des personnes qui ont l'onglet 📲 WhatsApp, sinon elles ne pourront pas l'ouvrir.
+            Une demande de devis n'en envoie pas : elle arrive dans 🧲 Prospects. Liste vide = alerte coupée. Environ 4 F par alerte et par conseiller.
           </div>
           <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded p-2 mt-2">{TEXTE_ALERTE_CONSEILLER}</div>
-          <div className="flex flex-wrap items-end gap-2 mt-2">
-            <Field label="Votre numéro WhatsApp personnel">
-              <input className={`${inputCls} sm:w-56`} value={telAlerte} onChange={(e) => setTelAlerte(e.target.value)} placeholder="+228 90 00 00 00" disabled={!jeSuisPrincipal} />
-            </Field>
+          <div className="mt-2 space-y-2" data-liste-conseillers>
+            {conseillers.map((c, i) => (
+              <div key={i} className="flex flex-wrap items-end gap-2" data-conseiller>
+                <Field label={`Conseiller ${i + 1} — nom`}>
+                  <input className={`${inputCls} sm:w-44`} value={c.nom} onChange={(e) => changerConseiller(i, "nom", e.target.value)} placeholder="KOSSI" disabled={!jeSuisPrincipal} />
+                </Field>
+                <Field label="Numéro WhatsApp">
+                  <input className={`${inputCls} sm:w-56`} value={c.tel} onChange={(e) => changerConseiller(i, "tel", e.target.value)} placeholder="+228 90 00 00 00" disabled={!jeSuisPrincipal} />
+                </Field>
+                {jeSuisPrincipal && <button onClick={() => retirerConseiller(i)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50" title="Retirer ce conseiller de la liste">✕</button>}
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {jeSuisPrincipal && conseillers.length < MAX_CONSEILLERS_ALERTE && <button onClick={ajouterConseiller} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">➕ Ajouter un conseiller</button>}
             {jeSuisPrincipal && <button onClick={enregistrerAlerte} className={btnDark}>✅ Enregistrer</button>}
           </div>
-          <div className="text-xs mt-1" data-alerte-etat={alerteActuelle ? "active" : "coupee"}>
-            {alerteActuelle ? <span className="text-emerald-700 font-bold">● Alerte envoyée au {alerteActuelle.tel}{alerteActuelle.nom ? ` (« Bonjour ${alerteActuelle.nom} »)` : ""}</span> : <span className="text-slate-500">○ Aucune alerte WhatsApp</span>}
+          <div className="text-xs mt-1" data-alerte-etat={conseillersActuels.length ? "active" : "coupee"}>
+            {conseillersActuels.length
+              ? <span className="text-emerald-700 font-bold">● Alerte envoyée à : {conseillersActuels.map((c) => `${c.nom || "?"} (${c.tel})`).join(", ")}</span>
+              : <span className="text-slate-500">○ Aucune alerte WhatsApp</span>}
           </div>
+          <div className="text-xs text-slate-500 mt-1">🎂 Le rappel des anniversaires de la veille (17 h) part au numéro de votre propre fiche (👥 Utilisateurs), pas à cette liste.</div>
         </div>
         <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="avis-google">
           <div className="font-semibold text-sm">⭐ Demande d'avis Google après la réception</div>

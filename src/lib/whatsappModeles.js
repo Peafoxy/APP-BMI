@@ -1483,22 +1483,56 @@ export function texteRecu(envoi) {
 // ---------------------------------------------------------------
 // Texte de Timo (« Lance avec ce texte »), mot pour mot chez Meta :
 export const TEXTE_ALERTE_CONSEILLER = "Bonjour {{1}}, un client demande à parler à un conseiller : {{2}} ({{3}}). Répondez-lui depuis l'application BMI, onglet WhatsApp. BMI TOGO";
-// Le réglage : `alerte_conseiller = { tel, nom }` sur les boutiques (une
-// politique, comme l'assistant — rien à coller), lu sur une boutique RÉELLE
-// seulement : une boutique de formation ne commande pas une alerte réelle.
-export function alerteConseillerDe(boutiques) {
-  const b = (boutiques || []).find((x) => x && !x.formation && x.alerte_conseiller && x.alerte_conseiller.tel);
-  return b ? { tel: String(b.alerte_conseiller.tel), nom: String(b.alerte_conseiller.nom || "") } : null;
+// Le réglage : `alerte_conseiller = { conseillers: [{ tel, nom }] }` sur les
+// boutiques (une politique, comme l'assistant — rien à coller), lu sur une
+// boutique RÉELLE seulement : une boutique de formation ne commande pas une
+// alerte réelle.
+// 👥 PLUSIEURS CONSEILLERS (07/10/2026, Timo : « on peut ajouter 2 ou 3 ou 4
+// conseillers » → « A oui ») : jusqu'à 4, et TOUS reçoivent l'alerte, chacun
+// avec SON nom dans « Bonjour {{1}} ». ⚠ L'ancien réglage (un seul
+// `{ tel, nom }`) se lit encore : il devient une liste d'un conseiller.
+export const MAX_CONSEILLERS_ALERTE = 4;
+export function conseillersAlerte(boutiques) {
+  const b = (boutiques || []).find((x) => x && !x.formation && x.alerte_conseiller
+    && ((Array.isArray(x.alerte_conseiller.conseillers) && x.alerte_conseiller.conseillers.length) || x.alerte_conseiller.tel));
+  if (!b) return [];
+  const a = b.alerte_conseiller;
+  const liste = Array.isArray(a.conseillers) ? a.conseillers : [{ tel: a.tel, nom: a.nom }];
+  return liste.filter((c) => c && String(c.tel || "").trim())
+    .map((c) => ({ tel: String(c.tel).trim(), nom: String(c.nom || "").trim() }))
+    .slice(0, MAX_CONSEILLERS_ALERTE);
 }
-export const poserAlerteConseiller = (boutiques, reglage) =>
-  (boutiques || []).map((b) => ({ ...b, alerte_conseiller: reglage && reglage.tel ? { tel: String(reglage.tel), nom: String(reglage.nom || "") } : null }));
+export const poserConseillersAlerte = (boutiques, liste) => {
+  const propre = (liste || []).filter((c) => c && String(c.tel || "").trim())
+    .map((c) => ({ tel: String(c.tel).trim(), nom: String(c.nom || "").trim() }));
+  return (boutiques || []).map((b) => ({ ...b, alerte_conseiller: propre.length ? { conseillers: propre } : null }));
+};
+// La liste entière : 4 au plus, un nom et un vrai numéro pour chacun, jamais
+// le numéro BMI, jamais deux fois le même numéro. Vide = alerte coupée.
+export function critiqueConseillersAlerte(liste) {
+  const pleins = (liste || []).filter((c) => c && (String(c.tel || "").trim() || String(c.nom || "").trim()));
+  if (pleins.length > MAX_CONSEILLERS_ALERTE) return `${MAX_CONSEILLERS_ALERTE} conseillers au plus.`;
+  const vus = new Set();
+  for (const c of pleins) {
+    const nom = String(c.nom || "").trim();
+    const tel = String(c.tel || "").trim();
+    if (!tel) return `Il manque le numéro de ${nom}.`;
+    if (!nom) return `Il manque le nom du conseiller au ${tel}.`;
+    const motif = critiqueNumeroAlerte(tel);
+    if (motif) return `${nom} : ${motif}`;
+    const huit = tel.replace(/\D/g, "").slice(-8);
+    if (vus.has(huit)) return `Le numéro ${tel} est déjà dans la liste.`;
+    vus.add(huit);
+  }
+  return "";
+}
 // Vide = alerte coupée (accepté). Sinon : un vrai numéro, et JAMAIS le numéro
 // BMI lui-même (il ne peut pas s'écrire à lui-même).
 export function critiqueNumeroAlerte(tel) {
   const d = String(tel || "").replace(/\D/g, "");
   if (!d) return "";
   if (d.length < 8) return "Ce numéro est trop court : écrivez les 8 chiffres (ou avec l'indicatif +228).";
-  if (d.slice(-8) === NUMERO_BMI_PRINCIPAL.replace(/\D/g, "").slice(-8)) return "C'est le numéro BMI lui-même : il ne peut pas s'écrire à lui-même. Mettez votre numéro personnel.";
+  if (d.slice(-8) === NUMERO_BMI_PRINCIPAL.replace(/\D/g, "").slice(-8)) return "C'est le numéro BMI lui-même : il ne peut pas s'écrire à lui-même. Mettez un numéro personnel.";
   return "";
 }
 // Les trois trous, dans l'ordre du modèle. Jamais un trou vide (Meta refuse).
