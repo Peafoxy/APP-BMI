@@ -6363,6 +6363,28 @@ lit mal est pire qu'un banc absent).
   principal sous le formulaire de 👥 restent visibles. Banc (4 contrôles,
   éprouvé) ; un contrôle de `verifier-ecran-stocks` RETOURNÉ (le bouton
   d'ouverture nomme la boutique). Chapitres 2, 4, 6, 7, 8, 9, 10, 15, 17, 23.
+- **💰 LE « RÉSULTAT » DU TABLEAU DE BORD RETIRE LE PRIX D'ACHAT** (07/10/2026,
+  capture « Résultats aujourd'hui −10 500… je n'ai pas compris » → « c avec
+  l'avertissement, et non pas obligatoire, lance ») : **Résultat = ventes −
+  prix d'achat des articles vendus − dépenses hors « Achat marchandises »**
+  (`CATEGORIES_ACHAT_STOCK` / `horsAchatsDeStock`, constants.js — sinon la
+  marchandise serait comptée deux fois ; elle reste une dépense partout
+  ailleurs). Règle pure `coutDesVentes(produits, ventes)` (core.js) : le prix
+  d'achat ACTUEL de la fiche × la quantité nette des reprises ; une ligne HB ou
+  sans article lié (service, frais) ne coûte rien et n'est pas signalée.
+  ⚠ **Un article SANS prix d'achat (ou dont la fiche a disparu) est compté à 0
+  mais LISTÉ** : bande ambre `data-sans-prix-achat` (`avertissementSansPrix`,
+  écrite UNE fois) dans 📊 ET 📈 Rentabilité (qui le passait à 100 % de marge
+  en silence). Le calcul s'écrit sous les cartes (`data-calcul-resultat`) ; la
+  synthèse par période a les colonnes « Prix d'achat vendus » et « Dépenses
+  (hors achats) », même fabrique (`ligneDePeriode`, `resultatDe`). La carte
+  « Dépenses — … » garde TOUTES les dépenses. **« Non pas obligatoire »** : le
+  prix d'achat reste facultatif à la création d'un article — ne pas l'imposer
+  sans sa demande. ⚠ « Commande en Chine » COMPTE comme une dépense dans ce
+  résultat (question posée à Timo). Banc +6 (2282, rendu de l'écran), éprouvé
+  (zéro silencieux, achats comptés deux fois, avertissement retiré, quantité
+  ignorée) ; un contrôle RETOURNÉ (une fabrique, un seul `depensesComptees`).
+  Rien à coller.
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :

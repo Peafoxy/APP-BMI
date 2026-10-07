@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.465";
+export const VERSION = "2.101.466";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -188,6 +188,13 @@ export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES
 // bord, synthèse par période, export, journal comptable et « Ce mois » de
 // l'écran Dépenses passent par ICI, pas par horsVersements seul.
 export const depensesComptees = (liste) => horsVersements(liste).filter((x) => x?.validation?.statut !== "attente");
+// 💰 Le « Résultat » du tableau de bord retire le PRIX D'ACHAT des articles
+// vendus (07/10/2026) : l'achat de la marchandise y est donc déjà compté. Une
+// dépense « Achat marchandises » (dont les règlements de fournisseurs) le
+// compterait une SECONDE fois — elle reste une dépense partout ailleurs, elle
+// sort seulement du calcul de ce résultat.
+export const CATEGORIES_ACHAT_STOCK = ["Achat marchandises"];
+export const horsAchatsDeStock = (liste) => (liste || []).filter((x) => !CATEGORIES_ACHAT_STOCK.includes(x?.categorie));
 
 // Validité d'une offre de prix (devis) — Timo, 11/09/2026 : 15 jours, comme
 // le seuil de relance des devis sans réponse.

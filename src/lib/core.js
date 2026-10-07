@@ -289,6 +289,51 @@ export const caLigneVenteBrut = (v, ligne) => {
 // Net des reprises de CET article (Timo, 10/09/2026) — Rentabilité.
 export const caLigneVente = (v, ligne) => Math.max(0, caLigneVenteBrut(v, ligne) - montantRepris(v, ligne.produit_id));
 
+// ---- 💰 LE PRIX D'ACHAT DES ARTICLES VENDUS (Timo, 07/10/2026, « c avec
+// l'avertissement ») ----
+// La carte « Résultat » du tableau de bord ne retirait que les dépenses :
+// une vente de 100 000 F d'un article acheté 80 000 F comptait pour 100 000 F
+// de bénéfice. Elle retire désormais le prix d'achat, celui écrit AUJOURD'HUI
+// sur la fiche de l'article (comme 📈 Rentabilité), quantités reprises ôtées.
+//   - une ligne HB (hors boutique) n'est pas comptée (elle n'est pas au CA) ;
+//   - une ligne SANS article lié (frais de prestation, installation…) est un
+//     service : aucun prix d'achat, rien à signaler ;
+//   - ⚠ un article SANS prix d'achat (ou dont la fiche a disparu) ne passe
+//     JAMAIS en bénéfice entier sans le dire : il est compté à 0, mais listé
+//     dans `sansPrix`, et l'écran l'annonce (« bénéfice surestimé »).
+// Reçoit les ventes DÉJÀ filtrées par l'écran (le mur), jamais db en entier.
+export function coutDesVentes(produits, ventes) {
+  const parId = new Map((produits || []).map((p) => [p.id, p]));
+  let cout = 0, caSansPrix = 0;
+  const manquants = new Map();
+  (ventes || []).forEach((v) => {
+    lignesVente(v).forEach((l) => {
+      if (l.hors_boutique || !l.produit_id) return;
+      const qte = Math.max(0, Number(l.qte || 0) - qteReprise(v, l.produit_id));
+      if (!qte) return;
+      const p = parId.get(l.produit_id);
+      const achat = p ? Number(p.prix_achat || 0) : 0;
+      if (achat > 0) { cout += qte * achat; return; }
+      const ca = caLigneVente(v, l);
+      caSansPrix += ca;
+      const nom = p?.nom || l.article || "Article inconnu";
+      const cle = p ? p.id : `?${nom}`;
+      const m = manquants.get(cle) || { nom, boutique: p?.boutique || v.boutique || "", qte: 0, ca: 0 };
+      m.qte += qte; m.ca += ca;
+      manquants.set(cle, m);
+    });
+  });
+  const sansPrix = [...manquants.values()].map((m) => ({ ...m, ca: Math.round(m.ca) })).sort((a, b) => b.ca - a.ca);
+  return { cout: Math.round(cout), sansPrix, caSansPrix: Math.round(caSansPrix) };
+}
+// La phrase d'avertissement, UNE fois pour le tableau de bord et Rentabilité.
+export function avertissementSansPrix(sansPrix, caSansPrix) {
+  const n = (sansPrix || []).length;
+  if (!n) return "";
+  const noms = sansPrix.slice(0, 3).map((m) => m.nom).join(", ") + (n > 3 ? `… (+${n - 3})` : "");
+  return `${n} article${n > 1 ? "s" : ""} vendu${n > 1 ? "s" : ""} sans prix d'achat (${fmt(caSansPrix)} de ventes) : le bénéfice est surestimé. Renseignez leur prix d'achat dans 📦 Stocks → ✏️ Corriger. Article${n > 1 ? "s" : ""} : ${noms}.`;
+}
+
 // Hachage SHA-256 des mots de passe (plus de stockage en clair)
 // Ancien hachage (conservé UNIQUEMENT pour reconnaître et migrer les comptes
 // pas encore mis à jour) : SHA-256 avec un sel unique partagé par toute

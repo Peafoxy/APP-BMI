@@ -4,9 +4,9 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useCallback } from "react";
-import { fmt, today, dFR, inP, col, totalVente, caVente, caLigneVente, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
+import { fmt, today, dFR, inP, col, totalVente, caVente, caLigneVente, coutDesVentes, avertissementSansPrix, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
 // Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
-import { depensesComptees, CATEGORIE_VERSEMENT } from "../lib/constants";
+import { depensesComptees, CATEGORIE_VERSEMENT, horsAchatsDeStock } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
 // (lib/caissesCentrales.js).
 import { mouvementsBanque, mouvementsComptable, releve, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
@@ -133,24 +133,26 @@ export function Dashboard({ db, profile, save }) {
     return periodes()[periodeIndex] || periodes()[0];
   }, [periodeIndex, customDebut, customFin]);
 
-  const rows = periodes().map(([label, a, b]) => {
-    const v = {}, d = {};
+  // 💰 Timo (07/10/2026, « c avec l'avertissement ») : le résultat retire aussi
+  // le PRIX D'ACHAT des articles vendus (`coutDesVentes`, lib/core.js), et les
+  // dépenses « Achat marchandises » en sortent (sinon la marchandise serait
+  // comptée deux fois). UNE fabrique pour la carte ET la synthèse par période.
+  const ligneDePeriode = (label, a, b) => {
+    const v = {}, d = {}, c = {}, dr = {};
+    let sansPrix = [], caSansPrix = 0;
     NOMS_VUES.forEach((bq) => {
-      v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
-      d[bq] = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
+      const ventesBq = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b));
+      const depBq = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b));
+      v[bq] = ventesBq.reduce((s, x) => s + caVente(x), 0);
+      d[bq] = depBq.reduce((s, x) => s + Number(x.montant), 0);
+      dr[bq] = horsAchatsDeStock(depBq).reduce((s, x) => s + Number(x.montant), 0);
+      const k = coutDesVentes(db.produits, ventesBq);
+      c[bq] = k.cout; sansPrix = [...sansPrix, ...k.sansPrix]; caSansPrix += k.caSansPrix;
     });
-    return { label, v, d };
-  });
-
-  const customRow = (() => {
-    const [label, a, b] = getPeriod();
-    const v = {}, d = {};
-    NOMS_VUES.forEach((bq) => {
-      v[bq] = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + caVente(x), 0);
-      d[bq] = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant), 0);
-    });
-    return { label, v, d };
-  })();
+    return { label, v, d, c, dr, sansPrix, caSansPrix };
+  };
+  const rows = periodes().map(([label, a, b]) => ligneDePeriode(label, a, b));
+  const customRow = (() => { const [label, a, b] = getPeriod(); return ligneDePeriode(label, a, b); })();
 
   const dettes = {}, alertes = {}, valA = {}, valV = {};
   NOMS_VUES.forEach((b) => {
@@ -163,7 +165,9 @@ export function Dashboard({ db, profile, save }) {
   });
 
   const somme = (obj) => NOMS_VUES.reduce((s, b) => s + (obj[b] || 0), 0);
-  const resCustom = somme(customRow.v) - somme(customRow.d);
+  // Résultat = ventes − prix d'achat des articles vendus − dépenses (hors achats de marchandises).
+  const resultatDe = (r) => somme(r.v) - somme(r.c) - somme(r.dr);
+  const resCustom = resultatDe(customRow);
 
   const totalVentes = ventesReellesDb.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
   // ⚠ Oubli de l'exclusion 2.100.16 : ce total parcourait db.depenses BRUT
@@ -369,6 +373,18 @@ export function Dashboard({ db, profile, save }) {
         {!sansVentes && <Stat label={`Résultat — ${customRow.label}`} value={fmt(resCustom)} nature={resCustom >= 0 ? "regle" : "du"} />}
         {!sansVentes && <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />}
       </div>
+      {!sansVentes && (
+        <div className="text-xs text-slate-600 -mt-1" data-calcul-resultat>
+          Résultat = ventes {fmt(somme(customRow.v))} − prix d'achat des articles vendus {fmt(somme(customRow.c))} − dépenses {fmt(somme(customRow.dr))}
+          {somme(customRow.d) !== somme(customRow.dr) ? ` (les achats de marchandises, ${fmt(somme(customRow.d) - somme(customRow.dr))}, n'y sont pas : le prix d'achat les compte déjà)` : ""}.
+          {" "}Prix d'achat : celui écrit aujourd'hui sur la fiche de l'article. Une vente à crédit compte dès qu'elle est faite.
+        </div>
+      )}
+      {!sansVentes && customRow.sansPrix.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900" data-sans-prix-achat>
+          ⚠ {avertissementSansPrix(customRow.sansPrix, customRow.caSansPrix)}
+        </div>
+      )}
 
       {!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -431,17 +447,19 @@ export function Dashboard({ db, profile, save }) {
           <thead><tr className="text-xs text-slate-500 uppercase">
             <th className="text-left px-4 py-2">Période</th>
             {NOMS_GRAPHE.map((b) => <th key={b} className="text-right px-3 py-2">Ventes {b}</th>)}
-            <th className="text-right px-3 py-2">Dépenses</th>
+            <th className="text-right px-3 py-2">Prix d'achat vendus</th>
+            <th className="text-right px-3 py-2">Dépenses (hors achats)</th>
             <th className="text-right px-4 py-2">Résultat</th>
           </tr></thead>
           <tbody>
             {rows.map((r) => {
-              const res = somme(r.v) - somme(r.d);
+              const res = resultatDe(r);
               return (
                 <tr key={r.label} className="border-t border-slate-100 hover:bg-sky-50">
                   <td className="px-4 py-2 font-semibold">{r.label}</td>
                   {NOMS_GRAPHE.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums" style={{ color: col(b) }}>{fmt(r.v[b])}</td>)}
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(somme(r.d))}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(somme(r.c))}{r.sansPrix.length > 0 && <span className="text-amber-600" title={avertissementSansPrix(r.sansPrix, r.caSansPrix)}> ⚠</span>}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(somme(r.dr))}</td>
                   <td className={`px-4 py-2 text-right tabular-nums font-bold ${res >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(res)}</td>
                 </tr>
               );
@@ -450,7 +468,8 @@ export function Dashboard({ db, profile, save }) {
               <tr className="border-t-2 border-slate-300 bg-slate-50">
                 <td className="px-4 py-2 font-bold">{customRow.label}</td>
                 {NOMS_GRAPHE.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums font-bold" style={{ color: col(b) }}>{fmt(customRow.v[b])}</td>)}
-                <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(somme(customRow.d))}</td>
+                <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(somme(customRow.c))}</td>
+                <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(somme(customRow.dr))}</td>
                 <td className={`px-4 py-2 text-right tabular-nums font-bold ${resCustom >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(resCustom)}</td>
               </tr>
             )}

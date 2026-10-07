@@ -67,7 +67,8 @@ export const CHAPITRE = {
         { titre: "Choisir la pastille", texte: "**TOUTES** (d'office) ou une boutique, TERRAIN, un compte mobile, une caisse. Une boutique choisie : « Tout l'écran ne compte que X. » Le choix est gardé pour la prochaine fois." },
         { titre: "La première rangée de cartes", texte: "**Depuis le début** : Total des ventes, Total des dépenses, Total des dettes, Commissions dues (non payées), Commissions déjà payées, Clients uniques ; et, s'il y en a, « Frais d'installation/transport encaissés » et « Avances clients à livrer »." },
         { titre: "« Période : »", texte: "**Aujourd'hui** d'office, puis Cette semaine, Ce mois, Cette année, Depuis le début, ou **Personnalisée** (deux dates ; le **Résultat** s'affiche à droite)." },
-        { titre: "Les cartes de la période", texte: "**Ventes — …**, **Dépenses — …**, **Résultat — …** (ventes moins dépenses, vert ou rouge) et **Dettes en cours** (elle, ne dépend pas de la période)." },
+        { titre: "Les cartes de la période", texte: "**Ventes — …**, **Dépenses — …**, **Résultat — …** (vert ou rouge) et **Dettes en cours** (elle, ne dépend pas de la période). **Le Résultat = ventes − prix d'achat des articles vendus − dépenses**, et le calcul est écrit chiffre par chiffre juste en dessous. Les dépenses « Achat marchandises » (dont les règlements de fournisseurs) n'y entrent pas : le prix d'achat les compte déjà." },
+        { titre: "L'avertissement en ambre", texte: "« ⚠ N articles vendus sans prix d'achat… le bénéfice est surestimé » : ces articles n'ont pas de prix d'achat sur leur fiche, ils sont comptés comme s'ils n'avaient rien coûté. Les nommer, puis **📦 Stocks → ✏️ Corriger** leur prix d'achat : le résultat se corrige tout seul, ventes passées comprises. Un service (frais d'installation, de prestation) n'a pas de prix d'achat et n'est jamais signalé." },
         { titre: "Plus bas", texte: "**Ventes des 6 derniers mois** (une couleur par boutique), **🏆 Top 5 des produits** et **💳 Répartition des paiements** (période choisie), **Synthèse par période** (les cinq périodes côte à côte), puis une carte par boutique : dettes clients, alertes stock, valeur du stock au prix d'achat et au prix de vente." },
       ]],
       ["note", "**Un dépôt** ne vend rien : sa pastille ne montre que ses dépenses et son stock. **TERRAIN** n'a pas de stock."],
@@ -106,6 +107,7 @@ export const CHAPITRE = {
         { titre: "« 😴 Produits dormants »", texte: "Les articles **en stock mais pas vendus** sur la période, du plus lourd au plus léger, avec la valeur immobilisée au prix d'achat. Les 25 plus lourds sont listés ; le titre le dit s'il y en a plus." },
       ]],
       ["regle", "**La marge = prix auquel l'article a été vendu** (remises déduites, articles repris retirés) **− son prix d'achat ACTUEL**, celui de sa fiche. Si le prix d'achat a changé depuis la vente, la marge d'une vente ancienne se recalcule avec le nouveau."],
+      ["note", "Un article **sans prix d'achat** sur sa fiche passerait à 100 % de marge : l'écran le DIT en ambre, avec le nom de l'article, comme le tableau de bord."],
 
       ["h3", "F. Retrouver un geste dans l'historique"],
       ["etapes", [
@@ -177,6 +179,8 @@ export const CHAPITRE = {
         ["Chercher une dépense en attente du DG dans les totaux.", "Elle n'y est pas tant qu'elle n'est pas validée (chapitre 17)."],
         ["Lire un versement comme une dépense.", "Un versement est un déplacement d'argent, pas une charge : il est dans l'export « Versements » et dans les relevés."],
         ["Un solde Flooz qui ne correspond pas au téléphone.", "Chercher la saisie manquante (une vente, une dépense, un versement par ce moyen)."],
+        ["Croire que le Résultat vaut « ventes moins dépenses ».", "Il retire aussi le **prix d'achat des articles vendus**, et laisse de côté les achats de marchandises. La ligne sous les cartes donne les trois chiffres."],
+        ["Laisser l'avertissement ambre « sans prix d'achat ».", "Le résultat est trop beau tant qu'il est là : renseigner le prix d'achat des articles nommés (📦 Stocks → ✏️ Corriger)."],
         ["Prendre de l'argent chez le DG en le saisissant comme une dépense.", "C'est un **➖ Prélèvement**, pas une dépense : il ne baisse pas le résultat."],
         ["Être en formation et croire lire les vrais chiffres.", "Le bandeau ambre le dit. Revenir au réel par ⚙ Paramètres → 👁 Je regarde."],
       ]}],
@@ -187,6 +191,7 @@ export const CHAPITRE = {
       ["cas", [
         { situation: "Le DG veut savoir ce qu'il reste sur le T-Money de DEMAKPOE.", reponse: "Pastille **📱 MIXX/T-MONEY**, période « Depuis le début » : **Solde à la fin**. La colonne Boutique dit quel numéro." },
         { situation: "Une vente de 2 panneaux à 100 000 F avec 20 000 F de remise générale.", reponse: "Le Top 5 et la Rentabilité comptent **180 000 F** pour cet article : la remise est répartie sur les articles." },
+        { situation: "Aujourd'hui : 195 000 F de ventes, dont 2 panneaux achetés 60 000 F pièce ; 10 000 F de carburant et 50 000 F d'achat de marchandises.", reponse: "**Résultat = 195 000 − 120 000 − 10 000 = 65 000 F.** Les 50 000 F d'achat de marchandises n'y sont pas : le prix d'achat des panneaux les compte déjà." },
         { situation: "Le comptable demande les écritures de septembre.", reponse: "Pastille **TOUTES**, Période **Personnalisée** du 1er au 30 septembre, **📒 Journal comptable (SYSCOHADA)**." },
         { situation: "Le DG a payé 30 000 F de carburant pour BMI de sa poche, et sa caisse BMI est vide.", reponse: "La dépense « payée avec de l'argent remis par le DG » devient toute seule un **apport** de 30 000 F dans son compte de l'exploitant." },
         { situation: "Un article à 50 000 F en stock depuis trois mois n'apparaît pas dans « Produits vendus ».", reponse: "Il est dans **😴 Produits dormants**, avec sa valeur immobilisée au prix d'achat." },

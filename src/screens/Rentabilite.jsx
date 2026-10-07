@@ -3,7 +3,7 @@
 // prix d'achat/vente, tri, totaux par boutique.
 // ============================================================
 import { useState } from "react";
-import { fmt, today, inP, caLigneVente, qteReprise } from "../lib/core";
+import { fmt, today, inP, caLigneVente, qteReprise, coutDesVentes, avertissementSansPrix } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Stat } from "../components/ui";
 import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation, coutGarantie } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
@@ -64,6 +64,9 @@ export function Rentabilite({ db, profile }) {
   });
   lignes.sort((x, y) => tri === "marge" ? y.marge - x.marge : tri === "ca" ? y.ca - x.ca : tri === "qte" ? y.qte - x.qte : y.tauxMarge - x.tauxMarge);
 
+  // ⚠ Un article sans prix d'achat passait ici à 100 % de marge, sans un mot
+  // (07/10/2026) : il est listé, et l'écran le dit — la règle du tableau de bord.
+  const { sansPrix, caSansPrix } = coutDesVentes(db.produits, ventesP);
   const caTotal = lignes.reduce((s, x) => s + x.ca, 0);
   const margeTotale = lignes.reduce((s, x) => s + x.marge, 0);
   const tauxGlobal = caTotal > 0 ? Math.round((margeTotale / caTotal) * 1000) / 10 : 0;
@@ -125,6 +128,11 @@ export function Rentabilite({ db, profile }) {
           <Stat label="Capital dormant" valeur={fmt(capitalDormant)} nature="attente" />
           {coutSav > 0 && <Stat label="Coût des échanges garantie (SAV)" valeur={fmt(coutSav)} nature="sortie" />}
         </div>
+        {sansPrix.length > 0 && (
+          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900" data-sans-prix-achat>
+            ⚠ {avertissementSansPrix(sansPrix, caSansPrix)}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">

@@ -6143,7 +6143,8 @@ titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « 
   // 12/09/2026 : depensesComptees, qui retire AUSSI les dépenses en attente de validation.
   test("★ tableau de bord : cartes (depensesReellesDb), synthèse par période et période libre (d[bq]) passent par depensesComptees (hors versements, hors dépenses en attente — 12/09/2026) ; l'export « Dépenses » ne contient plus les versements, qui ont leur export « Versements » (montant d'origine, destination, état)",
     /const depensesReellesDb = depensesComptees\(db\.depenses\)\.filter\(dansMonEspace\)\.filter\(dansLaBoutique\);/.test(dashV)
-    && (dashV.match(/d\[bq\] = depensesComptees\(db\.depenses\)\.filter\(\(x\) => x\.boutique === bq && inP\(x\.date, a, b\)\)/g) || []).length === 2 && !/d\[bq\] = db\.depenses/.test(dashV) && !/horsVersements\(/.test(dashV)
+    /* RETOURNÉ le 07/10/2026 : la synthèse et la période libre passent par UNE fabrique (ligneDePeriode), donc UN seul depensesComptees au lieu de deux. */
+    && (dashV.match(/const depBq = depensesComptees\(db\.depenses\)\.filter\(\(x\) => x\.boutique === bq && inP\(x\.date, a, b\)\)/g) || []).length === 1 && /d\[bq\] = depBq\.reduce/.test(dashV) && !/d\[bq\] = db\.depenses/.test(dashV) && !/horsVersements\(/.test(dashV)
     && /exportCSV\("versements", \["Date", "Boutique", "Description", "Montant", "Destination", "Saisi par", "État"\]/.test(dashV) && /x\.versement \? x\.versement\.montant : x\.montant/.test(dashV)
     && /const totalDepenses = depensesReellesDb\.reduce/.test(dashV));
 }
@@ -12747,6 +12748,38 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
       /Panneau 400W<\/span><span[^>]*>180\s000\sF/.test(dash) && /180\s000\sF/.test(renta) && !/200\s000\sF/.test(dash.slice(dash.indexOf("Top 5"))));
     test("★ 📈 Rentabilité dit ce qu'elle compte : prix VENDU (pas « encaissé »), prix d'achat ACTUEL de la fiche, une vente à crédit comptée dès qu'elle est faite",
       /prix d.achat actuel, celui de sa fiche/.test(renta) && !/encaissé − prix d.achat/.test(renta) && /crédit compte dès qu.elle est faite/.test(renta));
+
+    // 💰 LE RÉSULTAT RETIRE LE PRIX D'ACHAT (Timo, 07/10/2026, « c avec l'avertissement »).
+    const k = Core.coutDesVentes(
+      [{ id: "p1", nom: "Panneau 400W", prix_achat: 60000 }, { id: "p2", nom: "Câble 6 mm", prix_achat: 0 }],
+      [{ id: "v1", boutique: "DEMAKPOE", reprises: [{ produit_id: "p1", qte: 1, montant: 90000 }],
+         articles: [{ produit_id: "p1", article: "Panneau 400W", qte: 3, pu: 100000 }, { produit_id: "p2", article: "Câble 6 mm", qte: 2, pu: 2500 },
+           { article: "Frais d'installation", qte: 1, pu: 10000 }, { produit_id: "p1", article: "Panneau HB", qte: 5, pu: 1, hors_boutique: true },
+           { produit_id: "pX", article: "Article effacé", qte: 1, pu: 4000 }] }]);
+    test("★★ coutDesVentes : le prix d'achat de la fiche × la quantité NETTE des reprises ; un service (sans article) et une ligne HB ne coûtent rien",
+      k.cout === 120000);
+    test("★★ un article SANS prix d'achat (ou dont la fiche a disparu) n'est jamais un bénéfice entier en silence : il est listé, avec ce qu'il a fait vendre — le service, lui, n'est pas signalé",
+      k.sansPrix.map((m) => m.nom).sort().join("|") === "Article effacé|Câble 6 mm" && k.caSansPrix > 0
+      && /2 articles vendus sans prix d.achat .* le bénéfice est surestimé\. Renseignez leur prix d.achat dans 📦 Stocks → ✏️ Corriger/.test(Core.avertissementSansPrix(k.sansPrix, k.caSansPrix))
+      && Core.avertissementSansPrix([], 0) === "");
+    const dbR = { ...db,
+      produits: [...db.produits, { id: "p2", nom: "Câble 6 mm", boutique: "DEMAKPOE", categorie: "Câbles", prix_achat: 0, prix_vente: 5000, initial: 10, seuil: 1 }],
+      ventes: [{ id: "v1", date: auj, boutique: "DEMAKPOE", paiement: "Espèces", remise: 20000,
+        articles: [{ produit_id: "p1", article: "Panneau 400W", qte: 2, pu: 100000 }, { produit_id: "p2", article: "Câble 6 mm", qte: 1, pu: 5000 }, { article: "Frais d'installation", qte: 1, pu: 10000 }] }],
+      depenses: [{ id: "d1", date: auj, boutique: "DEMAKPOE", categorie: "Carburant", montant: 10000 }, { id: "d2", date: auj, boutique: "DEMAKPOE", categorie: "Achat marchandises", montant: 50000 }] };
+    let dashR = "", rentaR = "";
+    try { R.setRegardeFormation(false); dashR = lisible(R.rendreDashboard(dbR, timo)); rentaR = lisible(R.rendreRentabilite(dbR, timo)); } catch (e) { dashR = ""; }
+    // CA 215 000 − remise 20 000 = 195 000 ; prix d'achat 2 × 60 000 = 120 000 ; dépenses hors achats 10 000 → 65 000.
+    test("★★ 📊 la carte « Résultat » = ventes − prix d'achat des articles vendus − dépenses, SANS les achats de marchandises (195 000 − 120 000 − 10 000 = 65 000)",
+      /Résultat — Aujourd'hui[\s\S]{0,400}?65\s000\sF/.test(dashR) && !/Résultat — Aujourd'hui[\s\S]{0,400}?135\s000\sF/.test(dashR));
+    test("★ 📊 le calcul est écrit sous les cartes, chiffre par chiffre, et dit pourquoi les achats de marchandises n'y sont pas",
+      /data-calcul-resultat[\s\S]*ventes 195\s000\sF − prix d'achat des articles vendus 120\s000\sF − dépenses 10\s000\sF \(les achats de marchandises, 50\s000\sF, n'y sont pas/.test(dashR));
+    test("★★ 📊 et 📈 : l'avertissement en ambre nomme l'article vendu sans prix d'achat",
+      /data-sans-prix-achat[^>]*>[\s\S]{0,80}1 article vendu sans prix d'achat[\s\S]{0,200}Câble 6 mm/.test(dashR)
+      && /data-sans-prix-achat[^>]*>[\s\S]{0,80}1 article vendu sans prix d'achat[\s\S]{0,200}Câble 6 mm/.test(rentaR));
+    test("★ 📊 la synthèse par période porte les colonnes « Prix d'achat vendus » et « Dépenses (hors achats) », et la MÊME formule que la carte (une fabrique)",
+      /Prix d'achat vendus/.test(dashR) && /Dépenses \(hors achats\)/.test(dashR)
+      && /const res = resultatDe\(r\);/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")) && /const resCustom = resultatDe\(customRow\);/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
   }
   {
     const dbJ = { boutiques: [{ nom: "DEMAKPOE" }, { nom: "DFORMATION", formation: true }], dettes: [],
