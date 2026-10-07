@@ -28,7 +28,11 @@ export const ROLES_RATTACHEMENT = ["gerant", "admin"];
 // Le libellé d'un chantier dans la liste de rattachement.
 export const libelleChantier = (c) => {
   const nom = `${c.prenom || ""} ${c.nom || ""}`.trim() || "Chantier";
-  const type = c.type_installation ? ` · ${c.type_installation}` : "";
+  // ⚠ 07/10/2026 (capture Timo : « NIMAN · Travaux », alors que la fiche dit
+  // FORAGE) : des travaux à crédit portent tous le type fixe « Travaux » ; ce
+  // qui les distingue est la DESCRIPTION tapée à l'ouverture. On la montre.
+  const precision = c.travaux && String(c.description || "").trim() ? ` — ${String(c.description).trim()}` : "";
+  const type = c.type_installation ? ` · ${c.type_installation}${precision}` : precision;
   return `${c.travaux ? "🛠 " : ""}${nom}${type}`;
 };
 

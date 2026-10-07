@@ -442,7 +442,7 @@ export function Depenses({ db, save, profile }) {
             <select className={inputCls} value={f.chantier_id} onChange={(e) => setF({ ...f, chantier_id: e.target.value })}>
               <option value="">— Aucun —</option>
               {chantiersOuverts.length === 0 && <option value="" disabled>Aucun chantier de devis en cours</option>}
-              {chantiersOuverts.map((c) => <option key={c.id} value={c.id}>🏠 {libelleChantier(c)}</option>)}
+              {chantiersOuverts.map((c) => <option key={c.id} value={c.id}>{c.travaux ? "" : "🏠 "}{libelleChantier(c)}</option>)}
             </select>
           </Field>
         </div>

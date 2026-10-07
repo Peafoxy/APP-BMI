@@ -107,7 +107,7 @@ export const CHAPITRE = {
       ["h3", "D. Rattacher une dépense à un chantier"],
       ["etapes", [
         { titre: "Pour quoi", texte: "Les petits frais d'une installation : carburant, nourriture, petit matériel. Elle reste une dépense ordinaire (seuil, DG, caisse)." },
-        { titre: "Quels chantiers sont proposés", texte: "Ceux de l'espace regardé, **pas encore réceptionnés**, dont **les frais d'installation n'ont pas encore été payés** aux techniciens, et les 🛠 travaux à crédit non soldés. Sans chantier ouvert, la liste le dit." },
+        { titre: "Quels chantiers sont proposés", texte: "Ceux de l'espace regardé, **pas encore réceptionnés**, dont **les frais d'installation n'ont pas encore été payés** aux techniciens, et les 🛠 travaux à crédit non soldés, nommés par la description tapée à leur ouverture (« 🛠 NIMAN · Travaux — FORAGE »). Sans chantier ouvert, la liste le dit." },
         { titre: "Ce qui se passe ensuite", texte: "Au partage des frais (🏠 Clients installés → 🔧 Frais), les techniciens se partagent **les frais facturés moins les dépenses rattachées qui comptent** (ni en attente du DG, ni rejetées) — jamais moins de zéro. La colonne « Chantier » de la liste montre le rattachement." },
       ]],
 

@@ -7997,6 +7997,10 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
   const enFormation = Dc.chantiersRattachables({ ...dbc, users: [{ ...admin, formation: false }, { id: "gf", nom: "GF", role: "gerant", boutique: "LOME-F" }] }, { id: "gf", nom: "GF", role: "gerant", boutique: "LOME-F" }).map((c) => c.id);
   test("★ …et un compte de formation ne se voit proposer que le chantier de formation", enFormation.join(",") === "cf");
   test("★ le libellé d'un chantier = prénom, nom, type d'installation", Dc.libelleChantier(dbc.clients_installes[0]) === "Paul MENSAH · Solaire résidentiel" && Dc.libelleChantier({ nom: "X" }) === "X");
+  test("★ des travaux à crédit se nomment par leur DESCRIPTION (FORAGE), pas seulement par le type fixe « Travaux » (capture Timo, 07/10/2026) ; sans description, rien d'inventé",
+    Dc.libelleChantier({ nom: "NIMAN", travaux: true, type_installation: "Travaux", description: "FORAGE" }) === "🛠 NIMAN · Travaux — FORAGE"
+    && Dc.libelleChantier({ nom: "NIMAN", travaux: true, type_installation: "Travaux" }) === "🛠 NIMAN · Travaux"
+    && Dc.libelleChantier({ nom: "Paul", type_installation: "Solaire", description: "toit" }) === "Paul · Solaire");
   test("★ le total rattaché ne compte que ce qui COMPTE : validée 8 000 + sous le seuil 3 000 = 11 000 ; l'attente (12 000) et la rejetée (0, origine 9 000) sont ignorées ; d5 sans chantier aussi",
     Dc.totalDepensesChantier(dbc, "c1") === 11000 && Dc.depensesDuChantier(dbc, "c1").length === 4);
   test("★ frais à partager = facturés − rattachées, jamais négatif : 100 000 − 11 000 = 89 000 ; 5 000 − 11 000 = 0 ; sans dépense = les frais",
