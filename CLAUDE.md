@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2331 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2333 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6702,7 +6702,21 @@ lit mal est pire qu'un banc absent).
   nettoyée par `suppressionsParasitesDePrime` (lib/abandonLot.js, signature
   EXACTE : un lot qui porte le journal d'un paiement de part d'installation
   n'efface jamais un message), appelée par sync.js avant tout envoi, qui
-  relit ensuite les messages en entier.
+  relit ensuite les messages en entier. ⚠ Elle reconnaît désormais aussi le
+  lot par son CHANTIER (une ligne de l'équipe qui passe payée).
+- ⚠⚠ **UN VENDEUR OU UN GÉRANT NE POUVAIT PLUS PAYER UNE PART D'INSTALLATION
+  DEPUIS LE 18/09** (capture Timo, 07/10/2026 : ANGELE, la base refuse
+  « Répartir les frais… réservé à l'administrateur (vous : gerant) ») :
+  `construirePaiementPrime` écrivait `retenue_outil` / `montant_verse` sur la
+  ligne de l'équipe ; `securite-6` (`equipe_argent_change`) compte toute clé
+  qui n'est pas dans sa liste comme de l'ARGENT. La fiche n'écrit plus que
+  les champs permis (`sansChampsArgentDuPaiement`, calculs.js) — la retenue
+  reste sur la dépense, le message et le registre de l'outillage. La file
+  d'un appareil est redressée avant l'envoi (`chantiersARedresserDePrime`,
+  lib/abandonLot.js, jamais sur une ligne que le serveur porte déjà). Banc :
+  un contrôle compare les clés changées d'un paiement à la liste de
+  securite-6 ; éprouvé. **Leçon : une clé de plus sur une ligne gardée par
+  une liste blanche du serveur est un refus.** Rien à coller.
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
 - **Un banc Chromium écrit sa page AVEC `<meta charset="utf-8">`** : sans
   lui, le « × » d'une expression régulière du bundle est lu en deux

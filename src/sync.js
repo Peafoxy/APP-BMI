@@ -1,5 +1,5 @@
 import { idb, TABLES, compterEnAttente } from "./db";
-import { planAbandon, suppressionsParasitesDePrime } from "./lib/abandonLot";
+import { planAbandon, suppressionsParasitesDePrime, chantiersARedresserDePrime } from "./lib/abandonLot";
 import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
@@ -259,6 +259,30 @@ export async function synchroniser(options = {}) {
         ops = ops.filter((op) => !parasites.has(op.seq));
         await idb.meta.delete("derniere_sync:messages");
         console.warn(`${parasites.size} effacement(s) de messages retiré(s) de la file (paiement de part d'installation) : les messages sont relus.`);
+      }
+      // …et les deux champs refusés au vendeur et au gérant sont retirés des
+      // chantiers en attente (et de la copie locale, sinon le prochain geste
+      // sur ce chantier les renverrait).
+      const redresses = chantiersARedresserDePrime(ops);
+      if (redresses.length) {
+        for (const { seq, data, retires } of redresses) {
+          await idb.outbox.update(seq, { data });
+          const local = await idb.table("clients_installes").get(data.id);
+          if (local && Array.isArray(local.equipe)) {
+            const equipe = local.equipe.map((e) => {
+              const r = retires.find((x) => e && x.user_id === e.user_id);
+              if (!r) return e;
+              const c = { ...e };
+              for (const k of r.champs) delete c[k];
+              return c;
+            });
+            await idb.table("clients_installes").put({ ...local, equipe });
+          }
+        }
+        const parSeq = new Map(redresses.map((r) => [r.seq, r.data]));
+        ops = ops.map((op) => (parSeq.has(op.seq) ? { ...op, data: parSeq.get(op.seq) } : op));
+        recuQuelqueChose = true;
+        console.warn(`${redresses.length} chantier(s) en attente redressé(s) : champs de retenue retirés.`);
       }
       const bloques = new Set();
       refusEnCours = null; // ce cycle dira s'il y en a encore un

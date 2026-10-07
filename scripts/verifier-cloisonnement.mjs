@@ -10136,13 +10136,19 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
             // une boutique que rien ne touche est rendue TELLE QUELLE
             && Out.appliquerRetenues([bqA, bqB], [], { id: "z2", le: "x", sur: "commission", par: "T" })[0] === bqA; })());
 
-      test("★ LE CHEMIN RÉEL : la part d'installation d'un technicien à COMMISSION sort de la caisse DIMINUÉE de la retenue — la dépense, le message et la fiche disent le net ; tout retenu = AUCUNE dépense (rien ne sort de la caisse)",
+      // RETOURNÉ le 07/10/2026 : la FICHE du chantier ne garde plus
+      // `retenue_outil` / `montant_verse` (deux champs de l'équipe que
+      // securite-6 réserve à l'administrateur — le paiement d'un vendeur ou
+      // d'un gérant était REFUSÉ par la base). La retenue reste écrite sur la
+      // dépense, le message et le registre de l'outillage.
+      test("★ LE CHEMIN RÉEL : la part d'installation d'un technicien à COMMISSION sort de la caisse DIMINUÉE de la retenue — la dépense et le message disent le net, la fiche n'écrit QUE les champs que le serveur permet ; tout retenu = AUCUNE dépense (rien ne sort de la caisse)",
         /export function retenueOutilPourPrime\(db, user_id, montant, boutiqueQuiPaie\)/.test(calP)
         && /if \(!u \|\| modeRetenue\(u\) !== "commission"\) return \{ montant: 0, lignes: \[\] \};/.test(calP)
         && /const net = Number\(e\.montant \|\| 0\) - pris;/.test(calP)
         && /const dep = net > 0 \? nouvelleDepense\(/.test(calP)
         && /montant: net, moyen, auto: "installation"/.test(calP)
-        && /retenue_outil: pris \|\| 0, montant_verse: net/.test(calP)
+        && !/retenue_outil: pris \|\| 0, montant_verse: net/.test(calP)
+        && /\.\.\.sansChampsArgentDuPaiement\(y\), paye: true/.test(calP)
         && /appliquerRetenues\(db\.boutiques \|\| \[\], retenue\.lignes/.test(calP)
         && /Retenue pour outil perdu : \$\{fmt\(pris\)\}/.test(calP)
         && /net > 0 \? messagesNotifSortieCaisse/.test(calP));
@@ -13746,6 +13752,34 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     JSON.stringify(retires) === "[4,5,10]"
     && sy.indexOf("suppressionsParasitesDePrime(ops)") > -1 && sy.indexOf("suppressionsParasitesDePrime(ops)") < sy.indexOf('supabase.rpc("appliquer_lot"')
     && /await idb\.meta\.delete\("derniere_sync:messages"\);/.test(sy));
+}
+
+// ⚠⚠ LE PAIEMENT D'UNE PART PAR UN VENDEUR OU UN GÉRANT ÉTAIT REFUSÉ PAR LE
+// SERVEUR (07/10/2026, capture ANGELE : « réservé à l'administrateur (vous :
+// gerant) ») : la ligne écrivait `retenue_outil` / `montant_verse`, que
+// securite-6 compte comme de l'argent de l'équipe.
+{
+  const sql6 = readFileSync("supabase/securite-6-devis-chantiers.sql", "utf8");
+  const exclus = (sql6.match(/e - 'user_id'([^\n]*?) as arg/) || [])[1] || "";
+  const dbm = { users: [{ id: "t1", nom: "FRED" }], boutiques: [{ nom: "DEMAKPOE" }], depenses: [], messages: [],
+    clients_installes: [{ id: "c1", nom: "P", equipe: [{ user_id: "t1", nom: "FRED", pct: 10, montant: 10990, demande_prime: true, prime_boutique: "DEMAKPOE" }] }] };
+  const apres = C.construirePaiementPrime(dbm, { id: "v1", nom: "ANGELE", role: "gerant", boutique: "DEMAKPOE" }, dbm.clients_installes[0], dbm.clients_installes[0].equipe[0], "Espèces", { montant: 0, lignes: [] });
+  const ligne = apres.clients_installes[0].equipe[0];
+  const avantL = dbm.clients_installes[0].equipe[0];
+  const libres = new Set(["user_id", "nom", "chef", ...[...exclus.matchAll(/'([a-z_]+)'/g)].map((m) => m[1])]);
+  const changes = Object.keys({ ...avantL, ...ligne }).filter((k) => JSON.stringify(avantL[k]) !== JSON.stringify(ligne[k]));
+  test(`★ payer une part ne change QUE des champs que le serveur laisse au vendeur et au gérant (securite-6) — changés : ${changes.join(", ")}`,
+    changes.length > 0 && changes.every((k) => libres.has(k)) && ligne.paye === true && !("retenue_outil" in ligne) && !("montant_verse" in ligne));
+  const AL = await import(pathToFileURL("src/lib/abandonLot.js").href + "?r2");
+  const base = { id: "c1", equipe: [{ user_id: "a", paye: true, retenue_outil: 0, montant_verse: 5000 }, { user_id: "t1", paye: false }] };
+  const data = { id: "c1", equipe: [{ user_id: "a", paye: true, retenue_outil: 0, montant_verse: 5000 }, { user_id: "t1", paye: true, retenue_outil: 0, montant_verse: 10990 }] };
+  const r = AL.chantiersARedresserDePrime([{ seq: 7, lot: "L", table: "clients_installes", op: "upsert", base, data }]);
+  const parasites = AL.suppressionsParasitesDePrime([{ seq: 1, lot: "L", table: "clients_installes", op: "upsert", base, data }, { seq: 2, lot: "L", table: "messages", op: "delete", id: "m" }, { seq: 3, lot: "Z", table: "messages", op: "delete", id: "n" }]);
+  const sy = readFileSync("src/sync.js", "utf8");
+  test("★ la file d'un appareil est redressée : les deux champs retirés de la ligne qui vient d'être payée, JAMAIS d'une ligne que le serveur porte déjà (payée par l'administrateur) ; un lot de paiement reconnu aussi par son chantier ; sync.js le fait avant l'envoi",
+    r.length === 1 && r[0].seq === 7 && "retenue_outil" in r[0].data.equipe[0] && !("retenue_outil" in r[0].data.equipe[1]) && !("montant_verse" in r[0].data.equipe[1])
+    && JSON.stringify(parasites) === "[2]"
+    && sy.indexOf("chantiersARedresserDePrime(ops)") > -1 && sy.indexOf("chantiersARedresserDePrime(ops)") < sy.indexOf('supabase.rpc("appliquer_lot"'));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

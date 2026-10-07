@@ -1046,6 +1046,14 @@ export function retenueOutilPourPrime(db, user_id, montant, boutiqueQuiPaie) {
   return retenueSurPaiement(mienne, user_id, montant);
 }
 
+// Les deux champs que le serveur refuse au vendeur et au gérant (voir plus bas).
+export const CHAMPS_ARGENT_DU_PAIEMENT = ["retenue_outil", "montant_verse"];
+export const sansChampsArgentDuPaiement = (y) => {
+  const r = { ...y };
+  for (const k of CHAMPS_ARGENT_DU_PAIEMENT) delete r[k];
+  return r;
+};
+
 export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {
   const bq = e.prime_boutique;
   const pris = Math.max(0, Math.min(Number(retenue?.montant || 0), Number(e.montant || 0)));
@@ -1064,7 +1072,15 @@ export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {
   return {
     ...db,
     clients_installes: db.clients_installes.map((x) => (x.id === c.id
-      ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, paye: true, date_paiement: today(), dep_id: dep ? dep.id : "", retenue_outil: pris || 0, montant_verse: net, demande_prime: false, validee_par: profile.nom } : y)) }
+      // ⚠⚠ 07/10/2026 (capture Timo : « Répartir les frais… réservé à
+      // l'administrateur (vous : gerant) ») : la ligne écrivait aussi
+      // `retenue_outil` et `montant_verse`, que le serveur compte comme de
+      // l'ARGENT de l'équipe (réservé à l'administrateur, securite-6) — le
+      // paiement par un vendeur ou un gérant était donc REFUSÉ depuis le
+      // 18/09. Aucun écran ne les lisait : la retenue se lit sur la dépense et
+      // dans le registre de l'outillage. On n'écrit plus que les champs du
+      // PAIEMENT (paye, date, dépense, validé par).
+      ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...sansChampsArgentDuPaiement(y), paye: true, date_paiement: today(), dep_id: dep ? dep.id : "", demande_prime: false, validee_par: profile.nom } : y)) }
       : x)),
     ...(pris > 0 ? {
       boutiques: appliquerRetenues(db.boutiques || [], retenue.lignes, {

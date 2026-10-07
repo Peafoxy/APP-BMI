@@ -76,9 +76,43 @@ export const JOURNAUX_PAIEMENT_PRIME = [/^Part d'installation payée/, /^Prime d
 export function suppressionsParasitesDePrime(ops) {
   const lots = new Set();
   for (const op of ops || []) {
-    if (op?.op === "delete" || op?.table !== "audits" || !op.lot) continue;
-    const action = String(op.data?.action || "");
-    if (JOURNAUX_PAIEMENT_PRIME.some((r) => r.test(action))) lots.add(op.lot);
+    if (op?.op === "delete" || !op?.lot) continue;
+    if (op.table === "audits" && JOURNAUX_PAIEMENT_PRIME.some((r) => r.test(String(op.data?.action || "")))) lots.add(op.lot);
+    // …ou le chantier lui-même : une ligne de l'équipe qui PASSE à « payée »
+    // dans ce lot (même si le journal a un autre libellé).
+    if (op.table === "clients_installes" && Array.isArray(op.data?.equipe)) {
+      const avant = new Map((op.base?.equipe || []).filter(Boolean).map((e) => [e.user_id, e]));
+      if (op.data.equipe.some((e) => e && e.paye && !(avant.get(e.user_id) || {}).paye)) lots.add(op.lot);
+    }
   }
   return (ops || []).filter((op) => op?.op === "delete" && op.table === "messages" && lots.has(op.lot)).map((op) => op.seq);
+}
+
+// …et le CHANTIER de ce lot portait `retenue_outil` / `montant_verse` sur la
+// ligne du technicien : le serveur les refuse au vendeur et au gérant (« réservé
+// à l'administrateur »). On les retire de la ligne en attente — le paiement
+// (payé, date, dépense) part tel quel. ⚠ Seulement là où la version d'AVANT
+// (`base`, ce que le serveur a) ne les portait pas : une ligne déjà payée par
+// l'administrateur les garde, sinon les retirer serait à son tour un
+// changement refusé. Rend [{ seq, data, retires }] à réécrire.
+const CHAMPS_REFUSES = ["retenue_outil", "montant_verse"];
+export function chantiersARedresserDePrime(ops) {
+  const out = [];
+  for (const op of ops || []) {
+    if (op?.op !== "upsert" || op.table !== "clients_installes" || !Array.isArray(op.data?.equipe)) continue;
+    const avant = new Map((op.base?.equipe || []).filter(Boolean).map((e) => [e.user_id, e]));
+    const retires = [];
+    const equipe = op.data.equipe.map((e) => {
+      if (!e) return e;
+      const b = avant.get(e.user_id) || {};
+      const aRetirer = CHAMPS_REFUSES.filter((k) => k in e && !(k in b));
+      if (!aRetirer.length) return e;
+      const r = { ...e };
+      for (const k of aRetirer) delete r[k];
+      retires.push({ user_id: e.user_id, champs: aRetirer });
+      return r;
+    });
+    if (retires.length) out.push({ seq: op.seq, data: { ...op.data, equipe }, retires });
+  }
+  return out;
 }
