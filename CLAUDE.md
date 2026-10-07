@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2323 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2324 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1452,6 +1452,14 @@ lit mal est pire qu'un banc absent).
   corrige toujours à la main. Rien à coller.
 - Banc : la VRAIE fonction est extraite du fichier et exercée (plus une
   recopie) ; éprouvé en ignorant la majoration : trois contrôles tombent.
+- **💡 Payer une part : la caisse où le CLIENT a payé est proposée en
+  premier** (07/10/2026, « ces frais font partie d'une caisse ou ils sont à
+  part ? » → dans la caisse qui a encaissé ; « a ») : « 📤 Demander le
+  paiement » passe `payeIci: boutiqueDuChantier(db, c)` à
+  `choisirBoutiqueDebitG` (vente → sa boutique ; pose seule → la dernière
+  caisse qui a encaissé la dette), placée en tête et nommée ; on peut en
+  choisir une autre. Hors liste (TERRAIN) : dite, jamais choisie. Rien à
+  coller. Banc (1 contrôle, texte — la fenêtre n'est pas montée), éprouvé.
 
 ### Petites dépenses d'un chantier de devis (13/09/2026)
 - Timo : « pour les chantiers nés d'un devis, les petites dépenses [carburant,

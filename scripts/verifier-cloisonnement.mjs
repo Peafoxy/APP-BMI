@@ -13631,5 +13631,17 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     && !/db\.users\.filter/.test(cmpA));
 }
 
+// 💡 La part d'installation propose d'office la caisse où le CLIENT a payé
+// (Timo, 07/10/2026, « a »). La fenêtre n'est pas montée ici : on lit l'appel
+// et la règle de rangement (première de la liste, et dite dans la question).
+{
+  const calP = readFileSync("src/lib/calculs.js", "utf8");
+  const ciP = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  test("★ part d'installation : la caisse où le client a payé (boutiqueDuChantier) est proposée EN PREMIER et nommée ; une caisse hors liste (TERRAIN) est seulement dite, jamais choisie",
+    /choisirBoutiqueDebitG\(db, \{\}, `Part d'installation de \$\{fmt\(e\.montant\)\} à \$\{e\.nom\}`, profile, \{ payeIci: boutiqueDuChantier\(db, c\) \}\)/.test(ciP)
+    && /if \(payeIci && options\.includes\(payeIci\)\) \{\n    const ordre = \[payeIci, \.\.\.options\.filter\(\(o\) => o !== payeIci\)\];/.test(calP)
+    && /Le client a payé à \$\{payeIci\}/.test(calP) && /qui ne peut pas payer cette part ici/.test(calP));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

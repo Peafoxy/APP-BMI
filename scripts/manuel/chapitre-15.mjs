@@ -142,7 +142,7 @@ export const CHAPITRE = {
         { titre: "🔧 Frais sur la ligne", texte: "Saisir les **frais facturés au client**. Les **petites dépenses rattachées** au chantier (carburant, nourriture — chapitre 17) sont **soustraites avant le partage**, si elles comptent (ni en attente du DG, ni rejetées)." },
         { titre: "Part de BMI, puis les techniciens", texte: "**Part de BMI (%)** : BMI prend d'abord sa part (0 d'office). Le reste va aux techniciens présents ; **le chef touche 7 % de plus que chacun des autres** (« Le chef touche en plus (%) », modifiable). Chaque pourcentage se corrige à la main ; le total ne peut pas dépasser 100 %." },
         { titre: "✅ Valider la répartition", texte: "La confirmation montre chaque part en francs. Une répartition dont une part a déjà été payée ne se refait plus." },
-        { titre: "📤 Demander le paiement, puis ✓ Valider et payer", texte: "L'administrateur choisit la boutique qui paiera ; le vendeur de cette boutique (ou l'administrateur) valide : la sortie de caisse est faite. Un technicien à commission qui doit un outil perdu voit la retenue **annoncée** et prise sur sa part (chapitre 19)." },
+        { titre: "📤 Demander le paiement, puis ✓ Valider et payer", texte: "L'administrateur choisit la boutique qui paiera — **la caisse où le client a payé est proposée en premier** (son argent y est), il peut en prendre une autre ; le vendeur de cette boutique (ou l'administrateur) valide : la sortie de caisse est faite. Un technicien à commission qui doit un outil perdu voit la retenue **annoncée** et prise sur sa part (chapitre 19)." },
       ]],
       ["h3", "H. Les travaux à crédit (🛠)"],
       ["etapes", [

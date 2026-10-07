@@ -883,7 +883,11 @@ export const NOM_CAISSE_COMPTABLE = "Chez le comptable";
 // salaires, virements, fournisseurs, CNSS) — proposait les vraies boutiques
 // à un compte de formation : une sortie de caisse d'entraînement creusait
 // alors un trou dans une caisse réelle, et prévenait ses vrais vendeurs.
-export async function choisirBoutiqueDebitG(db, u, titre, profile) {
+// `opts.payeIci` (07/10/2026, Timo « a ») : la caisse où le CLIENT a payé —
+// proposée EN PREMIER et nommée dans la question (part d'installation). On
+// propose, on ne choisit jamais à sa place ; une caisse qui n'est pas dans la
+// liste (TERRAIN, autre espace) est seulement dite.
+export async function choisirBoutiqueDebitG(db, u, titre, profile, opts = {}) {
   const noms = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom);
   // Le comptable ne tient qu'une seule caisse, RÉELLE, sans équivalent
   // d'entraînement. On ne la propose donc que si l'on travaille dans le réel.
@@ -898,8 +902,14 @@ export async function choisirBoutiqueDebitG(db, u, titre, profile) {
     return null;
   }
   if (options.length === 1) return options[0];
+  const payeIci = opts.payeIci || null;
+  if (payeIci && options.includes(payeIci)) {
+    const ordre = [payeIci, ...options.filter((o) => o !== payeIci)];
+    return await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?\n💡 Le client a payé à ${payeIci} : c'est là qu'est son argent. Proposée en premier — vous pouvez en choisir une autre.`, ordre);
+  }
   const defaut = u.boutique && noms.includes(u.boutique) ? u.boutique : null;
-  const b = await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?${defaut ? ` (habituellement : ${defaut})` : ""}`, options);
+  const noteIci = payeIci ? `\n💡 Le client a payé dans la caisse ${payeIci}, qui ne peut pas payer cette part ici : choisissez une boutique.` : "";
+  const b = await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?${defaut ? ` (habituellement : ${defaut})` : ""}${noteIci}`, options);
   return b; // null = annulé ; sinon une valeur EXACTE de la liste, jamais autre chose
 }
 

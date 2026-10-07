@@ -133,7 +133,7 @@ export const CHAPITRE = {
       ["h3", "G. Les primes d'installation"],
       ["etapes", [
         { titre: "La répartition (administrateur)", texte: "🏠 Clients installés → 🔧 Frais (chapitre 15)." },
-        { titre: "📤 Demander le paiement", texte: "L'administrateur choisit **la boutique qui paiera** : la demande apparaît dans **💰 Primes remises** de cette boutique." },
+        { titre: "📤 Demander le paiement", texte: "L'administrateur choisit **la boutique qui paiera** — la caisse où le client a payé est proposée en premier, il peut en prendre une autre : la demande apparaît dans **💰 Primes remises** de cette boutique." },
         { titre: "✓ Valider et payer (le vendeur de la boutique)", texte: "Moyen de paiement, confirmation, sortie de caisse ; le technicien est prévenu. Une part **déjà payée** (par l'administrateur, ou sur un autre appareil) est refusée : la caisse n'est jamais débitée deux fois." },
         { titre: "Outil perdu", texte: "Un technicien **à commission** qui doit un outil perdu voit la retenue **annoncée** et prise sur sa part ; « Il reçoit : … » (chapitre 19)." },
         { titre: "💰 Primes reçues (technicien)", texte: "« En attente de paiement », « Déjà payé », et pour chaque chantier : répartition enregistrée, demandée au vendeur de …, ou payée le …" },
