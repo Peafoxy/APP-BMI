@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2291 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2297 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6575,6 +6575,17 @@ lit mal est pire qu'un banc absent).
   sont rangés dans `supabase/archives/` avec un LISEZ-MOI « NE JAMAIS
   COLLER » ; le banc tombe si l'un revient à la racine ou si un script actif
   rouvre `boutiques` aux visiteurs (éprouvé).
+- ⚠⚠ **LA LECTURE NE COMPARE JAMAIS DEUX HORLOGES** (07/10/2026, facture
+  0043 de SENA : trois reprises sur le serveur, relues dans Supabase par Timo,
+  absentes de son téléphone). Le serveur pose SON heure dans la colonne
+  `updated_at` ; `data.updated_at` garde l'heure de l'appareil qui a écrit. La
+  lecture comparait la copie locale (alignée sur l'heure du serveur) à
+  `data.updated_at` : une version écrite par un appareil dont la montre
+  retarde n'était JAMAIS reprise. Règle pure `lib/versionDistante.js` : pas
+  de modification locale en attente → la version du serveur l'emporte dès
+  qu'elle DIFFÈRE, rangée avec l'heure du serveur (`horodatee`). Une relecture
+  complète, une fois par appareil (`CLE_RELECTURE_HORLOGE`), rattrape ce qui
+  avait été manqué. Banc (6, éprouvé en remettant l'ancienne comparaison).
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
 - **Un banc Chromium écrit sa page AVEC `<meta charset="utf-8">`** : sans
   lui, le « × » d'une expression régulière du bundle est lu en deux

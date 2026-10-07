@@ -72,6 +72,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/clientsConnus.js` | Les clients que la boutique connaît déjà (proposés dans Ventes, Dettes, Travaux) |
 | `lib/clientEntreprise.js` | Le prénom du client et l'entreprise qu'il représente (son répondant) : sur la fiche, la vente, la proforma, le devis, le reçu et le contrat |
 | `lib/libellesStatuts.js` | Les mots des statuts d'un devis et d'un chantier, écrits une fois (Tous les devis, Clients installés, fiche client) |
+| `lib/versionDistante.js` | Quand un appareil reprend la version du serveur à la lecture (l'heure du serveur seule, jamais celle d'un appareil) |
 | `lib/effacementClient.js` | 🔒 Le droit à l'effacement : ce qui part, ce que les livres gardent sans son nom |
 | `lib/dossierPersonnel.js` | 📄 Le droit d'accès : tout ce qu'on a sur un client, en un document — **jamais son mot de passe** |
 | `lib/dossierEmploye.js` | 👥 Le droit d'accès d'un EMPLOYÉ : paie, CNSS, banque masquée — **pas d'effacement, la loi l'interdit** |

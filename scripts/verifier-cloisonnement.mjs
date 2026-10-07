@@ -13437,5 +13437,27 @@ titre("💰 Ventes : sous le total d'une vente reprise, le montant repris et ce 
   }
 }
 
+// 🔄 LA SYNCHRONISATION NE COMPARE PLUS DEUX HORLOGES (07/10/2026, facture 0043 de SENA :
+// trois reprises sur le serveur, absentes du téléphone).
+{
+  const VD = await import(pathToFileURL("src/lib/versionDistante.js").href);
+  const serveur = { id: "v43", updated_at: "2026-10-06T15:00:00Z", data: { id: "v43", updated_at: "2026-10-06T13:00:00Z", reprises: [{ qte: 1 }] } };
+  const localAligne = { id: "v43", updated_at: "2026-10-06T14:00:00Z" };
+  test("★★ une version du serveur écrite par un appareil dont la montre RETARDE est quand même reprise (le cas de SENA : l'heure de l'appareil 13:00 < la copie locale 14:00, la version du serveur 15:00 diffère)",
+    VD.prendreVersionServeur(localAligne, serveur, false) === true);
+  test("★★ la copie rangée porte l'heure du SERVEUR, jamais celle de l'appareil qui a écrit",
+    VD.horodatee(serveur).updated_at === "2026-10-06T15:00:00Z" && VD.horodatee(serveur).reprises.length === 1);
+  test("★ une modification locale encore dans la file d'envoi n'est jamais écrasée par la lecture (l'envoi la fusionnera)",
+    VD.prendreVersionServeur(localAligne, serveur, true) === false);
+  test("★ la même version relue (la marge de dix minutes) ne réécrit rien ; une ligne absente est prise",
+    VD.prendreVersionServeur({ id: "v43", updated_at: "2026-10-06T15:00:00Z" }, serveur, false) === false && VD.prendreVersionServeur(null, serveur, false) === true);
+  const sy = readFileSync("src/sync.js", "utf8");
+  const corpsTable = sy.slice(sy.indexOf("async function synchroniserTable"), sy.indexOf("async function synchroniserTable") + 1500);
+  test("★★ src/sync.js lit les tables par LA règle (prendreVersionServeur + horodatee), sans comparer data.updated_at",
+    /prendreVersionServeur\(local, ligne, enAttente\.has/.test(corpsTable) && /put\(horodatee\(ligne\)\)/.test(corpsTable) && !/ligne\.data\?\.updated_at/.test(corpsTable));
+  test("★ la relecture complète de rattrapage est faite une fois par appareil (marque locale, curseurs des tables remis à zéro)",
+    /idb\.meta\.get\(CLE_RELECTURE_HORLOGE\)/.test(sy) && /idb\.meta\.delete\(`derniere_sync:\$\{t\}`\)/.test(sy) && /idb\.meta\.put\(\{ cle: CLE_RELECTURE_HORLOGE/.test(sy));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

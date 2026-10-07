@@ -4,6 +4,7 @@ import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
 import { sessionPerdueSelon, MESSAGE_SESSION_PERDUE } from "./lib/verrou";
+import { prendreVersionServeur, horodatee, CLE_RELECTURE_HORLOGE } from "./lib/versionDistante";
 
 // Moteur de synchronisation :
 // - toutes les écritures se font d'abord en LOCAL (instantané, hors ligne)
@@ -630,6 +631,20 @@ export async function synchroniser(options = {}) {
       // Un LOT à la fois (pas les 18 tables d'un coup) : pour ne pas envoyer
       // trop de requêtes simultanées à Supabase (limite de connexions du
       // plan, prudence réseau mobile).
+      // ⚠ 07/10/2026 (facture 0043 de SENA) : les enregistrements qui ont
+      // encore une modification LOCALE dans la file d'envoi. Pour tous les
+      // autres, la version du serveur l'emporte dès qu'elle diffère
+      // (lib/versionDistante.js) — plus aucune heure d'appareil n'entre dans
+      // la décision.
+      const enAttente = new Set((await idb.outbox.toArray()).map((o) => `${o.table}:${o.id}`));
+
+      // Une relecture complète, UNE fois par appareil, pour rattraper ce que
+      // l'ancienne comparaison (deux horloges) avait laissé passer.
+      if (!(await idb.meta.get(CLE_RELECTURE_HORLOGE))) {
+        for (const t of TABLES) await idb.meta.delete(`derniere_sync:${t}`);
+        await idb.meta.put({ cle: CLE_RELECTURE_HORLOGE, valeur: new Date().toISOString() });
+      }
+
       const TABLES_PAR_LOT = 5;
       for (let i = 0; i < TABLES.length; i += TABLES_PAR_LOT) {
         const lot = TABLES.slice(i, i + TABLES_PAR_LOT);
@@ -649,11 +664,10 @@ export async function synchroniser(options = {}) {
           const lignes = await lireTout(t, "updated_at", depuis);
           for (const ligne of lignes) {
             const local = await idb.table(t).get(ligne.id);
-            const tsDistant = String(ligne.data?.updated_at || ligne.updated_at || "");
-            // Le plus récent gagne. Une modification locale non encore envoyée,
-            // si elle est plus récente, est conservée : elle partira au prochain envoi.
-            if (!local || String(local.updated_at || "") < tsDistant) {
-              await idb.table(t).put(ligne.data);
+            // La version du serveur l'emporte dès qu'elle diffère, sauf si une
+            // modification locale attend encore de partir : l'envoi la fusionnera.
+            if (prendreVersionServeur(local, ligne, enAttente.has(`${t}:${ligne.id}`))) {
+              await idb.table(t).put(horodatee(ligne));
               recuQuelqueChose = true;
             }
             if (ligne.updated_at > maxVu) maxVu = ligne.updated_at;
