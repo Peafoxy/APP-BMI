@@ -241,3 +241,7 @@ export const renduNoms = (qui = "admin", ouvrir = null) => {
   try { return rendre({ ...garnie, messages: messagesNoms }, qui === "admin" ? users[0] : users[2], ouvrir); }
   catch (e) { return `ERREUR ${e?.message || e}`; }
 };
+
+// ⚠ 07/10/2026 (capture Timo : écran blanc dès qu'on tape dans la recherche) :
+// l'écran est rendu AVEC une recherche tapée — un nom, puis des chiffres.
+export const htmlRecherche = (texte) => renderToStaticMarkup(<Whatsapp db={garnie} save={() => {}} profile={users[0]} rechercheInitiale={texte} />);

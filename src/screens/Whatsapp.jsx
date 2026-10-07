@@ -76,13 +76,13 @@ export function compterNonLusWa(db, profile) {
 // `cleInitiale` : la conversation ouverte au montage — le banc s'en sert pour
 // RENDRE un fil (une phrase de l'IA, une ligne du robot) ; l'application
 // ne la passe pas.
-export function Whatsapp({ db, save, profile, cleInitiale = null }) {
+export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheInitiale = "" }) {
   const messages = db.messages || [];
   const [cleOuverte, setCleOuverte] = useState(cleInitiale);
   const [texte, setTexte] = useState("");
   const [envoi, setEnvoi] = useState(false);
   const [contact, setContact] = useState(null);
-  const [recherche, setRecherche] = useState("");
+  const [recherche, setRecherche] = useState(rechercheInitiale);
   // 📎 Le fichier choisi (03/10/2026), déjà préparé : il part avec la phrase
   // FACULTATIVE de la case. Changer de conversation le retire — on n'envoie
   // pas à Paul le devis préparé pour Pierre.
@@ -117,7 +117,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null }) {
   // ne regarde que ce qui est affiché ment — on chercherait justement une
   // vieille conversation qu'on ne voit plus.
   const convs = !recherche.trim() ? tousConvs
-    : tousConvs.filter((c) => correspond(`${c.nomAffiche || ""} ${c.nom || ""} ${c.profil || ""} ${motsDuNumero(c.tel).join(" ")}`, recherche));
+    : tousConvs.filter((c) => correspond(`${c.nomAffiche || ""} ${c.nom || ""} ${c.profil || ""} ${motsDuNumero(c.tel)}`, recherche));
   const ouverte = convs.find((c) => c.cle === cleOuverte) || null;
   const fil = ouverte ? filWa(messages, ouverte.cle) : [];
   // Le fil s'ouvre sur son DERNIER message (règle commune, ui.jsx).

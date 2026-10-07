@@ -636,8 +636,13 @@ test("★ la case de saisie se ferme avec la fenêtre, et dit par où relancer",
 // ── 🔍 CHERCHER ET ARCHIVER DANS 📲 WHATSAPP (20/09/2026, « lance les 3 »)
 const Arch = await import("../src/lib/archivage.js");
 const Conv = await import("../src/lib/conversations.js");
+// ⚠ RETOURNÉ le 07/10/2026 : il EXIGEAIT `motsDuNumero(c.tel).join(" ")` —
+// la forme fautive (motsDuNumero rend déjà un texte : écran blanc à la
+// première lettre tapée). Il exige maintenant le texte tel quel, et ㊿ REND
+// l'écran avec une recherche tapée.
 test("★★ la recherche passe par LA règle commune et cherche le NOM (donné, compte, WhatsApp) comme le NUMÉRO",
-  /correspond\(`\$\{c\.nomAffiche \|\| ""\} \$\{c\.nom \|\| ""\} \$\{c\.profil \|\| ""\} \$\{motsDuNumero\(c\.tel\)\.join\(" "\)\}`, recherche\)/.test(ecranWa)
+  /correspond\(`\$\{c\.nomAffiche \|\| ""\} \$\{c\.nom \|\| ""\} \$\{c\.profil \|\| ""\} \$\{motsDuNumero\(c\.tel\)\}`, recherche\)/.test(ecranWa)
+  && !/motsDuNumero\([^)]*\)\.join/.test(ecranWa)
   && !/toLowerCase\(\)\.includes/.test(ecranWa));
 test("★★ elle cherche dans TOUTES les conversations, archives comprises — une recherche qui ne voit que l'affiché ment",
   /const convs = !recherche\.trim\(\) \? tousConvs\n/.test(ecranWa)
@@ -3941,6 +3946,20 @@ titre("㊾ 👤 LE NOM D'UNE CONVERSATION — LE NOM DONNÉ, LE COMPTE BMI, LE N
     /correspond\(`\$\{c\.nomAffiche \|\| ""\} \$\{c\.nom \|\| ""\} \$\{c\.profil \|\| ""\}/.test(W2));
   test("★ critiqueNomContact : l'administrateur seul",
     C3.critiqueNomContact({ role: "admin" }, "X") === "" && C3.critiqueNomContact({ role: "gerant" }, "X") !== "");
+}
+
+// ⚠⚠ ㊿ TAPER DANS LA RECHERCHE NE DONNE PLUS UN ÉCRAN BLANC (capture Timo,
+// 07/10/2026 : « dès qu'on veut chercher un numéro ou non, écran blanc »).
+// Depuis 2.101.462, la recherche appelait `.join()` sur `motsDuNumero`, qui
+// rend DÉJÀ un texte : l'écran levait à la première lettre. Le banc REND
+// l'écran avec une recherche tapée — un nom, des chiffres, un mot absent.
+console.log("\n㊿ La recherche de 📲 WhatsApp : l'écran se rend avec une recherche tapée");
+{
+  const essai = (t) => { try { return V.htmlRecherche(t); } catch (e) { return "ERREUR " + String(e.message || e).split("\n")[0]; } };
+  const nom = essai("ESSO"), chiffres = essai("90112233"), avecPlus = essai("+22890112233"), absent = essai("ZZZZ");
+  test("★ chercher un NOM rend l'écran (pas d'erreur) et trouve ESSO", !/^ERREUR/.test(nom) && /ESSO/.test(nom), nom.slice(0, 200));
+  test("★ chercher des CHIFFRES rend l'écran et trouve la conversation (numéro tapé seul ou avec +228, comme dans 👥 Utilisateurs)", !/^ERREUR/.test(chiffres) && /ESSO/.test(chiffres) && !/^ERREUR/.test(avecPlus) && /ESSO/.test(avecPlus), chiffres.slice(0, 200));
+  test("★ un mot absent rend l'écran et le dit (« Aucune conversation ne correspond »)", !/^ERREUR/.test(absent) && /Aucune conversation ne correspond/.test(absent), absent.slice(0, 200));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
