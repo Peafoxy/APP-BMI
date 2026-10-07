@@ -10,7 +10,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS } from "../lib/constants";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -1655,7 +1655,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
                 <td className="px-3 py-2">{v.client && v.client !== "Client non renseigné" ? <span className="font-semibold text-slate-800">{v.client}</span> : <span className="text-slate-400">—</span>}</td>
                 <td className="px-3 py-2 tabular-nums text-right">{qteVente(v)}</td>
-                <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap"><div className="font-bold text-slate-900">{fmt(totalVente(v))}</div>{v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}</td>
+                <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap"><div className="font-bold text-slate-900">{fmt(totalVente(v))}</div>{v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}{montantRepris(v) > 0 ? (
+                  /* 07/10/2026 (« oui lance ») : le TOTAL reste ce que le client a payé (le reçu,
+                     la recette) ; dessous, ce qui a été repris et la valeur restante de la facture. */
+                  <div data-vente-reprise><div className="text-xs text-amber-700">↩ repris : −{fmt(montantRepris(v))}</div><div className="text-xs font-semibold text-slate-700">reste : {fmt(Math.max(0, totalVente(v) - montantRepris(v)))}</div></div>
+                ) : null}</td>
                 <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} /></td>
                 <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>

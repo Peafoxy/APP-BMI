@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2288 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2291 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6141,6 +6141,15 @@ lit mal est pire qu'un banc absent).
   WhatsApp du bon (`bon_reprise`, trous figés chez Meta) n'a PAS bougé. Le bon
   de RETOUR non plus. Banc (6, le bon IMPRIMÉ par un témoin), éprouvé. Rien à
   coller. Chapitre 5 à jour.
+- **💰 SOUS LE TOTAL D'UNE VENTE REPRISE : « ↩ repris : −X » ET « reste : Y »**
+  (07/10/2026, capture Timo — SENA, 53 200 F, « 3 repris » — « oui lance ») :
+  dans la liste de 💰 Ventes, le TOTAL en gras ne bouge pas (le reçu, la
+  recette) ; dessous, `montantRepris(v)` (toutes les reprises du reçu) et
+  `totalVente(v) − montantRepris(v)` (`data-vente-reprise`). Rien sous une vente
+  sans reprise. Ventes seulement. Banc (le VRAI écran rendu par
+  `scripts/_rendu-ventes.jsx`, +3), éprouvé. Rien à coller. Chapitre 5 à jour.
+  ⚠ « Laisse comme ça » (le même jour) : PAS de phrase « rien à rendre » dans
+  la fenêtre de reprise d'une vente à crédit — ne pas la reproposer.
 - **🧾 Bon de reprise et bon de retour** (14/09/2026 : « ce n'est pas
   judicieux de sortir un reçu ? comment ça se passe avec les grands
   logiciels ? » → un avoir / bon à part, **jamais le reçu de vente

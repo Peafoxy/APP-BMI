@@ -122,6 +122,7 @@ export const CHAPITRE = {
         "**« 🔍 Rechercher… »** : le numéro de reçu, le nom ou le numéro du client. La période : Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **✏️ Personnaliser…** qui ouvre deux cases de date — une borne vide reste ouverte, deux dates à l'envers sont remises dans l'ordre et **la période appliquée s'écrit à côté**.",
         "Les pastilles **Espèces / Flooz / Mixx/T-Money / Virement bancaire / Crédit (dette)** filtrent par moyen de paiement.",
         "**« 💰 Recette : X F · N ventes »** = la somme **de ce qui est affiché** — elle suit la période, le moyen et la recherche. S'il y a eu une reprise : « dont X repris, net Y ». Sur les proformas, c'est « Total des proformas », jamais « recette ».",
+        "**Une vente qui a eu une reprise** garde son TOTAL (ce que le client a payé, celui du reçu) ; dessous s'écrivent **« ↩ repris : −X »** (toutes les reprises de ce reçu, au prix payé) et **« reste : Y »**, la valeur restante de la facture.",
         "**Un clic sur une ligne la déplie** (tous les articles) ; un clic sur une autre la déplie à sa place. La ligne ouverte a un fond bleu et une barre à gauche.",
       ]],
 

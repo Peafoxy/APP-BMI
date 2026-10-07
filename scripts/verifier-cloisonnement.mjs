@@ -13403,5 +13403,39 @@ titre("🧾 Le bon de reprise : la vente d'origine et la nouvelle situation (07/
     !/data-bon-vente-initiale|data-bon-situation/.test(String(globalThis.__bon || "")) && /BON DE RETOUR/.test(String(globalThis.__bon || "")));
 }
 
+titre("💰 Ventes : sous le total d'une vente reprise, le montant repris et ce qui reste (07/10/2026, « oui lance »)");
+// Capture Timo (SENA, 53 200 F, « 3 repris ») : « on peut pas mentionner sous
+// le total le montant repris et la valeur restante de la facture ? ». L'écran
+// est RENDU pour de vrai (scripts/_rendu-ventes.jsx).
+{
+  const sortieRV = join("node_modules", ".cache", `bmi-rendu-ventes-${process.pid}.mjs`);
+  let RV = null, erreurRV = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-ventes.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRV, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RV = await import(pathToFileURL(sortieRV).href);
+  } catch (e) { erreurRV = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieRV); } catch {}
+  test("l'écran 💰 Ventes se monte dans le banc" + (erreurRV ? ` (${erreurRV})` : ""), !!RV);
+  if (RV) {
+    const auj = new Date().toISOString().slice(0, 10);
+    const timo = { id: "u1", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: "BMI DEMAKPOE" };
+    const dbV = { boutiques: [{ id: "b1", nom: "BMI DEMAKPOE" }], users: [timo], produits: [{ id: "p1", nom: "Cosse", boutique: "BMI DEMAKPOE", prix_achat: 1, prix_vente: 2800, initial: 30, seuil: 1 }],
+      ventes: [
+        { id: "v1", numero: "BMID-2026-0001", date: auj, boutique: "BMI DEMAKPOE", client: "SENA", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Cosse", qte: 19, pu: 2800 }],
+          reprises: [{ id: "r1", ref: "REP-A", date: auj, produit_id: "p1", article: "Cosse", qte: 2, montant: 5600, rembourse: 5600 }, { id: "r2", ref: "REP-B", date: auj, produit_id: "p1", article: "Cosse", qte: 1, montant: 2800, rembourse: 2800 }] },
+        { id: "v2", numero: "BMID-2026-0002", date: auj, boutique: "BMI DEMAKPOE", client: "EZO", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 12000 }] },
+      ],
+      depenses: [], dettes: [], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [] };
+    let hV = "";
+    const erreurAvant = console.error; console.error = () => {};
+    try { hV = String(RV.rendreVentes(dbV, timo)).replace(/ | /g, " "); } catch (e) { hV = ""; } finally { console.error = erreurAvant; }
+    test("★★ sous le TOTAL inchangé (53 200 F), les reprises du reçu ADDITIONNÉES (2 reprises : −8 400 F) et ce qui reste de la facture (44 800 F)",
+      /<div class="font-bold text-slate-900">53 200 F<\/div><div data-vente-reprise="true"><div class="text-xs text-amber-700">↩ repris : −8 400 F<\/div><div class="text-xs font-semibold text-slate-700">reste : 44 800 F<\/div>/.test(hV));
+    test("★ une vente SANS reprise ne porte rien de plus sous son total (une seule ligne marquée)",
+      (hV.match(/data-vente-reprise/g) || []).length === 1 && /12 000 F<\/div><\/td>/.test(hV));
+  }
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
