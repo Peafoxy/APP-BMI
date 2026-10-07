@@ -363,13 +363,19 @@ export function motifNonModifiable(d) {
   return null;
 }
 export const depenseModifiable = (d) => !motifNonModifiable(d);
-export function critiqueModifDepense(d, { categorie, description, chantier } = {}) {
+export function critiqueModifDepense(d, { categorie, description, chantier, remisA } = {}) {
   const motif = motifNonModifiable(d);
   if (motif) return motif;
   if (!CATEGORIES.includes(categorie)) return "Choisissez une catégorie de la liste.";
-  if (categorie === d.categorie && String(description || "").trim() === String(d.description || "").trim() && !changeDeChantier(d, chantier)) return "Rien n'a changé.";
+  if (categorie === d.categorie && String(description || "").trim() === String(d.description || "").trim() && !changeDeChantier(d, chantier) && !changeDeRemis(d, remisA)) return "Rien n'a changé.";
   return null;
 }
+// 💼 À qui l'argent a été remis (Timo, 07/10/2026 : « à qui l'argent a été
+// remis ? on peut aussi modifier »). `remisA` : undefined = on n'y touche pas ;
+// null = personne (payé directement) ; { id, nom } = ce technicien. Les refus
+// (le technicien d'avant a déjà justifié ou rendu) vivent dans
+// lib/argentChantier.js, revérifiés dans le geste.
+export const changeDeRemis = (d, remisA) => remisA !== undefined && String(remisA?.id || "") !== String(d?.remis_a?.id || "");
 // 🏠 Le chantier rattaché se change aussi (Timo, 07/10/2026 : « on peut
 // modifier que pour les dépenses dont les chantiers ne sont pas
 // réceptionnés »). `chantier` : undefined = on n'y touche pas ; null = plus
@@ -378,7 +384,7 @@ export function critiqueModifDepense(d, { categorie, description, chantier } = {
 // lib/depensesChantier.js (critiqueChangementChantier), revérifiés dans le geste.
 export const changeDeChantier = (d, chantier) => chantier !== undefined && String(chantier?.id || "") !== String(d?.chantier_id || "");
 // La dépense corrigée et la phrase du journal (qui dit ce qui a changé).
-export function modifierDepense(d, { categorie, description, chantier }, par, le) {
+export function modifierDepense(d, { categorie, description, chantier, remisA }, par, le) {
   const desc = String(description || "").trim();
   const changes = [];
   if (categorie !== d.categorie) changes.push(`catégorie : ${d.categorie} → ${categorie}`);
@@ -388,6 +394,13 @@ export function modifierDepense(d, { categorie, description, chantier }, par, le
     changes.push(`chantier : ${d.chantier_nom || "aucun"} → ${chantier?.nom || "aucun"}`);
     const { chantier_id, chantier_nom, ...reste } = d;
     base = chantier ? { ...reste, chantier_id: chantier.id, chantier_nom: chantier.nom } : reste;
+  }
+  // Sans chantier, plus personne à qui l'argent aurait été remis pour lui.
+  const remis = base.chantier_id ? remisA : (d.remis_a ? null : undefined);
+  if (changeDeRemis(d, remis)) {
+    changes.push(`remis à : ${d.remis_a?.nom || "personne"} → ${remis?.nom || "personne"}`);
+    const { remis_a, ...reste } = base;
+    base = remis ? { ...reste, remis_a: { id: remis.id, nom: remis.nom } } : reste;
   }
   return {
     depense: { ...base, categorie, description: desc, modifie_le: le, modifie_par: par },

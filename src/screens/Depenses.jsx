@@ -58,7 +58,7 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
           <td className="px-3 py-2">{x.par}</td>
           <td className="px-3 py-2"><BadgeValidation x={x} /></td>
           <td className="px-3 py-2 text-xs">
-            {x.chantier_id ? <span className="font-semibold text-purple-800">🏠 {x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}</span> : <span className="text-slate-300">—</span>}
+            {x.chantier_id ? <span className="font-semibold text-purple-800">{String(x.chantier_nom || "").startsWith("🛠") ? "" : "🏠 "}{x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}</span> : <span className="text-slate-300">—</span>}
           </td>
           <td className="px-3 py-2">
             {onModifier && depenseModifiable(x) && (
@@ -83,7 +83,7 @@ function useModifDepense(db, save, profile) {
   const [modif, setModif] = useState(null);
   const ouvrirModif = (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
-    setModif({ d, categorie: d.categorie, description: d.description || "", chantierId: d.chantier_id || "" });
+    setModif({ d, categorie: d.categorie, description: d.description || "", chantierId: d.chantier_id || "", remisA: d.remis_a?.id || (d.chantier_id ? REMIS_A_PERSONNE : "") });
   };
   const enregistrerModif = () => {
     if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
@@ -98,13 +98,34 @@ function useModifDepense(db, save, profile) {
       if (refusChantier) { uAlert(refusChantier); return; }
       chantier = ch ? { id: ch.id, nom: libelleChantier(ch) } : null;
     }
-    const refus = critiqueModifDepense(fraiche, { ...modif, chantier });
+    // 💼 À qui l'argent a été remis (07/10/2026) : undefined = inchangé,
+    // null = personne, { id, nom } = ce technicien. Revérifié DANS le geste.
+    let remisA;
+    if (fraiche && modif.chantierId) {
+      if (!modif.remisA) { uAlert(critiqueRemisA({ id: modif.chantierId }, "", [])); return; }
+      const choix = modif.remisA === REMIS_A_PERSONNE ? "" : modif.remisA;
+      if (choix !== (fraiche.remis_a?.id || "")) {
+        const chDuChoix = (db.clients_installes || []).find((c) => c.id === modif.chantierId);
+        const proposes = techniciensProposes(utilisateursDeLEspace(db, profile), chDuChoix);
+        const refusRemis = critiqueRemisA(chDuChoix, modif.remisA, proposes);
+        if (refusRemis) { uAlert(refusRemis); return; }
+        if (fraiche.remis_a?.id) {
+          const refusAncien = refusSuppressionRemise(db.depenses, utilisateursDeLEspace(db, profile), fraiche);
+          if (refusAncien) { uAlert(refusAncien); return; }
+        }
+        const t = choix ? proposes.find((u) => u.id === choix) : null;
+        remisA = t ? { id: t.id, nom: t.nom } : null;
+      }
+    }
+    const refus = critiqueModifDepense(fraiche, { ...modif, chantier, remisA });
     if (refus) { uAlert(refus); return; }
-    const r = modifierDepense(fraiche, { ...modif, chantier }, profile.nom, today());
+    const r = modifierDepense(fraiche, { ...modif, chantier, remisA }, profile.nom, today());
     save({ ...db, depenses: db.depenses.map((x) => (x.id === fraiche.id ? r.depense : x)) }, r.journal);
     setModif(null);
   };
   const chantiersModif = modif ? chantiersRattachables(db, profile) : [];
+  const chantierModif = modif?.chantierId ? (db.clients_installes || []).find((c) => c.id === modif.chantierId) : null;
+  const techniciensModif = chantierModif ? techniciensProposes(utilisateursDeLEspace(db, profile), chantierModif) : [];
   const panneauModif = (
     <>
         {modif && (<PanneauQuiSeMontre cle={modif.d.id} retour={modif.d.id}>
@@ -113,11 +134,19 @@ function useModifDepense(db, save, profile) {
             <div className="grid sm:grid-cols-2 gap-3">
               <Field label="Catégorie"><select className={inputCls} value={modif.categorie} onChange={(e) => setModif({ ...modif, categorie: e.target.value })}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
               <Field label="Description"><input className={inputCls} value={modif.description} onChange={(e) => setModif({ ...modif, description: e.target.value })} /></Field>
-              <Field label="Chantier rattaché"><select className={inputCls} value={modif.chantierId} onChange={(e) => setModif({ ...modif, chantierId: e.target.value })} data-modif-chantier>
+              <Field label="Chantier rattaché"><select className={inputCls} value={modif.chantierId} onChange={(e) => setModif({ ...modif, chantierId: e.target.value, remisA: e.target.value === (modif.d.chantier_id || "") ? (modif.d.remis_a?.id || REMIS_A_PERSONNE) : "" })} data-modif-chantier>
                 <option value="">— Aucun —</option>
                 {modif.d.chantier_id && !chantiersModif.some((c) => c.id === modif.d.chantier_id) && <option value={modif.d.chantier_id}>{modif.d.chantier_nom || "Chantier actuel"}</option>}
                 {chantiersModif.map((c) => <option key={c.id} value={c.id}>{c.travaux ? "" : "🏠 "}{libelleChantier(c)}</option>)}
               </select></Field>
+              {modif.chantierId && (
+                <Field label="Argent remis à"><select className={inputCls} value={modif.remisA} onChange={(e) => setModif({ ...modif, remisA: e.target.value })} data-modif-remis-a>
+                  <option value="">— Choisir —</option>
+                  {techniciensModif.map((u) => <option key={u.id} value={u.id}>{u.nom}</option>)}
+                  {modif.d.remis_a?.id && !techniciensModif.some((u) => u.id === modif.d.remis_a.id) && <option value={modif.d.remis_a.id}>{modif.d.remis_a.nom}</option>}
+                  <option value={REMIS_A_PERSONNE}>Personne — payé directement</option>
+                </select></Field>
+              )}
             </div>
             <div className="text-xs text-slate-500 mt-2">Le chantier se change seulement tant que le chantier n'est pas réceptionné (ni soldé, ni ses techniciens payés).</div>
             <div className="text-xs text-slate-500 mt-2">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>

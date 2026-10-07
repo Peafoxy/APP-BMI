@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2321 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2323 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1515,7 +1515,15 @@ lit mal est pire qu'un banc absent).
   notification au gérant ») : liste B (`infosDepuisDiff`, notifications.js) —
   rendu annoncé → le gérant de la boutique dont la caisse le recevra + les
   administrateurs ; reçu / refusé → le technicien. Rien dans 💬 Messages.
-  Banc `tester-notifications` (+3), éprouvé (gérant retiré : il tombe). Banc (14
+  Banc `tester-notifications` (+3), éprouvé (gérant retiré : il tombe).
+- **✏️ Modifier change aussi « Argent remis à »** (capture Timo, le jour même :
+  « à qui l'argent a été remis ? on peut aussi modifier ») : case sous
+  « Chantier rattaché » (choix exigé, « Personne » d'office pour une ancienne
+  dépense rattachée), `remisA` dans `critiqueModifDepense` / `modifierDepense`
+  (journal « remis à : A → B », un chantier retiré emporte la remise), revérifié
+  DANS le geste (`critiqueRemisA`, et `refusSuppressionRemise` si le technicien
+  d'avant a déjà justifié ou rendu). Banc (+2), éprouvé. Et le double
+  « 🏠 🛠 » de la colonne Chantier est retiré (un travail à crédit garde son 🛠). Banc (14
   contrôles), éprouvé (reste dépassé, gérant d'une autre boutique, refus de
   saisie retiré). Deux contrôles RETOURNÉS. Chapitres 15 et 17.
 

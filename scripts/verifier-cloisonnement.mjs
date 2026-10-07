@@ -8044,7 +8044,7 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
     /<Field label="Chantier à rattacher">/.test(dpC) && !/chantiersOuverts\.length > 0 && \(/.test(dpC) && /const chantiersOuverts = chantiersRattachables\(db, profile\);/.test(dpC) && /<option value="">— Aucun —<\/option>/.test(dpC)
     && /Aucun chantier de devis en cours<\/option>/.test(dpC)
     && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const rattachee = chantierChoisi \? rattacherDepense\(depenseLoyer, chantierChoisi\) : depenseLoyer;/.test(dpC) && /const depenseLoyer = estLoyerDuMois \? \{ \.\.\.r\.depense, loyer_mois: f\.loyer_mois, loyer_boutique: f\.loyer_boutique \} : r\.depense;/.test(dpC)
-    && /🏠 \{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && (dpC.match(/uChoix\(/g) || []).length === 1 && /const payerLoyer = async \(\) => \{[\s\S]*?const choix = await uChoix\(`Loyer de/.test(dpC));
+    && /"🏠 "\}\{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && (dpC.match(/uChoix\(/g) || []).length === 1 && /const payerLoyer = async \(\) => \{[\s\S]*?const choix = await uChoix\(`Loyer de/.test(dpC));
   const ciC = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ écran Clients installés : les parts et la part BMI se calculent sur fraisNet (= fraisAPartager(fraisRep, dépenses rattachées)), plus jamais sur fraisRep ; la déduction se lit dans le panneau, se confirme, se mémorise (depenses_deduites, frais_a_partager) ; la fiche montre le total rattaché",
     /const depRattachees = chantier \? totalDepensesChantier\(db, chantier\) : 0;/.test(ciC) && /const fraisNet = fraisAPartager\(fraisRep, depRattachees\);/.test(ciC)
@@ -12150,7 +12150,7 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     test("★★ modifier = l'administrateur PRINCIPAL seul, revérifié DANS le geste, sur la fiche FRAÎCHE",
       /ouvrirModif: estAdminPrincipal\(db, profile\) \? ouvrirModif : null/.test(dsrc)
       && /const enregistrerModif = \(\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile, "Modifier une dépense"\)\) return;/.test(dsrc)
-      && /const refus = critiqueModifDepense\(fraiche, \{ \.\.\.modif, chantier \}\);/.test(dsrc));
+      && /const refus = critiqueModifDepense\(fraiche, \{ \.\.\.modif, chantier, remisA \}\);/.test(dsrc));
     // « Chez le comptable » (Timo, 25/09/2026, décision « a ») : le même bouton,
     // la même règle, écrite UNE fois (useModifDepense) ; le comptable reste en
     // lecture seule ; ni l'entrée d'un versement ni une ligne automatique.
@@ -13598,6 +13598,25 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
   test("★ l'argent rendu diminue la charge du chantier (déduite des frais avant le partage)",
     Dc.totalDepensesChantier({ depenses: [{ chantier_id: "c1", montant: 10000 }, { chantier_id: "c1", montant: -2000, categorie: "Argent rendu d'un chantier" }] }, "c1") === 8000
     && /Cette somme a été remise/.test(Dc.critiqueChangementChantier({ clients_installes: [] }, { role: "admin" }, { chantier_id: "c1", remis_a: { id: "t1", nom: "KOSSI" } }, { id: "c2" }) || ""));
+  // ✏️ Modifier : « à qui l'argent a été remis ? on peut aussi modifier » (07/10/2026).
+  const Vd2 = await import("../src/lib/validationDepenses.js");
+  const d0 = { id: "m", date: "2026-10-07", boutique: "LOME", categorie: "Carburant", description: "x", montant: 2000, paiement: "Espèces", chantier_id: "c1", chantier_nom: "NIMAN" };
+  const posee = Vd2.modifierDepense(d0, { categorie: "Carburant", description: "x", remisA: { id: "t1", nom: "KOSSI" } }, "TIMO", "2026-10-07");
+  const retiree = Vd2.modifierDepense({ ...d0, remis_a: { id: "t1", nom: "KOSSI" } }, { categorie: "Carburant", description: "x", remisA: null }, "TIMO", "2026-10-07");
+  const sansChantier = Vd2.modifierDepense({ ...d0, remis_a: { id: "t1", nom: "KOSSI" } }, { categorie: "Carburant", description: "x", chantier: null }, "TIMO", "2026-10-07");
+  test("★ ✏️ Modifier pose, change ou retire « remis à » (journal « remis à : personne → KOSSI ») ; changer SEULEMENT le technicien n'est pas « rien n'a changé » ; un chantier retiré emporte la remise",
+    posee.depense.remis_a?.id === "t1" && /remis à : personne → KOSSI/.test(posee.journal) && !("remis_a" in retiree.depense)
+    && Vd2.critiqueModifDepense(d0, { categorie: "Carburant", description: "x", remisA: { id: "t1" } }) === null
+    && /Rien/.test(Vd2.critiqueModifDepense(d0, { categorie: "Carburant", description: "x", remisA: undefined }) || "")
+    && !("remis_a" in sansChantier.depense) && !("chantier_id" in sansChantier.depense));
+  {
+    const dpM = readFileSync("src/screens/Depenses.jsx", "utf8");
+    const corpsM = (dpM.match(/const enregistrerModif = \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+    test("★ l'écran ✏️ Modifier : la case « Argent remis à » sous le chantier, choix exigé, revérifié DANS le geste (critiqueRemisA, et refusSuppressionRemise pour le technicien d'avant) avant d'écrire",
+      /<Field label="Argent remis à"><select className=\{inputCls\} value=\{modif\.remisA\}/.test(dpM) && /data-modif-remis-a/.test(dpM)
+      && corpsM.indexOf("if (refusRemis) { uAlert(refusRemis); return; }") > -1 && corpsM.indexOf("if (refusAncien) { uAlert(refusAncien); return; }") > -1
+      && corpsM.indexOf("if (!modif.remisA)") > -1 && corpsM.indexOf("if (refusAncien)") < corpsM.indexOf("save("));
+  }
   const dpA = readFileSync("src/screens/Depenses.jsx", "utf8");
   const corpsAj = (dpA.match(/const ajouter = async \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
   const cmpA = readFileSync("src/components/ArgentChantier.jsx", "utf8");
