@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2276 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2288 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6126,6 +6126,21 @@ lit mal est pire qu'un banc absent).
   (`listeArticlesRecu`), même modèle `bon_reprise`. Revérifié sur la vente
   fraîche. Rien à coller (securite-13 accepte plusieurs lignes). Banc (4,
   éprouvé). Chapitre 5 à jour.
+- **🧾 LE BON DE REPRISE PORTE LA VENTE D'ORIGINE ET LA NOUVELLE SITUATION**
+  (07/10/2026, devant un modèle de ChatGPT, « a, lance ») : `situationReprise`
+  (lib/bons.js, versée dans `bonReprise`) — **1. vente d'origine** (article,
+  qté, prix unitaire, montant ; remise, frais, total = `montantEncaisseVente`),
+  **2. articles repris avec leur prix unitaire**, le **vendeur** (`vente.par`),
+  **3. nouvelle situation** : montant d'origine − reprises PRÉCÉDENTES − ce bon
+  = nouveau montant ; **déjà payé à ce jour** (crédit : `paye` de SA dette ;
+  comptant : le montant d'origine) moins l'argent rendu jusqu'à ce bon ; reste
+  à payer (rouge s'il y en a). Un bon réimprimé ne compte pas les reprises
+  d'APRÈS lui. ⚠ « Déjà payé » se lit AU JOUR de l'impression. **Écartés** :
+  les pointillés, « BR-2026-001 » (REP- depuis le 14/09), le titre « réduction
+  de commande », et **la liste de motifs à cocher (b, non retenue)**. Le
+  WhatsApp du bon (`bon_reprise`, trous figés chez Meta) n'a PAS bougé. Le bon
+  de RETOUR non plus. Banc (6, le bon IMPRIMÉ par un témoin), éprouvé. Rien à
+  coller. Chapitre 5 à jour.
 - **🧾 Bon de reprise et bon de retour** (14/09/2026 : « ce n'est pas
   judicieux de sortir un reçu ? comment ça se passe avec les grands
   logiciels ? » → un avoir / bon à part, **jamais le reçu de vente

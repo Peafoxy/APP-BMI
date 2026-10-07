@@ -951,16 +951,30 @@ export function imprimerBon(bon, bq = {}) {
       <div><b>N° :</b> ${esc(bon.numero)}</div>
       <div><b>Date :</b> ${dFR(bon.date)}</div>
       <div><b>Reçu d'origine :</b> ${esc(bon.recu)} du ${dFR(bon.dateVente)}</div>
+      ${reprise && bon.vendeur ? `<div><b>Vendeur :</b> ${esc(bon.vendeur)}</div>` : ""}
     </div>
     <div class="btitre">CLIENT</div>
     <div class="client">
       <div><b>Nom :</b> ${esc(bon.client || "________________________")}</div>
       <div><b>Téléphone :</b> ${esc(bon.tel || "________________________")}</div>
     </div>
+    ${reprise && bon.venteInitiale?.length ? `
+    <div class="btitre" data-bon-vente-initiale>1. VENTE D'ORIGINE</div>
     <table class="articles">
-      <thead><tr><th>${reprise ? "Article repris par BMI" : "Article échangé"}</th><th>Quantité</th>${reprise ? "<th>Valeur reprise</th>" : ""}</tr></thead>
-      <tbody>${(reprise && bon.lignes?.length ? bon.lignes : [{ article: bon.article, qte: bon.qte, montant: bon.montant }]).map((l) => `<tr><td>${esc(l.article)}</td><td>${l.qte}</td>${reprise ? `<td>${fmt(l.montant)}</td>` : ""}</tr>`).join("")}</tbody>
+      <thead><tr><th>Article</th><th>Qté</th><th>Prix unitaire</th><th>Montant</th></tr></thead>
+      <tbody>${bon.venteInitiale.map((l) => `<tr><td>${esc(l.article)}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(l.montant)}</td></tr>`).join("")}</tbody>
     </table>
+    <table class="totaux">
+      ${bon.remiseVente > 0 ? `<tr><td>Remise :</td><td>−${fmt(bon.remiseVente)}</td></tr>` : ""}
+      ${bon.frais > 0 ? `<tr><td>Frais (installation, transport) :</td><td>${fmt(bon.frais)}</td></tr>` : ""}
+      <tr><td><b>Total d'origine :</b></td><td><b>${fmt(bon.montantInitial)}</b></td></tr>
+    </table>
+    <div class="btitre">2. ARTICLES REPRIS PAR BMI</div>` : ""}
+    <table class="articles">
+      <thead><tr><th>${reprise ? "Article repris par BMI" : "Article échangé"}</th><th>Quantité</th>${reprise ? "<th>Prix unitaire</th><th>Valeur reprise</th>" : ""}</tr></thead>
+      <tbody>${(reprise && bon.lignes?.length ? (bon.lignesPrix || bon.lignes) : [{ article: bon.article, qte: bon.qte, montant: bon.montant }]).map((l) => `<tr><td>${esc(l.article)}</td><td>${l.qte}</td>${reprise ? `<td>${l.pu ? fmt(l.pu) : "—"}</td><td>${fmt(l.montant)}</td>` : ""}</tr>`).join("")}</tbody>
+    </table>
+    ${reprise && bon.venteInitiale?.length ? `<div style="font-size:10px;color:#666;margin:2px 0 6px">La valeur reprise est le prix payé, remises déduites.</div>` : ""}
     <div class="btitre">${reprise ? "MOTIF DE LA REPRISE" : "MOTIF DU RETOUR (panne constatée)"}</div>
     <div class="client"><div style="font-size:13px"><b>${esc(bon.motif || "—")}</b></div></div>
     ${reprise ? `
@@ -969,6 +983,16 @@ export function imprimerBon(bon, bq = {}) {
       ${bon.dette ? `<tr><td>Dette du client réduite de${bon.dette.numero ? ` (dette ${esc(bon.dette.numero)})` : ""} :</td><td>−${fmt(bon.dette.reduction)}</td></tr>` : ""}
       <tr class="total"><td>RENDU AU CLIENT :</td><td>${fmt(bon.rembourse)}</td></tr>
     </table>
+    ${bon.venteInitiale?.length ? `
+    <div class="btitre" data-bon-situation>3. NOUVELLE SITUATION</div>
+    <table class="totaux">
+      <tr><td>Montant d'origine :</td><td>${fmt(bon.montantInitial)}</td></tr>
+      ${bon.reprisAvant > 0 ? `<tr><td>Reprises précédentes (${bon.nbReprisesAvant}) :</td><td>−${fmt(bon.reprisAvant)}</td></tr>` : ""}
+      <tr><td>Repris par ce bon :</td><td>−${fmt(bon.montant)}</td></tr>
+      <tr class="total"><td>NOUVEAU MONTANT DE LA VENTE :</td><td>${fmt(bon.nouveauMontant)}</td></tr>
+      <tr><td>Déjà payé (à ce jour, argent rendu déduit) :</td><td>${fmt(bon.dejaPaye)}</td></tr>
+      <tr${bon.resteAPayer > 0 ? ' class="reste"' : ""}><td>Reste à payer :</td><td>${fmt(bon.resteAPayer)}</td></tr>
+    </table>` : ""}
     <div class="paiement"><b>${bon.rembourse > 0 ? `Remboursé en : ${esc(bon.moyen)}` : "Rien à rendre : la dette est réduite d'autant."}</b><div style="margin-top:4px;font-size:11px;color:#555">L'article revient au stock de ${esc(bon.boutique)}. Le reçu de vente ${esc(bon.recu)} reste valable pour le reste.</div></div>`
     : `
     <div class="paiement"><b>${bon.gratuit ? "Échange GRATUIT sous garantie." : `Frais facturés au client : ${fmt(bon.frais.montant)}${bon.frais.detail ? ` — ${esc(bon.frais.detail)}` : ""}${bon.frais.numero ? ` (dette ${esc(bon.frais.numero)})` : ""}`}</b>

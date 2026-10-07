@@ -20,7 +20,8 @@
 // confusion ? » → les mêmes mots que les références du journal, lisibles.
 // Pur : le banc l'exerce. L'impression vit dans lib/impression.js.
 // ============================================================
-import { dFR, fmt, numeroRecu } from "./core";
+import { dFR, fmt, numeroRecu, lignesVente, totalVente } from "./core";
+import { montantEncaisseVente } from "./versements";
 
 export const TYPE_BON_REPRISE = "reprise";
 export const TYPE_BON_RETOUR = "retour";
@@ -64,6 +65,48 @@ export function bonReprise(db, vente, reprise) {
     // La dette du client, si la vente était à crédit : réduite de la valeur reprise.
     dette: dette ? { numero: dette.numero || "", reduction: montant, resteApres: Math.max(0, Number(dette.montant || 0) - Number(dette.paye || 0)) } : null,
     par: tete.par || "",
+    // 🧾 LA VENTE D'ORIGINE ET LA NOUVELLE SITUATION (07/10/2026, « a, lance »,
+    // devant le modèle de bon de ChatGPT) — calculées par `situationReprise`.
+    ...situationReprise(db, vente, tete.ref, lignes),
+  };
+}
+
+// 🧾 La vente d'origine (chaque article, sa quantité, son prix), puis la
+// nouvelle situation : montant d'origine − TOUTES les reprises jusqu'à
+// celle-ci comprise = nouveau montant ; déjà payé (net de ce qui a été rendu)
+// et reste à payer. ⚠ Le montant d'origine est celui que le client avait à
+// payer (`montantEncaisseVente` : LA formule du reçu et de la caisse, frais
+// compris). ⚠ Ce qui a été payé se lit à ce jour : une vente à crédit
+// prend les versements de SA dette (`vente_id`), une vente comptant son
+// montant d'origine.
+export function situationReprise(db, vente, ref, lignesBon = []) {
+  const refs = refsDeReprises(vente);
+  const rang = refs.indexOf(ref);
+  const jusquIci = refs.slice(0, rang >= 0 ? rang + 1 : refs.length);
+  const reprisesJusquIci = (vente?.reprises || []).filter((r) => jusquIci.includes(r.ref));
+  const precedentes = reprisesJusquIci.filter((r) => r.ref !== ref);
+  const venteInitiale = lignesVente(vente).map((l) => ({
+    article: l.article, qte: Number(l.qte || 0), pu: Number(l.pu || 0),
+    montant: Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0),
+  }));
+  const remiseVente = Number(vente?.remise || 0) + Number(vente?.rabais || 0);
+  const frais = Number(vente?.frais_installation || 0) + Number(vente?.frais_transport || 0);
+  const montantInitial = montantEncaisseVente(vente, totalVente);
+  const repris = lignesBon.reduce((s, l) => s + Number(l.montant || 0), 0);
+  const reprisAvant = precedentes.reduce((s, r) => s + Number(r.montant || 0), 0);
+  const nouveauMontant = Math.max(0, montantInitial - repris - reprisAvant);
+  const detteVente = (db?.dettes || []).find((d) => d.vente_id === vente?.id) || null;
+  const paye = detteVente ? Number(detteVente.paye || 0) : montantInitial;
+  const rendu = reprisesJusquIci.reduce((s, r) => s + Number(r.rembourse || 0), 0);
+  const dejaPaye = Math.max(0, paye - rendu);
+  // Prix unitaire de ce qui est repris : celui de la vente (avant remises).
+  const puDe = (article) => (venteInitiale.find((v) => v.article === article) || {}).pu || 0;
+  return {
+    vendeur: vente?.par || "",
+    venteInitiale, remiseVente, frais, montantInitial,
+    lignesPrix: lignesBon.map((l) => ({ ...l, pu: puDe(l.article) })),
+    reprisAvant, nbReprisesAvant: [...new Set(precedentes.map((r) => r.ref))].length,
+    nouveauMontant, dejaPaye, resteAPayer: Math.max(0, nouveauMontant - dejaPaye),
   };
 }
 // Les bons de reprise d'une vente : UN par reprise, quel que soit son nombre d'articles.

@@ -13346,5 +13346,62 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   test("★ 📄 le dossier d'accès de l'employé porte son contrat", dE.sections.some((x) => x.lignes.some(([k, v]) => k === "Contrat de travail" && v === "CDD jusqu'au 20/10/2026")));
 }
 
+titre("🧾 Le bon de reprise : la vente d'origine et la nouvelle situation (07/10/2026, « a, lance »)");
+// Timo, devant le modèle de bon de ChatGPT : la vente d'origine (quantité,
+// prix unitaire), le prix unitaire de ce qui est repris, le vendeur, et
+// « nouvelle situation » : montant d'origine − reprises = nouveau montant,
+// déjà payé, reste à payer. Le bon est IMPRIMÉ pour de vrai (témoin).
+{
+  const sortieBR = join("node_modules", ".cache", `bmi-bon-situation-${process.pid}.mjs`);
+  await build({
+    entryPoints: ["src/lib/impression.js"], bundle: true, format: "esm", platform: "node", outfile: sortieBR,
+    logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"],
+    plugins: [{ name: "ui-temoin", setup(b) {
+      b.onResolve({ filter: /components\/ui(\.jsx)?$/ }, (a) => a.importer.endsWith("impression.js") ? { path: "ui-temoin", namespace: "temoin" } : undefined);
+      b.onLoad({ filter: /.*/, namespace: "temoin" }, () => ({ resolveDir: process.cwd(), loader: "js",
+        contents: 'export * from "./src/components/ui.jsx"; export const printApi = { open: (h) => { globalThis.__bon = h; } };' }));
+    } }],
+  });
+  const ImpB = await import(pathToFileURL(sortieBR).href);
+  const sortieBs = join("node_modules", ".cache", `bmi-bons-sit-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/bons.js"], bundle: true, format: "esm", platform: "node", outfile: sortieBs, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Bs = await import(pathToFileURL(sortieBs).href);
+  unlinkSync(sortieBR); unlinkSync(sortieBs);
+  const nz = (t) => String(t).replace(/ | /g, " ").replace(/&#x27;|&#39;/g, "'");
+  // Comptant : 10 panneaux × 150 000 ; deux reprises (2 panneaux, puis 1).
+  const vC = { id: "vC", numero: "BMID-2026-0050", boutique: "BMI DEMAKPOE", date: "2026-10-01", client: "KOFFI", tel: "90000000", par: "ANGELE", paiement: "Espèces",
+    articles: [{ produit_id: "p1", article: "Panneau 580W", qte: 10, pu: 150000 }],
+    reprises: [
+      { id: "r1", ref: "REP-A", date: "2026-10-02", produit_id: "p1", article: "Panneau 580W", qte: 2, montant: 300000, rembourse: 300000, moyen: "Espèces", motif: "budget", par: "TIMO" },
+      { id: "r2", ref: "REP-B", date: "2026-10-03", produit_id: "p1", article: "Panneau 580W", qte: 1, montant: 150000, rembourse: 150000, moyen: "Espèces", motif: "erreur", par: "TIMO" },
+    ] };
+  const b1 = Bs.bonReprise({ dettes: [] }, vC, vC.reprises[0]);
+  const b2 = Bs.bonReprise({ dettes: [] }, vC, vC.reprises[1]);
+  test("★★ la nouvelle situation d'un bon comptant : 1 500 000 − 300 000 = 1 200 000, déjà payé 1 200 000 (argent rendu déduit), reste 0 ; vendeur et vente d'origine (qté 10, prix 150 000)",
+    b1.montantInitial === 1500000 && b1.nouveauMontant === 1200000 && b1.dejaPaye === 1200000 && b1.resteAPayer === 0 && b1.reprisAvant === 0
+    && b1.vendeur === "ANGELE" && b1.venteInitiale.length === 1 && b1.venteInitiale[0].qte === 10 && b1.venteInitiale[0].pu === 150000 && b1.lignesPrix[0].pu === 150000);
+  test("★★ un second bon compte les reprises PRÉCÉDENTES : 1 500 000 − 300 000 − 150 000 = 1 050 000 (et le premier bon, réimprimé, ne compte pas le second)",
+    b2.reprisAvant === 300000 && b2.nbReprisesAvant === 1 && b2.nouveauMontant === 1050000 && b2.dejaPaye === 1050000 && b1.nouveauMontant === 1200000);
+  // Crédit : la dette de la vente dit ce qui a été payé.
+  const vK = { ...vC, id: "vK", paiement: "Crédit (dette)", reprises: [{ ...vC.reprises[0], rembourse: 0, moyen: "", dette_id: "dK" }] };
+  const dbK = { dettes: [{ id: "dK", vente_id: "vK", numero: "BMID-DET-2026-0009", montant: 1200000, paye: 400000 }] };
+  const bK = Bs.bonReprise(dbK, vK, vK.reprises[0]);
+  test("★★ à crédit : déjà payé = les versements de SA dette (400 000), reste à payer = 1 200 000 − 400 000 = 800 000",
+    bK.nouveauMontant === 1200000 && bK.dejaPaye === 400000 && bK.resteAPayer === 800000);
+  globalThis.__bon = ""; ImpB.imprimerBon(b2, { nom: "BMI DEMAKPOE" });
+  const h = nz(globalThis.__bon || "");
+  test("★★ le bon IMPRIMÉ porte la vente d'origine (Panneau 580W, 10, 150 000 F), le total d'origine, les articles repris avec leur prix unitaire, le vendeur, et la nouvelle situation chiffrée",
+    /data-bon-vente-initiale/.test(h) && /<td>Panneau 580W<\/td><td>10<\/td><td>150 000 F<\/td><td>1 500 000 F<\/td>/.test(h)
+    && /Total d'origine :<\/b><\/td><td><b>1 500 000 F/.test(h) && /<td>Panneau 580W<\/td><td>1<\/td><td>150 000 F<\/td><td>150 000 F<\/td>/.test(h)
+    && /<b>Vendeur :<\/b> ANGELE/.test(h) && /data-bon-situation/.test(h) && /Reprises précédentes \(1\) :<\/td><td>−300 000 F/.test(h)
+    && /NOUVEAU MONTANT DE LA VENTE :<\/td><td>1 050 000 F/.test(h) && /Reste à payer :<\/td><td>0 F/.test(h));
+  globalThis.__bon = ""; ImpB.imprimerBon(bK, { nom: "BMI DEMAKPOE" });
+  const hK = nz(globalThis.__bon || "");
+  test("★ à crédit, le reste à payer s'écrit en ROUGE (la ligne « reste » du reçu)", /<tr class="reste"><td>Reste à payer :<\/td><td>800 000 F/.test(hK));
+  globalThis.__bon = ""; ImpB.imprimerBon({ type: "retour", numero: "RET-X-1", date: "2026-10-02", recu: "X", dateVente: "2026-10-01", boutique: "B", article: "A", qte: 1, motif: "m", gratuit: true, par: "P" }, {});
+  test("★ le bon de RETOUR n'a ni vente d'origine ni nouvelle situation (un échange ne change pas le montant)",
+    !/data-bon-vente-initiale|data-bon-situation/.test(String(globalThis.__bon || "")) && /BON DE RETOUR/.test(String(globalThis.__bon || "")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
