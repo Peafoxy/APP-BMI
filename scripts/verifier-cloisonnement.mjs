@@ -5400,7 +5400,7 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     && /if \(!profile \|\| !verrouille\) return;\n\s+const minuterie = setInterval\(\(\) => \{\n\s+if \(doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\) && !fermetureRef\.current\) \{/.test(app)
     && V.DELAI_DECONNEXION_MS === 1800000 && V.doitDeconnecter(0, 1799999) === false && V.doitDeconnecter(0, 1800000) === true && V.doitDeconnecter(undefined, 1e12) === false);
   test("★ la session restaurée après F5 ROUVRE VERROUILLÉE si elle l'était ou si le délai est dépassé, et ne se restaure plus du tout après 30 min sans geste",
-    /if \(u && u\.actif !== false && !doitDeconnecter\(ts, Date\.now\(\)\)\) \{\n\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
+    /if \(u && u\.actif !== false && !doitDeconnecter\(ts, Date\.now\(\)\)\) \{\n(?:\s+\/\/[^\n]*\n|\s+if \(await fermerSessionEtrangere\(u\.id\)\)[^\n]*\n)*\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
     && /const verrouiller = \(motif = "inactivite"\) => \{ setMotifVerrou\(motif\); setVerrouille\(true\); setErreursVerrou\(0\); ecrireSession\(\{ verrouille: true \}\); \};/.test(app));
   test("★ le mot de passe est vérifié contre la fiche ACTUELLE du compte (verifierMotDePasse, sur l'appareil) ; 5 erreurs → déconnexion ; les gestes ne comptent plus quand c'est verrouillé",
     /const compte = \(dbRef\.current\?\.users \|\| \[\]\)\.find\(\(x\) => x\.id === profile\?\.id\) \|\| profile;\n\s+const \{ ok \} = await verifierMotDePasse\(compte, saisie\);/.test(app)
@@ -13457,6 +13457,31 @@ titre("💰 Ventes : sous le total d'une vente reprise, le montant repris et ce 
     /prendreVersionServeur\(local, ligne, enAttente\.has/.test(corpsTable) && /put\(horodatee\(ligne\)\)/.test(corpsTable) && !/ligne\.data\?\.updated_at/.test(corpsTable));
   test("★ la relecture complète de rattrapage est faite une fois par appareil (marque locale, curseurs des tables remis à zéro)",
     /idb\.meta\.get\(CLE_RELECTURE_HORLOGE\)/.test(sy) && /idb\.meta\.delete\(`derniere_sync:\$\{t\}`\)/.test(sy) && /idb\.meta\.put\(\{ cle: CLE_RELECTURE_HORLOGE/.test(sy));
+}
+
+// 🔐 UNE SESSION SÉCURISÉE N'APPARTIENT QU'AU COMPTE CONNECTÉ (07/10/2026, capture Timo :
+// son téléphone « En ligne » ne voyait qu'une vente de 500 F et aucun article — la session
+// gardée était celle d'un client connecté avant lui).
+{
+  const VR = await import(pathToFileURL("src/lib/verrou.js").href);
+  test("★★ une session d'un AUTRE compte est reconnue étrangère ; la sienne non (majuscules ignorées) ; aucune session n'est pas étrangère",
+    VR.sessionEtrangere({ user: { email: "client42@bmi.internal" } }, "admin1") === true
+    && VR.sessionEtrangere({ user: { email: "admin1@bmi.internal" } }, "ADMIN1") === false
+    && VR.sessionEtrangere(null, "admin1") === false);
+  const cli = readFileSync("src/supabaseClient.js", "utf8").replace(/\/\/.*$/gm, "");
+  const corpsAuth = cli.slice(cli.indexOf("export async function synchroniserAuth"), cli.indexOf("export async function synchroniserAuth") + 1200);
+  test("★★ synchroniserAuth ferme une session étrangère AVANT d'essayer d'ouvrir la sienne",
+    corpsAuth.indexOf("fermerSessionEtrangere(id)") > 0 && corpsAuth.indexOf("fermerSessionEtrangere(id)") < corpsAuth.indexOf("fetch(URL_SYNC_AUTH"));
+  test("★ fermer une session se fait sur CET appareil seulement (scope local), jamais sur tous les appareils de la personne",
+    (cli.match(/signOut\(\{ scope: "local" \}\)/g) || []).length === 2 && !/signOut\(\)/.test(cli));
+  const app = readFileSync("src/App.jsx", "utf8").replace(/\/\/.*$/gm, "");
+  const corpsDeco = app.slice(app.indexOf("const deconnexion = async"), app.indexOf("const deconnexion = async") + 2600);
+  test("★★ « Se déconnecter » ferme AUSSI la session sécurisée (oublierSession)",
+    /await oublierSession\(\)/.test(corpsDeco));
+  test("★★ le miroir de la connexion n'efface rien si la session n'est pas celle de la personne qui entre",
+    /if \(await sessionDuCompteConnecte\(\)\) await reconcilierMiroir\(\)/.test(app) && (app.match(/reconcilierMiroir\(\)/g) || []).length === 1);
+  test("★ au retour (F5), une session étrangère se ferme avant la première lecture, et tout se relit",
+    /if \(await fermerSessionEtrangere\(u\.id\)\) \{ try \{ await forcerResynchronisation\(\); \} catch \{\} \}\s*setProfile\(u\)/.test(app));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

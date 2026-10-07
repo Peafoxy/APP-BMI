@@ -80,7 +80,7 @@ import { rebaser } from "./lib/rebase";
 import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, reconcilierMiroir, abandonnerGesteRefuse } from "./sync";
 import { planAbandon, resumeAbandon } from "./lib/abandonLot";
 import { idb } from "./db";
-import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, chargerApparence } from "./supabaseClient";
+import { synchroniserAuth, etatAuth, etatComptesAuth, supabaseConfigure, chargerApparence, fermerSessionEtrangere, sessionDuCompteConnecte, oublierSession } from "./supabaseClient";
 // Notifications (13/09/2026) : ce qui part est décidé par lib/notifications.js
 // à chaque save (un seul appel) ; src/push.js parle à l'appareil et au serveur.
 import { envoisDepuisSave } from "./lib/notifications";
@@ -553,6 +553,12 @@ export default function App() {
           // ⚠ Timo (09/09/2026) : 30 min sans geste = déconnexion, même
           // verrouillée. Une session plus vieille que ça ne se restaure pas.
           if (u && u.actif !== false && !doitDeconnecter(ts, Date.now())) {
+            // ⚠ 07/10/2026 : la session sécurisée gardée par l'appareil doit
+            // être la SIENNE. Celle d'un autre compte se ferme avant la
+            // première lecture ; le verrou demandera son mot de passe.
+            // Ce que cette session étrangère a fait effacer revient en entier :
+            // tout se relit dès que son mot de passe a rouvert la sienne.
+            if (await fermerSessionEtrangere(u.id)) { try { await forcerResynchronisation(); } catch {} }
             setProfile(u);
             if (etaitVerrouillee || doitVerrouiller(ts, Date.now(), UA)) verrouiller();
             // Notifications : l'appareil reste rattaché à la personne (un
@@ -1008,7 +1014,10 @@ export default function App() {
         if ((await compterEnAttente()) === 0) await forcerResynchronisation();
       } catch {}
       try { await synchroniserOuverture(); } catch {}
-      try { await reconcilierMiroir(); } catch {}
+      // ⚠ 07/10/2026 : le miroir n'efface RIEN si la session n'est pas celle
+      // de la personne qui vient d'entrer — avec les droits d'un autre, il
+      // effaçait tout ce que cet autre ne voit pas.
+      try { if (await sessionDuCompteConnecte()) await reconcilierMiroir(); } catch {}
       setDb(await chargerEtReparer());
       majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       setSyncInitiale(false);
@@ -1052,6 +1061,9 @@ export default function App() {
     // la session (il faut le jeton) — un téléphone partagé ne vibre jamais
     // pour l'ancien occupant.
     try { await oublierAppareil(); } catch {}
+    // ⚠ 07/10/2026 : la session sécurisée se ferme AUSSI. Restée ouverte, elle
+    // servait au compte suivant sur ce téléphone si la sienne ne s'ouvrait pas.
+    try { await oublierSession(); } catch {}
     setProfile(null);
     // Fin de session : le réglage meurt avec elle (voir
     // terminerEspaceRegarde).

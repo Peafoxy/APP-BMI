@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { emailDeSession, sessionEtrangere } from "./lib/verrou.js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const cle = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -238,6 +239,11 @@ export async function synchroniserAuth(id, motDePasse) {
   }
   identifiants = { id, motDePasse };
 
+  // ⚠ 07/10/2026 : une session restée d'un AUTRE compte (un client connecté
+  // avant sur ce téléphone) se ferme AVANT tout. Sinon, si l'ouverture de la
+  // nôtre échoue, le serveur continue de répondre avec les droits de l'autre.
+  await fermerSessionEtrangere(id);
+
   if (String(motDePasse).length < 6) {
     Object.assign(etatAuth, { ok: false, raison: "Mot de passe de moins de 6 caractères : Supabase refuse de créer le compte. L'administrateur doit le changer." });
     return { ...etatAuth };
@@ -260,7 +266,7 @@ export async function synchroniserAuth(id, motDePasse) {
       return { ...etatAuth };
     }
 
-    const email = `${id}@bmi.internal`;
+    const email = emailDeSession(id);
     const { error } = await supabase.auth.signInWithPassword({ email, password: motDePasse });
     if (error) {
       Object.assign(etatAuth, { ok: false, raison: `Supabase a refusé la session : ${error.message}` });
@@ -271,6 +277,35 @@ export async function synchroniserAuth(id, motDePasse) {
   } catch (e) {
     Object.assign(etatAuth, { ok: false, raison: `Serveur d'authentification injoignable (${e?.message || e})` });
     return { ...etatAuth };
+  }
+}
+
+// La session gardée par cet appareil appartient-elle à un AUTRE compte que
+// `id` ? Si oui, on la ferme (sur cet appareil seulement) et on le dit : rien
+// ne doit partir ni arriver avec les droits de quelqu'un d'autre. Rend vrai si
+// une session a été fermée.
+export async function fermerSessionEtrangere(id) {
+  if (!supabaseConfigure || !id) return false;
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (!sessionEtrangere(data?.session, id)) return false;
+    await supabase.auth.signOut({ scope: "local" });
+    Object.assign(etatAuth, { ok: false, raison: "Session d'un autre compte fermée" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// La session en cours est-elle bien celle du compte connecté (identifiants
+// en mémoire) ? Le miroir de la connexion ne supprime RIEN sans elle.
+export async function sessionDuCompteConnecte() {
+  if (!supabaseConfigure || !identifiants || !etatAuth.ok) return false;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return !!data?.session && !sessionEtrangere(data.session, identifiants.id);
+  } catch {
+    return false;
   }
 }
 
@@ -334,9 +369,11 @@ export async function assurerSession() {
   return r.ok;
 }
 
-export function oublierSession() {
+export async function oublierSession() {
   identifiants = null;
-  if (supabase) supabase.auth.signOut().catch(() => {});
+  // ⚠ 07/10/2026 : appelée ENFIN par « Se déconnecter ». Fermée sur cet
+  // appareil seulement : les autres appareils de la personne gardent la leur.
+  if (supabase) { try { await supabase.auth.signOut({ scope: "local" }); } catch { /* rien à fermer */ } }
   Object.assign(etatAuth, { ok: false, raison: "Déconnecté" });
 }
 

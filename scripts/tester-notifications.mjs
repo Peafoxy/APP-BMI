@@ -285,7 +285,7 @@ titre("Un seul chemin, et rien de secret dans l'application");
   test("vite.config charge push-sw.js dans le service worker généré", /importScripts: \["push-sw\.js"\]/.test(lire("vite.config.js")));
   test("★ App.jsx ouvre l'écran demandé (?ecran= et message du service worker) SEULEMENT s'il est un onglet du rôle", /new URLSearchParams\(window\.location\.search\)\.get\("ecran"\)/.test(app) && /ONGLETS_ROLE\[profile\.role\] \|\| \[\]\)\.includes\(ecran\)/.test(app) && /"ouvrir-ecran"/.test(app));
   test("★ la permission est demandée AU CLIC de connexion (Connexion.jsx), et l'appareil est détaché à la déconnexion avant la fin de session",
-    /const go = async \(\) => \{\n[^\n]*\n[^\n]*\n[^\n]*\n\s*demanderPermissionPush\(\);/.test(lire("src/screens/Connexion.jsx")) && /try \{ await oublierAppareil\(\); \} catch \{\}\n\s*setProfile\(null\);/.test(app));
+    /const go = async \(\) => \{\n[^\n]*\n[^\n]*\n[^\n]*\n\s*demanderPermissionPush\(\);/.test(lire("src/screens/Connexion.jsx")) && /try \{ await oublierAppareil\(\); \} catch \{\}\n(?:\s*\/\/[^\n]*\n)*\s*try \{ await oublierSession\(\); \} catch \{\}\n\s*setProfile\(null\);/.test(app));
   test("l'appareil est rattaché à la personne à la connexion ET au retour (F5)", (app.match(/enregistrerAppareil\(u\)/g) || []).length === 2);
 
   const notifier = lire("api/notifier.js"), abonner = lire("api/abonner-push.js"), matin = lire("api/rappels-du-matin.js"), push = lire("api/_push.js");

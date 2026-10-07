@@ -91,3 +91,16 @@ export const sessionPerdueSelon = (message) =>
   /permission denied|jwt expired|invalid jwt|jwt malformed|refresh_token|401|PGRST301|no api key|unauthori[sz]ed/i.test(String(message || ""));
 
 export const MESSAGE_SESSION_PERDUE = "Session sécurisée expirée : entrez votre mot de passe pour la rétablir.";
+
+// ---- LA SESSION DE QUELQU'UN D'AUTRE (07/10/2026, capture Timo) ----
+// Le téléphone de TIMO affichait « En ligne », une seule vente (500 F), aucun
+// article — pendant que son PC voyait tout. La session sécurisée gardée par
+// le téléphone était celle d'un AUTRE compte (un client connecté avant lui) :
+// « Se déconnecter » ne la fermait pas, et une connexion dont la session
+// échoue laissait l'ancienne en place. Le serveur répondait donc avec les
+// droits de ce client, et le miroir de la connexion effaçait tout le reste.
+// Une session sécurisée n'appartient qu'au compte connecté : celle d'un autre
+// se FERME, jamais elle ne sert.
+export const emailDeSession = (id) => `${id}@bmi.internal`.toLowerCase();
+export const sessionEtrangere = (session, id) =>
+  !!session && String(session?.user?.email || "").toLowerCase() !== emailDeSession(id);

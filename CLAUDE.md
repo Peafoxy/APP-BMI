@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2297 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2303 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6586,6 +6586,19 @@ lit mal est pire qu'un banc absent).
   qu'elle DIFFÈRE, rangée avec l'heure du serveur (`horodatee`). Une relecture
   complète, une fois par appareil (`CLE_RELECTURE_HORLOGE`), rattrape ce qui
   avait été manqué. Banc (6, éprouvé en remettant l'ancienne comparaison).
+- ⚠⚠ **UNE SESSION SÉCURISÉE N'APPARTIENT QU'AU COMPTE CONNECTÉ** (07/10/2026,
+  téléphone de TIMO « En ligne » avec une seule vente de 500 F et aucun
+  article, pendant que son PC voyait tout). « Se déconnecter » ne fermait
+  PAS la session sécurisée (`oublierSession` n'était appelée nulle part), et
+  une connexion dont la session échouait laissait celle du compte d'AVANT (un
+  client) : le serveur répondait avec les droits de ce client, et le miroir de
+  la connexion effaçait tout le reste. Depuis : `sessionEtrangere`
+  (lib/verrou.js), `fermerSessionEtrangere` avant toute ouverture et au retour
+  (F5, avec une relecture complète), « Se déconnecter » ferme la session
+  (sur CET appareil seulement, `scope: "local"`), et le miroir n'efface rien
+  sans `sessionDuCompteConnecte`. Banc (6), éprouvé. ⚠ Reste ouvert, dit à
+  Timo : des gestes laissés en attente par A partent à la connexion suivante,
+  avec la session de B.
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
 - **Un banc Chromium écrit sa page AVEC `<meta charset="utf-8">`** : sans
   lui, le « × » d'une expression régulière du bundle est lu en deux
