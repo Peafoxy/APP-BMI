@@ -182,6 +182,7 @@ export const CHAPITRE = {
       ["ul", [
         "**Réception automatique** : un chantier « Terminé » depuis **7 jours** sans signature passe réceptionné tout seul (« Réception automatique (7 jours après fin de travaux) »).",
         "**À la réception** (PV signé, forcé ou automatique), les **commissions** liées à la vente sont débloquées si la dette est soldée (chapitre 16).",
+        "**🏗 L'argent d'une pose seule entre dans la caisse CHANTIER**, sans question : qui que ce soit qui encaisse (le chef sur le terrain, le vendeur ou le gérant au comptoir, l'administrateur), l'acompte et le solde vont dans la même caisse. Au comptoir, l'argent se range à part du tiroir de la boutique.",
         "**Pose seule** : 3 jours après le PV, si le solde reste dû, la tournée de 7 h envoie un rappel au client par WhatsApp et prévient les administrateurs.",
         "**Rappel d'entretien** : du 10e jour avant la date d'entretien au jour même, le client reçoit un message WhatsApp et **une tâche** est posée pour le chef du chantier.",
         "**Demande d'avis Google** : entre le 10e et le 40e jour après la réception, une seule fois (« ⭐ Avis demandé le … » sous la date).",

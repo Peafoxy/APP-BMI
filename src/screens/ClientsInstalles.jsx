@@ -589,26 +589,18 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // un seul geste, exactement comme une dette classique. Réutilise ici la
   // MÊME mécanique que Dettes.jsx (resteAPayer, tableau paiements) plutôt
   // que d'en recréer une séparée. Visible : le chef d'équipe du chantier
-  // (encaissement sur le terrain, caisse TERRAIN) OU tout vendeur/
-  // responsable commercial/admin (cas rare : client venu payer en
-  // boutique — l'argent tombe alors dans LEUR caisse, pas TERRAIN).
+  // (encaissement sur le terrain) OU tout vendeur / responsable commercial /
+  // admin — l'argent entre toujours dans la caisse CHANTIER.
   // ⚠ « Pose seule » : le règlement se fait en versements, comme une dette —
   // les 70 % d'acompte (article 4) puis les 30 % à la signature du PV. Le
   // GESTE est écrit UNE fois (components/encaissementPose.js) : 🧾 Commandes
-  // de la boutique s'en sert aussi. Ici : le chef du chantier encaisse sur le
-  // terrain (caisse TERRAIN) ; un vendeur, un gérant, le resp. commercial ou
-  // l'administrateur encaissent en boutique.
+  // de la boutique s'en sert aussi. Qui que ce soit qui encaisse, l'argent
+  // entre dans la caisse CHANTIER (08/10/2026).
   const encaisserPose = async (c) => {
-    const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
     const enBoutique = profile.role !== "technicien" && profile.role !== "technicien_bmi";
-    // ⚠ Bug trouvé par Timo (capture) : un admin (ou resp_commercial) n'est
-    // rattaché à AUCUNE boutique précise — on lui demande laquelle.
-    let boutiqueEncaissement = enBoutique ? profile.boutique : dette?.boutique;
-    if (enBoutique && !boutiqueEncaissement) {
-      boutiqueEncaissement = await uChoix("Encaissé dans quelle boutique ?", boutiquesVenteDuChantier(db, profile, c).map((b) => b.nom));
-      if (!boutiqueEncaissement) return;
-    }
-    const note = await encaisserDettePose({ db, save, profile, chantier: c, boutiqueEncaissement, enBoutique });
+    // 🏗 Plus de question sur la boutique (08/10/2026) : l'argent
+    // d'une pose entre dans la caisse CHANTIER, qui que ce soit qui encaisse.
+    const note = await encaisserDettePose({ db, save, profile, chantier: c, enBoutique });
     if (note !== null) setNoteRecuWa(note);
   };
 

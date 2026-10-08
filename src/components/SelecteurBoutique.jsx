@@ -2,7 +2,7 @@
 // components/SelecteurBoutique.jsx — Sélecteur de boutique par
 // onglets colorés (une pastille par boutique, dépôts optionnels).
 // ============================================================
-import { boutiquesVente, boutiquesVisibles, memoriserBoutique } from "../lib/calculs";
+import { boutiquesVente, boutiquesVisibles, memoriserBoutique, libelleCaisse } from "../lib/calculs";
 
 // ============ SÉLECTEUR BOUTIQUE ============
 // `extra` : un bouton posé dans la MÊME rangée, après les boutiques (le
@@ -33,7 +33,7 @@ export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerr
         // demandé.
         <button key={b.nom} onClick={() => { memoriserBoutique(profile, ecran, b.nom); onChange(b.nom); }}
           className={`px-4 py-1.5 rounded-full text-sm font-bold ${value === b.nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
-          style={value === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : b.terrain ? "🚐 " : ""}{b.nom}</button>
+          style={value === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : ""}{libelleCaisse(b.nom)}</button>
       ))}
       {extra}
     </div>

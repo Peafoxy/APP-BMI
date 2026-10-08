@@ -34,7 +34,7 @@
 // le téléphone. S'ils diffèrent, c'est qu'un mouvement n'a pas été saisi —
 // exactement comme l'écart de la clôture pour les billets.
 // ============================================================
-import { MOYENS_MOBILES, mobileParMoyen, CATEGORIE_RETOUR_CHANTIER } from "./constants.js";
+import { MOYENS_MOBILES, mobileParMoyen, CATEGORIE_RETOUR_CHANTIER, caisseDeVente } from "./constants.js";
 import { estVersement, estRejete, libelleDestination, DEST_TIROIR } from "./versements.js";
 import { estEnAttente, estRejetee, payeAvecCaisse } from "./validationDepenses.js";
 import { totalVente, numeroRecu } from "./core.js";
@@ -73,8 +73,8 @@ export function mouvementsMobile(db, moyen, nomsBoutiques) {
   const sorties = [];
 
   (db?.ventes || []).forEach((v) => {
-    if (!dans(v.boutique) || v.paiement !== moyen) return;
-    entrees.push({ id: v.id, sens: "entree", date: jour(v.date), heure: v.heure, montant: montantEncaisse(v), boutique: v.boutique, par: v.par,
+    if (!dans(caisseDeVente(v)) || v.paiement !== moyen) return;
+    entrees.push({ id: v.id, sens: "entree", date: jour(v.date), heure: v.heure, montant: montantEncaisse(v), boutique: caisseDeVente(v), par: v.par,
       libelle: `Vente ${numeroRecu(v)}${v.client ? ` — ${v.client}` : ""} (par ${v.par || "?"})` });
   });
 

@@ -24,7 +24,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse } from "../lib/calculs";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { bandesDeVersement, intercalerBandes, resumeBande } from "../lib/bandesVersement";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -852,6 +852,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // vente ET la dette. Le devis d'origine fait foi quand il existe — il
     // porte déjà l'identifiant exact ; sinon, le téléphone puis le nom.
     const clientCompteId = origineDevis?.client_id || compteClientPour(db, f.tel, f.client);
+    // 🏗 Une vente issue d'un devis (Timo, 08/10/2026, étape 1) : le stock sort
+    // de CETTE boutique et le chiffre d'affaires reste le sien, mais l'ARGENT
+    // entre dans la caisse CHANTIER — jamais dans le tiroir de la boutique.
+    const caisseVente = origineDevis ? caisseChantierDe(db, boutique) : null;
     const vente = {
       id: uid(),
       client_user_id: clientCompteId,
@@ -882,12 +886,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       apporteur: apporteurExterne(total),
       par: profile.nom,
       commande_id: origineCommande,
+      ...(caisseVente ? { caisse: caisseVente } : {}),
       ...(origineTravaux ? { travaux_id: origineTravaux } : {}),
       // D'où vient ce panier, quand il a été repris d'une proforma.
       ...(origineProforma ? { proforma_id: origineProforma.id, proforma_numero: origineProforma.numero } : {}),
     };
 
     let next = { ...avecFicheClient(db, clientCompteId), ventes: [vente, ...db.ventes] };
+    if (caisseVente) next = assurerBoutiqueTerrain(next, !!(db.boutiques || []).find((b) => b.nom === boutique)?.formation);
 
     // ══════ LE PAIEMENT D'UN DEVIS DÉCLENCHE L'INSTALLATION ══════
     // C'est ici que le devis devient un chantier. Tant que le client n'a pas
@@ -1025,7 +1031,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // ne pouvait pas attendre le solde de la dette (règle posée par Timo le
       // 29/08/2026). Les dettes créées avant ne le portent pas : leurs ventes
       // gardent l'ancienne règle, payables dès la réception.
-      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, boutique), date: today(), boutique, client: f.client || "Client non renseigné", tel: f.tel, ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }), motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+      // 🏗 La dette d'une vente de devis vit dans la caisse CHANTIER (son argent
+      // y entre) ; elle se suit dans 📋 Dettes de SA boutique (`boutique_vente`).
+      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, caisseVente || boutique), date: today(), boutique: caisseVente || boutique, ...(caisseVente ? { boutique_vente: boutique } : {}), client: f.client || "Client non renseigné", tel: f.tel, ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }), motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
     }
     // 🛠 Travaux à crédit : le reçu (et la dette) reviennent sur la fiche.
     if (origineTravaux) {
@@ -1669,6 +1677,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     <span className="text-slate-400"> — toutes les ventes, quels que soient les filtres</span>
                   </div>
                   {b.reglesEspeces > 0 && <div data-bande-dettes className="text-xs text-slate-200">➕ Dettes réglées en espèces : {fmt(b.reglesEspeces)}</div>}
+                  {b.chantier?.nb > 0 && <div data-bande-chantier className="text-xs text-amber-200">🏗 Devis encaissés dans la caisse CHANTIER : {b.chantier.nb} vente{b.chantier.nb > 1 ? "s" : ""}, {fmt(b.chantier.montant)} — pas dans ce tiroir</div>}
                 </td>
               </tr>
             ) : (
@@ -1683,7 +1692,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                      la recette) ; dessous, ce qui a été repris et la valeur restante de la facture. */
                   <div data-vente-reprise><div className="text-xs text-amber-700">↩ repris : −{fmt(montantRepris(v))}</div><div className="text-xs font-semibold text-slate-700">reste : {fmt(Math.max(0, totalVente(v) - montantRepris(v)))}</div></div>
                 ) : null}</td>
-                <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} /></td>
+                <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}</td>
                 <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-1">

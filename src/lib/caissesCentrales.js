@@ -33,7 +33,7 @@ import { DEST_DG, DEST_BANQUE, DEST_COMPTABLE, estVersement, estRejete, libelleD
 import { dFR } from "./core";
 // Les comptes mobiles viennent de constants.js (jamais de caissesMobiles.js :
 // c'est LUI qui lit ce fichier-ci, l'inverse tournerait en rond).
-import { mobileParCaisse } from "./constants";
+import { mobileParCaisse, libelleCaisse } from "./constants";
 import { PAYE_AVEC_DG, MOYEN_REMB_DG, estEnAttente, estRejetee, payeAvecCaisse, payeeParLeComptable } from "./validationDepenses";
 
 export const CAISSE_DG = DEST_DG;
@@ -42,7 +42,7 @@ export const CAISSE_COMPTABLE = DEST_COMPTABLE;
 // Le libellé d'une pastille du tableau de bord : « DG », « BANQUE »,
 // « COMPTABLE » pour les trois caisses (Timo), TERRAIN avec sa tente, une
 // boutique par son nom.
-export const libellePastille = (nom, nomTerrain) => (nom === CAISSE_DG ? "👤 DG" : nom === CAISSE_BANQUE ? "🏦 BANQUE" : nom === CAISSE_COMPTABLE ? "🧾 COMPTABLE" : mobileParCaisse(nom)?.pastille || (nom === nomTerrain ? `🏕 ${nom}` : nom));
+export const libellePastille = (nom, nomTerrain) => (nom === CAISSE_DG ? "👤 DG" : nom === CAISSE_BANQUE ? "🏦 BANQUE" : nom === CAISSE_COMPTABLE ? "🧾 COMPTABLE" : mobileParCaisse(nom)?.pastille || (nom === nomTerrain ? libelleCaisse(nom) : nom));
 
 const parDateDesc = (a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`);
 const compte = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) > 0;

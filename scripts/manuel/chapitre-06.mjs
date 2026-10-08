@@ -61,7 +61,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
-        ["**🔒 Caisse**, en haut", "La rangée des boutiques (+ TERRAIN), le bouton **📊 RÉSUMÉ**, et « **Période :** » (Aujourd'hui · Cette semaine · Ce mois · Cette année · **Depuis le début**, d'office)."],
+        ["**🔒 Caisse**, en haut", "La rangée des boutiques (+ 🏗 CHANTIER), le bouton **📊 RÉSUMÉ**, et « **Période :** » (Aujourd'hui · Cette semaine · Ce mois · Cette année · **Depuis le début**, d'office)."],
         ["**🔒 Caisse**, « 💸 Versements à valider par le DG (N) »", "Administrateur principal seul, **toujours affiché** : vide, il le dit. « ✅ Valider » / « ✖ Rejeter », puis « Derniers versements traités »."],
         ["**🔒 Caisse**, cadre « 💸 Verser les fonds »", "Les carrés : Fonds à verser · 💼 Fonds de caisse · Total versé · Entrées · Sorties (versements compris) · 📱 Flooz · 📱 Mixx/T-Money. Le formulaire, fermé d'office, s'ouvre par le bouton **« 💸 Faire un versement »** (« Fermer » le replie, il se replie seul une fois le versement enregistré) : « D'où part l'argent ? » (si la boutique a un compte mobile) · Montant versé (F) · Destination · (BANQUE) Banque, N° du bordereau de versement · Note (justification) · « 💸 Verser ». Puis « Versements de BOUTIQUE »."],
         ["**🔒 Caisse**, cadre « 💼 Avances de frais à rembourser (N) »", "Une ligne par avance qui compte, trois boutons : « 💵 Rembourser en espèces », « 🧾 Avec le salaire », « 👤 Par le DG »."],
@@ -76,6 +76,7 @@ export const CHAPITRE = {
 
     // ── 4
     { titre: "Procédure pas à pas", blocs: [
+      ["note", "**La caisse 🏗 CHANTIER** (l'ancienne caisse « TERRAIN ») reçoit **tout l'argent des chantiers**, qui que ce soit qui encaisse : l'acompte et le solde d'une pose seule, et le paiement d'une vente issue d'un devis. Le tiroir d'une boutique ne garde que les ventes du comptoir. **Sa clôture est facultative** : une journée de chantier non clôturée ne bloque rien et la tournée du matin n'en parle pas. On peut la clôturer quand l'argent est compté, et le gérant ou l'administrateur la verse comme une autre caisse (« 💸 Verser les fonds »)."],
       ["h3", "A. La clôture du jour (chaque soir, en dernier)"],
       ["etapes", [
         { titre: "Vendre jusqu'à la dernière vente", texte: "La clôture se fait **à la fermeture, après la dernière vente et la dernière dépense**. Une vente faite après la clôture n'est pas refusée, mais la clôture devient une photo périmée et l'écran le signalera (étape F)." },
@@ -118,7 +119,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "G. Le 📊 RÉSUMÉ (administrateur)"],
       ["etapes", [
-        { titre: "Cliquer 📊 RÉSUMÉ", texte: "Une ligne par boutique de l'espace regardé (ventes + TERRAIN) : Fonds à verser · Fonds de caisse · Total versé · Entrées · Sorties (versements compris), « ⚠ N jours sans clôture » en rouge, la ligne TOTAL. En dessous, « 💸 Historique des versements » de toutes ces boutiques (10 lignes puis on défile, archives au-delà de 3 mois). **Rien d'autre ne s'affiche** en mode résumé ; un clic sur une boutique le referme." },
+        { titre: "Cliquer 📊 RÉSUMÉ", texte: "Une ligne par boutique de l'espace regardé (ventes + 🏗 CHANTIER) : Fonds à verser · Fonds de caisse · Total versé · Entrées · Sorties (versements compris), « ⚠ N jours sans clôture » en rouge, la ligne TOTAL. En dessous, « 💸 Historique des versements » de toutes ces boutiques (10 lignes puis on défile, archives au-delà de 3 mois). **Rien d'autre ne s'affiche** en mode résumé ; un clic sur une boutique le referme." },
         { titre: "Changer la « Période : »", texte: "Elle commande les carrés de la boutique regardée, le résumé ET l'historique. Avec une période, Entrées / Sorties / Versé sont ceux de la période, et « Fonds à verser » devient **le tiroir à la fin de la période**. Le montant attendu par le formulaire de versement, lui, reste toujours le tiroir d'aujourd'hui." },
       ]],
     ]},

@@ -18,7 +18,7 @@
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, uid, fmt, dFR, heureCourte } from "./core.js";
-import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen } from "./constants.js";
+import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen, caisseDeVente } from "./constants.js";
 import { compteDansLaCaisse } from "./validationDepenses.js";
 
 // La catégorie vit dans constants.js (lue aussi par le journal comptable) :
@@ -369,7 +369,8 @@ const mouvementsEspeces = (db, boutique, totalVente) => {
   const quand = (x) => `${String(x.date || "").slice(0, 10)} ${x.heure || ""}`;
   const montantVente = (v) => montantEncaisseVente(v, totalVente);
   (db?.ventes || []).forEach((v) => {
-    if (v.boutique === boutique && v.paiement === "Espèces") out.push({ q: quand(v), date: String(v.date).slice(0, 10), type: "vente", montant: montantVente(v) });
+    // 🏗 La caisse de la vente : une vente issue d'un devis entre dans CHANTIER.
+    if (caisseDeVente(v) === boutique && v.paiement === "Espèces") out.push({ q: quand(v), date: String(v.date).slice(0, 10), type: "vente", montant: montantVente(v) });
   });
   (db?.dettes || []).forEach((d) => {
     if (d.boutique !== boutique) return;

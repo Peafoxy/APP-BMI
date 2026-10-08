@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2374 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2383 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -187,6 +187,8 @@ lit mal est pire qu'un banc absent).
   `data-caisse-terrain`) avec seulement 📍 Infos reçu, 💼 Fonds de caisse,
   📱 Comptes mobiles et le préfixe ; « En faire un magasin », Suppr., loyer et
   logo la refusent DANS le geste (`MOTIF_TERRAIN`). Couleur grise d'office.
+  **Depuis le 08/10/2026 elle s'affiche « 🏗 CHANTIER »** (`libelleCaisse`) :
+  voir § « 🏗 LA CAISSE CHANTIER ». Son NOM dans la base reste « TERRAIN ».
 - La dérogation `'tous'` doit apparaître dans **chaque** politique
   `espace_cloisonnement` côté Supabase.
 - **L'application et le serveur doivent dire la même chose.** `api/sync-auth.js`
@@ -1301,6 +1303,54 @@ lit mal est pire qu'un banc absent).
 - Rien à coller. Banc (11 contrôles, dont l'écran RENDU), éprouvé en remettant
   cinq fautes (rejeté, Flooz, avance comptée deux fois, ordre, bandes cachées
   sous un filtre) : chacune tombe. Chapitres 5 et 6 à jour.
+
+### 🏗 LA CAISSE CHANTIER : TOUT L'ARGENT DES CHANTIERS (08/10/2026, « lance l'étape 1, clôture facultative »)
+- Captures Timo : POUDAMA, pose seule de 354 900 F, 354 000 encaissés par lui
+  depuis 🏠 Clients installés. Son compte n'a pas de boutique : la question
+  « Encaissé dans quelle boutique ? » a mis l'argent dans le tiroir de
+  DEMAKPOE, et la gérante y lisait « une dette de 354 000 vendue par TIMO ».
+  Puis : « garder les ventes des devis à part dans une autre caisse… même
+  terrain devient caisse chantier ». Deux étapes proposées ; **l'étape 1 est
+  construite, l'étape 2 (le stock qui sort quand le matériel part au
+  chantier, comme 🛠 Travaux) attend une description complète AVANT d'être
+  construite.**
+- **La caisse TERRAIN s'AFFICHE « 🏗 CHANTIER »** (`libelleCaisse`,
+  constants.js — pastilles, badge, « Payé avec », résumé, ⚙ Paramètres) ; son
+  nom dans la base reste « TERRAIN » / « TERRAIN (formation) »
+  (`NOM_CAISSE_TERRAIN`, `estNomCaisseChantier`) — rien à migrer, rien à coller.
+- **Tout l'argent d'un chantier y entre, qui que ce soit qui encaisse** :
+  - **pose seule** : acompte et solde (`encaisserDettePose` n'a plus de
+    `boutiqueEncaissement` ; la question « Encaissé dans quelle boutique ? »
+    est RETIRÉE ; la dette ne change plus de caisse). La confirmation le dit
+    (« rangez-le à part » au comptoir) ;
+  - **une vente issue d'un devis** (`origineDevis`) : la vente garde sa
+    `boutique` (le stock sort de là, le chiffre d'affaires y compte) et porte
+    `caisse` = la caisse CHANTIER de son espace (`caisseChantierDe`) ; à
+    crédit, sa dette naît dans la caisse CHANTIER avec `boutique_vente`.
+    `caisseDeVente(v)` (= `v.caisse || v.boutique`) est LA règle lue par le
+    tiroir (`mouvementsEspeces`), la clôture (`ventesDuJour`,
+    `joursAClôturer`), les comptes mobiles et la reprise (le remboursement
+    sort de la caisse qui a reçu).
+- **Le tiroir d'une boutique ne garde que les ventes du comptoir.** La liste
+  de 💰 Ventes montre toujours la vente de devis, avec « caisse 🏗 CHANTIER »
+  sous le paiement ; la bande noire d'un versement la dit à part (« 🏗 Devis
+  encaissés dans la caisse CHANTIER : … — pas dans ce tiroir »). 📋 Dettes de
+  la boutique du devis liste ses dettes de chantier (`boutiqueDuDocument` :
+  `boutique_vente`, `boutique_pose`, sinon `boutique`), badge « caisse 🏗
+  CHANTIER » ; le reçu porte la fiche de la boutique du devis.
+- **Clôture FACULTATIVE** (sa décision) : `joursAClôturer` rend [] pour une
+  caisse `terrain` — rien ne bloque, la tournée de 7 h n'en parle pas ; on
+  peut la clôturer et la verser (gérant, administrateur) comme une autre.
+- ⚠ **Ce qui reste comme avant** : les dossiers d'AVANT (la dette de POUDAMA
+  est dans DEMAKPOE : ses 354 000 F y sont comptés, les 900 F restants y
+  iront aussi) ; un paiement de devis par Flooz / Mixx compte dans le compte
+  mobile de la caisse CHANTIER (régler ses numéros dans ⚙ Paramètres) ;
+  🛠 Travaux à crédit n'est PAS concerné (non demandé).
+- Banc (`verifier-cloisonnement`, 9 contrôles), éprouvé en remettant sept
+  fautes (tiroir, clôture, mobile, bande, pose, dettes, vente) : chacune
+  tombe. Contrôles RETOURNÉS : l'import de versements.js, la question de
+  ClientsInstalles, `libellePastille` ; deux de `verifier-whatsapp` (le geste
+  commun, 🧾 Commandes). Chapitres 5, 6, 7, 13, 15, 22, 23 à jour.
 
 ### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES, 📋 TOUS LES DEVIS ET 🧲 PROSPECTS (05/10/2026, « Lance, revenir à Toutes périodes »)
 - Captures Timo : « pas de filtration de période dans ces écrans ». LE filtre
@@ -3762,11 +3812,13 @@ lit mal est pire qu'un banc absent).
   **`lib/poseSeule.js`**, geste écrit UNE fois **`components/encaissementPose.js`**.
 - **La dette de pose naît avec son acompte** (`validationDevis.js`) :
   `pose_seule`, `acompte_attendu` = 70 % du total (`acomptePose`),
-  `boutique_pose` = la boutique du DEVIS. Toujours dans la caisse TERRAIN ;
-  elle suit la caisse qui encaisse. Un devis corrigé recalcule l'acompte.
+  `boutique_pose` = la boutique du DEVIS. Toujours dans la caisse TERRAIN
+  (🏗 CHANTIER). ~~elle suit la caisse qui encaisse~~ — **RETOURNÉ le
+  08/10/2026** : la dette ne bouge plus, tout versement entre dans la caisse
+  CHANTIER (§ « 🏗 LA CAISSE CHANTIER »). Un devis corrigé recalcule l'acompte.
 - **Les 70 % se voient à DEUX endroits, c'est UNE dette** : 🧾 Commandes de
-  la boutique du devis (bloc « 🔧 Poses à encaisser », argent dans CETTE
-  boutique ; la pastille de l'onglet compte les acomptes attendus, sauf chez
+  la boutique du devis (bloc « 🔧 Poses à encaisser » ; ~~argent dans CETTE
+  boutique~~ — depuis le 08/10/2026, dans la caisse 🏗 CHANTIER ; la pastille de l'onglet compte les acomptes attendus, sauf chez
   l'administrateur) et le chantier dans 🏠 Clients installés (le chef sur le
   terrain, caisse TERRAIN). Le premier qui encaisse ferme pour tout le monde.
   Qui : chef de CE chantier, vendeur, **gérant**, resp. commercial, admin

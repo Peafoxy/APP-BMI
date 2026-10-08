@@ -31,7 +31,7 @@
 // UNE règle, pure (le banc l'exerce). Serveur : securite-15.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core.js";
-import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT } from "./constants.js";
+import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT, libelleCaisse } from "./constants.js";
 
 export { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees };
 
@@ -85,7 +85,7 @@ export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee, { avecComptable
   const noms = [...(nomsBoutiques || [])];
   const ordonnes = boutiqueRegardee && noms.includes(boutiqueRegardee) ? [boutiqueRegardee, ...noms.filter((n) => n !== boutiqueRegardee)] : noms;
   return [
-    ...ordonnes.map((n) => [codeCaisse(n), `La caisse de ${n}`]),
+    ...ordonnes.map((n) => [codeCaisse(n), `La caisse de ${libelleCaisse(n)}`]),
     ...(fonds?.possible ? [[PAYE_AVEC_FONDS, `Le fonds de caisse (l'enveloppe${boutiqueRegardee ? ` de ${boutiqueRegardee}` : ""})`]] : []),
     [PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"],
     [PAYE_AVEC_DG, "De l'argent remis par le DG"],

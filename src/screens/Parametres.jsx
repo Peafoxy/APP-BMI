@@ -407,7 +407,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // sans « En faire un magasin », ni suppression, ni loyer, ni logo.
   const boutiquesDuTableau = boutiquesDeLEcran.filter((b) => !b.terrain);
   const caissesTerrain = boutiquesDeLEcran.filter((b) => b.terrain);
-  const MOTIF_TERRAIN = "La caisse de terrain n'est pas une boutique : elle reçoit les encaissements faits sur les chantiers. Ce geste ne la concerne pas.";
+  const MOTIF_TERRAIN = "La caisse 🏗 CHANTIER n'est pas une boutique : elle reçoit l'argent des chantiers (poses seules, ventes issues d'un devis). Ce geste ne la concerne pas.";
   const [accueilTexte, setAccueilTexte] = useState(boutiqueRef.accueil_texte || "");
   const [accueilBadge, setAccueilBadge] = useState(boutiqueRef.accueil_couleur_badge || "#0284c7");
   const [accueilFond, setAccueilFond] = useState(boutiqueRef.accueil_couleur_fond || "#ffffff");
@@ -1743,8 +1743,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       </div>
       {caissesTerrain.map((b) => (
         <div key={b.id} data-ligne={b.id} data-caisse-terrain className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <div className="font-bold text-slate-800">🚐 Caisse de terrain <Badge boutique={b.nom} /></div>
-          <div className="text-xs text-slate-600 mt-1">Ce n'est pas une boutique : elle reçoit les encaissements faits sur les chantiers (les poses seules et leurs versements). On n'y vend rien et elle n'a pas de stock.</div>
+          <div className="font-bold text-slate-800">Caisse des chantiers <Badge boutique={b.nom} /></div>
+          <div className="text-xs text-slate-600 mt-1">Ce n'est pas une boutique : elle reçoit l'argent des chantiers — les poses seules et leurs versements, et les ventes issues d'un devis (le stock sort de la boutique, l'argent entre ici), qui que ce soit qui encaisse. On n'y vend rien et elle n'a pas de stock. Sa clôture est facultative : rien n'est bloqué, aucun rappel.</div>
           {b.formation && <div className="text-xs font-bold mt-1 text-amber-700">🎓 Formation — jamais dans les chiffres réels</div>}
           <div className="text-xs text-slate-600 mt-2 space-y-0.5">
             <div>

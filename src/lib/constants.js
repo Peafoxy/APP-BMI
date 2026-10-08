@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.491";
+export const VERSION = "2.101.492";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -200,6 +200,27 @@ export const depensesComptees = (liste) => horsVersements(liste).filter((x) => x
 // compterait une SECONDE fois — elle reste une dépense partout ailleurs, elle
 // sort seulement du calcul de ce résultat.
 // « Commande en Chine » aussi : c'est l'achat de la marchandise (Timo, 07/10/2026).
+// ---- 🏗 LA CAISSE CHANTIER (Timo, 08/10/2026 : « même terrain là devient
+// caisse chantier… donc l'argent des chantiers y passe » → « lance l'étape 1,
+// clôture facultative ») ----
+// La caisse TERRAIN garde son NOM dans la base (dettes, dépenses, versements,
+// clôtures la désignent par lui : la renommer réécrirait tout) ; à l'écran
+// elle s'appelle CHANTIER. Tout l'argent d'un chantier y entre : les poses
+// seules, et les ventes issues d'un devis (la vente reste dans SA boutique
+// pour le stock et le chiffre d'affaires, seul l'argent part — `caisse`).
+export const NOM_CAISSE_TERRAIN = "TERRAIN";
+export const NOM_CAISSE_TERRAIN_FORMATION = "TERRAIN (formation)";
+export const estNomCaisseChantier = (nom) => nom === NOM_CAISSE_TERRAIN || nom === NOM_CAISSE_TERRAIN_FORMATION;
+export const LIBELLE_CAISSE_CHANTIER = "🏗 CHANTIER";
+export const libelleCaisse = (nom) => (nom === NOM_CAISSE_TERRAIN ? LIBELLE_CAISSE_CHANTIER
+  : nom === NOM_CAISSE_TERRAIN_FORMATION ? `${LIBELLE_CAISSE_CHANTIER} (formation)` : (nom || ""));
+// La caisse où l'argent d'une vente est entré (sa boutique, sauf une vente
+// issue d'un devis encaissée dans la caisse CHANTIER).
+export const caisseDeVente = (v) => v?.caisse || v?.boutique;
+// La boutique où une dette se suit (📋 Dettes) et dont elle porte l'en-tête :
+// celle de la vente ou du devis, même quand son argent entre dans CHANTIER.
+export const boutiqueDuDocument = (d) => d?.boutique_vente || d?.boutique_pose || d?.boutique;
+
 export const CATEGORIES_ACHAT_STOCK = ["Achat marchandises", "Commande en Chine"];
 export const horsAchatsDeStock = (liste) => (liste || []).filter((x) => !CATEGORIES_ACHAT_STOCK.includes(x?.categorie));
 

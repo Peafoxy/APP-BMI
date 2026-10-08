@@ -351,11 +351,12 @@ export function CommandesRecues({ db, save, profile, onValider }) {
   // 🔧 Les POSES SEULES de cette boutique (Timo, 29/09/2026, option « c ») :
   // les 70 % d'acompte de l'article 4, puis les 30 % du solde. C'est la MÊME
   // dette que sur le chantier (🏠 Clients installés) : le premier qui encaisse
-  // ferme pour tout le monde. L'argent tombe dans la caisse de CETTE boutique.
+  // ferme pour tout le monde. 🏗 L'argent entre dans la caisse CHANTIER
+  // (08/10/2026), pas dans le tiroir de cette boutique : on le range à part.
   const [noteRecuWa, setNoteRecuWa] = useState("");
   const poses = boutique ? posesAEncaisser(db.dettes, db.clients_installes, boutique) : [];
   const encaisserPose = async (p) => {
-    const note = await encaisserDettePose({ db, save, profile, chantier: p.chantier, boutiqueEncaissement: boutique, enBoutique: true });
+    const note = await encaisserDettePose({ db, save, profile, chantier: p.chantier, enBoutique: true });
     if (note !== null) setNoteRecuWa(note);
   };
 
@@ -371,7 +372,7 @@ export function CommandesRecues({ db, save, profile, onValider }) {
       {poses.length > 0 && (
         <div className="bg-white rounded-xl border border-emerald-200 shadow-sm overflow-x-auto" data-poses-a-encaisser>
           <div className="px-4 py-3 font-bold text-slate-800 border-b border-emerald-200 bg-emerald-50 flex items-center gap-2">🔧 Poses à encaisser <Badge boutique={boutique} /><span className="text-sm font-normal text-slate-500">({poses.length})</span></div>
-          <div className="px-4 pt-2 text-xs text-slate-500">Contrat de pose : {ACOMPTE_POSE_PCT} % avant les travaux (l'installation ne se programme pas avant), le reste à la signature du PV. Le client peut aussi payer sur le terrain, au chef de chantier.</div>
+          <div className="px-4 pt-2 text-xs text-slate-500">Contrat de pose : {ACOMPTE_POSE_PCT} % avant les travaux (l'installation ne se programme pas avant), le reste à la signature du PV. Le client peut aussi payer sur le terrain, au chef de chantier. 🏗 L'argent reçu entre dans la caisse CHANTIER, pas dans le tiroir de la boutique : rangez-le à part.</div>
           <div className="divide-y divide-slate-100">
             {poses.map((p) => (
               <div key={p.dette.id} className="px-4 py-3 flex flex-wrap items-center gap-3">

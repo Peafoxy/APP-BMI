@@ -30,7 +30,7 @@
 import { CATEGORIE_VERSEMENT, estFondsCaisseRemis, deuxPoches, etatFondsCaisse, montantEncaisseVente } from "./versements.js";
 // L'ordre des moyens de paiement : celui de la liste de l'application, pour
 // que le bloc « Ventes du jour » se lise toujours dans le même ordre.
-import { PAIEMENTS } from "./constants.js";
+import { PAIEMENTS, caisseDeVente } from "./constants.js";
 // Timo (12/09/2026) : une dépense en attente de validation ne compte pas dans
 // le tiroir ; une avance personnelle ou l'argent du DG n'en sortent jamais.
 import { compteDansLaCaisse } from "./validationDepenses.js";
@@ -121,7 +121,9 @@ export const phraseDuJour = (totalVendu, attenduTiroir, fmt = (x) => String(x)) 
 
 export function activiteDuJour(db, boutique, date, totalVente) {
   const d0 = String(date).slice(0, 10);
-  const ventesDuJour = (db.ventes || []).filter((v) => v.boutique === boutique && String(v.date).slice(0, 10) === d0);
+  // 🏗 Les ventes dont l'argent est entré dans CETTE caisse (une vente issue
+  // d'un devis compte dans la caisse CHANTIER, pas dans sa boutique).
+  const ventesDuJour = (db.ventes || []).filter((v) => caisseDeVente(v) === boutique && String(v.date).slice(0, 10) === d0);
   // Les deux poches : ce qui s'est passé CE JOUR, et où en est le tiroir ce
   // soir-là et la veille au soir.
   const jour = deuxPoches(db, boutique, totalVente, { du: d0, au: d0 });
@@ -274,8 +276,11 @@ export function messageClotureDepassee(d, fmt = (x) => String(x), dFR = (x) => x
 // Les jours PASSÉS (avant `aujourdhui`), actifs, sans clôture, du plus ancien
 // au plus récent — depuis DEBUT_REGLE_CLOTURE.
 export function joursAClôturer(db, boutique, aujourdhui, totalVente) {
+  // 🏗 La caisse CHANTIER : clôture FACULTATIVE (Timo, 08/10/2026) — elle ne
+  // vend rien en direct, rien à bloquer, aucun rappel du matin.
+  if ((db.boutiques || []).find((b) => b.nom === boutique)?.terrain) return [];
   const jours = new Set();
-  (db.ventes || []).forEach((v) => { if (v.boutique === boutique) jours.add(String(v.date)); });
+  (db.ventes || []).forEach((v) => { if (caisseDeVente(v) === boutique) jours.add(String(v.date)); });
   (db.dettes || []).forEach((d) => { if (d.boutique === boutique) (d.paiements || []).forEach((p) => { if ((p.paiement || "Espèces") === "Espèces") jours.add(String(p.date)); }); });
   return [...jours]
     .filter((j) => j >= DEBUT_REGLE_CLOTURE && j < String(aujourdhui) && !estCloturee(db, boutique, j))

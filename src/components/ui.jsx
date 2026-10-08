@@ -9,7 +9,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { col, light, moyensProposes } from "../lib/core";
-import { LOGO } from "../lib/constants";
+import { LOGO, libelleCaisse } from "../lib/constants";
 import { libelleBanque } from "../lib/banques";
 import { coches } from "../lib/suiviEnvoi";
 import { genererPDF } from "../pdf";
@@ -282,7 +282,7 @@ export const IconeEmpreinte = ({ taille = 30 }) => (
   </svg>
 );
 export const Badge = ({ boutique }) => (
-  <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: col(boutique) }}>{boutique}</span>
+  <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: col(boutique) }}>{libelleCaisse(boutique)}</span>
 );
 
 export const Panel = ({ boutique, children }) => (

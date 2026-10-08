@@ -6140,7 +6140,8 @@ titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « 
     // (`estMoyenMobile`, `mobileParMoyen`). Ce qui est protégé est le même :
     // la catégorie est IMPORTÉE puis RÉEXPORTÉE — jamais `export { x } from`
     // seul, qui ne crée aucune variable locale (piège touché deux fois).
-    && /import \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen \} from "\.\/constants\.js";\n[^]*?export \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
+    // ⚠ RETOURNÉ le 08/10/2026 : l'import porte aussi `caisseDeVente` (la caisse CHANTIER).
+    && /import \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen, caisseDeVente \} from "\.\/constants\.js";\n[^]*?export \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
   const dbJ = { ...base(), ventes: [], dettes: [],
     depenses: [{ id: "j1", boutique: "APESSITO", montant: 252299, date: "2026-09-10", categorie: "Versement de fonds", paiement: "Espèces", versement: { destination: "Chez le DG" } },
                { id: "j2", boutique: "APESSITO", montant: 1, date: "2026-09-10", categorie: "Transport", paiement: "Espèces" }] };
@@ -6230,7 +6231,11 @@ titre("⚠ La liste des articles à réapprovisionner (Timo, 10/09/2026)");
     const ci = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
     test("★ encaisser une pose / remettre un cadeau : seules les boutiques de vente de l'espace du chantier (jamais la formation sur un chantier réel, jamais TERRAIN ni un dépôt), et ClientsInstalles ne lit plus la liste brute",
       noms === "BMI DEMAKPOE|BMI APESSITO" && !/boutiquesVente\(db\)/.test(ci)
-      && (ci.match(/boutiquesVenteDuChantier\(db, profile, c\)/g) || []).length === 2);
+      // ⚠ RETOURNÉ le 08/10/2026 (caisse CHANTIER, étape 1) : encaisser une pose
+      // ne demande plus de boutique — l'argent entre dans la caisse CHANTIER ;
+      // seul le cadeau lit encore la liste des boutiques du chantier.
+      && (ci.match(/boutiquesVenteDuChantier\(db, profile, c\)/g) || []).length === 1
+      && !/Encaissé dans quelle boutique/.test(ci));
   }
   // 🧱 RÈGLE GÉNÉRALE (29/09/2026, Timo : « tu étais sûr que côté argent tout
   // était cloisonné… mais nous voici ») : AUCUN écran ne lit la liste BRUTE des
@@ -7227,7 +7232,7 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     ck.totalEntrees === 70000 && ck.totalSorties === 15000 && ck.solde === 55000 && ck.aEncaisser === 20000 && ck.aRemettre === 40000 && ck.mouvements.map((m) => m.id).join("|") === "s1|m1"
     && /encaissé le 11\/09\/2026 par MARIE/.test(ck.entrees[0].libelle) && Cg.CAISSE_COMPTABLE === "Chez le comptable"
     // « séparer chacun… avoir les onglets DG, BANQUE et COMPTABLE » : trois pastilles, leurs libellés.
-    && Cg.libellePastille("Chez le DG") === "👤 DG" && Cg.libellePastille("BANQUE") === "🏦 BANQUE" && Cg.libellePastille("Chez le comptable") === "🧾 COMPTABLE" && Cg.libellePastille("TERRAIN", "TERRAIN") === "🏕 TERRAIN" && Cg.libellePastille("APESSITO", "TERRAIN") === "APESSITO");
+    && Cg.libellePastille("Chez le DG") === "👤 DG" && Cg.libellePastille("BANQUE") === "🏦 BANQUE" && Cg.libellePastille("Chez le comptable") === "🧾 COMPTABLE" && Cg.libellePastille("TERRAIN", "TERRAIN") === "🏗 CHANTIER" /* RETOURNÉ le 08/10/2026 : TERRAIN s'affiche CHANTIER */ && Cg.libellePastille("APESSITO", "TERRAIN") === "APESSITO");
   const appCg = readFileSync("src/App.jsx", "utf8");
   const dashCg = readFileSync("src/screens/Dashboard.jsx", "utf8");
   const carteCg = readFileSync("src/components/CarteCaisse.jsx", "utf8");
@@ -13706,6 +13711,68 @@ titre("💸 Ventes : la bande noire d'un versement et le résumé des ventes dep
     /💸 Versement du 06\/10\/2026 à 11:00 — 40 000 F → Chez le DG/.test(hB) && /⏳ en attente/.test(hB)
     && /Depuis le versement précédent : 3 ventes — Espèces 10 000 F · À crédit 50 000 F \(dont 20 000 F d&#x27;avance\) · Flooz 5 000 F/.test(hB)
     && /➕ Dettes réglées en espèces : 7 000 F/.test(hB) && /Depuis le début : 1 vente — Espèces 1 000 F/.test(hB));
+}
+
+titre("🏗 La caisse CHANTIER (08/10/2026, « lance l'étape 1, clôture facultative ») : l'argent des chantiers n'entre plus dans le tiroir d'une boutique");
+{
+  const K8 = await import(pathToFileURL("src/lib/constants.js").href);
+  const C8 = await import(pathToFileURL("src/lib/core.js").href);
+  const V8 = await import(pathToFileURL("src/lib/versements.js").href);
+  const L8 = await import(pathToFileURL("src/lib/cloture.js").href);
+  const R8 = await import(pathToFileURL(join(process.cwd(), "src/lib/rappels.js")).href);
+  const BV8 = await import(pathToFileURL("src/lib/bandesVersement.js").href);
+  const sortieMo8 = join("node_modules", ".cache", `bmi-mobiles-8-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/caissesMobiles.js"], bundle: true, format: "esm", platform: "node", outfile: sortieMo8, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const Mo8 = await import(pathToFileURL(sortieMo8).href);
+  try { unlinkSync(sortieMo8); } catch {}
+  test("★ TERRAIN s'affiche « 🏗 CHANTIER » (sa jumelle « 🏗 CHANTIER (formation) »), le nom rangé dans la base ne change pas ; une boutique garde son nom",
+    K8.libelleCaisse("TERRAIN") === "🏗 CHANTIER" && K8.libelleCaisse("TERRAIN (formation)") === "🏗 CHANTIER (formation)" && K8.libelleCaisse("BMI DEMAKPOE") === "BMI DEMAKPOE"
+    && K8.NOM_CAISSE_TERRAIN === "TERRAIN" && C.NOM_BOUTIQUE_TERRAIN === "TERRAIN");
+  const hier8 = "2026-10-06", auj8 = "2026-10-07";
+  const art8 = (pu) => [{ produit_id: "p1", article: "Panneau", qte: 1, pu }];
+  const db8 = {
+    boutiques: [{ id: "b1", nom: "BMI DEMAKPOE" }, { id: "bt", nom: "TERRAIN", terrain: true }],
+    users: [{ id: "a", nom: "TIMO", role: "admin", admin_principal: true }],
+    ventes: [
+      { id: "vc", numero: "BMID-1", date: hier8, heure: "09:00", boutique: "BMI DEMAKPOE", paiement: "Espèces", articles: art8(10000), par: "ANGELE" },
+      { id: "vd", numero: "BMID-2", date: hier8, heure: "10:00", boutique: "BMI DEMAKPOE", caisse: "TERRAIN", paiement: "Espèces", articles: art8(500000), frais_installation: 50000, par: "ANGELE" },
+      { id: "vf", numero: "BMID-3", date: hier8, heure: "11:00", boutique: "BMI DEMAKPOE", caisse: "TERRAIN", paiement: "Mobile Money (Flooz)", articles: art8(30000), par: "ANGELE" },
+    ],
+    dettes: [{ id: "dp", boutique: "TERRAIN", boutique_pose: "BMI DEMAKPOE", pose_seule: true, montant: 354900, paye: 354000, paiements: [{ date: hier8, heure: "12:00", montant: 354000, paiement: "Espèces" }] }],
+    depenses: [{ id: "vv", date: hier8, boutique: "BMI DEMAKPOE", categorie: V8.CATEGORIE_VERSEMENT, montant: 5000, paiement: "Espèces", par: "ANGELE", versement: { id: "x", destination: "Chez le DG", source: "Espèces", montant: 5000, heure: "18:00" } }],
+    clotures: [], produits: [{ id: "p1", nom: "Panneau", boutique: "BMI DEMAKPOE" }],
+  };
+  test("★★ le tiroir de la boutique ne compte plus l'argent d'un devis ni d'une pose : DEMAKPOE = 10 000 − 5 000 versés ; la caisse CHANTIER = 550 000 (devis, frais compris) + 354 000 (pose)",
+    V8.fondsAVerser(db8, "BMI DEMAKPOE", C8.totalVente).montant === 5000 && V8.fondsAVerser(db8, "TERRAIN", C8.totalVente).montant === 904000
+    && K8.caisseDeVente(db8.ventes[1]) === "TERRAIN" && K8.caisseDeVente(db8.ventes[0]) === "BMI DEMAKPOE");
+  test("★★ clôture FACULTATIVE pour la caisse CHANTIER : aucun jour à clôturer, aucun blocage, aucun rappel du matin — et la boutique n'a pas à clôturer pour un devis encaissé dans CHANTIER",
+    L8.joursAClôturer(db8, "TERRAIN", auj8, C8.totalVente).length === 0 && L8.motifBlocageVente(db8, "TERRAIN", auj8, C8.totalVente) === ""
+    && L8.joursAClôturer({ ...db8, ventes: [db8.ventes[1]], depenses: [] }, "BMI DEMAKPOE", auj8, C8.totalVente).length === 0
+    && L8.joursAClôturer(db8, "BMI DEMAKPOE", auj8, C8.totalVente).join() === hier8
+    && !R8.rappelsDuMatin(db8, auj8).some((e) => /TERRAIN|CHANTIER/.test(JSON.stringify(e))));
+  test("★ la clôture (facultative) de la caisse CHANTIER montre les ventes de devis du jour ; celle de la boutique ne les montre pas",
+    L8.activiteDuJour(db8, "TERRAIN", hier8, C8.totalVente).moyens.lignes.some((l) => l.moyen === "Mobile Money (Flooz)" && l.vendu === 30000)
+    && !L8.activiteDuJour(db8, "BMI DEMAKPOE", hier8, C8.totalVente).moyens.lignes.some((l) => l.moyen === "Mobile Money (Flooz)")
+    && L8.activiteDuJour(db8, "BMI DEMAKPOE", hier8, C8.totalVente).especesVentes === 10000
+    && L8.activiteDuJour(db8, "TERRAIN", hier8, C8.totalVente).especesVentes === 550000);
+  test("★ Flooz : une vente de devis payée par Flooz entre dans le compte Flooz de la caisse CHANTIER, pas de la boutique",
+    Mo8.mouvementsMobile(db8, "Mobile Money (Flooz)", ["TERRAIN"]).totalEntrees === 30000 && Mo8.mouvementsMobile(db8, "Mobile Money (Flooz)", ["BMI DEMAKPOE"]).totalEntrees === 0);
+  const b8 = BV8.bandesDeVersement(db8, "BMI DEMAKPOE", C8.totalVente)[0] || {};
+  test("★ la bande noire de la boutique dit à part les devis encaissés dans la caisse CHANTIER (2 ventes, 580 000) : son résumé ne compte que la vente du comptoir",
+    b8.nbVentes === 1 && b8.chantier?.nb === 2 && b8.chantier?.montant === 580000 && b8.reglesEspeces === 0);
+  const ve8 = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const ep8 = readFileSync("src/components/encaissementPose.js", "utf8");
+  const de8 = readFileSync("src/screens/Dettes.jsx", "utf8");
+  test("★★ 💰 Ventes : une vente issue d'un devis porte `caisse` = la caisse CHANTIER de son espace, sa dette vit dans cette caisse et se suit dans sa boutique (`boutique_vente`)",
+    /const caisseVente = origineDevis \? caisseChantierDe\(db, boutique\) : null;/.test(ve8) && /\.\.\.\(caisseVente \? \{ caisse: caisseVente \} : \{\}\)/.test(ve8)
+    && /boutique: caisseVente \|\| boutique, \.\.\.\(caisseVente \? \{ boutique_vente: boutique \} : \{\}\)/.test(ve8)
+    && C.caisseChantierDe({ boutiques: [{ nom: "DFORMATION", formation: true }] }, "DFORMATION") === "TERRAIN (formation)" && C.caisseChantierDe(db8, "BMI DEMAKPOE") === "TERRAIN");
+  test("★★ une pose seule ne change plus de caisse à l'encaissement (plus de question « quelle boutique ? ») : l'argent reste dans la caisse de la dette ; 📋 Dettes la suit dans la boutique de son devis",
+    !/boutiqueEncaissement/.test(ep8) && /const detteApres = \{ \.\.\.dette, paye:/.test(ep8)
+    && /\(x\.boutique === boutique \|\| boutiqueDuDocument\(x\) === boutique\) && !estReservation\(x\)/.test(de8)
+    && K8.boutiqueDuDocument(db8.dettes[0]) === "BMI DEMAKPOE" && K8.boutiqueDuDocument({ boutique: "TERRAIN", boutique_vente: "BMI APESSITO" }) === "BMI APESSITO");
+  test("★ le remboursement d'une reprise sort de la caisse où l'argent de la vente est entré",
+    /nouvelleDepense\(profile, \{ boutique: caisseDeVente\(vente\), categorie: CATEGORIE_REMBOURSEMENT/.test(readFileSync("src/lib/reprises.js", "utf8")));
 }
 
 // 🔄 LA SYNCHRONISATION NE COMPARE PLUS DEUX HORLOGES (07/10/2026, facture 0043 de SENA :

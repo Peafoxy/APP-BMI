@@ -10,7 +10,7 @@ import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfi
 // Timo (12/09/2026) : la clôture est impossible tant qu'une dépense en
 // espèces attend la validation du DG ; les avances de frais se remboursent ici.
 import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
-import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE, periodes } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE, periodes, libelleCaisse } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee, phraseDuJour } from "../lib/cloture";
@@ -266,7 +266,7 @@ export function Caisse({ db, save, profile }) {
                 const retard = joursAClôturer(db, l.boutique, aujourdhui, totalVente).length;
                 return (
                   <tr key={l.boutique} className="border-t border-slate-100">
-                    <td className="px-3 py-2"><div className="font-semibold text-slate-800">{l.boutique}</div>{retard > 0 && <div className="text-xs font-bold text-red-600">⚠ {retard} jour{retard > 1 ? "s" : ""} sans clôture</div>}</td>
+                    <td className="px-3 py-2"><div className="font-semibold text-slate-800">{libelleCaisse(l.boutique)}</div>{retard > 0 && <div className="text-xs font-bold text-red-600">⚠ {retard} jour{retard > 1 ? "s" : ""} sans clôture</div>}</td>
                     <td className={`px-3 py-2 tabular-nums text-right font-bold ${l.solde < 0 ? "text-red-600" : ""}`}>{fmt(l.fondsFixe > 0 ? l.aVerser : l.solde)}{l.fondsFixe > 0 && <div className="text-xs font-normal text-slate-400">solde {fmt(l.solde)}</div>}{l.dernierVersement && <div className="text-xs font-normal text-slate-400">dernier versement le {dFR(l.dernierVersement)}</div>}</td>
                     <td className={`px-3 py-2 tabular-nums text-right ${l.fondsPlafond > 0 && l.resteFonds < l.fondsPlafond ? "text-amber-700 font-bold" : ""}`}>{l.fondsPlafond > 0 ? fmt(l.resteFonds) : "—"}{l.fondsPlafond > 0 && <div className="text-xs font-normal text-slate-400">gardé à part{l.resteFonds < l.fondsPlafond ? ` · entamé de ${fmt(l.fondsPlafond - l.resteFonds)}` : " · intact"}</div>}{l.fondsPlafond === 0 && l.fondsFixe > 0 && <div className="text-xs font-normal text-red-700">réglé {fmt(l.fondsFixe)}, jamais remis</div>}{l.fondsRemis > 0 && <div className="text-xs font-normal text-slate-400">remis par le DG {fmt(l.fondsRemis)}</div>}</td>
                     <td className="px-3 py-2 tabular-nums text-right">{fmt(l.verse)}<div className="text-xs text-slate-400">ce mois {fmt(l.verseCeMois)}{l.verseEnAttente > 0 ? <span className="text-amber-700"> · en attente {fmt(l.verseEnAttente)}</span> : null}</div></td>

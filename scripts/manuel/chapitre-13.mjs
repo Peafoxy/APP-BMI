@@ -132,7 +132,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Dans son espace", texte: "Le client lit son devis. S'il lui convient, il choisit **la boutique où il viendra payer**, puis **✅ JE VALIDE** : le contrat s'affiche, il le **signe du doigt**, et choisit comment il réglera le solde s'il en reste un (plan de règlement)." },
         { titre: "Ce qui naît", texte: "Le devis passe **✅ Validé**, et une **commande en attente** apparaît dans 🧾 Commandes de la boutique choisie : le vendeur l'encaisse dans 💰 Ventes (chapitre 5). Le chantier se crée **à l'encaissement**." },
-        { titre: "Pose seule", texte: "Pas de boutique à choisir : le chantier et la dette naissent **à la signature**. **70 % sont à régler avant que l'intervention soit programmée**, le solde à la réception des travaux." },
+        { titre: "Pose seule", texte: "Pas de boutique à choisir : le chantier et la dette naissent **à la signature**. **70 % sont à régler avant que l'intervention soit programmée**, le solde à la réception des travaux. L'argent entre dans la caisse **🏗 CHANTIER**, qui que ce soit qui encaisse." },
         { titre: "Le plan de règlement", texte: "S'il en propose un, il apparaît en tête du devis ouvert (« 💰 Plan de règlement proposé par le client — en attente ») avec l'engagement du contrat. **L'administrateur principal** l'accepte ou le rejette (motif demandé ; le client le lit et peut en proposer un autre)." },
         { titre: "Il peut aussi…", texte: "**✏️ Demander une modification** (son texte s'affiche sur le devis, statut « Modification demandée ») ou **❌ Rejeter ce devis** (il dit pourquoi)." },
       ]],

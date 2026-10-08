@@ -10,7 +10,7 @@ import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
-import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, espaceDeLaDette, boutiqueRetenue, compteClientPour, refuserSaufAdmin } from "../lib/calculs";
+import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, espaceDeLaDette, boutiqueRetenue, compteClientPour, refuserSaufAdmin, boutiqueDuDocument, estNomCaisseChantier, libelleCaisse } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
@@ -86,10 +86,12 @@ export function Dettes({ db, save, profile }) {
     // ⚠ Demande Timo : un reçu sort à CHAQUE versement, reprenant tout
     // l'historique cumulé (pas seulement celui du jour) — et devient
     // automatiquement le reçu DÉFINITIF si ce versement solde la dette.
-    imprimerRecuVersement(dApres, db.boutiques.find((b) => b.nom === d.boutique) || {});
+    imprimerRecuVersement(dApres, bqDe(boutiqueDuDocument(d)));
     // 🧾 Le reçu du versement part du numéro BMI (Timo, 25/09/2026), tout
     // seul. ⚠ Le mur : l'espace de la BOUTIQUE de la dette.
-    const bqD = bqDe(dApres.boutique);
+    // Le reçu porte la boutique de la vente ou du devis (son téléphone) ; le
+    // mur, l'espace de la caisse où l'argent entre (CHANTIER suit l'espace).
+    const bqD = { ...bqDe(boutiqueDuDocument(dApres)), formation: !!bqDe(dApres.boutique).formation || !!bqDe(boutiqueDuDocument(dApres)).formation };
     setNoteRecuWa(await envoyerRecuSansQuestion({
       envoi: envoiRecuReglement({ dette: dApres, versement: paiement, boutique: bqD, fmt, dFR, numeroDe: numeroRecuDette }),
       tel: dApres.tel, nom: dApres.client, espaceFormation: !!bqD.formation, save, profile, ref: { dette_id: dApres.id },
@@ -296,7 +298,9 @@ export function Dettes({ db, save, profile }) {
     }
   };
 
-  const liste = db.dettes.filter((x) => x.boutique === boutique && !estReservation(x));
+  // 🏗 Une dette de chantier (pose seule, vente de devis à crédit) vit dans la
+  // caisse CHANTIER mais se SUIT ici, dans la boutique de son devis (08/10/2026).
+  const liste = db.dettes.filter((x) => (x.boutique === boutique || boutiqueDuDocument(x) === boutique) && !estReservation(x));
   // Ce qui est AFFICHÉ. ⚠ Une vieille dette impayée sort de la liste quand on
   // choisit une période : l'argent dû hors de la période se DIT sous le titre
   // (horsPeriode), on ne le perd jamais de vue.
@@ -490,7 +494,7 @@ export function Dettes({ db, save, profile }) {
                 <tr key={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`} title={lignes.length > ARTICLES_VISIBLES ? (detteDepliee === d.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
                   {/* Timo (13/09/2026) : la première colonne reste figée (Stocks, Dépenses, Dettes — ordinateur aussi) ; la ligne dépliée garde sa barre bleue.
                       25/09/2026 : « dans Dettes aussi figer le nom du client » — le CLIENT passe en première colonne, la date juste après. */}
-                  <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : ""), detteDepliee === d.id)}`}><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}</td>
+                  <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : ""), detteDepliee === d.id)}`}><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</td>
                   <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(d.date)}</div>{d.numero && <div className="text-xs text-slate-400 font-mono">{d.numero}</div>}</td>
                   <td className="px-3 py-2 min-w-[240px]">{lignes.length ? <ListeArticles lignes={lignes} deplie={detteDepliee === d.id} /> : <span className="text-slate-400">—</span>}</td>
                   <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{fmt(d.montant)}</td>
@@ -512,7 +516,7 @@ export function Dettes({ db, save, profile }) {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex items-center gap-1">
-                      <button onClick={() => imprimerRecuVersement(d, db.boutiques.find((b) => b.nom === d.boutique) || {})} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" aria-label="Imprimer le reçu">🖨</button>
+                      <button onClick={() => imprimerRecuVersement(d, bqDe(boutiqueDuDocument(d)))} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" aria-label="Imprimer le reçu">🖨</button>
                       {st !== "Payée" && (
                         <>
                           <button onClick={() => encaisser(d)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="+ Paiement : enregistrer un versement du client" aria-label="Paiement">💵</button>

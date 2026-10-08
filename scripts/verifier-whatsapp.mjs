@@ -2600,7 +2600,9 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
   const poseCI = CI.slice(CI.indexOf("const encaisserPose = async"), CI.indexOf("const forcerReceptionSansSignature"));
   test("★★ 🏠 Clients installés, un versement : le même reçu, sur la dette APRÈS le versement (geste commun)",
     /envoiRecuReglement\(\{ dette: \{ \.\.\.detteApres, tel: telV \}, versement: paiement,/.test(pose) && /envoyerRecuSansQuestion\(/.test(pose)
-    && /espaceFormation: !!bqV\.formation \|\| !!chantier\.formation/.test(pose)
+    // RETOURNÉ le 08/10/2026 (caisse 🏗 CHANTIER) : l'espace se lit sur la
+    // caisse qui reçoit OU la boutique du document OU le chantier.
+    && /espaceFormation: !!bqCaisse\.formation \|\| !!bqV\.formation \|\| !!chantier\.formation/.test(pose)
     && /encaisserDettePose\(/.test(poseCI) && /setNoteRecuWa\(note\)/.test(poseCI));
   test("★ les trois écrans DISENT ce qui s'est passé, discrètement (jamais une fenêtre)",
     [D, Vt, CI].every((x) => /data-recu-whatsapp/.test(x) && /setNoteRecuWa/.test(x)));
@@ -3295,9 +3297,12 @@ titre("㊲ 🔧 LA POSE SEULE : 70 % AVANT DE PROGRAMMER, 30 % AU PV, LE RAPPEL 
     geste.indexOf("peutEncaisserPose(") > 0 && /\(db\.dettes \|\| \[\]\)\.find\(\(x\) => x\.id === chantier\.dette_id\)/.test(geste)
     && geste.indexOf("peutEncaisserPose(") < geste.indexOf("save("));
   const cmd = sansComm(lire("src/screens/Commandes.jsx"));
-  test("★★ 🧾 Commandes : le bloc des poses de la boutique regardée, l'argent dans CETTE boutique",
+  // RETOURNÉ le 08/10/2026 (« lance l'étape 1 ») : le bloc reste celui de la
+  // boutique du devis, mais l'argent entre dans la caisse 🏗 CHANTIER.
+  test("★★ 🧾 Commandes : le bloc des poses de la boutique regardée, l'argent dans la caisse CHANTIER",
     /posesAEncaisser\(db\.dettes, db\.clients_installes, boutique\)/.test(cmd)
-    && /encaisserDettePose\(\{ db, save, profile, chantier: p\.chantier, boutiqueEncaissement: boutique, enBoutique: true \}\)/.test(cmd)
+    && /encaisserDettePose\(\{ db, save, profile, chantier: p\.chantier, enBoutique: true \}\)/.test(cmd)
+    && !/boutiqueEncaissement/.test(cmd)
     && /data-poses-a-encaisser/.test(cmd));
   test("★ le hook de 🧾 Commandes est posé AVANT le retour anticipé (écran blanc sinon)",
     cmd.indexOf('const [noteRecuWa, setNoteRecuWa] = useState("")') < cmd.indexOf("if (!boutique) return <AucuneBoutique", cmd.indexOf("export function CommandesRecues")));

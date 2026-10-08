@@ -13,7 +13,7 @@ import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rab
 import { envoiVirementSalaire, envoiPrimeInstallationPayee } from "./whatsappModeles";
 import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { mentionVirement, ficheParId } from "./banques";
-import { SALARIES, MOYENS_ENCAISSEMENT } from "./constants";
+import { SALARIES, MOYENS_ENCAISSEMENT, NOM_CAISSE_TERRAIN, NOM_CAISSE_TERRAIN_FORMATION, libelleCaisse, caisseDeVente, boutiqueDuDocument, estNomCaisseChantier } from "./constants";
 import { mettreAuPanier } from "./panier";
 import { TAUX_CNSS_SALARIE } from "./cnss";
 import { uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois } from "../components/ui";
@@ -2463,7 +2463,7 @@ export const magasinsDe = (db) => (db.boutiques || []).filter((b) => b.depot);
 // sans jamais passer par une boutique physique). N'apparaît JAMAIS dans les
 // sélecteurs de boutique classiques (vente, stock…) — seulement dans Caisse
 // et dans le mécanisme d'encaissement dédié aux chantiers "pose seule".
-export const NOM_BOUTIQUE_TERRAIN = "TERRAIN";
+export const NOM_BOUTIQUE_TERRAIN = NOM_CAISSE_TERRAIN;
 // ⚠ La caisse TERRAIN existe en DEUX exemplaires depuis le lot 2 Espace
 // client : une réelle, une d'entraînement. Sans la seconde, un client de
 // FORMATION qui validait un devis « pose seule » créait sa dette dans la
@@ -2471,7 +2471,7 @@ export const NOM_BOUTIQUE_TERRAIN = "TERRAIN";
 // serveur) refusaient à juste titre : l'app proposait ce qu'elle
 // interdisait ensuite, exactement la contradiction relevée par Timo sur
 // les boutiques de formation.
-export const NOM_BOUTIQUE_TERRAIN_FORMATION = "TERRAIN (formation)";
+export const NOM_BOUTIQUE_TERRAIN_FORMATION = NOM_CAISSE_TERRAIN_FORMATION;
 export const boutiqueTerrain = (db, formation = false) =>
   (db.boutiques || []).find((b) => b.terrain && !!b.formation === !!formation) || null;
 // Crée la boutique TERRAIN si elle n'existe pas encore — appelé au moment
@@ -2484,6 +2484,12 @@ export const assurerBoutiqueTerrain = (db, formation = false) => {
     : { id: "b_terrain", nom: NOM_BOUTIQUE_TERRAIN, terrain: true, actif: true };
   return { ...db, boutiques: [...(db.boutiques || []), caisse] };
 };
+
+// 🏗 La caisse CHANTIER (08/10/2026) : celle de l'espace d'une boutique.
+// L'argent d'un chantier y entre, la boutique garde le stock et le CA.
+export { libelleCaisse, caisseDeVente, boutiqueDuDocument, estNomCaisseChantier };
+export const nomCaisseChantier = (formation) => (formation ? NOM_CAISSE_TERRAIN_FORMATION : NOM_CAISSE_TERRAIN);
+export const caisseChantierDe = (db, nomBoutique) => nomCaisseChantier(!!(db.boutiques || []).find((b) => b.nom === nomBoutique)?.formation);
 
 // ============ SOUHAITS DE L'ÉCRAN DE CONNEXION ============
 // ⚠ Demande Timo (20/08/2026) : « du texte qui monte comme les bulles, pour

@@ -19,7 +19,7 @@
 // ⚠ LE MUR : tout est filtré sur le NOM de la boutique regardée (unique dans
 // les deux espaces) — jamais une table parcourue en entier pour autre chose.
 import { estVersement, estRejete, validationVersement, SOURCE_ESPECES, montantEncaisseVente, libelleDestination } from "./versements.js";
-import { PAIEMENTS } from "./constants.js";
+import { PAIEMENTS, caisseDeVente } from "./constants.js";
 
 const CREDIT = "Crédit (dette)";
 // L'ordre de Timo : « vente espèces, à crédit, etc. » — puis les autres moyens
@@ -77,7 +77,12 @@ export function bandesDeVersement(db, boutique, totalVente) {
     const dans = (x) => { const k = cleVente(x); return k > precedente && k <= cle; };
     const par = {};
     let nb = 0, total = 0;
+    // 🏗 Une vente issue d'un devis (08/10/2026) est dans la liste de la
+    // boutique mais son argent est entré dans la caisse CHANTIER : elle est
+    // dite à part, jamais comptée dans ce qui a pu remplir le tiroir.
+    const chantier = { nb: 0, montant: 0 };
     ventes.filter(dans).forEach((v) => {
+      if (caisseDeVente(v) !== boutique) { chantier.nb += 1; chantier.montant += montantEncaisseVente(v, totalVente); return; }
       const moyen = v.paiement || "Espèces";
       const m = montantEncaisseVente(v, totalVente);
       const l = (par[moyen] ||= { moyen, mot: MOT_MOYEN[moyen] || moyen, nb: 0, montant: 0, avance: 0 });
@@ -97,6 +102,7 @@ export function bandesDeVersement(db, boutique, totalVente) {
       nbVentes: nb, totalVentes: total,
       parMoyen: Object.values(par).sort((a, b) => rang(a.moyen) - rang(b.moyen)),
       reglesEspeces,
+      chantier,
     };
   });
   return bandes.reverse();
