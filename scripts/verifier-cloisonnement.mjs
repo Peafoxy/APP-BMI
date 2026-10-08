@@ -4432,7 +4432,16 @@ titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé pl
   // nom (contrôles du bloc « Brouillon sans client » plus bas).
   test("★ le bouton « 📝 Enregistrer un brouillon » est à côté de l'envoi WhatsApp et toujours actif ; AVEC un client choisi, aucune question",
     /<button onClick=\{onBrouillon\} data-brouillon-toujours className=/.test(part) && /📝 Enregistrer un brouillon/.test(part)
-    && /if \(!clientDevis \|\| nouveauVide\) \{/.test(part));
+    && /if \(!clientDevis \|\| nouveauVide \|\| nomSansNumero\) \{/.test(part));
+  // 08/10/2026 (Timo) : reprendre un brouillon SANS compte ramène son nom
+  // dans « ➕ Nouveau client », modifiable ; un compte existant reste choisi.
+  test("★ capture Timo : un brouillon sans compte repris ouvre « Nouveau client » AVEC son nom (modifiable) ; un brouillon d'un compte rouvre ce compte ; rien = rien",
+    DC.clientDeLaReprise({ client: null, brouillon_nom: "WIYAO" }) === "__nouveau__" && DC.nomRepris({ client: null, brouillon_nom: " WIYAO " }) === "WIYAO"
+    && DC.clientDeLaReprise({ client: { id: "c1", nom: "AYOKO" }, brouillon_nom: "X" }) === "c1" && DC.nomRepris({ client: { id: "c1", nom: "AYOKO" } }) === ""
+    && DC.clientDeLaReprise({ client: { nom: "KOFFI", tel: "90" } }) === "__nouveau__" && DC.nomRepris({ client: { nom: "KOFFI" } }) === "KOFFI"
+    && DC.clientDeLaReprise({ client: null, brouillon_nom: "" }) === "" && DC.clientDeLaReprise(null) === ""
+    && /const clientRepris = clientDeLaReprise;/.test(part) && /nom: nomRepris\(r\), entreprise/.test(part)
+    && /uPrompt\("Nom du client \(obligatoire\) :", nouvClient\.nom\.trim\(\) \|\| devisAReprendre\?\.brouillon_nom \|\| ""\)/.test(part));
   test("★ enregistrer un client à moitié saisi exige nom + numéro (sans client : un nom de brouillon), refuse un devis vide et un compte en lecture seule",
     /const enregistrerBrouillon = async \(\{ totalDevis, messageVide, construire \}\) => \{\s*if \(bloquerSiLecture\(db, profile\)\) return;\s*if \(totalDevis <= 0\)/.test(part)
     && /uAlert\("Indiquez le nom et le numéro du client\."\)/.test(part) && /uAlert\("Choisissez d'abord le client\."\)/.test(part));

@@ -159,6 +159,13 @@ export const retirerBrouillon = (db, profileId, id) => ({
 // Le NOM d'un brouillon : le client s'il y en a un, sinon le nom donné.
 export const nomDuBrouillon = (b) => b?.client?.nom || b?.nom || "?";
 export const brouillonSansClient = (b) => !b?.client?.id && !b?.client?.nom;
+// 08/10/2026 (Timo : « quand on reprend un brouillon, le nom sous lequel il
+// était enregistré devrait revenir automatiquement dans nouveau client, avec
+// possibilité de modifier ») : la reprise d'un brouillon SANS compte ouvre
+// « ➕ Nouveau client » avec ce nom ; il reste modifiable, et on peut toujours
+// choisir un compte existant dans la liste.
+export const nomRepris = (r) => (r?.client?.id ? "" : String(r?.client?.nom || r?.brouillon_nom || "").trim());
+export const clientDeLaReprise = (r) => (r?.client?.id ? r.client.id : nomRepris(r) ? "__nouveau__" : "");
 export const critiqueNomBrouillon = (nom) =>
   String(nom || "").trim() ? "" : "Tapez le nom du client (ex. « WIYAO ») : le brouillon se range sous ce nom.";
 // À qui confier : les personnes de la LISTE reçue (déjà filtrée par l'espace

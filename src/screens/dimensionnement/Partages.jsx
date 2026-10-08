@@ -41,7 +41,7 @@ import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../../components/ui"
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives } from "../../lib/calculs";
-import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon } from "./devisCommun";
+import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
 // IMPORTE puis on les RÉEXPORTE : `export { x } from` ne crée pas de nom
@@ -320,14 +320,14 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   // Le client repris : un compte (id), ou seulement un nom + numéro (brouillon
   // d'un client sans compte encore). Réappliqué à chaque nouvelle reprise —
   // avant, chaque volet le refaisait dans son propre effet.
-  const clientRepris = (r) => (r?.client?.id ? r.client.id : (r?.client?.nom ? "__nouveau__" : ""));
+  const clientRepris = clientDeLaReprise;
   // 29/09/2026 : le prénom et l'entreprise cliente suivent le client repris
   // (le devis, sinon le brouillon) — l'entreprise vaut aussi pour un compte.
   const nouvClientRepris = (r) => {
     const entreprise = formulaireDepuisEntreprise(r?.devis?.entreprise || r?.client?.entreprise);
-    return r?.client && !r.client.id
-      ? { nom: r.client.nom || "", prenom: r.client.prenom || r?.devis?.prenom || "", tel: r.client.tel || "", entreprise }
-      : { ...CLIENT_VIDE(), entreprise };
+    if (r?.client && !r.client.id) return { nom: r.client.nom || "", prenom: r.client.prenom || r?.devis?.prenom || "", tel: r.client.tel || "", entreprise };
+    // Un brouillon SANS compte revient avec son nom dans « Nouveau client ».
+    return { ...CLIENT_VIDE(), nom: nomRepris(r), entreprise };
   };
   const [clientDevis, setClientDevis] = useState(() => clientRepris(devisAReprendre));
   const [nouvClient, setNouvClient] = useState(() => nouvClientRepris(devisAReprendre));
@@ -409,9 +409,12 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     // choisi (rien de sélectionné, ou « Nouveau client » laissé vide), on
     // demande « Continuer ? » puis un NOM obligatoire.
     const nouveauVide = clientDevis === "__nouveau__" && !nouvClient.nom.trim() && !nouvClient.tel.trim();
-    if (!clientDevis || nouveauVide) {
+    // Un nom sans numéro (le brouillon repris, pas encore complété) reste un
+    // brouillon sans compte, sous ce nom — jamais un refus.
+    const nomSansNumero = clientDevis === "__nouveau__" && !!nouvClient.nom.trim() && !nouvClient.tel.trim();
+    if (!clientDevis || nouveauVide || nomSansNumero) {
       if (!await uConfirm("Brouillon sans compte client. Continuer ?\n\nTapez seulement le nom du client : son compte se choisit ou se crée en reprenant le brouillon, avant de l'envoyer.")) return;
-      const nom = await uPrompt("Nom du client (obligatoire) :", devisAReprendre?.brouillon_nom || "");
+      const nom = await uPrompt("Nom du client (obligatoire) :", nouvClient.nom.trim() || devisAReprendre?.brouillon_nom || "");
       if (nom === null) return;
       const refus = critiqueNomBrouillon(nom);
       if (refus) { uAlert(refus); return; }

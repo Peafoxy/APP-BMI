@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2362 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2363 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -686,6 +686,10 @@ lit mal est pire qu'un banc absent).
   message le prévient. **Le devis part au nom de celui qui l'envoie** ;
   📋 Tous les devis écrit « préparé par … ». Rien à coller (brouillons_devis
   n'est pas dans la liste « gestion »). Banc (12 contrôles), éprouvé.
+  **Repris, un brouillon sans compte rouvre « ➕ Nouveau client » AVEC son
+  nom** (08/10/2026, Timo), modifiable (`nomRepris` / `clientDeLaReprise`,
+  devisCommun.js) ; un nom sans numéro se ré-enregistre comme brouillon sans
+  compte (`nomSansNumero`), jamais un refus. Banc +1, éprouvé.
 - **✏️ Corriger un devis déjà envoyé** (11/09/2026, « celui qui a proposé le
   devis peut avoir la possibilité de modifier le devis ? ») : « Modifier et
   renvoyer » s'ouvre aussi sur un devis **⏳ Proposé** (avant, il fallait que
