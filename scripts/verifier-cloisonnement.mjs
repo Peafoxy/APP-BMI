@@ -3886,7 +3886,7 @@ titre("Vague 3, étape 3 (les comptes) : chaque geste sur un compte revérifie s
   const gestesAdmin = ["Bloquer ou réactiver un compte", "Supprimer un compte", "Changer la boutique d'un compte", "Autoriser le chat libre à un client",
     "Nommer ou retirer un chef d'équipe", "Modifier les pouvoirs d'un compte", "Changer le parrain d'un compte", "Fixer la commission d'équipe",
     "Fixer le taux de commission", "Modifier l'identité d'un employé", "Modifier l'anniversaire d'un employé", "Fixer le taux d'avancement",
-    "Modifier un salaire", "Enregistrer une prime ou une avance", "Annuler un virement", "Accorder un crédit", "Refuser un crédit",
+    "Modifier un salaire", "Enregistrer une prime ou une avance", "Annuler un paiement de salaire", "Accorder un crédit", "Refuser un crédit",
     "Enregistrer un remboursement de crédit", "Créer un compte employé"];
   test(`★ Utilisateurs.jsx : ${gestesAdmin.length} gestes réservés à l'administrateur le revérifient dans le geste`,
     gestesAdmin.every((g) => u.includes(`refuserSaufAdmin(profile, "${g}")`)));
@@ -3899,7 +3899,7 @@ titre("Vague 3, étape 3 (les comptes) : chaque geste sur un compte revérifie s
   test("★ Mon équipe : assigner, valider et rouvrir une tâche revérifient le pouvoir « tâches »",
     ["Assigner une tâche", "Valider une tâche", "Rouvrir une tâche"].every((g) => eq.includes(`refuserSaufTaches(db, profile, "${g}")`)));
   test("★ envoyer un virement de salaire est réservé à l'administrateur dans le geste lui-même",
-    /refuserSaufAdmin\(profile, "Envoyer un virement de salaire"\)/.test(readFileSync("src/lib/calculs.js", "utf8")));
+    /refuserSaufAdmin\(profile, "Payer un salaire"\)/.test(readFileSync("src/lib/calculs.js", "utf8")));
   const sql = readFileSync("supabase/securite-5-comptes.sql", "utf8");
   test("★ le SQL serveur existe : déclencheur users_regles_comptes, principal reconnu par l'étiquette OU la fiche, pouvoir tâches",
     /create trigger users_regles_comptes_trg/.test(sql) && /function public\.est_admin_principal\(\)/.test(sql)
@@ -6957,7 +6957,22 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
       test("★ 💸 📤 Dépenses montre (et laisse supprimer) les sorties payées chez le DG ou par la BANQUE — administrateur, en réel ; sans ce cadre elles n'appartiendraient à aucune liste",
         /const voitCaissesCentrales = profile\.role === "admin" && !afficheChiffresFormation\(db, profile\);/.test(depS)
         && /\(x\.boutique === DEST_DG \|\| x\.boutique === DEST_BANQUE\) && !x\.exploitant/.test(depS)
-        && /<TableauDepenses liste=\{listeCentrale\} profile=\{profile\} onSupprimer=\{supprimerDepense\}/.test(depS) && /data-depenses-centrales/.test(depS));
+        && /<TableauDepenses liste=\{lignes\} profile=\{profile\} onSupprimer=\{supprimerDepense\}/.test(depS) && /data-depenses-centrales/.test(depS));
+      // RETOURNÉ le 08/10/2026 (capture Timo : « Payées chez le DG · par la
+      // BANQUE » se lisait « chez le DG, par la banque ») : DEUX cadres, la
+      // ligne dans celui de SA caisse, plus de titre commun ; et une phrase
+      // renvoie vers 🧾 Chez le comptable (« a »).
+      test("★ 💸 📤 Dépenses : DEUX cadres (👤 Payées chez le DG / 🏦 Payées par la BANQUE), chaque ligne dans celui de sa caisse, plus de titre commun ; « chez le comptable » renvoie à son onglet",
+        !/Payées chez le DG · /.test(depS)
+        && /\{ caisse: DEST_DG, titre: "👤 Payées chez le DG", cle: "dg" \}/.test(depS)
+        && /\{ caisse: DEST_BANQUE, titre: "🏦 Payées par la BANQUE", cle: "banque" \}/.test(depS)
+        && /const lignes = listeCentrale\.filter\(\(x\) => x\.boutique === caisse\);\s*if \(!lignes\.length\) return null;/.test(depS)
+        && /chez le comptable<\/b> sont dans <b>🧾 Chez le comptable/.test(depS));
+      test("★ 💸 le bouton de la paie s'appelle « 💸 Payer le salaire » (Utilisateurs et 💵 Salaires), son annulation « Annuler le paiement » — plus « Virement », qui faisait penser à la banque",
+        /nom="💸 Payer le salaire"/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")) && /nom="Annuler le paiement"/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
+        && !/nom="💸 Virement"|nom="Annuler virement"/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
+        && />💸 Payer le salaire<\/button>/.test(readFileSync("src/screens/Salaires.jsx", "utf8")) && !/>💸 Virement<\/button>/.test(readFileSync("src/screens/Salaires.jsx", "utf8"))
+        && /« Annuler le paiement »/.test(readFileSync("src/lib/calculs.js", "utf8")));
       const impS = readFileSync("src/lib/impression.js", "utf8");
       // RETOURNÉ le 05/10/2026 : l'affectation passe par `affectationDe` (la
       // boutique, sinon le lieu écrit par l'administrateur, sinon rien).
@@ -13301,7 +13316,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   test("★★ 🔁 le bouton s'OUVRE avec le premier rappel, 15 jours avant la fin (« après le 1er rappel des 15 j ») : pas le 19/03 pour une fin au 04/04, oui le 20/03 ; le geste le refuse avant en disant quand",
     !CT.peutRenouveler(cdd6, "2027-03-19") && CT.peutRenouveler(cdd6, "2027-03-20") && CT.debutRenouvellement("2027-04-04") === "2027-03-20"
     && /s'ouvre le 20\/03\/2027/.test(CT.critiqueRenouvellement(cdd6, "2027-01-10")));
-  test("★ 🚪 Sortie en BOUT de ligne Paie (« sortie b ») : après 💸 Virement",
+  test("★ 🚪 Sortie en BOUT de ligne Paie (« sortie b ») : après 💸 Payer le salaire",
     u.indexOf("<BoutonGerer data-sortie onClick") > u.indexOf("envoyerVirement(u)} nom"));
   test("★★ 🔁 jamais pour un CDI, un contrat sans fin ou un employé sorti",
     !CT.peutRenouveler({ cnss_code_type: 1, contrat_fin: "2027-04-04" }, "2027-04-01") && !CT.peutRenouveler({ cnss_code_type: 5 }, "2027-04-01")
@@ -13328,7 +13343,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const uiG = readFileSync("src/components/ui.jsx", "utf8");
   test("★★ ⋯ Gérer : l'appui MONTRE l'information (Fermer / ✏️ Modifier) sur les 13 boutons qui en gardent une, et fait son geste tout de suite sur les autres (Prime, Avance, Virement, Supprimer, Rôle…)",
     JSON.stringify(avecInfo.sort()) === JSON.stringify(["🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe"].sort())
-    && blocs.filter((b) => /nom="(\+ Prime|− Avance|💸 Virement|🗑 Supprimer|🎭 Rôle|🔁 Renouveler|👁 Voir le mot de passe)"/.test(b)).every((b) => !/ info=/.test(b)));
+    && blocs.filter((b) => /nom="(\+ Prime|− Avance|💸 Payer le salaire|🗑 Supprimer|🎭 Rôle|🔁 Renouveler|👁 Voir le mot de passe)"/.test(b)).every((b) => !/ info=/.test(b)));
   test("★★ ⋯ Gérer : la fenêtre d'information ne modifie RIEN — seul « ✏️ Modifier » (ou « ✏️ Saisir » si vide) lance le geste ; « Fermer » ne fait rien",
     /const ok = await uInfo\(/.test(uiG) && /if \(ok\) onClick\?\.\(\);/.test(uiG) && /vues\.length \? "✏️ Modifier" : "✏️ Saisir"/.test(uiG)
     && /data-info-fermer onClick=\{\(\) => close\(false\)\}/.test(uiG) && /data-info-geste onClick=\{\(\) => close\(true\)\}/.test(uiG)

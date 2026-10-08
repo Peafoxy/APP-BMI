@@ -545,20 +545,40 @@ export function Depenses({ db, save, profile }) {
       </div>
 
       {voitCaissesCentrales && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto" data-depenses-centrales>
-          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
-            <span>👤 Payées chez le DG · 🏦 par la BANQUE</span>
-            <span className="text-sm font-semibold text-slate-500">{periode.actif ? `${periode.libelle} : ` : "Total : "}{fmt(depensesComptees(listeCentrale).reduce((s, x) => s + Number(x.montant), 0))}</span>
+        <div className="space-y-4" data-depenses-centrales>
+          {/* ⚠ DEUX CADRES, jamais un titre commun (capture Timo, 08/10/2026 : le
+              titre commun du DG et de la BANQUE se lisait « chez le DG,
+              par la banque ») : chaque ligne dans la caisse d'où l'argent est
+              vraiment sorti ; un cadre vide ne s'affiche pas. */}
+          {CADRES_CENTRAUX.map(({ caisse, titre, cle }) => {
+            const lignes = listeCentrale.filter((x) => x.boutique === caisse);
+            if (!lignes.length) return null;
+            return (
+              <div key={cle} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto" data-cadre-central={cle}>
+                <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
+                  <span>{titre}</span>
+                  <span className="text-sm font-semibold text-slate-500">{periode.actif ? `${periode.libelle} : ` : "Total : "}{fmt(depensesComptees(lignes).reduce((s, x) => s + Number(x.montant), 0))}</span>
+                </div>
+                <TableauDepenses liste={lignes} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide="" />
+              </div>
+            );
+          })}
+          <div className="px-1 text-xs text-slate-500" data-note-centrales>
+            Les sorties payées <b>chez le DG</b> ou <b>par la banque</b> ne sortent du tiroir d'aucune boutique et ne pèsent sur le résultat d'aucune : elles comptent dans les dépenses de BMI et dans le relevé de 📊 → 👤 DG ou 🏦 BANQUE.
+            {listeCentrale.length === 0 ? " Aucune pour l'instant." : ""} Les sorties payées <b>chez le comptable</b> sont dans <b>🧾 Chez le comptable</b>.
           </div>
-          <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100">
-            Salaires, commissions et autres sorties payées par le DG ou par la banque : elles ne sortent du tiroir d'aucune boutique et ne pèsent sur le résultat d'aucune. Elles comptent dans les dépenses de BMI et dans le relevé de 📊 → 👤 DG ou 🏦 BANQUE.
-          </div>
-          <TableauDepenses liste={listeCentrale} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide="Aucune sortie payée chez le DG ou par la banque." />
         </div>
       )}
     </div>
   );
 }
+
+// Les deux caisses centrales qui n'ont pas de liste ailleurs, chacune son
+// cadre (le comptable a son propre onglet, avec son pointage).
+const CADRES_CENTRAUX = [
+  { caisse: DEST_DG, titre: "👤 Payées chez le DG", cle: "dg" },
+  { caisse: DEST_BANQUE, titre: "🏦 Payées par la BANQUE", cle: "banque" },
+];
 
 // ============ CHEZ LE COMPTABLE ============
 // Regroupe toutes les sorties de caisse qui n'ont pas été débitées d'une

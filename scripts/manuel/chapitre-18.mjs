@@ -3,7 +3,7 @@
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
 // screens/Salaires.jsx (💵 Salaires de l'administrateur : 💵 Salaires /
-// 🏦 CNSS, Masse salariale, Détail par employé, 💸 Virement, 🖨 Bulletin,
+// 🏦 CNSS, Masse salariale, Détail par employé, 💸 Payer le salaire, 🖨 Bulletin,
 // 📄 Exporter ; PanneauCNSS : 💾 Enregistrer, 📥 Générer le fichier DRC
 // (Excel), 💸 Enregistrer le paiement CNSS du mois ; Salaire : 💵 Mon salaire,
 // 🖨 Imprimer mon bulletin de paie, ✅ confirmer un virement, Mes avances de
@@ -12,7 +12,7 @@
 // choisirBoutiqueDebitG, retenueCreditMois), lib/cnss.js (TAUX_CNSS_SALARIE,
 // cotisationsCNSS, repartitionCNSS, genererFichierDRC), lib/paie.js (la fiche
 // de paie à part), screens/Utilisateurs.jsx (⋯ Gérer → Paie : 💵 Salaire,
-// 📈 Taux %, + Prime, − Avance, 🏦 Banque, 💸 Virement, Annuler virement ;
+// 📈 Taux %, + Prime, − Avance, 🏦 Banque, 💸 Payer le salaire, Annuler le paiement ;
 // 🏦 Crédits BMI : Approuver, Refuser, + Remboursement), lib/impression.js
 // (imprimerBulletin), lib/comptesClients.js (LIBELLE_ROLE_EMPLOYE),
 // lib/validationDepenses.js (avancesDe), App.jsx (onglets).
@@ -48,7 +48,7 @@ export const CHAPITRE = {
         ["Onglet 💵 Salaires (tout le personnel)", "**L'administrateur.**"],
         ["Onglet 💵 Salaire (sa propre paie)", "Chaque salarié."],
         ["Fixer le salaire, le taux d'avancement, une prime, une avance", "**L'administrateur** (👥 Utilisateurs → ⋯ Gérer → Paie)."],
-        ["Envoyer un virement de salaire, en annuler un non confirmé", "**L'administrateur.**"],
+        ["Payer un salaire (💸 Payer le salaire), annuler un paiement non confirmé", "**L'administrateur.**"],
         ["Confirmer la réception d'un virement", "**L'employé lui-même.**"],
         ["Demander un crédit BMI / l'annuler tant qu'il est en attente", "L'employé."],
         ["Approuver, refuser un crédit, noter un remboursement", "**L'administrateur** (👥 Utilisateurs → 🏦 Crédits BMI)."],
@@ -60,9 +60,9 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["💵 Salaires → 💵 Salaires", "Le mois ; les cinq cases (masse salariale, déjà versé, reste à verser, à confirmer par l'employé, encours crédits BMI) ; le **Détail par employé** avec 💸 Virement et 🖨 Bulletin ; 📄 Exporter."],
+        ["💵 Salaires → 💵 Salaires", "Le mois ; les cinq cases (masse salariale, déjà versé, reste à verser, à confirmer par l'employé, encours crédits BMI) ; le **Détail par employé** avec 💸 Payer le salaire et 🖨 Bulletin ; 📄 Exporter."],
         ["💵 Salaires → 🏦 CNSS", "Une ligne par employé : assujetti, matricule, n° d'assurance, type, date d'embauche, jours travaillés, nature de rémunération, et les cotisations ; les trois boutons de la déclaration."],
-        ["👥 Utilisateurs → ⋯ Gérer → Paie", "💵 Salaire, 📈 Taux %, 📅 Paie suivie depuis, 📅 Embauche et contrat, 🔁 Renouveler (15 jours avant la fin), + Prime, − Avance, 🏦 Banque, 💸 Virement, Annuler virement, et en bout de ligne 🚪 Sortie."],
+        ["👥 Utilisateurs → ⋯ Gérer → Paie", "💵 Salaire, 📈 Taux %, 📅 Paie suivie depuis, 📅 Embauche et contrat, 🔁 Renouveler (15 jours avant la fin), + Prime, − Avance, 🏦 Banque, 💸 Payer le salaire, Annuler le paiement, et en bout de ligne 🚪 Sortie."],
         ["👥 Utilisateurs → 🏦 Crédits BMI", "Toutes les demandes et tous les crédits en cours."],
         ["💵 Salaire (l'employé)", "« 💵 Mon salaire — nom » : le mois, les cases, les virements à confirmer, le détail, ses avances de frais, 🏦 Crédit BMI, 📈 Mon avancement, ses informations CNSS."],
       ]}],
@@ -97,23 +97,23 @@ export const CHAPITRE = {
       ["h3", "C. Une prime ou une avance (administrateur)"],
       ["etapes", [
         { titre: "+ Prime", texte: "Une question d'abord : **« 💵 Prime sur salaire »** — le mois, le montant, un motif ; **rien ne sort de la caisse**, la prime est payée avec le salaire du mois — ou **« 🏠 Prime sur chantier »** : un chantier de sa boutique partagé depuis moins de 3 mois, un montant pris sur la part de BMI, payé comme une part de technicien (chapitre 16)." },
-        { titre: "− Avance", texte: "Le mois, le montant, un motif, puis le **moyen de paiement** (la banque de la fiche est rappelée) et **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** demande aussi d'où il part — 🏦 BANQUE, et en réel 👤 Chez le DG ou 🧾 Chez le comptable. **C'est la seule question** : payée chez le DG, par la BANQUE ou chez le comptable, la dépense reste dans CETTE caisse — elle ne sort du tiroir d'aucune boutique et ne pèse sur le résultat d'aucune ; elle se lit dans 📤 Dépenses (cadre « 👤 Payées chez le DG · 🏦 par la BANQUE », ou « Chez le comptable ») et dans le relevé de la caisse. En formation, un virement part de la BANQUE et demande à quelle boutique compter la charge. L'argent part **tout de suite** : une dépense « Salaires » est écrite, et l'avance sera retirée du net de ce mois." },
+        { titre: "− Avance", texte: "Le mois, le montant, un motif, puis le **moyen de paiement** (la banque de la fiche est rappelée) et **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** demande aussi d'où il part — 🏦 BANQUE, et en réel 👤 Chez le DG ou 🧾 Chez le comptable. **C'est la seule question** : payée chez le DG, par la BANQUE ou chez le comptable, la dépense reste dans CETTE caisse — elle ne sort du tiroir d'aucune boutique et ne pèse sur le résultat d'aucune ; elle se lit dans 📤 Dépenses (cadres « 👤 Payées chez le DG » et « 🏦 Payées par la BANQUE », ou l'onglet 🧾 Chez le comptable) et dans le relevé de la caisse. En formation, un virement part de la BANQUE et demande à quelle boutique compter la charge. L'argent part **tout de suite** : une dépense « Salaires » est écrite, et l'avance sera retirée du net de ce mois." },
       ]],
 
       ["h3", "D. Verser le salaire (administrateur)"],
       ["etapes", [
-        { titre: "💸 Virement", texte: "Depuis la ligne de l'employé dans 💵 Salaires (le mois est déjà choisi) ou depuis ⋯ Gérer (on choisit le mois)." },
+        { titre: "💸 Payer le salaire", texte: "Depuis la ligne de l'employé dans 💵 Salaires (le mois est déjà choisi) ou depuis ⋯ Gérer (on choisit le mois)." },
         { titre: "Le montant", texte: "La fenêtre détaille le calcul — base, primes, avances, retenue crédit, **retenue CNSS**, net — puis ce qui a déjà été envoyé ce mois et le **reste à verser**, proposé d'office. On peut verser en plusieurs fois." },
-        { titre: "Moyen, référence, d'où sort l'argent", texte: "Le moyen (« Virement bancaire » d'office), une référence facultative, puis **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** demande aussi d'où il part — 🏦 BANQUE, et en réel 👤 Chez le DG ou 🧾 Chez le comptable. **C'est la seule question** : payée chez le DG, par la BANQUE ou chez le comptable, la dépense reste dans CETTE caisse — elle ne sort du tiroir d'aucune boutique et ne pèse sur le résultat d'aucune ; elle se lit dans 📤 Dépenses (cadre « 👤 Payées chez le DG · 🏦 par la BANQUE », ou « Chez le comptable ») et dans le relevé de la caisse. En formation, un virement part de la BANQUE et demande à quelle boutique compter la charge. La confirmation dit d'où l'argent sort." },
+        { titre: "Moyen, référence, d'où sort l'argent", texte: "Le moyen (« Virement bancaire » d'office), une référence facultative, puis **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** demande aussi d'où il part — 🏦 BANQUE, et en réel 👤 Chez le DG ou 🧾 Chez le comptable. **C'est la seule question** : payée chez le DG, par la BANQUE ou chez le comptable, la dépense reste dans CETTE caisse — elle ne sort du tiroir d'aucune boutique et ne pèse sur le résultat d'aucune ; elle se lit dans 📤 Dépenses (cadres « 👤 Payées chez le DG » et « 🏦 Payées par la BANQUE », ou l'onglet 🧾 Chez le comptable) et dans le relevé de la caisse. En formation, un virement part de la BANQUE et demande à quelle boutique compter la charge. La confirmation dit d'où l'argent sort." },
         { titre: "Ce qui s'écrit", texte: "Une dépense **« Salaires »**, et si une échéance de crédit tombe ce mois-là, son remboursement est noté. Le virement reste **⏳ En attente** jusqu'à ce que l'employé confirme." },
         { titre: "📲 L'avis part du numéro BMI", texte: "Juste après, l'employé reçoit **tout seul** un message WhatsApp du numéro BMI : son salaire du mois, la date, le montant et le moyen, la référence (celle tapée, sinon le N° du bulletin), le rôle et le numéro de celui qui a payé — et, un mois où une échéance de crédit BMI est retenue, le salaire, la retenue, le versé et ce qui reste à rembourser sur le crédit, et l'invitation à confirmer dans l'onglet « Salaire ». Aucune question, WhatsApp ne s'ouvre pas. Sans numéro sur sa fiche, rien ne part et la confirmation le dit (👥 Utilisateurs → ⋯ Gérer → 📞). Dans 📲 WhatsApp, la ligne ne montre pas le salaire : seuls celui qui a payé et l'administrateur principal en lisent le détail." },
       ]],
       ["note", "**Payé « Chez le DG »** : l'argent sort de la caisse de BMI chez le DG ; s'il n'y en a pas assez, le reste devient un apport de l'exploitant (📊 Tableau de bord → 👤 DG). Une retenue de crédit BMI s'y lit en entrée. **Payé depuis une boutique** : seul le vendeur ou le gérant de CETTE boutique est prévenu."],
-      ["attention", "**Annuler virement** ne vaut que pour un virement **pas encore confirmé** par l'employé ; ses écritures de caisse sont retirées avec lui."],
+      ["attention", "**Annuler le paiement** ne vaut que pour un paiement **pas encore confirmé** par l'employé ; ses écritures de caisse sont retirées avec lui."],
 
       ["h3", "E. L'employé confirme qu'il a reçu son argent"],
       ["etapes", [
-        { titre: "Le cadre 💸 Virement reçu de l'administration", texte: "En haut de 💵 Mon salaire : montant, mois, moyen, date d'envoi, qui l'a envoyé. « Vérifiez que l'argent est bien arrivé, puis confirmez la réception. »" },
+        { titre: "Le cadre 💸 Salaire payé par l'administration", texte: "En haut de 💵 Mon salaire : montant, mois, moyen, date d'envoi, qui l'a envoyé. « Vérifiez que l'argent est bien arrivé, puis confirmez la réception. »" },
         { titre: "Confirmer", texte: "Une question : « Confirmez-vous avoir bien reçu … ? ». La confirmation est enregistrée et **visible par l'administration** : dans 💵 Salaires, le statut passe de ⏳ À confirmer à ✅ Payé & confirmé." },
       ]],
 
@@ -151,8 +151,8 @@ export const CHAPITRE = {
         ["🚪 Sortie", "⋯ Gérer → Paie", "Date et motif de sortie (déclaration CNSS) ; arrête le rappel de fin de contrat."],
         ["+ Prime / − Avance", "⋯ Gérer → Paie", "Ajoute une prime (payée avec le salaire) ou une avance (sortie de caisse immédiate)."],
         ["🏦 Banque", "⋯ Gérer → Paie", "Nom de la banque et numéro de compte (jamais affiché en entier)."],
-        ["💸 Virement", "⋯ Gérer → Paie ; aussi la ligne de 💵 Salaires", "Verse tout ou partie du net du mois."],
-        ["Annuler virement", "⋯ Gérer → Paie", "Retire le dernier virement non confirmé."],
+        ["💸 Payer le salaire", "⋯ Gérer → Paie ; aussi la ligne de 💵 Salaires", "Verse tout ou partie du net du mois."],
+        ["Annuler le paiement", "⋯ Gérer → Paie", "Retire le dernier paiement de salaire non confirmé."],
         ["🖨 Bulletin", "💵 Salaires", "Pour le moment, **seule l'administration imprime le bulletin** : dans 💵 Mon salaire, l'employé lit « Votre bulletin de paie s'obtient auprès de l'administration » au lieu du bouton. Le bulletin du mois choisi : nom, fonction, affectation (sa boutique ; pour un employé sans boutique, le **📍 lieu d'affectation** écrit par l'administrateur dans 👥 Utilisateurs, sinon rien), et ce que la fiche porte — matricule, n° d'assuré CNSS, date d'embauche, type de contrat (et la fin d'un CDD), banque avec le numéro de compte réduit à ses quatre derniers chiffres (« …9379 ») ; une ligne non renseignée n'est pas imprimée. Puis les éléments de paie en **deux colonnes, Gains et Retenues** (un remboursement de frais avancés est écrit « hors brut », une avance « déjà versée »), la ligne **TOTAUX**, le **net à percevoir** ; sous le tableau : **salaire brut**, **base CNSS** (« Non assujetti » pour un employé non coché), total des gains et des retenues. Puis les **cumuls de l'année** — du 1er janvier, ou du premier mois de paie suivi s'il est plus tard, au mois du bulletin : brut, CNSS retenue, net, versé, mois avec versement. Enfin les versements et le crédit BMI en cours. L'impôt sur le salaire (IRPP) n'y figure pas."],
         ["📄 Exporter", "💵 Salaires", "Le détail du mois (CSV)."],
         ["Approuver / Refuser / + Remboursement", "🏦 Crédits BMI", "La vie d'un crédit BMI."],
@@ -203,7 +203,7 @@ export const CHAPITRE = {
         ["Oublier de confirmer un virement reçu.", "L'administration le voit « ⏳ À confirmer » : l'employé confirme dans 💵 Mon salaire."],
         ["Générer le fichier DRC avant d'avoir enregistré.", "Bloqué : 💾 Enregistrer d'abord."],
         ["Payer la CNSS avec un assujetti incomplet.", "L'application prévient qu'il est exclu : compléter ses informations."],
-        ["Annuler un virement déjà confirmé.", "Impossible : seul un virement non confirmé s'annule."],
+        ["Annuler un paiement de salaire déjà confirmé.", "Impossible : seul un paiement non confirmé s'annule."],
       ]}],
     ]},
 
@@ -225,7 +225,7 @@ export const CHAPITRE = {
       ["ol", [
         "(Administrateur) Fixer le salaire d'un employé d'entraînement, avec un motif.",
         "Poser une prime et une avance sur le mois en cours ; lire le net dans 💵 Salaires.",
-        "Envoyer un virement partiel ; (l'employé) le confirmer dans 💵 Mon salaire.",
+        "Payer une partie du salaire ; (l'employé) le confirmer dans 💵 Mon salaire.",
         "(L'employé) Demander un crédit sur 3 mois ; (administrateur) l'approuver ; constater la retenue.",
         "(Administrateur) Cocher l'employé assujetti CNSS, saisir ses informations, enregistrer, générer le fichier DRC.",
         "Imprimer le bulletin du mois.",

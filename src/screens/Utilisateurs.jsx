@@ -1159,19 +1159,19 @@ export function Users({ db, save, profile }) {
   const envoyerVirement = (u) => envoyerVirementG(db, save, profile, u);
 
   const annulerVirement = async (u) => {
-    if (refuserSaufAdmin(profile, "Annuler un virement")) return;
+    if (refuserSaufAdmin(profile, "Annuler un paiement de salaire")) return;
     if (bloquerSiLecture(db, profile)) return;
     const attente = (u.virements || []).filter((v) => v.statut !== "accepte");
-    if (!attente.length) { uAlert("Aucun virement en attente pour cet employé."); return; }
+    if (!attente.length) { uAlert("Aucun paiement de salaire en attente pour cet employé."); return; }
     const dernier = attente[attente.length - 1];
-    if (await uConfirm(`Annuler le virement de ${fmt(dernier.montant)} (${libelleMoisFR(dernier.mois)}) envoyé à ${u.nom} ?\n\nSeuls les virements non encore confirmés peuvent être annulés.`)) {
+    if (await uConfirm(`Annuler le paiement de salaire de ${fmt(dernier.montant)} (${libelleMoisFR(dernier.mois)}) envoyé à ${u.nom} ?\n\nSeuls les paiements non encore confirmés par l'employé peuvent être annulés.`)) {
       // On retire aussi les écritures de caisse générées par ce virement (même jour, même employé)
       const aRetirer = (d) => ["virement", "retenue"].includes(d.auto) && d.user_id === u.id && d.date === dernier.date_envoi;
       save({
         ...db,
         users: db.users.map((x) => (x.id === u.id ? { ...x, virements: (x.virements || []).filter((v) => v.id !== dernier.id) } : x)),
         depenses: db.depenses.filter((d) => !aRetirer(d))
-      }, `Annulation du virement de ${fmt(dernier.montant)} pour ${u.nom} (${libelleMoisFR(dernier.mois)})`);
+      }, `Annulation du paiement de salaire de ${fmt(dernier.montant)} pour ${u.nom} (${libelleMoisFR(dernier.mois)})`);
     }
   };
 
@@ -1718,8 +1718,8 @@ export function Users({ db, save, profile }) {
                   <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "prime")} nom="+ Prime" />
                   <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "avance")} nom="− Avance" />
                   <BoutonGerer onClick={() => changerBanque(u)} info={() => infoGerer(u, "banque")} nom="🏦 Banque" />
-                  <BoutonGerer onClick={() => envoyerVirement(u)} nom="💸 Virement" />
-                  {(u.virements || []).some((v) => v.statut !== "accepte") && <BoutonGerer onClick={() => annulerVirement(u)} ton="attention" nom="Annuler virement" />}
+                  <BoutonGerer onClick={() => envoyerVirement(u)} nom="💸 Payer le salaire" />
+                  {(u.virements || []).some((v) => v.statut !== "accepte") && <BoutonGerer onClick={() => annulerVirement(u)} ton="attention" nom="Annuler le paiement" />}
                   {/* 🚪 En bout de ligne (Timo, 05/10/2026, « sortie b ») : un départ n'est pas un geste de tous les jours. */}
                   <BoutonGerer data-sortie onClick={() => changerSortie(u)} info={() => infoGerer(u, "sortie")} titre="Date et motif de sortie, repris par la déclaration CNSS" nom="🚪 Sortie" />
                       </div>

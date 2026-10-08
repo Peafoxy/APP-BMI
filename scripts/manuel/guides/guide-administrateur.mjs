@@ -12,7 +12,7 @@
 // (« Créer un compte employé », 🔐 Pouvoirs, 🎭 Rôle, ⛔ Bloquer, Nommer
 // chef, 🏦 Crédits BMI), ClientsInstalles.jsx (📅 Programmer, 🔧 Frais,
 // « ✅ Valider la répartition », « Forcer sans signature », « ✅ Entretien
-// fait »), Ventes.jsx (↩ Reprise), Salaires.jsx (💸 Virement, 🖨 Bulletin,
+// fait »), Ventes.jsx (↩ Reprise), Salaires.jsx (💸 Payer le salaire, 🖨 Bulletin,
 // 🏦 CNSS), Dashboard.jsx et CompteExploitant.jsx (➕ Apport, ➖
 // Prélèvement), Parametres.jsx (👁 Je regarde, ses sept onglets), App.jsx.
 // ============================================================
@@ -64,7 +64,7 @@ export const GUIDE = {
     ["ul", [
       "**Supprimer** une vente, une dette, une dépense, un article : l'administrateur seul, avec une trace au journal (chapitres 5, 7, 8, 17).",
       "**Une remise au-delà de 3 %** (devis, vente, proforma, commande) : l'administrateur seul. Une remise sur un article ET une remise générale ensemble : refusé pour tout le monde, administrateur compris.",
-      "**💵 Salaires** : la paie du mois par employé, **« 💸 Virement »**, **« 🖨 Bulletin »**, et l'onglet **🏦 CNSS** (« 📥 Générer le fichier DRC (Excel) ») (chapitre 18).",
+      "**💵 Salaires** : la paie du mois par employé, **« 💸 Payer le salaire »**, **« 🖨 Bulletin »**, et l'onglet **🏦 CNSS** (« 📥 Générer le fichier DRC (Excel) ») (chapitre 18).",
       "**🚚 Fournisseurs**, **🎯 Commerciaux** et **👑 Équipe** : les commandes et règlements, les objectifs, les commissions (payées seulement après réception **et** solde du client), les apporteurs externes (« ✓ Payer », « ✏️ Moyen ») (chapitres 10 et 16).",
       "**🔒 Caisse → « 💼 Avances de frais à rembourser »** : en espèces, avec le salaire, ou par le DG.",
     ]],

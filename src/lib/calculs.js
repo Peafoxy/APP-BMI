@@ -1273,8 +1273,8 @@ export function pvDuContrat(db, devisId) {
 // Renvoie le message à afficher, ou null si la suppression est permise.
 export function refusSuppressionDepense(db, d) {
   if (d.auto === "virement" || d.auto === "retenue") {
-    return "🔒 Un virement de salaire ne s'annule pas depuis cet écran.\n\n"
-      + "Allez dans 👥 Utilisateurs → la fiche de l'employé → « Annuler virement ». "
+    return "🔒 Un paiement de salaire ne s'annule pas depuis cet écran.\n\n"
+      + "Allez dans 👥 Utilisateurs → la fiche de l'employé → ⋯ Gérer → « Annuler le paiement ». "
       + "Cette porte-là vérifie d'abord qu'il n'a pas déjà confirmé avoir reçu l'argent, "
       + "et retire les deux écritures de caisse ensemble.";
   }
@@ -1391,14 +1391,14 @@ export const aLienAAnnuler = (d) =>
 
 // Envoi d'un virement de salaire (utilisé par 👥 Utilisateurs et 💵 Salaires)
 export async function envoyerVirementG(db, save, profile, u, moisImpose) {
-  if (refuserSaufAdmin(profile, "Envoyer un virement de salaire")) return;
-  const mois = moisImpose || await demanderMois(`Mois du virement pour ${u.nom}`, today().slice(0, 7));
+  if (refuserSaufAdmin(profile, "Payer un salaire")) return;
+  const mois = moisImpose || await demanderMois(`Mois du salaire payé à ${u.nom}`, today().slice(0, 7));
   if (!mois) return;
   const m = String(mois).trim();
   const p = paieMois(u, m);
   const suggestion = Math.max(0, p.reste);
   const v = await uPrompt(
-    `Montant du virement (F CFA) — ${libelleMoisFR(m)}\n\n` +
+    `Montant payé (F CFA) — salaire de ${libelleMoisFR(m)}\n\n` +
     // ⚠ 30/09/2026 (relu en écrivant le chapitre 18) : la retenue CNSS manquait
     // au détail — pour un assujetti, les lignes n'aboutissaient pas au net annoncé.
     `Salaire de base : ${fmt(p.base)}\nPrimes : +${fmt(p.primes)}\nAvances : −${fmt(p.avances)}\nRetenue crédit BMI : −${fmt(p.retenueCredit)}\n${p.retenueCNSS ? `Retenue CNSS (9 %) : −${fmt(p.retenueCNSS)}\n` : ""}Net à percevoir : ${fmt(p.net)}\n` +
@@ -1420,7 +1420,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   // Les crédits APRÈS la retenue de ce mois : ce qui restera à rembourser
   // (l'avis WhatsApp le dit — décision « b », 03/10/2026).
   const creditsApres = appliquerRetenuesCredit(u, m, profile.nom);
-  if (!await uConfirm(`Envoyer un virement de ${fmt(montant)} à ${u.nom} pour ${libelleMoisFR(m)} ?\n\nSortie : ${src.libelle} — ${fmt(montant)}${retenue ? `\nRetenue crédit BMI comptabilisée : ${fmt(retenue)}` : ""}\n\nIl devra confirmer la réception depuis son espace « Salaire ».`)) return;
+  if (!await uConfirm(`Payer ${fmt(montant)} de salaire à ${u.nom} pour ${libelleMoisFR(m)} ?\n\nSortie : ${src.libelle} — ${fmt(montant)}${retenue ? `\nRetenue crédit BMI comptabilisée : ${fmt(retenue)}` : ""}\n\nIl devra confirmer la réception depuis son espace « Salaire ».`)) return;
   const virement = {
     id: uid(), mois: m, montant, moyen: String(moyen).trim(), ref: String(ref).trim(), boutique: bq,
     statut: "envoye", date_envoi: today(), par: profile.nom,
@@ -1446,7 +1446,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
     users: db.users.map((x) => (x.id === u.id ? { ...x, virements: [...(x.virements || []), virement], credits: appliquerRetenuesCredit(x, m, profile.nom) } : x)),
     depenses: [...deps, ...db.depenses],
     messages: [...(src.notifier ? messagesNotifSortieCaisse(db, profile, src.notifier, u.nom, montant, "Salaire versé à") : []), ...(db.messages || [])],
-  }, `Virement de ${fmt(montant)} envoyé à ${u.nom} (${libelleMoisFR(m)})`);
+  }, `Salaire de ${fmt(montant)} payé à ${u.nom} (${libelleMoisFR(m)})`);
   // 💸 L'AVIS DE PAIEMENT PART DU NUMÉRO BMI, TOUT SEUL (Timo, 03/10/2026,
   // modèle `virement_salaire`, son texte) : vers le numéro de la fiche de
   // l'employé, sans question et sans repli (WhatsApp ne s'ouvre pas) ; le mur
@@ -1484,7 +1484,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
     }
     if (r) note = `\n\n${r}`;
   }
-  uAlert(`✅ Virement de ${fmt(montant)} envoyé à ${u.nom}. Enregistré en dépense « Salaires » — sortie : ${src.libelle}.${note}`);
+  uAlert(`✅ Salaire de ${fmt(montant)} payé à ${u.nom}. Enregistré en dépense « Salaires » — sortie : ${src.libelle}.${note}`);
 }
 
 // À partir de ce nombre de clients apportés, un apporteur externe devient

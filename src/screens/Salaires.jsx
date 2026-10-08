@@ -72,7 +72,7 @@ export function SalairesAdmin({ db, save, profile }) {
       <>
       <div className="rounded-xl p-4 bg-white border border-slate-200">
         <div className="font-bold mb-1">💵 Masse salariale — {libelleMoisFR(mois)}</div>
-        <div className="text-xs text-slate-500 mb-3">Vue d'ensemble de la paie du mois. Les virements envoyés d'ici sont enregistrés en dépense « Salaires ».</div>
+        <div className="text-xs text-slate-500 mb-3">Vue d'ensemble de la paie du mois. Les salaires payés d'ici sont enregistrés en dépense « Salaires ».</div>
         <Field label="Mois">
           <select className={inputCls} value={mois} onChange={(e) => setMois(e.target.value)}>
             {options.map((m) => <option key={m} value={m}>{libelleMoisFR(m)}</option>)}
@@ -120,7 +120,7 @@ export function SalairesAdmin({ db, save, profile }) {
                   <td className={`px-3 py-2 tabular-nums font-bold ${p.reste > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(Math.max(0, p.reste))}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{statut(p)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
-                    {p.reste > 0 && <button onClick={() => envoyerVirementG(db, save, profile, u, mois)} className="text-xs font-bold text-blue-700 underline mr-2">💸 Virement</button>}
+                    {p.reste > 0 && <button onClick={() => envoyerVirementG(db, save, profile, u, mois)} className="text-xs font-bold text-blue-700 underline mr-2">💸 Payer le salaire</button>}
                     <button onClick={() => imprimerBulletin(u, mois, db)} className="text-xs font-bold text-sky-800 underline">🖨 Bulletin</button>
                   </td>
                 </tr>
@@ -460,7 +460,7 @@ export function Salaire({ db, save, profile }) {
     if (!await uConfirm(`Confirmez-vous avoir bien reçu ${fmt(v.montant)}${v.moyen ? ` par ${v.moyen}` : ""} pour ${libelleMois(v.mois)} ?\n\nCette confirmation est enregistrée et visible par l'administration.`)) return;
     const maj = { ...v, statut: "accepte", date_acceptation: today() };
     save({ ...db, users: db.users.map((x) => (x.id === moi.id ? { ...x, virements: (x.virements || []).map((y) => (y.id === v.id ? maj : y)) } : x)) },
-      `${moi.nom} a confirmé la réception du virement de ${fmt(v.montant)} (${libelleMois(v.mois)})`);
+      `${moi.nom} a confirmé la réception du salaire de ${fmt(v.montant)} (${libelleMois(v.mois)})`);
     uAlert("✅ Réception confirmée. Merci !");
   };
 
@@ -499,7 +499,7 @@ export function Salaire({ db, save, profile }) {
 
       {enAttente.length > 0 && (
         <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
-          <div className="font-bold text-amber-800 mb-1">💸 Virement reçu de l'administration</div>
+          <div className="font-bold text-amber-800 mb-1">💸 Salaire payé par l'administration</div>
           <div className="text-xs text-amber-700 mb-3">Vérifiez que l'argent est bien arrivé, puis confirmez la réception.</div>
           <div className="space-y-3">
             {enAttente.map((v) => (
@@ -523,7 +523,7 @@ export function Salaire({ db, save, profile }) {
       {p.virements.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
           <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap justify-between gap-2">
-            <span>💸 Virements — {libelleMois(mois)}</span>
+            <span>💸 Paiements de salaire — {libelleMois(mois)}</span>
             <span className="text-xs font-semibold text-slate-600">
               Versé : <b className="tabular-nums">{fmt(p.verse)}</b> · Reste à percevoir : <b className={`tabular-nums ${p.reste > 0 ? "text-orange-600" : "text-green-700"}`}>{fmt(Math.max(0, p.reste))}</b>
             </span>
