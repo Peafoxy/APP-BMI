@@ -7645,6 +7645,13 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
         /\["propose", "⏳ Proposé"\], \[ONGLET_A_COMPLETER, "📋 À compléter"\]/.test(tdjCf)
         && /s === ONGLET_A_COMPLETER \? attendLaVisite\(d\) : s \? \(d\.statut \|\| "propose"\) === s/.test(tdjCf)
         && /const compteStatut = \(s\) => devisAvantStatut\.filter\(\(d\) => dansOnglet\(d, s\)\)\.length;/.test(tdjCf)); }
+    { const partCf = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+      const ligneCf = (partCf.match(/data-ligne-cf-visite>[\s\S]*?<\/Field>/) || [""])[0];
+      const compCf = readFileSync("src/components/CompleterDevis.jsx", "utf8");
+      test("★ capture Timo : le nom d'un élément cf. visite se CHOISIT dans le stock ou se tape (LE champ commun, les mêmes propositions) — et « ✍️ Compléter » reprend l'article du stock lié, prix pré-rempli",
+        /<ChampSuggestions [^>]*suggestions=\{propositions\}/.test(ligneCf) && !/<input /.test(ligneCf)
+        && /l\.article \? lierAutreAuStock\(base, l\.article, produits\) : base/.test(compCf)
+        && DCv.lierAutreAuStock({ qte: "2" }, "coffret dc", [{ id: "p2", nom: "Coffret DC", prix_vente: 35000 }]).prix === "35000"); }
     // Décision « A a » : pas de validation d'un total partiel.
     const dbVal = { users: [{ id: "cl1", role: "client", nom: "AKAKE", devis: [devisCf] }], boutiques: [{ nom: "APESSITO" }], dettes: [], ventes: [], clients_installes: [], messages: [] };
     const rVal = Val.validerDevis(dbVal, { clientId: "cl1", devisId: "dv1", boutique: "APESSITO", acteur: { nom: "AKAKE", estClient: true } });

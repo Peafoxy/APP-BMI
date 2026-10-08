@@ -21,7 +21,12 @@ const ligneVide = () => ({ nom: "", qte: "1", prix: "", produit_id: null, hors_b
 
 export function CompleterDevis({ devis, produits = [], onAnnuler, onEnregistrer }) {
   const cf = lignesCfVisite(devis);
-  const [reponses, setReponses] = useState(() => cf.map((l) => ({ ...ligneVide(), nom: l.article || "", qte: l.qte ? String(l.qte) : "1" })));
+  // Un élément nommé d'après un article du stock arrive DÉJÀ lié, son prix
+  // pré-rempli (la règle des autres équipements) ; un nom libre reste libre.
+  const [reponses, setReponses] = useState(() => cf.map((l) => {
+    const base = { ...ligneVide(), qte: l.qte ? String(l.qte) : "1" };
+    return l.article ? lierAutreAuStock(base, l.article, produits) : base;
+  }));
   const [ajouts, setAjouts] = useState([]);
   const propositions = produits.map((p) => ({ cle: p.id, valeur: p.nom, detail: fmt(p.prix_vente) }));
   // Le NOM passe par la règle des autres équipements : un nom du stock lie la

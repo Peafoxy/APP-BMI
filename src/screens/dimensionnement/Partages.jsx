@@ -95,9 +95,13 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onAjouterCfVis
         {autres.map((a) => a.cf_visite ? (
           // 📋 Un élément à compléter après la visite (08/10/2026) : un nom, une
           // quantité facultative, AUCUN prix — le PDF écrit « Cf. visite ».
+          // Le nom se choisit dans le stock OU se tape (capture Timo, le même
+          // jour) — LE champ commun ; la ligne reste sans prix et sans lien
+          // (majAutre ne la lie pas) : c'est « ✍️ Compléter le devis » qui
+          // reprendra l'article du stock et son prix.
           <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end rounded-lg bg-amber-50 border border-amber-200 p-2" data-ligne-cf-visite>
             <Field label="Élément à compléter (cf. visite)">
-              <input className={inputCls} placeholder="Ex : câblage et protections" value={a.nom} onChange={(e) => onModifier(a.id, "nom", e.target.value)} />
+              <ChampSuggestions placeholder="Article du stock ou nom libre (ex : câblage)" valeur={a.nom} suggestions={propositions} onChange={(v) => onModifier(a.id, "nom", v)} />
             </Field>
             <div className="text-sm font-bold text-amber-800 pb-2">Prix : cf. visite</div>
             <Field label="Quantité (facultative)"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => onModifier(a.id, "qte", e.target.value)} /></Field>
