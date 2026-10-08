@@ -108,7 +108,7 @@ export const CHAPITRE = {
         { titre: "Les accessoires", texte: "**Télécommande** × le nombre demandé ; **Photocellules** × 2 ; **Lampe clignotante** × 1 ; **Déverrouillage manuel** × 1. Pour chacun, le premier article trouvé dans le stock : le changer dans la liste s'il en existe plusieurs." },
         { titre: "Corriger, saisir hors stock, revenir au calcul", texte: "Comme au chapitre 11 : changer d'article dans la liste, corriger la quantité, **« ✏️ Saisir un article hors stock »** (Nom, Prix, Valider), **« Annuler (revenir à la sélection automatique) »**. La case **HB** exclut la ligne du chiffre d'affaires et des commissions." },
         { titre: "Pas d'électricité ? Coupures fréquentes ?", texte: "Cocher **« ☀️ Ajouter un kit solaire autonome pour la motorisation »** (l'écran écrit « recommandé » quand on a répondu Non à l'électricité) et saisir son **prix**. **« 🔋 Ajouter une batterie de secours (externe) »** : en option, avec son prix. Ces deux lignes sont des lignes libres : elles ne font sortir aucun stock." },
-        { titre: "Autres équipements", texte: "Coffret de commande, câblage, gaine… **« ➕ Ajouter un équipement »** : un article du stock remplit son prix et se lie au stock ; un nom libre coche HB d'office." },
+        { titre: "Autres équipements", texte: "Coffret de commande, câblage, gaine… **« ➕ Ajouter un équipement »** : un article du stock remplit son prix et se lie au stock ; un nom libre coche HB d'office. Ce qui ne se chiffre qu'après la visite : **« ➕ Élément à compléter (cf. visite) »** (chapitre 13, section I)." },
       ]],
       ["h3", "D. Un devis SANS calcul (caméra, électricité, forage, Autre…)"],
       ["etapes", [

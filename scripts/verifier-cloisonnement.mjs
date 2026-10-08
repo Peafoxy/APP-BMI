@@ -4274,7 +4274,7 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
     const src = readFileSync(`src/screens/dimensionnement/${f}`, "utf8");
     test(`★ ${f} passe par construireDevis, useReglagesDevis, useAutresEquipements, useEnvoiDevis et BlocsFinDevis`,
       /construireDevis\(\{/.test(src) && /useReglagesDevis\(totalArticles/.test(src) && /useAutresEquipements\(lignesReprises, produitsBoutique, brouillon\?\.autres\)/.test(src)
-      && /useEnvoiDevis\(\{/.test(src) && /<BlocsFinDevis r=\{r\} onConvertir=\{convertir\} \/>/.test(src));
+      && /useEnvoiDevis\(\{/.test(src) && /<BlocsFinDevis r=\{r\} onConvertir=\{convertir\} aCompleter=\{aCompleter\} \/>/.test(src));
     test(`★ ${f} n'a plus AUCUNE copie de la fin du devis (pose seule, frais, champs, autres équipements)`,
       !/Pose seule \(matériel/.test(src) && !/pct_installation:/.test(src) && !/categorie: "Autres équipements"/.test(src)
       && !/categorie: "Installation"/.test(src) && !/const ajouterAutre/.test(src) && !/resoudreClientDevis\(/.test(src) && !/effacerBrouillonVolet\(/.test(src));
@@ -4495,7 +4495,7 @@ titre("Autres équipements : d'abord le stock de la boutique — prix pré-rempl
     DC.reprisesAutres(DC.lignesAutres([lie, libre]))[0].produit_id === "p1" && DC.reprisesAutres(DC.lignesAutres([lie, libre]))[1].produit_id === null);
   const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
   test("★ le NOM passe par la règle du stock dans le crochet commun ; les autres champs se modifient tels quels",
-    /champ === "nom" \? lierAutreAuStock\(a, val, produitsBoutique\) : \{ \.\.\.a, \[champ\]: val \}/.test(part));
+    /champ === "nom" && !a\.cf_visite \? lierAutreAuStock\(a, val, produitsBoutique\) : \{ \.\.\.a, \[champ\]: val \}/.test(part));
   // Retourné le 08/09/2026 (Timo : « trop rigide… pas sur tout l'écran ») :
   // plus de liste native, le champ commun ChampSuggestions propose le stock.
   test("★ le champ Article propose les articles du stock par le champ commun (saisie libre + propositions), avec le stock et le prix",
@@ -4637,7 +4637,7 @@ titre("UN champ à suggestions pour toute l'application : « came » trouve « C
       && /besoins: \{ categorie: categorieChoisie \},/.test(au)
       && !/articles_demandes:/.test(au)
       // ⚠ RETOURNÉ le 29/09/2026 : la reprise écarte AUSSI les lignes de frais (estLigneFrais).
-      && /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements" && !estLigneFrais\(l\)\)/.test(au));
+      && /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements" && !estLigneFrais\(l\) && !estLigneCfVisite\(l\)\)/.test(au));
   }
 }
 
@@ -7602,6 +7602,121 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   test("★ aucun texte du devis n'en chevauche un autre, page par page — mesuré sur le PDF réel, y compris sur un devis à DEUX pages avec acompte, solde et délai (les mentions serrées à gauche des cadres ne mordent sur rien)",
     chevauchements(Pdf.genererDevis(devisOrdinaire, null, true)) === 0 && chevauchements(docSol) === 0
     && chevauchements(docGros) === 0);
+  // ---- 📋 LES ÉLÉMENTS « CF. VISITE » ET ✍️ COMPLÉTER LE DEVIS (Timo,
+  // 08/10/2026 : « mettez cf visite… après c'est à compléter et non
+  // modifié » → « A a, B pas d'acompte, C oui »). On EXERCE les vraies règles
+  // (devisCommun, devisCfVisite, validationDevis, pdf), on ne lit pas le code.
+  {
+    const sortieDCv = join("node_modules", ".cache", `bmi-dc-cf-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieDCv, logLevel: "silent", loader: { ".js": "jsx" } });
+    const DCv = await import(pathToFileURL(sortieDCv).href);
+    unlinkSync(sortieDCv);
+    const sortieCf = join("node_modules", ".cache", `bmi-cf-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/devisCfVisite.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCf, logLevel: "silent" });
+    const Cf = await import(pathToFileURL(sortieCf).href);
+    unlinkSync(sortieCf);
+    const cfA = { id: "c1", nom: "Câblage et protections", prix: "", qte: "", cf_visite: true };
+    const cfB = { id: "c2", nom: "Support toiture", prix: "", qte: "2", cf_visite: true };
+    const chiffre = { id: "a1", nom: "Coffret DC", prix: "35000", qte: "1", hors_boutique: false, produit_id: "p2" };
+    const la = DCv.lignesAutres([chiffre, cfA, cfB]);
+    test("★ un élément cf. visite devient une ligne SANS PRIX (pu 0, total 0), marquée, rangée « À compléter après la visite », quantité facultative",
+      la[1].cf_visite === true && la[1].pu === 0 && la[1].total === 0 && la[1].categorie === Cf.CATEGORIE_CF_VISITE && la[1].qte === null && la[2].qte === 2
+      && la[0].categorie === "Autres équipements" && !la[0].cf_visite);
+    test("★ il ne compte dans AUCUN total et n'entre JAMAIS dans le panier encaissé",
+      DCv.totalAutres([chiffre, cfA, cfB]) === 35000 && DCv.panierAutres([chiffre, cfA, cfB]).length === 1 && DCv.autresACompleter([chiffre, cfA]) && !DCv.autresACompleter([chiffre]));
+    const rep = DCv.reprisesAutres(la);
+    test("★ reprendre un devis ou un brouillon rend l'élément cf. visite tel quel (nom, quantité, sans prix)",
+      rep.length === 3 && rep[1].cf_visite === true && rep[1].nom === "Câblage et protections" && rep[1].qte === "" && rep[2].qte === "2" && rep[1].prix === "" && !rep[0].cf_visite);
+    const reglages = { totalDevis: 1100000 + 35000 + 113500, poseSeule: false, fraisInstallation: 113500, pctInstall: "10", fraisTransport: 0, pctTransport: "0", remise: 0, pctRemise: "0", pctAcompte: "60", montantAcompte: 748800, delaiInstallation: "" };
+    const lignesMetierEssai = [
+      { categorie: "Panneaux solaires", article: "PANNEAU 550W", qte: 4, pu: 100000, total: 400000, produit_id: "pp" },
+      { categorie: "Batteries", article: "BATTERIE 5 kWh", qte: 2, pu: 350000, total: 700000, produit_id: "pb" },
+    ];
+    const devisCf = DCv.construireDevis({ profile: { id: "u-com", nom: "KOSSI", role: "commercial" }, boutique: "APESSITO", besoins: null,
+      panierMetier: [], lignesMetier: lignesMetierEssai, autres: [chiffre, cfA, cfB], reglages, horodatage: { id: "dv1", date: "2026-10-08", heure: "09:00" } });
+    test("★ le devis construit porte ses éléments cf. visite et se reconnaît « à compléter »",
+      Cf.devisACompleter(devisCf) && Cf.lignesCfVisite(devisCf).length === 2 && !Cf.devisACompleter({ lignes: lignesMetierEssai }));
+    // Décision « A a » : pas de validation d'un total partiel.
+    const dbVal = { users: [{ id: "cl1", role: "client", nom: "AKAKE", devis: [devisCf] }], boutiques: [{ nom: "APESSITO" }], dettes: [], ventes: [], clients_installes: [], messages: [] };
+    const rVal = Val.validerDevis(dbVal, { clientId: "cl1", devisId: "dv1", boutique: "APESSITO", acteur: { nom: "AKAKE", estClient: true } });
+    test("★★ « A a » : un devis qui porte un élément cf. visite NE SE VALIDE PAS (le client valide le devis complet, jamais un total partiel)",
+      rVal && rVal.erreur === Cf.MOTIF_VALIDATION_A_COMPLETER);
+    // Qui complète (« C ») et quand (« A a »).
+    test("★★ « C » : celui qui l'a établi, l'administrateur et le responsable commercial complètent ; un autre vendeur non",
+      Cf.peutCompleterDevis({ ...devisCf, par_id: "u-com" }, { id: "u-com", role: "commercial" })
+      && Cf.peutCompleterDevis(devisCf, { id: "x", role: "admin" }) && Cf.peutCompleterDevis(devisCf, { id: "y", role: "resp_commercial" })
+      && !Cf.peutCompleterDevis(devisCf, { id: "z", role: "vendeur" }));
+    test("★★ « A a » : seulement tant qu'il est ⏳ Proposé ; un devis sans élément cf. visite n'a rien à compléter",
+      !Cf.peutCompleterDevis({ ...devisCf, statut: "valide" }, { id: "x", role: "admin" }) && !Cf.peutCompleterDevis({ ...devisCf, lignes: lignesMetierEssai }, { id: "x", role: "admin" }));
+    test("★ « qui complète » nomme les mêmes rôles que « Modifier et renvoyer » (les deux listes ne divergent pas)",
+      readFileSync("src/lib/comptesClients.js", "utf8").includes(`export const ROLES_MODIFIENT_TOUT_DEVIS = ${JSON.stringify(Cf.ROLES_COMPLETENT_TOUT_DEVIS).replace(/,/g, ", ")};`));
+    // La complétion elle-même.
+    const produitsBq = [{ id: "pcab", nom: "Câble solaire 6mm²", prix_vente: 2500, boutique: "APESSITO" }];
+    const refusPrix = DCv.completerDevis(devisCf, { reponses: [{ nom: "Câble solaire 6mm²", qte: "20", prix: "" }, { sans_objet: true }], ajouts: [], produits: produitsBq, par: "KOSSI", par_id: "u-com", le: "2026-10-12" });
+    test("★ un élément ni chiffré ni « sans objet » est refusé, en le nommant",
+      !!refusPrix.erreur && /Câblage et protections/.test(refusPrix.erreur));
+    const comp = DCv.completerDevis(devisCf, {
+      reponses: [{ nom: "Câble solaire 6mm²", qte: "20", prix: "2500" }, { sans_objet: true }],
+      ajouts: [{ nom: "Parafoudre AC", qte: "1", prix: "15000" }], produits: produitsBq, par: "KOSSI", par_id: "u-com", le: "2026-10-12" });
+    const dc = comp.devis || {};
+    const avantArticles = devisCf.lignes.filter((l) => !DCv.estLigneFrais(l) && !l.cf_visite);
+    test("★★ « à compléter et non modifié » : les lignes DÉJÀ CHIFFRÉES restent identiques, au franc et à l'ordre près",
+      JSON.stringify(dc.lignes.slice(0, avantArticles.length)) === JSON.stringify(avantArticles));
+    // 1 100 000 + 35 000 + 50 000 (câble) + 15 000 (parafoudre) = 1 200 000 ; installation 10 % = 120 000.
+    test("★★ les éléments chiffrés et les lignes ajoutées entrent au devis, plus aucun cf. visite ; les frais se recalculent au pourcentage NÉGOCIÉ (10 % → 120 000), total 1 320 000, acompte 60 % → 792 000",
+      !Cf.devisACompleter(dc) && dc.total === 1320000 && dc.frais_installation === 120000 && dc.montant_acompte === 792000
+      && dc.lignes.some((l) => l.article === "Câble solaire 6mm²" && l.produit_id === "pcab" && l.total === 50000 && l.complete_apres_visite)
+      && dc.lignes.some((l) => l.article === "Parafoudre AC" && l.hors_boutique === true)
+      && dc.lignes.filter((l) => DCv.estLigneFrais(l)).length === 1 && dc.pct_installation === 10 && dc.pct_acompte === 60);
+    test("★★ le panier encaissé reçoit les nouvelles lignes (l'article du stock garde son lien), rien d'autre ne bouge",
+      dc.panier.length === devisCf.panier.length + 2 && dc.panier.some((p) => p.produit_id === "pcab" && p.qte === 20));
+    test("★★ la trace dit « complété », JAMAIS « modifié » : id, date, statut gardés ; complete_le / complete_par posés ; aucun champ de modification",
+      dc.id === "dv1" && dc.date === "2026-10-08" && (dc.statut || "propose") === "propose" && dc.complete_le === "2026-10-12" && dc.complete_par === "KOSSI"
+      && !("modifie_le" in dc) && !("nb_modifications" in dc) && dc.historique_completion.length === 1
+      && dc.historique_completion[0].total_avant === devisCf.total && dc.historique_completion[0].total_apres === 1320000
+      && dc.historique_completion[0].elements[1].devient === "sans objet");
+    test("★ le devis complété se valide (la porte de « A a » s'ouvre)",
+      !Val.validerDevis({ ...dbVal, users: [{ id: "cl1", role: "client", nom: "AKAKE", devis: [dc] }] }, { clientId: "cl1", devisId: "dv1", boutique: "APESSITO", acteur: { nom: "AKAKE", estClient: true } }).erreur);
+    // Le PDF, MESURÉ.
+    const dPdf = { ...devisOrdinaire, lignes: [...devisOrdinaire.lignes, ...la.slice(1)], pct_acompte: 60, montant_acompte: 600000 };
+    const docCf = Pdf.genererDevis(dPdf, null, true);
+    const txtCf = texteDuPdf(docCf);
+    test("★★ « B » : le PDF écrit « Cf. visite » sur ces lignes, un TOTAL PROVISOIRE, la phrase « à compléter après la visite », et AUCUN acompte ni solde",
+      txtCf.includes(Cf.MENTION_CF_VISITE) && txtCf.includes("Câblage et protections") && txtCf.includes("TOTAL PROVISOIRE") && !txtCf.includes("TOTAL DU PROJET")
+      && txtCf.includes("compléter après la visite") && !txtCf.includes("Acompte à la commande") && !txtCf.includes("Paiement intégral"));
+    test("★ la phrase « à compléter après la visite » tient sur UNE ligne du PDF (écrite en entier, pas coupée)", texteDuPdf(docCf).includes(Cf.PHRASE_A_COMPLETER));
+    test("★★ le devis à compléter tient sur UNE page, sans aucun texte qui en chevauche un autre ; un devis ordinaire garde « TOTAL DU PROJET »",
+      docCf.internal.getNumberOfPages() === 1 && chevauchements(docCf) === 0 && texteDuPdf(Pdf.genererDevis(devisOrdinaire, null, true)).includes("TOTAL DU PROJET"));
+    // Le message du numéro BMI : le montant dit qu'il est provisoire.
+    const sortieWm = join("node_modules", ".cache", `bmi-wm-cf-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/whatsappModeles.js"], bundle: true, format: "esm", platform: "node", outfile: sortieWm, logLevel: "silent" });
+    const Wm = await import(pathToFileURL(sortieWm).href);
+    unlinkSync(sortieWm);
+    const fmtE = (n) => `${n} F`;
+    test("★ le message du numéro BMI dit que le montant est provisoire (« hors éléments à chiffrer après la visite ») — et seulement sur un devis à compléter",
+      Wm.envoiDevisDisponible({ devis: devisCf, compte: { nom: "AKAKE" }, fmt: fmtE }).variables[2].endsWith(Wm.SUITE_MONTANT_CF_VISITE)
+      && !Wm.envoiDevisDisponible({ devis: dc, compte: { nom: "AKAKE" }, fmt: fmtE }).variables[2].includes("visite"));
+    // Les écrans : les gestes revérifient DANS le geste.
+    const tdv = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+    const corpsComp = tdv.slice(tdv.indexOf("const completerEtEnvoyer"), tdv.indexOf("const telechargerPDF"));
+    test("★★ ✍️ Compléter le devis : le geste relit la fiche FRAÎCHE, revérifie qui et quand (motifRefusCompletion), passe par LA règle completerDevis, ne touche à aucun champ de modification",
+      /const frais = \(client\?\.devis \|\| \[\]\)\.find\(\(x\) => x\.id === d\.id\);/.test(corpsComp) && /motifRefusCompletion\(frais, profile\)/.test(corpsComp)
+      && /completerDevis\(frais, \{/.test(corpsComp) && !/marquerModification|modifie_le/.test(corpsComp) && /bloquerSiLecture\(db, profile\)/.test(corpsComp)
+      && /peutCompleterDevis\(d, profile\) && \(/.test(tdv) && /espaceDuDevis\(db, res\.devis, profile\)/.test(corpsComp));
+    test("★ 📋 Tous les devis : la ligne dit « 📋 À compléter après la visite » puis « ✍️ Complété le … » ; un devis à compléter ne se fait pas signer en boutique",
+      /data-badge-cf-visite/.test(tdv) && /✍️ Complété le \{dFR\(d\.complete_le\)\}/.test(tdv) && /&& !devisACompleter\(d\);/.test(tdv));
+    const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+    test("★★ l'espace client : « Cf. visite » sur les lignes, TOTAL PROVISOIRE, pas de ✅ JE VALIDE tant qu'il reste un élément — revérifié dans le geste ; modifier et rejeter restent possibles",
+      /data-cf-visite/.test(ec) && /devisACompleter\(d\) \? "TOTAL PROVISOIRE" : "TOTAL"/.test(ec) && /\{devisACompleter\(d\) \? \(\s*<div[^>]*data-validation-attend-completion/.test(ec)
+      && /const ouvrirContrat = \(d\) => \{\n[^\n]*\n\s*if \(devisACompleter\(d\)\) \{ uAlert\(MOTIF_VALIDATION_A_COMPLETER\); return; \}/.test(ec)
+      && /✏️ Demander une modification<\/button>/.test(ec));
+    const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+    test("★★ le volet : le bouton « ➕ Élément à compléter (cf. visite) », la note « pas d'acompte », la conversion en vente refusée tant qu'il en reste, et un devis déjà signé ne repart jamais avec un cf. visite",
+      /data-ajouter-cf-visite/.test(pa) && /data-acompte-cf-visite/.test(pa)
+      && /if \(aCompleter\) \{ uAlert\("📋 Ce devis porte des éléments à compléter après la visite/.test(pa)
+      && /if \(idAReprendre && devisACompleter\(devis\)\) \{/.test(pa));
+  }
   // ---- 📞 LE NUMÉRO DE LA BOUTIQUE SUR LE DEVIS ET LA PROFORMA (26/09/2026,
   // « pourquoi sur les proformas il n'y a pas le numéro de la boutique ? » →
   // « b, lance »). L'en-tête lit la fiche de la boutique, comme le reçu.
@@ -12283,7 +12398,7 @@ titre("Un devis SANS CALCUL repris ne ramène jamais ses lignes de frais comme d
     && !DC.estLigneFrais(null));
   const autre = readFileSync("src/screens/dimensionnement/Autre.jsx", "utf8");
   test("★★ le volet « Autre » écarte les lignes de frais à la reprise (elles se recalculent d'après les pourcentages)",
-    /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements" && !estLigneFrais\(l\)\)/.test(autre)
+    /lignesReprises\.filter\(\(l\) => l\.categorie !== "Autres équipements" && !estLigneFrais\(l\) && !estLigneCfVisite\(l\)\)/.test(autre)
     && /import \{[^}]*\bestLigneFrais\b[^}]*\} from "\.\/devisCommun"/.test(autre));
 }
 
@@ -12379,7 +12494,7 @@ titre("🤝 L'apporteur externe nommé dans le devis : 3 % d'office, le principa
   test("★ les trois volets passent le principal et leur réglage à l'envoi",
     ["Solaire", "Garage", "Autre"].every((f) => {
       const t = readFileSync(`src/screens/dimensionnement/${f}.jsx`, "utf8");
-      return /devisAReprendre, \{ principal: estAdminPrincipal\(db, profile\) \}\)/.test(t) && /onConvertirEnVente, r \}\)/.test(t);
+      return /devisAReprendre, \{ principal: estAdminPrincipal\(db, profile\) \}\)/.test(t) && /onConvertirEnVente, r, aCompleter \}\)/.test(t);
     }));
   const ve = readFileSync("src/screens/Ventes.jsx", "utf8");
   const encaisser = ve.slice(ve.indexOf("const encaisserVente"), ve.indexOf("const numero = prochainNumeroVente(db, boutique);"));

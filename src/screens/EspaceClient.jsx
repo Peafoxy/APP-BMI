@@ -16,6 +16,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../comp
 import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
+import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER, MOTIF_VALIDATION_A_COMPLETER } from "../lib/devisCfVisite";
 import { offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { demandeModifEnCours, devisCorrige, repondreDemandeModif, accepterDevisCorrige, refuserDevisCorrige } from "../lib/modifDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
@@ -256,6 +257,8 @@ export function EspaceClient({ db, profile, save, setTab }) {
   const signatureRef = useRef(null); // LA zone de signature commune (components/ZoneSignature.jsx)
 
   const ouvrirContrat = (d) => {
+    // 📋 Revérifié DANS le geste (08/10/2026) : un devis à compléter ne se valide pas.
+    if (devisACompleter(d)) { uAlert(MOTIF_VALIDATION_A_COMPLETER); return; }
     if (!d.pose_seule) {
       const boutique = bqPaiement[d.id];
       if (!boutique && !devisCorrige(d)) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return; }
@@ -537,17 +540,28 @@ export function EspaceClient({ db, profile, save, setTab }) {
                               <div className="font-semibold">{l.article}</div>
                               <div className="text-[10px] text-slate-400 uppercase">{l.categorie}</div>
                             </td>
-                            <td className="px-2 py-1 text-right tabular-nums">{l.qte}</td>
-                            <td className="px-2 py-1 text-right tabular-nums">{fmt(l.pu)}</td>
-                            <td className="px-2 py-1 text-right tabular-nums font-semibold">{fmt(l.total)}</td>
+                            <td className="px-2 py-1 text-right tabular-nums">{estLigneCfVisite(l) && !l.qte ? "—" : l.qte}</td>
+                            {estLigneCfVisite(l)
+                              ? <td colSpan={2} className="px-2 py-1 text-right italic text-amber-800" data-cf-visite>{MENTION_CF_VISITE}</td>
+                              : <>
+                                <td className="px-2 py-1 text-right tabular-nums">{fmt(l.pu)}</td>
+                                <td className="px-2 py-1 text-right tabular-nums font-semibold">{fmt(l.total)}</td>
+                              </>}
                           </tr>
                         ))}
                       </tbody>
                     </table>
                     <div className="flex justify-between items-center mt-3 pt-3 border-t-2 border-emerald-300">
-                      <span className="font-bold text-slate-700">TOTAL</span>
+                      <span className="font-bold text-slate-700">{devisACompleter(d) ? "TOTAL PROVISOIRE" : "TOTAL"}</span>
                       <span className="text-xl font-bold text-emerald-800">{fmt(d.total)}</span>
                     </div>
+                    {/* 📋 Décision « A a » (08/10/2026) : un devis à compléter après la
+                        visite ne se valide pas encore — le client valide le devis complet. */}
+                    {devisACompleter(d) && (
+                      <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900" data-devis-a-completer>
+                        📋 <b>{PHRASE_A_COMPLETER}</b> Vous pourrez le valider dès qu'il sera complété.
+                      </div>
+                    )}
                     {/* ---- VALIDATION PAR LE CLIENT ---- */}
                     {d.refus_motif && (!d.statut || d.statut === "propose") && (
                       <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
@@ -567,6 +581,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
                             ? <>Validez-le pour signer le contrat. <b>Nos équipes vous contacteront pour programmer l'intervention.</b> {ACOMPTE_POSE_PCT} % sont à régler avant que l'intervention soit programmée, le solde à la réception des travaux.</>
                             : <>Validez-le, et choisissez la boutique où vous passerez régler. Le vendeur y sera prévenu. <b>Votre installation sera programmée dès votre paiement.</b></>}
                         </div>
+                        {devisACompleter(d) ? (
+                          <div className="text-xs font-semibold text-amber-900" data-validation-attend-completion>📋 La validation s'ouvrira dès que BMI aura complété ce devis après la visite.</div>
+                        ) : (
                         <div className="grid sm:grid-cols-2 gap-2 items-end">
                           {!d.pose_seule && (
                             <Field label="Boutique où je vais payer">
@@ -581,6 +598,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                           )}
                           <button onClick={() => ouvrirContrat(d)} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✅ JE VALIDE</button>
                         </div>
+                        )}
 
                         <div className="flex gap-2 flex-wrap mt-3 pt-3 border-t border-sky-200">
                           <button onClick={() => demanderModification(d)} className="px-4 py-2 rounded-lg border-2 border-amber-400 text-amber-700 font-bold text-sm hover:bg-amber-50">✏️ Demander une modification</button>

@@ -3,6 +3,10 @@ import autoTable from "jspdf-autotable";
 import { fichierPdf } from "./lib/core";
 import { VALIDITE_OFFRE_JOURS } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
+import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
+// La phrase d'un devis à compléter tient sur UNE ligne sous le bandeau (toute
+// la largeur : rien d'autre n'est écrit là). Le banc mesure qu'elle y tient.
+const LARGEUR_PHRASE_CF = 176;
 
 // Formatage des montants pour le PDF. On N'UTILISE PAS toLocaleString("fr-FR")
 // car jsPDF n'affiche pas correctement son espace insécable (il apparaît comme
@@ -443,7 +447,18 @@ function blocEquipement(doc, d, largeur, hauteur, y) {
   return doc.lastAutoTable.finalY + 6 + 2;
 }
 // Une remise est une ligne négative : elle se lit en rouge.
+// 📋 Un élément à compléter après la visite (08/10/2026) n'a pas de prix :
+// « Cf. visite » dans les deux colonnes de montants, en italique ambre.
 const ligneEquipement = (l) => {
+  if (estLigneCfVisite(l)) {
+    const st = { textColor: [146, 64, 14], fontStyle: "italic" };
+    return [
+      { content: String(l.article), styles: st },
+      { content: l.qte ? String(l.qte) : "-", styles: { halign: "center", ...st } },
+      { content: MENTION_CF_VISITE, styles: { halign: "right", ...st } },
+      { content: MENTION_CF_VISITE, styles: { halign: "right", ...st } },
+    ];
+  }
   const style = Number(l.total) < 0 ? { textColor: [185, 28, 28] } : {};
   return [
     // ⚠ La fiche technique (une pompe : « 1,1 kW · 60 m · 3 m³/h · 220 V »)
@@ -460,7 +475,25 @@ const ligneEquipement = (l) => {
 function blocFinancier(doc, d, largeur, hauteur, y) {
   // La place a déjà été retenue pour TOUT le bas du devis (hauteurBlocFinal) :
   // ce bloc ne change plus de page de son côté.
-  y = bandeauTotal(doc, largeur, y, d.total, "TOTAL DU PROJET");
+  // 📋 Décision « B » (08/10/2026) : un devis qui porte des éléments
+  // cf. visite n'a qu'un total PROVISOIRE, et aucun acompte n'est demandé.
+  const aCompleter = devisACompleter(d);
+  y = bandeauTotal(doc, largeur, y, d.total, aCompleter ? "TOTAL PROVISOIRE" : "TOTAL DU PROJET");
+  if (aCompleter) {
+    y += 6;
+    doc.setFontSize(8.5); doc.setTextColor(146, 64, 14);
+    for (const ligne of doc.splitTextToSize(PHRASE_A_COMPLETER, LARGEUR_PHRASE_CF)) {
+      doc.text(ligne, largeur - 18, y, { align: "right" });
+      y += 4;
+    }
+    y += 2;
+    if (d.delai_installation) {
+      doc.setFontSize(9); doc.setTextColor(...GRIS_TEXTE);
+      doc.text(`Délai d'installation : ${d.delai_installation}`, largeur - 18, y, { align: "right" });
+      y += 6;
+    }
+    return y;
+  }
   const total = Number(d.total || 0);
   const acompte = Math.max(0, Math.min(total, Math.round(Number(d.montant_acompte ?? (total * Number(d.pct_acompte ?? 100)) / 100))));
   const solde = total - acompte;
@@ -561,6 +594,7 @@ function blocMentions(doc, d, largeur, hauteur, y) {
 // insécable. Le client qui n'imprime que la première page n'aura plus jamais
 // le matériel sans le prix ni la signature.
 const hauteurBlocFinal = (d) => {
+  if (devisACompleter(d)) return 12 + 4 + 2 + (d.delai_installation ? 6 : 0) + 3 + 28 + 1;
   const total = Number(d.total || 0);
   const acompte = Math.max(0, Math.min(total, Math.round(Number(d.montant_acompte ?? (total * Number(d.pct_acompte ?? 100)) / 100))));
   // Bandeau TOTAL, puis acompte / solde / délai, puis les trois lignes de

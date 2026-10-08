@@ -603,7 +603,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, reprendreAutres, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+  const { autres, ajouterAutre, ajouterAutreCfVisite, majAutre, retirerAutre, reprendreAutres, totalAutres, aCompleter } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti (voir plus bas), jamais avant.
@@ -619,7 +619,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
   // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
   // métier de ce volet, ses besoins et la première ligne du message.
-  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "solaire", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r });
+  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "solaire", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r, aCompleter });
 
   // 🆕 Nouveau devis (demande Timo, 09/09/2026) : repartir de zéro d'un
   // geste au lieu de retirer les appareils ligne par ligne. Proposé
@@ -931,11 +931,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
         <BlocAutresEquipements
           titre="Autres équipements (câbles, protections AC/DC, accessoires…)"
-          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
+          autres={autres} onAjouter={ajouterAutre} onAjouterCfVisite={ajouterAutreCfVisite} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
           placeholder="Ex : Câble 6mm² (rouleau)"
         />
 
-        <BlocsFinDevis r={r} onConvertir={convertir} />
+        <BlocsFinDevis r={r} onConvertir={convertir} aCompleter={aCompleter} />
       </div>
 
       {/* ---- ENVOYER LE DEVIS AU CLIENT ---- */}

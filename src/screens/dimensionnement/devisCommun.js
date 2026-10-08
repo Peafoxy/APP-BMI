@@ -15,19 +15,31 @@
 // ============================================================
 import { uid, today, heureCourte } from "../../lib/core";
 import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
+import { CATEGORIE_CF_VISITE, estLigneCfVisite, lignesCfVisite, critiqueCompletion, nombreSaisi } from "../../lib/devisCfVisite";
 
 // ---- Les « autres équipements » (saisie libre) ----
+// 📋 Une ligne « cf. visite » (Timo, 08/10/2026 : « mettez cf visite… après
+// c'est à compléter et non modifié ») est un autre équipement SANS PRIX : un
+// nom, une quantité facultative. Elle ne compte dans aucun total, n'entre
+// jamais dans le panier, et revient telle quelle à la reprise d'un devis ou
+// d'un brouillon (lib/devisCfVisite.js).
 export const reprisesAutres = (lignesReprises) => (lignesReprises || [])
-  .filter((l) => l.categorie === "Autres équipements")
-  .map((l) => ({ id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique, produit_id: l.produit_id || null }));
+  .filter((l) => l.categorie === "Autres équipements" || estLigneCfVisite(l))
+  .map((l) => (estLigneCfVisite(l)
+    ? { id: uid(), nom: l.article, prix: "", qte: l.qte ? String(l.qte) : "", cf_visite: true }
+    : { id: uid(), nom: l.article, prix: String(l.pu), qte: String(l.qte), hors_boutique: !!l.hors_boutique, produit_id: l.produit_id || null }));
 export const nouvelAutre = () => ({ id: uid(), nom: "", prix: "", qte: "1" });
-export const totalAutres = (autres) => autres.reduce((s, a) => s + Number(a.prix || 0) * Number(a.qte || 1), 0);
-export const lignesAutres = (autres) => autres.filter((a) => a.nom).map((a) => ({
-  categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
-  pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
-  ...(a.produit_id ? { produit_id: a.produit_id } : {}),
-}));
-export const panierAutres = (autres) => autres.filter((a) => a.nom.trim() && a.prix).map((a) => ({
+export const nouvelAutreCfVisite = () => ({ id: uid(), nom: "", prix: "", qte: "", cf_visite: true });
+export const totalAutres = (autres) => autres.filter((a) => !a.cf_visite).reduce((s, a) => s + Number(a.prix || 0) * Number(a.qte || 1), 0);
+export const autresACompleter = (autres) => (autres || []).some((a) => a.cf_visite && String(a.nom || "").trim());
+export const lignesAutres = (autres) => autres.filter((a) => a.nom).map((a) => (a.cf_visite
+  ? { categorie: CATEGORIE_CF_VISITE, article: a.nom, qte: Number(a.qte) > 0 ? Number(a.qte) : null, pu: 0, total: 0, cf_visite: true }
+  : {
+    categorie: "Autres équipements", article: a.nom, qte: Number(a.qte || 1),
+    pu: Number(a.prix || 0), total: Number(a.prix || 0) * Number(a.qte || 1), hors_boutique: !!a.hors_boutique,
+    ...(a.produit_id ? { produit_id: a.produit_id } : {}),
+  }));
+export const panierAutres = (autres) => autres.filter((a) => !a.cf_visite && a.nom.trim() && a.prix).map((a) => ({
   produit_id: a.produit_id || null, article: a.nom.trim(), qte: Number(a.qte || 1), pu: Number(a.prix), hors_boutique: !!a.hors_boutique,
 }));
 
@@ -173,4 +185,70 @@ export function confierBrouillon(db, deId, aId, brouillonId, { par, le }) {
   const confie = { ...b, confie: { par, par_id: deId, le }, devis: { ...(b.devis || {}), prepare_par: prepare } };
   const db2 = retirerBrouillon(db, deId, brouillonId);
   return { db: ajouterBrouillon(db2, aId, confie), brouillon: confie, destinataire: a };
+}
+
+// ============ ✍️ COMPLÉTER UN DEVIS APRÈS LA VISITE (Timo, 08/10/2026) ============
+// « Après c'est à compléter et non modifié » : chaque ligne cf. visite reçoit
+// un article, une quantité et un prix (ou « sans objet »), des lignes
+// découvertes à la visite peuvent s'ajouter — et TOUT LE RESTE NE BOUGE PAS :
+// les lignes déjà chiffrées restent intactes, les pourcentages négociés
+// (remise, installation, transport, acompte) aussi ; seuls les montants qui
+// en découlent se recalculent (calculerTotaux, lignesFrais — les règles des
+// trois volets, jamais une copie). Le devis garde son id, sa date, son statut
+// ⏳ Proposé. La trace dit « complété », jamais « modifié » : aucun champ de
+// modification n'est touché.
+// `reponses[i]` répond à la i-ème ligne cf. visite : { nom, qte, prix,
+// produit_id?, hors_boutique?, sans_objet? } ; `ajouts` : mêmes champs.
+// Rend { devis } ou { erreur }.
+export function completerDevis(devis, { reponses = [], ajouts = [], produits = [], par, par_id, le }) {
+  const refus = critiqueCompletion(devis, { reponses, ajouts });
+  if (refus) return { erreur: refus };
+  const cf = lignesCfVisite(devis);
+  // Une ligne saisie : liée au stock si son nom y correspond exactement
+  // (la règle des autres équipements), sinon libre et HB.
+  const versLigne = (r) => {
+    const lie = r.produit_id ? { ...r } : lierAutreAuStock({ hors_boutique: !!r.hors_boutique }, r.nom, produits);
+    const qte = nombreSaisi(r.qte), pu = nombreSaisi(r.prix);
+    return {
+      categorie: "Autres équipements", article: String(lie.nom || r.nom).trim(), qte, pu, total: pu * qte,
+      hors_boutique: !!lie.hors_boutique, ...(lie.produit_id ? { produit_id: lie.produit_id } : {}), complete_apres_visite: true,
+    };
+  };
+  const chiffrees = reponses.filter((r) => r && !r.sans_objet).map(versLigne);
+  const ajoutees = ajouts.filter((a) => String(a.nom || "").trim()).map(versLigne);
+  const nouvelles = [...chiffrees, ...ajoutees];
+  // Les lignes d'articles d'avant, intactes (ni frais, ni cf. visite).
+  const articles = (devis.lignes || []).filter((l) => !estLigneFrais(l) && !estLigneCfVisite(l));
+  const totalArticles = [...articles, ...nouvelles].reduce((s, l) => s + Number(l.total || 0), 0);
+  const poseSeule = !!devis.pose_seule;
+  const reglages = {
+    pctRemise: devis.pct_remise ?? 0, pctInstall: devis.pct_installation ?? 0, pctTransport: devis.pct_transport ?? 0,
+    poseSeule, montantPoseFixe: poseSeule ? devis.frais_installation : 0, pctAcompte: devis.pct_acompte ?? 100,
+  };
+  const t = calculerTotaux({ totalArticles, ...reglages });
+  const r = { ...reglages, ...t };
+  const historique = {
+    le, par, par_id,
+    total_avant: Number(devis.total || 0), total_apres: t.totalDevis,
+    elements: (() => { let k = 0; return cf.map((l, i) => {
+      if (reponses[i]?.sans_objet) return { article: l.article, devient: "sans objet" };
+      const c = chiffrees[k++];
+      return { article: l.article, devient: `${c.article} × ${c.qte}` };
+    }); })(),
+    ajouts: ajoutees.map((l) => l.article),
+  };
+  return {
+    devis: {
+      ...devis,
+      lignes: [...articles, ...nouvelles, ...lignesFrais(r)],
+      panier: [...(devis.panier || []), ...nouvelles.map((l) => ({ produit_id: l.produit_id || null, article: l.article, qte: l.qte, pu: l.pu, hors_boutique: !!l.hors_boutique }))],
+      total: t.totalDevis,
+      frais_installation: t.fraisInstallation,
+      frais_transport: t.fraisTransport,
+      remise: t.remise,
+      montant_acompte: t.montantAcompte,
+      complete_le: le, complete_par: par, complete_par_id: par_id,
+      historique_completion: [...(Array.isArray(devis.historique_completion) ? devis.historique_completion : []), historique],
+    },
+  };
 }

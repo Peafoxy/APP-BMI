@@ -18,7 +18,8 @@
 // modification, rejeté, et validé après accord du client ; auteur, admin,
 // responsable commercial ; marquerModification), lib/modifDevis.js
 // (MAX_CYCLES_MODIF = 3, les refus : payé, déjà en attente, chantier
-// réceptionné, argent déjà versé), lib/devisSansSuite.js, lib/corbeille.js
+// réceptionné, argent déjà versé), lib/devisCfVisite.js et components/CompleterDevis.jsx
+// (✍️ Compléter le devis, cf. visite), lib/devisSansSuite.js, lib/corbeille.js
 // (30 jours), lib/rappels.js (SEUIL_RELANCE_JOURS = 15, VALIDITE_OFFRE_JOURS =
 // 15), lib/relanceAutoDevis.js (8e au 15e jour, une seule), lib/whatsappModeles.js
 // (relance_devis / devis_valide_paiement), lib/validationDevis.js (commande en
@@ -64,6 +65,7 @@ export const CHAPITRE = {
         ["Voir 📋 Tous les devis", "**Administrateur et responsable commercial** : tous les devis. **Commercial, technicien, technicien BMI, gérant, vendeur** : les leurs, plus ceux que le client viendra **payer dans leur boutique**. Le magasinier, le comptable et le client ne l'ont pas."],
         ["📲 Relancer sur WhatsApp", "Tout compte qui voit le devis — sur un devis **Proposé** ou **Validé** (pas encore payé)."],
         ["✏️ Modifier et renvoyer", "**Celui qui a établi le devis, l'administrateur, le responsable commercial.** Pas le vendeur de la boutique de paiement, même s'il voit le devis."],
+        ["✍️ Compléter le devis (éléments cf. visite)", "**Les mêmes : l'auteur, l'administrateur, le responsable commercial**, et seulement tant que le devis est **⏳ Proposé**."],
         ["✏️ Demander une modification au client (devis signé)", "Les mêmes : l'auteur, l'administrateur, le responsable commercial."],
         ["📁 Classer sans suite / ↩ Rouvrir le devis", "Les mêmes : l'auteur, l'administrateur, le responsable commercial."],
         ["🗑 Supprimer un devis", "**L'administrateur principal seul**, et seulement un devis **Proposé**."],
@@ -96,7 +98,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Ouvrir 📋 Tous les devis", texte: "La liste est rangée **par statut** — Proposé, Validé, Payé, Corrigé, Modification, Rejeté, Sans suite — puis du plus récent au plus ancien. 50 devis par page." },
         { titre: "Lire le statut", texte: "**⏳ Proposé** : envoyé, le client n'a pas répondu. **✅ Validé** : le client a signé, il n'a pas encore payé. **💰 Payé** : encaissé. **✏️ Modification demandée** : le client veut un changement. **🔄 Corrigé** : BMI a corrigé un devis signé, le client doit re-signer. **❌ Rejeté** : le client a dit non. **📁 Classé sans suite** : rangé par BMI." },
-        { titre: "Lire les pastilles", texte: "**Point rouge** : pas encore ouvert. **⚠️ Sans réponse depuis N j** : à relancer. **📲 Relancé le …** (vert « du n° BMI » quand le message est parti du numéro BMI). **⌛ Offre expirée — prix à confirmer**. **🤖 Relancé automatiquement le …**. **✏️ Modifié le … par …** : le devis a été corrigé. Les coches ✓ / ✓✓ disent si le dernier message est arrivé ou a été lu." },
+        { titre: "Lire les pastilles", texte: "**Point rouge** : pas encore ouvert. **⚠️ Sans réponse depuis N j** : à relancer. **📲 Relancé le …** (vert « du n° BMI » quand le message est parti du numéro BMI). **⌛ Offre expirée — prix à confirmer**. **🤖 Relancé automatiquement le …**. **✏️ Modifié le … par …** : le devis a été corrigé. **📋 À compléter après la visite** : des éléments restent à chiffrer (section I). **✍️ Complété le … par …** : ils l'ont été. Les coches ✓ / ✓✓ disent si le dernier message est arrivé ou a été lu." },
         { titre: "Ouvrir la ligne", texte: "Un clic : les articles avec quantité, prix et total, et les boutons permis. **Ouvrir un devis le marque vu** : il ne compte plus dans le point rouge de l'onglet." },
       ]],
       ["h3", "B. Relancer un devis"],
@@ -149,6 +151,16 @@ export const CHAPITRE = {
         { titre: "Retrouver une proforma", texte: "**🧾 Proformas (N)** au-dessus de la liste des ventes : Date, N°, Client, Articles, Total, Émis par, et **Suite** — « ✅ Encaissée le … — reçu N° … » ou « ⏳ En attente ». La période, la recherche et le **Total des proformas** marchent comme pour les ventes (jamais le mot « recette » : une offre n'est pas encaissée)." },
         { titre: "🛒 Vendre", texte: "Le client revient avec sa proforma : **🛒 Vendre** remplit le panier (même prix que la proforma, même client, même remise). **Une remise de plus de 3 % accordée par l'administrateur sur la proforma passe pour tout vendeur, tant que le panier reste le même.** **Rien n'est encore enregistré** : le vendeur vérifie, puis encaisse normalement." },
       ]],
+      ["h3", "I. Un devis à compléter après la visite (cf. visite)"],
+      ["etapes", [
+        { titre: "Pourquoi", texte: "Le client veut un devis tout de suite, mais certains éléments ne se chiffrent qu'après la visite technique (câblage, supports de toiture…). On met **tout ce qu'on connaît**, et le reste **« cf. visite »**. **Le devis se COMPLÈTE ensuite, il ne se modifie pas.**" },
+        { titre: "Dans le volet du devis", texte: "Sous **Autres équipements**, le bouton **« ➕ Élément à compléter (cf. visite) »** ajoute une ligne ambre : **le nom de l'élément**, une quantité si on la connaît, et **« Prix : cf. visite »** — aucun prix. Ces lignes ne comptent dans aucun total et ne vont jamais au panier." },
+        { titre: "Ce que reçoit le client", texte: "Le PDF écrit **« Cf. visite »** sur ces lignes, un **TOTAL PROVISOIRE**, et la phrase « Éléments à compléter après la visite technique (cf. visite) : total, acompte et solde arrêtés au devis complété. » **Aucun acompte n'est demandé.** Le message du numéro BMI dit que le montant est hors éléments à chiffrer après la visite." },
+        { titre: "Le client ne peut pas encore valider", texte: "Dans son espace, **✅ JE VALIDE n'apparaît pas** tant qu'il reste un élément cf. visite : il valide le devis **complet**, jamais un total partiel. Il peut toujours demander une modification ou rejeter. « Convertir en vente » est refusé aussi." },
+        { titre: "✍️ Compléter le devis", texte: "Après la visite, dans 📋 Tous les devis, ouvrir la ligne → **✍️ Compléter le devis**. Pour chaque élément : l'**article** (proposé dans le stock de la boutique, ou tapé librement — il devient alors HB), la **quantité**, le **prix** — ou cocher **« Sans objet »** s'il n'est finalement pas nécessaire. **« ➕ Ajouter une ligne découverte à la visite »** pour ce qui manquait. Le nouveau total se lit avant d'enregistrer." },
+        { titre: "✍️ Enregistrer et envoyer au client", texte: "**Les lignes déjà chiffrées ne bougent pas.** Les frais (installation, transport, remise) se recalculent au **pourcentage déjà négocié**, l'acompte aussi. Le devis garde son numéro, sa date et reste ⏳ Proposé ; il porte « ✍️ Complété le … par … » (jamais « Modifié »). Une question propose ensuite de l'envoyer au client **du numéro BMI** ; le client peut alors le valider." },
+      ]],
+      ["note", "**La date de l'offre ne change pas** en complétant : les 15 jours se comptent toujours depuis la date du devis. Pour de nouveaux prix sur les lignes déjà chiffrées, c'est **✏️ Modifier et renvoyer** (section C)."],
       ["regle", "**Une proforma se corrige, elle ne se refait pas** (✏️ Modifier) : elle garde son numéro, et chaque correction est notée (date, auteur, l'ancienne version gardée). **Qui** : celui qui l'a établie et l'administrateur. **Jamais une proforma déjà encaissée** : elle est devenue une vente — pour une nouvelle offre, une nouvelle proforma. **Au-delà de 3 % de remise**, l'administrateur seul (la base le refuse aussi). Un article devenu introuvable dans le stock empêche la modification : il disparaîtrait de l'offre."],
       ["attention", "**🛒 Vendre ne change jamais de boutique tout seul.** Une proforma d'une autre boutique est refusée en nommant la bonne : il faut se placer sur cette boutique. Un article introuvable dans le stock est **listé**, jamais mis au panier sans sa fiche ; un prix qui a changé depuis est **signalé** (le prix de la proforma est gardé). Une proforma **déjà encaissée** se revend quand même, mais l'écran **prévient** en nommant la date et le reçu : ce sera une nouvelle vente, avec un nouveau numéro."],
     ]},
@@ -160,6 +172,7 @@ export const CHAPITRE = {
         ["Bande « ⚠️ … sans réponse depuis plus de 15 jours »", "Ne montrer que les devis à relancer (un second clic rend tout)."],
         ["📲 Relancer sur WhatsApp", "Rappel du devis (Proposé) ou du règlement (Validé), du numéro BMI, après une question."],
         ["✏️ Modifier et renvoyer", "Rouvre le devis rempli dans son volet ; le devis corrigé remplace l'ancien."],
+        ["✍️ Compléter le devis", "Chiffrer les éléments « cf. visite » d'un devis Proposé (ou les dire sans objet) ; les lignes déjà chiffrées ne bougent pas ; le devis repart au client."],
         ["✏️ Demander une modification au client", "Devis signé : motif au client, qui accepte ou refuse avant toute correction."],
         ["📄 Devis PDF", "Le devis commercial : besoin, équipement, total, acompte, mentions, deux cadres de signature, cachet de BMI."],
         ["📁 Classer sans suite", "Range un devis Proposé (motif obligatoire) ; il reste entier."],
@@ -183,6 +196,7 @@ export const CHAPITRE = {
         "**L'offre vaut 15 jours.** Le 15e jour elle est encore valable, elle expire le lendemain. Un devis **Proposé** expiré n'est **ni bloqué ni supprimé** : il porte « ⌛ Offre expirée — prix à confirmer », le client est prévenu avant de valider, et s'il valide quand même, le devis garde « ⌛ Validé après expiration — prix à confirmer » : **le vendeur confirme le prix à l'encaissement**.",
         "**La relance automatique du 8e jour** : entre le 8e et le 15e jour, la tournée de 7 h envoie **une seule fois** au client, du numéro BMI, un rappel qui annonce la date de fin de l'offre. Jamais si le devis a déjà été relancé à la main, jamais en formation, jamais sans numéro. Pastille « 🤖 Relancé automatiquement le … ».",
         "**Le rappel des 15 jours** : chaque matin, une notification « pour information » part vers **l'auteur du devis, les responsables commerciaux et les administrateurs** le jour où un devis atteint 15 jours sans réponse.",
+        "**Un devis qui porte un élément « cf. visite » ne se valide pas** : ni par le client, ni en boutique, ni par « Convertir en vente ». Il n'a qu'un total provisoire et **aucun acompte** tant qu'il n'est pas complété.",
         "**Payé, rejeté, modification demandée, classé sans suite : aucune relance**, ni à la main ni automatique.",
         "**La trace d'une correction ne s'efface jamais** : date, auteur, nombre de corrections. Personne ne baisse un prix en silence.",
         "**Un devis ne touche pas le stock.** C'est l'encaissement dans 💰 Ventes qui fait sortir les articles. Une proforma non plus, jamais.",

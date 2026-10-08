@@ -10,6 +10,7 @@ import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, estAdminPrincipal } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres, estLigneFrais } from "./devisCommun";
+import { estLigneCfVisite } from "../../lib/devisCfVisite";
 import { useSelectionAvecVerrou } from "./Selecteur";
 import { etudePompe, pompesDuStock, ficheLisible } from "../../lib/pompes.js";
 import { pertesTuyauPct } from "../../lib/calculs";
@@ -117,7 +118,9 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // ⚠ Et JAMAIS les lignes de frais (installation, transport, remise) : elles
   // se recalculent d'après les pourcentages repris — les reprendre comme des
   // articles les comptait deux fois (29/09/2026, `estLigneFrais`).
-  const lignesCategorie = besoinsRepris ? lignesReprises.filter((l) => l.categorie !== "Autres équipements" && !estLigneFrais(l)) : [];
+  // ⚠ Ni les éléments « cf. visite » (08/10/2026) : ils reviennent dans les
+  // autres équipements, sans prix (reprisesAutres).
+  const lignesCategorie = besoinsRepris ? lignesReprises.filter((l) => l.categorie !== "Autres équipements" && !estLigneFrais(l) && !estLigneCfVisite(l)) : [];
   // Reconstruit besoins + choix/verrous à partir des mêmes lignes, en tentant de
   // retrouver l'article correspondant en stock — sinon on restitue le prix d'origine tel quel.
   const initialSelection = (() => {
@@ -254,7 +257,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const totalRoles = lignesDevis.reduce((s, l) => s + l.sousTotal, 0);
 
   // ---- Autres équipements : hors de la catégorie choisie ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, reprendreAutres, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+  const { autres, ajouterAutre, ajouterAutreCfVisite, majAutre, retirerAutre, reprendreAutres, totalAutres, aCompleter } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
 
   const totalArticles = totalRoles + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
@@ -269,7 +272,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
   // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
   // métier de ce volet, ses besoins et la première ligne du message.
-  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "autre", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r });
+  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "autre", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r, aCompleter });
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
 
   // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
@@ -488,11 +491,11 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
 
         <BlocAutresEquipements
           titre="Autres équipements"
-          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
+          autres={autres} onAjouter={ajouterAutre} onAjouterCfVisite={ajouterAutreCfVisite} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
           placeholder="Ex : Câblage"
         />
 
-        <BlocsFinDevis r={r} onConvertir={convertir} />
+        <BlocsFinDevis r={r} onConvertir={convertir} aCompleter={aCompleter} />
       </div>
 
       {/* ---- ENVOYER LE DEVIS AU CLIENT ---- */}

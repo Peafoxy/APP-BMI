@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2337 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2359 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -699,6 +699,30 @@ lit mal est pire qu'un banc absent).
   `nb_modifications` posés par `marquerModification`, badge sur la ligne.
   Règles pures `peutModifierDevis` / `motifRefusModification` /
   `marquerModification` (lib/comptesClients.js), revérifiées DANS le geste.
+- **📋 LES ÉLÉMENTS « CF. VISITE » ET ✍️ COMPLÉTER LE DEVIS** (08/10/2026,
+  capture d'un client : « mettez tout et les trucs qui manquent, mettez cf
+  visite. Après c'est à compléter et non modifié » → « A a, B pas d'acompte,
+  C oui, lance »). Règle pure **`lib/devisCfVisite.js`** (sans import) ;
+  « ➕ Élément à compléter (cf. visite) » sous Autres équipements, trois
+  volets (`ajouterAutreCfVisite`) : une ligne `cf_visite` SANS prix (pu 0),
+  hors de tout total et du panier. **« A a »** : on complète tant que le
+  devis est ⏳ Proposé SEUL, et **un devis qui porte un cf. visite NE SE
+  VALIDE PAS** (`validerDevis` le refuse, l'espace client cache ✅ JE VALIDE,
+  signature en boutique et « Convertir » refusés). **« B »** : PDF « Cf.
+  visite » sur la ligne, **TOTAL PROVISOIRE**, la phrase (une ligne, mesurée),
+  **aucun acompte** ; le message `devis_disponible` dit « (hors éléments à
+  chiffrer après la visite) ». **« C »** : auteur, admin, resp. commercial
+  (`motifRefusCompletion`, revérifié DANS le geste sur la fiche fraîche).
+  **✍️ Compléter le devis** (📋 Tous les devis, `components/CompleterDevis.jsx`
+  → `completerDevis`, devisCommun.js) : chaque élément chiffré (stock lié ou
+  HB) ou « sans objet », lignes ajoutées ; **les lignes déjà chiffrées ne
+  bougent pas**, frais et acompte recalculés au % négocié, même id, même date
+  (l'offre court toujours depuis la date du devis), `complete_le/par` et
+  `historique_completion` — **jamais `modifie_*`** (« complété », pas
+  « modifié ») ; puis envoi proposé du numéro BMI. Rien à coller. Banc
+  (`verifier-cloisonnement`, ~22), éprouvé (validation permise, TOTAL DU
+  PROJET remis, lignes chiffrées touchées) ; cinq contrôles RETOURNÉS.
+  Chapitres 11, 12, 13, 21.
 - **✏️ Modifier un devis DÉJÀ SIGNÉ : le client ouvre la porte** (11/09/2026,
   « s'il a déjà signé, impossible de modifier… l'utilisateur va faire une
   demande de modification auprès du client… le client valide la demande avant

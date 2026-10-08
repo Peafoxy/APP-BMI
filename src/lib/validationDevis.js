@@ -15,6 +15,7 @@ import { offreExpiree } from "./rappels";
 import { acomptePose, ACOMPTE_POSE_PCT } from "./poseSeule";
 import { apporteurPourDettePose } from "./apporteurDevis";
 import { champsIdentite } from "./clientEntreprise";
+import { devisACompleter, MOTIF_VALIDATION_A_COMPLETER } from "./devisCfVisite";
 import { assurerBoutiqueTerrain, NOM_BOUTIQUE_TERRAIN, NOM_BOUTIQUE_TERRAIN_FORMATION, estCompteFormation, marqueEspace } from "./calculs";
 
 // Le devis d'un client, tel qu'il est rangé dans SA fiche.
@@ -40,6 +41,9 @@ export function validerDevis(db, { clientId, devisId, boutique, infosContrat = {
   if (!client || !d) return { erreur: "Ce devis n'existe plus." };
   if (d.statut === "valide" || d.statut === "paye") return { erreur: "Ce devis est déjà validé." };
   if (d.statut === "sans_suite") return { erreur: "Ce devis a été classé sans suite : il doit d'abord être rouvert (📋 Tous les devis → 📁 Sans suite)." };
+  // 📋 Décision « A a » (08/10/2026) : le client valide le devis COMPLET,
+  // jamais un total partiel — tant qu'il reste un élément cf. visite, non.
+  if (devisACompleter(d)) return { erreur: MOTIF_VALIDATION_A_COMPLETER };
   const nomClient = client.nom_base || client.nom || "Client";
   const qui = `${acteur?.estClient ? "le client " : ""}${acteur?.nom || nomClient}`;
   // ⚠ Validé APRÈS l'expiration de l'offre (décision « b », 26/09/2026) :

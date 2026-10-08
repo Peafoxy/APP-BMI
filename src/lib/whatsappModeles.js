@@ -454,10 +454,16 @@ export function domaineDevis(devis) {
 export const nomPourClient = (compte) => texteVariable(compte?.nom_base || compte?.nom);
 
 // 📄 LE DEVIS EST PRÊT (premier envoi).
+// 📋 08/10/2026 : un devis qui porte des éléments « cf. visite » n'a qu'un
+// total PROVISOIRE — le trou du montant le dit (le texte du modèle chez Meta
+// ne change pas). La marque `cf_visite` est lue ici sans import (ce fichier
+// n'en a aucun ; la règle vit dans lib/devisCfVisite.js).
+export const SUITE_MONTANT_CF_VISITE = " (hors éléments à chiffrer après la visite)";
 export function envoiDevisDisponible({ devis, compte, fmt }) {
+  const partiel = (Array.isArray(devis?.lignes) ? devis.lignes : []).some((l) => l && l.cf_visite);
   return {
     modele: "devis_disponible",
-    variables: [nomPourClient(compte), domaineDevis(devis), texteVariable(fmt(devis?.total))],
+    variables: [nomPourClient(compte), domaineDevis(devis), texteVariable(`${fmt(devis?.total)}${partiel ? SUITE_MONTANT_CF_VISITE : ""}`)],
   };
 }
 

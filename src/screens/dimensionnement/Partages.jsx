@@ -10,6 +10,7 @@ import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffa
 import { envoyerModele, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
 import { envoiDevisDisponible, envoiIdentifiants, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
+import { devisACompleter } from "../../lib/devisCfVisite";
 import { prospectAvecDevis } from "../../lib/prospects";
 import { apporteurVide, apporteurDepuisDevis, apporteurDuFormulaire, critiqueApporteur, baseApporteurSaisie, commissionApporteur, TAUX_APPORTEUR_DEFAUT } from "../../lib/apporteurDevis";
 
@@ -40,7 +41,7 @@ import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../../components/ui"
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives } from "../../lib/calculs";
-import { reprisesAutres, nouvelAutre, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon } from "./devisCommun";
+import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
 // IMPORTE puis on les RÉEXPORTE : `export { x } from` ne crée pas de nom
@@ -80,7 +81,7 @@ export function appliquerConditionsReprises(devis, s) {
 // est écrite dans lib/choixSolaire.js, où ces règles vivent désormais.)
 
 // ---- Bloc « Autres équipements » : lignes libres (nom + prix + quantité) ----
-export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, onRetirer, placeholder, db, produits = [] }) {
+export function BlocAutresEquipements({ titre, autres, onAjouter, onAjouterCfVisite, onModifier, onRetirer, placeholder, db, produits = [] }) {
   // Les articles du stock de la boutique regardée sont proposés dans le
   // champ (liste déroulante + saisie libre) ; choisir l'un d'eux pré-remplit
   // le prix et lie la ligne (voir lierAutreAuStock). Un nom qui n'y est
@@ -91,7 +92,19 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, on
     <div className="px-4 py-3 border-t border-slate-200">
       <div className="font-bold text-sm text-slate-700 mb-2">{titre}</div>
       <div className="space-y-2">
-        {autres.map((a) => (
+        {autres.map((a) => a.cf_visite ? (
+          // 📋 Un élément à compléter après la visite (08/10/2026) : un nom, une
+          // quantité facultative, AUCUN prix — le PDF écrit « Cf. visite ».
+          <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end rounded-lg bg-amber-50 border border-amber-200 p-2" data-ligne-cf-visite>
+            <Field label="Élément à compléter (cf. visite)">
+              <input className={inputCls} placeholder="Ex : câblage et protections" value={a.nom} onChange={(e) => onModifier(a.id, "nom", e.target.value)} />
+            </Field>
+            <div className="text-sm font-bold text-amber-800 pb-2">Prix : cf. visite</div>
+            <Field label="Quantité (facultative)"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => onModifier(a.id, "qte", e.target.value)} /></Field>
+            <div />
+            <button onClick={() => onRetirer(a.id)} className="text-xs text-red-600 underline pb-2">Retirer</button>
+          </div>
+        ) : (
           <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
             <Field label="Article">
               <ChampSuggestions placeholder={placeholder} valeur={a.nom} suggestions={propositions} onChange={(v) => onModifier(a.id, "nom", v)} />
@@ -105,7 +118,15 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onModifier, on
           </div>
         ))}
       </div>
-      <button onClick={onAjouter} className="mt-2 text-sm font-bold text-sky-800 underline">➕ Ajouter un équipement</button>
+      <div className="mt-2 flex flex-wrap gap-4">
+        <button onClick={onAjouter} className="text-sm font-bold text-sky-800 underline">➕ Ajouter un équipement</button>
+        {onAjouterCfVisite && (
+          <button onClick={onAjouterCfVisite} className="text-sm font-bold text-amber-800 underline" data-ajouter-cf-visite
+            title="Un élément qu'on ne peut chiffrer qu'après la visite technique : il s'écrit « Cf. visite » sur le devis, sans prix">
+            ➕ Élément à compléter (cf. visite)
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -151,13 +172,16 @@ export function useAutresEquipements(lignesReprises, produitsBoutique = [], autr
   return {
     autres,
     ajouterAutre: () => setAutres([...autres, nouvelAutre()]),
+    ajouterAutreCfVisite: () => setAutres([...autres, nouvelAutreCfVisite()]),
     // Le NOM passe par la règle du stock (lien, prix, HB) ; les autres champs
-    // se modifient tels quels.
-    majAutre: (id, champ, val) => setAutres(autres.map((a) => (a.id !== id ? a : champ === "nom" ? lierAutreAuStock(a, val, produitsBoutique) : { ...a, [champ]: val }))),
+    // se modifient tels quels. Une ligne cf. visite ne se lie JAMAIS au stock
+    // (elle n'a pas de prix : c'est une description).
+    majAutre: (id, champ, val) => setAutres(autres.map((a) => (a.id !== id ? a : champ === "nom" && !a.cf_visite ? lierAutreAuStock(a, val, produitsBoutique) : { ...a, [champ]: val }))),
     retirerAutre: (id) => setAutres(autres.filter((a) => a.id !== id)),
     // Reprise d'un autre devis pendant que l'écran est ouvert.
     reprendreAutres: (lignes) => setAutres(reprisesAutres(lignes)),
     totalAutres: totalAutres(autres),
+    aCompleter: autresACompleter(autres),
   };
 }
 
@@ -252,7 +276,7 @@ export function BlocApporteurDevis({ r }) {
 }
 
 // ---- La fin du devis, telle qu'elle s'affiche dans les trois volets ----
-export function BlocsFinDevis({ r, onConvertir }) {
+export function BlocsFinDevis({ r, onConvertir, aCompleter = false }) {
   return (
     <>
       <BlocPoseSeule r={r} />
@@ -267,7 +291,7 @@ export function BlocsFinDevis({ r, onConvertir }) {
       <BlocConditionsPaiement
         pctAcompte={r.pctAcompte} setPctAcompte={r.setPctAcompte}
         delaiInstallation={r.delaiInstallation} setDelaiInstallation={r.setDelaiInstallation}
-        montantAcompte={r.montantAcompte} totalDevis={r.totalDevis}
+        montantAcompte={r.montantAcompte} totalDevis={r.totalDevis} aCompleter={aCompleter}
       />
       <BlocApporteurDevis r={r} />
     </>
@@ -281,7 +305,7 @@ export function BlocsFinDevis({ r, onConvertir }) {
 // qu'il représente (29/09/2026).
 const CLIENT_VIDE = () => ({ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE() });
 
-export function useEnvoiDevis({ db, save, profile, boutique, volet, devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r }) {
+export function useEnvoiDevis({ db, save, profile, boutique, volet, devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r, aCompleter = false }) {
   // 🤝 Le refus de l'apporteur, revérifié DANS le geste (envoi, brouillon,
   // conversion) : le champ grisé à l'écran ne suffit pas.
   const refusApporteur = () => {
@@ -358,6 +382,10 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
 
   const convertir = (panier, pctRemise) => {
     if (panier.length === 0) { uAlert("Aucun équipement sélectionné à convertir."); return; }
+    // 📋 Un élément cf. visite n'a pas de prix : convertir le ferait
+    // disparaître en silence. On complète d'abord (envoyer le devis, puis
+    // ✍️ Compléter le devis après la visite).
+    if (aCompleter) { uAlert("📋 Ce devis porte des éléments à compléter après la visite (cf. visite) : il ne se convertit pas en vente tant qu'ils ne sont pas chiffrés.\n\nEnvoyez le devis au client, puis complétez-le après la visite (📋 Tous les devis → ✍️ Compléter le devis)."); return; }
     if (refusApporteur()) return;
     effacerBrouillonVolet(volet, profile);
     if (brouillonRepris) save(retirerBrouillon(db, profile.id, brouillonRepris), `📝 Brouillon de devis converti en vente par ${profile.nom}`);
@@ -421,9 +449,16 @@ export function useConditionsPaiement() {
   return { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation };
 }
 
-export function BlocConditionsPaiement({ pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, montantAcompte, totalDevis }) {
+export function BlocConditionsPaiement({ pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, montantAcompte, totalDevis, aCompleter = false }) {
   return (
     <div className="px-4 py-3 border-t border-slate-200 bg-amber-50 flex flex-wrap gap-4 items-end">
+      {/* Décision « B » (08/10/2026) : pas d'acompte tant que le devis porte
+          des éléments cf. visite. Le pourcentage s'appliquera au devis complété. */}
+      {aCompleter && (
+        <div className="w-full text-xs font-semibold text-amber-900" data-acompte-cf-visite>
+          📋 Ce devis porte des éléments à compléter après la visite : aucun acompte n'est demandé tant qu'il n'est pas complété. Le pourcentage ci-dessous s'appliquera au devis complété.
+        </div>
+      )}
       <Field label="💰 Acompte exigé pour démarrer (%)">
         <div className="flex items-center gap-2">
           <input type="number" min="1" max="100" step="5" value={pctAcompte} onChange={(e) => setPctAcompte(e.target.value)} className="w-20 rounded border border-slate-300 px-2 py-1 text-right" />
@@ -639,6 +674,16 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   if (!profile.signature_personnelle) {
     uAlert("Avant d'envoyer un devis, vous devez d'abord enregistrer votre signature — rendez-vous dans l'onglet « 📄 Contrats » pour le faire, une seule fois.");
     return false;
+  }
+  // 📋 Décision « A a » (08/10/2026) : un devis DÉJÀ SIGNÉ que l'on corrige
+  // (le client a ouvert la porte) repart pour être RE-SIGNÉ — il ne peut pas
+  // porter d'élément cf. visite, le client signerait un total partiel.
+  if (idAReprendre && devisACompleter(devis)) {
+    const avant = (dbApres.users || []).find((u) => u.id === compte.id)?.devis?.find((x) => x.id === idAReprendre);
+    if (avant && (avant.statut || "propose") !== "propose") {
+      uAlert("📋 Ce devis a déjà été signé : il repart pour être signé à nouveau, il ne peut donc pas porter d'élément « cf. visite ». Chiffrez ces éléments avant de le renvoyer.");
+      return false;
+    }
   }
   // ⚠ Cloisonnement formation / réel : un devis est rangé dans la fiche du
   // CLIENT (users[].devis), pas dans une boutique — rien ne le rattachait

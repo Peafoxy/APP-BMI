@@ -263,7 +263,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const [prixBatterieSecours, setPrixBatterieSecours] = useState(ligneBatterieSecours ? String(ligneBatterieSecours.pu) : (brouillon?.prixBatterieSecours ?? ""));
 
   // ---- Autres équipements : coffret de commande, câblage… ----
-  const { autres, ajouterAutre, majAutre, retirerAutre, totalAutres } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+  const { autres, ajouterAutre, ajouterAutreCfVisite, majAutre, retirerAutre, totalAutres, aCompleter } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti, jamais avant. Depuis le 08/09/2026,
@@ -284,7 +284,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
   // pour les trois volets (useEnvoiDevis). Ici ne restent que les lignes de
   // métier de ce volet, ses besoins et la première ligne du message.
-  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "garage", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r });
+  const envoi = useEnvoiDevis({ db, save, profile, boutique, volet: "garage", devisAReprendre, onDevisRepriseConsomme, onConvertirEnVente, r, aCompleter });
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
 
   // Le panier prêt à encaisser : le vendeur n'aura rien à ressaisir.
@@ -468,11 +468,11 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
 
         <BlocAutresEquipements
           titre="Autres équipements (coffret de commande, câblage…)"
-          autres={autres} onAjouter={ajouterAutre} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
+          autres={autres} onAjouter={ajouterAutre} onAjouterCfVisite={ajouterAutreCfVisite} onModifier={majAutre} onRetirer={retirerAutre} db={db} produits={produitsBoutique}
           placeholder="Ex : Coffret de commande"
         />
 
-        <BlocsFinDevis r={r} onConvertir={convertir} />
+        <BlocsFinDevis r={r} onConvertir={convertir} aCompleter={aCompleter} />
       </div>
 
       {/* ---- ENVOYER LE DEVIS AU CLIENT ---- */}

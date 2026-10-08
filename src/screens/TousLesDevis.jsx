@@ -10,8 +10,11 @@ import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { envoiRelanceDevis, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
-import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification } from "../lib/comptesClients";
+import { envoiRelanceDevis, envoiDevisDisponible, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
+import { estLigneCfVisite, devisACompleter, peutCompleterDevis, motifRefusCompletion, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "../lib/devisCfVisite";
+import { completerDevis } from "./dimensionnement/devisCommun";
+import { CompleterDevis } from "../components/CompleterDevis";
+import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi } from "../components/ui";
@@ -160,6 +163,8 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   };
 
   const [ouvert, setOuvert] = useState(null);
+  // ✍️ Le devis en cours de complétion après la visite (08/10/2026).
+  const [completion, setCompletion] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState("");
   const [filtreType, setFiltreType] = useState("");
   const [recherche, setRecherche] = useState("");
@@ -280,7 +285,8 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // place le code superviseur, on pourra ouvrir ce geste aux vendeurs pour
   // un seul geste ». Le bouton est caché aux autres ET le geste refuse.
   const peutSignerEnBoutique = estAdminPrincipal(db, profile);
-  const peutFaireSigner = (d) => peutSignerEnBoutique && (d.statut || "propose") === "propose";
+  // 📋 Un devis à compléter après la visite ne se signe pas (décision « A a »).
+  const peutFaireSigner = (d) => peutSignerEnBoutique && (d.statut || "propose") === "propose" && !devisACompleter(d);
   const refuserSiPasAdminPrincipal = () => {
     return refuserSaufAdminPrincipal(db, profile, "Faire signer un contrat en boutique (pour l'instant)");
   };
@@ -370,6 +376,51 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     const refus = motifRefusModification(d, profile);
     if (refus) { uAlert(refus); return; }
     onModifierDevis(d, d.client);
+  };
+
+  // ✍️ COMPLÉTER LE DEVIS APRÈS LA VISITE (Timo, 08/10/2026 : « après c'est à
+  // compléter et non modifié »). Revérifié DANS le geste sur la fiche
+  // FRAÎCHE ; les lignes déjà chiffrées ne bougent pas (completerDevis) ; la
+  // trace dit « complété », jamais « modifié ». Puis le devis complété repart
+  // au client du numéro BMI, comme un devis — après une question.
+  const completerEtEnvoyer = async (d, saisie) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const client = (db.users || []).find((u) => u.id === d.client?.id);
+    const frais = (client?.devis || []).find((x) => x.id === d.id);
+    const refus = motifRefusCompletion(frais, profile);
+    if (refus) { uAlert(refus); return; }
+    const produits = (db.produits || []).filter((p) => p.boutique === frais.boutique);
+    const res = completerDevis(frais, { ...saisie, produits, par: profile.nom, par_id: profile.id, le: today() });
+    if (res.erreur) { uAlert(res.erreur); return; }
+    const nomClient = client.nom_base || client.nom;
+    if (!await uConfirm(`Compléter le devis de ${nomClient} ?\n\nTotal provisoire : ${fmt(frais.total)}\nTotal du devis complété : ${fmt(res.devis.total)}\n\nLes lignes déjà chiffrées ne changent pas. Le devis garde son numéro et redevient validable par le client.`)) return;
+    save((etat) => ({
+      ...etat,
+      users: etat.users.map((u) => (u.id === client.id ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? res.devis : x)) } : u)),
+    }), `✍️ Devis de ${nomClient} complété après la visite (${fmt(frais.total)} → ${fmt(res.devis.total)}) par ${profile.nom}`);
+    setCompletion(null);
+    if (!client.tel) { uAlert(`✅ Devis complété : ${fmt(res.devis.total)}.\n\nCe client n'a pas de numéro enregistré : prévenez-le vous-même qu'il peut le valider dans son espace.`); return; }
+    if (!await uConfirm(`✅ Devis complété : ${fmt(res.devis.total)}.\n\nL'envoyer à ${nomClient} (${client.tel}) du numéro WhatsApp BMI ?`)) return;
+    const envoi = envoiDevisDisponible({ devis: res.devis, compte: client, fmt });
+    const texte = [
+      `Bonjour ${nomClient}, votre devis BMI TOGO a été complété après la visite.`, ``,
+      `Montant : ${fmt(res.devis.total)}`, ``,
+      `Consultez-le et validez-le dans votre espace client :`, ADRESSE_APP, ``,
+      `BMI TOGO — Les bâtiments modernes et intelligents`,
+    ].join("\n");
+    const r = await envoyerModele({
+      tel: client.tel, modele: envoi.modele, variables: envoi.variables,
+      espaceFormation: espaceDuDevis(db, res.devis, profile),
+      texteRepli: texte, demanderConfirmation: uConfirm, prevenir: uAlert,
+    });
+    if (!r.auto) return;
+    const trace = traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id });
+    save((etat) => ({
+      ...etat,
+      users: etat.users.map((u) => (u.id === client.id ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, envoi_whatsapp: trace } : x)) } : u)),
+      messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: client.tel, nom: nomClient, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: d.id }, envoi: r }) : etat.messages,
+    }));
+    uAlert(`✅ Le devis complété est parti à ${nomClient} du numéro WhatsApp BMI.`);
   };
 
   const telechargerPDF = (d) => {
@@ -525,6 +576,17 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                       ✏️ Modifié le {dFR(d.modifie_le)} par {d.modifie_par || "?"}{d.nb_modifications > 1 ? ` (${d.nb_modifications}×)` : ""}
                     </span>
                   )}
+                  {devisACompleter(d) && (
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-badge-cf-visite
+                      title={PHRASE_A_COMPLETER}>
+                      📋 À compléter après la visite
+                    </span>
+                  )}
+                  {d.complete_le && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300" data-badge-complete>
+                      ✍️ Complété le {dFR(d.complete_le)} par {d.complete_par || "?"}
+                    </span>
+                  )}
                   <BadgeStatutDevis statut={d.statut} />
                   <span className="text-sm text-slate-400">{ouvert === d.id ? "▾" : "▸"}</span>
                 </button>
@@ -591,9 +653,13 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                         {(d.lignes || []).map((l, i) => (
                           <tr key={i} className="border-b border-slate-100">
                             <td className="px-2 py-1">{l.article}</td>
-                            <td className="px-2 py-1 text-right">{l.qte}</td>
-                            <td className="px-2 py-1 text-right">{fmt(l.pu)}</td>
-                            <td className="px-2 py-1 text-right font-semibold">{fmt(l.total)}</td>
+                            <td className="px-2 py-1 text-right">{estLigneCfVisite(l) && !l.qte ? "—" : l.qte}</td>
+                            {estLigneCfVisite(l)
+                              ? <td colSpan={2} className="px-2 py-1 text-right italic text-amber-800" data-cf-visite>{MENTION_CF_VISITE}</td>
+                              : <>
+                                <td className="px-2 py-1 text-right">{fmt(l.pu)}</td>
+                                <td className="px-2 py-1 text-right font-semibold">{fmt(l.total)}</td>
+                              </>}
                           </tr>
                         ))}
                       </tbody>
@@ -612,6 +678,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                         <button onClick={() => demanderModifAuClient(d)} className="text-xs font-bold text-amber-800 border border-amber-400 bg-white rounded-lg px-3 py-1.5 hover:bg-amber-50"
                           title="Ce devis est signé : le client doit accepter avant toute correction">✏️ Demander une modification au client</button>
                       )}
+                      {peutCompleterDevis(d, profile) && (
+                        <button onClick={() => setCompletion(completion === d.id ? null : d.id)} data-bouton-completer className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700"
+                          title="Chiffrer les éléments « cf. visite » — les lignes déjà chiffrées ne changent pas">✍️ Compléter le devis</button>
+                      )}
                       <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 Devis PDF</button>
                       {peutClasserDevis(d, profile) && (d.statut || "propose") === "propose" && (
                         <button onClick={() => classerDevis(d)} data-classer-sans-suite className="text-xs font-bold text-slate-700 border border-slate-300 bg-white rounded-lg px-3 py-1.5 hover:bg-slate-100"
@@ -626,6 +696,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                           title={`Le devis part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours`}>🗑 Supprimer</button>
                       )}
                     </div>
+                    {completion === d.id && peutCompleterDevis(d, profile) && (
+                      <CompleterDevis devis={d} produits={(db.produits || []).filter((p) => p.boutique === d.boutique)}
+                        onAnnuler={() => setCompletion(null)} onEnregistrer={(saisie) => completerEtEnvoyer(d, saisie)} />
+                    )}
                     {peutFaireSigner(d) && (
                       <div className="mt-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3">
                         <div className="text-xs font-bold text-emerald-900 mb-2">Le client est en boutique et n'utilise pas l'application ?</div>

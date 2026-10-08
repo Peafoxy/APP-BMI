@@ -114,6 +114,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/demandeAvis.js` | La demande d'avis Google : du 10e au 40e jour après la réception d'un chantier, une seule fois (serveur, tournée de 7 h) ; le lien réglé dans ⚙ Paramètres |
 | `lib/lignesPrivees.js` | Le détail d'un reçu de vente ou d'un bon dans 📲 WhatsApp, recomposé depuis la vente pour le vendeur et l'administrateur principal seulement ; la fabrique des deux reçus de vente |
 | `lib/corbeille.js` | La corbeille des fiches supprimées (30 jours) : chantiers, et devis ⏳ Proposés (famille imbriquée dans la fiche du client) |
+| `lib/devisCfVisite.js` | 📋 Les éléments d'un devis « à compléter après la visite » (cf. visite) : sans prix, hors total, pas de validation ni d'acompte tant qu'il en reste ; qui complète (auteur, administrateur, resp. commercial), et la critique de la saisie |
 | `lib/devisSansSuite.js` | 📁 Classer un devis ⏳ Proposé sans suite (auteur, administrateur, resp. commercial ; motif obligatoire) et le rouvrir : le devis reste entier, il sort de la liste active, plus de validation ni de relance |
 | `lib/poseSeule.js` | 🔧 Le règlement d'une pose seule : 70 % d'acompte (pas de programmation avant), 30 % au PV, le rappel du solde 3 jours après la signature (tournée de 7 h), qui encaisse |
 | `lib/sauvegarde.js` | La sauvegarde JSON : téléchargement, et écriture horaire dans un dossier |
@@ -130,6 +131,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
 | `FiltrePeriode.jsx` | 📅 Le filtre de période d'une liste (Toute période, quatre périodes, Personnaliser), écrit une fois pour Ventes, Dépenses, Dettes et Tous les devis |
 | `FicheClient.jsx` | 🗂 La fiche d'un client ouverte d'un clic dans 📋 Clients : achats, dettes, proformas, commandes, devis, chantiers de l'espace regardé |
+| `CompleterDevis.jsx` | ✍️ Le panneau « Compléter le devis » après la visite (📋 Tous les devis) : chaque élément cf. visite chiffré ou « sans objet », des lignes ajoutées, le nouveau total lu par la vraie règle |
 | `ChampsEntreprise.jsx` | La case « entreprise cliente » et ses lignes (nom, téléphone, NIF, RCCM), écrite une fois pour Ventes, le devis et la création d'un compte client |
 | `SelecteurArticle.jsx` | La fenêtre « Rechercher un article » |
 | `encaissementPose.js` | LE geste qui encaisse une pose seule (acompte 70 %, puis solde) — 🧾 Commandes et 🏠 Clients installés |
