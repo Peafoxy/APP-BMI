@@ -615,13 +615,48 @@ const blocBesoin = (b) => {
   return null;
 };
 
+// ---- 📝 La ligne « NB » du devis (Timo, 08/10/2026, « 1a, 2b ») ----
+// Tapée à la main, jusqu'à 300 caractères : « NB : … » dans la place BLANCHE
+// À GAUCHE du bandeau TOTAL (capture Timo, le même jour : « je préfère que le
+// NB soit logé là », le cadre rouge). Une colonne de 80 mm, de 14 à 94 mm : les
+// libellés de l'acompte (« Acompte à la commande (60 %) : ») commencent vers
+// 100 mm — c'est cette largeur qui avait fait abandonner les mentions à cet
+// endroit le 11/09/2026 (108 mm). Elle s'ouvre à la hauteur du HAUT du
+// bandeau (`y - 6`) ; si elle descend plus bas que les montants, les cadres
+// de signature descendent d'autant — jamais de chevauchement.
+const INTERLIGNE_NB = 3.6;
+const LARGEUR_NB = 80;
+const lignesNb = (doc, d) => {
+  const t = String(d.nb || "").trim();
+  if (!t) return [];
+  doc.setFontSize(8);
+  return doc.splitTextToSize(texteSurPdf(`NB : ${t}`), LARGEUR_NB);
+};
+// ⚠ Un devis à compléter (cf. visite) écrit sa phrase sur presque toute la
+// largeur juste sous le bandeau : son NB commence donc SOUS cette phrase.
+const debutNb = (d) => (devisACompleter(d) ? 15.5 : -3);
+// Le bas de la colonne NB (dernière ligne + 1 mm), compté depuis le `y` du bandeau.
+const basNb = (lignes, d) => (lignes.length ? debutNb(d) + (lignes.length - 1) * INTERLIGNE_NB + 1 : -Infinity);
+// Ce que le NB ajoute au bloc du bas quand il descend plus bas que les montants.
+const surplusNb = (lignes, d) => Math.max(0, basNb(lignes, d) - (hauteurBlocFinal(d) - 32));
+function blocNb(doc, lignes, y, d) {
+  if (!lignes.length) return;
+  doc.setFontSize(8);
+  doc.setTextColor(...GRIS_TEXTE);
+  lignes.forEach((l, i) => doc.text(l, 14, y + debutNb(d) + i * INTERLIGNE_NB));
+}
+
 function devisCommercial(doc, d, largeur, hauteur, yDepart) {
   const rendreBesoin = blocBesoin(d.besoins || null);
   let y = yDepart + 24;
   if (rendreBesoin) y = rendreBesoin(doc, d, largeur, hauteur, y);
   y = blocEquipement(doc, d, largeur, hauteur, y);
-  y = placePour(doc, y, hauteur, hauteurBlocFinal(d));
+  const nb = lignesNb(doc, d);
+  y = placePour(doc, y, hauteur, hauteurBlocFinal(d) + surplusNb(nb, d));
+  blocNb(doc, nb, y, d);
+  const yBandeau = y;
   y = blocFinancier(doc, d, largeur, hauteur, y);
+  y = Math.max(y, yBandeau + basNb(nb, d));
   blocMentions(doc, d, largeur, hauteur, y);
 }
 

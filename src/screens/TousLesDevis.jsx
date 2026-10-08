@@ -459,6 +459,8 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       total: d.total,
       // Le bloc financier du devis solaire (Timo, 11/09/2026) : acompte, solde, délai.
       pct_acompte: d.pct_acompte, montant_acompte: d.montant_acompte, delai_installation: d.delai_installation,
+      // 📝 La ligne NB tapée sur le devis (08/10/2026).
+      nb: d.nb || "",
       // Le devis engage BMI (Timo, 11/09/2026) : sa signature au bas du
       // document, c'est la signature personnelle de celui qui l'a élaboré —
       // si sa fiche en porte une — et LE cachet de l'entreprise, le même

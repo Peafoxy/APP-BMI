@@ -174,7 +174,7 @@ export const CHAPITRE = {
         ["✏️ Modifier et renvoyer", "Rouvre le devis rempli dans son volet ; le devis corrigé remplace l'ancien."],
         ["✍️ Compléter le devis", "Chiffrer les éléments « cf. visite » d'un devis Proposé (ou les dire sans objet) ; les lignes déjà chiffrées ne bougent pas ; le devis repart au client."],
         ["✏️ Demander une modification au client", "Devis signé : motif au client, qui accepte ou refuse avant toute correction."],
-        ["📄 Devis PDF", "Le devis commercial : besoin, équipement, total, acompte, mentions, deux cadres de signature, cachet de BMI."],
+        ["📄 Devis PDF", "Le devis commercial : besoin, équipement, la ligne « NB : … » si elle a été tapée, total, acompte, mentions, deux cadres de signature, cachet de BMI."],
         ["📁 Classer sans suite", "Range un devis Proposé (motif obligatoire) ; il reste entier."],
         ["↩ Rouvrir le devis", "Remet un devis classé en Proposé."],
         ["🗑 Supprimer", "Administrateur principal ; devis Proposé ; corbeille 30 jours."],

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2383 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2390 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -692,6 +692,30 @@ lit mal est pire qu'un banc absent).
   nom** (08/10/2026, Timo), modifiable (`nomRepris` / `clientDeLaReprise`,
   devisCommun.js) ; un nom sans numéro se ré-enregistre comme brouillon sans
   compte (`nomSansNumero`), jamais un refus. Banc +1, éprouvé.
+- **📝 LA LIGNE « NB » D'UN DEVIS** (08/10/2026, « 1a, 2b, 3a, lance », puis
+  capture « le cadre rouge ») : case « 📝 NB (facultatif) » en fin de devis,
+  trois volets (`BlocNbDevis`, Partages.jsx, dans `BlocsFinDevis`). **« 1a »**
+  tapée à la main sur CHAQUE devis (aucun texte réglé dans ⚙ Paramètres) ;
+  **« 2b »** 300 caractères au plus (`NB_DEVIS_MAX` / `nettoyerNb`,
+  devisCommun.js — les retours à la ligne deviennent des espaces), compteur à
+  l'écran. ~~« 3a » sous le tableau, avant le TOTAL~~ — **RETOURNÉ le jour
+  même** (capture Timo : « je préfère que le NB soit logé là ») : sur le PDF,
+  « NB : … » dans la place BLANCHE à GAUCHE du bandeau TOTAL, colonne de
+  80 mm (14 → 94 mm : les libellés de l'acompte commencent vers 100 mm),
+  ouverte au haut du bandeau (`lignesNb` / `blocNb` / `basNb` / `surplusNb`,
+  src/pdf.js) ; 300 caractères = 5 lignes, ça tient à côté des montants. ⚠ Sur
+  un devis à compléter (cf. visite), la phrase « Éléments à compléter… » prend
+  presque toute la largeur : le NB commence SOUS elle (`debutNb`), et les
+  cadres de signature descendent d'autant (`Math.max` dans
+  `devisCommercial`). Champ `nb` du devis (`champsReglages`), relu à la
+  reprise et du brouillon (`appliquerConditionsReprises`), effacé par
+  « 🆕 Nouveau devis », lu par 📋 Tous les devis (PDF) et l'espace client
+  (sous le matériel, `data-nb-devis-client`). **Pas dans le message WhatsApp**
+  (texte figé chez Meta). Rien à coller. Banc (7 contrôles, le PDF mesuré),
+  éprouvé (colonne trop large, reprise oubliée, borne retirée, NB après le
+  total, cadres qui ne descendent pas, NB sur la phrase cf. visite) ; un
+  contrôle RETOURNÉ (le devis « d'avant » porte `nb: ""`). Chapitres 11, 12,
+  13, 21 à jour.
 - **✏️ Corriger un devis déjà envoyé** (11/09/2026, « celui qui a proposé le
   devis peut avoir la possibilité de modifier le devis ? ») : « Modifier et
   renvoyer » s'ouvre aussi sur un devis **⏳ Proposé** (avant, il fallait que

@@ -637,7 +637,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setRailsQte(0); setFixationManuelle({});
     reprendreAutres([]);
     envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE() });
-    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide());
+    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide()); r.setNb("");
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
   };
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;

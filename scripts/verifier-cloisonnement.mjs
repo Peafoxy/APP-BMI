@@ -4243,6 +4243,8 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
       total: totalDevis, pose_seule: poseSeule, frais_installation: fraisInstallation, pct_installation: poseSeule ? null : Number(pctInstall || 0),
       frais_transport: fraisTransport, pct_transport: Number(pctTransport || 0), remise, pct_remise: Number(pctRemise || 0),
       pct_acompte: Number(pctAcompte || 100), montant_acompte: montantAcompte, delai_installation: delaiInstallation.trim(),
+      // RETOURNÉ le 08/10/2026 : le devis porte la ligne NB, vide quand rien n'est tapé.
+      nb: "",
       // RETOURNÉ le 29/09/2026 : le devis porte désormais l'apporteur externe
       // (lib/apporteurDevis.js), vide quand la case n'est pas cochée.
       apporteur_externe: null };
@@ -7832,6 +7834,50 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     test("★★ devis et proforma : la dernière ligne de l'en-tête de la boutique reste au-dessus du bandeau du titre (≤ 30 mm)",
       hautEntete(Pdf.genererDevis({ ...devisOrdinaire, bq: bqE }, null, true)) <= 30
       && hautEntete(Pdf.genererProforma({ numero: "PF-1", date: "26/09/2026", client: "ESSO", lignes: [{ article: "A", qte: 1, pu: 1, total: 1 }], total: 1, bq: bqE }, null, true)) <= 30);
+  }
+  // 📝 La ligne NB du devis (Timo, 08/10/2026, « 1a, 2b ») : jusqu'à 300
+  // caractères, dans la place BLANCHE à GAUCHE du bandeau TOTAL (sa capture,
+  // « le cadre rouge »). Mesuré sur le PDF réel.
+  {
+    const nbCourt = "Le câblage au-delà de 20 m sera facturé à part.";
+    const nbLong = ("Le câblage au-delà de 20 mètres, les tranchées et le génie civil ne sont pas compris dans ce devis ; ils seront chiffrés après la visite technique si le client le demande. La garantie ne couvre pas les dégâts causés par la foudre ou une surtension du réseau électrique. Merci de votre confiance.").slice(0, 300);
+    const integral = { ...devisOrdinaire, pct_acompte: 100, montant_acompte: devisOrdinaire.total, delai_installation: "" };
+    const docNb = Pdf.genererDevis({ ...devisOrdinaire, nb: nbCourt }, null, true);
+    const docNbLong = Pdf.genererDevis({ ...integral, nb: nbLong }, null, true);
+    const docNbSolde = Pdf.genererDevis({ ...dSol, nb: nbLong }, null, true);
+    const mesure = (doc) => {
+      const b = boites(doc);
+      // Les lignes du NB : la ligne « NB : … » puis celles qui la suivent à
+      // gauche, espacées de son interligne (3,6 mm — les mentions, 3,2 mm).
+      const k = b.findIndex((x) => x.t.startsWith("NB : "));
+      const nbs = k < 0 ? [] : [b[k]];
+      for (let q = k + 1; k >= 0 && q < b.length; q++) {
+        const o = b[q], prec = nbs[nbs.length - 1];
+        if (o.x1 < 20 && Math.abs(o.y - prec.y - 3.6) < 0.2) nbs.push(o); else if (o.x1 < 20) break;
+      }
+      return { b, nbs, tot: b.find((o) => o.t.startsWith("TOTAL DU PROJET")), mention: b.find((o) => o.t.startsWith("Ce document")) };
+    };
+    const m1 = mesure(docNb), m2 = mesure(docNbLong), m3 = mesure(docNbSolde);
+    test("★★ le NB s'écrit « NB : … » À GAUCHE du bandeau TOTAL, à sa hauteur (le cadre rouge de Timo) ; un devis sans NB n'en porte aucun",
+      !!m1.tot && m1.nbs.length >= 1 && m1.nbs[0].t.startsWith("NB : ") && Math.abs(m1.nbs[0].y - m1.tot.y) < 6
+      && m1.nbs.every((o) => o.x2 <= 95)
+      && !texteDuPdf(Pdf.genererDevis(devisOrdinaire, null, true)).includes("NB :"));
+    test("★★ un NB de 300 caractères reste dans sa colonne (jamais sous les libellés de l'acompte), et les mentions et cadres de signature descendent sous lui — aucun texte ne chevauche un autre",
+      m2.nbs.length >= 4 && m2.nbs.every((o) => o.x2 <= 95) && m2.mention && m2.mention.y > m2.nbs[m2.nbs.length - 1].y + 2
+      && m3.nbs.every((o) => o.x2 <= 95)
+      && chevauchements(docNb) === 0 && chevauchements(docNbLong) === 0 && chevauchements(docNbSolde) === 0
+      && hautDuBandeau(docNb) >= 2.9 && hautDuBandeau(docNbLong) >= 2.9);
+    // Un devis à compléter (cf. visite) écrit sa phrase sur presque toute la
+    // largeur juste sous le bandeau : son NB commence SOUS cette phrase.
+    const docCfNb = Pdf.genererDevis({ ...devisOrdinaire, nb: nbLong,
+      lignes: [...devisOrdinaire.lignes, { categorie: "À compléter après la visite", article: "Câblage", qte: 1, pu: 0, total: 0, cf_visite: true }] }, null, true);
+    const bCf = boites(docCfNb);
+    const phrase = bCf.find((o) => o.t.startsWith("Éléments à compléter") || o.t.includes("compléter après la visite technique"));
+    const nbCf = bCf.find((o) => o.t.startsWith("NB : "));
+    test("★★ sur un devis à compléter (cf. visite), le NB commence SOUS la phrase « Éléments à compléter… » — rien ne se chevauche",
+      !!phrase && !!nbCf && nbCf.y > phrase.y + 2 && chevauchements(docCfNb) === 0);
+    test("★ un devis ordinaire avec un NB, même de 300 caractères, tient toujours sur UNE page",
+      docNb.internal.getNumberOfPages() === 1 && docNbSolde.internal.getNumberOfPages() === 1 && docNbLong.internal.getNumberOfPages() === 1);
   }
   const bSol = boites(Pdf.genererDevis(dSol, null, true));
   const bord = (t) => bSol.find((o) => o.t === t);
@@ -14089,6 +14135,29 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     r.length === 1 && r[0].seq === 7 && "retenue_outil" in r[0].data.equipe[0] && !("retenue_outil" in r[0].data.equipe[1]) && !("montant_verse" in r[0].data.equipe[1])
     && JSON.stringify(parasites) === "[2]"
     && sy.indexOf("chantiersARedresserDePrime(ops)") > -1 && sy.indexOf("chantiersARedresserDePrime(ops)") < sy.indexOf('supabase.rpc("appliquer_lot"'));
+}
+
+// 📝 LA LIGNE « NB » D'UN DEVIS (Timo, 08/10/2026, « 1a, 2b, 3a, lance ») :
+// tapée à la main, 300 caractères au plus, gardée dans le devis (brouillon,
+// reprise), lue par le PDF et l'espace client.
+{
+  titre("📝 La ligne NB d'un devis (08/10/2026, « 1a, 2b, 3a ») : tapée sur le devis, 300 caractères, sous le matériel du PDF");
+  const sortieNb = join("node_modules", ".cache", `bmi-nb-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieNb, logLevel: "silent", loader: { ".js": "jsx" } });
+  const DCn = await import(pathToFileURL(sortieNb).href);
+  unlinkSync(sortieNb);
+  test("★★ la règle : 300 caractères au plus, espaces et retours à la ligne ramenés à un espace, rien de tapé = vide",
+    DCn.NB_DEVIS_MAX === 300 && DCn.nettoyerNb("  a \n\n b  ") === "a b" && DCn.nettoyerNb("y".repeat(400)).length === 300
+    && DCn.nettoyerNb(undefined) === "" && DCn.champsReglages({ nb: " Câble \n à part " }).nb === "Câble à part");
+  const pt = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  test("★★ la case NB est dans la fin de devis commune aux trois volets, revient avec un devis repris ou un brouillon, et l'écran la borne à 300",
+    /<BlocNbDevis r=\{r\} \/>/.test(pt) && /if \(s\.setNb\) s\.setNb\(String\(devis\.nb \|\| ""\)\)/.test(pt)
+    && /setApporteur, setNb,/.test(pt) && /slice\(0, NB_DEVIS_MAX\)/.test(pt)
+    && /r\.setNb\(""\)/.test(readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8")));
+  test("★★ le PDF de 📋 Tous les devis reçoit le NB, et l'espace client l'affiche sous le matériel",
+    /nb: d\.nb \|\| ""/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
+    && /\{d\.nb && <div[^>]*data-nb-devis-client/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

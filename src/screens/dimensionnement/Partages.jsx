@@ -37,11 +37,11 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
   }, [volet, profile.id, texte]);
 }
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
-import { Field, inputCls, uAlert, uConfirm, uPrompt } from "../../components/ui";
+import { Field, inputCls, uAlert, uConfirm, uPrompt, ChampQuiGrandit } from "../../components/ui";
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives } from "../../lib/calculs";
-import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise } from "./devisCommun";
+import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
 // IMPORTE puis on les RÉEXPORTE : `export { x } from` ne crée pas de nom
@@ -63,6 +63,8 @@ export function appliquerConditionsReprises(devis, s) {
   s.setPctTransport(String(devis.pct_transport ?? 0));
   s.setPctAcompte(String(devis.pct_acompte ?? 100));
   s.setDelaiInstallation(String(devis.delai_installation || ""));
+  // 📝 La ligne NB (08/10/2026) revient avec le devis repris ou le brouillon.
+  if (s.setNb) s.setNb(String(devis.nb || ""));
   // « Pose seule » : le montant de main d'œuvre est un montant FIXE, pas un
   // pourcentage — il est rangé dans frais_installation, et pct_installation
   // vaut null. On rétablit la case ET son montant, sinon le devis repris
@@ -206,10 +208,12 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
   const { pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation } = useConditionsPaiement();
   // 🤝 L'apporteur externe (Timo, 29/09/2026) — lib/apporteurDevis.js.
   const [apporteur, setApporteur] = useState(apporteurVide);
+  // 📝 La ligne NB du devis (Timo, 08/10/2026) — tapée à la main, facultative.
+  const [nb, setNb] = useState("");
   useEffect(() => {
     appliquerConditionsReprises(devisAReprendre?.devis, {
       setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
-      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur, setNb,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
@@ -218,7 +222,7 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
     totalArticles, pctRemise, setPctRemise, pctInstall, setPctInstall, pctTransport, setPctTransport,
     poseSeule, setPoseSeule, montantPoseFixe, setMontantPoseFixe,
     pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, ...totaux,
-    apporteur, setApporteur, principal,
+    apporteur, setApporteur, principal, nb, setNb,
   };
 }
 
@@ -298,7 +302,25 @@ export function BlocsFinDevis({ r, onConvertir, aCompleter = false }) {
         montantAcompte={r.montantAcompte} totalDevis={r.totalDevis} aCompleter={aCompleter}
       />
       <BlocApporteurDevis r={r} />
+      <BlocNbDevis r={r} />
     </>
+  );
+}
+
+// ---- 📝 La ligne « NB » du devis (Timo, 08/10/2026, « 1a, 2b, 3a ») ----
+// Tapée à la main sur CE devis, facultative, 300 caractères au plus. Elle
+// s'écrit « NB : … » dans la place blanche à GAUCHE du TOTAL sur le PDF, et
+// sous le matériel dans l'espace du client ; vide, elle n'apparaît nulle part.
+export function BlocNbDevis({ r }) {
+  const reste = NB_DEVIS_MAX - String(r.nb || "").length;
+  return (
+    <div className="px-4 py-3 border-t border-slate-200" data-nb-devis>
+      <Field label="📝 NB (facultatif) — écrit sur le devis, à gauche du total">
+        <ChampQuiGrandit valeur={r.nb || ""} onChange={(v) => r.setNb(String(v).slice(0, NB_DEVIS_MAX))}
+          placeholder="Ex : le câblage au-delà de 20 m sera facturé à part." maxLignes={4} />
+      </Field>
+      <div className={`text-xs mt-1 ${reste <= 20 ? "text-amber-700 font-semibold" : "text-slate-400"}`}>{reste} caractère{reste > 1 ? "s" : ""} restant{reste > 1 ? "s" : ""} — cinq lignes au plus, à gauche du total.</div>
+    </div>
   );
 }
 

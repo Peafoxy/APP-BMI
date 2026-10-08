@@ -551,6 +551,8 @@ export function EspaceClient({ db, profile, save, setTab }) {
                         ))}
                       </tbody>
                     </table>
+                    {/* 📝 La ligne NB du devis (08/10/2026) : sous le matériel, avant le total, comme sur le PDF. */}
+                    {d.nb && <div className="mt-2 text-sm text-slate-700" data-nb-devis-client><b>NB :</b> {d.nb}</div>}
                     <div className="flex justify-between items-center mt-3 pt-3 border-t-2 border-emerald-300">
                       <span className="font-bold text-slate-700">{devisACompleter(d) ? "TOTAL PROVISOIRE" : "TOTAL"}</span>
                       <span className="text-xl font-bold text-emerald-800">{fmt(d.total)}</span>

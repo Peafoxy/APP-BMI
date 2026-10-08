@@ -94,6 +94,14 @@ export const estLigneFrais = (l) => {
     || (c === "Remise" && a.startsWith("Remise ("));
 };
 
+// ---- 📝 La ligne « NB » d'un devis (Timo, 08/10/2026, « 1a, 2b, 3a ») ----
+// Un texte TAPÉ à la main sur chaque devis (facultatif), 300 caractères au
+// plus (cinq lignes au plus sur le PDF), écrit dans la place blanche à
+// GAUCHE du TOTAL (capture Timo, le même jour). Les retours à la ligne deviennent des espaces : c'est le
+// PDF qui coupe les lignes, à sa largeur.
+export const NB_DEVIS_MAX = 300;
+export const nettoyerNb = (texte) => String(texte ?? "").replace(/\s+/g, " ").trim().slice(0, NB_DEVIS_MAX);
+
 // ---- Les champs enregistrés sur le devis, dans cet ordre ----
 export const champsReglages = (r) => ({
   total: r.totalDevis,
@@ -107,6 +115,7 @@ export const champsReglages = (r) => ({
   pct_acompte: Number(r.pctAcompte || 100),
   montant_acompte: r.montantAcompte,
   delai_installation: String(r.delaiInstallation || "").trim(),
+  nb: nettoyerNb(r.nb),
   // 🤝 L'apporteur externe nommé dans le devis (29/09/2026) : il suit le
   // devis jusqu'à l'encaissement (💰 Ventes) ou la dette de pose.
   apporteur_externe: apporteurDuFormulaire(r.apporteur),
