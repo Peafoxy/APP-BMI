@@ -26,6 +26,13 @@ export const estLigneCfVisite = (l) => !!(l && l.cf_visite);
 export const lignesCfVisite = (devis) => (Array.isArray(devis && devis.lignes) ? devis.lignes : []).filter(estLigneCfVisite);
 export const devisACompleter = (devis) => lignesCfVisite(devis).length > 0;
 
+// La pastille « 📋 À compléter » de 📋 Tous les devis (Timo, 08/10/2026,
+// « a ») : les devis ⏳ Proposé qui portent encore un élément cf. visite —
+// ceux qui attendent la visite. Un raccourci : ils restent AUSSI dans
+// « ⏳ Proposé », leur statut. Complété, un devis en sort tout seul.
+export const ONGLET_A_COMPLETER = "a_completer";
+export const attendLaVisite = (devis) => !!devis && (devis.statut || "propose") === "propose" && devisACompleter(devis);
+
 // La phrase que le PDF, l'espace client et l'écran du devis disent — UNE fois.
 export const PHRASE_A_COMPLETER = "Éléments à compléter après la visite technique (cf. visite) : total, acompte et solde arrêtés au devis complété.";
 export const MOTIF_VALIDATION_A_COMPLETER = "Ce devis n'est pas encore complet : des éléments seront chiffrés après la visite technique (cf. visite). Il pourra être validé une fois complété.";

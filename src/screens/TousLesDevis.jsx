@@ -11,7 +11,7 @@ import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { envoiRelanceDevis, envoiDevisDisponible, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
-import { estLigneCfVisite, devisACompleter, peutCompleterDevis, motifRefusCompletion, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "../lib/devisCfVisite";
+import { estLigneCfVisite, devisACompleter, attendLaVisite, ONGLET_A_COMPLETER, peutCompleterDevis, motifRefusCompletion, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "../lib/devisCfVisite";
 import { completerDevis } from "./dimensionnement/devisCommun";
 import { CompleterDevis } from "../components/CompleterDevis";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP } from "../lib/comptesClients";
@@ -260,7 +260,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   });
   // 📁 « Tous » est la liste ACTIVE : un devis classé sans suite n'y est pas,
   // il se retrouve sous son propre onglet (Timo, 26/09/2026).
-  const dansOnglet = (d, s) => (s ? (d.statut || "propose") === s : !estSansSuite(d));
+  // 📋 « À compléter » : un raccourci vers les devis Proposé qui attendent la
+  // visite — ils restent AUSSI dans « ⏳ Proposé » (Timo, 08/10/2026, « a »).
+  const dansOnglet = (d, s) => (s === ONGLET_A_COMPLETER ? attendLaVisite(d) : s ? (d.statut || "propose") === s : !estSansSuite(d));
   const compteStatut = (s) => devisAvantStatut.filter((d) => dansOnglet(d, s)).length;
 
   const devisFiltres = devisAvantStatut.filter((d) => dansOnglet(d, filtreStatut))
@@ -478,7 +480,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
         {/* ⚠ Demande Timo : de VRAIS boutons cliquables pour filtrer par statut,
             juste sous le titre — pas un simple classement passif de la liste. */}
         <div className="flex flex-wrap gap-2 mb-3">
-          {[["", "📋 Tous"], ["propose", "⏳ Proposé"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"], [STATUT_SANS_SUITE, "📁 Sans suite"]].map(([id, label]) => (
+          {[["", "📋 Tous"], ["propose", "⏳ Proposé"], [ONGLET_A_COMPLETER, "📋 À compléter"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"], [STATUT_SANS_SUITE, "📁 Sans suite"]].map(([id, label]) => (
             <button key={id || "tous"} onClick={() => setFiltreStatut(id)}
               className={`px-3 py-1.5 rounded-full text-sm font-bold border ${filtreStatut === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
               {label} <span className={`ml-1 ${filtreStatut === id ? "text-sky-200" : "text-slate-400"}`}>({compteStatut(id)})</span>

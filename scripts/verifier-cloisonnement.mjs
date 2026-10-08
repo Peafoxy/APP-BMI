@@ -7637,6 +7637,14 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       panierMetier: [], lignesMetier: lignesMetierEssai, autres: [chiffre, cfA, cfB], reglages, horodatage: { id: "dv1", date: "2026-10-08", heure: "09:00" } });
     test("★ le devis construit porte ses éléments cf. visite et se reconnaît « à compléter »",
       Cf.devisACompleter(devisCf) && Cf.lignesCfVisite(devisCf).length === 2 && !Cf.devisACompleter({ lignes: lignesMetierEssai }));
+    test("★ la pastille « 📋 À compléter » de 📋 Tous les devis : les Proposé qui portent un cf. visite, et eux seuls (un devis complet, rejeté ou classé n'y est pas)",
+      Cf.attendLaVisite(devisCf) && Cf.attendLaVisite({ ...devisCf, statut: "propose" }) && !Cf.attendLaVisite({ ...devisCf, statut: "rejete" })
+      && !Cf.attendLaVisite({ ...devisCf, statut: "sans_suite" }) && !Cf.attendLaVisite({ lignes: lignesMetierEssai }) && !Cf.attendLaVisite(null));
+    { const tdjCf = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+      test("★ « a » : la pastille « 📋 À compléter » se pose juste après « ⏳ Proposé », compte par la MÊME règle que sa liste (dansOnglet), et le devis reste AUSSI dans « ⏳ Proposé »",
+        /\["propose", "⏳ Proposé"\], \[ONGLET_A_COMPLETER, "📋 À compléter"\]/.test(tdjCf)
+        && /s === ONGLET_A_COMPLETER \? attendLaVisite\(d\) : s \? \(d\.statut \|\| "propose"\) === s/.test(tdjCf)
+        && /const compteStatut = \(s\) => devisAvantStatut\.filter\(\(d\) => dansOnglet\(d, s\)\)\.length;/.test(tdjCf)); }
     // Décision « A a » : pas de validation d'un total partiel.
     const dbVal = { users: [{ id: "cl1", role: "client", nom: "AKAKE", devis: [devisCf] }], boutiques: [{ nom: "APESSITO" }], dettes: [], ventes: [], clients_installes: [], messages: [] };
     const rVal = Val.validerDevis(dbVal, { clientId: "cl1", devisId: "dv1", boutique: "APESSITO", acteur: { nom: "AKAKE", estClient: true } });
@@ -12357,7 +12365,7 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
       && /critiqueReouverture\(devisDans\(db, d\.client\.id, d\.id\), profile\)/.test(corpsRo)
       && corpsRo.indexOf("critiqueReouverture") < corpsRo.indexOf("save(") && /rouvrirDevis\(x, profile, today\(\)\)/.test(corpsRo));
     test("★★ 📋 Tous les devis : « Tous » est la liste ACTIVE (sans les classés), qui ont leur onglet « 📁 Sans suite »",
-      /const dansOnglet = \(d, s\) => \(s \? \(d\.statut \|\| "propose"\) === s : !estSansSuite\(d\)\);/.test(tdj2)
+      /const dansOnglet = \(d, s\) => \(s === ONGLET_A_COMPLETER \? attendLaVisite\(d\) : s \? \(d\.statut \|\| "propose"\) === s : !estSansSuite\(d\)\);/.test(tdj2)
       && /devisAvantStatut\.filter\(\(d\) => dansOnglet\(d, filtreStatut\)\)/.test(tdj2)
       && /\[STATUT_SANS_SUITE, "📁 Sans suite"\]/.test(tdj2) && /data-sans-suite/.test(tdj2));
     test("★ 📋 Tous les devis : les boutons ne s'affichent qu'à qui peut (peutClasserDevis), sur un Proposé / un classé",

@@ -81,7 +81,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
         ["**📋 Tous les devis** (onglet)", "Le titre dit « — les vôtres » à qui ne voit que les siens. **Un point rouge sur l'onglet** compte les devis **pas encore ouverts** par vous."],
-        ["Les filtres de statut", "**📋 Tous · ⏳ Proposé · ✅ Validé · 💰 Payé · ✏️ Modification · ❌ Rejeté · 📁 Sans suite**, chacun avec son compteur. « Tous » est la liste ACTIVE : un devis classé sans suite n'y est pas."],
+        ["Les filtres de statut", "**📋 Tous · ⏳ Proposé · 📋 À compléter · ✅ Validé · 💰 Payé · ✏️ Modification · ❌ Rejeté · 📁 Sans suite**, chacun avec son compteur. « Tous » est la liste ACTIVE : un devis classé sans suite n'y est pas. **« 📋 À compléter »** est un raccourci : les devis Proposé qui attendent la visite (section I) — ils restent aussi dans « ⏳ Proposé »."],
         ["La bande jaune", "« ⚠️ N devis sans réponse depuis plus de 15 jours » — un clic ne montre que ceux-là, un second rend la liste entière."],
         ["La recherche et le type", "**« Rechercher un client ou un vendeur… »** et **« Tous les types »** (☀️ Solaire, 🚪 Garage, 📦 Autre)."],
         ["Le filtre de période", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates, sur la DATE du devis. La liste et les compteurs des pastilles la suivent ; la bande jaune des devis sans réponse, non (c'est une alerte)."],
@@ -157,7 +157,7 @@ export const CHAPITRE = {
         { titre: "Dans le volet du devis", texte: "Sous **Autres équipements**, le bouton **« ➕ Élément à compléter (cf. visite) »** ajoute une ligne ambre : **le nom de l'élément**, une quantité si on la connaît, et **« Prix : cf. visite »** — aucun prix. Ces lignes ne comptent dans aucun total et ne vont jamais au panier." },
         { titre: "Ce que reçoit le client", texte: "Le PDF écrit **« Cf. visite »** sur ces lignes, un **TOTAL PROVISOIRE**, et la phrase « Éléments à compléter après la visite technique (cf. visite) : total, acompte et solde arrêtés au devis complété. » **Aucun acompte n'est demandé.** Le message du numéro BMI dit que le montant est hors éléments à chiffrer après la visite." },
         { titre: "Le client ne peut pas encore valider", texte: "Dans son espace, **✅ JE VALIDE n'apparaît pas** tant qu'il reste un élément cf. visite : il valide le devis **complet**, jamais un total partiel. Il peut toujours demander une modification ou rejeter. « Convertir en vente » est refusé aussi." },
-        { titre: "✍️ Compléter le devis", texte: "Après la visite, dans 📋 Tous les devis, ouvrir la ligne → **✍️ Compléter le devis**. Pour chaque élément : l'**article** (proposé dans le stock de la boutique, ou tapé librement — il devient alors HB), la **quantité**, le **prix** — ou cocher **« Sans objet »** s'il n'est finalement pas nécessaire. **« ➕ Ajouter une ligne découverte à la visite »** pour ce qui manquait. Le nouveau total se lit avant d'enregistrer." },
+        { titre: "✍️ Compléter le devis", texte: "Après la visite, dans 📋 Tous les devis (la pastille **« 📋 À compléter »** les rassemble), ouvrir la ligne → **✍️ Compléter le devis**. Pour chaque élément : l'**article** (proposé dans le stock de la boutique, ou tapé librement — il devient alors HB), la **quantité**, le **prix** — ou cocher **« Sans objet »** s'il n'est finalement pas nécessaire. **« ➕ Ajouter une ligne découverte à la visite »** pour ce qui manquait. Le nouveau total se lit avant d'enregistrer." },
         { titre: "✍️ Enregistrer et envoyer au client", texte: "**Les lignes déjà chiffrées ne bougent pas.** Les frais (installation, transport, remise) se recalculent au **pourcentage déjà négocié**, l'acompte aussi. Le devis garde son numéro, sa date et reste ⏳ Proposé ; il porte « ✍️ Complété le … par … » (jamais « Modifié »). Une question propose ensuite de l'envoyer au client **du numéro BMI** ; le client peut alors le valider." },
       ]],
       ["note", "**La date de l'offre ne change pas** en complétant : les 15 jours se comptent toujours depuis la date du devis. Pour de nouveaux prix sur les lignes déjà chiffrées, c'est **✏️ Modifier et renvoyer** (section C)."],
@@ -168,7 +168,7 @@ export const CHAPITRE = {
     // ── 5
     { titre: "Boutons et fonctions", blocs: [
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3300, 6000], lignes: [
-        ["Filtres de statut (📋 Tous … 📁 Sans suite)", "Ne montrer qu'un statut ; le compteur tient compte de la recherche et du type."],
+        ["Filtres de statut (📋 Tous … 📁 Sans suite)", "Ne montrer qu'un statut ; le compteur tient compte de la recherche et du type. **📋 À compléter** : les Proposé qui attendent la visite ; complétés, ils en sortent tout seuls."],
         ["Bande « ⚠️ … sans réponse depuis plus de 15 jours »", "Ne montrer que les devis à relancer (un second clic rend tout)."],
         ["📲 Relancer sur WhatsApp", "Rappel du devis (Proposé) ou du règlement (Validé), du numéro BMI, après une question."],
         ["✏️ Modifier et renvoyer", "Rouvre le devis rempli dans son volet ; le devis corrigé remplace l'ancien."],

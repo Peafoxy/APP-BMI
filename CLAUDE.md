@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2359 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2361 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -722,7 +722,11 @@ lit mal est pire qu'un banc absent).
   « modifié ») ; puis envoi proposé du numéro BMI. Rien à coller. Banc
   (`verifier-cloisonnement`, ~22), éprouvé (validation permise, TOTAL DU
   PROJET remis, lignes chiffrées touchées) ; cinq contrôles RETOURNÉS.
-  Chapitres 11, 12, 13, 21.
+  Chapitres 11, 12, 13, 21. **Pastille « 📋 À compléter (N) »** dans
+  📋 Tous les devis, juste après « ⏳ Proposé » (« a », le même jour) :
+  `attendLaVisite` / `ONGLET_A_COMPLETER` — les Proposé qui portent un
+  cf. visite ; un raccourci, ils restent AUSSI dans « ⏳ Proposé » ;
+  complétés, ils en sortent. Banc +2, éprouvé.
 - **✏️ Modifier un devis DÉJÀ SIGNÉ : le client ouvre la porte** (11/09/2026,
   « s'il a déjà signé, impossible de modifier… l'utilisateur va faire une
   demande de modification auprès du client… le client valide la demande avant
