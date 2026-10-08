@@ -1338,6 +1338,19 @@ lit mal est pire qu'un banc absent).
   construite, l'étape 2 (le stock qui sort quand le matériel part au
   chantier, comme 🛠 Travaux) attend une description complète AVANT d'être
   construite.**
+  ⚠ **« ON LAISSE D'ABORD » (08/10/2026)** — l'étape 2 est EN ATTENTE, rien
+  n'est construit. Ce que Timo a décrit, à reprendre s'il y revient : **le
+  devis ne touche JAMAIS le stock** (les articles n'y sont que pour le nom et
+  le prix ; l'encaissement non plus — ça retournerait « l'encaissement,
+  oui »), l'argent du client va à la caisse 🏗 CHANTIER, et **le matériel sort
+  par une VENTE NORMALE de la gérante** d'après la liste que lui présentent
+  les techniciens. Questions posées, SANS réponse : A qui paie cette vente
+  (caisse CHANTIER / crédit au nom du chantier / simple sortie) ; B à quel
+  prix (vente / achat) ; C la rattacher au chantier ; D un devis sans
+  installation ; E les devis d'avant restent tels quels. Les décisions A–E
+  de la première description, et les « niveau 1 / niveau 2 » de séparation
+  boutiques / installation proposés le même jour, sont aussi restés sans
+  réponse. Ne rien construire sans sa demande.
 - **La caisse TERRAIN s'AFFICHE « 🏗 CHANTIER »** (`libelleCaisse`,
   constants.js — pastilles, badge, « Payé avec », résumé, ⚙ Paramètres) ; son
   nom dans la base reste « TERRAIN » / « TERRAIN (formation) »
