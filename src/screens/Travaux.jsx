@@ -258,8 +258,12 @@ export function Travaux({ db, save, profile, onFacturer }) {
                     <div className="text-xs font-bold text-slate-500 uppercase mb-1">📦 Articles ({(c.articles_travaux || []).length}) — {fmt(totalArticles(c))} facturés, coût {fmt(coutArticles(c))}</div>
                     {(c.articles_travaux || []).length > 0 && (
                       <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
-                        <table className="w-full text-sm min-w-[560px]">
-                          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix facturé", "Coût", "Total", ""].map((h) => <th key={h} className="text-left px-3 py-1.5">{h}</th>)}</tr></thead>
+                        {/* Timo (08/10/2026) : « c'est le prix total qui est en réalité
+                            le prix facturé » — les colonnes disent l'UNITÉ ou le TOTAL,
+                            et le coût a son total, pour retrouver les deux chiffres du
+                            titre en additionnant. */}
+                        <table className="w-full text-sm min-w-[680px]" data-articles-travaux>
+                          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix unitaire facturé", "Coût unitaire", "Total facturé", "Total coût", ""].map((h) => <th key={h} className="text-left px-3 py-1.5">{h}</th>)}</tr></thead>
                           <tbody>
                             {(c.articles_travaux || []).map((l) => (
                               <tr key={l.id} className="border-t border-slate-100">
@@ -268,6 +272,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
                                 <td className="px-3 py-1.5 tabular-nums">{fmt(l.pu_vente)}</td>
                                 <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(l.pu_achat)}</td>
                                 <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(Number(l.qte) * Number(l.pu_vente))}</td>
+                                <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(Number(l.qte) * Number(l.pu_achat))}</td>
                                 <td className="px-3 py-1.5">{!vente && ROLES_ARTICLES.includes(profile.role) && <button onClick={() => retirer(c, l)} className="text-xs text-red-600 underline">Retirer</button>}</td>
                               </tr>
                             ))}

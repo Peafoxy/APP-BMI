@@ -59,7 +59,7 @@ npm run tester-parrainage        # 23  : la création de filleuls
 npm run tester-notifications     # 81  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
-npm run verifier-ecran-travaux   # 17  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases)
+npm run verifier-ecran-travaux   # 19  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
@@ -1794,6 +1794,14 @@ lit mal est pire qu'un banc absent).
   ⚠ **Un article HB facturé ne crée PAS de dépense** (07/10/2026, « b,
   laisse comme aujourd'hui ») : son prix payé reste une information de la
   fiche. Ne pas le reproposer.
+- **Les colonnes du tableau des articles disent l'UNITÉ ou le TOTAL**
+  (08/10/2026, NIMAN : « les 599 700 viennent d'où ? » puis « c'est le prix
+  total qui est en réalité le prix facturé » → « oui lance ») : « Prix
+  unitaire facturé · Coût unitaire · Total facturé · **Total coût** » (colonne
+  ajoutée, qté × prix d'achat). Additionner les deux colonnes de totaux
+  redonne le titre (« … facturés, coût … ») ; le carré « Coût (articles +
+  petites dépenses) » y ajoute les dépenses rattachées. Affichage seul. Banc
+  (`verifier-ecran-travaux`, +2, un RETOURNÉ), éprouvé. Chapitre 15 à jour.
 - **L'article à sortir se choisit en TAPANT son nom** (capture Timo,
   13/09/2026 : « tous les articles apparaissent… un grand nombre dans lequel
   il faut chercher son article… saisie libre avec proposition à partir de la

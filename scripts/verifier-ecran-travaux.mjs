@@ -71,7 +71,14 @@ console.log("\nL'écran se monte et lit la fiche");
   const t2 = await texte();
   test("★ ouverte : coût = 2 × 70 000 + 30 000 + 8 000 de dépense rattachée = 178 000 F ; à facturer 275 000 F ; encaissé 0 ; reste dû 275 000 F",
     /Coût \(articles \+ petites dépenses\) 178 000 F/.test(t2) && /À facturer 275 000 F/.test(t2) && /Encaissé 0 F/.test(t2) && /Reste dû 275 000 F/.test(t2), t2.slice(0, 600));
-  test("★ les deux articles sont listés avec leur nature (stock / HB), leur prix facturé et leur coût ; la dépense rattachée est citée", /Panneau 400W stock 2 100 000 F 70 000 F 200 000 F/.test(t2) && /Câble 6 mm HB 1 50 000 F 30 000 F 50 000 F/.test(t2) && /Carburant — moto · 8 000 F/.test(t2));
+  // RETOURNÉ le 08/10/2026 (Timo : « c'est le prix total qui est en réalité le
+  // prix facturé ») : la ligne porte aussi son TOTAL COÛT (qté × prix d'achat).
+  test("★ les deux articles sont listés avec leur nature (stock / HB), prix unitaire facturé, coût unitaire, total facturé et TOTAL COÛT ; la dépense rattachée est citée", /Panneau 400W stock 2 100 000 F 70 000 F 200 000 F 140 000 F/.test(t2) && /Câble 6 mm HB 1 50 000 F 30 000 F 50 000 F 30 000 F/.test(t2) && /Carburant — moto · 8 000 F/.test(t2), t2.slice(0, 900));
+  const titres = propre(await page.$eval("[data-articles-travaux] thead", (e) => e.innerText)).toLowerCase();
+  test("★ les colonnes disent l'UNITÉ ou le TOTAL : « Prix unitaire facturé · Coût unitaire · Total facturé · Total coût » (plus de « Prix facturé » ni de « Total » seuls)", /prix unitaire facturé coût unitaire total facturé total coût/.test(titres), titres);
+  const totaux = await page.$$eval("[data-articles-travaux] tbody tr", (rs) => rs.map((r) => Array.from(r.cells).map((c) => Number(c.innerText.replace(/\D/g, "")))));
+  const sommeFact = totaux.reduce((s, c) => s + c[4], 0), sommeCout = totaux.reduce((s, c) => s + c[5], 0);
+  test("★ additionner les colonnes redonne les deux chiffres du titre : total facturé 250 000 F, total coût 170 000 F", sommeFact === 250000 && sommeCout === 170000 && /250 000 F facturés, coût 170 000 F/.test(t2), `${sommeFact} / ${sommeCout}`);
   test("★ les frais de prestation se lisent : 25 000 F (10 % de tous les articles)", /Frais de prestation — 25 000 F \(10 % de tous les articles\)/.test(t2));
 }
 
