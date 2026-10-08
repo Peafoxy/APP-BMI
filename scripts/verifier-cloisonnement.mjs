@@ -13643,6 +13643,71 @@ titre("💰 Ventes : sous le total d'une vente reprise, le montant repris et ce 
   }
 }
 
+titre("💸 Ventes : la bande noire d'un versement et le résumé des ventes depuis le précédent (08/10/2026, « 1a, 2a, 3a », « a, garde les dettes réglées »)");
+{
+  const BV = await import(pathToFileURL("src/lib/bandesVersement.js").href);
+  const C0 = await import(pathToFileURL("src/lib/core.js").href);
+  const Vs0 = await import(pathToFileURL("src/lib/versements.js").href);
+  const BQ = "BMI DEMAKPOE", d1 = "2026-10-05", d2 = "2026-10-06";
+  const vente = (id, date, heure, paiement, pu, numero) => ({ id, numero, date, heure, boutique: BQ, client: id.toUpperCase(), paiement, articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu }] });
+  const vers = (id, date, heure, montant, extra = {}) => ({ id, date, boutique: BQ, categorie: Vs0.CATEGORIE_VERSEMENT, montant, paiement: extra.source || "Espèces", par: "ANGELE",
+    versement: { id: "x" + id, destination: "Chez le DG", source: extra.source || "Espèces", montant, ...(heure ? { heure } : {}) }, ...(extra.rejet ? { versement_rejete_le: d2 } : {}) });
+  const dbB = {
+    boutiques: [{ id: "b1", nom: BQ }], users: [], produits: [{ id: "p1", nom: "Cosse", boutique: BQ, prix_achat: 1, prix_vente: 1000, initial: 99, seuil: 1 }],
+    ventes: [vente("s0", d1, "10:00", "Espèces", 1000, "BMID-2026-0001"), vente("s1", d2, "08:00", "Espèces", 10000, "BMID-2026-0002"), vente("s2", d2, "09:00", "Crédit (dette)", 50000, "BMID-2026-0003"),
+      vente("s3", d2, "10:00", "Mobile Money (Flooz)", 5000, "BMID-2026-0004"), vente("s4", d2, "12:00", "Espèces", 3000, "BMID-2026-0005")],
+    dettes: [{ id: "dt2", vente_id: "s2", boutique: BQ, date: d2, montant: 50000, paye: 20000, paiements: [{ date: d2, heure: "09:00", montant: 20000, paiement: "Espèces" }] },
+      { id: "dtv", boutique: BQ, date: d1, montant: 9000, paye: 7000, paiements: [{ date: d2, heure: "09:30", montant: 7000, paiement: "Espèces" }, { date: d2, heure: "09:40", montant: 900, paiement: "Mobile Money (Flooz)" }] }],
+    depenses: [vers("V0", d1, "", 1000), vers("V1", d2, "11:00", 40000), vers("V2", d2, "13:00", 2000, { rejet: true }), vers("V3", d2, "14:00", 5000, { source: "Mobile Money (Flooz)" }),
+      { ...vers("VA", d2, "15:00", 9000), boutique: "BMI APESSITO" }],
+    clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [],
+  };
+  const bandes = BV.bandesDeVersement(dbB, BQ, C0.totalVente);
+  test("★★ seuls les versements du TIROIR de CETTE boutique posent une bande : ni le rejeté (2a), ni celui parti de Flooz (1a), ni celui d'une autre boutique",
+    bandes.map((b) => b.id).join(",") === "V1,V0");
+  const b1 = bandes[0] || {};
+  test("★★ le résumé de la bande : les 3 ventes faites depuis le versement précédent, par moyen (Espèces, À crédit dont l'avance, Flooz) — jamais la vente d'APRÈS",
+    BV.resumeBande(b1, C0.fmt).replace(/[\u00a0\u202f]/g, " ") === "3 ventes — Espèces 10 000 F · À crédit 50 000 F (dont 20 000 F d'avance) · Flooz 5 000 F");
+  test("★★ « Dettes réglées en espèces » : 7 000 F — l'avance de la vente à crédit n'y est PAS comptée deux fois, un règlement Flooz non plus",
+    b1.reglesEspeces === 7000);
+  test("★ la première bande résume « depuis le début » ; un versement d'avant le 08/10 sans heure se place après la dernière vente de son jour",
+    bandes[1]?.premiere === true && BV.resumeBande(bandes[1], C0.fmt).replace(/[\u00a0\u202f]/g, " ") === "1 vente — Espèces 1 000 F" && bandes[1].heure === "" && bandes[0].heure === "11:00");
+  test("★ statut et destination : ⏳ en attente tant que le DG n'a pas validé, ✅ validé ensuite",
+    b1.valide === false && b1.destination === "Chez le DG"
+    && BV.bandesDeVersement({ ...dbB, depenses: dbB.depenses.map((d) => (d.id === "V1" ? { ...d, versement_valide_le: d2 } : d)) }, BQ, C0.totalVente)[0].valide === true);
+  const desc = [...dbB.ventes].sort((a, b) => BV.cleVente(b).localeCompare(BV.cleVente(a)));
+  test("★★ la bande se pose à sa place : sous la vente d'APRÈS (12:00), au-dessus de celles d'avant",
+    BV.intercalerBandes(desc, bandes).map((x) => (x.bande ? `[${x.bande.id}]` : x.vente.id)).join(" ") === "s4 [V1] s3 s2 s1 [V0] s0");
+  test("★★ « a » : le résumé ne suit PAS les filtres — avec seulement les ventes en espèces affichées, la bande garde ses chiffres et sa place",
+    BV.intercalerBandes(desc.filter((v) => v.paiement === "Espèces"), bandes).map((x) => (x.bande ? `[${x.bande.id}]` : x.vente.id)).join(" ") === "s4 [V1] s1 [V0] s0"
+    && BV.resumeBande(BV.bandesDeVersement(dbB, BQ, C0.totalVente)[0], C0.fmt) === BV.resumeBande(b1, C0.fmt));
+  test("★ l'écran calcule les bandes sur TOUTES les ventes de la boutique (db), jamais sur la liste filtrée ; seule la période les retire",
+    /bandesDeVersement\(db, boutique, totalVente\)\s*\.filter\(\(b\) => !bornesPeriode \|\| inP\(b\.date, bornesPeriode\[0\], bornesPeriode\[1\]\)\)/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
+    && /intercalerBandes\(listeFiltree, bandesAffichees\)/.test(readFileSync("src/screens/Ventes.jsx", "utf8")));
+  const rv = Vs0.construireVersement({ nom: "ANGELE", id: "a" }, { boutique: BQ, montant: 5000, destination: "Chez le DG" });
+  test("★ un versement enregistre désormais son HEURE (dans `versement`, la marche du tiroir n'en change pas)",
+    /^\d\d:\d\d$/.test(rv.sortie?.versement?.heure || "") && rv.sortie.heure === undefined);
+  const sortieRB = join("node_modules", ".cache", `bmi-rendu-ventes-bandes-${process.pid}.mjs`);
+  let RB = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-ventes.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRB, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RB = await import(pathToFileURL(sortieRB).href);
+  } catch {}
+  try { unlinkSync(sortieRB); } catch {}
+  let hB = "";
+  const timoB = { id: "u1", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: BQ };
+  const erreurAvantB = console.error; console.error = () => {};
+  try { hB = String(RB?.rendreVentes({ ...dbB, users: [timoB] }, timoB) || "").replace(/[\u00a0\u202f]/g, " "); } catch { hB = ""; } finally { console.error = erreurAvantB; }
+  const ordreB = [...hB.matchAll(/BMID-2026-000\d|data-bande-versement/g)].map((m) => m[0]).join(" ");
+  test("★★ l'écran RENDU : deux bandes noires, à leur place entre les reçus",
+    ordreB === "BMID-2026-0005 data-bande-versement BMID-2026-0004 BMID-2026-0003 BMID-2026-0002 data-bande-versement BMID-2026-0001");
+  test("★ la bande RENDUE dit le versement, son statut, le résumé et les dettes réglées en espèces",
+    /💸 Versement du 06\/10\/2026 à 11:00 — 40 000 F → Chez le DG/.test(hB) && /⏳ en attente/.test(hB)
+    && /Depuis le versement précédent : 3 ventes — Espèces 10 000 F · À crédit 50 000 F \(dont 20 000 F d&#x27;avance\) · Flooz 5 000 F/.test(hB)
+    && /➕ Dettes réglées en espèces : 7 000 F/.test(hB) && /Depuis le début : 1 vente — Espèces 1 000 F/.test(hB));
+}
+
 // 🔄 LA SYNCHRONISATION NE COMPARE PLUS DEUX HORLOGES (07/10/2026, facture 0043 de SENA :
 // trois reprises sur le serveur, absentes du téléphone).
 {

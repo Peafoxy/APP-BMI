@@ -17,7 +17,7 @@
 // négatif, convention déjà en place) est posée dans la caisse du comptable,
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
-import { nouvelleDepense, nouveauMessage, uid, fmt, dFR } from "./core.js";
+import { nouvelleDepense, nouveauMessage, uid, fmt, dFR, heureCourte } from "./core.js";
 import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen } from "./constants.js";
 import { compteDansLaCaisse } from "./validationDepenses.js";
 
@@ -105,6 +105,11 @@ export function construireVersement(profile, { boutique, montant, destination, b
     montant: Number(montant),
     attendu: attendu === null || attendu === undefined ? null : Math.round(Number(attendu)),
     note: String(note || "").trim(),
+    // 🕓 L'heure de Lomé (08/10/2026) : c'est elle qui pose la bande noire du
+    // versement à sa place dans la liste des ventes (lib/bandesVersement.js).
+    // Rangée DANS `versement`, pas sur la dépense : la marche du tiroir
+    // (mouvementsEspeces) ne change pas d'ordre pour autant.
+    heure: heureCourte(),
   };
   const complement = [libelleEcart(versement), versement.note].filter(Boolean).join(" : ");
   const description = `Versement de fonds → ${libelleDestination(versement)}${complement ? ` (${complement})` : ""}`;

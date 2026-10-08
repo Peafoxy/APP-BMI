@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2363 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2374 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1273,6 +1273,34 @@ lit mal est pire qu'un banc absent).
   recherche trop large retombait sur le nom des fonctions importées et criait
   à tort). **Un contrôle s'éprouve en remettant la faute, sinon on ne sait pas
   s'il tient.**
+
+### 💸 LA BANDE NOIRE D'UN VERSEMENT DANS 💰 VENTES (08/10/2026, « 1a, 2a, 3a », puis « a, garde les dettes réglées »)
+- Capture Timo : « une bande noire de séparation des ventes après chaque
+  versement ? », puis « un inventaire bref au niveau des bandes : vente
+  espèces, à crédit… ». Règle pure **`lib/bandesVersement.js`** (rien
+  d'écrit) ; la liste de 💰 Ventes intercale les bandes (`intercalerBandes`).
+- **1a** : seuls les versements qui vident le TIROIR (source espèces) de la
+  boutique regardée ; **2a** : aucune bande pour un versement rejeté ; **3a** :
+  les bandes restent sous les filtres de paiement et la recherche ; **la
+  période** seule les retire. Pas sur les proformas.
+- La bande : « 💸 Versement du … à … — montant → destination », ✅ validé /
+  ⏳ en attente, par qui ; puis **le résumé des ventes depuis le versement
+  précédent** (« Depuis le début » pour le premier) — nombre de ventes et
+  montant par moyen, ordre de Timo : Espèces, À crédit (« dont X d'avance » :
+  le 1er règlement de SA dette le jour même), Flooz, Mixx/T-Money, Virement ;
+  un moyen sans vente ne s'écrit pas ; puis « ➕ Dettes réglées en espèces »
+  (l'avance n'y est jamais comptée deux fois). **« a » : le résumé ne suit
+  PAS les filtres** (calculé sur toutes les ventes de la boutique, l'écran le
+  dit). Montants = `montantEncaisseVente` (la colonne TOTAL).
+- ⚠ **Un versement n'enregistrait PAS son heure** (je l'avais affirmé à tort à
+  Timo, corrigé et dit) : depuis 2.101.491, `versement.heure` (heure de Lomé)
+  — DANS l'objet `versement`, jamais sur la dépense, pour ne pas changer
+  l'ordre de la marche du tiroir. Un versement d'avant se place en haut de sa
+  journée (`HEURE_INCONNUE`) : une vente faite ce jour-là après lui est
+  comptée dans sa bande.
+- Rien à coller. Banc (11 contrôles, dont l'écran RENDU), éprouvé en remettant
+  cinq fautes (rejeté, Flooz, avance comptée deux fois, ordre, bandes cachées
+  sous un filtre) : chacune tombe. Chapitres 5 et 6 à jour.
 
 ### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES, 📋 TOUS LES DEVIS ET 🧲 PROSPECTS (05/10/2026, « Lance, revenir à Toutes périodes »)
 - Captures Timo : « pas de filtration de période dans ces écrans ». LE filtre

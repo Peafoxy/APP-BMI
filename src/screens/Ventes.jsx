@@ -26,6 +26,7 @@ import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVent
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas } from "../lib/calculs";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
+import { bandesDeVersement, intercalerBandes, resumeBande } from "../lib/bandesVersement";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -1313,6 +1314,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     .filter((x) => !bornesPeriode || inP(x.date, bornesPeriode[0], bornesPeriode[1]))
     .filter((x) => !filtrePaiement || x.paiement === filtrePaiement)
     .slice().sort(triDesc);
+  // 💸 Les bandes noires des versements (08/10/2026, « 1a, 2a, 3a » puis « a ») :
+  // elles suivent la PÉRIODE ; la recherche et le moyen de paiement ne les
+  // retirent pas, et leur résumé ne change jamais (lib/bandesVersement.js).
+  const bandesAffichees = bandesDeVersement(db, boutique, totalVente)
+    .filter((b) => !bornesPeriode || inP(b.date, bornesPeriode[0], bornesPeriode[1]));
+  const lignesAvecBandes = intercalerBandes(listeFiltree, bandesAffichees);
   const proformasFiltres = (!qListe ? proformasListe : proformasListe.filter((pf) => correspond(`${pf.numero || ""} ${pf.client || ""} ${pf.tel || ""}`, qListe)))
     .filter((x) => !bornesPeriode || inP(x.date, bornesPeriode[0], bornesPeriode[1]))
     .slice().sort(triDesc);
@@ -1648,7 +1655,23 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           </tr></thead>
           <tbody>
             {listeFiltree.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
-            {listeFiltree.map((v, i) => (
+            {lignesAvecBandes.map(({ vente: v, i, bande: b }) => b ? (
+              /* 💸 La bande noire d'un versement, et ce qui s'est vendu depuis le précédent. */
+              <tr key={`bande-${b.id}`} data-bande-versement>
+                <td colSpan={9} className="px-3 py-2 bg-slate-900 text-white border-y-2 border-slate-900">
+                  <div className="text-sm font-bold">
+                    💸 Versement du {dFR(b.date)}{b.heure ? ` à ${b.heure}` : ""} — {fmt(b.montant)} → {b.destination}
+                    <span className={`ml-2 text-xs font-semibold ${b.valide ? "text-green-300" : "text-amber-300"}`}>{b.valide ? "✅ validé" : "⏳ en attente"}</span>
+                    {b.par && <span className="ml-2 text-xs font-normal text-slate-300">· par {b.par}</span>}
+                  </div>
+                  <div data-bande-resume className="text-xs text-slate-200 mt-0.5">
+                    🛒 {b.premiere ? "Depuis le début" : "Depuis le versement précédent"} : {resumeBande(b, fmt)}
+                    <span className="text-slate-400"> — toutes les ventes, quels que soient les filtres</span>
+                  </div>
+                  {b.reglesEspeces > 0 && <div data-bande-dettes className="text-xs text-slate-200">➕ Dettes réglées en espèces : {fmt(b.reglesEspeces)}</div>}
+                </td>
+              </tr>
+            ) : (
               <tr key={v.id} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i)}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
                 <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
                 <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>

@@ -17,7 +17,7 @@
 // bornesPersonnalisees, recetteDesVentes, totalDesProformas,
 // ROLES_RETOUR_GARANTIE), lib/core.js (prochainNumeroVente, numeroRecu,
 // prefixeBoutique, documentDeVente, titreRecuDette), lib/cloture.js
-// (motifBlocageVente), lib/reprises.js, lib/bons.js, lib/impression.js
+// (motifBlocageVente), lib/bandesVersement.js, lib/reprises.js, lib/bons.js, lib/impression.js
 // (imprimerRecuDeVente, recuWhatsApp), lib/clientsConnus.js.
 // ============================================================
 export const CHAPITRE = {
@@ -123,6 +123,7 @@ export const CHAPITRE = {
         "Les pastilles **Espèces / Flooz / Mixx/T-Money / Virement bancaire / Crédit (dette)** filtrent par moyen de paiement.",
         "**« 💰 Recette : X F · N ventes »** = la somme **de ce qui est affiché** — elle suit la période, le moyen et la recherche. S'il y a eu une reprise : « dont X repris, net Y ». Sur les proformas, c'est « Total des proformas », jamais « recette ».",
         "**Une vente qui a eu une reprise** garde son TOTAL (ce que le client a payé, celui du reçu) ; dessous s'écrivent **« ↩ repris : −X »** (toutes les reprises de ce reçu, au prix payé) et **« reste : Y »**, la valeur restante de la facture.",
+        "**💸 Une bande noire après chaque versement** du tiroir (espèces) : « 💸 Versement du … à … — montant → destination », ✅ validé ou ⏳ en attente, par qui. Dessous, **le résumé des ventes faites depuis le versement précédent** (« Depuis le début » pour le premier) : le nombre de ventes et le montant par moyen — Espèces, À crédit (dont l'avance), Flooz, Mixx/T-Money, Virement —, puis « ➕ Dettes réglées en espèces » s'il y en a. Ce résumé compte **toutes** les ventes entre les deux versements, **quels que soient les filtres** ; seule la période retire une bande. Un versement rejeté par le DG ou parti d'un compte Flooz / Mixx n'en a pas. Un versement d'avant le 08/10/2026 n'a pas d'heure : sa bande se place en haut de sa journée.",
         "**Un clic sur une ligne la déplie** (tous les articles) ; un clic sur une autre la déplie à sa place. La ligne ouverte a un fond bleu et une barre à gauche.",
       ]],
 
@@ -177,7 +178,8 @@ export const CHAPITRE = {
         ["🔍 Rechercher…", "Numéro de reçu (même l'ancien, « ex … », après une renumérotation), client, téléphone ; numéro de proforma."],
         ["Période / ✏️ Personnaliser…", "Vaut pour les DEUX vues. Les deux cases de date n'apparaissent que si on les demande."],
         ["💰 Recette", "La somme des ventes affichées ; deux chiffres s'il y a eu une reprise (brut, net)."],
-        ["Pastilles de paiement", "Ventes seulement : une proforma n'a pas de moyen de paiement."],
+        ["Pastilles de paiement", "Ventes seulement : une proforma n'a pas de moyen de paiement. Les bandes noires des versements restent."],
+        ["💸 Bande noire d'un versement", "Le versement du tiroir et ce qui s'est vendu depuis le précédent, par moyen de paiement (le résumé ne suit pas les filtres)."],
         ["Colonnes", "Date (heure dessous) · N° reçu · Articles (deux au plus, « + N autres », le reste au clic) · Client · Qté · Total (remise dessous) · Paiement en pastille (vert espèces, ambre crédit, bleu mobile, gris virement) · Commercial · Actions."],
         ["Colonne « Suite » (proformas)", "« ✅ Encaissée le … — reçu N° » ou « ⏳ En attente »."],
         ["🖨️ Réimprimer / 🛒 Vendre / ✏️ Modifier (proformas)", "Réimprime l'offre ; remet ses articles au panier ; la corrige (même numéro, modification notée : son auteur et l'administrateur, jamais une fois encaissée, au-delà de 3 % l'administrateur seul)."],
