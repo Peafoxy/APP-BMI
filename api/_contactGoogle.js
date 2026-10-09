@@ -9,8 +9,11 @@
 // « contacts », en se connectant au compte bmitogo.info).
 // Sans elles : on le DIT, rien ne part, rien ne casse.
 //
-// ⚠ L'ADMINISTRATEUR SEUL, revérifié ICI (pas seulement à l'écran), et
-// jamais un compte de formation : les contacts de BMI sont de vrais clients.
+// ⚠ QUI : le personnel qui a 📲 WhatsApp (depuis le 09/10/2026 — avant,
+// l'administrateur seul), revérifié ICI (pas seulement à l'écran), sur une
+// conversation qu'il peut OUVRIR (`peutVoirConversation`, la règle IMPORTÉE :
+// une conversation confiée à un collègue reste fermée), et jamais un compte
+// de formation : les contacts de BMI sont de vrais clients.
 // ⚠ On ne crée pas de doublon : on cherche d'abord le numéro chez Google.
 // ⚠⚠ CE N'EST PAS UNE FONCTION À PART (le « _ » devant le nom) : l'offre
 // Vercel de BMI n'en permet que DOUZE, et une treizième a fait REFUSER
@@ -21,7 +24,7 @@
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { critiqueContactGoogle, corpsContactGoogle, contactExistant, numeroInternational, nettoyerNomGoogle } from "../src/lib/contactGoogle.js";
-import { CANAL_WA, CANAL_WA_ENTETE, estALaCorbeille } from "../src/lib/whatsappConversations.js";
+import { CANAL_WA, CANAL_WA_ENTETE, estALaCorbeille, filDeLaConversation, proprietaireDe, peutVoirConversation } from "../src/lib/whatsappConversations.js";
 
 const PEOPLE = "https://people.googleapis.com/v1";
 
@@ -98,6 +101,12 @@ export async function enregistrerContactGoogle(req, res) {
       return (m.canal === CANAL_WA || m.canal === CANAL_WA_ENTETE) && m.wa_tel === k && !estALaCorbeille(m);
     });
     if (!k || !existe) return res.status(404).json({ error: "Conversation introuvable." });
+    // Une conversation confiée à un collègue ne s'ouvre pas : on n'en
+    // enregistre pas le client non plus (la règle de l'écran, importée).
+    const fil = filDeLaConversation((lignes || []).map((l) => l.data || {}), k);
+    if (!peutVoirConversation(compte, { proprietaire_id: proprietaireDe(fil).id })) {
+      return res.status(403).json({ error: "Cette conversation est confiée à un collègue : seule cette personne, ou un administrateur, peut enregistrer ce contact." });
+    }
 
     const g = await jetonGoogle();
     if (g.code) return res.status(503).json({ code: g.code });

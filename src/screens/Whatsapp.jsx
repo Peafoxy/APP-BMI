@@ -454,7 +454,9 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
   };
 
   // ---- 📇 ENREGISTRER LE CONTACT DANS LE COMPTE GOOGLE DE BMI (09/10/2026, « b2 ») ----
-  // L'administrateur seul (revérifié ici ET par le serveur). Le nom se
+  // ~~L'administrateur seul~~ — depuis le 09/10/2026, tout le personnel qui a
+  // 📲 WhatsApp (revérifié ici ET par le serveur, qui refuse aussi une
+  // conversation confiée à un collègue). Le nom se
   // relit avant de partir ; rien n'est écrit dans la fiche tant que Google
   // n'a pas répondu oui.
   const enregistrerContact = async () => {

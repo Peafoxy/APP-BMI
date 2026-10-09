@@ -9,18 +9,26 @@
 // sur le téléphone BMI (si ses contacts suivent ce compte), et WhatsApp
 // Business y affiche le nom.
 //
-// ⚠ RÈGLES PURES, SANS IMPORT : le serveur (api/_contactGoogle.js) les lit
-// telles quelles. Le réseau et les secrets n'existent QUE dans la fonction
-// serveur — trois variables Vercel (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-// GOOGLE_REFRESH_TOKEN), jamais préfixées « VITE_ ».
-// ⚠ L'ADMINISTRATEUR SEUL : le numéro du client sera bientôt masqué aux
-// autres (« c1 », plus tard) — celui qui ne le voit pas ne l'enregistre pas.
+// ⚠ RÈGLES PURES : le serveur (api/_contactGoogle.js) les lit telles
+// quelles. Un seul import, lui aussi lisible par le serveur : la règle de
+// qui a 📲 WhatsApp (jamais recopiée). Le réseau et les secrets n'existent
+// QUE dans la fonction serveur — trois variables Vercel (GOOGLE_CLIENT_ID,
+// GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN), jamais préfixées « VITE_ ».
+// ⚠ QUI : ~~l'administrateur seul~~ — RETOURNÉ le 09/10/2026 (Timo :
+// « ouvre l'enregistrement pour tous les utilisateurs, vu qu'ils voient
+// encore les numéros ») : TOUT le personnel qui a 📲 WhatsApp, sur une
+// conversation qu'il peut OUVRIR (une conversation confiée à un autre reste
+// fermée — le serveur le revérifie). Le jour où le numéro sera masqué
+// (« c1 »), cette règle sera à reprendre : qui ne voit pas le numéro ne
+// l'enregistre pas.
 // ============================================================
+import { aAccesWhatsapp } from "./whatsappConversations.js";
+
 
 export const COMPTE_CONTACTS_BMI = "bmitogo.info@gmail.com";
 export const LONGUEUR_NOM_CONTACT_GOOGLE = 80;
 
-export const peutEnregistrerContact = (profile) => !!profile && profile.role === "admin" && profile.actif !== false;
+export const peutEnregistrerContact = (profile) => aAccesWhatsapp(profile) && profile.actif !== false;
 
 export const nettoyerNomGoogle = (s) =>
   String(s ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, LONGUEUR_NOM_CONTACT_GOOGLE);
@@ -44,7 +52,7 @@ export const memeTelephone = (a, b) => {
 };
 
 export function critiqueContactGoogle(profile, { nom, tel } = {}) {
-  if (!peutEnregistrerContact(profile)) return "Enregistrer un contact dans le compte Google de BMI est réservé à l'administrateur.";
+  if (!peutEnregistrerContact(profile)) return "Enregistrer un contact dans le compte Google de BMI est réservé au personnel qui a l'onglet 📲 WhatsApp.";
   if (!nettoyerNomGoogle(nom)) return "Donnez un nom au contact.";
   if (!numeroInternational(tel)) return "Ce numéro est illisible : il ne peut pas être enregistré.";
   return "";

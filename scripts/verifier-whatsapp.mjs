@@ -3991,9 +3991,17 @@ console.log("\n51 · Le profil d'un contact (clic sur le nom) et l'enregistremen
   test("★ le numéro part au format international : 8 chiffres → +228, « +228 90 11 22 33 », « 00228… » ; illisible → rien",
     G.numeroInternational("90112233") === "+22890112233" && G.numeroInternational("+228 90 11 22 33") === "+22890112233"
     && G.numeroInternational("0022890112233") === "+22890112233" && G.numeroInternational("123") === "");
-  test("★★ l'ADMINISTRATEUR seul ; un nom est exigé ; un numéro illisible est refusé",
-    G.peutEnregistrerContact({ role: "admin" }) && !G.peutEnregistrerContact({ role: "vendeur" }) && !G.peutEnregistrerContact({ role: "gerant" })
-    && G.critiqueContactGoogle({ role: "vendeur" }, { nom: "A", tel: "90112233" }) !== ""
+  // ⚠ CONTRÔLE RETOURNÉ le 09/10/2026 (Timo : « ouvre l'enregistrement pour
+  // tous les utilisateurs, vu qu'ils voient encore les numéros ») : il exigeait
+  // l'administrateur SEUL. Désormais : tout le personnel qui a 📲 WhatsApp —
+  // jamais un client, jamais le comptable, jamais un compte désactivé.
+  test("★★ tout le personnel qui a 📲 WhatsApp (jamais un client, ni le comptable, ni un compte désactivé) ; un nom est exigé ; un numéro illisible est refusé",
+    G.peutEnregistrerContact({ role: "admin" }) && G.peutEnregistrerContact({ role: "vendeur" }) && G.peutEnregistrerContact({ role: "gerant" })
+    && G.peutEnregistrerContact({ role: "commercial" }) && G.peutEnregistrerContact({ role: "technicien" })
+    && !G.peutEnregistrerContact({ role: "client" }) && !G.peutEnregistrerContact({ role: "comptable" })
+    && !G.peutEnregistrerContact({ role: "vendeur", actif: false }) && !G.peutEnregistrerContact(null)
+    && G.critiqueContactGoogle({ role: "client" }, { nom: "A", tel: "90112233" }) !== ""
+    && G.critiqueContactGoogle({ role: "vendeur" }, { nom: "A", tel: "90112233" }) === ""
     && G.critiqueContactGoogle({ role: "admin" }, { nom: " ", tel: "90112233" }) !== ""
     && G.critiqueContactGoogle({ role: "admin" }, { nom: "A", tel: "12" }) !== ""
     && G.critiqueContactGoogle({ role: "admin" }, { nom: "A", tel: "90112233" }) === "");
@@ -4007,8 +4015,14 @@ console.log("\n51 · Le profil d'un contact (clic sur le nom) et l'enregistremen
   test("★★ la trace « enregistré » vit sur la fiche légère, et une réécriture de la fiche la GARDE (webhook, tournées, gestes)",
     avant.wa_contact_google?.nom === "K" && apres.wa_contact_google?.nom === "K");
   const srv = sansC(lire("api/_contactGoogle.js"));
-  test("★★ le serveur revérifie l'administrateur (la règle IMPORTÉE) et refuse un compte de formation",
+  test("★★ le serveur revérifie qui a le droit (la règle IMPORTÉE) et refuse un compte de formation",
     /critiqueContactGoogle\(compte, \{ nom, tel \}\)/.test(srv) && /espace === "formation"/.test(srv) && /compte\.formation === true/.test(srv));
+  // ⚠ 09/10/2026 : ouvert à tout le personnel, le serveur doit aussi refuser
+  // une conversation CONFIÉE à un collègue (elle ne s'ouvre pas chez lui).
+  test("★★ le serveur refuse le contact d'une conversation confiée à un collègue (la règle de l'écran, importée, après la recherche de la conversation, avant Google)",
+    /peutVoirConversation\(compte, \{ proprietaire_id: proprietaireDe\(fil\)\.id \}\)/.test(srv)
+    && srv.indexOf("peutVoirConversation(compte") > srv.indexOf("Conversation introuvable")
+    && srv.indexOf("peutVoirConversation(compte") < srv.indexOf("await jetonGoogle()"));
   test("★★ l'accès Google ne vit que dans le serveur, sous trois variables jamais préfixées VITE_ ; sans elles, on le DIT (503)",
     /process\.env\.GOOGLE_CLIENT_ID/.test(srv) && /process\.env\.GOOGLE_CLIENT_SECRET/.test(srv) && /process\.env\.GOOGLE_REFRESH_TOKEN/.test(srv)
     && !/VITE_GOOGLE/.test(lire("api/_contactGoogle.js") + lire("src/lib/contactGoogle.js") + lire("src/screens/Whatsapp.jsx") + lire("src/supabaseClient.js"))
@@ -4038,8 +4052,10 @@ console.log("\n51 · Le profil d'un contact (clic sur le nom) et l'enregistremen
     /data-ouvrir-profil/.test(ferme) && !/data-profil-contact/.test(ferme)
     && /data-profil-contact/.test(adm) && /Infos du contact/.test(adm) && /data-numero-profil[^>]*>\+22890117711/.test(adm)
     && /Compte BMI/.test(adm) && /Écrit depuis/.test(adm) && /Kossi M\./.test(adm), adm.slice(0, 200));
-  test("★★ le bouton « 📇 Enregistrer dans les contacts BMI » chez l'administrateur seulement",
-    /data-enregistrer-contact/.test(adm) && !/data-enregistrer-contact/.test(vdr));
+  // ⚠ RETOURNÉ le 09/10/2026 : le bouton s'affichait chez l'administrateur seul.
+  test("★★ le bouton « 📇 Enregistrer dans les contacts BMI » chez l'administrateur ET chez une vendeuse ; les gestes de l'administrateur (Confier, Nommer) restent à lui",
+    /data-enregistrer-contact/.test(adm) && /data-enregistrer-contact/.test(vdr)
+    && /data-nommer/.test(adm) && !/data-nommer/.test(vdr) && !/🔁 Confier/.test(vdr), vdr.slice(0, 200));
   const tr = V.renduProfilEnregistre();
   test("★ déjà enregistré : le profil le DIT (nom, date, par qui) et ne propose plus le bouton",
     /data-contact-google="enregistre"/.test(tr) && /KOSSI MENSAH/.test(tr) && /09\/10\/2026/.test(tr) && !/data-enregistrer-contact/.test(tr), tr.slice(0, 200));
