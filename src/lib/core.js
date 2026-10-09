@@ -572,6 +572,14 @@ export function avanceDeVente(db, v) {
   const p0 = (detteDeVente(db, v)?.paiements || [])[0];
   return p0 && String(p0.date || "").slice(0, 10) === String(v.date || "").slice(0, 10) ? Math.max(0, Number(p0.montant) || 0) : 0;
 }
+// Le RESTE À PAYER d'une vente dans 💰 Ventes (Timo, 09/10/2026, « a et b oui ») :
+// à crédit → ce que SA dette doit AUJOURD'HUI (il baisse à chaque versement) ;
+// comptant, ou vieille vente à crédit sans dette liée → null (« — »).
+export function resteAPayerVente(db, v) {
+  if (!estVenteACredit(v)) return null;
+  const d = detteDeVente(db, v);
+  return d ? Math.max(0, Number(d.montant || 0) - Number(d.paye || 0)) : null;
+}
 export function documentDeVente(db, v) {
   const dette = estVenteACredit(v) ? detteDeVente(db, v) : null;
   return dette ? { type: "dette", dette } : { type: "vente" };

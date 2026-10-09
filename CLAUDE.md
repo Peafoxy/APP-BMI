@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2416 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2420 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6628,6 +6628,14 @@ lit mal est pire qu'un banc absent).
   sinon le premier règlement de SA dette fait le même jour ; les versements
   suivants n'y sont jamais (📋 Dettes). Affichage seul (recette, reçu, caisse
   inchangés). Banc +4 (un RETOURNÉ), éprouvé. Chapitre 5 à jour.
+- **👤 LE CLIENT EN PREMIÈRE COLONNE, FIGÉ, ET « RESTE À PAYER »** (09/10/2026,
+  capture, « a et b oui, lance ») : la liste de 💰 Ventes commence par le
+  client (numéro dessous, `data-vente-client`), figé par LA règle commune
+  `enTeteFige` / `celluleFigee` ; puis Date, N° reçu, Articles, Qté, Total,
+  Paiement, **Reste à payer** (`resteAPayerVente`, core.js : à crédit, ce que
+  SA dette doit AUJOURD'HUI, rouge, « ✅ Soldée » à 0 ; comptant ou vieille
+  vente sans dette liée → « — »), Commercial, Actions. Les bandes noires
+  passent à 10 colonnes. Banc +4, éprouvé. Chapitre 5 à jour.
 - **🧾 Bon de reprise et bon de retour** (14/09/2026 : « ce n'est pas
   judicieux de sortir un reçu ? comment ça se passe avec les grands
   logiciels ? » → un avoir / bon à part, **jamais le reçu de vente

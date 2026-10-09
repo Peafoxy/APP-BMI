@@ -13697,9 +13697,10 @@ titre("💰 Ventes : sous le total d'une vente reprise, le montant repris et ce 
         // 09/10/2026 : trois ventes à CRÉDIT — avance rangée, vieille vente sans le champ (lue sur sa dette), aucune avance.
         { id: "v3", numero: "BMID-2026-0003", date: auj, boutique: "BMI DEMAKPOE", client: "DJEDJE", paiement: "Crédit (dette)", avance: 20000, articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 110000 }] },
         { id: "v4", numero: "BMID-2026-0004", date: auj, boutique: "BMI DEMAKPOE", client: "AMA", paiement: "Crédit (dette)", articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 70000 }] },
-        { id: "v5", numero: "BMID-2026-0005", date: auj, boutique: "BMI DEMAKPOE", client: "KOFFI", paiement: "Crédit (dette)", avance: 0, articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 30000 }] },
+        { id: "v5", numero: "BMID-2026-0005", date: auj, boutique: "BMI DEMAKPOE", client: "KOFFI", tel: "90112233", paiement: "Crédit (dette)", avance: 0, articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 30000 }] },
       ],
-      depenses: [], dettes: [{ id: "d4", vente_id: "v4", date: auj, boutique: "BMI DEMAKPOE", client: "AMA", montant: 70000, paye: 15000, paiements: [{ id: "p4", date: auj, montant: 5000 }, { id: "p4b", date: "2099-01-01", montant: 10000 }] }], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [] };
+      depenses: [], dettes: [{ id: "d4", vente_id: "v4", date: auj, boutique: "BMI DEMAKPOE", client: "AMA", montant: 70000, paye: 15000, paiements: [{ id: "p4", date: auj, montant: 5000 }, { id: "p4b", date: "2099-01-01", montant: 10000 }] },
+        { id: "d5", vente_id: "v5", date: auj, boutique: "BMI DEMAKPOE", client: "KOFFI", montant: 30000, paye: 30000, paiements: [{ id: "p5", date: "2099-01-01", montant: 30000 }] }], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [] };
     let hV = "";
     const erreurAvant = console.error; console.error = () => {};
     try { hV = String(RV.rendreVentes(dbV, timo)).replace(/ | /g, " "); } catch (e) { hV = ""; } finally { console.error = erreurAvant; }
@@ -13715,6 +13716,16 @@ titre("💰 Ventes : sous le total d'une vente reprise, le montant repris et ce 
       /70 000 F<\/div><div data-vente-avance="true" class="font-bold text-slate-900">avance : 5 000 F<\/div>/.test(hV));
     test("★ une vente à crédit sans avance écrit « avance : 0 F » (Timo : « tout est bon »)",
       /30 000 F<\/div><div data-vente-avance="true" class="font-bold text-slate-900">avance : 0 F<\/div>/.test(hV));
+    // 09/10/2026 (« a et b oui, lance ») : le CLIENT en première colonne, figé, son numéro dessous ; « Reste à payer » après Paiement.
+    test("★★ l'en-tête : Client EN PREMIER et figé (la règle de 📋 Dettes), puis Date, N° reçu, Articles, Qté, Total, Paiement, Reste à payer",
+      /<th class="text-left px-3 py-2 whitespace-nowrap sticky left-0[^"]*">Client<\/th><th[^>]*>Date<\/th><th[^>]*>N° reçu<\/th><th[^>]*>Articles<\/th><th[^>]*>Qté<\/th><th[^>]*>Total<\/th><th[^>]*>Paiement<\/th><th[^>]*>Reste à payer<\/th>/.test(hV));
+    test("★★ la cellule du client est FIGÉE (sticky, fond opaque) et porte le nom puis le numéro dessous ; la ligne commence par elle",
+      /<tr[^>]*><td data-vente-client="true" class="[^"]*sticky left-0[^"]*bg-[^"]*"><div class="font-semibold text-slate-800">KOFFI<\/div><div class="text-xs text-slate-500">90112233<\/div><\/td>/.test(hV));
+    test("★★ « Reste à payer » : le reste d'AUJOURD'HUI de SA dette en rouge (70 000 − 15 000 = 55 000 F, versement des jours suivants compris), « ✅ Soldée » quand tout est payé",
+      /<td data-vente-reste="true"[^>]*><span class="font-bold text-red-600">55 000 F<\/span><\/td>/.test(hV)
+      && /<td data-vente-reste="true"[^>]*><span class="text-xs font-semibold text-green-700">✅ Soldée<\/span><\/td>/.test(hV));
+    test("★ une vente payée comptant — et une vieille vente à crédit sans dette liée — écrit « — » (« a oui »)",
+      (hV.match(/<td data-vente-reste="true"[^>]*><span class="text-slate-300">—<\/span><\/td>/g) || []).length === 3);
     {
       const Cv = await import(pathToFileURL("src/lib/core.js").href);
       const v6 = { id: "v6", date: auj, paiement: "Crédit (dette)", avance: 20000 };

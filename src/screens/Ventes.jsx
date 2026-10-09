@@ -12,14 +12,14 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS, caisseDeVente } from "../lib/constants";
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
@@ -1677,14 +1677,16 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               et les boutons éparpillés. Même colonnes, mêmes gestes, mêmes
               droits : seule la présentation change (règle pure : aucune). */}
           <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">
-            {[["Date", "text-left"], ["N° reçu", "text-left"], ["Articles", "text-left"], ["Client", "text-left"], ["Qté", "text-right"], ["Total", "text-right"], ["Paiement", "text-left"], ["Commercial", "text-left"], ["Actions", "text-right"]].map(([h, al]) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap`}>{h}</th>)}
+            {/* 09/10/2026 (Timo, « a et b oui, lance ») : le CLIENT en première colonne, FIGÉ pendant le
+                défilement (la règle de 📋 Dettes), son numéro dessous ; « Reste à payer » après Paiement. */}
+            {[["Client", "text-left"], ["Date", "text-left"], ["N° reçu", "text-left"], ["Articles", "text-left"], ["Qté", "text-right"], ["Total", "text-right"], ["Paiement", "text-left"], ["Reste à payer", "text-right"], ["Commercial", "text-left"], ["Actions", "text-right"]].map(([h, al], k) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap${k === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {listeFiltree.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
+            {listeFiltree.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
             {lignesAvecBandes.map(({ vente: v, i, bande: b }) => b ? (
               /* 💸 La bande noire d'un versement, et ce qui s'est vendu depuis le précédent. */
               <tr key={`bande-${b.id}`} data-bande-versement>
-                <td colSpan={9} className="px-3 py-2 bg-slate-900 text-white border-y-2 border-slate-900">
+                <td colSpan={10} className="px-3 py-2 bg-slate-900 text-white border-y-2 border-slate-900">
                   <div className="text-sm font-bold">
                     💸 Versement du {dFR(b.date)}{b.heure ? ` à ${b.heure}` : ""} — {fmt(b.montant)} → {b.destination}
                     <span className={`ml-2 text-xs font-semibold ${b.valide ? "text-green-300" : "text-amber-300"}`}>{b.valide ? "✅ validé" : "⏳ en attente"}</span>
@@ -1700,10 +1702,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               </tr>
             ) : (
               <tr key={v.id} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i)}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
+                <td data-vente-client className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(venteDepliee === v.id, i), venteDepliee === v.id)}`}>{v.client && v.client !== "Client non renseigné" ? <div className="font-semibold text-slate-800">{v.client}</div> : <div className="text-slate-400">—</div>}{v.tel ? <div className="text-xs text-slate-500">{v.tel}</div> : null}</td>
                 <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
                 <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
                 <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
-                <td className="px-3 py-2">{v.client && v.client !== "Client non renseigné" ? <span className="font-semibold text-slate-800">{v.client}</span> : <span className="text-slate-400">—</span>}</td>
                 <td className="px-3 py-2 tabular-nums text-right">{qteVente(v)}</td>
                 <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{(() => {
                   /* 09/10/2026 (Timo, « tout est bon ») : UN chiffre en gras par ce qui compte.
@@ -1730,6 +1732,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   if (e) return <div data-vente-versee className={`text-[11px] font-semibold mt-0.5 ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versée {e.texte}</div>;
                   const g = venteVersable(v) ? versementGeneralDe(v) : null;
                   return g ? <div data-vente-dans-versement className="text-[11px] text-slate-400 mt-0.5">{mentionVersementGeneral(g)}</div> : null;
+                })()}</td>
+                <td data-vente-reste className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{(() => {
+                  // Le reste d'AUJOURD'HUI sur SA dette (« b oui ») ; comptant → « — » (« a oui »).
+                  const r = resteAPayerVente(db, v);
+                  return r === null ? <span className="text-slate-300">—</span>
+                    : r > 0 ? <span className="font-bold text-red-600">{fmt(r)}</span>
+                    : <span className="text-xs font-semibold text-green-700">✅ Soldée</span>;
                 })()}</td>
                 <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>

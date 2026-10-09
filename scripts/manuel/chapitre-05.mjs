@@ -181,7 +181,7 @@ export const CHAPITRE = {
         ["💰 Recette", "La somme des ventes affichées ; deux chiffres s'il y a eu une reprise (brut, net)."],
         ["Pastilles de paiement", "Ventes seulement : une proforma n'a pas de moyen de paiement. Les bandes noires des versements restent."],
         ["💸 Bande noire d'un versement", "Le versement GÉNÉRAL du tiroir (🔒 Caisse) et ce qui s'est vendu depuis le précédent, par moyen de paiement (le résumé ne suit pas les filtres). Le versement d'une seule vente ou d'un seul règlement (bouton 💸) n'en pose pas."],
-        ["Colonnes", "Date (heure dessous) · N° reçu · Articles (deux au plus, « + N autres », le reste au clic) · Client · Qté · Total (remise dessous) · Paiement en pastille (vert espèces, ambre crédit, bleu mobile, gris virement) · Commercial · Actions."],
+        ["Colonnes", "**Client** en premier (son numéro dessous) — **figé à gauche** quand on fait défiler le tableau, comme dans 📋 Dettes · Date (heure dessous) · N° reçu · Articles (deux au plus, « + N autres », le reste au clic) · Qté · Total (remise dessous) · Paiement en pastille (vert espèces, ambre crédit, bleu mobile, gris virement) · **Reste à payer** : pour une vente à crédit, ce que sa dette doit AUJOURD'HUI, en rouge (il baisse à chaque versement du client), « ✅ Soldée » quand tout est payé ; « — » pour une vente payée comptant · Commercial · Actions."],
         ["Colonne « Suite » (proformas)", "« ✅ Encaissée le … — reçu N° » ou « ⏳ En attente »."],
         ["🖨️ Réimprimer / 🛒 Vendre / ✏️ Modifier (proformas)", "Réimprime l'offre ; remet ses articles au panier ; la corrige (même numéro, modification notée : son auteur et l'administrateur, jamais une fois encaissée, au-delà de 3 % l'administrateur seul)."],
       ]}],
