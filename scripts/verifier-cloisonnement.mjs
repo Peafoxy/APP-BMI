@@ -6391,7 +6391,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   // l'icône de WhatsApp par le vrai icône WhatsApp ». Le rendu est MESURÉ dans
   // un vrai navigateur par verifier-ecran-ventes ; ici, la forme du geste.
   test("★ Ventes : la suite des articles se voit au CLIC sur la ligne (une seule vente dépliée, un clic n'importe où replie), la cellule des boutons ne déplie pas, et le bouton WhatsApp porte le vrai logo (IconeWhatsApp, écrit une fois dans ui.jsx), plus l'emoji 💬",
-    /const \[venteDepliee, setVenteDepliee\] = useState\(null\);/.test(vs) && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d === v\.id \? null : v\.id\)\)\}/.test(vs) /* 12/09/2026 : « un seul clic pour sélectionner une autre » — une autre ligne se déplie directement */
+    /const \[venteDepliee, setVenteDepliee\] = useState\(venteDeplieeInitiale\);/.test(vs) && /venteDeplieeInitiale = null \}\) \{/.test(vs) /* RETOURNÉ 09/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d === v\.id \? null : v\.id\)\)\}/.test(vs) /* 12/09/2026 : « un seul clic pour sélectionner une autre » — une autre ligne se déplie directement */
     && /<ArticlesVente v=\{v\} deplie=\{venteDepliee === v\.id\} \/>/.test(vs)
     // Timo (12/09/2026) : « une sélection forte bien visible pour la ligne sélectionnée » — fond bleu soutenu + barre à gauche, couleur de l'espace.
     // 13/09/2026 : la surbrillance est écrite UNE fois (classeLigneDepliable, ui.jsx) — Ventes et Dettes y passent.
@@ -13871,12 +13871,15 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
     Ro = await import(pathToFileURL(sortieRo).href);
   } catch {}
   try { unlinkSync(sortieRo); } catch {}
-  const rendre = (db, prof) => { const e0 = console.error; console.error = () => {}; try { return String(Ro?.rendreVentes(db, prof) || "").replace(/[  ]/g, " "); } catch { return ""; } finally { console.error = e0; } };
+  const rendre = (db, prof, deplie = null) => { const e0 = console.error; console.error = () => {}; try { return String(Ro?.rendreVentes(db, prof, deplie) || "").replace(/[  ]/g, " "); } catch { return ""; } finally { console.error = e0; } };
   const hG = rendre(dbO, angele), hS = rendre(dbApres, angele), hVd = rendre(dbO, { ...angele, id: "vd", nom: "AFI", role: "vendeur" });
   test("★★ l'écran RENDU : le bouton 💸 sur la vente PAYÉE en espèces seulement (ni la vente à crédit, ni le virement) ; jamais chez le vendeur",
     (hG.match(/aria-label="Verser"/g) || []).length === 1 && hVd !== "" && !/aria-label="Verser"/.test(hVd));
   test("★★ versée, la vente perd son bouton et DIT où est l'argent sous son paiement",
-    !/aria-label="Verser"/.test(hS) && /data-vente-versee="true"[^>]*>💸 versée Chez le DG — ⏳ en attente/.test(hS));
+    // RETOURNÉ (09/10/2026, « afficher juste versée… dès qu'on clique, le reste apparaît ») : le mot court seul,
+    // le détail seulement sur la ligne DÉPLIÉE.
+    !/aria-label="Verser"/.test(hS) && /data-vente-versee="true"[^>]*>💸 versée<\/div>/.test(hS) && !/data-vente-versee-detail/.test(hS)
+    && /data-vente-versee-detail="true"[^>]*>Chez le DG — ⏳ en attente<\/div>/.test(rendre(dbApres, angele, "s48")));
 
   // ---- L'argent déjà emporté par un versement GÉNÉRAL (09/10/2026, « oui c'est ça, avec la mention grise, lance » ;
   // « un versement d'une dette fait après un versement général aura le bouton ») ----
@@ -13897,7 +13900,9 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
     && /verserDepuisOrigine\(\{[^}]*quand: v,/.test(fV.replace(/\n\s*/g, " ")) && /source: moyen, quand: p,/.test(fD));
   const hE = rendre(dbG, angele);
   test("★★ l'écran RENDU : plus de bouton 💸 sur la vente emportée, une mention GRISE à la place (« dans le versement du 09/10/2026 à 16:00 → Chez le DG »)",
-    hE !== "" && !/aria-label="Verser"/.test(hE) && /data-vente-dans-versement="true" class="[^"]*text-slate-400[^"]*">dans le versement du 09\/10\/2026 à 16:00 → Chez le DG/.test(hE));
+    // RETOURNÉ (09/10/2026) : « dans un versement » seul, le détail sur la ligne dépliée.
+    hE !== "" && !/aria-label="Verser"/.test(hE) && /data-vente-dans-versement="true"[^>]*class="[^"]*text-slate-400[^"]*">dans un versement<\/div>/.test(hE)
+    && /data-vente-dans-versement-detail="true">du 09\/10\/2026 à 16:00 → Chez le DG<\/div>/.test(rendre(dbG, angele, "s48")));
   test("★ 📋 Dettes : un règlement emporté montre la mention grise au lieu du bouton",
     /\{general && <span data-reglement-dans-versement className="text-xs text-slate-400">\{mentionVersementGeneral\(general\)\}<\/span>\}/.test(fD)
     && /const versable = peutEtreVerse && !general;/.test(fD));

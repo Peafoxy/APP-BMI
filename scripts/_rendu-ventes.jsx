@@ -7,4 +7,4 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Ventes } from "../src/screens/Ventes.jsx";
-export const rendreVentes = (db, profile) => renderToStaticMarkup(React.createElement(Ventes, { db, profile, save: () => {} }));
+export const rendreVentes = (db, profile, venteDeplieeInitiale = null) => renderToStaticMarkup(React.createElement(Ventes, { db, profile, save: () => {}, venteDeplieeInitiale }));

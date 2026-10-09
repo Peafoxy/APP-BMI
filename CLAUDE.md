@@ -1378,6 +1378,15 @@ lit mal est pire qu'un banc absent).
   (`mentionVersementGeneral`, `data-vente-dans-versement` /
   `data-reglement-dans-versement`), refus revérifié DANS le geste
   (`critiqueVersementOrigine` avec `caisse` + `quand`). Banc (+5), éprouvé.
+- **📏 DANS 💰 VENTES, UN MOT COURT, LE DÉTAIL AU CLIC** (09/10/2026, capture,
+  « afficher juste versée… dès qu'on clique, le reste apparaît », « les deux ») :
+  sous le paiement, « 💸 versée » (vert validé / orange en attente) ou, en gris,
+  « dans un versement » ; le détail (`data-vente-versee-detail` /
+  `data-vente-dans-versement-detail`) n'apparaît que sur la ligne DÉPLIÉE (le
+  clic qui montre déjà tous les articles) — la colonne Paiement reste étroite
+  et « Reste à payer » se lit à côté. 📋 Dettes n'a pas bougé. Prop
+  `venteDeplieeInitiale` (pour le banc seul). Deux contrôles RETOURNÉS,
+  éprouvés (détail toujours affiché : ils tombent). Chapitre 5 à jour.
 - Le versement de 120 000 F d'ANGELE (09/10, 14:18), fait par 🔒 Caisse, a été
   RATTACHÉ à la vente BMID-2026-0048 par un SQL collé par Timo le 09/10/2026
   (`versement.origine`, `attendu` à null, description refaite ; `true`) : sa

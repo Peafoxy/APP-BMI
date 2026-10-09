@@ -96,7 +96,7 @@ export const numeroManquant = (tel) => String(tel || "").replace(/\D/g, "").leng
 // dans le formulaire de 💰 Ventes.
 const identiteDe = (doc) => ({ prenom: (doc && doc.prenom) || "", entreprise: formulaireDepuisEntreprise(doc && doc.entreprise) });
 
-export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis }) {
+export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis, venteDeplieeInitiale = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "ventes" });
   const [bq, setBq] = useState(profile.boutique || preRempli?.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -126,7 +126,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // Une seule vente dépliée à la fois. Timo (12/09/2026) : « un seul clic pour
   // sélectionner une autre » — cliquer une autre ligne la déplie directement
   // (et replie la précédente) ; seul un clic sur la ligne ouverte la referme.
-  const [venteDepliee, setVenteDepliee] = useState(null);
+  // `venteDeplieeInitiale` : pour le banc seul (lire une ligne dépliée), comme `cleInitiale` de 📲 WhatsApp.
+  const [venteDepliee, setVenteDepliee] = useState(venteDeplieeInitiale);
   // ⚠ Demande Timo, après correction du parcours : une demande de transfert
   // NE VIDE PLUS le panier — le vendeur reclique sur "Encaisser la vente"
   // (même panier) une fois l'autre boutique prévenue par téléphone. Ce suivi
@@ -1729,9 +1730,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}{(() => {
                   // 💸 L'argent de CETTE vente remis au DG (Timo, 09/10/2026) : la trace se lit sous le paiement.
                   const e = etatVersementOrigine(db, versementDeVente(db, v.id));
-                  if (e) return <div data-vente-versee className={`text-[11px] font-semibold mt-0.5 ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versée {e.texte}</div>;
+                  // 09/10/2026 (Timo, « afficher juste versée… dès qu'on clique, le reste apparaît ») :
+                  // un mot court, le détail seulement sur la ligne dépliée — la colonne reste étroite
+                  // et « Reste à payer » se lit juste à côté du mode de paiement.
+                  const deplie = venteDepliee === v.id;
+                  if (e) return <div data-vente-versee title={e.texte} className={`text-[11px] font-semibold mt-0.5 ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versée{deplie ? <div data-vente-versee-detail className="font-normal">{e.texte}</div> : null}</div>;
                   const g = venteVersable(v) ? versementGeneralDe(v) : null;
-                  return g ? <div data-vente-dans-versement className="text-[11px] text-slate-400 mt-0.5">{mentionVersementGeneral(g)}</div> : null;
+                  const mention = g ? mentionVersementGeneral(g) : "";
+                  return g ? <div data-vente-dans-versement title={mention} className="text-[11px] text-slate-400 mt-0.5">dans un versement{deplie ? <div data-vente-dans-versement-detail>{mention.replace(/^dans le versement /, "")}</div> : null}</div> : null;
                 })()}</td>
                 <td data-vente-reste className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{(() => {
                   // Le reste d'AUJOURD'HUI sur SA dette (« b oui ») ; comptant → « — » (« a oui »).
