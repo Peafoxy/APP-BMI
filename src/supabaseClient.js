@@ -186,10 +186,10 @@ const URL_WHATSAPP = BASE ? `${BASE}/api/whatsapp` : "/api/whatsapp";
 export const whatsappEnLigne = ({ tel, modele, variables, texte, fichier }) => appelAvecJeton(URL_WHATSAPP, { tel, modele, variables, texte, ...(fichier ? { fichier } : {}) });
 
 // ---- 📇 UN CLIENT WHATSAPP DANS LES CONTACTS GOOGLE DE BMI (09/10/2026) ----
-// L'accès Google ne vit que côté serveur (api/contact-google.js) ; ici on
+// L'accès Google ne vit que côté serveur (api/_contactGoogle.js, appelé par
+// api/whatsapp.js — l'offre Vercel ne permet que douze fonctions) ; ici on
 // envoie le nom, le numéro et la conversation, rien de secret.
-const URL_CONTACT_GOOGLE = BASE ? `${BASE}/api/contact-google` : "/api/contact-google";
-export const contactGoogleEnLigne = ({ cle, nom, tel }) => appelAvecJeton(URL_CONTACT_GOOGLE, { cle, nom, tel });
+export const contactGoogleEnLigne = ({ cle, nom, tel }) => appelAvecJeton(URL_WHATSAPP, { action: "contact_google", cle, nom, tel });
 
 // ---- 📷 LE FICHIER QU'UN CLIENT A ENVOYÉ (20/09/2026) ----
 // ⚠ Ce n'est PAS du JSON qui revient, c'est le fichier lui-même : cette

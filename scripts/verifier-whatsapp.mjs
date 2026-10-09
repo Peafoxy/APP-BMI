@@ -14,7 +14,7 @@
 // lit tel quel) et LIT le code des écrans pour les règles qui ne se
 // mesurent pas autrement (un seul chemin, aucun secret, la trace).
 // ============================================================
-import { readFileSync, unlinkSync } from "node:fs";
+import { readFileSync, unlinkSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
@@ -4006,15 +4006,24 @@ console.log("\n51 · Le profil d'un contact (clic sur le nom) et l'enregistremen
   const apres = CW.construireEntete({ cle: "90112233", tel: "+22890112233", derniere: "y", entete: avant });
   test("★★ la trace « enregistré » vit sur la fiche légère, et une réécriture de la fiche la GARDE (webhook, tournées, gestes)",
     avant.wa_contact_google?.nom === "K" && apres.wa_contact_google?.nom === "K");
-  const srv = sansC(lire("api/contact-google.js"));
+  const srv = sansC(lire("api/_contactGoogle.js"));
   test("★★ le serveur revérifie l'administrateur (la règle IMPORTÉE) et refuse un compte de formation",
     /critiqueContactGoogle\(compte, \{ nom, tel \}\)/.test(srv) && /espace === "formation"/.test(srv) && /compte\.formation === true/.test(srv));
   test("★★ l'accès Google ne vit que dans le serveur, sous trois variables jamais préfixées VITE_ ; sans elles, on le DIT (503)",
     /process\.env\.GOOGLE_CLIENT_ID/.test(srv) && /process\.env\.GOOGLE_CLIENT_SECRET/.test(srv) && /process\.env\.GOOGLE_REFRESH_TOKEN/.test(srv)
-    && !/VITE_GOOGLE/.test(lire("api/contact-google.js") + lire("src/lib/contactGoogle.js") + lire("src/screens/Whatsapp.jsx") + lire("src/supabaseClient.js"))
+    && !/VITE_GOOGLE/.test(lire("api/_contactGoogle.js") + lire("src/lib/contactGoogle.js") + lire("src/screens/Whatsapp.jsx") + lire("src/supabaseClient.js"))
     && /code: "non_configure"/.test(srv) && /status\(503\)/.test(srv));
   test("★★ on CHERCHE le numéro chez Google AVANT de créer (jamais de doublon voulu)",
     srv.indexOf("await chercher(") > 0 && srv.indexOf("await chercher(") < srv.indexOf("people:createContact"));
+  // ⚠⚠ 09/10/2026 : une 13e fonction serveur a fait REFUSER l'envoi en
+  // production (l'offre Vercel de BMI en permet DOUZE). Le contact Google
+  // passe donc par api/whatsapp.js — et le banc compte les fonctions.
+  const fonctions = readdirSync("api").filter((f) => f.endsWith(".js") && !f.startsWith("_"));
+  test("★★★ jamais plus de DOUZE fonctions serveur (fichiers de api/ sans « _ ») : une treizième fait refuser l'envoi par Vercel",
+    fonctions.length <= 12, `${fonctions.length} : ${fonctions.join(", ")}`);
+  test("★★ le contact Google passe par api/whatsapp.js (action contact_google), pas par une fonction à part",
+    /if \(req\.body\?\.action === "contact_google"\) return enregistrerContactGoogle\(req, res\);/.test(lire("api/whatsapp.js"))
+    && /action: "contact_google"/.test(lire("src/supabaseClient.js")));
   test("★ la conversation doit exister et ne pas être à la corbeille",
     /estALaCorbeille\(m\)/.test(srv) && /Conversation introuvable/.test(srv));
   const W = sansC(lire("src/screens/Whatsapp.jsx"));

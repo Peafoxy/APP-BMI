@@ -1,5 +1,5 @@
 // ============================================================
-// api/contact-google.js — 📇 ENREGISTRER UN CLIENT WHATSAPP DANS LES
+// api/_contactGoogle.js — 📇 ENREGISTRER UN CLIENT WHATSAPP DANS LES
 // CONTACTS GOOGLE DE BMI (09/10/2026, « a1, b2 » de Timo)
 //
 // Le compte : bmitogo.info@gmail.com. L'accès Google vit dans TROIS
@@ -12,11 +12,14 @@
 // ⚠ L'ADMINISTRATEUR SEUL, revérifié ICI (pas seulement à l'écran), et
 // jamais un compte de formation : les contacts de BMI sont de vrais clients.
 // ⚠ On ne crée pas de doublon : on cherche d'abord le numéro chez Google.
+// ⚠⚠ CE N'EST PAS UNE FONCTION À PART (le « _ » devant le nom) : l'offre
+// Vercel de BMI n'en permet que DOUZE, et une treizième a fait REFUSER
+// l'envoi en production (09/10/2026). C'est api/whatsapp.js qui l'appelle,
+// quand la demande porte `action: "contact_google"`.
 // ⚠ Rien n'est écrit dans notre base par cette fonction : la trace sur la
 // fiche de la conversation est posée par l'écran, APRÈS la réponse.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { poserCors } from "./_cors.js";
 import { critiqueContactGoogle, corpsContactGoogle, contactExistant, numeroInternational, nettoyerNomGoogle } from "../src/lib/contactGoogle.js";
 import { CANAL_WA, CANAL_WA_ENTETE, estALaCorbeille } from "../src/lib/whatsappConversations.js";
 
@@ -63,10 +66,7 @@ async function chercher(jeton, tel) {
   return null;
 }
 
-export default async function handler(req, res) {
-  if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
-
+export async function enregistrerContactGoogle(req, res) {
   const { jeton, cle, nom, tel } = req.body || {};
   if (!jeton) return res.status(401).json({ error: "Reconnectez-vous." });
 

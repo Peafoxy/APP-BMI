@@ -9,7 +9,7 @@
 // sur le téléphone BMI (si ses contacts suivent ce compte), et WhatsApp
 // Business y affiche le nom.
 //
-// ⚠ RÈGLES PURES, SANS IMPORT : le serveur (api/contact-google.js) les lit
+// ⚠ RÈGLES PURES, SANS IMPORT : le serveur (api/_contactGoogle.js) les lit
 // telles quelles. Le réseau et les secrets n'existent QUE dans la fonction
 // serveur — trois variables Vercel (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 // GOOGLE_REFRESH_TOKEN), jamais préfixées « VITE_ ».

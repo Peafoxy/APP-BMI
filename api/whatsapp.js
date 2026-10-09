@@ -33,6 +33,7 @@ import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre
 // ⚠ La porte vers YCloud est écrite UNE fois (api/_ycloud.js) : l'assistant
 // du webhook envoie par la même — la clé et la lecture du refus y vivent.
 import { configYCloud, envoyerYCloud, corpsTexte, televerserYCloud, corpsMedia } from "./_ycloud.js";
+import { enregistrerContactGoogle } from "./_contactGoogle.js";
 
 // Les rôles qui n'écrivent jamais au nom de BMI : un client (il a son fil
 // dans 💬 Messages) et un compte bloqué.
@@ -41,6 +42,10 @@ const ROLE_INTERDIT = (compte) => !compte || compte.actif === false || compte.ro
 export default async function handler(req, res) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
+
+  // 📇 Enregistrer un client dans les contacts Google de BMI (09/10/2026) :
+  // il passe par CETTE fonction — l'offre Vercel n'en permet que douze.
+  if (req.body?.action === "contact_google") return enregistrerContactGoogle(req, res);
 
   const { jeton, tel, modele, variables, texte, fichier } = req.body || {};
   if (!jeton) return res.status(401).json({ error: "Reconnectez-vous." });
