@@ -61,6 +61,12 @@ test("★ la DURÉE annoncée au client suit le réglage : 6 ans écrit 6, 10 an
 test("★★ l'EMPLOYÉ n'a JAMAIS de durée, et ce n'est pas un oubli : sa paie et ses déclarations sociales se gardent par obligation légale, pas par ce réglage — lui annoncer la durée des clients serait faux",
   !/\d+ ans/.test(JSON.stringify(M.motPour("vendeur", 6)))
   && !JSON.stringify(M.motPour("vendeur", 6)).includes(M.JETON_DUREE));
+// ⚠ AJOUTÉ le 09/10/2026 : le mot du client envoyait encore « en bas de votre
+// espace », vers le panneau « Vos données personnelles » — parti le 19/09/2026
+// dans l'onglet « 🔒 Mes données ». Un mot qui envoie vers une porte murée ment.
+test("★ le mot du client envoie vers l'onglet « 🔒 Mes données », jamais vers l'ancien panneau « Vos données personnelles » en bas de l'espace",
+  /« 🔒 Mes données »/.test(JSON.stringify(M.MOT_CLIENT))
+  && !/Vos données personnelles|en bas de votre espace/.test(JSON.stringify(M.MOT_CLIENT)));
 test("★ il ne se montre qu'UNE fois : marqué sur la fiche, et AUSSI dans le navigateur — sinon un compte en LECTURE SEULE (le comptable) le reverrait à chaque ouverture",
   M.motAMontrer({ id: "u1" }) === true
   && M.motAMontrer({ id: "u1", [M.CHAMP_VU]: "2026-09-19" }) === false

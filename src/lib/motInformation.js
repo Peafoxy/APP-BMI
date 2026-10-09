@@ -82,7 +82,7 @@ export const MOT_CLIENT = {
     {
       icone: "👀",
       titre: "Si vous voulez tout voir",
-      texte: "Descendez jusqu'à « Vos données personnelles », en bas de votre espace : vous pouvez tout télécharger, et demander une correction quand vous voulez.",
+      texte: "Ouvrez l'onglet « 🔒 Mes données », à côté de Messages : vous pouvez tout télécharger, et demander une correction quand vous voulez.",
     },
   ],
   pied: "BMI Togo, conformément à la loi n° 2019-014.",
