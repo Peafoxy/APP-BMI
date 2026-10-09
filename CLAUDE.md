@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2402 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2407 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1354,6 +1354,18 @@ lit mal est pire qu'un banc absent).
 - **`poseUneBande` l'écarte** : seuls les versements généraux de 🔒 Caisse
   séparent les ventes. `libelleVersementDu` dit l'origine (« Versement de la
   vente BMID-… (client) du … ») — la validation du DG la lit.
+- **« OÙ VA L'ARGENT ? » AU PAIEMENT D'UNE DETTE** (capture Timo, le même
+  soir : « paiement dette… la caisse où ça part n'est pas demandée » → « a oui,
+  b non ») : dans 📋 Dettes → 💵 Paiement (réservations comprises), après le
+  moyen, **gérant et administrateur seulement, espèces ou compte mobile** : « Le
+  tiroir de BOUTIQUE » (ou « Reste sur le compte Flooz de … ») EN PREMIER, puis
+  « Remis directement au DG », BANQUE, Chez le comptable. Une remise = le
+  règlement ET son versement (`construireVersementOrigine`, clé = l'id du
+  paiement) dans le MÊME enregistrement, construit avant la confirmation ; le
+  tiroir ne bouge pas. LA question est écrite UNE fois (`choisirDestination`,
+  verserOrigine.js), le bouton 💸 la pose aussi. **« b non »** : on ne choisit
+  pas une AUTRE boutique. ⚠ **L'encaissement d'une VENTE n'a pas cette question**
+  (proposé, pas répondu). Banc (+5), éprouvé (question ouverte au vendeur).
 - ⚠ Le versement de 120 000 F d'ANGELE (09/10, 14:18) a été fait par 🔒 Caisse :
   il garde sa bande. Rien à coller (le serveur ne regarde que le rôle sur un
   versement). Banc (`verifier-cloisonnement`, 12, l'écran RENDU), éprouvé

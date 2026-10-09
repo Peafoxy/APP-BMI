@@ -18,8 +18,9 @@ import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels"
 import { envoiRappelDette, texteRappel, traceEnvoi, libelleTrace, envoiRecuReglement, envoiRecuReservation } from "../lib/whatsappModeles";
 import { soldeApresAcompte, prochaineEcheance, PLAN_ACCEPTE } from "../lib/reglement";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, ORIGINE_REGLEMENT } from "../lib/versements";
-import { verserDepuisOrigine } from "../components/verserOrigine";
+import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, ORIGINE_REGLEMENT, construireVersementOrigine, messagesVersement, libelleDestination, DEST_COMPTABLE } from "../lib/versements";
+import { mobileParMoyen } from "../lib/constants";
+import { verserDepuisOrigine, choisirDestination } from "../components/verserOrigine";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
@@ -79,12 +80,41 @@ export function Dettes({ db, save, profile }) {
     if (m > reste) { uAlert(`Le montant dépasse le reste dû (${fmt(reste)}).`); return; }
     const moyen = await demanderMoyenPaiement();
     if (moyen === null) return;
-    if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${d.client} ?`)) return;
-    const paiement = { id: uid(), date: today(), heure: heureCourte(), montant: m, paiement: normPaiement(moyen), par: profile.nom };
+    const moyenN = normPaiement(moyen);
+    const paiement = { id: uid(), date: today(), heure: heureCourte(), montant: m, paiement: moyenN, par: profile.nom };
     const dApres = { ...d, paye: Number(d.paye) + m, paiements: [...(d.paiements || []), paiement] };
-    save({ ...db, dettes: db.dettes.map((x) => (x.id === d.id ? dApres : x)) },
-      `${estReservation(d) ? "Versement réservation" : "Paiement dette"} ${fmt(m)} de ${d.client} — ${d.boutique}`);
-    uAlert("Versement enregistré !");
+    const dbApres = { ...db, dettes: db.dettes.map((x) => (x.id === d.id ? dApres : x)) };
+    // 💸 « Où va l'argent ? » (Timo, 09/10/2026, « a oui ») : la caisse de la
+    // dette d'abord, sinon remis directement au DG, à la BANQUE ou au
+    // comptable — le règlement ET son versement en un seul geste (le bouton 💸
+    // du règlement, fait d'un coup). Gérant et administrateur seulement (verser
+    // leur est réservé) ; un virement est déjà à la banque, pas de question.
+    let verse = null;
+    if (ROLES_VERSEMENT.includes(profile.role) && moyenVersable(moyenN)) {
+      const mobile = mobileParMoyen(moyenN);
+      const dest = await choisirDestination(db, {
+        titre: `Où va l'argent ? — ${fmt(m)} de ${d.client}`,
+        boutique: d.boutique,
+        caisse: mobile ? `Reste sur le compte ${mobile.court} de ${libelleCaisse(d.boutique)}` : `Le tiroir de ${libelleCaisse(d.boutique)}`,
+      });
+      if (!dest) return;
+      if (!dest.caisse) {
+        verse = construireVersementOrigine(profile, dbApres, {
+          origine: { type: ORIGINE_REGLEMENT, reglement: paiement.id, dette_id: d.id, numero: d.numero || "", client: d.client || "" },
+          boutique: d.boutique, montant: m, source: moyenN, destination: dest.destination, banque: dest.banque, bordereau: dest.bordereau,
+        });
+        if (verse.refus) { uAlert(verse.refus); return; }
+      }
+    }
+    const jury = verse?.versement?.destination === DEST_COMPTABLE ? "le comptable" : "le DG";
+    if (!await uConfirm(`Confirmer le versement de ${fmt(m)} de ${d.client} ?${verse ? `\n\n💸 Remis directement → ${libelleDestination(verse.versement)} : il n'entre pas dans le tiroir, et attend la validation par ${jury}.` : ""}`)) return;
+    save(verse ? {
+      ...dbApres,
+      depenses: [verse.sortie, ...(verse.entree ? [verse.entree] : []), ...(db.depenses || [])],
+      messages: [...messagesVersement(db, profile, verse.sortie), ...(db.messages || [])],
+    } : dbApres,
+      `${estReservation(d) ? "Versement réservation" : "Paiement dette"} ${fmt(m)} de ${d.client} — ${d.boutique}${verse ? ` — remis directement → ${libelleDestination(verse.versement)} (en attente de validation)` : ""}`);
+    uAlert(verse ? `Versement enregistré — remis ${libelleDestination(verse.versement)}, en attente de validation par ${jury}.` : "Versement enregistré !");
     // ⚠ Demande Timo : un reçu sort à CHAQUE versement, reprenant tout
     // l'historique cumulé (pas seulement celui du jour) — et devient
     // automatiquement le reçu DÉFINITIF si ce versement solde la dette.

@@ -14,9 +14,39 @@ import { uAlert, uConfirm, uPrompt, uChoix } from "./ui";
 import { bloquerSiLecture, refuserSaufRoles, libelleCaisse } from "../lib/calculs";
 import { mobileParMoyen } from "../lib/constants";
 import { banquesReglees } from "../lib/banques";
-import { ROLES_VERSEMENT, DEST_BANQUE, DEST_COMPTABLE, destinationsPour, critiqueVersementOrigine, construireVersementOrigine, messagesVersement, libelleDestination, ORIGINE_VENTE, SOURCE_ESPECES } from "../lib/versements";
+import { ROLES_VERSEMENT, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, destinationsPour, critiqueVersementOrigine, construireVersementOrigine, messagesVersement, libelleDestination, ORIGINE_VENTE, SOURCE_ESPECES } from "../lib/versements";
 
 const AUTRE_BANQUE = "✏️ Autre banque…";
+
+// LA question « à qui l'argent est-il remis ? », écrite UNE fois (09/10/2026) :
+// le bouton 💸 et le paiement d'une dette (📋 Dettes, « Où va l'argent ? »)
+// la posent pareil. `caisse` : le libellé d'un PREMIER choix qui garde
+// l'argent dans la caisse qui l'a reçu (rendu { caisse: true }).
+// Rend { destination, banque, bordereau }, { caisse: true }, ou null.
+export async function choisirDestination(db, { titre, boutique, caisse = "" }) {
+  // La caisse « Chez le comptable » est réelle : une caisse de formation ne la voit pas.
+  const enFormation = !!(db.boutiques || []).find((b) => b.nom === boutique)?.formation;
+  const libelles = { [DEST_DG]: caisse ? "Remis directement au DG" : DEST_DG };
+  const dests = destinationsPour(enFormation);
+  const reponse = await uChoix(titre, [...(caisse ? [caisse] : []), ...dests.map((d) => libelles[d] || d)]);
+  if (!reponse) return null;
+  if (caisse && reponse === caisse) return { caisse: true };
+  const destination = dests.find((d) => (libelles[d] || d) === reponse);
+  if (!destination) return null;
+  let banque = "", bordereau = "";
+  if (destination === DEST_BANQUE) {
+    const liste = banquesReglees(db);
+    if (liste.length) {
+      const choix = await uChoix("Quelle banque ?", [...liste, AUTRE_BANQUE]);
+      if (!choix) return null;
+      banque = choix === AUTRE_BANQUE ? (await uPrompt("Nom de la banque :", "")) : choix;
+    } else banque = await uPrompt("Nom de la banque :", "");
+    if (banque === null) return null;
+    bordereau = await uPrompt("Numéro du bordereau de versement :", "");
+    if (bordereau === null) return null;
+  }
+  return { destination, banque, bordereau };
+}
 
 // origine : { type, vente_id | reglement, dette_id?, numero, client }
 // boutique : la CAISSE qui a reçu l'argent (caisseDeVente / la dette).
@@ -29,22 +59,9 @@ export async function verserDepuisOrigine({ db, save, profile, origine, boutique
   const quoi = origine.type === ORIGINE_VENTE
     ? `la vente ${origine.numero || ""}${origine.client ? ` (${origine.client})` : ""}`
     : `le règlement de ${origine.client || "la dette"}${origine.numero ? ` (${origine.numero})` : ""}`;
-  // La caisse « Chez le comptable » est réelle : une caisse de formation ne la voit pas.
-  const enFormation = !!(db.boutiques || []).find((b) => b.nom === boutique)?.formation;
-  const destination = await uChoix(`💸 Verser ${fmt(Number(montant))} — ${quoi.replace(/\s+/g, " ")}.\n\nÀ qui l'argent est-il remis ?`, destinationsPour(enFormation));
-  if (!destination) return false;
-  let banque = "", bordereau = "";
-  if (destination === DEST_BANQUE) {
-    const liste = banquesReglees(db);
-    if (liste.length) {
-      const choix = await uChoix("Quelle banque ?", [...liste, AUTRE_BANQUE]);
-      if (!choix) return false;
-      banque = choix === AUTRE_BANQUE ? (await uPrompt("Nom de la banque :", "")) : choix;
-    } else banque = await uPrompt("Nom de la banque :", "");
-    if (banque === null) return false;
-    bordereau = await uPrompt("Numéro du bordereau de versement :", "");
-    if (bordereau === null) return false;
-  }
+  const choix = await choisirDestination(db, { titre: `💸 Verser ${fmt(Number(montant))} — ${quoi.replace(/\s+/g, " ")}.\n\nÀ qui l'argent est-il remis ?`, boutique });
+  if (!choix) return false;
+  const { destination, banque, bordereau } = choix;
   const r = construireVersementOrigine(profile, db, { origine, boutique, montant, source, destination, banque, bordereau });
   if (r.refus) { uAlert(r.refus); return false; }
   const mobile = mobileParMoyen(source);

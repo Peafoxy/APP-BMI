@@ -13824,8 +13824,8 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
   const fV = readFileSync("src/screens/Ventes.jsx", "utf8"), fD = readFileSync("src/screens/Dettes.jsx", "utf8");
   test("★★ « 1 non pour le vendeur » : verser reste au GÉRANT et à l'ADMINISTRATEUR, revérifié DANS le geste avant toute question, et les deux boutons ne s'affichent qu'à eux",
     JSON.stringify(Vo.ROLES_VERSEMENT) === JSON.stringify(["gerant", "admin"])
-    && geste.indexOf("refuserSaufRoles(profile, ROLES_VERSEMENT") > -1 && geste.indexOf("refuserSaufRoles(profile, ROLES_VERSEMENT") < geste.indexOf("uChoix(")
-    && geste.indexOf("critiqueVersementOrigine(db") < geste.indexOf("uChoix(")
+    && (() => { const g = geste.slice(geste.indexOf("export async function verserDepuisOrigine")); const q = g.indexOf("await choisirDestination("); // RETOURNÉ (09/10/2026) : la question vit dans choisirDestination
+      return g.indexOf("refuserSaufRoles(profile, ROLES_VERSEMENT") > -1 && g.indexOf("refuserSaufRoles(profile, ROLES_VERSEMENT") < q && g.indexOf("critiqueVersementOrigine(db") < q; })()
     && /peutVerserVente = \(v\) => ROLES_VERSEMENT\.includes\(profile\.role\) && !estVenteACredit\(v\)/.test(fV)
     && /const versable = ROLES_VERSEMENT\.includes\(profile\.role\)/.test(fD));
   test("★ la vente se verse depuis la caisse qui a REÇU l'argent (caisseDeVente), pour la colonne TOTAL moins les reprises ; le règlement depuis la caisse de sa dette, avec son moyen",
@@ -13846,6 +13846,40 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
     (hG.match(/aria-label="Verser"/g) || []).length === 1 && hVd !== "" && !/aria-label="Verser"/.test(hVd));
   test("★★ versée, la vente perd son bouton et DIT où est l'argent sous son paiement",
     !/aria-label="Verser"/.test(hS) && /data-vente-versee="true"[^>]*>💸 versée Chez le DG — ⏳ en attente/.test(hS));
+}
+
+titre("💸 « Où va l'argent ? » au paiement d'une dette (09/10/2026, « a oui, b non ») : le règlement et son versement en un seul geste");
+{
+  const Co2 = await import(pathToFileURL("src/lib/core.js").href);
+  const Vo2 = await import(pathToFileURL("src/lib/versements.js").href);
+  const BV2 = await import(pathToFileURL("src/lib/bandesVersement.js").href);
+  const BQ = "BMI DEMAKPOE", j = "2026-10-09";
+  const ag = { id: "ag", nom: "ANGELE", role: "gerant", boutique: BQ };
+  const dette = { id: "dE", numero: "BMID-DET-2026-0004", boutique: BQ, client: "MR ERIC", date: j, montant: 100000, paye: 0, paiements: [] };
+  const db0 = { boutiques: [{ id: "b1", nom: BQ }], users: [ag], produits: [], ventes: [], dettes: [dette], depenses: [], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], audits: [], clotures: [] };
+  const p = { id: "pX", date: j, heure: "18:00", montant: 80000, paiement: "Espèces", par: "ANGELE" };
+  const dbApres = { ...db0, dettes: [{ ...dette, paye: 80000, paiements: [p] }] };
+  const v = Vo2.construireVersementOrigine(ag, dbApres, { origine: { type: Vo2.ORIGINE_REGLEMENT, reglement: p.id, dette_id: "dE", numero: dette.numero, client: "MR ERIC" }, boutique: BQ, montant: 80000, source: "Espèces", destination: Vo2.DEST_DG });
+  const dbFinal = { ...dbApres, depenses: [v.sortie] };
+  test("★★ remis directement au DG : le règlement compte, mais le tiroir ne bouge pas (il n'y est jamais entré) ; la dette est bien réduite",
+    !v.refus && Vo2.deuxPoches(dbFinal, BQ, Co2.totalVente).recette === Vo2.deuxPoches(db0, BQ, Co2.totalVente).recette
+    && Vo2.deuxPoches(dbApres, BQ, Co2.totalVente).recette - Vo2.deuxPoches(db0, BQ, Co2.totalVente).recette === 80000
+    && dbFinal.dettes[0].paye === 80000);
+  test("★★ c'est le versement du règlement (sa clé = l'id du paiement) : en attente du DG, sans bande, et le bouton 💸 ne le proposera plus",
+    Vo2.versementDeReglement(dbFinal, Vo2.cleReglement(dbFinal.dettes[0], p, 0))?.id === v.sortie.id
+    && !Vo2.validationVersement(dbFinal, v.sortie) && !BV2.poseUneBande(v.sortie, BQ));
+  const fD2 = readFileSync("src/screens/Dettes.jsx", "utf8").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const corps = fD2.slice(fD2.indexOf("const encaisser = async"), fD2.indexOf("imprimerRecuVersement(dApres"));
+  const geste2 = readFileSync("src/components/verserOrigine.js", "utf8");
+  test("★★ la question n'est posée qu'au gérant / à l'administrateur, et jamais pour un virement ; la caisse de la dette vient en PREMIER",
+    /if \(ROLES_VERSEMENT\.includes\(profile\.role\) && moyenVersable\(moyenN\)\)/.test(corps)
+    && /caisse: mobile \? `Reste sur le compte \$\{mobile\.court\} de \$\{libelleCaisse\(d\.boutique\)\}` : `Le tiroir de \$\{libelleCaisse\(d\.boutique\)\}`/.test(corps)
+    && /\[\.\.\.\(caisse \? \[caisse\] : \[\]\), \.\.\.dests/.test(geste2));
+  test("★★ le versement est construit (et refusé s'il le faut) AVANT la confirmation, et part dans le MÊME enregistrement que le règlement",
+    corps.indexOf("construireVersementOrigine(profile, dbApres") > -1 && corps.indexOf("construireVersementOrigine(profile, dbApres") < corps.indexOf("uConfirm(")
+    && /reglement: paiement\.id/.test(corps) && /depenses: \[verse\.sortie/.test(corps) && (corps.match(/save\(/g) || []).length === 1);
+  test("★ UNE question pour les deux chemins : le bouton 💸 passe aussi par choisirDestination",
+    (geste2.match(/await uChoix\(titre/g) || []).length === 1 && /await choisirDestination\(db, \{ titre: `💸 Verser/.test(geste2) && /choisirDestination\(db, \{/.test(corps));
 }
 
 titre("🏗 La caisse CHANTIER (08/10/2026, « lance l'étape 1, clôture facultative ») : l'argent des chantiers n'entre plus dans le tiroir d'une boutique");
