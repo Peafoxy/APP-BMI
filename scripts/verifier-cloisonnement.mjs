@@ -4944,10 +4944,11 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
     !/LISTE_MOYENS_SAISIE/.test(ui) && execSync("grep -rl 'Espèces / Flooz / Mixx / Virement bancaire' src || true").toString().trim() === ""
     && /export const demanderMoyenPaiement = \(complement = "", defaut = "Espèces", libelle = "Moyen de paiement", beneficiaire = null\) =>\n  uChoix\(/.test(ui)
     && /moyensProposes\(defaut\)\)/.test(ui) && !/uPrompt\(`\$\{libelle\}/.test(ui));
-  test("★ les 14 questions passent par demanderMoyenPaiement (la 14e : ✏️ Moyen d'un apporteur, 21/09/2026 ; plus aucun uPrompt « Moyen de … »)",
+  test("★ les 15 questions passent par demanderMoyenPaiement (la 15e : 💵 Payer le loyer, 09/10/2026 ; plus aucun uPrompt « Moyen de … »)",
     // RETOURNÉ le 29/09/2026 : le versement d'une pose seule a déménagé dans
     // le geste commun components/encaissementPose.js — toujours 14.
-    execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib src/components/encaissementPose.js | wc -l").toString().trim() === "14"
+    // RETOURNÉ le 09/10/2026 : « 💵 Payer le loyer » demande son moyen — 15.
+    execSync("grep -rho 'demanderMoyenPaiement(' src/screens src/lib src/components/encaissementPose.js | wc -l").toString().trim() === "15"
     && execSync("grep -rl 'uPrompt(.Moyen de' src || true").toString().trim() === "");
   // 12/09/2026 : le remboursement d'une avance de frais « avec le salaire » (Caisse.jsx) demande son mois — ×4.
   // ⚠ RETOURNÉ le 15/09/2026 : demanderDate passe de 3 à 4 — la date RÉELLE
@@ -8249,7 +8250,7 @@ titre("Les petites dépenses d'un chantier de devis, déduites avant le partage 
     /<Field label="Chantier à rattacher">/.test(dpC) && !/chantiersOuverts\.length > 0 && \(/.test(dpC) && /const chantiersOuverts = chantiersRattachables\(db, profile\);/.test(dpC) && /<option value="">— Aucun —<\/option>/.test(dpC)
     && /Aucun chantier de devis en cours<\/option>/.test(dpC)
     && /const refusChantier = chantierChoisi \? critiqueRattachement\(db, profile, r\.depense, chantierChoisi\) : null;/.test(dpC) && /const rattachee = chantierChoisi \? rattacherDepense\(depenseLoyer, chantierChoisi\) : depenseLoyer;/.test(dpC) && /const depenseLoyer = estLoyerDuMois \? \{ \.\.\.r\.depense, loyer_mois: f\.loyer_mois, loyer_boutique: f\.loyer_boutique \} : r\.depense;/.test(dpC)
-    && /"🏠 "\}\{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && (dpC.match(/uChoix\(/g) || []).length === 1 && /const payerLoyer = async \(\) => \{[\s\S]*?const choix = await uChoix\(`Loyer de/.test(dpC));
+    && /"🏠 "\}\{x\.chantier_nom \|\| "chantier"\}/.test(dpC) && !/onRattacher/.test(dpC) && !/rattacherApresCoup/.test(dpC) && (dpC.match(/uChoix\(/g) || []).length === 2 && /const payerLoyer = async \(\) => \{[\s\S]*?const choix = await uChoix\(`Loyer de/.test(dpC));
   const ciC = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ écran Clients installés : les parts et la part BMI se calculent sur fraisNet (= fraisAPartager(fraisRep, dépenses rattachées)), plus jamais sur fraisRep ; la déduction se lit dans le panneau, se confirme, se mémorise (depenses_deduites, frais_a_partager) ; la fiche montre le total rattaché",
     /const depRattachees = chantier \? totalDepensesChantier\(db, chantier\) : 0;/.test(ciC) && /const fraisNet = fraisAPartager\(fraisRep, depRattachees\);/.test(ciC)
@@ -12280,8 +12281,17 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     /const estLoyerDuMois = f\.loyer_mois && f\.categorie === CATEGORIE_LOYER;/.test(dsrc) && /const refusL = critiquePaiementLoyer\([^\n]*\n\s*if \(refusL\) \{ uAlert\(refusL\); return; \}/.test(dsrc)
     && dsrc.indexOf("construireDepenseSaisie(db, profile") < dsrc.indexOf("const estLoyerDuMois"));
   const corpsPayer = (dsrc.match(/const payerLoyer = async \(\) => \{[\s\S]*?\n  \};/) || [""])[0];
-  test("★ « Payer » ne fait que pré-remplir (aucun save dans payerLoyer), et revérifie les mois choisis",
-    /setF\(\{ \.\.\.formVide, \.\.\.pf \}\);/.test(corpsPayer) && !/save\(/.test(corpsPayer) && /critiquePaiementLoyer\(loyer, pf\.loyer_mois\)/.test(corpsPayer));
+  // RETOURNÉ le 09/10/2026 (Timo : « on choisit et rien ne se passe… pas de
+  // caisse à débiter, pas de validation » → « b ») : le geste CONTINUE —
+  // moyen, « Payé avec », puis LA fabrique de la dépense ordinaire. Il
+  // n'écrit toujours rien lui-même (aucun save), ne touche plus le formulaire.
+  test("★★ « Payer le loyer » va jusqu'au bout : moyen, « Payé avec » (optionsPayeAvec), puis enregistrerDepense — jamais un save à lui, jamais le formulaire ; les mois revérifiés",
+    !/save\(/.test(corpsPayer) && !/setF\(/.test(corpsPayer) && !/setDepenseOuverte\(/.test(corpsPayer) && /critiquePaiementLoyer\(loyer, pf\.loyer_mois\)/.test(corpsPayer)
+    && /demanderMoyenPaiement\(/.test(corpsPayer) && /optionsPayeAvec\(caissesPossibles, boutique,/.test(corpsPayer)
+    && /await enregistrerDepense\(\{ \.\.\.formVide, \.\.\.pf, paiement: moyen, paye_avec: code \}, \{ duFormulaire: false \}\);/.test(corpsPayer)
+    && /const ajouter = \(\) => enregistrerDepense\(f\);/.test(dsrc)
+    && /if \(duFormulaire\) \{ setF\(formVide\); setDepenseOuverte\(false\); \}/.test(dsrc)
+    && !/Le formulaire ci-dessous est rempli/.test(dsrc));
   const psrc = readFileSync("src/screens/Parametres.jsx", "utf8");
   test("★★ la fiche du loyer : l'administrateur SEUL, revérifié DANS le geste", /const enregistrerLoyer = \(\) => \{[\s\S]*?refuserSaufAdmin\(profile, "Renseigner le loyer d'une boutique"\)/.test(psrc)
     && /const ouvrirLoyer = \(b\) => \{\s*if \(refuserSaufAdmin\(profile, "Renseigner le loyer d'une boutique"\)\) return;/.test(psrc));
@@ -12294,7 +12304,8 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     /const formVide = \{ categorie: "",/.test(dsrc) && !/categorie: CATEGORIES\[0\]/.test(dsrc)
     && /<option value="">— Choisir —<\/option>\{CATEGORIES\.map/.test(dsrc));
   test("★★ une dépense sans catégorie est REFUSÉE dans le geste, avant toute écriture",
-    /const ajouter = async \(\) => \{\s*if \(bloquerSiLecture\(db, profile\)\) return;\s*if \(!f\.categorie\) \{ uAlert\(/.test(dsrc));
+    // RETOURNÉ le 09/10/2026 : le geste vit dans enregistrerDepense (formulaire ET loyer).
+    /const enregistrerDepense = async \(f, \{ duFormulaire = true \} = \{\}\) => \{\s*if \(bloquerSiLecture\(db, profile\)\) return;\s*if \(!f\.categorie\) \{ uAlert\(/.test(dsrc));
   test("★ le cadre du loyer DIT ce qu'il a compté (montant, date, qui l'a saisi)",
     /data-loyer-compte/.test(dsrc) && /loyer\.lignes\.map\(\(d\) => `\$\{fmt\(d\.montant\)\} le \$\{dFR\(d\.date\)\}/.test(dsrc));
   // Timo (25/09/2026) : « une ligne de dernier mois payé pour mieux suivre les
@@ -13577,9 +13588,10 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
       /ouvert=\{nouvelArticleOuvert \|\| !!enEdition\}/.test(st) && /onFermer=\{\(\) => \(enEdition \? annulerCorrection\(\) : setNouvelArticleOuvert\(false\)\)\}/.test(st)
       && /apresBouton=\{boutonsImport\}/.test(st) && (st.match(/\{boutonsImport\}/g) || []).length === 2);
     const rv = readFileSync("src/screens/Ravitaillement.jsx", "utf8"), dp = readFileSync("src/screens/Depenses.jsx", "utf8"), ca = readFileSync("src/screens/Caisse.jsx", "utf8");
-    test("★★ ➕ un formulaire pré-rempli s'OUVRE tout seul (« 🚚 Demander ce ravitaillement », « 💵 Payer le loyer ») ; les carrés de 🔒 Caisse et les listes (réservations, Mes demandes, versements) restent hors du formulaire",
+    // RETOURNÉ le 09/10/2026 : « 💵 Payer le loyer » ne passe plus par le formulaire (il va jusqu'au bout).
+    test("★★ ➕ un formulaire pré-rempli s'OUVRE tout seul (« 🚚 Demander ce ravitaillement ») ; les carrés de 🔒 Caisse et les listes (réservations, Mes demandes, versements) restent hors du formulaire",
       /setPanierDem\(panierInitial[\s\S]{0,160}setDemandeOuverte\(true\)/.test(rv)
-      && /setF\(\{ \.\.\.formVide, \.\.\.pf \}\);\n\s*setDepenseOuverte\(true\)/.test(dp)
+      && !/setDepenseOuverte\(true\)/.test((dp.match(/const payerLoyer = async \(\) => \{[\s\S]*?\n  \};/) || [""])[0])
       && ca.indexOf("Fonds à verser (le tiroir") < ca.indexOf("<FormulaireRepliable ouvert={versementOuvert}")
       && rv.indexOf("</FormulaireRepliable>") < rv.indexOf("{mesDemandes.length > 0 && (")
       && ca.indexOf("</FormulaireRepliable>") < ca.indexOf("{mesVersements.length > 0 && ("));
@@ -13956,7 +13968,8 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
       && corpsM.indexOf("if (!modif.remisA)") > -1 && corpsM.indexOf("if (refusAncien)") < corpsM.indexOf("save("));
   }
   const dpA = readFileSync("src/screens/Depenses.jsx", "utf8");
-  const corpsAj = (dpA.match(/const ajouter = async \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+  // RETOURNÉ le 09/10/2026 : le corps du geste est enregistrerDepense.
+  const corpsAj = (dpA.match(/const enregistrerDepense = async \(f, \{ duFormulaire = true \} = \{\}\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
   const cmpA = readFileSync("src/components/ArgentChantier.jsx", "utf8");
   const corpsVal = (cmpA.match(/const valider = async \(\{ technicien, retour, caisses \}\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
   test("★ l'écran : « Argent remis à » sous le chantier, revérifié DANS le geste avant d'écrire ; la ligne dit « remis à » ; le cadre du technicien et celui du gérant sont posés ; la suppression revérifie la remise",

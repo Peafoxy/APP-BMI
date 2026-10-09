@@ -60,6 +60,7 @@ npm run tester-notifications     # 81  : les notifications (liste A = messages, 
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 19  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total)
+npm run verifier-ecran-loyer     # 14  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
@@ -3777,7 +3778,8 @@ lit mal est pire qu'un banc absent).
   N jours. Une dépense rejetée ne paie rien ; une ancienne dépense « Loyer »
   saisie à la main compte pour le mois de sa date. Le jour 31 tombe au dernier
   jour d'un mois court.
-- **« 💵 Payer le loyer de … » ne fait que PRÉ-REMPLIR** le formulaire :
+- ~~**« 💵 Payer le loyer de … » ne fait que PRÉ-REMPLIR** le formulaire~~ —
+  **RETOURNÉ le 09/10/2026** (voir « le geste va jusqu'au bout » plus bas) ;
   la dépense passe par `construireDepenseSaisie` (validation du DG, « Payé
   avec », tiroir, clôture). Elle porte `loyer_mois` et **`loyer_boutique`** —
   **c'est le LOCAL qui compte, pas la caisse qui a payé** (la caisse
@@ -3814,7 +3816,20 @@ lit mal est pire qu'un banc absent).
   dus, ou un nombre de mois d'avance (1 à 24). **UNE dépense par versement au
   propriétaire**, qui porte la LISTE de ses mois (`loyer_mois` : une chaîne
   pour un mois, un tableau pour plusieurs) ; son montant remplit les mois
-  DANS L'ORDRE. Toujours un simple PRÉ-REMPLISSAGE, revérifié DANS le geste.
+  DANS L'ORDRE. Revérifié DANS le geste.
+- ⚠⚠ **LE GESTE VA JUSQU'AU BOUT** (09/10/2026, capture Timo : « le loyer est
+  ornemental… on choisit et rien ne se passe… pas de caisse à débiter, pas de
+  validation » → « b, lance ») : le formulaire pré-rempli passait inaperçu.
+  Après « Que payez-vous ? » : **le moyen** (`demanderMoyenPaiement`), **« Payé
+  avec »** (`optionsPayeAvec`, la boutique regardée en tête, fonds de caisse
+  si `fondsProposable` pour CE montant), puis la confirmation et
+  l'enregistrement par **`enregistrerDepense`** — la MÊME fonction que le
+  bouton « Enregistrer la dépense » (`ajouter` l'appelle), donc validation du
+  DG, limite du tiroir, `critiquePaiementLoyer` revérifié. Le formulaire n'est
+  plus touché ; le montant et la description ne se corrigent plus avant
+  (le prix de « b », dit à Timo). Banc Chromium `verifier-ecran-loyer` (14),
+  éprouvé sur l'ancien geste : il tombe. Cinq contrôles de
+  `verifier-cloisonnement` RETOURNÉS. Chapitre 17 et guide du gérant à jour.
 
 ### ✏️ MODIFIER UNE DÉPENSE (25/09/2026, « catégorie et description seulement · admin principal »)
 - **La catégorie et la description, rien d'autre** : le montant, le moyen et

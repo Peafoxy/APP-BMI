@@ -66,7 +66,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["📤 Dépenses", "En haut, les pastilles des boutiques ; le cadre **⏳ Dépenses à valider par le DG** (chez le DG) ; le cadre **🏠 Loyer de la boutique** (local loué) ; le bouton **« ➕ Nouvelle dépense »**, qui ouvre le formulaire (fermé d'office, replié après l'enregistrement ; « 💵 Payer le loyer » l'ouvre tout rempli) ; la liste « Dépenses — boutique » avec « Ce mois » ; et, pour l'administrateur en réel, deux cadres, **👤 Payées chez le DG** et **🏦 Payées par la BANQUE** (chacun avec son total, affiché seulement s'il a des lignes ; une phrase renvoie les sorties payées chez le comptable vers 🧾 Chez le comptable) — salaires, commissions, avances et crédits payés par le DG ou par la banque : ils ne sortent du tiroir d'aucune boutique, ne pèsent sur le résultat d'aucune, et se suppriment d'ici (chapitre 18)."],
+        ["📤 Dépenses", "En haut, les pastilles des boutiques ; le cadre **⏳ Dépenses à valider par le DG** (chez le DG) ; le cadre **🏠 Loyer de la boutique** (local loué) ; le bouton **« ➕ Nouvelle dépense »**, qui ouvre le formulaire (fermé d'office, replié après l'enregistrement) ; la liste « Dépenses — boutique » avec « Ce mois » ; et, pour l'administrateur en réel, deux cadres, **👤 Payées chez le DG** et **🏦 Payées par la BANQUE** (chacun avec son total, affiché seulement s'il a des lignes ; une phrase renvoie les sorties payées chez le comptable vers 🧾 Chez le comptable) — salaires, commissions, avances et crédits payés par le DG ou par la banque : ils ne sortent du tiroir d'aucune boutique, ne pèsent sur le résultat d'aucune, et se suppriment d'ici (chapitre 18)."],
         ["🧾 Chez le comptable", "Les **décaissements de sa caisse** : à remettre, déjà remis ; puis la liste des sorties confiées au comptable."],
         ["🔒 Caisse", "Le cadre **💼 Avances de frais à rembourser**, et le message qui **bloque la clôture** tant qu'une dépense en espèces attend le DG (chapitre 6)."],
         ["📊 Tableau de bord", "Les dépenses de la période, et l'export « Dépenses » ; les versements ont leur export à part."],
@@ -141,8 +141,9 @@ export const CHAPITRE = {
       ["h3", "G. Le loyer d'un local loué (gérant, administrateur)"],
       ["etapes", [
         { titre: "Le cadre 🏠 Loyer de la boutique", texte: "Il n'apparaît que si l'administrateur a coché « Ce local est loué » (⚙ Paramètres). Il dit : montant, échéance, propriétaire, **Dernier mois payé**, et l'état — ✅ payé, ⏳ à payer avant le …, ⚠ **Arriérés** (nombre de mois, total, jours de retard)." },
-        { titre: "💵 Payer le loyer / 💵 Payer d'avance", texte: "Trois choix : **le mois le plus ancien**, **tous les mois dus**, ou **payer d'avance** (1 à 24 mois). Le bouton **ne fait qu'ouvrir et remplir** le formulaire : catégorie Loyer, montant, description." },
-        { titre: "Enregistrer", texte: "Vérifier « Payé avec », puis **Enregistrer la dépense** : elle passe par toutes les règles (DG au-delà de 5 000 F, tiroir). Un mois déjà payé ou déjà saisi est **refusé** : jamais deux fois." },
+        { titre: "💵 Payer le loyer / 💵 Payer d'avance", texte: "Première question, **« Que payez-vous ? »** : **le mois le plus ancien**, **tous les mois dus**, ou **payer d'avance** (1 à 24 mois)." },
+        { titre: "Le moyen, puis la caisse", texte: "L'application demande ensuite le **moyen de paiement** (Espèces d'office), puis **« Payé avec »** : la caisse de la boutique (celle regardée en premier, les autres boutiques ensuite), une avance personnelle, l'argent remis par le DG, la caisse du comptable." },
+        { titre: "Confirmer", texte: "Une fenêtre récapitule : montant, catégorie Loyer, caisse. **OK enregistre la dépense** — elle passe par toutes les règles : validation du DG au-delà de 5 000 F, limite du tiroir. Un mois déjà payé ou déjà saisi est **refusé** : jamais deux fois. Annuler à n'importe quelle question n'enregistre rien." },
       ]],
       ["note", "« **Déjà compté** » sous le cadre dit quelles dépenses « Loyer » ont été comptées, par qui. Un chiffre qui surprend vient souvent d'une dépense mise en « Loyer » par erreur : l'administrateur la supprime et la ressaisit dans la bonne catégorie."],
 
@@ -166,7 +167,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Bouton", "Où", "Ce qu'il fait"], largeurs: [2800, 2300, 4200], lignes: [
         ["Enregistrer la dépense", "📤 Dépenses", "Vérifie, demande confirmation, enregistre ; au-delà de 5 000 F, prévient le DG."],
         ["✅ Valider / ✖ Rejeter", "⏳ Dépenses à valider par le DG", "La décision du DG ; le rejet demande un motif."],
-        ["💵 Payer le loyer / 💵 Payer d'avance", "🏠 Loyer de la boutique", "Remplit le formulaire pour un ou plusieurs mois."],
+        ["💵 Payer le loyer / 💵 Payer d'avance", "🏠 Loyer de la boutique", "Paie un ou plusieurs mois : moyen, caisse, confirmation, enregistrement."],
         ["✏️ Modifier", "Liste des dépenses", "Change la catégorie, la description et le chantier rattaché (administrateur principal)."],
         ["Le filtre de période", "Titre de la liste (et « Chez le comptable »)", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates. La liste ne montre que la période, et le total à droite devient celui de la période (« Ce mois » revient avec « Toute période »). Le cadre ⏳ Dépenses à valider par le DG n'est jamais filtré."],
         ["Suppr.", "Liste des dépenses", "Supprime une dépense (administrateur)."],
@@ -235,7 +236,7 @@ export const CHAPITRE = {
         { situation: "Il achète un disjoncteur à 12 000 F en espèces.", reponse: "À partir de 5 000 F : **en attente du DG**. Elle ne sort pas encore du tiroir ; la clôture du soir sera bloquée tant que le DG n'a pas tranché." },
         { situation: "Le tiroir contient 20 000 F, l'enveloppe du fonds de caisse 50 000 F, et il faut payer 30 000 F.", reponse: "Le gérant peut choisir « Le fonds de caisse » : le tiroir paie 20 000 F, l'enveloppe 10 000 F ; il y restera 40 000 F, remboursés par les prochaines recettes." },
         { situation: "Le technicien KOSSI paie 8 000 F de nourriture de sa poche.", reponse: "Avance personnelle, en attente du DG. Une fois validée, elle apparaît dans 💼 Avances de frais à rembourser ; le gérant la rembourse en espèces (ou l'administrateur avec le salaire)." },
-        { situation: "Le loyer de 90 000 F n'a pas été payé en août ni en septembre ; on est le 20 septembre, échéance le 5.", reponse: "Le cadre dit « ⚠ Arriérés : 2 mois … 180 000 F dus ». « 💵 Payer le loyer » → « Tous les mois dus (2) » remplit 180 000 F." },
+        { situation: "Le loyer de 90 000 F n'a pas été payé en août ni en septembre ; on est le 20 septembre, échéance le 5.", reponse: "Le cadre dit « ⚠ Arriérés : 2 mois … 180 000 F dus ». « 💵 Payer le loyer » → « Tous les mois dus (2) » → Espèces → la caisse de la boutique → OK : une dépense de 180 000 F, en attente du DG si un gérant l'a saisie." },
         { situation: "La caisse d'APESSITO a payé une dépense, mais l'écran regardait DEMAKPOE.", reponse: "Choisir « La caisse de APESSITO » : la dépense est enregistrée sur APESSITO, et l'écran le dit." },
       ]],
     ]},

@@ -49,7 +49,7 @@ export const GUIDE = {
       { titre: "« Enregistrer la dépense »", texte: "**À partir de 5 000 F**, elle attend la validation du DG : elle ne compte nulle part avant, et une dépense en espèces payée par la caisse **bloque la clôture** tant qu'elle attend. Je la fais valider avant la fermeture." },
     ]],
     ["attention", "On ne sort pas du tiroir plus qu'il ne contient (tiroir + ce qui reste dans l'enveloppe du fonds de caisse). Si ça ne suffit pas, l'application refuse et propose l'**avance personnelle**."],
-    ["note", "En haut de 📤 Dépenses, le cadre du **loyer** du local dit si le mois est payé, en attente ou en retard. « 💵 Payer le loyer » prépare la dépense ; elle suit ensuite les mêmes règles (chapitre 17)."],
+    ["note", "En haut de 📤 Dépenses, le cadre du **loyer** du local dit si le mois est payé, en attente ou en retard. « 💵 Payer le loyer » demande le mois, le moyen, la caisse qui paie, puis enregistre la dépense ; elle suit les mêmes règles que toute dépense (chapitre 17)."],
 
     ["h3", "Verser les fonds — 🔒 Caisse"],
     ["etapes", [

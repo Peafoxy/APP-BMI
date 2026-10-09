@@ -11,7 +11,7 @@ import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATE
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
@@ -219,8 +219,18 @@ export function Depenses({ db, save, profile }) {
     const pf = formulaireLoyer(fiche, loyer, boutique, n);
     const refus = critiquePaiementLoyer(loyer, pf.loyer_mois);
     if (refus) { uAlert(refus); return; }
-    setF({ ...formVide, ...pf });
-    setDepenseOuverte(true); // « 💵 Payer le loyer » remplit ET ouvre le formulaire
+    // Timo (09/10/2026, « b ») : le geste CONTINUE — moyen de paiement, la
+    // caisse qui paie, puis la confirmation et l'enregistrement par la dépense
+    // ORDINAIRE (validation du DG, limite du tiroir, revérification du mois).
+    const moyen = await demanderMoyenPaiement(`du loyer (${fmt(Number(pf.montant))})`);
+    if (!moyen) return;
+    const fondsLoyer = fondsProposable({ role: profile.role, tiroir: poches.montant, enveloppe: poches.resteFonds, montant: pf.montant });
+    const caisses = optionsPayeAvec(caissesPossibles, boutique, { avecComptable: !afficheChiffresFormation(db, profile), fonds: fondsLoyer });
+    const caisse = await uChoix(`${pf.description} — ${fmt(Number(pf.montant))}.\n\nPayé avec :`, caisses.map(([, l]) => l));
+    if (caisse === null || caisse === undefined) return;
+    const code = (caisses.find(([, l]) => l === caisse) || [])[0];
+    if (!code) return;
+    await enregistrerDepense({ ...formVide, ...pf, paiement: moyen, paye_avec: code }, { duFormulaire: false });
   };
 
   // Timo (15/09/2026) : « si dépense dépasse fonds de caisse, impossible de
@@ -252,9 +262,16 @@ export function Depenses({ db, save, profile }) {
 
   // Timo (12/09/2026) : à partir de 5 000 F, la dépense attend la validation
   // du DG et ne compte nulle part avant ; l'origine des fonds est demandée.
-  const ajouter = async () => {
+  // UNE fonction pour les deux chemins : le formulaire (« Enregistrer la
+  // dépense ») et « 💵 Payer le loyer » (Timo, 09/10/2026 : « on choisit et
+  // rien ne se passe… pas de caisse à débiter, pas de validation » → « b »).
+  // ⚠ Le paramètre s'appelle `f` exprès : ce sont les valeurs de la dépense à
+  // enregistrer (le formulaire, ou le loyer choisi) — le corps est le même.
+  const enregistrerDepense = async (f, { duFormulaire = true } = {}) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.categorie) { uAlert("Choisissez la catégorie de la dépense."); return; }
+    // L'enveloppe se mesure sur CE montant (celui du loyer n'est pas dans le formulaire).
+    const propositionFonds = fondsProposable({ role: profile.role, tiroir: poches.montant, enveloppe: poches.resteFonds, montant: f.montant });
     const choixCaisse = interpreterPayeAvec(f.paye_avec, boutique);
     const r = construireDepenseSaisie(db, profile, { ...f, ...choixCaisse }, today());
     if (r.refus) { uAlert(r.refus); return; }
@@ -301,11 +318,12 @@ export function Depenses({ db, save, profile }) {
     const rattachee = chantierChoisi ? rattacherDepense(depenseLoyer, chantierChoisi) : depenseLoyer;
     const depense = recoit ? { ...rattachee, remis_a: { id: recoit.id, nom: recoit.nom } } : rattachee;
     save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : "") + (recoit ? ` · remis à ${recoit.nom}` : ""));
-    setF(formVide);
-    setDepenseOuverte(false);
+    if (duFormulaire) { setF(formVide); setDepenseOuverte(false); }
     if (r.aValider && !jeSuisDG) uAlert(`Dépense enregistrée — en attente de validation par le DG.${choixCaisse.boutique !== boutique ? `\n\nElle est rangée sous ${choixCaisse.boutique} : choisissez cette boutique en haut pour la voir.` : ""}`);
     else if (choixCaisse.boutique !== boutique) uAlert(`Dépense enregistrée sur ${choixCaisse.boutique} (sa caisse a payé). Choisissez cette boutique en haut pour la voir.`);
+    else if (!duFormulaire) uAlert(`✅ ${f.description} : ${fmt(Number(f.montant))} payés avec ${libelleChoixPayeAvec(f.paye_avec, boutique)}.`);
   };
+  const ajouter = () => enregistrerDepense(f);
 
   // ---- LA FILE DU DG (administrateur principal), sur la boutique regardée ----
   const nomsEspace = jeSuisDG ? boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom) : [];
@@ -475,7 +493,6 @@ export function Depenses({ db, save, profile }) {
               {loyer.statut !== "paye" && " — si ce n'était pas le loyer, l'administrateur supprime la dépense et la ressaisit dans la bonne catégorie."}
             </div>
           )}
-          {f.loyer_mois && f.loyer_boutique === boutique && <div className="mt-2 text-xs text-sky-800">Le formulaire ci-dessous est rempli : vérifiez « Payé avec », puis enregistrez.</div>}
         </div>
       )}
       <Panel boutique={boutique}>
