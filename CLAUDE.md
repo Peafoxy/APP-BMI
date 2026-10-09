@@ -1365,9 +1365,14 @@ lit mal est pire qu'un banc absent).
   tiroir ne bouge pas. LA question est écrite UNE fois (`choisirDestination`,
   verserOrigine.js), le bouton 💸 la pose aussi. **« b non »** : on ne choisit
   pas une AUTRE boutique. ⚠ **L'encaissement d'une VENTE n'a pas cette question**
-  (proposé, pas répondu). Banc (+5), éprouvé (question ouverte au vendeur).
-- ⚠ Le versement de 120 000 F d'ANGELE (09/10, 14:18) a été fait par 🔒 Caisse :
-  il garde sa bande. Rien à coller (le serveur ne regarde que le rôle sur un
+  — **« Non, laisse comme c'est pour les ventes » (09/10/2026)** : ne pas la
+  reproposer. Banc (+5), éprouvé (question ouverte au vendeur).
+- Le versement de 120 000 F d'ANGELE (09/10, 14:18), fait par 🔒 Caisse, a été
+  RATTACHÉ à la vente BMID-2026-0048 par un SQL collé par Timo le 09/10/2026
+  (`versement.origine`, `attendu` à null, description refaite ; `true`) : sa
+  bande a disparu. Un geste « rattacher un versement à une vente » n'existe pas
+  dans l'application (pas demandé).
+- Rien à coller (le serveur ne regarde que le rôle sur un
   versement). Banc (`verifier-cloisonnement`, 12, l'écran RENDU), éprouvé
   (bande posée, deux versements, vendeur autorisé). Chapitres 5, 6, 7 à jour.
 
