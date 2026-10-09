@@ -45,7 +45,7 @@ const fiches = [
 ];
 const garnie = { boutiques, users, messages: [...messages, ...confiee, ...fiches], produits: [], ventes: [] };
 
-const rendre = (db, profile, cleInitiale = null) => renderToStaticMarkup(<Whatsapp db={db} save={() => {}} profile={profile} cleInitiale={cleInitiale} />);
+const rendre = (db, profile, cleInitiale = null, profilInitial = false) => renderToStaticMarkup(<Whatsapp db={db} save={() => {}} profile={profile} cleInitiale={cleInitiale} profilInitial={profilInitial} />);
 
 // ---- 🔑 LA LIGNE « ACCÈS ENVOYÉS » (23/09/2026) : la VRAIE chaîne ----
 // KOSSI (vendeur) crée le compte de KOFFI et les accès partent du numéro
@@ -237,8 +237,19 @@ const messagesNoms = [
   { id: "waent_90114455", canal: "whatsapp_entete", wa_tel: "90114455", wa_numero: "+22890114455", wa_nom: "AYOKO", wa_nom_donne: "AYOKO VILLA ADIDOGOME", proprietaire_id: "COM1", proprietaire_nom: "COM1", derniere: "2026-09-21T09:00:00Z", ts: "2026-09-21T09:00:00Z" },
 ];
 export const messagesAvecNoms = messagesNoms;
-export const renduNoms = (qui = "admin", ouvrir = null) => {
-  try { return rendre({ ...garnie, messages: messagesNoms }, qui === "admin" ? users[0] : users[2], ouvrir); }
+// ⚠ 09/10/2026 (« a1 ») : les gestes de l'administrateur vivent dans le PROFIL —
+// `profil` le rend ouvert.
+export const renduNoms = (qui = "admin", ouvrir = null, profil = false) => {
+  try { return rendre({ ...garnie, messages: messagesNoms }, qui === "admin" ? users[0] : users[2], ouvrir, profil); }
+  catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+
+// 📇 09/10/2026 : le profil d'un contact déjà enregistré dans les contacts
+// Google de BMI — la trace vit sur la fiche légère.
+export const renduProfilEnregistre = () => {
+  const avec = messagesNoms.map((m) => (m.id === "waent_90117711"
+    ? { ...m, wa_contact_google: { nom: "KOSSI MENSAH", par: "TIMO", le: "2026-10-09T10:00:00Z" } } : m));
+  try { return rendre({ ...garnie, messages: avec }, users[0], "90117711", true); }
   catch (e) { return `ERREUR ${e?.message || e}`; }
 };
 

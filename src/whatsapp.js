@@ -28,6 +28,7 @@ import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/w
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 // ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
 import { champsEnvoi } from "./lib/suiviEnvoi";
+import { MOTIFS_CONTACT_GOOGLE } from "./lib/contactGoogle";
 
 const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
@@ -295,6 +296,22 @@ export async function preparerFichier(file) {
 // ⚠ La clé YCloud n'est pas dans le navigateur : c'est la fonction serveur
 // qui va chercher le fichier chez WhatsApp, après avoir revérifié que cette
 // personne a le droit de voir cette conversation.
+// ---- 📇 ENREGISTRER LE CLIENT DANS LES CONTACTS GOOGLE DE BMI (09/10/2026) ----
+// UN chemin, comme le reste : l'écran ne parle jamais au serveur lui-même.
+// Rend { ok, deja, nom } ou { motif } — le motif est déjà en français.
+export async function enregistrerContactGoogle({ cle, nom, tel }) {
+  if (!enLigne()) return { motif: "Pas de connexion : le contact ne peut pas être enregistré maintenant." };
+  let r;
+  try {
+    const { contactGoogleEnLigne } = await import("./supabaseClient");
+    r = await contactGoogleEnLigne({ cle, nom, tel });
+  } catch (e) {
+    return { motif: `Serveur injoignable : ${e?.message || e}` };
+  }
+  if (r && r.ok) return { ok: true, deja: !!r.deja, nom: r.nom || nom };
+  return { motif: (r && r.code && MOTIFS_CONTACT_GOOGLE[r.code]) || r?.error || MOTIFS_CONTACT_GOOGLE.google };
+}
+
 export async function chargerMediaWa(messageId) {
   if (!enLigne()) return { url: "", motif: "Pas de connexion : le fichier ne peut pas être ouvert." };
   let reponse;

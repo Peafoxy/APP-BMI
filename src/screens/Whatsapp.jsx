@@ -26,7 +26,7 @@ import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, Coc
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
-import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte, estAdminPrincipal, refuserSaufAdminPrincipal, bloquerSiLecture } from "../lib/calculs";
+import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte, estAdminPrincipal, refuserSaufAdminPrincipal, bloquerSiLecture, comptesAvecCeNumero } from "../lib/calculs";
 import { lignesDeLaConversation, mettreConversationALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
@@ -34,8 +34,9 @@ import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente } f
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION, critiqueNomContact, nettoyerNomContact, critiqueFichier, mediaEnvoye, tailleLisible } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche, peutLireLignePrivee } from "../lib/whatsappModeles";
 import { texteLignePrivee } from "../lib/lignesPrivees";
-import { motDePasseConnu } from "../lib/comptesClients";
-import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier } from "../whatsapp";
+import { motDePasseConnu, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
+import { peutEnregistrerContact, critiqueContactGoogle, nettoyerNomGoogle, traceContactGoogle, COMPTE_CONTACTS_BMI } from "../lib/contactGoogle";
+import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle } from "../whatsapp";
 import { champsEnvoi } from "../lib/suiviEnvoi";
 
 // Libellé du rôle, pour la question « à qui confier ». Même mots que
@@ -76,7 +77,7 @@ export function compterNonLusWa(db, profile) {
 // `cleInitiale` : la conversation ouverte au montage — le banc s'en sert pour
 // RENDRE un fil (une phrase de l'IA, une ligne du robot) ; l'application
 // ne la passe pas.
-export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheInitiale = "" }) {
+export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheInitiale = "", profilInitial = false }) {
   const messages = db.messages || [];
   const [cleOuverte, setCleOuverte] = useState(cleInitiale);
   const [texte, setTexte] = useState("");
@@ -90,6 +91,18 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
   const [prepare, setPrepare] = useState(false);
   const champFichier = useRef(null);
   useEffect(() => { setFichier(null); }, [cleOuverte]);
+  // 👤 Le profil du contact (09/10/2026, « a1 ») : un clic sur le nom en haut
+  // du fil l'ouvre PAR-DESSUS le fil (le fil reste en place derrière).
+  // Changer de conversation le referme.
+  // `profilInitial` : pour le banc seul (rendre le profil ouvert).
+  const [profilOuvert, setProfilOuvert] = useState(profilInitial);
+  const [enregistre, setEnregistre] = useState(false);
+  const clePrecedente = useRef(cleOuverte);
+  useEffect(() => {
+    if (clePrecedente.current === cleOuverte) return;
+    clePrecedente.current = cleOuverte;
+    setProfilOuvert(false);
+  }, [cleOuverte]);
 
   // ⚠ Ce que la règle rend est DÉJÀ filtré : un commercial ou un technicien
   // à commission n'y trouve que ce qu'il a engagé, plus le support que
@@ -440,6 +453,41 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
       : `📲 WhatsApp — nom « ${avant} » retiré de la conversation ${ouverte.tel} par ${profile.nom}`);
   };
 
+  // ---- 📇 ENREGISTRER LE CONTACT DANS LE COMPTE GOOGLE DE BMI (09/10/2026, « b2 ») ----
+  // L'administrateur seul (revérifié ici ET par le serveur). Le nom se
+  // relit avant de partir ; rien n'est écrit dans la fiche tant que Google
+  // n'a pas répondu oui.
+  const enregistrerContact = async () => {
+    if (!ouverte || enregistre) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const refus = critiqueContactGoogle(profile, { nom: "x", tel: ouverte.tel });
+    if (refus) { uAlert(refus); return; }
+    const propose = ouverte.origineNom ? ouverte.nomAffiche : (ouverte.nom || ouverte.profil || "");
+    const saisi = await uPrompt(`📇 Enregistrer ${ouverte.tel} dans les contacts Google de BMI (${COMPTE_CONTACTS_BMI}).\n\nSous quel nom ?`, propose);
+    if (saisi === null) return;
+    const nom = nettoyerNomGoogle(saisi);
+    const refus2 = critiqueContactGoogle(profile, { nom, tel: ouverte.tel });
+    if (refus2) { uAlert(refus2); return; }
+    setEnregistre(true);
+    const r = await enregistrerContactGoogle({ cle: ouverte.cle, nom, tel: ouverte.tel });
+    setEnregistre(false);
+    if (!r.ok) { uAlert(`❌ Le contact n'a pas été enregistré.\n\n${r.motif}`); return; }
+    const le = new Date().toISOString();
+    save((etat) => {
+      const frais = etat.messages || [];
+      const fiche = frais.find((m) => m && m.id === idEntete(ouverte.cle));
+      return { ...etat, messages: messagesAvecEntete(frais, {
+        cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom,
+        proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom,
+        derniere: fiche?.derniere || ouverte.derniere,
+        contact_google: traceContactGoogle({ nom: r.nom || nom, par: profile.nom, le, deja: r.deja }),
+      }) };
+    }, `📲 WhatsApp — ${ouverte.tel} ${r.deja ? "était déjà" : "enregistré"} dans les contacts Google de BMI (« ${r.nom || nom} ») par ${profile.nom}`);
+    uAlert(r.deja
+      ? `📇 Ce numéro était déjà dans les contacts de BMI, sous le nom « ${r.nom || nom} ». Rien n'a été créé en double.`
+      : `✅ ${nom} est enregistré dans les contacts Google de BMI (${COMPTE_CONTACTS_BMI}).`);
+  };
+
   // ---- 🗑 SUPPRIMER UNE CONVERSATION PAR UN APPUI LONG (05/10/2026) ----
   // Timo : « possibilité de supprimer les discussions dans WhatsApp de l'app
   // BMI par un appui long… seul l'admin principal » → « 1 corbeille, 2 oui ».
@@ -597,27 +645,33 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
                 et la fenêtre de 24 h — la liste n'en garde que l'essentiel. */}
             <div className="px-3 py-2 bg-[#f0f2f5] border-b border-slate-200 flex items-center gap-3 flex-wrap">
               <button onClick={() => setCleOuverte(null)} className="lg:hidden text-[#008069] font-bold text-2xl leading-none px-1" aria-label="Retour">←</button>
-              <Avatar c={ouverte} />
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-slate-900 truncate"><NomConversation c={ouverte} /></div>
-                <div className="text-xs text-slate-500 truncate">
-                  {ouverte.proprietaire_nom
-                    ? `Conversation de ${ouverte.proprietaire_nom}`
-                    : "🛟 Support — personne ne l'a engagée, tout le personnel la voit"}
-                </div>
-              </div>
-              <div className="flex gap-3 w-full sm:w-auto justify-end empty:hidden">
-                {peutReattribuer(profile) && (
-                  <button data-nommer onClick={nommer} className="text-xs font-bold text-[#008069] whitespace-nowrap" title="Donner un nom à cette conversation, pour tout le personnel">✏️ Nommer</button>
-                )}
-                {peutReattribuer(profile) && ouverte.proprietaire_id && (
-                  <button onClick={rendreATous} className="text-xs font-bold text-slate-600 whitespace-nowrap" title="Tout le personnel pourra l'ouvrir et y répondre">🔓 Rendre à tous</button>
-                )}
-                {peutReattribuer(profile) && (
-                  <button onClick={reattribuer} className="text-xs font-bold text-[#008069] whitespace-nowrap">🔁 Confier</button>
-                )}
-              </div>
+              {/* 👤 Un clic sur le nom ouvre le PROFIL (09/10/2026, « a1 ») —
+                  comme dans WhatsApp. Les gestes de l'administrateur y vivent. */}
+              <button type="button" data-ouvrir-profil onClick={() => setProfilOuvert(true)} className="flex-1 min-w-0 flex items-center gap-3 text-left" title="Voir le profil du contact">
+                <Avatar c={ouverte} />
+                <span className="flex-1 min-w-0">
+                  <span className="block font-semibold text-slate-900 truncate"><NomConversation c={ouverte} /></span>
+                  <span className="block text-xs text-slate-500 truncate">
+                    {ouverte.proprietaire_nom
+                      ? `Conversation de ${ouverte.proprietaire_nom}`
+                      : "🛟 Support — personne ne l'a engagée, tout le personnel la voit"}
+                  </span>
+                </span>
+              </button>
             </div>
+            {profilOuvert && (
+              <ProfilWa c={ouverte} fil={fil} comptes={comptesAvecCeNumero(db, profile, ouverte.tel)} profile={profile}
+                onFermer={() => setProfilOuvert(false)}
+                actions={peutReattribuer(profile) && (<>
+                  <button data-nommer onClick={nommer} className="text-xs font-bold text-[#008069] whitespace-nowrap" title="Donner un nom à cette conversation, pour tout le personnel">✏️ Nommer</button>
+                  {ouverte.proprietaire_id && (
+                    <button onClick={rendreATous} className="text-xs font-bold text-slate-600 whitespace-nowrap" title="Tout le personnel pourra l'ouvrir et y répondre">🔓 Rendre à tous</button>
+                  )}
+                  <button onClick={reattribuer} className="text-xs font-bold text-[#008069] whitespace-nowrap">🔁 Confier</button>
+                </>)}
+                enregistrer={peutEnregistrerContact(profile) ? enregistrerContact : null}
+                enregistre={enregistre} />
+            )}
             {/* ⏳ LA FENÊTRE DE 24 H SE VOIT, TOUJOURS. Sans ce bandeau, le
                 vendeur tape un message qui ne partira jamais et ne comprend
                 pas pourquoi — c'est la règle de Meta, pas la nôtre, mais
@@ -805,6 +859,74 @@ function LigneWa({ item, cleOuverte, ouvrir, supprimer = null, apercu }) {
 // ⚠ LE NUMÉRO NE DISPARAÎT JAMAIS (Timo, 06/10/2026) — « d2 » (09/10/2026) :
 // dans la LISTE il passe SOUS le nom, en petit (LigneWa) ; dans l'en-tête du
 // fil il suit le nom sur la même ligne.
+// ---- 👤 LE PROFIL D'UN CONTACT (09/10/2026, « a1 ») ----
+// Une fiche courte, par-dessus le fil : qui c'est, depuis quand il écrit, à
+// qui la conversation est confiée — et les gestes de l'administrateur.
+// ⚠ Rien de secret : ce sont les données que l'écran montrait déjà.
+const ORIGINE_NOM = {
+  donne: "nom donné par l'administrateur",
+  compte: "nom du compte BMI",
+  whatsapp: "nom que le client s'est donné dans son WhatsApp",
+};
+function ProfilWa({ c, fil, comptes = [], onFermer, actions, enregistrer, enregistre }) {
+  const entrants = fil.filter((m) => m.wa_entrant);
+  const premier = entrants[0];
+  const dernier = fil[fil.length - 1];
+  const quand = (m) => (m ? `${dFR(m.date || String(m.ts || "").split("T")[0])} ${String(m.ts || "").slice(11, 16)}` : "—");
+  const libelleRole = (u) => (u.role === "client" ? "client" : (LIBELLE_ROLE_EMPLOYE[u.role] || u.role));
+  const g = c.contactGoogle;
+  const ligne = (titre, valeur) => (
+    <div className="py-2 border-b border-slate-100">
+      <div className="text-[11px] uppercase tracking-wide text-slate-400">{titre}</div>
+      <div className="text-sm text-slate-800 break-words">{valeur}</div>
+    </div>
+  );
+  return (
+    <div data-profil-contact className="absolute inset-0 z-10 flex flex-col bg-[#f0f2f5]">
+      <div className="px-3 py-3 bg-white border-b border-slate-200 flex items-center gap-3">
+        <button onClick={onFermer} className="text-[#008069] font-bold text-2xl leading-none px-1" aria-label="Fermer le profil">←</button>
+        <div className="font-semibold text-slate-800">Infos du contact</div>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="bg-white px-4 py-5 flex flex-col items-center text-center">
+          <span className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold bg-[#dfe5e7] text-[#54656f]">{initiales(c) || "👤"}</span>
+          <div className="mt-2 text-lg font-semibold text-slate-900">{c.nomAffiche || c.tel}</div>
+          {c.origineNom && <div className="text-xs text-slate-500">{ORIGINE_NOM[c.origineNom]}</div>}
+          <div data-numero-profil className="mt-1 text-sm text-slate-600">{c.tel}</div>
+          {actions && <div className="mt-3 flex flex-wrap gap-4 justify-center">{actions}</div>}
+        </div>
+        <div className="mt-2 bg-white px-4">
+          {c.profil && ligne("Nom WhatsApp (choisi par le client)", c.profil)}
+          {ligne("Compte BMI", comptes.length
+            ? comptes.map((u) => `${u.nom}${u.prenom ? ` ${u.prenom}` : ""} — ${libelleRole(u)}${u.boutique ? ` · ${u.boutique}` : ""}`).join(" / ")
+            : "Aucun compte BMI avec ce numéro")}
+          {ligne("Conversation", c.proprietaire_nom ? `Confiée à ${c.proprietaire_nom}` : "🛟 Support — tout le personnel la voit")}
+          {ligne("Écrit depuis", premier ? quand(premier) : "Il ne nous a pas encore écrit")}
+          {ligne("Dernier message", quand(dernier))}
+          {ligne("Messages", `${fil.length} dans la conversation (${entrants.length} du client)`)}
+          {ligne("Fenêtre de 24 h", libelleFenetre(c.fenetre))}
+        </div>
+        <div className="mt-2 bg-white px-4 py-3 mb-4">
+          <div className="text-[11px] uppercase tracking-wide text-slate-400">Contacts Google de BMI ({COMPTE_CONTACTS_BMI})</div>
+          {g ? (
+            <div data-contact-google="enregistre" className="text-sm text-emerald-700 mt-1">
+              📇 {g.deja ? "Déjà présent" : "Enregistré"} sous le nom « {g.nom} »{g.le ? ` — ${dFR(String(g.le).split("T")[0])}` : ""}{g.par ? ` par ${g.par}` : ""}.
+            </div>
+          ) : (
+            <div className="text-sm text-slate-600 mt-1">Pas encore enregistré dans les contacts de BMI.</div>
+          )}
+          {enregistrer && !g && (
+            <button data-enregistrer-contact onClick={enregistrer} disabled={enregistre}
+              className="mt-2 px-4 py-2 rounded-full text-sm font-bold text-white bg-[#008069] disabled:opacity-60">
+              {enregistre ? "Enregistrement…" : "📇 Enregistrer dans les contacts BMI"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NomConversation({ c, sansNumero = false }) {
   const tel = String(c?.tel || "");
   const nom = c?.nomAffiche || c?.nom || tel;

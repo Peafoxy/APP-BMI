@@ -77,11 +77,14 @@ export const idEntete = (cle) => `waent_${cle}`;
 // (`wa_profil`) ne vivent QUE sur elle — une fiche réécrite sans eux les
 // perdrait en silence au message suivant. `profil` / `nom_donne` passés
 // explicitement l'emportent (`nom_donne: ""` retire le nom donné).
-export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_nom, derniere, entete = null, profil, nom_donne } = {}) {
+export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_nom, derniere, entete = null, profil, nom_donne, contact_google } = {}) {
   const k = String(cle || "");
   if (!k) return null;
   const donne = nom_donne !== undefined ? nettoyerNomContact(nom_donne) : String(entete?.wa_nom_donne || "");
   const prof = profil ? nettoyerNomContact(profil) : String(entete?.wa_profil || "");
+  // 📇 La trace « enregistré dans les contacts Google de BMI » (09/10/2026)
+  // vit elle aussi sur la fiche : une réécriture la GARDE, comme les noms.
+  const contact = contact_google || entete?.wa_contact_google || null;
   return {
     id: idEntete(k),
     canal: CANAL_WA_ENTETE,
@@ -90,6 +93,7 @@ export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_
     ...(nom ? { wa_nom: String(nom) } : {}),
     ...(donne ? { wa_nom_donne: donne } : {}),
     ...(prof ? { wa_profil: prof } : {}),
+    ...(contact ? { wa_contact_google: contact } : {}),
     ...(proprietaire_id ? { proprietaire_id, proprietaire_nom: proprietaire_nom || "" } : {}),
     derniere: String(derniere || ""),
     ts: String(derniere || ""),
@@ -399,6 +403,7 @@ export function conversationsWa(messages, profile, maintenant = new Date().toISO
         nomAffiche: nomG.nom,
         origineNom: nomG.origine,
         profil: String(fiche.wa_profil || ""),
+        contactGoogle: fiche.wa_contact_google || null,
         proprietaire_id: prop.id,
         proprietaire_nom: prop.nom,
         fil: [],
@@ -421,6 +426,7 @@ export function conversationsWa(messages, profile, maintenant = new Date().toISO
       nomAffiche: nomV.nom,
       origineNom: nomV.origine,
       profil,
+      contactGoogle: fiche?.wa_contact_google || null,
       proprietaire_id: prop.id,
       proprietaire_nom: prop.nom,
       fil,

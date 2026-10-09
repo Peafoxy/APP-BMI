@@ -1043,8 +1043,10 @@ test("★★ une ligne grisée ne porte NI pastille de non-lus, NI compteur d'on
   /!verrou && item\.nb > 0/.test(codeEcranWa) && /c\.verrouillee \? 0 :/.test(codeEcranWa));
 
 // ── LA FICHE EST POSÉE PARTOUT OÙ LA CONVERSATION BOUGE
-test("★★ les gestes de l'écran posent la fiche : répondre, écrire le premier, confier, rendre à tous, le rattrapage, et ✏️ Nommer (06/10/2026)",
-  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 6);
+// ⚠ RETOURNÉ le 09/10/2026 : un septième geste pose la fiche — 📇 la trace
+// « enregistré dans les contacts Google de BMI » (elle vit sur la fiche).
+test("★★ les gestes de l'écran posent la fiche : répondre, écrire le premier, confier, rendre à tous, le rattrapage, ✏️ Nommer (06/10/2026) et 📇 le contact Google (09/10/2026)",
+  (codeEcranWa.match(/messagesAvecEntete\(/g) || []).length === 7);
 test("★★★ …et le WEBHOOK aussi, par UPSERT (sinon la ligne grisée resterait figée)",
   /construireEntete\(\{/.test(codeEntrant)
   && /\.upsert\(\{ id: fiche\.id, data: fiche, updated_at: fiche\.ts \}\)/.test(codeEntrant));
@@ -1115,7 +1117,10 @@ test("★★ …et il REPREND `securite-28` en entier : c'est le seul à coller"
 // ── LE GESTE, DANS L'ÉCRAN
 test("★★ le bouton est réservé à l'ADMINISTRATEUR, revérifié DANS le geste",
   /if \(!peutReattribuer\(profile\)\) \{ uAlert\("Seul un administrateur peut rendre une conversation à tout le monde\./.test(codeEcranWa)
-  && /peutReattribuer\(profile\) && ouverte\.proprietaire_id && \(/.test(codeEcranWa));
+  // ⚠ RETOURNÉ le 09/10/2026 (« a1 ») : les boutons vivent dans le PROFIL ;
+  // le bloc entier est gardé par peutReattribuer, « Rendre » par le propriétaire.
+  && /actions=\{peutReattribuer\(profile\) && \(<>/.test(codeEcranWa)
+  && /\{ouverte\.proprietaire_id && \(\s*<button onClick=\{rendreATous\}/.test(codeEcranWa));
 test("★★ un bouton qui ne commanderait rien ne s'affiche pas : sans propriétaire, rien à rendre",
   /if \(!ouverte\.proprietaire_id\) \{ uAlert\(/.test(codeEcranWa));
 test("★★★ le geste POSE la marque, il ne réécrit aucun message",
@@ -3949,7 +3954,8 @@ titre("㊾ 👤 LE NOM D'UNE CONVERSATION — LE NOM DONNÉ, LE COMPTE BMI, LE N
   test("★★ la ligne GRISÉE du vendeur porte le cadenas et le nom donné par l'administrateur",
     /data-wa-verrou="1"[\s\S]{0,800}🔒[\s\S]{0,800}AYOKO VILLA ADIDOGOME/.test(hV));
   test("★★ « ✏️ Nommer » : chez l'administrateur seulement, sur le fil ouvert",
-    /data-nommer/.test(V.renduNoms("admin", "90117711")) && !/data-nommer/.test(V.renduNoms("vendeur", "90117711")));
+    // ⚠ RETOURNÉ le 09/10/2026 (« a1 ») : le bouton est dans le PROFIL du contact.
+    /data-nommer/.test(V.renduNoms("admin", "90117711", true)) && !/data-nommer/.test(V.renduNoms("vendeur", "90117711", true)));
   const W2 = sansC(lire("src/screens/Whatsapp.jsx"));
   const corpsN = W2.slice(W2.indexOf("const nommer = async"), W2.indexOf("const jeSuisPrincipal"));
   test("★★ le geste : revérifié DANS le geste (critiqueNomContact), sur la liste FRAÎCHE, sans ligne ajoutée au fil (la conversation ne remonte pas), journal",
@@ -3974,6 +3980,60 @@ console.log("\n㊿ La recherche de 📲 WhatsApp : l'écran se rend avec une rec
   test("★ chercher un NOM rend l'écran (pas d'erreur) et trouve ESSO", !/^ERREUR/.test(nom) && /ESSO/.test(nom), nom.slice(0, 200));
   test("★ chercher des CHIFFRES rend l'écran et trouve la conversation (numéro tapé seul ou avec +228, comme dans 👥 Utilisateurs)", !/^ERREUR/.test(chiffres) && /ESSO/.test(chiffres) && !/^ERREUR/.test(avecPlus) && /ESSO/.test(avecPlus), chiffres.slice(0, 200));
   test("★ un mot absent rend l'écran et le dit (« Aucune conversation ne correspond »)", !/^ERREUR/.test(absent) && /Aucune conversation ne correspond/.test(absent), absent.slice(0, 200));
+}
+
+// 👤 51 · LE PROFIL D'UN CONTACT ET 📇 LES CONTACTS GOOGLE DE BMI (09/10/2026, « a1, b2 »)
+console.log("\n51 · Le profil d'un contact (clic sur le nom) et l'enregistrement dans les contacts Google de BMI");
+{
+  const sansC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const G = await import(pathToFileURL(join(process.cwd(), "src/lib/contactGoogle.js")).href);
+  const CW = await import(pathToFileURL(join(process.cwd(), "src/lib/whatsappConversations.js")).href);
+  test("★ le numéro part au format international : 8 chiffres → +228, « +228 90 11 22 33 », « 00228… » ; illisible → rien",
+    G.numeroInternational("90112233") === "+22890112233" && G.numeroInternational("+228 90 11 22 33") === "+22890112233"
+    && G.numeroInternational("0022890112233") === "+22890112233" && G.numeroInternational("123") === "");
+  test("★★ l'ADMINISTRATEUR seul ; un nom est exigé ; un numéro illisible est refusé",
+    G.peutEnregistrerContact({ role: "admin" }) && !G.peutEnregistrerContact({ role: "vendeur" }) && !G.peutEnregistrerContact({ role: "gerant" })
+    && G.critiqueContactGoogle({ role: "vendeur" }, { nom: "A", tel: "90112233" }) !== ""
+    && G.critiqueContactGoogle({ role: "admin" }, { nom: " ", tel: "90112233" }) !== ""
+    && G.critiqueContactGoogle({ role: "admin" }, { nom: "A", tel: "12" }) !== ""
+    && G.critiqueContactGoogle({ role: "admin" }, { nom: "A", tel: "90112233" }) === "");
+  test("★★ pas de doublon : un contact Google qui porte le même numéro (8 derniers chiffres) est retrouvé",
+    G.contactExistant([{ person: { resourceName: "people/1", names: [{ displayName: "KOSSI" }], phoneNumbers: [{ value: "+228 90 11 22 33" }] } }], "90112233")?.nom === "KOSSI"
+    && G.contactExistant([{ person: { phoneNumbers: [{ value: "+228 91 00 00 00" }] } }], "90112233") === null);
+  test("★ ce que Google reçoit : le nom, le numéro international, la note",
+    JSON.stringify(G.corpsContactGoogle({ nom: "KOSSI", tel: "90112233", note: "n" })) === JSON.stringify({ names: [{ unstructuredName: "KOSSI" }], phoneNumbers: [{ value: "+22890112233", type: "mobile" }], biographies: [{ value: "n", contentType: "TEXT_PLAIN" }] }));
+  const avant = CW.construireEntete({ cle: "90112233", tel: "+22890112233", contact_google: { nom: "K", par: "TIMO", le: "x" } });
+  const apres = CW.construireEntete({ cle: "90112233", tel: "+22890112233", derniere: "y", entete: avant });
+  test("★★ la trace « enregistré » vit sur la fiche légère, et une réécriture de la fiche la GARDE (webhook, tournées, gestes)",
+    avant.wa_contact_google?.nom === "K" && apres.wa_contact_google?.nom === "K");
+  const srv = sansC(lire("api/contact-google.js"));
+  test("★★ le serveur revérifie l'administrateur (la règle IMPORTÉE) et refuse un compte de formation",
+    /critiqueContactGoogle\(compte, \{ nom, tel \}\)/.test(srv) && /espace === "formation"/.test(srv) && /compte\.formation === true/.test(srv));
+  test("★★ l'accès Google ne vit que dans le serveur, sous trois variables jamais préfixées VITE_ ; sans elles, on le DIT (503)",
+    /process\.env\.GOOGLE_CLIENT_ID/.test(srv) && /process\.env\.GOOGLE_CLIENT_SECRET/.test(srv) && /process\.env\.GOOGLE_REFRESH_TOKEN/.test(srv)
+    && !/VITE_GOOGLE/.test(lire("api/contact-google.js") + lire("src/lib/contactGoogle.js") + lire("src/screens/Whatsapp.jsx") + lire("src/supabaseClient.js"))
+    && /code: "non_configure"/.test(srv) && /status\(503\)/.test(srv));
+  test("★★ on CHERCHE le numéro chez Google AVANT de créer (jamais de doublon voulu)",
+    srv.indexOf("await chercher(") > 0 && srv.indexOf("await chercher(") < srv.indexOf("people:createContact"));
+  test("★ la conversation doit exister et ne pas être à la corbeille",
+    /estALaCorbeille\(m\)/.test(srv) && /Conversation introuvable/.test(srv));
+  const W = sansC(lire("src/screens/Whatsapp.jsx"));
+  const corps = W.slice(W.indexOf("const enregistrerContact = async"), W.indexOf("// ---- 🗑 SUPPRIMER UNE CONVERSATION"));
+  test("★★ le geste : revérifié DANS le geste, la trace n'est écrite qu'APRÈS le oui de Google, sur la fiche FRAÎCHE",
+    corps.indexOf("critiqueContactGoogle(profile") > 0 && corps.indexOf("if (!r.ok)") > 0
+    && corps.indexOf("if (!r.ok)") < corps.indexOf("contact_google: traceContactGoogle") && /save\(\(etat\) =>/.test(corps));
+  test("★ l'écran ne parle pas au serveur lui-même (UN chemin : src/whatsapp.js)",
+    !/contactGoogleEnLigne/.test(W) && /enregistrerContactGoogle\(\{ cle: ouverte\.cle/.test(W));
+  const adm = V.renduNoms("admin", "90117711", true), vdr = V.renduNoms("vendeur", "90117711", true), ferme = V.renduNoms("admin", "90117711");
+  test("★★ un clic sur le nom ouvre le PROFIL : nom, numéro, compte BMI, depuis quand il écrit, la conversation",
+    /data-ouvrir-profil/.test(ferme) && !/data-profil-contact/.test(ferme)
+    && /data-profil-contact/.test(adm) && /Infos du contact/.test(adm) && /data-numero-profil[^>]*>\+22890117711/.test(adm)
+    && /Compte BMI/.test(adm) && /Écrit depuis/.test(adm) && /Kossi M\./.test(adm), adm.slice(0, 200));
+  test("★★ le bouton « 📇 Enregistrer dans les contacts BMI » chez l'administrateur seulement",
+    /data-enregistrer-contact/.test(adm) && !/data-enregistrer-contact/.test(vdr));
+  const tr = V.renduProfilEnregistre();
+  test("★ déjà enregistré : le profil le DIT (nom, date, par qui) et ne propose plus le bouton",
+    /data-contact-google="enregistre"/.test(tr) && /KOSSI MENSAH/.test(tr) && /09\/10\/2026/.test(tr) && !/data-enregistrer-contact/.test(tr), tr.slice(0, 200));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

@@ -99,6 +99,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/notifications.js` | Ce qui part en notification à chaque enregistrement |
 | `lib/rappels.js` | Les rappels « pour information » qui dépendent du temps (tournée du matin) |
 | `lib/conversations.js` | L'ordre de la liste des conversations de 💬 Messages |
+| `lib/contactGoogle.js` | 📇 Enregistrer un client WhatsApp dans les contacts Google de BMI (bmitogo.info) : numéro international, refus, corps envoyé à Google, trace sur la fiche |
 | `lib/ordreOnglets.js` | L'ordre des onglets, au choix de chacun |
 
 ## Les données : charger, fusionner, sauvegarder
