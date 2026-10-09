@@ -10,7 +10,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS, caisseDeVente } from "../lib/constants";
-import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE } from "../lib/versements";
+import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
@@ -1121,10 +1121,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // à crédit se verse par ses RÈGLEMENTS, dans 📋 Dettes. La règle et le geste
   // vivent dans lib/versements.js et components/verserOrigine.js.
   const montantAVerser = (v) => Math.max(0, montantEncaisseVente(v, totalVente) - montantRepris(v));
-  const peutVerserVente = (v) => ROLES_VERSEMENT.includes(profile.role) && !estVenteACredit(v)
+  // 09/10/2026 : une vente faite AVANT un versement général de sa caisse est déjà
+  // partie avec lui — plus de bouton, une mention grise à la place.
+  const versementGeneralDe = (v) => versementGeneralQuiEmporte(db, { caisse: caisseDeVente(v), source: v.paiement, quand: v });
+  const venteVersable = (v) => ROLES_VERSEMENT.includes(profile.role) && !estVenteACredit(v)
     && moyenVersable(v.paiement) && montantAVerser(v) > 0 && !versementDeVente(db, v.id);
+  const peutVerserVente = (v) => venteVersable(v) && !versementGeneralDe(v);
   const verserVente = (v) => verserDepuisOrigine({
-    db, save, profile, boutique: caisseDeVente(v), montant: montantAVerser(v), source: v.paiement,
+    db, save, profile, boutique: caisseDeVente(v), montant: montantAVerser(v), source: v.paiement, quand: v,
     origine: { type: ORIGINE_VENTE, vente_id: v.id, numero: numeroRecu(v), client: v.client || "" },
   });
   const ouvrirReprise = (v) => {
@@ -1723,7 +1727,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}{(() => {
                   // 💸 L'argent de CETTE vente remis au DG (Timo, 09/10/2026) : la trace se lit sous le paiement.
                   const e = etatVersementOrigine(db, versementDeVente(db, v.id));
-                  return e ? <div data-vente-versee className={`text-[11px] font-semibold mt-0.5 ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versée {e.texte}</div> : null;
+                  if (e) return <div data-vente-versee className={`text-[11px] font-semibold mt-0.5 ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versée {e.texte}</div>;
+                  const g = venteVersable(v) ? versementGeneralDe(v) : null;
+                  return g ? <div data-vente-dans-versement className="text-[11px] text-slate-400 mt-0.5">{mentionVersementGeneral(g)}</div> : null;
                 })()}</td>
                 <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>

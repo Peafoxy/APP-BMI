@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2411 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2416 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1367,6 +1367,17 @@ lit mal est pire qu'un banc absent).
   pas une AUTRE boutique. ⚠ **L'encaissement d'une VENTE n'a pas cette question**
   — **« Non, laisse comme c'est pour les ventes » (09/10/2026)** : ne pas la
   reproposer. Banc (+5), éprouvé (question ouverte au vendeur).
+- **L'ARGENT DÉJÀ EMPORTÉ PAR UN VERSEMENT GÉNÉRAL n'a plus de 💸** (09/10/2026,
+  « oui c'est ça, avec la mention grise, lance » ; « un versement d'une dette
+  fait APRÈS un versement général aura le bouton ») : `versementGeneralQuiEmporte`
+  (lib/versements.js) — le premier versement de 🔒 Caisse (sans `origine`, pas
+  rejeté, même caisse, même source : espèces ou CE compte mobile) daté (jour +
+  heure) au plus tôt de la vente / du règlement ; un règlement sans heure compte
+  pour le début de son jour. Vente ou règlement emporté : le bouton disparaît,
+  mention GRISE « dans le versement du … à … → Chez le DG »
+  (`mentionVersementGeneral`, `data-vente-dans-versement` /
+  `data-reglement-dans-versement`), refus revérifié DANS le geste
+  (`critiqueVersementOrigine` avec `caisse` + `quand`). Banc (+5), éprouvé.
 - Le versement de 120 000 F d'ANGELE (09/10, 14:18), fait par 🔒 Caisse, a été
   RATTACHÉ à la vente BMID-2026-0048 par un SQL collé par Timo le 09/10/2026
   (`versement.origine`, `attendu` à null, description refaite ; `true`) : sa

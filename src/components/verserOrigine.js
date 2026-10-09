@@ -50,11 +50,13 @@ export async function choisirDestination(db, { titre, boutique, caisse = "" }) {
 
 // origine : { type, vente_id | reglement, dette_id?, numero, client }
 // boutique : la CAISSE qui a reçu l'argent (caisseDeVente / la dette).
+// quand : { date, heure } de la vente ou du règlement — un versement général
+// fait après l'a déjà emporté (refus DANS le geste).
 // Rend true si le versement est enregistré.
-export async function verserDepuisOrigine({ db, save, profile, origine, boutique, montant, source = SOURCE_ESPECES }) {
+export async function verserDepuisOrigine({ db, save, profile, origine, boutique, montant, source = SOURCE_ESPECES, quand = null }) {
   if (refuserSaufRoles(profile, ROLES_VERSEMENT, "Verser les fonds")) return false;
   if (bloquerSiLecture(db, profile)) return false;
-  const refus = critiqueVersementOrigine(db, { origine, montant, source });
+  const refus = critiqueVersementOrigine(db, { origine, montant, source, caisse: boutique, quand });
   if (refus) { uAlert(refus); return false; }
   const quoi = origine.type === ORIGINE_VENTE
     ? `la vente ${origine.numero || ""}${origine.client ? ` (${origine.client})` : ""}`
@@ -62,7 +64,7 @@ export async function verserDepuisOrigine({ db, save, profile, origine, boutique
   const choix = await choisirDestination(db, { titre: `💸 Verser ${fmt(Number(montant))} — ${quoi.replace(/\s+/g, " ")}.\n\nÀ qui l'argent est-il remis ?`, boutique });
   if (!choix) return false;
   const { destination, banque, bordereau } = choix;
-  const r = construireVersementOrigine(profile, db, { origine, boutique, montant, source, destination, banque, bordereau });
+  const r = construireVersementOrigine(profile, db, { origine, boutique, montant, source, destination, banque, bordereau, quand });
   if (r.refus) { uAlert(r.refus); return false; }
   const mobile = mobileParMoyen(source);
   const depuis = mobile ? `du compte ${mobile.court} de ${libelleCaisse(boutique)}` : `du tiroir de ${libelleCaisse(boutique)}`;

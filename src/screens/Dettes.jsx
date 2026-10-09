@@ -18,7 +18,7 @@ import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels"
 import { envoiRappelDette, texteRappel, traceEnvoi, libelleTrace, envoiRecuReglement, envoiRecuReservation } from "../lib/whatsappModeles";
 import { soldeApresAcompte, prochaineEcheance, PLAN_ACCEPTE } from "../lib/reglement";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, ORIGINE_REGLEMENT, construireVersementOrigine, messagesVersement, libelleDestination, DEST_COMPTABLE } from "../lib/versements";
+import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, versementGeneralQuiEmporte, mentionVersementGeneral, ORIGINE_REGLEMENT, construireVersementOrigine, messagesVersement, libelleDestination, DEST_COMPTABLE } from "../lib/versements";
 import { mobileParMoyen } from "../lib/constants";
 import { verserDepuisOrigine, choisirDestination } from "../components/verserOrigine";
 
@@ -575,15 +575,20 @@ export function Dettes({ db, save, profile }) {
                           const cle = cleReglement(d, p, k);
                           const e = etatVersementOrigine(db, versementDeReglement(db, cle));
                           const moyen = p.paiement || "Espèces";
-                          const versable = ROLES_VERSEMENT.includes(profile.role) && !e && moyenVersable(moyen) && Number(p.montant || 0) > 0;
+                          // 09/10/2026 : un règlement fait AVANT un versement général de la caisse est
+                          // déjà parti avec lui (mention grise) ; fait APRÈS, il garde son bouton.
+                          const peutEtreVerse = ROLES_VERSEMENT.includes(profile.role) && !e && moyenVersable(moyen) && Number(p.montant || 0) > 0;
+                          const general = peutEtreVerse ? versementGeneralQuiEmporte(db, { caisse: d.boutique, source: moyen, quand: p }) : null;
+                          const versable = peutEtreVerse && !general;
                           return (
                             <div key={cle} data-reglement className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                               <span className="text-slate-600 whitespace-nowrap">{dFR(p.date)}{p.heure ? ` ${p.heure}` : ""}</span>
                               <span className="font-semibold tabular-nums whitespace-nowrap">{fmt(Number(p.montant || 0))}</span>
                               <span className="text-slate-500">{moyen}{p.par ? ` · par ${p.par}` : ""}</span>
                               {e && <span data-reglement-verse className={`text-xs font-semibold ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versé {e.texte}</span>}
+                              {general && <span data-reglement-dans-versement className="text-xs text-slate-400">{mentionVersementGeneral(general)}</span>}
                               {versable && (
-                                <button onClick={(ev) => { ev.stopPropagation(); verserDepuisOrigine({ db, save, profile, boutique: d.boutique, montant: Number(p.montant || 0), source: moyen, origine: { type: ORIGINE_REGLEMENT, reglement: cle, dette_id: d.id, numero: d.numero || "", client: d.client || "" } }); }}
+                                <button onClick={(ev) => { ev.stopPropagation(); verserDepuisOrigine({ db, save, profile, boutique: d.boutique, montant: Number(p.montant || 0), source: moyen, quand: p, origine: { type: ORIGINE_REGLEMENT, reglement: cle, dette_id: d.id, numero: d.numero || "", client: d.client || "" } }); }}
                                   className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="💸 Verser : l'argent de ce règlement est remis au DG, à la BANQUE ou au comptable (sans bande noire)" aria-label="Verser">💸</button>
                               )}
                             </div>

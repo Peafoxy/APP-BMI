@@ -13845,8 +13845,9 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
     JSON.stringify(Vo.ROLES_VERSEMENT) === JSON.stringify(["gerant", "admin"])
     && (() => { const g = geste.slice(geste.indexOf("export async function verserDepuisOrigine")); const q = g.indexOf("await choisirDestination("); // RETOURNÉ (09/10/2026) : la question vit dans choisirDestination
       return g.indexOf("refuserSaufRoles(profile, ROLES_VERSEMENT") > -1 && g.indexOf("refuserSaufRoles(profile, ROLES_VERSEMENT") < q && g.indexOf("critiqueVersementOrigine(db") < q; })()
-    && /peutVerserVente = \(v\) => ROLES_VERSEMENT\.includes\(profile\.role\) && !estVenteACredit\(v\)/.test(fV)
-    && /const versable = ROLES_VERSEMENT\.includes\(profile\.role\)/.test(fD));
+    // RETOURNÉ (09/10/2026, l'argent emporté par un versement général) : le rôle vit dans venteVersable / peutEtreVerse.
+    && /venteVersable = \(v\) => ROLES_VERSEMENT\.includes\(profile\.role\) && !estVenteACredit\(v\)/.test(fV)
+    && /const peutEtreVerse = ROLES_VERSEMENT\.includes\(profile\.role\)/.test(fD));
   test("★ la vente se verse depuis la caisse qui a REÇU l'argent (caisseDeVente), pour la colonne TOTAL moins les reprises ; le règlement depuis la caisse de sa dette, avec son moyen",
     /boutique: caisseDeVente\(v\), montant: montantAVerser\(v\), source: v\.paiement/.test(fV)
     && /montantEncaisseVente\(v, totalVente\) - montantRepris\(v\)/.test(fV)
@@ -13865,6 +13866,30 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
     (hG.match(/aria-label="Verser"/g) || []).length === 1 && hVd !== "" && !/aria-label="Verser"/.test(hVd));
   test("★★ versée, la vente perd son bouton et DIT où est l'argent sous son paiement",
     !/aria-label="Verser"/.test(hS) && /data-vente-versee="true"[^>]*>💸 versée Chez le DG — ⏳ en attente/.test(hS));
+
+  // ---- L'argent déjà emporté par un versement GÉNÉRAL (09/10/2026, « oui c'est ça, avec la mention grise, lance » ;
+  // « un versement d'une dette fait après un versement général aura le bouton ») ----
+  const general = { ...Vo.construireVersement(angele, { boutique: BQ, montant: 150000, destination: Vo.DEST_DG, attendu: 150000 }).sortie, date: j };
+  general.versement = { ...general.versement, heure: "16:00" };
+  const dbG = { ...dbO, depenses: [general] };
+  const emporte = (q, src = "Espèces", db = dbG) => Vo.versementGeneralQuiEmporte(db, { caisse: BQ, source: src, quand: q });
+  test("★★ la vente de 14:16 et l'avance de 15:46 sont EMPORTÉES par le versement général de 16:00 ; le règlement de 17:00 ne l'est pas (il garde son bouton)",
+    emporte(dbO.ventes[0])?.id === general.id && emporte(dt.paiements[0])?.id === general.id && emporte(dt.paiements[1]) === null);
+  test("★ un versement général REJETÉ n'emporte rien (l'argent est revenu) ; un versement d'une VENTE n'en est pas un ; les espèces n'emportent pas le Flooz",
+    emporte(dbO.ventes[0], "Espèces", { ...dbO, depenses: [{ ...general, versement_rejete_le: j }] }) === null
+    && emporte(dbO.ventes[0], "Espèces", { ...dbO, depenses: [{ ...general, versement: { ...general.versement, origine: oV } }] }) === null
+    && emporte(dbO.ventes[0], "Mobile Money (Flooz)") === null);
+  test("★★ revérifié DANS le geste : verser une vente déjà emportée est REFUSÉ en nommant le versement ; sans versement général, rien ne change",
+    /déjà parti dans le versement du 09\/10\/2026 à 16:00 → Chez le DG/.test(Vo.critiqueVersementOrigine(dbG, { origine: oV, montant: 120000, source: "Espèces", caisse: BQ, quand: dbO.ventes[0] }))
+    && !!Vo.construireVersementOrigine(angele, dbG, { origine: oV, boutique: BQ, montant: 120000, source: "Espèces", destination: Vo.DEST_DG, quand: dbO.ventes[0] }).refus
+    && Vo.critiqueVersementOrigine(dbO, { origine: oV, montant: 120000, source: "Espèces", caisse: BQ, quand: dbO.ventes[0] }) === ""
+    && /verserDepuisOrigine\(\{[^}]*quand: v,/.test(fV.replace(/\n\s*/g, " ")) && /source: moyen, quand: p,/.test(fD));
+  const hE = rendre(dbG, angele);
+  test("★★ l'écran RENDU : plus de bouton 💸 sur la vente emportée, une mention GRISE à la place (« dans le versement du 09/10/2026 à 16:00 → Chez le DG »)",
+    hE !== "" && !/aria-label="Verser"/.test(hE) && /data-vente-dans-versement="true" class="[^"]*text-slate-400[^"]*">dans le versement du 09\/10\/2026 à 16:00 → Chez le DG/.test(hE));
+  test("★ 📋 Dettes : un règlement emporté montre la mention grise au lieu du bouton",
+    /\{general && <span data-reglement-dans-versement className="text-xs text-slate-400">\{mentionVersementGeneral\(general\)\}<\/span>\}/.test(fD)
+    && /const versable = peutEtreVerse && !general;/.test(fD));
 }
 
 titre("💸 « Où va l'argent ? » au paiement d'une dette (09/10/2026, « a oui, b non ») : le règlement et son versement en un seul geste");

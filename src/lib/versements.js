@@ -123,18 +123,46 @@ export function etatVersementOrigine(db, dep) {
   const val = validationVersement(db, dep);
   return { destination: libelleDestination(dep.versement), valide: val, texte: `${libelleDestination(dep.versement)} — ${val ? `✅ validé le ${dFR(val.le)}${val.par ? ` par ${val.par}` : ""}` : "⏳ en attente"}` };
 }
+// ---- 💸 L'ARGENT DÉJÀ EMPORTÉ PAR UN VERSEMENT GÉNÉRAL (Timo, 09/10/2026) ----
+// « Les ventes qui font partie des versements généraux ne doivent plus avoir le
+// bouton de versement… de même les avances déjà dans un versement » ; « mais un
+// versement d'une dette fait après un versement général aura le bouton ». Un
+// versement général (🔒 Caisse : sans `origine`, pas rejeté) vide la caisse :
+// tout ce qui y est entré AVANT lui est parti avec. Le compte mobile suit la
+// même règle avec un versement parti de CE compte. Rend le premier versement
+// général qui a emporté cet argent, ou null.
+// `quand` = { date, heure } de la vente ou du règlement (sans heure : début du jour).
+const cleQuand = (q) => `${String(q?.date || "").slice(0, 10)} ${q?.heure || ""}`;
+const cleDuVersement = (d) => `${String(d?.date || "").slice(0, 10)} ${d?.versement?.heure || d?.heure || "99:99"}`;
+export function versementGeneralQuiEmporte(db, { caisse, source, quand }) {
+  const moyen = source || SOURCE_ESPECES;
+  const cle = cleQuand(quand);
+  return (db?.depenses || [])
+    .filter((d) => estVersement(d) && !d.versement.origine && !estRejete(d) && d.boutique === caisse
+      && (d.versement.source || SOURCE_ESPECES) === moyen && Number(d.montant || 0) > 0 && cleDuVersement(d) >= cle)
+    .sort((a, b) => cleDuVersement(a).localeCompare(cleDuVersement(b)))[0] || null;
+}
+// La mention grise qui remplace le bouton : « dans le versement du 09/10/2026 à 16:49 ».
+export const mentionVersementGeneral = (d) => (d
+  ? `dans le versement du ${dFR(d.date)}${d.versement?.heure || d.heure ? ` à ${d.versement?.heure || d.heure}` : ""} → ${libelleDestination(d.versement)}`
+  : "");
+
 // "" si le versement de cette vente / ce règlement est possible, sinon le motif.
-export function critiqueVersementOrigine(db, { origine, montant, source }) {
+// `caisse` + `quand` : revérifie DANS le geste qu'aucun versement général n'a
+// déjà emporté cet argent.
+export function critiqueVersementOrigine(db, { origine, montant, source, caisse, quand }) {
   if (!origine || ![ORIGINE_VENTE, ORIGINE_REGLEMENT].includes(origine.type)) return "Ce versement ne dit pas de quelle vente ou de quel règlement vient l'argent.";
   if (!(Number(montant) > 0)) return "Il n'y a rien à verser : le montant encaissé est nul.";
   if (!moyenVersable(source)) return `Un paiement « ${source} » ne se verse pas : ${/virement/i.test(String(source)) ? "l'argent est déjà à la banque" : "rien n'a été encaissé"}.`;
   const deja = origine.type === ORIGINE_VENTE ? versementDeVente(db, origine.vente_id) : versementDeReglement(db, origine.reglement);
   if (deja) return `${origine.type === ORIGINE_VENTE ? "Cette vente" : "Ce règlement"} est déjà versé${origine.type === ORIGINE_VENTE ? "e" : ""} : ${libelleDestination(deja.versement)}, le ${dFR(deja.date)} par ${deja.par}.`;
+  const general = caisse && quand ? versementGeneralQuiEmporte(db, { caisse, source, quand }) : null;
+  if (general) return `Cet argent est déjà parti ${mentionVersementGeneral(general)} : il ne se verse pas une seconde fois.`;
   return "";
 }
 // Les écritures : celles d'un versement ordinaire, avec son origine.
-export function construireVersementOrigine(profile, db, { origine, boutique, montant, source = SOURCE_ESPECES, destination, banque = "", bordereau = "" }) {
-  const refus = critiqueVersementOrigine(db, { origine, montant, source });
+export function construireVersementOrigine(profile, db, { origine, boutique, montant, source = SOURCE_ESPECES, destination, banque = "", bordereau = "", quand = null }) {
+  const refus = critiqueVersementOrigine(db, { origine, montant, source, caisse: boutique, quand });
   if (refus) return { refus };
   if (destination === DEST_TIROIR) return { refus: "Une vente se verse Chez le DG, à la BANQUE ou Chez le comptable." };
   const r = construireVersement(profile, { boutique, montant, destination, banque, bordereau, source });
