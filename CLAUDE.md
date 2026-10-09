@@ -60,7 +60,7 @@ npm run tester-notifications     # 81  : les notifications (liste A = messages, 
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
 npm run verifier-ecran-travaux   # 19  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total)
-npm run verifier-ecran-loyer     # 14  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide)
+npm run verifier-ecran-loyer     # 18  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
@@ -3830,6 +3830,19 @@ lit mal est pire qu'un banc absent).
   (le prix de « b », dit à Timo). Banc Chromium `verifier-ecran-loyer` (14),
   éprouvé sur l'ancien geste : il tombe. Cinq contrôles de
   `verifier-cloisonnement` RETOURNÉS. Chapitre 17 et guide du gérant à jour.
+- **👤 « LA CAISSE DU DG »** (09/10/2026, capture Timo : « pourquoi on ne dit
+  pas caisse du DG ? » → « oui lance… juste dire que la caisse du DG est
+  insuffisante… pas montrer le solde ») : le choix « De l'argent remis par le
+  DG » (nom du 12/09, d'avant la pastille 👤 DG) s'appelle **« La caisse du
+  DG »** (`PAYE_AVEC`, validationDepenses.js ; code `dg` inchangé, rien à
+  migrer). Dans une phrase, `libellePayeAvecDansPhrase` ne baisse que la
+  première lettre (« la caisse du DG »). La confirmation de TOUTE dépense
+  payée par elle (formulaire et loyer, `enregistrerDepense`) dit **« La caisse
+  du DG est insuffisante »** quand elle ne couvre pas le montant
+  (`caisseDgNeSuffitPas` : `compteExploitant`, boutiques réelles), **jamais
+  son solde**, et que le manque sera un apport du DG ; réel seulement. Banc
+  `verifier-ecran-loyer` (+4, éprouvé : toujours / jamais affichée). Chapitres
+  17 et 22, guide du gérant à jour.
 
 ### ✏️ MODIFIER UNE DÉPENSE (25/09/2026, « catégorie et description seulement · admin principal »)
 - **La catégorie et la description, rien d'autre** : le montant, le moyen et

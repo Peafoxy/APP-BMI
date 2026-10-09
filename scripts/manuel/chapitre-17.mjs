@@ -94,7 +94,7 @@ export const CHAPITRE = {
         ["**La caisse de X** (une ligne par boutique)", "L'argent est sorti du tiroir de la boutique X.", "La dépense est **enregistrée sur X** — même si l'écran regardait une autre boutique. Sa clôture et ses fonds à verser la voient."],
         ["**Le fonds de caisse (l'enveloppe)**", "Le tiroir ne suffit pas : l'enveloppe complète.", "Le tiroir paie ce qu'il a, l'enveloppe le reste ; les prochaines recettes la remboursent (chapitre 6)."],
         ["**Une avance personnelle (j'ai payé de ma poche)**", "L'employé a avancé l'argent.", "Rien ne sort du tiroir ; une **somme à lui rembourser** naît (partie F)."],
-        ["**De l'argent remis par le DG**", "L'argent de BMI que le DG avait en main.", "Rien ne sort du tiroir ; la caisse **👤 DG** du tableau de bord diminue."],
+        ["**La caisse du DG**", "L'argent de BMI que le DG avait en main.", "Rien ne sort du tiroir ; la caisse **👤 DG** du tableau de bord diminue. Si elle ne suffit pas, la confirmation dit « **La caisse du DG est insuffisante** » (sans montrer son solde) : ce qu'elle ne couvre pas est compté comme un **apport du DG** (chapitre 22)."],
         ["**La caisse du comptable** (réel seulement)", "Le comptable a payé.", "Rien ne sort du tiroir ; elle sort de sa caisse quand il pointe **✅ Remis**."],
       ]}],
       ["note", "« **Le fonds de caisse** » n'apparaît **jamais « au cas où »** : il faut être gérant ou administrateur, que l'enveloppe contienne quelque chose, qu'un montant soit saisi, et que **le tiroir ne suffise pas**. Un message ambre l'annonce alors : « Le tiroir paiera … et l'enveloppe … »."],
@@ -142,7 +142,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Le cadre 🏠 Loyer de la boutique", texte: "Il n'apparaît que si l'administrateur a coché « Ce local est loué » (⚙ Paramètres). Il dit : montant, échéance, propriétaire, **Dernier mois payé**, et l'état — ✅ payé, ⏳ à payer avant le …, ⚠ **Arriérés** (nombre de mois, total, jours de retard)." },
         { titre: "💵 Payer le loyer / 💵 Payer d'avance", texte: "Première question, **« Que payez-vous ? »** : **le mois le plus ancien**, **tous les mois dus**, ou **payer d'avance** (1 à 24 mois)." },
-        { titre: "Le moyen, puis la caisse", texte: "L'application demande ensuite le **moyen de paiement** (Espèces d'office), puis **« Payé avec »** : la caisse de la boutique (celle regardée en premier, les autres boutiques ensuite), une avance personnelle, l'argent remis par le DG, la caisse du comptable." },
+        { titre: "Le moyen, puis la caisse", texte: "L'application demande ensuite le **moyen de paiement** (Espèces d'office), puis **« Payé avec »** : la caisse de la boutique (celle regardée en premier, les autres boutiques ensuite), une avance personnelle, la caisse du DG, la caisse du comptable." },
         { titre: "Confirmer", texte: "Une fenêtre récapitule : montant, catégorie Loyer, caisse. **OK enregistre la dépense** — elle passe par toutes les règles : validation du DG au-delà de 5 000 F, limite du tiroir. Un mois déjà payé ou déjà saisi est **refusé** : jamais deux fois. Annuler à n'importe quelle question n'enregistre rien." },
       ]],
       ["note", "« **Déjà compté** » sous le cadre dit quelles dépenses « Loyer » ont été comptées, par qui. Un chiffre qui surprend vient souvent d'une dépense mise en « Loyer » par erreur : l'administrateur la supprime et la ressaisit dans la bonne catégorie."],

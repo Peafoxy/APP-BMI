@@ -63,11 +63,17 @@ export const ROLES_FONDS_CAISSE = ["gerant", "admin"];
 export const PAYE_AVEC = [
   [PAYE_AVEC_CAISSE, "La caisse de la boutique"],
   [PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"],
-  [PAYE_AVEC_DG, "De l'argent remis par le DG"],
+  // Timo (09/10/2026) : « pourquoi on ne dit pas caisse du DG ? » — le nom
+  // datait d'avant la caisse 👤 DG (12/09) ; c'est elle qui paie, puis
+  // l'apport automatique de l'exploitant pour ce qu'elle ne couvre pas.
+  [PAYE_AVEC_DG, "La caisse du DG"],
   [PAYE_AVEC_COMPTABLE, "La caisse du comptable"],
   [PAYE_AVEC_FONDS, "Le fonds de caisse (l'enveloppe)"],
 ];
 export const libellePayeAvec = (code) => (PAYE_AVEC.find(([c]) => c === (code || PAYE_AVEC_CAISSE)) || PAYE_AVEC[0])[1];
+// Dans une phrase : seule la PREMIÈRE lettre passe en minuscule (« la caisse
+// du DG », jamais « la caisse du dg »).
+export const libellePayeAvecDansPhrase = (code) => { const l = libellePayeAvec(code); return l.charAt(0).toLowerCase() + l.slice(1); };
 // Capture Timo (13/09/2026) : « préciser les boutiques… il peut recevoir dans
 // une boutique et valider pour une boutique… ajouter nommément les boutiques
 // disponibles lors du choix… même si le haut est BMI DEMAKPOE, il a la
@@ -88,7 +94,7 @@ export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee, { avecComptable
     ...ordonnes.map((n) => [codeCaisse(n), `La caisse de ${libelleCaisse(n)}`]),
     ...(fonds?.possible ? [[PAYE_AVEC_FONDS, `Le fonds de caisse (l'enveloppe${boutiqueRegardee ? ` de ${boutiqueRegardee}` : ""})`]] : []),
     [PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"],
-    [PAYE_AVEC_DG, "De l'argent remis par le DG"],
+    [PAYE_AVEC_DG, libellePayeAvec(PAYE_AVEC_DG)],
     ...(avecComptable ? [[PAYE_AVEC_COMPTABLE, "La caisse du comptable"]] : []),
   ];
 };
@@ -115,7 +121,7 @@ export const interpreterPayeAvec = (valeur, boutiqueRegardee) => {
 };
 export const libelleChoixPayeAvec = (valeur, boutiqueRegardee) => {
   const c = interpreterPayeAvec(valeur, boutiqueRegardee);
-  return c.paye_avec === PAYE_AVEC_CAISSE ? `la caisse de ${c.boutique}` : libellePayeAvec(c.paye_avec).toLowerCase();
+  return c.paye_avec === PAYE_AVEC_CAISSE ? `la caisse de ${c.boutique}` : libellePayeAvecDansPhrase(c.paye_avec);
 };
 // Une dépense sans `paye_avec` (anciennes lignes, dépenses automatiques :
 // salaires, commissions, CNSS, versements…) vient de la caisse de la boutique.
@@ -159,7 +165,7 @@ export const compteDansLaCaisse = (d) => sortDuTiroir(d) && !estEnAttente(d);
 export function critiqueSaisie({ montant, paye_avec, boutique }) {
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return "Veuillez saisir un montant (supérieur à zéro).";
-  if (!PAYE_AVEC.some(([c]) => c === paye_avec)) return "Indiquez avec quoi la dépense a été payée : la caisse de la boutique, le fonds de caisse, une avance personnelle, de l'argent remis par le DG, ou la caisse du comptable.";
+  if (!PAYE_AVEC.some(([c]) => c === paye_avec)) return "Indiquez avec quoi la dépense a été payée : la caisse de la boutique, le fonds de caisse, une avance personnelle, la caisse du DG, ou la caisse du comptable.";
   if (!boutique) return "Aucune boutique n'est choisie.";
   return "";
 }
@@ -188,7 +194,7 @@ export function construireDepenseSaisie(db, profile, { boutique, categorie, desc
     ...(validation ? { validation } : {}),
   });
   const messages = validation?.statut === "attente"
-    ? principauxActifs(db).map((u) => nouveauMessage(profile, { a_id: u.id, texte: `⏳ Dépense à valider : ${fmt(m)} (${categorie}${depense.description ? ` — ${depense.description}` : ""}) à ${boutique}, payée avec ${libellePayeAvec(paye_avec).toLowerCase()}, par ${profile.nom}.` }))
+    ? principauxActifs(db).map((u) => nouveauMessage(profile, { a_id: u.id, texte: `⏳ Dépense à valider : ${fmt(m)} (${categorie}${depense.description ? ` — ${depense.description}` : ""}) à ${boutique}, payée avec ${libellePayeAvecDansPhrase(paye_avec)}, par ${profile.nom}.` }))
     : [];
   return {
     depense, messages, aValider,
@@ -245,7 +251,7 @@ export function rejeterDepense(db, profile, dep, motif, aujourdhui) {
   const auteur = auteurDe(db, dep);
   const suite = sortDuTiroir(dep)
     ? ` L'argent est considéré comme toujours dû à la caisse de ${dep.boutique} : remettez ${fmt(dep.montant)} dans le tiroir.`
-    : estAvance(dep) ? " Aucun remboursement ne vous est dû pour cette dépense." : " L'argent remis par le DG reste dû.";
+    : estAvance(dep) ? " Aucun remboursement ne vous est dû pour cette dépense." : " L'argent pris dans la caisse du DG reste dû.";
   const messages = auteur && auteur.id !== profile.id
     ? [nouveauMessage(profile, { a_id: auteur.id, texte: `✖ Dépense REJETÉE par ${profile.nom} : ${fmt(dep.montant)} (${dep.categorie}${dep.description ? ` — ${dep.description}` : ""}) à ${dep.boutique}. Motif : ${m}.${suite}` })]
     : [];

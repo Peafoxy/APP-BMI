@@ -44,7 +44,7 @@ export const GUIDE = {
     ["h3", "L'argent qui sort — 📤 Dépenses"],
     ["etapes", [
       { titre: "La catégorie, le montant, la description", texte: "Aucune catégorie n'est choisie d'office : je la choisis toujours." },
-      { titre: "« Payé avec »", texte: "**La caisse de** ma boutique (ou d'une autre : la dépense est enregistrée sur la boutique dont la caisse a payé), **une avance personnelle** (quelqu'un a payé de sa poche : il sera remboursé), **de l'argent remis par le DG**, ou **le fonds de caisse** — ce dernier n'apparaît que si le tiroir ne suffit pas." },
+      { titre: "« Payé avec »", texte: "**La caisse de** ma boutique (ou d'une autre : la dépense est enregistrée sur la boutique dont la caisse a payé), **une avance personnelle** (quelqu'un a payé de sa poche : il sera remboursé), **la caisse du DG**, ou **le fonds de caisse** — ce dernier n'apparaît que si le tiroir ne suffit pas." },
       { titre: "« Chantier à rattacher »", texte: "Si la dépense (carburant, nourriture…) concerne un chantier en cours, je le choisis : elle sera déduite des frais d'installation avant le partage (chapitres 15 et 17)." },
       { titre: "« Enregistrer la dépense »", texte: "**À partir de 5 000 F**, elle attend la validation du DG : elle ne compte nulle part avant, et une dépense en espèces payée par la caisse **bloque la clôture** tant qu'elle attend. Je la fais valider avant la fermeture." },
     ]],

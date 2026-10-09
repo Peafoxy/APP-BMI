@@ -10,13 +10,14 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSorti
 import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { MonArgentDeChantier, RetoursAValider } from "../components/ArgentChantier";
+import { compteExploitant } from "../lib/compteExploitant";
 import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER } from "../lib/loyer";
 import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation, utilisateursDeLEspace } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -257,6 +258,14 @@ export function Depenses({ db, save, profile }) {
     return critiqueSortieTiroir({ tiroir: p.montant + p.resteFonds, fondsFixe: p.resteFonds, montant, geste, boutique: nomBoutique });
   };
 
+  // La caisse de BMI chez le DG, lue comme la pastille 👤 DG (toutes les
+  // boutiques de l'espace regardé, jamais celles du seul rôle) — réel seulement.
+  const caisseDgNeSuffitPas = (montant) => {
+    if (afficheChiffresFormation(db, profile)) return false;
+    const noms = (db.boutiques || []).filter((b) => !b.formation).map((b) => b.nom);
+    return montant > compteExploitant(db, noms).caisse.solde;
+  };
+
   // ✏️ Modifier une dépense : voir useModifDepense (écrit UNE fois).
   const { modif, ouvrirModif, panneauModif } = useModifDepense(db, save, profile);
 
@@ -305,7 +314,12 @@ export function Depenses({ db, save, profile }) {
     const partage = r.depense.paye_avec === PAYE_AVEC_FONDS
       ? `\n\n💼 Le tiroir de ${boutique} paie ${fmt(Math.max(0, poches.montant))} et le fonds de caisse complète ${fmt(propositionFonds.manqueAuTiroir)} (il restera ${fmt(propositionFonds.reste - propositionFonds.manqueAuTiroir)} dans l'enveloppe). Les prochaines recettes le rembourseront.`
       : "";
-    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}${partage}`)) return;
+    // 👤 Timo (09/10/2026) : « juste dire que la caisse du DG est insuffisante…
+    // pas montrer le solde ». Ce qu'elle ne couvre pas devient un apport du DG
+    // (compte de l'exploitant) — réel seulement : la caisse du DG n'a pas de jumelle.
+    const caisseDgInsuffisante = r.depense.paye_avec === PAYE_AVEC_DG && caisseDgNeSuffitPas(Number(f.montant));
+    const dg = caisseDgInsuffisante ? "\n\n👤 La caisse du DG est insuffisante : ce qu'elle ne couvre pas sera compté comme un apport du DG (payé de sa poche)." : "";
+    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}${partage}${dg}`)) return;
     // 🏠 Le loyer pré-rempli garde son mois et SON local (la caisse d'une autre
     // boutique peut l'avoir payé) ; revérifié DANS le geste : jamais deux fois.
     const estLoyerDuMois = f.loyer_mois && f.categorie === CATEGORIE_LOYER;
@@ -342,7 +356,7 @@ export function Depenses({ db, save, profile }) {
       const refusT = refusTiroir(d.boutique, Number(d.montant), "Valider cette dépense");
       if (refusT) { uAlert(refusT); return; }
     }
-    if (!await uConfirm(`Valider la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) du ${dFR(d.date)}, saisie par ${d.par}, payée avec : ${libellePayeAvec(d.paye_avec).toLowerCase()} ?`)) return;
+    if (!await uConfirm(`Valider la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) du ${dFR(d.date)}, saisie par ${d.par}, payée avec : ${libellePayeAvecDansPhrase(d.paye_avec)} ?`)) return;
     const r = validerDepense(db, profile, d, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
   };
@@ -429,7 +443,7 @@ export function Depenses({ db, save, profile }) {
             {aValiderDG.map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
                 <div><b>{dFR(d.date)}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.categorie}{d.description ? ` — ${d.description}` : ""}
-                  <div className="text-xs text-slate-500">saisie par {d.par} · {d.paiement} · payée avec : {libellePayeAvec(d.paye_avec).toLowerCase()}</div>
+                  <div className="text-xs text-slate-500">saisie par {d.par} · {d.paiement} · payée avec : {libellePayeAvecDansPhrase(d.paye_avec)}</div>
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>

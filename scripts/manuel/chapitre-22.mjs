@@ -81,7 +81,7 @@ export const CHAPITRE = {
         { titre: "🖨 Imprimer le relevé (PDF) / Exporter (CSV)", texte: "Le même relevé, même période, mêmes chiffres, avec **tous** les mouvements. À remettre au comptable." },
       ]],
       ["table", { entetes: ["Pastille", "Ce qui entre", "Ce qui sort"], largeurs: [1900, 3700, 3700], lignes: [
-        ["👤 DG — caisse de BMI chez le DG", "Les versements « Chez le DG » **validés**, les fonds de caisse repris, ses apports.", "Les dépenses « payées avec de l'argent remis par le DG », les fonds de caisse remis, les avances remboursées par lui, ses prélèvements. **Jamais négative.**"],
+        ["👤 DG — caisse de BMI chez le DG", "Les versements « Chez le DG » **validés**, les fonds de caisse repris, ses apports.", "Les dépenses « payées avec la caisse du DG », les fonds de caisse remis, les avances remboursées par lui, ses prélèvements. **Jamais négative.**"],
         ["👤 DG — 📒 compte de l'exploitant", "Ses **apports** (et ce qu'il a payé de sa poche).", "Ses **prélèvements**. Peut être négatif : la phrase sous le solde le dit."],
         ["🏦 BANQUE", "Les versements « BANQUE » validés.", "Les dépenses payées par virement bancaire."],
         ["🧾 COMPTABLE", "Les versements qu'il a pointés « Encaissé ».", "Ce qu'il a pointé « Remis ». Ce qui attend son pointage est dit à part."],
@@ -193,7 +193,7 @@ export const CHAPITRE = {
         { situation: "Une vente de 2 panneaux à 100 000 F avec 20 000 F de remise générale.", reponse: "Le Top 5 et la Rentabilité comptent **180 000 F** pour cet article : la remise est répartie sur les articles." },
         { situation: "Aujourd'hui : 195 000 F de ventes, dont 2 panneaux achetés 60 000 F pièce ; 10 000 F de carburant et 50 000 F d'achat de marchandises.", reponse: "**Résultat = 195 000 − 120 000 − 10 000 = 65 000 F.** Les 50 000 F d'achat de marchandises n'y sont pas : le prix d'achat des panneaux les compte déjà." },
         { situation: "Le comptable demande les écritures de septembre.", reponse: "Pastille **TOUTES**, Période **Personnalisée** du 1er au 30 septembre, **📒 Journal comptable (SYSCOHADA)**." },
-        { situation: "Le DG a payé 30 000 F de carburant pour BMI de sa poche, et sa caisse BMI est vide.", reponse: "La dépense « payée avec de l'argent remis par le DG » devient toute seule un **apport** de 30 000 F dans son compte de l'exploitant." },
+        { situation: "Le DG a payé 30 000 F de carburant pour BMI de sa poche, et sa caisse BMI est vide.", reponse: "La dépense « payée avec la caisse du DG » devient toute seule un **apport** de 30 000 F dans son compte de l'exploitant." },
         { situation: "Un article à 50 000 F en stock depuis trois mois n'apparaît pas dans « Produits vendus ».", reponse: "Il est dans **😴 Produits dormants**, avec sa valeur immobilisée au prix d'achat." },
         { situation: "Un client dit qu'une remise lui a été accordée sans accord.", reponse: "**🕘 Historique**, rechercher son nom : la vente, l'heure, et qui l'a enregistrée." },
       ]],

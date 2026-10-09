@@ -45,7 +45,9 @@ const depart = {
     { nom: "APESSITO", formation: false },
   ],
   users: [principal, gerant],
-  produits: [], ajustements: [], messages: [], dettes: [], clients_installes: [], clotures: [], depenses: [],
+  produits: [], ajustements: [], messages: [], dettes: [], clients_installes: [], clotures: [],
+  // « dgplein » : DEMAKPOE a versé 500 000 F chez le DG, validés — la caisse du DG suffit.
+  depenses: quoi === "dgplein" ? [{ id: "vers1", boutique: "DEMAKPOE", date: auj, categorie: "Versement de fonds", montant: 500000, paiement: "Espèces", par: "AMA", versement: { destination: "Chez le DG", montant: 500000 }, versement_valide_le: auj, versement_valide_par: "TIMO" }] : [],
   ventes: quoi === "vide" ? [] : [vente("v1", "DEMAKPOE", 200000), vente("v2", "APESSITO", 150000)],
 };
 window.saves = [];
@@ -86,7 +88,9 @@ console.log("\n💵 Payer le loyer : du clic à la dépense enregistrée (géran
   test("★★ le geste CONTINUE : la question suivante est le moyen de paiement du loyer (90 000 F)", /Moyen de paiement du loyer \(90 000 F\)/.test(await dialogue(page)), await dialogue(page));
   await choisir(page, "Espèces");
   const pa = await dialogue(page);
-  test("★★ puis « Payé avec » : les caisses de l'espace, celle de DEMAKPOE en premier, l'avance et l'argent du DG", /Payé avec/.test(pa) && pa.indexOf("La caisse de DEMAKPOE") > -1 && pa.indexOf("La caisse de DEMAKPOE") < pa.indexOf("La caisse de APESSITO") && /avance personnelle/.test(pa) && /remis par le DG/.test(pa), pa);
+  // Timo (09/10/2026) : « pourquoi on ne dit pas caisse du DG ? » — RETOURNÉ :
+  // « De l'argent remis par le DG » devient « La caisse du DG ».
+  test("★★ puis « Payé avec » : les caisses de l'espace, celle de DEMAKPOE en premier, l'avance, « La caisse du DG » (plus « argent remis par le DG »)", /Payé avec/.test(pa) && pa.indexOf("La caisse de DEMAKPOE") > -1 && pa.indexOf("La caisse de DEMAKPOE") < pa.indexOf("La caisse de APESSITO") && /avance personnelle/.test(pa) && /La caisse du DG/.test(pa) && !/remis par le DG/.test(pa), pa);
   await choisir(page, "La caisse de DEMAKPOE");
   const conf = await dialogue(page);
   test("★★ la confirmation de la dépense ORDINAIRE : montant, catégorie, caisse, et l'annonce de la validation du DG", /Confirmer la dépense de 90 000 F en Loyer, payée avec : la caisse de DEMAKPOE/.test(conf) && /validation du DG/.test(conf), conf);
@@ -115,6 +119,33 @@ console.log("\nLa caisse d'une AUTRE boutique paie : c'est le loyer de DEMAKPOE,
   await ok_(page);
   const dep = await derniere(page);
   test("★★ boutique = APESSITO (sa caisse a payé), loyer_boutique = DEMAKPOE (le LOCAL)", dep?.boutique === "APESSITO" && dep?.loyer_boutique === "DEMAKPOE", JSON.stringify(dep));
+  await page.close();
+}
+
+console.log("\n👤 La caisse du DG ne suffit pas : on le DIT, sans montrer son solde (Timo, 09/10/2026)");
+{
+  const { page } = await ouvrir("dg");
+  await page.click("[data-payer-loyer]"); await attendre(150);
+  await choisir(page, "Le mois le plus ancien");
+  await choisir(page, "Espèces");
+  await choisir(page, "La caisse du DG");
+  const conf = await dialogue(page);
+  const sansMontant = conf.replace(/90 000 F/g, "").replace(/5 000 F/g, "");
+  test("★★ la confirmation dit « la caisse du DG » (minuscule seulement à « la ») et qu'elle est INSUFFISANTE, que le manque sera un apport du DG", /payée avec : la caisse du DG \?/.test(conf) && /La caisse du DG est insuffisante : ce qu'elle ne couvre pas sera compté comme un apport du DG/.test(conf), conf);
+  test("★★ AUCUN solde montré : pas d'autre montant que celui de la dépense (et le seuil du DG)", !/\d[\d\s]* F/.test(sansMontant), conf);
+  await ok_(page);
+  const dep = await derniere(page);
+  test("★ la dépense est enregistrée, payée avec la caisse du DG", dep?.paye_avec === "dg" && dep?.montant === 90000, JSON.stringify(dep));
+  await page.close();
+}
+{
+  const { page } = await ouvrir("dgplein");
+  await page.click("[data-payer-loyer]"); await attendre(150);
+  await choisir(page, "Le mois le plus ancien");
+  await choisir(page, "Espèces");
+  await choisir(page, "La caisse du DG");
+  const conf = await dialogue(page);
+  test("★★ la caisse du DG SUFFIT (500 000 F versés et validés) : aucune phrase d'insuffisance", /payée avec : la caisse du DG/.test(conf) && !/insuffisante/.test(conf), conf);
   await page.close();
 }
 
