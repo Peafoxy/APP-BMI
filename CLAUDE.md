@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2407 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2411 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -6608,6 +6608,15 @@ lit mal est pire qu'un banc absent).
   `scripts/_rendu-ventes.jsx`, +3), éprouvé. Rien à coller. Chapitre 5 à jour.
   ⚠ « Laisse comme ça » (le même jour) : PAS de phrase « rien à rendre » dans
   la fenêtre de reprise d'une vente à crédit — ne pas la reproposer.
+  ⚠ **RETOURNÉ le 09/10/2026** (deux captures, « tout est bon ») : **le gras va
+  au chiffre qui compte**. Vente reprise → le total en NORMAL, « reste : Y » en
+  GRAS. **Vente à crédit → le total en normal, de la COULEUR du mot « Crédit »
+  (`text-amber-800`), et « avance : X » en GRAS EN BAS** (« pas au-dessus » ;
+  « avance : 0 F » sans avance ; avec une reprise, reste ET avance en gras).
+  L'avance = le jour de la vente : `avanceDeVente` (core.js) lit `v.avance`,
+  sinon le premier règlement de SA dette fait le même jour ; les versements
+  suivants n'y sont jamais (📋 Dettes). Affichage seul (recette, reçu, caisse
+  inchangés). Banc +4 (un RETOURNÉ), éprouvé. Chapitre 5 à jour.
 - **🧾 Bon de reprise et bon de retour** (14/09/2026 : « ce n'est pas
   judicieux de sortir un reçu ? comment ça se passe avec les grands
   logiciels ? » → un avoir / bon à part, **jamais le reçu de vente

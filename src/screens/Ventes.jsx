@@ -12,7 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS, caisseDeVente } from "../lib/constants";
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -1701,11 +1701,25 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
                 <td className="px-3 py-2">{v.client && v.client !== "Client non renseigné" ? <span className="font-semibold text-slate-800">{v.client}</span> : <span className="text-slate-400">—</span>}</td>
                 <td className="px-3 py-2 tabular-nums text-right">{qteVente(v)}</td>
-                <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap"><div className="font-bold text-slate-900">{fmt(totalVente(v))}</div>{v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}{montantRepris(v) > 0 ? (
-                  /* 07/10/2026 (« oui lance ») : le TOTAL reste ce que le client a payé (le reçu,
-                     la recette) ; dessous, ce qui a été repris et la valeur restante de la facture. */
-                  <div data-vente-reprise><div className="text-xs text-amber-700">↩ repris : −{fmt(montantRepris(v))}</div><div className="text-xs font-semibold text-slate-700">reste : {fmt(Math.max(0, totalVente(v) - montantRepris(v)))}</div></div>
-                ) : null}</td>
+                <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{(() => {
+                  /* 09/10/2026 (Timo, « tout est bon ») : UN chiffre en gras par ce qui compte.
+                     Une vente reprise → le RESTE en gras, le total en normal ; une vente à crédit →
+                     le total en normal, de la couleur du mot « Crédit », et l'AVANCE en gras EN BAS
+                     (« avance : 0 F » s'il n'y en a pas). Une vente ordinaire garde son total en gras. */
+                  const repris = montantRepris(v);
+                  const avance = avanceDeVente(db, v);
+                  const credit = avance !== null;
+                  const classeTotal = credit ? "text-amber-800" : repris > 0 ? "text-slate-700" : "font-bold text-slate-900";
+                  return <>
+                    <div data-vente-total className={classeTotal}>{fmt(totalVente(v))}</div>
+                    {v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}
+                    {repris > 0 ? (
+                      /* 07/10/2026 : ce qui a été repris et la valeur restante de la facture. */
+                      <div data-vente-reprise><div className="text-xs text-amber-700">↩ repris : −{fmt(repris)}</div><div className="font-bold text-slate-900">reste : {fmt(Math.max(0, totalVente(v) - repris))}</div></div>
+                    ) : null}
+                    {credit ? <div data-vente-avance className="font-bold text-slate-900">avance : {fmt(avance)}</div> : null}
+                  </>;
+                })()}</td>
                 <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}{(() => {
                   // 💸 L'argent de CETTE vente remis au DG (Timo, 09/10/2026) : la trace se lit sous le paiement.
                   const e = etatVersementOrigine(db, versementDeVente(db, v.id));

@@ -560,6 +560,18 @@ export function titreRecuDette(d) {
 // (avant `vente_id`) garde le reçu de vente : on ne devine jamais une dette.
 export const estVenteACredit = (v) => v?.paiement === "Crédit (dette)";
 export const detteDeVente = (db, v) => (v?.id && (db?.dettes || []).find((d) => d.vente_id === v.id)) || null;
+// L'AVANCE d'une vente à crédit (Timo, 09/10/2026 : « il faut qu'on sache déjà
+// dans les ventes combien le client a donné comme avance ») : ce que le client a
+// donné LE JOUR DE LA VENTE — rangé sur la vente depuis longtemps (`avance`) ;
+// une vieille vente sans ce champ le lit sur le premier règlement de SA dette
+// fait le même jour (la règle des bandes noires). Les versements des jours
+// suivants ne s'y ajoutent pas (📋 Dettes les suit). null hors crédit.
+export function avanceDeVente(db, v) {
+  if (!estVenteACredit(v)) return null;
+  if (v.avance !== undefined && v.avance !== null && v.avance !== "") return Math.max(0, Number(v.avance) || 0);
+  const p0 = (detteDeVente(db, v)?.paiements || [])[0];
+  return p0 && String(p0.date || "").slice(0, 10) === String(v.date || "").slice(0, 10) ? Math.max(0, Number(p0.montant) || 0) : 0;
+}
 export function documentDeVente(db, v) {
   const dette = estVenteACredit(v) ? detteDeVente(db, v) : null;
   return dette ? { type: "dette", dette } : { type: "vente" };

@@ -13694,15 +13694,34 @@ titre("💰 Ventes : sous le total d'une vente reprise, le montant repris et ce 
         { id: "v1", numero: "BMID-2026-0001", date: auj, boutique: "BMI DEMAKPOE", client: "SENA", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Cosse", qte: 19, pu: 2800 }],
           reprises: [{ id: "r1", ref: "REP-A", date: auj, produit_id: "p1", article: "Cosse", qte: 2, montant: 5600, rembourse: 5600 }, { id: "r2", ref: "REP-B", date: auj, produit_id: "p1", article: "Cosse", qte: 1, montant: 2800, rembourse: 2800 }] },
         { id: "v2", numero: "BMID-2026-0002", date: auj, boutique: "BMI DEMAKPOE", client: "EZO", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 12000 }] },
+        // 09/10/2026 : trois ventes à CRÉDIT — avance rangée, vieille vente sans le champ (lue sur sa dette), aucune avance.
+        { id: "v3", numero: "BMID-2026-0003", date: auj, boutique: "BMI DEMAKPOE", client: "DJEDJE", paiement: "Crédit (dette)", avance: 20000, articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 110000 }] },
+        { id: "v4", numero: "BMID-2026-0004", date: auj, boutique: "BMI DEMAKPOE", client: "AMA", paiement: "Crédit (dette)", articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 70000 }] },
+        { id: "v5", numero: "BMID-2026-0005", date: auj, boutique: "BMI DEMAKPOE", client: "KOFFI", paiement: "Crédit (dette)", avance: 0, articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 30000 }] },
       ],
-      depenses: [], dettes: [], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [] };
+      depenses: [], dettes: [{ id: "d4", vente_id: "v4", date: auj, boutique: "BMI DEMAKPOE", client: "AMA", montant: 70000, paye: 15000, paiements: [{ id: "p4", date: auj, montant: 5000 }, { id: "p4b", date: "2099-01-01", montant: 10000 }] }], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [] };
     let hV = "";
     const erreurAvant = console.error; console.error = () => {};
     try { hV = String(RV.rendreVentes(dbV, timo)).replace(/ | /g, " "); } catch (e) { hV = ""; } finally { console.error = erreurAvant; }
-    test("★★ sous le TOTAL inchangé (53 200 F), les reprises du reçu ADDITIONNÉES (2 reprises : −8 400 F) et ce qui reste de la facture (44 800 F)",
-      /<div class="font-bold text-slate-900">53 200 F<\/div><div data-vente-reprise="true"><div class="text-xs text-amber-700">↩ repris : −8 400 F<\/div><div class="text-xs font-semibold text-slate-700">reste : 44 800 F<\/div>/.test(hV));
-    test("★ une vente SANS reprise ne porte rien de plus sous son total (une seule ligne marquée)",
-      (hV.match(/data-vente-reprise/g) || []).length === 1 && /12 000 F<\/div><\/td>/.test(hV));
+    // RETOURNÉ le 09/10/2026 (Timo : « dès qu'une vente a une reprise, c'est le reste qui devrait être en gras ») :
+    // le total passe en normal, le RESTE en gras.
+    test("★★ sous le TOTAL (53 200 F, plus en gras), les reprises du reçu ADDITIONNÉES (−8 400 F) et le RESTE en gras (44 800 F)",
+      /<div data-vente-total="true" class="text-slate-700">53 200 F<\/div><div data-vente-reprise="true"><div class="text-xs text-amber-700">↩ repris : −8 400 F<\/div><div class="font-bold text-slate-900">reste : 44 800 F<\/div>/.test(hV));
+    test("★ une vente ordinaire garde son total EN GRAS et ne porte rien de plus (une seule ligne reprise, aucune avance hors crédit)",
+      (hV.match(/data-vente-reprise/g) || []).length === 1 && /class="font-bold text-slate-900">12 000 F<\/div><\/td>/.test(hV));
+    test("★★ une vente à CRÉDIT : total en normal, de la couleur du mot « Crédit », et l'AVANCE en gras EN BAS (110 000 F → avance : 20 000 F)",
+      /<div data-vente-total="true" class="text-amber-800">110 000 F<\/div><div data-vente-avance="true" class="font-bold text-slate-900">avance : 20 000 F<\/div><\/td>/.test(hV));
+    test("★ une vieille vente à crédit sans le champ `avance` la lit sur le PREMIER règlement de sa dette fait le même jour (5 000 F, jamais les 10 000 F d'après)",
+      /70 000 F<\/div><div data-vente-avance="true" class="font-bold text-slate-900">avance : 5 000 F<\/div>/.test(hV));
+    test("★ une vente à crédit sans avance écrit « avance : 0 F » (Timo : « tout est bon »)",
+      /30 000 F<\/div><div data-vente-avance="true" class="font-bold text-slate-900">avance : 0 F<\/div>/.test(hV));
+    {
+      const Cv = await import(pathToFileURL("src/lib/core.js").href);
+      const v6 = { id: "v6", date: auj, paiement: "Crédit (dette)", avance: 20000 };
+      test("★ la règle `avanceDeVente` : null hors crédit, l'avance rangée sinon (une vente à crédit avec reprise garde son avance)",
+        Cv.avanceDeVente({ dettes: [] }, { paiement: "Espèces" }) === null && Cv.avanceDeVente({ dettes: [] }, v6) === 20000
+        && Cv.avanceDeVente({ dettes: [{ vente_id: "v7", paiements: [{ date: "2026-01-02", montant: 9 }] }] }, { id: "v7", date: "2026-01-01", paiement: "Crédit (dette)" }) === 0);
+    }
   }
 }
 
