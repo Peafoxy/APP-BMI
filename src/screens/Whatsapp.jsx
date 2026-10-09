@@ -132,21 +132,29 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     return f.length ? String(f[f.length - 1].ts || "") : String(c.derniere || "");
   };
 
-  // ⚠ LE MÊME CLASSEMENT QUE 💬 MESSAGES, par LA règle commune (14/09/2026,
-  // « un nouveau message apparaît en tête ») : un bloc « 🔴 Nouveaux
-  // messages », puis le reste. Un second tri maison finirait par classer
-  // autrement d'un écran à l'autre.
-  const liste = separerNonLues(
-    [{ cle: "whatsapp", items: convs.map((c) => ({ cle: c.cle, conv: { type: "wa", id: c.cle }, wa: c })) }],
+  // ---- 📲 LA LISTE COMME DANS WHATSAPP (Timo, 09/10/2026, « a1 b1 c1 d2 ») ----
+  // « b1 » : plus de bloc « 🔴 Nouveaux messages » — des FILTRES en haut
+  // (Toutes · Non lues · Attendent un conseiller), et la liste rangée par la
+  // date du DERNIER message : un client qui écrit remonte tout en haut.
+  // ⚠ LA RÈGLE COMMUNE `separerNonLues` sépare toujours les non lues (un
+  // second tri maison finirait par classer autrement que 💬 Messages), et
+  // c'est le composant d'archivage qui range les deux ensemble par date.
+  const [filtre, setFiltre] = useState("toutes");
+  const attend = (c) => !c.verrouillee && !!attenteConseiller(c.fil);
+  const classer = (lesConvs) => separerNonLues(
+    [{ cle: "whatsapp", items: lesConvs.map((c) => ({ cle: c.cle, conv: { type: "wa", id: c.cle }, wa: c })) }],
     (conv) => { const c = convs.find((x) => x.cle === conv.id); return c ? nonLusPour(c) : 0; },
     (conv) => { const c = convs.find((x) => x.cle === conv.id); return c ? derniereActivite(c) : ""; }
   );
+  const liste = classer(filtre === "attente" ? convs.filter(attend) : convs);
+  const nbNonLues = filtre === "attente" ? classer(convs).nonLues.length : liste.nonLues.length;
+  const nbAttente = convs.filter(attend).length;
   // ⚠⚠ L'ARCHIVAGE NE TOUCHE QUE LES CONVERSATIONS LUES. `separerNonLues`
   // a déjà sorti celles qui portent un non lu : un client qui attend une
   // réponse ne doit JAMAIS disparaître derrière un bouton « archives »,
-  // même si son message a trois mois. C'est le point le plus important de
-  // ce point-ci, et le banc l'éprouve.
-  const lues = liste.sections[0]?.items || [];
+  // même si son message a trois mois. Elles passent en `toujoursVisibles`,
+  // jamais en `lignes`. C'est le point le plus important, et le banc l'éprouve.
+  const lues = filtre === "nonlues" ? [] : (liste.sections[0]?.items || []);
 
   // ---- 🔒 LES CONVERSATIONS D'AVANT LA FICHE LÉGÈRE (21/09/2026) ----
   // ⚠⚠ SANS CE RATTRAPAGE, LA RÈGLE MENTIRAIT LE PREMIER JOUR : les
@@ -477,17 +485,30 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     );
   }
 
+  // ⚠ « a1 » : le vert de WhatsApp, sur CET écran seulement (il n'existe pas
+  // en formation : le violet n'y a jamais servi). Les couleurs sont écrites
+  // UNE fois ici.
+  const filtres = [
+    ["toutes", "Toutes"],
+    ["nonlues", `Non lues${nbNonLues ? ` ${nbNonLues}` : ""}`],
+    ...(nbAttente || filtre === "attente" ? [["attente", `👨‍💼 Attendent un conseiller${nbAttente ? ` ${nbAttente}` : ""}`]] : []),
+  ];
+  const videFiltre = filtre === "nonlues" ? "Aucune conversation non lue." : filtre === "attente" ? "Aucun client n'attend un conseiller." : "Aucune conversation.";
+
   return (
-    <div className="grid lg:grid-cols-[280px_1fr] gap-4">
-      {/* Liste des conversations (sur mobile : masquée quand un fil est ouvert) */}
-      <div className={`bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden ${ouverte ? "hidden lg:block" : ""}`}>
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
-          <span>📲 WhatsApp</span>
+    // 🖥 Ordinateur : deux panneaux, comme WhatsApp sur Windows. 📱 Téléphone :
+    // la liste prend tout l'écran ; une conversation ouverte la RECOUVRE, en
+    // plein écran, avec la flèche ← pour revenir.
+    <div className="grid lg:grid-cols-[380px_1fr] gap-0 lg:h-[calc(100vh-170px)] lg:min-h-[520px] lg:rounded-xl lg:overflow-hidden lg:border lg:border-slate-200 lg:shadow-sm bg-white" data-whatsapp="ecran">
+      {/* ── LA LISTE ── */}
+      <div className={`bg-white flex flex-col min-h-0 rounded-xl lg:rounded-none border border-slate-200 lg:border-0 lg:border-r shadow-sm lg:shadow-none ${ouverte ? "hidden lg:flex" : "flex"}`}>
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2">
+          <span className="text-xl font-bold text-slate-800">📲 Discussions</span>
           <button onClick={() => setContact(contact ? null : { nom: "", tel: "", sujet: "" })}
-            className="text-xs font-bold text-sky-800 underline whitespace-nowrap">{contact ? "Annuler" : "✍️ Écrire"}</button>
+            className="text-xs font-bold text-white bg-[#008069] hover:bg-[#006e5a] rounded-full px-3 py-1.5 whitespace-nowrap">{contact ? "Annuler" : "✍️ Écrire"}</button>
         </div>
         {contact && (<PanneauQuiSeMontre cle={`${contact.tel}|${contact.nom}` || "contact"}>
-          <div className="border-b border-slate-200 bg-sky-50/60 p-3 space-y-2">
+          <div className="border-y border-slate-200 bg-[#f0f2f5] p-3 space-y-2">
             <Field label="À qui ?">
               <ChampSuggestions valeur={contact.nom} onChange={(v) => setContact({ ...contact, nom: v })}
                 onChoisir={(c) => setContact({ ...contact, nom: c.valeur, tel: c.tel || contact.tel })}
@@ -501,11 +522,11 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
             </Field>
             {/* ⚠ L'APERÇU EST LE MESSAGE LUI-MÊME : on ne fait jamais partir
                 au nom de BMI un texte que personne n'a relu. */}
-            <div className="rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-600 whitespace-pre-line">
+            <div className="rounded-lg bg-[#d9fdd3] p-2 text-xs text-slate-700 whitespace-pre-line shadow-sm">
               {texteContact({ client: contact.nom, auteur: profile.nom, sujet: contact.sujet || "…" })}
             </div>
             <button onClick={envoyerContact} disabled={contact.envoi || !contact.tel.trim() || !contact.sujet.trim()}
-              className="w-full px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-50">
+              className="w-full px-4 py-2 rounded-full bg-[#008069] text-white font-bold text-sm hover:bg-[#006e5a] disabled:opacity-50">
               {contact.envoi ? "Envoi…" : "Envoyer du numéro BMI"}
             </button>
             <div className="text-[11px] text-slate-500">
@@ -514,30 +535,30 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
           </div>
         </PanneauQuiSeMontre>)}
         {tousConvs.length > 0 && (
-          <div className="px-3 py-2 border-b border-slate-100">
+          <div className="px-3 pb-2 space-y-2">
             <input className={champRecherche} value={recherche} onChange={(e) => setRecherche(e.target.value)}
               placeholder="Rechercher une conversation..." />
+            {/* « b1 » : les filtres de WhatsApp. Un client qui attend une
+                réponse se retrouve d'un clic, quelle que soit sa place. */}
+            <div className="flex flex-wrap gap-1.5" data-whatsapp="filtres">
+              {filtres.map(([v, l]) => (
+                <button key={v} onClick={() => setFiltre(v)} data-filtre={v}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border ${filtre === v ? "bg-[#d9fdd3] border-[#d9fdd3] text-[#0b5c4a]" : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"}`}>{l}</button>
+              ))}
+            </div>
           </div>
         )}
-        <div>
-          {liste.nonLues.length > 0 && (
-            <>
-              <div className="px-4 py-1.5 text-xs font-bold text-red-700 uppercase bg-red-50" data-whatsapp="nouveaux">🔴 Nouveaux messages</div>
-              <table className="w-full"><tbody>
-                {liste.nonLues.map((it) => <LigneWa key={"nouveau" + it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} supprimer={supprimer} />)}
-              </tbody></table>
-            </>
-          )}
-          {lues.length > 0 && (
-            <div className="px-4 py-1.5 text-xs font-bold text-slate-500 uppercase bg-slate-50" data-whatsapp="conversations">Conversations</div>
-          )}
+        <div className="flex-1 min-h-0 lg:overflow-y-auto" data-whatsapp="conversations">
           {/* ⚠ LA RÈGLE D'ARCHIVAGE EST CELLE DE TIMO (13/09/2026), par SON
-              composant : 10 lignes puis on défile, et au-delà des 20 plus
-              récentes une conversation sans activité depuis 3 mois passe
-              dans « 📁 Archives ». Aucun tri, aucun `slice` maison ici. */}
-          {lues.length > 0 && (
+              composant : au-delà des 20 plus récentes, une conversation LUE
+              sans activité depuis 3 mois passe dans « 📁 Archivées », en tête
+              comme dans WhatsApp. Aucun tri, aucun `slice` maison ici. */}
+          {tousConvs.length > 0 && convs.length > 0 && (
             <HistoriqueArchive
               lignes={lues}
+              toujoursVisibles={liste.nonLues}
+              archivesEnHaut
+              sansCadre
               // ⚠ 26/09/2026 (capture Timo : une conversation de 5 jours rangée
               // dans « anciennes », mois « — ») : on passait `it.conv` — qui ne
               // porte que { type, id } — au lieu de la conversation `it.wa`. La
@@ -545,9 +566,9 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
               // tout ce qui dépassait les 20 premières partait aux archives.
               dateDe={(it) => derniereActivite(it.wa)}
               aujourdhui={today()}
-              titreArchives="Conversations anciennes"
-              rendre={(it) => <LigneWa key={it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} supprimer={supprimer} />}
-              vide="Aucune conversation."
+              titreArchives="Archivées"
+              rendre={(it) => <LigneWa key={it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} supprimer={supprimer} apercu={apercu} />}
+              vide={videFiltre}
               classeTable="w-full"
             />
           )}
@@ -563,24 +584,39 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
         </div>
       </div>
 
-      {/* Fil de la conversation (sur mobile : affiché seulement quand un fil est ouvert) */}
-      <div className={`bg-white rounded-xl border border-slate-200 shadow-sm flex-col ${ouverte ? "flex" : "hidden lg:flex"}`} style={{ minHeight: 420 }}>
+      {/* ── LA CONVERSATION ── (téléphone : en plein écran, par-dessus la liste) */}
+      <div className={`flex-col min-h-0 bg-[#efeae2] ${ouverte ? "flex fixed inset-0 z-40 lg:relative lg:z-auto" : "hidden lg:flex"}`} data-whatsapp="fil">
         {!ouverte ? (
-          <div className="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">Sélectionnez une conversation dans la liste pour lire et répondre.</div>
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-500 text-sm p-6 text-center bg-[#f0f2f5]">
+            <div className="text-4xl mb-2">📲</div>
+            Sélectionnez une conversation dans la liste pour lire et répondre.
+          </div>
         ) : (
           <>
-            <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-              <button onClick={() => setCleOuverte(null)} className="lg:hidden text-sky-800 font-bold text-lg leading-none" aria-label="Retour">←</button>
-              <span className="flex-1">📲 <NomConversation c={ouverte} /></span>
-              {peutReattribuer(profile) && (
-                <button data-nommer onClick={nommer} className="text-xs font-bold text-sky-800 underline whitespace-nowrap" title="Donner un nom à cette conversation, pour tout le personnel">✏️ Nommer</button>
-              )}
-              {peutReattribuer(profile) && ouverte.proprietaire_id && (
-                <button onClick={rendreATous} className="text-xs font-bold text-slate-600 underline whitespace-nowrap" title="Tout le personnel pourra l'ouvrir et y répondre">🔓 Rendre à tous</button>
-              )}
-              {peutReattribuer(profile) && (
-                <button onClick={reattribuer} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">🔁 Confier</button>
-              )}
+            {/* « c1 » : c'est ICI que se lisent « Support » ou « Conversation de … »
+                et la fenêtre de 24 h — la liste n'en garde que l'essentiel. */}
+            <div className="px-3 py-2 bg-[#f0f2f5] border-b border-slate-200 flex items-center gap-3 flex-wrap">
+              <button onClick={() => setCleOuverte(null)} className="lg:hidden text-[#008069] font-bold text-2xl leading-none px-1" aria-label="Retour">←</button>
+              <Avatar c={ouverte} />
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-slate-900 truncate"><NomConversation c={ouverte} /></div>
+                <div className="text-xs text-slate-500 truncate">
+                  {ouverte.proprietaire_nom
+                    ? `Conversation de ${ouverte.proprietaire_nom}`
+                    : "🛟 Support — personne ne l'a engagée, tout le personnel la voit"}
+                </div>
+              </div>
+              <div className="flex gap-3 w-full sm:w-auto justify-end empty:hidden">
+                {peutReattribuer(profile) && (
+                  <button data-nommer onClick={nommer} className="text-xs font-bold text-[#008069] whitespace-nowrap" title="Donner un nom à cette conversation, pour tout le personnel">✏️ Nommer</button>
+                )}
+                {peutReattribuer(profile) && ouverte.proprietaire_id && (
+                  <button onClick={rendreATous} className="text-xs font-bold text-slate-600 whitespace-nowrap" title="Tout le personnel pourra l'ouvrir et y répondre">🔓 Rendre à tous</button>
+                )}
+                {peutReattribuer(profile) && (
+                  <button onClick={reattribuer} className="text-xs font-bold text-[#008069] whitespace-nowrap">🔁 Confier</button>
+                )}
+              </div>
             </div>
             {/* ⏳ LA FENÊTRE DE 24 H SE VOIT, TOUJOURS. Sans ce bandeau, le
                 vendeur tape un message qui ne partira jamais et ne comprend
@@ -589,36 +625,36 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
             {/* 👨‍💼 LE CLIENT A DEMANDÉ UNE PERSONNE (25/09/2026) : l'assistant
                 s'est tu, c'est à nous. Le bandeau part dès qu'on répond. */}
             {attenteConseiller(ouverte.fil) && (
-              <div data-attente-conseiller="fil" className="border-b px-4 py-2 text-xs bg-amber-50 border-amber-200 text-amber-800">
+              <div data-attente-conseiller="fil" className="px-4 py-2 text-xs bg-amber-50 border-b border-amber-200 text-amber-800">
                 <b>👨‍💼 Ce client attend un conseiller {libelleAttente(attenteConseiller(ouverte.fil).depuis)}.</b> L'assistant s'est tu : répondez-lui ci-dessous. Ce bandeau disparaît dès qu'une personne a répondu.
               </div>
             )}
-            <div className={`border-b px-4 py-2 text-xs ${ouverte.fenetre.ouverte ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-amber-50 border-amber-100 text-amber-800"}`}>
-              <div className="font-bold">{libelleFenetre(ouverte.fenetre)}</div>
-              <div className="mt-0.5 text-slate-500">
-                {ouverte.tel}
-                {" · "}
-                {ouverte.proprietaire_nom
-                  ? `Conversation de ${ouverte.proprietaire_nom}`
-                  : "🛟 Support — personne ne l'a engagée, tout le personnel la voit"}
-              </div>
+            <div className={`px-4 py-1.5 text-xs font-semibold text-center border-b ${ouverte.fenetre.ouverte ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-amber-50 border-amber-100 text-amber-800"}`}>
+              {libelleFenetre(ouverte.fenetre)}
             </div>
-            <div ref={boiteFil.ref} onScroll={boiteFil.onScroll} data-fil-boite="" className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: "50vh" }}>
-              {fil.length === 0 && <div className="text-center text-slate-400 text-sm py-8">Aucun message pour l'instant.</div>}
+            <div ref={boiteFil.ref} onScroll={boiteFil.onScroll} data-fil-boite="" className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-8 py-4 space-y-1.5">
+              {fil.length === 0 && <div className="text-center text-slate-500 text-sm py-8">Aucun message pour l'instant.</div>}
               {/* 🤖 Une réponse de l'assistant (24/09/2026) se voit du côté
                   de BMI, mais PAS comme celle d'une personne : cadre clair,
                   étiquette « Assistant » — le personnel doit savoir ce que
                   le robot a dit au client. */}
-              {fil.map((m) => (
-                <div key={m.id} data-assistant={estLigneAssistant(m) ? "oui" : undefined} className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${m.wa_systeme ? "mx-auto bg-slate-50 text-slate-500 text-xs italic" : estLigneAssistant(m) ? "ml-auto bg-sky-50 border border-sky-200 text-slate-800" : m.de_id === profile.id ? "ml-auto bg-sky-800 text-white" : "bg-slate-100 text-slate-800"}`}>
-                  {estLigneAssistant(m) && <div className="text-xs font-bold mb-0.5 text-sky-800">🤖 {NOM_ASSISTANT}{m.wa_assistant.ia ? " (IA)" : ""}</div>}
-                  {!m.wa_systeme && !estLigneAssistant(m) && m.de_id !== profile.id && <div className="text-xs font-bold mb-0.5 opacity-70">{m.de_nom}</div>}
-                  {m.wa_media && <MediaWa message={m} />}
-                  {m.texte ? <div className="whitespace-pre-line">{texteDuFil(m)}</div> : null}
-                  <div className={`text-[10px] mt-1 ${m.de_id === profile.id ? "text-sky-200" : "text-slate-400"}`}>{dFR(m.date)} {String(m.ts || "").slice(11, 16)}{m.wa_envoi_id && <CochesEnvoi statut={m.wa_statut} surFonce={m.de_id === profile.id && !estLigneAssistant(m)} />}</div>
-                  {m.wa_statut?.etat === "echec" && <div data-echec-envoi className="text-[11px] mt-1 font-semibold text-red-600 bg-white/90 rounded px-1">❌ Non reçu : {m.wa_statut.motif}</div>}
-                </div>
-              ))}
+              {fil.map((m) => {
+                // Tout ce qui part de BMI est à DROITE (une personne, un
+                // modèle, l'assistant) ; le client à GAUCHE ; une ligne
+                // « système » au milieu.
+                const sortant = !m.wa_entrant && !m.wa_systeme;
+                const assistant = estLigneAssistant(m);
+                return (
+                  <div key={m.id} data-assistant={estLigneAssistant(m) ? "oui" : undefined} className={`w-fit max-w-[85%] sm:max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${m.wa_systeme ? "mx-auto bg-[#fff5c4] text-slate-600 text-xs" : assistant ? "ml-auto bg-[#e7f8ec] border border-emerald-200 text-slate-900" : sortant ? "ml-auto bg-[#d9fdd3] text-slate-900" : "bg-white text-slate-900"}`}>
+                    {assistant && <div className="text-xs font-bold mb-0.5 text-[#008069]">🤖 {NOM_ASSISTANT}{m.wa_assistant.ia ? " (IA)" : ""}</div>}
+                    {sortant && !assistant && m.de_id !== profile.id && m.de_nom && <div className="text-xs font-bold mb-0.5 text-[#008069]">{m.de_nom}</div>}
+                    {m.wa_media && <MediaWa message={m} />}
+                    {m.texte ? <div className="whitespace-pre-line break-words">{texteDuFil(m)}</div> : null}
+                    <div className="text-[10px] mt-0.5 text-slate-500 text-right whitespace-nowrap">{dFR(m.date)} {String(m.ts || "").slice(11, 16)}{m.wa_envoi_id && <CochesEnvoi statut={m.wa_statut} surFonce={false} />}</div>
+                    {m.wa_statut?.etat === "echec" && <div data-echec-envoi className="text-[11px] mt-1 font-semibold text-red-600 bg-white/90 rounded px-1">❌ Non reçu : {m.wa_statut.motif}</div>}
+                  </div>
+                );
+              })}
             </div>
             {!ouverte.fenetre.ouverte ? (
               // ⚠ DÉFAUT RÉPARÉ LE 20/09/2026 : cette phrase envoyait le
@@ -628,32 +664,33 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
               // réponse est UN BOUTON au-dessus, dans le même écran : on la
               // donne ici. « L'écran ne décrit jamais autre chose que ce qui
               // est possible » (règle du 19/09).
-              <div className="p-3 border-t border-slate-200 text-xs text-slate-500 space-y-2">
+              <div className="p-3 bg-[#f0f2f5] border-t border-slate-200 text-xs text-slate-600 space-y-2">
                 <div>WhatsApp n'accepte plus de réponse libre : la fenêtre s'est fermée. Seul un message approuvé peut repartir — et dès que le client y répond, vous pourrez lui écrire librement pendant 24 h.</div>
                 <button
                   onClick={() => { setContact({ nom: ouverte.nom || (ouverte.origineNom ? ouverte.nomAffiche : ""), tel: ouverte.tel || "", sujet: "" }); setCleOuverte(null); }}
-                  className="px-3 py-1.5 rounded-lg bg-sky-800 text-white font-bold text-xs hover:bg-sky-900">
+                  className="px-4 py-1.5 rounded-full bg-[#008069] text-white font-bold text-xs hover:bg-[#006e5a]">
                   ✍️ Lui écrire quand même
                 </button>
                 <div>Pour relancer un DEVIS en attente, passez plutôt par 📋 Tous les devis.</div>
               </div>
             ) : (
-              <div className="p-3 border-t border-slate-200 space-y-2">
+              <div className="px-3 py-2 bg-[#f0f2f5] border-t border-slate-200 space-y-2">
                 {fichier && (
-                  <div data-fichier-choisi className="flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-slate-700">
+                  <div data-fichier-choisi className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm">
                     <span className="font-bold truncate">📎 {fichier.nom}</span>
                     <span className="text-slate-500 whitespace-nowrap">{tailleLisible(fichier.taille)}</span>
                     <button onClick={() => setFichier(null)} title="Retirer le fichier" className="ml-auto font-bold text-slate-500 hover:text-red-600">✕</button>
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <input ref={champFichier} type="file" className="hidden" data-champ-fichier onChange={choisirFichier}
                     accept="image/*,video/mp4,video/3gpp,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
                   <button onClick={() => champFichier.current && champFichier.current.click()} disabled={envoi || prepare}
                     title="Joindre un fichier (photo, PDF, Word, Excel, vidéo, son — 3 Mo au plus)" data-joindre
-                    className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-lg leading-none hover:bg-slate-50 disabled:opacity-50">{prepare ? "…" : "📎"}</button>
-                  <input className={inputCls} placeholder={fichier ? "Phrase facultative pour accompagner le fichier…" : "Votre réponse, envoyée du numéro BMI..."} value={texte} onChange={(e) => setTexte(e.target.value)} onKeyDown={(e) => e.key === "Enter" && envoyer()} />
-                  <button onClick={envoyer} disabled={envoi || prepare} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 whitespace-nowrap disabled:opacity-50">{envoi ? "Envoi…" : "Envoyer"}</button>
+                    className="w-10 h-10 shrink-0 rounded-full text-xl leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-50">{prepare ? "…" : "📎"}</button>
+                  <input className={`${inputCls} rounded-full bg-white border-transparent`} placeholder={fichier ? "Phrase facultative pour accompagner le fichier…" : "Votre réponse, envoyée du numéro BMI..."} value={texte} onChange={(e) => setTexte(e.target.value)} onKeyDown={(e) => e.key === "Enter" && envoyer()} />
+                  <button onClick={envoyer} disabled={envoi || prepare} title="Envoyer" aria-label="Envoyer" data-envoyer
+                    className="w-10 h-10 shrink-0 rounded-full bg-[#008069] text-white font-bold text-lg leading-none hover:bg-[#006e5a] disabled:opacity-50">{envoi ? "…" : "➤"}</button>
                 </div>
               </div>
             )}
@@ -664,11 +701,57 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
   );
 }
 
+// ---- LE DÉBUT DU DERNIER MESSAGE, SOUS LE NOM (09/10/2026) ----
+// ⚠ C'est le texte RANGÉ (`m.texte`) qui s'affiche, jamais celui que l'écran
+// recompose : une ligne d'accès garde ses trous masqués, un reçu privé sa
+// phrase neutre. La liste se lit par-dessus l'épaule ; le détail reste au fil.
+export function apercuDernier(c) {
+  const m = (c?.fil || [])[(c?.fil || []).length - 1];
+  if (!m) return null;
+  const media = m.wa_media ? (m.wa_media.envoye ? `📎 ${m.wa_media.nom || libelleMedia(m.wa_media)}` : libelleMedia(m.wa_media)) : "";
+  const texte = String(m.texte || "").split("\n").find((l) => l.trim()) || "";
+  return {
+    sortant: !m.wa_entrant && !m.wa_systeme,
+    assistant: estLigneAssistant(m),
+    systeme: !!m.wa_systeme,
+    texte: [media, texte].filter(Boolean).join(" "),
+    envoi: m.wa_envoi_id ? m.wa_statut : null,
+  };
+}
+const apercu = apercuDernier;
+
+// L'heure du dernier message, comme WhatsApp : l'heure aujourd'hui, « Hier »,
+// sinon la date.
+export function heureListe(ts, aujourdhui = today()) {
+  const t = String(ts || "");
+  if (!t) return "";
+  const jour = t.split("T")[0];
+  if (jour === aujourdhui) return t.slice(11, 16);
+  const [a, mo, j] = aujourdhui.split("-").map(Number);
+  const hier = new Date(Date.UTC(a, mo - 1, j - 1)).toISOString().split("T")[0];
+  return jour === hier ? "Hier" : dFR(jour);
+}
+
+// Le rond du contact : ses initiales (WhatsApp ne nous donne pas sa photo).
+export const initiales = (c) => {
+  const nom = String(c?.nomAffiche || c?.nom || "");
+  if (!nom || nom === String(c?.tel || "")) return "";
+  const [m1, m2] = nom.split(/\s+/).filter((x) => /\p{L}/u.test(x));
+  return [m1, m2].filter(Boolean).map((x) => x.match(/\p{L}/u)[0].toUpperCase()).join("");
+};
+function Avatar({ c }) {
+  const ini = initiales(c);
+  return (
+    <span className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center font-bold ${c.verrouillee ? "bg-slate-200 text-slate-400" : "bg-[#dfe5e7] text-[#54656f]"}`}>
+      {c.verrouillee ? "🔒" : ini || "👤"}
+    </span>
+  );
+}
+
 // Une ligne de la liste — écrite UNE fois, comme LigneConversation de 💬 Messages.
 // ⚠ C'est une LIGNE DE TABLEAU : le composant commun d'archivage dessine un
-// <table>, et le bloc des non lues en pose un aussi. UNE seule ligne pour les
-// deux — deux façons de dessiner la même chose finiraient par diverger.
-function LigneWa({ item, cleOuverte, ouvrir, supprimer = null }) {
+// <table>. UNE seule ligne pour la liste et les archives.
+function LigneWa({ item, cleOuverte, ouvrir, supprimer = null, apercu }) {
   const c = item.wa;
   // 🗑 L'appui long n'existe QUE pour l'administrateur principal (`supprimer`
   // n'est passé qu'à lui) ; chez les autres, la ligne se comporte comme avant.
@@ -683,22 +766,34 @@ function LigneWa({ item, cleOuverte, ouvrir, supprimer = null }) {
   const verrou = !!c.verrouillee;
   // 👨‍💼 Une ligne grisée n'a pas de fil : rien à attendre de ce côté.
   const attente = verrou ? null : attenteConseiller(c.fil);
+  const ap = verrou ? null : apercu(c);
+  const derniere = verrou ? c.derniere : ((c.fil || [])[(c.fil || []).length - 1]?.ts || c.derniere);
+  const nonLu = !verrou && item.nb > 0;
+  // « d2 » : le numéro passe SOUS le nom, en petit — il ne disparaît jamais.
   return (
     <tr><td className="p-0">
     <button onClick={() => ouvrir(c)} data-wa-verrou={verrou ? "1" : "0"} {...appuiLong}
       title={supprimer ? "Appui long : supprimer cette conversation (corbeille 30 jours)" : undefined}
-      className={`w-full text-left px-4 py-3 border-b border-slate-100 flex items-center justify-between ${supprimer ? "select-none" : ""} ${verrou ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "hover:bg-sky-50"} ${!verrou && cleOuverte === c.cle ? "bg-sky-50" : ""}`}>
-      <span className="text-sm">
-        <span className={verrou ? "font-semibold text-slate-500" : "font-semibold"}>{verrou ? "🔒 " : ""}<NomConversation c={c} /></span>
-        <span className="block text-xs text-slate-400">
-          {verrou
-            ? `Confiée à ${c.proprietaire_nom || "quelqu'un d'autre"} — vous ne pouvez pas l'ouvrir`
-            : c.proprietaire_nom ? c.proprietaire_nom : "🛟 Support — personne ne l'a engagée"}
-          {verrou || c.fenetre.ouverte ? "" : " · fenêtre fermée"}
+      className={`w-full text-left pl-3 pr-4 py-2.5 flex items-center gap-3 ${supprimer ? "select-none" : ""} ${verrou ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "hover:bg-[#f5f6f6]"} ${!verrou && cleOuverte === c.cle ? "bg-[#f0f2f5]" : ""}`}>
+      <Avatar c={c} />
+      <span className="flex-1 min-w-0 border-b border-slate-100 pb-2.5 -mb-2.5">
+        <span className="flex items-baseline gap-2">
+          <span className={`flex-1 min-w-0 truncate ${verrou ? "font-semibold text-slate-500" : "font-semibold text-slate-900"}`}><NomConversation c={c} sansNumero /></span>
+          <span className={`text-[11px] whitespace-nowrap ${nonLu ? "text-[#1fa855] font-bold" : "text-slate-500"}`}>{heureListe(derniere)}</span>
+        </span>
+        {c.tel && (c.nomAffiche || c.nom || c.tel) !== c.tel && (
+          <span data-numero-conversation className="block text-[11px] text-slate-500 truncate">{c.tel}</span>
+        )}
+        <span className="flex items-center gap-2">
+          <span className={`flex-1 min-w-0 truncate text-[13px] ${nonLu ? "text-slate-800 font-medium" : "text-slate-500"}`}>
+            {verrou
+              ? `Confiée à ${c.proprietaire_nom || "quelqu'un d'autre"} — vous ne pouvez pas l'ouvrir`
+              : ap ? (<>{ap.sortant && ap.envoi && <CochesEnvoi statut={ap.envoi} surFonce={false} />}{ap.assistant ? "🤖 " : ""}<span className={ap.systeme ? "italic" : ""}>{ap.texte}</span></>) : ""}
+          </span>
+          {nonLu && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center">{item.nb}</span>}
         </span>
         {attente && <span data-attente-conseiller="1" className="block text-xs font-bold text-amber-700">👨‍💼 Attend un conseiller {libelleAttente(attente.depuis)}</span>}
       </span>
-      {!verrou && item.nb > 0 && <span className="text-xs font-bold text-white bg-red-600 rounded-full px-2 py-0.5">{item.nb}</span>}
     </button>
     </td></tr>
   );
@@ -707,15 +802,15 @@ function LigneWa({ item, cleOuverte, ouvrir, supprimer = null }) {
 // ---- 👤 LE NOM D'UNE CONVERSATION (06/10/2026) ----
 // ⚠ Le nom WhatsApp est choisi par le CLIENT : il se lit MARQUÉ, jamais comme
 // un client vérifié (un compte BMI ou un nom donné par l'administrateur).
-// ⚠ LE NUMÉRO NE DISPARAÎT JAMAIS (Timo, 06/10/2026 : « afficher aussi le
-// numéro à côté… pas remplacer et faire disparaître le numéro ») : dès qu'un
-// nom s'affiche, le numéro suit sur la même ligne.
-function NomConversation({ c }) {
+// ⚠ LE NUMÉRO NE DISPARAÎT JAMAIS (Timo, 06/10/2026) — « d2 » (09/10/2026) :
+// dans la LISTE il passe SOUS le nom, en petit (LigneWa) ; dans l'en-tête du
+// fil il suit le nom sur la même ligne.
+function NomConversation({ c, sansNumero = false }) {
   const tel = String(c?.tel || "");
   const nom = c?.nomAffiche || c?.nom || tel;
   return (<>{nom}{c?.origineNom === "whatsapp" && (
     <span data-nom-whatsapp className="ml-1 text-[10px] font-normal text-slate-500 whitespace-nowrap">(nom WhatsApp)</span>
-  )}{tel && nom !== tel && (
+  )}{!sansNumero && tel && nom !== tel && (
     <span data-numero-conversation className="ml-1 text-xs font-normal text-slate-500 whitespace-nowrap">· {tel}</span>
   )}</>);
 }

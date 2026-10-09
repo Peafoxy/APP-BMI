@@ -60,7 +60,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
         ["💬 Messages (N)", "À gauche « 💬 Conversations », à droite le fil ouvert. **N** = les messages non lus. Sur téléphone, la liste se cache quand un fil est ouvert (← pour revenir)."],
-        ["📲 WhatsApp (N)", "À gauche les conversations WhatsApp, « ✍️ Écrire », la recherche ; à droite le fil, la bande de la fenêtre de 24 h et la case de réponse. **N** = les non lus des conversations qu'on a le droit d'ouvrir."],
+        ["📲 WhatsApp (N)", "Présenté comme WhatsApp sur un téléphone ou sur Windows. **Sur ordinateur** : à gauche « 📲 Discussions » (« ✍️ Écrire », la recherche, les filtres, la liste), à droite le fil. **Sur téléphone** : la liste prend tout l'écran ; un toucher sur une conversation l'ouvre en plein écran, la flèche **←** revient à la liste. **N** = les non lus des conversations qu'on a le droit d'ouvrir."],
         ["Les notifications du téléphone", "Un nouveau message de 💬 Messages prévient son destinataire. Un message WhatsApp entrant prévient **la personne à qui la conversation est confiée**, sinon **les administrateurs**."],
       ]}],
       ["table", { entetes: ["Bloc de 💬 Conversations", "Ce qu'il contient"], largeurs: [3100, 6200], lignes: [
@@ -99,7 +99,7 @@ export const CHAPITRE = {
 
       ["h3", "D. 📲 WhatsApp — répondre"],
       ["etapes", [
-        { titre: "Ouvrir la conversation", texte: "Les non lues sont dans « 🔴 Nouveaux messages » ; les autres dans « Conversations » (10 lignes, puis on fait défiler ; les plus vieilles passent dans « Conversations anciennes »). « Rechercher une conversation… » cherche le nom **ou le numéro**, archives comprises. **Le nom d'une conversation** : celui donné par l'administrateur (✏️ Nommer), sinon le compte BMI du client, sinon **le nom que le client s'est donné dans son WhatsApp**, marqué « (nom WhatsApp) » — c'est lui qui l'a choisi, ce n'est pas un client vérifié —, sinon le numéro. **Le numéro reste toujours écrit à côté du nom.** ⚠ Les noms du **répertoire du téléphone BMI** n'arrivent jamais dans l'application : WhatsApp ne les donne pas. Le fil s'ouvre sur **le dernier message** ; pour relire le début, on remonte dans le fil." },
+        { titre: "Ouvrir la conversation", texte: "Chaque ligne : les **initiales** du client dans un rond, son **nom** en gras et l'**heure** du dernier message à droite (« Hier », ou la date), **le numéro juste sous le nom**, puis le début du dernier message (avec ses coches ✓✓ s'il vient de BMI) et, s'il y a des non lus, une **pastille verte** avec leur nombre. Toutes les conversations sont rangées **par dernier message** — une non lue n'est jamais rangée aux archives. Trois filtres au-dessus : **Toutes**, **Non lues**, **👨‍💼 Attendent un conseiller**. Les conversations sans activité depuis plus de 3 mois (au-delà des 20 plus récentes) passent dans **« 📁 Archivées (N) »**, en haut de la liste ; « ◂ Retour aux conversations » revient. « Rechercher une conversation… » cherche le nom **ou le numéro**, archives comprises. **Le nom d'une conversation** : celui donné par l'administrateur (✏️ Nommer), sinon le compte BMI du client, sinon **le nom que le client s'est donné dans son WhatsApp**, marqué « (nom WhatsApp) » — c'est lui qui l'a choisi, ce n'est pas un client vérifié —, sinon le numéro. **Le numéro reste toujours écrit à côté du nom.** ⚠ Les noms du **répertoire du téléphone BMI** n'arrivent jamais dans l'application : WhatsApp ne les donne pas. Le fil s'ouvre sur **le dernier message** ; pour relire le début, on remonte dans le fil. **En haut du fil** : le nom, le numéro, et à qui la conversation est confiée (ou « 🛟 Support »), puis les boutons de l'administrateur. Les messages sont des **bulles** : celles du client à gauche (blanches), celles de BMI à droite (vertes, avec le nom du collègue qui a écrit, l'heure et les coches), celles de l'assistant marquées « 🤖 »." },
         { titre: "Écrire « Votre réponse, envoyée du numéro BMI… » puis « Envoyer »", texte: "Le message part **du numéro BMI**. Il ne s'écrit dans le fil **que s'il est vraiment parti** ; sinon l'écran dit pourquoi, en français." },
         { titre: "📎 Joindre un fichier (facultatif)", texte: "Le bouton **📎** à gauche de la case : photo, PDF, Word, Excel, PowerPoint, texte, vidéo MP4 ou son, **3 Mo au plus**. Une photo de téléphone est **réduite toute seule** avant de partir. Le fichier choisi s'affiche au-dessus (✕ pour le retirer) ; la case devient « Phrase facultative… » : on peut l'envoyer **sans un mot**. Un son part sans phrase (WhatsApp n'en porte pas). Le fil garde « 📎 nom du fichier — envoyé » : **le fichier n'est pas rangé dans l'application**, sa copie reste sur le téléphone BMI." },
         { titre: "Lire les coches", texte: "**✓** parti · **✓✓ gris** arrivé sur son téléphone · **✓✓ bleu** lu · **❌ Non reçu** avec le motif. Un client qui a coupé les confirmations de lecture reste à ✓✓ gris." },
@@ -154,6 +154,9 @@ export const CHAPITRE = {
         ["Appui long sur une conversation", "📲 WhatsApp, la liste (administrateur principal)", "La met à la corbeille 30 jours, pour tout le monde."],
         ["✏️ Nommer", "📲, fil ouvert (admin)", "Donne un nom à la conversation, pour tout le personnel ; vide = le retire."],
         ["Rechercher une conversation…", "📲 WhatsApp", "Nom (donné, compte, WhatsApp) ou numéro, archives comprises."],
+        ["Toutes / Non lues / 👨‍💼 Attendent un conseiller", "📲 WhatsApp, au-dessus de la liste", "Ne montre que les conversations de ce filtre."],
+        ["📁 Archivées (N) / ◂ Retour", "📲 WhatsApp, en haut de la liste", "Ouvre les conversations de plus de 3 mois, rangées par mois / revient à la liste."],
+        ["← (téléphone)", "📲 WhatsApp, en haut du fil", "Revient à la liste des conversations."],
       ]}],
     ]},
 
@@ -184,8 +187,8 @@ export const CHAPITRE = {
     // ── 8
     { titre: "Contrôles à effectuer", blocs: [
       ["cases", [
-        "Le bloc **🔴 Nouveaux messages** est vide en fin de journée.",
-        "Aucun client n'attend **un conseiller** sans réponse.",
+        "Le bloc **🔴 Nouveaux messages** de 💬 Messages et le filtre **Non lues** de 📲 WhatsApp sont vides en fin de journée.",
+        "Le filtre **👨‍💼 Attendent un conseiller** est vide : aucun client n'attend sans réponse.",
         "Les fenêtres **vertes** sont utilisées avant de se fermer.",
         "Une conversation **confiée** à quelqu'un d'absent est rendue ou reconfiée.",
         "Les **❌ Non reçu** sont lus, et le client joint autrement si besoin.",
@@ -207,7 +210,7 @@ export const CHAPITRE = {
     // ── 10
     { titre: "Cas pratiques de formation", blocs: [
       ["cas", [
-        { situation: "Un client écrit au numéro BMI à 9 h : « Mon onduleur sonne. »", reponse: "📲 WhatsApp, 🔴 Nouveaux messages : on ouvre, la bande verte dit « Il reste 23 h 58 ». On répond. La conversation reste au support." },
+        { situation: "Un client écrit au numéro BMI à 9 h : « Mon onduleur sonne. »", reponse: "📲 WhatsApp : la conversation est en tête, avec sa pastille verte (ou filtre « Non lues ») ; on ouvre, la bande verte dit « Il reste 23 h 58 ». On répond. La conversation reste au support." },
         { situation: "Le même client réécrit le lendemain à 11 h, mais personne ne lui a répondu depuis la veille 10 h.", reponse: "Son message rouvre la fenêtre : 24 h à partir de 11 h." },
         { situation: "Un prospect vu au salon n'a jamais écrit à BMI.", reponse: "« ✍️ Écrire », son nom, son numéro, « votre installation solaire » : le modèle part, la conversation vous est confiée, la bande dit qu'il n'a pas encore écrit." },
         { situation: "Une conversation est grisée « confiée à KOSSI », KOSSI est en congé.", reponse: "On demande à l'administrateur : 🔓 Rendre à tous, ou 🔁 Confier à un autre." },

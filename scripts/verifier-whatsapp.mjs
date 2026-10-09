@@ -2918,9 +2918,15 @@ let htmlArch = "";
 try { htmlArch = V.htmlArchivage(); } catch (e) { htmlArch = ""; }
 // Les archives sont REPLIÉES d'office : ce qui est au-dessus du bouton est
 // exactement ce qui se voit sans le toucher.
-const avantArch = htmlArch.slice(0, htmlArch.indexOf("Conversations anciennes"));
-test("★★ l'écran rendu : les 25 conversations de moins de 3 mois restent TOUTES visibles, seule celle de 5 mois part dans « anciennes (1) »",
-  /Conversations anciennes \(1\)/.test(htmlArch) && Array.from({ length: 25 }, (_, i) => `RECENT${i}<`).every((n) => avantArch.includes(n)) && !avantArch.includes("VIEUX CLIENT"));
+// ⚠ RETOURNÉ le 09/10/2026 (« a1 b1 c1 d2 », la liste comme WhatsApp) : la
+// ligne « 📁 Archivées (N) » est EN TÊTE, et repliée, elle ne montre RIEN
+// des archives — la vieille conversation n'est nulle part dans la page.
+test("★★ l'écran rendu : les 25 conversations de moins de 3 mois restent TOUTES visibles, seule celle de 5 mois part dans « 📁 Archivées (1) », en tête et repliée",
+  /data-archives-en-haut[^>]*>[\s\S]{0,200}Archivées (?:<!-- -->)?\(1\)/.test(htmlArch) && htmlArch.indexOf("data-archives-en-haut") < htmlArch.indexOf("RECENT0<")
+  && Array.from({ length: 25 }, (_, i) => `RECENT${i}<`).every((n) => htmlArch.includes(n)) && !htmlArch.includes("VIEUX CLIENT"));
+test("★★ « b1 » : les NON LUES passent en `toujoursVisibles` (jamais archivées), rangées par date avec les autres ; plus de bloc « Nouveaux messages »",
+  /toujoursVisibles=\{liste\.nonLues\}/.test(ecranWa) && /archivesEnHaut/.test(ecranWa) && !/data-whatsapp="nouveaux"/.test(ecranWa)
+  && /data-filtre=\{v\}/.test(ecranWa) && /\["nonlues", `Non lues/.test(ecranWa) && /Attendent un conseiller/.test(ecranWa));
 test("★ l'écran passe la CONVERSATION à l'archivage (it.wa), jamais son seul identifiant (it.conv)",
   /dateDe=\{\(it\) => derniereActivite\(it\.wa\)\}/.test(ecranWa) && !/derniereActivite\(it\.conv\)/.test(ecranWa));
 }
@@ -3883,7 +3889,8 @@ titre("㊽ 🗑 SUPPRIMER UNE CONVERSATION PAR UN APPUI LONG — LE PRINCIPAL SE
     && corps.indexOf("await uConfirm(") < corps.indexOf("mettreConversationALaCorbeille(db, c.cle, profile)")
     && /corbeille pendant \$\{DUREE_CORBEILLE_JOURS\} jours/.test(corps) && /Le téléphone BMI et le client gardent leur copie/.test(corps) && /au support/.test(corps)
     && /const supprimer = jeSuisPrincipal \? supprimerConversation : null;/.test(W)
-    && (W.match(/supprimer=\{supprimer\}/g) || []).length === 2
+    // RETOURNÉ le 09/10/2026 : la liste n'a plus qu'UN rendu de ligne (les non lues sont dans la même liste).
+    && (W.match(/supprimer=\{supprimer\}/g) || []).length === 1
     && /useAppuiLong\(\(\) => supprimer && supprimer\(c\), \{ actif: !!supprimer \}\)/.test(W));
   test("★★ l'écran RENDU : la ligne porte l'appui long chez l'administrateur principal, PAS chez un vendeur",
     /Appui long : supprimer cette conversation/.test(V.htmlAdmin()) && !/Appui long : supprimer/.test(V.htmlVendeur()));
@@ -3933,12 +3940,14 @@ titre("㊾ 👤 LE NOM D'UNE CONVERSATION — LE NOM DONNÉ, LE COMPTE BMI, LE N
   const hA = V.renduNoms("admin"), hV = V.renduNoms("vendeur");
   test("★★ l'écran RENDU : le nom WhatsApp s'affiche MARQUÉ « (nom WhatsApp) », le nom donné l'emporte et n'est pas marqué",
     /Kossi M\.<span data-nom-whatsapp[^>]*>\(nom WhatsApp\)/.test(hA) && /PLOMBIER AGOE/.test(hA) && !/😎 Boss/.test(hA));
-  test("★★ le NUMÉRO reste à côté du nom (Timo : « pas remplacer et faire disparaître le numéro ») — nom WhatsApp, nom donné et ligne grisée",
-    /Kossi M\.<span data-nom-whatsapp[\s\S]{0,200}<span data-numero-conversation[^>]*>· (?:<!-- -->)?\+22890117711/.test(hA)
-    && /PLOMBIER AGOE<span data-numero-conversation[^>]*>· (?:<!-- -->)?\+22890117722/.test(hA)
-    && /AYOKO VILLA ADIDOGOME<span data-numero-conversation[^>]*>· (?:<!-- -->)?\+22890114455/.test(hV));
-  test("★★ la ligne GRISÉE du vendeur porte le nom donné par l'administrateur",
-    /🔒 <!-- -->AYOKO VILLA ADIDOGOME|🔒 AYOKO VILLA ADIDOGOME/.test(hV));
+  // RETOURNÉ le 09/10/2026 (« d2 ») : dans la LISTE, le numéro passe SOUS le
+  // nom, en petit — il ne disparaît toujours jamais.
+  test("★★ le NUMÉRO reste visible (Timo : « pas remplacer et faire disparaître le numéro ») — « d2 » : sous le nom, nom WhatsApp, nom donné et ligne grisée",
+    /Kossi M\.<span data-nom-whatsapp[\s\S]{0,400}<span data-numero-conversation[^>]*>(?:<!-- -->)?\+22890117711/.test(hA)
+    && /PLOMBIER AGOE[\s\S]{0,400}<span data-numero-conversation[^>]*>(?:<!-- -->)?\+22890117722/.test(hA)
+    && /AYOKO VILLA ADIDOGOME[\s\S]{0,400}<span data-numero-conversation[^>]*>(?:<!-- -->)?\+22890114455/.test(hV));
+  test("★★ la ligne GRISÉE du vendeur porte le cadenas et le nom donné par l'administrateur",
+    /data-wa-verrou="1"[\s\S]{0,800}🔒[\s\S]{0,800}AYOKO VILLA ADIDOGOME/.test(hV));
   test("★★ « ✏️ Nommer » : chez l'administrateur seulement, sur le fil ouvert",
     /data-nommer/.test(V.renduNoms("admin", "90117711")) && !/data-nommer/.test(V.renduNoms("vendeur", "90117711")));
   const W2 = sansC(lire("src/screens/Whatsapp.jsx"));

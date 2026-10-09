@@ -66,7 +66,7 @@ npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet,
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 32 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran
 npm run verifier-mot-information # 35  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 875 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement ; ㊽ supprimer une conversation par un appui long, le principal seul, à la corbeille ; ㊾ le nom d'une conversation : nom donné, compte, nom WhatsApp ; ㊿ la recherche rendue avec un texte tapé)
+npm run verifier-whatsapp        # 876 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement ; ㊽ supprimer une conversation par un appui long, le principal seul, à la corbeille ; ㊾ le nom d'une conversation : nom donné, compte, nom WhatsApp ; ㊿ la recherche rendue avec un texte tapé)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -3712,6 +3712,38 @@ lit mal est pire qu'un banc absent).
   +5, souris et doigt), éprouvés (fiche vivante écrasée, serveur qui compte la
   corbeille, garde du principal retirée, clic non avalé). Chapitres 20 et 23.
 
+### 📲 LA LISTE COMME WHATSAPP SUR TÉLÉPHONE ET SUR WINDOWS (09/10/2026, « a1 b1 c1 d2, lance »)
+- Quatre captures de Timo (WhatsApp mobile / Windows / app BMI) : « présenter
+  le WhatsApp app BMI comme WhatsApp se présente ». **Affichage seul** : qui
+  voit quoi, la fenêtre de 24 h, Confier, Nommer, l'appui long, l'envoi —
+  rien n'a bougé (`lib/whatsappConversations.js` intact).
+- **Ligne** (`LigneWa`) : rond d'initiales (`initiales`, `Avatar` — 🔒 grisée),
+  nom en gras + heure à droite (`heureListe` : HH:MM / « Hier » / date ; verte
+  si non lu), **« d2 » le numéro SOUS le nom** (`NomConversation sansNumero`),
+  aperçu du dernier message (`apercuDernier` : le TEXTE RANGÉ, jamais
+  recomposé — une ligne privée reste neutre) avec ses coches, pastille verte
+  du nombre de non lus. **« a1 » : vert WhatsApp sur CET écran seulement**
+  (#008069, #25d366, fond du fil #efeae2, bulles #d9fdd3) — le reste de
+  l'application garde le bleu / violet de l'espace.
+- **« b1 »** : filtres **Toutes · Non lues · 👨‍💼 Attendent un conseiller**
+  (`data-filtre`), une seule liste rangée par DERNIER MESSAGE ; le bloc
+  « 🔴 Nouveaux messages » de 📲 WhatsApp est RETIRÉ (💬 Messages le garde).
+  Les non lues passent par `toujoursVisibles` de `HistoriqueArchive` : JAMAIS
+  archivées. **« 📁 Archivées (N) » en HAUT** (`archivesEnHaut`, `sansCadre` —
+  nouvelles props, le comportement d'office des autres écrans ne change pas).
+- **« c1 »** : « Support / confiée à … » et la fenêtre quittent la ligne pour
+  l'EN-TÊTE du fil ; seule « Attend un conseiller » reste sur la ligne.
+- **Ordinateur** : deux volets (`lg:grid-cols-[380px_1fr]`, hauteur de
+  l'écran). **Téléphone** : la liste plein écran, la conversation plein écran
+  (`fixed inset-0`, ⚠ `lg:relative` — `lg:static` est banni par le banc des
+  colonnes figées), flèche ← pour revenir. Bulles : client à gauche, BMI à
+  droite (nom du collègue, heure, coches), assistant 🤖, système centré.
+- ⚠ Pièges du banc rencontrés : `accept="image/*"` ouvre un faux commentaire
+  pour les contrôles textuels (pas de commentaire JSX `{/* */}` après) ; aucun
+  `.slice(0, N)` dans Whatsapp.jsx. Banc `verifier-whatsapp` (876), trois
+  contrôles RETOURNÉS (archives, « Nouveaux messages », numéro), regardé dans
+  Chromium (PC, téléphone liste et fil). Rien à coller. Chapitre 20 à jour.
+
 ### 👤 LE NOM D'UNE CONVERSATION WHATSAPP (06/10/2026, « b, lance »)
 - Timo : « afficher les noms des contacts de Messenger ? » — le RÉPERTOIRE du
   téléphone BMI n'arrive JAMAIS (ni Meta ni YCloud ne le donnent). Ordre
@@ -3723,6 +3755,8 @@ lit mal est pire qu'un banc absent).
   WhatsApp) », puis le numéro. ⚠ **Le numéro ne disparaît JAMAIS** (Timo,
   le jour même : « afficher aussi le numéro à côté… pas remplacer ») : il suit
   le nom sur la même ligne (`data-numero-conversation`), liste, fil, grisée.
+  ⚠ **RETOURNÉ pour la LISTE le 09/10/2026 (« d2 »)** : le numéro passe SOUS
+  le nom, en petit ; l'en-tête du fil le garde à côté.
 - ⚠ Les deux noms vivent sur la **FICHE LÉGÈRE** (la ligne grisée les montre) :
   toute réécriture de fiche les GARDE (`construireEntete({ entete })`,
   `messagesAvecEntete`, le webhook, les CINQ tournées). « ✏️ Nommer » =
