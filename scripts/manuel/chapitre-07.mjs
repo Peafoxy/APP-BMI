@@ -2,7 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 7 : Dettes et paiements
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
-// screens/Dettes.jsx, components/FiltrePeriode.jsx (Nouvelle dette client, 💵 Paiement, la relance, la
+// screens/Dettes.jsx, components/verserOrigine.js, components/FiltrePeriode.jsx (Nouvelle dette client, 💵 Paiement, la relance, la
 // réservation prépayée, 📦 Livrer, Annuler, 🗑, la liste), lib/core.js
 // (prochainNumeroDette, numeroRecuDette, titreRecuDette, documentDeVente,
 // lignesDette), lib/impression.js (imprimerRecuVersement : le reçu de dette,
@@ -78,11 +78,18 @@ export const CHAPITRE = {
     { titre: "Procédure pas à pas", blocs: [
       ["h3", "A. Encaisser un versement sur une dette"],
       ["etapes", [
-        { titre: "Trouver la dette", texte: "Dans la liste, la ligne du client : son **Reste** en orange, sa pastille **En cours** (rien versé) ou **Partielle**. Cliquer sur la ligne déplie les articles s'il y en a plus de deux." },
+        { titre: "Trouver la dette", texte: "Dans la liste, la ligne du client : son **Reste** en orange, sa pastille **En cours** (rien versé) ou **Partielle**. Cliquer sur la ligne déplie les articles et la liste de ses **règlements**." },
         { titre: "💵 Paiement", texte: "Le bouton rond vert. Une question : « Montant reçu de KOSSI (F) — reste dû : 150 000 F », le reste proposé d'office. Un montant supérieur au reste est refusé : « Le montant dépasse le reste dû (150 000 F). »" },
         { titre: "Le moyen de paiement", texte: "Quatre boutons : Espèces · Mobile Money (Flooz) · Mobile Money (Mixx/T-Money) · Virement bancaire. **Choisir celui par lequel l'argent est vraiment entré** : c'est ce qui décide de la caisse du soir." },
         { titre: "Confirmer", texte: "« Confirmer le versement de 50 000 F de KOSSI ? » → « Versement enregistré ! ». La ligne se met à jour (Payé, Reste, pastille), le journal note « Paiement dette 50 000 F de KOSSI — BOUTIQUE »." },
         { titre: "Le reçu sort tout seul", texte: "À chaque versement, le reçu s'ouvre avec **tout l'historique des versements** (date, moyen, reçu par, montant), le montant total dû, le total versé et **RESTE À PAYER en rouge**. Si ce versement solde la dette, le titre devient **REÇU DÉFINITIF — DETTE SOLDÉE** avec le bandeau « ✔ CETTE DETTE EST INTÉGRALEMENT SOLDÉE — AUCUN MONTANT NE RESTE DÛ ». On l'imprime ou on le partage (📤 sur téléphone)." },
+      ]],
+      ["h3", "A bis. Remettre au DG l'argent d'un règlement (gérant, administrateur)"],
+      ["etapes", [
+        { titre: "Quand ?", texte: "Le client d'une vente à crédit revient payer, et l'argent part chez le DG (ou à la banque, ou au comptable) sans attendre le versement de fin de journée. On enregistre d'abord le règlement (A), puis on le verse." },
+        { titre: "Déplier la dette", texte: "Un clic sur la ligne : sous elle, la liste des **Règlements**. Chaque règlement en espèces ou par compte mobile, pas encore versé, porte un bouton **💸** (un virement est déjà à la banque)." },
+        { titre: "💸 Verser", texte: "On choisit **Chez le DG**, **BANQUE** (banque + bordereau) ou **Chez le comptable**, puis on confirme : « L'argent sort tout de suite du tiroir de BOUTIQUE. Il reste « en attente » jusqu'à la validation par le DG ; s'il est rejeté, il revient dans la caisse. » Le DG reçoit « 💸 Versement de fonds … À valider. »" },
+        { titre: "Ensuite", texte: "Le règlement porte « 💸 versé Chez le DG — ⏳ en attente », puis « ✅ validé le … par … » ; le bouton disparaît (un règlement ne se verse qu'une fois, sauf s'il est rejeté). **Aucune bande noire** dans 💰 Ventes. Le vendeur n'a pas ce bouton." },
       ]],
       ["h3", "B. Enregistrer une dette à la main"],
       ["etapes", [
@@ -119,13 +126,15 @@ export const CHAPITRE = {
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
         ["Reste total : X", "Dans le titre : la somme de ce qui reste dû sur les dettes AFFICHÉES de la boutique, réservations exclues."],
         ["Le filtre de période", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates, sur la DATE de la dette. La liste et le « Reste total » la suivent. Une vieille dette impayée sort alors de la liste : une bande ambre le dit (« Hors de cette période : N dettes non soldées, X restants »), l'argent dû ne se perd jamais de vue."],
-        ["Date / numéro", "La date de la dette, et son numéro (APE-DET-2026-0003 ; FOR- devant en formation). Colonne figée pendant le défilement."],
-        ["Client / téléphone", "Le nom en gras, le numéro dessous."],
+        ["Client / téléphone", "Le nom en gras, le numéro dessous. Colonne figée pendant le défilement."],
+        ["Date / numéro", "La date de la dette, et son numéro (APE-DET-2026-0003 ; FOR- devant en formation)."],
         ["Motif", "Les articles de la vente à crédit (avec les frais d'installation et de transport d'un devis), ou le motif tapé. Deux lignes au plus, « + N autres », la suite au clic."],
         ["Dette · Payé · Reste", "Le montant dû, le total versé (vert), ce qui reste (orange ; vert à 0)."],
         ["Statut", "**En cours** (rouge, rien versé) · **Partielle** (ambre) · **Payée** (vert). Dessous : « N jours » depuis la dette ; **rouge avec ⚠ au-delà de 30 jours** s'il reste à payer. Et la trace « 📲 … » de la dernière relance partie du numéro BMI."],
         ["🖨", "Réimprime le reçu de la dette : de dette, de versement ou définitif selon ce qui a été versé ; « 📦 MARCHANDISE DÉJÀ LIVRÉE LE … » si elle vient d'une vente livrée."],
         ["💵", "« + Paiement : enregistrer un versement du client ». Absent sur une dette Payée."],
+        ["Règlements (ligne dépliée)", "Chaque versement du client : date et heure, montant, moyen, qui l'a reçu. Un règlement remis au DG porte « 💸 versé Chez le DG — ⏳ en attente » puis « ✅ validé le … par … »."],
+        ["💸 (sur un règlement)", "**Verser l'argent de CE règlement** au DG, à la BANQUE ou au comptable — gérant et administrateur seulement, voir F."],
         ["Logo WhatsApp", "« Relancer le client par WhatsApp », du numéro BMI. Absent sur une dette Payée."],
         ["🗑", "« Supprimer cette dette » — administrateur seul, après confirmation. Rien ne revient au stock, aucune dépense n'est créée : c'est un effacement, à réserver à une saisie fausse."],
         ["Pagination", "50 dettes par page."],

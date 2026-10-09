@@ -13771,6 +13771,83 @@ titre("💸 Ventes : la bande noire d'un versement et le résumé des ventes dep
     && /➕ Dettes réglées en espèces : 7 000 F/.test(hB) && /Depuis le début : 1 vente — Espèces 1 000 F/.test(hB));
 }
 
+titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser sur chaque vente… la bande seulement entre les versements généraux », « 1 non pour le vendeur, 2 tout de suite »)");
+{
+  const BVo = await import(pathToFileURL("src/lib/bandesVersement.js").href);
+  const Co = await import(pathToFileURL("src/lib/core.js").href);
+  const Vo = await import(pathToFileURL("src/lib/versements.js").href);
+  const BQ = "BMI DEMAKPOE", j = "2026-10-09";
+  const angele = { id: "ag", nom: "ANGELE", role: "gerant", boutique: BQ };
+  const dbO = {
+    boutiques: [{ id: "b1", nom: BQ }], users: [angele], produits: [{ id: "p1", nom: "Moteur", boutique: BQ, prix_achat: 1, prix_vente: 120000, initial: 9, seuil: 1 }],
+    ventes: [{ id: "s48", numero: "BMID-2026-0048", date: j, heure: "14:16", boutique: BQ, client: "SENA", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Moteur", qte: 1, pu: 120000 }] },
+      { id: "s49", numero: "BMID-2026-0049", date: j, heure: "15:46", boutique: BQ, client: "KOFI", paiement: "Crédit (dette)", articles: [{ produit_id: "p1", article: "Moteur", qte: 1, pu: 120000 }] },
+      { id: "s50", numero: "BMID-2026-0050", date: j, heure: "16:04", boutique: BQ, client: "AMA", paiement: "Virement bancaire", articles: [{ produit_id: "p1", article: "Moteur", qte: 1, pu: 120000 }] }],
+    dettes: [{ id: "d49", numero: "BMID-DET-2026-0009", vente_id: "s49", boutique: BQ, client: "KOFI", date: j, montant: 120000, paye: 50000, paiements: [{ id: "pa1", date: j, heure: "15:46", montant: 30000, paiement: "Espèces" }, { date: j, heure: "17:00", montant: 20000, paiement: "Espèces" }] }],
+    depenses: [], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [],
+  };
+  const oV = { type: Vo.ORIGINE_VENTE, vente_id: "s48", numero: "BMID-2026-0048", client: "SENA" };
+  const rV = Vo.construireVersementOrigine(angele, dbO, { origine: oV, boutique: BQ, montant: 120000, source: "Espèces", destination: Vo.DEST_DG });
+  test("★★ le versement d'une vente est un versement ORDINAIRE (catégorie, montant, DG) qui porte son ORIGINE, sans montant « attendu » ni écart à justifier",
+    !rV.refus && Vo.estVersement(rV.sortie) && rV.sortie.montant === 120000 && rV.sortie.versement.destination === "Chez le DG"
+    && rV.sortie.versement.origine?.vente_id === "s48" && rV.sortie.versement.attendu === null && /vente BMID-2026-0048 \(SENA\)/.test(rV.sortie.description));
+  test("★ il DIT d'où vient l'argent, partout où un versement se nomme (validation du DG, historique)",
+    Vo.libelleVersementDu(rV.sortie) === "Versement de la vente BMID-2026-0048 (SENA) du " + Co.dFR(rV.sortie.date));
+  const dbApres = { ...dbO, depenses: [rV.sortie] };
+  const tiroirAvant = Vo.deuxPoches(dbO, BQ, Co.totalVente).recette, tiroirApres = Vo.deuxPoches(dbApres, BQ, Co.totalVente).recette;
+  test("★★ « 2 tout de suite » : en attente du DG, la somme a DÉJÀ quitté le tiroir (pas de faux manque à la clôture) — et y revient si le DG la rejette",
+    tiroirAvant - tiroirApres === 120000 && !Vo.validationVersement(dbApres, rV.sortie)
+    && Vo.deuxPoches({ ...dbApres, depenses: Vo.rejeterVersement(dbApres, { nom: "TIMO" }, rV.sortie, "erreur", j).depenses }, BQ, Co.totalVente).recette === tiroirAvant);
+  test("★★ il ne pose PAS de bande noire (« seulement entre les versements généraux ») ; un versement de 🔒 Caisse en pose toujours une",
+    !BVo.poseUneBande(rV.sortie, BQ) && BVo.bandesDeVersement(dbApres, BQ, Co.totalVente).length === 0
+    && BVo.poseUneBande(Vo.construireVersement(angele, { boutique: BQ, montant: 5000, destination: Vo.DEST_DG }).sortie, BQ));
+  test("★★ une vente ne se verse qu'UNE fois — et un versement REJETÉ rend la main",
+    /déjà versée/.test(Vo.critiqueVersementOrigine(dbApres, { origine: oV, montant: 120000, source: "Espèces" }))
+    && Vo.critiqueVersementOrigine({ ...dbApres, depenses: [{ ...rV.sortie, versement_rejete_le: j, montant: 0 }] }, { origine: oV, montant: 120000, source: "Espèces" }) === "");
+  test("★ un virement (déjà à la banque), un crédit (rien d'encaissé) ou un montant nul ne se versent pas ; un compte mobile, si",
+    /déjà à la banque/.test(Vo.critiqueVersementOrigine(dbO, { origine: { ...oV, vente_id: "s50" }, montant: 120000, source: "Virement bancaire" }))
+    && /rien n'a été encaissé/.test(Vo.critiqueVersementOrigine(dbO, { origine: { ...oV, vente_id: "s49" }, montant: 120000, source: "Crédit (dette)" }))
+    && /rien à verser/.test(Vo.critiqueVersementOrigine(dbO, { origine: oV, montant: 0, source: "Espèces" }))
+    && Vo.critiqueVersementOrigine(dbO, { origine: oV, montant: 5000, source: "Mobile Money (Flooz)" }) === "");
+  const dt = dbO.dettes[0];
+  const k1 = Vo.cleReglement(dt, dt.paiements[0], 0), k2 = Vo.cleReglement(dt, dt.paiements[1], 1);
+  const rR = Vo.construireVersementOrigine(angele, dbO, { origine: { type: Vo.ORIGINE_REGLEMENT, reglement: k2, dette_id: "d49", numero: dt.numero, client: "KOFI" }, boutique: BQ, montant: 20000, source: "Espèces", destination: Vo.DEST_DG });
+  const dbR = { ...dbO, depenses: [rR.sortie] };
+  test("★★ un RÈGLEMENT de dette se verse à part : sa clé (son id, sinon sa place), versé une fois, l'autre règlement reste libre",
+    k1 === "pa1" && k2 === "d49#1" && !rR.refus && Vo.versementDeReglement(dbR, k2)?.id === rR.sortie.id && !Vo.versementDeReglement(dbR, k1)
+    && /déjà versé/.test(Vo.critiqueVersementOrigine(dbR, { origine: { type: Vo.ORIGINE_REGLEMENT, reglement: k2 }, montant: 20000, source: "Espèces" }))
+    && Vo.libelleVersementDu(rR.sortie).startsWith("Versement du règlement de KOFI (BMID-DET-2026-0009)"));
+  test("★ l'état lisible : « Chez le DG — ⏳ en attente », puis « ✅ validé le … par TIMO »",
+    Vo.etatVersementOrigine(dbR, rR.sortie).texte === "Chez le DG — ⏳ en attente"
+    && Vo.etatVersementOrigine(dbR, { ...rR.sortie, versement_valide_le: j, versement_valide_par: "TIMO" }).texte === `Chez le DG — ✅ validé le ${Co.dFR(j)} par TIMO`);
+  const geste = readFileSync("src/components/verserOrigine.js", "utf8");
+  const fV = readFileSync("src/screens/Ventes.jsx", "utf8"), fD = readFileSync("src/screens/Dettes.jsx", "utf8");
+  test("★★ « 1 non pour le vendeur » : verser reste au GÉRANT et à l'ADMINISTRATEUR, revérifié DANS le geste avant toute question, et les deux boutons ne s'affichent qu'à eux",
+    JSON.stringify(Vo.ROLES_VERSEMENT) === JSON.stringify(["gerant", "admin"])
+    && geste.indexOf("refuserSaufRoles(profile, ROLES_VERSEMENT") > -1 && geste.indexOf("refuserSaufRoles(profile, ROLES_VERSEMENT") < geste.indexOf("uChoix(")
+    && geste.indexOf("critiqueVersementOrigine(db") < geste.indexOf("uChoix(")
+    && /peutVerserVente = \(v\) => ROLES_VERSEMENT\.includes\(profile\.role\) && !estVenteACredit\(v\)/.test(fV)
+    && /const versable = ROLES_VERSEMENT\.includes\(profile\.role\)/.test(fD));
+  test("★ la vente se verse depuis la caisse qui a REÇU l'argent (caisseDeVente), pour la colonne TOTAL moins les reprises ; le règlement depuis la caisse de sa dette, avec son moyen",
+    /boutique: caisseDeVente\(v\), montant: montantAVerser\(v\), source: v\.paiement/.test(fV)
+    && /montantEncaisseVente\(v, totalVente\) - montantRepris\(v\)/.test(fV)
+    && /boutique: d\.boutique, montant: Number\(p\.montant \|\| 0\), source: moyen/.test(fD));
+  const sortieRo = join("node_modules", ".cache", `bmi-rendu-ventes-verser-${process.pid}.mjs`);
+  let Ro = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-ventes.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRo, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    Ro = await import(pathToFileURL(sortieRo).href);
+  } catch {}
+  try { unlinkSync(sortieRo); } catch {}
+  const rendre = (db, prof) => { const e0 = console.error; console.error = () => {}; try { return String(Ro?.rendreVentes(db, prof) || "").replace(/[  ]/g, " "); } catch { return ""; } finally { console.error = e0; } };
+  const hG = rendre(dbO, angele), hS = rendre(dbApres, angele), hVd = rendre(dbO, { ...angele, id: "vd", nom: "AFI", role: "vendeur" });
+  test("★★ l'écran RENDU : le bouton 💸 sur la vente PAYÉE en espèces seulement (ni la vente à crédit, ni le virement) ; jamais chez le vendeur",
+    (hG.match(/aria-label="Verser"/g) || []).length === 1 && hVd !== "" && !/aria-label="Verser"/.test(hVd));
+  test("★★ versée, la vente perd son bouton et DIT où est l'argent sous son paiement",
+    !/aria-label="Verser"/.test(hS) && /data-vente-versee="true"[^>]*>💸 versée Chez le DG — ⏳ en attente/.test(hS));
+}
+
 titre("🏗 La caisse CHANTIER (08/10/2026, « lance l'étape 1, clôture facultative ») : l'argent des chantiers n'entre plus dans le tiroir d'une boutique");
 {
   const K8 = await import(pathToFileURL("src/lib/constants.js").href);

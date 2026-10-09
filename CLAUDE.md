@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2390 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2402 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1328,6 +1328,36 @@ lit mal est pire qu'un banc absent).
 - Rien à coller. Banc (11 contrôles, dont l'écran RENDU), éprouvé en remettant
   cinq fautes (rejeté, Flooz, avance comptée deux fois, ordre, bandes cachées
   sous un filtre) : chacune tombe. Chapitres 5 et 6 à jour.
+
+### 💸 VERSER UNE VENTE OU UN RÈGLEMENT — SANS BANDE NOIRE (09/10/2026, « 1 non pour le vendeur, 2 tout de suite, lance »)
+- Capture Timo : un versement « Chez le DG » de 120 000 F (l'argent d'UNE
+  vente qu'il avait pris lui-même) posait sa bande noire au milieu des ventes
+  du jour. Sa proposition : « sur chaque fiche de ventes, un bouton Verser…
+  pour que la bande se pose seulement entre les versements généraux » ; puis
+  « souvent ce sont les ventes à crédit… il part et ensuite remet l'argent au
+  DG ».
+- **Bouton 💸** sur une vente PAYÉE en espèces ou par compte mobile, pas
+  encore versée (💰 Ventes, colonne TOTAL − reprises, caisse =
+  `caisseDeVente`), et sur **CHAQUE RÈGLEMENT** d'une dette (📋 Dettes, liste
+  « Règlements » de la ligne dépliée, caisse de la dette). Ni crédit, ni
+  virement (déjà à la banque). Geste écrit UNE fois :
+  `components/verserOrigine.js` ; règles `construireVersementOrigine`,
+  `critiqueVersementOrigine`, `versementDeVente` / `versementDeReglement`,
+  `cleReglement` (id, sinon `dette#place`), `etatVersementOrigine`
+  (lib/versements.js).
+- **« 1 non »** : gérant + administrateur (`ROLES_VERSEMENT`, inchangé),
+  revérifié DANS le geste avant toute question. **« 2 tout de suite »** :
+  c'est un versement ORDINAIRE (catégorie, validation DG / comptable, rejet
+  avec motif) qui quitte le tiroir dès l'enregistrement et y revient s'il est
+  rejeté ; il porte `versement.origine` et `attendu: null` (aucune note).
+  **Une fois** par vente / règlement (un rejet rend la main).
+- **`poseUneBande` l'écarte** : seuls les versements généraux de 🔒 Caisse
+  séparent les ventes. `libelleVersementDu` dit l'origine (« Versement de la
+  vente BMID-… (client) du … ») — la validation du DG la lit.
+- ⚠ Le versement de 120 000 F d'ANGELE (09/10, 14:18) a été fait par 🔒 Caisse :
+  il garde sa bande. Rien à coller (le serveur ne regarde que le rôle sur un
+  versement). Banc (`verifier-cloisonnement`, 12, l'écran RENDU), éprouvé
+  (bande posée, deux versements, vendeur autorisé). Chapitres 5, 6, 7 à jour.
 
 ### 🏗 LA CAISSE CHANTIER : TOUT L'ARGENT DES CHANTIERS (08/10/2026, « lance l'étape 1, clôture facultative »)
 - Captures Timo : POUDAMA, pose seule de 354 900 F, 354 000 encaissés par lui

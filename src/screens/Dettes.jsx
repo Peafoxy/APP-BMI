@@ -4,7 +4,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useFiltrePeriode } from "../components/FiltrePeriode";
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable } from "../components/ui";
@@ -18,6 +18,8 @@ import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels"
 import { envoiRappelDette, texteRappel, traceEnvoi, libelleTrace, envoiRecuReglement, envoiRecuReservation } from "../lib/whatsappModeles";
 import { soldeApresAcompte, prochaineEcheance, PLAN_ACCEPTE } from "../lib/reglement";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
+import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, ORIGINE_REGLEMENT } from "../lib/versements";
+import { verserDepuisOrigine } from "../components/verserOrigine";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile }) {
@@ -490,8 +492,10 @@ export function Dettes({ db, save, profile }) {
               const estRetard = detteEnRetard(d, today());
               const reste = Math.max(0, d.montant - d.paye);
               const lignes = lignesDette(d);
+              const reglements = d.paiements || [];
               return (
-                <tr key={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`} title={lignes.length > ARTICLES_VISIBLES ? (detteDepliee === d.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
+                <Fragment key={d.id}>
+                <tr onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`} title={lignes.length > ARTICLES_VISIBLES || reglements.length ? (detteDepliee === d.id ? "Cliquer pour replier" : "Cliquer pour voir les articles et les règlements") : undefined}>
                   {/* Timo (13/09/2026) : la première colonne reste figée (Stocks, Dépenses, Dettes — ordinateur aussi) ; la ligne dépliée garde sa barre bleue.
                       25/09/2026 : « dans Dettes aussi figer le nom du client » — le CLIENT passe en première colonne, la date juste après. */}
                   <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : ""), detteDepliee === d.id)}`}><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</td>
@@ -529,6 +533,37 @@ export function Dettes({ db, save, profile }) {
                     </div>
                   </td>
                 </tr>
+                {detteDepliee === d.id && reglements.length > 0 && (
+                  // 💸 Les RÈGLEMENTS de la dette, chacun versable une fois (Timo,
+                  // 09/10/2026 : « souvent ce sont les ventes à crédit… il part et
+                  // ensuite remet l'argent au DG »).
+                  <tr data-reglements-dette className="bg-sky-50/40">
+                    <td colSpan={8} className="px-3 py-2">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Règlements</div>
+                      <div className="space-y-1">
+                        {reglements.map((p, k) => {
+                          const cle = cleReglement(d, p, k);
+                          const e = etatVersementOrigine(db, versementDeReglement(db, cle));
+                          const moyen = p.paiement || "Espèces";
+                          const versable = ROLES_VERSEMENT.includes(profile.role) && !e && moyenVersable(moyen) && Number(p.montant || 0) > 0;
+                          return (
+                            <div key={cle} data-reglement className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                              <span className="text-slate-600 whitespace-nowrap">{dFR(p.date)}{p.heure ? ` ${p.heure}` : ""}</span>
+                              <span className="font-semibold tabular-nums whitespace-nowrap">{fmt(Number(p.montant || 0))}</span>
+                              <span className="text-slate-500">{moyen}{p.par ? ` · par ${p.par}` : ""}</span>
+                              {e && <span data-reglement-verse className={`text-xs font-semibold ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versé {e.texte}</span>}
+                              {versable && (
+                                <button onClick={(ev) => { ev.stopPropagation(); verserDepuisOrigine({ db, save, profile, boutique: d.boutique, montant: Number(p.montant || 0), source: moyen, origine: { type: ORIGINE_REGLEMENT, reglement: cle, dette_id: d.id, numero: d.numero || "", client: d.client || "" } }); }}
+                                  className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="💸 Verser : l'argent de ce règlement est remis au DG, à la BANQUE ou au comptable (sans bande noire)" aria-label="Verser">💸</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>

@@ -137,6 +137,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `ChampsEntreprise.jsx` | La case « entreprise cliente » et ses lignes (nom, téléphone, NIF, RCCM), écrite une fois pour Ventes, le devis et la création d'un compte client |
 | `SelecteurArticle.jsx` | La fenêtre « Rechercher un article » |
 | `encaissementPose.js` | LE geste qui encaisse une pose seule (acompte 70 %, puis solde) — 🧾 Commandes et 🏠 Clients installés |
+| `verserOrigine.js` | LE geste « 💸 Verser » l'argent d'UNE vente (💰 Ventes) ou d'UN règlement de dette (📋 Dettes) au DG / BANQUE / comptable — sans bande noire |
 | `SelecteurBoutique.jsx` | La rangée de pastilles des boutiques |
 | `OngletsDeplacables.jsx` | La barre d'onglets qu'on déplace par appui long |
 | `HistoriqueArchive.jsx` | LE cadre d'historique qui défile et archive |

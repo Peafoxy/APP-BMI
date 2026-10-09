@@ -81,7 +81,71 @@ export function critiqueVersement({ montant, destination, banque, bordereau, att
 }
 
 // « Versement du 09/09/2026 » — chez le DG et le comptable, jamais un intervalle.
-export const libelleVersementDu = (dep) => `Versement du ${dFR(dep?.date)}`;
+// 💸 Le versement d'UNE vente ou d'UN règlement (09/10/2026) dit d'où vient
+// l'argent : « Versement de la vente BMID-2026-0048 du 09/10/2026 ».
+export const libelleVersementDu = (dep) => {
+  const o = dep?.versement?.origine;
+  if (o?.type === ORIGINE_VENTE) return `Versement de la vente ${o.numero || ""}${o.client ? ` (${o.client})` : ""} du ${dFR(dep?.date)}`.replace(/\s+/g, " ");
+  if (o?.type === ORIGINE_REGLEMENT) return `Versement du règlement de ${o.client || "la dette"}${o.numero ? ` (${o.numero})` : ""} du ${dFR(dep?.date)}`;
+  return `Versement du ${dFR(dep?.date)}`;
+};
+
+// ---- 💸 VERSER UNE VENTE OU UN RÈGLEMENT (Timo, 09/10/2026) ----
+// « Les 120 mil c'est une vente de ANGELE mais que le DG a encaissé… le
+// problème c'est la ligne de versement qui vient se mettre entre les ventes »
+// → « sur chaque fiche de ventes, un bouton Verser… pour que la bande se pose
+// seulement entre les versements généraux » ; « souvent ce sont les ventes à
+// crédit… il part et ensuite remet l'argent au DG » ; « 1 non pour le vendeur,
+// on garde l'ancienne règle ; 2 tout de suite ».
+// - Le bouton vit sur une vente PAYÉE (💰 Ventes) et sur CHAQUE RÈGLEMENT
+//   d'une dette (📋 Dettes) : c'est là qu'est l'argent d'une vente à crédit.
+// - C'est un versement ORDINAIRE (gérant + admin, validation du DG ou du
+//   comptable, rejet avec motif) qui sort du tiroir TOUT DE SUITE et revient
+//   si on le rejette — il porte seulement `versement.origine`.
+// - Il ne pose PAS de bande noire (lib/bandesVersement.js) et n'a pas de
+//   montant « attendu » : c'est le montant de la vente ou du règlement.
+// - Une vente, un règlement ne se versent qu'UNE fois (un versement rejeté
+//   rend la main).
+export const ORIGINE_VENTE = "vente";
+export const ORIGINE_REGLEMENT = "reglement";
+// La clé d'un règlement : son id, sinon sa place dans la liste (une liste de
+// paiements ne rétrécit jamais, la place ne bouge donc pas).
+export const cleReglement = (dette, p, i) => (p?.id ? String(p.id) : `${dette?.id}#${i}`);
+// Les moyens qu'on peut verser : les billets du tiroir et les comptes mobiles.
+// Un virement est DÉJÀ à la banque ; un crédit n'a rien encaissé.
+export const moyenVersable = (moyen) => (moyen || SOURCE_ESPECES) === SOURCE_ESPECES || estMoyenMobile(moyen);
+const vivant = (d) => estVersement(d) && !estRejete(d) && d.versement?.origine;
+export const versementDeVente = (db, venteId) => (db?.depenses || []).find((d) => vivant(d) && d.versement.origine.type === ORIGINE_VENTE && d.versement.origine.vente_id === venteId) || null;
+export const versementDeReglement = (db, cle) => (db?.depenses || []).find((d) => vivant(d) && d.versement.origine.type === ORIGINE_REGLEMENT && d.versement.origine.reglement === cle) || null;
+// L'état lisible sous la ligne : « 💸 versée chez le DG — ⏳ en attente ».
+export function etatVersementOrigine(db, dep) {
+  if (!dep) return null;
+  const val = validationVersement(db, dep);
+  return { destination: libelleDestination(dep.versement), valide: val, texte: `${libelleDestination(dep.versement)} — ${val ? `✅ validé le ${dFR(val.le)}${val.par ? ` par ${val.par}` : ""}` : "⏳ en attente"}` };
+}
+// "" si le versement de cette vente / ce règlement est possible, sinon le motif.
+export function critiqueVersementOrigine(db, { origine, montant, source }) {
+  if (!origine || ![ORIGINE_VENTE, ORIGINE_REGLEMENT].includes(origine.type)) return "Ce versement ne dit pas de quelle vente ou de quel règlement vient l'argent.";
+  if (!(Number(montant) > 0)) return "Il n'y a rien à verser : le montant encaissé est nul.";
+  if (!moyenVersable(source)) return `Un paiement « ${source} » ne se verse pas : ${/virement/i.test(String(source)) ? "l'argent est déjà à la banque" : "rien n'a été encaissé"}.`;
+  const deja = origine.type === ORIGINE_VENTE ? versementDeVente(db, origine.vente_id) : versementDeReglement(db, origine.reglement);
+  if (deja) return `${origine.type === ORIGINE_VENTE ? "Cette vente" : "Ce règlement"} est déjà versé${origine.type === ORIGINE_VENTE ? "e" : ""} : ${libelleDestination(deja.versement)}, le ${dFR(deja.date)} par ${deja.par}.`;
+  return "";
+}
+// Les écritures : celles d'un versement ordinaire, avec son origine.
+export function construireVersementOrigine(profile, db, { origine, boutique, montant, source = SOURCE_ESPECES, destination, banque = "", bordereau = "" }) {
+  const refus = critiqueVersementOrigine(db, { origine, montant, source });
+  if (refus) return { refus };
+  if (destination === DEST_TIROIR) return { refus: "Une vente se verse Chez le DG, à la BANQUE ou Chez le comptable." };
+  const r = construireVersement(profile, { boutique, montant, destination, banque, bordereau, source });
+  if (r.refus) return r;
+  const o = { ...origine };
+  const lib = o.type === ORIGINE_VENTE ? `vente ${o.numero || ""}${o.client ? ` (${o.client})` : ""}` : `règlement de ${o.client || "la dette"}${o.numero ? ` (${o.numero})` : ""}`;
+  const marque = (d) => (d ? { ...d, versement: d.versement ? { ...d.versement, origine: o } : d.versement } : d);
+  const sortie = marque({ ...r.sortie, description: `Versement de la ${lib.replace(/\s+/g, " ").trim()} → ${libelleDestination(r.versement)}` });
+  const entree = r.entree ? { ...r.entree, description: `${r.entree.description} — ${lib.trim()}` } : null;
+  return { sortie, entree, versement: { ...r.versement, origine: o } };
+}
 // L'écart entre versé et attendu, lisible : « attendu 200 000 F, écart − 50 000 F ».
 export const libelleEcart = (v) => (v && v.attendu !== undefined && v.attendu !== null && montantDifferent(v.montant, v.attendu)
   ? `attendu ${fmt(Math.round(Number(v.attendu)))}, écart ${Number(v.montant) - Number(v.attendu) >= 0 ? "+" : "−"} ${fmt(Math.abs(Math.round(Number(v.montant) - Number(v.attendu))))}`

@@ -9,7 +9,9 @@ import { correspond } from "../lib/suggestions";
 import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
-import { LOGO, PAIEMENTS } from "../lib/constants";
+import { LOGO, PAIEMENTS, caisseDeVente } from "../lib/constants";
+import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE } from "../lib/versements";
+import { verserDepuisOrigine } from "../components/verserOrigine";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
@@ -1113,6 +1115,18 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // à 1 si la vente n'en porte qu'un), UN motif, UN moyen, UN bon.
   const [reprise, setReprise] = useState(null); // { vente, qtes: { produit_id: "n" }, motif, moyen }
   const jeSuisPrincipal = estAdminPrincipal(db, profile);
+  // ---- 💸 VERSER L'ARGENT D'UNE VENTE (Timo, 09/10/2026) ----
+  // Une vente PAYÉE (espèces ou compte mobile), pas encore versée : le gérant
+  // ou l'administrateur la remet au DG / à la BANQUE / au comptable. Une vente
+  // à crédit se verse par ses RÈGLEMENTS, dans 📋 Dettes. La règle et le geste
+  // vivent dans lib/versements.js et components/verserOrigine.js.
+  const montantAVerser = (v) => Math.max(0, montantEncaisseVente(v, totalVente) - montantRepris(v));
+  const peutVerserVente = (v) => ROLES_VERSEMENT.includes(profile.role) && !estVenteACredit(v)
+    && moyenVersable(v.paiement) && montantAVerser(v) > 0 && !versementDeVente(db, v.id);
+  const verserVente = (v) => verserDepuisOrigine({
+    db, save, profile, boutique: caisseDeVente(v), montant: montantAVerser(v), source: v.paiement,
+    origine: { type: ORIGINE_VENTE, vente_id: v.id, numero: numeroRecu(v), client: v.client || "" },
+  });
   const ouvrirReprise = (v) => {
     if (refuserSaufAdminPrincipal(db, profile, "Reprendre un article vendu")) return;
     const lignes = lignesReprenables(v);
@@ -1692,7 +1706,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                      la recette) ; dessous, ce qui a été repris et la valeur restante de la facture. */
                   <div data-vente-reprise><div className="text-xs text-amber-700">↩ repris : −{fmt(montantRepris(v))}</div><div className="text-xs font-semibold text-slate-700">reste : {fmt(Math.max(0, totalVente(v) - montantRepris(v)))}</div></div>
                 ) : null}</td>
-                <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}</td>
+                <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}{(() => {
+                  // 💸 L'argent de CETTE vente remis au DG (Timo, 09/10/2026) : la trace se lit sous le paiement.
+                  const e = etatVersementOrigine(db, versementDeVente(db, v.id));
+                  return e ? <div data-vente-versee className={`text-[11px] font-semibold mt-0.5 ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versée {e.texte}</div> : null;
+                })()}</td>
                 <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-1">
@@ -1706,6 +1724,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     })()}
                     {bonsDeVente(v).length > 0 && (
                       <button onClick={() => ouvrirBons(v)} className={boutonAction("text-slate-700 bg-slate-50 border-slate-300 hover:bg-slate-100")} title="🧾 Bon de reprise / bon de retour : imprimer ou envoyer par WhatsApp" aria-label="Bons">🧾</button>
+                    )}
+                    {peutVerserVente(v) && (
+                      <button onClick={() => verserVente(v)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="💸 Verser : l'argent de cette vente est remis au DG, à la BANQUE ou au comptable (sans bande noire)" aria-label="Verser">💸</button>
                     )}
                     {peutTransformerEnDevis(v) && onTransformerEnDevis && (
                       <button onClick={() => transformerEnDevis(v)} className={boutonAction("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title="📋 Devis : reprendre cette vente pour en faire un devis d'installation" aria-label="Devis">📋</button>

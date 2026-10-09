@@ -44,7 +44,10 @@ export const venteAvantBande = (v, bande) => cleVente(v) <= bande.cle;
 
 // Un versement qui pose une bande : celui de CETTE boutique, parti du tiroir
 // (1a), jamais rejeté (2a — « comme jamais versé »).
+// 💸 Le versement d'UNE vente ou d'UN règlement (09/10/2026, « pour que la
+// bande se pose seulement entre les versements généraux ») n'en pose pas.
 export const poseUneBande = (d, boutique) => estVersement(d)
+  && !d.versement.origine
   && d.boutique === boutique
   && !estRejete(d)
   && (d.versement.source || SOURCE_ESPECES) === SOURCE_ESPECES
