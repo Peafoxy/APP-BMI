@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2426 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2429 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1409,9 +1409,16 @@ lit mal est pire qu'un banc absent).
   retourne dans l'enveloppe ou en sort est dit. Rien d'écrit, rien à coller.
   Banc (6, l'écran RENDU par `scripts/_rendu-caisse.jsx`), éprouvé (versement
   d'une vente pris pour général, règlements oubliés). Chapitre 6 à jour.
-  ⚠ Le carré dit toujours « dernier versement le … » sur N'IMPORTE QUEL
-  versement (celui d'une vente compris) — proposé à Timo de le passer au
-  dernier versement général, pas encore tranché.
+  **Le carré « dernier versement le … » = le dernier versement GÉNÉRAL**
+  (10/10/2026, validé : `fondsAVerser` → `dernierVersementGeneral(db, bq,
+  periode)`, le résumé aussi). **« a, dans le détail »** (le même jour) : une
+  vente ou un règlement versé à part (💸) LE MÊME JOUR reste écrit dans le
+  détail, EN GRIS avec son versement (« hors totaux », `aPart`,
+  `data-ligne-a-part`), mais sort des « Entrées du jour · Sorties du jour »
+  (`aPartEntrees` / `aPartSorties`) ; le soir ne bouge pas. Les carrés
+  Entrées / Sorties / Total versé de 🔒 Caisse n'ont PAS changé (« a » seul).
+  Versée un autre jour : comptée normalement (limite dite à Timo). Banc +3,
+  éprouvé (soustraction retirée, ancien « dernier versement »).
 - Le versement de 120 000 F d'ANGELE (09/10, 14:18), fait par 🔒 Caisse, a été
   RATTACHÉ à la vente BMID-2026-0048 par un SQL collé par Timo le 09/10/2026
   (`versement.origine`, `attendu` à null, description refaite ; `true`) : sa

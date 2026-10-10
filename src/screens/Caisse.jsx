@@ -746,15 +746,24 @@ export function DetailTiroir({ detail, boutique }) {
             <table className="w-full text-xs mt-1">
               <tbody>
                 {j.lignes.map((l, i) => (
-                  <tr key={i} className={l.general ? "bg-slate-800 text-white" : "border-b border-slate-50"}>
+                  <tr key={i} className={l.general ? "bg-slate-800 text-white" : l.aPart ? "border-b border-slate-50 text-slate-400" : "border-b border-slate-50"} {...(l.aPart ? { "data-ligne-a-part": "true" } : {})}>
                     <td className="py-1 pr-2 w-12 tabular-nums align-top">{l.heure || ""}</td>
                     <td className="py-1 pr-2 align-top">{l.libelle}</td>
-                    <td className="py-1 pr-2 text-right tabular-nums whitespace-nowrap align-top text-emerald-700">{l.entree ? `+ ${fmt(l.entree)}` : ""}</td>
-                    <td className={`py-1 text-right tabular-nums whitespace-nowrap align-top ${l.general ? "" : "text-slate-700"}`}>{l.sortie ? `− ${fmt(l.sortie)}` : ""}</td>
+                    <td className={`py-1 pr-2 text-right tabular-nums whitespace-nowrap align-top ${l.aPart ? "" : "text-emerald-700"}`}>{l.entree ? (l.aPart ? `(+ ${fmt(l.entree)})` : `+ ${fmt(l.entree)}`) : ""}</td>
+                    <td className={`py-1 text-right tabular-nums whitespace-nowrap align-top ${l.general || l.aPart ? "" : "text-slate-700"}`}>{l.sortie ? (l.aPart ? `(− ${fmt(l.sortie)})` : `− ${fmt(l.sortie)}`) : ""}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <div className="text-xs text-slate-600 mt-1 text-right">
+              Entrées du jour : <b className="tabular-nums text-emerald-700" data-tiroir-entrees>{fmt(j.entrees)}</b>
+              {" · "}Sorties du jour : <b className="tabular-nums" data-tiroir-sorties>{fmt(j.sorties)}</b>
+            </div>
+            {(j.aPartEntrees > 0 || j.aPartSorties > 0) && (
+              <div className="text-xs text-slate-400 mt-0.5 text-right" data-tiroir-a-part>
+                Hors totaux : {fmt(j.aPartEntrees)} versés à part le jour même — entrés puis ressortis, ils n'ont jamais dormi dans le tiroir.
+              </div>
+            )}
             {(j.renduEnveloppe > 0 || j.prisEnveloppe > 0) && (
               <div className="text-xs text-slate-500 mt-1">
                 {j.renduEnveloppe > 0 && <div>↩ {fmt(j.renduEnveloppe)} des entrées sont retournés dans l'enveloppe du fonds de caisse (pas dans le tiroir).</div>}

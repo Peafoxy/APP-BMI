@@ -14364,14 +14364,16 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     ventes: [vente("v0", "2026-10-01", "09:00", 100000), vente("v1", "2026-10-05", "10:00", 50000), vente("v2", "2026-10-08", "10:00", 8400),
       vente("v3", "2026-10-08", "11:00", 110000, "Crédit (dette)"), vente("v4", "2026-10-09", "12:00", 120000),
       vente("vf", "2026-10-09", "13:00", 5000, "Mobile Money (Flooz)"), vente("va", "2026-10-09", "13:00", 999, "Espèces", "BMI APESSITO")],
-    dettes: [{ id: "d3", numero: "DET-3", client: "DJEDJE", boutique: BQ, date: "2026-10-08", montant: 110000, paye: 20000, vente_id: "v3", paiements: [{ id: "p1", date: "2026-10-08", heure: "11:00", montant: 20000, paiement: "Espèces" }] }],
+    dettes: [{ id: "d3", numero: "DET-3", client: "DJEDJE", boutique: BQ, date: "2026-10-08", montant: 110000, paye: 20000, vente_id: "v3", paiements: [{ id: "p1", date: "2026-10-08", heure: "11:00", montant: 20000, paiement: "Espèces" }] },
+      { id: "d9", numero: "DET-9", client: "KOMLA", boutique: BQ, date: "2026-10-02", montant: 7000, paye: 7000, paiements: [{ date: "2026-10-09", heure: "15:00", montant: 7000, paiement: "Espèces" }] }],
     depenses: [
       dep("f0", "2026-09-30", VoT.CATEGORIE_FONDS_CAISSE || "Fonds de caisse remis", -50000, { fonds_caisse: { montant: 50000, origine: "Chez le DG" } }),
       vers("g1", "2026-10-01", "18:00", 100000),
       vers("g2", "2026-10-07", "18:00", 30000),
       dep("r1", "2026-10-08", "Remboursement client", 4800),
       dep("t1", "2026-10-08", "Transport", 30000),
-      vers("o4", "2026-10-09", "14:18", 120000, { versement: { origine: { type: "vente", vente: "v4" } } }),
+      vers("o4", "2026-10-09", "14:18", 120000, { versement: { origine: { type: "vente", vente_id: "v4" } } }),
+      vers("o9", "2026-10-09", "15:30", 7000, { versement: { origine: { type: "reglement", reglement: "d9#0" } } }),
       vers("gx", "2026-10-09", "20:00", 10000, { top: { montant: 0, versement_rejete_le: "2026-10-09" } }),
       dep("e1", "2026-10-09", "Loyer", 9000, { validation: { statut: "attente" } }),
     ],
@@ -14385,8 +14387,10 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     dT.maintenant === carre && carre === 13600 && dT.jours.map((j) => j.jour).join() === "2026-10-07,2026-10-08,2026-10-09");
   let prec = dT.avant, chaineOk = true;
   for (const j of dT.jours) {
-    if (j.soir !== prec + j.entrees - j.renduEnveloppe - (j.sorties - j.prisEnveloppe)) chaineOk = false;
-    if (j.entrees !== j.lignes.reduce((s, l) => s + l.entree, 0) || j.sorties !== j.lignes.reduce((s, l) => s + l.sortie, 0)) chaineOk = false;
+    // 💸 Ce qui est versé à part le jour même est HORS des totaux, mais la marche du tiroir le voit passer.
+    if (j.soir !== prec + j.entrees + j.aPartEntrees - j.renduEnveloppe - (j.sorties + j.aPartSorties - j.prisEnveloppe)) chaineOk = false;
+    const hors = j.lignes.filter((l) => !l.aPart);
+    if (j.entrees !== hors.reduce((s, l) => s + l.entree, 0) || j.sorties !== hors.reduce((s, l) => s + l.sortie, 0)) chaineOk = false;
     prec = j.soir;
   }
   test("★★ chaque soir se retrouve par l'addition : la veille + les entrées − ce qui retourne dans l'enveloppe − les sorties prises dans le tiroir ; les lignes font les totaux",
@@ -14398,6 +14402,20 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
   test("★ les versements se disent : le général marqué, celui d'une vente nommé comme tel, le rejeté « compte comme jamais versé » à 0 F",
     dT.jours[0].lignes.some((l) => l.general && /💸 Versement général → Chez le DG/.test(l.libelle))
     && /💸 Versement d'une vente ou d'un règlement → Chez le DG — ⏳ en attente/.test(libs) && /✖ rejeté \(compte comme jamais versé\)/.test(libs));
+  const j9 = dT.jours[2];
+  const aPartLibs = j9.lignes.filter((l) => l.aPart).map((l) => l.libelle).join(" | ");
+  test("★★ « a, dans le détail » : la vente ET le règlement versés à part le jour même restent affichés (marqués « hors totaux »), mais sortent des entrées et des sorties du jour ; le soir ne bouge pas",
+    j9.lignes.filter((l) => l.aPart).length === 4 && /BMID-v4 — CLIENT v4 — versée à part le jour même, hors totaux/.test(aPartLibs)
+    && /Règlement de dette DET-9 — KOMLA — versée à part/.test(aPartLibs) && /versement à part, hors totaux/.test(aPartLibs)
+    && j9.aPartEntrees === 127000 && j9.aPartSorties === 127000 && j9.entrees === 0 && j9.sorties === 0
+    && dT.jours[1].aPartEntrees === 0 && !dT.jours[1].lignes.some((l) => l.aPart) && j9.soir === 13600);
+  const sansO4 = VoT.detailDuTiroir({ ...dbT, depenses: dbT.depenses.filter((x) => x.id !== "o4") }, BQ, CoT.totalVente).jours[2];
+  test("★ une vente PAS versée à part compte normalement dans les entrées du jour",
+    sansO4.entrees === 120000 && !sansO4.lignes.some((l) => l.aPart && /BMID-v4/.test(l.libelle)));
+  test("★★ le carré « dernier versement le … » date du dernier versement GÉNÉRAL, jamais du versement d'une vente ; la période est respectée",
+    VoT.fondsAVerser(dbT, BQ, CoT.totalVente).dernierVersement === "2026-10-07"
+    && VoT.fondsAVerser(dbT, BQ, CoT.totalVente, { du: "2026-10-01", au: "2026-10-06" }).dernierVersement === "2026-10-01"
+    && VoT.resumeCaisses(dbT, [BQ], CoT.totalVente, "2026-10-10").lignes[0].dernierVersement === "2026-10-07");
   const sortieRc = join("node_modules", ".cache", `bmi-rendu-caisse-${process.pid}.mjs`);
   let Rc = null;
   try {
@@ -14412,6 +14430,8 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     /data-ouvrir-detail-tiroir/.test(hG) && !/data-detail-tiroir/.test(hG)
     && /data-tiroir-maintenant="true">13 600 F</.test(hO) && /data-tiroir-avant="true">50 000 F</.test(hO)
     && (hO.match(/data-jour-tiroir=/g) || []).length === 3
+    && (hO.match(/data-ligne-a-part="true"/g) || []).length === 4 && /data-tiroir-a-part/.test(hO)
+    && /data-tiroir-entrees="true">0 F</.test(hO)
     && hV !== "" && !/^ERREUR/.test(hV) && !/data-ouvrir-detail-tiroir/.test(hV));
 }
 

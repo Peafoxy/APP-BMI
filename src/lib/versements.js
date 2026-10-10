@@ -466,8 +466,8 @@ const mouvementsEspeces = (db, boutique, totalVente) => {
   });
   (db?.dettes || []).forEach((d) => {
     if (d.boutique !== boutique) return;
-    (d.paiements || []).forEach((p) => {
-      if ((p.paiement || "Espèces") === "Espèces") out.push({ q: quand(p), date: String(p.date).slice(0, 10), type: "reglement", montant: Number(p.montant || 0), src: p, dette: d });
+    (d.paiements || []).forEach((p, i) => {
+      if ((p.paiement || "Espèces") === "Espèces") out.push({ q: quand(p), date: String(p.date).slice(0, 10), type: "reglement", montant: Number(p.montant || 0), src: p, dette: d, place: i });
     });
   });
   // Timo (12/09/2026) : une dépense en attente de validation ne compte pas ;
@@ -531,7 +531,10 @@ export function deuxPoches(db, boutique, totalVente, periode = null) {
 // l'ENVELOPPE — deux nombres, jamais additionnés dans un total de caisse.
 export function fondsAVerser(db, boutique, totalVente, periode = null) {
   const p = deuxPoches(db, boutique, totalVente, periode);
-  const dernier = versementsDe(db, boutique).find((x) => avantFin(x.date, periode));
+  // « Dernier versement le … » = le dernier versement GÉNÉRAL (Timo,
+  // 10/10/2026) : le versement d'une vente ou d'un règlement ne vide pas le
+  // tiroir, il ne date donc rien.
+  const dernier = dernierVersementGeneral(db, boutique, periode);
   const derniereRemise = remisesFondsDe(db, boutique).find((x) => avantFin(x.date, periode));
   // Le fonds RÉGLÉ (⚙ Paramètres) est la référence ; le plafond réel de
   // l'enveloppe est ce que le DG y a effectivement mis (voir manqueRemises).
@@ -568,8 +571,8 @@ export function fondsAVerser(db, boutique, totalVente, periode = null) {
 // ligne — un solde au milieu d'un jour pourrait mentir.
 export const estVersementGeneral = (d) => estVersement(d) && !d.versement.origine && !estRejete(d)
   && Number(d.montant || 0) > 0 && (d.versement.source || SOURCE_ESPECES) === SOURCE_ESPECES;
-export function dernierVersementGeneral(db, boutique) {
-  return (db?.depenses || []).filter((d) => d.boutique === boutique && estVersementGeneral(d))
+export function dernierVersementGeneral(db, boutique, periode = null) {
+  return (db?.depenses || []).filter((d) => d.boutique === boutique && estVersementGeneral(d) && avantFin(d.date, periode))
     .sort((a, b) => cleDuVersement(b).localeCompare(cleDuVersement(a)))[0] || null;
 }
 const veilleDe = (jour) => {
@@ -602,19 +605,41 @@ export function detailDuTiroir(db, boutique, totalVente) {
   const jours = [...new Set(dedans.map((m) => m.date))].sort();
   const parJour = jours.map((jour) => {
     const p = deuxPoches(db, boutique, totalVente, { du: jour, au: jour });
-    const lignes = dedans.filter((m) => m.date === jour).map((m) => {
+    const duJour = dedans.filter((m) => m.date === jour);
+    // 💸 VERSÉE À PART (Timo, 10/10/2026, « il détaille mais ne le compte pas
+    // dans les totaux » → « a, dans le détail ») : une vente ou un règlement
+    // versé par le bouton 💸 LE MÊME JOUR entre et ressort aussitôt — il n'a
+    // jamais dormi dans le tiroir. La paire reste AFFICHÉE (en gris), mais
+    // sort des entrées et des sorties du jour. Le soir ne bouge pas (l'un
+    // annule l'autre), et les carrés de 🔒 Caisse non plus.
+    const aPart = new Set();
+    duJour.forEach((m) => {
+      if (m.type !== "vente" && m.type !== "reglement") return;
+      const v = m.type === "vente"
+        ? versementDeVente(db, m.src?.id)
+        : versementDeReglement(db, cleReglement(m.dette, m.src, m.place));
+      const sortie = v && duJour.find((x) => x.type === "versement" && x.src === v);
+      if (sortie) { aPart.add(m); aPart.add(sortie); }
+    });
+    let aPartEntrees = 0, aPartSorties = 0;
+    const lignes = duJour.map((m) => {
       const entre = ["vente", "reglement", "retrait"].includes(m.type);
+      const entree = entre ? m.montant : 0;
+      const sortie = m.type === "versement" || m.type === "sortie" ? m.montant : 0;
+      const part = aPart.has(m);
+      if (part) { aPartEntrees += entree; aPartSorties += sortie; }
       return {
-        type: m.type, heure: heureDuMouvement(m), libelle: libelleMouvement(db, m),
-        entree: entre ? m.montant : 0,
-        sortie: m.type === "versement" || m.type === "sortie" ? m.montant : 0,
+        type: m.type, heure: heureDuMouvement(m),
+        libelle: `${libelleMouvement(db, m)}${part ? (m.type === "versement" ? " — versement à part, hors totaux" : " — versée à part le jour même, hors totaux") : ""}`,
+        entree, sortie, aPart: part,
         general: m.type === "versement" && m.src === general,
       };
     });
     return {
       jour, lignes,
-      entrees: p.detail.ventes + p.detail.reglements + p.detail.retraits,
-      sorties: p.detail.depenses + p.detail.versements,
+      entrees: p.detail.ventes + p.detail.reglements + p.detail.retraits - aPartEntrees,
+      sorties: p.detail.depenses + p.detail.versements - aPartSorties,
+      aPartEntrees, aPartSorties,
       renduEnveloppe: p.detail.rendu, prisEnveloppe: p.detail.surFonds,
       soir: p.recette,
     };
