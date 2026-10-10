@@ -13902,7 +13902,7 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
   test("★★ l'écran RENDU : plus de bouton 💸 sur la vente emportée, une mention GRISE à la place (« dans le versement du 09/10/2026 à 16:00 → Chez le DG »)",
     // RETOURNÉ (09/10/2026) : « dans un versement » seul, le détail sur la ligne dépliée.
     hE !== "" && !/aria-label="Verser"/.test(hE) && /data-vente-dans-versement="true"[^>]*class="[^"]*text-slate-400[^"]*">dans un versement<\/div>/.test(hE)
-    && /data-vente-dans-versement-detail="true">du 09\/10\/2026 à 16:00 → Chez le DG<\/div>/.test(rendre(dbG, angele, "s48")));
+    && /data-vente-dans-versement-detail="true"[^>]*>du 09\/10\/2026 à 16:00 → Chez le DG<\/div>/.test(rendre(dbG, angele, "s48")));
   test("★ 📋 Dettes : un règlement emporté montre la mention grise au lieu du bouton",
     /\{general && <span data-reglement-dans-versement className="text-xs text-slate-400">\{mentionVersementGeneral\(general\)\}<\/span>\}/.test(fD)
     && /const versable = peutEtreVerse && !general;/.test(fD));

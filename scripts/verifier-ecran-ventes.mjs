@@ -23,7 +23,8 @@
 // et on vérifie séparément que le calcul du reçu et celui de la dette
 // donnent bien le même chiffre.
 // ============================================================
-import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync, unlinkSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -334,6 +335,62 @@ createRoot(document.getElementById("r")).render(<><Liste /><Histo /></>);
   const logo = await page.evaluate(() => { const p = document.querySelector('[data-bouton="wa"] svg path'); const r = document.querySelector('[data-bouton="wa"] svg').getBoundingClientRect(); return { fill: p && getComputedStyle(p).fill, w: r.width, h: r.height }; });
   test("★ le logo WhatsApp est dessiné en vert WhatsApp (#25D366), 18 px", logo.fill === "rgb(37, 211, 102)" && logo.w === 18 && logo.h === 18);
   test("aucune erreur JavaScript", erreurs.length === 0);
+  await nav.close();
+  rmSync(dossier, { recursive: true, force: true });
+}
+
+// ============================================================
+// « 💸 versée » DÉPLIÉ : LA LIGNE GRANDIT, LA COLONNE NE BOUGE PAS (Timo,
+// 09/10/2026 : « lorsqu'on clique sur versée, les colonnes ne doivent pas
+// bouger, c'est la ligne qui doit s'agrandir »). On REND le vrai écran 💰
+// Ventes (replié puis déplié) avec le CSS construit, et on MESURE dans
+// Chromium la largeur de la colonne Paiement et la hauteur de la ligne. Un
+// TÉMOIN sans `w-0 min-w-full` prouve que la règle commande quelque chose.
+// ============================================================
+titre("💸 « versée » dépliée, mesurée dans Chromium : la ligne s'agrandit, la colonne ne bouge pas");
+{
+  const require = createRequire(import.meta.url);
+  const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+  const sortieRV = join("node_modules", ".cache", `bmi-rendu-ventes-mesure-${process.pid}.mjs`);
+  await build({ entryPoints: ["scripts/_rendu-ventes.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRV, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+    define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+  const RV = await import(pathToFileURL(sortieRV).href);
+  try { unlinkSync(sortieRV); } catch {}
+  const auj = new Date().toISOString().slice(0, 10);
+  const BQ = "BMI DEMAKPOE";
+  const timo = { id: "u1", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: BQ };
+  const dbM = { boutiques: [{ id: "b1", nom: BQ }], users: [timo], produits: [{ id: "p1", nom: "Moteur", boutique: BQ, prix_achat: 1, prix_vente: 120000, initial: 9, seuil: 1 }],
+    ventes: [{ id: "s48", numero: "BMID-2026-0048", date: auj, heure: "14:16", boutique: BQ, client: "EMMANUEL", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Moteur", qte: 1, pu: 120000 }] }],
+    depenses: [{ id: "vx", date: auj, boutique: BQ, categorie: "Versement de fonds", montant: 120000, moyen: "Espèces", par: "ANGELE", description: "Versement",
+      versement: { id: "vv", destination: "Chez le DG", source: "Espèces", montant: 120000, attendu: null, heure: "14:18", origine: { type: "vente", vente_id: "s48", numero: "BMID-2026-0048", client: "EMMANUEL" } },
+      versement_valide_le: auj, versement_valide_par: "TIMO" }],
+    dettes: [], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [] };
+  const e0 = console.error; console.error = () => {};
+  const replie = RV.rendreVentes(dbM, timo), deplie = RV.rendreVentes(dbM, timo, "s48");
+  console.error = e0;
+  const temoin = deplie.replace(/(data-vente-versee-detail="true" class="[^"]*?) whitespace-normal w-0 min-w-full/, "$1");
+  const css = readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0];
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-versee-"));
+  const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+  const page = await nav.newPage({ viewport: { width: 1400, height: 900 } });
+  const mesurer = async (corps, nom) => {
+    const f = join(dossier, nom + ".html");
+    writeFileSync(f, `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}"></head><body>${corps}</body></html>`);
+    await page.goto(`file://${f}`);
+    return page.evaluate(() => {
+      const ths = Array.from(document.querySelectorAll("thead th"));
+      const th = ths.find((t) => t.innerText.trim().toLowerCase() === "paiement");
+      const tr = document.querySelector('tbody tr td[data-vente-client]')?.parentElement;
+      const det = document.querySelector("[data-vente-versee-detail]");
+      return { col: th ? Math.round(th.getBoundingClientRect().width) : -1, ligne: tr ? Math.round(tr.getBoundingClientRect().height) : -1, detail: det ? det.innerText.trim() : "" };
+    });
+  };
+  const mR = await mesurer(replie, "replie"), mD = await mesurer(deplie, "deplie"), mT = await mesurer(temoin, "temoin");
+  test("★ repliée : « 💸 versée » seul, sans le détail", mR.col > 0 && mR.detail === "", JSON.stringify(mR));
+  test("★★ dépliée : le détail apparaît, la colonne Paiement garde SA largeur (au pixel près) et la LIGNE grandit",
+    /Chez le DG — ✅ validé le/.test(mD.detail) && Math.abs(mD.col - mR.col) <= 1 && mD.ligne > mR.ligne, JSON.stringify({ mR, mD }));
+  test("★ TÉMOIN : sans `w-0 min-w-full`, le même détail ÉLARGIT la colonne (la règle commande bien quelque chose)",
+    mT.col > mR.col + 20, JSON.stringify({ mR, mT }));
   await nav.close();
   rmSync(dossier, { recursive: true, force: true });
 }

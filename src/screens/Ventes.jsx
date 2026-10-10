@@ -1733,11 +1733,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   // 09/10/2026 (Timo, « afficher juste versée… dès qu'on clique, le reste apparaît ») :
                   // un mot court, le détail seulement sur la ligne dépliée — la colonne reste étroite
                   // et « Reste à payer » se lit juste à côté du mode de paiement.
+                  // ⚠ Le détail ne doit JAMAIS élargir la colonne (Timo : « les colonnes ne doivent pas
+                  // bouger, c'est la ligne qui doit s'agrandir ») : `w-0 min-w-full` lui donne la largeur
+                  // de la cellule sans la pousser, `whitespace-normal` le fait passer à la ligne.
                   const deplie = venteDepliee === v.id;
-                  if (e) return <div data-vente-versee title={e.texte} className={`text-[11px] font-semibold mt-0.5 ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versée{deplie ? <div data-vente-versee-detail className="font-normal">{e.texte}</div> : null}</div>;
+                  if (e) return <div data-vente-versee title={e.texte} className={`text-[11px] font-semibold mt-0.5 ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versée{deplie ? <div data-vente-versee-detail className="font-normal whitespace-normal w-0 min-w-full">{e.texte}</div> : null}</div>;
                   const g = venteVersable(v) ? versementGeneralDe(v) : null;
                   const mention = g ? mentionVersementGeneral(g) : "";
-                  return g ? <div data-vente-dans-versement title={mention} className="text-[11px] text-slate-400 mt-0.5">dans un versement{deplie ? <div data-vente-dans-versement-detail>{mention.replace(/^dans le versement /, "")}</div> : null}</div> : null;
+                  return g ? <div data-vente-dans-versement title={mention} className="text-[11px] text-slate-400 mt-0.5">dans un versement{deplie ? <div data-vente-dans-versement-detail className="whitespace-normal w-0 min-w-full">{mention.replace(/^dans le versement /, "")}</div> : null}</div> : null;
                 })()}</td>
                 <td data-vente-reste className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{(() => {
                   // Le reste d'AUJOURD'HUI sur SA dette (« b oui ») ; comptant → « — » (« a oui »).

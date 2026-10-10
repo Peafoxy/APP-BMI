@@ -58,7 +58,7 @@ npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run tester-notifications     # 81  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
-npm run verifier-ecran-ventes    # 48  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive
+npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 19  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total)
 npm run verifier-ecran-loyer     # 18  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
@@ -1387,6 +1387,11 @@ lit mal est pire qu'un banc absent).
   et « Reste à payer » se lit à côté. 📋 Dettes n'a pas bougé. Prop
   `venteDeplieeInitiale` (pour le banc seul). Deux contrôles RETOURNÉS,
   éprouvés (détail toujours affiché : ils tombent). Chapitre 5 à jour.
+  ⚠ **LA COLONNE NE BOUGE PAS, LA LIGNE GRANDIT** (Timo, le jour même) : le
+  détail porte `whitespace-normal w-0 min-w-full` (la largeur de la cellule,
+  sans la pousser). MESURÉ dans Chromium avec le CSS construit
+  (`verifier-ecran-ventes`, +3) : colonne 99 px repliée ET dépliée, ligne
+  56 → 119 px ; un TÉMOIN sans ces classes élargit la colonne à 263 px.
 - Le versement de 120 000 F d'ANGELE (09/10, 14:18), fait par 🔒 Caisse, a été
   RATTACHÉ à la vente BMID-2026-0048 par un SQL collé par Timo le 09/10/2026
   (`versement.origine`, `attendu` à null, description refaite ; `true`) : sa
