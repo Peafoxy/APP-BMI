@@ -15,6 +15,7 @@ import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { compteMasque } from "./banques";
 import { affectationDe } from "./affectation";
 import { phraseContrat } from "./contratTravail";
+import { TITRE_FACTURE_TRAVAUX, TITRE_RELEVE_TRAVAUX, avecInfoTravaux, lignesReleve, montantPrestation, totalArticles, totalAFacturer, LIGNE_PRESTATION } from "./travaux";
 
 // 🏢 29/09/2026 (Timo) : le client d'un reçu — la personne (NOM Prénom), ou
 // l'ENTREPRISE qu'elle représente, avec ses coordonnées et « Représentée
@@ -25,6 +26,16 @@ function lignesNomClient(doc) {
   return `<div><b>Entreprise :</b> ${esc(i.titre)}</div>`
     + (i.coordonnees ? `<div>${esc(i.coordonnees)}</div>` : "")
     + (i.personne ? `<div><b>Représentée par :</b> ${esc(i.personne)}</div>` : "");
+}
+
+// 🧾 Le chantier d'un reçu de travaux (10/10/2026, « a ») : la vente ou la
+// dette porte `travaux_info` (posé par avecInfoTravaux) ou au moins
+// `travaux_id`. Rien pour une vente du comptoir.
+const travauxDu = (doc) => doc?.travaux_info || (doc?.travaux_id ? { lieu: doc.travaux_lieu || "", objet: doc.travaux_objet || "" } : null);
+function blocTravaux(t) {
+  if (!t) return "";
+  const lignes = [t.lieu ? `<div><b>Lieu :</b> ${esc(t.lieu)}</div>` : "", t.objet ? `<div><b>Objet :</b> ${esc(t.objet)}</div>` : ""].join("");
+  return `<div class="btitre">TRAVAUX</div><div class="client" data-recu-travaux>${lignes || "<div>Travaux réalisés par BMI TOGO</div>"}</div>`;
 }
 
 // ============ ÉCHAPPEMENT HTML (partagé par tous les documents) ============
@@ -95,6 +106,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
     ["Virement", /Virement/i],
     ["Crédit", /Crédit/i],
   ];
+  const travaux = travauxDu(v);
   const casesMode = modes
     .map(([lbl, re]) => `<span class="case">${re.test(v.paiement || "") ? "☑" : "☐"} ${lbl}</span>`)
     .join("");
@@ -115,10 +127,10 @@ export function imprimerRecu(v, bq = {}, produits = []) {
       </td>
     </tr></table>
 
-    <h1>REÇU DE VENTE</h1>
+    <h1>${travaux ? TITRE_FACTURE_TRAVAUX : "REÇU DE VENTE"}</h1>
 
     <div class="meta">
-      <div><b>Numéro de reçu :</b> ${numero}</div>
+      <div><b>${travaux ? "N° de facture (reçu)" : "Numéro de reçu"} :</b> ${numero}</div>
       ${v.numero_avant_collision ? `<div style="font-size:10px;color:#92400e">Annule et remplace le reçu n° ${esc(v.numero_avant_collision)} (renumérotation après saisie hors ligne simultanée — même vente, même montant).</div>` : ""}
       <div><b>Date :</b> ${dFR(v.date)}</div>
       <div><b>Heure :</b> ${esc(v.heure || "—")}</div>
@@ -129,6 +141,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
       ${lignesNomClient(v)}
       <div><b>Téléphone :</b> ${esc(v.tel || "________________________")}</div>
     </div>
+    ${blocTravaux(travaux)}
 
     <table class="articles">
       <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th><th>Montant</th></tr></thead>
@@ -189,6 +202,7 @@ export function imprimerRecuVersement(d, bq = {}) {
   const { solde, versement, titre, montantDu, totalVerse, reste } = titreRecuDette(d);
   const paiements = d.paiements || [];
   const dernier = paiements[paiements.length - 1];
+  const travaux = travauxDu(d);
 
   const html = `
   <style>
@@ -239,6 +253,7 @@ export function imprimerRecuVersement(d, bq = {}) {
     </tr></table>
 
     <h1${solde ? ' class="solde"' : ""}>${titre}</h1>
+    ${travaux ? `<div data-mention-travaux style="text-align:center;font-weight:bold;color:#1e5a8a;margin:-6px 0 10px;letter-spacing:1px">${TITRE_FACTURE_TRAVAUX}</div>` : ""}
 
     <div class="meta">
       <div><b>N° de reçu :</b> ${esc(numeroRecuDette(d))}</div>
@@ -253,8 +268,9 @@ export function imprimerRecuVersement(d, bq = {}) {
     <div class="client">
       ${lignesNomClient(d)}
       <div><b>Téléphone :</b> ${esc(d.tel || "________________________")}</div>
-      <div><b>Motif :</b> ${(d.articles && d.articles.length > 0) ? (estReservation(d) ? "Réservation" : "Vente à crédit") : esc(d.motif || "—")}</div>
+      <div><b>Motif :</b> ${travaux ? "Travaux à crédit" : (d.articles && d.articles.length > 0) ? (estReservation(d) ? "Réservation" : "Vente à crédit") : esc(d.motif || "—")}</div>
     </div>
+    ${blocTravaux(travaux)}
 
     ${(d.articles && d.articles.length > 0) ? `
     <div class="btitre">ARTICLES</div>
@@ -310,9 +326,76 @@ export function imprimerRecuVersement(d, bq = {}) {
 // Vente comptant → reçu de vente ; vente à crédit → le reçu de sa dette
 // (règle `documentDeVente`, core.js). Ventes ne choisit jamais lui-même.
 export function imprimerRecuDeVente(db, v, bq = {}, produits = []) {
-  const doc = documentDeVente(db, v);
-  if (doc.type === "dette") imprimerRecuVersement(doc.dette, bq);
-  else imprimerRecu(v, bq, produits);
+  // 🧾 Une vente de travaux s'imprime « FACTURE — TRAVAUX » (10/10/2026).
+  const vt = avecInfoTravaux(db, v);
+  const doc = documentDeVente(db, vt);
+  if (doc.type === "dette") imprimerRecuVersement(avecInfoTravaux(db, doc.dette), bq);
+  else imprimerRecu(vt, bq, produits);
+}
+
+// ============ 🧾 LE RELEVÉ DES TRAVAUX (10/10/2026, « b ») ============
+// Avant de facturer, ce que BMI a posé chez le client et le total à venir,
+// pour qu'il vérifie. Ce n'est PAS une facture : aucun numéro de reçu, rien
+// d'encaissé, rien de compté — le document le dit en toutes lettres. Ni prix
+// d'achat ni marge : c'est le papier du client.
+export function imprimerReleveTravaux(c, bq = {}, auteur = "", aujourdhui = today()) {
+  const logo = bq.logo || LOGO;
+  const prestation = montantPrestation(c);
+  const p = c.prestation || {};
+  const lignes = lignesReleve(c);
+  const html = `
+  ${STYLE_RECU}
+  <div class="recu-doc" data-releve-travaux>
+    ${bandeauFormation(bq.formation)}
+    <table class="entete"><tr>
+      <td><img src="${logo}" alt="${esc(c.boutique)}"></td>
+      <td class="soc">
+        <div class="nom">${esc(c.boutique)}</div>
+        <div>${esc(bq.adresse || "Lomé, Togo")}</div>
+        ${bq.tel ? `<div>Tél : ${esc(bq.tel)}</div>` : ""}
+        <div>Email : ${esc(bq.email || "Bmitogo.info@gmail.com")}</div>
+        <div>NIF : 1001790098</div>
+        <div>RCCM : TG-LFW-01-2022-A10-01523</div>
+      </td>
+    </tr></table>
+
+    <h1>${TITRE_RELEVE_TRAVAUX}</h1>
+    <div style="text-align:center;font-size:11px;color:#92400e;margin:-6px 0 10px" data-releve-pas-facture>Ce relevé n'est pas une facture : rien n'est encaissé. La facture et son numéro vous seront remis au paiement.</div>
+
+    <div class="meta">
+      <div><b>Date :</b> ${dFR(aujourdhui)}</div>
+      <div><b>Travaux ouverts le :</b> ${dFR(c.date)}</div>
+    </div>
+
+    <div class="btitre">CLIENT</div>
+    <div class="client">
+      <div><b>Nom :</b> ${esc(`${c.nom || ""} ${c.prenom || ""}`.trim() || "________________________")}</div>
+      <div><b>Téléphone :</b> ${esc(c.tel || "________________________")}</div>
+    </div>
+    ${blocTravaux({ lieu: c.adresse || "", objet: c.description || "" })}
+
+    <table class="articles">
+      <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th><th>Montant</th></tr></thead>
+      <tbody>
+        ${lignes.length ? lignes.map((l) => `<tr><td>${esc(l.nom)}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(l.montant)}</td></tr>`).join("") : `<tr><td colspan="4">Aucun article pour l'instant.</td></tr>`}
+      </tbody>
+    </table>
+
+    <table class="totaux">
+      <tr><td>Total articles :</td><td>${fmt(totalArticles(c))}</td></tr>
+      ${prestation > 0 ? `<tr><td>${esc(LIGNE_PRESTATION)}${p.mode === "pct" && Number(p.valeur) > 0 ? ` (${p.valeur} %)` : ""} :</td><td>${fmt(prestation)}</td></tr>` : ""}
+      <tr class="total"><td>TOTAL À FACTURER :</td><td>${fmt(totalAFacturer(c))}</td></tr>
+    </table>
+
+    <table class="sign"><tr>
+      <td></td>
+      <td><div class="ligne">Établi par${auteur ? ` : ${esc(auteur)}` : ""}</div></td>
+      <td></td>
+    </tr></table>
+
+    <div class="merci">Merci de votre confiance ! BMI TOGO</div>
+  </div>`;
+  if (printApi) printApi.open(html, nomDocument("Relevé des travaux", { client: `${c.nom || ""} ${c.prenom || ""}`.trim() }));
 }
 
 // ⚠ 26/09/2026 : la proforma lit la fiche de la boutique (`bq`), comme le

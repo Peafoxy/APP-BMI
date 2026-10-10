@@ -20,6 +20,7 @@ import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
 import { refusSuppressionRemise } from "../lib/argentChantier";
 import { ArgentDuChantier } from "../components/ArgentChantier";
+import { imprimerReleveTravaux } from "../lib/impression";
 import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe, propositionsStock, produitSaisi } from "../lib/travaux";
 
 const ficheVide = { nom: "", prenom: "", tel: "", lieu: "", description: "" };
@@ -154,6 +155,15 @@ export function Travaux({ db, save, profile, onFacturer }) {
     if (refus) { uAlert(refus); return; }
     if (!await uConfirm(`Facturer les travaux de ${c.prenom || ""} ${c.nom} : ${fmt(totalAFacturer(c))} ?\n\nLe panier s'ouvre dans 💰 Ventes : vous y choisissez espèces ou crédit (avec avance), puis vous encaissez. Le reçu reviendra sur cette fiche.`)) return;
     onFacturer(preRempliPourFacture(c));
+  };
+
+  // 🧾 Le relevé des travaux (10/10/2026, « b ») : à remettre au client AVANT
+  // la facture, pour qu'il vérifie. Rien d'écrit, rien d'encaissé.
+  const releve = (c) => {
+    if (refuserSaufRoles(profile, ROLES_FACTURER, "Remettre le relevé des travaux")) return;
+    if (c.vente_id) { uAlert("Ces travaux sont déjà facturés : remettez le reçu (💰 Ventes ou 🧾 Dettes), pas le relevé."); return; }
+    if (!(c.articles_travaux || []).length && montantPrestation(c) <= 0) { uAlert("Rien à relever : ajoutez d'abord des articles ou des frais de prestation."); return; }
+    imprimerReleveTravaux(c, (db.boutiques || []).find((b) => b.nom === c.boutique) || {}, profile.nom);
   };
 
   const Chiffre = ({ label, valeur, fort }) => (
@@ -378,7 +388,12 @@ export function Travaux({ db, save, profile, onFacturer }) {
                     ) : (
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="text-sm">Total à facturer : <b className="tabular-nums text-base">{fmt(totalAFacturer(c))}</b> <span className="text-xs text-slate-500">(articles {fmt(totalArticles(c))} + prestation {fmt(montantPrestation(c))})</span></div>
-                        {ROLES_FACTURER.includes(profile.role) && <button onClick={() => facturer(c)} className={btnDark}>🧾 Facturer le client (vers 💰 Ventes)</button>}
+                        {ROLES_FACTURER.includes(profile.role) && (
+                          <div className="flex flex-wrap gap-2">
+                            <button onClick={() => releve(c)} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-700 hover:bg-slate-50" data-releve-bouton title="Le détail des travaux et le total à venir, à remettre au client pour qu'il vérifie — ce n'est pas une facture">🧾 Relevé des travaux</button>
+                            <button onClick={() => facturer(c)} className={btnDark}>🧾 Facturer le client (vers 💰 Ventes)</button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

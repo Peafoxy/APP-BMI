@@ -10,6 +10,7 @@ import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
+import { avecInfoTravaux } from "../lib/travaux";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, espaceDeLaDette, boutiqueRetenue, compteClientPour, refuserSaufAdmin, boutiqueDuDocument, estNomCaisseChantier, libelleCaisse } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -118,7 +119,7 @@ export function Dettes({ db, save, profile }) {
     // ⚠ Demande Timo : un reçu sort à CHAQUE versement, reprenant tout
     // l'historique cumulé (pas seulement celui du jour) — et devient
     // automatiquement le reçu DÉFINITIF si ce versement solde la dette.
-    imprimerRecuVersement(dApres, bqDe(boutiqueDuDocument(d)));
+    imprimerRecuVersement(avecInfoTravaux(db, dApres), bqDe(boutiqueDuDocument(d)));
     // 🧾 Le reçu du versement part du numéro BMI (Timo, 25/09/2026), tout
     // seul. ⚠ Le mur : l'espace de la BOUTIQUE de la dette.
     // Le reçu porte la boutique de la vente ou du devis (son téléphone) ; le
@@ -550,7 +551,7 @@ export function Dettes({ db, save, profile }) {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex items-center gap-1">
-                      <button onClick={() => imprimerRecuVersement(d, bqDe(boutiqueDuDocument(d)))} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" aria-label="Imprimer le reçu">🖨</button>
+                      <button onClick={() => imprimerRecuVersement(avecInfoTravaux(db, d), bqDe(boutiqueDuDocument(d)))} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" aria-label="Imprimer le reçu">🖨</button>
                       {st !== "Payée" && (
                         <>
                           <button onClick={() => encaisser(d)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="+ Paiement : enregistrer un versement du client" aria-label="Paiement">💵</button>

@@ -3445,7 +3445,7 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
       && /\*Échange GRATUIT sous garantie\.\*/.test(tT2) && !/DOCUMENT DE FORMATION/.test(tT2) && Bn.texteBon(null) === "");
     const impB = readFileSync("src/lib/impression.js", "utf8");
     test("★ impression : UN style de reçu (STYLE_RECU) partagé par le reçu et les bons ; imprimerBon = même entête (logo, adresse, NIF, RCCM, bandeau de formation), titre BON DE REPRISE / BON DE RETOUR — ÉCHANGE SOUS GARANTIE, reçu d'origine, RENDU AU CLIENT, cases « Pour la boutique » / « Le client reconnaît avoir reçu … », nom de fichier par la règle (nomDocument) ; bonWhatsApp passe par texteBon et envoyerWhatsApp",
-      (impB.match(/\$\{STYLE_RECU\}/g) || []).length === 2 && /^const STYLE_RECU = `/m.test(impB) && !/<style>/.test(impB.slice(impB.indexOf("export function imprimerRecu("), impB.indexOf("// ============ PROFORMA"))) /* le reçu n'a plus son style en ligne (le reçu de versement garde sa variante) */
+      (impB.match(/\$\{STYLE_RECU\}/g) || []).length === 3 /* RETOURNÉ le 10/10/2026 : le relevé des travaux le partage aussi */ && /^const STYLE_RECU = `/m.test(impB) && !/<style>/.test(impB.slice(impB.indexOf("export function imprimerRecu("), impB.indexOf("// ============ PROFORMA"))) /* le reçu n'a plus son style en ligne (le reçu de versement garde sa variante) */
       && /export function imprimerBon\(bon, bq = \{\}\)/.test(impB) && /<h1>\$\{reprise \? "BON DE REPRISE" : "BON DE RETOUR — ÉCHANGE SOUS GARANTIE"\}<\/h1>/.test(impB) && /<b>Reçu d'origine :<\/b> \$\{esc\(bon\.recu\)\} du \$\{dFR\(bon\.dateVente\)\}/.test(impB)
       && /<tr class="total"><td>RENDU AU CLIENT :<\/td><td>\$\{fmt\(bon\.rembourse\)\}<\/td><\/tr>/.test(impB)
       && /<div class="btitre">\$\{reprise \? "MOTIF DE LA REPRISE" : "MOTIF DU RETOUR \(panne constatée\)"\}<\/div>\n\s*<div class="client"><div style="font-size:13px"><b>\$\{esc\(bon\.motif \|\| "—"\)\}<\/b>/.test(impB) /* 14/09/2026 : « la raison devrait figurer sur les reçus » — en ligne à part, bien visible */ && /Le client reconnaît avoir reçu \$\{fmt\(bon\.rembourse\)\}/.test(impB) && /Le client reconnaît avoir reçu l'article de remplacement et remis le défectueux/.test(impB)
@@ -3785,7 +3785,8 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
     !/imprimerRecu\(/.test(ventesSrc) && !/\bimprimerRecu\b/.test(ventesSrc.split("\n").find((l) => l.startsWith("import") && l.includes("../lib/impression")) || "")
     && ventesSrc.includes("imprimerRecuDeVente(next, vente, infoBq(boutique), db.produits)")
     && ventesSrc.includes("imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)")
-    && imp.includes("const doc = documentDeVente(db, v);") && imp.includes('if (doc.type === "dette") imprimerRecuVersement(doc.dette, bq);'));
+    // RETOURNÉ le 10/10/2026 : la vente et sa dette passent par avecInfoTravaux (« FACTURE — TRAVAUX »).
+    && imp.includes("const doc = documentDeVente(db, vt);") && imp.includes('if (doc.type === "dette") imprimerRecuVersement(avecInfoTravaux(db, doc.dette), bq);'));
 }
 
 titre("Le filet : abandonner un geste refusé par le serveur, sans rien laisser à moitié");
@@ -8378,7 +8379,7 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     && /ongletsVisites\.travaux && \(isAdmin \|\| isGerant \|\| isVendeur \|\| isMagasinier\)/.test(appT) && /<M\.Travaux db=\{db\} save=\{save\} profile=\{profile\} onFacturer=\{\(pre\) => \{ setPreRempli\(pre\); setTab\("ventes"\); \}\} \/>/.test(appT));
   const vT = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ 💰 Ventes : une ligne deja_sorti ne manque jamais au contrôle de stock (les deux passages), la vente porte travaux_id, et le reçu / la dette reviennent sur la fiche (lierFacture)",
-    (vT.match(/if \(l\.deja_sorti\) return false;/g) || []).length === 2 && /\.\.\.\(origineTravaux \? \{ travaux_id: origineTravaux \} : \{\}\)/.test(vT)
+    (vT.match(/if \(l\.deja_sorti\) return false;/g) || []).length === 2 && /\.\.\.\(origineTravaux \? \{ travaux_id: origineTravaux, \.\.\.champsTravauxDocument\(/.test(vT) /* RETOURNÉ le 10/10/2026 : le lieu et l'objet suivent */
     && /lierFacture\(c, vente, detteTravaux, today\(\)\)/.test(vT) && /setOrigineTravaux\(preRempli\.travauxId \|\| null\);/.test(vT));
   const ciT = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ 🏠 Clients installés : une fiche de travaux n'y vient que SOLDÉE, catégorie « 🛠 Travaux soldés », statut « travaux » connu, trace (facturé / coût / marge), pas de Frais, Programmer ni Entretien pour elle",
@@ -13937,7 +13938,7 @@ titre("💸 « Où va l'argent ? » au paiement d'une dette (09/10/2026, « a ou
     Vo2.versementDeReglement(dbFinal, Vo2.cleReglement(dbFinal.dettes[0], p, 0))?.id === v.sortie.id
     && !Vo2.validationVersement(dbFinal, v.sortie) && !BV2.poseUneBande(v.sortie, BQ));
   const fD2 = readFileSync("src/screens/Dettes.jsx", "utf8").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
-  const corps = fD2.slice(fD2.indexOf("const encaisser = async"), fD2.indexOf("imprimerRecuVersement(dApres"));
+  const corps = fD2.slice(fD2.indexOf("const encaisser = async"), fD2.indexOf("imprimerRecuVersement(avecInfoTravaux(db, dApres"));
   const geste2 = readFileSync("src/components/verserOrigine.js", "utf8");
   test("★★ la question n'est posée qu'au gérant / à l'administrateur, et jamais pour un virement ; la caisse de la dette vient en PREMIER",
     /if \(ROLES_VERSEMENT\.includes\(profile\.role\) && moyenVersable\(moyenN\)\)/.test(corps)
@@ -14644,6 +14645,80 @@ titre("📋 L'inventaire de 💰 Ventes : ventes, recettes, dépenses, versement
       && /PAY.ES CHEZ LE DG/.test(tG) && /130 000/.test(tG) && /100 000/.test(tG)
       && ["1. LES VENTES", "2. LES RECETTES", "4. LES VERSEMENTS", "7. LE COMPTAGE"].every((k) => tG.includes(k)) && !/V e r s/.test(tG), tG.slice(0, 400));
   }
+}
+
+titre("🧾 La facture de travaux : le reçu dit « FACTURE — TRAVAUX », et le relevé avant la facture (10/10/2026, « a, b »)");
+// Timo : « la meilleure façon d'envoyer la facture au client, c'est un reçu de
+// vente ? » → la facture reste la VENTE (un numéro, la caisse, la dette) ; le
+// reçu le DIT (« a ») ; un RELEVÉ se remet avant de facturer (« b »). Les
+// documents sont IMPRIMÉS pour de vrai (printApi remplacé par un témoin).
+{
+  const sortieFT = join("node_modules", ".cache", `bmi-facture-travaux-${process.pid}.mjs`);
+  await build({
+    entryPoints: ["src/lib/impression.js"], bundle: true, format: "esm", platform: "node", outfile: sortieFT,
+    logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"],
+    plugins: [{ name: "ui-temoin", setup(b) {
+      b.onResolve({ filter: /components\/ui(\.jsx)?$/ }, (a) => a.importer.endsWith("impression.js") ? { path: "ui-temoin", namespace: "temoin" } : undefined);
+      b.onLoad({ filter: /.*/, namespace: "temoin" }, () => ({ resolveDir: process.cwd(), loader: "js",
+        contents: 'export * from "./src/components/ui.jsx"; export const printApi = { open: (h, t) => { globalThis.__doc = h; globalThis.__titreDoc = t; } };' }));
+    } }],
+  });
+  const ImpF = await import(pathToFileURL(sortieFT).href);
+  const sortieTr = join("node_modules", ".cache", `bmi-travaux-ft-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/travaux.js"], bundle: true, format: "esm", platform: "node", outfile: sortieTr, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const TrF = await import(pathToFileURL(sortieTr).href);
+  unlinkSync(sortieFT); unlinkSync(sortieTr);
+  const nz = (t) => String(t || "").replace(/[  ]/g, " ").replace(/&#x27;|&#39;/g, "'");
+  const fiche = { id: "tr1", travaux: true, nom: "NIMAN", prenom: "Kossi", tel: "90112233", adresse: "Agoè, près du marché", description: "Câblage de la villa", boutique: "BMI TEST", date: "2026-10-01",
+    articles_travaux: [
+      { id: "l1", produit_id: "p1", nom: "Câble 2,5 mm²", qte: 3, pu_vente: 25000, pu_achat: 18000, hb: false },
+      { id: "l2", produit_id: null, nom: "Tuyau PVC", qte: 4, pu_vente: 5000, pu_achat: 3000, hb: true },
+    ], prestation: { mode: "pct", valeur: 10 } };
+  const vT = { id: "vT", numero: "BMIT-2026-0042", boutique: "BMI TEST", date: "2026-10-05", client: "Kossi NIMAN", tel: "90112233", paiement: "Espèces", par: "AFI",
+    articles: TrF.panierPourFacture(fiche), travaux_id: "tr1", ...TrF.champsTravauxDocument(fiche) };
+  const vC = { id: "vC", numero: "BMIT-2026-0043", boutique: "BMI TEST", date: "2026-10-05", client: "AMA", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Cosse", qte: 1, pu: 1000 }] };
+  const dbF = { ventes: [vT, vC], dettes: [], clients_installes: [fiche], boutiques: [{ nom: "BMI TEST" }] };
+  globalThis.__doc = "";
+  ImpF.imprimerRecuDeVente(dbF, vT, {}, []);
+  const hT = nz(globalThis.__doc);
+  test("★★ « a » : le reçu d'une vente de travaux s'intitule « FACTURE — TRAVAUX », même numéro, avec le lieu et l'objet du chantier",
+    /<h1>FACTURE — TRAVAUX<\/h1>/.test(hT) && /N° de facture \(reçu\) :<\/b> BMIT-2026-0042/.test(hT)
+    && /data-recu-travaux/.test(hT) && /Agoè, près du marché/.test(hT) && /Câblage de la villa/.test(hT) && !/REÇU DE VENTE/.test(hT), hT.slice(0, 200));
+  globalThis.__doc = "";
+  ImpF.imprimerRecuDeVente(dbF, vC, {}, []);
+  const hC = nz(globalThis.__doc);
+  test("★★ une vente du comptoir garde « REÇU DE VENTE », sans bloc de travaux",
+    /<h1>REÇU DE VENTE<\/h1>/.test(hC) && !/FACTURE — TRAVAUX/.test(hC) && !/data-recu-travaux/.test(hC));
+  // À crédit : la dette garde son titre, porte la mention, même une dette d'AVANT (sans travaux_id, retrouvée par sa vente).
+  const vK = { ...vT, id: "vK", paiement: "Crédit (dette)", travaux_lieu: undefined, travaux_objet: undefined };
+  const dK = { id: "dK", vente_id: "vK", numero: "BMIT-DET-2026-0007", date: "2026-10-05", boutique: "BMI TEST", client: "Kossi NIMAN", montant: 107000, paye: 20000,
+    paiements: [{ date: "2026-10-05", montant: 20000, paiement: "Espèces" }], articles: [{ nom: "Câble 2,5 mm²", qte: 3, pu: 25000 }] };
+  const dbK = { ...dbF, ventes: [vK], dettes: [dK] };
+  globalThis.__doc = "";
+  ImpF.imprimerRecuDeVente(dbK, vK, {}, []);
+  const hK = nz(globalThis.__doc);
+  test("★★ à crédit : le reçu de la dette garde son titre (REÇU DE VERSEMENT), porte « FACTURE — TRAVAUX » dessous, le motif « Travaux à crédit » et le chantier — même pour une dette d'avant, retrouvée par sa vente",
+    /REÇU DE VERSEMENT/.test(hK) && /data-mention-travaux[^>]*>FACTURE — TRAVAUX</.test(hK) && /Travaux à crédit/.test(hK) && /Agoè, près du marché/.test(hK) && !/Vente à crédit/.test(hK));
+  const dCompt = { id: "dX", numero: "D-9", date: "2026-10-05", boutique: "BMI TEST", client: "AMA", montant: 5000, paye: 0, paiements: [], articles: [{ nom: "Cosse", qte: 5, pu: 1000 }] };
+  test("★ une dette ordinaire n'est jamais marquée travaux",
+    TrF.avecInfoTravaux({ ventes: [], clients_installes: [] }, dCompt) === dCompt && TrF.infoTravauxDocument({ ventes: [vC] }, { vente_id: "vC" }) === null);
+  // « b » : le relevé.
+  globalThis.__doc = ""; globalThis.__titreDoc = "";
+  ImpF.imprimerReleveTravaux(fiche, {}, "AFI", "2026-10-06");
+  const hR = nz(globalThis.__doc);
+  test("★★ « b » : le relevé des travaux — titre, « ce n'est pas une facture », les lignes au prix facturé (HB compris, sans le dire), la prestation (10 %), TOTAL À FACTURER 104 500 ; ni prix d'achat ni numéro de reçu",
+    /<h1>RELEVÉ DES TRAVAUX<\/h1>/.test(hR) && /data-releve-pas-facture/.test(hR) && /n'est pas une facture/.test(hR)
+    && /Câble 2,5 mm²/.test(hR) && /Tuyau PVC/.test(hR) && /Frais de prestation \(10 %\)/.test(hR) && /TOTAL À FACTURER :<\/td><td>104 500 F/.test(hR)
+    && !/18 000|3 000 F|\bHB\b|hors boutique|Numéro de reçu|N° de facture/.test(hR.slice(hR.indexOf("<h1>"))) /* le logo en base64 porte des lettres au hasard : on lit le document, pas l'image */ && /Établi par : AFI/.test(hR) && /Relevé des travaux/.test(globalThis.__titreDoc), hR.slice(0, 300));
+  const srcTv = readFileSync("src/screens/Travaux.jsx", "utf8");
+  const srcVv = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const srcDv = readFileSync("src/screens/Dettes.jsx", "utf8");
+  test("★★ le bouton « 🧾 Relevé des travaux » : avant la facture seulement, gardé par ROLES_FACTURER, revérifié DANS le geste",
+    /data-releve-bouton/.test(srcTv) && /const releve = \(c\) => \{\n\s*if \(refuserSaufRoles\(profile, ROLES_FACTURER, "Remettre le relevé des travaux"\)\) return;\n\s*if \(c\.vente_id\)/.test(srcTv)
+    && /imprimerReleveTravaux\(c, /.test(srcTv));
+  test("★★ la vente et sa dette portent le chantier (le reçu réimprimé le dit encore) ; 📋 Dettes imprime le reçu d'une dette par avecInfoTravaux",
+    /travaux_id: origineTravaux, \.\.\.champsTravauxDocument\(/.test(srcVv) && /\.\.\.\(vente\.travaux_id \? \{ travaux_id: vente\.travaux_id, travaux_lieu:/.test(srcVv)
+    && (srcDv.match(/imprimerRecuVersement\(avecInfoTravaux\(db, /g) || []).length === 2);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

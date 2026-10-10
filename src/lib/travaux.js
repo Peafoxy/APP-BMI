@@ -206,6 +206,37 @@ export const lierFacture = (c, vente, dette, aujourdhui = today()) => ({
   ...c, vente_id: vente.id, dette_id: dette ? dette.id : null, facture_le: aujourdhui, facture_numero: vente.numero,
 });
 
+// ---- 🧾 LA FACTURE DE TRAVAUX ET LE RELEVÉ (10/10/2026, « a, b ») ----
+// Timo : « la meilleure façon d'envoyer la facture au client, c'est un reçu de
+// vente ? » → oui, la facture reste la VENTE et son reçu (un seul numéro, la
+// caisse, la clôture et la dette la voient) ; « a » : le reçu le DIT —
+// « FACTURE — TRAVAUX » et le chantier — ; « b » : avant de facturer, un
+// RELEVÉ des travaux à remettre au client (rien d'encaissé, rien de compté).
+export const TITRE_FACTURE_TRAVAUX = "FACTURE — TRAVAUX";
+export const TITRE_RELEVE_TRAVAUX = "RELEVÉ DES TRAVAUX";
+// Ce que la vente et sa dette portent de la fiche (le lieu, l'objet) : un
+// reçu réimprimé après que la fiche est partie à la corbeille le dit encore.
+export const champsTravauxDocument = (c) => (c ? { travaux_id: c.id, travaux_lieu: c.adresse || "", travaux_objet: c.description || "" } : {});
+// Le chantier d'un reçu : la vente porte `travaux_id` ; une dette, son propre
+// `travaux_id` ou celui de SA vente (les dettes d'avant le 10/10/2026). Rien
+// pour un document qui ne vient pas de travaux.
+export function infoTravauxDocument(db, doc) {
+  if (!doc) return null;
+  let id = doc.travaux_id;
+  let porteur = doc;
+  if (!id && doc.vente_id) {
+    porteur = (db?.ventes || []).find((v) => v.id === doc.vente_id) || null;
+    id = porteur?.travaux_id;
+  }
+  if (!id) return null;
+  const c = (db?.clients_installes || []).find((x) => x.id === id);
+  return { lieu: c ? c.adresse || "" : porteur?.travaux_lieu || doc.travaux_lieu || "", objet: c ? c.description || "" : porteur?.travaux_objet || doc.travaux_objet || "" };
+}
+export const avecInfoTravaux = (db, doc) => { const t = infoTravauxDocument(db, doc); return t ? { ...doc, travaux_info: t } : doc; };
+// Les lignes du relevé, telles que le client les lira : ni prix d'achat, ni
+// mention HB (c'est notre affaire, pas la sienne).
+export const lignesReleve = (c) => (c.articles_travaux || []).map((l) => ({ nom: l.nom, qte: Number(l.qte || 0), pu: Number(l.pu_vente || 0), montant: Number(l.qte || 0) * Number(l.pu_vente || 0) }));
+
 export const resumeTravaux = (db, c) => `${fmt(totalAFacturer(c))} à facturer · coût ${fmt(coutTravaux(db, c))}`;
 
 // ---- Supprimer (Timo, 13/09/2026) : « tant qu'il n'y a pas d'article rattaché

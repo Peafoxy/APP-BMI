@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2458 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2465 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1491,7 +1491,6 @@ lit mal est pire qu'un banc absent).
   figée sur téléphone) ; comptage par caisse. Un clic sur une boutique revient
   à son inventaire. PDF et CSV suivent. Banc (+10), éprouvé (dettes comptées
   deux fois, gérant autorisé). Chapitre 5 et guide administrateur à jour.
-  Chapitre 5 et guides gérant / administrateur à jour.
 
 ### 🏗 LA CAISSE CHANTIER : TOUT L'ARGENT DES CHANTIERS (08/10/2026, « lance l'étape 1, clôture facultative »)
 - Captures Timo : POUDAMA, pose seule de 354 900 F, 354 000 encaissés par lui
@@ -1980,6 +1979,27 @@ lit mal est pire qu'un banc absent).
   redonne le titre (« … facturés, coût … ») ; le carré « Coût (articles +
   petites dépenses) » y ajoute les dépenses rattachées. Affichage seul. Banc
   (`verifier-ecran-travaux`, +2, un RETOURNÉ), éprouvé. Chapitre 15 à jour.
+- **🧾 LA FACTURE DE TRAVAUX = LE REÇU DE LA VENTE, ET LE RELEVÉ AVANT**
+  (10/10/2026, « la meilleure façon d'envoyer la facture au client, c'est un
+  reçu de vente ? » → « a, b »). La facture reste la VENTE (un seul numéro, la
+  caisse, la clôture, la dette, les relances) — **pas de document « facture »
+  à part avec un second numéro**. **« a »** : une vente de travaux porte
+  `travaux_id`, `travaux_lieu`, `travaux_objet` (`champsTravauxDocument`), sa
+  dette aussi ; son reçu s'intitule **« FACTURE — TRAVAUX »** (« N° de facture
+  (reçu) ») avec un bloc TRAVAUX (lieu, objet) ; à crédit, le reçu de la dette
+  GARDE son titre (`titreRecuDette`), porte « FACTURE — TRAVAUX » dessous et le
+  motif « Travaux à crédit ». `avecInfoTravaux` (lib/travaux.js) retrouve le
+  chantier d'une dette d'AVANT par sa vente ; `imprimerRecuDeVente` et
+  📋 Dettes y passent. **« b »** : bouton **« 🧾 Relevé des travaux »** sur la
+  fiche, AVANT la facture (`ROLES_FACTURER`, revérifié DANS le geste ; disparaît
+  une fois facturé) — `imprimerReleveTravaux` (impression.js, `STYLE_RECU`) :
+  lieu, objet, lignes au prix FACTURÉ (`lignesReleve` : ni prix d'achat, ni
+  mention HB), prestation, TOTAL À FACTURER, « ce relevé n'est pas une
+  facture ». Le message WhatsApp automatique ne change pas (modèle Meta). Rien
+  d'écrit par le relevé, rien à coller. Banc (+8, les documents IMPRIMÉS par un
+  témoin), éprouvé (titre retiré, dette d'avant ignorée, prix d'achat sur le
+  relevé) ; trois contrôles RETOURNÉS (trois `STYLE_RECU`, `vt` dans
+  `imprimerRecuDeVente`, la vente qui porte le chantier). Chapitre 15 à jour.
 - **L'article à sortir se choisit en TAPANT son nom** (capture Timo,
   13/09/2026 : « tous les articles apparaissent… un grand nombre dans lequel
   il faut chercher son article… saisie libre avec proposition à partir de la

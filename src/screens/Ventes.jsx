@@ -36,7 +36,7 @@ import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/
 import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite } from "../lib/whatsappModeles";
-import { lierFacture } from "../lib/travaux";
+import { lierFacture, champsTravauxDocument } from "../lib/travaux";
 import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
 import { InventaireVentes } from "./InventaireVentes";
 
@@ -892,7 +892,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       par: profile.nom,
       commande_id: origineCommande,
       ...(caisseVente ? { caisse: caisseVente } : {}),
-      ...(origineTravaux ? { travaux_id: origineTravaux } : {}),
+      // 🧾 Le chantier suit la vente (10/10/2026) : son reçu s'intitule « FACTURE — TRAVAUX ».
+      ...(origineTravaux ? { travaux_id: origineTravaux, ...champsTravauxDocument((db.clients_installes || []).find((c) => c.id === origineTravaux)) } : {}),
       // D'où vient ce panier, quand il a été repris d'une proforma.
       ...(origineProforma ? { proforma_id: origineProforma.id, proforma_numero: origineProforma.numero } : {}),
     };
@@ -1038,7 +1039,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // gardent l'ancienne règle, payables dès la réception.
       // 🏗 La dette d'une vente de devis vit dans la caisse CHANTIER (son argent
       // y entre) ; elle se suit dans 📋 Dettes de SA boutique (`boutique_vente`).
-      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, caisseVente || boutique), date: today(), boutique: caisseVente || boutique, ...(caisseVente ? { boutique_vente: boutique } : {}), client: f.client || "Client non renseigné", tel: f.tel, ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }), motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom }, ...db.dettes] };
+      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, caisseVente || boutique), date: today(), boutique: caisseVente || boutique, ...(caisseVente ? { boutique_vente: boutique } : {}), client: f.client || "Client non renseigné", tel: f.tel, ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }), motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom, ...(vente.travaux_id ? { travaux_id: vente.travaux_id, travaux_lieu: vente.travaux_lieu || "", travaux_objet: vente.travaux_objet || "" } : {}) }, ...db.dettes] };
     }
     // 🛠 Travaux à crédit : le reçu (et la dette) reviennent sur la fiche.
     if (origineTravaux) {
