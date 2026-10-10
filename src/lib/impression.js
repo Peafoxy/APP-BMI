@@ -343,6 +343,8 @@ export function imprimerReleveTravaux(c, bq = {}, auteur = "", aujourdhui = toda
   const prestation = montantPrestation(c);
   const p = c.prestation || {};
   const lignes = lignesReleve(c);
+  // 🏷 La colonne Remise n'apparaît que si une ligne en porte une (10/10/2026).
+  const avecRemise = lignes.some((l) => l.remise > 0);
   const html = `
   ${STYLE_RECU}
   <div class="recu-doc" data-releve-travaux>
@@ -375,9 +377,9 @@ export function imprimerReleveTravaux(c, bq = {}, auteur = "", aujourdhui = toda
     ${blocTravaux({ lieu: c.adresse || "", objet: c.description || "" })}
 
     <table class="articles">
-      <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th><th>Montant</th></tr></thead>
+      <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th>${avecRemise ? "<th>Remise</th>" : ""}<th>Montant</th></tr></thead>
       <tbody>
-        ${lignes.length ? lignes.map((l) => `<tr><td>${esc(l.nom)}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(l.montant)}</td></tr>`).join("") : `<tr><td colspan="4">Aucun article pour l'instant.</td></tr>`}
+        ${lignes.length ? lignes.map((l) => `<tr><td>${esc(l.nom)}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td>${avecRemise ? `<td data-releve-remise>${l.remise > 0 ? `−${fmt(l.remise)}` : "—"}</td>` : ""}<td>${fmt(l.montant)}</td></tr>`).join("") : `<tr><td colspan="${avecRemise ? 5 : 4}">Aucun article pour l'instant.</td></tr>`}
       </tbody>
     </table>
 

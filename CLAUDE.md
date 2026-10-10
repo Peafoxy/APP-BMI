@@ -52,14 +52,14 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2467 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2475 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run tester-notifications     # 81  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
-npm run verifier-ecran-travaux   # 19  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total)
+npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 26  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
@@ -2018,6 +2018,25 @@ lit mal est pire qu'un banc absent).
   témoin), éprouvé (titre retiré, dette d'avant ignorée, prix d'achat sur le
   relevé) ; trois contrôles RETOURNÉS (trois `STYLE_RECU`, `vt` dans
   `imprimerRecuDeVente`, la vente qui porte le chantier). Chapitre 15 à jour.
+- **🏷 LA REMISE SUR UN ARTICLE DES TRAVAUX** (10/10/2026, « on peut offrir
+  des remises sur les prix des articles comme dans Ventes ? » → « A a, B a, C a,
+  D a ») : colonne **Remise** sur chaque ligne (stock et HB), bouton « Remise »
+  (`remiser`, Travaux.jsx), en F ou en % (`lireRemise`), vide = retirée ;
+  `remise` (montant) sur la ligne, `poserRemise` / `critiqueRemiseTravaux`
+  (lib/travaux.js). **Les règles de 💰 Ventes**, réutilisées
+  (`remiseLigneExigeAdmin`) : > 3 % = administrateur ; jamais plus que la
+  ligne ; elle part dans Ventes en `remise_ligne` (`panierPourFacture`), donc
+  **la remise générale y est refusée** (`critiqueRemises`, champ grisé).
+  **« A a »** gérant + administrateur (`ROLES_FICHE`), revérifié DANS le geste
+  sur la fiche fraîche ; **« B a »** `totalArticles` est NET (la prestation en %
+  s'y calcule) ; **« C a »** une ligne > 3 % ne se facture que par
+  l'administrateur (`critiqueFacturationRemises` dans « Facturer » — la base
+  refuserait sinon, securite-14) ; **« D a »** modifiable tant que ce n'est pas
+  facturé. Le relevé a sa colonne Remise (seulement s'il y en a une) ; le coût
+  ne bouge pas. Rien à coller. Bancs `verifier-cloisonnement` (+8) et
+  `verifier-ecran-travaux` (+4, joué dans Chromium), éprouvés (prestation sur le
+  brut, gérant au-delà de 3 %, facturation sans « C a ») ; trois contrôles
+  RETOURNÉS (les colonnes). Chapitre 15 à jour.
 - **L'article à sortir se choisit en TAPANT son nom** (capture Timo,
   13/09/2026 : « tous les articles apparaissent… un grand nombre dans lequel
   il faut chercher son article… saisie libre avec proposition à partir de la

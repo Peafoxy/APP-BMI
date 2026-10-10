@@ -11,7 +11,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, dFR, today } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, AucuneBoutique, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, FormulaireRepliable } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
@@ -21,7 +21,7 @@ import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } fr
 import { refusSuppressionRemise } from "../lib/argentChantier";
 import { ArgentDuChantier } from "../components/ArgentChantier";
 import { imprimerReleveTravaux } from "../lib/impression";
-import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe, propositionsStock, produitSaisi } from "../lib/travaux";
+import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe, propositionsStock, produitSaisi, remiseDe, brutLigne, montantLigne, totalRemises, lireRemise, poserRemise, critiqueFacturationRemises, remiseTravauxExigeAdmin } from "../lib/travaux";
 
 const ficheVide = { nom: "", prenom: "", tel: "", lieu: "", description: "" };
 const hbVide = { nom: "", qte: "1", pu_achat: "", pu_vente: "" };
@@ -97,6 +97,23 @@ export function Travaux({ db, save, profile, onFacturer }) {
     majFiche(r.fiche, r.journal, r.ajustement ? { ajustements: [r.ajustement, ...(db.ajustements || [])] } : {});
   };
 
+  // 🏷 La remise sur un article (Timo, 10/10/2026, « A a, B a, C a, D a ») :
+  // gérant et administrateur, revérifié DANS le geste ; en F ou en % ; vide = retirée.
+  const remiser = async (c, ligne) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufRoles(profile, ROLES_FICHE, "Accorder une remise sur un article des travaux")) return;
+    const fraiche = (db.clients_installes || []).find((x) => x.id === c.id) || c;
+    const l = (fraiche.articles_travaux || []).find((x) => x.id === ligne.id);
+    if (!l) { uAlert("Ligne introuvable."); return; }
+    const v = await uPrompt(`Remise sur ${l.qte} × ${l.nom} (${fmt(brutLigne(l))}) :\n\nen francs (ex. 2000) ou en pourcentage (ex. 3 %). Laissez vide pour retirer la remise.\n\nAu-delà de 3 %, l'administrateur seul. Une remise sur un article interdit la remise générale à la facture.`, remiseDe(l) ? String(remiseDe(l)) : "");
+    if (v === null) return;
+    const montant = lireRemise(v, l);
+    if (montant === null) { uAlert("Remise illisible : tapez un montant en francs (2000) ou un pourcentage (3 %)."); return; }
+    const r = poserRemise(profile, fraiche, l.id, montant);
+    if (r.refus) { uAlert(r.refus); return; }
+    majFiche(r.fiche, r.journal);
+  };
+
   const enregistrerPrestation = (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (refuserSaufRoles(profile, ROLES_FICHE, "Fixer les frais de prestation")) return;
@@ -151,7 +168,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
   const facturer = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (refuserSaufRoles(profile, ROLES_FACTURER, "Facturer des travaux")) return;
-    const refus = critiqueFacturation(c);
+    const refus = critiqueFacturation(c) || critiqueFacturationRemises(c, profile.role);
     if (refus) { uAlert(refus); return; }
     if (!await uConfirm(`Facturer les travaux de ${c.prenom || ""} ${c.nom} : ${fmt(totalAFacturer(c))} ?\n\nLe panier s'ouvre dans 💰 Ventes : vous y choisissez espèces ou crédit (avec avance), puis vous encaissez. Le reçu reviendra sur cette fiche.`)) return;
     onFacturer(preRempliPourFacture(c));
@@ -265,23 +282,27 @@ export function Travaux({ db, save, profile, onFacturer }) {
 
                   {/* ---- Articles ---- */}
                   <div>
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">📦 Articles ({(c.articles_travaux || []).length}) — {fmt(totalArticles(c))} facturés, coût {fmt(coutArticles(c))}</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">📦 Articles ({(c.articles_travaux || []).length}) — {fmt(totalArticles(c))} facturés{totalRemises(c) > 0 ? ` (remises : −${fmt(totalRemises(c))})` : ""}, coût {fmt(coutArticles(c))}</div>
                     {(c.articles_travaux || []).length > 0 && (
                       <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
                         {/* Timo (08/10/2026) : « c'est le prix total qui est en réalité
                             le prix facturé » — les colonnes disent l'UNITÉ ou le TOTAL,
                             et le coût a son total, pour retrouver les deux chiffres du
                             titre en additionnant. */}
-                        <table className="w-full text-sm min-w-[680px]" data-articles-travaux>
-                          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix unitaire facturé", "Coût unitaire", "Total facturé", "Total coût", ""].map((h) => <th key={h} className="text-left px-3 py-1.5">{h}</th>)}</tr></thead>
+                        <table className="w-full text-sm min-w-[760px]" data-articles-travaux>
+                          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix unitaire facturé", "Remise", "Coût unitaire", "Total facturé", "Total coût", ""].map((h) => <th key={h} className="text-left px-3 py-1.5">{h}</th>)}</tr></thead>
                           <tbody>
                             {(c.articles_travaux || []).map((l) => (
                               <tr key={l.id} className="border-t border-slate-100">
                                 <td className="px-3 py-1.5 font-semibold">{l.nom} {l.hb ? <span className="text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded px-1">HB</span> : <span className="text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 rounded px-1">stock</span>}</td>
                                 <td className="px-3 py-1.5 tabular-nums">{l.qte}</td>
                                 <td className="px-3 py-1.5 tabular-nums">{fmt(l.pu_vente)}</td>
+                                <td className="px-3 py-1.5 tabular-nums" data-remise-ligne>
+                                  {remiseDe(l) > 0 ? <span className={`font-semibold ${remiseTravauxExigeAdmin(l) ? "text-red-700" : "text-red-600"}`}>−{fmt(remiseDe(l))}</span> : <span className="text-slate-400">—</span>}
+                                  {!vente && ROLES_FICHE.includes(profile.role) && <button onClick={() => remiser(c, l)} className="ml-2 text-xs text-sky-800 underline" data-remiser>{remiseDe(l) > 0 ? "Modifier" : "Remise"}</button>}
+                                </td>
                                 <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(l.pu_achat)}</td>
-                                <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(Number(l.qte) * Number(l.pu_vente))}</td>
+                                <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(montantLigne(l))}</td>
                                 <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(Number(l.qte) * Number(l.pu_achat))}</td>
                                 <td className="px-3 py-1.5">{!vente && ROLES_ARTICLES.includes(profile.role) && <button onClick={() => retirer(c, l)} className="text-xs text-red-600 underline">Retirer</button>}</td>
                               </tr>

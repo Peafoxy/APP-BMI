@@ -26,7 +26,7 @@
 //     le reçu ou la dette revient sur la fiche (vente_id / dette_id).
 // ============================================================
 import { uid, today, fmt, totalVente } from "./core";
-import { stockActuel, resteAPayer, travauxSolde } from "./calculs";
+import { stockActuel, resteAPayer, travauxSolde, remiseLigneExigeAdmin, PLAFOND_REMISE_PCT } from "./calculs";
 import { sansAccents } from "./suggestions";
 import { dansLEspaceRegarde, totalDepensesChantier } from "./depensesChantier";
 import { ficheLisible } from "./pompes.js";
@@ -151,8 +151,60 @@ export const retirerArticle = (profile, c, ligneId, aujourdhui = today()) => {
   return { fiche, ajustement, journal: `Travaux ${c.nom} : ${ligne.qte} × ${ligne.nom} retiré(s)${ajustement ? " (retour en stock)" : ""}` };
 };
 
+// ---- 🏷 LA REMISE SUR UN ARTICLE (Timo, 10/10/2026, « A a, B a, C a, D a ») ----
+// « Offrir des remises sur les prix des articles comme ça se passe dans
+// l'écran Ventes ». La remise est un MONTANT en francs sur la ligne (`remise`),
+// avec les MÊMES règles que 💰 Ventes (calculs.js) : au-delà de 3 % du prix de
+// la ligne, l'administrateur seul ; une remise sur un article interdit la
+// remise générale à la facture (critiqueRemises, l'une ou l'autre). « A a » :
+// gérant et administrateur (ROLES_FICHE). « B a » : la prestation en % se
+// calcule sur les articles APRÈS remise. « C a » : au-delà de 3 %,
+// l'administrateur seul facture (la base refuse sinon). « D a » : modifiable
+// tant que ce n'est pas facturé.
+export const remiseDe = (l) => Math.max(0, Number(l?.remise || 0));
+export const brutLigne = (l) => Number(l?.qte || 0) * Number(l?.pu_vente || 0);
+export const montantLigne = (l) => brutLigne(l) - remiseDe(l);
+export const totalRemises = (c) => (c.articles_travaux || []).reduce((s, l) => s + remiseDe(l), 0);
+// La ligne vue par la règle de Ventes ({ qte, pu, remise_ligne }).
+const ligneVente = (l) => ({ qte: Number(l.qte || 0), pu: Number(l.pu_vente || 0), remise_ligne: remiseDe(l), article: l.nom });
+export const remiseTravauxExigeAdmin = (l) => remiseLigneExigeAdmin(ligneVente(l));
+// « 5 % » ou « 5% » → pourcentage de la ligne ; un nombre seul → francs ;
+// vide → 0 (la remise est retirée). Rend null si illisible.
+export function lireRemise(texte, ligne) {
+  const t = String(texte ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+  if (!t) return 0;
+  const pct = /^(\d+(?:\.\d+)?)%$/.exec(t);
+  if (pct) return Math.round((brutLigne(ligne) * Number(pct[1])) / 100);
+  const f = /^\d+(?:\.\d+)?F?$/i.test(t) ? Number(t.replace(/F$/i, "")) : NaN;
+  return Number.isFinite(f) ? Math.round(f) : null;
+}
+export function critiqueRemiseTravaux(c, ligne, montant, role) {
+  if (!ligne) return "Ligne introuvable.";
+  if (c.vente_id) return "Ces travaux sont déjà facturés : la remise ne se change plus.";
+  const m = Number(montant);
+  if (!Number.isFinite(m) || m < 0) return "La remise doit être un montant positif (en F) ou un pourcentage (ex. 5 %).";
+  if (m > brutLigne(ligne)) return "La remise ne peut pas dépasser le montant de la ligne.";
+  if (role !== "admin" && remiseTravauxExigeAdmin({ ...ligne, remise: m })) return `🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % sur un article est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus (${Math.floor((brutLigne(ligne) * PLAFOND_REMISE_PCT) / 100)} F).`;
+  return null;
+}
+export function poserRemise(profile, c, ligneId, montant) {
+  const ligne = (c.articles_travaux || []).find((l) => l.id === ligneId);
+  const refus = critiqueRemiseTravaux(c, ligne, montant, profile?.role);
+  if (refus) return { refus };
+  const m = Math.round(Number(montant));
+  const fiche = { ...c, articles_travaux: (c.articles_travaux || []).map((l) => (l.id === ligneId ? (m > 0 ? { ...l, remise: m, remise_par: profile.nom } : (({ remise, remise_par, ...reste }) => reste)(l)) : l)) };
+  return { fiche, journal: `Travaux ${c.nom} : remise sur ${ligne.qte} × ${ligne.nom} : ${remiseDe(ligne)} F → ${m} F` };
+}
+// « C a » : une remise au-delà de 3 % ne se facture que par l'administrateur.
+export function critiqueFacturationRemises(c, role) {
+  if (role === "admin") return null;
+  const trop = (c.articles_travaux || []).find(remiseTravauxExigeAdmin);
+  return trop ? `🔒 « ${trop.nom} » porte une remise de plus de ${PLAFOND_REMISE_PCT} % : seul l'administrateur peut facturer ces travaux.` : null;
+}
+
 // ---- Les montants ----
-export const totalArticles = (c) => (c.articles_travaux || []).reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu_vente || 0), 0);
+// Les articles NETS de leur remise (« B a » : la prestation en % s'y calcule).
+export const totalArticles = (c) => (c.articles_travaux || []).reduce((s, l) => s + montantLigne(l), 0);
 export const coutArticles = (c) => (c.articles_travaux || []).reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu_achat || 0), 0);
 export const critiquePrestation = ({ mode, valeur }) => {
   if (!["pct", "montant"].includes(mode)) return "Choisissez : pourcentage ou montant.";
@@ -191,8 +243,8 @@ export const critiqueFacturation = (c) => {
 // ligne libre (elle compte dans le chiffre d'affaires).
 export const panierPourFacture = (c) => {
   const lignes = (c.articles_travaux || []).map((l) => (l.hb
-    ? { produit_id: null, article: l.nom, qte: Number(l.qte), pu: Number(l.pu_vente || 0), hors_boutique: true, travaux_ligne_id: l.id }
-    : { produit_id: l.produit_id, article: l.nom, qte: Number(l.qte), pu: Number(l.pu_vente || 0), deja_sorti: true, travaux_ligne_id: l.id }));
+    ? { produit_id: null, article: l.nom, qte: Number(l.qte), pu: Number(l.pu_vente || 0), remise_ligne: remiseDe(l), hors_boutique: true, travaux_ligne_id: l.id }
+    : { produit_id: l.produit_id, article: l.nom, qte: Number(l.qte), pu: Number(l.pu_vente || 0), remise_ligne: remiseDe(l), deja_sorti: true, travaux_ligne_id: l.id }));
   const prestation = montantPrestation(c);
   if (prestation > 0) lignes.push({ produit_id: null, article: LIGNE_PRESTATION, qte: 1, pu: prestation, prestation: true });
   return lignes;
@@ -235,7 +287,7 @@ export function infoTravauxDocument(db, doc) {
 export const avecInfoTravaux = (db, doc) => { const t = infoTravauxDocument(db, doc); return t ? { ...doc, travaux_info: t } : doc; };
 // Les lignes du relevé, telles que le client les lira : ni prix d'achat, ni
 // mention HB (c'est notre affaire, pas la sienne).
-export const lignesReleve = (c) => (c.articles_travaux || []).map((l) => ({ nom: l.nom, qte: Number(l.qte || 0), pu: Number(l.pu_vente || 0), montant: Number(l.qte || 0) * Number(l.pu_vente || 0) }));
+export const lignesReleve = (c) => (c.articles_travaux || []).map((l) => ({ nom: l.nom, qte: Number(l.qte || 0), pu: Number(l.pu_vente || 0), remise: remiseDe(l), montant: montantLigne(l) }));
 
 export const resumeTravaux = (db, c) => `${fmt(totalAFacturer(c))} à facturer · coût ${fmt(coutTravaux(db, c))}`;
 

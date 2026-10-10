@@ -8310,6 +8310,37 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
   const panier = Tv.panierPourFacture(c2);
   test("★ panierPourFacture : la ligne de stock est marquée deja_sorti (pas de seconde sortie), la HB hors_boutique, la prestation en ligne libre « Frais de prestation » ; 3 lignes",
     panier.length === 3 && panier[0].deja_sorti === true && panier[0].produit_id === "p1" && panier[0].pu === 100000 && panier[1].hors_boutique === true && panier[1].produit_id === null && panier[2].article === "Frais de prestation" && panier[2].pu === 25000 && panier[2].qte === 1);
+  // 🏷 La remise sur un article (Timo, 10/10/2026, « A a, B a, C a, D a »).
+  const gerT = { id: "g1", nom: "AMA", role: "gerant" };
+  const lStock = c2.articles_travaux[0]; // 2 × 100 000 = 200 000
+  test("★ lireRemise : « 3 % » = 3 % de la ligne, « 6000 » = 6 000 F, vide = 0, illisible = null",
+    Tv.lireRemise("3 %", lStock) === 6000 && Tv.lireRemise("3%", lStock) === 6000 && Tv.lireRemise("6000", lStock) === 6000 && Tv.lireRemise("", lStock) === 0 && Tv.lireRemise("beaucoup", lStock) === null);
+  const rR = Tv.poserRemise(gerT, c2, lStock.id, 6000);
+  test("★★ « A a » / règle de Ventes : le gérant pose 3 % (6 000 F) ; au-delà de 3 % (6 001 F) il est refusé, l'administrateur passe ; jamais plus que la ligne ; refusé une fois facturé",
+    !rR.refus && Tv.remiseDe(rR.fiche.articles_travaux[0]) === 6000 && /réservée à l'administrateur/.test(Tv.poserRemise(gerT, c2, lStock.id, 6001).refus || "")
+    && !Tv.poserRemise(admin, c2, lStock.id, 20000).refus && /dépasser/.test(Tv.poserRemise(admin, c2, lStock.id, 200001).refus || "")
+    && /déjà facturés/.test(Tv.poserRemise(admin, { ...c2, vente_id: "v" }, lStock.id, 1000).refus || ""));
+  const cR = { ...rR.fiche, prestation: { mode: "pct", valeur: 10 } };
+  test("★★ « B a » : la ligne vaut 194 000, les articles 244 000, la prestation 10 % se calcule APRÈS remise (24 400), total 268 400 ; le coût ne bouge pas",
+    Tv.montantLigne(cR.articles_travaux[0]) === 194000 && Tv.totalArticles(cR) === 244000 && Tv.montantPrestation(cR) === 24400 && Tv.totalAFacturer(cR) === 268400 && Tv.coutArticles(cR) === 170000 && Tv.totalRemises(cR) === 6000);
+  const pR = Tv.panierPourFacture(cR);
+  test("★★ la remise part dans Ventes comme une remise de ligne ordinaire : le panier pèse 268 400, et une remise générale y est REFUSÉE (l'une ou l'autre)",
+    pR[0].remise_ligne === 6000 && pR[1].remise_ligne === 0 && pR.reduce((t, l) => t + l.qte * l.pu - (l.remise_ligne || 0), 0) === 268400
+    && /plus de remise générale/.test(Ca.critiqueRemises(pR, 5, 0, "admin")) && Ca.critiqueRemises(pR, 0, 0, "gerant") === "");
+  const cTrop = Tv.poserRemise(admin, c2, lStock.id, 20000).fiche;
+  test("★★ « C a » : une remise de plus de 3 % (posée par l'administrateur) ne se facture QUE par l'administrateur — la règle de Ventes dit pareil",
+    /seul l'administrateur peut facturer/.test(Tv.critiqueFacturationRemises(cTrop, "gerant") || "") && /seul l'administrateur peut facturer/.test(Tv.critiqueFacturationRemises(cTrop, "vendeur") || "")
+    && Tv.critiqueFacturationRemises(cTrop, "admin") === null && Tv.critiqueFacturationRemises(cR, "vendeur") === null
+    && /réservée à l'administrateur/.test(Ca.critiqueRemises(Tv.panierPourFacture(cTrop), 0, 0, "vendeur")));
+  const rRetire = Tv.poserRemise(gerT, cR, lStock.id, 0);
+  test("★ « D a » : vide / 0 retire la remise (la ligne revient à 200 000, plus de champ remise)",
+    !rRetire.refus && !("remise" in rRetire.fiche.articles_travaux[0]) && Tv.montantLigne(rRetire.fiche.articles_travaux[0]) === 200000);
+  const srcTvR = readFileSync("src/screens/Travaux.jsx", "utf8");
+  const corpsR = srcTvR.slice(srcTvR.indexOf("const remiser = async"), srcTvR.indexOf("const enregistrerPrestation"));
+  test("★★ l'écran : « Remise » sur chaque ligne (gérant, administrateur), revérifié DANS le geste sur la fiche FRAÎCHE ; facturer revérifie « C a » ; la colonne Remise et le total net",
+    /refuserSaufRoles\(profile, ROLES_FICHE, "Accorder une remise/.test(corpsR) && /\(db\.clients_installes \|\| \[\]\)\.find\(\(x\) => x\.id === c\.id\)/.test(corpsR) && /poserRemise\(profile, fraiche/.test(corpsR)
+    && /critiqueFacturation\(c\) \|\| critiqueFacturationRemises\(c, profile\.role\)/.test(srcTvR) && /data-remise-ligne/.test(srcTvR)
+    && /!vente && ROLES_FICHE\.includes\(profile\.role\) && <button onClick=\{\(\) => remiser\(c, l\)\}/.test(srcTvR) && /\{fmt\(montantLigne\(l\)\)\}/.test(srcTvR));
   const pre = Tv.preRempliPourFacture(c2);
   test("★ preRempliPourFacture : boutique, panier, travauxId, client et téléphone", pre.boutique === "LOME" && pre.travauxId === c0.id && pre.client === "Paul MENSAH" && pre.tel === "90" && pre.panier.length === 3);
   test("★ critiqueFacturation : déjà facturé refusé, rien à facturer refusé, sinon accord", /déjà facturés/.test(Tv.critiqueFacturation({ ...c2, vente_id: "v" })) && /Rien à facturer/.test(Tv.critiqueFacturation(c0)) && Tv.critiqueFacturation(c2) === null);
@@ -14741,6 +14772,12 @@ titre("🧾 La facture de travaux : le reçu dit « FACTURE — TRAVAUX », et l
     /<h1>RELEVÉ DES TRAVAUX<\/h1>/.test(hR) && /data-releve-pas-facture/.test(hR) && /n'est pas une facture/.test(hR)
     && /Câble 2,5 mm²/.test(hR) && /Tuyau PVC/.test(hR) && /Frais de prestation \(10 %\)/.test(hR) && /TOTAL À FACTURER :<\/td><td>104 500 F/.test(hR)
     && !/18 000|3 000 F|\bHB\b|hors boutique|Numéro de reçu|N° de facture/.test(hR.slice(hR.indexOf("<h1>"))) /* le logo en base64 porte des lettres au hasard : on lit le document, pas l'image */ && /Établi par : AFI/.test(hR) && /Relevé des travaux/.test(globalThis.__titreDoc), hR.slice(0, 300));
+  // 🏷 Le relevé dit la remise (10/10/2026) ; sans remise, pas de colonne.
+  globalThis.__doc = "";
+  ImpF.imprimerReleveTravaux({ ...fiche, articles_travaux: [{ ...fiche.articles_travaux[0], remise: 2250 }, fiche.articles_travaux[1]] }, {}, "AFI", "2026-10-06");
+  const hRR = nz(globalThis.__doc);
+  test("★★ le relevé porte la colonne Remise quand une ligne en a une (−2 250 F, la ligne à 72 750), et le total suit (prestation 10 % après remise : 102 025)",
+    /<th>Remise<\/th>/.test(hRR) && /data-releve-remise>−2 250 F/.test(hRR) && /72 750 F/.test(hRR) && /TOTAL À FACTURER :<\/td><td>102 025 F/.test(hRR) && !/<th>Remise<\/th>/.test(hR), hRR.slice(hRR.indexOf("<table class=\"articles"), hRR.indexOf("<table class=\"articles") + 400));
   const srcTv = readFileSync("src/screens/Travaux.jsx", "utf8");
   const srcVv = readFileSync("src/screens/Ventes.jsx", "utf8");
   const srcDv = readFileSync("src/screens/Dettes.jsx", "utf8");

@@ -29,6 +29,7 @@ writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Travaux } from "${process.cwd()}/src/screens/Travaux.jsx";
+import { DialogHost } from "${process.cwd()}/src/components/ui.jsx";
 const admin = { id: "adm", nom: "TIMO", role: "admin" };
 const depart = {
   boutiques: [{ nom: "LOME", formation: false }],
@@ -46,7 +47,7 @@ window.journal = [];
 function Essai() {
   const [db, setDb] = useState(depart);
   const save = (next, journal) => { window.journal.push(journal); window.dbApres = next; setDb(next); };
-  return <Travaux db={db} save={save} profile={admin} onFacturer={(pre) => { window.preRempli = pre; }} />;
+  return <><Travaux db={db} save={save} profile={admin} onFacturer={(pre) => { window.preRempli = pre; }} /><DialogHost /></>;
 }
 createRoot(document.getElementById("r")).render(<Essai />);
 `);
@@ -73,11 +74,13 @@ console.log("\nL'écran se monte et lit la fiche");
     /Coût \(articles \+ petites dépenses\) 178 000 F/.test(t2) && /À facturer 275 000 F/.test(t2) && /Encaissé 0 F/.test(t2) && /Reste dû 275 000 F/.test(t2), t2.slice(0, 600));
   // RETOURNÉ le 08/10/2026 (Timo : « c'est le prix total qui est en réalité le
   // prix facturé ») : la ligne porte aussi son TOTAL COÛT (qté × prix d'achat).
-  test("★ les deux articles sont listés avec leur nature (stock / HB), prix unitaire facturé, coût unitaire, total facturé et TOTAL COÛT ; la dépense rattachée est citée", /Panneau 400W stock 2 100 000 F 70 000 F 200 000 F 140 000 F/.test(t2) && /Câble 6 mm HB 1 50 000 F 30 000 F 50 000 F 30 000 F/.test(t2) && /Carburant — moto · 8 000 F/.test(t2), t2.slice(0, 900));
+  // RETOURNÉ le 10/10/2026 (la remise sur un article) : une colonne « Remise »
+  // entre le prix unitaire et le coût — « — » sans remise, et son bouton.
+  test("★ les deux articles sont listés avec leur nature (stock / HB), prix unitaire facturé, REMISE, coût unitaire, total facturé et TOTAL COÛT ; la dépense rattachée est citée", /Panneau 400W stock 2 100 000 F — ?Remise 70 000 F 200 000 F 140 000 F/.test(t2) && /Câble 6 mm HB 1 50 000 F — ?Remise 30 000 F 50 000 F 30 000 F/.test(t2) && /Carburant — moto · 8 000 F/.test(t2), t2.slice(0, 900));
   const titres = propre(await page.$eval("[data-articles-travaux] thead", (e) => e.innerText)).toLowerCase();
-  test("★ les colonnes disent l'UNITÉ ou le TOTAL : « Prix unitaire facturé · Coût unitaire · Total facturé · Total coût » (plus de « Prix facturé » ni de « Total » seuls)", /prix unitaire facturé coût unitaire total facturé total coût/.test(titres), titres);
+  test("★ les colonnes disent l'UNITÉ ou le TOTAL : « Prix unitaire facturé · Remise · Coût unitaire · Total facturé · Total coût » (plus de « Prix facturé » ni de « Total » seuls ; la Remise RETOURNÉE le 10/10/2026)", /prix unitaire facturé remise coût unitaire total facturé total coût/.test(titres), titres);
   const totaux = await page.$$eval("[data-articles-travaux] tbody tr", (rs) => rs.map((r) => Array.from(r.cells).map((c) => Number(c.innerText.replace(/\D/g, "")))));
-  const sommeFact = totaux.reduce((s, c) => s + c[4], 0), sommeCout = totaux.reduce((s, c) => s + c[5], 0);
+  const sommeFact = totaux.reduce((s, c) => s + c[5], 0), sommeCout = totaux.reduce((s, c) => s + c[6], 0);
   test("★ additionner les colonnes redonne les deux chiffres du titre : total facturé 250 000 F, total coût 170 000 F", sommeFact === 250000 && sommeCout === 170000 && /250 000 F facturés, coût 170 000 F/.test(t2), `${sommeFact} / ${sommeCout}`);
   test("★ les frais de prestation se lisent : 25 000 F (10 % de tous les articles)", /Frais de prestation — 25 000 F \(10 % de tous les articles\)/.test(t2));
 }
@@ -145,6 +148,32 @@ console.log("\nChoisir l'article à sortir en tapant son nom (capture Timo, 13/0
   test("★ un nom tapé en entier (sans majuscules) lie aussi : « panneau 400w » → ✓ 10 en stock", /✓ 10 en stock · 100 000 F l'unité/.test(tExact), tExact.slice(0, 300));
   await champ.fill("");
   await page.keyboard.press("Escape");
+}
+
+console.log("\n🏷 La remise sur un article, jouée à l'écran (10/10/2026, « A a, B a, C a, D a »)");
+{
+  const dialogue = async () => propre(await page.$eval("[data-dialogue]", (e) => e.innerText).catch(() => ""));
+  await page.click("[data-articles-travaux] tbody tr >> nth=0 >> [data-remiser]");
+  await attendre(150);
+  const q = await dialogue();
+  test("★ « Remise » sur la ligne du panneau ouvre la question : la ligne (2 × Panneau 400W, 200 000 F), en F ou en %, la règle des 3 % et l'exclusion de la remise générale",
+    /Remise sur 2 × Panneau 400W \(200 000 F\)/.test(q) && /en pourcentage/.test(q) && /3 %, l'administrateur seul/.test(q) && /interdit la remise générale/.test(q), q);
+  await page.fill("[data-dialogue] input", "3 %");
+  await page.locator("[data-dialogue-boutons] button", { hasText: "OK" }).click();
+  await attendre(250);
+  const l1 = await page.evaluate(() => window.dbApres?.clients_installes?.[0]?.articles_travaux?.[0]);
+  const tR = await texte();
+  test("★★ 3 % deviennent 6 000 F sur la fiche ; la ligne s'affiche −6 000 F, total facturé 194 000 F ; le titre dit « 244 000 F facturés (remises : −6 000 F) »",
+    l1 && l1.remise === 6000 && /Panneau 400W stock 2 100 000 F −6 000 F ?Modifier 70 000 F 194 000 F 140 000 F/.test(tR) && /244 000 F facturés \(remises : −6 000 F\), coût 170 000 F/.test(tR), JSON.stringify(l1) + " " + tR.slice(tR.indexOf("📦"), tR.indexOf("📦") + 300));
+  const j = await page.evaluate(() => window.journal.at(-1));
+  test("le journal dit la remise : « remise sur 2 × Panneau 400W : 0 F → 6000 F »", /remise sur 2 × Panneau 400W : 0 F → 6000 F/.test(propre(j)), j);
+  await page.click("[data-articles-travaux] tbody tr >> nth=0 >> [data-remiser]");
+  await attendre(150);
+  await page.fill("[data-dialogue] input", "");
+  await page.locator("[data-dialogue-boutons] button", { hasText: "OK" }).click();
+  await attendre(250);
+  const l1b = await page.evaluate(() => window.dbApres?.clients_installes?.[0]?.articles_travaux?.[0]);
+  test("★ « D a » : vide retire la remise — la ligne revient à 200 000 F", l1b && !("remise" in l1b) && /Panneau 400W stock 2 100 000 F — ?Remise 70 000 F 200 000 F/.test(await texte()), JSON.stringify(l1b));
 }
 
 console.log("\nSupprimer et composer l'équipe (13/09/2026)");
