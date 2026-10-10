@@ -25,7 +25,7 @@ import { correspond } from "../lib/suggestions";
 // ⚠ La dépense de réparation passe par LA fabrique des dépenses : validation
 // du DG au-delà du seuil, origine des fonds, blocage de clôture. On ne
 // recopie aucune de ces règles ici.
-import { construireDepenseSaisie, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE } from "../lib/validationDepenses";
+import { construireDepenseSaisie, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE } from "../lib/validationDepenses";
 import { critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
 import { CATEGORIE_REPARATION_OUTIL, MOYENS_ENCAISSEMENT } from "../lib/constants";
 import { bloquerSiLecture, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles, chantiersOuvertsPourOutil } from "../lib/calculs";
@@ -882,6 +882,10 @@ export function Outillage({ db, save, profile }) {
   // Les caisses proposables : les boutiques de l'espace regardé, comme dans
   // 📤 Dépenses — « Payé avec » nomme CHAQUE caisse (règle du 13/09/2026).
   const caisses = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
+  // 💼 Timo (10/10/2026) : hors gérant / administrateur (/ comptable / resp. commercial),
+  // une réparation se paie de SA poche — aucune caisse proposée.
+  const sansCaisse = payeDeSaPocheSeulement(profile);
+  const payeAvecDOffice = (o) => (sansCaisse ? PAYE_AVEC_AVANCE : `caisse:${caisseDe(o)}`);
   const pertes = pertesDe(registre, null);
   // 🏗 Les chantiers auxquels on peut encore affecter un outil : chantiers de
   // devis EN COURS et 🛠 travaux à crédit non soldés, de l'espace regardé.
@@ -1046,7 +1050,7 @@ export function Outillage({ db, save, profile }) {
                   </Field>
                   <Field label="Payé avec">
                     <select className={inputCls} value={repar.paye_avec} onChange={(e) => setRepar({ ...repar, paye_avec: e.target.value })}>
-                      {optionsPayeAvec(caisses, caisseDe(tous.find((x) => x.id === repar.outil_id))).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      {optionsPayeAvec(caisses, caisseDe(tous.find((x) => x.id === repar.outil_id)), { seulementPoche: sansCaisse }).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </Field>
                 </div>
@@ -1081,7 +1085,7 @@ export function Outillage({ db, save, profile }) {
                     </Field>
                     <Field label="Payé avec">
                       <select className={inputCls} value={retourRep.paye_avec} onChange={(e) => setRetourRep({ ...retourRep, paye_avec: e.target.value })}>
-                        {optionsPayeAvec(caisses, caisseDe(tous.find((x) => x.id === retourRep.outil_id))).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        {optionsPayeAvec(caisses, caisseDe(tous.find((x) => x.id === retourRep.outil_id)), { seulementPoche: sansCaisse }).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </select>
                     </Field>
                   </>}
@@ -1318,12 +1322,12 @@ export function Outillage({ db, save, profile }) {
                           {jePeux && (etat === "sorti" || etat === "reparation") && (
                             <button title={etat === "reparation" ? "Revenu de réparation" : "Enregistrer le retour"}
                               onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
-                                ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })
+                                ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: payeAvecDOffice(o) })
                                 : rendre(o))}
                               className={`${boutonAction("border-emerald-300 text-emerald-700 hover:bg-emerald-50")} mr-1`}>📥</button>
                           )}
                           {jePeux && etat === "sorti" && <button title="Changer le chantier (sans le ramener)" onClick={() => changerLeChantier(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🏗</button>}
-                          {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: `caisse:${caisseDe(o)}` })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
+                          {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: payeAvecDOffice(o) })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
                           {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
                           {jeSuisAdmin && vue === "tous" && outilRange(o) && (
                             <button title="Corriger la fiche (nom, numéro gravé, prix…)"

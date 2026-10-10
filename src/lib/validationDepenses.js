@@ -87,7 +87,9 @@ export const codeCaisse = (nomBoutique) => `caisse:${nomBoutique}`;
 // n'apparaît QUE dans ce cas, et seulement pour un rôle qui y a droit
 // (Timo : « si pas d'argent et il faut effectuer une dépense, fonds de caisse
 // apparaît »). Elle n'est jamais proposée « au cas où ».
-export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee, { avecComptable = false, fonds = null } = {}) => {
+export const optionsPayeAvec = (nomsBoutiques, boutiqueRegardee, { avecComptable = false, fonds = null, seulementPoche = false } = {}) => {
+  // 💼 Un technicien (et tout rôle hors ROLES_REMISE_ARGENT) : sa poche seule.
+  if (seulementPoche) return [[PAYE_AVEC_AVANCE, "Une avance personnelle (j'ai payé de ma poche)"]];
   const noms = [...(nomsBoutiques || [])];
   const ordonnes = boutiqueRegardee && noms.includes(boutiqueRegardee) ? [boutiqueRegardee, ...noms.filter((n) => n !== boutiqueRegardee)] : noms;
   return [
@@ -180,6 +182,8 @@ const auteurDe = (db, dep) => (db.users || []).find((u) => (dep.par_id && u.id =
 export function construireDepenseSaisie(db, profile, { boutique, categorie, description, montant, paiement, paye_avec }, aujourdhui) {
   const refus = critiqueSaisie({ montant, paye_avec, boutique });
   if (refus) return { refus };
+  // 💼 Timo (10/10/2026) : revérifié ici, dans le geste — pas seulement dans la liste.
+  if (payeDeSaPocheSeulement(profile) && paye_avec !== PAYE_AVEC_AVANCE) return { refus: MOTIF_DE_SA_POCHE };
   // Timo (30/09/2026) : une dépense se paie — « Crédit (dette) » n'en est
   // jamais le moyen. Revérifié ici, dans le geste, pas seulement dans la liste.
   if (paiement !== undefined && !MOYENS_ENCAISSEMENT.includes(paiement)) return { refus: "Une dépense se saisit le jour où l'argent sort : choisissez comment elle a été payée (espèces, Mobile Money ou virement), jamais « Crédit (dette) »." };
@@ -350,6 +354,20 @@ export function rembourserAvance(db, profile, dep, moyen, aujourdhui, { mois } =
 // l'application est la seule barrière, comme pour les personnes.
 export const ROLES_DEPENSES_PERSONNELLES = ["technicien", "technicien_bmi"];
 export const neVoitQueSesDepenses = (profile) => ROLES_DEPENSES_PERSONNELLES.includes(profile?.role);
+
+// 💼 QUI SORT L'ARGENT D'UNE CAISSE (Timo, 10/10/2026 : « il fait une dépense
+// avec son argent ou il justifie l'argent reçu… les techniciens, les
+// commerciaux et les vendeurs. Les seules personnes à remettre l'argent,
+// c'est le gérant, les admin, les comptables et parfois le responsable
+// commercial s'il veut payer ses commerciaux »). Un technicien voyait toutes
+// les caisses dans « Payé avec » (celle de la boutique d'office) et pouvait
+// « remettre » l'argent à un collègue : le tiroir baissait sans que personne
+// n'y ait touché. Pour tous les autres rôles : SA POCHE seulement, et l'argent
+// reçu pour un chantier se justifie (💼 Mon argent de chantier), il ne se
+// ressaisit pas en dépense.
+export const ROLES_REMISE_ARGENT = ["admin", "gerant", "comptable", "resp_commercial"];
+export const payeDeSaPocheSeulement = (profile) => !ROLES_REMISE_ARGENT.includes(profile?.role);
+export const MOTIF_DE_SA_POCHE = "Vous ne pouvez saisir qu'une dépense payée de VOTRE poche (« Une avance personnelle ») : elle vous sera remboursée une fois qu'elle compte.\n\nSortir l'argent d'une caisse ou le remettre à quelqu'un, c'est le geste du gérant ou de l'administrateur.\n\nSi vous avez REÇU de l'argent pour un chantier, détaillez-le dans « 💼 Mon argent de chantier » : ce n'est pas une nouvelle dépense.";
 export const estMaDepense = (d, profile) => (!!d?.par_id && d.par_id === profile?.id) || (!d?.par_id && !!d?.par && d.par === profile?.nom);
 export const depensesVisibles = (liste, profile) => (neVoitQueSesDepenses(profile) ? (liste || []).filter((d) => estMaDepense(d, profile)) : (liste || []));
 

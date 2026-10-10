@@ -6700,10 +6700,13 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && Vd.PAYE_AVEC.map(([c]) => c).join("|") === "caisse|avance|dg|comptable|fonds" && Vd.payeAvecCaisse({}) === true && Vd.payeAvecCaisse({ paye_avec: "avance" }) === false
     && Vd.payeAvecCaisse({ paye_avec: "fonds" }) === false && Vd.libellePayeAvec("fonds") === "Le fonds de caisse (l'enveloppe)"
     && Vd.libellePayeAvec(undefined) === "La caisse de la boutique");
-  const s7 = Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "carburant", montant: 7000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
-  const s2 = Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "", montant: 2000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
+  // ⚠ RETOURNÉ le 10/10/2026 (Timo : « les seules personnes à remettre l'argent, c'est le gérant, les admin, les comptables… ») :
+  // un vendeur ne sort plus l'argent d'une caisse — la saisie « payée avec la caisse » se joue avec KOSSI devenu gérant.
+  const kossiG = { ...kossi, role: "gerant" };
+  const s7 = Vd.construireDepenseSaisie(dbV, kossiG, { boutique: "APESSITO", categorie: "Transport", description: "carburant", montant: 7000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
+  const s2 = Vd.construireDepenseSaisie(dbV, kossiG, { boutique: "APESSITO", categorie: "Transport", description: "", montant: 2000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
   const sT = Vd.construireDepenseSaisie(dbV, timo, { boutique: "APESSITO", categorie: "Loyer", description: "", montant: 60000, paiement: "Espèces", paye_avec: "caisse" }, "2026-09-12");
-  test("★ construireDepenseSaisie : 7 000 par un vendeur → « attente », auteur (par_id), origine, et UN message au DG ; 2 000 → aucune validation, aucun message ; 60 000 par le DG lui-même → validée d'office (auto), aucun message",
+  test("★ construireDepenseSaisie (⚠ RETOURNÉ le 10/10/2026 : par un GÉRANT, un vendeur ne paie plus avec une caisse) : 7 000 → « attente », auteur (par_id), origine, et UN message au DG ; 2 000 → aucune validation, aucun message ; 60 000 par le DG lui-même → validée d'office (auto), aucun message",
     s7.depense.validation.statut === "attente" && s7.aValider === true && s7.depense.par_id === "u_vend" && s7.depense.paye_avec === "caisse" && s7.depense.paiement === "Espèces"
     && s7.messages.length === 1 && s7.messages[0].a_id === "u_admin" && s7.messages[0].texte.includes(`Dépense à valider : ${Core.fmt(7000)}`) && /à valider par le DG/.test(s7.journal)
     && s2.depense.validation === undefined && s2.aValider === false && s2.messages.length === 0
@@ -6712,6 +6715,32 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     /montant/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 0, paye_avec: "caisse" }).refus || "")
     && /caisse de la boutique, le fonds de caisse, une avance personnelle/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 10, paye_avec: "poche" }).refus || "")
     && /boutique/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "", montant: 10, paye_avec: "caisse" }).refus || ""));
+
+  // ---- 💼 Qui sort l'argent d'une caisse (Timo, 10/10/2026) ----
+  {
+    const tech = { id: "u_tech", nom: "ESSO", role: "technicien" };
+    const techBmi = { id: "u_tb", nom: "AMA", role: "technicien_bmi" };
+    const mag = { id: "u_mag", nom: "YAO", role: "magasinier" };
+    const saisie = (p, payeAvec) => Vd.construireDepenseSaisie(dbV, p, { boutique: "APESSITO", categorie: "Transport", description: "carburant", montant: 3000, paiement: "Espèces", paye_avec: payeAvec }, "2026-10-10");
+    const refusPoche = (r) => r.refus === Vd.MOTIF_DE_SA_POCHE;
+    test("★ 💼 Timo (10/10/2026, « il fait une dépense avec son argent ou il justifie l'argent reçu… les seules personnes à remettre l'argent, c'est le gérant, les admin, les comptables et parfois le responsable commercial ») : un technicien, un technicien BMI, un vendeur, un commercial, un magasinier ne peuvent saisir qu'une AVANCE PERSONNELLE — la caisse d'une boutique, celle du DG, du comptable, le fonds de caisse sont refusés DANS le geste ; le gérant et l'administrateur, eux, choisissent la caisse",
+      Vd.ROLES_REMISE_ARGENT.join("|") === "admin|gerant|comptable|resp_commercial"
+      && [tech, techBmi, kossi, mag, { id: "c", nom: "C", role: "commercial" }].every((p) => ["caisse", "dg", "comptable", "fonds"].every((o) => refusPoche(saisie(p, o))) && !saisie(p, "avance").refus && saisie(p, "avance").depense.paye_avec === "avance")
+      && !saisie(ali, "caisse").refus && !saisie(timo, "caisse").refus && !saisie({ id: "rc", nom: "RC", role: "resp_commercial" }, "dg").refus
+      && /votre poche/i.test(Vd.MOTIF_DE_SA_POCHE) && /Mon argent de chantier/.test(Vd.MOTIF_DE_SA_POCHE));
+    const opts = Vd.optionsPayeAvec(["APESSITO", "DEMAKPOE"], "APESSITO", { avecComptable: true, seulementPoche: true });
+    test("★ 💼 « Payé avec » pour un technicien : UNE seule réponse, « Une avance personnelle (j'ai payé de ma poche) » — aucune caisse proposée (sa capture : « La caisse de BMI DEMAKPOE » d'office) ; sans l'option, la liste du gérant ne change pas",
+      opts.length === 1 && opts[0][0] === "avance"
+      && Vd.optionsPayeAvec(["APESSITO", "DEMAKPOE"], "APESSITO", { avecComptable: true }).map(([c]) => c).join("|") === "caisse:APESSITO|caisse:DEMAKPOE|avance|dg|comptable");
+    const dpS = readFileSync("src/screens/Depenses.jsx", "utf8");
+    const corpsEnr = dpS.slice(dpS.indexOf("const enregistrerDepense = async"), dpS.indexOf("const ajouter = () =>"));
+    const outS = readFileSync("src/screens/Outillage.jsx", "utf8");
+    test("★ 💼 l'écran 📤 Dépenses : la liste « Payé avec » passe seulementPoche pour ces rôles (d'office : l'avance), la case « Argent remis à » ne s'affiche PAS pour eux, et le geste refuse une remise avant tout calcul ; 🧰 Outillage (réparation) suit la même règle",
+      /const sansCaisse = payeDeSaPocheSeulement\(profile\)/.test(dpS) && /seulementPoche: sansCaisse/.test(dpS) && /\{f\.chantier_id && !sansCaisse && \(\s*<Field label="Argent remis à">/.test(dpS)
+      && corpsEnr.indexOf("if (sansCaisse)") > -1 && corpsEnr.indexOf("uAlert(MOTIF_DE_SA_POCHE)") > corpsEnr.indexOf("if (sansCaisse)") && corpsEnr.indexOf("uAlert(MOTIF_DE_SA_POCHE)") < corpsEnr.indexOf("construireDepenseSaisie(")
+      && /data-de-sa-poche/.test(dpS)
+      && (outS.match(/seulementPoche: sansCaisse/g) || []).length === 2 && /const sansCaisse = payeDeSaPocheSeulement\(profile\)/.test(outS) && !/paye_avec: `caisse:\$\{caisseDe\(o\)\}`/.test(outS));
+  }
 
   // ---- Ce qui compte, et où ----
   const att = { ...s7.depense, id: "d_att", date: "2026-09-12" };
@@ -6730,8 +6759,8 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
   // Timo (30/09/2026, « oui retire-le ») : une dépense ne se paie jamais « à crédit ».
   const dpCredit = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ une dépense n'a JAMAIS « Crédit (dette) » pour moyen : refusée DANS le geste, et la liste de 📤 Dépenses ne le propose plus",
-    /Crédit \(dette\)/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", montant: 3000, paiement: "Crédit (dette)", paye_avec: "caisse" }, "2026-09-30").refus || "")
-    && !Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", montant: 3000, paiement: "Mobile Money (Flooz)", paye_avec: "caisse" }, "2026-09-30").refus
+    /Crédit \(dette\)/.test(Vd.construireDepenseSaisie(dbV, kossiG, { boutique: "APESSITO", categorie: "Transport", montant: 3000, paiement: "Crédit (dette)", paye_avec: "caisse" }, "2026-09-30").refus || "")
+    && !Vd.construireDepenseSaisie(dbV, kossiG, { boutique: "APESSITO", categorie: "Transport", montant: 3000, paiement: "Mobile Money (Flooz)", paye_avec: "caisse" }, "2026-09-30").refus
     && /MOYENS_ENCAISSEMENT\.map\(\(p\) => <option key=\{p\}>/.test(dpCredit) && !/\bPAIEMENTS\b/.test(dpCredit));
   const avance = { ...Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", categorie: "Transport", description: "taxi", montant: 3000, paiement: "Espèces", paye_avec: "avance" }, "2026-09-12").depense, id: "d_av", date: "2026-09-12" };
   const dg = { ...Vd.construireDepenseSaisie(dbV, ali, { boutique: "APESSITO", categorie: "Autre", description: "", montant: 1000, paiement: "Espèces", paye_avec: "dg" }, "2026-09-12").depense, id: "d_dg", date: "2026-09-12" };
@@ -6837,7 +6866,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
   const dpV = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ écran Dépenses : « Payé avec » nomme chaque caisse, la saisie passe par construireDepenseSaisie (plus de fiche écrite à la main), l'avertissement du seuil avant l'envoi, « Ce mois » hors dépenses en attente (et le dit) ; ⚠ RETOURNÉ le 15/09/2026 : la liste reçoit en plus la proposition du fonds de caisse",
     // 13/09/2026 (capture Timo) : « Payé avec » nomme chaque caisse (optionsPayeAvec) ; le choix donne origine ET boutique (interpreterPayeAvec).
-    /optionsPayeAvec\(caissesPossibles, boutique, \{ avecComptable: !afficheChiffresFormation\(db, profile\), fonds: propositionFonds \}\)\.map/.test(dpV) /* 13/09/2026 : la caisse du comptable, réel seulement */ && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
+    /optionsPayeAvec\(caissesPossibles, boutique, \{ avecComptable: !afficheChiffresFormation\(db, profile\), fonds: propositionFonds, seulementPoche: sansCaisse \}\)\.map/.test(dpV) /* ⚠ RETOURNÉ le 10/10/2026 : + seulementPoche (un technicien ne choisit aucune caisse) */ /* 13/09/2026 : la caisse du comptable, réel seulement */ && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
     && /doitEtreValidee\(f\.montant\) && !jeSuisDG/.test(dpV) && /en attente de validation \(non comptées\)/.test(dpV));
   test("★ écran Dépenses : l'encadré PERMANENT « Dépenses à valider par le DG » (principal seul, la boutique regardée seule, « Ailleurs, en attente »), valider / rejeter revérifiés DANS le geste (refuserSaufAdminPrincipal ×2, critiqueDecision ×2), motif demandé, badge d'état et colonnes « Payé avec » / « Validation » dans LE tableau commun",
     /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /Ailleurs, en attente/.test(dpV)
@@ -8999,7 +9028,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   const dpF = readFileSync("src/screens/Depenses.jsx", "utf8");
   test("★ 📤 Dépenses : l'option est branchée sur fondsProposable (rôle, enveloppe, tiroir, montant), le mot amber la propose, et le rôle EST revérifié dans le geste avec la proposabilité",
     /const propositionFonds = fondsProposable\(\{ role: profile\.role, tiroir: poches\.montant, enveloppe: poches\.resteFonds, montant: f\.montant \}\);/.test(dpF)
-    && /fonds: propositionFonds \}\)/.test(dpF) && /data-fonds="propose"/.test(dpF)
+    && /fonds: propositionFonds, seulementPoche: sansCaisse \}\)/.test(dpF) /* ⚠ RETOURNÉ le 10/10/2026 : + seulementPoche */ && /data-fonds="propose"/.test(dpF)
     && /Le tiroir paiera \{fmt\(Math\.max\(0, poches\.montant\)\)\} et l'enveloppe \{fmt\(propositionFonds\.manqueAuTiroir\)\}/.test(dpF)
     && /Le tiroir de \$\{boutique\} paie \$\{fmt\(Math\.max\(0, poches\.montant\)\)\} et le fonds de caisse complète \$\{fmt\(propositionFonds\.manqueAuTiroir\)\}/.test(dpF)
     && /if \(refuserSaufRoles\(profile, ROLES_FONDS_CAISSE, "Payer une dépense avec le fonds de caisse"\)\) return;/.test(dpF)
@@ -14427,7 +14456,9 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
   const vente = (id, date, heure, pu, paiement = "Espèces", boutique = BQ) => ({ id, numero: `BMID-${id}`, client: `CLIENT ${id}`, date, heure, boutique, paiement, articles: [{ produit_id: "p1", article: "Câble", qte: 1, pu }] });
   const vers = (id, date, heure, montant, extra = {}) => {
     const s = VoT.construireVersement(ag, { boutique: BQ, montant, destination: VoT.DEST_DG, attendu: montant }).sortie;
-    return { ...s, id, date, versement: { ...s.versement, heure, ...(extra.versement || {}) }, ...(extra.top || {}) };
+    // ⚠ Réparé le 10/10/2026 : nouvelleDepense pose aussi l'heure DU MOMENT sur la ligne ; sans la fixer ici,
+    // le versement d'essai prenait l'heure de la journée et le contrôle « après 18:00 » tombait passé 19 h.
+    return { ...s, id, date, heure, versement: { ...s.versement, heure, ...(extra.versement || {}) }, ...(extra.top || {}) };
   };
   const dep = (id, date, categorie, montant, extra = {}) => ({ id, date, boutique: BQ, categorie, description: categorie, montant, paiement: "Espèces", paye_avec: "caisse", par: "ANGELE", ...extra });
   const dbT = {

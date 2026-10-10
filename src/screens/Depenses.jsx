@@ -10,7 +10,7 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSorti
 import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
@@ -289,6 +289,7 @@ export function Depenses({ db, save, profile }) {
   // faut le rôle, une enveloppe qui existe, et un tiroir qui ne suffit pas.
   const poches = fondsAVerser(db, boutique, totalVente);
   const chantierDuChoix = f.chantier_id ? chantiersOuverts.find((c) => c.id === f.chantier_id) : null;
+  const sansCaisse = payeDeSaPocheSeulement(profile);
   const techniciensDuChoix = chantierDuChoix ? techniciensProposes(utilisateursDeLEspace(db, profile), chantierDuChoix) : [];
   const propositionFonds = fondsProposable({ role: profile.role, tiroir: poches.montant, enveloppe: poches.resteFonds, montant: f.montant });
 
@@ -321,6 +322,12 @@ export function Depenses({ db, save, profile }) {
   const enregistrerDepense = async (f, { duFormulaire = true } = {}) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!f.categorie) { uAlert("Choisissez la catégorie de la dépense."); return; }
+    // 💼 Timo (10/10/2026) : un technicien paie de SA poche ou justifie l'argent
+    // reçu ; il ne choisit aucune caisse et ne remet l'argent à personne.
+    if (sansCaisse) {
+      if (f.remis_a && f.remis_a !== REMIS_A_PERSONNE) { uAlert(MOTIF_DE_SA_POCHE); return; }
+      f = { ...f, paye_avec: f.paye_avec || PAYE_AVEC_AVANCE, remis_a: f.chantier_id ? REMIS_A_PERSONNE : "" };
+    }
     // L'enveloppe se mesure sur CE montant (celui du loyer n'est pas dans le formulaire).
     const propositionFonds = fondsProposable({ role: profile.role, tiroir: poches.montant, enveloppe: poches.resteFonds, montant: f.montant });
     const choixCaisse = interpreterPayeAvec(f.paye_avec, boutique);
@@ -570,8 +577,8 @@ export function Depenses({ db, save, profile }) {
           <Field label="Paiement"><select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>{MOYENS_ENCAISSEMENT.map((p) => <option key={p}>{p}</option>)}</select></Field>
           {/* L'origine des fonds (Timo, 12/09/2026) : « les trois propositions sont bonnes ». */}
           <Field label="Payé avec">
-            <select className={inputCls} value={f.paye_avec || `caisse:${boutique}`} onChange={(e) => setF({ ...f, paye_avec: e.target.value })} data-paye-avec>
-              {optionsPayeAvec(caissesPossibles, boutique, { avecComptable: !afficheChiffresFormation(db, profile), fonds: propositionFonds }).map(([c, l]) => <option key={c} value={c}>{l}</option>)}
+            <select className={inputCls} value={f.paye_avec || (sansCaisse ? PAYE_AVEC_AVANCE : `caisse:${boutique}`)} onChange={(e) => setF({ ...f, paye_avec: e.target.value })} data-paye-avec>
+              {optionsPayeAvec(caissesPossibles, boutique, { avecComptable: !afficheChiffresFormation(db, profile), fonds: propositionFonds, seulementPoche: sansCaisse }).map(([c, l]) => <option key={c} value={c}>{l}</option>)}
             </select>
           </Field>
           {/* Timo (13/09/2026) : « au moment d'enregistrer la dépense, rattacher à
@@ -585,7 +592,7 @@ export function Depenses({ db, save, profile }) {
               {chantiersOuverts.map((c) => <option key={c.id} value={c.id}>{c.travaux ? "" : "🏠 "}{libelleChantier(c)}</option>)}
             </select>
           </Field>
-          {f.chantier_id && (
+          {f.chantier_id && !sansCaisse && (
             <Field label="Argent remis à">
               <select className={inputCls} value={f.remis_a} onChange={(e) => setF({ ...f, remis_a: e.target.value })} data-remis-a>
                 <option value="">— Choisir —</option>
@@ -600,7 +607,8 @@ export function Depenses({ db, save, profile }) {
         {f.montant !== "" && doitEtreValidee(f.montant) && !jeSuisDG && (
           <div className="mt-2 text-sm font-bold text-amber-700">⏳ À partir de {fmt(SEUIL_VALIDATION_DEPENSE)}, la dépense est soumise à la validation du DG : elle ne comptera (caisse, tableau de bord) qu'une fois validée.</div>
         )}
-        {f.paye_avec === "avance" && <div className="mt-2 text-xs text-slate-500">Une avance personnelle ne sort pas du tiroir : elle vous sera remboursée (caisse, salaire ou DG) une fois qu'elle compte.</div>}
+        {sansCaisse && <div className="mt-2 text-xs text-slate-600" data-de-sa-poche>💼 Vous saisissez ici une dépense payée de <b>votre poche</b> : elle vous sera remboursée une fois qu'elle compte. L'argent que vous avez <b>reçu</b> pour un chantier se détaille dans « 💼 Mon argent de chantier », pas ici.</div>}
+        {!sansCaisse && f.paye_avec === "avance" && <div className="mt-2 text-xs text-slate-500">Une avance personnelle ne sort pas du tiroir : elle vous sera remboursée (caisse, salaire ou DG) une fois qu'elle compte.</div>}
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer la dépense</button>
         </FormulaireRepliable>
       </Panel>

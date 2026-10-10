@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2475 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2478 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1922,6 +1922,29 @@ lit mal est pire qu'un banc absent).
   « 🏠 🛠 » de la colonne Chantier est retiré (un travail à crédit garde son 🛠). Banc (14
   contrôles), éprouvé (reste dépassé, gérant d'une autre boutique, refus de
   saisie retiré). Deux contrôles RETOURNÉS. Chapitres 15 et 17.
+
+### 💼 QUI SORT L'ARGENT D'UNE CAISSE (10/10/2026)
+- Capture Timo (« Argent remis à… dans dépense d'un commercial ? ») : un
+  TECHNICIEN voyait dans « Payé avec » toutes les caisses (celle de la boutique
+  d'office) et la case « Argent remis à » — le tiroir baissait sans que
+  personne n'y ait touché. Sa règle : **« il fait une dépense avec son argent
+  ou il justifie l'argent reçu… techniciens, commerciaux, vendeurs. Les seules
+  personnes à remettre l'argent : le gérant, les admin, les comptables et
+  parfois le responsable commercial »**.
+- `ROLES_REMISE_ARGENT` (admin, gérant, comptable, resp. commercial) /
+  `payeDeSaPocheSeulement` / `MOTIF_DE_SA_POCHE` (lib/validationDepenses.js).
+  Hors de cette liste : « Payé avec » n'offre QUE l'avance personnelle
+  (`optionsPayeAvec(…, { seulementPoche })`), « Argent remis à » ne s'affiche
+  pas, et `construireDepenseSaisie` refuse toute autre origine DANS le geste.
+  🧰 Outillage (réparation) suit : ⚠ **le magasinier et le chef technicien ne
+  paient plus une réparation avec une caisse** (dit à Timo). L'argent REÇU
+  pour un chantier se justifie (💼), jamais ressaisi en dépense.
+- ⚠ Le comptable (lecture seule) et le resp. commercial (pas d'onglet
+  📤 Dépenses) sont dans la liste mais n'ont aujourd'hui AUCUN écran pour
+  saisir une dépense : rien d'ouvert, à sa demande seulement.
+- Banc (3 contrôles), éprouvé (refus du geste retiré, case affichée). Trois
+  contrôles RETOURNÉS (la saisie « caisse » se joue avec un gérant ; la liste
+  porte `seulementPoche`). Rien à coller. Chapitres 17 et 19 à jour.
 
 ### 📤 Dépenses pour les techniciens (13/09/2026)
 - Timo : « ouvrir l'onglet Dépenses au technicien, mais ils ne verront que

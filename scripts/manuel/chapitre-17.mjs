@@ -9,7 +9,7 @@
 // 💵 Payer d'avance ; ✏️ Modifier, Suppr. ; « Mes dépenses » ; 🧾 Chez le
 // comptable — ✅ Remis / ✅ Encaissé, ✖ Rejeter, annuler),
 // lib/validationDepenses.js (SEUIL_VALIDATION_DEPENSE = 5000, PAYE_AVEC,
-// optionsPayeAvec, fondsProposable, ROLES_FONDS_CAISSE, construireDepenseSaisie,
+// optionsPayeAvec, payeDeSaPocheSeulement, ROLES_REMISE_ARGENT, fondsProposable, ROLES_FONDS_CAISSE, construireDepenseSaisie,
 // critiqueDecision, validerDepense, rejeterDepense, depensesBloquantCloture,
 // MOYENS_REMBOURSEMENT, ROLES_REMB_CAISSE, critiqueRemboursement,
 // neVoitQueSesDepenses, motifNonModifiable, critiqueModifDepense),
@@ -49,6 +49,7 @@ export const CHAPITRE = {
     { titre: "Qui peut l'utiliser", blocs: [
       ["table", { entetes: ["Le geste", "Qui"], largeurs: [4300, 5000], lignes: [
         ["Voir 📤 Dépenses et saisir une dépense", "**Le gérant, l'administrateur**. Le **technicien** et le **technicien BMI** aussi, mais ils ne voient que **leurs propres dépenses** (titre « Mes dépenses »)."],
+        ["Choisir une caisse dans « Payé avec », remplir « Argent remis à »", "**Le gérant et l'administrateur** (10/10/2026). Le technicien et le technicien BMI ne saisissent qu'**une dépense payée de leur poche** (« Une avance personnelle ») : aucune caisse ne leur est proposée, la case « Argent remis à » ne s'affiche pas pour eux, et l'application refuse le geste au moment d'enregistrer. L'argent qu'ils ont **reçu** pour un chantier se détaille dans « 💼 Argent reçu pour vos chantiers » (partie D bis), ce n'est pas une nouvelle dépense."],
         ["Le vendeur", "**N'a pas l'onglet 📤 Dépenses** (15/09/2026) : il clôture la caisse, il ne dépense pas."],
         ["Le comptable", "Voit 📤 Dépenses **en lecture seule** ; son seul geste est le pointage dans 🧾 Chez le comptable."],
         ["✅ Valider / ✖ Rejeter une dépense", "**Le DG = l'administrateur principal**, seul."],
@@ -83,7 +84,7 @@ export const CHAPITRE = {
         { titre: "Description", texte: "Ce qui a été acheté, pour qui, pourquoi. C'est ce que le DG lira avant de valider." },
         { titre: "Montant (F)", texte: "Plus que zéro. **À partir de 5 000 F**, un message ambre prévient : la dépense sera soumise au DG." },
         { titre: "Paiement", texte: "Espèces, Mobile Money (Flooz), Mobile Money (Mixx/T-Money), Virement bancaire. Seules les **espèces** sortent du tiroir." },
-        { titre: "Payé avec", texte: "**D'où vient l'argent** (partie B). « La caisse de » la boutique regardée est proposée en premier." },
+        { titre: "Payé avec", texte: "**D'où vient l'argent** (partie B). « La caisse de » la boutique regardée est proposée en premier. Pour un technicien, une seule réponse : « Une avance personnelle (j'ai payé de ma poche) »." },
         { titre: "Chantier à rattacher", texte: "« — Aucun — » d'office. Choisir un chantier seulement pour un frais **du chantier** (partie D)." },
         { titre: "Enregistrer la dépense", texte: "Lire la confirmation : montant, catégorie, caisse qui paie, et ce qui va se passer (validation du DG, autre boutique, chantier, fonds de caisse)." },
       ]],
@@ -109,7 +110,7 @@ export const CHAPITRE = {
         { titre: "Pour quoi", texte: "Les petits frais d'une installation : carburant, nourriture, petit matériel. Elle reste une dépense ordinaire (seuil, DG, caisse)." },
         { titre: "Quels chantiers sont proposés", texte: "Ceux de l'espace regardé, **pas encore réceptionnés**, dont **les frais d'installation n'ont pas encore été payés** aux techniciens, et les 🛠 travaux à crédit non soldés, nommés par la description tapée à leur ouverture (« 🛠 NIMAN · Travaux — FORAGE »). Sans chantier ouvert, la liste le dit." },
         { titre: "Ce qui se passe ensuite", texte: "Au partage des frais (🏠 Clients installés → 🔧 Frais), les techniciens se partagent **les frais facturés moins les dépenses rattachées qui comptent** (ni en attente du DG, ni rejetées) — jamais moins de zéro. La colonne « Chantier » de la liste montre le rattachement." },
-        { titre: "💼 Argent remis à", texte: "Dès qu'un chantier est choisi, la ligne **« Argent remis à »** apparaît : le technicien qui reçoit l'argent (l'équipe du chantier d'abord, tous les techniciens si l'équipe n'est pas choisie), ou **« Personne — payé directement »**. Le choix est **obligatoire**. La ligne de la dépense dit ensuite « 💼 remis à KOSSI »." },
+        { titre: "💼 Argent remis à", texte: "Dès qu'un chantier est choisi, la ligne **« Argent remis à »** apparaît — pour le gérant et l'administrateur seulement (un technicien ne remet l'argent à personne) : le technicien qui reçoit l'argent (l'équipe du chantier d'abord, tous les techniciens si l'équipe n'est pas choisie), ou **« Personne — payé directement »**. Le choix est **obligatoire**. La ligne de la dépense dit ensuite « 💼 remis à KOSSI »." },
       ]],
 
       ["h3", "D bis. L'argent remis à un technicien : il détaille, il rend le reste"],
@@ -240,6 +241,7 @@ export const CHAPITRE = {
         { situation: "Le gérant de DEMAKPOE achète 3 000 F de carburant en espèces pour le chantier de MR ERIC, avec la caisse de DEMAKPOE.", reponse: "Sous 5 000 F : elle compte tout de suite. Rattachée au chantier, elle sera retirée des frais avant le partage entre techniciens." },
         { situation: "Il achète un disjoncteur à 12 000 F en espèces.", reponse: "À partir de 5 000 F : **en attente du DG**. Elle ne sort pas encore du tiroir ; la clôture du soir sera bloquée tant que le DG n'a pas tranché." },
         { situation: "Le tiroir contient 20 000 F, l'enveloppe du fonds de caisse 50 000 F, et il faut payer 30 000 F.", reponse: "Le gérant peut choisir « Le fonds de caisse » : le tiroir paie 20 000 F, l'enveloppe 10 000 F ; il y restera 40 000 F, remboursés par les prochaines recettes." },
+        { situation: "Le technicien ESSO veut saisir 3 000 F de carburant « payés avec la caisse de BMI DEMAKPOE ».", reponse: "Impossible : un technicien ne choisit aucune caisse. S'il a payé de sa poche, c'est une avance personnelle. Si le gérant lui avait remis l'argent, c'est le gérant qui a saisi la dépense (« Argent remis à » ESSO), et ESSO détaille ce qu'il en a fait dans « 💼 Argent reçu pour vos chantiers »." },
         { situation: "Le technicien KOSSI paie 8 000 F de nourriture de sa poche.", reponse: "Avance personnelle, en attente du DG. Une fois validée, elle apparaît dans 💼 Avances de frais à rembourser ; le gérant la rembourse en espèces (ou l'administrateur avec le salaire)." },
         { situation: "Le loyer de 90 000 F n'a pas été payé en août ni en septembre ; on est le 20 septembre, échéance le 5.", reponse: "Le cadre dit « ⚠ Arriérés : 2 mois … 180 000 F dus ». « 💵 Payer le loyer » → « Tous les mois dus (2) » → Espèces → la caisse de la boutique → OK : une dépense de 180 000 F, en attente du DG si un gérant l'a saisie." },
         { situation: "La caisse d'APESSITO a payé une dépense, mais l'écran regardait DEMAKPOE.", reponse: "Choisir « La caisse de APESSITO » : la dépense est enregistrée sur APESSITO, et l'écran le dit." },
