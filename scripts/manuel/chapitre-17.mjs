@@ -5,7 +5,7 @@
 // screens/Depenses.jsx, components/FiltrePeriode.jsx (📤 Dépenses : Nouvelle dépense — Catégorie
 // « — Choisir — », Description, Montant, Paiement, Payé avec, Chantier à
 // rattacher ; Enregistrer la dépense ; ⏳ Dépenses à valider par le DG,
-// ✅ Valider, ✖ Rejeter ; 🏠 Loyer de la boutique, 💵 Payer le loyer /
+// ✅ Valider, ✖ Rejeter ; 🏠 Loyer de la boutique, 📲 Prévenir le propriétaire, 💵 Payer le loyer /
 // 💵 Payer d'avance ; ✏️ Modifier, Suppr. ; « Mes dépenses » ; 🧾 Chez le
 // comptable — ✅ Remis / ✅ Encaissé, ✖ Rejeter, annuler),
 // lib/validationDepenses.js (SEUIL_VALIDATION_DEPENSE = 5000, PAYE_AVEC,
@@ -145,6 +145,10 @@ export const CHAPITRE = {
         { titre: "Le moyen, puis la caisse", texte: "L'application demande ensuite le **moyen de paiement** (Espèces d'office), puis **« Payé avec »** : la caisse de la boutique (celle regardée en premier, les autres boutiques ensuite), une avance personnelle, la caisse du DG, la caisse du comptable." },
         { titre: "Confirmer", texte: "Une fenêtre récapitule : montant, catégorie Loyer, caisse. **OK enregistre la dépense** — elle passe par toutes les règles : validation du DG au-delà de 5 000 F, limite du tiroir. Un mois déjà payé ou déjà saisi est **refusé** : jamais deux fois. Annuler à n'importe quelle question n'enregistre rien." },
       ]],
+      ["etapes", [
+        { titre: "📲 Prévenir le propriétaire", texte: "Une fois le paiement **validé** (par le DG, ou sous 5 000 F) et **payé en espèces**, le bouton apparaît sous le cadre, avec le montant, les mois et la date. Un paiement en attente du DG n'a pas encore le bouton ; un loyer payé par Flooz ou par virement non plus (l'argent est déjà chez le propriétaire). Une question nomme le propriétaire, son numéro, le montant, les mois, et vous : « à récupérer auprès de **votre nom** à la boutique ». OK, et le message part du **numéro WhatsApp BMI** au numéro du propriétaire inscrit sur la fiche du loyer. Rien ne bouge dans la caisse : la dépense est déjà enregistrée. Sous le bouton, « 📲 prévenu le … par … » dit qu'il a déjà été prévenu." },
+        { titre: "Sans numéro du propriétaire", texte: "L'application le dit et rien ne part : l'administrateur ajoute le numéro dans ⚙ Paramètres → Boutiques → 🏠 Loyer." },
+      ]],
       ["note", "« **Déjà compté** » sous le cadre dit quelles dépenses « Loyer » ont été comptées, par qui. Un chiffre qui surprend vient souvent d'une dépense mise en « Loyer » par erreur : l'administrateur la supprime et la ressaisit dans la bonne catégorie."],
 
       ["h3", "H. Corriger une dépense"],
@@ -168,6 +172,7 @@ export const CHAPITRE = {
         ["Enregistrer la dépense", "📤 Dépenses", "Vérifie, demande confirmation, enregistre ; au-delà de 5 000 F, prévient le DG."],
         ["✅ Valider / ✖ Rejeter", "⏳ Dépenses à valider par le DG", "La décision du DG ; le rejet demande un motif."],
         ["💵 Payer le loyer / 💵 Payer d'avance", "🏠 Loyer de la boutique", "Paie un ou plusieurs mois : moyen, caisse, confirmation, enregistrement."],
+        ["📲 Prévenir le propriétaire", "🏠 Loyer de la boutique", "Après un paiement validé en espèces : un message du numéro BMI dit au propriétaire de venir chercher son loyer auprès de vous (gérant, administrateur)."],
         ["✏️ Modifier", "Liste des dépenses", "Change la catégorie, la description et le chantier rattaché (administrateur principal)."],
         ["Le filtre de période", "Titre de la liste (et « Chez le comptable »)", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates. La liste ne montre que la période, et le total à droite devient celui de la période (« Ce mois » revient avec « Toute période »). Le cadre ⏳ Dépenses à valider par le DG n'est jamais filtré."],
         ["Suppr.", "Liste des dépenses", "Supprime une dépense (administrateur)."],

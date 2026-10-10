@@ -202,6 +202,7 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.salaire_user_id ? { salaire_user_id: ref.salaire_user_id, virement_id: ref.virement_id } : {}),
     ...(ref && ref.evolution_id ? { evolution_id: ref.evolution_id } : {}),
     ...(ref && ref.commission_ref ? { commission_ref: ref.commission_ref } : {}),
+    ...(ref && ref.loyer_depense_id ? { loyer_depense_id: ref.loyer_depense_id } : {}),
     ...(ref && ref.prime_user_id ? { chantier_id: ref.chantier_id, prime_user_id: ref.prime_user_id } : {}),
     ...(prive ? { wa_prive: true } : {}),
     ...prop,

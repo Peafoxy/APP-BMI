@@ -18,7 +18,9 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uCho
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { MonArgentDeChantier, RetoursAValider } from "../components/ArgentChantier";
 import { compteExploitant } from "../lib/compteExploitant";
-import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER } from "../lib/loyer";
+import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER, dernierLoyerARemettre, moisEnClair } from "../lib/loyer";
+import { envoiLoyerDisponible, texteLoyerDisponible } from "../lib/whatsappModeles";
+import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation, utilisateursDeLEspace } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
@@ -197,6 +199,46 @@ export function Depenses({ db, save, profile }) {
   const voitLoyer = ["admin", "gerant"].includes(profile.role);
   const fiche = voitLoyer ? ficheLoyer((db.boutiques || []).find((b) => b.nom === boutique)) : null;
   const loyer = fiche ? etatLoyer({ fiche, depenses: db.depenses, boutique, aujourdhui: today() }) : null;
+  // 📲 PRÉVENIR LE PROPRIÉTAIRE (Timo, 10/10/2026 : « A a, B b après
+  // validation du paiement, C a ») : sur le dernier paiement de loyer qui
+  // COMPTE (validé par le DG, ou sous le seuil) et payé en espèces, un message
+  // du numéro BMI lui dit de passer chercher l'argent. Rien ne bouge dans la
+  // caisse : la dépense est déjà enregistrée. Le trou 4 = celui qui clique.
+  const loyerARemettre = fiche ? dernierLoyerARemettre(db.depenses, boutique) : null;
+  const dejaPrevenu = loyerARemettre
+    ? (db.messages || []).filter((m) => m && m.wa_modele === "loyer_disponible" && m.loyer_depense_id === loyerARemettre.id).sort((a, b) => String(b.ts || b.date || "").localeCompare(String(a.ts || a.date || "")))[0] || null
+    : null;
+  const prevenirProprietaire = async () => {
+    if (refuserSaufRoles(profile, ["gerant", "admin"], "Prévenir le propriétaire du loyer")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const bqLocal = (db.boutiques || []).find((b) => b.nom === boutique);
+    const ficheFraiche = ficheLoyer(bqLocal);
+    // Revérifié sur la fiche et les dépenses FRAÎCHES : le paiement doit
+    // toujours compter (un rejet du DG entre-temps le retire).
+    const dep = ficheFraiche ? dernierLoyerARemettre(db.depenses, boutique) : null;
+    if (!dep) { uAlert("Aucun paiement de loyer en espèces validé pour ce local : le propriétaire n'a rien à venir chercher. Un loyer en attente du DG se prévient une fois validé."); return; }
+    if (!String(ficheFraiche.tel || "").replace(/\D/g, "")) { uAlert(`La fiche du loyer n'a pas le numéro du propriétaire${ficheFraiche.proprietaire ? ` (${ficheFraiche.proprietaire})` : ""}. L'administrateur l'ajoute dans ⚙ Paramètres → Boutiques → 🏠 Loyer. Rien n'est parti.`); return; }
+    const envoi = envoiLoyerDisponible({
+      proprietaire: ficheFraiche.proprietaire, tel: ficheFraiche.tel, montant: dep.montant,
+      mois: moisEnClair(moisDeLaDepense(dep)), aupres: profile.nom, boutique, telBoutique: bqLocal?.tel, fmt,
+    });
+    if (!envoi) { uAlert("Ce paiement n'a pas de montant : rien à annoncer."); return; }
+    const texte = texteLoyerDisponible(envoi);
+    if (!await uConfirm(`Prévenir ${ficheFraiche.proprietaire || "le propriétaire"} (${ficheFraiche.tel}) que le loyer l'attend ?\n\n${envoi.variables[1]} pour ${envoi.variables[2]}, à récupérer auprès de ${profile.nom} à la boutique ${boutique}.\n\nLe message part du numéro WhatsApp BMI.`)) return;
+    // ⚠ LE MUR : l'espace de la BOUTIQUE du local, jamais celui de qui clique.
+    const r = await envoyerModele({
+      tel: ficheFraiche.tel, modele: envoi.modele, variables: envoi.variables,
+      espaceFormation: !!bqLocal?.formation, texteRepli: texte,
+      demanderConfirmation: uConfirm, prevenir: uAlert,
+    });
+    if (!r.auto) return;
+    save((etat) => ({
+      ...etat,
+      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: ficheFraiche.tel, nom: ficheFraiche.proprietaire || "Propriétaire", modele: envoi.modele, variables: envoi.variables, ref: { loyer_depense_id: dep.id }, envoi: r }),
+    }), `Propriétaire du local ${boutique} prévenu (loyer disponible : ${fmt(Number(dep.montant))}, ${envoi.variables[2]}) — du numéro BMI`);
+    uAlert(`✅ Message envoyé du numéro BMI à ${ficheFraiche.proprietaire || "le propriétaire"}.`);
+  };
+
   // Timo (25/09/2026) : « payer tous les mois en même temps ou avec
   // prépaiement ». Un mois (le plus ancien dû), tous les mois dus, ou un
   // nombre de mois choisi (d'avance). Le geste ne fait que PRÉ-REMPLIR.
@@ -505,6 +547,13 @@ export function Depenses({ db, save, profile }) {
               Déjà compté :{" "}
               {loyer.lignes.map((d) => `${fmt(d.montant)} le ${dFR(d.date)} pour ${libellePeriodeLoyer(moisDeLaDepense(d))}${d.par ? ` (saisi par ${d.par})` : ""}${d?.validation?.statut === "attente" ? " — en attente du DG" : ""}`).join(" · ")}
               {loyer.statut !== "paye" && " — si ce n'était pas le loyer, l'administrateur supprime la dépense et la ressaisit dans la bonne catégorie."}
+            </div>
+          )}
+          {loyerARemettre && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600" data-loyer-a-remettre>
+              <button onClick={prevenirProprietaire} className="rounded-lg border border-green-600 px-3 py-1.5 text-sm font-semibold text-green-800 bg-green-50" data-prevenir-proprietaire>📲 Prévenir le propriétaire</button>
+              <span>de venir chercher {fmt(loyerARemettre.montant)} ({libellePeriodeLoyer(moisDeLaDepense(loyerARemettre))}, payé en espèces le {dFR(loyerARemettre.date)})</span>
+              {dejaPrevenu && <span className="text-green-700 font-semibold" data-proprietaire-prevenu>· 📲 prévenu le {dFR(dejaPrevenu.date)}{dejaPrevenu.de_nom ? ` par ${dejaPrevenu.de_nom}` : ""}</span>}
             </div>
           )}
         </div>

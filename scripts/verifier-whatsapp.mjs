@@ -108,10 +108,12 @@ const ATTENDU = {
   rappel_anniversaire: { categorie: "utility", n: 2 },
   // 07/10/2026 : la part des frais d'installation payée (« b, texte ok »).
   prime_installation_payee: { categorie: "utility", n: 6 },
+  // 10/10/2026 : le loyer qui attend le propriétaire (« A a, B b, C a »).
+  loyer_disponible: { categorie: "utility", n: 6 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les trente-deux modèles sont là, et eux seuls (RETOURNÉ le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les trente-trois modèles sont là, et eux seuls (RETOURNÉ le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1313,7 +1315,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,commission_due,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,commission_due,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -4059,6 +4061,45 @@ console.log("\n51 · Le profil d'un contact (clic sur le nom) et l'enregistremen
   const tr = V.renduProfilEnregistre();
   test("★ déjà enregistré : le profil le DIT (nom, date, par qui) et ne propose plus le bouton",
     /data-contact-google="enregistre"/.test(tr) && /KOSSI MENSAH/.test(tr) && /09\/10\/2026/.test(tr) && !/data-enregistrer-contact/.test(tr), tr.slice(0, 200));
+}
+
+// ── 🏠 LE LOYER QUI ATTEND LE PROPRIÉTAIRE — `loyer_disponible` (10/10/2026) ──
+console.log("\n🏠 Le loyer qui attend le propriétaire (« A a, B b après validation du paiement, C a »)");
+{
+  const L = await import("../src/lib/loyer.js");
+  const e = M.envoiLoyerDisponible({ proprietaire: "KOFFI", tel: "90554433", montant: 180000, mois: L.moisEnClair(["2026-09", "2026-10"]), aupres: "AMA", boutique: "DEMAKPOE", telBoutique: "", fmt: (n) => `${n} F` });
+  const texte = M.texteLoyerDisponible(e);
+  test("★★ les six trous dans l'ordre : propriétaire, montant, mois, celui qui clique, boutique, téléphone (sans téléphone de boutique : le numéro BMI)",
+    e && e.modele === "loyer_disponible" && e.variables.join("|") === `KOFFI|180000 F|septembre et octobre 2026|AMA|DEMAKPOE|${M.NUMERO_BMI_PRINCIPAL}`, JSON.stringify(e));
+  test("★ le texte rempli est celui accepté par Timo, mot pour mot",
+    texte === `Bonjour KOFFI, le loyer de 180000 F pour septembre et octobre 2026 est disponible. Vous pouvez passer le récupérer auprès de AMA à la boutique DEMAKPOE. Contact : ${M.NUMERO_BMI_PRINCIPAL}. Merci de votre confiance. BMI TOGO`, texte);
+  test("★ sans numéro du propriétaire, ou sans montant : rien à envoyer",
+    M.envoiLoyerDisponible({ proprietaire: "K", tel: "", montant: 1000, mois: "x", aupres: "A", boutique: "B" }) === null
+    && M.envoiLoyerDisponible({ proprietaire: "K", tel: "90554433", montant: 0, mois: "x", aupres: "A", boutique: "B" }) === null);
+  test("★ les mois en clair : un mois, deux de la même année, à cheval sur deux années, une suite",
+    L.moisEnClair(["2026-10"]) === "octobre 2026" && L.moisEnClair(["2026-12", "2027-01"]) === "décembre 2026 et janvier 2027"
+    && L.moisEnClair(["2026-09", "2026-10", "2026-11"]) === "septembre à novembre 2026", L.moisEnClair(["2026-12", "2027-01"]));
+  const dep = (id, o) => ({ id, categorie: "Loyer", boutique: "DEMAKPOE", loyer_boutique: "DEMAKPOE", date: "2026-10-05", montant: 90000, paiement: "Espèces", ...o });
+  test("★★ « après validation du paiement » : ni en attente du DG, ni rejeté, ni payé par Flooz ou virement — le plus récent des autres",
+    L.dernierLoyerARemettre([dep("a", { validation: { statut: "attente" } })], "DEMAKPOE") === null
+    && L.dernierLoyerARemettre([dep("r", { validation: { statut: "rejetee" }, montant: 0 })], "DEMAKPOE") === null
+    && L.dernierLoyerARemettre([dep("f", { paiement: "Mobile Money (Flooz)" })], "DEMAKPOE") === null
+    && L.dernierLoyerARemettre([dep("v", { paiement: "Virement bancaire" })], "DEMAKPOE") === null
+    && L.dernierLoyerARemettre([dep("old", { date: "2026-09-05" }), dep("new", { validation: { statut: "validee" } }), dep("autre", { loyer_boutique: "APESSITO", date: "2026-10-09" })], "DEMAKPOE")?.id === "new");
+  test("★ la ligne du fil dit ce qui est parti (non privée : pas d'argent d'un client)",
+    /Loyer disponible : KOFFI prévenu\(e\) de venir chercher 180000 F pour septembre et octobre 2026 auprès de AMA/.test(M.ligneEnvoiModele("loyer_disponible", e.variables)) && !M.lignePrivee("loyer_disponible"));
+  const sansC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const D = sansC(lire("src/screens/Depenses.jsx"));
+  const corps = D.slice(D.indexOf("const prevenirProprietaire = async"), D.indexOf("const payerLoyer = async"));
+  test("★★ « C a » : gérant et administrateur, revérifié DANS le geste, avant toute question",
+    corps.indexOf('refuserSaufRoles(profile, ["gerant", "admin"]') > 0 && corps.indexOf('refuserSaufRoles(profile, ["gerant", "admin"]') < corps.indexOf("uConfirm(")
+    && /const voitLoyer = \["admin", "gerant"\]\.includes\(profile\.role\)/.test(D));
+  test("★★ le paiement est relu DANS le geste, la question précède l'envoi, « B b » : le trou 4 = celui qui clique",
+    corps.indexOf("dernierLoyerARemettre(db.depenses, boutique)") > 0 && corps.indexOf("uConfirm(") < corps.indexOf("envoyerModele(") && /aupres: profile\.nom/.test(corps));
+  test("★★ le mur : l'espace de la BOUTIQUE du local, jamais celui de qui clique ; la ligne du fil seulement si le message est PARTI du numéro BMI",
+    /espaceFormation: !!bqLocal\?\.formation/.test(corps) && !/estCompteFormation/.test(corps) && corps.indexOf("if (!r.auto) return;") > 0 && corps.indexOf("if (!r.auto) return;") < corps.indexOf("messagesAvecLigneEnvoi("));
+  test("★ la ligne du fil porte le paiement (loyer_depense_id) : le cadre dit « prévenu le … »",
+    /loyer_depense_id: ref\.loyer_depense_id/.test(lire("src/whatsapp.js")) && /ref: \{ loyer_depense_id: dep\.id \}/.test(corps) && /data-proprietaire-prevenu/.test(D));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

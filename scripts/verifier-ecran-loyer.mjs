@@ -41,13 +41,17 @@ const principal = { id: "adm", nom: "TIMO", role: "admin", admin_principal: true
 const vente = (id, bq, montant) => ({ id, boutique: bq, date: auj, heure: "08:00", paiement: "Espèces", par: "AMA", articles: [{ article: "Câble", qte: 1, pu: montant }] });
 const depart = {
   boutiques: [
-    { nom: "DEMAKPOE", formation: false, loyer: { loue: true, montant: 90000, jour: 5, proprietaire: "KOFFI", dernier_mois_paye: moisPrecedent } },
+    { nom: "DEMAKPOE", formation: false, tel: "+228 91 00 00 01", loyer: { loue: true, montant: 90000, jour: 5, proprietaire: "KOFFI", ...(quoi === "sanstel" ? {} : { tel: "+228 90 55 44 33" }), dernier_mois_paye: moisPrecedent } },
     { nom: "APESSITO", formation: false },
   ],
   users: [principal, gerant],
   produits: [], ajustements: [], messages: [], dettes: [], clients_installes: [], clotures: [],
   // « dgplein » : DEMAKPOE a versé 500 000 F chez le DG, validés — la caisse du DG suffit.
-  depenses: quoi === "dgplein" ? [{ id: "vers1", boutique: "DEMAKPOE", date: auj, categorie: "Versement de fonds", montant: 500000, paiement: "Espèces", par: "AMA", versement: { destination: "Chez le DG", montant: 500000 }, versement_valide_le: auj, versement_valide_par: "TIMO" }] : [],
+  // 📲 Prévenir le propriétaire (10/10/2026) : un paiement de loyer VALIDÉ en
+  // espèces (« valide », « sanstel »), en attente du DG (« attente »), validé
+  // mais payé par Flooz (« flooz »).
+  depenses: ["valide", "sanstel", "attente", "flooz"].includes(quoi) ? [{ id: "loy1", boutique: "DEMAKPOE", date: auj, heure: "09:00", categorie: "Loyer", montant: 90000, paiement: quoi === "flooz" ? "Mobile Money (Flooz)" : "Espèces", paye_avec: "caisse:DEMAKPOE", par: "AMA", loyer_mois: auj.slice(0, 7), loyer_boutique: "DEMAKPOE", description: "Loyer", validation: { statut: quoi === "attente" ? "attente" : "validee", le: auj, par: "TIMO" } }]
+  : quoi === "dgplein" ? [{ id: "vers1", boutique: "DEMAKPOE", date: auj, categorie: "Versement de fonds", montant: 500000, paiement: "Espèces", par: "AMA", versement: { destination: "Chez le DG", montant: 500000 }, versement_valide_le: auj, versement_valide_par: "TIMO" }] : [],
   ventes: quoi === "vide" ? [] : [vente("v1", "DEMAKPOE", 200000), vente("v2", "APESSITO", 150000)],
 };
 window.saves = [];
@@ -169,6 +173,43 @@ console.log("\nUn tiroir vide : la limite du tiroir REFUSE, comme pour toute dé
   await choisir(page, "La caisse de DEMAKPOE");
   const refus = await dialogue(page);
   test("★★ refus du tiroir (aucune recette), rien n'est écrit", /Attendez une recette/.test(refus) && (await saves(page)) === 0, refus);
+  await page.close();
+}
+
+console.log("\n📲 Prévenir le propriétaire que le loyer l'attend (Timo, 10/10/2026 : « A a, B b après validation du paiement, C a »)");
+{
+  const { page, erreurs } = await ouvrir();
+  test("★ sans paiement de loyer, aucun bouton « Prévenir le propriétaire »", (await page.$("[data-prevenir-proprietaire]")) === null);
+  await page.close();
+}
+{
+  const { page } = await ouvrir("attente");
+  test("★★ un paiement EN ATTENTE du DG : pas encore de bouton (« après validation du paiement »)", (await page.$("[data-prevenir-proprietaire]")) === null);
+  await page.close();
+}
+{
+  const { page } = await ouvrir("flooz");
+  test("★★ un loyer payé par Flooz est déjà chez le propriétaire : pas de bouton", (await page.$("[data-prevenir-proprietaire]")) === null);
+  await page.close();
+}
+{
+  const { page, erreurs } = await ouvrir("valide");
+  const zone = propre(await page.$eval("[data-loyer-a-remettre]", (e) => e.innerText).catch(() => ""));
+  test("★★ un paiement VALIDÉ en espèces : le bouton est là, avec le montant, le mois et la date", /Prévenir le propriétaire/.test(zone) && /90 000 F/.test(zone) && /payé en espèces le/.test(zone), zone);
+  await page.click("[data-prevenir-proprietaire]"); await attendre(150);
+  const q = await dialogue(page);
+  test("★★ la question nomme le propriétaire, son numéro, le montant, le mois, la gérante qui clique (« B b ») et la boutique ; elle dit que le message part du numéro BMI",
+    /Prévenir KOFFI \(\+228 90 55 44 33\)/.test(q) && /90 000 F pour \S+ \d{4}/.test(q) && /auprès de AMA à la boutique DEMAKPOE/.test(q) && /numéro WhatsApp BMI/.test(q), q);
+  await page.locator("[data-dialogue-boutons] button", { hasText: "Annuler" }).click(); await attendre(150);
+  test("★ annulé : rien n'est écrit, rien n'est parti", (await saves(page)) === 0 && (await page.$("[data-dialogue]")) === null);
+  test("★ aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
+  await page.close();
+}
+{
+  const { page } = await ouvrir("sanstel");
+  await page.click("[data-prevenir-proprietaire]"); await attendre(150);
+  const r = await dialogue(page);
+  test("★★ sans le numéro du propriétaire sur la fiche : on le DIT (où l'ajouter), rien ne part", /n'a pas le numéro du propriétaire \(KOFFI\)/.test(r) && /Rien n'est parti/.test(r) && (await saves(page)) === 0, r);
   await page.close();
 }
 

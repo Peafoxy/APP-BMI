@@ -216,6 +216,11 @@ export const MODELES = {
   // juste après « ✓ Valider et payer ». UTILITY (un paiement fait). Le trou 6
   // = « Retenue pour outil perdu : X. » ou « Aucune retenue. »
   prime_installation_payee: { categorie: "utility", variables: ["employe", "client", "date", "montant", "moyen", "retenue"] },
+  // 🏠 10/10/2026, Timo : « modèle Meta pour demander au bailleur de passer
+  // chercher l'argent du loyer disponible chez le ou la gérante » → « A a,
+  // B b après validation du paiement, C a, lance ». UTILITY (un paiement dû
+  // sur un bail en cours). Le trou 4 = le NOM de celui qui envoie (« B b »).
+  loyer_disponible: { categorie: "utility", variables: ["proprietaire", "montant", "mois", "aupres", "boutique", "telephone"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -266,6 +271,10 @@ export const MODELES_EN_SERVICE = [
   // 07/10/2026 : la part des frais d'installation payée. En service AVANT
   // l'accord de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
   "prime_installation_payee",
+  // 10/10/2026 : le loyer qui attend le propriétaire (📤 Dépenses → cadre du
+  // loyer). En service AVANT l'accord de Meta : d'ici là, repli sur
+  // l'ouverture WhatsApp avec le texte du modèle, refus dit en français.
+  "loyer_disponible",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -771,6 +780,7 @@ const LIGNES_ENVOI = {
   commission_due: ([beneficiaire, montant, client]) => `Avis de commission due envoyé à ${beneficiaire} : ${montant} (client ${client}).`,
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
+  loyer_disponible: ([proprietaire, montant, mois, aupres, boutique]) => `Loyer disponible : ${proprietaire} prévenu(e) de venir chercher ${montant} pour ${mois} auprès de ${aupres} (boutique ${boutique}).`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
@@ -1668,6 +1678,33 @@ export function envoiPrimeInstallationPayee({ employe, tel, client, date, montan
     ],
   };
 }
+
+// ---------------------------------------------------------------
+// 🏠 LE LOYER QUI ATTEND LE PROPRIÉTAIRE — `loyer_disponible` (10/10/2026)
+// ---------------------------------------------------------------
+// Le texte proposé et accepté par Timo, mot pour mot chez Meta.
+export const TEXTE_LOYER_DISPONIBLE = "Bonjour {{1}}, le loyer de {{2}} pour {{3}} est disponible. Vous pouvez passer le récupérer auprès de {{4}} à la boutique {{5}}. Contact : {{6}}. Merci de votre confiance. BMI TOGO";
+// `mois` arrive DÉJÀ en clair (`moisEnClair`, lib/loyer.js — ce fichier
+// n'importe rien). Rend null sans numéro du propriétaire ou sans montant.
+export function envoiLoyerDisponible({ proprietaire, tel, montant, mois, aupres, boutique, telBoutique, fmt }) {
+  if (!String(tel || "").replace(/\D/g, "")) return null;
+  const m = Number(montant);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  return {
+    modele: "loyer_disponible",
+    variables: [
+      texteVariable(proprietaire) || "Monsieur, Madame",
+      f(m),
+      texteVariable(mois) || "ce mois",
+      texteVariable(aupres) || "la gérance",
+      texteVariable(boutique) || "BMI TOGO",
+      texteVariable(telBoutique) || NUMERO_BMI_PRINCIPAL,
+    ],
+  };
+}
+export const texteLoyerDisponible = (envoi) =>
+  envoi ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), TEXTE_LOYER_DISPONIBLE) : "";
 
 // ---------------------------------------------------------------
 // 💰 LA COMMISSION DEVENUE DUE — `commission_due` (03/10/2026)

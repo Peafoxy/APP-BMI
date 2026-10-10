@@ -207,3 +207,33 @@ export function formulaireLoyer(fiche, etat, boutique, n = 1) {
     loyer_boutique: boutique,
   };
 }
+
+// ---------------------------------------------------------------
+// 📲 PRÉVENIR LE PROPRIÉTAIRE QUE LE LOYER L'ATTEND (10/10/2026)
+// ---------------------------------------------------------------
+// Timo : « modèle Meta pour demander au bailleur de passer chercher l'argent
+// du loyer disponible chez le ou la gérante » → « A a, B b après validation
+// du paiement, C a, lance ». Le message n'est proposé que sur un paiement de
+// loyer qui COMPTE (ni en attente du DG, ni rejeté) et payé en ESPÈCES : un
+// loyer payé par Flooz ou par virement est déjà chez le propriétaire, il n'a
+// rien à venir chercher. Le plus récent de ce local.
+export const paiementEnEspeces = (d) => /esp[eè]ces/i.test(String(d?.paiement || ""));
+export function dernierLoyerARemettre(depenses, boutique) {
+  const liste = depensesDuLocal(depenses, boutique)
+    .filter((d) => d?.validation?.statut !== "attente" && Number(d.montant) > 0 && paiementEnEspeces(d));
+  return liste.sort((a, b) => `${b.date || ""} ${b.heure || ""}`.localeCompare(`${a.date || ""} ${a.heure || ""}`))[0] || null;
+}
+
+// Les mois d'un paiement, en clair pour le propriétaire : « octobre 2026 »,
+// « septembre et octobre 2026 », « novembre 2026 et janvier 2027 »,
+// « septembre à novembre 2026 ».
+export function moisEnClair(liste) {
+  const l = (liste || []).filter(Boolean);
+  if (!l.length) return "";
+  if (l.length === 1) return libelleMois(l[0]);
+  const [a1] = String(l[0]).split("-");
+  const [a2] = String(l[l.length - 1]).split("-");
+  const nomSeul = (m) => MOIS_FR[Number(String(m).split("-")[1]) - 1] || String(m);
+  const premier = a1 === a2 ? nomSeul(l[0]) : libelleMois(l[0]);
+  return `${premier} ${l.length === 2 ? "et" : "à"} ${libelleMois(l[l.length - 1])}`;
+}
