@@ -739,7 +739,7 @@ export function DetailTiroir({ detail, boutique }) {
         {" "}Seul le liquide compte : une vente à crédit n'apporte que son avance, Flooz, Mixx et virement n'entrent jamais dans le tiroir.
       </div>
       {jours.length === 0 && <div className="mt-2 text-slate-500">Aucun mouvement en espèces.</div>}
-      <div className="mt-2 max-h-[420px] overflow-y-auto space-y-3">
+      <div className="mt-2 space-y-3" data-detail-tiroir-entier>
         {jours.map((j) => (
           <div key={j.jour} data-jour-tiroir={j.jour}>
             <div className="text-xs font-bold text-slate-600 border-b border-slate-200 pb-1">{dFR(j.jour)}</div>

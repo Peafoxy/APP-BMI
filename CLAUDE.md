@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2429 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2432 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1321,8 +1321,8 @@ lit mal est pire qu'un banc absent).
   dit). Montants = `montantEncaisseVente` (la colonne TOTAL).
 - ⚠ **Un versement n'enregistrait PAS son heure** (je l'avais affirmé à tort à
   Timo, corrigé et dit) : depuis 2.101.491, `versement.heure` (heure de Lomé)
-  — DANS l'objet `versement`, jamais sur la dépense, pour ne pas changer
-  l'ordre de la marche du tiroir. Un versement d'avant se place en haut de sa
+  — DANS l'objet `versement` ; ~~jamais sur la dépense~~ (RETOURNÉ le
+  10/10/2026 : toute dépense porte désormais son heure). Un versement d'avant se place en haut de sa
   journée (`HEURE_INCONNUE`) : une vente faite ce jour-là après lui est
   comptée dans sa bande.
 - Rien à coller. Banc (11 contrôles, dont l'écran RENDU), éprouvé en remettant
@@ -1419,6 +1419,15 @@ lit mal est pire qu'un banc absent).
   Entrées / Sorties / Total versé de 🔒 Caisse n'ont PAS changé (« a » seul).
   Versée un autre jour : comptée normalement (limite dite à Timo). Banc +3,
   éprouvé (soustraction retirée, ancien « dernier versement »).
+  **« c, lance » (10/10/2026, capture « sorties du jour 577 680… la dépense de
+  3 000 ? ») : (a) le détail n'a plus de cadre qui défile** (la moitié du
+  08/10 était cachée au-dessus) ; **(b) CHAQUE DÉPENSE PORTE SON HEURE**
+  (`nouvelleDepense`, core.js : `heure: heureCourte()`, sauf une dépense datée
+  d'un autre jour) — sans elle elle se rangeait en TÊTE de son jour dans la
+  marche du tiroir. ⚠ Ça RETOURNE « versement.heure, jamais sur la dépense » :
+  la ligne d'un versement porte aussi son heure et se place à son heure. Les
+  dépenses d'avant restent sans heure (rien à migrer, aucune clôture passée ne
+  bouge). Banc +3, un contrôle RETOURNÉ, éprouvé.
 - Le versement de 120 000 F d'ANGELE (09/10, 14:18), fait par 🔒 Caisse, a été
   RATTACHÉ à la vente BMID-2026-0048 par un SQL collé par Timo le 09/10/2026
   (`versement.origine`, `attendu` à null, description refaite ; `true`) : sa

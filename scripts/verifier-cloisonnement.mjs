@@ -13778,8 +13778,10 @@ titre("💸 Ventes : la bande noire d'un versement et le résumé des ventes dep
     /bandesDeVersement\(db, boutique, totalVente\)\s*\.filter\(\(b\) => !bornesPeriode \|\| inP\(b\.date, bornesPeriode\[0\], bornesPeriode\[1\]\)\)/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
     && /intercalerBandes\(listeFiltree, bandesAffichees\)/.test(readFileSync("src/screens/Ventes.jsx", "utf8")));
   const rv = Vs0.construireVersement({ nom: "ANGELE", id: "a" }, { boutique: BQ, montant: 5000, destination: "Chez le DG" });
-  test("★ un versement enregistre désormais son HEURE (dans `versement`, la marche du tiroir n'en change pas)",
-    /^\d\d:\d\d$/.test(rv.sortie?.versement?.heure || "") && rv.sortie.heure === undefined);
+  // RETOURNÉ le 10/10/2026 (« c, lance ») : chaque dépense porte son heure — celle du versement
+  // aussi, la même que `versement.heure` : il se place à son heure dans la marche du tiroir.
+  test("★ un versement enregistre son HEURE (dans `versement`, et la ligne aussi : elle se place à son heure dans la marche)",
+    /^\d\d:\d\d$/.test(rv.sortie?.versement?.heure || "") && rv.sortie.heure === rv.sortie.versement.heure);
   const sortieRB = join("node_modules", ".cache", `bmi-rendu-ventes-bandes-${process.pid}.mjs`);
   let RB = null;
   try {
@@ -14416,6 +14418,19 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     VoT.fondsAVerser(dbT, BQ, CoT.totalVente).dernierVersement === "2026-10-07"
     && VoT.fondsAVerser(dbT, BQ, CoT.totalVente, { du: "2026-10-01", au: "2026-10-06" }).dernierVersement === "2026-10-01"
     && VoT.resumeCaisses(dbT, [BQ], CoT.totalVente, "2026-10-10").lignes[0].dernierVersement === "2026-10-07");
+  // 🕓 « c, lance » (10/10/2026) : chaque dépense porte son heure, et le détail ne cache plus rien.
+  const dNeuve = CoT.nouvelleDepense(ag, { boutique: BQ, categorie: "Transport", montant: 3000, moyen: "Espèces" });
+  const dAncienne = CoT.nouvelleDepense(ag, { boutique: BQ, categorie: "Transport", montant: 3000, moyen: "Espèces", date: "2026-01-02" });
+  test("★★ une dépense neuve porte l'heure de Lomé ; datée d'un autre jour, aucune heure inventée",
+    /^\d\d:\d\d$/.test(dNeuve.heure || "") && dNeuve.heure === CoT.heureCourte() && !("heure" in dAncienne));
+  const dbH = { ...dbT, depenses: [...dbT.depenses, dep("h3", "2026-10-07", "Transport", 3000, { heure: "19:00" })] };
+  const j7 = VoT.detailDuTiroir(dbH, BQ, CoT.totalVente).jours[0];
+  const ordre7 = j7.lignes.map((l) => l.type + (l.heure || ""));
+  test("★★ une dépense qui a son heure se place APRÈS le versement de 18:00, plus en tête de sa journée",
+    ordre7.indexOf("versement18:00") >= 0 && ordre7.indexOf("sortie19:00") > ordre7.indexOf("versement18:00"));
+  test("★ le détail du tiroir n'a plus de cadre qui défile : tout s'affiche, rien de caché",
+    /data-detail-tiroir-entier/.test(readFileSync("src/screens/Caisse.jsx", "utf8"))
+    && !/max-h-\[420px\] overflow-y-auto space-y-3/.test(readFileSync("src/screens/Caisse.jsx", "utf8")));
   const sortieRc = join("node_modules", ".cache", `bmi-rendu-caisse-${process.pid}.mjs`);
   let Rc = null;
   try {

@@ -619,9 +619,16 @@ export const nouveauMessage = (de, champs = {}) => ({
 // question du moyen de paiement (normalisée ici) ; `auto` dit d'où vient
 // la dépense (voir aLienAAnnuler dans calculs.js) ; le reste (user_id,
 // credit_id, mois…) s'ajoute tel quel.
+// 🕓 L'HEURE DE CHAQUE DÉPENSE (Timo, 10/10/2026, « c, lance ») : sans elle,
+// une dépense se rangeait en TÊTE de sa journée dans la marche du tiroir — une
+// dépense de 17 h s'affichait avant un versement de 16 h 49 (🔍 Détail du
+// tiroir). L'heure de Lomé, la même source que la date (heureCourte). Une
+// dépense datée d'un AUTRE jour (date libre) ne reçoit pas l'heure de
+// maintenant : elle mentirait. Les dépenses d'avant restent sans heure.
 export const nouvelleDepense = (profile, { boutique, categorie, description, montant, moyen, auto, ...reste }) => ({
   id: uid(),
   date: today(),
+  ...(reste.date && String(reste.date).slice(0, 10) !== today() ? {} : { heure: heureCourte() }),
   boutique,
   categorie,
   description,

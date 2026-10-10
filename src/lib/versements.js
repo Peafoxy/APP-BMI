@@ -566,9 +566,11 @@ export function fondsAVerser(db, boutique, totalVente, periode = null) {
 // ⚠ AUCUN CALCUL À PART : les chiffres de chaque jour sont ceux de deuxPoches
 // — la règle même du carré « Fonds à verser ». Le dernier « Dans le tiroir le
 // soir » est donc, au franc près, le chiffre du carré. Dans une journée, les
-// lignes suivent l'ordre de la marche du tiroir (une dépense n'a pas d'heure) :
-// c'est pourquoi on ne donne le solde qu'en FIN de journée, jamais ligne par
-// ligne — un solde au milieu d'un jour pourrait mentir.
+// lignes suivent l'ordre de la marche du tiroir. Une dépense d'avant le
+// 10/10/2026 n'a pas d'heure (elle se range en tête de son jour) : c'est
+// pourquoi on ne donne le solde qu'en FIN de journée, jamais ligne par ligne
+// — un solde au milieu d'un jour pourrait mentir. Depuis, chaque dépense porte
+// son heure (nouvelleDepense) et se place au bon moment.
 export const estVersementGeneral = (d) => estVersement(d) && !d.versement.origine && !estRejete(d)
   && Number(d.montant || 0) > 0 && (d.versement.source || SOURCE_ESPECES) === SOURCE_ESPECES;
 export function dernierVersementGeneral(db, boutique, periode = null) {
