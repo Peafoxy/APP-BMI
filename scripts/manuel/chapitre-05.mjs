@@ -56,6 +56,7 @@ export const CHAPITRE = {
         ["↩ Reprise de l'article par BMI", "**L'administrateur principal seul**"],
         ["🗑 Supprimer une vente", "**L'administrateur** — et seulement si rien n'en dépend (rubrique 9)"],
         ["📋 Inventaire (le second bouton de 💰 Ventes, à côté de 🛒 Vendre)", "**Gérant et administrateur** — le vendeur ne le voit pas"],
+        ["📊 INVENTAIRE GÉNÉRAL (toutes les boutiques ensemble)", "**L'administrateur seul**"],
         ["🛒 Nouvelle commande (envoyer un panier à la boutique)", "**Commercial, technicien**"],
         ["📥 Commandes reçues : « ✅ Valider et encaisser », « ❌ Refuser »", "**Vendeur, gérant, administrateur** — un vendeur ne voit que les commandes de sa boutique qui lui sont destinées ou destinées à « n'importe quel vendeur »"],
         ["Le comptable", "Ne voit pas 💰 Ventes. Il lit les ventes dans le tableau de bord et l'historique."],
@@ -67,7 +68,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
         ["**💰 Ventes**, cadre « Nouvelle vente »", "🔍 Code-barres · Domaine · Catégorie · Article (« — Choisir un article — ») · Quantité · Prix unitaire (F) · Remise ligne (F) · Remise ligne (%) · « Ajouter au panier » · le 🛒 Panier · Client · Numéro du client · Remise (%) · Commercial · Paiement · (à crédit) Statut de l'article, Avance versée, « Avance payée comment ? » · la case 🤝 apporteur externe · « 💳 Encaisser la vente » · « 🧾 Proforma WhatsApp » · 🖨️ · le Total."],
-        ["**💰 Ventes**, les deux boutons du haut (gérant, administrateur)", "« 🛒 Vendre » (l'écran de vente, ouvert d'office) et « 📋 Inventaire » (rubrique 4, H)."],
+        ["**💰 Ventes**, les deux boutons du haut (gérant, administrateur)", "« 🛒 Vendre » (l'écran de vente, ouvert d'office) et « 📋 Inventaire » (rubrique 4, H) ; pour l'administrateur, « 📊 INVENTAIRE GÉNÉRAL » (rubrique 4, I)."],
         ["**💰 Ventes**, cadre du bas", "Deux vues : « 💰 Ventes (N) » et « 🧾 Proformas (N) » ; « 🔍 Rechercher… » ; la période (Toute période, Aujourd'hui, Cette semaine, Ce mois, Cette année, ✏️ Personnaliser…) ; « 💰 Recette » ; les pastilles de paiement (Tout paiement, Espèces, Flooz, Mixx/T-Money, Virement bancaire, Crédit (dette)) ; la liste, et ses boutons ronds."],
         ["**🛒 Nouvelle commande** (commercial, technicien)", "La boutique à choisir, « 🔍 Scanner un code-barres », Catégorie, Article, Quantité, Prix unitaire (F), « ➕ Ajouter », le panier, Client (facultatif), Numéro du client, « Remise (%) — facultatif », « Paiement proposé », « Vendeur destinataire (facultatif) », « Rabais offert au client (F) — facultatif », « Associer mon responsable (facultatif) », « 📤 Envoyer la commande à la boutique », puis la liste de ses commandes (⏳ En attente · ✓ Validée · ✗ Refusée)."],
         ["**📥 Commandes reçues** (vendeur, gérant, administrateur)", "« 📥 Commandes en attente (N) » avec « ✅ Valider et encaisser » / « ❌ Refuser », puis « Historique récent » (Validée / Refusée, « ✅ Encaissée — vente N° … », ou « ⚠ Commande validée mais NON ENCAISSÉE » avec « ↻ Reprendre l'encaissement »)."],
@@ -164,6 +165,14 @@ export const CHAPITRE = {
       ]}],
       ["p", "**« 🖨 Imprimer (PDF) »** sort l'inventaire sur papier, **« Exporter (CSV) »** l'ouvre dans un tableur — mêmes chiffres, même période."],
       ["note", "Le fonds de caisse (l'enveloppe) et les comptes Flooz / Mixx ne sont jamais comptés physiquement : leur solde vient des saisies. Seul le tiroir est compté, le soir, à la clôture du jour."],
+      ["h3", "I. 📊 L'inventaire général — toutes les boutiques (administrateur)"],
+      ["p", "À côté de « 📋 Inventaire », l'administrateur a un troisième bouton : **« 📊 INVENTAIRE GÉNÉRAL »**. Il réunit **toutes les boutiques de l'espace regardé et la caisse 🏗 CHANTIER** ; les magasins n'y sont pas (ils ne vendent pas). Même période, mêmes sept blocs, mêmes boutons PDF et CSV. Un clic sur une boutique de la rangée du haut revient à l'inventaire de cette boutique."],
+      ["ul", [
+        "**En tête, le tableau « Par caisse »** : une ligne par boutique et pour la caisse CHANTIER — vendu, recettes, dépenses, versé, tiroir maintenant, dettes restantes, écarts des clôtures (et les jours non clôturés) — puis la ligne **TOTAL**. Sur téléphone, la colonne « Caisse » reste à gauche quand les chiffres défilent.",
+        "**Les blocs 1 à 6 additionnent les caisses.** Une vente issue d'un devis est vendue dans sa boutique et son argent est dans les recettes de la caisse CHANTIER : il n'est compté qu'une fois. Une dette de devis aussi, même si elle figure dans la liste de sa boutique et dans celle de la caisse CHANTIER.",
+        "**Les dépenses payées chez le DG, par la BANQUE ou chez le comptable** (un salaire, une commission…) ne sont dans aucune boutique : elles ont leur cadre à part dans le bloc 3, puis « Toutes les dépenses (boutiques + caisses centrales) ». Ce cadre ne s'affiche qu'en réel.",
+        "**Le bloc 7 donne le comptage par caisse** : nombre de clôtures, jours avec écart, total des écarts, et les journées non clôturées en rouge. La caisse CHANTIER n'est jamais en faute : sa clôture est facultative.",
+      ]],
     ]},
 
     // ── 5

@@ -26,7 +26,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation } from "../lib/calculs";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { bandesDeVersement, intercalerBandes, resumeBande } from "../lib/bandesVersement";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -37,7 +37,7 @@ import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite } from "../lib/whatsappModeles";
 import { lierFacture } from "../lib/travaux";
-import { peutVoirInventaire } from "../lib/inventaireVentes";
+import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
 import { InventaireVentes } from "./InventaireVentes";
 
 // ============ VENTES ============
@@ -1357,6 +1357,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     .slice().sort(triDesc);
   const btnVue = (actif) => `px-4 py-1.5 rounded-lg text-sm font-bold ${actif ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`;
   const infoBq = (nom) => db.boutiques.find((b) => b.nom === nom) || {};
+  // 📊 L'inventaire GÉNÉRAL (10/10/2026, « A a, B a, C a, D a ») : l'administrateur
+  // seul ; les caisses de l'espace REGARDÉ (boutiques de vente + 🏗 CHANTIER,
+  // jamais un magasin — la rangée du RÉSUMÉ de 🔒 Caisse) ; les caisses
+  // centrales en réel seulement.
+  const voitGeneral = peutVoirInventaireGeneral(profile);
+  const enGeneral = ongletVentes === "general" && voitGeneral;
+  const nomsGeneral = enGeneral ? boutiquesVisibles(db, profile, [...boutiquesVente(db), ...(db.boutiques || []).filter((b) => b.terrain)]).map((b) => b.nom) : [];
+  const formationRegardee = enGeneral ? afficheChiffresFormation(db, profile) : false;
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
@@ -1364,14 +1372,17 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs ecran="ventes" db={db} value={bq} onChange={setBq} profile={profile} />}
+      {!profile.boutique && <BoutiqueTabs ecran="ventes" db={db} value={enGeneral ? "" : bq} onChange={(nom) => { setBq(nom); if (ongletVentes === "general") setOngletVentes("inventaire"); }} profile={profile} />}
       {peutVoirInventaire(profile) && (
         <div className="flex gap-2 flex-wrap" data-onglets-ventes>
-          <button onClick={() => setOngletVentes("vendre")} className={btnVue(ongletVentes !== "inventaire")} data-onglet-vendre>🛒 Vendre</button>
+          <button onClick={() => setOngletVentes("vendre")} className={btnVue(ongletVentes === "vendre")} data-onglet-vendre>🛒 Vendre</button>
           <button onClick={() => setOngletVentes("inventaire")} className={btnVue(ongletVentes === "inventaire")} data-onglet-inventaire>📋 Inventaire</button>
+          {voitGeneral && <button onClick={() => setOngletVentes("general")} className={btnVue(enGeneral)} data-onglet-inventaire-general>📊 INVENTAIRE GÉNÉRAL</button>}
         </div>
       )}
-      {ongletVentes === "inventaire" && peutVoirInventaire(profile) ? <InventaireVentes db={db} boutique={boutique} /> : (<>
+      {enGeneral
+        ? <InventaireVentes key="general" db={db} general noms={nomsGeneral} avecCentrales={!formationRegardee} formationEspace={formationRegardee} />
+        : ongletVentes === "inventaire" && peutVoirInventaire(profile) ? <InventaireVentes db={db} boutique={boutique} /> : (<>
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle vente <Badge boutique={boutique} /></div>
         {blocageCloture && <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">{blocageCloture}</div>}

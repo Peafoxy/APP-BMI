@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fichierPdf } from "./lib/core";
-import { VALIDITE_OFFRE_JOURS } from "./lib/constants";
+import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
 // La phrase d'un devis à compléter tient sur UNE ligne sous le bandeau (toute
@@ -768,7 +768,11 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
   const signe = (n) => (Math.round(Number(n) || 0) > 0 ? `+ ${m(n)}` : Math.round(Number(n) || 0) < 0 ? `- ${m(-n)}` : "0");
 
   enteteSociete(doc, logo, largeur);
-  const yApres = bandeauTitre(doc, largeur, texteSurPdf(`INVENTAIRE - ${boutique}`), formation);
+  // 📊 L'inventaire GÉNÉRAL (10/10/2026) : toutes les caisses, le même dessin,
+  // plus le tableau par caisse et les caisses centrales.
+  const general = !!inv.general;
+  const caisseLue = (n) => texteSurPdf(libelleCaisse(n));
+  const yApres = bandeauTitre(doc, largeur, texteSurPdf(general ? "INVENTAIRE GÉNÉRAL - toutes les boutiques" : `INVENTAIRE - ${boutique}`), formation);
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
   doc.text(texteSurPdf(`Période : ${periode}`), 14, yApres + 7);
@@ -810,6 +814,14 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
     y += 4 * l.length + 1;
   };
 
+  if (general) {
+    const tl = inv.totalLignes;
+    bloc("Par caisse", ["Caisse", "Vendu", "Recettes", "Dépenses", "Versé", "Tiroir", "Dettes", "Écarts"],
+      inv.lignes.map((l) => [caisseLue(l.boutique), m(l.vendu), m(l.recettes), m(l.depenses), m(l.verse), m(l.tiroir), m(l.dettes), `${signe(l.ecarts)}${l.nonClotures ? ` (${l.nonClotures} non clôt.)` : ""}`]),
+      ["TOTAL", m(tl.vendu), m(tl.recettes), m(tl.depenses), m(tl.verse), m(tl.tiroir), m(tl.dettes), signe(tl.ecarts)], [1, 2, 3, 4, 5, 6, 7]);
+    phrase("La caisse CHANTIER est comptée avec les boutiques ; les magasins ne vendent pas, ils n'y sont pas. Une dette de devis n'est comptée qu'une fois.");
+  }
+
   const v = inv.ventes;
   bloc("1. Les ventes - tous moyens de paiement", ["Moyen", "Ventes", "Montant"],
     [...v.lignes.map((l) => [l.moyen, String(l.nb), m(l.montant)]),
@@ -830,11 +842,18 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
   if (d.enAttente.nb) phrase(`En attente du DG, pas comptées : ${d.enAttente.nb} dépense(s), ${m(d.enAttente.montant)} F.`);
   if (d.rejetees.nb) phrase(`Rejetées par le DG, pas comptées : ${d.rejetees.nb} (${m(d.rejetees.montant)} F).`);
   if (d.autres.lignes.length) bloc("Autres sorties d'argent - pas des charges", ["Catégorie", "Nombre", "Montant"], d.autres.lignes.map((l) => [l.categorie, String(l.nb), m(l.montant)]), null, [1, 2]);
+  if (inv.centrales) {
+    inv.centrales.blocs.forEach((b) => bloc(`Payées ${b.caisse === "BANQUE" ? "par la BANQUE" : b.caisse.replace(/^Chez/, "chez")} - dans aucune boutique`, ["Catégorie", "Nombre", "Montant"],
+      b.lignes.map((l) => [l.categorie, String(l.nb), m(l.montant)]), ["Total", String(b.nb), m(b.total)], [1, 2]));
+    phrase(inv.centrales.total
+      ? `Toutes les dépenses (boutiques + caisses centrales) : ${m(d.total + inv.centrales.total)} F.`
+      : "Aucune dépense payée chez le DG, par la BANQUE ou chez le comptable sur cette période.");
+  }
 
   const w = inv.versements;
   const etat = { valide: "validé", attente: "en attente", rejete: "rejeté" };
   bloc("4. Les versements de la période", ["Date", "Vers", "État", "Montant"],
-    w.lignes.map((x) => [`${dFRl(x.date)}${x.heure ? ` ${x.heure}` : ""}`, `${x.destination}${x.aPart ? " (vente ou règlement)" : ""}${x.source !== "Espèces" ? ` - depuis ${x.source}` : ""}${x.par ? ` - par ${x.par}` : ""}`, etat[x.etat], m(x.montant)]),
+    w.lignes.map((x) => [`${dFRl(x.date)}${x.heure ? ` ${x.heure}` : ""}`, `${general ? `${caisseLue(x.boutique)} -> ` : ""}${x.destination}${x.aPart ? " (vente ou règlement)" : ""}${x.source !== "Espèces" ? ` - depuis ${x.source}` : ""}${x.par ? ` - par ${x.par}` : ""}`, etat[x.etat], m(x.montant)]),
     ["Total versé (rejetés exclus)", "", w.enAttente ? `dont ${m(w.enAttente)} en attente` : "", m(w.total)], [3]);
 
   const c = inv.caisse;
@@ -856,19 +875,22 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
       ["En retard (plus de 30 jours)", String(t.retard.nb), m(t.retard.montant)],
       ...(t.reservations.nb ? [["Réservations en cours (reste)", String(t.reservations.nb), m(t.reservations.montant)]] : [])],
     ["Reste total à recouvrer", String(t.reste.nb), m(t.reste.montant)], [1, 2]);
-  if (t.retard.lignes.length) bloc("Dettes en retard", ["Client", "Depuis le", "Jours", "Reste"], t.retard.lignes.map((x) => [`${x.client || "-"}${x.numero ? ` (${x.numero})` : ""}`, dFRl(x.date), String(x.jours), m(x.reste)]), null, [2, 3]);
+  if (t.retard.lignes.length) bloc("Dettes en retard", ["Client", "Depuis le", "Jours", "Reste"], t.retard.lignes.map((x) => [`${x.client || "-"}${x.numero ? ` (${x.numero})` : ""}${general && x.boutique ? ` - ${caisseLue(x.boutique)}` : ""}`, dFRl(x.date), String(x.jours), m(x.reste)]), null, [2, 3]);
 
   const k = inv.comptage;
-  bloc("7. Le comptage - ce qui a été compté aux clôtures", ["Jour", "Attendu", "Compté", "Écart"],
+  if (general) bloc("7. Le comptage - ce qui a été compté aux clôtures", ["Caisse", "Clôtures", "Jours avec écart", "Écarts"],
+    k.parBoutique.map((l) => [`${caisseLue(l.boutique)}${l.nonClotures.length ? ` - non clôturé : ${l.nonClotures.map(dFRl).join(", ")}` : ""}`, String(l.nbClotures), String(l.joursAvecEcart), signe(l.totalEcarts)]),
+    [`Total des écarts (${k.nbClotures} clôture(s))`, "", "", signe(k.totalEcarts)], [1, 2, 3]);
+  else bloc("7. Le comptage - ce qui a été compté aux clôtures", ["Jour", "Attendu", "Compté", "Écart"],
     k.lignes.map((l) => [`${dFRl(l.date)}${l.par ? ` - ${l.par}` : ""}${l.bouge ? " (a bougé après la clôture)" : ""}`, m(l.attendu),
       l.statut === "cloture" ? m(l.compte) : (l.statut === "aujourdhui" ? "pas encore clôturé" : "NON CLÔTURÉ"),
       l.statut === "cloture" ? signe(l.ecart) : ""]),
     [`Total des écarts (${k.nbClotures} clôture(s))`, "", "", signe(k.totalEcarts)], [1, 2, 3]);
-  if (k.nonClotures.length) phrase(`Journées non clôturées : ${k.nonClotures.map(dFRl).join(", ")}.`);
+  if (k.nonClotures.length && !general) phrase(`Journées non clôturées : ${k.nonClotures.map(dFRl).join(", ")}.`);
   phrase("Écart négatif = il manquait de l'argent dans le tiroir ; positif = il y en avait trop. Le fonds de caisse (l'enveloppe) n'est jamais compté.");
 
   if (retournerDoc) return doc;
-  doc.save(fichierPdf("Inventaire", { client: boutique, numero: String(periode || "").replace(/\//g, "-") }));
+  doc.save(fichierPdf(general ? "Inventaire général" : "Inventaire", { client: general ? "toutes les boutiques" : boutique, numero: String(periode || "").replace(/\//g, "-") }));
   return null;
 }
 

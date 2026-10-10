@@ -14550,11 +14550,12 @@ titre("📋 L'inventaire de 💰 Ventes : ventes, recettes, dépenses, versement
     const srcI = readFileSync("src/screens/InventaireVentes.jsx", "utf8");
     const srcV = readFileSync("src/screens/Ventes.jsx", "utf8");
     test("★★ « B a » : l'inventaire ouvre sur « Aujourd'hui » (la période d'ouverture du filtre commun), sans rien calculer lui-même",
-      /const periode = useFiltrePeriode\(\{ initial: 0 \}\);/.test(srcI) && /const inv = inventaireVentes\(db, boutique, totalVente, periode\.bornes, auj\);/.test(srcI)
+      /const periode = useFiltrePeriode\(\{ initial: 0 \}\);/.test(srcI) && /: inventaireVentes\(db, boutique, totalVente, periode\.bornes, auj\);/.test(srcI)
+      && /\? inventaireGeneral\(db, noms, totalVente, periode\.bornes, auj, \{ avecCentrales \}\)/.test(srcI)
       && !/deuxPoches|fondsAVerser|ventesParMoyen|activiteDuJour/.test(srcI.replace(/\/\/.*$/gm, "")));
     test("★★ dans 💰 Ventes, deux boutons « 🛒 Vendre » / « 📋 Inventaire », gardés par peutVoirInventaire, l'inventaire à la place du reste",
       /\{peutVoirInventaire\(profile\) && \(/.test(srcV) && /data-onglet-inventaire>📋 Inventaire<\/button>/.test(srcV) && /data-onglet-vendre>🛒 Vendre<\/button>/.test(srcV)
-      && /\{ongletVentes === "inventaire" && peutVoirInventaire\(profile\) \? <InventaireVentes db=\{db\} boutique=\{boutique\} \/> : \(<>/.test(srcV));
+      && /: ongletVentes === "inventaire" && peutVoirInventaire\(profile\) \? <InventaireVentes db=\{db\} boutique=\{boutique\} \/> : \(<>/.test(srcV));
     // L'écran RENDU, sur des lignes du jour (la période d'ouverture est « Aujourd'hui »).
     const auj = new Date().toISOString().slice(0, 10);
     const dbJ = { ...dbI, ventes: dbI.ventes.map((v) => ({ ...v, date: auj })), dettes: [], depenses: [], clotures: [] };
@@ -14575,6 +14576,73 @@ titre("📋 L'inventaire de 💰 Ventes : ventes, recettes, dépenses, versement
       !!docI && /INVENTAIRE - BMI TEST/.test(tI) && /riode : Du 05\/10\/2026 au 06\/10\/2026/.test(tI)
       && ["1. LES VENTES", "2. LES RECETTES", "3. LES D", "4. LES VERSEMENTS", "5. LA CAISSE", "6. LES DETTES", "7. LE COMPTAGE"].every((k) => tI.includes(k))
       && /110 000/.test(tI) && /35 000/.test(tI) && /NON CL/.test(tI) && !/V e r s/.test(tI), tI.slice(0, 300));
+
+    // ---- 📊 L'INVENTAIRE GÉNÉRAL (10/10/2026, « A a, B a, C a, D a ») ----
+    const B2 = "BMI DEUX";
+    const dbG = {
+      ...dbI,
+      boutiques: [...dbI.boutiques, { id: "b3", nom: B2 }, { id: "b4", nom: "DEPOT", depot: true }],
+      ventes: [...dbI.ventes, { id: "v7", numero: "D2-1", date: J1, heure: "12:00", boutique: B2, paiement: "Espèces", articles: art(20000) }],
+      dettes: [...dbI.dettes, { id: "d4", numero: "D-4", date: "2026-09-01", boutique: B2, client: "YAO", montant: 15000, paye: 0, paiements: [] }],
+      depenses: [...dbI.depenses,
+        dep("e6", J1, "Transport", 1000, { boutique: B2 }),
+        dep("e7", J1, "Transport", 7777, { boutique: "DEPOT" }),
+        dep("c1", J1, "Salaires", 50000, { boutique: "Chez le DG", paye_avec: "dg" }),
+        dep("c2", J1, "Apport de l'exploitant", 99000, { boutique: "Chez le DG", exploitant: { sens: "apport" } }),
+        dep("c3", J2, "Salaires", 40000, { boutique: "BANQUE", validation: { statut: "attente" } }),
+        dep("c4", J2, "Commissions", 3000, { boutique: "Chez le comptable" }),
+        dep("c5", J2, "Versement de fonds", -10000, { boutique: "Chez le comptable", versement_id: "w9" }),
+        dep("c6", "2026-10-09", "Salaires", 8000, { boutique: "Chez le DG" }),
+      ],
+    };
+    const NOMS = [BQ, B2, "TERRAIN"];
+    const g = RI.inventaireGeneral(dbG, NOMS, RI.totalVente, [J1, J2], AUJ, { avecCentrales: true });
+    const unSeul = (n) => RI.inventaireVentes(dbG, n, RI.totalVente, [J1, J2], AUJ);
+    test("★★ GÉNÉRAL : ventes, recettes, dépenses, versements et tiroir = la SOMME des inventaires de chaque caisse (la caisse 🏗 CHANTIER comptée avec les boutiques, « B a »)",
+      g.ventes.total === 130000 && g.recettes.total === 105000 && g.depenses.total === 4500 && g.versements.lignes.length === 2
+      && g.recettes.total === NOMS.reduce((s, n) => s + unSeul(n).recettes.total, 0)
+      && g.caisse.tiroir === NOMS.reduce((s, n) => s + unSeul(n).caisse.tiroir, 0)
+      && g.lignes.length === 3 && g.lignes.find((l) => l.boutique === "TERRAIN").recettes === 50000,
+      JSON.stringify({ v: g.ventes.total, r: g.recettes.total, d: g.depenses.total }));
+    test("★★ GÉNÉRAL : une dette de devis (dans la liste de sa boutique ET de la caisse CHANTIER) n'est comptée qu'UNE fois — reste 100 000, pas 120 000 ; la colonne « Dettes » du tableau par caisse s'additionne au reste total",
+      g.dettes.reste.montant === 100000 && g.dettes.reste.nb === 4
+      && g.lignes.reduce((s, l) => s + l.dettes, 0) === g.dettes.reste.montant && g.totalLignes.dettes === 100000
+      && g.dettes.retard.nb === 2 && g.dettes.retard.lignes.every((d) => d.boutique),
+      JSON.stringify(g.lignes.map((l) => [l.boutique, l.dettes])));
+    test("★★ « C a » : les dépenses payées chez le DG, par la BANQUE ou chez le comptable dans un bloc À PART (50 000 + 3 000) — ni l'apport de l'exploitant, ni la dépense en attente, ni le versement du comptable, ni hors période ; absent sans avecCentrales",
+      g.centrales && g.centrales.total === 53000 && g.centrales.blocs.map((b) => b.caisse).join("|") === "Chez le DG|Chez le comptable"
+      && g.depenses.total === 4500
+      && RI.inventaireGeneral(dbG, NOMS, RI.totalVente, [J1, J2], AUJ).centrales === null,
+      JSON.stringify(g.centrales));
+    test("★★ « D a » : une caisse qui n'est pas dans la liste (le magasin) n'entre nulle part — sa dépense de 7 777 F est absente",
+      !g.depenses.lignes.some((l) => l.montant === 7777 || l.montant === 3500 + 1000 + 7777) && g.lignes.every((l) => l.boutique !== "DEPOT"));
+    test("★ GÉNÉRAL : le comptage par caisse — BMI DEUX non clôturée le 05/10, BMI TEST le 06/10, la caisse CHANTIER jamais en faute (clôture facultative) ; total des écarts − 500",
+      g.comptage.totalEcarts === -500 && g.comptage.nonClotures.length === 2
+      && g.comptage.parBoutique.find((l) => l.boutique === "TERRAIN").nonClotures.length === 0
+      && g.comptage.nonClotures.some((x) => x.boutique === B2 && x.date === J1),
+      JSON.stringify(g.comptage.parBoutique));
+    test("★★ « A a » : l'inventaire général est à l'administrateur seul (jamais le gérant)",
+      RI.peutVoirInventaireGeneral({ role: "admin" }) && !RI.peutVoirInventaireGeneral({ role: "gerant" }) && !RI.peutVoirInventaireGeneral({ role: "vendeur" }));
+    test("★ GÉNÉRAL : l'export commence par le tableau par caisse et porte les caisses centrales",
+      (() => { const L = RI.lignesCsvInventaire(g); return L[0][0] === "Par caisse" && /CHANTIER/.test(L.map((x) => x[1]).join()) && L.some((x) => x[0] === "Dépenses Chez le DG"); })());
+    test("★★ dans 💰 Ventes : « 📊 INVENTAIRE GÉNÉRAL » gardé par peutVoirInventaireGeneral ; les caisses = la rangée de l'espace regardé (boutiques de vente + 🏗 CHANTIER, jamais un magasin) ; les caisses centrales en réel seulement",
+      /\{voitGeneral && <button onClick=\{\(\) => setOngletVentes\("general"\)\}[^>]*data-onglet-inventaire-general>📊 INVENTAIRE GÉNÉRAL<\/button>\}/.test(srcV)
+      && /const voitGeneral = peutVoirInventaireGeneral\(profile\);/.test(srcV)
+      && /boutiquesVisibles\(db, profile, \[\.\.\.boutiquesVente\(db\), \.\.\.\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\]\)/.test(srcV)
+      && /avecCentrales=\{!formationRegardee\}/.test(srcV) && /afficheChiffresFormation\(db, profile\)/.test(srcV));
+    const dbGJ = { ...dbG, ventes: dbG.ventes.map((v) => ({ ...v, date: auj })), depenses: dbG.depenses.map((d) => ({ ...d, date: auj })), clotures: [] };
+    const hG = sansErr(() => RI.rendreInventaireGeneral(dbGJ, NOMS, true));
+    test("★★ l'écran GÉNÉRAL RENDU : le titre « INVENTAIRE GÉNÉRAL », le tableau par caisse (🏗 CHANTIER compris) avec sa ligne TOTAL, le bloc des caisses centrales, les sept blocs",
+      /data-inventaire-titre="true">📊 INVENTAIRE GÉNÉRAL/.test(hG) && /data-inv-par-caisse/.test(hG) && /data-inv-caisse-total/.test(hG)
+      && /data-inv-caisse-ligne="TERRAIN"/.test(hG) && /🏗 CHANTIER/.test(hG) && /data-inv-centrales/.test(hG) && /data-inv-centrale="Chez le DG"/.test(hG)
+      && ["data-inv-ventes", "data-inv-recettes", "data-inv-depenses", "data-inv-versements", "data-inv-caisse", "data-inv-dettes", "data-inv-comptage"].every((k) => hG.includes(k)),
+      hG.slice(0, 300));
+    const docG = RI.genererInventaire(g, { boutique: "INVENTAIRE GÉNÉRAL", periode: "Du 05/10/2026 au 06/10/2026", edite: "10/10/2026" }, true);
+    const tG = docG ? textesI(docG) : "";
+    test("★★ le PDF GÉNÉRAL : titre « INVENTAIRE GÉNÉRAL », le tableau par caisse et son TOTAL, les caisses centrales, les sept blocs, aucune lettre espacée",
+      !!docG && /INVENTAIRE G.N.RAL - toutes les boutiques/.test(tG) && /PAR CAISSE/.test(tG) && /TOTAL/.test(tG) && /CHANTIER/.test(tG)
+      && /PAY.ES CHEZ LE DG/.test(tG) && /130 000/.test(tG) && /100 000/.test(tG)
+      && ["1. LES VENTES", "2. LES RECETTES", "4. LES VERSEMENTS", "7. LE COMPTAGE"].every((k) => tG.includes(k)) && !/V e r s/.test(tG), tG.slice(0, 400));
   }
 }
 

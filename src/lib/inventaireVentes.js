@@ -31,7 +31,7 @@
 import { ventesParMoyen, activiteDuJour, clotureDe, DEBUT_REGLE_CLOTURE } from "./cloture.js";
 import { deuxPoches, fondsAVerser, versementsDe, validationVersement, estRejete, libelleDestination, montantEncaisseVente, SOURCE_ESPECES } from "./versements.js";
 import { soldesMobiles } from "./caissesMobiles.js";
-import { caisseDeVente, boutiqueDuDocument, CATEGORIES_HORS_CHARGES, CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, PAIEMENTS } from "./constants.js";
+import { caisseDeVente, boutiqueDuDocument, libelleCaisse, CATEGORIES_HORS_CHARGES, CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, PAIEMENTS } from "./constants.js";
 import { estEnAttente, estRejetee, montantOrigine, sortDuTiroir } from "./validationDepenses.js";
 import { detteEnRetard, resteDette, joursDeDette } from "./rappels.js";
 
@@ -74,6 +74,30 @@ function parCategorie(liste, montant = (d) => Number(d.montant || 0)) {
     l.montant += montant(d);
   });
   return Object.values(par).sort((a, b) => b.montant - a.montant || a.categorie.localeCompare(b.categorie));
+}
+
+// Le bloc des dettes, écrit UNE fois pour l'inventaire d'une boutique et
+// l'inventaire général : `liste` = les dettes à regarder (sans doublon),
+// `deChantier` = celles dont l'argent entre dans la caisse 🏗 CHANTIER.
+function blocDettes(liste, deChantier, dans, aujourdhui) {
+  const dettes = liste.filter((d) => !estReservation(d));
+  const reservations = liste.filter(estReservation);
+  const creees = dettes.filter((d) => dans(d.date));
+  const reglementsDettes = dettes.flatMap((d) => (d.paiements || []).filter((p) => dans(p.date)));
+  const nonSoldees = dettes.filter((d) => resteDette(d) > 0);
+  const enRetard = nonSoldees.filter((d) => detteEnRetard(d, aujourdhui))
+    .map((d) => ({ id: d.id, client: d.client || "", numero: d.numero || "", boutique: boutiqueDuDocument(d) || "", date: jour(d.date), jours: joursDeDette(d, aujourdhui), reste: resteDette(d) }))
+    .sort((a, b) => b.jours - a.jours);
+  const chantierDette = nonSoldees.filter(deChantier);
+  const resaEnCours = reservations.filter((d) => resteDette(d) > 0);
+  return {
+    creees: { nb: creees.length, montant: somme(creees, (d) => d.montant) },
+    reglees: { nb: reglementsDettes.length, montant: somme(reglementsDettes, (p) => p.montant) },
+    reste: { nb: nonSoldees.length, montant: somme(nonSoldees, resteDette) },
+    retard: { nb: enRetard.length, montant: somme(enRetard, (d) => d.reste), lignes: enRetard },
+    chantier: { nb: chantierDette.length, montant: somme(chantierDette, resteDette) },
+    reservations: { nb: resaEnCours.length, montant: somme(resaEnCours, resteDette) },
+  };
 }
 
 export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
@@ -144,7 +168,7 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
       const rejete = estRejete(d);
       const valide = !rejete && !!validationVersement(db, d);
       return {
-        id: d.id, date: jour(d.date), heure: d.versement?.heure || d.heure || "",
+        id: d.id, boutique, date: jour(d.date), heure: d.versement?.heure || d.heure || "",
         montant: rejete ? Number(d.versement?.montant || 0) : Number(d.montant || 0),
         destination: libelleDestination(d.versement),
         source: d.versement?.source || SOURCE_ESPECES,
@@ -196,28 +220,12 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
 
   // ---- 6. LES DETTES (la liste de 📋 Dettes de la boutique) ----
   const dettesBq = (db?.dettes || []).filter((d) => d.boutique === boutique || boutiqueDuDocument(d) === boutique);
-  const dettes = dettesBq.filter((d) => !estReservation(d));
-  const reservations = dettesBq.filter(estReservation);
-  const creees = dettes.filter((d) => dans(d.date));
-  const reglementsDettes = dettes.flatMap((d) => (d.paiements || []).filter((p) => dans(p.date)));
-  const nonSoldees = dettes.filter((d) => resteDette(d) > 0);
-  const enRetard = nonSoldees.filter((d) => detteEnRetard(d, aujourdhui))
-    .map((d) => ({ id: d.id, client: d.client || "", numero: d.numero || "", date: jour(d.date), jours: joursDeDette(d, aujourdhui), reste: resteDette(d) }))
-    .sort((a, b) => b.jours - a.jours);
-  const chantierDette = nonSoldees.filter((d) => d.boutique !== boutique);
-  const resaEnCours = reservations.filter((d) => resteDette(d) > 0);
-  const sectionDettes = {
-    creees: { nb: creees.length, montant: somme(creees, (d) => d.montant) },
-    reglees: { nb: reglementsDettes.length, montant: somme(reglementsDettes, (p) => p.montant) },
-    reste: { nb: nonSoldees.length, montant: somme(nonSoldees, resteDette) },
-    retard: { nb: enRetard.length, montant: somme(enRetard, (d) => d.reste), lignes: enRetard },
-    chantier: { nb: chantierDette.length, montant: somme(chantierDette, resteDette) },
-    reservations: { nb: resaEnCours.length, montant: somme(resaEnCours, resteDette) },
-  };
+  const sectionDettes = blocDettes(dettesBq, (d) => d.boutique !== boutique, dans, aujourdhui);
 
   // ---- 7. LE COMPTAGE : ce qui a été COMPTÉ aux clôtures du jour ----
   // ⚠ Décision « C a » : on LIT les clôtures, on ne recompte rien ici.
   const debutComptage = du > DEBUT_REGLE_CLOTURE ? du : DEBUT_REGLE_CLOTURE;
+  const estTerrain = !!(db?.boutiques || []).find((b) => b.nom === boutique)?.terrain;
   const joursCandidats = new Set();
   (db?.ventes || []).forEach((v) => { if (caisseDeVente(v) === boutique) joursCandidats.add(jour(v.date)); });
   (db?.dettes || []).forEach((d) => { if (d.boutique === boutique) (d.paiements || []).forEach((p) => joursCandidats.add(jour(p.date))); });
@@ -229,6 +237,9 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
       const act = activiteDuJour(db, boutique, j, totalVente);
       const c = clotureDe(db, boutique, j);
       if (!c && !act.active) return null;
+      // 🏗 La caisse CHANTIER a une clôture FACULTATIVE (Timo, 08/10/2026) :
+      // un jour sans clôture n'y est pas une faute, on ne le liste pas.
+      if (!c && estTerrain) return null;
       const compte = c ? Number(c.compte || 0) : null;
       return {
         date: j,
@@ -259,6 +270,172 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
   return { boutique, du, au, aujourdhui, ventes: sectionVentes, recettes: sectionRecettes, depenses: sectionDepenses, versements: sectionVersements, caisse: sectionCaisse, dettes: sectionDettes, comptage: sectionComptage };
 }
 
+// ============================================================
+// 📊 L'INVENTAIRE GÉNÉRAL — toutes les boutiques ensemble (10/10/2026,
+// « A a, B a, C a, D a, lance… écrire inventaire GÉNÉRAL ») :
+//   A : l'administrateur seulement (`peutVoirInventaireGeneral`) ;
+//   B : la caisse 🏗 CHANTIER est comptée avec les boutiques ;
+//   C : les dépenses payées chez le DG, par la BANQUE ou chez le comptable
+//       dans un bloc À PART (`centrales`), en réel seulement (`avecCentrales`) ;
+//   D : les magasins ne sont pas comptés (ils ne vendent pas).
+// ⚠ `noms` = les caisses de l'espace REGARDÉ, déjà filtrées par l'écran (le
+// mur). On appelle `inventaireVentes` pour CHACUNE et on additionne : aucun
+// chiffre de plus n'est calculé ici, sauf deux choses qui ne s'additionnent
+// pas — les DETTES (une dette de devis apparaît dans la liste de sa boutique
+// ET dans celle de la caisse CHANTIER : on la compte UNE fois) et le bloc des
+// caisses centrales (qui n'appartient à aucune boutique).
+// ============================================================
+export const peutVoirInventaireGeneral = (profile) => profile?.role === "admin";
+
+const CAISSES_CENTRALES = [
+  { caisse: "Chez le DG", titre: "👤 Payées chez le DG" },
+  { caisse: "BANQUE", titre: "🏦 Payées par la BANQUE" },
+  { caisse: "Chez le comptable", titre: "🧾 Payées chez le comptable" },
+];
+
+// Additionne des lignes { cle, ...montants } par leur clé.
+function fusionner(listes, cle, champs) {
+  const par = {};
+  listes.flat().forEach((l) => {
+    const x = (par[l[cle]] ||= Object.fromEntries([[cle, l[cle]], ...champs.map((c) => [c, 0])]));
+    champs.forEach((c) => { x[c] += Number(l[c] || 0); });
+  });
+  return Object.values(par);
+}
+
+export function inventaireGeneral(db, noms, totalVente, bornes, aujourdhui, { avecCentrales = false } = {}) {
+  const { du, au } = bornesInventaire(bornes);
+  const dans = (x) => { const j = jour(x); return j >= du && j <= au; };
+  const listeNoms = [...new Set(noms || [])];
+  const parBq = listeNoms.map((nom) => inventaireVentes(db, nom, totalVente, bornes, aujourdhui));
+  const tous = (f) => somme(parBq, f);
+  const estTerrain = (nom) => !!(db?.boutiques || []).find((b) => b.nom === nom)?.terrain;
+
+  // ---- 1. Ventes ----
+  const ventes = {
+    nb: tous((i) => i.ventes.nb),
+    lignes: fusionner(parBq.map((i) => i.ventes.lignes), "moyen", ["nb", "montant"]).sort(parMoyen),
+    total: tous((i) => i.ventes.total),
+    reprises: { nb: tous((i) => i.ventes.reprises.nb), montant: tous((i) => i.ventes.reprises.montant), rendu: tous((i) => i.ventes.reprises.rendu) },
+    net: tous((i) => i.ventes.net),
+    chantier: { nb: tous((i) => i.ventes.chantier.nb), montant: tous((i) => i.ventes.chantier.montant) },
+  };
+
+  // ---- 2. Recettes ----
+  const lignesR = fusionner(parBq.map((i) => i.recettes.lignes), "moyen", ["ventes", "reglements", "total"]).sort(parMoyen);
+  const recettes = {
+    lignes: lignesR,
+    ventes: somme(lignesR, (l) => l.ventes),
+    reglements: somme(lignesR, (l) => l.reglements),
+    total: somme(lignesR, (l) => l.total),
+    especes: lignesR.find((l) => l.moyen === "Espèces")?.total || 0,
+  };
+
+  // ---- 3. Dépenses des boutiques ----
+  const triCat = (a, b) => b.montant - a.montant || a.categorie.localeCompare(b.categorie);
+  const depenses = {
+    lignes: fusionner(parBq.map((i) => i.depenses.lignes), "categorie", ["nb", "montant"]).sort(triCat),
+    total: tous((i) => i.depenses.total),
+    nb: tous((i) => i.depenses.nb),
+    duTiroir: tous((i) => i.depenses.duTiroir),
+    enAttente: { nb: tous((i) => i.depenses.enAttente.nb), montant: tous((i) => i.depenses.enAttente.montant), lignes: fusionner(parBq.map((i) => i.depenses.enAttente.lignes), "categorie", ["nb", "montant"]).sort(triCat) },
+    rejetees: { nb: tous((i) => i.depenses.rejetees.nb), montant: tous((i) => i.depenses.rejetees.montant) },
+    autres: { lignes: fusionner(parBq.map((i) => i.depenses.autres.lignes), "categorie", ["nb", "montant"]).sort(triCat), total: tous((i) => i.depenses.autres.total) },
+  };
+
+  // ---- 3 bis. « C a » : les caisses centrales, À PART ----
+  // Une dépense RANGÉE sous « Chez le DG », « BANQUE » ou « Chez le comptable »
+  // (un salaire payé chez le DG, une commission chez le comptable…). Celles
+  // d'une boutique « payées avec la caisse du DG » sont déjà dans sa boutique.
+  // Ni versement, ni apport / prélèvement de l'exploitant, ni en attente.
+  const centrales = avecCentrales ? (() => {
+    const blocs = CAISSES_CENTRALES.map(({ caisse, titre }) => {
+      const lignes = (db?.depenses || []).filter((d) => d.boutique === caisse && dans(d.date) && !d.exploitant
+        && !CATEGORIES_HORS_CHARGES.includes(d.categorie) && !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 0) !== 0);
+      return { caisse, titre, lignes: parCategorie(lignes), nb: lignes.length, total: somme(lignes, (d) => d.montant) };
+    }).filter((b) => b.nb > 0);
+    return { blocs, total: somme(blocs, (b) => b.total), nb: somme(blocs, (b) => b.nb) };
+  })() : null;
+
+  // ---- 4. Versements : toutes les caisses, dans l'ordre du temps ----
+  const lignesV = parBq.flatMap((i) => i.versements.lignes)
+    .sort((a, b) => `${a.date} ${a.heure}`.localeCompare(`${b.date} ${b.heure}`) || a.boutique.localeCompare(b.boutique));
+  const versements = {
+    lignes: lignesV,
+    total: tous((i) => i.versements.total),
+    valide: tous((i) => i.versements.valide),
+    enAttente: tous((i) => i.versements.enAttente),
+    rejetes: tous((i) => i.versements.rejetes),
+  };
+
+  // ---- 5. Caisse ----
+  const P = (k) => tous((i) => i.caisse.periode[k]);
+  const caisse = {
+    tiroir: tous((i) => i.caisse.tiroir),
+    enveloppe: tous((i) => i.caisse.enveloppe),
+    fondsPlafond: tous((i) => i.caisse.fondsPlafond),
+    fondsEntame: tous((i) => i.caisse.fondsEntame),
+    dernierVersement: null,
+    mobiles: fusionner(parBq.map((i) => i.caisse.mobiles), "libelle", ["solde"]).map((m) => ({ ...m, numero: "" })),
+    periode: {
+      debut: P("debut"), entrees: P("entrees"), renduEnveloppe: P("renduEnveloppe"), depenses: P("depenses"),
+      versements: P("versements"), depensesSurEnveloppe: P("depensesSurEnveloppe"), fin: P("fin"),
+      jusquau: parBq[0]?.caisse.periode.jusquau || (au < aujourdhui ? au : aujourdhui),
+    },
+  };
+
+  // ---- 6. Dettes : UNE liste, chaque dette une fois ----
+  const ensemble = new Set(listeNoms);
+  const dettesTout = (db?.dettes || []).filter((d) => ensemble.has(d.boutique) || ensemble.has(boutiqueDuDocument(d)));
+  const dettes = blocDettes(dettesTout, (d) => estTerrain(d.boutique), dans, aujourdhui);
+  // Chaque dette restante est rangée dans UNE caisse (celle qui la porte, sinon
+  // la boutique du document) : la colonne « Dettes » du tableau d'ouverture
+  // s'additionne alors juste au « Reste total ».
+  const caisseDeLaDette = (d) => (ensemble.has(d.boutique) ? d.boutique : boutiqueDuDocument(d));
+  const resteDe = (nom) => somme(dettesTout.filter((d) => !estReservation(d) && resteDette(d) > 0 && caisseDeLaDette(d) === nom), resteDette);
+
+  // ---- 7. Comptage : par caisse ----
+  const parBoutiqueComptage = parBq.map((i) => ({
+    boutique: i.boutique,
+    nbClotures: i.comptage.nbClotures,
+    totalEcarts: i.comptage.totalEcarts,
+    joursAvecEcart: i.comptage.joursAvecEcart,
+    nonClotures: i.comptage.nonClotures,
+    aBouge: i.comptage.aBouge,
+  }));
+  const comptage = {
+    parBoutique: parBoutiqueComptage,
+    lignes: [],
+    nbClotures: somme(parBoutiqueComptage, (l) => l.nbClotures),
+    totalEcarts: somme(parBoutiqueComptage, (l) => l.totalEcarts),
+    joursAvecEcart: somme(parBoutiqueComptage, (l) => l.joursAvecEcart),
+    nonClotures: parBoutiqueComptage.flatMap((l) => l.nonClotures.map((date) => ({ date, boutique: l.boutique }))),
+    aBouge: parBoutiqueComptage.flatMap((l) => l.aBouge.map((date) => ({ date, boutique: l.boutique }))),
+    debut: parBq[0]?.comptage.debut || DEBUT_REGLE_CLOTURE,
+  };
+
+  // ---- Le tableau d'ouverture : une ligne par caisse, puis le TOTAL ----
+  const lignes = parBq.map((i) => ({
+    boutique: i.boutique,
+    terrain: estTerrain(i.boutique),
+    vendu: i.ventes.total,
+    recettes: i.recettes.total,
+    depenses: i.depenses.total,
+    verse: i.versements.total,
+    tiroir: i.caisse.tiroir,
+    dettes: resteDe(i.boutique),
+    ecarts: i.comptage.totalEcarts,
+    nonClotures: i.comptage.nonClotures.length,
+  }));
+  const totalLignes = {
+    vendu: ventes.total, recettes: recettes.total, depenses: depenses.total, verse: versements.total,
+    tiroir: caisse.tiroir, dettes: dettes.reste.montant, ecarts: comptage.totalEcarts,
+    nonClotures: comptage.nonClotures.length,
+  };
+
+  return { general: true, boutique: "", noms: listeNoms, du, au, aujourdhui, lignes, totalLignes, centrales, ventes, recettes, depenses, versements, caisse, dettes, comptage };
+}
+
 export const LIBELLE_ETAT_VERSEMENT = { valide: "✅ validé", attente: "⏳ en attente", rejete: "✖ rejeté" };
 
 // Les lignes du fichier exporté (CSV) : une rubrique par bloc, dans l'ordre
@@ -266,6 +443,18 @@ export const LIBELLE_ETAT_VERSEMENT = { valide: "✅ validé", attente: "⏳ en 
 export function lignesCsvInventaire(inv, dFR = (x) => x) {
   const L = [];
   const r = (rubrique, libelle, nb, montant) => L.push([rubrique, libelle, nb === null || nb === undefined ? "" : nb, montant === null || montant === undefined ? "" : Math.round(montant)]);
+  const nomCaisse = libelleCaisse;
+  if (inv.general) {
+    inv.lignes.forEach((l) => {
+      r("Par caisse", `${nomCaisse(l.boutique)} — vendu`, null, l.vendu);
+      r("Par caisse", `${nomCaisse(l.boutique)} — recettes`, null, l.recettes);
+      r("Par caisse", `${nomCaisse(l.boutique)} — dépenses`, null, l.depenses);
+      r("Par caisse", `${nomCaisse(l.boutique)} — versé`, null, l.verse);
+      r("Par caisse", `${nomCaisse(l.boutique)} — tiroir maintenant`, null, l.tiroir);
+      r("Par caisse", `${nomCaisse(l.boutique)} — dettes restantes`, null, l.dettes);
+      r("Par caisse", `${nomCaisse(l.boutique)} — écarts des clôtures`, l.nonClotures ? `${l.nonClotures} non clôturée(s)` : null, l.ecarts);
+    });
+  }
   inv.ventes.lignes.forEach((l) => r("Ventes", l.moyen, l.nb, l.montant));
   r("Ventes", "Total vendu", inv.ventes.nb, inv.ventes.total);
   if (inv.ventes.reprises.nb) r("Ventes", "Reprises faites dans la période", inv.ventes.reprises.nb, -inv.ventes.reprises.montant);
@@ -277,7 +466,11 @@ export function lignesCsvInventaire(inv, dFR = (x) => x) {
   r("Dépenses", "Total des dépenses comptées", inv.depenses.nb, inv.depenses.total);
   if (inv.depenses.enAttente.nb) r("Dépenses", "En attente du DG (non comptées)", inv.depenses.enAttente.nb, inv.depenses.enAttente.montant);
   inv.depenses.autres.lignes.forEach((l) => r("Autres sorties (pas des charges)", l.categorie, l.nb, l.montant));
-  inv.versements.lignes.forEach((v) => r("Versements", `${dFR(v.date)} ${v.heure} -> ${v.destination} (${v.etat === "valide" ? "validé" : v.etat === "attente" ? "en attente" : "rejeté"})`, null, v.montant));
+  (inv.centrales?.blocs || []).forEach((b) => {
+    b.lignes.forEach((l) => r(`Dépenses ${b.caisse}`, l.categorie, l.nb, l.montant));
+    r(`Dépenses ${b.caisse}`, "Total", b.nb, b.total);
+  });
+  inv.versements.lignes.forEach((v) => r("Versements", `${dFR(v.date)} ${v.heure}${inv.general ? ` ${nomCaisse(v.boutique)}` : ""} -> ${v.destination} (${v.etat === "valide" ? "validé" : v.etat === "attente" ? "en attente" : "rejeté"})`, null, v.montant));
   r("Versements", "Total versé (rejetés exclus)", null, inv.versements.total);
   r("Caisse actuelle", "Tiroir (fonds à verser)", null, inv.caisse.tiroir);
   if (inv.caisse.fondsPlafond) r("Caisse actuelle", "Enveloppe du fonds de caisse", null, inv.caisse.enveloppe);
@@ -293,6 +486,7 @@ export function lignesCsvInventaire(inv, dFR = (x) => x) {
   r("Dettes", "Reste total à recouvrer", inv.dettes.reste.nb, inv.dettes.reste.montant);
   r("Dettes", "En retard (plus de 30 jours)", inv.dettes.retard.nb, inv.dettes.retard.montant);
   if (inv.dettes.reservations.nb) r("Dettes", "Réservations en cours (reste)", inv.dettes.reservations.nb, inv.dettes.reservations.montant);
+  (inv.comptage.parBoutique || []).forEach((l) => r("Comptage", `${nomCaisse(l.boutique)} — ${l.nbClotures} clôture(s)${l.nonClotures.length ? `, ${l.nonClotures.length} NON CLÔTURÉE(S)` : ""}`, null, l.totalEcarts));
   inv.comptage.lignes.forEach((l) => r("Comptage", `${dFR(l.date)} — attendu ${Math.round(l.attendu)}${l.statut === "cloture" ? `, compté ${Math.round(l.compte)}` : (l.statut === "aujourdhui" ? ", pas encore clôturé" : ", NON CLÔTURÉ")}`, null, l.statut === "cloture" ? l.ecart : ""));
   r("Comptage", "Total des écarts", inv.comptage.nbClotures, inv.comptage.totalEcarts);
   return L;

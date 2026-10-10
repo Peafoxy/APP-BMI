@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2448 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2458 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1473,6 +1473,24 @@ lit mal est pire qu'un banc absent).
   (vente de devis comptée en recette, dépense en attente comptée, vendeur
   autorisé, écart à 0) ; trois contrôles RETOURNÉS (cinq PDF, cinq en-têtes,
   le filtre à période d'ouverture). Regardé dans Chromium (PC, téléphone).
+- **📊 L'INVENTAIRE GÉNÉRAL** (le même jour, « Ajoute l'inventaire de toutes
+  les boutiques ensemble » → « A a, B a, C a, D a, lance… écrire inventaire
+  GÉNÉRAL ») : troisième bouton de 💰 Ventes, **« 📊 INVENTAIRE GÉNÉRAL »**.
+  **« A a »** : l'administrateur seul (`peutVoirInventaireGeneral`). **« B a »** :
+  la caisse 🏗 CHANTIER est comptée avec les boutiques. **« C a »** : les
+  dépenses RANGÉES sous « Chez le DG », « BANQUE », « Chez le comptable » dans
+  un bloc À PART (`centrales` ; ni versement, ni exploitant, ni en attente),
+  **en réel seulement** (`avecCentrales={!formationRegardee}`). **« D a »** :
+  les magasins ne sont pas comptés — les caisses = la rangée du RÉSUMÉ de
+  🔒 Caisse (`boutiquesVisibles` sur boutiques de vente + terrain : le mur).
+  `inventaireGeneral(db, noms, …)` appelle `inventaireVentes` pour chaque
+  caisse et ADDITIONNE ; seules les DETTES sont relues une fois (une dette de
+  devis est dans la liste de sa boutique ET de la caisse CHANTIER), chaque
+  dette restante rangée dans UNE caisse (la colonne « Dettes » s'additionne
+  au reste total). En tête, le tableau « Par caisse » + TOTAL (colonne Caisse
+  figée sur téléphone) ; comptage par caisse. Un clic sur une boutique revient
+  à son inventaire. PDF et CSV suivent. Banc (+10), éprouvé (dettes comptées
+  deux fois, gérant autorisé). Chapitre 5 et guide administrateur à jour.
   Chapitre 5 et guides gérant / administrateur à jour.
 
 ### 🏗 LA CAISSE CHANTIER : TOUT L'ARGENT DES CHANTIERS (08/10/2026, « lance l'étape 1, clôture facultative »)
