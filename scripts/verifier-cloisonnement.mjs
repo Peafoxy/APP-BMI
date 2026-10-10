@@ -6399,7 +6399,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
     && /<ArticlesVente v=\{v\} deplie=\{venteDepliee === v\.id\} \/>/.test(vs)
     // Timo (12/09/2026) : « une sélection forte bien visible pour la ligne sélectionnée » — fond bleu soutenu + barre à gauche, couleur de l'espace.
     // 13/09/2026 : la surbrillance est écrite UNE fois (classeLigneDepliable, ui.jsx) — Ventes et Dettes y passent.
-    && /classeLigneDepliable\(venteDepliee === v\.id, i\)/.test(vs) && /export const classeLigneDepliable = \(deplie, i, fondSinon = ""\) => deplie \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(readFileSync("src/components/ui.jsx", "utf8"))
+    && /classeLigneDepliable\(venteDepliee === v\.id, i, ventesGrisees\.has\(v\.id\) \? FOND_GRISE : ""\)/.test(vs) /* RETOURNÉ 10/10/2026 : le fond gris d'une vente versée et validée */ && /export const classeLigneDepliable = \(deplie, i, fondSinon = ""\) => deplie \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
     && /aria-label="WhatsApp"><IconeWhatsApp \/><\/button>/.test(vs) && !/aria-label="WhatsApp">💬/.test(vs)
     && /export const IconeWhatsApp = \(\{ taille = 18 \}\) =>/.test(readFileSync("src/components/ui.jsx", "utf8")) && /fill="#25D366"/.test(readFileSync("src/components/ui.jsx", "utf8")));
@@ -13889,6 +13889,17 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
     // le détail seulement sur la ligne DÉPLIÉE.
     !/aria-label="Verser"/.test(hS) && /data-vente-versee="true"[^>]*>💸 versée<\/div>/.test(hS) && !/data-vente-versee-detail/.test(hS)
     && /data-vente-versee-detail="true"[^>]*>Chez le DG — ⏳ en attente<\/div>/.test(rendre(dbApres, angele, "s48")));
+  // 🩶 10/10/2026 (Timo, « A a, B b ») : la ligne d'une vente versée à part ET validée se grise.
+  const dbValide = { ...dbO, depenses: [{ ...rV.sortie, versement_valide_le: j, versement_valide_par: "TIMO" }] };
+  const dbRejete = { ...dbO, depenses: [{ ...rV.sortie, versement_rejete_le: j, versement_rejete_par: "TIMO" }] };
+  const hValide = rendre(dbValide, angele);
+  const ligneGrisee = (hValide.match(/<tr[^>]*data-vente-grisee=""[^>]*>[\s\S]*?<\/tr>/) || [""])[0];
+  test("★★ 🩶 « B b » : la ligne de la vente versée à part se GRISE une fois le versement VALIDÉ (fond gris, textes gris, le client figé aussi, les boutons gardés) — en attente ou rejeté, elle reste normale ; une vente emportée par un versement général ne se grise jamais (« A a »)",
+    (hValide.match(/data-vente-grisee=""/g) || []).length === 1
+    && /bg-slate-200/.test(ligneGrisee) && /data-vente-client[^>]*bg-slate-200[^>]*text-slate-500!/.test(ligneGrisee) && /aria-label="Imprimer le reçu"/.test(ligneGrisee)
+    && !/data-vente-grisee/.test(hS) && !/data-vente-grisee/.test(rendre(dbRejete, angele)) && !/data-vente-grisee/.test(hG)
+    && Vo.idsVentesVerseesValidees(dbValide).size === 1 && Vo.idsVentesVerseesValidees(dbApres).size === 0 && Vo.idsVentesVerseesValidees(dbRejete).size === 0
+    && !/versementGeneralQuiEmporte/.test(Vo.idsVentesVerseesValidees.toString()));
 
   // ---- L'argent déjà emporté par un versement GÉNÉRAL (09/10/2026, « oui c'est ça, avec la mention grise, lance » ;
   // « un versement d'une dette fait après un versement général aura le bouton ») ----

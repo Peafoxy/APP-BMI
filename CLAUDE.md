@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2465 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2466 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1392,6 +1392,17 @@ lit mal est pire qu'un banc absent).
   sans la pousser). MESURÉ dans Chromium avec le CSS construit
   (`verifier-ecran-ventes`, +3) : colonne 99 px repliée ET dépliée, ligne
   56 → 119 px ; un TÉMOIN sans ces classes élargit la colonne à 263 px.
+- **🩶 LA LIGNE D'UNE VENTE VERSÉE À PART SE GRISE** (10/10/2026, capture,
+  « A a, B b ») : **« A a »** seulement les ventes versées par le bouton 💸
+  (jamais celles emportées par un versement général, sinon tout l'historique
+  serait gris) ; **« B b »** seulement une fois le versement VALIDÉ (en attente
+  : normale ; rejeté : redevient normale). `idsVentesVerseesValidees`
+  (lib/versements.js) ; la ligne prend `bg-slate-200` par le `fondSinon` de
+  `classeLigneDepliable` / `fondLigneDepliable` (le client figé aussi), et ses
+  cellules de données `text-slate-500! [&_*]:text-slate-500!` (mesuré dans
+  Chromium : le gris l'emporte sur `text-slate-800`) ; la cellule des boutons
+  n'est pas grisée. Affichage seul. Banc +1 (rendu en attente / validé /
+  rejeté), éprouvé ; un contrôle RETOURNÉ. Chapitre 5 à jour.
 - **🔍 LE DÉTAIL DU TIROIR** (10/10/2026, captures : « avec ces ventes,
   pourquoi on a dans le tiroir 115 200 ? » → « a ensuite b ») : **a)** une
   requête de LECTURE donnée à Timo (liquide entré et sorti depuis le dernier

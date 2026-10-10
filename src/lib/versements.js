@@ -117,6 +117,17 @@ export const moyenVersable = (moyen) => (moyen || SOURCE_ESPECES) === SOURCE_ESP
 const vivant = (d) => estVersement(d) && !estRejete(d) && d.versement?.origine;
 export const versementDeVente = (db, venteId) => (db?.depenses || []).find((d) => vivant(d) && d.versement.origine.type === ORIGINE_VENTE && d.versement.origine.vente_id === venteId) || null;
 export const versementDeReglement = (db, cle) => (db?.depenses || []).find((d) => vivant(d) && d.versement.origine.type === ORIGINE_REGLEMENT && d.versement.origine.reglement === cle) || null;
+// 🩶 Les ventes dont la LIGNE se grise dans 💰 Ventes (Timo, 10/10/2026, « A a,
+// B b ») : versées à part par le bouton 💸 (jamais celles emportées par un
+// versement général) ET déjà validées — en attente, la ligne reste normale ;
+// rejeté, le versement n'est plus vivant et la ligne redevient normale.
+export function idsVentesVerseesValidees(db) {
+  const ids = new Set();
+  for (const d of db?.depenses || []) {
+    if (vivant(d) && d.versement.origine.type === ORIGINE_VENTE && validationVersement(db, d)) ids.add(d.versement.origine.vente_id);
+  }
+  return ids;
+}
 // L'état lisible sous la ligne : « 💸 versée chez le DG — ⏳ en attente ».
 export function etatVersementOrigine(db, dep) {
   if (!dep) return null;

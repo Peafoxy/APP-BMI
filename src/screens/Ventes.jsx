@@ -10,7 +10,7 @@ import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS, caisseDeVente } from "../lib/constants";
-import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral } from "../lib/versements";
+import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
@@ -1131,6 +1131,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const venteVersable = (v) => ROLES_VERSEMENT.includes(profile.role) && !estVenteACredit(v)
     && moyenVersable(v.paiement) && montantAVerser(v) > 0 && !versementDeVente(db, v.id);
   const peutVerserVente = (v) => venteVersable(v) && !versementGeneralDe(v);
+  // 🩶 10/10/2026 (Timo, « A a, B b ») : la ligne d'une vente versée à part ET
+  // validée se grise — fond gris, textes gris ; les boutons restent.
+  const ventesGrisees = idsVentesVerseesValidees(db);
+  const FOND_GRISE = "bg-slate-200";
+  const texteGrise = (v) => (ventesGrisees.has(v.id) ? " text-slate-500! [&_*]:text-slate-500!" : "");
   const verserVente = (v) => verserDepuisOrigine({
     db, save, profile, boutique: caisseDeVente(v), montant: montantAVerser(v), source: v.paiement, quand: v,
     origine: { type: ORIGINE_VENTE, vente_id: v.id, numero: numeroRecu(v), client: v.client || "" },
@@ -1726,13 +1731,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 </td>
               </tr>
             ) : (
-              <tr key={v.id} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i)}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
-                <td data-vente-client className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(venteDepliee === v.id, i), venteDepliee === v.id)}`}>{v.client && v.client !== "Client non renseigné" ? <div className="font-semibold text-slate-800">{v.client}</div> : <div className="text-slate-400">—</div>}{v.tel ? <div className="text-xs text-slate-500">{v.tel}</div> : null}</td>
-                <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
-                <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600">{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
-                <td className="px-3 py-2 min-w-[260px]"><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
-                <td className="px-3 py-2 tabular-nums text-right">{qteVente(v)}</td>
-                <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{(() => {
+              <tr key={v.id} data-vente-grisee={ventesGrisees.has(v.id) ? "" : undefined} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i, ventesGrisees.has(v.id) ? FOND_GRISE : "")}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
+                <td data-vente-client className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(venteDepliee === v.id, i, ventesGrisees.has(v.id) ? FOND_GRISE : ""), venteDepliee === v.id)}${texteGrise(v)}`}>{v.client && v.client !== "Client non renseigné" ? <div className="font-semibold text-slate-800">{v.client}</div> : <div className="text-slate-400">—</div>}{v.tel ? <div className="text-xs text-slate-500">{v.tel}</div> : null}</td>
+                <td className={`px-3 py-2 whitespace-nowrap${texteGrise(v)}`}><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
+                <td className={`px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600${texteGrise(v)}`}>{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
+                <td className={`px-3 py-2 min-w-[260px]${texteGrise(v)}`}><ArticlesVente v={v} deplie={venteDepliee === v.id} /></td>
+                <td className={`px-3 py-2 tabular-nums text-right${texteGrise(v)}`}>{qteVente(v)}</td>
+                <td className={`px-3 py-2 tabular-nums text-right whitespace-nowrap${texteGrise(v)}`}>{(() => {
                   /* 09/10/2026 (Timo, « tout est bon ») : UN chiffre en gras par ce qui compte.
                      Une vente reprise → le RESTE en gras, le total en normal ; une vente à crédit →
                      le total en normal, de la couleur du mot « Crédit », et l'AVANCE en gras EN BAS
@@ -1751,7 +1756,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     {credit ? <div data-vente-avance className="font-bold text-slate-900">avance : {fmt(avance)}</div> : null}
                   </>;
                 })()}</td>
-                <td className="px-3 py-2 whitespace-nowrap"><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}{(() => {
+                <td className={`px-3 py-2 whitespace-nowrap${texteGrise(v)}`}><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}{(() => {
                   // 💸 L'argent de CETTE vente remis au DG (Timo, 09/10/2026) : la trace se lit sous le paiement.
                   const e = etatVersementOrigine(db, versementDeVente(db, v.id));
                   // 09/10/2026 (Timo, « afficher juste versée… dès qu'on clique, le reste apparaît ») :
@@ -1766,14 +1771,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   const mention = g ? mentionVersementGeneral(g) : "";
                   return g ? <div data-vente-dans-versement title={mention} className="text-[11px] text-slate-400 mt-0.5">dans un versement{deplie ? <div data-vente-dans-versement-detail className="whitespace-normal w-0 min-w-full">{mention.replace(/^dans le versement /, "")}</div> : null}</div> : null;
                 })()}</td>
-                <td data-vente-reste className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{(() => {
+                <td data-vente-reste className={`px-3 py-2 tabular-nums text-right whitespace-nowrap${texteGrise(v)}`}>{(() => {
                   // Le reste d'AUJOURD'HUI sur SA dette (« b oui ») ; comptant → « — » (« a oui »).
                   const r = resteAPayerVente(db, v);
                   return r === null ? <span className="text-slate-300">—</span>
                     : r > 0 ? <span className="font-bold text-red-600">{fmt(r)}</span>
                     : <span className="text-xs font-semibold text-green-700">✅ Soldée</span>;
                 })()}</td>
-                <td className="px-3 py-2 text-slate-600">{v.commercial || <span className="text-slate-300">—</span>}</td>
+                <td className={`px-3 py-2 text-slate-600${texteGrise(v)}`}>{v.commercial || <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-1">
                     <button onClick={() => imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title={estVenteACredit(v) ? "Imprimer le reçu de la dette (reçu de dette, de versement ou définitif)" : "Imprimer le reçu"} aria-label="Imprimer le reçu">🖨</button>
