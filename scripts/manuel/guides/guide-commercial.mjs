@@ -24,7 +24,7 @@ export const GUIDE = {
   roles: ["commercial", "resp_commercial"],
   public: "Les commerciaux de BMI, et le responsable commercial",
   duree: "3 jours : la journée et les chapitres les deux premiers jours, l'examen le troisième",
-  onglets: ["commande", "ventes", "dimensionnement", "tous_devis", "contrats", "prospects", "parc", "taches", "equipe", "messages", "whatsapp", "commission", "salaire", "nouveau_client"],
+  onglets: ["commande", "ventes", "dimensionnement", "tous_devis", "contrats", "prospects", "parc", "taches", "equipe", "messages", "whatsapp", "commission", "salaire", "primes_recues", "nouveau_client"],
   chapitres: [1, 3, 4, 5, 11, 12, 13, 14, 15, 16, 18, 20, 24, 25],
 
   journee: [
@@ -39,6 +39,7 @@ export const GUIDE = {
       ["💵 Ma commission", "Ce qui m'est dû, et pourquoi c'est encore en attente (chapitre 16)."],
       ["🙋 Créer un client · 💬 Messages · 📲 WhatsApp", "Les clients et les conversations (chapitres 3 et 20)."],
       ["💵 Salaire", "**Responsable commercial** : sa paie (chapitre 18)."],
+      ["💰 Primes reçues", "**Responsable commercial** : ses primes sur salaire, en attente ou payées (chapitre 16)."],
     ] }],
 
     ["h3", "Le matin"],

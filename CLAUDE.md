@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2478 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2483 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1949,6 +1949,25 @@ lit mal est pire qu'un banc absent).
 - Banc (3 contrôles), éprouvé (refus du geste retiré, case affichée). Trois
   contrôles RETOURNÉS (la saisie « caisse » se joue avec un gérant ; la liste
   porte `seulementPoche`). Rien à coller. Chapitres 17 et 19 à jour.
+
+### 💰 « PRIMES REÇUES » POUR TOUS CEUX QUI PEUVENT EN RECEVOIR (10/10/2026, « A b, B a, C a »)
+- Timo : « tout utilisateur qui peut recevoir une prime devrait avoir
+  l'onglet primes reçues ». Avant, seul le technicien à commission l'avait.
+- **« B a »** : d'office pour `ROLES_PRIMES_RECUES` (calculs.js) = le
+  technicien à commission + `SALARIES` (vendeur, gérant, magasinier,
+  technicien BMI, resp. commercial, comptable) — dans `ONGLETS_ROLE` (donc
+  retirable dans 🔐 Pouvoirs) et dans chaque menu d'App.jsx. **Pas le
+  commercial** (ni paie, ni équipe de chantier), ni le client, ni l'admin.
+- **« A b »** : l'écran (`screens/PrimesRecues.jsx`) réunit les parts
+  d'installation et 🎁 primes sur chantier (`primesDeTechnicien`) ET les
+  primes sur salaire (`primesSurSalaire` : sans les remboursements de frais
+  `hors_cnss`, « versée » quand le salaire du mois est entièrement payé), la
+  fiche lue par `utilisateursDeLEspace`. **« C a »** : 💵 Ma commission et
+  💵 Mon salaire gardent aussi les leurs.
+- Rien à coller. Banc (5 contrôles, l'écran RENDU par
+  `scripts/_rendu-primes.jsx`), éprouvé (garde d'App remise au technicien,
+  remboursement compté). Les guides gagnent l'onglet (et le chapitre 16 pour
+  le comptable et le magasinier). Chapitres 2 et 16, guides à jour.
 
 ### 📤 Dépenses pour les techniciens (13/09/2026)
 - Timo : « ouvrir l'onglet Dépenses au technicien, mais ils ne verront que

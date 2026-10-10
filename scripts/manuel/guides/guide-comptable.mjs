@@ -19,8 +19,8 @@ export const GUIDE = {
   roles: ["comptable"],
   public: "Le comptable de BMI",
   duree: "1 jour et demi : la journée et les chapitres le premier jour, l'examen ensuite",
-  onglets: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
-  chapitres: [1, 3, 6, 7, 8, 17, 18, 20, 22, 24, 25],
+  onglets: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "primes_recues", "nouveau_client"],
+  chapitres: [1, 3, 6, 7, 8, 16, 17, 18, 20, 22, 24, 25],
 
   journee: [
     ["p", "Le comptable **lit tout ce qui touche à l'argent et l'exporte**. Il est **en lecture seule** partout, sauf pour un geste qui est le sien : **pointer ce qui passe par sa caisse**, « Chez le comptable ». Les mots entre guillemets sont ceux des boutons ; le chapitre du manuel est indiqué entre parenthèses."],
@@ -30,6 +30,7 @@ export const GUIDE = {
       ["📤 Dépenses · 🔒 Caisse", "Les dépenses de chaque boutique, leurs clôtures du jour, leurs versements — en lecture (chapitres 6 et 17)."],
       ["🧾 Dettes · 👤 Clients · 📦 Stocks", "Ce que les clients doivent, qui a acheté, ce qu'il y a en stock — en lecture (chapitres 3, 7 et 8)."],
       ["💬 Messages · 💵 Salaire", "L'équipe, et ma paie (chapitres 18 et 20)."],
+      ["💰 Primes reçues", "Toutes mes primes : sur chantier, sur salaire — en attente, déjà payées (chapitre 16)."],
       ["🙋 Créer un client", "L'onglet s'affiche, mais je ne peux rien y créer : mon compte est en lecture seule (chapitre 3)."],
     ] }],
     ["note", "**Je n'ai pas 📲 WhatsApp** (décision de la direction du 20/09/2026) : les conversations avec les clients ne me concernent pas. Je garde 💬 Messages pour l'équipe."],

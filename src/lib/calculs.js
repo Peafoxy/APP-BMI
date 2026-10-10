@@ -1159,6 +1159,26 @@ export function primesEnAttente(db, boutique, profile) {
 
 // Toutes les primes (en attente + payées) d'UN technicien précis, aplaties
 // depuis chaque chantier — pour son onglet « Primes reçues ».
+// 💰 QUI A L'ONGLET « PRIMES REÇUES » (Timo, 10/10/2026 : « tout utilisateur
+// qui peut recevoir une prime devrait avoir l'onglet » → « A b, B a, C a ») :
+// d'office le technicien à commission (part d'installation) et tous les
+// salariés (prime sur salaire, prime sur chantier, part d'installation du
+// technicien BMI). Le commercial n'est ni sur la paie ni dans une équipe de
+// chantier : il ne peut recevoir aucune prime.
+export const ROLES_PRIMES_RECUES = ["technicien", ...SALARIES];
+// Les primes sur salaire d'une fiche (« A b »), du plus récent au plus ancien.
+// Un remboursement de frais avancés passe par la paie comme une prime
+// (`hors_cnss`), mais ce n'est pas une prime : il n'y est pas.
+// Versée = le salaire de son mois est entièrement payé.
+export function primesSurSalaire(u) {
+  return (u?.primes || [])
+    .filter((p) => !p.hors_cnss && Number(p.montant) > 0)
+    .map((p) => {
+      const pm = paieMois(u, p.mois);
+      return { ...p, montant: Number(p.montant), versee: pm.verse > 0 && pm.reste <= 0 };
+    })
+    .sort((a, b) => String(b.mois || "").localeCompare(String(a.mois || "")) || String(b.date || "").localeCompare(String(a.date || "")));
+}
 export function primesDeTechnicien(db, userId) {
   const out = [];
   for (const c of db.clients_installes || []) {
@@ -2557,7 +2577,7 @@ export const ONGLETS_ROLE = {
   admin: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "messages", "whatsapp", "salaires", "users", "historique", "parametres", "travaux", "outillage"],
   commercial: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "whatsapp", "commission", "equipe", "nouveau_client", "contrats"],
   technicien: ["commande", "dimensionnement", "tous_devis", "prospects", "parc", "taches", "messages", "whatsapp", "commission", "equipe", "nouveau_client", "primes_recues", "contrats", "depenses", "outillage"],
-  resp_commercial: ["equipe", "ventes", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "whatsapp", "commission", "salaire", "nouveau_client"],
+  resp_commercial: ["equipe", "ventes", "prospects", "taches", "parc", "dimensionnement", "tous_devis", "contrats", "messages", "whatsapp", "commission", "salaire", "primes_recues", "nouveau_client"],
   // ⚠ CHEF TECHNICIEN (17/09/2026, Timo : « ouvre le rôle technicien BMI »).
   // Le chef des techniciens de BMI est un SALARIÉ : le seul rôle qui lui
   // convient est « technicien BMI ». Or ce rôle ne pouvait même pas être
@@ -2568,18 +2588,18 @@ export const ONGLETS_ROLE = {
   // listé ici pour que l'administrateur puisse le lui retirer dans 🔐 Pouvoirs.
   // « taches » y manquait alors qu'App.jsx le donnait déjà : un onglet qu'on
   // ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
-  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "messages", "whatsapp", "salaire", "nouveau_client", "contrats", "depenses", "outillage"],
-  magasinier: ["stocks", "salaire", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
-  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "whatsapp", "nouveau_client", "contrats", "travaux", "primes_remises"],
+  technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "primes_recues", "messages", "whatsapp", "salaire", "nouveau_client", "contrats", "depenses", "outillage"],
+  magasinier: ["stocks", "salaire", "primes_recues", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "primes_recues", "messages", "whatsapp", "nouveau_client", "contrats", "travaux", "primes_remises"],
   // ⚠ 01/10/2026 : alignée sur App.jsx — « 📤 Dépenses » retiré (le vendeur
   // ne l'a plus depuis le 15/09), « 🏠 Clients installés » ajouté (il l'a).
   // Pareil pour 🔁 Transfert du gérant et 💰 Ventes du resp. commercial :
   // un onglet absent d'ici ne se retire pas dans 🔐 Pouvoirs, et une
   // notification n'ouvre pas son écran.
-  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "parc", "dettes", "clients", "caisse", "salaire", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats", "travaux"],
+  vendeur: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "parc", "dettes", "clients", "caisse", "salaire", "primes_recues", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats", "travaux"],
   // ⚠ Le comptable N'A PLUS 📲 WhatsApp (20/09/2026, décision « 2a » de Timo) :
   // il garde 💬 Messages. Voir `aAccesWhatsapp` dans lib/whatsappConversations.js.
-  comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "nouveau_client"],
+  comptable: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "primes_recues", "nouveau_client"],
   // ⚠ « ramener ça en onglet À CÔTÉ DE MESSAGE » (Timo, 19/09/2026) : le
   // droit d'accès n'est plus un panneau au bas de 🏠 Mon espace, c'est un
   // onglet à lui. Listé ici, donc retirable dans 🔐 Pouvoirs — un onglet

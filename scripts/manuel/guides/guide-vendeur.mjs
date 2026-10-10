@@ -19,7 +19,7 @@ export const GUIDE = {
   roles: ["vendeur"],
   public: "Les vendeurs et vendeuses des boutiques BMI",
   duree: "2 jours : la journée et les chapitres le premier jour, l'examen le second",
-  onglets: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "parc", "travaux", "dettes", "clients", "caisse", "salaire", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats"],
+  onglets: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "parc", "travaux", "dettes", "clients", "caisse", "salaire", "primes_recues", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats"],
   chapitres: [1, 3, 5, 6, 7, 9, 11, 12, 13, 14, 15, 16, 18, 20, 24, 25],
 
   journee: [
@@ -36,6 +36,7 @@ export const GUIDE = {
       ["💰 Primes remises", "Payer la prime d'installation d'un technicien depuis la caisse (chapitre 16)."],
       ["💬 Messages · 📲 WhatsApp", "Parler à l'équipe ; répondre aux clients qui écrivent au numéro BMI (chapitre 20)."],
       ["💵 Salaire", "Ma fiche de paie, mes avances (chapitre 18)."],
+      ["💰 Primes reçues", "Toutes mes primes : sur chantier, sur salaire — en attente, déjà payées (chapitre 16)."],
     ] }],
     ["note", "Le vendeur **n'a pas 📤 Dépenses** et **ne verse pas les fonds** : c'est le gérant. Le vendeur encaisse, et il **clôture le jour**."],
 

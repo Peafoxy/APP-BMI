@@ -13038,6 +13038,52 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
   // d'entraînement mêlés aux vrais) ; les deux bandeaux disaient au principal
   // « Votre compte travaille en formation » ; le Top 5 du tableau de bord ne
   // retirait ni la remise générale ni les reprises. On REND les écrans.
+  // 💰 PRIMES REÇUES POUR TOUS CEUX QUI PEUVENT EN RECEVOIR (Timo, 10/10/2026,
+  // « A b, B a, C a ») : l'onglet passe à tous les salariés et au technicien à
+  // commission ; l'écran montre aussi les primes sur salaire.
+  {
+    const sortiePr = join("node_modules", ".cache", `bmi-primes-${process.pid}.mjs`);
+    let P = null, err = "";
+    try {
+      await build({ entryPoints: ["scripts/_rendu-primes.jsx"], bundle: true, format: "esm",
+        platform: "node", outfile: sortiePr, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+        define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+        external: ["react", "react-dom", "react-dom/server"] });
+      P = await import(pathToFileURL(sortiePr).href);
+    } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+    try { unlinkSync(sortiePr); } catch {}
+    test("💰 Primes reçues se monte dans le banc" + (err ? ` (${err})` : ""), !!P);
+    if (P) {
+      const appSrc = readFileSync("src/App.jsx", "utf8");
+      test("★ 💰 Timo (10/10/2026, « tout utilisateur qui peut recevoir une prime devrait avoir l'onglet » → « B a ») : l'onglet est dans ONGLETS_ROLE de TOUS les salariés et du technicien à commission — jamais du commercial ni du client — et App.jsx le rend pour ROLES_PRIMES_RECUES, plus pour le seul technicien",
+        P.ROLES_PRIMES_RECUES.join("|") === "technicien|vendeur|gerant|magasinier|technicien_bmi|resp_commercial|comptable"
+        && P.ROLES_PRIMES_RECUES.every((r) => (P.ONGLETS_ROLE[r] || []).includes("primes_recues"))
+        && !(P.ONGLETS_ROLE.commercial || []).includes("primes_recues") && !(P.ONGLETS_ROLE.client || []).includes("primes_recues")
+        && /ongletsVisites\.primes_recues && ROLES_PRIMES_RECUES\.includes\(profile\.role\)/.test(appSrc)
+        && !/ongletsVisites\.primes_recues && isTechnicien/.test(appSrc));
+      const ang = { id: "u_ang", nom: "ANGELE", role: "gerant", boutique: "DEMAKPOE", actif: true, salaire_base: 60000,
+        primes: [{ mois: "2026-09", montant: 10000, motif: "bon mois", date: "2026-09-25", par: "TIMO" },
+                 { mois: "2026-10", montant: 5000, motif: "", date: "2026-10-05", par: "TIMO" },
+                 { mois: "2026-10", montant: 3000, motif: "remboursement taxi", hors_cnss: true, date: "2026-10-06", par: "TIMO" }],
+        virements: [{ id: "vi1", mois: "2026-09", montant: 70000, statut: "accepte", date: "2026-09-30" }] };
+      const ps = P.primesSurSalaire(ang);
+      test("★ 💰 « A b » primesSurSalaire : les primes sur salaire, la plus récente d'abord, SANS le remboursement de frais (hors_cnss, ce n'est pas une prime) ; « versée » seulement quand le salaire de son mois est entièrement payé",
+        ps.length === 2 && ps[0].mois === "2026-10" && ps[0].versee === false && ps[1].mois === "2026-09" && ps[1].versee === true && !ps.some((p) => p.hors_cnss));
+      const db = { boutiques: [{ id: "b1", nom: "DEMAKPOE" }], users: [ang],
+        clients_installes: [{ id: "c1", nom: "KOFFI", boutique: "DEMAKPOE", equipe: [{ user_id: "u_ang", prime_employe: true, pct: 0, montant: 7000, paye: false }] }],
+        ventes: [], dettes: [], depenses: [], messages: [] };
+      let html = "", errR = "";
+      try { html = P.rendrePrimes(db, ang); } catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
+      test("★ 💰 l'écran RENDU pour une gérante : sa 🎁 prime sur chantier (7 000, en attente) ET ses deux primes sur salaire (10 000 versée, 5 000 à verser), jamais le remboursement de taxi ; en attente = 12 000, déjà payé = 10 000" + (errR ? ` (${errR})` : ""),
+        !errR && (html.match(/data-prime-chantier-recue/g) || []).length === 1 && (html.match(/data-prime-salaire-recue/g) || []).length === 2
+        && html.includes("🎁 prime sur chantier") && !html.includes("remboursement taxi") && html.includes("bon mois")
+        && html.includes(Core.fmt(12000)) && html.includes(Core.fmt(10000)));
+      let htmlVide = "";
+      try { htmlVide = P.rendrePrimes({ boutiques: [], users: [], clients_installes: [] }, { id: "x", nom: "X", role: "magasinier" }); } catch (e) { htmlVide = ""; }
+      test("★ 💰 « B a » une fiche sans aucune prime (un magasinier, base nue) : l'écran se rend et DIT « Aucune prime » des deux côtés, jamais un écran blanc",
+        htmlVide.includes("Aucune prime de chantier") && htmlVide.includes("Aucune prime sur salaire"));
+    }
+  }
   const sortieRap = join("node_modules", ".cache", `bmi-rapports-${process.pid}.mjs`);
   let R = null, erreur = "";
   try {

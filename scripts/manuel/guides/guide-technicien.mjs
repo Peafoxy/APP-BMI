@@ -29,7 +29,7 @@ export const GUIDE = {
       ["🏠 Clients installés · ✅ Mes tâches", "Mes chantiers, leur dossier, la fin des travaux ; ce qu'on me confie (chapitre 15)."],
       ["🧰 Mes outils", "Ce que je détiens, le chantier où je l'utilise, l'explication d'un retard (chapitre 19)."],
       ["📤 Dépenses", "« Mes dépenses » : carburant, nourriture, petit matériel, rattachés à un chantier (chapitre 17)."],
-      ["💰 Primes reçues", "**À commission** : mes parts d'installation, payées et à percevoir (chapitre 16)."],
+      ["💰 Primes reçues", "Mes parts d'installation, payées et à percevoir ; **technicien BMI** : aussi mes primes sur salaire (chapitre 16)."],
       ["💵 Ma commission", "Ce que m'apportent les clients que j'amène ; **technicien BMI** : aussi mes primes d'installation (chapitre 16)."],
       ["💵 Salaire", "**Technicien BMI** : ma paie (chapitre 18)."],
       ["🧲 Prospects · ☀️ Dimensionnement · 📋 Tous les devis · 📄 Contrats", "Trouver un client et lui faire un devis, comme un commercial (chapitres 4 et 11 à 14)."],
@@ -59,7 +59,7 @@ export const GUIDE = {
       { titre: "La réception", texte: "Le client **signe le PV** depuis son espace ou par le lien ; sans signature, BMI peut constater la réception. **C'est la réception qui débloque les parts** de l'équipe et les commissions." },
       { titre: "Ma part", texte: "L'administrateur répartit les frais d'installation entre les techniciens présents (le chef touche un peu plus). La part est payée par la caisse d'une boutique ; je suis prévenu dans 💬 Messages." },
     ]],
-    ["note", "**Seulement pour le technicien à commission** : ma part se lit dans **💰 Primes reçues** (« ⏳ En attente de paiement », « ✅ Déjà payé »). **Seulement pour le technicien BMI** : dans **💵 Ma commission** (« ⏳ À percevoir »), en plus de son salaire."],
+    ["note", "Ma part se lit dans **💰 Primes reçues** (« ⏳ En attente de paiement », « ✅ Déjà payé »), à commission comme salarié. Elle se lit aussi dans **💵 Ma commission** (« ⏳ À percevoir »)."],
 
     ["h3", "Mes dépenses de chantier — 📤 Dépenses"],
     ["ul", [
@@ -105,7 +105,7 @@ export const GUIDE = {
       { titre: "Expliquer un retard", consigne: "Expliquer le retard de l'outil dont la date de retour est passée.", attendu: "La bande rouge disparaît pour cet outil ; l'explication se lit dans le registre (vue « En retard »)." },
       { titre: "Compter une boîte", consigne: "Compter la boîte à outils avant de la rendre, en indiquant une pièce manquante.", attendu: "Le comptage est enregistré ; le manque est signalé sur la boîte. L'outil n'est pas encore rentré." },
       { titre: "Terminer une tâche", consigne: "Terminer la tâche préparée avec une photo.", attendu: "La tâche part en validation chez celui qui l'a donnée." },
-      { titre: "Ma part", consigne: "Ouvrir 💰 Primes reçues (à commission) ou 💵 Ma commission (BMI) et expliquer une ligne en attente.", attendu: "La personne dit ce qu'on attend : la réception des travaux, ou le paiement par la caisse." },
+      { titre: "Ma part", consigne: "Ouvrir 💰 Primes reçues et expliquer une ligne en attente.", attendu: "La personne dit ce qu'on attend : la réception des travaux, ou le paiement par la caisse." },
       { titre: "Un prospect", consigne: "Enregistrer un prospect rencontré sur un chantier, avec son projet.", attendu: "La fiche est créée à son nom dans 🧲 Prospects." },
       { titre: "Marquer terminé (chef du chantier)", consigne: "Sur un chantier dont la personne est le chef, marquer les travaux terminés.", attendu: "Le chantier passe « terminé » ; le lien de signature du PV est préparé pour le client." },
       { titre: "Sortie d'outil (chef d'équipe)", consigne: "Sortir un outil pour un autre technicien, puis enregistrer son retour.", attendu: "L'outil est sous le nom du technicien, puis rangé ; un clic sur la ligne montre qui l'a pris et à qui il a été rendu." },

@@ -15,7 +15,7 @@ export const GUIDE = {
   roles: ["gerant"],
   public: "Les gérants des boutiques BMI",
   duree: "3 jours : la journée et les chapitres les deux premiers jours, l'examen le troisième",
-  onglets: ["ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "messages", "whatsapp", "nouveau_client", "travaux", "primes_remises"],
+  onglets: ["ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "primes_recues", "messages", "whatsapp", "nouveau_client", "travaux", "primes_remises"],
   chapitres: [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24, 25],
 
   journee: [
@@ -32,6 +32,7 @@ export const GUIDE = {
       ["🛠 Travaux à crédit", "Les chantiers qu'on avance avant de facturer (chapitre 15)."],
       ["💰 Primes remises", "Payer la part d'installation d'un technicien quand l'administrateur la demande à la caisse de ma boutique (chapitre 16)."],
       ["💬 Messages · 📲 WhatsApp · 💵 Salaire", "L'équipe, les clients, ma paie (chapitres 18 et 20)."],
+      ["💰 Primes reçues", "Toutes mes primes : sur chantier, sur salaire — en attente, déjà payées (chapitre 16)."],
     ] }],
 
     ["h3", "Le matin"],
