@@ -6419,7 +6419,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && JSON.stringify(Core.lignesDette({ motif: "Réparation, pièces et main-d'œuvre" })) === JSON.stringify([{ qte: null, article: "Réparation, pièces et main-d'œuvre" }])
       && Core.lignesDette({ motif: "" }).length === 0 && Core.lignesDette({}).length === 0);
     test("★ écran Dettes : la ligne se déplie au clic (detteDepliee, une seule, un clic sur une autre la déplie directement), surbrillance commune (classeLigneDepliable, retard en rouge pâle), ListeArticles sur lignesDette, montants à droite, boutons ronds (🖨, 💵 Paiement, Relancer = logo WhatsApp, 🗑 admin) dans une cellule qui ne déplie pas ; mêmes gestes, mêmes gardes",
-      /const \[detteDepliee, setDetteDepliee\] = useState\(null\);/.test(dj) && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
+      /const \[detteDepliee, setDetteDepliee\] = useState\(detteDeplieeInitiale\);/.test(dj) && /detteDeplieeInitiale = null \}\) \{/.test(dj) /* RETOURNÉ 10/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
       && /classeLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\)/.test(dj)
       // 13/09/2026 : la première colonne reste figée, ordinateur aussi ; Dépenses pareil (Date, fond de la ligne gardé) ; plus aucun lg:static dans l'application.
       // RETOURNÉ le 25/09/2026 (« dans Dettes aussi figer le nom du client ») : dans Dettes la colonne figée est le CLIENT, la date vient après.
@@ -13926,6 +13926,26 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
   test("★ 📋 Dettes : un règlement emporté montre la mention grise au lieu du bouton",
     /\{general && <span data-reglement-dans-versement className="text-xs text-slate-400">\{mentionVersementGeneral\(general\)\}<\/span>\}/.test(fD)
     && /const versable = peutEtreVerse && !general;/.test(fD));
+  // 🩶 10/10/2026 (Timo, « fais pareil pour les règlements versés dans Dettes ») : le
+  // règlement versé à part ET validé a sa ligne grisée ; en attente ou rejeté, normale.
+  const sortieRd = join("node_modules", ".cache", `bmi-rendu-dettes-${process.pid}.mjs`);
+  let Rd = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-dettes.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRd, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    Rd = await import(pathToFileURL(sortieRd).href);
+  } catch {}
+  try { unlinkSync(sortieRd); } catch {}
+  const rendreD = (db) => { const e0 = console.error; console.error = () => {}; try { return String(Rd?.rendreDettes(db, angele, "d49") || "").replace(/[  ]/g, " "); } catch { return ""; } finally { console.error = e0; } };
+  const dbRv = { ...dbR, depenses: [{ ...rR.sortie, versement_valide_le: j, versement_valide_par: "TIMO" }] };
+  const dbRr = { ...dbR, depenses: [{ ...rR.sortie, versement_rejete_le: j, versement_rejete_par: "TIMO" }] };
+  const hDv = rendreD(dbRv), hDa = rendreD(dbR), hDr = rendreD(dbRr);
+  const regGrise = (hDv.match(/<div[^>]*data-reglement-grise=""[^>]*>[\s\S]*?<\/div>/) || [""])[0];
+  test("★★ 🩶 📋 Dettes : le RÈGLEMENT versé à part se GRISE une fois VALIDÉ (fond gris, textes gris), l'autre règlement reste normal ; en attente ou rejeté, normal",
+    hDv !== "" && (hDv.match(/data-reglement="true"/g) || []).length === 2 && (hDv.match(/data-reglement-grise=""/g) || []).length === 1
+    && /bg-slate-200/.test(regGrise) && /text-slate-500!/.test(regGrise) && /20\D?000 F/.test(regGrise)
+    && /data-reglement="true"/.test(hDa) && !/data-reglement-grise/.test(hDa) && !/data-reglement-grise/.test(hDr)
+    && Vo.clesReglementsVersesValides(dbRv).has(k2) && Vo.clesReglementsVersesValides(dbR).size === 0 && Vo.clesReglementsVersesValides(dbRr).size === 0);
 }
 
 titre("💸 « Où va l'argent ? » au paiement d'une dette (09/10/2026, « a oui, b non ») : le règlement et son versement en un seul geste");

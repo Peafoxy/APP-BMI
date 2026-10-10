@@ -121,13 +121,17 @@ export const versementDeReglement = (db, cle) => (db?.depenses || []).find((d) =
 // B b ») : versées à part par le bouton 💸 (jamais celles emportées par un
 // versement général) ET déjà validées — en attente, la ligne reste normale ;
 // rejeté, le versement n'est plus vivant et la ligne redevient normale.
-export function idsVentesVerseesValidees(db) {
+// Le même geste pour un RÈGLEMENT de dette dans 📋 Dettes (Timo, 10/10/2026,
+// « fais pareil pour les règlements versés ») : UNE marche, deux clés.
+const origineVerseeValidee = (db, type, cle) => {
   const ids = new Set();
   for (const d of db?.depenses || []) {
-    if (vivant(d) && d.versement.origine.type === ORIGINE_VENTE && validationVersement(db, d)) ids.add(d.versement.origine.vente_id);
+    if (vivant(d) && d.versement.origine.type === type && validationVersement(db, d)) ids.add(d.versement.origine[cle]);
   }
   return ids;
-}
+};
+export const idsVentesVerseesValidees = (db) => origineVerseeValidee(db, ORIGINE_VENTE, "vente_id");
+export const clesReglementsVersesValides = (db) => origineVerseeValidee(db, ORIGINE_REGLEMENT, "reglement");
 // L'état lisible sous la ligne : « 💸 versée chez le DG — ⏳ en attente ».
 export function etatVersementOrigine(db, dep) {
   if (!dep) return null;

@@ -19,12 +19,12 @@ import { detteEnRetard, joursDeDette, RETARD_DETTE_JOURS } from "../lib/rappels"
 import { envoiRappelDette, texteRappel, traceEnvoi, libelleTrace, envoiRecuReglement, envoiRecuReservation } from "../lib/whatsappModeles";
 import { soldeApresAcompte, prochaineEcheance, PLAN_ACCEPTE } from "../lib/reglement";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, versementGeneralQuiEmporte, mentionVersementGeneral, ORIGINE_REGLEMENT, construireVersementOrigine, messagesVersement, libelleDestination, DEST_COMPTABLE } from "../lib/versements";
+import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, versementGeneralQuiEmporte, mentionVersementGeneral, ORIGINE_REGLEMENT, construireVersementOrigine, messagesVersement, libelleDestination, DEST_COMPTABLE, clesReglementsVersesValides } from "../lib/versements";
 import { mobileParMoyen } from "../lib/constants";
 import { verserDepuisOrigine, choisirDestination } from "../components/verserOrigine";
 
 // ============ DETTES ============
-export function Dettes({ db, save, profile }) {
+export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "dettes" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -44,7 +44,9 @@ export function Dettes({ db, save, profile }) {
   // Timo (13/09/2026) : « appliquer la même règle que dans Ventes pour
   // restructurer les dettes » — UNE dette dépliée à la fois (la suite des
   // articles au clic sur la ligne, un clic sur une autre la déplie directement).
-  const [detteDepliee, setDetteDepliee] = useState(null);
+  const [detteDepliee, setDetteDepliee] = useState(detteDeplieeInitiale); // la valeur de départ n'existe que pour le banc
+  // 🩶 Les règlements versés à part ET validés (lib/versements.js) : leur ligne se grise.
+  const reglementsGrises = clesReglementsVersesValides(db);
   // 📅 Le filtre de période de la liste (Timo, 05/10/2026 : « Toute période »
   // à chaque ouverture) — sur la DATE de la dette.
   const periode = useFiltrePeriode();
@@ -574,6 +576,9 @@ export function Dettes({ db, save, profile }) {
                       <div className="space-y-1">
                         {reglements.map((p, k) => {
                           const cle = cleReglement(d, p, k);
+                          // 🩶 10/10/2026 (Timo, « fais pareil pour les règlements versés ») : versé
+                          // à part ET validé → la ligne du règlement se grise, comme une vente versée.
+                          const grise = reglementsGrises.has(cle);
                           const e = etatVersementOrigine(db, versementDeReglement(db, cle));
                           const moyen = p.paiement || "Espèces";
                           // 09/10/2026 : un règlement fait AVANT un versement général de la caisse est
@@ -582,7 +587,7 @@ export function Dettes({ db, save, profile }) {
                           const general = peutEtreVerse ? versementGeneralQuiEmporte(db, { caisse: d.boutique, source: moyen, quand: p }) : null;
                           const versable = peutEtreVerse && !general;
                           return (
-                            <div key={cle} data-reglement className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                            <div key={cle} data-reglement data-reglement-grise={grise ? "" : undefined} className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-sm${grise ? " bg-slate-200 rounded px-2 py-0.5 text-slate-500! [&_*]:text-slate-500!" : ""}`}>
                               <span className="text-slate-600 whitespace-nowrap">{dFR(p.date)}{p.heure ? ` ${p.heure}` : ""}</span>
                               <span className="font-semibold tabular-nums whitespace-nowrap">{fmt(Number(p.montant || 0))}</span>
                               <span className="text-slate-500">{moyen}{p.par ? ` · par ${p.par}` : ""}</span>

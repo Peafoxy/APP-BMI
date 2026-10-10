@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2466 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2467 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1403,6 +1403,13 @@ lit mal est pire qu'un banc absent).
   Chromium : le gris l'emporte sur `text-slate-800`) ; la cellule des boutons
   n'est pas grisée. Affichage seul. Banc +1 (rendu en attente / validé /
   rejeté), éprouvé ; un contrôle RETOURNÉ. Chapitre 5 à jour.
+  **📋 Dettes fait pareil** (le même jour, « fais pareil pour les règlements
+  versés dans Dettes ») : la LIGNE DU RÈGLEMENT (liste dépliée sous la dette)
+  se grise, versé à part ET validé (`clesReglementsVersesValides`, même
+  marche que les ventes, `data-reglement-grise`) ; la ligne de la dette, elle,
+  ne bouge pas. Dettes reçoit `detteDeplieeInitiale` (pour le banc seul) et
+  `scripts/_rendu-dettes.jsx` la REND. Banc +1, éprouvé ; un contrôle
+  RETOURNÉ. Chapitre 7 à jour.
 - **🔍 LE DÉTAIL DU TIROIR** (10/10/2026, captures : « avec ces ventes,
   pourquoi on a dans le tiroir 115 200 ? » → « a ensuite b ») : **a)** une
   requête de LECTURE donnée à Timo (liquide entré et sorti depuis le dernier
