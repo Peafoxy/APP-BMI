@@ -14344,5 +14344,76 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     && /\{d\.nb && <div[^>]*data-nb-devis-client/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
 }
 
+// 🔍 LE DÉTAIL DU TIROIR (Timo, 10/10/2026, « avec ces ventes, pourquoi on a dans
+// le tiroir 115 200 ? » → « a ensuite b ») : depuis le dernier versement général,
+// jour par jour, avec les chiffres de deuxPoches — le dernier soir EST le carré.
+{
+  titre("🔍 Le détail du tiroir (10/10/2026, « a ensuite b ») : depuis le dernier versement général, jour par jour, le chiffre du carré au franc près");
+  const CoT = await import(pathToFileURL("src/lib/core.js").href);
+  const VoT = await import(pathToFileURL("src/lib/versements.js").href);
+  const BQ = "BMI DEMAKPOE";
+  const ag = { id: "agT", nom: "ANGELE", role: "gerant", boutique: BQ };
+  const vente = (id, date, heure, pu, paiement = "Espèces", boutique = BQ) => ({ id, numero: `BMID-${id}`, client: `CLIENT ${id}`, date, heure, boutique, paiement, articles: [{ produit_id: "p1", article: "Câble", qte: 1, pu }] });
+  const vers = (id, date, heure, montant, extra = {}) => {
+    const s = VoT.construireVersement(ag, { boutique: BQ, montant, destination: VoT.DEST_DG, attendu: montant }).sortie;
+    return { ...s, id, date, versement: { ...s.versement, heure, ...(extra.versement || {}) }, ...(extra.top || {}) };
+  };
+  const dep = (id, date, categorie, montant, extra = {}) => ({ id, date, boutique: BQ, categorie, description: categorie, montant, paiement: "Espèces", paye_avec: "caisse", par: "ANGELE", ...extra });
+  const dbT = {
+    boutiques: [{ id: "b1", nom: BQ, type: "boutique", fonds_caisse: 50000 }], users: [ag], produits: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], audits: [], clotures: [], clients_installes: [],
+    ventes: [vente("v0", "2026-10-01", "09:00", 100000), vente("v1", "2026-10-05", "10:00", 50000), vente("v2", "2026-10-08", "10:00", 8400),
+      vente("v3", "2026-10-08", "11:00", 110000, "Crédit (dette)"), vente("v4", "2026-10-09", "12:00", 120000),
+      vente("vf", "2026-10-09", "13:00", 5000, "Mobile Money (Flooz)"), vente("va", "2026-10-09", "13:00", 999, "Espèces", "BMI APESSITO")],
+    dettes: [{ id: "d3", numero: "DET-3", client: "DJEDJE", boutique: BQ, date: "2026-10-08", montant: 110000, paye: 20000, vente_id: "v3", paiements: [{ id: "p1", date: "2026-10-08", heure: "11:00", montant: 20000, paiement: "Espèces" }] }],
+    depenses: [
+      dep("f0", "2026-09-30", VoT.CATEGORIE_FONDS_CAISSE || "Fonds de caisse remis", -50000, { fonds_caisse: { montant: 50000, origine: "Chez le DG" } }),
+      vers("g1", "2026-10-01", "18:00", 100000),
+      vers("g2", "2026-10-07", "18:00", 30000),
+      dep("r1", "2026-10-08", "Remboursement client", 4800),
+      dep("t1", "2026-10-08", "Transport", 30000),
+      vers("o4", "2026-10-09", "14:18", 120000, { versement: { origine: { type: "vente", vente: "v4" } } }),
+      vers("gx", "2026-10-09", "20:00", 10000, { top: { montant: 0, versement_rejete_le: "2026-10-09" } }),
+      dep("e1", "2026-10-09", "Loyer", 9000, { validation: { statut: "attente" } }),
+    ],
+  };
+  const dT = VoT.detailDuTiroir(dbT, BQ, CoT.totalVente);
+  const carre = VoT.fondsAVerser(dbT, BQ, CoT.totalVente).montant;
+  test("★★ le point de départ est le DERNIER versement GÉNÉRAL (ni le versement d'une vente, ni le rejeté) ; la veille au soir est le tiroir d'avant",
+    dT.general?.id === "g2" && dT.debut === "2026-10-07" && dT.avant === 50000
+    && VoT.dernierVersementGeneral({ ...dbT, depenses: dbT.depenses.filter((x) => x.id !== "g2") }, BQ)?.id === "g1");
+  test("★★ « Dans le tiroir maintenant » = le carré « Fonds à verser », au franc près",
+    dT.maintenant === carre && carre === 13600 && dT.jours.map((j) => j.jour).join() === "2026-10-07,2026-10-08,2026-10-09");
+  let prec = dT.avant, chaineOk = true;
+  for (const j of dT.jours) {
+    if (j.soir !== prec + j.entrees - j.renduEnveloppe - (j.sorties - j.prisEnveloppe)) chaineOk = false;
+    if (j.entrees !== j.lignes.reduce((s, l) => s + l.entree, 0) || j.sorties !== j.lignes.reduce((s, l) => s + l.sortie, 0)) chaineOk = false;
+    prec = j.soir;
+  }
+  test("★★ chaque soir se retrouve par l'addition : la veille + les entrées − ce qui retourne dans l'enveloppe − les sorties prises dans le tiroir ; les lignes font les totaux",
+    chaineOk && dT.jours[1].renduEnveloppe === 14800 && dT.jours[1].prisEnveloppe === 14800);
+  const libs = dT.jours.flatMap((j) => j.lignes.map((l) => l.libelle)).join(" | ");
+  test("★★ seul le liquide de CETTE caisse : ni la vente à crédit (son avance oui), ni le Flooz, ni une autre boutique, ni une dépense en attente du DG",
+    !/BMID-v3/.test(libs) && /Règlement de dette DET-3 — DJEDJE/.test(libs) && !/BMID-vf/.test(libs) && !/BMID-va/.test(libs) && !/Loyer/.test(libs)
+    && /Remboursement client/.test(libs) && !/BMID-v1/.test(libs));
+  test("★ les versements se disent : le général marqué, celui d'une vente nommé comme tel, le rejeté « compte comme jamais versé » à 0 F",
+    dT.jours[0].lignes.some((l) => l.general && /💸 Versement général → Chez le DG/.test(l.libelle))
+    && /💸 Versement d'une vente ou d'un règlement → Chez le DG — ⏳ en attente/.test(libs) && /✖ rejeté \(compte comme jamais versé\)/.test(libs));
+  const sortieRc = join("node_modules", ".cache", `bmi-rendu-caisse-${process.pid}.mjs`);
+  let Rc = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-caisse.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRc, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    Rc = await import(pathToFileURL(sortieRc).href);
+  } catch (e) { console.log("   (rendu de 🔒 Caisse impossible : " + (e?.message || e) + ")"); }
+  try { unlinkSync(sortieRc); } catch {}
+  const rendreC = (prof, ouvert) => { const e0 = console.error; console.error = () => {}; try { return String(Rc?.rendreCaisse(dbT, prof, ouvert) || "").replace(/[  ]/g, " "); } catch (e) { return "ERREUR " + (e?.message || e); } finally { console.error = e0; } };
+  const hG = rendreC(ag, false), hO = rendreC(ag, true), hV = rendreC({ id: "vT", nom: "AFI", role: "vendeur", boutique: BQ }, true);
+  test("★★ l'écran RENDU : le bouton 🔍 chez le gérant, fermé d'office ; ouvert, le dernier chiffre est celui du carré ; le vendeur n'a pas le bouton",
+    /data-ouvrir-detail-tiroir/.test(hG) && !/data-detail-tiroir/.test(hG)
+    && /data-tiroir-maintenant="true">13 600 F</.test(hO) && /data-tiroir-avant="true">50 000 F</.test(hO)
+    && (hO.match(/data-jour-tiroir=/g) || []).length === 3
+    && hV !== "" && !/^ERREUR/.test(hV) && !/data-ouvrir-detail-tiroir/.test(hV));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2420 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2426 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1392,6 +1392,26 @@ lit mal est pire qu'un banc absent).
   sans la pousser). MESURÉ dans Chromium avec le CSS construit
   (`verifier-ecran-ventes`, +3) : colonne 99 px repliée ET dépliée, ligne
   56 → 119 px ; un TÉMOIN sans ces classes élargit la colonne à 263 px.
+- **🔍 LE DÉTAIL DU TIROIR** (10/10/2026, captures : « avec ces ventes,
+  pourquoi on a dans le tiroir 115 200 ? » → « a ensuite b ») : **a)** une
+  requête de LECTURE donnée à Timo (liquide entré et sorti depuis le dernier
+  versement général, essayée sur base jetable) ; **b)** bouton « 🔍 Détail du
+  tiroir » dans 🔒 Caisse → 💸 Verser les fonds (gérant + administrateur,
+  `ROLES_VERSEMENT`), panneau `DetailTiroir` (Caisse.jsx). Règle pure
+  `detailDuTiroir` / `dernierVersementGeneral` / `estVersementGeneral`
+  (lib/versements.js) : départ = le dernier versement GÉNÉRAL (sans `origine`,
+  pas rejeté, espèces), « Dans le tiroir la veille au soir », puis jour par
+  jour les lignes (ventes et règlements en espèces, dépenses de la caisse,
+  versements, retraits mobiles) et « Dans le tiroir le soir » — les chiffres
+  de **`deuxPoches`**, jamais un calcul à part : « maintenant » = le carré
+  « Fonds à verser » au franc près. Pas de solde ligne par ligne (une dépense
+  n'a pas d'heure : un solde au milieu du jour pourrait mentir) ; ce qui
+  retourne dans l'enveloppe ou en sort est dit. Rien d'écrit, rien à coller.
+  Banc (6, l'écran RENDU par `scripts/_rendu-caisse.jsx`), éprouvé (versement
+  d'une vente pris pour général, règlements oubliés). Chapitre 6 à jour.
+  ⚠ Le carré dit toujours « dernier versement le … » sur N'IMPORTE QUEL
+  versement (celui d'une vente compris) — proposé à Timo de le passer au
+  dernier versement général, pas encore tranché.
 - Le versement de 120 000 F d'ANGELE (09/10, 14:18), fait par 🔒 Caisse, a été
   RATTACHÉ à la vente BMID-2026-0048 par un SQL collé par Timo le 09/10/2026
   (`versement.origine`, `attendu` à null, description refaite ; `true`) : sa

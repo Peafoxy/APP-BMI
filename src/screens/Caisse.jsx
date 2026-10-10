@@ -14,12 +14,12 @@ import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut,
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee, phraseDuJour } from "../lib/cloture";
-import { destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, DEST_TIROIR, SOURCE_ESPECES, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir } from "../lib/versements";
+import { detailDuTiroir, destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, DEST_TIROIR, SOURCE_ESPECES, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir } from "../lib/versements";
 import { soldesMobiles, phraseNumeroMobile } from "../lib/caissesMobiles";
 import { banquesReglees } from "../lib/banques";
 
 // ============ CAISSE ============
-export function Caisse({ db, save, profile }) {
+export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "caisse" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -126,6 +126,8 @@ export function Caisse({ db, save, profile }) {
   // 06/10/2026) ; les carrés de la caisse et la liste des versements restent
   // visibles. Il se replie après un versement enregistré.
   const [versementOuvert, setVersementOuvert] = useState(false);
+  // 🔍 Timo (10/10/2026) : « pourquoi on a dans le tiroir 115 200 ? » → le détail, ligne par ligne.
+  const [detailTiroirOuvert, setDetailTiroirOuvert] = useState(detailTiroirInitial);
   const destinations = destinationsPour(espaceDuCompte(db, profile) === true, vers.source);
   // Les deux comptes mobiles de CETTE boutique (décision « 1b » : chaque
   // boutique a son numéro), lus — rien n'est écrit.
@@ -370,6 +372,18 @@ export function Caisse({ db, save, profile }) {
             </div>
           ))}
         </div>
+        {/* 🔍 Le détail du tiroir (Timo, 10/10/2026, « a ensuite b ») : le
+            gérant et l'administrateur retrouvent, ligne par ligne, d'où vient
+            le chiffre du carré « Fonds à verser ». Une lecture, rien d'écrit. */}
+        {ROLES_VERSEMENT.includes(profile.role) && (
+          <div className="mb-3">
+            <button type="button" data-ouvrir-detail-tiroir onClick={() => setDetailTiroirOuvert((o) => !o)}
+              className="rounded-lg border border-sky-300 bg-white px-3 py-1.5 text-sm font-semibold text-sky-800">
+              🔍 {detailTiroirOuvert ? "Fermer le détail du tiroir" : "Détail du tiroir"}
+            </button>
+            {detailTiroirOuvert && <DetailTiroir detail={detailDuTiroir(db, boutique, totalVente)} boutique={boutique} />}
+          </div>
+        )}
         {ROLES_VERSEMENT.includes(profile.role) && (
           <FormulaireRepliable ouvert={versementOuvert} onOuvrir={() => setVersementOuvert(true)} onFermer={() => setVersementOuvert(false)}
             bouton="💸 Faire un versement" titre="Nouveau versement">
@@ -707,3 +721,51 @@ export function Caisse({ db, save, profile }) {
 }
 
 // ============ DEMANDE DE RAVITAILLEMENT (côté boutique) ============
+
+// ---- 🔍 LE DÉTAIL DU TIROIR (Timo, 10/10/2026) ----
+// Depuis le dernier versement général, jour par jour : ce qui est entré et
+// sorti en espèces, puis ce qu'il restait dans le tiroir le soir. Les chiffres
+// viennent de detailDuTiroir (lib/versements.js), donc de la règle même du
+// carré « Fonds à verser » : le dernier soir EST ce chiffre.
+export function DetailTiroir({ detail, boutique }) {
+  const { general, debut, avant, jours, maintenant } = detail;
+  return (
+    <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3 text-sm" data-detail-tiroir>
+      <div className="font-semibold text-slate-800">🔍 Le tiroir de {libelleCaisse(boutique)}, ligne par ligne</div>
+      <div className="text-xs text-slate-500 mt-0.5">
+        {general
+          ? <>Depuis le dernier versement général, le {dFR(general.date)}{general.versement?.heure ? ` à ${general.versement.heure}` : ""}. Dans le tiroir la veille au soir : <b className="tabular-nums" data-tiroir-avant>{fmt(avant)}</b>.</>
+          : <>Aucun versement général : depuis le premier mouvement en espèces{debut ? `, le ${dFR(debut)}` : ""}.</>}
+        {" "}Seul le liquide compte : une vente à crédit n'apporte que son avance, Flooz, Mixx et virement n'entrent jamais dans le tiroir.
+      </div>
+      {jours.length === 0 && <div className="mt-2 text-slate-500">Aucun mouvement en espèces.</div>}
+      <div className="mt-2 max-h-[420px] overflow-y-auto space-y-3">
+        {jours.map((j) => (
+          <div key={j.jour} data-jour-tiroir={j.jour}>
+            <div className="text-xs font-bold text-slate-600 border-b border-slate-200 pb-1">{dFR(j.jour)}</div>
+            <table className="w-full text-xs mt-1">
+              <tbody>
+                {j.lignes.map((l, i) => (
+                  <tr key={i} className={l.general ? "bg-slate-800 text-white" : "border-b border-slate-50"}>
+                    <td className="py-1 pr-2 w-12 tabular-nums align-top">{l.heure || ""}</td>
+                    <td className="py-1 pr-2 align-top">{l.libelle}</td>
+                    <td className="py-1 pr-2 text-right tabular-nums whitespace-nowrap align-top text-emerald-700">{l.entree ? `+ ${fmt(l.entree)}` : ""}</td>
+                    <td className={`py-1 text-right tabular-nums whitespace-nowrap align-top ${l.general ? "" : "text-slate-700"}`}>{l.sortie ? `− ${fmt(l.sortie)}` : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(j.renduEnveloppe > 0 || j.prisEnveloppe > 0) && (
+              <div className="text-xs text-slate-500 mt-1">
+                {j.renduEnveloppe > 0 && <div>↩ {fmt(j.renduEnveloppe)} des entrées sont retournés dans l'enveloppe du fonds de caisse (pas dans le tiroir).</div>}
+                {j.prisEnveloppe > 0 && <div>💼 {fmt(j.prisEnveloppe)} des sorties ont été pris dans l'enveloppe (pas dans le tiroir).</div>}
+              </div>
+            )}
+            <div className="text-xs mt-1 text-right">Dans le tiroir le soir : <b className="tabular-nums" data-tiroir-soir>{fmt(j.soir)}</b></div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 border-t border-slate-200 pt-2 text-right font-semibold">Dans le tiroir maintenant : <span className="tabular-nums" data-tiroir-maintenant>{fmt(maintenant)}</span></div>
+    </div>
+  );
+}

@@ -462,19 +462,19 @@ const mouvementsEspeces = (db, boutique, totalVente) => {
   const montantVente = (v) => montantEncaisseVente(v, totalVente);
   (db?.ventes || []).forEach((v) => {
     // 🏗 La caisse de la vente : une vente issue d'un devis entre dans CHANTIER.
-    if (caisseDeVente(v) === boutique && v.paiement === "Espèces") out.push({ q: quand(v), date: String(v.date).slice(0, 10), type: "vente", montant: montantVente(v) });
+    if (caisseDeVente(v) === boutique && v.paiement === "Espèces") out.push({ q: quand(v), date: String(v.date).slice(0, 10), type: "vente", montant: montantVente(v), src: v });
   });
   (db?.dettes || []).forEach((d) => {
     if (d.boutique !== boutique) return;
     (d.paiements || []).forEach((p) => {
-      if ((p.paiement || "Espèces") === "Espèces") out.push({ q: quand(p), date: String(p.date).slice(0, 10), type: "reglement", montant: Number(p.montant || 0) });
+      if ((p.paiement || "Espèces") === "Espèces") out.push({ q: quand(p), date: String(p.date).slice(0, 10), type: "reglement", montant: Number(p.montant || 0), src: p, dette: d });
     });
   });
   // Timo (12/09/2026) : une dépense en attente de validation ne compte pas ;
   // une avance personnelle ou l'argent du DG ne sortent pas du tiroir.
   (db?.depenses || []).forEach((x) => {
     if (x.boutique !== boutique || !compteDansLaCaisse(x)) return;
-    const base = { q: quand(x), date: String(x.date).slice(0, 10) };
+    const base = { q: quand(x), date: String(x.date).slice(0, 10), src: x };
     if (estFondsCaisseRemis(x)) out.push({ ...base, type: "remise", montant: -Number(x.montant || 0) });
     // ⚠ Une ligne de versement NÉGATIVE sur la boutique elle-même est un
     // RETRAIT d'un compte mobile qui entre dans le tiroir (Timo, 21/09/2026).
@@ -551,6 +551,75 @@ export function fondsAVerser(db, boutique, totalVente, periode = null) {
     dernierVersement: dernier ? String(dernier.date) : "", derniereRemise: derniereRemise ? String(derniereRemise.date) : "",
     fondsFixe, fondsPlafond: p.plafond, resteFonds: etat.reste, fondsEntame: etat.entame, fondsIntact: etat.intact,
   };
+}
+
+// ---- 🔍 LE DÉTAIL DU TIROIR (Timo, 10/10/2026, « a ensuite b ») ----
+// Capture de 💰 Ventes et de 🔒 Caisse : « avec ces ventes, pourquoi on a dans
+// le tiroir 115 200 ? ». Le tiroir compte tout le liquide depuis le premier
+// jour — rien ne permettait de le retrouver ligne par ligne. Ce détail part du
+// DERNIER VERSEMENT GÉNÉRAL (celui de 🔒 Caisse, qui vide le tiroir ; un
+// versement d'une vente ou d'un règlement n'en est pas un, un rejeté non plus),
+// et dit, jour par jour, tout ce qui est entré et sorti en espèces.
+// ⚠ AUCUN CALCUL À PART : les chiffres de chaque jour sont ceux de deuxPoches
+// — la règle même du carré « Fonds à verser ». Le dernier « Dans le tiroir le
+// soir » est donc, au franc près, le chiffre du carré. Dans une journée, les
+// lignes suivent l'ordre de la marche du tiroir (une dépense n'a pas d'heure) :
+// c'est pourquoi on ne donne le solde qu'en FIN de journée, jamais ligne par
+// ligne — un solde au milieu d'un jour pourrait mentir.
+export const estVersementGeneral = (d) => estVersement(d) && !d.versement.origine && !estRejete(d)
+  && Number(d.montant || 0) > 0 && (d.versement.source || SOURCE_ESPECES) === SOURCE_ESPECES;
+export function dernierVersementGeneral(db, boutique) {
+  return (db?.depenses || []).filter((d) => d.boutique === boutique && estVersementGeneral(d))
+    .sort((a, b) => cleDuVersement(b).localeCompare(cleDuVersement(a)))[0] || null;
+}
+const veilleDe = (jour) => {
+  const d = new Date(`${jour}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+};
+const heureDuMouvement = (m) => (m.type === "versement" || m.type === "retrait"
+  ? (m.src?.versement?.heure || m.src?.heure || "")
+  : (m.src?.heure || ""));
+function libelleMouvement(db, m) {
+  const x = m.src || {};
+  if (m.type === "vente") return `Vente ${x.numero || ""}${x.client ? ` — ${x.client}` : ""}`.trim();
+  if (m.type === "reglement") return `Règlement de dette${m.dette?.numero ? ` ${m.dette.numero}` : ""}${m.dette?.client ? ` — ${m.dette.client}` : ""}`;
+  if (m.type === "remise") return "💼 Fonds de caisse remis — il va dans l'enveloppe, pas dans le tiroir";
+  if (m.type === "retrait") return "📱 Retrait d'un compte mobile, entré dans le tiroir";
+  if (m.type === "versement") {
+    const etat = estRejete(x) ? "✖ rejeté (compte comme jamais versé)" : (validationVersement(db, x) ? "✅ validé" : "⏳ en attente");
+    const genre = x.versement?.origine ? "💸 Versement d'une vente ou d'un règlement" : "💸 Versement général";
+    return `${genre} → ${libelleDestination(x.versement)} — ${etat}`;
+  }
+  return `Dépense — ${x.categorie || "sans catégorie"}${x.description ? ` : ${x.description}` : ""}${x.validation?.statut === "rejetee" ? " (✖ rejetée par le DG)" : ""}`;
+}
+export function detailDuTiroir(db, boutique, totalVente) {
+  const general = dernierVersementGeneral(db, boutique);
+  const tous = mouvementsEspeces(db, boutique, totalVente);
+  const debut = general ? String(general.date).slice(0, 10) : (tous[0]?.date || "");
+  const dedans = tous.filter((m) => m.date >= debut);
+  const avant = debut ? deuxPoches(db, boutique, totalVente, { du: debut, au: veilleDe(debut) }).recette : 0;
+  const jours = [...new Set(dedans.map((m) => m.date))].sort();
+  const parJour = jours.map((jour) => {
+    const p = deuxPoches(db, boutique, totalVente, { du: jour, au: jour });
+    const lignes = dedans.filter((m) => m.date === jour).map((m) => {
+      const entre = ["vente", "reglement", "retrait"].includes(m.type);
+      return {
+        type: m.type, heure: heureDuMouvement(m), libelle: libelleMouvement(db, m),
+        entree: entre ? m.montant : 0,
+        sortie: m.type === "versement" || m.type === "sortie" ? m.montant : 0,
+        general: m.type === "versement" && m.src === general,
+      };
+    });
+    return {
+      jour, lignes,
+      entrees: p.detail.ventes + p.detail.reglements + p.detail.retraits,
+      sorties: p.detail.depenses + p.detail.versements,
+      renduEnveloppe: p.detail.rendu, prisEnveloppe: p.detail.surFonds,
+      soir: p.recette,
+    };
+  });
+  return { general, debut, avant, jours: parJour, maintenant: parJour.length ? parJour[parJour.length - 1].soir : avant };
 }
 
 // ---- Le RÉSUMÉ des caisses (Timo, 13/09/2026) ----
