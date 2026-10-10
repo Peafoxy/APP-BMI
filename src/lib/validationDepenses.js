@@ -365,7 +365,10 @@ export const neVoitQueSesDepenses = (profile) => ROLES_DEPENSES_PERSONNELLES.inc
 // n'y ait touché. Pour tous les autres rôles : SA POCHE seulement, et l'argent
 // reçu pour un chantier se justifie (💼 Mon argent de chantier), il ne se
 // ressaisit pas en dépense.
-export const ROLES_REMISE_ARGENT = ["admin", "gerant", "comptable", "resp_commercial"];
+// ⚠ Le magasinier y est ajouté (Timo, 10/10/2026 : « laisse le magasinier payer
+// avec la caisse ») : il n'a pas 📤 Dépenses, ça ne vaut que pour la réparation
+// d'un outil (🧰 Outillage).
+export const ROLES_REMISE_ARGENT = ["admin", "gerant", "comptable", "resp_commercial", "magasinier"];
 export const payeDeSaPocheSeulement = (profile) => !ROLES_REMISE_ARGENT.includes(profile?.role);
 export const MOTIF_DE_SA_POCHE = "Vous ne pouvez saisir qu'une dépense payée de VOTRE poche (« Une avance personnelle ») : elle vous sera remboursée une fois qu'elle compte.\n\nSortir l'argent d'une caisse ou le remettre à quelqu'un, c'est le geste du gérant ou de l'administrateur.\n\nSi vous avez REÇU de l'argent pour un chantier, détaillez-le dans « 💼 Mon argent de chantier » : ce n'est pas une nouvelle dépense.";
 export const estMaDepense = (d, profile) => (!!d?.par_id && d.par_id === profile?.id) || (!d?.par_id && !!d?.par && d.par === profile?.nom);

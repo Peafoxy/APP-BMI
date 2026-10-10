@@ -108,7 +108,7 @@ export const CHAPITRE = {
       ["h3", "E. La réparation"],
       ["etapes", [
         { titre: "Le bouton 🔧 (outil rangé)", texte: "« Chez quel réparateur » et « La panne » sont **obligatoires** ; « Son numéro » et « Prix de réparation (F) » si on les connaît." },
-        { titre: "Le prix connu au dépôt", texte: "On choisit le « Moyen de paiement » et « Payé avec » : une **dépense « Réparation d'outillage »** s'écrit, avec toutes les règles d'une dépense — validation du DG à partir de 5 000 F, limite du tiroir en espèces. ⚠ Seuls le gérant et l'administrateur choisissent une caisse : le magasinier et le chef technicien ne peuvent saisir qu'**une avance personnelle** (payée de leur poche, remboursée ensuite)." },
+        { titre: "Le prix connu au dépôt", texte: "On choisit le « Moyen de paiement » et « Payé avec » : une **dépense « Réparation d'outillage »** s'écrit, avec toutes les règles d'une dépense — validation du DG à partir de 5 000 F, limite du tiroir en espèces. ⚠ Le magasinier, le gérant et l'administrateur choisissent la caisse ; le chef technicien ne peut saisir qu'**une avance personnelle** (payée de sa poche, remboursée ensuite)." },
         { titre: "Le prix inconnu au dépôt", texte: "On laisse vide : **au retour**, 📥 ouvre « Combien a coûté la réparation ? ». 0 F = garantie ou geste du réparateur : l'outil rentre, aucune dépense." },
       ]],
       ["attention", "**Une réparation ne s'écrit qu'UNE fois** en dépense : au dépôt OU au retour. Un montant à corriger se corrige dans 📤 Dépenses."],

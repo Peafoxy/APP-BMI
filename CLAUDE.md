@@ -1936,8 +1936,10 @@ lit mal est pire qu'un banc absent).
   Hors de cette liste : « Payé avec » n'offre QUE l'avance personnelle
   (`optionsPayeAvec(…, { seulementPoche })`), « Argent remis à » ne s'affiche
   pas, et `construireDepenseSaisie` refuse toute autre origine DANS le geste.
-  🧰 Outillage (réparation) suit : ⚠ **le magasinier et le chef technicien ne
-  paient plus une réparation avec une caisse** (dit à Timo). L'argent REÇU
+  🧰 Outillage (réparation) suit : ⚠ **le chef technicien ne paie plus une
+  réparation avec une caisse** ; **le magasinier, si** (« laisse le magasinier
+  payer avec la caisse », 10/10/2026 — ajouté à `ROLES_REMISE_ARGENT` ; il n'a
+  pas 📤 Dépenses, ça ne vaut que pour la réparation d'un outil). L'argent REÇU
   pour un chantier se justifie (💼), jamais ressaisi en dépense.
 - ⚠ Le comptable (lecture seule) et le resp. commercial (pas d'onglet
   📤 Dépenses) sont dans la liste mais n'ont aujourd'hui AUCUN écran pour
