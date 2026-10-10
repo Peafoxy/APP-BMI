@@ -755,6 +755,122 @@ export function genererReleve(r, { caisse, periode, logo, formation = false, edi
   return null;
 }
 
+// ============ 📋 L'INVENTAIRE DES VENTES D'UNE BOUTIQUE (10/10/2026) ============
+// Timo : « D a » — l'inventaire de 💰 Ventes s'imprime. La structure vient
+// de lib/inventaireVentes.js ; ici on ne fait que la DESSINER, avec les
+// briques communes (entête, bandeau de titre, pied de page). Aucun calcul.
+export function genererInventaire(inv, { boutique = "", periode = "", logo, formation = false, edite = "" } = {}, retournerDoc = false) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const largeur = doc.internal.pageSize.getWidth();
+  const hauteur = doc.internal.pageSize.getHeight();
+  const dFRl = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
+  const m = (n) => fmtMontant(n);
+  const signe = (n) => (Math.round(Number(n) || 0) > 0 ? `+ ${m(n)}` : Math.round(Number(n) || 0) < 0 ? `- ${m(-n)}` : "0");
+
+  enteteSociete(doc, logo, largeur);
+  const yApres = bandeauTitre(doc, largeur, texteSurPdf(`INVENTAIRE - ${boutique}`), formation);
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(texteSurPdf(`Période : ${periode}`), 14, yApres + 7);
+  if (edite) doc.text(`Édité le ${edite}`, largeur - 14, yApres + 7, { align: "right" });
+
+  let y = grandesCases(doc, yApres + 12, largeur, [
+    [`${m(inv.ventes.total)} F`, "Vendu"],
+    [`${m(inv.recettes.total)} F`, "Recettes"],
+    [`${m(inv.depenses.total)} F`, "Dépenses"],
+    [`${m(inv.caisse.tiroir)} F`, "Tiroir maintenant"],
+  ]);
+
+  const bloc = (titre, head, body, foot, colonnesDroite = []) => {
+    y = placePour(doc, y, hauteur, 22);
+    y = titreBloc(doc, y + 2, texteSurPdf(titre));
+    const styles = {};
+    colonnesDroite.forEach((c) => { styles[c] = { halign: "right" }; });
+    autoTable(doc, {
+      head: [head.map((h, i) => enTete(texteSurPdf(h), colonnesDroite.includes(i) ? "right" : "left"))],
+      body: body.length ? body.map((r) => r.map((c) => texteSurPdf(c))) : [[texteSurPdf("Rien sur cette période."), ...head.slice(1).map(() => "")]],
+      foot: foot ? [foot.map((c, i) => ({ content: texteSurPdf(c), styles: { halign: colonnesDroite.includes(i) ? "right" : "left" } }))] : undefined,
+      startY: y,
+      styles: { fontSize: 8, cellPadding: 1.4 },
+      headStyles: { fillColor: BLEU, textColor: 255, fontSize: 8 },
+      footStyles: { fillColor: GRIS_CLAIR, textColor: GRIS_TEXTE, fontStyle: "bold" },
+      columnStyles: styles,
+      margin: { left: 14, right: 14 },
+      didDrawPage: () => piedDePage(doc, largeur, hauteur),
+    });
+    y = doc.lastAutoTable.finalY + 3;
+  };
+  const phrase = (t) => {
+    if (!t) return;
+    y = placePour(doc, y, hauteur, 6);
+    doc.setFontSize(8);
+    doc.setTextColor(...GRIS_TEXTE);
+    const l = doc.splitTextToSize(texteSurPdf(t), largeur - 28);
+    doc.text(l, 14, y + 1);
+    y += 4 * l.length + 1;
+  };
+
+  const v = inv.ventes;
+  bloc("1. Les ventes - tous moyens de paiement", ["Moyen", "Ventes", "Montant"],
+    [...v.lignes.map((l) => [l.moyen, String(l.nb), m(l.montant)]),
+      ...(v.reprises.nb ? [["Reprises faites dans la période", String(v.reprises.nb), `- ${m(v.reprises.montant)}`]] : [])],
+    [v.reprises.nb ? "Net" : "Total vendu", String(v.nb), m(v.reprises.nb ? v.net : v.total)], [1, 2]);
+  if (v.chantier.nb) phrase(`Dont ${v.chantier.nb} vente(s) issue(s) d'un devis (${m(v.chantier.montant)} F) : leur argent va dans la caisse CHANTIER, pas dans le tiroir.`);
+
+  const r = inv.recettes;
+  bloc("2. Les recettes - l'argent entré dans la caisse", ["Moyen", "Ventes payées", "Règlements de dettes", "Total"],
+    r.lignes.map((l) => [l.moyen, m(l.ventes), m(l.reglements), m(l.total)]),
+    ["Total des recettes", m(r.ventes), m(r.reglements), m(r.total)], [1, 2, 3]);
+
+  const d = inv.depenses;
+  bloc("3. Les dépenses - par catégorie", ["Catégorie", "Nombre", "Montant"],
+    d.lignes.map((l) => [l.categorie, String(l.nb), m(l.montant)]),
+    ["Total des dépenses", String(d.nb), m(d.total)], [1, 2]);
+  if (d.total) phrase(`Dont payées par le tiroir (espèces) : ${m(d.duTiroir)} F.`);
+  if (d.enAttente.nb) phrase(`En attente du DG, pas comptées : ${d.enAttente.nb} dépense(s), ${m(d.enAttente.montant)} F.`);
+  if (d.rejetees.nb) phrase(`Rejetées par le DG, pas comptées : ${d.rejetees.nb} (${m(d.rejetees.montant)} F).`);
+  if (d.autres.lignes.length) bloc("Autres sorties d'argent - pas des charges", ["Catégorie", "Nombre", "Montant"], d.autres.lignes.map((l) => [l.categorie, String(l.nb), m(l.montant)]), null, [1, 2]);
+
+  const w = inv.versements;
+  const etat = { valide: "validé", attente: "en attente", rejete: "rejeté" };
+  bloc("4. Les versements de la période", ["Date", "Vers", "État", "Montant"],
+    w.lignes.map((x) => [`${dFRl(x.date)}${x.heure ? ` ${x.heure}` : ""}`, `${x.destination}${x.aPart ? " (vente ou règlement)" : ""}${x.source !== "Espèces" ? ` - depuis ${x.source}` : ""}${x.par ? ` - par ${x.par}` : ""}`, etat[x.etat], m(x.montant)]),
+    ["Total versé (rejetés exclus)", "", w.enAttente ? `dont ${m(w.enAttente)} en attente` : "", m(w.total)], [3]);
+
+  const c = inv.caisse;
+  bloc("5. La caisse", ["", "Montant"],
+    [["Dans le tiroir maintenant (fonds à verser)", m(c.tiroir)],
+      ...(c.fondsPlafond ? [[`Enveloppe du fonds de caisse (sur ${m(c.fondsPlafond)} F, à part du tiroir)`, m(c.enveloppe)]] : []),
+      ...c.mobiles.map((x) => [`Solde ${x.libelle}${x.numero ? ` (n° ${x.numero})` : ""}, d'après les saisies`, m(x.solde)]),
+      ["Tiroir la veille au soir de la période", m(c.periode.debut)],
+      ["+ Entrées en espèces", m(c.periode.entrees)],
+      ...(c.periode.renduEnveloppe ? [["- Retourné dans l'enveloppe", m(c.periode.renduEnveloppe)]] : []),
+      ["- Dépenses payées par le tiroir", m(c.periode.depenses)],
+      ["- Versements", m(c.periode.versements)]],
+    [`Dans le tiroir le soir du ${dFRl(c.periode.jusquau)}`, m(c.periode.fin)], [1]);
+
+  const t = inv.dettes;
+  bloc("6. Les dettes", ["", "Nombre", "Montant"],
+    [["Créées dans la période", String(t.creees.nb), m(t.creees.montant)],
+      ["Règlements reçus dans la période", String(t.reglees.nb), m(t.reglees.montant)],
+      ["En retard (plus de 30 jours)", String(t.retard.nb), m(t.retard.montant)],
+      ...(t.reservations.nb ? [["Réservations en cours (reste)", String(t.reservations.nb), m(t.reservations.montant)]] : [])],
+    ["Reste total à recouvrer", String(t.reste.nb), m(t.reste.montant)], [1, 2]);
+  if (t.retard.lignes.length) bloc("Dettes en retard", ["Client", "Depuis le", "Jours", "Reste"], t.retard.lignes.map((x) => [`${x.client || "-"}${x.numero ? ` (${x.numero})` : ""}`, dFRl(x.date), String(x.jours), m(x.reste)]), null, [2, 3]);
+
+  const k = inv.comptage;
+  bloc("7. Le comptage - ce qui a été compté aux clôtures", ["Jour", "Attendu", "Compté", "Écart"],
+    k.lignes.map((l) => [`${dFRl(l.date)}${l.par ? ` - ${l.par}` : ""}${l.bouge ? " (a bougé après la clôture)" : ""}`, m(l.attendu),
+      l.statut === "cloture" ? m(l.compte) : (l.statut === "aujourdhui" ? "pas encore clôturé" : "NON CLÔTURÉ"),
+      l.statut === "cloture" ? signe(l.ecart) : ""]),
+    [`Total des écarts (${k.nbClotures} clôture(s))`, "", "", signe(k.totalEcarts)], [1, 2, 3]);
+  if (k.nonClotures.length) phrase(`Journées non clôturées : ${k.nonClotures.map(dFRl).join(", ")}.`);
+  phrase("Écart négatif = il manquait de l'argent dans le tiroir ; positif = il y en avait trop. Le fonds de caisse (l'enveloppe) n'est jamais compté.");
+
+  if (retournerDoc) return doc;
+  doc.save(fichierPdf("Inventaire", { client: boutique, numero: String(periode || "").replace(/\//g, "-") }));
+  return null;
+}
 
 // ============ 📄 LE DOSSIER PERSONNEL D'UN CLIENT (droit d'accès, 18/09/2026) ============
 // Timo : « lance le point 2 » — répondre à « qu'est-ce que vous avez sur

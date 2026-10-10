@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2432 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2448 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1436,6 +1436,44 @@ lit mal est pire qu'un banc absent).
 - Rien à coller (le serveur ne regarde que le rôle sur un
   versement). Banc (`verifier-cloisonnement`, 12, l'écran RENDU), éprouvé
   (bande posée, deux versements, vendeur autorisé). Chapitres 5, 6, 7 à jour.
+
+### 📋 L'INVENTAIRE DE 💰 VENTES (10/10/2026, « A a, B a, C a, D a, lance »)
+- Timo : « Détails du tiroir fait-il un vrai travail d'inventaire ? » (non :
+  un calcul ; le comptage est la clôture du jour) → « un onglet d'inventaire
+  de vente… les ventes (tout moyen), les dépenses (toutes catégories), les
+  recettes, les versements de chaque période et la caisse actuelle, les
+  dettes ». En haut de 💰 Ventes, **« 🛒 Vendre »** (d'office) et **« 📋
+  Inventaire »** (`ongletVentes`, `screens/InventaireVentes.jsx`).
+- **« A a »** : gérant et administrateur seulement (`peutVoirInventaire`,
+  `ROLES_INVENTAIRE`) — jamais le vendeur (il n'a pas 📤 Dépenses). **« B a »** :
+  « Aujourd'hui » à l'ouverture — `useFiltrePeriode({ initial: 0 })` ; le
+  filtre commun garde « Toute période » d'office partout ailleurs. **« C a »** :
+  le comptage est LU dans les clôtures, **jamais un second comptage** à saisir.
+  **« D a »** : PDF (`genererInventaire`, src/pdf.js, briques communes — le
+  cinquième document) et export CSV (`lignesCsvInventaire`).
+- Règle pure **`lib/inventaireVentes.js`**, UNE lecture, **aucun calcul à
+  part** : ventes et recettes = `ventesParMoyen` ; tiroir, enveloppe, tiroir
+  pendant la période = `deuxPoches` / `fondsAVerser` ; Flooz / Mixx =
+  `soldesMobiles` ; comptage = `activiteDuJour` + `clotureDe` ; dettes = la liste
+  de 📋 Dettes (`boutiqueDuDocument`) et le retard de 30 jours. Sept blocs :
+  **1** ventes par moyen (VENDU, crédit compris, reprises de la période
+  retirées, une vente de devis dite « caisse 🏗 CHANTIER ») ; **2** recettes
+  (l'argent ENTRÉ dans la caisse : ventes payées + règlements, par moyen ; la
+  vente de devis n'y est pas) ; **3** dépenses par catégorie (seulement celles
+  qui comptent ; en attente du DG et rejetées dites à part ; « Autres sorties —
+  pas des charges ») ; **4** versements (état, total sans les rejetés) ; **5**
+  la caisse maintenant + le tiroir pendant la période (veille + entrées −
+  rendu − dépenses − versements = le soir du dernier jour) ; **6** dettes
+  (créées, réglées dans la période, reste total, en retard avec la liste) ;
+  **7** comptage (attendu, compté, écart = compté − attendu d'après ce qui est
+  enregistré aujourd'hui ; journées non clôturées en rouge ; « a bougé après
+  la clôture »).
+- Rien d'écrit, rien à coller. Banc (`verifier-cloisonnement`, 20 contrôles,
+  l'écran RENDU par `scripts/_rendu-inventaire.jsx`, le PDF lu), éprouvé
+  (vente de devis comptée en recette, dépense en attente comptée, vendeur
+  autorisé, écart à 0) ; trois contrôles RETOURNÉS (cinq PDF, cinq en-têtes,
+  le filtre à période d'ouverture). Regardé dans Chromium (PC, téléphone).
+  Chapitre 5 et guides gérant / administrateur à jour.
 
 ### 🏗 LA CAISSE CHANTIER : TOUT L'ARGENT DES CHANTIERS (08/10/2026, « lance l'étape 1, clôture facultative »)
 - Captures Timo : POUDAMA, pose seule de 354 900 F, 354 000 encaissés par lui

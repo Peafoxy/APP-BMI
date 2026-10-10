@@ -21,7 +21,7 @@ export const GUIDE = {
   journee: [
     ["p", "Le gérant fait **tout ce que fait un vendeur** — vendre, encaisser une dette, faire un devis, clôturer le jour — et il tient en plus **l'argent qui sort, le stock et les fournisseurs** de sa boutique. Les mots entre guillemets sont ceux des boutons ; le chapitre du manuel est indiqué entre parenthèses."],
     ["table", { entetes: ["Mes onglets", "À quoi ils me servent"], largeurs: [3300, 6000], lignes: [
-      ["💰 Ventes · 📥 Commandes reçues", "Vendre, faire une proforma, faire un **🔁 Retour sous garantie** ; encaisser les commandes des commerciaux et les poses (chapitre 5)."],
+      ["💰 Ventes · 📥 Commandes reçues", "Vendre, faire une proforma, faire un **🔁 Retour sous garantie** ; encaisser les commandes des commerciaux et les poses ; **📋 Inventaire** : ventes, recettes, dépenses, versements, caisse, dettes et comptage de ma boutique sur une période (chapitre 5)."],
       ["☀️ Dimensionnement · 📋 Tous les devis · 📄 Contrats", "Les devis et les contrats (chapitres 11 à 14)."],
       ["📦 Stocks", "Les articles, les entrées, l'inventaire, le transfert, la demande de ravitaillement (chapitres 8 et 9)."],
       ["🔁 Transfert", "Ce que les autres boutiques m'envoient ou me demandent (chapitre 9)."],

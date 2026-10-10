@@ -30,7 +30,7 @@ export const GUIDE = {
     ["regle", "**Il y a deux niveaux.** L'**administrateur** a tous les onglets. L'**administrateur principal** — le DG, un seul — a en plus les gestes « moi seul » : traverser le mur formation / réel, valider les dépenses et les versements, le mot de passe et le rôle d'un autre compte, la reprise d'un article, la corbeille, les données personnelles, le compte de l'exploitant. Ces gestes sont dans les encadrés « Seulement pour l'administrateur principal »."],
     ["table", { entetes: ["Mes onglets", "À quoi ils me servent"], largeurs: [3300, 6000], lignes: [
       ["📊 Tableau de bord · 📈 Rentabilité · 🕘 Historique", "Les chiffres par boutique et par période, les caisses centrales, les exports ; qui a fait quoi (chapitre 22)."],
-      ["💰 Ventes · 📥 Commandes reçues · 🧾 Dettes · 👤 Clients · 🔒 Caisse", "La vente et l'argent qui entre, comme en boutique (chapitres 3, 5, 6 et 7)."],
+      ["💰 Ventes · 📥 Commandes reçues · 🧾 Dettes · 👤 Clients · 🔒 Caisse", "La vente et l'argent qui entre, comme en boutique ; dans 💰 Ventes, **📋 Inventaire** donne d'un coup les ventes, recettes, dépenses, versements, la caisse, les dettes et le comptage d'une boutique sur une période (chapitres 3, 5, 6 et 7)."],
       ["☀️ Dimensionnement · 📋 Tous les devis · 📄 Contrats · 🧲 Prospects", "Les devis et les contrats de tout le monde, les prospects de l'espace (chapitres 4, 11 à 14)."],
       ["📤 Dépenses · 🧾 Chez le comptable · 💵 Salaires", "L'argent qui sort, la caisse du comptable, la paie et la CNSS (chapitres 17 et 18)."],
       ["📦 Stocks · 🚚 Fournisseurs", "Les articles, leurs prix, le magasin, les fournisseurs (chapitres 8, 9 et 10)."],

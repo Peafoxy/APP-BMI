@@ -18,7 +18,8 @@
 // ROLES_RETOUR_GARANTIE), lib/core.js (prochainNumeroVente, numeroRecu,
 // prefixeBoutique, documentDeVente, titreRecuDette), lib/cloture.js
 // (motifBlocageVente), lib/bandesVersement.js, lib/reprises.js, lib/bons.js, lib/impression.js
-// (imprimerRecuDeVente, recuWhatsApp), lib/clientsConnus.js.
+// (imprimerRecuDeVente, recuWhatsApp), lib/clientsConnus.js ; 📋 Inventaire :
+// screens/InventaireVentes.jsx, lib/inventaireVentes.js (10/10/2026).
 // ============================================================
 export const CHAPITRE = {
   numero: 5,
@@ -54,6 +55,7 @@ export const CHAPITRE = {
         ["🔁 Retour / échange sous garantie", "**Gérant et administrateur**"],
         ["↩ Reprise de l'article par BMI", "**L'administrateur principal seul**"],
         ["🗑 Supprimer une vente", "**L'administrateur** — et seulement si rien n'en dépend (rubrique 9)"],
+        ["📋 Inventaire (le second bouton de 💰 Ventes, à côté de 🛒 Vendre)", "**Gérant et administrateur** — le vendeur ne le voit pas"],
         ["🛒 Nouvelle commande (envoyer un panier à la boutique)", "**Commercial, technicien**"],
         ["📥 Commandes reçues : « ✅ Valider et encaisser », « ❌ Refuser »", "**Vendeur, gérant, administrateur** — un vendeur ne voit que les commandes de sa boutique qui lui sont destinées ou destinées à « n'importe quel vendeur »"],
         ["Le comptable", "Ne voit pas 💰 Ventes. Il lit les ventes dans le tableau de bord et l'historique."],
@@ -65,6 +67,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
         ["**💰 Ventes**, cadre « Nouvelle vente »", "🔍 Code-barres · Domaine · Catégorie · Article (« — Choisir un article — ») · Quantité · Prix unitaire (F) · Remise ligne (F) · Remise ligne (%) · « Ajouter au panier » · le 🛒 Panier · Client · Numéro du client · Remise (%) · Commercial · Paiement · (à crédit) Statut de l'article, Avance versée, « Avance payée comment ? » · la case 🤝 apporteur externe · « 💳 Encaisser la vente » · « 🧾 Proforma WhatsApp » · 🖨️ · le Total."],
+        ["**💰 Ventes**, les deux boutons du haut (gérant, administrateur)", "« 🛒 Vendre » (l'écran de vente, ouvert d'office) et « 📋 Inventaire » (rubrique 4, H)."],
         ["**💰 Ventes**, cadre du bas", "Deux vues : « 💰 Ventes (N) » et « 🧾 Proformas (N) » ; « 🔍 Rechercher… » ; la période (Toute période, Aujourd'hui, Cette semaine, Ce mois, Cette année, ✏️ Personnaliser…) ; « 💰 Recette » ; les pastilles de paiement (Tout paiement, Espèces, Flooz, Mixx/T-Money, Virement bancaire, Crédit (dette)) ; la liste, et ses boutons ronds."],
         ["**🛒 Nouvelle commande** (commercial, technicien)", "La boutique à choisir, « 🔍 Scanner un code-barres », Catégorie, Article, Quantité, Prix unitaire (F), « ➕ Ajouter », le panier, Client (facultatif), Numéro du client, « Remise (%) — facultatif », « Paiement proposé », « Vendeur destinataire (facultatif) », « Rabais offert au client (F) — facultatif », « Associer mon responsable (facultatif) », « 📤 Envoyer la commande à la boutique », puis la liste de ses commandes (⏳ En attente · ✓ Validée · ✗ Refusée)."],
         ["**📥 Commandes reçues** (vendeur, gérant, administrateur)", "« 📥 Commandes en attente (N) » avec « ✅ Valider et encaisser » / « ❌ Refuser », puis « Historique récent » (Validée / Refusée, « ✅ Encaissée — vente N° … », ou « ⚠ Commande validée mais NON ENCAISSÉE » avec « ↻ Reprendre l'encaissement »)."],
@@ -147,6 +150,21 @@ export const CHAPITRE = {
         ["↩", "**Reprise d'articles par BMI** : la fenêtre montre **toutes les lignes de la vente**, une case de quantité devant chacune (0 = gardé) — on reprend **plusieurs articles d'un coup**, avec **un seul motif** et un seul moyen de remboursement. Les articles reviennent au stock, l'argent est rendu en **une** sortie de caisse « Remboursement client » (ou la dette diminue) ; le reçu ne change pas, le chiffre d'affaires et la commission sont réduits. **Un seul bon de reprise** liste tous les articles ; il porte aussi la **vente d'origine** (chaque article, sa quantité, son prix), le prix unitaire de ce qui est repris, le vendeur, et la **nouvelle situation** : montant d'origine − reprises (celles d'avant comprises) = nouveau montant de la vente, déjà payé, reste à payer. Motif obligatoire.", "Administrateur principal"],
         ["🗑", "Supprime la vente — refusé si un chantier, une commission payée ou un versement en dépend.", "Administrateur"],
       ]}],
+    ]},
+
+      ["h3", "H. 📋 L'inventaire de la boutique (gérant, administrateur)"],
+      ["p", "En haut de 💰 Ventes, deux boutons : **« 🛒 Vendre »** (l'écran de vente, ouvert d'office) et **« 📋 Inventaire »**. L'inventaire porte sur la boutique regardée et sur une période choisie dans la liste habituelle — **« Aujourd'hui » à l'ouverture**, puis Cette semaine, Ce mois, Cette année, ✏️ Personnaliser… ou Toute période. C'est une **lecture** : rien n'est écrit, et chaque chiffre est celui de 🔒 Caisse, de la clôture du jour, de 📤 Dépenses et de 🧾 Dettes."],
+      ["table", { entetes: ["Bloc", "Ce qu'il dit"], largeurs: [2600, 6700], lignes: [
+        ["1. Les ventes", "Ce qui a été **vendu** dans la boutique, une ligne par moyen de paiement, **crédit compris** : nombre de ventes et montant ; les reprises faites dans la période sont retirées (le **net**). Une vente issue d'un devis y figure, avec la mention « caisse 🏗 CHANTIER » : son argent ne va pas dans le tiroir."],
+        ["2. Les recettes", "L'argent **entré** dans la caisse de la boutique, par moyen : ventes payées + règlements de dettes. Une vente à crédit n'y entre que par ce que le client a versé. La ligne Espèces est la recette du tiroir."],
+        ["3. Les dépenses", "Par catégorie, avec le total — **seulement celles qui comptent**. Celles qui attendent le DG et les rejetées sont dites à part, sans être comptées. « Dont payées par le tiroir » sépare ce qui est sorti des billets. Un remboursement de client, d'une avance, un prêt au personnel sont rangés dans « Autres sorties — pas des charges »."],
+        ["4. Les versements", "Chaque versement de la période : date, heure, destination (DG, banque, comptable), état (✅ validé, ⏳ en attente, ✖ rejeté). Le total exclut les rejetés."],
+        ["5. La caisse", "**Maintenant** : le tiroir (le même chiffre que « Fonds à verser » de 🔒 Caisse), l'enveloppe du fonds de caisse, le solde Flooz et Mixx de la boutique. Puis **le tiroir pendant la période** : la veille au soir + entrées en espèces − dépenses payées par le tiroir − versements = le soir du dernier jour."],
+        ["6. Les dettes", "Créées dans la période, règlements reçus dans la période, **reste total à recouvrer** (toutes périodes), celles **en retard de plus de 30 jours** avec leur liste (client, depuis quand, reste)."],
+        ["7. Le comptage", "Pour chaque jour : ce que le tiroir devait contenir, **ce qui a été compté à la clôture**, l'écart (négatif = il manquait de l'argent). Le total des écarts, et les **journées non clôturées** en rouge. On ne recompte rien ici : le comptage se fait à la clôture du jour (chapitre 6). Une clôture faite avant une vente est signalée « la caisse a bougé après la clôture »."],
+      ]}],
+      ["p", "**« 🖨 Imprimer (PDF) »** sort l'inventaire sur papier, **« Exporter (CSV) »** l'ouvre dans un tableur — mêmes chiffres, même période."],
+      ["note", "Le fonds de caisse (l'enveloppe) et les comptes Flooz / Mixx ne sont jamais comptés physiquement : leur solde vient des saisies. Seul le tiroir est compté, le soir, à la clôture du jour."],
     ]},
 
     // ── 5

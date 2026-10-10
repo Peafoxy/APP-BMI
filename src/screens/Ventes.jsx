@@ -37,6 +37,8 @@ import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite } from "../lib/whatsappModeles";
 import { lierFacture } from "../lib/travaux";
+import { peutVoirInventaire } from "../lib/inventaireVentes";
+import { InventaireVentes } from "./InventaireVentes";
 
 // ============ VENTES ============
 // Convertit les articles d'une vente (déjà nets de leur remise de ligne — voir
@@ -1307,6 +1309,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
   // ---- Listes regroupées : Ventes (par défaut) / Proformas, avec recherche ----
   const [vueListe, setVueListe] = useState("ventes");
+  // 📋 L'inventaire (Timo, 10/10/2026, « A a… lance ») : 🛒 Vendre / 📋
+  // Inventaire, pour le gérant et l'administrateur (`peutVoirInventaire`).
+  const [ongletVentes, setOngletVentes] = useState("vendre");
   const [rechercheListe, setRechercheListe] = useState("");
   // ⚠ Demande Timo (capture Ventes) : filtre par période (jour/semaine/
   // mois/année) + onglets par mode de paiement, en plus de la recherche —
@@ -1360,6 +1365,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="ventes" db={db} value={bq} onChange={setBq} profile={profile} />}
+      {peutVoirInventaire(profile) && (
+        <div className="flex gap-2 flex-wrap" data-onglets-ventes>
+          <button onClick={() => setOngletVentes("vendre")} className={btnVue(ongletVentes !== "inventaire")} data-onglet-vendre>🛒 Vendre</button>
+          <button onClick={() => setOngletVentes("inventaire")} className={btnVue(ongletVentes === "inventaire")} data-onglet-inventaire>📋 Inventaire</button>
+        </div>
+      )}
+      {ongletVentes === "inventaire" && peutVoirInventaire(profile) ? <InventaireVentes db={db} boutique={boutique} /> : (<>
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle vente <Badge boutique={boutique} /></div>
         {blocageCloture && <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">{blocageCloture}</div>}
@@ -1882,7 +1894,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           </div>
         </div>
       )}
+      </>)}
     </div>
   );
 }
-

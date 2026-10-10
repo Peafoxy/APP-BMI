@@ -16,8 +16,11 @@ import { inP } from "../lib/core";
 import { periodes, PERIODE_PERSO, bornesPersonnalisees, libellePeriodePersonnalisee } from "../lib/calculs";
 import { inputCls } from "./ui";
 
-export function useFiltrePeriode() {
-  const [index, setIndex] = useState(null);
+// `initial` : l'index d'une période toute faite à l'ouverture. Rien par
+// défaut (« Toute période ») ; 📋 Inventaire de 💰 Ventes ouvre sur
+// « Aujourd'hui » (décision Timo « B a », 10/10/2026).
+export function useFiltrePeriode({ initial = null } = {}) {
+  const [index, setIndex] = useState(initial);
   const [du, setDu] = useState("");
   const [au, setAu] = useState("");
   // null = aucun filtre de période.

@@ -3648,8 +3648,9 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
   const pdf = readFileSync("src/pdf.js", "utf8");
   // 12/09/2026 : le relevé d'une caisse centrale aussi (genererReleve) — trois.
   // 18/09/2026 : le DOSSIER PERSONNEL d'un client (droit d'accès) — quatre.
-  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel) suivent la même règle",
-    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 4 && !/doc\.save\(`/.test(pdf));
+  // RETOURNÉ le 10/10/2026 : l'INVENTAIRE de 💰 Ventes (« D a ») — cinq.
+  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire) suivent la même règle",
+    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 5 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
 }
@@ -4899,12 +4900,14 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
   // d'accès) est le QUATRIÈME document à passer par les mêmes briques. Il
   // n'a ni total ni mentions d'offre — ce n'est pas une offre de prix —,
   // mais il pose son pied de page lui-même sur la dernière page.
-  test("★ le devis, le proforma, le relevé ET le dossier personnel passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
+  // ⚠ RETOURNÉ le 10/10/2026 : l'INVENTAIRE de 💰 Ventes est le CINQUIÈME
+  // (entête, bandeau de titre ; son pied de page se pose à chaque page).
+  test("★ le devis, le proforma, le relevé, le dossier personnel ET l'inventaire passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
     // RETOURNÉ le 26/09/2026 : le devis et la proforma passent la fiche de
     // leur boutique à l'en-tête (`d.bq` / `p.bq`) — toujours LA même brique.
-    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 4
+    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 5
     && /enteteSociete\(doc, logo, largeur, p\.bq\);/.test(pdf) && /enteteSociete\(doc, logo, largeur, d\.bq\);/.test(pdf)
-    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 4
+    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 5
     // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
@@ -11504,8 +11507,11 @@ titre("✏️ Personnaliser la période (💰 Ventes)");
     const detP = readFileSync("src/screens/Dettes.jsx", "utf8");
     const tdP = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
     const prP = readFileSync("src/screens/Prospects.jsx", "utf8");
-    test("★★ 📅 « Toute période » à CHAQUE ouverture : l'état part de null et n'est mémorisé nulle part (ni navigateur, ni fiche)",
-      /const \[index, setIndex\] = useState\(null\);/.test(fpv) && !/localStorage|sessionStorage|save\(/.test(fpv)
+    // RETOURNÉ le 10/10/2026 : le filtre reçoit une période d'ouverture
+    // facultative (`initial`), null d'office — seul 📋 Inventaire de 💰 Ventes
+    // ouvre sur « Aujourd'hui » (« B a »). Les quatre écrans n'en passent pas.
+    test("★★ 📅 « Toute période » à CHAQUE ouverture : l'état part de null (sauf une période d'ouverture demandée) et n'est mémorisé nulle part (ni navigateur, ni fiche)",
+      /export function useFiltrePeriode\(\{ initial = null \} = \{\}\)/.test(fpv) && /const \[index, setIndex\] = useState\(initial\);/.test(fpv) && !/localStorage|sessionStorage|save\(/.test(fpv)
       && /<option value="">Toute période<\/option>/.test(fpv));
     test("★★ 📅 UN filtre pour les quatre écrans : Ventes, Dépenses, Dettes et Tous les devis passent par useFiltrePeriode, aucun ne refait sa période",
       [v, depP, detP, tdP, prP].every((t) => /import \{ useFiltrePeriode \} from "\.\.\/components\/FiltrePeriode";/.test(t) && /const periode = useFiltrePeriode\(\);/.test(t) && /\{periode\.selecteur\}/.test(t))
@@ -14448,6 +14454,128 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     && (hO.match(/data-ligne-a-part="true"/g) || []).length === 4 && /data-tiroir-a-part/.test(hO)
     && /data-tiroir-entrees="true">0 F</.test(hO)
     && hV !== "" && !/^ERREUR/.test(hV) && !/data-ouvrir-detail-tiroir/.test(hV));
+}
+
+
+titre("📋 L'inventaire de 💰 Ventes : ventes, recettes, dépenses, versements, caisse, dettes, comptage (10/10/2026, « A a, B a, C a, D a, lance »)");
+// Timo : « un onglet d'inventaire de vente… les ventes (tout moyen de
+// paiement), les dépenses (toutes catégories), les recettes, les versements
+// de chaque période et la caisse actuelle, les dettes ». Une LECTURE : chaque
+// chiffre doit être celui de la règle voisine (🔒 Caisse, la clôture, 📋 Dettes).
+{
+  const sortieRI = join("node_modules", ".cache", `bmi-rendu-inventaire-${process.pid}.mjs`);
+  let RI = null, erreurRI = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-inventaire.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRI, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RI = await import(pathToFileURL(sortieRI).href);
+  } catch (e) { erreurRI = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieRI); } catch {}
+  test("l'inventaire se monte dans le banc" + (erreurRI ? ` (${erreurRI})` : ""), !!RI);
+  if (RI) {
+    const BQ = "BMI TEST";
+    const J1 = "2026-10-05", J2 = "2026-10-06", AUJ = "2026-10-10";
+    const art = (pu) => [{ produit_id: "p1", article: "Cosse", qte: 1, pu }];
+    const dep = (id, date, categorie, montant, x = {}) => ({ id, date, boutique: BQ, categorie, description: "", montant, paiement: "Espèces", par: "AFI", ...x });
+    const dbI = {
+      boutiques: [{ id: "b1", nom: BQ }, { id: "b2", nom: "TERRAIN", terrain: true }], users: [], produits: [{ id: "p1", nom: "Cosse", boutique: BQ, prix_vente: 1, initial: 99 }],
+      ventes: [
+        { id: "v1", numero: "T-1", date: J1, heure: "09:00", boutique: BQ, paiement: "Espèces", articles: art(10000) },
+        { id: "v2", numero: "T-2", date: J1, heure: "10:00", boutique: BQ, paiement: "Crédit (dette)", articles: art(30000) },
+        { id: "v3", numero: "T-3", date: J1, heure: "11:00", boutique: BQ, paiement: "Mobile Money (Flooz)", articles: art(8000) },
+        // 🏗 une vente issue d'un devis : vendue ici, son argent va dans la caisse CHANTIER.
+        { id: "v4", numero: "T-4", date: J2, heure: "09:00", boutique: BQ, caisse: "TERRAIN", paiement: "Espèces", articles: art(50000) },
+        { id: "v5", numero: "T-5", date: J2, heure: "10:00", boutique: BQ, paiement: "Espèces", articles: art(12000),
+          reprises: [{ id: "r1", ref: "REP-1", date: J2, produit_id: "p1", article: "Cosse", qte: 1, montant: 2000, rembourse: 2000 }] },
+        // hors de la période : n'entre nulle part dans la période
+        { id: "v6", numero: "T-6", date: "2026-10-08", boutique: BQ, paiement: "Espèces", articles: art(99999) },
+      ],
+      dettes: [
+        { id: "d1", numero: "D-1", date: J1, boutique: BQ, vente_id: "v2", client: "AMA", montant: 30000, paye: 5000, paiements: [{ date: J1, heure: "10:05", montant: 5000, paiement: "Espèces" }] },
+        { id: "d2", numero: "D-2", date: "2026-08-01", boutique: BQ, client: "KOFFI", montant: 40000, paye: 0, paiements: [] },
+        { id: "d3", numero: "D-3", date: "2026-10-01", boutique: "TERRAIN", boutique_vente: BQ, client: "SENA", montant: 50000, paye: 30000, paiements: [{ date: "2026-10-01", montant: 30000, paiement: "Espèces" }] },
+      ],
+      depenses: [
+        dep("e1", J1, "Transport", 2000),
+        dep("e2", J2, "Loyer", 90000, { validation: { statut: "attente" } }),
+        dep("e3", J2, "Nourriture", 1500, { paye_avec: "avance" }),
+        dep("e4", J2, "Carburant", 0, { validation: { statut: "rejetee", montant: 6000 } }),
+        dep("e5", J2, "Remboursement client", 2000, { vente_id: "v5" }),
+        dep("g1", J2, "Versement de fonds", 10000, { heure: "18:00", versement: { id: "w1", destination: "Chez le DG", source: "Espèces", montant: 10000, heure: "18:00" }, versement_valide_le: J2, versement_valide_par: "TIMO" }),
+        dep("g2", J2, "Versement de fonds", 0, { heure: "18:30", versement: { id: "w2", destination: "Chez le DG", source: "Espèces", montant: 5000, heure: "18:30" }, versement_rejete_le: J2, versement_rejete_par: "TIMO", versement_rejet_motif: "x" }),
+      ],
+      clotures: [{ id: "c1", date: J1, boutique: BQ, theorique: 13000, compte: 12500, par: "AFI", cloture_le: J1 }],
+    };
+    const inv = RI.inventaireVentes(dbI, BQ, RI.totalVente, [J1, J2], AUJ);
+    test("★★ les VENTES : tous les moyens, crédit compris (110 000 F en 5 ventes), la vente hors période absente, la reprise de la période retirée (net 108 000), la vente de devis dite « caisse CHANTIER »",
+      inv.ventes.total === 110000 && inv.ventes.nb === 5 && inv.ventes.reprises.montant === 2000 && inv.ventes.net === 108000
+      && inv.ventes.chantier.nb === 1 && inv.ventes.chantier.montant === 50000
+      && inv.ventes.lignes.map((l) => `${l.moyen}:${l.nb}:${l.montant}`).join("|") === "Espèces:3:72000|Mobile Money (Flooz):1:8000|Crédit (dette):1:30000",
+      JSON.stringify(inv.ventes.lignes));
+    const p = RI.deuxPoches(dbI, BQ, RI.totalVente, { du: J1, au: J2 });
+    test("★★ les RECETTES : l'argent ENTRÉ (espèces 27 000 = ventes payées 22 000 + règlement 5 000 ; Flooz 8 000) — ni le crédit, ni la vente de devis ; la ligne Espèces est, au franc près, celle du tiroir (deuxPoches)",
+      inv.recettes.total === 35000 && inv.recettes.especes === 27000 && inv.recettes.ventes === 30000 && inv.recettes.reglements === 5000
+      && inv.recettes.especes === p.detail.ventes + p.detail.reglements,
+      JSON.stringify(inv.recettes));
+    test("★★ les DÉPENSES par catégorie : seules celles qui comptent (Transport 2 000 + Nourriture 1 500 = 3 500) ; la dépense en attente du DG et la rejetée dites à part, pas comptées ; le remboursement d'un client en « autres sorties », jamais une charge ; les versements absents",
+      inv.depenses.total === 3500 && inv.depenses.nb === 2 && inv.depenses.duTiroir === 2000
+      && inv.depenses.enAttente.nb === 1 && inv.depenses.enAttente.montant === 90000 && inv.depenses.rejetees.nb === 1 && inv.depenses.rejetees.montant === 6000
+      && inv.depenses.autres.lignes.length === 1 && inv.depenses.autres.lignes[0].categorie === "Remboursement client"
+      && !inv.depenses.lignes.some((l) => /Versement|Remboursement|Loyer|Carburant/.test(l.categorie)));
+    test("★★ les VERSEMENTS : chacun avec son état (✅ validé, ✖ rejeté au montant d'origine) ; le total exclut le rejeté",
+      inv.versements.lignes.length === 2 && inv.versements.total === 10000 && inv.versements.rejetes === 1
+      && inv.versements.lignes[0].etat === "valide" && inv.versements.lignes[1].etat === "rejete" && inv.versements.lignes[1].montant === 5000);
+    const f = RI.fondsAVerser(dbI, BQ, RI.totalVente);
+    const c = inv.caisse.periode;
+    test("★★ la CAISSE : le tiroir maintenant = le carré « Fonds à verser » ; le tiroir pendant la période s'additionne (veille + entrées − rendu − dépenses − versements = le soir du dernier jour, celui de deuxPoches)",
+      inv.caisse.tiroir === f.montant && c.debut === 0
+      && c.debut + c.entrees - c.renduEnveloppe - c.depenses - c.versements === c.fin && c.fin === p.recette && c.jusquau === J2
+      && inv.caisse.mobiles.length === 1 && inv.caisse.mobiles[0].solde === 8000,
+      JSON.stringify(c));
+    test("★★ les DETTES : créées dans la période (30 000), règlements reçus (5 000), reste total toutes périodes (25 000 + 40 000 + 20 000 = 85 000), en retard de plus de 30 jours (KOFFI, 40 000), celle du devis dite « caisse CHANTIER »",
+      inv.dettes.creees.nb === 1 && inv.dettes.creees.montant === 30000 && inv.dettes.reglees.montant === 5000
+      && inv.dettes.reste.montant === 85000 && inv.dettes.reste.nb === 3
+      && inv.dettes.retard.nb === 1 && inv.dettes.retard.lignes[0].client === "KOFFI" && inv.dettes.retard.montant === 40000
+      && inv.dettes.chantier.nb === 1 && inv.dettes.chantier.montant === 20000);
+    test("★★ le COMPTAGE (« C a » : LU dans les clôtures) : le 05/10 compté 12 500 pour 13 000 attendus → écart − 500 ; le 06/10 non clôturé et DIT ; total des écarts − 500",
+      inv.comptage.lignes.length === 2 && inv.comptage.lignes[0].compte === 12500 && inv.comptage.lignes[0].attendu === 13000 && inv.comptage.lignes[0].ecart === -500
+      && inv.comptage.lignes[1].statut === "non_cloture" && inv.comptage.nonClotures.join() === J2 && inv.comptage.totalEcarts === -500 && inv.comptage.nbClotures === 1,
+      JSON.stringify(inv.comptage.lignes));
+    test("★ « toute période » : la vente du 08/10 entre, le tiroir de la veille part de 0",
+      (() => { const t = RI.inventaireVentes(dbI, BQ, RI.totalVente, null, AUJ); return t.ventes.total === 209999 && t.caisse.periode.debut === 0 && t.caisse.periode.fin === f.montant; })());
+    test("★ l'export (CSV) reprend chaque bloc, dans l'ordre de l'écran",
+      (() => { const L = RI.lignesCsvInventaire(inv); const rub = [...new Set(L.map((x) => x[0]))]; return rub.join("|") === "Ventes|Recettes|Dépenses|Autres sorties (pas des charges)|Versements|Caisse actuelle|Tiroir pendant la période|Dettes|Comptage" && L.every((x) => x.length === 4); })());
+    test("★★ « A a » : le gérant et l'administrateur seulement (jamais le vendeur, ni le responsable commercial)",
+      RI.peutVoirInventaire({ role: "gerant" }) && RI.peutVoirInventaire({ role: "admin" }) && !RI.peutVoirInventaire({ role: "vendeur" }) && !RI.peutVoirInventaire({ role: "resp_commercial" }));
+    const srcI = readFileSync("src/screens/InventaireVentes.jsx", "utf8");
+    const srcV = readFileSync("src/screens/Ventes.jsx", "utf8");
+    test("★★ « B a » : l'inventaire ouvre sur « Aujourd'hui » (la période d'ouverture du filtre commun), sans rien calculer lui-même",
+      /const periode = useFiltrePeriode\(\{ initial: 0 \}\);/.test(srcI) && /const inv = inventaireVentes\(db, boutique, totalVente, periode\.bornes, auj\);/.test(srcI)
+      && !/deuxPoches|fondsAVerser|ventesParMoyen|activiteDuJour/.test(srcI.replace(/\/\/.*$/gm, "")));
+    test("★★ dans 💰 Ventes, deux boutons « 🛒 Vendre » / « 📋 Inventaire », gardés par peutVoirInventaire, l'inventaire à la place du reste",
+      /\{peutVoirInventaire\(profile\) && \(/.test(srcV) && /data-onglet-inventaire>📋 Inventaire<\/button>/.test(srcV) && /data-onglet-vendre>🛒 Vendre<\/button>/.test(srcV)
+      && /\{ongletVentes === "inventaire" && peutVoirInventaire\(profile\) \? <InventaireVentes db=\{db\} boutique=\{boutique\} \/> : \(<>/.test(srcV));
+    // L'écran RENDU, sur des lignes du jour (la période d'ouverture est « Aujourd'hui »).
+    const auj = new Date().toISOString().slice(0, 10);
+    const dbJ = { ...dbI, ventes: dbI.ventes.map((v) => ({ ...v, date: auj })), dettes: [], depenses: [], clotures: [] };
+    const sansErr = (f) => { const e0 = console.error; console.error = () => {}; try { return String(f() || "").replace(/[\u00a0\u202f]/g, " "); } catch (e) { return "ERREUR " + (e?.message || e); } finally { console.error = e0; } };
+    const h = sansErr(() => RI.rendreInventaire(dbJ, BQ));
+    test("★★ l'écran RENDU : les sept blocs, la période « Aujourd'hui », le total vendu du jour (209 999 F), le tiroir maintenant, le jour d'aujourd'hui « pas encore clôturé »",
+      ["data-inv-ventes", "data-inv-recettes", "data-inv-depenses", "data-inv-versements", "data-inv-caisse", "data-inv-dettes", "data-inv-comptage"].every((k) => h.includes(k))
+      && /data-inventaire-periode="true">Aujourd&#x27;hui</.test(h) && /data-inv-total-vendu="true">209 999 F</.test(h) && /pas encore clôturé/.test(h), h.slice(0, 300));
+    const hAdmin = sansErr(() => RI.rendreVentes(dbJ, { id: "a", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: BQ }));
+    const hVend = sansErr(() => RI.rendreVentes(dbJ, { id: "v", nom: "AFI", role: "vendeur", actif: true, boutique: BQ }));
+    test("★ 💰 Ventes RENDU : les deux boutons chez l'administrateur (🛒 Vendre ouvert d'office), aucun chez le vendeur",
+      /data-onglet-inventaire/.test(hAdmin) && /data-onglet-vendre/.test(hAdmin) && /Nouvelle vente/.test(hAdmin)
+      && !/data-onglet-inventaire/.test(hVend) && /Nouvelle vente/.test(hVend) && !/^ERREUR/.test(hVend));
+    const textesI = (doc) => { const t = []; for (let q = 1; q <= doc.internal.getNumberOfPages(); q++) for (const l of doc.internal.pages[q].join("\n").split("\n")) { const m = l.match(/\((.*?)\)\s*Tj/); if (m) t.push(m[1]); } return t.join(" | "); };
+    const docI = RI.genererInventaire(inv, { boutique: BQ, periode: "Du 05/10/2026 au 06/10/2026", edite: "10/10/2026" }, true);
+    const tI = docI ? textesI(docI) : "";
+    test("★★ « D a » : le PDF se fabrique — titre INVENTAIRE + boutique, la période, les sept blocs, les totaux (110 000 vendu, 35 000 recettes), le jour non clôturé, aucune lettre espacée",
+      !!docI && /INVENTAIRE - BMI TEST/.test(tI) && /riode : Du 05\/10\/2026 au 06\/10\/2026/.test(tI)
+      && ["1. LES VENTES", "2. LES RECETTES", "3. LES D", "4. LES VERSEMENTS", "5. LA CAISSE", "6. LES DETTES", "7. LE COMPTAGE"].every((k) => tI.includes(k))
+      && /110 000/.test(tI) && /35 000/.test(tI) && /NON CL/.test(tI) && !/V e r s/.test(tI), tI.slice(0, 300));
+  }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
