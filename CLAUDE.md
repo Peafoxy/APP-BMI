@@ -1943,7 +1943,9 @@ lit mal est pire qu'un banc absent).
   pour un chantier se justifie (💼), jamais ressaisi en dépense.
 - ⚠ Le comptable (lecture seule) et le resp. commercial (pas d'onglet
   📤 Dépenses) sont dans la liste mais n'ont aujourd'hui AUCUN écran pour
-  saisir une dépense : rien d'ouvert, à sa demande seulement.
+  saisir une dépense. **« Laisse le responsable commercial comme ça »
+  (10/10/2026)** : on ne lui ouvre pas 📤 Dépenses pour payer ses
+  commerciaux. Ne pas le reproposer.
 - Banc (3 contrôles), éprouvé (refus du geste retiré, case affichée). Trois
   contrôles RETOURNÉS (la saisie « caisse » se joue avec un gérant ; la liste
   porte `seulementPoche`). Rien à coller. Chapitres 17 et 19 à jour.
