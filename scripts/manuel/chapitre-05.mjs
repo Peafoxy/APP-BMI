@@ -150,7 +150,6 @@ export const CHAPITRE = {
         ["↩", "**Reprise d'articles par BMI** : la fenêtre montre **toutes les lignes de la vente**, une case de quantité devant chacune (0 = gardé) — on reprend **plusieurs articles d'un coup**, avec **un seul motif** et un seul moyen de remboursement. Les articles reviennent au stock, l'argent est rendu en **une** sortie de caisse « Remboursement client » (ou la dette diminue) ; le reçu ne change pas, le chiffre d'affaires et la commission sont réduits. **Un seul bon de reprise** liste tous les articles ; il porte aussi la **vente d'origine** (chaque article, sa quantité, son prix), le prix unitaire de ce qui est repris, le vendeur, et la **nouvelle situation** : montant d'origine − reprises (celles d'avant comprises) = nouveau montant de la vente, déjà payé, reste à payer. Motif obligatoire.", "Administrateur principal"],
         ["🗑", "Supprime la vente — refusé si un chantier, une commission payée ou un versement en dépend.", "Administrateur"],
       ]}],
-    ]},
 
       ["h3", "H. 📋 L'inventaire de la boutique (gérant, administrateur)"],
       ["p", "En haut de 💰 Ventes, deux boutons : **« 🛒 Vendre »** (l'écran de vente, ouvert d'office) et **« 📋 Inventaire »**. L'inventaire porte sur la boutique regardée et sur une période choisie dans la liste habituelle — **« Aujourd'hui » à l'ouverture**, puis Cette semaine, Ce mois, Cette année, ✏️ Personnaliser… ou Toute période. C'est une **lecture** : rien n'est écrit, et chaque chiffre est celui de 🔒 Caisse, de la clôture du jour, de 📤 Dépenses et de 🧾 Dettes."],
