@@ -31,6 +31,7 @@ import { estCompteFormation, boutiqueEstFormation, personnesDeLEspace, idsDeLaBo
 import { fabriquerEnvoi, CAISSE_COMPTABLE } from "./rappels";
 import { TYPE_TRANSFERT_STOCK, STATUT_ATTENTE, STATUT_VALIDE, STATUT_REFUSE, libelleLignes } from "./transfertsStock";
 import { fiche as ficheArgent, soldeDuRetour, caissesDuRetour, nomDossier } from "./argentChantier";
+import { achatsReglesParUnVersement, nomChantier as nomChantierAchat } from "./achatsChantier";
 
 const parId = (liste) => new Map((liste || []).map((x) => [x.id, x]));
 const nomsLignes = (lignes) => (lignes || []).map((l) => `${l.qte}× ${l.nom}`).join(", ");
@@ -321,6 +322,31 @@ export function infosDepuisDiff(avant, apres) {
           titre: `🔁 Clôture dépassée — ${boutique}`,
           texte: `La caisse a bougé après la clôture du ${dFR(x.date)} (${x.bouge > 0 ? "+" : ""}${fmt(x.bouge)}) : elle est à refaire dans 🔒 Caisse.`,
           ecran: "caisse", tag: `depassee:${boutique}:${x.date}`, formation: !!b.formation,
+        });
+      });
+    });
+  }
+
+  // 9. 🏗 Un versement du client règle un ACHAT POUR SON CHANTIER resté en
+  //    attente (Timo, 11/10/2026, « F tout seul ») : le règlement se fait par
+  //    le calcul, le gérant de la boutique qui a remis le matériel en est
+  //    seulement INFORMÉ (pour information, rien dans 💬 Messages).
+  if (apres.dettes !== avant.dettes) {
+    const deja = parId(avant.dettes);
+    (apres.dettes || []).forEach((d) => {
+      const d0 = deja.get(d.id);
+      if (!d.vente_id || !d0 || !(Number(d.paye || 0) > Number(d0.paye || 0))) return;
+      const c = (apres.clients_installes || []).find((x) => x.vente_id === d.vente_id && x.stock_au_chantier);
+      if (!c) return;
+      achatsReglesParUnVersement(c, Number(d0.paye || 0), Number(d.paye || 0)).forEach(({ achat, enAttente }) => {
+        const formation = boutiqueEstFormation(apres, achat.boutique);
+        pousser({
+          destinataires: idsDeLaBoutique(apres, achat.boutique, ["gerant"]),
+          titre: `🏗 Achat du chantier ${nomChantierAchat(c)} : ${enAttente > 0 ? "réglé en partie" : "réglé"}`,
+          texte: enAttente > 0
+            ? `Le client vient de verser : l'achat ${achat.numero} qui attendait l'argent du chantier est réglé en partie — reste en attente : ${fmt(enAttente)}.`
+            : `Le client vient de verser : l'achat ${achat.numero} qui attendait l'argent du chantier est maintenant réglé.`,
+          ecran: "ventes", tag: `achat_chantier:${achat.id}:${enAttente}`, formation,
         });
       });
     });

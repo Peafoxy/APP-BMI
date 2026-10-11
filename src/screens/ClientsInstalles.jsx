@@ -26,6 +26,7 @@ import { ficheParId } from "../lib/banques";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
 import { encaisserDettePose } from "../components/encaissementPose";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
+import { achatsActifs, argentDuChantier, venteDuChantier, detteDuChantier } from "../lib/achatsChantier";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
 // déduites des frais d'installation AVANT le partage entre techniciens.
 import { totalDepensesChantier, depensesDuChantier, depenseCompteAuChantier, fraisAPartager } from "../lib/depensesChantier";
@@ -376,6 +377,13 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         `(${fmt(primesPayees.reduce((s, e) => s + Number(e.montant || 0), 0))} au total).\n\n` +
         `Supprimer la fiche laisserait ces sorties d'argent en caisse sans plus rien à quoi les rattacher.\n\n` +
         `➡ Si ce chantier est une erreur, annulez d'abord les paiements depuis 📤 Dépenses, puis revenez ici.`);
+      return;
+    }
+    // 🏗 Du matériel est parti pour ce chantier (11/10/2026) : la fiche porte
+    // ses achats et le stock qu'ils ont sorti. On les annule d'abord.
+    const achatsEnCours = achatsActifs(c);
+    if (achatsEnCours.length) {
+      uAlert(`Suppression impossible : ${achatsEnCours.length} achat(s) de matériel ont été faits pour ce chantier (${achatsEnCours.map((a) => a.numero).join(", ")}).\n\nSupprimer la fiche laisserait ce matériel sorti du stock sans chantier. Faites-les d'abord annuler par l'administrateur (💰 Ventes → 🏗 Achats chantier → ↩ Annuler) : le matériel reviendra en stock.`);
       return;
     }
     // Un chantier réceptionné (a fortiori avec un PV signé) est une pièce du
@@ -1513,6 +1521,15 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                         🧾 Dépenses rattachées : {fmt(totalDepensesChantier(db, c.id))}
                       </span>
                     )}
+                    {/* 🏗 Le matériel parti pour ce chantier (11/10/2026) : ses achats (💰 Ventes, case « 🏗 Chantier »). */}
+                    {c.stock_au_chantier && (() => {
+                      const ar = argentDuChantier({ chantier: c, vente: venteDuChantier(c, db.ventes), dette: detteDuChantier(c, db.dettes) });
+                      return (
+                        <span className="text-xs font-semibold text-orange-800 mr-2" data-materiel-chantier title="Le matériel remis aux techniciens pour ce chantier, payé par l'argent du chantier">
+                          🏗 Matériel acheté : {fmt(ar.achete)}{ar.enAttente > 0 ? ` (⏳ ${fmt(ar.enAttente)} en attente)` : ""}{ar.depasseMateriel ? " ⚠ dépasse la part matériel du devis" : ""}
+                        </span>
+                      );
+                    })()}
                     {!c.travaux && <button onClick={() => modifierEntretien(c)} className="text-xs font-bold text-sky-800 underline mr-2">Entretien</button>}
                     {isAdmin && !c.travaux && c.date_entretien && <button onClick={() => entretienFait(c)} className="text-xs font-bold text-emerald-700 underline mr-2" data-entretien-fait>✅ Entretien fait</button>}
                     {isAdmin && !c.user_id && <button onClick={() => lierCompte(c)} className="text-xs font-bold text-sky-800 underline mr-2">Lier un compte</button>}

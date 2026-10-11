@@ -242,7 +242,7 @@ export function conversationIAEnCours(fil) {
 // lisible par le serveur ; le banc COMPARE les deux sur le même jeu d'essai.
 export function stockDepuisLignes(p, ventes = [], ajustements = []) {
   const lignes = (v) => (v.articles && v.articles.length ? v.articles : [{ produit_id: v.produit_id, qte: v.qte }]);
-  const vendu = (ventes || []).reduce((s, v) => s + lignes(v).filter((l) => l.produit_id === p.id && !l.deja_sorti).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
+  const vendu = (ventes || []).reduce((s, v) => s + lignes(v).filter((l) => l.produit_id === p.id && !l.deja_sorti && !l.au_chantier).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
   const ajuste = (ajustements || []).filter((a) => a.produit_id === p.id).reduce((s, a) => s + Number(a.qte || 0), 0);
   return Number(p.initial || 0) + Number(p.entrees || 0) - vendu + ajuste;
 }

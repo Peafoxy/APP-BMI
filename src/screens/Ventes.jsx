@@ -12,6 +12,7 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS, caisseDeVente } from "../lib/constants";
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
+import { prochainNumeroAchatChantier } from "../lib/core";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
@@ -19,14 +20,14 @@ import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, a
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation, chantiersDeLEspaceRegarde } from "../lib/calculs";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { bandesDeVersement, intercalerBandes, resumeBande } from "../lib/bandesVersement";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -39,6 +40,10 @@ import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValid
 import { lierFacture, champsTravauxDocument } from "../lib/travaux";
 import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
 import { InventaireVentes } from "./InventaireVentes";
+// 🏗 Étape 2 de la caisse CHANTIER (11/10/2026) : le matériel qui part au chantier.
+import { stockAuChantier, peutAcheterPourChantier, chantiersPourAchat, critiqueAchatChantier, construireAchatChantier, argentDuChantier, avertissementMateriel, venteDuChantier, detteDuChantier, nomChantier, totalAchat, critiqueAnnulationAchat, annulerAchatChantier, achatsDe } from "../lib/achatsChantier";
+import { CaseAchatChantier, TableAchatsChantier } from "../components/AchatsChantier";
+import { imprimerAchatChantier } from "../lib/impression";
 
 // ============ VENTES ============
 // Convertit les articles d'une vente (déjà nets de leur remise de ligne — voir
@@ -125,6 +130,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // 🧾 Le reçu WhatsApp automatique : ce qui s'est passé au dernier
   // encaissement, dit discrètement sous le titre (jamais une fenêtre).
   const [noteRecuWa, setNoteRecuWa] = useState("");
+  // 🏗 La case « Chantier » (11/10/2026, « A a ») : le panier part pour un
+  // chantier, payé par l'argent du chantier (lib/achatsChantier.js).
+  const [pourChantier, setPourChantier] = useState(false);
+  const [chantierAchatId, setChantierAchatId] = useState("");
   // Une seule vente dépliée à la fois. Timo (12/09/2026) : « un seul clic pour
   // sélectionner une autre » — cliquer une autre ligne la déplie directement
   // (et replie la précédente) ; seul un clic sur la ligne ouverte la referme.
@@ -313,6 +322,18 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // articles, PLUS les frais d'installation et de transport du devis d'origine
   // (qui, eux, n'entrent jamais dans le chiffre d'affaires — voir plus haut).
   const totalAEncaisser = total + fraisInstallDevis + fraisTransportDevis;
+
+  // 🏗 L'ACHAT POUR UN CHANTIER (Timo, 11/10/2026 — étape 2 de la caisse
+  // CHANTIER) : le gérant et l'administrateur ; jamais sur un devis encaissé,
+  // des travaux ou une proforma en modification. Les chantiers proposés (G) :
+  // ceux de l'espace REGARDÉ, nés d'un devis « 🔧 Avec installation », pas
+  // encore réceptionnés. Prix de la boutique, remises comme au comptoir (B b).
+  const voitCaseChantier = peutAcheterPourChantier(profile) && !origineDevis && !origineTravaux && !proformaEnModif;
+  const chantiersEspace = chantiersDeLEspaceRegarde(db, profile);
+  const chantiersAchat = chantiersPourAchat(chantiersEspace);
+  const enAchatChantier = voitCaseChantier && pourChantier;
+  const chantierAchat = enAchatChantier ? chantiersAchat.find((c) => c.id === chantierAchatId) || null : null;
+  const totalPanierAchat = Math.max(0, brut - remise);
 
   // Commission de l'apporteur externe : soit un pourcentage du total, soit un montant fixe.
   const commissionExt = (montantVente) => {
@@ -602,8 +623,80 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     recuWhatsApp(v, bq);
   };
 
+  // ---- 🏗 ENREGISTRER L'ACHAT POUR LE CHANTIER ----
+  // Aucune question « vente sans numéro », aucun WhatsApp, aucun tiroir (4, 2) :
+  // le stock sort (ajustements), l'achat se range sur la fiche du chantier,
+  // et « la facture d'achat pour le chantier » s'imprime. Revérifié DANS le
+  // geste, sur la fiche FRAÎCHE du chantier.
+  const enregistrerAchatChantier = async () => {
+    const c = chantiersPourAchat(chantiersDeLEspaceRegarde(db, profile)).find((x) => x.id === chantierAchatId) || null;
+    const refus = critiqueAchatChantier({ profile, chantier: c, panier });
+    if (refus) { setMsg(refus); uAlert(refus); return; }
+    if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}`); return; } }
+    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
+    const gratuits = panier.filter((l) => !(Number(l.pu) > 0));
+    if (gratuits.length && !await uConfirm(`⚠ ${gratuits.length} article(s) sont à 0 F :\n${gratuits.map((l) => `• ${l.article}`).join("\n")}\n\nIls sortiront quand même du stock. Continuer ?`)) return;
+    // Le matériel doit être LÀ : un achat pour un chantier ne se réserve pas.
+    const qteParArticle = new Map();
+    panier.forEach((l) => qteParArticle.set(l.produit_id, (qteParArticle.get(l.produit_id) || 0) + Number(l.qte || 0)));
+    const manque = [...qteParArticle.entries()].map(([pid, q]) => ({ p: produits.find((x) => x.id === pid), q })).filter(({ p, q }) => p && q > stockActuel(db, p));
+    if (manque.length) {
+      const t = `Stock insuffisant pour : ${manque.map(({ p }) => `${p.nom} (${stockActuel(db, p)} disponible)`).join(", ")}. Faites d'abord venir le matériel (ravitaillement ou transfert).`;
+      setMsg(t); uAlert(t); return;
+    }
+    const argent = argentDuChantier({ chantier: c, vente: venteDuChantier(c, db.ventes), dette: detteDuChantier(c, db.dettes) });
+    const apres = argent.achete + totalPanierAchat;
+    const enAttente = Math.max(0, apres - argent.paye);
+    const alerte = avertissementMateriel(argent, totalPanierAchat);
+    if (!await uConfirm(
+      `Enregistrer l'achat pour le chantier de ${nomChantier(c)} ?\n\n`
+      + `Articles : ${fmt(totalPanierAchat)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""}\n`
+      + `🏗 Payé par le chantier : rien n'entre dans le tiroir, rien ne compte dans le chiffre d'affaires. Le matériel sort du stock.\n\n`
+      + `Le client a payé ${fmt(argent.paye)} pour son devis ; déjà acheté : ${fmt(argent.achete)}.`
+      + (enAttente > 0 ? `\n⏳ ${fmt(enAttente)} resteront en attente du chantier : son prochain versement les réglera d'abord.` : "")
+      + (alerte ? `\n\n${alerte}` : "")
+    )) return;
+    const numero = prochainNumeroAchatChantier(db, boutique);
+    const r = construireAchatChantier({ chantier: c, panier, remise, remisePct, boutique, profile, numero, produits: db.produits });
+    const next = {
+      ...db,
+      ajustements: [...(db.ajustements || []), ...r.ajustements],
+      clients_installes: (db.clients_installes || []).map((x) => (x.id === c.id ? r.fiche : x)),
+    };
+    save(next, r.journal);
+    const argentApres = argentDuChantier({ chantier: r.fiche, vente: venteDuChantier(r.fiche, db.ventes), dette: detteDuChantier(r.fiche, db.dettes) });
+    try { imprimerAchatChantier(r.achat, r.fiche, infoBq(boutique), argentApres); } catch {}
+    setPanier([]);
+    setF({ ...f, remise: "" });
+    setPourChantier(false);
+    setChantierAchatId("");
+    setMsg(`✅ Achat ${numero} enregistré pour le chantier de ${nomChantier(c)} (${fmt(totalAchat(r.achat))}).`);
+  };
+  const imprimerUnAchat = (a, c) => {
+    const argent = argentDuChantier({ chantier: c, vente: venteDuChantier(c, db.ventes), dette: detteDuChantier(c, db.dettes) });
+    try { imprimerAchatChantier(a, c, infoBq(a.boutique), argent); } catch {}
+  };
+  // ↩ Annuler un achat saisi par erreur : l'administrateur, motif obligatoire ;
+  // le stock revient, l'achat garde sa trace (marqué annulé).
+  const annulerUnAchat = async (a, c0) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const c = (db.clients_installes || []).find((x) => x.id === c0.id);
+    const achat = achatsDe(c).find((x) => x.id === a.id);
+    const refus0 = critiqueAnnulationAchat({ profile, chantier: c, achat, motif: "-" });
+    if (refus0) { uAlert(refus0); return; }
+    const motif = await uPrompt(`Annuler l'achat ${achat.numero} (${fmt(totalAchat(achat))}) pour le chantier de ${nomChantier(c)} ?\n\nLe matériel revient en stock. Motif (obligatoire) :`, "");
+    if (motif === null) return;
+    const refus = critiqueAnnulationAchat({ profile, chantier: c, achat, motif });
+    if (refus) { uAlert(refus); return; }
+    const r = annulerAchatChantier({ chantier: c, achatId: achat.id, motif, profile });
+    save({ ...db, ajustements: [...(db.ajustements || []), ...r.ajustements], clients_installes: (db.clients_installes || []).map((x) => (x.id === c.id ? r.fiche : x)) }, r.journal);
+  };
+
   const encaisserVente = async () => {
     if (bloquerSiLecture(db, profile)) return;
+    // 🏗 Un achat pour un chantier n'est pas une vente : ni clôture, ni tiroir.
+    if (enAchatChantier) { await enregistrerAchatChantier(); return; }
     if (blocageCloture) { uAlert(blocageCloture); return; }
     if (panier.length === 0) { setMsg("Le panier est vide : ajoutez au moins un article."); return; }
     // ⚠ DEUXIÈME BARRIÈRE (audit du 29/08/2026). L'importation refuse
@@ -672,6 +765,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       }
     }
     const nonLivreCredit = f.paiement === "Crédit (dette)" && f.statutArticle === "non_livre" && !origineDevis;
+    // 🏗 Un devis coché « 🔧 Avec installation » (11/10/2026, étape 2 de la
+    // caisse CHANTIER) : le matériel ne sort PAS du stock au paiement — il
+    // sortira par un ACHAT POUR LE CHANTIER (case « 🏗 Chantier »), quand les
+    // techniciens viendront le chercher. Les devis d'avant, et un devis de
+    // matériel seul, sortent le stock comme aujourd'hui (lib/achatsChantier.js).
+    const auChantier = !!origineDevis && stockAuChantier(devisOrigine);
     // ⚠ Trouvaille Timo (vraie insuffisance) : un client qui règle COMPTANT
     // un article en rupture (devis déjà signé) n'avait AUCUNE porte de
     // sortie — le stock insuffisant bloquait tout net, sans lien avec le
@@ -682,7 +781,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     let manquants = [];
     if (!nonLivreCredit) {
       manquants = panier.filter((l) => {
-        if (l.deja_sorti) return false; // 🛠 travaux : déjà sorti du stock à la sortie
+        if (l.deja_sorti || auChantier) return false; // 🛠 travaux : déjà sorti du stock ; 🏗 devis avec installation : sortira par l'achat du chantier
         const p = produits.find((x) => x.id === l.produit_id);
         return p && Number(l.qte) > stockActuel(db, p);
       });
@@ -708,7 +807,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // et on recalcule, ça doit désormais passer normalement.
       setTransfertEnAttente(null);
       manquants = panier.filter((l) => {
-        if (l.deja_sorti) return false; // 🛠 travaux : déjà sorti du stock à la sortie
+        if (l.deja_sorti || auChantier) return false; // 🛠 travaux : déjà sorti du stock ; 🏗 devis avec installation : sortira par l'achat du chantier
         const p = produits.find((x) => x.id === l.produit_id);
         return p && Number(l.qte) > stockActuel(db, p);
       });
@@ -847,7 +946,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const messageConfirm = (fraisInstallDevis > 0 || fraisTransportDevis > 0)
       ? `Confirmer la vente de ${panier.length} article(s) ?\n\nArticles : ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""}\n${fraisInstallDevis > 0 ? `Frais d'installation : ${fmt(fraisInstallDevis)}\n` : ""}${fraisTransportDevis > 0 ? `Transport : ${fmt(fraisTransportDevis)}\n` : ""}\nMONTANT TOTAL À ENCAISSER : ${fmt(totalAEncaisser)}`
       : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""} ?`;
-    if (!await uConfirm(messageConfirm)) return;
+    if (!await uConfirm(auChantier ? `${messageConfirm}\n\n🏗 Devis avec installation : le matériel ne sort PAS du stock maintenant. Il sortira quand les techniciens viendront le chercher (case « 🏗 Chantier » d'une nouvelle vente).` : messageConfirm)) return;
 
     // 2.99.44 (Lot C) : numérotation robuste partagée — (max attribué) + 1,
     // au lieu de « nombre de ventes + 1 » qui doublonnait après une
@@ -868,7 +967,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       date: today(),
       heure: heureCourte(),
       boutique,
-      articles: panier,
+      // 🏗 Les lignes du stock d'un devis avec installation attendent le chantier.
+      articles: auChantier ? panier.map((l) => (l.produit_id && !l.hors_boutique ? { ...l, au_chantier: true } : l)) : panier,
       client: f.client || "Client non renseigné",
       tel: f.tel,
       ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }),
@@ -935,6 +1035,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         frais_installation: Number(devisPaye?.frais_installation || 0),
         statut: "en_cours",
         a_programmer: true,                    // signale qu'il attend une date et une équipe
+        // 🏗 Le matériel de ce chantier sortira par ses achats (case « 🏗 Chantier »).
+        ...(auChantier ? { stock_au_chantier: true } : {}),
       };
 
       // La vente est reliée au chantier : la commission ne sera due qu'à la
@@ -1058,7 +1160,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     envoyerRecuAutomatique(vente, next);
     if (od) {
       setOrigineDevis(null); // consommé : une seule fiche d'installation par devis
-      uAlert("✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.");
+      uAlert(`✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.${auChantier ? "\n\n🏗 Le matériel est resté en stock : il sortira par la case « 🏗 Chantier » d'une vente, quand les techniciens viendront le chercher." : ""}`);
     }
     setPanier([]);
     setOrigineProforma(null);   // consommée : la proforma a donné sa vente
@@ -1333,6 +1435,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // puissent pas diverger.
   const bornesPeriode = periode.bornes;
   const voitProformas = ["vendeur", "gerant", "resp_commercial", "admin"].includes(profile.role);
+  // 🏗 Les achats pour les chantiers de CETTE boutique (gérant, administrateur).
+  const nbAchatsBoutique = chantiersEspace.reduce((s, c) => s + achatsDe(c).filter((a) => a.boutique === boutique).length, 0);
+  const voitAchatsChantier = peutAcheterPourChantier(profile) && nbAchatsBoutique > 0;
   // ⚠ RELEVÉ LE 05/09/2026 (question de Timo : « les ventes et les proformas
   // sont-ils cloisonnés ? ») : cette liste lisait db.proformas BRUT. Le
   // serveur ne livre à un compte cloisonné que son espace — mais
@@ -1391,7 +1496,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         : ongletVentes === "inventaire" && peutVoirInventaire(profile) ? <InventaireVentes db={db} boutique={boutique} /> : (<>
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Nouvelle vente <Badge boutique={boutique} /></div>
-        {blocageCloture && <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">{blocageCloture}</div>}
+        {/* 🏗 Un achat pour un chantier n'est pas une vente : la clôture ne le bloque pas. */}
+        {blocageCloture && !enAchatChantier && <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">{blocageCloture}</div>}
         {noteRecuWa && <div data-recu-whatsapp className="mb-3 text-xs text-slate-600">{noteRecuWa}</div>}
         {produits.length === 0 ? (
           <div className="text-sm text-slate-600">Aucun article en stock. L'administrateur doit d'abord enregistrer les articles dans Stocks.</div>
@@ -1448,6 +1554,21 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               </table>
             </div>
 
+            {voitCaseChantier && (
+              <CaseAchatChantier actif={pourChantier} onActif={(v) => { setPourChantier(v); if (!v) setChantierAchatId(""); setMsg(""); }}
+                chantiers={chantiersAchat} chantierId={chantierAchatId} onChantier={setChantierAchatId} chantier={chantierAchat}
+                ventes={db.ventes} dettes={db.dettes} totalPanier={totalPanierAchat} />
+            )}
+            {enAchatChantier && (
+              <div className="mt-3 max-w-xs">
+                <Field label="Remise (%)">
+                  <input type="number" min="0" max="100" step="0.5" placeholder="0" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} disabled={aRemiseSurArticle(panier)} />
+                  {aRemiseSurArticle(panier) && <div className="text-xs text-orange-600 mt-1 font-semibold">Remise déjà accordée sur un article : pas de remise générale.</div>}
+                </Field>
+              </div>
+            )}
+
+            {!enAchatChantier && (
             <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <Field label={origineDevis ? "Payeur (si différent du client)" : "Client"}>
                 {/* Timo (15/09/2026) : un client déjà connu de la boutique se
@@ -1561,6 +1682,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 )}
               </div>
             </div>
+            )}
 
             {(fraisInstallDevis > 0 || fraisTransportDevis > 0) && (
               <div className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
@@ -1589,12 +1711,16 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   <button onClick={enregistrerModifProforma} className="px-6 py-2.5 rounded-lg bg-amber-600 text-white font-bold text-sm hover:bg-amber-700 shadow-sm">💾 Enregistrer la proforma modifiée</button>
                   <button onClick={() => { setProformaEnModif(null); setMsg("Modification abandonnée : la proforma n'a pas changé."); }} className="text-xs font-bold text-slate-600 underline">Annuler la modification</button>
                 </>
+              ) : enAchatChantier ? (
+              <button onClick={encaisserVente} className="px-6 py-2.5 rounded-lg bg-orange-600 text-white font-bold text-sm hover:bg-orange-700 shadow-sm" data-bouton-achat-chantier>🏗 Enregistrer l'achat pour le chantier</button>
               ) : (
               <button onClick={encaisserVente} className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800 shadow-sm">💳 Encaisser la vente</button>
               )}
+              {!enAchatChantier && <>
               <button onClick={proformaWhatsApp} title="Envoyer une offre de prix au client (non comptabilisée)" className="px-4 py-2.5 rounded-lg bg-white border-2 border-sky-400 text-sky-700 font-bold text-sm hover:bg-sky-50">🧾 Proforma WhatsApp</button>
               <button onClick={proformaPDF} title="Imprimer une offre de prix (non comptabilisée)" className="px-3 py-2.5 rounded-lg bg-white border-2 border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50">🖨️</button>
-              <span className="text-base font-bold tabular-nums">Total{fraisInstallDevis > 0 || fraisTransportDevis > 0 ? " articles" : ""} : {fmt(total)}{remise > 0 && <span className="text-red-600 text-sm font-semibold"> (remise −{fmt(remise)})</span>}</span>
+              </>}
+              <span className="text-base font-bold tabular-nums">Total{fraisInstallDevis > 0 || fraisTransportDevis > 0 ? " articles" : ""} : {fmt(enAchatChantier ? totalPanierAchat : total)}{remise > 0 && <span className="text-red-600 text-sm font-semibold"> (remise −{fmt(remise)})</span>}</span>
               {msg && <span className="text-sm text-red-600 font-semibold">{msg}</span>}
             </div>
           </>
@@ -1607,10 +1733,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           <div className="flex gap-2">
             <button onClick={() => setVueListe("ventes")} className={btnVue(vueListe === "ventes")}>💰 Ventes ({liste.length})</button>
             {voitProformas && <button onClick={() => setVueListe("proformas")} className={btnVue(vueListe === "proformas")}>🧾 Proformas ({proformasListe.length})</button>}
+            {voitAchatsChantier && <button onClick={() => setVueListe("achats")} className={btnVue(vueListe === "achats")} data-onglet-achats-chantier>🏗 Achats chantier ({nbAchatsBoutique})</button>}
           </div>
           {vueListe === "ventes"
             ? <span className="text-sm font-semibold text-slate-500">{boutique} — Aujourd'hui : {fmt(totalJour)}</span>
-            : <span className="text-xs font-semibold text-slate-500">Offres de prix — non comptabilisées dans le chiffre d'affaires</span>}
+            : vueListe === "achats"
+              ? <span className="text-xs font-semibold text-slate-500">Matériel remis aux chantiers — payé par le chantier, hors chiffre d'affaires et hors tiroir</span>
+              : <span className="text-xs font-semibold text-slate-500">Offres de prix — non comptabilisées dans le chiffre d'affaires</span>}
         </div>
         <div className="px-4 py-2 border-b border-slate-100 bg-white flex flex-wrap items-center gap-2">
           <input value={rechercheListe} onChange={(e) => setRechercheListe(e.target.value)} placeholder="🔍 Rechercher…" className={champRecherche} />
@@ -1627,7 +1756,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               ⚠ Et s'il y a eu une reprise, on donne les DEUX chiffres : le
               brut correspond à la colonne TOTAL, le net à ce qui est resté
               dans la caisse. */}
-          {vueListe === "ventes" ? (() => {
+          {vueListe === "achats" ? null : vueListe === "ventes" ? (() => {
             const r = recetteDesVentes(listeFiltree);
             return (
               <span className="text-sm font-bold text-sky-800 self-center ml-auto">
@@ -1662,7 +1791,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           </div>
         )}
         <div className="max-h-[480px] overflow-y-auto">
-        {vueListe === "proformas" && voitProformas ? (
+        {vueListe === "achats" && voitAchatsChantier ? (
+          <TableAchatsChantier chantiers={chantiersEspace} boutique={boutique} ventes={db.ventes} dettes={db.dettes}
+            onImprimer={imprimerUnAchat} onAnnuler={annulerUnAchat} peutAnnuler={profile.role === "admin"} />
+        ) : vueListe === "proformas" && voitProformas ? (
           <table className="w-full text-sm min-w-[700px]">
             <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Date", "N°", "Client", "Articles", "Total", "Émis par", "Suite", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
             <tbody>

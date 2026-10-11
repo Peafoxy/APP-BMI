@@ -1,0 +1,137 @@
+// ============================================================
+// scripts/verifier-ecran-achat-chantier.mjs — 🏗 LA CASE « CHANTIER » DE
+// 💰 VENTES, JOUÉE DANS CHROMIUM (11/10/2026, étape 2 de la caisse CHANTIER)
+//
+//   npm run verifier-ecran-achat-chantier
+//
+// On monte le VRAI écran 💰 Ventes et sa fenêtre de questions (DialogHost),
+// et on clique comme la gérante : cocher « 🏗 Chantier », choisir le chantier,
+// enregistrer. On lit ce qui est ÉCRIT : le stock sort (ajustement), l'achat
+// se range sur le chantier, AUCUNE vente, aucune dette, aucune question
+// « vente sans numéro ». Puis les refus (stock, remise) et la vendeuse.
+// ============================================================
+import { writeFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createRequire } from "node:module";
+import { build } from "esbuild";
+
+const require = createRequire(import.meta.url);
+const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+let ok = 0, ko = 0;
+const test = (nom, cond, detail = "") => { if (cond) { ok++; console.log(`  ✓ ${nom}`); } else { ko++; console.log(`  ✗ ${nom}${detail ? `\n     ${detail}` : ""}`); } };
+const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+const propre = (t) => String(t).replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
+
+const dossier = mkdtempSync(join(tmpdir(), "bmi-achat-chantier-"));
+const entree = join(dossier, "entree.jsx");
+writeFileSync(entree, `
+import React, { useState } from "react";
+import { createRoot } from "react-dom/client";
+import { Ventes } from "${process.cwd()}/src/screens/Ventes.jsx";
+import { DialogHost } from "${process.cwd()}/src/components/ui.jsx";
+const quoi = location.hash.slice(1);
+const gerant = { id: "g1", nom: "AFI", role: "gerant", boutique: "BMI DEMAKPOE", actif: true };
+const vendeuse = { id: "v1", nom: "ANGELE", role: "vendeur", boutique: "BMI DEMAKPOE", actif: true };
+const depart = {
+  boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", prefixe: "BMID", formation: false }, { id: "t", nom: "TERRAIN", terrain: true, formation: false }],
+  users: [gerant, vendeuse],
+  produits: [{ id: "p1", nom: "Panneau 550W", boutique: "BMI DEMAKPOE", prix_achat: 60000, prix_vente: 80000, initial: 10, seuil: 1 }],
+  ventes: [{ id: "vD", numero: "BMID-2026-0050", date: "2026-10-01", boutique: "BMI DEMAKPOE", caisse: "TERRAIN", paiement: "Crédit (dette)", avance: 100000, client: "Kossi MENSAH",
+    articles: [{ produit_id: "p1", article: "Panneau 550W", qte: 4, pu: 80000, au_chantier: true }], frais_installation: 32000 }],
+  dettes: [{ id: "dD", vente_id: "vD", boutique: "TERRAIN", montant: 352000, paye: 100000, paiements: [{ id: "q1", date: "2026-10-01", montant: 100000 }] }],
+  clients_installes: [{ id: "c1", nom: "MENSAH", prenom: "Kossi", formation: false, vente_id: "vD", stock_au_chantier: true, statut: "en_cours", achats_chantier: [] },
+    { id: "c2", nom: "VIEUX", formation: false, statut: "en_cours" }],
+  depenses: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [],
+};
+window.saves = [];
+const qte = quoi === "trop" ? 20 : 3;
+// Un objet STABLE : l'écran recharge le panier à chaque NOUVEAU preRempli.
+const preRempli = { boutique: "BMI DEMAKPOE", panier: [{ produit_id: "p1", article: "Panneau 550W", qte, pu: 80000 }] };
+function Essai() {
+  const [db, setDb] = useState(depart);
+  const save = (next, journal) => { const n = typeof next === "function" ? next(db) : next; window.saves.push({ n, journal }); setDb(n); };
+  return <><Ventes db={db} save={save} profile={quoi === "vendeuse" ? vendeuse : gerant}
+    preRempli={preRempli} onPreRempliConsomme={() => {}} /><DialogHost /></>;
+}
+createRoot(document.getElementById("r")).render(<Essai />);
+`);
+const sortie = join(dossier, "bundle.js");
+await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic",
+  nodePaths: [join(process.cwd(), "node_modules")],
+  define: { "process.env.NODE_ENV": '"production"', "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' } });
+const html = join(dossier, "index.html");
+writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><script src="bundle.js"></script></body></html>`);
+const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+const ouvrir = async (quoi = "") => {
+  const page = await nav.newPage({ viewport: { width: 1200, height: 1000 } });
+  const erreurs = [];
+  page.on("pageerror", (e) => erreurs.push(String(e.message).split("\n")[0]));
+  await page.goto(`file://${html}#${quoi}`);
+  await attendre(500);
+  return { page, erreurs };
+};
+const dialogue = async (page) => propre(await page.$eval("[data-dialogue]", (e) => e.innerText).catch(() => ""));
+const bouton = async (page, texte) => { await page.locator("[data-dialogue-boutons] button", { hasText: texte }).click(); await attendre(200); };
+const saves = (page) => page.evaluate(() => window.saves.length);
+const cocherEtChoisir = async (page) => {
+  await page.click("[data-coche-chantier]"); await attendre(150);
+  await page.selectOption("[data-choix-chantier-achat]", "c1"); await attendre(150);
+};
+
+console.log("\n🏗 La case « Chantier » jouée par la gérante");
+{
+  const { page, erreurs } = await ouvrir();
+  test("l'écran se monte, la case est là (non cochée), le formulaire du client aussi", erreurs.length === 0 && !!(await page.$("[data-coche-chantier]")) && /Numéro du client/.test(await page.innerText("body")), erreurs.join(" | "));
+  const options = await page.$$eval("[data-choix-chantier-achat] option", (o) => o.map((x) => x.textContent)).catch(() => []);
+  await page.click("[data-coche-chantier]"); await attendre(150);
+  const options2 = await page.$$eval("[data-choix-chantier-achat] option", (o) => o.map((x) => x.textContent));
+  test("★ G : cochée, la liste ne propose que le chantier né d'un devis « avec installation » (MENSAH), jamais l'autre", options.length === 0 && options2.length === 2 && /Kossi MENSAH/.test(options2[1]) && !options2.some((o) => /VIEUX/.test(o)), JSON.stringify(options2));
+  await page.selectOption("[data-choix-chantier-achat]", "c1"); await attendre(150);
+  const argent = propre(await page.innerText("[data-argent-chantier]"));
+  test("★★ l'argent du chantier : payé 100 000, part matériel 320 000, cet achat 240 000 payé par le chantier, 140 000 resteront en attente",
+    /Payé par le client pour son devis : 100 000 F/.test(argent) && /part matériel du devis : 320 000 F/.test(argent) && /Cet achat : 240 000 F — 🏗 Payé par le chantier/.test(argent) && /140 000 F resteront en attente du chantier/.test(argent), argent);
+  const corps = await page.innerText("body");
+  test("★ 4 : en mode chantier, plus de client, de paiement ni de proforma ; le bouton dit ce qu'il fait",
+    !/Numéro du client/.test(corps) && !/Proforma WhatsApp/.test(corps) && !(await page.$("text=💳 Encaisser la vente")) && !!(await page.$("[data-bouton-achat-chantier]")));
+  await page.click("[data-bouton-achat-chantier]"); await attendre(200);
+  const q = await dialogue(page);
+  test("★★ UNE confirmation, qui dit « payé par le chantier » et l'attente — jamais la question « sans numéro »",
+    /Enregistrer l'achat pour le chantier de Kossi MENSAH/.test(q) && /Payé par le chantier : rien n'entre dans le tiroir/.test(q) && /140 000 F resteront en attente du chantier/.test(q) && !/pas de numéro/.test(q), q);
+  await bouton(page, "OK");
+  const s = await page.evaluate(() => window.saves.map((x) => ({ j: x.journal, aj: x.n.ajustements, v: x.n.ventes.length, d: x.n.dettes.length, c: x.n.clients_installes.find((c) => c.id === "c1") })));
+  test("★★ UNE écriture : le stock sort (−3, sortie_chantier), l'achat BMID-ACH-2026-0001 se range sur le chantier, AUCUNE vente ni dette de plus",
+    s.length === 1 && s[0].aj.length === 1 && s[0].aj[0].qte === -3 && s[0].aj[0].type === "sortie_chantier" && s[0].v === 1 && s[0].d === 1
+    && s[0].c.achats_chantier.length === 1 && s[0].c.achats_chantier[0].numero === "BMID-ACH-2026-0001" && /payé par le chantier/.test(s[0].j), JSON.stringify(s).slice(0, 300));
+  const apres = propre(await page.innerText("body"));
+  test("plus aucune fenêtre ouverte, le message dit l'achat, le panier est vidé, la case décochée", (await dialogue(page)) === "" && /Achat BMID-ACH-2026-0001 enregistré pour le chantier de Kossi MENSAH/.test(apres) && /Panier \(0 article/.test(apres) && !(await page.isChecked("[data-coche-chantier]")), apres.slice(0, 600));
+  await page.click("[data-onglet-achats-chantier]"); await attendre(150);
+  const ligne = propre(await page.innerText("[data-table-achats-chantier]"));
+  test("★ l'onglet « 🏗 Achats chantier (1) » liste l'achat : Kossi MENSAH, 240 000 F, ⏳ 140 000 F en attente", /BMID-ACH-2026-0001/.test(ligne) && /Kossi MENSAH/.test(ligne) && /240 000 F/.test(ligne) && /140 000 F en attente/.test(ligne), ligne);
+  await page.close();
+}
+
+console.log("\n🏗 Les refus");
+{
+  const { page } = await ouvrir("trop");
+  await cocherEtChoisir(page);
+  await page.click("[data-bouton-achat-chantier]"); await attendre(200);
+  test("★ stock insuffisant (20 pour 10) : refusé en le disant, rien n'est écrit (un achat pour un chantier ne se réserve pas)", /Stock insuffisant pour : Panneau 550W \(10 disponible\)/.test(await dialogue(page)) && (await saves(page)) === 0);
+  await page.close();
+}
+{
+  const { page } = await ouvrir();
+  await cocherEtChoisir(page);
+  await page.fill('[data-case-achat-chantier] ~ div input[type="number"]', "5"); await attendre(150);
+  await page.click("[data-bouton-achat-chantier]"); await attendre(200);
+  test("★ B b : une remise de 5 % par la gérante → refusée (au-delà de 3 %, l'administrateur), rien n'est écrit", /réservée à l'administrateur/.test(await dialogue(page)) && (await saves(page)) === 0, await dialogue(page));
+  await page.close();
+}
+{
+  const { page } = await ouvrir("vendeuse");
+  test("★ la vendeuse n'a pas la case « 🏗 Chantier »", !(await page.$("[data-coche-chantier]")) && /Numéro du client/.test(await page.innerText("body")));
+  await page.close();
+}
+await nav.close();
+console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
+process.exit(ko === 0 ? 0 : 1);

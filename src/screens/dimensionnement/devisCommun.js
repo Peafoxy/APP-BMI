@@ -15,6 +15,7 @@
 // ============================================================
 import { uid, today, heureCourte } from "../../lib/core";
 import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
+import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { CATEGORIE_CF_VISITE, estLigneCfVisite, lignesCfVisite, critiqueCompletion, nombreSaisi } from "../../lib/devisCfVisite";
 
 // ---- Les « autres équipements » (saisie libre) ----
@@ -116,6 +117,10 @@ export const champsReglages = (r) => ({
   montant_acompte: r.montantAcompte,
   delai_installation: String(r.delaiInstallation || "").trim(),
   nb: nettoyerNb(r.nb),
+  // 🔧 La case « Avec installation » (Timo, 11/10/2026, « H : la case sur le
+  // devis ») : cochée, le matériel ne sort du stock que par les achats du
+  // chantier ; décochée, matériel seul, il sort au paiement comme avant.
+  avec_installation: avecInstallationDuDevis({ poseSeule: r.poseSeule, fraisInstallation: r.fraisInstallation, choix: r.avecInstallation }),
   // 🤝 L'apporteur externe nommé dans le devis (29/09/2026) : il suit le
   // devis jusqu'à l'encaissement (💰 Ventes) ou la dette de pose.
   apporteur_externe: apporteurDuFormulaire(r.apporteur),

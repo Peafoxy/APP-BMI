@@ -39,6 +39,8 @@
 // « 🔩 Prix du rail de fixation (au mètre) », « Longueur d'une barre (m) »,
 // « ☀️ Note affichée sous le dimensionnement » ; 🔌 Appareils), App.jsx (qui
 // a l'onglet ☀️ Dimensionnement).
+// 🏗 La case « 🔧 Avec installation » et le matériel qui part au chantier :
+// lib/achatsChantier.js (11/10/2026).
 // ============================================================
 export const CHAPITRE = {
   numero: 11,
@@ -86,7 +88,7 @@ export const CHAPITRE = {
         ["Les quatre carrés", "**Consommation** (Wh/j) · **Panneaux nécessaires** (Wc) · **Batterie** (Ah, à la tension choisie) · **Convertisseur / MPPT** (kW, et l'intensité du régulateur quand le convertisseur n'est pas hybride)."],
         ["**Équipements proposés (stock de …)**", "Le tableau : **Catégorie · Article · Besoin calculé · Quantité · Prix unit. · Sous-total · HB**, pour Panneaux solaires, Batteries, Convertisseur, Régulateur MPPT ; puis Rails de fixation, Supports de rail, Étriers."],
         ["**Autres équipements (câbles, protections AC/DC, accessoires…)**", "Des lignes libres : Article · Prix unitaire (F) · Quantité · HB · Retirer ; **« ➕ Ajouter un équipement »** ; **« ➕ Élément à compléter (cf. visite) »** (une ligne sans prix, chiffrée après la visite)."],
-        ["La fin du devis", "La case **« Pose seule »** ; **Remise %**, **Frais d'installation %**, **Transport / livraison %**, le **Total** ; **« 🛒 Convertir en vente »** ; **« 💰 Acompte exigé pour démarrer (%) »** et **« 🗓 Délai d'installation indicatif »** ; la case **« 📝 NB (facultatif) »**."],
+        ["La fin du devis", "La case **« Pose seule »** ; **Remise %**, **Frais d'installation %**, **Transport / livraison %**, le **Total** ; **« 🛒 Convertir en vente »** ; **« 💰 Acompte exigé pour démarrer (%) »** et **« 🗓 Délai d'installation indicatif »** ; la case **« 🔧 Avec installation »** ; la case **« 📝 NB (facultatif) »**."],
         ["**📲 Envoyer ce devis au client**", "**Client destinataire** (« — Choisir — », « ➕ Nouveau client (nom + numéro) », puis les clients de l'espace) ; pour un nouveau client : **Nom du client** et **Numéro WhatsApp** ; les boutons **« 📲 Envoyer par WhatsApp »** (client choisi) et **« 📝 Enregistrer un brouillon »** (toujours actif, même sans client)."],
         ["Tout en bas", "La note grise du dimensionnement (réglée dans ⚙ Paramètres) : « Calcul indicatif basé sur des marges de sécurité usuelles… »."],
         ["**⚙ Paramètres** (administrateur)", "🗂 Catalogue & devis : 🔩 Prix du rail de fixation (au mètre), Longueur d'une barre (m), ☀️ Note affichée sous le dimensionnement. 🔌 Appareils : la liste des appareils proposés."],
@@ -134,6 +136,7 @@ export const CHAPITRE = {
         { titre: "Pose seule", texte: "Si le client a **déjà acheté son matériel**, cocher **« Pose seule »** : BMI ne facture que la main d'œuvre, par un **montant fixe** saisi pour ce chantier, à la place du pourcentage d'installation." },
         { titre: "Remise, installation, transport", texte: "**Remise %** : elle ne porte que sur les **articles**. **Frais d'installation %** (10 % d'office) et **Transport / livraison %** : calculés sur le montant plein des articles. Le **Total** en découle." },
         { titre: "Acompte et délai", texte: "**Acompte exigé pour démarrer (%)** : 100 d'office (paiement comptant) ; en dessous, l'écran affiche l'acompte et le solde. **Délai d'installation indicatif** : en toutes lettres (« 15 jours ouvrés à compter de la signature »). Les deux figurent sur le devis et sur le contrat." },
+        { titre: "🔧 Avec installation", texte: "La case **« 🔧 Avec installation — BMI installe ce matériel »** est **cochée d'office dès qu'il y a des frais d'installation**. Cochée, le matériel **ne sort pas du stock** quand le client paie : il sortira le jour où les techniciens viendront le chercher (💰 Ventes, case « 🏗 Chantier », chapitre 5). **Décochée**, c'est du **matériel seul** : il sort du stock au paiement, comme avant. On la **coche à la main pour une installation offerte** (aucun frais d'installation) — l'écran le rappelle. Pas de case pour une pose seule." },
         { titre: "📝 NB (facultatif)", texte: "Une remarque tapée pour **ce** devis, **300 caractères au plus** (le compteur dit ce qui reste) : « Le câblage au-delà de 20 m sera facturé à part. » Sur le PDF, elle s'écrit **« NB : … » dans la place blanche à gauche du TOTAL** (cinq lignes au plus) ; dans l'espace du client, sous le matériel. Vide, elle n'apparaît nulle part. Elle est gardée dans le brouillon et revient quand on reprend le devis. Elle ne part pas dans le message WhatsApp (son texte est fixé chez Meta) : le client la lit dans le PDF et dans son espace." },
       ]],
       ["h3", "F. Envoyer, garder ou vendre"],

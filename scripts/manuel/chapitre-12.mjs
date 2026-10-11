@@ -30,6 +30,8 @@
 // Forage — frottements dans le tuyau (%) »), lib/calculs.js (DOMAINES_DEFAUT).
 // La fin du devis (pose seule, remise, installation, transport, acompte,
 // délai, envoi, brouillon, conversion) est la MÊME que le solaire : chapitre 11.
+// 🏗 La case « 🔧 Avec installation » et le matériel qui part au chantier :
+// lib/achatsChantier.js (11/10/2026).
 // ============================================================
 export const CHAPITRE = {
   numero: 12,
@@ -76,7 +78,7 @@ export const CHAPITRE = {
         ["**Équipements proposés (stock de …)** (Garage)", "**Catégorie · Article · Besoin calculé · Quantité · Prix unit. · Sous-total · HB**. Première ligne, sur fond clair : **Porte**, au m², prix modifiable. Puis Moteur / motorisation, Crémaillère (coulissant seulement), Télécommande, Photocellules, Lampe clignotante, Déverrouillage manuel. Sous le tableau : **☀️ kit solaire autonome**, **🔋 batterie de secours**, **Autres équipements (coffret de commande, câblage…)**."],
         ["**💧 Quelle pompe pour ce forage ?** (volet sans calcul)", "Un cadre bleu repliable, **seulement si le métier ouvert a des pompes en stock** dans la boutique."],
         ["**Besoins du client → articles** (volet sans calcul)", "**Besoin du client · Article proposé · Quantité · Prix unit. · Sous-total · HB · Retirer** ; **« ➕ Ajouter un besoin »** ; puis **Autres équipements**."],
-        ["La fin du devis et l'envoi", "Identiques au chapitre 11 : Pose seule, Remise %, Frais d'installation %, Transport / livraison %, Total, 🛒 Convertir en vente, Acompte, Délai, 📝 NB ; 📲 Envoyer ce devis au client, 📝 Enregistrer un brouillon."],
+        ["La fin du devis et l'envoi", "Identiques au chapitre 11 : Pose seule, Remise %, Frais d'installation %, Transport / livraison %, Total, 🛒 Convertir en vente, Acompte, Délai, 🔧 Avec installation (cochée d'office s'il y a des frais d'installation : le matériel ne sort du stock que par la case « 🏗 Chantier » de 💰 Ventes), 📝 NB ; 📲 Envoyer ce devis au client, 📝 Enregistrer un brouillon."],
         ["**⚙ Paramètres** (administrateur)", "🗂 **Domaines de produits et leurs familles** (créer un métier, ses familles) ; **💧 Forage — frottements dans le tuyau (%)**."],
       ]}],
     ]},

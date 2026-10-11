@@ -3445,7 +3445,7 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
       && /\*Échange GRATUIT sous garantie\.\*/.test(tT2) && !/DOCUMENT DE FORMATION/.test(tT2) && Bn.texteBon(null) === "");
     const impB = readFileSync("src/lib/impression.js", "utf8");
     test("★ impression : UN style de reçu (STYLE_RECU) partagé par le reçu et les bons ; imprimerBon = même entête (logo, adresse, NIF, RCCM, bandeau de formation), titre BON DE REPRISE / BON DE RETOUR — ÉCHANGE SOUS GARANTIE, reçu d'origine, RENDU AU CLIENT, cases « Pour la boutique » / « Le client reconnaît avoir reçu … », nom de fichier par la règle (nomDocument) ; bonWhatsApp passe par texteBon et envoyerWhatsApp",
-      (impB.match(/\$\{STYLE_RECU\}/g) || []).length === 3 /* RETOURNÉ le 10/10/2026 : le relevé des travaux le partage aussi */ && /^const STYLE_RECU = `/m.test(impB) && !/<style>/.test(impB.slice(impB.indexOf("export function imprimerRecu("), impB.indexOf("// ============ PROFORMA"))) /* le reçu n'a plus son style en ligne (le reçu de versement garde sa variante) */
+      (impB.match(/\$\{STYLE_RECU\}/g) || []).length === 4 /* RETOURNÉ le 10/10/2026 : le relevé des travaux le partage aussi ; RETOURNÉ le 11/10/2026 : la facture d'achat pour le chantier aussi */ && /^const STYLE_RECU = `/m.test(impB) && !/<style>/.test(impB.slice(impB.indexOf("export function imprimerRecu("), impB.indexOf("// ============ PROFORMA"))) /* le reçu n'a plus son style en ligne (le reçu de versement garde sa variante) */
       && /export function imprimerBon\(bon, bq = \{\}\)/.test(impB) && /<h1>\$\{reprise \? "BON DE REPRISE" : "BON DE RETOUR — ÉCHANGE SOUS GARANTIE"\}<\/h1>/.test(impB) && /<b>Reçu d'origine :<\/b> \$\{esc\(bon\.recu\)\} du \$\{dFR\(bon\.dateVente\)\}/.test(impB)
       && /<tr class="total"><td>RENDU AU CLIENT :<\/td><td>\$\{fmt\(bon\.rembourse\)\}<\/td><\/tr>/.test(impB)
       && /<div class="btitre">\$\{reprise \? "MOTIF DE LA REPRISE" : "MOTIF DU RETOUR \(panne constatée\)"\}<\/div>\n\s*<div class="client"><div style="font-size:13px"><b>\$\{esc\(bon\.motif \|\| "—"\)\}<\/b>/.test(impB) /* 14/09/2026 : « la raison devrait figurer sur les reçus » — en ligne à part, bien visible */ && /Le client reconnaît avoir reçu \$\{fmt\(bon\.rembourse\)\}/.test(impB) && /Le client reconnaît avoir reçu l'article de remplacement et remis le défectueux/.test(impB)
@@ -3858,7 +3858,8 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
   test("★ …et à l'encaissement d'une vente (sauf remise venant de la commande encaissée), sur les proformas et les commandes",
     /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin"/.test(ventesSrc) && /Number\(cmd\.remise_pct \|\| 0\) !== remisePct/.test(ventesSrc)
     // RETOURNÉ le 30/09/2026 : + « 💾 Enregistrer la proforma modifiée » — 4.
-    && (ventesSrc.match(/remiseExigeAdmin\(remisePct\)/g) || []).length === 4
+    // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier (🏗) — 5.
+    && (ventesSrc.match(/remiseExigeAdmin\(remisePct\)/g) || []).length === 5
     && /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin"/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
   test("l'entrée de stock par fichier ignore la colonne Prix d'achat pour tout autre que l'administrateur",
     /profile\.role !== "admin" && resultat\.entrees\.some\(\(x\) => x\.prix_achat\)/.test(readFileSync("src/screens/Stocks.jsx", "utf8")));
@@ -4247,6 +4248,9 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
       pct_acompte: Number(pctAcompte || 100), montant_acompte: montantAcompte, delai_installation: delaiInstallation.trim(),
       // RETOURNÉ le 08/10/2026 : le devis porte la ligne NB, vide quand rien n'est tapé.
       nb: "",
+      // RETOURNÉ le 11/10/2026 : la case « 🔧 Avec installation », cochée
+      // d'office dès qu'il y a des frais d'installation (jamais une pose seule).
+      avec_installation: !poseSeule && fraisInstallation > 0,
       // RETOURNÉ le 29/09/2026 : le devis porte désormais l'apporteur externe
       // (lib/apporteurDevis.js), vide quand la case n'est pas cochée.
       apporteur_externe: null };
@@ -6460,7 +6464,8 @@ titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (
   test("★ écran Ventes : la règle est vérifiée à l'ajout au panier, à l'encaissement et sur les deux proformas ; la remise générale est grisée dès qu'un article porte une remise, et les remises de ligne dès qu'une remise générale est saisie",
     /if \(remL > 0 && Number\(f\.remise \|\| 0\) > 0\) \{ uAlert\(`🔒 \$\{MSG_REMISE_EXCLUSIVE\}`\); return; \}/.test(vr) && /remL > 0 && profile\.role !== "admin" && remiseLigneExigeAdmin\(\{ qte: q, pu: sel\.pu, remise_ligne: remL \}\)/.test(vr)
     // RETOURNÉ le 30/09/2026 : l'encaissement passe « admin » quand la remise est celle d'une proforma reprise telle quelle (securite-33).
-    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 3
+    // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier (🏗) — 4.
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 4
     && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role\)/g) || []).length === 1
     && /value=\{f\.remise\}[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && (vr.match(/disabled=\{Number\(f\.remise \|\| 0\) > 0\}/g) || []).length === 2);
   const s14 = readFileSync("supabase/securite-14-remise-article.sql", "utf8");
@@ -6580,7 +6585,7 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     && /journée du 2026-09-10 de B n'a pas été clôturée/.test(Cl.motifBlocageVente(dbc, "B", "2026-09-12", tv)) && /journées du 09\/09\/2026, 10\/09\/2026 de A/.test(Cl.motifBlocageVente(dbc, "A", "2026-09-12", tv, (x) => x.split("-").reverse().join("/"))));
   const vt = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ Ventes : encaisser est refusé tant qu'un jour reste à clôturer (message affiché en tête ET au clic)",
-    /const blocageCloture = motifBlocageVente\(db, boutique, today\(\), totalVente, dFR\);/.test(vt) && /if \(blocageCloture\) \{ uAlert\(blocageCloture\); return; \}/.test(vt) && /\{blocageCloture && <div/.test(vt));
+    /const blocageCloture = motifBlocageVente\(db, boutique, today\(\), totalVente, dFR\);/.test(vt) && /if \(blocageCloture\) \{ uAlert\(blocageCloture\); return; \}/.test(vt) && /\{blocageCloture && !enAchatChantier && <div/.test(vt) /* RETOURNÉ le 11/10/2026 : caché pendant un achat pour un chantier, qui n'est pas une vente */);
   const csC = readFileSync("src/screens/Caisse.jsx", "utf8");
   test("★ Caisse : les chiffres passent par activiteDuJour (plus de calcul local), un jour PASSÉ en retard se choisit et se clôture (le plus ancien d'abord), la clôture en retard est datée du jour clôturé et notée",
     /activiteDuJour\(db, boutique, t, totalVente\)/.test(csC) && !/especesVentes = db\.ventes\.filter/.test(csC) && /Montant attendu dans le tiroir/.test(csC) && /versements \{fmt\(versementsDuJour\)\} — ne créent pas d'écart/.test(csC) && /const enRetard = joursAClôturer\(db, boutique, aujourdhui, totalVente\);/.test(csC)
@@ -8439,7 +8444,7 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     && /ongletsVisites\.travaux && \(isAdmin \|\| isGerant \|\| isVendeur \|\| isMagasinier\)/.test(appT) && /<M\.Travaux db=\{db\} save=\{save\} profile=\{profile\} onFacturer=\{\(pre\) => \{ setPreRempli\(pre\); setTab\("ventes"\); \}\} \/>/.test(appT));
   const vT = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ 💰 Ventes : une ligne deja_sorti ne manque jamais au contrôle de stock (les deux passages), la vente porte travaux_id, et le reçu / la dette reviennent sur la fiche (lierFacture)",
-    (vT.match(/if \(l\.deja_sorti\) return false;/g) || []).length === 2 && /\.\.\.\(origineTravaux \? \{ travaux_id: origineTravaux, \.\.\.champsTravauxDocument\(/.test(vT) /* RETOURNÉ le 10/10/2026 : le lieu et l'objet suivent */
+    /* RETOURNÉ le 11/10/2026 : la ligne d'un devis « avec installation » attend le chantier (auChantier) */ (vT.match(/if \(l\.deja_sorti \|\| auChantier\) return false;/g) || []).length === 2 && /\.\.\.\(origineTravaux \? \{ travaux_id: origineTravaux, \.\.\.champsTravauxDocument\(/.test(vT) /* RETOURNÉ le 10/10/2026 : le lieu et l'objet suivent */
     && /lierFacture\(c, vente, detteTravaux, today\(\)\)/.test(vT) && /setOrigineTravaux\(preRempli\.travauxId \|\| null\);/.test(vT));
   const ciT = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ 🏠 Clients installés : une fiche de travaux n'y vient que SOLDÉE, catégorie « 🛠 Travaux soldés », statut « travaux » connu, trace (facturé / coût / marge), pas de Frais, Programmer ni Entretien pour elle",
@@ -8448,7 +8453,7 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     && /travaux: \{ label: "🛠 Travaux — soldés"/.test(readFileSync("src/lib/libellesStatuts.js", "utf8")) && /import \{ STATUT_CHANTIER \} from "\.\.\/lib\/libellesStatuts"/.test(ciT) && /Facturé \{fmt\(factureMontant\(db, c\)\)\}/.test(ciT)
     && /\{!c\.travaux && \(\n\s*<button onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /statutChantier\(c\) !== "receptionne" && !c\.travaux && \(/.test(ciT) && /\{!c\.travaux && <button onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT));
   test("★ le stock : stockVendu et l'index ignorent deja_sorti ; le rattachement d'une dépense refuse des travaux soldés",
-    /l\.produit_id === pid && !l\.deja_sorti/.test(calT) && /if \(l\.produit_id && !l\.deja_sorti\) venduParProduit/.test(calT)
+    /* RETOURNÉ le 11/10/2026 : + au_chantier */ /l\.produit_id === pid && !l\.deja_sorti && !l\.au_chantier/.test(calT) && /if \(l\.produit_id && !l\.deja_sorti && !l\.au_chantier\) venduParProduit/.test(calT)
     && /Ces travaux sont soldés/.test(readFileSync("src/lib/depensesChantier.js", "utf8")) && /!travauxSolde\(db, c\)\)/.test(readFileSync("src/lib/depensesChantier.js", "utf8")));
 }
 
@@ -12866,7 +12871,8 @@ titre("🧾 La remise d'une proforma reprise telle quelle, pour tout vendeur (30
     && /ne vaut que pour son panier tel quel/.test(corps));
   test("★ la proforma elle-même reste réservée à l'administrateur au-delà de 3 % (on n'a rien ouvert de ce côté)",
     // RETOURNÉ le 30/09/2026 : + la proforma modifiée (émettre, modifier : trois gestes, tous au rôle).
-    (ve.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 3);
+    // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier, au rôle lui aussi — 4.
+    (ve.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 4);
   const sql = readFileSync("supabase/securite-33-remise-proforma-reprise.sql", "utf8");
   test("★★ LE COUPLE : le serveur compare le même panier (produit, prix, quantité, remise de ligne, pourcentage) et exige produit_id",
     /panier_normalise\(pf -> 'lignes'\) = public\.panier_normalise\(vente -> 'articles'\)/.test(sql)
@@ -14973,6 +14979,174 @@ titre("🧾 La facture de travaux : le reçu dit « FACTURE — TRAVAUX », et l
   test("★★ la vente et sa dette portent le chantier (le reçu réimprimé le dit encore) ; 📋 Dettes imprime le reçu d'une dette par avecInfoTravaux",
     /travaux_id: origineTravaux, \.\.\.champsTravauxDocument\(/.test(srcVv) && /\.\.\.\(vente\.travaux_id \? \{ travaux_id: vente\.travaux_id, travaux_lieu:/.test(srcVv)
     && (srcDv.match(/imprimerRecuVersement\(avecInfoTravaux\(db, /g) || []).length === 2);
+}
+
+titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11/10/2026, « A a, B b, C, D, E, 1 à 5, F, G, H »)");
+// Timo : « une case à cocher dans vente : chantier… le montant de la vente est
+// déduit du montant du chantier… facture d'achat pour le chantier… si le client
+// n'a pas assez payé, réglé prioritairement ». Puis « H : la case sur le devis ».
+{
+  const sortieAC = join("node_modules", ".cache", `bmi-achats-chantier-${process.pid}.mjs`);
+  await build({ stdin: { contents: 'export * as A from "./src/lib/achatsChantier.js"; export * as C from "./src/lib/calculs.js"; export * as K from "./src/lib/core.js"; export * as DC from "./src/screens/dimensionnement/devisCommun.js";', resolveDir: process.cwd(), loader: "js" },
+    bundle: true, format: "esm", platform: "node", outfile: sortieAC, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const { A, C: Ca, K, DC } = await import(pathToFileURL(sortieAC).href);
+  unlinkSync(sortieAC);
+
+  // ---- H : la case du devis ----
+  test("★★ H : « 🔧 Avec installation » cochée d'office dès qu'il y a des frais d'installation, décochable ; cochable sans frais (installation OFFERTE) ; jamais pour une pose seule",
+    A.avecInstallationDuDevis({ poseSeule: false, fraisInstallation: 100000, choix: null }) === true
+    && A.avecInstallationDuDevis({ poseSeule: false, fraisInstallation: 0, choix: null }) === false
+    && A.avecInstallationDuDevis({ poseSeule: false, fraisInstallation: 0, choix: true }) === true
+    && A.avecInstallationDuDevis({ poseSeule: false, fraisInstallation: 100000, choix: false }) === false
+    && A.avecInstallationDuDevis({ poseSeule: true, fraisInstallation: 80000, choix: true }) === false);
+  const devisH = (r) => DC.construireDevis({ profile: { nom: "K", id: "k", role: "vendeur" }, boutique: "B", besoins: {}, panierMetier: [], lignesMetier: [], autres: [],
+    reglages: { ...r, ...DC.calculerTotaux({ totalArticles: 500000, pctRemise: "0", pctInstall: r.pctInstall, pctTransport: "0", poseSeule: r.poseSeule, montantPoseFixe: "50000", pctAcompte: "100" }) }, horodatage: { id: "h", date: "2026-10-11", heure: "10:00" } });
+  test("★★ H : le devis ENREGISTRE la case (avec_installation) — d'office, offerte, décochée, pose seule",
+    devisH({ pctInstall: "10", poseSeule: false }).avec_installation === true && devisH({ pctInstall: "0", poseSeule: false, avecInstallation: true }).avec_installation === true
+    && devisH({ pctInstall: "10", poseSeule: false, avecInstallation: false }).avec_installation === false && devisH({ pctInstall: "10", poseSeule: true, avecInstallation: true }).avec_installation === false);
+  test("★ E : un devis d'AVANT (sans la case) ne garde jamais le stock pour le chantier ; une pose seule non plus",
+    A.stockAuChantier({ frais_installation: 100000 }) === false && A.stockAuChantier({ avec_installation: true, pose_seule: true }) === false && A.stockAuChantier({ avec_installation: true }) === true);
+  const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ la case est dans la fin commune des trois volets (BlocsFinDevis), revient à la reprise (appliquerConditionsReprises), repart d'office avec « 🆕 Nouveau devis »",
+    /<BlocAvecInstallation r=\{r\} \/>\n\s*<BlocApporteurDevis r=\{r\} \/>/.test(part) && /if \(s\.setAvecInstallation\) s\.setAvecInstallation\(devis\.avec_installation === true \|\| devis\.avec_installation === false \? devis\.avec_installation : null\);/.test(part)
+    && /setNb, setAvecInstallation,\n/.test(part) && /r\.setNb\(""\); r\.setAvecInstallation\(null\);/.test(sol) && /if \(r\.poseSeule\) return null;/.test(part));
+
+  // ---- Le stock : la vente du devis ne le sort pas, l'achat le sort ----
+  const pA = { id: "p1", nom: "Panneau 550W", boutique: "BMI DEMAKPOE", prix_achat: 60000, prix_vente: 80000, initial: 10, seuil: 1 };
+  const venteDevis = { id: "vD", numero: "BMID-2026-0050", date: "2026-10-01", boutique: "BMI DEMAKPOE", caisse: "TERRAIN", paiement: "Crédit (dette)", avance: 100000,
+    articles: [{ produit_id: "p1", article: "Panneau 550W", qte: 4, pu: 80000, au_chantier: true }], frais_installation: 32000 };
+  const chantier = { id: "c1", nom: "MENSAH", prenom: "Kossi", formation: false, vente_id: "vD", stock_au_chantier: true, statut: "en_cours", achats_chantier: [] };
+  const dette = { id: "dD", vente_id: "vD", boutique: "TERRAIN", montant: 352000, paye: 100000, paiements: [] };
+  const db0 = { boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", prefixe: "BMID" }], produits: [pA], ventes: [venteDevis], dettes: [dette], ajustements: [], clients_installes: [chantier], users: [] };
+  test("★★ 1 : la vente d'un devis « avec installation » NE SORT PAS le stock (ses lignes au_chantier) — calcul direct ET index",
+    Ca.stockActuel(db0, pA) === 10 && Ca.stockActuel({ ...db0, __index: Ca.construireIndexDb(db0) }, pA) === 10
+    && Ca.stockActuel({ ...db0, ventes: [{ ...venteDevis, articles: [{ ...venteDevis.articles[0], au_chantier: false }] }] }, pA) === 6);
+  const gerant = { id: "g1", nom: "AFI", role: "gerant", boutique: "BMI DEMAKPOE" };
+  test("★ la série d'un achat : « BMID-ACH-2026-0001 », à part des reçus de vente",
+    K.prochainNumeroAchatChantier(db0, "BMI DEMAKPOE", "2026-10-03") === "BMID-ACH-2026-0001" && K.prochainNumeroVente(db0, "BMI DEMAKPOE", "2026-10-03") === "BMID-2026-0051");
+  const panier1 = [{ produit_id: "p1", article: "Panneau 550W", qte: 3, pu: 80000, remise_ligne: 0 }];
+  const r1 = A.construireAchatChantier({ chantier, panier: panier1, remise: 0, boutique: "BMI DEMAKPOE", profile: gerant, numero: "BMID-ACH-2026-0001", date: "2026-10-03", heure: "09:00", produits: [pA] });
+  const db1 = { ...db0, ajustements: r1.ajustements, clients_installes: [r1.fiche] };
+  test("★★ 1 : l'achat SORT le stock (ajustement −3, type sortie_chantier, lié au chantier et à l'achat) — 10 → 7 ; rien n'est écrit dans les ventes",
+    r1.ajustements.length === 1 && r1.ajustements[0].qte === -3 && r1.ajustements[0].type === "sortie_chantier" && r1.ajustements[0].chantier_id === "c1" && r1.ajustements[0].achat_chantier_id === r1.achat.id
+    && Ca.stockActuel(db1, pA) === 7 && db1.ventes.length === 1 && r1.achat.paiement === A.PAIEMENT_CHANTIER && A.totalAchat(r1.achat) === 240000 && r1.fiche.achats_chantier.length === 1);
+  test("★★ 1 : le prix d'achat compte UNE fois — jamais sur la ligne au_chantier de la vente, sur le matériel parti (3 × 60 000)",
+    K.coutDesVentes([pA], [venteDevis]).cout === 0 && K.coutDesVentes([pA], A.achatsCommeVentes([r1.fiche])).cout === 180000 && A.achatsCommeVentes([r1.fiche])[0].achat_chantier === true);
+  test("★ le rythme des ventes compte le matériel parti au chantier (3), jamais la ligne qui l'attend",
+    (Ca.venduParProduitSurPeriode({ ...db1, ajustements: r1.ajustements.map((a) => ({ ...a, date: "2026-10-03" })) }, 30, "2026-10-05").get("p1") || 0) === 3
+    && (Ca.venduParProduitSurPeriode(db0, 30, "2026-10-05").get("p1") || 0) === 0);
+
+  // ---- L'argent du chantier, et ce qui reste en attente (3, F) ----
+  const ar1 = A.argentDuChantier({ chantier: r1.fiche, vente: venteDevis, dette });
+  test("★★ 3 : le client a payé 100 000 (sa dette) ; l'achat de 240 000 → 100 000 réglés, 140 000 ⏳ en attente, rien de disponible ; part matériel 320 000",
+    ar1.paye === 100000 && ar1.achete === 240000 && ar1.couvert === 100000 && ar1.enAttente === 140000 && ar1.disponible === 0 && ar1.materiel === 320000 && !ar1.depasseMateriel
+    && ar1.couverture.get(r1.achat.id).enAttente === 140000);
+  const r2 = A.construireAchatChantier({ chantier: r1.fiche, panier: [{ produit_id: "p1", article: "Panneau 550W", qte: 2, pu: 80000 }], boutique: "BMI DEMAKPOE", profile: gerant, numero: "BMID-ACH-2026-0002", date: "2026-10-04", heure: "10:00", produits: [pA] });
+  const cv = A.couvertureAchats(r2.fiche.achats_chantier, 300000);
+  test("★★ F : l'argent règle les achats DANS L'ORDRE — 300 000 payés : le premier (240 000) réglé, le second (160 000) réglé de 60 000, 100 000 en attente",
+    cv.get(r1.achat.id).enAttente === 0 && cv.get(r2.achat.id).couvert === 60000 && cv.get(r2.achat.id).enAttente === 100000);
+  test("★★ F : un versement qui règle un achat en attente le DIT (pour informer le gérant) ; rien quand rien ne bouge",
+    A.achatsReglesParUnVersement(r2.fiche, 100000, 300000).length === 2 && A.achatsReglesParUnVersement(r2.fiche, 300000, 300000).length === 0
+    && A.achatsReglesParUnVersement(r2.fiche, 400000, 450000).length === 0);
+  const ar2 = A.argentDuChantier({ chantier: r2.fiche, vente: venteDevis, dette });
+  test("★★ 5 : au-delà de la part matériel du devis (400 000 > 320 000), un AVERTISSEMENT — jamais un refus",
+    ar2.depasseMateriel === true && /dépasse la part matériel du devis \(320\s000 F\) de 80\s000 F : ce surplus est pris sur les frais d'installation/.test(A.avertissementMateriel(ar2, 0))
+    && A.avertissementMateriel(ar1, 0) === "" && A.critiqueAchatChantier({ profile: gerant, chantier: r2.fiche, panier: panier1 }) === null);
+  test("★ l'argent payé : comptant = articles + frais ; à crédit = ce que SA dette a reçu",
+    A.payeParLeClient({ paiement: "Espèces", articles: [{ qte: 1, pu: 100000 }], frais_installation: 10000 }, null) === 110000 && A.payeParLeClient(venteDevis, dette) === 100000);
+
+  // ---- Qui, quel chantier (G) ----
+  test("★★ seul le gérant ou l'administrateur ; un chantier réceptionné, sans la case, de travaux ou à la corbeille ne reçoit rien ; seulement des articles du stock",
+    /réservé au gérant et à l'administrateur/.test(A.critiqueAchatChantier({ profile: { role: "vendeur" }, chantier, panier: panier1 }))
+    && /ne reçoit plus d'achat/.test(A.critiqueAchatChantier({ profile: gerant, chantier: { ...chantier, statut: "receptionne" }, panier: panier1 }))
+    && /ne reçoit plus d'achat/.test(A.critiqueAchatChantier({ profile: gerant, chantier: { ...chantier, stock_au_chantier: false }, panier: panier1 }))
+    && /que des articles du stock/.test(A.critiqueAchatChantier({ profile: gerant, chantier, panier: [{ produit_id: null, article: "Câble libre", qte: 1, pu: 5 }] }))
+    && A.critiqueAchatChantier({ profile: { role: "admin" }, chantier, panier: panier1 }) === null);
+  test("★★ G : la liste ne propose que les chantiers ouverts nés d'un devis « avec installation »",
+    A.chantiersPourAchat([chantier, { ...chantier, id: "c2", statut: "receptionne" }, { ...chantier, id: "c3", stock_au_chantier: undefined }, { ...chantier, id: "c4", travaux: true }, { ...chantier, id: "c5", supprime_le: "2026-10-01" }, { ...chantier, id: "c6", statut: "termine" }]).map((c) => c.id).join(",") === "c1,c6");
+
+  // ---- Annuler une erreur ----
+  const ann = A.annulerAchatChantier({ chantier: r2.fiche, achatId: r1.achat.id, motif: "erreur de chantier", profile: { nom: "TIMO", role: "admin" }, date: "2026-10-05" });
+  const db3 = { ...db0, ajustements: [...r1.ajustements, ...r2.ajustements, ...ann.ajustements], clients_installes: [ann.fiche] };
+  test("★★ ↩ Annuler : l'administrateur seul, motif obligatoire ; le stock REVIENT (+3, retour_chantier) ; l'achat garde sa trace, marqué annulé, et ne compte plus",
+    /réservé à l'administrateur/.test(A.critiqueAnnulationAchat({ profile: gerant, chantier: r2.fiche, achat: r1.achat, motif: "x" }))
+    && /motif est obligatoire/.test(A.critiqueAnnulationAchat({ profile: { role: "admin" }, chantier: r2.fiche, achat: r1.achat, motif: " " }))
+    && /réceptionné/.test(A.critiqueAnnulationAchat({ profile: { role: "admin" }, chantier: { ...r2.fiche, statut: "receptionne" }, achat: r1.achat, motif: "x" }))
+    && ann.ajustements[0].qte === 3 && ann.ajustements[0].type === "retour_chantier" && Ca.stockActuel(db3, pA) === 8
+    && ann.fiche.achats_chantier.length === 2 && !!ann.fiche.achats_chantier[0].annule && A.achatsActifs(ann.fiche).length === 1
+    && A.argentDuChantier({ chantier: ann.fiche, vente: venteDevis, dette }).achete === 160000);
+
+  // ---- 💰 Ventes : le geste ----
+  const vS = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const corpsAchat = vS.slice(vS.indexOf("const enregistrerAchatChantier = async () => {"), vS.indexOf("const imprimerUnAchat = "));
+  test("★★ 2, 4 : l'achat passe AVANT la clôture et la question « sans numéro » ; il n'envoie aucun WhatsApp, n'écrit aucune vente ni dette, prend son numéro à part, revérifie DANS le geste sur le chantier FRAIS",
+    /const encaisserVente = async \(\) => \{\n\s*if \(bloquerSiLecture\(db, profile\)\) return;\n\s*\/\/[^\n]*\n\s*if \(enAchatChantier\) \{ await enregistrerAchatChantier\(\); return; \}\n\s*if \(blocageCloture\)/.test(vS)
+    && corpsAchat.length > 500 && !/envoyerModele|envoyerRecu|numeroManquant|QUESTION_SANS_NUMERO|ventes:|dettes:/.test(corpsAchat)
+    && /chantiersPourAchat\(chantiersDeLEspaceRegarde\(db, profile\)\)\.find/.test(corpsAchat) && /critiqueAchatChantier\(\{ profile, chantier: c, panier \}\)/.test(corpsAchat)
+    && /prochainNumeroAchatChantier\(db, boutique\)/.test(corpsAchat) && /imprimerAchatChantier\(r\.achat, r\.fiche/.test(corpsAchat) && /Stock insuffisant pour/.test(corpsAchat)
+    && /critiqueRemises\(panier, remisePct, remise, profile\.role\)/.test(corpsAchat));
+  test("★★ 1 : l'encaissement d'un devis « avec installation » marque ses lignes au_chantier, ne contrôle pas leur stock, et pose stock_au_chantier sur le chantier",
+    /const auChantier = !!origineDevis && stockAuChantier\(devisOrigine\);/.test(vS) && /articles: auChantier \? panier\.map\(\(l\) => \(l\.produit_id && !l\.hors_boutique \? \{ \.\.\.l, au_chantier: true \} : l\)\) : panier,/.test(vS)
+    && /\.\.\.\(auChantier \? \{ stock_au_chantier: true \} : \{\}\),/.test(vS));
+  test("★ la case est réservée au gérant et à l'administrateur, jamais sur un devis encaissé, des travaux ou une proforma en modification ; la liste vient de l'espace REGARDÉ",
+    /const voitCaseChantier = peutAcheterPourChantier\(profile\) && !origineDevis && !origineTravaux && !proformaEnModif;/.test(vS) && /const chantiersEspace = chantiersDeLEspaceRegarde\(db, profile\);/.test(vS));
+
+  // ---- 🏠 et le tableau de bord ----
+  const ciS = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  test("★ 🏠 Clients installés : la fiche dit le matériel acheté (et l'attente) ; on ne la supprime pas tant qu'un achat n'est pas annulé",
+    /data-materiel-chantier/.test(ciS) && /const achatsEnCours = achatsActifs\(c\);\n\s*if \(achatsEnCours\.length\) \{/.test(ciS));
+  test("★ le tableau de bord et Rentabilité comptent le PRIX D'ACHAT du matériel parti (jamais un chiffre d'affaires), et Rentabilité ne coûte pas deux fois la ligne au_chantier",
+    /const k = coutDesVentes\(db\.produits, \[\.\.\.ventesBq, \.\.\.achatsBq\]\);/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))
+    && /if \(!l\.au_chantier\) parProduit\[nom\]\.cout \+= qteNette \* achat;/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")));
+}
+{
+  // ---- 4 : la facture d'achat, IMPRIMÉE pour de vrai ----
+  const sortieIA = join("node_modules", ".cache", `bmi-impr-achat-${process.pid}.mjs`);
+  await build({
+    entryPoints: ["src/lib/impression.js"], bundle: true, format: "esm", platform: "node", outfile: sortieIA,
+    logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"],
+    plugins: [{ name: "ui-temoin", setup(b) {
+      b.onResolve({ filter: /components\/ui(\.jsx)?$/ }, (a) => a.importer.endsWith("impression.js") ? { path: "ui-temoin", namespace: "temoin" } : undefined);
+      b.onLoad({ filter: /.*/, namespace: "temoin" }, () => ({ resolveDir: process.cwd(), loader: "js",
+        contents: 'export * from "./src/components/ui.jsx"; export const printApi = { open: (h, t) => { globalThis.__doc = h; globalThis.__titreDoc = t; } };' }));
+    } }],
+  });
+  const ImpA = await import(pathToFileURL(sortieIA).href);
+  unlinkSync(sortieIA);
+  const achat = { id: "a1", numero: "BMID-ACH-2026-0001", date: "2026-10-03", heure: "09:00", boutique: "BMI DEMAKPOE", lignes: [{ produit_id: "p1", article: "Panneau 550W", qte: 3, pu: 80000, remise_ligne: 0 }], remise: 7200, remise_pct: 3, par: "AFI", paiement: "🏗 Payé par le chantier" };
+  globalThis.__doc = ""; globalThis.__titreDoc = "";
+  ImpA.imprimerAchatChantier(achat, { nom: "MENSAH", prenom: "Kossi", tel: "90112233" }, {}, { couverture: new Map([["a1", { total: 232800, couvert: 100000, enAttente: 132800 }]]) });
+  const h = String(globalThis.__doc || "").replace(/[\u202f\u00a0]/g, " ").replace(/&#x27;|&#39;/g, "'");
+  test("★★ 4 : « FACTURE D'ACHAT POUR LE CHANTIER KOSSI MENSAH », interne, le numéro, les lignes, la remise, TOTAL 232 800, « Payé par le chantier », 132 800 en attente et la phrase ; aucune mention de WhatsApp",
+    /<h1>FACTURE D'ACHAT POUR LE CHANTIER KOSSI MENSAH<\/h1>/.test(h) && /data-achat-interne/.test(h) && /BMID-ACH-2026-0001/.test(h) && /Panneau 550W/.test(h)
+    && /−7 200 F/.test(h) && /TOTAL :<\/td><td>232 800 F/.test(h) && /🏗 Payé par le chantier/.test(h) && /data-achat-en-attente>132 800 F/.test(h) && /data-achat-phrase-attente/.test(h)
+    && !/WhatsApp/i.test(h.slice(h.indexOf("<h1>"))) && /Facture d'achat chantier/.test(globalThis.__titreDoc), h.slice(h.indexOf("<h1>"), h.indexOf("<h1>") + 200));
+}
+{
+  // ---- La case dans 💰 Ventes, RENDUE pour de vrai ----
+  const sortieRA = join("node_modules", ".cache", `bmi-rendu-ventes-achat-${process.pid}.mjs`);
+  let RA = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-ventes.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRA, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RA = await import(pathToFileURL(sortieRA).href);
+  } catch {}
+  try { unlinkSync(sortieRA); } catch {}
+  test("l'écran 💰 Ventes se monte (case « 🏗 Chantier »)", !!RA);
+  if (RA) {
+    const g = { id: "g1", nom: "AFI", role: "gerant", boutique: "BMI DEMAKPOE", actif: true };
+    const v = { id: "v1", nom: "VENDEUSE", role: "vendeur", boutique: "BMI DEMAKPOE", actif: true };
+    const achatV = { id: "a1", numero: "BMID-ACH-2026-0001", date: "2026-10-03", boutique: "BMI DEMAKPOE", lignes: [{ produit_id: "p1", article: "Panneau", qte: 1, pu: 80000 }], remise: 0, par: "AFI" };
+    const dbR = { boutiques: [{ id: "b1", nom: "BMI DEMAKPOE" }], users: [g, v], produits: [{ id: "p1", nom: "Panneau", boutique: "BMI DEMAKPOE", prix_vente: 80000, initial: 5 }],
+      ventes: [], dettes: [], depenses: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [],
+      clients_installes: [{ id: "c1", nom: "MENSAH", formation: false, stock_au_chantier: true, statut: "en_cours", achats_chantier: [achatV] }] };
+    const rend = (p) => { const e = console.error; console.error = () => {}; try { return String(RA.rendreVentes(dbR, p)); } catch { return ""; } finally { console.error = e; } };
+    const hG = rend(g), hVd = rend(v);
+    test("★★ la case « 🏗 Chantier » et l'onglet « 🏗 Achats chantier (1) » chez le gérant ; RIEN chez la vendeuse",
+      /data-case-achat-chantier/.test(hG) && /data-coche-chantier/.test(hG) && /data-onglet-achats-chantier/.test(hG) && /🏗 Achats chantier \(<!-- -->1<!-- -->\)|🏗 Achats chantier \(1\)/.test(hG)
+      && !/data-case-achat-chantier|data-onglet-achats-chantier/.test(hVd));
+  }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

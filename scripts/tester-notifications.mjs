@@ -330,5 +330,25 @@ titre("💼 L'argent de chantier rendu : le gérant prévenu, puis le technicien
     e3.length === 1 && memes(e3[0].destinataires, ["gerantD", "timo", "adminR"]) && /Carburant — groupe/.test(e3[0].texte));
 }
 
+titre("🏗 Un versement du client règle un achat pour son chantier : le gérant informé (11/10/2026, « F tout seul »)");
+{
+  const venteDevis = { id: "vD", numero: "BMID-2026-0050", date: "2026-10-01", boutique: "DEMAKPOE", caisse: "TERRAIN", paiement: "Crédit (dette)", articles: [{ produit_id: "p1", article: "Panneau", qte: 4, pu: 50000, au_chantier: true }] };
+  const achat = { id: "ac1", numero: "BMID-ACH-2026-0001", date: "2026-10-03", heure: "09:00", boutique: "DEMAKPOE", lignes: [{ produit_id: "p1", article: "Panneau", qte: 4, pu: 50000 }], remise: 0, par: "GERANT D" };
+  const chantier = { id: "c9", nom: "MENSAH", vente_id: "vD", stock_au_chantier: true, statut: "en_cours", achats_chantier: [achat] };
+  const dette0 = { id: "dD", vente_id: "vD", boutique: "TERRAIN", montant: 220000, paye: 120000, paiements: [{ id: "q1", date: "2026-10-01", montant: 120000 }] };
+  const avant = avec(base(), { ventes: [venteDevis], clients_installes: [chantier], dettes: [dette0] });
+  const verse = (montant) => avec(avant, { dettes: [{ ...dette0, paye: 120000 + montant, paiements: [...dette0.paiements, { id: "q2", date: "2026-10-05", montant }] }] });
+  const e1 = seul(envoisDe(avant, verse(50000), { id: "vendD1" }), "achat_chantier:");
+  test("★ un versement qui règle EN PARTIE l'achat en attente (200 000 achetés, 120 000 → 170 000 payés) → le GÉRANT de la boutique de l'achat seul, « réglé en partie », reste 30 000",
+    e1.length === 1 && memes(e1[0].destinataires, ["gerantD"]) && /réglé en partie/.test(e1[0].titre) && /30\s000 F/.test(e1[0].texte) && e1[0].ecran === "ventes");
+  const e2 = seul(envoisDe(avant, verse(100000), { id: "vendD1" }), "achat_chantier:");
+  test("★ un versement qui le règle EN ENTIER → « réglé », sans reste", e2.length === 1 && /: réglé$/.test(e2[0].titre) && !/reste/.test(e2[0].texte));
+  const dejaCouvert = avec(avant, { dettes: [{ ...dette0, paye: 200000 }] });
+  test("rien quand l'achat était déjà couvert, ni pour un chantier sans achat, ni sans versement",
+    seul(envoisDe(dejaCouvert, avec(dejaCouvert, { dettes: [{ ...dette0, paye: 210000 }] }), { id: "vendD1" }), "achat_chantier:").length === 0
+    && seul(envoisDe(avec(avant, { clients_installes: [{ ...chantier, achats_chantier: [] }] }), avec(verse(50000), { clients_installes: [{ ...chantier, achats_chantier: [] }] }), { id: "vendD1" }), "achat_chantier:").length === 0
+    && seul(envoisDe(avant, avant, { id: "vendD1" }), "achat_chantier:").length === 0);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

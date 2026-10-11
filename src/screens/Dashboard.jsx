@@ -11,6 +11,7 @@ import { depensesComptees, CATEGORIE_VERSEMENT, horsAchatsDeStock } from "../lib
 // (lib/caissesCentrales.js).
 import { mouvementsBanque, mouvementsComptable, releve, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
 import { CompteExploitant } from "../components/CompteExploitant";
+import { achatsCommeVentes } from "../lib/achatsChantier";
 import { mouvementsMobile, MOYENS_MOBILES } from "../lib/caissesMobiles";
 import { mobileParCaisse } from "../lib/constants";
 import { CarteCaisse } from "../components/CarteCaisse";
@@ -137,6 +138,7 @@ export function Dashboard({ db, profile, save }) {
   // le PRIX D'ACHAT des articles vendus (`coutDesVentes`, lib/core.js), et les
   // dépenses « Achat marchandises » et « Commande en Chine » en sortent (sinon la marchandise serait
   // comptée deux fois). UNE fabrique pour la carte ET la synthèse par période.
+  const achatsChantierTous = achatsCommeVentes(db.clients_installes);
   const ligneDePeriode = (label, a, b) => {
     const v = {}, d = {}, c = {}, dr = {};
     let sansPrix = [], caSansPrix = 0;
@@ -146,7 +148,10 @@ export function Dashboard({ db, profile, save }) {
       v[bq] = ventesBq.reduce((s, x) => s + caVente(x), 0);
       d[bq] = depBq.reduce((s, x) => s + Number(x.montant), 0);
       dr[bq] = horsAchatsDeStock(depBq).reduce((s, x) => s + Number(x.montant), 0);
-      const k = coutDesVentes(db.produits, ventesBq);
+      // 🏗 Le matériel parti au chantier (11/10/2026) : son prix d'achat compte
+      // pour la boutique qui l'a remis, jamais son prix de vente (pas une vente).
+      const achatsBq = achatsChantierTous.filter((x) => x.boutique === bq && inP(x.date, a, b));
+      const k = coutDesVentes(db.produits, [...ventesBq, ...achatsBq]);
       c[bq] = k.cout; sansPrix = [...sansPrix, ...k.sansPrix]; caSansPrix += k.caSansPrix;
     });
     return { label, v, d, c, dr, sansPrix, caSansPrix };

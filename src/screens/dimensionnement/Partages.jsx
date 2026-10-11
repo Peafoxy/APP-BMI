@@ -41,6 +41,7 @@ import { Field, inputCls, uAlert, uConfirm, uPrompt, ChampQuiGrandit } from "../
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives } from "../../lib/calculs";
+import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
@@ -65,6 +66,9 @@ export function appliquerConditionsReprises(devis, s) {
   s.setDelaiInstallation(String(devis.delai_installation || ""));
   // 📝 La ligne NB (08/10/2026) revient avec le devis repris ou le brouillon.
   if (s.setNb) s.setNb(String(devis.nb || ""));
+  // 🔧 La case « Avec installation » (11/10/2026) : un devis d'avant ne la
+  // porte pas — elle repart d'office (cochée s'il y a des frais d'installation).
+  if (s.setAvecInstallation) s.setAvecInstallation(devis.avec_installation === true || devis.avec_installation === false ? devis.avec_installation : null);
   // « Pose seule » : le montant de main d'œuvre est un montant FIXE, pas un
   // pourcentage — il est rangé dans frais_installation, et pct_installation
   // vaut null. On rétablit la case ET son montant, sinon le devis repris
@@ -210,10 +214,13 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
   const [apporteur, setApporteur] = useState(apporteurVide);
   // 📝 La ligne NB du devis (Timo, 08/10/2026) — tapée à la main, facultative.
   const [nb, setNb] = useState("");
+  // 🔧 « Avec installation » : null = d'office (cochée dès qu'il y a des frais
+  // d'installation) ; vrai / faux = choisi par celui qui établit le devis.
+  const [avecInstallation, setAvecInstallation] = useState(null);
   useEffect(() => {
     appliquerConditionsReprises(devisAReprendre?.devis, {
       setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
-      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur, setNb,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur, setNb, setAvecInstallation,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
@@ -222,7 +229,7 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
     totalArticles, pctRemise, setPctRemise, pctInstall, setPctInstall, pctTransport, setPctTransport,
     poseSeule, setPoseSeule, montantPoseFixe, setMontantPoseFixe,
     pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, ...totaux,
-    apporteur, setApporteur, principal, nb, setNb,
+    apporteur, setApporteur, principal, nb, setNb, avecInstallation, setAvecInstallation,
   };
 }
 
@@ -301,9 +308,33 @@ export function BlocsFinDevis({ r, onConvertir, aCompleter = false }) {
         delaiInstallation={r.delaiInstallation} setDelaiInstallation={r.setDelaiInstallation}
         montantAcompte={r.montantAcompte} totalDevis={r.totalDevis} aCompleter={aCompleter}
       />
+      <BlocAvecInstallation r={r} />
       <BlocApporteurDevis r={r} />
       <BlocNbDevis r={r} />
     </>
+  );
+}
+
+// ---- 🔧 « Avec installation » (Timo, 11/10/2026, « H : la case sur le devis ») ----
+// Cochée d'office dès qu'il y a des frais d'installation ; on la coche pour une
+// installation OFFERTE, on la décoche pour du matériel seul. Elle décide si le
+// matériel sort du stock au paiement (matériel seul, comme avant) ou plus tard,
+// par la case « 🏗 Chantier » de 💰 Ventes. Pas de case pour une pose seule.
+export function BlocAvecInstallation({ r }) {
+  if (r.poseSeule) return null;
+  const coche = avecInstallationDuDevis({ poseSeule: r.poseSeule, fraisInstallation: r.fraisInstallation, choix: r.avecInstallation });
+  return (
+    <div className="px-4 py-3 border-t border-slate-200" data-avec-installation>
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <input type="checkbox" checked={coche} onChange={(e) => r.setAvecInstallation(e.target.checked)} data-coche-avec-installation />
+        🔧 <b>Avec installation</b> — BMI installe ce matériel
+      </label>
+      <div className="text-xs text-slate-500 mt-1">
+        {coche
+          ? <>Le matériel ne sortira du stock qu'au moment où les techniciens viendront le chercher (case « 🏗 Chantier » de 💰 Ventes).{!(Number(r.fraisInstallation) > 0) && <b className="text-amber-700"> Installation offerte : aucun frais d'installation sur ce devis.</b>}</>
+          : <>Matériel seul : il sortira du stock au paiement du devis.</>}
+      </div>
+    </div>
   );
 }
 

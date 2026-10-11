@@ -15,6 +15,8 @@
 // quatre cartes, Produits vendus, 😴 Produits dormants, 📄 Exporter),
 // screens/Historique.jsx, lib/core.js (caVente, caLigneVente, lignesJournal).
 // Les caisses elles-mêmes (versements, clôture) sont au chapitre 6.
+// 🏗 La case « 🔧 Avec installation » et le matériel qui part au chantier :
+// lib/achatsChantier.js (11/10/2026).
 // ============================================================
 export const CHAPITRE = {
   numero: 22,
@@ -67,7 +69,7 @@ export const CHAPITRE = {
         { titre: "Choisir la pastille", texte: "**TOUTES** (d'office) ou une boutique, 🏗 CHANTIER, un compte mobile, une caisse. Une boutique choisie : « Tout l'écran ne compte que X. » Le choix est gardé pour la prochaine fois." },
         { titre: "La première rangée de cartes", texte: "**Depuis le début** : Total des ventes, Total des dépenses, Total des dettes, Commissions dues (non payées), Commissions déjà payées, Clients uniques ; et, s'il y en a, « Frais d'installation/transport encaissés » et « Avances clients à livrer »." },
         { titre: "« Période : »", texte: "**Aujourd'hui** d'office, puis Cette semaine, Ce mois, Cette année, Depuis le début, ou **Personnalisée** (deux dates ; le **Résultat** s'affiche à droite)." },
-        { titre: "Les cartes de la période", texte: "**Ventes — …**, **Dépenses — …**, **Résultat — …** (vert ou rouge) et **Dettes en cours** (elle, ne dépend pas de la période). **Le Résultat = ventes − prix d'achat des articles vendus − dépenses**, et le calcul est écrit chiffre par chiffre juste en dessous. Les dépenses « Achat marchandises » (dont les règlements de fournisseurs) et « Commande en Chine » n'y entrent pas : le prix d'achat les compte déjà." },
+        { titre: "Les cartes de la période", texte: "**Ventes — …**, **Dépenses — …**, **Résultat — …** (vert ou rouge) et **Dettes en cours** (elle, ne dépend pas de la période). **Le Résultat = ventes − prix d'achat des articles vendus − dépenses**, et le calcul est écrit chiffre par chiffre juste en dessous. Les dépenses « Achat marchandises » (dont les règlements de fournisseurs) et « Commande en Chine » n'y entrent pas : le prix d'achat les compte déjà. **🏗 Le matériel parti pour un chantier** (case « 🏗 Chantier » de 💰 Ventes) compte par son **prix d'achat** pour la boutique qui l'a remis, jamais comme une vente ; la vente du devis « avec installation », elle, garde son chiffre d'affaires sans compter de prix d'achat — il est compté une fois, sur le matériel vraiment parti." },
         { titre: "L'avertissement en ambre", texte: "« ⚠ N articles vendus sans prix d'achat… le bénéfice est surestimé » : ces articles n'ont pas de prix d'achat sur leur fiche, ils sont comptés comme s'ils n'avaient rien coûté. Les nommer, puis **📦 Stocks → ✏️ Corriger** leur prix d'achat : le résultat se corrige tout seul, ventes passées comprises. Un service (frais d'installation, de prestation) n'a pas de prix d'achat et n'est jamais signalé." },
         { titre: "Plus bas", texte: "**Ventes des 6 derniers mois** (une couleur par boutique), **🏆 Top 5 des produits** et **💳 Répartition des paiements** (période choisie), **Synthèse par période** (les cinq périodes côte à côte), puis une carte par boutique : dettes clients, alertes stock, valeur du stock au prix d'achat et au prix de vente." },
       ]],
@@ -108,6 +110,7 @@ export const CHAPITRE = {
       ]],
       ["regle", "**La marge = prix auquel l'article a été vendu** (remises déduites, articles repris retirés) **− son prix d'achat ACTUEL**, celui de sa fiche. Si le prix d'achat a changé depuis la vente, la marge d'une vente ancienne se recalcule avec le nouveau."],
       ["note", "Un article **sans prix d'achat** sur sa fiche passerait à 100 % de marge : l'écran le DIT en ambre, avec le nom de l'article, comme le tableau de bord."],
+      ["note", "**🏗 Un devis « avec installation »** : sa vente porte le chiffre d'affaires de l'article, et son **prix d'achat** se compte sur le matériel acheté pour le chantier (case « 🏗 Chantier ») — l'article a donc sa marge réelle une fois le matériel parti. Un matériel parti sans vente sur la période se lit avec un coût et aucun chiffre d'affaires."],
 
       ["h3", "F. Retrouver un geste dans l'historique"],
       ["etapes", [

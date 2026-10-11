@@ -19,7 +19,8 @@
 // prefixeBoutique, documentDeVente, titreRecuDette), lib/cloture.js
 // (motifBlocageVente), lib/bandesVersement.js, lib/reprises.js, lib/bons.js, lib/impression.js
 // (imprimerRecuDeVente, recuWhatsApp), lib/clientsConnus.js ; 📋 Inventaire :
-// screens/InventaireVentes.jsx, lib/inventaireVentes.js (10/10/2026).
+// screens/InventaireVentes.jsx, lib/inventaireVentes.js (10/10/2026) ; 🏗 la
+// case « Chantier » : lib/achatsChantier.js, components/AchatsChantier.jsx (11/10/2026).
 // ============================================================
 export const CHAPITRE = {
   numero: 5,
@@ -131,6 +132,17 @@ export const CHAPITRE = {
         "**Un clic sur une ligne la déplie** (tous les articles) ; un clic sur une autre la déplie à sa place. La ligne ouverte a un fond bleu et une barre à gauche.",
       ]],
 
+      ["h3", "E bis. 🏗 Le matériel qui part pour un chantier — la case « Chantier » (gérant, administrateur)"],
+      ["p", "Un devis coché **« 🔧 Avec installation »** (chapitre 11) ne sort **pas** le stock quand le client paie : le matériel reste dans la boutique jusqu'au jour où les techniciens viennent le chercher. Ce jour-là, la gérante fait une vente d'après leur liste, avec la case **« 🏗 Chantier »** cochée."],
+      ["etapes", [
+        { titre: "Composer le panier", texte: "Comme une vente ordinaire : les articles du stock, au **prix de la boutique**. Les remises se font comme au comptoir (3 % au plus pour la gérante, l'une ou l'autre)." },
+        { titre: "Cocher « 🏗 Chantier » et choisir le chantier", texte: "La liste « Pour quel chantier ? » ne propose que les chantiers **nés d'un devis « Avec installation »**, pas encore réceptionnés, de l'espace regardé. Le cadre dit **ce que le client a payé** pour son devis, la **part matériel** du devis, ce qui a **déjà été acheté**, et ce que coûte cet achat." },
+        { titre: "« 🏗 Enregistrer l'achat pour le chantier »", texte: "Le formulaire du client, le paiement et la proforma disparaissent : le paiement est **« 🏗 Payé par le chantier »**. Une confirmation dit tout, puis le matériel **sort du stock** et **« FACTURE D'ACHAT POUR LE CHANTIER … »** s'imprime — un document **interne**, signé « Remis par » et « Reçu par (technicien) ». Aucun WhatsApp ne part." },
+        { titre: "Retrouver un achat", texte: "Dans la liste, l'onglet **« 🏗 Achats chantier (N) »** : date, numéro **…-ACH-2026-0001**, chantier, articles, total, et « ✅ Réglé » ou « ⏳ X F en attente ». **🖨 Imprimer** refait la facture ; l'administrateur a **↩ Annuler** (motif obligatoire : le matériel revient en stock, l'achat reste écrit, marqué annulé)." },
+      ]],
+      ["regle", "**Un achat pour un chantier n'est pas une vente.** Rien n'entre dans le tiroir, rien ne compte dans le chiffre d'affaires ni dans une commission (tout ça a été compté au paiement du devis). Le matériel sort du stock, et **son prix d'achat** compte pour le chantier. La clôture du jour ne le bloque pas."],
+      ["attention", "**Si le client n'a pas encore assez payé**, la partie qui manque reste **« ⏳ en attente du chantier »** — pas de dette. **Son prochain versement la règle d'abord, tout seul**, et la gérante en est informée par une notification. Au-delà de la **part matériel du devis**, un avertissement rouge (jamais un refus) : le surplus est pris sur les frais d'installation."],
+
       ["h3", "F. La commande d'un commercial — 🛒 Nouvelle commande et 📥 Commandes reçues"],
       ["etapes", [
         { titre: "Le commercial compose la commande", texte: "Dans 🛒 Nouvelle commande : la boutique qui servira, les articles (scan ou liste, **seulement ce qui est en stock** : « Stock insuffisant : il reste N pour « … » »), le client et son numéro, la remise (3 % au plus), le « Paiement proposé », et s'il veut un « Vendeur destinataire » ou « Associer mon responsable » (le responsable commercial prend alors une part de sa commission)." },
@@ -217,7 +229,7 @@ export const CHAPITRE = {
     { titre: "Ce qui se passe automatiquement derrière", blocs: [
       ["ul", [
         "**Le numéro de reçu** : trois lettres de la boutique (ou son préfixe réglé) + l'année + un compteur sur quatre chiffres, par exemple **APE-2026-0012**. Une boutique de formation écrit **FOR-** devant. Le numéro = le plus grand déjà pris + 1 : une vente supprimée ne libère jamais son numéro. Deux appareils hors ligne qui prennent le même numéro sont renumérotés au retour du réseau, et la ligne garde « ex … » (le papier du client porte l'ancien).",
-        "**Le stock sort à l'encaissement**, jamais avant : ni au panier, ni à la proforma. Une réservation prépayée sort le stock à la livraison.",
+        "**Le stock sort à l'encaissement**, jamais avant : ni au panier, ni à la proforma. Une réservation prépayée sort le stock à la livraison. **Un devis « 🔧 Avec installation »** ne le sort pas au paiement : il sortira par la case « 🏗 Chantier » (E bis) ; un devis de matériel seul le sort au paiement, comme avant.",
         "**La vente se rattache au compte du client** par son numéro (8 derniers chiffres), sinon par le nom écrit exactement pareil. C'est ce qui la fait apparaître dans 👤 Clients et dans les données du client.",
         "**À crédit, une dette naît** dans 🧾 Dettes, du montant total dû (frais du devis compris), avec l'avance et son moyen de paiement. La commission du commercial **attend que la dette soit soldée**.",
         "**Le chiffre d'affaires** = articles − remise − rabais. **Pas** les frais d'installation ni de transport d'un devis (ils paient l'équipe). Une reprise diminue le chiffre d'affaires **net**, jamais le reçu.",

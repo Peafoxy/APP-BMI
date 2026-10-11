@@ -308,7 +308,10 @@ export function coutDesVentes(produits, ventes) {
   const manquants = new Map();
   (ventes || []).forEach((v) => {
     lignesVente(v).forEach((l) => {
-      if (l.hors_boutique || !l.produit_id) return;
+      // 🏗 Une ligne « au chantier » (11/10/2026) ne sort pas le stock au
+      // paiement : son prix d'achat se compte sur l'ACHAT POUR LE CHANTIER,
+      // quand le matériel part vraiment (une fois, jamais deux).
+      if (l.hors_boutique || !l.produit_id || l.au_chantier) return;
       const qte = Math.max(0, Number(l.qte || 0) - qteReprise(v, l.produit_id));
       if (!qte) return;
       const p = parId.get(l.produit_id);
@@ -461,6 +464,10 @@ export const prochainNumeroDeSerie = (lignes, prefixe) => {
 };
 export const prochainNumeroVente = (db, boutique, date = today()) =>
   prochainNumeroDeSerie(db.ventes, serieDe(db, boutique, String(date).slice(0, 4)));
+// 🏗 Un achat pour un chantier (11/10/2026) : sa propre série, « BMID-ACH-2026-0001 »
+// — il n'est pas une vente, il ne prend pas un numéro de reçu de vente.
+export const prochainNumeroAchatChantier = (db, boutique, date = today()) =>
+  prochainNumeroDeSerie((db.clients_installes || []).flatMap((c) => (Array.isArray(c.achats_chantier) ? c.achats_chantier : [])), serieDe(db, boutique, String(date).slice(0, 4), "ACH-"));
 
 // Répare les collisions de numéros (deux ventes portant le même numéro,
 // typiquement après une période hors ligne sur deux appareils).

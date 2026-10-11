@@ -52,15 +52,16 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2494 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2519 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run tester-notifications     # 82  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
+npm run tester-notifications     # 85  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 26  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
+npm run verifier-ecran-achat-chantier # 11 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
@@ -1516,23 +1517,8 @@ lit mal est pire qu'un banc absent).
   « Encaissé dans quelle boutique ? » a mis l'argent dans le tiroir de
   DEMAKPOE, et la gérante y lisait « une dette de 354 000 vendue par TIMO ».
   Puis : « garder les ventes des devis à part dans une autre caisse… même
-  terrain devient caisse chantier ». Deux étapes proposées ; **l'étape 1 est
-  construite, l'étape 2 (le stock qui sort quand le matériel part au
-  chantier, comme 🛠 Travaux) attend une description complète AVANT d'être
-  construite.**
-  ⚠ **« ON LAISSE D'ABORD » (08/10/2026)** — l'étape 2 est EN ATTENTE, rien
-  n'est construit. Ce que Timo a décrit, à reprendre s'il y revient : **le
-  devis ne touche JAMAIS le stock** (les articles n'y sont que pour le nom et
-  le prix ; l'encaissement non plus — ça retournerait « l'encaissement,
-  oui »), l'argent du client va à la caisse 🏗 CHANTIER, et **le matériel sort
-  par une VENTE NORMALE de la gérante** d'après la liste que lui présentent
-  les techniciens. Questions posées, SANS réponse : A qui paie cette vente
-  (caisse CHANTIER / crédit au nom du chantier / simple sortie) ; B à quel
-  prix (vente / achat) ; C la rattacher au chantier ; D un devis sans
-  installation ; E les devis d'avant restent tels quels. Les décisions A–E
-  de la première description, et les « niveau 1 / niveau 2 » de séparation
-  boutiques / installation proposés le même jour, sont aussi restés sans
-  réponse. Ne rien construire sans sa demande.
+  terrain devient caisse chantier ». Deux étapes : l'étape 1 ici ; **l'étape 2
+  (le matériel qui part au chantier) est construite le 11/10/2026** — § suivant.
 - **La caisse TERRAIN s'AFFICHE « 🏗 CHANTIER »** (`libelleCaisse`,
   constants.js — pastilles, badge, « Payé avec », résumé, ⚙ Paramètres) ; son
   nom dans la base reste « TERRAIN » / « TERRAIN (formation) »
@@ -1571,6 +1557,64 @@ lit mal est pire qu'un banc absent).
   ClientsInstalles, `libellePastille` ; deux de `verifier-whatsapp` (le geste
   commun, 🧾 Commandes). Chapitres 5, 6, 7, 13, 15, 22, 23 à jour.
 
+
+### 🏗 LA CAISSE CHANTIER, ÉTAPE 2 : LE MATÉRIEL QUI PART AU CHANTIER (11/10/2026, « A a, B b, C oui, D, E oui » → « 1 à 5 ok, F tout seul, G oui » → « H : la case sur le devis + oui »)
+- Timo : « une case à cocher dans vente : chantier… le montant de la vente est
+  déduit du montant du chantier… le reçu mentionné comme facture d'achat pour
+  le chantier… si le client n'a pas assez payé… soldé prioritairement, le
+  gérant reçoit une notification ». Règle pure **`lib/achatsChantier.js`**,
+  écran `components/AchatsChantier.jsx` + 💰 Ventes.
+- **H — la case « 🔧 Avec installation » sur le devis** (`BlocAvecInstallation`,
+  Partages.jsx, dans `BlocsFinDevis`, trois volets) : **cochée d'office dès
+  qu'il y a des frais d'installation**, décochable, cochable pour une
+  installation OFFERTE ; aucune pour une pose seule. Le devis porte
+  `avec_installation` (`avecInstallationDuDevis`, `champsReglages`), relu à la
+  reprise, remis d'office par « 🆕 Nouveau devis ». **Les devis d'avant ne la
+  portent pas : rien ne change pour eux (E)** ; un devis de matériel seul sort
+  le stock au paiement comme avant et garde sa fiche chantier (**D, H2** — la
+  fiche débloque la commission à la réception), mais n'est jamais proposé.
+- **L'encaissement d'un devis coché** (`auChantier`, Ventes.jsx) : la vente
+  garde CA, commission, apporteur, parrain, caisse CHANTIER ; ses lignes du
+  stock portent **`au_chantier`** (le stock ne sort pas — `stockVendu`,
+  l'index, le rythme, l'assistant les ignorent ; `coutDesVentes` ne compte pas
+  leur prix d'achat) ; le chantier porte **`stock_au_chantier`**.
+- **A a — la case « 🏗 Chantier » de 💰 Ventes** (gérant + administrateur,
+  `ROLES_ACHAT_CHANTIER` ; le serveur réserve déjà les ajustements à
+  magasinier / gérant / admin — rien à coller), jamais sur un devis encaissé,
+  des travaux, une proforma en modification. **G** : les chantiers de l'espace
+  regardé, `stock_au_chantier`, pas réceptionnés, ni travaux ni corbeille
+  (`chantiersPourAchat`). **B b** : prix de la boutique, remises comme au
+  comptoir (`critiqueRemises`, 3 % = admin). **1** : le stock sort par des
+  ajustements `sortie_chantier` (`chantier_id`, `achat_chantier_id`), l'achat
+  se range sur la fiche (`achats_chantier`) — **RIEN dans db.ventes** : ni CA,
+  ni commission, ni tiroir, ni clôture (la clôture ne le bloque pas, son
+  bandeau se cache) ; son **prix d'achat** compte (tableau de bord et
+  Rentabilité, `achatsCommeVentes`). **2** : « 🏗 Payé par le chantier »,
+  aucun argent ne change de caisse. **4** : aucun WhatsApp, aucune question
+  « sans numéro » ; **« FACTURE D'ACHAT POUR LE CHANTIER … »** interne
+  (`imprimerAchatChantier`, « Remis par » / « Reçu par (technicien) »).
+  Numéro à part **`…-ACH-2026-0001`** (`prochainNumeroAchatChantier`).
+  Stock insuffisant = refusé (on ne réserve pas). Onglet **« 🏗 Achats
+  chantier (N) »** sous la liste ; **↩ Annuler** = administrateur, motif,
+  avant réception (stock revient par `retour_chantier`, l'achat reste,
+  marqué `annule`).
+- **3 / F — l'argent du chantier** (`argentDuChantier`) : payé par le client
+  (comptant : articles + frais ; crédit : ce que SA dette a reçu) − achats
+  actifs ; **ce qui dépasse reste « ⏳ en attente du chantier », sans dette**,
+  et se règle **tout seul** au versement suivant, les achats les plus anciens
+  d'abord (`couvertureAchats`). Le gérant de la boutique de l'achat est
+  **informé** (liste B, `achatsReglesParUnVersement`, notifications.js § 9).
+- **5** : au-delà de la part matériel du devis (`totalVente` de sa vente), un
+  **avertissement rouge, jamais un refus** (`avertissementMateriel`) — le
+  surplus mange les frais d'installation.
+- 🏠 Clients installés : « 🏗 Matériel acheté : X (⏳ Y en attente) » ; une
+  fiche qui porte un achat actif **ne se supprime pas** (annuler d'abord).
+- ⚠ Non vérifié d'ici, dit à Timo : la fonction `stock_calcule` du SITE
+  VITRINE (autre dépôt) ne connaît pas `au_chantier`.
+- Rien à coller. Bancs : `verifier-cloisonnement` (+25), `tester-notifications`
+  (+3), **`verifier-ecran-achat-chantier`** (Chromium, 11 — la case jouée,
+  stock / remise / vendeuse), éprouvés en remettant sept fautes ; huit
+  contrôles RETOURNÉS. Chapitres 5, 11, 12, 13, 15, 22 et le guide du gérant.
 ### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES, 📋 TOUS LES DEVIS ET 🧲 PROSPECTS (05/10/2026, « Lance, revenir à Toutes périodes »)
 - Captures Timo : « pas de filtration de période dans ces écrans ». LE filtre
   de 💰 Ventes est écrit UNE fois, **`components/FiltrePeriode.jsx`**

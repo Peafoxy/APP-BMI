@@ -14,6 +14,7 @@ import { identiteClient, ligneClient, partieClientContrat } from "./clientEntrep
 import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { compteMasque } from "./banques";
 import { affectationDe } from "./affectation";
+import { TITRE_FACTURE_ACHAT, PAIEMENT_CHANTIER } from "./achatsChantier";
 import { phraseContrat } from "./contratTravail";
 import { TITRE_FACTURE_TRAVAUX, TITRE_RELEVE_TRAVAUX, avecInfoTravaux, lignesReleve, montantPrestation, totalArticles, totalAFacturer, LIGNE_PRESTATION } from "./travaux";
 
@@ -338,6 +339,71 @@ export function imprimerRecuDeVente(db, v, bq = {}, produits = []) {
 // pour qu'il vérifie. Ce n'est PAS une facture : aucun numéro de reçu, rien
 // d'encaissé, rien de compté — le document le dit en toutes lettres. Ni prix
 // d'achat ni marge : c'est le papier du client.
+// ---- 🏗 LA FACTURE D'ACHAT POUR LE CHANTIER (Timo, 11/10/2026, « A a ») ----
+// Le matériel que la gérante remet aux techniciens pour un chantier : prix de
+// la boutique, remises comme au comptoir, « Payé par le chantier ». Un
+// document INTERNE (point 4) : jamais envoyé au client, aucun tiroir touché.
+// `argent` = argentDuChantier après cet achat (couvert / en attente).
+export function imprimerAchatChantier(achat, chantier, bq = {}, argent = null) {
+  const logo = bq.logo || LOGO;
+  const lignes = achat.lignes || [];
+  const avecRemise = lignes.some((l) => Number(l.remise_ligne || 0) > 0);
+  const brut = lignes.reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0), 0);
+  const total = Math.max(0, Math.round(brut - Number(achat.remise || 0)));
+  const nom = `${chantier.prenom ? `${chantier.prenom} ` : ""}${chantier.nom || ""}`.trim();
+  const c = argent && argent.couverture ? argent.couverture.get(achat.id) : null;
+  const html = `
+  ${STYLE_RECU}
+  <div class="recu-doc" data-facture-achat-chantier>
+    ${bandeauFormation(bq.formation)}
+    <table class="entete"><tr>
+      <td><img src="${logo}" alt="${esc(achat.boutique)}"></td>
+      <td class="soc">
+        <div class="nom">${esc(achat.boutique)}</div>
+        <div>${esc(bq.adresse || "Lomé, Togo")}</div>
+        ${bq.tel ? `<div>Tél : ${esc(bq.tel)}</div>` : ""}
+      </td>
+    </tr></table>
+
+    <h1>${esc(TITRE_FACTURE_ACHAT)} ${esc(nom.toUpperCase())}</h1>
+    <div style="text-align:center;font-size:11px;color:#92400e;margin:-6px 0 10px" data-achat-interne>Document interne : le matériel remis pour ce chantier. Rien n'est encaissé, rien n'entre dans le tiroir.</div>
+
+    <div class="meta">
+      <div><b>N° :</b> ${esc(achat.numero)}</div>
+      <div><b>Date :</b> ${dFR(achat.date)}${achat.heure ? ` à ${esc(achat.heure)}` : ""}</div>
+    </div>
+
+    <div class="btitre">CHANTIER</div>
+    <div class="client">
+      <div><b>Client :</b> ${esc(nom || "—")}</div>
+      ${chantier.tel ? `<div><b>Téléphone :</b> ${esc(chantier.tel)}</div>` : ""}
+      ${chantier.localisation ? `<div><b>Lieu :</b> ${esc(chantier.localisation)}</div>` : ""}
+    </div>
+
+    <table class="articles">
+      <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th>${avecRemise ? "<th>Remise</th>" : ""}<th>Montant</th></tr></thead>
+      <tbody>
+        ${lignes.map((l) => `<tr><td>${esc(l.article)}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td>${avecRemise ? `<td>${Number(l.remise_ligne || 0) > 0 ? `−${fmt(l.remise_ligne)}` : "—"}</td>` : ""}<td>${fmt(Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0))}</td></tr>`).join("")}
+      </tbody>
+    </table>
+
+    <table class="totaux">
+      ${Number(achat.remise || 0) > 0 ? `<tr><td>Sous-total :</td><td>${fmt(brut)}</td></tr><tr><td>Remise${achat.remise_pct ? ` (${achat.remise_pct} %)` : ""} :</td><td>−${fmt(achat.remise)}</td></tr>` : ""}
+      <tr class="total"><td>TOTAL :</td><td>${fmt(total)}</td></tr>
+      <tr><td>Paiement :</td><td>${esc(PAIEMENT_CHANTIER)}</td></tr>
+      ${c ? `<tr><td>Réglé par l'argent du chantier :</td><td>${fmt(c.couvert)}</td></tr>${c.enAttente > 0 ? `<tr><td class="reste">⏳ En attente du chantier :</td><td class="reste" data-achat-en-attente>${fmt(c.enAttente)}</td></tr>` : ""}` : ""}
+    </table>
+    ${c && c.enAttente > 0 ? `<div style="font-size:11px;color:#92400e;margin:6px 0" data-achat-phrase-attente>Le client n'a pas encore payé assez pour ce matériel : son prochain versement le réglera d'abord.</div>` : ""}
+
+    <table class="sign"><tr>
+      <td><div class="ligne">Remis par : ${esc(achat.par || "")}</div></td>
+      <td></td>
+      <td><div class="ligne">Reçu par (technicien)</div></td>
+    </tr></table>
+  </div>`;
+  if (printApi) printApi.open(html, nomDocument("Facture d'achat chantier", { client: nom, numero: achat.numero }));
+}
+
 export function imprimerReleveTravaux(c, bq = {}, auteur = "", aujourdhui = today()) {
   const logo = bq.logo || LOGO;
   const prestation = montantPrestation(c);

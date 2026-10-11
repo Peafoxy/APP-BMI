@@ -53,6 +53,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
 | `lib/importStock.js` | L'importation d'articles en stock (Excel ou texte collé) |
 | `lib/travaux.js` | 🛠 Travaux à crédit : les prestations hors devis |
+| `lib/achatsChantier.js` | 🏗 Le matériel qui part au chantier : la case « Avec installation » du devis, les achats payés par le chantier, l'argent du chantier |
 | `lib/pompes.js` | Les pompes : ce qu'on en note (puissance, profondeur, débit, tension, hybride), et « quelle pompe pour ce forage » — **n'importe RIEN** |
 | `lib/outillage.js` | 🧰 Le matériel de travail de BMI : le registre, les sorties et retours, les pertes, l'appel de la semaine |
 | `lib/impression.js` | Les documents imprimables : reçus, bons, contrats |
@@ -143,6 +144,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `OngletsDeplacables.jsx` | La barre d'onglets qu'on déplace par appui long |
 | `HistoriqueArchive.jsx` | LE cadre d'historique qui défile et archive |
 | `ArgentChantier.jsx` | Les cadres de l'argent remis (onglet 💼 Argent reçu, validation du gérant, fiche du chantier) |
+| `AchatsChantier.jsx` | 🏗 La case « Chantier » de 💰 Ventes et la liste des achats pour les chantiers |
 | `EcranVerrou.jsx` | La fenêtre du verrou d'inactivité |
 | `ZoneSignature.jsx` | LA zone de signature (les quatre emplacements) |
 | `CarteCaisse.jsx` | LA carte d'une caisse centrale (DG, BANQUE, comptable) |

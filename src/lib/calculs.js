@@ -53,7 +53,9 @@ export function construireIndexDb(db) {
   const boutiquesFormationSet = boutiquesFormation(db);
   for (const v of db.ventes || []) {
     for (const l of lignesVente(v)) {
-      if (l.produit_id && !l.deja_sorti) venduParProduit.set(l.produit_id, (venduParProduit.get(l.produit_id) || 0) + Number(l.qte || 0));
+      // 🏗 `au_chantier` (11/10/2026) : la vente d'un devis « avec installation »
+      // ne sort pas le stock ; il sort par l'ACHAT POUR LE CHANTIER (ajustements).
+      if (l.produit_id && !l.deja_sorti && !l.au_chantier) venduParProduit.set(l.produit_id, (venduParProduit.get(l.produit_id) || 0) + Number(l.qte || 0));
     }
     if (v.commercial && !boutiquesFormationSet.has(v.boutique)) {
       const liste = ventesParCommercial.get(v.commercial) || [];
@@ -637,7 +639,7 @@ export const stockVendu = (db, pid) =>
     ? (db.__index.venduParProduit.get(pid) || 0)
     // `deja_sorti` (🛠 Travaux à crédit) : l'article a quitté le stock par un
     // ajustement au moment de la sortie ; la facture ne le ressort pas.
-    : db.ventes.reduce((s, v) => s + lignesVente(v).filter((l) => l.produit_id === pid && !l.deja_sorti).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
+    : db.ventes.reduce((s, v) => s + lignesVente(v).filter((l) => l.produit_id === pid && !l.deja_sorti && !l.au_chantier).reduce((t, l) => t + Number(l.qte || 0), 0), 0);
 
 export const stockAjuste = (db, pid) =>
   db.__index
@@ -2335,7 +2337,8 @@ export const couvertureStockJours = (db) => {
   const b = (db?.boutiques || []).find((x) => Number(x?.reappro_couverture_jours) > 0);
   return b ? Number(b.reappro_couverture_jours) : COUVERTURE_JOURS_DEFAUT;
 };
-const TYPES_SORTIE_RYTHME = ["sortie_travaux", "retour_travaux", "reprise_client"];
+// 🏗 Le matériel parti au chantier (11/10/2026) se consomme comme une vente.
+const TYPES_SORTIE_RYTHME = ["sortie_travaux", "retour_travaux", "reprise_client", "sortie_chantier", "retour_chantier"];
 const jourMoins = (jour, n) => {
   const d = new Date(`${String(jour).slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return "";
@@ -2353,7 +2356,7 @@ export const venduParProduitSurPeriode = (db, jours = JOURS_RYTHME_VENTES, aujou
   const ajouter = (pid, n) => { if (pid) carte.set(pid, (carte.get(pid) || 0) + n); };
   (db.ventes || []).forEach((v) => {
     if (!dansLaPeriode(v.date)) return;
-    lignesVente(v).forEach((l) => { if (!l.deja_sorti) ajouter(l.produit_id, Number(l.qte || 0)); });
+    lignesVente(v).forEach((l) => { if (!l.deja_sorti && !l.au_chantier) ajouter(l.produit_id, Number(l.qte || 0)); });
   });
   // Un ajustement négatif est une sortie : on le compte en positif.
   (db.ajustements || []).forEach((a) => {
