@@ -6727,7 +6727,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
       Vd.ROLES_REMISE_ARGENT.join("|") === "admin|gerant|comptable|resp_commercial|magasinier" /* ⚠ RETOURNÉ le 10/10/2026 : « laisse le magasinier payer avec la caisse » */
       && [tech, techBmi, kossi, { id: "c", nom: "C", role: "commercial" }].every((p) => ["caisse", "dg", "comptable", "fonds"].every((o) => refusPoche(saisie(p, o))) && !saisie(p, "avance").refus && saisie(p, "avance").depense.paye_avec === "avance")
       && !saisie(ali, "caisse").refus && !saisie(timo, "caisse").refus && !saisie(mag, "caisse").refus && !saisie({ id: "rc", nom: "RC", role: "resp_commercial" }, "dg").refus
-      && /votre poche/i.test(Vd.MOTIF_DE_SA_POCHE) && /Mon argent de chantier/.test(Vd.MOTIF_DE_SA_POCHE));
+      && /votre poche/i.test(Vd.MOTIF_DE_SA_POCHE) && /« 💼 Argent reçu »/.test(Vd.MOTIF_DE_SA_POCHE) /* ⚠ RETOURNÉ le 10/10/2026 : l'argent reçu s'explique dans l'onglet 💼 Argent reçu */);
     const opts = Vd.optionsPayeAvec(["APESSITO", "DEMAKPOE"], "APESSITO", { avecComptable: true, seulementPoche: true });
     test("★ 💼 « Payé avec » pour un technicien : UNE seule réponse, « Une avance personnelle (j'ai payé de ma poche) » — aucune caisse proposée (sa capture : « La caisse de BMI DEMAKPOE » d'office) ; sans l'option, la liste du gérant ne change pas",
       opts.length === 1 && opts[0][0] === "avance"
@@ -6736,7 +6736,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     const corpsEnr = dpS.slice(dpS.indexOf("const enregistrerDepense = async"), dpS.indexOf("const ajouter = () =>"));
     const outS = readFileSync("src/screens/Outillage.jsx", "utf8");
     test("★ 💼 l'écran 📤 Dépenses : la liste « Payé avec » passe seulementPoche pour ces rôles (d'office : l'avance), la case « Argent remis à » ne s'affiche PAS pour eux, et le geste refuse une remise avant tout calcul ; 🧰 Outillage (réparation) suit la même règle",
-      /const sansCaisse = payeDeSaPocheSeulement\(profile\)/.test(dpS) && /seulementPoche: sansCaisse/.test(dpS) && /\{f\.chantier_id && !sansCaisse && \(\s*<Field label="Argent remis à">/.test(dpS)
+      /const sansCaisse = payeDeSaPocheSeulement\(profile\)/.test(dpS) && /seulementPoche: sansCaisse/.test(dpS) && /const caseRemise = !sansCaisse && \(!!f\.chantier_id \|\| peutRemettreHorsChantier\(profile\)\);/.test(dpS) && /\{caseRemise && \(\s*<Field label="Argent remis à">/.test(dpS) /* ⚠ RETOURNÉ le 10/10/2026 : la case vaut aussi hors chantier (gérant, administrateur), jamais pour ces rôles */
       && corpsEnr.indexOf("if (sansCaisse)") > -1 && corpsEnr.indexOf("uAlert(MOTIF_DE_SA_POCHE)") > corpsEnr.indexOf("if (sansCaisse)") && corpsEnr.indexOf("uAlert(MOTIF_DE_SA_POCHE)") < corpsEnr.indexOf("construireDepenseSaisie(")
       && /data-de-sa-poche/.test(dpS)
       && (outS.match(/seulementPoche: sansCaisse/g) || []).length === 2 && /const sansCaisse = payeDeSaPocheSeulement\(profile\)/.test(outS) && !/paye_avec: `caisse:\$\{caisseDe\(o\)\}`/.test(outS));
@@ -6873,7 +6873,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && (dpV.match(/refuserSaufAdminPrincipal\(db, profile, "(Valider|Rejeter) une dépense \(DG\)"\)/g) || []).length === 2 && (dpV.match(/critiqueDecision\(d, \{ estPrincipal: true \}/g) || []).length === 2
     && /const motif = await uPrompt\(`Rejeter la dépense/.test(dpV) && /export function BadgeValidation/.test(dpV)
     // 13/09/2026 : la colonne « Chantier » (dépense rattachée à un chantier de devis) s'ajoute au tableau commun.
-    && /\["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""\]/.test(dpV) && (dpV.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 /* 13/09/2026 : l'en-tête reste collé en haut du cadre qui défile (HistoriqueArchive) */);
+    && /\["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier \/ remis à", ""\]/.test(dpV) /* ⚠ RETOURNÉ le 10/10/2026 : « remis à » se lit aussi sans chantier */ && (dpV.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 /* 13/09/2026 : l'en-tête reste collé en haut du cadre qui défile (HistoriqueArchive) */);
   test("★ écran Caisse : l'encadré « Avances de frais à rembourser » (gérant, admin), les trois façons, le mois demandé par demanderMois, critiqueRemboursement puis rembourserAvance, users et messages écrits",
     /const avances = avancesARembourser\(db, boutique\);/.test(csVd) && /Avances de frais à rembourser \(\{avances\.length\}\)/.test(csVd) && /MOYENS_REMBOURSEMENT\.map\(\(\[code, libelle\]\)/.test(csVd)
     && /await demanderMois\(`Sur quelle paie porter le remboursement/.test(csVd) && (csVd.match(/critiqueRemboursement\(d, moyen, profile/g) || []).length === 2 && /const r = rembourserAvance\(db, profile, d, moyen, today\(\), \{ mois \}\);/.test(csVd)
@@ -14258,9 +14258,10 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
   test("★ supprimer une remise déjà justifiée est refusé (le reste deviendrait négatif) ; une remise pas encore engagée se supprime",
     !!AC.refusSuppressionRemise([dep[0]], [{ ...k, argent_chantier: { justifs: [{ chantier_id: "c1", montant: 8000 }], retours: [] } }], dep[0])
     && AC.refusSuppressionRemise(dep, [{ ...kossi }], dep[1]) === null);
-  test("★ les techniciens proposés : l'équipe du chantier d'abord, tous ceux de l'espace sinon ; « Personne » permis, le choix exigé",
-    AC.techniciensProposes([kossi, ama, { id: "v", role: "vendeur" }], { equipe: [{ user_id: "t2" }] }).map((u) => u.id).join() === "t2"
-    && AC.techniciensProposes([kossi, ama, { id: "v", role: "vendeur" }], { equipe: [] }).map((u) => u.id).join() === "t1,t2"
+  // ⚠ RETOURNÉ le 10/10/2026 (« A b ») : plus seulement les techniciens — tout le personnel de l'espace, l'équipe en tête.
+  test("★ les personnes proposées : TOUT le personnel (le vendeur aussi), l'équipe du chantier EN TÊTE puis les autres par nom ; jamais un client, un compte désactivé, ni soi-même ; « Personne » permis, le choix exigé pour un chantier",
+    AC.personnesProposees([kossi, ama, { id: "v", nom: "BELLA", role: "vendeur" }], { equipe: [{ user_id: "t2" }] }).map((u) => u.id).join() === "t2,v,t1"
+    && AC.personnesProposees([kossi, ama, { id: "v", nom: "BELLA", role: "vendeur" }, { id: "cl", nom: "CLIENT", role: "client" }, { id: "x", nom: "OFF", role: "vendeur", actif: false }, { id: "g", nom: "MOI", role: "gerant" }], null, { id: "g" }).map((u) => u.id).join() === "t2,v,t1"
     && !!AC.critiqueRemisA({ id: "c1" }, "", [kossi]) && AC.critiqueRemisA({ id: "c1" }, AC.REMIS_A_PERSONNE, []) === null && AC.critiqueRemisA({ id: "c1" }, "t1", [kossi]) === null);
   test("★ l'argent rendu diminue la charge du chantier (déduite des frais avant le partage)",
     Dc.totalDepensesChantier({ depenses: [{ chantier_id: "c1", montant: 10000 }, { chantier_id: "c1", montant: -2000, categorie: "Argent rendu d'un chantier" }] }, "c1") === 8000
@@ -14271,18 +14272,21 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
   const posee = Vd2.modifierDepense(d0, { categorie: "Carburant", description: "x", remisA: { id: "t1", nom: "KOSSI" } }, "TIMO", "2026-10-07");
   const retiree = Vd2.modifierDepense({ ...d0, remis_a: { id: "t1", nom: "KOSSI" } }, { categorie: "Carburant", description: "x", remisA: null }, "TIMO", "2026-10-07");
   const sansChantier = Vd2.modifierDepense({ ...d0, remis_a: { id: "t1", nom: "KOSSI" } }, { categorie: "Carburant", description: "x", chantier: null }, "TIMO", "2026-10-07");
-  test("★ ✏️ Modifier pose, change ou retire « remis à » (journal « remis à : personne → KOSSI ») ; changer SEULEMENT le technicien n'est pas « rien n'a changé » ; un chantier retiré emporte la remise",
+  // ⚠ RETOURNÉ le 10/10/2026 : la remise peut vivre sans chantier — un chantier retiré ne l'emporte plus (le geste refuse d'ailleurs ce changement, critiqueChangementChantier).
+  test("★ ✏️ Modifier pose, change ou retire « remis à » (journal « remis à : personne → KOSSI ») ; changer SEULEMENT le technicien n'est pas « rien n'a changé » ; un chantier retiré GARDE la remise",
     posee.depense.remis_a?.id === "t1" && /remis à : personne → KOSSI/.test(posee.journal) && !("remis_a" in retiree.depense)
     && Vd2.critiqueModifDepense(d0, { categorie: "Carburant", description: "x", remisA: { id: "t1" } }) === null
     && /Rien/.test(Vd2.critiqueModifDepense(d0, { categorie: "Carburant", description: "x", remisA: undefined }) || "")
-    && !("remis_a" in sansChantier.depense) && !("chantier_id" in sansChantier.depense));
+    && sansChantier.depense.remis_a?.id === "t1" && !("chantier_id" in sansChantier.depense));
   {
     const dpM = readFileSync("src/screens/Depenses.jsx", "utf8");
     const corpsM = (dpM.match(/const enregistrerModif = \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
-    test("★ l'écran ✏️ Modifier : la case « Argent remis à » sous le chantier, choix exigé, revérifié DANS le geste (critiqueRemisA, et refusSuppressionRemise pour le technicien d'avant) avant d'écrire",
-      /<Field label="Argent remis à"><select className=\{inputCls\} value=\{modif\.remisA\}/.test(dpM) && /data-modif-remis-a/.test(dpM)
+    // ⚠ RETOURNÉ le 10/10/2026 : la case est là même sans chantier (« Personne » d'office) ; le choix reste exigé pour un chantier.
+    test("★ l'écran ✏️ Modifier : la case « Argent remis à » toujours là, choix exigé pour un chantier, revérifié DANS le geste (critiqueRemisA avec le profil, et refusSuppressionRemise pour la personne d'avant) avant d'écrire",
+      /<Field label="Argent remis à"><select className=\{inputCls\} value=\{modif\.remisA \|\| \(modif\.chantierId \? "" : REMIS_A_PERSONNE\)\}/.test(dpM) && /data-modif-remis-a/.test(dpM)
+      && corpsM.indexOf("critiqueRemisA(chDuChoix, modif.remisA, proposes, profile)") > -1
       && corpsM.indexOf("if (refusRemis) { uAlert(refusRemis); return; }") > -1 && corpsM.indexOf("if (refusAncien) { uAlert(refusAncien); return; }") > -1
-      && corpsM.indexOf("if (!modif.remisA)") > -1 && corpsM.indexOf("if (refusAncien)") < corpsM.indexOf("save("));
+      && corpsM.indexOf("if (modif.chantierId && !modif.remisA)") > -1 && corpsM.indexOf("if (refusAncien)") < corpsM.indexOf("save("));
   }
   const dpA = readFileSync("src/screens/Depenses.jsx", "utf8");
   // RETOURNÉ le 09/10/2026 : le corps du geste est enregistrerDepense.
@@ -14291,12 +14295,117 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
   const corpsVal = (cmpA.match(/const valider = async \(\{ technicien, retour, caisses \}\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
   test("★ l'écran : « Argent remis à » sous le chantier, revérifié DANS le geste avant d'écrire ; la ligne dit « remis à » ; le cadre du technicien et celui du gérant sont posés ; la suppression revérifie la remise",
     /data-remis-a/.test(dpA) && corpsAj.indexOf("if (refusRemis) { uAlert(refusRemis); return; }") > corpsAj.indexOf("critiqueRemisA(") && corpsAj.indexOf("critiqueRemisA(") > -1 && corpsAj.indexOf("if (refusRemis) { uAlert(refusRemis); return; }") < corpsAj.indexOf("save(")
-    && /data-remis-a-ligne/.test(dpA) && /<MonArgentDeChantier db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(dpA) && /<RetoursAValider /.test(dpA)
+    && /data-remis-a-ligne/.test(dpA) && /<RetoursAValider /.test(dpA)
+    /* ⚠ RETOURNÉ le 10/10/2026 (« C a ») : le cadre de la personne qui a reçu quitte 📤 Dépenses pour l'onglet « 💼 Argent reçu » */
+    && !/MonArgent/.test(dpA) && /<MonArgentRecu db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(readFileSync("src/screens/ArgentRecu.jsx", "utf8"))
     && /refusSuppressionRemise\(db\.depenses, utilisateursDeLEspace\(db, profile\), d\)/.test(dpA)
     && corpsVal.indexOf("critiqueValidationRetour(") > -1 && corpsVal.indexOf("critiqueValidationRetour(") < corpsVal.indexOf("save(")
     && /if \(!String\(motif\)\.trim\(\)\) \{ uAlert\("Le motif est obligatoire\."\); return; \}/.test(cmpA)
     && /<ArgentDuChantier /.test(readFileSync("src/screens/Travaux.jsx", "utf8")) && /<ArgentDuChantier /.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8"))
     && !/db\.users\.filter/.test(cmpA));
+}
+
+titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à part, expliquée dans « 💼 Argent reçu » (10/10/2026)");
+{
+  // Timo : « pour chaque dépense côté gérant ou administrateur, choisir le
+  // destinataire… et le destinataire justifie » → « A b, B b, C a, D a ».
+  const AC = await import("../src/lib/argentChantier.js");
+  const V = await import("../src/lib/versements.js");
+  const C = await import("../src/lib/core.js");
+  const Kc = await import("../src/lib/constants.js");
+  const bella = { id: "v1", nom: "BELLA", role: "vendeur" };
+  const gerant = { id: "g", nom: "GERANT", role: "gerant", boutique: "LOME" };
+  const dep = [
+    { id: "h1", date: "2026-10-09", boutique: "LOME", categorie: "Carburant", description: "groupe", montant: 8000, paiement: "Espèces", par: "GERANT", remis_a: { id: "v1", nom: "BELLA" } },
+    { id: "h2", date: "2026-10-10", boutique: "LOME", categorie: "Transport", description: "", montant: 5000, paiement: "Espèces", par: "GERANT", remis_a: { id: "v1", nom: "BELLA" } },
+    { id: "h3", date: "2026-10-10", boutique: "LOME", categorie: "Carburant", montant: 4000, paiement: "Espèces", par: "GERANT", chantier_id: "c1", chantier_nom: "NIMAN", remis_a: { id: "v1", nom: "BELLA" } },
+    { id: "h4", date: "2026-10-10", boutique: "LOME", categorie: "Carburant", montant: 9000, paiement: "Espèces", par: "GERANT", remis_a: { id: "v1", nom: "BELLA" }, validation: { statut: "rejetee" } },
+  ];
+  const b = { ...bella, argent_chantier: { justifs: [{ id: "j1", remise_id: "h1", remise_libelle: "Carburant — groupe", categorie: "Carburant", montant: 6000 }], retours: [] } };
+  const s1 = AC.soldeArgentRemise(dep, b, "h1"), s2 = AC.soldeArgentRemise(dep, b, "h2"), sc = AC.soldeArgentChantier(dep, b, "c1");
+  test("★ « D a » : chaque somme hors chantier se compte À PART — h1 : reçu 8 000, détaillé 6 000, reste 2 000 ; h2 : reçu 5 000, rien de détaillé (le détail de h1 ne la touche pas) ; la somme du chantier garde son total à elle",
+    s1.recu === 8000 && s1.justifie === 6000 && s1.reste === 2000 && s1.libelle === "Carburant — groupe" && s1.remiseId === "h1" && s1.chantierId === null
+    && s2.recu === 5000 && s2.justifie === 0 && s2.reste === 5000 && s2.libelle === "Transport"
+    && sc.recu === 4000 && sc.justifie === 0 && sc.reste === 4000);
+  const tout = AC.argentRecu(dep, b);
+  test("★ « C a » : argentRecu donne TOUT ce que la personne a reçu — ses deux sommes hors chantier et son chantier (jamais une somme rejetée) ; ce qui reste à expliquer d'abord ; nbAExpliquer = 3",
+    tout.length === 3 && tout.filter((x) => x.remiseId).map((x) => x.remiseId).sort().join() === "h1,h2" && tout.some((x) => x.chantierId === "c1")
+    && !tout.some((x) => x.remiseId === "h4") && AC.nbAExpliquer(dep, b) === 3 && AC.argentRecu(dep, { id: "personne" }).length === 0);
+  const bj = AC.ajouterJustif(b, s2, { categorie: "Transport", montant: 1000 }, "2026-10-10");
+  const bjJ = AC.fiche(bj).justifs.find((j) => j.remise_id === "h2");
+  test("★ le détail d'une somme hors chantier porte remise_id (et son nom), jamais un chantier ; il n'entre pas dans le chantier",
+    !!bjJ && bjJ.remise_libelle === "Transport" && !("chantier_id" in bjJ) && AC.soldeArgentChantier(dep, bj, "c1").justifie === 0 && AC.soldeArgentRemise(dep, bj, "h2").justifie === 1000);
+  const br = AC.demanderRetour(b, s1, 2000, "2026-10-10");
+  const ret = AC.fiche(br).retours[0];
+  const vr = AC.validerRetour(gerant, br, ret.id, AC.caissesDuRetour(AC.soldeDuRetour(dep, br, ret))[0], "2026-10-10", "18:00");
+  test("★ rendre le reste d'une somme hors chantier : la dépense NÉGATIVE s'appelle « Argent rendu » (pas « d'un chantier »), sans chantier, sur la caisse qui avait payé ; elle n'est comptée que sur SA somme",
+    ret.remise_id === "h1" && vr.depense.categorie === Kc.CATEGORIE_RETOUR_ARGENT && Kc.CATEGORIE_RETOUR_ARGENT === "Argent rendu" && !("chantier_id" in vr.depense)
+    && vr.depense.retour_chantier.remise_id === "h1" && vr.depense.montant === -2000 && vr.depense.boutique === "LOME"
+    && AC.soldeArgentRemise([...dep, vr.depense], vr.technicien, "h1").rendu === 2000 && AC.soldeArgentRemise([...dep, vr.depense], vr.technicien, "h1").reste === 0
+    && AC.soldeArgentRemise([...dep, vr.depense], vr.technicien, "h2").rendu === 0 && AC.soldeArgentChantier([...dep, vr.depense], vr.technicien, "c1").rendu === 0
+    && /Carburant — groupe/.test(vr.journal));
+  const base = { boutiques: [{ nom: "LOME" }], ventes: [{ id: "v", boutique: "LOME", date: "2026-10-01", paiement: "Espèces", articles: [{ pu: 50000, qte: 1 }] }], dettes: [], depenses: [dep[0]] };
+  test("★ la caisse est créditée dès la validation (+2 000 dans le tiroir de LOME), et sur un compte mobile « Argent rendu » est une ENTRÉE",
+    V.fondsAVerser({ ...base, depenses: [dep[0], vr.depense] }, "LOME", C.totalVente).montant - V.fondsAVerser(base, "LOME", C.totalVente).montant === 2000
+    && (await (async () => {
+      const sortieM = join("node_modules", ".cache", `bmi-argent-libre-${process.pid}.mjs`);
+      await build({ entryPoints: ["src/lib/caissesMobiles.js"], bundle: true, format: "esm", platform: "node", outfile: sortieM, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+      const M = await import(pathToFileURL(sortieM).href);
+      try { unlinkSync(sortieM); } catch {}
+      return M.mouvementsMobile({ ventes: [], dettes: [], depenses: [{ ...vr.depense, paiement: "Mobile Money (Flooz)" }] }, "Mobile Money (Flooz)", ["LOME"]).solde === 2000;
+    })()));
+  test("★ « B b » : hors chantier, rien choisi = « Personne » (aucun refus) ; une personne proposée passe pour le gérant et l'administrateur ; un vendeur ne remet rien hors chantier ; une personne pas proposée est refusée ; pour un chantier le choix reste exigé",
+    AC.critiqueRemisA(null, "", [bella], gerant) === null && AC.critiqueRemisA(null, AC.REMIS_A_PERSONNE, [], gerant) === null
+    && AC.critiqueRemisA(null, "v1", [bella], gerant) === null && AC.critiqueRemisA(null, "v1", [bella], { role: "admin" }) === null
+    && /gérant ou de l'administrateur/.test(AC.critiqueRemisA(null, "v1", [bella], { role: "vendeur" }) || "")
+    && !!AC.critiqueRemisA(null, "zz", [bella], gerant) && !!AC.critiqueRemisA({ id: "c1" }, "", [bella], gerant)
+    && AC.peutRemettreHorsChantier(gerant) && AC.peutRemettreHorsChantier({ role: "admin" }) && !AC.peutRemettreHorsChantier({ role: "magasinier" }));
+  test("★ une somme hors chantier déjà expliquée ne se supprime pas ; elle ne reçoit pas de chantier après coup (ses explications sont comptées sur elle)",
+    /sur elle/.test(AC.refusSuppressionRemise(dep, [b], dep[0]) || "") && AC.refusSuppressionRemise(dep, [b], dep[1]) === null
+    && await (async () => {
+      const sortieD = join("node_modules", ".cache", `bmi-argent-libre-dc-${process.pid}.mjs`);
+      await build({ entryPoints: ["src/lib/depensesChantier.js"], bundle: true, format: "esm", platform: "node", outfile: sortieD, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+      const Dc = await import(pathToFileURL(sortieD).href);
+      try { unlinkSync(sortieD); } catch {}
+      return /hors chantier : on ne lui ajoute pas de chantier/.test(Dc.critiqueChangementChantier({ clients_installes: [] }, { role: "admin" }, dep[0], { id: "c2" }) || "");
+    })());
+  const dpL = readFileSync("src/screens/Depenses.jsx", "utf8");
+  const corpsL = dpL.slice(dpL.indexOf("const enregistrerDepense = async"), dpL.indexOf("const ajouter = () =>"));
+  test("★ l'écran 📤 Dépenses : la case vaut hors chantier pour le gérant et l'administrateur (« Personne » d'office, l'équipe marquée 🏠), le geste revérifie AVEC le profil sur la liste de tout le personnel, la ligne dit « remis à » même sans chantier",
+    /value=\{f\.remis_a \|\| \(f\.chantier_id \? "" : REMIS_A_PERSONNE\)\}/.test(dpL) && /\{f\.chantier_id && <option value="">— Choisir —<\/option>\}/.test(dpL)
+    && corpsL.includes("const proposes = personnesProposees(utilisateursDeLEspace(db, profile), chantierChoisi, profile);")
+    && corpsL.includes("critiqueRemisA(chantierChoisi, f.remis_a, proposes, profile)") && corpsL.indexOf("if (refusRemis)") < corpsL.indexOf("save(")
+    && /: x\.remis_a\?\.nom \? <span className="text-xs text-slate-600" data-remis-a-ligne>/.test(dpL) && !/techniciensProposes/.test(dpL));
+  const appL = readFileSync("src/App.jsx", "utf8");
+  test("★ « C a » : l'onglet « 💼 Argent reçu » n'apparaît que chez qui a reçu de l'argent (jamais un client), avec le nombre de sommes à expliquer ; un clic de notification peut l'ouvrir",
+    /const aDeLArgentRecu = !!ficheArgent && argentRecu\(db\.depenses, ficheArgent\)\.length > 0;/.test(appL) && /const ficheArgent = isClient \? null :/.test(appL)
+    && /\{ongletsVisites\.argent_recu && aDeLArgentRecu && \(/.test(appL) && /<M\.ArgentRecu db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(appL)
+    && /ecran === "argent_recu" && profile\.role !== "client"/.test(appL));
+  {
+    const sortieAR = join("node_modules", ".cache", `bmi-argent-recu-${process.pid}.mjs`);
+    let R = null, errB = "";
+    try {
+      await build({ entryPoints: ["scripts/_rendu-argent-recu.jsx"], bundle: true, format: "esm",
+        platform: "node", outfile: sortieAR, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+        define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+        external: ["react", "react-dom", "react-dom/server"] });
+      R = await import(pathToFileURL(sortieAR).href);
+    } catch (e) { errB = String(e && e.message || e).split("\n")[0]; }
+    try { unlinkSync(sortieAR); } catch {}
+    test("💼 Argent reçu se monte dans le banc" + (errB ? ` (${errB})` : ""), !!R);
+    if (R) {
+      const dbR = { boutiques: [{ id: "b1", nom: "LOME" }], users: [{ ...b, boutique: "LOME", actif: true }], depenses: dep, ventes: [], dettes: [], messages: [], clients_installes: [] };
+      let html = "", errR = "";
+      try { html = R.rendreArgentRecu(dbR, { ...b, boutique: "LOME" }); } catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
+      let vide = "";
+      try { vide = R.rendreArgentRecu({ ...dbR, depenses: [], users: [{ ...bella, boutique: "LOME", actif: true }] }, { ...bella, boutique: "LOME" }); } catch {}
+      test("★ l'écran RENDU pour une vendeuse : deux sommes hors chantier (💸, chacune son nom) et son chantier (🏠), le reste de chacune ; sans argent reçu, il le dit" + (errR ? ` (${errR})` : ""),
+        !errR && (html.match(/data-dossier="remise"/g) || []).length === 2 && (html.match(/data-dossier="chantier"/g) || []).length === 1
+        && html.includes("💸 Carburant — groupe") && html.includes("💸 Transport") && html.includes("🏠 NIMAN")
+        && html.includes(`Reste à justifier : ${C.fmt(2000)}`) && html.includes(`Reste à justifier : ${C.fmt(5000)}`)
+        && /data-argent-recu="vide"/.test(vide));
+    }
+  }
 }
 
 // 💡 La part d'installation propose d'office la caisse où le CLIENT a payé

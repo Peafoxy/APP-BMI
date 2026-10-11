@@ -1,10 +1,13 @@
 // ============================================================
-// components/ArgentChantier.jsx — L'ARGENT REMIS À UN TECHNICIEN POUR UN CHANTIER
+// components/ArgentChantier.jsx — L'ARGENT REMIS À QUELQU'UN (chantier ou non)
 // (Timo, 07/10/2026 — « b » : un total par chantier ; « s'il reste, il faut
 // rendre le reste, et la caisse de sortie est immédiatement créditée lorsque
 // le gérant valide la somme rendue »). Les règles vivent dans
 // lib/argentChantier.js ; ici, les trois cadres qui les montrent :
-//   • MonArgentDeChantier — chez le technicien : reçu, détail, reste, rendre ;
+//   • MonArgentRecu       — chez la personne qui a reçu (onglet « 💼 Argent
+//                           reçu », Timo 10/10/2026, « C a ») : reçu, détail,
+//                           reste, rendre — par chantier, et remise par remise
+//                           hors chantier (« D a ») ;
 //   • RetoursAValider     — chez le gérant / l'administrateur : valider ou
 //                           refuser l'argent rendu (la caisse est créditée à
 //                           la validation, pas avant) ;
@@ -16,7 +19,7 @@ import { fmt, dFR, today, heureCourte } from "../lib/core";
 import { CATEGORIES } from "../lib/constants";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, uChoix } from "./ui";
 import { bloquerSiLecture, utilisateursDeLEspace } from "../lib/calculs";
-import { argentParChantier, soldeArgentChantier, critiqueJustif, ajouterJustif, retirerJustif, critiqueDemandeRetour, demanderRetour, retoursEnAttente, caissesDuRetour, libelleCaisseRetour, peutValiderRetour, critiqueValidationRetour, validerRetour, refuserRetour, techniciensDuChantier } from "../lib/argentChantier";
+import { argentRecu, soldeDossier, soldeDuRetour, soldeArgentChantier, nomDossier, critiqueJustif, ajouterJustif, retirerJustif, critiqueDemandeRetour, demanderRetour, retoursEnAttente, caissesDuRetour, libelleCaisseRetour, peutValiderRetour, critiqueValidationRetour, validerRetour, refuserRetour, techniciensDuChantier } from "../lib/argentChantier";
 
 const remplacerFiche = (db, fiche) => (db.users || []).map((u) => (u.id === fiche.id ? fiche : u));
 const ficheFraiche = (db, id) => (db.users || []).find((u) => u.id === id);
@@ -64,24 +67,27 @@ function LignesDetail({ s, onRetirer }) {
   );
 }
 
-// ── Chez le technicien ──
-export function MonArgentDeChantier({ db, save, profile }) {
+// ── Chez la personne qui a reçu l'argent (onglet « 💼 Argent reçu ») ──
+export function MonArgentRecu({ db, save, profile }) {
   const moi = utilisateursDeLEspace(db, profile).find((u) => u.id === profile.id);
   const [ouvert, setOuvert] = useState(null);
   const vide = { categorie: "", description: "", montant: "", date: today() };
   const [l, setL] = useState(vide);
-  if (!moi) return null;
-  const parChantier = argentParChantier(db.depenses, moi);
-  if (parChantier.length === 0) return null;
-
-  const ajouter = (chantierId) => {
-    if (bloquerSiLecture(db, profile)) return;
+  const dossiers = moi ? argentRecu(db.depenses, moi) : [];
+  if (dossiers.length === 0) return <div className="bg-white rounded-xl border border-slate-200 p-4 text-sm text-slate-500" data-argent-recu="vide">Aucun argent ne vous a été remis pour l'instant.</div>;
+  // Le dossier relu sur la fiche FRAÎCHE (jamais celui du dernier affichage).
+  const fraisEtSolde = (s0) => {
     const frais = ficheFraiche(db, profile.id);
-    const s = soldeArgentChantier(db.depenses, frais, chantierId);
+    return { frais, s: soldeDossier(db.depenses, frais, { chantierId: s0.chantierId, remiseId: s0.remiseId }) };
+  };
+
+  const ajouter = (s0) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const { frais, s } = fraisEtSolde(s0);
     const refus = critiqueJustif(s, l);
     if (refus) { uAlert(refus); return; }
     save({ ...db, users: remplacerFiche(db, ajouterJustif(frais, s, l, today())) },
-      `Détail de l'argent de chantier : ${fmt(Number(l.montant))} en ${l.categorie} (${s.chantierNom || "chantier"}) — ${frais.nom}`);
+      `Détail de l'argent reçu : ${fmt(Number(l.montant))} en ${l.categorie} (${s.libelle}) — ${frais.nom}`);
     setL(vide);
   };
   const retirer = async (j) => {
@@ -90,42 +96,42 @@ export function MonArgentDeChantier({ db, save, profile }) {
     const frais = ficheFraiche(db, profile.id);
     save({ ...db, users: remplacerFiche(db, retirerJustif(frais, j.id)) }, `Ligne de détail retirée : ${fmt(j.montant)} en ${j.categorie} — ${frais.nom}`);
   };
-  const rendre = async (chantierId) => {
+  const rendre = async (s0) => {
     if (bloquerSiLecture(db, profile)) return;
-    const frais = ficheFraiche(db, profile.id);
-    const s = soldeArgentChantier(db.depenses, frais, chantierId);
-    const saisie = await uPrompt(`Combien rendez-vous pour ${s.chantierNom || "ce chantier"} ?\n\nIl reste ${fmt(s.reste)} à justifier. La caisse ne sera créditée que lorsque le gérant aura validé la somme rendue.`, String(s.reste));
+    const { frais, s } = fraisEtSolde(s0);
+    const saisie = await uPrompt(`Combien rendez-vous pour « ${s.libelle} » ?\n\nIl reste ${fmt(s.reste)} à justifier. La caisse ne sera créditée que lorsque le gérant aura validé la somme rendue.`, String(s.reste));
     if (saisie === null) return;
     const montant = Number(String(saisie).replace(/\s/g, ""));
     const refus = critiqueDemandeRetour(s, montant);
     if (refus) { uAlert(refus); return; }
     save({ ...db, users: remplacerFiche(db, demanderRetour(frais, s, montant, today())) },
-      `Argent de chantier rendu (en attente du gérant) : ${fmt(montant)} — ${s.chantierNom || "chantier"} — ${frais.nom}`);
+      `Argent reçu rendu (en attente du gérant) : ${fmt(montant)} — ${s.libelle} — ${frais.nom}`);
     uAlert(`↩ ${fmt(montant)} annoncés comme rendus. Remettez l'argent au gérant : il le valide dans 📤 Dépenses, et la caisse est créditée à ce moment-là.`);
   };
 
   return (
-    <div className="bg-white rounded-xl border-2 border-purple-200 shadow-sm p-4" data-argent-chantier>
-      <div className="font-bold text-purple-900 mb-2">💼 Argent reçu pour vos chantiers</div>
+    <div className="bg-white rounded-xl border-2 border-purple-200 shadow-sm p-4" data-argent-recu>
+      <div className="font-bold text-purple-900 mb-1">💼 Argent qui vous a été remis</div>
+      <div className="text-xs text-slate-600 mb-3">Pour chaque somme : dites à quoi elle a servi (✏️ Détailler) et rendez ce qui reste. Pour un chantier, tout l'argent reçu pour lui est compté ensemble ; hors chantier, chaque somme à part.</div>
       <div className="space-y-3">
-        {parChantier.map((s) => (
-          <div key={s.chantierId} className="rounded-lg border border-slate-200 p-3">
-            <div className="font-bold text-sm mb-1">🏠 {s.chantierNom || "Chantier"}</div>
+        {dossiers.map((s) => (
+          <div key={s.cle} className="rounded-lg border border-slate-200 p-3" data-dossier={s.remiseId ? "remise" : "chantier"}>
+            <div className="font-bold text-sm mb-1">{s.remiseId ? "💸 " : "🏠 "}{s.libelle}</div>
             <Chiffres s={s} />
             <LignesDetail s={s} onRetirer={retirer} />
             {s.reste > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
-                <button onClick={() => { setOuvert(ouvert === s.chantierId ? null : s.chantierId); setL(vide); }} className={btnDark}>✏️ Détailler</button>
-                <button onClick={() => rendre(s.chantierId)} className="px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold">↩ Rendre le reste</button>
+                <button onClick={() => { setOuvert(ouvert === s.cle ? null : s.cle); setL(vide); }} className={btnDark}>✏️ Détailler</button>
+                <button onClick={() => rendre(s)} className="px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold">↩ Rendre le reste</button>
               </div>
             )}
-            {ouvert === s.chantierId && s.reste > 0 && (
+            {ouvert === s.cle && s.reste > 0 && (
               <div className="grid sm:grid-cols-4 gap-2 mt-2 items-end">
                 <Field label="À quoi"><select className={inputCls} value={l.categorie} onChange={(e) => setL({ ...l, categorie: e.target.value })}><option value="">— Choisir —</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select></Field>
                 <Field label="Précision"><input className={inputCls} value={l.description} onChange={(e) => setL({ ...l, description: e.target.value })} /></Field>
                 <Field label="Montant (F)"><input type="number" className={inputCls} value={l.montant} onChange={(e) => setL({ ...l, montant: e.target.value })} /></Field>
                 <Field label="Date"><input type="date" className={inputCls} value={l.date} onChange={(e) => setL({ ...l, date: e.target.value })} /></Field>
-                <div className="sm:col-span-4"><button onClick={() => ajouter(s.chantierId)} className={btnDark}>Ajouter la ligne</button></div>
+                <div className="sm:col-span-4"><button onClick={() => ajouter(s)} className={btnDark}>Ajouter la ligne</button></div>
               </div>
             )}
           </div>
@@ -140,7 +146,7 @@ export function MonArgentDeChantier({ db, save, profile }) {
 export function RetoursAValider({ db, save, profile }) {
   const personnes = utilisateursDeLEspace(db, profile);
   const liste = retoursEnAttente(personnes).map((x) => {
-    const s = soldeArgentChantier(db.depenses, x.technicien, x.retour.chantier_id);
+    const s = soldeDuRetour(db.depenses, x.technicien, x.retour);
     return { ...x, caisses: caissesDuRetour(s).filter((c) => peutValiderRetour(profile, c)) };
   }).filter((x) => x.caisses.length > 0);
   if (liste.length === 0) return null;
@@ -156,7 +162,7 @@ export function RetoursAValider({ db, save, profile }) {
     const frais = ficheFraiche(db, technicien.id);
     const refus = critiqueValidationRetour(profile, frais, retour.id, caisse);
     if (refus) { uAlert(refus); return; }
-    if (!await uConfirm(`Avez-vous reçu ${fmt(retour.montant)} de ${technicien.nom} (${retour.chantier_nom || "chantier"}) ?\n\nLa somme est créditée tout de suite sur : ${libelleCaisseRetour(caisse)}.`)) return;
+    if (!await uConfirm(`Avez-vous reçu ${fmt(retour.montant)} de ${technicien.nom} (${nomDossier(retour)}) ?\n\nLa somme est créditée tout de suite sur : ${libelleCaisseRetour(caisse)}.`)) return;
     const r = validerRetour(profile, frais, retour.id, caisse, today(), heureCourte());
     save({ ...db, users: remplacerFiche(db, r.technicien), depenses: [r.depense, ...(db.depenses || [])] }, r.journal);
   };
@@ -172,11 +178,11 @@ export function RetoursAValider({ db, save, profile }) {
 
   return (
     <div className="bg-white rounded-xl border-2 border-amber-300 shadow-sm p-4" data-retours-a-valider>
-      <div className="font-bold text-amber-900 mb-2">↩ Argent de chantier rendu, à valider ({liste.length})</div>
+      <div className="font-bold text-amber-900 mb-2">↩ Argent rendu, à valider ({liste.length})</div>
       <div className="space-y-1">
         {liste.map((x) => (
           <div key={x.retour.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-            <div><b className="tabular-nums">{fmt(x.retour.montant)}</b> rendus par <b>{x.technicien.nom}</b> le {dFR(x.retour.le)} — {x.retour.chantier_nom || "chantier"}
+            <div><b className="tabular-nums">{fmt(x.retour.montant)}</b> rendus par <b>{x.technicien.nom}</b> le {dFR(x.retour.le)} — {nomDossier(x.retour)}
               <div className="text-xs text-slate-500">revient à : {x.caisses.map(libelleCaisseRetour).join(" ou ")}</div></div>
             <div className="flex gap-2">
               <button onClick={() => valider(x)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold">✅ Reçu</button>

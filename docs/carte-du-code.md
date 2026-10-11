@@ -31,7 +31,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/commissionsDues.js` | Les commissions devenues dues (réception ET solde) à annoncer par WhatsApp, et leur marque « annoncée » |
 | `lib/compteExploitant.js` | Le compte de l'exploitant (BMI est une entreprise individuelle) : la caisse de BMI chez le DG, à part de ce que BMI lui doit ; ses apports et ses prélèvements |
 | `lib/depensesChantier.js` | Les petites dépenses rattachées à un chantier de devis |
-| `lib/argentChantier.js` | L'argent remis à un technicien pour un chantier : son détail, le reste rendu |
+| `lib/argentChantier.js` | L'argent remis à quelqu'un (pour un chantier ou hors chantier) : son détail, le reste rendu |
 | `lib/primeChantier.js` | La prime de chantier d'un employé de boutique : quels chantiers, prise sur la part de BMI |
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
 | `lib/bons.js` | Le bon de reprise et le bon de retour (des documents, jamais des écritures) |
@@ -142,7 +142,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `SelecteurBoutique.jsx` | La rangée de pastilles des boutiques |
 | `OngletsDeplacables.jsx` | La barre d'onglets qu'on déplace par appui long |
 | `HistoriqueArchive.jsx` | LE cadre d'historique qui défile et archive |
-| `ArgentChantier.jsx` | Les cadres de l'argent remis pour un chantier (technicien, gérant, fiche du chantier) |
+| `ArgentChantier.jsx` | Les cadres de l'argent remis (onglet 💼 Argent reçu, validation du gérant, fiche du chantier) |
 | `EcranVerrou.jsx` | La fenêtre du verrou d'inactivité |
 | `ZoneSignature.jsx` | LA zone de signature (les quatre emplacements) |
 | `CarteCaisse.jsx` | LA carte d'une caisse centrale (DG, BANQUE, comptable) |
@@ -160,7 +160,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `src/pdf.js` | Les PDF fabriqués (devis commercial, relevés, rapports) |
 | `src/push.js` | Les notifications sur l'appareil — **le seul endroit** où `Notification` et `pushManager` existent |
 | `src/whatsapp.js` | 📲 L'envoi d'un message du numéro BMI — **le seul endroit** qui appelle le serveur WhatsApp, et qui replie sur l'ouverture WhatsApp si ça rate |
-| `src/screens/` | Un écran par onglet (dont `InventaireVentes.jsx` : 📋 Inventaire, le second bouton de 💰 Ventes, et 📊 INVENTAIRE GÉNÉRAL de l'administrateur ; `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages ; et `Whatsapp.jsx` : 📲 WhatsApp, séparé de 💬 Messages le 20/09/2026) |
+| `src/screens/` | Un écran par onglet (dont `InventaireVentes.jsx` : 📋 Inventaire, le second bouton de 💰 Ventes, et 📊 INVENTAIRE GÉNÉRAL de l'administrateur ; `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages ; `Whatsapp.jsx` : 📲 WhatsApp, séparé de 💬 Messages le 20/09/2026 ; et `ArgentRecu.jsx` : 💼 Argent reçu, l'onglet de qui a reçu de l'argent) |
 | `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin (`rappels-du-matin.js`, 7 h) et du soir (`rappels-du-soir.js`, 17 h : le rappel des anniversaires de demain), la lecture d'une table entière écrite une fois pour les deux (`_tables.js`), envoi WhatsApp (`whatsapp.js`, qui garde la clé YCloud), réception (`whatsapp-entrant.js`, qui fait aussi répondre l'assistant), la porte vers YCloud écrite une fois (`_ycloud.js`, qui dépose aussi un fichier envoyé au client), la porte vers le service d'IA écrite une fois (`_assistantIA.js` — la SEULE à lire la clé `ANTHROPIC_API_KEY` et le nom du modèle `ASSISTANT_IA_MODELE`, variables Vercel) et ouverture d'un fichier reçu (`whatsapp-media.js`) |
 | `supabase/securite-*.sql` | Les verrous côté base — **Timo les colle lui-même**, jamais nous |
 | `scripts/` | Le banc : `verifier-*` (application) et `tester-*-sql.sh` (base jetable). Les `_rendu-*.jsx` MONTENT un vrai écran pour le mesurer — seul moyen d'attraper un écran blanc |

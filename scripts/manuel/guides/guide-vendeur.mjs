@@ -38,6 +38,7 @@ export const GUIDE = {
       ["💵 Salaire", "Ma fiche de paie, mes avances (chapitre 18)."],
       ["💰 Primes reçues", "Toutes mes primes : sur chantier, sur salaire — en attente, déjà payées (chapitre 16)."],
     ] }],
+    ["note", "**💼 Argent reçu** : si le gérant ou l'administrateur me remet de l'argent (un achat, un déplacement, un chantier…), l'onglet « 💼 Argent reçu » apparaît chez moi. J'y dis à quoi l'argent a servi (« ✏️ Détailler ») et je rends ce qui reste (« ↩ Rendre le reste ») ; le gérant valide ce qu'il reçoit. Ce n'est jamais une nouvelle dépense (chapitre 17 du manuel complet)."],
     ["note", "Le vendeur **n'a pas 📤 Dépenses** et **ne verse pas les fonds** : c'est le gérant. Le vendeur encaisse, et il **clôture le jour**."],
 
     ["h3", "Le matin"],

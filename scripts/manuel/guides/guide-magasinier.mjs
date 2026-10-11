@@ -30,6 +30,7 @@ export const GUIDE = {
       ["💬 Messages · 📲 WhatsApp · 💵 Salaire", "L'équipe, les clients, ma paie (chapitres 18 et 20)."],
       ["💰 Primes reçues", "Toutes mes primes : sur chantier, sur salaire — en attente, déjà payées (chapitre 16)."],
     ] }],
+    ["note", "**💼 Argent reçu** : si le gérant ou l'administrateur me remet de l'argent (un achat, un déplacement, un chantier…), l'onglet « 💼 Argent reçu » apparaît chez moi. J'y dis à quoi l'argent a servi (« ✏️ Détailler ») et je rends ce qui reste (« ↩ Rendre le reste ») ; le gérant valide ce qu'il reçoit. Ce n'est jamais une nouvelle dépense (chapitre 17 du manuel complet)."],
 
     ["h3", "Le matin"],
     ["etapes", [

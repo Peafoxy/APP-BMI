@@ -370,7 +370,7 @@ export const neVoitQueSesDepenses = (profile) => ROLES_DEPENSES_PERSONNELLES.inc
 // d'un outil (🧰 Outillage).
 export const ROLES_REMISE_ARGENT = ["admin", "gerant", "comptable", "resp_commercial", "magasinier"];
 export const payeDeSaPocheSeulement = (profile) => !ROLES_REMISE_ARGENT.includes(profile?.role);
-export const MOTIF_DE_SA_POCHE = "Vous ne pouvez saisir qu'une dépense payée de VOTRE poche (« Une avance personnelle ») : elle vous sera remboursée une fois qu'elle compte.\n\nSortir l'argent d'une caisse ou le remettre à quelqu'un, c'est le geste du gérant ou de l'administrateur.\n\nSi vous avez REÇU de l'argent pour un chantier, détaillez-le dans « 💼 Mon argent de chantier » : ce n'est pas une nouvelle dépense.";
+export const MOTIF_DE_SA_POCHE = "Vous ne pouvez saisir qu'une dépense payée de VOTRE poche (« Une avance personnelle ») : elle vous sera remboursée une fois qu'elle compte.\n\nSortir l'argent d'une caisse ou le remettre à quelqu'un, c'est le geste du gérant ou de l'administrateur.\n\nSi vous avez REÇU de l'argent, expliquez-le dans l'onglet « 💼 Argent reçu » : ce n'est pas une nouvelle dépense.";
 export const estMaDepense = (d, profile) => (!!d?.par_id && d.par_id === profile?.id) || (!d?.par_id && !!d?.par && d.par === profile?.nom);
 export const depensesVisibles = (liste, profile) => (neVoitQueSesDepenses(profile) ? (liste || []).filter((d) => estMaDepense(d, profile)) : (liste || []));
 
@@ -399,7 +399,7 @@ export function critiqueModifDepense(d, { categorie, description, chantier, remi
 }
 // 💼 À qui l'argent a été remis (Timo, 07/10/2026 : « à qui l'argent a été
 // remis ? on peut aussi modifier »). `remisA` : undefined = on n'y touche pas ;
-// null = personne (payé directement) ; { id, nom } = ce technicien. Les refus
+// null = personne (payé directement) ; { id, nom } = cette personne. Les refus
 // (le technicien d'avant a déjà justifié ou rendu) vivent dans
 // lib/argentChantier.js, revérifiés dans le geste.
 export const changeDeRemis = (d, remisA) => remisA !== undefined && String(remisA?.id || "") !== String(d?.remis_a?.id || "");
@@ -422,8 +422,9 @@ export function modifierDepense(d, { categorie, description, chantier, remisA },
     const { chantier_id, chantier_nom, ...reste } = d;
     base = chantier ? { ...reste, chantier_id: chantier.id, chantier_nom: chantier.nom } : reste;
   }
-  // Sans chantier, plus personne à qui l'argent aurait été remis pour lui.
-  const remis = base.chantier_id ? remisA : (d.remis_a ? null : undefined);
+  // ~~Sans chantier, plus personne à qui l'argent aurait été remis~~ —
+  // RETOURNÉ le 10/10/2026 : l'argent se remet aussi hors chantier.
+  const remis = remisA;
   if (changeDeRemis(d, remis)) {
     changes.push(`remis à : ${d.remis_a?.nom || "personne"} → ${remis?.nom || "personne"}`);
     const { remis_a, ...reste } = base;

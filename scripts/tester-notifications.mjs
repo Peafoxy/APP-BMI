@@ -311,14 +311,23 @@ titre("💼 L'argent de chantier rendu : le gérant prévenu, puis le technicien
   const retour = { id: "x1", chantier_id: "c1", chantier_nom: "NIMAN", montant: 5000, le: "2026-10-06", statut: "attente" };
   const usersAvec = (r) => users.map((u) => (u.id === "tech1" ? { ...u, argent_chantier: { justifs: [], retours: [r] } } : u));
   const annonce = avec(avant, { users: usersAvec(retour) });
-  const e1 = envoisDe(avant, annonce, { id: "tech1" }).filter((e) => /Argent de chantier rendu/.test(e.titre));
+  // RETOURNÉ le 10/10/2026 : le titre ne parle plus de chantier (l'argent se remet aussi hors chantier).
+  const e1 = envoisDe(avant, annonce, { id: "tech1" }).filter((e) => /↩ Argent rendu — /.test(e.titre));
   test("★ rendu annoncé → le gérant de la boutique dont la caisse le recevra + les administrateurs (jamais un vendeur, jamais l'auteur), écran Dépenses",
     e1.length === 1 && memes(e1[0].destinataires, ["gerantD", "timo", "adminR"]) && e1[0].ecran === "depenses" && /5\s000 F/.test(e1[0].texte));
-  test("la même demande ne repart pas", envoisDe(annonce, annonce, { id: "tech1" }).filter((e) => /Argent de chantier rendu/.test(e.titre)).length === 0);
+  test("la même demande ne repart pas", envoisDe(annonce, annonce, { id: "tech1" }).filter((e) => /↩ Argent rendu — /.test(e.titre)).length === 0);
   const valide = avec(annonce, { users: usersAvec({ ...retour, statut: "validee", decide_par: "GERANT D" }) });
   const e2 = envoisDe(annonce, valide, { id: "gerantD" }).filter((e) => /Argent rendu/.test(e.titre));
-  test("★ validé → le technicien seul (« ✅ Argent rendu, reçu ») ; refusé → le motif", e2.length === 1 && memes(e2[0].destinataires, ["tech1"]) && /reçu/.test(e2[0].titre)
+  test("★ validé → le technicien seul (« ✅ Argent rendu, reçu »), écran « 💼 Argent reçu » (10/10/2026) ; refusé → le motif", e2.length === 1 && memes(e2[0].destinataires, ["tech1"]) && /reçu/.test(e2[0].titre) && e2[0].ecran === "argent_recu"
     && /pas reçu/.test((envoisDe(annonce, avec(annonce, { users: usersAvec({ ...retour, statut: "rejetee", decide_par: "GERANT D", motif: "pas reçu" }) }), { id: "gerantD" }).find((e) => /refusé/.test(e.titre)) || {}).texte || ""));
+  // 💸 Hors chantier (Timo, 10/10/2026, « A b, D a ») : la remise est comptée à part ;
+  // le gérant de la boutique qui a payé est prévenu de la même façon.
+  const remiseLibre = { id: "rm2", date: "2026-10-09", boutique: "DEMAKPOE", categorie: "Carburant", description: "groupe", montant: 8000, paiement: "Espèces", par: "GERANT D", remis_a: { id: "tech1", nom: "TECH1" } };
+  const avantL = avec(base(), { depenses: [remiseLibre] });
+  const retourL = { id: "x2", remise_id: "rm2", remise_libelle: "Carburant — groupe", montant: 3000, le: "2026-10-10", statut: "attente" };
+  const e3 = envoisDe(avantL, avec(avantL, { users: usersAvec(retourL) }), { id: "tech1" }).filter((e) => /↩ Argent rendu — /.test(e.titre));
+  test("★ rendu d'une somme remise HORS chantier → le gérant de la boutique qui a payé + les administrateurs ; le texte nomme la somme (« Carburant — groupe »)",
+    e3.length === 1 && memes(e3[0].destinataires, ["gerantD", "timo", "adminR"]) && /Carburant — groupe/.test(e3[0].texte));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

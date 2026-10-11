@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.524";
+export const VERSION = "2.101.525";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -186,6 +186,11 @@ export const CATEGORIE_PRET_PERSONNEL = "Prêt au personnel";
 // NÉGATIVE : la charge du chantier était plus petite qu'annoncé. Jamais dans
 // CATEGORIES (personne ne la saisit à la main), jamais hors charges.
 export const CATEGORIE_RETOUR_CHANTIER = "Argent rendu d'un chantier";
+// …et l'argent remis HORS chantier (Timo, 10/10/2026, « A b, B b, C a, D a ») :
+// la même ligne négative, sous un nom qui ne parle pas de chantier. Les deux
+// se lisent ensemble partout (CATEGORIES_RETOUR_ARGENT).
+export const CATEGORIE_RETOUR_ARGENT = "Argent rendu";
+export const CATEGORIES_RETOUR_ARGENT = [CATEGORIE_RETOUR_CHANTIER, CATEGORIE_RETOUR_ARGENT];
 export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
 // ⚠ Timo (12/09/2026) : « seules les dépenses validées comptent ». Une

@@ -32,6 +32,8 @@ import { mesOutils, doitJustifier, peutTenirOutillage } from "./lib/outillage";
 import { commissionsAAviser, marquerCommissionAvisee } from "./lib/commissionsDues";
 import { PrimesRemises } from "./screens/PrimesRemises";
 import { PrimesRecues } from "./screens/PrimesRecues";
+import { ArgentRecu } from "./screens/ArgentRecu";
+import { argentRecu, nbAExpliquer } from "./lib/argentChantier";
 import { ContratsInstallation } from "./screens/ContratsInstallation";
 import { Commerciaux } from "./screens/Commerciaux";
 import { MesTaches } from "./screens/MesTaches";
@@ -66,7 +68,7 @@ const M = Object.fromEntries(Object.entries({
   Dashboard, Ventes, NouvelleCommande, CommandesRecues, Depenses, ChezComptable,
   Dettes, CreerClient, Clients, Caisse, DemandeRavitaillement, DemandesTransfertRecues, Stocks,
   Dimensionnement, TousLesDevis, Prospects, EspaceClient, MesDonnees, Messagerie, Whatsapp,
-  ClientsInstalles, PrimesRemises, PrimesRecues, ContratsInstallation,
+  ClientsInstalles, PrimesRemises, PrimesRecues, ArgentRecu, ContratsInstallation,
   Commerciaux, MesTaches, Rentabilite, SalairesAdmin, Salaire, MonEquipe,
   MaCommission, Fournisseurs, Users, Historique, Parametres, Travaux, Outillage,
 }).map(([n, C]) => [n, memoEcran(C)]));
@@ -163,7 +165,7 @@ function tabDeDepart(role, userId) {
     // personne qui se connecte après une autre atterrit dans l'onglet où
     // celle-ci travaillait. Bug signalé par Timo.
     const dernier = localStorage.getItem(`bmi_dernier_onglet:${userId}`);
-    if (dernier && (ONGLETS_ROLE[role] || []).includes(dernier)) return dernier;
+    if (dernier && ((ONGLETS_ROLE[role] || []).includes(dernier) || (dernier === "argent_recu" && role !== "client"))) return dernier;
   } catch {}
   return parDefaut;
 }
@@ -188,7 +190,8 @@ export default function App() {
   // L'écran doit être un onglet DU RÔLE, sinon rien ne bouge.
   useEffect(() => {
     if (!profile) return undefined;
-    const ouvrir = (ecran) => { if (ecran && (ONGLETS_ROLE[profile.role] || []).includes(ecran)) setTab(ecran); };
+    // « 💼 Argent reçu » n'est l'onglet d'aucun rôle : il s'ouvre chez qui a reçu de l'argent.
+    const ouvrir = (ecran) => { if (ecran && ((ONGLETS_ROLE[profile.role] || []).includes(ecran) || (ecran === "argent_recu" && profile.role !== "client"))) setTab(ecran); };
     try {
       const ecran = new URLSearchParams(window.location.search).get("ecran");
       if (ecran) { ouvrir(ecran); window.history.replaceState({}, "", window.location.pathname); }
@@ -1187,9 +1190,16 @@ export default function App() {
   // 🎁 …et tout employé qui a reçu une PRIME DE CHANTIER (07/10/2026) : c'est
   // là qu'il la voit, à percevoir puis payée (« rien à valider »).
   const aUnePrimeDeChantier = !isClient && (db.clients_installes || []).some((c) => (c.equipe || []).some((e) => e.user_id === profile.id && e.prime_employe));
-  const tabsPlus = (jeSuisApporteur || aUnePrimeDeChantier) && !tabs.some(([id]) => id === "commission") && !isClient
+  const tabsCom = (jeSuisApporteur || aUnePrimeDeChantier) && !tabs.some(([id]) => id === "commission") && !isClient
     ? [...tabs, ["commission", "💵 Ma commission"]]
     : tabs;
+  // 💼 Timo (10/10/2026, « C a ») : qui a reçu de l'argent (chantier ou non)
+  // l'explique dans SON onglet « 💼 Argent reçu » — il n'apparaît que chez lui,
+  // avec le nombre de sommes qui attendent encore une explication.
+  const ficheArgent = isClient ? null : (db.users || []).find((u) => u.id === profile.id);
+  const aDeLArgentRecu = !!ficheArgent && argentRecu(db.depenses, ficheArgent).length > 0;
+  const nbArgentAExpliquer = aDeLArgentRecu ? nbAExpliquer(db.depenses, ficheArgent) : 0;
+  const tabsPlus = aDeLArgentRecu ? [...tabsCom, ["argent_recu", `💼 Argent reçu${nbArgentAExpliquer ? ` (${nbArgentAExpliquer})` : ""}`]] : tabsCom;
 
   // "Mes contrats" apparaît pour un client SEULEMENT le jour où il a
   // effectivement signé au moins un contrat — pas avant (demande Timo).
@@ -1493,6 +1503,11 @@ export default function App() {
       {ongletsVisites.primes_remises && (isVendeur || isGerant) && (
         <div style={{ display: tab === "primes_remises" ? "block" : "none" }}>
           <M.PrimesRemises db={db} save={save} profile={profile} />
+        </div>
+      )}
+      {ongletsVisites.argent_recu && aDeLArgentRecu && (
+        <div style={{ display: tab === "argent_recu" ? "block" : "none" }}>
+          <M.ArgentRecu db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.primes_recues && ROLES_PRIMES_RECUES.includes(profile.role) && (

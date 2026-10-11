@@ -16,7 +16,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uCho
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
-import { MonArgentDeChantier, RetoursAValider } from "../components/ArgentChantier";
+import { RetoursAValider } from "../components/ArgentChantier";
 import { compteExploitant } from "../lib/compteExploitant";
 import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER, dernierLoyerARemettre, moisEnClair } from "../lib/loyer";
 import { envoiLoyerDisponible, texteLoyerDisponible } from "../lib/whatsappModeles";
@@ -28,7 +28,7 @@ import { useFiltrePeriode } from "../components/FiltrePeriode";
 // un chantier de devis ; elle sera déduite des frais d'installation avant le
 // partage entre techniciens — règle pure dans lib/depensesChantier.js.
 import { chantiersRattachables, libelleChantier, critiqueRattachement, rattacherDepense, critiqueChangementChantier } from "../lib/depensesChantier";
-import { techniciensProposes, critiqueRemisA, REMIS_A_PERSONNE, refusSuppressionRemise, argentParChantier, critiqueJustif, ajouterJustif, retirerJustif, critiqueDemandeRetour, demanderRetour, retoursEnAttente, caissesDuRetour, libelleCaisseRetour, peutValiderRetour, critiqueValidationRetour, validerRetour, refuserRetour, soldeArgentChantier } from "../lib/argentChantier";
+import { personnesProposees, estDeLEquipe, critiqueRemisA, REMIS_A_PERSONNE, refusSuppressionRemise, peutRemettreHorsChantier } from "../lib/argentChantier";
 
 // ============ LE TABLEAU DES DÉPENSES — écrit UNE fois (point B5 du relevé
 // des doublons, 08/09/2026) pour les dépenses d'une boutique et pour
@@ -43,7 +43,7 @@ export function BadgeValidation({ x }) {
 function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
   return (
     <HistoriqueArchive lignes={liste} dateDe={(x) => x.date} aujourdhui={today()} vide={vide} titreArchives="Dépenses archivées" classeTable="w-full text-sm min-w-[860px]"
-      entete={<thead className="sticky top-0 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>}
+      entete={<thead className="sticky top-0 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier / remis à", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>}
       rendre={(x) => (
         <tr key={x.id} data-ligne={x.id} className={`border-t border-slate-100 hover:bg-sky-50${estRejetee(x) ? " bg-red-50 text-red-800" : estEnAttente(x) ? " bg-amber-50" : ""}`}>
           {/* Timo (13/09/2026) : la première colonne reste figée (Stocks, Dépenses, Dettes — ordinateur aussi). */}
@@ -61,7 +61,8 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
           <td className="px-3 py-2">{x.par}</td>
           <td className="px-3 py-2"><BadgeValidation x={x} /></td>
           <td className="px-3 py-2 text-xs">
-            {x.chantier_id ? <span className="font-semibold text-purple-800">{String(x.chantier_nom || "").startsWith("🛠") ? "" : "🏠 "}{x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}</span> : <span className="text-slate-300">—</span>}
+            {x.chantier_id ? <span className="font-semibold text-purple-800">{String(x.chantier_nom || "").startsWith("🛠") ? "" : "🏠 "}{x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}</span>
+              : x.remis_a?.nom ? <span className="text-xs text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span> : <span className="text-slate-300">—</span>}
           </td>
           <td className="px-3 py-2">
             {onModifier && depenseModifiable(x) && (
@@ -86,7 +87,7 @@ function useModifDepense(db, save, profile) {
   const [modif, setModif] = useState(null);
   const ouvrirModif = (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
-    setModif({ d, categorie: d.categorie, description: d.description || "", chantierId: d.chantier_id || "", remisA: d.remis_a?.id || (d.chantier_id ? REMIS_A_PERSONNE : "") });
+    setModif({ d, categorie: d.categorie, description: d.description || "", chantierId: d.chantier_id || "", remisA: d.remis_a?.id || REMIS_A_PERSONNE });
   };
   const enregistrerModif = () => {
     if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
@@ -101,16 +102,17 @@ function useModifDepense(db, save, profile) {
       if (refusChantier) { uAlert(refusChantier); return; }
       chantier = ch ? { id: ch.id, nom: libelleChantier(ch) } : null;
     }
-    // 💼 À qui l'argent a été remis (07/10/2026) : undefined = inchangé,
-    // null = personne, { id, nom } = ce technicien. Revérifié DANS le geste.
+    // 💼 À qui l'argent a été remis (07/10/2026 ; hors chantier aussi depuis
+    // le 10/10/2026) : undefined = inchangé, null = personne, { id, nom } =
+    // cette personne. Revérifié DANS le geste.
     let remisA;
-    if (fraiche && modif.chantierId) {
-      if (!modif.remisA) { uAlert(critiqueRemisA({ id: modif.chantierId }, "", [])); return; }
-      const choix = modif.remisA === REMIS_A_PERSONNE ? "" : modif.remisA;
+    if (fraiche) {
+      if (modif.chantierId && !modif.remisA) { uAlert(critiqueRemisA({ id: modif.chantierId }, "", [])); return; }
+      const choix = !modif.remisA || modif.remisA === REMIS_A_PERSONNE ? "" : modif.remisA;
       if (choix !== (fraiche.remis_a?.id || "")) {
-        const chDuChoix = (db.clients_installes || []).find((c) => c.id === modif.chantierId);
-        const proposes = techniciensProposes(utilisateursDeLEspace(db, profile), chDuChoix);
-        const refusRemis = critiqueRemisA(chDuChoix, modif.remisA, proposes);
+        const chDuChoix = modif.chantierId ? (db.clients_installes || []).find((c) => c.id === modif.chantierId) : null;
+        const proposes = personnesProposees(utilisateursDeLEspace(db, profile), chDuChoix, profile);
+        const refusRemis = critiqueRemisA(chDuChoix, modif.remisA, proposes, profile);
         if (refusRemis) { uAlert(refusRemis); return; }
         if (fraiche.remis_a?.id) {
           const refusAncien = refusSuppressionRemise(db.depenses, utilisateursDeLEspace(db, profile), fraiche);
@@ -128,7 +130,7 @@ function useModifDepense(db, save, profile) {
   };
   const chantiersModif = modif ? chantiersRattachables(db, profile) : [];
   const chantierModif = modif?.chantierId ? (db.clients_installes || []).find((c) => c.id === modif.chantierId) : null;
-  const techniciensModif = chantierModif ? techniciensProposes(utilisateursDeLEspace(db, profile), chantierModif) : [];
+  const personnesModif = modif ? personnesProposees(utilisateursDeLEspace(db, profile), chantierModif, profile) : [];
   const panneauModif = (
     <>
         {modif && (<PanneauQuiSeMontre cle={modif.d.id} retour={modif.d.id}>
@@ -142,14 +144,12 @@ function useModifDepense(db, save, profile) {
                 {modif.d.chantier_id && !chantiersModif.some((c) => c.id === modif.d.chantier_id) && <option value={modif.d.chantier_id}>{modif.d.chantier_nom || "Chantier actuel"}</option>}
                 {chantiersModif.map((c) => <option key={c.id} value={c.id}>{c.travaux ? "" : "🏠 "}{libelleChantier(c)}</option>)}
               </select></Field>
-              {modif.chantierId && (
-                <Field label="Argent remis à"><select className={inputCls} value={modif.remisA} onChange={(e) => setModif({ ...modif, remisA: e.target.value })} data-modif-remis-a>
-                  <option value="">— Choisir —</option>
-                  {techniciensModif.map((u) => <option key={u.id} value={u.id}>{u.nom}</option>)}
-                  {modif.d.remis_a?.id && !techniciensModif.some((u) => u.id === modif.d.remis_a.id) && <option value={modif.d.remis_a.id}>{modif.d.remis_a.nom}</option>}
-                  <option value={REMIS_A_PERSONNE}>Personne — payé directement</option>
-                </select></Field>
-              )}
+              <Field label="Argent remis à"><select className={inputCls} value={modif.remisA || (modif.chantierId ? "" : REMIS_A_PERSONNE)} onChange={(e) => setModif({ ...modif, remisA: e.target.value })} data-modif-remis-a>
+                {modif.chantierId && <option value="">— Choisir —</option>}
+                <option value={REMIS_A_PERSONNE}>Personne — payé directement</option>
+                {personnesModif.map((u) => <option key={u.id} value={u.id}>{estDeLEquipe(chantierModif, u) ? "🏠 " : ""}{u.nom}</option>)}
+                {modif.d.remis_a?.id && !personnesModif.some((u) => u.id === modif.d.remis_a.id) && <option value={modif.d.remis_a.id}>{modif.d.remis_a.nom}</option>}
+              </select></Field>
             </div>
             <div className="text-xs text-slate-500 mt-2">Le chantier se change seulement tant que le chantier n'est pas réceptionné (ni soldé, ni ses techniciens payés).</div>
             <div className="text-xs text-slate-500 mt-2">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>
@@ -290,7 +290,11 @@ export function Depenses({ db, save, profile }) {
   const poches = fondsAVerser(db, boutique, totalVente);
   const chantierDuChoix = f.chantier_id ? chantiersOuverts.find((c) => c.id === f.chantier_id) : null;
   const sansCaisse = payeDeSaPocheSeulement(profile);
-  const techniciensDuChoix = chantierDuChoix ? techniciensProposes(utilisateursDeLEspace(db, profile), chantierDuChoix) : [];
+  // 💼 « Argent remis à » (Timo, 10/10/2026, « A b, B b ») : pour un chantier
+  // (choix exigé), et hors chantier pour le gérant et l'administrateur
+  // (« Personne » d'office). Tout le personnel de l'espace, l'équipe en tête.
+  const caseRemise = !sansCaisse && (!!f.chantier_id || peutRemettreHorsChantier(profile));
+  const personnesDuChoix = caseRemise ? personnesProposees(utilisateursDeLEspace(db, profile), chantierDuChoix, profile) : [];
   const propositionFonds = fondsProposable({ role: profile.role, tiroir: poches.montant, enveloppe: poches.resteFonds, montant: f.montant });
 
   const refusTiroir = (nomBoutique, montant, geste) => {
@@ -340,11 +344,12 @@ export function Depenses({ db, save, profile }) {
     const refusChantier = chantierChoisi ? critiqueRattachement(db, profile, r.depense, chantierChoisi) : null;
     if (refusChantier) { uAlert(refusChantier); return; }
     // 💼 Timo (07/10/2026) : « lorsqu'on choisit un chantier, il faut choisir
-    // aussi le technicien qui reçoit l'argent ». Revérifié DANS le geste.
-    const proposes = chantierChoisi ? techniciensProposes(utilisateursDeLEspace(db, profile), chantierChoisi) : [];
-    const refusRemis = critiqueRemisA(chantierChoisi, f.remis_a, proposes);
+    // aussi le technicien qui reçoit l'argent » ; puis (10/10/2026) « pour
+    // chaque dépense côté gérant ou administrateur ». Revérifié DANS le geste.
+    const proposes = personnesProposees(utilisateursDeLEspace(db, profile), chantierChoisi, profile);
+    const refusRemis = critiqueRemisA(chantierChoisi, f.remis_a, proposes, profile);
     if (refusRemis) { uAlert(refusRemis); return; }
-    const recoit = chantierChoisi && f.remis_a !== REMIS_A_PERSONNE ? proposes.find((u) => u.id === f.remis_a) : null;
+    const recoit = f.remis_a && f.remis_a !== REMIS_A_PERSONNE ? proposes.find((u) => u.id === f.remis_a) : null;
     // ⚠ Une dépense EN ATTENTE n'a pas encore vidé le tiroir : on mesure donc
     // le tiroir tel qu'il est, et c'est la VALIDATION qui butera à son tour.
     if (r.depense.paiement === "Espèces" && (!r.depense.paye_avec || r.depense.paye_avec === PAYE_AVEC_CAISSE)) {
@@ -357,7 +362,8 @@ export function Depenses({ db, save, profile }) {
       if (refuserSaufRoles(profile, ROLES_FONDS_CAISSE, "Payer une dépense avec le fonds de caisse")) return;
       if (!propositionFonds.possible) { uAlert(`Le fonds de caisse ne peut pas payer cette dépense.\n\nTiroir de ${boutique} : ${fmt(Math.max(0, poches.montant))} · enveloppe : ${fmt(propositionFonds.reste)}.\n\nOn n'ouvre l'enveloppe que si le tiroir ne suffit pas, et seulement pour ce qu'elle contient.`); return; }
     }
-    const rattache = chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.${recoit ? `\n\n💼 Argent remis à ${recoit.nom} : il détaillera dans son espace ce qu'il en a fait, et rendra le reste.` : ""}` : "";
+    const rattache = (chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.` : "")
+      + (recoit ? `\n\n💼 Argent remis à ${recoit.nom} : dans son onglet « 💼 Argent reçu », ${recoit.nom} dira à quoi il a servi et rendra le reste.` : "");
     // Timo (15/09/2026) : « la dépense prend les 20 000 de la caisse et on
     // passe avec 10 000 de fonds de caisse » — la confirmation DIT le partage.
     const partage = r.depense.paye_avec === PAYE_AVEC_FONDS
@@ -473,13 +479,12 @@ export function Depenses({ db, save, profile }) {
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
-  // 💼 L'argent remis pour un chantier (07/10/2026) : le technicien le détaille
-  // et rend le reste ; le gérant valide ce qui est rendu.
-  if (!boutique) return <div className="space-y-4"><MonArgentDeChantier db={db} save={save} profile={profile} /><AucuneBoutique formation={estCompteFormation(db, profile)} /></div>;
+  // 💼 L'argent reçu s'explique dans l'onglet « 💼 Argent reçu » (10/10/2026) ;
+  // le gérant valide ici ce qui est rendu.
+  if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="depenses" db={db} value={bq} onChange={setBq} profile={profile} />}
-      <MonArgentDeChantier db={db} save={save} profile={profile} />
       {["gerant", "admin"].includes(profile.role) && <RetoursAValider db={db} save={save} profile={profile} />}
       {/* Timo (12/09/2026) : le DG valide les dépenses de 5 000 F et plus —
           l'encadré est PERMANENT (vide, il le dit), sur la boutique regardée
@@ -592,12 +597,12 @@ export function Depenses({ db, save, profile }) {
               {chantiersOuverts.map((c) => <option key={c.id} value={c.id}>{c.travaux ? "" : "🏠 "}{libelleChantier(c)}</option>)}
             </select>
           </Field>
-          {f.chantier_id && !sansCaisse && (
+          {caseRemise && (
             <Field label="Argent remis à">
-              <select className={inputCls} value={f.remis_a} onChange={(e) => setF({ ...f, remis_a: e.target.value })} data-remis-a>
-                <option value="">— Choisir —</option>
-                {techniciensDuChoix.map((u) => <option key={u.id} value={u.id}>{u.nom}</option>)}
+              <select className={inputCls} value={f.remis_a || (f.chantier_id ? "" : REMIS_A_PERSONNE)} onChange={(e) => setF({ ...f, remis_a: e.target.value })} data-remis-a>
+                {f.chantier_id && <option value="">— Choisir —</option>}
                 <option value={REMIS_A_PERSONNE}>Personne — payé directement</option>
+                {personnesDuChoix.map((u) => <option key={u.id} value={u.id}>{estDeLEquipe(chantierDuChoix, u) ? "🏠 " : ""}{u.nom}</option>)}
               </select>
             </Field>
           )}
@@ -607,7 +612,8 @@ export function Depenses({ db, save, profile }) {
         {f.montant !== "" && doitEtreValidee(f.montant) && !jeSuisDG && (
           <div className="mt-2 text-sm font-bold text-amber-700">⏳ À partir de {fmt(SEUIL_VALIDATION_DEPENSE)}, la dépense est soumise à la validation du DG : elle ne comptera (caisse, tableau de bord) qu'une fois validée.</div>
         )}
-        {sansCaisse && <div className="mt-2 text-xs text-slate-600" data-de-sa-poche>💼 Vous saisissez ici une dépense payée de <b>votre poche</b> : elle vous sera remboursée une fois qu'elle compte. L'argent que vous avez <b>reçu</b> pour un chantier se détaille dans « 💼 Mon argent de chantier », pas ici.</div>}
+        {caseRemise && f.remis_a && f.remis_a !== REMIS_A_PERSONNE && <div className="mt-2 text-xs text-purple-800" data-remise-annoncee>💼 La personne choisie expliquera dans son onglet « 💼 Argent reçu » à quoi l'argent a servi, et rendra le reste (vous validez ce qu'elle rend ici, dans 📤 Dépenses).</div>}
+        {sansCaisse && <div className="mt-2 text-xs text-slate-600" data-de-sa-poche>💼 Vous saisissez ici une dépense payée de <b>votre poche</b> : elle vous sera remboursée une fois qu'elle compte. L'argent que vous avez <b>reçu</b> s'explique dans l'onglet « 💼 Argent reçu », pas ici.</div>}
         {!sansCaisse && f.paye_avec === "avance" && <div className="mt-2 text-xs text-slate-500">Une avance personnelle ne sort pas du tiroir : elle vous sera remboursée (caisse, salaire ou DG) une fois qu'elle compte.</div>}
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer la dépense</button>
         </FormulaireRepliable>

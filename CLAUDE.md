@@ -52,11 +52,11 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2483 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2494 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run tester-notifications     # 81  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
+npm run tester-notifications     # 82  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
 npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
@@ -1922,6 +1922,39 @@ lit mal est pire qu'un banc absent).
   « 🏠 🛠 » de la colonne Chantier est retiré (un travail à crédit garde son 🛠). Banc (14
   contrôles), éprouvé (reste dépassé, gérant d'une autre boutique, refus de
   saisie retiré). Deux contrôles RETOURNÉS. Chapitres 15 et 17.
+
+### 💸 L'ARGENT REMIS À QUELQU'UN, POUR TOUTE DÉPENSE (10/10/2026, « A b, B b, C a, D a »)
+- Timo : « pas seulement pour un chantier… pour chaque dépense côté gérant ou
+  administrateur, choisir le destinataire… et le destinataire justifie ».
+  Le mécanisme du 07/10 (§ précédent) s'étend, rien de neuf à coller.
+- **A b** : tout le personnel de l'espace regardé (`personnesProposees`,
+  lib/argentChantier.js — jamais un client, un compte désactivé ni soi-même ;
+  pour un chantier, son équipe en tête, marquée 🏠). `techniciensProposes`
+  RETIRÉE. **B b** : hors chantier, « Personne — payé directement » d'office ;
+  la case n'y est que pour le gérant et l'administrateur
+  (`peutRemettreHorsChantier`, revérifié par `critiqueRemisA(…, profile)`) ;
+  pour un chantier, le choix reste exigé. **C a** : l'onglet **« 💼 Argent
+  reçu »** (`screens/ArgentRecu.jsx`, cadre `MonArgentRecu`) n'apparaît que
+  chez qui a reçu de l'argent (App.jsx, `aDeLArgentRecu`, hors client, avec le
+  nombre à expliquer, `nbAExpliquer`) ; pas dans `ONGLETS_ROLE` — un clic de
+  notification l'ouvre quand même. Le cadre du technicien a QUITTÉ 📤 Dépenses.
+  **D a** : hors chantier, chaque remise est un DOSSIER à part (`remise_id` /
+  `remise_libelle` sur les justifs et retours, `soldeDossier`,
+  `soldeArgentRemise`, `argentRecu`) ; un chantier garde son total.
+- Rendu validé hors chantier : la ligne négative s'appelle **« Argent rendu »**
+  (`CATEGORIE_RETOUR_ARGENT`, `CATEGORIES_RETOUR_ARGENT` lu par les comptes
+  mobiles), sans chantier, `retour_chantier.remise_id`. Une remise hors chantier
+  ne reçoit pas de chantier après coup (`critiqueChangementChantier`) ; ✏️
+  Modifier ne l'emporte plus avec le chantier (contrôle RETOURNÉ). Notifications
+  : titre « ↩ Argent rendu — », le reçu / refusé ouvre « 💼 Argent reçu ».
+- ⚠ Pas de notification quand l'argent est REMIS (non demandé, proposé à
+  Timo). Banc (+11, l'écran RENDU par `scripts/_rendu-argent-recu.jsx`),
+  éprouvé (sommes additionnées, vendeur autorisé hors chantier, mauvaise
+  catégorie, client proposé) ; quatre contrôles RETOURNÉS. Chapitres 15, 17 et
+  les guides (vendeur, commercial, magasinier, gérant) à jour. Rien à coller.
+- **« Laisse le remboursement dans Mon salaire » (10/10/2026)** : un
+  remboursement d'avance de frais payé avec le salaire n'est pas une prime ; il
+  reste hors de 💰 Primes reçues. Ne pas le reproposer.
 
 ### 💼 QUI SORT L'ARGENT D'UNE CAISSE (10/10/2026)
 - Capture Timo (« Argent remis à… dans dépense d'un commercial ? ») : un

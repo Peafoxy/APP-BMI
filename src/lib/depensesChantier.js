@@ -100,7 +100,9 @@ export const critiqueChangementChantier = (db, profile, dep, nouveau) => {
   // 💼 Une somme REMISE à un technicien pour ce chantier (07/10/2026) : il la
   // détaille ou la rend sur CE chantier — la déplacer laisserait ses lignes
   // sans argent en face.
-  if (dep.remis_a?.id) return `Cette somme a été remise à ${dep.remis_a.nom || "un technicien"} pour ce chantier : son chantier ne se change pas. Supprimez-la et ressaisissez-la si elle a été mal rattachée.`;
+  // Hors chantier (10/10/2026) : ses explications sont comptées sur ELLE ; lui
+  // donner un chantier les déplacerait aussi.
+  if (dep.remis_a?.id) return `Cette somme a été remise à ${dep.remis_a.nom || "quelqu'un"}${dep.chantier_id ? " pour ce chantier : son chantier ne se change pas" : " hors chantier : on ne lui ajoute pas de chantier"}. Supprimez-la et ressaisissez-la si elle a été mal rattachée.`;
   const ancien = dep.chantier_id ? (db.clients_installes || []).find((c) => c.id === dep.chantier_id) : null;
   if (ancien) {
     const nom = libelleChantier(ancien);

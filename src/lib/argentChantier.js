@@ -21,10 +21,25 @@
 //     la caisse qui avait payé : c'est elle qui crédite la caisse, et qui
 //     diminue la charge du chantier. Tant que le gérant n'a pas validé, rien
 //     ne bouge dans aucune caisse.
+// 💸 PUIS POUR TOUTE DÉPENSE (Timo, 10/10/2026 : « pas seulement pour un
+// chantier… pour chaque dépense côté gérant ou administrateur, choisir le
+// destinataire, et le destinataire justifie pourquoi l'argent lui a été
+// remis » → « A b, B b, C a, D a ») :
+//   • A b — l'argent se remet à TOUT le personnel de l'espace regardé
+//     (personnesProposees), l'équipe du chantier en tête s'il y en a un ;
+//   • B b — hors chantier, « Personne » d'office : la case ne se remplit que
+//     quand on remet vraiment de l'argent (pour un chantier, le choix reste
+//     exigé, décision du 07/10) ; hors chantier, gérant et administrateur ;
+//   • C a — la personne explique dans SON onglet « 💼 Argent reçu » ;
+//   • D a — hors chantier, chaque remise se compte À PART (un « dossier » par
+//     remise) ; pour un chantier, toujours UN total par chantier.
+// Un DOSSIER = { chantierId } ou { remiseId } : les lignes de détail et les
+// retours d'une remise hors chantier portent `remise_id` (et `remise_libelle`),
+// celles d'un chantier `chantier_id` (et `chantier_nom`), comme avant.
 // Règles pures : ce fichier n'importe que ce qui dit si une dépense compte.
 // ============================================================
 import { estEnAttente, estRejetee, PAYE_AVEC_CAISSE, PAYE_AVEC_AVANCE, PAYE_AVEC_COMPTABLE, PAYE_AVEC_FONDS, PAYE_AVEC_DG } from "./validationDepenses.js";
-import { CATEGORIE_RETOUR_CHANTIER } from "./constants.js";
+import { CATEGORIE_RETOUR_CHANTIER, CATEGORIE_RETOUR_ARGENT, CATEGORIES_RETOUR_ARGENT } from "./constants.js";
 import { fmt } from "./core.js";
 
 const n = (x) => Math.round(Number(x || 0));
@@ -32,44 +47,67 @@ const idDe = () => `${Date.now().toString(36)}${Math.random().toString(36).slice
 
 export const fiche = (u) => ({ justifs: [...(u?.argent_chantier?.justifs || [])], retours: [...(u?.argent_chantier?.retours || [])] });
 
-// Une remise d'argent à CE technicien, pour CE chantier (rejetée = jamais remise).
+// Une remise d'argent à CETTE personne, pour CE chantier (rejetée = jamais remise).
 export const estRemiseA = (d, techId, chantierId = null) =>
   !!d?.remis_a?.id && d.remis_a.id === techId && !estRejetee(d) && Number(d.montant || 0) > 0
   && (chantierId === null || d.chantier_id === chantierId);
-export const estRetourChantier = (d) => d?.categorie === CATEGORIE_RETOUR_CHANTIER && !!d?.retour_chantier;
+export const estRetourChantier = (d) => CATEGORIES_RETOUR_ARGENT.includes(d?.categorie) && !!d?.retour_chantier;
 
-// Tout ce que l'application sait de l'argent d'UN technicien sur UN chantier.
-export function soldeArgentChantier(depenses, technicien, chantierId) {
-  const techId = technicien?.id;
-  const remises = (depenses || []).filter((d) => estRemiseA(d, techId, chantierId))
+// ── Les dossiers ──
+export const dossierDeRemise = (d) => (d?.chantier_id ? { chantierId: d.chantier_id, remiseId: null } : { chantierId: null, remiseId: d?.id || null });
+export const dossierDeLigne = (x) => (x?.remise_id ? { chantierId: null, remiseId: x.remise_id } : { chantierId: x?.chantier_id || null, remiseId: null });
+const dansLeDossier = (x, dos) => (dos.remiseId ? x?.remise_id === dos.remiseId : !x?.remise_id && !!dos.chantierId && x?.chantier_id === dos.chantierId);
+const cleDossier = (dos) => (dos.remiseId ? `remise:${dos.remiseId}` : `chantier:${dos.chantierId}`);
+// Le nom d'une remise hors chantier : ce pour quoi l'argent est sorti.
+export const libelleRemise = (d) => (d ? `${d.categorie || "Dépense"}${d.description ? ` — ${d.description}` : ""}` : "");
+// Le nom d'un dossier, lu sur une ligne de détail ou de retour.
+export const nomDossier = (x) => x?.chantier_nom || x?.remise_libelle || (x?.remise_id ? "argent remis" : "chantier");
+const champsDossier = (s) => (s.remiseId
+  ? { remise_id: s.remiseId, remise_libelle: s.libelle }
+  : { chantier_id: s.chantierId, chantier_nom: s.chantierNom });
+
+// Tout ce que l'application sait de l'argent d'UNE personne sur UN dossier.
+export function soldeDossier(depenses, personne, dos) {
+  const techId = personne?.id;
+  const remises = (depenses || []).filter((d) => estRemiseA(d, techId) && (dos.remiseId ? d.id === dos.remiseId : d.chantier_id === dos.chantierId))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const recu = remises.filter((d) => !estEnAttente(d)).reduce((s, d) => s + n(d.montant), 0);
   const enAttenteDG = remises.filter(estEnAttente).reduce((s, d) => s + n(d.montant), 0);
-  const retoursValides = (depenses || []).filter((d) => estRetourChantier(d) && d.retour_chantier.tech_id === techId && d.chantier_id === chantierId);
+  const retoursValides = (depenses || []).filter((d) => estRetourChantier(d) && d.retour_chantier.tech_id === techId
+    && (dos.remiseId ? d.retour_chantier.remise_id === dos.remiseId : !d.retour_chantier.remise_id && d.chantier_id === dos.chantierId));
   const rendu = retoursValides.reduce((s, d) => s - n(d.montant), 0);
-  const f = fiche(technicien);
-  const justifs = f.justifs.filter((j) => j.chantier_id === chantierId);
-  const retours = f.retours.filter((r) => r.chantier_id === chantierId);
+  const f = fiche(personne);
+  const justifs = f.justifs.filter((j) => dansLeDossier(j, dos));
+  const retours = f.retours.filter((r) => dansLeDossier(r, dos));
   const justifie = justifs.reduce((s, j) => s + n(j.montant), 0);
   const retourEnAttente = retours.filter((r) => r.statut === "attente").reduce((s, r) => s + n(r.montant), 0);
   const reste = recu - justifie - rendu - retourEnAttente;
-  const chantierNom = remises[0]?.chantier_nom || justifs[0]?.chantier_nom || retours[0]?.chantier_nom || "";
-  return { chantierId, chantierNom, remises, recu, enAttenteDG, justifs, justifie, retours, retourEnAttente, rendu, reste };
+  const chantierNom = dos.chantierId ? (remises[0]?.chantier_nom || justifs[0]?.chantier_nom || retours[0]?.chantier_nom || "") : "";
+  const libelle = dos.chantierId ? (chantierNom || "Chantier") : (libelleRemise(remises[0]) || justifs[0]?.remise_libelle || retours[0]?.remise_libelle || "Argent remis");
+  return { chantierId: dos.chantierId || null, remiseId: dos.remiseId || null, cle: cleDossier(dos), chantierNom, libelle, remises, recu, enAttenteDG, justifs, justifie, retours, retourEnAttente, rendu, reste };
 }
+export const soldeArgentChantier = (depenses, technicien, chantierId) => soldeDossier(depenses, technicien, { chantierId, remiseId: null });
+export const soldeArgentRemise = (depenses, personne, remiseId) => soldeDossier(depenses, personne, { chantierId: null, remiseId });
+export const soldeDuRetour = (depenses, personne, r) => soldeDossier(depenses, personne, dossierDeLigne(r));
 
 const derniere = (s) => s.remises.length ? s.remises[s.remises.length - 1].date || "" : "";
 
-// Les chantiers où ce technicien a reçu de l'argent (ou détaillé, ou rendu).
-export function argentParChantier(depenses, technicien) {
-  const techId = technicien?.id;
-  const f = fiche(technicien);
-  const ids = new Set();
-  (depenses || []).forEach((d) => { if (estRemiseA(d, techId)) ids.add(d.chantier_id); });
-  f.justifs.forEach((j) => ids.add(j.chantier_id));
-  f.retours.forEach((r) => ids.add(r.chantier_id));
-  return [...ids].filter(Boolean).map((id) => soldeArgentChantier(depenses, technicien, id))
+// Tout l'argent qu'une personne a reçu (ou détaillé, ou rendu) : ses chantiers
+// et ses remises hors chantier — ce que montre son onglet « 💼 Argent reçu ».
+// Ce qui reste à expliquer d'abord, puis le plus récent.
+export function argentRecu(depenses, personne) {
+  const id = personne?.id;
+  const f = fiche(personne);
+  const dossiers = new Map();
+  const ajouter = (dos) => { if ((dos.chantierId || dos.remiseId) && !dossiers.has(cleDossier(dos))) dossiers.set(cleDossier(dos), dos); };
+  (depenses || []).forEach((d) => { if (estRemiseA(d, id)) ajouter(dossierDeRemise(d)); });
+  f.justifs.forEach((j) => ajouter(dossierDeLigne(j)));
+  f.retours.forEach((r) => ajouter(dossierDeLigne(r)));
+  return [...dossiers.values()].map((dos) => soldeDossier(depenses, personne, dos))
     .sort((a, b) => (b.reste > 0) - (a.reste > 0) || String(derniere(b)).localeCompare(String(derniere(a))));
 }
+// Combien de dossiers attendent encore une explication (le chiffre de l'onglet).
+export const nbAExpliquer = (depenses, personne) => argentRecu(depenses, personne).filter((s) => s.reste > 0).length;
 
 // Les techniciens que l'argent d'un chantier a touchés (pour la fiche du chantier).
 export const techniciensDuChantier = (depenses, personnes, chantierId) => {
@@ -87,13 +125,13 @@ export function critiqueJustif(solde, { categorie, montant } = {}) {
   if (!String(categorie || "").trim()) return "Choisissez à quoi l'argent a servi.";
   if (!Number.isFinite(m) || m <= 0) return "Indiquez un montant (plus que zéro).";
   if (m > solde.reste) return solde.reste > 0
-    ? `Il ne reste que ${fmt(solde.reste)} à justifier sur ce chantier.`
-    : "Tout l'argent reçu pour ce chantier est déjà justifié ou rendu.";
+    ? `Il ne reste que ${fmt(solde.reste)} à justifier sur ${solde.remiseId ? "cette somme" : "ce chantier"}.`
+    : `Tout l'argent reçu pour ${solde.remiseId ? "cette somme" : "ce chantier"} est déjà justifié ou rendu.`;
   return null;
 }
 export const ajouterJustif = (technicien, solde, { categorie, description, montant, date }, le) => {
   const f = fiche(technicien);
-  f.justifs.push({ id: idDe(), chantier_id: solde.chantierId, chantier_nom: solde.chantierNom, date: date || le,
+  f.justifs.push({ id: idDe(), ...champsDossier(solde), date: date || le,
     categorie: String(categorie).trim(), description: String(description || "").trim(), montant: n(montant), le });
   return { ...technicien, argent_chantier: f };
 };
@@ -112,7 +150,7 @@ export function critiqueDemandeRetour(solde, montant) {
 }
 export const demanderRetour = (technicien, solde, montant, le) => {
   const f = fiche(technicien);
-  f.retours.push({ id: idDe(), chantier_id: solde.chantierId, chantier_nom: solde.chantierNom, montant: n(montant), le, statut: "attente" });
+  f.retours.push({ id: idDe(), ...champsDossier(solde), montant: n(montant), le, statut: "attente" });
   return { ...technicien, argent_chantier: f };
 };
 
@@ -155,17 +193,18 @@ export function critiqueValidationRetour(profile, technicien, retourId, caisse) 
 export function validerRetour(profile, technicien, retourId, caisse, le, heure = "") {
   const f = fiche(technicien);
   const r = f.retours.find((x) => x.id === retourId);
+  // Hors chantier : « Argent rendu », sans chantier ; le retour dit quelle remise.
   const depense = {
-    id: idDe(), date: le, heure, boutique: caisse.boutique, categorie: CATEGORIE_RETOUR_CHANTIER,
-    description: `Rendu par ${technicien.nom} — ${r.chantier_nom || "chantier"}`,
+    id: idDe(), date: le, heure, boutique: caisse.boutique, categorie: r.remise_id ? CATEGORIE_RETOUR_ARGENT : CATEGORIE_RETOUR_CHANTIER,
+    description: `Rendu par ${technicien.nom} — ${nomDossier(r)}`,
     montant: -n(r.montant), paiement: caisse.paiement, paye_avec: caisse.paye_avec,
     par: profile.nom, par_id: profile.id, auto: "retour_chantier",
-    chantier_id: r.chantier_id, chantier_nom: r.chantier_nom,
-    retour_chantier: { id: r.id, tech_id: technicien.id, tech_nom: technicien.nom },
+    ...(r.remise_id ? {} : { chantier_id: r.chantier_id, chantier_nom: r.chantier_nom }),
+    retour_chantier: { id: r.id, tech_id: technicien.id, tech_nom: technicien.nom, ...(r.remise_id ? { remise_id: r.remise_id } : {}) },
   };
   f.retours = f.retours.map((x) => (x.id === retourId ? { ...x, statut: "validee", decide_le: le, decide_par: profile.nom, depense_id: depense.id, caisse: libelleCaisseRetour(caisse) } : x));
   return { technicien: { ...technicien, argent_chantier: f }, depense,
-    journal: `Argent rendu validé : ${fmt(n(r.montant))} par ${technicien.nom} (${r.chantier_nom || "chantier"}) → ${libelleCaisseRetour(caisse)}` };
+    journal: `Argent rendu validé : ${fmt(n(r.montant))} par ${technicien.nom} (${nomDossier(r)}) → ${libelleCaisseRetour(caisse)}` };
 }
 
 export function refuserRetour(profile, technicien, retourId, motif, le) {
@@ -173,7 +212,7 @@ export function refuserRetour(profile, technicien, retourId, motif, le) {
   const r = f.retours.find((x) => x.id === retourId);
   f.retours = f.retours.map((x) => (x.id === retourId ? { ...x, statut: "rejetee", decide_le: le, decide_par: profile.nom, motif: String(motif).trim() } : x));
   return { technicien: { ...technicien, argent_chantier: f },
-    journal: `Argent rendu refusé : ${fmt(n(r?.montant))} annoncés par ${technicien.nom} (${r?.chantier_nom || "chantier"}) — ${String(motif).trim()}` };
+    journal: `Argent rendu refusé : ${fmt(n(r?.montant))} annoncés par ${technicien.nom} (${nomDossier(r)}) — ${String(motif).trim()}` };
 }
 
 // Les demandes de retour en attente, pour l'écran de qui valide.
@@ -186,29 +225,34 @@ export function refusSuppressionRemise(depenses, personnes, d) {
   if (!d?.remis_a?.id) return null;
   const tech = (personnes || []).find((u) => u.id === d.remis_a.id);
   if (!tech) return null;
-  const s = soldeArgentChantier(depenses, tech, d.chantier_id);
+  const s = soldeDossier(depenses, tech, dossierDeRemise(d));
   const sansElle = s.recu - (estEnAttente(d) ? 0 : n(d.montant));
   const engage = s.justifie + s.rendu + s.retourEnAttente;
-  if (engage > sansElle) return `🔒 Cette somme a été remise à ${tech.nom}, qui a déjà justifié ou rendu ${fmt(engage)} sur ce chantier.\n\nLa supprimer laisserait ses justifications sans argent en face. Demandez-lui d'abord de retirer ses lignes de détail.`;
+  if (engage > sansElle) return `🔒 Cette somme a été remise à ${tech.nom}, qui a déjà justifié ou rendu ${fmt(engage)} ${d.chantier_id ? "sur ce chantier" : "sur elle"}.\n\nLa supprimer laisserait ses justifications sans argent en face. Demandez-lui d'abord de retirer ses lignes de détail.`;
   return null;
 }
 
-// À qui l'argent peut être remis (« b oui ») : l'équipe du chantier d'abord ;
-// tant qu'elle n'est pas choisie, tous les techniciens de l'espace regardé.
+// À qui l'argent peut être remis. ~~Les techniciens seulement~~ — RETOURNÉ le
+// 10/10/2026 (« A b ») : TOUT le personnel de l'espace regardé, jamais un
+// client, jamais un compte désactivé, jamais soi-même ; pour un chantier, son
+// équipe en tête (rangée par nom), puis les autres.
 // `personnes` = la liste DÉJÀ filtrée par l'espace (utilisateursDeLEspace).
-export const ROLES_TECHNICIENS = ["technicien", "technicien_bmi"];
-export function techniciensProposes(personnes, chantier) {
-  const techs = (personnes || []).filter((u) => ROLES_TECHNICIENS.includes(u.role) && u.actif !== false);
-  const equipe = new Set((chantier?.equipe || []).map((e) => e.user_id).filter(Boolean));
-  const dansEquipe = techs.filter((u) => equipe.has(u.id));
-  return dansEquipe.length ? dansEquipe : techs;
+export const estDeLEquipe = (chantier, u) => (chantier?.equipe || []).some((e) => e.user_id && e.user_id === u?.id);
+export function personnesProposees(personnes, chantier, moi = null) {
+  const parNom = (a, b) => String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" });
+  const staff = (personnes || []).filter((u) => u?.role && u.role !== "client" && u.actif !== false && u.id !== moi?.id);
+  return [...staff.filter((u) => estDeLEquipe(chantier, u)).sort(parNom), ...staff.filter((u) => !estDeLEquipe(chantier, u)).sort(parNom)];
 }
 // La réponse « personne » : la dépense a été payée directement (rien à justifier).
 export const REMIS_A_PERSONNE = "aucun";
-export function critiqueRemisA(chantier, choix, proposes) {
-  if (!chantier) return null;
-  if (!choix) return "Choisissez le technicien qui reçoit l'argent du chantier — ou « Personne » si vous avez payé directement.";
+// « B b » : hors chantier, la case est facultative (« Personne » d'office) et
+// réservée au gérant et à l'administrateur ; pour un chantier, le choix reste exigé.
+export const ROLES_REMISE_HORS_CHANTIER = ["admin", "gerant"];
+export const peutRemettreHorsChantier = (profile) => ROLES_REMISE_HORS_CHANTIER.includes(profile?.role);
+export function critiqueRemisA(chantier, choix, proposes, profile = null) {
+  if (!choix) return chantier ? "Choisissez la personne qui reçoit l'argent du chantier — ou « Personne » si vous avez payé directement." : null;
   if (choix === REMIS_A_PERSONNE) return null;
-  if (!(proposes || []).some((u) => u.id === choix)) return "Ce technicien n'est plus proposé pour ce chantier.";
+  if (!chantier && profile && !peutRemettreHorsChantier(profile)) return "Remettre de l'argent à quelqu'un hors chantier, c'est le geste du gérant ou de l'administrateur.";
+  if (!(proposes || []).some((u) => u.id === choix)) return "Cette personne n'est plus proposée.";
   return null;
 }
