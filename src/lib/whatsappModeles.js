@@ -714,7 +714,10 @@ export function texteContact({ client, auteur, sujet }) {
   ].join("\n");
 }
 
-export function traceEnvoi({ modele, par, par_id, quand, heure, id }) {
+// 👥 `pour` / `pour_id` (12/10/2026) : le devis envoyé par l'administrateur
+// ou le responsable commercial POUR un commercial — la conversation du client
+// revient à ce commercial (« c'est lui qui a trouvé le client »).
+export function traceEnvoi({ modele, par, par_id, quand, heure, id, pour, pour_id }) {
   return {
     modele: String(modele || ""),
     le: String(quand || ""),
@@ -723,12 +726,13 @@ export function traceEnvoi({ modele, par, par_id, quand, heure, id }) {
     par_id: String(par_id || ""),
     id: String(id || ""),
     canal: "whatsapp_bmi",
+    ...(pour_id && pour_id !== par_id ? { pour: String(pour || ""), pour_id: String(pour_id) } : {}),
   };
 }
 
 export function libelleTrace(trace) {
   if (!trace || !trace.le) return "";
-  const qui = trace.par ? ` par ${trace.par}` : "";
+  const qui = `${trace.par ? ` par ${trace.par}` : ""}${trace.pour ? ` pour ${trace.pour}` : ""}`;
   const quand = trace.heure ? `${trace.le} à ${trace.heure}` : trace.le;
   return `📲 Envoyé du numéro BMI le ${quand}${qui}`;
 }

@@ -271,6 +271,8 @@ export function proprietaireDepuisDevis(client, employes = []) {
     .sort((a, b) => String(a.envoi_whatsapp.le || "").localeCompare(String(b.envoi_whatsapp.le || "")));
   for (let i = devis.length - 1; i >= 0; i--) {
     const t = devis[i].envoi_whatsapp;
+    // 👥 Un devis envoyé POUR un commercial lui donne la conversation (12/10/2026).
+    if (t.pour_id) return { id: t.pour_id, nom: t.pour || "" };
     if (t.par_id) return { id: t.par_id, nom: t.par || "" };
     const nom = cleIdentifiant(t.par);
     if (!nom) continue;

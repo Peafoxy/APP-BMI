@@ -28,7 +28,7 @@
 // d'office pour un nom hors stock, « Pose seule », Remise / Frais
 // d'installation / Transport, « 🛒 Convertir en vente », « 💰 Acompte exigé
 // pour démarrer (%) », « 🗓 Délai d'installation indicatif », « 📲 Envoyer ce
-// devis au client », « Client destinataire », « ➕ Nouveau client (nom +
+// devis au client », « 👥 Devis établi pour » (admin, resp. commercial), « Client destinataire », « ➕ Nouveau client (nom +
 // numéro) », « 📲 Envoyer par WhatsApp », « 📝 Enregistrer un brouillon » ;
 // la signature exigée ; la remise > 3 % refusée hors administrateur ; espace
 // puis devis_disponible pour un client qui n'a pas encore ses accès),
@@ -89,7 +89,7 @@ export const CHAPITRE = {
         ["**Équipements proposés (stock de …)**", "Le tableau : **Catégorie · Article · Besoin calculé · Quantité · Prix unit. · Sous-total · HB**, pour Panneaux solaires, Batteries, Convertisseur, Régulateur MPPT ; puis Rails de fixation, Supports de rail, Étriers."],
         ["**Autres équipements (câbles, protections AC/DC, accessoires…)**", "Des lignes libres : Article · Prix unitaire (F) · Quantité · HB · Retirer ; **« ➕ Ajouter un équipement »** ; **« ➕ Élément à compléter (cf. visite) »** (une ligne sans prix, chiffrée après la visite)."],
         ["La fin du devis", "La case **« Pose seule »** ; **Remise**, **Frais d'installation**, **Transport / livraison** — chacun avec sa petite liste **« … % »** ou **« … libre »** ; le **Total** ; **« 🛒 Convertir en vente »** ; **« 💰 Acompte exigé pour démarrer (%) »** et **« 🗓 Délai d'installation indicatif »** ; la case **« 🔧 Avec installation »** ; la case **« 📝 NB (facultatif) »**."],
-        ["**📲 Envoyer ce devis au client**", "**Client destinataire** : une case où l'on **tape le nom OU le numéro** du client — la liste s'ouvre dessous, comme dans 💰 Ventes, et un **clic** choisit le compte (« NOM — numéro ») ; à côté, le bouton **« ➕ Nouveau client »** (« Choisir un client existant » pour revenir) ; pour un nouveau client : **Nom du client** et **Numéro WhatsApp** ; les boutons **« 📲 Envoyer par WhatsApp »** (client choisi) et **« 📝 Enregistrer un brouillon »** (toujours actif, même sans client)."],
+        ["**📲 Envoyer ce devis au client**", "**👥 Devis établi pour** (administrateur et responsable commercial seulement) : « Moi » d'office, ou la personne pour qui on fait le devis. **Client destinataire** : une case où l'on **tape le nom OU le numéro** du client — la liste s'ouvre dessous, comme dans 💰 Ventes, et un **clic** choisit le compte (« NOM — numéro ») ; à côté, le bouton **« ➕ Nouveau client »** (« Choisir un client existant » pour revenir) ; pour un nouveau client : **Nom du client** et **Numéro WhatsApp** ; les boutons **« 📲 Envoyer par WhatsApp »** (client choisi) et **« 📝 Enregistrer un brouillon »** (toujours actif, même sans client)."],
         ["Tout en bas", "La note grise du dimensionnement (réglée dans ⚙ Paramètres) : « Calcul indicatif basé sur des marges de sécurité usuelles… »."],
         ["**⚙ Paramètres** (administrateur)", "🗂 Catalogue & devis : 🔩 Prix du rail de fixation (au mètre), Longueur d'une barre (m), ☀️ Note affichée sous le dimensionnement. 🔌 Appareils : la liste des appareils proposés."],
       ]}],
@@ -141,6 +141,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "F. Envoyer, garder ou vendre"],
       ["etapes", [
+        { titre: "👥 Pour qui ? (administrateur, responsable commercial)", texte: "La ligne **« 👥 Devis établi pour »** : « Moi » d'office. Choisir **KOFFI** : le devis part **à son nom** — la commission, les relances et les réponses du client sont pour lui —, avec « préparé par » votre nom. L'administrateur peut choisir toute personne de l'espace qui a l'onglet Dimensionnement ; le responsable commercial, **ses commerciaux** (ceux dont il est le parrain). **📝 Enregistrer un brouillon** le range alors dans **SES** brouillons : il est prévenu, et c'est lui qui l'enverra. ⚠ Sa signature est exigée : sans elle, le devis ne part pas (c'est elle qui va sur le devis et le contrat). Pour un devis **corrigé** (✏️ Modifier et renvoyer), la ligne ne se choisit pas : elle dit **« Devis de KOFFI »** — la correction reste à son nom." },
         { titre: "Choisir le client", texte: "**Client destinataire** : taper quelques lettres de son nom, ou quelques chiffres de son numéro (« 9902 » suffit), puis **cliquer** sur sa ligne — deux clients du même nom se distinguent par leur numéro. Ce qui est tapé sans cliquer ne choisit personne : le bouton d'envoi reste gris. Sinon **« ➕ Nouveau client »**, avec son nom et son numéro WhatsApp. Pour un nouveau client, l'écran annonce l'identifiant et le mot de passe du compte qui sera créé." },
         { titre: "« 📲 Envoyer par WhatsApp »", texte: "Le devis est rangé dans l'**espace du client** (statut « proposé »), et le client est prévenu **du numéro WhatsApp BMI**. S'il n'a **jamais reçu ses accès**, ils partent **d'abord**, dans un message à part, puis le message du devis. S'il les a déjà (compte créé avant, accès renvoyés, autre devis), le devis part seul. → « ✅ Devis envoyé dans l'espace de X. »" },
         { titre: "Si le numéro BMI ne peut pas envoyer", texte: "(espace formation, réseau, refus de WhatsApp) : **WhatsApp s'ouvre sur l'appareil** avec le texte complet — le devis, le lien de l'espace, l'identifiant et le mot de passe. Le vendeur l'envoie lui-même. Quand ce n'est pas la formation, l'écran dit pourquoi, en français." },
@@ -166,7 +167,8 @@ export const CHAPITRE = {
         ["Pose seule", "Remplace le pourcentage d'installation par un montant fixe de main d'œuvre."],
         ["🛒 Convertir en vente", "Envoie le panier dans 💰 Ventes pour encaissement."],
         ["📲 Envoyer par WhatsApp", "Range le devis chez le client et le prévient ; crée son compte s'il n'en a pas."],
-        ["📝 Enregistrer un brouillon", "Garde le devis dans « Mes brouillons », sans rien envoyer. Toujours actif : sans compte client, une question puis le nom du client, obligatoire."],
+        ["📝 Enregistrer un brouillon", "Garde le devis dans « Mes brouillons », sans rien envoyer. Toujours actif : sans compte client, une question puis le nom du client, obligatoire. Établi pour un autre (ou la correction de son devis) : dans SES brouillons."],
+        ["👥 Devis établi pour", "Administrateur et responsable commercial : le devis part au nom de la personne choisie (sa commission), « préparé par » vous."],
         ["📝 Mes brouillons → ✏️ Reprendre / 📲 Envoyer / ➡ Confier à… / Supprimer", "Reprendre dans le volet, envoyer directement (pas sans compte), confier à un collègue (le brouillon part chez lui), ou jeter."],
         ["Annuler la reprise (bandeau jaune)", "Abandonne la reprise d'un devis ou d'un brouillon ; l'écran revient à la saisie en cours."],
       ]}],

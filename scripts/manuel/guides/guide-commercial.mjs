@@ -64,12 +64,13 @@ export const GUIDE = {
     ["etapes", [
       { titre: "Le volet", texte: "Solaire (le calcul part des appareils du client), Portail, ou Autre (vidéosurveillance, électricité, forage…). L'application propose le matériel **de la boutique choisie**, au prix du stock (chapitres 11 et 12)." },
       { titre: "Le client", texte: "Dans le cadre « 📲 Envoyer ce devis au client » : un client de l'espace, cherché en tapant son nom ou son numéro (un clic sur sa ligne le choisit), ou « ➕ Nouveau client » (nom, **prénom obligatoire**, numéro WhatsApp). La case « 🏢 Entreprise cliente » s'il paie au nom d'une société." },
-      { titre: "« 📝 Enregistrer un brouillon »", texte: "Si je dois m'interrompre : je le retrouve dans « 📝 Mes brouillons »." },
+      { titre: "« 📝 Enregistrer un brouillon »", texte: "Si je dois m'interrompre : je le retrouve dans « 📝 Mes brouillons ». **Un brouillon peut aussi arriver préparé pour moi** par l'administrateur ou mon responsable (« préparé par … », un message me prévient) — y compris la **correction d'un de mes devis** (« ✏️ Correction du devis du … ») : je le vérifie et je l'envoie, il part **à mon nom** et la commission reste la mienne." },
       { titre: "« 📲 Envoyer par WhatsApp »", texte: "Tout part du **numéro BMI**. Un client qui n'a pas encore ses accès reçoit **deux messages** : ses accès à son espace, puis le devis. S'il les a déjà, le devis part seul." },
     ]],
     ["ul", [
       "**Une remise au-delà de 3 %** est réservée à l'administrateur ; une remise sur un article ET une remise générale ensemble, c'est refusé pour tout le monde.",
       "**« 🤝 Un apporteur externe »** en fin de devis : 3 % d'office, la case est grisée ; seul l'administrateur principal change le taux (sur un brouillon).",
+      "**Le responsable commercial** voit les devis de ses commerciaux (📋 Tous les devis → « 👥 Utilisateur » → « TOUS LES DEVIS DE … ») et peut en établir, corriger ou enregistrer en brouillon **pour l'un d'eux** (« 👥 Devis établi pour ») : le devis reste au nom du commercial, sa commission aussi.",
       "Une faute vue après l'envoi : « ✏️ Modifier et renvoyer » (devis ⏳ Proposé) ; un devis **signé** ne se corrige qu'avec l'accord du client (« Demander une modification »). Un devis sans suite : « 📁 Classer sans suite ».",
       "Au bout de 15 jours sans réponse, « Relancer » dans 📋 Tous les devis — avec une question avant l'envoi.",
     ]],

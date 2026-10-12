@@ -103,7 +103,7 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
       </div>
       {mode === "brouillons" && (
         <MesBrouillons db={db} profile={profile} save={save} domaines={domaines}
-          onReprendre={(b) => { setBrouillonRepris({ devis: b.devis, client: b.client, brouillon_id: b.id, brouillon_nom: b.nom || "", brouillon_confie: b.confie || null }); }} />
+          onReprendre={(b) => { setBrouillonRepris({ devis: b.devis, client: b.client, brouillon_id: b.id, brouillon_nom: b.nom || "", brouillon_confie: b.confie || null, brouillon_remplace: b.remplace || null }); }} />
       )}
       {domaines.length === 0 && (
         <div className="rounded-xl p-4 bg-amber-50 border-2 border-amber-300 text-sm text-amber-900">

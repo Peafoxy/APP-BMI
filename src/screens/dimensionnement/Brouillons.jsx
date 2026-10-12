@@ -10,7 +10,7 @@ import { uAlert, uConfirm, uPrompt, uChoix } from "../../components/ui";
 import { bloquerSiLecture, estAdminPrincipal, refuserSaufAdminPrincipal, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { LIBELLE_ROLE_EMPLOYE } from "../../lib/comptesClients";
 import { brouillonsAvecApporteur, fixerTauxBrouillon } from "../../lib/apporteurDevis";
-import { brouillonsDe, retirerBrouillon, nomDuBrouillon, brouillonSansClient, destinatairesBrouillon, confierBrouillon } from "./devisCommun";
+import { brouillonsDe, retirerBrouillon, nomDuBrouillon, brouillonSansClient, destinatairesBrouillon, confierBrouillon, devisRemplace } from "./devisCommun";
 import { resoudreClientDevis, envoyerDevisEtOuvrirWhatsApp } from "./Partages";
 import { messageDevisEnvoye } from "../../lib/whatsappModeles";
 
@@ -43,11 +43,20 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, b.devis?.boutique);
     if (!resolu) return;
     const { compte, motDePasse, dbApres, identite } = resolu;
+    // ✏️ Le brouillon d'une CORRECTION (12/10/2026) remplace le devis qu'il
+    // corrige, s'il est encore modifiable chez ce client ; sinon il part comme
+    // un nouveau devis — et on le dit avant.
+    let idAReprendre;
+    if (b.remplace) {
+      const ancien = devisRemplace(b.remplace, (dbApres.users || []).find((u) => u.id === compte.id));
+      if (ancien) idAReprendre = ancien.id;
+      else if (!await uConfirm(`Ce brouillon corrigeait un devis${b.remplace.date ? ` du ${dFR(b.remplace.date)}` : ""} qui ne peut plus être remplacé (validé, payé ou supprimé entre-temps).\n\nIl partira comme un NOUVEAU devis. Continuer ?`)) return;
+    }
     // Il part au nom de celui qui l'envoie ; un brouillon confié garde « préparé par » (dans b.devis).
-    const devis = { ...b.devis, ...identite, id: uid(), date: today(), heure: heureCourte(), par: profile.nom, par_id: profile.id, par_role: profile.role, statut: "propose" };
+    const devis = { ...b.devis, ...identite, id: idAReprendre || uid(), date: today(), heure: heureCourte(), par: profile.nom, par_id: profile.id, par_role: profile.role, statut: "propose" };
     const envoye = await envoyerDevisEtOuvrirWhatsApp({
       dbApres: retirerBrouillon(dbApres, profile.id, b.id), compte, motDePasse, devis, save, profile, nouvClient,
-      ligneEntete: [`📝 Devis ${libelleVolet(b)} — *${fmt(devis.total)}*`],
+      ligneEntete: [`📝 Devis ${libelleVolet(b)} — *${fmt(devis.total)}*`], idAReprendre,
     });
     if (envoye && envoye.auto) uAlert(messageDevisEnvoye(compte.nom, true));
   };
@@ -151,7 +160,8 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
                 <span className="font-bold">{nomDuBrouillon(b)}</span>{b.client?.tel ? <span className="text-slate-500"> · {b.client.tel}</span> : null}
                 {brouillonSansClient(b) && <span className="ml-2 text-[11px] font-bold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5" data-brouillon-sans-client>sans compte</span>}
                 <div className="text-xs text-slate-500">{libelleVolet(b)} · {fmt(b.devis?.total)} · {dFR(b.date)}{brouillonSansClient(b) ? " · compte à choisir ou à créer en le reprenant" : b.client?.id ? "" : " · compte à créer à l'envoi"}</div>
-                {b.confie && <div className="text-xs text-sky-800" data-brouillon-confie>📨 Confié par {b.confie.par} le {dFR(b.confie.le)}</div>}
+                {b.confie && <div className="text-xs text-sky-800" data-brouillon-confie>📨 Confié par {b.confie.par} le {dFR(b.confie.le)}{b.devis?.prepare_par ? ` · préparé par ${b.devis.prepare_par}` : ""}</div>}
+                {b.remplace && <div className="text-xs text-amber-800" data-brouillon-remplace>✏️ Correction du devis{b.remplace.date ? ` du ${dFR(b.remplace.date)}` : ""} déjà envoyé : l'envoi le remplacera chez le client.</div>}
               </div>
               <button onClick={() => onReprendre(b)} className="px-3 py-1 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">✏️ Reprendre</button>
               <button onClick={() => envoyer(b)} className="px-3 py-1 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">📲 Envoyer par WhatsApp</button>

@@ -6,8 +6,8 @@
 import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { propositionsComptesDevis, libelleCompteDevis } from "../../lib/clientsConnus";
-import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
-import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
+import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, LIBELLE_ROLE_EMPLOYE } from "../../lib/comptesClients";
+import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte, nouveauMessage } from "../../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
 import { envoiDevisDisponible, envoiIdentifiants, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
@@ -41,9 +41,9 @@ export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBro
 import { Field, inputCls, uAlert, uConfirm, uPrompt, ChampQuiGrandit } from "../../components/ui";
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
-import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives } from "../../lib/calculs";
+import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
-import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, MODE_POURCENT, MODE_MONTANT, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX } from "./devisCommun";
+import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, MODE_POURCENT, MODE_MONTANT, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX, peutEtablirPourAutrui, auteursPossibles, auteurDuDevis, devisEtabliPour, garderAuteur, critiqueAuteur, remplacePour, devisRemplace } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
 // IMPORTE puis on les RÉEXPORTE : `export { x } from` ne crée pas de nom
@@ -449,23 +449,57 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false
     && (espaceDevis === undefined || !!u.formation === espaceDevis));
 
+  // 👥 LE DEVIS ÉTABLI POUR UN AUTRE (Timo, 12/10/2026, « C a ») :
+  // l'administrateur et le responsable commercial choisissent « Devis établi
+  // pour » ; le devis part au nom de cette personne (commission, relances,
+  // conversation du client), avec « préparé par ». Les personnes viennent de
+  // l'espace REGARDÉ (utilisateursDeLEspace), jamais db.users.
+  // Une CORRECTION (le devis est déjà chez le client) garde toujours son
+  // auteur : la ligne ne se choisit pas, elle le dit.
+  const auteurs = auteursPossibles(utilisateursDeLEspace(db, profile), profile, ONGLETS_ROLE);
+  const devisStocke = idAReprendre
+    ? ((db.users || []).find((u) => u.id === devisAReprendre?.client?.id)?.devis || []).find((x) => x.id === idAReprendre) || null
+    : null;
+  const [auteurId, setAuteurId] = useState("");
+  const auteurChoisi = devisStocke ? null : auteurs.find((u) => u.id === auteurId) || null;
+  const etabliPour = peutEtablirPourAutrui(profile)
+    ? { auteurs, auteurId, setAuteurId, fixe: devisStocke ? auteurDuDevis(devisStocke) : null, moi: profile }
+    : null;
+  // Revérifié DANS le geste : la personne doit être encore dans la liste.
+  const refusAuteur = () => {
+    if (devisStocke || !auteurId) return false;
+    const refus = critiqueAuteur(auteurId, auteurs, profile);
+    if (refus) { uAlert(refus); return true; }
+    return false;
+  };
+
   const envoyer = async ({ totalDevis, messageVide, construire, ligneEntete }) => {
     if (bloquerSiLecture(db, profile)) return;
     if (totalDevis <= 0) { uAlert(messageVide); return; }
     if (refusApporteur()) return;
+    if (refusAuteur()) return;
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
     if (!resolu) return;
     const { compte, motDePasse, dbApres, identite } = resolu;
     // 📨 Un brouillon confié garde « préparé par » ; il part au nom de celui
     // qui l'envoie (décision Timo, 05/10/2026 : « celui qui envoie »).
     const prepare = brouillonRepris ? devisAReprendre?.devis?.prepare_par : null;
-    const devis = { ...construire(), ...identite, ...(prepare ? { prepare_par: prepare } : {}) };
+    const devis = devisEtabliPour({ ...construire(), ...identite, ...(prepare ? { prepare_par: prepare } : {}) }, auteurChoisi, profile);
+    // ✏️ Le brouillon d'une CORRECTION remplace le devis qu'il corrige (12/10/2026)
+    // — s'il est encore modifiable chez ce client ; sinon il part comme un nouveau.
+    let idRemplace = idAReprendre;
+    if (brouillonRepris && devisAReprendre?.brouillon_remplace) {
+      const compteFrais = (dbApres.users || []).find((u) => u.id === compte.id);
+      const ancien = devisRemplace(devisAReprendre.brouillon_remplace, compteFrais);
+      if (ancien) idRemplace = ancien.id;
+      else if (!await uConfirm(`Ce brouillon corrigeait un devis${devisAReprendre.brouillon_remplace.date ? ` du ${dFR(devisAReprendre.brouillon_remplace.date)}` : ""} qui ne peut plus être remplacé (validé, payé ou supprimé entre-temps, ou un autre client a été choisi).\n\nIl partira comme un NOUVEAU devis. Continuer ?`)) return;
+    }
     // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
     // annonçait « ✅ Devis envoyé » et effaçait le brouillon alors que rien
     // n'était parti. On respecte la réponse.
     const envoye = await envoyerDevisEtOuvrirWhatsApp({
       dbApres: brouillonRepris ? retirerBrouillon(dbApres, profile.id, brouillonRepris) : dbApres,
-      compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre,
+      compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre: idRemplace,
     });
     if (!envoye) return;
     // 🧲 Un devis préparé depuis la fiche d'un prospect (24/09/2026) : la
@@ -478,6 +512,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     }
     setClientDevis("");
     setNouvClient(CLIENT_VIDE());
+    setAuteurId("");
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     effacerBrouillonVolet(volet, profile);
     { const m = messageDevisEnvoye(compte.nom, envoye.auto); if (envoye.auto && m) uAlert(m); }
@@ -503,6 +538,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     if (bloquerSiLecture(db, profile)) return;
     if (totalDevis <= 0) { uAlert(messageVide); return; }
     if (refusApporteur()) return;
+    if (refusAuteur()) return;
     let client = null, nomBrouillon = "";
     // 05/10/2026 (Timo) : un brouillon s'enregistre TOUJOURS. Sans client
     // choisi (rien de sélectionné, ou « Nouveau client » laissé vide), on
@@ -531,14 +567,38 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     // « Préparé par » suit un brouillon confié, même enregistré à nouveau.
     const prepare = devisAReprendre?.brouillon_id ? devisAReprendre?.devis?.prepare_par : null;
     const devis = { ...construire(), ...(client ? champsIdentite({ prenom: client.prenom, entreprise: nouvClient.entreprise }) : {}), ...(prepare ? { prepare_par: prepare } : {}) };
-    const confie = devisAReprendre?.brouillon_id ? devisAReprendre?.brouillon_confie : null;
-    const brouillon = { id: brouillonRepris || uid(), volet, client, ...(nomBrouillon ? { nom: nomBrouillon } : {}), ...(confie ? { confie } : {}), devis, date: today(), ts: new Date().toISOString() };
+    // 👥 Enregistrer POUR LUI (12/10/2026) : le brouillon va dans les brouillons
+    // de l'auteur — celui choisi dans « Devis établi pour », ou l'auteur du
+    // devis qu'on corrige — et c'est lui qui l'enverra (la commission est la
+    // sienne). Il porte « préparé par » et « confié par », et il est prévenu.
+    const auteurFixe = devisStocke && devisStocke.par_id && devisStocke.par_id !== profile.id
+      ? utilisateursDeLEspace(db, profile).find((u) => u.id === devisStocke.par_id && u.role !== "client" && u.actif !== false) || null
+      : null;
+    const pourQui = auteurFixe || auteurChoisi;
+    // ✏️ Le brouillon d'une correction se souvient du devis qu'il corrige.
+    const remplace = devisStocke ? remplacePour(devisStocke, devisAReprendre?.client?.id) : (brouillonRepris ? devisAReprendre?.brouillon_remplace || null : null);
+    const dejaConfie = devisAReprendre?.brouillon_id ? devisAReprendre?.brouillon_confie : null;
+    const confie = pourQui ? { par: profile.nom, par_id: profile.id, le: today() } : dejaConfie;
+    const devisB = pourQui ? { ...devis, prepare_par: devis.prepare_par || profile.nom } : devis;
+    const brouillon = { id: brouillonRepris || uid(), volet, client, ...(nomBrouillon ? { nom: nomBrouillon } : {}), ...(confie ? { confie } : {}), ...(remplace ? { remplace } : {}), devis: devisB, date: today(), ts: new Date().toISOString() };
     const titre = nomDuBrouillon(brouillon);
+    if (pourQui) {
+      // Déplacé, jamais copié : retiré de mes brouillons s'il en venait.
+      const base = brouillonRepris ? retirerBrouillon(db, profile.id, brouillonRepris) : db;
+      const avis = nouveauMessage(profile, { a_id: pourQui.id,
+        texte: `📝 ${profile.nom} a préparé pour vous un brouillon de devis : « ${titre} » (${fmt(devis.total)})${remplace ? " — la correction de votre devis déjà envoyé" : ""}. Retrouvez-le dans 📐 Dimensionnement → 📝 Mes brouillons pour le vérifier et l'envoyer : il partira à votre nom.` });
+      const dbB = ajouterBrouillon(base, pourQui.id, brouillon);
+      save({ ...dbB, messages: [...(dbB.messages || []), avis] }, `📝 Brouillon de devis enregistré pour ${pourQui.nom} — ${titre}${client ? "" : " (sans compte)"} (${fmt(devis.total)}) par ${profile.nom}`);
+      effacerBrouillonVolet(volet, profile);
+      if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
+      uAlert(`📝 Brouillon enregistré dans les brouillons de ${pourQui.nom}${client ? `, pour ${client.nom}` : ` — « ${titre} », sans compte`}.\n\n${pourQui.nom} est prévenu : c'est lui qui l'enverra, à son nom${remplace ? " — il remplacera le devis déjà envoyé" : ""}.`);
+      return;
+    }
     save(ajouterBrouillon(db, profile.id, brouillon), `📝 Brouillon de devis enregistré — ${titre}${client ? "" : " (sans compte)"} (${fmt(devis.total)}) par ${profile.nom}`);
     uAlert(`📝 Brouillon enregistré${client ? ` pour ${client.nom}` : ` pour ${titre} — sans compte`}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, confier à un collègue, ou supprimer.`);
   };
 
-  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, convertir, enregistrerBrouillon };
+  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, convertir, enregistrerBrouillon, etabliPour };
 }
 
 // ---- Conditions de paiement — % d'acompte et délai d'installation propres
@@ -579,7 +639,44 @@ export function BlocConditionsPaiement({ pctAcompte, setPctAcompte, delaiInstall
 }
 
 // ---- Bloc « Envoyer le devis au client » : sélection/création du compte + bouton WhatsApp ----
-export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, onBrouillon, profile }) {
+// 👥 « Devis établi pour » (Timo, 12/10/2026, « C a ») : l'administrateur et le
+// responsable commercial seulement (`etabliPour` vaut null pour les autres).
+// « Moi » d'office ; une autre personne → le devis part à son nom, la
+// commission est la sienne. Une correction ne se choisit pas : elle le dit.
+const libelleAuteur = (u) => `${u.nom} — ${LIBELLE_ROLE_EMPLOYE[u.role] || u.role}${u.boutique && u.boutique !== "Toutes" ? ` · ${u.boutique}` : ""}`;
+export function BlocEtabliPour({ etabliPour }) {
+  if (!etabliPour) return null;
+  const { auteurs, auteurId, setAuteurId, fixe, moi } = etabliPour;
+  if (fixe) {
+    if (!fixe.par_id || fixe.par_id === moi.id) return null;
+    return (
+      <div className="mb-3 rounded-lg border border-sky-300 bg-sky-50 p-2 text-sm text-sky-900" data-devis-auteur-fixe>
+        👤 Devis de <b>{fixe.par}</b> : la correction reste à son nom — la commission est la sienne. « Modifié par {moi.nom} » sera noté sur le devis.
+      </div>
+    );
+  }
+  const choisi = auteurs.find((u) => u.id === auteurId) || null;
+  return (
+    <div className="mb-3" data-devis-etabli-pour>
+      <Field label="👥 Devis établi pour">
+        <select className={`${inputCls} sm:w-80`} value={choisi ? auteurId : ""} onChange={(e) => setAuteurId(e.target.value)}>
+          <option value="">Moi ({moi.nom})</option>
+          {auteurs.map((u) => <option key={u.id} value={u.id}>{libelleAuteur(u)}</option>)}
+        </select>
+      </Field>
+      {choisi && (
+        <div className="mt-1 text-xs text-sky-900" data-devis-pour-autre>
+          Le devis part au nom de <b>{choisi.nom}</b> : la commission, les relances et les réponses du client sont pour lui, avec « préparé par {moi.nom} ». « 📝 Enregistrer un brouillon » le range dans SES brouillons : c'est lui qui l'enverra.
+        </div>
+      )}
+      {auteurs.length === 0 && (
+        <div className="mt-1 text-xs text-slate-500">{moi.role === "admin" ? "Personne d'autre dans cet espace n'a l'onglet Dimensionnement." : "Aucun commercial n'est sous votre responsabilité (👥 Utilisateurs → ⋯ Gérer → Parrain)."}</div>
+      )}
+    </div>
+  );
+}
+
+export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, onBrouillon, profile, etabliPour = null }) {
   // ⚠ La signature était exigée tout à la FIN, après avoir tout rempli et
   // cliqué (relevé par Timo, 18/08/2026). On prévient maintenant AVANT.
   const sansSignature = profile && !profile.signature_personnelle;
@@ -608,6 +705,7 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
           à tous vos devis et contrats.
         </div>
       )}
+      <BlocEtabliPour etabliPour={etabliPour} />
       <div className="text-xs text-slate-500 mb-3">
         Le devis est déposé dans son espace client, et il en est prévenu par WhatsApp — du numéro BMI (s'il n'a pas encore reçu ses accès, ils partent d'abord, dans un message à part). Si le numéro BMI ne peut pas envoyer, WhatsApp s'ouvre sur votre téléphone avec ses identifiants. S'il n'a pas encore de compte, il est créé automatiquement : le nom, le prénom et le numéro suffisent.
       </div>
@@ -808,6 +906,19 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     uAlert("Avant d'envoyer un devis, vous devez d'abord enregistrer votre signature — rendez-vous dans l'onglet « 📄 Contrats » pour le faire, une seule fois.");
     return false;
   }
+  // 👥 Le devis porte le nom de son AUTEUR (12/10/2026) : une correction garde
+  // celui du devis d'origine, un devis « établi pour » celui de la personne
+  // choisie. C'est SA signature qui va sur le devis et le contrat : sans elle,
+  // le cadre « Pour BMI Togo » resterait vide.
+  const avantDevis = idAReprendre ? (dbApres.users || []).find((u) => u.id === compte.id)?.devis?.find((x) => x.id === idAReprendre) : null;
+  const auteurFinal = avantDevis ? auteurDuDevis(avantDevis) : auteurDuDevis(devis);
+  if (auteurFinal.par_id && auteurFinal.par_id !== profile.id) {
+    const fiche = (dbApres.users || []).find((u) => u.id === auteurFinal.par_id);
+    if (fiche && !fiche.signature_personnelle) {
+      uAlert(`✍️ ${auteurFinal.par} n'a pas encore enregistré sa signature : le devis part à son nom et porte sa signature.\n\nIl l'enregistre une seule fois dans l'onglet « 📄 Contrats ». En attendant, enregistrez un brouillon pour lui.`);
+      return false;
+    }
+  }
   // 📋 Décision « A a » (08/10/2026) : un devis DÉJÀ SIGNÉ que l'on corrige
   // (le client a ouvert la porte) repart pour être RE-SIGNÉ — il ne peut pas
   // porter d'élément cf. visite, le client signerait un total partiel.
@@ -837,7 +948,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     users: dbApres.users.map((u) => (u.id === compte.id
       ? { ...u, devis: idAReprendre
           ? u.devis.map((x) => (x.id === idAReprendre
-              ? { ...marquerDevisCorrige(x, marquerModification(x, devisMarque, profile, today()), today()), id: idAReprendre }
+              ? { ...marquerDevisCorrige(x, marquerModification(x, garderAuteur(x, devisMarque), profile, today()), today()), id: idAReprendre }
               : x))
           : [devisMarque, ...(u.devis || [])] }
       : u)),
@@ -930,7 +1041,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
       ...etat,
       users: etat.users.map((u) => (u.id === compte.id
         ? { ...u, devis: (u.devis || []).map((x) => (x.id === idDevis
-            ? { ...x, envoi_whatsapp: traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) }
+            ? { ...x, envoi_whatsapp: traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id, pour: auteurFinal.par, pour_id: auteurFinal.par_id }) }
             : x)) }
         : u)),
       messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: telClient, nom: compte.nom_base || compte.nom, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: idDevis }, envoi: r }) : etat.messages,

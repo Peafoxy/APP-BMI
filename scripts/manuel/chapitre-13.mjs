@@ -2,7 +2,8 @@
 // MANUEL DE FORMATION — CHAPITRE 13 : Devis et proformas
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
-// screens/TousLesDevis.jsx, components/FiltrePeriode.jsx (le titre « 📋 Tous les devis » / « — les vôtres » ;
+// screens/TousLesDevis.jsx, components/FiltrePeriode.jsx (le titre « 📋 TOUS MES DEVIS » / « TOUS LES DEVIS DE … »,
+// la liste « 👥 Utilisateur » de l'administrateur et du responsable commercial ;
 // les filtres 📋 Tous · ⏳ Proposé · ✅ Validé · 💰 Payé · ✏️ Modification ·
 // ❌ Rejeté · 📁 Sans suite, avec leurs compteurs ; la bande « ⚠️ N devis sans
 // réponse depuis plus de 15 jours » ; « Rechercher un client ou un vendeur… » ;
@@ -64,9 +65,9 @@ export const CHAPITRE = {
     // ── 2
     { titre: "Qui peut l'utiliser", blocs: [
       ["table", { entetes: ["Le geste", "Qui"], largeurs: [4300, 5000], lignes: [
-        ["Voir 📋 Tous les devis", "**Administrateur et responsable commercial** : tous les devis. **Commercial, technicien, technicien BMI, gérant, vendeur** : les leurs, plus ceux que le client viendra **payer dans leur boutique**. Le magasinier, le comptable et le client ne l'ont pas."],
+        ["Voir 📋 Tous les devis", "**Administrateur et responsable commercial** : tous les devis ; la liste **« 👥 Utilisateur »** montre ceux d'une personne — n'importe qui de l'espace pour l'administrateur, **ses commerciaux** (ceux dont il est le parrain) pour le responsable commercial. **Commercial, technicien, technicien BMI, gérant, vendeur** : les leurs, plus ceux que le client viendra **payer dans leur boutique**. Le magasinier, le comptable et le client ne l'ont pas."],
         ["📲 Relancer sur WhatsApp", "Tout compte qui voit le devis — sur un devis **Proposé** ou **Validé** (pas encore payé)."],
-        ["✏️ Modifier et renvoyer", "**Celui qui a établi le devis, l'administrateur, le responsable commercial.** Pas le vendeur de la boutique de paiement, même s'il voit le devis."],
+        ["✏️ Modifier et renvoyer", "**Celui qui a établi le devis, l'administrateur, le responsable commercial.** Pas le vendeur de la boutique de paiement, même s'il voit le devis. **Le devis corrigé reste au nom de son auteur** : sa commission ne bouge pas."],
         ["✍️ Compléter le devis (éléments cf. visite)", "**Les mêmes : l'auteur, l'administrateur, le responsable commercial**, et seulement tant que le devis est **⏳ Proposé**."],
         ["✏️ Demander une modification au client (devis signé)", "Les mêmes : l'auteur, l'administrateur, le responsable commercial."],
         ["📁 Classer sans suite / ↩ Rouvrir le devis", "Les mêmes : l'auteur, l'administrateur, le responsable commercial."],
@@ -82,7 +83,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["**📋 Tous les devis** (onglet)", "Le titre dit « — les vôtres » à qui ne voit que les siens. **Un point rouge sur l'onglet** compte les devis **pas encore ouverts** par vous."],
+        ["**📋 Tous les devis** (onglet)", "Le titre dit **« 📋 TOUS MES DEVIS »** ; une personne choisie dans « 👥 Utilisateur », il devient **« TOUS LES DEVIS DE KOFFI »**. **Un point rouge sur l'onglet** compte les devis **pas encore ouverts** par vous."],
         ["Les filtres de statut", "**📋 Tous · ⏳ Proposé · 📋 À compléter · ✅ Validé · 💰 Payé · ✏️ Modification · ❌ Rejeté · 📁 Sans suite**, chacun avec son compteur. « Tous » est la liste ACTIVE : un devis classé sans suite n'y est pas. **« 📋 À compléter »** est un raccourci : les devis Proposé qui attendent la visite (section I) — ils restent aussi dans « ⏳ Proposé »."],
         ["La bande jaune", "« ⚠️ N devis sans réponse depuis plus de 15 jours » — un clic ne montre que ceux-là, un second rend la liste entière."],
         ["La recherche et le type", "**« Rechercher un client ou un vendeur… »** et **« Tous les types »** (☀️ Solaire, 🚪 Garage, 📦 Autre)."],
@@ -99,6 +100,7 @@ export const CHAPITRE = {
       ["h3", "A. Suivre ses devis"],
       ["etapes", [
         { titre: "Ouvrir 📋 Tous les devis", texte: "La liste est rangée **par statut** — Proposé, Validé, Payé, Corrigé, Modification, Rejeté, Sans suite — puis du plus récent au plus ancien. 50 devis par page." },
+        { titre: "👥 Les devis d'une personne (administrateur, responsable commercial)", texte: "Devant le titre, la liste **« 👥 Utilisateur »** : chaque personne avec son nombre de devis. On choisit **KOFFI** : le titre devient **« TOUS LES DEVIS DE KOFFI »**, la liste, les filtres et leurs compteurs ne montrent plus que les siens. « 👥 Utilisateur — tous » revient à l'affichage d'office. Le responsable commercial y trouve **ses commerciaux** (ceux dont il est le parrain : 👥 Utilisateurs → ⋯ Gérer → Parrain) ; il continue de voir tous les devis. Rien n'est mémorisé : à chaque ouverture, « TOUS MES DEVIS »." },
         { titre: "Lire le statut", texte: "**⏳ Proposé** : envoyé, le client n'a pas répondu. **✅ Validé** : le client a signé, il n'a pas encore payé. **💰 Payé** : encaissé. **✏️ Modification demandée** : le client veut un changement. **🔄 Corrigé** : BMI a corrigé un devis signé, le client doit re-signer. **❌ Rejeté** : le client a dit non. **📁 Classé sans suite** : rangé par BMI." },
         { titre: "Lire les pastilles", texte: "**Point rouge** : pas encore ouvert. **⚠️ Sans réponse depuis N j** : à relancer. **📲 Relancé le …** (vert « du n° BMI » quand le message est parti du numéro BMI). **⌛ Offre expirée — prix à confirmer**. **🤖 Relancé automatiquement le …**. **✏️ Modifié le … par …** : le devis a été corrigé. **📋 À compléter après la visite** : des éléments restent à chiffrer (section I). **✍️ Complété le … par …** : ils l'ont été. Les coches ✓ / ✓✓ disent si le dernier message est arrivé ou a été lu." },
         { titre: "Ouvrir la ligne", texte: "Un clic : les articles avec quantité, prix et total, et les boutons permis. **Ouvrir un devis le marque vu** : il ne compte plus dans le point rouge de l'onglet." },
@@ -114,7 +116,8 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Quand", texte: "Le devis est **Proposé** (une faute vue après l'envoi), **Modification demandée** (le client l'a demandé) ou **Rejeté** (on veut lui faire une nouvelle offre)." },
         { titre: "✏️ Modifier et renvoyer", texte: "Le bon volet de ☀️ Dimensionnement s'ouvre, **rempli** : appareils, articles, client, conditions. On corrige, puis **📲 Envoyer ce devis au client**." },
-        { titre: "Ce qui se passe", texte: "Le devis corrigé **remplace** l'ancien dans l'espace du client (même devis, jamais un doublon). Il porte la **trace** de la correction : « ✏️ Modifié le … par … », et le nombre de corrections." },
+        { titre: "Ce qui se passe", texte: "Le devis corrigé **remplace** l'ancien dans l'espace du client (même devis, jamais un doublon). Il porte la **trace** de la correction : « ✏️ Modifié le … par … », et le nombre de corrections. **Il reste au nom de celui qui l'a établi** : l'administrateur qui corrige le devis de KOFFI ne lui prend pas sa commission, et les réponses du client reviennent à KOFFI." },
+        { titre: "Corriger POUR lui, il envoie lui-même", texte: "Au lieu d'envoyer, **📝 Enregistrer un brouillon** : quand c'est le devis d'un autre, le brouillon va dans **SES** brouillons (📝 Mes brouillons), avec « préparé par … », et il est prévenu par un message. Il le vérifie et l'envoie : le devis corrigé **remplace** celui déjà envoyé (« ✏️ Correction du devis du … » sur la ligne du brouillon). Si entre-temps ce devis a été validé ou payé, l'envoi le dit et propose d'en faire un nouveau devis." },
       ]],
       ["h3", "D. Modifier un devis DÉJÀ SIGNÉ : le client ouvre la porte"],
       ["etapes", [

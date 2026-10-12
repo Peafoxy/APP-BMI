@@ -14,6 +14,8 @@
 // l'ancienne écriture et celle-ci, et vérifie qu'ils sont identiques.
 // ============================================================
 import { uid, today, heureCourte, montantSaisi, pctEquivalent } from "../../lib/core";
+import { devisModifiable, ROLES_MODIFIENT_TOUT_DEVIS } from "../../lib/comptesClients";
+import { cleIdentifiant } from "../../lib/identiteClient";
 import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { CATEGORIE_CF_VISITE, estLigneCfVisite, lignesCfVisite, critiqueCompletion, nombreSaisi } from "../../lib/devisCfVisite";
@@ -244,6 +246,71 @@ export function confierBrouillon(db, deId, aId, brouillonId, { par, le }) {
   const confie = { ...b, confie: { par, par_id: deId, le }, devis: { ...(b.devis || {}), prepare_par: prepare } };
   const db2 = retirerBrouillon(db, deId, brouillonId);
   return { db: ajouterBrouillon(db2, aId, confie), brouillon: confie, destinataire: a };
+}
+
+// ============ 👥 LE DEVIS ÉTABLI POUR UN AUTRE (Timo, 12/10/2026, « A a, B b, C a ») ============
+// « On peut modifier pour lui et enregistrer pour lui… même envoyer… mais les
+// commissions sont à lui : c'est lui qui a trouvé le client. » Le devis porte
+// le nom de son AUTEUR (par, par_id, par_role) : c'est ce nom que 💰 Ventes lit
+// à l'encaissement pour la commission. Celui qui le fait à sa place reste
+// écrit à côté (« préparé par », « modifié par »), jamais à sa place.
+// Qui : les mêmes que pour corriger le devis de quelqu'un (ROLES_MODIFIENT_TOUT_DEVIS).
+export const peutEtablirPourAutrui = (profile) => ROLES_MODIFIENT_TOUT_DEVIS.includes(profile?.role);
+// Pour qui : la liste reçue est DÉJÀ filtrée par l'espace regardé (jamais
+// db.users). L'administrateur → toute personne qui a l'onglet Dimensionnement ;
+// le responsable commercial → ses commerciaux, ceux dont il est le parrain
+// (👥 Utilisateurs → ⋯ Gérer → Parrain).
+export function auteursPossibles(personnes, profile, ongletsRole) {
+  if (!peutEtablirPourAutrui(profile)) return [];
+  const base = destinatairesBrouillon(personnes, profile, ongletsRole);
+  return profile.role === "admin" ? base : base.filter((u) => u.parrain_id === profile.id);
+}
+export const auteurDuDevis = (d) => ({ par: d?.par || "", par_id: d?.par_id || "", par_role: d?.par_role || "" });
+// Le devis passe au nom de l'auteur choisi ; « préparé par » dit qui l'a fait.
+export function devisEtabliPour(devis, auteur, profile) {
+  if (!auteur || !auteur.id || auteur.id === profile?.id) return devis;
+  return { ...devis, par: auteur.nom, par_id: auteur.id, par_role: auteur.role, prepare_par: devis.prepare_par || profile?.nom || "" };
+}
+// ⚠ Une CORRECTION garde l'auteur du devis d'origine (et son « préparé par ») :
+// avant le 12/10/2026, le devis corrigé passait au nom de celui qui corrigeait,
+// et la commission du commercial disparaissait à l'encaissement.
+export function garderAuteur(ancien, devis) {
+  if (!ancien || !(ancien.par || ancien.par_id)) return devis;
+  return { ...devis, ...auteurDuDevis(ancien), ...(ancien.prepare_par ? { prepare_par: ancien.prepare_par } : {}) };
+}
+// "" si l'auteur choisi est permis ; sinon le refus, dit en français.
+export function critiqueAuteur(auteurId, possibles, profile) {
+  if (!auteurId || auteurId === profile?.id) return "";
+  if (!peutEtablirPourAutrui(profile)) return "Seuls l'administrateur et le responsable commercial établissent un devis pour quelqu'un d'autre.";
+  return (possibles || []).some((u) => u.id === auteurId) ? ""
+    : "Cette personne ne fait pas partie de celles pour qui vous pouvez établir un devis (dans cet espace, avec l'onglet Dimensionnement — vos commerciaux pour le responsable commercial).";
+}
+// La liste « Utilisateur » de 📋 Tous les devis (« A a, B b ») : l'administrateur
+// → toute personne de l'espace qui a établi un devis, et celles pour qui il
+// peut en établir ; le responsable commercial → ses commerciaux seulement
+// (il garde la vue de tous les devis, la liste ne sert qu'à filtrer).
+export function auteursDuFiltre(devis, personnes, profile, ongletsRole) {
+  if (!peutEtablirPourAutrui(profile)) return [];
+  const possibles = auteursPossibles(personnes, profile, ongletsRole);
+  if (profile.role !== "admin") return possibles;
+  const ids = new Set((devis || []).map((d) => d.par_id).filter(Boolean));
+  const avecDevis = (personnes || []).filter((u) => u && u.role !== "client" && ids.has(u.id) && !possibles.some((p) => p.id === u.id));
+  return [...possibles, ...avecDevis].sort((a, b) => String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" }));
+}
+// Un devis est de cette personne par son identifiant ; un devis d'avant
+// (sans par_id) par son nom.
+export const devisDeLAuteur = (d, u) => !!u && !!d && (d.par_id ? d.par_id === u.id : !!d.par && cleIdentifiant(d.par) === cleIdentifiant(u.nom));
+
+// Le brouillon d'une CORRECTION se souvient du devis qu'il corrige : à
+// l'envoi, il le REMPLACE (même id) au lieu d'en ajouter un second chez le
+// client. Seulement s'il est encore chez CE client et encore modifiable ;
+// sinon (validé, payé, supprimé entre-temps), rien : le brouillon partira
+// comme un nouveau devis, et l'écran le dit avant.
+export const remplacePour = (devis, clientId) => (devis?.id && clientId ? { devis_id: devis.id, client_id: clientId, date: devis.date || "" } : null);
+export function devisRemplace(remplace, compte) {
+  if (!remplace || !compte || remplace.client_id !== compte.id) return null;
+  const ancien = (compte.devis || []).find((x) => x.id === remplace.devis_id);
+  return ancien && !ancien.supprime_le && devisModifiable(ancien) ? ancien : null;
 }
 
 // ============ ✍️ COMPLÉTER UN DEVIS APRÈS LA VISITE (Timo, 08/10/2026) ============

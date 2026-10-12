@@ -12,14 +12,14 @@ import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { envoiRelanceDevis, envoiDevisDisponible, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
 import { estLigneCfVisite, devisACompleter, attendLaVisite, ONGLET_A_COMPLETER, peutCompleterDevis, motifRefusCompletion, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "../lib/devisCfVisite";
-import { completerDevis } from "./dimensionnement/devisCommun";
+import { completerDevis, peutEtablirPourAutrui, auteursDuFiltre, devisDeLAuteur, auteurDuDevis } from "./dimensionnement/devisCommun";
 import { CompleterDevis } from "../components/CompleterDevis";
-import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP } from "../lib/comptesClients";
+import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
-import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal } from "../lib/calculs";
+import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, utilisateursDeLEspace, ONGLETS_ROLE } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
@@ -63,7 +63,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // responsable commercial, et comptaient dans la pastille rouge. `espace`
   // vaut undefined pour l'admin principal, qui doit continuer à tout voir.
   const espace = espaceDuCompte(db, profile);
-  const tousDevis = db.users
+  const devisDeLEspace = db.users
     .filter((u) => u.role === "client")
     .flatMap((u) => (u.devis || []).map((d) => ({ ...d, client: u })))
     .filter((d) => espace === undefined || !!d.formation === espace)
@@ -75,6 +75,17 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     .filter((d) => voitTout || d.par_id === profile.id
       || (!!profile.boutique && (d.boutique_paiement || d.boutique) === profile.boutique))
     .sort((a, b) => `${b.date} ${b.heure || ""}`.localeCompare(`${a.date} ${a.heure || ""}`));
+
+  // 👥 « TOUS MES DEVIS » / « TOUS LES DEVIS DE … » (Timo, 12/10/2026, « A a,
+  // B b ») : l'affichage d'aujourd'hui reste d'office (« A a ») ; une liste
+  // « Utilisateur » devant le titre montre les devis d'UNE personne —
+  // l'administrateur choisit n'importe qui de l'espace, le responsable
+  // commercial ses commerciaux. Rien de mémorisé : d'office à chaque ouverture.
+  // Les personnes viennent de l'espace REGARDÉ (utilisateursDeLEspace).
+  const [filtreAuteur, setFiltreAuteur] = useState("");
+  const auteursListe = auteursDuFiltre(devisDeLEspace, utilisateursDeLEspace(db, profile), profile, ONGLETS_ROLE);
+  const auteurFiltre = auteursListe.find((u) => u.id === filtreAuteur) || null;
+  const tousDevis = auteurFiltre ? devisDeLEspace.filter((d) => devisDeLAuteur(d, auteurFiltre)) : devisDeLEspace;
 
   // ⚠ DEMANDE TIMO (25/08/2026) : « côté administration et commercial, il voit
   // le montant mentionné par le client... si ça ne correspond pas aux
@@ -230,7 +241,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     // personne : c'est la règle qui joue, et elle est connue.
     // Le motif d'un repli est dit AVANT l'ouverture de WhatsApp (`prevenir`, 29/09/2026), jamais après.
     if (!r.parti) return;
-    const trace = r.auto ? traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id }) : null;
+    // 👥 Relancé par l'administrateur ou le responsable commercial POUR son
+    // auteur (12/10/2026) : la réponse du client revient à l'auteur.
+    const auteurD = peutEtablirPourAutrui(profile) ? auteurDuDevis(d) : {};
+    const trace = r.auto ? traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id, pour: auteurD.par, pour_id: auteurD.par_id }) : null;
     // 📲 23/09/2026 : la relance partie du numéro BMI s'écrit AUSSI dans la
     // conversation du client (📲 WhatsApp), sinon elle ne remonte jamais
     // (Timo). Sur l'état COURANT, sans changer le propriétaire.
@@ -478,7 +492,20 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <div className="font-bold text-slate-800 mb-3">📋 Tous les devis {voitTout ? "" : "— les vôtres"}</div>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {peutEtablirPourAutrui(profile) && (
+            <select className={`${inputCls} sm:w-72`} value={auteurFiltre ? filtreAuteur : ""} onChange={(e) => setFiltreAuteur(e.target.value)} data-filtre-auteur-devis>
+              <option value="">👥 Utilisateur — tous</option>
+              {auteursListe.map((u) => (
+                <option key={u.id} value={u.id}>{u.nom} — {LIBELLE_ROLE_EMPLOYE[u.role] || u.role} ({devisDeLEspace.filter((d) => devisDeLAuteur(d, u)).length})</option>
+              ))}
+            </select>
+          )}
+          <div className="font-bold text-slate-800" data-titre-tous-devis>📋 {auteurFiltre ? `TOUS LES DEVIS DE ${String(auteurFiltre.nom || "").toUpperCase()}` : "TOUS MES DEVIS"}</div>
+        </div>
+        {peutEtablirPourAutrui(profile) && auteursListe.length === 0 && profile.role !== "admin" && (
+          <div className="text-xs text-slate-500 -mt-2 mb-3">Aucun commercial n'est sous votre responsabilité (👥 Utilisateurs → ⋯ Gérer → Parrain).</div>
+        )}
         {/* ⚠ Demande Timo : de VRAIS boutons cliquables pour filtrer par statut,
             juste sous le titre — pas un simple classement passif de la liste. */}
         <div className="flex flex-wrap gap-2 mb-3">
@@ -508,7 +535,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {devisFiltres.length === 0 ? (
-          <div className="p-6 text-center text-sm text-slate-400">{periode.actif ? "Aucun devis sur cette période." : <>Aucun devis{voitTout ? "" : " établi par vous"} pour l'instant.</>}</div>
+          <div className="p-6 text-center text-sm text-slate-400">{periode.actif ? "Aucun devis sur cette période." : <>Aucun devis{auteurFiltre ? ` de ${auteurFiltre.nom}` : voitTout ? "" : " établi par vous"} pour l'instant.</>}</div>
         ) : (
           <div className="divide-y divide-slate-100 max-h-[455px] overflow-y-auto">
             {devisPage.map((d) => (

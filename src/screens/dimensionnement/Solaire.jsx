@@ -943,6 +943,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         db={db} clientDevis={clientDevis} setClientDevis={setClientDevis}
         nouvClient={nouvClient} setNouvClient={setNouvClient}
         comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp} onBrouillon={enregistrerBrouillon}
+        etabliPour={envoi.etabliPour}
       />
 
 

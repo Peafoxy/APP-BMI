@@ -503,6 +503,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
         db={db} clientDevis={clientDevis} setClientDevis={setClientDevis}
         nouvClient={nouvClient} setNouvClient={setNouvClient}
         comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp} onBrouillon={enregistrerBrouillon}
+        etabliPour={envoi.etabliPour}
       />
 
 

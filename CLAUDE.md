@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2558 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2569 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -727,6 +727,39 @@ lit mal est pire qu'un banc absent).
   RENDU), éprouvé (tous les comptes proposés, homonymes fusionnés) ; deux
   contrôles RETOURNÉS (les importeurs de clientsConnus, `proposes`). Joué
   dans Chromium. Chapitres 11, 13 et le guide commercial à jour.
+- **👥 LE DEVIS ÉTABLI POUR UN AUTRE, ET « TOUS LES DEVIS DE … »** (12/10/2026,
+  « A a, B b, C a ») : « on peut modifier pour lui, enregistrer pour lui, même
+  envoyer… mais les commissions sont à lui : c'est lui qui a trouvé le client ».
+  Règles pures dans `devisCommun.js` (`peutEtablirPourAutrui` =
+  `ROLES_MODIFIENT_TOUT_DEVIS`, `auteursPossibles`, `devisEtabliPour`,
+  `garderAuteur`, `critiqueAuteur`, `auteursDuFiltre`, `devisDeLAuteur`,
+  `remplacePour` / `devisRemplace`). **« A a »** : 📋 Tous les devis s'ouvre sur
+  l'affichage d'aujourd'hui, titré **« TOUS MES DEVIS »** ; devant, la liste
+  **« 👥 Utilisateur »** (admin : toute personne de l'espace avec l'onglet
+  Dimensionnement ou un devis ; resp. commercial : SES commerciaux = ceux dont
+  il est le **parrain**) → « TOUS LES DEVIS DE KOFFI », qui filtre tout l'écran,
+  rien de mémorisé. **« B b »** : le resp. commercial garde la vue de TOUS les
+  devis. **« C a »** : dans le devis, **« 👥 Devis établi pour »** (`BlocEtabliPour`,
+  Partages.jsx, trois volets) : « Moi » d'office ; une autre personne → le devis
+  porte SON nom (par, par_id, par_role — 💰 Ventes y lit la commission),
+  `prepare_par` = celui qui le fait ; **sa signature est exigée** (elle va sur
+  le devis et le contrat). « 📝 Enregistrer un brouillon » établi pour lui → dans
+  SES brouillons (déplacé, `confie`, message « il partira à votre nom »).
+  ⚠ **DÉFAUT RÉPARÉ** : « ✏️ Modifier et renvoyer » par l'admin passait le devis
+  corrigé à SON nom — la commission du commercial disparaissait. Une correction
+  **garde l'auteur** (`garderAuteur`), « modifié par » à côté ; la ligne dit
+  « Devis de KOFFI ». **Le brouillon d'une correction remplace** le devis
+  qu'il corrige (`remplace` sur le brouillon, revérifié à l'envoi : encore
+  modifiable chez CE client, sinon il part comme un nouveau après une
+  question) — dans le volet ET dans 📝 Mes brouillons. **WhatsApp** : la trace
+  porte `pour` / `pour_id` (`traceEnvoi`) quand l'admin ou le resp. com envoie
+  ou relance pour l'auteur — `proprietaireDepuisDevis` rend la conversation à
+  l'auteur, `libelleTrace` « par TIMO pour KOFFI ». Rien à coller (aucune
+  règle serveur ne regarde `par` d'un devis ; brouillons_devis hors « gestion »).
+  Banc (+11 contrôles, l'écran RENDU, le geste du brouillon JOUÉ), éprouvé
+  (correction qui change l'auteur, resp. com qui voit tout le monde, filtre
+  retiré, réponse qui ne revient pas, brouillon gardé chez soi) ; sept
+  contrôles RETOURNÉS. Chapitres 11, 13 et le guide commercial à jour.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans
