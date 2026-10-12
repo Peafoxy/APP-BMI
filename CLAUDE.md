@@ -1266,6 +1266,16 @@ lit mal est pire qu'un banc absent).
   (« whatsapp.message.updated »). Sans ça, rien n'arrive et aucune coche ne
   bouge. Coût : rien (Meta ne fait pas payer ces nouvelles). **Rien à coller
   dans Supabase.**
+  ✅ **FAIT LE 12/10/2026, ET ÇA MARCHE** (Timo : « les coches viennent en
+  bleu ») : jusque-là l'adresse YCloud n'avait QU'UN événement coché (« 1
+  selected », les messages entrants) — toutes les lignes restaient à ✓. Coché,
+  « 2 selected ». La forme du paquet de YCloud lue par `lireStatut` est donc
+  CONFIRMÉE par un vrai message. Les messages partis AVANT restent à une
+  coche (Meta ne renvoie pas leurs nouvelles). **Si les coches s'arrêtent un
+  jour, regarder d'abord ce réglage** (✏️ sur l'adresse → Events).
+  ⚠ Une conversation de 📲 WhatsApp est rangée sous un NUMÉRO : changer le
+  numéro d'une fiche ne déplace pas l'ancienne conversation (le message est
+  réellement parti à l'ancien numéro) ; le suivant ouvre une nouvelle ligne.
 - Banc ㉜ (`verifier-whatsapp`, 24 contrôles), dont un APPEL réel de
   l'adresse d'arrivée ; éprouvé en remettant cinq fautes (coches qui
   reculent, nouvelle ignorée, filtre non nettoyé, écran qui oublie son envoi,
