@@ -5,6 +5,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
+import { propositionsComptesDevis, libelleCompteDevis } from "../../lib/clientsConnus";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification } from "../../lib/comptesClients";
 import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte } from "../../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
@@ -588,6 +589,15 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
   // Un devis repris d'un client archivé garde son client choisi.
   const archives = idsClientsArchives(db, profile);
   const proposes = comptesClients.filter((u) => !archives.has(u.id) || u.id === clientDevis);
+  const suggestionsClients = propositionsComptesDevis(proposes);
+  const compteChoisi = clientDevis && clientDevis !== "__nouveau__" ? comptesClients.find((u) => u.id === clientDevis) : null;
+  // Ce qui est TAPÉ dans la case ; un compte choisi (clic, devis repris,
+  // brouillon) y écrit son nom et son numéro.
+  const [saisieClient, setSaisieClient] = useState(compteChoisi ? libelleCompteDevis(compteChoisi) : "");
+  useEffect(() => {
+    if (compteChoisi) setSaisieClient(libelleCompteDevis(compteChoisi));
+    else if (!clientDevis) setSaisieClient((t) => (comptesClients.some((u) => libelleCompteDevis(u) === t) ? "" : t));
+  }, [clientDevis]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="rounded-xl p-4 bg-white border-2 border-emerald-300">
       <div className="font-bold text-emerald-900 mb-1">📲 Envoyer ce devis au client</div>
@@ -602,19 +612,37 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         Le devis est déposé dans son espace client, et il en est prévenu par WhatsApp — du numéro BMI (s'il n'a pas encore reçu ses accès, ils partent d'abord, dans un message à part). Si le numéro BMI ne peut pas envoyer, WhatsApp s'ouvre sur votre téléphone avec ses identifiants. S'il n'a pas encore de compte, il est créé automatiquement : le nom, le prénom et le numéro suffisent.
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
+        {/* 🔍 Timo (12/10/2026) : les clients se cherchent comme dans 💰 Ventes —
+            en tapant le nom OU le numéro, la liste s'ouvre sous la case. Seul
+            un CLIC choisit un compte ; « ➕ Nouveau client » reste à côté. */}
         <Field label="Client destinataire">
-          <select className={inputCls} value={clientDevis} onChange={(e) => {
-            const v = e.target.value;
-            setClientDevis(v);
-            // L'entreprise de sa fiche revient d'office (B « b »).
-            const c = comptesClients.find((u) => u.id === v);
-            setNouvClient({ ...nouvClient, entreprise: formulaireDepuisEntreprise(c && c.entreprise) });
-          }}>
-            <option value="">— Choisir —</option>
-            <option value="__nouveau__">➕ Nouveau client (nom, prénom, numéro)</option>
-            {proposes.map((u) => <option key={u.id} value={u.id}>{u.nom_base || u.nom}{u.tel ? ` — ${u.tel}` : ""}</option>)}
-          </select>
+          {clientDevis === "__nouveau__" ? (
+            <div className={`${inputCls} flex items-center justify-between gap-2 bg-emerald-50`} data-client-nouveau>
+              <span className="font-semibold text-emerald-900">➕ Nouveau client</span>
+              <button type="button" onClick={() => { setClientDevis(""); setSaisieClient(""); }} className="text-xs text-sky-700 underline">Choisir un client existant</button>
+            </div>
+          ) : (
+            <div data-recherche-client-devis>
+              <ChampSuggestions valeur={saisieClient} suggestions={suggestionsClients}
+                placeholder="Nom, ou numéro du client"
+                onChange={(t) => { setSaisieClient(t); if (clientDevis && t !== libelleCompteDevis(compteChoisi)) setClientDevis(""); }}
+                onChoisir={(sug) => {
+                  setClientDevis(sug.id);
+                  // L'entreprise de sa fiche revient d'office (B « b »).
+                  const c = comptesClients.find((u) => u.id === sug.id);
+                  setNouvClient({ ...nouvClient, entreprise: formulaireDepuisEntreprise(c && c.entreprise) });
+                }} />
+            </div>
+          )}
         </Field>
+        {clientDevis !== "__nouveau__" && (
+          <div className="pb-1">
+            <button type="button" onClick={() => { setClientDevis("__nouveau__"); setSaisieClient(""); setNouvClient({ ...nouvClient, entreprise: formulaireDepuisEntreprise(null) }); }}
+              data-bouton-nouveau-client className="px-3 py-2 rounded-lg border border-emerald-400 text-emerald-800 text-sm font-semibold bg-white hover:bg-emerald-50">
+              ➕ Nouveau client
+            </button>
+          </div>
+        )}
         {clientDevis === "__nouveau__" && (
           <>
             <Field label="Nom du client">

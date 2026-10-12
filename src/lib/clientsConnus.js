@@ -157,3 +157,21 @@ export function propositionsNumeros(clients, { fmt = (x) => String(x), dFR = (x)
     ].filter(Boolean).join(" · "),
   }));
 }
+
+// 📄 LES COMPTES CLIENTS PROPOSÉS DANS UN DEVIS (Timo, 12/10/2026 : « que les
+// clients apparaissent dans dimensionnement comme dans Vente, avec recherche
+// par nom ou numéro »). Ici ce sont des COMPTES (le devis part dans un espace
+// client), pas des clients de passage : la liste vient de l'écran, déjà
+// passée par le mur. ⚠ Deux comptes au même nom restent DEUX propositions :
+// le champ commun ne garde qu'une ligne par texte, donc le texte porte aussi
+// le numéro (« DJEDJE — 99351444 »), comme la liste déroulante d'avant.
+export const libelleCompteDevis = (u) => `${(u && (u.nom_base || u.nom)) || ""}${u && u.tel ? ` — ${u.tel}` : ""}`;
+export function propositionsComptesDevis(comptes) {
+  return (comptes || []).filter((u) => u && u.id).map((u) => ({
+    cle: u.id,
+    id: u.id,
+    valeur: libelleCompteDevis(u),
+    mots: [u.prenom, u.nom_complet, motsDuNumero(u.tel)].filter(Boolean).join(" "),
+    detail: [u.prenom || "", u.entreprise && u.entreprise.nom ? `🏢 ${u.entreprise.nom}` : "", u.tel ? "" : "sans numéro"].filter(Boolean).join(" · "),
+  }));
+}

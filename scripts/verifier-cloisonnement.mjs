@@ -4074,6 +4074,33 @@ titre("🏷 💰 Ventes : UNE case de remise, en % ou libre (12/10/2026)");
     Ck.pctRemiseLisible({ remise_pct: 4.761905 }) === " (4,76 %)" && Ck.pctRemiseLisible({ remise_pct: 3 }) === " (3 %)" && Ck.pctRemiseLisible({ remise_pct: 3, remise_mode: "montant" }) === "" && Ck.pctRemiseLisible({ remise_pct: 0 }) === "");
 }
 
+titre("🔍 📄 Le client d'un devis se cherche comme dans 💰 Ventes, par nom ou numéro (12/10/2026)");
+{
+  const React = (await import("react")).default;
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const entreeCD = join("node_modules", ".cache", `bmi-client-devis-entree-${process.pid}.jsx`);
+  const sortieCD = join("node_modules", ".cache", `bmi-client-devis-${process.pid}.mjs`);
+  writeFileSync(entreeCD, `export { BlocEnvoiDevisClient } from "${process.cwd()}/src/screens/dimensionnement/Partages.jsx";\nexport { propositionsComptesDevis, libelleCompteDevis } from "${process.cwd()}/src/lib/clientsConnus.js";\nexport { filtrerSuggestions } from "${process.cwd()}/src/lib/suggestions.js";\n`);
+  let CD = null;
+  try {
+    await build({ entryPoints: [entreeCD], bundle: true, format: "esm", platform: "node", outfile: sortieCD, logLevel: "silent",
+      jsx: "automatic", loader: { ".js": "jsx" }, define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    CD = await import(pathToFileURL(sortieCD).href);
+  } catch {}
+  try { unlinkSync(sortieCD); unlinkSync(entreeCD); } catch {}
+  const comptes = [{ id: "c1", nom: "DJEDJE", tel: "99351444", role: "client" }, { id: "c2", nom: "DJEDJE", tel: "90112233", role: "client" }, { id: "c3", nom: "MANDA", prenom: "Afi", tel: "+228 99 02 13 19", role: "client" }];
+  const props = CD ? CD.propositionsComptesDevis(comptes) : [];
+  const f = (q) => (CD ? CD.filtrerSuggestions(props, q).map((x) => x.id).join(",") : "");
+  test("★★ les propositions : un compte = une ligne (deux DJEDJE restent DEUX), trouvé par le NOM, par le numéro collé (99021319) ou tapé avec l'indicatif, et par le prénom",
+    !!CD && f("") === "c1,c2,c3" && f("djedje") === "c1,c2" && f("99021319") === "c3" && f("+228 99 02") === "c3" && f("afi") === "c3" && CD.libelleCompteDevis(comptes[0]) === "DJEDJE — 99351444", JSON.stringify(props).slice(0, 200));
+  const rendreCD = (clientDevis) => { const e0 = console.error; console.error = () => {}; try { return String(renderToStaticMarkup(React.createElement(CD.BlocEnvoiDevisClient, { db: { users: comptes, ventes: [], dettes: [], commandes: [], clients_installes: [], boutiques: [] }, clientDevis, setClientDevis() {}, nouvClient: { nom: "", prenom: "", tel: "", entreprise: null }, setNouvClient() {}, comptesClients: comptes, onEnvoyer() {}, onBrouillon() {}, profile: { id: "a", nom: "TIMO", role: "admin", signature_personnelle: "x" } }))); } catch (e) { return ""; } finally { console.error = e0; } };
+  const hVide = CD ? rendreCD("") : "", hChoisi = CD ? rendreCD("c3") : "", hNouveau = CD ? rendreCD("__nouveau__") : "";
+  test("★★ l'écran RENDU : plus de liste déroulante, LE champ commun (« Nom, ou numéro du client ») et le bouton « ➕ Nouveau client » à côté ; un compte choisi écrit son nom et son numéro dans la case ; en nouveau client, les trois cases et « Choisir un client existant »",
+    hVide !== "" && /data-recherche-client-devis/.test(hVide) && /placeholder="Nom, ou numéro du client"/.test(hVide) && /data-bouton-nouveau-client/.test(hVide) && !/__nouveau__/.test(hVide) && !/— Choisir —/.test(hVide)
+    && /value="MANDA — \+228 99 02 13 19"/.test(hChoisi)
+    && /data-client-nouveau/.test(hNouveau) && /Choisir un client existant/.test(hNouveau) && /Nom du client/.test(hNouveau) && !/data-bouton-nouveau-client/.test(hNouveau));
+}
+
 titre("📋 Le statut des dettes : Tout (en cours + partielles), En cours, Partielle, Payée (12/10/2026, « payé n'est plus une dette »)");
 {
   const Cs = await import(pathToFileURL("src/lib/core.js").href);
@@ -9030,7 +9057,8 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   // Ce qu'on surveille, c'est une RECOPIE de la règle — donc un vrai import.
   const importeursCC = execSync("grep -rlE 'from \"[^\"]*clientsConnus' src --include=*.jsx --include=*.js || true").toString().trim().split("\n").filter(Boolean).concat(["src/lib/clientsConnus.js"]).sort().join("|");
   test("★ la règle n'est recopiée nulle part : seuls les SEPT écrans et son propre fichier la connaissent (👥 Utilisateurs depuis le 16/09/2026 pour chercher par numéro, ⚙ Paramètres depuis le 18/09/2026 pour retrouver le client à effacer, 📲 WhatsApp depuis le 20/09/2026 pour proposer à qui écrire)",
-    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Parametres.jsx|src/screens/Travaux.jsx|src/screens/Utilisateurs.jsx|src/screens/Ventes.jsx|src/screens/Whatsapp.jsx");
+    // RETOURNÉ le 12/10/2026 : + le choix du client d'un devis (dimensionnement/Partages.jsx), « comme dans Vente ».
+    importeursCC === "src/lib/clientsConnus.js|src/screens/Clients.jsx|src/screens/Dettes.jsx|src/screens/Parametres.jsx|src/screens/Travaux.jsx|src/screens/Utilisateurs.jsx|src/screens/Ventes.jsx|src/screens/Whatsapp.jsx|src/screens/dimensionnement/Partages.jsx");
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -11392,7 +11420,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /clientsSansSuiteDeLEspace\(db, profile\)/.test(ut));
     test("★★ Le devis ne PROPOSE plus un archivé, mais le retrouve par son numéro (aucun doublon) et garde un client déjà choisi",
       /const proposes = comptesClients\.filter\(\(u\) => !archives\.has\(u\.id\) \|\| u\.id === clientDevis\)/.test(pa)
-      && /\{proposes\.map\(/.test(pa) && !/\{comptesClients\.map\(/.test(pa)
+      // RETOURNÉ le 12/10/2026 : la liste déroulante est devenue le champ à suggestions — il lit `proposes`, jamais tous les comptes.
+      && /propositionsComptesDevis\(proposes\)/.test(pa) && !/propositionsComptesDevis\(comptesClients\)/.test(pa) && !/\{comptesClients\.map\(/.test(pa)
       && /const existant = \(db\.users \|\| \[\]\)\.find\(\(u\) => u\.role === "client" && u\.tel && memeNumero\(u\.tel, tel\)\)/.test(pa));
   }
   // 🧲 LES COMPTES PROSPECTS (03/10/2026, « oui lance, et oui pour la liste dans prospects »)

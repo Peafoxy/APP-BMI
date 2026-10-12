@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2556 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2558 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -709,6 +709,24 @@ lit mal est pire qu'un banc absent).
   perdrait son curseur). Rien à coller. Bancs : Chromium
   `verifier-ecran-achat-chantier` (+6, éprouvé : pourcentage non équivalent,
   mode non rangé) ; `verifier-cloisonnement` (+2, un RETOURNÉ). Chapitre 5.
+- **🔍 LE CLIENT D'UN DEVIS SE CHERCHE COMME DANS 💰 VENTES** (12/10/2026,
+  deux captures : « que les clients apparaissent dans dimensionnement comme
+  dans Vente, avec option de recherche par nom ou numéro »). La liste
+  déroulante « Client destinataire » (`BlocEnvoiDevisClient`, Partages.jsx,
+  trois volets) est devenue LE champ commun `ChampSuggestions` : on tape le
+  nom, le prénom ou des chiffres du numéro (« 9902 »), la liste s'ouvre
+  dessous, **un CLIC choisit le compte** — ce qui est tapé sans cliquer ne
+  choisit personne (le bouton d'envoi reste gris). Propositions
+  `propositionsComptesDevis` / `libelleCompteDevis` (lib/clientsConnus.js) :
+  des COMPTES, la liste déjà filtrée par l'écran (le mur, sans les archivés —
+  `proposes`) ; le texte porte « NOM — numéro » pour que deux homonymes
+  restent DEUX lignes (le champ commun n'en garde qu'une par texte). « ➕
+  Nouveau client » est un bouton à côté ; en nouveau client, « Choisir un
+  client existant » revient. Un compte choisi par une reprise ou un brouillon
+  écrit son nom et son numéro dans la case. Rien à coller. Banc (+2, l'écran
+  RENDU), éprouvé (tous les comptes proposés, homonymes fusionnés) ; deux
+  contrôles RETOURNÉS (les importeurs de clientsConnus, `proposes`). Joué
+  dans Chromium. Chapitres 11, 13 et le guide commercial à jour.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

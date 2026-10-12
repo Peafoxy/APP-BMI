@@ -63,7 +63,7 @@ export const GUIDE = {
     ["h3", "Un devis — ☀️ Dimensionnement"],
     ["etapes", [
       { titre: "Le volet", texte: "Solaire (le calcul part des appareils du client), Portail, ou Autre (vidéosurveillance, électricité, forage…). L'application propose le matériel **de la boutique choisie**, au prix du stock (chapitres 11 et 12)." },
-      { titre: "Le client", texte: "Dans le cadre « 📲 Envoyer ce devis au client » : un client de l'espace, ou « ➕ Nouveau client » (nom, **prénom obligatoire**, numéro WhatsApp). La case « 🏢 Entreprise cliente » s'il paie au nom d'une société." },
+      { titre: "Le client", texte: "Dans le cadre « 📲 Envoyer ce devis au client » : un client de l'espace, cherché en tapant son nom ou son numéro (un clic sur sa ligne le choisit), ou « ➕ Nouveau client » (nom, **prénom obligatoire**, numéro WhatsApp). La case « 🏢 Entreprise cliente » s'il paie au nom d'une société." },
       { titre: "« 📝 Enregistrer un brouillon »", texte: "Si je dois m'interrompre : je le retrouve dans « 📝 Mes brouillons »." },
       { titre: "« 📲 Envoyer par WhatsApp »", texte: "Tout part du **numéro BMI**. Un client qui n'a pas encore ses accès reçoit **deux messages** : ses accès à son espace, puis le devis. S'il les a déjà, le devis part seul." },
     ]],

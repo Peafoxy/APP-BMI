@@ -140,7 +140,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "G. Une entreprise cliente et son répondant"],
       ["etapes", [
-        { titre: "Nouveau client", texte: "Dans le cadre « 📲 Envoyer ce devis au client » : **➕ Nouveau client (nom, prénom, numéro)** — le **prénom est obligatoire** pour créer son compte (s'il manque, l'application le demande)." },
+        { titre: "Nouveau client", texte: "Dans le cadre « 📲 Envoyer ce devis au client » : le bouton **➕ Nouveau client** (nom, prénom, numéro), à côté de la case où l'on cherche un client existant par son nom ou son numéro — le **prénom est obligatoire** pour créer son compte (s'il manque, l'application le demande)." },
         { titre: "La case 🏢 Entreprise cliente", texte: "Sous « Client destinataire », pour un nouveau client **comme pour un compte existant**. Cochée : **nom de l'entreprise** (obligatoire), téléphone, NIF et RCCM (facultatifs). Pour un client qui a déjà une entreprise sur sa fiche, **elle revient cochée d'office**." },
         { titre: "Qui reçoit quoi", texte: "La personne choisie est **le répondant** : c'est son compte, **son numéro** qui reçoit le devis et les accès à l'espace client. L'entreprise n'est jamais un compte de plus. Le devis PDF est au nom de l'entreprise (« représentée par NOM Prénom »), et le contrat nomme l'entreprise et son répondant." },
       ]],
