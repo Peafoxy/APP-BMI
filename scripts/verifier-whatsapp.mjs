@@ -110,10 +110,15 @@ const ATTENDU = {
   prime_installation_payee: { categorie: "utility", n: 6 },
   // 10/10/2026 : le loyer qui attend le propriétaire (« A a, B b, C a »).
   loyer_disponible: { categorie: "utility", n: 6 },
+  // 12/10/2026 : l'affectation à un chantier, son changement, le rappel de
+  // la veille au chef (« Aa, Ba, Ca, texte ok »).
+  affectation_chantier: { categorie: "utility", n: 9 },
+  changement_affectation: { categorie: "utility", n: 3 },
+  rappel_installation: { categorie: "utility", n: 8 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les trente-trois modèles sont là, et eux seuls (RETOURNÉ le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les trente-six modèles sont là, et eux seuls (RETOURNÉ le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -138,7 +143,7 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
 // aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
 // RETOURNÉ encore le 26/09/2026 : le rappel d'entretien aussi (même tournée).
 // RETOURNÉ le 29/09/2026 : + le rappel du solde d'une pose (tournée de 7 h).
-const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe", "rappel_anniversaire"]; /* RETOURNÉ le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h), + le rappel de la veille (tournée de 17 h) */
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe", "rappel_anniversaire", "rappel_installation"]; /* RETOURNÉ le 12/10/2026 : + le rappel d'installation de la veille au chef (tournée de 17 h) ; le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h), + le rappel de la veille (tournée de 17 h) */
 test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien, la demande d'avis)",
   M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
   && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
@@ -1315,7 +1320,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,commission_due,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,devis_disponible,devis_valide_paiement,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,virement_salaire,virement_salaire_credit"); /* RETOURNÉ le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -4100,6 +4105,66 @@ console.log("\n🏠 Le loyer qui attend le propriétaire (« A a, B b après val
     /espaceFormation: !!bqLocal\?\.formation/.test(corps) && !/estCompteFormation/.test(corps) && corps.indexOf("if (!r.auto) return;") > 0 && corps.indexOf("if (!r.auto) return;") < corps.indexOf("messagesAvecLigneEnvoi("));
   test("★ la ligne du fil porte le paiement (loyer_depense_id) : le cadre dit « prévenu le … »",
     /loyer_depense_id: ref\.loyer_depense_id/.test(lire("src/whatsapp.js")) && /ref: \{ loyer_depense_id: dep\.id \}/.test(corps) && /data-proprietaire-prevenu/.test(D));
+}
+
+
+// ── 📅 L'AFFECTATION D'UN TECHNICIEN À UN CHANTIER (12/10/2026, « Aa, Ba, Ca, texte ok ») ──
+console.log("\n📅 L'affectation à un chantier : l'avis, le changement, le rappel de la veille au chef");
+{
+  const AF = await import("../src/lib/affectationChantier.js");
+  const sansC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const A = { user_id: "a", nom: "AGBEKO", chef: true }, K = { user_id: "k", nom: "KOSSI" }, E = { user_id: "e", nom: "ESSO" };
+  const c = { id: "c1", prenom: "Koffi", nom: "AYOKO", tel: "90112233", type_installation: "Solaire", localisation: "Agoè", lat: 6.2, lng: 1.2, date_installation: "2026-10-13", equipe: [A, K] };
+  const chef = M.envoiAffectation({ technicien: "AGBEKO", estChef: true, chantier: c, date: "2026-10-13", equipe: c.equipe });
+  const membre = M.envoiAffectation({ technicien: "KOSSI", estChef: false, chantier: c, date: "2026-10-13", equipe: c.equipe });
+  test("★★ l'avis d'affectation : neuf trous dans l'ordre, le texte accepté par Timo",
+    chef.modele === "affectation_chantier" && chef.variables.join("|") === "AGBEKO|chef d'équipe ⭐|solaire|Koffi AYOKO|mardi 13/10/2026|Agoè|https://maps.google.com/?q=6.2,1.2|AGBEKO (chef), KOSSI|90112233"
+    && M.texteAffectation(chef).startsWith("Bonjour AGBEKO,\nVous êtes affecté comme chef d'équipe ⭐ pour l'installation solaire de Koffi AYOKO, prévue le mardi 13/10/2026.\n📍 Lieu : Agoè"), JSON.stringify(chef));
+  test("★★ « A a » : le numéro du client au CHEF seulement — un membre lit « à joindre par le chef d'équipe AGBEKO »",
+    membre.variables[8] === "à joindre par le chef d'équipe AGBEKO" && !membre.variables.join(" ").includes("90112233") && membre.variables[1] === "membre de l'équipe");
+  test("★ aucun trou vide (Meta le refuse) : sans lieu, sans position, sans numéro, on le DIT",
+    M.envoiAffectation({ technicien: "X", estChef: true, chantier: { prenom: "A" }, date: "2026-10-13", equipe: [] }).variables.every((v) => v && !/\n/.test(v))
+    && M.lienPosition({}) === "non enregistrée");
+  const premiere = AF.changementsAffectation({ equipe: [], date: "" }, { equipe: [A, K], date: "2026-10-13" });
+  test("★ la première programmation : tout le monde reçoit l'affectation, aucun changement", premiere.principal.length === 2 && premiere.changements.length === 0);
+  const rien = AF.changementsAffectation({ equipe: [A, K], date: "2026-10-13" }, { equipe: [A, K], date: "2026-10-13" });
+  test("★★ ré-enregistrée sans rien changer : personne n'est prévenu", rien.principal.length === 0 && rien.changements.length === 0);
+  const rempl = AF.changementsAffectation({ equipe: [A, K], date: "2026-10-13" }, { equipe: [{ ...A, chef: false }, { ...K, chef: true }], date: "2026-10-15" });
+  test("★★ le chef REMPLACÉ est prévenu qu'il ne l'est plus (sa précision), avec la nouvelle date, en UN message ; le nouveau chef reçoit l'affectation",
+    rempl.principal.map((e) => e.user_id).join() === "k" && rempl.changements.length === 1 && rempl.changements[0].e.user_id === "a"
+    && /déplacée au jeudi 15\/10\/2026 \(au lieu du mardi 13\/10\/2026\)/.test(rempl.changements[0].phrase)
+    && /Vous n'êtes plus le chef d'équipe ; le nouveau chef est KOSSI\. Vous restez dans l'équipe\./.test(rempl.changements[0].phrase), JSON.stringify(rempl));
+  const retire = AF.changementsAffectation({ equipe: [A, K], date: "2026-10-13" }, { equipe: [A, E], date: "2026-10-13" });
+  test("★★ « B a » : le retiré reçoit le changement, le nouveau l'affectation, celui qui reste rien",
+    retire.principal.map((e) => e.user_id).join() === "e" && retire.changements.length === 1 && retire.changements[0].e.user_id === "k"
+    && retire.changements[0].phrase === "Vous n'êtes plus affecté à cette installation, prévue le mardi 13/10/2026.");
+  const ch = M.envoiChangementAffectation({ technicien: "KOSSI", chantier: c, changement: retire.changements[0].phrase });
+  test("★ le changement : trois trous, le texte accepté", ch.modele === "changement_affectation" && M.texteAffectation(ch) === "Bonjour KOSSI,\nChangement sur l'installation de Koffi AYOKO :\nVous n'êtes plus affecté à cette installation, prévue le mardi 13/10/2026.\nDétails dans l'application BMI, onglet Clients installés.\nBMI TOGO");
+  const db = { users: [{ id: "a", nom: "AGBEKO", role: "technicien", tel: "91000000" }, { id: "k", nom: "KOSSI", role: "technicien" }], boutiques: [{ nom: "DFORMATION", formation: true }], ventes: [{ id: "v", boutique: "DFORMATION" }], dettes: [], clients_installes: [c] };
+  const demain = AF.installationsDeDemain(db, "2026-10-12");
+  test("★★ « C a » : la veille, le chef d'équipe seul, avec le numéro du client — le texte accepté",
+    demain.length === 1 && demain[0].tel === "+22891000000" && demain[0].envoi.modele === "rappel_installation"
+    && M.texteAffectation(demain[0].envoi).startsWith("Bonjour AGBEKO,\n⏰ Rappel : demain mardi 13/10/2026, vous êtes chef d'équipe pour l'installation solaire de Koffi AYOKO.") && /📞 Client : 90112233/.test(M.texteAffectation(demain[0].envoi)));
+  test("★★ le mur : jamais un chantier de formation (sa marque ou la boutique de sa vente), un chef de formation, un chantier terminé, la corbeille, des travaux ; pas le jour même",
+    AF.installationsDeDemain({ ...db, clients_installes: [{ ...c, formation: true }] }, "2026-10-12").length === 0
+    && AF.installationsDeDemain({ ...db, clients_installes: [{ ...c, vente_id: "v" }] }, "2026-10-12").length === 0
+    && AF.installationsDeDemain({ ...db, users: [{ ...db.users[0], formation: true }] }, "2026-10-12").length === 0
+    && AF.installationsDeDemain({ ...db, clients_installes: [{ ...c, statut: "termine" }] }, "2026-10-12").length === 0
+    && AF.installationsDeDemain({ ...db, clients_installes: [{ ...c, supprime_le: "2026-10-11" }] }, "2026-10-12").length === 0
+    && AF.installationsDeDemain({ ...db, clients_installes: [{ ...c, travaux: true }] }, "2026-10-12").length === 0
+    && AF.installationsDeDemain(db, "2026-10-13").length === 0);
+  test("★ un chef sans numéro, bloqué ou inactif : rien", AF.installationsDeDemain({ ...db, users: [{ ...db.users[0], tel: "" }] }, "2026-10-12").length === 0
+    && AF.installationsDeDemain({ ...db, users: [{ ...db.users[0], bloque: true }] }, "2026-10-12").length === 0);
+  const S = sansC(lire("api/rappels-du-soir.js"));
+  test("★★ la tournée de 17 h lit les chantiers, envoie le rappel d'installation AVANT de regarder les anniversaires (indépendants), n'écrit rien",
+    /"clients_installes", "ventes", "dettes"/.test(S) && S.indexOf("rappelerLesInstallations(db, aujourdhui)") > 0 && S.indexOf("rappelerLesInstallations(db, aujourdhui)") < S.indexOf("if (!rappel) return")
+    && !/\.upsert\(|\.insert\(|\.update\(/.test(S));
+  const CI = sansC(lire("src/screens/ClientsInstalles.jsx"));
+  const corps = CI.slice(CI.indexOf("const enregistrerProgrammation = async"), CI.indexOf("const construireMessagePv"));
+  test("★★ l'écran : UNE règle (changementsAffectation) pour les messages internes ET le WhatsApp, envoyé APRÈS l'enregistrement, sans question ni repli",
+    /changementsAffectation\(\{ equipe: c\.equipe, date: dateAvant \}/.test(corps) && corps.indexOf("save({") < corps.indexOf("envoyerAvisAffectation(") && /envoyerRecuSansQuestion\(/.test(corps) && !/uConfirm\(/.test(corps.slice(corps.indexOf("const envoyerAvisAffectation"))));
+  test("★★ le mur à l'écran : l'espace du CHANTIER ou un technicien de formation → rien ; une fiche sans numéro est DITE",
+    /espaceDuChantier\(db, c, profile\) === true/.test(corps) && /estCompteFormation\(db, fiche\)/.test(corps) && !/estCompteFormation\(db, profile\)/.test(corps) && /Aucun avis WhatsApp : la fiche de/.test(corps));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

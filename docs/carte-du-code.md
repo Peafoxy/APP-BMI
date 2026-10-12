@@ -27,6 +27,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/caissesCentrales.js` | Les caisses « Chez le DG », « BANQUE », « Chez le comptable » et leurs relevés |
 | `lib/caissesMobiles.js` | Le solde des comptes Flooz et Mixx/T-Money, boutique par boutique |
 | `lib/inventaireVentes.js` | 📋 L'inventaire de 💰 Ventes : ventes, recettes, dépenses, versements, caisse, dettes et comptage d'une boutique sur une période, et `inventaireGeneral` : toutes les caisses ensemble, dettes comptées une fois, caisses centrales à part (lecture seule, les règles de Caisse et de la clôture) |
+| `lib/affectationChantier.js` | Qui est prévenu quand une installation est programmée : l'affectation (nouveaux, nouveau chef), le changement (retiré, chef remplacé, date déplacée), le rappel de la veille au chef (tournée de 17 h) |
 | `lib/anniversaires.js` | Les anniversaires des employés : qui est fêté tel jour (le dernier jour du mois pour un jour absent), le rappel de la veille au principal (17 h), les vœux du numéro BMI le jour même (7 h), une fois par an |
 | `lib/commissionsDues.js` | Les commissions devenues dues (réception ET solde) à annoncer par WhatsApp, et leur marque « annoncée » |
 | `lib/compteExploitant.js` | Le compte de l'exploitant (BMI est une entreprise individuelle) : la caisse de BMI chez le DG, à part de ce que BMI lui doit ; ses apports et ses prélèvements |

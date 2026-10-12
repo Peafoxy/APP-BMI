@@ -2,6 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 15 : Chantiers et travaux
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
+// lib/affectationChantier.js et api/rappels-du-soir.js (l'avis WhatsApp d'affectation, le changement, le rappel de la veille au chef — 12/10/2026),
 // lib/achatsChantier.js (critiqueTerminerChantier — 12/10/2026),
 // lib/whatsappModeles.js (lien_signature_pv, avenant_reserves — 01/10/2026),
 // lib/impression.js (imprimerReleveTravaux, « FACTURE — TRAVAUX » — 10/10/2026),
@@ -120,8 +121,10 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Ouvrir ▸ Dossier", texte: "Cadre violet **📅 Programmer l'installation**." },
         { titre: "Date, équipe, chef ⭐", texte: "Les trois sont obligatoires. Seuls les techniciens de l'espace du chantier sont proposés." },
-        { titre: "✅ Programmer l'installation", texte: "Chaque membre reçoit un message (« Vous avez été affecté comme chef d'équipe ⭐ … le … »). Le client aussi, s'il a un compte. Changer la date plus tard : **✅ Mettre à jour la programmation**, et tout le monde est reprévenu." },
+        { titre: "✅ Programmer l'installation", texte: "Chaque membre reçoit un message dans 💬 Messages (« Vous avez été affecté comme chef d'équipe ⭐ … le … ») **et un WhatsApp du numéro BMI** (date, lieu, lien de la position, équipe). Le client aussi est prévenu, s'il a un compte. La fenêtre de confirmation dit qui a reçu le WhatsApp, et nomme le technicien dont la fiche n'a pas de numéro." },
+        { titre: "Changer plus tard", texte: "**✅ Mettre à jour la programmation.** Ne sont prévenus que ceux que le changement touche : un nouveau membre ou le nouveau chef reçoit l'affectation ; un technicien retiré, un chef remplacé, ou toute l'équipe quand la date bouge reçoivent un court « Changement sur l'installation de … ». Ré-enregistrer sans rien changer ne prévient personne." },
       ]],
+      ["note", "**Le numéro du client n'est donné qu'au chef d'équipe.** Les autres membres lisent « à joindre par le chef d'équipe … ». **La veille à 17 h**, le chef reçoit un rappel WhatsApp de l'installation du lendemain (lieu, position, numéro du client, équipe). Rien ne part pour un chantier ou un technicien de **formation**, et rien ne part tant que Meta n'a pas approuvé les trois modèles (affectation, changement, rappel de la veille)."],
       ["attention", "**Pose seule : pas de programmation avant les 70 %.** Tant que l'acompte n'est pas encaissé, la programmation est refusée et le refus dit le montant qui manque. Encaissez d'abord (💰 sur la ligne, ou 🧾 Commandes de la boutique)."],
       ["h3", "D. Le dossier du chantier"],
       ["etapes", [
@@ -195,7 +198,7 @@ export const CHAPITRE = {
         "**Pose seule** : 3 jours après le PV, si le solde reste dû, la tournée de 7 h envoie un rappel au client par WhatsApp et prévient les administrateurs.",
         "**Rappel d'entretien** : du 10e jour avant la date d'entretien au jour même, le client reçoit un message WhatsApp et **une tâche** est posée pour le chef du chantier.",
         "**Demande d'avis Google** : entre le 10e et le 40e jour après la réception, une seule fois (« ⭐ Avis demandé le … » sous la date).",
-        "**Programmer** prévient l'équipe et le client ; **refaire une répartition** annule les demandes de prime devenues fausses et prévient les vendeurs.",
+        "**Programmer** prévient l'équipe (💬 Messages et WhatsApp du numéro BMI) et le client ; **refaire une répartition** annule les demandes de prime devenues fausses et prévient les vendeurs.",
       ]],
     ]},
 

@@ -221,6 +221,20 @@ export const MODELES = {
   // B b après validation du paiement, C a, lance ». UTILITY (un paiement dû
   // sur un bail en cours). Le trou 4 = le NOM de celui qui envoie (« B b »).
   loyer_disponible: { categorie: "utility", variables: ["proprietaire", "montant", "mois", "aupres", "boutique", "telephone"] },
+  // 📅 12/10/2026, Timo (capture des messages internes « Vous avez été
+  // affecté… » → « de cette manière mais amélioré » → « Aa, Ba, Ca, texte
+  // ok »). UTILITY : une affectation de travail, rien de commercial.
+  // `affectation_chantier` : le technicien ajouté à l'équipe (ou nommé chef),
+  // le trou 9 = le numéro du client pour le CHEF seulement (« A a »), « à
+  // joindre par le chef d'équipe … » pour les autres.
+  affectation_chantier: { categorie: "utility", variables: ["technicien", "role", "installation", "client", "date", "lieu", "position", "equipe", "contact"] },
+  // « B a » : retiré de l'équipe, chantier déplacé, chef remplacé (sa
+  // précision : « un chef d'équipe remplacé aussi devrait être notifié ») —
+  // le trou 3 dit ce qui a changé.
+  changement_affectation: { categorie: "utility", variables: ["technicien", "client", "changement"] },
+  // « C a » : la VEILLE à 17 h, au chef d'équipe. SERVEUR SEUL
+  // (api/rappels-du-soir.js) — aucun écran ne l'envoie.
+  rappel_installation: { categorie: "utility", variables: ["chef", "installation", "client", "date", "lieu", "position", "contact", "equipe"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -275,6 +289,10 @@ export const MODELES_EN_SERVICE = [
   // loyer). En service AVANT l'accord de Meta : d'ici là, repli sur
   // l'ouverture WhatsApp avec le texte du modèle, refus dit en français.
   "loyer_disponible",
+  // 12/10/2026 : l'affectation d'un technicien à un chantier et ses
+  // changements (🏠 Clients installés → Programmer). En service AVANT
+  // l'accord de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
+  "affectation_chantier", "changement_affectation",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -785,6 +803,9 @@ const LIGNES_ENVOI = {
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
   loyer_disponible: ([proprietaire, montant, mois, aupres, boutique]) => `Loyer disponible : ${proprietaire} prévenu(e) de venir chercher ${montant} pour ${mois} auprès de ${aupres} (boutique ${boutique}).`,
+  // ⚠ Le numéro du client (trou 9 / 7) n'est pas recopié dans le fil.
+  affectation_chantier: ([technicien, role, installation, client, date]) => `Avis d'affectation envoyé à ${technicien} : ${role} pour l'installation ${installation} de ${client}, le ${date}.`,
+  changement_affectation: ([technicien, client, changement]) => `Avis de changement envoyé à ${technicien} (installation de ${client}) : ${changement}`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
@@ -1807,3 +1828,100 @@ export function envoiAvancement({ employe, tel, ancien, nouveau, mois, motif, fm
   const f = typeof fmt === "function" ? fmt : (x) => `${x} F`;
   return { modele: "avancement_employe", variables: [nom, f(a), f(n), texteVariable(mois), texteVariable(motif).replace(/[.\s]+$/, "") || MOTIF_AVANCEMENT_DEFAUT] };
 }
+
+// ---------------------------------------------------------------
+// 📅 L'AFFECTATION D'UN TECHNICIEN À UN CHANTIER (12/10/2026, « Aa, Ba, Ca,
+// texte ok ») — les textes, mot pour mot chez Meta. La règle de QUI reçoit
+// QUOI vit dans lib/affectationChantier.js.
+// ---------------------------------------------------------------
+export const TEXTE_AFFECTATION_CHANTIER = [
+  "Bonjour {{1}},",
+  "Vous êtes affecté comme {{2}} pour l'installation {{3}} de {{4}}, prévue le {{5}}.",
+  "📍 Lieu : {{6}}",
+  "🗺 Position : {{7}}",
+  "👥 Équipe : {{8}}",
+  "📞 Client : {{9}}",
+  "Détails dans l'application BMI, onglet Clients installés. Merci et bon travail.",
+  "BMI TOGO",
+].join("\n");
+export const TEXTE_CHANGEMENT_AFFECTATION = [
+  "Bonjour {{1}},",
+  "Changement sur l'installation de {{2}} :",
+  "{{3}}",
+  "Détails dans l'application BMI, onglet Clients installés.",
+  "BMI TOGO",
+].join("\n");
+export const TEXTE_RAPPEL_INSTALLATION = [
+  "Bonjour {{1}},",
+  "⏰ Rappel : demain {{4}}, vous êtes chef d'équipe pour l'installation {{2}} de {{3}}.",
+  "📍 Lieu : {{5}}",
+  "🗺 Position : {{6}}",
+  "📞 Client : {{7}}",
+  "👥 Équipe : {{8}}",
+  "Bon travail.",
+  "BMI TOGO",
+].join("\n");
+const JOURS_SEMAINE = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+// « 2026-10-13 » → « mardi 13/10/2026 ».
+export function jourEnClair(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+  if (!m) return "";
+  const j = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
+  return `${JOURS_SEMAINE[j]} ${m[3]}/${m[2]}/${m[1]}`;
+}
+// La position GPS du chantier, en lien de carte ; sans elle, on le dit
+// (Meta refuse un trou vide).
+export function lienPosition(c) {
+  const lat = Number(c?.lat), lng = Number(c?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0) || c?.lat == null || c?.lng == null || c?.lat === "" || c?.lng === "") return "non enregistrée";
+  return `https://maps.google.com/?q=${lat},${lng}`;
+}
+export const nomDuChantier = (c) => texteVariable([c?.prenom, c?.nom].filter(Boolean).join(" ")) || "votre client";
+const lieuDuChantier = (c) => texteVariable(c?.localisation || c?.adresse_contrat) || "non renseigné";
+// L'équipe sur une ligne, le chef d'abord : « AGBEKO (chef), KOSSI, ESSO ».
+export function equipeEnClair(equipe) {
+  const l = (equipe || []).filter((e) => e && e.nom && !e.prime_employe);
+  const chef = l.filter((e) => e.chef).map((e) => `${e.nom} (chef)`);
+  return texteVariable([...chef, ...l.filter((e) => !e.chef).map((e) => e.nom)].join(", ")) || "à confirmer";
+}
+// « A a » : le numéro du client au CHEF seulement.
+export function contactPourAffectation(c, estChef, chefNom) {
+  if (estChef) return texteVariable(c?.tel) || "non renseigné";
+  return `à joindre par le chef d'équipe${texteVariable(chefNom) ? ` ${texteVariable(chefNom)}` : ""}`;
+}
+export function envoiAffectation({ technicien, estChef, chantier, date, equipe }) {
+  const nom = texteVariable(technicien);
+  const jour = jourEnClair(date);
+  if (!nom || !jour) return null;
+  const chef = (equipe || []).find((e) => e && e.chef);
+  return {
+    modele: "affectation_chantier",
+    variables: [
+      nom, estChef ? "chef d'équipe ⭐" : "membre de l'équipe",
+      installationLisible(chantier?.type_installation), nomDuChantier(chantier), jour,
+      lieuDuChantier(chantier), lienPosition(chantier), equipeEnClair(equipe),
+      contactPourAffectation(chantier, estChef, chef?.nom),
+    ],
+  };
+}
+export function envoiChangementAffectation({ technicien, chantier, changement }) {
+  const nom = texteVariable(technicien), quoi = texteVariable(changement);
+  if (!nom || !quoi) return null;
+  return { modele: "changement_affectation", variables: [nom, nomDuChantier(chantier), quoi] };
+}
+export function envoiRappelInstallation({ chef, chantier, date, equipe }) {
+  const nom = texteVariable(chef), jour = jourEnClair(date);
+  if (!nom || !jour) return null;
+  return {
+    modele: "rappel_installation",
+    variables: [
+      nom, installationLisible(chantier?.type_installation), nomDuChantier(chantier), jour,
+      lieuDuChantier(chantier), lienPosition(chantier), texteVariable(chantier?.tel) || "non renseigné", equipeEnClair(equipe),
+    ],
+  };
+}
+const TEXTES_AFFECTATION = { affectation_chantier: TEXTE_AFFECTATION_CHANTIER, changement_affectation: TEXTE_CHANGEMENT_AFFECTATION, rappel_installation: TEXTE_RAPPEL_INSTALLATION };
+export const texteAffectation = (envoi) => {
+  const t = envoi && TEXTES_AFFECTATION[envoi.modele];
+  return t ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), t) : "";
+};

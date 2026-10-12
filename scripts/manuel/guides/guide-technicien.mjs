@@ -42,6 +42,7 @@ export const GUIDE = {
     ["etapes", [
       { titre: "Je me connecte", texte: "Barre **bleue** = réel, **violette** = formation. Je regarde 💬 Messages : une sortie d'outil à mon nom, une tâche, une prime payée m'y sont annoncées (chapitres 1 et 20)." },
       { titre: "✅ Mes tâches", texte: "Ce que mon chef ou la direction m'a confié, avec l'échéance." },
+      { titre: "📲 Le WhatsApp de BMI", texte: "Quand on m'affecte à une installation, un WhatsApp du numéro BMI me le dit : la date, le lieu, le lien de la position, l'équipe. Si je suis retiré, si la date bouge ou si je ne suis plus le chef, un court message « Changement sur l'installation de … » me le dit aussi. **Chef d'équipe ⭐** : j'ai en plus le numéro du client, et un rappel la veille à 17 h." },
       { titre: "🏠 Clients installés", texte: "Les chantiers où je suis dans l'équipe : l'adresse, « 📍 Carte » pour s'y rendre, la date prévue, ce qui est à poser (« ▸ Dossier »)." },
       { titre: "🧰 Mes outils", texte: "Ce que j'ai en main. Si l'onglet porte un chiffre, des outils sont **en retard** : je dois dire pourquoi." },
     ]],

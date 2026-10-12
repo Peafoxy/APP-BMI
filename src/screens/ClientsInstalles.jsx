@@ -13,7 +13,8 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { messageIdentifiants, texteEnvoi, envoiLienPv, envoiAvenant } from "../lib/whatsappModeles";
+import { messageIdentifiants, texteEnvoi, envoiLienPv, envoiAvenant, envoiAffectation, envoiChangementAffectation } from "../lib/whatsappModeles";
+import { changementsAffectation } from "../lib/affectationChantier";
 import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
@@ -21,7 +22,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demand
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { estPrimeChantier, primesDuChantier, totalPrimesChantier } from "../lib/primeChantier";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, envoyerAvisPrimePayee, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, envoyerAvisPrimePayee, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier, estCompteFormation } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
 import { encaisserDettePose } from "../components/encaissementPose";
@@ -444,7 +445,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     setProgDe(c, { equipe, chef });
   };
 
-  const enregistrerProgrammation = (c) => {
+  const enregistrerProgrammation = async (c) => {
     if (refuserSaufRoles(profile, ROLES_PROGRAMMATION, "Programmer une installation")) return;
     const p = progDe(c);
     if (!p.date) { uAlert("Choisissez la date d'installation."); return; }
@@ -462,16 +463,18 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     : { user_id: id, nom: u?.nom || "?", chef: id === p.chef, pct: 0, montant: 0, paye: false };
     });
 
-    // Notifie chaque membre nouvellement affecté (ou dont le rôle chef/date a
-    // changé) — pas de rappel en double si l'équipe était déjà inchangée.
-    const idsAvant = new Set((c.equipe || []).map((e) => e.user_id));
+    // Qui est prévenu, et de quoi (12/10/2026, « Aa, Ba, Ca ») : UNE règle,
+    // `changementsAffectation` — les nouveaux et le nouveau chef reçoivent
+    // l'affectation ; un retiré, un chef remplacé, un chantier déplacé
+    // reçoivent le changement. Rien de changé → personne n'est prévenu.
     const dateAvant = c.date_installation || "";
     const dateAChange = dateAvant !== p.date;
-    const nouveauxMembres = equipe.filter((e) => !idsAvant.has(e.user_id) || dateAChange);
-    const messagesNotif = nouveauxMembres.map((e) => nouveauMessage(profile, {
-      a_id: e.user_id,
-      texte: `📅 Vous avez été affecté${e.chef ? " comme chef d'équipe ⭐" : ""} à l'installation de ${c.prenom} ${c.nom} le ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`,
-    }));
+    const { principal, changements } = changementsAffectation({ equipe: c.equipe, date: dateAvant }, { equipe, date: p.date });
+    const avis = [
+      ...principal.map((e) => ({ e, texte: `📅 Vous avez été affecté${e.chef ? " comme chef d'équipe ⭐" : ""} à l'installation de ${c.prenom} ${c.nom} le ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.` })),
+      ...changements.map(({ e, phrase }) => ({ e, texte: `📅 Changement sur l'installation de ${c.prenom} ${c.nom} : ${phrase}` })),
+    ];
+    const messagesNotif = avis.map(({ e, texte }) => nouveauMessage(profile, { a_id: e.user_id, texte }));
 
     // Le CLIENT aussi doit savoir — surtout s'il avait émis des réserves et
     // attend un passage de rattrapage. Sans ce message, il n'avait aucun moyen
@@ -490,7 +493,40 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         : x)),
       messages: [...messagesNotif, ...messageClient, ...(db.messages || [])],
     }, `📅 Installation de ${c.prenom} ${c.nom} programmée le ${dFR(p.date)} — chef ${db.users.find((u) => u.id === p.chef)?.nom || "?"}`);
-    uAlert(`✅ Installation programmée le ${dFR(p.date)}.\n\nLe chef d'équipe pourra marquer les travaux terminés le jour venu.${messagesNotif.length ? `\n\n${messagesNotif.length} membre(s) de l'équipe ont été notifiés par message.` : ""}${messageClient.length ? `\nLe client a aussi été prévenu par message.` : ""}`);
+    // 📲 Puis le WhatsApp du numéro BMI, à chacun (sans question ni repli).
+    const phrasesWa = await envoyerAvisAffectation(c, p.date, equipe, principal, changements);
+    uAlert(`✅ Installation programmée le ${dFR(p.date)}.\n\nLe chef d'équipe pourra marquer les travaux terminés le jour venu.${messagesNotif.length ? `\n\n${messagesNotif.length} membre(s) de l'équipe ont été notifiés par message.` : ""}${messageClient.length ? `\nLe client a aussi été prévenu par message.` : ""}${phrasesWa.length ? `\n\n${phrasesWa.join("\n")}` : ""}`);
+  };
+
+  // 📲 L'avis WhatsApp d'affectation (12/10/2026). ⚠ LE MUR : l'espace du
+  // CHANTIER (jamais celui de qui clique), ou un technicien de formation →
+  // rien ne part. « A a » : le numéro du client au chef seulement
+  // (`envoiAffectation`). Une fiche sans numéro est DITE, jamais tue.
+  const envoyerAvisAffectation = async (c, date, equipe, principal, changements) => {
+    const chantierFormation = espaceDuChantier(db, c, profile) === true;
+    const { envoyerRecuSansQuestion } = await import("../whatsapp.js");
+    const phrases = [];
+    const envoyer = async (e, envoi, noms) => {
+      const fiche = ficheParId(db.users, e.user_id);
+      if (!fiche || !envoi) return;
+      const formation = chantierFormation || estCompteFormation(db, fiche);
+      if (formation) return;
+      if (String(fiche.tel || "").replace(/\D/g, "").length < 8) {
+        phrases.push(`📲 Aucun avis WhatsApp : la fiche de ${e.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → 📞).`);
+        return;
+      }
+      const r = await envoyerRecuSansQuestion({ envoi, tel: fiche.tel, nom: e.nom, espaceFormation: formation, save, profile, ref: { chantier_id: c.id }, noms });
+      if (r) phrases.push(r);
+    };
+    for (const e of principal) {
+      const fiche = ficheParId(db.users, e.user_id);
+      await envoyer(e, envoiAffectation({ technicien: fiche?.nom_complet || e.nom, estChef: !!e.chef, chantier: c, date, equipe }), { titre: "Avis d'affectation", sujet: "L'avis d'affectation" });
+    }
+    for (const { e, phrase } of changements) {
+      const fiche = ficheParId(db.users, e.user_id);
+      await envoyer(e, envoiChangementAffectation({ technicien: fiche?.nom_complet || e.nom, chantier: c, changement: phrase }), { titre: "Avis de changement", sujet: "L'avis de changement" });
+    }
+    return phrases;
   };
 
   // ---- LE CHEF DE CHANTIER DÉCLARE LES TRAVAUX TERMINÉS ----

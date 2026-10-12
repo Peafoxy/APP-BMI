@@ -2457,6 +2457,40 @@ lit mal est pire qu'un banc absent).
 - **Rien à coller dans Supabase** : tous ces champs vivent sur la fiche d'un
   article et sur les boutiques, que l'administrateur écrit déjà.
 
+### 📅 L'AVIS WHATSAPP D'AFFECTATION À UN CHANTIER (12/10/2026, « Aa, Ba, Ca, texte ok »)
+- Capture Timo des messages internes « 📅 Vous avez été affecté… » : « un
+  message WhatsApp… de cette manière mais amélioré », puis « un chef d'équipe
+  remplacé aussi devrait être notifié qu'il n'est plus le chef d'équipe ».
+  Règle pure **`lib/affectationChantier.js`** (lisible par le serveur), textes
+  dans lib/whatsappModeles.js (`TEXTE_AFFECTATION_CHANTIER`, `TEXTE_CHANGEMENT_AFFECTATION`,
+  `TEXTE_RAPPEL_INSTALLATION`, tous UTILITY, fr).
+- **`affectation_chantier`** (9 trous : technicien, rôle « chef d'équipe ⭐ » /
+  « membre de l'équipe », installation, client, jour en clair, lieu, lien de la
+  position GPS — « non enregistrée » sinon —, équipe le chef d'abord, contact).
+  **« A a »** : le numéro du client au CHEF seulement ; les autres lisent « à
+  joindre par le chef d'équipe X ». **« B a »** : **`changement_affectation`**
+  (3 trous : technicien, client, la phrase) pour un RETIRÉ, un CHEF REMPLACÉ
+  qui reste (« Vous n'êtes plus le chef d'équipe ; le nouveau chef est X. Vous
+  restez dans l'équipe. »), toute l'équipe quand la DATE bouge — plusieurs
+  changements = UNE phrase. `changementsAffectation(avant, apres)` décide
+  (nouveau membre, nommé chef ou première programmation → l'affectation ;
+  rien de changé → personne), pour 💬 Messages ET WhatsApp.
+- 🏠 Clients installés → ✅ Programmer : après l'enregistrement, sans question
+  ni repli (`envoyerRecuSansQuestion`), ligne dans 📲 WhatsApp (`chantier_id`) ;
+  ⚠ le mur = l'espace du CHANTIER ou un technicien de formation → rien ; une
+  fiche sans numéro est DITE dans la confirmation.
+- **« C a »** : **`rappel_installation`** (8 trous), la VEILLE à 17 h au chef
+  d'équipe, SERVEUR SEUL (`installationsDeDemain`, api/rappels-du-soir.js, qui
+  lit maintenant clients_installes / ventes / dettes ; indépendant des
+  anniversaires ; rien d'écrit) : chantier en cours, pas de formation
+  (`chantierDeFormation`), ni travaux ni corbeille, chef réel, actif, non
+  bloqué, avec un numéro.
+- **À créer par Timo chez YCloud** (utility, fr). ~4 F le message. Rien à
+  coller dans Supabase. Banc `verifier-whatsapp` (+16), éprouvé (numéro à tous,
+  chef remplacé tu, mur ouvert côté serveur et côté écran) ; trois contrôles
+  RETOURNÉS (trente-six modèles, serveur seul, modèles à ligne). Chapitre 15 et
+  guide du technicien à jour.
+
 ### 🧰 Le matériel de travail (17/09/2026)
 - Timo : « le matériel de travail… comment faire le suivi, pour éviter la
   perte des équipements de travail sur le terrain ». Puis, sur le marquage :

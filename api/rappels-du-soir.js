@@ -11,6 +11,11 @@
 // Depuis « 1c » (le même jour), le rappel part AUSSI par WhatsApp sur le
 // numéro de l'administrateur (modèle `rappel_anniversaire`).
 // L'appel exige CRON_SECRET, comme la tournée du matin.
+// 📅 12/10/2026 (« C a ») : la même tournée envoie au CHEF D'ÉQUIPE le
+// rappel de l'installation du lendemain (modèle `rappel_installation`), du
+// numéro BMI. La règle vit dans src/lib/affectationChantier.js
+// (installationsDeDemain). Les deux rappels sont INDÉPENDANTS : pas
+// d'anniversaire demain n'empêche pas le rappel d'installation.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { fabriquerEnvoi } from "../src/lib/rappels.js";
@@ -19,8 +24,9 @@ import { rappelVeilleAnniversaires, rappelWhatsAppVeille } from "../src/lib/anni
 import { numeroWhatsApp, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 import { configYCloud, envoyerYCloud } from "./_ycloud.js";
 import { lireTable } from "./_tables.js";
+import { installationsDeDemain } from "../src/lib/affectationChantier.js";
 
-const TABLES = ["users", "boutiques"];
+const TABLES = ["users", "boutiques", "clients_installes", "ventes", "dettes"];
 
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
@@ -36,15 +42,17 @@ export default async function handler(req, res) {
     const db = {};
     for (const t of TABLES) db[t] = await lireTable(admin, t);
     const aujourdhui = new Date().toISOString().slice(0, 10);
+    // 📅 « C a » : le rappel de l'installation de demain, au chef d'équipe.
+    const installations = await rappelerLesInstallations(db, aujourdhui);
     const rappel = rappelVeilleAnniversaires(db, aujourdhui);
-    if (!rappel) return res.status(200).json({ ok: true, jour: aujourdhui, anniversaires_demain: 0 });
+    if (!rappel) return res.status(200).json({ ok: true, jour: aujourdhui, anniversaires_demain: 0, installations });
     // 🎂 « 1c » : le WhatsApp à l'administrateur part AVANT la notification
     // et sans dépendre d'elle (l'un en panne n'empêche pas l'autre).
     const whatsapp = await rappelerParWhatsApp(db, aujourdhui);
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", whatsapp });
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", whatsapp, installations });
     const envoi = fabriquerEnvoi({ ...rappel, ecran: "users" });
     const bilan = envoi ? await envoyerAuxPersonnes(admin, [envoi]) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, anniversaires_demain: 1, ...bilan, whatsapp });
+    return res.status(200).json({ ok: true, jour: aujourdhui, anniversaires_demain: 1, ...bilan, whatsapp, installations });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }
@@ -56,18 +64,35 @@ export default async function handler(req, res) {
 async function rappelerParWhatsApp(db, aujourdhui) {
   const r = rappelWhatsAppVeille(db, aujourdhui);
   if (!r) return "aucun numéro";
+  return envoyerDuNumeroBmi(r.tel, r.envoi, "rappel d'anniversaire");
+}
+
+// Les rappels d'installation de demain : un message par chef d'équipe et
+// par chantier. Rien n'est écrit dans la base ; un refus part dans le
+// journal Vercel (le modèle pas encore approuvé, par exemple).
+async function rappelerLesInstallations(db, aujourdhui) {
+  const bilan = { a_envoyer: 0, envoyes: 0 };
+  for (const r of installationsDeDemain(db, aujourdhui)) {
+    bilan.a_envoyer += 1;
+    if (await envoyerDuNumeroBmi(r.tel, r.envoi, "rappel d'installation") === "envoyé") bilan.envoyes += 1;
+  }
+  return bilan;
+}
+
+// UN envoi d'un modèle du numéro BMI, pour les deux rappels du soir.
+async function envoyerDuNumeroBmi(to, envoi, quoi) {
   const { cle, expediteurBrut } = configYCloud();
   const expediteur = numeroWhatsApp(expediteurBrut);
   if (!cle || !expediteur) { console.error("[rappels-du-soir] WhatsApp non configuré sur le serveur"); return "non configuré"; }
   try {
-    const envoi = await envoyerYCloud(cle, {
-      from: expediteur, to: r.tel, type: "template",
-      template: { name: r.envoi.modele, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: r.envoi.variables.map((text) => ({ type: "text", text })) }] },
+    const r = await envoyerYCloud(cle, {
+      from: expediteur, to, type: "template",
+      template: { name: envoi.modele, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: envoi.variables.map((text) => ({ type: "text", text })) }] },
     });
-    if (!envoi.ok) { console.error("[rappels-du-soir] rappel d'anniversaire refusé", envoi.code_whatsapp, envoi.motif); return "refusé"; }
+    if (!r.ok) { console.error(`[rappels-du-soir] ${quoi} refusé`, r.code_whatsapp, r.motif); return "refusé"; }
     return "envoyé";
   } catch (e) {
-    console.error("[rappels-du-soir] rappel d'anniversaire", e?.message || e);
+    console.error(`[rappels-du-soir] ${quoi}`, e?.message || e);
     return "erreur";
   }
 }
