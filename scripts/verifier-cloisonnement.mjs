@@ -13621,7 +13621,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     dettes: [7], clients: [3], nouveau_client: [3], caisse: [6], stocks: [8], transfert: [9], ravitaillement: [9],
     fournisseurs: [10], commerciaux: [16], equipe: [16], commission: [16], primes_remises: [16], primes_recues: [16],
     prospects: [4], parc: [15], travaux: [15], taches: [15], outillage: [19], messages: [20], whatsapp: [20],
-    salaire: [18], salaires: [18], users: [2], parametres: [23],
+    salaire: [18], salaires: [18], users: [2], parametres: [23], rendez_vous: [26],
   };
   const app = readFileSync("src/App.jsx", "utf8");
   const BRANCHE = {
@@ -15696,6 +15696,111 @@ titre("🔒 Le matériel réservé pour une installation (12/10/2026, « A a, B 
   test("★ « 🏁 Marquer terminé » relit la fiche FRAÎCHE, refuse AVANT la question, ajoute l'avertissement du principal dans la question",
     /const fin = critiqueTerminerChantier\(\{ chantier: fraiche, vente: venteDuChantier\(fraiche, db\.ventes\), principal: estAdminPrincipal\(db, profile\) \}\);\n\s*if \(fin\.refus\) \{ uAlert\(fin\.refus\); return; \}/.test(srcCI)
     && /\(fin\.avertissement \? `\\n\\n\$\{fin\.avertissement\}` : ""\)/.test(srcCI));
+}
+
+titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur, rien en formation (12/10/2026, « Aa, A2a, Ba, C, Da, Ea, Fb, G toutes, H a »)");
+{
+  const sortieRdv = join("node_modules", ".cache", `bmi-rdv-${process.pid}.mjs`);
+  let R = null, err = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-rendez-vous.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieRdv, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server", "@supabase/supabase-js", "web-push"] });
+    R = await import(pathToFileURL(sortieRdv).href);
+  } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieRdv); } catch {}
+  test("📅 l'écran Rendez-vous se monte dans le banc" + (err ? ` (${err})` : ""), !!R);
+  if (R) {
+    const tim = { id: "u_t", nom: "TIMO", role: "admin", admin_principal: true, actif: true };
+    const adm = { id: "u_ad", nom: "ADMIN2", role: "admin", actif: true };
+    const kos = { id: "u_k", nom: "KOSSI", role: "commercial", actif: true, tel: "90112233" };
+    const agb = { id: "u_a", nom: "AGBEKO", role: "technicien", actif: true, tel: "91112233" };
+    const ang = { id: "u_ang", nom: "ANGELE", role: "vendeur", boutique: "DEMAKPOE", actif: true };
+    const cpt = { id: "u_c", nom: "COMPTA", role: "comptable", actif: true };
+    const cli = { id: "u_cl", nom: "MR ERIC", role: "client", actif: true, tel: "99001122" };
+    const pro = { id: "r1", type: "pro", par_id: "u_k", par: "KOSSI", objet: "Visite chez MR ERIC", date: "2026-10-15", heure: "09:00", visite: true, participants: ["u_a"], chef_id: "u_a", statut: "a_venir" };
+    const privK = { id: "p1", type: "prive", par_id: "u_k", par: "KOSSI", objet: "Banque", date: "2026-10-15", heure: "11:00", statut: "a_venir" };
+    const proF = { ...pro, id: "rF", formation: true, objet: "Visite d'essai" };
+    const liste = [pro, privK, proF];
+    const ids = (l) => l.map((r) => r.id).sort().join(",");
+    test("★★ « A2 a » un PRIVÉ ne se voit que par son auteur — l'administrateur principal non plus ; un pro par tout le personnel de l'espace REGARDÉ",
+      ids(R.rendezVousVisibles(liste, kos, false)) === "p1,r1" && ids(R.rendezVousVisibles(liste, tim, false)) === "r1"
+      && ids(R.rendezVousVisibles(liste, tim, true)) === "rF" && ids(R.rendezVousVisibles(liste, agb, false)) === "r1" && R.rendezVousVisibles(liste, cli, false).length === 0);
+    test("★★ « E a » qui modifie : un privé = son auteur ; un pro = son auteur ou l'administrateur ; un PARTICIPANT ne fait que « fait »",
+      R.peutModifierRdv(privK, kos) && !R.peutModifierRdv(privK, tim) && R.peutModifierRdv(pro, kos) && R.peutModifierRdv(pro, adm)
+      && !R.peutModifierRdv(pro, agb) && R.peutMarquerFait(pro, agb) && !R.peutMarquerFait(pro, ang) && !R.peutMarquerFait(privK, tim));
+    const ok = { ...pro, id: "x" };
+    test("★ la règle refuse : une visite sans participant, une date passée à la création, un privé avec participants, l'auteur coché ; accepte le bon",
+      R.critiqueRendezVous(ok, { aujourdhui: "2026-10-12", creation: true }) === ""
+      && /au moins un participant/.test(R.critiqueRendezVous({ ...ok, participants: [] }, {}))
+      && /date est passée/.test(R.critiqueRendezVous(ok, { aujourdhui: "2026-10-16", creation: true }))
+      && R.critiqueRendezVous(ok, { aujourdhui: "2026-10-16", creation: false }) === ""
+      && /ni participants/.test(R.critiqueRendezVous({ ...privK, participants: ["u_a"] }, {}))
+      && /auteur du rendez-vous/.test(R.critiqueRendezVous({ ...ok, participants: ["u_a", "u_k"] }, {})));
+    const n = R.nouveauRendezVous({ profile: kos, formation: true, id: "n1", maintenant: "x", champs: { type: "pro", date: "2026-10-20", heure: "10:00", objet: " Visite ", visite: true, participants: ["u_k", "u_a"], client_nom: "MR ERIC" } });
+    const n2 = R.nouveauRendezVous({ profile: kos, formation: false, id: "n2", maintenant: "x", champs: { type: "prive", date: "2026-10-20", heure: "10:00", objet: "Banque", participants: ["u_a"], visite: true, client_nom: "X" } });
+    test("★ « ce qu'on crée naît dans l'espace qu'on regarde » ; l'auteur n'est jamais participant ; le chef est le premier coché ; un privé n'a ni participants ni visite ni client",
+      n.formation === true && n.participants.join(",") === "u_a" && n.chef_id === "u_a" && n.objet === "Visite" && n.par_id === "u_k"
+      && !n2.formation && n2.participants.length === 0 && n2.visite === false && n2.client_nom === "");
+    const chantiers = [{ id: "c1", prenom: "", nom: "AMA", statut: "en_cours", date_installation: "2026-10-15", equipe: [{ user_id: "u_a" }] },
+      { id: "c2", nom: "AUTRE", statut: "en_cours", date_installation: "2026-10-16", equipe: [{ user_id: "u_a" }] }];
+    const autre = { ...pro, id: "r9", objet: "Réunion", heure: "15:00", participants: ["u_a"] };
+    const cfl = R.conflitsRendezVous({ rdv: { ...pro, id: "nouveau" }, rendezVous: [autre, { ...autre, id: "r10", statut: "annule" }], chantiers, nomDe: (id) => ({ u_a: "AGBEKO", u_k: "KOSSI" })[id] });
+    test("★ « G » le conflit : un autre rendez-vous à venir le même jour, une installation programmée le même jour — jamais un annulé ni un autre jour",
+      cfl.some((p) => /AGBEKO a déjà un rendez-vous ce jour-là à 15 h : Réunion/.test(p)) && cfl.some((p) => /AGBEKO est programmé ce jour-là sur l'installation de AMA/.test(p))
+      && cfl.some((p) => /KOSSI a déjà un rendez-vous/.test(p)) && !cfl.some((p) => /AUTRE/.test(p)) && cfl.length === 3, JSON.stringify(cfl));
+    const apres = { ...pro, participants: ["u_ang"], date: "2026-10-16" };
+    const ch = R.changementsRendezVous({ ...pro, participants: ["u_a", "u_c"] }, { ...apres, participants: ["u_c", "u_ang"] }, "u_k");
+    test("★ « G » un changement : le nouveau reçoit l'avis complet, le retiré « vous n'en faites plus partie », celui qui reste « il est déplacé » ; l'auteur du geste n'est jamais prévenu",
+      ch.nouveaux.join(",") === "u_ang" && ch.changements.some((c) => c.id === "u_a" && /plus partie/.test(c.phrase))
+      && ch.changements.some((c) => c.id === "u_c" && /déplacé au vendredi 16\/10\/2026 à 9 h/.test(c.phrase)) && !ch.changements.some((c) => c.id === "u_k"));
+    const an = R.changementsRendezVous(pro, R.annulerRdv(pro, { motif: "client absent", profile: adm, aujourdhui: "2026-10-14" }), "u_ad");
+    test("★ une annulation dit le motif à TOUS ceux qu'elle concerne (l'auteur compris quand ce n'est pas lui qui annule) ; un privé ne prévient personne",
+      an.changements.length === 2 && an.changements.every((c) => /annulé \(motif : client absent\)/.test(c.phrase))
+      && R.changementsRendezVous(privK, { ...privK, date: "2026-10-20" }, "x").changements.length === 0);
+    const fait = R.marquerFait(pro, { compteRendu: "Toit vu", profile: agb, aujourdhui: "2026-10-15" });
+    const sql = readFileSync("supabase/rendez-vous-1-table.sql", "utf8");
+    test("★★ LE COUPLE : ce qu'un participant écrit (CHAMPS_DU_PARTICIPANT) est EXACTEMENT ce que le déclencheur du serveur lui laisse changer",
+      R.CHAMPS_DU_PARTICIPANT.join(",") === "statut,compte_rendu,fait_le,fait_par"
+      && sql.includes("cle not in ('statut', 'compte_rendu', 'fait_le', 'fait_par', 'updated_at')")
+      && fait.statut === "fait" && fait.fait_par === "AGBEKO" && fait.compte_rendu === "Toit vu");
+    test("★★ le SQL : un privé ne descend QUE chez son auteur, la dérogation « tous » dans le mur, un client jamais, la lecture seule n'écrit pas, appliquer_lot accepte la table",
+      sql.includes("pro_ou_mien constant text := '(data ->> ''type'' = ''pro'' or data ->> ''par_id'' = %s)'")
+      && /espace_cloisonnement/.test(sql) && /''tous''/.test(sql) && /role_client_interdit/.test(sql) && /role_lecture_seule_maj/.test(sql)
+      && /'clients_installes', 'proformas', 'groupes', 'paie', 'rendez_vous'/.test(sql));
+    // L'écran RENDU.
+    const db = { users: [tim, kos, agb, ang, cpt, cli], boutiques: [{ id: "b", nom: "DEMAKPOE" }], rendez_vous: [pro, privK, proF], prospects: [], clients_installes: [] };
+    let hK = "", hT = "", hC = "", hNu = "", errR = "";
+    try { hK = R.rendreRdv(db, kos); hT = R.rendreRdv(db, tim); hC = R.rendreRdv(db, cpt); hNu = R.rendreRdv({ users: [ang], boutiques: [] }, ang); } catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
+    test("★★ l'écran RENDU : la liste « 💼 pro / 🔒 privé », le pro d'office ; l'administrateur principal ne voit ni le privé de KOSSI ni la formation" + (errR ? ` (${errR})` : ""),
+      !errR && /data-type-rendez-vous/.test(hK) && hK.includes("Visite chez MR ERIC") && !hK.includes("Banque") && hT.includes("Visite chez MR ERIC") && !hT.includes("Banque") && !hT.includes("Visite d'essai"));
+    test("★ « H a » le comptable lit les rendez-vous pro, sans bouton pour en créer ni en modifier",
+      hC.includes("Visite chez MR ERIC") && /lecture seule/.test(hC) && !hC.includes("➕ Nouveau rendez-vous") && !hC.includes("✏️ Modifier"));
+    test("★ une base NUE (aucun rendez-vous reçu) : l'écran se rend et le DIT, jamais un écran blanc", hNu.includes("Aucun rendez-vous pro à venir"));
+    test("★ « F b » les propositions : les techniciens d'abord, puis le reste du personnel — jamais un client, jamais soi-même",
+      (() => { const p = R.participantsProposes([tim, kos, agb, ang, cli], kos); return p.techniciens.map((u) => u.nom).join(",") === "AGBEKO" && p.autres.map((u) => u.nom).join(",") === "ANGELE,TIMO"; })());
+    // La notification au reste du personnel.
+    const avantN = { users: [tim, kos, agb, ang, cpt, cli], boutiques: db.boutiques, rendez_vous: [] };
+    const envois = R.infosDepuisDiff(avantN, { ...avantN, rendez_vous: [pro, privK] });
+    const dest = (envois.find((e) => /Rendez-vous/.test(e.titre)) || {}).destinataires || [];
+    test("★★ « D a » un pro créé : une notification au RESTE du personnel de son espace (ni l'auteur, ni les participants, jamais un client) ; un privé ne prévient personne",
+      envois.filter((e) => /Rendez-vous/.test(e.titre)).length === 1 && dest.slice().sort().join(",") === "u_ang,u_c,u_t");
+    const appSrc = readFileSync("src/App.jsx", "utf8");
+    test("★ l'onglet « 📅 Rendez-vous » est dans ONGLETS_ROLE de tout le personnel, jamais du client, et App le rend pour tout compte qui n'est pas client",
+      Object.entries(R.ONGLETS_ROLE).every(([r, l]) => (r === "client") !== l.includes("rendez_vous")) && /ongletsVisites\.rendez_vous && !isClient/.test(appSrc));
+    test("★ la synchronisation : une table pas encore créée sur le serveur (SQL pas encore collé) n'est pas une panne de réseau",
+      R.tableAbsenteDuServeur({ code: "PGRST205" }) && R.tableAbsenteDuServeur({ code: "42P01" }) && !R.tableAbsenteDuServeur({ code: "42501", message: "permission denied" }));
+    test("★ la tournée de 14 h se reconnaît à son paramètre, et à défaut à l'heure (avant 16 h) ; celle de 17 h jamais",
+      R.estTourneeRendezVous({ url: "/api/rappels-du-soir?tournee=rendez-vous" }, new Date("2026-10-12T17:10:00Z"))
+      && !R.estTourneeRendezVous({ url: "/api/rappels-du-soir" }, new Date("2026-10-12T17:10:00Z"))
+      && R.estTourneeRendezVous({ url: "/api/rappels-du-soir" }, new Date("2026-10-12T14:20:00Z")));
+    const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+    test("★ « Réinitialiser uniquement la formation » emporte aussi les rendez-vous de formation", /rendez_vous: \(db\.rendez_vous \|\| \[\]\)\.filter\(\(r\) => !r\.formation\)/.test(par));
+    const pr = readFileSync("src/screens/Prospects.jsx", "utf8");
+    test("★ « G » 🧲 Prospects : « 📅 Planifier une visite » (administrateur ou son commercial) et les visites avec leur compte rendu sous la ligne",
+      /onPlanifierVisite && \(isAdmin \|\| p\.commercial === profile\.nom\)/.test(pr) && /data-visites-prospect/.test(pr) && /rendezVousVisibles\(db\.rendez_vous, profile, espace === true\)/.test(pr));
+  }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

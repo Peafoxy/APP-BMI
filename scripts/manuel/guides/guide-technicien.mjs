@@ -20,8 +20,8 @@ export const GUIDE = {
   roles: ["technicien", "technicien_bmi"],
   public: "Les techniciens de BMI : à commission (payés par part d'installation) et techniciens BMI (salariés)",
   duree: "2 jours : la journée et les chapitres le premier jour, l'examen le second",
-  onglets: ["commande", "dimensionnement", "tous_devis", "contrats", "prospects", "parc", "taches", "equipe", "outillage", "depenses", "commission", "primes_recues", "messages", "whatsapp", "salaire", "nouveau_client"],
-  chapitres: [1, 3, 4, 5, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 24, 25],
+  onglets: ["commande", "dimensionnement", "tous_devis", "contrats", "prospects", "parc", "taches", "equipe", "outillage", "depenses", "commission", "primes_recues", "rendez_vous", "messages", "whatsapp", "salaire", "nouveau_client"],
+  chapitres: [1, 3, 4, 5, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 26, 24, 25],
 
   journee: [
     ["p", "Le technicien **pose les installations**, tient **le dossier de ses chantiers**, répond **des outils qu'il emporte** et note **ses dépenses de chantier**. Il peut aussi trouver des clients et faire des devis, comme un commercial. Il y a deux façons d'être technicien chez BMI : **à commission** (payé par part d'installation) et **technicien BMI** (salarié). Les mots entre guillemets sont ceux des boutons ; le chapitre du manuel est indiqué entre parenthèses."],

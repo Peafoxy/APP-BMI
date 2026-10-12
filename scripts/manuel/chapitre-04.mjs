@@ -4,7 +4,8 @@
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
 // screens/Prospects.jsx (le tableau de bord commercial, le formulaire
 // « Nouveau prospect », la liste et ses boutons, 📞 Contacté, 📦 Archiver,
-// ✅ Convertir en client, Réassigner), lib/prospects.js (prospectAcquis,
+// ✅ Convertir en client, Réassigner, 📅 Planifier une visite — 12/10/2026,
+// et les visites sous la ligne), lib/prospects.js (prospectAcquis,
 // « Client acquis »), lib/calculs.js (SEUIL_DORMANT_JOURS = 150,
 // estDormant, joursSansActivite, toucher, refuserSaufProprietaire,
 // peutReaffecter, ONGLETS_ROLE, ACTIONS_POUVOIR « 🔁 Réaffecter les
@@ -46,7 +47,7 @@ export const CHAPITRE = {
         ["« Nouveau prospect » — enregistrer un contact", "Commercial, technicien, technicien BMI, responsable commercial. **L'administrateur n'a pas ce formulaire** : il lit, il gère les catégories, il réassigne."],
         ["Voir **ses** prospects", "Chaque commercial voit les siens"],
         ["Voir **tous** les prospects de l'espace", "Administrateur, responsable commercial, et tout **chef d'équipe** ⭐"],
-        ["📞 Contacté · Relance · 📱 Relancer · 📦 Archiver · ↩ Réactiver · ✅ Convertir en client · Suppr.", "**Le commercial rattaché au prospect**, et l'administrateur. Un chef d'équipe voit le prospect d'un autre, mais ne fait pas ces gestes à sa place."],
+        ["📅 Planifier une visite · 📞 Contacté · Relance · 📱 Relancer · 📦 Archiver · ↩ Réactiver · ✅ Convertir en client · Suppr.", "**Le commercial rattaché au prospect**, et l'administrateur. Un chef d'équipe voit le prospect d'un autre, mais ne fait pas ces gestes à sa place."],
         ["Réassigner à un autre commercial", "Administrateur, responsable commercial, chef d'équipe ⭐ — **avec le pouvoir « 🔁 Réaffecter les prospects »** (retirable dans 🔐 Pouvoirs, chapitre 2)"],
         ["Ajouter ou supprimer une **catégorie** de prospects", "**L'administrateur seul**"],
       ]}],
@@ -145,6 +146,7 @@ export const CHAPITRE = {
         ["📱 Relancer", "N'apparaît que si la relance est en retard et que le prospect a un numéro. Une question, puis le message du numéro BMI, nommant le projet ; note automatique."],
         ["🎯 Projet", "Change le projet de la fiche (son commercial, l'administrateur)."],
         ["Réassigner", "Change le commercial responsable (pouvoir requis)."],
+        ["📅 Planifier une visite", "Ouvre 📅 Rendez-vous avec une visite pro déjà rattachée au prospect (objet, lieu, nom, numéro) : il reste la date, l'heure et qui y va (chapitre 26). Sous la ligne du prospect, chaque visite et son **compte rendu**."],
         ["📞 Contacté", "Note un contact, avec ce que ça a donné. Le survol dit la dernière activité."],
         ["✅ Convertir en client", "Crée le compte, envoie les accès, passe la fiche « Client acquis »."],
         ["📦 Archiver / ↩ Réactiver", "Sort de la liste active avec un motif ; ou y revient."],

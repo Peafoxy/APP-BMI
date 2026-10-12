@@ -19,8 +19,8 @@ export const GUIDE = {
   roles: ["vendeur"],
   public: "Les vendeurs et vendeuses des boutiques BMI",
   duree: "2 jours : la journée et les chapitres le premier jour, l'examen le second",
-  onglets: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "parc", "travaux", "dettes", "clients", "caisse", "salaire", "primes_recues", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats"],
-  chapitres: [1, 3, 5, 6, 7, 9, 11, 12, 13, 14, 15, 16, 18, 20, 24, 25],
+  onglets: ["ventes", "commandes", "dimensionnement", "tous_devis", "ravitaillement", "parc", "travaux", "dettes", "clients", "caisse", "salaire", "primes_recues", "rendez_vous", "messages", "whatsapp", "nouveau_client", "primes_remises", "contrats"],
+  chapitres: [1, 3, 5, 6, 7, 9, 11, 12, 13, 14, 15, 16, 18, 20, 26, 24, 25],
 
   journee: [
     ["p", "Cette partie raconte une journée de vendeur, dans l'ordre où elle se passe. Les mots entre guillemets sont ceux des boutons de l'application. Pour le détail d'un geste, le chapitre du manuel est indiqué entre parenthèses."],

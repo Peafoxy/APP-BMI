@@ -1161,6 +1161,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       prospects: (db.prospects || []).filter((p) => p.formation).length,
       clients: clientsFormation.size,
       devis: db.users.reduce((s, u) => s + (u.devis || []).filter((d) => d.formation).length, 0),
+      // 📅 Les rendez-vous d'entraînement (12/10/2026). ⚠ Les rendez-vous
+      // PRIVÉS des autres ne descendent pas chez lui : ils ne sont pas comptés.
+      rendez_vous: (db.rendez_vous || []).filter((r) => r.formation).length,
     };
     const total = Object.values(compte).reduce((s, n) => s + n, 0);
     if (total === 0) { uAlert("Rien à effacer : aucune donnée de formation n'a encore été saisie."); return; }
@@ -1170,7 +1173,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       ["commandes", "commande(s)"], ["proformas", "proforma(s)"], ["depenses", "dépense(s)"],
       ["articles", "article(s) de stock"], ["mouvements", "mouvement(s) de stock"],
       ["clotures", "clôture(s) de caisse"], ["devis", "devis"], ["clients", "compte(s) client"],
-      ["prospects", "prospect(s)"],
+      ["prospects", "prospect(s)"], ["rendez_vous", "rendez-vous"],
     ].filter(([k]) => compte[k] > 0).map(([k, lbl]) => `• ${compte[k]} ${lbl}`).join("\n");
 
     if (!(await uConfirm(
@@ -1203,6 +1206,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       ajustements: (db.ajustements || []).filter((a) => !deB(a) && !produitsFormation.has(a.produit_id)),
       clotures: (db.clotures || []).filter((c) => !deB(c)),
       prospects: (db.prospects || []).filter((p) => !p.formation),
+      rendez_vous: (db.rendez_vous || []).filter((r) => !r.formation),
       // Les demandes de ravitaillement / transfert vivent DANS la fiche
       // boutique : la boutique de formation reste, sa file d'attente est vidée.
       boutiques: db.boutiques.map((b) => (b.formation && (b.demandes || []).length ? { ...b, demandes: [] } : b)),

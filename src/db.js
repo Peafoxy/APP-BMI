@@ -11,7 +11,11 @@ export const TABLES = [...TABLES_V1, "audits", "prospects", "categories_prospect
   // ⚠ Les fiches de PAIE, séparées des fiches employés (voir lib/paie.js).
   // Le serveur ne les envoie qu'à qui a le droit de les lire : sur la
   // plupart des appareils, cette table reste donc vide — et c'est voulu.
-  "paie"];
+  "paie",
+  // 📅 Les RENDEZ-VOUS (12/10/2026) : une table que le serveur garde
+  // (supabase/rendez-vous-1-table.sql) — un privé ne descend que chez son
+  // auteur, un pro chez tout le personnel de l'espace.
+  "rendez_vous"];
 
 // Base locale IndexedDB : fonctionne toujours, même sans connexion
 export const idb = new Dexie("bmi-gestion-boutiques");
@@ -37,6 +41,8 @@ idb.version(7).stores({ groupes: "id" });
 // v8 : fiches de paie, sorties des fiches employés (salaires, virements,
 // crédits, avances, pièce d'identité, CNSS). Voir lib/paie.js.
 idb.version(8).stores({ paie: "id" });
+// v9 : les rendez-vous (onglet 📅 Rendez-vous). Voir lib/rendezVous.js.
+idb.version(9).stores({ rendez_vous: "id" });
 
 // Au tout premier lancement, remplit la base locale avec les données de départ.
 // Ces données ne sont PAS mises dans l'outbox : elles restent locales

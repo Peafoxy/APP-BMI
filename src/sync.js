@@ -132,6 +132,19 @@ const reculer = (iso, ms) => {
   return new Date(Math.max(0, t - ms)).toISOString();
 };
 
+// 📅 12/10/2026 : une table que l'application connaît mais que le serveur
+// n'a pas encore (le SQL de Timo pas encore collé). PostgREST le dit par son
+// code (PGRST205), PostgreSQL par 42P01.
+export const tableAbsenteDuServeur = (e) => {
+  const code = String(e?.code || "");
+  return code === "PGRST205" || code === "42P01" || /Could not find the table|relation .* does not exist/i.test(String(e?.message || ""));
+};
+export const cleTableAbsente = (t) => `table_absente:${t}`;
+// Vrai si la dernière lecture a trouvé la table absente du serveur.
+export async function tableAbsente(t) {
+  try { return !!(await idb.meta.get(cleTableAbsente(t))); } catch { return false; }
+}
+
 // Lit TOUTES les lignes d'une table, page par page.
 // Sans .order() ni pagination, Supabase renvoie 1000 lignes AU HASARD sans
 // prévenir : c'est la panne silencieuse par excellence.
@@ -709,7 +722,16 @@ export async function synchroniser(options = {}) {
           }
           // Le curseur de CETTE table n'avance que si CETTE table a réussi.
           await idb.meta.put({ cle, valeur: maxVu });
+          await idb.meta.delete(cleTableAbsente(t));
         } catch (e) {
+          // 📅 Une table NOUVELLE pas encore créée sur le serveur (son SQL
+          // n'est pas encore collé) n'est pas une panne de réseau : on le
+          // note, l'écran concerné le dit, et rien d'autre ne bouge.
+          if (tableAbsenteDuServeur(e)) {
+            await idb.meta.put({ cle: cleTableAbsente(t), valeur: new Date().toISOString() });
+            console.warn(`Table "${t}" absente du serveur (script SQL pas encore collé).`);
+            return;
+          }
           echecReseau = true;
           const msg = String(e?.message || e);
           // ⚠ « permission denied for table users » = la demande est partie
@@ -864,6 +886,9 @@ async function listerIdsSupabase(table) {
   let de = 0;
   for (;;) {
     const { data, error } = await supabase.from(table).select("id").order("id").range(de, de + PAGE - 1);
+    // Une table pas encore créée sur le serveur n'a rien : on ne s'arrête
+    // pas pour elle (le reste du miroir se fait).
+    if (error && tableAbsenteDuServeur(error)) return ids;
     if (error) return null;
     for (const r of data || []) ids.add(r.id);
     if (!data || data.length < PAGE) break;

@@ -24,8 +24,8 @@ export const GUIDE = {
   roles: ["commercial", "resp_commercial"],
   public: "Les commerciaux de BMI, et le responsable commercial",
   duree: "3 jours : la journée et les chapitres les deux premiers jours, l'examen le troisième",
-  onglets: ["commande", "ventes", "dimensionnement", "tous_devis", "contrats", "prospects", "parc", "taches", "equipe", "messages", "whatsapp", "commission", "salaire", "primes_recues", "nouveau_client"],
-  chapitres: [1, 3, 4, 5, 11, 12, 13, 14, 15, 16, 18, 20, 24, 25],
+  onglets: ["commande", "ventes", "dimensionnement", "tous_devis", "contrats", "prospects", "parc", "taches", "equipe", "rendez_vous", "messages", "whatsapp", "commission", "salaire", "primes_recues", "nouveau_client"],
+  chapitres: [1, 3, 4, 5, 11, 12, 13, 14, 15, 16, 18, 20, 26, 24, 25],
 
   journee: [
     ["p", "Le commercial **trouve les clients, fait les devis et suit ses chantiers jusqu'à la commission**. Le responsable commercial fait la même chose et, en plus, **dirige l'équipe commerciale** et **programme les installations**. Les mots entre guillemets sont ceux des boutons ; le chapitre du manuel est indiqué entre parenthèses."],

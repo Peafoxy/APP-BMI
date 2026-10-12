@@ -50,6 +50,7 @@ import { estSupprime } from "../src/lib/corbeille.js";
 import { anniversairesDuJour, ligneAnniversaire, enteteApresAnniversaire, MODELE_ANNIVERSAIRE } from "../src/lib/anniversaires.js";
 import { rappelFinsDeContrat } from "../src/lib/contratTravail.js";
 import { fusionnerPaie } from "../src/lib/paie.js";
+import { rappelerLesRendezVous } from "./_rendezVous.js";
 
 const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
 
@@ -90,11 +91,14 @@ export default async function handler(req, res) {
     // 03/10/2026, « 1b ») — le rappel de la veille part à 17 h
     // (api/rappels-du-soir.js).
     const anniversaires = await souhaiterLesAnniversaires(admin, db, aujourdhui);
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires });
+    // 📅 Les rendez-vous d'AUJOURD'HUI (12/10/2026, « le jour même à 7h »),
+    // du numéro BMI ; ceux de demain partent à 14 h (api/rappels-du-soir.js).
+    const rendez_vous = await rappelerLesRendezVous(admin, db, aujourdhui, "jour");
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous });
     const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...soldes.notifications,
       ...(finsDeContrat ? [fabriquerEnvoi({ ...finsDeContrat, ecran: "users" })].filter(Boolean) : [])];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires });
+    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }

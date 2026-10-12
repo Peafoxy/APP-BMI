@@ -4,7 +4,7 @@
 //
 // La décision « 1 oui » du même jour (pas de guide administrateur : il a
 // le manuel complet) est RETOURNÉE par Timo : l'administrateur a SON guide,
-// comme les autres — sa journée, les 25 chapitres, puis son examen.
+// comme les autres — sa journée, les 26 chapitres, puis son examen.
 // Deux niveaux, dans des encadrés : l'administrateur, et l'administrateur
 // PRINCIPAL (le DG), seul à traverser le mur formation / réel.
 // Boutons relus : Depenses.jsx (« ⏳ Dépenses à valider par le DG »),
@@ -22,8 +22,8 @@ export const GUIDE = {
   roles: ["admin"],
   public: "Les administrateurs de BMI, et l'administrateur principal (le DG)",
   duree: "4 jours : la journée et les chapitres les trois premiers jours, l'examen le quatrième",
-  onglets: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "travaux", "outillage", "messages", "whatsapp", "salaires", "users", "historique", "parametres"],
-  chapitres: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
+  onglets: ["dashboard", "rentabilite", "ventes", "commandes", "dimensionnement", "tous_devis", "contrats", "depenses", "chez_comptable", "dettes", "clients", "caisse", "stocks", "fournisseurs", "commerciaux", "equipe", "prospects", "parc", "travaux", "outillage", "rendez_vous", "messages", "whatsapp", "salaires", "users", "historique", "parametres"],
+  chapitres: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26],
 
   journee: [
     ["p", "L'administrateur **voit tout son espace et fait tout ce que font les autres** — vendre, encaisser, tenir le stock, faire un devis. Il porte en plus **les gestes qu'aucun autre rôle n'a** : les comptes et leurs pouvoirs, les prix, les suppressions, les remises au-delà de 3 %, les chantiers, la paie, les réglages. Les mots entre guillemets sont ceux des boutons ; le chapitre du manuel est indiqué entre parenthèses."],

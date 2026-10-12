@@ -17,8 +17,8 @@ export const GUIDE = {
   roles: ["magasinier"],
   public: "Les magasiniers du magasin BMI",
   duree: "2 jours : la journée et les chapitres le premier jour, l'examen le second",
-  onglets: ["stocks", "salaire", "primes_recues", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
-  chapitres: [1, 3, 8, 9, 10, 15, 16, 18, 19, 20, 24, 25],
+  onglets: ["stocks", "salaire", "primes_recues", "rendez_vous", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
+  chapitres: [1, 3, 8, 9, 10, 15, 16, 18, 19, 20, 26, 24, 25],
 
   journee: [
     ["p", "Le magasinier tient **le stock du magasin**, **sert les boutiques** et **tient le registre du matériel de travail**. Il ne vend pas et ne touche pas à la caisse. Les mots entre guillemets sont ceux des boutons ; le chapitre du manuel est indiqué entre parenthèses."],

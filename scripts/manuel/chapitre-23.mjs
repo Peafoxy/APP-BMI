@@ -154,7 +154,7 @@ export const CHAPITRE = {
       ["ul", [
         "**👑 Administrateur principal** : son nom ; lui seul peut **⚠ Transférer** son rôle à un autre administrateur — il perd alors tous ses gestes réservés.",
         "**🔐 Sécurité Supabase** : la base n'accepte que les appareils connectés avec une session sécurisée. **🔍 Vérifier qui est prêt** liste les utilisateurs actifs qui doivent se reconnecter ; dessous, le format des mots de passe enregistrés.",
-        "**🧨 Zone dangereuse** : **Réinitialiser toutes les données** (principal, en ligne, sauvegarde téléchargée, code recopié, mot de passe) — les comptes restent ; **🎓 Réinitialiser uniquement la formation** efface tout ce qui appartient à l'entraînement, jamais le réel.",
+        "**🧨 Zone dangereuse** : **Réinitialiser toutes les données** (principal, en ligne, sauvegarde téléchargée, code recopié, mot de passe) — les comptes restent ; **🎓 Réinitialiser uniquement la formation** efface tout ce qui appartient à l'entraînement (rendez-vous pro de formation compris), jamais le réel.",
       ]],
     ]},
 

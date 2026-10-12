@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2574 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2611 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -67,13 +67,14 @@ npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet,
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 32 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran
 npm run verifier-mot-information # 36  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 904 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement ; ㊽ supprimer une conversation par un appui long, le principal seul, à la corbeille ; ㊾ le nom d'une conversation : nom donné, compte, nom WhatsApp ; ㊿ la recherche rendue avec un texte tapé ; le loyer qui attend le propriétaire)
+npm run verifier-whatsapp        # 947 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement ; ㊽ supprimer une conversation par un appui long, le principal seul, à la corbeille ; ㊾ le nom d'une conversation : nom donné, compte, nom WhatsApp ; ㊿ la recherche rendue avec un texte tapé ; le loyer qui attend le propriétaire ; 51 📅 les rendez-vous : cinq messages, rappels de 14 h et 7 h, le privé neutre, le mur)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 225 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 83  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
 npm run tester-paie              # 77  : la fiche de paie séparée, le numéro de compte bancaire, le contrat de travail, les cases CNSS et le premier mois de paie verrouillés (serveur)
 ```
 
@@ -2518,6 +2519,58 @@ lit mal est pire qu'un banc absent).
   on le laisse ainsi** — ne pas proposer de le recréer sous un autre nom.
   L'application n'envoie que le nom du modèle : sa catégorie dans
   `MODELES` (utility) n'est qu'une information, elle ne commande rien.
+
+### 📅 L'ONGLET RENDEZ-VOUS (12/10/2026, « Aa, A2a, Ba, C 14h la veille et le jour même à 7h, Da, Ea, Fb, G toutes, H a »)
+- Timo : « un onglet RENDEZ-VOUS… une ligne à choisir, pro et privé, accessible
+  à tous les employés… pour visite, la liste des techniciens… un WhatsApp pour
+  rappeler ses rendez-vous et informer toute l'équipe d'un rendez-vous pro ».
+  Règle pure **`lib/rendezVous.js`** (lue par le serveur), écran
+  `screens/RendezVous.jsx`, table **`rendez_vous`** (Dexie v9).
+- **« A a » : une TABLE que le serveur garde** (`supabase/rendez-vous-1-table.sql`,
+  banc `tester-rendez-vous`, 50) — un privé rangé sur la fiche descendrait chez
+  tout le monde. **« A2 a »** : un privé ne se voit QUE par son auteur,
+  administrateur principal compris (le serveur ne le fait pas descendre ;
+  `rendezVousVisibles` le redit). Un pro : tout le personnel de l'espace
+  REGARDÉ. Le SQL ajoute aussi `rendez_vous` à `appliquer_lot`. ⚠ **Tant qu'il
+  n'est pas collé**, la synchro ignore la table sans alarme
+  (`tableAbsenteDuServeur`, src/sync.js) et l'écran refuse d'enregistrer
+  (`MESSAGE_TABLE_ABSENTE`) — sinon un rendez-vous coincerait tout le lot.
+- **« E a »** : tout employé crée, à SON nom (le serveur le revérifie) ; un pro
+  se modifie / s'annule (motif obligatoire) par son auteur ou l'administrateur ;
+  un participant ne fait que **✅ Fait + compte rendu** (`CHAMPS_DU_PARTICIPANT`
+  = la liste du déclencheur, le banc compare) ; un privé se supprime, un pro
+  s'annule. **« H a »** : le comptable lit les pro, ne crée rien.
+- **« F b »** : techniciens d'abord, puis le reste du personnel. Une visite :
+  au moins un participant, un **chef de la visite** (le premier coché), un
+  client ou prospect choisi (`propositionsVisite`) ou tapé.
+- **« D a »** : un pro créé → `rendez_vous_equipe` (WhatsApp) aux participants,
+  une notification (liste B, `infosDepuisDiff` § 10) au RESTE du personnel de
+  l'espace ; un changement → `rendez_vous_modifie` (déplacé, nouveau lieu,
+  annulé avec motif, « vous n'en faites plus partie » — `changementsRendezVous`,
+  jamais l'auteur du geste) ; un privé ne prévient personne. **Rien en
+  formation**. Fiche sans numéro → dit.
+- **« C »** : la VEILLE à 14 h (nouveau cron `rappels-du-soir?tournee=rendez-vous`,
+  `estTourneeRendezVous` : le paramètre, sinon l'heure < 16 h) et le JOUR MÊME
+  à 7 h (rappels-du-matin) — `api/_rendezVous.js` (pas une fonction : douze au
+  plus), règle `rappelsRendezVous` : auteur + participants d'un pro, l'auteur
+  seul d'un privé avec **`rappel_rendez_vous_prive` NEUTRE, sans l'objet**
+  (« B a ») ; jamais formation, client, inactif, bloqué, sans numéro, annulé.
+  Rien n'est écrit ; la table absente ne fait pas tomber la tournée.
+- **« G »** : 🧲 Prospects → « 📅 Planifier une visite » (prérempli) et les
+  visites + compte rendu sous la ligne ; `visite_client` APRÈS une question
+  (avec les contacts BMI — sa demande), `client_prevenu_le` ; le **conflit**
+  (autre rendez-vous, installation programmée le même jour) dit avant
+  d'enregistrer, jamais un blocage ; Aujourd'hui / Demain / Cette semaine /
+  Plus tard, passés par `HistoriqueArchive` ; la réinitialisation « formation
+  seule » les emporte.
+- **À créer par Timo chez YCloud** (utility, fr) : `rendez_vous_equipe`,
+  `rendez_vous_modifie`, `visite_client`, `rappel_rendez_vous`,
+  `rappel_rendez_vous_prive`. ~4 F le message. Bancs : `verifier-cloisonnement`
+  (+21, l'écran RENDU), `verifier-whatsapp` 51 (+17), éprouvés (privé visible,
+  mur du serveur ouvert, notification aux participants, envoi en formation) ;
+  contrôles RETOURNÉS : quarante-trois modèles, serveur seul, modèles à ligne,
+  le cron (tester-notifications). Chapitre 26 (nouveau), chapitres 2, 4, 23 et
+  les sept guides à jour.
 
 ### 🧰 Le matériel de travail (17/09/2026)
 - Timo : « le matériel de travail… comment faire le suivi, pour éviter la

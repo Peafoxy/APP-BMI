@@ -32,6 +32,8 @@ import { fabriquerEnvoi, CAISSE_COMPTABLE } from "./rappels";
 import { TYPE_TRANSFERT_STOCK, STATUT_ATTENTE, STATUT_VALIDE, STATUT_REFUSE, libelleLignes } from "./transfertsStock";
 import { fiche as ficheArgent, soldeDuRetour, caissesDuRetour, nomDossier } from "./argentChantier";
 import { achatsReglesParUnVersement, nomChantier as nomChantierAchat } from "./achatsChantier";
+import { TYPE_PRO, personnesDuRdv } from "./rendezVous";
+import { jourEnClair, heureEnClair } from "./whatsappModeles";
 
 const parId = (liste) => new Map((liste || []).map((x) => [x.id, x]));
 const nomsLignes = (lignes) => (lignes || []).map((l) => `${l.qte}× ${l.nom}`).join(", ");
@@ -348,6 +350,23 @@ export function infosDepuisDiff(avant, apres) {
             : `Le client vient de verser : l'achat ${achat.numero} qui attendait l'argent du chantier est maintenant réglé.`,
           ecran: "ventes", tag: `achat_chantier:${achat.id}:${enAttente}`, formation,
         });
+      });
+    });
+  }
+
+  // 10. 📅 Un rendez-vous PRO créé (Timo, 12/10/2026, « D a ») : les
+  //    participants ont leur WhatsApp ; TOUT LE RESTE du personnel de son
+  //    espace en est informé ici. Un privé ne prévient jamais personne.
+  if (apres.rendez_vous !== avant.rendez_vous) {
+    const deja = parId(avant.rendez_vous);
+    (apres.rendez_vous || []).forEach((r) => {
+      if (!r || deja.has(r.id) || r.type !== TYPE_PRO) return;
+      const concernes = new Set(personnesDuRdv(r));
+      pousser({
+        destinataires: personnesDeLEspace(apres, !!r.formation).map((u) => u.id).filter((id) => !concernes.has(id)),
+        titre: `📅 Rendez-vous${r.visite ? " (visite)" : ""} — ${jourEnClair(r.date)} à ${heureEnClair(r.heure)}`,
+        texte: `${r.objet}${r.lieu ? ` · ${r.lieu}` : ""} — fixé par ${r.par || "BMI"}.`,
+        ecran: "rendez_vous", tag: `rdv:${r.id}`, formation: !!r.formation,
       });
     });
   }

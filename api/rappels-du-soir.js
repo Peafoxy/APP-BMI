@@ -25,6 +25,7 @@ import { numeroWhatsApp, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 import { configYCloud, envoyerYCloud } from "./_ycloud.js";
 import { lireTable } from "./_tables.js";
 import { installationsDeDemain } from "../src/lib/affectationChantier.js";
+import { rappelerLesRendezVous } from "./_rendezVous.js";
 
 const TABLES = ["users", "boutiques", "clients_installes", "ventes", "dettes"];
 
@@ -42,6 +43,15 @@ export default async function handler(req, res) {
     const db = {};
     for (const t of TABLES) db[t] = await lireTable(admin, t);
     const aujourdhui = new Date().toISOString().slice(0, 10);
+    // 📅 LA TOURNÉE DE 14 H (12/10/2026, « C 14h la veille ») : les
+    // rendez-vous de DEMAIN, et rien d'autre. Vercel l'appelle avec
+    // ?tournee=rendez-vous ; l'heure sert de filet (sur l'offre gratuite,
+    // l'appel part dans l'heure, jamais à la minute près) — avant 16 h,
+    // c'est celle de 14 h.
+    if (estTourneeRendezVous(req)) {
+      const rendez_vous = await rappelerLesRendezVous(admin, db, aujourdhui, "veille");
+      return res.status(200).json({ ok: true, jour: aujourdhui, tournee: "rendez-vous", rendez_vous });
+    }
     // 📅 « C a » : le rappel de l'installation de demain, au chef d'équipe.
     const installations = await rappelerLesInstallations(db, aujourdhui);
     const rappel = rappelVeilleAnniversaires(db, aujourdhui);
@@ -95,4 +105,13 @@ async function envoyerDuNumeroBmi(to, envoi, quoi) {
     console.error(`[rappels-du-soir] ${quoi}`, e?.message || e);
     return "erreur";
   }
+}
+
+// La tournée de 14 h : le paramètre de l'appel, ou à défaut l'heure (avant
+// 16 h à Lomé, GMT+0). Celle de 17 h n'envoie jamais les rendez-vous.
+export function estTourneeRendezVous(req, maintenant = new Date()) {
+  let t = "";
+  try { t = new URL(req?.url || "", "http://x").searchParams.get("tournee") || ""; } catch { t = ""; }
+  if (t) return t === "rendez-vous";
+  return maintenant.getUTCHours() < 16;
 }

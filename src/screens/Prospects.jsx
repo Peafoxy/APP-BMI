@@ -17,11 +17,12 @@ import { prospectAcquis, estDemandeAssistant, prendreEnCharge, critiquePriseEnCh
 import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
+import { rendezVousVisibles, visitesDuProspect, libelleStatut } from "../lib/rendezVous";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
-export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirDevis }) {
+export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirDevis, onPlanifierVisite }) {
   const estChef = !!profile.chef_equipe;
   const voitTout = isAdmin || estChef || profile.role === "resp_commercial";
   const categories = db.categories_prospects.filter((c) => c.actif !== false);
@@ -315,6 +316,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // formation — et surtout un chef d'équipe ou un responsable, qui voient
   // TOUT — retrouvait la vraie file de relance de l'entreprise.
   const espace = espaceDuCompte(db, profile);
+  const rdvVisibles = rendezVousVisibles(db.rendez_vous, profile, espace === true);
   const tousProspects = (db.prospects || []).filter((p) => espace === undefined || !!p.formation === espace);
   const acquis = tousProspects.filter((p) => p.converti);
   const archives = tousProspects.filter((p) => p.archive && !p.converti);
@@ -581,6 +583,11 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                     {!p.archive && !p.converti && onPreparerDevis && (isAdmin || p.commercial === profile.nom) && (
                       <button onClick={() => preparerDevis(p)} className="text-xs font-bold text-white bg-sky-800 rounded px-2 py-0.5 hover:bg-sky-900 mr-2" title="Ouvre le dimensionnement solaire avec les appareils lus dans le besoin">🔆 Préparer le devis</button>
                     )}
+                    {/* 📅 « Planifier une visite » (12/10/2026, Rendez-vous « G ») : ouvre
+                        📅 Rendez-vous avec une visite pro déjà rattachée à CE prospect. */}
+                    {!p.archive && !p.converti && onPlanifierVisite && (isAdmin || p.commercial === profile.nom) && (
+                      <button data-planifier-visite onClick={() => onPlanifierVisite(p)} className="text-xs font-bold text-sky-800 border border-sky-300 rounded px-2 py-0.5 hover:bg-sky-50 mr-2">📅 Planifier une visite</button>
+                    )}
                     {!p.archive && !p.converti && (isAdmin || p.commercial === profile.nom) && (
                       <button onClick={() => contacte(p)} className="text-xs text-sky-700 underline font-semibold" title={`Dernière activité : ${dFR(derniereActivite(p))}`}>📞 Contacté</button>
                     )}
@@ -599,6 +606,16 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                     localisation ? »). Toute la largeur, deux lignes au plus, un
                     clic l'ouvre en entier, un second le replie. L'estimation de
                     l'assistant y est une pastille, une seule fois. */}
+                {/* 📅 Les visites de ce prospect et leur compte rendu (Rendez-vous « G »). */}
+                {visitesDuProspect(rdvVisibles, p.id).length > 0 && (
+                  <tr className={enRetard ? "bg-orange-50" : ""} data-visites-prospect>
+                    <td colSpan={10} className="px-3 pb-2 pt-0 text-xs text-slate-600">
+                      {visitesDuProspect(rdvVisibles, p.id).map((r) => (
+                        <div key={r.id}>📅 Visite du {dFR(r.date)} à {r.heure} — {libelleStatut(r.statut)}{r.compte_rendu ? <> · <b>📝 {r.compte_rendu}</b></> : ""}</div>
+                      ))}
+                    </td>
+                  </tr>
+                )}
                 {(p.nature || p.estimation_assistant) && (
                   <tr className={`${enRetard ? "bg-orange-50" : ""} cursor-pointer`} onClick={() => setBesoinDeplie(deplie ? null : p.id)} data-besoin-prospect={deplie ? "deplie" : "replie"}>
                     <td colSpan={10} className="px-3 pb-2 pt-0">

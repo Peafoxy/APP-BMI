@@ -19,8 +19,8 @@ export const GUIDE = {
   roles: ["comptable"],
   public: "Le comptable de BMI",
   duree: "1 jour et demi : la journée et les chapitres le premier jour, l'examen ensuite",
-  onglets: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "messages", "salaire", "primes_recues", "nouveau_client"],
-  chapitres: [1, 3, 6, 7, 8, 16, 17, 18, 20, 22, 24, 25],
+  onglets: ["dashboard", "rentabilite", "depenses", "chez_comptable", "dettes", "caisse", "stocks", "clients", "historique", "rendez_vous", "messages", "salaire", "primes_recues", "nouveau_client"],
+  chapitres: [1, 3, 6, 7, 8, 16, 17, 18, 20, 22, 26, 24, 25],
 
   journee: [
     ["p", "Le comptable **lit tout ce qui touche à l'argent et l'exporte**. Il est **en lecture seule** partout, sauf pour un geste qui est le sien : **pointer ce qui passe par sa caisse**, « Chez le comptable ». Les mots entre guillemets sont ceux des boutons ; le chapitre du manuel est indiqué entre parenthèses."],

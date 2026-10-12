@@ -240,6 +240,22 @@ export const MODELES = {
   // part quand la date est déplacée ; « C a » aucun rappel la veille.
   installation_programmee: { categorie: "utility", variables: ["client", "installation", "date", "lieu", "chef", "telephone_chef"] },
   installation_deplacee: { categorie: "utility", variables: ["client", "installation", "date", "ancienne_date", "lieu", "chef", "telephone_chef"] },
+  // 📅 12/10/2026, Timo (« Aa, A2a, Ba, C 14h la veille et le jour même à
+  // 7h, Da, Ea, Fb, G toutes, H a ») : l'onglet 📅 Rendez-vous. UTILITY (un
+  // rendez-vous de travail, rien de commercial). Les textes sont ceux
+  // proposés et acceptés ; `visite_client` porte les contacts de BMI (sa
+  // demande : « ajouter les contacts BMI, l'e-mail et le site web »).
+  // `rendez_vous_equipe` : un participant ajouté à un rendez-vous pro (« D a ») ;
+  // `rendez_vous_modifie` : déplacé, annulé, ou le participant retiré ;
+  // `visite_client` : le client prévenu d'une visite, APRÈS une question.
+  rendez_vous_equipe: { categorie: "utility", variables: ["employe", "auteur", "objet", "date", "heure", "lieu", "participants"] },
+  rendez_vous_modifie: { categorie: "utility", variables: ["employe", "objet", "changement"] },
+  visite_client: { categorie: "utility", variables: ["client", "date", "heure", "lieu", "chef", "telephone_chef"] },
+  // « C » : la VEILLE à 14 h et le JOUR MÊME à 7 h. SERVEUR SEUL
+  // (api/_rendezVous.js) — aucun écran ne les envoie. Le rappel d'un privé
+  // est NEUTRE, sans l'objet (« B a ») : la copie se lit sur le téléphone BMI.
+  rappel_rendez_vous: { categorie: "utility", variables: ["employe", "objet", "date", "heure", "lieu", "participants"] },
+  rappel_rendez_vous_prive: { categorie: "utility", variables: ["employe", "date", "heure"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -300,6 +316,10 @@ export const MODELES_EN_SERVICE = [
   "affectation_chantier", "changement_affectation",
   // 12/10/2026 : le client prévenu de la programmation et du déplacement.
   "installation_programmee", "installation_deplacee",
+  // 12/10/2026 : 📅 Rendez-vous — le participant ajouté, le changement, la
+  // visite annoncée au client. En service AVANT l'accord de Meta : d'ici là
+  // rien ne part (aucun repli), et l'écran le dit.
+  "rendez_vous_equipe", "rendez_vous_modifie", "visite_client",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -816,6 +836,10 @@ const LIGNES_ENVOI = {
   installation_programmee: ([client, installation, date, , chef]) => `Avis de programmation envoyé à ${client} : installation ${installation} le ${date}, chef d'équipe ${chef}.`,
   installation_deplacee: ([client, installation, date, ancienne, , chef]) => `Avis de changement de date envoyé à ${client} : installation ${installation} déplacée au ${date} (au lieu du ${ancienne}), chef d'équipe ${chef}.`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
+  rendez_vous_equipe: ([employe, , objet, date, heure]) => `Avis de rendez-vous envoyé à ${employe} : ${objet}, le ${date} à ${heure}.`,
+  rendez_vous_modifie: ([employe, objet, changement]) => `Avis de changement de rendez-vous envoyé à ${employe} (${objet}) : ${changement}`,
+  // ⚠ Le numéro du chef de la visite (trou 6) n'est pas recopié dans le fil.
+  visite_client: ([client, date, heure, , chef]) => `Visite annoncée à ${client} : le ${date} à ${heure}, chef de la visite ${chef}.`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
 export const PREFIXE_LIGNE_ENVOI = "📲 Envoyé du numéro BMI — ";
@@ -1968,5 +1992,65 @@ export function envoiInstallationClient({ chantier, date, dateAvant, chefNom, ch
 const TEXTES_AFFECTATION = { affectation_chantier: TEXTE_AFFECTATION_CHANTIER, changement_affectation: TEXTE_CHANGEMENT_AFFECTATION, rappel_installation: TEXTE_RAPPEL_INSTALLATION, installation_programmee: TEXTE_INSTALLATION_PROGRAMMEE, installation_deplacee: TEXTE_INSTALLATION_DEPLACEE };
 export const texteAffectation = (envoi) => {
   const t = envoi && TEXTES_AFFECTATION[envoi.modele];
+  return t ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), t) : "";
+};
+
+// ---------------------------------------------------------------
+// 📅 LES RENDEZ-VOUS (12/10/2026) — les textes, mot pour mot chez Meta. La
+// règle de QUI reçoit QUOI vit dans lib/rendezVous.js.
+// ---------------------------------------------------------------
+export const TEXTE_RENDEZ_VOUS_EQUIPE = "Bonjour {{1}}, {{2}} vous a ajouté à un rendez-vous BMI TOGO : {{3}}, le {{4}} à {{5}}. Lieu : {{6}}. Participants : {{7}}. Détails dans l'application BMI, onglet Rendez-vous. BMI TOGO";
+export const TEXTE_RENDEZ_VOUS_MODIFIE = "Bonjour {{1}}, changement pour le rendez-vous BMI TOGO {{2}} : {{3}}. BMI TOGO";
+export const TEXTE_RAPPEL_RENDEZ_VOUS = "Bonjour {{1}}, rappel de votre rendez-vous BMI TOGO : {{2}}, le {{3}} à {{4}}. Lieu : {{5}}. Participants : {{6}}. BMI TOGO";
+export const TEXTE_RAPPEL_RENDEZ_VOUS_PRIVE = "Bonjour {{1}}, rappel : vous avez un rendez-vous personnel le {{2}} à {{3}}. Le détail est dans l'application BMI, onglet Rendez-vous. BMI TOGO";
+// ⚠ Timo (12/10/2026) : « ajouter les contacts BMI, l'e-mail et le site web
+// BMI » — le bloc court commun (📧, 📞, 🌐), jamais recopié.
+export const TEXTE_VISITE_CLIENT = [
+  "Bonjour {{1}}, BMI TOGO vous confirme la visite de nos techniciens le {{2}} à {{3}}, à {{4}}.",
+  "Le chef de la visite, {{5}}, est joignable au {{6}}.",
+  "",
+  ...BLOC_CONTACT_COURT,
+  "Merci de votre confiance.",
+].join("\n");
+
+// « 14:30 » → « 14 h 30 », « 09:00 » → « 9 h ».
+export function heureEnClair(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || ""));
+  if (!m) return "";
+  const h = Number(m[1]), mn = m[2];
+  return mn === "00" ? `${h} h` : `${h} h ${mn}`;
+}
+const lieuRdv = (lieu) => texteVariable(lieu) || "à préciser";
+const participantsRdv = (noms) => texteVariable((noms || []).filter(Boolean).join(", ")) || "aucun autre participant";
+
+export function envoiRendezVousEquipe({ employe, auteur, rdv, participants }) {
+  const nom = texteVariable(employe), jour = jourEnClair(rdv?.date), heure = heureEnClair(rdv?.heure);
+  const objet = texteVariable(rdv?.objet);
+  if (!nom || !jour || !heure || !objet) return null;
+  return { modele: "rendez_vous_equipe", variables: [nom, texteVariable(auteur) || "BMI TOGO", objet, jour, heure, lieuRdv(rdv?.lieu), participantsRdv(participants)] };
+}
+export function envoiRendezVousModifie({ employe, rdv, changement }) {
+  const nom = texteVariable(employe), objet = texteVariable(rdv?.objet), quoi = texteVariable(changement);
+  if (!nom || !objet || !quoi) return null;
+  return { modele: "rendez_vous_modifie", variables: [nom, objet, quoi] };
+}
+// Le numéro du chef de la visite, sinon le numéro BMI (le client a toujours
+// quelqu'un à appeler, et Meta refuse un trou vide).
+export function envoiVisiteClient({ client, rdv, chefNom, chefTel }) {
+  const nom = texteVariable(client) || "cher client", jour = jourEnClair(rdv?.date), heure = heureEnClair(rdv?.heure);
+  if (!jour || !heure) return null;
+  return { modele: "visite_client", variables: [nom, jour, heure, lieuRdv(rdv?.lieu), texteVariable(chefNom) || "à confirmer", telChef(chefTel)] };
+}
+export function envoiRappelRendezVous({ employe, rdv, participants }) {
+  const nom = texteVariable(employe), jour = jourEnClair(rdv?.date), heure = heureEnClair(rdv?.heure);
+  if (!nom || !jour || !heure) return null;
+  if (rdv?.type === "prive") return { modele: "rappel_rendez_vous_prive", variables: [nom, jour, heure] };
+  const objet = texteVariable(rdv?.objet);
+  if (!objet) return null;
+  return { modele: "rappel_rendez_vous", variables: [nom, objet, jour, heure, lieuRdv(rdv?.lieu), participantsRdv(participants)] };
+}
+const TEXTES_RENDEZ_VOUS = { rendez_vous_equipe: TEXTE_RENDEZ_VOUS_EQUIPE, rendez_vous_modifie: TEXTE_RENDEZ_VOUS_MODIFIE, visite_client: TEXTE_VISITE_CLIENT, rappel_rendez_vous: TEXTE_RAPPEL_RENDEZ_VOUS, rappel_rendez_vous_prive: TEXTE_RAPPEL_RENDEZ_VOUS_PRIVE };
+export const texteRendezVous = (envoi) => {
+  const t = envoi && TEXTES_RENDEZ_VOUS[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), t) : "";
 };

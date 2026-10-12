@@ -203,6 +203,7 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.evolution_id ? { evolution_id: ref.evolution_id } : {}),
     ...(ref && ref.commission_ref ? { commission_ref: ref.commission_ref } : {}),
     ...(ref && ref.loyer_depense_id ? { loyer_depense_id: ref.loyer_depense_id } : {}),
+    ...(ref && ref.rdv_id ? { rdv_id: ref.rdv_id } : {}),
     ...(ref && ref.prime_user_id ? { chantier_id: ref.chantier_id, prime_user_id: ref.prime_user_id } : {}),
     ...(prive ? { wa_prive: true } : {}),
     ...prop,
