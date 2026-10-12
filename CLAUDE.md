@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2554 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2556 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -61,7 +61,7 @@ npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Tout
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 26  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
-npm run verifier-ecran-achat-chantier # 15 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK)
+npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
@@ -689,9 +689,26 @@ lit mal est pire qu'un banc absent).
   frais d'installation disparaît et vaut 0** (`avecInstallation === false`) ;
   recochée, le chiffre d'avant revient ; **toucher aux frais coche la case**
   (sinon vider le champ ferait disparaître la ligne). Pose seule inchangée. ⚠
-  Une remise libre arrive dans 💰 Ventes en pourcentage à décimales (le champ y
-  reste en %). Rien à coller. Banc (9 contrôles, l'écran RENDU), éprouvé ; un
-  contrôle RETOURNÉ (le devis porte les trois modes). Chapitres 11, 12, 13.
+  Une remise libre arrive dans 💰 Ventes en pourcentage à décimales (écrit à
+  2 décimales sur les documents, `pctRemiseLisible`). Rien à coller. Banc (9
+  contrôles, l'écran RENDU), éprouvé ; un contrôle RETOURNÉ (le devis porte les
+  trois modes). Chapitres 11, 12, 13.
+- **🏷 💰 VENTES : UNE CASE DE REMISE, EN % OU LIBRE** (12/10/2026, capture :
+  « transformer les 2 cas en case unique… au-dessus on choisit soit libre ou
+  en % »). `ChampRemise` (Ventes.jsx) : une liste au-dessus de la case
+  (« Remise ligne (%) / Remise ligne libre (F) », « Remise (%) / Remise libre
+  (F) »), UNE case dessous ; changer de mode reprend la remise déjà saisie dans
+  l'autre unité. La remise d'un article garde ses deux valeurs liées
+  (`remF` / `remP`) ; la générale libre (`f.remiseMode`, `f.remiseMontant`)
+  porte `remise_mode: "montant"` sur la vente et la proforma, et son
+  pourcentage ÉQUIVALENT dans `remise_pct` (la limite des 3 %, securite-14 /
+  -33, `remiseDeProformaGardee` — inchangés). Confirmation « remise libre =
+  −X », documents sans pourcentage. Une proforma libre reprise reste libre
+  (`formeRemiseProforma`). La remise générale est un ÉLÉMENT JSX
+  (`champRemiseGenerale`), jamais un composant défini dans l'écran (la case
+  perdrait son curseur). Rien à coller. Bancs : Chromium
+  `verifier-ecran-achat-chantier` (+6, éprouvé : pourcentage non équivalent,
+  mode non rangé) ; `verifier-cloisonnement` (+2, un RETOURNÉ). Chapitre 5.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

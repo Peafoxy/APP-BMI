@@ -125,7 +125,7 @@ export function critiqueAchatChantier({ profile, chantier, panier }) {
   return null;
 }
 
-export function construireAchatChantier({ chantier, panier, remise = 0, remisePct = 0, boutique, profile, numero, date = today(), heure = heureCourte(), produits = [] }) {
+export function construireAchatChantier({ chantier, panier, remise = 0, remisePct = 0, remiseMode = null, boutique, profile, numero, date = today(), heure = heureCourte(), produits = [] }) {
   const id = uid();
   const prixAchat = new Map((produits || []).map((p) => [p.id, Number(p.prix_achat || 0)]));
   const lignes = (panier || []).map((l) => ({
@@ -139,7 +139,7 @@ export function construireAchatChantier({ chantier, panier, remise = 0, remisePc
     motif: `Achat pour le chantier ${nom} (${numero})`, par: profile.nom,
   }));
   const achat = {
-    id, numero, date, heure, boutique, lignes, remise: Number(remise || 0), remise_pct: Number(remisePct || 0),
+    id, numero, date, heure, boutique, lignes, remise: Number(remise || 0), remise_pct: Number(remisePct || 0), ...(remiseMode === "montant" ? { remise_mode: "montant" } : {}),
     paiement: PAIEMENT_CHANTIER, par: profile.nom, par_id: profile.id, ajustements: ajustements.map((a) => a.id),
   };
   return {

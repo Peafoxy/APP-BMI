@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { fichierPdf } from "./lib/core";
+import { fichierPdf, pctRemiseLisible } from "./lib/core";
 import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
@@ -249,7 +249,7 @@ export function genererProforma(p, logo, retournerDoc = false) {
     doc.text(`${fmtMontant(p.sous_total)} F`, largeur - 18, y, { align: "right" });
     y += 5;
     doc.setTextColor(61, 139, 64);
-    doc.text(`Remise ${p.remise_pct} % :`, largeur - 60, y);
+    doc.text(`Remise${pctRemiseLisible(p)} :`, largeur - 60, y);
     doc.text(`-${fmtMontant(p.remise_montant)} F`, largeur - 18, y, { align: "right" });
     doc.setTextColor(60, 60, 60);
     y += 7;

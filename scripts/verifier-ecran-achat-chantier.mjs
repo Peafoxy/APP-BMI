@@ -153,6 +153,48 @@ console.log("\n🔒 Le matériel réservé : la vente au comptoir qui empiète (
   test("★ « OK » : la vente part (le stock sort, le chantier manquera de matériel)", v.length >= 1 && v[v.length - 1] === 2, JSON.stringify(v));
   await page.close();
 }
+console.log("\n🏷 UNE case de remise, en % ou libre (12/10/2026, « case unique… au-dessus on choisit soit libre ou en % »)");
+{
+  const { page, erreurs } = await ouvrir();
+  const ligneInputs = await page.$$eval("[data-remise-ligne] input", (l) => l.length);
+  const optLigne = await page.$$eval("[data-remise-ligne] [data-mode-remise] option", (o) => o.map((x) => x.textContent));
+  const optGen = await page.$$eval("[data-remise-generale] [data-mode-remise] option", (o) => o.map((x) => x.textContent));
+  test("★★ la remise d'un article : UNE seule case, et au-dessus la liste « Remise ligne (%) / Remise ligne libre (F) » ; la générale pareil",
+    erreurs.length === 0 && ligneInputs === 1 && optLigne.join("|") === "Remise ligne (%)|Remise ligne libre (F)" && optGen.join("|") === "Remise (%)|Remise libre (F)"
+    && !!(await page.$("[data-remise-ligne] [data-remise-pct]")), JSON.stringify({ ligneInputs, optLigne, optGen, erreurs }));
+  await page.selectOption("[data-remise-ligne] [data-mode-remise]", "montant"); await attendre(100);
+  test("★ « libre » choisi : la case de la ligne devient une case en francs (toujours une seule)",
+    !!(await page.$("[data-remise-ligne] [data-remise-montant]")) && !(await page.$("[data-remise-ligne] [data-remise-pct]")) && (await page.$$eval("[data-remise-ligne] input", (l) => l.length)) === 1);
+  await page.fill("[data-remise-generale] [data-remise-pct]", "2"); await attendre(100);
+  await page.selectOption("[data-remise-generale] [data-mode-remise]", "montant"); await attendre(100);
+  test("★ changer de mode reprend la remise déjà saisie : 2 % de 240 000 → 4 800 F dans la case libre",
+    (await page.inputValue("[data-remise-generale] [data-remise-montant]")) === "4800");
+  await page.fill("[data-remise-generale] [data-remise-montant]", "7200"); await attendre(100);
+  const tel = page.locator('input[type="tel"]').first();
+  if (await tel.count()) await tel.fill("90112233");
+  await page.locator("button", { hasText: "Encaisser la vente" }).first().click(); await attendre(250);
+  let q = await dialogue(page);
+  if (/pas de numéro/i.test(q)) { await bouton(page, "Continuer"); q = await dialogue(page); }
+  test("★★ la confirmation dit « remise libre = −7 200 F », sans pourcentage", /remise libre = −7 200 F/.test(q) && !/remise [\d.,]+ %/.test(q), q);
+  await bouton(page, "OK"); await attendre(300);
+  const v = await page.evaluate(() => { const x = window.saves[window.saves.length - 1]; return x ? x.n.ventes.find((y) => y.id !== "vD") : null; });
+  test("★★ la vente garde remise_mode « montant » et le pourcentage ÉQUIVALENT (7 200 sur 240 000 = 3 %) — c'est lui que lisent la limite des 3 % et le serveur",
+    !!v && v.remise_mode === "montant" && Number(v.remise_pct) === 3, JSON.stringify(v && { remise_mode: v.remise_mode, remise_pct: v.remise_pct }));
+  await page.close();
+}
+{
+  const { page } = await ouvrir();
+  await page.selectOption("[data-remise-generale] [data-mode-remise]", "montant"); await attendre(100);
+  await page.fill("[data-remise-generale] [data-remise-montant]", "12000"); await attendre(100);
+  const tel = page.locator('input[type="tel"]').first();
+  if (await tel.count()) await tel.fill("90112233");
+  await page.locator("button", { hasText: "Encaisser la vente" }).first().click(); await attendre(250);
+  let q = await dialogue(page);
+  if (/pas de numéro/i.test(q)) { await bouton(page, "Continuer"); q = await dialogue(page); }
+  test("★★ une remise LIBRE de 12 000 F sur 240 000 (5 %) par la gérante → refusée comme 5 % (au-delà de 3 %, l'administrateur), rien n'est écrit",
+    /réservée à l'administrateur/.test(q) && (await saves(page)) === 0, q);
+  await page.close();
+}
 {
   const { page } = await ouvrir("vendeuse");
   test("★ la vendeuse n'a pas la case « 🏗 Chantier »", !(await page.$("[data-coche-chantier]")) && /Numéro du client/.test(await page.innerText("body")));

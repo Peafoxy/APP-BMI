@@ -13,7 +13,7 @@
 // Ce fichier est PUR (aucun React) : le banc fabrique le même devis avec
 // l'ancienne écriture et celle-ci, et vérifie qu'ils sont identiques.
 // ============================================================
-import { uid, today, heureCourte } from "../../lib/core";
+import { uid, today, heureCourte, montantSaisi, pctEquivalent } from "../../lib/core";
 import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { CATEGORIE_CF_VISITE, estLigneCfVisite, lignesCfVisite, critiqueCompletion, nombreSaisi } from "../../lib/devisCfVisite";
@@ -73,9 +73,8 @@ export const lierAutreAuStock = (autre, nom, produits) => {
 export const MODE_POURCENT = "pct";
 export const MODE_MONTANT = "montant";
 const enMontant = (mode) => mode === MODE_MONTANT;
-export const montantSaisi = (v) => Math.max(0, Math.round(Number(String(v ?? "").replace(/\s/g, "").replace(",", ".")) || 0));
-// Six décimales : appliqué aux mêmes articles, il redonne le montant au franc près.
-export const pctEquivalent = (montant, base) => (Number(base) > 0 ? Math.round(((Number(montant) || 0) * 100 / Number(base)) * 1e6) / 1e6 : 0);
+// montantSaisi / pctEquivalent vivent dans lib/core.js (💰 Ventes s'en sert aussi).
+export { montantSaisi, pctEquivalent };
 export const calculerTotaux = ({ totalArticles, pctRemise, pctInstall, pctTransport, poseSeule, montantPoseFixe, pctAcompte,
   modeRemise, montantRemise, modeInstall, montantInstall, modeTransport, montantTransport, avecInstallation }) => {
   const remise = enMontant(modeRemise)

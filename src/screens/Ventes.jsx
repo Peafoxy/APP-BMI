@@ -13,7 +13,7 @@ import { LOGO, PAIEMENTS, caisseDeVente } from "../lib/constants";
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
 import { prochainNumeroAchatChantier } from "../lib/core";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -103,6 +103,33 @@ export const numeroManquant = (tel) => String(tel || "").replace(/\D/g, "").leng
 // dans le formulaire de 💰 Ventes.
 const identiteDe = (doc) => ({ prenom: (doc && doc.prenom) || "", entreprise: formulaireDepuisEntreprise(doc && doc.entreprise) });
 
+// Une proforma reprise (🛒 Vendre, ✏️ Modifier) garde la FORME de sa remise :
+// libre si elle a été faite en francs, sinon le pourcentage.
+const formeRemiseProforma = (pf, r) => (pf && pf.remise_mode === MODE_REMISE_MONTANT && Number(r.remisePct) > 0 && Number(pf.remise_montant) > 0
+  ? { remise: r.remisePct ? String(r.remisePct) : "", remiseMode: MODE_REMISE_MONTANT, remiseMontant: String(Math.round(Number(pf.remise_montant))) }
+  : { remise: r.remisePct ? String(r.remisePct) : "", remiseMode: "pct", remiseMontant: "" });
+
+// 🏷 UNE case de remise (Timo, 12/10/2026 : « transformer les 2 cas en case
+// unique… au-dessus on choisit soit libre ou en % ») : la liste du titre dit
+// ce qu'on tape — un pourcentage, ou un montant libre en francs.
+export function ChampRemise({ titre, mode, onMode, pct, onPct, montant, onMontant, disabled, title, attr }) {
+  const libre = mode === "montant";
+  return (
+    <div className="block" {...attr}>
+      <select value={libre ? "montant" : "pct"} onChange={(e) => onMode(e.target.value)} aria-label={`Type de ${titre.toLowerCase()}`} data-mode-remise
+        className="text-xs font-semibold text-slate-500 uppercase tracking-wide bg-white border border-slate-300 rounded px-1 py-0.5">
+        <option value="pct">{titre} (%)</option>
+        <option value="montant">{titre} libre (F)</option>
+      </select>
+      <div className="mt-1">
+        {libre
+          ? <input type="number" min="0" className={inputCls} value={montant} onChange={(e) => onMontant(e.target.value)} placeholder="0" disabled={disabled} title={title} data-remise-montant />
+          : <input type="number" min="0" max="100" step="0.1" className={inputCls} value={pct} onChange={(e) => onPct(e.target.value)} placeholder="0" disabled={disabled} title={title} data-remise-pct />}
+      </div>
+    </div>
+  );
+}
+
 export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis, venteDeplieeInitiale = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "ventes" });
   const [bq, setBq] = useState(profile.boutique || preRempli?.boutique || premiere);
@@ -191,6 +218,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       client: preRempli.client || f0.client,
       tel: preRempli.tel || f0.tel,
       remise: preRempli.remise ? String(preRempli.remise) : f0.remise,
+      ...(preRempli.remise ? { remiseMode: "pct", remiseMontant: "" } : {}),
       commercial: preRempli.commercial || f0.commercial,
       responsable: preRempli.responsable || f0.responsable,
       rabais: preRempli.rabais || f0.rabais,
@@ -251,7 +279,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   };
 
   // ---- REMISE LIGNE : deux champs liés. Taper des FCFA calcule le %,
-  // taper un % calcule les FCFA — toujours sur la base qté × prix unitaire. ----
+  // taper un % calcule les FCFA — toujours sur la base qté × prix unitaire.
+  // 12/10/2026 (Timo : « transformer les 2 cas en case unique… au-dessus on
+  // choisit soit libre soit en % ») : UNE case, et la liste au-dessus dit
+  // laquelle on tape ; le choix reste d'un article à l'autre. ----
+  const [modeRemiseLigne, setModeRemiseLigne] = useState("pct");
   const baseLigne = () => Number(sel.qte || 0) * Number(sel.pu || 0);
   const saisirRemF = (txt) => {
     const base = baseLigne();
@@ -281,7 +313,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (remL > q * Number(sel.pu)) { setMsg("La remise de la ligne ne peut pas dépasser son montant."); return; }
     // Timo (10/09/2026) : remise sur un article > 3 % → administrateur seul ;
     // remise sur un article ET remise générale → jamais (l'une ou l'autre).
-    if (remL > 0 && Number(f.remise || 0) > 0) { uAlert(`🔒 ${MSG_REMISE_EXCLUSIVE}`); return; }
+    if (remL > 0 && remiseGeneraleSaisie) { uAlert(`🔒 ${MSG_REMISE_EXCLUSIVE}`); return; }
     if (remL > 0 && profile.role !== "admin" && remiseLigneExigeAdmin({ qte: q, pu: sel.pu, remise_ligne: remL })) { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % sur un article est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus.`); return; }
     mettreAuPanier(p, q, sel.pu, remL);
     setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
@@ -304,8 +336,15 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
   const brut = panier.reduce((s, l) => s + Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0), 0);
   const totalRemisesLigne = panier.reduce((s, l) => s + Number(l.remise_ligne || 0), 0);
-  const remisePct = Number(f.remise || 0);
-  const remise = Math.round((brut * remisePct) / 100);
+  // 💲 La remise générale en % (d'office) ou en MONTANT LIBRE (12/10/2026) : une
+  // remise libre ne dépasse pas les articles, et son pourcentage ÉQUIVALENT est
+  // ce que lisent la limite des 3 %, le serveur et les documents.
+  const remiseLibre = f.remiseMode === MODE_REMISE_MONTANT;
+  const remise = remiseLibre ? Math.min(montantSaisi(f.remiseMontant), Math.max(0, Math.round(brut))) : Math.round((brut * Number(f.remise || 0)) / 100);
+  const remisePct = remiseLibre ? pctEquivalent(remise, brut) : Number(f.remise || 0);
+  const remiseGeneraleSaisie = remiseLibre ? montantSaisi(f.remiseMontant) > 0 : Number(f.remise || 0) > 0;
+  const champsModeRemise = remiseLibre ? { remise_mode: MODE_REMISE_MONTANT } : {};
+  const texteRemise = remiseLibre ? `remise libre = −${fmt(remise)}` : `remise ${remisePct} % = −${fmt(remise)}`;
   // RABAIS COMMERCIAL : le commercial l'offre au client sur SA commission.
   // Il est plafonné au montant de sa commission — il ne peut pas donner ce qu'il n'a pas.
   const apporteurUser = db.users.find((u) => u.nom === f.commercial);
@@ -393,6 +432,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // leur place.
     remise_pct: remisePct,
     remise_montant: remise,
+    ...champsModeRemise,
     total: brut - remise,
     validite: "15 jours",
   });
@@ -438,7 +478,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     setPanier(r.panier);
     setOrigineProforma(null);
     setProformaEnModif({ id: pf.id, numero: pf.numero });
-    setF({ ...f, client: pf.client || "", tel: pf.tel || "", remise: r.remisePct ? String(r.remisePct) : "", ...identiteDe(pf) });
+    setF({ ...f, client: pf.client || "", tel: pf.tel || "", ...formeRemiseProforma(pf, r), ...identiteDe(pf) });
     setVueListe("ventes");
     setMsg(r.remiseEcartee ? "⚠ Remise générale écartée : une remise est déjà accordée sur un article (l'une ou l'autre)." : "");
     remonterEnHaut(true);
@@ -471,7 +511,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (panier.length > 0 && !await uConfirm(`Le panier contient déjà ${panier.length} article(s).\n\nLe remplacer par la proforma ${pf.numero} ?`)) return;
     setPanier(r.panier);
     setOrigineProforma({ id: pf.id, numero: pf.numero });
-    setF({ ...f, client: pf.client || f.client, tel: pf.tel || f.tel, remise: r.remisePct ? String(r.remisePct) : "", ...(pf.prenom || pf.entreprise ? identiteDe(pf) : {}) });
+    setF({ ...f, client: pf.client || f.client, tel: pf.tel || f.tel, ...formeRemiseProforma(pf, r), ...(pf.prenom || pf.entreprise ? identiteDe(pf) : {}) });
     setVueListe("ventes");
     const avis = [
       `🛒 Proforma ${pf.numero} : ${r.panier.length} article(s) au panier. Vérifiez, puis encaissez.`,
@@ -657,14 +697,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const alerte = avertissementMateriel(argent, totalPanierAchat);
     if (!await uConfirm(
       `Enregistrer l'achat pour le chantier de ${nomChantier(c)} ?\n\n`
-      + `Articles : ${fmt(totalPanierAchat)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""}\n`
+      + `Articles : ${fmt(totalPanierAchat)}${remise ? ` (${texteRemise})` : ""}\n`
       + `🏗 Payé par le chantier : rien n'entre dans le tiroir, rien ne compte dans le chiffre d'affaires. Le matériel sort du stock.\n\n`
       + `Le client a payé ${fmt(argent.paye)} pour son devis ; déjà acheté : ${fmt(argent.achete)}.`
       + (enAttente > 0 ? `\n⏳ ${fmt(enAttente)} resteront en attente du chantier : son prochain versement les réglera d'abord.` : "")
       + (alerte ? `\n\n${alerte}` : "")
     )) return;
     const numero = prochainNumeroAchatChantier(db, boutique);
-    const r = construireAchatChantier({ chantier: c, panier, remise, remisePct, boutique, profile, numero, produits: db.produits });
+    const r = construireAchatChantier({ chantier: c, panier, remise, remisePct, remiseMode: remiseLibre ? MODE_REMISE_MONTANT : null, boutique, profile, numero, produits: db.produits });
     const next = {
       ...db,
       ajustements: [...(db.ajustements || []), ...r.ajustements],
@@ -674,7 +714,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const argentApres = argentDuChantier({ chantier: r.fiche, vente: venteDuChantier(r.fiche, db.ventes), dette: detteDuChantier(r.fiche, db.dettes) });
     try { imprimerAchatChantier(r.achat, r.fiche, infoBq(boutique), argentApres); } catch {}
     setPanier([]);
-    setF({ ...f, remise: "" });
+    setF({ ...f, remise: "", remiseMode: "pct", remiseMontant: "" });
     setPourChantier(false);
     setChantierAchatId("");
     setMsg(`✅ Achat ${numero} enregistré pour le chantier de ${nomChantier(c)} (${fmt(totalAchat(r.achat))}).`);
@@ -959,8 +999,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     }
 
     const messageConfirm = (fraisInstallDevis > 0 || fraisTransportDevis > 0)
-      ? `Confirmer la vente de ${panier.length} article(s) ?\n\nArticles : ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""}\n${fraisInstallDevis > 0 ? `Frais d'installation : ${fmt(fraisInstallDevis)}\n` : ""}${fraisTransportDevis > 0 ? `Transport : ${fmt(fraisTransportDevis)}\n` : ""}\nMONTANT TOTAL À ENCAISSER : ${fmt(totalAEncaisser)}`
-      : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (remise ${remisePct} % = −${fmt(remise)})` : ""} ?`;
+      ? `Confirmer la vente de ${panier.length} article(s) ?\n\nArticles : ${fmt(total)}${remise ? ` (${texteRemise})` : ""}\n${fraisInstallDevis > 0 ? `Frais d'installation : ${fmt(fraisInstallDevis)}\n` : ""}${fraisTransportDevis > 0 ? `Transport : ${fmt(fraisTransportDevis)}\n` : ""}\nMONTANT TOTAL À ENCAISSER : ${fmt(totalAEncaisser)}`
+      : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (${texteRemise})` : ""} ?`;
     if (!await uConfirm(auChantier ? `${messageConfirm}\n\n🏗 Devis avec installation : le matériel ne sort PAS du stock maintenant. Il sortira quand les techniciens viendront le chercher (case « 🏗 Chantier » d'une nouvelle vente).` : messageConfirm)) return;
 
     // 2.99.44 (Lot C) : numérotation robuste partagée — (max attribué) + 1,
@@ -989,6 +1029,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }),
       remise,
       remise_pct: remisePct,
+      ...champsModeRemise,
       // Frais du devis d'origine, réellement encaissés en plus des articles —
       // jamais comptés dans le chiffre d'affaires, mais désormais tracés :
       // visibles sur le reçu, comptés en caisse, et disponibles pour la
@@ -1496,6 +1537,21 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
+  // La remise générale : UNE case, en % ou libre (12/10/2026). Changer de mode
+  // reprend la remise déjà saisie, dans l'autre unité. Un élément JSX, jamais
+  // un composant défini ici : la case garderait son curseur.
+  const changerModeRemise = (m) => {
+    if (m === "montant") setF({ ...f, remiseMode: MODE_REMISE_MONTANT, remiseMontant: remise > 0 ? String(remise) : (f.remiseMontant || "") });
+    else setF({ ...f, remiseMode: "pct", remise: remise > 0 ? String(Math.round(remisePct * 100) / 100) : (f.remise || "") });
+  };
+  const champRemiseGenerale = (
+    <div>
+      <ChampRemise titre="Remise" mode={f.remiseMode || "pct"} onMode={changerModeRemise}
+        pct={f.remise} onPct={(v) => setF({ ...f, remise: v })} montant={f.remiseMontant || ""} onMontant={(v) => setF({ ...f, remiseMontant: v })}
+        disabled={aRemiseSurArticle(panier)} attr={{ "data-remise-generale": "" }} />
+      {aRemiseSurArticle(panier) && <div className="text-xs text-orange-600 mt-1 font-semibold">Remise déjà accordée sur un article : pas de remise générale.</div>}
+    </div>
+  );
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="ventes" db={db} value={enGeneral ? "" : bq} onChange={(nom) => { setBq(nom); if (ongletVentes === "general") setOngletVentes("inventaire"); }} profile={profile} />}
@@ -1543,8 +1599,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               </Field>
               <Field label="Quantité"><input type="number" min="1" className={inputCls} value={sel.qte} onChange={(e) => setSel({ ...sel, qte: e.target.value })} /></Field>
               <Field label="Prix unitaire (F)"><input type="number" className={inputCls} value={sel.pu} onChange={(e) => setSel({ ...sel, pu: e.target.value, remF: "", remP: "" })} /></Field>
-              <Field label="Remise ligne (F)"><input type="number" min="0" className={inputCls} value={sel.remF} onChange={(e) => saisirRemF(e.target.value)} placeholder="0" disabled={Number(f.remise || 0) > 0} title={Number(f.remise || 0) > 0 ? "Remise générale déjà saisie : pas de remise par article." : ""} /></Field>
-              <Field label="Remise ligne (%)"><input type="number" min="0" max="100" step="0.1" className={inputCls} value={sel.remP} onChange={(e) => saisirRemP(e.target.value)} placeholder="0" disabled={Number(f.remise || 0) > 0} title={Number(f.remise || 0) > 0 ? "Remise générale déjà saisie : pas de remise par article." : ""} /></Field>
+              <ChampRemise titre="Remise ligne" mode={modeRemiseLigne} onMode={setModeRemiseLigne}
+                pct={sel.remP} onPct={saisirRemP} montant={sel.remF} onMontant={saisirRemF} disabled={remiseGeneraleSaisie}
+                title={remiseGeneraleSaisie ? "Remise générale déjà saisie : pas de remise par article." : ""} attr={{ "data-remise-ligne": "" }} />
               {/* Demande Timo : le libellé ne va jamais à la ligne dans le bouton. */}
               <div className="flex items-end"><button onClick={ajouterAuPanier} className={`w-full whitespace-nowrap ${btnDark}`}>Ajouter au panier</button></div>
             </div>
@@ -1576,10 +1633,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             )}
             {enAchatChantier && (
               <div className="mt-3 max-w-xs">
-                <Field label="Remise (%)">
-                  <input type="number" min="0" max="100" step="0.5" placeholder="0" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} disabled={aRemiseSurArticle(panier)} />
-                  {aRemiseSurArticle(panier) && <div className="text-xs text-orange-600 mt-1 font-semibold">Remise déjà accordée sur un article : pas de remise générale.</div>}
-                </Field>
+                {champRemiseGenerale}
               </div>
             )}
 
@@ -1610,15 +1664,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               {origineDevis ? (
                 Number(f.remise || 0) > 0 && (
                   <Field label="Remise (déjà fixée sur le devis)">
-                    <div className={`${inputCls} bg-slate-50 text-slate-600 flex items-center`}>{f.remise} %</div>
+                    <div className={`${inputCls} bg-slate-50 text-slate-600 flex items-center`}>−{fmt(remise)} ({Math.round(Number(f.remise) * 100) / 100} %)</div>
                   </Field>
                 )
-              ) : (
-                <Field label="Remise (%)">
-                  <input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} disabled={aRemiseSurArticle(panier)} />
-                  {aRemiseSurArticle(panier) && <div className="text-xs text-orange-600 mt-1 font-semibold">Remise déjà accordée sur un article : pas de remise générale.</div>}
-                </Field>
-              )}
+              ) : champRemiseGenerale}
               {f.commercial && tauxCom > 0 && (
                 <Field label={`Rabais offert par ${f.commercial} (F)`}>
                   <input type="number" min="0" max={rabaisMax} className={inputCls} value={f.rabais} onChange={(e) => setF({ ...f, rabais: e.target.value })} />

@@ -4063,6 +4063,17 @@ titre("💲 Remise, frais d'installation, transport : en % ou en montant LIBRE ;
     && /r\.setModeRemise\("pct"\); r\.setMontantRemise\(""\); r\.setModeInstall\("pct"\); r\.setMontantInstall\(""\); r\.setModeTransport\("pct"\); r\.setMontantTransport\(""\);/.test(vol[0]));
 }
 
+titre("🏷 💰 Ventes : UNE case de remise, en % ou libre (12/10/2026)");
+{
+  const vr = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ une proforma reprise (🛒 Vendre, ✏️ Modifier) garde la FORME de sa remise : libre si elle a été faite en francs — sinon son reçu écrirait un pourcentage à six décimales",
+    (vr.match(/\.\.\.formeRemiseProforma\(pf, r\)/g) || []).length === 2 && /pf\.remise_mode === MODE_REMISE_MONTANT && Number\(r\.remisePct\) > 0/.test(vr)
+    && !/remiseMode: "pct", remiseMontant: "", \.\.\.identiteDe\(pf\)/.test(vr));
+  const Ck = await import(pathToFileURL("src/lib/core.js").href);
+  test("★ un pourcentage à décimales (une remise libre d'un devis, convertie) s'écrit avec 2 décimales au plus sur un document ; une remise libre de 💰 Ventes, sans pourcentage",
+    Ck.pctRemiseLisible({ remise_pct: 4.761905 }) === " (4,76 %)" && Ck.pctRemiseLisible({ remise_pct: 3 }) === " (3 %)" && Ck.pctRemiseLisible({ remise_pct: 3, remise_mode: "montant" }) === "" && Ck.pctRemiseLisible({ remise_pct: 0 }) === "");
+}
+
 titre("📋 Le statut des dettes : Tout (en cours + partielles), En cours, Partielle, Payée (12/10/2026, « payé n'est plus une dette »)");
 {
   const Cs = await import(pathToFileURL("src/lib/core.js").href);
@@ -6627,12 +6638,14 @@ titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (
     && C.critiqueRemises([l0], 2, 2000, "vendeur") === "" && C.critiqueRemises([l3], 0, 0, "gerant") === "" && C.critiqueRemises([], 3, 0, "vendeur") === "");
   const vr = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran Ventes : la règle est vérifiée à l'ajout au panier, à l'encaissement et sur les deux proformas ; la remise générale est grisée dès qu'un article porte une remise, et les remises de ligne dès qu'une remise générale est saisie",
-    /if \(remL > 0 && Number\(f\.remise \|\| 0\) > 0\) \{ uAlert\(`🔒 \$\{MSG_REMISE_EXCLUSIVE\}`\); return; \}/.test(vr) && /remL > 0 && profile\.role !== "admin" && remiseLigneExigeAdmin\(\{ qte: q, pu: sel\.pu, remise_ligne: remL \}\)/.test(vr)
+    // RETOURNÉ le 12/10/2026 : la remise générale peut être LIBRE — « saisie » se lit sur remiseGeneraleSaisie (% ou F).
+    /if \(remL > 0 && remiseGeneraleSaisie\) \{ uAlert\(`🔒 \$\{MSG_REMISE_EXCLUSIVE\}`\); return; \}/.test(vr) && /remL > 0 && profile\.role !== "admin" && remiseLigneExigeAdmin\(\{ qte: q, pu: sel\.pu, remise_ligne: remL \}\)/.test(vr)
     // RETOURNÉ le 30/09/2026 : l'encaissement passe « admin » quand la remise est celle d'une proforma reprise telle quelle (securite-33).
     // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier (🏗) — 4.
     && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 4
     && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role\)/g) || []).length === 1
-    && /value=\{f\.remise\}[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && (vr.match(/disabled=\{Number\(f\.remise \|\| 0\) > 0\}/g) || []).length === 2);
+    // RETOURNÉ le 12/10/2026 : UNE case de remise (ChampRemise) — la générale grisée par aRemiseSurArticle, la ligne par remiseGeneraleSaisie.
+    && /pct=\{f\.remise\}[^\n]*\n[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && /titre="Remise ligne"[^\n]*\n[^\n]*disabled=\{remiseGeneraleSaisie\}/.test(vr));
   const s14 = readFileSync("supabase/securite-14-remise-article.sql", "utf8");
   const ta14 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
   test("★ securite-14 : deux lectures SQL des lignes (a_remise_sur_article, remise_ligne_excessive, retirées à anon), ventes et proformas — 3 % par ligne sauf admin, ligne + générale refusé pour tous, seulement quand lignes ou remise changent (upsert relu) ; la reprise (securite-13) est reprise telle quelle ; le banc rejoue 14 cas",

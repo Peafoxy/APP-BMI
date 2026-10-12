@@ -194,6 +194,15 @@ export const detteDansFiltre = (d, filtre = "Tout") => {
   if (filtre === "Tout" || !FILTRES_STATUT_DETTE.includes(filtre)) return st !== "Payée";
   return st === filtre;
 };
+// 💲 Une remise ou des frais en MONTANT LIBRE (Timo, 12/10/2026) : le montant
+// tapé, et son pourcentage ÉQUIVALENT (six décimales : appliqué à la même base
+// il redonne le montant au franc près — la limite des 3 % et le serveur le lisent).
+export const MODE_REMISE_MONTANT = "montant";
+export const montantSaisi = (v) => Math.max(0, Math.round(Number(String(v ?? "").replace(/\s/g, "").replace(",", ".")) || 0));
+export const pctEquivalent = (montant, base) => (Number(base) > 0 ? Math.round(((Number(montant) || 0) * 100 / Number(base)) * 1e6) / 1e6 : 0);
+// Le pourcentage d'une remise tel qu'un document l'écrit : rien pour une remise libre.
+// Un pourcentage venu d'une remise libre (devis converti) a des décimales : 2 au plus à l'écrit.
+export const pctRemiseLisible = (doc, pct = doc?.remise_pct) => (doc?.remise_mode === MODE_REMISE_MONTANT || !Number(pct) ? "" : ` (${String(Math.round(Number(pct) * 100) / 100).replace(".", ",")} %)`);
 export const lignesVente = (v) => (v.articles && v.articles.length ? v.articles : [{ produit_id: v.produit_id, article: v.article, qte: v.qte, pu: v.pu }]);
 // ⚠ CORRECTIF 2.99.50 : brutVente() ignorait les remises PAR LIGNE
 // (remise_ligne) — elle ne faisait que qte×pu, sans jamais les soustraire.

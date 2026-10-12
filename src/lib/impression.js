@@ -4,7 +4,7 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, fmtFcfa, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp } from "./core";
+import { today, dFR, fmt, fmtFcfa, pctRemiseLisible, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp } from "./core";
 import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
@@ -154,7 +154,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
 
     <table class="totaux">
       <tr><td>Sous-total articles :</td><td>${fmt(brut)}</td></tr>
-      <tr><td>Remise${v.remise_pct ? ` (${v.remise_pct} %)` : ""} :</td><td>${v.remise ? "−" + fmt(v.remise) : fmt(0)}</td></tr>
+      <tr><td>Remise${pctRemiseLisible(v)} :</td><td>${v.remise ? "−" + fmt(v.remise) : fmt(0)}</td></tr>
       ${Number(v.rabais || 0) > 0 ? `<tr><td>Rabais commercial${v.commercial ? ` (${esc(v.commercial)})` : ""} :</td><td>−${fmt(v.rabais)}</td></tr>` : ""}
       ${Number(v.frais_installation || 0) > 0 ? `<tr><td>Frais d'installation :</td><td>${fmt(v.frais_installation)}</td></tr>` : ""}
       ${Number(v.frais_transport || 0) > 0 ? `<tr><td>Transport / livraison :</td><td>${fmt(v.frais_transport)}</td></tr>` : ""}
@@ -388,7 +388,7 @@ export function imprimerAchatChantier(achat, chantier, bq = {}, argent = null) {
     </table>
 
     <table class="totaux">
-      ${Number(achat.remise || 0) > 0 ? `<tr><td>Sous-total :</td><td>${fmt(brut)}</td></tr><tr><td>Remise${achat.remise_pct ? ` (${achat.remise_pct} %)` : ""} :</td><td>−${fmt(achat.remise)}</td></tr>` : ""}
+      ${Number(achat.remise || 0) > 0 ? `<tr><td>Sous-total :</td><td>${fmt(brut)}</td></tr><tr><td>Remise${pctRemiseLisible(achat)} :</td><td>−${fmt(achat.remise)}</td></tr>` : ""}
       <tr class="total"><td>TOTAL :</td><td>${fmt(total)}</td></tr>
       <tr><td>Paiement :</td><td>${esc(PAIEMENT_CHANTIER)}</td></tr>
       ${c ? `<tr><td>Réglé par l'argent du chantier :</td><td>${fmt(c.couvert)}</td></tr>${c.enAttente > 0 ? `<tr><td class="reste">⏳ En attente du chantier :</td><td class="reste" data-achat-en-attente>${fmt(c.enAttente)}</td></tr>` : ""}` : ""}
@@ -519,7 +519,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
     </table>
     <table class="totaux">
       ${Number(p.remise_montant || 0) > 0 ? `<tr><td>Sous-total</td><td style="text-align:right">${fmt(p.sous_total)}</td></tr>
-      <tr><td style="color:#3d8b40">Remise ${p.remise_pct} %</td><td style="text-align:right;color:#3d8b40">-${fmt(p.remise_montant)}</td></tr>` : ""}
+      <tr><td style="color:#3d8b40">Remise${pctRemiseLisible(p)}</td><td style="text-align:right;color:#3d8b40">-${fmt(p.remise_montant)}</td></tr>` : ""}
       <tr class="total"><td>TOTAL</td><td style="text-align:right">${fmtFcfa(p.total)}</td></tr>
     </table>
     <div class="mentions">
@@ -1059,7 +1059,7 @@ export function texteRecuComplet(v, bq = {}) {
       return `${l.qte} × ${l.article} = ${fmt(net)}${rl > 0 ? ` (remise −${fmt(rl)})` : ""}`;
     }),
     `Sous-total : ${fmt(brutVente(v))}`,
-    v.remise ? `Remise${v.remise_pct ? ` (${v.remise_pct}%)` : ""} : −${fmt(v.remise)}` : null,
+    v.remise ? `Remise${pctRemiseLisible(v)} : −${fmt(v.remise)}` : null,
     Number(v.rabais || 0) > 0 ? `Rabais commercial${v.commercial ? ` (${v.commercial})` : ""} : −${fmt(v.rabais)}` : null,
     `*TOTAL : ${fmt(totalVente(v))}*`,
     v.paiement === "Crédit (dette)" ? `Avance versée : ${fmt(v.avance || 0)}` : null,
