@@ -6705,7 +6705,7 @@ lit mal est pire qu'un banc absent).
 - ⚠ **LE COUPLE (« C a ») : `securite-38`** reprend securite-37 en entier et
   n'ajoute QU'un contrôle, posé AVANT « Les fiches des CLIENTS s'arrêtent là »
   (il vaut pour un client aussi) : changer `sexe` = administrateur seul.
-  **À coller par Timo.** Banc `tester-comptes` (91), éprouvé en retirant le
+  **Collé par Timo le 12/10/2026 (`true | true | true | true`).** Banc `tester-comptes` (91), éprouvé en retirant le
   contrôle : quatre essais tombent. `verifier-cloisonnement` (+6, deux
   RETOURNÉS : 26 boutons dans ⋯ Gérer, « Modifier l'identité d'un compte »), éprouvé.
   Chapitres 2, 14 et 18 à jour.
