@@ -13828,12 +13828,49 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
       /<h1>CERTIFICAT DE TRAVAIL<\/h1>/.test(hDoc) && hDoc.includes("libre de tout engagement") && hDoc.includes("Le Directeur Général")
       && /<img class="signature" src="data:image\/png;base64,AAA"/.test(hDoc) && /alt="Cachet BMI Togo"/.test(hDoc) && !/DOCUMENT DE FORMATION/.test(hDoc)
       && !/class="signature"/.test(hDoc2) && /alt="Cachet BMI Togo"/.test(hDoc2) && /DOCUMENT DE FORMATION/.test(hDoc2));
+    // ⚧ LE SEXE (12/10/2026, « Ab, Ba, Ca ») : « M. » / « Mme », et les accords.
+    const sortieCiv = join("node_modules", ".cache", `bmi-civilite-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/civilite.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCiv, logLevel: "silent" });
+    const CV = await import(pathToFileURL(sortieCiv).href);
+    unlinkSync(sortieCiv);
+    test("★★ ⚧ la règle : H → « M. », F → « Mme », rien (ou une valeur inconnue) → la forme neutre — on n'invente jamais",
+      CV.civilite({ sexe: "H" }) === "M." && CV.civilite({ sexe: "F" }) === "Mme" && CV.civilite({}) === "M./Mme" && CV.civilite({ sexe: "X" }, "Mr/Mme") === "Mr/Mme"
+      && CV.accorde({ sexe: "F" }, "employé", "employée", "employé(e)") === "employée" && CV.accorde({ sexe: "" }, "a", "b", "n") === "n"
+      && CV.critiqueSexe("H") === "" && CV.critiqueSexe("") === "" && !!CV.critiqueSexe("Z") && CV.libelleSexe({ sexe: "F" }) === "Femme");
+    const certF = CE.contenuDocument("certificat", { u: { ...sorti(1), sexe: "F" }, poste: "Vendeur", signataire: { nom: "AMA", sexe: "F" }, aujourdhui: J });
+    const certH = CE.contenuDocument("attestation", { u: { ...base, sexe: "H", cnss_code_type: 1 }, poste: "Vendeur", signataire: { nom: "TIMO", sexe: "H" }, aujourdhui: J });
+    test("★★ ⚧ le certificat accorde : « Mme … a été employée », « L'intéressée », « Je soussignée, …, Directrice Générale » ; « M. … est employé », « Je soussigné, … Directeur Général » ; sans sexe, la forme neutre",
+      /Je soussignée, <b>AMA<\/b>, Directrice Générale/.test(certF.paragraphes[0]) && /Mme <b>FRED Komi<\/b>/.test(certF.paragraphes[0]) && /a été employée au sein/.test(certF.paragraphes[0])
+      && certF.paragraphes[1].startsWith("L'intéressée quitte") && certF.signataire.titre === "La Directrice Générale"
+      && /Je soussigné, <b>TIMO<\/b>, Directeur Général/.test(certH.paragraphes[0]) && /M\. <b>FRED Komi<\/b>/.test(certH.paragraphes[0]) && /est employé au sein/.test(certH.paragraphes[0])
+      && /M\.\/Mme <b>/.test(texteCert) && /employé\(e\)/.test(texteCert));
+    const ceSrc = readFileSync("src/lib/clientEntreprise.js", "utf8");
+    test("★★ ⚧ « A b » : le contrat d'un CLIENT écrit « M. » ou « Mme » d'après sa fiche (« Mr/Mme » si rien), à l'impression ET dans son espace",
+      /export function partieClientContrat\(\{ nom, prenom, tel, entreprise, civ = "Mr\/Mme" \} = \{\}\)/.test(ceSrc) && /return `\$\{civ\} : \$\{personne\}/.test(ceSrc)
+      && /représentée par \$\{civ\} \$\{personne\}/.test(ceSrc) && /entreprise: d\.entreprise \|\| null, civ: civilite\(client, "Mr\/Mme"\) \}/.test(readFileSync("src/lib/impression.js", "utf8"))
+      && /entreprise: d\.entreprise \|\| null, civ: civilite\(moi, "Mr\/Mme"\) \}/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
     const us = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
     const geste = (us.match(/const delivrerDocument = async \(u\) => \{[\s\S]*?\n  \};/) || [""])[0];
     test("★★ 📄 « A a » : l'administrateur PRINCIPAL seul, revérifié EN PREMIER dans le geste, sur la fiche fraîche, par la règle ; signé à SON nom avec SA signature (« B b ») ; une ligne de journal",
       /^const delivrerDocument = async \(u\) => \{\n\s*if \(refuserSaufAdminPrincipal\(db, profile, /.test(geste) && /const frais = db\.users\.find\(\(x\) => x\.id === u\.id\) \|\| u;/.test(geste)
       && /const refus = critiqueDocument\(type, frais, today\(\)\);/.test(geste) && /signature: moi\.signature_personnelle/.test(geste)
       && /imprimerDocumentEmploye\(contenu, db, estCompteFormation\(db, frais\)\)/.test(geste) && /save\(db, journalDocument\(contenu, today\(\)\)\)/.test(geste));
+    const gSexe = (us.match(/const changerSexe = async \(u\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    test("★★ ⚧ « B a » : le sexe se saisit par l'administrateur seul, revérifié EN PREMIER dans le geste, sur la fiche fraîche ; effacer écrit une valeur VIDE ; une ligne de journal",
+      /^const changerSexe = async \(u\) => \{\n\s*if \(refuserSaufAdmin\(profile, "Saisir le sexe d'un compte"\)\) return;/.test(gSexe) && /const frais = db\.users\.find/.test(gSexe)
+      && /critiqueSexe\(sexe\)/.test(gSexe) && /\{ \.\.\.x, sexe \}/.test(gSexe) && /`Sexe de \$\{u\.nom\} : /.test(gSexe)
+      && /<BoutonGerer data-sexe onClick=\{\(\) => changerSexe\(u\)\} info=\{\(\) => infoGerer\(u, "sexe"\)\}/.test(us));
+    test("★ ⚧ la case « Sexe » du formulaire de création (facultative) va sur le compte client ET sur le compte employé",
+      /data-sexe-creation/.test(us) && /\.\.\.champsCompteClient\(f\.nom, f\.prenom, entCli\), \.\.\.\(f\.sexe \? \{ sexe: f\.sexe \} : \{\}\)/.test(us)
+      && /nom_complet: `\$\{f\.nom\.trim\(\)\} \$\{f\.prenom\.trim\(\)\}`\.trim\(\) \} : \{\}\),\n\s*\.\.\.\(f\.sexe \? \{ sexe: f\.sexe \} : \{\}\),/.test(us)
+      && /signature: moi\.signature_personnelle \|\| "", sexe: moi\.sexe \}/.test(us));
+    {
+      const s38 = readFileSync("supabase/securite-38-sexe.sql", "utf8"), s37 = readFileSync("supabase/securite-37-affectation.sql", "utf8");
+      const corpsF = (t) => t.slice(t.indexOf("create or replace function"), t.indexOf("-- ═════════════════════════════════════════════════\n-- VÉRIFICATION")).replace(/--[^\n]*\n/g, "").replace(/\s+/g, " ");
+      const bloc = " if (old.data -> 'sexe') is distinct from (new.data -> 'sexe') and r <> 'admin' then perform public.refus_role('Modifier le sexe d''un compte', 'l''administrateur'); end if;";
+      test("★★ ⚧ « C a », LE COUPLE : securite-38 reprend securite-37 mot pour mot et n'ajoute QUE le contrôle du sexe, posé AVANT la sortie des fiches clients",
+        corpsF(s38).replace(bloc, "") === corpsF(s37) && corpsF(s38).indexOf("Modifier le sexe") < corpsF(s38).indexOf("if cible_client then return new;"));
+    }
     test("★ 📄 la ligne « Documents » de ⋯ Gérer n'existe que pour un salarié ET l'administrateur principal, avec UN bouton : l'attestation en poste, le document de fin une fois sorti",
       /\{SALARIES\.includes\(u\.role\) && jeSuisAdminPrincipal && \(\n\s*<div [^>]*data-ligne-documents>/.test(us)
       && /\{documentPropose\(u, today\(\)\) === "attestation"\n\s*\? <BoutonGerer data-attestation-travail onClick=\{\(\) => delivrerDocument\(u\)\}/.test(us)
@@ -14070,8 +14107,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   // est un TEXTE écrit, ou le choix entre deux textes pour un geste qui bascule.
   const noms = [...u.matchAll(/<BoutonGerer\b[\s\S]*?\/>/g)].map((m) => (m[0].match(/ nom=(\{[^}]*\}|"[^"]*") \/>$/) || [, "?"])[1]);
   test("★★ ⋯ Gérer : UN composant pour tous ses boutons (BoutonGerer), plus aucun bouton maison, et AUCUNE valeur dans un nom (date, contrat, banque, taux, numéro)",
-    // RETOURNÉ le 12/10/2026 : 26 (📄 Attestation de travail, 📄 Document de fin de contrat).
-    noms.length === 26 && !/boutonGerer/.test(u)
+    // RETOURNÉ le 12/10/2026 : 26 (📄 Attestation de travail, 📄 Document de fin de contrat), puis 27 (⚧ Sexe).
+    noms.length === 27 && !/boutonGerer/.test(u)
     && noms.every((n) => n.startsWith('"') || /^\{u\.[a-z_]+ \? "[^"]*" : "[^"]*"\}$/.test(n))
     && /export function BoutonGerer\(\{ nom, onClick, titre, ton, info, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /\{String\(nom\)\}<\/button>/.test(readFileSync("src/components/ui.jsx", "utf8")));
@@ -14081,7 +14118,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const avecInfo = blocs.filter((b) => / info=\{\(\) => infoGerer\(u, "[a-zA-Z]+"\)\}/.test(b)).map((b) => b.match(/ nom="([^"]*)"/)?.[1]);
   const uiG = readFileSync("src/components/ui.jsx", "utf8");
   test("★★ ⋯ Gérer : l'appui MONTRE l'information (Fermer / ✏️ Modifier) sur les 13 boutons qui en gardent une, et fait son geste tout de suite sur les autres (Prime, Avance, Virement, Supprimer, Rôle…)",
-    JSON.stringify(avecInfo.sort()) === JSON.stringify(["🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe"].sort())
+    JSON.stringify(avecInfo.sort()) === JSON.stringify(["🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe", "⚧ Sexe"].sort())
     && blocs.filter((b) => /nom="(\+ Prime|− Avance|💸 Payer le salaire|🗑 Supprimer|🎭 Rôle|🔁 Renouveler|👁 Voir le mot de passe)"/.test(b)).every((b) => !/ info=/.test(b)));
   test("★★ ⋯ Gérer : la fenêtre d'information ne modifie RIEN — seul « ✏️ Modifier » (ou « ✏️ Saisir » si vide) lance le geste ; « Fermer » ne fait rien",
     /const ok = await uInfo\(/.test(uiG) && /if \(ok\) onClick\?\.\(\);/.test(uiG) && /vues\.length \? "✏️ Modifier" : "✏️ Saisir"/.test(uiG)

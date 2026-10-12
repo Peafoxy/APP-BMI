@@ -6669,6 +6669,30 @@ lit mal est pire qu'un banc absent).
   document de fin avant la sortie) ; un contrôle RETOURNÉ (⋯ Gérer : 26
   boutons). Regardé rendu dans Chromium. Chapitres 2 et 18 à jour.
 
+### ⚧ LE SEXE D'UN COMPTE (12/10/2026, « Ab, Ba, Ca »)
+- Timo, après les attestations : « ajouter le sexe sur la fiche pour que
+  l'application l'utilise ». Règle pure **`lib/civilite.js`** (sans import) :
+  champ `sexe` = "H" / "F" / vide ; `civilite(u, neutre)` → « M. » / « Mme » /
+  la forme neutre ; `accorde(u, masc, fém, neutre)`. **Vide, on n'invente
+  rien** : « M./Mme », « employé(e) », « Mr/Mme » comme avant.
+- **« A b »** : employés ET clients. Les attestations s'accordent (« M. … a
+  été employé », « Mme … employée », « L'intéressée ») et le signataire aussi
+  (« Je soussignée », « La Directrice Générale », `titreSignataire`). Le
+  CONTRAT d'un client écrit « M. » / « Mme » (`partieClientContrat({ civ })`
+  — ⚠ lib/clientEntreprise.js n'importe RIEN : l'appelant calcule `civ`).
+  Le modèle WhatsApp `espace` garde son « Mr/Mme » (texte figé chez Meta).
+- **« B a »** : l'administrateur seul — case « Sexe » (facultative) du
+  formulaire « ➕ Nouvel utilisateur » (client et employé) et ⋯ Gérer → Compte
+  → **⚧ Sexe** (`changerSexe`, revérifié DANS le geste ; effacer écrit une
+  valeur VIDE, jamais un champ retiré — la fusion des appareils le rendrait).
+- ⚠ **LE COUPLE (« C a ») : `securite-38`** reprend securite-37 en entier et
+  n'ajoute QU'un contrôle, posé AVANT « Les fiches des CLIENTS s'arrêtent là »
+  (il vaut pour un client aussi) : changer `sexe` = administrateur seul.
+  **À coller par Timo.** Banc `tester-comptes` (91), éprouvé en retirant le
+  contrôle : quatre essais tombent. `verifier-cloisonnement` (+6, deux
+  RETOURNÉS : 27 boutons dans ⋯ Gérer, 14 qui montrent d'abord), éprouvé.
+  Chapitres 2, 14 et 18 à jour.
+
 ### 📍 LE LIEU D'AFFECTATION D'UN EMPLOYÉ SANS BOUTIQUE (05/10/2026, « Lance, texte libre, la boutique l'emporte »)
 - Champ `affectation` (texte libre, 80 caractères), **seulement sur un employé
   rattaché à AUCUNE boutique** (`peutAvoirAffectation`, lib/affectation.js,

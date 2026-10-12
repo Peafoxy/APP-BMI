@@ -127,13 +127,16 @@ export function ligneClient(doc = {}) {
 }
 
 // Le contrat : « l'entreprise X (NIF…), représentée par M./Mme NOM Prénom,
-// son répondant ». Sans entreprise : « Mr/Mme NOM Prénom ».
-export function partieClientContrat({ nom, prenom, tel, entreprise } = {}) {
+// son répondant ». Sans entreprise : « Mr/Mme NOM Prénom ». `civ` vient de
+// LA règle du sexe (12/10/2026, `civilite(fiche, "Mr/Mme")`, lib/civilite.js,
+// calculée par l'appelant — ce fichier n'importe rien) : « M. » ou « Mme » ;
+// pas saisi, « Mr/Mme » comme avant.
+export function partieClientContrat({ nom, prenom, tel, entreprise, civ = "Mr/Mme" } = {}) {
   const personne = nomEtPrenom(nom, prenom);
   const e = entreprise && entreprise.nom ? entreprise : null;
-  if (!e) return `Mr/Mme : ${personne}${tel ? `, tél. ${tel}` : ""}`;
+  if (!e) return `${civ} : ${personne}${tel ? `, tél. ${tel}` : ""}`;
   const coords = coordonneesEntreprise(e);
-  return `L'entreprise ${e.nom}${coords ? ` (${coords})` : ""}, représentée par Mr/Mme ${personne}${tel ? ` (tél. ${tel})` : ""}, son répondant, agissant au nom et pour le compte de l'entreprise`;
+  return `L'entreprise ${e.nom}${coords ? ` (${coords})` : ""}, représentée par ${civ} ${personne}${tel ? ` (tél. ${tel})` : ""}, son répondant, agissant au nom et pour le compte de l'entreprise`;
 }
 
 // Ce qui s'ajoute à un compte client À SA CRÉATION (C « a » : le prénom est

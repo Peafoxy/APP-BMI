@@ -22,6 +22,8 @@ import { peutAvoirAffectation, critiqueAffectation, affectationDe } from "../lib
 // 📄 Certificat de travail et attestations (12/10/2026, « Aa, Bb, Cb, Db »).
 import { documentPropose, critiqueDocument, accepteAppreciation, nettoyerAppreciation, contenuDocument, journalDocument, APPRECIATION_MAX } from "../lib/certificatTravail";
 import { imprimerDocumentEmploye } from "../lib/impression";
+// ⚧ Le sexe d'un compte (12/10/2026, « Ab, Ba, Ca ») : employés et clients, l'administrateur seul.
+import { SEXES, libelleSexe, critiqueSexe } from "../lib/civilite";
 import { TYPES_CONTRAT, CODE_CDI, CODE_CDD, phraseContrat, critiqueContrat, critiqueSortie, etatFinContrat, phraseFinContrat, lireDuree, dureeEnClair, finDepuisDuree, peutRenouveler, critiqueRenouvellement, finApresRenouvellement, MESSAGE_DUREE_ILLISIBLE } from "../lib/contratTravail";
 import { CODES_MOTIF_SORTIE } from "../lib/cnss";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
@@ -132,7 +134,7 @@ export function Users({ db, save, profile }) {
     : ongletSansSuite
       ? ongletSansSuite[2].map((c) => c.compte).filter((x) => utilisateursVisibles.some((v) => v.id === x.id))
       : utilisateursVisibles.filter((x) => x.role === roleAffiche && !idsSansSuite.has(x.id));
-  const vide = { nom: "", prenom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5" };
+  const vide = { nom: "", prenom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5", sexe: "" };
   const [f, setF] = useState(vide);
   const [entCli, setEntCli] = useState(ENTREPRISE_VIDE());
   // Les boutiques réellement proposables pour le compte en cours de
@@ -222,7 +224,7 @@ export function Users({ db, save, profile }) {
         `Remettez-lui ces identifiants.`
       )) return;
       const nomCli = f.nom, telCli = f.tel;
-      const { user } = await fabriquerCompteClient(db, f.nom, f.tel, profile.nom, { ...marqueEspace(db, profile), ...champsCompteClient(f.nom, f.prenom, entCli) });
+      const { user } = await fabriquerCompteClient(db, f.nom, f.tel, profile.nom, { ...marqueEspace(db, profile), ...champsCompteClient(f.nom, f.prenom, entCli), ...(f.sexe ? { sexe: f.sexe } : {}) });
       save({ ...db, users: [...db.users, user], messages: [...messagesNouveauClient(db, user, profile), ...(db.messages || [])] }, `Compte CLIENT « ${user.nom} » créé par ${profile.nom}`);
       setF(vide);
       setEntCli(ENTREPRISE_VIDE());
@@ -275,6 +277,7 @@ export function Users({ db, save, profile }) {
     // ⚠ Il ne change PAS l'identifiant de connexion : on tape toujours son nom.
     const nouvelUser = { id: uid(), nom: f.nom, ...await definirMotDePasse(f.pwd), role: f.role, boutique: estMultiBoutique ? null : f.boutique, actif: true, formation: !!espaceCree,
       ...(f.prenom.trim() ? { nom_complet: `${f.nom.trim()} ${f.prenom.trim()}`.trim() } : {}),
+      ...(f.sexe ? { sexe: f.sexe } : {}),
       ...(chiffresTel(f.tel).length >= 4 ? { tel: f.tel.trim() } : {}) };
     // Par défaut, un nouvel admin n'a PAS accès à Historique ni Paramètres
     // (demande Timo) — seul l'admin PRINCIPAL les garde d'office. Ce n'est
@@ -939,6 +942,7 @@ export function Users({ db, save, profile }) {
       boutique: { titre: `Boutique de ${u.nom}`, lignes: [u.boutique ? `Boutique : ${u.boutique}` : ""] },
       affectation: { titre: `Lieu d'affectation de ${u.nom}`, lignes: [u.affectation ? `Lieu : ${u.affectation}` : ""] },
       telephone: { titre: `Téléphone de ${u.nom}`, lignes: [u.tel ? `Téléphone : ${u.tel}` : ""] },
+      sexe: { titre: `Sexe de ${u.nom}`, lignes: [libelleSexe(u) ? `Sexe : ${libelleSexe(u)}` : ""] },
       anniversaire: { titre: `Anniversaire de ${u.nom}`, lignes: [anniv ? `Anniversaire : ${anniv}` : ""] },
       salaire: { titre: `Salaire de ${u.nom}`, lignes: [Number(u.salaire_base) > 0 ? `Salaire de base : ${fmt(u.salaire_base)}` : "",
         derniere ? `Dernier changement : le ${dFR(derniere.date)}, ${fmt(derniere.ancien)} → ${fmt(derniere.nouveau)}${derniere.motif ? ` (${derniere.motif})` : ""}` : ""] },
@@ -1036,6 +1040,26 @@ export function Users({ db, save, profile }) {
       date ? `Date de sortie de ${u.nom} : ${dFR(date)} (${libMotif})` : `Date de sortie de ${u.nom} effacée`);
   };
 
+  // ⚧ LE SEXE D'UN COMPTE (12/10/2026, « Ab, Ba, Ca ») : employés ET clients,
+  // l'administrateur seul (revérifié ici ; le serveur le garde aussi,
+  // securite-38). Il donne « M. » / « Mme » au contrat d'un client et aux
+  // attestations d'un employé ; vide, les documents restent neutres.
+  const changerSexe = async (u) => {
+    if (refuserSaufAdmin(profile, "Saisir le sexe d'un compte")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const actuel = libelleSexe(frais);
+    const EFFACER = "Effacer (non précisé)";
+    const choix = await uChoix(`Sexe de ${u.nom}${actuel ? ` (actuellement : ${actuel})` : ""} ?`, [...SEXES.map((x) => x.libelle), ...(actuel ? [EFFACER] : [])]);
+    if (!choix) return;
+    const sexe = choix === EFFACER ? "" : (SEXES.find((x) => x.libelle === choix) || {}).code || "";
+    const refus = critiqueSexe(sexe);
+    if (refus) { uAlert(refus); return; }
+    if ((frais.sexe || "") === sexe) return;
+    // Effacer = une valeur VIDE, jamais un champ retiré (la fusion des appareils le rendrait).
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, sexe } : x)) }, `Sexe de ${u.nom} : ${actuel || "non précisé"} → ${libelleSexe({ sexe }) || "non précisé"}`);
+  };
+
   // 📄 CERTIFICAT DE TRAVAIL ET ATTESTATIONS (12/10/2026, « Aa, Bb, Cb, Db »).
   // « A a » : l'administrateur PRINCIPAL seul (le Directeur Général). Sorti →
   // le document de FIN selon le contrat ; sinon l'ATTESTATION DE TRAVAIL
@@ -1057,7 +1081,7 @@ export function Users({ db, save, profile }) {
     const moi = db.users.find((x) => x.id === profile.id) || profile;
     const contenu = contenuDocument(type, {
       u: frais, poste: LIBELLE_ROLE_EMPLOYE[frais.role] || frais.role, lieu: affectationDe(frais),
-      signataire: { nom: moi.nom_complet || moi.nom, signature: moi.signature_personnelle || "" },
+      signataire: { nom: moi.nom_complet || moi.nom, signature: moi.signature_personnelle || "", sexe: moi.sexe },
       appreciation, aujourdhui: today(),
     });
     if (!contenu) return;
@@ -1444,6 +1468,8 @@ export function Users({ db, save, profile }) {
           {/* 29/09/2026 : le prénom se demande AUSSI pour un client (obligatoire) —
               il ne change ni son identifiant ni son mot de passe. */}
           <Field label="Prénom"><input className={inputCls} placeholder={f.role === "client" ? "Ama" : "Prénom(s), comme sur la pièce"} value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} data-prenom-client={f.role === "client" ? "" : undefined} /></Field>
+          {/* ⚧ 12/10/2026 (« Ab, Ba ») : facultatif ; il donne « M. » ou « Mme » au contrat et aux attestations. */}
+          <Field label="Sexe"><select data-sexe-creation className={inputCls} value={f.sexe} onChange={(e) => setF({ ...f, sexe: e.target.value })}><option value="">— Non précisé —</option>{SEXES.map((x) => <option key={x.code} value={x.code}>{x.libelle}</option>)}</select></Field>
           {f.role !== "client" && (
             <Field label="Téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           )}
@@ -1735,6 +1761,7 @@ export function Users({ db, save, profile }) {
                   {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} info={() => infoGerer(u, "affectation")} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
                   {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} info={() => infoGerer(u, "telephone")} nom="📞 Téléphone" />}
                   {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} info={() => infoGerer(u, "anniversaire")} nom="🎂 Anniversaire" />}
+                  <BoutonGerer data-sexe onClick={() => changerSexe(u)} info={() => infoGerer(u, "sexe")} titre="« M. » ou « Mme » sur le contrat d'un client et les attestations d'un employé" nom="⚧ Sexe" />
                   {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Voir le mot de passe" />}
                   <BoutonGerer onClick={() => supprimerU(u)} ton="danger" nom="🗑 Supprimer" />
                       </div>

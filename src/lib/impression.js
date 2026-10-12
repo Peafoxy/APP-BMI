@@ -16,6 +16,7 @@ import { compteMasque } from "./banques";
 import { affectationDe } from "./affectation";
 import { TITRE_FACTURE_ACHAT, PAIEMENT_CHANTIER } from "./achatsChantier";
 import { phraseContrat } from "./contratTravail";
+import { civilite } from "./civilite";
 import { TITRE_FACTURE_TRAVAUX, TITRE_RELEVE_TRAVAUX, avecInfoTravaux, lignesReleve, montantPrestation, totalArticles, totalAFacturer, LIGNE_PRESTATION } from "./travaux";
 
 // 🏢 29/09/2026 (Timo) : le client d'un reçu — la personne (NOM Prénom), ou
@@ -734,7 +735,7 @@ export function htmlContratInstallation(d, db) {
     <div class="art">Entre les soussignés :</div>
     <div class="art">BMI (Bâtiments Modernes et Intelligents) E-mail : info@bmitogo.com ; NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523 ; représenté par Mr EGBAOU Essozimna</div>
     <div class="art">Et :</div>
-    <div class="art">${esc(partieClientContrat({ nom: client?.nom_base || client?.nom || "", prenom: d.prenom || client?.prenom, tel: client?.tel, entreprise: d.entreprise || null }))}</div>
+    <div class="art">${esc(partieClientContrat({ nom: client?.nom_base || client?.nom || "", prenom: d.prenom || client?.prenom, tel: client?.tel, entreprise: d.entreprise || null, civ: civilite(client, "Mr/Mme") }))}</div>
 
     ${d.pose_seule ? `
     <div class="art"><b>Article 1 — Objet.</b> Le présent contrat a pour objet la prestation de pose, d'installation, d'essais et de mise en service d'équipements <b>fournis par le Client</b>${totalEquipementsBMI > 0 ? `, ainsi que la fourniture des équipements complémentaires listés ci-dessous` : ""}, pour un <b>montant total dû à BMI TOGO de ${fmtFcfa(d.total)}</b>, se décomposant comme suit : main d'œuvre de pose — <b>${fmtFcfa(d.total - totalEquipementsBMI)}</b>${totalEquipementsBMI > 0 ? ` ; équipements fournis par BMI TOGO — <b>${fmtFcfa(totalEquipementsBMI)}</b>` : ""}. <b>Ce montant ne comprend pas le coût des équipements que le Client a acquis par ailleurs, hors du présent contrat.</b> Le Client déclare avoir acquis lui-même le matériel principal à installer, dont la liste figure en annexe ou sera constatée sur le procès-verbal de réception.

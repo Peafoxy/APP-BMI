@@ -42,6 +42,8 @@ echo "▸ Pose des verrous : supabase/securite-21-chef-technicien-bmi.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-21-chef-technicien-bmi.sql >/dev/null 2>&1 || echo "   ❌ securite-21 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-37-affectation.sql"
 VERIF37=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-37-affectation.sql 2>&1 | tail -1) || echo "   ❌ securite-37 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-38-sexe.sql (reprend securite-37)"
+VERIF38=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-38-sexe.sql 2>&1 | tail -1) || echo "   ❌ securite-38 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -142,6 +144,16 @@ essai "★ un gérant écrit le lieu d'affectation d'un commercial" "REFUSE" "$G
 essai "★ un admin secondaire écrit le lieu d'affectation d'un technicien" "PERMIS" "$CALEB" "$(UPS zt_tech "$(SET affectation '"Chantiers Kara"')")"
 if [ "$VERIF37" = "t|t|t" ]; then ok=$((ok+1)); echo "  ✓ la phrase de vérification de securite-37 répond true | true | true";
 else ko=$((ko+1)); echo "  ❌ la phrase de vérification de securite-37 répond « $VERIF37 »"; fi
+# 12/10/2026 (securite-38, « Ab, Ba, Ca ») : le sexe d'un compte, employé OU client.
+essai "★ un vendeur change le SEXE d'un client" "REFUSE" "$VENDEUR" "$(MAJ "$(SET sexe '"F"')" zc_ama)"
+essai "★ …par UPSERT, comme l'application écrit" "REFUSE" "$VENDEUR" "$(UPS zc_ama "$(SET sexe '"F"')")"
+essai "★ un client change SON sexe" "REFUSE" "$CLIENT" "$(MAJ "$(SET sexe '"H"')" zc_ama)"
+essai "★ un technicien change SON sexe" "REFUSE" "$TECHNICIEN" "$(UPS zt_tech "$(SET sexe '"H"')")"
+essai "★ un admin secondaire saisit le sexe d'un client" "PERMIS" "$CALEB" "$(UPS zc_ama "$(SET sexe '"F"')")"
+essai "★ un admin secondaire saisit le sexe d'un employé" "PERMIS" "$CALEB" "$(UPS zv_kossi "$(SET sexe '"H"')")"
+essai "un client écrit encore sa fiche (sans toucher au sexe)" "PERMIS" "$CLIENT" "$(MAJ "$(SET info_donnees_le '"2026-10-12"')" zc_ama)"
+if [ "$VERIF38" = "t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ la phrase de vérification de securite-38 répond true | true | true | true";
+else ko=$((ko+1)); echo "  ❌ la phrase de vérification de securite-38 répond « $VERIF38 »"; fi
 
 echo
 echo "── LE MOT DE PASSE D'UN AUTRE COMPTE : admin PRINCIPAL seul ──"

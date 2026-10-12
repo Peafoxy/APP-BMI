@@ -18,16 +18,21 @@
 //
 // ⚠ LE CERTIFICAT DE TRAVAIL RESTE NEUTRE : jamais le motif du départ, jamais
 // une appréciation — il ne doit pas pouvoir nuire à la personne.
-// ⚠ On ne connaît pas le sexe de la personne : « M./Mme », « employé(e) ».
+// ⚠ Le sexe vient de la fiche (lib/civilite.js, 12/10/2026, « Ab, Ba, Ca ») :
+// « M. … a été employé » / « Mme … a été employée ». Pas saisi : on
+// n'invente rien — « M./Mme », « employé(e) ». Le signataire aussi.
 // ⚠ Les dates viennent de la fiche de paie : `cnss_date_embauche`,
 // `cnss_date_sortie` (🚪 Sortie), `cnss_code_type` (UNE source avec la
 // déclaration CNSS, lib/contratTravail.js). Rien n'est écrit ici.
 // ============================================================
 import { codeContrat, phraseContrat, CODE_CDI } from "./contratTravail.js";
+import { civilite, accorde } from "./civilite.js";
 
 export const CODE_APPRENTISSAGE = 4;
 export const CODE_STAGE = 12;
 export const TITRE_SIGNATAIRE = "Directeur Général";
+// Le titre accordé au sexe du signataire (« Directrice Générale »).
+export const titreSignataire = (signataire) => accorde(signataire, TITRE_SIGNATAIRE, "Directrice Générale", TITRE_SIGNATAIRE);
 export const APPRECIATION_MAX = 300;
 
 export const DOCUMENTS_EMPLOYE = {
@@ -82,22 +87,25 @@ export const accepteAppreciation = (type) => type === "stage" || type === "appre
 
 // Le contenu du document : titre, paragraphes, date et signataire. `poste` =
 // la fonction lisible (« Vendeur »…), `lieu` = la boutique ou le lieu
-// d'affectation, `signataire` = { nom, signature }.
+// d'affectation, `signataire` = { nom, signature, sexe }.
 export function contenuDocument(type, { u, poste, lieu, signataire, appreciation, aujourdhui }) {
   const doc = DOCUMENTS_EMPLOYE[type];
   if (!doc || !u) return null;
   const nom = String(u.nom_complet || u.nom || "").trim();
-  const qui = `M./Mme <b>${esc(nom)}</b>`;
+  const qui = `${civilite(u)} <b>${esc(nom)}</b>`;
+  const employe = accorde(u, "employé", "employée", "employé(e)");
+  const interesse = accorde(u, "L'intéressé", "L'intéressée", "L'intéressé(e)");
+  const titre = titreSignataire(signataire);
   const matricule = u.cnss_matricule ? `, matricule ${esc(u.cnss_matricule)}` : "";
   const ou = lieu ? ` (${esc(lieu)})` : "";
   const fonction = esc(poste || "—");
   const debut = dFR(u.cnss_date_embauche), fin = dFR(u.cnss_date_sortie);
-  const signe = `Je soussigné(e), <b>${esc(signataire?.nom || "")}</b>, ${TITRE_SIGNATAIRE} de BMI TOGO (Les Bâtiments Modernes et Intelligents),`;
+  const signe = `Je ${accorde(signataire, "soussigné", "soussignée", "soussigné(e)")}, <b>${esc(signataire?.nom || "")}</b>, ${titre} de BMI TOGO (Les Bâtiments Modernes et Intelligents),`;
   const phrase = accepteAppreciation(type) ? esc(nettoyerAppreciation(appreciation)) : "";
   const p = [];
   if (type === "certificat") {
-    p.push(`${signe} certifie que ${qui}${matricule} a été employé(e) au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, en qualité de <b>${fonction}</b>${ou}.`);
-    p.push("L'intéressé(e) quitte l'entreprise libre de tout engagement.");
+    p.push(`${signe} certifie que ${qui}${matricule} a été ${employe} au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, en qualité de <b>${fonction}</b>${ou}.`);
+    p.push(`${interesse} quitte l'entreprise libre de tout engagement.`);
     p.push("En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.");
   } else if (type === "apprentissage") {
     p.push(`${signe} atteste que ${qui} a suivi un apprentissage au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, dans le métier de <b>${fonction}</b>${ou}.`);
@@ -111,13 +119,13 @@ export function contenuDocument(type, { u, poste, lieu, signataire, appreciation
     const c = codeContrat(u);
     const etat = c === CODE_STAGE ? `effectue un stage au sein de notre entreprise depuis le <b>${debut}</b>, au poste de <b>${fonction}</b>${ou}`
       : c === CODE_APPRENTISSAGE ? `suit un apprentissage au sein de notre entreprise depuis le <b>${debut}</b>, dans le métier de <b>${fonction}</b>${ou}`
-      : `est employé(e) au sein de notre entreprise depuis le <b>${debut}</b>, en qualité de <b>${fonction}</b>${ou}`;
+      : `est ${employe} au sein de notre entreprise depuis le <b>${debut}</b>, en qualité de <b>${fonction}</b>${ou}`;
     const contrat = phraseContrat(u);
     const sous = contrat && c !== CODE_STAGE && c !== CODE_APPRENTISSAGE ? `, sous contrat ${c === CODE_CDI ? "à durée indéterminée (CDI)" : contrat}` : "";
     p.push(`${signe} atteste que ${qui}${matricule} ${etat}${sous}.`);
     p.push("La présente attestation lui est délivrée, à sa demande, pour servir et valoir ce que de droit.");
   }
-  return { type, titre: doc.titre, nom: doc.nom, paragraphes: p, fait: `Fait à Lomé, le ${dFR(aujourdhui)}.`, signataire: { nom: signataire?.nom || "", titre: `Le ${TITRE_SIGNATAIRE}`, signature: signataire?.signature || "" }, employe: nom };
+  return { type, titre: doc.titre, nom: doc.nom, paragraphes: p, fait: `Fait à Lomé, le ${dFR(aujourdhui)}.`, signataire: { nom: signataire?.nom || "", titre: `${accorde(signataire, "Le", "La", "Le")} ${titre}`, signature: signataire?.signature || "" }, employe: nom };
 }
 
 // La ligne du journal : qui a reçu quoi, et quand (l'appréciation n'y entre pas).
