@@ -6682,15 +6682,19 @@ lit mal est pire qu'un banc absent).
   — ⚠ lib/clientEntreprise.js n'importe RIEN : l'appelant calcule `civ`).
   Le modèle WhatsApp `espace` garde son « Mr/Mme » (texte figé chez Meta).
 - **« B a »** : l'administrateur seul — case « Sexe » (facultative) du
-  formulaire « ➕ Nouvel utilisateur » (client et employé) et ⋯ Gérer → Compte
-  → **⚧ Sexe** (`changerSexe`, revérifié DANS le geste ; effacer écrit une
-  valeur VIDE, jamais un champ retiré — la fusion des appareils le rendrait).
+  formulaire « ➕ Nouvel utilisateur » (client et employé) et ~~⋯ Gérer →
+  ⚧ Sexe~~ — **RETOURNÉ le jour même** (« On ne pouvait pas insérer le sexe
+  dans ID ? » → « a ») : la question est dans le bouton rond **🆔 Identité**
+  (`changerIdentite`, juste après le nom complet, Homme / Femme / Non
+  précisé), le bouton ⚧ Sexe est RETIRÉ. Revérifié DANS le geste sur la fiche
+  fraîche ; « Non précisé » écrit une valeur VIDE, jamais un champ retiré (la
+  fusion des appareils le rendrait).
 - ⚠ **LE COUPLE (« C a ») : `securite-38`** reprend securite-37 en entier et
   n'ajoute QU'un contrôle, posé AVANT « Les fiches des CLIENTS s'arrêtent là »
   (il vaut pour un client aussi) : changer `sexe` = administrateur seul.
   **À coller par Timo.** Banc `tester-comptes` (91), éprouvé en retirant le
   contrôle : quatre essais tombent. `verifier-cloisonnement` (+6, deux
-  RETOURNÉS : 27 boutons dans ⋯ Gérer, 14 qui montrent d'abord), éprouvé.
+  RETOURNÉS : 26 boutons dans ⋯ Gérer, « Modifier l'identité d'un compte »), éprouvé.
   Chapitres 2, 14 et 18 à jour.
 
 ### 📍 LE LIEU D'AFFECTATION D'UN EMPLOYÉ SANS BOUTIQUE (05/10/2026, « Lance, texte libre, la boutique l'emporte »)

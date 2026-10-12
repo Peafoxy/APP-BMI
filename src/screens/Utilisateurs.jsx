@@ -768,18 +768,34 @@ export function Users({ db, save, profile }) {
   // ---- IDENTITÉ OFFICIELLE (nom et prénoms + pièce d'identité) ----
   // Renseignée après la création du compte. C'est cette identité qui figure
   // sur le bulletin de paie (le « nom » du compte ne sert qu'à la connexion).
+  // ⚧ LE SEXE vit ici depuis le 12/10/2026 (« On ne pouvait pas insérer le
+  // sexe dans ID ? » → « a ») : une question de plus, juste après le nom
+  // complet ; le bouton ⚧ Sexe de ⋯ Gérer est retiré. Employés ET clients,
+  // l'administrateur seul (le serveur le garde aussi, securite-38). Il donne
+  // « M. » / « Mme » au contrat d'un client et aux attestations d'un employé.
+  // « Non précisé » écrit une valeur VIDE, jamais un champ retiré (la fusion
+  // des appareils le rendrait).
   const changerIdentite = async (u) => {
-    if (refuserSaufAdmin(profile, "Modifier l'identité d'un employé")) return;
+    if (refuserSaufAdmin(profile, "Modifier l'identité d'un compte")) return;
     if (bloquerSiLecture(db, profile)) return;
-    const nc = await uPrompt(`Nom et prénom(s) officiels de ${u.nom} (tels qu'ils apparaîtront sur le bulletin de paie) :`, u.nom_complet || u.nom || "");
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const nc = await uPrompt(`Nom et prénom(s) officiels de ${u.nom} (tels qu'ils apparaîtront sur le bulletin de paie) :`, frais.nom_complet || frais.nom || "");
     if (nc === null) return;
     if (!nc.trim()) { uAlert("Le nom et prénom(s) sont obligatoires."); return; }
-    const tp = await uPrompt("Type de pièce d'identité (CNI / Passeport / Carte d'électeur / Permis) :", u.piece_type || "CNI");
+    const actuel = libelleSexe(frais);
+    const NON_PRECISE = "Non précisé";
+    const choixSexe = await uChoix(`Sexe de ${u.nom}${actuel ? ` (actuellement : ${actuel})` : " (pas encore précisé)"} ?`, [...SEXES.map((x) => x.libelle), NON_PRECISE]);
+    if (!choixSexe) return;
+    const sexe = choixSexe === NON_PRECISE ? "" : (SEXES.find((x) => x.libelle === choixSexe) || {}).code || "";
+    const refusSexe = critiqueSexe(sexe);
+    if (refusSexe) { uAlert(refusSexe); return; }
+    const tp = await uPrompt("Type de pièce d'identité (CNI / Passeport / Carte d'électeur / Permis) :", frais.piece_type || "CNI");
     if (tp === null) return;
-    const num = await uPrompt("Numéro de la pièce d'identité (laisser vide si non communiqué) :", u.piece_num || "");
+    const num = await uPrompt("Numéro de la pièce d'identité (laisser vide si non communiqué) :", frais.piece_num || "");
     if (num === null) return;
-    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, nom_complet: nc.trim(), piece_type: tp.trim(), piece_num: num.trim() } : x)) },
-      `Identité de ${u.nom} enregistrée : ${nc.trim()}${num.trim() ? ` (${tp.trim()} n° ${num.trim()})` : ""}`);
+    const sexeChange = (frais.sexe || "") !== sexe;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, nom_complet: nc.trim(), piece_type: tp.trim(), piece_num: num.trim(), ...(sexeChange ? { sexe } : {}) } : x)) },
+      `Identité de ${u.nom} enregistrée : ${nc.trim()}${num.trim() ? ` (${tp.trim()} n° ${num.trim()})` : ""}${sexeChange ? ` — sexe : ${actuel || "non précisé"} → ${libelleSexe({ sexe }) || "non précisé"}` : ""}`);
   };
 
   // ---- 🏦 LA BANQUE DE L'EMPLOYÉ (14/09/2026) ----
@@ -942,7 +958,6 @@ export function Users({ db, save, profile }) {
       boutique: { titre: `Boutique de ${u.nom}`, lignes: [u.boutique ? `Boutique : ${u.boutique}` : ""] },
       affectation: { titre: `Lieu d'affectation de ${u.nom}`, lignes: [u.affectation ? `Lieu : ${u.affectation}` : ""] },
       telephone: { titre: `Téléphone de ${u.nom}`, lignes: [u.tel ? `Téléphone : ${u.tel}` : ""] },
-      sexe: { titre: `Sexe de ${u.nom}`, lignes: [libelleSexe(u) ? `Sexe : ${libelleSexe(u)}` : ""] },
       anniversaire: { titre: `Anniversaire de ${u.nom}`, lignes: [anniv ? `Anniversaire : ${anniv}` : ""] },
       salaire: { titre: `Salaire de ${u.nom}`, lignes: [Number(u.salaire_base) > 0 ? `Salaire de base : ${fmt(u.salaire_base)}` : "",
         derniere ? `Dernier changement : le ${dFR(derniere.date)}, ${fmt(derniere.ancien)} → ${fmt(derniere.nouveau)}${derniere.motif ? ` (${derniere.motif})` : ""}` : ""] },
@@ -1038,26 +1053,6 @@ export function Users({ db, save, profile }) {
     const libMotif = (CODES_MOTIF_SORTIE.find((x) => x.code === motif) || {}).libelle || "";
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, cnss_date_sortie: date, cnss_code_motif_sortie: motif } : x)) },
       date ? `Date de sortie de ${u.nom} : ${dFR(date)} (${libMotif})` : `Date de sortie de ${u.nom} effacée`);
-  };
-
-  // ⚧ LE SEXE D'UN COMPTE (12/10/2026, « Ab, Ba, Ca ») : employés ET clients,
-  // l'administrateur seul (revérifié ici ; le serveur le garde aussi,
-  // securite-38). Il donne « M. » / « Mme » au contrat d'un client et aux
-  // attestations d'un employé ; vide, les documents restent neutres.
-  const changerSexe = async (u) => {
-    if (refuserSaufAdmin(profile, "Saisir le sexe d'un compte")) return;
-    if (bloquerSiLecture(db, profile)) return;
-    const frais = db.users.find((x) => x.id === u.id) || u;
-    const actuel = libelleSexe(frais);
-    const EFFACER = "Effacer (non précisé)";
-    const choix = await uChoix(`Sexe de ${u.nom}${actuel ? ` (actuellement : ${actuel})` : ""} ?`, [...SEXES.map((x) => x.libelle), ...(actuel ? [EFFACER] : [])]);
-    if (!choix) return;
-    const sexe = choix === EFFACER ? "" : (SEXES.find((x) => x.libelle === choix) || {}).code || "";
-    const refus = critiqueSexe(sexe);
-    if (refus) { uAlert(refus); return; }
-    if ((frais.sexe || "") === sexe) return;
-    // Effacer = une valeur VIDE, jamais un champ retiré (la fusion des appareils le rendrait).
-    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, sexe } : x)) }, `Sexe de ${u.nom} : ${actuel || "non précisé"} → ${libelleSexe({ sexe }) || "non précisé"}`);
   };
 
   // 📄 CERTIFICAT DE TRAVAIL ET ATTESTATIONS (12/10/2026, « Aa, Bb, Cb, Db »).
@@ -1735,7 +1730,7 @@ export function Users({ db, save, profile }) {
                 <td className="px-4 py-2 whitespace-nowrap text-right">
                   <div className="inline-flex items-center gap-1">
                     <button onClick={() => setPouvoirsPour(u.id)} className={boutonRond("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title={`🔐 Pouvoirs${(u.droits_off || []).length ? ` (${(u.droits_off || []).length} retiré${(u.droits_off || []).length > 1 ? "s" : ""})` : ""}`} aria-label="Pouvoirs">🔐{(u.droits_off || []).length ? <span className="absolute -top-1 -right-1 text-[10px] font-bold bg-purple-700 text-white rounded-full w-4 h-4 flex items-center justify-center">{(u.droits_off || []).length}</span> : null}</button>
-                    <button onClick={() => changerIdentite(u)} className={boutonRond("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="🆔 Identité (pièce, nom complet)" aria-label="Identité">🆔</button>
+                    <button onClick={() => changerIdentite(u)} className={boutonRond("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="🆔 Identité (nom complet, sexe, pièce)" aria-label="Identité">🆔</button>
                     {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className={boutonRond("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="🔑 Changer le mot de passe" aria-label="Mot de passe">🔑</button>}
                     {!surMaPropreFiche(u) && <button onClick={() => toggleActif(u)} className={boutonRond(u.actif === false ? "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100" : "text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title={u.actif === false ? "✅ Réactiver ce compte" : "⛔ Bloquer ce compte"} aria-label={u.actif === false ? "Réactiver" : "Bloquer"}>{u.actif === false ? "✅" : "⛔"}</button>}
                     <button onClick={() => setGererOuvert(gererOuvert === u.id ? null : u.id)} className={`px-3 h-8 rounded-full border text-xs font-bold ${gererOuvert === u.id ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"}`} title="Tous les gestes sur ce compte">⋯ Gérer</button>
@@ -1761,7 +1756,6 @@ export function Users({ db, save, profile }) {
                   {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} info={() => infoGerer(u, "affectation")} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
                   {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} info={() => infoGerer(u, "telephone")} nom="📞 Téléphone" />}
                   {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} info={() => infoGerer(u, "anniversaire")} nom="🎂 Anniversaire" />}
-                  <BoutonGerer data-sexe onClick={() => changerSexe(u)} info={() => infoGerer(u, "sexe")} titre="« M. » ou « Mme » sur le contrat d'un client et les attestations d'un employé" nom="⚧ Sexe" />
                   {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Voir le mot de passe" />}
                   <BoutonGerer onClick={() => supprimerU(u)} ton="danger" nom="🗑 Supprimer" />
                       </div>

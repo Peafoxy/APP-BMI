@@ -3888,8 +3888,9 @@ titre("Vague 3, étape 3 (les comptes) : chaque geste sur un compte revérifie s
     C.refuserSaufTaches(dbT, dbT.users[1], "t") === false && C.refuserSaufTaches(dbT, dbT.users[2], "t") === true && C.refuserSaufTaches(dbT, dbT.users[3], "t") === true);
   const u = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
   const gestesAdmin = ["Bloquer ou réactiver un compte", "Supprimer un compte", "Changer la boutique d'un compte", "Autoriser le chat libre à un client",
+  // RETOURNÉ le 12/10/2026 : « Modifier l'identité d'un compte » (le sexe d'un client s'y saisit aussi).
     "Nommer ou retirer un chef d'équipe", "Modifier les pouvoirs d'un compte", "Changer le parrain d'un compte", "Fixer la commission d'équipe",
-    "Fixer le taux de commission", "Modifier l'identité d'un employé", "Modifier l'anniversaire d'un employé", "Fixer le taux d'avancement",
+    "Fixer le taux de commission", "Modifier l'identité d'un compte", "Modifier l'anniversaire d'un employé", "Fixer le taux d'avancement",
     "Modifier un salaire", "Enregistrer une prime ou une avance", "Annuler un paiement de salaire", "Accorder un crédit", "Refuser un crédit",
     "Enregistrer un remboursement de crédit", "Créer un compte employé"];
   test(`★ Utilisateurs.jsx : ${gestesAdmin.length} gestes réservés à l'administrateur le revérifient dans le geste`,
@@ -13855,11 +13856,13 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
       /^const delivrerDocument = async \(u\) => \{\n\s*if \(refuserSaufAdminPrincipal\(db, profile, /.test(geste) && /const frais = db\.users\.find\(\(x\) => x\.id === u\.id\) \|\| u;/.test(geste)
       && /const refus = critiqueDocument\(type, frais, today\(\)\);/.test(geste) && /signature: moi\.signature_personnelle/.test(geste)
       && /imprimerDocumentEmploye\(contenu, db, estCompteFormation\(db, frais\)\)/.test(geste) && /save\(db, journalDocument\(contenu, today\(\)\)\)/.test(geste));
-    const gSexe = (us.match(/const changerSexe = async \(u\) => \{[\s\S]*?\n  \};/) || [""])[0];
-    test("★★ ⚧ « B a » : le sexe se saisit par l'administrateur seul, revérifié EN PREMIER dans le geste, sur la fiche fraîche ; effacer écrit une valeur VIDE ; une ligne de journal",
-      /^const changerSexe = async \(u\) => \{\n\s*if \(refuserSaufAdmin\(profile, "Saisir le sexe d'un compte"\)\) return;/.test(gSexe) && /const frais = db\.users\.find/.test(gSexe)
-      && /critiqueSexe\(sexe\)/.test(gSexe) && /\{ \.\.\.x, sexe \}/.test(gSexe) && /`Sexe de \$\{u\.nom\} : /.test(gSexe)
-      && /<BoutonGerer data-sexe onClick=\{\(\) => changerSexe\(u\)\} info=\{\(\) => infoGerer\(u, "sexe"\)\}/.test(us));
+    // RETOURNÉ le 12/10/2026 (« On ne pouvait pas insérer le sexe dans ID ? » → « a ») : plus de bouton ⚧ Sexe, la question est dans 🆔 Identité.
+    const gId = (us.match(/const changerIdentite = async \(u\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    test("★★ ⚧ « B a » : le sexe se saisit dans 🆔 Identité (employé ET client), par l'administrateur seul, revérifié EN PREMIER, sur la fiche fraîche ; « Non précisé » écrit une valeur VIDE ; le journal dit le changement ; plus aucun bouton ⚧ Sexe",
+      /^const changerIdentite = async \(u\) => \{\n\s*if \(refuserSaufAdmin\(profile, "Modifier l'identité d'un compte"\)\) return;/.test(gId) && /const frais = db\.users\.find/.test(gId)
+      && /uChoix\(`Sexe de \$\{u\.nom\}/.test(gId) && gId.indexOf("uChoix(`Sexe de") > gId.indexOf("Nom et prénom(s) officiels") && gId.indexOf("uChoix(`Sexe de") < gId.indexOf("Type de pièce")
+      && /critiqueSexe\(sexe\)/.test(gId) && /\.\.\.\(sexeChange \? \{ sexe \} : \{\}\)/.test(gId) && / — sexe : /.test(gId)
+      && !/changerSexe|nom="⚧ Sexe"/.test(us) && /<button onClick=\{\(\) => changerIdentite\(u\)\}/.test(us));
     test("★ ⚧ la case « Sexe » du formulaire de création (facultative) va sur le compte client ET sur le compte employé",
       /data-sexe-creation/.test(us) && /\.\.\.champsCompteClient\(f\.nom, f\.prenom, entCli\), \.\.\.\(f\.sexe \? \{ sexe: f\.sexe \} : \{\}\)/.test(us)
       && /nom_complet: `\$\{f\.nom\.trim\(\)\} \$\{f\.prenom\.trim\(\)\}`\.trim\(\) \} : \{\}\),\n\s*\.\.\.\(f\.sexe \? \{ sexe: f\.sexe \} : \{\}\),/.test(us)
@@ -14107,8 +14110,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   // est un TEXTE écrit, ou le choix entre deux textes pour un geste qui bascule.
   const noms = [...u.matchAll(/<BoutonGerer\b[\s\S]*?\/>/g)].map((m) => (m[0].match(/ nom=(\{[^}]*\}|"[^"]*") \/>$/) || [, "?"])[1]);
   test("★★ ⋯ Gérer : UN composant pour tous ses boutons (BoutonGerer), plus aucun bouton maison, et AUCUNE valeur dans un nom (date, contrat, banque, taux, numéro)",
-    // RETOURNÉ le 12/10/2026 : 26 (📄 Attestation de travail, 📄 Document de fin de contrat), puis 27 (⚧ Sexe).
-    noms.length === 27 && !/boutonGerer/.test(u)
+    // RETOURNÉ le 12/10/2026 : 26 (📄 Attestation de travail, 📄 Document de fin de contrat) ; ⚧ Sexe vit dans 🆔 Identité, pas ici.
+    noms.length === 26 && !/boutonGerer/.test(u)
     && noms.every((n) => n.startsWith('"') || /^\{u\.[a-z_]+ \? "[^"]*" : "[^"]*"\}$/.test(n))
     && /export function BoutonGerer\(\{ nom, onClick, titre, ton, info, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /\{String\(nom\)\}<\/button>/.test(readFileSync("src/components/ui.jsx", "utf8")));
@@ -14118,7 +14121,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const avecInfo = blocs.filter((b) => / info=\{\(\) => infoGerer\(u, "[a-zA-Z]+"\)\}/.test(b)).map((b) => b.match(/ nom="([^"]*)"/)?.[1]);
   const uiG = readFileSync("src/components/ui.jsx", "utf8");
   test("★★ ⋯ Gérer : l'appui MONTRE l'information (Fermer / ✏️ Modifier) sur les 13 boutons qui en gardent une, et fait son geste tout de suite sur les autres (Prime, Avance, Virement, Supprimer, Rôle…)",
-    JSON.stringify(avecInfo.sort()) === JSON.stringify(["🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe", "⚧ Sexe"].sort())
+    JSON.stringify(avecInfo.sort()) === JSON.stringify(["🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe"].sort())
     && blocs.filter((b) => /nom="(\+ Prime|− Avance|💸 Payer le salaire|🗑 Supprimer|🎭 Rôle|🔁 Renouveler|👁 Voir le mot de passe)"/.test(b)).every((b) => !/ info=/.test(b)));
   test("★★ ⋯ Gérer : la fenêtre d'information ne modifie RIEN — seul « ✏️ Modifier » (ou « ✏️ Saisir » si vide) lance le geste ; « Fermer » ne fait rien",
     /const ok = await uInfo\(/.test(uiG) && /if \(ok\) onClick\?\.\(\);/.test(uiG) && /vues\.length \? "✏️ Modifier" : "✏️ Saisir"/.test(uiG)
