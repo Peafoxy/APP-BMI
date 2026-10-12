@@ -7,7 +7,8 @@ import { useState, useEffect } from "react";
 import { uid, today, dFR } from "../lib/core";
 import { Field, inputCls, uAlert, uConfirm, uPrompt, FormulaireRepliable } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
-import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles, boutiquesDuMemeEspace, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
+import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles, boutiquesDuMemeEspace, refuserSaufRoles, ROLES_STOCK, chantiersDeLEspaceRegarde } from "../lib/calculs";
+import { reservations, avertissementReserve } from "../lib/achatsChantier";
 import { transfertsStockAValider, historiqueTransfertsStock, validerTransfertStock, refuserTransfertStock, libelleLignes, STATUT_VALIDE, STATUT_REFUSE } from "../lib/transfertsStock";
 
 // ============ DEMANDE DE RAVITAILLEMENT (côté boutique) ============
@@ -183,6 +184,13 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
       return !p || stockActuel(db, p) < Number(l.qte);
     });
     if (manquants.length) { uAlert(`Stock insuffisant chez vous pour :\n${manquants.map((m) => m.nom).join("\n")}`); return; }
+    // 🔒 Le matériel réservé pour une installation (Timo, 12/10/2026, « a ») :
+    // servir la demande prend-il ce qu'un chantier a payé ? On avertit, on ne
+    // bloque pas (lib/achatsChantier.js).
+    { const panier = demande.lignes.map((l) => ({ produit_id: db.produits.find((x) => x.boutique === bq && x.nom.trim().toLowerCase() === l.nom.trim().toLowerCase())?.id, qte: l.qte }));
+      const question = avertissementReserve({ panier, produits: db.produits, stock: (x) => stockActuel(db, x),
+        liste: reservations({ chantiers: chantiersDeLEspaceRegarde(db, profile), ventes: db.ventes }), boutique: bq, geste: "ce transfert" });
+      if (question && !await uConfirm(question)) return; }
     if (!await uConfirm(`Envoyer ce transfert vers ${demande.demandeur} ?\n\n${demande.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}${demande.note ? `\n\n${demande.note}` : ""}`)) return;
     const ref = uid();
     const numero = `TRF-${today().replace(/-/g, "")}-${ref.slice(0, 4).toUpperCase()}`;

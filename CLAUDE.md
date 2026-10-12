@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2531 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2532 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1650,12 +1650,16 @@ lit mal est pire qu'un banc absent).
   **Le même jour (« ajoute l'avertissement aussi pour les transferts et
   travaux »)** : ⇄ Transfert de 📦 Stocks avertit à l'ENVOI (« Après ce
   transfert… »), 🛠 Travaux à la sortie d'un article (« Après cette sortie pour
-  les travaux… ») — `geste` d'`avertissementReserve`. ⚠ Toujours non couverts :
-  la réception FORCÉE d'un chantier en cours et le ravitaillement (non demandé).
-- Rien à coller. Bancs : `verifier-cloisonnement` (+12), `verifier-ecran-stocks`
+  les travaux… ») — `geste` d'`avertissementReserve`. **Puis (« a, lance »)** :
+  la demande de transfert venue de 💰 Ventes et SERVIE par l'autre boutique
+  (🔁 Transfert, `servirDemandeTransfert`, Ravitaillement.jsx). ⚠ **Le
+  ravitaillement magasin → boutique n'en a pas besoin** (dit à Timo) : un devis
+  ne s'encaisse jamais dans un magasin, donc un magasin ne garde jamais de
+  matériel réservé. Toujours non couverte : la réception FORCÉE d'un chantier.
+- Rien à coller. Bancs : `verifier-cloisonnement` (+13), `verifier-ecran-stocks`
   (+3, rendu ; trois contrôles RETOURNÉS), `verifier-ecran-achat-chantier`
   (+4, Chromium), éprouvés (question retirée, réappro sans réservations, mur
-  ouvert, le chef qui termine sans achat). Chapitres 5, 8, 15.
+  ouvert, le chef qui termine sans achat). Chapitres 5, 8, 9, 15.
 
 ### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES, 📋 TOUS LES DEVIS ET 🧲 PROSPECTS (05/10/2026, « Lance, revenir à Toutes périodes »)
 - Captures Timo : « pas de filtration de période dans ces écrans ». LE filtre

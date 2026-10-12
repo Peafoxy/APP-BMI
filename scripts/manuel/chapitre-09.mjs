@@ -2,6 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 9 : Ravitaillement et transferts
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
+// lib/achatsChantier.js (avertissementReserve — le matériel réservé, 12/10/2026),
 // screens/Ravitaillement.jsx (DemandeRavitaillement : « 🚚 Demander un
 // ravitaillement au magasin », « Mes demandes », Annuler ;
 // DemandesTransfertRecues : « 📦 Transferts de stock à valider » avec
@@ -114,7 +115,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Dans 💰 Ventes", texte: "À l'encaissement, un article manque : « Stock insuffisant pour : … Comment voulez-vous procéder ? » → « Transfert (demander à une autre boutique) ». L'écran montre **le stock de chaque boutique** pour chaque article manquant (« Demander ce transfert à quelle boutique ? (stock actuel affiché pour chacune) »), puis confirme : « Le client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé ». **Le panier reste tel quel** : dès que l'autre boutique a validé, on reclique « Encaisser la vente »." },
         { titre: "Chez la boutique sollicitée", texte: "« 🔁 Demandes de transfert reçues (N) » — « Une autre boutique a besoin de ces articles — probablement pour finaliser une vente en attente. Validez simplement si vous les avez en stock. » La note dit « Demandé depuis Ventes par BOUTIQUE — client X (tel) en attente pour finaliser sa vente. » Notification « 🔁 Demande de transfert — BOUTIQUE » au gérant et aux administrateurs." },
-        { titre: "« ✅ Valider »", texte: "« Envoyer ce transfert vers DEMANDEUR ? … » — refus si « Stock insuffisant chez vous pour : … ». **Ici le stock bouge tout de suite** : numéro TRF-…, deux ajustements, demande « servie », « ✅ Transfert envoyé vers DEMANDEUR. » C'est la boutique qui **donne** qui valide, parce que c'est elle qui sait si elle a la marchandise. « Refuser » : motif « Rupture de stock » proposé." },
+        { titre: "« ✅ Valider »", texte: "« Envoyer ce transfert vers DEMANDEUR ? … » — refus si « Stock insuffisant chez vous pour : … ». **Ici le stock bouge tout de suite** : numéro TRF-…, deux ajustements, demande « servie », « ✅ Transfert envoyé vers DEMANDEUR. » C'est la boutique qui **donne** qui valide, parce que c'est elle qui sait si elle a la marchandise. Si l'envoi prend du matériel **🔒 réservé** pour un de ses chantiers « Avec installation » (chapitres 5 et 8), une question le dit avant : « … Après ce transfert, il manquera N pour ce chantier. Continuer quand même ? » — jamais un blocage. Un **ravitaillement** depuis le magasin n'a pas cette question : un magasin ne garde jamais de matériel réservé. « Refuser » : motif « Rupture de stock » proposé." },
         { titre: "Le même choix pour le dépôt", texte: "« Ravitaillement (demander au dépôt) » crée la demande au magasin sans passer par le cadre (« ✅ Demande de ravitaillement envoyée au dépôt. Revenez encaisser cette vente une fois le stock arrivé (onglet 🚚 Ravitaillement). ») ; le panier est vidé, on refait la vente à l'arrivée." },
       ]],
     ]},
