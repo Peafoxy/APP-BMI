@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2542 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2545 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1684,6 +1684,18 @@ lit mal est pire qu'un banc absent).
   (+3, rendu ; trois contrôles RETOURNÉS), `verifier-ecran-achat-chantier`
   (+4, Chromium), éprouvés (question retirée, réappro sans réservations, mur
   ouvert, le chef qui termine sans achat). Chapitres 5, 8, 9, 15.
+
+### 📋 LE STATUT DES DETTES : « TOUT » NE MONTRE QUE CE QUI RESTE À RÉGLER (12/10/2026)
+- Capture Timo : « classer en tout, en cours, partielle et Payée… par défaut sur
+  tout, mais dans tout afficher que les dettes en cours et partielle… payé n'est
+  plus une dette ». Liste à gauche de « Toute période » dans 📋 Dettes
+  (`data-filtre-statut-dette`), **« Tout » d'office à chaque ouverture**, rien
+  de mémorisé. Règle pure `statutDette` / `FILTRES_STATUT_DETTE` /
+  `detteDansFiltre` (core.js) — la pastille lit aussi `statutDette`. « Payée »
+  se choisit pour revoir une dette soldée. Le « Reste total », la bande « hors
+  période » et le retard ne changent pas. Réservations non concernées. Rien à
+  coller. Banc (3 contrôles, l'écran RENDU), éprouvé ; un contrôle RETOURNÉ.
+  Chapitre 7 à jour.
 
 ### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES, 📋 TOUS LES DEVIS ET 🧲 PROSPECTS (05/10/2026, « Lance, revenir à Toutes périodes »)
 - Captures Timo : « pas de filtration de période dans ces écrans ». LE filtre

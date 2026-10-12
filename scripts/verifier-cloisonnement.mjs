@@ -3986,6 +3986,38 @@ titre("La fusion à l'envoi ne renvoie plus une vieille copie d'un champ qu'on n
     Fus.fusionner("ventes", undefined, { id: "v", x: 2 }, { id: "v", x: 3 }).x === 2);
 }
 
+titre("📋 Le statut des dettes : Tout (en cours + partielles), En cours, Partielle, Payée (12/10/2026, « payé n'est plus une dette »)");
+{
+  const Cs = await import(pathToFileURL("src/lib/core.js").href);
+  const enC = { id: "s1", montant: 25000, paye: 0 }, part = { id: "s2", montant: 110000, paye: 20000 }, pay = { id: "s3", montant: 354900, paye: 354900 }, trop = { id: "s4", montant: 1000, paye: 1500 };
+  const garde = (f) => [enC, part, pay, trop].filter((d) => Cs.detteDansFiltre(d, f)).map((d) => d.id).join(",");
+  test("★★ « Tout » = en cours ET partielles, jamais une dette payée ; « Payée » les montre seules (trop-perçu compris) ; un filtre inconnu vaut « Tout »",
+    JSON.stringify(Cs.FILTRES_STATUT_DETTE) === JSON.stringify(["Tout", "En cours", "Partielle", "Payée"])
+    && garde("Tout") === "s1,s2" && garde("En cours") === "s1" && garde("Partielle") === "s2" && garde("Payée") === "s3,s4"
+    && garde("???") === "s1,s2" && Cs.statutDette(part) === "Partielle");
+  const fDs = readFileSync("src/screens/Dettes.jsx", "utf8");
+  test("★★ l'écran : « Tout » d'office, la liste à côté de « Toute période », la liste affichée passe par LA règle, le statut de la pastille aussi",
+    /const \[filtreStatut, setFiltreStatut\] = useState\("Tout"\);/.test(fDs)
+    && /data-filtre-statut-dette[\s\S]{0,200}FILTRES_STATUT_DETTE\.map[\s\S]{0,120}<\/select>\s*\{periode\.selecteur\}/.test(fDs)
+    && /const statut = statutDette;/.test(fDs) && !/"Payée" : d\.paye > 0/.test(fDs));
+  const sortieSt = join("node_modules", ".cache", `bmi-rendu-dettes-st-${process.pid}.mjs`);
+  let RdS = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-dettes.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieSt, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RdS = await import(pathToFileURL(sortieSt).href);
+  } catch {}
+  try { unlinkSync(sortieSt); } catch {}
+  const BQs = "BMI DEMAKPOE", gs = { id: "gs", nom: "ANGELE", role: "gerant", boutique: BQs };
+  const dbS = { boutiques: [{ id: "b1", nom: BQs }], users: [gs], produits: [], ventes: [], depenses: [], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], audits: [], clotures: [],
+    dettes: [{ ...enC, boutique: BQs, client: "KOFFI ENCOURS", date: "2026-10-11" }, { ...part, boutique: BQs, client: "AMA PARTIELLE", date: "2026-10-10" }, { ...pay, boutique: BQs, client: "POUDAMA PAYEE", date: "2026-09-29", paiements: [{ id: "pp", date: "2026-10-07", montant: 354900, paiement: "Espèces" }] }] };
+  const e0 = console.error; console.error = () => {};
+  let hS = ""; try { hS = String(RdS?.rendreDettes(dbS, gs) || ""); } catch {} finally { console.error = e0; }
+  test("★★ l'écran RENDU : à l'ouverture la dette payée n'est PAS listée, les deux autres oui, « Tout » est choisi",
+    hS !== "" && /KOFFI ENCOURS/.test(hS) && /AMA PARTIELLE/.test(hS) && !/POUDAMA PAYEE/.test(hS)
+    && /data-filtre-statut-dette[^>]*>[\s\S]*?<option value="Tout" selected="">Tout<\/option>/.test(hS));
+}
+
 titre("🗑 Une dette supprimée part à la corbeille, une dette qui a reçu de l'argent ne se supprime pas (12/10/2026, « a+b »)");
 {
   // La dette de POUDAMA (354 900 F, 354 000 versés le 07/10) supprimée pour de
@@ -11643,8 +11675,9 @@ titre("✏️ Personnaliser la période (💰 Ventes)");
       && /data-total-periode>\{periode\.libelle\} : \{fmt\(totalPeriode\)\}/.test(depP)
       && /const totalPeriode = depensesComptees\(listeAffichee\)/.test(depP)
       && (depP.match(/listeAffichee/g) || []).length === 4);
+    // RETOURNÉ le 12/10/2026 : la liste suit AUSSI le statut (Tout / En cours / Partielle / Payée).
     test("★★ 📅 Dettes : la liste et le reste total suivent la période, l'argent dû HORS période se DIT, et le retard regarde toutes les dettes",
-      /const listeAffichee = liste\.filter\(\(x\) => periode\.dans\(x\.date\)\);/.test(detP)
+      /const listeAffichee = liste\.filter\(\(x\) => periode\.dans\(x\.date\) && detteDansFiltre\(x, filtreStatut\)\);/.test(detP)
       && /usePagination\(listeAffichee, 50\)/.test(detP)
       && /fmt\(listeAffichee\.reduce\(\(s, d\) => s \+ Math\.max\(0, d\.montant - d\.paye\), 0\)\)/.test(detP)
       && /const horsPeriode = periode\.actif \? liste\.filter\(\(x\) => !periode\.dans\(x\.date\) && Math\.max\(0, x\.montant - x\.paye\) > 0\) : \[\];/.test(detP)

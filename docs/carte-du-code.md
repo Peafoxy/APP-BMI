@@ -48,7 +48,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | Fichier | À quoi il sert |
 |---|---|
 | `lib/calculs.js` | Le gros des calculs métier : stock, boutiques, rôles, espaces, remises, index |
-| `lib/core.js` | Les briques de base : montants, dates, numéros, WhatsApp, messages, dépenses |
+| `lib/core.js` | Les briques de base : montants, dates, numéros, WhatsApp, messages, dépenses, statut d'une dette |
 | `lib/panier.js` | Le panier d'une vente ou d'une commande |
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
 | `lib/importStock.js` | L'importation d'articles en stock (Excel ou texte collé) |

@@ -5,7 +5,7 @@
 // ============================================================
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { useState, Fragment } from "react";
-import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette } from "../lib/core";
+import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette, statutDette, FILTRES_STATUT_DETTE, detteDansFiltre } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
@@ -51,6 +51,9 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
   // 📅 Le filtre de période de la liste (Timo, 05/10/2026 : « Toute période »
   // à chaque ouverture) — sur la DATE de la dette.
   const periode = useFiltrePeriode();
+  // 📋 Le statut (Timo, 12/10/2026) : « Tout » d'office = en cours et partielles
+  // seulement — une dette payée n'est plus une dette ; « Payée » se choisit.
+  const [filtreStatut, setFiltreStatut] = useState("Tout");
 
   const ajouter = () => {
     if (!f.client || !f.montant) { uAlert("Veuillez saisir le nom du client et le montant."); return; }
@@ -350,11 +353,11 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
   // Ce qui est AFFICHÉ. ⚠ Une vieille dette impayée sort de la liste quand on
   // choisit une période : l'argent dû hors de la période se DIT sous le titre
   // (horsPeriode), on ne le perd jamais de vue.
-  const listeAffichee = liste.filter((x) => periode.dans(x.date));
+  const listeAffichee = liste.filter((x) => periode.dans(x.date) && detteDansFiltre(x, filtreStatut));
   const horsPeriode = periode.actif ? liste.filter((x) => !periode.dans(x.date) && Math.max(0, x.montant - x.paye) > 0) : [];
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(listeAffichee, 50);
   const mesReservations = db.dettes.filter((x) => x.boutique === boutique && estReservation(x) && x.statut !== "annulee");
-  const statut = (d) => (d.montant - d.paye <= 0 ? "Payée" : d.paye > 0 ? "Partielle" : "En cours");
+  const statut = statutDette;
 
   const dettesEnRetard = liste.filter(d => {
     // UNE règle (lib/rappels.js) : la tournée du matin des notifications
@@ -511,7 +514,12 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
           <span>Dettes — {boutique} <span className="text-sm font-normal text-slate-500">· Reste total{periode.actif ? ` (${periode.libelle})` : ""} : {fmt(listeAffichee.reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0))}</span></span>
-          <span className="flex flex-wrap items-center gap-2">{periode.selecteur}</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)} data-filtre-statut-dette className={`${inputCls} sm:w-36`} aria-label="Statut des dettes">
+              {FILTRES_STATUT_DETTE.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+            {periode.selecteur}
+          </span>
         </div>
         {horsPeriode.length > 0 && (
           <div className="px-4 py-2 text-xs font-semibold text-amber-800 bg-amber-50 border-b border-amber-200" data-dettes-hors-periode>
@@ -529,7 +537,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
             {[["Client", "text-left"], ["Date", "text-left"], ["Motif", "text-left"], ["Dette", "text-right"], ["Payé", "text-right"], ["Reste", "text-right"], ["Statut", "text-left"], ["Actions", "text-right"]].map(([h, al], i) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {listeAffichee.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucune dette sur cette période." : "Aucune dette enregistrée."}</td></tr>}
+            {listeAffichee.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{filtreStatut === "Tout" ? "Aucune dette à régler" : `Aucune dette « ${filtreStatut} »`}{periode.actif ? " sur cette période" : ""}.{filtreStatut === "Tout" && liste.some((x) => statutDette(x) === "Payée") ? " Les dettes soldées sont sous « Payée »." : ""}</td></tr>}
             {listePage.map((d, i) => {
               const st = statut(d);
               const jours = joursDeDette(d, today());

@@ -179,6 +179,21 @@ export const lignesDette = (d) => {
   if (morceaux.length > 1 && morceaux.every((m) => forme.test(m))) return morceaux.map((m) => { const [, q, a] = m.match(forme); return { qte: Number(q.replace(",", ".")), article: a.trim() }; });
   return [{ qte: null, article: motif }];
 };
+// 📋 Le STATUT d'une dette, et le filtre de 📋 Dettes (Timo, 12/10/2026 :
+// « tout, en cours, partielle et Payée… par défaut sur tout, mais dans tout
+// afficher que les dettes en cours et partielle seulement… payé n'est plus une
+// dette »). « Tout » = ce qui reste à régler ; « Payée » se demande à part. Un
+// filtre inconnu vaut « Tout » (jamais une liste vide par une faute de frappe).
+export const statutDette = (d) => {
+  const montant = Number(d?.montant || 0), paye = Number(d?.paye || 0);
+  return montant - paye <= 0 ? "Payée" : paye > 0 ? "Partielle" : "En cours";
+};
+export const FILTRES_STATUT_DETTE = ["Tout", "En cours", "Partielle", "Payée"];
+export const detteDansFiltre = (d, filtre = "Tout") => {
+  const st = statutDette(d);
+  if (filtre === "Tout" || !FILTRES_STATUT_DETTE.includes(filtre)) return st !== "Payée";
+  return st === filtre;
+};
 export const lignesVente = (v) => (v.articles && v.articles.length ? v.articles : [{ produit_id: v.produit_id, article: v.article, qte: v.qte, pu: v.pu }]);
 // ⚠ CORRECTIF 2.99.50 : brutVente() ignorait les remises PAR LIGNE
 // (remise_ligne) — elle ne faisait que qte×pu, sans jamais les soustraire.
