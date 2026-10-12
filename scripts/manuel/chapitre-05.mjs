@@ -1,4 +1,5 @@
 // ============================================================
+// (12/10/2026 : le matériel réservé — avertissementReserve, lib/achatsChantier.js.)
 // MANUEL DE FORMATION — CHAPITRE 5 : Ventes et commandes
 //
 // ⚠ Dans le plan retenu par Timo (celui de ChatGPT, 22/09/2026), le chapitre 4
@@ -141,6 +142,13 @@ export const CHAPITRE = {
         { titre: "Retrouver un achat", texte: "Dans la liste, l'onglet **« 🏗 Achats chantier (N) »** : date, numéro **…-ACH-2026-0001**, chantier, articles, total, et « ✅ Réglé » ou « ⏳ X F en attente ». **🖨 Imprimer** refait la facture ; l'administrateur a **↩ Annuler** (motif obligatoire : le matériel revient en stock, l'achat reste écrit, marqué annulé)." },
       ]],
       ["regle", "**Un achat pour un chantier n'est pas une vente.** Rien n'entre dans le tiroir, rien ne compte dans le chiffre d'affaires ni dans une commission (tout ça a été compté au paiement du devis). Le matériel sort du stock, et **son prix d'achat** compte pour le chantier. La clôture du jour ne le bloque pas."],
+      ["h3", "🔒 Le matériel réservé pour une installation"],
+      ["p", "Tant que l'achat « 🏗 Chantier » n'est pas fait, le matériel d'un devis « 🔧 Avec installation » **payé** est **réservé** : il est encore sur l'étagère, mais il appartient déjà à un chantier."],
+      ["etapes", [
+        { titre: "Une vente qui prend le matériel d'un chantier", texte: "À « 💳 Encaisser », si la vente laisse en stock moins que ce qui est réservé, une question s'affiche avant toute écriture : « ⚠ Du matériel réservé pour une installation : • Batterie 51,2V 200Ah : 3 en stock, dont 1 réservé pour une installation — Kossi MENSAH (1, payé le 08/10/2026). Après cette vente, il manquera 1 pour ce chantier. Continuer quand même ? »" },
+        { titre: "OK ou Annuler", texte: "**Annuler** : rien n'est enregistré, le panier reste. **OK** : la vente continue normalement ; le chantier manquera de ce matériel, et 📦 Stocks le montre en rouge (chapitre 8). Ce n'est jamais un blocage." },
+      ]],
+      ["p", "La même question se pose au gérant qui fait un achat « 🏗 Chantier » pour un **autre** chantier. Elle ne se pose pas pour un devis « Avec installation » encaissé (son stock ne sort pas) ni pour une réservation prépayée."],
       ["attention", "**Si le client n'a pas encore assez payé**, la partie qui manque reste **« ⏳ en attente du chantier »** — pas de dette. **Son prochain versement la règle d'abord, tout seul**, et la gérante en est informée par une notification. Au-delà de la **part matériel du devis**, un avertissement rouge (jamais un refus) : le surplus est pris sur les frais d'installation."],
 
       ["h3", "F. La commande d'un commercial — 🛒 Nouvelle commande et 📥 Commandes reçues"],

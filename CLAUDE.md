@@ -52,16 +52,16 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2519 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2529 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run tester-notifications     # 85  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
-npm run verifier-ecran-stocks    # 18  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone)
+npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone ; 🔒 Matériel réservé rendu, le mur, la réappro sur le disponible)
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 26  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
-npm run verifier-ecran-achat-chantier # 11 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case)
+npm run verifier-ecran-achat-chantier # 15 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
@@ -1615,6 +1615,45 @@ lit mal est pire qu'un banc absent).
   (+3), **`verifier-ecran-achat-chantier`** (Chromium, 11 — la case jouée,
   stock / remise / vendeuse), éprouvés en remettant sept fautes ; huit
   contrôles RETOURNÉS. Chapitres 5, 11, 12, 13, 15, 22 et le guide du gérant.
+### 🔒 LE MATÉRIEL RÉSERVÉ POUR UNE INSTALLATION (12/10/2026, « A a, B a, C a », D : « avertissement et impossible de marquer terminé… seul l'administrateur principal »)
+- Timo, à la place d'un simple avertissement à « Marquer terminé » : « 1 batterie
+  51,2V 200Ah dans un devis, 3 en stock ; un client vient payer 3 batteries :
+  informer qu'une est réservée… continuer ? » et « une interface dans stock où
+  voir les articles réservés ». Règles pures dans **`lib/achatsChantier.js`**
+  (`lignesReserveesDuChantier`, `reservations`, `reserveParProduit`,
+  `reservePour`, `avertissementReserve`, `critiqueTerminerChantier`). **Rien
+  n'est écrit : c'est calculé.**
+- **A a** : réservé = les lignes `au_chantier` de la vente d'un devis
+  « 🔧 Avec installation » **payé**, dans la boutique de cette vente, moins ce
+  que les achats « 🏗 Chantier » actifs de CE chantier ont sorti (par l'article,
+  sinon par le NOM si l'achat a été fait ailleurs ; une sortie ne compte
+  qu'une fois ; un achat annulé fait revenir la réservation). Un chantier
+  **réceptionné** ne réserve plus (on ne peut plus lui acheter) : ce qui n'est
+  jamais sorti est DIT en rouge 30 jours (`JOURS_RESTE_RECEPTIONNE`) dans
+  📦 Stocks. Travaux, corbeille, devis d'avant : rien.
+- **B a** : 💰 Ventes, tous ceux qui vendent, AVANT toute écriture (après les
+  contrôles de stock) : « ⚠ Du matériel réservé… il manquera N pour ce
+  chantier. Continuer quand même ? » — Annuler n'écrit rien, OK continue
+  (jamais un blocage). Pas pour un devis « Avec installation » encaissé ni une
+  réservation prépayée ; aussi pour un achat « 🏗 Chantier » destiné à un
+  AUTRE chantier (`sauf`). Les chantiers lus = l'espace regardé (le mur).
+- **📦 Stocks → « 🔒 Matériel réservé pour des installations »** (boutique
+  regardée) : Article · En stock · Réservé · Disponible (rouge négatif) · Pour
+  qui ; un chantier 🏁 terminé jamais sorti en rouge ; les réceptionnés à part.
+- **C a** : « ⚠ À réapprovisionner » regarde le **Disponible** (stock −
+  réservé) : `articlesAReapprovisionner(…, { reserves })`, colonne « Réservé »,
+  export « Disponible / Réservé chantier ».
+- **D** : « 🏁 Marquer terminé » d'un chantier `stock_au_chantier` **sans
+  AUCUN achat actif** est REFUSÉ (chef ⭐ comme administrateur) ; **le principal
+  seul** passe, après un avertissement dans la question ; avec un achat, s'il
+  reste du réservé, la question le rappelle. Revérifié sur la fiche FRAÎCHE.
+  ⚠ Non couvert (dit à Timo) : la réception FORCÉE d'un chantier en cours, la
+  sortie de 🛠 Travaux, les transferts et ravitaillements n'avertissent pas.
+- Rien à coller. Bancs : `verifier-cloisonnement` (+10), `verifier-ecran-stocks`
+  (+3, rendu ; trois contrôles RETOURNÉS), `verifier-ecran-achat-chantier`
+  (+4, Chromium), éprouvés (question retirée, réappro sans réservations, mur
+  ouvert, le chef qui termine sans achat). Chapitres 5, 8, 15.
+
 ### 📅 LE FILTRE DE PÉRIODE DANS 📤 DÉPENSES, 📋 DETTES, 📋 TOUS LES DEVIS ET 🧲 PROSPECTS (05/10/2026, « Lance, revenir à Toutes périodes »)
 - Captures Timo : « pas de filtration de période dans ces écrans ». LE filtre
   de 💰 Ventes est écrit UNE fois, **`components/FiltrePeriode.jsx`**

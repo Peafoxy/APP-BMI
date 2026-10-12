@@ -41,7 +41,7 @@ import { lierFacture, champsTravauxDocument } from "../lib/travaux";
 import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
 import { InventaireVentes } from "./InventaireVentes";
 // 🏗 Étape 2 de la caisse CHANTIER (11/10/2026) : le matériel qui part au chantier.
-import { stockAuChantier, peutAcheterPourChantier, chantiersPourAchat, critiqueAchatChantier, construireAchatChantier, argentDuChantier, avertissementMateriel, venteDuChantier, detteDuChantier, nomChantier, totalAchat, critiqueAnnulationAchat, annulerAchatChantier, achatsDe } from "../lib/achatsChantier";
+import { stockAuChantier, peutAcheterPourChantier, chantiersPourAchat, critiqueAchatChantier, construireAchatChantier, argentDuChantier, avertissementMateriel, venteDuChantier, detteDuChantier, nomChantier, totalAchat, critiqueAnnulationAchat, annulerAchatChantier, achatsDe, reservations, avertissementReserve } from "../lib/achatsChantier";
 import { CaseAchatChantier, TableAchatsChantier } from "../components/AchatsChantier";
 import { imprimerAchatChantier } from "../lib/impression";
 
@@ -334,6 +334,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const enAchatChantier = voitCaseChantier && pourChantier;
   const chantierAchat = enAchatChantier ? chantiersAchat.find((c) => c.id === chantierAchatId) || null : null;
   const totalPanierAchat = Math.max(0, brut - remise);
+  // 🔒 Le matériel réservé (12/10/2026, « B a ») : les devis « Avec
+  // installation » payés dont le matériel attend l'achat du chantier.
+  const reservesEspace = reservations({ chantiers: chantiersEspace, ventes: db.ventes });
+  const questionReserve = (lignes, sauf = null) => avertissementReserve({ panier: lignes, produits, stock: (p) => stockActuel(db, p), liste: reservesEspace, boutique, sauf });
 
   // Commission de l'apporteur externe : soit un pourcentage du total, soit un montant fixe.
   const commissionExt = (montantVente) => {
@@ -645,6 +649,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       const t = `Stock insuffisant pour : ${manque.map(({ p }) => `${p.nom} (${stockActuel(db, p)} disponible)`).join(", ")}. Faites d'abord venir le matériel (ravitaillement ou transfert).`;
       setMsg(t); uAlert(t); return;
     }
+    // 🔒 Le matériel réservé pour un AUTRE chantier : on avertit, on ne bloque pas.
+    { const q = questionReserve(panier, c.id); if (q && !await uConfirm(q)) return; }
     const argent = argentDuChantier({ chantier: c, vente: venteDuChantier(c, db.ventes), dette: detteDuChantier(c, db.dettes) });
     const apres = argent.achete + totalPanierAchat;
     const enAttente = Math.max(0, apres - argent.paye);
@@ -886,6 +892,15 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     } else if (manquants.length > 0) {
       setMsg(`Stock insuffisant pour : ${manquants.map((l) => l.article).join(", ")}.`);
       return;
+    }
+    // 🔒 LE MATÉRIEL RÉSERVÉ (Timo, 12/10/2026, « B a ») : si la vente empiète
+    // sur ce qu'un chantier « Avec installation » a déjà payé, on le DIT et on
+    // demande ; « OK », la vente part et le chantier manquera du matériel.
+    // Rien à demander si rien ne sort du stock maintenant (devis avec
+    // installation, réservation prépayée, non livré).
+    if (!auChantier && !creerCommeReservation) {
+      const q = questionReserve(panier);
+      if (q && !await uConfirm(q)) return;
     }
     setMsg("");
 

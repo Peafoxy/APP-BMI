@@ -145,17 +145,19 @@ test("une ligne prévient AVANT le clic, sans fenêtre qui bloque",
 // (React sépare les morceaux de texte par des commentaires : on les retire avant de lire.)
 const htmlPlat = html.replace(/<!--[^]*?-->/g, "");
 test("★ l'encadré « À réapprovisionner » est rendu avec le compte de la boutique regardée (1 sur BMI APESSITO), l'article, le reste, le seuil, « — » pour un article qui ne s'est pas vendu en 30 jours (vendu, tient encore) et la quantité à commander (26/09/2026 : colonnes du rythme ; 29/09/2026 : « — » sous « À atteindre » quand la fiche n'en porte pas)",
-  htmlPlat.includes("À réapprovisionner (1)") && htmlPlat.includes("REGULATEUR MPPT 60A") && /<td[^>]*>2<\/td><td[^>]*>5<\/td><td[^>]*>—<\/td><td[^>]*>—<\/td><td[^>]*>—<\/td><td[^>]*>3<\/td>/.test(htmlPlat));
+  htmlPlat.includes("À réapprovisionner (1)") && htmlPlat.includes("REGULATEUR MPPT 60A") && /<td[^>]*>2<\/td><td[^>]*data-reappro-reserve[^>]*>—<\/td><td[^>]*>5<\/td><td[^>]*>—<\/td><td[^>]*>—<\/td><td[^>]*>—<\/td><td[^>]*>3<\/td>/.test(htmlPlat));
+// RETOURNÉ le 12/10/2026 (« C a ») : la colonne « Réservé » suit le disponible (« — » sans réservation).
 test("★ …l'article sous le seuil d'une AUTRE boutique n'y est pas, le bouton Exporter est là, et « Demander ce ravitaillement » n'apparaît que sur une boutique de vente qui a un magasin dans son espace",
   !htmlPlat.includes("CABLE 6MM") && htmlPlat.includes("📤 Exporter") && !htmlPlat.includes("Demander ce ravitaillement")
   && /\{!estMagasin && magasinsDe\(db\)\.length > 0 && <button onClick=\{demanderCeRavitaillement\}[^>]*>🚚 Demander ce ravitaillement<\/button>\}/.test(src));
 test("★ la règle est pure (articlesAReapprovisionner), la demande reçoit le panier pré-rempli (panierInitial), l'encadré du magasin n'a plus de limite à 20 lignes",
-  /const aReapprovisionner = articlesAReapprovisionner\(db, stockActuel, bq, \{ jours: JOURS_RYTHME_VENTES, couverture \}\);/.test(src) && /const couverture = couvertureStockJours\(db\);/.test(src) && /panierInitial=\{panierPreRempli\}/.test(src) && !/alertesDesBoutiques\.slice\(0, 20\)/.test(src)
-  && /exportCSV\("a_reapprovisionner", \["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Stock à atteindre", `Vendu sur \$\{JOURS_RYTHME_VENTES\} j`, "Tient encore \(jours\)", "À commander"\]/.test(src)
+  /const aReapprovisionner = articlesAReapprovisionner\(db, stockActuel, bq, \{ jours: JOURS_RYTHME_VENTES, couverture, reserves: reserveIci \}\);/.test(src) && /const couverture = couvertureStockJours\(db\);/.test(src) && /panierInitial=\{panierPreRempli\}/.test(src) && !/alertesDesBoutiques\.slice\(0, 20\)/.test(src)
+  && /exportCSV\("a_reapprovisionner", \["Boutique", "Article", "Catégorie", "Fournisseur", "Disponible", "Réservé chantier", "Seuil", "Stock à atteindre", `Vendu sur \$\{JOURS_RYTHME_VENTES\} j`, "Tient encore \(jours\)", "À commander"\]/.test(src)
   && /\}, \[panierInitial\?\.n\]\);/.test(readFileSync("src/screens/Ravitaillement.jsx", "utf8")));
 // Timo (10/09/2026) : « au plus 8 ou 10 lignes, et une barre de défilement pour voir le reste ».
 test("★ les deux listes (à réapprovisionner, alertes des boutiques) tiennent dans un cadre à hauteur fixe qui défile, en-tête collé en haut",
-  (src.match(/overflow-x-auto overflow-y-auto max-h-\[360px\]/g) || []).length === 2 && (src.match(/<thead className="sticky top-0 z-10 bg-white">/g) || []).length === 2);
+  (src.match(/overflow-x-auto overflow-y-auto max-h-\[360px\]/g) || []).length === 3 && (src.match(/<thead className="sticky top-0 z-10 bg-white">/g) || []).length === 3);
+// RETOURNÉ le 12/10/2026 : le cadre « 🔒 Matériel réservé » est le troisième, même règle.
 // Timo (10/09/2026) : « figer le nom de l'article quand on défile de droite à gauche ».
 // Timo (13/09/2026) : « figer les articles du stock sur téléphone… comme dans
 // Réapprovisionnement » — le tableau principal aussi (fond rouge pâle gardé sur
@@ -176,6 +178,35 @@ test("★ la première colonne reste FIGÉE pendant le défilement horizontal �
 test("★★ la fiche d'une pompe est DANS la colonne figée (elle suit le nom quand on défile)",
   /<td class="[^"]*sticky left-0[^"]*"><b?[^>]*>?REGULATEUR MPPT 60A[\s\S]{0,400}?<\/td>/.test(htmlPlat)
   || /sticky left-0[\s\S]{0,200}REGULATEUR MPPT 60A/.test(htmlPlat));
+
+// 🔒 LE MATÉRIEL RÉSERVÉ (Timo, 12/10/2026 : « une interface dans stock où voir
+// les articles réservés par rapport à leur stock »). BATTERIE GEL : 3 en stock,
+// 2 réservées par le devis payé de MENSAH (terminé, rien d'acheté), 1 par un
+// chantier de FORMATION (jamais compté chez le réel), 1 par un chantier
+// réceptionné il y a 5 jours (dit à part, plus compté).
+{
+  const dbR = { ...db, users: db.users.filter((u) => !u.formation),
+    ventes: [
+      { id: "vR1", date: "2026-10-01", boutique: "BMI APESSITO", articles: [{ produit_id: "p2", article: "BATTERIE GEL 12V200AH", qte: 2, pu: 140000, au_chantier: true }] },
+      { id: "vR2", date: "2026-10-02", boutique: "BMI APESSITO", articles: [{ produit_id: "p2", article: "BATTERIE GEL 12V200AH", qte: 1, pu: 140000, au_chantier: true }] },
+      { id: "vR3", date: "2026-09-20", boutique: "BMI APESSITO", articles: [{ produit_id: "p2", article: "BATTERIE GEL 12V200AH", qte: 1, pu: 140000, au_chantier: true }] },
+    ],
+    clients_installes: [
+      { id: "cR1", nom: "MENSAH", prenom: "Kossi", vente_id: "vR1", stock_au_chantier: true, statut: "termine", formation: false },
+      { id: "cR2", nom: "ELEVE", vente_id: "vR2", stock_au_chantier: true, statut: "en_cours", formation: true },
+      { id: "cR3", nom: "ANCIEN", vente_id: "vR3", stock_au_chantier: true, statut: "receptionne", receptionne_le: new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10), formation: false },
+    ] };
+  let hR = "";
+  try { hR = renderToString(React.createElement(Stocks, { db: dbR, save: () => {}, profile })); } catch (e) { console.log(`  ✗ l'écran plante avec des réservations : ${String(e.message).split("\n")[0]}`); }
+  const cadre = (hR.split("data-materiel-reserve")[1] || "").split("data-transferts")[0];
+  test("★★ le cadre « 🔒 Matériel réservé » : BATTERIE GEL — 3 en stock, 2 réservées, 1 disponible, pour Kossi MENSAH",
+    /🔒 Matériel réservé pour des installations/.test(cadre) && /BATTERIE GEL 12V200AH<\/td><td[^>]*>3<\/td><td[^>]*>2<\/td><td[^>]*data-disponible[^>]*>1/.test(cadre) && /Kossi MENSAH/.test(cadre));
+  test("★ un chantier TERMINÉ sans achat s'écrit en rouge (« jamais sorti du stock ») ; un réceptionné est dit à part ; le chantier de FORMATION n'apparaît jamais (le mur)",
+    /text-red-700 font-semibold[^>]*data-reserve-pour="cR1"/.test(cadre) && /jamais sorti du stock/.test(cadre)
+    && /data-receptionnes-non-sortis/.test(cadre) && /ANCIEN/.test(cadre) && !/ELEVE/.test(hR));
+  test("★ C a : « À réapprovisionner » compte le DISPONIBLE (1 ≤ seuil 1 : la batterie y entre) et montre 🔒 2 réservées",
+    /data-reappro-reserve[^>]*>🔒 2</.test(hR));
+}
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

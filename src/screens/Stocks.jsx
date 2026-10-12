@@ -13,6 +13,8 @@ import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfi
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, critiqueStockCible, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
+import { chantiersDeLEspaceRegarde } from "../lib/calculs";
+import { reservations, reserveParProduit, nomChantier } from "../lib/achatsChantier";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { exportCSV } from "../lib/export";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
@@ -139,15 +141,40 @@ export function Stocks({ db, save, profile }) {
   // derniers jours, pour tenir la durée réglée dans ⚙ Paramètres ; le seuil
   // reste un plancher.
   const couverture = couvertureStockJours(db);
-  const aReapprovisionner = articlesAReapprovisionner(db, stockActuel, bq, { jours: JOURS_RYTHME_VENTES, couverture });
+  // 🔒 LE MATÉRIEL RÉSERVÉ (Timo, 12/10/2026) : les devis « 🔧 Avec
+  // installation » payés dont le matériel attend l'achat « 🏗 Chantier »
+  // (lib/achatsChantier.js, calculé, rien d'écrit) ; « C a » : la liste à
+  // réapprovisionner regarde le DISPONIBLE (stock − réservé).
+  const reservesEspace = reservations({ chantiers: chantiersDeLEspaceRegarde(db, profile), ventes: db.ventes });
+  const reservesIci = reservesEspace.filter((r) => r.boutique === bq);
+  const reserveIci = reserveParProduit(reservesEspace, bq);
+  const aReapprovisionner = articlesAReapprovisionner(db, stockActuel, bq, { jours: JOURS_RYTHME_VENTES, couverture, reserves: reserveIci });
   const [panierPreRempli, setPanierPreRempli] = useState(null);
   const demandeRef = useRef(null);
   const demanderCeRavitaillement = () => {
     setPanierPreRempli({ n: (panierPreRempli?.n || 0) + 1, lignes: aReapprovisionner.map(({ p, manque }) => ({ nom: p.nom, categorie: p.categorie || "", qte: manque })) });
     setTimeout(() => montrerALecran(demandeRef.current), 50);
   };
-  const exporterAReapprovisionner = () => exportCSV("a_reapprovisionner", ["Boutique", "Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "Stock à atteindre", `Vendu sur ${JOURS_RYTHME_VENTES} j`, "Tient encore (jours)", "À commander"],
-    aReapprovisionner.map(({ p, actuel, seuil, niveau, vendu, tientJours, manque }) => [p.boutique, p.nom, p.categorie || "", p.fournisseur || "", actuel, seuil, niveau > seuil ? niveau : "", vendu, tientJours ?? "", manque]), bq);
+  const exporterAReapprovisionner = () => exportCSV("a_reapprovisionner", ["Boutique", "Article", "Catégorie", "Fournisseur", "Disponible", "Réservé chantier", "Seuil", "Stock à atteindre", `Vendu sur ${JOURS_RYTHME_VENTES} j`, "Tient encore (jours)", "À commander"],
+    aReapprovisionner.map(({ p, actuel, reserve, seuil, niveau, vendu, tientJours, manque }) => [p.boutique, p.nom, p.categorie || "", p.fournisseur || "", actuel, reserve || "", seuil, niveau > seuil ? niveau : "", vendu, tientJours ?? "", manque]), bq);
+  // Le cadre « 🔒 Matériel réservé » : un article par ligne (réservations qui
+  // comptent), puis les chantiers réceptionnés dont du matériel n'est jamais
+  // sorti du stock (en rouge, 30 jours).
+  const lignesReservees = (() => {
+    const parArticle = new Map();
+    reservesIci.filter((r) => r.compte).forEach((r) => r.lignes.forEach((l) => {
+      const x = parArticle.get(l.produit_id) || { produit_id: l.produit_id, article: l.article, reserve: 0, pour: [] };
+      x.reserve += l.reste;
+      x.pour.push({ chantier: r.chantier, qte: l.reste, payeLe: r.payeLe, termine: r.termine });
+      parArticle.set(l.produit_id, x);
+    }));
+    return [...parArticle.values()].map((x) => {
+      const p = db.produits.find((y) => y.id === x.produit_id);
+      const enStock = p ? stockActuel(db, p) : 0;
+      return { ...x, nom: p?.nom || x.article, enStock, disponible: enStock - x.reserve };
+    }).sort((a, b) => a.disponible - b.disponible || a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
+  })();
+  const receptionnesNonSortis = reservesIci.filter((r) => r.receptionne);
 
   // ---- CÔTÉ MAGASIN : demandes reçues + alertes des boutiques ----
   const demandesRecues = estMagasin ? demandesEnAttente(db, profile) : [];
@@ -843,22 +870,23 @@ export function Stocks({ db, save, profile }) {
           ? <div className="text-sm text-slate-400">Aucun article de {bq} n'est au seuil ou en dessous, ni ne manquera d'ici {couverture} jours au rythme des ventes.</div>
           : (
             <>
-              <div className="text-xs text-slate-500 mb-3" data-reappro-rythme>Du plus urgent au moins urgent. <b>À commander</b> = ce qui se vendra en {couverture} jours au rythme des {JOURS_RYTHME_VENTES} derniers jours, moins ce qui reste — jamais moins que ce qu'il faut pour remonter au <b>stock à atteindre</b> de la fiche (sinon au seuil). C'est la quantité proposée dans la demande, modifiable avant l'envoi. La durée se règle dans ⚙ Paramètres (administrateur).</div>
+              <div className="text-xs text-slate-500 mb-3" data-reappro-rythme>Du plus urgent au moins urgent. <b>À commander</b> = ce qui se vendra en {couverture} jours au rythme des {JOURS_RYTHME_VENTES} derniers jours, moins ce qui reste — jamais moins que ce qu'il faut pour remonter au <b>stock à atteindre</b> de la fiche (sinon au seuil). C'est la quantité proposée dans la demande, modifiable avant l'envoi. La durée se règle dans ⚙ Paramètres (administrateur). <b>Disponible</b> = le stock moins le matériel 🔒 réservé pour un chantier.</div>
               {/* Timo (10/09/2026) : « au plus 8 ou 10 lignes, et une barre de
                   défilement pour voir le reste » — cadre à hauteur fixe, en-tête collé. */}
               <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
-                <table className="w-full text-sm min-w-[840px]">
+                <table className="w-full text-sm min-w-[920px]">
                   {/* Timo (10/09/2026) : « figer le nom de l'article quand on défile de
                       droite à gauche — sur téléphone exclusivement » : la première
                       colonne reste collée à gauche sous la largeur lg, libre au-dessus. */}
-                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Reste", "Seuil", "À atteindre", `Vendu ${JOURS_RYTHME_VENTES} j`, "Tient encore", "À commander"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+                  <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "Catégorie", "Fournisseur", "Disponible", "Réservé", "Seuil", "À atteindre", `Vendu ${JOURS_RYTHME_VENTES} j`, "Tient encore", "À commander"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
                   <tbody>
-                    {aReapprovisionner.map(({ p, actuel, seuil, niveau, vendu, tientJours, manque }) => (
+                    {aReapprovisionner.map(({ p, actuel, reserve, seuil, niveau, vendu, tientJours, manque }) => (
                       <tr key={p.id} className="border-t border-slate-100">
                         <td className={`px-3 py-2 font-semibold ${celluleFigee("bg-white")}`}>{p.nom}</td>
                         <td className="px-3 py-2 text-slate-500">{p.categorie || "—"}</td>
                         <td className="px-3 py-2 text-slate-500">{p.fournisseur || "—"}</td>
                         <td className={`px-3 py-2 tabular-nums font-bold ${actuel <= 0 ? "text-red-600" : "text-orange-600"}`}>{actuel}</td>
+                        <td className="px-3 py-2 tabular-nums text-violet-700 font-semibold" data-reappro-reserve>{reserve ? `🔒 ${reserve}` : "—"}</td>
                         <td className="px-3 py-2 tabular-nums text-slate-500">{seuil}</td>
                         <td className="px-3 py-2 tabular-nums text-slate-500" data-a-atteindre>{niveau > seuil ? niveau : "—"}</td>
                         <td className="px-3 py-2 tabular-nums text-slate-500">{vendu || "—"}</td>
@@ -872,6 +900,49 @@ export function Stocks({ db, save, profile }) {
             </>
           )}
       </div>
+
+      {/* 🔒 Timo (12/10/2026) : « une interface dans stock où voir les articles
+          réservés par rapport à leur stock ». Calculé (lib/achatsChantier.js) :
+          les devis « Avec installation » payés, moins les achats « 🏗 Chantier ». */}
+      {(lignesReservees.length > 0 || receptionnesNonSortis.length > 0) && (
+        <div className={`rounded-xl p-4 bg-white border-2 ${lignesReservees.some((l) => l.disponible < 0) || receptionnesNonSortis.length || lignesReservees.some((l) => l.pour.some((x) => x.termine)) ? "border-red-200" : "border-violet-200"}`} data-materiel-reserve>
+          <div className="font-bold text-violet-800 mb-1">🔒 Matériel réservé pour des installations ({lignesReservees.length}) <Badge boutique={bq} /></div>
+          <div className="text-xs text-slate-500 mb-3">Payé par le client d'un devis « 🔧 Avec installation », pas encore sorti du stock (il sortira par l'achat « 🏗 Chantier » de 💰 Ventes). <b>Disponible</b> = ce qu'on peut vendre au comptoir sans prendre le matériel d'un chantier.</div>
+          {lignesReservees.length > 0 && (
+            <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Article", "En stock", "Réservé", "Disponible", "Pour qui"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {lignesReservees.map((l) => (
+                    <tr key={l.produit_id} className="border-t border-slate-100 align-top" data-ligne-reservee={l.produit_id}>
+                      <td className={`px-3 py-2 font-semibold ${celluleFigee("bg-white")}`}>{l.nom}</td>
+                      <td className="px-3 py-2 tabular-nums">{l.enStock}</td>
+                      <td className="px-3 py-2 tabular-nums font-bold text-violet-700">{l.reserve}</td>
+                      <td className={`px-3 py-2 tabular-nums font-bold ${l.disponible < 0 ? "text-red-600" : l.disponible === 0 ? "text-orange-600" : "text-green-700"}`} data-disponible>{l.disponible}{l.disponible < 0 && <div className="text-xs font-semibold">il manque {-l.disponible} pour les chantiers</div>}</td>
+                      <td className="px-3 py-2 text-xs space-y-0.5">
+                        {l.pour.map((x) => (
+                          <div key={x.chantier.id} className={x.termine ? "text-red-700 font-semibold" : "text-slate-600"} data-reserve-pour={x.chantier.id}>
+                            {nomChantier(x.chantier)} — {x.qte} · payé le {dFR(x.payeLe)}{x.termine && " · 🏁 terminé, jamais sorti du stock : faites l'achat « 🏗 Chantier »"}
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {receptionnesNonSortis.length > 0 && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" data-receptionnes-non-sortis>
+              <div className="font-bold mb-1">⚠ Chantiers réceptionnés : du matériel n'a jamais été sorti du stock</div>
+              <div className="text-xs mb-1">Il n'est plus compté comme réservé. S'il a été posé, le stock affiché est trop haut : corrigez-le (inventaire ou ajustement).</div>
+              {receptionnesNonSortis.map((r) => (
+                <div key={r.chantier.id} className="text-xs">• {nomChantier(r.chantier)} (réceptionné le {dFR(r.chantier.receptionne_le)}) : {r.lignes.map((l) => `${l.reste}× ${l.article}`).join(", ")}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {envoisEnAttente.length > 0 && (
         <div className="rounded-xl p-4 bg-white border-2 border-amber-200" data-transferts="envoyes">

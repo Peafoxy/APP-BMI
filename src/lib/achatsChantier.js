@@ -197,6 +197,118 @@ export function achatsReglesParUnVersement(chantier, payeAvant, payeApres) {
   }).filter(Boolean);
 }
 
+// ---- 🔒 LE MATÉRIEL RÉSERVÉ (Timo, 12/10/2026, « A a, B a, C a, D ») ----
+// Le cas de Timo : un devis « 🔧 Avec installation » payé porte 1 batterie
+// 51,2 V 200 Ah ; le stock en a 3 ; un client vient en acheter 3. La batterie
+// du chantier n'a pas quitté le stock (elle attend l'achat « 🏗 Chantier ») :
+// elle est RÉSERVÉE. Rien n'est écrit — c'est calculé :
+//   réservé = les lignes `au_chantier` de la vente du devis (A a : dès le
+//   PAIEMENT), dans la boutique de cette vente, moins ce que les achats
+//   « 🏗 Chantier » actifs de CE chantier ont déjà sorti (par l'article, sinon
+//   par son nom si l'achat a été fait dans une autre boutique).
+// Un chantier RÉCEPTIONNÉ ne réserve plus rien (on ne peut plus lui faire un
+// achat) ; ce qui n'a jamais été sorti reste DIT en rouge 30 jours, pour qu'on
+// corrige le stock. La vente avertit (B a), elle ne bloque jamais.
+export const JOURS_RESTE_RECEPTIONNE = 30;
+const nomCle = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const memeArticle = (a, b) => (a.produit_id && a.produit_id === b.produit_id) || (nomCle(a.article) && nomCle(a.article) === nomCle(b.article));
+const joursEntre = (du, au) => Math.round((Date.parse(`${au}T00:00:00Z`) - Date.parse(`${du}T00:00:00Z`)) / 86400000);
+
+// Les lignes réservées d'UN chantier (sa vente reçue), avec ce qui reste.
+export function lignesReserveesDuChantier(chantier, vente) {
+  if (!chantier || !vente || chantier.stock_au_chantier !== true || chantier.travaux || chantier.supprime_le) return [];
+  const sorties = achatsActifs(chantier).flatMap((a) => (a.lignes || []).map((l) => ({ ...l, boutique: a.boutique })));
+  const parArticle = [];
+  lignesAuChantier(vente).forEach((l) => {
+    if (!l.produit_id) return;
+    const deja = parArticle.find((x) => x.produit_id === l.produit_id);
+    if (deja) deja.reserve += Number(l.qte || 0);
+    else parArticle.push({ produit_id: l.produit_id, article: l.article, boutique: vente.boutique, reserve: Number(l.qte || 0) });
+  });
+  // Une sortie ne compte qu'UNE fois : on la consomme ligne par ligne.
+  const restes = sorties.map((s) => ({ ...s, n: Number(s.qte || 0) }));
+  return parArticle.map((r) => {
+    let sorti = 0;
+    restes.forEach((s) => {
+      if (s.n <= 0 || sorti >= r.reserve || !memeArticle(r, s)) return;
+      const pris = Math.min(s.n, r.reserve - sorti);
+      sorti += pris; s.n -= pris;
+    });
+    return { ...r, sorti, reste: Math.max(0, r.reserve - sorti) };
+  });
+}
+
+// Toutes les réservations (listes reçues, déjà filtrées par l'espace regardé).
+// `compte` : vrai tant que le chantier n'est pas réceptionné (la réservation
+// retire du disponible). Un réceptionné n'apparaît que 30 jours, en rouge.
+export function reservations({ chantiers, ventes, aujourdhui = today() }) {
+  return (chantiers || []).flatMap((c) => {
+    const vente = venteDuChantier(c, ventes);
+    const lignes = lignesReserveesDuChantier(c, vente).filter((l) => l.reste > 0);
+    if (!lignes.length) return [];
+    const receptionne = c.statut === "receptionne";
+    if (receptionne && !(c.receptionne_le && joursEntre(c.receptionne_le, aujourdhui) <= JOURS_RESTE_RECEPTIONNE)) return [];
+    return [{ chantier: c, vente, boutique: vente.boutique, lignes, compte: !receptionne, termine: c.statut === "termine", receptionne, payeLe: vente.date }];
+  });
+}
+
+// Ce qui est réservé, par article, dans UNE boutique (sauf un chantier).
+export function reserveParProduit(liste, boutique, { sauf = null } = {}) {
+  const carte = new Map();
+  (liste || []).filter((r) => r.compte && r.boutique === boutique && (!sauf || r.chantier.id !== sauf)).forEach((r) => {
+    r.lignes.forEach((l) => carte.set(l.produit_id, (carte.get(l.produit_id) || 0) + l.reste));
+  });
+  return carte;
+}
+// Pour qui un article est réservé (les chantiers qui le retiennent).
+export const reservePour = (liste, boutique, produitId, { sauf = null } = {}) => (liste || [])
+  .filter((r) => r.compte && r.boutique === boutique && (!sauf || r.chantier.id !== sauf))
+  .flatMap((r) => r.lignes.filter((l) => l.produit_id === produitId).map((l) => ({ chantier: r.chantier, qte: l.reste, payeLe: r.payeLe })));
+
+// B a : l'avertissement d'une vente (ou d'un achat pour un AUTRE chantier).
+// `panier` : lignes qui sortent du stock ; `stock(p)` : le stock actuel.
+// Rend "" si rien n'empiète sur une réservation, sinon le texte de la question.
+export function avertissementReserve({ panier, produits, stock, liste, boutique, sauf = null }) {
+  const qteParProduit = new Map();
+  (panier || []).filter((l) => l.produit_id && !l.hors_boutique && !l.deja_sorti && !l.au_chantier)
+    .forEach((l) => qteParProduit.set(l.produit_id, (qteParProduit.get(l.produit_id) || 0) + Number(l.qte || 0)));
+  const reserves = reserveParProduit(liste, boutique, { sauf });
+  const phrases = [];
+  qteParProduit.forEach((q, pid) => {
+    const res = reserves.get(pid) || 0;
+    if (!res) return;
+    const p = (produits || []).find((x) => x.id === pid);
+    if (!p) return;
+    const enStock = Number(stock(p) || 0);
+    if (enStock - q >= res) return;
+    const pour = reservePour(liste, boutique, pid, { sauf });
+    const qui = pour.map((x) => `${nomChantier(x.chantier)} (${x.qte}, payé le ${String(x.payeLe || "").split("-").reverse().join("/")})`).join(" ; ");
+    const manque = Math.min(res, res - (enStock - q));
+    phrases.push(`• ${p.nom} : ${enStock} en stock, dont ${res} réservé${res > 1 ? "s" : ""} pour une installation — ${qui}. Après cette vente, il manquera ${manque} pour ${pour.length > 1 ? "ces chantiers" : "ce chantier"}.`);
+  });
+  if (!phrases.length) return "";
+  return `⚠ Du matériel réservé pour une installation :\n\n${phrases.join("\n")}\n\nContinuer quand même ?`;
+}
+
+// D : « 🏁 Marquer terminé » sur un chantier qui n'a AUCUN achat « 🏗 Chantier »
+// (Timo, 12/10/2026 : « avertissement et impossible de marquer terminé si la
+// vente n'est pas rattachée… seul l'administrateur principal peut terminer »).
+// Rend { refus, avertissement } : refus pour tous, sauf le principal qui est
+// seulement averti. Un chantier qui a au moins un achat passe, mais s'il
+// garde du réservé, on le dit.
+export function critiqueTerminerChantier({ chantier, vente, principal }) {
+  if (!chantier || chantier.stock_au_chantier !== true || chantier.travaux) return { refus: "", avertissement: "" };
+  const restes = lignesReserveesDuChantier(chantier, vente).filter((l) => l.reste > 0);
+  const liste = restes.map((l) => `${l.reste}× ${l.article}`).join(", ");
+  if (!achatsActifs(chantier).length) {
+    const texte = `Aucun matériel n'a été sorti du stock pour ce chantier (case « 🏗 Chantier » dans 💰 Ventes)${liste ? ` — réservé : ${liste}` : ""}.`;
+    return principal
+      ? { refus: "", avertissement: `⚠ ${texte} Si du matériel a été posé, le stock est faux. Vous seul pouvez terminer quand même.` }
+      : { refus: `🔒 ${texte}\n\nLe gérant doit d'abord enregistrer l'achat pour ce chantier. Seul l'administrateur principal peut le terminer sans.`, avertissement: "" };
+  }
+  return { refus: "", avertissement: restes.length ? `⚠ Encore réservé pour ce chantier, jamais sorti du stock : ${liste}. S'il a été posé, faites l'achat « 🏗 Chantier » avant la réception.` : "" };
+}
+
 // Le résumé d'un achat, une ligne.
 export const resumeAchat = (a) => (a.lignes || []).map((l) => `${l.qte}× ${l.article}`).join(", ");
 // Les lignes d'une vente de devis marquées « au chantier ».

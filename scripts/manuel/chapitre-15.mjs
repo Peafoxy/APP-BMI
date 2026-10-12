@@ -2,6 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 15 : Chantiers et travaux
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
+// lib/achatsChantier.js (critiqueTerminerChantier — 12/10/2026),
 // lib/whatsappModeles.js (lien_signature_pv, avenant_reserves — 01/10/2026),
 // lib/impression.js (imprimerReleveTravaux, « FACTURE — TRAVAUX » — 10/10/2026),
 // lib/travaux.js (champsTravauxDocument, infoTravauxDocument, lignesReleve, poserRemise — 10/10/2026),
@@ -65,7 +66,7 @@ export const CHAPITRE = {
         ["Voir 🏠 Clients installés", "**Administrateur et chefs d'équipe** : tout le parc. **Commercial, technicien, technicien BMI** : leurs propres fiches et les chantiers où ils sont dans l'équipe. **Vendeur, responsable commercial** : aussi les poses seules pas encore soldées (pour les encaisser en boutique)."],
         ["Créer une fiche (Enregistrer le client)", "Tout compte qui a l'onglet ; le commercial rattaché est choisi par l'administrateur."],
         ["📅 Programmer l'installation", "**Administrateur et responsable commercial.**"],
-        ["🏁 Marquer terminé", "**Le chef ⭐ de CE chantier, ou l'administrateur.**"],
+        ["🏁 Marquer terminé", "**Le chef ⭐ de CE chantier, ou l'administrateur.** Un chantier « 🔧 Avec installation » sans aucun achat « 🏗 Chantier » : **l'administrateur principal seul**."],
         ["📤 Envoyer pour signature (renvoi), ⚠ Forcer sans signature, 📤 Envoyer l'avenant", "**L'administrateur.**"],
         ["📷 Photos, 📝 Observations", "L'administrateur et les membres de l'équipe du chantier. Supprimer une photo : l'administrateur."],
         ["💰 Encaisser une pose seule", "Le chef de ce chantier, le vendeur, le gérant, le responsable commercial, l'administrateur."],
@@ -130,7 +131,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "E. Fin des travaux et PV de réception"],
       ["etapes", [
-        { titre: "🏁 Marquer terminé (le chef ⭐ ou l'administrateur)", texte: "Le chantier passe « Terminé — en attente du client ». Le **lien de signature du PV part tout seul du numéro WhatsApp BMI** au client (« Vos travaux d'installation (solaire) sont terminés… », l'adresse du lien, l'e-mail, les numéros et le site), et l'écran le confirme. Le message ne porte **aucun code** du client. Si le numéro BMI ne peut pas envoyer (formation, réseau, modèle pas encore approuvé), l'écran le dit, puis WhatsApp s'ouvre sur votre téléphone avec le même texte." },
+        { titre: "🏁 Marquer terminé (le chef ⭐ ou l'administrateur)", texte: "Le chantier passe « Terminé — en attente du client ». Le **lien de signature du PV part tout seul du numéro WhatsApp BMI** au client (« Vos travaux d'installation (solaire) sont terminés… », l'adresse du lien, l'e-mail, les numéros et le site), et l'écran le confirme. Le message ne porte **aucun code** du client. Si le numéro BMI ne peut pas envoyer (formation, réseau, modèle pas encore approuvé), l'écran le dit, puis WhatsApp s'ouvre sur votre téléphone avec le même texte. ⚠ **Un chantier né d'un devis « 🔧 Avec installation » sans AUCUN achat « 🏗 Chantier » ne se termine pas** : « 🔒 Aucun matériel n'a été sorti du stock pour ce chantier… Le gérant doit d'abord enregistrer l'achat pour ce chantier. » Seul l'administrateur principal peut le terminer quand même, après un avertissement. Avec un achat, s'il reste du matériel réservé, la question le rappelle." },
         { titre: "S'il manque l'adresse formelle ou le numéro", texte: "Les travaux sont déclarés terminés, mais le lien ne part pas : le message dit ce qui manque. Renseignez-le, puis **📤 Envoyer pour signature** (administrateur)." },
         { titre: "Le client signe", texte: "Sur son téléphone, par le lien (sans compte), ou depuis son espace client. Il accepte **sans réserve** (✅ Réceptionné) ou **avec réserves** (⚠ Réserves émises)." },
         { titre: "📄 Voir le PV", texte: "Le PV signé (numéro PV-année-…) s'imprime depuis la ligne." },
@@ -226,6 +227,7 @@ export const CHAPITRE = {
     // ── 9
     { titre: "Erreurs fréquentes", blocs: [
       ["table", { entetes: ["L'erreur", "La bonne façon"], largeurs: [4300, 5000], lignes: [
+        ["Marquer terminé un chantier « Avec installation » sans achat « 🏗 Chantier ».", "Refusé (sauf l'administrateur principal) : le gérant fait d'abord l'achat dans 💰 Ventes, d'après la liste des techniciens."],
         ["Marquer terminé sans adresse formelle.", "Le lien ne part pas : renseigner l'adresse, puis 📤 Envoyer pour signature."],
         ["Forcer la réception pour aller plus vite.", "C'est une exception (client injoignable, refus) : aucun PV n'existera, et la fiche le dira pour toujours."],
         ["Vouloir programmer une pose seule avant l'acompte.", "Encaisser d'abord les 70 %."],

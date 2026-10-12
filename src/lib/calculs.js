@@ -2395,7 +2395,12 @@ export const articlesAReapprovisionner = (db, stock, boutique, options = null) =
   return (db.produits || [])
   .filter((p) => p.boutique === boutique)
   .map((p) => {
-    const actuel = stock(db, p);
+    // 🔒 « C a » (Timo, 12/10/2026) : le matériel RÉSERVÉ pour un chantier
+    // (lib/achatsChantier.js, `options.reserves` = Map produit → quantité) ne
+    // compte pas : on regarde le DISPONIBLE. `stockReel` garde le stock.
+    const stockReel = stock(db, p);
+    const reserve = Number(options?.reserves?.get(p.id) || 0);
+    const actuel = stockReel - reserve;
     const seuil = Number(p.seuil || 0);
     const niveau = niveauARemonter(p);
     const manqueSeuil = actuel <= seuil ? Math.max(niveau - actuel, 1) : 0;
@@ -2407,7 +2412,7 @@ export const articlesAReapprovisionner = (db, stock, boutique, options = null) =
     const besoin = Math.ceil(parJour * couverture);
     const manqueRythme = Math.max(besoin - Math.max(actuel, 0), 0);
     const tientJours = parJour > 0 ? Math.max(Math.floor(Math.max(actuel, 0) / parJour), 0) : null;
-    return { p, actuel, seuil, niveau, vendu, parJour, tientJours, manque: Math.max(manqueSeuil, manqueRythme), parRythme: manqueRythme > manqueSeuil };
+    return { p, actuel, stockReel, reserve, seuil, niveau, vendu, parJour, tientJours, manque: Math.max(manqueSeuil, manqueRythme), parRythme: manqueRythme > manqueSeuil };
   })
   .filter((x) => (options ? x.manque > 0 : x.actuel <= x.seuil))
   .sort((a, b) => {

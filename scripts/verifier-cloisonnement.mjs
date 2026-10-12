@@ -15149,5 +15149,69 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
   }
 }
 
+titre("🔒 Le matériel réservé pour une installation (12/10/2026, « A a, B a, C a, D : impossible de terminer sans l'achat, sauf l'administrateur principal »)");
+// Timo : « 1 batterie 51,2V 200Ah proposée dans un devis, 3 en stock ; un client
+// vient payer 3 batteries : l'application doit informer qu'une est déjà
+// réservée… continuer ? » — et « une interface dans stock où voir les articles
+// réservés par rapport à leur stock ».
+{
+  const sortieR = join("node_modules", ".cache", `bmi-reserves-${process.pid}.mjs`);
+  await build({ stdin: { contents: 'export * as A from "./src/lib/achatsChantier.js"; export * as C from "./src/lib/calculs.js";', resolveDir: process.cwd(), loader: "js" },
+    bundle: true, format: "esm", platform: "node", outfile: sortieR, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+  const { A, C: Cr } = await import(pathToFileURL(sortieR).href);
+  unlinkSync(sortieR);
+  const bat = { id: "pb", nom: "Batterie 51,2V 200Ah", boutique: "BMI DEMAKPOE", prix_achat: 900000, prix_vente: 1100000, initial: 3, seuil: 2 };
+  const vente = { id: "vR", date: "2026-10-08", boutique: "BMI DEMAKPOE", caisse: "TERRAIN", paiement: "Espèces",
+    articles: [{ produit_id: "pb", article: "Batterie 51,2V 200Ah", qte: 1, pu: 1100000, au_chantier: true }, { produit_id: "px", article: "Câble", qte: 10, pu: 1000 }] };
+  const ch = { id: "cR", nom: "MENSAH", prenom: "Kossi", vente_id: "vR", stock_au_chantier: true, statut: "en_cours", achats_chantier: [] };
+  const stock = () => 3;
+  const liste = A.reservations({ chantiers: [ch], ventes: [vente], aujourdhui: "2026-10-12" });
+  test("★★ A a : un devis « Avec installation » PAYÉ réserve ses lignes « au chantier » (1 batterie), jamais les autres lignes de la vente",
+    liste.length === 1 && liste[0].lignes.length === 1 && liste[0].lignes[0].reste === 1 && A.reserveParProduit(liste, "BMI DEMAKPOE").get("pb") === 1 && !A.reserveParProduit(liste, "BMI DEMAKPOE").has("px"));
+  const q3 = A.avertissementReserve({ panier: [{ produit_id: "pb", article: bat.nom, qte: 3, pu: 1 }], produits: [bat], stock, liste, boutique: "BMI DEMAKPOE" });
+  const q2 = A.avertissementReserve({ panier: [{ produit_id: "pb", article: bat.nom, qte: 2, pu: 1 }], produits: [bat], stock, liste, boutique: "BMI DEMAKPOE" });
+  test("★★ B a — le cas de Timo : vendre 3 batteries sur 3 dont 1 réservée → la question nomme le chantier et le manque ; en vendre 2 → aucune question",
+    /3 en stock, dont 1 réservé pour une installation — Kossi MENSAH \(1, payé le 08\/10\/2026\)/.test(q3) && /il manquera 1 pour ce chantier/.test(q3) && /Continuer quand même \?/.test(q3) && q2 === "", q3);
+  test("★ l'avertissement ignore une autre boutique, une ligne « au chantier » ou déjà sortie, et le chantier pour qui on achète (sauf)",
+    A.avertissementReserve({ panier: [{ produit_id: "pb", qte: 3 }], produits: [bat], stock, liste, boutique: "BMI APESSITO" }) === ""
+    && A.avertissementReserve({ panier: [{ produit_id: "pb", qte: 3, au_chantier: true }, { produit_id: "pb", qte: 3, deja_sorti: true }], produits: [bat], stock, liste, boutique: "BMI DEMAKPOE" }) === ""
+    && A.avertissementReserve({ panier: [{ produit_id: "pb", qte: 3 }], produits: [bat], stock, liste, boutique: "BMI DEMAKPOE", sauf: "cR" }) === "");
+  const achete = (boutique, pid) => ({ ...ch, achats_chantier: [{ id: "a1", boutique, lignes: [{ produit_id: pid, article: "Batterie 51,2V 200Ah", qte: 1, pu: 1 }] }] });
+  test("★★ l'achat « 🏗 Chantier » LÈVE la réservation — même fait dans une autre boutique (par le nom) ; annulé, elle revient",
+    A.reservations({ chantiers: [achete("BMI DEMAKPOE", "pb")], ventes: [vente] }).length === 0
+    && A.reservations({ chantiers: [achete("BMI APESSITO", "autre-id")], ventes: [vente] }).length === 0
+    && A.reservations({ chantiers: [{ ...achete("BMI DEMAKPOE", "pb"), achats_chantier: [{ ...achete("BMI DEMAKPOE", "pb").achats_chantier[0], annule: { le: "2026-10-10" } }] }], ventes: [vente] }).length === 1);
+  const recu = (le) => A.reservations({ chantiers: [{ ...ch, statut: "receptionne", receptionne_le: le }], ventes: [vente], aujourdhui: "2026-10-12" });
+  test("★ un chantier RÉCEPTIONNÉ ne réserve plus rien, mais reste DIT 30 jours (matériel jamais sorti) ; un devis d'avant, des travaux, la corbeille : rien",
+    recu("2026-10-01").length === 1 && recu("2026-10-01")[0].compte === false && A.reserveParProduit(recu("2026-10-01"), "BMI DEMAKPOE").size === 0 && recu("2026-08-01").length === 0
+    && A.reservations({ chantiers: [{ ...ch, stock_au_chantier: undefined }, { ...ch, id: "t", travaux: true }, { ...ch, id: "z", supprime_le: "2026-10-01" }], ventes: [vente] }).length === 0);
+  test("★★ C a : « À réapprovisionner » regarde le DISPONIBLE — 3 en stock, seuil 2, 1 réservée → 2 disponibles, l'article y est ; sans réservation, il n'y est pas",
+    (() => { const db0 = { produits: [bat], ventes: [], ajustements: [] };
+      const avec = Cr.articlesAReapprovisionner(db0, () => 3, "BMI DEMAKPOE", { jours: 30, couverture: 21, reserves: new Map([["pb", 1]]) });
+      const sans = Cr.articlesAReapprovisionner(db0, () => 3, "BMI DEMAKPOE", { jours: 30, couverture: 21 });
+      return avec.length === 1 && avec[0].actuel === 2 && avec[0].stockReel === 3 && avec[0].reserve === 1 && sans.length === 0; })());
+  const t0 = A.critiqueTerminerChantier({ chantier: ch, vente, principal: false });
+  const tP = A.critiqueTerminerChantier({ chantier: ch, vente, principal: true });
+  const tA = A.critiqueTerminerChantier({ chantier: achete("BMI DEMAKPOE", "pb"), vente, principal: false });
+  const tVieux = A.critiqueTerminerChantier({ chantier: { ...ch, stock_au_chantier: undefined }, vente, principal: false });
+  test("★★ D : sans AUCUN achat « 🏗 Chantier », « Marquer terminé » est REFUSÉ (le chef, l'administrateur) ; le principal est seulement averti ; avec un achat, ou un chantier d'avant, rien",
+    /^🔒 Aucun matériel n'a été sorti du stock pour ce chantier/.test(t0.refus) && /réservé : 1× Batterie 51,2V 200Ah/.test(t0.refus) && /Seul l'administrateur principal/.test(t0.refus)
+    && tP.refus === "" && /Vous seul pouvez terminer quand même/.test(tP.avertissement)
+    && tA.refus === "" && tA.avertissement === "" && tVieux.refus === "" && tVieux.avertissement === "", JSON.stringify(t0));
+  const srcV = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const srcS = readFileSync("src/screens/Stocks.jsx", "utf8");
+  const srcCI = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  test("★ Ventes demande AVANT d'écrire : au comptoir (sauf devis avec installation et réservation prépayée) et à l'achat pour un AUTRE chantier",
+    /if \(!auChantier && !creerCommeReservation\) \{\n\s*const q = questionReserve\(panier\);\n\s*if \(q && !await uConfirm\(q\)\) return;/.test(srcV)
+    && /const q = questionReserve\(panier, c\.id\); if \(q && !await uConfirm\(q\)\) return;/.test(srcV)
+    && /reservations\(\{ chantiers: chantiersEspace, ventes: db\.ventes \}\)/.test(srcV));
+  test("★ 📦 Stocks : les réservations de l'espace REGARDÉ, le cadre « 🔒 Matériel réservé », la liste à réapprovisionner sur le disponible",
+    /reservations\(\{ chantiers: chantiersDeLEspaceRegarde\(db, profile\), ventes: db\.ventes \}\)/.test(srcS) && /reserves: reserveIci \}\)/.test(srcS)
+    && /data-materiel-reserve/.test(srcS) && /\["Article", "En stock", "Réservé", "Disponible", "Pour qui"\]/.test(srcS) && /data-receptionnes-non-sortis/.test(srcS));
+  test("★ « 🏁 Marquer terminé » relit la fiche FRAÎCHE, refuse AVANT la question, ajoute l'avertissement du principal dans la question",
+    /const fin = critiqueTerminerChantier\(\{ chantier: fraiche, vente: venteDuChantier\(fraiche, db\.ventes\), principal: estAdminPrincipal\(db, profile\) \}\);\n\s*if \(fin\.refus\) \{ uAlert\(fin\.refus\); return; \}/.test(srcCI)
+    && /\(fin\.avertissement \? `\\n\\n\$\{fin\.avertissement\}` : ""\)/.test(srcCI));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -45,7 +45,7 @@ const depart = {
   depenses: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [],
 };
 window.saves = [];
-const qte = quoi === "trop" ? 20 : 3;
+const qte = quoi === "trop" ? 20 : quoi === "reserve" ? 8 : 3;
 // Un objet STABLE : l'écran recharge le panier à chaque NOUVEAU preRempli.
 const preRempli = { boutique: "BMI DEMAKPOE", panier: [{ produit_id: "p1", article: "Panneau 550W", qte, pu: 80000 }] };
 function Essai() {
@@ -125,6 +125,32 @@ console.log("\n🏗 Les refus");
   await page.fill('[data-case-achat-chantier] ~ div input[type="number"]', "5"); await attendre(150);
   await page.click("[data-bouton-achat-chantier]"); await attendre(200);
   test("★ B b : une remise de 5 % par la gérante → refusée (au-delà de 3 %, l'administrateur), rien n'est écrit", /réservée à l'administrateur/.test(await dialogue(page)) && (await saves(page)) === 0, await dialogue(page));
+  await page.close();
+}
+console.log("\n🔒 Le matériel réservé : la vente au comptoir qui empiète (12/10/2026, « B a »)");
+{
+  // 10 panneaux en stock, 4 réservés par le devis de MENSAH (payé, rien d'acheté) :
+  // en vendre 8 au comptoir en laisserait 2 → la question, AVANT toute écriture.
+  const { page } = await ouvrir("reserve");
+  await page.fill('input[placeholder*="Nom du client"], input[placeholder*="Client"]', "KOFFI").catch(() => {});
+  const tel = page.locator('input[type="tel"]').first();
+  if (await tel.count()) await tel.fill("90112233");
+  await page.locator("button", { hasText: "Encaisser la vente" }).first().click(); await attendre(250);
+  let q = await dialogue(page);
+  if (/pas de numéro/i.test(q)) { await bouton(page, "Continuer"); q = await dialogue(page); }
+  test("★★ la question dit : 10 en stock, dont 4 réservés pour Kossi MENSAH, il manquera 2 — continuer ?",
+    /Panneau 550W : 10 en stock, dont 4 réservés pour une installation — Kossi MENSAH \(4, payé le 01\/10\/2026\)/.test(q) && /il manquera 2 pour ce chantier/.test(q) && (await saves(page)) === 0, q);
+  await bouton(page, "Annuler");
+  test("★ « Annuler » : rien n'est écrit, le panier reste", (await saves(page)) === 0 && /Panneau 550W/.test(await page.innerText("body")));
+  await page.locator("button", { hasText: "Encaisser la vente" }).first().click(); await attendre(250);
+  q = await dialogue(page);
+  if (/pas de numéro/i.test(q)) { await bouton(page, "Continuer"); q = await dialogue(page); }
+  await bouton(page, "OK"); await attendre(300);
+  const suite = await dialogue(page);
+  test("★ après « OK », la confirmation ordinaire de la vente suit (la question n'a rien écrit)", /Confirmer la vente de 1 article\(s\) pour 640 000 F/.test(suite) && (await saves(page)) === 0, suite);
+  await bouton(page, "OK"); await attendre(300);
+  const v = await page.evaluate(() => window.saves.map((x) => x.n.ventes.length));
+  test("★ « OK » : la vente part (le stock sort, le chantier manquera de matériel)", v.length >= 1 && v[v.length - 1] === 2, JSON.stringify(v));
   await page.close();
 }
 {

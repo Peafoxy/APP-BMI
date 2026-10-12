@@ -53,7 +53,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
 | `lib/importStock.js` | L'importation d'articles en stock (Excel ou texte collé) |
 | `lib/travaux.js` | 🛠 Travaux à crédit : les prestations hors devis |
-| `lib/achatsChantier.js` | 🏗 Le matériel qui part au chantier : la case « Avec installation » du devis, les achats payés par le chantier, l'argent du chantier |
+| `lib/achatsChantier.js` | 🏗 Le matériel qui part au chantier : la case « Avec installation » du devis, les achats payés par le chantier, l'argent du chantier, 🔒 le matériel réservé (avertissement de vente, « Marquer terminé » sans achat) |
 | `lib/pompes.js` | Les pompes : ce qu'on en note (puissance, profondeur, débit, tension, hybride), et « quelle pompe pour ce forage » — **n'importe RIEN** |
 | `lib/outillage.js` | 🧰 Le matériel de travail de BMI : le registre, les sorties et retours, les pertes, l'appel de la semaine |
 | `lib/impression.js` | Les documents imprimables : reçus, bons, contrats |

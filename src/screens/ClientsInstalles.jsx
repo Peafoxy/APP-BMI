@@ -26,7 +26,8 @@ import { ficheParId } from "../lib/banques";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
 import { encaisserDettePose } from "../components/encaissementPose";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
-import { achatsActifs, argentDuChantier, venteDuChantier, detteDuChantier } from "../lib/achatsChantier";
+import { achatsActifs, argentDuChantier, venteDuChantier, detteDuChantier, critiqueTerminerChantier } from "../lib/achatsChantier";
+import { estAdminPrincipal } from "../lib/calculs";
 // Timo (13/09/2026) : les petites dépenses rattachées au chantier sont
 // déduites des frais d'installation AVANT le partage entre techniciens.
 import { totalDepensesChantier, depensesDuChantier, depenseCompteAuChantier, fraisAPartager } from "../lib/depensesChantier";
@@ -543,9 +544,16 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const marquerTermine = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!peutTerminer(c, profile, isAdmin)) { uAlert("🔒 Marquer les travaux terminés : réservé à l'administrateur ou au chef de CE chantier."); return; }
+    // 🏗 D (Timo, 12/10/2026) : un chantier « 🔧 Avec installation » sans
+    // AUCUN achat « 🏗 Chantier » ne se termine pas — sauf par l'administrateur
+    // principal, averti. Revérifié sur la fiche FRAÎCHE.
+    const fraiche = (db.clients_installes || []).find((x) => x.id === c.id) || c;
+    const fin = critiqueTerminerChantier({ chantier: fraiche, vente: venteDuChantier(fraiche, db.ventes), principal: estAdminPrincipal(db, profile) });
+    if (fin.refus) { uAlert(fin.refus); return; }
     if (!await uConfirm(
       `Déclarer l'installation de ${c.nom} ${c.prenom} TERMINÉE ?\n\n` +
-      `Le lien de signature du PV sera envoyé automatiquement au client par WhatsApp, juste après.`
+      `Le lien de signature du PV sera envoyé automatiquement au client par WhatsApp, juste après.` +
+      (fin.avertissement ? `\n\n${fin.avertissement}` : "")
     )) return;
     const champs = { statut: "termine", termine_par: profile.nom, date_fin: today() };
     if (!c.adresse_contrat || !c.tel) {
