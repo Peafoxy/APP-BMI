@@ -3,7 +3,8 @@
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
 // screens/dimensionnement/index.jsx (un bouton par domaine, « 📝 Mes
-// brouillons », une seule boutique pour tous les volets, le volet mémorisé,
+// brouillons » — « MES BROUILLONS » / « BROUILLONS DE … » par la liste
+// « 👥 Utilisateur », Brouillons.jsx —, une seule boutique pour tous les volets, le volet mémorisé,
 // le bandeau « ✏️ Reprise du devis de … » et « Annuler la reprise »),
 // screens/dimensionnement/Solaire.jsx (« ☀️ Besoins électriques du client » :
 // Appareil · Puissance (W) · Heures/jour · Quantité · Retirer ; « ➕ Ajouter un
@@ -147,6 +148,7 @@ export const CHAPITRE = {
         { titre: "Si le numéro BMI ne peut pas envoyer", texte: "(espace formation, réseau, refus de WhatsApp) : **WhatsApp s'ouvre sur l'appareil** avec le texte complet — le devis, le lien de l'espace, l'identifiant et le mot de passe. Le vendeur l'envoie lui-même. Quand ce n'est pas la formation, l'écran dit pourquoi, en français." },
         { titre: "« 📝 Enregistrer un brouillon »", texte: "Le devis tel qu'il est, **sans rien envoyer** et sans créer de compte. Avec un client choisi, aucune question. **Sans compte client**, l'application demande « Brouillon sans compte client. Continuer ? », puis **le nom du client, obligatoire** (ex. « WIYAO »). Il se retrouve dans **« 📝 Mes brouillons »**, sous ce nom, avec la pastille **« sans compte »** (le compte du client se choisit ou se crée en le reprenant) : **« ✏️ Reprendre »** (rouvre le volet avec tout ce qui avait été saisi ; un brouillon sans compte revient avec **« ➕ Nouveau client » déjà rempli de son nom**, modifiable — on ajoute le numéro, ou « Choisir un client existant » pour le chercher par son nom ou son numéro), **« 📲 Envoyer par WhatsApp »** directement (refusé pour un brouillon sans compte : on le reprend pour choisir ou créer le compte), **« ➡ Confier à… »**, ou **« Supprimer »**. Envoyé ou converti, il disparaît." },
         { titre: "« ➡ Confier à… » un collègue", texte: "Quand on est occupé, on confie son brouillon à un collègue de l'espace qui a l'onglet Dimensionnement. Le brouillon **quitte** vos brouillons et **arrive dans les siens**, client compris ; il reçoit un message. Sa ligne dit « 📨 Confié par … ». **C'est lui qui l'envoie, et le devis part à son nom** ; 📋 Tous les devis écrit « préparé par … » à côté." },
+        { titre: "👥 Les brouillons des autres (administrateur, responsable commercial)", texte: "Dans **📝 Mes brouillons**, l'écran s'ouvre sur **« MES BROUILLONS »**. Devant le titre, la liste **« 👥 Utilisateur »** : choisir KOFFI ouvre **« BROUILLONS DE KOFFI »** (rien n'est mémorisé). L'administrateur choisit n'importe qui dans l'espace regardé ; le responsable commercial, **ses** commerciaux (ceux dont il est le parrain). Sur un brouillon de KOFFI : **« ✏️ Reprendre »** (le volet dit « 📝 Brouillon de KOFFI : envoyé, il part à son nom ») et **« 📲 Envoyer pour KOFFI »** — le devis part **à son nom**, la commission est la sienne, avec « préparé par » ; ré-enregistré, il **reste dans ses brouillons** ; KOFFI est **prévenu** dans 💬 Messages. **Supprimer** le brouillon d'un autre : **l'administrateur seul** (KOFFI est prévenu). Pas de « Confier à… » sur le brouillon d'un autre, et **« 🛒 Convertir en vente » est refusé** : la vente passerait à votre nom et sa commission disparaîtrait." },
         { titre: "« 🛒 Convertir en vente »", texte: "Pour un client qui paie **tout de suite** : le panier part dans 💰 Ventes, sur la boutique de travail, avec la remise. Rien n'est encore encaissé : l'encaissement se fait dans 💰 Ventes (chapitre 5)." },
       ]],
     ]},
@@ -170,6 +172,7 @@ export const CHAPITRE = {
         ["📝 Enregistrer un brouillon", "Garde le devis dans « Mes brouillons », sans rien envoyer. Toujours actif : sans compte client, une question puis le nom du client, obligatoire. Établi pour un autre (ou la correction de son devis) : dans SES brouillons."],
         ["👥 Devis établi pour", "Administrateur et responsable commercial : le devis part au nom de la personne choisie (sa commission), « préparé par » vous."],
         ["📝 Mes brouillons → ✏️ Reprendre / 📲 Envoyer / ➡ Confier à… / Supprimer", "Reprendre dans le volet, envoyer directement (pas sans compte), confier à un collègue (le brouillon part chez lui), ou jeter."],
+        ["📝 Mes brouillons → « 👥 Utilisateur »", "Administrateur et responsable commercial (ses commerciaux) : « BROUILLONS DE KOFFI ». Reprendre ou « 📲 Envoyer pour KOFFI » : le devis part à son nom, il est prévenu. Supprimer : l'administrateur seul."],
         ["Annuler la reprise (bandeau jaune)", "Abandonne la reprise d'un devis ou d'un brouillon ; l'écran revient à la saisie en cours."],
       ]}],
     ]},

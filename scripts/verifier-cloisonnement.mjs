@@ -4108,7 +4108,7 @@ titre("👥 Le devis établi POUR un autre, et « TOUS LES DEVIS DE … » (12/1
   const { renderToStaticMarkup } = await import("react-dom/server");
   const entreeEP = join("node_modules", ".cache", `bmi-etabli-pour-entree-${process.pid}.jsx`);
   const sortieEP = join("node_modules", ".cache", `bmi-etabli-pour-${process.pid}.mjs`);
-  writeFileSync(entreeEP, `export { BlocEnvoiDevisClient, useEnvoiDevis } from "${process.cwd()}/src/screens/dimensionnement/Partages.jsx";\nexport * from "${process.cwd()}/src/screens/dimensionnement/devisCommun.js";\nexport { TousLesDevis } from "${process.cwd()}/src/screens/TousLesDevis.jsx";\nexport { ONGLETS_ROLE } from "${process.cwd()}/src/lib/calculs.js";\n`);
+  writeFileSync(entreeEP, `export { BlocEnvoiDevisClient, useEnvoiDevis } from "${process.cwd()}/src/screens/dimensionnement/Partages.jsx";\nexport * from "${process.cwd()}/src/screens/dimensionnement/devisCommun.js";\nexport { TousLesDevis } from "${process.cwd()}/src/screens/TousLesDevis.jsx";\nexport { MesBrouillons } from "${process.cwd()}/src/screens/dimensionnement/Brouillons.jsx";\nexport { ONGLETS_ROLE } from "${process.cwd()}/src/lib/calculs.js";\n`);
   let EP = null;
   try {
     await build({ entryPoints: [entreeEP], bundle: true, format: "esm", platform: "node", outfile: sortieEP, logLevel: "silent",
@@ -4202,6 +4202,52 @@ titre("👥 Le devis établi POUR un autre, et « TOUS LES DEVIS DE … » (12/1
   test("★★ le choix d'une personne filtre TOUT l'écran par LA règle (devisDeLAuteur) et le titre devient « TOUS LES DEVIS DE … » ; rien n'est mémorisé ; la relance de l'admin ou du resp. commercial rend la réponse à l'auteur",
     /const \[filtreAuteur, setFiltreAuteur\] = useState\(""\);/.test(tld) && /const tousDevis = auteurFiltre \? devisDeLEspace\.filter\(\(d\) => devisDeLAuteur\(d, auteurFiltre\)\) : devisDeLEspace;/.test(tld)
     && /TOUS LES DEVIS DE \$\{String\(auteurFiltre\.nom/.test(tld) && /pour: auteurD\.par, pour_id: auteurD\.par_id/.test(tld) && /auteursDuFiltre\(devisDeLEspace, utilisateursDeLEspace\(db, profile\), profile, ONGLETS_ROLE\)/.test(tld));
+
+  // 📝 LES BROUILLONS DES AUTRES (12/10/2026, « A a, B b, C a ») : 📐 Dimensionnement → 📝 Mes brouillons.
+  const amaB = { ...ama, brouillons_devis: [{ id: "bm", volet: "solaire", client: { nom: "YAO", tel: "90" }, devis: { total: 1 }, date: "2026-10-12" }] };
+  const vieux = { id: "x", nom: "ANCIEN", role: "commercial", actif: false, brouillons_devis: [{ id: "bx", devis: { total: 1 } }] };
+  const persB = [admin, resp, koffi, amaB, vend, cli, vieux];
+  test("★★ brouillons des autres — la liste « Utilisateur » : l'administrateur → ceux pour qui il établit un devis ET tout le monde de l'espace qui garde un brouillon (même sans l'onglet) ; le responsable commercial → SES commerciaux ; un commercial → personne",
+    !!EP && EP.auteursDesBrouillons(persB, admin, OR).some((u) => u.id === "x") && EP.auteursDesBrouillons(persB, admin, OR).some((u) => u.id === "m")
+    && !EP.auteursDesBrouillons(persB, admin, OR).some((u) => u.id === "a" || u.id === "c")
+    && ids(EP.auteursDesBrouillons(persB, resp, OR)) === "k" && EP.auteursDesBrouillons(persB, koffi, OR).length === 0);
+  const listeA = EP ? EP.auteursDesBrouillons(persB, admin, OR) : [], listeR = EP ? EP.auteursDesBrouillons(persB, resp, OR) : [];
+  test("★★ brouillons des autres — revérifiés DANS le geste : le sien toujours ; supprimer celui d'un autre = l'administrateur seul (« B b ») ; le convertir en vente est refusé (la commission partirait) ; un commercial qui n'est pas le sien est refusé au responsable commercial",
+    EP.critiqueBrouillonAutrui("a", listeA, admin, "supprimer") === "" && EP.critiqueBrouillonAutrui("k", listeA, admin, "supprimer") === ""
+    && EP.critiqueBrouillonAutrui("k", listeR, resp, "supprimer") !== "" && EP.critiqueBrouillonAutrui("k", listeR, resp, "envoyer") === ""
+    && EP.critiqueBrouillonAutrui("m", listeR, resp, "envoyer") !== "" && /commission/.test(EP.critiqueBrouillonAutrui("k", listeA, admin, "convertir"))
+    && EP.critiqueBrouillonAutrui("k", [koffi], vend, "envoyer") !== "");
+  const brKoffi = { id: "bk", volet: "solaire", client: { id: "c", nom: "MANDA", tel: "90112233" }, devis: { total: 250000, par: "KOFFI" }, date: "2026-10-11" };
+  const dbM = { boutiques: [{ id: "b", nom: "BMI DEMAKPOE" }], users: [admin, resp, { ...koffi, brouillons_devis: [brKoffi] }, amaB, vend, cli], messages: [] };
+  const rendreM = (p, f) => { const e0 = console.error; console.error = () => {}; try { return String(renderToStaticMarkup(React.createElement(EP.MesBrouillons, { db: dbM, profile: p, save() {}, domaines: [], onReprendre() {}, filtreInitial: f }))); } catch (e) { return "ERREUR " + String(e).slice(0, 120); } finally { console.error = e0; } };
+  const mA = EP ? rendreM(admin, "") : "", mAk = EP ? rendreM(admin, "k") : "", mRk = EP ? rendreM(resp, "k") : "", mRm = EP ? rendreM(resp, "m") : "", mK = EP ? rendreM(koffi, "") : "";
+  test("★★ 📝 Mes brouillons RENDU : « MES BROUILLONS » d'office (A a) ; KOFFI choisi → « BROUILLONS DE KOFFI », son brouillon, « Envoyer pour KOFFI », pas de « Confier » ; Supprimer chez l'administrateur seul (B b) ; un commercial qui n'est pas le sien ne s'ouvre pas au responsable commercial ; un commercial n'a pas la liste",
+    /data-titre-brouillons[^>]*>📝 <!-- -->MES BROUILLONS|data-titre-brouillons[^>]*>📝 MES BROUILLONS/.test(mA) && /data-filtre-auteur-brouillons/.test(mA) && /KOFFI — [^<]*\(1\)/.test(mA)
+    && /BROUILLONS DE KOFFI/.test(mAk) && /MANDA/.test(mAk) && /Envoyer pour KOFFI/.test(mAk) && !/data-confier-brouillon/.test(mAk) && /data-supprimer-brouillon/.test(mAk)
+    && /BROUILLONS DE KOFFI/.test(mRk) && !/data-supprimer-brouillon/.test(mRk) && !/BROUILLONS DE AMA/.test(mRm) && /MES BROUILLONS/.test(mRm)
+    && /MES BROUILLONS/.test(mK) && !/data-filtre-auteur-brouillons/.test(mK), [mA, mAk].map((h) => h.slice(0, 160)).join(" | "));
+  // LE GESTE JOUÉ : TIMO reprend le brouillon de KOFFI et le ré-enregistre → il
+  // reste chez KOFFI (une seule copie), KOFFI est prévenu ; le convertir est refusé.
+  let dbApresR = null, convertiR = false, envoiR = null;
+  if (EP) {
+    const dbR = { boutiques: [{ id: "b", nom: "BMI DEMAKPOE" }], users: [admin, { ...koffi, brouillons_devis: [brKoffi] }, cli], messages: [], ventes: [], dettes: [], commandes: [], clients_installes: [], prospects: [] };
+    const SondeR = () => { envoiR = EP.useEnvoiDevis({ db: dbR, save: (x) => { dbApresR = typeof x === "function" ? x(dbR) : x; }, profile: { ...admin, signature_personnelle: "x" }, boutique: "BMI DEMAKPOE", volet: "solaire", devisAReprendre: { devis: brKoffi.devis, client: brKoffi.client, brouillon_id: "bk", brouillon_auteur: { id: "k", nom: "KOFFI" } }, onDevisRepriseConsomme() {}, onConvertirEnVente() { convertiR = true; }, r: { apporteur: null, principal: true } }); return null; };
+    const e0 = console.error; console.error = () => {};
+    try { renderToStaticMarkup(React.createElement(SondeR)); envoiR.convertir([{ id: "p" }], 0); await envoiR.enregistrerBrouillon({ totalDevis: 260000, messageVide: "vide", construire: () => ({ id: "nv", total: 260000, lignes: [] }) }); } catch (e) { console.log("    (geste brouillon :", String(e).slice(0, 160), ")"); } finally { console.error = e0; }
+  }
+  const brKR = dbApresR ? ((dbApresR.users.find((u) => u.id === "k") || {}).brouillons_devis || []) : [];
+  const brTR = dbApresR ? ((dbApresR.users.find((u) => u.id === "a") || {}).brouillons_devis || []) : [];
+  test("★★ le brouillon de KOFFI repris par TIMO : la ligne DIT qu'il partira à son nom ; ré-enregistré, il RESTE chez KOFFI (une seule copie, « préparé par TIMO »), KOFFI est prévenu (« a modifié votre brouillon »), TIMO n'en a aucune ; le convertir en vente est refusé",
+    envoiR?.etabliPour?.fixe?.brouillon === true && envoiR.etabliPour.fixe.par_id === "k"
+    && brKR.length === 1 && brKR[0].id === "bk" && brKR[0].devis?.total === 260000 && brKR[0].devis?.prepare_par === "TIMO" && brTR.length === 0
+    && (dbApresR.messages || []).some((m) => m.a_id === "k" && /a modifié votre brouillon/.test(m.texte || "")) && !convertiR, JSON.stringify(brKR).slice(0, 160));
+  const brs = readFileSync("src/screens/dimensionnement/Brouillons.jsx", "utf8");
+  test("★★ envoyer le brouillon d'un autre (📝 Mes brouillons et volet) : le devis part au NOM de son auteur avec « préparé par », sort de SA fiche, et il est PRÉVENU (« C a ») ; chaque geste revérifie (refus) ; Reprendre passe l'auteur",
+    /const auteur = autre \? titulaire : profile;/.test(brs) && /par: auteur\.nom, par_id: auteur\.id, par_role: auteur\.role/.test(brs) && /prepare_par: b\.devis\?\.prepare_par \|\| profile\.nom/.test(brs)
+    && /avisBrouillonEnvoye\(profile, titulaire, compte\.nom, devis\.total\)/.test(brs) && /avisBrouillonSupprime\(profile, titulaire/.test(brs)
+    && (brs.match(/if \(refus\("(envoyer|supprimer)"\)\) return;/g) || []).length === 2 && /onReprendre\(b, titulaire\)/.test(brs)
+    && /avisBrouillonEnvoye\(profile, proprioBrouillon, compte\.nom, devis\.total\)/.test(pa) && /retirerBrouillon\(dbApres, idProprio, brouillonRepris\)/.test(pa)
+    && /if \(refusAuteur\("convertir"\)\) return;/.test(pa));
 }
 
 titre("📋 Le statut des dettes : Tout (en cours + partielles), En cours, Partielle, Payée (12/10/2026, « payé n'est plus une dette »)");
@@ -4761,7 +4807,8 @@ titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé pl
     && /uAlert\("Indiquez le nom et le numéro du client\."\)/.test(part) && /uAlert\("Choisissez d'abord le client\."\)/.test(part));
   test("★ un brouillon repris n'est PAS un devis déjà chez le client : à l'envoi on l'AJOUTE, et le brouillon disparaît",
     /const idAReprendre = brouillonRepris \? undefined : devisAReprendre\?\.devis\?\.id;/.test(part)
-    && /dbApres: brouillonRepris \? retirerBrouillon\(dbApres, profile\.id, brouillonRepris\) : dbApres,/.test(part));
+    && /let dbEnvoi = brouillonRepris \? retirerBrouillon\(dbApres, idProprio, brouillonRepris\) : dbApres;/.test(part) /* RETOURNÉ 12/10/2026 : le brouillon d'un autre disparaît de SA liste */
+    && /dbApres: dbEnvoi,/.test(part));
   test("★ convertir un brouillon en vente le retire aussi", /if \(brouillonRepris\) save\(retirerBrouillon\(db, profile\.id, brouillonRepris\)/.test(part));
   test("★ le client d'une reprise (devis ou brouillon) est réappliqué par la règle commune, plus par chaque volet",
     /setClientDevis\(clientRepris\(devisAReprendre\)\);\s*setNouvClient\(nouvClientRepris\(devisAReprendre\)\);/.test(part));
@@ -4774,12 +4821,14 @@ titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé pl
   }
   const idx = readFileSync("src/screens/dimensionnement/index.jsx", "utf8");
   test("★ l'onglet « 📝 Mes brouillons » est dans Dimensionnement, et Reprendre rouvre le volet avec brouillon_id",
-    /📝 Mes brouillons\{nbBrouillons/.test(idx) && /setBrouillonRepris\(\{ devis: b\.devis, client: b\.client, brouillon_id: b\.id, brouillon_nom: b\.nom \|\| "", brouillon_confie: b\.confie \|\| null, brouillon_remplace: b\.remplace \|\| null \}\)/.test(idx) /* RETOURNÉ 12/10/2026 : + le devis que le brouillon corrige */
+    /📝 Mes brouillons\{nbBrouillons/.test(idx) && /setBrouillonRepris\(\{ devis: b\.devis, client: b\.client, brouillon_id: b\.id, brouillon_nom: b\.nom \|\| "", brouillon_confie: b\.confie \|\| null, brouillon_remplace: b\.remplace \|\| null, brouillon_auteur: auteur && auteur\.id !== profile\.id \? \{ id: auteur\.id, nom: auteur\.nom \} : null \}\)/.test(idx) /* RETOURNÉ 12/10/2026 : + le devis que le brouillon corrige, + l'auteur d'un brouillon qui n'est pas le mien */
     && /const devisAReprendre = devisAReprendreProp \|\| brouillonRepris;/.test(idx));
   const br = readFileSync("src/screens/dimensionnement/Brouillons.jsx", "utf8");
-  test("★ la liste ne montre que MES brouillons (fiche de profile.id), et Envoyer suit le chemin WhatsApp commun puis retire le brouillon",
-    /brouillonsDe\(moi\)/.test(br) && /find\(\(u\) => u\.id === profile\.id\)/.test(br) && /resoudreClientDevis\(db, clientDevis, nouvClient, profile, b\.devis\?\.boutique\)/.test(br)
-    && /dbApres: retirerBrouillon\(dbApres, profile\.id, b\.id\)/.test(br) && /await uConfirm\(`Supprimer le brouillon/.test(br));
+  // RETOURNÉ 12/10/2026 (« A a ») : MES brouillons d'office ; ceux d'un autre seulement par la liste « Utilisateur ».
+  test("★ la liste montre MES brouillons d'office (fiche de profile.id), ceux d'un autre par la liste « Utilisateur » ; Envoyer suit le chemin WhatsApp commun puis retire le brouillon de la fiche de SON auteur",
+    /const titulaire = proprio \|\| moi;/.test(br) && /brouillonsDe\(titulaire\)/.test(br) && /find\(\(u\) => u\.id === profile\.id\)/.test(br) && /filtreInitial = ""/.test(br) && /useState\(filtreInitial\)/.test(br) && !/filtreInitial=/.test(readFileSync("src/screens/dimensionnement/index.jsx", "utf8"))
+    && /resoudreClientDevis\(db, clientDevis, nouvClient, profile, b\.devis\?\.boutique\)/.test(br)
+    && /const sansLui = retirerBrouillon\(dbApres, titulaire\.id, b\.id\);/.test(br) && /await uConfirm\(`Supprimer le brouillon/.test(br));
   test("★ la fusion trois voies traite brouillons_devis comme une liste de la fiche (deux appareils ne s'écrasent pas)",
     /users: \{ listes: \["virements", "credits", "devis", "brouillons_devis"\] \}/.test(readFileSync("src/lib/fusion.js", "utf8")));
 }
@@ -5305,8 +5354,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // 12/09/2026 : la validation des dépenses (lib/validationDepenses.js) ajoute
   // quatre messages (à valider, validée, rejetée, avance remboursée) et deux
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
-  test("★ nouveauMessage sert aux 34 fabrications (le brouillon préparé pour un autre, 12/10/2026 ; le brouillon confié à un collègue, 05/10/2026 ; les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026 ; le pourcentage d'apporteur fixé par le principal, 29/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
-    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "34" /* RETOURNÉ 12/10/2026 : + l'avis du brouillon préparé pour un autre */
+  test("★ nouveauMessage sert aux 36 fabrications (le brouillon envoyé ou supprimé à la place de son auteur, 12/10/2026 ; le brouillon préparé pour un autre, 12/10/2026 ; le brouillon confié à un collègue, 05/10/2026 ; les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026 ; le pourcentage d'apporteur fixé par le principal, 29/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
+    execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "36" /* RETOURNÉ 12/10/2026 : + l'avis du brouillon préparé pour un autre ; + l'avis du brouillon envoyé ou supprimé à la place de son auteur */
     && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "18");
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont

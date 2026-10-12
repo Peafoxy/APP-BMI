@@ -43,7 +43,7 @@ import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
-import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, MODE_POURCENT, MODE_MONTANT, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX, peutEtablirPourAutrui, auteursPossibles, auteurDuDevis, devisEtabliPour, garderAuteur, critiqueAuteur, remplacePour, devisRemplace } from "./devisCommun";
+import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, MODE_POURCENT, MODE_MONTANT, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX, peutEtablirPourAutrui, auteursPossibles, auteurDuDevis, devisEtabliPour, garderAuteur, critiqueAuteur, remplacePour, devisRemplace, auteursDesBrouillons, critiqueBrouillonAutrui, avisBrouillonEnvoye } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
 // IMPORTE puis on les RÉEXPORTE : `export { x } from` ne crée pas de nom
@@ -461,12 +461,27 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     ? ((db.users || []).find((u) => u.id === devisAReprendre?.client?.id)?.devis || []).find((x) => x.id === idAReprendre) || null
     : null;
   const [auteurId, setAuteurId] = useState("");
-  const auteurChoisi = devisStocke ? null : auteurs.find((u) => u.id === auteurId) || null;
+  // 📝 Le brouillon d'un AUTRE repris (« A a, B b, C a », 12/10/2026) : il
+  // reste le sien. Le devis part à son nom, le brouillon ré-enregistré
+  // retourne dans SES brouillons, et c'est de SA liste qu'il disparaît.
+  const idProprio = brouillonRepris ? (devisAReprendre?.brouillon_auteur?.id || profile.id) : profile.id;
+  const proprioBrouillon = idProprio !== profile.id
+    ? utilisateursDeLEspace(db, profile).find((u) => u.id === idProprio && u.role !== "client") || null
+    : null;
+  const auteurChoisi = devisStocke ? null : proprioBrouillon || auteurs.find((u) => u.id === auteurId) || null;
   const etabliPour = peutEtablirPourAutrui(profile)
-    ? { auteurs, auteurId, setAuteurId, fixe: devisStocke ? auteurDuDevis(devisStocke) : null, moi: profile }
+    ? { auteurs, auteurId, setAuteurId, moi: profile,
+        fixe: devisStocke ? auteurDuDevis(devisStocke)
+          : proprioBrouillon ? { par: proprioBrouillon.nom, par_id: proprioBrouillon.id, par_role: proprioBrouillon.role, brouillon: true } : null }
     : null;
   // Revérifié DANS le geste : la personne doit être encore dans la liste.
-  const refusAuteur = () => {
+  const refusAuteur = (geste = "envoyer") => {
+    if (idProprio !== profile.id) {
+      const refus = !proprioBrouillon ? "Ce brouillon n'est plus accessible : son auteur n'est plus dans cet espace."
+        : critiqueBrouillonAutrui(idProprio, auteursDesBrouillons(utilisateursDeLEspace(db, profile), profile, ONGLETS_ROLE), profile, geste);
+      if (refus) { uAlert(refus); return true; }
+      return false;
+    }
     if (devisStocke || !auteurId) return false;
     const refus = critiqueAuteur(auteurId, auteurs, profile);
     if (refus) { uAlert(refus); return true; }
@@ -497,8 +512,14 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
     // annonçait « ✅ Devis envoyé » et effaçait le brouillon alors que rien
     // n'était parti. On respecte la réponse.
+    // « C a » : l'auteur d'un brouillon envoyé à sa place est prévenu.
+    let dbEnvoi = brouillonRepris ? retirerBrouillon(dbApres, idProprio, brouillonRepris) : dbApres;
+    if (proprioBrouillon) {
+      const avis = avisBrouillonEnvoye(profile, proprioBrouillon, compte.nom, devis.total);
+      dbEnvoi = { ...dbEnvoi, messages: [...(dbEnvoi.messages || []), avis] };
+    }
     const envoye = await envoyerDevisEtOuvrirWhatsApp({
-      dbApres: brouillonRepris ? retirerBrouillon(dbApres, profile.id, brouillonRepris) : dbApres,
+      dbApres: dbEnvoi,
       compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre: idRemplace,
     });
     if (!envoye) return;
@@ -525,6 +546,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     // ✍️ Compléter le devis après la visite).
     if (aCompleter) { uAlert("📋 Ce devis porte des éléments à compléter après la visite (cf. visite) : il ne se convertit pas en vente tant qu'ils ne sont pas chiffrés.\n\nEnvoyez le devis au client, puis complétez-le après la visite (📋 Tous les devis → ✍️ Compléter le devis)."); return; }
     if (refusApporteur()) return;
+    if (refusAuteur("convertir")) return;
     effacerBrouillonVolet(volet, profile);
     if (brouillonRepris) save(retirerBrouillon(db, profile.id, brouillonRepris), `📝 Brouillon de devis converti en vente par ${profile.nom}`);
     // L'apporteur suit le panier jusqu'à l'encaissement, avec son pourcentage.
@@ -584,9 +606,11 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     const titre = nomDuBrouillon(brouillon);
     if (pourQui) {
       // Déplacé, jamais copié : retiré de mes brouillons s'il en venait.
-      const base = brouillonRepris ? retirerBrouillon(db, profile.id, brouillonRepris) : db;
+      const base = brouillonRepris ? retirerBrouillon(db, idProprio, brouillonRepris) : db;
+      // Son propre brouillon, repris et corrigé : il le retrouve à sa place.
+      const dejaLeSien = !!proprioBrouillon && proprioBrouillon.id === pourQui.id;
       const avis = nouveauMessage(profile, { a_id: pourQui.id,
-        texte: `📝 ${profile.nom} a préparé pour vous un brouillon de devis : « ${titre} » (${fmt(devis.total)})${remplace ? " — la correction de votre devis déjà envoyé" : ""}. Retrouvez-le dans 📐 Dimensionnement → 📝 Mes brouillons pour le vérifier et l'envoyer : il partira à votre nom.` });
+        texte: `📝 ${profile.nom} a ${dejaLeSien ? "modifié votre" : "préparé pour vous un"} brouillon de devis : « ${titre} » (${fmt(devis.total)})${remplace ? " — la correction de votre devis déjà envoyé" : ""}. Retrouvez-le dans 📐 Dimensionnement → 📝 Mes brouillons pour le vérifier et l'envoyer : il partira à votre nom.` });
       const dbB = ajouterBrouillon(base, pourQui.id, brouillon);
       save({ ...dbB, messages: [...(dbB.messages || []), avis] }, `📝 Brouillon de devis enregistré pour ${pourQui.nom} — ${titre}${client ? "" : " (sans compte)"} (${fmt(devis.total)}) par ${profile.nom}`);
       effacerBrouillonVolet(volet, profile);
@@ -649,6 +673,11 @@ export function BlocEtabliPour({ etabliPour }) {
   const { auteurs, auteurId, setAuteurId, fixe, moi } = etabliPour;
   if (fixe) {
     if (!fixe.par_id || fixe.par_id === moi.id) return null;
+    if (fixe.brouillon) return (
+      <div className="mb-3 rounded-lg border border-sky-300 bg-sky-50 p-2 text-sm text-sky-900" data-brouillon-de-autre>
+        📝 Brouillon de <b>{fixe.par}</b> : envoyé, il part à son nom — la commission est la sienne, avec « préparé par ». « 📝 Enregistrer un brouillon » le remet dans SES brouillons ; {fixe.par} est prévenu dans les deux cas.
+      </div>
+    );
     return (
       <div className="mb-3 rounded-lg border border-sky-300 bg-sky-50 p-2 text-sm text-sky-900" data-devis-auteur-fixe>
         👤 Devis de <b>{fixe.par}</b> : la correction reste à son nom — la commission est la sienne. « Modifié par {moi.nom} » sera noté sur le devis.

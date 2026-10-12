@@ -5,18 +5,37 @@
 // son volet, s'envoie par WhatsApp, ou se supprime. Rangé dans la fiche de
 // celui qui l'a fait (`brouillons_devis`) : personnel, synchronisé, sans SQL.
 // ============================================================
+import { useState } from "react";
 import { uid, fmt, today, dFR, heureCourte, nouveauMessage } from "../../lib/core";
-import { uAlert, uConfirm, uPrompt, uChoix } from "../../components/ui";
+import { uAlert, uConfirm, uPrompt, uChoix, inputCls } from "../../components/ui";
 import { bloquerSiLecture, estAdminPrincipal, refuserSaufAdminPrincipal, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { LIBELLE_ROLE_EMPLOYE } from "../../lib/comptesClients";
 import { brouillonsAvecApporteur, fixerTauxBrouillon } from "../../lib/apporteurDevis";
-import { brouillonsDe, retirerBrouillon, nomDuBrouillon, brouillonSansClient, destinatairesBrouillon, confierBrouillon, devisRemplace } from "./devisCommun";
+import { brouillonsDe, retirerBrouillon, nomDuBrouillon, brouillonSansClient, destinatairesBrouillon, confierBrouillon, devisRemplace, auteursDesBrouillons, critiqueBrouillonAutrui, avisBrouillonEnvoye, avisBrouillonSupprime } from "./devisCommun";
 import { resoudreClientDevis, envoyerDevisEtOuvrirWhatsApp } from "./Partages";
 import { messageDevisEnvoye } from "../../lib/whatsappModeles";
 
-export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
+export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtreInitial = "" /* pour le banc seul */ }) {
   const moi = (db.users || []).find((u) => u.id === profile.id) || profile;
-  const liste = [...brouillonsDe(moi)].sort((a, b) => String(b.ts || b.date || "").localeCompare(String(a.ts || a.date || "")));
+  // 👥 LES BROUILLONS DES AUTRES (Timo, 12/10/2026, « A a, B b, C a ») :
+  // « MES BROUILLONS » d'office ; la liste « Utilisateur » (administrateur :
+  // tout l'espace regardé ; responsable commercial : ses commerciaux) ouvre
+  // « BROUILLONS DE KOFFI ». Rien de mémorisé. Les personnes viennent de
+  // l'espace REGARDÉ (utilisateursDeLEspace), jamais db.users.
+  const [filtreAuteur, setFiltreAuteur] = useState(filtreInitial);
+  const personnes = utilisateursDeLEspace(db, profile);
+  const auteursListe = auteursDesBrouillons(personnes, profile, ONGLETS_ROLE);
+  const proprio = (filtreAuteur && auteursListe.find((u) => u.id === filtreAuteur)) || null;
+  const titulaire = proprio || moi;
+  const autre = !!proprio;
+  // Revérifié DANS chaque geste, sur la liste fraîche.
+  const refus = (geste) => {
+    if (!autre) return false;
+    const r = critiqueBrouillonAutrui(proprio.id, auteursDesBrouillons(utilisateursDeLEspace(db, profile), profile, ONGLETS_ROLE), profile, geste);
+    if (r) { uAlert(r); return true; }
+    return false;
+  };
+  const liste = [...brouillonsDe(titulaire)].sort((a, b) => String(b.ts || b.date || "").localeCompare(String(a.ts || a.date || "")));
   const libelleVolet = (b) => {
     const d = (domaines || []).find((x) => x.id === b.volet);
     if (d) return `${d.icone || ""} ${d.nom}`.trim();
@@ -25,8 +44,11 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
 
   const supprimer = async (b) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!await uConfirm(`Supprimer le brouillon « ${nomDuBrouillon(b)} » (${fmt(b.devis?.total)}) ?`)) return;
-    save(retirerBrouillon(db, profile.id, b.id), `📝 Brouillon de devis supprimé — ${nomDuBrouillon(b)}`);
+    if (refus("supprimer")) return;
+    if (!await uConfirm(`Supprimer le brouillon « ${nomDuBrouillon(b)} » (${fmt(b.devis?.total)})${autre ? ` de ${titulaire.nom} ?\n\n${titulaire.nom} sera prévenu.` : " ?"}`)) return;
+    const sansLui = retirerBrouillon(db, titulaire.id, b.id);
+    save(autre ? { ...sansLui, messages: [...(sansLui.messages || []), avisBrouillonSupprime(profile, titulaire, nomDuBrouillon(b), b.devis?.total)] } : sansLui,
+      `📝 Brouillon de devis supprimé — ${nomDuBrouillon(b)}${autre ? ` (brouillon de ${titulaire.nom}, par ${profile.nom})` : ""}`);
   };
 
   // Envoi direct, sans repasser par le volet : même chemin que « Envoyer par
@@ -34,6 +56,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
   // ouvert), puis le brouillon disparaît.
   const envoyer = async (b) => {
     if (bloquerSiLecture(db, profile)) return;
+    if (refus("envoyer")) return;
     // 05/10/2026 : un brouillon SANS client ne part pas d'ici — on le reprend
     // pour choisir le client (ou le créer) dans le volet.
     if (brouillonSansClient(b)) { uAlert(`Le brouillon « ${nomDuBrouillon(b)} » n'a pas de client.\n\nReprenez-le (✏️ Reprendre) pour choisir le client, puis envoyez-le.`); return; }
@@ -53,9 +76,15 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
       else if (!await uConfirm(`Ce brouillon corrigeait un devis${b.remplace.date ? ` du ${dFR(b.remplace.date)}` : ""} qui ne peut plus être remplacé (validé, payé ou supprimé entre-temps).\n\nIl partira comme un NOUVEAU devis. Continuer ?`)) return;
     }
     // Il part au nom de celui qui l'envoie ; un brouillon confié garde « préparé par » (dans b.devis).
-    const devis = { ...b.devis, ...identite, id: idAReprendre || uid(), date: today(), heure: heureCourte(), par: profile.nom, par_id: profile.id, par_role: profile.role, statut: "propose" };
+    // 👥 Le brouillon d'un AUTRE part au nom de son auteur (la commission est la
+    // sienne), avec « préparé par » ; il est prévenu (« C a »).
+    const auteur = autre ? titulaire : profile;
+    const devis = { ...b.devis, ...identite, id: idAReprendre || uid(), date: today(), heure: heureCourte(), par: auteur.nom, par_id: auteur.id, par_role: auteur.role, statut: "propose",
+      ...(autre ? { prepare_par: b.devis?.prepare_par || profile.nom } : {}) };
+    const sansLui = retirerBrouillon(dbApres, titulaire.id, b.id);
     const envoye = await envoyerDevisEtOuvrirWhatsApp({
-      dbApres: retirerBrouillon(dbApres, profile.id, b.id), compte, motDePasse, devis, save, profile, nouvClient,
+      dbApres: autre ? { ...sansLui, messages: [...(sansLui.messages || []), avisBrouillonEnvoye(profile, titulaire, compte.nom, devis.total)] } : sansLui,
+      compte, motDePasse, devis, save, profile, nouvClient,
       ligneEntete: [`📝 Devis ${libelleVolet(b)} — *${fmt(devis.total)}*`], idAReprendre,
     });
     if (envoye && envoye.auto) uAlert(messageDevisEnvoye(compte.nom, true));
@@ -145,13 +174,31 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
       </div>
     )}
     <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-      <div className="font-bold mb-1">📝 Mes brouillons</div>
+      <div className="flex flex-wrap items-center gap-2 mb-1">
+        {auteursListe.length > 0 && (
+          <select className={`${inputCls} sm:w-72`} value={proprio ? filtreAuteur : ""} onChange={(e) => setFiltreAuteur(e.target.value)} data-filtre-auteur-brouillons
+                  title="Voir les brouillons d'une personne">
+            <option value="">👥 Utilisateur — moi</option>
+            {auteursListe.map((u) => (
+              <option key={u.id} value={u.id}>{u.nom} — {LIBELLE_ROLE_EMPLOYE[u.role] || u.role} ({brouillonsDe(u).length})</option>
+            ))}
+          </select>
+        )}
+        <div className="font-bold" data-titre-brouillons>📝 {autre ? `BROUILLONS DE ${String(titulaire.nom || "").toUpperCase()}` : "MES BROUILLONS"}</div>
+      </div>
+      {profile.role === "resp_commercial" && auteursListe.length === 0 && (
+        <div className="text-xs text-slate-500 mb-1">Aucun commercial n'est sous votre responsabilité (👥 Utilisateurs → ⋯ Gérer → Parrain) : vous ne voyez que vos brouillons.</div>
+      )}
       <div className="text-xs text-slate-500 mb-3">
-        Des devis enregistrés sans être envoyés. Reprendre rouvre le volet avec tout ce qui avait été saisi ; Envoyer les dépose dans l'espace du client et l'en prévient par WhatsApp ; Confier les remet à un collègue, qui les finalise et les envoie à son nom.
-        Une fois envoyé ou converti en vente, le brouillon disparaît.
+        {autre ? (
+          <>Les brouillons de {titulaire.nom}. Reprendre ou Envoyer : le devis part à SON nom (la commission est la sienne), avec « préparé par {profile.nom} », et {titulaire.nom} est prévenu.{profile.role === "admin" ? " Supprimer : l'administrateur seul, et il est prévenu." : ""}</>
+        ) : (
+          <>Des devis enregistrés sans être envoyés. Reprendre rouvre le volet avec tout ce qui avait été saisi ; Envoyer les dépose dans l'espace du client et l'en prévient par WhatsApp ; Confier les remet à un collègue, qui les finalise et les envoie à son nom.
+          Une fois envoyé ou converti en vente, le brouillon disparaît.</>
+        )}
       </div>
       {liste.length === 0 ? (
-        <div className="text-sm text-slate-500">Aucun brouillon. Dans un volet, « 📝 Enregistrer un brouillon » — avec ou sans compte client.</div>
+        <div className="text-sm text-slate-500">{autre ? `${titulaire.nom} n'a aucun brouillon.` : "Aucun brouillon. Dans un volet, « 📝 Enregistrer un brouillon » — avec ou sans compte client."}</div>
       ) : (
         <div className="divide-y divide-slate-100">
           {liste.map((b) => (
@@ -163,10 +210,10 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre }) {
                 {b.confie && <div className="text-xs text-sky-800" data-brouillon-confie>📨 Confié par {b.confie.par} le {dFR(b.confie.le)}{b.devis?.prepare_par ? ` · préparé par ${b.devis.prepare_par}` : ""}</div>}
                 {b.remplace && <div className="text-xs text-amber-800" data-brouillon-remplace>✏️ Correction du devis{b.remplace.date ? ` du ${dFR(b.remplace.date)}` : ""} déjà envoyé : l'envoi le remplacera chez le client.</div>}
               </div>
-              <button onClick={() => onReprendre(b)} className="px-3 py-1 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">✏️ Reprendre</button>
-              <button onClick={() => envoyer(b)} className="px-3 py-1 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">📲 Envoyer par WhatsApp</button>
-              <button onClick={() => confier(b)} data-confier-brouillon className="px-3 py-1 rounded-lg border border-sky-300 text-sky-800 text-xs font-bold hover:bg-sky-50">➡ Confier à…</button>
-              <button onClick={() => supprimer(b)} className="px-3 py-1 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Supprimer</button>
+              <button onClick={() => { if (!refus("reprendre")) onReprendre(b, titulaire); }} className="px-3 py-1 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">✏️ Reprendre</button>
+              <button onClick={() => envoyer(b)} data-envoyer-brouillon className="px-3 py-1 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">{autre ? `📲 Envoyer pour ${titulaire.nom}` : "📲 Envoyer par WhatsApp"}</button>
+              {!autre && <button onClick={() => confier(b)} data-confier-brouillon className="px-3 py-1 rounded-lg border border-sky-300 text-sky-800 text-xs font-bold hover:bg-sky-50">➡ Confier à…</button>}
+              {(!autre || profile.role === "admin") && <button onClick={() => supprimer(b)} data-supprimer-brouillon className="px-3 py-1 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Supprimer</button>}
             </div>
           ))}
         </div>

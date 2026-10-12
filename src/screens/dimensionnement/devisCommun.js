@@ -13,7 +13,7 @@
 // Ce fichier est PUR (aucun React) : le banc fabrique le même devis avec
 // l'ancienne écriture et celle-ci, et vérifie qu'ils sont identiques.
 // ============================================================
-import { uid, today, heureCourte, montantSaisi, pctEquivalent } from "../../lib/core";
+import { uid, today, heureCourte, montantSaisi, pctEquivalent, nouveauMessage, fmt } from "../../lib/core";
 import { devisModifiable, ROLES_MODIFIENT_TOUT_DEVIS } from "../../lib/comptesClients";
 import { cleIdentifiant } from "../../lib/identiteClient";
 import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
@@ -300,6 +300,39 @@ export function auteursDuFiltre(devis, personnes, profile, ongletsRole) {
 // Un devis est de cette personne par son identifiant ; un devis d'avant
 // (sans par_id) par son nom.
 export const devisDeLAuteur = (d, u) => !!u && !!d && (d.par_id ? d.par_id === u.id : !!d.par && cleIdentifiant(d.par) === cleIdentifiant(u.nom));
+
+// 📝 LES BROUILLONS DES AUTRES (Timo, 12/10/2026, « A a, B b, C a ») : la liste
+// « Utilisateur » de 📝 Mes brouillons. L'administrateur → les personnes pour
+// qui il peut établir un devis, et toute personne de l'espace qui garde un
+// brouillon ; le responsable commercial → ses commerciaux seulement. La liste
+// reçue est DÉJÀ filtrée par l'espace regardé (jamais db.users).
+export function auteursDesBrouillons(personnes, profile, ongletsRole) {
+  if (!peutEtablirPourAutrui(profile)) return [];
+  const possibles = auteursPossibles(personnes, profile, ongletsRole);
+  if (profile.role !== "admin") return possibles;
+  const avec = (personnes || []).filter((u) => u && u.id !== profile.id && u.role !== "client"
+    && brouillonsDe(u).length > 0 && !possibles.some((p) => p.id === u.id));
+  return [...possibles, ...avec].sort((a, b) => String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" }));
+}
+// « C a » : l'auteur est prévenu quand son brouillon part à sa place, et
+// quand l'administrateur le supprime (il chercherait un brouillon disparu).
+export const avisBrouillonEnvoye = (profile, auteur, client, total) => nouveauMessage(profile, { a_id: auteur.id,
+  texte: `📲 ${profile.nom} a envoyé votre brouillon de devis pour ${client || "?"} (${fmt(total)}) à votre nom : la commission reste la vôtre. Le devis est dans 📋 Tous les devis ; le brouillon a quitté 📝 Mes brouillons.` });
+export const avisBrouillonSupprime = (profile, auteur, titre, total) => nouveauMessage(profile, { a_id: auteur.id,
+  texte: `🗑 ${profile.nom} a supprimé votre brouillon de devis « ${titre} » (${fmt(total)}).` });
+// Le geste sur le brouillon d'un AUTRE, revérifié DANS le geste. "" si permis.
+// « B b » : le supprimer = l'administrateur seul. Le convertir en vente est
+// refusé : la vente passerait au nom de celui qui convertit, et la commission
+// de l'auteur disparaîtrait — on l'envoie en devis à son nom.
+export function critiqueBrouillonAutrui(proprioId, possibles, profile, geste) {
+  if (!proprioId || proprioId === profile?.id) return "";
+  if (!peutEtablirPourAutrui(profile)) return "Seuls l'administrateur et le responsable commercial travaillent sur le brouillon de quelqu'un d'autre.";
+  const proprio = (possibles || []).find((u) => u.id === proprioId);
+  if (!proprio) return "Ce brouillon n'est pas celui d'une personne dont vous pouvez voir les brouillons (dans cet espace — vos commerciaux pour le responsable commercial).";
+  if (geste === "supprimer" && profile.role !== "admin") return `Seul l'administrateur supprime le brouillon de quelqu'un d'autre. ${proprio.nom} peut le supprimer lui-même.`;
+  if (geste === "convertir") return `Ce brouillon est celui de ${proprio.nom} : envoyez-le en devis à son nom (la commission reste la sienne). Le convertir en vente le ferait passer à votre nom.`;
+  return "";
+}
 
 // Le brouillon d'une CORRECTION se souvient du devis qu'il corrige : à
 // l'envoi, il le REMPLACE (même id) au lieu d'en ajouter un second chez le

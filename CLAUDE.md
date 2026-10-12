@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2569 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2574 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -760,6 +760,20 @@ lit mal est pire qu'un banc absent).
   (correction qui change l'auteur, resp. com qui voit tout le monde, filtre
   retiré, réponse qui ne revient pas, brouillon gardé chez soi) ; sept
   contrôles RETOURNÉS. Chapitres 11, 13 et le guide commercial à jour.
+  **📝 Et LEURS BROUILLONS** (le même jour, « Normalement c'est un brouillon
+  qui doit être repris » → « Aa, Bb, Ca ») : 📐 Dimensionnement → 📝 Mes
+  brouillons s'ouvre sur « MES BROUILLONS » (« A a ») ; la liste « 👥
+  Utilisateur » (`auteursDesBrouillons` : admin = les possibles + toute
+  personne de l'espace qui garde un brouillon ; resp. com = ses commerciaux)
+  ouvre « BROUILLONS DE KOFFI », rien de mémorisé. ✏️ Reprendre (le volet porte
+  `brouillon_auteur`, l'auteur FIXÉ : `data-brouillon-de-autre`) et « 📲 Envoyer
+  pour KOFFI » → le devis part à SON nom avec « préparé par », sort de SA fiche
+  (`idProprio`), ré-enregistré il reste chez lui ; **« C a »** il est prévenu
+  (`avisBrouillonEnvoye`, et `avisBrouillonSupprime`). **« B b »** supprimer le
+  brouillon d'un autre = l'administrateur seul ; ni « Confier », ni « Convertir
+  en vente » (la commission partirait — refusé). Tout revérifié DANS le geste
+  (`critiqueBrouillonAutrui`). Rien à coller. Banc (+5, l'écran RENDU, le geste
+  JOUÉ), éprouvé ; quatre contrôles RETOURNÉS. Chapitre 11 et guide commercial.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans
