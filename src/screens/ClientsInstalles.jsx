@@ -13,7 +13,7 @@ import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseCli
 import { TYPES_INSTALLATION } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { messageIdentifiants, texteEnvoi, envoiLienPv, envoiAvenant, envoiAffectation, envoiChangementAffectation } from "../lib/whatsappModeles";
+import { messageIdentifiants, texteEnvoi, envoiLienPv, envoiAvenant, envoiAffectation, envoiChangementAffectation, envoiInstallationClient } from "../lib/whatsappModeles";
 import { changementsAffectation } from "../lib/affectationChantier";
 import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
@@ -495,7 +495,26 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     }, `📅 Installation de ${c.prenom} ${c.nom} programmée le ${dFR(p.date)} — chef ${db.users.find((u) => u.id === p.chef)?.nom || "?"}`);
     // 📲 Puis le WhatsApp du numéro BMI, à chacun (sans question ni repli).
     const phrasesWa = await envoyerAvisAffectation(c, p.date, equipe, principal, changements);
+    const phraseClient = await envoyerAvisClient(c, p.date, dateAvant, equipe);
+    if (phraseClient) phrasesWa.push(phraseClient);
     uAlert(`✅ Installation programmée le ${dFR(p.date)}.\n\nLe chef d'équipe pourra marquer les travaux terminés le jour venu.${messagesNotif.length ? `\n\n${messagesNotif.length} membre(s) de l'équipe ont été notifiés par message.` : ""}${messageClient.length ? `\nLe client a aussi été prévenu par message.` : ""}${phrasesWa.length ? `\n\n${phrasesWa.join("\n")}` : ""}`);
+  };
+
+  // 📲 Le CLIENT prévenu par WhatsApp (12/10/2026, « Ab, Bb, Ca ») : la
+  // programmation, puis tout déplacement de date (`envoiInstallationClient`
+  // décide) ; le numéro du chef d'équipe dedans. ⚠ LE MUR : l'espace du
+  // CHANTIER ; un compte client bloqué ne reçoit rien. Sans numéro, c'est DIT.
+  const envoyerAvisClient = async (c, date, dateAvant, equipe) => {
+    const chefLigne = equipe.find((e) => e.chef);
+    const chef = chefLigne ? ficheParId(db.users, chefLigne.user_id) : null;
+    const envoi = envoiInstallationClient({ chantier: c, date, dateAvant, chefNom: chef?.nom_complet || chefLigne?.nom, chefTel: chef?.tel });
+    if (!envoi) return "";
+    if (espaceDuChantier(db, c, profile) === true) return "";
+    const compte = c.user_id ? ficheParId(db.users, c.user_id) : null;
+    if (compte?.bloque) return "";
+    if (String(c.tel || "").replace(/\D/g, "").length < 8) return `📲 Le client n'a pas reçu de WhatsApp : sa fiche n'a pas de numéro.`;
+    const { envoyerRecuSansQuestion } = await import("../whatsapp.js");
+    return envoyerRecuSansQuestion({ envoi, tel: c.tel, nom: `${c.prenom || ""} ${c.nom || ""}`.trim(), espaceFormation: false, save, profile, ref: { chantier_id: c.id }, noms: { titre: "Avis au client", sujet: "L'avis au client" } });
   };
 
   // 📲 L'avis WhatsApp d'affectation (12/10/2026). ⚠ LE MUR : l'espace du

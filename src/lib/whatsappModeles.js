@@ -235,6 +235,11 @@ export const MODELES = {
   // « C a » : la VEILLE à 17 h, au chef d'équipe. SERVEUR SEUL
   // (api/rappels-du-soir.js) — aucun écran ne l'envoie.
   rappel_installation: { categorie: "utility", variables: ["chef", "date", "installation", "client", "lieu", "position", "contact", "equipe"] },
+  // 📅 Le CLIENT prévenu de la programmation (12/10/2026, « Ab, Bb, Ca ») :
+  // « A b » le numéro du chef d'équipe en {{6}} / {{7}} ; « B b » un message à
+  // part quand la date est déplacée ; « C a » aucun rappel la veille.
+  installation_programmee: { categorie: "utility", variables: ["client", "installation", "date", "lieu", "chef", "telephone_chef"] },
+  installation_deplacee: { categorie: "utility", variables: ["client", "installation", "date", "ancienne_date", "lieu", "chef", "telephone_chef"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -293,6 +298,8 @@ export const MODELES_EN_SERVICE = [
   // changements (🏠 Clients installés → Programmer). En service AVANT
   // l'accord de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
   "affectation_chantier", "changement_affectation",
+  // 12/10/2026 : le client prévenu de la programmation et du déplacement.
+  "installation_programmee", "installation_deplacee",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -806,6 +813,8 @@ const LIGNES_ENVOI = {
   // ⚠ Le numéro du client (trou 9 / 7) n'est pas recopié dans le fil.
   affectation_chantier: ([technicien, role, installation, client, date]) => `Avis d'affectation envoyé à ${technicien} : ${role} pour l'installation ${installation} de ${client}, le ${date}.`,
   changement_affectation: ([technicien, client, changement]) => `Avis de changement envoyé à ${technicien} (installation de ${client}) : ${changement}`,
+  installation_programmee: ([client, installation, date, , chef]) => `Avis de programmation envoyé à ${client} : installation ${installation} le ${date}, chef d'équipe ${chef}.`,
+  installation_deplacee: ([client, installation, date, ancienne, , chef]) => `Avis de changement de date envoyé à ${client} : installation ${installation} déplacée au ${date} (au lieu du ${ancienne}), chef d'équipe ${chef}.`,
   bon_retour: ([, , , numero, date, recu, client, article, motif, frais]) => `Bon de retour N° ${numero} envoyé à ${client} : ${article} échangé sous garantie le ${date} (reçu ${recu}), motif : ${motif}. ${frais}`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
@@ -1920,7 +1929,43 @@ export function envoiRappelInstallation({ chef, chantier, date, equipe }) {
     ],
   };
 }
-const TEXTES_AFFECTATION = { affectation_chantier: TEXTE_AFFECTATION_CHANTIER, changement_affectation: TEXTE_CHANGEMENT_AFFECTATION, rappel_installation: TEXTE_RAPPEL_INSTALLATION };
+// 📅 Le client (12/10/2026, « Ab, Bb, Ca »).
+export const TEXTE_INSTALLATION_PROGRAMMEE = [
+  "Bonjour {{1}},",
+  "Votre installation {{2}} est programmée le {{3}}.",
+  "📍 Lieu : {{4}}",
+  "👷 Chef d'équipe : {{5}}",
+  "📞 {{6}}",
+  "Pour toute question, répondez simplement à ce message.",
+  "BMI TOGO",
+].join("\n");
+export const TEXTE_INSTALLATION_DEPLACEE = [
+  "Bonjour {{1}},",
+  "La date de votre installation {{2}} est déplacée au {{3}} (au lieu du {{4}}).",
+  "📍 Lieu : {{5}}",
+  "👷 Chef d'équipe : {{6}}",
+  "📞 {{7}}",
+  "Pour toute question, répondez simplement à ce message.",
+  "BMI TOGO",
+].join("\n");
+// Le numéro du chef d'équipe (« A b »), sinon le numéro BMI (Meta refuse un
+// trou vide, et le client a toujours quelqu'un à appeler).
+const telChef = (tel) => (String(tel || "").replace(/\D/g, "").length >= 8 ? texteVariable(tel) : NUMERO_BMI_PRINCIPAL);
+// Programmée la première fois → `installation_programmee` ; date déplacée →
+// `installation_deplacee` ; rien d'autre ne prévient le client (« C a »).
+export function envoiInstallationClient({ chantier, date, dateAvant, chefNom, chefTel }) {
+  const client = nomDuChantier(chantier), jour = jourEnClair(date);
+  const chef = texteVariable(chefNom) || "à confirmer";
+  if (!jour) return null;
+  const avant = String(dateAvant || "").slice(0, 10);
+  if (avant && avant === String(date).slice(0, 10)) return null;
+  const installation = installationLisible(chantier?.type_installation);
+  if (!avant) return { modele: "installation_programmee", variables: [client, installation, jour, lieuDuChantier(chantier), chef, telChef(chefTel)] };
+  const ancien = jourEnClair(avant);
+  if (!ancien) return null;
+  return { modele: "installation_deplacee", variables: [client, installation, jour, ancien, lieuDuChantier(chantier), chef, telChef(chefTel)] };
+}
+const TEXTES_AFFECTATION = { affectation_chantier: TEXTE_AFFECTATION_CHANTIER, changement_affectation: TEXTE_CHANGEMENT_AFFECTATION, rappel_installation: TEXTE_RAPPEL_INSTALLATION, installation_programmee: TEXTE_INSTALLATION_PROGRAMMEE, installation_deplacee: TEXTE_INSTALLATION_DEPLACEE };
 export const texteAffectation = (envoi) => {
   const t = envoi && TEXTES_AFFECTATION[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), t) : "";

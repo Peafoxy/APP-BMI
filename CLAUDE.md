@@ -2485,6 +2485,18 @@ lit mal est pire qu'un banc absent).
   anniversaires ; rien d'écrit) : chantier en cours, pas de formation
   (`chantierDeFormation`), ni travaux ni corbeille, chef réel, actif, non
   bloqué, avec un numéro.
+- ⚠ **Les trous de `rappel_installation` vont de 1 à 8 DANS L'ORDRE du texte**
+  (capture Timo : « ça devrait être 1 2 3 4… mais on a 1 4 2 3 », 2.101.538) ;
+  le banc exige que les trous de ces modèles se suivent dans l'ordre.
+- **📅 LE CLIENT PRÉVENU** (« Ab, Bb, Ca ») : à la première programmation
+  **`installation_programmee`** (6 trous : client, installation, date, lieu,
+  chef, numéro du chef — « A b », le numéro BMI si le chef n'en a pas) ; date
+  déplacée → **`installation_deplacee`** (7 trous : …, nouvelle date, ancienne)
+  — « B b » ; **aucun rappel la veille** (« C a »). Règle `envoiInstallationClient`
+  (lib/whatsappModeles.js) ; un changement d'équipe seul n'envoie rien au client
+  (un chef remplacé : son ancien numéro reste dans le message d'avant — dit à
+  Timo). Écran `envoyerAvisClient` : le mur = l'espace du CHANTIER, compte
+  bloqué → rien, sans numéro c'est dit. Banc +4, éprouvé.
 - **À créer par Timo chez YCloud** (utility, fr). ~4 F le message. Rien à
   coller dans Supabase. Banc `verifier-whatsapp` (+16), éprouvé (numéro à tous,
   chef remplacé tu, mur ouvert côté serveur et côté écran) ; trois contrôles
