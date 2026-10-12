@@ -4142,6 +4142,9 @@ console.log("\n📅 L'affectation à un chantier : l'avis, le changement, le rap
   test("★ le changement : trois trous, le texte accepté", ch.modele === "changement_affectation" && M.texteAffectation(ch) === "Bonjour KOSSI,\nChangement sur l'installation de Koffi AYOKO :\nVous n'êtes plus affecté à cette installation, prévue le mardi 13/10/2026.\nDétails dans l'application BMI, onglet Clients installés.\nBMI TOGO");
   const db = { users: [{ id: "a", nom: "AGBEKO", role: "technicien", tel: "91000000" }, { id: "k", nom: "KOSSI", role: "technicien" }], boutiques: [{ nom: "DFORMATION", formation: true }], ventes: [{ id: "v", boutique: "DFORMATION" }], dettes: [], clients_installes: [c] };
   const demain = AF.installationsDeDemain(db, "2026-10-12");
+  test("★★ le rappel : ses trous dans l'ORDRE où ils apparaissent ({{1}} à {{8}}), le texte du modèle les lit dans cet ordre",
+    /^Bonjour \{\{1\}\},\n⏰ Rappel : demain \{\{2\}\}, vous êtes chef d'équipe pour l'installation \{\{3\}\} de \{\{4\}\}\.\n📍 Lieu : \{\{5\}\}\n🗺 Position : \{\{6\}\}\n📞 Client : \{\{7\}\}\n👥 Équipe : \{\{8\}\}/.test(M.TEXTE_RAPPEL_INSTALLATION)
+    && [M.TEXTE_AFFECTATION_CHANTIER, M.TEXTE_CHANGEMENT_AFFECTATION, M.TEXTE_RAPPEL_INSTALLATION].every((t) => { const n = [...t.matchAll(/\{\{(\d+)\}\}/g)].map((x) => Number(x[1])); return n.every((v, i) => v === i + 1); }));
   test("★★ « C a » : la veille, le chef d'équipe seul, avec le numéro du client — le texte accepté",
     demain.length === 1 && demain[0].tel === "+22891000000" && demain[0].envoi.modele === "rappel_installation"
     && M.texteAffectation(demain[0].envoi).startsWith("Bonjour AGBEKO,\n⏰ Rappel : demain mardi 13/10/2026, vous êtes chef d'équipe pour l'installation solaire de Koffi AYOKO.") && /📞 Client : 90112233/.test(M.texteAffectation(demain[0].envoi)));

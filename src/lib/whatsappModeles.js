@@ -234,7 +234,7 @@ export const MODELES = {
   changement_affectation: { categorie: "utility", variables: ["technicien", "client", "changement"] },
   // « C a » : la VEILLE à 17 h, au chef d'équipe. SERVEUR SEUL
   // (api/rappels-du-soir.js) — aucun écran ne l'envoie.
-  rappel_installation: { categorie: "utility", variables: ["chef", "installation", "client", "date", "lieu", "position", "contact", "equipe"] },
+  rappel_installation: { categorie: "utility", variables: ["chef", "date", "installation", "client", "lieu", "position", "contact", "equipe"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -1853,7 +1853,7 @@ export const TEXTE_CHANGEMENT_AFFECTATION = [
 ].join("\n");
 export const TEXTE_RAPPEL_INSTALLATION = [
   "Bonjour {{1}},",
-  "⏰ Rappel : demain {{4}}, vous êtes chef d'équipe pour l'installation {{2}} de {{3}}.",
+  "⏰ Rappel : demain {{2}}, vous êtes chef d'équipe pour l'installation {{3}} de {{4}}.",
   "📍 Lieu : {{5}}",
   "🗺 Position : {{6}}",
   "📞 Client : {{7}}",
@@ -1915,7 +1915,7 @@ export function envoiRappelInstallation({ chef, chantier, date, equipe }) {
   return {
     modele: "rappel_installation",
     variables: [
-      nom, installationLisible(chantier?.type_installation), nomDuChantier(chantier), jour,
+      nom, jour, installationLisible(chantier?.type_installation), nomDuChantier(chantier),
       lieuDuChantier(chantier), lienPosition(chantier), texteVariable(chantier?.tel) || "non renseigné", equipeEnClair(equipe),
     ],
   };
