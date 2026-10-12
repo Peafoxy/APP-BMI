@@ -2512,6 +2512,12 @@ lit mal est pire qu'un banc absent).
   chef remplacé tu, mur ouvert côté serveur et côté écran) ; trois contrôles
   RETOURNÉS (trente-six modèles, serveur seul, modèles à ligne). Chapitre 15 et
   guide du technicien à jour.
+  ✅ **Les cinq créés et approuvés le 12/10/2026.** ⚠ **`changement_affectation`
+  a été RECLASSÉ MARKETING PAR META** (Timo l'avait créé en utility) : ~14 F,
+  limite de Meta sur les messages marketing par personne. **Décision « a » :
+  on le laisse ainsi** — ne pas proposer de le recréer sous un autre nom.
+  L'application n'envoie que le nom du modèle : sa catégorie dans
+  `MODELES` (utility) n'est qu'une information, elle ne commande rien.
 
 ### 🧰 Le matériel de travail (17/09/2026)
 - Timo : « le matériel de travail… comment faire le suivi, pour éviter la
