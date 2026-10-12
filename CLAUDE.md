@@ -2535,6 +2535,8 @@ lit mal est pire qu'un banc absent).
   n'est pas collé**, la synchro ignore la table sans alarme
   (`tableAbsenteDuServeur`, src/sync.js) et l'écran refuse d'enregistrer
   (`MESSAGE_TABLE_ABSENTE`) — sinon un rendez-vous coincerait tout le lot.
+  **Collé par Timo le 12/10/2026 (`true | true | true | true`)** : la marque
+  « table absente » s'efface d'elle-même à la synchronisation suivante.
 - **« E a »** : tout employé crée, à SON nom (le serveur le revérifie) ; un pro
   se modifie / s'annule (motif obligatoire) par son auteur ou l'administrateur ;
   un participant ne fait que **✅ Fait + compte rendu** (`CHAMPS_DU_PARTICIPANT`
