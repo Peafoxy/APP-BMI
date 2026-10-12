@@ -1208,7 +1208,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     }
     const dette = (db.dettes || []).find((d) => d.vente_id === v.id);
     if (dette && Number(dette.paye || 0) > 0) {
-      uAlert(`🔒 Le client a déjà versé ${fmt(dette.paye)} sur la dette de cette vente.\n\nSupprimer la vente ferait disparaître ce que ces versements remboursent. Traitez d'abord la dette (💳 Dettes), puis revenez.`);
+      uAlert(`🔒 Le client a déjà versé ${fmt(dette.paye)} sur la dette de cette vente.\n\nCes versements sont entrés dans la caisse : supprimer la vente (et sa dette) les retirerait du tiroir et rendrait fausses les clôtures déjà faites. Une vente dont la dette a reçu de l'argent ne se supprime pas. Pour un article rendu, passez par ↩ Reprise.`);
       return;
     }
     const noteDette = dette ? `\n\nSa dette liée (${fmt(dette.montant)}, aucun versement) sera supprimée avec elle.` : "";

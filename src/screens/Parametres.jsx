@@ -205,7 +205,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const visibleEff = {
     comptes: comptesEff,
     ventes: (db.ventes || []).filter(espaceEff),
-    dettes: (db.dettes || []).filter(espaceEff),
+    // Une dette mise à la corbeille porte encore le nom du client (12/10/2026).
+    dettes: [...(db.dettes || []), ...(db.corbeille_dettes || [])].filter(espaceEff),
     proformas: (db.proformas || []).filter(espaceEff),
     commandes: (db.commandes || []).filter(espaceEff),
     // Un chantier mis à la corbeille porte encore le nom du client : il doit

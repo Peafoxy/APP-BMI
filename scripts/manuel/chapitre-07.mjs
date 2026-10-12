@@ -3,7 +3,8 @@
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
 // screens/Dettes.jsx, components/verserOrigine.js, components/FiltrePeriode.jsx (Nouvelle dette client, 💵 Paiement, la relance, la
-// réservation prépayée, 📦 Livrer, Annuler, 🗑, la liste), lib/core.js
+// réservation prépayée, 📦 Livrer, Annuler, 🗑, la liste), lib/corbeille.js
+// (critiqueSuppressionDette : la dette supprimée va à la corbeille), lib/core.js
 // (prochainNumeroDette, numeroRecuDette, titreRecuDette, documentDeVente,
 // lignesDette), lib/impression.js (imprimerRecuVersement : le reçu de dette,
 // de versement, définitif ; filigrane NON LIVRÉ ; bandeau MARCHANDISE DÉJÀ
@@ -51,7 +52,7 @@ export const CHAPITRE = {
         ["« Enregistrer la dette » (une dette saisie à la main), « 💵 Paiement », « + Versement »", "**Vendeur, gérant, administrateur**"],
         ["Relancer par WhatsApp (bouton au logo vert)", "**Vendeur, gérant, administrateur** — le message part du numéro BMI"],
         ["« ✅ Créer la réservation », « 📦 Livrer », « Annuler » une réservation", "**Vendeur, gérant, administrateur**"],
-        ["🗑 Supprimer une dette", "**L'administrateur seul** — le bouton n'apparaît que pour lui"],
+        ["🗑 Supprimer une dette", "**L'administrateur seul** — le bouton n'apparaît que pour lui. **Jamais une dette qui a déjà reçu de l'argent.** Elle part à la corbeille 30 jours ; seul l'administrateur principal la restaure"],
         ["« ✅ Accepter » / « ❌ Rejeter » un plan de règlement (📋 Tous les devis)", "**L'administrateur PRINCIPAL seul** — les autres lisent « Seul l'administrateur PRINCIPAL peut accepter ou rejeter ce plan. »"],
         ["Proposer un plan de règlement", "**Le client**, dans son espace, au moment de signer le contrat (chapitres 14 et 21)"],
       ]}],
@@ -137,7 +138,7 @@ export const CHAPITRE = {
         ["Règlements (ligne dépliée)", "Chaque versement du client : date et heure, montant, moyen, qui l'a reçu. Un règlement remis au DG porte « 💸 versé Chez le DG — ⏳ en attente » puis « ✅ validé le … par … » — validé, la ligne du règlement se grise."],
         ["💸 (sur un règlement)", "**Verser l'argent de CE règlement** au DG, à la BANQUE ou au comptable — gérant et administrateur seulement, voir F."],
         ["Logo WhatsApp", "« Relancer le client par WhatsApp », du numéro BMI. Absent sur une dette Payée."],
-        ["🗑", "« Supprimer cette dette » — administrateur seul, après confirmation. Rien ne revient au stock, aucune dépense n'est créée : c'est un effacement, à réserver à une saisie fausse."],
+        ["🗑", "« Supprimer cette dette » — administrateur seul, **motif obligatoire**. Refusé si le client a déjà versé quelque chose (« 🔒 … a déjà versé … » : ses versements sont dans la caisse). Sinon la dette part à la **corbeille 30 jours** (⚙ Paramètres → 🗑 Corbeille, administrateur principal) : elle disparaît de la liste, des relances et des chiffres, et peut être restaurée telle qu'elle était. À réserver à une saisie fausse."],
         ["Pagination", "50 dettes par page."],
       ]}],
       ["h3", "Le formulaire « Nouvelle dette client »"],
@@ -223,7 +224,7 @@ export const CHAPITRE = {
         ["Livrer une réservation dont un article manque", "« Stock insuffisant pour : … Ravitaillez la boutique avant de livrer. »", "Ravitaillement ou transfert (chapitre 9), puis 📦 Livrer."],
         ["Livrer une réservation pas soldée « parce que le client insiste »", "Elle devient une DETTE CLASSIQUE, l'écran prévient.", "C'est permis ; la relance se fait ensuite comme pour toute dette."],
         ["Annuler une réservation avec des versements", "La réservation disparaît ; l'argent n'est pas rendu par l'application.", "Enregistrer le remboursement dans 📤 Dépenses, à la main."],
-        ["Supprimer une dette pour « la solder »", "Elle disparaît sans versement : la recette du jour ne bouge pas, le client n'a aucun reçu définitif.", "Une dette se solde par 💵 Paiement. 🗑 ne sert qu'à une saisie fausse (administrateur)."],
+        ["Supprimer une dette pour « la solder »", "Si le client a déjà versé quelque chose, l'écran refuse (ses versements sont dans la caisse). Sinon elle part à la corbeille sans aucun reçu définitif.", "Une dette se solde par 💵 Paiement. 🗑 ne sert qu'à une saisie fausse, sans aucun versement (administrateur)."],
         ["Chercher la dette d'un client qui a acheté dans une autre boutique", "Elle n'est pas dans la liste : les dettes sont par boutique.", "Changer la boutique en haut (administrateur), ou aller dans 👤 Clients."],
         ["Effacer un client qui doit encore", "« Ce client doit encore X (N dette(s) en cours)… Soldez la dette (ou passez-la en perte) d'abord. »", "Solder ou passer en perte, puis effacer."],
       ]}],

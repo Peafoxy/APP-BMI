@@ -62,7 +62,7 @@ export const GUIDE = {
 
     ["h3", "L'argent"],
     ["ul", [
-      "**Supprimer** une vente, une dette, une dépense, un article : l'administrateur seul, avec une trace au journal (chapitres 5, 7, 8, 17).",
+      "**Supprimer** une vente, une dette, une dépense, un article : l'administrateur seul, avec une trace au journal (chapitres 5, 7, 8, 17). Une dette qui a déjà reçu de l'argent ne se supprime pas ; les autres vont à la corbeille 30 jours.",
       "**Une remise au-delà de 3 %** (devis, vente, proforma, commande) : l'administrateur seul. Une remise sur un article ET une remise générale ensemble : refusé pour tout le monde, administrateur compris.",
       "**💵 Salaires** : la paie du mois par employé, **« 💸 Payer le salaire »**, **« 🖨 Bulletin »**, et l'onglet **🏦 CNSS** (« 📥 Générer le fichier DRC (Excel) ») (chapitre 18).",
       "**🚚 Fournisseurs**, **🎯 Commerciaux** et **👑 Équipe** : les commandes et règlements, les objectifs, les commissions (payées seulement après réception **et** solde du client), les apporteurs externes (« ✓ Payer », « ✏️ Moyen ») (chapitres 10 et 16).",

@@ -117,7 +117,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/rappelEntretien.js` | Le rappel d'entretien automatique : 10 jours avant, le message au client et la tâche du chef du chantier (serveur, tournée de 7 h) ; « ✅ Entretien fait » et la prochaine date à +6 mois |
 | `lib/demandeAvis.js` | La demande d'avis Google : du 10e au 40e jour après la réception d'un chantier, une seule fois (serveur, tournée de 7 h) ; le lien réglé dans ⚙ Paramètres |
 | `lib/lignesPrivees.js` | Le détail d'un reçu de vente ou d'un bon dans 📲 WhatsApp, recomposé depuis la vente pour le vendeur et l'administrateur principal seulement ; la fabrique des deux reçus de vente |
-| `lib/corbeille.js` | La corbeille des fiches supprimées (30 jours) : chantiers, et devis ⏳ Proposés (famille imbriquée dans la fiche du client) |
+| `lib/corbeille.js` | La corbeille des fiches supprimées (30 jours) : chantiers, dettes sans aucun versement (`critiqueSuppressionDette`), devis ⏳ Proposés (famille imbriquée dans la fiche du client), conversations WhatsApp |
 | `lib/devisCfVisite.js` | 📋 Les éléments d'un devis « à compléter après la visite » (cf. visite) : sans prix, hors total, pas de validation ni d'acompte tant qu'il en reste ; qui complète (auteur, administrateur, resp. commercial), et la critique de la saisie |
 | `lib/devisSansSuite.js` | 📁 Classer un devis ⏳ Proposé sans suite (auteur, administrateur, resp. commercial ; motif obligatoire) et le rouvrir : le devis reste entier, il sort de la liste active, plus de validation ni de relance |
 | `lib/poseSeule.js` | 🔧 Le règlement d'une pose seule : 70 % d'acompte (pas de programmation avant), 30 % au PV, le rappel du solde 3 jours après la signature (tournée de 7 h), qui encaisse |

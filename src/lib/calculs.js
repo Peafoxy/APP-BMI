@@ -561,7 +561,8 @@ const comptesEtAchatsDeLEspace = (db, profile) => {
   return {
     comptes: utilisateursDeLEspace(db, profile),
     ventes: (db?.ventes || []).filter(f),
-    dettes: (db?.dettes || []).filter(f),
+    // Une dette à la corbeille aussi (12/10/2026) : devant un doute, elle protège.
+    dettes: [...(db?.dettes || []), ...(db?.corbeille_dettes || [])].filter(f),
     commandes: (db?.commandes || []).filter(f),
     // Un chantier à la corbeille porte encore le nom : devant un doute, il
     // protège le client (on n'archive pas quelqu'un qui a eu un chantier).

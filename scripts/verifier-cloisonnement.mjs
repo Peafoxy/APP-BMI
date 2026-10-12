@@ -3986,6 +3986,61 @@ titre("La fusion à l'envoi ne renvoie plus une vieille copie d'un champ qu'on n
     Fus.fusionner("ventes", undefined, { id: "v", x: 2 }, { id: "v", x: 3 }).x === 2);
 }
 
+titre("🗑 Une dette supprimée part à la corbeille, une dette qui a reçu de l'argent ne se supprime pas (12/10/2026, « a+b »)");
+{
+  // La dette de POUDAMA (354 900 F, 354 000 versés le 07/10) supprimée pour de
+  // bon : le tiroir de DEMAKPOE est tombé à −238 800 F, cinq clôtures fausses.
+  const sortieD = join("node_modules", ".cache", `bmi-corbd-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/corbeille.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieD, logLevel: "silent", loader: { ".js": "jsx" } });
+  const C = await import(pathToFileURL(sortieD).href);
+  unlinkSync(sortieD);
+  const poudama = { id: "x82", client: "POUDAMA", montant: 354900, paye: 354000, boutique: "BMI DEMAKPOE", date: "2026-09-29",
+    paiements: [{ id: "p1", date: "2026-10-07", montant: 354000, paiement: "Espèces" }] };
+  const sansArgent = { id: "d2", client: "AMA", montant: 50000, paye: 0, boutique: "BMI DEMAKPOE", date: "2026-10-10", paiements: [] };
+  const vieille = { id: "d3", client: "KOFFI", montant: 20000, paye: 0, boutique: "BMI DEMAKPOE", paiements: [{ montant: 5000 }] };
+  test("★ « b » : une dette qui a reçu de l'argent ne se supprime pas (paye, ou un versement inscrit) — le refus dit pourquoi",
+    /déjà versé 354000 F/.test(C.critiqueSuppressionDette(poudama)) && /tiroir/.test(C.critiqueSuppressionDette(poudama))
+    && C.critiqueSuppressionDette(vieille) !== "" && C.critiqueSuppressionDette(sansArgent) === "");
+  const db0 = { dettes: [poudama, sansArgent] };
+  test("★ « b » est revérifiée par la règle elle-même : mettre POUDAMA à la corbeille ne change RIEN",
+    C.mettreALaCorbeille(db0, "dettes", "x82", { nom: "TIMO" }) === db0);
+  const apres = C.mettreALaCorbeille(db0, "dettes", "d2", { nom: "TIMO" }, "2026-10-12T09:00:00Z", "  Saisie en double ");
+  test("★ « a » : une dette sans argent part à la CORBEILLE, marquée, avec son motif",
+    C.TABLES_CORBEILLE.includes("dettes") && apres.dettes.length === 1 && apres.corbeille_dettes.length === 1
+    && apres.corbeille_dettes[0].supprime_par === "TIMO" && apres.corbeille_dettes[0].supprime_motif === "Saisie en double");
+  const fusion = C.fusionnerCorbeille(apres);
+  test("★ à l'écriture elle retourne dans la table des dettes (aucun ticket de suppression ne part) ; au chargement elle est de nouveau mise de côté",
+    fusion.dettes.length === 2 && fusion.corbeille_dettes === undefined
+    && C.separerCorbeille(fusion).dettes.length === 1 && C.separerCorbeille(fusion).corbeille_dettes.length === 1);
+  const restauree = C.restaurerDeLaCorbeille(apres, "dettes", "d2");
+  test("★ restaurée, elle revient telle qu'elle était — sans marque NI motif",
+    JSON.stringify(restauree.dettes.find((d) => d.id === "d2")) === JSON.stringify(sansArgent) && restauree.corbeille_dettes.length === 0);
+  test("la corbeille la montre « Dette — AMA — 50 000 F du 2026-10-10 (BMI DEMAKPOE) » et la purge à 30 jours",
+    C.contenuCorbeille(apres).some((x) => x.table === "dettes" && x.libelle === "Dette" && /AMA — 50.000 F du 2026-10-10 \(BMI DEMAKPOE\)/.test(C.nomDeLaFiche(x.table, x.fiche)))
+    && C.aPurger(apres, "2026-11-11T10:00:00Z").length === 1 && C.aPurger(apres, "2026-11-10T08:00:00Z").length === 0);
+  const dj = readFileSync("src/screens/Dettes.jsx", "utf8");
+  const geste = dj.slice(dj.indexOf("const supprimerDette = async"), dj.indexOf("const liste = db.dettes.filter"));
+  test("★ 📋 Dettes : le geste revérifie l'admin, relit la dette FRAÎCHE, refuse par la règle, exige un motif, et met à la corbeille — plus jamais un effacement direct",
+    /refuserSaufAdmin\(profile, "Supprimer une dette"\)/.test(geste) && /const fraiche = \(db\.dettes \|\| \[\]\)\.find/.test(geste)
+    && /critiqueSuppressionDette\(fraiche, fmt\)/.test(geste) && /if \(motif === null\) return;/.test(geste) && /motif est obligatoire/.test(geste)
+    && /mettreALaCorbeille\(db, "dettes", fraiche\.id, profile, undefined, motif\)/.test(geste)
+    && !/dettes: db\.dettes\.filter\(\(x\) => x\.id !== d\.id\)/.test(dj));
+  const matin = readFileSync("api/rappels-du-matin.js", "utf8");
+  test("★ la tournée de 7 h écarte les dettes à la corbeille (le serveur lit les lignes brutes)",
+    /db\.dettes = db\.dettes\.filter\(\(d\) => !estSupprime\(d\)\);/.test(matin) && /import \{ estSupprime \} from "\.\.\/src\/lib\/corbeille\.js";/.test(matin)
+    && matin.indexOf("db.dettes = db.dettes.filter") < matin.indexOf("rappelsDuMatin(db"));
+  const eff = readFileSync("src/lib/effacementClient.js", "utf8");
+  const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ le droit à l'effacement suit la dette à la corbeille (son nom y est encore), sans qu'elle ferme la porte",
+    /corbeille_dettes: \(db\.corbeille_dettes \|\| \[\]\)\.map\(\(x\) => \(idD\.has\(x\.id\) \? anonyme\(x\) : x\)\)/.test(eff)
+    && /dettes\.filter\(\(x\) => !x\.supprime_le\)\.reduce/.test(eff)
+    && /dettes: \[\.\.\.\(db\.dettes \|\| \[\]\), \.\.\.\(db\.corbeille_dettes \|\| \[\]\)\]\.filter\(espaceEff\)/.test(par));
+  const ve = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("💰 Ventes ne renvoie plus « traitez d'abord la dette » (elle ne se supprime plus) : le refus dit pourquoi",
+    !/Traitez d'abord la dette/.test(ve) && /Une vente dont la dette a reçu de l'argent ne se supprime pas/.test(ve));
+}
+
 titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurable par l'administrateur principal");
 {
   // Demande Timo (« lance la corbeille », 05/09/2026). Supprimer un chantier

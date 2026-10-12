@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2532 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2542 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1001,6 +1001,30 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+- **🗑 UNE DETTE SUPPRIMÉE VA À LA CORBEILLE ; UNE DETTE QUI A REÇU DE
+  L'ARGENT NE SE SUPPRIME PAS** (12/10/2026, « a+b lance »). Le matin même,
+  Timo avait supprimé la dette de POUDAMA (TER-DET-2026-0001, 354 900 F,
+  354 000 F versés en espèces le 07/10 à 18:20, 900 F restants) : effacée pour
+  de bon AVEC son versement (les règlements vivent DANS la dette), le tiroir
+  de DEMAKPOE est passé de 115 200 à −238 800 F et cinq clôtures sont devenues
+  « dépassées ». **Remise par un SQL collé par Timo** (ligne tirée de sa
+  sauvegarde automatique du 11/10, ticket `dettes:x82gm8a1mumv6pvz` retiré de
+  `tombstones`, essayé sur base jetable). **« b »** :
+  `critiqueSuppressionDette` (lib/corbeille.js) refuse dès que `paye` > 0 ou
+  qu'un versement est inscrit, revérifiée DANS le geste sur la fiche fraîche
+  ET par `mettreALaCorbeille` elle-même. **« a »** : `dettes` dans
+  `TABLES_CORBEILLE` — 30 jours, motif obligatoire (`supprime_motif`),
+  restauration et effacement définitif au principal (⚙ Paramètres → 🗑) ; la
+  tournée de 7 h écarte les dettes marquées (le serveur lit les lignes
+  brutes) ; le droit à l'effacement anonymise aussi `corbeille_dettes`, sans
+  qu'une dette à la corbeille ferme sa porte. 💰 Ventes : une vente dont la
+  dette a reçu de l'argent ne se supprime plus (le refus renvoie à ↩ Reprise).
+  ⚠ **Aucun déclencheur serveur** ne garde le geste (la base ne protège une
+  dette qu'à l'EFFACEMENT, administrateur) — dit à Timo, rien à coller.
+  ⚠ Toujours vrai, dit à Timo : supprimer une VENTE payée comptant retire
+  aussi sa recette du tiroir (pas demandé). Banc (+10), éprouvé (« b » retiré
+  de la règle, effacement direct remis dans l'écran, tournée qui lit la
+  corbeille). Chapitres 5, 7, 23 et le guide administrateur à jour.
 - **🗑 Supprimer un devis ⏳ Proposé** (26/09/2026, « Pourquoi un
   administrateur principal ne peut pas supprimer un devis proposé ? » → « a,
   lance ») : bouton 🗑 Supprimer dans 📋 Tous les devis, **administrateur

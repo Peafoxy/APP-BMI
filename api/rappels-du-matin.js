@@ -46,6 +46,7 @@ import { idsAdmins } from "../src/lib/espace.js";
 import { fmt, dFR } from "../src/lib/core.js";
 import { randomUUID } from "node:crypto";
 import { lireTable } from "./_tables.js";
+import { estSupprime } from "../src/lib/corbeille.js";
 import { anniversairesDuJour, ligneAnniversaire, enteteApresAnniversaire, MODELE_ANNIVERSAIRE } from "../src/lib/anniversaires.js";
 import { rappelFinsDeContrat } from "../src/lib/contratTravail.js";
 import { fusionnerPaie } from "../src/lib/paie.js";
@@ -65,6 +66,10 @@ export default async function handler(req, res) {
   try {
     const db = {};
     for (const t of TABLES) db[t] = await lireTable(admin, t);
+    // 🗑 Une dette mise à la CORBEILLE (12/10/2026) n'existe plus pour la
+    // tournée : ni retard, ni rappel. Le serveur lit les lignes brutes, la
+    // corbeille n'y est pas séparée — on l'écarte ici, une fois pour toutes.
+    db.dettes = db.dettes.filter((d) => !estSupprime(d));
     const aujourdhui = new Date().toISOString().slice(0, 10);
     // 📄 La fin d'un CDD (05/10/2026) : la date vit dans la fiche de PAIE,
     // recollée ici sur une copie des fiches (lue seulement, jamais réécrite).

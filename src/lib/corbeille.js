@@ -28,7 +28,14 @@
 export const DUREE_CORBEILLE_JOURS = 30;
 
 // Une famille à la fois : les chantiers d'abord (les plus longs à ressaisir).
-export const TABLES_CORBEILLE = ["clients_installes"];
+export const TABLES_CORBEILLE = ["clients_installes", "dettes"];
+// ⚠ Les DETTES (12/10/2026, Timo : « a+b lance ») — après la dette de POUDAMA
+// effacée pour de bon avec ses 354 000 F de versements : le tiroir de
+// DEMAKPOE est tombé à −238 800 F et cinq clôtures sont devenues fausses.
+// « a » : une dette supprimée passe ici 30 jours, comme un chantier.
+// « b » : une dette qui a DÉJÀ REÇU de l'argent ne se supprime pas du tout —
+// ses versements sont entrés dans la caisse ; la retirer, même à la corbeille,
+// les retirerait du tiroir et des clôtures déjà faites.
 // ⚠ Les DEVIS (26/09/2026, Timo : « a, lance ») n'ont pas de table à eux : ils
 // vivent DANS la fiche de leur client (`users[].devis`). C'est une famille
 // IMBRIQUÉE : même marque, même corbeille de 30 jours, mais la séparation et
@@ -50,7 +57,7 @@ export const FAMILLE_DEVIS = "devis";
 export const FAMILLE_CONVERSATION_WA = "conversation_wa";
 const CANAUX_WA = ["whatsapp", "whatsapp_entete"];
 const estLigneWa = (m) => !!m && CANAUX_WA.includes(m.canal) && !!m.wa_tel;
-export const LIBELLES_CORBEILLE = { clients_installes: "Chantier", devis: "Devis", conversation_wa: "Conversation WhatsApp" };
+export const LIBELLES_CORBEILLE = { clients_installes: "Chantier", dettes: "Dette", devis: "Devis", conversation_wa: "Conversation WhatsApp" };
 export const cleCorbeille = (table) => `corbeille_${table}`;
 export const CLE_CORBEILLE_DEVIS = cleCorbeille(FAMILLE_DEVIS);
 export const CLE_CORBEILLE_WA = cleCorbeille(FAMILLE_CONVERSATION_WA);
@@ -210,6 +217,25 @@ export const mettreDevisALaCorbeille = (db, clientId, devisId, profile, motif, m
   };
 };
 
+// ---- 📋 Une DETTE ne se supprime QUE si elle n'a jamais reçu d'argent
+// (décision « b », 12/10/2026). Revérifié DANS le geste, sur la fiche fraîche.
+export const argentRecuSurDette = (dette) => {
+  const verse = (Array.isArray(dette?.paiements) ? dette.paiements : []).reduce((s, p) => s + (Number(p?.montant) || 0), 0);
+  return Math.max(Number(dette?.paye) || 0, verse);
+};
+
+export const critiqueSuppressionDette = (dette, fmt = (x) => `${x} F`) => {
+  if (!dette) return "Cette dette n'existe plus.";
+  const recu = argentRecuSurDette(dette);
+  const nbVersements = (Array.isArray(dette.paiements) ? dette.paiements : []).length;
+  if (recu > 0 || nbVersements > 0) {
+    return `🔒 ${dette.client || "Ce client"} a déjà versé ${fmt(recu)} sur cette dette.\n\n`
+      + "Ces versements sont entrés dans la caisse : supprimer la dette les retirerait du tiroir "
+      + "et rendrait fausses les clôtures déjà faites. Une dette qui a reçu de l'argent ne se supprime pas.";
+  }
+  return "";
+};
+
 // ---- Ce qui empêche une restauration (un devis dont le client a disparu).
 export const critiqueRestauration = (db, table, fiche) => {
   if (table !== FAMILLE_DEVIS) return "";
@@ -220,11 +246,15 @@ export const critiqueRestauration = (db, table, fiche) => {
 };
 
 // ---- Le geste « Supprimer » : la fiche passe à la corbeille, marquée.
-export const mettreALaCorbeille = (db, table, id, profile, maintenant = new Date().toISOString()) => {
+// Le motif est facultatif (un chantier n'en demande pas, une dette si).
+export const mettreALaCorbeille = (db, table, id, profile, maintenant = new Date().toISOString(), motif = "") => {
   const cle = cleCorbeille(table);
   const fiche = (db[table] || []).find((r) => r.id === id);
   if (!fiche) return db;
-  const marquee = { ...fiche, supprime_le: maintenant, supprime_par: profile?.nom || "?" };
+  // ⚠ Une dette qui a reçu de l'argent ne passe JAMAIS à la corbeille (« b »).
+  if (table === "dettes" && critiqueSuppressionDette(fiche)) return db;
+  const m = String(motif || "").trim();
+  const marquee = { ...fiche, supprime_le: maintenant, supprime_par: profile?.nom || "?", ...(m ? { supprime_motif: m } : {}) };
   return {
     ...db,
     [table]: (db[table] || []).filter((r) => r.id !== id),
@@ -262,7 +292,7 @@ export const restaurerDeLaCorbeille = (db, table, id) => {
   }
   const fiche = (db[cle] || []).find((r) => r.id === id);
   if (!fiche) return db;
-  const { supprime_le, supprime_par, ...propre } = fiche;
+  const { supprime_le, supprime_par, supprime_motif, ...propre } = fiche;
   return {
     ...db,
     [table]: [propre, ...(db[table] || []).filter((r) => r.id !== id)],
@@ -306,6 +336,10 @@ export const purgerCorbeille = (db, maintenant = new Date().toISOString()) =>
 // Le nom qu'on affiche dans la corbeille, selon la famille.
 export const nomDeLaFiche = (table, fiche) => {
   if (table === "clients_installes") return `${fiche.prenom || ""} ${fiche.nom || ""}`.trim() || fiche.id;
+  if (table === "dettes") {
+    const montant = Number(fiche.montant) ? ` — ${Math.round(Number(fiche.montant)).toLocaleString("fr-FR")} F` : "";
+    return `${fiche.client || "client"}${montant} du ${fiche.date || "?"}${fiche.boutique ? ` (${fiche.boutique})` : ""}`;
+  }
   if (table === FAMILLE_DEVIS) {
     const montant = Number(fiche.total) ? ` — ${Math.round(Number(fiche.total)).toLocaleString("fr-FR")} F` : "";
     return `${fiche.corbeille_client_nom || "client"} du ${fiche.date || "?"}${montant}`;

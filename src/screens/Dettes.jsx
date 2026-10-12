@@ -22,6 +22,7 @@ import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "
 import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, versementGeneralQuiEmporte, mentionVersementGeneral, ORIGINE_REGLEMENT, construireVersementOrigine, messagesVersement, libelleDestination, DEST_COMPTABLE, clesReglementsVersesValides } from "../lib/versements";
 import { mobileParMoyen } from "../lib/constants";
 import { verserDepuisOrigine, choisirDestination } from "../components/verserOrigine";
+import { critiqueSuppressionDette, mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
 // ============ DETTES ============
 export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
@@ -325,12 +326,22 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
     uAlert(`✅ Message envoyé du numéro BMI à ${d.client}.`);
   };
 
+  // 🗑 Supprimer une dette (12/10/2026, Timo : « a+b lance ») : « b » une
+  // dette qui a déjà reçu de l'argent ne se supprime pas ; « a » sinon elle
+  // part à la corbeille 30 jours (lib/corbeille.js), motif obligatoire.
+  // Revérifié DANS le geste sur la fiche FRAÎCHE.
   const supprimerDette = async (d) => {
     if (refuserSaufAdmin(profile, "Supprimer une dette")) return;
     if (bloquerSiLecture(db, profile)) return;
-    if (await uConfirm(`Supprimer la dette de ${d.client} (${fmt(d.montant)}) ?`)) {
-      save({ ...db, dettes: db.dettes.filter((x) => x.id !== d.id) }, `Suppression dette ${d.client} (${fmt(d.montant)}) — ${d.boutique}`);
-    }
+    const fraiche = (db.dettes || []).find((x) => x.id === d.id);
+    const refus = critiqueSuppressionDette(fraiche, fmt);
+    if (refus) { uAlert(refus); return; }
+    const motif = await uPrompt(`Supprimer la dette de ${fraiche.client} (${fmt(fraiche.montant)}) ?\n\nElle part à la corbeille ${DUREE_CORBEILLE_JOURS} jours : l'administrateur principal pourra la restaurer (⚙ Paramètres → 🗑 Corbeille). Ensuite, elle sera effacée définitivement.\n\nMotif de la suppression (obligatoire) :`, "");
+    if (motif === null) return;
+    if (!String(motif).trim()) { uAlert("Le motif est obligatoire : une dette supprimée sans motif ne s'explique à personne."); return; }
+    const suite = mettreALaCorbeille(db, "dettes", fraiche.id, profile, undefined, motif);
+    if (suite === db) return;
+    save(suite, `🗑 Dette de ${fraiche.client} (${fmt(fraiche.montant)}) — ${fraiche.boutique} mise à la corbeille — motif : ${String(motif).trim()}`);
   };
 
   // 🏗 Une dette de chantier (pose seule, vente de devis à crédit) vit dans la

@@ -141,7 +141,7 @@ export const CHAPITRE = {
       ]],
 
       ["h3", "I. La corbeille (principal)"],
-      ["p", "Une fiche supprimée y reste **30 jours** : **♻ Restaurer** la remet telle qu'elle était, **Supprimer définitivement** l'efface tout de suite. On y trouve les chantiers, les devis, et les **conversations WhatsApp** supprimées par un appui long dans 📲 WhatsApp (une ligne par conversation, avec son nombre de messages)."],
+      ["p", "Une fiche supprimée y reste **30 jours** : **♻ Restaurer** la remet telle qu'elle était, **Supprimer définitivement** l'efface tout de suite. On y trouve les chantiers, les devis, les **dettes** supprimées dans 📋 Dettes (avec leur motif — une dette qui a reçu de l'argent n'y arrive jamais : elle ne se supprime pas), et les **conversations WhatsApp** supprimées par un appui long dans 📲 WhatsApp (une ligne par conversation, avec son nombre de messages)."],
 
       ["h3", "J. L'apparence (principal)"],
       ["ul", [
@@ -237,6 +237,7 @@ export const CHAPITRE = {
         { situation: "Le prix du mètre de rail augmente.", reponse: "🗂 Catalogue & devis → 🔩 Prix du mètre → Enregistrer. Les devis déjà envoyés gardent l'ancien prix." },
         { situation: "Un client demande ce que BMI garde sur lui.", reponse: "🔒 Données personnelles (principal) → le chercher → 🖨 Dossier personnel (PDF), à lui remettre en main propre." },
         { situation: "Un chantier supprimé par erreur hier.", reponse: "🗑 Corbeille → ♻ Restaurer (moins de 30 jours)." },
+        { situation: "Une dette supprimée par erreur ce matin.", reponse: "🗑 Corbeille → ♻ Restaurer (moins de 30 jours) : elle revient avec son numéro, sur tous les appareils." },
         { situation: "Un téléphone n'a pas les ventes saisies sur l'ordinateur.", reponse: "💾 Données → 🔁 Tout retélécharger depuis le serveur, avec internet." },
       ]],
     ]},

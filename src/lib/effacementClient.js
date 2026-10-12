@@ -61,6 +61,7 @@ export function prochainNumeroEffacement(db) {
     ...(d.commandes || []).map((x) => x.client),
     ...(d.clients_installes || []).map((x) => x.nom),
     ...(d.corbeille_clients_installes || []).map((x) => x.nom),
+    ...(d.corbeille_dettes || []).map((x) => x.client),
     // ⚠ Un client SANS aucune vente (le client sans suite, 30/09/2026) ne
     // laisse son numéro QUE dans le journal : sans lui, le suivant
     // reprendrait la même référence.
@@ -148,7 +149,9 @@ export function dossierClient(visible, cible) {
     messages: new Set((v.messages || []).map((m) => m.id)),
   };
 
-  const reste = dettes.reduce((s, d) => s + Math.max(0, Number(d.montant || 0) - Number(d.paye || 0)), 0);
+  // Une dette à la corbeille n'est plus due : elle est dans le dossier (on la
+  // détient encore), mais elle ne ferme pas la porte de l'effacement.
+  const reste = dettes.filter((x) => !x.supprime_le).reduce((s, d) => s + Math.max(0, Number(d.montant || 0) - Number(d.paye || 0)), 0);
   const enCours = chantiers.filter((c) => c.statut !== "receptionne");
 
   return {
@@ -369,6 +372,8 @@ export function effacerClient(db, dossier, profile, { motif, numero, autresNoms 
     // ⚠ Un chantier mis à la corbeille porte encore son nom : l'effacement
     // l'y suit, sinon il ressortirait nommé à la restauration.
     corbeille_clients_installes: (db.corbeille_clients_installes || []).map((c) => (idCh.has(c.id) ? chantierAnonyme(c) : c)),
+    // Une dette mise à la corbeille aussi (12/10/2026) : elle porte son nom.
+    corbeille_dettes: (db.corbeille_dettes || []).map((x) => (idD.has(x.id) ? anonyme(x) : x)),
     // Ses devis mis à la corbeille partent avec son compte (ils portent son nom).
     corbeille_devis: (db.corbeille_devis || []).filter((x) => !d.compte || x.corbeille_client_id !== d.compte.id),
     // Le journal garde QUI a fait QUOI et QUAND — il perd seulement le nom.
