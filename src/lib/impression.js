@@ -1027,6 +1027,59 @@ export function imprimerBulletin(u, mois, db) {
   if (printApi) printApi.open(html, nomDocument("Bulletin", { client: u.nom, numero: mois }));
 }
 
+// ============ CERTIFICAT DE TRAVAIL ET ATTESTATIONS (12/10/2026) ============
+// Timo : « les attestations pour les 4 types de contrat… à chaque sortie »,
+// puis « Aa, Bb, Cb, Db ». Le CONTENU vient de lib/certificatTravail.js
+// (`contenuDocument`, données déjà échappées là-bas) ; ici la mise en page
+// seulement : l'en-tête de BMI, le titre, le texte, « Fait à Lomé », la
+// signature de celui qui délivre (« B b ») et LE cachet de la maison.
+export function imprimerDocumentEmploye(contenu, db, estFormation = false) {
+  if (!contenu) return;
+  const cachet = (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi || CACHET_BMI_DEFAUT;
+  const s = contenu.signataire || {};
+  const html = `
+  <style>
+  #zone-impression .att{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111;max-width:680px;margin:0 auto;line-height:1.7}
+  #zone-impression .att .entete{width:100%;border-collapse:collapse}
+  #zone-impression .att .entete td{vertical-align:middle;padding:0 0 8px 0}
+  #zone-impression .att .entete img{max-width:140px;max-height:100px;object-fit:contain}
+  #zone-impression .att .soc{text-align:right;line-height:1.5;font-size:11.5px}
+  #zone-impression .att .soc .nom{font-size:19px;font-weight:bold;color:#1e5a8a}
+  #zone-impression .att h1{text-align:center;font-size:18px;letter-spacing:2px;margin:28px 0 30px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
+  #zone-impression .att p{text-align:justify;margin:0 0 14px}
+  #zone-impression .att .fait{margin-top:26px}
+  #zone-impression .att table.sig{width:100%;border-collapse:collapse;margin-top:18px;page-break-inside:avoid;break-inside:avoid}
+  #zone-impression .att table.sig td{vertical-align:bottom;text-align:center;font-size:12px;padding:0}
+  #zone-impression .att table.sig td.cachet{width:150px}
+  #zone-impression .att table.sig td.cachet img{max-width:120px;opacity:0.9}
+  #zone-impression .att table.sig td.qui{width:260px}
+  #zone-impression .att table.sig img.signature{max-height:60px;display:block;margin:6px auto 2px}
+  #zone-impression .att table.sig .ligne{border-top:1px solid #333;padding-top:4px;margin-top:4px;font-weight:bold}
+  #zone-impression .att .pied{text-align:center;font-style:italic;color:#555;margin-top:40px;border-top:1px dashed #aaa;padding-top:8px;font-size:10.5px}
+  </style>
+  <div class="att" data-document-employe="${esc(contenu.type)}">
+    ${bandeauFormation(estFormation)}
+    <table class="entete"><tr>
+      <td><img src="${LOGO}" alt="BMI" /></td>
+      <td class="soc"><div class="nom">BMI TOGO</div><div>Les Bâtiments Modernes et Intelligents</div><div>Lomé, Togo</div><div>NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div></td>
+    </tr></table>
+    <h1>${esc(contenu.titre)}</h1>
+    ${contenu.paragraphes.map((x) => `<p>${x}</p>`).join("")}
+    <div class="fait">${esc(contenu.fait)}</div>
+    <table class="sig"><tr>
+      <td></td>
+      <td class="cachet"><img src="${cachet}" alt="Cachet BMI Togo" /></td>
+      <td class="qui">
+        <div>${esc(s.titre || "")}</div>
+        ${s.signature ? `<img class="signature" src="${s.signature}" alt="Signature" />` : "<br><br><br>"}
+        <div class="ligne">${esc(s.nom || "")}</div>
+      </td>
+    </tr></table>
+    <div class="pied">Document délivré par BMI TOGO — BMI-Gestion.</div>
+  </div>`;
+  if (printApi) printApi.open(html, nomDocument(contenu.nom, { client: contenu.employe }));
+}
+
 // Le texte du reçu COMPLET (un article par ligne) : c'est ce qui part quand
 // WhatsApp s'ouvre sur l'appareil — le numéro BMI ne peut pas le porter tel
 // quel (Meta refuse un retour à la ligne dans un trou).

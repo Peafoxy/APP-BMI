@@ -40,6 +40,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/banques.js` | La liste des banques et la banque d'un employé |
 | `lib/affectation.js` | 📍 Le lieu d'affectation d'un employé SANS boutique — aucun droit, la boutique l'emporte (sans import) |
 | `lib/contratTravail.js` | 📄 Le contrat de travail d'un employé : type (le code CNSS, une source), fin d'un CDD, sortie, rappel de fin au principal |
+| `lib/certificatTravail.js` | 📄 Les documents remis à un employé : certificat de travail, attestation de stage / de fin d'apprentissage à la sortie, attestation de travail en poste (le texte ; la mise en page dans impression.js) |
 | `lib/loyer.js` | Le loyer d'un local loué : sa fiche, l'état du mois (payé, à payer, en retard), jamais deux fois |
 | `lib/paie.js` | La fiche de paie, séparée de la fiche employé |
 | `lib/cnss.js` | La déclaration des rémunérations et cotisations |

@@ -13782,6 +13782,63 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const hCdi = String(globalThis.__bulletin || "");
   test("★★ 📄 le bulletin imprime le contrat : « CDD jusqu'au 31/12/2026 », « CDI » — et rien pour une fiche jamais renseignée",
     /<b>Contrat :<\/b> CDD jusqu'au 31\/12\/2026</.test(hCdd) && /<b>Contrat :<\/b> CDI</.test(hCdi) && !/<b>Contrat :/.test(h2));
+  // 📄 CERTIFICAT DE TRAVAIL ET ATTESTATIONS (12/10/2026, « Aa, Bb, Cb, Db »).
+  {
+    const sortieCert = join("node_modules", ".cache", `bmi-certificat-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/certificatTravail.js"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieCert, logLevel: "silent", loader: { ".js": "jsx" } });
+    const CE = await import(pathToFileURL(sortieCert).href);
+    unlinkSync(sortieCert);
+    const J = "2026-10-12";
+    const base = { id: "e1", nom: "FRED", nom_complet: "FRED Komi", role: "vendeur", boutique: "BMI DEMAKPOE", cnss_date_embauche: "2025-03-01" };
+    const sorti = (code) => ({ ...base, cnss_code_type: code, cnss_date_sortie: "2026-10-10", cnss_code_motif_sortie: 2 });
+    test("★★ 📄 le bon document : en poste → attestation de travail ; sorti → certificat (CDI, CDD, contrat jamais saisi), fin d'apprentissage, attestation de stage ; une sortie à VENIR reste une attestation",
+      CE.documentPropose({ ...base, cnss_code_type: 1 }, J) === "attestation" && CE.documentPropose(sorti(1), J) === "certificat" && CE.documentPropose(sorti(5), J) === "certificat"
+      && CE.documentPropose({ ...sorti(1), cnss_code_type: undefined }, J) === "certificat" && CE.documentPropose(sorti(4), J) === "apprentissage" && CE.documentPropose(sorti(12), J) === "stage"
+      && CE.documentPropose({ ...sorti(5), cnss_date_sortie: "2026-11-30" }, J) === "attestation" && CE.documentPropose({ ...sorti(5), cnss_date_sortie: J }, J) === "certificat");
+    test("★★ 📄 refusé DANS la règle : sans date d'embauche, un document de fin avant la sortie, une attestation de travail après la sortie, un client, le mauvais document pour le contrat",
+      /date d'embauche/.test(CE.critiqueDocument("attestation", { ...base, cnss_date_embauche: "" }, J)) && /date de sortie/.test(CE.critiqueDocument("certificat", base, J))
+      && /fin de contrat/.test(CE.critiqueDocument("attestation", sorti(1), J)) && !!CE.critiqueDocument("attestation", { ...base, role: "client" }, J)
+      && /stage/i.test(CE.critiqueDocument("certificat", sorti(12), J)) && CE.critiqueDocument("certificat", sorti(5), J) === "" && CE.critiqueDocument("attestation", base, J) === "");
+    const sig = { nom: "TIMO", signature: "data:image/png;base64,AAA" };
+    const cert = CE.contenuDocument("certificat", { u: { ...sorti(1), cnss_matricule: "MLE-9" }, poste: "Vendeur", lieu: "BMI DEMAKPOE", signataire: sig, appreciation: "très bon élément", aujourdhui: J });
+    const texteCert = cert.paragraphes.join(" ");
+    test("★★ 📄 le certificat de travail dit les dates, le poste, le matricule et « libre de tout engagement », signé par le Directeur Général — et reste NEUTRE : ni motif de sortie, ni appréciation",
+      cert.titre === "CERTIFICAT DE TRAVAIL" && /du <b>01\/03\/2025<\/b> au <b>10\/10\/2026<\/b>/.test(texteCert) && /<b>Vendeur<\/b> \(BMI DEMAKPOE\)/.test(texteCert)
+      && /MLE-9/.test(texteCert) && /libre de tout engagement/.test(texteCert) && /TIMO<\/b>, Directeur Général de BMI TOGO/.test(texteCert)
+      && cert.signataire.titre === "Le Directeur Général" && !/très bon élément|démission|licenci|motif/i.test(texteCert) && cert.fait === "Fait à Lomé, le 12/10/2026.");
+    const stage = CE.contenuDocument("stage", { u: sorti(12), poste: "Technicien BMI", signataire: sig, appreciation: "  a fait preuve\nde sérieux  ", aujourdhui: J });
+    const appr = CE.contenuDocument("apprentissage", { u: sorti(4), poste: "Technicien BMI", signataire: sig, appreciation: "", aujourdhui: J });
+    test("★★ 📄 « C b » : l'appréciation facultative ne va que sur le stage et l'apprentissage, nettoyée sur une ligne, 300 caractères au plus ; vide = aucune phrase",
+      stage.paragraphes.includes("a fait preuve de sérieux") && /a effectué un stage/.test(stage.paragraphes[0]) && appr.paragraphes.length === 2 && /a suivi un apprentissage/.test(appr.paragraphes[0])
+      && CE.accepteAppreciation("stage") && CE.accepteAppreciation("apprentissage") && !CE.accepteAppreciation("certificat") && !CE.accepteAppreciation("attestation")
+      && CE.nettoyerAppreciation("x".repeat(400)).length === 300);
+    const att = CE.contenuDocument("attestation", { u: { ...base, cnss_code_type: 5, contrat_fin: "2027-02-28" }, poste: "Vendeur", signataire: sig, aujourdhui: J });
+    test("★★ 📄 « D b » : l'attestation de travail dit « est employé(e) depuis le … », le contrat (CDD jusqu'au …) et « à sa demande »",
+      att.titre === "ATTESTATION DE TRAVAIL" && /est employé\(e\) au sein de notre entreprise depuis le <b>01\/03\/2025<\/b>/.test(att.paragraphes[0])
+      && /sous contrat CDD jusqu'au 28\/02\/2027/.test(att.paragraphes[0]) && /à sa demande/.test(att.paragraphes[1]));
+    const piege = CE.contenuDocument("certificat", { u: { ...sorti(1), nom_complet: "<img src=x>" }, poste: "<b>", signataire: { nom: "<i>" }, aujourdhui: J });
+    test("★ 📄 tout ce qui vient des données est échappé (nom, poste, signataire)",
+      !/<img src=x>|<i>/.test(piege.paragraphes.join(" ")) && /&lt;img src=x&gt;/.test(piege.paragraphes[0]));
+    Imp.imprimerDocumentEmploye(cert, db0, false);
+    const hDoc = String(globalThis.__bulletin || "");
+    Imp.imprimerDocumentEmploye({ ...cert, signataire: { ...cert.signataire, signature: "" } }, db0, true);
+    const hDoc2 = String(globalThis.__bulletin || "");
+    test("★★ 📄 le document IMPRIMÉ porte son titre, le texte, « Le Directeur Général », la signature de celui qui délivre et LE cachet de la maison ; sans signature, la place est laissée ; en formation, le bandeau",
+      /<h1>CERTIFICAT DE TRAVAIL<\/h1>/.test(hDoc) && hDoc.includes("libre de tout engagement") && hDoc.includes("Le Directeur Général")
+      && /<img class="signature" src="data:image\/png;base64,AAA"/.test(hDoc) && /alt="Cachet BMI Togo"/.test(hDoc) && !/DOCUMENT DE FORMATION/.test(hDoc)
+      && !/class="signature"/.test(hDoc2) && /alt="Cachet BMI Togo"/.test(hDoc2) && /DOCUMENT DE FORMATION/.test(hDoc2));
+    const us = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+    const geste = (us.match(/const delivrerDocument = async \(u\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    test("★★ 📄 « A a » : l'administrateur PRINCIPAL seul, revérifié EN PREMIER dans le geste, sur la fiche fraîche, par la règle ; signé à SON nom avec SA signature (« B b ») ; une ligne de journal",
+      /^const delivrerDocument = async \(u\) => \{\n\s*if \(refuserSaufAdminPrincipal\(db, profile, /.test(geste) && /const frais = db\.users\.find\(\(x\) => x\.id === u\.id\) \|\| u;/.test(geste)
+      && /const refus = critiqueDocument\(type, frais, today\(\)\);/.test(geste) && /signature: moi\.signature_personnelle/.test(geste)
+      && /imprimerDocumentEmploye\(contenu, db, estCompteFormation\(db, frais\)\)/.test(geste) && /save\(db, journalDocument\(contenu, today\(\)\)\)/.test(geste));
+    test("★ 📄 la ligne « Documents » de ⋯ Gérer n'existe que pour un salarié ET l'administrateur principal, avec UN bouton : l'attestation en poste, le document de fin une fois sorti",
+      /\{SALARIES\.includes\(u\.role\) && jeSuisAdminPrincipal && \(\n\s*<div [^>]*data-ligne-documents>/.test(us)
+      && /\{documentPropose\(u, today\(\)\) === "attestation"\n\s*\? <BoutonGerer data-attestation-travail onClick=\{\(\) => delivrerDocument\(u\)\}/.test(us)
+      && /: <BoutonGerer data-document-fin onClick=\{\(\) => delivrerDocument\(u\)\}/.test(us));
+  }
   test("★ 🧾 une fiche sans ces renseignements n'imprime aucune ligne vide",
     !/Matricule|N° d'assuré|Date d'embauche|<b>Banque|<b>Contrat :/.test(h2) && /NET À PERCEVOIR/.test(h2));
   // 🧾 NIVEAU 2 (05/10/2026) : Gains / Retenues en deux colonnes, brut, base
@@ -14013,7 +14070,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   // est un TEXTE écrit, ou le choix entre deux textes pour un geste qui bascule.
   const noms = [...u.matchAll(/<BoutonGerer\b[\s\S]*?\/>/g)].map((m) => (m[0].match(/ nom=(\{[^}]*\}|"[^"]*") \/>$/) || [, "?"])[1]);
   test("★★ ⋯ Gérer : UN composant pour tous ses boutons (BoutonGerer), plus aucun bouton maison, et AUCUNE valeur dans un nom (date, contrat, banque, taux, numéro)",
-    noms.length === 24 && !/boutonGerer/.test(u)
+    // RETOURNÉ le 12/10/2026 : 26 (📄 Attestation de travail, 📄 Document de fin de contrat).
+    noms.length === 26 && !/boutonGerer/.test(u)
     && noms.every((n) => n.startsWith('"') || /^\{u\.[a-z_]+ \? "[^"]*" : "[^"]*"\}$/.test(n))
     && /export function BoutonGerer\(\{ nom, onClick, titre, ton, info, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /\{String\(nom\)\}<\/button>/.test(readFileSync("src/components/ui.jsx", "utf8")));

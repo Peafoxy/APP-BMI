@@ -6638,6 +6638,37 @@ lit mal est pire qu'un banc absent).
   administrateurs) ; un contrôle RETOURNÉ (`demanderDate` ×9). Chapitres 2 et
   18 à jour. Rien à coller.
 
+### 📄 LE CERTIFICAT DE TRAVAIL ET LES ATTESTATIONS (12/10/2026, « Aa, Bb, Cb, Db »)
+- Timo, devant le choix du contrat de FRED : « les attestations pour les 4
+  types de contrat… à chaque sortie, on puisse les délivrer ». Règle pure
+  **`lib/certificatTravail.js`** (le TEXTE), mise en page
+  `imprimerDocumentEmploye` (lib/impression.js), geste `delivrerDocument`
+  (👥 Utilisateurs → ⋯ Gérer → ligne **Documents**, un seul bouton).
+- **À la sortie** (date de sortie ARRIVÉE, `estSorti`) : CDI, CDD ou contrat
+  jamais saisi → **CERTIFICAT DE TRAVAIL** ; code 4 → **ATTESTATION DE FIN
+  D'APPRENTISSAGE** ; code 12 → **ATTESTATION DE STAGE** (`documentDeSortie`,
+  le type vient de `cnss_code_type`). **« D b »** : en poste (ou sortie à
+  venir) → **ATTESTATION DE TRAVAIL** (« depuis le …, sous contrat … », « à sa
+  demande »). `documentPropose` : jamais les deux.
+- **« A a »** : l'administrateur PRINCIPAL seul (`refuserSaufAdminPrincipal`
+  en premier, fiche fraîche, `critiqueDocument` : date d'embauche exigée).
+  **« B b »** : signé par celui qui délivre — SA `signature_personnelle` si sa
+  fiche en porte une, sinon la place reste pour signer à la main — et LE
+  cachet de la maison ; **le principal est le Directeur Général** (Timo :
+  « actuellement l'administrateur principal est le Directeur Général »,
+  `TITRE_SIGNATAIRE`). **« C b »** : une appréciation FACULTATIVE (une ligne,
+  300 caractères) pour le stage et l'apprentissage seulement.
+- ⚠ **Le certificat de travail reste NEUTRE** : dates, poste, « libre de tout
+  engagement » — jamais le motif du départ ni une appréciation. ⚠ On ne
+  connaît pas le sexe : « M./Mme », « employé(e) ». Bandeau de formation sur
+  un compte de formation. Rien n'est écrit sur la fiche : une ligne de
+  journal (`journalDocument`). Rien à coller. ⚠ L'article exact du Code du
+  travail togolais n'a pas été vérifié d'ici (à confirmer par le comptable).
+- Banc (`verifier-cloisonnement`, +9, le document IMPRIMÉ par un témoin),
+  éprouvé (appréciation sur le certificat, garde du principal retirée,
+  document de fin avant la sortie) ; un contrôle RETOURNÉ (⋯ Gérer : 26
+  boutons). Regardé rendu dans Chromium. Chapitres 2 et 18 à jour.
+
 ### 📍 LE LIEU D'AFFECTATION D'UN EMPLOYÉ SANS BOUTIQUE (05/10/2026, « Lance, texte libre, la boutique l'emporte »)
 - Champ `affectation` (texte libre, 80 caractères), **seulement sur un employé
   rattaché à AUCUNE boutique** (`peutAvoirAffectation`, lib/affectation.js,

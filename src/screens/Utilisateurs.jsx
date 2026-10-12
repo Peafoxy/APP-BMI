@@ -18,7 +18,10 @@ import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, dem
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
-import { peutAvoirAffectation, critiqueAffectation } from "../lib/affectation";
+import { peutAvoirAffectation, critiqueAffectation, affectationDe } from "../lib/affectation";
+// 📄 Certificat de travail et attestations (12/10/2026, « Aa, Bb, Cb, Db »).
+import { documentPropose, critiqueDocument, accepteAppreciation, nettoyerAppreciation, contenuDocument, journalDocument, APPRECIATION_MAX } from "../lib/certificatTravail";
+import { imprimerDocumentEmploye } from "../lib/impression";
 import { TYPES_CONTRAT, CODE_CDI, CODE_CDD, phraseContrat, critiqueContrat, critiqueSortie, etatFinContrat, phraseFinContrat, lireDuree, dureeEnClair, finDepuisDuree, peutRenouveler, critiqueRenouvellement, finApresRenouvellement, MESSAGE_DUREE_ILLISIBLE } from "../lib/contratTravail";
 import { CODES_MOTIF_SORTIE } from "../lib/cnss";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
@@ -1033,6 +1036,36 @@ export function Users({ db, save, profile }) {
       date ? `Date de sortie de ${u.nom} : ${dFR(date)} (${libMotif})` : `Date de sortie de ${u.nom} effacée`);
   };
 
+  // 📄 CERTIFICAT DE TRAVAIL ET ATTESTATIONS (12/10/2026, « Aa, Bb, Cb, Db »).
+  // « A a » : l'administrateur PRINCIPAL seul (le Directeur Général). Sorti →
+  // le document de FIN selon le contrat ; sinon l'ATTESTATION DE TRAVAIL
+  // (« D b »). « C b » : une appréciation facultative pour le stage et
+  // l'apprentissage. « B b » : SA signature personnelle et le cachet. Rien
+  // n'est écrit sur la fiche : une ligne de journal dit qui a reçu quoi.
+  const delivrerDocument = async (u) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Délivrer un certificat de travail ou une attestation")) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const type = documentPropose(frais, today());
+    const refus = critiqueDocument(type, frais, today());
+    if (refus) { uAlert(refus); return; }
+    let appreciation = "";
+    if (accepteAppreciation(type)) {
+      const v = await uPrompt(`Appréciation pour ${u.nom} (facultative, ${APPRECIATION_MAX} caractères au plus) — par exemple « a fait preuve de sérieux et d'assiduité ». Laissez vide pour ne rien écrire :`, "");
+      if (v === null) return;
+      appreciation = nettoyerAppreciation(v);
+    }
+    const moi = db.users.find((x) => x.id === profile.id) || profile;
+    const contenu = contenuDocument(type, {
+      u: frais, poste: LIBELLE_ROLE_EMPLOYE[frais.role] || frais.role, lieu: affectationDe(frais),
+      signataire: { nom: moi.nom_complet || moi.nom, signature: moi.signature_personnelle || "" },
+      appreciation, aujourdhui: today(),
+    });
+    if (!contenu) return;
+    if (!await uConfirm(`Délivrer : ${contenu.nom} à ${contenu.employe} ?\n\nIl sera signé à votre nom${moi.signature_personnelle ? ", avec votre signature" : " (votre fiche ne porte pas de signature : signez-le à la main)"} et portera le cachet de BMI.`)) return;
+    imprimerDocumentEmploye(contenu, db, estCompteFormation(db, frais));
+    save(db, journalDocument(contenu, today()));
+  };
+
   // Avancement : chaque changement de salaire est archivé dans un historique
   // (date, ancien montant, nouveau montant, motif). Si un taux d'avancement
   // est défini pour l'employé, le nouveau montant est pré-calculé
@@ -1722,6 +1755,16 @@ export function Users({ db, save, profile }) {
                   {(u.virements || []).some((v) => v.statut !== "accepte") && <BoutonGerer onClick={() => annulerVirement(u)} ton="attention" nom="Annuler le paiement" />}
                   {/* 🚪 En bout de ligne (Timo, 05/10/2026, « sortie b ») : un départ n'est pas un geste de tous les jours. */}
                   <BoutonGerer data-sortie onClick={() => changerSortie(u)} info={() => infoGerer(u, "sortie")} titre="Date et motif de sortie, repris par la déclaration CNSS" nom="🚪 Sortie" />
+                      </div>
+                    </div>
+                    )}
+                    {SALARIES.includes(u.role) && jeSuisAdminPrincipal && (
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1" data-ligne-documents>
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Documents</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                  {documentPropose(u, today()) === "attestation"
+                    ? <BoutonGerer data-attestation-travail onClick={() => delivrerDocument(u)} titre="Pour une banque, un visa, un logement : il travaille chez BMI depuis le…, comme…" nom="📄 Attestation de travail" />
+                    : <BoutonGerer data-document-fin onClick={() => delivrerDocument(u)} titre="Certificat de travail (CDI, CDD), attestation de fin d'apprentissage ou attestation de stage, selon son contrat" nom="📄 Document de fin de contrat" />}
                       </div>
                     </div>
                     )}
