@@ -61,21 +61,55 @@ export const lierAutreAuStock = (autre, nom, produits) => {
 // ---- Les totaux : la remise ne porte QUE sur les articles ; installation
 // et transport se calculent sur le montant plein. « Pose seule » remplace
 // le pourcentage d'installation par un montant fixe, saisi pour ce chantier.
-export const calculerTotaux = ({ totalArticles, pctRemise, pctInstall, pctTransport, poseSeule, montantPoseFixe, pctAcompte }) => {
-  const remise = Math.round((totalArticles * Number(pctRemise || 0)) / 100);
-  const fraisInstallationPct = Math.round((totalArticles * Number(pctInstall || 0)) / 100);
-  const fraisTransport = Math.round((totalArticles * Number(pctTransport || 0)) / 100);
-  const fraisInstallation = poseSeule ? Number(montantPoseFixe || 0) : fraisInstallationPct;
+// 12/10/2026 (Timo : « frais d'installation % ou frais d'installation libre où
+// on peut saisir le montant… de même pour transport… les remises en
+// pourcentage ou libre aussi ») : chaque ligne se règle en POURCENTAGE des
+// articles (d'office, comme avant) ou en MONTANT LIBRE tapé en francs, qui ne
+// bouge plus quand les articles changent. Une remise libre ne dépasse jamais
+// les articles. Son pourcentage ÉQUIVALENT (pctRemiseEffectif) est ce que
+// lisent la limite des 3 % et la conversion en vente.
+// « 🔧 Avec installation » DÉCOCHÉE (avecInstallation === false) : aucun frais
+// d'installation — la ligne disparaît de l'écran, du total et du PDF.
+export const MODE_POURCENT = "pct";
+export const MODE_MONTANT = "montant";
+const enMontant = (mode) => mode === MODE_MONTANT;
+export const montantSaisi = (v) => Math.max(0, Math.round(Number(String(v ?? "").replace(/\s/g, "").replace(",", ".")) || 0));
+// Six décimales : appliqué aux mêmes articles, il redonne le montant au franc près.
+export const pctEquivalent = (montant, base) => (Number(base) > 0 ? Math.round(((Number(montant) || 0) * 100 / Number(base)) * 1e6) / 1e6 : 0);
+export const calculerTotaux = ({ totalArticles, pctRemise, pctInstall, pctTransport, poseSeule, montantPoseFixe, pctAcompte,
+  modeRemise, montantRemise, modeInstall, montantInstall, modeTransport, montantTransport, avecInstallation }) => {
+  const remise = enMontant(modeRemise)
+    ? Math.min(montantSaisi(montantRemise), Math.max(0, Math.round(totalArticles)))
+    : Math.round((totalArticles * Number(pctRemise || 0)) / 100);
+  const fraisInstallationBrut = poseSeule
+    ? Number(montantPoseFixe || 0)
+    : enMontant(modeInstall) ? montantSaisi(montantInstall) : Math.round((totalArticles * Number(pctInstall || 0)) / 100);
+  const fraisInstallation = !poseSeule && avecInstallation === false ? 0 : fraisInstallationBrut;
+  const fraisTransport = enMontant(modeTransport) ? montantSaisi(montantTransport) : Math.round((totalArticles * Number(pctTransport || 0)) / 100);
+  const pctRemiseEffectif = enMontant(modeRemise) ? pctEquivalent(remise, totalArticles) : Number(pctRemise || 0);
   const totalDevis = totalArticles - remise + fraisInstallation + fraisTransport;
   const montantAcompte = Math.round((totalDevis * Number(pctAcompte || 100)) / 100);
-  return { remise, fraisInstallation, fraisTransport, totalDevis, montantAcompte };
+  return { remise, fraisInstallation, fraisInstallationBrut, fraisTransport, totalDevis, montantAcompte, pctRemiseEffectif };
+};
+
+// Les réglages qu'un devis ENREGISTRÉ porte, relus pour le recalculer
+// (✍️ Compléter le devis) : un montant libre reste le même montant.
+export const reglagesDuDevis = (devis) => {
+  const poseSeule = !!devis.pose_seule;
+  return {
+    pctRemise: devis.pct_remise ?? 0, pctInstall: devis.pct_installation ?? 0, pctTransport: devis.pct_transport ?? 0,
+    modeRemise: devis.mode_remise || MODE_POURCENT, montantRemise: devis.remise ?? 0,
+    modeInstall: devis.mode_installation || MODE_POURCENT, montantInstall: devis.frais_installation ?? 0,
+    modeTransport: devis.mode_transport || MODE_POURCENT, montantTransport: devis.frais_transport ?? 0,
+    poseSeule, montantPoseFixe: poseSeule ? devis.frais_installation : 0, pctAcompte: devis.pct_acompte ?? 100,
+  };
 };
 
 // ---- Les trois lignes de fin (installation, transport, remise en négatif) ----
 export const lignesFrais = (r) => [
-  ...(r.fraisInstallation > 0 ? [{ categorie: "Installation", article: r.poseSeule ? "Frais de pose (matériel du client)" : `Frais d'installation (${r.pctInstall} %)`, qte: 1, pu: r.fraisInstallation, total: r.fraisInstallation }] : []),
-  ...(r.fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${r.pctTransport} %)`, qte: 1, pu: r.fraisTransport, total: r.fraisTransport }] : []),
-  ...(r.remise > 0 ? [{ categorie: "Remise", article: `Remise (${r.pctRemise} %)`, qte: 1, pu: -r.remise, total: -r.remise }] : []),
+  ...(r.fraisInstallation > 0 ? [{ categorie: "Installation", article: r.poseSeule ? "Frais de pose (matériel du client)" : enMontant(r.modeInstall) ? "Frais d'installation" : `Frais d'installation (${r.pctInstall} %)`, qte: 1, pu: r.fraisInstallation, total: r.fraisInstallation }] : []),
+  ...(r.fraisTransport > 0 ? [{ categorie: "Transport", article: enMontant(r.modeTransport) ? "Transport / livraison" : `Transport / livraison (${r.pctTransport} %)`, qte: 1, pu: r.fraisTransport, total: r.fraisTransport }] : []),
+  ...(r.remise > 0 ? [{ categorie: "Remise", article: enMontant(r.modeRemise) ? "Remise" : `Remise (${r.pctRemise} %)`, qte: 1, pu: -r.remise, total: -r.remise }] : []),
 ];
 
 // ⚠ 29/09/2026 (Timo : « un devis de forage dans les brouillons… dès qu'il
@@ -90,9 +124,10 @@ export const lignesFrais = (r) => [
 export const estLigneFrais = (l) => {
   const a = String((l && l.article) || "");
   const c = l && l.categorie;
-  return (c === "Installation" && (a.startsWith("Frais d'installation (") || a === "Frais de pose (matériel du client)"))
-    || (c === "Transport" && a.startsWith("Transport / livraison ("))
-    || (c === "Remise" && a.startsWith("Remise ("));
+  // Un montant libre s'écrit sans pourcentage (« Frais d'installation »).
+  return (c === "Installation" && (a.startsWith("Frais d'installation (") || a === "Frais d'installation" || a === "Frais de pose (matériel du client)"))
+    || (c === "Transport" && (a.startsWith("Transport / livraison (") || a === "Transport / livraison"))
+    || (c === "Remise" && (a.startsWith("Remise (") || a === "Remise"));
 };
 
 // ---- 📝 La ligne « NB » d'un devis (Timo, 08/10/2026, « 1a, 2b, 3a ») ----
@@ -108,11 +143,15 @@ export const champsReglages = (r) => ({
   total: r.totalDevis,
   pose_seule: r.poseSeule,
   frais_installation: r.fraisInstallation,
-  pct_installation: r.poseSeule ? null : Number(r.pctInstall || 0),
+  pct_installation: r.poseSeule || enMontant(r.modeInstall) ? null : Number(r.pctInstall || 0),
+  mode_installation: enMontant(r.modeInstall) ? MODE_MONTANT : MODE_POURCENT,
   frais_transport: r.fraisTransport,
-  pct_transport: Number(r.pctTransport || 0),
+  pct_transport: enMontant(r.modeTransport) ? null : Number(r.pctTransport || 0),
+  mode_transport: enMontant(r.modeTransport) ? MODE_MONTANT : MODE_POURCENT,
   remise: r.remise,
-  pct_remise: Number(r.pctRemise || 0),
+  // Une remise libre garde son pourcentage ÉQUIVALENT : la limite des 3 % le lit.
+  pct_remise: Number(r.pctRemiseEffectif ?? r.pctRemise ?? 0),
+  mode_remise: enMontant(r.modeRemise) ? MODE_MONTANT : MODE_POURCENT,
   pct_acompte: Number(r.pctAcompte || 100),
   montant_acompte: r.montantAcompte,
   delai_installation: String(r.delaiInstallation || "").trim(),
@@ -241,11 +280,7 @@ export function completerDevis(devis, { reponses = [], ajouts = [], produits = [
   // Les lignes d'articles d'avant, intactes (ni frais, ni cf. visite).
   const articles = (devis.lignes || []).filter((l) => !estLigneFrais(l) && !estLigneCfVisite(l));
   const totalArticles = [...articles, ...nouvelles].reduce((s, l) => s + Number(l.total || 0), 0);
-  const poseSeule = !!devis.pose_seule;
-  const reglages = {
-    pctRemise: devis.pct_remise ?? 0, pctInstall: devis.pct_installation ?? 0, pctTransport: devis.pct_transport ?? 0,
-    poseSeule, montantPoseFixe: poseSeule ? devis.frais_installation : 0, pctAcompte: devis.pct_acompte ?? 100,
-  };
+  const reglages = reglagesDuDevis(devis);
   const t = calculerTotaux({ totalArticles, ...reglages });
   const r = { ...reglages, ...t };
   const historique = {
@@ -267,6 +302,7 @@ export function completerDevis(devis, { reponses = [], ajouts = [], produits = [
       frais_installation: t.fraisInstallation,
       frais_transport: t.fraisTransport,
       remise: t.remise,
+      pct_remise: t.pctRemiseEffectif,
       montant_acompte: t.montantAcompte,
       complete_le: le, complete_par: par, complete_par_id: par_id,
       historique_completion: [...(Array.isArray(devis.historique_completion) ? devis.historique_completion : []), historique],

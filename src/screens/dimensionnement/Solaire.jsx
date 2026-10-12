@@ -613,7 +613,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
   const r = useReglagesDevis(totalArticles, {}, devisAReprendre, { principal: estAdminPrincipal(db, profile) });
-  const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
+  const { remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
@@ -637,7 +637,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setRailsQte(0); setFixationManuelle({});
     reprendreAutres([]);
     envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE() });
-    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide()); r.setNb(""); r.setAvecInstallation(null);
+    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide()); r.setNb(""); r.setAvecInstallation(null); r.setModeRemise("pct"); r.setMontantRemise(""); r.setModeInstall("pct"); r.setMontantInstall(""); r.setModeTransport("pct"); r.setMontantTransport("");
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
   };
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
@@ -682,7 +682,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const envoyerDevisWhatsApp = () => envoi.envoyer(argumentsEnvoi());
   const enregistrerBrouillon = () => envoi.enregistrerBrouillon(argumentsEnvoi());
 
-  const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
+  const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], r.pctRemiseEffectif);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté. Le
   // mode LIBRE reste ouvert (il ne touche à aucun stock ni à aucune

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2545 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2554 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -669,6 +669,29 @@ lit mal est pire qu'un banc absent).
   - ⚠ **Une COMMANDE ne le porte pas** (« Convertir » d'un commercial) :
     l'écran le dit. ⚠ **Aucun déclencheur serveur** ne garde le 3 % : c'est
     l'application qui décide. Rien à coller.
+- **💲 REMISE, FRAIS D'INSTALLATION, TRANSPORT : EN % OU EN MONTANT LIBRE**
+  (12/10/2026, capture Timo : « dès qu'on décoche frais d'installation, la case
+  de frais devrait disparaître… frais d'installation % ou libre… de même pour
+  transport… les remises en pourcentage ou libre aussi » → « lance »). Le
+  libellé de chaque ligne de fin de devis est une LISTE « … % » (d'office) /
+  « … libre » (montant en francs, figé quand les articles changent ; passer en
+  libre remplit le montant du moment) — `LigneReglage`, `BlocTotauxDevis({ r })`
+  (Partages.jsx) ; règle `calculerTotaux` (`modeRemise` / `montantRemise`,
+  `modeInstall`…, `MODE_POURCENT` / `MODE_MONTANT`, devisCommun.js). Une remise
+  libre ne dépasse pas les articles ; **son pourcentage ÉQUIVALENT**
+  (`pctRemiseEffectif`, 6 décimales, `pctEquivalent`) est rangé dans
+  `pct_remise` : la limite des 3 % et « Convertir en vente » le lisent. Le
+  devis porte `mode_remise` / `mode_installation` / `mode_transport` ; une ligne
+  libre s'écrit sans pourcentage (« Frais d'installation »), et `estLigneFrais`
+  la reconnaît. Reprise et brouillon rétablissent le mode et le montant ;
+  « ✍️ Compléter » garde un montant libre (`reglagesDuDevis`) ; « 🆕 Nouveau
+  devis » remet tout en %. **« 🔧 Avec installation » DÉCOCHÉE = la ligne des
+  frais d'installation disparaît et vaut 0** (`avecInstallation === false`) ;
+  recochée, le chiffre d'avant revient ; **toucher aux frais coche la case**
+  (sinon vider le champ ferait disparaître la ligne). Pose seule inchangée. ⚠
+  Une remise libre arrive dans 💰 Ventes en pourcentage à décimales (le champ y
+  reste en %). Rien à coller. Banc (9 contrôles, l'écran RENDU), éprouvé ; un
+  contrôle RETOURNÉ (le devis porte les trois modes). Chapitres 11, 12, 13.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

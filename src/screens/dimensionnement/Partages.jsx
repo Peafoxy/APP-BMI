@@ -42,7 +42,7 @@ import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives } from "../../lib/calculs";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
-import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX } from "./devisCommun";
+import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, MODE_POURCENT, MODE_MONTANT, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
 // IMPORTE puis on les RÉEXPORTE : `export { x } from` ne crée pas de nom
@@ -60,8 +60,19 @@ export { FACTEUR_PUISSANCE_VA, puissanceUtileW, quantiteNecessaire, simplifierMo
 // leur relecture. Partagé par les trois volets (Solaire, Garage, Autre).
 export function appliquerConditionsReprises(devis, s) {
   if (!devis) return;
-  s.setPctRemise(String(devis.pct_remise ?? 0));
+  // 12/10/2026 : une remise, des frais, un transport en MONTANT LIBRE reviennent
+  // en montant libre, avec le même montant (un ancien devis : en pourcentage).
+  const libre = (mode) => mode === MODE_MONTANT;
+  s.setPctRemise(String(libre(devis.mode_remise) ? 0 : devis.pct_remise ?? 0));
   s.setPctTransport(String(devis.pct_transport ?? 0));
+  if (s.setModeRemise) {
+    s.setModeRemise(libre(devis.mode_remise) ? MODE_MONTANT : MODE_POURCENT);
+    s.setMontantRemise(libre(devis.mode_remise) ? String(devis.remise ?? "") : "");
+    s.setModeInstall(libre(devis.mode_installation) ? MODE_MONTANT : MODE_POURCENT);
+    s.setMontantInstall(libre(devis.mode_installation) ? String(devis.frais_installation ?? "") : "");
+    s.setModeTransport(libre(devis.mode_transport) ? MODE_MONTANT : MODE_POURCENT);
+    s.setMontantTransport(libre(devis.mode_transport) ? String(devis.frais_transport ?? "") : "");
+  }
   s.setPctAcompte(String(devis.pct_acompte ?? 100));
   s.setDelaiInstallation(String(devis.delai_installation || ""));
   // 📝 La ligne NB (08/10/2026) revient avec le devis repris ou le brouillon.
@@ -142,31 +153,61 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onAjouterCfVis
 }
 
 // ---- Bloc totaux : remise (sur les articles uniquement) → installation → transport → total ----
-export function BlocTotauxDevis({ totalArticles, pctRemise, setPctRemise, remise, pctInstall, setPctInstall, fraisInstallation, masquerInstallationPct, pctTransport, setPctTransport, fraisTransport, totalDevis, onConvertir }) {
+// 12/10/2026 (Timo, « lance ») : le libellé de chaque ligne est une LISTE —
+// « … % » (un pourcentage des articles, d'office) ou « … libre » (le montant
+// tapé en francs). La ligne d'installation n'existe que si « 🔧 Avec
+// installation » est cochée (décochée : matériel seul, aucun frais).
+function LigneReglage({ libelle, mode, setMode, pct, setPct, montant, setMontant, resultat, negatif = false, auChangement, attr }) {
+  const changer = (fn) => (e) => { fn(e.target.value); if (auChangement) auChangement(); };
+  const choisir = (e) => {
+    const m = e.target.value;
+    // Passer en libre garde le montant du moment : le total ne saute pas.
+    if (m === MODE_MONTANT && !String(montant ?? "").trim()) setMontant(String(resultat || 0));
+    setMode(m);
+    if (auChangement) auChangement();
+  };
+  return (
+    <div className="flex items-center gap-2 text-sm flex-wrap justify-end" {...attr}>
+      <select value={mode} onChange={choisir} aria-label={libelle} className="rounded border border-slate-300 bg-white px-1 py-0.5 text-slate-600">
+        <option value={MODE_POURCENT}>{libelle} %</option>
+        <option value={MODE_MONTANT}>{libelle} libre</option>
+      </select>
+      {mode === MODE_MONTANT ? (
+        <>
+          <input type="number" min="0" step="500" value={montant} onChange={changer(setMontant)} className="w-28 rounded border border-slate-300 px-2 py-0.5 text-right" />
+          <span className="text-slate-500">F</span>
+          {negatif && <><span className="text-slate-500">= −</span><span className="font-semibold text-red-600">{fmt(resultat)}</span></>}
+        </>
+      ) : (
+        <>
+          <input type="number" min="0" max="100" step="0.5" value={pct} onChange={changer(setPct)} className="w-16 rounded border border-slate-300 px-2 py-0.5 text-right" />
+          <span className="text-slate-500">{negatif ? "% = −" : "% ="}</span><span className={`font-semibold ${negatif ? "text-red-600" : ""}`}>{fmt(resultat)}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function BlocTotauxDevis({ r, onConvertir }) {
+  const installationVisible = !r.poseSeule && avecInstallationDuDevis({ poseSeule: r.poseSeule, fraisInstallation: r.fraisInstallationBrut, choix: r.avecInstallation });
+  // Toucher aux frais, c'est vouloir installer : la case se coche pour de bon
+  // (sinon vider le champ pour retaper un chiffre ferait disparaître la ligne).
+  const installer = () => { if (r.avecInstallation == null) r.setAvecInstallation(true); };
   return (
     <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
       <div className="flex flex-col items-end gap-1">
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Articles :</span><span className="font-semibold">{fmt(totalArticles)}</span>
+          <span className="text-slate-500">Articles :</span><span className="font-semibold">{fmt(r.totalArticles)}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Remise</span>
-          <input type="number" min="0" max="100" step="0.5" value={pctRemise} onChange={(e) => setPctRemise(e.target.value)} className="w-16 rounded border border-slate-300 px-2 py-0.5 text-right" />
-          <span className="text-slate-500">% = −</span><span className="font-semibold text-red-600">{fmt(remise)}</span>
-        </div>
-        {!masquerInstallationPct && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-500">Frais d'installation</span>
-            <input type="number" min="0" max="100" step="0.5" value={pctInstall} onChange={(e) => setPctInstall(e.target.value)} className="w-16 rounded border border-slate-300 px-2 py-0.5 text-right" />
-            <span className="text-slate-500">% =</span><span className="font-semibold">{fmt(fraisInstallation)}</span>
-          </div>
+        <LigneReglage libelle="Remise" mode={r.modeRemise} setMode={r.setModeRemise} pct={r.pctRemise} setPct={r.setPctRemise}
+          montant={r.montantRemise} setMontant={r.setMontantRemise} resultat={r.remise} negatif attr={{ "data-ligne-remise": "" }} />
+        {installationVisible && (
+          <LigneReglage libelle="Frais d'installation" mode={r.modeInstall} setMode={r.setModeInstall} pct={r.pctInstall} setPct={r.setPctInstall}
+            montant={r.montantInstall} setMontant={r.setMontantInstall} resultat={r.fraisInstallation} auChangement={installer} attr={{ "data-ligne-installation": "" }} />
         )}
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Transport / livraison</span>
-          <input type="number" min="0" max="100" step="0.5" value={pctTransport} onChange={(e) => setPctTransport(e.target.value)} className="w-16 rounded border border-slate-300 px-2 py-0.5 text-right" />
-          <span className="text-slate-500">% =</span><span className="font-semibold">{fmt(fraisTransport)}</span>
-        </div>
-        <span className="text-lg font-bold text-sky-800">Total : {fmt(totalDevis)}</span>
+        <LigneReglage libelle="Transport / livraison" mode={r.modeTransport} setMode={r.setModeTransport} pct={r.pctTransport} setPct={r.setPctTransport}
+          montant={r.montantTransport} setMontant={r.setMontantTransport} resultat={r.fraisTransport} attr={{ "data-ligne-transport": "" }} />
+        <span className="text-lg font-bold text-sky-800">Total : {fmt(r.totalDevis)}</span>
       </div>
       <button onClick={onConvertir} className="px-5 py-2 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800">🛒 Convertir en vente</button>
     </div>
@@ -204,6 +245,13 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
   const [pctRemise, setPctRemise] = useState("0");
   const [pctInstall, setPctInstall] = useState("10");
   const [pctTransport, setPctTransport] = useState("0");
+  // 12/10/2026 : chaque ligne en % (d'office) ou en montant libre.
+  const [modeRemise, setModeRemise] = useState(MODE_POURCENT);
+  const [montantRemise, setMontantRemise] = useState("");
+  const [modeInstall, setModeInstall] = useState(MODE_POURCENT);
+  const [montantInstall, setMontantInstall] = useState("");
+  const [modeTransport, setModeTransport] = useState(MODE_POURCENT);
+  const [montantTransport, setMontantTransport] = useState("");
   // ⚠ "Pose seule" (demande Timo) : le client a déjà acheté son matériel
   // ailleurs, BMI ne facture QUE la main d'œuvre — jamais un pourcentage du
   // matériel, un MONTANT FIXE saisi pour chaque chantier.
@@ -221,12 +269,16 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
     appliquerConditionsReprises(devisAReprendre?.devis, {
       setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
       setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur, setNb, setAvecInstallation,
+      setModeRemise, setMontantRemise, setModeInstall, setMontantInstall, setModeTransport, setMontantTransport,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
-  const totaux = calculerTotaux({ totalArticles, pctRemise, pctInstall, pctTransport, poseSeule, montantPoseFixe, pctAcompte });
+  const totaux = calculerTotaux({ totalArticles, pctRemise, pctInstall, pctTransport, poseSeule, montantPoseFixe, pctAcompte,
+    modeRemise, montantRemise, modeInstall, montantInstall, modeTransport, montantTransport, avecInstallation });
   return {
     totalArticles, pctRemise, setPctRemise, pctInstall, setPctInstall, pctTransport, setPctTransport,
+    modeRemise, setModeRemise, montantRemise, setMontantRemise, modeInstall, setModeInstall, montantInstall, setMontantInstall,
+    modeTransport, setModeTransport, montantTransport, setMontantTransport,
     poseSeule, setPoseSeule, montantPoseFixe, setMontantPoseFixe,
     pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, ...totaux,
     apporteur, setApporteur, principal, nb, setNb, avecInstallation, setAvecInstallation,
@@ -295,14 +347,7 @@ export function BlocsFinDevis({ r, onConvertir, aCompleter = false }) {
   return (
     <>
       <BlocPoseSeule r={r} />
-      <BlocTotauxDevis
-        totalArticles={r.totalArticles}
-        pctRemise={r.pctRemise} setPctRemise={r.setPctRemise} remise={r.remise}
-        pctInstall={r.pctInstall} setPctInstall={r.setPctInstall} fraisInstallation={r.fraisInstallation}
-        masquerInstallationPct={r.poseSeule}
-        pctTransport={r.pctTransport} setPctTransport={r.setPctTransport} fraisTransport={r.fraisTransport}
-        totalDevis={r.totalDevis} onConvertir={onConvertir}
-      />
+      <BlocTotauxDevis r={r} onConvertir={onConvertir} />
       <BlocConditionsPaiement
         pctAcompte={r.pctAcompte} setPctAcompte={r.setPctAcompte}
         delaiInstallation={r.delaiInstallation} setDelaiInstallation={r.setDelaiInstallation}
@@ -322,7 +367,7 @@ export function BlocsFinDevis({ r, onConvertir, aCompleter = false }) {
 // par la case « 🏗 Chantier » de 💰 Ventes. Pas de case pour une pose seule.
 export function BlocAvecInstallation({ r }) {
   if (r.poseSeule) return null;
-  const coche = avecInstallationDuDevis({ poseSeule: r.poseSeule, fraisInstallation: r.fraisInstallation, choix: r.avecInstallation });
+  const coche = avecInstallationDuDevis({ poseSeule: r.poseSeule, fraisInstallation: r.fraisInstallationBrut ?? r.fraisInstallation, choix: r.avecInstallation });
   return (
     <div className="px-4 py-3 border-t border-slate-200" data-avec-installation>
       <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -332,7 +377,7 @@ export function BlocAvecInstallation({ r }) {
       <div className="text-xs text-slate-500 mt-1">
         {coche
           ? <>Le matériel ne sortira du stock qu'au moment où les techniciens viendront le chercher (case « 🏗 Chantier » de 💰 Ventes).{!(Number(r.fraisInstallation) > 0) && <b className="text-amber-700"> Installation offerte : aucun frais d'installation sur ce devis.</b>}</>
-          : <>Matériel seul : il sortira du stock au paiement du devis.</>}
+          : <>Matériel seul, sans frais d'installation : il sortira du stock au paiement du devis.</>}
       </div>
     </div>
   );

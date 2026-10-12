@@ -263,7 +263,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
   const r = useReglagesDevis(totalArticles, { poseSeule: brouillon?.poseSeule ?? false, montantPoseFixe: brouillon?.montantPoseFixe ?? "" }, devisAReprendre, { principal: estAdminPrincipal(db, profile) });
-  const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
+  const { remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti, jamais avant.
   useEcrireBrouillonVolet("autre", profile, { besoins, poseSeule, montantPoseFixe, choix, verrous: besoinsManuels, autres });
@@ -308,7 +308,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const envoyerDevisWhatsApp = () => envoi.envoyer(argumentsEnvoi());
   const enregistrerBrouillon = () => envoi.enregistrerBrouillon(argumentsEnvoi());
 
-  const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
+  const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], r.pctRemiseEffectif);
 
   // ⚠⚠ QUELLE POMPE POUR CE FORAGE — l'étape 2, option « A » (Timo,
   // 20/09/2026). Le panneau n'apparaît QUE si le métier ouvert a des pompes

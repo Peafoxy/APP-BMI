@@ -278,7 +278,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
   const r = useReglagesDevis(totalArticles, {}, devisAReprendre, { principal: estAdminPrincipal(db, profile) });
-  const { pctRemise, remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
+  const { remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============
   // Compte destinataire, envoi WhatsApp, conversion en vente : la même règle
@@ -332,7 +332,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const envoyerDevisWhatsApp = () => envoi.envoyer(argumentsEnvoi());
   const enregistrerBrouillon = () => envoi.enregistrerBrouillon(argumentsEnvoi());
 
-  const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], pctRemise);
+  const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], r.pctRemiseEffectif);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la

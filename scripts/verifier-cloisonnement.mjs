@@ -3986,6 +3986,83 @@ titre("La fusion à l'envoi ne renvoie plus une vieille copie d'un champ qu'on n
     Fus.fusionner("ventes", undefined, { id: "v", x: 2 }, { id: "v", x: 3 }).x === 2);
 }
 
+titre("💲 Remise, frais d'installation, transport : en % ou en montant LIBRE ; « Avec installation » décochée = aucun frais (12/10/2026, « lance »)");
+{
+  const sortieML = join("node_modules", ".cache", `bmi-mode-libre-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieML, logLevel: "silent", loader: { ".js": "jsx" } });
+  const DL = await import(pathToFileURL(sortieML).href);
+  unlinkSync(sortieML);
+  const A0 = 1663200;
+  const base = { totalArticles: A0, pctRemise: "0", pctInstall: "10", pctTransport: "0", poseSeule: false, montantPoseFixe: "", pctAcompte: "100" };
+  const libre = DL.calculerTotaux({ ...base, modeInstall: "montant", montantInstall: "150000", modeTransport: "montant", montantTransport: "25 000", modeRemise: "montant", montantRemise: "50000" });
+  const libre2 = DL.calculerTotaux({ ...base, totalArticles: 2000000, modeInstall: "montant", montantInstall: "150000" });
+  test("★★ un montant LIBRE est le montant tapé, et il ne bouge pas quand les articles changent (installation, transport, remise)",
+    libre.fraisInstallation === 150000 && libre.fraisTransport === 25000 && libre.remise === 50000
+    && libre.totalDevis === A0 - 50000 + 150000 + 25000 && libre2.fraisInstallation === 150000);
+  const remTrop = DL.calculerTotaux({ ...base, modeRemise: "montant", montantRemise: "5000000" });
+  test("★★ une remise libre ne dépasse jamais les articles ; son pourcentage ÉQUIVALENT redonne le montant au franc près (la limite des 3 % et la conversion le lisent)",
+    remTrop.remise === A0 && Math.round(A0 * libre.pctRemiseEffectif / 100) === 50000
+    && libre.pctRemiseEffectif > 3 && DL.calculerTotaux({ ...base, pctRemise: "2.5" }).pctRemiseEffectif === 2.5);
+  const sansInst = DL.calculerTotaux({ ...base, avecInstallation: false });
+  test("★★ « Avec installation » DÉCOCHÉE : aucun frais d'installation (ni dans le total, ni sur le PDF) ; recochée, le chiffre d'avant revient ; la pose seule ne bouge pas",
+    sansInst.fraisInstallation === 0 && sansInst.fraisInstallationBrut === 166320 && sansInst.totalDevis === A0
+    && DL.lignesFrais({ ...base, ...sansInst }).every((l) => l.categorie !== "Installation")
+    && DL.calculerTotaux({ ...base, avecInstallation: true }).fraisInstallation === 166320
+    && DL.calculerTotaux({ ...base, poseSeule: true, montantPoseFixe: "80000", avecInstallation: false }).fraisInstallation === 80000);
+  const rL = { ...base, modeInstall: "montant", modeTransport: "montant", modeRemise: "montant", ...libre };
+  const lignesL = DL.lignesFrais(rL);
+  test("★★ sur le devis, un montant libre s'écrit SANS pourcentage (« Frais d'installation », « Transport / livraison », « Remise ») — et une reprise les reconnaît comme des frais (jamais comptés deux fois)",
+    lignesL.map((l) => l.article).join("|") === "Frais d'installation|Transport / livraison|Remise" && lignesL.every(DL.estLigneFrais)
+    && DL.lignesFrais({ ...base, ...DL.calculerTotaux(base) })[0].article === "Frais d'installation (10 %)");
+  const ch = DL.champsReglages(rL);
+  test("★★ le devis ENREGISTRE le mode de chaque ligne, et le pourcentage équivalent de la remise ; un pourcentage reste « pct » (les devis d'avant aussi)",
+    ch.mode_installation === "montant" && ch.mode_transport === "montant" && ch.mode_remise === "montant" && ch.pct_installation === null
+    && ch.pct_transport === null && ch.pct_remise === libre.pctRemiseEffectif && ch.frais_installation === 150000
+    && DL.champsReglages({ ...base, ...DL.calculerTotaux(base) }).mode_installation === "pct"
+    && DL.reglagesDuDevis({ frais_installation: 120000 }).modeInstall === "pct");
+  const relu = DL.reglagesDuDevis({ ...ch, pose_seule: false });
+  const apres = DL.calculerTotaux({ ...relu, totalArticles: 2500000 });
+  const dcSrc = readFileSync("src/screens/dimensionnement/devisCommun.js", "utf8");
+  test("★★ ✍️ Compléter le devis garde un montant libre tel quel (les articles ajoutés ne le changent pas) ; la remise libre recalcule son pourcentage équivalent",
+    apres.fraisInstallation === 150000 && apres.fraisTransport === 25000 && apres.remise === 50000
+    && /const reglages = reglagesDuDevis\(devis\);/.test(dcSrc) && /pct_remise: t\.pctRemiseEffectif,/.test(dcSrc));
+  const v = {};
+  const cap = { setPctRemise: (x) => (v.pr = x), setPctInstall: (x) => (v.pi = x), setPctTransport: (x) => (v.pt = x), setPctAcompte: () => {}, setDelaiInstallation: () => {},
+    setPoseSeule: () => {}, setMontantPoseFixe: () => {}, setModeRemise: (x) => (v.mr = x), setMontantRemise: (x) => (v.r = x), setModeInstall: (x) => (v.mi = x),
+    setMontantInstall: (x) => (v.i = x), setModeTransport: (x) => (v.mt = x), setMontantTransport: (x) => (v.t = x) };
+  Dim.appliquerConditionsReprises({ ...ch, pose_seule: false }, cap);
+  const v1 = { ...v };
+  Dim.appliquerConditionsReprises({ pct_remise: 3, pct_installation: 12, pct_transport: 5, frais_installation: 1, remise: 2 }, cap);
+  test("★★ un devis repris (ou un brouillon) revient avec ses montants libres ; un ancien devis revient en pourcentage",
+    v1.mr === "montant" && v1.r === "50000" && v1.mi === "montant" && v1.i === "150000" && v1.mt === "montant" && v1.t === "25000" && v1.pr === "0"
+    && v.mr === "pct" && v.mi === "pct" && v.mt === "pct" && v.r === "" && v.pr === "3" && v.pi === "12");
+  const React = (await import("react")).default;
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const sortieBT = join("node_modules", ".cache", `bmi-bloc-totaux-${process.pid}.mjs`);
+  let DimR = null;
+  try {
+    await build({ entryPoints: ["src/screens/dimensionnement/Partages.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieBT, logLevel: "silent",
+      jsx: "automatic", loader: { ".js": "jsx" }, define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    DimR = await import(pathToFileURL(sortieBT).href);
+  } catch {}
+  try { unlinkSync(sortieBT); } catch {}
+  const rEcran = (extra) => ({ ...base, setPctRemise() {}, setPctInstall() {}, setPctTransport() {}, setModeRemise() {}, setMontantRemise() {}, setModeInstall() {}, setMontantInstall() {},
+    setModeTransport() {}, setMontantTransport() {}, setAvecInstallation() {}, modeRemise: "pct", modeInstall: "pct", modeTransport: "pct", montantRemise: "", montantInstall: "", montantTransport: "",
+    avecInstallation: null, ...DL.calculerTotaux({ ...base, ...extra }), ...extra });
+  const rendre = (r) => { const e0 = console.error; console.error = () => {}; try { return String(renderToStaticMarkup(React.createElement(DimR.BlocTotauxDevis, { r, onConvertir() {} }))).replace(/[\u202f\u00a0]/g, " "); } catch { return ""; } finally { console.error = e0; } };
+  const hAvec = rendre(rEcran({})), hSans = rendre(rEcran({ avecInstallation: false })), hLibre = rendre(rEcran({ modeInstall: "montant", montantInstall: "150000" }));
+  test("★★ l'écran RENDU : la ligne d'installation disparaît quand la case est décochée ; chaque libellé est une liste « … % / … libre » ; en libre, une case en francs",
+    hAvec !== "" && /data-ligne-installation/.test(hAvec) && !/data-ligne-installation/.test(hSans) && /data-ligne-remise/.test(hSans) && /data-ligne-transport/.test(hSans)
+    && /<option value="pct"[^>]*>Remise %<\/option><option value="montant">Remise libre<\/option>/.test(hAvec)
+    && /Frais d&#x27;installation libre<\/option>/.test(hAvec) && /Transport \/ livraison libre<\/option>/.test(hAvec)
+    && /data-ligne-installation[^]*?class="w-28[^"]*" value="150000"\/><span class="text-slate-500">F<\/span>/.test(hLibre) && /Total : (<!-- -->)?1 813 200 F/.test(hLibre));
+  const vol = ["Solaire", "Garage", "Autre"].map((f) => readFileSync(`src/screens/dimensionnement/${f}.jsx`, "utf8"));
+  test("★ « Convertir en vente » passe le pourcentage ÉQUIVALENT de la remise (une remise libre arrive juste dans 💰 Ventes) ; « 🆕 Nouveau devis » remet les trois lignes en %",
+    vol.every((t) => /envoi\.convertir\(\[\.\.\.panierMetier\(\), \.\.\.panierAutres\(autres\)\], r\.pctRemiseEffectif\);/.test(t))
+    && /r\.setModeRemise\("pct"\); r\.setMontantRemise\(""\); r\.setModeInstall\("pct"\); r\.setMontantInstall\(""\); r\.setModeTransport\("pct"\); r\.setMontantTransport\(""\);/.test(vol[0]));
+}
+
 titre("📋 Le statut des dettes : Tout (en cours + partielles), En cours, Partielle, Payée (12/10/2026, « payé n'est plus une dette »)");
 {
   const Cs = await import(pathToFileURL("src/lib/core.js").href);
@@ -4330,8 +4407,9 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
         ...(fraisTransport > 0 ? [{ categorie: "Transport", article: `Transport / livraison (${pctTransport} %)`, qte: 1, pu: fraisTransport, total: fraisTransport }] : []),
         ...(remise > 0 ? [{ categorie: "Remise", article: `Remise (${pctRemise} %)`, qte: 1, pu: -remise, total: -remise }] : []),
       ],
-      total: totalDevis, pose_seule: poseSeule, frais_installation: fraisInstallation, pct_installation: poseSeule ? null : Number(pctInstall || 0),
-      frais_transport: fraisTransport, pct_transport: Number(pctTransport || 0), remise, pct_remise: Number(pctRemise || 0),
+      // RETOURNÉ le 12/10/2026 : chaque ligne porte son mode (« pct » d'office, ou « montant » libre).
+      total: totalDevis, pose_seule: poseSeule, frais_installation: fraisInstallation, pct_installation: poseSeule ? null : Number(pctInstall || 0), mode_installation: "pct",
+      frais_transport: fraisTransport, pct_transport: Number(pctTransport || 0), mode_transport: "pct", remise, pct_remise: Number(pctRemise || 0), mode_remise: "pct",
       pct_acompte: Number(pctAcompte || 100), montant_acompte: montantAcompte, delai_installation: delaiInstallation.trim(),
       // RETOURNÉ le 08/10/2026 : le devis porte la ligne NB, vide quand rien n'est tapé.
       nb: "",
