@@ -1076,6 +1076,7 @@ export function Users({ db, save, profile }) {
     const moi = db.users.find((x) => x.id === profile.id) || profile;
     const contenu = contenuDocument(type, {
       u: frais, poste: LIBELLE_ROLE_EMPLOYE[frais.role] || frais.role, lieu: affectationDe(frais),
+      libelleRole: (r) => LIBELLE_ROLE_EMPLOYE[r] || r,
       signataire: { nom: moi.nom_complet || moi.nom, signature: moi.signature_personnelle || "", sexe: moi.sexe },
       appreciation, aujourdhui: today(),
     });

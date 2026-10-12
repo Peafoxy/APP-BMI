@@ -13804,9 +13804,11 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     const sig = { nom: "TIMO", signature: "data:image/png;base64,AAA" };
     const cert = CE.contenuDocument("certificat", { u: { ...sorti(1), cnss_matricule: "MLE-9" }, poste: "Vendeur", lieu: "BMI DEMAKPOE", signataire: sig, appreciation: "très bon élément", aujourdhui: J });
     const texteCert = cert.paragraphes.join(" ");
-    test("★★ 📄 le certificat de travail dit les dates, le poste, le matricule et « libre de tout engagement », signé par le Directeur Général — et reste NEUTRE : ni motif de sortie, ni appréciation",
+    test("★★ 📄 le certificat de travail : « Nous soussignés, BMI TOGO … NIF … RCCM … représentée par TIMO, Directeur Général, certifions que … », les dates, le poste, le matricule, « nous quitte à la date du …, libre de tout engagement » — et reste NEUTRE : ni motif de sortie, ni appréciation",
       cert.titre === "CERTIFICAT DE TRAVAIL" && /du <b>01\/03\/2025<\/b> au <b>10\/10\/2026<\/b>/.test(texteCert) && /<b>Vendeur<\/b> \(BMI DEMAKPOE\)/.test(texteCert)
-      && /MLE-9/.test(texteCert) && /libre de tout engagement/.test(texteCert) && /TIMO<\/b>, Directeur Général de BMI TOGO/.test(texteCert)
+      && /matricule MLE-9, a été/.test(texteCert) && /nous quitte à la date du <b>10\/10\/2026<\/b>, libre de tout engagement/.test(texteCert)
+      && /^Nous soussignés, <b>BMI TOGO<\/b> \(Les Bâtiments Modernes et Intelligents\), NIF 1001790098, RCCM TG-LFW-01-2022-A10-01523, dont le siège est à Lomé \(Togo\), représentée par <b>TIMO<\/b>, Directeur Général, certifions que /.test(cert.paragraphes[0])
+      && /^En foi de quoi, nous lui délivrons le présent certificat/.test(cert.paragraphes[2]) && !/Je soussign/.test(texteCert)
       && cert.signataire.titre === "Le Directeur Général" && !/très bon élément|démission|licenci|motif/i.test(texteCert) && cert.fait === "Fait à Lomé, le 12/10/2026.");
     const stage = CE.contenuDocument("stage", { u: sorti(12), poste: "Technicien BMI", signataire: sig, appreciation: "  a fait preuve\nde sérieux  ", aujourdhui: J });
     const appr = CE.contenuDocument("apprentissage", { u: sorti(4), poste: "Technicien BMI", signataire: sig, appreciation: "", aujourdhui: J });
@@ -13815,8 +13817,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
       && CE.accepteAppreciation("stage") && CE.accepteAppreciation("apprentissage") && !CE.accepteAppreciation("certificat") && !CE.accepteAppreciation("attestation")
       && CE.nettoyerAppreciation("x".repeat(400)).length === 300);
     const att = CE.contenuDocument("attestation", { u: { ...base, cnss_code_type: 5, contrat_fin: "2027-02-28" }, poste: "Vendeur", signataire: sig, aujourdhui: J });
-    test("★★ 📄 « D b » : l'attestation de travail dit « est employé(e) depuis le … », le contrat (CDD jusqu'au …) et « à sa demande »",
-      att.titre === "ATTESTATION DE TRAVAIL" && /est employé\(e\) au sein de notre entreprise depuis le <b>01\/03\/2025<\/b>/.test(att.paragraphes[0])
+    test("★★ 📄 « D b » : l'attestation de travail dit « attestons que … est employé(e) depuis le … », le contrat (CDD jusqu'au …) et « à sa demande »",
+      att.titre === "ATTESTATION DE TRAVAIL" && /attestons que M\.\/Mme <b>FRED Komi<\/b> est employé\(e\) au sein de notre entreprise depuis le <b>01\/03\/2025<\/b>/.test(att.paragraphes[0])
       && /sous contrat CDD jusqu'au 28\/02\/2027/.test(att.paragraphes[0]) && /à sa demande/.test(att.paragraphes[1]));
     const piege = CE.contenuDocument("certificat", { u: { ...sorti(1), nom_complet: "<img src=x>" }, poste: "<b>", signataire: { nom: "<i>" }, aujourdhui: J });
     test("★ 📄 tout ce qui vient des données est échappé (nom, poste, signataire)",
@@ -13825,8 +13827,10 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     const hDoc = String(globalThis.__bulletin || "");
     Imp.imprimerDocumentEmploye({ ...cert, signataire: { ...cert.signataire, signature: "" } }, db0, true);
     const hDoc2 = String(globalThis.__bulletin || "");
-    test("★★ 📄 le document IMPRIMÉ porte son titre, le texte, « Le Directeur Général », la signature de celui qui délivre et LE cachet de la maison ; sans signature, la place est laissée ; en formation, le bandeau",
-      /<h1>CERTIFICAT DE TRAVAIL<\/h1>/.test(hDoc) && hDoc.includes("libre de tout engagement") && hDoc.includes("Le Directeur Général")
+    test("★★ 📄 le document IMPRIMÉ porte son titre SOULIGNÉ, le texte justifié, « Fait à Lomé » à droite, « Pour BMI TOGO, Le Directeur Général », la signature de celui qui délivre POSÉE SUR LE cachet de la maison ; sans signature, le cachet seul ; en formation, le bandeau",
+      /<h1><span>CERTIFICAT DE TRAVAIL<\/span><\/h1>/.test(hDoc) && /\.att h1 span\{border-bottom:3px solid #1e5a8a/.test(hDoc) && /\.att p\{text-align:justify;text-indent/.test(hDoc) && /\.att \.fait\{text-align:right/.test(hDoc)
+      && /Pour BMI TOGO,<\/div>\s*<div>Le Directeur Général<\/div>\s*<div class="zone">\s*<img class="cachet"[^>]*alt="Cachet BMI Togo" \/>\s*<img class="signature"/.test(hDoc)
+      && hDoc.includes("libre de tout engagement")
       && /<img class="signature" src="data:image\/png;base64,AAA"/.test(hDoc) && /alt="Cachet BMI Togo"/.test(hDoc) && !/DOCUMENT DE FORMATION/.test(hDoc)
       && !/class="signature"/.test(hDoc2) && /alt="Cachet BMI Togo"/.test(hDoc2) && /DOCUMENT DE FORMATION/.test(hDoc2));
     // ⚧ LE SEXE (12/10/2026, « Ab, Ba, Ca ») : « M. » / « Mme », et les accords.
@@ -13840,11 +13844,24 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
       && CV.critiqueSexe("H") === "" && CV.critiqueSexe("") === "" && !!CV.critiqueSexe("Z") && CV.libelleSexe({ sexe: "F" }) === "Femme");
     const certF = CE.contenuDocument("certificat", { u: { ...sorti(1), sexe: "F" }, poste: "Vendeur", signataire: { nom: "AMA", sexe: "F" }, aujourdhui: J });
     const certH = CE.contenuDocument("attestation", { u: { ...base, sexe: "H", cnss_code_type: 1 }, poste: "Vendeur", signataire: { nom: "TIMO", sexe: "H" }, aujourdhui: J });
-    test("★★ ⚧ le certificat accorde : « Mme … a été employée », « L'intéressée », « Je soussignée, …, Directrice Générale » ; « M. … est employé », « Je soussigné, … Directeur Général » ; sans sexe, la forme neutre",
-      /Je soussignée, <b>AMA<\/b>, Directrice Générale/.test(certF.paragraphes[0]) && /Mme <b>FRED Komi<\/b>/.test(certF.paragraphes[0]) && /a été employée au sein/.test(certF.paragraphes[0])
-      && certF.paragraphes[1].startsWith("L'intéressée quitte") && certF.signataire.titre === "La Directrice Générale"
-      && /Je soussigné, <b>TIMO<\/b>, Directeur Général/.test(certH.paragraphes[0]) && /M\. <b>FRED Komi<\/b>/.test(certH.paragraphes[0]) && /est employé au sein/.test(certH.paragraphes[0])
-      && /M\.\/Mme <b>/.test(texteCert) && /employé\(e\)/.test(texteCert));
+    test("★★ ⚧ le certificat accorde : « Madame … a été employée », « Elle nous quitte », « représentée par Madame AMA, Directrice Générale » ; « Monsieur … est employé », « représentée par Monsieur TIMO, Directeur Général » ; sans sexe, la forme neutre",
+      /représentée par Madame <b>AMA<\/b>, Directrice Générale,/.test(certF.paragraphes[0]) && /Madame <b>FRED Komi<\/b>/.test(certF.paragraphes[0]) && /a été employée au sein/.test(certF.paragraphes[0])
+      && certF.paragraphes[1].startsWith("Elle nous quitte") && certF.signataire.titre === "La Directrice Générale"
+      && /représentée par Monsieur <b>TIMO<\/b>, Directeur Général,/.test(certH.paragraphes[0]) && /Monsieur <b>FRED Komi<\/b>/.test(certH.paragraphes[0]) && /est employé au sein/.test(certH.paragraphes[0])
+      && /M\.\/Mme <b>/.test(texteCert) && /employé\(e\)/.test(texteCert) && cert.paragraphes[1].startsWith("L'intéressé(e) nous quitte"));
+    // 🪪 La pièce d'identité et 🔁 les postes successifs (12/10/2026, « Les 6, Ab, Bb »).
+    const lib = (r) => ({ vendeur: "Vendeur", gerant: "Gérant de boutique" }[r] || r);
+    const certP = CE.contenuDocument("certificat", { u: { ...sorti(1), role: "gerant", role_avant: "vendeur", role_change_le: "2026-06-15", piece_type: "Passeport", piece_num: "A123" }, poste: "Gérant de boutique", lieu: "BMI DEMAKPOE", signataire: sig, libelleRole: lib, aujourdhui: J });
+    const attP = CE.contenuDocument("attestation", { u: { ...base, cnss_code_type: 1, role: "gerant", role_avant: "vendeur", role_change_le: "2026-06-15", piece_num: "CNI-77" }, poste: "Gérant de boutique", signataire: sig, libelleRole: lib, aujourdhui: J });
+    const avant = CE.contenuDocument("certificat", { u: { ...sorti(1), role: "gerant", role_avant: "vendeur", role_change_le: "2024-06-15" }, poste: "Gérant de boutique", signataire: sig, libelleRole: lib, aujourdhui: J });
+    test("★★ 🪪 la pièce d'identité s'écrit si la fiche la porte (« titulaire de la pièce d'identité Passeport n° A123 », CNI d'office) ; rien sinon",
+      /M\.\/Mme <b>FRED Komi<\/b>, titulaire de la pièce d'identité Passeport n° A123, a été/.test(certP.paragraphes[0]) && /titulaire de la pièce d'identité CNI n° CNI-77, est/.test(attP.paragraphes[0])
+      && !/titulaire/.test(texteCert));
+    test("★★ 🔁 un rôle changé PENDANT le contrat donne le parcours : « d'abord en qualité de Vendeur jusqu'au 14/06/2026, puis en qualité de Gérant de boutique (lieu) à partir du 15/06/2026 » (« depuis le » en poste) ; un changement hors du contrat ne compte pas",
+      /d'abord en qualité de <b>Vendeur<\/b> jusqu'au 14\/06\/2026, puis en qualité de <b>Gérant de boutique<\/b> \(BMI DEMAKPOE\) à partir du 15\/06\/2026\./.test(certP.paragraphes[0])
+      && /d'abord en qualité de <b>Vendeur<\/b> jusqu'au 14\/06\/2026, puis en qualité de <b>Gérant de boutique<\/b> depuis le 15\/06\/2026, sous contrat/.test(attP.paragraphes[0])
+      && /du <b>01\/03\/2025<\/b> au <b>10\/10\/2026<\/b>, en qualité de <b>Gérant de boutique<\/b>\./.test(avant.paragraphes[0]) && !/d'abord/.test(avant.paragraphes[0])
+      && /libelleRole: \(r\) => LIBELLE_ROLE_EMPLOYE\[r\] \|\| r,/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")));
     const ceSrc = readFileSync("src/lib/clientEntreprise.js", "utf8");
     test("★★ ⚧ « A b » : le contrat d'un CLIENT écrit « M. » ou « Mme » d'après sa fiche (« Mr/Mme » si rien), à l'impression ET dans son espace",
       /export function partieClientContrat\(\{ nom, prenom, tel, entreprise, civ = "Mr\/Mme" \} = \{\}\)/.test(ceSrc) && /return `\$\{civ\} : \$\{personne\}/.test(ceSrc)

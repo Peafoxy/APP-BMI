@@ -19,14 +19,17 @@
 // ⚠ LE CERTIFICAT DE TRAVAIL RESTE NEUTRE : jamais le motif du départ, jamais
 // une appréciation — il ne doit pas pouvoir nuire à la personne.
 // ⚠ Le sexe vient de la fiche (lib/civilite.js, 12/10/2026, « Ab, Ba, Ca ») :
-// « M. … a été employé » / « Mme … a été employée ». Pas saisi : on
+// « Monsieur … a été employé » / « Madame … a été employée ». Pas saisi : on
 // n'invente rien — « M./Mme », « employé(e) ». Le signataire aussi.
+// ⚠ Inspiré de deux attestations remises par Timo (12/10/2026, « Les 6, Ab,
+// Bb ») : la MAISON parle (« Nous soussignés, BMI TOGO… »), la pièce
+// d'identité, le parcours si le rôle a changé, « nous quitte à la date du ».
 // ⚠ Les dates viennent de la fiche de paie : `cnss_date_embauche`,
 // `cnss_date_sortie` (🚪 Sortie), `cnss_code_type` (UNE source avec la
 // déclaration CNSS, lib/contratTravail.js). Rien n'est écrit ici.
 // ============================================================
 import { codeContrat, phraseContrat, CODE_CDI } from "./contratTravail.js";
-import { civilite, accorde } from "./civilite.js";
+import { accorde } from "./civilite.js";
 
 export const CODE_APPRENTISSAGE = 4;
 export const CODE_STAGE = 12;
@@ -85,45 +88,74 @@ export function critiqueDocument(type, u, aujourdhui) {
 export const nettoyerAppreciation = (t) => String(t || "").replace(/\s+/g, " ").trim().slice(0, APPRECIATION_MAX);
 export const accepteAppreciation = (type) => type === "stage" || type === "apprentissage";
 
+// L'identité de la maison, dite par elle-même (« A b », 12/10/2026 : « Nous
+// soussignés, BMI TOGO… »). Les mêmes chiffres que l'en-tête des documents.
+export const IDENTITE_BMI = "<b>BMI TOGO</b> (Les Bâtiments Modernes et Intelligents), NIF 1001790098, RCCM TG-LFW-01-2022-A10-01523, dont le siège est à Lomé (Togo)";
+
+// La veille d'une date ("2026-06-15" → "2026-06-14").
+const veille = (d) => { const t = new Date(`${iso(d)}T00:00:00Z`); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
+
+// Les postes occupés pendant le contrat : le poste d'avant le dernier
+// changement de rôle (`role_avant`, `role_change_le`, posés par 🎭 Rôle) s'il
+// tombe DANS le contrat, puis le poste actuel. ⚠ Seul le DERNIER changement
+// est connu de la fiche : un parcours plus long ne se reconstitue pas.
+export function postesOccupes(u, poste, libelleRole = (r) => r) {
+  const change = iso(u?.role_change_le), debut = iso(u?.cnss_date_embauche);
+  const finContrat = estDate(u?.cnss_date_sortie) ? iso(u.cnss_date_sortie) : "9999-12-31";
+  if (!u?.role_avant || u.role_avant === u.role || u.role_avant === "client" || !estDate(change) || !estDate(debut) || change <= debut || change > finContrat) return [{ poste }];
+  return [{ poste: libelleRole(u.role_avant) || u.role_avant, au: veille(change) }, { poste, du: change }];
+}
+
 // Le contenu du document : titre, paragraphes, date et signataire. `poste` =
 // la fonction lisible (« Vendeur »…), `lieu` = la boutique ou le lieu
-// d'affectation, `signataire` = { nom, signature, sexe }.
-export function contenuDocument(type, { u, poste, lieu, signataire, appreciation, aujourdhui }) {
+// d'affectation, `signataire` = { nom, signature, sexe }, `libelleRole` = le
+// libellé d'un rôle (pour un poste d'avant).
+export function contenuDocument(type, { u, poste, lieu, signataire, appreciation, aujourdhui, libelleRole }) {
   const doc = DOCUMENTS_EMPLOYE[type];
   if (!doc || !u) return null;
   const nom = String(u.nom_complet || u.nom || "").trim();
-  const qui = `${civilite(u)} <b>${esc(nom)}</b>`;
-  const employe = accorde(u, "employé", "employée", "employé(e)");
-  const interesse = accorde(u, "L'intéressé", "L'intéressée", "L'intéressé(e)");
-  const titre = titreSignataire(signataire);
+  const piece = String(u.piece_num || "").trim()
+    ? `, titulaire de la pièce d'identité ${esc(String(u.piece_type || "CNI").trim() || "CNI")} n° ${esc(String(u.piece_num).trim())}` : "";
   const matricule = u.cnss_matricule ? `, matricule ${esc(u.cnss_matricule)}` : "";
+  // Une incise (pièce, matricule) se ferme par une virgule : « Monsieur X, titulaire…, matricule…, a été ».
+  const qui = `${accorde(u, "Monsieur", "Madame", "M./Mme")} <b>${esc(nom)}</b>${piece}${matricule}${piece || matricule ? "," : ""}`;
+  const employe = accorde(u, "employé", "employée", "employé(e)");
+  const pronom = accorde(u, "Il", "Elle", "L'intéressé(e)");
+  const titre = titreSignataire(signataire);
   const ou = lieu ? ` (${esc(lieu)})` : "";
   const fonction = esc(poste || "—");
   const debut = dFR(u.cnss_date_embauche), fin = dFR(u.cnss_date_sortie);
-  const signe = `Je ${accorde(signataire, "soussigné", "soussignée", "soussigné(e)")}, <b>${esc(signataire?.nom || "")}</b>, ${titre} de BMI TOGO (Les Bâtiments Modernes et Intelligents),`;
+  const civSig = accorde(signataire, "Monsieur ", "Madame ", "");
+  const nous = `Nous soussignés, ${IDENTITE_BMI}, représentée par ${civSig}<b>${esc(signataire?.nom || "")}</b>, ${titre},`;
   const phrase = accepteAppreciation(type) ? esc(nettoyerAppreciation(appreciation)) : "";
+  // Un poste, ou le parcours : « d'abord en qualité de A jusqu'au …, puis en qualité de B à partir du … ».
+  const parcours = (enCours) => {
+    const ps = postesOccupes(u, poste || "—", libelleRole);
+    if (ps.length < 2) return `en qualité de <b>${fonction}</b>${ou}`;
+    return `d'abord en qualité de <b>${esc(ps[0].poste)}</b> jusqu'au ${dFR(ps[0].au)}, puis en qualité de <b>${fonction}</b>${ou} ${enCours ? "depuis le" : "à partir du"} ${dFR(ps[1].du)}`;
+  };
   const p = [];
   if (type === "certificat") {
-    p.push(`${signe} certifie que ${qui}${matricule} a été ${employe} au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, en qualité de <b>${fonction}</b>${ou}.`);
-    p.push(`${interesse} quitte l'entreprise libre de tout engagement.`);
-    p.push("En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.");
+    p.push(`${nous} certifions que ${qui} a été ${employe} au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, ${parcours(false)}.`);
+    p.push(`${pronom} nous quitte à la date du <b>${fin}</b>, libre de tout engagement.`);
+    p.push("En foi de quoi, nous lui délivrons le présent certificat pour servir et valoir ce que de droit.");
   } else if (type === "apprentissage") {
-    p.push(`${signe} atteste que ${qui} a suivi un apprentissage au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, dans le métier de <b>${fonction}</b>${ou}.`);
+    p.push(`${nous} attestons que ${qui} a suivi un apprentissage au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, dans le métier de <b>${fonction}</b>${ou}.`);
     if (phrase) p.push(phrase);
-    p.push("En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.");
+    p.push("En foi de quoi, nous lui délivrons la présente attestation pour servir et valoir ce que de droit.");
   } else if (type === "stage") {
-    p.push(`${signe} atteste que ${qui} a effectué un stage au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, au poste de <b>${fonction}</b>${ou}.`);
+    p.push(`${nous} attestons que ${qui} a effectué un stage au sein de notre entreprise du <b>${debut}</b> au <b>${fin}</b>, au poste de <b>${fonction}</b>${ou}.`);
     if (phrase) p.push(phrase);
-    p.push("En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.");
+    p.push("En foi de quoi, nous lui délivrons la présente attestation pour servir et valoir ce que de droit.");
   } else {
     const c = codeContrat(u);
     const etat = c === CODE_STAGE ? `effectue un stage au sein de notre entreprise depuis le <b>${debut}</b>, au poste de <b>${fonction}</b>${ou}`
       : c === CODE_APPRENTISSAGE ? `suit un apprentissage au sein de notre entreprise depuis le <b>${debut}</b>, dans le métier de <b>${fonction}</b>${ou}`
-      : `est ${employe} au sein de notre entreprise depuis le <b>${debut}</b>, en qualité de <b>${fonction}</b>${ou}`;
+      : `est ${employe} au sein de notre entreprise depuis le <b>${debut}</b>, ${parcours(true)}`;
     const contrat = phraseContrat(u);
     const sous = contrat && c !== CODE_STAGE && c !== CODE_APPRENTISSAGE ? `, sous contrat ${c === CODE_CDI ? "à durée indéterminée (CDI)" : contrat}` : "";
-    p.push(`${signe} atteste que ${qui}${matricule} ${etat}${sous}.`);
-    p.push("La présente attestation lui est délivrée, à sa demande, pour servir et valoir ce que de droit.");
+    p.push(`${nous} attestons que ${qui} ${etat}${sous}.`);
+    p.push("En foi de quoi, nous lui délivrons la présente attestation, à sa demande, pour servir et valoir ce que de droit.");
   }
   return { type, titre: doc.titre, nom: doc.nom, paragraphes: p, fait: `Fait à Lomé, le ${dFR(aujourdhui)}.`, signataire: { nom: signataire?.nom || "", titre: `${accorde(signataire, "Le", "La", "Le")} ${titre}`, signature: signataire?.signature || "" }, employe: nom };
 }

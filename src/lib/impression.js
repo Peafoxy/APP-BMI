@@ -1046,16 +1046,15 @@ export function imprimerDocumentEmploye(contenu, db, estFormation = false) {
   #zone-impression .att .entete img{max-width:140px;max-height:100px;object-fit:contain}
   #zone-impression .att .soc{text-align:right;line-height:1.5;font-size:11.5px}
   #zone-impression .att .soc .nom{font-size:19px;font-weight:bold;color:#1e5a8a}
-  #zone-impression .att h1{text-align:center;font-size:18px;letter-spacing:2px;margin:28px 0 30px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
-  #zone-impression .att p{text-align:justify;margin:0 0 14px}
-  #zone-impression .att .fait{margin-top:26px}
-  #zone-impression .att table.sig{width:100%;border-collapse:collapse;margin-top:18px;page-break-inside:avoid;break-inside:avoid}
-  #zone-impression .att table.sig td{vertical-align:bottom;text-align:center;font-size:12px;padding:0}
-  #zone-impression .att table.sig td.cachet{width:150px}
-  #zone-impression .att table.sig td.cachet img{max-width:120px;opacity:0.9}
-  #zone-impression .att table.sig td.qui{width:260px}
-  #zone-impression .att table.sig img.signature{max-height:60px;display:block;margin:6px auto 2px}
-  #zone-impression .att table.sig .ligne{border-top:1px solid #333;padding-top:4px;margin-top:4px;font-weight:bold}
+  #zone-impression .att h1{text-align:center;font-size:19px;letter-spacing:2px;margin:30px 0 32px;color:#1e5a8a}
+  #zone-impression .att h1 span{border-bottom:3px solid #1e5a8a;padding-bottom:6px}
+  #zone-impression .att p{text-align:justify;text-indent:28px;margin:0 0 14px;line-height:1.85}
+  #zone-impression .att .fait{text-align:right;margin-top:28px}
+  #zone-impression .att .sig{width:280px;margin:14px 0 0 auto;text-align:center;font-size:12.5px;page-break-inside:avoid;break-inside:avoid}
+  #zone-impression .att .sig .zone{position:relative;height:110px}
+  #zone-impression .att .sig .zone img.cachet{position:absolute;left:50%;top:0;transform:translateX(-60%);width:110px;opacity:0.85}
+  #zone-impression .att .sig .zone img.signature{position:absolute;left:50%;top:22px;transform:translateX(-35%);max-height:70px;max-width:180px}
+  #zone-impression .att .sig .ligne{border-top:1px solid #333;padding-top:4px;font-weight:bold}
   #zone-impression .att .pied{text-align:center;font-style:italic;color:#555;margin-top:40px;border-top:1px dashed #aaa;padding-top:8px;font-size:10.5px}
   </style>
   <div class="att" data-document-employe="${esc(contenu.type)}">
@@ -1064,18 +1063,18 @@ export function imprimerDocumentEmploye(contenu, db, estFormation = false) {
       <td><img src="${LOGO}" alt="BMI" /></td>
       <td class="soc"><div class="nom">BMI TOGO</div><div>Les Bâtiments Modernes et Intelligents</div><div>Lomé, Togo</div><div>NIF : 1001790098 · RCCM : TG-LFW-01-2022-A10-01523</div></td>
     </tr></table>
-    <h1>${esc(contenu.titre)}</h1>
+    <h1><span>${esc(contenu.titre)}</span></h1>
     ${contenu.paragraphes.map((x) => `<p>${x}</p>`).join("")}
     <div class="fait">${esc(contenu.fait)}</div>
-    <table class="sig"><tr>
-      <td></td>
-      <td class="cachet"><img src="${cachet}" alt="Cachet BMI Togo" /></td>
-      <td class="qui">
-        <div>${esc(s.titre || "")}</div>
-        ${s.signature ? `<img class="signature" src="${s.signature}" alt="Signature" />` : "<br><br><br>"}
-        <div class="ligne">${esc(s.nom || "")}</div>
-      </td>
-    </tr></table>
+    <div class="sig">
+      <div>Pour BMI TOGO,</div>
+      <div>${esc(s.titre || "")}</div>
+      <div class="zone">
+        <img class="cachet" src="${cachet}" alt="Cachet BMI Togo" />
+        ${s.signature ? `<img class="signature" src="${s.signature}" alt="Signature" />` : ""}
+      </div>
+      <div class="ligne">${esc(s.nom || "")}</div>
+    </div>
     <div class="pied">Document délivré par BMI TOGO — BMI-Gestion.</div>
   </div>`;
   if (printApi) printApi.open(html, nomDocument(contenu.nom, { client: contenu.employe }));

@@ -6668,6 +6668,19 @@ lit mal est pire qu'un banc absent).
   éprouvé (appréciation sur le certificat, garde du principal retirée,
   document de fin avant la sortie) ; un contrôle RETOURNÉ (⋯ Gérer : 26
   boutons). Regardé rendu dans Chromium. Chapitres 2 et 18 à jour.
+- **🖋 LA MAISON PARLE** (le même jour, deux attestations montrées par Timo,
+  « Les 6, A b, B b ») : « Nous soussignés, BMI TOGO (…), NIF, RCCM, dont le
+  siège est à Lomé (Togo), représentée par Monsieur / Madame X, Directeur
+  Général, certifions / attestons que Monsieur / Madame Y » (`IDENTITE_BMI`) —
+  plus « Je soussigné » ; la **pièce d'identité** (`piece_type` / `piece_num`)
+  et le matricule en incise ; le **parcours** si le rôle a changé PENDANT le
+  contrat (`postesOccupes` : `role_avant` + `role_change_le` posés par
+  🎭 Rôle — ⚠ seul le DERNIER changement est connu) ; « Il / Elle nous quitte
+  à la date du …, libre de tout engagement » ; « En foi de quoi, nous lui
+  délivrons… ». **« B b »** : le titre reste bleu BMI, souligné ; texte
+  justifié, retrait de première ligne ; « Fait à Lomé » à droite ; « Pour BMI
+  TOGO, Le Directeur Général », la signature POSÉE SUR le cachet. Banc (+2,
+  quatre RETOURNÉS), éprouvé. Regardé dans Chromium. Chapitre 18 à jour.
 
 ### ⚧ LE SEXE D'UN COMPTE (12/10/2026, « Ab, Ba, Ca »)
 - Timo, après les attestations : « ajouter le sexe sur la fiche pour que
