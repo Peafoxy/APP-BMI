@@ -15208,6 +15208,12 @@ titre("🔒 Le matériel réservé pour une installation (12/10/2026, « A a, B 
   test("★ 📦 Stocks : les réservations de l'espace REGARDÉ, le cadre « 🔒 Matériel réservé », la liste à réapprovisionner sur le disponible",
     /reservations\(\{ chantiers: chantiersDeLEspaceRegarde\(db, profile\), ventes: db\.ventes \}\)/.test(srcS) && /reserves: reserveIci \}\)/.test(srcS)
     && /data-materiel-reserve/.test(srcS) && /\["Article", "En stock", "Réservé", "Disponible", "Pour qui"\]/.test(srcS) && /data-receptionnes-non-sortis/.test(srcS));
+  const qT = A.avertissementReserve({ panier: [{ produit_id: "pb", qte: 3 }], produits: [bat], stock, liste, boutique: "BMI DEMAKPOE", geste: "ce transfert" });
+  test("★ la question nomme le geste : « Après ce transfert, il manquera 1… » (« cette vente » d'office)", /Après ce transfert, il manquera 1 pour ce chantier/.test(qT) && /Après cette vente, il manquera/.test(q3));
+  const srcTx = readFileSync("src/screens/Travaux.jsx", "utf8");
+  test("★★ 12/10/2026 (« ajoute l'avertissement aussi pour les transferts et travaux ») : ⇄ Transfert de 📦 Stocks avertit À L'ENVOI, avant d'écrire ; 🛠 Travaux avertit à la sortie d'un article, avant la confirmation",
+    /const question = avertissementReserve\(\{ panier: \[\{ produit_id: p\.id, qte: q \}\], produits: db\.produits, stock: \(x\) => stockActuel\(db, x\), liste: reservesEspace, boutique: bq, geste: "ce transfert" \}\);\n\s*if \(question && !await uConfirm\(question\)\) return; \}\n\s*const transfert = nouveauTransfertStock\(/.test(srcS)
+    && /liste: reservations\(\{ chantiers: chantiersDeLEspaceRegarde\(db, profile\), ventes: db\.ventes \}\), boutique, geste: "cette sortie pour les travaux" \}\);\n\s*if \(q && !await uConfirm\(q\)\) return; \}\n\s*if \(!await uConfirm\(`Sortir/.test(srcTx));
   test("★ « 🏁 Marquer terminé » relit la fiche FRAÎCHE, refuse AVANT la question, ajoute l'avertissement du principal dans la question",
     /const fin = critiqueTerminerChantier\(\{ chantier: fraiche, vente: venteDuChantier\(fraiche, db\.ventes\), principal: estAdminPrincipal\(db, profile\) \}\);\n\s*if \(fin\.refus\) \{ uAlert\(fin\.refus\); return; \}/.test(srcCI)
     && /\(fin\.avertissement \? `\\n\\n\$\{fin\.avertissement\}` : ""\)/.test(srcCI));

@@ -15,7 +15,8 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, Aucu
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
-import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdmin, refusSuppressionDepense, aLienAAnnuler, annulerLiensDepense, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, marqueEspace, stockActuel, utilisateursDeLEspace } from "../lib/calculs";
+import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdmin, refusSuppressionDepense, aLienAAnnuler, annulerLiensDepense, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, marqueEspace, stockActuel, utilisateursDeLEspace, chantiersDeLEspaceRegarde } from "../lib/calculs";
+import { reservations, avertissementReserve } from "../lib/achatsChantier";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
 import { refusSuppressionRemise } from "../lib/argentChantier";
@@ -74,6 +75,12 @@ export function Travaux({ db, save, profile, onFacturer }) {
     const p = produits.find((x) => x.id === stockForm.produit_id);
     const r = ajouterArticleStock(db, profile, c, p, stockForm.qte, today());
     if (r.refus) { uAlert(r.refus); return; }
+    // 🔒 Le matériel réservé pour une installation (Timo, 12/10/2026 :
+    // « ajoute l'avertissement aussi pour les transferts et travaux ») :
+    // on avertit, on ne bloque pas (lib/achatsChantier.js).
+    { const q = avertissementReserve({ panier: [{ produit_id: p.id, qte: stockForm.qte }], produits, stock: (x) => stockActuel(db, x),
+        liste: reservations({ chantiers: chantiersDeLEspaceRegarde(db, profile), ventes: db.ventes }), boutique, geste: "cette sortie pour les travaux" });
+      if (q && !await uConfirm(q)) return; }
     if (!await uConfirm(`Sortir ${stockForm.qte} × ${p.nom} du stock de ${boutique} pour les travaux de ${c.prenom || ""} ${c.nom} ?\n\nLe stock baisse tout de suite. Facturé ${fmt(p.prix_vente)} l'unité (prix de la boutique).`)) return;
     majFiche(r.fiche, r.journal, { ajustements: [r.ajustement, ...(db.ajustements || [])] });
     setStockForm(stockVide);

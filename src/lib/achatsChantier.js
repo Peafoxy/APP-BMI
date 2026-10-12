@@ -268,7 +268,8 @@ export const reservePour = (liste, boutique, produitId, { sauf = null } = {}) =>
 // B a : l'avertissement d'une vente (ou d'un achat pour un AUTRE chantier).
 // `panier` : lignes qui sortent du stock ; `stock(p)` : le stock actuel.
 // Rend "" si rien n'empiète sur une réservation, sinon le texte de la question.
-export function avertissementReserve({ panier, produits, stock, liste, boutique, sauf = null }) {
+// `geste` : « cette vente » d'office, « ce transfert », « cette sortie ».
+export function avertissementReserve({ panier, produits, stock, liste, boutique, sauf = null, geste = "cette vente" }) {
   const qteParProduit = new Map();
   (panier || []).filter((l) => l.produit_id && !l.hors_boutique && !l.deja_sorti && !l.au_chantier)
     .forEach((l) => qteParProduit.set(l.produit_id, (qteParProduit.get(l.produit_id) || 0) + Number(l.qte || 0)));
@@ -284,7 +285,7 @@ export function avertissementReserve({ panier, produits, stock, liste, boutique,
     const pour = reservePour(liste, boutique, pid, { sauf });
     const qui = pour.map((x) => `${nomChantier(x.chantier)} (${x.qte}, payé le ${String(x.payeLe || "").split("-").reverse().join("/")})`).join(" ; ");
     const manque = Math.min(res, res - (enStock - q));
-    phrases.push(`• ${p.nom} : ${enStock} en stock, dont ${res} réservé${res > 1 ? "s" : ""} pour une installation — ${qui}. Après cette vente, il manquera ${manque} pour ${pour.length > 1 ? "ces chantiers" : "ce chantier"}.`);
+    phrases.push(`• ${p.nom} : ${enStock} en stock, dont ${res} réservé${res > 1 ? "s" : ""} pour une installation — ${qui}. Après ${geste}, il manquera ${manque} pour ${pour.length > 1 ? "ces chantiers" : "ce chantier"}.`);
   });
   if (!phrases.length) return "";
   return `⚠ Du matériel réservé pour une installation :\n\n${phrases.join("\n")}\n\nContinuer quand même ?`;

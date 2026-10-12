@@ -223,6 +223,7 @@ export const CHAPITRE = {
         ["Laisser le seuil à 0", "L'article n'est jamais en alerte, il disparaît des listes à réapprovisionner.", "Mettre un seuil réaliste sur chaque fiche."],
         ["Valider un inventaire de mémoire", "Les ajustements sont définitifs, à la valeur du prix d'achat.", "Compter en rayon ; laisser vide ce qu'on ne compte pas."],
         ["Transférer vers une boutique d'entraînement", "« 🚫 Mouvement impossible : … boutique réel … boutique entraînement »", "Les deux espaces ne se mélangent jamais."],
+        ["Envoyer un ⇄ Transfert qui prend le matériel d'un chantier", "« ⚠ Du matériel réservé pour une installation… Après ce transfert, il manquera N pour ce chantier. Continuer quand même ? »", "Annuler, ou continuer en sachant que le chantier manquera de matériel (cadre « 🔒 Matériel réservé »)."],
         ["Croire qu'un ⇄ Transfert a déplacé l'article", "« En attente de validation par … L'article reste dans le stock de … jusque-là. »", "La boutique qui reçoit valide dans 🔁 Transfert (chapitre 9) ; l'envoyeur peut annuler avant."],
         ["Un code-barres de 20 caractères", "Avertissement : barres trop fines, le lecteur refuse.", "Raccourcir avec « Code » (17 caractères au plus)."],
         ["Importer un classeur de trois feuilles", "« Seule la première, « … », sera lue — pour BOUTIQUE. Continuer ? »", "Une feuille par boutique : enregistrer chaque feuille à part, ou changer de boutique entre deux imports."],

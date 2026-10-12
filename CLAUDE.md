@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2529 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2531 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1647,9 +1647,12 @@ lit mal est pire qu'un banc absent).
   AUCUN achat actif** est REFUSÉ (chef ⭐ comme administrateur) ; **le principal
   seul** passe, après un avertissement dans la question ; avec un achat, s'il
   reste du réservé, la question le rappelle. Revérifié sur la fiche FRAÎCHE.
-  ⚠ Non couvert (dit à Timo) : la réception FORCÉE d'un chantier en cours, la
-  sortie de 🛠 Travaux, les transferts et ravitaillements n'avertissent pas.
-- Rien à coller. Bancs : `verifier-cloisonnement` (+10), `verifier-ecran-stocks`
+  **Le même jour (« ajoute l'avertissement aussi pour les transferts et
+  travaux »)** : ⇄ Transfert de 📦 Stocks avertit à l'ENVOI (« Après ce
+  transfert… »), 🛠 Travaux à la sortie d'un article (« Après cette sortie pour
+  les travaux… ») — `geste` d'`avertissementReserve`. ⚠ Toujours non couverts :
+  la réception FORCÉE d'un chantier en cours et le ravitaillement (non demandé).
+- Rien à coller. Bancs : `verifier-cloisonnement` (+12), `verifier-ecran-stocks`
   (+3, rendu ; trois contrôles RETOURNÉS), `verifier-ecran-achat-chantier`
   (+4, Chromium), éprouvés (question retirée, réappro sans réservations, mur
   ouvert, le chef qui termine sans achat). Chapitres 5, 8, 15.

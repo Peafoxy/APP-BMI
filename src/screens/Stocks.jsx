@@ -14,7 +14,7 @@ import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, critiqueStockCible, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 import { chantiersDeLEspaceRegarde } from "../lib/calculs";
-import { reservations, reserveParProduit, nomChantier } from "../lib/achatsChantier";
+import { reservations, reserveParProduit, nomChantier, avertissementReserve } from "../lib/achatsChantier";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { exportCSV } from "../lib/export";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
@@ -719,6 +719,11 @@ export function Stocks({ db, save, profile }) {
     const refusEnvoi = critiqueEnvoi({ de: bq, vers: dest, qte: s, dispo });
     if (refusEnvoi) { uAlert(refusEnvoi); return; }
     const q = Number(s);
+    // 🔒 Le matériel réservé pour une installation (Timo, 12/10/2026) : le
+    // transfert empiète-t-il sur ce qu'un chantier a payé ? On avertit, on ne
+    // bloque pas — la question est posée à l'ENVOI, par la boutique qui a le stock.
+    { const question = avertissementReserve({ panier: [{ produit_id: p.id, qte: q }], produits: db.produits, stock: (x) => stockActuel(db, x), liste: reservesEspace, boutique: bq, geste: "ce transfert" });
+      if (question && !await uConfirm(question)) return; }
     const transfert = nouveauTransfertStock({ de: bq, vers: dest, produit: p, qte: q, profile });
     save(envoyerTransfertStock(db, transfert), `Transfert de stock envoyé : ${q} « ${p.nom} » ${bq} → ${dest}, en attente de validation par ${dest}`);
     uAlert(`Transfert envoyé : ${q} ${p.nom} → ${dest}.\n\nEn attente de validation par ${dest} (🔁 Transfert). L'article reste dans le stock de ${bq} jusque-là.`);
