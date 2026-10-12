@@ -34,6 +34,7 @@
     "tester-comptes": "bash scripts/tester-comptes-sql.sh",
     "tester-devis-chantiers": "bash scripts/tester-devis-chantiers-sql.sh",
     "tester-paie": "bash scripts/tester-paie-sql.sh",
+    "tester-rendez-vous": "bash scripts/tester-rendez-vous-sql.sh",
     "verifier-imports": "bash scripts/verifier-imports.sh",
     "tester-rapprochement": "bash scripts/tester-rapprochement.sh",
     "tester-client-lecture": "bash scripts/tester-client-lecture-sql.sh",
