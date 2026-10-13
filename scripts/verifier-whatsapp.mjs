@@ -14,7 +14,9 @@
 // lit tel quel) et LIT le code des écrans pour les règles qui ne se
 // mesurent pas autrement (un seul chemin, aucun secret, la trace).
 // ============================================================
-import { readFileSync, unlinkSync, readdirSync } from "node:fs";
+import { readFileSync, unlinkSync, readdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
@@ -4294,6 +4296,47 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
   const VJ = lire("src/screens/Ventes.jsx").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   test("★ 💰 Ventes le DIT : « Reçu de dépôt chantier … envoyé » à l'encaissement comme sur le bouton de la ligne",
     /depot: envoi\.modele === "recu_depot_chantier"/.test(VJ) && (VJ.match(/r\.depot \? "de dépôt chantier " : ""/g) || []).length === 2);
+}
+
+{
+  titre("📱 LA LISTE SUR TÉLÉPHONE GARDE LA LARGEUR DE L'ÉCRAN (13/10/2026, capture Timo) — mesurée dans Chromium");
+  // ⚠ La liste est un TABLEAU (le composant d'archivage) : un tableau ordinaire
+  // prend la largeur de son plus long contenu, et l'aperçu « truncate » ne se
+  // coupait jamais — la ligne courait sur 1 900 px, le téléphone rétrécissait
+  // toute la page. On REND l'écran avec un très long dernier message, avec le
+  // CSS construit, à la largeur d'un téléphone ; un TÉMOIN sans « table-fixed »
+  // prouve que la règle commande quelque chose.
+  const css = existsSync("dist/assets") ? readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0] : null;
+  let html = "";
+  try { const e0 = console.error; console.error = () => {}; html = V.htmlListeLongue(); console.error = e0; } catch (e) { html = ""; }
+  test("★ l'écran se rend avec un très long dernier message", html.includes("data-whatsapp=\"conversations\""));
+  test("★ la table de la liste est FIXÉE (« w-full table-fixed »)", /classeTable="w-full table-fixed"/.test(lire("src/screens/Whatsapp.jsx")));
+  if (!css) { test("★ le CSS construit existe (npm run build d'abord)", false); }
+  else {
+    const require = createRequire(import.meta.url);
+    const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+    const dossier = mkdtempSync(join(tmpdir(), "bmi-wa-liste-"));
+    const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+    const page = await nav.newPage({ viewport: { width: 390, height: 800 } });
+    const mesurer = async (corps, nom) => {
+      const f = join(dossier, nom + ".html");
+      writeFileSync(f, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}"></head><body>${corps}</body></html>`);
+      await page.goto(`file://${f}`);
+      return page.evaluate(() => {
+        const zone = document.querySelector('[data-whatsapp="conversations"]');
+        const t = zone && zone.querySelector("table");
+        return { page: document.documentElement.scrollWidth, ecran: window.innerWidth, table: t ? Math.round(t.getBoundingClientRect().width) : -1 };
+      });
+    };
+    const m = await mesurer(html, "fixee");
+    const temoin = await mesurer(html.replace(/w-full table-fixed/g, "w-full"), "temoin");
+    test("★★ à 390 px, la page ne dépasse pas l'écran et la liste tient dans sa largeur (l'aperçu se coupe)",
+      m.page <= m.ecran && m.table > 0 && m.table <= m.ecran, JSON.stringify(m));
+    test("★ TÉMOIN : sans « table-fixed », le même message élargit la page bien au-delà de l'écran (la règle commande quelque chose)",
+      temoin.page > temoin.ecran + 200, JSON.stringify(temoin));
+    await nav.close();
+    rmSync(dossier, { recursive: true, force: true });
+  }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

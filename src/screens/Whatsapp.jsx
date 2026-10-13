@@ -619,7 +619,13 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
               titreArchives="Archivées"
               rendre={(it) => <LigneWa key={it.cle} item={it} cleOuverte={cleOuverte} ouvrir={ouvrir} supprimer={supprimer} apercu={apercu} />}
               vide={videFiltre}
-              classeTable="w-full"
+              // ⚠ « table-fixed » (capture Timo, 13/10/2026, la page sur
+              // téléphone) : un tableau ordinaire prend la largeur de son plus
+              // long contenu — l'aperçu « truncate » ne se coupait jamais, la
+              // ligne courait sur 1 900 px et le téléphone rétrécissait toute
+              // la page. Fixé, le tableau garde la largeur de la liste et
+              // l'aperçu se coupe par « … ». Mesuré dans Chromium.
+              classeTable="w-full table-fixed"
             />
           )}
           {tousConvs.length === 0 && (

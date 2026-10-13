@@ -277,3 +277,14 @@ export const recusDepot = () => ({
     return { rangee: m, detail: texteLignePrivee(m, { ventes: [venteDepot], boutiques: [bqApessito], users }) };
   })(),
 });
+
+// ---- 📱 LA LISTE SUR TÉLÉPHONE (13/10/2026, capture Timo) ----
+// Une conversation dont le dernier message est TRÈS long : la liste doit
+// garder la largeur de l'écran (l'aperçu se coupe), jamais l'élargir.
+export const htmlListeLongue = () => {
+  const long = "📲 Envoyé du numéro BMI — Relance automatique du devis solaire de 4 243 580 F (établi le 03/10/2026) à MR CREDO : offre valable jusqu'au 18/10/2026. " .repeat(3);
+  const ligne = { id: "walong", canal: "whatsapp", wa_tel: "98567605", wa_numero: "+22898567605", wa_nom: "MR CREDO",
+    de_id: "TIMO", de_nom: "TIMO", ts: new Date().toISOString(), date: new Date().toISOString().slice(0, 10),
+    texte: long, lu_par: ["TIMO"] };
+  return rendre({ ...garnie, messages: [...garnie.messages, ligne] }, users[0]);
+};
