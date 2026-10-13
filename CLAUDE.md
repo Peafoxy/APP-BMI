@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2611 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2622 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -190,7 +190,7 @@ lit mal est pire qu'un banc absent).
   `data-caisse-terrain`) avec seulement 📍 Infos reçu, 💼 Fonds de caisse,
   📱 Comptes mobiles et le préfixe ; « En faire un magasin », Suppr., loyer et
   logo la refusent DANS le geste (`MOTIF_TERRAIN`). Couleur grise d'office.
-  **Depuis le 08/10/2026 elle s'affiche « 🏗 CHANTIER »** (`libelleCaisse`) :
+  **Depuis le 08/10/2026 elle s'affiche « 🏗 CHANTIER », depuis le 12/10/2026 « 🏗 DÉPÔT CHANTIER »** (`libelleCaisse`) :
   voir § « 🏗 LA CAISSE CHANTIER ». Son NOM dans la base reste « TERRAIN ».
 - La dérogation `'tous'` doit apparaître dans **chaque** politique
   `espace_cloisonnement` côté Supabase.
@@ -1697,6 +1697,57 @@ lit mal est pire qu'un banc absent).
   ClientsInstalles, `libellePastille` ; deux de `verifier-whatsapp` (le geste
   commun, 🧾 Commandes). Chapitres 5, 6, 7, 13, 15, 22, 23 à jour.
 
+
+### 🏗 LE DÉPÔT CHANTIER : L'ENCAISSEMENT D'UN DEVIS AVEC INSTALLATION N'EST PAS UNE VENTE (12/10/2026, « A oui, B oui et C b, et KLOMEGAN revient dépôt »)
+- Captures Timo : KLOMEGAN, devis de 1 803 200 F encaissé ; pastille 🏗 CHANTIER du
+  tableau de bord à 0 F. « L'encaissement d'un devis d'installation est-il une
+  vente ? » → « dépôt chantier correspond bien à la situation… le client vient
+  faire un dépôt pour son chantier et ensuite les ventes viendront puiser dans ce
+  dépôt ». Règle pure **`lib/depotChantier.js`** (lisible par Node) ;
+  `estDepotChantier` vit dans core.js (le journal la lit).
+- **A** : la caisse TERRAIN s'affiche **« 🏗 DÉPÔT CHANTIER »**
+  (`LIBELLE_CAISSE_CHANTIER`) ; son nom dans la base reste TERRAIN. Les endroits qui
+  écrivaient « TERRAIN » à l'écran (tableau de bord, 🔒 Caisse) passent par
+  `libelleCaisse`.
+- **B** : le reçu s'intitule **« REÇU DE DÉPÔT CHANTIER »** (`TITRE_RECU_DEPOT`,
+  même numéro) ; à crédit, le reçu de la dette garde son titre et porte la mention ;
+  le reçu WhatsApp complet aussi. ⚠ Les modèles Meta du reçu (`recu_vente`…) disent
+  toujours « reçu » (texte figé chez Meta).
+- **C b** : une vente est un DÉPÔT quand ses lignes sont `au_chantier` ou qu'elle
+  porte `depot_chantier` (posé à l'encaissement d'un devis « 🔧 Avec installation »,
+  sur la vente ET sa dette). **Ce qui compte comme vente** = `ventesAuChiffre` :
+  les ventes ordinaires, **chaque achat « 🏗 Chantier » actif** (au prix de la
+  boutique, dans la boutique qui remet le matériel, le jour de la sortie, avec son
+  prix d'achat — `venteDeLAchat`, paiement « Puisé dans le dépôt chantier »), et à
+  la **réception** le **reste du devis** (`venteDuReste`, boutique du devis, date
+  `receptionne_le`) : le matériel jamais puisé, puis installation et transport moins
+  ce que le matériel a pris sur eux (règle 5 du 11/10). Total = ce que le devis
+  demandait. Lu par 📊 Tableau de bord (cartes, période, graphique, top 5,
+  paiements, synthèse, clients), 📈 Rentabilité, 📋 Inventaire (bloc 1 ; les dépôts
+  dits à part, `ventes.depots`) et le 📒 journal (dépôt en **4191**, puis 4191 → 701
+  au fil des achats et à la réception). `achatsCommeVentes` est RETIRÉE.
+- **Ce qui ne change pas** : l'argent (caisse, versements, clôture — la clôture de
+  la caisse DÉPÔT CHANTIER montre toujours le dépôt comme une entrée du jour), la
+  dette, la commission (réception ET solde, calculée sur la vente du devis), les
+  frais encaissés (carte du tableau de bord), le matériel réservé.
+- **La pastille 🏗 DÉPÔT CHANTIER** du tableau de bord ne montre ni ventes ni stock
+  (`sansVentes` l'inclut ; elle garde ses deux cartes de dettes) : le tableau
+  **`components/DepotsChantier.jsx`** (`etatsDesDepots` : devis, déposé, puisé,
+  vente à la réception, reste en dépôt, au-delà du déposé). Partout ailleurs une
+  carte « 🏗 Dépôt chantier — pas encore des ventes ». 💰 Ventes : la ligne dit
+  « 🏗 dépôt — pas une vente », la **Recette** met les dépôts à part
+  (`data-recette-depots`). Achats chantier : « 🏗 Payé par le dépôt chantier ».
+- **KLOMEGAN (BMIA-2026-0003)** : dépôt automatiquement si ses lignes sont
+  `au_chantier` ; sinon (devis d'avant la case « Avec installation ») un SQL collé
+  par Timo pose `depot_chantier` — un dépôt « d'avant » sans achat devient vente
+  entière, articles compris, le jour de la réception.
+- Rien à coller pour la règle. Banc (`verifier-cloisonnement`, +10 dont le tableau
+  de bord RENDU et le reçu IMPRIMÉ), éprouvé (dépôt compté, frais mangés ignorés,
+  dépôt en 701, total sur les vraies ventes) ; contrôles RETOURNÉS : le libellé
+  (×3), `sansVentes` (×2), le journal (×2), la recette, le reçu de dette,
+  `achatsCommeVentes`, « Payé par le chantier » (×3, dont
+  `verifier-ecran-achat-chantier`), « Versements de », la clôture au journal.
+  Chapitres 5, 6, 15, 22, 23, guides administrateur et gérant.
 
 ### 🏗 LA CAISSE CHANTIER, ÉTAPE 2 : LE MATÉRIEL QUI PART AU CHANTIER (11/10/2026, « A a, B b, C oui, D, E oui » → « 1 à 5 ok, F tout seul, G oui » → « H : la case sur le devis + oui »)
 - Timo : « une case à cocher dans vente : chantier… le montant de la vente est

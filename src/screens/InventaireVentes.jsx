@@ -74,7 +74,7 @@ export function InventaireVentes({ db, boutique, general = false, noms = [], ave
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <div className="font-bold text-slate-800" data-inventaire-titre>{general ? "📊 INVENTAIRE GÉNÉRAL — toutes les boutiques" : `📋 Inventaire — ${libelleCaisse(boutique)}`}</div>
-            <div className={note}>Période : <b data-inventaire-periode>{libellePeriode}</b>. Une lecture : rien n'est écrit. Les chiffres sont ceux de 🔒 Caisse, 📤 Dépenses et 📋 Dettes.{general ? " La caisse 🏗 CHANTIER est comptée avec les boutiques ; les magasins ne vendent pas, ils n'y sont pas." : ""}</div>
+            <div className={note}>Période : <b data-inventaire-periode>{libellePeriode}</b>. Une lecture : rien n'est écrit. Les chiffres sont ceux de 🔒 Caisse, 📤 Dépenses et 📋 Dettes.{general ? " La caisse 🏗 DÉPÔT CHANTIER est comptée avec les boutiques ; les magasins ne vendent pas, ils n'y sont pas." : ""}</div>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button onClick={imprimer} className={btnDark} data-inventaire-pdf>🖨 Imprimer (PDF)</button>
@@ -131,7 +131,12 @@ export function InventaireVentes({ db, boutique, general = false, noms = [], ave
           </>} vide="Aucune vente sur cette période." />
         {ventes.chantier.nb > 0 && (
           <div className="text-xs text-slate-600 mt-1" data-inv-ventes-chantier>
-            🏗 Dont {ventes.chantier.nb} vente{ventes.chantier.nb > 1 ? "s" : ""} issue{ventes.chantier.nb > 1 ? "s" : ""} d'un devis ({fmt(ventes.chantier.montant)}) : leur argent va dans la caisse 🏗 CHANTIER, pas dans le tiroir de la boutique{general ? " (il est donc dans les recettes de la caisse CHANTIER)" : ""}.
+            🏗 Dont {ventes.chantier.nb} vente{ventes.chantier.nb > 1 ? "s" : ""} issue{ventes.chantier.nb > 1 ? "s" : ""} d'un devis ({fmt(ventes.chantier.montant)}) : leur argent va dans la caisse 🏗 DÉPÔT CHANTIER, pas dans le tiroir de la boutique{general ? " (il est donc dans les recettes de la caisse DÉPÔT CHANTIER)" : ""}.
+          </div>
+        )}
+        {ventes.depots?.nb > 0 && (
+          <div className="text-xs text-violet-800 mt-1" data-inv-depots>
+            🏗 {ventes.depots.nb} dépôt{ventes.depots.nb > 1 ? "s" : ""} chantier reçu{ventes.depots.nb > 1 ? "s" : ""} ({fmt(ventes.depots.montant)}) : pas des ventes. Ils le deviennent quand le matériel sort pour le chantier (ligne « Puisé dans le dépôt chantier »), puis à la réception.
           </div>
         )}
       </div>
@@ -241,7 +246,7 @@ export function InventaireVentes({ db, boutique, general = false, noms = [], ave
           <tr className={ligneTable}><td className="py-1 text-red-700">⚠ En retard (plus de 30 jours)</td><td className={montant}>{dettes.retard.nb}</td><td className={`${montant} text-red-700`}>{fmt(dettes.retard.montant)}</td></tr>
           {dettes.reservations.nb > 0 && <tr className={ligneTable}><td className="py-1">Réservations en cours (reste)</td><td className={montant}>{dettes.reservations.nb}</td><td className={montant}>{fmt(dettes.reservations.montant)}</td></tr>}
         </tbody></table>
-        {dettes.chantier.nb > 0 && <div className="text-xs text-slate-600 mt-1">🏗 Dont {dettes.chantier.nb} dette{dettes.chantier.nb > 1 ? "s" : ""} de devis ({fmt(dettes.chantier.montant)}) : leurs règlements entrent dans la caisse 🏗 CHANTIER.</div>}
+        {dettes.chantier.nb > 0 && <div className="text-xs text-slate-600 mt-1">🏗 Dont {dettes.chantier.nb} dette{dettes.chantier.nb > 1 ? "s" : ""} de devis ({fmt(dettes.chantier.montant)}) : leurs règlements entrent dans la caisse 🏗 DÉPÔT CHANTIER.</div>}
         {dettes.retard.lignes.length > 0 && (
           <div className="mt-2">
             <div className="text-xs font-bold text-red-700">Dettes en retard</div>

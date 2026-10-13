@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.544";
+export const VERSION = "2.101.545";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -216,7 +216,9 @@ export const depensesComptees = (liste) => horsVersements(liste).filter((x) => x
 export const NOM_CAISSE_TERRAIN = "TERRAIN";
 export const NOM_CAISSE_TERRAIN_FORMATION = "TERRAIN (formation)";
 export const estNomCaisseChantier = (nom) => nom === NOM_CAISSE_TERRAIN || nom === NOM_CAISSE_TERRAIN_FORMATION;
-export const LIBELLE_CAISSE_CHANTIER = "🏗 CHANTIER";
+// 🏗 « DÉPÔT CHANTIER » depuis le 12/10/2026 (Timo, « A oui ») : le client
+// y dépose l'argent de son chantier, les achats « 🏗 Chantier » y puisent.
+export const LIBELLE_CAISSE_CHANTIER = "🏗 DÉPÔT CHANTIER";
 export const libelleCaisse = (nom) => (nom === NOM_CAISSE_TERRAIN ? LIBELLE_CAISSE_CHANTIER
   : nom === NOM_CAISSE_TERRAIN_FORMATION ? `${LIBELLE_CAISSE_CHANTIER} (formation)` : (nom || ""));
 // La caisse où l'argent d'une vente est entré (sa boutique, sauf une vente

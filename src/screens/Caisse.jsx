@@ -102,7 +102,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
     const fiche = { id: ancienne?.id || uid(), date: t, boutique, theorique, compte: Number(compte), notes, par: profile.nom, cloture_le: aujourdhui,
       ...(ancienne ? { precedentes: [...(ancienne.precedentes || []), { theorique: ancienne.theorique, compte: ancienne.compte, par: ancienne.par, cloture_le: ancienne.cloture_le, notes: ancienne.notes || "" }] } : {}) };
     save({ ...db, clotures: [fiche, ...db.clotures.filter((c) => !(c.boutique === boutique && String(c.date) === t))] },
-      `${ancienne ? "RECLÔTURE" : "Clôture"} du jour ${boutique} — ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui && !ancienne ? " — clôturée en retard" : ""}`);
+      `${ancienne ? "RECLÔTURE" : "Clôture"} du jour ${libelleCaisse(boutique)} — ${dFR(t)} : compté ${fmt(Number(compte))} (écart ${fmt(Number(compte) - theorique)})${t !== aujourdhui && !ancienne ? " — clôturée en retard" : ""}`);
     setCompte(""); setNotes(""); setJourChoisi("");
     uAlert(`Clôture du ${dFR(t)} enregistrée !`);
   };
@@ -157,7 +157,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
     const r = construireVersement(profile, { boutique, ...vers, attendu: attenduVersement });
     if (r.refus) { uAlert(r.refus); return; }
     const interne = vers.destination === DEST_TIROIR;
-    const depuis = mobileChoisi ? `du compte ${mobileChoisi.court} de ${boutique}` : `de ${boutique}`;
+    const depuis = mobileChoisi ? `du compte ${mobileChoisi.court} de ${libelleCaisse(boutique)}` : `de ${libelleCaisse(boutique)}`;
     if (!await uConfirm(`Enregistrer le versement de ${fmt(Number(vers.montant))} ${depuis} → ${libelleDestination(r.versement)} ?\n\n${interne
       ? "L'argent quitte le compte mobile et entre dans le tiroir : aucune validation n'est demandée, et la clôture du soir le verra."
       : `Il restera « en attente » jusqu'à sa validation par ${vers.destination === DEST_COMPTABLE ? "le comptable" : "le DG"}.`}`)) return;
@@ -165,7 +165,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
       ...db,
       depenses: [r.sortie, ...(r.entree ? [r.entree] : []), ...(db.depenses || [])],
       messages: [...messagesVersement(db, profile, r.sortie), ...(db.messages || [])],
-    }, `Versement de fonds ${fmt(Number(vers.montant))} : ${boutique} → ${libelleDestination(r.versement)} (par ${profile.nom})`);
+    }, `Versement de fonds ${fmt(Number(vers.montant))} : ${libelleCaisse(boutique)} → ${libelleDestination(r.versement)} (par ${profile.nom})`);
     setVers({ montant: "", source: SOURCE_ESPECES, destination: destinationDefaut, banque: "", bordereau: "", note: "" });
     setVersementOuvert(false);
     uAlert(interne ? "Retrait enregistré : l'argent est passé du compte mobile au tiroir." : "Versement enregistré — en attente de validation.");
@@ -225,7 +225,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
       });
       if (refusT) { uAlert(refusT); return; }
     }
-    if (!await uConfirm(`Rembourser à ${d.par} l'avance de ${fmt(d.montant)} (${d.description || d.categorie} du ${dFR(d.date)}) — ${libelleMoyenRemb(moyen).toLowerCase()}${mois ? ` (${mois})` : ""} ?${moyen === "caisse" ? `\n\nLa sortie sera enregistrée aujourd'hui dans la caisse de ${boutique}.` : ""}`)) return;
+    if (!await uConfirm(`Rembourser à ${d.par} l'avance de ${fmt(d.montant)} (${d.description || d.categorie} du ${dFR(d.date)}) — ${libelleMoyenRemb(moyen).toLowerCase()}${mois ? ` (${mois})` : ""} ?${moyen === "caisse" ? `\n\nLa sortie sera enregistrée aujourd'hui dans la caisse de ${libelleCaisse(boutique)}.` : ""}`)) return;
     const r = rembourserAvance(db, profile, d, moyen, today(), { mois });
     if (r.refus) { uAlert(r.refus); return; }
     save({ ...db, depenses: r.depenses, users: r.users, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
@@ -446,7 +446,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
         {mesVersements.length > 0 && (
           <div className="mt-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
             {/* Timo (10/09/2026) : « je n'arrive pas à défiler de droite à gauche » — le cadre défile, le tableau garde sa largeur. */}
-            <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Versements de {boutique}</div>
+            <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Versements de {libelleCaisse(boutique)}</div>
             <table className="w-full text-sm min-w-[640px]">
               <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Date</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Destination</th><th className="text-left px-3 py-1.5">Par</th><th className="text-left px-3 py-1.5">Validation</th></tr></thead>
               <tbody>
@@ -467,7 +467,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
       {(avances.length > 0 || ROLES_REMB_CAISSE.includes(profile.role)) && (
         <Panel boutique={boutique}>
           <div className="font-bold mb-2 flex items-center gap-2">💼 Avances de frais à rembourser ({avances.length}) <Badge boutique={boutique} /></div>
-          {avances.length === 0 && <div className="text-sm text-slate-400">Aucune avance personnelle à rembourser pour {boutique}.</div>}
+          {avances.length === 0 && <div className="text-sm text-slate-400">Aucune avance personnelle à rembourser pour {libelleCaisse(boutique)}.</div>}
           <div className="space-y-1">
             {avances.map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm">
@@ -493,7 +493,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
         {enRetard.length > 0 && (
           <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
             <div className="font-bold">🔒 {enRetard.length === 1 ? "Une journée" : `${enRetard.length} journées`} sans clôture : {enRetard.map(dFR).join(", ")}</div>
-            <div className="text-xs mt-1">Les ventes de {boutique} sont bloquées tant que ces journées ne sont pas clôturées. Choisissez le jour, comptez, clôturez.</div>
+            <div className="text-xs mt-1">Les ventes de {libelleCaisse(boutique)} sont bloquées tant que ces journées ne sont pas clôturées. Choisissez le jour, comptez, clôturez.</div>
             <div className="flex flex-wrap gap-2 mt-2">
               {[...enRetard, aujourdhui].map((j) => (
                 <button key={j} onClick={() => { setJourChoisi(j); setCompte(""); }}
@@ -694,7 +694,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
       </Panel>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Historique des clôtures — {boutique}</div>
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Historique des clôtures — {libelleCaisse(boutique)}</div>
         <table className="w-full text-sm min-w-[640px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Attendu dans le tiroir", "Compté", "Écart", "Remarques", "Par"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>

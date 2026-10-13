@@ -90,19 +90,20 @@ console.log("\n🏗 La case « Chantier » jouée par la gérante");
   await page.selectOption("[data-choix-chantier-achat]", "c1"); await attendre(150);
   const argent = propre(await page.innerText("[data-argent-chantier]"));
   test("★★ l'argent du chantier : payé 100 000, part matériel 320 000, cet achat 240 000 payé par le chantier, 140 000 resteront en attente",
-    /Payé par le client pour son devis : 100 000 F/.test(argent) && /part matériel du devis : 320 000 F/.test(argent) && /Cet achat : 240 000 F — 🏗 Payé par le chantier/.test(argent) && /140 000 F resteront en attente du chantier/.test(argent), argent);
+    /Payé par le client pour son devis : 100 000 F/.test(argent) && /part matériel du devis : 320 000 F/.test(argent) && /Cet achat : 240 000 F — 🏗 Payé par le dépôt chantier/.test(argent) /* RETOURNÉ le 12/10/2026 : dépôt chantier */ && /140 000 F resteront en attente du chantier/.test(argent), argent);
   const corps = await page.innerText("body");
   test("★ 4 : en mode chantier, plus de client, de paiement ni de proforma ; le bouton dit ce qu'il fait",
     !/Numéro du client/.test(corps) && !/Proforma WhatsApp/.test(corps) && !(await page.$("text=💳 Encaisser la vente")) && !!(await page.$("[data-bouton-achat-chantier]")));
   await page.click("[data-bouton-achat-chantier]"); await attendre(200);
   const q = await dialogue(page);
-  test("★★ UNE confirmation, qui dit « payé par le chantier » et l'attente — jamais la question « sans numéro »",
-    /Enregistrer l'achat pour le chantier de Kossi MENSAH/.test(q) && /Payé par le chantier : rien n'entre dans le tiroir/.test(q) && /140 000 F resteront en attente du chantier/.test(q) && !/pas de numéro/.test(q), q);
+  // RETOURNÉ le 12/10/2026 (« C b ») : l'achat est puisé dans le dépôt et DEVIENT UNE VENTE — la confirmation le dit.
+  test("★★ UNE confirmation, qui dit « payé par le dépôt chantier », qu'il devient une vente, et l'attente — jamais la question « sans numéro »",
+    /Enregistrer l'achat pour le chantier de Kossi MENSAH/.test(q) && /Payé par le dépôt chantier : rien n'entre dans le tiroir/.test(q) && /DEVIENT UNE VENTE/.test(q) && /140 000 F resteront en attente du chantier/.test(q) && !/pas de numéro/.test(q), q);
   await bouton(page, "OK");
   const s = await page.evaluate(() => window.saves.map((x) => ({ j: x.journal, aj: x.n.ajustements, v: x.n.ventes.length, d: x.n.dettes.length, c: x.n.clients_installes.find((c) => c.id === "c1") })));
   test("★★ UNE écriture : le stock sort (−3, sortie_chantier), l'achat BMID-ACH-2026-0001 se range sur le chantier, AUCUNE vente ni dette de plus",
     s.length === 1 && s[0].aj.length === 1 && s[0].aj[0].qte === -3 && s[0].aj[0].type === "sortie_chantier" && s[0].v === 1 && s[0].d === 1
-    && s[0].c.achats_chantier.length === 1 && s[0].c.achats_chantier[0].numero === "BMID-ACH-2026-0001" && /payé par le chantier/.test(s[0].j), JSON.stringify(s).slice(0, 300));
+    && s[0].c.achats_chantier.length === 1 && s[0].c.achats_chantier[0].numero === "BMID-ACH-2026-0001" && /payé par le dépôt chantier/.test(s[0].j), JSON.stringify(s).slice(0, 300));
   const apres = propre(await page.innerText("body"));
   test("plus aucune fenêtre ouverte, le message dit l'achat, le panier est vidé, la case décochée", (await dialogue(page)) === "" && /Achat BMID-ACH-2026-0001 enregistré pour le chantier de Kossi MENSAH/.test(apres) && /Panier \(0 article/.test(apres) && !(await page.isChecked("[data-coche-chantier]")), apres.slice(0, 600));
   await page.click("[data-onglet-achats-chantier]"); await attendre(150);

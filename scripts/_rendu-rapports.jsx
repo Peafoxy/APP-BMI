@@ -18,3 +18,6 @@ export { setRegardeFormation } from "../src/lib/calculs.js";
 export const rendreHistorique = (db, profile) => renderToStaticMarkup(React.createElement(Historique, { db, profile }));
 export const rendreRentabilite = (db, profile) => renderToStaticMarkup(React.createElement(Rentabilite, { db, profile }));
 export const rendreDashboard = (db, profile) => renderToStaticMarkup(React.createElement(Dashboard, { db, profile, save: () => {} }));
+// 🏗 La pastille DÉPÔT CHANTIER (12/10/2026) : son tableau, rendu.
+import { DepotsChantier } from "../src/components/DepotsChantier.jsx";
+export const rendreDepots = (depots) => renderToStaticMarkup(React.createElement(DepotsChantier, { depots }));

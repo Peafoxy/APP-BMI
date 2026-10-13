@@ -39,7 +39,11 @@ export const normPaiement = (t) => {
 
 // Journal en partie double : chaque opération produit une ligne au débit
 // et une ligne au crédit, équilibrées, avec les comptes SYSCOHADA.
-export function lignesJournal(db, a, b, dansLEspace = null) {
+// `chiffre` (facultatif) : ce qui compte comme vente (ventesAuChiffre,
+// lib/depotChantier.js). 🏗 Un DÉPÔT CHANTIER (Timo, 12/10/2026, « C b ») n'est
+// pas une vente : il s'écrit en 4191 (clients — avances reçues) ; les achats
+// « 🏗 Chantier » et le reste à la réception le font passer en 701.
+export function lignesJournal(db, a, b, dansLEspace = null, chiffre = null) {
   const lignes = [];
   const pousser = (date, journal, piece, compte, intitule, libelle, debit, credit, boutique) =>
     lignes.push([String(date).slice(0, 10), journal, piece, compte, intitule, libelle, debit || "", credit || "", boutique || ""]);
@@ -65,8 +69,24 @@ export function lignesJournal(db, a, b, dansLEspace = null) {
     const [ct, it] = COMPTE_TRESORERIE(v.paiement || "");
     const piece = numeroRecu(v);
     const lib = `Vente ${resumeArticles(v)}${v.client ? " — " + v.client : ""}`;
+    if (estDepotChantier(v)) {
+      const libD = `Dépôt chantier${v.client ? " — " + v.client : ""}`;
+      pousser(v.date, "VE", piece, ct, it, libD, net, "", v.boutique);
+      pousser(v.date, "VE", piece, "4191", "Clients — avances et acomptes reçus", libD, "", net, v.boutique);
+      return;
+    }
     pousser(v.date, "VE", piece, ct, it, lib, net, "", v.boutique);
     pousser(v.date, "VE", piece, "701", "Ventes de marchandises", lib, "", net, v.boutique);
+  });
+  // 🏗 Le dépôt qui devient vente : un achat « 🏗 Chantier », ou le reste du
+  // devis à la réception — débit 4191 / crédit 701, aucune trésorerie.
+  (chiffre || []).filter((x) => (x.achat_chantier || x.reste_depot) && reel(x) && inP(x.date, a, b)).forEach((x) => {
+    const m = totalVente(x);
+    if (!(m > 0)) return;
+    const piece = x.achat_chantier ? (x.numero || "ACH") : `${x.numero || "DEP"}-REC`;
+    const lib = `${x.achat_chantier ? "Matériel puisé dans le dépôt chantier" : "Reste du dépôt chantier à la réception"}${x.client ? " — " + x.client : ""}`;
+    pousser(x.date, "VE", piece, "4191", "Clients — avances et acomptes reçus", lib, m, "", x.boutique);
+    pousser(x.date, "VE", piece, "701", "Ventes de marchandises", lib, "", m, x.boutique);
   });
 
   // Dépenses : débit compte de charge / crédit trésorerie.
@@ -616,6 +636,14 @@ export function documentDeVente(db, v) {
   return dette ? { type: "dette", dette } : { type: "vente" };
 }
 
+// ---- 🏗 LE DÉPÔT CHANTIER (Timo, 12/10/2026, « A oui, B oui, C b ») ----
+// L'encaissement d'un devis « 🔧 Avec installation » n'est pas une vente :
+// c'est un DÉPÔT que le client fait pour son chantier ; les achats
+// « 🏗 Chantier » y puisent, et ce sont EUX les ventes. Une vente l'est
+// quand ses lignes du stock attendent le chantier (`au_chantier`), ou quand
+// elle porte la marque `depot_chantier` (posée à l'encaissement, ou par un
+// script pour un encaissement d'avant). Les règles : lib/depotChantier.js.
+export const estDepotChantier = (v) => !!v && (v.depot_chantier === true || (Array.isArray(v.articles) && v.articles.some((l) => l && l.au_chantier)));
 export const numeroRecu = (v) => v.numero || `${prefixeBoutique(v.boutique)}-${String(v.date).slice(0, 4)}-${String(v.id).slice(0, 4).toUpperCase()}`;
 // Deux enregistrements sont-ils identiques ? Par référence d'abord (l'app
 // met à jour par recopie immuable : une ligne inchangée garde son objet),

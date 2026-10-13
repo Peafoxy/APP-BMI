@@ -819,7 +819,7 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
     bloc("Par caisse", ["Caisse", "Vendu", "Recettes", "Dépenses", "Versé", "Tiroir", "Dettes", "Écarts"],
       inv.lignes.map((l) => [caisseLue(l.boutique), m(l.vendu), m(l.recettes), m(l.depenses), m(l.verse), m(l.tiroir), m(l.dettes), `${signe(l.ecarts)}${l.nonClotures ? ` (${l.nonClotures} non clôt.)` : ""}`]),
       ["TOTAL", m(tl.vendu), m(tl.recettes), m(tl.depenses), m(tl.verse), m(tl.tiroir), m(tl.dettes), signe(tl.ecarts)], [1, 2, 3, 4, 5, 6, 7]);
-    phrase("La caisse CHANTIER est comptée avec les boutiques ; les magasins ne vendent pas, ils n'y sont pas. Une dette de devis n'est comptée qu'une fois.");
+    phrase("La caisse DÉPÔT CHANTIER est comptée avec les boutiques ; les magasins ne vendent pas, ils n'y sont pas. Une dette de devis n'est comptée qu'une fois.");
   }
 
   const v = inv.ventes;
@@ -827,7 +827,8 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
     [...v.lignes.map((l) => [l.moyen, String(l.nb), m(l.montant)]),
       ...(v.reprises.nb ? [["Reprises faites dans la période", String(v.reprises.nb), `- ${m(v.reprises.montant)}`]] : [])],
     [v.reprises.nb ? "Net" : "Total vendu", String(v.nb), m(v.reprises.nb ? v.net : v.total)], [1, 2]);
-  if (v.chantier.nb) phrase(`Dont ${v.chantier.nb} vente(s) issue(s) d'un devis (${m(v.chantier.montant)} F) : leur argent va dans la caisse CHANTIER, pas dans le tiroir.`);
+  if (v.chantier.nb) phrase(`Dont ${v.chantier.nb} vente(s) issue(s) d'un devis (${m(v.chantier.montant)} F) : leur argent va dans la caisse DÉPÔT CHANTIER, pas dans le tiroir.`);
+  if (v.depots?.nb) phrase(`${v.depots.nb} dépôt(s) chantier reçu(s) (${m(v.depots.montant)} F) : pas des ventes ; ils le deviennent quand le matériel sort pour le chantier, puis à la réception.`);
 
   const r = inv.recettes;
   bloc("2. Les recettes - l'argent entré dans la caisse", ["Moyen", "Ventes payées", "Règlements de dettes", "Total"],

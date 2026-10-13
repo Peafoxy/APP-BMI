@@ -4,14 +4,15 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useCallback } from "react";
-import { fmt, today, dFR, inP, col, totalVente, caVente, caLigneVente, coutDesVentes, avertissementSansPrix, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu } from "../lib/core";
+import { fmt, today, dFR, inP, col, totalVente, caVente, caLigneVente, coutDesVentes, avertissementSansPrix, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu, estDepotChantier } from "../lib/core";
 // Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
 import { depensesComptees, CATEGORIE_VERSEMENT, horsAchatsDeStock } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
 // (lib/caissesCentrales.js).
 import { mouvementsBanque, mouvementsComptable, releve, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
 import { CompteExploitant } from "../components/CompteExploitant";
-import { achatsCommeVentes } from "../lib/achatsChantier";
+import { ventesAuChiffre, etatsDesDepots, LIBELLE_DEPOT } from "../lib/depotChantier";
+import { DepotsChantier } from "../components/DepotsChantier";
 import { mouvementsMobile, MOYENS_MOBILES } from "../lib/caissesMobiles";
 import { mobileParCaisse } from "../lib/constants";
 import { CarteCaisse } from "../components/CarteCaisse";
@@ -21,7 +22,7 @@ import {
   stockVendu, stockAjuste, stockActuel, trierPourRapportStocks, commissionVente, estChefEquipe, TAUX_EQUIPE_DEFAUT,
   dettesClassiques, estReservation, periodes, reservations,
   filtreEspaceAffichage, afficheChiffresFormation, boutiqueDuChantier, voitLesDeuxEspaces, boutiquesFormation, estAdminPrincipal,
-  boutiqueTerrain, NOM_CAISSE_COMPTABLE, memoriserBoutique, boutiqueMemorisee } from "../lib/calculs";
+  boutiqueTerrain, NOM_CAISSE_COMPTABLE, memoriserBoutique, boutiqueMemorisee, libelleCaisse } from "../lib/calculs";
 
 // ============ TABLEAU DE BORD ============
 export function Dashboard({ db, profile, save }) {
@@ -96,7 +97,10 @@ export function Dashboard({ db, profile, save }) {
   // comptable garde ses exports (sorties, journal).
   const caisseChoisie = caisseSeule || comptableChoisi;
   const terrainChoisi = !!bqChoisie && bqChoisie === terrainVu?.nom;
-  const sansVentes = depotChoisi || comptableChoisi || caisseSeule;
+  // 🏗 La caisse DÉPÔT CHANTIER ne vend pas (Timo, 12/10/2026, « C b ») : un
+  // dépôt n'est pas une vente ; ce sont les achats « 🏗 Chantier » qui le
+  // sont, dans la boutique d'où sort le matériel. Elle montre ses dépôts.
+  const sansVentes = depotChoisi || comptableChoisi || caisseSeule || terrainChoisi;
   const sansStock = comptableChoisi || terrainChoisi || caisseSeule;
   // ⚠ Suite complémentaire de la même exclusion (Timo — audit "CA réel") :
   // NOMS_VUES protège déjà les tableaux PAR boutique ci-dessous, mais plusieurs
@@ -105,6 +109,14 @@ export function Dashboard({ db, profile, save }) {
   // passer par NOMS_VUES — trou réel trouvé, une vente de formation aurait
   // gonflé ces chiffres. Variable UNIQUE réutilisée pour tous ces totaux.
   const ventesReellesDb = (db.ventes || []).filter(dansMonEspace).filter(dansLaBoutique);
+  // 🏗 CE QUI COMPTE COMME VENTE (Timo, 12/10/2026, « C b ») : les ventes
+  // ordinaires, les achats « 🏗 Chantier » et le reste de chaque dépôt
+  // réceptionné — jamais le dépôt lui-même (lib/depotChantier.js). Les
+  // commissions et les frais encaissés restent lus sur les vraies ventes.
+  const chantiersEspace = (db.clients_installes || []).filter((c) => dansMonEspace({ boutique: boutiqueDuChantier(db, c) }));
+  const chiffreTous = ventesAuChiffre((db.ventes || []).filter(dansMonEspace), chantiersEspace);
+  const chiffreDb = chiffreTous.filter(dansLaBoutique);
+  const depotsEnCours = etatsDesDepots((db.ventes || []).filter(dansMonEspace), chantiersEspace, (db.dettes || []).filter(dansMonEspace));
   // ⚠ Timo (10/09/2026) : « pourquoi il pense que le versement est une
   // dépense ? » — le versement de fonds n'est une sortie QUE pour la caisse.
   // Ici (cartes, graphique, synthèse par période, exports), il n'existe pas.
@@ -138,20 +150,18 @@ export function Dashboard({ db, profile, save }) {
   // le PRIX D'ACHAT des articles vendus (`coutDesVentes`, lib/core.js), et les
   // dépenses « Achat marchandises » et « Commande en Chine » en sortent (sinon la marchandise serait
   // comptée deux fois). UNE fabrique pour la carte ET la synthèse par période.
-  const achatsChantierTous = achatsCommeVentes(db.clients_installes);
   const ligneDePeriode = (label, a, b) => {
     const v = {}, d = {}, c = {}, dr = {};
     let sansPrix = [], caSansPrix = 0;
     NOMS_VUES.forEach((bq) => {
-      const ventesBq = db.ventes.filter((x) => x.boutique === bq && inP(x.date, a, b));
+      // Les achats « 🏗 Chantier » y sont : leur prix de vente ET leur prix
+      // d'achat comptent pour la boutique qui a remis le matériel.
+      const ventesBq = chiffreTous.filter((x) => x.boutique === bq && inP(x.date, a, b));
       const depBq = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b));
       v[bq] = ventesBq.reduce((s, x) => s + caVente(x), 0);
       d[bq] = depBq.reduce((s, x) => s + Number(x.montant), 0);
       dr[bq] = horsAchatsDeStock(depBq).reduce((s, x) => s + Number(x.montant), 0);
-      // 🏗 Le matériel parti au chantier (11/10/2026) : son prix d'achat compte
-      // pour la boutique qui l'a remis, jamais son prix de vente (pas une vente).
-      const achatsBq = achatsChantierTous.filter((x) => x.boutique === bq && inP(x.date, a, b));
-      const k = coutDesVentes(db.produits, [...ventesBq, ...achatsBq]);
+      const k = coutDesVentes(db.produits, ventesBq);
       c[bq] = k.cout; sansPrix = [...sansPrix, ...k.sansPrix]; caSansPrix += k.caSansPrix;
     });
     return { label, v, d, c, dr, sansPrix, caSansPrix };
@@ -174,7 +184,7 @@ export function Dashboard({ db, profile, save }) {
   const resultatDe = (r) => somme(r.v) - somme(r.c) - somme(r.dr);
   const resCustom = resultatDe(customRow);
 
-  const totalVentes = ventesReellesDb.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
+  const totalVentes = chiffreDb.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
   // ⚠ Oubli de l'exclusion 2.100.16 : ce total parcourait db.depenses BRUT
   // alors que le CA juste au-dessus, lui, excluait déjà la formation — le
   // « résultat » affiché retranchait donc des dépenses d'entraînement d'un
@@ -191,7 +201,10 @@ export function Dashboard({ db, profile, save }) {
   const totalAvances = reservationsReellesDashboard.filter((r) => r.statut !== "livree" && r.statut !== "annulee")
     .reduce((s, r) => s + Number(r.paye || 0), 0);
   const nbVentes = ventesReellesDb.length;
-  const nbClients = new Set(ventesReellesDb.filter(v => v.client).map(v => v.client)).size;
+  const nbClients = new Set(chiffreDb.filter(v => v.client).map(v => v.client)).size;
+  // L'argent des dépôts pas encore devenu vente (pastille TOUTES ou la caisse).
+  const depotsVus = depotsEnCours.filter((x) => !bqChoisie || terrainChoisi || x.boutique === bqChoisie);
+  const totalEnDepot = depotsVus.reduce((s, x) => s + x.enDepot, 0);
 
   // ---- ENSEMBLE DES COMMISSIONS (rien n'était affiché ici auparavant) ----
   // On regroupe les 4 types de commission existants dans l'app : commission de
@@ -233,7 +246,7 @@ export function Dashboard({ db, profile, save }) {
     const key = d.toISOString().slice(0, 7);
     const vals = {};
     NOMS_VUES.forEach((b) => {
-      vals[b] = db.ventes.filter((x) => x.boutique === b && String(x.date).slice(0, 7) === key).reduce((s, x) => s + caVente(x), 0);
+      vals[b] = chiffreTous.filter((x) => x.boutique === b && String(x.date).slice(0, 7) === key).reduce((s, x) => s + caVente(x), 0);
     });
     mois6.push({ nom: moisNoms[d.getMonth()], vals });
   }
@@ -277,7 +290,7 @@ export function Dashboard({ db, profile, save }) {
     </>
   );
   const [, paG, pbG] = getPeriod();
-  const ventesPeriode = ventesReellesDb.filter((v) => inP(v.date, paG, pbG));
+  const ventesPeriode = chiffreDb.filter((v) => inP(v.date, paG, pbG));
   const topProduits = (() => {
     const cumul = {};
     // ⚠ 01/10/2026 (chapitre 22) : le Top 5 additionnait « qte × pu − remise
@@ -316,7 +329,8 @@ export function Dashboard({ db, profile, save }) {
             className={`px-4 py-1.5 rounded-full text-sm font-bold ${bqChoisie === nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
             style={bqChoisie === nom ? { backgroundColor: col(nom) } : {}}>{libellePastille(nom, terrainVu?.nom)}</button>
         ))}
-        {bqChoisie && !sansVentes && <span className="text-xs text-slate-500">Tout l'écran ne compte que <b>{bqChoisie}</b>.</span>}
+        {bqChoisie && !sansVentes && <span className="text-xs text-slate-500">Tout l'écran ne compte que <b>{libelleCaisse(bqChoisie)}</b>.</span>}
+        {terrainChoisi && <span className="text-xs text-slate-500" data-pastille-depot>🏗 Un dépôt n'est pas une vente : les ventes viennent quand le matériel sort pour le chantier (dans la boutique qui le remet), puis à la réception. Voici l'argent déposé et ce qui en a été puisé.</span>}
         {depotChoisi && <span className="text-xs text-slate-500">🏭 Un dépôt ne vend pas : voici ses sorties et son stock.</span>}
         {comptableChoisi && <span className="text-xs text-slate-500">🧾 La caisse du comptable ne vend pas : voici ce qui y entre, ce qui en sort, et ses sorties.</span>}
         {caisseSeule && <span className="text-xs text-slate-500">{dgChoisi ? "👤 Deux relevés : la caisse de BMI que vous gardez en main, et votre compte d'exploitant (ce que BMI vous doit, ou ce que vous avez retiré)." : `${banqueChoisi ? "🏦" : "📱"} Cette caisse ne vend pas : voici ce qui y entre, ce qui en sort, et le solde.`}</span>}
@@ -348,15 +362,18 @@ export function Dashboard({ db, profile, save }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {!sansVentes && <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />}
         <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
-        {!sansVentes && <Stat label="Total des dettes" value={fmt(totalDettes)} nature="du" />}
+        {(!sansVentes || terrainChoisi) && <Stat label="Total des dettes" value={fmt(totalDettes)} nature="du" />}
         {!sansVentes && <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} nature="du" />}
         {!sansVentes && <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} nature="regle" />}
         {(totalFraisInstallation + totalFraisTransport) > 0 && (
           <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} nature="entree" />
         )}
         {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} nature="attente" />}
+        {totalEnDepot > 0 && <Stat label={`${LIBELLE_DEPOT} — pas encore des ventes`} value={fmt(totalEnDepot)} nature="attente" />}
         {!sansVentes && <Stat label="Clients uniques" value={nbClients} nature="neutre" />}
       </div>
+
+      {terrainChoisi && <DepotsChantier depots={depotsEnCours} />}
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -376,7 +393,7 @@ export function Dashboard({ db, profile, save }) {
         {!sansVentes && <Stat label={`Ventes — ${customRow.label}`} value={fmt(somme(customRow.v))} nature="entree" />}
         <Stat label={`Dépenses — ${customRow.label}`} value={fmt(somme(customRow.d))} nature="sortie" />
         {!sansVentes && <Stat label={`Résultat — ${customRow.label}`} value={fmt(resCustom)} nature={resCustom >= 0 ? "regle" : "du"} />}
-        {!sansVentes && <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />}
+        {(!sansVentes || terrainChoisi) && <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />}
       </div>
       {!sansVentes && (
         <div className="text-xs text-slate-600 -mt-1" data-calcul-resultat>
@@ -493,8 +510,8 @@ export function Dashboard({ db, profile, save }) {
             moyen de les distinguer. Ils partent désormais des mêmes listes
             filtrées que les indicateurs affichés au-dessus. */}
         <div className="flex gap-2 flex-wrap">
-          {!sansVentes && <button className={btnDark} onClick={() => exportCSV("ventes", ["Date", "N° reçu", "Boutique", "Articles", "Client", "Téléphone", "Qté totale", "Remise (%)", "Remise (F)", "Total", "Paiement", "Commercial", "Saisi par"],
-            ventesReellesDb.map((v) => [dFR(v.date), numeroRecu(v), v.boutique, resumeArticles(v), v.client, v.tel, qteVente(v), v.remise_pct || "", v.remise || 0, totalVente(v), v.paiement, v.commercial, v.par]))}>Ventes</button>}
+          {!sansVentes && <button className={btnDark} onClick={() => exportCSV("ventes", ["Date", "N° reçu", "Nature", "Boutique", "Articles", "Client", "Téléphone", "Qté totale", "Remise (%)", "Remise (F)", "Total", "Paiement", "Commercial", "Saisi par"],
+            ventesReellesDb.map((v) => [dFR(v.date), numeroRecu(v), estDepotChantier(v) ? "Dépôt chantier (pas une vente)" : "Vente", v.boutique, resumeArticles(v), v.client, v.tel, qteVente(v), v.remise_pct || "", v.remise || 0, totalVente(v), v.paiement, v.commercial, v.par]))}>Ventes</button>}
           <button className={btnDark} onClick={() => exportCSV("depenses", ["Date", "Boutique", "Catégorie", "Description", "Montant", "Paiement", "Saisi par"],
             depensesReellesDb.map((x) => [dFR(x.date), x.boutique, x.categorie, x.description, x.montant, x.paiement, x.par]))}>Dépenses</button>
           {versementsReelsDb.length > 0 && <button className={btnDark} onClick={() => exportCSV("versements", ["Date", "Boutique", "Description", "Montant", "Destination", "Saisi par", "État"],
@@ -504,7 +521,7 @@ export function Dashboard({ db, profile, save }) {
           {!sansStock && <button className={btnDark} onClick={() => exportCSV("stocks", ["Boutique", "Article", "Catégorie", "Initial", "Entrées", "Vendus", "Ajustements", "Stock actuel", "Seuil", "Prix achat", "Prix vente"],
             trierPourRapportStocks(produitsReelsDb, (p) => stockActuel(db, p)).map((p) => [p.boutique, p.nom, p.categorie, p.initial, p.entrees, stockVendu(db, p.id), stockAjuste(db, p.id), stockActuel(db, p), p.seuil, p.prix_achat, p.prix_vente]))}>Stocks</button>}
           <button className="px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800"
-            onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb, dansMonEspace).filter((l) => !bqChoisie || l[8] === bqChoisie), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
+            onClick={() => { const [lp, pa, pb] = getPeriod(); exportCSV("journal_comptable", ["Date", "Journal", "Pièce", "Compte", "Intitulé du compte", "Libellé", "Débit", "Crédit", "Boutique"], lignesJournal(db, pa, pb, dansMonEspace, chiffreTous).filter((l) => !bqChoisie || l[8] === bqChoisie), lp.replace(/\s/g, "_")); }}>📒 Journal comptable (SYSCOHADA)</button>
         </div>
         <div className="text-xs text-slate-400 mt-2">Fichiers CSV compatibles Excel (séparateur point-virgule). Le journal comptable couvre la période sélectionnée plus haut : écritures en partie double (ventes, dépenses, règlements de dettes) avec les comptes SYSCOHADA de base — à remettre à votre comptable, qui peut adapter les codes si besoin.</div>
       </div>

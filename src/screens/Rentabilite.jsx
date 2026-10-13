@@ -5,9 +5,9 @@
 import { useState } from "react";
 import { fmt, today, inP, caLigneVente, qteReprise, coutDesVentes, avertissementSansPrix } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Stat } from "../components/ui";
-import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation, coutGarantie } from "../lib/calculs";
+import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation, coutGarantie, boutiqueDuChantier } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
-import { achatsCommeVentes } from "../lib/achatsChantier";
+import { ventesAuChiffre } from "../lib/depotChantier";
 
 // ============ RENTABILITÉ PAR PRODUIT ============
 export function Rentabilite({ db, profile }) {
@@ -28,9 +28,11 @@ export function Rentabilite({ db, profile }) {
   // écrans. Cet écran se contente de le consulter.
   const enFormation = afficheChiffresFormation(db, profile);
   const dansMonEspace = filtreEspaceAffichage(db, profile);
-  const ventesP = (db.ventes || []).filter(dansMonEspace).filter((v) => inP(v.date, a, b));
-  // Les boutiques de l'espace regardé : celles des ventes, et celles des articles.
-  const nomsEspace = new Set((db.boutiques || []).filter((bq) => !!bq.formation === enFormation).map((bq) => bq.nom));
+  // 🏗 Ce qui compte comme vente (Timo, 12/10/2026, « C b ») : jamais un dépôt
+  // chantier ; les achats « 🏗 Chantier » (prix de la boutique ET prix
+  // d'achat) et le reste d'un dépôt réceptionné, oui (lib/depotChantier.js).
+  const chantiersEspace = (db.clients_installes || []).filter((c) => dansMonEspace({ boutique: boutiqueDuChantier(db, c) }));
+  const ventesP = ventesAuChiffre((db.ventes || []).filter(dansMonEspace), chantiersEspace).filter((v) => inP(v.date, a, b));
 
   // Agrégation par NOM d'article (tous sites confondus)
   const parProduit = {};
@@ -40,6 +42,9 @@ export function Rentabilite({ db, profile }) {
       // CA ni dans les commissions — logiquement, il sort aussi de la
       // rentabilité par produit (ce n'est pas une vente de stock BMI).
       if (l.hors_boutique) return;
+      // Le reste d'un dépôt réduit aux frais (le matériel a tout puisé) porte
+      // une ligne vide : rien à ranger ici.
+      if (!(Number(l.qte || 0) > 0)) return;
       const p = db.produits.find((x) => x.id === l.produit_id);
       const nom = p ? p.nom : (l.article || "?");
       const achat = p ? Number(p.prix_achat || 0) : 0;
@@ -55,20 +60,7 @@ export function Rentabilite({ db, profile }) {
       // caLigneVente (lib/core.js) répartit ces réductions au prorata, de
       // sorte que la somme des lignes redonne exactement caVente(v).
       parProduit[nom].ca += caLigneVente(v, l);
-      // 🏗 Une ligne « au chantier » (11/10/2026) : son prix d'achat se compte
-      // sur le matériel vraiment parti (l'achat pour le chantier, plus bas).
-      if (!l.au_chantier) parProduit[nom].cout += qteNette * achat;
-    });
-  });
-  // 🏗 Le matériel parti au chantier : son coût seulement (ni quantité vendue,
-  // ni chiffre d'affaires — ce n'est pas une vente).
-  const achatsP = achatsCommeVentes(db.clients_installes).filter((x) => nomsEspace.has(x.boutique) && inP(x.date, a, b));
-  achatsP.forEach((x) => {
-    (x.articles || []).forEach((l) => {
-      const p = db.produits.find((y) => y.id === l.produit_id);
-      const nom = p ? p.nom : (l.article || "?");
-      if (!parProduit[nom]) parProduit[nom] = { nom, categorie: p?.categorie || "—", qte: 0, ca: 0, cout: 0 };
-      parProduit[nom].cout += Number(l.qte || 0) * (p ? Number(p.prix_achat || 0) : 0);
+      parProduit[nom].cout += qteNette * achat;
     });
   });
 
@@ -82,7 +74,7 @@ export function Rentabilite({ db, profile }) {
 
   // ⚠ Un article sans prix d'achat passait ici à 100 % de marge, sans un mot
   // (07/10/2026) : il est listé, et l'écran le dit — la règle du tableau de bord.
-  const { sansPrix, caSansPrix } = coutDesVentes(db.produits, [...ventesP, ...achatsP]);
+  const { sansPrix, caSansPrix } = coutDesVentes(db.produits, ventesP);
   const caTotal = lignes.reduce((s, x) => s + x.ca, 0);
   const margeTotale = lignes.reduce((s, x) => s + x.marge, 0);
   const tauxGlobal = caTotal > 0 ? Math.round((margeTotale / caTotal) * 1000) / 10 : 0;

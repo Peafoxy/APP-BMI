@@ -44,7 +44,7 @@ export const GUIDE = {
     ["etapes", [
       { titre: "La couleur", texte: "Barre **bleue** = réel, **violette** = formation. Ce que je crée naît dans l'espace que je regarde." },
       { titre: "Les chiffres à côté des onglets", texte: "📥 Commandes reçues, 📋 Tous les devis, 📦 Stocks (transferts à valider), 🏠 Clients installés, 👥 Utilisateurs (demandes de crédit), 📲 WhatsApp : chacun compte ce qui m'attend." },
-      { titre: "📊 Tableau de bord", texte: "« Aujourd'hui » d'office. Les pastilles en haut : **TOUTES**, chaque boutique, TERRAIN, 🧾 COMPTABLE, les comptes 📱 FLOOZ / MIXX. Une pastille choisie filtre tout l'écran (chapitre 22)." },
+      { titre: "📊 Tableau de bord", texte: "« Aujourd'hui » d'office. Les pastilles en haut : **TOUTES**, chaque boutique, 🏗 DÉPÔT CHANTIER (ses dépôts : déposé, puisé, reste), 🧾 COMPTABLE, les comptes 📱 FLOOZ / MIXX. Une pastille choisie filtre tout l'écran (chapitre 22)." },
       { titre: "🔒 Caisse", texte: "La bande orange d'une boutique dont la journée n'est **pas clôturée** : ses ventes sont bloquées tant qu'elle ne l'est pas. Une clôture **dépassée** (une vente après la clôture) se signale et se refait (chapitre 6)." },
       { titre: "🏠 Clients installés", texte: "Les chantiers **📅 À programmer**, les entretiens qui arrivent, les réceptions en attente (chapitre 15)." },
     ]],

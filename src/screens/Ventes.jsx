@@ -9,10 +9,10 @@ import { correspond } from "../lib/suggestions";
 import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
-import { LOGO, PAIEMENTS, caisseDeVente } from "../lib/constants";
+import { LOGO, PAIEMENTS, caisseDeVente, LIBELLE_CAISSE_CHANTIER } from "../lib/constants";
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
-import { prochainNumeroAchatChantier } from "../lib/core";
+import { prochainNumeroAchatChantier, estDepotChantier } from "../lib/core";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
@@ -698,7 +698,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (!await uConfirm(
       `Enregistrer l'achat pour le chantier de ${nomChantier(c)} ?\n\n`
       + `Articles : ${fmt(totalPanierAchat)}${remise ? ` (${texteRemise})` : ""}\n`
-      + `🏗 Payé par le chantier : rien n'entre dans le tiroir, rien ne compte dans le chiffre d'affaires. Le matériel sort du stock.\n\n`
+      + `🏗 Payé par le dépôt chantier : rien n'entre dans le tiroir. Le matériel sort du stock et cet achat DEVIENT UNE VENTE de la boutique, puisée dans le dépôt du client.\n\n`
       + `Le client a payé ${fmt(argent.paye)} pour son devis ; déjà acheté : ${fmt(argent.achete)}.`
       + (enAttente > 0 ? `\n⏳ ${fmt(enAttente)} resteront en attente du chantier : son prochain versement les réglera d'abord.` : "")
       + (alerte ? `\n\n${alerte}` : "")
@@ -1001,7 +1001,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const messageConfirm = (fraisInstallDevis > 0 || fraisTransportDevis > 0)
       ? `Confirmer la vente de ${panier.length} article(s) ?\n\nArticles : ${fmt(total)}${remise ? ` (${texteRemise})` : ""}\n${fraisInstallDevis > 0 ? `Frais d'installation : ${fmt(fraisInstallDevis)}\n` : ""}${fraisTransportDevis > 0 ? `Transport : ${fmt(fraisTransportDevis)}\n` : ""}\nMONTANT TOTAL À ENCAISSER : ${fmt(totalAEncaisser)}`
       : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (${texteRemise})` : ""} ?`;
-    if (!await uConfirm(auChantier ? `${messageConfirm}\n\n🏗 Devis avec installation : le matériel ne sort PAS du stock maintenant. Il sortira quand les techniciens viendront le chercher (case « 🏗 Chantier » d'une nouvelle vente).` : messageConfirm)) return;
+    if (!await uConfirm(auChantier ? `${messageConfirm}\n\n🏗 Devis avec installation : c'est un DÉPÔT CHANTIER, pas encore une vente. Le client reçoit un reçu de dépôt ; le matériel ne sort PAS du stock maintenant. Il sortira quand les techniciens viendront le chercher (case « 🏗 Chantier » d'une nouvelle vente) : chaque sortie deviendra une vente, et le reste du devis à la réception.` : messageConfirm)) return;
 
     // 2.99.44 (Lot C) : numérotation robuste partagée — (max attribué) + 1,
     // au lieu de « nombre de ventes + 1 » qui doublonnait après une
@@ -1048,6 +1048,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       par: profile.nom,
       commande_id: origineCommande,
       ...(caisseVente ? { caisse: caisseVente } : {}),
+      // 🏗 Un devis avec installation encaissé est un DÉPÔT CHANTIER (Timo,
+      // 12/10/2026, « C b ») : pas une vente — les achats « 🏗 Chantier » le
+      // deviendront (lib/depotChantier.js).
+      ...(auChantier ? { depot_chantier: true } : {}),
       // 🧾 Le chantier suit la vente (10/10/2026) : son reçu s'intitule « FACTURE — TRAVAUX ».
       ...(origineTravaux ? { travaux_id: origineTravaux, ...champsTravauxDocument((db.clients_installes || []).find((c) => c.id === origineTravaux)) } : {}),
       // D'où vient ce panier, quand il a été repris d'une proforma.
@@ -1197,7 +1201,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // gardent l'ancienne règle, payables dès la réception.
       // 🏗 La dette d'une vente de devis vit dans la caisse CHANTIER (son argent
       // y entre) ; elle se suit dans 📋 Dettes de SA boutique (`boutique_vente`).
-      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, caisseVente || boutique), date: today(), boutique: caisseVente || boutique, ...(caisseVente ? { boutique_vente: boutique } : {}), client: f.client || "Client non renseigné", tel: f.tel, ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }), motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom, ...(vente.travaux_id ? { travaux_id: vente.travaux_id, travaux_lieu: vente.travaux_lieu || "", travaux_objet: vente.travaux_objet || "" } : {}) }, ...db.dettes] };
+      next = { ...next, dettes: [{ id: uid(), client_user_id: clientCompteId, vente_id: vente.id, numero: prochainNumeroDette(db, caisseVente || boutique), date: today(), boutique: caisseVente || boutique, ...(caisseVente ? { boutique_vente: boutique } : {}), ...(auChantier ? { depot_chantier: true } : {}), client: f.client || "Client non renseigné", tel: f.tel, ...champsIdentite({ prenom: f.prenom, entreprise: f.entreprise }), motif: resumeArticles(vente), articles: lignesDette, montant: duTotal, paye: avance, paiements: paiementsInitiaux, par: profile.nom, ...(vente.travaux_id ? { travaux_id: vente.travaux_id, travaux_lieu: vente.travaux_lieu || "", travaux_objet: vente.travaux_objet || "" } : {}) }, ...db.dettes] };
     }
     // 🛠 Travaux à crédit : le reçu (et la dette) reviennent sur la fiche.
     if (origineTravaux) {
@@ -1216,7 +1220,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     envoyerRecuAutomatique(vente, next);
     if (od) {
       setOrigineDevis(null); // consommé : une seule fiche d'installation par devis
-      uAlert(`✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.${auChantier ? "\n\n🏗 Le matériel est resté en stock : il sortira par la case « 🏗 Chantier » d'une vente, quand les techniciens viendront le chercher." : ""}`);
+      uAlert(`✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.${auChantier ? "\n\n🏗 C'est un DÉPÔT CHANTIER : le matériel est resté en stock. Il sortira par la case « 🏗 Chantier » d'une vente, quand les techniciens viendront le chercher — chaque sortie deviendra une vente." : ""}`);
     }
     setPanier([]);
     setOrigineProforma(null);   // consommée : la proforma a donné sa vente
@@ -1802,7 +1806,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           {vueListe === "ventes"
             ? <span className="text-sm font-semibold text-slate-500">{boutique} — Aujourd'hui : {fmt(totalJour)}</span>
             : vueListe === "achats"
-              ? <span className="text-xs font-semibold text-slate-500">Matériel remis aux chantiers — payé par le chantier, hors chiffre d'affaires et hors tiroir</span>
+              ? <span className="text-xs font-semibold text-slate-500">Matériel remis aux chantiers — puisé dans le dépôt du client : chaque achat est une vente (chiffre d'affaires de la boutique), hors tiroir</span>
               : <span className="text-xs font-semibold text-slate-500">Offres de prix — non comptabilisées dans le chiffre d'affaires</span>}
         </div>
         <div className="px-4 py-2 border-b border-slate-100 bg-white flex flex-wrap items-center gap-2">
@@ -1821,12 +1825,18 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               brut correspond à la colonne TOTAL, le net à ce qui est resté
               dans la caisse. */}
           {vueListe === "achats" ? null : vueListe === "ventes" ? (() => {
-            const r = recetteDesVentes(listeFiltree);
+            // 🏗 Un dépôt chantier n'est pas une vente (12/10/2026, « C b ») : il
+            // est sur la liste, mais à part de la recette, et dit à côté.
+            const r = recetteDesVentes(listeFiltree.filter((v) => !estDepotChantier(v)));
+            const depots = recetteDesVentes(listeFiltree.filter(estDepotChantier));
             return (
               <span className="text-sm font-bold text-sky-800 self-center ml-auto">
                 💰 Recette : {fmt(r.brut)} <span className="font-semibold text-slate-500">· {r.nb} vente{r.nb > 1 ? "s" : ""}</span>
                 {r.repris > 0 && (
                   <span className="font-semibold text-amber-700"> — dont {fmt(r.repris)} repris, net {fmt(r.net)}</span>
+                )}
+                {depots.nb > 0 && (
+                  <span data-recette-depots className="font-semibold text-violet-700"> · 🏗 Dépôts chantier : {fmt(depots.brut)} ({depots.nb}) — pas des ventes</span>
                 )}
               </span>
             );
@@ -1923,7 +1933,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     <span className="text-slate-400"> — toutes les ventes, quels que soient les filtres</span>
                   </div>
                   {b.reglesEspeces > 0 && <div data-bande-dettes className="text-xs text-slate-200">➕ Dettes réglées en espèces : {fmt(b.reglesEspeces)}</div>}
-                  {b.chantier?.nb > 0 && <div data-bande-chantier className="text-xs text-amber-200">🏗 Devis encaissés dans la caisse CHANTIER : {b.chantier.nb} vente{b.chantier.nb > 1 ? "s" : ""}, {fmt(b.chantier.montant)} — pas dans ce tiroir</div>}
+                  {b.chantier?.nb > 0 && <div data-bande-chantier className="text-xs text-amber-200">🏗 Devis encaissés dans la caisse {LIBELLE_CAISSE_CHANTIER} : {b.chantier.nb} vente{b.chantier.nb > 1 ? "s" : ""}, {fmt(b.chantier.montant)} — pas dans ce tiroir</div>}
                 </td>
               </tr>
             ) : (
@@ -1952,7 +1962,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     {credit ? <div data-vente-avance className="font-bold text-slate-900">avance : {fmt(avance)}</div> : null}
                   </>;
                 })()}</td>
-                <td className={`px-3 py-2 whitespace-nowrap${texteGrise(v)}`}><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}{(() => {
+                <td className={`px-3 py-2 whitespace-nowrap${texteGrise(v)}`}><PastillePaiement paiement={v.paiement} />{v.caisse && v.caisse !== v.boutique && <div data-vente-caisse className="text-[11px] font-semibold text-amber-700 mt-0.5">caisse {libelleCaisse(v.caisse)}</div>}{estDepotChantier(v) && <div data-vente-depot className="text-[11px] font-semibold text-violet-700 mt-0.5">🏗 dépôt — pas une vente</div>}{(() => {
                   // 💸 L'argent de CETTE vente remis au DG (Timo, 09/10/2026) : la trace se lit sous le paiement.
                   const e = etatVersementOrigine(db, versementDeVente(db, v.id));
                   // 09/10/2026 (Timo, « afficher juste versée… dès qu'on clique, le reste apparaît ») :

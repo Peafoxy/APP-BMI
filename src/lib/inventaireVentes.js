@@ -34,6 +34,7 @@ import { soldesMobiles } from "./caissesMobiles.js";
 import { caisseDeVente, boutiqueDuDocument, libelleCaisse, CATEGORIES_HORS_CHARGES, CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, PAIEMENTS } from "./constants.js";
 import { estEnAttente, estRejetee, montantOrigine, sortDuTiroir } from "./validationDepenses.js";
 import { detteEnRetard, resteDette, joursDeDette } from "./rappels.js";
+import { ventesAuChiffre, estDepotChantier } from "./depotChantier.js";
 
 export const ROLES_INVENTAIRE = ["gerant", "admin"];
 export const peutVoirInventaire = (profile) => ROLES_INVENTAIRE.includes(profile?.role);
@@ -107,9 +108,14 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
 
   // ---- 1. LES VENTES de la période (vendues dans CETTE boutique) ----
   const toutesVentes = (db?.ventes || []).filter((v) => v.boutique === boutique);
-  const ventes = toutesVentes.filter((v) => dans(v.date));
+  // 🏗 Ce qui compte comme vente (Timo, 12/10/2026, « C b ») : jamais un dépôt
+  // chantier ; les achats « 🏗 Chantier » remis par cette boutique et le reste
+  // d'un dépôt réceptionné, oui (lib/depotChantier.js). Les dépôts sont dits à part.
+  const chiffre = ventesAuChiffre(db?.ventes || [], db?.clients_installes || []).filter((v) => v.boutique === boutique);
+  const ventes = chiffre.filter((v) => dans(v.date));
   const vm = ventesParMoyen(ventes, [], totalVente);
-  const versChantier = ventes.filter((v) => caisseDeVente(v) !== boutique);
+  const versChantier = ventes.filter((v) => !v.achat_chantier && !v.reste_depot && caisseDeVente(v) !== boutique);
+  const depots = toutesVentes.filter((v) => estDepotChantier(v) && dans(v.date));
   // Les reprises FAITES pendant la période (une reprise peut toucher une vente
   // plus ancienne : elle compte le jour où l'article est revenu).
   const reprises = toutesVentes.flatMap((v) => (Array.isArray(v.reprises) ? v.reprises : [])
@@ -122,6 +128,7 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
     reprises: { nb: reprises.length, montant: montantReprises, rendu: somme(reprises, (r) => r.rembourse) },
     net: vm.totalVendu - montantReprises,
     chantier: { nb: versChantier.length, montant: somme(versChantier, (v) => montantEncaisseVente(v, totalVente)) },
+    depots: { nb: depots.length, montant: somme(depots, (v) => montantEncaisseVente(v, totalVente)) },
   };
 
   // ---- 2. LES RECETTES : l'argent ENTRÉ dans la caisse de la boutique ----
@@ -319,6 +326,7 @@ export function inventaireGeneral(db, noms, totalVente, bornes, aujourdhui, { av
     reprises: { nb: tous((i) => i.ventes.reprises.nb), montant: tous((i) => i.ventes.reprises.montant), rendu: tous((i) => i.ventes.reprises.rendu) },
     net: tous((i) => i.ventes.net),
     chantier: { nb: tous((i) => i.ventes.chantier.nb), montant: tous((i) => i.ventes.chantier.montant) },
+    depots: { nb: tous((i) => i.ventes.depots.nb), montant: tous((i) => i.ventes.depots.montant) },
   };
 
   // ---- 2. Recettes ----
@@ -459,7 +467,8 @@ export function lignesCsvInventaire(inv, dFR = (x) => x) {
   r("Ventes", "Total vendu", inv.ventes.nb, inv.ventes.total);
   if (inv.ventes.reprises.nb) r("Ventes", "Reprises faites dans la période", inv.ventes.reprises.nb, -inv.ventes.reprises.montant);
   r("Ventes", "Net", null, inv.ventes.net);
-  if (inv.ventes.chantier.nb) r("Ventes", "dont devis encaissés dans la caisse CHANTIER", inv.ventes.chantier.nb, inv.ventes.chantier.montant);
+  if (inv.ventes.chantier.nb) r("Ventes", "dont devis encaissés dans la caisse DÉPÔT CHANTIER", inv.ventes.chantier.nb, inv.ventes.chantier.montant);
+  if (inv.ventes.depots?.nb) r("Ventes", "Dépôts chantier reçus (pas des ventes)", inv.ventes.depots.nb, inv.ventes.depots.montant);
   inv.recettes.lignes.forEach((l) => r("Recettes", `${l.moyen} (ventes ${Math.round(l.ventes)} + règlements ${Math.round(l.reglements)})`, null, l.total));
   r("Recettes", "Total des recettes", null, inv.recettes.total);
   inv.depenses.lignes.forEach((l) => r("Dépenses", l.categorie, l.nb, l.montant));

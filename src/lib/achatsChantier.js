@@ -11,9 +11,11 @@
 // gérante fait, d'après la liste des techniciens, une vente avec la case
 // « 🏗 Chantier » cochée : c'est un ACHAT POUR LE CHANTIER.
 //   1. il sort le stock (ajustements `sortie_chantier`) et compte son prix
-//      d'achat, mais il n'est PAS une vente : ni chiffre d'affaires, ni
-//      commission, ni tiroir, ni clôture (rien n'est écrit dans db.ventes) ;
-//   2. il est « 🏗 Payé par le chantier » : il se déduit de ce que le client a
+//      d'achat ; ni commission, ni tiroir, ni clôture (rien n'est écrit dans
+//      db.ventes). ⚠ Depuis le 12/10/2026 (« C b », lib/depotChantier.js),
+//      il DEVIENT UNE VENTE pour le chiffre d'affaires : l'encaissement du
+//      devis n'est plus qu'un DÉPÔT, et c'est l'achat qui y puise ;
+//   2. il est « 🏗 Payé par le dépôt chantier » : il se déduit de ce que le client a
 //      payé pour son devis — aucun argent ne change de caisse ;
 //   3. ce que le client n'a pas encore payé reste « ⏳ en attente du
 //      chantier », sans dette : le prochain versement du client le règle
@@ -35,7 +37,7 @@ import { uid, today, heureCourte, totalVente, lignesVente, fmt } from "./core";
 export const TYPE_SORTIE_CHANTIER = "sortie_chantier";
 export const TYPE_RETOUR_CHANTIER = "retour_chantier";
 export const ROLES_ACHAT_CHANTIER = ["gerant", "admin"];
-export const PAIEMENT_CHANTIER = "🏗 Payé par le chantier";
+export const PAIEMENT_CHANTIER = "🏗 Payé par le dépôt chantier";
 export const TITRE_FACTURE_ACHAT = "FACTURE D'ACHAT POUR LE CHANTIER";
 
 export const peutAcheterPourChantier = (profile) => ROLES_ACHAT_CHANTIER.includes(profile && profile.role);
@@ -53,10 +55,11 @@ export const stockAuChantier = (devis) => !!(devis && devis.avec_installation ==
 export const ligneSortDuStock = (l) => !!l && !l.deja_sorti && !l.au_chantier;
 
 // ---- Les achats d'un chantier ----
-export const achatsDe = (c) => (Array.isArray(c && c.achats_chantier) ? c.achats_chantier : []);
-export const achatsActifs = (c) => achatsDe(c).filter((a) => !a.annule);
-const brutLignes = (lignes) => (lignes || []).reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0), 0);
-export const totalAchat = (a) => Math.max(0, Math.round(brutLignes(a && a.lignes) - Number((a && a.remise) || 0)));
+// Les achats d'un chantier vivent dans lib/depotChantier.js (une seule
+// définition, lisible par Node) ; importés PUIS réexportés (un « export from »
+// ne crée pas de variable locale).
+import { achatsDe, achatsActifs, totalAchat } from "./depotChantier.js";
+export { achatsDe, achatsActifs, totalAchat };
 const cleTemps = (a) => `${a.date || ""} ${a.heure || ""} ${a.id || ""}`;
 
 // G : les chantiers proposés dans la case — la liste reçue (espace regardé),
@@ -145,7 +148,7 @@ export function construireAchatChantier({ chantier, panier, remise = 0, remisePc
   return {
     achat, ajustements,
     fiche: { ...chantier, achats_chantier: [...achatsDe(chantier), achat] },
-    journal: `🏗 Achat ${numero} pour le chantier ${nom} (${fmt(totalAchat(achat))}) — ${boutique} — payé par le chantier`,
+    journal: `🏗 Achat ${numero} pour le chantier ${nom} (${fmt(totalAchat(achat))}) — ${boutique} — payé par le dépôt chantier`,
   };
 }
 
@@ -174,12 +177,9 @@ export function annulerAchatChantier({ chantier, achatId, motif, profile, date =
   };
 }
 
-// ---- Le coût (point 1) : les achats sous la forme d'une vente, pour la
-// fabrique du prix d'achat (coutDesVentes) — jamais pour le chiffre
-// d'affaires. Reçoit les chantiers déjà filtrés.
-export const achatsCommeVentes = (chantiers) => (chantiers || []).flatMap((c) => achatsActifs(c).map((a) => ({
-  id: a.id, numero: a.numero, boutique: a.boutique, date: a.date, articles: a.lignes, remise: a.remise, achat_chantier: true,
-})));
+// ---- Le coût ET le chiffre d'affaires d'un achat : `venteDeLAchat` et
+// `ventesAuChiffre` (lib/depotChantier.js, 12/10/2026, « C b ») ont remplacé
+// `achatsCommeVentes`, qui ne comptait que le prix d'achat.
 
 // La vente d'un chantier, sa dette (listes reçues).
 export const venteDuChantier = (chantier, ventes) => (chantier && chantier.vente_id ? (ventes || []).find((v) => v.id === chantier.vente_id) || null : null);

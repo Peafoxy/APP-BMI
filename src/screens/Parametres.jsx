@@ -408,7 +408,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // sans « En faire un magasin », ni suppression, ni loyer, ni logo.
   const boutiquesDuTableau = boutiquesDeLEcran.filter((b) => !b.terrain);
   const caissesTerrain = boutiquesDeLEcran.filter((b) => b.terrain);
-  const MOTIF_TERRAIN = "La caisse 🏗 CHANTIER n'est pas une boutique : elle reçoit l'argent des chantiers (poses seules, ventes issues d'un devis). Ce geste ne la concerne pas.";
+  const MOTIF_TERRAIN = "La caisse 🏗 DÉPÔT CHANTIER n'est pas une boutique : elle reçoit l'argent des chantiers (poses seules, ventes issues d'un devis). Ce geste ne la concerne pas.";
   const [accueilTexte, setAccueilTexte] = useState(boutiqueRef.accueil_texte || "");
   const [accueilBadge, setAccueilBadge] = useState(boutiqueRef.accueil_couleur_badge || "#0284c7");
   const [accueilFond, setAccueilFond] = useState(boutiqueRef.accueil_couleur_fond || "#ffffff");

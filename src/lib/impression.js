@@ -4,7 +4,8 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, fmtFcfa, pctRemiseLisible, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp } from "./core";
+import { today, dFR, fmt, fmtFcfa, pctRemiseLisible, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp, estDepotChantier } from "./core";
+import { TITRE_RECU_DEPOT } from "./depotChantier";
 import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
 import { printApi } from "../components/ui";
@@ -109,6 +110,8 @@ export function imprimerRecu(v, bq = {}, produits = []) {
     ["Crédit", /Crédit/i],
   ];
   const travaux = travauxDu(v);
+  // 🏗 Un devis avec installation encaissé est un DÉPÔT CHANTIER (12/10/2026).
+  const depot = !travaux && estDepotChantier(v);
   const casesMode = modes
     .map(([lbl, re]) => `<span class="case">${re.test(v.paiement || "") ? "☑" : "☐"} ${lbl}</span>`)
     .join("");
@@ -129,7 +132,8 @@ export function imprimerRecu(v, bq = {}, produits = []) {
       </td>
     </tr></table>
 
-    <h1>${travaux ? TITRE_FACTURE_TRAVAUX : "REÇU DE VENTE"}</h1>
+    <h1>${travaux ? TITRE_FACTURE_TRAVAUX : depot ? TITRE_RECU_DEPOT : "REÇU DE VENTE"}</h1>
+    ${depot ? `<div data-mention-depot style="text-align:center;font-size:11px;color:#1e5a8a;margin:-6px 0 10px">Somme déposée pour votre chantier : le matériel en sortira au fil de l'installation.</div>` : ""}
 
     <div class="meta">
       <div><b>${travaux ? "N° de facture (reçu)" : "Numéro de reçu"} :</b> ${numero}</div>
@@ -256,6 +260,7 @@ export function imprimerRecuVersement(d, bq = {}) {
 
     <h1${solde ? ' class="solde"' : ""}>${titre}</h1>
     ${travaux ? `<div data-mention-travaux style="text-align:center;font-weight:bold;color:#1e5a8a;margin:-6px 0 10px;letter-spacing:1px">${TITRE_FACTURE_TRAVAUX}</div>` : ""}
+    ${!travaux && d.depot_chantier ? `<div data-mention-depot style="text-align:center;font-weight:bold;color:#1e5a8a;margin:-6px 0 10px;letter-spacing:1px">${TITRE_RECU_DEPOT}</div>` : ""}
 
     <div class="meta">
       <div><b>N° de reçu :</b> ${esc(numeroRecuDette(d))}</div>
@@ -331,7 +336,7 @@ export function imprimerRecuDeVente(db, v, bq = {}, produits = []) {
   // 🧾 Une vente de travaux s'imprime « FACTURE — TRAVAUX » (10/10/2026).
   const vt = avecInfoTravaux(db, v);
   const doc = documentDeVente(db, vt);
-  if (doc.type === "dette") imprimerRecuVersement(avecInfoTravaux(db, doc.dette), bq);
+  if (doc.type === "dette") imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq);
   else imprimerRecu(vt, bq, produits);
 }
 
@@ -342,7 +347,7 @@ export function imprimerRecuDeVente(db, v, bq = {}, produits = []) {
 // d'achat ni marge : c'est le papier du client.
 // ---- 🏗 LA FACTURE D'ACHAT POUR LE CHANTIER (Timo, 11/10/2026, « A a ») ----
 // Le matériel que la gérante remet aux techniciens pour un chantier : prix de
-// la boutique, remises comme au comptoir, « Payé par le chantier ». Un
+// la boutique, remises comme au comptoir, « Payé par le dépôt chantier ». Un
 // document INTERNE (point 4) : jamais envoyé au client, aucun tiroir touché.
 // `argent` = argentDuChantier après cet achat (couvert / en attente).
 export function imprimerAchatChantier(achat, chantier, bq = {}, argent = null) {
@@ -1095,7 +1100,7 @@ export function texteRecuComplet(v, bq = {}) {
     // l'apparence d'un vrai.
     bq.formation ? `🎓 *DOCUMENT DE FORMATION — SANS VALEUR*` : null,
     bq.formation ? `------------------------` : null,
-    `🧾 *REÇU — ${v.boutique}*`,
+    estDepotChantier(v) ? `🧾 *${TITRE_RECU_DEPOT} — ${v.boutique}*` : `🧾 *REÇU — ${v.boutique}*`,
     bq.adresse || "Lomé, Togo",
     bq.tel ? `Tél : ${bq.tel}` : null,
     `------------------------`,

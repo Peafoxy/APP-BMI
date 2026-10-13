@@ -57,6 +57,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
 | `lib/importStock.js` | L'importation d'articles en stock (Excel ou texte collé) |
 | `lib/travaux.js` | 🛠 Travaux à crédit : les prestations hors devis |
+| `lib/depotChantier.js` | 🏗 Le dépôt chantier : l'encaissement d'un devis avec installation n'est pas une vente ; ce qui compte comme vente (achats « 🏗 Chantier », reste à la réception), l'état de chaque dépôt |
 | `lib/achatsChantier.js` | 🏗 Le matériel qui part au chantier : la case « Avec installation » du devis, les achats payés par le chantier, l'argent du chantier, 🔒 le matériel réservé (avertissement de vente, « Marquer terminé » sans achat) |
 | `lib/pompes.js` | Les pompes : ce qu'on en note (puissance, profondeur, débit, tension, hybride), et « quelle pompe pour ce forage » — **n'importe RIEN** |
 | `lib/outillage.js` | 🧰 Le matériel de travail de BMI : le registre, les sorties et retours, les pertes, l'appel de la semaine |
@@ -152,6 +153,8 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `EcranVerrou.jsx` | La fenêtre du verrou d'inactivité |
 | `ZoneSignature.jsx` | LA zone de signature (les quatre emplacements) |
 | `CarteCaisse.jsx` | LA carte d'une caisse centrale (DG, BANQUE, comptable) |
+
+| `DepotsChantier.jsx` | 🏗 La pastille DÉPÔT CHANTIER du tableau de bord : déposé, puisé (devenu vente), vendu à la réception, reste en dépôt |
 | `CompteExploitant.jsx` | La pastille 👤 DG en deux relevés (caisse de BMI chez lui, compte de l'exploitant) et ses gestes ➕ Apport / ➖ Prélèvement |
 | `RechercheGlobale.jsx` | La loupe du menu : recherche transversale (ventes, articles, devis, clients, prospects) |
 | `MotInformation.jsx` | 👋 LA fenêtre du mot d'information (une seule pour le client et l'employé, seuls les mots changent) |

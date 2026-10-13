@@ -3787,7 +3787,8 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
     && ventesSrc.includes("imprimerRecuDeVente(next, vente, infoBq(boutique), db.produits)")
     && ventesSrc.includes("imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)")
     // RETOURNÉ le 10/10/2026 : la vente et sa dette passent par avecInfoTravaux (« FACTURE — TRAVAUX »).
-    && imp.includes("const doc = documentDeVente(db, vt);") && imp.includes('if (doc.type === "dette") imprimerRecuVersement(avecInfoTravaux(db, doc.dette), bq);'));
+    // RETOURNÉ le 12/10/2026 : la dette d'un DÉPÔT CHANTIER porte sa mention (« C b »).
+    && imp.includes("const doc = documentDeVente(db, vt);") && imp.includes('if (doc.type === "dette") imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq);'));
 }
 
 titre("Le filet : abandonner un geste refusé par le serveur, sans rien laisser à moitié");
@@ -5508,15 +5509,17 @@ titre("Tableau de bord : une boutique au choix — Toutes, chaque boutique, TERR
     && (dash.match(/\bNOMS_VUES\b/g) || []).length >= 8 && (dash.match(/\bNOMS_GRAPHE\b/g) || []).length >= 7
     && !/\bNOMS\.(map|forEach|reduce|length)/.test(dash));
   test("★ un dépôt ou la caisse du comptable ne montrent aucune carte de vente, dette, commission ou client, ni graphique, top 5, paiements, synthèse ; TERRAIN et le comptable n'ont pas de carte de stock",
-    /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dash) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dash)
-    && (dash.match(/\{!sansVentes && <Stat /g) || []).length === 8 && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\s*<div className="flex items-center justify-between mb-3 flex-wrap gap-2">\s*<div className="font-bold text-slate-800">Ventes des 6 derniers mois/.test(dash)
+    // RETOURNÉ le 12/10/2026 (« C b ») : la caisse 🏗 DÉPÔT CHANTIER ne vend pas non plus (un dépôt n'est
+    // pas une vente) ; elle garde ses deux cartes de dettes (les dettes de devis y vivent).
+    /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule \|\| terrainChoisi;/.test(dash) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dash)
+    && (dash.match(/\{!sansVentes && <Stat /g) || []).length === 6 && (dash.match(/\{\(!sansVentes \|\| terrainChoisi\) && <Stat label="(Total des dettes|Dettes en cours)"/g) || []).length === 2 && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\s*<div className="flex items-center justify-between mb-3 flex-wrap gap-2">\s*<div className="font-bold text-slate-800">Ventes des 6 derniers mois/.test(dash)
     && /\{!sansVentes && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">\s*<div [^>]*>Synthèse par période/.test(dash)
     && /\{!sansStock && <div className="grid md:grid-cols-2 gap-3">/.test(dash) && /\{!estDepot\(b\) && <div><div className="text-xs text-slate-500">Dettes clients/.test(dash));
   test("★ les dépenses restent visibles partout (total et période choisie — « Dépenses du mois » retourné le 10/09/2026), et les exports suivent : ventes / dettes cachés sans ventes, stocks caché sans stock",
     /<Stat label="Total des dépenses"/.test(dash) && /<Stat label=\{`Dépenses — \$\{customRow\.label\}`\}/.test(dash) && !/\{!sansVentes && <Stat label=\{`Dépenses — /.test(dash) && !/\{!sansVentes && <Stat label="Total des dépenses"/.test(dash)
     && /\{!sansVentes && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("ventes"/.test(dash) && /\{!sansVentes && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("dettes"/.test(dash)
     && /\{!sansStock && <button className=\{btnDark\} onClick=\{\(\) => exportCSV\("stocks"/.test(dash));
-  test("★ le journal comptable exporté suit aussi la boutique choisie (et, depuis le 01/10/2026, l'espace regardé)", /lignesJournal\(db, pa, pb, dansMonEspace\)\.filter\(\(l\) => !bqChoisie \|\| l\[8\] === bqChoisie\)/.test(dash));
+  test("★ le journal comptable exporté suit aussi la boutique choisie (et, depuis le 01/10/2026, l'espace regardé)", /lignesJournal\(db, pa, pb, dansMonEspace, chiffreTous\)\.filter\(\(l\) => !bqChoisie \|\| l\[8\] === bqChoisie\)/.test(dash)); // RETOURNÉ le 12/10/2026 : le journal reçoit aussi ce qui compte comme vente (« C b »)
   // Capture Timo (10/09/2026) : « Période : Aujourd'hui » choisi, les cartes disaient encore « Ventes du mois ».
   // Timo (11/09/2026) : « Période doit rester sur Aujourd'hui par défaut ».
   test("★ le sélecteur de période démarre sur Aujourd'hui (periodes()[0]), repli compris — plus sur « Ce mois »",
@@ -6419,7 +6422,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     && /const nomsDG = jeSuisDG \? boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\)\.filter\(\(n\) => n === boutique\) : \[\];/.test(cs) && /versementsAValiderParDG\(db, nomsDG\)/.test(cs)
     && /Versements à valider par le DG \(\{aValiderDG\.length\}\) <Badge boutique=\{boutique\} \/>/.test(cs)
     // Captures Timo (10/09/2026) : montant en gras chez le DG ; les tableaux de la caisse défilent de droite à gauche sur téléphone.
-    && /<b className="text-base tabular-nums">\{fmt\(d\.montant\)\}<\/b>/.test(cs) && /bg-white overflow-x-auto">\s*(\{\/\*[^]*?\*\/\}\s*)?<div[^>]*>Versements de \{boutique\}<\/div>\s*<table className="w-full text-sm min-w-\[640px\]">/.test(cs)
+    && /<b className="text-base tabular-nums">\{fmt\(d\.montant\)\}<\/b>/.test(cs) && /bg-white overflow-x-auto">\s*(\{\/\*[^]*?\*\/\}\s*)?<div[^>]*>Versements de \{libelleCaisse\(boutique\)\}<\/div>\s*<table className="w-full text-sm min-w-\[640px\]">/.test(cs)
     && /bg-white overflow-x-auto">\s*<div[^>]*>Détail des encaissements/.test(cs) && !/bg-white overflow-hidden/.test(cs)
     && /messages: \[\.\.\.messagesVersement\(db, profile, r\.sortie\), \.\.\.\(db\.messages \|\| \[\]\)\]/.test(cs) && /\{vers\.destination === DEST_BANQUE && \(/.test(cs));
 }
@@ -7632,7 +7635,7 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     ck.totalEntrees === 70000 && ck.totalSorties === 15000 && ck.solde === 55000 && ck.aEncaisser === 20000 && ck.aRemettre === 40000 && ck.mouvements.map((m) => m.id).join("|") === "s1|m1"
     && /encaissé le 11\/09\/2026 par MARIE/.test(ck.entrees[0].libelle) && Cg.CAISSE_COMPTABLE === "Chez le comptable"
     // « séparer chacun… avoir les onglets DG, BANQUE et COMPTABLE » : trois pastilles, leurs libellés.
-    && Cg.libellePastille("Chez le DG") === "👤 DG" && Cg.libellePastille("BANQUE") === "🏦 BANQUE" && Cg.libellePastille("Chez le comptable") === "🧾 COMPTABLE" && Cg.libellePastille("TERRAIN", "TERRAIN") === "🏗 CHANTIER" /* RETOURNÉ le 08/10/2026 : TERRAIN s'affiche CHANTIER */ && Cg.libellePastille("APESSITO", "TERRAIN") === "APESSITO");
+    && Cg.libellePastille("Chez le DG") === "👤 DG" && Cg.libellePastille("BANQUE") === "🏦 BANQUE" && Cg.libellePastille("Chez le comptable") === "🧾 COMPTABLE" && Cg.libellePastille("TERRAIN", "TERRAIN") === "🏗 DÉPÔT CHANTIER" /* RETOURNÉ le 08/10/2026 : TERRAIN s'affiche CHANTIER ; le 12/10/2026 : DÉPÔT CHANTIER (« A oui ») */ && Cg.libellePastille("APESSITO", "TERRAIN") === "APESSITO");
   const appCg = readFileSync("src/App.jsx", "utf8");
   const dashCg = readFileSync("src/screens/Dashboard.jsx", "utf8");
   const carteCg = readFileSync("src/components/CarteCaisse.jsx", "utf8");
@@ -7657,7 +7660,7 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
     // compte mobile (📱 Flooz ou Mixx/T-Money), et un compte mobile n'est pas
     // une boutique non plus : il entre donc dans `caisseSeule`.
     && (dashCg.match(/<CarteCaisse /g) || []).length === 3 // ⚠ RETOURNÉ le 23/09/2026 : la carte du DG vit dans CompteExploitant.jsx (deux cartes là-bas)
-    && /const caisseSeule = dgChoisi \|\| banqueChoisi \|\| !!mobileChoisi;/.test(dashCg) && /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule;/.test(dashCg) && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dashCg) && /\{!caisseChoisie && \(<>/.test(dashCg) && /const caisseChoisie = caisseSeule \|\| comptableChoisi;/.test(dashCg) && /\{!caisseSeule && \(<>\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-2">Exporter les données/.test(dashCg)
+    && /const caisseSeule = dgChoisi \|\| banqueChoisi \|\| !!mobileChoisi;/.test(dashCg) && /const sansVentes = depotChoisi \|\| comptableChoisi \|\| caisseSeule \|\| terrainChoisi;/.test(dashCg) /* RETOURNÉ le 12/10/2026 : la caisse DÉPÔT CHANTIER ne vend pas */ && /const sansStock = comptableChoisi \|\| terrainChoisi \|\| caisseSeule;/.test(dashCg) && /\{!caisseChoisie && \(<>/.test(dashCg) && /const caisseChoisie = caisseSeule \|\| comptableChoisi;/.test(dashCg) && /\{!caisseSeule && \(<>\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-2">Exporter les données/.test(dashCg)
     && /const nomsCaisses = \[\.\.\.NOMS, \.\.\.\(terrainVu \? \[terrainVu\.nom\] : \[\]\)\];/.test(dashCg) && /Les dépenses restent des charges de leur boutique/.test(dashCg)
     && /export function CarteCaisse\(\{ titre, caisse, note, releve: r, periode, mots = \{ entree: "ENTRÉE", sortie: "SORTIE" \}, phraseSolde = null \}\)/.test(carteCg) && /Solde au début/.test(carteCg) && /\{mots\.entree === "ENTRÉE" \? "Entrées"/.test(carteCg) && /Solde à la fin/.test(carteCg) && !/save\(/.test(carteCg)); // ⚠ RETOURNÉ le 23/09/2026 : le mot suit `mots` (APPORT / PRÉLÈVEMENT pour l'exploitant)
   // Le relevé lui-même, exercé : avant / pendant / après, comme celui de la banque.
@@ -12006,7 +12009,8 @@ titre("💰 La recette de ce qui est affiché (💰 Ventes)");
 
   const v = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★★ la recette est calculée sur la liste AFFICHÉE (listeFiltree), jamais sur la liste entière",
-    /recetteDesVentes\(listeFiltree\)/.test(v) && !/recetteDesVentes\(liste\)/.test(v));
+    // RETOURNÉ le 12/10/2026 (« C b ») : toujours la liste AFFICHÉE, les dépôts chantier mis à part (pas des ventes), et dits à côté.
+    /recetteDesVentes\(listeFiltree\.filter\(\(v\) => !estDepotChantier\(v\)\)\)/.test(v) && /recetteDesVentes\(listeFiltree\.filter\(estDepotChantier\)\)/.test(v) && /data-recette-depots/.test(v) && !/recetteDesVentes\(liste\)/.test(v));
   test("★ le total des proformas aussi (proformasFiltres)",
     /totalDesProformas\(proformasFiltres\)/.test(v) && !/totalDesProformas\(proformasListe\)/.test(v));
   // ⚠ CE CONTRÔLE A ÉTÉ REFAIT LE 19/09/2026, le jour même : la première
@@ -12507,7 +12511,7 @@ titre("📊 LA CLÔTURE DU JOUR : TOUS LES MOYENS DE PAIEMENT APPARAISSENT (Timo
   test("★ le blocage des ventes et la tournée du matin parlent de la JOURNÉE, plus de « la caisse »",
     /la journée du \$\{liste\} de \$\{boutique\} n'a pas été clôturée/.test(lit("src/lib/cloture.js"))
     && /La journée du \$\{premier\} de \$\{b\.nom\} n'a pas été clôturée/.test(lit("src/lib/rappels.js")));
-  test("★ le journal nomme la clôture du jour", /RECLÔTURE" : "Clôture"\} du jour \$\{boutique\}/.test(cs)
+  test("★ le journal nomme la clôture du jour", /RECLÔTURE" : "Clôture"\} du jour \$\{libelleCaisse\(boutique\)\}/.test(cs) /* RETOURNÉ le 12/10/2026 : le nom AFFICHÉ de la caisse, jamais « TERRAIN » */
     && /clotures: "une clôture du jour"/.test(lit("src/lib/calculs.js")));
 }
 
@@ -13464,6 +13468,27 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
   try { unlinkSync(sortieRap); } catch {}
   test("les trois écrans se montent dans le banc" + (erreur ? ` (${erreur})` : ""), !!R);
   if (R) {
+    // 🏗 LE DÉPÔT CHANTIER RENDU (12/10/2026, « C b ») : le tableau de bord ne compte pas le dépôt
+    // dans les ventes, il le dit à part ; la pastille montre déposé, puisé, reste en dépôt.
+    {
+      const aujD = new Date().toISOString().slice(0, 10);
+      const timoD = { id: "u1", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: "" };
+      const vK = { id: "vK", numero: "BMIA-2026-0003", date: aujD, boutique: "APESSITO", caisse: "TERRAIN", client: "KLOMEGAN", paiement: "Espèces", depot_chantier: true,
+        articles: [{ produit_id: "p1", article: "Panneau 400W", qte: 10, pu: 40000, au_chantier: true }], frais_installation: 35000, frais_transport: 15000 };
+      const vC = { id: "vC", date: aujD, boutique: "APESSITO", client: "AMA", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Panneau 400W", qte: 1, pu: 40000 }] };
+      const cK = { id: "cK", nom: "KLOMEGAN", vente_id: "vK", stock_au_chantier: true, statut: "en_cours",
+        achats_chantier: [{ id: "a1", numero: "BMIA-ACH-2026-0001", boutique: "APESSITO", date: aujD, lignes: [{ produit_id: "p1", article: "Panneau 400W", qte: 4, pu: 40000 }] }] };
+      const dbD = { boutiques: [{ id: "b1", nom: "APESSITO" }, { id: "t", nom: "TERRAIN", terrain: true }], users: [timoD],
+        produits: [{ id: "p1", nom: "Panneau 400W", boutique: "APESSITO", prix_achat: 30000, prix_vente: 40000, initial: 20, seuil: 1 }],
+        ventes: [vK, vC], depenses: [], dettes: [], clients_installes: [cK], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [] };
+      let hD = "", hP = "";
+      try { R.setRegardeFormation(false); hD = R.rendreDashboard(dbD, timoD).replace(/[\u202f\u00a0]/g, " ").replace(/&#x27;/g, "'"); } catch (e) { hD = "ERREUR " + e.message; }
+      try { hP = R.rendreDepots([{ id: "vK", numero: "BMIA-2026-0003", client: "KLOMEGAN", date: aujD, boutique: "APESSITO", devis: 450000, paye: 450000, puise: 160000, resteVendu: 0, enDepot: 290000, enAttente: 0, receptionne_le: null }]).replace(/[\u202f\u00a0]/g, " "); } catch (e) { hP = "ERREUR " + e.message; }
+      test("★★ 📊 le tableau de bord RENDU : « Total des ventes » = la vente du comptoir (40 000) + l'achat puisé (160 000) = 200 000 — jamais le dépôt (400 000) ; le dépôt dit à part « pas encore des ventes » (290 000)",
+        />Total des ventes<[^]*?200 000 F/.test(hD) && !/>Total des ventes<[^]*?(600 000|440 000) F/.test(hD) && /Dépôt chantier — pas encore des ventes[^]*?290 000 F/.test(hD), hD.slice(0, 300));
+      test("★ la pastille 🏗 DÉPÔT CHANTIER RENDUE : son tableau (data-depots-chantier), la ligne du client, déposé, puisé, reste en dépôt",
+        /data-depots-chantier/.test(hP) && /data-ligne-depot/.test(hP) && /KLOMEGAN/.test(hP) && /Reste en dépôt/.test(hP) && /290 000 F/.test(hP) && /160 000 F/.test(hP), hP.slice(0, 200));
+    }
     const auj = new Date().toISOString().slice(0, 10);
     const timo = { id: "u1", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: "" };
     const db = {
@@ -13540,7 +13565,7 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     const enReel = Core.lignesJournal(dbJ, "2026-09-01", "2026-09-30");
     test("★★ 📒 Journal comptable : l'espace REGARDÉ décide — en formation, seulement l'entraînement (ni la vraie vente, ni l'apport du DG) ; sans filtre, le réel comme avant",
       enForm.length === 2 && enForm.every((l) => l[8] === "DFORMATION") && enReel.length === 4 && !enReel.some((l) => l[8] === "DFORMATION")
-      && /lignesJournal\(db, pa, pb, dansMonEspace\)/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
+      && /lignesJournal\(db, pa, pb, dansMonEspace, chiffreTous\)/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))); // RETOURNÉ le 12/10/2026 (« C b »)
   }
   const cc = readFileSync("src/components/CarteCaisse.jsx", "utf8");
   test("★ un relevé de caisse qui n'affiche que 100 mouvements le DIT (le PDF et l'export les portent tous)",
@@ -14582,8 +14607,9 @@ titre("🏗 La caisse CHANTIER (08/10/2026, « lance l'étape 1, clôture facult
   await build({ entryPoints: ["src/lib/caissesMobiles.js"], bundle: true, format: "esm", platform: "node", outfile: sortieMo8, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
   const Mo8 = await import(pathToFileURL(sortieMo8).href);
   try { unlinkSync(sortieMo8); } catch {}
-  test("★ TERRAIN s'affiche « 🏗 CHANTIER » (sa jumelle « 🏗 CHANTIER (formation) »), le nom rangé dans la base ne change pas ; une boutique garde son nom",
-    K8.libelleCaisse("TERRAIN") === "🏗 CHANTIER" && K8.libelleCaisse("TERRAIN (formation)") === "🏗 CHANTIER (formation)" && K8.libelleCaisse("BMI DEMAKPOE") === "BMI DEMAKPOE"
+  // RETOURNÉ le 12/10/2026 (Timo, « A oui ») : « 🏗 DÉPÔT CHANTIER ».
+  test("★ TERRAIN s'affiche « 🏗 DÉPÔT CHANTIER » (sa jumelle « 🏗 DÉPÔT CHANTIER (formation) »), le nom rangé dans la base ne change pas ; une boutique garde son nom",
+    K8.libelleCaisse("TERRAIN") === "🏗 DÉPÔT CHANTIER" && K8.libelleCaisse("TERRAIN (formation)") === "🏗 DÉPÔT CHANTIER (formation)" && K8.libelleCaisse("BMI DEMAKPOE") === "BMI DEMAKPOE"
     && K8.NOM_CAISSE_TERRAIN === "TERRAIN" && C.NOM_BOUTIQUE_TERRAIN === "TERRAIN");
   const hier8 = "2026-10-06", auj8 = "2026-10-07";
   const art8 = (pu) => [{ produit_id: "p1", article: "Panneau", qte: 1, pu }];
@@ -15363,9 +15389,9 @@ titre("📋 L'inventaire de 💰 Ventes : ventes, recettes, dépenses, versement
       && /avecCentrales=\{!formationRegardee\}/.test(srcV) && /afficheChiffresFormation\(db, profile\)/.test(srcV));
     const dbGJ = { ...dbG, ventes: dbG.ventes.map((v) => ({ ...v, date: auj })), depenses: dbG.depenses.map((d) => ({ ...d, date: auj })), clotures: [] };
     const hG = sansErr(() => RI.rendreInventaireGeneral(dbGJ, NOMS, true));
-    test("★★ l'écran GÉNÉRAL RENDU : le titre « INVENTAIRE GÉNÉRAL », le tableau par caisse (🏗 CHANTIER compris) avec sa ligne TOTAL, le bloc des caisses centrales, les sept blocs",
+    test("★★ l'écran GÉNÉRAL RENDU : le titre « INVENTAIRE GÉNÉRAL », le tableau par caisse (🏗 DÉPÔT CHANTIER compris) avec sa ligne TOTAL, le bloc des caisses centrales, les sept blocs",
       /data-inventaire-titre="true">📊 INVENTAIRE GÉNÉRAL/.test(hG) && /data-inv-par-caisse/.test(hG) && /data-inv-caisse-total/.test(hG)
-      && /data-inv-caisse-ligne="TERRAIN"/.test(hG) && /🏗 CHANTIER/.test(hG) && /data-inv-centrales/.test(hG) && /data-inv-centrale="Chez le DG"/.test(hG)
+      && /data-inv-caisse-ligne="TERRAIN"/.test(hG) && /🏗 DÉPÔT CHANTIER/.test(hG) && /data-inv-centrales/.test(hG) && /data-inv-centrale="Chez le DG"/.test(hG)
       && ["data-inv-ventes", "data-inv-recettes", "data-inv-depenses", "data-inv-versements", "data-inv-caisse", "data-inv-dettes", "data-inv-comptage"].every((k) => hG.includes(k)),
       hG.slice(0, 300));
     const docG = RI.genererInventaire(g, { boutique: "INVENTAIRE GÉNÉRAL", periode: "Du 05/10/2026 au 06/10/2026", edite: "10/10/2026" }, true);
@@ -15463,9 +15489,9 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
 // n'a pas assez payé, réglé prioritairement ». Puis « H : la case sur le devis ».
 {
   const sortieAC = join("node_modules", ".cache", `bmi-achats-chantier-${process.pid}.mjs`);
-  await build({ stdin: { contents: 'export * as A from "./src/lib/achatsChantier.js"; export * as C from "./src/lib/calculs.js"; export * as K from "./src/lib/core.js"; export * as DC from "./src/screens/dimensionnement/devisCommun.js";', resolveDir: process.cwd(), loader: "js" },
+  await build({ stdin: { contents: 'export * as A from "./src/lib/achatsChantier.js"; export * as C from "./src/lib/calculs.js"; export * as K from "./src/lib/core.js"; export * as DC from "./src/screens/dimensionnement/devisCommun.js"; export * as DP from "./src/lib/depotChantier.js";', resolveDir: process.cwd(), loader: "js" },
     bundle: true, format: "esm", platform: "node", outfile: sortieAC, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
-  const { A, C: Ca, K, DC } = await import(pathToFileURL(sortieAC).href);
+  const { A, C: Ca, K, DC, DP } = await import(pathToFileURL(sortieAC).href);
   unlinkSync(sortieAC);
 
   // ---- H : la case du devis ----
@@ -15507,8 +15533,61 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
   test("★★ 1 : l'achat SORT le stock (ajustement −3, type sortie_chantier, lié au chantier et à l'achat) — 10 → 7 ; rien n'est écrit dans les ventes",
     r1.ajustements.length === 1 && r1.ajustements[0].qte === -3 && r1.ajustements[0].type === "sortie_chantier" && r1.ajustements[0].chantier_id === "c1" && r1.ajustements[0].achat_chantier_id === r1.achat.id
     && Ca.stockActuel(db1, pA) === 7 && db1.ventes.length === 1 && r1.achat.paiement === A.PAIEMENT_CHANTIER && A.totalAchat(r1.achat) === 240000 && r1.fiche.achats_chantier.length === 1);
+  // RETOURNÉ le 12/10/2026 (« C b ») : `achatsCommeVentes` (le coût seul) est remplacée par
+  // `ventesAuChiffre` (lib/depotChantier.js) — l'achat compte son prix d'achat ET devient une vente.
   test("★★ 1 : le prix d'achat compte UNE fois — jamais sur la ligne au_chantier de la vente, sur le matériel parti (3 × 60 000)",
-    K.coutDesVentes([pA], [venteDevis]).cout === 0 && K.coutDesVentes([pA], A.achatsCommeVentes([r1.fiche])).cout === 180000 && A.achatsCommeVentes([r1.fiche])[0].achat_chantier === true);
+    K.coutDesVentes([pA], [venteDevis]).cout === 0 && K.coutDesVentes([pA], DP.ventesAuChiffre([venteDevis], [r1.fiche])).cout === 180000 && DP.ventesAuChiffre([venteDevis], [r1.fiche]).every((x) => x.achat_chantier === true) && !("achatsCommeVentes" in A));
+
+  // ---- 🏗 LE DÉPÔT CHANTIER (Timo, 12/10/2026, « A oui, B oui, C b, KLOMEGAN revient dépôt ») ----
+  {
+    const vDep = { id: "vK", numero: "BMIA-2026-0003", boutique: "BMI APESSITO", date: "2026-10-12", client: "KLOMEGAN", paiement: "Espèces", caisse: "TERRAIN",
+      articles: [{ produit_id: "p1", article: "Panneau 550W", qte: 10, pu: 40000, au_chantier: true }, { produit_id: "p2", article: "Batterie", qte: 1, pu: 850000, au_chantier: true }],
+      frais_installation: 35000, frais_transport: 15000 };
+    const vComptoir = { id: "vC", boutique: "BMI APESSITO", date: "2026-10-12", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Panneau 550W", qte: 1, pu: 40000 }] };
+    const cK = { id: "cK", nom: "KLOMEGAN", vente_id: "vK", stock_au_chantier: true, statut: "en_cours",
+      achats_chantier: [{ id: "a1", numero: "BMIA-ACH-2026-0001", boutique: "BMI APESSITO", date: "2026-10-14", lignes: [{ produit_id: "p1", article: "Panneau 550W", qte: 10, pu: 40000 }] },
+        { id: "a2", numero: "BMID-ACH-2026-0001", boutique: "BMI DEMAKPOE", date: "2026-10-15", lignes: [{ produit_id: "p2", article: "Batterie", qte: 1, pu: 880000 }] },
+        { id: "a3", boutique: "BMI APESSITO", date: "2026-10-15", annule: true, lignes: [{ article: "X", qte: 1, pu: 999999 }] }] };
+    const enCours = DP.ventesAuChiffre([vDep, vComptoir], [cK]);
+    test("★★ C b : un dépôt chantier n'est PAS une vente ; chaque achat « 🏗 Chantier » actif en DEVIENT une, dans la boutique qui remet le matériel, le jour de la sortie (un achat annulé, jamais)",
+      K.estDepotChantier(vDep) && !K.estDepotChantier(vComptoir) && !enCours.some((x) => x.id === "vK") && enCours.some((x) => x.id === "vC")
+      && enCours.filter((x) => x.achat_chantier).map((x) => `${x.boutique}|${x.date}|${K.caVente(x)}`).join(";") === "BMI APESSITO|2026-10-14|400000;BMI DEMAKPOE|2026-10-15|880000"
+      && !enCours.some((x) => x.id === "a3") && !enCours.some((x) => x.reste_depot));
+    const recu = DP.ventesAuChiffre([vDep], [{ ...cK, statut: "receptionne", receptionne_le: "2026-10-20" }]);
+    const reste = recu.find((x) => x.reste_depot);
+    test("★★ C b : à la réception, le RESTE du devis devient la dernière vente, dans la boutique du devis — ici le matériel a pris 30 000 sur l'installation (règle 5) : 5 000 + 15 000 de frais ; le total vendu = ce que le devis demandait (1 300 000)",
+      !!reste && reste.boutique === "BMI APESSITO" && reste.date === "2026-10-20" && K.caVente(reste) === 0 && reste.frais_installation === 5000 && reste.frais_transport === 15000
+      && recu.reduce((t, x) => t + K.totalVente(x) + Number(x.frais_installation || 0) + Number(x.frais_transport || 0), 0) === 1300000);
+    const peu = DP.ventesAuChiffre([vDep], [{ ...cK, statut: "receptionne", receptionne_le: "2026-10-20", achats_chantier: [cK.achats_chantier[0]] }]).find((x) => x.reste_depot);
+    test("★ C b : moins de matériel puisé que prévu — le matériel non puisé devient vente à la réception (850 000), les frais entiers aussi",
+      K.caVente(peu) === 850000 && peu.frais_installation === 35000 && peu.frais_transport === 15000);
+    // « KLOMEGAN revient dépôt » : un encaissement d'AVANT, marqué par un script, stock déjà sorti.
+    const ancien = { ...vDep, id: "vOld", depot_chantier: true, articles: vDep.articles.map(({ au_chantier, ...l }) => l) };
+    const vieux = DP.ventesAuChiffre([ancien], [{ id: "cO", vente_id: "vOld", statut: "receptionne", receptionne_le: "2026-11-02" }]);
+    test("★ un encaissement d'AVANT marqué dépôt (« KLOMEGAN revient dépôt ») : pas de vente le jour de l'encaissement ; la vente entière, avec ses articles (donc leur prix d'achat), le jour de la réception",
+      K.estDepotChantier(ancien) && vieux.length === 1 && vieux[0].date === "2026-11-02" && K.caVente(vieux[0]) === K.caVente(ancien) && vieux[0].articles[0].produit_id === "p1"
+      && DP.ventesAuChiffre([ancien], [{ id: "cO", vente_id: "vOld", statut: "en_cours" }]).length === 0);
+    const et = DP.etatsDesDepots([vDep], [cK], []);
+    test("★ l'état d'un dépôt : déposé 1 300 000, puisé 1 280 000, reste en dépôt 20 000 ; réceptionné → plus rien en dépôt",
+      et.length === 1 && et[0].paye === 1300000 && et[0].puise === 1280000 && et[0].enDepot === 20000
+      && DP.etatsDesDepots([vDep], [{ ...cK, statut: "receptionne", receptionne_le: "2026-10-20" }], [])[0].enDepot === 0);
+    const jr = K.lignesJournal({ boutiques: [], ventes: [vDep], depenses: [], dettes: [] }, "2026-10-01", "2026-10-31", () => true, enCours);
+    test("★★ le journal comptable : le dépôt s'écrit en 4191 (avances reçues), jamais en 701 ; chaque achat le fait passer en vente (4191 → 701), sans trésorerie",
+      jr.some((l) => l[2] === "BMIA-2026-0003" && l[3] === "4191" && Number(l[7]) === 1250000) && !jr.some((l) => l[2] === "BMIA-2026-0003" && l[3] === "701")
+      && jr.filter((l) => l[3] === "701").map((l) => Number(l[7])).sort((x, y) => x - y).join(",") === "400000,880000"
+      && jr.filter((l) => l[3] === "4191" && l[6]).map((l) => Number(l[6])).sort((x, y) => x - y).join(",") === "400000,880000");
+    const srcDash = readFileSync("src/screens/Dashboard.jsx", "utf8"), srcRent = readFileSync("src/screens/Rentabilite.jsx", "utf8"), srcInv = readFileSync("src/lib/inventaireVentes.js", "utf8");
+    test("★ le tableau de bord, 📈 Rentabilité et l'inventaire lisent CE qui compte comme vente (ventesAuChiffre) ; la pastille 🏗 DÉPÔT CHANTIER montre ses dépôts",
+      /const chiffreTous = ventesAuChiffre\(\(db\.ventes \|\| \[\]\)\.filter\(dansMonEspace\), chantiersEspace\);/.test(srcDash) && /const totalVentes = chiffreDb\.reduce/.test(srcDash)
+      && /\{terrainChoisi && <DepotsChantier depots=\{depotsEnCours\} \/>\}/.test(srcDash)
+      && /const ventesP = ventesAuChiffre\(\(db\.ventes \|\| \[\]\)\.filter\(dansMonEspace\), chantiersEspace\)/.test(srcRent)
+      && /const chiffre = ventesAuChiffre\(db\?\.ventes \|\| \[\], db\?\.clients_installes \|\| \[\]\)/.test(srcInv));
+    const srcV = readFileSync("src/screens/Ventes.jsx", "utf8"), srcImp = readFileSync("src/lib/impression.js", "utf8");
+    test("★ l'encaissement d'un devis avec installation se MARQUE dépôt (vente et dette) ; le reçu s'intitule « REÇU DE DÉPÔT CHANTIER » (la dette porte la mention) ; la ligne de 💰 Ventes le dit",
+      /\.\.\.\(auChantier \? \{ depot_chantier: true \} : \{\}\),/.test(srcV) && (srcV.match(/\.\.\.\(auChantier \? \{ depot_chantier: true \} : \{\}\)/g) || []).length === 2
+      && DP.TITRE_RECU_DEPOT === "REÇU DE DÉPÔT CHANTIER" && /depot \? TITRE_RECU_DEPOT : "REÇU DE VENTE"/.test(srcImp) && /d\.depot_chantier \? `<div data-mention-depot/.test(srcImp)
+      && /data-vente-depot/.test(srcV));
+  }
   test("★ le rythme des ventes compte le matériel parti au chantier (3), jamais la ligne qui l'attend",
     (Ca.venduParProduitSurPeriode({ ...db1, ajustements: r1.ajustements.map((a) => ({ ...a, date: "2026-10-03" })) }, 30, "2026-10-05").get("p1") || 0) === 3
     && (Ca.venduParProduitSurPeriode(db0, 30, "2026-10-05").get("p1") || 0) === 0);
@@ -15572,9 +15651,11 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
   const ciS = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
   test("★ 🏠 Clients installés : la fiche dit le matériel acheté (et l'attente) ; on ne la supprime pas tant qu'un achat n'est pas annulé",
     /data-materiel-chantier/.test(ciS) && /const achatsEnCours = achatsActifs\(c\);\n\s*if \(achatsEnCours\.length\) \{/.test(ciS));
-  test("★ le tableau de bord et Rentabilité comptent le PRIX D'ACHAT du matériel parti (jamais un chiffre d'affaires), et Rentabilité ne coûte pas deux fois la ligne au_chantier",
-    /const k = coutDesVentes\(db\.produits, \[\.\.\.ventesBq, \.\.\.achatsBq\]\);/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))
-    && /if \(!l\.au_chantier\) parProduit\[nom\]\.cout \+= qteNette \* achat;/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")));
+  // RETOURNÉ le 12/10/2026 (« C b ») : le matériel parti compte son prix d'achat ET son chiffre d'affaires
+  // (il est dans `ventesAuChiffre`, une seule liste) ; le dépôt n'y est jamais, donc sa ligne au_chantier non plus.
+  test("★ le tableau de bord et Rentabilité comptent le PRIX D'ACHAT du matériel parti (et, depuis le 12/10/2026, son chiffre d'affaires) sur UNE liste — jamais deux fois, jamais la ligne au_chantier du dépôt",
+    /const k = coutDesVentes\(db\.produits, ventesBq\);/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")) && !/achatsBq/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))
+    && /parProduit\[nom\]\.cout \+= qteNette \* achat;/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")) && !/achatsP/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")));
 }
 {
   // ---- 4 : la facture d'achat, IMPRIMÉE pour de vrai ----
@@ -15594,10 +15675,20 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
   globalThis.__doc = ""; globalThis.__titreDoc = "";
   ImpA.imprimerAchatChantier(achat, { nom: "MENSAH", prenom: "Kossi", tel: "90112233" }, {}, { couverture: new Map([["a1", { total: 232800, couvert: 100000, enAttente: 132800 }]]) });
   const h = String(globalThis.__doc || "").replace(/[\u202f\u00a0]/g, " ").replace(/&#x27;|&#39;/g, "'");
-  test("★★ 4 : « FACTURE D'ACHAT POUR LE CHANTIER KOSSI MENSAH », interne, le numéro, les lignes, la remise, TOTAL 232 800, « Payé par le chantier », 132 800 en attente et la phrase ; aucune mention de WhatsApp",
+  test("★★ 4 : « FACTURE D'ACHAT POUR LE CHANTIER KOSSI MENSAH », interne, le numéro, les lignes, la remise, TOTAL 232 800, « Payé par le dépôt chantier », 132 800 en attente et la phrase ; aucune mention de WhatsApp",
     /<h1>FACTURE D'ACHAT POUR LE CHANTIER KOSSI MENSAH<\/h1>/.test(h) && /data-achat-interne/.test(h) && /BMID-ACH-2026-0001/.test(h) && /Panneau 550W/.test(h)
-    && /−7 200 F/.test(h) && /TOTAL :<\/td><td>232 800 F/.test(h) && /🏗 Payé par le chantier/.test(h) && /data-achat-en-attente>132 800 F/.test(h) && /data-achat-phrase-attente/.test(h)
+    && /−7 200 F/.test(h) && /TOTAL :<\/td><td>232 800 F/.test(h) && /🏗 Payé par le dépôt chantier/.test(h) /* RETOURNÉ le 12/10/2026 : « dépôt chantier » */ && /data-achat-en-attente>132 800 F/.test(h) && /data-achat-phrase-attente/.test(h)
     && !/WhatsApp/i.test(h.slice(h.indexOf("<h1>"))) && /Facture d'achat chantier/.test(globalThis.__titreDoc), h.slice(h.indexOf("<h1>"), h.indexOf("<h1>") + 200));
+  // 🏗 B (12/10/2026) : le reçu d'un dépôt chantier, IMPRIMÉ pour de vrai.
+  globalThis.__doc = "";
+  ImpA.imprimerRecu({ id: "vK", numero: "BMIA-2026-0003", date: "2026-10-12", heure: "12:32", boutique: "BMI APESSITO", client: "KLOMEGAN", paiement: "Espèces", depot_chantier: true,
+    articles: [{ produit_id: "p1", article: "Panneau", qte: 10, pu: 40000, au_chantier: true }], frais_installation: 35000 }, {}, []);
+  const hDep = String(globalThis.__doc || "");
+  globalThis.__doc = "";
+  ImpA.imprimerRecu({ id: "vC", numero: "BMIA-2026-0004", date: "2026-10-12", boutique: "BMI APESSITO", paiement: "Espèces", articles: [{ article: "Câble", qte: 1, pu: 500 }] }, {}, []);
+  const hVen = String(globalThis.__doc || "");
+  test("★★ B : le reçu d'un dépôt chantier s'intitule « REÇU DE DÉPÔT CHANTIER » et le dit en une phrase ; une vente du comptoir garde « REÇU DE VENTE »",
+    /<h1>REÇU DE DÉPÔT CHANTIER<\/h1>/.test(hDep) && /data-mention-depot/.test(hDep) && /<h1>REÇU DE VENTE<\/h1>/.test(hVen) && !/data-mention-depot/.test(hVen), hDep.slice(hDep.indexOf("<h1>"), hDep.indexOf("<h1>") + 120));
 }
 {
   // ---- La case dans 💰 Ventes, RENDUE pour de vrai ----
