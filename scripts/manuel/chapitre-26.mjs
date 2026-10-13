@@ -10,8 +10,9 @@
 // Plus tard, 🕘 Passés, faits ou annulés ; les boutons ✅ Fait, ✏️ Modifier,
 // ✖ Annuler, 🗑 Supprimer), lib/rendezVous.js (peutModifierRdv,
 // peutMarquerFait, critiqueRendezVous, conflitsRendezVous,
-// changementsRendezVous, rappelsRendezVous), lib/whatsappModeles.js (les cinq
-// messages), api/_rendezVous.js (les rappels de 14 h et de 7 h),
+// changementsRendezVous, rappelsRendezVous, equipeDuRdv, estChefDeLaVisite),
+// lib/whatsappModeles.js (les sept messages, dont les deux du chef de la
+// visite — 13/10/2026), api/_rendezVous.js (les rappels de 14 h et de 7 h),
 // lib/notifications.js (la notification au reste du personnel),
 // screens/Prospects.jsx (« 📅 Planifier une visite »), App.jsx (l'onglet
 // « 📅 Rendez-vous (N) »), supabase/rendez-vous-1-table.sql (qui voit quoi).
@@ -72,11 +73,11 @@ export const CHAPITRE = {
       ["h3", "B. Fixer une visite (rendez-vous pro)"],
       ["etapes", [
         { titre: "Choisir « 💼 Rendez-vous pro » → ➕ Nouveau rendez-vous pro", texte: "Date, heure, objet (« Visite chez MR ERIC »), lieu." },
-        { titre: "Cocher « 🔎 C'est une visite »", texte: "Le cadre « 🔧 Techniciens » vient en premier, puis « 👥 Autre personnel » (le commercial du prospect, par exemple). On coche qui y va : **au moins une personne** pour une visite." },
-        { titre: "« Chef de la visite »", texte: "Choisi parmi les cochés (le premier d'office). C'est son nom et son numéro que le client recevra." },
+        { titre: "Cocher « 🔎 C'est une visite »", texte: "Le cadre « 🔧 Techniciens » vient en premier, puis « 👥 Autre personnel » (le commercial du prospect, par exemple). On coche qui y va : **au moins une personne** pour une visite. **Vous y êtes aussi**, marqué « vous, l'organisateur : cochez-vous si vous y allez » : l'organisateur ne fait partie de l'équipe que s'il se coche." },
+        { titre: "« Chef de la visite »", texte: "Choisi parmi les cochés (le premier d'office) — l'organisateur aussi, s'il s'est coché. C'est son nom et son numéro que le client recevra, et **lui seul reçoit le numéro du client**." },
         { titre: "« Client ou prospect »", texte: "Taper un nom ou des chiffres du numéro, puis **cliquer** une proposition (👤 compte client ou 🧲 prospect) : le nom, le numéro et le lieu se remplissent. Un nom tapé sans cliquer reste libre." },
         { titre: "Lire la bande ⚠ des conflits", texte: "« KOSSI a déjà un rendez-vous ce jour-là à 10 h… », « … est programmé ce jour-là sur l'installation de … ». **Ce n'est pas un refus** : la confirmation le répète, on enregistre quand même ou on change l'heure." },
-        { titre: "📅 Enregistrer le rendez-vous", texte: "Chaque participant reçoit un WhatsApp du numéro BMI (« … vous a ajouté à un rendez-vous BMI TOGO… ») ; **le reste du personnel** reçoit une notification sur son téléphone. Puis, pour une visite avec un numéro : « Prévenir … de la visite… par WhatsApp du numéro BMI ? » — OK envoie la confirmation au client avec le chef de la visite et les contacts de BMI ; Annuler n'envoie rien." },
+        { titre: "📅 Enregistrer le rendez-vous", texte: "Chaque participant reçoit un WhatsApp du numéro BMI (« … vous a ajouté à un rendez-vous BMI TOGO… Participants : … ») qui **énumère l'équipe, le chef d'abord** (« AGBEKO (chef d'équipe), ANGELE ») ; **le chef de la visite** reçoit un message à lui (« … vous a nommé chef de la visite… Client : MR ERIC, joignable au 99 00 11 22. Équipe : … »). **Le reste du personnel** reçoit une notification sur son téléphone. Puis, pour une visite avec un numéro : « Prévenir … de la visite… par WhatsApp du numéro BMI ? » — OK envoie la confirmation au client avec le chef de la visite et les contacts de BMI ; Annuler n'envoie rien." },
       ]],
       ["h3", "C. Depuis 🧲 Prospects"],
       ["etapes", [
@@ -107,11 +108,14 @@ export const CHAPITRE = {
     // ── 6
     { titre: "Ce qui se passe automatiquement derrière", blocs: [
       ["ul", [
-        "**La veille à 14 h** et **le jour même à 7 h**, le serveur envoie un rappel WhatsApp du numéro BMI à l'auteur et aux participants (un privé : à son auteur seul, sans l'objet). L'heure exacte peut glisser dans l'heure (14 h 00 à 14 h 59).",
+        "**La veille à 14 h** et **le jour même à 7 h**, le serveur envoie un rappel WhatsApp du numéro BMI à l'organisateur et aux participants (un privé : à son auteur seul, sans l'objet). **L'organisateur est rappelé même s'il ne va pas à la visite**, mais il n'est écrit dans l'équipe que s'il s'est coché. **Le chef d'une visite** reçoit un rappel qui porte **le nom et le numéro du client** ; l'organisateur qui n'y va pas et les autres participants ne reçoivent pas ce numéro. L'heure exacte peut glisser dans l'heure (14 h 00 à 14 h 59).",
+        "**Un participant déjà prévenu qui devient le chef** (✏️ Modifier) reçoit le message du chef, avec le numéro du client.",
+        "**Un client sans numéro** : le message du chef écrit « numéro non renseigné ».",
         "**Un participant ajouté** reçoit l'avis complet ; **un changement ou une annulation** est dit à ceux qui sont concernés. Celui qui fait le geste n'est jamais prévenu de son propre geste.",
         "**Le reste du personnel** est informé d'un rendez-vous pro par une notification (rien dans 💬 Messages).",
         "**Rien ne part** pour un rendez-vous de formation, ni vers une fiche sans numéro (l'écran le dit et nomme la fiche à compléter).",
         "Les messages au personnel sont des messages de service (**environ 4 F** chacun). Tant que Meta ne les a pas approuvés, rien ne part et l'écran le dit.",
+        "**Les deux messages du chef** (avis et rappel) : tant que Meta ne les a pas approuvés, le chef reçoit les messages ordinaires, **sans le numéro du client**, et l'écran le dit (« … n'a pas reçu le numéro du client »).",
       ]],
     ]},
 
@@ -141,7 +145,8 @@ export const CHAPITRE = {
       ["table", { entetes: ["L'erreur", "La bonne façon"], largeurs: [4300, 5000], lignes: [
         ["Noter une visite de chantier en « privé ».", "Tout ce qui concerne BMI est **pro** : sinon personne ne le voit et l'équipe n'est pas prévenue."],
         ["Mettre un détail sensible dans l'objet d'un privé en pensant qu'il partira par WhatsApp.", "Le rappel d'un privé ne dit **jamais** l'objet : c'est voulu, la copie se lit sur le téléphone BMI."],
-        ["Se cocher soi-même parmi les participants.", "Inutile : l'auteur est déjà prévenu et rappelé."],
+        ["Se cocher soi-même alors qu'on n'ira pas à la visite.", "Ne se cocher que si l'on y va : l'organisateur est prévenu et rappelé dans tous les cas, mais coché il apparaît dans l'équipe que les autres lisent."],
+        ["Choisir comme chef quelqu'un qui n'a pas de numéro sur sa fiche.", "Le chef doit pouvoir être joint et recevoir le numéro du client : compléter sa fiche (👥 Utilisateurs) ou choisir un autre chef."],
         ["Supprimer un rendez-vous pro qui n'a pas lieu.", "✖ Annuler, avec le motif : les participants le reçoivent."],
         ["Changer la date d'une visite dont on est seulement participant.", "Demander à son auteur ou à l'administrateur : un participant ne fait que ✅ Fait."],
       ]}],
@@ -150,7 +155,8 @@ export const CHAPITRE = {
     // ── 10
     { titre: "Cas pratiques de formation", blocs: [
       ["cas", [
-        { situation: "KOSSI (commercial) veut une visite chez le prospect MR ERIC jeudi à 9 h avec le technicien AGBEKO comme chef.", reponse: "🧲 Prospects → 📅 Planifier une visite ; date, 09:00 ; coche AGBEKO (chef d'office) ; Enregistrer. AGBEKO reçoit l'avis ; « Prévenir MR ERIC ? » → OK. Mercredi 14 h et jeudi 7 h, KOSSI et AGBEKO reçoivent le rappel." },
+        { situation: "KOSSI (commercial) veut une visite chez le prospect MR ERIC jeudi à 9 h avec le technicien AGBEKO comme chef.", reponse: "🧲 Prospects → 📅 Planifier une visite ; date, 09:00 ; coche AGBEKO (chef d'office) ; Enregistrer. AGBEKO reçoit le message du chef, avec le numéro de MR ERIC ; « Prévenir MR ERIC ? » → OK. Mercredi 14 h et jeudi 7 h, KOSSI et AGBEKO reçoivent le rappel — celui d'AGBEKO porte le numéro du client, celui de KOSSI non (il n'y va pas : il n'est pas écrit dans l'équipe)." },
+        { situation: "KOSSI va lui-même à la visite et la dirige.", reponse: "Il se coche (« vous, l'organisateur »), et se choisit comme « Chef de la visite ». L'équipe lue par AGBEKO devient « KOSSI (chef d'équipe), AGBEKO »." },
         { situation: "Le jeudi, AGBEKO est déjà programmé sur une installation.", reponse: "La bande ⚠ le dit à KOSSI avant d'enregistrer : il choisit un autre technicien ou une autre heure." },
         { situation: "La visite est faite : toiture saine, 3 kW à prévoir.", reponse: "AGBEKO (participant) clique ✅ Fait et écrit le compte rendu ; KOSSI le lit sous la ligne de MR ERIC dans 🧲 Prospects." },
         { situation: "ANGELE (vendeuse) a un rendez-vous à la banque mardi à 11 h.", reponse: "🔒 Rendez-vous privé, objet « Banque ». Personne d'autre ne le voit ; son rappel dira seulement « un rendez-vous personnel le mardi … à 11 h »." },

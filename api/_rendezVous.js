@@ -30,13 +30,21 @@ export async function rappelerLesRendezVous(admin, db, aujourdhui, quand) {
   const { cle, expediteurBrut } = configYCloud();
   const expediteur = numeroWhatsApp(expediteurBrut);
   if (!cle || !expediteur) { console.error("[rendez-vous] WhatsApp non configuré sur le serveur"); return bilan; }
+  const envoyer = (tel, e) => envoyerYCloud(cle, {
+    from: expediteur, to: tel, type: "template",
+    template: { name: e.modele, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: e.variables.map((text) => ({ type: "text", text })) }] },
+  });
   for (const r of liste) {
     bilan.a_envoyer += 1;
     try {
-      const envoi = await envoyerYCloud(cle, {
-        from: expediteur, to: r.tel, type: "template",
-        template: { name: r.envoi.modele, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: r.envoi.variables.map((text) => ({ type: "text", text })) }] },
-      });
+      let envoi = await envoyer(r.tel, r.envoi);
+      // Le chef d'une visite (13/10/2026) : son rappel porte le numéro du
+      // client ; tant que Meta ne l'a pas approuvé, le rappel ordinaire part
+      // à sa place — jamais rien du tout.
+      if (!envoi.ok && r.repli) {
+        console.error("[rendez-vous] rappel du chef refusé, le rappel ordinaire part", envoi.code_whatsapp, envoi.motif);
+        envoi = await envoyer(r.tel, r.repli);
+      }
       if (!envoi.ok) { console.error("[rendez-vous] rappel refusé", envoi.code_whatsapp, envoi.motif); continue; }
       bilan.envoyes += 1;
     } catch (e) {

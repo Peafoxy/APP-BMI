@@ -22,8 +22,9 @@ import {
   peutAvoirRendezVous, peutModifierRdv, peutMarquerFait, critiqueRendezVous, nouveauRendezVous,
   rendezVousVisibles, rangerParJour, TITRES_GROUPES, participantsProposes, conflitsRendezVous,
   changementsRendezVous, prospectsPourVisite, propositionsVisite, marquerFait, annulerRdv, CHAMPS_DU_PARTICIPANT,
+  equipeDuRdv, estChefDeLaVisite,
 } from "../lib/rendezVous";
-import { envoiRendezVousEquipe, envoiRendezVousModifie, envoiVisiteClient, jourEnClair, heureEnClair } from "../lib/whatsappModeles";
+import { envoiRendezVousEquipe, envoiRendezVousModifie, envoiVisiteClient, envoiVisiteChef, jourEnClair, heureEnClair } from "../lib/whatsappModeles";
 import { tableAbsente } from "../sync";
 
 const VIDE = { date: "", heure: "", objet: "", lieu: "", visite: false, participants: [], chef_id: "", client_texte: "", prospect_id: "", client_user_id: "", client_nom: "", client_tel: "" };
@@ -61,8 +62,9 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
   const tous = rendezVousVisibles(db.rendez_vous, profile, formation);
   const duType = tous.filter((r) => r.type === vue);
   const groupes = rangerParJour(duType, aujourdhui);
-  // L'auteur d'un rendez-vous qu'on modifie n'est pas un participant.
-  const { techniciens, autres } = participantsProposes(personnes.filter((u) => !edition || u.id !== edition.par_id), profile);
+  // L'organisateur est proposé aussi (13/10/2026) : il se coche s'il y va.
+  const { techniciens, autres } = participantsProposes(personnes);
+  const organisateurId = edition ? edition.par_id : profile.id;
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial" || estChefEquipe(db, profile);
   const prospects = prospectsPourVisite((db.prospects || []).filter((p) => !!p.formation === formation), profile, voitTout);
   const suggestions = propositionsVisite({ comptes: personnes, prospects });
@@ -89,29 +91,54 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
 
   // 📲 Les messages WhatsApp aux personnes concernées (« D a » : les
   // participants ; le reste du personnel a sa notification, lib/notifications.js).
+  // Les messages énumèrent l'ÉQUIPE, le chef d'abord (13/10/2026) ; le CHEF
+  // d'une visite reçoit `visite_chef`, avec le numéro du client — refusé (pas
+  // encore approuvé par Meta), l'avis ordinaire part à sa place et on le dit.
   // ⚠ LE MUR : un rendez-vous de formation n'envoie RIEN.
   const prevenir = async (avant, apres) => {
     if (apres.formation) return [];
-    const { nouveaux, changements } = changementsRendezVous(avant, apres, profile.id);
-    if (!nouveaux.length && !changements.length) return [];
+    const { nouveaux, changements, chef } = changementsRendezVous(avant, apres, profile.id);
+    if (!nouveaux.length && !changements.length && !chef) return [];
     const { envoyerRecuSansQuestion } = await import("../whatsapp.js");
     const phrases = [];
-    const noms = (r) => (r.participants || []).map(nomDe).filter(Boolean);
-    const envoyer = async (id, envoi, quoi) => {
+    const equipe = equipeDuRdv(apres, nomDe);
+    // Rend la phrase de l'envoi, ou null si la fiche n'a pas de numéro.
+    const tenter = async (id, envoi, quoi) => {
       const fiche = ficheDe(id);
-      if (!fiche || !envoi) return;
-      if (String(fiche.tel || "").replace(/\D/g, "").length < 8) { phrases.push(`📲 Aucun WhatsApp : la fiche de ${fiche.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → Téléphone).`); return; }
-      const r = await envoyerRecuSansQuestion({ envoi, tel: fiche.tel, nom: fiche.nom, espaceFormation: false, save, profile, ref: { rdv_id: apres.id }, noms: quoi });
-      if (r) phrases.push(r);
+      if (!fiche || !envoi) return "";
+      if (String(fiche.tel || "").replace(/\D/g, "").length < 8) { phrases.push(`📲 Aucun WhatsApp : la fiche de ${fiche.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → Téléphone).`); return null; }
+      return (await envoyerRecuSansQuestion({ envoi, tel: fiche.tel, nom: fiche.nom, espaceFormation: false, save, profile, ref: { rdv_id: apres.id }, noms: quoi })) || "";
     };
+    const parti = (r) => String(r || "").startsWith("📲");
+    const AVIS_CHEF = { titre: "Avis au chef de la visite", sujet: "L'avis au chef de la visite" };
+    const SANS_NUMERO = (nom) => `⚠ ${nom} n'a pas reçu le numéro du client : l'avis du chef de la visite n'est pas encore accepté par WhatsApp (il le sera après l'accord de Meta).`;
     for (const id of nouveaux) {
       const fiche = ficheDe(id);
-      const autresNoms = [apres.par, ...noms(apres)].filter((n) => n && n !== fiche?.nom);
-      await envoyer(id, envoiRendezVousEquipe({ employe: fiche?.nom_complet || fiche?.nom, auteur: profile.nom, rdv: apres, participants: autresNoms }), { titre: "Avis de rendez-vous", sujet: "L'avis de rendez-vous" });
+      const employe = fiche?.nom_complet || fiche?.nom;
+      const ordinaire = () => envoiRendezVousEquipe({ employe, auteur: profile.nom, rdv: apres, participants: equipe });
+      if (estChefDeLaVisite(apres, id)) {
+        const r = await tenter(id, envoiVisiteChef({ employe, auteur: profile.nom, rdv: apres, equipe }), AVIS_CHEF);
+        if (r === null) continue;
+        if (parti(r)) { phrases.push(r); continue; }
+        const r2 = await tenter(id, ordinaire(), { titre: "Avis de rendez-vous", sujet: "L'avis de rendez-vous" });
+        if (r2) phrases.push(r2);
+        if (parti(r2)) phrases.push(SANS_NUMERO(fiche?.nom || "Le chef"));
+        continue;
+      }
+      const r = await tenter(id, ordinaire(), { titre: "Avis de rendez-vous", sujet: "L'avis de rendez-vous" });
+      if (r) phrases.push(r);
+    }
+    // Un participant déjà prévenu qui devient le chef de la visite.
+    if (chef) {
+      const fiche = ficheDe(chef);
+      const r = await tenter(chef, envoiVisiteChef({ employe: fiche?.nom_complet || fiche?.nom, auteur: profile.nom, rdv: apres, equipe }), AVIS_CHEF);
+      if (r) phrases.push(r);
+      if (r !== null && !parti(r)) phrases.push(SANS_NUMERO(fiche?.nom || "Le chef"));
     }
     for (const { id, phrase } of changements) {
       const fiche = ficheDe(id);
-      await envoyer(id, envoiRendezVousModifie({ employe: fiche?.nom_complet || fiche?.nom, rdv: apres, changement: phrase }), { titre: "Avis de changement", sujet: "L'avis de changement" });
+      const r = await tenter(id, envoiRendezVousModifie({ employe: fiche?.nom_complet || fiche?.nom, rdv: apres, changement: phrase }), { titre: "Avis de changement", sujet: "L'avis de changement" });
+      if (r) phrases.push(r);
     }
     return phrases;
   };
@@ -201,7 +228,7 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
       </div>
       {r.type === TYPE_PRO && (
         <div className="text-xs text-slate-600 mt-1">
-          Créé par <b>{r.par}</b>{(r.participants || []).length ? <> · Participants : {(r.participants || []).map((id) => <span key={id}>{nomDe(id)}{id === r.chef_id ? " ⭐" : ""}</span>).reduce((a, b) => [a, ", ", b])}</> : " · aucun autre participant"}
+          Organisé par <b>{r.par}</b>{equipeDuRdv(r, nomDe).length ? <> · <span data-equipe-rdv>Équipe : {equipeDuRdv(r, nomDe).join(", ")}</span></> : " · aucun participant"}
         </div>
       )}
       {r.visite && r.client_nom && <div className="text-xs text-slate-600">👤 {r.client_nom}{r.client_tel ? ` · ${r.client_tel}` : ""}{r.client_prevenu_le ? ` · 📲 prévenu le ${dFR(r.client_prevenu_le)}` : ""}</div>}
@@ -221,7 +248,7 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
   const case_ = (u) => (
     <label key={u.id} className="flex items-center gap-2 text-sm py-0.5">
       <input type="checkbox" checked={f.participants.includes(u.id)} onChange={() => basculer(u.id)} />
-      <span>{u.nom}</span>
+      <span>{u.nom}{u.id === organisateurId ? <span data-organisateur className="text-xs text-slate-500"> — {u.id === profile.id ? "vous, l'organisateur : cochez-vous si vous y allez" : "l'organisateur"}</span> : null}</span>
     </label>
   );
   const typeForm = edition ? edition.type : vue;
@@ -238,7 +265,7 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
         </div>
         <div className="text-xs text-slate-500 mb-3">
           {vue === TYPE_PRO
-            ? "Ce qui concerne BMI, surtout les visites : tout le personnel le voit. Les participants sont prévenus par WhatsApp, et rappelés la veille à 14 h et le jour même à 7 h."
+            ? "Ce qui concerne BMI, surtout les visites : tout le personnel le voit. Les participants sont prévenus par WhatsApp, et rappelés la veille à 14 h et le jour même à 7 h. L'organisateur ne fait partie de l'équipe que s'il se coche, mais il est prévenu et rappelé dans tous les cas. Le chef d'une visite reçoit le numéro du client."
             : "Vos rendez-vous personnels : vous seul les voyez, l'administrateur non plus. Le rappel WhatsApp (la veille à 14 h, le jour même à 7 h) ne dit pas l'objet."}
         </div>
         {absente && <div data-table-absente className="mb-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">{MESSAGE_TABLE_ABSENTE}</div>}

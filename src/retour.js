@@ -17,7 +17,7 @@ import { creerPile } from "./lib/pileRetour";
 
 const pile = creerPile();
 let aIgnorer = 0;      // reculs que NOUS avons demandés (pas un appui)
-let ouvertures = 0;    // compteur : rien ne s'est ouvert depuis ? on peut compacter
+let ouvertures = 0;    // compteur : rien d'autre n'a été ouvert depuis ? on peut compacter
 let estBloque = () => false;
 let installe = false;
 const MARQUE = { bmiRetour: true };
@@ -54,7 +54,7 @@ function planifierCompactage() {
   if (typeof window === "undefined") return;
   const avant = ouvertures;
   setTimeout(() => {
-    if (ouvertures !== avant) return; // un autre écran s'est ouvert : on saute plus tard
+    if (ouvertures !== avant) return; // un autre écran a été ouvert : on saute plus tard
     reculer(pile.compacter());
   }, 60);
 }

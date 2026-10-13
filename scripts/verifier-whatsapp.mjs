@@ -130,10 +130,14 @@ const ATTENDU = {
   visite_client: { categorie: "utility", n: 6 },
   rappel_rendez_vous: { categorie: "utility", n: 6 },
   rappel_rendez_vous_prive: { categorie: "utility", n: 3 },
+  // 13/10/2026 (« A a, B b, C ok ») : le CHEF d'une visite, avec le numéro
+  // du client — l'avis (écran) et le rappel (serveur seul).
+  visite_chef: { categorie: "utility", n: 9 },
+  rappel_visite_chef: { categorie: "utility", n: 8 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les quarante-quatre modèles sont là, et eux seuls (RETOURNÉ le 13/10/2026 : + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les quarante-six modèles sont là, et eux seuls (RETOURNÉ le 13/10/2026 : + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -158,7 +162,7 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
 // aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
 // RETOURNÉ encore le 26/09/2026 : le rappel d'entretien aussi (même tournée).
 // RETOURNÉ le 29/09/2026 : + le rappel du solde d'une pose (tournée de 7 h).
-const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe", "rappel_anniversaire", "rappel_installation", "rappel_rendez_vous", "rappel_rendez_vous_prive"]; /* RETOURNÉ le 12/10/2026 au soir : + les deux rappels de rendez-vous (tournées de 14 h et de 7 h) ; le 12/10/2026 : + le rappel d'installation de la veille au chef (tournée de 17 h) ; le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h), + le rappel de la veille (tournée de 17 h) */
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe", "rappel_anniversaire", "rappel_installation", "rappel_rendez_vous", "rappel_rendez_vous_prive", "rappel_visite_chef"]; /* RETOURNÉ le 13/10/2026 : + le rappel du chef d'une visite ; le 12/10/2026 au soir : + les deux rappels de rendez-vous (tournées de 14 h et de 7 h) ; le 12/10/2026 : + le rappel d'installation de la veille au chef (tournée de 17 h) ; le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h), + le rappel de la veille (tournée de 17 h) */
 test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien, la demande d'avis)",
   M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
   && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
@@ -1335,7 +1339,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,devis_disponible,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,virement_salaire,virement_salaire_credit,visite_client"); /* RETOURNÉ le 13/10/2026 : + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,devis_disponible,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 13/10/2026 : + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -4245,9 +4249,46 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
     cles(veille) === cles(jour) && cles(veille) === "p1:ANGELE:rappel_rendez_vous_prive,r1:AGBEKO:rappel_rendez_vous,r1:KOSSI:rappel_rendez_vous,r2:KOSSI:rappel_rendez_vous", cles(veille));
   test("★★ LE MUR : jamais un rendez-vous de formation, un compte de formation, sans numéro ou bloqué ; jamais un rendez-vous annulé ni d'un autre jour",
     !veille.some((x) => ["r3", "r4", "r5"].includes(x.rdv.id)) && !veille.some((x) => ["FORMA", "SANSTEL", "BLOQUE"].includes(x.personne.nom)));
-  test("★ le rappel d'un pro nomme les AUTRES participants, jamais la personne elle-même",
+  // ⚠ RETOURNÉ le 13/10/2026 (« A a, B b, C ok ») : le rappel nommait les
+  // AUTRES (l'organisateur compris) ; il énumère maintenant l'ÉQUIPE — les
+  // participants seuls, la même liste pour tous. L'organisateur qui n'y va
+  // pas reçoit le rappel, mais n'est pas écrit dans l'équipe.
+  test("★ le rappel d'un pro énumère l'ÉQUIPE (les participants), la même pour tous ; l'organisateur non participant n'y est pas écrit (RETOURNÉ le 13/10/2026)",
     (veille.find((x) => x.rdv.id === "r1" && x.personne.nom === "KOSSI") || {}).envoi?.variables[5] === "AGBEKO"
-    && (veille.find((x) => x.rdv.id === "r1" && x.personne.nom === "AGBEKO") || {}).envoi?.variables[5] === "KOSSI");
+    && (veille.find((x) => x.rdv.id === "r1" && x.personne.nom === "AGBEKO") || {}).envoi?.variables[5] === "AGBEKO");
+  // ── 13/10/2026 : LE CHEF D'UNE VISITE REÇOIT LE NUMÉRO DU CLIENT ──
+  test("★★ les deux textes du chef ont leurs trous 1 à N, DANS L'ORDRE, et sont ceux acceptés par Timo",
+    suite(M.TEXTE_VISITE_CHEF, 9) && suite(M.TEXTE_RAPPEL_VISITE_CHEF, 8)
+    && M.TEXTE_VISITE_CHEF === "Bonjour {{1}}, {{2}} vous a nommé chef de la visite BMI TOGO : {{3}}, le {{4}} à {{5}}. Lieu : {{6}}. Client : {{7}}, joignable au {{8}}. Équipe : {{9}}. Détails dans l'application BMI, onglet Rendez-vous. BMI TOGO"
+    && M.TEXTE_RAPPEL_VISITE_CHEF === "Bonjour {{1}}, rappel de la visite BMI TOGO dont vous êtes le chef : {{2}}, le {{3}} à {{4}}. Lieu : {{5}}. Client : {{6}}, joignable au {{7}}. Équipe : {{8}}. BMI TOGO");
+  const visite = { id: "v1", type: "pro", par_id: "u_k", par: "KOSSI", objet: "Visite chez MR ERIC", date: "2026-10-15", heure: "09:00", lieu: "Adagbe",
+    visite: true, participants: ["u_ang", "u_a"], chef_id: "u_a", client_nom: "MR ERIC", client_tel: "99 00 11 22", statut: "a_venir" };
+  const nomV = (id) => ({ u_k: "KOSSI", u_a: "AGBEKO", u_ang: "ANGELE" })[id] || "";
+  test("★★ l'ÉQUIPE : le chef EN PREMIER « (chef d'équipe) », les participants seuls — l'organisateur n'y est que s'il s'est coché",
+    RV.equipeDuRdv(visite, nomV).join(", ") === "AGBEKO (chef d'équipe), ANGELE"
+    && RV.equipeDuRdv({ ...visite, participants: ["u_a", "u_k"], chef_id: "u_k" }, nomV).join(", ") === "KOSSI (chef d'équipe), AGBEKO"
+    && RV.equipeDuRdv({ ...visite, visite: false, chef_id: "" }, nomV).join(", ") === "ANGELE, AGBEKO");
+  const vc = M.envoiVisiteChef({ employe: "AGBEKO", auteur: "KOSSI", rdv: visite, equipe: RV.equipeDuRdv(visite, nomV) });
+  test("★★ « visite_chef » : neuf trous — le client et SON NUMÉRO, puis l'équipe",
+    vc && vc.modele === "visite_chef" && vc.variables.join("|") === "AGBEKO|KOSSI|Visite chez MR ERIC|jeudi 15/10/2026|9 h|Adagbe|MR ERIC|99 00 11 22|AGBEKO (chef d'équipe), ANGELE", vc && vc.variables.join("|"));
+  const vcSans = M.envoiVisiteChef({ employe: "AGBEKO", auteur: "KOSSI", rdv: { ...visite, client_nom: "", client_tel: "" }, equipe: ["AGBEKO"] });
+  test("★ un client sans numéro : « numéro non renseigné » (Meta refuse un trou vide) ; sans nom : « non renseigné » ; une réunion (pas une visite) n'a pas d'avis du chef",
+    vcSans && vcSans.variables[6] === "non renseigné" && vcSans.variables[7] === "numéro non renseigné"
+    && M.envoiVisiteChef({ employe: "AGBEKO", auteur: "KOSSI", rdv: { ...visite, visite: false }, equipe: [] }) === null);
+  const dbV = { users, boutiques: [{ id: "b", nom: "DEMAKPOE" }], rendez_vous: [visite] };
+  const rv = RV.rappelsRendezVous(dbV, "2026-10-14", "veille");
+  const deQui = (n) => rv.find((x) => x.personne.nom === n) || {};
+  test("★★ « A a » le CHEF reçoit le rappel AVEC le numéro du client (rappel_visite_chef) et, en repli, le rappel ordinaire ; « B b » l'organisateur qui n'y va pas et l'autre participant : le rappel ordinaire, SANS le numéro",
+    deQui("AGBEKO").envoi?.modele === "rappel_visite_chef" && deQui("AGBEKO").envoi?.variables[6] === "99 00 11 22" && deQui("AGBEKO").repli?.modele === "rappel_rendez_vous"
+    && deQui("KOSSI").envoi?.modele === "rappel_rendez_vous" && !deQui("KOSSI").repli && !deQui("KOSSI").envoi.variables.join(" ").includes("99 00")
+    && deQui("ANGELE").envoi?.modele === "rappel_rendez_vous" && !deQui("ANGELE").envoi.variables.join(" ").includes("99 00")
+    && deQui("KOSSI").envoi?.variables[5] === "AGBEKO (chef d'équipe), ANGELE", JSON.stringify(rv.map((x) => [x.personne.nom, x.envoi.modele])));
+  const chg = RV.changementsRendezVous(visite, { ...visite, chef_id: "u_ang" }, "u_k");
+  test("★ un participant déjà prévenu qui DEVIENT chef reçoit l'avis du chef (le numéro) ; pas l'auteur du geste ; rien si le chef ne change pas",
+    chg.chef === "u_ang" && chg.nouveaux.length === 0 && RV.changementsRendezVous(visite, { ...visite, chef_id: "u_ang" }, "u_ang").chef === ""
+    && RV.changementsRendezVous(visite, { ...visite, lieu: "X" }, "u_k").chef === "");
+  test("★ la ligne du fil de « visite_chef » ne recopie PAS le numéro du client",
+    M.ligneEnvoiModele("visite_chef", vc.variables).includes("MR ERIC") && !M.ligneEnvoiModele("visite_chef", vc.variables).includes("99 00"));
   const SR = sansC(lire("api/rappels-du-soir.js"));
   const MA = sansC(lire("api/rappels-du-matin.js"));
   const RVS = sansC(lire("api/_rendezVous.js"));
@@ -4259,6 +4300,8 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
     /try \{ return await lireTable\(admin, "rendez_vous"\); \}\n\s*catch \(e\) \{[^\n]*return \[\]; \}/.test(RVS) && !/\.upsert\(|\.insert\(|\.update\(/.test(RVS));
   test("★ « _rendezVous.js » n'est pas une fonction Vercel (le « _ ») : toujours douze fonctions au plus",
     readdirSync("api").filter((f) => f.endsWith(".js") && !f.startsWith("_")).length <= 12);
+  test("★★ le serveur : refusé, le rappel du chef laisse partir le rappel ORDINAIRE (jamais rien du tout)",
+    /if \(!envoi\.ok && r\.repli\) \{[\s\S]*?envoi = await envoyer\(r\.tel, r\.repli\);/.test(RVS) || /if \(!envoi\.ok && r\.repli\)/.test(RVS) && /envoi = await envoyer\(r\.tel, r\.repli\)/.test(RVS));
   // L'écran.
   const EC = sansC(lire("src/screens/RendezVous.jsx"));
   const corpsPrev = EC.slice(EC.indexOf("const prevenir = async"), EC.indexOf("const prevenirClient = async"));
@@ -4267,6 +4310,13 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
     /if \(apres\.formation\) return \[\];/.test(corpsPrev) && /envoyerRecuSansQuestion\(/.test(corpsPrev) && /Aucun WhatsApp : la fiche de/.test(corpsPrev) && !/estCompteFormation\(db, profile\)/.test(EC));
   test("★★ « G » le client n'est prévenu QU'APRÈS une question, jamais en formation",
     corpsCli.indexOf("uConfirm(") > 0 && corpsCli.indexOf("uConfirm(") < corpsCli.indexOf("envoyerRecuSansQuestion(") && /r\.formation/.test(corpsCli));
+  test("★★ l'écran : le CHEF d'une visite reçoit « visite_chef » ; refusé, l'avis ORDINAIRE part à sa place et l'écran DIT que le numéro n'est pas parti ; l'équipe est LA liste commune (equipeDuRdv)",
+    /estChefDeLaVisite\(apres, id\)/.test(corpsPrev) && /envoiVisiteChef\(/.test(corpsPrev) && /n'a pas reçu le numéro du client/.test(corpsPrev)
+    && /if \(parti\(r\)\) \{ phrases\.push\(r\); continue; \}\n\s*const r2 = await tenter\(id, ordinaire\(\)/.test(corpsPrev)
+    && /if \(parti\(r2\)\) phrases\.push\(SANS_NUMERO\(/.test(corpsPrev) && /if \(r !== null && !parti\(r\)\) phrases\.push\(SANS_NUMERO\(/.test(corpsPrev)
+    && /const equipe = equipeDuRdv\(apres, nomDe\)/.test(corpsPrev) && !/\[apres\.par, \.\.\.noms/.test(corpsPrev));
+  test("★ l'écran propose l'ORGANISATEUR parmi les participants (il se coche s'il y va) — plus jamais retiré de la liste",
+    /participantsProposes\(personnes\)/.test(EC) && /data-organisateur/.test(EC) && !/u\.id !== edition\.par_id/.test(EC));
 }
 
 {

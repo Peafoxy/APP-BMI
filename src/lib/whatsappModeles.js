@@ -265,6 +265,14 @@ export const MODELES = {
   // est NEUTRE, sans l'objet (« B a ») : la copie se lit sur le téléphone BMI.
   rappel_rendez_vous: { categorie: "utility", variables: ["employe", "objet", "date", "heure", "lieu", "participants"] },
   rappel_rendez_vous_prive: { categorie: "utility", variables: ["employe", "date", "heure"] },
+  // 📅 13/10/2026, Timo (« A a, B b, C ok ») : le CHEF d'une visite reçoit le
+  // numéro du client — à la création (`visite_chef`, écran) ET dans les
+  // rappels (`rappel_visite_chef`, SERVEUR SEUL). L'organisateur qui ne
+  // participe pas ne le reçoit pas (« B b »). Textes acceptés tels quels.
+  // Tant que Meta ne les a pas approuvés, le chef reçoit les messages
+  // d'avant (sans le numéro) : `rendez_vous_equipe`, `rappel_rendez_vous`.
+  visite_chef: { categorie: "utility", variables: ["employe", "auteur", "objet", "date", "heure", "lieu", "client", "telephone_client", "equipe"] },
+  rappel_visite_chef: { categorie: "utility", variables: ["employe", "objet", "date", "heure", "lieu", "client", "telephone_client", "equipe"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -332,6 +340,10 @@ export const MODELES_EN_SERVICE = [
   // visite annoncée au client. En service AVANT l'accord de Meta : d'ici là
   // rien ne part (aucun repli), et l'écran le dit.
   "rendez_vous_equipe", "rendez_vous_modifie", "visite_client",
+  // 13/10/2026 : l'avis au CHEF de la visite, avec le numéro du client. En
+  // service AVANT l'accord de Meta : d'ici là, l'avis ordinaire part à sa
+  // place (sans le numéro), et l'écran le dit.
+  "visite_chef",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -854,6 +866,8 @@ const LIGNES_ENVOI = {
   rendez_vous_modifie: ([employe, objet, changement]) => `Avis de changement de rendez-vous envoyé à ${employe} (${objet}) : ${changement}`,
   // ⚠ Le numéro du chef de la visite (trou 6) n'est pas recopié dans le fil.
   visite_client: ([client, date, heure, , chef]) => `Visite annoncée à ${client} : le ${date} à ${heure}, chef de la visite ${chef}.`,
+  // ⚠ Le numéro du client (trou 8) n'est pas recopié dans le fil.
+  visite_chef: ([employe, , objet, date, heure, , client]) => `Avis de visite envoyé au chef de la visite ${employe} : ${objet}, le ${date} à ${heure}, client ${client}.`,
 };
 export const MODELES_AVEC_LIGNE = Object.keys(LIGNES_ENVOI);
 export const PREFIXE_LIGNE_ENVOI = "📲 Envoyé du numéro BMI — ";
@@ -2043,6 +2057,8 @@ export const texteAffectation = (envoi) => {
 export const TEXTE_RENDEZ_VOUS_EQUIPE = "Bonjour {{1}}, {{2}} vous a ajouté à un rendez-vous BMI TOGO : {{3}}, le {{4}} à {{5}}. Lieu : {{6}}. Participants : {{7}}. Détails dans l'application BMI, onglet Rendez-vous. BMI TOGO";
 export const TEXTE_RENDEZ_VOUS_MODIFIE = "Bonjour {{1}}, changement pour le rendez-vous BMI TOGO {{2}} : {{3}}. BMI TOGO";
 export const TEXTE_RAPPEL_RENDEZ_VOUS = "Bonjour {{1}}, rappel de votre rendez-vous BMI TOGO : {{2}}, le {{3}} à {{4}}. Lieu : {{5}}. Participants : {{6}}. BMI TOGO";
+export const TEXTE_VISITE_CHEF = "Bonjour {{1}}, {{2}} vous a nommé chef de la visite BMI TOGO : {{3}}, le {{4}} à {{5}}. Lieu : {{6}}. Client : {{7}}, joignable au {{8}}. Équipe : {{9}}. Détails dans l'application BMI, onglet Rendez-vous. BMI TOGO";
+export const TEXTE_RAPPEL_VISITE_CHEF = "Bonjour {{1}}, rappel de la visite BMI TOGO dont vous êtes le chef : {{2}}, le {{3}} à {{4}}. Lieu : {{5}}. Client : {{6}}, joignable au {{7}}. Équipe : {{8}}. BMI TOGO";
 export const TEXTE_RAPPEL_RENDEZ_VOUS_PRIVE = "Bonjour {{1}}, rappel : vous avez un rendez-vous personnel le {{2}} à {{3}}. Le détail est dans l'application BMI, onglet Rendez-vous. BMI TOGO";
 // ⚠ Timo (12/10/2026) : « ajouter les contacts BMI, l'e-mail et le site web
 // BMI » — le bloc court commun (📧, 📞, 🌐), jamais recopié.
@@ -2063,6 +2079,10 @@ export function heureEnClair(hhmm) {
 }
 const lieuRdv = (lieu) => texteVariable(lieu) || "à préciser";
 const participantsRdv = (noms) => texteVariable((noms || []).filter(Boolean).join(", ")) || "aucun autre participant";
+// Le client d'une visite, pour son chef : son nom, et son numéro — « numéro
+// non renseigné » plutôt qu'un trou vide (Meta le refuse).
+const clientVisite = (rdv) => texteVariable(rdv?.client_nom) || "non renseigné";
+const telClientVisite = (rdv) => (String(rdv?.client_tel || "").replace(/\D/g, "").length >= 8 ? texteVariable(rdv.client_tel) : "numéro non renseigné");
 
 export function envoiRendezVousEquipe({ employe, auteur, rdv, participants }) {
   const nom = texteVariable(employe), jour = jourEnClair(rdv?.date), heure = heureEnClair(rdv?.heure);
@@ -2090,7 +2110,20 @@ export function envoiRappelRendezVous({ employe, rdv, participants }) {
   if (!objet) return null;
   return { modele: "rappel_rendez_vous", variables: [nom, objet, jour, heure, lieuRdv(rdv?.lieu), participantsRdv(participants)] };
 }
-const TEXTES_RENDEZ_VOUS = { rendez_vous_equipe: TEXTE_RENDEZ_VOUS_EQUIPE, rendez_vous_modifie: TEXTE_RENDEZ_VOUS_MODIFIE, visite_client: TEXTE_VISITE_CLIENT, rappel_rendez_vous: TEXTE_RAPPEL_RENDEZ_VOUS, rappel_rendez_vous_prive: TEXTE_RAPPEL_RENDEZ_VOUS_PRIVE };
+// Le CHEF d'une visite : le même avis, avec le client et son numéro.
+export function envoiVisiteChef({ employe, auteur, rdv, equipe }) {
+  const nom = texteVariable(employe), jour = jourEnClair(rdv?.date), heure = heureEnClair(rdv?.heure);
+  const objet = texteVariable(rdv?.objet);
+  if (!nom || !jour || !heure || !objet || !rdv?.visite) return null;
+  return { modele: "visite_chef", variables: [nom, texteVariable(auteur) || "BMI TOGO", objet, jour, heure, lieuRdv(rdv?.lieu), clientVisite(rdv), telClientVisite(rdv), participantsRdv(equipe)] };
+}
+export function envoiRappelVisiteChef({ employe, rdv, equipe }) {
+  const nom = texteVariable(employe), jour = jourEnClair(rdv?.date), heure = heureEnClair(rdv?.heure);
+  const objet = texteVariable(rdv?.objet);
+  if (!nom || !jour || !heure || !objet || !rdv?.visite) return null;
+  return { modele: "rappel_visite_chef", variables: [nom, objet, jour, heure, lieuRdv(rdv?.lieu), clientVisite(rdv), telClientVisite(rdv), participantsRdv(equipe)] };
+}
+const TEXTES_RENDEZ_VOUS = { rendez_vous_equipe: TEXTE_RENDEZ_VOUS_EQUIPE, rendez_vous_modifie: TEXTE_RENDEZ_VOUS_MODIFIE, visite_client: TEXTE_VISITE_CLIENT, rappel_rendez_vous: TEXTE_RAPPEL_RENDEZ_VOUS, rappel_rendez_vous_prive: TEXTE_RAPPEL_RENDEZ_VOUS_PRIVE, visite_chef: TEXTE_VISITE_CHEF, rappel_visite_chef: TEXTE_RAPPEL_VISITE_CHEF };
 export const texteRendezVous = (envoi) => {
   const t = envoi && TEXTES_RENDEZ_VOUS[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), t) : "";

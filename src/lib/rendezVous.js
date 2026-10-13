@@ -23,12 +23,17 @@
 //     les participants prévenus d'un changement, la liste par jour, rien en
 //     formation.
 //   • H a  — le comptable lit les pro, ne crée rien (lecture seule).
+// Puis le 13/10/2026 (« A a, B b, C ok ») : l'ORGANISATEUR n'est plus compté
+// d'office dans l'équipe — il se coche s'il y va (et peut alors être le chef
+// de la visite) ; il reçoit quand même les avis et les rappels. Les messages
+// énumèrent l'ÉQUIPE, le chef d'abord ; le CHEF d'une visite reçoit le
+// numéro du client (à la création et dans les rappels), pas l'organisateur.
 //
 // Règle pure, lue par le serveur : imports écrits avec `.js`. Rien n'est
 // écrit ici.
 // ============================================================
 import { estCompteFormation } from "./espace.js";
-import { jourEnClair, heureEnClair, numeroWhatsApp, envoiRappelRendezVous } from "./whatsappModeles.js";
+import { jourEnClair, heureEnClair, numeroWhatsApp, envoiRappelRendezVous, envoiRappelVisiteChef } from "./whatsappModeles.js";
 import { lendemain } from "./anniversaires.js";
 
 export const TYPE_PRO = "pro";
@@ -78,13 +83,14 @@ export function critiqueRendezVous(r, { aujourdhui, creation = false } = {}) {
   if (r.type === TYPE_PRIVE && ((r.participants || []).length || r.visite)) return "Un rendez-vous privé n'a ni participants ni visite.";
   if (r.visite && !(r.participants || []).length) return "Une visite demande au moins un participant : cochez qui y va.";
   if (r.chef_id && !(r.participants || []).includes(r.chef_id)) return "Le chef de la visite doit être parmi les participants.";
-  if ((r.participants || []).includes(r.par_id)) return "L'auteur du rendez-vous n'a pas à être coché parmi les participants.";
   return "";
 }
 
 export function nouveauRendezVous({ profile, formation, champs, id, maintenant }) {
   const pro = champs.type === TYPE_PRO;
-  const participants = pro ? [...new Set((champs.participants || []).filter((x) => x && x !== profile.id))] : [];
+  // L'organisateur peut se cocher lui-même (13/10/2026) : il fait alors
+  // partie de l'équipe, et peut en être le chef.
+  const participants = pro ? [...new Set((champs.participants || []).filter(Boolean))] : [];
   const visite = pro && !!champs.visite;
   return {
     id,
@@ -148,9 +154,10 @@ export const TITRES_GROUPES = [
 
 // Les personnes proposées comme participants (« F b ») : les techniciens
 // d'abord, puis le reste du personnel — la liste déjà filtrée par l'espace
-// regardé (utilisateursDeLEspace), jamais un client, jamais l'auteur.
-export function participantsProposes(personnes, profile) {
-  const l = (personnes || []).filter((u) => u && u.role !== "client" && u.actif !== false && u.id !== profile?.id);
+// regardé (utilisateursDeLEspace), jamais un client. L'ORGANISATEUR y est
+// aussi (13/10/2026) : il se coche s'il fait partie de l'équipe.
+export function participantsProposes(personnes) {
+  const l = (personnes || []).filter((u) => u && u.role !== "client" && u.actif !== false);
   const tri = (a, b) => String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" });
   return {
     techniciens: l.filter((u) => ROLES_TECHNICIENS.includes(u.role)).sort(tri),
@@ -159,7 +166,26 @@ export function participantsProposes(personnes, profile) {
 }
 
 // Tous ceux qu'un rendez-vous concerne : l'auteur et les participants.
+// ⚠ L'organisateur reste concerné même s'il ne participe pas (« A a ») :
+// il reçoit les avis et les rappels, et le rendez-vous compte chez lui.
 export const personnesDuRdv = (r) => [...new Set([r?.par_id, ...(r?.participants || [])].filter(Boolean))];
+
+// L'ÉQUIPE telle que les messages l'énumèrent (13/10/2026) : les
+// participants seulement — l'organisateur n'y est que s'il s'est coché —, le
+// chef d'une visite EN PREMIER, marqué « (chef d'équipe) ». `nomDe(id)` rend
+// le nom ; une personne introuvable n'est pas écrite.
+export function equipeDuRdv(r, nomDe) {
+  if (!r || r.type !== TYPE_PRO) return [];
+  const ids = r.participants || [];
+  const chef = r.visite && r.chef_id && ids.includes(r.chef_id) ? r.chef_id : "";
+  const ordre = chef ? [chef, ...ids.filter((id) => id !== chef)] : ids;
+  return ordre.map((id) => {
+    const nom = nomDe ? nomDe(id) : "";
+    return nom ? (id === chef ? `${nom} (chef d'équipe)` : nom) : "";
+  }).filter(Boolean);
+}
+// Le chef d'une visite : lui seul reçoit le numéro du client (« B b »).
+export const estChefDeLaVisite = (r, id) => !!r && !!id && !!r.visite && r.type === TYPE_PRO && r.chef_id === id && (r.participants || []).includes(id);
 
 // « G » : le CONFLIT, dit avant d'enregistrer, jamais un blocage. Pour chaque
 // personne du rendez-vous : un autre rendez-vous à venir le même jour qui la
@@ -190,9 +216,11 @@ export function conflitsRendezVous({ rdv, rendezVous, chantiers, nomDe }) {
 // « G » : ce qu'une modification change pour chacun (WhatsApp
 // `rendez_vous_modifie`, et `rendez_vous_equipe` pour un nouveau
 // participant). L'auteur du GESTE n'est jamais prévenu de son propre geste.
-// Rend { nouveaux: [id], changements: [{ id, phrase }] }.
+// `chef` : un participant DÉJÀ prévenu qui devient le chef de la visite
+// (13/10/2026) — il reçoit l'avis du chef, avec le numéro du client.
+// Rend { nouveaux: [id], changements: [{ id, phrase }], chef }.
 export function changementsRendezVous(avant, apres, auteurDuGeste) {
-  if (!apres || apres.type !== TYPE_PRO) return { nouveaux: [], changements: [] };
+  if (!apres || apres.type !== TYPE_PRO) return { nouveaux: [], changements: [], chef: "" };
   const avantP = avant ? personnesDuRdv(avant) : [];
   const apresP = personnesDuRdv(apres);
   const nouveaux = [], changements = [];
@@ -214,13 +242,18 @@ export function changementsRendezVous(avant, apres, auteurDuGeste) {
     if (id === auteurDuGeste || apresP.includes(id)) continue;
     changements.push({ id, phrase: "vous n'en faites plus partie" });
   }
-  return { nouveaux, changements };
+  const nouveauChef = !!avant && !annule && apres.statut === STATUT_A_VENIR && estChefDeLaVisite(apres, apres.chef_id)
+    && !estChefDeLaVisite(avant, apres.chef_id) && (avant.participants || []).includes(apres.chef_id)
+    && apres.chef_id !== auteurDuGeste ? apres.chef_id : "";
+  return { nouveaux, changements, chef: nouveauChef };
 }
 
 // « C » : les rappels du serveur pour un jour donné. `quand` = "veille"
 // (tournée de 14 h, les rendez-vous de DEMAIN) ou "jour" (tournée de 7 h,
 // ceux d'AUJOURD'HUI). Un pro : son auteur et ses participants ; un privé :
-// son auteur seul, et un texte NEUTRE (« B a »). ⚠ LE MUR : jamais un
+// son auteur seul, et un texte NEUTRE (« B a »). Le CHEF d'une visite reçoit
+// `rappel_visite_chef` (le numéro du client), avec `repli` = le rappel
+// ordinaire si WhatsApp le refuse (pas encore approuvé). ⚠ LE MUR : jamais un
 // rendez-vous de formation, jamais un compte de formation, client, inactif,
 // bloqué ou sans numéro. Rien n'est écrit.
 export function rappelsRendezVous(db, aujourdhui, quand) {
@@ -230,14 +263,16 @@ export function rappelsRendezVous(db, aujourdhui, quand) {
   for (const r of db?.rendez_vous || []) {
     if (!r || r.formation || r.statut !== STATUT_A_VENIR || r.date !== cible) continue;
     const ids = r.type === TYPE_PRIVE ? [r.par_id] : personnesDuRdv(r);
-    const noms = (r.participants || []).map((id) => users.find((u) => u && u.id === id)).filter(Boolean).map((u) => u.nom);
+    const equipe = equipeDuRdv(r, (pid) => (users.find((u) => u && u.id === pid) || {}).nom || "");
     for (const id of ids) {
       const u = users.find((x) => x && x.id === id);
       if (!u || u.role === "client" || u.actif === false || u.bloque || estCompteFormation(db, u)) continue;
       if (String(u.tel || "").replace(/\D/g, "").length < 8) continue;
-      const autres = r.type === TYPE_PRIVE ? [] : [r.par, ...noms].filter((n) => n && n !== u.nom);
-      const envoi = envoiRappelRendezVous({ employe: u.nom_complet || u.nom, rdv: r, participants: autres });
-      if (envoi) out.push({ rdv: r, personne: u, tel: numeroWhatsApp(u.tel), envoi });
+      const employe = u.nom_complet || u.nom;
+      const ordinaire = envoiRappelRendezVous({ employe, rdv: r, participants: r.type === TYPE_PRIVE ? [] : equipe });
+      const chef = estChefDeLaVisite(r, id) ? envoiRappelVisiteChef({ employe, rdv: r, equipe }) : null;
+      if (chef) out.push({ rdv: r, personne: u, tel: numeroWhatsApp(u.tel), envoi: chef, repli: ordinaire });
+      else if (ordinaire) out.push({ rdv: r, personne: u, tel: numeroWhatsApp(u.tel), envoi: ordinaire });
     }
   }
   return out;

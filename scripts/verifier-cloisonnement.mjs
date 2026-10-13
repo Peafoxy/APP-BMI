@@ -15823,17 +15823,22 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
       R.peutModifierRdv(privK, kos) && !R.peutModifierRdv(privK, tim) && R.peutModifierRdv(pro, kos) && R.peutModifierRdv(pro, adm)
       && !R.peutModifierRdv(pro, agb) && R.peutMarquerFait(pro, agb) && !R.peutMarquerFait(pro, ang) && !R.peutMarquerFait(privK, tim));
     const ok = { ...pro, id: "x" };
-    test("★ la règle refuse : une visite sans participant, une date passée à la création, un privé avec participants, l'auteur coché ; accepte le bon",
+    // ⚠ RETOURNÉ le 13/10/2026 (« A a, B b, C ok ») : l'auteur COCHÉ est
+    // désormais ACCEPTÉ — l'organisateur se coche s'il fait partie de l'équipe.
+    test("★ la règle refuse : une visite sans participant, une date passée à la création, un privé avec participants ; accepte le bon, et l'organisateur coché (RETOURNÉ le 13/10/2026)",
       R.critiqueRendezVous(ok, { aujourdhui: "2026-10-12", creation: true }) === ""
       && /au moins un participant/.test(R.critiqueRendezVous({ ...ok, participants: [] }, {}))
       && /date est passée/.test(R.critiqueRendezVous(ok, { aujourdhui: "2026-10-16", creation: true }))
       && R.critiqueRendezVous(ok, { aujourdhui: "2026-10-16", creation: false }) === ""
       && /ni participants/.test(R.critiqueRendezVous({ ...privK, participants: ["u_a"] }, {}))
-      && /auteur du rendez-vous/.test(R.critiqueRendezVous({ ...ok, participants: ["u_a", "u_k"] }, {})));
+      && R.critiqueRendezVous({ ...ok, participants: ["u_a", "u_k"] }, {}) === ""
+      && R.critiqueRendezVous({ ...ok, participants: ["u_k"], chef_id: "u_k" }, {}) === "");
     const n = R.nouveauRendezVous({ profile: kos, formation: true, id: "n1", maintenant: "x", champs: { type: "pro", date: "2026-10-20", heure: "10:00", objet: " Visite ", visite: true, participants: ["u_k", "u_a"], client_nom: "MR ERIC" } });
     const n2 = R.nouveauRendezVous({ profile: kos, formation: false, id: "n2", maintenant: "x", champs: { type: "prive", date: "2026-10-20", heure: "10:00", objet: "Banque", participants: ["u_a"], visite: true, client_nom: "X" } });
-    test("★ « ce qu'on crée naît dans l'espace qu'on regarde » ; l'auteur n'est jamais participant ; le chef est le premier coché ; un privé n'a ni participants ni visite ni client",
-      n.formation === true && n.participants.join(",") === "u_a" && n.chef_id === "u_a" && n.objet === "Visite" && n.par_id === "u_k"
+    // ⚠ RETOURNÉ le 13/10/2026 : l'organisateur coché RESTE participant (il
+    // peut être le chef de la visite) — il n'est plus retiré en silence.
+    test("★ « ce qu'on crée naît dans l'espace qu'on regarde » ; l'organisateur coché reste dans l'équipe (RETOURNÉ le 13/10/2026) ; le chef est le premier coché ; un privé n'a ni participants ni visite ni client",
+      n.formation === true && n.participants.join(",") === "u_k,u_a" && n.chef_id === "u_k" && n.objet === "Visite" && n.par_id === "u_k"
       && !n2.formation && n2.participants.length === 0 && n2.visite === false && n2.client_nom === "");
     const chantiers = [{ id: "c1", prenom: "", nom: "AMA", statut: "en_cours", date_installation: "2026-10-15", equipe: [{ user_id: "u_a" }] },
       { id: "c2", nom: "AUTRE", statut: "en_cours", date_installation: "2026-10-16", equipe: [{ user_id: "u_a" }] }];
@@ -15870,8 +15875,11 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
     test("★ « H a » le comptable lit les rendez-vous pro, sans bouton pour en créer ni en modifier",
       hC.includes("Visite chez MR ERIC") && /lecture seule/.test(hC) && !hC.includes("➕ Nouveau rendez-vous") && !hC.includes("✏️ Modifier"));
     test("★ une base NUE (aucun rendez-vous reçu) : l'écran se rend et le DIT, jamais un écran blanc", hNu.includes("Aucun rendez-vous pro à venir"));
-    test("★ « F b » les propositions : les techniciens d'abord, puis le reste du personnel — jamais un client, jamais soi-même",
-      (() => { const p = R.participantsProposes([tim, kos, agb, ang, cli], kos); return p.techniciens.map((u) => u.nom).join(",") === "AGBEKO" && p.autres.map((u) => u.nom).join(",") === "ANGELE,TIMO"; })());
+    // ⚠ RETOURNÉ le 13/10/2026 : l'organisateur est proposé aussi (il se coche s'il y va).
+    test("★ « F b » les propositions : les techniciens d'abord, puis le reste du personnel — jamais un client ; l'organisateur proposé aussi (RETOURNÉ le 13/10/2026)",
+      (() => { const p = R.participantsProposes([tim, kos, agb, ang, cli], kos); return p.techniciens.map((u) => u.nom).join(",") === "AGBEKO" && p.autres.map((u) => u.nom).join(",") === "ANGELE,KOSSI,TIMO"; })());
+    test("★★ la carte RENDUE énumère l'ÉQUIPE, le chef d'abord « (chef d'équipe) », et dit l'organisateur à part (13/10/2026)",
+      /data-equipe-rdv/.test(hK) && hK.replace(/&#x27;/g, "'").includes("Équipe : AGBEKO (chef d'équipe)") && hK.includes("Organisé par"));
     // La notification au reste du personnel.
     const avantN = { users: [tim, kos, agb, ang, cpt, cli], boutiques: db.boutiques, rendez_vous: [] };
     const envois = R.infosDepuisDiff(avantN, { ...avantN, rendez_vous: [pro, privK] });
