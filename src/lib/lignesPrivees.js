@@ -13,7 +13,9 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiRecuVente, envoiRecuVenteDetail, envoiRecuDepotChantier, envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, ligneEnvoiModele } from "./whatsappModeles";
+import { envoiRecuVente, envoiRecuVenteDetail, envoiRecuDepotChantier, envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, ligneEnvoiModele } from "./whatsappModeles";
+import { suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "./validationDepenses";
+import { libelleCaisse } from "./constants";
 import { lignesVente, totalVente, fmt, dFR, numeroBulletin, estDepotChantier } from "./core";
 import { montantEncaisseVente } from "./versements";
 import { bonsRepriseDeVente, bonRetour, retoursDeVente } from "./bons";
@@ -76,6 +78,23 @@ export function texteLignePrivee(m, db) {
   // 💰 L'avis de commission due : recomposé depuis la vente ou la dette de pose.
   if (m.wa_modele === "commission_due") {
     const e = envoiDeCommission(db || {}, m.commission_ref)?.envoi;
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // 🧾 L'avis de décision du DG sur une dépense : recomposé depuis la dépense.
+  // Rejetée, son montant est à 0 : celui d'origine vit dans `validation`, et
+  // la description porte « ✖ REJETÉE (motif) — » devant (rejeterDepense).
+  if (m.wa_modele === "depense_rejetee" || m.wa_modele === "depense_validee") {
+    const dep = (db?.depenses || []).find((x) => x.id === m.depense_id);
+    if (!dep) return "";
+    const rejet = m.wa_modele === "depense_rejetee";
+    const motif = String(dep.validation?.motif || "");
+    const avant = rejet
+      ? { ...dep, montant: Number(dep.validation?.montant || 0), description: String(dep.description || "").replace(/^\u2716 REJET\u00c9E \(.*?\) \u2014 /, "") }
+      : dep;
+    if (rejet && avant.description === avant.categorie) avant.description = "";
+    const u = auteurDeLaDepense(db || {}, dep);
+    const commun = { employe: u?.nom_complet || u?.nom || m.wa_nom || dep.par, tel: m.wa_numero || u?.tel || "90000000", dep: avant, boutique: libelleCaisse(dep.boutique), fmt, dFR };
+    const e = rejet ? envoiDepenseRejetee({ ...commun, motif, suite: suiteRejetDepense(avant) }) : envoiDepenseValidee({ ...commun, suite: suiteValidationDepense(avant) });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   const idVente = m.vente_id || m.bon_vente_id;

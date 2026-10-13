@@ -5370,7 +5370,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste */.test(dep)
     // 12/09/2026 : « Ce mois » passe par depensesComptees (une dépense en attente ne compte pas).
     // ⚠ RETOURNÉ le 30/09/2026 : PAIEMENTS → MOYENS_ENCAISSEMENT (« Crédit (dette) » retiré des dépenses).
-    && /import \{ CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL \} from "\.\.\/lib\/constants";/.test(dep)
+    // RETOURNÉ le 13/10/2026 : + libelleCaisse (l'avis WhatsApp de la décision du DG nomme la caisse).
+    && /import \{ CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse \} from "\.\.\/lib\/constants";/.test(dep)
     && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
     // ⚠ RETOURNÉ DEUX FOIS le 03/10/2026 : les prêts avaient quitté la liste (hors charges) ; Timo :

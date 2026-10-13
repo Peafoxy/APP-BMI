@@ -288,3 +288,26 @@ export const htmlListeLongue = () => {
     texte: long, lu_par: ["TIMO"] };
   return rendre({ ...garnie, messages: [...garnie.messages, ligne] }, users[0]);
 };
+
+// ---- 🧾 L'AVIS DE DÉCISION DU DG SUR UNE DÉPENSE (13/10/2026, « Aa, Ba, Cb ») ----
+// La VRAIE chaîne : la décision (validerDepense / rejeterDepense), l'avis
+// construit sur la dépense AVANT la décision, la ligne rangée, puis le détail
+// RECOMPOSÉ par 📲 WhatsApp sur la base APRÈS la décision.
+import { validerDepense, rejeterDepense, suiteRejetDepense, suiteValidationDepense } from "../src/lib/validationDepenses.js";
+import { envoiDepenseRejetee, envoiDepenseValidee, ligneEnvoiModele } from "../src/lib/whatsappModeles.js";
+import { fmt, dFR } from "../src/lib/core.js";
+export const avisDepense = () => {
+  const auteur = { id: "KOSSI", nom: "KOSSI", nom_complet: "KOSSI Mensah", role: "gerant", tel: "90445566" };
+  const dg = users[0];
+  const dep = { id: "DEP1", date: "2026-10-12", boutique: "APESSITO", categorie: "Carburant", description: "Plein du tricycle", montant: 12000, paiement: "Espèces", paye_avec: "caisse", par: "KOSSI", par_id: "KOSSI", validation: { statut: "en_attente" } };
+  const base = { users: [dg, auteur], boutiques, depenses: [dep], messages: [] };
+  const commun = { employe: auteur.nom_complet, tel: auteur.tel, dep, boutique: "APESSITO", fmt, dFR };
+  const un = (decision) => {
+    const r = decision === "rejetee" ? rejeterDepense(base, dg, dep, "Pas de bon d'essence.", "2026-10-13") : validerDepense(base, dg, dep, "2026-10-13");
+    const envoi = decision === "rejetee" ? envoiDepenseRejetee({ ...commun, motif: "Pas de bon d'essence.", suite: suiteRejetDepense(dep) }) : envoiDepenseValidee({ ...commun, suite: suiteValidationDepense(dep) });
+    const msgs = messagesAvecLigneEnvoi([], { profile: dg, tel: auteur.tel, nom: auteur.nom, modele: envoi.modele, variables: envoi.variables, ref: { depense_id: dep.id }, envoi: { id: "yc-dep" } });
+    const rangee = msgs.find((x) => x.wa_modele === envoi.modele) || {};
+    return { envoi, interne: r.messages, rangee, attendu: ligneEnvoiModele(envoi.modele, envoi.variables), detail: texteLignePrivee(rangee, { ...base, depenses: r.depenses }) };
+  };
+  return { rejet: un("rejetee"), validation: un("validee") };
+};

@@ -7,10 +7,10 @@
 import { useState } from "react";
 import { fmt, today, dFR, totalVente } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser, DEST_DG, DEST_BANQUE } from "../lib/versements";
-import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL } from "../lib/constants";
+import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
@@ -19,8 +19,8 @@ import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { RetoursAValider } from "../components/ArgentChantier";
 import { compteExploitant } from "../lib/compteExploitant";
 import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER, dernierLoyerARemettre, moisEnClair } from "../lib/loyer";
-import { envoiLoyerDisponible, texteLoyerDisponible } from "../lib/whatsappModeles";
-import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
+import { envoiLoyerDisponible, texteLoyerDisponible, envoiDepenseRejetee, envoiDepenseValidee } from "../lib/whatsappModeles";
+import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation, utilisateursDeLEspace } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
@@ -399,6 +399,27 @@ export function Depenses({ db, save, profile }) {
   const aValiderDG = jeSuisDG ? depensesAValider(db, nomsEspace.filter((n) => n === boutique)) : [];
   const traiteesDG = jeSuisDG ? depensesTraitees(db, nomsEspace.filter((n) => n === boutique)) : [];
   const ailleursDG = jeSuisDG ? nbAValiderParBoutique(db, nomsEspace.filter((n) => n !== boutique)) : [];
+  // 📲 L'avis WhatsApp de la décision du DG (13/10/2026, « Aa, Ba, Cb ») :
+  // EN PLUS du message de 💬 Messages (« A a »), à l'auteur de la dépense, du
+  // numéro BMI, sans question ni repli ; ligne PRIVÉE dans 📲 WhatsApp
+  // (« B a ») ; pour un rejet ET pour une validation (« C b »). `d` = la
+  // dépense AVANT la décision (son montant). ⚠ Le mur : le compte de l'auteur
+  // OU la boutique de la dépense en formation → rien ne part.
+  const avisDecisionWhatsApp = async (d, decision, motif = "") => {
+    const auteur = auteurDeLaDepense(db, d);
+    if (!auteur || auteur.id === profile.id) return;
+    const formation = estCompteFormation(db, auteur) || !!(db.boutiques || []).find((b) => b.nom === d.boutique)?.formation;
+    const commun = { employe: auteur.nom_complet || auteur.nom, tel: auteur.tel, dep: d, boutique: libelleCaisse(d.boutique), fmt, dFR };
+    const envoi = decision === "rejetee"
+      ? envoiDepenseRejetee({ ...commun, motif, suite: suiteRejetDepense(d) })
+      : envoiDepenseValidee({ ...commun, suite: suiteValidationDepense(d) });
+    if (!envoi) {
+      if (!formation) uAlert(`📲 Aucun avis WhatsApp : la fiche de ${auteur.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → 📞 Téléphone). Le message de 💬 Messages est parti.`);
+      return;
+    }
+    const phrase = await envoyerRecuSansQuestion({ envoi, tel: auteur.tel, nom: auteur.nom, espaceFormation: formation, save, profile, ref: { depense_id: d.id }, noms: decision === "rejetee" ? { titre: "Avis de dépense rejetée", sujet: "L'avis de rejet" } : { titre: "Avis de dépense validée", sujet: "L'avis de validation" } });
+    if (phrase) uAlert(phrase);
+  };
   const validerDG = async (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Valider une dépense (DG)")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -414,6 +435,7 @@ export function Depenses({ db, save, profile }) {
     if (!await uConfirm(`Valider la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) du ${dFR(d.date)}, saisie par ${d.par}, payée avec : ${libellePayeAvecDansPhrase(d.paye_avec)} ?`)) return;
     const r = validerDepense(db, profile, d, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
+    await avisDecisionWhatsApp(d, "validee");
   };
   const rejeterDG = async (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Rejeter une dépense (DG)")) return;
@@ -424,7 +446,9 @@ export function Depenses({ db, save, profile }) {
     if (refus) { uAlert(refus); return; }
     const r = rejeterDepense(db, profile, d, motif, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
+    await avisDecisionWhatsApp(d, "rejetee", String(motif).trim());
   };
+
 
   const supprimerDepense = async (d) => {
     if (refuserSaufAdmin(profile, "Supprimer une dépense")) return;

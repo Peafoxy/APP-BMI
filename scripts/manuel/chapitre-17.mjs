@@ -10,7 +10,8 @@
 // comptable — ✅ Remis / ✅ Encaissé, ✖ Rejeter, annuler),
 // lib/validationDepenses.js (SEUIL_VALIDATION_DEPENSE = 5000, PAYE_AVEC,
 // optionsPayeAvec, payeDeSaPocheSeulement, ROLES_REMISE_ARGENT, fondsProposable, ROLES_FONDS_CAISSE, construireDepenseSaisie,
-// critiqueDecision, validerDepense, rejeterDepense, depensesBloquantCloture,
+// critiqueDecision, validerDepense, rejeterDepense, suiteRejetDepense, depensesBloquantCloture,
+// lib/whatsappModeles.js (depense_rejetee, depense_validee), lib/lignesPrivees.js,
 // MOYENS_REMBOURSEMENT, ROLES_REMB_CAISSE, critiqueRemboursement,
 // neVoitQueSesDepenses, motifNonModifiable, critiqueModifDepense),
 // lib/versements.js (critiqueSortieTiroir, MSG_AVANCE_PERSONNELLE),
@@ -130,6 +131,7 @@ export const CHAPITRE = {
         { titre: "Le cadre ⏳ Dépenses à valider par le DG", texte: "En haut de 📤 Dépenses, **pour la boutique regardée seule** ; « Ailleurs, en attente : … » dit où il en reste. Vide, il le dit." },
         { titre: "✅ Valider", texte: "Confirmation, puis la dépense **compte** : tiroir, tableau de bord, « Ce mois ». Pour des espèces de la caisse, le tiroir est revérifié à cet instant." },
         { titre: "✖ Rejeter", texte: "**Motif obligatoire.** Le montant passe à 0 F (l'origine est gardée), la ligne devient rouge « ✖ rejetée le … », et l'auteur est prévenu. Si l'argent était sorti du tiroir, il est **toujours dû à la caisse** : le manque se voit à la clôture." },
+        { titre: "L'auteur est prévenu deux fois", texte: "Après ✅ Valider comme après ✖ Rejeter : un message dans 💬 Messages, **et** un message WhatsApp du **numéro BMI** sur le téléphone inscrit sur sa fiche — montant, dépense, date, caisse, le motif d'un rejet, et ce qu'il doit faire (remettre l'argent dans le tiroir, ou rien ; une avance « vous sera remboursée »). Il part tout seul, sans question. Dans 📲 WhatsApp, la ligne ne montre qu'une phrase neutre : le détail ne se lit que par celui qui a décidé et l'administrateur principal. Sans numéro sur la fiche, l'écran le dit (👥 Utilisateurs → ⋯ Gérer → 📞 Téléphone). Rien ne part pour un compte ou une boutique de formation." },
       ]],
       ["regle", "**Une décision du DG ne se défait pas.** Une dépense saisie par le DG lui-même est validée d'office."],
 
@@ -173,7 +175,7 @@ export const CHAPITRE = {
     { titre: "Boutons et fonctions", blocs: [
       ["table", { entetes: ["Bouton", "Où", "Ce qu'il fait"], largeurs: [2800, 2300, 4200], lignes: [
         ["Enregistrer la dépense", "📤 Dépenses", "Vérifie, demande confirmation, enregistre ; au-delà de 5 000 F, prévient le DG."],
-        ["✅ Valider / ✖ Rejeter", "⏳ Dépenses à valider par le DG", "La décision du DG ; le rejet demande un motif."],
+        ["✅ Valider / ✖ Rejeter", "⏳ Dépenses à valider par le DG", "La décision du DG ; le rejet demande un motif. L'auteur est prévenu dans 💬 Messages et par WhatsApp du numéro BMI."],
         ["💵 Payer le loyer / 💵 Payer d'avance", "🏠 Loyer de la boutique", "Paie un ou plusieurs mois : moyen, caisse, confirmation, enregistrement."],
         ["📲 Prévenir le propriétaire", "🏠 Loyer de la boutique", "Après un paiement validé en espèces : un message du numéro BMI dit au propriétaire de venir chercher son loyer auprès de vous (gérant, administrateur)."],
         ["✏️ Modifier", "Liste des dépenses", "Change la catégorie, la description et le chantier rattaché (administrateur principal)."],

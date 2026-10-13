@@ -232,11 +232,24 @@ export function critiqueDecision(dep, { estPrincipal: principal }, motif) {
   return "";
 }
 
+// Ce que l'auteur doit savoir après la décision du DG — UNE phrase, lue par
+// le message de 💬 Messages ET par l'avis WhatsApp (13/10/2026, « Aa, Ba,
+// Cb » : `depense_rejetee` / `depense_validee`, lib/whatsappModeles.js).
+// `dep` = la dépense telle qu'elle était AVANT la décision (son montant).
+export function suiteRejetDepense(dep) {
+  if (sortDuTiroir(dep)) return `Cet argent reste dû à la caisse de ${libelleCaisse(dep.boutique)} : remettez ${fmt(dep.montant)} dans le tiroir.`;
+  if (estAvance(dep)) return "Aucun remboursement ne vous est dû pour cette dépense.";
+  return "L'argent pris dans la caisse du DG reste dû.";
+}
+export const suiteValidationDepense = (dep) => (estAvance(dep) ? "Cette avance vous sera remboursée." : "Aucune action n'est attendue de vous.");
+// L'auteur d'une dépense (sa fiche), pour le prévenir.
+export const auteurDeLaDepense = (db, dep) => auteurDe(db, dep);
+
 export function validerDepense(db, profile, dep, aujourdhui) {
   const validation = { statut: "validee", le: aujourdhui, par: profile.nom };
   const depenses = (db.depenses || []).map((x) => (x.id === dep.id ? { ...x, validation } : x));
   const auteur = auteurDe(db, dep);
-  const suite = estAvance(dep) ? " Cette avance vous sera remboursée." : "";
+  const suite = estAvance(dep) ? ` ${suiteValidationDepense(dep)}` : "";
   const messages = auteur && auteur.id !== profile.id
     ? [nouveauMessage(profile, { a_id: auteur.id, texte: `✅ Dépense validée par ${profile.nom} : ${fmt(dep.montant)} (${dep.categorie}${dep.description ? ` — ${dep.description}` : ""}) à ${dep.boutique}.${suite}` })]
     : [];
@@ -253,9 +266,7 @@ export function rejeterDepense(db, profile, dep, motif, aujourdhui) {
     ? { ...x, montant: 0, validation, description: `✖ REJETÉE (${m}) — ${x.description || x.categorie || ""}`.trim() }
     : x));
   const auteur = auteurDe(db, dep);
-  const suite = sortDuTiroir(dep)
-    ? ` L'argent est considéré comme toujours dû à la caisse de ${dep.boutique} : remettez ${fmt(dep.montant)} dans le tiroir.`
-    : estAvance(dep) ? " Aucun remboursement ne vous est dû pour cette dépense." : " L'argent pris dans la caisse du DG reste dû.";
+  const suite = ` ${suiteRejetDepense(dep)}`;
   const messages = auteur && auteur.id !== profile.id
     ? [nouveauMessage(profile, { a_id: auteur.id, texte: `✖ Dépense REJETÉE par ${profile.nom} : ${fmt(dep.montant)} (${dep.categorie}${dep.description ? ` — ${dep.description}` : ""}) à ${dep.boutique}. Motif : ${m}.${suite}` })]
     : [];
