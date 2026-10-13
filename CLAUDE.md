@@ -1741,6 +1741,9 @@ lit mal est pire qu'un banc absent).
   `au_chantier` ; sinon (devis d'avant la case « Avec installation ») un SQL collé
   par Timo pose `depot_chantier` — un dépôt « d'avant » sans achat devient vente
   entière, articles compris, le jour de la réception.
+  **SQL collé par Timo le 13/10/2026 (`true | true`)** : `depot_chantier` posé,
+  et ses lignes sont `au_chantier` — un dépôt COMPLET (les achats « 🏗 Chantier »
+  y puisent, le reste devient vente à la réception).
 - Rien à coller pour la règle. Banc (`verifier-cloisonnement`, +10 dont le tableau
   de bord RENDU et le reçu IMPRIMÉ), éprouvé (dépôt compté, frais mangés ignorés,
   dépôt en 701, total sur les vraies ventes) ; contrôles RETOURNÉS : le libellé
