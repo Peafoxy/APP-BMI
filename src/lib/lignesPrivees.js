@@ -13,8 +13,8 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiRecuVente, envoiRecuVenteDetail, envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, ligneEnvoiModele } from "./whatsappModeles";
-import { lignesVente, totalVente, fmt, dFR, numeroBulletin } from "./core";
+import { envoiRecuVente, envoiRecuVenteDetail, envoiRecuDepotChantier, envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, ligneEnvoiModele } from "./whatsappModeles";
+import { lignesVente, totalVente, fmt, dFR, numeroBulletin, estDepotChantier } from "./core";
 import { montantEncaisseVente } from "./versements";
 import { bonsRepriseDeVente, bonRetour, retoursDeVente } from "./bons";
 import { libelleMoisFR } from "./calculs";
@@ -29,6 +29,9 @@ export function envoisRecuDeVente(vente, { boutique = {}, dette = null } = {}) {
   const avance = dette ? Number(dette.paye || 0) : Number(vente.avance || 0);
   const reste = dette ? Math.max(0, Number(dette.montant || 0) - Number(dette.paye || 0)) : Math.max(0, montant - avance);
   const base = { vente, boutique, montant, avance, reste, fmt, dFR };
+  // 🏗 Un DÉPÔT CHANTIER (13/10/2026, « C b ») : SON reçu, et lui seul — jamais
+  // le reçu de vente (« merci pour votre achat ») en repli.
+  if (estDepotChantier(vente)) return [envoiRecuDepotChantier(base)].filter(Boolean);
   return [envoiRecuVenteDetail({ ...base, lignes: lignesVente(vente) }), envoiRecuVente(base)].filter(Boolean);
 }
 
@@ -79,7 +82,7 @@ export function texteLignePrivee(m, db) {
   const vente = (db?.ventes || []).find((v) => v.id === idVente);
   if (!vente) return "";
   const boutique = (db?.boutiques || []).find((b) => b.nom === vente.boutique) || {};
-  if (m.wa_modele === "recu_vente" || m.wa_modele === "recu_vente_detail") {
+  if (m.wa_modele === "recu_vente" || m.wa_modele === "recu_vente_detail" || m.wa_modele === "recu_depot_chantier") {
     const e = envoisRecuDeVente(vente, { boutique }).find((x) => x.modele === m.wa_modele);
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }

@@ -634,7 +634,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           ...e,
           messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id }, envoi: r }),
         }));
-        return { auto: true, detail: envoi.modele === "recu_vente_detail" };
+        return { auto: true, detail: envoi.modele !== "recu_vente", depot: envoi.modele === "recu_depot_chantier" };
       }
       motif = r.motif || motif;
       if (motifAttendu(r.motif)) break;
@@ -644,7 +644,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
   const envoyerRecuAutomatique = async (vente, apres) => {
     const r = await envoyerRecuDuNumeroBmi(vente, apres);
-    if (r.auto) { setNoteRecuWa(`📲 Reçu ${vente.numero} envoyé du numéro BMI à ${vente.client}.`); return; }
+    if (r.auto) { setNoteRecuWa(`📲 Reçu ${r.depot ? "de dépôt chantier " : ""}${vente.numero} envoyé du numéro BMI à ${vente.client}.`); return; }
     setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.` : "");
   };
 
@@ -660,7 +660,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (!await uConfirm(`Envoyer le reçu N° ${v.numero} à ${v.client || "ce client"} (${v.tel}) du numéro WhatsApp BMI ?`)) return;
     const r = await envoyerRecuDuNumeroBmi(v, db);
     if (r.auto) {
-      await uAlert(`✅ Reçu N° ${v.numero} envoyé du numéro BMI à ${v.client || "ce client"}.${r.detail ? "" : "\n\nSans la liste des articles : le reçu détaillé n'a pas pu partir (pas encore approuvé par Meta ?)."}`);
+      await uAlert(`✅ Reçu ${r.depot ? "de dépôt chantier " : ""}N° ${v.numero} envoyé du numéro BMI à ${v.client || "ce client"}.${r.detail ? "" : "\n\nSans la liste des articles : le reçu détaillé n'a pas pu partir (pas encore approuvé par Meta ?)."}`);
       return;
     }
     if (r.motif && !motifAttendu(r.motif)) await uAlert(`${r.motif}\n\nWhatsApp va s'ouvrir avec le reçu complet : le message part de VOTRE numéro.`);

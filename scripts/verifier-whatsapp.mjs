@@ -66,6 +66,8 @@ const ATTENDU = {
   // le détail des trous ») : le reçu de vente AVEC la liste des articles,
   // sur une ligne. UTILITY, HUIT trous. Il est tenté d'abord, le court ensuite.
   recu_vente_detail: { categorie: "utility", n: 8 },
+  // 🏗 13/10/2026 (« A ok, B non, C b ») : le reçu d'un DÉPÔT CHANTIER, sept trous.
+  recu_depot_chantier: { categorie: "utility", n: 7 },
   // ⚠ LE ONZIÈME (25/09/2026, « Lance avec ce texte ») : l'alerte à
   // l'administrateur quand un client demande un conseiller. UTILITY, trois
   // trous. Il ne part JAMAIS d'un écran : c'est le serveur qui l'envoie.
@@ -129,7 +131,7 @@ const ATTENDU = {
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les quarante-trois modèles sont là, et eux seuls (RETOURNÉ le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les quarante-quatre modèles sont là, et eux seuls (RETOURNÉ le 13/10/2026 : + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1331,7 +1333,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,devis_disponible,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,virement_salaire,virement_salaire_credit,visite_client"); /* RETOURNÉ le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,devis_disponible,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,virement_salaire,virement_salaire_credit,visite_client"); /* RETOURNÉ le 13/10/2026 : + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3112,8 +3114,8 @@ test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni
   && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
   && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
 // RETOURNÉ le 03/10/2026 : + l'avis de salaire (un salaire ne se lit pas par les collègues).
-test("★ les neuf modèles privés (RETOURNÉ le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
-  M.MODELES_PRIVES.slice().sort().join(",") === "avancement_employe,bon_reprise,bon_retour,commission_due,prime_installation_payee,recu_vente,recu_vente_detail,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+test("★ les dix modèles privés (RETOURNÉ le 13/10/2026 : + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "avancement_employe,bon_reprise,bon_retour,commission_due,prime_installation_payee,recu_depot_chantier,recu_vente,recu_vente_detail,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
 {
   // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE (Timo, 03/10/2026, son texte).
   const eS = M.envoiVirementSalaire({ employe: "AKPOSSOGNA Kossiwa", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-202610-ROBS", initiateur: { role: "Comptable", tel: "91123456" }, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
@@ -4263,6 +4265,35 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
     /if \(apres\.formation\) return \[\];/.test(corpsPrev) && /envoyerRecuSansQuestion\(/.test(corpsPrev) && /Aucun WhatsApp : la fiche de/.test(corpsPrev) && !/estCompteFormation\(db, profile\)/.test(EC));
   test("★★ « G » le client n'est prévenu QU'APRÈS une question, jamais en formation",
     corpsCli.indexOf("uConfirm(") > 0 && corpsCli.indexOf("uConfirm(") < corpsCli.indexOf("envoyerRecuSansQuestion(") && /r\.formation/.test(corpsCli));
+}
+
+{
+  titre("🏗 LE REÇU D'UN DÉPÔT CHANTIER (13/10/2026, « A ok, B non, C b », les contacts en dessous)");
+  let R = null;
+  try { R = V.recusDepot(); } catch (e) { R = null; }
+  const d = R?.depot || [];
+  const texteD = d[0] ? d[0].variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), M.TEXTE_RECU_DEPOT_CHANTIER) : "";
+  test("★★ « C b » un dépôt part par SON modèle et lui seul — jamais le reçu de vente (« merci pour votre achat ») en repli",
+    d.length === 1 && d[0].modele === "recu_depot_chantier");
+  test("★★ une vente ordinaire garde ses deux reçus (détaillé puis court), jamais le reçu de dépôt",
+    (R?.comptoir || []).map((e) => e.modele).join(",") === "recu_vente_detail,recu_vente");
+  test("★★ les sept trous dans l'ordre : client, date, boutique du devis, n° du reçu, montant du DEVIS (articles + frais), comment c'est payé, téléphone de la boutique ; « B non » : pas de liste d'articles",
+    d[0]?.variables.join("|") === "KLOMEGAN|12/10/2026|APESSITO|BMIA-2026-0003|" + d[0]?.variables[4] + "|payé en espèces|91000000"
+    && /750[\s\u202f\u00a0.]?000/.test(d[0]?.variables[4] || "") && !/Panneau/.test(d[0]?.variables.join("|") || ""));
+  test("★ à crédit : « à crédit : avance X, reste Y », lu sur la dette",
+    /^à crédit : avance 300[\s\u202f\u00a0.]?000 F, reste 450[\s\u202f\u00a0.]?000 F$/.test(R?.depotCredit?.[0]?.variables[5] || ""));
+  test("★★ le texte, mot pour mot : « dépôt pour votre chantier », « Reçu de dépôt chantier N° », jamais « achat » ; les contacts, le mail et le site EN DESSOUS (sa demande)",
+    /^Bonjour KLOMEGAN,\nBMI TOGO a bien reçu votre dépôt pour votre chantier, le 12\/10\/2026 à APESSITO\.\nReçu de dépôt chantier N° BMIA-2026-0003\nMontant du devis : .+, payé en espèces\.\nCe dépôt servira à la fourniture du matériel et à l'installation de votre chantier\.\nPour toute question veuillez contacter : 91000000\.\nMerci de votre confiance\.\n\n📧 contact@bmitogo\.com\n📞 \+228 99 96 84 88 \/ \+228 91 13 05 11\n🌐 www\.bmitogo\.com\n\nBMI TOGO — Les bâtiments modernes et intelligents$/.test(texteD)
+    && !/achat/i.test(M.TEXTE_RECU_DEPOT_CHANTIER) && texteD.length < M.LIMITE_MESSAGE_META);
+  test("★ UTILITY, en service (rien ne part avant l'accord de Meta : sansRepli, comme le reçu de vente) ; Meta accepte ses trous",
+    M.MODELES.recu_depot_chantier?.categorie === "utility" && M.MODELES_EN_SERVICE.includes("recu_depot_chantier")
+    && !!d[0] && M.critiqueModele("recu_depot_chantier", d[0].variables) === "");
+  test("★★ la ligne RANGÉE dans 📲 WhatsApp est neutre (ni montant ni paiement) ; le détail se recompose pour le vendeur et le principal",
+    R?.ligne?.rangee?.wa_prive === true && /^🔒 Reçu de dépôt chantier envoyé/.test(R?.ligne?.rangee?.texte || "")
+    && !/750|espèces/.test(R?.ligne?.rangee?.texte || "") && /Reçu de dépôt chantier N° BMIA-2026-0003 envoyé à KLOMEGAN/.test(R?.ligne?.detail || ""));
+  const VJ = lire("src/screens/Ventes.jsx").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★ 💰 Ventes le DIT : « Reçu de dépôt chantier … envoyé » à l'encaissement comme sur le bouton de la ligne",
+    /depot: envoi\.modele === "recu_depot_chantier"/.test(VJ) && (VJ.match(/r\.depot \? "de dépôt chantier " : ""/g) || []).length === 2);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

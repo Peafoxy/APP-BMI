@@ -256,3 +256,24 @@ export const renduProfilEnregistre = () => {
 // ⚠ 07/10/2026 (capture Timo : écran blanc dès qu'on tape dans la recherche) :
 // l'écran est rendu AVEC une recherche tapée — un nom, puis des chiffres.
 export const htmlRecherche = (texte) => renderToStaticMarkup(<Whatsapp db={garnie} save={() => {}} profile={users[0]} rechercheInitiale={texte} />);
+
+// ---- 🏗 LE REÇU D'UN DÉPÔT CHANTIER (13/10/2026, « A ok, B non, C b ») ----
+// La VRAIE fabrique des reçus (celle de 💰 Ventes et de 📲 WhatsApp) sur un
+// dépôt et sur une vente ordinaire, et le détail recomposé d'une ligne privée.
+import { envoisRecuDeVente, texteLignePrivee } from "../src/lib/lignesPrivees.js";
+const venteDepot = { id: "VD1", numero: "BMIA-2026-0003", date: "2026-10-12", boutique: "APESSITO", client: "KLOMEGAN", tel: "+22890556677", paiement: "Espèces",
+  depot_chantier: true, frais_installation: 150000, articles: [{ produit_id: "p1", article: "Panneau 550W", qte: 6, pu: 100000, au_chantier: true }] };
+const venteComptoir = { id: "VC1", numero: "BMIA-2026-0004", date: "2026-10-12", boutique: "APESSITO", client: "ESSO", tel: "+22890112233", paiement: "Espèces",
+  articles: [{ produit_id: "p1", article: "Panneau 550W", qte: 1, pu: 100000 }] };
+const bqApessito = { nom: "APESSITO", tel: "91000000" };
+export const recusDepot = () => ({
+  depot: envoisRecuDeVente(venteDepot, { boutique: bqApessito }),
+  depotCredit: envoisRecuDeVente({ ...venteDepot, paiement: "Crédit (dette)" }, { boutique: bqApessito, dette: { paye: 300000, montant: 750000 } }),
+  comptoir: envoisRecuDeVente(venteComptoir, { boutique: bqApessito }),
+  ligne: (() => {
+    const msgs = messagesAvecLigneEnvoi([], { profile: users[2], tel: venteDepot.tel, nom: "KLOMEGAN", modele: "recu_depot_chantier",
+      variables: envoisRecuDeVente(venteDepot, { boutique: bqApessito })[0].variables, ref: { vente_id: "VD1" }, envoi: { id: "yc-d1" } });
+    const m = msgs.find((x) => x.wa_modele === "recu_depot_chantier") || {};
+    return { rangee: m, detail: texteLignePrivee(m, { ventes: [venteDepot], boutiques: [bqApessito], users }) };
+  })(),
+});

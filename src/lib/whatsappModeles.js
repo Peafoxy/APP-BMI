@@ -129,6 +129,15 @@ export const MODELES = {
   // 250W »), et s'arrête sur « + N autres articles » au-delà de
   // LONGUEUR_MAX_ARTICLES. UTILITY, huit trous.
   recu_vente_detail: { categorie: "utility", variables: ["client", "date", "boutique", "recu", "articles", "montant", "paiement", "telephone"] },
+  // 🏗 13/10/2026, Timo : « on peut ajouter un modèle reçu dépôt pour les
+  // dépôts chantier exclusivement ? » → « A ok, B non, C b, ajouter les
+  // contacts, le mail et le site web de BMI en dessous ». L'encaissement d'un
+  // devis « 🔧 Avec installation » n'est pas un achat (lib/depotChantier.js) :
+  // il part par CE modèle, jamais par `recu_vente`. UTILITY, sept trous, les
+  // mêmes que le reçu de vente ({{5}} = le montant du devis). Pas de liste
+  // d'articles (« B non »). ⚠ « C b » : tant que Meta ne l'a pas approuvé,
+  // RIEN ne part (aucun repli sur le reçu de vente, qui dit « achat »).
+  recu_depot_chantier: { categorie: "utility", variables: ["client", "date", "boutique", "recu", "montant", "paiement", "telephone"] },
   // 👨‍💼 25/09/2026, Timo : « si un client demande d'être mis en relation, il
   // envoie un message WhatsApp automatiquement à moi l'administrateur ».
   // UTILITY : une alerte de service, rien de commercial. Il ne part pas vers
@@ -280,6 +289,9 @@ export const MODELES_EN_SERVICE = [
   // 25/09/2026 : le reçu AVEC la liste des articles. Tenté D'ABORD ; tant
   // que Meta ne l'a pas approuvé, l'écran retombe sur `recu_vente`.
   "recu_vente_detail",
+  // 13/10/2026 : le reçu d'un DÉPÔT CHANTIER. En service AVANT l'accord de
+  // Meta : d'ici là rien ne part (« C b »), et l'écran le dit.
+  "recu_depot_chantier",
   // 25/09/2026 : les reçus d'un versement sur une dette et d'une réservation.
   // En service AVANT l'accord de Meta : d'ici là rien ne part, et l'écran le
   // dit discrètement (même règle que le reçu de vente).
@@ -393,11 +405,12 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee"];
 const LIGNES_MASQUEES = {
   prime_installation_payee: "🔒 Avis de paiement d'une part d'installation envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
+  recu_depot_chantier: "🔒 Reçu de dépôt chantier envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   bon_reprise: "🔒 Bon de reprise envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
   bon_retour: "🔒 Bon de retour envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
   virement_salaire: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
@@ -813,6 +826,7 @@ const LIGNES_ENVOI = {
   mot_fidelite_simple: ([client]) => `Mot de fidélité envoyé à ${client}.`,
   recu_vente: ([client, date, boutique, recu, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique}, ${montant}, ${paiement}.`,
   recu_vente_detail: ([client, date, boutique, recu, articles, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique} (${articles}), ${montant}, ${paiement}.`,
+  recu_depot_chantier: ([client, date, boutique, recu, montant, paiement]) => `Reçu de dépôt chantier N° ${recu} envoyé à ${client} : dépôt du ${date} à ${boutique}, devis de ${montant}, ${paiement}.`,
   recu_reglement: ([client, montant, date, paiement, numero, situation]) => `Reçu de versement N° ${numero} envoyé à ${client} : ${montant} le ${date} (${paiement}), ${situation}.`,
   recu_reservation: ([client, date, boutique, numero, montant, situation]) => `Reçu de réservation N° ${numero} envoyé à ${client} : ${montant} le ${date} à ${boutique}, ${situation}.`,
   bon_reprise: ([, , , numero, date, recu, client, article, motif, valeur, reglement]) => `Bon de reprise N° ${numero} envoyé à ${client} : ${article} repris le ${date} (reçu ${recu}), motif : ${motif}, valeur ${valeur}. ${reglement}.`,
@@ -1183,6 +1197,33 @@ export function envoiRecuVenteDetail({ vente, boutique, montant, lignes, avance 
   const articles = listeArticlesRecu(lignes, LIMITE_MESSAGE_META - sansListe.length);
   if (!articles) return null;
   return { modele: "recu_vente_detail", variables: [client, date, bq, recu, articles, mt, paiement, telephone] };
+}
+
+// ---------------------------------------------------------------
+// 🏗 LE REÇU D'UN DÉPÔT CHANTIER (13/10/2026, « A ok, B non, C b »)
+// ---------------------------------------------------------------
+// Texte à créer chez YCloud sous le nom `recu_depot_chantier`, UTILITY, fr,
+// mot pour mot (les contacts, le mail et le site en dessous : sa demande).
+export const TEXTE_RECU_DEPOT_CHANTIER = [
+  "Bonjour {{1}},",
+  "BMI TOGO a bien reçu votre dépôt pour votre chantier, le {{2}} à {{3}}.",
+  "Reçu de dépôt chantier N° {{4}}",
+  "Montant du devis : {{5}}, {{6}}.",
+  "Ce dépôt servira à la fourniture du matériel et à l'installation de votre chantier.",
+  "Pour toute question veuillez contacter : {{7}}.",
+  "Merci de votre confiance.",
+  "",
+  "📧 contact@bmitogo.com",
+  `📞 ${NUMEROS_BMI}`,
+  "🌐 www.bmitogo.com",
+  "",
+  "BMI TOGO — Les bâtiments modernes et intelligents",
+].join("\n");
+// Les sept trous : ceux du reçu de vente (mêmes règles — montant donné par
+// l'écran, rien sans numéro, le téléphone de la boutique sinon le numéro BMI).
+export function envoiRecuDepotChantier(args) {
+  const court = envoiRecuVente(args);
+  return court ? { modele: "recu_depot_chantier", variables: court.variables } : null;
 }
 
 // ---------------------------------------------------------------
@@ -1558,7 +1599,7 @@ export function envoiBon({ bon, boutique, fmt, dFR }) {
 // Le texte lisible d'un envoi, quel que soit le reçu.
 export function texteRecu(envoi) {
   if (!envoi) return "";
-  const t = { proforma: TEXTE_PROFORMA, recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR }[envoi.modele];
+  const t = { proforma: TEXTE_PROFORMA, recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_depot_chantier: TEXTE_RECU_DEPOT_CHANTIER, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR }[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), t) : "";
 }
 
