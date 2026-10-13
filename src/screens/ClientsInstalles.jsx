@@ -36,6 +36,7 @@ import { ArgentDuChantier } from "../components/ArgentChantier";
 import { travauxSolde, filtreEspaceAffichage } from "../lib/calculs";
 import { factureMontant, coutTravaux, margeTravaux } from "../lib/travaux";
 import { dateApresMois, critiqueEntretienFait, marquerEntretienFait, dernierEntretien, MOIS_ENTRE_ENTRETIENS, MARQUE_TACHE_ENTRETIEN } from "../lib/rappelEntretien";
+import { useRetour } from "../retour";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -332,6 +333,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   // Le dossier détaillé, ouvert fiche par fiche
   const [dossierOuvert, setDossierOuvert] = useState(null);
+  // ⬅ La touche retour referme le dossier (Timo, 13/10/2026, « A a »).
+  useRetour(!!dossierOuvert, () => setDossierOuvert(null));
 
   const ajouter = async () => {
     if (!f.nom.trim() || !f.tel.trim()) { uAlert("Le nom et le numéro du client sont obligatoires."); return; }

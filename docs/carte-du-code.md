@@ -108,6 +108,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/conversations.js` | L'ordre de la liste des conversations de 💬 Messages |
 | `lib/contactGoogle.js` | 📇 Enregistrer un client WhatsApp dans les contacts Google de BMI (bmitogo.info) : numéro international, refus, corps envoyé à Google, trace sur la fiche |
 | `lib/ordreOnglets.js` | L'ordre des onglets, au choix de chacun |
+| `lib/pileRetour.js` | La touche retour d'Android : ce qu'il faut fermer à chaque appui |
 
 ## Les données : charger, fusionner, sauvegarder
 
@@ -167,6 +168,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `src/App.jsx` | Le cadre : onglets par rôle, chargement, enregistrement (`save`), synchronisation, sauvegardes |
 | `src/db.js` | La base locale (Dexie / IndexedDB) et les tables |
 | `src/pdf.js` | Les PDF fabriqués (devis commercial, relevés, rapports) |
+| `src/retour.js` | La touche retour d'Android — **le seul endroit** qui écrit dans la liste des pages du téléphone (`useRetour`, `useRetourOnglets`) |
 | `src/push.js` | Les notifications sur l'appareil — **le seul endroit** où `Notification` et `pushManager` existent |
 | `src/whatsapp.js` | 📲 L'envoi d'un message du numéro BMI — **le seul endroit** qui appelle le serveur WhatsApp, et qui replie sur l'ouverture WhatsApp si ça rate |
 | `src/screens/` | Un écran par onglet (dont `InventaireVentes.jsx` : 📋 Inventaire, le second bouton de 💰 Ventes, et 📊 INVENTAIRE GÉNÉRAL de l'administrateur ; `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages ; `Whatsapp.jsx` : 📲 WhatsApp, séparé de 💬 Messages le 20/09/2026 ; `ArgentRecu.jsx` : 💼 Argent reçu, l'onglet de qui a reçu de l'argent ; et `RendezVous.jsx` : 📅 Rendez-vous, pro ou privé, pour tout le personnel) |

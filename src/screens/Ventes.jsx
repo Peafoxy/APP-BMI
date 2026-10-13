@@ -44,6 +44,7 @@ import { InventaireVentes } from "./InventaireVentes";
 import { stockAuChantier, peutAcheterPourChantier, chantiersPourAchat, critiqueAchatChantier, construireAchatChantier, argentDuChantier, avertissementMateriel, venteDuChantier, detteDuChantier, nomChantier, totalAchat, critiqueAnnulationAchat, annulerAchatChantier, achatsDe, reservations, avertissementReserve } from "../lib/achatsChantier";
 import { CaseAchatChantier, TableAchatsChantier } from "../components/AchatsChantier";
 import { imprimerAchatChantier } from "../lib/impression";
+import { useRetour } from "../retour";
 
 // ============ VENTES ============
 // Convertit les articles d'une vente (déjà nets de leur remise de ligne — voir
@@ -1280,6 +1281,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // quantité par ligne de la vente (`qtes`, 0 d'office — un seul article d'office
   // à 1 si la vente n'en porte qu'un), UN motif, UN moyen, UN bon.
   const [reprise, setReprise] = useState(null); // { vente, qtes: { produit_id: "n" }, motif, moyen }
+  // ⬅ La touche retour referme ces fenêtres sans rien enregistrer (Timo, 13/10/2026).
+  useRetour(!!reprise, () => setReprise(null));
+  useRetour(!!retour, () => setRetour(null));
   const jeSuisPrincipal = estAdminPrincipal(db, profile);
   // ---- 💸 VERSER L'ARGENT D'UNE VENTE (Timo, 09/10/2026) ----
   // Une vente PAYÉE (espèces ou compte mobile), pas encore versée : le gérant

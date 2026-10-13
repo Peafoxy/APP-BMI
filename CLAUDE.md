@@ -64,6 +64,7 @@ npm run verifier-ecran-loyer     # 26  : « 💵 Payer le loyer » joué dans Ch
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
+npm run verifier-retour-android  # 63  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 32 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran
 npm run verifier-mot-information # 36  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
@@ -488,6 +489,39 @@ lit mal est pire qu'un banc absent).
   contextuel sur l'appui long. **Le geste est MESURÉ dans un vrai
   navigateur** (`verifier-onglets-deplacables`, Chromium : souris ET doigt,
   l'exemple exact de Timo — Caisse juste après Ventes).
+
+### ⬅ LA TOUCHE RETOUR D'ANDROID (13/10/2026, « A a, B b, C a, lance »)
+- Timo : « la touche retour de l'Android quitte l'application… pourquoi ça
+  ne peut pas retourner les écrans en arrière ? » — l'application ne notait
+  RIEN dans la liste des pages du téléphone : pour lui, une seule page.
+- Règle pure `lib/pileRetour.js` ; **`src/retour.js` est le SEUL à écrire dans
+  `window.history` et à écouter `popstate`** (le banc l'impose ; le
+  `replaceState` du clic de notification dans App.jsx reste). Une chose qui
+  s'ouvre pose une marque (`useRetour(ouvert, fermer)`), un onglet quitté
+  aussi (`useRetourOnglets`, App.jsx).
+- **A a** : retour ferme d'abord ce qui est ouvert par-dessus (profil d'un
+  contact, conversation 📲 / 💬, ⋯ Gérer, 🔐 Pouvoirs, fiche client, dossier
+  d'un chantier, ↩ Reprise, 🔁 Retour, signature en boutique, contrat et PV
+  de l'espace client, ma signature, fonds de caisse, couleur, position GPS,
+  « Rechercher un article », la recherche générale, l'aperçu avant
+  impression, chaque `PanneauQuiSeMontre` qui reçoit `onFermer`), puis
+  l'onglet d'avant. **B b** : pile vide → le téléphone quitte, comme avant.
+  **C a** : une fenêtre de question → la valeur d'« Annuler »
+  (`valeurAnnuler`, ui.jsx — les boutons Annuler / Fermer y passent aussi) ;
+  jamais OK, jamais un choix ; un geste à plusieurs questions s'arrête.
+- ⚠ Une chose fermée par l'écran laisse une marque MORTE : retirée 60 ms
+  plus tard si rien ne s'est ouvert (`compacter`), sinon sautée au prochain
+  appui (jamais un appui perdu). Verrouillée : rien ne bouge
+  (`poserBlocageRetour`). Déconnexion : pile vidée. Après un F5, les marques
+  d'avant sont sautées (un appui de plus pour quitter au plus).
+- ⚠ **Pas branchés** (exprès) : les formulaires repliables (retour perdrait
+  ce qui est tapé), l'inventaire en cours et le bon préparé de 📦 Stocks, le
+  mot d'information, le verrou. Un NOUVEAU panneau ou une nouvelle fenêtre
+  se branche par `useRetour` / `onFermer` — sinon retour change d'onglet en
+  le laissant ouvert derrière.
+- Rien à coller. Banc Chromium `verifier-retour-android` (63), éprouvé
+  (compactage retiré, verrou ignoré, confirmation qui rend OK, profil non
+  branché : chacun tombe).
 
 ### Boutique de travail
 - « **NE JAMAIS CHANGER DE BOUTIQUE APRÈS UNE SÉRIE D'ACTUALISATIONS.** » La

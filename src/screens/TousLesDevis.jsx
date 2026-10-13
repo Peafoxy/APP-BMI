@@ -28,6 +28,7 @@ import { STATUT_DEVIS } from "../lib/libellesStatuts";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { STATUT_SANS_SUITE, estSansSuite, peutClasserDevis, critiqueClassement, classerSansSuite, critiqueReouverture, rouvrirDevis, avecDevis, devisDans } from "../lib/devisSansSuite";
 import { mettreDevisALaCorbeille, critiqueSuppressionDevis, critiqueSuppressionDevisDans, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
+import { useRetour } from "../retour";
 
 // ============ TOUS LES DEVIS (admin, responsable commercial, élaborateur) ============
 export function libelleTypeDevis(d) {
@@ -307,6 +308,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     return refuserSaufAdminPrincipal(db, profile, "Faire signer un contrat en boutique (pour l'instant)");
   };
   const [signature, setSignature] = useState(null); // { devis, mode: "ecran" | "papier", boutique }
+  useRetour(!!signature, () => setSignature(null)); // ⬅ touche retour = Annuler (13/10/2026)
   const [plan, setPlan] = useState({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
   const signatureRef = useRef(null); // LA zone de signature commune (components/ZoneSignature.jsx)
   const boutiquesPaiement = boutiquesVisibles(db, profile, boutiquesVente(db));

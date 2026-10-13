@@ -38,6 +38,7 @@ import { motDePasseConnu, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { peutEnregistrerContact, critiqueContactGoogle, nettoyerNomGoogle, traceContactGoogle, COMPTE_CONTACTS_BMI } from "../lib/contactGoogle";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle } from "../whatsapp";
 import { champsEnvoi } from "../lib/suiviEnvoi";
+import { useRetour } from "../retour";
 
 // Libellé du rôle, pour la question « à qui confier ». Même mots que
 // 💬 Messages — un rôle ne se nomme pas de deux façons dans l'application.
@@ -96,6 +97,10 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
   // Changer de conversation le referme.
   // `profilInitial` : pour le banc seul (rendre le profil ouvert).
   const [profilOuvert, setProfilOuvert] = useState(profilInitial);
+  // ⬅ La touche retour d'Android (Timo, 13/10/2026, « A a ») : d'abord le
+  // profil, puis la conversation, puis l'onglet d'avant.
+  useRetour(!!cleOuverte, () => setCleOuverte(null));
+  useRetour(!!profilOuvert, () => setProfilOuvert(false));
   const [enregistre, setEnregistre] = useState(false);
   const clePrecedente = useRef(cleOuverte);
   useEffect(() => {
@@ -557,7 +562,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
           <button onClick={() => setContact(contact ? null : { nom: "", tel: "", sujet: "" })}
             className="text-xs font-bold text-white bg-[#008069] hover:bg-[#006e5a] rounded-full px-3 py-1.5 whitespace-nowrap">{contact ? "Annuler" : "✍️ Écrire"}</button>
         </div>
-        {contact && (<PanneauQuiSeMontre cle={`${contact.tel}|${contact.nom}` || "contact"}>
+        {contact && (<PanneauQuiSeMontre cle={`${contact.tel}|${contact.nom}` || "contact"} onFermer={() => setContact(null)}>
           <div className="border-y border-slate-200 bg-[#f0f2f5] p-3 space-y-2">
             <Field label="À qui ?">
               <ChampSuggestions valeur={contact.nom} onChange={(v) => setContact({ ...contact, nom: v })}

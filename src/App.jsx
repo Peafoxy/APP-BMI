@@ -17,6 +17,7 @@ import { RechercheGlobale } from "./components/RechercheGlobale";
 // Timo (12/09/2026) : « appui long et on déplace, tout court » — l'ordre des
 // onglets est personnel (fiche, `ordre_onglets`), règle pure lib/ordreOnglets.js.
 import { OngletsDeplacables } from "./components/OngletsDeplacables";
+import { poserBlocageRetour, useRetour, useRetourOnglets } from "./retour";
 import { appliquerOrdre, ordreApres } from "./lib/ordreOnglets";
 import { Dimensionnement, TYPES_PORTAIL } from "./screens/dimensionnement";
 import { TousLesDevis } from "./screens/TousLesDevis";
@@ -232,6 +233,12 @@ export default function App() {
     if (!profile) return;
     try { localStorage.setItem(`bmi_dernier_onglet:${profile.id}`, tab); } catch {}
   }, [tab, profile]);
+  // ⬅ La TOUCHE RETOUR d'Android (Timo, 13/10/2026, « A a, B b, C a ») :
+  // quitter un onglet pose une marque — retour ramène à l'onglet d'avant.
+  // Rien avant la connexion ; à la déconnexion la pile se vide ; au premier
+  // écran (pile vide) le téléphone quitte, comme avant (B b). Les panneaux
+  // et fenêtres posent les leurs (useRetour, src/retour.js).
+  useRetourOnglets(tab, setTab, profile?.id || null);
   const [saveStatus, setSaveStatus] = useState("saved");
   const [sync, setSync] = useState({ enLigne: navigator.onLine, supabaseOk: false, enAttente: 0 });
   // Vrai pendant le rechargement complet qui suit une connexion : l'écran
@@ -632,6 +639,10 @@ export default function App() {
   // session enregistrée localement est rafraîchie à chaque geste (pour
   // survivre à une actualisation) et note l'état verrouillé.
   const [verrouille, setVerrouille] = useState(false);
+  // ⬅ Verrouillée, la touche retour ne ferme rien derrière la fenêtre du mot
+  // de passe ; la recherche générale se ferme par retour (Timo, 13/10/2026).
+  useEffect(() => { poserBlocageRetour(() => verrouille); }, [verrouille]);
+  useRetour(rechercheOuverte, () => setRechercheOuverte(false));
   const [erreursVerrou, setErreursVerrou] = useState(0);
   // Pourquoi c'est verrouillé : "inactivite" (ou clic sur Verrouiller), ou
   // "session" — la session sécurisée est tombée, le mot de passe la rouvre.

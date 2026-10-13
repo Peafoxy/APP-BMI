@@ -25,6 +25,7 @@ import {
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite } from "../lib/whatsappModeles";
+import { useRetour } from "../retour";
 
 // ============ CRÉER UN CLIENT (parrainage employé) ============
 // Onglet dédié, ouvert à tous les employés SAUF l'admin (qui a 👥 Utilisateurs)
@@ -207,6 +208,8 @@ export function Clients({ db, save, profile }) {
   // règle de 💰 Ventes). ⚠ « Client non renseigné » n'est PAS un client :
   // ses ventes viennent de personnes différentes, la ligne ne s'ouvre pas.
   const [ficheOuverte, setFicheOuverte] = useState(null);
+  // ⬅ La touche retour referme la fiche (Timo, 13/10/2026, « A a »).
+  useRetour(!!ficheOuverte, () => setFicheOuverte(null));
   const sansIdentite = (c) => !telDigits(c.tel) && /non renseign|^\(sans nom\)$/i.test(String(c.nom || "").trim());
 
   // 💙 LE MOT DE FIDÉLITÉ PART DU NUMÉRO BMI (23/09/2026, nouveauté 1 de

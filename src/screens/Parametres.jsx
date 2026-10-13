@@ -41,6 +41,7 @@ import { dossierEmploye, critiqueDossierEmploye, journalDossierEmploye, nomDossi
 import { exportCSV } from "../lib/export";
 import { ficheLoyer, nettoyerFicheLoyer, critiqueFicheLoyer, JOUR_ECHEANCE_DEFAUT } from "../lib/loyer";
 import { correspond } from "../lib/suggestions";
+import { useRetour } from "../retour";
 
 // ============ PARAMÈTRES ============
 // 🏠 LE LOYER D'UN LOCAL (25/09/2026) : UNE case « loué », et ses champs
@@ -834,6 +835,10 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const [positionPour, setPositionPour] = useState(null); // boutique dont on choisit la position GPS
   // Le fonds de caisse d'une boutique : UN geste (14/09/2026), montant + origine de l'argent.
   const [fondsPour, setFondsPour] = useState(null);
+  // ⬅ La touche retour ferme ces fenêtres (Timo, 13/10/2026, « A a »).
+  useRetour(!!fondsPour, () => setFondsPour(null));
+  useRetour(!!couleurPour, () => setCouleurPour(null));
+  useRetour(!!positionPour, () => setPositionPour(null));
   const [fondsForm, setFondsForm] = useState({ nouveau: "", montant: "", origine: DEST_DG, banque: "", date: today(), note: "", regularisation: false });
   const nomCouleur = (hex) => (PALETTE.find(([, h]) => h === hex) || [hex])[0];
 
@@ -1766,7 +1771,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </div>
         </div>
       ))}
-      {loyerPour && (<PanneauQuiSeMontre cle={loyerPour.id || loyerPour.nom} retour={loyerPour.id}>
+      {loyerPour && (<PanneauQuiSeMontre cle={loyerPour.id || loyerPour.nom} retour={loyerPour.id} onFermer={() => setLoyerPour(null)}>
         <div className="rounded-xl p-4 bg-white border-2 border-sky-300 shadow-sm" data-fiche-loyer>
           <div className="font-bold mb-2">🏠 Loyer de <Badge boutique={loyerPour.nom} /></div>
           <ChampsLoyer valeur={loyerForm} onChange={setLoyerForm} />
@@ -2154,7 +2159,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           )}
         </div>
 
-        {dossierEff && (<PanneauQuiSeMontre cle={`${cibleEff.nom}|${cibleEff.tel || ""}`}>
+        {dossierEff && (<PanneauQuiSeMontre cle={`${cibleEff.nom}|${cibleEff.tel || ""}`} onFermer={() => setCibleEff(null)}>
           <div className="rounded-xl p-4 bg-white border-2 border-slate-300 shadow-sm">
             <div className="font-bold mb-2">Dossier de « {cibleEff.nom} »{cibleEff.tel ? ` — ${cibleEff.tel}` : ""}</div>
 

@@ -12,6 +12,7 @@ import { fmt } from "../lib/core";
 // n'importe quel ordre, un mot court doit commencer un mot.
 import { correspond } from "../lib/suggestions";
 import { ficheLisible } from "../lib/pompes.js";
+import { useRetour } from "../retour";
 
 // ============ SÉLECTEUR D'ARTICLE (recherche tactile, sans menu natif) ============
 // `prix` (facultatif) : une fonction qui rend le prix à montrer sur chaque
@@ -21,6 +22,7 @@ import { ficheLisible } from "../lib/pompes.js";
 // rien, et rien ne s'affiche.
 export function SelecteurArticle({ produits, valeur, onChoisir, dispoRestant, categorieFiltre, prix }) {
   const [ouvert, setOuvert] = useState(false);
+  useRetour(ouvert, () => { setOuvert(false); setRecherche(""); }); // ⬅ touche retour (13/10/2026)
   const [recherche, setRecherche] = useState("");
   const selectionne = produits.find((p) => p.id === valeur);
   const base = categorieFiltre ? produits.filter((p) => (p.categorie || "Autre") === categorieFiltre) : produits;

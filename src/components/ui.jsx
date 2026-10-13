@@ -13,6 +13,7 @@ import { LOGO, libelleCaisse } from "../lib/constants";
 import { libelleBanque } from "../lib/banques";
 import { coches } from "../lib/suiviEnvoi";
 import { genererPDF } from "../pdf";
+import { useRetour } from "../retour";
 // Timo (14/09/2026) : « sur tous les fichiers générés par l'app, un bouton
 // Partager » — le document de l'aperçu devient un PDF (image de la page,
 // html2canvas + jsPDF) remis à la feuille de partage du téléphone (WhatsApp,
@@ -321,8 +322,10 @@ export function useMontrerALOuverture(cle) {
 // crochet à poser en tête d'écran.
 // `retour` : l'id de la ligne d'où l'on vient — à la fermeture du panneau
 // (Annuler comme Valider), la page y revient.
-export function PanneauQuiSeMontre({ cle, retour, children, ...reste }) {
+// `onFermer` : la touche retour d'Android le ferme (Timo, 13/10/2026, « A a »).
+export function PanneauQuiSeMontre({ cle, retour, onFermer, children, ...reste }) {
   const ref = useMontrerALOuverture(cle ?? true);
+  useRetour(!!onFermer, onFermer);
   useEffect(() => () => { if (retour) revenirSurLaLigne(retour); }, [retour]);
   return <div ref={ref} data-panneau-montre="" {...reste}>{children}</div>;
 }
@@ -484,14 +487,25 @@ export const demanderDate = async (question, defaut = "", facultatif = false) =>
   return t;
 };
 
+// La réponse d'« Annuler » pour chaque sorte de fenêtre — le bouton Annuler
+// (ou Fermer) de DialogHost et la touche retour rendent la MÊME chose.
+export function valeurAnnuler(type) {
+  if (type === "prompt" || type === "choix") return null;
+  if (type === "alert") return undefined;
+  return false; // confirm, info
+}
 export function DialogHost() {
   const [d, setD] = useState(null);
   const [val, setVal] = useState("");
+  const close = (result) => { if (d) d.resolve(result); setD(null); };
   dialogApi = {
     open: (type, m, def = "", options = []) => new Promise((resolve) => { setVal(def == null ? "" : String(def)); setD({ type, m, resolve, options }); }),
   };
+  // ⬅ C a (Timo, 13/10/2026) : la touche retour = « Annuler ». Jamais « OK »
+  // ni une réponse choisie à sa place : la même valeur que le bouton Annuler
+  // (ou « Fermer ») de la fenêtre.
+  useRetour(!!d, () => { if (d) close(valeurAnnuler(d.type)); });
   if (!d) return null;
-  const close = (result) => { d.resolve(result); setD(null); };
   // ⚠ z-[70], PAS z-50 (vécu par Timo, 31/08/2026, signature du contrat) :
   // les grandes fenêtres des écrans (contrat, PV…) sont à z-50 et arrivent
   // APRÈS dans la page — à profondeur égale, elles passaient DEVANT. La
@@ -523,9 +537,9 @@ export function DialogHost() {
         )}
         </div>
         <div className="mt-4 flex-none flex justify-end gap-2" data-dialogue-boutons>
-          {d.type !== "alert" && d.type !== "choix" && d.type !== "info" && <button onClick={() => close(d.type === "prompt" ? null : false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
-          {d.type === "choix" && <button onClick={() => close(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
-          {d.type === "info" && <button data-info-fermer onClick={() => close(false)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>}
+          {d.type !== "alert" && d.type !== "choix" && d.type !== "info" && <button onClick={() => close(valeurAnnuler(d.type))} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
+          {d.type === "choix" && <button onClick={() => close(valeurAnnuler(d.type))} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>}
+          {d.type === "info" && <button data-info-fermer onClick={() => close(valeurAnnuler(d.type))} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Fermer</button>}
           {d.type === "info" && <button data-info-geste onClick={() => close(true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">{d.options[0]}</button>}
           {d.type !== "choix" && d.type !== "info" && <button onClick={() => close(d.type === "prompt" ? val : true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white text-sm font-bold hover:bg-sky-900">OK</button>}
         </div>
@@ -712,6 +726,8 @@ export function PrintHost() {
     } finally { setPartageEnCours(false); }
   };
   printApi = { open: (h, titre, formatPage) => { setTitreDoc(titre || "Document"); setPage(formatPage || PAGE_A4); setHtml(h); } };
+  // ⬅ La touche retour ferme l'aperçu (Timo, 13/10/2026).
+  useRetour(!!html, () => setHtml(null));
   if (!html) return null;
   return createPortal(
     <div className="portail-impression fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-3">

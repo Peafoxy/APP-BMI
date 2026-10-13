@@ -133,7 +133,7 @@ function useModifDepense(db, save, profile) {
   const personnesModif = modif ? personnesProposees(utilisateursDeLEspace(db, profile), chantierModif, profile) : [];
   const panneauModif = (
     <>
-        {modif && (<PanneauQuiSeMontre cle={modif.d.id} retour={modif.d.id}>
+        {modif && (<PanneauQuiSeMontre cle={modif.d.id} retour={modif.d.id} onFermer={() => setModif(null)}>
           <div className="rounded-lg border-2 border-sky-300 bg-sky-50 p-3 mb-3" data-fiche-modif-depense>
             <div className="font-bold text-sm mb-2">✏️ Modifier la dépense du {dFR(modif.d.date)} — {fmt(modif.d.montant)} ({modif.d.par})</div>
             <div className="grid sm:grid-cols-2 gap-3">

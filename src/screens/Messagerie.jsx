@@ -8,6 +8,7 @@ import { uid, today, dFR, col, nouveauMessage } from "../lib/core";
 import { Field, inputCls, btnDark, uConfirm, useFilSurSaFin } from "../components/ui";
 import { utilisateursDeLEspace, refuserSaufAdmin, peutVoirFilClient } from "../lib/calculs";
 import { separerNonLues } from "../lib/conversations";
+import { useRetour } from "../retour";
 
 // ============ MESSAGERIE INTERNE (en différé, via la synchronisation) ============
 // - Conversations 1-à-1 entre tous les membres de l'équipe (tous rôles sauf client)
@@ -30,6 +31,8 @@ export function Messagerie({ db, save, profile }) {
   const chatLibre = !!profile.chat_libre;
   const isAdmin = profile.role === "admin";
   const [conv, setConv] = useState(null); // { type: "user"|"client"|"groupe", id }
+  // ⬅ La touche retour ferme la conversation ouverte (Timo, 13/10/2026).
+  useRetour(!!conv, () => setConv(null));
   const [texte, setTexte] = useState("");
   const [creationGroupe, setCreationGroupe] = useState(false); // formulaire de création
   const [gestionMembres, setGestionMembres] = useState(false); // édition des membres du groupe ouvert
@@ -283,6 +286,7 @@ function LigneConversation({ item, conv, ouvrir }) {
 
 // Formulaire de création d'un groupe : nom + sélection des membres (admin uniquement)
 function CreationGroupeModal({ db, profile, onFermer, onCreer }) {
+  useRetour(true, onFermer);
   const [nom, setNom] = useState("");
   const [choisis, setChoisis] = useState([]);
   // ⚠ Jamais de compte CLIENT dans un groupe — même règle que la gestion

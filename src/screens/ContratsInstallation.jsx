@@ -10,6 +10,7 @@ import { fmt, dFR } from "../lib/core";
 import { Panel, uAlert } from "../components/ui";
 import { contratsInstallation, pvDuContrat, bloquerSiLecture, resteAPayer, espaceDuCompte } from "../lib/calculs";
 import { imprimerContratInstallation, imprimerPV } from "../lib/impression";
+import { useRetour } from "../retour";
 
 export function ContratsInstallation({ db, save, profile }) {
   const isClient = profile.role === "client";
@@ -41,6 +42,7 @@ export function ContratsInstallation({ db, save, profile }) {
   // Timo). La zone de signature est LA zone commune à toute l'application
   // (components/ZoneSignature.jsx) — plus de copie locale du dessin.
   const [captureOuverte, setCaptureOuverte] = useState(false);
+  useRetour(captureOuverte, () => setCaptureOuverte(false)); // ⬅ touche retour (13/10/2026)
   const signatureRef = useRef(null);
   const enregistrerSignature = () => {
     if (bloquerSiLecture(db, profile)) return;

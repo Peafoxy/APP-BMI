@@ -3,7 +3,7 @@
 //
 // Des MOTS, rien d'autre : la mise en page vit dans scripts/manuel-formation.mjs.
 // Chaque bouton, chaque chiffre vient du code (Connexion.jsx, EcranVerrou.jsx,
-// lib/verrou.js, api/_verrouillage.js, App.jsx, main.jsx) — jamais de mémoire.
+// lib/verrou.js, api/_verrouillage.js, App.jsx, main.jsx, src/retour.js) — jamais de mémoire.
 // Le **gras** s'écrit entre deux étoiles.
 // ============================================================
 export const CHAPITRE = {
@@ -74,6 +74,15 @@ export const CHAPITRE = {
       ]],
       ["h3", "D. Ranger ses onglets dans son ordre"],
       ["p", "On **tient** un onglet une demi-seconde sans bouger : il vibre et se soulève. On le glisse à la place voulue, on relâche. L'ordre est le vôtre seul, il vous suit sur tous vos appareils. Un doigt qui part tout de suite fait défiler comme d'habitude ; un clic reste un clic."],
+      ["h3", "D bis. La touche retour du téléphone (Android)"],
+      ["p", "La touche **retour** du téléphone revient en arrière **dans l'application**, comme dans WhatsApp :"],
+      ["ul", [
+        "d'abord elle **ferme ce qui est ouvert** par-dessus l'écran : une conversation, le profil d'un contact, « ⋯ Gérer », une fiche, un dossier, l'aperçu avant impression ;",
+        "ensuite elle ramène à **l'onglet d'avant**, un par un ;",
+        "une **fenêtre de question** ouverte (« Confirmer ? », « Moyen de paiement ») : retour fait comme **« Annuler »**. Rien n'est enregistré, et un geste à plusieurs questions s'arrête entièrement ;",
+        "au **premier écran**, quand il n'y a plus rien derrière, retour **ferme l'application**, comme avant.",
+      ]],
+      ["note", "Retour ne défait jamais un geste déjà enregistré : une vente encaissée reste encaissée. Il ne choisit jamais « OK » à votre place. Verrouillée, l'application ne bouge pas : il faut le mot de passe ou l'empreinte."],
       ["h3", "E. Verrouiller"],
       ["p", "Dès qu'on s'éloigne de l'appareil : **« Verrouiller »** en haut à droite sur ordinateur, le cadenas **🔐** sur la ligne du titre sur téléphone. Une petite carte couvre l'écran ; personne ne peut lire ce qui est derrière."],
       ["h3", "F. Déverrouiller"],
@@ -186,6 +195,7 @@ export const CHAPITRE = {
         "Trouver le numéro de version dans la barre latérale (ou l'en-tête).",
         "Avec « 🔍 Rechercher… », retrouver un article et lire son prix et son stock.",
         "Déplacer un onglet (par exemple ramener 🔒 Caisse juste après 💰 Ventes), fermer l'application, la rouvrir : l'ordre est resté.",
+        "Sur téléphone Android : ouvrir 💰 Ventes, puis 🔒 Caisse, puis une fenêtre de question ; appuyer trois fois sur retour et dire ce qui se passe à chaque fois (la fenêtre se ferme sans rien enregistrer, puis retour à 💰 Ventes, puis l'application se ferme).",
         "Verrouiller, puis déverrouiller au mot de passe.",
         "Sur téléphone : activer l'empreinte, verrouiller, déverrouiller au doigt. Puis « Retirer l'empreinte de cet appareil » et vérifier que le mot de passe rouvre toujours.",
         "Taper un mot de passe faux dans la carte et lire le message : combien d'essais restent ?",

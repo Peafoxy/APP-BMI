@@ -32,6 +32,7 @@ const CHOIX_PRIME_SALAIRE = "💵 Prime sur salaire";
 const CHOIX_PRIME_CHANTIER = "🏠 Prime sur chantier";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie, chantiersDeLEspaceRegarde, boutiqueDuChantier } from "../lib/calculs";
 import { chantiersPourPrime, critiquePrimeChantier, ajouterPrimeChantier, partBmiRestante, MOIS_PRIME_CHANTIER } from "../lib/primeChantier";
+import { useRetour } from "../retour";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -62,6 +63,8 @@ export function Users({ db, save, profile }) {
   // la ligne (jamais un voile sur l'écran), rangé par thème. Mêmes gestes,
   // mêmes gardes.
   const [gererOuvert, setGererOuvert] = useState(null);
+  // ⬅ La touche retour referme « ⋯ Gérer » (Timo, 13/10/2026, « A a »).
+  useRetour(!!gererOuvert, () => setGererOuvert(null));
   // ---- Liste classée par rôle : un bouton par rôle, ~5 lignes visibles
   // avec défilement, et une recherche par nom qui traverse tous les rôles. ----
   const [roleActif, setRoleActif] = useState("admin");
@@ -610,6 +613,7 @@ export function Users({ db, save, profile }) {
 
   // ---- POUVOIRS : l'admin active/désactive chaque droit d'un compte ----
   const [pouvoirsPour, setPouvoirsPour] = useState(null);
+  useRetour(!!pouvoirsPour, () => setPouvoirsPour(null));
   const cible = pouvoirsPour ? db.users.find((x) => x.id === pouvoirsPour) : null;
 
   const basculerPouvoir = (u, id, label) => {

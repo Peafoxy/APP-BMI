@@ -14165,9 +14165,10 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   test("★★ ⋯ Gérer : l'appui MONTRE l'information (Fermer / ✏️ Modifier) sur les 13 boutons qui en gardent une, et fait son geste tout de suite sur les autres (Prime, Avance, Virement, Supprimer, Rôle…)",
     JSON.stringify(avecInfo.sort()) === JSON.stringify(["🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe"].sort())
     && blocs.filter((b) => /nom="(\+ Prime|− Avance|💸 Payer le salaire|🗑 Supprimer|🎭 Rôle|🔁 Renouveler|👁 Voir le mot de passe)"/.test(b)).every((b) => !/ info=/.test(b)));
+  // RETOURNÉ le 13/10/2026 : « Fermer » passe par valeurAnnuler (la touche retour d'Android rend la même chose), qui vaut false pour « info ».
   test("★★ ⋯ Gérer : la fenêtre d'information ne modifie RIEN — seul « ✏️ Modifier » (ou « ✏️ Saisir » si vide) lance le geste ; « Fermer » ne fait rien",
     /const ok = await uInfo\(/.test(uiG) && /if \(ok\) onClick\?\.\(\);/.test(uiG) && /vues\.length \? "✏️ Modifier" : "✏️ Saisir"/.test(uiG)
-    && /data-info-fermer onClick=\{\(\) => close\(false\)\}/.test(uiG) && /data-info-geste onClick=\{\(\) => close\(true\)\}/.test(uiG)
+    && /data-info-fermer onClick=\{\(\) => close\(valeurAnnuler\(d\.type\)\)\}/.test(uiG) && /if \(type === "prompt" \|\| type === "choix"\) return null;\n  if \(type === "alert"\) return undefined;\n  return false; \/\/ confirm, info/.test(uiG) && /data-info-geste onClick=\{\(\) => close\(true\)\}/.test(uiG)
     && /const infoGerer = \(u, quoi\) =>/.test(u) && !/save\(/.test(u.slice(u.indexOf("const infoGerer"), u.indexOf("// 📅 L'EMBAUCHE ET LE CONTRAT"))));
   test("★ ⋯ Gérer : le numéro de compte bancaire ne s'y lit que masqué (libelleBanque), et le parrain vient des comptes de l'espace, jamais de db.users",
     /banque: \{ titre: `Banque de \$\{u\.nom\}`, lignes: \[libelleBanque\(u\)/.test(u) && /utilisateursDeLEspace\(db, u\)\.find\(\(x\) => x\.id === u\.parrain_id\)/.test(u));

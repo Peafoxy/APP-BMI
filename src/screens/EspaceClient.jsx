@@ -21,6 +21,7 @@ import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETE
 import { offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { demandeModifEnCours, devisCorrige, repondreDemandeModif, accepterDevisCorrige, refuserDevisCorrige } from "../lib/modifDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
+import { useRetour } from "../retour";
 // 🔒 VOS DONNÉES (point 3, 18/09/2026) — le client se sert lui-même.
 // MÊME dossier, MÊMES mentions, MÊME document que celui remis depuis
 // ⚙ Paramètres : une seule source, sinon le client verrait la différence.
@@ -318,6 +319,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
   // contrat d'installation ci-dessus. "pvLectureOuverte" distingue le cas
   // normal de l'avenant (même principe que "estAvenant" dans signerPv).
   const [pvLectureOuverte, setPvLectureOuverte] = useState(null); // null | "normal" | "avenant"
+  // ⬅ La touche retour = « Annuler » sur le contrat et le PV (Timo, 13/10/2026).
+  useRetour(!!contratOuvert, () => setContratOuvert(null));
+  useRetour(!!pvLectureOuverte, () => setPvLectureOuverte(null));
   // estAvenant distingue les 2 cas : PV normal (fin de chantier) vs avenant
   // (réserves corrigées) — mêmes champs que ceux déjà écrits par la page
   // externe (voir imprimerPV, lib/impression.js), donc le document généré

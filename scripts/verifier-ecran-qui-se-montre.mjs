@@ -242,8 +242,9 @@ test("🏠 Clients installés : le Dossier et les Frais viennent à l'écran, «
 const ME = src("src/screens/MonEquipe.jsx");
 test("👑 Mon équipe : les tâches d'un membre viennent à l'écran", /ref=\{refTaches\}/.test(ME) && /useMontrerALOuverture\(membreTaches\)/.test(ME) && /data-ligne=\{st\.u\.id\}/.test(ME));
 const OU = src("src/screens/Outillage.jsx");
+// RETOURNÉ le 13/10/2026 : les panneaux portent aussi onFermer (touche retour d'Android, verifier-retour-android).
 test("🧰 Outillage : réparation, retour de réparation, comptage, contenu, fiche — les cinq",
-  ["repar", "retourRep", "compter", "contenu", "fiche"].every((v) => new RegExp(`\\{${v} && \\(?<PanneauQuiSeMontre cle=\\{${v}\\.outil_id\\} retour=\\{${v}\\.outil_id\\}>`).test(OU)) && /data-ligne=\{o\.id\}/.test(OU));
+  ["repar", "retourRep", "compter", "contenu", "fiche"].every((v) => new RegExp(`\\{${v} && \\(?<PanneauQuiSeMontre cle=\\{${v}\\.outil_id\\} retour=\\{${v}\\.outil_id\\} onFermer=\\{\\(\\) => set${v[0].toUpperCase()}${v.slice(1)}\\(null\\)\\}>`).test(OU)) && /data-ligne=\{o\.id\}/.test(OU));
 const PA = src("src/screens/Parametres.jsx");
 test("⚙ Paramètres : la fiche du loyer et le dossier d'un client à effacer",
   /\{loyerPour && \(<PanneauQuiSeMontre/.test(PA) && /\{dossierEff && \(<PanneauQuiSeMontre/.test(PA) && /data-ligne=\{b\.id\}/.test(PA));
@@ -251,7 +252,7 @@ const ST = src("src/screens/Stocks.jsx");
 test("📦 Stocks : le bon préparé depuis une demande, l'inventaire, et les deux défilements d'avant passent par la règle",
   /\{demandeEnCours && \(<PanneauQuiSeMontre/.test(ST) && /\{inv && \(<PanneauQuiSeMontre/.test(ST) && (ST.match(/montrerALecran\(/g) || []).length === 2);
 const DE = src("src/screens/Depenses.jsx");
-test("📤 Dépenses : ✏️ Modifier vient à l'écran et ramène sur la ligne", /\{modif && \(<PanneauQuiSeMontre cle=\{modif\.d\.id\} retour=\{modif\.d\.id\}>/.test(DE) && /data-ligne=\{x\.id\}/.test(DE));
+test("📤 Dépenses : ✏️ Modifier vient à l'écran et ramène sur la ligne", /\{modif && \(<PanneauQuiSeMontre cle=\{modif\.d\.id\} retour=\{modif\.d\.id\} onFermer=\{\(\) => setModif\(null\)\}>/.test(DE) && /data-ligne=\{x\.id\}/.test(DE));
 const WA = src("src/screens/Whatsapp.jsx");
 test("📲 WhatsApp : « ✍️ Lui écrire quand même » amène le formulaire à l'écran", /\{contact && \(<PanneauQuiSeMontre/.test(WA));
 test("📲 WhatsApp et 💬 Messages : la boîte du fil passe par useFilSurSaFin (UNE règle, ui.jsx)",

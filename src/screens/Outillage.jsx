@@ -1029,7 +1029,7 @@ export function Outillage({ db, save, profile }) {
           )}
 
           {/* 🔧 Le formulaire de réparation : chez qui, son numéro, la panne, le prix */}
-          {repar && (<PanneauQuiSeMontre cle={repar.outil_id} retour={repar.outil_id}>
+          {repar && (<PanneauQuiSeMontre cle={repar.outil_id} retour={repar.outil_id} onFermer={() => setRepar(null)}>
             <div className="rounded-xl border-2 border-amber-300 bg-white p-3 mb-3">
               <div className="font-bold text-slate-800 mb-2">🔧 « {(tous.find((o) => o.id === repar.outil_id) || {}).nom} » part en réparation</div>
               <div className="grid md:grid-cols-4 gap-3">
@@ -1068,7 +1068,7 @@ export function Outillage({ db, save, profile }) {
           </PanneauQuiSeMontre>)}
 
           {/* 📥 Le retour d'une réparation : le prix payé, enfin connu */}
-          {retourRep && <PanneauQuiSeMontre cle={retourRep.outil_id} retour={retourRep.outil_id}>{(() => {
+          {retourRep && <PanneauQuiSeMontre cle={retourRep.outil_id} retour={retourRep.outil_id} onFermer={() => setRetourRep(null)}>{(() => {
             const o = tous.find((x) => x.id === retourRep.outil_id) || {};
             const rep = reparationEnCours(o) || {};
             return (
@@ -1100,7 +1100,7 @@ export function Outillage({ db, save, profile }) {
           })()}</PanneauQuiSeMontre>}
 
           {/* 🧰 LE COMPTAGE D'UNE BOÎTE — décision 1a : au retour, obligatoire. */}
-          {compter && <PanneauQuiSeMontre cle={compter.outil_id} retour={compter.outil_id}>{(() => {
+          {compter && <PanneauQuiSeMontre cle={compter.outil_id} retour={compter.outil_id} onFermer={() => setCompter(null)}>{(() => {
             const o = tous.find((x) => x.id === compter.outil_id);
             if (!o) return null;
             return (
@@ -1110,7 +1110,7 @@ export function Outillage({ db, save, profile }) {
           })()}</PanneauQuiSeMontre>}
 
           {/* 🧰 CE QUE LA BOÎTE CONTIENT : la liste que l'on comptera à chaque retour. */}
-          {contenu && <PanneauQuiSeMontre cle={contenu.outil_id} retour={contenu.outil_id}>{(() => {
+          {contenu && <PanneauQuiSeMontre cle={contenu.outil_id} retour={contenu.outil_id} onFermer={() => setContenu(null)}>{(() => {
             const o = tous.find((x) => x.id === contenu.outil_id);
             if (!o) return null;
             const fait = dernierComptage(o);
@@ -1172,7 +1172,7 @@ export function Outillage({ db, save, profile }) {
           })()}</PanneauQuiSeMontre>}
 
           {/* ✏️ CORRIGER LA FICHE — un numéro gravé faux ne se laisse pas. */}
-          {fiche && <PanneauQuiSeMontre cle={fiche.outil_id} retour={fiche.outil_id}>{(() => {
+          {fiche && <PanneauQuiSeMontre cle={fiche.outil_id} retour={fiche.outil_id} onFermer={() => setFiche(null)}>{(() => {
             const o = tous.find((x) => x.id === fiche.outil_id);
             if (!o) return null;
             return (
