@@ -1363,7 +1363,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const peutVerserVente = (v) => venteVersable(v) && !versementGeneralDe(v);
   // 🩶 10/10/2026 (Timo, « A a, B b ») : la ligne d'une vente versée à part ET
   // validée se grise — fond gris, textes gris ; les boutons restent.
-  const ventesGrisees = idsVentesVerseesValidees(db);
+  // 🔄 14/10/2026 (Timo : « il faut griser cette ligne… elle est à titre informatif,
+  // elle n'est pas une vente du jour J ») : la vente NÉE d'un échange se grise aussi.
+  const ventesGrisees = new Set([...idsVentesVerseesValidees(db), ...(db.ventes || []).filter((v) => v.echange_de).map((v) => v.id)]);
   const FOND_GRISE = "bg-slate-200";
   const texteGrise = (v) => (ventesGrisees.has(v.id) ? " text-slate-500! [&_*]:text-slate-500!" : "");
   const verserVente = (v) => verserDepuisOrigine({

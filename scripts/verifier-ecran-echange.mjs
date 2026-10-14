@@ -111,6 +111,12 @@ console.log("\n🔄 L'échange d'un article, joué dans Chromium");
   test("★ la liste dit « 🔄 avoir BMID-2026-0040 : −80 000 » et « payé : 40 000 » sur la nouvelle vente ; sur l'ancienne « article rendu : 80 000 », « → nouveau reçu BMID-2026-0041 : 120 000 », « payé en plus : 40 000 » — et plus de « reste : 0 »",
     /🔄 avoir BMID-2026-0040 : −80 000 F/.test(ligneNv) && /payé : 40 000 F/.test(ligneNv) && /🔄 article rendu : 80 000 F/.test(ligneA)
     && /→ nouveau reçu BMID-2026-0041 : 120 000 F/.test(ligneA) && /payé en plus : 40 000 F/.test(ligneA) && !/reste :/.test(ligneA) && !/échangé : −/.test(ligneA), `${ligneNv} || ${ligneA}`);
+  // « il faut griser cette ligne… elle n'est pas une vente du jour J » (Timo, 14/10/2026) : la vente
+  // NÉE de l'échange se grise (fond gris, textes gris) ; l'ancienne, non.
+  // (la page n'a pas le CSS construit : on lit les classes que la règle commune pose)
+  const fond = async (texte) => page.locator("tr", { hasText: texte }).first().evaluate((tr) => tr.outerHTML.includes("bg-slate-200") && tr.outerHTML.includes("text-slate-500!") ? "gris" : "normal");
+  const fondNv = await fond("🔄 avoir BMID-2026-0040"), fondA = await fond("🔄 article rendu");
+  test("★ la ligne de la vente née de l'échange est GRISÉE (fond gris), celle d'origine ne l'est pas", fondNv === "gris" && fondA === "normal", `${fondNv} / ${fondA}`);
   // « le bon d'échange n'est plus visible à télécharger » : 🧾 sur l'ancienne ligne ET sur la nouvelle.
   const trA = page.locator("tr", { hasText: "🔄 article rendu" }).first();
   const trN = page.locator("tr", { hasText: "🔄 avoir BMID-2026-0040" }).first();
