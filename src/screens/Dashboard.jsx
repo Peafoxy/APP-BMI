@@ -5,7 +5,7 @@
 // ============================================================
 import { useState, useCallback } from "react";
 import { maintenant } from "../lib/horloge";
-import { fmt, today, dFR, inP, col, totalVente, caVente, caLigneVente, coutDesVentes, avertissementSansPrix, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu, estDepotChantier } from "../lib/core";
+import { fmt, today, dFR, inP, col, totalVente, caVenteDuJour, caLigneVente, coutDesVentes, avertissementSansPrix, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu, estDepotChantier } from "../lib/core";
 // Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
 import { depensesComptees, CATEGORIE_VERSEMENT, horsAchatsDeStock } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
@@ -159,7 +159,7 @@ export function Dashboard({ db, profile, save }) {
       // d'achat comptent pour la boutique qui a remis le matériel.
       const ventesBq = chiffreTous.filter((x) => x.boutique === bq && inP(x.date, a, b));
       const depBq = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b));
-      v[bq] = ventesBq.reduce((s, x) => s + caVente(x), 0);
+      v[bq] = ventesBq.reduce((s, x) => s + caVenteDuJour(x), 0);
       d[bq] = depBq.reduce((s, x) => s + Number(x.montant), 0);
       dr[bq] = horsAchatsDeStock(depBq).reduce((s, x) => s + Number(x.montant), 0);
       const k = coutDesVentes(db.produits, ventesBq);
@@ -185,7 +185,8 @@ export function Dashboard({ db, profile, save }) {
   const resultatDe = (r) => somme(r.v) - somme(r.c) - somme(r.dr);
   const resCustom = resultatDe(customRow);
 
-  const totalVentes = chiffreDb.reduce((s, v) => s + caVente(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
+  // 🔄 Un échange ne compte que sa différence, le jour de l'échange (Timo, 14/10/2026).
+  const totalVentes = chiffreDb.reduce((s, v) => s + caVenteDuJour(v), 0); // chiffre d'affaires (exclut HB / déjà comptés)
   // ⚠ Oubli de l'exclusion 2.100.16 : ce total parcourait db.depenses BRUT
   // alors que le CA juste au-dessus, lui, excluait déjà la formation — le
   // « résultat » affiché retranchait donc des dépenses d'entraînement d'un
@@ -250,7 +251,7 @@ export function Dashboard({ db, profile, save }) {
     const key = d.toISOString().slice(0, 7);
     const vals = {};
     NOMS_VUES.forEach((b) => {
-      vals[b] = chiffreTous.filter((x) => x.boutique === b && String(x.date).slice(0, 7) === key).reduce((s, x) => s + caVente(x), 0);
+      vals[b] = chiffreTous.filter((x) => x.boutique === b && String(x.date).slice(0, 7) === key).reduce((s, x) => s + caVenteDuJour(x), 0);
     });
     mois6.push({ nom: moisNoms[d.getUTCMonth()], vals });
   }
@@ -307,7 +308,7 @@ export function Dashboard({ db, profile, save }) {
   const maxTop = Math.max(1, ...topProduits.map((x) => x[1]));
   const repPaiements = (() => {
     const cumul = {};
-    ventesPeriode.forEach((v) => { const k = v.paiement || "Autre"; cumul[k] = (cumul[k] || 0) + totalVente(v); });
+    ventesPeriode.forEach((v) => { const k = v.paiement || "Autre"; cumul[k] = (cumul[k] || 0) + Math.max(0, totalVente(v) - Number(v.avoir_echange || 0)); });
     return Object.entries(cumul).sort((x, y) => y[1] - x[1]);
   })();
   const totalPai = Math.max(1, repPaiements.reduce((s, x) => s + x[1], 0));
@@ -427,7 +428,7 @@ export function Dashboard({ db, profile, save }) {
               <div className="w-full flex items-end justify-center gap-1 h-32">
                 {NOMS_GRAPHE.map((b) => (
                   <div key={b} className="rounded-t" title={`${b} : ${fmt(x.vals[b])}`}
-                    style={{ width: `${Math.max(8, 30 / Math.max(1, NOMS_GRAPHE.length))}%`, backgroundColor: col(b), height: `${(x.vals[b] / maxV) * 100}%`, minHeight: x.vals[b] ? 3 : 0 }}></div>
+                    style={{ width: `${Math.max(8, 30 / Math.max(1, NOMS_GRAPHE.length))}%`, backgroundColor: col(b), height: `${(Math.max(0, x.vals[b]) / maxV) * 100}%`, minHeight: x.vals[b] > 0 ? 3 : 0 }}></div>
                 ))}
               </div>
               <div className="text-xs font-semibold text-slate-500">{x.nom}</div>

@@ -13749,6 +13749,28 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     test("★ 📊 la synthèse par période porte les colonnes « Prix d'achat vendus » et « Dépenses (hors achats) », et la MÊME formule que la carte (une fabrique)",
       /Prix d'achat vendus/.test(dashR) && /Dépenses \(hors achats\)/.test(dashR)
       && /const res = resultatDe\(r\);/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")) && /const resCustom = resultatDe\(customRow\);/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
+    // 🔄 « même règle dans le tableau de bord » (Timo, 14/10/2026) : un échange ne compte, le jour de
+    // l'échange, que sa différence — le complément payé, ou un MOINS quand BMI a rendu de l'argent.
+    const ancienne = { id: "vA", date: "2026-01-05", boutique: "DEMAKPOE", paiement: "Espèces", articles: [{ produit_id: "p1", article: "Panneau 400W", qte: 2, pu: 100000 }],
+      reprises: [{ produit_id: "p1", qte: 1, montant: 100000, echange: true, rembourse: 0 }] };
+    const plus = { id: "vN", date: auj, boutique: "DEMAKPOE", paiement: "Espèces", avoir_echange: 100000,
+      articles: [{ produit_id: "p9", article: "Onduleur", qte: 1, pu: 150000 }], echange_de: { vente_id: "vA", rendu: 0, rendus: [{ produit_id: "p1", article: "Panneau 400W", qte: 1, montant: 100000 }] } };
+    const moins = { ...plus, id: "vM", avoir_echange: 30000, articles: [{ produit_id: "p8", article: "Régulateur", qte: 1, pu: 30000 }],
+      echange_de: { vente_id: "vA", rendu: 70000, rendus: [{ article: "Panneau 400W", qte: 1, montant: 100000 }] } };
+    const prodsX = [...db.produits, { id: "p9", nom: "Onduleur", boutique: "DEMAKPOE", prix_achat: 110000, prix_vente: 150000, initial: 3, seuil: 1 },
+      { id: "p8", nom: "Régulateur", boutique: "DEMAKPOE", prix_achat: 20000, prix_vente: 30000, initial: 3, seuil: 1 }];
+    test("★★ caVenteDuJour : l'ancienne vente garde l'article rendu par l'échange (200 000) ; la vente née de l'échange vaut 150 000 − 100 000 = 50 000 (plus cher) ou 30 000 − 100 000 = −70 000 (BMI a rendu 70 000) ; caVente, elle (la commission), ne bouge pas",
+      Core.caVenteDuJour(ancienne) === 200000 && Core.caVenteDuJour(plus) === 50000 && Core.caVenteDuJour(moins) === -70000
+      && Core.caVente(ancienne) === 100000 && Core.caVente(plus) === 150000);
+    test("★ coutDesVentes : le prix d'achat de l'article rendu revient le jour de l'échange (par l'article, sinon par son nom) — l'ancienne vente le garde",
+      Core.coutDesVentes(prodsX, [ancienne]).cout === 120000 && Core.coutDesVentes(prodsX, [plus]).cout === 110000 - 60000 && Core.coutDesVentes(prodsX, [moins]).cout === 20000 - 60000);
+    let dashX = "";
+    try { R.setRegardeFormation(false); dashX = lisible(R.rendreDashboard({ ...db, produits: prodsX, ventes: [ancienne, plus], depenses: [] }, timo)); } catch (e) { dashX = "ERREUR " + e.message; }
+    test("★★ 📊 « Ventes — Aujourd'hui » = 50 000 (le complément, pas 150 000) ; « Résultat — Aujourd'hui » = 50 000 − (110 000 − 60 000) = 0",
+      /Ventes — Aujourd'hui[\s\S]{0,400}?50\s000\sF/.test(dashX) && !/Ventes — Aujourd'hui[\s\S]{0,400}?150\s000\sF/.test(dashX)
+      && /data-calcul-resultat[\s\S]*ventes 50\s000\sF − prix d'achat des articles vendus 50\s000\sF/.test(dashX), (dashX.match(/data-calcul-resultat[\s\S]{0,200}/) || [""])[0]);
+    test("★ 📊 le tableau de bord lit caVenteDuJour partout (cartes, graphique, synthèse), plus jamais caVente",
+      (readFileSync("src/screens/Dashboard.jsx", "utf8").match(/caVenteDuJour\(/g) || []).length === 3 && !/[^r]caVente\(/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
   }
   {
     const dbJ = { boutiques: [{ nom: "DEMAKPOE" }, { nom: "DFORMATION", formation: true }], dettes: [],

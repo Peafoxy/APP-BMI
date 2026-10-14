@@ -189,7 +189,7 @@ export function construireEchange(db, vente, choix, { produits = [], stock = () 
     // Ce que le reçu dit de l'échange (le reçu n'a pas la base sous la main).
     echange_de: {
       vente_id: vente.id, numero: numeroRecu(vente), ref, destination: choix.destination,
-      rendus: c.rendus.map((l) => ({ article: l.article, qte: l.qte, montant: l.montant })),
+      rendus: c.rendus.map((l) => ({ produit_id: l.produit_id, article: l.article, qte: l.qte, montant: l.montant })),
       valeur_rendue: c.valeurRendue, rendu: c.aRendre,
     },
     avoir_echange: c.avoir,

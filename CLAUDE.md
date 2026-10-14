@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2655 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2659 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -7761,9 +7761,19 @@ lit mal est pire qu'un banc absent).
   `data-recette-avoirs` / `data-jour-avoirs`), ne soustrait plus la ligne
   `echange` de l'ancienne vente (sinon deux fois) et retire l'argent RENDU
   (`echange_de.rendu`, « dont X rendu sur échange ») du net le jour de
-  l'échange — net = la caisse. ⚠ Le tableau de bord, lui, compte toujours la
-  vente d'échange à son chiffre d'affaires (non demandé). Rien à coller. Bancs
-  +5 (Chromium +2), éprouvés ; un contrôle RETOURNÉ. Chapitre 5 à jour.
+  l'échange — net = la caisse. Rien à coller. Bancs +5 (Chromium +2),
+  éprouvés ; un contrôle RETOURNÉ. Chapitre 5 à jour.
+  **📊 Le tableau de bord aussi** (« oui, même règle dans le tableau de bord »,
+  14/10/2026) : `caVenteDuJour` (core.js) — l'ancienne vente garde l'article
+  rendu par l'échange (seules les reprises ordinaires en sortent), la vente née
+  de l'échange vaut nouvel article − (avoir + rendu), NÉGATIVE quand BMI a rendu
+  de l'argent ; `coutDesVentes` rend le prix d'achat de l'article rendu le jour
+  de l'échange (`echange_de.rendus[].produit_id`, posé désormais, sinon le nom
+  dans la boutique). Cartes, graphique (une barre négative ne se dessine pas),
+  synthèse, Résultat ; la répartition par moyen retire l'avoir. ⚠ `caVente`
+  (la commission, 🎯 Commerciaux, 💵 Ma commission) n'a PAS changé ; le Top 5
+  des articles et 📈 Rentabilité non plus (non demandé). Banc +4, éprouvé.
+  Chapitres 5 et 22 à jour.
 - **Un échange SOUS GARANTIE n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**

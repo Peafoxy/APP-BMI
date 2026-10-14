@@ -304,6 +304,23 @@ export const caVenteBrut = (v) => {
 };
 export const caVente = (v) => Math.max(0, caVenteBrut(v) - montantRepris(v));
 
+// ---- 🔄 UN ÉCHANGE COMPTE LE JOUR DE L'ÉCHANGE, POUR SA SEULE DIFFÉRENCE ----
+// Timo, 14/10/2026 : « si le client ajoute l'argent, c'est en ce moment ça
+// rentre dans les ventes du jour… sinon on ne peut pas restituer l'argent au
+// client et on va nous dire qu'on a vendu » → « même règle dans le tableau de
+// bord ». `caVente` reste ce qu'elle est (la commission du commercial la lit) ;
+// le tableau de bord lit `caVenteDuJour` :
+//   • l'ANCIENNE vente garde l'article rendu dans son chiffre (il a été vendu
+//     ce jour-là) — seules les reprises ordinaires en sortent ;
+//   • la vente NÉE de l'échange ne compte que nouvel article − valeur rendue
+//     (avoir + argent rendu) : le complément payé, ou un chiffre NÉGATIF quand
+//     BMI a rendu de l'argent. Sur toute période, la somme est la même.
+export const montantReprisEchange = (v) => reprisesDe(v).filter((r) => r?.echange).reduce((s, r) => s + Number(r.montant || 0), 0);
+export const caVenteDuJour = (v) => v?.echange_de
+  ? caVente(v) - Number(v.avoir_echange || 0) - Number(v.echange_de.rendu || 0)
+  : Math.max(0, caVenteBrut(v) - (montantRepris(v) - montantReprisEchange(v)));
+const qteRepriseHorsEchange = (v, produit_id) => reprisesDe(v).filter((r) => r.produit_id === produit_id && !r?.echange).reduce((s, r) => s + Number(r.qte || 0), 0);
+
 // ⚠ LE CHIFFRE D'AFFAIRES D'UNE SEULE LIGNE (audit du 29/08/2026).
 //
 // L'écran Rentabilité additionnait « qte × pu − remise_ligne » et s'arrêtait
@@ -352,12 +369,20 @@ export function coutDesVentes(produits, ventes) {
   let cout = 0, caSansPrix = 0;
   const manquants = new Map();
   (ventes || []).forEach((v) => {
+    // 🔄 La vente née d'un échange : le prix d'achat de l'article RENDU revient
+    // ce jour-là (par l'article, sinon par son nom dans la boutique).
+    (v?.echange_de?.rendus || []).forEach((r) => {
+      const p = parId.get(r.produit_id) || (produits || []).find((x) => x.boutique === v.boutique && x.nom === r.article);
+      cout -= Number(r.qte || 0) * Number(p?.prix_achat || 0);
+    });
     lignesVente(v).forEach((l) => {
       // 🏗 Une ligne « au chantier » (11/10/2026) ne sort pas le stock au
       // paiement : son prix d'achat se compte sur l'ACHAT POUR LE CHANTIER,
       // quand le matériel part vraiment (une fois, jamais deux).
       if (l.hors_boutique || !l.produit_id || l.au_chantier) return;
-      const qte = Math.max(0, Number(l.qte || 0) - qteReprise(v, l.produit_id));
+      // 🔄 L'article rendu par un ÉCHANGE n'est pas ôté de l'ancienne vente :
+      // son prix d'achat revient le jour de l'échange (ci-dessous).
+      const qte = Math.max(0, Number(l.qte || 0) - qteRepriseHorsEchange(v, l.produit_id));
       if (!qte) return;
       const p = parId.get(l.produit_id);
       const achat = p ? Number(p.prix_achat || 0) : 0;
