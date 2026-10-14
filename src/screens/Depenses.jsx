@@ -10,7 +10,7 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSorti
 import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, libellePayeAvecDe, libellePayeAvecDeDansPhrase, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
@@ -57,7 +57,7 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
             {retenueDuSalaire(liste, x) > 0 && <div data-salaire-sorti className="text-xs font-normal text-slate-500 whitespace-nowrap">sorti de la caisse : {fmt(Number(x.montant) - retenueDuSalaire(liste, x))}<br />{fmt(retenueDuSalaire(liste, x))} retenus sur le crédit</div>}
           </td>
           <td className="px-3 py-2">{x.paiement}</td>
-          <td className="px-3 py-2 text-xs">{x.boutique === DEST_BANQUE ? "🏦 BANQUE" : x.paye_avec && x.paye_avec !== PAYE_AVEC_CAISSE ? libellePayeAvec(x.paye_avec) : "Caisse"}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
+          <td className="px-3 py-2 text-xs">{libellePayeAvecDe(x)}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
           <td className="px-3 py-2">{x.par}</td>
           <td className="px-3 py-2"><BadgeValidation x={x} /></td>
           <td className="px-3 py-2 text-xs">
@@ -432,7 +432,7 @@ export function Depenses({ db, save, profile }) {
       const refusT = refusTiroir(d.boutique, Number(d.montant), "Valider cette dépense");
       if (refusT) { uAlert(refusT); return; }
     }
-    if (!await uConfirm(`Valider la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) du ${dFR(d.date)}, saisie par ${d.par}, payée avec : ${libellePayeAvecDansPhrase(d.paye_avec)} ?`)) return;
+    if (!await uConfirm(`Valider la dépense de ${fmt(d.montant)} (${d.categorie}${d.description ? ` — ${d.description}` : ""}) du ${dFR(d.date)}, saisie par ${d.par}, payée avec : ${libellePayeAvecDeDansPhrase(d)} ?`)) return;
     const r = validerDepense(db, profile, d, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
     await avisDecisionWhatsApp(d, "validee");
@@ -521,7 +521,7 @@ export function Depenses({ db, save, profile }) {
             {aValiderDG.map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
                 <div><b>{dFR(d.date)}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.categorie}{d.description ? ` — ${d.description}` : ""}
-                  <div className="text-xs text-slate-500">saisie par {d.par} · {d.paiement} · payée avec : {libellePayeAvecDansPhrase(d.paye_avec)}</div>
+                  <div className="text-xs text-slate-500">saisie par {d.par} · {d.paiement} · payée avec : {libellePayeAvecDeDansPhrase(d)}</div>
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>

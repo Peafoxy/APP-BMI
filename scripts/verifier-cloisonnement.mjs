@@ -8871,6 +8871,17 @@ titre("« Payé avec » nomme chaque caisse : la boutique qui a sorti l'argent p
   test("★ l'écran : la liste des caisses vient des boutiques visibles de l'espace regardé, la confirmation nomme la caisse et prévient quand une AUTRE boutique a payé, et le message final dit où retrouver la dépense",
     /const caissesPossibles = boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\);/.test(dep3) && /const choixCaisse = interpreterPayeAvec\(f\.paye_avec, boutique\);/.test(dep3)
     && /C'est la caisse de \$\{choixCaisse\.boutique\} qui a payé/.test(dep3) && /Choisissez cette boutique en haut pour la voir/.test(dep3) && !/PAYE_AVEC\.map/.test(dep3));
+  // Capture Timo (14/10/2026) : « pourquoi transport là on a juste écrit caisse ?
+  // Et non caisse de Demakpoè ? » — la colonne « Payé avec » nomme la caisse.
+  test("★ la colonne « Payé avec » d'une dépense enregistrée NOMME la caisse (« La caisse de BMI DEMAKPOE », 🏗 DÉPÔT CHANTIER pour TERRAIN, du DG, du comptable, 🏦 BANQUE) ; une avance garde son libellé ; le tableau, la validation et le cadre du DG passent par la règle, jamais « Caisse » tout court",
+    Vd3.libellePayeAvecDe({ boutique: "BMI DEMAKPOE", categorie: "Transport" }) === "La caisse de BMI DEMAKPOE"
+    && Vd3.libellePayeAvecDe({ boutique: "BMI DEMAKPOE", paye_avec: "caisse" }) === "La caisse de BMI DEMAKPOE"
+    && /DÉPÔT CHANTIER/.test(Vd3.libellePayeAvecDe({ boutique: "TERRAIN" }))
+    && Vd3.libellePayeAvecDe({ boutique: "Chez le comptable" }) === "La caisse du comptable" && Vd3.libellePayeAvecDe({ boutique: "Chez le DG" }) === "La caisse du DG"
+    && Vd3.libellePayeAvecDe({ boutique: "BANQUE" }) === "🏦 BANQUE" && Vd3.libellePayeAvecDe({ boutique: "BMI DEMAKPOE", paye_avec: "dg" }) === "La caisse du DG"
+    && /^Une avance personnelle/.test(Vd3.libellePayeAvecDe({ boutique: "BMI DEMAKPOE", paye_avec: "avance" }))
+    && Vd3.libellePayeAvecDeDansPhrase({ boutique: "BMI APESSITO" }) === "la caisse de BMI APESSITO"
+    && /\{libellePayeAvecDe\(x\)\}/.test(dep3) && !/: "Caisse"\}/.test(dep3) && (dep3.match(/libellePayeAvecDeDansPhrase\(d\)/g) || []).length === 2);
 }
 
 

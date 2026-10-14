@@ -121,6 +121,21 @@ export const interpreterPayeAvec = (valeur, boutiqueRegardee) => {
   if (v === PAYE_AVEC_AVANCE || v === PAYE_AVEC_DG || v === PAYE_AVEC_COMPTABLE || v === PAYE_AVEC_FONDS) return { paye_avec: v, boutique: boutiqueRegardee };
   return { paye_avec: PAYE_AVEC_CAISSE, boutique: boutiqueRegardee };
 };
+// La colonne « Payé avec » d'une dépense ENREGISTRÉE (capture Timo, 14/10/2026 :
+// « pourquoi on a juste écrit caisse et non caisse de Demakpoè ? »). Une dépense
+// payée par une caisse est rangée sur la boutique dont la caisse a payé : on
+// nomme donc cette caisse. Les noms « Chez le DG », « BANQUE », « Chez le
+// comptable » sont ceux de lib/versements.js (DEST_*), écrits ici en toutes
+// lettres : versements.js importe ce fichier, l'inverse ferait une boucle.
+export const libellePayeAvecDe = (d) => {
+  const b = d?.boutique || "";
+  if (b === "BANQUE") return "🏦 BANQUE";
+  if (!payeAvecCaisse(d)) return libellePayeAvec(d.paye_avec);
+  if (b === "Chez le DG") return "La caisse du DG";
+  if (b === "Chez le comptable") return "La caisse du comptable";
+  return b ? `La caisse de ${libelleCaisse(b)}` : libellePayeAvec(PAYE_AVEC_CAISSE);
+};
+export const libellePayeAvecDeDansPhrase = (d) => { const l = libellePayeAvecDe(d); return /^L/.test(l) ? l.charAt(0).toLowerCase() + l.slice(1) : l; };
 export const libelleChoixPayeAvec = (valeur, boutiqueRegardee) => {
   const c = interpreterPayeAvec(valeur, boutiqueRegardee);
   return c.paye_avec === PAYE_AVEC_CAISSE ? `la caisse de ${c.boutique}` : libellePayeAvecDansPhrase(c.paye_avec);
