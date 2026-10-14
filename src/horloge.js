@@ -11,7 +11,7 @@
 // appliqué : une horloge fausse ne redevient pas juste quand le réseau tombe.
 // Un appareil jamais mesuré écrit avec sa propre horloge — c'est le seul cas.
 
-import { poserEcartHorloge, ecartDepuisReponse, ecartHorloge } from "./lib/horloge";
+import { poserEcartHorloge, ecartDepuisReponse } from "./lib/horloge";
 
 export const CLE_ECART_HORLOGE = "bmi_ecart_horloge";
 const INTERVALLE_MS = 10 * 60 * 1000;
@@ -23,9 +23,6 @@ try {
   if (v && Number.isFinite(v.ecart)) poserEcartHorloge(v.ecart);
 } catch { /* navigation privée : on mesurera */ }
 
-const abonnes = new Set();
-export const ecouterEcartHorloge = (fn) => { abonnes.add(fn); return () => abonnes.delete(fn); };
-
 export async function mesurerHorloge() {
   try {
     const envoi = Date.now();
@@ -33,10 +30,8 @@ export async function mesurerHorloge() {
     const reception = Date.now();
     const ecart = ecartDepuisReponse({ dateServeur: r.headers.get("date"), age: r.headers.get("age"), envoi, reception });
     if (ecart === null) return null;
-    const avant = ecartHorloge();
     const pose = poserEcartHorloge(ecart);
     try { localStorage.setItem(CLE_ECART_HORLOGE, JSON.stringify({ ecart: pose, le: new Date(reception).toISOString() })); } catch { /* rien */ }
-    if (pose !== avant) abonnes.forEach((fn) => { try { fn(pose); } catch { /* rien */ } });
     return pose;
   } catch {
     // Pas de réseau : le dernier écart connu reste en place.

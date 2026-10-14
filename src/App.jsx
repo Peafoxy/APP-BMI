@@ -142,8 +142,9 @@ import {
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
 import { exportCSV } from "./lib/export";
-import { maintenantISO, ecartHorloge, horlogeAAvertir, phraseEcartHorloge } from "./lib/horloge";
-import { surveillerHorloge, ecouterEcartHorloge } from "./horloge";
+import { maintenantISO } from "./lib/horloge";
+import { surveillerHorloge } from "./horloge";
+import { HeureServeur } from "./components/HeureServeur";
 
 // ⚠ Demande Timo (09/09/2026) : plus de DÉCONNEXION automatique par
 // inactivité (avant : 30 min sur PC, 5 sur Android). À la place, un VERROU :
@@ -667,14 +668,10 @@ export default function App() {
   // 🕓 L'HEURE DU SERVEUR (14/10/2026, ventes de SEVERIN et ERIC : « l'application
   // doit utiliser l'heure du serveur ») : l'écart de l'horloge de l'appareil est
   // mesuré (src/horloge.js) et retiré de toute date et heure écrite
-  // (lib/horloge.js). Au-delà de 5 minutes, une bande le DIT (décision Timo).
-  const [ecartHeure, setEcartHeure] = useState(() => ecartHorloge());
-  useEffect(() => {
-    surveillerHorloge();
-    setEcartHeure(ecartHorloge());
-    const arreter = ecouterEcartHorloge(setEcartHeure);
-    return () => { arreter(); };
-  }, []);
+  // (lib/horloge.js). ~~Une bande au-delà de 5 min~~ — RETOURNÉ le jour même
+  // (« cette bande devient éternelle… plus de bande ») : « 🕓 Heure serveur »
+  // dans la barre du haut (HeureServeur).
+  useEffect(() => { surveillerHorloge(); }, []);
   const derniereActiviteRef = useRef(Date.now());
   // ⚠ Timo (11/09/2026) : « cette page survit toujours, et dès que je rentre
   // le mot de passe, la page d'accueil revient ». La fermeture des 30 min
@@ -1324,11 +1321,6 @@ export default function App() {
           🔒 <b>Compte en lecture seule.</b> Vous pouvez consulter les données et faire les exports, mais pas créer, modifier ni supprimer.
         </div>
       )}
-      {horlogeAAvertir(ecartHeure) && (
-        <div data-horloge-faussee className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
-          🕓 {phraseEcartHorloge(ecartHeure)}
-        </div>
-      )}
       {sync.enLigne && sync.enAttente > 0 && sync.erreur && (
         <div className="mb-4 rounded-lg border-2 border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
           ⚠ <b>{sync.enAttente} opération(s) n'arrivent pas à partir vers le serveur.</b>
@@ -1776,6 +1768,8 @@ export default function App() {
             {/* ⚠ Capture Timo (09/09/2026) : plus de « En ligne / version / nom »
                 ici (la barre latérale les garde) — un bouton « Verrouiller »,
                 sans cadenas, qui pose le verrou tout de suite. */}
+            {/* 🕓 Timo (14/10/2026) : l'heure du serveur, entre le nom de l'onglet et « Verrouiller ». */}
+            <HeureServeur />
             <button onClick={verrouiller} className="px-3 py-1.5 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900" title="Verrouiller la session maintenant (mot de passe pour reprendre)">Verrouiller</button>
             <span className="text-xs text-slate-400">{dFR(today())}</span>
           </div>

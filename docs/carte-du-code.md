@@ -53,7 +53,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 |---|---|
 | `lib/calculs.js` | Le gros des calculs métier : stock, boutiques, rôles, espaces, remises, index |
 | `lib/core.js` | Les briques de base : montants, dates, numéros, WhatsApp, messages, dépenses, statut d'une dette |
-| `lib/horloge.js` | L'heure du SERVEUR : l'écart de l'horloge de l'appareil, retiré de toute date et heure écrite ; l'avertissement au-delà de 5 min (sans import) |
+| `lib/horloge.js` | L'heure du SERVEUR : l'écart de l'horloge de l'appareil, retiré de toute date et heure écrite (sans import) |
 | `lib/panier.js` | Le panier d'une vente ou d'une commande |
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
 | `lib/importStock.js` | L'importation d'articles en stock (Excel ou texte collé) |
@@ -153,6 +153,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `ArgentChantier.jsx` | Les cadres de l'argent remis (onglet 💼 Argent reçu, validation du gérant, fiche du chantier) |
 | `AchatsChantier.jsx` | 🏗 La case « Chantier » de 💰 Ventes et la liste des achats pour les chantiers |
 | `EcranVerrou.jsx` | La fenêtre du verrou d'inactivité |
+| `HeureServeur.jsx` | « 🕓 Heure serveur » dans la barre du haut (ordinateur), entre le nom de l'onglet et « Verrouiller » — son propre minuteur |
 | `ZoneSignature.jsx` | LA zone de signature (les quatre emplacements) |
 | `CarteCaisse.jsx` | LA carte d'une caisse centrale (DG, BANQUE, comptable) |
 

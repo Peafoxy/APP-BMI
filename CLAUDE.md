@@ -4733,8 +4733,13 @@ lit mal est pire qu'un banc absent).
   sync.js, db.js, horloge, et les règles sans import dont le défaut ne sert
   qu'à LIRE (conservation, corbeille, effacementClient, reglement, suiviEnvoi).
   `Date.now()` reste pour les DURÉES (verrou, file) : ce sont des écarts.
-- **La bande 🕓** (ambre, `data-horloge-faussee`, App.jsx) au-delà de 5 min :
-  « L'horloge de cet appareil a 58 min d'avance… réglez… fuseau Lomé (GMT) ».
+- ~~La bande 🕓 au-delà de 5 min~~ — **RETOURNÉ le jour même** (capture Timo :
+  « cette bande devient éternelle sur les écrans… enlève-la et pose HEURE
+  SERVEUR entre le nom de l'onglet et le bouton Verrouiller. Plus de bande ») :
+  **`components/HeureServeur.jsx`** (« 🕓 Heure serveur 16:54 », son propre
+  minuteur de 15 s, `heureCourte()`), barre du haut de l'ORDINATEUR seulement ;
+  `horlogeAAvertir`, `phraseEcartHorloge`, le seuil et l'écoute de l'écart sont
+  RETIRÉS. Le téléphone n'a rien (pas demandé). Ne pas remettre de bande.
 - ⚠ Les lignes déjà écrites gardent leur heure (requête de LECTURE donnée à
   Timo pour comparer à l'heure d'arrivée au serveur). Rien à coller. Banc (+9),
   éprouvé (heure brute remise, `new Date()` dans un écran, âge ignoré) ; deux

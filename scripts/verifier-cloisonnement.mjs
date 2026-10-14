@@ -16000,10 +16000,10 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
   } finally { Date.now = vraiNow; H.poserEcartHorloge(0); }
   test("★★★ une vente faite sur un appareil qui a 1 h d'avance (il croit 23:30) s'écrit à 22:30, et le BON jour (pas le lendemain) : heureCourte, today et l'heure d'un message passent par l'heure du serveur",
     heureVue === "22:30" && dateVue === "2026-10-14" && String(tsVu).startsWith("2026-10-14T22:30"));
-  test("★ la bande dit l'écart et le sens, au-delà de 5 minutes seulement",
-    !H.horlogeAAvertir(4 * 60000) && H.horlogeAAvertir(-6 * 60000)
-    && /58 min d'avance/.test(H.phraseEcartHorloge(-58 * 60000)) && /2 h 05 de retard/.test(H.phraseEcartHorloge(125 * 60000))
-    && /fuseau horaire/.test(H.phraseEcartHorloge(-58 * 60000)));
+  // ⚠ RETOURNÉ le 14/10/2026 (« cette bande devient éternelle… plus de bande ») :
+  // la bande et sa phrase sont RETIRÉES, une règle qui ne commande plus rien ne reste pas.
+  test("★ plus de bande : ni la phrase ni le seuil d'avertissement n'existent encore (RETOURNÉ le 14/10/2026)",
+    H.phraseEcartHorloge === undefined && H.horlogeAAvertir === undefined && !/data-horloge-faussee/.test(readFileSync("src/App.jsx", "utf8")));
   const sansCom = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/([^:"'`])\/\/.*$/gm, "$1");
   test("★★ lib/horloge.js n'importe rien (lu aussi par le serveur, où l'écart reste à 0) ; core.js prend sa date et son heure chez elle",
     !/^import /m.test(readFileSync("src/lib/horloge.js", "utf8"))
@@ -16020,9 +16020,11 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
   parcourir("src");
   test("★★ CONTRÔLE GÉNÉRAL : aucun écran, aucune règle ne lit l'horloge brute de l'appareil (« new Date() ») pour écrire une date — tout passe par lib/horloge.js" + (fautifs.length ? ` (fautifs : ${fautifs.join(", ")})` : ""), fautifs.length === 0);
   const appH = readFileSync("src/App.jsx", "utf8");
-  test("★★ App mesure l'écart (surveillerHorloge) AVANT le retour anticipé, et la bande « 🕓 » s'affiche au-delà de 5 minutes",
+  const hsv = readFileSync("src/components/HeureServeur.jsx", "utf8");
+  test("★★ App mesure l'écart (surveillerHorloge) AVANT le retour anticipé, et « 🕓 Heure serveur » est dans la barre du haut, entre le nom de l'onglet et « Verrouiller » (RETOURNÉ le 14/10/2026 : plus de bande)",
     appH.indexOf("surveillerHorloge();") > 0 && appH.indexOf("surveillerHorloge();") < appH.indexOf("if (!db) return")
-    && /horlogeAAvertir\(ecartHeure\) && \(\s*<div data-horloge-faussee/.test(appH) && /phraseEcartHorloge\(ecartHeure\)/.test(appH));
+    && /\{titreOnglet\}<\/div>\s*<div className="flex items-center gap-4">[\s\S]{0,900}<HeureServeur \/>\s*<button onClick=\{verrouiller\}/.test(appH)
+    && /heureCourte\(\)/.test(hsv) && /Heure serveur/.test(hsv) && /setInterval/.test(hsv));
   const mes = readFileSync("src/horloge.js", "utf8");
   test("★ la mesure lit la date du SERVEUR (version.json, jamais gardé), garde le dernier écart sur l'appareil et le réapplique au chargement (hors connexion)",
     /version\.json\?horloge=/.test(mes) && /cache: "no-store"/.test(mes) && /headers\.get\("date"\)/.test(mes) && /headers\.get\("age"\)/.test(mes)

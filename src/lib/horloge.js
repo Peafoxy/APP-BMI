@@ -18,8 +18,6 @@ let ecartMs = 0;
 // En dessous de 2 secondes, ce n'est pas un écart : c'est la précision de la
 // mesure (la date du serveur est donnée à la seconde près).
 export const ECART_NEGLIGEABLE_MS = 2000;
-// Au-delà de 5 minutes, l'avertissement s'affiche (décision Timo, 14/10/2026).
-export const SEUIL_AVERTISSEMENT_HORLOGE_MS = 5 * 60 * 1000;
 // Une mesure dont l'aller-retour dépasse 10 s n'est pas assez précise.
 export const ALLER_RETOUR_MAX_MS = 10000;
 
@@ -49,21 +47,4 @@ export function ecartDepuisReponse({ dateServeur, age, envoi, reception }) {
   // La date est tronquée à la seconde : l'instant réel est en moyenne 0,5 s plus tard.
   const serveur = t + a * 1000 + 500;
   return Math.round(serveur - (e + r) / 2);
-}
-
-export const horlogeAAvertir = (ms) => Math.abs(Number(ms) || 0) > SEUIL_AVERTISSEMENT_HORLOGE_MS;
-
-// « 58 min », « 2 h 05 », « 3 jours » — l'écart dit en mots.
-export function dureeEcart(ms) {
-  const min = Math.round(Math.abs(Number(ms) || 0) / 60000);
-  if (min < 60) return `${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 48) return `${h} h ${String(min % 60).padStart(2, "0")}`;
-  return `${Math.round(h / 24)} jours`;
-}
-
-// La phrase de l'avertissement : ce que fait l'application, ce qu'il reste à faire.
-export function phraseEcartHorloge(ms) {
-  const sens = ms > 0 ? "de retard" : "d'avance";
-  return `L'horloge de cet appareil a ${dureeEcart(ms)} ${sens}. L'application écrit quand même l'heure juste (celle du serveur), mais réglez l'horloge de l'appareil : date, heure et fuseau horaire « Lomé » (GMT).`;
 }

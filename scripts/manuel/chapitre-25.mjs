@@ -12,7 +12,8 @@
 // français, le repli), lib/caissesMobiles.js (le solde Flooz / Mixx qui
 // découle des saisies), screens/Parametres.jsx (les notifications bloquées,
 // 🔁 Tout retélécharger), src/main.jsx (« Nouvelle version disponible »),
-// lib/horloge.js et src/horloge.js (la bande 🕓 d'une horloge fausse, 14/10/2026).
+// lib/horloge.js, src/horloge.js et components/HeureServeur.jsx (« 🕓 Heure serveur »,
+// 14/10/2026).
 // Ce chapitre ne refait pas les autres : il dit QUOI FAIRE quand ça coince,
 // et renvoie au chapitre où le geste est expliqué.
 // ============================================================
@@ -55,7 +56,8 @@ export const CHAPITRE = {
       ["table", { entetes: ["Où", "Ce qu'on y lit"], largeurs: [3100, 6200], lignes: [
         ["Sous le champ de l'écran de connexion", "Le refus de connexion, en rouge."],
         ["La fenêtre de verrouillage", "Le mot de passe demandé, le nombre d'essais, l'empreinte."],
-        ["Une bande en haut de l'écran", "**Orange** : session à rétablir. **Rouge** : des opérations n'arrivent pas à partir. **🕓 Ambre** : l'horloge de l'appareil est fausse."],
+        ["Une bande en haut de l'écran", "**Orange** : session à rétablir. **Rouge** : des opérations n'arrivent pas à partir."],
+        ["La barre du haut (ordinateur)", "« 🕓 Heure serveur » : l'heure que l'application écrit. Si elle ne correspond pas à l'horloge de l'appareil, c'est l'appareil qui est mal réglé."],
         ["En tête de 💰 Ventes", "« 🔒 Vente impossible : la journée du … de … n'a pas été clôturée »."],
         ["En tête de 🔒 Caisse", "La journée à clôturer, la clôture dépassée (bandeau orange), la dépense qui bloque la clôture."],
         ["Une fenêtre au centre", "Un refus expliqué, une confirmation, « Nouvelle version disponible »."],
@@ -106,12 +108,12 @@ export const CHAPITRE = {
       ]],
       ["regle", "**On clôture en dernier, à la fermeture, jamais avant.** Une vente faite après la clôture ne se perd pas, mais elle oblige à reclôturer."],
 
-      ["h3", "« 🕓 L'horloge de cet appareil a … d'avance (ou de retard) »"],
-      ["p", "L'application compare l'horloge de l'appareil à celle du serveur. Elle **écrit quand même l'heure juste** sur les ventes, dépenses, versements et dettes : rien n'est faux dans les données. Mais le reste de l'appareil (WhatsApp, rappels, l'heure affichée en haut) garde sa fausse heure."],
+      ["h3", "« 🕓 Heure serveur » ne correspond pas à l'horloge de l'appareil"],
+      ["p", "La barre du haut de l'ordinateur affiche **« 🕓 Heure serveur »**, entre le nom de l'onglet et le bouton « Verrouiller » : c'est l'heure que l'application écrit sur les ventes, dépenses, versements et dettes. Si l'horloge de l'appareil (en bas à droite de Windows, ou en haut du téléphone) dit autre chose, **les données restent justes**, mais le reste de l'appareil (WhatsApp, rappels) garde sa fausse heure."],
       ["etapes", [
         { titre: "Ouvrir les réglages de l'appareil", texte: "Ordinateur Windows : Paramètres → Heure et langue → Date et heure. Téléphone : Paramètres → Date et heure." },
         { titre: "Régler le fuseau horaire sur Lomé (GMT)", texte: "Activer « Régler l'heure automatiquement » et « Fuseau horaire automatique », ou choisir à la main le fuseau **Lomé / Monrovia / Abidjan (GMT)**." },
-        { titre: "Revenir dans l'application", texte: "La bande disparaît d'elle-même dans les minutes qui suivent (ou tout de suite après un F5)." },
+        { titre: "Comparer de nouveau", texte: "L'horloge de l'appareil et « 🕓 Heure serveur » doivent dire la même chose, à une minute près." },
       ]],
       ["attention", "Une horloge qui **affiche** la bonne heure peut quand même être fausse : un ordinateur réglé sur le fuseau de Paris ou de Lagos qui affiche l'heure de Lomé a, pour le reste du monde, une heure d'avance. C'est le **fuseau** qu'il faut corriger, pas l'heure."],
 
@@ -140,7 +142,7 @@ export const CHAPITRE = {
         "**Un refus de WhatsApp est traduit en français** (« pas encore approuvé », « numéro illisible »…). Un motif inconnu reste tel quel, précédé de « WhatsApp a refusé le message : ».",
         "**Un envoi du numéro BMI qui ne part pas** : la plupart du temps, WhatsApp s'ouvre sur l'appareil avec le texte complet, après une fenêtre qui dit pourquoi. **Un reçu automatique après encaissement ne s'ouvre jamais** : la note sous le titre le dit, et le bouton WhatsApp de la ligne reste là.",
         "**Le solde Flooz / Mixx affiché découle des saisies**, pas du téléphone de l'opérateur : l'application ne parle ni à Flooz ni à Moov.",
-        "**L'heure écrite est celle du serveur** : à l'ouverture puis toutes les 10 minutes, l'application mesure l'écart entre l'horloge de l'appareil et celle du serveur, et le retire de toute date et toute heure qu'elle écrit. Hors connexion, le dernier écart mesuré reste appliqué. Au-delà de 5 minutes d'écart, la bande 🕓 le dit.",
+        "**L'heure écrite est celle du serveur** : à l'ouverture puis toutes les 10 minutes, l'application mesure l'écart entre l'horloge de l'appareil et celle du serveur, et le retire de toute date et toute heure qu'elle écrit. Hors connexion, le dernier écart mesuré reste appliqué. L'heure du serveur se lit dans la barre du haut de l'ordinateur (« 🕓 Heure serveur »).",
       ]],
     ]},
 
