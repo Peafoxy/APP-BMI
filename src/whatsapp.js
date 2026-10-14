@@ -23,7 +23,7 @@
 // suite : la personne voit, décide, envoie.
 // ============================================================
 import { ouvrirWhatsAppApresAnnonce, nouveauMessage } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, texteEspaceMasque, ligneEnvoiModele, motifAttendu, messageRepli, lignePrivee, ligneMasquee } from "./lib/whatsappModeles";
+import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, MODELES_IDENTIFIANTS, texteEspaceMasque, ligneEnvoiModele, motifAttendu, messageRepli, lignePrivee, ligneMasquee } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 // ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
@@ -111,8 +111,29 @@ export async function envoyerIdentifiantsDuNumeroBmi({ nomAffiche, identifiant, 
   const texteRepli = role && role !== "client"
     ? texteIdentifiantsEmploye(nomAffiche, identifiant, motDePasse, role)
     : texteIdentifiantsClient(nomAffiche, identifiant, motDePasse);
-  const { modele, variables } = envoiIdentifiants({ nomAffiche, identifiant, motDePasse });
-  return envoyerModele({ tel, modele, variables, espaceFormation: !!espaceFormation, texteRepli, demanderConfirmation, prevenir });
+  // 14/10/2026, décision « a » : `espace_portail` d'abord, SANS repli (sinon
+  // WhatsApp s'ouvrirait deux fois) ; s'il ne part pas, `espace` prend le
+  // relais avec le repli d'avant. Le modèle parti suit la réponse (`modele`) :
+  // la ligne de 📲 WhatsApp écrit SON texte.
+  const [premier, relais] = MODELES_IDENTIFIANTS;
+  const a = envoiIdentifiants({ nomAffiche, identifiant, motDePasse, modele: premier });
+  const r1 = await envoyerModele({ tel, modele: a.modele, variables: a.variables, espaceFormation: !!espaceFormation, sansRepli: true });
+  if (r1.auto) return { ...r1, modele: a.modele };
+  const b = envoiIdentifiants({ nomAffiche, identifiant, motDePasse, modele: relais });
+  const r2 = await envoyerModele({ tel, modele: b.modele, variables: b.variables, espaceFormation: !!espaceFormation, texteRepli, demanderConfirmation, prevenir });
+  return { ...r2, modele: b.modele };
+}
+
+// Les accès SANS repli (le premier devis d'un client : si rien ne part, le
+// devis repart à la main avec ses codes). Même ordre, même relais.
+export async function envoyerAccesSansRepli({ nomAffiche, identifiant, motDePasse, tel, espaceFormation }) {
+  let r = null;
+  for (const modele of MODELES_IDENTIFIANTS) {
+    const e = envoiIdentifiants({ nomAffiche, identifiant, motDePasse, modele });
+    r = await envoyerModele({ tel, modele: e.modele, variables: e.variables, espaceFormation: !!espaceFormation, sansRepli: true });
+    if (r.auto) return { ...r, modele: e.modele };
+  }
+  return r;
 }
 
 // ---------------------------------------------------------------
@@ -138,8 +159,8 @@ export function messagesAvecLigneAcces(messages, { profile, client, renvoi = fal
   const entete = liste.find((x) => x && x.id === idEntete(cle)) || {};
   const m = nouveauMessage(profile, {
     canal: CANAL_WA, wa_tel: cle, wa_numero: tel, wa_nom: nom,
-    texte: texteEspaceMasque(nom),
-    wa_acces: { client_id: client.id, renvoi: !!renvoi },
+    texte: texteEspaceMasque(nom, envoi && envoi.modele),
+    wa_acces: { client_id: client.id, renvoi: !!renvoi, modele: (envoi && envoi.modele) || "espace" },
     ...champsEnvoi(envoi),
   });
   return messagesAvecEntete([m, ...liste], {

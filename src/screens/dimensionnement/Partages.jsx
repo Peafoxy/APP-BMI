@@ -8,8 +8,8 @@ import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { propositionsComptesDevis, libelleCompteDevis } from "../../lib/clientsConnus";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, LIBELLE_ROLE_EMPLOYE } from "../../lib/comptesClients";
 import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte, nouveauMessage } from "../../lib/core";
-import { envoyerModele, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
-import { envoiDevisDisponible, envoiIdentifiants, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye } from "../../lib/whatsappModeles";
+import { envoyerModele, envoyerAccesSansRepli, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
+import { envoiDevisDisponible, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { devisACompleter } from "../../lib/devisCfVisite";
 import { prospectAvecDevis } from "../../lib/prospects";
@@ -1030,10 +1030,10 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   let accesEnvoyes = null;
   let motifAcces = "";
   if (!accesPartis && motDePasse && compte.nom) {
-    const acces = envoiIdentifiants({ nomAffiche: compte.nom_base || compte.nom, identifiant: compte.nom, motDePasse });
-    const rAcces = await envoyerModele({
-      tel: telClient, modele: acces.modele, variables: acces.variables,
-      espaceFormation, sansRepli: true,
+    // 14/10/2026 : `espace_portail` d'abord, `espace` en relais (décision « a »).
+    const rAcces = await envoyerAccesSansRepli({
+      nomAffiche: compte.nom_base || compte.nom, identifiant: compte.nom, motDePasse,
+      tel: telClient, espaceFormation,
     });
     if (rAcces.auto) { accesPartis = true; accesEnvoyes = rAcces; }
     else if (rAcces.motif && !motifAttendu(rAcces.motif)) motifAcces = rAcces.motif;

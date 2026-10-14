@@ -103,6 +103,13 @@ export const MODELES = {
   // main, lib/comptesClients.js) reste celui d'avant — décision Timo du
   // 21/09 : « je veux que les 2 existent ».
   espace: { categorie: "utility", variables: ["client", "identifiant", "mot_de_passe"] },
+  // 🔑 14/10/2026 (Timo : « je veux essayer un autre modèle pour espace…
+  // si Meta valide tu branches » → « a ») — `espace_portail`, texte de Timo
+  // mot pour mot (TEXTE_ESPACE_PORTAIL), les MÊMES trois trous dans le MÊME
+  // ordre, les deux codes en gras (*{{2}}* et *{{3}}*). Soumis en utility,
+  // RECLASSÉ MARKETING par Meta (~14 F au lieu de 4). Décision « a » : il part
+  // EN PREMIER, et `espace` prend le relais s'il ne part pas (MODELES_IDENTIFIANTS).
+  espace_portail: { categorie: "marketing", variables: ["client", "identifiant", "mot_de_passe"] },
   // 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS (23/09/2026, nouveauté 1 de Timo :
   // « lorsqu'on appuie sur WhatsApp sur la fiche client, qu'un message
   // WhatsApp soit envoyé au client depuis le numéro BMI »). Texte écrit par
@@ -297,6 +304,8 @@ export const MODELES_EN_SERVICE = [
   // identifiants partent à la main). BRANCHÉ le 22/09/2026 au soir, sur sa
   // capture : « le message ne passe pas par le numéro BMI ».
   "espace",
+  // 14/10/2026 : `espace_portail`, approuvé par Meta, essayé AVANT `espace`.
+  "espace_portail",
   // 23/09/2026 : les deux nouveautés de Timo. En service AVANT l'accord de
   // Meta (d'ici là : repli sur l'ouverture WhatsApp pour le mot de
   // fidélité ; RIEN pour le reçu de vente, qui ne dérange jamais le vendeur).
@@ -369,9 +378,13 @@ export const MODELES_EN_SERVICE = [
 // l'identifiant, puis le mot de passe. Intervertir les deux derniers
 // enverrait le mot de passe à la place de l'identifiant, et Meta ne s'en
 // plaindrait pas — d'où UNE fabrique, lue par le seul chemin d'envoi.
-export function envoiIdentifiants({ nomAffiche, identifiant, motDePasse }) {
+// 🔑 14/10/2026, décision « a » : `espace_portail` d'abord, `espace` en relais
+// s'il ne part pas — l'ORDRE d'essai, écrit UNE fois (src/whatsapp.js le lit).
+export const MODELES_IDENTIFIANTS = ["espace_portail", "espace"];
+export const estModeleIdentifiants = (nom) => MODELES_IDENTIFIANTS.includes(nom);
+export function envoiIdentifiants({ nomAffiche, identifiant, motDePasse, modele = "espace" }) {
   return {
-    modele: "espace",
+    modele: estModeleIdentifiants(modele) ? modele : "espace",
     variables: [String(nomAffiche || "").toUpperCase(), String(identifiant || ""), String(motDePasse || "")],
   };
 }
@@ -395,13 +408,19 @@ export function envoiIdentifiants({ nomAffiche, identifiant, motDePasse }) {
 // Le texte est celui du modèle `espace` chez Meta, écrit par Timo.
 export const MASQUE_ACCES = "••••••";
 export const TEXTE_ESPACE = "Bonjour Mr/Mme {{1}},\n\nBIENVENUE SUR\nhttps://gestion.bmitogo.com\n\nvotre espace avec :\n{{2}} et\n{{3}}\n\nÀ bientôt !\nBMI TOGO — Les bâtiments modernes et intelligents";
-export function texteEspace({ nomAffiche, identifiant, motDePasse }) {
-  return TEXTE_ESPACE
+// 🔑 14/10/2026 : le texte de `espace_portail` chez Meta, mot pour mot (les
+// étoiles mettent les deux codes en GRAS chez le client).
+export const TEXTE_ESPACE_PORTAIL = "Bonjour Mr/Mme {{1}},\nBIENVENUE SUR LE PORTAIL GESTION DE BMI\nClick sur 👇🏿\nhttps://gestion.bmitogo.com\n\n*{{2}}* et *{{3}}*\n\nPour tous besoins :\n📧Contact@bmitogo.com\n☎️ +228 99 96 84 88 / +228 91 13 05 11\nWeb: https://www.bmitogo.com\n\nÀ bientôt !\nBMI TOGO — Les bâtiments modernes et intelligents";
+// Dans 📲 WhatsApp, la ligne se lit SANS les étoiles (l'écran ne fait pas le
+// gras de WhatsApp : elles se liraient telles quelles).
+const texteDuModeleAcces = (modele) => (modele === "espace_portail" ? TEXTE_ESPACE_PORTAIL.replace(/\*/g, "") : TEXTE_ESPACE);
+export function texteEspace({ nomAffiche, identifiant, motDePasse, modele = "espace" }) {
+  return texteDuModeleAcces(modele)
     .replace("{{1}}", String(nomAffiche || "").toUpperCase())
     .replace("{{2}}", String(identifiant || MASQUE_ACCES))
     .replace("{{3}}", String(motDePasse || MASQUE_ACCES));
 }
-export const texteEspaceMasque = (nomAffiche) => texteEspace({ nomAffiche, identifiant: MASQUE_ACCES, motDePasse: MASQUE_ACCES });
+export const texteEspaceMasque = (nomAffiche, modele = "espace") => texteEspace({ nomAffiche, identifiant: MASQUE_ACCES, motDePasse: MASQUE_ACCES, modele });
 // Qui lit les codes en clair : l'administrateur, et celui qui a envoyé la
 // ligne (le créateur du compte, ou celui qui a cliqué « ↻ Renvoyer »).
 export const peutLireAcces = (m, lecteur) => !!(m && m.wa_acces && lecteur
@@ -412,7 +431,7 @@ export const peutLireAcces = (m, lecteur) => !!(m && m.wa_acces && lecteur
 export function texteAccesAffiche(m, lecteur, acces) {
   if (!m || !m.wa_acces) return m ? m.texte : "";
   if (!peutLireAcces(m, lecteur) || !acces || !acces.identifiant || !acces.motDePasse) return m.texte;
-  return texteEspace({ nomAffiche: m.wa_nom, identifiant: acces.identifiant, motDePasse: acces.motDePasse });
+  return texteEspace({ nomAffiche: m.wa_nom, identifiant: acces.identifiant, motDePasse: acces.motDePasse, modele: m.wa_acces.modele });
 }
 
 // 🔒 LES REÇUS ET LES BONS NE SE LISENT PAS PAR TOUT LE MONDE (26/09/2026)

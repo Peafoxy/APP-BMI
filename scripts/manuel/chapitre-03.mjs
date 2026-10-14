@@ -12,7 +12,7 @@
 // lib/identiteClient.js (motDePasseClient, memeNumero — les 8 derniers
 // chiffres), lib/clientsConnus.js (la liste de 👤 Clients et les propositions
 // de 💰 Ventes), lib/calculs.js (compteClientPour, comptesAvecCeNumero,
-// ONGLETS_ROLE), lib/whatsappModeles.js (le modèle « espace »).
+// ONGLETS_ROLE), lib/whatsappModeles.js (les modèles « espace_portail » puis « espace »).
 // ============================================================
 export const CHAPITRE = {
   numero: 3,
@@ -150,7 +150,7 @@ export const CHAPITRE = {
         "**Le compte naît dans l'espace où l'on est** (réel ou formation), avec le rôle « client », sans boutique. Un client de formation ne reçoit jamais un vrai message : en formation, le numéro BMI n'envoie rien, WhatsApp s'ouvre sur l'appareil.",
         "**Les administrateurs sont prévenus** par un message dans 💬 Messages : « 🙋 Nouveau client créé par VOUS : KOFFI AMA (+228 90 55 44 33). » — ceux de l'espace du client, et l'administrateur principal toujours. Celui qui crée n'est pas prévenu de son propre geste.",
         "**Le journal** (📜 Historique) note « Compte CLIENT « KOFFI AMA » créé par VOUS » — « (+ prospect à relancer) » si la case Prospect était cochée.",
-        "**Les accès partent par le modèle WhatsApp « espace »**, approuvé par Meta, du numéro BMI : « Bonjour Mr/Mme KOFFI AMA, BIENVENUE SUR https://gestion.bmitogo.com votre espace avec : KOFFI AMA et ****** À bientôt ! BMI TOGO ». Coût : environ 4 F par compte. En repli (formation, réseau, refus), WhatsApp s'ouvre avec le texte long d'avant (👤 Identifiant / 🔑 Mot de passe, et le conseil de changer le mot de passe).",
+        "**Les accès partent du numéro BMI par le modèle WhatsApp « espace_portail »** (depuis le 14/10/2026) : « Bonjour Mr/Mme KOFFI AMA, BIENVENUE SUR LE PORTAIL GESTION DE BMI — Click sur 👇🏿 https://gestion.bmitogo.com — **KOFFI AMA** et **son mot de passe** », puis les contacts de BMI (e-mail, deux numéros, site). Les deux codes arrivent **en gras**. Coût : environ 14 F (Meta l'a classé marketing). **S'il ne part pas, le modèle « espace » prend le relais tout seul** (« … BIENVENUE SUR https://gestion.bmitogo.com votre espace avec : KOFFI AMA et ****** », environ 4 F). Si aucun des deux ne part (formation, réseau, refus), WhatsApp s'ouvre avec le texte long d'avant (👤 Identifiant / 🔑 Mot de passe, et le conseil de changer le mot de passe).",
         "**« Amené par »** est écrit sur la fiche (votre nom). C'est une trace, pas une commission.",
       ]],
       ["h3", "Le numéro relie tout"],

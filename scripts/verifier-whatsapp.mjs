@@ -57,6 +57,7 @@ const ATTENDU = {
   // créer. UTILITY (sa précision). Trois trous : nom, identifiant, mot de
   // passe — le SEUL modèle qui porte un secret (voir la section ②).
   espace: { categorie: "utility", n: 3 },
+  espace_portail: { categorie: "marketing", n: 3 }, // 14/10/2026, essayé AVANT `espace` (« a »)
   // ⚠ LES TROIS DE TIMO (23/09/2026) : le mot de fidélité, MARKETING (il fait
   // de la promotion), en DEUX textes — avec et sans les lignes de l'espace
   // client (décision « 2 ») — un seul trou, le nom ; et le reçu de vente,
@@ -141,7 +142,7 @@ const ATTENDU = {
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les cinquante modèles sont là, et eux seuls (RETOURNÉ le 14/10/2026 : + l'avis d'une tâche assignée et validée ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les cinquante et un modèles sont là, et eux seuls (RETOURNÉ le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -187,12 +188,15 @@ const MOTS_SECRETS = ["motdepasse", "mot_de_passe", "pwd", "identifiant", "mdp"]
 // ⚠ RETOURNÉ deux fois le 25/09/2026 : `devis_premier` (un devis avec ses
 // accès) y est entré, puis en est RESSORTI — refusé par Meta, supprimé par
 // Timo. `espace` est de nouveau le SEUL modèle qui porte un secret.
-const PORTEURS_DE_SECRET = ["espace"];
+// ⚠ RETOURNÉ le 14/10/2026 : `espace_portail` (même rôle, autre texte, essayé
+// avant `espace`) porte les MÊMES trois trous. Ce sont les DEUX seuls.
+const PORTEURS_DE_SECRET = ["espace", "espace_portail"];
 const trousHorsEspace = Object.entries(M.MODELES).filter(([n]) => !PORTEURS_DE_SECRET.includes(n)).flatMap(([, m]) => m.variables).join(" ").toLowerCase();
-test("★ aucun trou d'un modèle de devis ou de relance ne s'appelle mot de passe ou identifiant (sauf espace)",
+test("★ aucun trou d'un modèle de devis ou de relance ne s'appelle mot de passe ou identifiant (sauf espace et espace_portail)",
   !MOTS_SECRETS.some((s) => trousHorsEspace.includes(s)));
-test("★ `espace` est le SEUL qui porte un secret, et `devis_premier` (refusé par Meta) n'existe plus",
+test("★ `espace` et `espace_portail` sont les SEULS qui portent un secret (les mêmes trois trous, dans le même ordre), et `devis_premier` (refusé par Meta) n'existe plus",
   M.MODELES.espace.variables.join(",") === "client,identifiant,mot_de_passe"
+  && M.MODELES.espace_portail.variables.join(",") === "client,identifiant,mot_de_passe"
   && !M.MODELES.devis_premier && !M.MODELES_EN_SERVICE.includes("devis_premier") && !M.envoiDevisPremier && !M.TEXTE_DEVIS_PREMIER);
 const srcPartages = lire("src/screens/dimensionnement/Partages.jsx");
 const srcDevis = lire("src/screens/TousLesDevis.jsx");
@@ -890,6 +894,16 @@ titre("⑫ LE MESSAGE `espace` DANS 📲 WHATSAPP : EN CLAIR POUR LE CRÉATEUR E
     typeof masqueAutre === "string" && !masqueAutre.includes(mdp) && (masqueAutre.match(/••••••/g) || []).length === 2);
   test("★ sans fiche du client (compte parti), même l'administrateur ne lit que le texte masqué : rien n'est inventé",
     M.texteAccesAffiche(ligne, V.lecteurAdmin, null) === ligne.texte);
+  // 🔑 14/10/2026 : `espace_portail` — sa ligne porte SON texte, sans les
+  // étoiles du gras (l'écran ne les dessine pas), et le modèle parti.
+  const lignePortail = { id: "mp", de_id: V.lecteurCreateur.id, wa_nom: "koffi", texte: M.texteEspaceMasque("koffi", "espace_portail"), wa_acces: { client_id: "c1", modele: "espace_portail" } };
+  test("★★ `espace_portail` : la ligne masquée est SON texte (Timo, mot pour mot, sans étoiles), trous 2 et 3 masqués",
+    lignePortail.texte === "Bonjour Mr/Mme KOFFI,\nBIENVENUE SUR LE PORTAIL GESTION DE BMI\nClick sur 👇🏿\nhttps://gestion.bmitogo.com\n\n•••••• et ••••••\n\nPour tous besoins :\n📧Contact@bmitogo.com\n☎️ +228 99 96 84 88 / +228 91 13 05 11\nWeb: https://www.bmitogo.com\n\nÀ bientôt !\nBMI TOGO — Les bâtiments modernes et intelligents");
+  test("★★ `espace_portail` : l'administrateur lit les codes en clair dans SON texte, un autre lit le masque",
+    M.texteAccesAffiche(lignePortail, V.lecteurAdmin, { identifiant: "KOFFI", motDePasse: "K9F2O1" }).includes("KOFFI et K9F2O1\n\nPour tous besoins")
+    && M.texteAccesAffiche(lignePortail, V.lecteurAutre, { identifiant: "KOFFI", motDePasse: "K9F2O1" }) === lignePortail.texte);
+  test("★★ le texte de `espace_portail` chez Meta met les deux codes en GRAS, une étoile collée de chaque côté",
+    /\n\*\{\{2\}\}\* et \*\{\{3\}\}\*\n/.test(M.TEXTE_ESPACE_PORTAIL) && (M.TEXTE_ESPACE_PORTAIL.match(/\*/g) || []).length === 4);
   test("★ le texte de la ligne est celui du modèle `espace` écrit par Timo, trous 2 et 3 masqués",
     M.texteEspaceMasque("koffi") === "Bonjour Mr/Mme KOFFI,\n\nBIENVENUE SUR\nhttps://gestion.bmitogo.com\n\nvotre espace avec :\n•••••• et\n••••••\n\nÀ bientôt !\nBMI TOGO — Les bâtiments modernes et intelligents");
   // L'ÉCRAN : le fil passe par la règle, et ne dessine jamais m.texte brut.
@@ -1274,6 +1288,21 @@ titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)
     /export async function envoyerIdentifiantsDuNumeroBmi/.test(srcWhatsapp)
     && /texteIdentifiantsEmploye\(/.test(srcWhatsapp) && /texteIdentifiantsClient\(/.test(srcWhatsapp)
     && /envoiIdentifiants\(/.test(srcWhatsapp));
+  // 🔑 14/10/2026, « a » : `espace_portail` d'abord SANS repli, `espace` en
+  // relais AVEC le repli d'avant ; le modèle parti suit la réponse.
+  const corpsIdent = srcWhatsapp.slice(srcWhatsapp.indexOf("export async function envoyerIdentifiantsDuNumeroBmi"), srcWhatsapp.indexOf("export async function envoyerAccesSansRepli"));
+  test("★★ « a » : MODELES_IDENTIFIANTS = espace_portail PUIS espace, les deux en service",
+    M.MODELES_IDENTIFIANTS.join(",") === "espace_portail,espace"
+    && M.MODELES_EN_SERVICE.includes("espace_portail") && M.MODELES_EN_SERVICE.includes("espace")
+    && M.envoiIdentifiants({ nomAffiche: "a", identifiant: "A", motDePasse: "x", modele: "espace_portail" }).modele === "espace_portail"
+    && M.envoiIdentifiants({ nomAffiche: "a", identifiant: "A", motDePasse: "x", modele: "devis_disponible" }).modele === "espace");
+  test("★★ « a » : le premier part SANS repli, le relais AVEC le texte d'avant, et rien ne part deux fois",
+    /const \[premier, relais\] = MODELES_IDENTIFIANTS;/.test(corpsIdent)
+    && /modele: premier \}\);\s*const r1 = await envoyerModele\(\{[^}]*sansRepli: true \}\);\s*if \(r1\.auto\) return \{ \.\.\.r1, modele: a\.modele \};/.test(corpsIdent)
+    && /const r2 = await envoyerModele\(\{[^}]*texteRepli, demanderConfirmation, prevenir \}\);/.test(corpsIdent));
+  test("★★ la ligne d'accès range le modèle parti (son texte), `espace` d'office pour les lignes d'avant",
+    /texte: texteEspaceMasque\(nom, envoi && envoi\.modele\),/.test(srcWhatsapp)
+    && /modele: \(envoi && envoi\.modele\) \|\| "espace" \}/.test(srcWhatsapp));
   for (const f of ecransComptes) {
     const src = sansCommentaires(lire(f));
     // ⚠ CONTRÔLE RETOURNÉ LE 23/09/2026 (décision Timo) : un EMPLOYÉ ne passe
@@ -2734,13 +2763,18 @@ titre("㉚ 📄🔑 LE PREMIER DEVIS : SES ACCÈS (espace) PUIS LE DEVIS (devis_
     M.accesDejaEnvoyes({ ...neuf, info_donnees_le: "2026-09-01" }, "D1", []) === true
     && M.accesDejaEnvoyes({ ...neuf, devis: [{ id: "D0" }, { id: "D1" }] }, "D1", []) === true);
   const P = lire("src/screens/dimensionnement/Partages.jsx").replace(/^\s*\/\/.*$/gm, "");
-  const iAcces = P.indexOf("envoiIdentifiants({"), iDevis = P.indexOf("envoiDevisDisponible({ devis: devisMarque");
+  // ⚠ RETOURNÉ le 14/10/2026 : les accès partent par envoyerAccesSansRepli
+  // (`espace_portail` d'abord, `espace` en relais).
+  const iAcces = P.indexOf("envoyerAccesSansRepli({"), iDevis = P.indexOf("envoiDevisDisponible({ devis: devisMarque");
   test("★★ Partages : `espace` part AVANT le devis, et seulement si ses accès ne sont pas déjà partis",
     /let accesPartis = accesDejaEnvoyes\(compte, idDevis, dbApres\.messages\);/.test(P)
     && /if \(!accesPartis && motDePasse && compte\.nom\) \{/.test(P)
     && iAcces > 0 && iDevis > iAcces);
-  test("★★ `espace` part SANS repli (sinon WhatsApp s'ouvrirait deux fois), et le mur reste l'espace du DEVIS",
-    /modele: acces\.modele, variables: acces\.variables,\s*espaceFormation, sansRepli: true,/.test(P)
+  const corpsSansRepli = srcWhatsapp.slice(srcWhatsapp.indexOf("export async function envoyerAccesSansRepli"), srcWhatsapp.indexOf("export async function envoyerAccesSansRepli") + 800);
+  test("★★ `espace_portail` puis `espace` partent SANS repli (sinon WhatsApp s'ouvrirait deux fois), et le mur reste l'espace du DEVIS",
+    /tel: telClient, espaceFormation,\s*\}\);/.test(P)
+    && /for \(const modele of MODELES_IDENTIFIANTS\)/.test(corpsSansRepli)
+    && /sansRepli: true/.test(corpsSansRepli) && !/texteRepli/.test(corpsSansRepli)
     && /const espaceFormation = !!espaceDeLaFiche\(devisMarque\);/.test(P));
   test("★★ si ses accès ne sont pas partis, le devis ne part PAS du numéro BMI : à la main, avec ses codes",
     /if \(rAcces\.auto\) \{ accesPartis = true; accesEnvoyes = rAcces; \}/.test(P)
