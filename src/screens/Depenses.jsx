@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { fmt, today, dFR, totalVente, heureCourte } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser, DEST_DG, DEST_BANQUE } from "../lib/versements";
-import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse } from "../lib/constants";
+import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, CATEGORIE_RENDU_ECHANGE, libelleCaisse } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, libellePayeAvecDe, libellePayeAvecDeDansPhrase, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "../lib/validationDepenses";
@@ -50,6 +50,8 @@ function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
           <td className={`px-3 py-2 whitespace-nowrap ${celluleFigee(estRejetee(x) ? "bg-red-50" : estEnAttente(x) ? "bg-amber-50" : "bg-white")}`}>{dFR(x.date)}</td>
           <td className="px-3 py-2 font-semibold">{x.categorie}
             {/* Timo (03/10/2026) : un prêt fait bouger le tiroir, il se VOIT ici — sans être une charge. */}
+            {/* Timo (14/10/2026) : l'argent RENDU au client sur un échange sort du tiroir — il se VOIT ici, sans être une charge. */}
+            {x.categorie === CATEGORIE_RENDU_ECHANGE && <div data-argent-rendu-echange className="text-xs font-normal text-slate-500">↩ argent rendu au client · n'est pas une charge</div>}
             {x.categorie === CATEGORIE_PRET_PERSONNEL && <div data-pret-personnel className="text-xs font-normal text-slate-500">{x.auto === "retenue" ? "retenu sur le salaire — pas sorti de la caisse · " : Number(x.montant) < 0 ? "↩ argent rentré dans la caisse · " : ""}n'est pas une charge</div>}
           </td>
           <td className="px-3 py-2">{x.description || "—"}</td>
@@ -494,7 +496,7 @@ export function Depenses({ db, save, profile }) {
   // (et son remboursement) n'est pas une charge mais fait bouger le tiroir — il
   // se lit dans la liste ; « Ce mois » (depensesComptees) ne le compte toujours pas.
   const liste = depensesVisibles((db.depenses || []).filter((x) => x.boutique === boutique
-    && (x.categorie === CATEGORIE_PRET_PERSONNEL || horsVersements([x]).length === 1)), profile);
+    && (x.categorie === CATEGORIE_PRET_PERSONNEL || x.categorie === CATEGORIE_RENDU_ECHANGE || horsVersements([x]).length === 1)), profile);
   // « Ce mois » ne compte que ce qui compte : validé, ou sans validation requise.
   const totalMois = depensesComptees(liste).filter((x) => String(x.date).slice(0, 7) === today().slice(0, 7)).reduce((s, x) => s + Number(x.montant), 0);
   const enAttenteIci = liste.filter(estEnAttente).reduce((s, x) => s + Number(x.montant), 0);

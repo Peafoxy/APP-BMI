@@ -5,7 +5,7 @@
 // ============================================================
 import { useState, useCallback } from "react";
 import { maintenant } from "../lib/horloge";
-import { fmt, today, dFR, inP, col, totalVente, caVenteDuJour, caLigneVente, coutDesVentes, avertissementSansPrix, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu, estDepotChantier } from "../lib/core";
+import { fmt, today, dFR, inP, col, totalVente, caVenteDuJour, lignesAuChiffre, coutDesVentes, avertissementSansPrix, qteVente, resumeArticles, lignesJournal, numeroRecu, estDepotChantier } from "../lib/core";
 // Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
 import { depensesComptees, CATEGORIE_VERSEMENT, horsAchatsDeStock } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
@@ -301,8 +301,10 @@ export function Dashboard({ db, profile, save }) {
     // ⚠ 01/10/2026 (chapitre 22) : le Top 5 additionnait « qte × pu − remise
     // de ligne », sans la remise générale ni les reprises — le même défaut que
     // 📈 Rentabilité avait corrigé le 29/08/2026. Les deux écrans donnaient
-    // deux chiffres pour le même article. UNE règle : caLigneVente.
-    ventesPeriode.forEach((v) => lignesVente(v).forEach((l) => { if (l.hors_boutique) return; cumul[l.article] = (cumul[l.article] || 0) + caLigneVente(v, l); }));
+    // deux chiffres pour le même article. UNE règle : lignesAuChiffre (core.js).
+    // 🔄 RETOURNÉ le 14/10/2026 (« même règle pour le Top 5 ») : lignesAuChiffre — l'article
+    // rendu par un échange compte EN MOINS le jour de l'échange, comme les cartes.
+    ventesPeriode.forEach((v) => lignesAuChiffre(v).forEach((l) => { if (l.hors_boutique) return; cumul[l.article] = (cumul[l.article] || 0) + l.ca; }));
     return Object.entries(cumul).map(([nom, ca]) => [nom, Math.round(ca)]).filter(([, ca]) => ca > 0).sort((x, y) => y[1] - x[1]).slice(0, 5);
   })();
   const maxTop = Math.max(1, ...topProduits.map((x) => x[1]));

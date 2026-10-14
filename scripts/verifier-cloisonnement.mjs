@@ -5369,18 +5369,22 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // mois les comptaient encore. Un écran oublié fait mentir une règle.
   test("★ l'écran 💰 Dépenses lui-même ne compte NI les versements de fonds NI les remboursements de reprise (liste et « Ce mois »), et dit où les retrouver",
     // 13/09/2026 : la liste passe en plus par depensesVisibles (un technicien ne voit que les siennes) — horsVersements reste dedans.
-    /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste */.test(dep)
+    /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste ; RETOURNÉ le 14/10/2026 : l'argent rendu sur un échange aussi */.test(dep)
     // 12/09/2026 : « Ce mois » passe par depensesComptees (une dépense en attente ne compte pas).
     // ⚠ RETOURNÉ le 30/09/2026 : PAIEMENTS → MOYENS_ENCAISSEMENT (« Crédit (dette) » retiré des dépenses).
     // RETOURNÉ le 13/10/2026 : + libelleCaisse (l'avis WhatsApp de la décision du DG nomme la caisse).
     // RETOURNÉ le 14/10/2026 : + CATEGORIE_CHANTIER (le chantier obligatoire se dit à l'écran).
-    && /import \{ CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse \} from "\.\.\/lib\/constants";/.test(dep)
+    // RETOURNÉ le 14/10/2026 : + CATEGORIE_RENDU_ECHANGE (l'argent rendu sur un échange se lit dans la liste).
+    && /import \{ CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, CATEGORIE_RENDU_ECHANGE, libelleCaisse \} from "\.\.\/lib\/constants";/.test(dep)
     && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
     // ⚠ RETOURNÉ DEUX FOIS le 03/10/2026 : les prêts avaient quitté la liste (hors charges) ; Timo :
     // « remets les prêts dans Dépenses » — une sortie du tiroir ne doit jamais être invisible.
     && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep) && /sont dans la liste \(ils font bouger la caisse\) mais ne comptent pas dans « Ce mois »/.test(dep)
-    && /x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| horsVersements\(\[x\]\)\.length === 1/.test(dep) && /data-pret-personnel/.test(dep));
+    // RETOURNÉ le 14/10/2026 (Timo : « la ligne dépense doit être créée dans les dépenses comme argent rendu ») :
+    // la sortie « Rendu sur échange » se lit aussi dans la liste, sans compter dans « Ce mois ».
+    && /x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| horsVersements\(\[x\]\)\.length === 1/.test(dep) && /data-pret-personnel/.test(dep)
+    && /data-argent-rendu-echange[^>]*>↩ argent rendu au client · n'est pas une charge/.test(dep));
   // RETOURNÉ le 05/10/2026 : un troisième usage, les sorties payées chez le DG ou par la BANQUE.
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché trois fois (boutique, chez le comptable, DG / BANQUE)",
     (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 3
@@ -6692,7 +6696,9 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   test("★ le chiffre d'affaires et la commission deviennent NETS de la reprise (caVente 22 752 → 11 376 ; commission 10 % : 2 275 → 1 138 ; Rentabilité : caLigneVente et qteReprise), le CA tel que vendu reste lisible (caVenteBrut)",
     Core.caVente(vente) === 22752 && Core.caVente(r.vente) === 11376 && Core.caVenteBrut(r.vente) === 22752 && Core.montantRepris(r.vente) === 11376 && Core.qteReprise(r.vente, "p1") === 1
     && Math.round(Core.caLigneVente(r.vente, r.vente.articles[0])) === 11376 && C.commissionBrute(r.vente, 10) === 1138 && C.commissionBrute(vente, 10) === 2275
-    && /const qteNette = Math\.max\(0, Number\(l\.qte \|\| 0\) - qteReprise\(v, l\.produit_id\)\);/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")));
+    // RETOURNÉ le 14/10/2026 (« même règle pour Rentabilité ») : Rentabilité lit lignesAuChiffre, nette des reprises ordinaires.
+    && /lignesAuChiffre\(v\)\.forEach\(\(l\) => \{/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8"))
+    && Core.lignesAuChiffre(r.vente)[0].qte === 1 && Math.round(Core.lignesAuChiffre(r.vente)[0].ca) === 11376);
   // Vente à crédit : dette 22 700 (montant saisi), le client a versé 15 000 → reprise d'une batterie (11 376) : dette 11 324, 3 676 rendus.
   const venteC = { ...vente, id: "v2", paiement: "Crédit (dette)" };
   const dbc = { ...dbp, ventes: [venteC], dettes: [{ id: "d2", vente_id: "v2", boutique: "APESSITO", montant: 22700, paye: 15000, paiements: [{ date: "2026-09-09", montant: 15000 }] }] };
@@ -8981,7 +8987,7 @@ titre("📤 Dépenses ouvert aux techniciens : leurs propres dépenses seulement
   test("★ l'onglet est dans ONGLETS_ROLE pour technicien et technicien_bmi, dans leurs menus d'App (pas dans celui du commercial), et l'écran filtre par depensesVisibles avec le titre « Mes dépenses »",
     /^  technicien: \[.*"depenses"[,\]]/m.test(calD) && /^  technicien_bmi: \[.*"depenses"[,\]]/m.test(calD) && !/^  commercial: \[.*"depenses"/m.test(calD)
     && /\.\.\.\(isTechnicien \? \[\["depenses", "📤 Dépenses"\]\] : \[\]\)/.test(appD) && /\["parc", "🏠 Clients installés"\].*\["depenses", "📤 Dépenses"\]\]/.test(appD)
-    && /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste */.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
+    && /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste ; RETOURNÉ le 14/10/2026 : l'argent rendu sur un échange aussi */.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
 }
 
 
@@ -13769,6 +13775,19 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     test("★★ 📊 « Ventes — Aujourd'hui » = 50 000 (le complément, pas 150 000) ; « Résultat — Aujourd'hui » = 50 000 − (110 000 − 60 000) = 0",
       /Ventes — Aujourd'hui[\s\S]{0,400}?50\s000\sF/.test(dashX) && !/Ventes — Aujourd'hui[\s\S]{0,400}?150\s000\sF/.test(dashX)
       && /data-calcul-resultat[\s\S]*ventes 50\s000\sF − prix d'achat des articles vendus 50\s000\sF/.test(dashX), (dashX.match(/data-calcul-resultat[\s\S]{0,200}/) || [""])[0]);
+    const lA = Core.lignesAuChiffre(ancienne), lP = Core.lignesAuChiffre(plus), lM = Core.lignesAuChiffre(moins);
+    test("★★ lignesAuChiffre (📈 Rentabilité, 🏆 Top 5) : l'ancienne vente garde ses 2 panneaux (200 000) ; la vente née de l'échange porte l'onduleur (+1, +150 000) ET le panneau rendu EN MOINS (−1, −100 000) — la journée vaut 50 000, comme caVenteDuJour ; moins cher : −70 000",
+      lA.length === 1 && lA[0].qte === 2 && Math.round(lA[0].ca) === 200000
+      && lP.length === 2 && lP[0].qte === 1 && Math.round(lP[0].ca) === 150000 && lP[1].rendu === true && lP[1].qte === -1 && lP[1].ca === -100000
+      && Math.round(lP.reduce((t, l) => t + l.ca, 0)) === Core.caVenteDuJour(plus) && Math.round(lM.reduce((t, l) => t + l.ca, 0)) === -70000);
+    let rentaX = "";
+    try { R.setRegardeFormation(false); rentaX = lisible(R.rendreRentabilite({ ...db, produits: prodsX, ventes: [ancienne, plus], depenses: [] }, timo)).replace(/[\u202f\u00a0]/g, " "); } catch (e) { rentaX = "ERREUR " + e.message; }
+    test("★★ 🏆 le Top 5 du tableau de bord met l'onduleur de l'échange à 150 000 et ne range pas le panneau rendu le jour même ; 📈 Rentabilité et le Top 5 lisent la MÊME règle (lignesAuChiffre)",
+      /Onduleur<\/span><span[^>]*>150\s000\sF/.test(dashX) && !/Panneau 400W<\/span><span[^>]*>/.test(dashX.slice(dashX.indexOf("Top 5")))
+      && /lignesAuChiffre\(v\)\.forEach\(\(l\) => \{ if \(l\.hors_boutique\) return; cumul\[l\.article\] = \(cumul\[l\.article\] \|\| 0\) \+ l\.ca; \}\)/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))
+      && /Onduleur/.test(rentaX) && !/ERREUR/.test(rentaX), rentaX.slice(0, 200));
+    test("★ l'argent rendu sur un échange ne se supprime pas seul de 📤 Dépenses (l'échange ne se défait pas)",
+      /échange ECH-1 : il ne se supprime pas seul/.test(C.refusSuppressionDepense({}, { echange_ref: "ECH-1" }) || "") && C.refusSuppressionDepense({}, { categorie: "Transport" }) === null);
     test("★ 📊 le tableau de bord lit caVenteDuJour partout (cartes, graphique, synthèse), plus jamais caVente",
       (readFileSync("src/screens/Dashboard.jsx", "utf8").match(/caVenteDuJour\(/g) || []).length === 3 && !/[^r]caVente\(/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
   }
@@ -15898,7 +15917,8 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
   // (il est dans `ventesAuChiffre`, une seule liste) ; le dépôt n'y est jamais, donc sa ligne au_chantier non plus.
   test("★ le tableau de bord et Rentabilité comptent le PRIX D'ACHAT du matériel parti (et, depuis le 12/10/2026, son chiffre d'affaires) sur UNE liste — jamais deux fois, jamais la ligne au_chantier du dépôt",
     /const k = coutDesVentes\(db\.produits, ventesBq\);/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")) && !/achatsBq/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))
-    && /parProduit\[nom\]\.cout \+= qteNette \* achat;/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")) && !/achatsP/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")));
+    && /parProduit\[nom\]\.cout \+= l\.qte \* achat;/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")) /* RETOURNÉ le 14/10/2026 : les lignes viennent de lignesAuChiffre (l.qte déjà nette des reprises ordinaires) */
+    && /ventesP\.forEach\(\(v\) => \{[\s\S]{0,400}lignesAuChiffre\(v\)\.forEach\(\(l\) => \{/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")) && !/achatsP/.test(readFileSync("src/screens/Rentabilite.jsx", "utf8")));
 }
 {
   // ---- 4 : la facture d'achat, IMPRIMÉE pour de vrai ----

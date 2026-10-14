@@ -210,7 +210,7 @@ export function construireEchange(db, vente, choix, { produits = [], stock = () 
   const depense = c.aRendre > 0
     ? { ...nouvelleDepense(profile, {
       boutique: caisseDeVente(vente), categorie: CATEGORIE_RENDU_ECHANGE,
-      description: `Rendu sur échange ${ref} : ${quoiRendu} contre ${quoiNouveau} (reçu ${numeroRecu(vente)} → reçu ${nouvelleVente.numero}${client})`,
+      description: `Argent rendu au client — échange de la vente ${numeroRecu(vente)}${client} : ${quoiRendu} rendu, ${quoiNouveau} pris (nouveau reçu ${nouvelleVente.numero}, ${ref})`,
       montant: c.aRendre, moyen, vente_id: vente.id, echange_ref: ref,
     }), date: aujourdhui }
     : null;

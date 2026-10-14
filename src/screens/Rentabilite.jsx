@@ -3,7 +3,7 @@
 // prix d'achat/vente, tri, totaux par boutique.
 // ============================================================
 import { useState } from "react";
-import { fmt, today, inP, caLigneVente, qteReprise, coutDesVentes, avertissementSansPrix } from "../lib/core";
+import { fmt, today, inP, lignesAuChiffre, coutDesVentes, avertissementSansPrix } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, Stat } from "../components/ui";
 import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation, coutGarantie, boutiqueDuChantier } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
@@ -37,30 +37,33 @@ export function Rentabilite({ db, profile }) {
   // Agrégation par NOM d'article (tous sites confondus)
   const parProduit = {};
   ventesP.forEach((v) => {
-    (v.articles || []).forEach((l) => {
+    // 🔄 lignesAuChiffre (lib/core.js, Timo 14/10/2026 : « même règle pour
+    // Rentabilité ») : nettes des reprises ordinaires, et l'article rendu par un
+    // échange compté EN MOINS le jour de l'échange — la même règle que le tableau de bord.
+    lignesAuChiffre(v).forEach((l) => {
       // ⚠ Demande Timo : un article « hors boutique » (HB) n'entre ni dans le
       // CA ni dans les commissions — logiquement, il sort aussi de la
       // rentabilité par produit (ce n'est pas une vente de stock BMI).
       if (l.hors_boutique) return;
       // Le reste d'un dépôt réduit aux frais (le matériel a tout puisé) porte
       // une ligne vide : rien à ranger ici.
-      if (!(Number(l.qte || 0) > 0)) return;
-      const p = db.produits.find((x) => x.id === l.produit_id);
+      if (!l.rendu && !(Number(l.qte || 0) > 0)) return;
+      const p = db.produits.find((x) => x.id === l.produit_id)
+        || (l.rendu ? db.produits.find((x) => x.boutique === v.boutique && x.nom === l.article) : null);
       const nom = p ? p.nom : (l.article || "?");
       const achat = p ? Number(p.prix_achat || 0) : 0;
       if (!parProduit[nom]) parProduit[nom] = { nom, categorie: p?.categorie || "—", qte: 0, ca: 0, cout: 0 };
       // Net des reprises client (Timo, 10/09/2026) : l'article repris n'a été ni vendu ni coûté.
-      const qteNette = Math.max(0, Number(l.qte || 0) - qteReprise(v, l.produit_id));
-      parProduit[nom].qte += qteNette;
+      parProduit[nom].qte += l.qte;
       // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : on additionnait ici
       // « qte × pu − remise_ligne », donc SANS la remise globale de la vente
       // ni le rabais du commercial. Le Tableau de bord, lui, les retire :
       // les deux écrans donnaient deux chiffres d'affaires différents pour la
       // même vente, et la marge affichée ici était plus belle que la vraie.
-      // caLigneVente (lib/core.js) répartit ces réductions au prorata, de
-      // sorte que la somme des lignes redonne exactement caVente(v).
-      parProduit[nom].ca += caLigneVente(v, l);
-      parProduit[nom].cout += qteNette * achat;
+      // caLigneVenteBrut (lib/core.js) répartit ces réductions au prorata, de
+      // sorte que la somme des lignes redonne exactement la vente.
+      parProduit[nom].ca += l.ca;
+      parProduit[nom].cout += l.qte * achat;
     });
   });
 

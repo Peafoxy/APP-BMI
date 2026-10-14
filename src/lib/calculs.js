@@ -1344,6 +1344,13 @@ export function pvDuContrat(db, devisId) {
 // fiche de l'employé alors que l'argent était revenu en caisse.
 // Renvoie le message à afficher, ou null si la suppression est permise.
 export function refusSuppressionDepense(db, d) {
+  // 🔄 L'argent rendu sur un ÉCHANGE (14/10/2026) se lit maintenant dans
+  // 📤 Dépenses : il ne s'efface pas seul — l'échange, lui, ne se défait pas,
+  // et la caisse reprendrait un argent qui est chez le client.
+  if (d?.echange_ref) {
+    return `🔒 Cet argent a été rendu au client lors de l'échange ${d.echange_ref} : il ne se supprime pas seul.\n\n`
+      + "L'échange ne se défait pas ; si le montant est faux, prévenez l'administrateur principal.";
+  }
   if (d.auto === "virement" || d.auto === "retenue") {
     return "🔒 Un paiement de salaire ne s'annule pas depuis cet écran.\n\n"
       + "Allez dans 👥 Utilisateurs → la fiche de l'employé → ⋯ Gérer → « Annuler le paiement ». "

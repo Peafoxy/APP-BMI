@@ -103,8 +103,12 @@ titre("Un seul chiffre d'affaires pour toute l'application");
   const macom = readFileSync("src/screens/MaCommission.jsx", "utf8");
   const comm = readFileSync("src/screens/Commerciaux.jsx", "utf8");
 
-  test("★ Rentabilité additionne caLigneVente, plus « qte × pu »",
-    /parProduit\[nom\]\.ca \+= caLigneVente\(v, l\);/.test(rent)
+  // RETOURNÉ le 14/10/2026 (Timo : « même règle pour Rentabilité et le Top 5 ») : les lignes viennent de
+  // lignesAuChiffre (core.js), dont le chiffre est caLigneVenteBrut — la même répartition au prorata —
+  // moins les reprises ordinaires ; l'article rendu par un échange y compte en moins le jour de l'échange.
+  test("★ Rentabilité additionne le chiffre de lignesAuChiffre (caLigneVenteBrut au prorata), plus « qte × pu »",
+    /parProduit\[nom\]\.ca \+= l\.ca;/.test(rent) && /lignesAuChiffre\(v\)\.forEach/.test(rent)
+    && /ca: l\.hors_boutique \? 0 : Math\.max\(0, caLigneVenteBrut\(v, l\)/.test(readFileSync("src/lib/core.js", "utf8"))
     && !/parProduit\[nom\]\.ca \+= Number\(l\.qte/.test(rent));
   test("★ Ma commission part de caVente, comme la commission elle-même",
     !/reduce\(\(s, v\) => s \+ totalVente\(v\), 0\)/.test(macom));

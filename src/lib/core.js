@@ -319,7 +319,7 @@ export const montantReprisEchange = (v) => reprisesDe(v).filter((r) => r?.echang
 export const caVenteDuJour = (v) => v?.echange_de
   ? caVente(v) - Number(v.avoir_echange || 0) - Number(v.echange_de.rendu || 0)
   : Math.max(0, caVenteBrut(v) - (montantRepris(v) - montantReprisEchange(v)));
-const qteRepriseHorsEchange = (v, produit_id) => reprisesDe(v).filter((r) => r.produit_id === produit_id && !r?.echange).reduce((s, r) => s + Number(r.qte || 0), 0);
+export const qteRepriseHorsEchange = (v, produit_id) => reprisesDe(v).filter((r) => r.produit_id === produit_id && !r?.echange).reduce((s, r) => s + Number(r.qte || 0), 0);
 
 // ⚠ LE CHIFFRE D'AFFAIRES D'UNE SEULE LIGNE (audit du 29/08/2026).
 //
@@ -350,6 +350,26 @@ export const caLigneVenteBrut = (v, ligne) => {
 };
 // Net des reprises de CET article (Timo, 10/09/2026) — Rentabilité.
 export const caLigneVente = (v, ligne) => Math.max(0, caLigneVenteBrut(v, ligne) - montantRepris(v, ligne.produit_id));
+
+// 🔄 LES LIGNES D'UNE VENTE AU JOUR OÙ ELLES COMPTENT (Timo, 14/10/2026 :
+// « oui, même règle pour Rentabilité et le Top 5 »). Les lignes de la vente
+// nettes des reprises ORDINAIRES seulement (l'article rendu par un échange
+// reste vendu le jour de sa vente) ; une vente née d'un échange ajoute
+// l'article rendu en NÉGATIF (quantité et chiffre) : sur la journée de
+// l'échange, la somme vaut nouvel article − valeur rendue, comme caVenteDuJour.
+export function lignesAuChiffre(v) {
+  const reprisOrd = (pid) => reprisesDe(v).filter((r) => r.produit_id === pid && !r?.echange).reduce((s, r) => s + Number(r.montant || 0), 0);
+  const lignes = lignesVente(v).map((l) => ({
+    produit_id: l.produit_id, article: l.article, hors_boutique: !!l.hors_boutique,
+    qte: Math.max(0, Number(l.qte || 0) - qteRepriseHorsEchange(v, l.produit_id)),
+    ca: l.hors_boutique ? 0 : Math.max(0, caLigneVenteBrut(v, l) - reprisOrd(l.produit_id)),
+  }));
+  const rendus = (v?.echange_de?.rendus || []).map((r) => ({
+    produit_id: r.produit_id || null, article: r.article, hors_boutique: false, rendu: true,
+    qte: -Number(r.qte || 0), ca: -Number(r.montant || 0),
+  }));
+  return [...lignes, ...rendus];
+}
 
 // ---- 💰 LE PRIX D'ACHAT DES ARTICLES VENDUS (Timo, 07/10/2026, « c avec
 // l'avertissement ») ----
