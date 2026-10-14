@@ -4,6 +4,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useCallback } from "react";
+import { maintenant } from "../lib/horloge";
 import { fmt, today, dFR, inP, col, totalVente, caVente, caLigneVente, coutDesVentes, avertissementSansPrix, lignesVente, qteVente, resumeArticles, lignesJournal, numeroRecu, estDepotChantier } from "../lib/core";
 // Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
 import { depensesComptees, CATEGORIE_VERSEMENT, horsAchatsDeStock } from "../lib/constants";
@@ -240,15 +241,18 @@ export function Dashboard({ db, profile, save }) {
   // chose partout.
   const moisNoms = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
   const mois6 = [];
-  const now = new Date();
+  // L'heure du SERVEUR (lib/horloge.js), et les mois comptés en heure de Lomé
+  // (GMT) : un mois pris à minuit LOCAL glissait au mois d'avant sur un
+  // appareil réglé à l'est de Lomé.
+  const now = maintenant();
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
     const key = d.toISOString().slice(0, 7);
     const vals = {};
     NOMS_VUES.forEach((b) => {
       vals[b] = chiffreTous.filter((x) => x.boutique === b && String(x.date).slice(0, 7) === key).reduce((s, x) => s + caVente(x), 0);
     });
-    mois6.push({ nom: moisNoms[d.getMonth()], vals });
+    mois6.push({ nom: moisNoms[d.getUTCMonth()], vals });
   }
   const maxV = Math.max(1, ...mois6.flatMap((x) => NOMS_GRAPHE.map((b) => x.vals[b])));
 

@@ -3,6 +3,7 @@
 // achats, son chantier, le parrainage et le fil de discussion.
 // ============================================================
 import { ACOMPTE_POSE_PCT, acomptePose, etatPose, dettePoseDuDevis } from "../lib/poseSeule";
+import { maintenantISO } from "../lib/horloge";
 import { partieClientContrat } from "../lib/clientEntreprise";
 import { civilite } from "../lib/civilite";
 import { useState, useRef } from "react";
@@ -329,7 +330,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
   const signerPv = async (estAvenant) => {
     if (!signaturePvRef.current?.aSigne()) { uAlert("Merci de signer dans le cadre prévu avant de continuer."); return false; }
     const signatureDataUrl = signaturePvRef.current.image();
-    const maintenant = new Date().toISOString();
+    const maintenant = maintenantISO();
     const champs = estAvenant
       ? { avenant_signature: signatureDataUrl, avenant_statut: "signe", avenant_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom }
       : { contrat_signature: signatureDataUrl, contrat_statut: "signe", contrat_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom };

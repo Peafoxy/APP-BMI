@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { fichierPdf, pctRemiseLisible } from "./lib/core";
+import { fichierPdf, pctRemiseLisible, dFR, today } from "./lib/core";
 import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
@@ -67,7 +67,7 @@ export function genererPDF(d, logo) {
   doc.setFontSize(9);
   doc.setTextColor(90, 90, 90);
   doc.text(
-    `Édité le ${new Date().toLocaleDateString("fr-FR")} · ${d.lignes} ligne(s) · BMI-Gestions Boutiques, Lomé`,
+    `Édité le ${dFR(today())} · ${d.lignes} ligne(s) · BMI-Gestions Boutiques, Lomé`,
     xTexte, 21
   );
 

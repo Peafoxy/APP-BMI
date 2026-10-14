@@ -5,6 +5,7 @@
 // et à l'admin principal — helpers dans lib/calculs.js).
 // ============================================================
 import { useState, useEffect } from "react";
+import { maintenantISO } from "../lib/horloge";
 import { CarteChoixPosition } from "../components/Carte";
 import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossier, oublierDossier, viderLocal } from "../db";
 import { synchroniser, reinitialiserDistant } from "../sync";
@@ -1319,7 +1320,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     // elle survit ainsi au vidage que le marqueur déclenche sur chaque appareil.
     await new Promise((r) => setTimeout(r, 1200));
     const trace = {
-      id: uid(), date: new Date().toISOString(), user: profile.nom,
+      id: uid(), date: maintenantISO(), user: profile.nom,
       action: `🧨 RÉINITIALISATION COMPLÈTE ${estAppWindows() ? "depuis le logiciel Windows" : "depuis le site web"} — ${total} enregistrement(s) effacé(s)`,
     };
     save({ ...vide, audits: [trace] }); // un seul envoi : la trace

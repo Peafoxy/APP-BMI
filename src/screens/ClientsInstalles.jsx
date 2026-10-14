@@ -5,6 +5,7 @@
 // répartis entre techniciens avec part majorée du chef de chantier.
 // ============================================================
 import { STATUT_CHANTIER } from "../lib/libellesStatuts";
+import { maintenantISO } from "../lib/horloge";
 import { useState, Fragment } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
@@ -715,7 +716,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === c.id
-        ? { ...x, avenant_jeton: jeton, avenant_jeton_le: new Date().toISOString(), avenant_statut: "attente_signature", reserves_levees_le: today(), reserves_levees_par: profile.nom }
+        ? { ...x, avenant_jeton: jeton, avenant_jeton_le: maintenantISO(), avenant_statut: "attente_signature", reserves_levees_le: today(), reserves_levees_par: profile.nom }
         : x)),
     }, `Avenant de levée de réserves envoyé — ${c.nom} ${c.prenom} (par ${profile.nom})`);
     const r = await envoyerDuNumeroBmi(c, envoiAv);

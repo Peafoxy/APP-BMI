@@ -4,6 +4,7 @@
 // installation, transport), envoi du devis au client via WhatsApp.
 // ============================================================
 import { useState, useEffect } from "react";
+import { maintenantISO } from "../../lib/horloge";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { propositionsComptesDevis, libelleCompteDevis } from "../../lib/clientsConnus";
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, LIBELLE_ROLE_EMPLOYE } from "../../lib/comptesClients";
@@ -602,7 +603,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     const dejaConfie = devisAReprendre?.brouillon_id ? devisAReprendre?.brouillon_confie : null;
     const confie = pourQui ? { par: profile.nom, par_id: profile.id, le: today() } : dejaConfie;
     const devisB = pourQui ? { ...devis, prepare_par: devis.prepare_par || profile.nom } : devis;
-    const brouillon = { id: brouillonRepris || uid(), volet, client, ...(nomBrouillon ? { nom: nomBrouillon } : {}), ...(confie ? { confie } : {}), ...(remplace ? { remplace } : {}), devis: devisB, date: today(), ts: new Date().toISOString() };
+    const brouillon = { id: brouillonRepris || uid(), volet, client, ...(nomBrouillon ? { nom: nomBrouillon } : {}), ...(confie ? { confie } : {}), ...(remplace ? { remplace } : {}), devis: devisB, date: today(), ts: maintenantISO() };
     const titre = nomDuBrouillon(brouillon);
     if (pourQui) {
       // Déplacé, jamais copié : retiré de mes brouillons s'il en venait.

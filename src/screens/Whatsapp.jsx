@@ -21,6 +21,7 @@
 // cet écran ne fait que les montrer. Rien n'a changé d'elles en déménageant.
 // ============================================================
 import React, { useState, useEffect, useRef } from "react";
+import { maintenantISO } from "../lib/horloge";
 import { dFR, today, nouveauMessage } from "../lib/core";
 import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -479,7 +480,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     const r = await enregistrerContactGoogle({ cle: ouverte.cle, nom, tel: ouverte.tel });
     setEnregistre(false);
     if (!r.ok) { uAlert(`❌ Le contact n'a pas été enregistré.\n\n${r.motif}`); return; }
-    const le = new Date().toISOString();
+    const le = maintenantISO();
     save((etat) => {
       const frais = etat.messages || [];
       const fiche = frais.find((m) => m && m.id === idEntete(ouverte.cle));

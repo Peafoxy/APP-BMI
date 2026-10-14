@@ -1719,9 +1719,11 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
     [A.TEXTE_ACCUEIL, ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => choix(n).texte), rP.texte, rD1.texte, rD2.texte, A.reponseAssistant({ etape: A.ETAPE_MENU, texte: "x" }).texte]
       .every((t) => !/dette|cr[ée]dit|solde|mot de passe|identifiant/i.test(t)));
   // ⚠ RETOURNÉ le 01/10/2026 : + la règle des pompes (sans import elle aussi), pour la fiche d'un article.
-  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et ses deux imports sont la règle commune de recherche et celle des pompes",
-    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 2 && /from "\.\/suggestions\.js"/.test(codeA) && /from "\.\/pompes\.js"/.test(codeA)
-    && !/^import /m.test(lire("src/lib/pompes.js")));
+  // ⚠ RETOURNÉ le 14/10/2026 : + lib/horloge.js (l'heure du serveur, sans import elle aussi).
+  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et ses trois imports sont la règle commune de recherche, celle des pompes et l'heure du serveur",
+    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 3 && /from "\.\/suggestions\.js"/.test(codeA) && /from "\.\/pompes\.js"/.test(codeA)
+    && /from "\.\/horloge\.js"/.test(codeA)
+    && !/^import /m.test(lire("src/lib/pompes.js")) && !/^import /m.test(lire("src/lib/horloge.js")));
 
   // ── LA LIGNE QU'IL ÉCRIT
   const lg = A.ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "…", etape: A.ETAPE_MENU, ts: "2026-09-24T10:00:01.000Z" });

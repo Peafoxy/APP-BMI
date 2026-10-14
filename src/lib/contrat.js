@@ -11,11 +11,12 @@
 // ============================================================
 import { uid, today } from "./core";
 import { PLAN_EN_ATTENTE } from "./reglement";
+import { maintenant, maintenantISO } from "./horloge";
 
 // CTR-année-8 caractères : attribué à la signature (ou à l'impression pour
 // une signature papier), puis gardé tel quel — le papier et l'application
 // portent le même numéro.
-export const numeroContrat = () => `CTR-${new Date().getFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
+export const numeroContrat = () => `CTR-${maintenant().getUTCFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
 
 // PV-année-6 caractères de l'identifiant du chantier : le même chantier
 // garde le même numéro de PV, même si le lien est renvoyé.
@@ -40,7 +41,7 @@ export const planReglementSigne = (plan, solde) => (Number(solde || 0) > 0
 // part (première fois ou renvoi).
 export const champsLienPv = (jeton, numero) => ({
   contrat_jeton: jeton,
-  contrat_jeton_le: new Date().toISOString(),
+  contrat_jeton_le: maintenantISO(),
   contrat_numero: numero,
   contrat_statut: "attente_signature",
 });

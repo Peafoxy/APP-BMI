@@ -14,7 +14,7 @@
 // ============================================================
 import { build } from "esbuild";
 import { pathToFileURL } from "node:url";
-import { unlinkSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
+import { unlinkSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 
@@ -12680,14 +12680,16 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
 // disait 16:44 — son appareil était réglé à +2 h. On EXERCE la vraie fonction
 // sous un fuseau décalé, et on interdit toute autre source d'heure.
 {
+  // ⚠ RETOURNÉ le 14/10/2026 : heureCourte passe par lib/horloge.js (l'heure
+  // du serveur) ; on exerce la VRAIE fonction du module, plus une recopie.
   const core = readFileSync("src/lib/core.js", "utf8");
   const m = core.match(/export const heureCourte = \(\) => ([^;]+);/);
+  const CoreTz = await import(pathToFileURL("src/lib/core.js").href);
   let lue = "", attendue = "";
   if (m) {
     const avant = process.env.TZ;
     process.env.TZ = "Africa/Johannesburg";
-    const f = new Function(`return ${m[1]};`);
-    lue = f();
+    lue = CoreTz.heureCourte();
     attendue = new Date().toISOString().slice(11, 16);
     process.env.TZ = avant;
   }
@@ -15965,6 +15967,66 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
     test("★ « G » 🧲 Prospects : « 📅 Planifier une visite » (administrateur ou son commercial) et les visites avec leur compte rendu sous la ligne",
       /onPlanifierVisite && \(isAdmin \|\| p\.commercial === profile\.nom\)/.test(pr) && /data-visites-prospect/.test(pr) && /rendezVousVisibles\(db\.rendez_vous, profile, espace === true\)/.test(pr));
   }
+}
+
+// ====================================================================
+// 🕓 L'HEURE DU SERVEUR, JAMAIS CELLE DE L'APPAREIL (14/10/2026)
+// ====================================================================
+// Timo, ventes de SEVERIN et ERIC : « ces ventes ont considéré l'horloge de
+// l'ordinateur… l'application doit utiliser l'heure du serveur » → « oui lance
+// avec l'avertissement ».
+{
+  console.log("\n🕓 L'heure du serveur");
+  const H = await import(pathToFileURL("src/lib/horloge.js").href);
+  const Ch = await import(pathToFileURL("src/lib/core.js").href);
+  // La mesure : la date du serveur (à la seconde), son âge, le milieu de l'aller-retour.
+  const envoi = Date.parse("2026-10-14T10:00:00.000Z"), reception = envoi + 400;
+  const e1 = H.ecartDepuisReponse({ dateServeur: "Wed, 14 Oct 2026 10:58:00 GMT", age: null, envoi, reception });
+  const e2 = H.ecartDepuisReponse({ dateServeur: "Wed, 14 Oct 2026 10:57:30 GMT", age: "30", envoi, reception });
+  test("★★ l'écart se lit dans la date posée par le serveur, au milieu de l'aller-retour (+0,5 s de la troncature) ; une réponse gardée par le relais compte son âge",
+    e1 === 58 * 60000 + 500 - 200 && e2 === e1);
+  test("★ pas de mesure sans date du serveur, ni quand l'aller-retour dépasse 10 s",
+    H.ecartDepuisReponse({ dateServeur: null, envoi, reception }) === null
+    && H.ecartDepuisReponse({ dateServeur: "Wed, 14 Oct 2026 10:58:00 GMT", envoi, reception: envoi + 11000 }) === null);
+  test("★ moins de 2 secondes n'est pas un écart (la précision de la mesure)", H.poserEcartHorloge(1500) === 0 && H.poserEcartHorloge(-1999) === 0);
+  // ⚠ LE CŒUR : today() et heureCourte() retirent l'écart. Une horloge d'appareil
+  // qui a 1 h d'AVANCE (écart négatif) écrit l'heure du serveur.
+  const vraiNow = Date.now;
+  let heureVue = "", dateVue = "", tsVu = "";
+  try {
+    Date.now = () => Date.parse("2026-10-14T23:30:00.000Z"); // l'appareil croit 23:30
+    H.poserEcartHorloge(-60 * 60000);                      // il a 1 h d'avance
+    heureVue = Ch.heureCourte(); dateVue = Ch.today(); tsVu = Ch.nouveauMessage({ id: "u", nom: "X" }, {}).ts;
+  } finally { Date.now = vraiNow; H.poserEcartHorloge(0); }
+  test("★★★ une vente faite sur un appareil qui a 1 h d'avance (il croit 23:30) s'écrit à 22:30, et le BON jour (pas le lendemain) : heureCourte, today et l'heure d'un message passent par l'heure du serveur",
+    heureVue === "22:30" && dateVue === "2026-10-14" && String(tsVu).startsWith("2026-10-14T22:30"));
+  test("★ la bande dit l'écart et le sens, au-delà de 5 minutes seulement",
+    !H.horlogeAAvertir(4 * 60000) && H.horlogeAAvertir(-6 * 60000)
+    && /58 min d'avance/.test(H.phraseEcartHorloge(-58 * 60000)) && /2 h 05 de retard/.test(H.phraseEcartHorloge(125 * 60000))
+    && /fuseau horaire/.test(H.phraseEcartHorloge(-58 * 60000)));
+  const sansCom = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/([^:"'`])\/\/.*$/gm, "$1");
+  test("★★ lib/horloge.js n'importe rien (lu aussi par le serveur, où l'écart reste à 0) ; core.js prend sa date et son heure chez elle",
+    !/^import /m.test(readFileSync("src/lib/horloge.js", "utf8"))
+    && /export const today = \(\) => maintenantISO\(\)\.slice\(0, 10\)/.test(readFileSync("src/lib/core.js", "utf8"))
+    && /export const heureCourte = \(\) => maintenantISO\(\)\.slice\(11, 16\)/.test(readFileSync("src/lib/core.js", "utf8")));
+  // ⚠ CONTRÔLE GÉNÉRAL : aucune date écrite par l'horloge brute de l'appareil.
+  // Restent permis : la synchronisation (sync.js, db.js — ses heures de travail
+  // ne s'écrivent sur aucun document), la règle et sa mesure, et les règles
+  // SANS IMPORT dont la valeur par défaut ne sert qu'à LIRE (conservation,
+  // corbeille, effacement, règlement, suivi d'envoi côté serveur).
+  const PERMIS = new Set(["src/sync.js", "src/db.js", "src/lib/horloge.js", "src/horloge.js", "src/lib/conservation.js", "src/lib/corbeille.js", "src/lib/effacementClient.js", "src/lib/reglement.js", "src/lib/suiviEnvoi.js"]);
+  const fautifs = [];
+  const parcourir = (d) => { for (const n of readdirSync(d)) { const f = `${d}/${n}`; if (statSync(f).isDirectory()) parcourir(f); else if (/\.(jsx?|mjs)$/.test(n) && !PERMIS.has(f) && /new Date\(\)/.test(sansCom(readFileSync(f, "utf8")))) fautifs.push(f); } };
+  parcourir("src");
+  test("★★ CONTRÔLE GÉNÉRAL : aucun écran, aucune règle ne lit l'horloge brute de l'appareil (« new Date() ») pour écrire une date — tout passe par lib/horloge.js" + (fautifs.length ? ` (fautifs : ${fautifs.join(", ")})` : ""), fautifs.length === 0);
+  const appH = readFileSync("src/App.jsx", "utf8");
+  test("★★ App mesure l'écart (surveillerHorloge) AVANT le retour anticipé, et la bande « 🕓 » s'affiche au-delà de 5 minutes",
+    appH.indexOf("surveillerHorloge();") > 0 && appH.indexOf("surveillerHorloge();") < appH.indexOf("if (!db) return")
+    && /horlogeAAvertir\(ecartHeure\) && \(\s*<div data-horloge-faussee/.test(appH) && /phraseEcartHorloge\(ecartHeure\)/.test(appH));
+  const mes = readFileSync("src/horloge.js", "utf8");
+  test("★ la mesure lit la date du SERVEUR (version.json, jamais gardé), garde le dernier écart sur l'appareil et le réapplique au chargement (hors connexion)",
+    /version\.json\?horloge=/.test(mes) && /cache: "no-store"/.test(mes) && /headers\.get\("date"\)/.test(mes) && /headers\.get\("age"\)/.test(mes)
+    && /localStorage\.getItem\(CLE_ECART_HORLOGE\)/.test(mes) && /localStorage\.setItem\(CLE_ECART_HORLOGE/.test(mes));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

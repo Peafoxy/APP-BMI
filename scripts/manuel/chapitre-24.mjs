@@ -10,7 +10,8 @@
 // src/db.js (la copie locale, compterEnAttente), screens/Connexion.jsx
 // (la connexion sans réseau), src/push.js (la file des notifications,
 // 24 h), src/whatsapp.js (le repli WhatsApp), src/main.jsx (« Nouvelle
-// version disponible »), screens/Parametres.jsx (🔁 Synchronisation forcée).
+// version disponible »), screens/Parametres.jsx (🔁 Synchronisation forcée),
+// lib/horloge.js et src/horloge.js (l'heure du serveur, 14/10/2026).
 // Le verrou et la session sécurisée sont au chapitre 1.
 // ============================================================
 export const CHAPITRE = {
@@ -126,7 +127,7 @@ export const CHAPITRE = {
         "**L'envoi se retente** au retour du réseau, toutes les 20 secondes, et au réveil de l'appareil ; la session est renouvelée au passage.",
         "**À chaque synchronisation**, l'appareil reçoit ce que les autres ont fait, et retire ce que le serveur ne lui accorde plus.",
         "**Après une mise à jour**, chaque appareil se resynchronise en entier au premier démarrage.",
-        "**Les heures écrites** sont celles de Lomé, même si l'appareil est mal réglé.",
+        "**Les heures écrites** sont celles du serveur, à l'heure de Lomé, même si l'horloge de l'appareil est fausse : l'écart est mesuré à chaque connexion et **le dernier écart mesuré reste appliqué hors connexion**. Seul un appareil qui ne s'est jamais connecté depuis la version 2.101.556 écrit avec sa propre horloge.",
         "**Les numéros de reçu en double** sont renumérotés tout seuls, avec une trace.",
       ]],
     ]},

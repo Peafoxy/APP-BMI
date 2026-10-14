@@ -8,6 +8,7 @@
 // modification de logique.
 // ============================================================
 
+import { maintenantISO } from "./horloge.js";
 import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees, MOYENS_ENCAISSEMENT, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL } from "./constants.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -665,7 +666,7 @@ export const SYSTEME = { id: "bmi-systeme", nom: "BMI TOGO", systeme: true };
 export const nouveauMessage = (de, champs = {}) => ({
   id: uid(),
   date: today(),
-  ts: new Date().toISOString(),
+  ts: maintenantISO(),
   de_id: de?.id ?? null,
   de_nom: de?.nom || "Système",
   lu_par: de?.id && !de.systeme ? [de.id] : [],
@@ -715,7 +716,9 @@ export const nombreFr = (n, unite = "") => {
   const texte = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(Number(n));
   return unite ? `${texte} ${unite}` : texte;
 };
-export const today = () => new Date().toISOString().slice(0, 10);
+// ⚠ La date du SERVEUR (14/10/2026) : `maintenantISO` retire l'écart mesuré
+// entre l'horloge de l'appareil et celle du serveur (lib/horloge.js).
+export const today = () => maintenantISO().slice(0, 10);
 // Le numéro d'un bulletin de paie : UNE règle, lue par le bulletin imprimé
 // et par l'avis de salaire WhatsApp (sa référence quand aucune n'est tapée).
 export const numeroBulletin = (mois, userId) => `BP-${String(mois || "").replace("-", "")}-${String(userId || "").slice(0, 4).toUpperCase()}`;
@@ -727,7 +730,9 @@ export const dFR = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse()
 // l'heure universelle (GMT+0, sans heure d'été) : on la lit comme `today()`
 // lit la date, sur la MÊME source, pour que date et heure ne divergent plus.
 // Toute heure écrite sur une ligne (vente, versement, devis…) passe par ici.
-export const heureCourte = () => new Date().toISOString().slice(11, 16);
+// ⚠ Et depuis le 14/10/2026 (ventes de SEVERIN et ERIC), l'heure du SERVEUR :
+// une horloge d'appareil fausse ne change plus rien (lib/horloge.js).
+export const heureCourte = () => maintenantISO().slice(11, 16);
 
 // ============ LE NOM DES DOCUMENTS (impression et téléchargement) ============
 // ⚠ UNE SEULE RÈGLE (demande Timo, 04/09/2026 : « que le nom du client fasse

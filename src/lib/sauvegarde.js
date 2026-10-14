@@ -5,6 +5,7 @@
 import { today } from "./core";
 import { marquerSauvegardeAuto, TABLES } from "../db";
 import { fusionnerCorbeille } from "./corbeille";
+import { maintenantISO } from "./horloge";
 
 // Le fichier de sauvegarde ne contient QUE les vraies tables — jamais les
 // champs techniques du db en mémoire (ex. __index du lot D, qui contient des
@@ -58,7 +59,7 @@ export async function ecrireDansDossier(db, handle, { demander = false } = {}) {
   }
   const fichier = await handle.getFileHandle(NOM_FICHIER_AUTO, { create: true });
   const flux = await fichier.createWritable();
-  await flux.write(JSON.stringify({ ...donneesTables(db), _sauvegarde: new Date().toISOString() }, null, 1));
+  await flux.write(JSON.stringify({ ...donneesTables(db), _sauvegarde: maintenantISO() }, null, 1));
   await flux.close();
   await marquerSauvegardeAuto();
 }

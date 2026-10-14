@@ -28,6 +28,7 @@ import { clientsSansSuite, clientsSansActivite, dossierClient } from "./effaceme
 import { modeRetenue, retenueSurPaiement, appliquerRetenues } from "./outillage";
 import { fondsAVerser, critiqueSortieTiroir, DEST_DG, DEST_BANQUE } from "./versements";
 import { PAYE_AVEC_DG } from "./validationDepenses";
+import { maintenant, maintenantISO, maintenantMs } from "./horloge.js";
 // ⚠ IMPORT **ET** RÉEXPORT — la deuxième fois que ce piège se présente le
 // même jour. Un import ne rend pas la fonction disponible aux écrans qui
 // importent depuis calculs.js : il faut le dire explicitement. La première
@@ -1574,7 +1575,7 @@ export const derniereActivite = (p) => p.maj_le || p.date;
 export const joursSansActivite = (p) => {
   const d = Date.parse(derniereActivite(p));
   if (Number.isNaN(d)) return 0;
-  return Math.floor((Date.now() - d) / 86400000);
+  return Math.floor((maintenantMs() - d) / 86400000);
 };
 export const estDormant = (p) => !p.converti && !p.archive && joursSansActivite(p) >= SEUIL_DORMANT_JOURS;
 
@@ -2168,7 +2169,7 @@ export const critiqueModifProforma = (db, pf, profile) => {
   if (profile?.role !== "admin" && proformaAuDelaDuPlafond(pf)) return `La proforma N° ${pf.numero} porte une remise de plus de ${PLAFOND_REMISE_PCT} % : seul l'administrateur peut la modifier.`;
   return "";
 };
-export const proformaModifiee = (avant, nouvelle, profile, quand = new Date().toISOString()) => {
+export const proformaModifiee = (avant, nouvelle, profile, quand = maintenantISO()) => {
   const { historique_modif, ...ancienne } = avant || {};
   return {
     ...avant,
@@ -3105,10 +3106,10 @@ export const libelleMoisFR = (m) => {
 };
 
 export function periodes() {
-  const now = new Date();
+  const now = maintenant();
   const iso = (d) => d.toISOString().slice(0, 10);
   const t = iso(now);
-  const lundi = new Date(now); lundi.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const lundi = new Date(now); lundi.setUTCDate(now.getUTCDate() - ((now.getUTCDay() + 6) % 7));
   return [
     ["Aujourd'hui", t, t],
     ["Cette semaine", iso(lundi), t],

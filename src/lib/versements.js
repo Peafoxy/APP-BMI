@@ -17,7 +17,7 @@
 // négatif, convention déjà en place) est posée dans la caisse du comptable,
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
-import { nouvelleDepense, nouveauMessage, uid, fmt, dFR, heureCourte } from "./core.js";
+import { nouvelleDepense, nouveauMessage, uid, fmt, dFR, heureCourte, today } from "./core.js";
 import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen, caisseDeVente } from "./constants.js";
 import { compteDansLaCaisse } from "./validationDepenses.js";
 
@@ -228,11 +228,11 @@ export function construireVersement(profile, { boutique, montant, destination, b
   // quelle). Sans elle, l'argent quitterait le compte mobile sans arriver
   // nulle part.
   const entree = destination === DEST_TIROIR
-    ? nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description: `Retrait ${mobileParMoyen(source)?.court || source} du ${dFR(new Date().toISOString().slice(0, 10))} — entré dans le tiroir de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
+    ? nouvelleDepense(profile, { boutique, categorie: CATEGORIE_VERSEMENT, description: `Retrait ${mobileParMoyen(source)?.court || source} du ${dFR(today())} — entré dans le tiroir de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
     : destination === DEST_COMPTABLE
     // Chez le comptable : « Versement du <date> reçu de … », l'écart et la
     // justification suivent — jamais un intervalle (Timo, 09/09/2026).
-    ? nouvelleDepense(profile, { boutique: DEST_COMPTABLE, categorie: CATEGORIE_VERSEMENT, description: `Versement du ${dFR(new Date().toISOString().slice(0, 10))} reçu de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
+    ? nouvelleDepense(profile, { boutique: DEST_COMPTABLE, categorie: CATEGORIE_VERSEMENT, description: `Versement du ${dFR(today())} reçu de ${boutique} (par ${profile.nom})${complement ? ` — ${complement}` : ""}`, montant: -Number(montant), moyen: "Espèces", versement_id: id })
     : null;
   return { sortie, entree, versement };
 }

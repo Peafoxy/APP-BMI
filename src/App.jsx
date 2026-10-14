@@ -142,6 +142,8 @@ import {
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
 import { exportCSV } from "./lib/export";
+import { maintenantISO, ecartHorloge, horlogeAAvertir, phraseEcartHorloge } from "./lib/horloge";
+import { surveillerHorloge, ecouterEcartHorloge } from "./horloge";
 
 // ⚠ Demande Timo (09/09/2026) : plus de DÉCONNEXION automatique par
 // inactivité (avant : 30 min sur PC, 5 sur Android). À la place, un VERROU :
@@ -314,7 +316,7 @@ export default function App() {
       for (const c of aEnvoyer) {
         const r = await envoyerModele({ tel: c.tel, modele: c.envoi.modele, variables: c.envoi.variables, espaceFormation: false, sansRepli: true });
         if (!r.auto) { console.warn("[commission due] pas partie :", c.nom, r.motif || ""); continue; }
-        const quand = new Date().toISOString();
+        const quand = maintenantISO();
         save((etat) => ({
           ...marquerCommissionAvisee(etat, c.ref, quand),
           messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: c.tel, nom: c.nom, modele: c.envoi.modele, variables: c.envoi.variables, ref: { commission_ref: c.ref }, envoi: r }),
@@ -483,7 +485,7 @@ export default function App() {
       ...donnees,
       ventes: r.ventes,
       audits: [{
-        id: uid(), date: new Date().toISOString(), user: "Système",
+        id: uid(), date: maintenantISO(), user: "Système",
         action: `Collision de numéros de reçu réparée (ventes hors ligne simultanées) : ${r.corrections.map((c) => `${c.ancien} → ${c.nouveau}`).join(", ")}`,
       }, ...(donnees.audits || [])],
     };
@@ -662,6 +664,17 @@ export default function App() {
   // d'inactivité viendra de lui-même, et le mot de passe rouvrira la
   // session à ce moment-là (deverrouiller regarde etatAuth.sessionPerdue).
   const sessionAretablir = !!profile && sync.sessionPerdue === true && !verrouille;
+  // 🕓 L'HEURE DU SERVEUR (14/10/2026, ventes de SEVERIN et ERIC : « l'application
+  // doit utiliser l'heure du serveur ») : l'écart de l'horloge de l'appareil est
+  // mesuré (src/horloge.js) et retiré de toute date et heure écrite
+  // (lib/horloge.js). Au-delà de 5 minutes, une bande le DIT (décision Timo).
+  const [ecartHeure, setEcartHeure] = useState(() => ecartHorloge());
+  useEffect(() => {
+    surveillerHorloge();
+    setEcartHeure(ecartHorloge());
+    const arreter = ecouterEcartHorloge(setEcartHeure);
+    return () => { arreter(); };
+  }, []);
   const derniereActiviteRef = useRef(Date.now());
   // ⚠ Timo (11/09/2026) : « cette page survit toujours, et dès que je rentre
   // le mot de passe, la page d'accueil revient ». La fermeture des 30 min
@@ -870,7 +883,7 @@ export default function App() {
       // lot d'écritures (validation de devis comprise). La règle serveur
       // laisse désormais passer les lignes dont l'auteur est le compte
       // lui-même : il faut donc signer chaque ligne de son identifiant.
-      ? { ...next, audits: [{ id: uid(), date: new Date().toISOString(), user: profile?.nom || "Système", user_id: profile?.id || null, action, ...marqueEspace(next, profile) }, ...(next.audits || [])] }
+      ? { ...next, audits: [{ id: uid(), date: maintenantISO(), user: profile?.nom || "Système", user_id: profile?.id || null, action, ...marqueEspace(next, profile) }, ...(next.audits || [])] }
       : next;
     setDb(final);
     // Notifications : LE seul endroit qui décide d'un envoi — comparaison de
@@ -1309,6 +1322,11 @@ export default function App() {
       {!peutEcrire(db, profile) && (
         <div className="mb-4 rounded-lg border border-slate-300 bg-slate-100 px-4 py-2 text-sm text-slate-700">
           🔒 <b>Compte en lecture seule.</b> Vous pouvez consulter les données et faire les exports, mais pas créer, modifier ni supprimer.
+        </div>
+      )}
+      {horlogeAAvertir(ecartHeure) && (
+        <div data-horloge-faussee className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          🕓 {phraseEcartHorloge(ecartHeure)}
         </div>
       )}
       {sync.enLigne && sync.enAttente > 0 && sync.erreur && (

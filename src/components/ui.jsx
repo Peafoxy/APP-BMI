@@ -7,6 +7,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useEffect, useRef } from "react";
+import { maintenantISO } from "../lib/horloge";
 import { createPortal } from "react-dom";
 import { col, light, moyensProposes } from "../lib/core";
 import { LOGO, libelleCaisse } from "../lib/constants";
@@ -472,10 +473,10 @@ export const demanderMoyenPaiement = (complement = "", defaut = "Espèces", libe
 // nettoyée, "" si facultatif et laissé vide, null si annulé ou refusé.
 export const estMoisValide = (t) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(t ?? "").trim());
 export const estDateValide = (t) => /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(String(t ?? "").trim());
-export const demanderMois = async (question, defaut = new Date().toISOString().slice(0, 7)) => {
+export const demanderMois = async (question, defaut = maintenantISO().slice(0, 7)) => {
   const m = await uPrompt(`${question} (AAAA-MM) :`, defaut);
   if (m === null || m === undefined || !String(m).trim()) return null;
-  if (!estMoisValide(m)) { uAlert(`Format attendu : AAAA-MM (ex : ${new Date().toISOString().slice(0, 7)}).`); return null; }
+  if (!estMoisValide(m)) { uAlert(`Format attendu : AAAA-MM (ex : ${maintenantISO().slice(0, 7)}).`); return null; }
   return String(m).trim();
 };
 export const demanderDate = async (question, defaut = "", facultatif = false) => {
@@ -483,7 +484,7 @@ export const demanderDate = async (question, defaut = "", facultatif = false) =>
   if (d === null || d === undefined) return null;
   const t = String(d).trim();
   if (!t) return facultatif ? "" : null;
-  if (!estDateValide(t)) { uAlert(`Format attendu : AAAA-MM-JJ (ex : ${new Date().toISOString().slice(0, 10)}).`); return null; }
+  if (!estDateValide(t)) { uAlert(`Format attendu : AAAA-MM-JJ (ex : ${maintenantISO().slice(0, 10)}).`); return null; }
   return t;
 };
 

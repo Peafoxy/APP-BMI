@@ -12,6 +12,7 @@
 // (supabase/rendez-vous-1-table.sql), l'écran ne fait que le redire.
 // ============================================================
 import { useEffect, useState } from "react";
+import { maintenantISO } from "../lib/horloge";
 import { uid, today, dFR } from "../lib/core";
 import { Panel, Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, FormulaireRepliable, PanneauQuiSeMontre } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -165,7 +166,7 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
     }
     const base = edition
       ? { ...edition, ...brouillon(), prospect_id: f.visite ? f.prospect_id : "", client_user_id: f.visite ? f.client_user_id : "", client_nom: f.visite ? f.client_nom : "", client_tel: f.visite ? f.client_tel : "", modifie_le: today(), modifie_par: profile.nom }
-      : nouveauRendezVous({ profile, formation, id: `rdv_${uid()}`, maintenant: new Date().toISOString(), champs: { ...f, type: vue } });
+      : nouveauRendezVous({ profile, formation, id: `rdv_${uid()}`, maintenant: maintenantISO(), champs: { ...f, type: vue } });
     const motif = critiqueRendezVous(base, { aujourdhui, creation: !edition });
     if (motif) { uAlert(motif); return; }
     const cfl = conflitsRendezVous({ rdv: base, rendezVous: tous, chantiers, nomDe });

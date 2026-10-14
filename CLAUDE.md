@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2629 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2638 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -4712,6 +4712,35 @@ lit mal est pire qu'un banc absent).
   `toTimeString` / `getHours` dans ces fichiers (éprouvé : il tombe).
 - ⚠ Les lignes déjà écrites gardent leur heure décalée. Régler quand même
   l'appareil : le reste du téléphone (WhatsApp, rappels) garde sa fausse heure.
+
+### 🕓 L'HEURE DU SERVEUR, JAMAIS CELLE DE L'APPAREIL (14/10/2026, « oui lance avec l'avertissement »)
+- Capture Timo (ventes de SEVERIN et ERIC) : « ces ventes ont considéré
+  l'horloge de l'ordinateur… l'application doit utiliser l'heure du serveur ».
+  `today()` / `heureCourte()` lisaient l'horloge de l'APPAREIL (en GMT) : un PC
+  réglé sur le mauvais fuseau mais qui AFFICHE la bonne heure a, pour le
+  monde, une heure d'avance — vente à la mauvaise heure, voire au lendemain.
+- Règle pure **`lib/horloge.js`** (SANS import, lue par le serveur où l'écart
+  reste 0) : `maintenant` / `maintenantISO` / `maintenantMs` retirent l'écart ;
+  `ecartDepuisReponse` (en-têtes « Date » + « Age » de la réponse, milieu de
+  l'aller-retour, +0,5 s ; null si > 10 s) ; < 2 s = 0. **`src/horloge.js`** est
+  le SEUL à mesurer : `version.json?horloge=…` (no-store), à l'ouverture, toutes
+  les 10 min, au retour du réseau et au réveil ; le dernier écart est gardé
+  (`bmi_ecart_horloge`) et RÉAPPLIQUÉ au chargement → juste hors connexion.
+  Un appareil jamais mesuré écrit avec sa propre horloge (seul cas).
+- `today`, `heureCourte`, `nouveauMessage.ts`, journal, contrats, coches,
+  fenêtre de 24 h, périodes, six mois du tableau de bord (désormais en GMT)…
+  passent par elle. **Contrôle GÉNÉRAL** : aucun `new Date()` dans src hors
+  sync.js, db.js, horloge, et les règles sans import dont le défaut ne sert
+  qu'à LIRE (conservation, corbeille, effacementClient, reglement, suiviEnvoi).
+  `Date.now()` reste pour les DURÉES (verrou, file) : ce sont des écarts.
+- **La bande 🕓** (ambre, `data-horloge-faussee`, App.jsx) au-delà de 5 min :
+  « L'horloge de cet appareil a 58 min d'avance… réglez… fuseau Lomé (GMT) ».
+- ⚠ Les lignes déjà écrites gardent leur heure (requête de LECTURE donnée à
+  Timo pour comparer à l'heure d'arrivée au serveur). Rien à coller. Banc (+9),
+  éprouvé (heure brute remise, `new Date()` dans un écran, âge ignoré) ; deux
+  contrôles RETOURNÉS (heureCourte exercée dans le module, les imports de
+  l'assistant). Mesuré dans Chromium (horloge +1 h → écart −3 599 s).
+  Chapitres 24 et 25 à jour.
 
 ### 🏠 LE LOYER D'UN LOCAL LOUÉ (25/09/2026)
 - Timo : « un onglet où on renseigne le loyer de chaque boutique, pour gérant

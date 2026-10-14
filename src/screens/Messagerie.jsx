@@ -3,6 +3,7 @@
 // synchronisation) : fils par client, groupes, visibilité par rôle.
 // ============================================================
 import React, { useState } from "react";
+import { maintenantISO } from "../lib/horloge";
 import { Clients } from "../screens/Clients";
 import { uid, today, dFR, col, nouveauMessage } from "../lib/core";
 import { Field, inputCls, btnDark, uConfirm, useFilSurSaFin } from "../components/ui";
@@ -128,7 +129,7 @@ export function Messagerie({ db, save, profile }) {
     if (refuserSaufAdmin(profile, "Créer un groupe de discussion")) return;
     const n = nom.trim();
     if (!n) return;
-    const g = { id: uid(), nom: n, membres: [...new Set([profile.id, ...membresChoisis])], createur_id: profile.id, createur_nom: profile.nom, date: today(), ts: new Date().toISOString() };
+    const g = { id: uid(), nom: n, membres: [...new Set([profile.id, ...membresChoisis])], createur_id: profile.id, createur_nom: profile.nom, date: today(), ts: maintenantISO() };
     save({ ...db, groupes: [g, ...groupes] }, `Groupe « ${n} » créé par ${profile.nom}`);
     setCreationGroupe(false);
     ouvrir({ type: "groupe", id: g.id });

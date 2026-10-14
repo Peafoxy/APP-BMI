@@ -29,6 +29,7 @@
 // api/whatsapp-entrant.js, donc ses imports portent leur « .js ».
 // ============================================================
 import { numeroComparable, cleIdentifiant } from "./identiteClient.js";
+import { maintenantISO } from "./horloge.js";
 
 export const CANAL_WA = "whatsapp";
 
@@ -185,7 +186,7 @@ export const dernierEntrant = (fil) => {
   return entrants.length ? entrants[entrants.length - 1] : null;
 };
 
-export function fenetre(fil, maintenant = new Date().toISOString()) {
+export function fenetre(fil, maintenant = maintenantISO()) {
   const dernier = dernierEntrant(fil);
   if (!dernier) return { ouverte: false, resteMinutes: 0, jamais: true };
   const debut = Date.parse(dernier.ts || "");
@@ -359,7 +360,7 @@ export const peutReattribuer = (profile) => profile?.role === "admin";
 // ---------------------------------------------------------------
 // Rend, de la plus récente à la plus ancienne :
 //   { cle, tel, nom, proprietaire_id, proprietaire_nom, fil, fenetre, derniere, nonLus }
-export function conversationsWa(messages, profile, maintenant = new Date().toISOString(), { espaceFormation = false } = {}) {
+export function conversationsWa(messages, profile, maintenant = maintenantISO(), { espaceFormation = false } = {}) {
   // ⚠⚠ CE GARDE-FOU EST INDISPENSABLE DEPUIS LE 21/09/2026, et il n'est pas
   // une précaution de style : sans lui, un compte qui n'a AUCUN droit sur
   // 📲 WhatsApp (le client, le comptable) verrait toutes les conversations

@@ -5,6 +5,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useEffect } from "react";
+import { maintenantISO } from "../lib/horloge";
 import { correspond } from "../lib/suggestions";
 import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
@@ -405,7 +406,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const construireProforma = () => ({
     // ✏️ Une proforma modifiée GARDE son numéro.
     numero: proformaEnModif?.numero || numeroProforma(),
-    date: new Date().toLocaleDateString("fr-FR"),
+    date: dFR(today()),
     boutique,
     client: f.client || "",
     tel: f.tel || "",
@@ -454,7 +455,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       return true;
     }
     // On garde une trace (liste visible par vendeur / resp. commercial / admin).
-    const ligne = { id: uid(), date: today(), ts: new Date().toISOString(),
+    const ligne = { id: uid(), date: today(), ts: maintenantISO(),
       numero: pf.numero, boutique, client: pf.client, tel: pf.tel, ...champsIdentite(pf),
       sous_total: pf.sous_total, remise_pct: pf.remise_pct, remise_montant: pf.remise_montant,
       total: pf.total, lignes: pf.lignes, par: profile.nom, par_id: profile.id };

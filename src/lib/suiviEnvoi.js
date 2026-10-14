@@ -24,6 +24,7 @@
 // Règle pure, lue par le serveur : imports écrits avec `.js`.
 // ============================================================
 import { traduireMotifWhatsApp } from "./whatsappModeles.js";
+import { maintenantISO } from "./horloge.js";
 
 // Le rang dit l'ordre : on ne descend jamais. Un échec après « reçu » ne
 // peut pas arriver ; s'il arrivait, on garderait « reçu ».
@@ -54,7 +55,7 @@ export function lireStatut(corps) {
   const id = String(m.id || "");
   const wamid = String(m.wamid || "");
   if (!id && !wamid) return null;
-  const le = iso(etat === "lu" ? m.readTime : etat === "recu" ? m.deliverTime : "") || iso(m.updateTime) || iso(c.createTime) || new Date().toISOString();
+  const le = iso(etat === "lu" ? m.readTime : etat === "recu" ? m.deliverTime : "") || iso(m.updateTime) || iso(c.createTime) || maintenantISO();
   return { id, wamid, etat, le, code: m.errorCode ?? m.error?.code ?? "", motif_brut: String(m.errorMessage || m.error?.message || "") };
 }
 
@@ -79,7 +80,7 @@ export function champsEnvoi(r) {
   const id = String(r?.id || "");
   const wamid = String(r?.wamid || "");
   if (!id && !wamid) return {};
-  return { ...(id ? { wa_envoi_id: id } : {}), ...(wamid ? { wa_wamid: wamid } : {}), wa_statut: { etat: "envoye", le: new Date().toISOString() } };
+  return { ...(id ? { wa_envoi_id: id } : {}), ...(wamid ? { wa_wamid: wamid } : {}), wa_statut: { etat: "envoye", le: maintenantISO() } };
 }
 
 // Un numéro de suivi ne sert que dans un filtre de la base : on n'y laisse

@@ -53,6 +53,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 |---|---|
 | `lib/calculs.js` | Le gros des calculs métier : stock, boutiques, rôles, espaces, remises, index |
 | `lib/core.js` | Les briques de base : montants, dates, numéros, WhatsApp, messages, dépenses, statut d'une dette |
+| `lib/horloge.js` | L'heure du SERVEUR : l'écart de l'horloge de l'appareil, retiré de toute date et heure écrite ; l'avertissement au-delà de 5 min (sans import) |
 | `lib/panier.js` | Le panier d'une vente ou d'une commande |
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
 | `lib/importStock.js` | L'importation d'articles en stock (Excel ou texte collé) |
@@ -170,6 +171,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `src/pdf.js` | Les PDF fabriqués (devis commercial, relevés, rapports) |
 | `src/retour.js` | La touche retour d'Android — **le seul endroit** qui écrit dans la liste des pages du téléphone (`useRetour`, `useRetourOnglets`) |
 | `src/push.js` | Les notifications sur l'appareil — **le seul endroit** où `Notification` et `pushManager` existent |
+| `src/horloge.js` | La MESURE de l'écart avec l'heure du serveur (date de la réponse de version.json), gardée sur l'appareil pour le hors-connexion |
 | `src/whatsapp.js` | 📲 L'envoi d'un message du numéro BMI — **le seul endroit** qui appelle le serveur WhatsApp, et qui replie sur l'ouverture WhatsApp si ça rate |
 | `src/screens/` | Un écran par onglet (dont `InventaireVentes.jsx` : 📋 Inventaire, le second bouton de 💰 Ventes, et 📊 INVENTAIRE GÉNÉRAL de l'administrateur ; `MesDonnees.jsx` : 🔒 Mes données, l'onglet du client à côté de 💬 Messages ; `Whatsapp.jsx` : 📲 WhatsApp, séparé de 💬 Messages le 20/09/2026 ; `ArgentRecu.jsx` : 💼 Argent reçu, l'onglet de qui a reçu de l'argent ; et `RendezVous.jsx` : 📅 Rendez-vous, pro ou privé, pour tout le personnel) |
 | `api/` | Les fonctions serveur (Vercel) : connexion, filleuls, tournée du matin (`rappels-du-matin.js`, 7 h) et du soir (`rappels-du-soir.js`, 17 h : le rappel des anniversaires de demain ; appelée aussi à 14 h avec `?tournee=rendez-vous` : les rendez-vous de demain), les rappels des rendez-vous écrits une fois pour les deux (`_rendezVous.js`), la lecture d'une table entière écrite une fois pour les deux (`_tables.js`), envoi WhatsApp (`whatsapp.js`, qui garde la clé YCloud), réception (`whatsapp-entrant.js`, qui fait aussi répondre l'assistant), la porte vers YCloud écrite une fois (`_ycloud.js`, qui dépose aussi un fichier envoyé au client), la porte vers le service d'IA écrite une fois (`_assistantIA.js` — la SEULE à lire la clé `ANTHROPIC_API_KEY` et le nom du modèle `ASSISTANT_IA_MODELE`, variables Vercel) et ouverture d'un fichier reçu (`whatsapp-media.js`) |

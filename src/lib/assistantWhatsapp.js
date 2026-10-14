@@ -57,6 +57,7 @@ import { correspond, sansAccents } from "./suggestions.js";
 // La règle des pompes (sans import elle aussi) : c'est la CATÉGORIE qui fait
 // une pompe, jamais le nom — même règle que 📦 Stocks.
 import { estPompe } from "./pompes.js";
+import { maintenantISO } from "./horloge.js";
 
 export const NOM_ASSISTANT = "Assistant BMI TOGO";
 // Le `de_id` des lignes qu'il écrit : jamais celui d'une personne.
@@ -448,7 +449,7 @@ export function attenteConseiller(fil) {
   return null;
 }
 // « depuis 12 min », « depuis 2 h 05 », « depuis 3 j » — jamais un nombre négatif.
-export function libelleAttente(depuis, maintenant = new Date().toISOString()) {
+export function libelleAttente(depuis, maintenant = maintenantISO()) {
   const ms = Date.parse(maintenant) - Date.parse(depuis || "");
   if (!Number.isFinite(ms)) return "";
   const min = Math.max(0, Math.floor(ms / 60000));
