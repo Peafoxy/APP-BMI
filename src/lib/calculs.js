@@ -899,22 +899,46 @@ export async function choisirBoutiqueDebitG(db, u, titre, profile, opts = {}) {
   // même en formation, et une dépense d'entraînement pouvait débiter la vraie
   // caisse du comptable — que le verrou de cloisonnement laisse passer,
   // justement parce qu'elle n'a pas de jumelle (relevé le 29/08/2026).
-  const options = espaceDuCompte(db, profile) ? noms : [...noms, NOM_CAISSE_COMPTABLE];
+  // 🏗 `opts.avecDepotChantier` (14/10/2026, Timo : « pourquoi le dépôt chantier
+  // n'est pas proposé pour débiter les frais d'installation ? » → « A oui ») :
+  // la part d'installation d'un chantier peut sortir de la caisse 🏗 DÉPÔT
+  // CHANTIER de l'espace REGARDÉ (le mur : boutiquesVisibles). Elle s'affiche
+  // par son libellé, la fonction rend toujours le NOM rangé dans la base.
+  const depot = opts.avecDepotChantier
+    ? (boutiquesVisibles(db, profile, (db.boutiques || []).filter((b) => b.terrain))[0]?.nom || null)
+    : null;
+  const options = [...(espaceDuCompte(db, profile) ? noms : [...noms, NOM_CAISSE_COMPTABLE]), ...(depot ? [depot] : [])];
   if (options.length === 0) {
     uAlert("Aucune caisse disponible pour votre espace de travail.\n\nDemandez à l'administrateur de créer une boutique correspondante avant d'enregistrer ce paiement.");
     return null;
   }
   if (options.length === 1) return options[0];
+  const aLecran = (n) => (n === depot ? libelleCaisse(n) : n);
+  const versNom = (choix) => (choix === null || choix === undefined ? null : (options.find((o) => aLecran(o) === choix) ?? null));
   const payeIci = opts.payeIci || null;
   if (payeIci && options.includes(payeIci)) {
     const ordre = [payeIci, ...options.filter((o) => o !== payeIci)];
-    return await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?\n💡 Le client a payé à ${payeIci} : c'est là qu'est son argent. Proposée en premier — vous pouvez en choisir une autre.`, ordre);
+    return versNom(await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?\n💡 Le client a payé à ${aLecran(payeIci)} : c'est là qu'est son argent. Proposée en premier — vous pouvez en choisir une autre.`, ordre.map(aLecran)));
   }
   const defaut = u.boutique && noms.includes(u.boutique) ? u.boutique : null;
-  const noteIci = payeIci ? `\n💡 Le client a payé dans la caisse ${payeIci}, qui ne peut pas payer cette part ici : choisissez une boutique.` : "";
-  const b = await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?${defaut ? ` (habituellement : ${defaut})` : ""}${noteIci}`, options);
-  return b; // null = annulé ; sinon une valeur EXACTE de la liste, jamais autre chose
+  const noteIci = payeIci ? `\n💡 Le client a payé dans la caisse ${libelleCaisse(payeIci)}, qui ne peut pas payer cette part ici : choisissez une boutique.` : "";
+  const b = await uChoix(`${titre}\n\nBoutique dont la caisse est débitée ?${defaut ? ` (habituellement : ${defaut})` : ""}${noteIci}`, options.map(aLecran));
+  return versNom(b); // null = annulé ; sinon une valeur EXACTE de la liste, jamais autre chose
 }
+// 🏗 La caisse où l'argent du client d'un chantier est ENTRÉ (14/10/2026) —
+// à ne pas confondre avec `boutiqueDuChantier` (la boutique du stock et du
+// chiffre d'affaires) : depuis le 08/10/2026, une vente de devis porte
+// `caisse` = le DÉPÔT CHANTIER (`caisseDeVente`). Une pose seule : la caisse
+// de sa dette. Une fiche de travaux : sa boutique.
+export const caisseDuChantier = (db, c) => {
+  const vente = (db.ventes || []).find((v) => v.id === c.vente_id);
+  if (vente) return caisseDeVente(vente);
+  const dette = c.dette_id ? (db.dettes || []).find((d) => d.id === c.dette_id) : null;
+  return dette?.boutique || c.boutique;
+};
+// Une part payée par la caisse 🏗 DÉPÔT CHANTIER n'a ni vendeur ni gérant :
+// l'administrateur seul la valide (Timo, 14/10/2026, « B a »).
+export const primeParLeDepot = (nom) => estNomCaisseChantier(nom);
 
 // ⚠⚠ D'OÙ SORT L'ARGENT QUAND ON PAIE UNE PERSONNE (Timo, 03/10/2026,
 // capture du virement de salaire : « on peut ajouter les différentes caisses

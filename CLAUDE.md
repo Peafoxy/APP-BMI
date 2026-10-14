@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2627 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2629 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2154,8 +2154,24 @@ lit mal est pire qu'un banc absent).
   paiement » passe `payeIci: boutiqueDuChantier(db, c)` à
   `choisirBoutiqueDebitG` (vente → sa boutique ; pose seule → la dernière
   caisse qui a encaissé la dette), placée en tête et nommée ; on peut en
-  choisir une autre. Hors liste (TERRAIN) : dite, jamais choisie. Rien à
+  choisir une autre. ~~Hors liste (TERRAIN) : dite, jamais choisie.~~ Rien à
   coller. Banc (1 contrôle, texte — la fenêtre n'est pas montée), éprouvé.
+  **RETOURNÉ le 14/10/2026** (capture Timo : « pourquoi le dépôt chantier
+  n'est pas proposé pour débiter les frais d'installation ? » → « A oui, B a ») :
+  la caisse proposée en premier est celle où l'argent est ENTRÉ
+  (`caisseDuChantier`, calculs.js : `caisseDeVente` d'une vente de devis = le
+  DÉPÔT CHANTIER depuis le 08/10 ; la dette d'une pose seule ; la boutique des
+  travaux) — `boutiqueDuChantier` disait APESSITO, faux depuis le 08/10. Le
+  **🏗 DÉPÔT CHANTIER** de l'espace regardé est dans la liste
+  (`choisirBoutiqueDebitG(…, { avecDepotChantier })`, affiché par
+  `libelleCaisse`, rendu par son nom ; les autres paiements ne le voient pas).
+  **« B a »** : une part qui en sort (`primeParLeDepot`) ne se valide que par
+  l'administrateur (geste et bouton). Rien à coller. Banc (+2, un RETOURNÉ —
+  la caisse du comptable en formation), éprouvé. Chapitres 15 et 16 à jour.
+  **📤 « Payé avec » nomme la caisse** (le même jour, capture : « pourquoi
+  transport là on a juste écrit caisse ? ») : la colonne de 📤 Dépenses, le
+  cadre du DG et sa question passent par `libellePayeAvecDe` (« La caisse de
+  BMI DEMAKPOE », 🏗 DÉPÔT CHANTIER, du DG, du comptable, 🏦 BANQUE). Banc +1.
 - **💰 Primes remises s'ouvre aussi au GÉRANT** (07/10/2026, « à quel niveau
   le gérant de Demakpoè peut valider ? » → nulle part : la notification
   « Prime à payer » le visait, l'onglet n'existait que pour le vendeur, et il

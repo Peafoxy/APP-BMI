@@ -3142,7 +3142,8 @@ titre("Balayage des LISTES DEROULANTES : aucune ne mele les deux espaces");
   // ---- 2. La caisse « Chez le comptable » est REELLE, sans jumelle ----
   const cal = readFileSync("src/lib/calculs.js", "utf8");
   test("★ elle n'est plus proposee quand on regarde la formation",
-    /const options = espaceDuCompte\(db, profile\) \? noms : \[\.\.\.noms, NOM_CAISSE_COMPTABLE\]/.test(cal));
+    // ⚠ RETOURNÉ le 14/10/2026 : la même condition, dans une liste qui peut recevoir le 🏗 DÉPÔT CHANTIER.
+    /const options = \[\.\.\.\(espaceDuCompte\(db, profile\) \? noms : \[\.\.\.noms, NOM_CAISSE_COMPTABLE\]\)/.test(cal));
   test("…et le verrou d'ecriture la laisse passer, justement parce qu'elle n'a pas d'equivalent",
     /Chez le comptable/.test(cal));
 
@@ -14961,10 +14962,34 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
 {
   const calP = readFileSync("src/lib/calculs.js", "utf8");
   const ciP = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
-  test("★ part d'installation : la caisse où le client a payé (boutiqueDuChantier) est proposée EN PREMIER et nommée ; une caisse hors liste (TERRAIN) est seulement dite, jamais choisie",
-    /choisirBoutiqueDebitG\(db, \{\}, `Part d'installation de \$\{fmt\(e\.montant\)\} à \$\{e\.nom\}`, profile, \{ payeIci: boutiqueDuChantier\(db, c\) \}\)/.test(ciP)
-    && /if \(payeIci && options\.includes\(payeIci\)\) \{\n    const ordre = \[payeIci, \.\.\.options\.filter\(\(o\) => o !== payeIci\)\];/.test(calP)
-    && /Le client a payé à \$\{payeIci\}/.test(calP) && /qui ne peut pas payer cette part ici/.test(calP));
+  // ⚠ RETOURNÉ le 14/10/2026 (Timo : « pourquoi le dépôt chantier n'est pas
+  // proposé pour débiter les frais d'installation ? » → « A oui, B a ») : la
+  // caisse proposée en premier est celle où l'argent du client est ENTRÉ
+  // (caisseDuChantier — le DÉPÔT CHANTIER pour un devis encaissé depuis le
+  // 08/10), et le dépôt est désormais dans la liste ; l'administrateur seul
+  // valide une part qui en sort.
+  test("★ part d'installation : la caisse où le client a payé (caisseDuChantier) est proposée EN PREMIER et nommée, le 🏗 DÉPÔT CHANTIER de l'espace regardé est dans la liste (affiché par son libellé, rendu par son nom) ; une caisse hors liste est seulement dite",
+    /choisirBoutiqueDebitG\(db, \{\}, `Part d'installation de \$\{fmt\(e\.montant\)\} à \$\{e\.nom\}`, profile, \{ payeIci: caisseDuChantier\(db, c\), avecDepotChantier: true \}\)/.test(ciP)
+    && /const depot = opts\.avecDepotChantier\n    \? \(boutiquesVisibles\(db, profile, \(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\)\[0\]\?\.nom \|\| null\)/.test(calP)
+    && /NOM_CAISSE_COMPTABLE\]\), \.\.\.\(depot \? \[depot\] : \[\]\)\];/.test(calP)
+    && /const ordre = \[payeIci, \.\.\.options\.filter\(\(o\) => o !== payeIci\)\];/.test(calP)
+    && /return versNom\(await uChoix\(/.test(calP) && /ordre\.map\(aLecran\)/.test(calP) && /return versNom\(b\);/.test(calP)
+    && /Le client a payé à \$\{aLecran\(payeIci\)\}/.test(calP) && /qui ne peut pas payer cette part ici/.test(calP));
+  {
+    const dbP = {
+      boutiques: [{ nom: "BMI DEMAKPOE" }, { nom: "TERRAIN", terrain: true }],
+      ventes: [{ id: "vDev", boutique: "BMI DEMAKPOE", caisse: "TERRAIN" }, { id: "vAncienne", boutique: "BMI APESSITO" }],
+      dettes: [{ id: "dPose", boutique: "TERRAIN" }],
+    };
+    test("★ caisseDuChantier : une vente de devis → sa caisse (DÉPÔT CHANTIER), une vente d'avant → sa boutique, une pose seule → la caisse de sa dette, des travaux → leur boutique ; primeParLeDepot reconnaît TERRAIN et sa jumelle de formation, jamais une boutique",
+      C.caisseDuChantier(dbP, { vente_id: "vDev" }) === "TERRAIN" && C.caisseDuChantier(dbP, { vente_id: "vAncienne" }) === "BMI APESSITO"
+      && C.caisseDuChantier(dbP, { dette_id: "dPose" }) === "TERRAIN" && C.caisseDuChantier(dbP, { travaux: true, boutique: "BMI DEMAKPOE" }) === "BMI DEMAKPOE"
+      && C.primeParLeDepot("TERRAIN") && C.primeParLeDepot("TERRAIN (formation)") && !C.primeParLeDepot("BMI DEMAKPOE"));
+  }
+  test("★ « B a » : une part qui sort du 🏗 DÉPÔT CHANTIER ne se valide que par l'administrateur — revérifié DANS le geste, et le bouton ✓ Valider et payer ne s'affiche pas au vendeur ; l'écran dit la caisse par son libellé",
+    /if \(!isAdmin && \(primeParLeDepot\(e\.prime_boutique\) \|\| profile\.boutique !== e\.prime_boutique\)\)/.test(ciP)
+    && /\(isAdmin \|\| \(!primeParLeDepot\(e\.prime_boutique\) && profile\.boutique === e\.prime_boutique\)\) && <button onClick=\{\(\) => validerPaiementPrime\(c, e\)\}/.test(ciP)
+    && /📤 Demandé — \{libelleCaisse\(e\.prime_boutique\)\}/.test(ciP) && !/Sortie de caisse \$\{e\.prime_boutique\}/.test(ciP));
 }
 
 // 💰 Le GÉRANT paie aussi une part d'installation demandée à SA boutique

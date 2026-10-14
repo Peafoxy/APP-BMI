@@ -10,7 +10,7 @@ import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
-import { TYPES_INSTALLATION } from "../lib/constants";
+import { TYPES_INSTALLATION, libelleCaisse } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { messageIdentifiants, texteEnvoi, envoiLienPv, envoiAvenant, envoiAffectation, envoiChangementAffectation, envoiInstallationClient } from "../lib/whatsappModeles";
@@ -22,7 +22,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demand
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { estPrimeChantier, primesDuChantier, totalPrimesChantier } from "../lib/primeChantier";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, envoyerAvisPrimePayee, envoyerAvisTache, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier, estCompteFormation } from "../lib/calculs";
+import { choisirBoutiqueDebitG, caisseDuChantier, primeParLeDepot, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, envoyerAvisPrimePayee, envoyerAvisTache, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier, estCompteFormation } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
 import { encaisserDettePose } from "../components/encaissementPose";
@@ -858,7 +858,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (bloquerSiLecture(db, profile)) return;
     if (refuserSaufAdmin(profile, "Demander le paiement d'une prime d'installation")) return;
     if (!(Number(e.montant) > 0)) { uAlert("Cette part est de 0 F : rien à payer. Refaites la répartition avec le bon pourcentage."); return; }
-    const bq = await choisirBoutiqueDebitG(db, {}, `Part d'installation de ${fmt(e.montant)} à ${e.nom}`, profile, { payeIci: boutiqueDuChantier(db, c) });
+    const bq = await choisirBoutiqueDebitG(db, {}, `Part d'installation de ${fmt(e.montant)} à ${e.nom}`, profile, { payeIci: caisseDuChantier(db, c), avecDepotChantier: true });
     if (bq === null) return;
     save({
       ...db,
@@ -866,12 +866,15 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         ? { ...x, equipe: (x.equipe || []).map((y) => (y.user_id === e.user_id ? { ...y, demande_prime: true, prime_boutique: bq, prime_demandee_par: profile.nom, prime_demandee_le: today() } : y)) }
         : x)),
     }, `Demande de paiement de prime d'installation — ${e.nom} · ${fmt(e.montant)} · ${bq}`);
-    uAlert(`✅ Demande envoyée. Le vendeur ou le gérant de ${bq} peut désormais la valider depuis son onglet « 💰 Primes remises ».`);
+    uAlert(primeParLeDepot(bq)
+      ? `✅ Demande enregistrée : la part sortira de la caisse ${libelleCaisse(bq)}. L'administrateur la valide ici, avec « ✓ Valider et payer ».`
+      : `✅ Demande envoyée. Le vendeur ou le gérant de ${bq} peut désormais la valider depuis son onglet « 💰 Primes remises ».`);
   };
 
   const validerPaiementPrime = async (c, e) => {
     if (bloquerSiLecture(db, profile)) return;
-    if (!isAdmin && profile.boutique !== e.prime_boutique) { uAlert(`Seul le vendeur ou le gérant de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
+    // 🏗 Une part payée par le DÉPÔT CHANTIER : l'administrateur seul (14/10/2026, « B a »).
+    if (!isAdmin && (primeParLeDepot(e.prime_boutique) || profile.boutique !== e.prime_boutique)) { uAlert(primeParLeDepot(e.prime_boutique) ? `Cette part sort de la caisse ${libelleCaisse(e.prime_boutique)} : seul l'administrateur valide ce paiement.` : `Seul le vendeur ou le gérant de ${e.prime_boutique} (ou l'administrateur) peut valider ce paiement.`); return; }
     if (e.user_id === profile.id) { uAlert("Vous ne pouvez pas valider le paiement de votre propre prime : un autre vendeur ou gérant de la boutique, ou l'administrateur, s'en charge."); return; }
     if (primeDejaPayee(db, c, e)) { uAlert(`La part de ${e.nom} sur ce chantier a déjà été payée.\n\nRien n'a été enregistré : sans ce contrôle, la caisse aurait été débitée une seconde fois.`); return; }
     const moyen = await demanderMoyenPaiement(`pour ${e.nom}`, "Espèces", "Moyen de paiement", ficheParId(db.users, e.user_id));
@@ -881,8 +884,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const ret = retenueOutilPourPrime(db, e.user_id, e.montant, e.prime_boutique);
     const net = e.montant - ret.montant;
     if (!await uConfirm(`Payer ${fmt(e.montant)} à ${e.nom} pour l'installation de ${c.nom} ?${ret.montant > 0
-      ? `\n\n🧰 Retenue pour outil perdu : ${fmt(ret.montant)} (${ret.lignes.map((l) => l.outil).join(", ")})\nIl reçoit : ${fmt(net)}\n\nSortie de caisse ${e.prime_boutique} : ${fmt(net)}`
-      : `\n\nSortie de caisse ${e.prime_boutique} : ${fmt(e.montant)}`}`)) return;
+      ? `\n\n🧰 Retenue pour outil perdu : ${fmt(ret.montant)} (${ret.lignes.map((l) => l.outil).join(", ")})\nIl reçoit : ${fmt(net)}\n\nSortie de caisse ${libelleCaisse(e.prime_boutique)} : ${fmt(net)}`
+      : `\n\nSortie de caisse ${libelleCaisse(e.prime_boutique)} : ${fmt(e.montant)}`}`)) return;
     // Deuxième lecture APRÈS les questions : entre l'ouverture de la fenêtre
     // et la confirmation, une synchronisation a pu ramener le paiement fait
     // par quelqu'un d'autre (l'admin et le vendeur peuvent payer tous les deux).
@@ -891,8 +894,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     // 📲 L'avis de paiement part du numéro BMI, tout seul (07/10/2026).
     const avis = await envoyerAvisPrimePayee({ db, save, profile, c, e, moyen, retenue: ret.montant });
     uAlert((ret.montant > 0
-      ? `✅ ${fmt(net)} payés à ${e.nom} (${fmt(ret.montant)} retenus pour outil perdu). Sortie de caisse : ${e.prime_boutique}.`
-      : `✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${e.prime_boutique}.`) + (avis ? `\n\n${avis}` : ""));
+      ? `✅ ${fmt(net)} payés à ${e.nom} (${fmt(ret.montant)} retenus pour outil perdu). Sortie de caisse : ${libelleCaisse(e.prime_boutique)}.`
+      : `✅ ${fmt(e.montant)} payés à ${e.nom}. Sortie de caisse : ${libelleCaisse(e.prime_boutique)}.`) + (avis ? `\n\n${avis}` : ""));
   };
 
   const modifierEntretien = async (c) => {
@@ -1427,11 +1430,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                         <td className="px-3 py-2">{e.paye
                           ? <span className="text-xs font-bold text-green-700">✅ Payé le {dFR(e.date_paiement)}</span>
                           : e.demande_prime
-                            ? <span className="text-xs font-bold text-sky-700">📤 Demandé — {e.prime_boutique}</span>
+                            ? <span className="text-xs font-bold text-sky-700">📤 Demandé — {libelleCaisse(e.prime_boutique)}</span>
                             : <span className="text-xs font-bold text-orange-600">⏳ À payer</span>}</td>
                         <td className="px-3 py-2">
                           {!e.paye && !e.demande_prime && isAdmin && <button onClick={() => demanderPaiementPrime(c, e)} className="text-xs font-bold text-white bg-slate-800 rounded px-2 py-1 hover:bg-slate-900">📤 Demander le paiement</button>}
-                          {!e.paye && e.demande_prime && (isAdmin || profile.boutique === e.prime_boutique) && <button onClick={() => validerPaiementPrime(c, e)} className="text-xs font-bold text-white bg-emerald-700 rounded px-2 py-1 hover:bg-emerald-800">✓ Valider et payer</button>}
+                          {!e.paye && e.demande_prime && (isAdmin || (!primeParLeDepot(e.prime_boutique) && profile.boutique === e.prime_boutique)) && <button onClick={() => validerPaiementPrime(c, e)} className="text-xs font-bold text-white bg-emerald-700 rounded px-2 py-1 hover:bg-emerald-800">✓ Valider et payer</button>}
                         </td>
                       </tr>
                     ))}
