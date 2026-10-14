@@ -35,7 +35,7 @@
 // exactement comme l'écart de la clôture pour les billets.
 // ============================================================
 import { MOYENS_MOBILES, mobileParMoyen, CATEGORIES_RETOUR_ARGENT, caisseDeVente } from "./constants.js";
-import { estVersement, estRejete, libelleDestination, DEST_TIROIR } from "./versements.js";
+import { estVersement, estRejete, libelleDestination, DEST_TIROIR, montantEncaisseVente } from "./versements.js";
 import { estEnAttente, estRejetee, payeAvecCaisse } from "./validationDepenses.js";
 import { totalVente, numeroRecu } from "./core.js";
 // ⚠ La fabrique de bilan est écrite UNE fois (lib/caissesCentrales.js) : deux
@@ -53,7 +53,7 @@ const compte = (d) => !estEnAttente(d) && !estRejetee(d) && Number(d.montant || 
 const jour = (x) => String(x || "").slice(0, 10);
 // Ce que le client a réellement remis : la vente, plus les frais qui partent
 // avec elle (même calcul que le tiroir, lib/versements.js).
-const montantEncaisse = (v) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
+const montantEncaisse = (v) => montantEncaisseVente(v, totalVente);
 
 // Le numéro du compte réglé sur la fiche d'une boutique, ou "".
 export const numeroMobile = (boutiques, boutique, moyen) => {

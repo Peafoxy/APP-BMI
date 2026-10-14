@@ -469,7 +469,10 @@ export const remisesFondsDe = (db, boutique) => (db?.depenses || []).filter((d) 
 // deux chiffres différents pour la même vente — et la ligne « Espèces » du
 // bloc DOIT être exactement celle de la clôture, sinon plus rien ne se
 // vérifie. `totalVente` est passée par l'appelant (lib/core.js).
-export const montantEncaisseVente = (v, totalVente) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0);
+// 🔄 Une vente née d'un ÉCHANGE (14/10/2026, lib/echanges.js) : la part payée
+// par l'article rendu (`avoir_echange`) était déjà dans la caisse — seul le
+// complément y entre.
+export const montantEncaisseVente = (v, totalVente) => totalVente(v) + Number(v.frais_installation || 0) + Number(v.frais_transport || 0) - Number(v.avoir_echange || 0);
 
 const mouvementsEspeces = (db, boutique, totalVente) => {
   const out = [];

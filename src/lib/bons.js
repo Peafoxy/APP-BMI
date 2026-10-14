@@ -35,7 +35,9 @@ const motifNu = (m) => trim(m).replace(/^(Échange garantie|Reprise client|Défe
 // ses lignes partagent le même `ref` dans `vente.reprises`, et elles font UN
 // bon. Le rang compte les REPRISES (les `ref` distincts), pas les lignes —
 // une vente aux reprises d'un seul article garde exactement ses numéros.
-export const refsDeReprises = (vente) => [...new Set((vente?.reprises || []).map((r) => r.ref).filter(Boolean))];
+// 🔄 Un échange (14/10/2026, lib/echanges.js) n'a pas de bon de reprise : son
+// document est le reçu de la NOUVELLE vente, qui dit l'article rendu et l'avoir.
+export const refsDeReprises = (vente) => [...new Set((vente?.reprises || []).filter((r) => !r.echange).map((r) => r.ref).filter(Boolean))];
 export const lignesDeLaReprise = (vente, ref) => (vente?.reprises || []).filter((r) => r.ref === ref);
 export const numeroBonReprise = (vente, reprise) => {
   const refs = refsDeReprises(vente);

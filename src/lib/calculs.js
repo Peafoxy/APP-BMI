@@ -2388,7 +2388,8 @@ export const couvertureStockJours = (db) => {
   return b ? Number(b.reappro_couverture_jours) : COUVERTURE_JOURS_DEFAUT;
 };
 // 🏗 Le matériel parti au chantier (11/10/2026) se consomme comme une vente.
-const TYPES_SORTIE_RYTHME = ["sortie_travaux", "retour_travaux", "reprise_client", "sortie_chantier", "retour_chantier"];
+// 🔄 L'article rendu au stock à un échange (14/10/2026) revient comme une reprise.
+const TYPES_SORTIE_RYTHME = ["sortie_travaux", "retour_travaux", "reprise_client", "echange_client", "sortie_chantier", "retour_chantier"];
 const jourMoins = (jour, n) => {
   const d = new Date(`${String(jour).slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return "";

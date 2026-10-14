@@ -9,7 +9,7 @@
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
 // screens/Ventes.jsx (le panier, l'encaissement, la proforma, la liste, les
-// fenêtres ↩ Reprise et 🔁 Retour), screens/Commandes.jsx (🛒 Nouvelle
+// fenêtres ↩ Reprise, 🔁 Retour et 🔄 Échanger), lib/echanges.js (l'échange d'un article), screens/Commandes.jsx (🛒 Nouvelle
 // commande, 📥 Commandes reçues), components/SelecteurArticle.jsx (la
 // fenêtre « Rechercher un article »), lib/constants.js (PAIEMENTS),
 // lib/calculs.js (PLAFOND_REMISE_PCT = 3, critiqueRemises,
@@ -41,7 +41,7 @@ export const CHAPITRE = {
         "remettre une **offre de prix** (proforma) qui n'engage rien, et la **vendre** plus tard en un clic ;",
         "savoir quoi faire quand **le stock manque** : réservation prépayée, ravitaillement ou transfert ;",
         "**retrouver** une vente, la réimprimer, l'envoyer par WhatsApp, lire la recette d'une période ;",
-        "connaître les **trois gestes après la vente** — 📋 Devis, 🔁 Retour, ↩ Reprise — et qui a le droit de les faire ;",
+        "connaître les **gestes après la vente** — 📋 Devis, 🔁 Retour, 🔄 Échanger, ↩ Reprise — et qui a le droit de les faire ;",
         "pour le commercial et le technicien : **envoyer une commande** à la boutique, et pour le vendeur, la **valider et encaisser**.",
       ]],
       ["regle", "**Une vente encaissée sort du stock, entre dans le chiffre d'affaires et dans la caisse du jour, tout de suite.** Une proforma ne fait rien de tout ça. C'est la première chose à savoir : on n'encaisse pas « pour voir »."],
@@ -55,6 +55,7 @@ export const CHAPITRE = {
         ["Une remise **au-delà de 3 %** (générale, ou sur un article)", "**L'administrateur seul** — le serveur applique la même règle. **Sauf** la remise d'une proforma reprise par 🛒 Vendre **avec son panier inchangé** : tout vendeur l'encaisse."],
         ["📋 Devis (reprendre la vente pour en faire un devis d'installation)", "L'administrateur, le responsable commercial, et **le vendeur qui a fait cette vente**"],
         ["🔁 Retour / échange sous garantie", "**Gérant et administrateur**"],
+        ["🔄 Échanger un article contre un autre (le client paie ou reçoit la différence)", "**Gérant et administrateur**"],
         ["↩ Reprise de l'article par BMI", "**L'administrateur principal seul**"],
         ["🗑 Supprimer une vente", "**L'administrateur** — et seulement si rien n'en dépend (rubrique 9)"],
         ["📋 Inventaire (le second bouton de 💰 Ventes, à côté de 🛒 Vendre)", "**Gérant et administrateur** — le vendeur ne le voit pas"],
@@ -111,7 +112,7 @@ export const CHAPITRE = {
         "La colonne **« Suite »** dit ce que chaque proforma est devenue : « ✅ Encaissée le … — reçu N° » ou « ⏳ En attente ». Une proforma déjà encaissée se revend quand même, mais **on prévient** : ce sera une nouvelle vente, avec un nouveau reçu.",
       ]],
       ["regle", "**La remise d'une proforma suit sa vente, si le panier n'a pas bougé.** Une proforma à plus de 3 % n'a pu être faite que par l'administrateur ; reprise par 🛒 Vendre, **tout vendeur l'encaisse** tant que les articles, les quantités, les prix, les remises et le pourcentage sont ceux de la proforma. Un article ajouté ou une quantité changée : la limite de 3 % revient, et le refus dit « La remise de la proforma N° … ne vaut que pour son panier tel quel »."],
-      ["attention", "**Trois mots pour trois gestes**, à ne pas confondre : **🛒 Vendre** (une proforma devient un panier), **↩ Reprise** (BMI reprend un article que le client rend), **🔁 Retour** (échange sous garantie)."],
+      ["attention", "**Trois mots pour trois gestes**, à ne pas confondre : **🛒 Vendre** (une proforma devient un panier), **↩ Reprise** (BMI reprend un article que le client rend), **🔁 Retour** (échange sous garantie : le même article, sans vente), **🔄 Échanger** (le client prend un AUTRE article : une nouvelle vente, la différence payée ou rendue)."],
 
       ["h3", "D. Le stock manque"],
       ["p", "Un article en rupture **s'ajoute quand même** au panier (message ⚠, « ajouté quand même »). C'est **au moment d'encaisser** que l'application tranche, avec une question : « Stock insuffisant pour : … Comment voulez-vous procéder ? »"],
@@ -169,8 +170,9 @@ export const CHAPITRE = {
         ["📋", "Transforme la vente en **devis d'installation** : les articles servent de point de départ, le client est retrouvé par son numéro.", "Admin, resp. commercial, le vendeur de cette vente"],
         ["🔁", "**Retour / échange sous garantie** : le défectueux entre au SAV, un remplacement sort du stock **sans vente ni commission**, gratuit ou avec des frais facturés (une dette du montant saisi).", "Gérant, administrateur"],
         ["💸", "**Verser l'argent de CETTE vente** (09/10/2026) : quand le DG a pris lui-même l'argent d'une vente, ou qu'on le porte à la BANQUE ou au comptable. Le bouton n'existe que sur une vente **payée** en espèces ou par compte mobile, pas encore versée (une vente à crédit se verse par ses règlements, 📋 Dettes, chapitre 7 ; un virement est déjà à la banque). On choisit **Chez le DG**, **BANQUE** (banque + bordereau) ou **Chez le comptable** ; le montant est celui de la vente (colonne TOTAL, moins ce qui a été repris). L'argent **sort tout de suite** du tiroir (ou du compte mobile), attend la validation du DG ou du comptable, **revient s'il est rejeté**. Sous le paiement : « 💸 versée » (orange tant que le DG n'a pas validé, vert ensuite) ; un clic sur la ligne de la vente montre le détail dessous — « Chez le DG — ⏳ en attente », puis « ✅ validé le … par … » ; la ligne s'agrandit, les colonnes ne bougent pas. **Une fois le versement validé, toute la ligne de la vente se grise** (fond gris, textes gris, les boutons restent) : on voit d'un coup d'œil que cet argent est déjà remis ; en attente, elle reste normale ; rejeté, elle redevient normale. **Aucune bande noire.** Une vente ne se verse qu'une fois. **Une vente faite AVANT un versement général** (🔒 Caisse) **n'a plus de bouton** : son argent est déjà parti avec ce versement ; à la place, en gris sous le paiement, « dans un versement » ; un clic sur la ligne montre lequel (« du 09/10/2026 à 16:49 → Chez le DG »). Un versement général rejeté par le DG n'emporte rien (l'argent est revenu dans le tiroir).", "Gérant, administrateur"],
+        ["🔄", "**Échanger un article contre un autre** (14/10/2026) : le client rend un article de cette vente et en prend un autre du stock. Dans la fenêtre : la quantité rendue devant chaque article (0 = gardé) ; **« L'article rendu va »** — **au stock** (bon état, il sera revendu) ou **au SAV** (défectueux, jamais revendu : il attend son sort dans 📦 Stocks → 🔧 Défectueux / SAV) ; **ce que le client emporte**, en tapant son nom (« ➕ Un autre article » pour en ajouter) ; le **motif** (obligatoire). L'aperçu dit : la **valeur rendue** (ce que le client avait payé pour cet article, remises comprises), le **nouvel article au prix du jour**, puis **« Le client paie : X »** ou **« BMI rend au client : X »**, avec le moyen (espèces, Flooz, Mixx, virement — **jamais à crédit**). Un **nouveau reçu** est établi (le reçu de l'échange : « 🔄 Échange du reçu n° … », l'article rendu en moins, « PAYÉ PAR LE CLIENT », et « RENDU AU CLIENT » s'il y a lieu) ; l'ancien reçu ne change pas. **Seule la différence passe par la caisse.** Refusé : une vente dont la dette n'est pas soldée (l'article rendu n'est pas encore payé), un dépôt chantier, des travaux, une vente qui a créé un chantier, une commission déjà payée ; une différence à rendre en espèces plus grosse que le tiroir (« rendez-la par un autre moyen, ou plus tard »).", "Gérant, administrateur"],
         ["↩", "**Reprise d'articles par BMI** : la fenêtre montre **toutes les lignes de la vente**, une case de quantité devant chacune (0 = gardé) — on reprend **plusieurs articles d'un coup**, avec **un seul motif** et un seul moyen de remboursement. Les articles reviennent au stock, l'argent est rendu en **une** sortie de caisse « Remboursement client » (ou la dette diminue) ; le reçu ne change pas, le chiffre d'affaires et la commission sont réduits. **Un seul bon de reprise** liste tous les articles ; il porte aussi la **vente d'origine** (chaque article, sa quantité, son prix), le prix unitaire de ce qui est repris, le vendeur, et la **nouvelle situation** : montant d'origine − reprises (celles d'avant comprises) = nouveau montant de la vente, déjà payé, reste à payer. Motif obligatoire.", "Administrateur principal"],
-        ["🗑", "Supprime la vente — refusé si un chantier, une commission payée ou un versement en dépend.", "Administrateur"],
+        ["🗑", "Supprime la vente — refusé si un chantier, une commission payée ou un versement en dépend, et pour les deux ventes d'un **échange**.", "Administrateur"],
       ]}],
 
       ["h3", "H. 📋 L'inventaire de la boutique (gérant, administrateur)"],
@@ -237,6 +239,7 @@ export const CHAPITRE = {
     // ── 6
     { titre: "Ce qui se passe automatiquement derrière", blocs: [
       ["ul", [
+        "**🔄 Un échange** (gérant, administrateur) : l'ancienne vente garde son reçu et son total, l'article rendu y est noté (« 🔄 échangé : −X » sous le total) et son chiffre d'affaires baisse d'autant ; une **nouvelle vente** porte le nouvel article au prix du jour, son reçu et son **avoir** (« 🔄 avoir n° … : −X », puis « payé : Y »). **La caisse ne voit que la différence** : le client paie le complément (il entre dans le tiroir, ou dans le compte mobile choisi), ou BMI le rend par une sortie **« Rendu sur échange »** de la caisse de la vente — ce n'est pas une charge. L'article rendu revient au stock (mouvement « échange ») ou entre au SAV. La commission du commercial suit le nouvel article. Aucun bon de reprise : le document de l'échange, c'est le nouveau reçu.",
         "**Le numéro de reçu** : trois lettres de la boutique (ou son préfixe réglé) + l'année + un compteur sur quatre chiffres, par exemple **APE-2026-0012**. Une boutique de formation écrit **FOR-** devant. Le numéro = le plus grand déjà pris + 1 : une vente supprimée ne libère jamais son numéro. Deux appareils hors ligne qui prennent le même numéro sont renumérotés au retour du réseau, et la ligne garde « ex … » (le papier du client porte l'ancien).",
         "**Le stock sort à l'encaissement**, jamais avant : ni au panier, ni à la proforma. Une réservation prépayée sort le stock à la livraison. **Un devis « 🔧 Avec installation »** ne le sort pas au paiement : il sortira par la case « 🏗 Chantier » (E bis) ; un devis de matériel seul le sort au paiement, comme avant.",
         "**La vente se rattache au compte du client** par son numéro (8 derniers chiffres), sinon par le nom écrit exactement pareil. C'est ce qui la fait apparaître dans 👤 Clients et dans les données du client.",
@@ -314,6 +317,7 @@ export const CHAPITRE = {
         { situation: "Un vendeur veut faire 6 % de remise à un bon client.", reponse: "Refusé au-delà de 3 % : « réservée à l'administrateur ». Soit il ramène à 3 %, soit l'administrateur encaisse lui-même. Et s'il a déjà mis une remise sur un article, la case Remise est grisée : l'une ou l'autre. Une remise libre de 14 400 F sur 240 000 F vaut 6 % : même refus." },
         { situation: "Un client demande « le prix pour 10 panneaux », sans acheter.", reponse: "Panier de 10 panneaux, son nom et son numéro, « 🧾 Proforma WhatsApp » : il reçoit la proforma du numéro BMI (le PDF reste sur l'appareil s'il le demande). Rien n'est vendu. S'il revient dans 10 jours : 🧾 Proformas → 🛒 Vendre → on vérifie le prix (l'écran signale s'il a changé) → on encaisse." },
         { situation: "Un commercial en tournée a convaincu un client d'acheter 4 panneaux ; le client passera payer à APESSITO demain.", reponse: "🛒 Nouvelle commande : boutique APESSITO, 4 panneaux, le client et son numéro, « 📤 Envoyer la commande à la boutique ». Demain, le vendeur d'APESSITO clique « ✅ Valider et encaisser » : le panier arrive dans 💰 Ventes avec le commercial déjà noté, il encaisse. La commission du commercial est rattachée à cette vente." },
+        { situation: "AMA a acheté hier une batterie 100 Ah à 120 000 F en espèces. Elle revient : elle préfère la 200 Ah, à 180 000 F.", reponse: "Ce n'est ni une reprise ni un retour sous garantie : c'est un **🔄 Échanger**, par le gérant ou l'administrateur. Quantité rendue 1 devant la 100 Ah, « Au stock » (elle est neuve), on tape « 200 » et on clique la batterie 200 Ah, motif « préfère la 200 Ah ». L'aperçu dit **« Le client paie : 60 000 F »** ; moyen Espèces ; Enregistrer. Un nouveau reçu sort (avoir de 120 000, payé 60 000) ; seuls 60 000 F entrent dans le tiroir. Si la 200 Ah avait été défectueuse… c'est l'inverse : la 100 Ah rendue part « Au SAV ». Et si le nouvel article coûte moins, « BMI rend au client » la différence, de la caisse." },
         { situation: "Sur place, le client renonce à un des deux articles qu'il vient de payer en espèces.", reponse: "Ce n'est ni un retour ni une suppression : c'est une **↩ Reprise**, par l'administrateur principal seul : il met la quantité devant l'article rendu (s'il en rend plusieurs, il les met tous dans la même reprise). Motif obligatoire ; l'article revient au stock ; l'argent rendu sort de la caisse du jour (« Remboursement client ») ; le reçu ne change pas ; un **bon de reprise** est proposé pour le client." },
       ]],
     ]},
@@ -366,7 +370,7 @@ export const CHAPITRE = {
       "Sait choisir entre réservation, ravitaillement et transfert quand le stock manque",
       "Applique la règle des 3 % et « remise sur article OU remise générale »",
       "Retrouve une vente, lit la recette d'une période, réimprime le reçu",
-      "Sait qui fait 📋 Devis, 🔁 Retour, ↩ Reprise, 🗑 Supprimer",
+      "Sait qui fait 📋 Devis, 🔁 Retour, 🔄 Échanger, ↩ Reprise, 🗑 Supprimer",
       "Valide et encaisse une commande reçue d'un commercial",
       "Répond juste aux six questions de la rubrique 12",
     ],

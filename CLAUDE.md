@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2638 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2652 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -62,9 +62,10 @@ npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 32  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
+npm run verifier-ecran-echange   # 13  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » / « échangé »)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
-npm run verifier-retour-android  # 63  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
+npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 32 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran
 npm run verifier-mot-information # 36  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
@@ -72,7 +73,7 @@ npm run verifier-whatsapp        # 1016 : l'envoi WhatsApp du numéro BMI (l'ord
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 227 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 245 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 98  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
@@ -7695,7 +7696,50 @@ lit mal est pire qu'un banc absent).
   motif a SA ligne, bien visible** (« MOTIF DE LA REPRISE » / « MOTIF DU
   RETOUR (panne constatée) » — Timo : « la raison devrait figurer sur les
   reçus là »), pas un petit texte sous l'article.
-- **Un échange n'est JAMAIS une vente** : ajustement négatif
+- **🔄 ÉCHANGER UN ARTICLE CONTRE UN AUTRE** (14/10/2026, Timo : « ramener un
+  article et prendre un autre à sa place… le client ajoute l'argent si le
+  nouvel article est plus cher, ou BMI restitue l'argent » → « A c, B c, C b,
+  D non, lance »). Règle pure **`lib/echanges.js`**, bouton 🔄 sur la ligne
+  d'une vente (💰 Ventes). **« A c »** : client qui change d'avis ET article
+  défectueux ; **« B c »** : à chaque échange, l'article rendu va **au stock**
+  (ajustement `echange_client` +n) **ou au SAV** (`retour_defectueux`, qte 0,
+  en_sav — le cadre 🔧 Défectueux / SAV de 📦 Stocks) ; **« C b »** : gérant +
+  administrateur (`ROLES_ECHANGE`, revérifié DANS le geste) ; **« D non »** :
+  jamais à crédit. **Le modèle** : valeur rendue X = `montantReprise` (le prix
+  payé, remises comprises), nouvel article N = prix du jour, sans remise.
+  L'ANCIENNE vente garde reçu et total ; l'article rendu y est une ligne de
+  `reprises` marquée **`echange: true`, rembourse 0** (CA et commission
+  deviennent nets, comme une reprise). Une **NOUVELLE vente** (nouveau numéro,
+  même client, même commercial — ni apporteur ni rabais) porte `echange_de`
+  (reçu d'origine, articles rendus, valeur, rendu) et **`avoir_echange` =
+  min(X, N)**. **`montantEncaisseVente` (lib/versements.js) retire l'avoir** —
+  et caissesMobiles passe désormais par elle (la copie maison est RETIRÉE) :
+  tiroir, clôture, comptes mobiles, bandes, inventaire ne voient QUE le
+  complément. N > X : le client paie la différence (moyen choisi) ; N < X :
+  BMI la rend par une dépense **`CATEGORIE_RENDU_ECHANGE` « Rendu sur
+  échange »** de la caisse de la vente (HORS CHARGES), bornée par le tiroir en
+  espèces (`critiqueSortieTiroir`). Ce qui ignore les lignes d'échange : 💸
+  Verser (`montantReprisHorsEchange`), l'inventaire (sinon compté deux fois),
+  les bons de reprise (`refsDeReprises` — le document de l'échange est le
+  nouveau REÇU : « 🔄 Échange du reçu n° … », l'article rendu en moins,
+  « PAYÉ PAR LE CLIENT », « RENDU AU CLIENT »). Le rythme des ventes compte
+  `echange_client` comme une reprise. **Refusé** : dette non soldée (l'article
+  rendu n'est pas payé), dépôt chantier, travaux, chantier créé, commission
+  payée ; une vente d'échange (l'une ou l'autre) ne se SUPPRIME pas. La
+  question du matériel réservé est posée. ⚠ Le reçu WhatsApp d'une vente
+  d'échange annonce le complément (rien de spécial n'a été construit). ⚠ Le
+  bon de reprise d'une reprise faite APRÈS un échange ne compte pas l'échange
+  dans « nouvelle situation » (cas rare). ⚠ **LE COUPLE : `securite-40`**
+  (reprend `ventes_regles_roles` de securite-33 en entier) : le gérant et
+  l'administrateur AJOUTENT des lignes `echange` sans argent rendu
+  (`reprises_ajout_echange`, les anciennes intactes) ; `avoir_echange` posé
+  à la création seulement, par eux. **À coller par Timo.** Banc SQL
+  (`tester-argent`, +19, éprouvé : porte retirée, garde de l'avoir retirée,
+  contrôle des lignes neutralisé). Bancs `verifier-cloisonnement` (+16, le
+  reçu IMPRIMÉ), Chromium `verifier-ecran-echange` (13), éprouvés ; quatre
+  contrôles RETOURNÉS (nouvelleDepense ×19, la liste hors charges ×2, le
+  montant à verser). Chapitres 5 et 8.
+- **Un échange SOUS GARANTIE n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**
   (« renvoyé au fournisseur » ou « rebut »). Les frais passent par une

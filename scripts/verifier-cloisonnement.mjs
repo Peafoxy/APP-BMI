@@ -5360,7 +5360,7 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
   test("★ nouveauMessage sert aux 36 fabrications (le brouillon envoyé ou supprimé à la place de son auteur, 12/10/2026 ; le brouillon préparé pour un autre, 12/10/2026 ; le brouillon confié à un collègue, 05/10/2026 ; les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026 ; le pourcentage d'apporteur fixé par le principal, 29/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
     execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "36" /* RETOURNÉ 12/10/2026 : + l'avis du brouillon préparé pour un autre ; + l'avis du brouillon envoyé ou supprimé à la place de son auteur */
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "18");
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "19" /* RETOURNÉ le 14/10/2026 : + la différence rendue à un échange (lib/echanges.js) */);
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
   // considérés comme dépense ? ». Sa règle du 10/09 (« un versement n'est
@@ -6746,7 +6746,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   unlinkSync(sortieK2);
   test("★ « Remboursement client » n'est pas une charge : hors tableau de bord, hors journal (horsVersements l'exclut comme le versement)",
     // 12/09/2026 : « Remboursement d'avance de frais » rejoint la liste (la charge est déjà comptée le jour de l'avance).
-    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant|Prêt au personnel" /* 03/10/2026 : un prêt au personnel non plus (une créance, compte 421) ; 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) */);
+    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Rendu sur échange|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant|Prêt au personnel" /* 03/10/2026 : un prêt au personnel non plus (une créance, compte 421) ; 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) ; RETOURNÉ le 14/10/2026 : la différence rendue à un échange non plus */);
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ les MOTS (Timo, 14/09/2026, capture : « Reprise d'un article par BMI ou par le client ? » → « Reprise de l'article par BMI ») : la fenêtre, l'infobulle et le journal disent que BMI reprend ; plus jamais « par le client »",
     /↩ Reprise d'articles par BMI<\/div>/.test(vs) /* RETOURNÉ le 06/10/2026 : plusieurs articles d'un coup, le titre dit « d'articles » ; BMI reprend toujours */ && /title="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) && !/Reprise d'un article par le client|repris par le client/.test(vs)
@@ -6812,6 +6812,143 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
     && /'Remboursement client' and not public\.est_admin_principal\(\)/.test(s13) && /select v\.data into avant from public\.ventes v where v\.id = new\.id;/.test(s13) && /Rejeter un versement déjà validé/.test(s13)
     && /-f supabase\/securite-13-reprise\.sql/.test(ta13) && /un administrateur SECONDAIRE note une reprise" "REFUSE"/.test(ta13) && /l'administrateur PRINCIPAL note une reprise" "PERMIS"/.test(ta13)
     && /la liste ne rétrécit jamais\)" "REFUSE"/.test(ta13) && /un gérant crée une dépense « Remboursement client »" "REFUSE"/.test(ta13) && /l'administrateur PRINCIPAL remet l'article au stock \(reprise_client\)" "PERMIS"/.test(ta13));
+}
+
+titre("🔄 Échanger un article contre un autre (Timo, 14/10/2026, « A c, B c, C b, D non ») : la différence, et seulement elle, passe par la caisse");
+{
+  const charger = async (entree, nom) => {
+    const out = join("node_modules", ".cache", `bmi-${nom}-${process.pid}.mjs`);
+    await build({ entryPoints: [entree], bundle: true, format: "esm", platform: "node", outfile: out, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+    const m = await import(pathToFileURL(out).href); unlinkSync(out); return m;
+  };
+  const Ec = await charger("src/lib/echanges.js", "echanges");
+  const Vs = await charger("src/lib/versements.js", "versements-ech");
+  const Cl = await charger("src/lib/cloture.js", "cloture-ech");
+  const Mb = await charger("src/lib/caissesMobiles.js", "mobiles-ech");
+  const Bn = await charger("src/lib/bons.js", "bons-ech");
+  const Iv = await charger("src/lib/inventaireVentes.js", "inventaire-ech");
+  const K2 = await charger("src/lib/constants.js", "constants-ech");
+  const ali = { id: "g1", nom: "ALI", role: "gerant", boutique: "APESSITO" };
+  const kossi = { id: "v9", nom: "KOSSI", role: "vendeur", boutique: "APESSITO" };
+  // La vente de la reprise : 2 batteries à 12 000 + 1 câble HB à 1 000, remise 1 300 → 23 700 encaissés ; une batterie vaut 11 376 (remises au prorata).
+  const vente = { id: "v1", numero: "BMIA-2026-0001", boutique: "APESSITO", client: "AMA", tel: "90112233", date: "2026-10-10", heure: "09:00", paiement: "Espèces", remise: 1300, commercial: "KOSSI", par: "KOSSI",
+    articles: [{ produit_id: "p1", article: "BATTERIE", qte: 2, pu: 12000 }, { produit_id: "p2", article: "CABLE", qte: 1, pu: 1000, hors_boutique: true }] };
+  const produits = [
+    { id: "p1", boutique: "APESSITO", nom: "BATTERIE", prix_vente: 12000, prix_achat: 8000, initial: 10 },
+    { id: "p3", boutique: "APESSITO", nom: "ONDULEUR", prix_vente: 20000, prix_achat: 14000, initial: 3 },
+    { id: "p4", boutique: "APESSITO", nom: "REGULATEUR", prix_vente: 5000, prix_achat: 3000, initial: 2 },
+    { id: "p5", boutique: "APESSITO", nom: "SANS PRIX", prix_vente: 0, initial: 4 },
+  ];
+  const dbE = { ventes: [vente], dettes: [], depenses: [], ajustements: [], clients_installes: [], produits, boutiques: [{ nom: "APESSITO" }] };
+  const stock = (p) => C.stockActuel(dbE, p);
+  const opt = { produits, stock, profile: ali, aujourdhui: "2026-10-14", heure: "10:30" };
+  const choix = (x = {}) => ({ rendus: [{ produit_id: "p1", qte: 1 }], nouveaux: [{ produit_id: "p3", qte: 1 }], destination: "stock", motif: "préfère l'onduleur", moyen: "Espèces", ...x });
+
+  // 1. Plus cher : 20 000 − 11 376 = 8 624 à payer.
+  const r = Ec.construireEchange(dbE, vente, choix(), opt);
+  const db2 = Ec.appliquerEchange(dbE, r);
+  const nv = r.nouvelleVente;
+  test("★★ plus cher : valeur rendue 11 376 (prix payé, remises comprises), nouvel article 20 000 (prix du jour) → le client paie 8 624 ; une NOUVELLE vente (nouveau reçu, date du jour, aucune remise) porte avoir_echange = 11 376 et le reçu d'origine ; l'ancienne garde son total et note la ligne `echange` (rien rendu)",
+    !r.refus && r.chiffres.valeurRendue === 11376 && r.chiffres.valeurNouvelle === 20000 && r.chiffres.aPayer === 8624 && r.chiffres.aRendre === 0 && r.chiffres.avoir === 11376
+    && nv.id !== vente.id && nv.numero && nv.numero !== vente.numero && nv.date === "2026-10-14" && nv.heure === "10:30" && nv.remise === 0 && nv.avoir_echange === 11376 && nv.paiement === "Espèces"
+    && nv.echange_de.vente_id === "v1" && nv.echange_de.numero === "BMIA-2026-0001" && nv.echange_de.valeur_rendue === 11376 && nv.echange_de.rendu === 0 && nv.echange_de.rendus[0].article === "BATTERIE"
+    && nv.articles.length === 1 && nv.articles[0].produit_id === "p3" && nv.articles[0].pu === 20000 && nv.commercial === "KOSSI" && nv.apporteur === null && nv.client === "AMA" && nv.tel === "90112233"
+    && Core.totalVente(r.vente) === Core.totalVente(vente) && r.vente.reprises.length === 1 && r.vente.reprises[0].echange === true && r.vente.reprises[0].rembourse === 0 && r.vente.reprises[0].montant === 11376 && r.vente.reprises[0].echange_vente_id === nv.id
+    && r.depense === null && db2.ventes.length === 2 && /ECH-[A-Z0-9]{8}/.test(r.ref) && /🔄 Échange ECH-/.test(r.journal));
+  test("★★ L'ARGENT : la nouvelle vente n'apporte que le complément (montantEncaisseVente = 20 000 − 11 376 = 8 624) — le tiroir = 23 700 + 8 624 = 32 324 ; la clôture compte 32 324 « encaissé » en espèces ; la recette nette = 23 700 + 20 000 − 11 376 = 32 324, le même chiffre",
+    Vs.montantEncaisseVente(nv, Core.totalVente) === 8624 && Vs.fondsAVerser(db2, "APESSITO", Core.totalVente).montant === 32324
+    && Cl.ventesParMoyen(db2.ventes, [], Core.totalVente).lignes.find((l) => l.moyen === "Espèces").encaisse === 32324
+    && C.recetteDesVentes(db2.ventes).net === 32324 && Ec.montantReprisHorsEchange(r.vente) === 0 && Ec.montantReprisHorsEchange({ reprises: [{ montant: 5, echange: true }, { montant: 7 }] }) === 7);
+  test("★ le CHIFFRE D'AFFAIRES et la commission suivent : l'ancienne vente devient nette de la batterie (22 752 → 11 376), la nouvelle compte 20 000, au même commercial",
+    Core.caVente(r.vente) === 11376 && Core.caVente(nv) === 20000 && C.commissionBrute(r.vente, 10) === 1138 && C.commissionBrute(nv, 10) === 2000);
+  test("★ le STOCK : l'article rendu (bon état) revient par un ajustement `echange_client` +1 ; le nouvel article sort par sa vente (stock de l'onduleur 3 → 2) ; le rythme des ventes compte l'article rendu comme une reprise",
+    r.ajustements.length === 1 && r.ajustements[0].type === "echange_client" && r.ajustements[0].qte === 1 && r.ajustements[0].boutique === "APESSITO" && r.ajustements[0].vente_id === "v1"
+    && C.stockAjuste(db2, "p1") === 1 && C.stockActuel(db2, produits[1]) === 2
+    && /"reprise_client", "echange_client"/.test(readFileSync("src/lib/calculs.js", "utf8")));
+  // 2. Défectueux, au SAV, et moins cher : 5 000 − 11 376 → BMI rend 6 376.
+  const rs = Ec.construireEchange(dbE, vente, choix({ destination: "sav", nouveaux: [{ produit_id: "p4", qte: 1 }], motif: "ne charge plus" }), opt);
+  const db3 = Ec.appliquerEchange(dbE, rs);
+  test("★★ défectueux et MOINS CHER : l'article rendu entre au SAV (retour_defectueux, quantité vendable 0, en_sav) ; BMI rend 11 376 − 5 000 = 6 376 par une sortie « Rendu sur échange » de la caisse de la vente ; la nouvelle vente n'apporte rien (avoir 5 000) ; le tiroir = 23 700 − 6 376 = 17 324",
+    !rs.refus && rs.ajustements[0].type === "retour_defectueux" && rs.ajustements[0].qte === 0 && rs.ajustements[0].qte_sav === 1 && rs.ajustements[0].statut === "en_sav"
+    && C.retoursEnSav(db3).length === 1 && C.stockAjuste(db3, "p1") === 0
+    && rs.chiffres.aRendre === 6376 && rs.nouvelleVente.avoir_echange === 5000 && Vs.montantEncaisseVente(rs.nouvelleVente, Core.totalVente) === 0
+    && rs.depense.categorie === "Rendu sur échange" && rs.depense.montant === 6376 && rs.depense.boutique === "APESSITO" && rs.depense.paiement === "Espèces" && rs.depense.date === "2026-10-14" && rs.nouvelleVente.echange_de.depense_id === rs.depense.id && rs.nouvelleVente.echange_de.rendu === 6376
+    && Vs.fondsAVerser(db3, "APESSITO", Core.totalVente).montant === 17324 && C.recetteDesVentes(db3.ventes).net === 23700 + 5000 - 11376);
+  test("★ « Rendu sur échange » n'est PAS une charge (le chiffre d'affaires a déjà été réduit) : hors tableau de bord, hors résultat",
+    K2.CATEGORIES_HORS_CHARGES.includes("Rendu sur échange") && K2.horsVersements([{ categorie: "Rendu sur échange" }]).length === 0);
+  // 3. Même valeur, et un compte mobile.
+  const vMixx = { ...vente, id: "vm", paiement: "Mobile Money (Mixx/T-Money)" };
+  const pMeme = { id: "p6", boutique: "APESSITO", nom: "BATTERIE B", prix_vente: 11376, initial: 2 };
+  const optM = { ...opt, produits: [...produits, pMeme] };
+  const rm = Ec.construireEchange({ ...dbE, ventes: [vMixx] }, vMixx, choix({ nouveaux: [{ produit_id: "p6", qte: 1 }], moyen: "" }), optM);
+  const rmx = Ec.construireEchange({ ...dbE, ventes: [vMixx] }, vMixx, choix({ nouveaux: [{ produit_id: "p1", qte: 1 }], moyen: "Mobile Money (Mixx/T-Money)" }), opt);
+  const dmx = rmx.refus ? null : Ec.appliquerEchange({ ...dbE, ventes: [vMixx] }, rmx);
+  test("★ même valeur : aucun argent ne bouge (aucun moyen demandé), la nouvelle vente garde le moyen d'origine et n'apporte rien ; payé par Mixx, le compte Mixx ne voit que le complément (23 700 + 624)",
+    !rm.refus && rm.chiffres.difference === 0 && rm.depense === null && rm.nouvelleVente.paiement === "Mobile Money (Mixx/T-Money)" && Vs.montantEncaisseVente(rm.nouvelleVente, Core.totalVente) === 0
+    && !!dmx && rmx.chiffres.aPayer === 624 && Mb.mouvementsMobile(dmx, "Mobile Money (Mixx/T-Money)", ["APESSITO"]).entrees.reduce((s0, e) => s0 + e.montant, 0) === 23700 + 624
+    && /Choisissez comment le client paie/.test(Ec.critiqueEchange({ ...dbE, ventes: [vMixx] }, vMixx, choix({ nouveaux: [{ produit_id: "p1", qte: 1 }], moyen: "" }), opt)));
+  test("★ les REFUS : un vendeur (« C b »), une dette non soldée (« D non »), un dépôt chantier, des travaux, une vente qui a créé un chantier, une commission payée, la destination oubliée, aucun nouvel article, un article d'une autre boutique, un article sans prix, un stock insuffisant, un motif vide, un moyen « à crédit » ; et la même batterie rendue deux fois",
+    /gérant et à l'administrateur/.test(Ec.critiqueEchange(dbE, vente, choix(), { ...opt, profile: kossi }))
+    && /pas soldée/.test(Ec.critiqueEchange({ ...dbE, dettes: [{ vente_id: "v1", montant: 23700, paye: 20000 }] }, vente, choix(), opt))
+    && Ec.critiqueEchange({ ...dbE, dettes: [{ vente_id: "v1", montant: 23700, paye: 23700 }] }, vente, choix(), opt) === ""
+    && /dépôt chantier/.test(Ec.critiqueEchange(dbE, { ...vente, depot_chantier: true }, choix(), opt))
+    && /Travaux/.test(Ec.critiqueEchange(dbE, { ...vente, travaux_id: "t1" }, choix(), opt))
+    && /chantier/.test(Ec.critiqueEchange({ ...dbE, clients_installes: [{ vente_id: "v1", nom: "AMA" }] }, vente, choix(), opt))
+    && /commission/.test(Ec.critiqueEchange(dbE, { ...vente, commission_payee: true }, choix(), opt))
+    && /au stock \(bon état\) ou au SAV/.test(Ec.critiqueEchange(dbE, vente, choix({ destination: "" }), opt))
+    && /nouvel article/.test(Ec.critiqueEchange(dbE, vente, choix({ nouveaux: [] }), opt))
+    && /stock de APESSITO/.test(Ec.critiqueEchange(dbE, vente, choix({ nouveaux: [{ produit_id: "pX", qte: 1 }] }), opt))
+    && /pas de prix de vente/.test(Ec.critiqueEchange(dbE, vente, choix({ nouveaux: [{ produit_id: "p5", qte: 1 }] }), opt))
+    && /Stock insuffisant/.test(Ec.critiqueEchange(dbE, vente, choix({ nouveaux: [{ produit_id: "p3", qte: 4 }] }), opt))
+    && /pourquoi/.test(Ec.critiqueEchange(dbE, vente, choix({ motif: " " }), opt))
+    && /jamais à crédit/.test(Ec.critiqueEchange(dbE, vente, choix({ moyen: "Crédit (dette)" }), opt))
+    && /Quantité invalide|entièrement/.test(Ec.critiqueEchange(db2, r.vente, choix({ rendus: [{ produit_id: "p1", qte: 2 }] }), opt)));
+  test("★ la même batterie rendue au STOCK compte dans le disponible : 8 en stock (10 − 2 vendues), en rendre 1 et en prendre 9 passe ; rendue au SAV, non (9 > 8)",
+    Ec.critiqueEchange(dbE, vente, choix({ nouveaux: [{ produit_id: "p1", qte: 9 }], moyen: "Espèces" }), opt) === ""
+    && /Stock insuffisant/.test(Ec.critiqueEchange(dbE, vente, choix({ nouveaux: [{ produit_id: "p1", qte: 10 }], moyen: "Espèces" }), opt))
+    && /Stock insuffisant/.test(Ec.critiqueEchange(dbE, vente, choix({ destination: "sav", nouveaux: [{ produit_id: "p1", qte: 9 }] }), opt)));
+  test("★ un échange n'a PAS de bon de reprise (son document est le nouveau reçu) ; l'inventaire ne le retire pas deux fois (la nouvelle vente n'est comptée que pour son complément)",
+    Bn.refsDeReprises(r.vente).length === 0 && Bn.bonsRepriseDeVente(db2, r.vente).length === 0
+    && (() => { const inv = Iv.inventaireVentes(db2, "APESSITO", Core.totalVente, ["2026-10-01", "2026-10-31"], "2026-10-14"); return inv.ventes.reprises.nb === 0 && inv.ventes.net === 23700 + 8624; })());
+  // L'écran.
+  const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ écran 💰 Ventes : « 🔄 » pour le gérant et l'administrateur (peutEchanger à l'affichage ET dans le geste, deux fois), sur la vente FRAÎCHE, la différence rendue en espèces bornée par le tiroir (critiqueSortieTiroir), la question du matériel réservé, puis appliquerEchange ; le reçu de l'échange proposé à l'impression",
+    /\{peutEchanger\(profile\) && lignesReprenables\(v\)\.length > 0 && !v\.depot_chantier && !v\.travaux_id && \(/.test(vs) && (vs.match(/if \(!peutEchanger\(profile\)\) \{ uAlert/g) || []).length === 2
+    && /const r = construireEchange\(db, venteFraiche, choixEchange\(echange\), \{ produits: prods, stock: \(p\) => stockActuel\(db, p\), profile/.test(vs)
+    && /if \(c\.aRendre > 0 && r\.moyen === "Espèces"\) \{[\s\S]{0,400}critiqueSortieTiroir\(/.test(vs) && /questionReserve\(r\.nouvelleVente\.articles\)/.test(vs)
+    && /const dbApres = appliquerEchange\(db, r\);\n\s*save\(dbApres, r\.journal\);/.test(vs) && /imprimerRecuDeVente\(dbApres, r\.nouvelleVente/.test(vs)
+    && /data-echange-destination/.test(vs) && /DESTINATION_SAV\}>Au SAV/.test(vs) && /MOYENS_ENCAISSEMENT\.map/.test(vs) && /useRetour\(!!echange, \(\) => setEchange\(null\)\)/.test(vs));
+  test("★ une vente qui fait partie d'un échange ne se supprime pas (l'autre moitié perdrait son sens) ; la ligne dit « 🔄 échangé » sur l'ancienne, « 🔄 avoir … » et « payé » sur la nouvelle",
+    /if \(v\.echange_de \|\| \(v\.reprises \|\| \[\]\)\.some\(\(x\) => x\.echange\)\) \{/.test(vs) && /data-vente-echangee/.test(vs) && /data-vente-avoir/.test(vs));
+  // Le reçu de l'échange, IMPRIMÉ pour de vrai (printApi remplacé par un témoin).
+  {
+    const sortieRe = join("node_modules", ".cache", `bmi-recu-echange-${process.pid}.mjs`);
+    await build({
+      entryPoints: ["src/lib/impression.js"], bundle: true, format: "esm", platform: "node", outfile: sortieRe,
+      logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"],
+      plugins: [{ name: "ui-temoin", setup(b) {
+        b.onResolve({ filter: /components\/ui(\.jsx)?$/ }, (a) => a.importer.endsWith("impression.js") ? { path: "ui-temoin", namespace: "temoin" } : undefined);
+        b.onLoad({ filter: /.*/, namespace: "temoin" }, () => ({ resolveDir: process.cwd(), loader: "js",
+          contents: 'export * from "./src/components/ui.jsx"; export const printApi = { open: (h) => { globalThis.__recuEch = h; } };' }));
+      } }],
+    });
+    const ImpE = await import(pathToFileURL(sortieRe).href);
+    unlinkSync(sortieRe);
+    const nz = (t) => String(t).replace(/<[^>]+>/g, " ").replace(/[\u202f\u00a0]/g, " ").replace(/&#x27;|&#39;/g, "'").replace(/\s+/g, " ");
+    globalThis.__recuEch = ""; ImpE.imprimerRecuDeVente(db2, nv, { nom: "APESSITO" }, produits);
+    const h1 = nz(globalThis.__recuEch);
+    globalThis.__recuEch = ""; ImpE.imprimerRecuDeVente(db3, rs.nouvelleVente, { nom: "APESSITO" }, produits);
+    const h2 = nz(globalThis.__recuEch);
+    test("★★ le REÇU de l'échange, imprimé : « Échange du reçu n° BMIA-2026-0001 … 1 × BATTERIE rendu(s) », TOTAL 20 000, l'article rendu −11 376, « PAYÉ PAR LE CLIENT » 8 624 ; moins cher : payé 0 et « RENDU AU CLIENT » 6 376",
+      /Échange du reçu n° BMIA-2026-0001 \(ECH-[A-Z0-9]{8}\) : 1 × BATTERIE rendu\(s\)/.test(h1) && /TOTAL TTC : 20 000 F/.test(h1) && /Article\(s\) rendu\(s\) — reçu n° BMIA-2026-0001 : −11 376 F/.test(h1) && /PAYÉ PAR LE CLIENT : 8 624 F/.test(h1) && !/RENDU AU CLIENT/.test(h1)
+      && /PAYÉ PAR LE CLIENT : 0 F/.test(h2) && /RENDU AU CLIENT : 6 376 F/.test(h2), h1.slice(0, 300));
+  }
+  // ⚠ LE COUPLE avec le serveur.
+  const s40 = readFileSync("supabase/securite-40-echange-article.sql", "utf8");
+  test("★ LE COUPLE : securite-40 ouvre au gérant et à l'administrateur l'AJOUT de lignes `echange` sans argent rendu (les mêmes rôles que ROLES_ECHANGE), et garde `avoir_echange` à la création seulement",
+    Ec.ROLES_ECHANGE.join("|") === "gerant|admin" && /r in \('gerant', 'admin'\) and public\.reprises_ajout_echange/.test(s40) && /'echange'\) is distinct from 'true'::jsonb/.test(s40)
+    && /'rembourse', '0'::jsonb\) is distinct from '0'::jsonb/.test(s40) && /-> 'avoir_echange'\) is distinct from \(new\.data -> 'avoir_echange'\)/.test(s40) && /panier_de_la_proforma/.test(s40)
+    && r.reprises.every((x) => x.echange === true && x.rembourse === 0));
 }
 
 titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (Timo, 10/09/2026)");
@@ -7755,7 +7892,7 @@ titre("📒 LE COMPTE DE L'EXPLOITANT : la caisse de BMI chez le DG, à part de 
     apport.boutique === "Chez le DG" && apport.categorie === "Apport de l'exploitant" && apport.montant === 500000 && apport.date === "2026-09-01" && apport.exploitant.sens === "apport" && apport.exploitant.note === "mise de départ" && apport.par_id === "u_timo" && /Apport de l'exploitant le 01\/09\/2026 par TIMO — mise de départ/.test(apport.description)
     && prelev.categorie === "Prélèvement de l'exploitant" && prelev.exploitant.sens === "prelevement" && prelev.date === "2026-09-20"
     && Ex.estApport(apport) && Ex.estPrelevement(prelev) && !Ex.estMouvementExploitant({ categorie: "Apport de l'exploitant" })
-    && (() => { const K = readFileSync("src/lib/constants.js", "utf8"); return /export const CATEGORIES_HORS_CHARGES = \[CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL\];/.test(K) /* RETOURNÉ le 03/10/2026 : + le prêt au personnel */ && !/CATEGORIE_APPORT_EXPLOITANT, /.test(K.match(/export const CATEGORIES = \[[^\]]*\]/)[0]); })());
+    && (() => { const K = readFileSync("src/lib/constants.js", "utf8"); return /export const CATEGORIES_HORS_CHARGES = \[CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_RENDU_ECHANGE, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL\];/.test(K) /* RETOURNÉ le 03/10/2026 : + le prêt au personnel ; le 14/10/2026 : + le rendu sur échange */ && !/CATEGORIE_APPORT_EXPLOITANT, /.test(K.match(/export const CATEGORIES = \[[^\]]*\]/)[0]); })());
   const c1 = Ex.compteExploitant({ depenses: [...dbE.depenses, apport, prelev] }, noms);
   test("★ avec une mise de départ de 500 000 (le 01/09) et un prélèvement de 100 000 (le 20/09) : la caisse de BMI = 500 000 + 300 000 + 50 000 − 20 000 − 100 000 − 730 000 = 0 ; l'apport automatique tombe à 270 000 ; le compte de l'exploitant = 500 000 + 270 000 − 100 000 = 670 000 — les deux soldes se lisent par UNE marche",
     c1.caisse.solde === 0 && c1.caisse.totalEntrees === 850000 && c1.caisse.totalSorties === 850000 && c1.apportsAuto === 270000
@@ -14529,7 +14666,7 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
     && /const peutEtreVerse = ROLES_VERSEMENT\.includes\(profile\.role\)/.test(fD));
   test("★ la vente se verse depuis la caisse qui a REÇU l'argent (caisseDeVente), pour la colonne TOTAL moins les reprises ; le règlement depuis la caisse de sa dette, avec son moyen",
     /boutique: caisseDeVente\(v\), montant: montantAVerser\(v\), source: v\.paiement/.test(fV)
-    && /montantEncaisseVente\(v, totalVente\) - montantRepris\(v\)/.test(fV)
+    && /montantEncaisseVente\(v, totalVente\) - montantReprisHorsEchange\(v\)/.test(fV) /* RETOURNÉ le 14/10/2026 : l'article rendu à un ÉCHANGE n'a pas quitté la caisse (il a payé le nouvel article) */
     && /boutique: d\.boutique, montant: Number\(p\.montant \|\| 0\), source: moyen/.test(fD));
   const sortieRo = join("node_modules", ".cache", `bmi-rendu-ventes-verser-${process.pid}.mjs`);
   let Ro = null;

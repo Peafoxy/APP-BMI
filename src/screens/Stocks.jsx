@@ -1385,7 +1385,7 @@ export function Stocks({ db, save, profile }) {
       {profile.role === "admin" && retoursEnSav(db).filter((a) => a.boutique === bq).length > 0 && (
         <div className="rounded-xl p-4 bg-white border-2 border-amber-300">
           <div className="font-bold text-amber-800 mb-1">🔧 Défectueux / SAV — {bq}</div>
-          <div className="text-xs text-slate-500 mb-3">Articles rendus en panne lors d'un échange sous garantie. Ils ne sont pas dans le stock vendable. Indiquez leur sort :</div>
+          <div className="text-xs text-slate-500 mb-3">Articles rendus en panne (🔁 Retour sous garantie, ou 🔄 Échanger « au SAV »). Ils ne sont pas dans le stock vendable. Indiquez leur sort :</div>
           <div className="space-y-2">
             {retoursEnSav(db).filter((a) => a.boutique === bq).map((a) => (
               <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">

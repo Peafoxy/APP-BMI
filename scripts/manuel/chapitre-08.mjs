@@ -5,7 +5,7 @@
 // screens/Stocks.jsx (les cinq carrés, ⚠ À réapprovisionner, le formulaire
 // « Nouvel article », ✏️ Corriger et CHAMPS_CORRIGEABLES, + Entrée,
 // ± Ajuster, ⇄ Transfert, Suppr., Code, 🖨 Étiquette, 📋 Faire l'inventaire,
-// 🔧 Défectueux / SAV, le tableau, Derniers mouvements, l'import Excel),
+// 🔧 Défectueux / SAV (🔁 Retour et 🔄 Échanger), le tableau, Derniers mouvements, l'import Excel),
 // lib/calculs.js (stockActuel = initial + entrées − vendus + ajustements,
 // stockVendu, stockAjuste, articlesAReapprovisionner, alertesBoutiques,
 // articlesSimilaires, refusMouvementEntreEspaces, ROLES_STOCK, lib/achatsChantier.js
@@ -65,7 +65,7 @@ export const CHAPITRE = {
         ["**📦 Stocks**, cadres des mouvements entre sites", "« ⏳ Transferts de stock envoyés, en attente de validation » (Annuler) ; « 📦 Transferts de stock à valider » (✅ Valider la réception · Refuser) ; sur un **magasin** : « 📥 Demandes des boutiques » (📋 Préparer le bon · Refuser), « ⚠ Alertes de stock dans les boutiques », « 🚚 Ravitailler une boutique depuis 🏭 … » ; sur une **boutique** : la demande de ravitaillement au magasin. Tout cela est le chapitre 9."],
         ["**📦 Stocks**, bouton « ➕ Nouvel article dans BOUTIQUE » (le formulaire est fermé d'office, il s'ouvre au clic ; « ✏️ Corriger » l'ouvre tout seul ; l'import Excel reste à côté du bouton)", "Nom · Fournisseur · Domaine · Catégorie · Initial · Seuil · Prix achat (F) · Prix vente (F) · Code-barres (facultatif) · (batterie, convertisseur) Tension · « ▸ Autres informations (garanties, notes...) » · (pompe) 💧 Caractéristiques de la pompe · « Ajouter à BOUTIQUE » · « 📥 Importer un fichier Excel » · « 📄 Modèle Excel » · « 📋 Coller du texte ». Le même cadre devient « ✏️ Correction de « … » » avec « ✅ Enregistrer la correction » / « Annuler »."],
         ["**📦 Stocks**, « 📋 Inventaire physique »", "Article · Stock théorique · Quantité comptée · Écart · Valeur écart ; « ✅ Valider l'inventaire » / « Annuler »."],
-        ["**📦 Stocks**, « 🔧 Défectueux / SAV »", "Administrateur : les articles rendus en panne lors d'un 🔁 Retour, « 📦 Renvoyé au fournisseur » / « 🗑 Rebut »."],
+        ["**📦 Stocks**, « 🔧 Défectueux / SAV »", "Administrateur : les articles rendus en panne lors d'un 🔁 Retour ou d'un 🔄 Échanger « au SAV », « 📦 Renvoyé au fournisseur » / « 🗑 Rebut »."],
         ["**📦 Stocks**, le tableau « Stocks — BOUTIQUE »", "« Catégorie : Toutes (N) », « 📋 Faire l'inventaire », « 🔍 Rechercher un article par son nom… » ; colonnes Article (figée) · Fournisseur · Catégorie · Code · Initial · Entrées · Vendus · Ajust. · Stock · Seuil · État · P. achat · P. vente · boutons ✏️ Corriger · Code · 🖨 Étiquette · + Entrée · ± Ajuster · ⇄ Transfert · Suppr."],
         ["**📦 Stocks**, « Derniers mouvements — BOUTIQUE »", "Les 20 derniers ajustements : Date · Article · Qté · Motif · Par."],
         ["**💰 Ventes**", "La fenêtre « 🔍 Rechercher un article » lit ce stock (« dispo : N ») ; la vente le fait baisser (chapitre 5)."],
@@ -116,7 +116,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "G. Le défectueux (administrateur)"],
       ["etapes", [
-        { titre: "Le cadre « 🔧 Défectueux / SAV »", texte: "Il n'apparaît que s'il y a des articles rendus en panne lors d'un **🔁 Retour** sous garantie (chapitre 5). Ils **ne sont pas dans le stock vendable** : la ligne dit la quantité, l'article, la référence RET-… et la panne." },
+        { titre: "Le cadre « 🔧 Défectueux / SAV »", texte: "Il n'apparaît que s'il y a des articles rendus en panne lors d'un **🔁 Retour** sous garantie, ou d'un **🔄 Échanger** envoyé « au SAV » (chapitre 5). Ils **ne sont pas dans le stock vendable** : la ligne dit la quantité, l'article, la référence RET-… et la panne." },
         { titre: "Leur sort", texte: "« 📦 Renvoyé au fournisseur » (garantie fabricant) ou « 🗑 Rebut » (irrécupérable). Confirmation, ligne de journal « 🔧 SAV RET-… ». Aucun des deux ne remet l'article en rayon." },
       ]],
     ]},

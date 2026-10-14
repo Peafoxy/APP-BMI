@@ -218,6 +218,7 @@ const BRANCHES = [
   ["src/screens/ClientsInstalles.jsx", /useRetour\(!!dossierOuvert,/, "le dossier d'un chantier"],
   ["src/screens/Ventes.jsx", /useRetour\(!!reprise,/, "↩ Reprise"],
   ["src/screens/Ventes.jsx", /useRetour\(!!retour,/, "🔁 Retour"],
+  ["src/screens/Ventes.jsx", /useRetour\(!!echange,/, "🔄 Échanger"],
   ["src/screens/TousLesDevis.jsx", /useRetour\(!!signature,/, "la signature en boutique"],
   ["src/screens/EspaceClient.jsx", /useRetour\(!!contratOuvert,/, "le contrat (espace client)"],
   ["src/screens/EspaceClient.jsx", /useRetour\(!!pvLectureOuverte,/, "le PV (espace client)"],

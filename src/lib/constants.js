@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.559";
+export const VERSION = "2.101.560";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -162,6 +162,10 @@ export const CATEGORIE_VERSEMENT = "Versement de fonds";
 // une sortie de caisse, mais pas une charge non plus — le chiffre d'affaires
 // est déjà réduit de la reprise (caVente). Même traitement que le versement.
 export const CATEGORIE_REMBOURSEMENT = "Remboursement client";
+// 🔄 Ce que BMI rend quand le nouvel article d'un ÉCHANGE est moins cher
+// (Timo, 14/10/2026, lib/echanges.js) : pas une charge — le chiffre
+// d'affaires de la vente d'origine a déjà été réduit de l'article rendu.
+export const CATEGORIE_RENDU_ECHANGE = "Rendu sur échange";
 // Le remboursement d'une avance de frais (Timo, 12/09/2026) : l'employé a
 // payé de sa poche, la charge est déjà comptée le jour de la dépense ; la
 // sortie qui le rembourse n'est qu'un mouvement de tiroir (lib/validationDepenses.js).
@@ -198,7 +202,7 @@ export const CATEGORIE_RETOUR_CHANTIER = "Argent rendu d'un chantier";
 // se lisent ensemble partout (CATEGORIES_RETOUR_ARGENT).
 export const CATEGORIE_RETOUR_ARGENT = "Argent rendu";
 export const CATEGORIES_RETOUR_ARGENT = [CATEGORIE_RETOUR_CHANTIER, CATEGORIE_RETOUR_ARGENT];
-export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL];
+export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_RENDU_ECHANGE, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
 // ⚠ Timo (12/09/2026) : « seules les dépenses validées comptent ». Une
 // dépense en attente de la validation du DG (5 000 F et plus, saisie par un

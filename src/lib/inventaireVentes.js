@@ -118,8 +118,11 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
   const depots = toutesVentes.filter((v) => estDepotChantier(v) && dans(v.date));
   // Les reprises FAITES pendant la période (une reprise peut toucher une vente
   // plus ancienne : elle compte le jour où l'article est revenu).
+  // 🔄 Un ÉCHANGE (14/10/2026) n'est pas une reprise ici : la nouvelle vente
+  // est déjà comptée par son seul complément (montantEncaisseVente retire
+  // l'avoir) — retirer encore l'article rendu le compterait deux fois.
   const reprises = toutesVentes.flatMap((v) => (Array.isArray(v.reprises) ? v.reprises : [])
-    .filter((r) => dans(r.date)).map((r) => ({ ...r, vente: v.numero })));
+    .filter((r) => dans(r.date) && !r.echange).map((r) => ({ ...r, vente: v.numero })));
   const montantReprises = somme(reprises, (r) => r.montant);
   const sectionVentes = {
     nb: ventes.length,

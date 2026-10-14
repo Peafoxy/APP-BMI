@@ -36,6 +36,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/argentChantier.js` | L'argent remis à quelqu'un (pour un chantier ou hors chantier) : son détail, le reste rendu |
 | `lib/primeChantier.js` | La prime de chantier d'un employé de boutique : quels chantiers, prise sur la part de BMI |
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
+| `lib/echanges.js` | L'échange d'un article vendu contre un autre : avoir, différence payée ou rendue, stock ou SAV |
 | `lib/bons.js` | Le bon de reprise et le bon de retour (des documents, jamais des écritures) |
 | `lib/bandesVersement.js` | La bande noire d'un versement dans 💰 Ventes, et le résumé des ventes depuis le versement précédent |
 | `lib/banques.js` | La liste des banques et la banque d'un employé |

@@ -69,6 +69,10 @@ echo "▸ Modifier une proforma au-delà de 3 % : supabase/securite-34-modifier-
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-34-modifier-proforma.sql >/dev/null 2>&1 || echo "   ❌ securite-34 refusé par la base"
 VERIF34=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-34-modifier-proforma.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF34" = "t|t" ]; then echo "   ✓ la phrase de vérification de securite-34 répond true | true"; else echo "   ❌ la phrase de vérification de securite-34 répond : $VERIF34"; exit 1; fi
+echo "▸ L'échange d'un article (gérant, administrateur) : supabase/securite-40-echange-article.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-40-echange-article.sql >/dev/null 2>&1 || echo "   ❌ securite-40 refusé par la base"
+VERIF40=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-40-echange-article.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF40" = "t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-40 répond true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-40 répond : $VERIF40"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -294,6 +298,33 @@ essai "★ un gérant crée une dépense « Remboursement client »" "REFUSE" "$
 essai "★ un administrateur SECONDAIRE crée une dépense « Remboursement client »" "REFUSE" "$ADMIN2" "$(UPS depenses zrb1 '{"id":"zrb1","boutique":"APESSITO","categorie":"Remboursement client","montant":12000,"paiement":"Espèces"}')"
 essai "★ l'administrateur PRINCIPAL crée une dépense « Remboursement client »" "PERMIS" "$ADMIN" "$(UPS depenses zrb1 '{"id":"zrb1","boutique":"APESSITO","categorie":"Remboursement client","montant":12000,"paiement":"Espèces"}')"
 essai "le gérant enregistre toujours un versement de fonds (securite-11 repris tel quel)" "PERMIS" "$GERANT" "$(UPS depenses zvf1 "$VERS")"
+
+echo
+echo "── 🔄 L'ÉCHANGE D'UN ARTICLE (securite-40, Timo 14/10/2026, « C b ») : le gérant et l'administrateur AJOUTENT une ligne d'échange ──"
+$P -c "insert into public.ventes (id, data) values
+  ('zve1', '{\"id\":\"zve1\",\"boutique\":\"APESSITO\",\"client\":\"AMA\",\"remise_pct\":0,\"articles\":[{\"produit_id\":\"zp1\",\"article\":\"BATTERIE\",\"qte\":2,\"pu\":12000}],\"reprises\":[{\"ref\":\"REP-9\",\"produit_id\":\"zp1\",\"qte\":1,\"montant\":12000,\"rembourse\":12000}]}');" >/dev/null
+BASE_ZVE1='{"id":"zve1","boutique":"APESSITO","client":"AMA","remise_pct":0,"articles":[{"produit_id":"zp1","article":"BATTERIE","qte":2,"pu":12000}],"reprises":[{"ref":"REP-9","produit_id":"zp1","qte":1,"montant":12000,"rembourse":12000}'
+ECH_OK="$BASE_ZVE1"',{"ref":"ECH-1","produit_id":"zp1","qte":1,"montant":12000,"rembourse":0,"echange":true,"echange_vente_id":"zve2"}]}'
+essai "★ le GÉRANT ajoute une ligne d'échange (rien rendu) à la vente (par upsert)" "PERMIS" "$GERANT" "$(UPS ventes zve1 "$ECH_OK")"
+essai "★ un VENDEUR ajoute une ligne d'échange" "REFUSE" "$VENDEUR" "$(UPS ventes zve1 "$(echo "$ECH_OK" | sed 's/ECH-1/ECH-1b/')")"
+essai "★ le gérant ajoute une ligne d'échange qui REND de l'argent (c'est une reprise)" "REFUSE" "$GERANT" "$(UPS ventes zve1 "$(echo "$ECH_OK" | sed 's/ECH-1/ECH-2/; s/\"rembourse\":0,\"echange\"/\"rembourse\":5000,\"echange\"/')")"
+essai "★ le gérant ajoute une reprise ORDINAIRE (sans la marque échange)" "REFUSE" "$GERANT" "$(UPS ventes zve1 "$BASE_ZVE1"',{"ref":"REP-10","produit_id":"zp1","qte":1,"montant":12000,"rembourse":12000}]}')"
+essai "★ le gérant ajoute un échange ET change une ancienne reprise" "REFUSE" "$GERANT" "$(UPS ventes zve1 "$(echo "$ECH_OK" | sed 's/REP-9/REP-99/')")"
+essai "★ le gérant efface une reprise en ajoutant un échange" "REFUSE" "$GERANT" "$(MAJ ventes "jsonb_set(data,'{reprises}','[{\"ref\":\"ECH-3\",\"echange\":true,\"rembourse\":0}]')" zve1)"
+NV_ECH='{"id":"zve2","boutique":"APESSITO","client":"AMA","remise_pct":0,"articles":[{"produit_id":"zp2","article":"ONDULEUR","qte":1,"pu":20000}],"paiement":"Espèces","avoir_echange":12000,"echange_de":{"vente_id":"zve1","numero":"BMIA-1","ref":"ECH-1"}}'
+essai "★ le GÉRANT crée la nouvelle vente avec son avoir" "PERMIS" "$GERANT" "$(UPS ventes zve2 "$NV_ECH")"
+$P -c "insert into public.ventes (id, data) values ('zve2', '$NV_ECH');" >/dev/null
+essai "★ la vente d'échange déjà enregistrée, renvoyée telle quelle par un vendeur (synchronisation), passe" "PERMIS" "$VENDEUR" "$(UPS ventes zve2 "$NV_ECH")"
+essai "★ …et un vendeur peut y toucher autre chose que l'avoir" "PERMIS" "$VENDEUR" "$(MAJ ventes "jsonb_set(data,'{note}','\"livrée\"')" zve2)"
+essai "★ un VENDEUR crée une vente qui porte un avoir (il ferait baisser le tiroir)" "REFUSE" "$VENDEUR" "$(UPS ventes zve3 "$(echo "$NV_ECH" | sed 's/zve2/zve3/')")"
+essai "★ le gérant MODIFIE l'avoir d'une vente déjà enregistrée" "REFUSE" "$GERANT" "$(MAJ ventes "jsonb_set(data,'{avoir_echange}','20000')" zve2)"
+essai "★ l'administrateur pose un avoir sur une vente existante" "REFUSE" "$ADMIN" "$(MAJ ventes "jsonb_set(data,'{avoir_echange}','5000')" zvr1)"
+essai "le vendeur crée toujours une vente ordinaire (rien ne change pour le quotidien)" "PERMIS" "$VENDEUR" "$(UPS ventes zve4 '{"id":"zve4","boutique":"APESSITO","client":"AMA","remise_pct":0,"articles":[{"produit_id":"zp1","article":"BATTERIE","qte":1,"pu":12000}],"paiement":"Espèces"}')"
+essai "l'administrateur PRINCIPAL note toujours une reprise ordinaire" "PERMIS" "$ADMIN" "$(UPS ventes zve1 "$(echo "$ECH_OK" | sed 's/\]}$/,{"ref":"REP-11","produit_id":"zp1","qte":1,"montant":1,"rembourse":1}]}/')")"
+essai "le gérant remet l'article rendu au stock (ajustement echange_client)" "PERMIS" "$GERANT" "$(INS ajustements zje1 '{"id":"zje1","produit_id":"zp1","qte":1,"type":"echange_client"}')"
+essai "★ un vendeur remet l'article rendu au stock (echange_client)" "REFUSE" "$VENDEUR" "$(INS ajustements zje2 '{"id":"zje2","produit_id":"zp1","qte":1,"type":"echange_client"}')"
+essai "le gérant met l'article rendu au SAV (retour_defectueux)" "PERMIS" "$GERANT" "$(INS ajustements zje3 '{"id":"zje3","produit_id":"zp1","qte":0,"qte_sav":1,"statut":"en_sav","type":"retour_defectueux"}')"
+essai "le gérant rend la différence (« Rendu sur échange »)" "PERMIS" "$GERANT" "$(UPS depenses zre1 '{"id":"zre1","boutique":"APESSITO","categorie":"Rendu sur échange","montant":3000,"paiement":"Espèces"}')"
 
 echo
 echo "── LES REMISES PAR ARTICLE (securite-14, Timo 10/09/2026) : 3 % max par ligne sauf admin ; jamais ligne + générale ──"

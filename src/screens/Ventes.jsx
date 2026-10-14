@@ -10,8 +10,8 @@ import { correspond } from "../lib/suggestions";
 import { genererProforma } from "../pdf";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
-import { LOGO, PAIEMENTS, caisseDeVente, LIBELLE_CAISSE_CHANTIER } from "../lib/constants";
-import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees } from "../lib/versements";
+import { LOGO, PAIEMENTS, caisseDeVente, LIBELLE_CAISSE_CHANTIER, MOYENS_ENCAISSEMENT } from "../lib/constants";
+import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees, fondsAVerser, critiqueSortieTiroir } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
 import { prochainNumeroAchatChantier, estDepotChantier } from "../lib/core";
 import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT } from "../lib/core";
@@ -38,7 +38,8 @@ import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/
 import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite } from "../lib/whatsappModeles";
-import { lierFacture, champsTravauxDocument } from "../lib/travaux";
+import { lierFacture, champsTravauxDocument, propositionsStock, produitSaisi } from "../lib/travaux";
+import { peutEchanger, chiffresEchange, construireEchange, appliquerEchange, montantReprisHorsEchange, DESTINATION_STOCK, DESTINATION_SAV } from "../lib/echanges";
 import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
 import { InventaireVentes } from "./InventaireVentes";
 // 🏗 Étape 2 de la caisse CHANTIER (11/10/2026) : le matériel qui part au chantier.
@@ -1253,6 +1254,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       uAlert(`🔒 La commission de cette vente a déjà été PAYÉE${v.commercial ? ` à ${v.commercial}` : ""}.\n\nSupprimer la vente ferait disparaître ce qui justifie cette sortie de caisse. Annulez d'abord le règlement de commission (👑 Équipe), puis revenez.`);
       return;
     }
+    // 🔄 Une vente qui fait partie d'un ÉCHANGE (14/10/2026) ne se supprime pas :
+    // l'autre moitié perdrait son sens (l'avoir, ou l'article rendu).
+    if (v.echange_de || (v.reprises || []).some((x) => x.echange)) {
+      uAlert(`🔒 Cette vente fait partie d'un échange (${v.echange_de ? `avoir du reçu ${v.echange_de.numero}` : "un article y a été rendu contre un autre"}).\n\nSupprimer l'une des deux ventes rendrait l'autre fausse. Une vente d'échange ne se supprime pas.`);
+      return;
+    }
     const dette = (db.dettes || []).find((d) => d.vente_id === v.id);
     if (dette && Number(dette.paye || 0) > 0) {
       uAlert(`🔒 Le client a déjà versé ${fmt(dette.paye)} sur la dette de cette vente.\n\nCes versements sont entrés dans la caisse : supprimer la vente (et sa dette) les retirerait du tiroir et rendrait fausses les clôtures déjà faites. Une vente dont la dette a reçu de l'argent ne se supprime pas. Pour un article rendu, passez par ↩ Reprise.`);
@@ -1285,13 +1292,69 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // ⬅ La touche retour referme ces fenêtres sans rien enregistrer (Timo, 13/10/2026).
   useRetour(!!reprise, () => setReprise(null));
   useRetour(!!retour, () => setRetour(null));
+  // ---- 🔄 ÉCHANGER UN ARTICLE CONTRE UN AUTRE (Timo, 14/10/2026, « A c, B c,
+  // C b, D non ») — règle pure lib/echanges.js. Le gérant et l'administrateur ;
+  // l'article rendu au stock OU au SAV, choisi à chaque fois ; la différence
+  // payée sur-le-champ (jamais à crédit) ou rendue par la caisse de la vente.
+  const [echange, setEchange] = useState(null); // { vente, qtes, destination, nouveaux: [{ saisie, produit_id, qte }], motif, moyen }
+  useRetour(!!echange, () => setEchange(null));
+  const ouvrirEchange = (v) => {
+    if (!peutEchanger(profile)) { uAlert("🔒 L'échange d'un article est réservé au gérant et à l'administrateur."); return; }
+    const lignes = lignesReprenables(v);
+    if (!lignes.length) { uAlert("Cette vente ne porte aucun article de stock à échanger (ou tout a déjà été rendu)."); return; }
+    setEchange({ vente: v, qtes: Object.fromEntries(lignes.map((l) => [l.produit_id, lignes.length === 1 ? "1" : "0"])), destination: "",
+      nouveaux: [{ saisie: "", produit_id: "", qte: "1" }], motif: "", moyen: MOYENS_ENCAISSEMENT.includes(v.paiement) ? v.paiement : "Espèces" });
+  };
+  const choixEchange = (e) => ({
+    rendus: Object.entries(e.qtes || {}).map(([produit_id, qte]) => ({ produit_id, qte: Number(qte || 0) })),
+    nouveaux: (e.nouveaux || []).map((l) => ({ produit_id: l.produit_id, qte: Number(l.qte || 0) })),
+    destination: e.destination, motif: e.motif, moyen: e.moyen,
+  });
+  const confirmerEchange = async () => {
+    if (!peutEchanger(profile)) { uAlert("🔒 L'échange d'un article est réservé au gérant et à l'administrateur."); return; }
+    if (bloquerSiLecture(db, profile)) return;
+    // Revérifié DANS le geste, sur la vente FRAÎCHE et le stock du moment.
+    const venteFraiche = (db.ventes || []).find((x) => x.id === echange.vente.id) || echange.vente;
+    const prods = db.produits.filter((p) => p.boutique === venteFraiche.boutique);
+    const r = construireEchange(db, venteFraiche, choixEchange(echange), { produits: prods, stock: (p) => stockActuel(db, p), profile, aujourdhui: today(), heure: heureCourte() });
+    if (r.refus) { uAlert(r.refus); return; }
+    const c = r.chiffres;
+    // On ne rend pas plus que le tiroir ne contient (Timo, 15/09/2026) — en espèces.
+    if (c.aRendre > 0 && r.moyen === "Espèces") {
+      const caisse = caisseDeVente(venteFraiche);
+      const p = fondsAVerser(db, caisse, totalVente);
+      const refusT = critiqueSortieTiroir({ tiroir: p.montant + p.resteFonds, fondsFixe: p.resteFonds, montant: c.aRendre, geste: "La différence à rendre", boutique: caisse, avecAvance: false });
+      if (refusT) { uAlert(`${refusT}\n\nRendez-la par un autre moyen (mobile money, virement), ou plus tard.`); return; }
+    }
+    // 🔒 Le matériel réservé pour une installation (12/10/2026) : la question, avant toute écriture.
+    { const q = questionReserve(r.nouvelleVente.articles); if (q && !await uConfirm(q)) return; }
+    const sav = echange.destination === DESTINATION_SAV;
+    if (!(await uConfirm(
+      `Échanger (reçu ${numeroRecu(venteFraiche)}) ?\n\n` +
+      `↩ Rendu : ${c.rendus.map((l) => `${l.qte} × ${l.article}`).join(", ")} — valeur ${fmt(c.valeurRendue)} (prix payé, remises comprises)\n` +
+      `   → ${sav ? "au stock SAV (défectueux, jamais revendu)" : `au stock de ${venteFraiche.boutique}`}\n` +
+      `🛒 Emporté : ${c.nouveaux.map((l) => `${l.qte} × ${l.article}`).join(", ")} — ${fmt(c.valeurNouvelle)} (prix du jour)\n\n` +
+      (c.aPayer > 0 ? `💵 Le client paie la différence : ${fmt(c.aPayer)} (${r.moyen})`
+        : c.aRendre > 0 ? `💵 BMI rend la différence au client : ${fmt(c.aRendre)} (${r.moyen}) — sortie de la caisse de ${caisseDeVente(venteFraiche)}`
+        : "Même valeur : aucun argent ne bouge.") +
+      `\n\n• Un nouveau reçu (${r.nouvelleVente.numero}) est établi ; l'ancien ne change pas.\n• Seule la différence passe par la caisse ; le chiffre d'affaires et la commission suivent l'échange.`
+    ))) return;
+    const dbApres = appliquerEchange(db, r);
+    save(dbApres, r.journal);
+    setEchange(null);
+    if (await uConfirm(`✅ Échange ${r.ref} enregistré. Nouveau reçu : ${r.nouvelleVente.numero}.\n\nImprimer le reçu de l'échange ?`)) {
+      imprimerRecuDeVente(dbApres, r.nouvelleVente, infoBq(r.nouvelleVente.boutique), dbApres.produits);
+    }
+  };
   const jeSuisPrincipal = estAdminPrincipal(db, profile);
   // ---- 💸 VERSER L'ARGENT D'UNE VENTE (Timo, 09/10/2026) ----
   // Une vente PAYÉE (espèces ou compte mobile), pas encore versée : le gérant
   // ou l'administrateur la remet au DG / à la BANQUE / au comptable. Une vente
   // à crédit se verse par ses RÈGLEMENTS, dans 📋 Dettes. La règle et le geste
   // vivent dans lib/versements.js et components/verserOrigine.js.
-  const montantAVerser = (v) => Math.max(0, montantEncaisseVente(v, totalVente) - montantRepris(v));
+  // 🔄 Un article rendu à l'ÉCHANGE n'a pas quitté la caisse : il a payé le
+  // nouvel article (lib/echanges.js) — seules les reprises ordinaires comptent ici.
+  const montantAVerser = (v) => Math.max(0, montantEncaisseVente(v, totalVente) - montantReprisHorsEchange(v));
   // 09/10/2026 : une vente faite AVANT un versement général de sa caisse est déjà
   // partie avec lui — plus de bouton, une mention grise à la place.
   const versementGeneralDe = (v) => versementGeneralQuiEmporte(db, { caisse: caisseDeVente(v), source: v.paiement, quand: v });
@@ -1961,8 +2024,17 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     <div data-vente-total className={classeTotal}>{fmt(totalVente(v))}</div>
                     {v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}
                     {repris > 0 ? (
-                      /* 07/10/2026 : ce qui a été repris et la valeur restante de la facture. */
-                      <div data-vente-reprise><div className="text-xs text-amber-700">↩ repris : −{fmt(repris)}</div><div className="font-bold text-slate-900">reste : {fmt(Math.max(0, totalVente(v) - repris))}</div></div>
+                      /* 07/10/2026 : ce qui a été repris et la valeur restante de la facture.
+                         🔄 14/10/2026 : l'article rendu à un ÉCHANGE se dit à part. */
+                      <div data-vente-reprise>
+                        {montantReprisHorsEchange(v) > 0 ? <div className="text-xs text-amber-700">↩ repris : −{fmt(montantReprisHorsEchange(v))}</div> : null}
+                        {repris - montantReprisHorsEchange(v) > 0 ? <div data-vente-echangee className="text-xs text-teal-700">🔄 échangé : −{fmt(repris - montantReprisHorsEchange(v))}</div> : null}
+                        <div className="font-bold text-slate-900">reste : {fmt(Math.max(0, totalVente(v) - repris))}</div>
+                      </div>
+                    ) : null}
+                    {Number(v.avoir_echange || 0) > 0 ? (
+                      /* 🔄 La vente née d'un échange : l'article rendu en a payé une part. */
+                      <div data-vente-avoir title={`Échange du reçu ${v.echange_de?.numero || ""}`}><div className="text-xs text-teal-700">🔄 avoir {v.echange_de?.numero || ""} : −{fmt(v.avoir_echange)}</div><div className="font-bold text-slate-900">payé : {fmt(Math.max(0, totalVente(v) - Number(v.avoir_echange || 0)))}</div></div>
                     ) : null}
                     {credit ? <div data-vente-avance className="font-bold text-slate-900">avance : {fmt(avance)}</div> : null}
                   </>;
@@ -2011,6 +2083,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     )}
                     {ROLES_RETOUR_GARANTIE.includes(profile.role) && (
                       <button onClick={() => ouvrirRetour(v)} className={boutonAction("text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100")} title="🔁 Retour : échange sous garantie, sortie de stock SANS vente ni facturation (ou frais partiels)" aria-label="Retour">🔁</button>
+                    )}
+                    {peutEchanger(profile) && lignesReprenables(v).length > 0 && !v.depot_chantier && !v.travaux_id && (
+                      <button data-bouton-echange onClick={() => ouvrirEchange(v)} className={boutonAction("text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100")} title="🔄 Échanger : le client rend un article et en prend un autre — il paie la différence, ou BMI la lui rend" aria-label="Échanger">🔄</button>
                     )}
                     {jeSuisPrincipal && lignesReprenables(v).length > 0 && (
                       <button onClick={() => ouvrirReprise(v)} className={boutonAction("text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100")} title="↩ Reprise de l'article par BMI : le client ne le prend pas — retour au stock, argent rendu ou dette réduite" aria-label="Reprise">↩</button>
@@ -2072,6 +2147,81 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             <div className="flex justify-end gap-2 pt-1">
               <button onClick={() => setReprise(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
               <button onClick={confirmerReprise} className={btnDark}>Enregistrer la reprise</button>
+            </div>
+          </div>
+        </div>
+      ); })()}
+
+      {echange && (() => {
+        const prods = db.produits.filter((p) => p.boutique === echange.vente.boutique);
+        const c = chiffresEchange(echange.vente, choixEchange(echange), prods);
+        const majNouveau = (i, champ) => setEchange({ ...echange, nouveaux: echange.nouveaux.map((l, j) => (j === i ? { ...l, ...champ } : l)) });
+        return (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
+          <div data-fenetre-echange className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+            <div className="font-bold text-slate-900">🔄 Échanger un article contre un autre</div>
+            <div className="text-xs text-slate-500">
+              Reçu {numeroRecu(echange.vente)} — {echange.vente.client || "client de passage"} — {echange.vente.boutique}.
+              Le client rend un article et en emporte un autre : <b>il paie la différence, ou BMI la lui rend</b>. Un nouveau reçu est établi ; l'ancien ne change pas.
+            </div>
+            <div className="text-xs font-semibold text-slate-700">↩ Ce que le client rend (0 = gardé)</div>
+            <div data-echange-rendus className="rounded-lg border border-slate-200 divide-y divide-slate-100">
+              {lignesReprenables(echange.vente).map((l) => (
+                <div key={l.produit_id} className="flex items-center gap-3 px-3 py-2">
+                  <div className="flex-1 text-sm">
+                    <div className="font-semibold text-slate-800">{l.article}</div>
+                    <div className="text-xs text-slate-500">reste {l.restant} sur {l.qte}</div>
+                  </div>
+                  <input type="number" min="0" max={l.restant} aria-label={`Quantité rendue : ${l.article}`}
+                    className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-right"
+                    value={echange.qtes?.[l.produit_id] ?? "0"}
+                    onChange={(e) => setEchange({ ...echange, qtes: { ...echange.qtes, [l.produit_id]: e.target.value } })} />
+                </div>
+              ))}
+            </div>
+            <Field label="L'article rendu va">
+              <select data-echange-destination className={inputCls} value={echange.destination} onChange={(e) => setEchange({ ...echange, destination: e.target.value })}>
+                <option value="">— Choisir —</option>
+                <option value={DESTINATION_STOCK}>Au stock — en bon état, il sera revendu</option>
+                <option value={DESTINATION_SAV}>Au SAV — défectueux, jamais revendu (renvoi au fournisseur ou rebut)</option>
+              </select>
+            </Field>
+            <div className="text-xs font-semibold text-slate-700">🛒 Ce que le client emporte (prix du jour)</div>
+            {echange.nouveaux.map((l, i) => (
+              <div key={i} data-echange-nouveau className="grid grid-cols-3 gap-2 items-start">
+                <div className="col-span-2">
+                  <ChampSuggestions className={inputCls} placeholder="Article du stock : tapez son nom…"
+                    valeur={l.saisie}
+                    suggestions={propositionsStock(db, prods)}
+                    onChange={(v) => majNouveau(i, { saisie: v, produit_id: produitSaisi(prods, v)?.id || "" })}
+                    onChoisir={(x) => majNouveau(i, { saisie: x.valeur, produit_id: x.produit_id })} />
+                </div>
+                <input type="number" min="1" aria-label="Quantité emportée" className={inputCls} value={l.qte} onChange={(e) => majNouveau(i, { qte: e.target.value })} />
+              </div>
+            ))}
+            <button type="button" onClick={() => setEchange({ ...echange, nouveaux: [...echange.nouveaux, { saisie: "", produit_id: "", qte: "1" }] })} className="text-xs font-semibold text-sky-700 hover:underline">➕ Un autre article</button>
+            <Field label="Motif (obligatoire)">
+              <input className={inputCls} placeholder="Ex : le client préfère le modèle au-dessus / l'article ne marche pas" value={echange.motif} onChange={(e) => setEchange({ ...echange, motif: e.target.value })} />
+            </Field>
+            {c.difference !== 0 && (
+              <Field label={c.difference > 0 ? "Le client paie la différence en (jamais à crédit)" : "La différence est rendue en"}>
+                <select className={inputCls} value={echange.moyen} onChange={(e) => setEchange({ ...echange, moyen: e.target.value })}>
+                  {MOYENS_ENCAISSEMENT.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </Field>
+            )}
+            {(c.valeurRendue > 0 || c.valeurNouvelle > 0) && (
+              <div data-echange-apercu className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-slate-800 space-y-0.5">
+                <div>Valeur rendue (prix payé, remises comprises) : <b className="tabular-nums">{fmt(c.valeurRendue)}</b></div>
+                <div>Nouvel article (prix du jour) : <b className="tabular-nums">{fmt(c.valeurNouvelle)}</b></div>
+                {c.aPayer > 0 ? <div data-echange-a-payer>Le client paie : <b className="tabular-nums text-green-800">{fmt(c.aPayer)}</b></div>
+                  : c.aRendre > 0 ? <div data-echange-a-rendre>BMI rend au client : <b className="tabular-nums text-red-700">{fmt(c.aRendre)}</b> — sortie de la caisse de {caisseDeVente(echange.vente)}</div>
+                  : <div>Même valeur : aucun argent ne bouge.</div>}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setEchange(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">Annuler</button>
+              <button onClick={confirmerEchange} className={btnDark}>Enregistrer l'échange</button>
             </div>
           </div>
         </div>

@@ -133,6 +133,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
     </tr></table>
 
     <h1>${travaux ? TITRE_FACTURE_TRAVAUX : depot ? TITRE_RECU_DEPOT : "REÇU DE VENTE"}</h1>
+    ${v.echange_de ? `<div data-mention-echange style="text-align:center;font-size:11px;color:#0f766e;margin:-6px 0 10px">🔄 Échange du reçu n° ${esc(v.echange_de.numero)} (${esc(v.echange_de.ref || "")}) : ${esc((v.echange_de.rendus || []).map((r) => `${r.qte} × ${r.article}`).join(", "))} rendu(s).</div>` : ""}
     ${depot ? `<div data-mention-depot style="text-align:center;font-size:11px;color:#1e5a8a;margin:-6px 0 10px">Somme déposée pour votre chantier : le matériel en sortira au fil de l'installation.</div>` : ""}
 
     <div class="meta">
@@ -164,6 +165,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
       ${Number(v.frais_installation || 0) > 0 ? `<tr><td>Frais d'installation :</td><td>${fmt(v.frais_installation)}</td></tr>` : ""}
       ${Number(v.frais_transport || 0) > 0 ? `<tr><td>Transport / livraison :</td><td>${fmt(v.frais_transport)}</td></tr>` : ""}
       <tr class="total"><td>TOTAL TTC :</td><td>${fmt(net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0))}</td></tr>
+      ${v.echange_de ? `<tr><td>Article(s) rendu(s) — reçu n° ${esc(v.echange_de.numero)} :</td><td>−${fmt(Number(v.echange_de.valeur_rendue || v.avoir_echange || 0))}</td></tr><tr class="total"><td>PAYÉ PAR LE CLIENT :</td><td>${fmt(Math.max(0, net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0) - Number(v.avoir_echange || 0)))}</td></tr>${Number(v.echange_de.rendu || 0) > 0 ? `<tr class="reste"><td>RENDU AU CLIENT :</td><td>${fmt(v.echange_de.rendu)}</td></tr>` : ""}` : ""}
       ${v.paiement === "Crédit (dette)" ? `<tr><td>Avance versée :</td><td>${fmt(v.avance || 0)}</td></tr><tr class="reste"><td>RESTE À PAYER :</td><td>${fmt(Math.max(0, net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0) - (Number(v.avance) || 0)))}</td></tr>` : ""}
     </table>
 
