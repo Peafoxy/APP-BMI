@@ -28,7 +28,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation, chantiersDeLEspaceRegarde } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalVenteDuJour, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation, chantiersDeLEspaceRegarde } from "../lib/calculs";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { bandesDeVersement, intercalerBandes, resumeBande } from "../lib/bandesVersement";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -1549,7 +1549,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   };
 
   const liste = db.ventes.filter((v) => v.boutique === boutique);
-  const totalJour = liste.filter((v) => String(v.date) === today()).reduce((s, v) => s + totalVente(v), 0);
+  // 🔄 Une vente née d'un échange ne compte que ce que le client a payé en plus
+  // (Timo, 14/10/2026 : « a ») — l'avoir est dit à côté, la caisse ne bouge pas.
+  const ventesDuJour = liste.filter((v) => String(v.date) === today());
+  const totalJour = ventesDuJour.reduce((s, v) => s + totalVenteDuJour(v), 0);
+  const avoirsDuJour = ventesDuJour.reduce((s, v) => s + Math.min(totalVente(v), Number(v.avoir_echange || 0)), 0);
 
   // ---- Listes regroupées : Ventes (par défaut) / Proformas, avec recherche ----
   const [vueListe, setVueListe] = useState("ventes");
@@ -1880,7 +1884,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             {voitAchatsChantier && <button onClick={() => setVueListe("achats")} className={btnVue(vueListe === "achats")} data-onglet-achats-chantier>🏗 Achats chantier ({nbAchatsBoutique})</button>}
           </div>
           {vueListe === "ventes"
-            ? <span className="text-sm font-semibold text-slate-500">{boutique} — Aujourd'hui : {fmt(totalJour)}</span>
+            ? <span className="text-sm font-semibold text-slate-500">{boutique} — Aujourd'hui : {fmt(totalJour)}{avoirsDuJour > 0 && <span data-jour-avoirs className="text-teal-700"> (🔄 échange : {fmt(avoirsDuJour)} d'avoir non compté)</span>}</span>
             : vueListe === "achats"
               ? <span className="text-xs font-semibold text-slate-500">Matériel remis aux chantiers — puisé dans le dépôt du client : chaque achat est une vente (chiffre d'affaires de la boutique), hors tiroir</span>
               : <span className="text-xs font-semibold text-slate-500">Offres de prix — non comptabilisées dans le chiffre d'affaires</span>}
@@ -1908,8 +1912,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             return (
               <span className="text-sm font-bold text-sky-800 self-center ml-auto">
                 💰 Recette : {fmt(r.brut)} <span className="font-semibold text-slate-500">· {r.nb} vente{r.nb > 1 ? "s" : ""}</span>
-                {r.repris > 0 && (
-                  <span className="font-semibold text-amber-700"> — dont {fmt(r.repris)} repris, net {fmt(r.net)}</span>
+                {r.avoirs > 0 && (
+                  <span data-recette-avoirs className="font-semibold text-teal-700"> — 🔄 échanges : {fmt(r.avoirs)} d'avoir non compté</span>
+                )}
+                {(r.repris > 0 || r.rendus > 0) && (
+                  <span className="font-semibold text-amber-700"> — dont {r.repris > 0 ? `${fmt(r.repris)} repris` : ""}{r.repris > 0 && r.rendus > 0 ? ", " : ""}{r.rendus > 0 ? `${fmt(r.rendus)} rendu sur échange` : ""}, net {fmt(r.net)}</span>
                 )}
                 {depots.nb > 0 && (
                   <span data-recette-depots className="font-semibold text-violet-700"> · 🏗 Dépôts chantier : {fmt(depots.brut)} ({depots.nb}) — pas des ventes</span>

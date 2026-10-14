@@ -3173,11 +3173,25 @@ export function libellePeriodePersonnalisee(du, au) {
 // le brut (qui correspond à la colonne) ET le net. Afficher le net tout seul
 // ferait mentir l'addition ; afficher le brut tout seul ferait mentir la
 // caisse.
+//
+// ⚠ 🔄 UN ÉCHANGE N'EST PAS UNE VENTE DU JOUR (Timo, 14/10/2026 : « si le
+// client ajoute l'argent, c'est en ce moment ça rentre dans les ventes du
+// jour… sinon on ne peut pas restituer l'argent au client et on va nous dire
+// qu'on a vendu ») : la vente née d'un échange ne compte que ce que le client
+// a payé EN PLUS (son total moins l'avoir, `avoir_echange`) — l'avoir est dit
+// à part (`avoirs`) pour que l'addition des lignes reste vérifiable. L'argent
+// RENDU au client (`echange_de.rendu`) sort du net le jour de l'échange, et la
+// ligne `echange` de l'ancienne vente n'est plus soustraite (sinon l'article
+// rendu le serait deux fois). Ce que dit la caisse ne change pas.
+export const totalVenteDuJour = (v) => Math.max(0, totalVente(v) - Number(v?.avoir_echange || 0));
 export function recetteDesVentes(ventes) {
   const l = Array.isArray(ventes) ? ventes : [];
-  const brut = l.reduce((s, v) => s + totalVente(v), 0);
-  const repris = l.reduce((s, v) => s + montantRepris(v), 0);
-  return { nb: l.length, brut, repris, net: Math.max(0, brut - repris) };
+  const avoirs = l.reduce((s, v) => s + Math.min(totalVente(v), Number(v?.avoir_echange || 0)), 0);
+  const brut = l.reduce((s, v) => s + totalVenteDuJour(v), 0);
+  const repris = l.reduce((s, v) => s + (Array.isArray(v?.reprises) ? v.reprises : [])
+    .filter((r) => !r?.echange).reduce((t, r) => t + Number(r.montant || 0), 0), 0);
+  const rendus = l.reduce((s, v) => s + Number(v?.echange_de?.rendu || 0), 0);
+  return { nb: l.length, brut, avoirs, repris, rendus, net: Math.max(0, brut - repris - rendus) };
 }
 
 // ⚠ UNE PROFORMA N'EST PAS UNE RECETTE — c'est une offre de prix, que

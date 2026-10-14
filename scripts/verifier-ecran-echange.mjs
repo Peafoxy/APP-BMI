@@ -117,6 +117,14 @@ console.log("\n🔄 L'échange d'un article, joué dans Chromium");
   const fond = async (texte) => page.locator("tr", { hasText: texte }).first().evaluate((tr) => tr.outerHTML.includes("bg-slate-200") && tr.outerHTML.includes("text-slate-500!") ? "gris" : "normal");
   const fondNv = await fond("🔄 avoir BMID-2026-0040"), fondA = await fond("🔄 article rendu");
   test("★ la ligne de la vente née de l'échange est GRISÉE (fond gris), celle d'origine ne l'est pas", fondNv === "gris" && fondA === "normal", `${fondNv} / ${fondA}`);
+  // « a » (Timo, 14/10/2026) : « si le client ajoute l'argent, c'est en ce moment ça rentre dans les
+  // ventes du jour… sinon on va nous dire qu'on a vendu » — la vente née de l'échange ne compte que le
+  // complément, dans « Aujourd'hui » ET dans la Recette ; l'avoir est dit à côté.
+  const jour1 = propre(await page.locator("span", { hasText: "Aujourd'hui :" }).first().innerText());
+  const recette1 = propre(await page.locator("span", { hasText: "💰 Recette" }).first().innerText());
+  test("★★ plus cher : « Aujourd'hui : 40 000 » (le complément payé, pas 120 000), avoir de 80 000 dit à côté ; Recette 160 000 + 40 000 = 200 000, l'avoir non compté dit, pas de « net »",
+    /Aujourd'hui : 40 000 F \(🔄 échange : 80 000 F d'avoir non compté\)/.test(jour1)
+    && /💰 Recette : 200 000 F/.test(recette1) && /🔄 échanges : 80 000 F d'avoir non compté/.test(recette1) && !/net/.test(recette1), `${jour1} || ${recette1}`);
   // « le bon d'échange n'est plus visible à télécharger » : 🧾 sur l'ancienne ligne ET sur la nouvelle.
   const trA = page.locator("tr", { hasText: "🔄 article rendu" }).first();
   const trN = page.locator("tr", { hasText: "🔄 avoir BMID-2026-0040" }).first();
@@ -144,6 +152,11 @@ console.log("\n🔄 L'échange d'un article, joué dans Chromium");
     && (n.ventes || []).find((v) => v.id !== "vA")?.avoir_echange === 30000, JSON.stringify(n.depenses));
   await attendre(200);
   const ligneA2 = propre(await page.locator("tr", { hasText: "🔄 article rendu" }).first().innerText());
+  const jour2 = propre(await page.locator("span", { hasText: "Aujourd'hui :" }).first().innerText());
+  const recette2 = propre(await page.locator("span", { hasText: "💰 Recette" }).first().innerText());
+  test("★★ moins cher : « Aujourd'hui : 0 » (BMI a RENDU de l'argent : rien de vendu), avoir de 30 000 dit ; Recette 160 000, dont 50 000 rendu sur échange, net 110 000 (= la caisse : 160 000 − 50 000)",
+    /Aujourd'hui : 0 F \(🔄 échange : 30 000 F d'avoir non compté\)/.test(jour2)
+    && /💰 Recette : 160 000 F/.test(recette2) && /🔄 échanges : 30 000 F d'avoir non compté/.test(recette2) && /dont 50 000 F rendu sur échange, net 110 000 F/.test(recette2), `${jour2} || ${recette2}`);
   test("★ moins cher : l'ancienne ligne dit « article rendu : 80 000 », « → nouveau reçu BMID-2026-0041 : 30 000 », « rendu au client : 50 000 » (80 000 = 30 000 + 50 000)",
     /article rendu : 80 000 F/.test(ligneA2) && /→ nouveau reçu BMID-2026-0041 : 30 000 F/.test(ligneA2) && /rendu au client : 50 000 F/.test(ligneA2) && !/reste :/.test(ligneA2), ligneA2);
   test("aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));

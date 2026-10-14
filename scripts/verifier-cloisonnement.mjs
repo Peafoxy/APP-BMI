@@ -12185,7 +12185,21 @@ titre("💰 La recette de ce qui est affiché (💰 Ventes)");
     // (`recetteDesVentes, totalDesProformas`) et criait à tort.
     && !/recette/i.test(v.split("\n").find((l) => l.includes("Total des proformas :")) || ""));
   test("★ le montant repris s'affiche seulement s'il y en a un",
-    /\{r\.repris > 0 && \(/.test(v));
+    // RETOURNÉ le 14/10/2026 (« a ») : la même phrase porte aussi l'argent rendu sur un échange.
+    /\{\(r\.repris > 0 \|\| r\.rendus > 0\) && \(/.test(v) && /data-recette-avoirs/.test(v));
+  // 🔄 « a » (Timo, 14/10/2026) : « si le client ajoute l'argent, c'est en ce moment ça rentre dans
+  // les ventes du jour… sinon on ne peut pas restituer l'argent et on va nous dire qu'on a vendu ».
+  const ancienne = { id: "a", articles: [{ article: "Panneau", qte: 2, pu: 80000 }], reprises: [{ montant: 80000, echange: true, rembourse: 0 }] };
+  const plusCher = { id: "n1", articles: [{ article: "Onduleur", qte: 1, pu: 120000 }], avoir_echange: 80000, echange_de: { rendu: 0 } };
+  const moinsCher = { id: "n2", articles: [{ article: "Régulateur", qte: 1, pu: 30000 }], avoir_echange: 30000, echange_de: { rendu: 50000 } };
+  test("★★ échange PLUS CHER : la vente née de l'échange ne compte que le complément (120 000 − 80 000 = 40 000), l'avoir est dit à part ; la ligne `echange` de l'ancienne n'est pas soustraite une seconde fois — net 200 000 = 160 000 + 40 000 (la caisse)",
+    C.totalVenteDuJour(plusCher) === 40000 && R([plusCher]).brut === 40000 && R([plusCher]).avoirs === 80000
+    && R([ancienne, plusCher]).brut === 200000 && R([ancienne, plusCher]).repris === 0 && R([ancienne, plusCher]).net === 200000);
+  test("★★ échange MOINS CHER : BMI a rendu 50 000 → la vente née de l'échange vaut 0, l'argent rendu sort du net : 160 000 − 50 000 = 110 000 (la caisse)",
+    C.totalVenteDuJour(moinsCher) === 0 && R([moinsCher]).brut === 0 && R([moinsCher]).rendus === 50000
+    && R([ancienne, moinsCher]).brut === 160000 && R([ancienne, moinsCher]).net === 110000);
+  test("★ « Aujourd'hui » en tête de 💰 Ventes compte le complément d'un échange (totalVenteDuJour) et dit l'avoir à côté",
+    /totalJour = ventesDuJour\.reduce\(\(s, v\) => s \+ totalVenteDuJour\(v\), 0\)/.test(v) && /data-jour-avoirs/.test(v));
   test("les deux règles vivent dans lib/calculs.js",
     /export function recetteDesVentes/.test(readFileSync("src/lib/calculs.js", "utf8"))
     && /export function totalDesProformas/.test(readFileSync("src/lib/calculs.js", "utf8")));

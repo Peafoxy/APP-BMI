@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2652 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2655 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -62,7 +62,7 @@ npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 32  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
-npm run verifier-ecran-echange   # 17  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
+npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
@@ -7752,9 +7752,18 @@ lit mal est pire qu'un banc absent).
   **La vente NÉE d'un échange se GRISE** (capture Timo, le même soir : « il
   faut griser cette ligne… elle est à titre informatif, elle n'est pas une
   vente du jour J ») : `ventesGrisees` (Ventes.jsx) y ajoute toute vente qui
-  porte `echange_de`, quel que soit le complément payé. Affichage seul : le
-  « Aujourd'hui » de l'en-tête et la Recette la comptent toujours (question
-  posée à Timo). Banc Chromium +1, éprouvé. Chapitre 5 à jour.
+  porte `echange_de`, quel que soit le complément payé. Affichage seul. Banc Chromium +1, éprouvé. Chapitre 5 à jour.
+  **« Aujourd'hui » et la Recette ne comptent d'elle que le COMPLÉMENT**
+  (« a », 14/10/2026 : « si le client ajoute l'argent, c'est en ce moment ça
+  rentre dans les ventes du jour… sinon on ne peut pas restituer l'argent au
+  client et on va nous dire qu'on a vendu ») : `totalVenteDuJour` (calculs.js)
+  = total − avoir ; `recetteDesVentes` rend `avoirs` (dit à côté,
+  `data-recette-avoirs` / `data-jour-avoirs`), ne soustrait plus la ligne
+  `echange` de l'ancienne vente (sinon deux fois) et retire l'argent RENDU
+  (`echange_de.rendu`, « dont X rendu sur échange ») du net le jour de
+  l'échange — net = la caisse. ⚠ Le tableau de bord, lui, compte toujours la
+  vente d'échange à son chiffre d'affaires (non demandé). Rien à coller. Bancs
+  +5 (Chromium +2), éprouvés ; un contrôle RETOURNÉ. Chapitre 5 à jour.
 - **Un échange SOUS GARANTIE n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**
