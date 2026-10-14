@@ -7071,7 +7071,7 @@ lit mal est pire qu'un banc absent).
 - ⚠ **LE COUPLE : `securite-39`** reprend securite-38 en entier et ajoute
   `attestation_sortie`, `attestations_passees`, `ferme_apres_sortie_le` à la
   liste « gestion » (admin seul) — sans lui, l'employé effacerait la marque.
-  **À coller par Timo.** Bancs : `tester-comptes` (98, éprouvé : cinq tombent
+  **Collé par Timo le 14/10/2026 (`true | true | true | true | true`).** Bancs : `tester-comptes` (98, éprouvé : cinq tombent
   sans les champs), `verifier-whatsapp` 54 (14, éprouvé : CDI automatique,
   fermeture en retard, onglet unique retiré, serveur qui laisse entrer, ligne
   non recomposée), trois contrôles RETOURNÉS (52 modèles, modèles à ligne, 15
