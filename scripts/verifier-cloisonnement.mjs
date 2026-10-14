@@ -13771,8 +13771,11 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
       echange_de: { vente_id: "vA", rendu: 70000, rendus: [{ article: "Panneau 400W", qte: 1, montant: 100000 }] } };
     const prodsX = [...db.produits, { id: "p9", nom: "Onduleur", boutique: "DEMAKPOE", prix_achat: 110000, prix_vente: 150000, initial: 3, seuil: 1 },
       { id: "p8", nom: "Régulateur", boutique: "DEMAKPOE", prix_achat: 20000, prix_vente: 30000, initial: 3, seuil: 1 }];
-    test("★★ caVenteDuJour : l'ancienne vente garde l'article rendu par l'échange (200 000) ; la vente née de l'échange vaut 150 000 − 100 000 = 50 000 (plus cher) ou 30 000 − 100 000 = −70 000 (BMI a rendu 70 000) ; caVente, elle (la commission), ne bouge pas",
-      Core.caVenteDuJour(ancienne) === 200000 && Core.caVenteDuJour(plus) === 50000 && Core.caVenteDuJour(moins) === -70000
+    // RETOURNÉ le 14/10/2026 au soir (capture Timo, −23 500 F : « les 45 000 ne sont pas déduits de la vente
+    // d'aujourd'hui mais de la caisse globale… les ventes doivent révéler ce qui est réellement rentré ») :
+    // BMI qui rend de l'argent = 0 F de vente ce jour-là, jamais un moins ; l'argent rendu sort du tiroir.
+    test("★★ caVenteDuJour : l'ancienne vente garde l'article rendu par l'échange (200 000) ; la vente née de l'échange ne compte que ce que le client a AJOUTÉ : 150 000 − 100 000 = 50 000 (plus cher), 0 quand BMI a rendu 70 000 (jamais −70 000) ; caVente, elle (la commission), ne bouge pas",
+      Core.caVenteDuJour(ancienne) === 200000 && Core.caVenteDuJour(plus) === 50000 && Core.caVenteDuJour(moins) === 0
       && Core.caVente(ancienne) === 100000 && Core.caVente(plus) === 150000);
     test("★ coutDesVentes : le prix d'achat de l'article rendu revient le jour de l'échange (par l'article, sinon par son nom) — l'ancienne vente le garde",
       Core.coutDesVentes(prodsX, [ancienne]).cout === 120000 && Core.coutDesVentes(prodsX, [plus]).cout === 110000 - 60000 && Core.coutDesVentes(prodsX, [moins]).cout === 20000 - 60000);
@@ -13781,16 +13784,27 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     test("★★ 📊 « Ventes — Aujourd'hui » = 50 000 (le complément, pas 150 000) ; « Résultat — Aujourd'hui » = 50 000 − (110 000 − 60 000) = 0",
       /Ventes — Aujourd'hui[\s\S]{0,400}?50\s000\sF/.test(dashX) && !/Ventes — Aujourd'hui[\s\S]{0,400}?150\s000\sF/.test(dashX)
       && /data-calcul-resultat[\s\S]*ventes 50\s000\sF − prix d'achat des articles vendus 50\s000\sF/.test(dashX), (dashX.match(/data-calcul-resultat[\s\S]{0,200}/) || [""])[0]);
+    let dashM = "";
+    try { R.setRegardeFormation(false); dashM = lisible(R.rendreDashboard({ ...db, produits: prodsX, ventes: [ancienne, moins], depenses: [] }, timo)).replace(/[\u202f\u00a0]/g, " "); } catch (e) { dashM = "ERREUR " + e.message; }
+    // Timo (14/10/2026 au soir) : « les ventes doivent révéler ce qui est réellement rentré aujourd'hui… sur la
+    // ligne, on va signifier les mouvements qui ont été faits ».
+    test("★★ 📊 BMI rend 70 000 : « Ventes — Aujourd'hui » = 0 F (jamais −70 000), et la ligne des échanges dit l'avoir (30 000) et l'argent rendu (70 000), sorti du tiroir",
+      /Ventes — Aujourd'hui[\s\S]{0,400}?>0 F</.test(dashM) && !/-70 000 F|−70 000 F/.test(dashM.slice(0, dashM.indexOf("data-echanges-periode") > 0 ? dashM.indexOf("data-echanges-periode") : dashM.length))
+      && /data-echanges-periode[^>]*>[\s\S]{0,40}1 échange : les ventes ne comptent que ce que le client a ajouté\.[\s\S]{0,200}30 000 F[\s\S]{0,40}Rendu au client : 70 000 F, sorti du tiroir/.test(dashM),
+      (dashM.match(/data-echanges-periode[\s\S]{0,400}/) || [dashM.slice(0, 300)])[0]);
     const lA = Core.lignesAuChiffre(ancienne), lP = Core.lignesAuChiffre(plus), lM = Core.lignesAuChiffre(moins);
-    test("★★ lignesAuChiffre (📈 Rentabilité, 🏆 Top 5) : l'ancienne vente garde ses 2 panneaux (200 000) ; la vente née de l'échange porte l'onduleur (+1, +150 000) ET le panneau rendu EN MOINS (−1, −100 000) — la journée vaut 50 000, comme caVenteDuJour ; moins cher : −70 000",
+    // RETOURNÉ le 14/10/2026 au soir : le panneau rendu revient EN QUANTITÉ (−1, son prix d'achat aussi),
+    // à 0 F de chiffre ; l'onduleur ne porte que ce que le client a ajouté.
+    test("★★ lignesAuChiffre (📈 Rentabilité, 🏆 Top 5) : l'ancienne vente garde ses 2 panneaux (200 000) ; la vente née de l'échange porte l'onduleur (+1, 50 000 : ce que le client a ajouté) ET le panneau rendu (−1, 0 F) — la journée vaut 50 000, comme caVenteDuJour ; moins cher : 0, jamais un moins",
       lA.length === 1 && lA[0].qte === 2 && Math.round(lA[0].ca) === 200000
-      && lP.length === 2 && lP[0].qte === 1 && Math.round(lP[0].ca) === 150000 && lP[1].rendu === true && lP[1].qte === -1 && lP[1].ca === -100000
-      && Math.round(lP.reduce((t, l) => t + l.ca, 0)) === Core.caVenteDuJour(plus) && Math.round(lM.reduce((t, l) => t + l.ca, 0)) === -70000);
+      && lP.length === 2 && lP[0].qte === 1 && Math.round(lP[0].ca) === 50000 && lP[1].rendu === true && lP[1].qte === -1 && lP[1].ca === 0
+      && Math.round(lP.reduce((t, l) => t + l.ca, 0)) === Core.caVenteDuJour(plus) && Math.round(lM.reduce((t, l) => t + l.ca, 0)) === 0 && lM.every((l) => l.ca >= 0));
     let rentaX = "";
     try { R.setRegardeFormation(false); rentaX = lisible(R.rendreRentabilite({ ...db, produits: prodsX, ventes: [ancienne, plus], depenses: [] }, timo)).replace(/[\u202f\u00a0]/g, " "); } catch (e) { rentaX = "ERREUR " + e.message; }
-    test("★★ 🏆 le Top 5 du tableau de bord met l'onduleur de l'échange à 150 000 et ne range pas le panneau rendu le jour même ; 📈 Rentabilité et le Top 5 lisent la MÊME règle (lignesAuChiffre)",
-      /Onduleur<\/span><span[^>]*>150\s000\sF/.test(dashX) && !/Panneau 400W<\/span><span[^>]*>/.test(dashX.slice(dashX.indexOf("Top 5")))
-      && /lignesAuChiffre\(v\)\.forEach\(\(l\) => \{ if \(l\.hors_boutique\) return; cumul\[l\.article\] = \(cumul\[l\.article\] \|\| 0\) \+ l\.ca; \}\)/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))
+    // RETOURNÉ le 14/10/2026 au soir : l'onduleur à 50 000 (ce qui est rentré), le panneau rendu jamais rangé.
+    test("★★ 🏆 le Top 5 du tableau de bord met l'onduleur de l'échange à 50 000 (ce que le client a ajouté) et ne range pas le panneau rendu le jour même ; 📈 Rentabilité et le Top 5 lisent la MÊME règle (lignesAuChiffre)",
+      /Onduleur<\/span><span[^>]*>50\s000\sF/.test(dashX) && !/Panneau 400W<\/span><span[^>]*>/.test(dashX.slice(dashX.indexOf("Top 5")))
+      && /lignesAuChiffre\(v\)\.forEach\(\(l\) => \{ if \(l\.hors_boutique \|\| l\.rendu\) return; cumul\[l\.article\] = \(cumul\[l\.article\] \|\| 0\) \+ l\.ca; \}\)/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))
       && /Onduleur/.test(rentaX) && !/ERREUR/.test(rentaX), rentaX.slice(0, 200));
     test("★ l'argent rendu sur un échange ne se supprime pas seul de 📤 Dépenses (l'échange ne se défait pas)",
       /échange ECH-1 : il ne se supprime pas seul/.test(C.refusSuppressionDepense({}, { echange_ref: "ECH-1" }) || "") && C.refusSuppressionDepense({}, { categorie: "Transport" }) === null

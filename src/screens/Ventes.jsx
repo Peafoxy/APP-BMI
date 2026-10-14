@@ -1554,6 +1554,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const ventesDuJour = liste.filter((v) => String(v.date) === today());
   const totalJour = ventesDuJour.reduce((s, v) => s + totalVenteDuJour(v), 0);
   const avoirsDuJour = ventesDuJour.reduce((s, v) => s + Math.min(totalVente(v), Number(v.avoir_echange || 0)), 0);
+  // L'argent rendu sur un échange ce jour-là : une sortie du tiroir, dite à côté, jamais retirée des ventes (Timo, 14/10/2026).
+  const renduDuJour = ventesDuJour.reduce((s, v) => s + Number(v.echange_de?.rendu || 0), 0);
 
   // ---- Listes regroupées : Ventes (par défaut) / Proformas, avec recherche ----
   const [vueListe, setVueListe] = useState("ventes");
@@ -1884,7 +1886,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             {voitAchatsChantier && <button onClick={() => setVueListe("achats")} className={btnVue(vueListe === "achats")} data-onglet-achats-chantier>🏗 Achats chantier ({nbAchatsBoutique})</button>}
           </div>
           {vueListe === "ventes"
-            ? <span className="text-sm font-semibold text-slate-500">{boutique} — Aujourd'hui : {fmt(totalJour)}{avoirsDuJour > 0 && <span data-jour-avoirs className="text-teal-700"> (🔄 échange : {fmt(avoirsDuJour)} d'avoir non compté)</span>}</span>
+            ? <span className="text-sm font-semibold text-slate-500">{boutique} — Aujourd'hui : {fmt(totalJour)}{avoirsDuJour > 0 && <span data-jour-avoirs className="text-teal-700"> (🔄 échange : {fmt(avoirsDuJour)} d'avoir non compté{renduDuJour > 0 && <span data-jour-rendu> · {fmt(renduDuJour)} rendus au client, sortis du tiroir</span>})</span>}</span>
             : vueListe === "achats"
               ? <span className="text-xs font-semibold text-slate-500">Matériel remis aux chantiers — puisé dans le dépôt du client : chaque achat est une vente (chiffre d'affaires de la boutique), hors tiroir</span>
               : <span className="text-xs font-semibold text-slate-500">Offres de prix — non comptabilisées dans le chiffre d'affaires</span>}

@@ -155,7 +155,7 @@ console.log("\n🔄 L'échange d'un article, joué dans Chromium");
   const jour2 = propre(await page.locator("span", { hasText: "Aujourd'hui :" }).first().innerText());
   const recette2 = propre(await page.locator("span", { hasText: "💰 Recette" }).first().innerText());
   test("★★ moins cher : « Aujourd'hui : 0 » (BMI a RENDU de l'argent : rien de vendu), avoir de 30 000 dit ; Recette 160 000, dont 50 000 rendu sur échange, net 110 000 (= la caisse : 160 000 − 50 000)",
-    /Aujourd'hui : 0 F \(🔄 échange : 30 000 F d'avoir non compté\)/.test(jour2)
+    /Aujourd'hui : 0 F \(🔄 échange : 30 000 F d'avoir non compté · 50 000 F rendus au client, sortis du tiroir\)/.test(jour2) /* RETOURNÉ le 14/10/2026 au soir : l'argent rendu se dit à côté */
     && /💰 Recette : 160 000 F/.test(recette2) && /🔄 échanges : 30 000 F d'avoir non compté/.test(recette2) && /dont 50 000 F rendu sur échange, net 110 000 F/.test(recette2), `${jour2} || ${recette2}`);
   test("★ moins cher : l'ancienne ligne dit « article rendu : 80 000 », « → nouveau reçu BMID-2026-0041 : 30 000 », « rendu au client : 50 000 » (80 000 = 30 000 + 50 000)",
     /article rendu : 80 000 F/.test(ligneA2) && /→ nouveau reçu BMID-2026-0041 : 30 000 F/.test(ligneA2) && /rendu au client : 50 000 F/.test(ligneA2) && !/reste :/.test(ligneA2), ligneA2);

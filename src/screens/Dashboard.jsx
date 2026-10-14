@@ -154,18 +154,28 @@ export function Dashboard({ db, profile, save }) {
   const ligneDePeriode = (label, a, b) => {
     const v = {}, d = {}, c = {}, dr = {};
     let sansPrix = [], caSansPrix = 0;
+    // 🔄 Les mouvements d'un échange, DITS à côté des ventes (Timo, 14/10/2026 :
+    // « sur la ligne, on va signifier les mouvements qui ont été faits ») :
+    // l'avoir (la valeur rendue qui a payé le nouvel article) et l'argent
+    // rendu (sorti du tiroir) — ni l'un ni l'autre n'est une vente du jour.
+    const echanges = { nombre: 0, avoirs: 0, rendu: 0 };
     NOMS_VUES.forEach((bq) => {
       // Les achats « 🏗 Chantier » y sont : leur prix de vente ET leur prix
       // d'achat comptent pour la boutique qui a remis le matériel.
       const ventesBq = chiffreTous.filter((x) => x.boutique === bq && inP(x.date, a, b));
       const depBq = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b));
       v[bq] = ventesBq.reduce((s, x) => s + caVenteDuJour(x), 0);
+      ventesBq.filter((x) => x.echange_de).forEach((x) => {
+        echanges.nombre += 1;
+        echanges.avoirs += Math.min(totalVente(x), Number(x.avoir_echange || 0));
+        echanges.rendu += Number(x.echange_de.rendu || 0);
+      });
       d[bq] = depBq.reduce((s, x) => s + Number(x.montant), 0);
       dr[bq] = horsAchatsDeStock(depBq).reduce((s, x) => s + Number(x.montant), 0);
       const k = coutDesVentes(db.produits, ventesBq);
       c[bq] = k.cout; sansPrix = [...sansPrix, ...k.sansPrix]; caSansPrix += k.caSansPrix;
     });
-    return { label, v, d, c, dr, sansPrix, caSansPrix };
+    return { label, v, d, c, dr, sansPrix, caSansPrix, echanges };
   };
   const rows = periodes().map(([label, a, b]) => ligneDePeriode(label, a, b));
   const customRow = (() => { const [label, a, b] = getPeriod(); return ligneDePeriode(label, a, b); })();
@@ -304,7 +314,7 @@ export function Dashboard({ db, profile, save }) {
     // deux chiffres pour le même article. UNE règle : lignesAuChiffre (core.js).
     // 🔄 RETOURNÉ le 14/10/2026 (« même règle pour le Top 5 ») : lignesAuChiffre — l'article
     // rendu par un échange compte EN MOINS le jour de l'échange, comme les cartes.
-    ventesPeriode.forEach((v) => lignesAuChiffre(v).forEach((l) => { if (l.hors_boutique) return; cumul[l.article] = (cumul[l.article] || 0) + l.ca; }));
+    ventesPeriode.forEach((v) => lignesAuChiffre(v).forEach((l) => { if (l.hors_boutique || l.rendu) return; cumul[l.article] = (cumul[l.article] || 0) + l.ca; }));
     return Object.entries(cumul).map(([nom, ca]) => [nom, Math.round(ca)]).filter(([, ca]) => ca > 0).sort((x, y) => y[1] - x[1]).slice(0, 5);
   })();
   const maxTop = Math.max(1, ...topProduits.map((x) => x[1]));
@@ -402,6 +412,13 @@ export function Dashboard({ db, profile, save }) {
         {!sansVentes && <Stat label={`Résultat — ${customRow.label}`} value={fmt(resCustom)} nature={resCustom >= 0 ? "regle" : "du"} />}
         {(!sansVentes || terrainChoisi) && <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />}
       </div>
+      {!sansVentes && customRow.echanges.nombre > 0 && (
+        <div className="text-xs text-teal-800 -mt-1" data-echanges-periode>
+          🔄 {customRow.echanges.nombre} échange{customRow.echanges.nombre > 1 ? "s" : ""} : les ventes ne comptent que ce que le client a ajouté.
+          {" "}Avoir non compté (la valeur des articles rendus, déjà comptée le jour de leur vente) : {fmt(customRow.echanges.avoirs)}.
+          {customRow.echanges.rendu > 0 ? ` Rendu au client : ${fmt(customRow.echanges.rendu)}, sorti du tiroir (« Rendu sur échange » dans 📤 Dépenses) — pas une vente en moins.` : ""}
+        </div>
+      )}
       {!sansVentes && (
         <div className="text-xs text-slate-600 -mt-1" data-calcul-resultat>
           Résultat = ventes {fmt(somme(customRow.v))} − prix d'achat des articles vendus {fmt(somme(customRow.c))} − dépenses {fmt(somme(customRow.dr))}

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2662 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2663 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -7766,7 +7766,7 @@ lit mal est pire qu'un banc absent).
   **📊 Le tableau de bord aussi** (« oui, même règle dans le tableau de bord »,
   14/10/2026) : `caVenteDuJour` (core.js) — l'ancienne vente garde l'article
   rendu par l'échange (seules les reprises ordinaires en sortent), la vente née
-  de l'échange vaut nouvel article − (avoir + rendu), NÉGATIVE quand BMI a rendu
+  de l'échange vaut nouvel article − (avoir + rendu) [RETOURNÉ le soir même, voir plus bas], NÉGATIVE quand BMI a rendu
   de l'argent ; `coutDesVentes` rend le prix d'achat de l'article rendu le jour
   de l'échange (`echange_de.rendus[].produit_id`, posé désormais, sinon le nom
   dans la boutique). Cartes, graphique (une barre négative ne se dessine pas),
@@ -7792,6 +7792,30 @@ lit mal est pire qu'un banc absent).
   Bancs +6, éprouvés ; quatre contrôles RETOURNÉS (la liste de 📤 Dépenses ×2,
   Rentabilité ×2, puis le texte de 📤 Dépenses ×2 pour la reprise). Chapitres 5, 17
   et 22 à jour.
+  ⚠⚠ **RETOURNÉ le soir même — « décision A », JAMAIS UNE VENTE NÉGATIVE**
+  (capture Timo : « Ventes — Aujourd'hui −23 500 F » → « les 45 000 ne sont
+  pas déduits de la vente d'aujourd'hui mais de la caisse globale de la
+  boutique… même au cas où la caisse ne suffit pas, il puise dans le fonds de
+  caisse… les ventes doivent révéler ce qui est réellement rentré
+  aujourd'hui », puis « juste que sur la ligne, on va signifier les
+  mouvements ») : `caVenteDuJour` d'une vente née d'un échange =
+  **max(0, nouvel article − avoir)** — ce que le client a AJOUTÉ, 0 quand BMI
+  a rendu ; l'argent rendu n'est PLUS retiré des ventes : c'est une SORTIE DU
+  TIROIR (« Rendu sur échange », l'enveloppe complète — `deuxPoches`), qui
+  n'est pas une charge. Le jour de la vente d'origine ne bouge pas (versement
+  et clôture de ce jour-là restent justes). `lignesAuChiffre` : les lignes de
+  la vente d'échange au prorata de ce chiffre, la ligne `rendu` à qté −1 et
+  **chiffre 0** (le prix d'achat revient, `coutDesVentes` inchangé) ; le
+  🏆 Top 5 saute les lignes `rendu`. **Les mouvements s'écrivent** :
+  📊 sous les cartes (`data-echanges-periode` : nombre d'échanges, avoir non
+  compté, « Rendu au client : X, sorti du tiroir — pas une vente en moins »),
+  💰 Ventes à côté de « Aujourd'hui » (`data-jour-rendu`). ⚠ Conséquence dite
+  à Timo : sur une période, les ventes et le résultat comptent l'article
+  rendu (vendu ce jour-là) ; l'argent rendu se lit dans la caisse et dans
+  📤 Dépenses, jamais comme une charge. Bancs : trois contrôles RETOURNÉS
+  (`caVenteDuJour`, `lignesAuChiffre`, Top 5) + un ajouté (le tableau de bord
+  RENDU : 0 F, jamais −70 000) ; `verifier-ecran-echange` RETOURNÉ ; éprouvés.
+  Chapitres 5 et 22 à jour.
 - **Un échange SOUS GARANTIE n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**

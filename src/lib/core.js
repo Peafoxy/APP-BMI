@@ -312,12 +312,17 @@ export const caVente = (v) => Math.max(0, caVenteBrut(v) - montantRepris(v));
 // le tableau de bord lit `caVenteDuJour` :
 //   • l'ANCIENNE vente garde l'article rendu dans son chiffre (il a été vendu
 //     ce jour-là) — seules les reprises ordinaires en sortent ;
-//   • la vente NÉE de l'échange ne compte que nouvel article − valeur rendue
-//     (avoir + argent rendu) : le complément payé, ou un chiffre NÉGATIF quand
-//     BMI a rendu de l'argent. Sur toute période, la somme est la même.
+//   • la vente NÉE de l'échange ne compte que ce que le client a AJOUTÉ
+//     (nouvel article − avoir) : jamais un chiffre négatif. ~~ − l'argent
+//     rendu ~~ RETOURNÉ le 14/10/2026 au soir (capture Timo, −23 500 F :
+//     « les 45 000 ne sont pas déduits de la vente d'aujourd'hui mais de la
+//     caisse globale de la boutique… les ventes doivent révéler ce qui est
+//     réellement rentré aujourd'hui ») : l'argent rendu est une SORTIE DU
+//     TIROIR (« Rendu sur échange », l'enveloppe complète), pas une vente en
+//     moins ; le jour de la vente d'origine ne bouge pas (« décision A »).
 export const montantReprisEchange = (v) => reprisesDe(v).filter((r) => r?.echange).reduce((s, r) => s + Number(r.montant || 0), 0);
 export const caVenteDuJour = (v) => v?.echange_de
-  ? caVente(v) - Number(v.avoir_echange || 0) - Number(v.echange_de.rendu || 0)
+  ? Math.max(0, caVente(v) - Number(v.avoir_echange || 0))
   : Math.max(0, caVenteBrut(v) - (montantRepris(v) - montantReprisEchange(v)));
 export const qteRepriseHorsEchange = (v, produit_id) => reprisesDe(v).filter((r) => r.produit_id === produit_id && !r?.echange).reduce((s, r) => s + Number(r.qte || 0), 0);
 
@@ -355,18 +360,25 @@ export const caLigneVente = (v, ligne) => Math.max(0, caLigneVenteBrut(v, ligne)
 // « oui, même règle pour Rentabilité et le Top 5 »). Les lignes de la vente
 // nettes des reprises ORDINAIRES seulement (l'article rendu par un échange
 // reste vendu le jour de sa vente) ; une vente née d'un échange ajoute
-// l'article rendu en NÉGATIF (quantité et chiffre) : sur la journée de
-// l'échange, la somme vaut nouvel article − valeur rendue, comme caVenteDuJour.
+// l'article rendu en NÉGATIF pour la QUANTITÉ (il revient au stock, son prix
+// d'achat aussi) mais à 0 F de chiffre, et ses lignes ne portent que ce que
+// le client a AJOUTÉ (au prorata) : la somme vaut caVenteDuJour, jamais un
+// chiffre négatif (Timo, 14/10/2026 au soir, « décision A »).
 export function lignesAuChiffre(v) {
   const reprisOrd = (pid) => reprisesDe(v).filter((r) => r.produit_id === pid && !r?.echange).reduce((s, r) => s + Number(r.montant || 0), 0);
-  const lignes = lignesVente(v).map((l) => ({
+  let lignes = lignesVente(v).map((l) => ({
     produit_id: l.produit_id, article: l.article, hors_boutique: !!l.hors_boutique,
     qte: Math.max(0, Number(l.qte || 0) - qteRepriseHorsEchange(v, l.produit_id)),
     ca: l.hors_boutique ? 0 : Math.max(0, caLigneVenteBrut(v, l) - reprisOrd(l.produit_id)),
   }));
+  if (v?.echange_de) {
+    const somme = lignes.reduce((s, l) => s + l.ca, 0);
+    const part = somme > 0 ? caVenteDuJour(v) / somme : 0;
+    lignes = lignes.map((l) => ({ ...l, ca: l.ca * part }));
+  }
   const rendus = (v?.echange_de?.rendus || []).map((r) => ({
     produit_id: r.produit_id || null, article: r.article, hors_boutique: false, rendu: true,
-    qte: -Number(r.qte || 0), ca: -Number(r.montant || 0),
+    qte: -Number(r.qte || 0), ca: 0,
   }));
   return [...lignes, ...rendus];
 }
