@@ -7821,6 +7821,15 @@ lit mal est pire qu'un banc absent).
   ligne de la vente, à côté de « Aujourd'hui » dans 💰 Ventes (`data-jour-rendu`,
   gardé) et dans 📤 Dépenses. Deux contrôles RETOURNÉS (aucune ligne sous les
   cartes), éprouvés.
+  ⚠ **LA CARTE RÉSULTAT NE RETIRE PAS L'ARGENT RENDU SUR UN ÉCHANGE — « pour
+  le moment laisser comme ça » (14/10/2026)**. Capture Timo (« 17 100 je ne
+  comprends pas ») : Résultat = ventes − prix d'achat des articles sortis (le
+  prix d'achat de l'article RENDU revient ce jour-là, d'où un prix d'achat
+  NÉGATIF possible, −600 F ce jour-là) − dépenses comptées. L'argent rendu
+  (« Rendu sur échange », hors charges) n'y est retiré nulle part : sur les
+  deux jours, le résultat est trop haut de ce montant. Proposé « b » (le
+  retirer de la carte Résultat seule, −27 900 F ce jour-là) → **« a » pour le
+  moment**. Ne pas le construire sans sa demande ; s'il revient, c'est « b ».
 - **Un échange SOUS GARANTIE n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**
