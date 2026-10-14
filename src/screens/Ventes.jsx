@@ -39,7 +39,7 @@ import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite } from "../lib/whatsappModeles";
 import { lierFacture, champsTravauxDocument, propositionsStock, produitSaisi } from "../lib/travaux";
-import { peutEchanger, chiffresEchange, construireEchange, appliquerEchange, montantReprisHorsEchange, DESTINATION_STOCK, DESTINATION_SAV } from "../lib/echanges";
+import { peutEchanger, chiffresEchange, construireEchange, appliquerEchange, montantReprisHorsEchange, echangesDeLaVente, DESTINATION_STOCK, DESTINATION_SAV } from "../lib/echanges";
 import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
 import { InventaireVentes } from "./InventaireVentes";
 // 🏗 Étape 2 de la caisse CHANTIER (11/10/2026) : le matériel qui part au chantier.
@@ -1463,6 +1463,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const bonsDeVente = (v) => [
     ...bonsRepriseDeVente(db, v).map((b) => ({ bon: b, libelle: `↩ Bon de reprise ${dFR(b.date)} — ${articlesDuBon(b)}` })),
     ...retoursDeVente(db, v).map((r) => ({ bon: bonRetour(db, v, r), libelle: `🔁 Bon de retour ${dFR(r.date)} — ${r.qte} × ${r.article}` })),
+    // 🔄 Le document d'un échange est le REÇU de la nouvelle vente (« Échange du
+    // reçu n° … », l'article rendu, le rendu au client) : il se retrouve ici, sur
+    // l'ancienne ligne comme sur la nouvelle (Timo, 14/10/2026 : « le bon d'échange
+    // n'est plus visible à télécharger »).
+    ...echangesDeLaVente(liste, v).filter((e) => e.nouvelle).map((e) => ({ recu: e.nouvelle, libelle: `🔄 Reçu de l'échange ${e.ref} — reçu ${e.numero}` })),
   ];
   const ouvrirBons = async (v) => {
     const liste = bonsDeVente(v);
@@ -1473,6 +1478,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       if (!c) return;
       choisi = liste.find((x) => x.libelle === c);
     }
+    if (choisi.recu) { imprimerRecuDeVente(db, choisi.recu, infoBq(choisi.recu.boutique), db.produits); return; }
     await proposerBon(choisi.bon, infoBq(v.boutique));
   };
   const ouvrirRetour = (v) => {
@@ -2017,6 +2023,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                      le total en normal, de la couleur du mot « Crédit », et l'AVANCE en gras EN BAS
                      (« avance : 0 F » s'il n'y en a pas). Une vente ordinaire garde son total en gras. */
                   const repris = montantRepris(v);
+                  const reprisOrdinaire = montantReprisHorsEchange(v);
                   const avance = avanceDeVente(db, v);
                   const credit = avance !== null;
                   const classeTotal = credit ? "text-amber-800" : repris > 0 ? "text-slate-700" : "font-bold text-slate-900";
@@ -2025,11 +2032,22 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     {v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}
                     {repris > 0 ? (
                       /* 07/10/2026 : ce qui a été repris et la valeur restante de la facture.
-                         🔄 14/10/2026 : l'article rendu à un ÉCHANGE se dit à part. */
+                         🔄 14/10/2026 (Timo : « l'échange a rendu 45 000… pourquoi −110 000 ? ») :
+                         un ÉCHANGE dit où est partie la valeur de l'article rendu — le nouveau
+                         reçu, et l'argent qui a bougé (le chiffre en gras). « reste » ne se dit
+                         que s'il y a eu une reprise ordinaire. */
                       <div data-vente-reprise>
-                        {montantReprisHorsEchange(v) > 0 ? <div className="text-xs text-amber-700">↩ repris : −{fmt(montantReprisHorsEchange(v))}</div> : null}
-                        {repris - montantReprisHorsEchange(v) > 0 ? <div data-vente-echangee className="text-xs text-teal-700">🔄 échangé : −{fmt(repris - montantReprisHorsEchange(v))}</div> : null}
-                        <div className="font-bold text-slate-900">reste : {fmt(Math.max(0, totalVente(v) - repris))}</div>
+                        {reprisOrdinaire > 0 ? <div className="text-xs text-amber-700">↩ repris : −{fmt(reprisOrdinaire)}</div> : null}
+                        {echangesDeLaVente(liste, v).map((e) => (
+                          <div key={e.ref} data-vente-echangee className="text-xs text-teal-700">
+                            <div>🔄 article rendu : {fmt(e.valeur)}</div>
+                            {e.numero ? <div>→ nouveau reçu {e.numero} : {fmt(e.total)}</div> : null}
+                            {e.rendu > 0 ? <div className="font-bold text-slate-900">rendu au client : {fmt(e.rendu)}</div>
+                              : e.paye > 0 ? <div className="font-bold text-slate-900">payé en plus : {fmt(e.paye)}</div>
+                              : e.nouvelle ? <div>même valeur</div> : null}
+                          </div>
+                        ))}
+                        {reprisOrdinaire > 0 ? <div className="font-bold text-slate-900">reste : {fmt(Math.max(0, totalVente(v) - repris))}</div> : null}
                       </div>
                     ) : null}
                     {Number(v.avoir_echange || 0) > 0 ? (
@@ -2073,7 +2091,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                       return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
                     })()}
                     {bonsDeVente(v).length > 0 && (
-                      <button onClick={() => ouvrirBons(v)} className={boutonAction("text-slate-700 bg-slate-50 border-slate-300 hover:bg-slate-100")} title="🧾 Bon de reprise / bon de retour : imprimer ou envoyer par WhatsApp" aria-label="Bons">🧾</button>
+                      <button onClick={() => ouvrirBons(v)} className={boutonAction("text-slate-700 bg-slate-50 border-slate-300 hover:bg-slate-100")} title="🧾 Bon de reprise / bon de retour / reçu d'un échange : imprimer ou envoyer par WhatsApp" aria-label="Bons">🧾</button>
                     )}
                     {peutVerserVente(v) && (
                       <button onClick={() => verserVente(v)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="💸 Verser : l'argent de cette vente est remis au DG, à la BANQUE ou au comptable (sans bande noire)" aria-label="Verser">💸</button>

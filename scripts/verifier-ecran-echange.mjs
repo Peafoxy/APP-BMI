@@ -30,7 +30,7 @@ writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Ventes } from "${process.cwd()}/src/screens/Ventes.jsx";
-import { DialogHost } from "${process.cwd()}/src/components/ui.jsx";
+import { DialogHost, PrintHost } from "${process.cwd()}/src/components/ui.jsx";
 const quoi = location.hash.slice(1);
 const gerant = { id: "g1", nom: "AFI", role: "gerant", boutique: "BMI DEMAKPOE", actif: true };
 const vendeuse = { id: "v1", nom: "ANGELE", role: "vendeur", boutique: "BMI DEMAKPOE", actif: true };
@@ -51,7 +51,7 @@ window.saves = [];
 function Essai() {
   const [db, setDb] = useState(depart);
   const save = (next, journal) => { const n = typeof next === "function" ? next(db) : next; window.saves.push({ n, journal }); setDb(n); };
-  return <><Ventes db={db} save={save} profile={quoi === "vendeuse" ? vendeuse : gerant} /><DialogHost /></>;
+  return <><Ventes db={db} save={save} profile={quoi === "vendeuse" ? vendeuse : gerant} /><DialogHost /><PrintHost /></>;
 }
 createRoot(document.getElementById("r")).render(<Essai />);
 `);
@@ -104,10 +104,21 @@ console.log("\n🔄 L'échange d'un article, joué dans Chromium");
     && ancienne.articles?.length === 1 && ancienne.reprises?.[0]?.echange === true && ancienne.reprises?.[0]?.rembourse === 0
     && (n.ajustements || []).length === 1 && n.ajustements[0].type === "echange_client" && n.ajustements[0].qte === 1 && (n.depenses || []).length === 0, JSON.stringify({ nv, aj: n.ajustements }));
   await attendre(200);
-  const ligneNv = propre(await page.locator("tr", { hasText: "BMID-2026-0041" }).first().innerText());
-  const ligneA = propre(await page.locator("tr", { hasText: "BMID-2026-0040" }).filter({ hasNotText: "BMID-2026-0041" }).first().innerText());
-  test("★ la liste dit « 🔄 avoir BMID-2026-0040 : −80 000 » et « payé : 40 000 » sur la nouvelle vente, « 🔄 échangé : −80 000 » sur l'ancienne",
-    /🔄 avoir BMID-2026-0040 : −80 000 F/.test(ligneNv) && /payé : 40 000 F/.test(ligneNv) && /🔄 échangé : −80 000 F/.test(ligneA), `${ligneNv} || ${ligneA}`);
+  const ligneNv = propre(await page.locator("tr", { hasText: "🔄 avoir BMID-2026-0040" }).first().innerText());
+  const ligneA = propre(await page.locator("tr", { hasText: "🔄 article rendu" }).first().innerText());
+  // RETOURNÉ le 14/10/2026 (Timo : « l'échange a rendu 45 000… pourquoi −110 000 ? ») : l'ancienne
+  // ligne ne dit plus « échangé : −X / reste : 0 » mais OÙ est partie la valeur de l'article rendu.
+  test("★ la liste dit « 🔄 avoir BMID-2026-0040 : −80 000 » et « payé : 40 000 » sur la nouvelle vente ; sur l'ancienne « article rendu : 80 000 », « → nouveau reçu BMID-2026-0041 : 120 000 », « payé en plus : 40 000 » — et plus de « reste : 0 »",
+    /🔄 avoir BMID-2026-0040 : −80 000 F/.test(ligneNv) && /payé : 40 000 F/.test(ligneNv) && /🔄 article rendu : 80 000 F/.test(ligneA)
+    && /→ nouveau reçu BMID-2026-0041 : 120 000 F/.test(ligneA) && /payé en plus : 40 000 F/.test(ligneA) && !/reste :/.test(ligneA) && !/échangé : −/.test(ligneA), `${ligneNv} || ${ligneA}`);
+  // « le bon d'échange n'est plus visible à télécharger » : 🧾 sur l'ancienne ligne ET sur la nouvelle.
+  const trA = page.locator("tr", { hasText: "🔄 article rendu" }).first();
+  const trN = page.locator("tr", { hasText: "🔄 avoir BMID-2026-0040" }).first();
+  test("★ 🧾 sur l'ancienne ligne ET sur la nouvelle (le reçu de l'échange se retrouve)", (await trA.locator('button[aria-label="Bons"]').count()) === 1 && (await trN.locator('button[aria-label="Bons"]').count()) === 1);
+  await trA.locator('button[aria-label="Bons"]').click(); await attendre(400);
+  const apercu1 = propre(await page.innerText("#zone-impression").catch(() => ""));
+  test("★ 🧾 de l'ancienne ligne ouvre le REÇU DE L'ÉCHANGE (nouveau reçu 0041 : « Échange du reçu n° BMID-2026-0040 », l'article rendu, payé par le client)",
+    /BMID-2026-0041/.test(apercu1) && /Échange du reçu n° BMID-2026-0040/.test(apercu1) && /Panneau 550W/.test(apercu1) && /PAYÉ PAR LE CLIENT/i.test(apercu1), apercu1.slice(0, 400));
   test("aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
   await page.close();
 }
@@ -125,6 +136,10 @@ console.log("\n🔄 L'échange d'un article, joué dans Chromium");
     (n.ajustements || [])[0]?.type === "retour_defectueux" && n.ajustements[0].qte === 0 && n.ajustements[0].qte_sav === 1
     && (n.depenses || [])[0]?.categorie === "Rendu sur échange" && n.depenses[0].montant === 50000 && n.depenses[0].paiement === "Espèces"
     && (n.ventes || []).find((v) => v.id !== "vA")?.avoir_echange === 30000, JSON.stringify(n.depenses));
+  await attendre(200);
+  const ligneA2 = propre(await page.locator("tr", { hasText: "🔄 article rendu" }).first().innerText());
+  test("★ moins cher : l'ancienne ligne dit « article rendu : 80 000 », « → nouveau reçu BMID-2026-0041 : 30 000 », « rendu au client : 50 000 » (80 000 = 30 000 + 50 000)",
+    /article rendu : 80 000 F/.test(ligneA2) && /→ nouveau reçu BMID-2026-0041 : 30 000 F/.test(ligneA2) && /rendu au client : 50 000 F/.test(ligneA2) && !/reste :/.test(ligneA2), ligneA2);
   test("aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
   await page.close();
 }

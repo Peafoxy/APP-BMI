@@ -36,7 +36,7 @@
 // Serveur : securite-40 (reprises marquées `echange` = gérant / admin ;
 // `avoir_echange` posé à la création seulement, par eux).
 // ============================================================
-import { uid, today, heureCourte, numeroRecu, prochainNumeroVente, nouvelleDepense } from "./core";
+import { uid, today, heureCourte, numeroRecu, prochainNumeroVente, nouvelleDepense, totalVente } from "./core";
 import { MOYENS_ENCAISSEMENT, CATEGORIE_RENDU_ECHANGE, caisseDeVente } from "./constants";
 import { lignesReprenables, montantReprise, lignesDuChoix, critiqueReprise } from "./reprises";
 
@@ -54,6 +54,35 @@ export const estRepriseEchange = (r) => !!r?.echange;
 // dette réduite) — les échanges, eux, ont payé un autre article.
 export const montantReprisHorsEchange = (v) => (Array.isArray(v?.reprises) ? v.reprises : [])
   .filter((r) => !estRepriseEchange(r)).reduce((s, r) => s + Number(r.montant || 0), 0);
+
+// Les échanges d'une vente, lus pour l'écran (Timo, 14/10/2026 : « l'échange a
+// rendu 45 000 au client… pourquoi −110 000 ? » — la ligne ne disait que la
+// valeur de l'article rendu, sans dire où elle était partie). UN par échange :
+// la valeur rendue, le nouveau reçu (ce qui a payé le nouvel article), et
+// l'argent qui a bougé (rendu au client, ou payé en plus).
+// `ventes` = la liste déjà filtrée par l'écran (le mur). La vente née d'un
+// échange se rend aussi elle-même (son reçu EST le document de l'échange).
+export function echangesDeLaVente(ventes, vente) {
+  const liste = Array.isArray(ventes) ? ventes : [];
+  const lire = (nv, ref, valeur) => {
+    const avoir = Number(nv?.avoir_echange || 0);
+    const total = nv ? totalVente(nv) : 0;
+    return { ref, valeur, nouvelle: nv || null, numero: nv?.numero || "", total,
+      rendu: Number(nv?.echange_de?.rendu || 0), paye: nv ? Math.max(0, total - avoir) : 0 };
+  };
+  if (vente?.echange_de) return [lire(vente, vente.echange_de.ref || "", Number(vente.echange_de.valeur_rendue || 0))];
+  const groupes = new Map();
+  (Array.isArray(vente?.reprises) ? vente.reprises : []).filter(estRepriseEchange).forEach((r) => {
+    const cle = r.echange_vente_id || r.ref;
+    const g = groupes.get(cle) || { ref: r.ref, id: r.echange_vente_id, numero: r.echange_numero, valeur: 0 };
+    g.valeur += Number(r.montant || 0);
+    groupes.set(cle, g);
+  });
+  return [...groupes.values()].map((g) => {
+    const e = lire(liste.find((v) => v.id === g.id), g.ref, g.valeur);
+    return e.numero ? e : { ...e, numero: g.numero || "" };
+  });
+}
 
 // Le choix : { rendus: [{ produit_id, qte }], nouveaux: [{ produit_id, qte }],
 // destination: "stock" | "sav", motif, moyen }.

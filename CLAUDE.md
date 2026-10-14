@@ -62,7 +62,7 @@ npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 32  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
-npm run verifier-ecran-echange   # 13  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » / « échangé »)
+npm run verifier-ecran-echange   # 16  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
@@ -7739,6 +7739,16 @@ lit mal est pire qu'un banc absent).
   reçu IMPRIMÉ), Chromium `verifier-ecran-echange` (13), éprouvés ; quatre
   contrôles RETOURNÉS (nouvelleDepense ×19, la liste hors charges ×2, le
   montant à verser). Chapitres 5 et 8.
+  **La ligne d'origine et le 🧾** (capture Timo, le jour même : « l'échange a
+  rendu 45 000 au client… pourquoi −110 000 ? En plus le bon d'échange n'est
+  plus visible à télécharger ») : « 🔄 échangé : −X / reste : 0 » ne disait pas
+  où était partie la valeur rendue. Sous le total de l'ancienne vente
+  (`echangesDeLaVente`, lib/echanges.js, sur la liste de la boutique) :
+  « 🔄 article rendu : 110 000 », « → nouveau reçu n° … : 65 000 », en gras
+  « rendu au client : 45 000 » (ou « payé en plus : X ») ; « reste » ne s'écrit
+  plus qu'après une reprise ordinaire. **🧾** est sur l'ancienne ligne ET la
+  nouvelle, et réimprime le reçu de l'échange (`bonsDeVente`, `recu`). Rien à
+  coller. Banc Chromium +3 (un RETOURNÉ), éprouvé. Chapitre 5 à jour.
 - **Un échange SOUS GARANTIE n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**
