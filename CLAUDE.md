@@ -2718,7 +2718,7 @@ lit mal est pire qu'un banc absent).
   confie, titre, détails — « aucun » s'il n'y en a pas —, échéance — « aucune
   date fixée » —, `TEXTE_TACHE_ASSIGNEE`, **le texte accepté par Timo**) et
   **`tache_validee`** (3 trous : personne, qui valide, titre —
-  `TEXTE_TACHE_VALIDEE`, **texte PROPOSÉ, à confirmer par Timo**) —
+  `TEXTE_TACHE_VALIDEE`, **texte proposé, accepté par Timo le 14/10/2026**) —
   `envoiTacheAssignee` / `envoiTacheValidee`, lib/whatsappModeles.js.
 - **« A c »** : à l'assignation ET à la validation (👑 Mon équipe) ; ⚠ **la
   RÉOUVERTURE n'envoie rien** (mon interprétation de « c », dite à Timo).
