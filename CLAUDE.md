@@ -4741,6 +4741,15 @@ lit mal est pire qu'un banc absent).
   contrôles RETOURNÉS (heureCourte exercée dans le module, les imports de
   l'assistant). Mesuré dans Chromium (horloge +1 h → écart −3 599 s).
   Chapitres 24 et 25 à jour.
+- **Les lignes déjà écrites (14/10/2026)** : le PC de TIMO (L530) avait
+  **11 h 38 de retard** le 14/10 de 10:39 à 11:16 (écrit « 13/10 23:01 à
+  23:38 »). Les deux ventes MR SEVERIN et MR ERIC (faites APRÈS la clôture)
+  ont été remises au 14/10 11:05 / 11:08 par un SQL collé par Timo (reçus
+  WhatsApp et journal suivent). **Décision « a » : le reste RESTE au 13** —
+  le versement de BMID-2026-0053 (649 700 F → DG), la dépense KLOMEGAN de
+  30 000 F et la clôture du 13 (110 200 F, écart 0) forment un ensemble juste
+  (comptage fait APRÈS eux) ; les heures du journal et des messages restent
+  décalées. Ne pas y revenir.
 
 ### 🏠 LE LOYER D'UN LOCAL LOUÉ (25/09/2026)
 - Timo : « un onglet où on renseigne le loyer de chaque boutique, pour gérant
