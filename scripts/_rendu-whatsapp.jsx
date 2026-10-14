@@ -311,3 +311,20 @@ export const avisDepense = () => {
   };
   return { rejet: un("rejetee"), validation: un("validee") };
 };
+
+// ---- ✅ L'AVIS D'UNE TÂCHE (14/10/2026, « A c, B b, C b ») ----
+import { envoiTacheAssignee, envoiTacheValidee } from "../src/lib/whatsappModeles.js";
+export const avisTache = () => {
+  const membre = { id: "TECH1", nom: "KOSSI", nom_complet: "KOSSI Mensah", role: "technicien", tel: "90445566",
+    taches: [{ id: "T1", titre: "Visiter le chantier de MR ERIC", detail: "Vérifier les panneaux", echeance: "2026-10-16", statut: "validee", par: "TIMO", valide_par: "TIMO" }] };
+  const dg = users[0];
+  const tache = membre.taches[0];
+  const base = { users: [dg, membre], boutiques, messages: [] };
+  const un = (modele) => {
+    const envoi = modele === "tache_assignee" ? envoiTacheAssignee({ employe: membre.nom_complet, tel: membre.tel, tache, dFR }) : envoiTacheValidee({ employe: membre.nom_complet, tel: membre.tel, tache, par: "TIMO" });
+    const msgs = messagesAvecLigneEnvoi([], { profile: dg, tel: membre.tel, nom: membre.nom, modele: envoi.modele, variables: envoi.variables, ref: { tache_user_id: membre.id, tache_id: tache.id }, envoi: { id: "yc-t" } });
+    const rangee = msgs.find((x) => x.wa_modele === envoi.modele) || {};
+    return { envoi, rangee, attendu: ligneEnvoiModele(envoi.modele, envoi.variables), detail: texteLignePrivee(rangee, base) };
+  };
+  return { assignee: un("tache_assignee"), validee: un("tache_validee") };
+};

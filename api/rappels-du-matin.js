@@ -39,7 +39,7 @@ import { idEntete, cleConversation } from "../src/lib/whatsappConversations.js";
 import { numeroWhatsApp, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 import { configYCloud, envoyerYCloud } from "./_ycloud.js";
 import { champsEnvoi } from "../src/lib/suiviEnvoi.js";
-import { rappelsEntretienDuJour, ligneRappelEntretien, enteteApresRappel, chantierApresRappel, tacheEntretien, notificationTache, tacheEntretienExiste, MODELE_RAPPEL_ENTRETIEN } from "../src/lib/rappelEntretien.js";
+import { rappelsEntretienDuJour, ligneRappelEntretien, enteteApresRappel, chantierApresRappel, tacheEntretien, notificationTache, tacheEntretienExiste, MODELE_RAPPEL_ENTRETIEN, avisTacheEntretien, ligneAvisTache, enteteApresAvisTache, MODELE_TACHE_ASSIGNEE } from "../src/lib/rappelEntretien.js";
 import { demandesAvisDuJour, ligneDemandeAvis, enteteApresAvis, chantierApresAvis, MODELE_DEMANDE_AVIS } from "../src/lib/demandeAvis.js";
 import { soldesPoseDuJour, ligneRappelSolde, enteteApresRappelSolde, detteApresRappelSolde, texteAlerteSolde, MODELE_RAPPEL_SOLDE } from "../src/lib/poseSeule.js";
 import { idsAdmins } from "../src/lib/espace.js";
@@ -201,7 +201,13 @@ async function rappelerLesEntretiens(admin, db, aujourdhui) {
           const data = { ...frais.data, taches: [...(frais.data.taches || []), tache], updated_at: ts };
           const { error: e3 } = await admin.from("users").update({ data, updated_at: ts }).eq("id", frais.id);
           if (e3) console.error("[rappels-du-matin] rappel d'entretien : tâche non posée", e3.message);
-          else { bilan.taches++; marque.tache_le = aujourdhui; marque.tache_pour = frais.data.nom || ""; notifications.push(notificationTache({ pour: r.pour, chantier: r.chantier })); }
+          else {
+            bilan.taches++; marque.tache_le = aujourdhui; marque.tache_pour = frais.data.nom || ""; notifications.push(notificationTache({ pour: r.pour, chantier: r.chantier }));
+            // ✅ « B b » (14/10/2026) : l'avis WhatsApp de la tâche, à qui la porte.
+            // Rien n'est écrit tant que WhatsApp n'a pas accepté ; un refus ne
+            // touche ni la tâche ni le rappel du client.
+            await avertirDeLaTache(admin, db, { ...frais.data, id: frais.id }, tache, bilan);
+          }
         } else if (frais?.data) {
           marque.tache_le = aujourdhui; marque.tache_pour = frais.data.nom || "";
         }
@@ -221,6 +227,37 @@ async function rappelerLesEntretiens(admin, db, aujourdhui) {
     }
   }
   return { bilan, notifications };
+}
+
+// ---- ✅ L'AVIS WHATSAPP D'UNE TÂCHE AUTOMATIQUE ----
+async function avertirDeLaTache(admin, db, membre, tache, bilan) {
+  try {
+    const avis = avisTacheEntretien(db, membre, tache);
+    if (!avis) return;
+    const { cle, expediteurBrut } = configYCloud();
+    const expediteur = numeroWhatsApp(expediteurBrut);
+    if (!cle || !expediteur) { console.error("[rappels-du-matin] avis de tâche : WhatsApp non configuré sur le serveur"); return; }
+    const envoi = await envoyerYCloud(cle, {
+      from: expediteur, to: avis.tel, type: "template",
+      template: { name: MODELE_TACHE_ASSIGNEE, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: avis.envoi.variables.map((text) => ({ type: "text", text })) }] },
+    });
+    if (!envoi.ok) { bilan.avis_tache_refuses = (bilan.avis_tache_refuses || 0) + 1; console.error("[rappels-du-matin] avis de tâche refusé", envoi.code_whatsapp, envoi.motif); return; }
+    bilan.avis_tache = (bilan.avis_tache || 0) + 1;
+    const ts = new Date().toISOString();
+    const base = ligneAvisTache({ id: randomUUID(), tel: avis.tel, membre, tache, ts });
+    if (!base) return;
+    const ligne = { ...base, ...champsEnvoi(envoi) };
+    const { error } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ts });
+    if (error) console.error("[rappels-du-matin] avis de tâche : ligne du fil non écrite", error.message);
+    const entete = (db.messages || []).find((m) => m.id === idEntete(cleConversation(avis.tel)));
+    const fiche = enteteApresAvisTache({ tel: avis.tel, membre, ts, entete });
+    if (fiche) {
+      const { error: e2 } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: ts });
+      if (e2) console.error("[rappels-du-matin] avis de tâche : fiche légère non posée", e2.message);
+    }
+  } catch (e) {
+    console.error("[rappels-du-matin] avis de tâche", e?.message || e);
+  }
 }
 
 // ---- ⭐ LA DEMANDE D'AVIS GOOGLE ----

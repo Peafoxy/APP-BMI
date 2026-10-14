@@ -33,7 +33,7 @@
 // ============================================================
 import { joursEntre } from "./rappels.js";
 import { estSupprime } from "./corbeille.js";
-import { envoiRappelEntretien, ligneEnvoiModele, numeroWhatsApp } from "./whatsappModeles.js";
+import { envoiRappelEntretien, ligneEnvoiModele, numeroWhatsApp, envoiTacheAssignee, ligneMasquee } from "./whatsappModeles.js";
 import { cleConversation, CANAL_WA, construireEntete } from "./whatsappConversations.js";
 import { estCompteFormation, boutiqueEstFormation, estAdminPrincipalActif } from "./espace.js";
 import { dFR } from "./core.js";
@@ -161,6 +161,34 @@ export function ligneRappelEntretien({ id, tel, compte, chantier, variables, ts 
 export const enteteApresRappel = ({ tel, compte, chantier, ts, entete }) =>
   construireEntete({
     cle: cleConversation(tel), tel, nom: compte?.nom_base || compte?.nom || nomDuChantier(chantier),
+    proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts, entete,
+  });
+// ✅ L'AVIS WHATSAPP DE LA TÂCHE AUTOMATIQUE (14/10/2026, « B b ») : la
+// tâche d'entretien posée par la tournée part aussi par `tache_assignee`, à
+// la personne qui la porte. ⚠ Le mur : un compte de formation, désactivé ou
+// bloqué ne reçoit rien ; sans numéro, rien (la tâche, elle, est posée).
+// La ligne du fil est PRIVÉE (ligneMasquee), écrite APRÈS l'envoi réussi.
+export const MODELE_TACHE_ASSIGNEE = "tache_assignee";
+export function avisTacheEntretien(db, pour, tache) {
+  if (!pour || !tache || pour.role === "client" || pour.actif === false || pour.bloque || estCompteFormation(db, pour)) return null;
+  const tel = numeroWhatsApp(pour.tel);
+  const envoi = tel ? envoiTacheAssignee({ employe: pour.nom_complet || pour.nom, tel, tache, dFR }) : null;
+  return envoi ? { envoi, tel } : null;
+}
+export function ligneAvisTache({ id, tel, membre, tache, ts }) {
+  const cle = cleConversation(tel);
+  const texte = ligneMasquee(MODELE_TACHE_ASSIGNEE);
+  if (!cle || !texte || !membre || !tache) return null;
+  return {
+    id, date: String(ts).slice(0, 10), ts,
+    de_id: AUTEUR_RAPPEL_ENTRETIEN.id, de_nom: AUTEUR_RAPPEL_ENTRETIEN.nom, lu_par: [],
+    canal: CANAL_WA, wa_tel: cle, wa_numero: tel, wa_nom: membre.nom || "",
+    texte, wa_modele: MODELE_TACHE_ASSIGNEE, wa_prive: true, tache_user_id: membre.id, tache_id: tache.id,
+  };
+}
+export const enteteApresAvisTache = ({ tel, membre, ts, entete }) =>
+  construireEntete({
+    cle: cleConversation(tel), tel, nom: membre?.nom || "",
     proprietaire_id: entete?.proprietaire_id || "", proprietaire_nom: entete?.proprietaire_nom || "", derniere: ts, entete,
   });
 // La marque sur le chantier : pour QUELLE date, ce qui est fait.

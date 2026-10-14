@@ -276,6 +276,8 @@ export const MODELES = {
   // et la validation (« Cb »). UTILITY ; lignes PRIVÉES dans 📲 WhatsApp.
   depense_rejetee: { categorie: "utility", variables: ["employe", "montant", "depense", "date", "boutique", "motif", "suite"] },
   depense_validee: { categorie: "utility", variables: ["employe", "montant", "depense", "date", "boutique", "suite"] },
+  tache_assignee: { categorie: "utility", variables: ["employe", "par", "tache", "details", "echeance"] },
+  tache_validee: { categorie: "utility", variables: ["employe", "par", "tache"] },
   visite_chef: { categorie: "utility", variables: ["employe", "auteur", "objet", "date", "heure", "lieu", "client", "telephone_client", "equipe"] },
   rappel_visite_chef: { categorie: "utility", variables: ["employe", "objet", "date", "heure", "lieu", "client", "telephone_client", "equipe"] },
 };
@@ -352,7 +354,7 @@ export const MODELES_EN_SERVICE = [
   // 13/10/2026 : la décision du DG sur une dépense (rejet, validation). En
   // service AVANT l'accord de Meta : d'ici là rien ne part (aucun repli), et
   // l'écran le dit.
-  "depense_rejetee", "depense_validee",
+  "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -426,10 +428,12 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee"];
 const LIGNES_MASQUEES = {
   depense_rejetee: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
+  tache_assignee: "🔒 Avis de tâche assignée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
+  tache_validee: "🔒 Avis de tâche validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   prime_installation_payee: "🔒 Avis de paiement d'une part d'installation envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
@@ -879,6 +883,8 @@ const LIGNES_ENVOI = {
   visite_client: ([client, date, heure, , chef]) => `Visite annoncée à ${client} : le ${date} à ${heure}, chef de la visite ${chef}.`,
   depense_rejetee: ([employe, montant, depense, date, boutique, motif]) => `Avis de dépense REJETÉE envoyé à ${employe} : ${montant} (${depense}) du ${date}, ${boutique}. Motif : ${motif}.`,
   depense_validee: ([employe, montant, depense, date, boutique]) => `Avis de dépense validée envoyé à ${employe} : ${montant} (${depense}) du ${date}, ${boutique}.`,
+  tache_assignee: ([employe, par, tache, details, echeance]) => `Avis de tâche envoyé à ${employe} (par ${par}) : ${tache}. Détails : ${details}. Échéance : ${echeance}.`,
+  tache_validee: ([employe, par, tache]) => `Avis de tâche validée envoyé à ${employe} (par ${par}) : ${tache}.`,
   // ⚠ Le numéro du client (trou 8) n'est pas recopié dans le fil.
   visite_chef: ([employe, , objet, date, heure, , client]) => `Avis de visite envoyé au chef de la visite ${employe} : ${objet}, le ${date} à ${heure}, client ${client}.`,
 };
@@ -2172,4 +2178,32 @@ export function envoiDepenseValidee({ employe, tel, dep, boutique, suite, fmt, d
   const s = texteVariable(suite);
   if (!base || !s) return null;
   return { modele: "depense_validee", variables: [...base, s] };
+}
+
+// ---- ✅ L'AVIS D'UNE TÂCHE (14/10/2026, « A c, B b, C b, texte ok ») ----
+// `tache_assignee` : le texte accepté par Timo, mot pour mot chez Meta ;
+// `tache_validee` : le texte proposé avec (« A c » = aussi à la validation).
+// UTILITY. Meta refuse un trou vide : « aucun » / « aucune date fixée ».
+export const TEXTE_TACHE_ASSIGNEE = "Bonjour {{1}}, {{2}} vous a confié une nouvelle tâche BMI TOGO : {{3}}. Détails : {{4}}. Échéance : {{5}}. Retrouvez-la dans l'application BMI, onglet « Mes tâches ». BMI TOGO";
+export const TEXTE_TACHE_VALIDEE = "Bonjour {{1}}, {{2}} a validé votre tâche BMI TOGO : {{3}}. Merci pour votre travail. Détails dans l'application BMI, onglet « Mes tâches ». BMI TOGO";
+// Qui l'a confiée : une tâche AUTOMATIQUE (« B b », l'entretien posé par la
+// tournée de 7 h) n'a pas d'auteur humain.
+export const PAR_TACHE_AUTOMATIQUE = "le rappel automatique de BMI TOGO";
+const sansPointFinal = (t) => texteVariable(t).replace(/[.\s]+$/, "");
+export function envoiTacheAssignee({ employe, tel, tache, dFR }) {
+  const nom = texteVariable(employe);
+  const titre = sansPointFinal(tache?.titre);
+  if (!nom || !titre || !numeroWhatsApp(tel)) return null;
+  const d = typeof dFR === "function" ? dFR : (x) => x;
+  const par = tache.auto ? PAR_TACHE_AUTOMATIQUE : (texteVariable(tache.par) || "BMI TOGO");
+  const details = sansPointFinal(tache.detail) || "aucun";
+  const echeance = tache.echeance ? (texteVariable(d(tache.echeance)) || "aucune date fixée") : "aucune date fixée";
+  return { modele: "tache_assignee", variables: [nom, par, titre, details, echeance] };
+}
+export function envoiTacheValidee({ employe, tel, tache, par }) {
+  const nom = texteVariable(employe);
+  const titre = sansPointFinal(tache?.titre);
+  const qui = texteVariable(par || tache?.valide_par);
+  if (!nom || !titre || !qui || !numeroWhatsApp(tel)) return null;
+  return { modele: "tache_validee", variables: [nom, qui, titre] };
 }

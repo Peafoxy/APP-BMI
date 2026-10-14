@@ -10,7 +10,7 @@ import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
-import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur} from "../lib/calculs";
+import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
@@ -416,7 +416,9 @@ export function MonEquipe({ db, save, profile }) {
     const tache = { id: uid(), titre: titre.trim(), detail: detail.trim(), echeance: ech.trim() || null, statut: "a_faire", par: profile.nom, date: today() };
     save({ ...db, users: db.users.map((x) => (x.id === st.u.id ? { ...x, taches: [...(x.taches || []), tache] } : x)) },
       `Tâche assignée à ${st.u.nom} : ${titre.trim()}`);
-    uAlert(`✅ Tâche assignée à ${st.u.nom}.`);
+    // 📲 L'avis WhatsApp du numéro BMI (14/10/2026, « A c, B b, C b »).
+    const avis = await envoyerAvisTache({ db, save, profile, membre: st.u, tache });
+    uAlert(`✅ Tâche assignée à ${st.u.nom}.${avis ? `\n\n${avis}` : ""}`);
   };
 
   // ⚠ AUDIT DU 29/08/2026 — LE DOUBLE PAIEMENT SIMULTANÉ. Entre l'ouverture
@@ -492,6 +494,8 @@ export function MonEquipe({ db, save, profile }) {
     if (!await uConfirm(`Valider la tâche « ${tv.titre} » de ${tv.membre.nom} ?${tv.photo ? "" : "\n\n⚠ Aucune photo de preuve n'a été jointe."}`)) return;
     save({ ...db, users: db.users.map((x) => (x.id === tv.membre.id ? { ...x, taches: (x.taches || []).map((y) => (y.id === tv.id ? { ...y, statut: "validee", valide_par: profile.nom, date_validation: today() } : y)) } : x)) },
       `Tâche de ${tv.membre.nom} validée par ${profile.nom} : ${tv.titre}`);
+    const avis = await envoyerAvisTache({ db, save, profile, membre: tv.membre, tache: { ...tv, valide_par: profile.nom }, valide: true });
+    if (avis) uAlert(avis);
   };
 
   const rouvrirTache = async (tv) => {

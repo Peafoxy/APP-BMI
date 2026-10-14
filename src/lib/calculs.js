@@ -10,7 +10,7 @@
 import { PERTES_PCT_DEFAUT } from "./pompes.js";
 import { PRIX_RAIL_DEFAUT, LONGUEUR_RAIL_DEFAUT, prixRailDesBoutiques, longueurRailDesBoutiques } from "./choixSolaire.js";
 import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME, numeroBulletin } from "./core";
-import { envoiVirementSalaire, envoiPrimeInstallationPayee } from "./whatsappModeles";
+import { envoiVirementSalaire, envoiPrimeInstallationPayee, envoiTacheAssignee, envoiTacheValidee } from "./whatsappModeles";
 import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES, MOYENS_ENCAISSEMENT, NOM_CAISSE_TERRAIN, NOM_CAISSE_TERRAIN_FORMATION, libelleCaisse, caisseDeVente, boutiqueDuDocument, estNomCaisseChantier } from "./constants";
@@ -1136,6 +1136,30 @@ export async function envoyerAvisPrimePayee({ db, save, profile, c, e, moyen, re
   return envoyerRecuSansQuestion({
     envoi, tel: fiche.tel, nom: e.nom, espaceFormation: formation, save, profile,
     ref: { chantier_id: c.id, prime_user_id: e.user_id }, noms: { titre: "Avis de paiement", sujet: "L'avis de paiement" },
+  });
+}
+
+// ✅ L'AVIS WHATSAPP D'UNE TÂCHE (14/10/2026, « A c, B b, C b, texte ok ») :
+// à l'ASSIGNATION (`tache_assignee`) et à la VALIDATION (`tache_validee`),
+// écrit UNE fois pour 👑 Mon équipe et 🏠 Clients installés (« Entretien
+// fait » valide la tâche automatique). Tout seul, sans question et sans
+// repli. Jamais à soi-même ; ⚠ le mur : un compte de formation, désactivé ou
+// bloqué ne reçoit rien. Ligne PRIVÉE (celui qui l'a envoyé et le principal).
+// Rend la phrase à ajouter à la confirmation ("" si rien à dire).
+export async function envoyerAvisTache({ db, save, profile, membre, tache, valide = false }) {
+  const fiche = membre && ficheParId(db.users, membre.id);
+  if (!fiche || !tache || fiche.id === profile?.id) return "";
+  if (estCompteFormation(db, fiche) || fiche.actif === false || fiche.bloque) return "";
+  const employe = fiche.nom_complet || fiche.nom;
+  const envoi = valide
+    ? envoiTacheValidee({ employe, tel: fiche.tel, tache, par: profile?.nom })
+    : envoiTacheAssignee({ employe, tel: fiche.tel, tache, dFR });
+  if (!envoi) return `📲 Aucun avis WhatsApp : la fiche de ${fiche.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → 📞 Téléphone).`;
+  const { envoyerRecuSansQuestion } = await import("../whatsapp.js");
+  return envoyerRecuSansQuestion({
+    envoi, tel: fiche.tel, nom: fiche.nom, espaceFormation: false, save, profile,
+    ref: { tache_user_id: fiche.id, tache_id: tache.id },
+    noms: valide ? { titre: "Avis de tâche validée", sujet: "L'avis de tâche validée" } : { titre: "Avis de tâche", sujet: "L'avis de tâche" },
   });
 }
 

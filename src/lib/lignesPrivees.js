@@ -13,7 +13,7 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiRecuVente, envoiRecuVenteDetail, envoiRecuDepotChantier, envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, ligneEnvoiModele } from "./whatsappModeles";
+import { envoiRecuVente, envoiRecuVenteDetail, envoiRecuDepotChantier, envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, ligneEnvoiModele } from "./whatsappModeles";
 import { suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "./validationDepenses";
 import { libelleCaisse } from "./constants";
 import { lignesVente, totalVente, fmt, dFR, numeroBulletin, estDepotChantier } from "./core";
@@ -95,6 +95,15 @@ export function texteLignePrivee(m, db) {
     const u = auteurDeLaDepense(db || {}, dep);
     const commun = { employe: u?.nom_complet || u?.nom || m.wa_nom || dep.par, tel: m.wa_numero || u?.tel || "90000000", dep: avant, boutique: libelleCaisse(dep.boutique), fmt, dFR };
     const e = rejet ? envoiDepenseRejetee({ ...commun, motif, suite: suiteRejetDepense(avant) }) : envoiDepenseValidee({ ...commun, suite: suiteValidationDepense(avant) });
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // ✅ L'avis d'une tâche : recomposé depuis la tâche, sur la fiche de la personne.
+  if (m.wa_modele === "tache_assignee" || m.wa_modele === "tache_validee") {
+    const u = (db?.users || []).find((x) => x.id === m.tache_user_id);
+    const t = (u?.taches || []).find((x) => x && x.id === m.tache_id);
+    if (!u || !t) return "";
+    const commun = { employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "90000000", tache: t };
+    const e = m.wa_modele === "tache_assignee" ? envoiTacheAssignee({ ...commun, dFR }) : envoiTacheValidee({ ...commun, par: t.valide_par });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   const idVente = m.vente_id || m.bon_vente_id;

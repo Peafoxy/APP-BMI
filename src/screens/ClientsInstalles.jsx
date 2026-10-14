@@ -22,7 +22,7 @@ import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demand
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { estPrimeChantier, primesDuChantier, totalPrimesChantier } from "../lib/primeChantier";
-import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, envoyerAvisPrimePayee, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier, estCompteFormation } from "../lib/calculs";
+import { choisirBoutiqueDebitG, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, envoyerAvisPrimePayee, envoyerAvisTache, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier, estCompteFormation } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
 import { encaisserDettePose } from "../components/encaissementPose";
@@ -920,12 +920,25 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     if (refus) { uAlert(refus); return; }
     const prevu = String(c.date_entretien || "").slice(0, 10);
     const suivant = marquerEntretienFait(c, { le: le.trim(), prochaine: prochaine.trim(), par: profile.nom });
+    const aPrevenir = []; // { membre, tache } — l'avis WhatsApp de la tâche validée
     const users = db.users.map((u) => (u.taches || []).some((t) => t.auto === MARQUE_TACHE_ENTRETIEN && t.chantier_id === c.id && t.echeance === prevu && t.statut !== "validee")
-      ? { ...u, taches: u.taches.map((t) => (t.auto === MARQUE_TACHE_ENTRETIEN && t.chantier_id === c.id && t.echeance === prevu && t.statut !== "validee" ? { ...t, statut: "validee", valide_par: profile.nom, valide_le: today() } : t)) }
+      ? { ...u, taches: u.taches.map((t) => {
+        if (!(t.auto === MARQUE_TACHE_ENTRETIEN && t.chantier_id === c.id && t.echeance === prevu && t.statut !== "validee")) return t;
+        const v = { ...t, statut: "validee", valide_par: profile.nom, valide_le: today() };
+        aPrevenir.push({ membre: u, tache: v });
+        return v;
+      }) }
       : u);
     save({ ...db, users, clients_installes: db.clients_installes.map((x) => (x.id === c.id ? suivant : x)) },
       `Entretien de ${c.nom} fait le ${dFR(le.trim())}${prochaine.trim() ? ` — prochain le ${dFR(prochaine.trim())}` : " — aucun autre prévu"}`);
-    uAlert(`✅ Entretien noté (${dFR(le.trim())}).${prochaine.trim() ? `\n\nProchain entretien : ${dFR(prochaine.trim())}. Le client sera prévenu par WhatsApp 10 jours avant, et une tâche sera posée pour le chef du chantier.` : "\n\nAucun autre entretien n'est prévu."}`);
+    // 📲 La tâche automatique validée : l'avis WhatsApp à qui la portait
+    // (14/10/2026, « A c, B b »).
+    const avis = [];
+    for (const { membre, tache } of aPrevenir) {
+      const a = await envoyerAvisTache({ db, save, profile, membre, tache, valide: true });
+      if (a) avis.push(a);
+    }
+    uAlert(`✅ Entretien noté (${dFR(le.trim())}).${prochaine.trim() ? `\n\nProchain entretien : ${dFR(prochaine.trim())}. Le client sera prévenu par WhatsApp 10 jours avant, et une tâche sera posée pour le chef du chantier.` : "\n\nAucun autre entretien n'est prévu."}${avis.length ? `\n\n${avis.join("\n")}` : ""}`);
   };
 
   const lierCompte = async (c) => {

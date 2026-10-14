@@ -196,7 +196,7 @@ export const CHAPITRE = {
         "**À la réception** (PV signé, forcé ou automatique), les **commissions** liées à la vente sont débloquées si la dette est soldée (chapitre 16).",
         "**🏗 L'argent d'une pose seule entre dans la caisse 🏗 DÉPÔT CHANTIER**, sans question : qui que ce soit qui encaisse (le chef sur le terrain, le vendeur ou le gérant au comptoir, l'administrateur), l'acompte et le solde vont dans la même caisse. Au comptoir, l'argent se range à part du tiroir de la boutique.",
         "**Pose seule** : 3 jours après le PV, si le solde reste dû, la tournée de 7 h envoie un rappel au client par WhatsApp et prévient les administrateurs.",
-        "**Rappel d'entretien** : du 10e jour avant la date d'entretien au jour même, le client reçoit un message WhatsApp et **une tâche** est posée pour le chef du chantier.",
+        "**Rappel d'entretien** : du 10e jour avant la date d'entretien au jour même, le client reçoit un message WhatsApp et **une tâche** est posée pour le chef du chantier, qui en est averti sur son WhatsApp par le numéro BMI. Quand l'administrateur note « ✅ Entretien fait », la tâche passe validée et le chef reçoit l'avis de validation.",
         "**Demande d'avis Google** : entre le 10e et le 40e jour après la réception, une seule fois (« ⭐ Avis demandé le … » sous la date).",
         "**Programmer** prévient l'équipe (💬 Messages et WhatsApp du numéro BMI) et le client ; **refaire une répartition** annule les demandes de prime devenues fausses et prévient les vendeurs.",
       ]],

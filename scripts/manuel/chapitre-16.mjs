@@ -147,7 +147,7 @@ export const CHAPITRE = {
         ["Ce mois / Cette année / Depuis le début", "👑 Équipe, 💵 Ma commission", "Choisit la période des ventes comptées."],
         ["✓ Marquer payé", "👑 Équipe → Performances", "Paie la commission due d'un commercial ; dépense « Commissions »."],
         ["↩ Annuler paiement", "👑 Équipe → Performances", "Remet les ventes réglées de la période « à payer » et retire la dépense (administrateur)."],
-        ["✅ Tâche / 🗂 voir", "👑 Équipe → Performances", "Assigne une tâche ; montre les tâches d'un membre."],
+        ["✅ Tâche / 🗂 voir", "👑 Équipe → Performances", "Assigne une tâche ; montre les tâches d'un membre. À l'assignation puis à la validation, le membre reçoit un WhatsApp du numéro BMI (« tache_assignee », « tache_validee ») ; rouvrir une tâche n'envoie rien. Sans numéro sur sa fiche, l'écran le dit."],
         ["✓ Payer", "⭐ Chefs d'équipe", "Paie la commission d'équipe d'un chef."],
         ["✓ Payer", "🤝 Apporteurs externes", "Paie l'apporteur par le moyen du client (ou son moyen choisi)."],
         ["✏️ Moyen", "🤝 Apporteurs externes", "Change le moyen de paiement d'un apporteur ; retenu ensuite."],
