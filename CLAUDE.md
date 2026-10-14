@@ -7733,7 +7733,7 @@ lit mal est pire qu'un banc absent).
   (reprend `ventes_regles_roles` de securite-33 en entier) : le gérant et
   l'administrateur AJOUTENT des lignes `echange` sans argent rendu
   (`reprises_ajout_echange`, les anciennes intactes) ; `avoir_echange` posé
-  à la création seulement, par eux. **À coller par Timo.** Banc SQL
+  à la création seulement, par eux. **Collé par Timo le 14/10/2026 (`true | true | true | true`).** Banc SQL
   (`tester-argent`, +19, éprouvé : porte retirée, garde de l'avoir retirée,
   contrôle des lignes neutralisé). Bancs `verifier-cloisonnement` (+16, le
   reçu IMPRIMÉ), Chromium `verifier-ecran-echange` (13), éprouvés ; quatre
