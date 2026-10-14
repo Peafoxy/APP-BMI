@@ -523,6 +523,17 @@ lit mal est pire qu'un banc absent).
   (compactage retiré, verrou ignoré, confirmation qui rend OK, profil non
   branché : chacun tombe).
 
+### ⏱ LA DÉCONNEXION PREND 3 À 5 SECONDES — « on laisse comme ça pour le moment » (14/10/2026)
+- Timo : « pourquoi la déconnexion prend assez de temps ? ». Trois échanges
+  avec le serveur, l'un après l'autre (`deconnexion`, App.jsx) :
+  `synchroniser()` (envoi de la file PUIS relecture de toutes les tables),
+  `oublierAppareil()` (notifications), `oublierSession()` (session sécurisée).
+- Proposé : ne garder que l'ENVOI (supprimer la relecture, inutile puisque la
+  connexion suivante relit tout et aligne le miroir). Seule conséquence dite :
+  un compte qui se connecte HORS LIGNE juste après voit la copie de la
+  dernière synchronisation automatique (20 s au plus). **Décision : laisser
+  comme c'est pour le moment.** Ne pas le construire sans sa demande.
+
 ### Boutique de travail
 - « **NE JAMAIS CHANGER DE BOUTIQUE APRÈS UNE SÉRIE D'ACTUALISATIONS.** » La
   boutique est mémorisée **par écran** (`bmi_boutique:<id>:<écran>`) ; le
