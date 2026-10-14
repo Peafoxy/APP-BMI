@@ -31,7 +31,7 @@
 // UNE règle, pure (le banc l'exerce). Serveur : securite-15.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core.js";
-import { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT, libelleCaisse } from "./constants.js";
+import { CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_CHANTIER, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT, libelleCaisse } from "./constants.js";
 
 export { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees };
 
@@ -179,9 +179,18 @@ const auteurDe = (db, dep) => (db.users || []).find((u) => (dep.par_id && u.id =
 // La dépense telle que l'écran 📤 Dépenses l'enregistre : avec son origine
 // des fonds, son auteur, et son état de validation. Renvoie { refus } ou
 // { depense, messages, journal, aValider }.
-export function construireDepenseSaisie(db, profile, { boutique, categorie, description, montant, paiement, paye_avec }, aujourdhui) {
+// 🏗 Une dépense de la catégorie « Chantier » porte SON chantier (Timo,
+// 14/10/2026, « B a ») : sans lui, elle ne serait pas déduite des frais
+// d'installation avant le partage entre techniciens. "" si tout va bien.
+export const MOTIF_CHANTIER_OBLIGATOIRE = "Une dépense de la catégorie « Chantier » se rattache à son chantier : choisissez-le dans « Chantier à rattacher ». S'il n'y a aucun chantier en cours, choisissez une autre catégorie.";
+export const critiqueCategorieChantier = (categorie, chantierId) =>
+  categorie === CATEGORIE_CHANTIER && !String(chantierId || "").trim() ? MOTIF_CHANTIER_OBLIGATOIRE : "";
+
+export function construireDepenseSaisie(db, profile, { boutique, categorie, description, montant, paiement, paye_avec, chantier_id }, aujourdhui) {
   const refus = critiqueSaisie({ montant, paye_avec, boutique });
   if (refus) return { refus };
+  const refusChantier = critiqueCategorieChantier(categorie, chantier_id);
+  if (refusChantier) return { refus: refusChantier };
   // 💼 Timo (10/10/2026) : revérifié ici, dans le geste — pas seulement dans la liste.
   if (payeDeSaPocheSeulement(profile) && paye_avec !== PAYE_AVEC_AVANCE) return { refus: MOTIF_DE_SA_POCHE };
   // Timo (30/09/2026) : une dépense se paie — « Crédit (dette) » n'en est
@@ -405,6 +414,9 @@ export function critiqueModifDepense(d, { categorie, description, chantier, remi
   const motif = motifNonModifiable(d);
   if (motif) return motif;
   if (!CATEGORIES.includes(categorie)) return "Choisissez une catégorie de la liste.";
+  // Le chantier qui restera : undefined = inchangé, null = détaché.
+  const refusChantier = critiqueCategorieChantier(categorie, chantier === undefined ? d.chantier_id : chantier?.id);
+  if (refusChantier) return refusChantier;
   if (categorie === d.categorie && String(description || "").trim() === String(d.description || "").trim() && !changeDeChantier(d, chantier) && !changeDeRemis(d, remisA)) return "Rien n'a changé.";
   return null;
 }

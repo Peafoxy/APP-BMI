@@ -65,7 +65,7 @@ export const GUIDE = {
     ["h3", "Mes dépenses de chantier — 📤 Dépenses"],
     ["ul", [
       "L'écran s'appelle **« Mes dépenses »** : je ne vois que les miennes.",
-      "Je choisis la catégorie (Carburant, Nourriture…), le montant, et **« Payé avec »** — souvent **une avance personnelle** si j'ai payé de ma poche : on me la remboursera.",
+      "Je choisis la catégorie (Carburant, Nourriture, Chantier — alors je choisis aussi le chantier —, Visite…), le montant, et **« Payé avec »** — souvent **une avance personnelle** si j'ai payé de ma poche : on me la remboursera.",
       "**« Chantier à rattacher »** : je choisis le chantier. La dépense sera retirée des frais d'installation **avant** le partage entre les techniciens.",
       "À partir de 5 000 F, la dépense attend la validation du DG.",
     ]],

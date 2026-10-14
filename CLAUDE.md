@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2623 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2626 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2369,6 +2369,18 @@ lit mal est pire qu'un banc absent).
   en Chine » → `CATEGORIES` (constants.js) : Livraison, Carburant,
   Nourriture, Commande en Chine, insérées après Transport ; « Autre » reste
   en dernier. Le banc le vérifie.
+
+- **« Chantier » et « Visite »** (14/10/2026, « A a, B a ») : juste après
+  Nourriture (`CATEGORIE_CHANTIER`, `CATEGORIE_VISITE`), des charges. **Une
+  dépense « Chantier » porte OBLIGATOIREMENT son chantier** (« Chantier à
+  rattacher ») — sinon elle ne serait pas déduite des frais d'installation :
+  `critiqueCategorieChantier` / `MOTIF_CHANTIER_OBLIGATOIRE`
+  (lib/validationDepenses.js), revérifiée dans `construireDepenseSaisie` ET
+  `critiqueModifDepense` (passer en « Chantier » sans chantier, ou détacher le
+  chantier d'une dépense « Chantier » : refusé) ; phrase rouge à l'écran
+  (`data-chantier-obligatoire`). « Visite » reste libre. Rien à coller. Banc
+  (+3, un RETOURNÉ — la liste, et l'import de Depenses.jsx), éprouvé (saisie,
+  modification, place, phrase). Chapitre 17 et guide du technicien à jour.
 
 ### 🛠 Travaux à crédit (13/09/2026)
 - Timo : « des chantiers qu'on exécute et au fur et à mesure on fait des

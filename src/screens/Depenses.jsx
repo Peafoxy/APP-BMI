@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { fmt, today, dFR, totalVente } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser, DEST_DG, DEST_BANQUE } from "../lib/versements";
-import { CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse } from "../lib/constants";
+import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "../lib/validationDepenses";
@@ -632,6 +632,7 @@ export function Depenses({ db, save, profile }) {
           )}
         </div>
         {propositionFonds.possible && <div className="mt-2 text-xs text-amber-800" data-fonds="propose">💼 Le tiroir de {boutique} ne contient que {fmt(Math.max(0, poches.montant))} : le <b>fonds de caisse</b> peut compléter. Le tiroir paiera {fmt(Math.max(0, poches.montant))} et l'enveloppe {fmt(propositionFonds.manqueAuTiroir)} (il y reste {fmt(propositionFonds.reste)}). Choisissez « Le fonds de caisse » dans « Payé avec » ; les prochaines recettes le rembourseront.</div>}
+        {f.categorie === CATEGORIE_CHANTIER && !f.chantier_id && <div className="mt-2 text-xs font-bold text-red-700" data-chantier-obligatoire>🏗 Catégorie « Chantier » : choisissez le chantier dans « Chantier à rattacher » (obligatoire).</div>}
         {f.chantier_id && <div className="mt-2 text-xs text-purple-800">🏠 Cette dépense sera déduite des frais d'installation du chantier avant le partage entre techniciens (une fois qu'elle compte).</div>}
         {f.montant !== "" && doitEtreValidee(f.montant) && !jeSuisDG && (
           <div className="mt-2 text-sm font-bold text-amber-700">⏳ À partir de {fmt(SEUIL_VALIDATION_DEPENSE)}, la dépense est soumise à la validation du DG : elle ne comptera (caisse, tableau de bord) qu'une fois validée.</div>

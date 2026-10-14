@@ -5371,7 +5371,8 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     // 12/09/2026 : « Ce mois » passe par depensesComptees (une dépense en attente ne compte pas).
     // ⚠ RETOURNÉ le 30/09/2026 : PAIEMENTS → MOYENS_ENCAISSEMENT (« Crédit (dette) » retiré des dépenses).
     // RETOURNÉ le 13/10/2026 : + libelleCaisse (l'avis WhatsApp de la décision du DG nomme la caisse).
-    && /import \{ CATEGORIES, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse \} from "\.\.\/lib\/constants";/.test(dep)
+    // RETOURNÉ le 14/10/2026 : + CATEGORIE_CHANTIER (le chantier obligatoire se dit à l'écran).
+    && /import \{ CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse \} from "\.\.\/lib\/constants";/.test(dep)
     && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
     // ⚠ RETOURNÉ DEUX FOIS le 03/10/2026 : les prêts avaient quitté la liste (hors charges) ; Timo :
@@ -8885,8 +8886,12 @@ titre("Les catégories de dépenses demandées par Timo");
   // 18/09/2026 une catégorie y entre par une constante nommée, et lire le
   // source rendait « CATEGORIE_REPARATION_OUTIL » au lieu de sa valeur — le
   // contrôle aurait passé sans rien mesurer.
-  test("★ CATEGORIES contient Livraison, Carburant, Nourriture, Commande en Chine, la réparation d'outillage (18/09/2026), et garde « Autre » en dernier",
-    ["Livraison", "Carburant", "Nourriture", "Commande en Chine", "Réparation d'outillage"].every((c) => Cats.CATEGORIES.includes(c))
+  // RETOURNÉ le 14/10/2026 (« A a ») : « Chantier » et « Visite » juste après Nourriture.
+  test("★ CATEGORIES contient Livraison, Carburant, Nourriture, Chantier et Visite juste après Nourriture (14/10/2026, « A a »), Commande en Chine, la réparation d'outillage, et garde « Autre » en dernier",
+    ["Livraison", "Carburant", "Nourriture", "Chantier", "Visite", "Commande en Chine", "Réparation d'outillage"].every((c) => Cats.CATEGORIES.includes(c))
+    && Cats.CATEGORIES.indexOf("Chantier") === Cats.CATEGORIES.indexOf("Nourriture") + 1
+    && Cats.CATEGORIES.indexOf("Visite") === Cats.CATEGORIES.indexOf("Nourriture") + 2
+    && !Cats.CATEGORIES_HORS_CHARGES.includes("Chantier") && !Cats.CATEGORIES_HORS_CHARGES.includes("Visite")
     && Cats.CATEGORIES[Cats.CATEGORIES.length - 1] === "Autre"
     && new Set(Cats.CATEGORIES).size === Cats.CATEGORIES.length
     && /export const CATEGORIES = \[/.test(cst));
@@ -12792,6 +12797,27 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
       && Vd.modifierDepense({ ...d0, chantier_id: "c1" }, { categorie: "Transport", description: "" }, "T", "x").depense.chantier_id === "c1"
       && Vd.critiqueModifDepense({ ...d0, chantier_id: "c1" }, { categorie: "Loyer", description: "", chantier: null }) === null
       && /Rien/.test(Vd.critiqueModifDepense({ ...d0, chantier_id: "c1" }, { categorie: "Loyer", description: "", chantier: { id: "c1" } }) || ""));
+    // 🏗 « B a » (14/10/2026) : une dépense « Chantier » porte SON chantier — à la saisie ET à la modification.
+    {
+      const dbC = { users: [{ id: "g", nom: "KOSSI", role: "gerant", boutique: "APESSITO" }], depenses: [], boutiques: [{ nom: "APESSITO" }] };
+      const gC = { id: "g", nom: "KOSSI", role: "gerant", boutique: "APESSITO" };
+      const sans = Vd.construireDepenseSaisie(dbC, gC, { boutique: "APESSITO", categorie: "Chantier", description: "câble", montant: 2000, paiement: "Espèces", paye_avec: "caisse" }, "2026-10-14");
+      const avec = Vd.construireDepenseSaisie(dbC, gC, { boutique: "APESSITO", categorie: "Chantier", description: "câble", montant: 2000, paiement: "Espèces", paye_avec: "caisse", chantier_id: "c1" }, "2026-10-14");
+      const visite = Vd.construireDepenseSaisie(dbC, gC, { boutique: "APESSITO", categorie: "Visite", description: "taxi", montant: 2000, paiement: "Espèces", paye_avec: "caisse" }, "2026-10-14");
+      test("★★ « B a » : une dépense « Chantier » sans chantier est REFUSÉE dans la règle de saisie ; avec son chantier, elle passe ; « Visite » reste libre",
+        sans.refus === Vd.MOTIF_CHANTIER_OBLIGATOIRE && !avec.refus && !!avec.depense && !visite.refus && !!visite.depense
+        && Vd.critiqueCategorieChantier("Transport", "") === "" && Vd.critiqueCategorieChantier("Chantier", "  ") === Vd.MOTIF_CHANTIER_OBLIGATOIRE);
+      test("★★ « B a » à ✏️ Modifier : passer en « Chantier » sans chantier, ou détacher le chantier d'une dépense « Chantier », est refusé ; garder le chantier passe",
+        Vd.critiqueModifDepense(d0, { categorie: "Chantier", description: "" }) === Vd.MOTIF_CHANTIER_OBLIGATOIRE
+        && Vd.critiqueModifDepense({ ...d0, categorie: "Chantier", chantier_id: "c1" }, { categorie: "Chantier", description: "", chantier: null }) === Vd.MOTIF_CHANTIER_OBLIGATOIRE
+        && Vd.critiqueModifDepense({ ...d0, chantier_id: "c1" }, { categorie: "Chantier", description: "" }) === null
+        && Vd.critiqueModifDepense(d0, { categorie: "Chantier", description: "", chantier: { id: "c2" } }) === null);
+      const dpC = readFileSync("src/screens/Depenses.jsx", "utf8");
+      const corpsE = (dpC.match(/const enregistrerDepense = async[\s\S]*?\n  \};/) || [""])[0];
+      test("★ l'écran passe le chantier choisi à la règle (le formulaire entier, chantier_id compris) et le DIT en rouge tant qu'il manque",
+        /construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\)/.test(corpsE)
+        && /f\.categorie === CATEGORIE_CHANTIER && !f\.chantier_id && <div[^>]*data-chantier-obligatoire/.test(dpC));
+    }
     {
       const dpM = readFileSync("src/screens/Depenses.jsx", "utf8");
       const corps = (dpM.match(/const enregistrerModif = \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";

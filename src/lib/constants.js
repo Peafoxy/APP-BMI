@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.551";
+export const VERSION = "2.101.552";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -119,7 +119,14 @@ export const mobileParMoyen = (moyen) => MOYENS_MOBILES.find((x) => x.moyen === 
 // Outillage quand on envoie un outil chez un réparateur, ou quand il en
 // revient ; « Autre » reste en dernier.
 export const CATEGORIE_REPARATION_OUTIL = "Réparation d'outillage";
-export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Livraison", "Carburant", "Nourriture", "Commande en Chine", "Achat marchandises", CATEGORIE_REPARATION_OUTIL, "Communication", "Impôts / Taxes", "Autre"];
+// 🏗 « Chantier » et « Visite » (Timo, 14/10/2026, « A a, B a ») : après
+// Nourriture, avec les frais de terrain. Une dépense « Chantier » se rattache
+// OBLIGATOIREMENT à son chantier (critiqueCategorieChantier,
+// lib/validationDepenses.js) — sinon elle ne serait pas déduite des frais
+// d'installation. « Visite » reste libre.
+export const CATEGORIE_CHANTIER = "Chantier";
+export const CATEGORIE_VISITE = "Visite";
+export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissions", "Prime d'installation", "Cotisations CNSS", "Transport", "Livraison", "Carburant", "Nourriture", CATEGORIE_CHANTIER, CATEGORIE_VISITE, "Commande en Chine", "Achat marchandises", CATEGORIE_REPARATION_OUTIL, "Communication", "Impôts / Taxes", "Autre"];
 
 // ============ RÔLES ============
 // Salariés : fiche de paie, avancement, primes/avances, virements, crédit BMI.

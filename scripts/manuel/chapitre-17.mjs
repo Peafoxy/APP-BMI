@@ -82,12 +82,12 @@ export const CHAPITRE = {
       ["h3", "A. Saisir une dépense"],
       ["etapes", [
         { titre: "Choisir la boutique en haut", texte: "La pastille de la boutique dont on parle (le gérant rattaché à une boutique n'a pas de pastilles : c'est la sienne)." },
-        { titre: "Catégorie", texte: "Elle part sur **« — Choisir — »** : **aucune catégorie n'est proposée d'office** (25/09/2026 — une dépense de 5 000 F était tombée en « Loyer » sans que personne y touche). Sans catégorie, l'application refuse : « Choisissez la catégorie de la dépense. »" },
+        { titre: "Catégorie", texte: "Elle part sur **« — Choisir — »** : **aucune catégorie n'est proposée d'office** (25/09/2026 — une dépense de 5 000 F était tombée en « Loyer » sans que personne y touche). Sans catégorie, l'application refuse : « Choisissez la catégorie de la dépense. » Deux catégories pour le terrain, juste après Nourriture : **« Chantier »** (un frais d'un chantier en cours — son chantier est alors **obligatoire**, voir la ligne suivante) et **« Visite »** (le déplacement chez un client ou un prospect, libre)." },
         { titre: "Description", texte: "Ce qui a été acheté, pour qui, pourquoi. C'est ce que le DG lira avant de valider." },
         { titre: "Montant (F)", texte: "Plus que zéro. **À partir de 5 000 F**, un message ambre prévient : la dépense sera soumise au DG." },
         { titre: "Paiement", texte: "Espèces, Mobile Money (Flooz), Mobile Money (Mixx/T-Money), Virement bancaire. Seules les **espèces** sortent du tiroir." },
         { titre: "Payé avec", texte: "**D'où vient l'argent** (partie B). « La caisse de » la boutique regardée est proposée en premier. Pour un technicien, une seule réponse : « Une avance personnelle (j'ai payé de ma poche) »." },
-        { titre: "Chantier à rattacher", texte: "« — Aucun — » d'office. Choisir un chantier seulement pour un frais **du chantier** (partie D)." },
+        { titre: "Chantier à rattacher", texte: "« — Aucun — » d'office. Choisir un chantier seulement pour un frais **du chantier** (partie D). **Avec la catégorie « Chantier », il est obligatoire** : une phrase rouge le rappelle, et sans chantier l'application refuse (« Une dépense de la catégorie « Chantier » se rattache à son chantier… »). S'il n'y a aucun chantier en cours, on choisit une autre catégorie." },
         { titre: "Enregistrer la dépense", texte: "Lire la confirmation : montant, catégorie, caisse qui paie, et ce qui va se passer (validation du DG, autre boutique, chantier, fonds de caisse)." },
       ]],
       ["attention", "Une dépense **ne se paie jamais « à crédit »** : une dépense qui n'est pas encore payée n'est pas une dépense. On la saisit **le jour où l'argent sort**, avec le vrai moyen — la liste ne propose d'ailleurs pas « Crédit (dette) », et l'application le refuse."],
@@ -158,7 +158,7 @@ export const CHAPITRE = {
 
       ["h3", "H. Corriger une dépense"],
       ["etapes", [
-        { titre: "✏️ Modifier (administrateur principal)", texte: "**La catégorie, la description, le chantier rattaché et « Argent remis à » (la personne, ou « Personne »), rien d'autre.** La personne ne change pas si elle a déjà justifié ou rendu cet argent. Le chantier ne se change que tant qu'il n'est **pas réceptionné** (ni soldé, ni ses techniciens payés) — l'ancien comme le nouveau ; « — Aucun — » le retire. Le montant, le paiement et « Payé avec » portent de l'argent : un montant faux se **supprime et se ressaisit**. La ligne garde « modifiée le … par … »." },
+        { titre: "✏️ Modifier (administrateur principal)", texte: "**La catégorie, la description, le chantier rattaché et « Argent remis à » (la personne, ou « Personne »), rien d'autre.** Une dépense « Chantier » garde son chantier : passer en « Chantier » sans en choisir un, ou retirer le chantier d'une dépense « Chantier », est refusé. La personne ne change pas si elle a déjà justifié ou rendu cet argent. Le chantier ne se change que tant qu'il n'est **pas réceptionné** (ni soldé, ni ses techniciens payés) — l'ancien comme le nouveau ; « — Aucun — » le retire. Le montant, le paiement et « Payé avec » portent de l'argent : un montant faux se **supprime et se ressaisit**. La ligne garde « modifiée le … par … »." },
         { titre: "Ce qui ne se modifie pas", texte: "Les versements, fonds de caisse, apports et prélèvements du DG, remboursements, les dépenses **automatiques** (salaires, commissions, CNSS, primes…) et les dépenses **rejetées**." },
         { titre: "Suppr. (administrateur)", texte: "Confirmation. Une dépense née d'un paiement (commission, prime…) annule aussi son statut « payé » : l'écran le dit. Certaines ont leur propre porte de sortie, et l'application y renvoie." },
       ]],
