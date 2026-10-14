@@ -45,12 +45,14 @@ const depart = {
     { nom: "APESSITO", formation: false },
   ],
   users: [principal, gerant],
-  produits: [], ajustements: [], messages: [], dettes: [], clients_installes: [], clotures: [],
+  produits: [], ajustements: [], dettes: [], clients_installes: [], clotures: [],
+  // « prevenu » (14/10/2026, « b ») : le propriétaire a déjà reçu le message.
+  messages: quoi === "prevenu" ? [{ id: "m1", canal: "whatsapp", wa_modele: "loyer_disponible", loyer_depense_id: "loy1", date: auj, ts: auj + "T10:00:00.000Z", de_nom: "AMA", texte: "…" }] : [],
   // « dgplein » : DEMAKPOE a versé 500 000 F chez le DG, validés — la caisse du DG suffit.
   // 📲 Prévenir le propriétaire (10/10/2026) : un paiement de loyer VALIDÉ en
   // espèces (« valide », « sanstel »), en attente du DG (« attente »), validé
   // mais payé par Flooz (« flooz »).
-  depenses: ["valide", "sanstel", "attente", "flooz"].includes(quoi) ? [{ id: "loy1", boutique: "DEMAKPOE", date: auj, heure: "09:00", categorie: "Loyer", montant: 90000, paiement: quoi === "flooz" ? "Mobile Money (Flooz)" : "Espèces", paye_avec: "caisse:DEMAKPOE", par: "AMA", loyer_mois: auj.slice(0, 7), loyer_boutique: "DEMAKPOE", description: "Loyer", validation: { statut: quoi === "attente" ? "attente" : "validee", le: auj, par: "TIMO" } }]
+  depenses: ["valide", "sanstel", "attente", "flooz", "prevenu"].includes(quoi) ? [{ id: "loy1", boutique: "DEMAKPOE", date: auj, heure: "09:00", categorie: "Loyer", montant: 90000, paiement: quoi === "flooz" ? "Mobile Money (Flooz)" : "Espèces", paye_avec: "caisse:DEMAKPOE", par: "AMA", loyer_mois: auj.slice(0, 7), loyer_boutique: "DEMAKPOE", description: "Loyer", validation: { statut: quoi === "attente" ? "attente" : "validee", le: auj, par: "TIMO" } }]
   : quoi === "dgplein" ? [{ id: "vers1", boutique: "DEMAKPOE", date: auj, categorie: "Versement de fonds", montant: 500000, paiement: "Espèces", par: "AMA", versement: { destination: "Chez le DG", montant: 500000 }, versement_valide_le: auj, versement_valide_par: "TIMO" }] : [],
   ventes: quoi === "vide" ? [] : [vente("v1", "DEMAKPOE", 200000), vente("v2", "APESSITO", 150000)],
 };
@@ -210,6 +212,34 @@ console.log("\n📲 Prévenir le propriétaire que le loyer l'attend (Timo, 10/1
   await page.click("[data-prevenir-proprietaire]"); await attendre(150);
   const r = await dialogue(page);
   test("★★ sans le numéro du propriétaire sur la fiche : on le DIT (où l'ajouter), rien ne part", /n'a pas le numéro du propriétaire \(KOFFI\)/.test(r) && /Rien n'est parti/.test(r) && (await saves(page)) === 0, r);
+  await page.close();
+}
+
+console.log("\n✅ Remis au propriétaire, et « 📲 Le rappeler » (Timo, 14/10/2026 : « le bouton prévenir reste toujours actif même si le propriétaire vient récupérer l'argent ? » → « b »)");
+{
+  const { page, erreurs } = await ouvrir("valide");
+  const libelle = propre(await page.$eval("[data-prevenir-proprietaire]", (e) => e.innerText).catch(() => ""));
+  test("★ pas encore prévenu : « 📲 Prévenir le propriétaire », et à côté « ✅ Remis au propriétaire »",
+    /Prévenir le propriétaire/.test(libelle) && (await page.$("[data-loyer-remis-bouton]")) !== null, libelle);
+  await page.click("[data-loyer-remis-bouton]"); await attendre(150);
+  const q = await dialogue(page);
+  test("★★ la question nomme le montant, le mois et le propriétaire, et dit que rien ne bouge dans la caisse",
+    /90 000 F de \S+ \d{4} remis à KOFFI/.test(q) && /Rien ne bouge dans la caisse/.test(q), q);
+  await ok_(page);
+  const ecrit = await page.evaluate(() => { const n = window.saves[window.saves.length - 1]; return n ? { remis: (n.n.depenses.find((d) => d.id === "loy1") || {}).loyer_remis, journal: n.journal, nb: n.n.depenses.length } : null; });
+  test("★★ la remise s'écrit SUR la dépense de loyer (le jour, l'heure, qui), aucune dépense de plus, une ligne de journal",
+    !!ecrit?.remis?.le && /^\d{2}:\d{2}$/.test(ecrit.remis.heure || "") && ecrit.remis.par === "AMA" && ecrit.nb === 1 && /remis au propriétaire/.test(ecrit.journal || ""), JSON.stringify(ecrit));
+  const apres = propre(await page.$eval("[data-loyer-remis]", (e) => e.innerText).catch(() => ""));
+  test("★★ les deux boutons DISPARAISSENT ; le cadre dit « remis au propriétaire le … par AMA »",
+    (await page.$("[data-prevenir-proprietaire]")) === null && (await page.$("[data-loyer-remis-bouton]")) === null && /remis au propriétaire le .+ par AMA/.test(apres), apres);
+  test("★ aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
+  await page.close();
+}
+{
+  const { page } = await ouvrir("prevenu");
+  const libelle = propre(await page.$eval("[data-prevenir-proprietaire]", (e) => e.innerText).catch(() => ""));
+  test("★★ « b » déjà prévenu : le même bouton s'appelle « 📲 Le rappeler », et « prévenu le … par AMA » se lit à côté",
+    /Le rappeler/.test(libelle) && !/Prévenir le propriétaire/.test(libelle) && (await page.$("[data-proprietaire-prevenu]")) !== null, libelle);
   await page.close();
 }
 

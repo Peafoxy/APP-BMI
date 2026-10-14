@@ -392,6 +392,9 @@ essai "★ le DG valide une dépense rejetée" "REFUSE" "$ADMIN" "$(MAJ depenses
 essai "★ le DG change le motif d'un rejet" "REFUSE" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{validation,motif}','\"autre\"')" zd_rej)"
 essai "★ le DG retire la validation (data - 'validation')" "REFUSE" "$ADMIN" "$(MAJ depenses "data - 'validation'" zd_val)"
 essai "le DG corrige la description d'une dépense validée (la validation ne bouge pas : permis)" "PERMIS" "$ADMIN" "$(MAJ depenses "jsonb_set(data,'{description}','\"loyer septembre\"')" zd_val)"
+# ✅ 14/10/2026 (« b ») : le loyer REMIS au propriétaire se note sur la dépense de loyer, déjà validée par le DG.
+essai "★ un gérant note le loyer (validé) remis au propriétaire" "PERMIS" "$GERANT" "$(MAJ depenses "data || '{\"loyer_remis\":{\"le\":\"2026-10-14\",\"heure\":\"10:00\",\"par\":\"ALI\"}}'" zd_val)"
+essai "★ …par UPSERT, comme l'application écrit" "PERMIS" "$GERANT" "with x as (insert into public.depenses (id, data) values ('zd_val', (select data || '{\"loyer_remis\":{\"le\":\"2026-10-14\",\"par\":\"ALI\"}}' from public.depenses where id='zd_val')) on conflict (id) do update set data = excluded.data returning 1) select count(*) from x;"
 REMB='{"id":"zd_av","boutique":"APESSITO","categorie":"Transport","montant":3000,"paiement":"Espèces","par":"KOSSI","par_id":"zv_kossi","paye_avec":"avance","remboursement":{"le":"2026-09-12","par":"ALI","moyen":"caisse","depense_id":"zd_rb"}}'
 essai "★ un vendeur se marque lui-même son avance remboursée" "REFUSE" "$VENDEUR" "$(UPS depenses zd_av "$REMB")"
 essai "★ le comptable marque une avance remboursée" "REFUSE" "$COMPTABLE" "$(UPS depenses zd_av "$REMB")"

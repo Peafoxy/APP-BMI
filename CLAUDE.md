@@ -60,7 +60,7 @@ npm run tester-notifications     # 85  : les notifications (liste A = messages, 
 npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone ; 🔒 Matériel réservé rendu, le mur, la réappro sur le disponible)
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
-npm run verifier-ecran-loyer     # 26  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
+npm run verifier-ecran-loyer     # 32  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
@@ -72,7 +72,7 @@ npm run verifier-whatsapp        # 1016 : l'envoi WhatsApp du numéro BMI (l'ord
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 225 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 227 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 98  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
@@ -4863,6 +4863,19 @@ lit mal est pire qu'un banc absent).
   `verifier-ecran-loyer` (+8, Chromium) et `verifier-whatsapp` (+10), éprouvés
   (attente / Flooz acceptés, rôle non revérifié, espace de qui clique) ; deux
   contrôles RETOURNÉS (trente-trois modèles, modèles à ligne). Chapitre 17.
+
+- **✅ REMIS AU PROPRIÉTAIRE, ET « 📲 LE RAPPELER »** (14/10/2026, capture Timo :
+  « le bouton prévenir reste toujours actif même si le propriétaire vient
+  récupérer l'argent ? » → « b, lance ») : à côté de « Prévenir », **« ✅ Remis
+  au propriétaire »** (gérant + administrateur, `refuserSaufRoles`, dépense
+  RELUE) note `loyer_remis = { le, heure, par, par_id }` SUR la dépense de
+  loyer (`marquerLoyerRemis`, lib/loyer.js) — rien ne bouge dans la caisse.
+  `dernierLoyerARemettre` ne regarde que le DERNIER loyer en espèces : remis,
+  plus de bouton (un paiement d'avant ne ressurgit pas) ; le cadre dit « ✅ …
+  remis au propriétaire le … par … » (`dernierLoyerRemis`). **« b »** : déjà
+  prévenu, le bouton s'appelle **« 📲 Le rappeler »**. Rien à coller (la base
+  accepte, `tester-argent` +2). Banc Chromium `verifier-ecran-loyer` (+6),
+  éprouvé (remise ignorée, libellé figé). Chapitre 17 à jour.
 
 ### ✏️ MODIFIER UNE DÉPENSE (25/09/2026, « catégorie et description seulement · admin principal »)
 - **La catégorie et la description, rien d'autre** : le montant, le moyen et

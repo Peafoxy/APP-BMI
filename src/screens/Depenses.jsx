@@ -5,7 +5,7 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState } from "react";
-import { fmt, today, dFR, totalVente } from "../lib/core";
+import { fmt, today, dFR, totalVente, heureCourte } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser, DEST_DG, DEST_BANQUE } from "../lib/versements";
 import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, libelleCaisse } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
@@ -18,7 +18,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uCho
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { RetoursAValider } from "../components/ArgentChantier";
 import { compteExploitant } from "../lib/compteExploitant";
-import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER, dernierLoyerARemettre, moisEnClair } from "../lib/loyer";
+import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER, dernierLoyerARemettre, dernierLoyerRemis, marquerLoyerRemis, moisEnClair } from "../lib/loyer";
 import { envoiLoyerDisponible, texteLoyerDisponible, envoiDepenseRejetee, envoiDepenseValidee } from "../lib/whatsappModeles";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation, utilisateursDeLEspace } from "../lib/calculs";
@@ -208,6 +208,21 @@ export function Depenses({ db, save, profile }) {
   const dejaPrevenu = loyerARemettre
     ? (db.messages || []).filter((m) => m && m.wa_modele === "loyer_disponible" && m.loyer_depense_id === loyerARemettre.id).sort((a, b) => String(b.ts || b.date || "").localeCompare(String(a.ts || a.date || "")))[0] || null
     : null;
+  const loyerDejaRemis = fiche && !loyerARemettre ? dernierLoyerRemis(db.depenses, boutique) : null;
+  // ✅ « Remis au propriétaire » (14/10/2026, « b ») : le gérant ou
+  // l'administrateur note que le propriétaire est passé ; les boutons
+  // disparaissent jusqu'au prochain loyer payé en espèces. Rien ne bouge
+  // dans la caisse : la remise se note sur la dépense de loyer.
+  const remettreAuProprietaire = async () => {
+    if (refuserSaufRoles(profile, ["gerant", "admin"], "Noter le loyer remis au propriétaire")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const ficheFraiche = ficheLoyer((db.boutiques || []).find((b) => b.nom === boutique));
+    const dep = ficheFraiche ? dernierLoyerARemettre(db.depenses, boutique) : null;
+    if (!dep) { uAlert("Aucun loyer payé en espèces n'attend le propriétaire pour ce local."); return; }
+    if (!await uConfirm(`${fmt(Number(dep.montant))} de ${libellePeriodeLoyer(moisDeLaDepense(dep))} remis à ${ficheFraiche.proprietaire || "le propriétaire"} ?\n\nRien ne bouge dans la caisse : l'argent est sorti du tiroir quand le loyer a été enregistré. Le bouton « Prévenir le propriétaire » disparaît jusqu'au prochain loyer payé en espèces.`)) return;
+    save({ ...db, depenses: db.depenses.map((d) => (d.id === dep.id ? marquerLoyerRemis(d, profile, today(), heureCourte()) : d)) },
+      `Loyer du local ${boutique} remis au propriétaire${ficheFraiche.proprietaire ? ` (${ficheFraiche.proprietaire})` : ""} : ${fmt(Number(dep.montant))}, ${libellePeriodeLoyer(moisDeLaDepense(dep))}`);
+  };
   const prevenirProprietaire = async () => {
     if (refuserSaufRoles(profile, ["gerant", "admin"], "Prévenir le propriétaire du loyer")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -587,9 +602,16 @@ export function Depenses({ db, save, profile }) {
           )}
           {loyerARemettre && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600" data-loyer-a-remettre>
-              <button onClick={prevenirProprietaire} className="rounded-lg border border-green-600 px-3 py-1.5 text-sm font-semibold text-green-800 bg-green-50" data-prevenir-proprietaire>📲 Prévenir le propriétaire</button>
+              {/* « b » (14/10/2026) : une fois prévenu, le même geste s'appelle « Le rappeler ». */}
+              <button onClick={prevenirProprietaire} className="rounded-lg border border-green-600 px-3 py-1.5 text-sm font-semibold text-green-800 bg-green-50" data-prevenir-proprietaire>{dejaPrevenu ? "📲 Le rappeler" : "📲 Prévenir le propriétaire"}</button>
+              <button onClick={remettreAuProprietaire} className="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-semibold text-slate-700 bg-white" data-loyer-remis-bouton>✅ Remis au propriétaire</button>
               <span>de venir chercher {fmt(loyerARemettre.montant)} ({libellePeriodeLoyer(moisDeLaDepense(loyerARemettre))}, payé en espèces le {dFR(loyerARemettre.date)})</span>
               {dejaPrevenu && <span className="text-green-700 font-semibold" data-proprietaire-prevenu>· 📲 prévenu le {dFR(dejaPrevenu.date)}{dejaPrevenu.de_nom ? ` par ${dejaPrevenu.de_nom}` : ""}</span>}
+            </div>
+          )}
+          {loyerDejaRemis && (
+            <div className="mt-2 text-xs text-green-700 font-semibold" data-loyer-remis>
+              ✅ {fmt(Number(loyerDejaRemis.montant))} ({libellePeriodeLoyer(moisDeLaDepense(loyerDejaRemis))}) remis au propriétaire le {dFR(loyerDejaRemis.loyer_remis.le)}{loyerDejaRemis.loyer_remis.heure ? ` à ${loyerDejaRemis.loyer_remis.heure}` : ""}{loyerDejaRemis.loyer_remis.par ? ` par ${loyerDejaRemis.loyer_remis.par}` : ""}
             </div>
           )}
         </div>

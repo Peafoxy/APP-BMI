@@ -218,11 +218,29 @@ export function formulaireLoyer(fiche, etat, boutique, n = 1) {
 // loyer payé par Flooz ou par virement est déjà chez le propriétaire, il n'a
 // rien à venir chercher. Le plus récent de ce local.
 export const paiementEnEspeces = (d) => /esp[eè]ces/i.test(String(d?.paiement || ""));
-export function dernierLoyerARemettre(depenses, boutique) {
+// Le dernier loyer payé en espèces qui COMPTE, remis ou non.
+export function dernierLoyerEnEspeces(depenses, boutique) {
   const liste = depensesDuLocal(depenses, boutique)
     .filter((d) => d?.validation?.statut !== "attente" && Number(d.montant) > 0 && paiementEnEspeces(d));
   return liste.sort((a, b) => `${b.date || ""} ${b.heure || ""}`.localeCompare(`${a.date || ""} ${a.heure || ""}`))[0] || null;
 }
+// ✅ REMIS AU PROPRIÉTAIRE (14/10/2026, Timo : « le bouton prévenir reste
+// toujours actif même si le propriétaire vient récupérer l'argent ? » → « b,
+// lance ») : la remise se note SUR la dépense de loyer (`loyer_remis`) ; rien
+// ne bouge dans la caisse (l'argent est sorti du tiroir quand le loyer a été
+// enregistré). ⚠ Seul le DERNIER paiement compte : remis, il n'y a plus rien
+// à venir chercher — un paiement plus ancien, d'avant ce geste, ne ressurgit pas.
+export const loyerRemis = (d) => !!(d && d.loyer_remis && d.loyer_remis.le);
+export function dernierLoyerARemettre(depenses, boutique) {
+  const d = dernierLoyerEnEspeces(depenses, boutique);
+  return d && !loyerRemis(d) ? d : null;
+}
+export function dernierLoyerRemis(depenses, boutique) {
+  const d = dernierLoyerEnEspeces(depenses, boutique);
+  return d && loyerRemis(d) ? d : null;
+}
+export const marquerLoyerRemis = (dep, profile, le, heure) =>
+  ({ ...dep, loyer_remis: { le, heure, par: profile?.nom || "", par_id: profile?.id || null } });
 
 // Les mois d'un paiement, en clair pour le propriétaire : « octobre 2026 »,
 // « septembre et octobre 2026 », « novembre 2026 et janvier 2027 »,
