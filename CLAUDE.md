@@ -7783,10 +7783,15 @@ lit mal est pire qu'un banc absent).
   une charge », `data-argent-rendu-echange`), hors de « Ce mois » ; sa
   description nomme la vente d'origine, le client, l'article rendu, l'article
   pris et le nouveau reçu ; **elle ne se supprime pas seule**
-  (`refusSuppressionDepense`, `echange_ref`). ⚠ Le « Remboursement client »
-  d'une reprise ordinaire reste HORS de la liste (non demandé). Rien à coller.
+  (`refusSuppressionDepense`, `echange_ref`). **Et le « Remboursement client »
+  d'une reprise ordinaire aussi** (« oui, même chose pour le remboursement
+  client », le même jour) : dans la liste (`data-argent-rendu-reprise`, « ↩
+  argent rendu au client (reprise) »), hors de « Ce mois », description
+  « Argent rendu au client — reprise de la vente N° … — client : 1 × X rendu
+  (REP-…) », non supprimable seul (`reprise_ref`). Rien à coller.
   Bancs +6, éprouvés ; quatre contrôles RETOURNÉS (la liste de 📤 Dépenses ×2,
-  Rentabilité ×2). Chapitres 5, 17 et 22 à jour.
+  Rentabilité ×2, puis le texte de 📤 Dépenses ×2 pour la reprise). Chapitres 5, 17
+  et 22 à jour.
 - **Un échange SOUS GARANTIE n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**

@@ -5369,13 +5369,13 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // mois les comptaient encore. Un écran oublié fait mentir une règle.
   test("★ l'écran 💰 Dépenses lui-même ne compte NI les versements de fonds NI les remboursements de reprise (liste et « Ce mois »), et dit où les retrouver",
     // 13/09/2026 : la liste passe en plus par depensesVisibles (un technicien ne voit que les siennes) — horsVersements reste dedans.
-    /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste ; RETOURNÉ le 14/10/2026 : l'argent rendu sur un échange aussi */.test(dep)
+    /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| x\.categorie === CATEGORIE_REMBOURSEMENT \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste ; RETOURNÉ le 14/10/2026 : l'argent rendu sur un échange aussi, puis sur une reprise */.test(dep)
     // 12/09/2026 : « Ce mois » passe par depensesComptees (une dépense en attente ne compte pas).
     // ⚠ RETOURNÉ le 30/09/2026 : PAIEMENTS → MOYENS_ENCAISSEMENT (« Crédit (dette) » retiré des dépenses).
     // RETOURNÉ le 13/10/2026 : + libelleCaisse (l'avis WhatsApp de la décision du DG nomme la caisse).
     // RETOURNÉ le 14/10/2026 : + CATEGORIE_CHANTIER (le chantier obligatoire se dit à l'écran).
     // RETOURNÉ le 14/10/2026 : + CATEGORIE_RENDU_ECHANGE (l'argent rendu sur un échange se lit dans la liste).
-    && /import \{ CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, CATEGORIE_RENDU_ECHANGE, libelleCaisse \} from "\.\.\/lib\/constants";/.test(dep)
+    && /import \{ CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, CATEGORIE_RENDU_ECHANGE, CATEGORIE_REMBOURSEMENT, libelleCaisse \} from "\.\.\/lib\/constants";/.test(dep) /* RETOURNÉ le 14/10/2026 : + CATEGORIE_REMBOURSEMENT */
     && /const totalMois = depensesComptees\(liste\)\.filter/.test(dep)
     && /ne sont pas des dépenses : ils ne comptent pas ici/.test(dep)
     // ⚠ RETOURNÉ DEUX FOIS le 03/10/2026 : les prêts avaient quitté la liste (hors charges) ; Timo :
@@ -5383,8 +5383,12 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     && /Retrouvez-les dans <b>🔒 Caisse<\/b>/.test(dep) && /sont dans la liste \(ils font bouger la caisse\) mais ne comptent pas dans « Ce mois »/.test(dep)
     // RETOURNÉ le 14/10/2026 (Timo : « la ligne dépense doit être créée dans les dépenses comme argent rendu ») :
     // la sortie « Rendu sur échange » se lit aussi dans la liste, sans compter dans « Ce mois ».
-    && /x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| horsVersements\(\[x\]\)\.length === 1/.test(dep) && /data-pret-personnel/.test(dep)
-    && /data-argent-rendu-echange[^>]*>↩ argent rendu au client · n'est pas une charge/.test(dep));
+    && /x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| x\.categorie === CATEGORIE_REMBOURSEMENT \|\| horsVersements\(\[x\]\)\.length === 1/.test(dep) && /data-pret-personnel/.test(dep)
+    && /data-argent-rendu-echange[^>]*>↩ argent rendu au client · n'est pas une charge/.test(dep)
+    // Timo (14/10/2026, « oui, même chose pour le remboursement client ») : la sortie d'une REPRISE aussi.
+    && /x\.categorie === CATEGORIE_REMBOURSEMENT && <div data-argent-rendu-reprise[^>]*>↩ argent rendu au client \(reprise\) · n'est pas une charge/.test(dep)
+    && /L'<b>argent rendu au client<\/b> \(reprise ou échange\) est aussi dans la liste, sans compter dans « Ce mois »\./.test(dep)
+    && !/<b>remboursements de reprise<\/b> ne sont pas des dépenses/.test(dep));
   // RETOURNÉ le 05/10/2026 : un troisième usage, les sorties payées chez le DG ou par la BANQUE.
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché trois fois (boutique, chez le comptable, DG / BANQUE)",
     (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 3
@@ -6294,7 +6298,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       rs.lignes[0].resteFonds === 45000 && rs.lignes[0].fondsRemis === 50000 && rs.lignes[0].entrees === 348000 && rs.lignes[1].resteFonds === 0 && rs.lignes[1].fondsRemis === 0 && rs.total.resteFonds === 45000 && rs.total.fondsRemis === 50000 && rs.total.fondsFixe === 100000);
     test("★ le fonds remis n'est ni une charge ni une dépense : CATEGORIES_HORS_CHARGES le porte, horsVersements et depensesComptees l'écartent (tableau de bord, journal, export, écran Dépenses) ; l'écran Dépenses DIT où le retrouver",
       Cs.CATEGORIES_HORS_CHARGES.includes("Fonds de caisse remis") && Cs.horsVersements(dbB.depenses).every((d) => !Vs.estFondsCaisseRemis(d)) && Cs.depensesComptees(dbB.depenses).length === 1 && Cs.horsVersements(dbB.depenses).length === 1
-      && /les <b>fonds de caisse remis par le DG<\/b> et les <b>remboursements de reprise<\/b> ne sont pas des dépenses/ /* RETOURNÉ deux fois le 03/10/2026 : les prêts sont revenus dans la liste */.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
+      && /Les <b>versements de fonds<\/b> et les <b>fonds de caisse remis par le DG<\/b> ne sont pas des dépenses/ /* RETOURNÉ deux fois le 03/10/2026 : les prêts sont revenus dans la liste ; RETOURNÉ le 14/10/2026 : les remboursements de reprise aussi */.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
     // La clôture : le jour de la remise, c'est une ENTRÉE du tiroir — jamais une « sortie justifiée » négative.
     const sortieClF = join("node_modules", ".cache", `bmi-cloture-fonds-${process.pid}.mjs`);
     await build({ entryPoints: ["src/lib/cloture.js"], bundle: true, format: "esm", platform: "node", outfile: sortieClF, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
@@ -6691,6 +6695,8 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
     Core.totalVente(r.vente) === Core.totalVente(vente) && r.vente.articles.length === 2 && r.vente.reprises.length === 1 && r.vente.reprises[0].qte === 1 && r.vente.reprises[0].montant === 11376 && r.vente.reprises[0].motif === "changé d'avis"
     && r.ajustement.qte === 1 && r.ajustement.type === "reprise_client" && r.ajustement.produit_id === "p1" && r.ajustement.boutique === "APESSITO" && r.ajustement.vente_id === "v1"
     && r.depense.categorie === "Remboursement client" && r.depense.montant === 11376 && r.depense.paiement === "Espèces" && r.depense.boutique === "APESSITO" && r.depense.vente_id === "v1" && r.depense.date === "2026-09-10" && r.dette === null
+    // Timo (14/10/2026) : la sortie se lit dans 📤 Dépenses — sa description nomme la vente d'origine et l'article rendu.
+    && new RegExp(`^Argent rendu au client — reprise de la vente ${Core.numeroRecu(vente)}.* : 1 × .+ rendu \\(REP-`).test(r.depense.description) && !!r.depense.reprise_ref
     && db2.ventes[0].reprises.length === 1 && db2.ajustements.length === 1 && db2.depenses.length === 1 && C.stockAjuste(db2, "p1") === 1 && /REP-[A-Z0-9]{8}/.test(r.journal));
   // CA tel que vendu : 24 000 de stock − la part de remise qui lui revient (1 300 × 24 000/25 000 = 1 248) = 22 752 ; une batterie reprise = 11 376.
   test("★ le chiffre d'affaires et la commission deviennent NETS de la reprise (caVente 22 752 → 11 376 ; commission 10 % : 2 275 → 1 138 ; Rentabilité : caLigneVente et qteReprise), le CA tel que vendu reste lisible (caVenteBrut)",
@@ -8987,7 +8993,7 @@ titre("📤 Dépenses ouvert aux techniciens : leurs propres dépenses seulement
   test("★ l'onglet est dans ONGLETS_ROLE pour technicien et technicien_bmi, dans leurs menus d'App (pas dans celui du commercial), et l'écran filtre par depensesVisibles avec le titre « Mes dépenses »",
     /^  technicien: \[.*"depenses"[,\]]/m.test(calD) && /^  technicien_bmi: \[.*"depenses"[,\]]/m.test(calD) && !/^  commercial: \[.*"depenses"/m.test(calD)
     && /\.\.\.\(isTechnicien \? \[\["depenses", "📤 Dépenses"\]\] : \[\]\)/.test(appD) && /\["parc", "🏠 Clients installés"\].*\["depenses", "📤 Dépenses"\]\]/.test(appD)
-    && /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste ; RETOURNÉ le 14/10/2026 : l'argent rendu sur un échange aussi */.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
+    && /const liste = depensesVisibles\(\(db\.depenses \|\| \[\]\)\.filter\(\(x\) => x\.boutique === boutique\s+&& \(x\.categorie === CATEGORIE_PRET_PERSONNEL \|\| x\.categorie === CATEGORIE_RENDU_ECHANGE \|\| x\.categorie === CATEGORIE_REMBOURSEMENT \|\| horsVersements\(\[x\]\)\.length === 1\)\), profile\);/ /* RETOURNÉ le 03/10/2026 : les prêts au personnel restent dans la liste ; RETOURNÉ le 14/10/2026 : l'argent rendu sur un échange aussi, puis sur une reprise */.test(dpD) && /\{mesSeules \? "Mes dépenses" : "Dépenses"\}/.test(dpD));
 }
 
 
@@ -13787,7 +13793,9 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
       && /lignesAuChiffre\(v\)\.forEach\(\(l\) => \{ if \(l\.hors_boutique\) return; cumul\[l\.article\] = \(cumul\[l\.article\] \|\| 0\) \+ l\.ca; \}\)/.test(readFileSync("src/screens/Dashboard.jsx", "utf8"))
       && /Onduleur/.test(rentaX) && !/ERREUR/.test(rentaX), rentaX.slice(0, 200));
     test("★ l'argent rendu sur un échange ne se supprime pas seul de 📤 Dépenses (l'échange ne se défait pas)",
-      /échange ECH-1 : il ne se supprime pas seul/.test(C.refusSuppressionDepense({}, { echange_ref: "ECH-1" }) || "") && C.refusSuppressionDepense({}, { categorie: "Transport" }) === null);
+      /échange ECH-1 : il ne se supprime pas seul/.test(C.refusSuppressionDepense({}, { echange_ref: "ECH-1" }) || "") && C.refusSuppressionDepense({}, { categorie: "Transport" }) === null
+      // Timo (14/10/2026, « même chose pour le remboursement client ») : l'argent rendu sur une reprise non plus.
+      && /reprise REP-1 : il ne se supprime pas seul/.test(C.refusSuppressionDepense({}, { categorie: "Remboursement client", reprise_ref: "REP-1" }) || ""));
     test("★ 📊 le tableau de bord lit caVenteDuJour partout (cartes, graphique, synthèse), plus jamais caVente",
       (readFileSync("src/screens/Dashboard.jsx", "utf8").match(/caVenteDuJour\(/g) || []).length === 3 && !/[^r]caVente\(/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
   }

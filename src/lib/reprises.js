@@ -120,7 +120,7 @@ export function construireReprise(db, vente, choix, profile, aujourdhui = today(
   // La dépense porte la date de la reprise (`aujourdhui`), pas celle de l'horloge :
   // la règle est pure, le banc la rejoue à date fixe (défaut vu le 11/09/2026).
   const depense = rembourse > 0
-    ? { ...nouvelleDepense(profile, { boutique: caisseDeVente(vente), categorie: CATEGORIE_REMBOURSEMENT, description: `Remboursement client — reprise ${ref} : ${quoi} (reçu ${numeroRecu(vente)}${client})`, montant: rembourse, moyen, vente_id: vente.id, reprise_ref: ref }), date: aujourdhui }
+    ? { ...nouvelleDepense(profile, { boutique: caisseDeVente(vente), categorie: CATEGORIE_REMBOURSEMENT, description: `Argent rendu au client — reprise de la vente ${numeroRecu(vente)}${client} : ${quoi} rendu (${ref})`, montant: rembourse, moyen, vente_id: vente.id, reprise_ref: ref }), date: aujourdhui }
     : null;
   const ajustements = lignes.map((l) => ({
     id: uid(), date: aujourdhui, produit_id: l.produit_id, boutique: vente.boutique, qte: l.n,
