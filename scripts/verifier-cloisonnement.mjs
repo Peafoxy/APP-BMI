@@ -5783,8 +5783,9 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     !/DUREE_INACTIVITE/.test(app) && /if \(doitVerrouiller\(derniereActiviteRef\.current, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
     && /if \(!profile \|\| !verrouille\) return;\n\s+const minuterie = setInterval\(\(\) => \{\n\s+if \(doitDeconnecter\(derniereActiviteRef\.current, Date\.now\(\)\) && !fermetureRef\.current\) \{/.test(app)
     && V.DELAI_DECONNEXION_MS === 1800000 && V.doitDeconnecter(0, 1799999) === false && V.doitDeconnecter(0, 1800000) === true && V.doitDeconnecter(undefined, 1e12) === false);
-  test("★ la session restaurée après F5 ROUVRE VERROUILLÉE si elle l'était ou si le délai est dépassé, et ne se restaure plus du tout après 30 min sans geste",
-    /if \(u && u\.actif !== false && !doitDeconnecter\(ts, Date\.now\(\)\)\) \{\n(?:\s+\/\/[^\n]*\n|\s+if \(await fermerSessionEtrangere\(u\.id\)\)[^\n]*\n)*\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
+  // ⚠ RETOURNÉ le 14/10/2026 : ni non plus un accès fermé après la sortie (accesFerme).
+  test("★ la session restaurée après F5 ROUVRE VERROUILLÉE si elle l'était ou si le délai est dépassé, et ne se restaure plus du tout après 30 min sans geste (ni après la fermeture d'un employé sorti)",
+    /if \(u && u\.actif !== false && !accesFerme\(u, maintenantMs\(\)\) && !doitDeconnecter\(ts, Date\.now\(\)\)\) \{\n(?:\s+\/\/[^\n]*\n|\s+if \(await fermerSessionEtrangere\(u\.id\)\)[^\n]*\n)*\s+setProfile\(u\);\n\s+if \(etaitVerrouillee \|\| doitVerrouiller\(ts, Date\.now\(\), UA\)\) verrouiller\(\);/.test(app)
     && /const verrouiller = \(motif = "inactivite"\) => \{ setMotifVerrou\(motif\); setVerrouille\(true\); setErreursVerrou\(0\); ecrireSession\(\{ verrouille: true \}\); \};/.test(app));
   test("★ le mot de passe est vérifié contre la fiche ACTUELLE du compte (verifierMotDePasse, sur l'appareil) ; 5 erreurs → déconnexion ; les gestes ne comptent plus quand c'est verrouillé",
     /const compte = \(dbRef\.current\?\.users \|\| \[\]\)\.find\(\(x\) => x\.id === profile\?\.id\) \|\| profile;\n\s+const \{ ok \} = await verifierMotDePasse\(compte, saisie\);/.test(app)
@@ -7280,9 +7281,10 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     && Oo.resteImmobile(3, 4) === true && Oo.resteImmobile(6, 6) === false && Oo.DELAI_APPUI_LONG_MS === 500 && Oo.SEUIL_MOUVEMENT_PX === 8);
   const appOo = readFileSync("src/App.jsx", "utf8");
   test("★ App.jsx : les deux barres (ordinateur, téléphone) passent par OngletsDeplacables ; l'ordre vient de la fiche (ordre_onglets) APRÈS le filtre des pouvoirs ; l'écriture ne part que si l'ordre change (ordreApres), dans la fiche de la personne seule, sans ligne de réglage",
-    (appOo.match(/<OngletsDeplacables tabs=\{tabsAutorises\} tab=\{tab\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\} sens="(vertical|horizontal)"/g) || []).length === 2
+    (appOo.match(/<OngletsDeplacables tabs=\{tabsAutorises\} tab=\{enSortie \? ONGLET_ATTESTATION\[0\] : tab\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\} sens="(vertical|horizontal)"/g) || []).length === 2
     // (l'onglet à part 🏦 Chez le DG / BANQUE a vécu une heure : Timo l'a voulu dans le tableau de bord — retour à tabsPlus2)
-    && /const tabsAutorises = appliquerOrdre\(tabsPlus2\.filter\(\(\[id\]\) => aDroit\(db, profile, id\)\), maFiche\?\.ordre_onglets\);/.test(appOo)
+    // ⚠ RETOURNÉ le 14/10/2026 : pendant ses 24 dernières heures, un employé sorti n'a QUE « 📄 Mon attestation ».
+    && /const tabsAutorises = enSortie \? \[ONGLET_ATTESTATION\] : appliquerOrdre\(tabsPlus2\.filter\(\(\[id\]\) => aDroit\(db, profile, id\)\), maFiche\?\.ordre_onglets\);/.test(appOo)
     && /const ordre = ordreApres\(ids, maFiche\?\.ordre_onglets\);\n\s*if \(!ordre \|\| !maFiche\) return;\n\s*save\(\{ \.\.\.db, users: db\.users\.map\(\(u\) => \(u\.id === profile\.id \? \{ \.\.\.u, ordre_onglets: ordre \} : u\)\) \}\);/.test(appOo)
     && !/Ordre de mes onglets|ordre des onglets/i.test(appOo) && !/tabsAutorises\.map\(\(\[id, label\]\)/.test(appOo));
   const cmp = readFileSync("src/components/OngletsDeplacables.jsx", "utf8");
@@ -14195,7 +14197,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const noms = [...u.matchAll(/<BoutonGerer\b[\s\S]*?\/>/g)].map((m) => (m[0].match(/ nom=(\{[^}]*\}|"[^"]*") \/>$/) || [, "?"])[1]);
   test("★★ ⋯ Gérer : UN composant pour tous ses boutons (BoutonGerer), plus aucun bouton maison, et AUCUNE valeur dans un nom (date, contrat, banque, taux, numéro)",
     // RETOURNÉ le 12/10/2026 : 26 (📄 Attestation de travail, 📄 Document de fin de contrat) ; ⚧ Sexe vit dans 🆔 Identité, pas ici.
-    noms.length === 26 && !/boutonGerer/.test(u)
+    // RETOURNÉ le 14/10/2026 : 27 (📤 Mettre à disposition).
+    noms.length === 27 && !/boutonGerer/.test(u)
     && noms.every((n) => n.startsWith('"') || /^\{u\.[a-z_]+ \? "[^"]*" : "[^"]*"\}$/.test(n))
     && /export function BoutonGerer\(\{ nom, onClick, titre, ton, info, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /\{String\(nom\)\}<\/button>/.test(readFileSync("src/components/ui.jsx", "utf8")));

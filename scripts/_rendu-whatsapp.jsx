@@ -328,3 +328,18 @@ export const avisTache = () => {
   };
   return { assignee: un("tache_assignee"), validee: un("tache_validee") };
 };
+
+// ---- 📄 L'ATTESTATION DE FIN DE CONTRAT DISPONIBLE (14/10/2026) ----
+import { envoiAttestationDisponible } from "../src/lib/whatsappModeles.js";
+import { construireMiseADisposition, momentFermeture, nomDocument } from "../src/lib/attestationSortie.js";
+export const avisAttestation = () => {
+  const dg = users[0];
+  const brut = { id: "EMP9", nom: "FRED", nom_complet: "FRED Akakpo", role: "technicien_bmi", tel: "90778899", cnss_code_type: 12 };
+  const marque = construireMiseADisposition({ u: brut, par: dg, maintenant: Date.parse("2026-10-14T11:05:00.000Z") });
+  const employe = { ...brut, attestation_sortie: marque };
+  const f = momentFermeture(marque);
+  const envoi = envoiAttestationDisponible({ employe: employe.nom_complet, tel: employe.tel, document: nomDocument(marque), date: f.date, heure: f.heure });
+  const msgs = messagesAvecLigneEnvoi([], { profile: dg, tel: employe.tel, nom: employe.nom, modele: envoi.modele, variables: envoi.variables, ref: { attestation_user_id: employe.id }, envoi: { id: "yc-a" } });
+  const rangee = msgs.find((x) => x.wa_modele === envoi.modele) || {};
+  return { envoi, rangee, attendu: ligneEnvoiModele(envoi.modele, envoi.variables), detail: texteLignePrivee(rangee, { users: [dg, employe], boutiques, messages: [] }) };
+};

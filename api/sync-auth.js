@@ -21,6 +21,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash, pbkdf2Sync } from "crypto";
 import { poserCors } from "./_cors.js";
+import { accesFerme, messageAccesFerme } from "../src/lib/attestationSortie.js";
 import {
   adresseAppelant, clesDeControle, lireVerrous, enregistrerEchec, reinitialiserEchecs,
 } from "./_verrouillage.js";
@@ -110,6 +111,11 @@ export default async function handler(req, res) {
     }
     // Mot de passe correct : on efface l'historique d'échecs de ce compte.
     await reinitialiserEchecs(admin, verrous);
+    // 📄 L'accès d'un employé sorti est fermé 24 h après la mise à disposition
+    // de son attestation (14/10/2026) : pas de session sécurisée au-delà.
+    if (accesFerme(champs, Date.now())) {
+      return res.status(403).json({ error: messageAccesFerme(champs) });
+    }
 
     // Cherche si un compte d'authentification existe déjà pour cet utilisateur.
     // ⚠ On parcourt TOUTES les pages (comme dans etat-auth.js) : au-delà de

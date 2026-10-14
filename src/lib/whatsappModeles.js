@@ -285,6 +285,9 @@ export const MODELES = {
   depense_validee: { categorie: "utility", variables: ["employe", "montant", "depense", "date", "boutique", "suite"] },
   tache_assignee: { categorie: "utility", variables: ["employe", "par", "tache", "details", "echeance"] },
   tache_validee: { categorie: "utility", variables: ["employe", "par", "tache"] },
+  // 📄 14/10/2026, Timo (« A a CDI, b CDD, B b, C ok, D oui ») : l'attestation de
+  // fin de contrat disponible dans l'espace, et l'heure où l'accès se ferme.
+  attestation_disponible: { categorie: "utility", variables: ["employe", "document", "date_fermeture", "heure_fermeture", "contact"] },
   visite_chef: { categorie: "utility", variables: ["employe", "auteur", "objet", "date", "heure", "lieu", "client", "telephone_client", "equipe"] },
   rappel_visite_chef: { categorie: "utility", variables: ["employe", "objet", "date", "heure", "lieu", "client", "telephone_client", "equipe"] },
 };
@@ -364,6 +367,10 @@ export const MODELES_EN_SERVICE = [
   // service AVANT l'accord de Meta : d'ici là rien ne part (aucun repli), et
   // l'écran le dit.
   "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee",
+  // 14/10/2026 : l'attestation de fin de contrat (geste de l'administrateur
+  // principal ; la tournée de 7 h l'envoie aussi pour un CDD). Rien ne part
+  // d'ici l'accord de Meta, et l'écran le dit.
+  "attestation_disponible",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -447,12 +454,13 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible"];
 const LIGNES_MASQUEES = {
   depense_rejetee: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   tache_assignee: "🔒 Avis de tâche assignée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   tache_validee: "🔒 Avis de tâche validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
+  attestation_disponible: "🔒 Avis d'attestation de fin de contrat envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   prime_installation_payee: "🔒 Avis de paiement d'une part d'installation envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
@@ -904,6 +912,7 @@ const LIGNES_ENVOI = {
   depense_validee: ([employe, montant, depense, date, boutique]) => `Avis de dépense validée envoyé à ${employe} : ${montant} (${depense}) du ${date}, ${boutique}.`,
   tache_assignee: ([employe, par, tache, details, echeance]) => `Avis de tâche envoyé à ${employe} (par ${par}) : ${tache}. Détails : ${details}. Échéance : ${echeance}.`,
   tache_validee: ([employe, par, tache]) => `Avis de tâche validée envoyé à ${employe} (par ${par}) : ${tache}.`,
+  attestation_disponible: ([employe, document, date, heure]) => `Avis envoyé à ${employe} : son ${document} est disponible dans son espace ; accès fermé le ${date} à ${heure}.`,
   // ⚠ Le numéro du client (trou 8) n'est pas recopié dans le fil.
   visite_chef: ([employe, , objet, date, heure, , client]) => `Avis de visite envoyé au chef de la visite ${employe} : ${objet}, le ${date} à ${heure}, client ${client}.`,
 };
@@ -2218,6 +2227,20 @@ export function envoiTacheAssignee({ employe, tel, tache, dFR }) {
   const details = sansPointFinal(tache.detail) || "aucun";
   const echeance = tache.echeance ? (texteVariable(d(tache.echeance)) || "aucune date fixée") : "aucune date fixée";
   return { modele: "tache_assignee", variables: [nom, par, titre, details, echeance] };
+}
+// ---- 📄 L'ATTESTATION DE FIN DE CONTRAT DISPONIBLE (14/10/2026, « C ok ») ----
+// Le texte proposé et accepté par Timo (« C ok »), mot pour mot chez Meta —
+// « Téléchargez ce document » plutôt que « Téléchargez-le » (une attestation
+// est féminine), corrigé avant sa création chez YCloud. UTILITY.
+// {{2}} « certificat de travail », « attestation de stage »… (en minuscules :
+// il suit « votre ») ; {{3}} {{4}} la fermeture, heure de Lomé ; {{5}} le numéro BMI.
+export const TEXTE_ATTESTATION_DISPONIBLE = "Bonjour {{1}}, votre {{2}} BMI TOGO est disponible dans votre espace sur https://gestion.bmitogo.com. Téléchargez ce document avant le {{3}} à {{4}} : votre accès sera fermé à ce moment-là. Pour toute question : {{5}}. BMI TOGO";
+export function envoiAttestationDisponible({ employe, tel, document, date, heure }) {
+  const nom = texteVariable(employe);
+  const doc = texteVariable(String(document || "").toLowerCase());
+  const d = texteVariable(date), h = texteVariable(heure);
+  if (!nom || !doc || !d || !h || !numeroWhatsApp(tel)) return null;
+  return { modele: "attestation_disponible", variables: [nom, doc, d, h, NUMERO_BMI_PRINCIPAL] };
 }
 export function envoiTacheValidee({ employe, tel, tache, par }) {
   const nom = texteVariable(employe);

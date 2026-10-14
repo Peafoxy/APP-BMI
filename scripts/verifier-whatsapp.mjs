@@ -137,12 +137,14 @@ const ATTENDU = {
   depense_validee: { categorie: "utility", n: 6 },
   tache_assignee: { categorie: "utility", n: 5 },
   tache_validee: { categorie: "utility", n: 3 },
+  // 14/10/2026 (« A a CDI, b CDD, B b, C ok, D oui ») : l'attestation de fin de contrat disponible.
+  attestation_disponible: { categorie: "utility", n: 5 },
   visite_chef: { categorie: "utility", n: 9 },
   rappel_visite_chef: { categorie: "utility", n: 8 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les cinquante et un modèles sont là, et eux seuls (RETOURNÉ le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les cinquante-deux modèles sont là, et eux seuls (RETOURNÉ le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1372,7 +1374,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,depense_rejetee,depense_validee,devis_disponible,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 14/10/2026 : + les deux avis d'une tâche ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,depense_rejetee,depense_validee,devis_disponible,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3160,8 +3162,8 @@ test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni
   && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
   && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
 // RETOURNÉ le 03/10/2026 : + l'avis de salaire (un salaire ne se lit pas par les collègues).
-test("★ les quatorze modèles privés (RETOURNÉ le 14/10/2026 : + les deux avis d'une tâche ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
-  M.MODELES_PRIVES.slice().sort().join(",") === "avancement_employe,bon_reprise,bon_retour,commission_due,depense_rejetee,depense_validee,prime_installation_payee,recu_depot_chantier,recu_vente,recu_vente_detail,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+test("★ les quinze modèles privés (RETOURNÉ le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "attestation_disponible,avancement_employe,bon_reprise,bon_retour,commission_due,depense_rejetee,depense_validee,prime_installation_payee,recu_depot_chantier,recu_vente,recu_vente_detail,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
 {
   // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE (Timo, 03/10/2026, son texte).
   const eS = M.envoiVirementSalaire({ employe: "AKPOSSOGNA Kossiwa", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-202610-ROBS", initiateur: { role: "Comptable", tel: "91123456" }, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
@@ -4530,6 +4532,74 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
     && corpsSrv.indexOf("envoyerYCloud(") > 0 && corpsSrv.indexOf("if (!envoi.ok)") > corpsSrv.indexOf("envoyerYCloud(")
     && corpsSrv.indexOf('from("messages").insert') > corpsSrv.indexOf("if (!envoi.ok)")
     && /notifications\.push\(notificationTache\(\{ pour: r\.pour, chantier: r\.chantier \}\)\);[\s\S]{0,400}await avertirDeLaTache\(admin, db, \{ \.\.\.frais\.data, id: frais\.id \}, tache, bilan\);/.test(SRV));
+}
+
+{
+  titre("54 📄 L'ATTESTATION DE FIN DE CONTRAT DISPONIBLE, PUIS L'ACCÈS FERMÉ À 24 H (14/10/2026, « A a CDI, b CDD, B b, C ok, D oui »)");
+  const AS = await import("../src/lib/attestationSortie.js");
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★ le texte du modèle, UTILITY, ses cinq trous DANS L'ORDRE, « ce document » (une attestation est féminine)",
+    M.MODELES.attestation_disponible?.categorie === "utility" && M.MODELES_EN_SERVICE.includes("attestation_disponible")
+    && /^Bonjour \{\{1\}\}, votre \{\{2\}\} BMI TOGO est disponible dans votre espace sur https:\/\/gestion\.bmitogo\.com\. Téléchargez ce document avant le \{\{3\}\} à \{\{4\}\} : votre accès sera fermé à ce moment-là\. Pour toute question : \{\{5\}\}\. BMI TOGO$/.test(M.TEXTE_ATTESTATION_DISPONIBLE)
+    && JSON.stringify((M.TEXTE_ATTESTATION_DISPONIBLE.match(/\{\{\d+\}\}/g) || [])) === JSON.stringify(["{{1}}", "{{2}}", "{{3}}", "{{4}}", "{{5}}"]));
+  let A = null;
+  try { A = V.avisAttestation(); } catch (e) { A = null; console.error(e); }
+  test("★★ les trous : le nom, le document en minuscules, la fermeture 24 h après (heure de Lomé), le numéro BMI ; sans numéro, rien",
+    JSON.stringify(A?.envoi?.variables) === JSON.stringify(["FRED Akakpo", "attestation de stage", "15/10/2026", "11:05", M.NUMERO_BMI_PRINCIPAL])
+    && M.envoiAttestationDisponible({ employe: "FRED", tel: "", document: "Certificat de travail", date: "15/10/2026", heure: "11:05" }) === null
+    && M.critiqueModele("attestation_disponible", A?.envoi?.variables || []) === "");
+  test("★★ « C » la ligne RANGÉE est PRIVÉE et neutre ; le détail se recompose depuis la fiche (même fabrique que l'envoi)",
+    A?.rangee?.wa_prive === true && A.rangee.attestation_user_id === "EMP9" && !/15\/10\/2026|stage/.test(A.rangee.texte || "")
+    && !!A.detail && A.detail === A.attendu);
+  // La règle.
+  const u = { id: "E1", nom: "FRED", role: "vendeur", cnss_code_type: 5, cnss_date_embauche: "2025-01-02", cnss_date_sortie: "2026-10-14" };
+  const db = { users: [u, { ...u, id: "E2", cnss_code_type: 1 }, { ...u, id: "E3", cnss_code_type: 12 }, { ...u, id: "E4", formation: true }, { ...u, id: "E5", cnss_date_sortie: "2026-10-20" }, { ...u, id: "E6", role: "client" }], boutiques: [] };
+  test("★★ « A b » la tournée met à disposition d'elle-même un CDD, un stage, un apprentissage dont la sortie est arrivée — jamais un CDI (« A a » : le clic), une sortie à venir, un client ni la formation",
+    AS.aMettreADispositionAuto(db, "2026-10-14").map((x) => x.id).join(",") === "E1,E3");
+  const m = AS.construireMiseADisposition({ u, par: { id: "P", nom: "TIMO" }, maintenant: Date.parse("2026-10-14T07:00:00.000Z"), auto: true });
+  const avecM = { ...u, attestation_sortie: m };
+  test("★★ 24 h exactement, à l'heure donnée : ouvert 1 minute avant, fermé à l'heure ; la tournée ferme dès 15 min avant (elle ne passe qu'à 7 h)",
+    m.ferme_le === "2026-10-15T07:00:00.000Z" && AS.enPeriodeDeSortie(avecM, Date.parse("2026-10-15T06:59:00Z")) && !AS.accesFerme(avecM, Date.parse("2026-10-15T06:59:00Z"))
+    && AS.accesFerme(avecM, Date.parse("2026-10-15T07:00:00Z")) && !AS.enPeriodeDeSortie(avecM, Date.parse("2026-10-15T07:00:00Z"))
+    && AS.comptesAFermer({ users: [avecM] }, Date.parse("2026-10-15T06:50:00Z")).length === 1 && AS.comptesAFermer({ users: [avecM] }, Date.parse("2026-10-15T06:30:00Z")).length === 0
+    && AS.comptesAFermer({ users: [{ ...avecM, actif: false }] }, Date.parse("2026-10-16T07:00:00Z")).length === 0);
+  test("★ une fois mise à disposition, pas deux ; il faut l'embauche et la sortie arrivée ; un client, jamais",
+    /déjà à sa disposition/.test(AS.critiqueMiseADisposition(avecM, "2026-10-14")) && AS.critiqueMiseADisposition(u, "2026-10-14") === ""
+    && /date d'embauche/.test(AS.critiqueMiseADisposition({ ...u, cnss_date_embauche: "" }, "2026-10-14"))
+    && /date de sortie/.test(AS.critiqueMiseADisposition({ ...u, cnss_date_sortie: "2026-10-20" }, "2026-10-14"))
+    && /personnel/.test(AS.critiqueMiseADisposition({ ...u, role: "client" }, "2026-10-14")));
+  // Le serveur : la connexion, la session, la tournée.
+  const CC = sansComm(lire("api/chercher-compte.js")), SA = sansComm(lire("api/sync-auth.js")), TS = sansComm(lire("api/_attestationSortie.js"));
+  test("★★ le SERVEUR refuse la connexion (chercher-compte) et la session sécurisée (sync-auth) après la fermeture, à SON heure",
+    /if \(accesFerme\(champs, Date\.now\(\)\)\) \{\s*return res\.status\(403\)\.json\(\{ error: messageAccesFerme\(champs\) \}\);/.test(CC)
+    && /if \(accesFerme\(champs, Date\.now\(\)\)\) \{\s*return res\.status\(403\)\.json\(\{ error: messageAccesFerme\(champs\) \}\);/.test(SA));
+  test("★★ la tournée : la fiche RELUE avant d'écrire, la marque posée AVANT le message (« D oui » : sans numéro, elle est posée quand même), rien dans le fil tant que WhatsApp n'a pas accepté ; les accès fermés en actif: false",
+    TS.indexOf('from("users").select("id, data")') > 0 && TS.indexOf("attestation_sortie: marque") > TS.indexOf('from("users").select("id, data")')
+    && TS.indexOf("envoyerYCloud(") > TS.indexOf("attestation_sortie: marque")
+    && TS.indexOf('from("messages").insert') > TS.indexOf("if (!r.ok)")
+    && /if \(!envoi\) bilan\.sans_numero\+\+;/.test(TS) && /actif: false, ferme_apres_sortie_le: ts/.test(TS)
+    && /const attestations = await attestationsEtFermetures\(admin, db, aujourdhui\);/.test(sansComm(lire("api/rappels-du-matin.js")))
+    && /\.\.\.attestations\.notifications/.test(sansComm(lire("api/rappels-du-matin.js"))));
+  const UT = sansComm(lire("src/screens/Utilisateurs.jsx"));
+  const geste = (UT.match(/const mettreADisposition = async[\s\S]*?\n  \};/) || [""])[0];
+  test("★★ « A a » le geste : l'administrateur PRINCIPAL d'abord, la fiche FRAÎCHE revérifiée, la marque écrite AVANT l'envoi, sans repli ; jamais en formation",
+    geste.indexOf("refuserSaufAdminPrincipal(") > 0 && geste.indexOf("critiqueMiseADisposition(frais, today())") > geste.indexOf("refuserSaufAdminPrincipal(")
+    && geste.indexOf("attestation_sortie: marque") > 0 && geste.indexOf("envoyerRecuSansQuestion(") > geste.indexOf("attestation_sortie: marque")
+    && /const envoi = formation \? null : envoiAttestationDisponible\(/.test(geste) && /ref: \{ attestation_user_id: frais\.id \}/.test(geste)
+    && /maintenant: maintenantMs\(\)/.test(geste));
+  const APP = sansComm(lire("src/App.jsx")), CNX = sansComm(lire("src/screens/Connexion.jsx"));
+  test("★★ « B b » pendant les 24 h, l'employé n'a QUE « 📄 Mon attestation » ; l'application ferme la session à la minute (revérifiée chaque minute), refuse la connexion et la reprise après F5",
+    /const enSortie = !isClient && enPeriodeDeSortie\(maFiche, maintenantMs\(\)\);/.test(APP) && /const contenu = enSortie \? <MonAttestation db=\{db\} profile=\{profile\} \/>/.test(APP)
+    && /if \(accesFerme\(moi, maintenantMs\(\)\)\) \{ fermer\(/.test(APP) && /setInterval\(\(\) => \{ if \(accesFerme\(moi, maintenantMs\(\)\)\)/.test(APP)
+    && /if \(accesFerme\(u, maintenantMs\(\)\)\) \{ setErr\(messageAccesFerme\(u\)\); return; \}/.test(CNX));
+  test("★ réactiver un compte fermé le ROUVRE : la marque passe dans l'historique (null, jamais un champ retiré)",
+    /attestation_sortie: null, attestations_passees: \[\.\.\.\(x\.attestations_passees \|\| \[\]\), x\.attestation_sortie\]/.test(UT));
+  const MA = sansComm(lire("src/screens/MonAttestation.jsx"));
+  test("★ l'écran « 📄 Mon attestation » refait le document signé de celui qui l'a mis à disposition (la règle commune), et dit l'heure de fermeture",
+    /contenuDocument\(a\.type, \{/.test(MA) && /\(db\.users \|\| \[\]\)\.find\(\(u\) => u\.id === a\.par_id\)/.test(MA) && /imprimerDocumentEmploye\(contenu, db,/.test(MA) && /data-fermeture-acces/.test(MA));
+  const S39 = lire("supabase/securite-39-attestation-sortie.sql");
+  test("★ LE COUPLE : securite-39 réserve la marque à l'administrateur (et reprend securite-38 : le sexe y est toujours)",
+    /'attestation_sortie', 'attestations_passees', 'ferme_apres_sortie_le'/.test(S39) && /Modifier le sexe/.test(S39) && /'affectation'/.test(S39));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

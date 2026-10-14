@@ -144,6 +144,7 @@ export const CHAPITRE = {
         "**L'espace** (réel ou formation) est fixé sur le compte. Ce qu'on crée naît dans l'espace où l'on est. Seul l'administrateur principal change d'espace, dans ⚙ Paramètres → 👁 Je regarde (chapitre 23).",
         "**Un mot de passe changé** par l'administrateur principal (chapitre 2) : à la connexion suivante l'appareil dit « Ce compte n'existe plus, ou le mot de passe a changé. Rapprochez-vous de l'administrateur. » Il faut le réseau pour retrouver le compte.",
         "**Un compte bloqué** dans 👥 Utilisateurs : « Ce compte a été bloqué par l'administrateur. » Rien d'autre à faire que le voir.",
+        "**Un employé sorti**, 24 heures après la mise à disposition de son document de fin de contrat : « Votre accès à l'application BMI a été fermé le … : votre contrat est terminé. » Pendant ces 24 heures, il ne voyait plus que « 📄 Mon attestation » (chapitre 18).",
         "**Les notifications** (chapitre 20) ne partent que vers les appareils sur lesquels la personne est connectée.",
         "**Le travail hors ligne** (chapitre 24) : les gestes en attente partent à la reconnexion, dans l'ordre. Se déconnecter n'efface rien ; vider les données du navigateur, si.",
       ]],

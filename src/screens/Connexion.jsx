@@ -4,6 +4,8 @@
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
 import { useState, useEffect } from "react";
+import { accesFerme, messageAccesFerme } from "../lib/attestationSortie";
+import { maintenantMs } from "../lib/horloge";
 import { LOGO, VERSION } from "../lib/constants";
 import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
 import { memeIdentifiant } from "../lib/identiteClient.js";
@@ -94,6 +96,9 @@ export function Login({ db, apparence, onLogin, save }) {
       }
     }
     if (u.actif === false) { setErr("Ce compte a été bloqué par l'administrateur."); return; }
+    // 📄 L'accès d'un employé sorti, fermé 24 h après la mise à disposition de
+    // son attestation (14/10/2026) — à l'heure du serveur, même hors ligne.
+    if (accesFerme(u, maintenantMs())) { setErr(messageAccesFerme(u)); return; }
     const { ok, aMigrer } = await verifierMotDePasse(u, pwd);
     if (!ok) { setErr("Mot de passe incorrect."); return; }
     // Migration transparente vers le hachage renforcé (sel individuel + PBKDF2),

@@ -11,7 +11,7 @@ import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identi
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement } from "../lib/whatsappModeles";
+import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement, envoiAttestationDisponible } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, FormulaireRepliable, IconeWhatsApp, champRecherche } from "../components/ui";
@@ -20,7 +20,9 @@ import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
 import { peutAvoirAffectation, critiqueAffectation, affectationDe } from "../lib/affectation";
 // 📄 Certificat de travail et attestations (12/10/2026, « Aa, Bb, Cb, Db »).
-import { documentPropose, critiqueDocument, accepteAppreciation, nettoyerAppreciation, contenuDocument, journalDocument, APPRECIATION_MAX } from "../lib/certificatTravail";
+import { documentPropose, critiqueDocument, accepteAppreciation, nettoyerAppreciation, contenuDocument, journalDocument, APPRECIATION_MAX, documentDeSortie } from "../lib/certificatTravail";
+import { critiqueMiseADisposition, construireMiseADisposition, attestationDe, momentFermeture, nomDocument, accesFerme } from "../lib/attestationSortie";
+import { maintenantMs } from "../lib/horloge";
 import { imprimerDocumentEmploye } from "../lib/impression";
 // ⚧ Le sexe d'un compte (12/10/2026, « Ab, Ba, Ca ») : employés et clients, l'administrateur seul.
 import { SEXES, libelleSexe, critiqueSexe } from "../lib/civilite";
@@ -373,7 +375,12 @@ export function Users({ db, save, profile }) {
       uAlert(`🔒 Impossible de bloquer ${u.nom} : ce compte est l'administrateur PRINCIPAL.\n\nTransférez d'abord ce rôle à quelqu'un d'autre (⚙ Paramètres → Transférer le rôle) avant de le bloquer.`);
       return;
     }
-    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, actif: x.actif === false } : x)) }, `${u.actif === false ? "Réactivation" : "Blocage"} du compte ${u.nom}`);
+    // 📄 Réactiver un compte fermé après sa sortie (14/10/2026) le rouvre VRAIMENT :
+    // la marque de mise à disposition passe dans l'historique (null, jamais un
+    // champ retiré : la fusion des appareils le rendrait).
+    const rouvrir = (x) => (x.actif === false && attestationDe(x)
+      ? { attestation_sortie: null, attestations_passees: [...(x.attestations_passees || []), x.attestation_sortie] } : {});
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, actif: x.actif === false, ...rouvrir(x) } : x)) }, `${u.actif === false ? "Réactivation" : "Blocage"} du compte ${u.nom}`);
   };
 
   const changerPwd = async (u) => {
@@ -1090,6 +1097,42 @@ export function Users({ db, save, profile }) {
     save(db, journalDocument(contenu, today()));
   };
 
+  // 📤 L'ATTESTATION DE FIN DE CONTRAT DANS L'ESPACE DE L'EMPLOYÉ (14/10/2026,
+  // « A a pour les CDI et b pour les CDD, B b, C ok, D oui ») : l'administrateur
+  // PRINCIPAL la met à disposition (un CDD, la tournée de 7 h le fait seule dès
+  // la date de sortie — mais le geste reste possible). L'employé la télécharge
+  // pendant 24 heures, ne voit plus que ce document, puis son accès se ferme.
+  // « D oui » : sans numéro, rien ne part, les 24 h courent quand même.
+  const mettreADisposition = async (u) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Mettre une attestation de fin de contrat à disposition")) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const refus = critiqueMiseADisposition(frais, today());
+    if (refus) { uAlert(refus); return; }
+    const type = documentDeSortie(frais);
+    let appreciation = "";
+    if (accepteAppreciation(type)) {
+      const v = await uPrompt(`Appréciation pour ${u.nom} (facultative, ${APPRECIATION_MAX} caractères au plus). Laissez vide pour ne rien écrire :`, "");
+      if (v === null) return;
+      appreciation = nettoyerAppreciation(v);
+    }
+    const moi = db.users.find((x) => x.id === profile.id) || profile;
+    const marque = construireMiseADisposition({ u: frais, par: moi, maintenant: maintenantMs(), appreciation });
+    const f = momentFermeture(marque);
+    const formation = estCompteFormation(db, frais);
+    const envoi = formation ? null : envoiAttestationDisponible({ employe: frais.nom_complet || frais.nom, tel: frais.tel, document: nomDocument(marque), date: f.date, heure: f.heure });
+    if (!await uConfirm(`Mettre le document de fin de contrat (${nomDocument(marque).toLowerCase()}) à la disposition de ${u.nom} ?\n\n• Il télécharge ce document depuis son espace, signé à votre nom et avec le cachet de BMI.\n• Pendant 24 heures il ne voit plus QUE ce document.\n• Son accès se ferme le ${f.date} à ${f.heure} (heure du serveur).${formation ? "" : envoi ? "\n\n📲 Un message WhatsApp du numéro BMI le prévient." : "\n\n⚠ Sa fiche n'a pas de numéro : aucun message ne partira, mais les 24 heures courront quand même. Prévenez-le autrement."}`)) return;
+    save({ ...db, users: db.users.map((x) => (x.id === frais.id ? { ...x, attestation_sortie: marque } : x)) },
+      `📤 ${nomDocument(marque)} mis à la disposition de ${u.nom} — accès fermé le ${f.date} à ${f.heure}`);
+    if (!envoi) return;
+    const { envoyerRecuSansQuestion } = await import("../whatsapp");
+    const phrase = await envoyerRecuSansQuestion({
+      envoi, tel: frais.tel, nom: frais.nom, espaceFormation: false, save, profile,
+      ref: { attestation_user_id: frais.id },
+      noms: { titre: "Avis d'attestation", sujet: "L'avis d'attestation" },
+    });
+    if (phrase) uAlert(phrase);
+  };
+
   // Avancement : chaque changement de salaire est archivé dans un historique
   // (date, ancien montant, nouveau montant, motif). Si un taux d'avancement
   // est défini pour l'employé, le nouveau montant est pré-calculé
@@ -1791,6 +1834,14 @@ export function Users({ db, save, profile }) {
                   {documentPropose(u, today()) === "attestation"
                     ? <BoutonGerer data-attestation-travail onClick={() => delivrerDocument(u)} titre="Pour une banque, un visa, un logement : il travaille chez BMI depuis le…, comme…" nom="📄 Attestation de travail" />
                     : <BoutonGerer data-document-fin onClick={() => delivrerDocument(u)} titre="Certificat de travail (CDI, CDD), attestation de fin d'apprentissage ou attestation de stage, selon son contrat" nom="📄 Document de fin de contrat" />}
+                  {documentPropose(u, today()) !== "attestation" && !attestationDe(u) && (
+                    <BoutonGerer data-mettre-a-disposition onClick={() => mettreADisposition(u)} titre="Il le télécharge depuis son espace pendant 24 heures, puis son accès se ferme" nom="📤 Mettre à disposition" />
+                  )}
+                  {attestationDe(u) && (
+                    <span data-attestation-dispo className="text-xs text-slate-600">
+                      {accesFerme(u, maintenantMs()) ? `🔒 Accès fermé le ${momentFermeture(attestationDe(u)).date} à ${momentFermeture(attestationDe(u)).heure}` : `📤 À sa disposition — accès fermé le ${momentFermeture(attestationDe(u)).date} à ${momentFermeture(attestationDe(u)).heure}`}
+                    </span>
+                  )}
                       </div>
                     </div>
                     )}

@@ -142,9 +142,11 @@ import {
 import { imprimerRecu, imprimerProforma, imprimerBonRavitaillement, imprimerBulletin, recuWhatsApp } from "./lib/impression";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, ecrireDansDossier } from "./lib/sauvegarde";
 import { exportCSV } from "./lib/export";
-import { maintenantISO } from "./lib/horloge";
+import { maintenantISO, maintenantMs } from "./lib/horloge";
 import { surveillerHorloge } from "./horloge";
 import { HeureServeur } from "./components/HeureServeur";
+import { MonAttestation } from "./screens/MonAttestation";
+import { enPeriodeDeSortie, accesFerme, messageAccesFerme, ONGLET_ATTESTATION } from "./lib/attestationSortie";
 
 // ⚠ Demande Timo (09/09/2026) : plus de DÉCONNEXION automatique par
 // inactivité (avant : 30 min sur PC, 5 sur Android). À la place, un VERROU :
@@ -568,7 +570,7 @@ export default function App() {
           }
           // ⚠ Timo (09/09/2026) : 30 min sans geste = déconnexion, même
           // verrouillée. Une session plus vieille que ça ne se restaure pas.
-          if (u && u.actif !== false && !doitDeconnecter(ts, Date.now())) {
+          if (u && u.actif !== false && !accesFerme(u, maintenantMs()) && !doitDeconnecter(ts, Date.now())) {
             // ⚠ 07/10/2026 : la session sécurisée gardée par l'appareil doit
             // être la SIENNE. Celle d'un autre compte se ferme avant la
             // première lecture ; le verrou demandera son mot de passe.
@@ -1005,6 +1007,15 @@ export default function App() {
     }
     if (moi.actif === false) {
       fermer("🔒 Votre compte vient d'être désactivé par l'administrateur.\n\nVous êtes déconnecté. Rapprochez-vous de la direction si vous pensez qu'il s'agit d'une erreur.");
+      return;
+    }
+    // 📄 L'ACCÈS FERMÉ 24 H APRÈS LA MISE À DISPOSITION DE L'ATTESTATION
+    // (14/10/2026, lib/attestationSortie.js) : à l'heure du SERVEUR, à la
+    // minute près — on revérifie chaque minute, pas seulement quand la fiche change.
+    if (accesFerme(moi, maintenantMs())) { fermer(`🔒 ${messageAccesFerme(moi)}`); return; }
+    if (enPeriodeDeSortie(moi, maintenantMs())) {
+      const t = setInterval(() => { if (accesFerme(moi, maintenantMs())) { clearInterval(t); fermer(`🔒 ${messageAccesFerme(moi)}`); } }, 60000);
+      return () => clearInterval(t);
     }
   }, [db?.users, profile]);
 
@@ -1242,14 +1253,17 @@ export default function App() {
   // Pouvoirs retirés par l'administrateur
   // …puis l'ordre choisi par la personne (Timo, 12/09/2026) : le rôle décide
   // QUELS onglets, chacun décide de leur ORDRE, pour lui seul.
-  const tabsAutorises = appliquerOrdre(tabsPlus2.filter(([id]) => aDroit(db, profile, id)), maFiche?.ordre_onglets);
+  // 📄 « B b » (14/10/2026) : pendant ses 24 dernières heures, un employé sorti
+  // ne voit QUE « Mon attestation » (lib/attestationSortie.js).
+  const enSortie = !isClient && enPeriodeDeSortie(maFiche, maintenantMs());
+  const tabsAutorises = enSortie ? [ONGLET_ATTESTATION] : appliquerOrdre(tabsPlus2.filter(([id]) => aDroit(db, profile, id)), maFiche?.ordre_onglets);
   const reordonnerOnglets = (ids) => {
     const ordre = ordreApres(ids, maFiche?.ordre_onglets);
     if (!ordre || !maFiche) return;
     save({ ...db, users: db.users.map((u) => (u.id === profile.id ? { ...u, ordre_onglets: ordre } : u)) });
   };
-  const ongletAutorise = tabsAutorises.some(([id]) => id === tab);
-  const titreOnglet = (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
+  const ongletAutorise = enSortie || tabsAutorises.some(([id]) => id === tab);
+  const titreOnglet = enSortie ? ONGLET_ATTESTATION[1] : (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
 
   const abandonnerLeRefus = async () => {
     const refus = sync.refus;
@@ -1302,7 +1316,7 @@ export default function App() {
     </span>
   );
 
-  const contenu = !tabsAutorises.length ? (
+  const contenu = enSortie ? <MonAttestation db={db} profile={profile} /> : !tabsAutorises.length ? (
     <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
       <div className="text-3xl mb-2">🔒</div>
       <div className="font-bold text-slate-800">Aucun accès</div>
@@ -1696,7 +1710,7 @@ export default function App() {
             </div>
           </div>
         )}
-        <OngletsDeplacables tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="vertical"
+        <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="vertical"
           className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5"
           classeBouton={(id, actif) => `w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold ${actif ? "bg-sky-700/60 text-white shadow-inner" : "text-sky-100/70 hover:bg-white/10 hover:text-white"}`} />
         <div className="px-4 py-3 border-t border-white/10 space-y-2">
@@ -1755,7 +1769,7 @@ export default function App() {
             {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
             <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
           </div>
-          <OngletsDeplacables tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="horizontal"
+          <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="horizontal"
             className="px-4 flex gap-1 overflow-x-auto"
             classeBouton={(id, actif) => `px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg ${actif ? "bg-slate-100 text-slate-900" : "text-slate-300 hover:text-white"}`} />
         </header>

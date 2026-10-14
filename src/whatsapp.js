@@ -228,6 +228,7 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.depense_id ? { depense_id: ref.depense_id } : {}),
     ...(ref && ref.tache_id ? { tache_user_id: ref.tache_user_id, tache_id: ref.tache_id } : {}),
     ...(ref && ref.prime_user_id ? { chantier_id: ref.chantier_id, prime_user_id: ref.prime_user_id } : {}),
+    ...(ref && ref.attestation_user_id ? { attestation_user_id: ref.attestation_user_id } : {}),
     ...(prive ? { wa_prive: true } : {}),
     ...prop,
     ...champsEnvoi(envoi),

@@ -35,6 +35,7 @@ import {
   adresseAppelant, clesDeControle, lireVerrous, enregistrerEchec, reinitialiserEchecs,
 } from "./_verrouillage.js";
 import { cleIdentifiant, memeIdentifiant, MAX_HOMONYMES } from "../src/lib/identiteClient.js";
+import { accesFerme, messageAccesFerme } from "../src/lib/attestationSortie.js";
 
 // Doivent rester IDENTIQUES à hacher() / hacherFort() de src/lib/core.js.
 function hacherServeur(txt) {
@@ -127,6 +128,11 @@ export default async function handler(req, res) {
     const champs = ligne.data || {};
     if (champs.actif === false) {
       return res.status(403).json({ error: "Ce compte a été bloqué par l'administrateur." });
+    }
+    // 📄 L'accès d'un employé sorti, fermé 24 h après la mise à disposition de
+    // son attestation (14/10/2026, lib/attestationSortie.js) — à l'heure du serveur.
+    if (accesFerme(champs, Date.now())) {
+      return res.status(403).json({ error: messageAccesFerme(champs) });
     }
 
     await reinitialiserEchecs(admin, verrous);

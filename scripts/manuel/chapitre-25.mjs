@@ -80,6 +80,7 @@ export const CHAPITRE = {
         ["« Entrez votre nom d'utilisateur. »", "La case du nom est vide : taper son nom."],
         ["« Mot de passe incorrect. »", "Vérifier les majuscules, l'œil 👁 pour voir ce qu'on tape. Oublié : l'administrateur principal en donne un nouveau."],
         ["« Ce compte a été bloqué par l'administrateur. »", "Seul l'administrateur peut le réactiver. Lui demander."],
+        ["« Votre accès à l'application BMI a été fermé le … : votre contrat est terminé. »", "L'employé est sorti et ses 24 heures après la mise à disposition de son document de fin sont passées. Voulu. Seul l'administrateur peut le réactiver."],
         ["« Ce compte n'existe plus, ou le mot de passe a changé. Rapprochez-vous de l'administrateur. »", "Le compte a été supprimé, ou son mot de passe changé depuis un autre appareil : demander à l'administrateur."],
         ["« Utilisateur introuvable. »", "Le nom est mal écrit, ou ce compte n'a jamais été créé."],
         ["« Première connexion sur cet appareil : connectez-vous au réseau une fois… »", "Trouver internet pour cette première fois ; ensuite l'appareil fonctionne hors ligne."],

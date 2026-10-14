@@ -44,6 +44,8 @@ echo "▸ Pose des verrous : supabase/securite-37-affectation.sql"
 VERIF37=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-37-affectation.sql 2>&1 | tail -1) || echo "   ❌ securite-37 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-38-sexe.sql (reprend securite-37)"
 VERIF38=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-38-sexe.sql 2>&1 | tail -1) || echo "   ❌ securite-38 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-39-attestation-sortie.sql (reprend securite-38)"
+VERIF39=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-39-attestation-sortie.sql 2>&1 | tail -1) || echo "   ❌ securite-39 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -154,6 +156,16 @@ essai "★ un admin secondaire saisit le sexe d'un employé" "PERMIS" "$CALEB" "
 essai "un client écrit encore sa fiche (sans toucher au sexe)" "PERMIS" "$CLIENT" "$(MAJ "$(SET info_donnees_le '"2026-10-12"')" zc_ama)"
 if [ "$VERIF38" = "t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ la phrase de vérification de securite-38 répond true | true | true | true";
 else ko=$((ko+1)); echo "  ❌ la phrase de vérification de securite-38 répond « $VERIF38 »"; fi
+# 14/10/2026 (securite-39, « A a CDI, b CDD ») : la fermeture d'un employé sorti.
+$P -c "update public.users set data = jsonb_set(data, '{attestation_sortie}', '{\"type\":\"certificat\",\"ferme_le\":\"2026-10-15T10:00:00.000Z\"}') where id = 'zt_tech';" >/dev/null
+essai "★ un technicien sorti EFFACE la marque qui ferme son accès" "REFUSE" "$TECHNICIEN" "$(MAJ "$(SET attestation_sortie 'null')" zt_tech)"
+essai "★ …par UPSERT, comme l'application écrit" "REFUSE" "$TECHNICIEN" "$(UPS zt_tech "$(SET attestation_sortie 'null')")"
+essai "★ …ou repousse l'heure de fermeture" "REFUSE" "$TECHNICIEN" "$(UPS zt_tech "$(SET attestation_sortie '{"type":"certificat","ferme_le":"2027-01-01T00:00:00.000Z"}')")"
+essai "★ un gérant pose la marque sur un vendeur" "REFUSE" "$GERANT" "$(MAJ "$(SET attestation_sortie '{"type":"certificat","ferme_le":"2026-10-15T10:00:00.000Z"}')" zv_kossi)"
+essai "★ un administrateur la pose (la mise à disposition)" "PERMIS" "$CALEB" "$(UPS zv_kossi "$(SET attestation_sortie '{"type":"certificat","ferme_le":"2026-10-15T10:00:00.000Z"}')")"
+essai "le technicien sorti écrit encore sa fiche sans toucher à la marque" "PERMIS" "$TECHNICIEN" "$(UPS zt_tech "$(SET ordre_onglets '["mon_attestation"]')")"
+if [ "$VERIF39" = "t|t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ la phrase de vérification de securite-39 répond true | true | true | true | true";
+else ko=$((ko+1)); echo "  ❌ la phrase de vérification de securite-39 répond « $VERIF39 »"; fi
 
 echo
 echo "── LE MOT DE PASSE D'UN AUTRE COMPTE : admin PRINCIPAL seul ──"
