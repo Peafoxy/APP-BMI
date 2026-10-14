@@ -7816,6 +7816,11 @@ lit mal est pire qu'un banc absent).
   (`caVenteDuJour`, `lignesAuChiffre`, Top 5) + un ajouté (le tableau de bord
   RENDU : 0 F, jamais −70 000) ; `verifier-ecran-echange` RETOURNÉ ; éprouvés.
   Chapitres 5 et 22 à jour.
+  ⚠ **La ligne des échanges sous les cartes du 📊 est RETIRÉE le même soir**
+  (« a » : « surcharge les cartes pour rien ») : les mouvements se lisent sur la
+  ligne de la vente, à côté de « Aujourd'hui » dans 💰 Ventes (`data-jour-rendu`,
+  gardé) et dans 📤 Dépenses. Deux contrôles RETOURNÉS (aucune ligne sous les
+  cartes), éprouvés.
 - **Un échange SOUS GARANTIE n'est JAMAIS une vente** : ajustement négatif
   (`echange_garantie`), aucun CA, aucune commission ; logique dans
   `construireRetour()`. Le défectueux entre dans un **stock SAV à part**
@@ -8054,6 +8059,11 @@ lit mal est pire qu'un banc absent).
   (zéro silencieux, achats comptés deux fois, avertissement retiré, quantité
   ignorée) ; un contrôle RETOURNÉ (une fabrique, un seul `depensesComptees`).
   Rien à coller.
+  ⚠ **La ligne « Résultat = ventes − … » sous les cartes est RETIRÉE**
+  (14/10/2026, capture Timo : « ces descriptifs… surchargent les cartes pour
+  rien » → « a ») : les cartes restent seules ; les trois chiffres se lisent
+  dans la synthèse par période. L'avertissement ambre (`data-sans-prix-achat`)
+  RESTE. Ne pas remettre d'explication sous les cartes sans sa demande.
 - **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :

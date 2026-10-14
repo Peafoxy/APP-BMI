@@ -154,28 +154,18 @@ export function Dashboard({ db, profile, save }) {
   const ligneDePeriode = (label, a, b) => {
     const v = {}, d = {}, c = {}, dr = {};
     let sansPrix = [], caSansPrix = 0;
-    // 🔄 Les mouvements d'un échange, DITS à côté des ventes (Timo, 14/10/2026 :
-    // « sur la ligne, on va signifier les mouvements qui ont été faits ») :
-    // l'avoir (la valeur rendue qui a payé le nouvel article) et l'argent
-    // rendu (sorti du tiroir) — ni l'un ni l'autre n'est une vente du jour.
-    const echanges = { nombre: 0, avoirs: 0, rendu: 0 };
     NOMS_VUES.forEach((bq) => {
       // Les achats « 🏗 Chantier » y sont : leur prix de vente ET leur prix
       // d'achat comptent pour la boutique qui a remis le matériel.
       const ventesBq = chiffreTous.filter((x) => x.boutique === bq && inP(x.date, a, b));
       const depBq = depensesComptees(db.depenses).filter((x) => x.boutique === bq && inP(x.date, a, b));
       v[bq] = ventesBq.reduce((s, x) => s + caVenteDuJour(x), 0);
-      ventesBq.filter((x) => x.echange_de).forEach((x) => {
-        echanges.nombre += 1;
-        echanges.avoirs += Math.min(totalVente(x), Number(x.avoir_echange || 0));
-        echanges.rendu += Number(x.echange_de.rendu || 0);
-      });
       d[bq] = depBq.reduce((s, x) => s + Number(x.montant), 0);
       dr[bq] = horsAchatsDeStock(depBq).reduce((s, x) => s + Number(x.montant), 0);
       const k = coutDesVentes(db.produits, ventesBq);
       c[bq] = k.cout; sansPrix = [...sansPrix, ...k.sansPrix]; caSansPrix += k.caSansPrix;
     });
-    return { label, v, d, c, dr, sansPrix, caSansPrix, echanges };
+    return { label, v, d, c, dr, sansPrix, caSansPrix };
   };
   const rows = periodes().map(([label, a, b]) => ligneDePeriode(label, a, b));
   const customRow = (() => { const [label, a, b] = getPeriod(); return ligneDePeriode(label, a, b); })();
@@ -412,20 +402,10 @@ export function Dashboard({ db, profile, save }) {
         {!sansVentes && <Stat label={`Résultat — ${customRow.label}`} value={fmt(resCustom)} nature={resCustom >= 0 ? "regle" : "du"} />}
         {(!sansVentes || terrainChoisi) && <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />}
       </div>
-      {!sansVentes && customRow.echanges.nombre > 0 && (
-        <div className="text-xs text-teal-800 -mt-1" data-echanges-periode>
-          🔄 {customRow.echanges.nombre} échange{customRow.echanges.nombre > 1 ? "s" : ""} : les ventes ne comptent que ce que le client a ajouté.
-          {" "}Avoir non compté (la valeur des articles rendus, déjà comptée le jour de leur vente) : {fmt(customRow.echanges.avoirs)}.
-          {customRow.echanges.rendu > 0 ? ` Rendu au client : ${fmt(customRow.echanges.rendu)}, sorti du tiroir (« Rendu sur échange » dans 📤 Dépenses) — pas une vente en moins.` : ""}
-        </div>
-      )}
-      {!sansVentes && (
-        <div className="text-xs text-slate-600 -mt-1" data-calcul-resultat>
-          Résultat = ventes {fmt(somme(customRow.v))} − prix d'achat des articles vendus {fmt(somme(customRow.c))} − dépenses {fmt(somme(customRow.dr))}
-          {somme(customRow.d) !== somme(customRow.dr) ? ` (les achats de marchandises, ${fmt(somme(customRow.d) - somme(customRow.dr))}, n'y sont pas : le prix d'achat les compte déjà)` : ""}.
-          {" "}Prix d'achat : celui écrit aujourd'hui sur la fiche de l'article. Une vente à crédit compte dès qu'elle est faite.
-        </div>
-      )}
+      {/* Timo (14/10/2026, « a ») : « ces descriptifs… surchargent les cartes pour
+          rien » — la ligne des échanges et celle du calcul du résultat sont
+          RETIRÉES. Les mouvements d'un échange se lisent sur la ligne de la vente,
+          à côté de « Aujourd'hui » dans 💰 Ventes et dans 📤 Dépenses. */}
       {!sansVentes && customRow.sansPrix.length > 0 && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900" data-sans-prix-achat>
           ⚠ {avertissementSansPrix(customRow.sansPrix, customRow.caSansPrix)}

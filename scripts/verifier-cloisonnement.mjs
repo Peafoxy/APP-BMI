@@ -13753,8 +13753,10 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     // CA 215 000 − remise 20 000 = 195 000 ; prix d'achat 2 × 60 000 = 120 000 ; dépenses hors achats 10 000 → 65 000.
     test("★★ 📊 la carte « Résultat » = ventes − prix d'achat des articles vendus − dépenses, SANS les achats de marchandises ni la « Commande en Chine » (195 000 − 120 000 − 10 000 = 65 000)",
       /Résultat — Aujourd'hui[\s\S]{0,400}?65\s000\sF/.test(dashR) && !/Résultat — Aujourd'hui[\s\S]{0,400}?135\s000\sF/.test(dashR));
-    test("★ 📊 le calcul est écrit sous les cartes, chiffre par chiffre, et dit pourquoi les achats de marchandises n'y sont pas",
-      /data-calcul-resultat[\s\S]*ventes 195\s000\sF − prix d'achat des articles vendus 120\s000\sF − dépenses 10\s000\sF \(les achats de marchandises, 80\s000\sF, n'y sont pas/.test(dashR));
+    // RETOURNÉ le 14/10/2026 (Timo, « a » : « ces descriptifs… surchargent les cartes pour rien ») :
+    // la ligne qui écrivait le calcul du résultat sous les cartes est RETIRÉE — les cartes restent seules.
+    test("★ 📊 aucune ligne d'explication sous les cartes : ni le calcul du résultat, ni la ligne des échanges (« a », 14/10/2026)",
+      !/data-calcul-resultat|Résultat = ventes/.test(dashR) && !/data-calcul-resultat|data-echanges-periode/.test(readFileSync("src/screens/Dashboard.jsx", "utf8")));
     test("★★ 📊 et 📈 : l'avertissement en ambre nomme l'article vendu sans prix d'achat",
       /data-sans-prix-achat[^>]*>[\s\S]{0,80}1 article vendu sans prix d'achat[\s\S]{0,200}Câble 6 mm/.test(dashR)
       && /data-sans-prix-achat[^>]*>[\s\S]{0,80}1 article vendu sans prix d'achat[\s\S]{0,200}Câble 6 mm/.test(rentaR));
@@ -13783,15 +13785,16 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     try { R.setRegardeFormation(false); dashX = lisible(R.rendreDashboard({ ...db, produits: prodsX, ventes: [ancienne, plus], depenses: [] }, timo)); } catch (e) { dashX = "ERREUR " + e.message; }
     test("★★ 📊 « Ventes — Aujourd'hui » = 50 000 (le complément, pas 150 000) ; « Résultat — Aujourd'hui » = 50 000 − (110 000 − 60 000) = 0",
       /Ventes — Aujourd'hui[\s\S]{0,400}?50\s000\sF/.test(dashX) && !/Ventes — Aujourd'hui[\s\S]{0,400}?150\s000\sF/.test(dashX)
-      && /data-calcul-resultat[\s\S]*ventes 50\s000\sF − prix d'achat des articles vendus 50\s000\sF/.test(dashX), (dashX.match(/data-calcul-resultat[\s\S]{0,200}/) || [""])[0]);
+      && /Résultat — Aujourd'hui[\s\S]{0,400}?>0 F</.test(dashX), (dashX.match(/Ventes — Aujourd'hui[\s\S]{0,400}/) || [""])[0]);
     let dashM = "";
     try { R.setRegardeFormation(false); dashM = lisible(R.rendreDashboard({ ...db, produits: prodsX, ventes: [ancienne, moins], depenses: [] }, timo)).replace(/[\u202f\u00a0]/g, " "); } catch (e) { dashM = "ERREUR " + e.message; }
     // Timo (14/10/2026 au soir) : « les ventes doivent révéler ce qui est réellement rentré aujourd'hui… sur la
     // ligne, on va signifier les mouvements qui ont été faits ».
-    test("★★ 📊 BMI rend 70 000 : « Ventes — Aujourd'hui » = 0 F (jamais −70 000), et la ligne des échanges dit l'avoir (30 000) et l'argent rendu (70 000), sorti du tiroir",
-      /Ventes — Aujourd'hui[\s\S]{0,400}?>0 F</.test(dashM) && !/-70 000 F|−70 000 F/.test(dashM.slice(0, dashM.indexOf("data-echanges-periode") > 0 ? dashM.indexOf("data-echanges-periode") : dashM.length))
-      && /data-echanges-periode[^>]*>[\s\S]{0,40}1 échange : les ventes ne comptent que ce que le client a ajouté\.[\s\S]{0,200}30 000 F[\s\S]{0,40}Rendu au client : 70 000 F, sorti du tiroir/.test(dashM),
-      (dashM.match(/data-echanges-periode[\s\S]{0,400}/) || [dashM.slice(0, 300)])[0]);
+    // RETOURNÉ le 14/10/2026 (« a ») : la ligne des échanges sous les cartes est retirée — l'argent rendu se
+    // lit sur la ligne de la vente, à côté de « Aujourd'hui » dans 💰 Ventes et dans 📤 Dépenses.
+    test("★★ 📊 BMI rend 70 000 : « Ventes — Aujourd'hui » = 0 F (jamais −70 000), et aucune ligne d'échange sous les cartes",
+      /Ventes — Aujourd'hui[\s\S]{0,400}?>0 F</.test(dashM) && !/-70 000 F|−70 000 F/.test(dashM) && !/data-echanges-periode|1 échange : les ventes/.test(dashM),
+      (dashM.match(/Ventes — Aujourd'hui[\s\S]{0,400}/) || [dashM.slice(0, 300)])[0]);
     const lA = Core.lignesAuChiffre(ancienne), lP = Core.lignesAuChiffre(plus), lM = Core.lignesAuChiffre(moins);
     // RETOURNÉ le 14/10/2026 au soir : le panneau rendu revient EN QUANTITÉ (−1, son prix d'achat aussi),
     // à 0 F de chiffre ; l'onduleur ne porte que ce que le client a ajouté.
