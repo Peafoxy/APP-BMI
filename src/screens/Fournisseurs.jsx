@@ -4,7 +4,7 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, normPaiement } from "../lib/core";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte, refuserSaufRoles, ROLES_FOURNISSEURS } from "../lib/calculs";
 
 // ============ FOURNISSEURS ============
@@ -13,6 +13,7 @@ export function Fournisseurs({ db, save, profile }) {
   // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
   // replié après l'enregistrement.
   const [nouveauOuvert, setNouveauOuvert] = useState(false);
+  const [ouvert, setOuvert] = useState(null); // la ligne dépliée (15/10/2026)
 
   const ajouter = () => {
     if (refuserSaufRoles(profile, ROLES_FOURNISSEURS, "Créer un fournisseur")) return;
@@ -107,26 +108,30 @@ export function Fournisseurs({ db, save, profile }) {
           Fournisseurs <span className="text-sm font-normal text-slate-500">· Reste à régler : {fmt(resteTotal)}</span>
         </div>
         <table className="w-full text-sm min-w-[900px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Téléphone", "Adresse", "Site", "Produits", "Dû", "Réglé", "Reste", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026) :
+              le fournisseur figé, ses produits sur deux lignes puis le reste au
+              clic, les gestes en boutons ronds. */}
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Fournisseur", "Téléphone", "Adresse", "Site", "Produits", "Dû", "Réglé", "Reste", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">Aucun fournisseur.</td></tr>}
-            {liste.map((fo) => {
+            {liste.map((fo, i) => {
               const reste = Math.max(0, fo.doit - fo.paye);
+              const deplie = ouvert === fo.id;
               return (
-                <tr key={fo.id} className="border-t border-slate-100 hover:bg-sky-50">
-                  <td className="px-3 py-2 font-semibold">{fo.nom}</td>
-                  <td className="px-3 py-2">{fo.tel || "—"}</td>
-                  <td className="px-3 py-2">{fo.adresse || "—"}</td>
-                  <td className="px-3 py-2">{fo.site_web ? <a href={fo.site_web.startsWith("http") ? fo.site_web : "https://" + fo.site_web} target="_blank" rel="noreferrer" className="text-blue-700 underline">Visiter</a> : "—"}</td>
-                  <td className="px-3 py-2">{fo.produits || "—"}</td>
-                  <td className="px-3 py-2 tabular-nums">{fmt(fo.doit)}</td>
-                  <td className="px-3 py-2 tabular-nums">{fmt(fo.paye)}</td>
-                  <td className={`px-3 py-2 tabular-nums font-bold ${reste > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(reste)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <button onClick={() => nouvelleDette(fo)} className="text-xs font-bold text-sky-800 underline mr-2">+ Commande</button>
-                    <button onClick={() => payer(fo)} className="text-xs font-bold text-sky-800 underline mr-2">+ Règlement</button>
-                    <button onClick={() => supprimer(fo)} className="text-xs text-red-600 underline">Suppr.</button>
-                  </td>
+                <tr key={fo.id} data-ligne-fournisseur={deplie ? "deplie" : "replie"} onClick={() => setOuvert(deplie ? null : fo.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
+                  <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)}`}>{fo.nom}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{fo.tel || "—"}</td>
+                  <td className="px-3 py-2 min-w-[140px]"><TexteDepliable texte={fo.adresse} deplie={deplie} largeur="max-w-[200px]" /></td>
+                  <td className="px-3 py-2">{fo.site_web ? <a href={fo.site_web.startsWith("http") ? fo.site_web : "https://" + fo.site_web} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-700 underline">Visiter</a> : "—"}</td>
+                  <td className="px-3 py-2 min-w-[180px]"><TexteDepliable texte={fo.produits} deplie={deplie} largeur="max-w-[260px]" /></td>
+                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(fo.doit)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(fo.paye)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${reste > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(reste)}</td>
+                  <CelluleActions>
+                    <BoutonRond icone="📦" onClick={() => nouvelleDette(fo)} titre="+ Commande — une marchandise reçue à régler" />
+                    <BoutonRond icone="💵" teinte="vert" onClick={() => payer(fo)} titre="+ Règlement" />
+                    <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(fo)} titre="🗑 Supprimer le fournisseur" />
+                  </CelluleActions>
                 </tr>
               );
             })}

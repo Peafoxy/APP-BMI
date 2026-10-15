@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2688 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2691 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -8046,9 +8046,31 @@ lit mal est pire qu'un banc absent).
   (`BadgeValidation`), « modifiée le … par … ». Banc (+5, le tableau RENDU par
   `scripts/_rendu-depenses.jsx`), éprouvé (date remise en tête, description non
   bridée, copie de la pastille dans Ventes) ; deux contrôles RETOURNÉS. Regardé
-  dans Chromium (PC replié / déplié, téléphone). **« B a »** : les autres écrans
-  qui ne suivent pas encore la règle sont listés à Timo, il choisit — ne pas
-  les refaire sans sa réponse. Rien à coller. Chapitre 17 à jour.
+  dans Chromium (PC replié / déplié, téléphone). Rien à coller. Chapitre 17.
+  **« Tous, lance » (le même jour) : la règle passe à TOUS les tableaux de
+  liste.** Deux briques de plus dans ui.jsx, écrites UNE fois : **`BoutonRond`**
+  (`{ icone, titre, teinte }` — l'icône seule, `title` ET `aria-label` = le nom
+  du geste ; teintes bleu, rouge, vert, orange, violet, ambre, gris, rose) et
+  **`CelluleActions`** (la cellule qui ne déplie pas la ligne, `largeur` pour
+  faire passer les boutons à la ligne). Revus : 🧲 Prospects (le besoin se
+  déplie), 📋 Tous les devis (devenu un TABLEAU : Client · Date · Total ·
+  Statut · Suivi ; un clic déplie le devis), 🏠 Clients installés (un clic
+  ouvre le DOSSIER, la ligne reste marquée ; ce que le chantier attend se lit
+  sous l'installation ; les parts des frais en ronds), 🧾 Commandes (envoyées,
+  en attente, poses à encaisser, historique), 📦 Stocks (l'article se déplie,
+  le fournisseur se change par 🚚), 🚚 Fournisseurs, 💵 Salaires (déplié :
+  primes, avances, paiements du mois), 🛠 Travaux (🏷 remise, ✕ retirer),
+  🎯 Commerciaux, 👑 Mon équipe (trois tableaux), et aussi les 🧾 Proformas et
+  🏗 Achats chantier de 💰 Ventes, les réservations de 📋 Dettes, et « Retirer »
+  des paniers (✕). **Contrôle GÉNÉRAL** : dans les tableaux de douze écrans,
+  aucun geste en lien souligné ni en bouton plein (il nomme le fichier) ; et
+  chaque écran revu porte la colonne figée ET la ligne qui se déplie. Éprouvé
+  (un « Suppr. » souligné remis, une cellule figée sans le fond de sa ligne :
+  les deux tombent). Dix-neuf contrôles RETOURNÉS (les gestes
+  devenus ronds). ⚠ Pas touchés : 👥 Utilisateurs (sa règle « ⋯ Gérer »), les
+  tableaux de chiffres (tableau de bord, Rentabilité, relevés, 🔒 Caisse), les
+  formulaires de ⚙ Paramètres. Regardé dans Chromium (PC, téléphone). Rien à
+  coller. Chapitres 4, 5, 7, 8, 10, 13, 15, 16, 18.
 - **La liste des utilisateurs est lisible** (capture Timo, 12/09/2026 :
   vingt gestes soulignés par ligne ; « lance les corrections pour les 2 ») :
   rôle, boutique (« Toutes ») et statut en **pastilles** (+ 🎓 Formation),

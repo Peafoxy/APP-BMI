@@ -74,7 +74,7 @@ export const CHAPITRE = {
         ["🔧 Frais (répartition), 📤 Demander le paiement", "**L'administrateur.**"],
         ["✓ Valider et payer une part", "Le vendeur de la boutique qui paie, ou l'administrateur."],
         ["Entretien (date), ✅ Entretien fait, 🎁 Cadeau, Lier un compte, corriger adresse / garantie", "**L'administrateur.**"],
-        ["Suppr. (corbeille 30 jours)", "L'administrateur, ou le commercial de la fiche."],
+        ["🗑 supprimer (corbeille 30 jours)", "L'administrateur, ou le commercial de la fiche."],
         ["🛠 Travaux à crédit", "Voir la partie H de la rubrique 4."],
       ]}],
       ["note", "**Le mur formation / réel s'applique** : l'écran ne montre que les chantiers de l'espace regardé, et l'équipe ne se compose qu'avec les techniciens de cet espace."],
@@ -85,7 +85,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
         ["🏠 Clients installés → « ➕ Nouveau client installé »", "Le bouton qui ouvre le formulaire pour créer une fiche à la main (fermé d'office, replié après l'enregistrement)."],
         ["🏠 Clients installés → la liste", "Les pilules par catégorie avec leur nombre, 🔔 Entretien dû, la recherche, et les boutons de chaque ligne."],
-        ["La ligne → ▸ Dossier", "Statut, garantie, vente rattachée, équipe ; programmation ; matériel posé ; photos ; observations."],
+        ["Un clic sur la ligne → le dossier", "Statut, garantie, vente rattachée, équipe ; programmation ; matériel posé ; photos ; observations."],
         ["La ligne → 🔧 Frais", "La répartition des frais d'installation et le paiement des parts."],
         ["🛠 Travaux à crédit", "Les travaux hors devis, jusqu'à ce qu'ils soient soldés."],
         ["👑 Mon équipe / ✅ Mes tâches", "Les tâches d'entretien posées automatiquement pour le chef de chantier."],
@@ -99,6 +99,7 @@ export const CHAPITRE = {
         ["✅ Réceptionné", "PV signé sans réserve, avenant signé, ou réception automatique."],
         ["🛠 Travaux soldés", "Les travaux à crédit entièrement payés : une trace."],
       ]}],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans 🏠 Clients installés, le **client reste figé à gauche** et **un clic sur la ligne ouvre le dossier** du chantier (la ligne reste marquée en bleu ; « Fermer » ramène sur elle). Sous l'installation se lisent ce que le chantier attend ou porte (en attente de signature, pose soldée, dépenses rattachées, matériel acheté). Les gestes sont des **boutons ronds**, le nom au survol : 🎁 cadeau, 🏁 marquer terminé, 📤 envoyer pour signature / l'avenant, ⚠ forcer sans signature, 📄 voir le PV, 💰 encaisser la pose, 🔧 frais, 📅 entretien, ✅ entretien fait, 🔗 lier un compte, 🗑 supprimer. Dans 🛠 Travaux à crédit, le tableau des articles a l'article figé et deux boutons ronds : 🏷 remise et ✕ retirer."],
     ]},
 
     // ── 4
@@ -119,7 +120,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "C. Programmer l'installation (administrateur, responsable commercial)"],
       ["etapes", [
-        { titre: "Ouvrir ▸ Dossier", texte: "Cadre violet **📅 Programmer l'installation**." },
+        { titre: "Ouvrir le dossier (un clic sur la ligne)", texte: "Cadre violet **📅 Programmer l'installation**." },
         { titre: "Date, équipe, chef ⭐", texte: "Les trois sont obligatoires. Seuls les techniciens de l'espace du chantier sont proposés." },
         { titre: "✅ Programmer l'installation", texte: "Chaque membre reçoit un message dans 💬 Messages (« Vous avez été affecté comme chef d'équipe ⭐ … le … ») **et un WhatsApp du numéro BMI** (date, lieu, lien de la position, équipe). **Le client aussi reçoit un WhatsApp du numéro BMI** (« Votre installation … est programmée le … », le lieu, le nom et le numéro du chef d'équipe — le numéro BMI si le chef n'en a pas), et un message dans son espace s'il a un compte. La fenêtre de confirmation dit qui a reçu le WhatsApp, et nomme qui n'a pas de numéro." },
         { titre: "Changer plus tard", texte: "**✅ Mettre à jour la programmation.** Ne sont prévenus que ceux que le changement touche : un nouveau membre ou le nouveau chef reçoit l'affectation ; un technicien retiré, un chef remplacé, ou toute l'équipe quand la date bouge reçoivent un court « Changement sur l'installation de … ». **Si la date bouge, le client reçoit aussi « La date de votre installation … est déplacée au … (au lieu du …) »** ; un simple changement d'équipe ne lui envoie rien. Ré-enregistrer sans rien changer ne prévient personne." },
@@ -172,7 +173,7 @@ export const CHAPITRE = {
     { titre: "Boutons et fonctions", blocs: [
       ["table", { entetes: ["Bouton", "Où", "Ce qu'il fait"], largeurs: [2800, 2300, 4200], lignes: [
         ["Enregistrer le client", "🏠 Nouveau client installé", "Crée la fiche dans l'espace regardé."],
-        ["▸ Dossier", "Ligne", "Ouvre le dossier ; la page vient à lui, « Fermer » ramène sur la ligne."],
+        ["Un clic sur la ligne", "Ligne", "Ouvre le dossier (la ligne reste marquée en bleu) ; la page vient à lui, « Fermer » ramène sur la ligne."],
         ["✅ Programmer l'installation", "Dossier", "Fixe date, équipe et chef ; prévient l'équipe et le client."],
         ["🏁 Marquer terminé", "Ligne", "Déclare les travaux terminés et envoie le lien du PV du numéro BMI (repli : WhatsApp sur l'appareil)."],
         ["📤 Envoyer pour signature", "Ligne", "Renvoie le lien du PV du numéro BMI (administrateur)."],
@@ -184,7 +185,7 @@ export const CHAPITRE = {
         ["Entretien / ✅ Entretien fait", "Ligne", "Fixe la date du prochain entretien ; note un entretien fait et propose le suivant à 6 mois."],
         ["🎁 Cadeau", "Ligne", "Offre un cadeau au client, à retirer dans une boutique ; il est prévenu s'il a un compte."],
         ["Lier un compte", "Ligne", "Rattache un compte client libre à la fiche."],
-        ["Suppr.", "Ligne", "Met la fiche à la corbeille 30 jours (refusé si une part a été payée)."],
+        ["🗑 (bouton rond)", "Ligne", "Met la fiche à la corbeille 30 jours (refusé si une part a été payée)."],
         ["🔔 Entretien dû", "En-tête de liste", "Ne montre que les chantiers dont l'entretien est dû (fond orange)."],
       ]}],
     ]},
@@ -244,7 +245,7 @@ export const CHAPITRE = {
     // ── 10
     { titre: "Cas pratiques de formation", blocs: [
       ["cas", [
-        { situation: "Un devis solaire vient d'être encaissé. Où est le chantier ?", reponse: "Dans 🏠 Clients installés, catégorie **📅 À programmer**, pastille « 🔔 À PROGRAMMER ». L'administrateur ou le responsable commercial ouvre ▸ Dossier et programme date, équipe et chef ⭐." },
+        { situation: "Un devis solaire vient d'être encaissé. Où est le chantier ?", reponse: "Dans 🏠 Clients installés, catégorie **📅 À programmer**, pastille « 🔔 À PROGRAMMER ». L'administrateur ou le responsable commercial ouvre le dossier (un clic sur la ligne) et programme date, équipe et chef ⭐." },
         { situation: "Le chef de chantier a fini la pose mais la fiche n'a pas d'adresse formelle.", reponse: "🏁 Marquer terminé passe, mais le lien ne part pas et le message le dit. L'administrateur saisit l'adresse dans le dossier, puis 📤 Envoyer pour signature." },
         { situation: "Le client signe le PV avec la réserve « un panneau mal fixé ».", reponse: "Catégorie ⚠ Réserves émises. On corrige, l'administrateur fixe le délai si besoin, puis 📤 Envoyer l'avenant. Le client signe : ✅ Réceptionné." },
         { situation: "Frais facturés 200 000 F, dépenses rattachées 20 000 F, 4 techniciens, part de BMI 40 %.", reponse: "180 000 F à partager. BMI garde 40 % (72 000 F). Les 60 % restants : chacun des trois autres 14,74 % (26 532 F), le chef 15,78 % (28 404 F)." },

@@ -11,7 +11,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, dFR, today } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, FormulaireRepliable, enTeteFige, celluleFigee, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
@@ -297,21 +297,25 @@ export function Travaux({ db, save, profile, onFacturer }) {
                             et le coût a son total, pour retrouver les deux chiffres du
                             titre en additionnant. */}
                         <table className="w-full text-sm min-w-[760px]" data-articles-travaux>
-                          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix unitaire facturé", "Remise", "Coût unitaire", "Total facturé", "Total coût", ""].map((h) => <th key={h} className="text-left px-3 py-1.5">{h}</th>)}</tr></thead>
+                          {/* 🧾 La règle des lignes (15/10/2026) : l'article figé, les
+                              gestes (remise, retirer) en boutons ronds. */}
+                          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix unitaire facturé", "Remise", "Coût unitaire", "Total facturé", "Total coût", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-1.5${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
                           <tbody>
-                            {(c.articles_travaux || []).map((l) => (
-                              <tr key={l.id} className="border-t border-slate-100">
-                                <td className="px-3 py-1.5 font-semibold">{l.nom} {l.hb ? <span className="text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded px-1">HB</span> : <span className="text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 rounded px-1">stock</span>}</td>
+                            {(c.articles_travaux || []).map((l, i) => (
+                              <tr key={l.id} className={`border-t border-slate-100 ${fondLigneDepliable(false, i)}`}>
+                                <td className={`px-3 py-1.5 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(false, i))}`}>{l.nom} {l.hb ? <span className="text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded px-1">HB</span> : <span className="text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 rounded px-1">stock</span>}</td>
                                 <td className="px-3 py-1.5 tabular-nums">{l.qte}</td>
                                 <td className="px-3 py-1.5 tabular-nums">{fmt(l.pu_vente)}</td>
                                 <td className="px-3 py-1.5 tabular-nums" data-remise-ligne>
                                   {remiseDe(l) > 0 ? <span className={`font-semibold ${remiseTravauxExigeAdmin(l) ? "text-red-700" : "text-red-600"}`}>−{fmt(remiseDe(l))}</span> : <span className="text-slate-400">—</span>}
-                                  {!vente && ROLES_FICHE.includes(profile.role) && <button onClick={() => remiser(c, l)} className="ml-2 text-xs text-sky-800 underline" data-remiser>{remiseDe(l) > 0 ? "Modifier" : "Remise"}</button>}
                                 </td>
                                 <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(l.pu_achat)}</td>
                                 <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(montantLigne(l))}</td>
                                 <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(Number(l.qte) * Number(l.pu_achat))}</td>
-                                <td className="px-3 py-1.5">{!vente && ROLES_ARTICLES.includes(profile.role) && <button onClick={() => retirer(c, l)} className="text-xs text-red-600 underline">Retirer</button>}</td>
+                                <CelluleActions className="!py-1">
+                                  {!vente && ROLES_FICHE.includes(profile.role) && <BoutonRond data-remiser icone="🏷" onClick={() => remiser(c, l)} titre={remiseDe(l) > 0 ? "🏷 Modifier la remise" : "🏷 Remise sur cet article"} />}
+                                  {!vente && ROLES_ARTICLES.includes(profile.role) && <BoutonRond data-retirer-article icone="✕" teinte="rouge" onClick={() => retirer(c, l)} titre="Retirer l'article (il revient en stock)" />}
+                                </CelluleActions>
                               </tr>
                             ))}
                           </tbody>

@@ -80,6 +80,7 @@ export const CHAPITRE = {
         ["**📦 Stocks**", "Les articles, leurs prix, leurs codes-barres, le défectueux d'un retour (🔧 Défectueux / SAV)."],
       ]}],
       ["note", "Si l'écran dit « Aucun article en stock. L'administrateur doit d'abord enregistrer les articles dans Stocks. », ce n'est pas une panne : la boutique regardée n'a aucun article."],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : la liste des **🧾 Proformas** et l'onglet **🏗 Achats chantier** se lisent comme les ventes : le client (ou le chantier) **figé à gauche**, un **clic sur la ligne** d'une proforma déplie tous ses articles, ce qu'elle est devenue en **pastille** (✅ Encaissée / ⏳ En attente), et les gestes en **boutons ronds** — 🖨 réimprimer, 🛒 vendre, ✏️ modifier ; 🖨 imprimer et ↩ annuler un achat — le nom au survol. Dans le panier, « Retirer » est le bouton rond **✕**. Côté boutique, **🧾 Commandes** suit la même règle : le client figé, les articles sur deux lignes puis la suite au clic, le paiement en pastille, ✅ valider et encaisser · ❌ refuser en boutons ronds ; ↻ reprendre l'encaissement dans l'historique."],
     ]},
 
     // ── 4
@@ -87,7 +88,7 @@ export const CHAPITRE = {
       ["h3", "A. Une vente au comptant"],
       ["etapes", [
         { titre: "Mettre les articles au panier", texte: "**Au lecteur** : le curseur dans « 🔍 Code-barres », on scanne, l'article s'ajoute en quantité 1 au prix de vente. **À la main** : Domaine et Catégorie réduisent la liste (facultatif), puis « — Choisir un article — » ouvre la fenêtre « 🔍 Rechercher un article… » — chaque ligne montre **le prix en bleu et « dispo : N »**. On clique l'article, on saisit la Quantité, le Prix unitaire est pré-rempli, puis « Ajouter au panier »." },
-        { titre: "Vérifier le 🛒 Panier", texte: "Article · Qté · P.U. · Remise · Montant, et « Retirer » sur chaque ligne. Le **Total** se lit en bas, à côté du bouton d'encaissement." },
+        { titre: "Vérifier le 🛒 Panier", texte: "Article · Qté · P.U. · Remise · Montant, et le bouton rond **✕** (retirer) sur chaque ligne. Le **Total** se lit en bas, à côté du bouton d'encaissement." },
         { titre: "Le client", texte: "Taper dans « Client » ou « Numéro du client » : la boutique propose ceux qu'elle connaît (numéro, dernier passage, ce qu'ils doivent). **Un clic remplit les deux cases.** Un client de passage se tape librement ; sans nom, la vente porte « Client non renseigné »." },
         { titre: "Remise et commercial, s'il y a lieu", texte: "« Remise » sur toute la vente : au-dessus de la case, choisir **« Remise (%) »** pour taper un pourcentage, ou **« Remise libre (F) »** pour taper un montant en francs. **3 % au plus** pour un vendeur ou un gérant — une remise libre compte pour le pourcentage qu'elle représente (7 200 F sur 240 000 F = 3 %). « Commercial » : celui qui a amené le client, avec son taux. S'il a un taux, une case « Rabais offert par … (F) » apparaît : ce rabais est **pris sur sa commission**, jamais sur la marge — la case dit le maximum." },
         { titre: "Le paiement", texte: "« Paiement » : Espèces (d'office), Mobile Money (Flooz), Mobile Money (Mixx/T-Money), Virement bancaire — ou Crédit (dette), voir B." },
@@ -208,7 +209,7 @@ export const CHAPITRE = {
         ["Quantité / Prix unitaire (F)", "Le prix de vente du stock est pré-rempli ; il se corrige pour cette vente seulement."],
         ["Remise ligne", "**Une seule case.** Au-dessus, la liste choisit ce qu'on tape : « Remise ligne (%) » (un pourcentage) ou « Remise ligne libre (F) » (un montant en francs) ; changer de choix garde la remise déjà calculée. **Grisée dès qu'une remise générale est saisie** (« Remise générale déjà saisie : pas de remise par article. »). Au-delà de 3 % de la ligne : administrateur seul."],
         ["Ajouter au panier", "Refuse sans article, quantité ou prix (« Choisissez un article, la quantité et le prix. »)."],
-        ["🛒 Panier", "Les lignes, et « Retirer »."],
+        ["🛒 Panier", "Les lignes, et le bouton rond ✕ pour en retirer une."],
         ["Client / Numéro du client", "Les clients connus de la boutique se proposent ; un clic remplit les deux. Le numéro rattache la vente au compte du client (8 derniers chiffres)."],
         ["Remise", "Sur toute la vente. **Une seule case** : au-dessus, « Remise (%) » ou « Remise libre (F) » ; changer de choix reprend la remise déjà saisie dans l'autre unité (2 % de 240 000 F → 4 800 F). Une remise libre s'écrit sans pourcentage sur la confirmation, le reçu et la proforma (« remise libre = −7 200 F »). **Grisée si une remise a été accordée sur un article** (« Remise déjà accordée sur un article : pas de remise générale. »). Plus de 3 % : administrateur seul."],
         ["Commercial", "L'apporteur interne : commercial, technicien, responsable commercial (ceux qui ont un taux), de l'espace regardé. Un commercial connecté est pré-rempli et ne peut pas se changer."],

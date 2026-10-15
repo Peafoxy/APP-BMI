@@ -3,7 +3,7 @@
 // responsable commercial, élaborateur) : filtres, statuts, relance,
 // reprise d'un devis pour modification.
 // ============================================================
-import { useState, useRef } from "react";
+import { Fragment, useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis } from "../pdf";
@@ -17,7 +17,7 @@ import { CompleterDevis } from "../components/CompleterDevis";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, LIBELLE_ROLE_EMPLOYE, estSansAcces } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
-import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi } from "../components/ui";
+import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
@@ -36,6 +36,9 @@ export function libelleTypeDevis(d) {
   if (d.type_devis === "autre") return `📦 ${d.besoins?.categorie || "Autre"}`;
   return "☀️ Solaire";
 }
+
+// Les colonnes de 📋 Tous les devis (15/10/2026, la règle des lignes).
+export const COLONNES_DEVIS = ["Client", "Date", "Total", "Statut", "Suivi", ""];
 
 const BadgeStatutDevis = ({ statut }) => {
   const [label, cls] = STATUT_DEVIS[statut || "propose"] || STATUT_DEVIS.propose;
@@ -593,102 +596,158 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
         {devisFiltres.length === 0 ? (
           <div className="p-6 text-center text-sm text-slate-400">{periode.actif ? "Aucun devis sur cette période." : <>Aucun devis{auteurFiltre ? ` de ${auteurFiltre.nom}` : voitTout ? "" : " établi par vous"} pour l'instant.</>}</div>
         ) : (
-          <div className="divide-y divide-slate-100 max-h-[455px] overflow-y-auto">
-            {devisPage.map((d) => (
-              <div key={d.id}>
-                <button onClick={() => ouvrirDevis(d)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-slate-50 flex-wrap">
-                  <span className="flex-1 min-w-[180px]">
-                    <span className="font-bold text-slate-800">{d.client?.nom_base || d.client?.nom || "Client"}</span>
-                    <span className="text-xs text-slate-500 ml-2">{libelleTypeDevis(d)}</span>
-                    <span className="block text-xs text-slate-400">Le {dFR(d.date)} par {d.par} — {d.boutique}{d.prepare_par && d.prepare_par !== d.par ? <span data-prepare-par> · préparé par {d.prepare_par}</span> : null}</span>
-                  </span>
-                  {!(d.vu_par || []).includes(profile.id) && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" title="Nouveau — pas encore ouvert"></span>
-                  )}
-                  <span className="font-bold text-sky-800 whitespace-nowrap">{fmt(d.total)}</span>
-                  {enAttenteDeRelance(d) && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-red-50 text-red-700 border-red-300" title={d.relance_le ? `Relancé le ${dFR(d.relance_le)}, toujours sans réponse` : "Devis sans réponse depuis longtemps"}>
-                      ⚠️ Sans réponse depuis {joursSansReponse(d)} j
-                    </span>
-                  )}
-                  {d.relance_le && devisRelancable(d) && !enAttenteDeRelance(d) && (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${d.envoi_whatsapp ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}
-                      title={d.envoi_whatsapp ? libelleTrace(d.envoi_whatsapp) : `Relancé par ${d.relance_par || "?"}`}>
-                      📲 Relancé le {dFR(d.relance_le)}{d.envoi_whatsapp ? " — du n° BMI" : ""}
-                    </span>
-                  )}
-                  {(() => {
-                      // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
-                      // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
-                      const e = dernierEnvoiPour(db.messages, { devis_id: d.id });
-                      return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
-                    })()}
-                  {offreExpiree(d, today()) && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-offre-expiree
-                      title={`${phraseOffreExpiree(d)}. Le client peut toujours le valider.`}>
-                      ⌛ Offre expirée — prix à confirmer
-                    </span>
-                  )}
-                  {d.offre_expiree_a_validation && (d.statut === "valide" || d.statut === "paye") && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
-                      title="Le client a validé après la fin de l'offre (15 jours) : le prix est à confirmer avec lui.">
-                      ⌛ Validé après expiration — prix à confirmer
-                    </span>
-                  )}
-                  {d.relance_auto_le && (d.statut || "propose") === "propose" && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300"
-                      title="Relance automatique du 8e jour, partie du numéro WhatsApp BMI">
-                      🤖 Relancé automatiquement le {dFR(d.relance_auto_le)}
-                    </span>
-                  )}
-                  {demandeModifEnCours(d) && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
-                      title={`Motif : ${d.demande_bmi.motif}`}>
-                      ⏳ Modification demandée au client
-                    </span>
-                  )}
-                  {demandeModifAcceptee(d) && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-green-50 text-green-800 border-green-300">
-                      ✅ Le client a accepté — à corriger
-                    </span>
-                  )}
-                  {cyclesModif(d) > 0 && (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${cyclesModif(d) >= MAX_CYCLES_MODIF ? "bg-red-50 text-red-800 border-red-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}>
-                      🔁 {cyclesModif(d)}/{MAX_CYCLES_MODIF} aller-retour{cyclesModif(d) > 1 ? "s" : ""}
-                    </span>
-                  )}
-                  {d.modifie_le && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
-                      title={`Devis corrigé par ${d.modifie_par || "?"}${d.nb_modifications > 1 ? ` — ${d.nb_modifications} corrections` : ""}`}>
-                      ✏️ Modifié le {dFR(d.modifie_le)} par {d.modifie_par || "?"}{d.nb_modifications > 1 ? ` (${d.nb_modifications}×)` : ""}
-                    </span>
-                  )}
-                  {devisACompleter(d) && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-badge-cf-visite
-                      title={PHRASE_A_COMPLETER}>
-                      📋 À compléter après la visite
-                    </span>
-                  )}
-                  {d.complete_le && (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300" data-badge-complete>
-                      ✍️ Complété le {dFR(d.complete_le)} par {d.complete_par || "?"}
-                    </span>
-                  )}
-                  {estSansAcces(d.client) ? (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-100 text-slate-700 border-slate-400" data-badge-sans-compte
-                      title={`Devis imprimé${d.imprime ? ` le ${dFR(d.imprime.le)} par ${d.imprime.par}` : ""} : le client n'a pas d'accès à l'application, rien ne lui est envoyé.`}>
-                      🖨 Sans compte
-                    </span>
-                  ) : d.imprime ? (
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-50 text-slate-600 border-slate-300" data-badge-imprime>
-                      🖨 Imprimé le {dFR(d.imprime.le)}
-                    </span>
-                  ) : null}
-                  <BadgeStatutDevis statut={d.statut} />
-                  <span className="text-sm text-slate-400">{ouvert === d.id ? "▾" : "▸"}</span>
-                </button>
-                {ouvert === d.id && (
-                  <div className="px-4 pb-4 bg-slate-50">
+          <div className="max-h-[455px] overflow-auto">
+            {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026,
+                « Tous, lance ») : le client figé en première colonne, un clic
+                déplie le devis (une ligne à la fois), les gestes en boutons
+                ronds — le libellé au survol. */}
+            <table className="w-full text-sm min-w-[860px]">
+              <thead className="sticky top-0 z-30 bg-white">
+                <tr className="text-xs text-slate-500 uppercase border-b border-slate-200">
+                  {COLONNES_DEVIS.map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+            {devisPage.map((d, i) => {
+              const deplie = ouvert === d.id;
+              return (
+              <Fragment key={d.id}>
+                <tr data-ligne-devis={deplie ? "deplie" : "replie"} onClick={() => ouvrirDevis(d)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
+                  <td className={`px-3 py-2 min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)}`}>
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      {d.client?.nom_base || d.client?.nom || "Client"}
+                      {!(d.vu_par || []).includes(profile.id) && (
+                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0" title="Nouveau — pas encore ouvert"></span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500">{libelleTypeDevis(d)}</div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div>{dFR(d.date)}</div>
+                    <div className="text-xs text-slate-500">par {d.par}{d.prepare_par && d.prepare_par !== d.par ? <span data-prepare-par> · préparé par {d.prepare_par}</span> : null}</div>
+                    <div className="text-xs text-slate-400">{d.boutique}</div>
+                  </td>
+                  <td className="px-3 py-2 text-right font-bold text-sky-800 whitespace-nowrap tabular-nums">{fmt(d.total)}</td>
+                  <td className="px-3 py-2"><BadgeStatutDevis statut={d.statut} /></td>
+                  <td className="px-3 py-2 min-w-[240px]">
+                    <div className="flex flex-wrap gap-1 max-w-[380px]">
+                      {enAttenteDeRelance(d) && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-red-50 text-red-700 border-red-300" title={d.relance_le ? `Relancé le ${dFR(d.relance_le)}, toujours sans réponse` : "Devis sans réponse depuis longtemps"}>
+                          ⚠️ Sans réponse depuis {joursSansReponse(d)} j
+                        </span>
+                      )}
+                      {d.relance_le && devisRelancable(d) && !enAttenteDeRelance(d) && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${d.envoi_whatsapp ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}
+                          title={d.envoi_whatsapp ? libelleTrace(d.envoi_whatsapp) : `Relancé par ${d.relance_par || "?"}`}>
+                          📲 Relancé le {dFR(d.relance_le)}{d.envoi_whatsapp ? " — du n° BMI" : ""}
+                        </span>
+                      )}
+                      {(() => {
+                          // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
+                          // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
+                          const e = dernierEnvoiPour(db.messages, { devis_id: d.id });
+                          return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
+                        })()}
+                      {offreExpiree(d, today()) && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-offre-expiree
+                          title={`${phraseOffreExpiree(d)}. Le client peut toujours le valider.`}>
+                          ⌛ Offre expirée — prix à confirmer
+                        </span>
+                      )}
+                      {d.offre_expiree_a_validation && (d.statut === "valide" || d.statut === "paye") && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
+                          title="Le client a validé après la fin de l'offre (15 jours) : le prix est à confirmer avec lui.">
+                          ⌛ Validé après expiration — prix à confirmer
+                        </span>
+                      )}
+                      {d.relance_auto_le && (d.statut || "propose") === "propose" && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300"
+                          title="Relance automatique du 8e jour, partie du numéro WhatsApp BMI">
+                          🤖 Relancé automatiquement le {dFR(d.relance_auto_le)}
+                        </span>
+                      )}
+                      {demandeModifEnCours(d) && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
+                          title={`Motif : ${d.demande_bmi.motif}`}>
+                          ⏳ Modification demandée au client
+                        </span>
+                      )}
+                      {demandeModifAcceptee(d) && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-green-50 text-green-800 border-green-300">
+                          ✅ Le client a accepté — à corriger
+                        </span>
+                      )}
+                      {cyclesModif(d) > 0 && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${cyclesModif(d) >= MAX_CYCLES_MODIF ? "bg-red-50 text-red-800 border-red-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}>
+                          🔁 {cyclesModif(d)}/{MAX_CYCLES_MODIF} aller-retour{cyclesModif(d) > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {d.modifie_le && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
+                          title={`Devis corrigé par ${d.modifie_par || "?"}${d.nb_modifications > 1 ? ` — ${d.nb_modifications} corrections` : ""}`}>
+                          ✏️ Modifié le {dFR(d.modifie_le)} par {d.modifie_par || "?"}{d.nb_modifications > 1 ? ` (${d.nb_modifications}×)` : ""}
+                        </span>
+                      )}
+                      {devisACompleter(d) && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-badge-cf-visite
+                          title={PHRASE_A_COMPLETER}>
+                          📋 À compléter après la visite
+                        </span>
+                      )}
+                      {d.complete_le && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300" data-badge-complete>
+                          ✍️ Complété le {dFR(d.complete_le)} par {d.complete_par || "?"}
+                        </span>
+                      )}
+                      {estSansAcces(d.client) ? (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-100 text-slate-700 border-slate-400" data-badge-sans-compte
+                          title={`Devis imprimé${d.imprime ? ` le ${dFR(d.imprime.le)} par ${d.imprime.par}` : ""} : le client n'a pas d'accès à l'application, rien ne lui est envoyé.`}>
+                          🖨 Sans compte
+                        </span>
+                      ) : d.imprime ? (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-50 text-slate-600 border-slate-300" data-badge-imprime>
+                          🖨 Imprimé le {dFR(d.imprime.le)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <CelluleActions largeur="min-w-[120px] max-w-[200px]">
+                    {/* 💰 Encaisser (« b ») : l'administrateur, devis validé dont la commande attend. */}
+                    {profile.role === "admin" && onEncaisserCommande && commandeAEncaisser(db, d) && (
+                      <BoutonRond data-encaisser-devis icone="💰" teinte="vert" onClick={() => encaisserDevis(d)}
+                        titre={`💰 Encaisser — ouvre 💰 Ventes avec ce devis (commande à ${commandeAEncaisser(db, d).boutique})`} />
+                    )}
+                    {devisRelancable(d) && !estSansAcces(d.client) && (
+                      <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="vert" onClick={() => relancerDevis(d)}
+                        titre={`📲 Relancer sur WhatsApp${d.relance_le ? ` (déjà le ${dFR(d.relance_le)}${d.nb_relances > 1 ? `, ${d.nb_relances} fois` : ""})` : ""} — ${(d.statut || "propose") === "valide" ? "rappeler au client qu'il reste à régler" : "rappeler le devis au client"}`} />
+                    )}
+                    {peutModifierDevis(d, profile) && onModifierDevis && (
+                      <BoutonRond icone="✏️" teinte="ambre" onClick={() => modifierDevis(d)} titre={estSansAcces(d.client) ? "✏️ Modifier (puis réimprimer)" : "✏️ Modifier et renvoyer"} />
+                    )}
+                    {peutDemanderModif(db, d, profile) && !estSansAcces(d.client) && (
+                      <BoutonRond icone="📝" teinte="ambre" onClick={() => demanderModifAuClient(d)} titre="✏️ Demander une modification au client — ce devis est signé : le client doit accepter avant toute correction" />
+                    )}
+                    {peutCompleterDevis(d, profile) && (
+                      <BoutonRond data-bouton-completer icone="✍️" teinte="ambre" onClick={() => { setCompletion(completion === d.id ? null : d.id); if (!deplie) ouvrirDevis(d); }}
+                        titre="✍️ Compléter le devis — chiffrer les éléments « cf. visite », les lignes déjà chiffrées ne changent pas" />
+                    )}
+                    <BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />
+                    {peutClasserDevis(d, profile) && (d.statut || "propose") === "propose" && (
+                      <BoutonRond data-classer-sans-suite icone="📁" teinte="gris" onClick={() => classerDevis(d)} titre="📁 Classer sans suite — le devis reste entier mais sort de la liste active" />
+                    )}
+                    {peutClasserDevis(d, profile) && estSansSuite(d) && (
+                      <BoutonRond data-rouvrir-devis icone="↩" onClick={() => rouvrirDevisClasse(d)} titre="↩ Rouvrir le devis — il redevient ⏳ Proposé" />
+                    )}
+                    {peutDeciderDuPlan && !critiqueSuppressionDevis(d) && (
+                      <BoutonRond data-supprimer-devis icone="🗑" teinte="rouge" onClick={() => supprimerDevis(d)} titre={`🗑 Supprimer — le devis part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours`} />
+                    )}
+                  </CelluleActions>
+                </tr>
+
+                {deplie && (
+                  <tr className="bg-slate-50" data-detail-devis><td colSpan={COLONNES_DEVIS.length} className="px-4 pt-2 pb-4">
+                  {/* Sur téléphone, le détail tient dans l'écran (le tableau, lui, défile). */}
+                  <div className="max-w-[min(900px,calc(100vw-56px))]">
                     {estSansSuite(d) && (
                       <div className="mb-3 rounded-xl border-2 border-slate-300 bg-white p-3 text-sm" data-sans-suite>
                         <div className="font-bold text-slate-800">📁 Classé sans suite le {dFR(d.sans_suite?.le)} par {d.sans_suite?.par || "?"}</div>
@@ -761,43 +820,6 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                         ))}
                       </tbody>
                     </table>
-                    <div className="flex justify-end mt-3 gap-2 flex-wrap">
-                      {/* 💰 Encaisser (« b ») : l'administrateur, devis validé dont la commande attend. */}
-                      {profile.role === "admin" && onEncaisserCommande && commandeAEncaisser(db, d) && (
-                        <button onClick={() => encaisserDevis(d)} data-encaisser-devis className="text-xs font-bold text-white bg-emerald-700 rounded-lg px-3 py-1.5 hover:bg-emerald-800"
-                          title={`Ouvre 💰 Ventes avec ce devis — commande à ${commandeAEncaisser(db, d).boutique}`}>💰 Encaisser</button>
-                      )}
-                      {devisRelancable(d) && !estSansAcces(d.client) && (
-                        <button onClick={() => relancerDevis(d)} className="text-xs font-bold text-white bg-green-700 rounded-lg px-3 py-1.5 hover:bg-green-800"
-                          title={(d.statut || "propose") === "valide" ? "Rappeler au client qu'il reste à régler" : "Rappeler le devis au client"}>
-                          📲 Relancer sur WhatsApp{d.relance_le ? ` (déjà le ${dFR(d.relance_le)}${d.nb_relances > 1 ? `, ${d.nb_relances} fois` : ""})` : ""}
-                        </button>
-                      )}
-                      {peutModifierDevis(d, profile) && onModifierDevis && (
-                        <button onClick={() => modifierDevis(d)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">{estSansAcces(d.client) ? "✏️ Modifier (puis réimprimer)" : "✏️ Modifier et renvoyer"}</button>
-                      )}
-                      {peutDemanderModif(db, d, profile) && !estSansAcces(d.client) && (
-                        <button onClick={() => demanderModifAuClient(d)} className="text-xs font-bold text-amber-800 border border-amber-400 bg-white rounded-lg px-3 py-1.5 hover:bg-amber-50"
-                          title="Ce devis est signé : le client doit accepter avant toute correction">✏️ Demander une modification au client</button>
-                      )}
-                      {peutCompleterDevis(d, profile) && (
-                        <button onClick={() => setCompletion(completion === d.id ? null : d.id)} data-bouton-completer className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700"
-                          title="Chiffrer les éléments « cf. visite » — les lignes déjà chiffrées ne changent pas">✍️ Compléter le devis</button>
-                      )}
-                      <button onClick={() => telechargerPDF(d)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">📄 Devis PDF</button>
-                      {peutClasserDevis(d, profile) && (d.statut || "propose") === "propose" && (
-                        <button onClick={() => classerDevis(d)} data-classer-sans-suite className="text-xs font-bold text-slate-700 border border-slate-300 bg-white rounded-lg px-3 py-1.5 hover:bg-slate-100"
-                          title="Le devis reste entier mais sort de la liste active">📁 Classer sans suite</button>
-                      )}
-                      {peutClasserDevis(d, profile) && estSansSuite(d) && (
-                        <button onClick={() => rouvrirDevisClasse(d)} data-rouvrir-devis className="text-xs font-bold text-sky-800 border border-sky-300 bg-white rounded-lg px-3 py-1.5 hover:bg-sky-50"
-                          title="Le devis redevient ⏳ Proposé">↩ Rouvrir le devis</button>
-                      )}
-                      {peutDeciderDuPlan && !critiqueSuppressionDevis(d) && (
-                        <button onClick={() => supprimerDevis(d)} data-supprimer-devis className="text-xs font-bold text-red-700 border border-red-300 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50"
-                          title={`Le devis part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours`}>🗑 Supprimer</button>
-                      )}
-                    </div>
                     {completion === d.id && peutCompleterDevis(d, profile) && (
                       <CompleterDevis devis={d} produits={(db.produits || []).filter((p) => p.boutique === d.boutique)}
                         onAnnuler={() => setCompletion(null)} onEnregistrer={(saisie) => completerEtEnvoyer(d, saisie)} />
@@ -814,9 +836,13 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                       </div>
                     )}
                   </div>
+                  </td></tr>
                 )}
-              </div>
-            ))}
+              </Fragment>
+              );
+            })}
+              </tbody>
+            </table>
           </div>
         )}
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />

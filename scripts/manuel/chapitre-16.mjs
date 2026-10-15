@@ -76,6 +76,7 @@ export const CHAPITRE = {
         ["💰 Ventes (formulaire)", "Le **Commercial** de la vente, le **Rabais offert**, la case **🤝 apporteur externe**."],
         ["🏠 Mon espace (client)", "Le cadre **🤝 Parrainez vos proches** et ses gains."],
       ]}],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans 🎯 Commerciaux et 👑 Mon équipe, le **nom reste figé à gauche** (la médaille du classement devant) et les gestes sont des **boutons ronds**, le nom au survol : ✏️ modifier, ⏸ désactiver / ▶ réactiver, 🗑 supprimer ; 🗂 voir les tâches (la ligne se marque en bleu), ✅ assigner une tâche, 💵 marquer payé / payer, ↩ annuler un paiement, 💳 changer le moyen d'un apporteur, 🎖 promouvoir commercial. Le statut d'un agent est une pastille (Actif / Inactif). Dans le partage des frais, 📤 demander le paiement et ✓ valider et payer sont aussi des boutons ronds."],
     ]},
 
     // ── 4
@@ -147,13 +148,13 @@ export const CHAPITRE = {
         ["Ce mois / Cette année / Depuis le début", "👑 Équipe, 💵 Ma commission", "Choisit la période des ventes comptées."],
         ["✓ Marquer payé", "👑 Équipe → Performances", "Paie la commission due d'un commercial ; dépense « Commissions »."],
         ["↩ Annuler paiement", "👑 Équipe → Performances", "Remet les ventes réglées de la période « à payer » et retire la dépense (administrateur)."],
-        ["✅ Tâche / 🗂 voir", "👑 Équipe → Performances", "Assigne une tâche ; montre les tâches d'un membre. À l'assignation puis à la validation, le membre reçoit un WhatsApp du numéro BMI (« tache_assignee », « tache_validee ») ; rouvrir une tâche n'envoie rien. Sans numéro sur sa fiche, l'écran le dit."],
+        ["✅ / 🗂 (boutons ronds)", "👑 Équipe → Performances", "Assigne une tâche ; montre les tâches d'un membre. À l'assignation puis à la validation, le membre reçoit un WhatsApp du numéro BMI (« tache_assignee », « tache_validee ») ; rouvrir une tâche n'envoie rien. Sans numéro sur sa fiche, l'écran le dit."],
         ["✓ Payer", "⭐ Chefs d'équipe", "Paie la commission d'équipe d'un chef."],
         ["✓ Payer", "🤝 Apporteurs externes", "Paie l'apporteur par le moyen du client (ou son moyen choisi)."],
         ["✏️ Moyen", "🤝 Apporteurs externes", "Change le moyen de paiement d'un apporteur ; retenu ensuite."],
         ["🎖 Promouvoir commercial", "🤝 Apporteurs externes", "Crée un compte commercial à un apporteur de 5 clients ou plus."],
         ["📄 Exporter les commissions", "🎯 Commerciaux", "Exporte le classement de la période (CSV)."],
-        ["Modifier / Désactiver / Suppr.", "🎯 Commerciaux", "Objectif mensuel d'un agent ; activer ou retirer. Le taux ne s'y change pas."],
+        ["✏️ / ⏸ / 🗑 (boutons ronds)", "🎯 Commerciaux", "Objectif mensuel d'un agent ; activer ou retirer. Le taux ne s'y change pas."],
         ["✓ Valider et payer", "💰 Primes remises", "Paie une prime d'installation depuis la caisse de la boutique."],
         ["💰 Commission … % / ⭐ Équipe … % / Nommer chef / 🤝 Parrain", "👥 Utilisateurs → ⋯ Gérer", "Taux de commission, taux d'équipe, chef, recruteur."],
       ]}],

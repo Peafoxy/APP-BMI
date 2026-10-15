@@ -73,6 +73,7 @@ export const CHAPITRE = {
         ["💵 Salaire (l'employé)", "« 💵 Mon salaire — nom » : le mois, les cases, les virements à confirmer, le détail, ses avances de frais, 🏦 Crédit BMI, 📈 Mon avancement, ses informations CNSS."],
       ]}],
       ["note", "Le nom de l'onglet affiche un nombre quand quelque chose attend l'employé — un virement à confirmer, une décision de crédit — : « 💵 Salaire (1) »."],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans 💵 Salaires, l'**employé reste figé à gauche**, le statut est une **pastille** (🔴 Non payé · 🟠 Partiel · ⏳ À confirmer · ✅ Payé & confirmé), et **un clic sur la ligne la déplie** : les primes, les avances et les paiements du mois. Les gestes sont des **boutons ronds**, le nom au survol : 💸 payer le salaire, 🖨 bulletin. Dans 💵 Mon salaire, « Annuler » une demande de crédit est le bouton rond ✕."],
     ]},
 
     // ── 4

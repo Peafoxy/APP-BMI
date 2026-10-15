@@ -9,7 +9,7 @@ import { correspond } from "../lib/suggestions";
 import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
 import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
 import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
-import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
+import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, critiqueStockCible, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
@@ -53,6 +53,8 @@ export function Stocks({ db, save, profile }) {
   // 06/10/2026). ✏️ Corriger l'ouvre tout seul (enEdition), sinon on ne
   // verrait pas la correction ; l'import Excel reste à côté du bouton.
   const [nouvelArticleOuvert, setNouvelArticleOuvert] = useState(false);
+  // 🧾 La ligne d'un article se déplie au clic (15/10/2026, la règle des lignes).
+  const [articleDeplie, setArticleDeplie] = useState(null);
   // ⚠ TERRAIN (boutique virtuelle, sans stock) ne doit jamais apparaître
   // comme destination de transfert — corrigé suite au même bug que
   // BoutiqueTabs (Timo, capture Stocks).
@@ -1096,7 +1098,7 @@ export function Stocks({ db, save, profile }) {
                         <tr key={i} className="border-t border-purple-100">
                           <td className="px-2 py-1 font-semibold">{l.nom}</td>
                           <td className="px-2 py-1 tabular-nums">{l.qte}</td>
-                          <td className="px-2 py-1 text-right"><button onClick={() => setBon(bon.filter((_, j) => j !== i))} className="text-xs text-red-600 underline">Retirer</button></td>
+                          <td className="px-2 py-1 text-right"><BoutonRond icone="✕" teinte="rouge" titre="Retirer de la liste" onClick={() => setBon(bon.filter((_, j) => j !== i))} /></td>
                         </tr>
                       ))}
                       <tr className="border-t-2 border-purple-300 font-bold">
@@ -1439,31 +1441,29 @@ export function Stocks({ db, save, profile }) {
             {["Article", "Fournisseur", "Catégorie", "Code", "Initial", "Entrées", "Vendus", "Ajust.", "Stock", "Seuil", "État", "P. achat", "P. vente", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {listeAffichee.length === 0 && <tr><td colSpan={14} className="px-4 py-6 text-center text-slate-400">{enRechercheStock ? "Aucun article ne correspond à cette recherche." : categorieAffichee ? "Aucun article dans cette catégorie." : "Aucun article dans cette boutique."}</td></tr>}
-            {listeAffichee.map((p) => {
+            {listeAffichee.map((p, i) => {
               const vendu = stockVendu(db, p.id), aj = stockAjuste(db, p.id), actuel = stockActuel(db, p), al = actuel <= Number(p.seuil);
+              const deplie = articleDeplie === p.id;
+              const fond = al ? "bg-red-50" : "";
               return (
-                <tr key={p.id} className={`border-t border-slate-100 ${al ? "bg-red-50" : ""}`}>
+                <tr key={p.id} data-ligne-article={deplie ? "deplie" : "replie"} onClick={() => setArticleDeplie(deplie ? null : p.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i, fond)}`}>
                   {/* ⚠ CE QUI ÉTAIT ENREGISTRÉ ET NE SE LISAIT NULLE PART (20/09/2026) :
                       les caractéristiques d'une pompe, le lien de la fiche technique et
                       les notes internes. Trois champs qu'on remplissait dans le vide —
-                      « on croit l'avoir noté ». Ils se lisent maintenant sous le nom. */}
-                  <td className={`px-3 py-2 font-semibold ${celluleFigee(al ? "bg-red-50" : "bg-white")}`}>
+                      « on croit l'avoir noté ». Ils se lisent maintenant sous le nom ;
+                      deux lignes au plus, le reste au clic sur la ligne (15/10/2026). */}
+                  <td className={`px-3 py-2 font-semibold ${celluleFigee(fondLigneDepliable(deplie, i, fond), deplie)}`}>
                     {p.nom}
                     {ficheLisible(p) && <div className="text-xs font-normal text-sky-800">{ficheLisible(p)}</div>}
-                    {p.note_assistant && <div className="text-xs font-normal text-violet-700" title={p.note_assistant}>🤖 {p.note_assistant}</div>}
+                    {p.note_assistant && <div className="text-xs font-normal text-violet-700" title={p.note_assistant}><TexteDepliable texte={`🤖 ${p.note_assistant}`} deplie={deplie} largeur="max-w-[160px]" /></div>}
                     {(p.fiche_technique || p.notes) && (
                       <div className="text-xs font-normal text-slate-500">
-                        {p.fiche_technique && <a href={p.fiche_technique} target="_blank" rel="noopener noreferrer" className="text-sky-700 underline">🔗 Fiche technique</a>}
-                        {p.fiche_technique && p.notes ? " · " : ""}
-                        {p.notes && <span title={p.notes}>📝 {p.notes}</span>}
+                        {p.fiche_technique && <a href={p.fiche_technique} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-sky-700 underline">🔗 Fiche technique</a>}
+                        {p.notes && <span title={p.notes}><TexteDepliable texte={`📝 ${p.notes}`} deplie={deplie} largeur="max-w-[160px]" /></span>}
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2">
-                    <button onClick={() => changerFournisseur(p)} className={`text-xs font-semibold underline ${p.fournisseur ? "text-slate-600" : "text-slate-400"}`}>
-                      {p.fournisseur || "— Définir —"}
-                    </button>
-                  </td>
+                  <td className={`px-3 py-2 text-xs font-semibold ${p.fournisseur ? "text-slate-600" : "text-slate-400"}`}>{p.fournisseur || "— à définir —"}</td>
                   <td className="px-3 py-2 text-slate-500">{p.categorie || "Autre"}</td>
                   <td className="px-3 py-2 font-mono text-xs text-slate-500">{p.code || "—"}</td>
                   <td className="px-3 py-2 tabular-nums">{p.initial}</td>
@@ -1472,18 +1472,21 @@ export function Stocks({ db, save, profile }) {
                   <td className={`px-3 py-2 tabular-nums ${aj < 0 ? "text-red-600" : ""}`}>{aj > 0 ? "+" + aj : aj || 0}</td>
                   <td className="px-3 py-2 tabular-nums font-bold">{actuel}</td>
                   <td className="px-3 py-2 tabular-nums">{p.seuil}</td>
-                  <td className="px-3 py-2">{al ? <span className="text-xs font-bold text-red-600">⚠ Réappro.</span> : <span className="text-xs font-bold text-green-700">OK</span>}</td>
+                  <td className="px-3 py-2">{al
+                    ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-red-100 text-red-700 border-red-200 whitespace-nowrap">⚠ Réappro.</span>
+                    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-700 border-green-200">OK</span>}</td>
                   <td className="px-3 py-2 tabular-nums">{fmt(p.prix_achat)}</td>
                   <td className="px-3 py-2 tabular-nums">{fmt(p.prix_vente)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <button onClick={() => corriger(p)} className="text-xs font-bold text-amber-700 underline mr-2">✏️ Corriger</button>
-                    <button onClick={() => definirCode(p)} className="text-xs font-bold text-sky-800 underline mr-2">Code</button>
-                    <button onClick={() => imprimerEtiquette(p)} className="text-xs font-bold text-sky-800 underline mr-2">🖨 Étiquette</button>
-                    <button onClick={() => reappro(p)} className="text-xs font-bold text-sky-800 underline mr-2">+ Entrée</button>
-                    <button onClick={() => ajuster(p)} className="text-xs font-bold text-sky-800 underline mr-2">± Ajuster</button>
-                    <button onClick={() => transferer(p)} className="text-xs font-bold text-blue-700 underline mr-2">⇄ Transfert</button>
-                    {profile.role === "admin" && <button onClick={() => supprimer(p)} className="text-xs text-red-600 underline">Suppr.</button>}
-                  </td>
+                  <CelluleActions largeur="min-w-[150px] max-w-[200px]">
+                    <BoutonRond icone="✏️" teinte="ambre" onClick={() => corriger(p)} titre="✏️ Corriger la fiche de l'article" />
+                    <BoutonRond icone="🏷" onClick={() => definirCode(p)} titre="Code — le code-barres de l'article" />
+                    <BoutonRond icone="🚚" onClick={() => changerFournisseur(p)} titre="Changer le fournisseur" />
+                    <BoutonRond icone="🖨" onClick={() => imprimerEtiquette(p)} titre="🖨 Étiquette" />
+                    <BoutonRond icone="➕" teinte="vert" onClick={() => reappro(p)} titre="+ Entrée — ce qui arrive en stock" />
+                    <BoutonRond icone="±" onClick={() => ajuster(p)} titre="± Ajuster le stock" />
+                    <BoutonRond icone="⇄" onClick={() => transferer(p)} titre="⇄ Transfert vers une autre boutique" />
+                    {profile.role === "admin" && <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(p)} titre="🗑 Supprimer l'article" />}
+                  </CelluleActions>
                 </tr>
               );
             })}

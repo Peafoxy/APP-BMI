@@ -8,7 +8,7 @@ import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
-import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne } from "../components/ui";
+import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
 import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
@@ -596,12 +596,14 @@ export function MonEquipe({ db, save, profile }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Performances par commercial</div>
         <table className="w-full text-sm min-w-[760px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Ventes", "Chiffre d'affaires", "Commission due", "Prospects", "Commandes en attente", "Tâches", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          {/* 🧾 La règle des lignes (15/10/2026) : le nom figé, les gestes en
+              boutons ronds ; « 🗂 » ouvre les tâches du membre et marque sa ligne. */}
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Ventes", "Chiffre d'affaires", "Commission due", "Prospects", "Commandes en attente", "Tâches", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {stats.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun commercial actif.</td></tr>}
-            {stats.map((st) => (
-              <tr key={st.u.id} data-ligne={st.u.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2 font-semibold">{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}</td>
+            {stats.map((st, i) => (
+              <tr key={st.u.id} data-ligne={st.u.id} className={`border-t border-slate-100 align-top ${classeLigneDepliable(membreTaches === st.u.id, i)}`}>
+                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(membreTaches === st.u.id, i), membreTaches === st.u.id)}`}>{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}</td>
                 <td className="px-3 py-2 tabular-nums">{st.nbVentes}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(st.ca)}</td>
                 <td className="px-3 py-2 tabular-nums font-bold text-green-700">{fmt(st.commissionDue)}
@@ -621,13 +623,13 @@ export function MonEquipe({ db, save, profile }) {
                 <td className="px-3 py-2 tabular-nums">{st.commandesAttente}</td>
                 <td className="px-3 py-2 tabular-nums whitespace-nowrap">
                   {tachesOuvertes(st.u).length > 0 ? <span className="font-bold text-amber-600">{tachesOuvertes(st.u).length} en cours</span> : <span className="text-slate-400">—</span>}
-                  {(st.u.taches || []).length > 0 && <button onClick={() => setMembreTaches(membreTaches === st.u.id ? null : st.u.id)} className="ml-2 text-xs font-bold text-sky-800 underline">🗂 voir ({(st.u.taches || []).length})</button>}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {aDroit(db, profile, "act_taches") && <button onClick={() => assignerTache(st)} className="text-xs font-bold text-sky-800 underline mr-2">✅ Tâche</button>}
-                  {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <button onClick={() => payerCommission(st)} className="text-xs font-bold text-white bg-slate-800 rounded px-2 py-1 hover:bg-slate-900 mr-1">✓ Marquer payé</button>}
-                  {estAdmin && st.nbReglees > 0 && <button onClick={() => annulerPaiement(st)} className="text-xs font-bold text-red-700 border border-red-300 rounded px-2 py-1 hover:bg-red-50">↩ Annuler paiement</button>}
-                </td>
+                <CelluleActions>
+                  {(st.u.taches || []).length > 0 && <BoutonRond icone="🗂" teinte="gris" onClick={() => setMembreTaches(membreTaches === st.u.id ? null : st.u.id)} titre={`🗂 voir ses tâches (${(st.u.taches || []).length})`} />}
+                  {aDroit(db, profile, "act_taches") && <BoutonRond icone="✅" onClick={() => assignerTache(st)} titre="✅ Tâche — assigner une tâche" />}
+                  {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <BoutonRond icone="💵" teinte="vert" onClick={() => payerCommission(st)} titre="✓ Marquer payé — payer la commission due" />}
+                  {estAdmin && st.nbReglees > 0 && <BoutonRond icone="↩" teinte="rouge" onClick={() => annulerPaiement(st)} titre="↩ Annuler paiement" />}
+                </CelluleActions>
               </tr>
             ))}
           </tbody>
@@ -640,11 +642,11 @@ export function MonEquipe({ db, save, profile }) {
             <span className="text-xs font-semibold text-slate-600">À payer : <b className="text-red-600 tabular-nums">{fmt(totalEquipeDu)}</b></span>
           </div>
           <table className="w-full text-sm min-w-[620px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Chef d'équipe", "Recrues", "Taux d'équipe", "Commission due", "Déjà payé", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Chef d'équipe", "Recrues", "Taux d'équipe", "Commission due", "Déjà payé", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
             <tbody>
-              {chefs.map((c) => (
-                <tr key={c.u.id} className="border-t border-slate-100 hover:bg-amber-50">
-                  <td className="px-3 py-2 font-semibold">{c.u.nom_complet || c.u.nom}</td>
+              {chefs.map((c, i) => (
+                <tr key={c.u.id} className={`border-t border-slate-100 align-top ${classeLigneDepliable(false, i)}`}>
+                  <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(false, i))}`}>{c.u.nom_complet || c.u.nom}</td>
                   <td className="px-3 py-2 tabular-nums">{c.nbFilleuls}</td>
                   <td className="px-3 py-2 tabular-nums">{c.tauxEq} %</td>
                   <td className="px-3 py-2 tabular-nums font-bold text-red-600">{fmt(c.due)}
@@ -655,9 +657,9 @@ export function MonEquipe({ db, save, profile }) {
                     )}
                   </td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(c.versees)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {c.due > 0 && aDroit(db, profile, "act_commission") && <button onClick={() => payerCommissionEquipe(c)} className="text-xs font-bold text-white bg-amber-600 rounded px-2 py-1 hover:bg-amber-700">✓ Payer</button>}
-                  </td>
+                  <CelluleActions>
+                    {c.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond icone="💵" teinte="vert" onClick={() => payerCommissionEquipe(c)} titre="✓ Payer la commission d'équipe" />}
+                  </CelluleActions>
                 </tr>
               ))}
             </tbody>
@@ -674,11 +676,11 @@ export function MonEquipe({ db, save, profile }) {
           <div className="text-sm text-slate-400 text-center py-6">Aucun apporteur externe sur cette période. Renseignez-le au moment de la vente (💰 Ventes → 🤝 Apporteur externe).</div>
         ) : (
           <table className="w-full text-sm min-w-[620px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Apporteur", "Téléphone", "Clients apportés", "Ventes", "CA apporté", "Commission due", "Déjà payé", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Apporteur", "Téléphone", "Clients apportés", "Ventes", "CA apporté", "Commission due", "Déjà payé", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
             <tbody>
-              {apporteursExt.map((a) => (
-                <tr key={a.nom + a.tel} className="border-t border-slate-100 hover:bg-sky-50">
-                  <td className="px-3 py-2 font-semibold">{a.nom}
+              {apporteursExt.map((a, i) => (
+                <tr key={a.nom + a.tel} className={`border-t border-slate-100 align-top ${classeLigneDepliable(false, i)}`}>
+                  <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(false, i))}`}>{a.nom}
                     {clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <div className="text-xs font-bold text-amber-600">🎖 Éligible commercial</div>}
                     {dejaUtilisateur(a) && <div className="text-xs font-bold text-green-700">✅ Déjà commercial</div>}
                   </td>
@@ -699,11 +701,11 @@ export function MonEquipe({ db, save, profile }) {
                   <td className="px-3 py-2 tabular-nums font-bold">{fmt(a.ca)}</td>
                   <td className="px-3 py-2 tabular-nums font-bold text-red-600">{fmt(a.due)}</td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(a.payee)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {a.due > 0 && aDroit(db, profile, "act_commission") && <button onClick={() => payerApporteur(a)} className="text-xs font-bold text-white bg-slate-800 rounded px-2 py-1 hover:bg-slate-900 mr-1">✓ Payer</button>}
-                    {aDroit(db, profile, "act_commission") && <button title="Changer son moyen de paiement habituel" onClick={() => changerMoyenApporteur(a)} className="text-xs font-bold text-sky-800 underline mr-1">✏️ Moyen</button>}
-                    {estAdmin && clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <button onClick={() => promouvoir(a)} className="text-xs font-bold text-white bg-amber-600 rounded px-2 py-1 hover:bg-amber-700">🎖 Promouvoir commercial</button>}
-                  </td>
+                  <CelluleActions>
+                    {a.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond icone="💵" teinte="vert" onClick={() => payerApporteur(a)} titre="✓ Payer la commission de l'apporteur" />}
+                    {aDroit(db, profile, "act_commission") && <BoutonRond icone="💳" onClick={() => changerMoyenApporteur(a)} titre="✏️ Moyen — changer son moyen de paiement habituel" />}
+                    {estAdmin && clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <BoutonRond icone="🎖" teinte="ambre" onClick={() => promouvoir(a)} titre="🎖 Promouvoir commercial" />}
+                  </CelluleActions>
                 </tr>
               ))}
             </tbody>

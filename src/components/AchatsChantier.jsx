@@ -4,7 +4,7 @@
 // CHANTIER). Les règles : lib/achatsChantier.js ; le geste vit dans Ventes.jsx.
 // ============================================================
 import { fmt, dFR } from "../lib/core";
-import { Field, inputCls } from "./ui";
+import { Field, inputCls, enTeteFige, celluleFigee, fondLigneDepliable, BoutonRond, CelluleActions } from "./ui";
 import {
   nomChantier, argentDuChantier, avertissementMateriel, achatsDe, totalAchat, resumeAchat,
   venteDuChantier, detteDuChantier, PAIEMENT_CHANTIER,
@@ -64,31 +64,37 @@ export function TableAchatsChantier({ chantiers, boutique, ventes, dettes, onImp
   }).sort((x, y) => `${y.a.date} ${y.a.heure || ""}`.localeCompare(`${x.a.date} ${x.a.heure || ""}`));
   return (
     <table className="w-full text-sm min-w-[760px]" data-table-achats-chantier>
-      <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Date", "N°", "Chantier", "Articles", "Total", "Argent du chantier", "Par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+      {/* 🧾 La règle des lignes (15/10/2026) : le chantier figé en première
+          colonne, l'état en pastille, les gestes en boutons ronds. */}
+      <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Chantier", "Date", "N°", "Articles", "Total", "Argent du chantier", "Par", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}</tr></thead>
       <tbody>
         {lignes.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun achat pour un chantier dans cette boutique.</td></tr>}
-        {lignes.map(({ a, c, etat, argent }) => (
-          <tr key={a.id} className={`border-t border-slate-100 ${a.annule ? "bg-slate-100 text-slate-400" : ""}`} data-achat-chantier={a.id}>
+        {lignes.map(({ a, c, etat, argent }, i) => {
+          const fond = fondLigneDepliable(false, i, a.annule ? "bg-slate-100" : "");
+          const pastille = "inline-block px-2 py-0.5 rounded-full text-xs font-bold border";
+          return (
+          <tr key={a.id} className={`border-t border-slate-100 align-top ${fond} ${a.annule ? "text-slate-400" : ""}`} data-achat-chantier={a.id}>
+            <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fond)}`}>{nomChantier(c)}</td>
             <td className="px-3 py-2 whitespace-nowrap">{dFR(a.date)}<div className="text-xs text-slate-400">{a.heure || ""}</div></td>
             <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{a.numero}</td>
-            <td className="px-3 py-2 font-semibold">{nomChantier(c)}</td>
             <td className="px-3 py-2 text-slate-600">{resumeAchat(a)}</td>
-            <td className="px-3 py-2 tabular-nums font-bold whitespace-nowrap">{fmt(totalAchat(a))}</td>
+            <td className="px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap">{fmt(totalAchat(a))}</td>
             <td className="px-3 py-2 text-xs">
               {a.annule
                 ? <span data-achat-annule>↩ Annulé le {dFR(a.annule.le)} par {a.annule.par} — {a.annule.motif}</span>
                 : etat && etat.enAttente > 0
-                  ? <span className="font-bold text-amber-700" data-achat-ligne-attente>⏳ {fmt(etat.enAttente)} en attente</span>
-                  : <span className="font-semibold text-green-700">✅ Réglé</span>}
+                  ? <span className={`${pastille} bg-amber-100 text-amber-700 border-amber-200`} data-achat-ligne-attente>⏳ {fmt(etat.enAttente)} en attente</span>
+                  : <span className={`${pastille} bg-green-100 text-green-700 border-green-200`}>✅ Réglé</span>}
               {!a.annule && argent.depasseMateriel && <div className="text-red-700 font-semibold">⚠ dépasse la part matériel du devis</div>}
             </td>
             <td className="px-3 py-2 text-slate-500">{a.par}</td>
-            <td className="px-3 py-2 whitespace-nowrap">
-              <button onClick={() => onImprimer(a, c)} className="text-xs text-sky-700 underline mr-2">🖨 Imprimer</button>
-              {peutAnnuler && !a.annule && c.statut !== "receptionne" && <button onClick={() => onAnnuler(a, c)} className="text-xs font-bold text-red-700 underline">↩ Annuler</button>}
-            </td>
+            <CelluleActions>
+              <BoutonRond icone="🖨" onClick={() => onImprimer(a, c)} titre="🖨 Imprimer la facture d'achat pour le chantier" />
+              {peutAnnuler && !a.annule && c.statut !== "receptionne" && <BoutonRond data-annuler-achat icone="↩" teinte="rouge" onClick={() => onAnnuler(a, c)} titre="↩ Annuler l'achat (le stock revient)" />}
+            </CelluleActions>
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
   );

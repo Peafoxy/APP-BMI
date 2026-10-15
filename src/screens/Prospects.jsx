@@ -18,7 +18,7 @@ import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
 import { rendezVousVisibles, visitesDuProspect, libelleStatut } from "../lib/rendezVous";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -533,21 +533,27 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
           <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Date", "Numéro", "Catégorie / projet", "Localisation", "Avis", "Intérêt", "Relance", ...(isAdmin ? ["Commercial"] : []), ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</td></tr>}
-            {listePage.map((p) => {
+            {listePage.map((p, i) => {
               const enRetard = p.relance && p.relance <= today();
               const deplie = besoinDeplie === p.id;
+              const fond = enRetard ? "bg-orange-50" : "";
+              const sien = isAdmin || p.commercial === profile.nom;
               return (
                 <Fragment key={p.id}>
-                <tr className={`border-t border-slate-100 hover:bg-sky-50 ${enRetard ? "bg-orange-50" : ""}`}>
+                {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026,
+                    « Tous, lance ») : un clic la déplie (le besoin en entier), un
+                    second la replie, une seule à la fois ; les gestes sont des
+                    boutons ronds, le libellé au survol. */}
+                <tr data-ligne-prospect={deplie ? "deplie" : "replie"} onClick={() => setBesoinDeplie(deplie ? null : p.id)} className={`border-t border-slate-100 cursor-pointer ${classeLigneDepliable(deplie, i, fond)}`}>
                   {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo,
                       25/09/2026 : « figer le nom du client… comme dans stock ») :
                       il passe en PREMIÈRE colonne, par LA règle commune. */}
-                  <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(enRetard ? "bg-orange-50" : "bg-white")}`}>
+                  <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i, fond), deplie)}`}>
                     {p.nom}
                     {estDemandeAssistant(p) && <div className="text-xs font-semibold text-violet-700" data-demande-assistant>🤖 Demande de l'assistant WhatsApp</div>}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{dFR(p.date)}</td>
-                  <td className="px-3 py-2">{p.tel}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{p.tel}</td>
                   <td className="px-3 py-2 text-slate-500">
                     {p.categorie}
                     {p.projet && <div className="text-xs font-semibold text-sky-800" data-projet>🎯 {p.projet}</div>}
@@ -555,26 +561,28 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                   <td className="px-3 py-2">
                     {p.localisation || (p.lat ? "" : "—")}
                     {p.lat && p.lng && (
-                      <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" className="ml-1 text-sky-700 underline text-xs whitespace-nowrap">📍 Voir sur la carte</a>
+                      <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-1 text-sky-700 underline text-xs whitespace-nowrap">📍 Voir sur la carte</a>
                     )}
                   </td>
                   <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.statut === "Favorable" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{p.statut}</span>
                     {estDormant(p) && (
-                      <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600 border border-slate-300" title={`Aucune activité depuis ${joursSansActivite(p)} jours`}>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600 border border-slate-300 whitespace-nowrap" title={`Aucune activité depuis ${joursSansActivite(p)} jours`}>
                         💤 Dormant — {Math.floor(joursSansActivite(p) / 30)} mois
                       </span>
                     )}
                     {p.archive && (
-                      <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300" title={`Archivé le ${dFR(p.archive_le)}`}>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300" title={`Archivé le ${dFR(p.archive_le)}`}>
                         📦 {p.archive_motif}
                       </span>
                     )}
                     {p.devis_valide && !p.converti && (
-                      <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300" title={`Devis de ${fmt(p.devis_total)} validé le ${dFR(p.devis_valide_le)} — paiement prévu à ${p.devis_boutique}`}>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300" title={`Devis de ${fmt(p.devis_total)} validé le ${dFR(p.devis_valide_le)} — paiement prévu à ${p.devis_boutique}`}>
                         ⏳ Devis validé — attend le paiement
                       </span>
                     )}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.interet === "Intéressé" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}>{p.interet}</span>
@@ -583,39 +591,37 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                   {isAdmin && <td className="px-3 py-2">{p.commercial}</td>}
                   {/* Les gestes passent à la ligne au lieu de courir à droite
                       (capture Timo, 25/09/2026 : « ArchiverSuppr. » collés). */}
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-[260px] max-w-[420px]">
-                    {!isAdmin && <button onClick={() => modifierRelance(p)} className="text-xs font-bold text-sky-800 underline mr-2">Relance</button>}
-                    {enRetard && p.tel && (isAdmin || p.commercial === profile.nom) && (
-                      <button onClick={() => relancerWhatsApp(p)} className="text-xs font-bold text-white bg-orange-600 rounded px-2 py-0.5 hover:bg-orange-700 mr-2">📱 Relancer</button>
+                  <CelluleActions largeur="min-w-[150px] max-w-[230px]">
+                    {!isAdmin && <BoutonRond icone="📆" titre="Changer la date de relance" onClick={() => modifierRelance(p)} />}
+                    {enRetard && p.tel && sien && (
+                      <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="orange" titre="📱 Relancer par WhatsApp" onClick={() => relancerWhatsApp(p)} />
                     )}
-                    {!p.archive && !p.converti && (isAdmin || p.commercial === profile.nom) && (
-                      <button onClick={() => changerProjet(p)} className="text-xs font-bold text-sky-800 underline mr-2">🎯 Projet</button>
+                    {!p.archive && !p.converti && sien && (
+                      <BoutonRond icone="🎯" titre="🎯 Projet" onClick={() => changerProjet(p)} />
                     )}
-                    {voitTout && aDroit(db, profile, "act_reaffecter") && <button onClick={() => reassigner(p)} className="text-xs font-bold text-sky-800 underline mr-2">Réassigner</button>}
+                    {voitTout && aDroit(db, profile, "act_reaffecter") && <BoutonRond icone="🔀" titre="Réassigner à un autre commercial" onClick={() => reassigner(p)} />}
                     {estDemandeAssistant(p) && !p.archive && (
-                      <button onClick={() => prendre(p)} className="text-xs font-bold text-white bg-violet-700 rounded px-2 py-0.5 hover:bg-violet-800 mr-2">🙋 Prendre en charge</button>
+                      <BoutonRond icone="🙋" teinte="violet" titre="🙋 Prendre en charge" onClick={() => prendre(p)} />
                     )}
-                    {!p.archive && !p.converti && onPreparerDevis && (isAdmin || p.commercial === profile.nom) && (
-                      <button onClick={() => preparerDevis(p)} className="text-xs font-bold text-white bg-sky-800 rounded px-2 py-0.5 hover:bg-sky-900 mr-2" title="Ouvre le dimensionnement solaire avec les appareils lus dans le besoin">🔆 Préparer le devis</button>
+                    {!p.archive && !p.converti && onPreparerDevis && sien && (
+                      <BoutonRond icone="🔆" titre="🔆 Préparer le devis — le dimensionnement solaire s'ouvre avec les appareils lus dans le besoin" onClick={() => preparerDevis(p)} />
                     )}
                     {/* 📅 « Planifier une visite » (12/10/2026, Rendez-vous « G ») : ouvre
                         📅 Rendez-vous avec une visite pro déjà rattachée à CE prospect. */}
                     {!p.archive && !p.converti && onPlanifierVisite && (isAdmin || p.commercial === profile.nom) && (
-                      <button data-planifier-visite onClick={() => onPlanifierVisite(p)} className="text-xs font-bold text-sky-800 border border-sky-300 rounded px-2 py-0.5 hover:bg-sky-50 mr-2">📅 Planifier une visite</button>
+                      <BoutonRond data-planifier-visite icone="📅" titre="📅 Planifier une visite" onClick={() => onPlanifierVisite(p)} />
                     )}
-                    {!p.archive && !p.converti && (isAdmin || p.commercial === profile.nom) && (
-                      <button onClick={() => contacte(p)} className="text-xs text-sky-700 underline font-semibold" title={`Dernière activité : ${dFR(derniereActivite(p))}`}>📞 Contacté</button>
+                    {!p.archive && !p.converti && sien && (
+                      <BoutonRond icone="📞" titre={`📞 Contacté — dernière activité : ${dFR(derniereActivite(p))}`} onClick={() => contacte(p)} />
                     )}
-                    {!p.archive && !p.converti && (isAdmin || p.commercial === profile.nom) && (
-                      <button onClick={() => convertirEnClient(p)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-0.5 hover:bg-green-800">✅ Convertir en client</button>
+                    {!p.archive && !p.converti && sien && (
+                      <BoutonRond icone="✅" teinte="vert" titre="✅ Convertir en client" onClick={() => convertirEnClient(p)} />
                     )}
                     {p.archive
-                      ? (isAdmin || p.commercial === profile.nom) && <button onClick={() => reactiver(p)} className="text-xs text-green-700 underline font-semibold">↩ Réactiver</button>
-                      : (isAdmin || p.commercial === profile.nom) && !p.converti && <button onClick={() => archiver(p)} className="text-xs text-amber-700 underline font-semibold">📦 Archiver</button>}
-                    {(isAdmin || p.commercial === profile.nom) && <button onClick={() => supprimer(p)} className="text-xs text-red-600 underline">Suppr.</button>}
-                    </div>
-                  </td>
+                      ? sien && <BoutonRond icone="↩" teinte="vert" titre="↩ Réactiver" onClick={() => reactiver(p)} />
+                      : sien && !p.converti && <BoutonRond icone="📦" teinte="ambre" titre="📦 Archiver" onClick={() => archiver(p)} />}
+                    {sien && <BoutonRond icone="🗑" teinte="rouge" titre="🗑 Supprimer" onClick={() => supprimer(p)} />}
+                  </CelluleActions>
                 </tr>
                 {/* 🔧 LE BESOIN SUR SA PROPRE LIGNE (capture Timo, 25/09/2026 : « ce
                     n'est pas agréable à regarder… tous les détails dans
@@ -624,7 +630,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                     l'assistant y est une pastille, une seule fois. */}
                 {/* 📅 Les visites de ce prospect et leur compte rendu (Rendez-vous « G »). */}
                 {visitesDuProspect(rdvVisibles, p.id).length > 0 && (
-                  <tr className={enRetard ? "bg-orange-50" : ""} data-visites-prospect>
+                  <tr className={fondLigneDepliable(deplie, i, fond)} data-visites-prospect>
                     <td colSpan={10} className="px-3 pb-2 pt-0 text-xs text-slate-600">
                       {visitesDuProspect(rdvVisibles, p.id).map((r) => (
                         <div key={r.id}>📅 Visite du {dFR(r.date)} à {r.heure} — {libelleStatut(r.statut)}{r.compte_rendu ? <> · <b>📝 {r.compte_rendu}</b></> : ""}</div>
@@ -633,7 +639,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                   </tr>
                 )}
                 {(p.nature || p.estimation_assistant) && (
-                  <tr className={`${enRetard ? "bg-orange-50" : ""} cursor-pointer`} onClick={() => setBesoinDeplie(deplie ? null : p.id)} data-besoin-prospect={deplie ? "deplie" : "replie"}>
+                  <tr className={`${fondLigneDepliable(deplie, i, fond)} cursor-pointer`} onClick={() => setBesoinDeplie(deplie ? null : p.id)} data-besoin-prospect={deplie ? "deplie" : "replie"}>
                     <td colSpan={10} className="px-3 pb-2 pt-0">
                       <div className="flex flex-wrap items-start gap-2 text-xs">
                         {p.nature && <span className={`flex-1 min-w-[240px] text-slate-600 ${deplie ? "whitespace-pre-wrap" : "line-clamp-2"}`} title={deplie ? "Cliquer pour replier" : "Cliquer pour tout lire"}><b className="text-slate-700 not-italic">🔧 Besoin :</b> {p.nature}</span>}

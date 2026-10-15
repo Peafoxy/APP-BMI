@@ -21,7 +21,7 @@ import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, a
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
@@ -158,6 +158,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // (et replie la précédente) ; seul un clic sur la ligne ouverte la referme.
   // `venteDeplieeInitiale` : pour le banc seul (lire une ligne dépliée), comme `cleInitiale` de 📲 WhatsApp.
   const [venteDepliee, setVenteDepliee] = useState(venteDeplieeInitiale);
+  const [proformaDepliee, setProformaDepliee] = useState(null); // la ligne dépliée d'une proforma (15/10/2026)
   // ⚠ Demande Timo, après correction du parcours : une demande de transfert
   // NE VIDE PLUS le panier — le vendeur reclique sur "Encaisser la vente"
   // (même panier) une fois l'autre boutique prévenue par téléphone. Ce suivi
@@ -1694,7 +1695,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                       <td className="px-3 py-2 tabular-nums">{fmt(l.pu)}</td>
                       <td className="px-3 py-2 tabular-nums text-red-600">{Number(l.remise_ligne || 0) > 0 ? `−${fmt(l.remise_ligne)}` : "—"}</td>
                       <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.qte * l.pu - Number(l.remise_ligne || 0))}</td>
-                      <td className="px-3 py-2"><button onClick={() => retirer(i)} className="text-xs text-red-600 underline">Retirer</button></td>
+                      <td className="px-3 py-2"><BoutonRond icone="✕" teinte="rouge" titre="Retirer de la liste" onClick={() => retirer(i)} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -1944,39 +1945,46 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             onImprimer={imprimerUnAchat} onAnnuler={annulerUnAchat} peutAnnuler={profile.role === "admin"} />
         ) : vueListe === "proformas" && voitProformas ? (
           <table className="w-full text-sm min-w-[700px]">
-            <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Date", "N°", "Client", "Articles", "Total", "Émis par", "Suite", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            {/* 🧾 La règle des lignes (15/10/2026) : le client figé, les articles
+                sur deux lignes puis la suite au clic, ce qu'elle est devenue en
+                pastille, les gestes en boutons ronds. */}
+            <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Client", "Date", "N°", "Articles", "Total", "Émis par", "Suite", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}</tr></thead>
             <tbody>
               {proformasFiltres.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune proforma ne correspond à la recherche." : "Aucune proforma émise pour l'instant."}</td></tr>}
-              {proformasFiltres.map((pf) => (
-                <tr key={pf.id} className="border-t border-slate-100 hover:bg-sky-50">
+              {proformasFiltres.map((pf, i) => {
+                const ouverte = proformaDepliee === pf.id;
+                const vs = ventesDeProforma(db, pf);
+                return (
+                <tr key={pf.id} data-ligne-proforma={ouverte ? "deplie" : "replie"} onClick={() => setProformaDepliee(ouverte ? null : pf.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
+                  <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>
+                    <div className="font-bold text-slate-800">{pf.client || <span className="text-slate-400 font-normal">—</span>}</div>
+                    {pf.tel && <div className="text-xs text-slate-500">{pf.tel}</div>}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">{dFR(pf.date)}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{pf.numero}</td>
-                  <td className="px-3 py-2">{pf.client || "—"}{pf.tel ? <span className="text-slate-400"> · {pf.tel}</span> : null}</td>
-                  <td className="px-3 py-2 text-slate-500">{(pf.lignes || []).length} article(s)</td>
-                  <td className="px-3 py-2 font-semibold">{fmt(pf.total)}</td>
+                  <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{pf.numero}</td>
+                  <td className="px-3 py-2"><ListeArticles lignes={(pf.lignes || []).map((l) => ({ qte: l.qte, article: l.article || l.nom }))} deplie={ouverte} /></td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums whitespace-nowrap">{fmt(pf.total)}</td>
                   <td className="px-3 py-2 text-slate-500">{pf.par}{pf.modifie_le && <div className="text-xs text-amber-700 font-semibold" data-proforma-modifiee>✏️ Modifiée le {dFR(String(pf.modifie_le).slice(0, 10))} par {pf.modifie_par}{Number(pf.nb_modifications || 0) > 1 ? ` (${pf.nb_modifications} fois)` : ""}</div>}</td>
                   {/* Ce que la proforma est DEVENUE (Timo, 11/09/2026) : combien
                       de tes offres aboutissent, et le reçu qui en est né. */}
-                  <td className="px-3 py-2 whitespace-nowrap">{(() => {
-                    const vs = ventesDeProforma(db, pf);
-                    return vs.length
-                      ? <span className="text-xs font-bold text-green-700">✅ Encaissée le {dFR(vs[0].date)} — {numeroRecu(vs[0])}{vs.length > 1 ? ` (+${vs.length - 1})` : ""}</span>
-                      : <span className="text-xs font-semibold text-amber-700">⏳ En attente</span>;
-                  })()}</td>
-                  <td className="px-3 py-2">
-                    <button onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, ...champsIdentite(pf), lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} className="text-xs text-sky-700 underline mr-2">🖨️ Réimprimer</button>
+                  <td className="px-3 py-2">{vs.length
+                      ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-700 border-green-200">✅ Encaissée le {dFR(vs[0].date)} — {numeroRecu(vs[0])}{vs.length > 1 ? ` (+${vs.length - 1})` : ""}</span>
+                      : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-amber-100 text-amber-700 border-amber-200 whitespace-nowrap">⏳ En attente</span>}</td>
+                  <CelluleActions>
+                    <BoutonRond icone="🖨" onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, ...champsIdentite(pf), lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} titre="🖨️ Réimprimer" />
                     {/* ⚠ Timo (11/09/2026) : « reprise » disait déjà, sur une VENTE,
                         que le client rend un article — deux sens opposés dans le même
                         écran. Ici c'est « Vendre » : le panier se remplit, l'encaissement
                         reste à faire. */}
-                    <button onClick={() => reprendreLaProforma(pf)} title="Mettre les articles de cette proforma dans le panier — l'encaissement reste à faire" className="text-xs font-bold text-emerald-700 underline mr-2">🛒 Vendre</button>
+                    <BoutonRond data-vendre-proforma icone="🛒" teinte="vert" onClick={() => reprendreLaProforma(pf)} titre="🛒 Vendre — mettre les articles de cette proforma dans le panier, l'encaissement reste à faire" />
                     {/* ✏️ 30/09/2026 : l'auteur et l'administrateur, jamais sur une proforma encaissée ; au-delà de 3 % l'administrateur seul (revérifié dans le geste). */}
-                    {!ventesDeProforma(db, pf).length && (profile.role === "admin" || (auteurDeLaProforma(pf, profile) && !proformaAuDelaDuPlafond(pf))) && (
-                      <button onClick={() => modifierLaProforma(pf)} title="Corriger cette proforma — elle garde son numéro, la modification est notée" className="text-xs font-bold text-amber-700 underline">✏️ Modifier</button>
+                    {!vs.length && (profile.role === "admin" || (auteurDeLaProforma(pf, profile) && !proformaAuDelaDuPlafond(pf))) && (
+                      <BoutonRond data-modifier-proforma icone="✏️" teinte="ambre" onClick={() => modifierLaProforma(pf)} titre="✏️ Modifier — elle garde son numéro, la modification est notée" />
                     )}
-                  </td>
+                  </CelluleActions>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         ) : (

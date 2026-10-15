@@ -2507,12 +2507,15 @@ titre("㉗ 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE FOIS (25/09
     && /const deplie = besoinDeplie === p\.id;/.test(P) && /data-besoin-prospect/.test(P));
   test("★ l'estimation n'apparaît qu'UNE fois sur l'écran, en pastille",
     (P.match(/data-estimation-assistant/g) || []).length === 1);
-  test("★★ le NOM reste figé pendant le défilement horizontal (« comme dans stock ») : première colonne, par LA règle commune enTeteFige / celluleFigee, fond orange gardé sur une relance en retard",
+  // ⚠ RETOURNÉ le 15/10/2026 (« Tous, lance ») : la ligne se déplie au clic,
+  // la cellule figée porte le fond de la ligne (orange en retard, bleu dépliée).
+  test("★★ le NOM reste figé pendant le défilement horizontal (« comme dans stock ») : première colonne, par LA règle commune enTeteFige / celluleFigee, fond de la ligne gardé (orange sur une relance en retard, bleu dépliée)",
     /\{\["Nom", "Date", "Numéro",/.test(P) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(P)
-    && /<td className=\{`px-3 py-2 font-semibold min-w-\[170px\] \$\{celluleFigee\(enRetard \? "bg-orange-50" : "bg-white"\)\}`\}>\s*\{\/\*[\s\S]*?\*\/\}?\s*\{p\.nom\}|<td className=\{`px-3 py-2 font-semibold min-w-\[170px\] \$\{celluleFigee\(enRetard \? "bg-orange-50" : "bg-white"\)\}`\}>\s*\{p\.nom\}/.test(P)
+    && /const fond = enRetard \? "bg-orange-50" : "";/.test(P)
+    && /<td className=\{`px-3 py-2 font-semibold min-w-\[170px\] \$\{celluleFigee\(fondLigneDepliable\(deplie, i, fond\), deplie\)\}`\}>\s*\{p\.nom\}/.test(P)
     && !/sticky left-0/.test(P));
-  test("★ les gestes passent à la ligne au lieu de courir à droite",
-    /flex flex-wrap items-center gap-x-2 gap-y-1 min-w-\[260px\] max-w-\[420px\]/.test(P));
+  test("★ les gestes sont des boutons ronds qui passent à la ligne (RETOURNÉ le 15/10/2026 : CelluleActions bridée)",
+    /<CelluleActions largeur="min-w-\[150px\] max-w-\[230px\]">/.test(P) && !/className="text-xs[^"]*underline/.test(P.slice(P.indexOf("<table"), P.indexOf("</table>"))));
   const capture = "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour. Estimation donnée : ~34,2 kWh/jour, 22 panneaux 400W, 4 batteries 200Ah 48V, convertisseur 5,5 kW, entre 4 600 000 et 6 250 000 F CFA.";
   test("★★ le besoin enregistré par l'assistant ne garde QUE ce que le client a dit (la phrase de sa capture)",
     I.besoinSansEstimation(capture) === "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour."
@@ -3088,7 +3091,8 @@ const ecranCI = lire("src/screens/ClientsInstalles.jsx");
 const corpsFait = ecranCI.slice(ecranCI.indexOf("const entretienFait = async"), ecranCI.indexOf("const lierCompte = async"));
 test("★ l'écran : « ✅ Entretien fait » (administrateur, revérifié dans le geste), la tâche automatique de cette date se ferme, ce que la tournée a fait se lit sous la date",
   /if \(refuserSaufAdmin\(profile, "Noter un entretien fait"\)\) return;/.test(corpsFait) && /critiqueEntretienFait\(c,/.test(corpsFait)
-  && /statut: "validee"/.test(corpsFait) && /\{isAdmin && !c\.travaux && c\.date_entretien && <button onClick=\{\(\) => entretienFait\(c\)\}/.test(ecranCI)
+  // RETOURNÉ le 15/10/2026 (la règle des lignes) : un bouton rond.
+  && /statut: "validee"/.test(corpsFait) && /\{isAdmin && !c\.travaux && c\.date_entretien && <BoutonRond data-entretien-fait icone="✅" teinte="vert" onClick=\{\(\) => entretienFait\(c\)\}/.test(ecranCI)
   && /data-rappel-entretien/.test(ecranCI));
 test("rien de secret : aucune clé dans la règle, et le texte du modèle est celui validé par Timo",
   !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/rappelEntretien.js"))

@@ -250,6 +250,32 @@ export function TexteDepliable({ texte, deplie = false, vide = "—", largeur = 
   return <div data-texte-depliable={deplie ? "deplie" : "replie"} className={`whitespace-normal break-words ${deplie ? "w-0 min-w-full" : `${largeur} line-clamp-2`}`}>{t}</div>;
 }
 export const boutonAction = (teinte) => `inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
+// UN BOUTON ROND D'ACTION, écrit UNE fois (15/10/2026, « Tous, lance » : la
+// règle des lignes de 💰 Ventes et 📋 Dettes étendue aux autres tableaux).
+// L'icône seule, le libellé au survol ET pour les lecteurs d'écran ; la
+// teinte dit le genre du geste (rouge = supprimer, vert = conclure, orange =
+// relancer, violet = assistant). La cellule qui les porte ne déplie pas la
+// ligne : `CelluleActions`.
+const TEINTES_ROND = {
+  bleu: "border-sky-200 bg-white text-sky-800 hover:bg-sky-50",
+  rouge: "border-red-200 bg-white text-red-700 hover:bg-red-50",
+  vert: "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
+  orange: "border-orange-300 bg-orange-50 text-orange-800 hover:bg-orange-100",
+  violet: "border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100",
+  ambre: "border-amber-300 bg-white text-amber-800 hover:bg-amber-50",
+  gris: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+  rose: "border-pink-300 bg-pink-50 text-pink-700 hover:bg-pink-100",
+};
+export function BoutonRond({ icone, titre, teinte = "bleu", onClick, ...autres }) {
+  return <button type="button" {...autres} onClick={onClick} title={titre} aria-label={titre} className={boutonAction(TEINTES_ROND[teinte] || TEINTES_ROND.bleu)}>{icone}</button>;
+}
+export function CelluleActions({ children, className = "", largeur = "" }) {
+  return (
+    <td data-cellule-actions className={`px-3 py-2 whitespace-nowrap ${className}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`flex flex-wrap items-center gap-1.5 ${largeur}`}>{children}</div>
+    </td>
+  );
+}
 // La ligne d'un tableau qu'on déplie au clic (Ventes, Dettes) : UNE ligne
 // dépliée à la fois, fond bleu soutenu + barre épaisse à gauche (couleur de
 // l'espace : violet en formation), sinon zébrage et survol.

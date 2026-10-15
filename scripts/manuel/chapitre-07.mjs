@@ -73,6 +73,7 @@ export const CHAPITRE = {
         ["**📊 Tableau de bord**", "La carte « Dettes en cours » (elle ne dépend pas de la période)."],
         ["**🔒 Caisse**", "Le versement du jour se lit dans « Recette du jour (espèces) · encaissements » et dans « Détail des encaissements du … — qui a payé quoi » (chapitre 6)."],
       ]}],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : la liste des **réservations prépayées** se lit comme celle des dettes : le client **figé à gauche**, les articles sur deux lignes puis la suite au **clic sur la ligne**, le statut en **pastille** (⏳ En cours · 💰 Soldée — à livrer · ✅ Livrée), et les gestes en **boutons ronds** — 🖨 reçu, 💵 versement, 📦 livrer, ✕ annuler — le nom au survol."],
     ]},
 
     // ── 4

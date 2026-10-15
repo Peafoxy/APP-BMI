@@ -76,7 +76,9 @@ console.log("\nL'écran se monte et lit la fiche");
   // prix facturé ») : la ligne porte aussi son TOTAL COÛT (qté × prix d'achat).
   // RETOURNÉ le 10/10/2026 (la remise sur un article) : une colonne « Remise »
   // entre le prix unitaire et le coût — « — » sans remise, et son bouton.
-  test("★ les deux articles sont listés avec leur nature (stock / HB), prix unitaire facturé, REMISE, coût unitaire, total facturé et TOTAL COÛT ; la dépense rattachée est citée", /Panneau 400W stock 2 100 000 F — ?Remise 70 000 F 200 000 F 140 000 F/.test(t2) && /Câble 6 mm HB 1 50 000 F — ?Remise 30 000 F 50 000 F 30 000 F/.test(t2) && /Carburant — moto · 8 000 F/.test(t2), t2.slice(0, 900));
+  // RETOURNÉ le 15/10/2026 (la règle des lignes) : le bouton est ROND, en bout
+  // de ligne, son mot au survol — la cellule Remise ne porte plus que le montant.
+  test("★ les deux articles sont listés avec leur nature (stock / HB), prix unitaire facturé, REMISE, coût unitaire, total facturé et TOTAL COÛT ; la dépense rattachée est citée", /Panneau 400W stock 2 100 000 F — 70 000 F 200 000 F 140 000 F/.test(t2) && /Câble 6 mm HB 1 50 000 F — 30 000 F 50 000 F 30 000 F/.test(t2) && /Carburant — moto · 8 000 F/.test(t2), t2.slice(0, 900));
   const titres = propre(await page.$eval("[data-articles-travaux] thead", (e) => e.innerText)).toLowerCase();
   test("★ les colonnes disent l'UNITÉ ou le TOTAL : « Prix unitaire facturé · Remise · Coût unitaire · Total facturé · Total coût » (plus de « Prix facturé » ni de « Total » seuls ; la Remise RETOURNÉE le 10/10/2026)", /prix unitaire facturé remise coût unitaire total facturé total coût/.test(titres), titres);
   const totaux = await page.$$eval("[data-articles-travaux] tbody tr", (rs) => rs.map((r) => Array.from(r.cells).map((c) => Number(c.innerText.replace(/\D/g, "")))));
@@ -164,7 +166,7 @@ console.log("\n🏷 La remise sur un article, jouée à l'écran (10/10/2026, «
   const l1 = await page.evaluate(() => window.dbApres?.clients_installes?.[0]?.articles_travaux?.[0]);
   const tR = await texte();
   test("★★ 3 % deviennent 6 000 F sur la fiche ; la ligne s'affiche −6 000 F, total facturé 194 000 F ; le titre dit « 244 000 F facturés (remises : −6 000 F) »",
-    l1 && l1.remise === 6000 && /Panneau 400W stock 2 100 000 F −6 000 F ?Modifier 70 000 F 194 000 F 140 000 F/.test(tR) && /244 000 F facturés \(remises : −6 000 F\), coût 170 000 F/.test(tR), JSON.stringify(l1) + " " + tR.slice(tR.indexOf("📦"), tR.indexOf("📦") + 300));
+    l1 && l1.remise === 6000 && /Panneau 400W stock 2 100 000 F −6 000 F 70 000 F 194 000 F 140 000 F/.test(tR) && /244 000 F facturés \(remises : −6 000 F\), coût 170 000 F/.test(tR), JSON.stringify(l1) + " " + tR.slice(tR.indexOf("📦"), tR.indexOf("📦") + 300));
   const j = await page.evaluate(() => window.journal.at(-1));
   test("le journal dit la remise : « remise sur 2 × Panneau 400W : 0 F → 6000 F »", /remise sur 2 × Panneau 400W : 0 F → 6000 F/.test(propre(j)), j);
   await page.click("[data-articles-travaux] tbody tr >> nth=0 >> [data-remiser]");
@@ -173,7 +175,7 @@ console.log("\n🏷 La remise sur un article, jouée à l'écran (10/10/2026, «
   await page.locator("[data-dialogue-boutons] button", { hasText: "OK" }).click();
   await attendre(250);
   const l1b = await page.evaluate(() => window.dbApres?.clients_installes?.[0]?.articles_travaux?.[0]);
-  test("★ « D a » : vide retire la remise — la ligne revient à 200 000 F", l1b && !("remise" in l1b) && /Panneau 400W stock 2 100 000 F — ?Remise 70 000 F 200 000 F/.test(await texte()), JSON.stringify(l1b));
+  test("★ « D a » : vide retire la remise — la ligne revient à 200 000 F", l1b && !("remise" in l1b) && /Panneau 400W stock 2 100 000 F — 70 000 F 200 000 F/.test(await texte()), JSON.stringify(l1b));
 }
 
 console.log("\nSupprimer et composer l'équipe (13/09/2026)");

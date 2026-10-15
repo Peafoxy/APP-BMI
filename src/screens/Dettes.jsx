@@ -7,7 +7,7 @@ import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { useState, Fragment } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette, statutDette, FILTRES_STATUT_DETTE, detteDansFiltre } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { avecInfoTravaux } from "../lib/travaux";
@@ -45,7 +45,8 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
   // Timo (13/09/2026) : « appliquer la même règle que dans Ventes pour
   // restructurer les dettes » — UNE dette dépliée à la fois (la suite des
   // articles au clic sur la ligne, un clic sur une autre la déplie directement).
-  const [detteDepliee, setDetteDepliee] = useState(detteDeplieeInitiale); // la valeur de départ n'existe que pour le banc
+  const [detteDepliee, setDetteDepliee] = useState(detteDeplieeInitiale);
+  const [reservationDepliee, setReservationDepliee] = useState(null); // 15/10/2026 // la valeur de départ n'existe que pour le banc
   // 🩶 Les règlements versés à part ET validés (lib/versements.js) : leur ligne se grise.
   const reglementsGrises = clesReglementsVersesValides(db);
   // 📅 Le filtre de période de la liste (Timo, 05/10/2026 : « Toute période »
@@ -414,7 +415,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
                   <tr key={i} className="border-b border-emerald-100">
                     <td className="py-1 font-semibold">{l.qte} × {l.nom}</td>
                     <td className="py-1 text-right tabular-nums">{fmt(l.qte * l.pu)}</td>
-                    <td className="py-1 text-right"><button onClick={() => setPanierRes(panierRes.filter((_, j) => j !== i))} className="text-xs text-red-600 underline">Retirer</button></td>
+                    <td className="py-1 text-right"><BoutonRond icone="✕" teinte="rouge" titre="Retirer de la liste" onClick={() => setPanierRes(panierRes.filter((_, j) => j !== i))} /></td>
                   </tr>
                 ))}
                 <tr className="font-bold"><td className="pt-2">TOTAL RÉSERVÉ</td><td className="pt-2 text-right tabular-nums text-emerald-800">{fmt(totalRes)}</td><td></td></tr>
@@ -437,30 +438,37 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
         {mesReservations.length > 0 && (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm min-w-[720px]">
-              <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Articles réservés", "Total", "Versé", "Reste", "Statut", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+              {/* 🧾 La règle des lignes (15/10/2026) : le client figé, les articles
+                  sur deux lignes puis la suite au clic, le statut en pastille, les
+                  gestes en boutons ronds. */}
+              <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Articles réservés", "Total", "Versé", "Reste", "Statut", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
               <tbody>
-                {mesReservations.map((r) => (
-                  <tr key={r.id} className="border-t border-slate-100 hover:bg-emerald-50 align-top">
-                    <td className="px-3 py-2 font-semibold">{r.client}<div className="text-xs font-normal text-slate-500">{dFR(r.date)}{r.echeance ? ` · prévu ${dFR(r.echeance)}` : ""}</div></td>
-                    <td className="px-3 py-2 text-xs">{(r.articles || []).map((l) => `${l.qte} × ${l.nom}`).join(", ")}</td>
-                    <td className="px-3 py-2 tabular-nums font-bold">{fmt(r.montant)}</td>
-                    <td className="px-3 py-2 tabular-nums text-green-700">{fmt(r.paye)}</td>
-                    <td className={`px-3 py-2 tabular-nums font-bold ${resteAPayer(r) > 0 ? "text-orange-600" : "text-green-700"}`}>{fmt(resteAPayer(r))}</td>
+                {mesReservations.map((r, i) => {
+                  const ouverte = reservationDepliee === r.id;
+                  const pastille = "inline-block px-2 py-0.5 rounded-full text-xs font-bold border";
+                  return (
+                  <tr key={r.id} data-ligne-reservation={ouverte ? "deplie" : "replie"} onClick={() => setReservationDepliee(ouverte ? null : r.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
+                    <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{r.client}<div className="text-xs font-normal text-slate-500">{dFR(r.date)}{r.echeance ? ` · prévu ${dFR(r.echeance)}` : ""}</div></td>
+                    <td className="px-3 py-2"><ListeArticles lignes={(r.articles || []).map((l) => ({ qte: l.qte, article: l.nom }))} deplie={ouverte} /></td>
+                    <td className="px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap">{fmt(r.montant)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-green-700 whitespace-nowrap">{fmt(r.paye)}</td>
+                    <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${resteAPayer(r) > 0 ? "text-orange-600" : "text-green-700"}`}>{fmt(resteAPayer(r))}</td>
                     <td className="px-3 py-2">
                       {r.statut === "livree"
-                        ? <span className="text-xs font-bold text-green-700">✅ Livrée le {dFR(r.date_livraison)}</span>
+                        ? <span className={`${pastille} bg-green-100 text-green-700 border-green-200`}>✅ Livrée le {dFR(r.date_livraison)}</span>
                         : resteAPayer(r) <= 0
-                          ? <span className="text-xs font-bold text-blue-700">💰 Soldée — à livrer</span>
-                          : <span className="text-xs font-bold text-amber-600">⏳ En cours</span>}
+                          ? <span className={`${pastille} bg-sky-100 text-sky-800 border-sky-200`}>💰 Soldée — à livrer</span>
+                          : <span className={`${pastille} bg-amber-100 text-amber-700 border-amber-200`}>⏳ En cours</span>}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <button onClick={() => imprimerRecuVersement(r, db.boutiques.find((b) => b.nom === r.boutique) || {})} className="text-xs font-bold text-sky-800 underline mr-2" title="Imprimer le reçu (avec filigrane NON LIVRÉ si pas encore livrée)">🖨 Reçu</button>
-                      {r.statut !== "livree" && <button onClick={() => encaisser(r)} className="text-xs font-bold text-sky-800 underline mr-2">+ Versement</button>}
-                      {r.statut !== "livree" && <button onClick={() => livrer(r)} className="text-xs font-bold text-white bg-emerald-700 rounded px-2 py-1 hover:bg-emerald-800 mr-2">📦 Livrer</button>}
-                      {r.statut !== "livree" && <button onClick={() => annulerReservation(r)} className="text-xs text-red-600 underline">Annuler</button>}
-                    </td>
+                    <CelluleActions>
+                      <BoutonRond icone="🖨" onClick={() => imprimerRecuVersement(r, db.boutiques.find((b) => b.nom === r.boutique) || {})} titre="🖨 Reçu — avec le filigrane NON LIVRÉ si pas encore livrée" />
+                      {r.statut !== "livree" && <BoutonRond icone="💵" teinte="vert" onClick={() => encaisser(r)} titre="+ Versement" />}
+                      {r.statut !== "livree" && <BoutonRond icone="📦" teinte="vert" onClick={() => livrer(r)} titre="📦 Livrer" />}
+                      {r.statut !== "livree" && <BoutonRond icone="✕" teinte="rouge" onClick={() => annulerReservation(r)} titre="Annuler la réservation" />}
+                    </CelluleActions>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

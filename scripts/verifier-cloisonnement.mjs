@@ -3661,7 +3661,8 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
   test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire) suivent la même règle",
     (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 5 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
-    readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes("📄 Devis PDF</button>"));
+    // RETOURNÉ le 15/10/2026 : un bouton rond, « 📄 Devis PDF » en libellé (au survol).
+    readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes('<BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />'));
 }
 
 titre("🏦 Les banques : une liste dans Paramètres, la banque sur la fiche, le moyen en boutons (14/09/2026)");
@@ -4460,7 +4461,7 @@ titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurabl
       && /motif : \$\{String\(motif\)\.trim\(\)\}/.test(corpsSupp)
       && corpsSupp.indexOf("refuserSaufAdminPrincipal") < corpsSupp.indexOf("save("));
     test("★ devis : le bouton 🗑 ne s'affiche qu'au principal, sur un devis ⏳ Proposé",
-      /\{peutDeciderDuPlan && !critiqueSuppressionDevis\(d\) && \(\s*<button onClick=\{\(\) => supprimerDevis\(d\)\}/.test(tdj)
+      /\{peutDeciderDuPlan && !critiqueSuppressionDevis\(d\) && \(\s*<BoutonRond data-supprimer-devis icone="🗑" teinte="rouge" onClick=\{\(\) => supprimerDevis\(d\)\}/.test(tdj)
       && /const peutDeciderDuPlan = estAdminPrincipal\(db, profile\);/.test(tdj));
     const R = await import(pathToFileURL(join(process.cwd(), "src/lib/rappels.js")).href);
     const vieux = { id: "dz", date: "2026-09-01", total: 1, statut: "propose" };
@@ -5714,7 +5715,7 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     && /texteRepli: texte,/.test(tld) && /demanderConfirmation: uConfirm,/.test(tld) && !/wa\.me/.test(tld)
     && /relance_le: today\(\), relance_par: profile\.nom, nb_relances: \(x\.nb_relances \|\| 0\) \+ 1/.test(tld)
     // RETOURNÉ le 15/10/2026 : ni bouton ni geste pour un devis imprimé sans compte.
-    && /\{devisRelancable\(d\) && !estSansAcces\(d\.client\) && \(\s*<button onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld)
+    && /\{devisRelancable\(d\) && !estSansAcces\(d\.client\) && \(\s*<BoutonRond icone=\{<IconeWhatsApp taille=\{16\} \/>\} teinte="vert" onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld)
     && /if \(estSansAcces\(d\.client\)\) \{ uAlert\(RELANCE_SANS_ACCES\); return; \}\n    const texte = texteRelanceDevis/.test(tld));
   test("★ rien n'est noté si le client n'a rien reçu (ni du numéro BMI, ni par WhatsApp) ; un client sans téléphone est refusé avec son motif",
     /if \(!r\.parti\) return;/.test(tld) && /if \(!d\.client\?\.tel\) \{ uAlert\("Ce client n'a pas de numéro de téléphone enregistré\."\); return; \}/.test(tld));
@@ -7070,7 +7071,8 @@ titre("🛒 Reprendre une proforma dans le panier (Timo, 11/09/2026)");
     /✅ Encaissée le \{dFR\(vs\[0\]\.date\)\} — \{numeroRecu\(vs\[0\]\)\}/.test(vtP) && /⏳ En attente/.test(vtP)
     && /"Émis par", "Suite", ""/.test(vtP) && /colSpan=\{8\}/.test(vtP));
   test("★ écran Ventes : la proforma émise GARDE produit_id, le bouton « 🛒 Reprendre » est sur sa ligne, le geste passe par la règle pure, prévient avant d'écraser un panier et n'enregistre rien",
-    /produit_id: l\.produit_id \|\| null,/.test(vtP) && /🛒 Vendre<\/button>/.test(vtP)
+    // RETOURNÉ le 15/10/2026 (la règle des lignes) : « 🛒 Vendre » est un bouton rond, le mot au survol.
+    /produit_id: l\.produit_id \|\| null,/.test(vtP) && /<BoutonRond data-vendre-proforma icone="🛒" teinte="vert" onClick=\{\(\) => reprendreLaProforma\(pf\)\} titre="🛒 Vendre/.test(vtP)
     && /const r = reprendreProforma\(db, pf, boutique\);/.test(vtP) && /Le panier contient déjà \$\{panier\.length\} article\(s\)/.test(vtP)
     && !/reprendreLaProforma[^]*?save\(/.test(vtP.slice(vtP.indexOf("const reprendreLaProforma"), vtP.indexOf("const proformaWhatsApp"))));
 }
@@ -7557,7 +7559,8 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
       test("★ 💸 le bouton de la paie s'appelle « 💸 Payer le salaire » (Utilisateurs et 💵 Salaires), son annulation « Annuler le paiement » — plus « Virement », qui faisait penser à la banque",
         /nom="💸 Payer le salaire"/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")) && /nom="Annuler le paiement"/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
         && !/nom="💸 Virement"|nom="Annuler virement"/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
-        && />💸 Payer le salaire<\/button>/.test(readFileSync("src/screens/Salaires.jsx", "utf8")) && !/>💸 Virement<\/button>/.test(readFileSync("src/screens/Salaires.jsx", "utf8"))
+        // RETOURNÉ le 15/10/2026 (la règle des lignes) : 💵 Salaires porte un bouton rond, le nom au survol.
+        && /titre="💸 Payer le salaire" \/>/.test(readFileSync("src/screens/Salaires.jsx", "utf8")) && !/💸 Virement/.test(readFileSync("src/screens/Salaires.jsx", "utf8"))
         && /« Annuler le paiement »/.test(readFileSync("src/lib/calculs.js", "utf8")));
       const impS = readFileSync("src/lib/impression.js", "utf8");
       // RETOURNÉ le 05/10/2026 : l'affectation passe par `affectationDe` (la
@@ -8905,7 +8908,8 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
   test("★★ l'écran : « Remise » sur chaque ligne (gérant, administrateur), revérifié DANS le geste sur la fiche FRAÎCHE ; facturer revérifie « C a » ; la colonne Remise et le total net",
     /refuserSaufRoles\(profile, ROLES_FICHE, "Accorder une remise/.test(corpsR) && /\(db\.clients_installes \|\| \[\]\)\.find\(\(x\) => x\.id === c\.id\)/.test(corpsR) && /poserRemise\(profile, fraiche/.test(corpsR)
     && /critiqueFacturation\(c\) \|\| critiqueFacturationRemises\(c, profile\.role\)/.test(srcTvR) && /data-remise-ligne/.test(srcTvR)
-    && /!vente && ROLES_FICHE\.includes\(profile\.role\) && <button onClick=\{\(\) => remiser\(c, l\)\}/.test(srcTvR) && /\{fmt\(montantLigne\(l\)\)\}/.test(srcTvR));
+    // RETOURNÉ le 15/10/2026 (la règle des lignes) : un bouton rond.
+    && /!vente && ROLES_FICHE\.includes\(profile\.role\) && <BoutonRond data-remiser icone="🏷" onClick=\{\(\) => remiser\(c, l\)\}/.test(srcTvR) && /\{fmt\(montantLigne\(l\)\)\}/.test(srcTvR));
   const pre = Tv.preRempliPourFacture(c2);
   test("★ preRempliPourFacture : boutique, panier, travauxId, client et téléphone", pre.boutique === "LOME" && pre.travauxId === c0.id && pre.client === "Paul MENSAH" && pre.tel === "90" && pre.panier.length === 3);
   test("★ critiqueFacturation : déjà facturé refusé, rien à facturer refusé, sinon accord", /déjà facturés/.test(Tv.critiqueFacturation({ ...c2, vente_id: "v" })) && /Rien à facturer/.test(Tv.critiqueFacturation(c0)) && Tv.critiqueFacturation(c2) === null);
@@ -8982,7 +8986,8 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     /\.filter\(\(c\) => !c\.travaux \|\| travauxSolde\(db, c\)\)/.test(ciT) && /\{ id: "travaux", label: "🛠 Travaux soldés", test: \(c\) => !!c\.travaux \}/.test(ciT)
     // RETOURNÉ le 05/10/2026 : les mots des statuts vivent dans lib/libellesStatuts.js.
     && /travaux: \{ label: "🛠 Travaux — soldés"/.test(readFileSync("src/lib/libellesStatuts.js", "utf8")) && /import \{ STATUT_CHANTIER \} from "\.\.\/lib\/libellesStatuts"/.test(ciT) && /Facturé \{fmt\(factureMontant\(db, c\)\)\}/.test(ciT)
-    && /\{!c\.travaux && \(\n\s*<button onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /statutChantier\(c\) !== "receptionne" && !c\.travaux && \(/.test(ciT) && /\{!c\.travaux && <button onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT));
+    // RETOURNÉ le 15/10/2026 (la règle des lignes) : les gestes sont des boutons ronds.
+    && /\{!c\.travaux && \(\n\s*<BoutonRond icone="🔧" teinte="violet" onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /statutChantier\(c\) !== "receptionne" && !c\.travaux && \(/.test(ciT) && /\{!c\.travaux && <BoutonRond icone="📅" onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT));
   test("★ le stock : stockVendu et l'index ignorent deja_sorti ; le rattachement d'une dépense refuse des travaux soldés",
     /* RETOURNÉ le 11/10/2026 : + au_chantier */ /l\.produit_id === pid && !l\.deja_sorti && !l\.au_chantier/.test(calT) && /if \(l\.produit_id && !l\.deja_sorti && !l\.au_chantier\) venduParProduit/.test(calT)
     && /Ces travaux sont soldés/.test(readFileSync("src/lib/depensesChantier.js", "utf8")) && /!travauxSolde\(db, c\)\)/.test(readFileSync("src/lib/depensesChantier.js", "utf8")));
@@ -13107,8 +13112,8 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
       && /devisAvantStatut\.filter\(\(d\) => dansOnglet\(d, filtreStatut\)\)/.test(tdj2)
       && /\[STATUT_SANS_SUITE, "📁 Sans suite"\]/.test(tdj2) && /data-sans-suite/.test(tdj2));
     test("★ 📋 Tous les devis : les boutons ne s'affichent qu'à qui peut (peutClasserDevis), sur un Proposé / un classé",
-      /\{peutClasserDevis\(d, profile\) && \(d\.statut \|\| "propose"\) === "propose" && \(\s*<button onClick=\{\(\) => classerDevis\(d\)\}/.test(tdj2)
-      && /\{peutClasserDevis\(d, profile\) && estSansSuite\(d\) && \(\s*<button onClick=\{\(\) => rouvrirDevisClasse\(d\)\}/.test(tdj2));
+      /\{peutClasserDevis\(d, profile\) && \(d\.statut \|\| "propose"\) === "propose" && \(\s*<BoutonRond data-classer-sans-suite icone="📁" teinte="gris" onClick=\{\(\) => classerDevis\(d\)\}/.test(tdj2)
+      && /\{peutClasserDevis\(d, profile\) && estSansSuite\(d\) && \(\s*<BoutonRond data-rouvrir-devis icone="↩" onClick=\{\(\) => rouvrirDevisClasse\(d\)\}/.test(tdj2));
     const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
     test("★ espace client : un devis classé sans suite ne se valide pas (le cadre de validation ne regarde que « propose »), et le dit SANS le motif interne",
       /\{\(!d\.statut \|\| d\.statut === "propose"\) && \(/.test(ec)
@@ -14847,7 +14852,8 @@ titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dett
     /export function PastillePaiement\(\{ paiement \}\)/.test(ui) && /export function TexteDepliable\(/.test(ui)
     && execSync("grep -rl 'function PastillePaiement' src || true").toString().trim() === "src/components/ui.jsx"
     && execSync("grep -rl 'function TexteDepliable' src || true").toString().trim() === "src/components/ui.jsx"
-    && /PastillePaiement \} from "\.\.\/components\/ui";/.test(vsP) && /PastillePaiement, TexteDepliable \} from "\.\.\/components\/ui";/.test(dpP));
+    // RETOURNÉ le 15/10/2026 (« Tous, lance ») : 💰 Ventes importe aussi le bouton rond et sa cellule.
+    && /\bPastillePaiement\b[^}]*\} from "\.\.\/components\/ui";/.test(vsP) && /PastillePaiement, TexteDepliable \} from "\.\.\/components\/ui";/.test(dpP));
   test("★ 📤 Dépenses : la ligne se déplie au clic (UNE à la fois, classeLigneDepliable), les boutons ✏️ / 🗑 sont ronds (boutonAction) dans une cellule qui ne déplie pas",
     /const \[depliee, setDepliee\] = useState\(deplieeInitiale\);/.test(dpP) && /onClick=\{\(\) => setDepliee\(\(d\) => \(d === x\.id \? null : x\.id\)\)\}/.test(dpP)
     && /classeLigneDepliable\(ouverte, i, fond\)/.test(dpP) && /<td className="px-3 py-2 whitespace-nowrap" onClick=\{\(e\) => e\.stopPropagation\(\)\}>/.test(dpP)
@@ -14880,6 +14886,35 @@ titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dett
   test("★★ RENDU : le paiement en PASTILLE (« Flooz »), « payé avec » dessous ; le statut en pastille (« ✅ Validée »), « par ANGELE » dessous ; la décision du DG en entier seulement dépliée",
     /<span title="Mobile Money \(Flooz\)"[^>]*rounded-full[^>]*>Flooz<\/span><div data-paye-avec/.test(ligne1(hR)) && /✅ Validée<\/span><div[^>]*>par ANGELE<\/div>/.test(ligne1(hR))
     && !/data-depense-decision/.test(ligne1(hR)) && /data-depense-decision[\s\S]*validée le 15\/10\/2026 par TIMO/.test(ligne1(hD)));
+}
+
+titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, lance »)");
+{
+  const ui = readFileSync("src/components/ui.jsx", "utf8");
+  const ecrans = ["Prospects", "TousLesDevis", "ClientsInstalles", "Commandes", "Stocks", "Fournisseurs", "Salaires", "Travaux", "Commerciaux", "MonEquipe", "Ventes", "Dettes"];
+  test("★ le bouton rond et la cellule des gestes sont écrits UNE fois (ui.jsx) : l'icône seule, le libellé au survol ET pour les lecteurs d'écran, une cellule qui ne déplie pas la ligne",
+    /export function BoutonRond\(\{ icone, titre, teinte = "bleu", onClick, \.\.\.autres \}\)/.test(ui) && /title=\{titre\} aria-label=\{titre\}/.test(ui)
+    && /export function CelluleActions\(/.test(ui) && /data-cellule-actions[^>]*onClick=\{\(e\) => e\.stopPropagation\(\)\}/.test(ui)
+    && execSync("grep -rl 'function BoutonRond' src || true").toString().trim() === "src/components/ui.jsx");
+  // Le contrôle GÉNÉRAL : dans les tableaux de ces écrans, plus aucun geste écrit
+  // en lien souligné ou en bouton plein — un bouton rond (ou la cellule commune).
+  const fautifs = [];
+  for (const n of ecrans) {
+    const src = readFileSync(`src/screens/${n}.jsx`, "utf8");
+    let i = 0;
+    while ((i = src.indexOf("<table", i)) >= 0) {
+      const j = src.indexOf("</table>", i);
+      for (const b of src.slice(i, j).match(/<button\b[\s\S]*?<\/button>/g) || []) if (/underline|rounded px-\d|rounded-lg px-\d/.test(b)) fautifs.push(`${n} : ${b.replace(/\s+/g, " ").slice(0, 70)}`);
+      i = j;
+    }
+  }
+  test("★★ dans les tableaux de " + ecrans.length + " écrans, plus aucun geste en lien souligné ni en bouton plein : des boutons ronds, le mot au survol", fautifs.length === 0);
+  if (fautifs.length) console.log("      " + fautifs.join("\n      "));
+  test("★ chaque écran revu porte la première colonne figée ET la ligne qui se déplie (classeLigneDepliable / fondLigneDepliable)",
+    ["Prospects", "TousLesDevis", "ClientsInstalles", "Commandes", "Stocks", "Fournisseurs", "Salaires", "Commerciaux", "MonEquipe"].every((n) => {
+      const src = readFileSync(`src/screens/${n}.jsx`, "utf8");
+      return /enTeteFige\(/.test(src) && /celluleFigee\(fondLigneDepliable\(/.test(src) && /classeLigneDepliable\(/.test(src) && /<CelluleActions/.test(src);
+    }));
 }
 
 titre("💸 « Où va l'argent ? » au paiement d'une dette (09/10/2026, « a oui, b non ») : le règlement et son versement en un seul geste");
@@ -15269,7 +15304,8 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
   }
   test("★ « B a » : une part qui sort du 🏗 DÉPÔT CHANTIER ne se valide que par l'administrateur — revérifié DANS le geste, et le bouton ✓ Valider et payer ne s'affiche pas au vendeur ; l'écran dit la caisse par son libellé",
     /if \(!isAdmin && \(primeParLeDepot\(e\.prime_boutique\) \|\| profile\.boutique !== e\.prime_boutique\)\)/.test(ciP)
-    && /\(isAdmin \|\| \(!primeParLeDepot\(e\.prime_boutique\) && profile\.boutique === e\.prime_boutique\)\) && <button onClick=\{\(\) => validerPaiementPrime\(c, e\)\}/.test(ciP)
+    // RETOURNÉ le 15/10/2026 (la règle des lignes) : un bouton rond.
+    && /\(isAdmin \|\| \(!primeParLeDepot\(e\.prime_boutique\) && profile\.boutique === e\.prime_boutique\)\) && <BoutonRond icone="✓" teinte="vert" onClick=\{\(\) => validerPaiementPrime\(c, e\)\}/.test(ciP)
     && /📤 Demandé — \{libelleCaisse\(e\.prime_boutique\)\}/.test(ciP) && !/Sortie de caisse \$\{e\.prime_boutique\}/.test(ciP));
 }
 
@@ -16390,11 +16426,15 @@ titre("🖨 Le devis IMPRIMÉ SANS COMPTE (15/10/2026, « Ab, Ba, Ça, Da, b »)
     commandes: [{ id: "cmd1", statut: "en_attente", boutique: "BMI DEMAKPOE", articles: [], client: "KOMLAN", tel: "90112233", origine_devis: { client_id: "c1", devis_id: "d4" } }],
     users: [principal, adm, { ...fermee, devis: [dSans, dValide] }, { ...avecAcces, devis: [dAvec] }] };
   const rendreTD = (p, ouvert, avecEnc = true, base = dbTD) => { const e0 = console.error; console.error = () => {}; try { return String(renderToStaticMarkup(React.createElement(SA.TousLesDevis, { db: base, save() {}, profile: p, onModifierDevis() {}, ...(avecEnc ? { onEncaisserCommande() {} } : {}), ouvertInitial: ouvert }))); } catch (e) { return "ERREUR " + String(e).slice(0, 160); } finally { console.error = e0; } };
+  const lignesSansCompte = (h) => h.split("<tr data-ligne-devis=").slice(1).map((l) => l.split("</tr>")[0]).filter((l) => /data-badge-sans-compte/.test(l));
   const hSans = SA ? rendreTD(adm, "d1") : "", hAvec = SA ? rendreTD(adm, "d3", true, { ...dbTD, users: [principal, adm, { ...avecAcces, devis: [dAvec] }] }) : "", hPrinc = SA ? rendreTD(principal, "d1") : "";
   test("★★ 📋 Tous les devis RENDU : le devis imprimé porte « 🖨 Sans compte » ; un administrateur ORDINAIRE y a « 🖨 Imprimer pour signature papier » et « 📝 Signé sur papier » (« B a, D a ») mais pas « ✍️ Faire signer ici » (principal) ; ni Relancer ni « Demander une modification au client »",
     /data-badge-sans-compte/.test(hSans) && /Imprimer pour signature papier/.test(hSans) && /Signé sur papier/.test(hSans) && !/Faire signer ici/.test(hSans)
-    && !/Relancer sur WhatsApp/.test(hSans) && !/Demander une modification au client/.test(hSans) && /Modifier \(puis réimprimer\)/.test(hSans)
-    && /Faire signer ici/.test(hPrinc), hSans.slice(0, 160));
+    // RETOURNÉ le 15/10/2026 (la règle des lignes) : les gestes sont sur CHAQUE ligne, pas seulement
+    // dans le devis ouvert — on regarde donc les lignes des devis sans compte, une par une.
+    && lignesSansCompte(hSans).length === 2 && lignesSansCompte(hSans).every((l) => !/Relancer sur WhatsApp/.test(l) && !/Demander une modification au client/.test(l))
+    && /Modifier \(puis réimprimer\)/.test(hSans)
+    && /Faire signer ici/.test(hPrinc));
   test("★★ TÉMOIN : le devis d'un client qui A son accès n'ouvre PAS la signature papier à l'administrateur ordinaire (la règle du 04/09 tient) et garde Relancer",
     !/data-badge-sans-compte/.test(hAvec) && !/Imprimer pour signature papier/.test(hAvec) && /Relancer sur WhatsApp/.test(hAvec));
   const hVal = SA ? rendreTD(adm, "d4") : "", hValSans = SA ? rendreTD(adm, "d4", false) : "", hValVend = SA ? rendreTD({ id: "v", nom: "ANGELE", role: "vendeur", boutique: "BMI DEMAKPOE" }, "d4") : "";

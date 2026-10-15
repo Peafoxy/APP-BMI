@@ -47,7 +47,7 @@ export const CHAPITRE = {
         ["« Nouveau prospect » — enregistrer un contact", "Commercial, technicien, technicien BMI, responsable commercial. **L'administrateur n'a pas ce formulaire** : il lit, il gère les catégories, il réassigne."],
         ["Voir **ses** prospects", "Chaque commercial voit les siens"],
         ["Voir **tous** les prospects de l'espace", "Administrateur, responsable commercial, et tout **chef d'équipe** ⭐"],
-        ["📅 Planifier une visite · 📞 Contacté · Relance · 📱 Relancer · 📦 Archiver · ↩ Réactiver · ✅ Convertir en client · Suppr.", "**Le commercial rattaché au prospect**, et l'administrateur. Un chef d'équipe voit le prospect d'un autre, mais ne fait pas ces gestes à sa place."],
+        ["📅 Planifier une visite · 📞 Contacté · Relance · 📱 Relancer · 📦 Archiver · ↩ Réactiver · ✅ Convertir en client · 🗑 Supprimer", "**Le commercial rattaché au prospect**, et l'administrateur. Un chef d'équipe voit le prospect d'un autre, mais ne fait pas ces gestes à sa place."],
         ["Réassigner à un autre commercial", "Administrateur, responsable commercial, chef d'équipe ⭐ — **avec le pouvoir « 🔁 Réaffecter les prospects »** (retirable dans 🔐 Pouvoirs, chapitre 2)"],
         ["Ajouter ou supprimer une **catégorie** de prospects", "**L'administrateur seul**"],
       ]}],
@@ -64,6 +64,7 @@ export const CHAPITRE = {
         ["**☀️ Dimensionnement / 📋 Tous les devis**", "Un devis validé pose « ⏳ Devis validé — attend le paiement » sur la fiche du prospect ; un devis encaissé le fait passer « Client acquis »."],
       ]}],
       ["note", "Trois catégories existent au départ : **Particulier, Entreprise, Administration**. L'administrateur en ajoute d'autres depuis cet écran. Supprimer une catégorie ne touche pas les prospects déjà classés : ils la gardent en texte."],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans la liste des prospects, le **nom reste figé à gauche** quand on fait défiler le tableau sur un téléphone ; **un clic sur la ligne la déplie** (le besoin en entier, fond bleu et barre à gauche ; un second clic la replie, un clic sur une autre ligne l'ouvre à sa place) ; les gestes sont des **boutons ronds** en bout de ligne — l'icône seule, **le nom du geste apparaît au survol** de la souris (sur téléphone, un appui long sur le bouton) : 📆 date de relance, logo WhatsApp (relancer), 🎯 projet, 🔀 réassigner, 🙋 prendre en charge, 🔆 préparer le devis, 📅 planifier une visite, 📞 contacté, ✅ convertir en client, 📦 archiver / ↩ réactiver, 🗑 supprimer."],
     ]},
 
     // ── 4
@@ -92,7 +93,7 @@ export const CHAPITRE = {
       ["ol", [
         "**« 📦 Archiver »** : « Archiver « NOM » ? (N jours sans activité) Il sort de la liste active mais N'EST PAS supprimé… Motif (obligatoire) ». Les motifs proposés : **Ne répond plus / Trop cher / A choisi un concurrent / Projet abandonné / Reporté à plus tard / Autre**. Un motif vide est refusé.",
         "Les archivés se lisent avec **« 📦 Archivés (N) »**, leur motif en pastille ambre. **« ↩ Réactiver »** les remet dans la liste active pour une campagne.",
-        "**« Suppr. »** efface la fiche pour de bon, après confirmation. À réserver à une erreur de saisie : un prospect qui n'aboutit pas **s'archive**, il ne se supprime pas — au bout d'un an, les motifs d'archivage disent pourquoi les projets n'aboutissent pas.",
+        "**🗑 (supprimer)** efface la fiche pour de bon, après confirmation. À réserver à une erreur de saisie : un prospect qui n'aboutit pas **s'archive**, il ne se supprime pas — au bout d'un an, les motifs d'archivage disent pourquoi les projets n'aboutissent pas.",
       ]],
 
       ["h3", "Les comptes avec devis, rien acheté"],
@@ -150,7 +151,7 @@ export const CHAPITRE = {
         ["📞 Contacté", "Note un contact, avec ce que ça a donné. Le survol dit la dernière activité."],
         ["✅ Convertir en client", "Crée le compte, envoie les accès, passe la fiche « Client acquis »."],
         ["📦 Archiver / ↩ Réactiver", "Sort de la liste active avec un motif ; ou y revient."],
-        ["Suppr.", "Efface la fiche. Pour une erreur de saisie seulement."],
+        ["🗑 (bouton rond)", "Efface la fiche. Pour une erreur de saisie seulement."],
       ]}],
     ]},
 
@@ -254,7 +255,7 @@ export const CHAPITRE = {
       ["h3", "Questions de contrôle"],
       ["questions", [
         "Au bout de combien de temps sans activité un prospect devient-il dormant ? Quels gestes remettent le compteur à zéro ?",
-        "Quelle différence entre « 📦 Archiver » et « Suppr. » ? Lequel choisir pour un prospect qui ne répond plus ?",
+        "Quelle différence entre « 📦 Archiver » et « 🗑 Supprimer » ? Lequel choisir pour un prospect qui ne répond plus ?",
         "D'où part le mot d'accueil envoyé à l'enregistrement ? Que se passe-t-il si le numéro BMI ne peut pas l'envoyer ? Pourquoi la « Nature du chantier » ne part-elle jamais au client ?",
         "Qui peut relancer le prospect d'un collègue absent, et par quel geste ?",
         "Un prospect a signé son devis : que voit-on sur sa ligne, et quand devient-il « Client acquis » ?",

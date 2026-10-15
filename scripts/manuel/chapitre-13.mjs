@@ -96,6 +96,7 @@ export const CHAPITRE = {
         ["**💰 Ventes**", "Sous le panier : **🧾 Proforma WhatsApp** et **🖨️** (imprimer). Au-dessus de la liste : la vue **🧾 Proformas (N)**."],
         ["**L'espace client**", "Le client y lit ses devis et répond : **✅ JE VALIDE**, **✏️ Demander une modification**, **❌ Rejeter ce devis**."],
       ]}],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : 📋 Tous les devis est un **tableau** : Client (figé à gauche, le type dessous, le point rouge d'un devis pas encore ouvert) · Date (par qui, la boutique) · Total · Statut (pastille) · Suivi (les pastilles de relance, d'offre expirée, de modification…) · les gestes. **Un clic sur la ligne déplie le devis** (ses articles, le plan de règlement, la signature en boutique, « ✍️ Compléter ») ; un second clic le replie. Les gestes sont des **boutons ronds**, le nom au survol : 💰 encaisser, logo WhatsApp (relancer), ✏️ modifier et renvoyer, 📝 demander une modification au client, ✍️ compléter, 📄 devis PDF, 📁 classer sans suite, ↩ rouvrir, 🗑 supprimer."],
     ]},
 
     // ── 4

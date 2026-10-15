@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, caVente, fmt, today, dFR, telDigits, inP, lienWhatsApp } from "../lib/core";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte, refuserSaufAdmin, utilisateursDeLEspace, compteDeLAgent, tauxDeLAgent } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
@@ -157,22 +157,27 @@ export function Commerciaux({ db, save, profile }) {
           >📄 Exporter les commissions</button>
         </div>
         <table className="w-full text-sm min-w-[1080px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Rang", "Commercial", "Zone", "Ventes", "CA", "Panier moyen", "Taux", "Commission", "Objectif période", "Progression", "Performance", "Statut", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          {/* 🧾 La règle des lignes (15/10/2026) : le commercial figé en
+              première colonne (sa médaille devant), statut en pastille, les
+              gestes en boutons ronds. */}
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Zone", "Ventes", "CA", "Panier moyen", "Taux", "Commission", "Objectif période", "Progression", "Performance", "Statut", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
-            {classement.length === 0 && <tr><td colSpan={13} className="px-4 py-6 text-center text-slate-400">Aucun commercial.</td></tr>}
+            {classement.length === 0 && <tr><td colSpan={12} className="px-4 py-6 text-center text-slate-400">Aucun commercial.</td></tr>}
             {classement.map(({ c, s }, i) => {
               const perf = badgePerf(s.pct);
               return (
-                <tr key={c.id} className="border-t border-slate-100 hover:bg-sky-50">
-                  <td className="px-3 py-2 font-bold">{medaille(i)}</td>
-                  <td className="px-3 py-2 font-semibold">{c.nom}{c.tel && <a href={lienWhatsApp(c.tel)} target="_blank" rel="noreferrer" className="ml-2 text-xs text-green-700 underline">WhatsApp</a>}</td>
+                <tr key={c.id} className={`border-t border-slate-100 ${classeLigneDepliable(false, i)}`}>
+                  <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(fondLigneDepliable(false, i))}`}>
+                    <span className="font-bold mr-1">{medaille(i)}</span>{c.nom}
+                    {c.tel && <a href={lienWhatsApp(c.tel)} target="_blank" rel="noreferrer" title={`WhatsApp — ${c.tel}`} className="ml-2 inline-block align-middle"><IconeWhatsApp taille={16} /></a>}
+                  </td>
                   <td className="px-3 py-2">{c.zone || "—"}</td>
-                  <td className="px-3 py-2 tabular-nums">{s.nb}</td>
-                  <td className="px-3 py-2 tabular-nums font-bold">{fmt(s.ca)}</td>
-                  <td className="px-3 py-2 tabular-nums">{s.nb ? fmt(s.panier) : "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{s.nb}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(s.ca)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{s.nb ? fmt(s.panier) : "—"}</td>
                   <td className="px-3 py-2 tabular-nums" title="Taux de la fiche d'employé (👥 Utilisateurs → 💰 Commission)">{s.compte ? `${s.taux}%` : <span className="text-xs text-slate-500">— sans compte</span>}</td>
-                  <td className="px-3 py-2 tabular-nums font-bold text-blue-700">{fmt(s.commission)}</td>
-                  <td className="px-3 py-2 tabular-nums">{s.objectifP ? fmt(s.objectifP) : "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-bold text-blue-700">{fmt(s.commission)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{s.objectifP ? fmt(s.objectifP) : "—"}</td>
                   <td className="px-3 py-2 w-32">
                     {s.pct === null ? "—" : (
                       <div className="flex items-center gap-2">
@@ -184,12 +189,14 @@ export function Commerciaux({ db, save, profile }) {
                     )}
                   </td>
                   <td className="px-3 py-2">{perf ? <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${perf[1]}`}>{perf[0]}</span> : "—"}</td>
-                  <td className="px-3 py-2">{c.actif === false ? <span className="text-xs font-bold text-red-600">Inactif</span> : <span className="text-xs font-bold text-green-700">Actif</span>}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <button onClick={() => modifier(c)} className="text-xs font-bold text-sky-800 underline mr-2">Modifier</button>
-                    <button onClick={() => toggleActif(c)} className="text-xs font-bold text-sky-800 underline mr-2">{c.actif === false ? "Réactiver" : "Désactiver"}</button>
-                    <button onClick={() => supprimer(c)} className="text-xs text-red-600 underline">Suppr.</button>
-                  </td>
+                  <td className="px-3 py-2">{c.actif === false
+                    ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-red-100 text-red-700 border-red-200">Inactif</span>
+                    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-700 border-green-200">Actif</span>}</td>
+                  <CelluleActions>
+                    <BoutonRond icone="✏️" teinte="ambre" onClick={() => modifier(c)} titre="✏️ Modifier (zone, objectif)" />
+                    <BoutonRond icone={c.actif === false ? "▶" : "⏸"} teinte={c.actif === false ? "vert" : "gris"} onClick={() => toggleActif(c)} titre={c.actif === false ? "▶ Réactiver" : "⏸ Désactiver"} />
+                    <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(c)} titre="🗑 Supprimer" />
+                  </CelluleActions>
                 </tr>
               );
             })}

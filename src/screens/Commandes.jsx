@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, heureCourte, totalVente } from "../lib/core";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, ListeArticles, PastillePaiement, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
@@ -18,6 +18,16 @@ import { encaisserDettePose } from "../components/encaissementPose";
 // ============ NOUVELLE COMMANDE (rôle Commercial) ============
 // Le commercial compose un panier et l'envoie à une boutique — il ne peut
 // pas encaisser lui-même, c'est un vendeur de cette boutique qui validera.
+// Le statut d'une commande en PASTILLE (15/10/2026, la règle des lignes de
+// 💰 Ventes et 📋 Dettes) — écrit une fois pour les deux écrans.
+const PastilleCommande = ({ statut }) => {
+  if (statut === "validee") return <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-700 border-green-200 whitespace-nowrap">✓ Validée</span>;
+  if (statut === "refusee") return <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-red-100 text-red-700 border-red-200 whitespace-nowrap">✗ Refusée</span>;
+  return <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-amber-100 text-amber-700 border-amber-200 whitespace-nowrap">⏳ En attente</span>;
+};
+const lignesCommande = (c) => (c.articles || []).map((l) => ({ qte: l.qte, article: l.article }));
+const totalCommande = (c) => (c.articles || []).reduce((s, l) => s + l.qte * l.pu, 0) - (c.remise || 0);
+
 export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliConsomme }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "commandes-nouvelle" });
   const [bq, setBq] = useState(preRempli?.boutique || premiere);
@@ -142,11 +152,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
   };
 
   const mesCommandes = (db.commandes || []).filter((c) => c.commercial === profile.nom);
-  const badgeStatut = (s) => {
-    if (s === "validee") return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">✓ Validée</span>;
-    if (s === "refusee") return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">✗ Refusée</span>;
-    return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">⏳ En attente</span>;
-  };
+  const [depliee, setDepliee] = useState(null);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
@@ -193,7 +199,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
                       <td className="px-3 py-2 tabular-nums">{l.qte}</td>
                       <td className="px-3 py-2 tabular-nums">{fmt(l.pu)}</td>
                       <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.qte * l.pu)}</td>
-                      <td className="px-3 py-2"><button onClick={() => retirer(i)} className="text-xs text-red-600 underline">Retirer</button></td>
+                      <td className="px-3 py-2"><BoutonRond icone="✕" teinte="rouge" titre="Retirer de la liste" onClick={() => retirer(i)} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -242,20 +248,29 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Mes commandes envoyées ({mesCommandes.length})</div>
+        {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026) :
+            le client figé, deux articles puis la suite au clic, le statut en pastille. */}
         <table className="w-full text-sm min-w-[700px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Boutique", "Articles", "Total", "Vendeur ciblé", "Statut"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Date", "Boutique", "Articles", "Total", "Vendeur ciblé", "Statut"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
-            {mesCommandes.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">Aucune commande envoyée pour l'instant.</td></tr>}
-            {mesCommandes.map((c) => (
-              <tr key={c.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2 whitespace-nowrap">{dFR(c.date)}{c.heure ? ` ${c.heure}` : ""}</td>
+            {mesCommandes.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucune commande envoyée pour l'instant.</td></tr>}
+            {mesCommandes.map((c, i) => {
+              const ouverte = depliee === c.id;
+              return (
+              <tr key={c.id} data-ligne-commande={ouverte ? "deplie" : "replie"} onClick={() => setDepliee(ouverte ? null : c.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
+                <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>
+                  <div className="font-bold text-slate-800">{c.client || <span className="text-slate-400 font-normal">—</span>}</div>
+                  {c.tel && <div className="text-xs text-slate-500">{c.tel}</div>}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">{dFR(c.date)}{c.heure && <div className="text-xs text-slate-500">{c.heure}</div>}</td>
                 <td className="px-3 py-2"><Badge boutique={c.boutique} /></td>
-                <td className="px-3 py-2">{(c.articles || []).map((l) => `${l.qte}× ${l.article}`).join(", ")}</td>
-                <td className="px-3 py-2 tabular-nums font-bold">{fmt((c.articles || []).reduce((s, l) => s + l.qte * l.pu, 0) - (c.remise || 0))}</td>
+                <td className="px-3 py-2"><ListeArticles lignes={lignesCommande(c)} deplie={ouverte} /></td>
+                <td className="px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap">{fmt(totalCommande(c))}</td>
                 <td className="px-3 py-2">{c.vendeur_cible || "N'importe qui"}</td>
-                <td className="px-3 py-2">{badgeStatut(c.statut)}</td>
+                <td className="px-3 py-2"><PastilleCommande statut={c.statut} /></td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -354,6 +369,8 @@ export function CommandesRecues({ db, save, profile, onValider }) {
   // ferme pour tout le monde. 🏗 L'argent entre dans la caisse CHANTIER
   // (08/10/2026), pas dans le tiroir de cette boutique : on le range à part.
   const [noteRecuWa, setNoteRecuWa] = useState("");
+  const [depliee, setDepliee] = useState(null);
+  const [poseDepliee, setPoseDepliee] = useState(null);
   const poses = boutique ? posesAEncaisser(db.dettes, db.clients_installes, boutique) : [];
   const encaisserPose = async (p) => {
     const note = await encaisserDettePose({ db, save, profile, chantier: p.chantier, enBoutique: true });
@@ -373,22 +390,30 @@ export function CommandesRecues({ db, save, profile, onValider }) {
         <div className="bg-white rounded-xl border border-emerald-200 shadow-sm overflow-x-auto" data-poses-a-encaisser>
           <div className="px-4 py-3 font-bold text-slate-800 border-b border-emerald-200 bg-emerald-50 flex items-center gap-2">🔧 Poses à encaisser <Badge boutique={boutique} /><span className="text-sm font-normal text-slate-500">({poses.length})</span></div>
           <div className="px-4 pt-2 text-xs text-slate-500">Contrat de pose : {ACOMPTE_POSE_PCT} % avant les travaux (l'installation ne se programme pas avant), le reste à la signature du PV. Le client peut aussi payer sur le terrain, au chef de chantier. 🏗 L'argent reçu entre dans la caisse CHANTIER, pas dans le tiroir de la boutique : rangez-le à part.</div>
-          <div className="divide-y divide-slate-100">
-            {poses.map((p) => (
-              <div key={p.dette.id} className="px-4 py-3 flex flex-wrap items-center gap-3">
-                <div className="flex-1 min-w-[200px]">
-                  <div className="font-bold text-slate-800">{p.dette.client || `${p.chantier.prenom || ""} ${p.chantier.nom || ""}`.trim()}</div>
-                  <div className="text-xs text-slate-500">{p.dette.motif} — total {fmt(p.dette.montant)}, déjà versé {fmt(p.dette.paye || 0)}</div>
-                  <div className="text-xs font-semibold text-emerald-800">
-                    {p.etat.etape === "acompte"
-                      ? `Acompte ${ACOMPTE_POSE_PCT} % : ${fmt(p.etat.acompte)} — reste ${fmt(p.etat.resteAcompte)} avant de programmer`
-                      : `Acompte versé — solde à la signature du PV : ${fmt(p.etat.reste)}`}
-                  </div>
-                </div>
-                <button onClick={() => encaisserPose(p)} className="text-xs font-bold text-white bg-emerald-700 rounded px-3 py-1.5 hover:bg-emerald-800">💰 {libelleEncaissementPose(p.dette)}</button>
-              </div>
-            ))}
-          </div>
+          <table className="w-full text-sm min-w-[640px] mt-2">
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Motif", "Total", "Déjà versé", "Où on en est", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+            <tbody>
+            {poses.map((p, i) => {
+              const ouverte = poseDepliee === p.dette.id;
+              return (
+              <tr key={p.dette.id} onClick={() => setPoseDepliee(ouverte ? null : p.dette.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
+                <td className={`px-3 py-2 font-bold text-slate-800 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{p.dette.client || `${p.chantier.prenom || ""} ${p.chantier.nom || ""}`.trim()}</td>
+                <td className="px-3 py-2 text-slate-600 min-w-[200px]"><TexteDepliable texte={p.dette.motif} deplie={ouverte} largeur="max-w-[280px]" /></td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(p.dette.montant)}</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(p.dette.paye || 0)}</td>
+                <td className="px-3 py-2 text-xs font-semibold text-emerald-800">
+                  {p.etat.etape === "acompte"
+                    ? `Acompte ${ACOMPTE_POSE_PCT} % : ${fmt(p.etat.acompte)} — reste ${fmt(p.etat.resteAcompte)} avant de programmer`
+                    : `Acompte versé — solde à la signature du PV : ${fmt(p.etat.reste)}`}
+                </td>
+                <CelluleActions>
+                  <BoutonRond icone="💰" teinte="vert" onClick={() => encaisserPose(p)} titre={`💰 ${libelleEncaissementPose(p.dette)}`} />
+                </CelluleActions>
+              </tr>
+              );
+            })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -397,71 +422,82 @@ export function CommandesRecues({ db, save, profile, onValider }) {
         {enAttente.length === 0 ? (
           <div className="px-4 py-6 text-center text-slate-400">Aucune commande en attente pour {boutique}.</div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {enAttente.map((c) => {
-              const totalC = (c.articles || []).reduce((s, l) => s + l.qte * l.pu, 0) - (c.remise || 0);
+          <table className="w-full text-sm min-w-[760px]">
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Date", "Commercial", "Articles", "Total", "Paiement", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+            <tbody>
+            {enAttente.map((c, i) => {
+              const totalC = totalCommande(c);
+              const ouverte = depliee === c.id;
               return (
-                <div key={c.id} className="p-4">
-                  <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                    <div className="font-bold text-slate-800">{c.commercial} <span className="text-xs font-normal text-slate-400">— {dFR(c.date)}{c.heure ? ` ${c.heure}` : ""}</span></div>
-                    {c.vendeur_cible && <span className="text-xs font-semibold text-sky-700">Destinée à : {c.vendeur_cible}</span>}
-                  </div>
-                  <div className="text-sm text-slate-600 mb-1">{(c.articles || []).map((l) => `${l.qte}× ${l.article}`).join(", ")}</div>
-                  <div className="text-xs text-slate-500 mb-2">
-                    {c.client && <>Client : {c.client} · </>}
-                    {c.tel && <>{c.tel} · </>}
-                    Paiement proposé : {c.paiement}
-                    {c.remise ? ` · Remise ${c.remise_pct}%` : ""}
-                  </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-lg font-bold tabular-nums">{fmt(totalC)}</span>
-                    <button onClick={() => valider(c)} className="px-4 py-1.5 rounded-lg bg-green-700 text-white font-bold text-xs hover:bg-green-800">✅ Valider et encaisser</button>
-                    <button onClick={() => refuser(c)} className="px-4 py-1.5 rounded-lg border-2 border-red-500 text-red-600 font-bold text-xs hover:bg-red-50">❌ Refuser</button>
-                  </div>
-                </div>
+                <tr key={c.id} data-commande-attente onClick={() => setDepliee(ouverte ? null : c.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
+                  <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>
+                    <div className="font-bold text-slate-800">{c.client || <span className="text-slate-400 font-normal">—</span>}</div>
+                    {c.tel && <div className="text-xs text-slate-500">{c.tel}</div>}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">{dFR(c.date)}{c.heure && <div className="text-xs text-slate-500">{c.heure}</div>}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-semibold text-slate-800">{c.commercial}</div>
+                    {c.vendeur_cible && <div className="text-xs font-semibold text-sky-700">Destinée à : {c.vendeur_cible}</div>}
+                  </td>
+                  <td className="px-3 py-2"><ListeArticles lignes={lignesCommande(c)} deplie={ouverte} /></td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <div className="font-bold tabular-nums">{fmt(totalC)}</div>
+                    {c.remise ? <div className="text-xs text-red-600">remise {c.remise_pct} %</div> : null}
+                  </td>
+                  <td className="px-3 py-2"><PastillePaiement paiement={c.paiement} /></td>
+                  <CelluleActions>
+                    <BoutonRond icone="✅" teinte="vert" onClick={() => valider(c)} titre="✅ Valider et encaisser" />
+                    <BoutonRond icone="❌" teinte="rouge" onClick={() => refuser(c)} titre="❌ Refuser" />
+                  </CelluleActions>
+                </tr>
               );
             })}
-          </div>
+            </tbody>
+          </table>
         )}
       </div>
 
       {historique.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
           <div className="px-4 py-3 font-bold text-slate-700 border-b border-slate-200 bg-slate-50 text-sm">Historique récent</div>
-          <table className="w-full text-sm">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Commercial", "Articles", "Statut"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+          <table className="w-full text-sm min-w-[700px]">
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Date", "Commercial", "Articles", "Statut", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
             <tbody>
-              {historique.map((c) => (
-                <tr key={c.id} className="border-t border-slate-100">
+              {historique.map((c, i) => {
+                const ouverte = depliee === c.id;
+                const vente = c.suivi_vente ? (db.ventes || []).find((v) => v.commande_id === c.id) : null;
+                return (
+                <tr key={c.id} onClick={() => setDepliee(ouverte ? null : c.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
+                  <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>
+                    <div className="font-bold text-slate-800">{c.client || <span className="text-slate-400 font-normal">—</span>}</div>
+                    {c.tel && <div className="text-xs text-slate-500">{c.tel}</div>}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">{dFR(c.date)}</td>
                   <td className="px-3 py-2">{c.commercial}</td>
-                  <td className="px-3 py-2">{(c.articles || []).map((l) => `${l.qte}× ${l.article}`).join(", ")}</td>
+                  <td className="px-3 py-2"><ListeArticles lignes={lignesCommande(c)} deplie={ouverte} /></td>
                   <td className="px-3 py-2">
-                    {c.statut === "validee"
-                      ? <span className="text-green-700 font-semibold">✓ Validée</span>
-                      : <span className="text-red-600 font-semibold">✗ Refusée{c.motif_refus ? ` (${c.motif_refus})` : ""}</span>}
-                    {(() => {
-                      const vente = c.suivi_vente ? (db.ventes || []).find((v) => v.commande_id === c.id) : null;
-                      return vente ? (
-                        <div className="mt-1 text-[10px] text-slate-500">
-                          ✅ Encaissée — vente N° {vente.numero} du {dFR(vente.date)} ({fmt(totalVente(vente))})<br />
-                          {(vente.articles || []).map((l) => `${l.qte}× ${l.article}`).join(", ")}
-                        </div>
-                      ) : null;
-                    })()}
-                    {venteEnSuspens(c) && (
-                      <div className="mt-1">
-                        <div className="text-[10px] font-bold text-amber-700">⚠ Commande validée mais NON ENCAISSÉE</div>
-                        <button onClick={() => {
-                          const panier = panierDeReprise(c);
-                          if (panier.length === 0) { uAlert("Aucun article retrouvé pour cette commande (ni sur la commande, ni sur le devis d'origine). Contactez l'administrateur pour vérifier ce dossier avant d'encaisser."); return; }
-                          onValider(c.boutique, panier, c.commercial, c.responsable, c.rabais, c.origine_devis, c.remise_pct || 0, c.client || "", c.tel || "", c.id);
-                        }} className="mt-1 text-[10px] font-bold text-white bg-amber-600 rounded px-2 py-0.5 hover:bg-amber-700">↻ Reprendre l'encaissement</button>
+                    <PastilleCommande statut={c.statut} />
+                    {c.statut !== "validee" && c.motif_refus && <div className="text-xs text-red-600 mt-0.5"><TexteDepliable texte={`Motif : ${c.motif_refus}`} deplie={ouverte} largeur="max-w-[220px]" /></div>}
+                    {vente && (
+                      <div className="mt-1 text-[10px] text-slate-500">
+                        ✅ Encaissée — vente N° {vente.numero} du {dFR(vente.date)} ({fmt(totalVente(vente))})
+                        {ouverte && <><br />{(vente.articles || []).map((l) => `${l.qte}× ${l.article}`).join(", ")}</>}
                       </div>
                     )}
+                    {venteEnSuspens(c) && <div className="mt-1 text-[10px] font-bold text-amber-700">⚠ Commande validée mais NON ENCAISSÉE</div>}
                   </td>
+                  <CelluleActions>
+                    {venteEnSuspens(c) && (
+                      <BoutonRond icone="↻" teinte="ambre" titre="↻ Reprendre l'encaissement" onClick={() => {
+                        const panier = panierDeReprise(c);
+                        if (panier.length === 0) { uAlert("Aucun article retrouvé pour cette commande (ni sur la commande, ni sur le devis d'origine). Contactez l'administrateur pour vérifier ce dossier avant d'encaisser."); return; }
+                        onValider(c.boutique, panier, c.commercial, c.responsable, c.rabais, c.origine_devis, c.remise_pct || 0, c.client || "", c.tel || "", c.id);
+                      }} />
+                    )}
+                  </CelluleActions>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -48,8 +48,8 @@ export const CHAPITRE = {
     { titre: "Qui peut l'utiliser", blocs: [
       ["table", { entetes: ["Le geste", "Qui"], largeurs: [5200, 4100], lignes: [
         ["Voir l'onglet 🚚 Fournisseurs", "**Administrateur et gérant** seulement. Le vendeur, le magasinier, le technicien ne l'ont pas."],
-        ["Créer un fournisseur (« Enregistrer »), « + Commande », « + Règlement », « Suppr. »", "**Gérant et administrateur** (règle du 04/09/2026 : « gérant + admin : fournisseurs »). Le refus nomme le geste : « Créer un fournisseur », « Régler un fournisseur », « Enregistrer une dette fournisseur », « Supprimer un fournisseur »."],
-        ["Choisir le fournisseur d'un article (formulaire « Nouvel article », lien « — Définir — » dans le tableau)", "Ceux qui écrivent dans 📦 Stocks : magasinier, gérant, administrateur — et tout compte qui n'est pas en lecture seule pour le lien de la colonne."],
+        ["Créer un fournisseur (« Enregistrer »), 📦 + Commande, 💵 + Règlement, 🗑 supprimer", "**Gérant et administrateur** (règle du 04/09/2026 : « gérant + admin : fournisseurs »). Le refus nomme le geste : « Créer un fournisseur », « Régler un fournisseur », « Enregistrer une dette fournisseur », « Supprimer un fournisseur »."],
+        ["Choisir le fournisseur d'un article (formulaire « Nouvel article », bouton rond 🚚 sur la ligne du tableau)", "Ceux qui écrivent dans 📦 Stocks : magasinier, gérant, administrateur — et tout compte qui n'est pas en lecture seule pour le lien de la colonne."],
         ["« + Entrée » sur une ligne, importer un fichier « ➕ Entrées de stock »", "**Magasinier, gérant, administrateur** (les rôles du stock). Refus : « Enregistrer une entrée de stock »."],
         ["Mettre à jour un **prix d'achat** par le fichier d'entrées", "**Administrateur seul** (décision du 04/09/2026). Pour les autres, la colonne « Prix d'achat » du fichier est ignorée, et l'écran le dit."],
         ["Le compte en lecture seule (comptable)", "Rien de tout cela : chaque geste répond que la base est en lecture seule."],
@@ -60,15 +60,16 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
-        ["**🚚 Fournisseurs**", "En haut, le bouton **« ➕ Nouveau fournisseur »** ouvre le formulaire (fermé d'office, replié après l'enregistrement) : Nom · Téléphone · Adresse · Site web · Produits · Dû (F) · Réglé (F), et le bouton **« Enregistrer »**. Dessous, le tableau **« Fournisseurs · Reste à régler : … »** : Nom · Téléphone · Adresse · Site (« Visiter ») · Produits · Dû · Réglé · Reste, et sur chaque ligne **« + Commande »**, **« + Règlement »**, **« Suppr. »**."],
+        ["**🚚 Fournisseurs**", "En haut, le bouton **« ➕ Nouveau fournisseur »** ouvre le formulaire (fermé d'office, replié après l'enregistrement) : Nom · Téléphone · Adresse · Site web · Produits · Dû (F) · Réglé (F), et le bouton **« Enregistrer »**. Dessous, le tableau **« Fournisseurs · Reste à régler : … »** : Fournisseur (figé) · Téléphone · Adresse · Site (« Visiter ») · Produits · Dû · Réglé · Reste, et sur chaque ligne les boutons ronds **📦 + Commande**, **💵 + Règlement**, **🗑 supprimer** (le nom au survol)."],
         ["**📦 Stocks**, formulaire d'article", "La liste déroulante **« Fournisseur »** (« — Aucun — », puis les fournisseurs de l'espace). Elle ne propose que des fiches déjà créées dans 🚚 Fournisseurs."],
-        ["**📦 Stocks**, tableau", "La colonne **« Fournisseur »** : le nom du fournisseur de l'article, ou **« — Définir — »**. Un clic ouvre la question « Fournisseur de « … » ? » avec la liste des fournisseurs enregistrés. La colonne **« Entrées »** cumule tout ce qui est entré depuis la création de la fiche."],
+        ["**📦 Stocks**, tableau", "La colonne **« Fournisseur »** : le nom du fournisseur de l'article, ou **« — à définir — »**. Le bouton rond **🚚** de la ligne ouvre la question « Fournisseur de « … » ? » avec la liste des fournisseurs enregistrés. La colonne **« Entrées »** cumule tout ce qui est entré depuis la création de la fiche."],
         ["**📦 Stocks**, sur la ligne d'un article", "**« + Entrée »** : « Quantité reçue pour « … » : »."],
         ["**📦 Stocks**, sous le formulaire", "**« 📥 Importer un fichier Excel »** (puis le choix « 📦 Nouveaux articles » / « ➕ Entrées de stock »), **« 📄 Modèle Excel »** (le même choix, pour télécharger le modèle vide), **« 📋 Coller du texte »** (nouveaux articles seulement)."],
         ["**📤 Dépenses**", "Chaque règlement de fournisseur y apparaît : catégorie **« Achat marchandises »**, description « Règlement fournisseur X », sur la boutique dont la caisse a payé."],
         ["**📊 Tableau de bord**, pastille 🏦 BANQUE", "Un règlement par virement bancaire sort de la caisse BANQUE (chapitre 6)."],
         ["**🕘 Historique**", "« Paiement fournisseur X (montant) — BOUTIQUE », « Entrée stock +N « article » — BOUTIQUE », « Fournisseur de « article » : X », et l'import d'entrées ligne par ligne."],
       ]}],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans la liste des fournisseurs, le **nom reste figé à gauche**, l'adresse et les produits tiennent sur deux lignes et **se lisent en entier au clic sur la ligne**, et les gestes sont des **boutons ronds** — 📦 + Commande, 💵 + Règlement, 🗑 supprimer — le nom au survol. Dans 📦 Stocks, le fournisseur d'un article se change par le bouton rond **🚚** de sa ligne (la colonne Fournisseur ne fait plus que le montrer, « — à définir — » s'il manque)."],
     ]},
 
     // ── 4
@@ -102,7 +103,7 @@ export const CHAPITRE = {
       ["h3", "E. Rattacher un article à son fournisseur"],
       ["etapes", [
         { titre: "À la création de la fiche", texte: "Dans le formulaire « Nouvel article », la liste **« Fournisseur »** propose « — Aucun — » et les fournisseurs de l'espace. Le journal le dit : « Nouvel article « … » — BOUTIQUE (fournisseur : X) »." },
-        { titre: "Après coup, dans le tableau", texte: "Colonne Fournisseur, cliquer **« — Définir — »** (ou le nom actuel) : « Fournisseur de « … » ? » avec la liste des fournisseurs enregistrés. On tape un nom de la liste (majuscules libres) ; **vide = retirer le fournisseur**. Un nom hors liste est refusé : « Ce fournisseur n'existe pas. Créez-le d'abord dans 🚚 Fournisseurs. » Sans aucun fournisseur : « Aucun fournisseur enregistré. Créez-le d'abord dans l'onglet 🚚 Fournisseurs. »" },
+        { titre: "Après coup, dans le tableau", texte: "Sur la ligne de l'article, le bouton rond **🚚** : « Fournisseur de « … » ? » avec la liste des fournisseurs enregistrés. On tape un nom de la liste (majuscules libres) ; **vide = retirer le fournisseur**. Un nom hors liste est refusé : « Ce fournisseur n'existe pas. Créez-le d'abord dans 🚚 Fournisseurs. » Sans aucun fournisseur : « Aucun fournisseur enregistré. Créez-le d'abord dans l'onglet 🚚 Fournisseurs. »" },
         { titre: "Par l'import d'articles", texte: "En mode « 📦 Nouveaux articles », la colonne Fournisseur du fichier doit porter un nom **déjà enregistré** : un fournisseur inconnu n'est pas créé (on ne crée pas un fournisseur par faute de frappe), l'article est importé **sans** fournisseur et le résumé le dit." },
       ]],
     ]},
@@ -117,12 +118,12 @@ export const CHAPITRE = {
         ["Reste (rouge / vert)", "Rouge : il reste à payer. Vert : à jour. Jamais négatif — un règlement ne peut pas dépasser le reste."],
         ["+ Commande", "Ajoute une commande à crédit au Dû. N'écrit ni stock ni dépense."],
         ["+ Règlement", "Demande le montant (plafonné au reste), le moyen (quatre boutons), la caisse ; augmente le Réglé et crée la dépense « Achat marchandises »."],
-        ["Suppr.", "« Supprimer le fournisseur « X » ? » : la fiche part avec son ardoise. Les dépenses déjà créées restent dans 📤 Dépenses ; les articles gardent le nom en colonne Fournisseur tant qu'on ne le change pas."],
+        ["🗑 (bouton rond)", "« Supprimer le fournisseur « X » ? » : la fiche part avec son ardoise. Les dépenses déjà créées restent dans 📤 Dépenses ; les articles gardent le nom en colonne Fournisseur tant qu'on ne le change pas."],
       ]}],
       ["h3", "📦 Stocks — la part fournisseur et les entrées"],
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
         ["Fournisseur (liste du formulaire)", "Le fournisseur de la fiche à sa création. Seules les fiches de 🚚 Fournisseurs sont proposées."],
-        ["— Définir — (colonne Fournisseur)", "Pose ou change le fournisseur d'un article existant, parmi ceux enregistrés. Vide pour retirer."],
+        ["🚚 (bouton rond, 📦 Stocks)", "Pose ou change le fournisseur d'un article existant, parmi ceux enregistrés. Vide pour retirer."],
         ["Entrées (colonne)", "Le cumul des « + Entrée » et des entrées importées. Il n'entre dans le stock que par ces deux gestes — jamais par ✏️ Corriger."],
         ["+ Entrée", "Une réception, une quantité, un article. « Quantité reçue pour « … » : »."],
         ["📄 Modèle Excel → ➕ Entrées de stock", "Le fichier vide à trois colonnes (Nom, Quantité reçue, Prix d'achat) au nom de la boutique regardée."],
@@ -152,7 +153,7 @@ export const CHAPITRE = {
       ["ul", [
         "**📦 Stocks** (chapitre 8) : la colonne Fournisseur, la colonne Entrées, le prix d'achat qui nourrit la valeur du stock et « ⚠ À réapprovisionner » (l'export nomme le fournisseur de chaque article en manque).",
         "**🚚 Ravitaillement** (chapitre 9) : ce que le magasin reçoit du fournisseur (« + Entrée » au magasin) est ce qu'il pourra ravitailler. Ce qui arrive en boutique par RAV-… ou TRF-… **ne se saisit jamais en entrée**.",
-        "**📤 Dépenses** (chapitre 17) : chaque règlement y est une ligne « Achat marchandises ». Une dépense ne se modifie pas : l'administrateur la supprime (« Suppr. ») et en saisit une juste.",
+        "**📤 Dépenses** (chapitre 17) : chaque règlement y est une ligne « Achat marchandises ». Une dépense ne se modifie pas : l'administrateur la supprime (🗑) et en saisit une juste.",
         "**🔒 Caisse** (chapitre 6) : un règlement en espèces est une sortie justifiée de la clôture du jour ; par virement, il apparaît dans le relevé 🏦 BANQUE ; par Flooz ou Mixx, dans le solde du compte mobile.",
         "**📈 Rentabilité** (chapitre 22) : le prix d'achat de chaque article — celui de la fiche, mis à jour par l'administrateur ou par le fichier d'entrées — fait la marge.",
         "**⚙ Paramètres** (chapitre 23) : les boutiques et magasins qui peuvent recevoir une entrée ou débiter une caisse.",
@@ -185,7 +186,7 @@ export const CHAPITRE = {
         ["Un nom écrit autrement que dans 📦 Stocks (« Panneau 400 W » pour « PANNEAU 400W »)", "Les majuscules et accents ne comptent pas, mais un espace ou un mot en plus fait un nom inconnu : ligne refusée.", "Copier le nom depuis 📦 Stocks (ou depuis l'export) dans le fichier."],
         ["Réimporter tout le fichier après avoir corrigé deux lignes", "Les lignes déjà entrées le sont une seconde fois.", "N'importer que les lignes refusées, ou corriger par ± Ajuster."],
         ["Un gérant met un prix d'achat dans le fichier", "« Colonne « Prix d'achat » ignorée : corriger un prix est réservé à l'administrateur. » Les quantités entrent, le prix ne bouge pas.", "Transmettre le nouveau prix à l'administrateur (✏️ Corriger ou son propre import)."],
-        ["Taper un fournisseur inconnu dans « — Définir — »", "« Ce fournisseur n'existe pas. Créez-le d'abord dans 🚚 Fournisseurs. »", "Créer la fiche, puis revenir sur l'article."],
+        ["Taper un fournisseur inconnu après 🚚", "« Ce fournisseur n'existe pas. Créez-le d'abord dans 🚚 Fournisseurs. »", "Créer la fiche, puis revenir sur l'article."],
         ["Supprimer un fournisseur qui a encore un Reste", "L'ardoise disparaît avec la fiche ; personne ne rappellera ce qui est dû.", "Régler ou noter le reste avant, ou garder la fiche."],
         ["Mettre le montant d'une facture dans « Dû (F) » d'une fiche existante", "Ce champ n'existe qu'à la création. Après, c'est « + Commande ».", "« + Commande » sur la ligne."],
       ]}],
@@ -211,7 +212,7 @@ export const CHAPITRE = {
       ["ol", [
         "Créer un fournisseur complet (nom, téléphone, site, produits) ; vérifier qu'il apparaît avec Reste 0 en vert.",
         "« + Commande » de 150 000 ; lire Dû, Réglé, Reste et « Reste à régler » en tête.",
-        "Dans 📦 Stocks, rattacher deux articles à ce fournisseur : l'un par « — Définir — », l'autre à la création d'une nouvelle fiche.",
+        "Dans 📦 Stocks, rattacher deux articles à ce fournisseur : l'un par le bouton 🚚, l'autre à la création d'une nouvelle fiche.",
         "« + Entrée » de 5 sur le premier article ; lire la colonne Entrées et le Stock.",
         "Télécharger le modèle « ➕ Entrées de stock », y mettre trois lignes dont une avec un nom faux ; importer ; lire le résumé (une ligne refusée) ; confirmer ; corriger la ligne et la réimporter seule.",
         "Avec le compte **gérant**, importer un fichier d'entrées avec un prix d'achat : lire l'avertissement « ignorée ». Refaire avec l'**administrateur** : lire « prix d'achat mis à jour ».",
