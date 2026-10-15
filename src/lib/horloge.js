@@ -54,3 +54,24 @@ export function ecartDepuisReponse({ dateServeur, envoi, reception }) {
   const serveur = t + 500;
   return Math.round(serveur - (e + r) / 2);
 }
+
+// L'écart déduit de l'heure que la BASE donne elle-même (15/10/2026, « oui
+// lance » : « pourquoi les synchronisations de chaque 20 secondes ne peuvent
+// pas lire l'heure ? »). `heure` = la réponse de heure_serveur() (au
+// millième, donc pas de demi-seconde à ajouter), `envoi` / `reception` =
+// l'horloge de l'appareil avant et après. Même règle d'aller-retour que la
+// mesure par le petit fichier. Rend null quand on ne peut rien dire.
+export function ecartDepuisHeureServeur({ heure, envoi, reception }) {
+  const t = Date.parse(heure || "");
+  if (!Number.isFinite(t)) return null;
+  const e = Number(envoi), r = Number(reception);
+  if (!Number.isFinite(e) || !Number.isFinite(r) || r < e || r - e > ALLER_RETOUR_MAX_MS) return null;
+  return Math.round(t - (e + r) / 2);
+}
+
+// Tant que la base a donné l'heure il y a moins de 15 minutes, la mesure de
+// secours (le petit fichier) ne la remplace pas : la base est la meilleure
+// source, le fichier passe par un relais.
+export const BASE_RECENTE_MS = 15 * 60 * 1000;
+export const baseRecente = (derniereMesureBase, ms) =>
+  Number.isFinite(derniereMesureBase) && ms - derniereMesureBase < BASE_RECENTE_MS;

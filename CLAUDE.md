@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2675 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2683 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -77,6 +77,7 @@ npm run tester-argent            # 245 : les règles de rôle sur l'argent (serv
 npm run tester-comptes           # 98  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
+npm run tester-heure             # 7   : l'heure de la base (heure_serveur, serveur, base jetable) : l'instant de la RÉPONSE, lisible connecté ou non, ne touche aucune table
 npm run tester-paie              # 77  : la fiche de paie séparée, le numéro de compte bancaire, le contrat de travail, les cases CNSS et le premier mois de paie verrouillés (serveur)
 ```
 
@@ -4802,6 +4803,20 @@ lit mal est pire qu'un banc absent).
   en avance. Banc (+3, deux RETOURNÉS), éprouvé en remettant l'âge. Chapitre 25.
   Les lignes écrites du 14/10 au 15/10 (2.101.556 → 569, depuis le 14/10 15:39) peuvent porter
   une heure en avance : requête de LECTURE donnée à Timo.
+- **🕓 LA BASE DIT L'HEURE À CHAQUE SYNCHRONISATION** (15/10/2026, Timo :
+  « pourquoi les synchronisations de chaque 20 s ne peuvent pas lire l'heure
+  et attendre 10 min ? » → « oui lance »). La fonction **`heure_serveur()`**
+  (`supabase/heure-serveur-1.sql`, `clock_timestamp()` = l'instant de la
+  réponse, ne lit aucune table, ouverte à anon et authenticated) est appelée
+  par `synchroniser()` (src/sync.js) SANS attendre (`mesurerParLaBase`,
+  src/horloge.js) ; `ecartDepuisHeureServeur` (lib/horloge.js) au milieu de
+  l'aller-retour. La mesure par version.json devient le SECOURS : elle se tait
+  tant que la base a répondu depuis moins de 15 min (`baseRecente`). Fonction
+  absente (SQL pas collé) → plus redemandée jusqu'au prochain chargement, le
+  fichier prend le relais. ⚠ L'en-tête « Date » de Supabase n'est PAS lu : le
+  navigateur le cache pour une autre adresse sauf autorisation, non vérifiable
+  d'ici. Banc `tester-heure` (7, éprouvé avec now()), `verifier-cloisonnement`
+  (+5, éprouvé). **À coller par Timo** (le SQL dans le message). Chapitre 24.
 - **Les lignes déjà écrites (14/10/2026)** : le PC de TIMO (L530) avait
   **11 h 38 de retard** le 14/10 de 10:39 à 11:16 (écrit « 13/10 23:01 à
   23:38 »). Les deux ventes MR SEVERIN et MR ERIC (faites APRÈS la clôture)

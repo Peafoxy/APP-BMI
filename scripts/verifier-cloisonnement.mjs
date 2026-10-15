@@ -16278,6 +16278,27 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
   test("★ la mesure lit la date du SERVEUR (version.json, jamais gardé), garde le dernier écart sur l'appareil et le réapplique au chargement (hors connexion)",
     /version\.json\?horloge=/.test(mes) && /cache: "no-store"/.test(mes) && /headers\.get\("date"\)/.test(mes)
     && /localStorage\.getItem\(CLE_ECART_HORLOGE\)/.test(mes) && /localStorage\.setItem\(CLE_ECART_HORLOGE/.test(mes));
+  // 🕓 15/10/2026 (« oui lance ») : la BASE dit l'heure à chaque synchronisation.
+  {
+    const t0 = Date.parse("2026-10-15T12:19:00.200Z");
+    test("★★★ l'heure donnée par la base : appareil à l'heure → écart nul ; appareil en retard de 3 h → +3 h ; au milieu de l'aller-retour",
+      H.ecartDepuisHeureServeur({ heure: "2026-10-15T12:19:00.200+00:00", envoi: t0 - 150, reception: t0 + 150 }) === 0
+      && H.ecartDepuisHeureServeur({ heure: "2026-10-15T12:19:00.200+00:00", envoi: t0 - 3 * 3600000 - 150, reception: t0 - 3 * 3600000 + 150 }) === 3 * 3600000);
+    test("★ pas de mesure par la base sans heure lisible, ni quand l'aller-retour dépasse 10 s",
+      H.ecartDepuisHeureServeur({ heure: null, envoi: t0, reception: t0 + 100 }) === null
+      && H.ecartDepuisHeureServeur({ heure: "2026-10-15T12:19:00Z", envoi: t0, reception: t0 + 11000 }) === null);
+    test("★ la mesure de la base prime : le petit fichier ne la remplace pas pendant 15 minutes",
+      H.baseRecente(t0, t0 + 10 * 60000) === true && H.baseRecente(t0, t0 + 16 * 60000) === false && H.baseRecente(NaN, t0) === false);
+    const syncTxt = sansCom(readFileSync("src/sync.js", "utf8"));
+    const horTxt = sansCom(readFileSync("src/horloge.js", "utf8"));
+    const corpsSecours = horTxt.slice(horTxt.indexOf("export async function mesurerHorloge"), horTxt.indexOf("let surveille"));
+    test("★★ chaque synchronisation demande l'heure à la base (heure_serveur), SANS attendre la réponse ; le petit fichier ne passe qu'en secours",
+      /\n\s*mesurerParLaBase\(supabase\);/.test(syncTxt) && !/await mesurerParLaBase/.test(syncTxt)
+      && /client\.rpc\("heure_serveur"\)/.test(horTxt) && /if \(baseRecente\(derniereMesureBase, Date\.now\(\)\)\) return null;/.test(corpsSecours));
+    const sqlH = readFileSync("supabase/heure-serveur-1.sql", "utf8");
+    test("★ le SQL donne l'heure de la RÉPONSE (clock_timestamp), ne lit aucune table, et se relit par true | true",
+      /select clock_timestamp\(\)/.test(sqlH) && !/security definer/i.test(sqlH) && /as fonction_en_place/.test(sqlH) && /as heure_juste/.test(sqlH));
+  }
   test("★★ la mesure ne lit plus l'en-tête « Age » ; l'écart faux de la première version (bmi_ecart_horloge) est laissé de côté et effacé (RETOURNÉ le 15/10/2026)",
     !/headers\.get\("age"\)/.test(sansCom(mes)) && !/a \* 1000/.test(sansCom(readFileSync("src/lib/horloge.js", "utf8")))
     && /CLE_ECART_HORLOGE = "bmi_ecart_horloge_v2"/.test(mes) && /localStorage\.removeItem\("bmi_ecart_horloge"\)/.test(mes));

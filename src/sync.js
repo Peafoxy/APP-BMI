@@ -5,6 +5,7 @@ import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
 import { sessionPerdueSelon, MESSAGE_SESSION_PERDUE } from "./lib/verrou";
 import { prendreVersionServeur, horodatee, CLE_RELECTURE_HORLOGE } from "./lib/versionDistante";
+import { mesurerParLaBase } from "./horloge";
 
 // Moteur de synchronisation :
 // - toutes les écritures se font d'abord en LOCAL (instantané, hors ligne)
@@ -254,6 +255,9 @@ export async function synchroniser(options = {}) {
     // On tente d'établir une session sécurisée sans alarmer : tant que la base
     // est ouverte, son absence n'empêche rien. Un refus réel sera signalé plus bas.
     try { await assurerSession(); } catch (e) { console.warn("Session non établie :", e?.message || e); }
+    // 🕓 15/10/2026 : à chaque synchronisation, la base dit l'heure elle-même
+    // (heure_serveur). Lancée sans attendre : elle ne ralentit pas l'envoi.
+    mesurerParLaBase(supabase);
     let echecReseau = false;
 
     // ---------- 1) POUSSER les modifications locales ----------
