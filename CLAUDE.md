@@ -4800,7 +4800,7 @@ lit mal est pire qu'un banc absent).
   ne soit pas réappliqué. ⚠ Non vérifié d'ici (le proxy bloque le site) : déduit
   du sens de l'erreur — une date d'origine aurait mis l'heure en RETARD, jamais
   en avance. Banc (+3, deux RETOURNÉS), éprouvé en remettant l'âge. Chapitre 25.
-  Les lignes écrites du 14/10 au soir au 15/10 (2.101.567 → 569) peuvent porter
+  Les lignes écrites du 14/10 au 15/10 (2.101.556 → 569, depuis le 14/10 15:39) peuvent porter
   une heure en avance : requête de LECTURE donnée à Timo.
 - **Les lignes déjà écrites (14/10/2026)** : le PC de TIMO (L530) avait
   **11 h 38 de retard** le 14/10 de 10:39 à 11:16 (écrit « 13/10 23:01 à
