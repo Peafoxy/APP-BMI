@@ -36,6 +36,9 @@
 // brouillons) est aux chapitres 11 et 12 ; la signature et le contrat au 14.
 // 🏗 La case « 🔧 Avec installation » et le matériel qui part au chantier :
 // lib/achatsChantier.js (11/10/2026).
+// 🖨 Le devis imprimé sans compte (15/10/2026) : la pastille « 🖨 Sans compte »,
+// le papier ouvert à tout administrateur, « 💰 Encaisser » (commandeAEncaisser),
+// lib/identiteClient.js (estSansAcces), lib/comptesClients.js (ouvrirAcces).
 // ============================================================
 export const CHAPITRE = {
   numero: 13,
@@ -166,6 +169,16 @@ export const CHAPITRE = {
         { titre: "✍️ Enregistrer et envoyer au client", texte: "**Les lignes déjà chiffrées ne bougent pas.** Les frais (installation, transport, remise) se recalculent au **pourcentage déjà négocié** — un **montant libre** reste le même montant —, l'acompte aussi. Le devis garde son numéro, sa date et reste ⏳ Proposé ; il porte « ✍️ Complété le … par … » (jamais « Modifié »). Une question propose ensuite de l'envoyer au client **du numéro BMI** ; le client peut alors le valider." },
       ]],
       ["note", "**La date de l'offre ne change pas** en complétant : les 15 jours se comptent toujours depuis la date du devis. Pour de nouveaux prix sur les lignes déjà chiffrées, c'est **✏️ Modifier et renvoyer** (section C)."],
+      ["h3", "J. 🖨 Un devis imprimé, sans compte (administrateur)"],
+      ["etapes", [
+        { titre: "Pour qui", texte: "Un client qui **ne passe pas par l'application** : il veut son devis sur papier, il signera sur papier, il paiera en boutique. Tout administrateur peut le faire." },
+        { titre: "🖨 Imprimer le devis (sans l'envoyer)", texte: "Dans le volet du devis (chapitre 11), le client choisi ou **➕ Nouveau client** (nom, prénom, numéro), puis **🖨 Imprimer le devis (sans l'envoyer)** à côté de « 📲 Envoyer par WhatsApp ». Une question, puis le **PDF sort** tout de suite. **Rien n'est envoyé** au client et **il ne reçoit pas d'identifiants**." },
+        { titre: "Ce qui est rangé", texte: "Le devis entre dans 📋 Tous les devis avec la pastille **« 🖨 Sans compte »**, son numéro et son statut **⏳ Proposé**. Il se reprend (**✏️ Modifier (puis réimprimer)**), se classe sans suite, se complète comme un autre. Il n'est **jamais relancé** (ni à la main, ni le 8e jour) : son client ne reçoit rien de l'application." },
+        { titre: "La signature sur papier", texte: "Ouvrir la ligne → **🖨 Imprimer pour signature papier** (le contrat, avec son numéro), le client signe, puis **📝 Signé sur papier** : la boutique où il paiera, le plan de règlement s'il reste un solde, et le devis passe **✅ Validé** (chapitre 14). Pour ce devis, **tout administrateur** peut le faire ; « ✍️ Faire signer ici » reste à l'administrateur principal." },
+        { titre: "💰 Encaisser", texte: "Le devis validé a sa **commande en attente** dans 🧾 Commandes de la boutique choisie. L'administrateur peut aussi l'encaisser **depuis la ligne du devis** : **💰 Encaisser** ouvre 💰 Ventes avec le panier, le client et le devis. À l'encaissement naît la fiche de 🏠 Clients installés : programmation, équipe, PV, réception, commission — **la suite de tout devis** (chapitre 15)." },
+        { titre: "S'il veut un jour son espace", texte: "Lui envoyer un devis par **📲 Envoyer par WhatsApp** (ou « 🙋 Créer un client », ou « Convertir » dans 🧲 Prospects avec son numéro) : une question, puis son espace **s'ouvre** et ses identifiants partent du numéro BMI. Aucun compte en double." },
+      ]],
+      ["note", "**Techniquement, une fiche client est créée** (le devis doit être rangé quelque part), mais elle est **fermée** : la connexion est refusée, elle n'apparaît ni dans 👥 Utilisateurs ni parmi les clients proposés au devis."],
       ["regle", "**Une proforma se corrige, elle ne se refait pas** (✏️ Modifier) : elle garde son numéro, et chaque correction est notée (date, auteur, l'ancienne version gardée). **Qui** : celui qui l'a établie et l'administrateur. **Jamais une proforma déjà encaissée** : elle est devenue une vente — pour une nouvelle offre, une nouvelle proforma. **Au-delà de 3 % de remise**, l'administrateur seul (la base le refuse aussi). Un article devenu introuvable dans le stock empêche la modification : il disparaîtrait de l'offre."],
       ["attention", "**🛒 Vendre ne change jamais de boutique tout seul.** Une proforma d'une autre boutique est refusée en nommant la bonne : il faut se placer sur cette boutique. Un article introuvable dans le stock est **listé**, jamais mis au panier sans sa fiche ; un prix qui a changé depuis est **signalé** (le prix de la proforma est gardé). Une proforma **déjà encaissée** se revend quand même, mais l'écran **prévient** en nommant la date et le reçu : ce sera une nouvelle vente, avec un nouveau numéro."],
     ]},
@@ -184,7 +197,9 @@ export const CHAPITRE = {
         ["↩ Rouvrir le devis", "Remet un devis classé en Proposé."],
         ["🗑 Supprimer", "Administrateur principal ; devis Proposé ; corbeille 30 jours."],
         ["✅ Accepter / ❌ Rejeter (plan de règlement)", "Administrateur principal ; engage BMI sur l'échéancier proposé par le client."],
-        ["✍️ Faire signer ici · 🖨 Imprimer pour signature papier · 📝 Signé sur papier", "Signature en boutique d'un devis Proposé — chapitre 14."],
+        ["✍️ Faire signer ici · 🖨 Imprimer pour signature papier · 📝 Signé sur papier", "Signature en boutique d'un devis Proposé — chapitre 14. Pour un devis « 🖨 Sans compte », le papier est ouvert à tout administrateur."],
+        ["🖨 Sans compte (pastille)", "Un devis imprimé sans l'envoyer : son client n'a pas d'accès, rien ne lui part (section J)."],
+        ["💰 Encaisser", "Administrateur ; devis Validé dont la commande attend : ouvre 💰 Ventes avec le panier, le client et le devis."],
         ["🏢 Entreprise cliente (devis) / 🏢 Le client paie au nom d'une entreprise (Ventes)", "Nom, téléphone, NIF, RCCM de l'entreprise ; la personne reste le répondant."],
         ["🧾 Proforma WhatsApp", "PDF téléchargé, puis la proforma part du numéro BMI (après une question) ; sinon WhatsApp s'ouvre sur le numéro du client avec le détail, PDF à joindre."],
         ["🖨️ (à côté)", "Imprimer la proforma."],

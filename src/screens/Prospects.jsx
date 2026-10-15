@@ -8,7 +8,7 @@ import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { CarteChoixPosition } from "../components/Carte";
-import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient } from "../lib/comptesClients";
+import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient, estSansAcces, ouvrirAcces, motDePasseConnu } from "../lib/comptesClients";
 import { uid, fmt, today, dFR, col } from "../lib/core";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
@@ -176,6 +176,22 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     // ⚠ Même correctif que dans Clients : « +228 90 11 22 33 » et
     // « 90112233 » sont la MÊME personne (voir lib/identiteClient.js).
     const existant = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, p.tel));
+    // 🖨 Une fiche SANS ACCÈS (devis imprimé sans compte, 15/10/2026) : le
+    // convertir, c'est lui OUVRIR son espace et lui envoyer ses identifiants.
+    if (existant && estSansAcces(existant)) {
+      const mdp = motDePasseConnu(existant);
+      if (!await uConfirm(`🖨 ${existant.nom_base || existant.nom} a déjà une fiche, sans accès à l'application : son devis avait été imprimé sans compte.\n\nRattacher « ${p.nom} », lui ouvrir son espace et lui envoyer ses identifiants ?`)) return;
+      const ouvert = ouvrirAcces(existant, profile.nom);
+      save({ ...db,
+        users: db.users.map((u) => (u.id === existant.id ? ouvert : u)),
+        prospects: db.prospects.map((x) => (x.id === p.id ? prospectAcquis(x, { client_user_id: existant.id }) : x)),
+      }, `Prospect « ${p.nom} » rattaché à ${existant.nom} — accès ouvert (devis imprimé sans compte) par ${profile.nom}`);
+      if (!mdp) { uAlert(`✅ ${p.nom} est désormais client. Son mot de passe ne se recalcule pas : donnez-le lui depuis 👥 Utilisateurs.`); return; }
+      const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: existant.nom_base || existant.nom, identifiant: existant.nom, motDePasse: mdp, tel: existant.tel, role: "client", espaceFormation: !!existant.formation, demanderConfirmation: uConfirm, prevenir: uAlert });
+      if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: ouvert, envoi: r }) }));
+      uAlert(`✅ ${p.nom} est désormais client.${messageIdentifiants(p.nom, r) ? `\n\n${messageIdentifiants(p.nom, r)}` : ""}`);
+      return;
+    }
     if (existant) {
       // ⚠ 24/09/2026 : avant, on s'arrêtait là (« Rien n'a été recréé ») et
       // le prospect restait dans la file pour toujours. Un compte qui

@@ -1325,7 +1325,8 @@ titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)
       appels.length > 0 && lignes.length === appels.length && /import \{[^}]*messagesAvecLigneAcces[^}]*\} from "\.\.\/whatsapp"/.test(src));
     // LE MUR : l'espace du COMPTE (sa marque), jamais estCompteFormation(db, profile).
     test(`★★ ${f} : chaque envoi passe l'espace du COMPTE CRÉÉ (${appels.length} envoi(s))`,
-      appels.length > 0 && appels.every((a) => /espaceFormation: (!!user\.formation|!!c\.formation|espaceCree === true)/.test(a)));
+      appels.length > 0 && appels.every((a) => /espaceFormation: (!!user\.formation|!!c\.formation|!!existant\.formation|espaceCree === true)/.test(a)));
+    // RETOURNÉ le 15/10/2026 : « Convertir » sur une fiche SANS ACCÈS (devis imprimé) lui ouvre son espace — l'espace de CETTE fiche (`existant`).
     test(`★ ${f} : chaque envoi porte un texte de repli (la fonction le construit) et la phrase de l'écran`,
       appels.length > 0 && (src.match(/messageIdentifiants\(/g) || []).length >= appels.length);
   }
@@ -1514,7 +1515,8 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
   const corps = (cli.match(/const contacter = async \(c\) => \{[\s\S]*?\n  \};/) || [""])[0];
   test("★★ 📋 Clients : le bouton WhatsApp envoie le mot de fidélité du numéro BMI, après UNE question, le modèle choisi selon le compte (comptesAvecCeNumero, jamais db.users), l'espace de la BOUTIQUE regardée",
     corps.length > 0 && /await uConfirm\(`Envoyer le mot de fidélité à \$\{nom\} du numéro BMI \?`\)/.test(corps)
-    && /comptesAvecCeNumero\(db, profile, c\.tel\)\.find\(\(u\) => u\.role === "client"\)/.test(corps)
+    // RETOURNÉ le 15/10/2026 : une fiche SANS ACCÈS (devis imprimé) reçoit le mot sans les lignes de l'espace.
+    && /comptesAvecCeNumero\(db, profile, c\.tel\)\.find\(\(u\) => u\.role === "client" && !estSansAcces\(u\)\)/.test(corps)
     && /envoiMotFidelite\(\{ nom, avecCompte: !!compte \}\)/.test(corps)
     && /espaceFormation: !!bqRegardee\.formation/.test(corps) && !/estCompteFormation\(db, profile\)/.test(corps)
     && /texteRepli: texteMotFidelite\(\{ nom, avecCompte: !!compte \}\)/.test(corps) && /demanderConfirmation: uConfirm/.test(corps)
@@ -1878,7 +1880,9 @@ titre("㉑ 🧲 LA DEMANDE DE L'ASSISTANT SE PREND EN CHARGE, ET SON DEVIS SE PR
   test("★ App.jsx donne le chemin : la fiche part au dimensionnement comme un devis repris",
     /<M\.Prospects [^>]*onPreparerDevis=\{\(pseudoDevis\) => \{ setDevisAReprendre\(pseudoDevis\); setTab\("dimensionnement"\); \}\}/.test(lire("src/App.jsx")));
   test("★ à l'envoi, la fiche du prospect garde le compte et le devis — après que le message est PARTI, jamais marquée client ici",
-    /if \(!envoye\) return;[\s\S]{0,700}if \(devisAReprendre\?\.prospect_id\) \{[\s\S]{0,400}prospectAvecDevis\(x, \{ client_user_id: compte\.id, devis_id: devis\.id \}\)/.test(partagesJsx)
+    // RETOURNÉ le 15/10/2026 : la marque vit dans `apresLeDevis`, appelée APRÈS l'envoi (et après un devis imprimé, rangé).
+    /if \(!envoye\) return;\s*apresLeDevis\(compte, devis\);/.test(partagesJsx)
+    && /const apresLeDevis = \(compte, devis\) => \{[\s\S]{0,700}if \(devisAReprendre\?\.prospect_id\) \{[\s\S]{0,400}prospectAvecDevis\(x, \{ client_user_id: compte\.id, devis_id: devis\.id \}\)/.test(partagesJsx)
     && !/prospectAcquis/.test(partagesJsx)
     && /import \{ prospectAvecDevis \} from "\.\.\/\.\.\/lib\/prospects"/.test(partagesJsx));
   test("★ « Convertir » sur un numéro qui a DÉJÀ un compte rattache la fiche au lieu de s'arrêter",

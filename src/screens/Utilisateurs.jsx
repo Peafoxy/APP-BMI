@@ -7,7 +7,7 @@ import { correspond } from "../lib/suggestions";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, envoyerIdentifiantsEmployeWhatsApp } from "../lib/comptesClients";
+import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, envoyerIdentifiantsEmployeWhatsApp, estSansAcces } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
@@ -87,7 +87,10 @@ export function Users({ db, save, profile }) {
   // deux espaces mêlés, même quand le sélecteur « Je regarde » était sur le
   // réel. C'est l'écran où l'on bloque, où l'on change un salaire, où l'on
   // supprime — donc celui où se tromper de cible coûte le plus cher.
-  const dansMonEspace = utilisateursDeLEspace(db, profile);
+  // 🖨 Une fiche client SANS ACCÈS (devis imprimé sans compte, 15/10/2026)
+  // n'est pas un compte : elle n'apparaît pas ici. Son devis vit dans
+  // 📋 Tous les devis (« 🖨 Sans compte »).
+  const dansMonEspace = utilisateursDeLEspace(db, profile).filter((u) => !estSansAcces(u));
   const utilisateursVisibles = jeSuisAdminPrincipal ? dansMonEspace : dansMonEspace.filter((x) => adminPrincipal(db)?.id !== x.id);
   // 📁 Les clients SANS SUITE (Timo, 30/09/2026 : « b, 30 jours ») : un devis,
   // aucun validé, aucun achat — archivés 30 jours après leur dernier devis.

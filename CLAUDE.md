@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2663 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2675 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1177,6 +1177,48 @@ lit mal est pire qu'un banc absent).
   aussi sa recette du tiroir (pas demandé). Banc (+10), éprouvé (« b » retiré
   de la règle, effacement direct remis dans l'écran, tournée qui lit la
   corbeille). Chapitres 5, 7, 23 et le guide administrateur à jour.
+- **🖨 LE DEVIS IMPRIMÉ SANS COMPTE** (15/10/2026, « Ab, Ba, Ça, Da », puis
+  « b ») : Timo, « imprimer un devis sans création de compte, ensuite l'envoyer
+  dans client installé pour programmer l'installation avec tout ce qui suit ».
+  Un devis vit dans une fiche client (`users[].devis`) : on la crée quand même,
+  **FERMÉE** — `sans_acces: true` (`estSansAcces` / `MESSAGE_SANS_ACCES`,
+  lib/identiteClient.js, lue par le serveur ; `ouvrirAcces`, comptesClients.js :
+  pose `sans_acces: false`, jamais un champ retiré). Ses identifiants existent et
+  ne lui sont JAMAIS envoyés ; la connexion est refusée (chercher-compte,
+  sync-auth, Connexion.jsx, APRÈS le mot de passe) ; elle n'est ni dans
+  👥 Utilisateurs ni proposée comme destinataire (sauf la sienne quand on reprend
+  son devis) ; aucun message « nouveau client » aux administrateurs.
+  - **« D a »** : « 🖨 Imprimer le devis (sans l'envoyer) » dans le cadre d'envoi
+    des trois volets, **tout administrateur** (`imprimer`, useEnvoiDevis,
+    `refuserSaufAdmin` dans le geste) : client choisi ou ➕ Nouveau client, une
+    question, le devis RANGÉ par LA règle de l'envoi (`rangerDevisChezLeClient`,
+    Partages.jsx — remise, signatures, cf. visite, espace, trace), marque
+    `imprime`, puis le PDF par LA fabrique de « 📄 Devis PDF »
+    (`genererPdfDuDevis`, TousLesDevis.jsx, chargée par `import()` — cycle
+    TousLesDevis → Garage → Partages). Rien n'est envoyé.
+  - **« A b »** : 📋 Tous les devis, pastille « 🖨 Sans compte » ; repris par
+    « ✏️ Modifier (puis réimprimer) », classable, complétable (sans envoi) ;
+    **jamais relancé** (bouton, geste, bande, ni le 8e jour — relanceAutoDevis) ;
+    pas de « Demander une modification au client » (il ne peut pas accepter).
+  - **« B a »** : « 🖨 Imprimer pour signature papier » puis « 📝 Signé sur
+    papier » → ✅ Validé + commande dans la boutique choisie ; pour CE devis,
+    ouvert à **tout administrateur** (`papierOuvertATousLesAdmins`) — la
+    signature à l'écran et tout autre devis restent au principal.
+  - **« C a »** : la fiche 🏠 Clients installés naît à l'encaissement, comme
+    pour tout devis (dépôt chantier, achats, PV, commission : rien de changé).
+  - **« b »** : « 💰 Encaisser » sur la ligne d'un devis ✅ Validé dont la
+    commande attend (`commandeAEncaisser`), l'administrateur : la commande passe
+    validée comme dans 🧾 Commandes, 💰 Ventes s'ouvre (`onEncaisserCommande`,
+    App.jsx) — pour TOUT devis validé, pas seulement sans compte.
+  - **Son espace s'ouvre** (une question, ses identifiants partent du numéro BMI)
+    par « 📲 Envoyer par WhatsApp » d'un devis, « 🙋 Créer un client » ou
+    « Convertir » d'un prospect sur son numéro — jamais un doublon. 📋 Clients
+    lui envoie le mot de fidélité SANS les lignes de l'espace.
+  - Rien à coller (une fiche client n'est pas gardée par `securite-39` au-delà du
+    mot de passe ; elle naît avec ses identifiants). Banc (+12, dont 📋 Tous les
+    devis et le volet RENDUS, la relance du 8e jour exercée), éprouvé (relance
+    remise, papier fermé, fiche née ouverte) ; onze contrôles RETOURNÉS
+    (cloisonnement ×8, whatsapp ×3). Chapitres 3, 4, 11, 13, 14.
 - **🗑 Supprimer un devis ⏳ Proposé** (26/09/2026, « Pourquoi un
   administrateur principal ne peut pas supprimer un devis proposé ? » → « a,
   lance ») : bouton 🗑 Supprimer dans 📋 Tous les devis, **administrateur

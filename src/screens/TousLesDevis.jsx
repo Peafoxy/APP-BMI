@@ -14,12 +14,12 @@ import { envoiRelanceDevis, envoiDevisDisponible, traceEnvoi, libelleTrace } fro
 import { estLigneCfVisite, devisACompleter, attendLaVisite, ONGLET_A_COMPLETER, peutCompleterDevis, motifRefusCompletion, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "../lib/devisCfVisite";
 import { completerDevis, peutEtablirPourAutrui, auteursDuFiltre, devisDeLAuteur, auteurDuDevis } from "./dimensionnement/devisCommun";
 import { CompleterDevis } from "../components/CompleterDevis";
-import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
+import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, LIBELLE_ROLE_EMPLOYE, estSansAcces } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
-import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, utilisateursDeLEspace, ONGLETS_ROLE } from "../lib/calculs";
+import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
@@ -55,7 +55,75 @@ const joursSansReponse = (d) => joursSansReponseDepuis(d, today());
 const ORDRE_STATUT_DEVIS = { propose: 0, valide: 1, paye: 2, corrige: 3, modification: 4, rejete: 5, [STATUT_SANS_SUITE]: 6 };
 const NB_DEVIS_AFFICHES = 7;
 
-export function TousLesDevis({ db, save, profile, onModifierDevis }) {
+// 🖨 LE DEVIS IMPRIMÉ SANS COMPTE (Timo, 15/10/2026, « Ab, Ba, Ça, Da, b ») :
+// son client n'a pas d'accès à l'application — rien ne lui part.
+const RELANCE_SANS_ACCES = "🖨 Ce devis a été imprimé sans compte : son client n'a pas d'accès à l'application, il ne reçoit aucun message. Relancez-le par téléphone, ou envoyez-lui le devis par WhatsApp (✏️ Modifier → 📲 Envoyer) : son espace s'ouvrira.";
+const MODIF_SANS_ACCES = "🖨 Ce devis a été imprimé sans compte : son client ne peut pas accepter une demande de modification dans un espace qu'il n'a pas. Établissez un nouveau devis, imprimé, et faites-le signer sur papier.";
+
+// 💰 La commande d'un devis validé qui attend encore d'être encaissée (« b ») :
+// en attente dans 🧾 Commandes, ou validée sans qu'aucune vente ne la porte.
+export function commandeAEncaisser(db, d) {
+  if (!d || d.statut !== "valide" || d.pose_seule) return null;
+  return (db.commandes || []).find((c) => c.origine_devis?.devis_id === d.id
+    && (c.statut === "en_attente"
+      || (c.statut === "validee" && !(db.ventes || []).some((v) => v.commande_id === c.id || v.origine_devis?.devis_id === d.id)))) || null;
+}
+
+// 📄 Le PDF d'un devis — écrit UNE fois : le bouton « 📄 Devis PDF » ET
+// « 🖨 Imprimer le devis (sans l'envoyer) » du volet (15/10/2026, chargé à la
+// demande par Partages.jsx, qui ne peut pas importer cet écran directement :
+// cet écran importe Garage, qui importe Partages). `d.client` = sa fiche.
+export function genererPdfDuDevis(db, d) {
+  // ⚠ Bandeau formation (demande Timo) : le devis n'a pas de champ
+  // boutique direct avant vente — même repli que le contrat d'installation
+  // (impression.js) : la boutique de la personne qui l'a créé (d.par).
+  const initiateur = (db.users || []).find((u) => u.nom === d.par);
+  const estFormation = !!(db.boutiques || []).find((b) => b.nom === initiateur?.boutique)?.formation;
+  genererDevis({
+    numero: d.id.slice(0, 8).toUpperCase(),
+    date: dFR(d.date),
+    boutique: d.boutique,
+    client: d.client?.nom_base || d.client?.nom || "—",
+    // 29/09/2026 : le prénom et l'entreprise cliente du devis (lib/clientEntreprise.js).
+    prenom: d.prenom || d.client?.prenom || "",
+    entreprise: d.entreprise || null,
+    tel: d.client?.tel || "",
+    titre: libelleTypeDevis(d).replace(/^\S+\s/, ""),
+    statut: (STATUT_DEVIS[d.statut || "propose"] || STATUT_DEVIS.propose)[0].replace(/^\S+\s/, ""),
+    par: d.par,
+    lignes: d.lignes || [],
+    // La charge dimensionnée (appareils, mesures de porte, demande) part
+    // avec le devis : le PDF la rend au-dessus de la table des prix. Les
+    // identifiants techniques du garage (« portail_coulissant »,
+    // « moyenne ») sont réécrits ICI en libellés lisibles — le module PDF
+    // n'a accès ni aux écrans ni à db.
+    besoins: d.besoins ? {
+      ...d.besoins,
+      ...(d.besoins.type_ouvrant ? {
+        type_ouvrant: TYPES_PORTAIL.find((t) => t.id === d.besoins.type_ouvrant)?.label || d.besoins.type_ouvrant,
+        frequence: LABEL_FREQUENCE[d.besoins.frequence] || d.besoins.frequence,
+      } : {}),
+    } : null,
+    total: d.total,
+    // Le bloc financier du devis solaire (Timo, 11/09/2026) : acompte, solde, délai.
+    pct_acompte: d.pct_acompte, montant_acompte: d.montant_acompte, delai_installation: d.delai_installation,
+    // 📝 La ligne NB tapée sur le devis (08/10/2026).
+    nb: d.nb || "",
+    // Le devis engage BMI (Timo, 11/09/2026) : sa signature au bas du
+    // document, c'est la signature personnelle de celui qui l'a élaboré —
+    // si sa fiche en porte une — et LE cachet de l'entreprise, le même
+    // que sur les contrats d'installation (⚙ Paramètres, un seul cachet).
+    signature: initiateur?.signature_personnelle || "",
+    cachet: (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi || CACHET_BMI_DEFAUT,
+    formation: estFormation,
+    // 26/09/2026 (« b, lance ») : l'en-tête dit l'adresse, le téléphone et
+    // l'e-mail de la boutique du devis, comme le reçu — sinon celle de son
+    // auteur. Sans fiche trouvée, l'en-tête d'avant.
+    bq: (db.boutiques || []).find((b) => b.nom === d.boutique) || (db.boutiques || []).find((b) => b.nom === initiateur?.boutique) || null,
+  }, LOGO);
+}
+
+export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCommande = null, ouvertInitial = null }) {
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
 
   // ⚠ Cloisonnement : un devis porte l'espace de son auteur (`formation`,
@@ -174,7 +242,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     setFiltreStatut("propose");
   };
 
-  const [ouvert, setOuvert] = useState(null);
+  const [ouvert, setOuvert] = useState(ouvertInitial); // ouvertInitial : pour le banc seul
   // ✍️ Le devis en cours de complétion après la visite (08/10/2026).
   const [completion, setCompletion] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState("");
@@ -203,13 +271,18 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // relancent ; « payé ne doit plus être relancé » — ni rejeté, ni
   // modification demandée (là, c'est au vendeur de répondre). La règle du
   // message est dans lib/comptesClients.js (texteRelanceDevis).
-  const enAttenteDeRelance = (d) => devisARelancer(d, today());
+  // 🖨 Un devis imprimé sans compte n'est pas « à relancer » : son client ne
+  // reçoit rien de l'application (15/10/2026).
+  const enAttenteDeRelance = (d) => !estSansAcces(d.client) && devisARelancer(d, today());
   const nbARelancer = tousDevis.filter(enAttenteDeRelance).length;
 
   // 📲 Relancer : UN clic, le message est déjà écrit selon le statut ; la
   // date de relance est notée sur le devis (le compteur repart de là).
   const relancerDevis = async (d) => {
     if (bloquerSiLecture(db, profile)) return;
+    // 🖨 Un devis imprimé sans compte ne se relance pas : le message renvoie à
+    // un espace où le client ne peut pas entrer (15/10/2026).
+    if (estSansAcces(d.client)) { uAlert(RELANCE_SANS_ACCES); return; }
     const texte = texteRelanceDevis({ devis: d, compte: d.client, motDePasse: motDePasseConnu(d.client), vendeur: profile.nom, formaterMontant: fmt });
     if (!texte) { uAlert("Ce devis n'est plus à relancer."); return; }
     if (!d.client?.tel) { uAlert("Ce client n'a pas de numéro de téléphone enregistré."); return; }
@@ -302,9 +375,14 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // place le code superviseur, on pourra ouvrir ce geste aux vendeurs pour
   // un seul geste ». Le bouton est caché aux autres ET le geste refuse.
   const peutSignerEnBoutique = estAdminPrincipal(db, profile);
+  // 🖨 Un devis IMPRIMÉ SANS COMPTE (15/10/2026, « B a, D a ») : sa signature
+  // SUR PAPIER est ouverte à tout administrateur — c'est le seul chemin par
+  // lequel ce client valide. La signature à l'écran reste au principal.
+  const papierOuvertATousLesAdmins = (d) => estSansAcces(d?.client) && profile.role === "admin";
   // 📋 Un devis à compléter après la visite ne se signe pas (décision « A a »).
-  const peutFaireSigner = (d) => peutSignerEnBoutique && (d.statut || "propose") === "propose" && !devisACompleter(d);
-  const refuserSiPasAdminPrincipal = () => {
+  const peutFaireSigner = (d) => (peutSignerEnBoutique || papierOuvertATousLesAdmins(d)) && (d.statut || "propose") === "propose" && !devisACompleter(d);
+  const refuserSiPasAdminPrincipal = (d, mode) => {
+    if (mode === "papier" && estSansAcces(d?.client)) return refuserSaufAdmin(profile, "Enregistrer la signature papier d'un devis imprimé sans compte");
     return refuserSaufAdminPrincipal(db, profile, "Faire signer un contrat en boutique (pour l'instant)");
   };
   const [signature, setSignature] = useState(null); // { devis, mode: "ecran" | "papier", boutique }
@@ -315,7 +393,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const lieuSignature = profile.boutique || signature?.boutique || "";
 
   const ouvrirSignature = (d, mode) => {
-    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal()) return;
+    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal(d, mode)) return;
     setPlan({ type: "", montant_mensuel: "", premiere_echeance: finDuMoisCourant() });
     setSignature({ devis: d, mode, boutique: d.boutique_paiement || profile.boutique || d.boutique || "" });
   };
@@ -323,7 +401,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // Le numéro de contrat est attribué à l'IMPRESSION et enregistré sur le
   // devis : le papier signé et l'application portent le même numéro.
   const imprimerPourPapier = (d) => {
-    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal()) return;
+    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal(d, "papier")) return;
     const numero = d.contrat_numero || numeroContrat();
     if (!d.contrat_numero) {
       save({ ...db, users: db.users.map((u) => (u.id === d.client?.id
@@ -338,7 +416,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   const confirmerSignature = async () => {
     if (!signature) return;
     const { devis: d, mode, boutique } = signature;
-    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal()) return;
+    if (bloquerSiLecture(db, profile) || refuserSiPasAdminPrincipal(d, mode)) return;
     // Le plan de règlement, comme dans l'espace client : seulement s'il
     // restera un solde après l'acompte.
     const solde = soldeApresAcompte(d);
@@ -375,6 +453,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
   // DEMANDE au client, et c'est lui qui ouvre la porte.
   const demanderModifAuClient = async (d) => {
     if (bloquerSiLecture(db, profile)) return;
+    // 🖨 Le client d'un devis imprimé sans compte ne peut pas accepter dans
+    // son espace : la demande resterait en attente pour toujours.
+    if (estSansAcces(d.client)) { uAlert(MODIF_SANS_ACCES); return; }
     const refus = motifRefusDemandeModif(db, d, profile);
     if (refus) { uAlert(refus); return; }
     const motif = await uPrompt(
@@ -386,6 +467,25 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     if (r.erreur) { uAlert(r.erreur); return; }
     save(r.db, r.journal);
     uAlert(`✅ Demande envoyée à ${d.client?.nom_base || d.client?.nom}.\n\nVous pourrez corriger le devis dès qu'il aura accepté.`);
+  };
+
+  // 💰 ENCAISSER DEPUIS LA LIGNE DU DEVIS (Timo, 15/10/2026, « b ») : la même
+  // chose que « Valider » dans 🧾 Commandes — la commande passe validée, et
+  // 💰 Ventes s'ouvre avec le panier, le client et le devis d'origine.
+  // L'encaissement reste celui de 💰 Ventes (la fiche 🏠 y naît).
+  const encaisserDevis = (d) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdmin(profile, "Encaisser un devis depuis 📋 Tous les devis")) return;
+    const c = commandeAEncaisser(db, d);
+    if (!c) { uAlert("Ce devis n'a plus de commande à encaisser : elle a été encaissée ou refusée entre-temps (🧾 Commandes)."); return; }
+    if (!onEncaisserCommande) return;
+    const panier = c.statut === "en_attente" ? (c.articles || []) : (d.panier?.length ? d.panier : (c.articles || []));
+    if (c.statut === "en_attente") {
+      save({ ...db, commandes: (db.commandes || []).map((x) => (x.id === c.id ? { ...x, statut: "validee", valide_par: profile.nom, suivi_vente: true } : x)) },
+        `Commande du devis de ${d.client?.nom_base || d.client?.nom} validée depuis 📋 Tous les devis par ${profile.nom} — ${c.boutique}`);
+    }
+    onEncaisserCommande({ boutique: c.boutique, panier, commercial: c.commercial, responsable: c.responsable, rabais: c.rabais,
+      origineDevis: c.origine_devis || null, remise: c.remise_pct || 0, client: c.client || "", tel: c.tel || "", commandeId: c.id });
   };
 
   // ⚠ Le bouton ne suffit pas : tout geste réservé se revérifie DANS le geste.
@@ -417,6 +517,8 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
       users: etat.users.map((u) => (u.id === client.id ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? res.devis : x)) } : u)),
     }), `✍️ Devis de ${nomClient} complété après la visite (${fmt(frais.total)} → ${fmt(res.devis.total)}) par ${profile.nom}`);
     setCompletion(null);
+    // 🖨 Sans accès : rien ne lui est envoyé, le devis complété s'imprime.
+    if (estSansAcces(client)) { uAlert(`✅ Devis complété : ${fmt(res.devis.total)}.\n\n${client.nom_base || client.nom} n'a pas d'accès à l'application (devis imprimé sans compte) : rien ne lui est envoyé. Imprimez-le (📄 Devis PDF).`); return; }
     if (!client.tel) { uAlert(`✅ Devis complété : ${fmt(res.devis.total)}.\n\nCe client n'a pas de numéro enregistré : prévenez-le vous-même qu'il peut le valider dans son espace.`); return; }
     if (!await uConfirm(`✅ Devis complété : ${fmt(res.devis.total)}.\n\nL'envoyer à ${nomClient} (${client.tel}) du numéro WhatsApp BMI ?`)) return;
     const envoi = envoiDevisDisponible({ devis: res.devis, compte: client, fmt });
@@ -441,55 +543,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
     uAlert(`✅ Le devis complété est parti à ${nomClient} du numéro WhatsApp BMI.`);
   };
 
-  const telechargerPDF = (d) => {
-    // ⚠ Bandeau formation (demande Timo) : le devis n'a pas de champ
-    // boutique direct avant vente — même repli que le contrat d'installation
-    // (impression.js) : la boutique de la personne qui l'a créé (d.par).
-    const initiateur = (db.users || []).find((u) => u.nom === d.par);
-    const estFormation = !!(db.boutiques || []).find((b) => b.nom === initiateur?.boutique)?.formation;
-    genererDevis({
-      numero: d.id.slice(0, 8).toUpperCase(),
-      date: dFR(d.date),
-      boutique: d.boutique,
-      client: d.client?.nom_base || d.client?.nom || "—",
-      // 29/09/2026 : le prénom et l'entreprise cliente du devis (lib/clientEntreprise.js).
-      prenom: d.prenom || d.client?.prenom || "",
-      entreprise: d.entreprise || null,
-      tel: d.client?.tel || "",
-      titre: libelleTypeDevis(d).replace(/^\S+\s/, ""),
-      statut: (STATUT_DEVIS[d.statut || "propose"] || STATUT_DEVIS.propose)[0].replace(/^\S+\s/, ""),
-      par: d.par,
-      lignes: d.lignes || [],
-      // La charge dimensionnée (appareils, mesures de porte, demande) part
-      // avec le devis : le PDF la rend au-dessus de la table des prix. Les
-      // identifiants techniques du garage (« portail_coulissant »,
-      // « moyenne ») sont réécrits ICI en libellés lisibles — le module PDF
-      // n'a accès ni aux écrans ni à db.
-      besoins: d.besoins ? {
-        ...d.besoins,
-        ...(d.besoins.type_ouvrant ? {
-          type_ouvrant: TYPES_PORTAIL.find((t) => t.id === d.besoins.type_ouvrant)?.label || d.besoins.type_ouvrant,
-          frequence: LABEL_FREQUENCE[d.besoins.frequence] || d.besoins.frequence,
-        } : {}),
-      } : null,
-      total: d.total,
-      // Le bloc financier du devis solaire (Timo, 11/09/2026) : acompte, solde, délai.
-      pct_acompte: d.pct_acompte, montant_acompte: d.montant_acompte, delai_installation: d.delai_installation,
-      // 📝 La ligne NB tapée sur le devis (08/10/2026).
-      nb: d.nb || "",
-      // Le devis engage BMI (Timo, 11/09/2026) : sa signature au bas du
-      // document, c'est la signature personnelle de celui qui l'a élaboré —
-      // si sa fiche en porte une — et LE cachet de l'entreprise, le même
-      // que sur les contrats d'installation (⚙ Paramètres, un seul cachet).
-      signature: initiateur?.signature_personnelle || "",
-      cachet: (db.boutiques || []).find((b) => b.cachet_bmi)?.cachet_bmi || CACHET_BMI_DEFAUT,
-      formation: estFormation,
-      // 26/09/2026 (« b, lance ») : l'en-tête dit l'adresse, le téléphone et
-      // l'e-mail de la boutique du devis, comme le reçu — sinon celle de son
-      // auteur. Sans fiche trouvée, l'en-tête d'avant.
-      bq: (db.boutiques || []).find((b) => b.nom === d.boutique) || (db.boutiques || []).find((b) => b.nom === initiateur?.boutique) || null,
-    }, LOGO);
-  };
+  const telechargerPDF = (d) => genererPdfDuDevis(db, d);
 
   return (
     <div className="space-y-4">
@@ -620,6 +674,16 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                       ✍️ Complété le {dFR(d.complete_le)} par {d.complete_par || "?"}
                     </span>
                   )}
+                  {estSansAcces(d.client) ? (
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-100 text-slate-700 border-slate-400" data-badge-sans-compte
+                      title={`Devis imprimé${d.imprime ? ` le ${dFR(d.imprime.le)} par ${d.imprime.par}` : ""} : le client n'a pas d'accès à l'application, rien ne lui est envoyé.`}>
+                      🖨 Sans compte
+                    </span>
+                  ) : d.imprime ? (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-50 text-slate-600 border-slate-300" data-badge-imprime>
+                      🖨 Imprimé le {dFR(d.imprime.le)}
+                    </span>
+                  ) : null}
                   <BadgeStatutDevis statut={d.statut} />
                   <span className="text-sm text-slate-400">{ouvert === d.id ? "▾" : "▸"}</span>
                 </button>
@@ -698,16 +762,21 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                       </tbody>
                     </table>
                     <div className="flex justify-end mt-3 gap-2 flex-wrap">
-                      {devisRelancable(d) && (
+                      {/* 💰 Encaisser (« b ») : l'administrateur, devis validé dont la commande attend. */}
+                      {profile.role === "admin" && onEncaisserCommande && commandeAEncaisser(db, d) && (
+                        <button onClick={() => encaisserDevis(d)} data-encaisser-devis className="text-xs font-bold text-white bg-emerald-700 rounded-lg px-3 py-1.5 hover:bg-emerald-800"
+                          title={`Ouvre 💰 Ventes avec ce devis — commande à ${commandeAEncaisser(db, d).boutique}`}>💰 Encaisser</button>
+                      )}
+                      {devisRelancable(d) && !estSansAcces(d.client) && (
                         <button onClick={() => relancerDevis(d)} className="text-xs font-bold text-white bg-green-700 rounded-lg px-3 py-1.5 hover:bg-green-800"
                           title={(d.statut || "propose") === "valide" ? "Rappeler au client qu'il reste à régler" : "Rappeler le devis au client"}>
                           📲 Relancer sur WhatsApp{d.relance_le ? ` (déjà le ${dFR(d.relance_le)}${d.nb_relances > 1 ? `, ${d.nb_relances} fois` : ""})` : ""}
                         </button>
                       )}
                       {peutModifierDevis(d, profile) && onModifierDevis && (
-                        <button onClick={() => modifierDevis(d)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">✏️ Modifier et renvoyer</button>
+                        <button onClick={() => modifierDevis(d)} className="text-xs font-bold text-white bg-amber-600 rounded-lg px-3 py-1.5 hover:bg-amber-700">{estSansAcces(d.client) ? "✏️ Modifier (puis réimprimer)" : "✏️ Modifier et renvoyer"}</button>
                       )}
-                      {peutDemanderModif(db, d, profile) && (
+                      {peutDemanderModif(db, d, profile) && !estSansAcces(d.client) && (
                         <button onClick={() => demanderModifAuClient(d)} className="text-xs font-bold text-amber-800 border border-amber-400 bg-white rounded-lg px-3 py-1.5 hover:bg-amber-50"
                           title="Ce devis est signé : le client doit accepter avant toute correction">✏️ Demander une modification au client</button>
                       )}
@@ -735,9 +804,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis }) {
                     )}
                     {peutFaireSigner(d) && (
                       <div className="mt-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3">
-                        <div className="text-xs font-bold text-emerald-900 mb-2">Le client est en boutique et n'utilise pas l'application ?</div>
+                        <div className="text-xs font-bold text-emerald-900 mb-2">{estSansAcces(d.client) ? "🖨 Devis imprimé sans compte : le client signe le contrat sur papier." : "Le client est en boutique et n'utilise pas l'application ?"}</div>
                         <div className="flex gap-2 flex-wrap">
-                          <button onClick={() => ouvrirSignature(d, "ecran")} className="text-xs font-bold text-white bg-emerald-700 rounded-lg px-3 py-1.5 hover:bg-emerald-800">✍️ Faire signer ici</button>
+                          {peutSignerEnBoutique && <button onClick={() => ouvrirSignature(d, "ecran")} className="text-xs font-bold text-white bg-emerald-700 rounded-lg px-3 py-1.5 hover:bg-emerald-800">✍️ Faire signer ici</button>}
                           <button onClick={() => imprimerPourPapier(d)} className="text-xs font-bold text-emerald-800 border border-emerald-400 bg-white rounded-lg px-3 py-1.5 hover:bg-emerald-100">🖨 Imprimer pour signature papier</button>
                           <button onClick={() => ouvrirSignature(d, "papier")} className="text-xs font-bold text-emerald-800 border border-emerald-400 bg-white rounded-lg px-3 py-1.5 hover:bg-emerald-100">📝 Signé sur papier</button>
                         </div>

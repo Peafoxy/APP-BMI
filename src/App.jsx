@@ -1439,7 +1439,8 @@ export default function App() {
       )}
       {ongletsVisites.tous_devis && (
         <div style={{ display: tab === "tous_devis" ? "block" : "none" }}>
-          <M.TousLesDevis db={db} save={save} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }} />
+          <M.TousLesDevis db={db} save={save} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }}
+            onEncaisserCommande={(pre) => { setPreRempli(pre); setTab("ventes"); }} />
         </div>
       )}
       {ongletsVisites.depenses && (

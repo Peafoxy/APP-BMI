@@ -5,6 +5,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { accesFerme, messageAccesFerme } from "../lib/attestationSortie";
+import { estSansAcces, MESSAGE_SANS_ACCES } from "../lib/identiteClient";
 import { maintenantMs } from "../lib/horloge";
 import { LOGO, VERSION } from "../lib/constants";
 import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
@@ -99,6 +100,8 @@ export function Login({ db, apparence, onLogin, save }) {
     // 📄 L'accès d'un employé sorti, fermé 24 h après la mise à disposition de
     // son attestation (14/10/2026) — à l'heure du serveur, même hors ligne.
     if (accesFerme(u, maintenantMs())) { setErr(messageAccesFerme(u)); return; }
+    // 🖨 La fiche d'un client dont le devis a été imprimé sans compte (15/10/2026).
+    if (estSansAcces(u)) { setErr(MESSAGE_SANS_ACCES); return; }
     const { ok, aMigrer } = await verifierMotDePasse(u, pwd);
     if (!ok) { setErr("Mot de passe incorrect."); return; }
     // Migration transparente vers le hachage renforcé (sel individuel + PBKDF2),

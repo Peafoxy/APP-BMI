@@ -101,7 +101,7 @@ export const CHAPITRE = {
       ["h3", "D. Convertir en client"],
       ["etapes", [
         { titre: "Quand ?", texte: "**Seulement quand il a dit oui.** La confirmation le rappelle : « À ne faire que s'il a accepté de devenir client. » Avant ça, on lui fait un devis (chapitre 11 ou 12) : le devis, lui, demande un compte client — d'où 🙋 Créer un client (chapitre 3) si le prospect n'en a pas." },
-        { titre: "« ✅ Convertir en client »", texte: "Refusé si le numéro n'est pas valide, ou si un compte existe déjà pour ce numéro (« Un compte client existe déjà pour ce numéro (NOM). Rien n'a été recréé. »). Sinon : « Convertir « NOM » en client ? 👤 Identifiant … 🔑 Mot de passe … Un compte sera créé et ses identifiants lui seront envoyés par WhatsApp. »" },
+        { titre: "« ✅ Convertir en client »", texte: "Refusé si le numéro n'est pas valide. Si un compte existe déjà pour ce numéro, une question propose de **rattacher** la fiche à ce compte — aucun compte n'est recréé ; et si ce compte est la fiche d'un devis **« 🖨 Sans compte »** (imprimé sans l'envoyer, chapitre 13), la question propose de lui **ouvrir son espace** : ses identifiants partent du numéro BMI. Sinon : « Convertir « NOM » en client ? 👤 Identifiant … 🔑 Mot de passe … Un compte sera créé et ses identifiants lui seront envoyés par WhatsApp. »" },
         { titre: "Ce qui se passe", texte: "Le compte client est créé (mêmes règles qu'au chapitre 3), les administrateurs sont prévenus, la fiche passe **« Client acquis »** et sort de la liste active. Les accès partent **du numéro BMI** ; en repli (formation, réseau, refus), WhatsApp s'ouvre avec le texte. L'écran conclut : « ✅ NOM est désormais client. »" },
         { titre: "La conversion automatique", texte: "Quand un devis est **encaissé** dans 💰 Ventes, le prospect du même numéro (ou lié au compte) passe « Client acquis » **tout seul**, avec la vente rattachée. Personne ne relance un client qui a déjà payé." },
       ]],
@@ -232,7 +232,7 @@ export const CHAPITRE = {
         "Enregistrer un prospect « TEST KOFFI » avec un numéro convenu, une localisation avec le point sur la carte, une nature de besoin, et une date de relance **à hier**. Fermer WhatsApp sans envoyer.",
         "Constater la case « 🔔 À relancer aujourd'hui » à 1 et la ligne orange. Cliquer « 📱 Relancer », répondre à la question, puis montrer la note « Relance WhatsApp envoyée » (survol de « 📞 Contacté » : dernière activité aujourd'hui).",
         "Cliquer « 📞 Contacté » avec la note « pas encore décidé », puis « Relance » pour poser une date dans une semaine. Vérifier que 🔔 repasse à 0.",
-        "Enregistrer un second prospect avec le numéro d'un client de formation existant : montrer « ⚠ Déjà client ». Puis essayer « ✅ Convertir en client » sur lui : lire le refus.",
+        "Enregistrer un second prospect avec le numéro d'un client de formation existant : montrer « ⚠ Déjà client ». Puis essayer « ✅ Convertir en client » sur lui : lire la question (rattacher, rien de recréé).",
         "Archiver TEST KOFFI avec le motif « Reporté à plus tard » ; le retrouver dans « 📦 Archivés » ; le réactiver.",
         "Convertir TEST KOFFI en client : lire la confirmation, montrer « Client acquis » via « Afficher les clients acquis », puis le retrouver dans 👥 Utilisateurs (formateur administrateur).",
         "Avec le compte du formateur (administrateur) : réassigner un prospect d'un commercial de formation à un autre, et relire la ligne de journal dans 🕘 Historique.",

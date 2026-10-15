@@ -20,7 +20,7 @@ import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import {
   chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient,
-  motDePasseConnu, messagesNouveauClient,
+  motDePasseConnu, messagesNouveauClient, estSansAcces, ouvrirAcces,
 } from "../lib/comptesClients";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
@@ -50,6 +50,17 @@ export function CreerClient({ db, save, profile }) {
     // et « 90112233 » sont la MÊME personne (voir lib/identiteClient.js).
     // Avant ce correctif, un doublon se créait sans que personne ne le voie.
     const existant = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, tel));
+    // 🖨 Une fiche SANS ACCÈS (son devis avait été imprimé sans compte,
+    // 15/10/2026) : on ne recrée rien, on lui OUVRE son espace.
+    if (existant && estSansAcces(existant)) {
+      if (!await uConfirm(`🖨 ${existant.nom_base || existant.nom} a déjà une fiche, sans accès à l'application : son devis avait été imprimé sans compte.\n\nLui ouvrir son espace et lui envoyer ses identifiants ?`)) return;
+      const ouvert = ouvrirAcces(existant, profile.nom);
+      save({ ...db, users: db.users.map((u) => (u.id === existant.id ? ouvert : u)) }, `🔓 Accès ouvert à ${existant.nom} (fiche d'un devis imprimé sans compte) par ${profile.nom}`);
+      setF({ nom: "", prenom: "", tel: "" });
+      setEnt(ENTREPRISE_VIDE());
+      await renvoyer(ouvert);
+      return;
+    }
     if (existant) { uAlert(`Un compte existe déjà pour ce numéro : ${existant.nom}.\n\nRien n'a été recréé.`); return; }
 
     const identifiant = identifiantClient(db, nom, tel);
@@ -225,7 +236,8 @@ export function Clients({ db, save, profile }) {
   const contacter = async (c) => {
     const num = telDigits(c.tel);
     if (!num) { uAlert("Aucun numéro enregistré pour ce client."); return; }
-    const compte = comptesAvecCeNumero(db, profile, c.tel).find((u) => u.role === "client") || null;
+    // 🖨 Une fiche SANS ACCÈS n'a pas d'espace client : le mot sans les lignes de l'espace.
+    const compte = comptesAvecCeNumero(db, profile, c.tel).find((u) => u.role === "client" && !estSansAcces(u)) || null;
     const nom = compte ? (compte.nom_base || compte.nom) : c.nom;
     const envoi = envoiMotFidelite({ nom, avecCompte: !!compte });
     // Une question avant l'envoi : un clic sur une ligne part vite, et un

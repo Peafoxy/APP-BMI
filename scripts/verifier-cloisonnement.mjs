@@ -3617,12 +3617,19 @@ titre("Signature du contrat en boutique — UNE règle de validation, deux écra
     (ec.match(/validerDevis\(/g) || []).length >= 2 && !/commandes: \[commande, \.\.\./.test(ec) && !/clients_installes: \[chantier/.test(ec));
   test("★ le vendeur de la boutique de PAIEMENT voit les devis à encaisser chez lui (décision Timo 04/09/2026)",
     /\(d\.boutique_paiement \|\| d\.boutique\) === profile\.boutique/.test(tl));
-  test("★ les trois gestes sont là, réservés à l'ADMINISTRATEUR PRINCIPAL (décision Timo 04/09/2026), sur un devis encore proposé",
+  // RETOURNÉ le 15/10/2026 (« Ab, Ba, Ça, Da ») : un devis IMPRIMÉ SANS COMPTE
+  // se signe SUR PAPIER par tout administrateur ; la signature à l'écran reste
+  // au principal, et tout autre devis aussi.
+  test("★ les trois gestes sont là, réservés à l'ADMINISTRATEUR PRINCIPAL (décision Timo 04/09/2026), sur un devis encore proposé — sauf le papier d'un devis imprimé sans compte, ouvert à tout administrateur (15/10/2026)",
     tl.includes("Faire signer ici") && tl.includes("Imprimer pour signature papier") && tl.includes("Signé sur papier")
     && /const peutSignerEnBoutique = estAdminPrincipal\(db, profile\)/.test(tl)
-    && /peutFaireSigner = \(d\) => peutSignerEnBoutique && \(d\.statut \|\| "propose"\) === "propose"/.test(tl));
-  test("★ …et les trois GESTES refusent aussi (le bouton caché ne suffit pas)",
-    (tl.match(/refuserSiPasAdminPrincipal\(\)/g) || []).length >= 3);
+    && /const papierOuvertATousLesAdmins = \(d\) => estSansAcces\(d\?\.client\) && profile\.role === "admin";/.test(tl)
+    && /peutFaireSigner = \(d\) => \(peutSignerEnBoutique \|\| papierOuvertATousLesAdmins\(d\)\) && \(d\.statut \|\| "propose"\) === "propose"/.test(tl)
+    && /\{peutSignerEnBoutique && <button onClick=\{\(\) => ouvrirSignature\(d, "ecran"\)\}/.test(tl));
+  test("★ …et les trois GESTES refusent aussi (le bouton caché ne suffit pas) — l'écran au principal, le papier d'un devis sans compte à l'administrateur",
+    (tl.match(/refuserSiPasAdminPrincipal\(d, (mode|"papier")\)/g) || []).length >= 3
+    && /if \(mode === "papier" && estSansAcces\(d\?\.client\)\) return refuserSaufAdmin\(profile, /.test(tl)
+    && /return refuserSaufAdminPrincipal\(db, profile, "Faire signer un contrat en boutique \(pour l'instant\)"\);/.test(tl));
   test("le contrat affiché au vendeur est CELUI de l'impression (une seule source de texte)",
     /htmlContratInstallation\(apercu, db\)/.test(tl) && /export function htmlContratInstallation/.test(readFileSync("src/lib/impression.js", "utf8")));
   test("★ un contrat signé sur papier est un contrat (liste, impression) — et le dit",
@@ -4166,7 +4173,8 @@ titre("👥 Le devis établi POUR un autre, et « TOUS LES DEVIS DE … » (12/1
     && hAucun !== "" && !/data-devis-etabli-pour|data-devis-auteur-fixe/.test(hAucun));
   const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
   test("★★ les gestes : l'auteur est REVÉRIFIÉ dans l'envoi et le brouillon ; le brouillon « pour lui » va dans SES brouillons (déplacé, il est prévenu) avec le devis qu'il corrige ; sa SIGNATURE est exigée ; la trace porte « pour » ; les trois volets passent la ligne",
-    (pa.match(/if \(refusAuteur\(\)\) return;/g) || []).length === 2
+    // RETOURNÉ le 15/10/2026 : trois gestes — envoyer, brouillon, 🖨 imprimer sans envoyer.
+    (pa.match(/if \(refusAuteur\(\)\) return;/g) || []).length === 3
     && /const dbB = ajouterBrouillon\(base, pourQui\.id, brouillon\);/.test(pa) && /retirerBrouillon\(db, profile\.id, brouillonRepris\)/.test(pa) && /a_id: pourQui\.id/.test(pa)
     && /const remplace = devisStocke \? remplacePour\(devisStocke, devisAReprendre\?\.client\?\.id\)/.test(pa)
     && /n'a pas encore enregistré sa signature/.test(pa) && /pour: auteurFinal\.par, pour_id: auteurFinal\.par_id/.test(pa)
@@ -5675,7 +5683,8 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     const tldM = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
     const ecM = readFileSync("src/screens/EspaceClient.jsx", "utf8");
     test("★ les deux écrans passent par les règles pures, et le geste du vendeur se revérifie DANS le geste ; le client re-signe par accepterDevisCorrige, jamais par validerDevis (qui créerait un second chantier)",
-      /peutDemanderModif\(db, d, profile\) && \(/.test(tldM)
+      // RETOURNÉ le 15/10/2026 : jamais pour un devis imprimé sans compte (le client ne peut pas accepter).
+      /peutDemanderModif\(db, d, profile\) && !estSansAcces\(d\.client\) && \(/.test(tldM)
       && /const refus = motifRefusDemandeModif\(db, d, profile\);/.test(tldM)
       && /poserDemandeModif\(db, d\.client, d, profile, motif, today\(\)\)/.test(tldM)
       && /repondreDemandeModif\(db, moi, d, accepte, today\(\)\)/.test(ecM)
@@ -5692,7 +5701,8 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     /export const SEUIL_RELANCE_JOURS = 15;/.test(rappels) && /export const joursSansReponse = \(devis, aujourdhui\) => joursEntre\(devis\.relance_le \|\| devis\.date, aujourdhui\);/.test(rappels)
     // RETOURNÉ le 26/09/2026 : un devis à la corbeille ne se relance plus (!estSupprime devant).
     && /export const devisARelancer = \(devis, aujourdhui\) => !estSupprime\(devis\) && devisRelancable\(devis\) && joursSansReponse\(devis, aujourdhui\) >= SEUIL_RELANCE_JOURS;/.test(rappels)
-    && /const enAttenteDeRelance = \(d\) => devisARelancer\(d, today\(\)\);/.test(tld) && !/const SEUIL_RELANCE_JOURS = 15;/.test(tld) && !/function joursDepuis/.test(tld));
+    // RETOURNÉ le 15/10/2026 : un devis imprimé sans compte n'est pas « à relancer ».
+    && /const enAttenteDeRelance = \(d\) => !estSansAcces\(d\.client\) && devisARelancer\(d, today\(\)\);/.test(tld) && !/const SEUIL_RELANCE_JOURS = 15;/.test(tld) && !/function joursDepuis/.test(tld));
   // ⚠ CONTRÔLE RETOURNÉ LE 19/09/2026 : la relance part du NUMÉRO BMI, par un
   // modèle approuvé par Meta (`envoyerModele`, src/whatsapp.js). Le texte
   // d'aujourd'hui (`texteRelanceDevis`, avec le mot de passe recalculé) reste
@@ -5703,7 +5713,9 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     && /import \{ envoyerModele, messagesAvecLigneEnvoi \} from "\.\.\/whatsapp";/.test(tld)
     && /texteRepli: texte,/.test(tld) && /demanderConfirmation: uConfirm,/.test(tld) && !/wa\.me/.test(tld)
     && /relance_le: today\(\), relance_par: profile\.nom, nb_relances: \(x\.nb_relances \|\| 0\) \+ 1/.test(tld)
-    && /\{devisRelancable\(d\) && \(\s*<button onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld) && /bloquerSiLecture\(db, profile\)\) return;\n    const texte = texteRelanceDevis/.test(tld));
+    // RETOURNÉ le 15/10/2026 : ni bouton ni geste pour un devis imprimé sans compte.
+    && /\{devisRelancable\(d\) && !estSansAcces\(d\.client\) && \(\s*<button onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld)
+    && /if \(estSansAcces\(d\.client\)\) \{ uAlert\(RELANCE_SANS_ACCES\); return; \}\n    const texte = texteRelanceDevis/.test(tld));
   test("★ rien n'est noté si le client n'a rien reçu (ni du numéro BMI, ni par WhatsApp) ; un client sans téléphone est refusé avec son motif",
     /if \(!r\.parti\) return;/.test(tld) && /if \(!d\.client\?\.tel\) \{ uAlert\("Ce client n'a pas de numéro de téléphone enregistré\."\); return; \}/.test(tld));
   test("★ la trace « du n° BMI » ne s'écrit QUE si le message est vraiment parti tout seul — une ouverture WhatsApp ne prouve rien",
@@ -11749,7 +11761,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       /const proposes = comptesClients\.filter\(\(u\) => !archives\.has\(u\.id\) \|\| u\.id === clientDevis\)/.test(pa)
       // RETOURNÉ le 12/10/2026 : la liste déroulante est devenue le champ à suggestions — il lit `proposes`, jamais tous les comptes.
       && /propositionsComptesDevis\(proposes\)/.test(pa) && !/propositionsComptesDevis\(comptesClients\)/.test(pa) && !/\{comptesClients\.map\(/.test(pa)
-      && /const existant = \(db\.users \|\| \[\]\)\.find\(\(u\) => u\.role === "client" && u\.tel && memeNumero\(u\.tel, tel\)\)/.test(pa));
+      // RETOURNÉ le 15/10/2026 : le compte retrouvé s'appelle `trouve` (une fiche sans accès s'ouvre d'abord).
+      && /const trouve = \(db\.users \|\| \[\]\)\.find\(\(u\) => u\.role === "client" && u\.tel && memeNumero\(u\.tel, tel\)\)/.test(pa));
   }
   // 🧲 LES COMPTES PROSPECTS (03/10/2026, « oui lance, et oui pour la liste dans prospects »)
   {
@@ -13217,7 +13230,8 @@ titre("🤝 L'apporteur externe nommé dans le devis : 3 % d'office, le principa
   // Les écrans : la règle juste ne suffit pas si l'écran s'en sert mal.
   const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
   test("★★ le devis revérifie l'apporteur DANS les trois gestes (envoyer, convertir, brouillon), et le champ du pourcentage n'est ouvert qu'au principal",
-    (pa.match(/if \(refusApporteur\(\)\) return;/g) || []).length === 3
+    // RETOURNÉ le 15/10/2026 : quatre gestes — + 🖨 imprimer sans envoyer.
+    (pa.match(/if \(refusApporteur\(\)\) return;/g) || []).length === 4
     && /critiqueApporteur\(r && r\.apporteur, \{ principal: !!\(r && r\.principal\) \}\)/.test(pa)
     && /disabled=\{!r\.principal\} data-taux-apporteur/.test(pa)
     && /<BlocApporteurDevis r=\{r\} \/>/.test(pa)
@@ -16250,6 +16264,96 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
   test("★ la mesure lit la date du SERVEUR (version.json, jamais gardé), garde le dernier écart sur l'appareil et le réapplique au chargement (hors connexion)",
     /version\.json\?horloge=/.test(mes) && /cache: "no-store"/.test(mes) && /headers\.get\("date"\)/.test(mes) && /headers\.get\("age"\)/.test(mes)
     && /localStorage\.getItem\(CLE_ECART_HORLOGE\)/.test(mes) && /localStorage\.setItem\(CLE_ECART_HORLOGE/.test(mes));
+}
+
+titre("🖨 Le devis IMPRIMÉ SANS COMPTE (15/10/2026, « Ab, Ba, Ça, Da, b »)");
+{
+  const React = (await import("react")).default;
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const entreeSA = join("node_modules", ".cache", `bmi-sans-acces-entree-${process.pid}.jsx`);
+  const sortieSA = join("node_modules", ".cache", `bmi-sans-acces-${process.pid}.mjs`);
+  writeFileSync(entreeSA, `export { BlocEnvoiDevisClient } from "${process.cwd()}/src/screens/dimensionnement/Partages.jsx";\nexport { TousLesDevis, commandeAEncaisser } from "${process.cwd()}/src/screens/TousLesDevis.jsx";\nexport { estSansAcces, ouvrirAcces, MESSAGE_SANS_ACCES } from "${process.cwd()}/src/lib/comptesClients.js";\n`);
+  let SA = null;
+  try {
+    await build({ entryPoints: [entreeSA], bundle: true, format: "esm", platform: "node", outfile: sortieSA, logLevel: "silent",
+      jsx: "automatic", loader: { ".js": "jsx" }, define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    SA = await import(pathToFileURL(sortieSA).href);
+  } catch (e) { console.log("    (construction :", String(e).slice(0, 200), ")"); }
+  try { unlinkSync(sortieSA); unlinkSync(entreeSA); } catch {}
+  const fermee = { id: "c1", nom: "KOMLAN", nom_base: "KOMLAN", tel: "90112233", role: "client", sans_acces: true };
+  const ouverte = SA ? SA.ouvrirAcces(fermee, "TIMO", "2026-10-15") : {};
+  test("★★ la règle : une fiche SANS ACCÈS s'ouvre en POSANT sans_acces: false (jamais un champ retiré — la fusion le rendrait), avec la date et l'auteur ; une fiche ordinaire revient telle quelle",
+    !!SA && SA.estSansAcces(fermee) && !SA.estSansAcces(ouverte) && ouverte.sans_acces === false && ouverte.acces_ouvert_le === "2026-10-15" && ouverte.acces_ouvert_par === "TIMO"
+    && SA.ouvrirAcces({ id: "x", role: "client" }, "TIMO").sans_acces === undefined && !SA.estSansAcces(null)
+    && !/^import /m.test(readFileSync("src/lib/identiteClient.js", "utf8")));
+  const lireApi = (f) => readFileSync(f, "utf8");
+  const cc = lireApi("api/chercher-compte.js"), sa = lireApi("api/sync-auth.js"), cx = readFileSync("src/screens/Connexion.jsx", "utf8");
+  test("★★ la connexion est REFUSÉE à une fiche sans accès — le serveur (chercher-compte, sync-auth) ET l'écran (connexion locale), après le mot de passe (la réponse ne devient pas un annuaire)",
+    /if \(estSansAcces\(champs\)\) \{\s*return res\.status\(403\)\.json\(\{ error: MESSAGE_SANS_ACCES \}\);/.test(cc) && cc.indexOf("estSansAcces(champs)") > cc.indexOf("if (!ligne) return await echec();")
+    && /if \(estSansAcces\(champs\)\) \{\s*return res\.status\(403\)\.json\(\{ error: MESSAGE_SANS_ACCES \}\);/.test(sa) && sa.indexOf("estSansAcces(champs)") > sa.indexOf("if (!motDePasseValide)")
+    && /if \(estSansAcces\(u\)\) \{ setErr\(MESSAGE_SANS_ACCES\); return; \}/.test(cx));
+  const RA = await import(pathToFileURL(join(process.cwd(), "src/lib/relanceAutoDevis.js")).href);
+  const devisP = (id) => ({ id, date: "2026-10-06", statut: "propose", total: 500000, boutique: "BMI DEMAKPOE", lignes: [] });
+  const dbRA = { boutiques: [{ nom: "BMI DEMAKPOE" }], messages: [], users: [
+    { ...fermee, devis: [devisP("d1")] }, { id: "c2", nom: "AFI", nom_base: "AFI", tel: "91112233", role: "client", devis: [devisP("d2")] }] };
+  const rel = RA.relancesAutoDuJour(dbRA, "2026-10-15").map((x) => x.devis.id).join(",");
+  test("★★ la relance automatique du 8e jour n'écrit JAMAIS à une fiche sans accès (elle dit « ouvrez votre espace ») — l'autre client la reçoit", rel === "d2", rel);
+  // 📋 Tous les devis RENDU : un administrateur ordinaire, un devis imprimé sans compte.
+  const principal = { id: "p", nom: "TIMO", role: "admin", admin_principal: true }, adm = { id: "a2", nom: "SENA", role: "admin", signature_personnelle: "sig" };
+  const avecAcces = { id: "c3", nom: "AYOKO", nom_base: "AYOKO", tel: "92112233", role: "client" };
+  const dSans = { ...devisP("d1"), par: "SENA", par_id: "a2", par_role: "admin", imprime: { le: "2026-10-15", par: "SENA" } };
+  const dAvec = { ...devisP("d3"), par: "SENA", par_id: "a2", par_role: "admin" };
+  const dValide = { ...devisP("d4"), statut: "valide", par: "SENA", par_id: "a2", par_role: "admin", commande_id: "cmd1", panier: [] };
+  const dbTD = { boutiques: [{ id: "b", nom: "BMI DEMAKPOE" }], ventes: [], dettes: [], depenses: [], messages: [], clients_installes: [], prospects: [], produits: [],
+    commandes: [{ id: "cmd1", statut: "en_attente", boutique: "BMI DEMAKPOE", articles: [], client: "KOMLAN", tel: "90112233", origine_devis: { client_id: "c1", devis_id: "d4" } }],
+    users: [principal, adm, { ...fermee, devis: [dSans, dValide] }, { ...avecAcces, devis: [dAvec] }] };
+  const rendreTD = (p, ouvert, avecEnc = true, base = dbTD) => { const e0 = console.error; console.error = () => {}; try { return String(renderToStaticMarkup(React.createElement(SA.TousLesDevis, { db: base, save() {}, profile: p, onModifierDevis() {}, ...(avecEnc ? { onEncaisserCommande() {} } : {}), ouvertInitial: ouvert }))); } catch (e) { return "ERREUR " + String(e).slice(0, 160); } finally { console.error = e0; } };
+  const hSans = SA ? rendreTD(adm, "d1") : "", hAvec = SA ? rendreTD(adm, "d3", true, { ...dbTD, users: [principal, adm, { ...avecAcces, devis: [dAvec] }] }) : "", hPrinc = SA ? rendreTD(principal, "d1") : "";
+  test("★★ 📋 Tous les devis RENDU : le devis imprimé porte « 🖨 Sans compte » ; un administrateur ORDINAIRE y a « 🖨 Imprimer pour signature papier » et « 📝 Signé sur papier » (« B a, D a ») mais pas « ✍️ Faire signer ici » (principal) ; ni Relancer ni « Demander une modification au client »",
+    /data-badge-sans-compte/.test(hSans) && /Imprimer pour signature papier/.test(hSans) && /Signé sur papier/.test(hSans) && !/Faire signer ici/.test(hSans)
+    && !/Relancer sur WhatsApp/.test(hSans) && !/Demander une modification au client/.test(hSans) && /Modifier \(puis réimprimer\)/.test(hSans)
+    && /Faire signer ici/.test(hPrinc), hSans.slice(0, 160));
+  test("★★ TÉMOIN : le devis d'un client qui A son accès n'ouvre PAS la signature papier à l'administrateur ordinaire (la règle du 04/09 tient) et garde Relancer",
+    !/data-badge-sans-compte/.test(hAvec) && !/Imprimer pour signature papier/.test(hAvec) && /Relancer sur WhatsApp/.test(hAvec));
+  const hVal = SA ? rendreTD(adm, "d4") : "", hValSans = SA ? rendreTD(adm, "d4", false) : "", hValVend = SA ? rendreTD({ id: "v", nom: "ANGELE", role: "vendeur", boutique: "BMI DEMAKPOE" }, "d4") : "";
+  const dbEnc = { ...dbTD, commandes: [{ ...dbTD.commandes[0], statut: "validee" }], ventes: [{ id: "v1", commande_id: "cmd1" }] };
+  test("★★ « b » : le devis validé dont la commande attend porte « 💰 Encaisser » pour l'administrateur (pas pour la vendeuse, pas sans le chemin d'App) ; une commande déjà encaissée n'en a plus",
+    /data-encaisser-devis/.test(hVal) && !/data-encaisser-devis/.test(hValSans) && !/data-encaisser-devis/.test(hValVend)
+    && !!SA && SA.commandeAEncaisser(dbTD, dValide)?.id === "cmd1" && SA.commandeAEncaisser(dbEnc, dValide) === null
+    && SA.commandeAEncaisser(dbTD, { ...dValide, statut: "paye" }) === null && SA.commandeAEncaisser(dbTD, { ...dValide, pose_seule: true }) === null);
+  const tdS = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+  const corpsEnc = tdS.slice(tdS.indexOf("const encaisserDevis = (d) => {"), tdS.indexOf("const modifierDevis = (d) => {"));
+  test("★ le geste « 💰 Encaisser » se revérifie DANS le geste (administrateur), passe la commande « validée » comme 🧾 Commandes, et ouvre 💰 Ventes par App (le devis d'origine suit : la fiche 🏠 naît à l'encaissement, « C a »)",
+    /refuserSaufAdmin\(profile, "Encaisser un devis depuis 📋 Tous les devis"\)/.test(corpsEnc) && /statut: "validee", valide_par: profile\.nom, suivi_vente: true/.test(corpsEnc)
+    && /origineDevis: c\.origine_devis \|\| null/.test(corpsEnc) && /commandeId: c\.id/.test(corpsEnc)
+    && /onEncaisserCommande=\{\(pre\) => \{ setPreRempli\(pre\); setTab\("ventes"\); \}\}/.test(readFileSync("src/App.jsx", "utf8")));
+  // Le volet : le bouton et le client sans accès.
+  const comptesSA = [{ ...fermee }, { ...avecAcces }];
+  const rendreBE = (profile, clientDevis) => { const e0 = console.error; console.error = () => {}; try { return String(renderToStaticMarkup(React.createElement(SA.BlocEnvoiDevisClient, { db: { users: comptesSA, ventes: [], dettes: [], commandes: [], clients_installes: [], boutiques: [] }, clientDevis, setClientDevis() {}, nouvClient: { nom: "", prenom: "", tel: "", entreprise: null }, setNouvClient() {}, comptesClients: comptesSA, onEnvoyer() {}, onBrouillon() {}, onImprimer() {}, profile }))); } catch (e) { return "ERREUR " + String(e).slice(0, 160); } finally { console.error = e0; } };
+  const bAdm = SA ? rendreBE(adm, "c1") : "", bVend = SA ? rendreBE({ id: "v", nom: "ANGELE", role: "vendeur", signature_personnelle: "s" }, "c3") : "";
+  test("★★ le volet RENDU : « 🖨 Imprimer le devis (sans l'envoyer) » pour l'administrateur seul (« D a ») ; le client choisi sans accès est DIT (« Envoyer » lui ouvrira son espace)",
+    /data-imprimer-sans-compte/.test(bAdm) && /data-client-sans-acces/.test(bAdm) && !/data-imprimer-sans-compte/.test(bVend) && !/data-client-sans-acces/.test(bVend), bAdm.slice(0, 120));
+  const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  const corpsImp = pa.slice(pa.indexOf("const imprimer = async ("), pa.indexOf("const convertir = ("));
+  test("★★ le geste « 🖨 Imprimer » : administrateur revérifié DANS le geste, le client résolu SANS ACCÈS, AUCUN envoi (ni modèle ni accès), le devis RANGÉ par la même règle que l'envoi (rangerDevisChezLeClient : remise, signatures, cf. visite, espace) et le PDF par la même fabrique que « 📄 Devis PDF »",
+    /refuserSaufAdmin\(profile, "Imprimer un devis sans l'envoyer au client"\)/.test(corpsImp) && /resoudreClientDevis\(db, clientDevis, nouvClient, profile, boutique, \{ sansAcces: true \}\)/.test(corpsImp)
+    && !/envoyerModele|envoyerAcces|envoyerDevisEtOuvrirWhatsApp/.test(corpsImp) && /rangerDevisChezLeClient\(/.test(corpsImp)
+    && /const range = rangerDevisChezLeClient\(\{ dbApres, compte, devis, profile, idAReprendre \}\);/.test(pa)
+    && /await import\("\.\.\/TousLesDevis"\)/.test(corpsImp) && /genererPdfDuDevis\(range\.dbFinal/.test(corpsImp)
+    && /const telechargerPDF = \(d\) => genererPdfDuDevis\(db, d\);/.test(tdS)
+    && ["Solaire", "Garage", "Autre"].every((f) => /onImprimer=\{imprimerDevis\}/.test(readFileSync(`src/screens/dimensionnement/${f}.jsx`, "utf8"))));
+  test("★★ la fiche créée pour l'impression est FERMÉE (sans_acces, sans message « nouveau client » aux administrateurs) ; une fiche fermée retrouvée par son numéro s'OUVRE à l'envoi par WhatsApp, après une question — jamais en silence",
+    /\.\.\.\(sansAcces \? \{ sans_acces: true, sans_acces_le: today\(\), sans_acces_par: profile\.nom \} : \{\}\)/.test(pa)
+    && /messages: sansAcces \? \(db\.messages \|\| \[\]\) : \[\.\.\.messagesNouveauClient/.test(pa)
+    && (pa.match(/sansAcces \? \{ base: db, compte: (trouve|choisi) \} : await ouvrirSiSansAcces\(db, (trouve|choisi), profile\)/g) || []).length === 2
+    && /if \(!await uConfirm\(`🖨 \$\{compte\.nom_base \|\| compte\.nom\} n'a pas encore d'accès/.test(pa) && /const ouvert = ouvrirAcces\(compte, profile\.nom\);/.test(pa));
+  test("★★ une fiche sans accès n'est PAS proposée comme destinataire (sauf celle du devis qu'on reprend), n'est pas dans 👥 Utilisateurs, et le mot de fidélité de 📋 Clients ne lui parle pas d'un espace",
+    /&& \(!estSansAcces\(u\) \|\| u\.id === clientDevis\)/.test(pa)
+    && /const dansMonEspace = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => !estSansAcces\(u\)\);/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
+    && /\.find\(\(u\) => u\.role === "client" && !estSansAcces\(u\)\) \|\| null;/.test(readFileSync("src/screens/Clients.jsx", "utf8")));
+  test("★ « 🙋 Créer un client » et « Convertir » d'un prospect sur le numéro d'une fiche fermée lui OUVRENT son espace (aucun doublon), et ses identifiants partent",
+    /if \(existant && estSansAcces\(existant\)\) \{[\s\S]{0,700}ouvrirAcces\(existant, profile\.nom\)[\s\S]{0,500}await renvoyer\(ouvert\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+    && /if \(existant && estSansAcces\(existant\)\) \{[\s\S]{0,900}ouvrirAcces\(existant, profile\.nom\)[\s\S]{0,900}envoyerIdentifiantsDuNumeroBmi\(/.test(readFileSync("src/screens/Prospects.jsx", "utf8")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

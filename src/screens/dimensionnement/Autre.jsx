@@ -306,6 +306,8 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
     ligneEntete: [`📦 ${categorieChoisie} — *${fmt(totalDevis)}*`],
   });
   const envoyerDevisWhatsApp = () => envoi.envoyer(argumentsEnvoi());
+  // 🖨 Imprimer sans envoyer (15/10/2026) : l'administrateur, revérifié dans le geste.
+  const imprimerDevis = () => envoi.imprimer(argumentsEnvoi());
   const enregistrerBrouillon = () => envoi.enregistrerBrouillon(argumentsEnvoi());
 
   const convertir = () => envoi.convertir([...panierMetier(), ...panierAutres(autres)], r.pctRemiseEffectif);
@@ -502,7 +504,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
       <BlocEnvoiDevisClient
         db={db} clientDevis={clientDevis} setClientDevis={setClientDevis}
         nouvClient={nouvClient} setNouvClient={setNouvClient}
-        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp} onBrouillon={enregistrerBrouillon}
+        comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp} onBrouillon={enregistrerBrouillon} onImprimer={imprimerDevis}
         etabliPour={envoi.etabliPour}
       />
 

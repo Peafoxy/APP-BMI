@@ -27,6 +27,7 @@ import { VALIDITE_OFFRE_JOURS } from "./constants.js";
 import { envoiRelanceExpiration, ligneEnvoiModele, numeroWhatsApp } from "./whatsappModeles.js";
 import { cleConversation, CANAL_WA, construireEntete } from "./whatsappConversations.js";
 import { estCompteFormation } from "./espace.js";
+import { estSansAcces } from "./identiteClient.js";
 import { fmt, dFR } from "./core.js";
 
 export const JOUR_RELANCE_AUTO = 8;
@@ -59,6 +60,9 @@ export function relancesAutoDuJour(db, aujourdhui) {
   (db?.users || []).forEach((u) => {
     if (!u || u.role !== "client" || u.actif === false) return;
     if (estCompteFormation(db, u)) return;
+    // 🖨 Une fiche SANS ACCÈS (devis imprimé, 15/10/2026) : le message dit
+    // « ouvrez votre espace », où il ne peut pas entrer. Jamais de relance.
+    if (estSansAcces(u)) return;
     const tel = numeroWhatsApp(u.tel);
     if (!tel) return;
     (u.devis || []).forEach((d) => {

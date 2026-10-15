@@ -32,8 +32,15 @@ export const ADRESSE_APP = "https://gestion.bmitogo.com";
 // le réexport. « export { x } from "y" » ne crée AUCUNE variable locale : les
 // fonctions de ce fichier appelaient alors un motDePasseClient inexistant, et
 // la création d'un compte client plantait. Le banc de parrainage l'a vu.
-import { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant } from "./identiteClient.js";
-export { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant };
+import { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant, estSansAcces, MESSAGE_SANS_ACCES } from "./identiteClient.js";
+export { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant, estSansAcces, MESSAGE_SANS_ACCES };
+
+// 🖨 La fiche d'un client SANS ACCÈS s'ouvre (15/10/2026) : on POSE
+// `sans_acces: false` avec la date et l'auteur, jamais un champ retiré.
+// Une fiche déjà ouverte revient telle quelle.
+export const ouvrirAcces = (u, parQui, jour = today()) => (estSansAcces(u)
+  ? { ...u, sans_acces: false, acces_ouvert_le: jour, acces_ouvert_par: parQui || "" }
+  : u);
 
 // Choisit un mot de passe qui n'entre en conflit avec AUCUN compte existant.
 // Essaie d'abord plusieurs mélanges à 6 caractères (variantes 0 à 9) ; ce

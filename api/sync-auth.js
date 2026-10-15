@@ -22,6 +22,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createHash, pbkdf2Sync } from "crypto";
 import { poserCors } from "./_cors.js";
 import { accesFerme, messageAccesFerme } from "../src/lib/attestationSortie.js";
+import { estSansAcces, MESSAGE_SANS_ACCES } from "../src/lib/identiteClient.js";
 import {
   adresseAppelant, clesDeControle, lireVerrous, enregistrerEchec, reinitialiserEchecs,
 } from "./_verrouillage.js";
@@ -115,6 +116,10 @@ export default async function handler(req, res) {
     // de son attestation (14/10/2026) : pas de session sécurisée au-delà.
     if (accesFerme(champs, Date.now())) {
       return res.status(403).json({ error: messageAccesFerme(champs) });
+    }
+    // 🖨 Une fiche client sans accès (devis imprimé sans compte, 15/10/2026).
+    if (estSansAcces(champs)) {
+      return res.status(403).json({ error: MESSAGE_SANS_ACCES });
     }
 
     // Cherche si un compte d'authentification existe déjà pour cet utilisateur.

@@ -96,3 +96,18 @@ export const memeNumero = (a, b) => {
   const x = numeroComparable(a), y = numeroComparable(b);
   return !!x && x === y;
 };
+
+// ---- 🖨 LA FICHE D'UN CLIENT SANS ACCÈS (15/10/2026) ----
+// Timo : « donner la possibilité d'imprimer un devis sans création de compte,
+// ensuite l'envoyer dans client installé pour programmer l'installation » →
+// « Ab, Ba, Ça, Da, b ». Un devis vit dans la fiche d'un client
+// (users[].devis) : on la crée quand même, mais FERMÉE (`sans_acces: true`) —
+// ses identifiants existent et ne lui sont JAMAIS envoyés, la connexion est
+// refusée (écran ET serveur), elle n'apparaît ni dans 👥 Utilisateurs ni
+// parmi les clients proposés au devis. Elle s'ouvre (`sans_acces: false`,
+// jamais en retirant le champ — la fusion des appareils le rendrait) le jour
+// où on lui envoie un devis par WhatsApp.
+// ⚠ Lu par le serveur (api/chercher-compte.js, api/sync-auth.js) : ce fichier
+// n'importe toujours rien.
+export const estSansAcces = (u) => !!u && u.sans_acces === true;
+export const MESSAGE_SANS_ACCES = "Ce compte n'a pas encore d'accès à l'application. BMI TOGO vous enverra vos identifiants par WhatsApp le jour où il sera ouvert.";

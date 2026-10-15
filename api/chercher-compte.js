@@ -34,7 +34,7 @@ import { poserCors } from "./_cors.js";
 import {
   adresseAppelant, clesDeControle, lireVerrous, enregistrerEchec, reinitialiserEchecs,
 } from "./_verrouillage.js";
-import { cleIdentifiant, memeIdentifiant, MAX_HOMONYMES } from "../src/lib/identiteClient.js";
+import { cleIdentifiant, memeIdentifiant, MAX_HOMONYMES, estSansAcces, MESSAGE_SANS_ACCES } from "../src/lib/identiteClient.js";
 import { accesFerme, messageAccesFerme } from "../src/lib/attestationSortie.js";
 
 // Doivent rester IDENTIQUES à hacher() / hacherFort() de src/lib/core.js.
@@ -133,6 +133,11 @@ export default async function handler(req, res) {
     // son attestation (14/10/2026, lib/attestationSortie.js) — à l'heure du serveur.
     if (accesFerme(champs, Date.now())) {
       return res.status(403).json({ error: messageAccesFerme(champs) });
+    }
+    // 🖨 La fiche d'un client dont le devis a été imprimé sans compte
+    // (15/10/2026) : ses identifiants ne lui ont jamais été envoyés.
+    if (estSansAcces(champs)) {
+      return res.status(403).json({ error: MESSAGE_SANS_ACCES });
     }
 
     await reinitialiserEchecs(admin, verrous);

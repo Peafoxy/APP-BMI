@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { maintenantISO } from "../../lib/horloge";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { propositionsComptesDevis, libelleCompteDevis } from "../../lib/clientsConnus";
-import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, LIBELLE_ROLE_EMPLOYE } from "../../lib/comptesClients";
+import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, LIBELLE_ROLE_EMPLOYE, estSansAcces, ouvrirAcces } from "../../lib/comptesClients";
 import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte, nouveauMessage } from "../../lib/core";
 import { envoyerModele, envoyerAccesSansRepli, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
 import { envoiDevisDisponible, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye } from "../../lib/whatsappModeles";
@@ -42,7 +42,7 @@ export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBro
 import { Field, inputCls, uAlert, uConfirm, uPrompt, ChampQuiGrandit } from "../../components/ui";
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
-import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
+import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, refuserSaufAdmin, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, MODE_POURCENT, MODE_MONTANT, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX, peutEtablirPourAutrui, auteursPossibles, auteurDuDevis, devisEtabliPour, garderAuteur, critiqueAuteur, remplacePour, devisRemplace, auteursDesBrouillons, critiqueBrouillonAutrui, avisBrouillonEnvoye } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
@@ -447,7 +447,11 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   // qui établit un devis depuis une boutique de formation doit se voir
   // proposer les clients de formation, et eux seuls.
   const espaceDevis = boutique ? estBoutiqueFormation(db, boutique) : espaceDuCompte(db, profile);
+  // 🖨 Une fiche SANS ACCÈS (devis imprimé sans compte, 15/10/2026) n'est pas
+  // proposée — sauf la sienne quand on reprend son devis (« ✏️ Modifier ») :
+  // elle reste alors le client choisi.
   const comptesClients = db.users.filter((u) => u.role === "client" && u.actif !== false
+    && (!estSansAcces(u) || u.id === clientDevis)
     && (espaceDevis === undefined || !!u.formation === espaceDevis));
 
   // 👥 LE DEVIS ÉTABLI POUR UN AUTRE (Timo, 12/10/2026, « C a ») :
@@ -496,7 +500,23 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     if (refusAuteur()) return;
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
     if (!resolu) return;
-    const { compte, motDePasse, dbApres, identite } = resolu;
+    const prep = await preparerLeDevis(resolu, construire);
+    if (!prep) return;
+    const { compte, motDePasse } = resolu;
+    const { devis, idRemplace, dbEnvoi } = prep;
+    const envoye = await envoyerDevisEtOuvrirWhatsApp({
+      dbApres: dbEnvoi,
+      compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre: idRemplace,
+    });
+    if (!envoye) return;
+    apresLeDevis(compte, devis);
+    { const m = messageDevisEnvoye(compte.nom, envoye.auto); if (envoye.auto && m) uAlert(m); }
+  };
+
+  // Ce qui est commun à l'envoi et à l'impression : le devis au nom de son
+  // auteur, le devis corrigé qu'un brouillon remplace, le brouillon retiré.
+  const preparerLeDevis = async (resolu, construire) => {
+    const { compte, dbApres, identite } = resolu;
     // 📨 Un brouillon confié garde « préparé par » ; il part au nom de celui
     // qui l'envoie (décision Timo, 05/10/2026 : « celui qui envoie »).
     const prepare = brouillonRepris ? devisAReprendre?.devis?.prepare_par : null;
@@ -508,7 +528,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
       const compteFrais = (dbApres.users || []).find((u) => u.id === compte.id);
       const ancien = devisRemplace(devisAReprendre.brouillon_remplace, compteFrais);
       if (ancien) idRemplace = ancien.id;
-      else if (!await uConfirm(`Ce brouillon corrigeait un devis${devisAReprendre.brouillon_remplace.date ? ` du ${dFR(devisAReprendre.brouillon_remplace.date)}` : ""} qui ne peut plus être remplacé (validé, payé ou supprimé entre-temps, ou un autre client a été choisi).\n\nIl partira comme un NOUVEAU devis. Continuer ?`)) return;
+      else if (!await uConfirm(`Ce brouillon corrigeait un devis${devisAReprendre.brouillon_remplace.date ? ` du ${dFR(devisAReprendre.brouillon_remplace.date)}` : ""} qui ne peut plus être remplacé (validé, payé ou supprimé entre-temps, ou un autre client a été choisi).\n\nIl partira comme un NOUVEAU devis. Continuer ?`)) return null;
     }
     // ⚠ Le refus (signature manquante) était IGNORÉ : l'application
     // annonçait « ✅ Devis envoyé » et effaçait le brouillon alors que rien
@@ -519,11 +539,11 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
       const avis = avisBrouillonEnvoye(profile, proprioBrouillon, compte.nom, devis.total);
       dbEnvoi = { ...dbEnvoi, messages: [...(dbEnvoi.messages || []), avis] };
     }
-    const envoye = await envoyerDevisEtOuvrirWhatsApp({
-      dbApres: dbEnvoi,
-      compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre: idRemplace,
-    });
-    if (!envoye) return;
+    return { devis, idRemplace, dbEnvoi };
+  };
+
+  // Après un devis envoyé OU imprimé : la fiche prospect, le formulaire remis à zéro.
+  const apresLeDevis = (compte, devis) => {
     // 🧲 Un devis préparé depuis la fiche d'un prospect (24/09/2026) : la
     // fiche garde le compte et le devis — SANS être marquée client, il n'a
     // pas encore dit oui (c'est « Convertir » ou l'encaissement qui le fait).
@@ -537,7 +557,48 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     setAuteurId("");
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     effacerBrouillonVolet(volet, profile);
-    { const m = messageDevisEnvoye(compte.nom, envoye.auto); if (envoye.auto && m) uAlert(m); }
+  };
+
+  // 🖨 IMPRIMER LE DEVIS SANS L'ENVOYER (Timo, 15/10/2026, « Ab, Ba, Ça, Da ») :
+  // tout administrateur (« D a »), revérifié DANS le geste. Le devis est rangé
+  // chez le client — un compte existant, ou une fiche SANS ACCÈS créée pour
+  // l'occasion (rien ne lui est envoyé, il ne reçoit pas d'identifiants) — et
+  // le PDF sort tout de suite. Il se retrouve dans 📋 Tous les devis
+  // (« 🖨 Sans compte »), s'y signe sur papier, puis s'encaisse : la suite est
+  // celle de tout devis validé.
+  const imprimer = async ({ totalDevis, messageVide, construire }) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdmin(profile, "Imprimer un devis sans l'envoyer au client")) return;
+    if (totalDevis <= 0) { uAlert(messageVide); return; }
+    if (refusApporteur()) return;
+    if (refusAuteur()) return;
+    if (!clientDevis) { uAlert("Choisissez le client, ou « ➕ Nouveau client » avec son nom, son prénom et son numéro."); return; }
+    const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique, { sansAcces: true });
+    if (!resolu) return;
+    const prep = await preparerLeDevis(resolu, construire);
+    if (!prep) return;
+    const { compte } = resolu;
+    const nom = compte.nom_base || compte.nom;
+    const sansCompte = estSansAcces(compte);
+    if (!await uConfirm(`🖨 Imprimer le devis de ${fmt(prep.devis.total)} pour ${nom} ?\n\n${sansCompte
+      ? "Aucun compte ne lui est ouvert : rien ne lui est envoyé, il ne reçoit pas d'identifiants."
+      : "Rien ne lui est envoyé par WhatsApp."}\n\nLe devis est rangé dans 📋 Tous les devis${sansCompte ? " (« 🖨 Sans compte »)" : ""} : quand il a signé le contrat sur papier, « 📝 Signé sur papier » le valide, puis il s'encaisse.`)) return;
+    const devisImprime = { ...prep.devis, imprime: { le: today(), heure: heureCourte(), par: profile.nom, par_id: profile.id } };
+    const range = rangerDevisChezLeClient({ dbApres: prep.dbEnvoi, compte, devis: devisImprime, profile, idAReprendre: prep.idRemplace });
+    if (!range) return;
+    save(range.dbFinal, `🖨 Devis (${fmt(devisImprime.total)}) imprimé pour ${nom}${sansCompte ? " — sans compte" : ""}${prep.idRemplace ? " (corrigé)" : ""}, sans envoi WhatsApp, par ${profile.nom}`);
+    apresLeDevis(compte, devisImprime);
+    const ficheFinale = (range.dbFinal.users || []).find((u) => u.id === compte.id) || compte;
+    const devisFinal = (ficheFinale.devis || []).find((x) => x.id === range.idDevis) || range.devisMarque;
+    try {
+      const { genererPdfDuDevis } = await import("../TousLesDevis");
+      genererPdfDuDevis(range.dbFinal, { ...devisFinal, client: ficheFinale });
+    } catch (e) {
+      console.error("PDF du devis :", e);
+      uAlert("✅ Le devis est rangé dans 📋 Tous les devis, mais le PDF n'a pas pu sortir : ouvrez-le là (📄 Devis PDF).");
+      return;
+    }
+    uAlert(`✅ Devis imprimé et rangé dans 📋 Tous les devis${sansCompte ? " (« 🖨 Sans compte »)" : ""}.\n\nQuand ${nom} a signé : 📋 Tous les devis → 🖨 Imprimer pour signature papier, puis 📝 Signé sur papier. Le devis passe alors en commande à encaisser (💰 Encaisser).`);
   };
 
   const convertir = (panier, pctRemise) => {
@@ -623,7 +684,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     uAlert(`📝 Brouillon enregistré${client ? ` pour ${client.nom}` : ` pour ${titre} — sans compte`}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, confier à un collègue, ou supprimer.`);
   };
 
-  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, convertir, enregistrerBrouillon, etabliPour };
+  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, imprimer, convertir, enregistrerBrouillon, etabliPour };
 }
 
 // ---- Conditions de paiement — % d'acompte et délai d'installation propres
@@ -706,7 +767,7 @@ export function BlocEtabliPour({ etabliPour }) {
   );
 }
 
-export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, onBrouillon, profile, etabliPour = null }) {
+export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, onBrouillon, onImprimer = null, profile, etabliPour = null }) {
   // ⚠ La signature était exigée tout à la FIN, après avoir tout rempli et
   // cliqué (relevé par Timo, 18/08/2026). On prévient maintenant AVANT.
   const sansSignature = profile && !profile.signature_personnelle;
@@ -793,6 +854,14 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         </div>
       )}
 
+      {/* 🖨 Le client d'un devis imprimé sans compte (15/10/2026) : le dire. */}
+      {estSansAcces(compteChoisi) && (
+        <div className="mt-2 rounded-lg bg-slate-50 border border-slate-300 p-2 text-xs text-slate-700" data-client-sans-acces>
+          🖨 <b>{compteChoisi.nom_base || compteChoisi.nom}</b> n'a pas encore d'accès à l'application (devis imprimé sans compte).
+          « 🖨 Imprimer » le laisse ainsi ; « 📲 Envoyer par WhatsApp » lui ouvre son espace et lui envoie ses identifiants.
+        </div>
+      )}
+
       {clientDevis === "__nouveau__" && nouvClient.nom && chiffresTel(nouvClient.tel).length >= 4 && (
         <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-xs">
           Compte qui sera créé — identifiant : <b>{identifiantClient(db, nouvClient.nom, nouvClient.tel)}</b> · mot de passe : <b>{motDePasseClient(nouvClient.nom, nouvClient.tel)}</b>
@@ -810,7 +879,20 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
             📝 Enregistrer un brouillon
           </button>
         )}
+        {/* 🖨 Imprimer sans envoyer (Timo, 15/10/2026, « D a ») : l'administrateur. */}
+        {onImprimer && profile?.role === "admin" && (
+          <button onClick={onImprimer} disabled={!clientDevis} data-imprimer-sans-compte
+            className={`px-5 py-2 rounded-lg font-bold text-sm ${clientDevis ? "bg-sky-800 text-white hover:bg-sky-900" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}
+            title="Le devis est rangé et imprimé ; rien n'est envoyé au client, aucun compte ne lui est ouvert">
+            🖨 Imprimer le devis (sans l'envoyer)
+          </button>
+        )}
       </div>
+      {onImprimer && profile?.role === "admin" && (
+        <div className="mt-1 text-[11px] text-slate-500">
+          🖨 Pour un client qui ne passe pas par l'application : le devis sort en PDF, rien ne lui est envoyé et il ne reçoit pas d'identifiants. Il se signe sur papier dans 📋 Tous les devis, puis s'encaisse ; l'installation suit comme pour tout devis.
+        </div>
+      )}
     </div>
   );
 }
@@ -839,7 +921,19 @@ function marquerProspectsDuCompte(base, compteId, telRef) {
 // Résout le compte client destinataire : crée un compte à la volée (nom + tel) ou
 // récupère un compte existant. Retourne null (une alerte a déjà été affichée) en
 // cas de saisie invalide, sinon { compte, motDePasse, dbApres }.
-export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique) {
+// 🖨 `sansAcces` (15/10/2026) : le devis est IMPRIMÉ, rien n'est envoyé — un
+// nouveau client devient une fiche SANS ACCÈS (aucun message aux
+// administrateurs, aucun identifiant envoyé). Sans lui (l'envoi par WhatsApp),
+// une fiche sans accès que l'on retrouve S'OUVRE, après une question : ses
+// identifiants vont partir.
+async function ouvrirSiSansAcces(base, compte, profile) {
+  if (!estSansAcces(compte)) return { base, compte };
+  if (!await uConfirm(`🖨 ${compte.nom_base || compte.nom} n'a pas encore d'accès à l'application : son devis avait été imprimé sans compte.\n\nEn lui envoyant ce devis par WhatsApp, son espace s'ouvre et ses identifiants lui partent du numéro BMI. Continuer ?`)) return null;
+  const ouvert = ouvrirAcces(compte, profile.nom);
+  return { base: { ...base, users: (base.users || []).map((u) => (u.id === compte.id ? ouvert : u)) }, compte: ouvert };
+}
+
+export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique, { sansAcces = false } = {}) {
   // 🏢 29/09/2026 (Timo) : « en bas de la ligne client destinataire, une case
   // à cocher entreprise cliente… la personne mentionnée est le répondant,
   // c'est à son numéro que les infos de l'espace client sont envoyées ».
@@ -890,9 +984,12 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, 
     // enregistré « 90112233 », et un SECOND compte client était créé. Un
     // doublon, c'est aussi une seconde prime de parrainage.
     // memeNumero compare les 8 DERNIERS chiffres — la règle posée par Timo.
-    const existant = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, tel));
-    if (existant) {
-      const r = avecIdentite(db, existant, prenom);
+    const trouve = (db.users || []).find((u) => u.role === "client" && u.tel && memeNumero(u.tel, tel));
+    if (trouve) {
+      const o = sansAcces ? { base: db, compte: trouve } : await ouvrirSiSansAcces(db, trouve, profile);
+      if (!o) return null;
+      const existant = o.compte;
+      const r = avecIdentite(o.base, existant, prenom);
       return {
         compte: r.compte, identite: r.identite, motDePasse: existant.mdp_auto ? motDePasseConnu(existant) : null,
         dbApres: marquerProspectsDuCompte(r.dbApres, existant.id, existant.tel || tel),
@@ -901,17 +998,23 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, 
     // Le compte client hérite de l'espace de celui qui le crée (voir
     // marqueEspace) : un « client » inventé pendant un entraînement ne doit
     // pas se retrouver mêlé aux vrais dans les listes ni dans les relances.
-    const fab = await fabriquerCompteClient(db, nom, tel, profile.nom, { ...marqueEspace(db, profile, boutique), ...champsCompteClient(nom, prenom, nouvClient.entreprise) });
+    const fab = await fabriquerCompteClient(db, nom, tel, profile.nom, {
+      ...marqueEspace(db, profile, boutique), ...champsCompteClient(nom, prenom, nouvClient.entreprise),
+      ...(sansAcces ? { sans_acces: true, sans_acces_le: today(), sans_acces_par: profile.nom } : {}),
+    });
     return {
       compte: fab.user, motDePasse: fab.motDePasse, identite: champsIdentite({ prenom, entreprise: nouvClient.entreprise }),
       dbApres: marquerProspectsDuCompte(
-        { ...db, users: [...db.users, fab.user], messages: [...messagesNouveauClient(db, fab.user, profile), ...(db.messages || [])] },
+        { ...db, users: [...db.users, fab.user], messages: sansAcces ? (db.messages || []) : [...messagesNouveauClient(db, fab.user, profile), ...(db.messages || [])] },
         fab.user.id, tel),
     };
   }
-  const compte = db.users.find((u) => u.id === clientDevis);
-  if (!compte) { uAlert("Choisissez le client à qui envoyer ce devis."); return null; }
-  const r = avecIdentite(db, compte, compte.prenom);
+  const choisi = db.users.find((u) => u.id === clientDevis);
+  if (!choisi) { uAlert("Choisissez le client à qui envoyer ce devis."); return null; }
+  const o = sansAcces ? { base: db, compte: choisi } : await ouvrirSiSansAcces(db, choisi, profile);
+  if (!o) return null;
+  const compte = o.compte;
+  const r = avecIdentite(o.base, compte, compte.prenom);
   return { compte: r.compte, identite: r.identite, motDePasse: motDePasseConnu(compte), dbApres: marquerProspectsDuCompte(r.dbApres, compte.id, compte.tel) };
 }
 
@@ -919,7 +1022,11 @@ export async function resoudreClientDevis(db, clientDevis, nouvClient, profile, 
 // identifiants et le lien vers son espace. `ligneEntete` = les 1-2 lignes
 // spécifiques à l'outil (type d'installation + montant), le reste du message
 // (identifiants, lien, signature) est commun aux 3 outils.
-export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
+// 🖨 Le devis RANGÉ chez le client, avec toutes ses vérifications (remise,
+// signatures, cf. visite, espace, trace d'une correction) — écrit UNE fois
+// pour l'envoi par WhatsApp et l'impression sans envoi (15/10/2026). Rend
+// null (une alerte a été montrée) ou { dbFinal, devisMarque, auteurFinal, idDevis }.
+export function rangerDevisChezLeClient({ dbApres, compte, devis, profile, idAReprendre }) {
   // Signature personnelle exigée AVANT tout envoi de devis (demande Timo) —
   // elle sera réutilisée automatiquement sur tous les contrats futurs de
   // cette personne, plutôt que d'être redemandée à chaque fois. Un seul
@@ -930,11 +1037,11 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // serveur appliquera la même règle (vague 3, étape 2).
   if (remiseExigeAdmin(devis?.pct_remise) && profile.role !== "admin") {
     uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur. Ramenez la remise à ${PLAFOND_REMISE_PCT} % au plus, ou faites établir ce devis par l'administrateur.`);
-    return false;
+    return null;
   }
   if (!profile.signature_personnelle) {
     uAlert("Avant d'envoyer un devis, vous devez d'abord enregistrer votre signature — rendez-vous dans l'onglet « 📄 Contrats » pour le faire, une seule fois.");
-    return false;
+    return null;
   }
   // 👥 Le devis porte le nom de son AUTEUR (12/10/2026) : une correction garde
   // celui du devis d'origine, un devis « établi pour » celui de la personne
@@ -946,7 +1053,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     const fiche = (dbApres.users || []).find((u) => u.id === auteurFinal.par_id);
     if (fiche && !fiche.signature_personnelle) {
       uAlert(`✍️ ${auteurFinal.par} n'a pas encore enregistré sa signature : le devis part à son nom et porte sa signature.\n\nIl l'enregistre une seule fois dans l'onglet « 📄 Contrats ». En attendant, enregistrez un brouillon pour lui.`);
-      return false;
+      return null;
     }
   }
   // 📋 Décision « A a » (08/10/2026) : un devis DÉJÀ SIGNÉ que l'on corrige
@@ -956,7 +1063,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     const avant = (dbApres.users || []).find((u) => u.id === compte.id)?.devis?.find((x) => x.id === idAReprendre);
     if (avant && (avant.statut || "propose") !== "propose") {
       uAlert("📋 Ce devis a déjà été signé : il repart pour être signé à nouveau, il ne peut donc pas porter d'élément « cf. visite ». Chiffrez ces éléments avant de le renvoyer.");
-      return false;
+      return null;
     }
   }
   // ⚠ Cloisonnement formation / réel : un devis est rangé dans la fiche du
@@ -985,6 +1092,13 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     // Le message de demande de modification / rejet n'a plus lieu d'être : le vendeur vient d'y répondre.
     messages: idAReprendre ? (dbApres.messages || []).filter((m) => m.devis_id !== idAReprendre) : dbApres.messages,
   };
+  return { dbFinal, devisMarque, auteurFinal, idDevis: idAReprendre || devisMarque.id };
+}
+
+export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
+  const range = rangerDevisChezLeClient({ dbApres, compte, devis, profile, idAReprendre });
+  if (!range) return false;
+  const { dbFinal, devisMarque, auteurFinal } = range;
   save(dbFinal, idAReprendre
     ? `Devis corrigé (${fmt(devis.total)}) renvoyé au client ${compte.nom} par ${profile.nom}`
     : `Devis (${fmt(devis.total)}) envoyé au client ${compte.nom} par ${profile.nom}`);

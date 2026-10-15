@@ -61,7 +61,7 @@ export const CHAPITRE = {
         ["Voir les contrats", "**Administrateur et responsable commercial** : tous. **Les autres** : seulement les contrats de **leurs propres devis**, jamais ceux d'un collègue."],
         ["✍️ Enregistrer ma signature", "Chacun pour lui-même, dans 📄 Contrats."],
         ["Signer son contrat (✅ JE VALIDE)", "**Le client**, depuis son espace."],
-        ["Faire signer en boutique (✍️ Faire signer ici, 🖨 Imprimer pour signature papier, 📝 Signé sur papier)", "**L'administrateur principal seul**, pour l'instant."],
+        ["Faire signer en boutique (✍️ Faire signer ici, 🖨 Imprimer pour signature papier, 📝 Signé sur papier)", "**L'administrateur principal seul**, pour l'instant. **Sauf un devis « 🖨 Sans compte »** (imprimé sans l'envoyer, chapitre 13) : son impression et sa signature **sur papier** sont ouvertes à **tout administrateur** — c'est le seul chemin par lequel ce client valide."],
         ["Accepter ou rejeter un plan de règlement", "**L'administrateur principal seul** (« moi seul », décision de Timo)."],
         ["Télécharger un contrat", "**L'administrateur** toujours ; **les autres et le client** une fois le règlement **soldé**."],
         ["📄 Mes contrats", "**Le client**, dès qu'il a au moins un contrat signé."],
@@ -74,7 +74,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
         ["📄 Contrats → ✍️ Ma signature", "Votre signature personnelle : l'enregistrer, la voir, la modifier."],
         ["📄 Contrats → Contrats d'installation", "La liste des contrats signés, du plus récent au plus ancien, avec 📄 Voir le contrat et 📄 Voir le PV."],
-        ["📋 Tous les devis → la ligne d'un devis Proposé", "Le cadre « Le client est en boutique et n'utilise pas l'application ? » (administrateur principal)."],
+        ["📋 Tous les devis → la ligne d'un devis Proposé", "Le cadre « Le client est en boutique et n'utilise pas l'application ? » (administrateur principal). Pour un devis « 🖨 Sans compte » : « Devis imprimé sans compte : le client signe le contrat sur papier » (tout administrateur ; sans « ✍️ Faire signer ici »)."],
         ["📋 Tous les devis → la ligne d'un devis signé", "Le cadre « 💰 Plan de règlement proposé par le client » et ses boutons ✅ Accepter / ❌ Rejeter."],
         ["Espace client → 🏠 Mon espace", "Le devis, « ✅ JE VALIDE », puis « 💰 Où en est votre paiement »."],
         ["Espace client → 📄 Mes contrats", "Ses contrats signés, téléchargeables une fois réglés."],
