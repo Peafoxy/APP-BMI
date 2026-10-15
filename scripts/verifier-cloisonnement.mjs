@@ -6822,7 +6822,8 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       // RETOURNÉ le 05/10/2026 : la ligne de 📋 Clients se déplie (sa fiche) — la cellule figée porte le fond de la ligne dépliée.
       && /<td className=\{`px-3 py-2 font-semibold min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i\), ouverte\)\}`\}>\{c\.nom\}/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
       && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Clients.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(dj)
-      && /celluleFigee\(estRejetee\(x\) \? "bg-red-50" : estEnAttente\(x\) \? "bg-amber-50" : "bg-white"\)/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
+      // RETOURNÉ le 15/10/2026 (« ramener catégorie en première colonne et figer ») : dans Dépenses la colonne figée est la CATÉGORIE, la ligne se déplie, son fond est gardé.
+      && /<td data-depense-categorie className=\{`px-3 py-2 min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i, fond\), ouverte\)\}`\}>/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
       && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
       && /<ListeArticles lignes=\{lignes\} deplie=\{detteDepliee === d\.id\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
       && (dj.match(/tabular-nums text-right whitespace-nowrap/g) || []).length === 3 && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(dj)
@@ -7406,7 +7407,8 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && (dpV.match(/refuserSaufAdminPrincipal\(db, profile, "(Valider|Rejeter) une dépense \(DG\)"\)/g) || []).length === 2 && (dpV.match(/critiqueDecision\(d, \{ estPrincipal: true \}/g) || []).length === 2
     && /const motif = await uPrompt\(`Rejeter la dépense/.test(dpV) && /export function BadgeValidation/.test(dpV)
     // 13/09/2026 : la colonne « Chantier » (dépense rattachée à un chantier de devis) s'ajoute au tableau commun.
-    && /\["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier \/ remis à", ""\]/.test(dpV) /* ⚠ RETOURNÉ le 10/10/2026 : « remis à » se lit aussi sans chantier */ && (dpV.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 /* 13/09/2026 : l'en-tête reste collé en haut du cadre qui défile (HistoriqueArchive) */);
+    && /const COLONNES_DEPENSES = \["Catégorie", "Date", "Description", "Montant", "Paiement", "Statut", "Chantier \/ remis à", ""\];/.test(dpV) /* ⚠ RETOURNÉ le 10/10/2026 : « remis à » se lit aussi sans chantier ; RETOURNÉ le 15/10/2026 : la catégorie en tête, « payé avec » sous la pastille du paiement, « saisi par » sous la pastille du statut */
+    && /<PastillePaiement paiement=\{x\.paiement\} \/>\s*<div data-paye-avec[^>]*>\{libellePayeAvecDe\(x\)\}<\/div>/.test(dpV) && /<td data-depense-statut className="px-3 py-2"><PastilleStatut x=\{x\} \/>\s*<div className="text-xs text-slate-500 mt-0\.5">par \{x\.par \|\| "—"\}<\/div>/.test(dpV) && /<BadgeValidation x=\{x\} \/>/.test(dpV) && (dpV.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 /* 13/09/2026 : l'en-tête reste collé en haut du cadre qui défile (HistoriqueArchive) */);
   test("★ écran Caisse : l'encadré « Avances de frais à rembourser » (gérant, admin), les trois façons, le mois demandé par demanderMois, critiqueRemboursement puis rembourserAvance, users et messages écrits",
     /const avances = avancesARembourser\(db, boutique\);/.test(csVd) && /Avances de frais à rembourser \(\{avances\.length\}\)/.test(csVd) && /MOYENS_REMBOURSEMENT\.map\(\(\[code, libelle\]\)/.test(csVd)
     && /await demanderMois\(`Sur quelle paie porter le remboursement/.test(csVd) && (csVd.match(/critiqueRemboursement\(d, moyen, profile/g) || []).length === 2 && /const r = rembourserAvance\(db, profile, d, moyen, today\(\), \{ mois \}\);/.test(csVd)
@@ -14836,6 +14838,48 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
     && /bg-slate-200/.test(regGrise) && /text-slate-500!/.test(regGrise) && /20\D?000 F/.test(regGrise)
     && /data-reglement="true"/.test(hDa) && !/data-reglement-grise/.test(hDa) && !/data-reglement-grise/.test(hDr)
     && Vo.clesReglementsVersesValides(dbRv).has(k2) && Vo.clesReglementsVersesValides(dbR).size === 0 && Vo.clesReglementsVersesValides(dbRr).size === 0);
+}
+
+titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dettes (15/10/2026, « A oui, B a… ramener catégorie en première colonne et figer »)");
+{
+  const ui = readFileSync("src/components/ui.jsx", "utf8"), vsP = readFileSync("src/screens/Ventes.jsx", "utf8"), dpP = readFileSync("src/screens/Depenses.jsx", "utf8");
+  test("★ la pastille du paiement et le texte qui se déplie sont écrits UNE fois (ui.jsx) ; 💰 Ventes et 📤 Dépenses les IMPORTENT, aucune copie ailleurs",
+    /export function PastillePaiement\(\{ paiement \}\)/.test(ui) && /export function TexteDepliable\(/.test(ui)
+    && execSync("grep -rl 'function PastillePaiement' src || true").toString().trim() === "src/components/ui.jsx"
+    && execSync("grep -rl 'function TexteDepliable' src || true").toString().trim() === "src/components/ui.jsx"
+    && /PastillePaiement \} from "\.\.\/components\/ui";/.test(vsP) && /PastillePaiement, TexteDepliable \} from "\.\.\/components\/ui";/.test(dpP));
+  test("★ 📤 Dépenses : la ligne se déplie au clic (UNE à la fois, classeLigneDepliable), les boutons ✏️ / 🗑 sont ronds (boutonAction) dans une cellule qui ne déplie pas",
+    /const \[depliee, setDepliee\] = useState\(deplieeInitiale\);/.test(dpP) && /onClick=\{\(\) => setDepliee\(\(d\) => \(d === x\.id \? null : x\.id\)\)\}/.test(dpP)
+    && /classeLigneDepliable\(ouverte, i, fond\)/.test(dpP) && /<td className="px-3 py-2 whitespace-nowrap" onClick=\{\(e\) => e\.stopPropagation\(\)\}>/.test(dpP)
+    && /className=\{boutonAction\("border-sky-200[^"]*"\)\} data-modifier-depense>✏️<\/button>/.test(dpP) && /className=\{boutonAction\("border-red-200[^"]*"\)\} data-supprimer-depense>🗑<\/button>/.test(dpP)
+    && !/className="text-xs text-red-600 underline">Suppr\./.test(dpP));
+  const sortieDp = join("node_modules", ".cache", `bmi-rendu-depenses-${process.pid}.mjs`);
+  let RDp = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-depenses.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieDp, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RDp = await import(pathToFileURL(sortieDp).href);
+  } catch {}
+  try { unlinkSync(sortieDp); } catch {}
+  const admin = { id: "a1", nom: "TIMO", role: "admin", boutique: "BMI DEMAKPOE" };
+  const longue = "Carburant pour le chantier de MR ERIC à Agoè, aller et retour avec le pick-up, plus le transport des panneaux et des batteries jusqu'au site, et la nourriture des trois techniciens";
+  const liste = [
+    { id: "dp1", date: "2026-10-15", heure: "09:12", boutique: "BMI DEMAKPOE", categorie: "Carburant", description: longue, montant: 12000, paiement: "Mobile Money (Flooz)", par: "ANGELE", validation: { statut: "validee", le: "2026-10-15", par: "TIMO" } },
+    { id: "dp2", date: "2026-10-14", boutique: "BMI DEMAKPOE", categorie: "Transport", description: "Taxi", montant: 2000, paiement: "Espèces", par: "ANGELE" },
+  ];
+  const rendreDp = (dep) => { const e0 = console.error; console.error = () => {}; try { return String(RDp?.rendreTableauDepenses(liste, admin, dep) || "").replace(/[  ]/g, " "); } catch { return ""; } finally { console.error = e0; } };
+  const hR = rendreDp(null), hD = rendreDp("dp1");
+  const ligne1 = (h) => (h.match(/<tr[^>]*data-ligne="dp1"[\s\S]*?<\/tr>/) || [""])[0];
+  const premiereCellule = (h) => ((ligne1(h).match(/<td[\s\S]*?<\/td>/) || [""])[0]);
+  test("★★ RENDU : la CATÉGORIE ouvre la ligne, figée (sticky) ; la date vient juste après, l'heure dessous ; l'en-tête commence par « Catégorie »",
+    hR !== "" && /data-depense-categorie/.test(premiereCellule(hR)) && /sticky left-0/.test(premiereCellule(hR)) && />Carburant</.test(premiereCellule(hR))
+    && /<th[^>]*sticky left-0[^>]*>Catégorie<\/th><th[^>]*>Date<\/th>/.test(hR) && /15\/10\/2026<div[^>]*>09:12<\/div>/.test(ligne1(hR)));
+  test("★★ RENDU : la description tient sur DEUX lignes repliée (line-clamp-2), ENTIÈRE dépliée ; une seule ligne dépliée",
+    /data-texte-depliable="replie"[^>]*line-clamp-2/.test(ligne1(hR)) && /data-texte-depliable="deplie"/.test(ligne1(hD)) && !/line-clamp-2/.test(ligne1(hD).match(/data-texte-depliable[^>]*/)?.[0] || "x")
+    && (hD.match(/data-depense-depliee="oui"/g) || []).length === 1 && !/data-depense-depliee/.test(hR));
+  test("★★ RENDU : le paiement en PASTILLE (« Flooz »), « payé avec » dessous ; le statut en pastille (« ✅ Validée »), « par ANGELE » dessous ; la décision du DG en entier seulement dépliée",
+    /<span title="Mobile Money \(Flooz\)"[^>]*rounded-full[^>]*>Flooz<\/span><div data-paye-avec/.test(ligne1(hR)) && /✅ Validée<\/span><div[^>]*>par ANGELE<\/div>/.test(ligne1(hR))
+    && !/data-depense-decision/.test(ligne1(hR)) && /data-depense-decision[\s\S]*validée le 15\/10\/2026 par TIMO/.test(ligne1(hD)));
 }
 
 titre("💸 « Où va l'argent ? » au paiement d'une dette (09/10/2026, « a oui, b non ») : le règlement et son versement en un seul geste");

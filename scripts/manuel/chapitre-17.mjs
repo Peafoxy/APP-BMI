@@ -7,7 +7,8 @@
 // rattacher ; Enregistrer la dépense ; ⏳ Dépenses à valider par le DG,
 // ✅ Valider, ✖ Rejeter ; 🏠 Loyer de la boutique, 📲 Prévenir le propriétaire
 // (📲 Le rappeler, ✅ Remis au propriétaire — 14/10/2026), 💵 Payer le loyer /
-// 💵 Payer d'avance ; ✏️ Modifier, Suppr. ; « Mes dépenses » ; 🧾 Chez le
+// 💵 Payer d'avance ; ✏️ Modifier, 🗑 Supprimer (boutons ronds, la ligne qui se
+// déplie — 15/10/2026) ; « Mes dépenses » ; 🧾 Chez le
 // comptable — ✅ Remis / ✅ Encaissé, ✖ Rejeter, annuler),
 // lib/validationDepenses.js (SEUIL_VALIDATION_DEPENSE = 5000, PAYE_AVEC,
 // optionsPayeAvec, payeDeSaPocheSeulement, ROLES_REMISE_ARGENT, fondsProposable, ROLES_FONDS_CAISSE, construireDepenseSaisie,
@@ -60,7 +61,7 @@ export const CHAPITRE = {
         ["Rattacher une dépense à un chantier", "Le gérant, l'administrateur, ou **la personne qui a saisi la dépense**."],
         ["🏠 Voir et payer le loyer", "**Le gérant et l'administrateur.** La fiche du loyer se règle dans ⚙ Paramètres par l'administrateur seul."],
         ["✏️ Modifier (catégorie, description, chantier, remis à)", "**L'administrateur principal**, seul."],
-        ["Suppr.", "**L'administrateur.**"],
+        ["🗑 Supprimer", "**L'administrateur.**"],
         ["Rembourser une avance de poche", "En espèces : **le gérant et l'administrateur** ; avec le salaire ou par le DG : **l'administrateur**. Jamais soi-même (sauf l'administrateur)."],
         ["🧾 Chez le comptable : ✅ Remis / ✅ Encaissé", "**Le comptable.** L'administrateur peut annuler un pointage."],
       ]}],
@@ -112,7 +113,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Pour quoi", texte: "Les petits frais d'une installation : carburant, nourriture, petit matériel. Elle reste une dépense ordinaire (seuil, DG, caisse)." },
         { titre: "Quels chantiers sont proposés", texte: "Ceux de l'espace regardé, **pas encore réceptionnés**, dont **les frais d'installation n'ont pas encore été payés** aux techniciens, et les 🛠 travaux à crédit non soldés, nommés par la description tapée à leur ouverture (« 🛠 NIMAN · Travaux — FORAGE »). Sans chantier ouvert, la liste le dit." },
-        { titre: "Ce qui se passe ensuite", texte: "Au partage des frais (🏠 Clients installés → 🔧 Frais), les techniciens se partagent **les frais facturés moins les dépenses rattachées qui comptent** (ni en attente du DG, ni rejetées) — jamais moins de zéro. La colonne « Chantier » de la liste montre le rattachement." },
+        { titre: "Ce qui se passe ensuite", texte: "Au partage des frais (🏠 Clients installés → 🔧 Frais), les techniciens se partagent **les frais facturés moins les dépenses rattachées qui comptent** (ni en attente du DG, ni rejetées) — jamais moins de zéro. La colonne « Chantier / remis à » de la liste montre le rattachement." },
         { titre: "💼 Argent remis à", texte: "Pour un chantier, la ligne **« Argent remis à »** est **obligatoire** : la personne qui reçoit l'argent, ou **« Personne — payé directement »**. La ligne de la dépense dit ensuite « 💼 remis à KOSSI ». (Elle sert aussi hors chantier : partie D bis.)" },
       ]],
 
@@ -162,7 +163,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "✏️ Modifier (administrateur principal)", texte: "**La catégorie, la description, le chantier rattaché et « Argent remis à » (la personne, ou « Personne »), rien d'autre.** Une dépense « Chantier » garde son chantier : passer en « Chantier » sans en choisir un, ou retirer le chantier d'une dépense « Chantier », est refusé. La personne ne change pas si elle a déjà justifié ou rendu cet argent. Le chantier ne se change que tant qu'il n'est **pas réceptionné** (ni soldé, ni ses techniciens payés) — l'ancien comme le nouveau ; « — Aucun — » le retire. Le montant, le paiement et « Payé avec » portent de l'argent : un montant faux se **supprime et se ressaisit**. La ligne garde « modifiée le … par … »." },
         { titre: "Ce qui ne se modifie pas", texte: "Les versements, fonds de caisse, apports et prélèvements du DG, remboursements, les dépenses **automatiques** (salaires, commissions, CNSS, primes…) et les dépenses **rejetées**." },
-        { titre: "Suppr. (administrateur)", texte: "Confirmation. Une dépense née d'un paiement (commission, prime…) annule aussi son statut « payé » : l'écran le dit. Certaines ont leur propre porte de sortie, et l'application y renvoie." },
+        { titre: "🗑 Supprimer (administrateur)", texte: "Confirmation. Une dépense née d'un paiement (commission, prime…) annule aussi son statut « payé » : l'écran le dit. Certaines ont leur propre porte de sortie, et l'application y renvoie." },
       ]],
 
       ["h3", "I. 🧾 Chez le comptable"],
@@ -181,9 +182,10 @@ export const CHAPITRE = {
         ["💵 Payer le loyer / 💵 Payer d'avance", "🏠 Loyer de la boutique", "Paie un ou plusieurs mois : moyen, caisse, confirmation, enregistrement."],
         ["📲 Prévenir le propriétaire / 📲 Le rappeler", "🏠 Loyer de la boutique", "Après un paiement validé en espèces : un message du numéro BMI dit au propriétaire de venir chercher son loyer auprès de vous (gérant, administrateur). Déjà prévenu : « Le rappeler »."],
         ["✅ Remis au propriétaire", "🏠 Loyer de la boutique", "Le propriétaire est passé : les boutons disparaissent jusqu'au prochain loyer payé en espèces. Rien ne bouge dans la caisse."],
-        ["✏️ Modifier", "Liste des dépenses", "Change la catégorie, la description et le chantier rattaché (administrateur principal)."],
+        ["✏️ (bouton rond)", "Fin de la ligne d'une dépense", "Change la catégorie, la description et le chantier rattaché (administrateur principal)."],
         ["Le filtre de période", "Titre de la liste (et « Chez le comptable »)", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates. La liste ne montre que la période, et le total à droite devient celui de la période (« Ce mois » revient avec « Toute période »). Le cadre ⏳ Dépenses à valider par le DG n'est jamais filtré."],
-        ["Suppr.", "Liste des dépenses", "Supprime une dépense (administrateur)."],
+        ["🗑 (bouton rond)", "Fin de la ligne d'une dépense", "Supprime une dépense (administrateur)."],
+        ["Un clic sur la ligne", "Liste des dépenses", "**Déplie** la ligne (fond bleu, barre à gauche) : la description entière, la décision du DG en entier (qui, quand, le motif d'un rejet), « modifiée le … par … ». Un second clic la replie ; un clic sur une autre ligne déplie l'autre. Une seule ligne dépliée à la fois."],
         ["💵 Rembourser en espèces / 🧾 Avec le salaire / 👤 Par le DG", "🔒 Caisse → 💼 Avances", "Rembourse une avance de poche."],
         ["✅ Remis / ✅ Encaissé", "🧾 Chez le comptable", "Pointage du comptable."],
         ["✖ Rejeter", "🧾 Chez le comptable", "Rejette un versement en attente (comptable)."],
@@ -200,6 +202,7 @@ export const CHAPITRE = {
         "**Un prêt au personnel** (un crédit BMI, que l'employé rend) **se lit dans la liste**, avec la mention « n'est pas une charge » — et « ↩ argent rentré dans la caisse » pour un remboursement : il fait bouger la caisse, on doit le voir. Il ne compte pas dans « Ce mois ». Son suivi est dans 👥 Utilisateurs → 🏦 Crédits BMI, et « Prêt au personnel » ne se choisit pas comme catégorie.",
         "**L'argent rendu au client se lit aussi dans la liste**, qu'il vienne d'une **reprise** (catégorie « Remboursement client », mention « ↩ argent rendu au client (reprise) ») ou d'un **échange** (catégorie « Rendu sur échange », mention « ↩ argent rendu au client ») — chapitre 5. Sa description dit la vente d'origine, le client et l'article rendu (et, pour un échange, l'article pris et le nouveau reçu). Ce n'est pas une charge : il ne compte pas dans « Ce mois ». **Il ne se supprime pas seul** : la reprise ou l'échange ne se défait pas — un montant faux se signale à l'administrateur principal.",
         "**Une dépense payée par Flooz ou Mixx** descend le solde de ce compte mobile (carrés 📱 de 🔒 Caisse, chapitre 6).",
+        "**Une ligne se lit comme dans 💰 Ventes et 📋 Dettes** (Timo, 15/10/2026) : la **catégorie** ouvre la ligne, en gras, et **reste figée à gauche** quand on fait défiler le tableau sur un téléphone ; puis la **date** (l'heure dessous) ; la **description** sur deux lignes au plus (la suite au clic) ; le **montant** à droite ; le **paiement** en pastille (vert espèces, bleu Flooz / Mixx, gris virement) avec **« payé avec »** dessous ; le **statut** en pastille (⏳ À valider, ✅ Validée, ✖ Rejetée — rien sous le seuil de 5 000 F) avec **« par »** la personne qui l'a saisie ; le chantier ou « remis à » ; et les boutons ronds ✏️ et 🗑.",
         "**La liste s'archive toute seule** : 10 lignes visibles puis on défile ; au-delà des 20 plus récentes, les lignes de plus de 3 mois passent dans « 📁 Dépenses archivées », rangées par mois. Rien n'est effacé.",
         "**Un paiement fait ailleurs crée sa dépense tout seul** : commission (chapitre 16), prime d'installation, salaire (chapitre 18), réparation d'un outil (chapitre 19), règlement d'un fournisseur (chapitre 10).",
       ]],

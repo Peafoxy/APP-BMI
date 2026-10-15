@@ -21,7 +21,7 @@ import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, a
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
@@ -72,17 +72,6 @@ export function ArticlesVente({ v, deplie = false }) {
       enfants={repris > 0 ? <div className="text-xs font-bold text-amber-700" title={(v.reprises || []).map((r) => `↩ ${r.qte} × ${r.article} repris le ${dFR(r.date)} — ${r.motif}`).join("\n")}>↩ {repris} repris</div> : null} />
   );
 }
-// Le moyen de paiement en pastille : vert espèces, ambre crédit, bleu mobile money, gris virement.
-function PastillePaiement({ paiement }) {
-  const p = String(paiement || "");
-  const teinte = /Crédit/i.test(p) ? "bg-amber-100 text-amber-800 border-amber-200"
-    : /Espèces/i.test(p) ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-    : /Flooz|Mixx|T-Money/i.test(p) ? "bg-sky-100 text-sky-800 border-sky-200"
-    : "bg-slate-100 text-slate-700 border-slate-200";
-  const court = /Crédit/i.test(p) ? "Crédit" : /Flooz/i.test(p) ? "Flooz" : /Mixx|T-Money/i.test(p) ? "Mixx" : /Virement/i.test(p) ? "Virement" : p || "—";
-  return <span title={p} className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinte}`}>{court}</span>;
-}
-
 function lignesVenteEnAutres(v) {
   return lignesVente(v).map((l) => {
     const net = Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0);

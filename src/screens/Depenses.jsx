@@ -11,7 +11,7 @@ import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, de
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, libellePayeAvecDe, libellePayeAvecDeDansPhrase, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, boutonAction, PastillePaiement, TexteDepliable } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
@@ -40,45 +40,68 @@ export function BadgeValidation({ x }) {
   if (estValidee(x)) return <span className="text-xs font-bold text-green-700">✅ validée le {dFR(x.validation.le)}{x.validation.auto ? " (DG)" : ` par ${x.validation.par}`}</span>;
   return <span className="text-xs text-slate-400">—</span>;
 }
-function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide }) {
+// 🧾 LA LIGNE D'UNE DÉPENSE SUIT LA RÈGLE DE 💰 VENTES ET 📋 DETTES (Timo,
+// 15/10/2026, capture de 📤 Dépenses : « la mise en page n'est pas bien
+// structurée… utilise ce qui se fait dans l'écran de dette ou de vente et en
+// faire une règle générale » → « A oui… ramener catégorie en première colonne
+// et figer »). La CATÉGORIE ouvre la ligne et reste figée, la date (et
+// l'heure dessous) vient juste après ; la description tient sur deux lignes, le reste au CLIC ; le
+// montant à droite ; le paiement en pastille, « payé avec » dessous ; le
+// statut en pastille, « saisi par » dessous ; des boutons ronds. UNE ligne
+// dépliée à la fois : elle montre la description entière, la décision du DG,
+// la trace d'une modification. Les briques viennent de ui.jsx.
+function PastilleStatut({ x }) {
+  if (estEnAttente(x)) return <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-amber-100 text-amber-800 border-amber-200">⏳ À valider</span>;
+  if (estRejetee(x)) return <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-red-100 text-red-800 border-red-200">✖ Rejetée</span>;
+  if (estValidee(x)) return <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-emerald-100 text-emerald-800 border-emerald-200">✅ Validée</span>;
+  return null;
+}
+const COLONNES_DEPENSES = ["Catégorie", "Date", "Description", "Montant", "Paiement", "Statut", "Chantier / remis à", ""];
+export function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide, deplieeInitiale = null }) {
+  const [depliee, setDepliee] = useState(deplieeInitiale);
   return (
     <HistoriqueArchive lignes={liste} dateDe={(x) => x.date} aujourdhui={today()} vide={vide} titreArchives="Dépenses archivées" classeTable="w-full text-sm min-w-[860px]"
-      entete={<thead className="sticky top-0 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Date", "Catégorie", "Description", "Montant", "Paiement", "Payé avec", "Saisi par", "Validation", "Chantier / remis à", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>}
-      rendre={(x) => (
-        <tr key={x.id} data-ligne={x.id} className={`border-t border-slate-100 hover:bg-sky-50${estRejetee(x) ? " bg-red-50 text-red-800" : estEnAttente(x) ? " bg-amber-50" : ""}`}>
-          {/* Timo (13/09/2026) : la première colonne reste figée (Stocks, Dépenses, Dettes — ordinateur aussi). */}
-          <td className={`px-3 py-2 whitespace-nowrap ${celluleFigee(estRejetee(x) ? "bg-red-50" : estEnAttente(x) ? "bg-amber-50" : "bg-white")}`}>{dFR(x.date)}</td>
-          <td className="px-3 py-2 font-semibold">{x.categorie}
-            {/* Timo (03/10/2026) : un prêt fait bouger le tiroir, il se VOIT ici — sans être une charge. */}
-            {/* Timo (14/10/2026) : l'argent RENDU au client sur un échange sort du tiroir — il se VOIT ici, sans être une charge. */}
-            {x.categorie === CATEGORIE_RENDU_ECHANGE && <div data-argent-rendu-echange className="text-xs font-normal text-slate-500">↩ argent rendu au client · n'est pas une charge</div>}
-            {/* Timo (14/10/2026, « oui, même chose pour le remboursement client ») : l'argent rendu sur une REPRISE aussi. */}
-            {x.categorie === CATEGORIE_REMBOURSEMENT && <div data-argent-rendu-reprise className="text-xs font-normal text-slate-500">↩ argent rendu au client (reprise) · n'est pas une charge</div>}
-            {x.categorie === CATEGORIE_PRET_PERSONNEL && <div data-pret-personnel className="text-xs font-normal text-slate-500">{x.auto === "retenue" ? "retenu sur le salaire — pas sorti de la caisse · " : Number(x.montant) < 0 ? "↩ argent rentré dans la caisse · " : ""}n'est pas une charge</div>}
-          </td>
-          <td className="px-3 py-2">{x.description || "—"}</td>
-          <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(x) ? " line-through" : ""}`}>{fmt(montantOrigine(x))}
-            {retenueDuSalaire(liste, x) > 0 && <div data-salaire-sorti className="text-xs font-normal text-slate-500 whitespace-nowrap">sorti de la caisse : {fmt(Number(x.montant) - retenueDuSalaire(liste, x))}<br />{fmt(retenueDuSalaire(liste, x))} retenus sur le crédit</div>}
-          </td>
-          <td className="px-3 py-2">{x.paiement}</td>
-          <td className="px-3 py-2 text-xs">{libellePayeAvecDe(x)}{x.remboursement ? <div className="text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}</td>
-          <td className="px-3 py-2">{x.par}</td>
-          <td className="px-3 py-2"><BadgeValidation x={x} /></td>
-          <td className="px-3 py-2 text-xs">
-            {x.chantier_id ? <span className="font-semibold text-purple-800">{String(x.chantier_nom || "").startsWith("🛠") ? "" : "🏠 "}{x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}</span>
-              : x.remis_a?.nom ? <span className="text-xs text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span> : <span className="text-slate-300">—</span>}
-          </td>
-          <td className="px-3 py-2">
-            {onModifier && depenseModifiable(x) && (
-              <button onClick={() => onModifier(x)} className="text-xs font-bold text-sky-800 underline mr-2" data-modifier-depense>✏️ Modifier</button>
-            )}
-            {profile.role === "admin" && (
-              <button onClick={() => onSupprimer(x)} className="text-xs text-red-600 underline">Suppr.</button>
-            )}
-            {x.modifie_le && <div className="text-[11px] text-slate-400">modifiée le {dFR(x.modifie_le)} par {x.modifie_par}</div>}
-          </td>
-        </tr>
-      )} />
+      entete={<thead className="sticky top-0 bg-white"><tr className="text-xs text-slate-500 uppercase">{COLONNES_DEPENSES.map((h, i) => <th key={h || "actions"} className={`px-3 py-2 ${i === 3 ? "text-right" : "text-left"}${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>}
+      rendre={(x, i) => {
+        const ouverte = depliee === x.id;
+        const fond = estRejetee(x) ? "bg-red-50" : estEnAttente(x) ? "bg-amber-50" : "";
+        const retenue = retenueDuSalaire(liste, x);
+        return (
+          <tr key={x.id} data-ligne={x.id} data-depense-depliee={ouverte ? "oui" : undefined} onClick={() => setDepliee((d) => (d === x.id ? null : x.id))}
+            className={`border-t border-slate-100 align-top cursor-pointer ${classeLigneDepliable(ouverte, i, fond)}${estRejetee(x) ? " text-red-800" : ""}`}>
+            <td data-depense-categorie className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i, fond), ouverte)}`}>
+              <div className="font-bold text-slate-800 whitespace-normal leading-snug">{x.categorie || "—"}</div>
+              {x.categorie === CATEGORIE_RENDU_ECHANGE && <div data-argent-rendu-echange className="text-xs font-normal text-slate-500 whitespace-normal">↩ argent rendu au client · n'est pas une charge</div>}
+              {x.categorie === CATEGORIE_REMBOURSEMENT && <div data-argent-rendu-reprise className="text-xs font-normal text-slate-500 whitespace-normal">↩ argent rendu au client (reprise) · n'est pas une charge</div>}
+              {x.categorie === CATEGORIE_PRET_PERSONNEL && <div data-pret-personnel className="text-xs font-normal text-slate-500 whitespace-normal">{x.auto === "retenue" ? "retenu sur le salaire — pas sorti de la caisse · " : Number(x.montant) < 0 ? "↩ argent rentré dans la caisse · " : ""}n'est pas une charge</div>}
+            </td>
+            <td className="px-3 py-2 whitespace-nowrap">{dFR(x.date)}{x.heure && <div className="text-xs text-slate-500 tabular-nums">{x.heure}</div>}</td>
+            <td className="px-3 py-2 min-w-[220px]"><TexteDepliable texte={x.description} deplie={ouverte} /></td>
+            <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap${estRejetee(x) ? " line-through" : ""}`}>{fmt(montantOrigine(x))}
+              {retenue > 0 && <div data-salaire-sorti className="text-xs font-normal text-slate-500 whitespace-nowrap">sorti de la caisse : {fmt(Number(x.montant) - retenueDuSalaire(liste, x))}<br />{fmt(retenueDuSalaire(liste, x))} retenus sur le crédit</div>}
+            </td>
+            <td className="px-3 py-2"><PastillePaiement paiement={x.paiement} />
+              <div data-paye-avec className="text-xs text-slate-500 mt-0.5 whitespace-normal max-w-[200px]">{libellePayeAvecDe(x)}</div>
+              {x.remboursement ? <div className="text-xs text-green-700">remboursée le {dFR(x.remboursement.le)}</div> : null}
+            </td>
+            <td data-depense-statut className="px-3 py-2"><PastilleStatut x={x} />
+              <div className="text-xs text-slate-500 mt-0.5">par {x.par || "—"}</div>
+              {ouverte && (estEnAttente(x) || estRejetee(x) || estValidee(x)) && <div data-depense-decision className="mt-1 whitespace-normal w-0 min-w-full"><BadgeValidation x={x} /></div>}
+            </td>
+            <td className="px-3 py-2 text-xs">
+              {x.chantier_id ? <span className="font-semibold text-purple-800 whitespace-normal">{String(x.chantier_nom || "").startsWith("🛠") ? "" : "🏠 "}{x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}</span>
+                : x.remis_a?.nom ? <span className="text-xs text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span> : <span className="text-slate-300">—</span>}
+            </td>
+            <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-1.5">
+                {onModifier && depenseModifiable(x) && (<button onClick={() => onModifier(x)} title="✏️ Modifier la dépense" aria-label="Modifier la dépense" className={boutonAction("border-sky-200 bg-white text-sky-800 hover:bg-sky-50")} data-modifier-depense>✏️</button>)}
+                {profile.role === "admin" && (<button onClick={() => onSupprimer(x)} title="🗑 Supprimer la dépense" aria-label="Supprimer la dépense" className={boutonAction("border-red-200 bg-white text-red-700 hover:bg-red-50")} data-supprimer-depense>🗑</button>)}
+              </div>
+              {ouverte && x.modifie_le && <div className="text-[11px] text-slate-500 mt-1 whitespace-normal w-0 min-w-full">modifiée le {dFR(x.modifie_le)} par {x.modifie_par}</div>}
+            </td>
+          </tr>
+        );
+      }} />
   );
 }
 

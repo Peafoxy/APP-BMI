@@ -224,6 +224,31 @@ export function BoutonGerer({ nom, onClick, titre, ton, info, ...autres }) {
   return <button {...autres} onClick={appui} title={titre} className={CLASSE_BOUTON_GERER + (TON_BOUTON_GERER[ton] || "")}>{String(nom)}</button>;
 }
 
+// LE MOYEN DE PAIEMENT EN PASTILLE : vert espèces, ambre crédit, bleu mobile
+// money, gris virement. Écrite ici UNE fois (sortie de 💰 Ventes le
+// 15/10/2026) : Timo, devant 📤 Dépenses, « utilise ce qui se fait dans
+// l'écran de dette ou de vente et en faire une règle générale pour
+// l'application ». Le libellé complet reste au survol.
+export function PastillePaiement({ paiement }) {
+  const p = String(paiement || "");
+  const teinte = /Crédit/i.test(p) ? "bg-amber-100 text-amber-800 border-amber-200"
+    : /Espèces/i.test(p) ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : /Flooz|Mixx|T-Money/i.test(p) ? "bg-sky-100 text-sky-800 border-sky-200"
+    : "bg-slate-100 text-slate-700 border-slate-200";
+  const court = /Crédit/i.test(p) ? "Crédit" : /Flooz/i.test(p) ? "Flooz" : /Mixx|T-Money/i.test(p) ? "Mixx" : /Virement/i.test(p) ? "Virement" : p || "—";
+  return <span title={p} className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinte}`}>{court}</span>;
+}
+// UN TEXTE LIBRE DANS UNE CELLULE (description, motif) : deux lignes au plus,
+// le reste au CLIC sur la ligne — la règle de ListeArticles appliquée à un
+// texte (15/10/2026, même demande). `deplie` vient de la ligne (UNE ligne
+// dépliée à la fois, classeLigneDepliable) ; déplié, le texte prend la
+// largeur de sa cellule (w-0 min-w-full, la règle de 💰 Ventes) : la ligne
+// grandit en hauteur, la colonne ne bouge pas.
+export function TexteDepliable({ texte, deplie = false, vide = "—", largeur = "max-w-[340px]" }) {
+  const t = String(texte || "").trim();
+  if (!t) return <span className="text-slate-300">{vide}</span>;
+  return <div data-texte-depliable={deplie ? "deplie" : "replie"} className={`whitespace-normal break-words ${deplie ? "w-0 min-w-full" : `${largeur} line-clamp-2`}`}>{t}</div>;
+}
 export const boutonAction = (teinte) => `inline-flex items-center justify-center w-8 h-8 rounded-full border text-sm ${teinte}`;
 // La ligne d'un tableau qu'on déplie au clic (Ventes, Dettes) : UNE ligne
 // dépliée à la fois, fond bleu soutenu + barre épaisse à gauche (couleur de

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2683 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2688 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -8026,6 +8026,29 @@ lit mal est pire qu'un banc absent).
   (core.js)** rend les articles d'une dette, ou redécoupe un motif
   « 2× A, 2× B » (seulement si CHAQUE morceau a cette forme — une virgule dans
   un motif libre n'est pas une liste). Mêmes gestes, mêmes droits.
+- **🧾 LA LIGNE D'UN TABLEAU SUIT LA RÈGLE DE 💰 VENTES ET 📋 DETTES — règle
+  générale** (capture Timo de 📤 Dépenses, 15/10/2026 : « la mise en page n'est
+  pas bien structurée… utilise ce qui se fait dans l'écran de dette ou de vente
+  et en faire une règle générale » → « A oui, B a, lance… ramener catégorie en
+  première colonne et figer »). Les briques, toutes dans ui.jsx : première
+  colonne figée (`enTeteFige` / `celluleFigee`), UNE ligne dépliée à la fois
+  (`classeLigneDepliable` / `fondLigneDepliable`), une liste sur deux lignes
+  (`ListeArticles`), **un texte libre sur deux lignes puis entier au clic
+  (`TexteDepliable`, nouveau)**, **le paiement en pastille (`PastillePaiement`,
+  sortie de Ventes.jsx)**, des boutons ronds (`boutonAction`) dans une cellule
+  qui ne déplie pas ; déplié, le détail prend la largeur de sa cellule
+  (`w-0 min-w-full`) — la colonne ne bouge pas. **📤 Dépenses** (TableauDepenses,
+  donc aussi 🧾 Chez le comptable et 👤 DG / 🏦 BANQUE) : **Catégorie (figée)** ·
+  Date (heure dessous) · Description · Montant (à droite, barré si rejetée) ·
+  Paiement (pastille, « payé avec » dessous) · Statut (⏳ À valider / ✅ Validée
+  / ✖ Rejetée, « par » qui l'a saisie dessous ; rien sous 5 000 F) · Chantier /
+  remis à · ✏️ 🗑 ronds ; dépliée : la description entière, la décision du DG
+  (`BadgeValidation`), « modifiée le … par … ». Banc (+5, le tableau RENDU par
+  `scripts/_rendu-depenses.jsx`), éprouvé (date remise en tête, description non
+  bridée, copie de la pastille dans Ventes) ; deux contrôles RETOURNÉS. Regardé
+  dans Chromium (PC replié / déplié, téléphone). **« B a »** : les autres écrans
+  qui ne suivent pas encore la règle sont listés à Timo, il choisit — ne pas
+  les refaire sans sa réponse. Rien à coller. Chapitre 17 à jour.
 - **La liste des utilisateurs est lisible** (capture Timo, 12/09/2026 :
   vingt gestes soulignés par ligne ; « lance les corrections pour les 2 ») :
   rôle, boutique (« Toutes ») et statut en **pastilles** (+ 🎓 Formation),
