@@ -34,17 +34,23 @@ export const maintenant = () => new Date(maintenantMs());
 export const maintenantISO = () => maintenant().toISOString();
 
 // L'écart déduit d'une réponse du serveur. `dateServeur` = l'en-tête « Date »
-// (à la seconde près), `age` = l'en-tête « Age » (une réponse gardée par le
-// relais du serveur porte la date où elle a été faite, plus son âge),
-// `envoi` / `reception` = l'horloge de l'appareil avant et après. Le serveur a
-// répondu au milieu de l'aller-retour. Rend null quand on ne peut rien dire.
-export function ecartDepuisReponse({ dateServeur, age, envoi, reception }) {
+// (à la seconde près), `envoi` / `reception` = l'horloge de l'appareil avant et
+// après. Le serveur a répondu au milieu de l'aller-retour. Rend null quand on
+// ne peut rien dire.
+//
+// ⚠⚠ L'EN-TÊTE « Age » NE S'AJOUTE JAMAIS (15/10/2026, capture Timo : « nous
+// sommes à 12h19, pourquoi les heures sur les reçus sont à 15h ? »). Le relais
+// de Vercel pose sur une réponse gardée la date d'AUJOURD'HUI dans « Date », et
+// dans « Age » le temps depuis qu'il la garde (des heures après un envoi). La
+// première version ajoutait les deux : l'application avançait de l'âge du
+// fichier. Le paramètre `age` est encore reçu (un appel d'avant ne casse pas),
+// il n'est plus lu.
+export function ecartDepuisReponse({ dateServeur, envoi, reception }) {
   const t = Date.parse(dateServeur || "");
   if (!Number.isFinite(t)) return null;
   const e = Number(envoi), r = Number(reception);
   if (!Number.isFinite(e) || !Number.isFinite(r) || r < e || r - e > ALLER_RETOUR_MAX_MS) return null;
-  const a = Math.max(0, Number(age) || 0);
   // La date est tronquée à la seconde : l'instant réel est en moyenne 0,5 s plus tard.
-  const serveur = t + a * 1000 + 500;
+  const serveur = t + 500;
   return Math.round(serveur - (e + r) / 2);
 }

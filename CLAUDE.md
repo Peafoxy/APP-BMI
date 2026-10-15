@@ -4789,6 +4789,19 @@ lit mal est pire qu'un banc absent).
   contrôles RETOURNÉS (heureCourte exercée dans le module, les imports de
   l'assistant). Mesuré dans Chromium (horloge +1 h → écart −3 599 s).
   Chapitres 24 et 25 à jour.
+- ⚠⚠ **L'EN-TÊTE « Age » NE S'AJOUTE JAMAIS** (15/10/2026, deux captures :
+  « nous sommes à 12h19, pourquoi les heures sur les reçus sont à 15h ? »). La
+  première version faisait `Date + Age` (la règle HTTP d'un cache qui garde la
+  date d'origine) ; le relais de Vercel, lui, pose la date d'AUJOURD'HUI dans
+  « Date » et dans « Age » le temps qu'il garde version.json (des heures après
+  un envoi) : chaque appareil avançait de l'âge du fichier (+3 h 15 ce jour-là).
+  `ecartDepuisReponse` ne lit plus `age` ; l'écart gardé change de nom
+  (`bmi_ecart_horloge_v2`, l'ancien effacé au chargement) pour que l'écart faux
+  ne soit pas réappliqué. ⚠ Non vérifié d'ici (le proxy bloque le site) : déduit
+  du sens de l'erreur — une date d'origine aurait mis l'heure en RETARD, jamais
+  en avance. Banc (+3, deux RETOURNÉS), éprouvé en remettant l'âge. Chapitre 25.
+  Les lignes écrites du 14/10 au soir au 15/10 (2.101.567 → 569) peuvent porter
+  une heure en avance : requête de LECTURE donnée à Timo.
 - **Les lignes déjà écrites (14/10/2026)** : le PC de TIMO (L530) avait
   **11 h 38 de retard** le 14/10 de 10:39 à 11:16 (écrit « 13/10 23:01 à
   23:38 »). Les deux ventes MR SEVERIN et MR ERIC (faites APRÈS la clôture)

@@ -117,6 +117,7 @@ export const CHAPITRE = {
         { titre: "Comparer de nouveau", texte: "L'horloge de l'appareil et « 🕓 Heure serveur » doivent dire la même chose, à une minute près." },
       ]],
       ["attention", "Une horloge qui **affiche** la bonne heure peut quand même être fausse : un ordinateur réglé sur le fuseau de Paris ou de Lagos qui affiche l'heure de Lomé a, pour le reste du monde, une heure d'avance. C'est le **fuseau** qu'il faut corriger, pas l'heure."],
+      ["attention", "Si **« 🕓 Heure serveur » est elle-même fausse** (elle ne dit pas l'heure de Lomé, alors que l'appareil est bien réglé), ce n'est pas l'appareil : c'est l'application. On fait une **capture d'écran** de la barre du haut et de l'horloge de l'appareil, et on l'envoie à l'administrateur. C'est arrivé une fois (15/10/2026 : reçus écrits à 15:34 à 12:19), réparé en 2.101.570."],
 
       ["h3", "Je ne reçois plus de notifications"],
       ["p", "Si le téléphone a répondu **Bloquer** à la question des notifications, seul son réglage peut revenir dessus : réglages du téléphone ou du navigateur → Notifications → BMI Gestion → autoriser, **puis recharger la page (F5) ou rouvrir l'application**. Une déconnexion n'est pas nécessaire."],

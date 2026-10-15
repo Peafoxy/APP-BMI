@@ -16217,9 +16217,20 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
   // La mesure : la date du serveur (à la seconde), son âge, le milieu de l'aller-retour.
   const envoi = Date.parse("2026-10-14T10:00:00.000Z"), reception = envoi + 400;
   const e1 = H.ecartDepuisReponse({ dateServeur: "Wed, 14 Oct 2026 10:58:00 GMT", age: null, envoi, reception });
-  const e2 = H.ecartDepuisReponse({ dateServeur: "Wed, 14 Oct 2026 10:57:30 GMT", age: "30", envoi, reception });
-  test("★★ l'écart se lit dans la date posée par le serveur, au milieu de l'aller-retour (+0,5 s de la troncature) ; une réponse gardée par le relais compte son âge",
-    e1 === 58 * 60000 + 500 - 200 && e2 === e1);
+  // ⚠ RETOURNÉ le 15/10/2026 (capture Timo : « nous sommes à 12h19, pourquoi
+  // les reçus sont à 15h ? ») : le relais de Vercel pose la date d'AUJOURD'HUI
+  // dans « Date » et le temps qu'il garde le fichier dans « Age ». L'ajouter
+  // faisait avancer l'application de l'âge du fichier. L'âge ne se lit plus.
+  const e2 = H.ecartDepuisReponse({ dateServeur: "Wed, 14 Oct 2026 10:58:00 GMT", age: "11700", envoi, reception });
+  test("★★ l'écart se lit dans la date posée par le serveur, au milieu de l'aller-retour (+0,5 s de la troncature)",
+    e1 === 58 * 60000 + 500 - 200);
+  test("★★★ une réponse gardée par le relais depuis 3 h 15 (« Age: 11700 ») n'avance PAS l'heure : l'âge du fichier n'est jamais ajouté (RETOURNÉ le 15/10/2026)",
+    e2 === e1);
+  // Le cas de Timo : appareil juste à 12:19, réponse « Date: 12:19:00 », « Age: 11700 » → aucun écart.
+  const ici = Date.parse("2026-10-15T12:19:00.200Z");
+  test("★★★ le cas du 15/10 : appareil à l'heure, fichier gardé depuis 3 h 15 → écart nul, le reçu s'écrit à 12:19 et pas à 15:34",
+    H.poserEcartHorloge(H.ecartDepuisReponse({ dateServeur: "Thu, 15 Oct 2026 12:19:00 GMT", age: "11700", envoi: ici - 100, reception: ici + 100 })) === 0);
+  H.poserEcartHorloge(0);
   test("★ pas de mesure sans date du serveur, ni quand l'aller-retour dépasse 10 s",
     H.ecartDepuisReponse({ dateServeur: null, envoi, reception }) === null
     && H.ecartDepuisReponse({ dateServeur: "Wed, 14 Oct 2026 10:58:00 GMT", envoi, reception: envoi + 11000 }) === null);
@@ -16261,9 +16272,15 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
     && /\{titreOnglet\}<\/div>\s*<div className="flex items-center gap-4">[\s\S]{0,900}<HeureServeur \/>\s*<button onClick=\{verrouiller\}/.test(appH)
     && /heureCourte\(\)/.test(hsv) && /Heure serveur/.test(hsv) && /setInterval/.test(hsv));
   const mes = readFileSync("src/horloge.js", "utf8");
+  // ⚠ RETOURNÉ le 15/10/2026 : la mesure ne lit plus « Age », et l'écart gardé
+  // change de nom (_v2) pour que l'écart FAUX de la première version ne soit pas
+  // réappliqué au chargement.
   test("★ la mesure lit la date du SERVEUR (version.json, jamais gardé), garde le dernier écart sur l'appareil et le réapplique au chargement (hors connexion)",
-    /version\.json\?horloge=/.test(mes) && /cache: "no-store"/.test(mes) && /headers\.get\("date"\)/.test(mes) && /headers\.get\("age"\)/.test(mes)
+    /version\.json\?horloge=/.test(mes) && /cache: "no-store"/.test(mes) && /headers\.get\("date"\)/.test(mes)
     && /localStorage\.getItem\(CLE_ECART_HORLOGE\)/.test(mes) && /localStorage\.setItem\(CLE_ECART_HORLOGE/.test(mes));
+  test("★★ la mesure ne lit plus l'en-tête « Age » ; l'écart faux de la première version (bmi_ecart_horloge) est laissé de côté et effacé (RETOURNÉ le 15/10/2026)",
+    !/headers\.get\("age"\)/.test(sansCom(mes)) && !/a \* 1000/.test(sansCom(readFileSync("src/lib/horloge.js", "utf8")))
+    && /CLE_ECART_HORLOGE = "bmi_ecart_horloge_v2"/.test(mes) && /localStorage\.removeItem\("bmi_ecart_horloge"\)/.test(mes));
 }
 
 titre("🖨 Le devis IMPRIMÉ SANS COMPTE (15/10/2026, « Ab, Ba, Ça, Da, b »)");

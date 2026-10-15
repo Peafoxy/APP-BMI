@@ -13,7 +13,10 @@
 
 import { poserEcartHorloge, ecartDepuisReponse } from "./lib/horloge";
 
-export const CLE_ECART_HORLOGE = "bmi_ecart_horloge";
+// ⚠ « _v2 » depuis le 15/10/2026 : l'écart gardé par la première version était
+// FAUX (l'âge du fichier ajouté, voir lib/horloge.js) — un nouveau nom le laisse
+// de côté au chargement, au lieu de le réappliquer jusqu'à la première mesure.
+export const CLE_ECART_HORLOGE = "bmi_ecart_horloge_v2";
 const INTERVALLE_MS = 10 * 60 * 1000;
 
 // Le dernier écart connu sur cet appareil, appliqué dès le chargement :
@@ -22,13 +25,14 @@ try {
   const v = JSON.parse(localStorage.getItem(CLE_ECART_HORLOGE) || "null");
   if (v && Number.isFinite(v.ecart)) poserEcartHorloge(v.ecart);
 } catch { /* navigation privée : on mesurera */ }
+try { localStorage.removeItem("bmi_ecart_horloge"); } catch { /* rien */ }
 
 export async function mesurerHorloge() {
   try {
     const envoi = Date.now();
     const r = await fetch(`${import.meta.env.BASE_URL}version.json?horloge=${envoi}`, { cache: "no-store" });
     const reception = Date.now();
-    const ecart = ecartDepuisReponse({ dateServeur: r.headers.get("date"), age: r.headers.get("age"), envoi, reception });
+    const ecart = ecartDepuisReponse({ dateServeur: r.headers.get("date"), envoi, reception });
     if (ecart === null) return null;
     const pose = poserEcartHorloge(ecart);
     try { localStorage.setItem(CLE_ECART_HORLOGE, JSON.stringify({ ecart: pose, le: new Date(reception).toISOString() })); } catch { /* rien */ }
