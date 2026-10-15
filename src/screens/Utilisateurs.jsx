@@ -2,7 +2,7 @@
 // screens/Utilisateurs.jsx — Gestion des comptes : création par
 // rôle, activation, mots de passe, pouvoirs, demandes de crédit.
 // ============================================================
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { correspond } from "../lib/suggestions";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
@@ -35,6 +35,7 @@ const CHOIX_PRIME_CHANTIER = "🏠 Prime sur chantier";
 import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie, chantiersDeLEspaceRegarde, boutiqueDuChantier } from "../lib/calculs";
 import { chantiersPourPrime, critiquePrimeChantier, ajouterPrimeChantier, partBmiRestante, MOIS_PRIME_CHANTIER } from "../lib/primeChantier";
 import { useRetour } from "../retour";
+import { etatConnexion, libelleConnexion, FILTRES_CONNEXION, dansFiltreConnexion } from "../lib/connexionsComptes";
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
@@ -53,7 +54,7 @@ const teinteRole = (role) => (role === "admin" ? "bg-slate-800 text-white border
   : role === "client" ? "bg-slate-100 text-slate-600 border-slate-200"
   : "bg-orange-100 text-orange-800 border-orange-200");
 
-export function Users({ db, save, profile }) {
+export function Users({ db, save, profile, connexionsInitiales }) {
   const premiere = boutiquesVente(db)[0]?.nom || "";
   // Changer OU consulter un mot de passe est réservé à l'administrateur
   // PRINCIPAL — jamais aux autres administrateurs, même avec le pouvoir
@@ -131,7 +132,7 @@ export function Users({ db, save, profile }) {
   const ongletSansSuite = ONGLETS_SANS_SUITE.find(([r]) => r === roleAffiche);
   const qU = rechercheU.trim().toLowerCase();
   const enRecherche = qU.length > 0;
-  const listeAffichee = enRecherche
+  const listeDuRole = enRecherche
     // Timo (16/09/2026) : « un client créé par un utilisateur, l'administrateur
     // principal n'a pas la possibilité de voir son numéro de téléphone ». La
     // recherche ne regardait QUE le nom : on lui donne aussi le numéro, par la
@@ -142,6 +143,35 @@ export function Users({ db, save, profile }) {
     : ongletSansSuite
       ? ongletSansSuite[2].map((c) => c.compte).filter((x) => utilisateursVisibles.some((v) => v.id === x.id))
       : utilisateursVisibles.filter((x) => x.role === roleAffiche && !idsSansSuite.has(x.id));
+  // ---- 👥 QUI A DÉJÀ OUVERT SON COMPTE (Timo, 15/10/2026, « B ») ----
+  // L'administrateur PRINCIPAL seul. Les dates viennent du serveur (comptes
+  // d'authentification, lib/connexionsComptes.js), demandées à chaque
+  // ouverture de l'écran pour les comptes de l'ESPACE REGARDÉ (le mur). Hors
+  // ligne : « inconnue », jamais « jamais ouvert » à tort. Rien n'est écrit.
+  // `connexionsInitiales` ne sert qu'au banc.
+  const [connexions, setConnexions] = useState(connexionsInitiales || null);
+  const [raisonConnexions, setRaisonConnexions] = useState("");
+  const [filtreConnexion, setFiltreConnexion] = useState("tous");
+  useEffect(() => {
+    if (!jeSuisAdminPrincipal || connexionsInitiales) return undefined;
+    let vivant = true;
+    const ids = utilisateursVisibles.map((u) => u.id);
+    import("../supabaseClient")
+      .then((m) => m.connexionsComptesEnLigne(ids))
+      .then((r) => {
+        if (!vivant) return;
+        if (r && r.connexions && !r.error) { setConnexions({ parId: r.connexions, demandes: new Set(ids) }); setRaisonConnexions(""); }
+        else setRaisonConnexions(r?.error || "réponse illisible");
+      })
+      .catch((e) => { if (vivant) setRaisonConnexions(String(e?.message || e)); });
+    return () => { vivant = false; };
+    // Une demande par ouverture de l'écran.
+  }, [jeSuisAdminPrincipal]);
+  const connexionDe = (u) => etatConnexion(u, connexions?.parId, connexions?.demandes);
+  const voitConnexions = jeSuisAdminPrincipal;
+  const listeAffichee = voitConnexions && connexions && filtreConnexion !== "tous"
+    ? listeDuRole.filter((u) => dansFiltreConnexion(connexionDe(u), filtreConnexion))
+    : listeDuRole;
   const vide = { nom: "", prenom: "", pwd: "", tel: "", role: "vendeur", boutique: premiere, taux: "5", sexe: "" };
   const [f, setF] = useState(vide);
   const [entCli, setEntCli] = useState(ENTREPRISE_VIDE());
@@ -1630,6 +1660,23 @@ export function Users({ db, save, profile }) {
           </div>
           <input value={rechercheU} onChange={(e) => setRechercheU(e.target.value)}
             placeholder="🔍 Rechercher un utilisateur par son nom (tous rôles confondus)…" className={champRecherche} />
+          {voitConnexions && (
+            connexions ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" data-filtre-connexion>
+                <select value={filtreConnexion} onChange={(e) => setFiltreConnexion(e.target.value)}
+                  className="px-2 py-1 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 sm:w-56">
+                  {FILTRES_CONNEXION.map(([v, lbl]) => (
+                    <option key={v} value={v}>{lbl} ({listeDuRole.filter((u) => dansFiltreConnexion(connexionDe(u), v)).length})</option>
+                  ))}
+                </select>
+                <span className="text-slate-500">Ouverture des comptes — visible par vous seul.</span>
+              </div>
+            ) : (
+              <div className="mt-1 text-xs text-slate-400" data-connexions-indisponibles>
+                {raisonConnexions ? `Connexions des comptes : inconnues (${raisonConnexions}).` : "Connexions des comptes : lecture en cours…"}
+              </div>
+            )
+          )}
           {enRecherche && <div className="mt-1 text-xs font-semibold text-slate-500">{listeAffichee.length} résultat(s) dans tous les rôles</div>}
           {!enRecherche && roleAffiche === "prospects" && (
             <div className="mt-1 text-xs text-slate-500" data-comptes-prospects>
@@ -1656,7 +1703,7 @@ export function Users({ db, save, profile }) {
         <table className="w-full text-sm min-w-[760px]">
           <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Nom", "Rôle", "Boutique", "Salaire / Taux", "Statut", "Actions"].map((h) => <th key={h} className={`${h === "Actions" ? "text-right" : "text-left"} px-4 py-2 whitespace-nowrap`}>{h}</th>)}</tr></thead>
           <tbody>
-            {listeAffichee.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">{enRecherche ? "Aucun utilisateur ne correspond à cette recherche." : "Aucun compte pour ce rôle."}</td></tr>}
+            {listeAffichee.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">{listeDuRole.length > 0 ? "Aucun compte de cette liste dans ce filtre." : enRecherche ? "Aucun utilisateur ne correspond à cette recherche." : "Aucun compte pour ce rôle."}</td></tr>}
             {listeAffichee.map((u, i) => (
               <React.Fragment key={u.id}>
               <tr className={`border-t border-slate-100 hover:bg-sky-50 align-middle ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}>
@@ -1733,6 +1780,11 @@ export function Users({ db, save, profile }) {
                       maintenant sous le nom, comme la pièce d'identité, pour
                       tout le monde. Le logo WhatsApp passe par `envoyerWhatsApp`
                       — aucun écran n'ouvre WhatsApp lui-même. */}
+                  {voitConnexions && (() => {
+                    const e = connexionDe(u);
+                    const couleur = e.etat === "ouvert" ? "text-emerald-700" : e.etat === "jamais" ? "text-amber-700 font-semibold" : "text-slate-400";
+                    return <div data-connexion-compte={e.etat} className={`text-xs font-normal ${couleur}`}>{libelleConnexion(e)}</div>;
+                  })()}
                   {u.tel && (
                     <div className="text-xs font-normal text-slate-500 flex items-center gap-1.5">
                       <span>📞 {u.tel}</span>

@@ -173,6 +173,9 @@ async function appelAvecJeton(urlFonction, corps) {
 }
 export const abonnerPushEnLigne = ({ abonnement, appareil, retirer = false }) => appelAvecJeton(URL_ABONNER_PUSH, { abonnement, appareil, retirer });
 export const notifierEnLigne = (envois) => appelAvecJeton(URL_NOTIFIER, { envois });
+// 👥 Qui a déjà ouvert son compte (15/10/2026) : l'administrateur principal
+// seul, revérifié par le serveur (lib/connexionsComptes.js).
+export const connexionsComptesEnLigne = (ids) => appelAvecJeton(URL_ETAT_AUTH, { action: "connexions", ids });
 
 // ---- WhatsApp depuis le numéro BMI (19/09/2026) ----
 // ⚠ La clé YCloud n'est PAS ici : elle ne vit que dans une variable Vercel,

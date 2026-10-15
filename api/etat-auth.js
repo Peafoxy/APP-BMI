@@ -20,6 +20,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash, pbkdf2Sync } from "crypto";
 import { poserCors } from "./_cors.js";
+import { peutVoirConnexions, connexionsPourIds } from "../src/lib/connexionsComptes.js";
 
 // Doit rester IDENTIQUE à hacher() dans l'application (ancien format,
 // conservé pour les comptes pas encore migrés).
@@ -64,6 +65,42 @@ async function reinitialiserEchecs(admin, id) {
   await admin.from("tentatives_connexion").upsert({ id, echecs: 0, dernier_echec: null, verrouille_jusqu_a: null });
 }
 
+// La liste complète des comptes d'authentification (toutes les pages).
+async function tousLesComptesAuth(admin) {
+  const tous = [];
+  let page = 1;
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    tous.push(...(data.users || []));
+    if (!data.users || data.users.length < 1000) break;
+    page += 1;
+    if (page > 20) break; // garde-fou, même limite que plus bas
+  }
+  return tous;
+}
+
+// Le jeton de session, puis la fiche RELUE : l'administrateur principal seul.
+async function repondreConnexions(admin, jeton, ids, res) {
+  if (!jeton) return res.status(401).json({ error: "Session expirée." });
+  try {
+    const { data: auth, error: errAuth } = await admin.auth.getUser(jeton);
+    if (errAuth || !auth?.user?.email) return res.status(401).json({ error: "Session expirée." });
+    const idAppelant = auth.user.email.split("@")[0];
+    const { data: fiche, error: errFiche } = await admin.from("users").select("data").eq("id", idAppelant).limit(1);
+    if (errFiche) throw errFiche;
+    const compte = fiche && fiche[0] ? fiche[0].data || {} : null;
+    if (!peutVoirConnexions(compte)) {
+      return res.status(403).json({ error: "Réservé à l'administrateur principal." });
+    }
+    const demandes = ids.slice(0, 5000);
+    return res.status(200).json({ connexions: connexionsPourIds(await tousLesComptesAuth(admin), demandes) });
+  } catch (e) {
+    console.error("etat-auth connexions:", e?.message || e);
+    return res.status(500).json({ error: "Le serveur a rencontré un problème. Réessayez." });
+  }
+}
+
 export default async function handler(req, res) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
@@ -74,8 +111,15 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Configuration serveur manquante : la variable SUPABASE_SERVICE_ROLE_KEY n'est pas définie sur Vercel." });
   }
 
-  const { ids, id, motDePasse } = req.body || {};
+  const { ids, id, motDePasse, action, jeton } = req.body || {};
   if (!Array.isArray(ids)) return res.status(400).json({ error: "Liste d'identifiants attendue" });
+
+  // 👥 QUI A DÉJÀ OUVERT SON COMPTE (Timo, 15/10/2026, « B ») : les dates de
+  // première et de dernière connexion, pour l'administrateur PRINCIPAL seul.
+  // ⚠ Ici dans une fonction EXISTANTE : l'offre Vercel n'en permet que douze.
+  if (action === "connexions") {
+    return repondreConnexions(createClient(url, cleService, { auth: { autoRefreshToken: false, persistSession: false } }), jeton, ids, res);
+  }
   if (!id || !motDePasse) {
     return res.status(401).json({ error: "Cette vérification exige l'identité de l'administrateur. Déconnectez-vous puis reconnectez-vous (en ligne), et réessayez." });
   }

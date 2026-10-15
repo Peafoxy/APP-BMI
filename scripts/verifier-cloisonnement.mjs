@@ -16478,5 +16478,72 @@ titre("🖨 Le devis IMPRIMÉ SANS COMPTE (15/10/2026, « Ab, Ba, Ça, Da, b »)
     && /if \(existant && estSansAcces\(existant\)\) \{[\s\S]{0,900}ouvrirAcces\(existant, profile\.nom\)[\s\S]{0,900}envoyerIdentifiantsDuNumeroBmi\(/.test(readFileSync("src/screens/Prospects.jsx", "utf8")));
 }
 
+titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrateur principal seul (15/10/2026, « B »)");
+{
+  const sortieU = join("node_modules", ".cache", `bmi-utilisateurs-${process.pid}.mjs`);
+  let U = null, errU = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-utilisateurs.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieU, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server"] });
+    U = await import(pathToFileURL(sortieU).href);
+  } catch (e) { errU = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieU); } catch {}
+  test("👥 Utilisateurs se monte dans le banc" + (errU ? ` (${errU})` : ""), !!U);
+  if (U) {
+    const auth = [
+      { email: "u_timo@bmi.internal", created_at: "2026-08-20T09:00:00.000Z", last_sign_in_at: "2026-10-14T08:15:22.123Z" },
+      { email: "u_ang@bmi.internal", created_at: "2026-09-12T07:30:00Z", last_sign_in_at: "2026-10-15T06:05:00Z" },
+      { email: "u_autre@bmi.internal", created_at: "2026-09-01T00:00:00Z", last_sign_in_at: null },
+      { email: "quelquun@ailleurs.com", created_at: "2026-09-01T00:00:00Z" },
+    ];
+    const cx = U.connexionsPourIds(auth, ["u_timo", "u_ang", "u_adm2"]);
+    test("★ connexionsPourIds (serveur) : seulement les identifiants DEMANDÉS, par l'adresse interne du compte sécurisé ; un compte non demandé ou d'un autre domaine ne sort jamais",
+      Object.keys(cx).sort().join("|") === "u_ang|u_timo" && cx.u_timo.premiere === "2026-08-20T09:00:00.000Z" && cx.u_timo.derniere === "2026-10-14T08:15:22.123Z");
+    test("★ « B » : l'administrateur PRINCIPAL seul (pas un autre administrateur, pas un principal désactivé, pas un gérant)",
+      U.peutVoirConnexions({ role: "admin", admin_principal: true }) && !U.peutVoirConnexions({ role: "admin" })
+      && !U.peutVoirConnexions({ role: "admin", admin_principal: true, actif: false }) && !U.peutVoirConnexions({ role: "gerant", admin_principal: true }) && !U.peutVoirConnexions(null));
+    const dem = new Set(["u_timo", "u_ang", "u_adm2"]);
+    test("★ etatConnexion : demandé et présent = ouvert ; demandé et absent = jamais ; NON demandé (créé après la lecture) ou réponse absente (hors ligne) = inconnu — jamais « jamais ouvert » à tort",
+      U.etatConnexion({ id: "u_timo" }, cx, dem).etat === "ouvert" && U.etatConnexion({ id: "u_adm2" }, cx, dem).etat === "jamais"
+      && U.etatConnexion({ id: "u_neuf" }, cx, dem).etat === "inconnu" && U.etatConnexion({ id: "u_adm2" }, null, dem).etat === "inconnu");
+    test("★ la phrase : « ✅ Ouvert le 20/08/2026 · dernière connexion le 14/10/2026 à 08:15 » (heure de Lomé = heure universelle), « ⏳ Jamais ouvert », « Connexion : inconnue »",
+      U.libelleConnexion(U.etatConnexion({ id: "u_timo" }, cx, dem)) === "✅ Ouvert le 20/08/2026 · dernière connexion le 14/10/2026 à 08:15"
+      && U.libelleConnexion({ etat: "jamais" }) === "⏳ Jamais ouvert" && U.libelleConnexion({ etat: "inconnu" }) === "Connexion : inconnue"
+      && U.libelleConnexion({ etat: "ouvert", premiere: "2026-09-01T00:00:00Z", derniere: null }) === "✅ Ouvert le 01/09/2026");
+    test("★ le filtre : « Tous » garde tout, « jamais » / « ouvert » ne gardent que leur état (un inconnu n'est dans aucun des deux)",
+      U.dansFiltreConnexion({ etat: "inconnu" }, "tous") && U.dansFiltreConnexion({ etat: "jamais" }, "jamais") && !U.dansFiltreConnexion({ etat: "ouvert" }, "jamais")
+      && !U.dansFiltreConnexion({ etat: "inconnu" }, "jamais") && !U.dansFiltreConnexion({ etat: "inconnu" }, "ouvert"));
+    const timo = { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: "" };
+    const adm2 = { id: "u_adm2", nom: "KOMLA", role: "admin", actif: true, boutique: "" };
+    const ang = { id: "u_ang", nom: "ANGELE", role: "vendeur", boutique: "DEMAKPOE", actif: true };
+    const db = { boutiques: [{ id: "b1", nom: "DEMAKPOE", type: "boutique" }], users: [timo, adm2, ang], ventes: [], dettes: [], commandes: [], clients_installes: [], depenses: [], messages: [], prospects: [], proformas: [], audits: [], produits: [], ajustements: [] };
+    const rendre = (p, c) => { const e0 = console.error; console.error = () => {}; try { return U.rendreUtilisateurs(db, p, c); } catch (e) { return "ERREUR " + String(e && e.message || e).slice(0, 160); } finally { console.error = e0; } };
+    const hP = rendre(timo, { parId: cx, demandes: dem });
+    test("★ l'écran RENDU pour le principal (onglet 👑 Admins) : TIMO « ✅ Ouvert le 20/08/2026 · dernière connexion le 14/10/2026 à 08:15 », KOMLA « ⏳ Jamais ouvert », et la liste du filtre avec ses comptes (Tous (2), Jamais ouvert (1), Ouvert (1))",
+      !hP.startsWith("ERREUR") && /data-connexion-compte="ouvert"[^>]*>✅ Ouvert le 20\/08\/2026 · dernière connexion le 14\/10\/2026 à 08:15</.test(hP)
+      && /data-connexion-compte="jamais"[^>]*>⏳ Jamais ouvert</.test(hP) && /data-filtre-connexion/.test(hP)
+      && hP.includes("Tous (2)") && hP.includes("⏳ Jamais ouvert (1)") && hP.includes("✅ Ouvert (1)"), hP.slice(0, 160));
+    const hA = rendre(adm2, { parId: cx, demandes: dem });
+    test("★ « B » : un AUTRE administrateur ne voit ni la ligne ni le filtre, même si les dates étaient là",
+      !hA.startsWith("ERREUR") && !/data-connexion-compte/.test(hA) && !/data-filtre-connexion/.test(hA) && !/data-connexions-indisponibles/.test(hA), hA.slice(0, 160));
+    const hN = rendre(timo, undefined);
+    test("★ sans réponse du serveur (hors ligne, en cours) : « Connexion : inconnue » sous le nom, pas de filtre, et JAMAIS « Jamais ouvert »",
+      !hN.startsWith("ERREUR") && /data-connexion-compte="inconnu"/.test(hN) && !/Jamais ouvert/.test(hN) && !/data-filtre-connexion/.test(hN) && /data-connexions-indisponibles/.test(hN), hN.slice(0, 160));
+    const us = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+    test("★ le mur : l'écran demande les comptes qu'il AFFICHE (utilisateursVisibles, l'espace regardé), jamais db.users ; l'appel passe par supabaseClient chargé à la demande ; le filtre ne touche que la liste du rôle ou de la recherche",
+      /const ids = utilisateursVisibles\.map\(\(u\) => u\.id\);/.test(us) && /import\("\.\.\/supabaseClient"\)\s*\.then\(\(m\) => m\.connexionsComptesEnLigne\(ids\)\)/.test(us)
+      && /listeDuRole\.filter\(\(u\) => dansFiltreConnexion\(connexionDe\(u\), filtreConnexion\)\)/.test(us) && /const voitConnexions = jeSuisAdminPrincipal;/.test(us));
+    const ea = readFileSync("api/etat-auth.js", "utf8");
+    const corpsCx = ea.slice(ea.indexOf("async function repondreConnexions"), ea.indexOf("export default"));
+    test("★ le serveur : l'action « connexions » passe AVANT le chemin du mot de passe, vérifie le jeton, RELIT la fiche de l'appelant et refuse tout autre que le principal (peutVoirConnexions, la même règle que l'écran) ; aucune nouvelle fonction serveur",
+      /if \(action === "connexions"\) \{\s*return repondreConnexions\(/.test(ea) && ea.indexOf('action === "connexions"') < ea.indexOf("await verifierVerrouillage(admin, id)")
+      && /admin\.auth\.getUser\(jeton\)/.test(corpsCx) && /from\("users"\)\.select\("data"\)\.eq\("id", idAppelant\)/.test(corpsCx)
+      && /if \(!peutVoirConnexions\(compte\)\) \{\s*return res\.status\(403\)/.test(corpsCx) && /connexionsPourIds\(await tousLesComptesAuth\(admin\), demandes\)/.test(corpsCx)
+      && !existsSync("api/connexions.js"));
+  }
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

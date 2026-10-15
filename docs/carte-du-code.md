@@ -41,6 +41,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/bandesVersement.js` | La bande noire d'un versement dans 💰 Ventes, et le résumé des ventes depuis le versement précédent |
 | `lib/banques.js` | La liste des banques et la banque d'un employé |
 | `lib/affectation.js` | 📍 Le lieu d'affectation d'un employé SANS boutique — aucun droit, la boutique l'emporte (sans import) |
+| `lib/connexionsComptes.js` | 👥 Qui a déjà ouvert son compte : dates de première et dernière connexion (comptes sécurisés), lues par le serveur pour l'administrateur principal seul |
 | `lib/contratTravail.js` | 📄 Le contrat de travail d'un employé : type (le code CNSS, une source), fin d'un CDD, sortie, rappel de fin au principal |
 | `lib/certificatTravail.js` | 📄 Les documents remis à un employé : certificat de travail, attestation de stage / de fin d'apprentissage à la sortie, attestation de travail en poste (le texte ; la mise en page dans impression.js) |
 | `lib/civilite.js` | ⚧ Le sexe d'un compte (H / F / vide) : « M. » / « Mme » et les accords (employé / employée) pour le contrat et les attestations |

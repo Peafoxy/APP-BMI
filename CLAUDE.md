@@ -3755,6 +3755,35 @@ lit mal est pire qu'un banc absent).
 - Banc (3 contrôles), éprouvé (homonyme ignoré, fidélité non refusée) ; un
   contrôle RETOURNÉ (`idsSansSuite`). Chapitres 2 et 3 à jour. Rien à coller.
 
+#### 👥 QUI A DÉJÀ OUVERT SON COMPTE (15/10/2026, « B, lance »)
+- Timo : « possible de connaître les utilisateurs qui ont ouvert leur compte ?
+  Et ceux qui ne l'ont jamais ouvert ? ». **La trace sûre est le compte
+  sécurisé** : `api/sync-auth.js` ne le crée qu'à la première connexion
+  réussie ; il porte `created_at` (= « Ouvert le », première connexion depuis
+  fin août 2026) et `last_sign_in_at` (dernière fois que le mot de passe a été
+  tapé pour se connecter — un F5 ne compte pas). Lisible seulement par la clé
+  du serveur. ⚠ `info_donnees_le` n'est PAS la source (il manque aux comptes
+  d'avant le 19/09 et au comptable).
+- **« B » : l'administrateur PRINCIPAL seul.** 👥 Utilisateurs, sous chaque
+  nom : « ✅ Ouvert le … · dernière connexion le … à … » / « ⏳ Jamais ouvert »
+  (`data-connexion-compte`) ; au-dessus du tableau, la liste « Tous / ⏳ Jamais
+  ouvert / ✅ Ouvert » avec les nombres (« Tous » d'office, rien de mémorisé).
+  Règle pure **`lib/connexionsComptes.js`** (sans import, lue par le serveur).
+- **Serveur : `api/etat-auth.js`, action « connexions »** (pas une 13e
+  fonction) — jeton de session, fiche de l'appelant RELUE,
+  `peutVoirConnexions` (la même règle que l'écran), réponse pour les seuls
+  identifiants DEMANDÉS. L'écran demande ceux qu'il affiche
+  (`utilisateursVisibles`, l'espace regardé), à chaque ouverture, par
+  `connexionsComptesEnLigne` (supabaseClient chargé à la demande).
+- ⚠ **Jamais « jamais ouvert » à tort** : hors ligne ou en attente, la ligne dit
+  « Connexion : inconnue » et la liste n'apparaît pas ; un compte créé après la
+  lecture est « inconnu ». Une connexion faite entièrement hors ligne n'arrive
+  pas au serveur. Une fiche sans accès (devis imprimé) n'est pas dans
+  l'écran (déjà le cas). Rien d'écrit, rien à coller. Requête de LECTURE
+  équivalente donnée à Timo le 15/10/2026. Banc (+11, l'écran RENDU pour le
+  principal, un autre administrateur et hors ligne), éprouvé (autre
+  administrateur autorisé, compte non demandé dit « jamais »). Chapitre 2.
+
 - **La protection des données est COMPLÈTE** : effacement, dossier d'accès
   (client et employé), libre-service du client, fuite du numéro de compte
   fermée, mot d'information, durée de conservation. Ne restent que les deux
