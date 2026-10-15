@@ -4802,7 +4802,12 @@ lit mal est pire qu'un banc absent).
   du sens de l'erreur — une date d'origine aurait mis l'heure en RETARD, jamais
   en avance. Banc (+3, deux RETOURNÉS), éprouvé en remettant l'âge. Chapitre 25.
   Les lignes écrites du 14/10 au 15/10 (2.101.556 → 569, depuis le 14/10 15:39) peuvent porter
-  une heure en avance : requête de LECTURE donnée à Timo.
+  une heure en avance : requête de LECTURE donnée à Timo. **Deux ventes
+  remises à leur heure d'arrivée au serveur par un SQL collé par Timo le
+  15/10/2026 (`true | true`)** : LDJEMEK SOLAR 13:57 → 10:36 (−3 h 21), MR ALBERT
+  15:34 → 11:22 (−4 h 12), journal et lignes WhatsApp de leurs reçus décalés
+  d'autant ; payées comptant, aucune dette. Les reçus déjà reçus par les
+  clients gardent l'heure fausse. Ne pas relancer ce SQL.
 - **🕓 LA BASE DIT L'HEURE À CHAQUE SYNCHRONISATION** (15/10/2026, Timo :
   « pourquoi les synchronisations de chaque 20 s ne peuvent pas lire l'heure
   et attendre 10 min ? » → « oui lance »). La fonction **`heure_serveur()`**
