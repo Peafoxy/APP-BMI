@@ -4816,7 +4816,7 @@ lit mal est pire qu'un banc absent).
   fichier prend le relais. ⚠ L'en-tête « Date » de Supabase n'est PAS lu : le
   navigateur le cache pour une autre adresse sauf autorisation, non vérifiable
   d'ici. Banc `tester-heure` (7, éprouvé avec now()), `verifier-cloisonnement`
-  (+5, éprouvé). **À coller par Timo** (le SQL dans le message). Chapitre 24.
+  (+5, éprouvé). **Collé par Timo le 15/10/2026 (`true | true`).** Chapitre 24.
 - **Les lignes déjà écrites (14/10/2026)** : le PC de TIMO (L530) avait
   **11 h 38 de retard** le 14/10 de 10:39 à 11:16 (écrit « 13/10 23:01 à
   23:38 »). Les deux ventes MR SEVERIN et MR ERIC (faites APRÈS la clôture)
