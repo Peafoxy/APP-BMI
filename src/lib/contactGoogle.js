@@ -85,6 +85,29 @@ export const traceContactGoogle = ({ nom, par, le, deja = false } = {}) => ({
   nom: nettoyerNomGoogle(nom), par: String(par || ""), le: String(le || ""), ...(deja ? { deja: true } : {}),
 });
 
+// ---- 🔎 LE NOM TROUVÉ TOUT SEUL CHEZ GOOGLE (16/10/2026, « a et b, lance ») ----
+// Timo, devant la conversation d'ADJI EYASSINAM affichée « Contrôle et Énergie
+// (nom WhatsApp) » : « pourquoi le nom que la personne s'est donné prévaut sur
+// celui enregistré chez nous ? ». Le répertoire du téléphone BMI n'arrive
+// jamais ; les contacts du compte Google de BMI, si. Quand un client écrit et
+// que sa conversation n'a encore AUCUN nom de chez nous (ni nom donné, ni
+// compte BMI, ni contact enregistré depuis l'écran), l'adresse d'arrivée
+// cherche son numéro chez Google — UNE fois par jour au plus, jamais à chaque
+// message. Un nom trouvé tout seul (`auto`) se recherche encore (il peut avoir
+// été corrigé chez Google) ; un contact enregistré depuis l'écran, non.
+export const PAR_RECHERCHE_AUTO = "recherche automatique";
+export function rechercheGoogleAFaire({ entete = null, nomCompte = "", aujourdhui = "" } = {}) {
+  if (entete?.wa_nom_donne) return false;
+  if (String(nomCompte || "").trim()) return false;
+  const c = entete?.wa_contact_google;
+  if (c && c.nom && !c.auto) return false;
+  const derniere = String(entete?.wa_google_cherche_le || "").slice(0, 10);
+  return !derniere || derniere < String(aujourdhui || "").slice(0, 10);
+}
+export const traceContactAuto = ({ nom, le } = {}) => ({
+  ...traceContactGoogle({ nom, par: PAR_RECHERCHE_AUTO, le, deja: true }), auto: true,
+});
+
 // ⚠ Les refus se disent en français. Le serveur rend un code, l'écran la phrase.
 export const MOTIFS_CONTACT_GOOGLE = {
   non_configure: "L'enregistrement dans les contacts Google n'est pas encore réglé sur le serveur (accès Google à poser dans Vercel).",

@@ -889,6 +889,7 @@ function LigneWa({ item, cleOuverte, ouvrir, supprimer = null, apercu }) {
 const ORIGINE_NOM = {
   donne: "nom donné par l'administrateur",
   compte: "nom du compte BMI",
+  google: "nom des contacts Google de BMI",
   whatsapp: "nom que le client s'est donné dans son WhatsApp",
 };
 function ProfilWa({ c, fil, comptes = [], onFermer, actions, enregistrer, enregistre }) {
@@ -933,7 +934,7 @@ function ProfilWa({ c, fil, comptes = [], onFermer, actions, enregistrer, enregi
           <div className="text-[11px] uppercase tracking-wide text-slate-400">Contacts Google de BMI ({COMPTE_CONTACTS_BMI})</div>
           {g ? (
             <div data-contact-google="enregistre" className="text-sm text-emerald-700 mt-1">
-              📇 {g.deja ? "Déjà présent" : "Enregistré"} sous le nom « {g.nom} »{g.le ? ` — ${dFR(String(g.le).split("T")[0])}` : ""}{g.par ? ` par ${g.par}` : ""}.
+              📇 {g.auto ? "Trouvé tout seul" : g.deja ? "Déjà présent" : "Enregistré"} sous le nom « {g.nom} »{g.le ? ` — ${dFR(String(g.le).split("T")[0])}` : ""}{!g.auto && g.par ? ` par ${g.par}` : ""}.
             </div>
           ) : (
             <div className="text-sm text-slate-600 mt-1">Pas encore enregistré dans les contacts de BMI.</div>

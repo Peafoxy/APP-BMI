@@ -253,6 +253,20 @@ export const renduProfilEnregistre = () => {
   catch (e) { return `ERREUR ${e?.message || e}`; }
 };
 
+// 📇 16/10/2026 (« a et b ») : la conversation d'ADJI, affichée « Contrôle et
+// Énergie (nom WhatsApp) » alors que BMI l'a dans ses contacts Google. Le nom
+// des contacts Google passe devant le nom WhatsApp — trouvé tout seul (`auto`)
+// ou enregistré depuis l'écran. `profil` ouvre son profil.
+export const renduNomGoogle = ({ auto = true, profil = false } = {}) => {
+  const avec = messagesNoms.map((m) => (m.id === "waent_90117711"
+    ? { ...m, wa_profil: "Contrôle et Énergie", wa_contact_google: auto
+      ? { nom: "ADJI EYASSINAM", par: "recherche automatique", le: "2026-10-16T08:00:00Z", deja: true, auto: true }
+      : { nom: "ADJI EYASSINAM", par: "TIMO", le: "2026-10-16T08:00:00Z" } }
+    : m.id === "wan1" ? { ...m, wa_profil: "Contrôle et Énergie" } : m));
+  try { return rendre({ ...garnie, messages: avec }, users[0], profil ? "90117711" : null, profil); }
+  catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+
 // ⚠ 07/10/2026 (capture Timo : écran blanc dès qu'on tape dans la recherche) :
 // l'écran est rendu AVEC une recherche tapée — un nom, puis des chiffres.
 export const htmlRecherche = (texte) => renderToStaticMarkup(<Whatsapp db={garnie} save={() => {}} profile={users[0]} rechercheInitiale={texte} />);

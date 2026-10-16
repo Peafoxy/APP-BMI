@@ -4076,6 +4076,49 @@ titre("㊾ 👤 LE NOM D'UNE CONVERSATION — LE NOM DONNÉ, LE COMPTE BMI, LE N
     /correspond\(`\$\{c\.nomAffiche \|\| ""\} \$\{c\.nom \|\| ""\} \$\{c\.profil \|\| ""\}/.test(W2));
   test("★ critiqueNomContact : l'administrateur seul",
     C3.critiqueNomContact({ role: "admin" }, "X") === "" && C3.critiqueNomContact({ role: "gerant" }, "X") !== "");
+
+  // ---- 📇 LE NOM DES CONTACTS GOOGLE DE BMI (16/10/2026, « a et b, lance ») ----
+  // Capture Timo : ADJI EYASSINAM affiché « Contrôle et Énergie (nom WhatsApp) ».
+  test("★★ 📇 l'ordre : nom donné, compte BMI, puis le nom des CONTACTS GOOGLE de BMI, puis seulement le nom WhatsApp",
+    C3.nomDeConversation({ nomGoogle: "ADJI", profil: "Contrôle", tel: "9" }).nom === "ADJI"
+    && C3.nomDeConversation({ nomGoogle: "ADJI", profil: "Contrôle", tel: "9" }).origine === "google"
+    && C3.nomDeConversation({ nomCompte: "B", nomGoogle: "ADJI", profil: "C" }).origine === "compte"
+    && C3.nomDeConversation({ nomDonne: "A", nomGoogle: "ADJI" }).origine === "donne");
+  const ficheG = { id: "waent_1", canal: "whatsapp_entete", wa_tel: "1", wa_google_cherche_le: "2026-10-16" };
+  test("★★ la date de la dernière recherche chez Google est GARDÉE par toute réécriture de la fiche (sinon chaque message relancerait Google)",
+    C3.messagesAvecEntete([ficheG], { cle: "1", tel: "1", derniere: "x" })[0].wa_google_cherche_le === "2026-10-16"
+    && C3.construireEntete({ cle: "1", entete: ficheG, google_cherche_le: "2026-10-17" }).wa_google_cherche_le === "2026-10-17");
+  const G5 = await import(pathToFileURL(join(process.cwd(), "src/lib/contactGoogle.js")).href);
+  const j = "2026-10-16";
+  test("★★ la recherche automatique : seulement sans nom de chez nous, une fois par jour au plus ; un nom trouvé tout seul se recherche, un contact enregistré depuis l'écran non",
+    G5.rechercheGoogleAFaire({ entete: null, aujourdhui: j }) === true
+    && G5.rechercheGoogleAFaire({ entete: { wa_profil: "X" }, aujourdhui: j }) === true
+    && G5.rechercheGoogleAFaire({ entete: { wa_nom_donne: "A" }, aujourdhui: j }) === false
+    && G5.rechercheGoogleAFaire({ entete: null, nomCompte: "KOSSI", aujourdhui: j }) === false
+    && G5.rechercheGoogleAFaire({ entete: { wa_contact_google: { nom: "K", par: "TIMO" } }, aujourdhui: j }) === false
+    && G5.rechercheGoogleAFaire({ entete: { wa_contact_google: { nom: "K", auto: true }, wa_google_cherche_le: "2026-10-15" }, aujourdhui: j }) === true
+    && G5.rechercheGoogleAFaire({ entete: { wa_google_cherche_le: j }, aujourdhui: j }) === false
+    && G5.rechercheGoogleAFaire({ entete: { wa_google_cherche_le: "2026-10-15" }, aujourdhui: j }) === true);
+  test("★ la trace d'un nom trouvé tout seul : « recherche automatique », marquée auto",
+    (() => { const t = G5.traceContactAuto({ nom: " ADJI  EYASSINAM ", le: "x" }); return t.nom === "ADJI EYASSINAM" && t.auto === true && t.deja === true && t.par === G5.PAR_RECHERCHE_AUTO; })());
+  test("★★ le serveur : la recherche se fait APRÈS l'écriture du message, sous la règle, dans un try ; rien n'est marqué quand Google n'est pas réglé ; le résultat va sur la fiche",
+    EN.indexOf("rechercheGoogleAFaire(") > EN.indexOf('from("messages").insert(')
+    && EN.indexOf("await chercherNomGoogle(from)") > EN.indexOf("rechercheGoogleAFaire(")
+    && EN.indexOf("await chercherNomGoogle(from)") < EN.indexOf("const fiche = construireEntete(")
+    && /if \(!g\.code\) \{\s*chercheLe = /.test(EN)
+    && /contact_google: contactGoogle, google_cherche_le: chercheLe,/.test(EN)
+    && /try \{\s*const g = await chercherNomGoogle\(from\)/.test(EN));
+  test("★ l'alerte et la notification nomment le client par LA règle de l'écran (nomDeConversation)",
+    /client: nomDuClient\.origine \? nomVu : ""/.test(EN) && /Demande un conseiller — \$\{nomVu\}/.test(EN));
+  const SG = sansC(lire("api/_contactGoogle.js"));
+  test("★ la recherche automatique est bornée dans le temps (≈ 8 s) et ne marque rien quand Google refuse l'accès",
+    /export async function chercherNomGoogle\(tel\)/.test(SG) && /setTimeout\(\(\) => arret\.abort\(\), 8000\)/.test(SG)
+    && /if \(g\.code\) return \{ code: g\.code \}/.test(SG));
+  const hG = V.renduNomGoogle(), hGP = V.renduNomGoogle({ profil: true }), hGM = V.renduNomGoogle({ auto: false, profil: true });
+  test("★★ l'écran RENDU : ADJI EYASSINAM s'affiche, sans « (nom WhatsApp) », le nom WhatsApp n'est plus le titre",
+    /ADJI EYASSINAM/.test(hG) && !/ADJI EYASSINAM<span data-nom-whatsapp/.test(hG) && !/Contrôle et Énergie<span data-nom-whatsapp/.test(hG), hG.slice(0, 300));
+  test("★★ le profil dit d'où vient le nom : « nom des contacts Google de BMI », « Trouvé tout seul » ; enregistré depuis l'écran, « par TIMO »",
+    /nom des contacts Google de BMI/.test(hGP) && /Trouvé tout seul/.test(hGP) && !/Trouvé tout seul/.test(hGM) && /par TIMO/.test(hGM) && /Contrôle et Énergie/.test(hGP));
 }
 
 // ⚠⚠ ㊿ TAPER DANS LA RECHERCHE NE DONNE PLUS UN ÉCRAN BLANC (capture Timo,

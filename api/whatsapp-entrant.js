@@ -22,7 +22,10 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa, nomDeConversation } from "../src/lib/whatsappConversations.js";
+// 📇 Le nom des contacts Google de BMI, cherché tout seul (16/10/2026, « b »).
+import { rechercheGoogleAFaire, traceContactAuto } from "../src/lib/contactGoogle.js";
+import { chercherNomGoogle } from "./_contactGoogle.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { numeroWhatsApp, conseillersAlerte, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
@@ -181,10 +184,40 @@ export default async function handler(req, res) {
     // empile pas une par message reçu.
     // ⚠ `updated_at` à la main, comme pour le message : sans lui la fiche
     // existerait dans la base sans jamais descendre sur les téléphones.
+    // ---- 📇 LE NOM RANGÉ DANS LES CONTACTS GOOGLE DE BMI (16/10/2026, « b ») ----
+    // Timo : « pourquoi le nom que la personne s'est donné prévaut sur celui
+    // enregistré chez nous ? ». Sans nom de chez nous (ni nom donné, ni compte
+    // BMI, ni contact enregistré depuis l'écran), on cherche le numéro chez
+    // Google — une fois par jour au plus (la règle vit dans lib/contactGoogle.js).
+    // ⚠ APRÈS l'écriture du message : une lenteur de Google ne le perd jamais.
+    // ⚠ Google pas réglé ou qui refuse : rien n'est marqué, on réessaiera.
+    let contactGoogle;
+    let chercheLe;
+    const maintenant = new Date().toISOString();
+    if (rechercheGoogleAFaire({ entete: ficheAvant, nomCompte: client?.nom || ficheAvant?.wa_nom || "", aujourdhui: maintenant.slice(0, 10) })) {
+      try {
+        const g = await chercherNomGoogle(from);
+        if (!g.code) {
+          chercheLe = maintenant.slice(0, 10);
+          if (g.nom) contactGoogle = traceContactAuto({ nom: g.nom, le: maintenant });
+        }
+      } catch (e) {
+        console.error("[whatsapp-entrant] recherche Google", e?.message || e);
+      }
+    }
+    // Le nom sous lequel on PARLE de ce client (alerte, notification) : la
+    // même règle que l'écran.
+    const nomDuClient = nomDeConversation({
+      nomDonne: ficheAvant?.wa_nom_donne, nomCompte: client?.nom,
+      nomGoogle: (contactGoogle || ficheAvant?.wa_contact_google)?.nom, profil, tel: String(from), cle,
+    });
+    const nomVu = nomDuClient.nom;
+
     const fiche = construireEntete({
       cle, tel: String(from), nom: client?.nom || "",
       proprietaire_id: proprietaire.id, proprietaire_nom: proprietaire.nom,
       derniere: ligne.ts, entete: ficheAvant, profil,
+      contact_google: contactGoogle, google_cherche_le: chercheLe,
     });
     if (fiche) {
       const { error: errFiche } = await admin.from("messages")
@@ -222,7 +255,7 @@ export default async function handler(req, res) {
     // perd rien : le message est écrit, la notification suit.
     if (assistant.repondu && assistant.conseiller && !assistant.devis) {
       try {
-        await envoyerAlerteConseiller({ boutiques, client: ficheAvant?.wa_nom_donne || client?.nom || profil || "", numero: from });
+        await envoyerAlerteConseiller({ boutiques, client: nomDuClient.origine ? nomVu : "", numero: from });
       } catch (e) {
         console.error("[whatsapp-entrant] alerte conseiller", e?.message || e);
       }
@@ -252,7 +285,7 @@ export default async function handler(req, res) {
       if (aPrevenir && destinataires.length && configurerWebPush()) {
         await envoyerAuxPersonnes(admin, [{
           destinataires,
-          titre: assistant.devis ? `🧾 Demande de devis — ${assistant.nom || client?.nom || from}` : assistant.conseiller ? `👨‍💼 Demande un conseiller — ${client?.nom || from}` : `📲 ${client?.nom || from}`,
+          titre: assistant.devis ? `🧾 Demande de devis — ${assistant.nom || client?.nom || from}` : assistant.conseiller ? `👨‍💼 Demande un conseiller — ${nomVu}` : `📲 ${nomVu}`,
           texte: (texte || libelleMedia(media)).slice(0, 200),
           // ⚠ L'écran VISÉ, et il a changé le 20/09/2026 : les
           // conversations WhatsApp ont quitté 💬 Messages pour leur

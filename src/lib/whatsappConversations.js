@@ -78,7 +78,7 @@ export const idEntete = (cle) => `waent_${cle}`;
 // (`wa_profil`) ne vivent QUE sur elle — une fiche réécrite sans eux les
 // perdrait en silence au message suivant. `profil` / `nom_donne` passés
 // explicitement l'emportent (`nom_donne: ""` retire le nom donné).
-export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_nom, derniere, entete = null, profil, nom_donne, contact_google } = {}) {
+export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_nom, derniere, entete = null, profil, nom_donne, contact_google, google_cherche_le } = {}) {
   const k = String(cle || "");
   if (!k) return null;
   const donne = nom_donne !== undefined ? nettoyerNomContact(nom_donne) : String(entete?.wa_nom_donne || "");
@@ -86,6 +86,9 @@ export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_
   // 📇 La trace « enregistré dans les contacts Google de BMI » (09/10/2026)
   // vit elle aussi sur la fiche : une réécriture la GARDE, comme les noms.
   const contact = contact_google || entete?.wa_contact_google || null;
+  // 🔎 La date de la dernière recherche automatique chez Google (16/10/2026,
+  // « a et b ») : gardée elle aussi, sinon chaque message relancerait Google.
+  const cherche = String(google_cherche_le || entete?.wa_google_cherche_le || "");
   return {
     id: idEntete(k),
     canal: CANAL_WA_ENTETE,
@@ -95,6 +98,7 @@ export function construireEntete({ cle, tel, nom, proprietaire_id, proprietaire_
     ...(donne ? { wa_nom_donne: donne } : {}),
     ...(prof ? { wa_profil: prof } : {}),
     ...(contact ? { wa_contact_google: contact } : {}),
+    ...(cherche ? { wa_google_cherche_le: cherche } : {}),
     ...(proprietaire_id ? { proprietaire_id, proprietaire_nom: proprietaire_nom || "" } : {}),
     derniere: String(derniere || ""),
     ts: String(derniere || ""),
@@ -138,10 +142,17 @@ export function lireNomProfil(corps) {
   return nettoyerNomContact(typeof brut === "string" ? brut : "");
 }
 
-// { nom, origine } — origine : "donne" | "compte" | "whatsapp" | "" (numéro).
-export function nomDeConversation({ nomDonne = "", nomCompte = "", profil = "", tel = "", cle = "" } = {}) {
+// { nom, origine } — origine : "donne" | "compte" | "google" | "whatsapp" | "" (numéro).
+// 📇 16/10/2026 (Timo : « pourquoi le nom que la personne s'est donné prévaut
+// sur celui enregistré chez nous ? » → « a et b, lance ») : le nom des
+// CONTACTS GOOGLE DE BMI passe devant le nom WhatsApp, après le compte BMI —
+// celui tapé dans « 📇 Enregistrer » (a) ou trouvé tout seul chez Google (b).
+// ⚠ Le répertoire du téléphone BMI, lui, n'arrive toujours jamais : seuls
+// les contacts rangés dans le compte Google de BMI se retrouvent.
+export function nomDeConversation({ nomDonne = "", nomCompte = "", nomGoogle = "", profil = "", tel = "", cle = "" } = {}) {
   if (nomDonne) return { nom: nomDonne, origine: "donne" };
   if (nomCompte) return { nom: nomCompte, origine: "compte" };
+  if (nomGoogle) return { nom: nomGoogle, origine: "google" };
   if (profil) return { nom: profil, origine: "whatsapp" };
   return { nom: String(tel || cle || ""), origine: "" };
 }
@@ -398,7 +409,7 @@ export function conversationsWa(messages, profile, maintenant = maintenantISO(),
       // Et sans fiche légère, on ne la connaît pas du tout : rien à montrer.
       if (!fiche) return;
       const telG = String(fiche.wa_numero || cle);
-      const nomG = nomDeConversation({ nomDonne: fiche.wa_nom_donne, nomCompte: fiche.wa_nom, profil: fiche.wa_profil, tel: telG, cle });
+      const nomG = nomDeConversation({ nomDonne: fiche.wa_nom_donne, nomCompte: fiche.wa_nom, nomGoogle: fiche.wa_contact_google?.nom, profil: fiche.wa_profil, tel: telG, cle });
       sorties.push({
         cle,
         tel: telG,
@@ -421,7 +432,7 @@ export function conversationsWa(messages, profile, maintenant = maintenantISO(),
     const tel = fil.find((m) => m.wa_numero)?.wa_numero || String(fiche?.wa_numero || cle);
     const nomCompte = [...fil].reverse().find((m) => m.wa_nom)?.wa_nom || String(fiche?.wa_nom || "");
     const profil = [...fil].reverse().find((m) => m.wa_profil)?.wa_profil || String(fiche?.wa_profil || "");
-    const nomV = nomDeConversation({ nomDonne: fiche?.wa_nom_donne, nomCompte, profil, tel, cle });
+    const nomV = nomDeConversation({ nomDonne: fiche?.wa_nom_donne, nomCompte, nomGoogle: fiche?.wa_contact_google?.nom, profil, tel, cle });
     sorties.push({
       cle,
       tel,

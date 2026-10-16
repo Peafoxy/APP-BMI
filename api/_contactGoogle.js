@@ -28,13 +28,13 @@ import { CANAL_WA, CANAL_WA_ENTETE, estALaCorbeille, filDeLaConversation, propri
 
 const PEOPLE = "https://people.googleapis.com/v1";
 
-async function jetonGoogle() {
+async function jetonGoogle(signal) {
   const id = process.env.GOOGLE_CLIENT_ID;
   const secret = process.env.GOOGLE_CLIENT_SECRET;
   const refresh = process.env.GOOGLE_REFRESH_TOKEN;
   if (!id || !secret || !refresh) return { code: "non_configure" };
   const r = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
+    method: "POST", signal,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ client_id: id, client_secret: secret, refresh_token: refresh, grant_type: "refresh_token" }).toString(),
   });
@@ -50,14 +50,14 @@ async function jetonGoogle() {
 // correspondance par numéro n'a pas pu être vérifiée d'ici : si la
 // recherche échoue, on crée quand même (un doublon vaut mieux qu'un client
 // non enregistré), et le journal le dit.
-async function chercher(jeton, tel) {
+async function chercher(jeton, tel, signal) {
   const entete = { Authorization: `Bearer ${jeton}` };
   const masque = "readMask=names,phoneNumbers&pageSize=10";
   try {
     // Google demande une recherche « à vide » pour réchauffer son cache.
-    await fetch(`${PEOPLE}/people:searchContacts?query=&${masque}`, { headers: entete });
+    await fetch(`${PEOPLE}/people:searchContacts?query=&${masque}`, { headers: entete, signal });
     for (const q of [numeroInternational(tel), String(tel).replace(/\D/g, "").slice(-8)]) {
-      const r = await fetch(`${PEOPLE}/people:searchContacts?query=${encodeURIComponent(q)}&${masque}`, { headers: entete });
+      const r = await fetch(`${PEOPLE}/people:searchContacts?query=${encodeURIComponent(q)}&${masque}`, { headers: entete, signal });
       if (!r.ok) { console.error("[contact-google] recherche refusée", r.status); return null; }
       const j = await r.json().catch(() => ({}));
       const trouve = contactExistant(j.results, tel);
@@ -67,6 +67,27 @@ async function chercher(jeton, tel) {
     console.error("[contact-google] recherche", e?.message || e);
   }
   return null;
+}
+
+// 🔎 La recherche automatique de l'adresse d'arrivée (16/10/2026, « b ») :
+// le nom rangé chez Google pour ce numéro, ou "" s'il n'y est pas.
+// { code } quand Google n'est pas réglé ou refuse l'accès : la conversation
+// n'est alors PAS marquée « cherchée » (on réessaiera). Au plus ~8 secondes :
+// le client attend peut-être la réponse de l'assistant.
+export async function chercherNomGoogle(tel) {
+  const arret = new AbortController();
+  const minuteur = setTimeout(() => arret.abort(), 8000);
+  try {
+    const g = await jetonGoogle(arret.signal);
+    if (g.code) return { code: g.code };
+    const trouve = await chercher(g.jeton, tel, arret.signal);
+    return { nom: nettoyerNomGoogle(trouve?.nom || "") };
+  } catch (e) {
+    console.error("[contact-google] recherche automatique", e?.message || e);
+    return { code: "google" };
+  } finally {
+    clearTimeout(minuteur);
+  }
 }
 
 export async function enregistrerContactGoogle(req, res) {
