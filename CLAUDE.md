@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2703 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2707 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -712,6 +712,14 @@ lit mal est pire qu'un banc absent).
   Clients installés. Le banc interdit tout filtre « maison »
   (`toLowerCase().includes`, `normNom().includes`) dans écrans et composants ;
   `trouverArticle` (calculs.js) n'est pas une recherche mais un appariement.
+  **🔍 La loupe range ses articles PAR BOUTIQUE** (16/10/2026, capture Timo :
+  « ranger par boutique que de mélanger tantôt DEMAKPOE, tantôt APESSITO » →
+  « a, 6 par boutique ») : `grouperProduitsParBoutique` (RechercheGlobale.jsx)
+  — un groupe par boutique (sa pastille en titre), **la boutique de la personne
+  d'abord**, puis l'ordre alphabétique ; dans un groupe, par nom, les nombres
+  lus comme des nombres (650VA avant 1200VA) ; **6 au plus PAR boutique** (plus
+  6 au total). Affichage seul, le mur inchangé. Banc (+4, la fenêtre RENDUE par
+  `scripts/_rendu-recherche.jsx`), éprouvé. Chapitre 1 à jour.
 - **🤝 L'APPORTEUR EXTERNE SE NOMME DANS LE DEVIS** (29/09/2026, « a, tous
   ceux qui établissent un devis, lance… fixer un pourcentage de 3 % par
   défaut non modifiable… Pour modifier, l'initiateur enregistre comme

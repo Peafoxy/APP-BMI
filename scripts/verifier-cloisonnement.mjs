@@ -14888,6 +14888,39 @@ titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dett
     && !/data-depense-decision/.test(ligne1(hR)) && /data-depense-decision[\s\S]*validée le 15\/10\/2026 par TIMO/.test(ligne1(hD)));
 }
 
+titre("🔍 LA RECHERCHE GÉNÉRALE RANGE LES ARTICLES PAR BOUTIQUE (16/10/2026, « a, 6 par boutique, lance »)");
+{
+  const sortieRg = join("node_modules", ".cache", `bmi-rendu-recherche-${process.pid}.mjs`);
+  let RRg = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-recherche.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRg, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RRg = await import(pathToFileURL(sortieRg).href);
+  } catch {}
+  try { unlinkSync(sortieRg); } catch {}
+  const art = (id, nom, boutique) => ({ id, nom, boutique, prix_vente: 1000, qte_initiale: 1 });
+  // Mélangés comme sur la capture de Timo : APESSITO, DEMAKPOE en alternance.
+  const produits = [art("p1", "Onduleur 650VA", "BMI APESSITO"), art("p2", "Onduleur 3000VA", "BMI APESSITO"), art("p3", "Onduleur 1200VA", "BMI APESSITO"),
+    art("p4", "Onduleur 650VA", "BMI DEMAKPOE"), art("p5", "Onduleur 2000VA", "BMI APESSITO"), art("p6", "Onduleur 1500VA", "BMI DEMAKPOE"),
+    ...[1, 2, 3, 4, 5, 6, 7].map((n) => art(`pa${n}`, `Onduleur ${n}00VA`, "BMI AGOE"))];
+  const G = RRg?.grouperProduitsParBoutique;
+  const gDem = G ? G(produits, "BMI DEMAKPOE") : [];
+  const gAdm = G ? G(produits, "") : [];
+  test("★★ un groupe par boutique ; la boutique de la personne d'abord, puis l'ordre alphabétique (sans boutique : l'alphabet seul)",
+    gDem.map((g) => g.boutique).join("|") === "BMI DEMAKPOE|BMI AGOE|BMI APESSITO" && gAdm.map((g) => g.boutique).join("|") === "BMI AGOE|BMI APESSITO|BMI DEMAKPOE", gDem.map((g) => g.boutique).join("|"));
+  test("★★ dans une boutique, par nom, les nombres lus comme des nombres (650VA avant 1200VA, 3000VA en dernier)",
+    (gDem.find((g) => g.boutique === "BMI APESSITO")?.items || []).map((p) => p.nom).join("|") === "Onduleur 650VA|Onduleur 1200VA|Onduleur 2000VA|Onduleur 3000VA");
+  test("★★ 6 articles au plus PAR boutique (plus 6 au total : aucune boutique ne disparaît)",
+    RRg?.PRODUITS_PAR_BOUTIQUE === 6 && gDem.find((g) => g.boutique === "BMI AGOE")?.items.length === 6 && gDem.length === 3);
+  const db = { users: [], ventes: [], proformas: [], prospects: [], boutiques: [{ nom: "BMI DEMAKPOE", type: "vente" }, { nom: "BMI APESSITO", type: "vente" }, { nom: "BMI AGOE", type: "vente" }], produits, ajustements: [], entrees: [] };
+  const rendre = (profile) => { const e0 = console.error; console.error = () => {}; try { return String(RRg?.rendreRecherche(db, profile, "onduleur") || ""); } catch (e) { return "ERREUR " + (e?.message || e); } finally { console.error = e0; } };
+  const hG = rendre({ id: "g1", nom: "ANGELE", role: "gerant", boutique: "BMI DEMAKPOE" });
+  const hA = rendre({ id: "a1", nom: "TIMO", role: "admin" });
+  const ordreRendu = (h) => [...h.matchAll(/data-groupe-boutique="([^"]+)"/g)].map((m) => m[1]).join("|");
+  test("★★ RENDU : le gérant de DEMAKPOE ne voit QUE sa boutique (le mur ne bouge pas) ; l'administrateur voit les trois, rangées",
+    /data-produits-par-boutique/.test(hG) && ordreRendu(hG) === "BMI DEMAKPOE" && ordreRendu(hA) === "BMI AGOE|BMI APESSITO|BMI DEMAKPOE", `${ordreRendu(hG)} / ${ordreRendu(hA)}`);
+}
+
 titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, lance »)");
 {
   const ui = readFileSync("src/components/ui.jsx", "utf8");

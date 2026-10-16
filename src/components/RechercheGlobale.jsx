@@ -50,10 +50,18 @@ export function rechercherGlobalement(db, profile, texte) {
 
   // Même règle de recherche que les champs à suggestions (lib/suggestions) :
   // accents et majuscules ignorés, chaque mot tapé dans n'importe quel ordre.
-  const produits = (db.produits || [])
-    .filter((p) => bonneBoutique(p.boutique))
-    .filter((p) => correspond(`${p.nom} ${p.code || ""}`, q))
-    .slice(0, 6);
+  // 🏪 Rangés PAR BOUTIQUE (16/10/2026, capture Timo : « ranger par boutique
+  // que de mélanger tantôt DEMAKPOE, tantôt APESSITO » → « a, 6 par
+  // boutique ») : la boutique de la personne d'abord, puis les autres par
+  // ordre alphabétique ; dans une boutique, par nom (les nombres lus comme des
+  // nombres : 650VA avant 1200VA) ; 6 articles au plus PAR boutique.
+  const produitsParBoutique = grouperProduitsParBoutique(
+    (db.produits || [])
+      .filter((p) => bonneBoutique(p.boutique))
+      .filter((p) => correspond(`${p.nom} ${p.code || ""}`, q)),
+    maBoutique,
+  );
+  const produits = produitsParBoutique.flatMap((g) => g.items);
 
   const devis = db.users
     .filter((u) => u.role === "client")
@@ -79,14 +87,32 @@ export function rechercherGlobalement(db, profile, texte) {
     .slice(0, 6);
 
   const total = clients.length + ventes.length + produits.length + devis.length + prospects.length + proformas.length;
-  return { clients, ventes, produits, devis, prospects, proformas, total };
+  return { clients, ventes, produits, produitsParBoutique, devis, prospects, proformas, total };
+}
+
+export const PRODUITS_PAR_BOUTIQUE = 6;
+const comparerFr = (a, b) => String(a || "").localeCompare(String(b || ""), "fr", { numeric: true, sensitivity: "base" });
+
+// [{ boutique, items }] — la boutique de la personne en tête, puis l'ordre
+// alphabétique ; les articles par nom ; PRODUITS_PAR_BOUTIQUE au plus chacune.
+export function grouperProduitsParBoutique(produits, maBoutique = "") {
+  const groupes = new Map();
+  (produits || []).forEach((p) => {
+    const b = p.boutique || "";
+    if (!groupes.has(b)) groupes.set(b, []);
+    groupes.get(b).push(p);
+  });
+  return [...groupes.entries()]
+    .sort(([a], [b]) => (a === maBoutique) !== (b === maBoutique) ? (a === maBoutique ? -1 : 1) : comparerFr(a, b))
+    .map(([boutique, items]) => ({ boutique, items: [...items].sort((x, y) => comparerFr(x.nom, y.nom)).slice(0, PRODUITS_PAR_BOUTIQUE) }));
 }
 
 // Modale de recherche globale : ouverte depuis la loupe toujours visible en
 // haut de l'application. Cherche en direct dans plusieurs catégories à la
 // fois, et amène à l'onglet correspondant d'un clic.
-export function RechercheGlobale({ db, profile, onFermer, onNaviguer }) {
-  const [texte, setTexte] = useState("");
+// `texteInitial` : pour le banc seul (l'écran RENDU avec une recherche tapée).
+export function RechercheGlobale({ db, profile, onFermer, onNaviguer, texteInitial = "" }) {
+  const [texte, setTexte] = useState(texteInitial);
   const resultats = rechercherGlobalement(db, profile, texte);
 
   const Categorie = ({ titre, tab, items, rendu }) => items.length === 0 ? null : (
@@ -141,14 +167,26 @@ export function RechercheGlobale({ db, profile, onFermer, onNaviguer }) {
                   <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(pf.total)}</span>
                 </>
               )} />
-              <Categorie titre="📦 Produits" tab="stocks" items={resultats.produits} rendu={(p) => (
-                <>
-                  {/* Le prix et le stock accompagnent l'article (Timo, 08/09/2026 :
-                      « le prix n'est pas accompagné »). */}
-                  <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span></span>
-                  <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-xs font-bold text-sky-800">{fmt(p.prix_vente)}</span><Badge boutique={p.boutique} /></span>
-                </>
-              )} />
+              {resultats.produits.length > 0 && (
+                <div className="mb-3" data-produits-par-boutique>
+                  <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">📦 Produits</div>
+                  {resultats.produitsParBoutique.map((g) => (
+                    <div key={g.boutique} className="mb-2" data-groupe-boutique={g.boutique}>
+                      <div className="px-1 mb-1"><Badge boutique={g.boutique} /></div>
+                      <div className="space-y-1">
+                        {g.items.map((p, i) => (
+                          <button key={p.id || i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100 flex items-center justify-between gap-2">
+                            {/* Le prix et le stock accompagnent l'article (Timo, 08/09/2026 :
+                                « le prix n'est pas accompagné »). */}
+                            <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span></span>
+                            <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(p.prix_vente)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <Categorie titre="📋 Devis" tab="tous_devis" items={resultats.devis} rendu={(d) => (
                 <>
                   <span className="text-sm"><span className="font-semibold">{d.client?.nom_base || d.client?.nom}</span> — {libelleTypeDevis(d)}</span>
