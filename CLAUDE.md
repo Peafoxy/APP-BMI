@@ -56,7 +56,7 @@ npm run verifier-cloisonnement   # 2691 contrôles : la séparation formation / 
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run tester-notifications     # 85  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret)
+npm run tester-notifications     # 99  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret ; un clic mène à SA source : la cible, le repli, la personne visée)
 npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone ; 🔒 Matériel réservé rendu, le mur, la réappro sur le disponible)
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
@@ -67,7 +67,7 @@ npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
-npm run verifier-ecran-qui-se-montre # 32 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran
+npm run verifier-ecran-qui-se-montre # 38 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran ; une notification mène à SA ligne (la ligne visible, marquée, jamais la copie en veille)
 npm run verifier-mot-information # 36  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
 npm run verifier-whatsapp        # 1016 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement ; ㊽ supprimer une conversation par un appui long, le principal seul, à la corbeille ; ㊾ le nom d'une conversation : nom donné, compte, nom WhatsApp ; ㊿ la recherche rendue avec un texte tapé ; le loyer qui attend le propriétaire ; 51 📅 les rendez-vous : sept messages, rappels de 14 h et 7 h, le privé neutre, le mur, l'équipe énumérée et le numéro du client au seul chef de la visite ; 52 l'avis WhatsApp de la décision du DG sur une dépense ; 53 l'avis WhatsApp d'une tâche assignée et validée ; 54 le document de fin de contrat disponible et l'accès fermé à 24 h)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
@@ -452,6 +452,33 @@ lit mal est pire qu'un banc absent).
   discret dans ⚙ Paramètres, rien d'autre. File d'envoi dans localStorage
   (24 h), repart au retour du réseau. Un clic ouvre l'écran visé seulement
   s'il est un onglet du rôle.
+- **🔔 UNE NOTIFICATION MÈNE À SA SOURCE** (16/10/2026, Timo : « les
+  notifications sont juste à titre informatif… elles ne conduisent pas à la
+  source » → « les deux, lance »). Règle pure `lib/cibleNotification.js` (sans
+  import, lue par le serveur) : chaque envoi porte sa **`cible`** (`boutique`,
+  `ligne`, `conv`, `membre` — textes courts, rien de secret ; `fabriquerEnvoi`
+  et `nettoyerEnvoi` la gardent) et le serveur ajoute **`pour`** (une
+  notification par destinataire). **« a »** : un écran que le rôle n'a pas se
+  replie (`REPLIS_ECRAN` : 📦 Stocks → 🚚 Ravitaillement pour le vendeur,
+  ✅ Mes tâches → 👑 Mon équipe pour l'administrateur) ; le clic n'ouvre qu'un
+  onglet AFFICHÉ (pouvoirs compris, `ongletsAffichesRef`, App.jsx). **« b »** :
+  App.jsx passe `cible` aux écrans ; `components/cibleEcran.js`
+  (`useCible`, `useCibleBoutique` — la boutique visée et retenue, **jamais un
+  employé rattaché déplacé hors de SA boutique**, `boutiqueDeLaCible`) ;
+  💬 ouvre la conversation si elle est dans MES listes, 📲 jamais une grisée,
+  👑 les tâches d'un membre DE MON équipe ; la ligne : `allerALaLigne` (ui.jsx —
+  la ligne VISIBLE `data-ligne`, attendue 4 s, cadre ambre 2,5 s, jamais la
+  copie d'un écran en veille ; introuvable → rien ne bouge). ⚠ La cible ne
+  fait que DEMANDER : chaque écran revérifie le mur. **Application fermée** :
+  l'adresse `?ecran=…&cible=…&pour=…` est lue UNE fois au démarrage et
+  NETTOYÉE, la demande attend la connexion (session expirée → on se
+  reconnecte, puis on arrive sur la ligne) ; une cible écrite pour quelqu'un
+  d'autre (téléphone partagé) ne mène qu'à l'onglet. **Déconnecté** (bouton ou
+  30 min) : l'appareil est détaché, rien n'arrive. ⚠ Un NOUVEL envoi porte sa
+  cible : le banc compte `ecran:` et `cible:` dans notifications.js, et exige
+  une cible sur chaque envoi produit. Rien à coller. Bancs
+  `tester-notifications` (+14), `verifier-ecran-qui-se-montre` (+6, Chromium),
+  éprouvés ; deux contrôles RETOURNÉS dans chacun. Chapitres 1, 8, 9, 20.
 - **Rien de secret dans l'application** : clé publique `CLE_PUBLIQUE_PUSH`
   (constants.js) ; clé privée = variable Vercel `VAPID_PRIVATE_KEY`
   uniquement ; la tournée exige `CRON_SECRET`. Table `abonnements_push` sans

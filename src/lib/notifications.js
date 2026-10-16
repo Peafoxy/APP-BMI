@@ -34,6 +34,7 @@ import { fiche as ficheArgent, soldeDuRetour, caissesDuRetour, nomDossier } from
 import { achatsReglesParUnVersement, nomChantier as nomChantierAchat } from "./achatsChantier";
 import { TYPE_PRO, personnesDuRdv } from "./rendezVous";
 import { jourEnClair, heureEnClair } from "./whatsappModeles";
+import { convDeMessage, LIGNE_A_REAPPROVISIONNER, LIGNE_CLOTURES_DEPASSEES } from "./cibleNotification";
 
 const parId = (liste) => new Map((liste || []).map((x) => [x.id, x]));
 const nomsLignes = (lignes) => (lignes || []).map((l) => `${l.qte}× ${l.nom}`).join(", ");
@@ -69,6 +70,7 @@ export function envoiPourMessage(db, m) {
   return fabriquerEnvoi({
     destinataires: destinatairesMessage(db, m),
     titre: `💬 ${m.de_nom || "BMI Togo"}`, texte: m.texte, ecran: "messages", tag: `message:${m.id}`, formation,
+    cible: { conv: convDeMessage(m) },
   });
 }
 
@@ -99,6 +101,7 @@ export function infosDepuisDiff(avant, apres) {
               titre: `📦 Transfert de stock à valider — ${b.nom}`,
               texte: `${d.de} envoie ${libelleLignes(d)} (par ${d.par}). L'article ne bouge pas tant que vous n'avez pas validé.`,
               ecran: "stocks", tag: `transfert_stock:${d.id}`, formation,
+              cible: { boutique: b.nom, ligne: d.id },
             });
           } else if (d0 && d0.statut === STATUT_ATTENTE && (d.statut === STATUT_VALIDE || d.statut === STATUT_REFUSE)) {
             pousser({
@@ -108,6 +111,7 @@ export function infosDepuisDiff(avant, apres) {
                 ? `${libelleLignes(d)} : réception validée par ${d.traite_par}${d.numero_bon ? ` (${d.numero_bon})` : ""}. Le stock a bougé.`
                 : `${libelleLignes(d)} : refusé par ${d.traite_par}${d.motif ? ` — ${d.motif}` : ""}. Rien n'a bougé, l'article est toujours chez ${d.de}.`,
               ecran: "stocks", tag: `transfert_stock:${d.id}:${d.statut}`, formation,
+              cible: { boutique: d.de },
             });
           }
           return;
@@ -119,6 +123,7 @@ export function infosDepuisDiff(avant, apres) {
             titre: `🔁 Demande de transfert — ${b.nom}`,
             texte: `${d.demandeur || "Une boutique"} demande ${d.lignes?.length || 0} article(s) : ${nomsLignes(d.lignes)}`,
             ecran: "stocks", tag: `transfert:${d.id}`, formation,
+            cible: { boutique: b.nom, ligne: d.id },
           });
         } else {
           pousser({
@@ -126,6 +131,8 @@ export function infosDepuisDiff(avant, apres) {
             titre: `🚚 Demande de ravitaillement — ${b.nom}`,
             texte: `${d.par || b.nom} demande ${d.lignes?.length || 0} article(s) : ${nomsLignes(d.lignes)}`,
             ecran: "stocks", tag: `ravitaillement:${d.id}`, formation,
+            // Les demandes se lisent depuis un MAGASIN : celui de son espace.
+            cible: { boutique: (apres.boutiques || []).find((x) => x.depot && !!x.formation === formation)?.nom || "", ligne: d.id },
           });
         }
       });
@@ -148,6 +155,7 @@ export function infosDepuisDiff(avant, apres) {
         titre: `🛒 Commande à valider — ${c.boutique}`,
         texte: `${c.commercial || "Un commercial"} : ${(c.articles || []).length} article(s), ${fmt(total)}${c.client ? ` — client ${c.client}` : ""}.`,
         ecran: "commandes", tag: `commande:${c.id}`, formation,
+        cible: { boutique: c.boutique, ligne: c.id },
       });
     });
   }
@@ -166,6 +174,7 @@ export function infosDepuisDiff(avant, apres) {
           titre: `💰 Prime à payer — ${e.prime_boutique}`,
           texte: `${e.nom} : ${fmt(e.montant)} — chantier ${c.nom} ${c.prenom || ""}. Demandée par ${e.prime_demandee_par || "l'administrateur"}.`,
           ecran: "primes_remises", tag: `prime:${c.id}:${e.user_id}`, formation,
+          cible: { ligne: `${c.id}:${e.user_id}` },
         });
       });
     });
@@ -184,6 +193,7 @@ export function infosDepuisDiff(avant, apres) {
             destinataires: [u.id], titre: "📋 Nouveau devis de BMI Togo",
             texte: `Devis de ${fmt(d.total)} établi par ${d.par || "BMI Togo"}. Ouvrez votre espace pour le lire et répondre.`,
             ecran: "espace_client", tag: `devis:${d.id}`, formation: estCompteFormation(apres, u),
+            cible: { ligne: d.id },
           });
         });
       }
@@ -203,6 +213,7 @@ export function infosDepuisDiff(avant, apres) {
             titre: `↩ Argent rendu — ${u.nom}`,
             texte: `${u.nom} rend ${fmt(r.montant)} (${nomDossier(r)}). Vérifiez l'argent puis validez dans 📤 Dépenses : la caisse est créditée à ce moment-là.`,
             ecran: "depenses", tag: `retour_chantier:${r.id}`, formation,
+            cible: { boutique: boutiques[0] || "", ligne: r.id },
           });
         } else if (r0 && r0.statut === "attente" && (r.statut === "validee" || r.statut === "rejetee")) {
           pousser({
@@ -212,23 +223,24 @@ export function infosDepuisDiff(avant, apres) {
               ? `${fmt(r.montant)} (${nomDossier(r)}) : reçus par ${r.decide_par}.`
               : `${fmt(r.montant)} (${nomDossier(r)}) : refusés par ${r.decide_par} — ${r.motif || "sans motif"}. Le reste à justifier revient.`,
             ecran: "argent_recu", tag: `retour_chantier:${r.id}:${r.statut}`, formation,
+            cible: { ligne: r.id },
           });
         }
       });
       (u.taches || []).forEach((t) => {
         const t0 = tachesAvant.get(t.id);
         if (!t0) {
-          pousser({ destinataires: [u.id], titre: "✅ Nouvelle tâche", texte: `${t.titre}${t.echeance ? ` — pour le ${dFR(t.echeance)}` : ""} (par ${t.par || "votre responsable"}).`, ecran: "taches", tag: `tache:${t.id}`, formation });
+          pousser({ destinataires: [u.id], titre: "✅ Nouvelle tâche", texte: `${t.titre}${t.echeance ? ` — pour le ${dFR(t.echeance)}` : ""} (par ${t.par || "votre responsable"}).`, ecran: "taches", tag: `tache:${t.id}`, formation, cible: { ligne: t.id, membre: u.id } });
           return;
         }
         if (t0.statut === t.statut) return;
         if (t.statut === "terminee") {
           const assignateur = personnesDeLEspace(apres, formation).filter((x) => x.nom === t.par).map((x) => x.id);
-          pousser({ destinataires: assignateur, titre: "✅ Tâche terminée, à valider", texte: `${u.nom} : ${t.titre}${t.photo ? " (photo jointe)" : ""}.`, ecran: "equipe", tag: `tache:${t.id}:terminee`, formation });
+          pousser({ destinataires: assignateur, titre: "✅ Tâche terminée, à valider", texte: `${u.nom} : ${t.titre}${t.photo ? " (photo jointe)" : ""}.`, ecran: "equipe", tag: `tache:${t.id}:terminee`, formation, cible: { membre: u.id, ligne: t.id } });
         } else if (t.statut === "validee") {
-          pousser({ destinataires: [u.id], titre: "✅ Tâche validée", texte: `${t.titre} — validée par ${t.valide_par || "votre responsable"}.`, ecran: "taches", tag: `tache:${t.id}:validee`, formation });
+          pousser({ destinataires: [u.id], titre: "✅ Tâche validée", texte: `${t.titre} — validée par ${t.valide_par || "votre responsable"}.`, ecran: "taches", tag: `tache:${t.id}:validee`, formation, cible: { ligne: t.id, membre: u.id } });
         } else if (t.statut === "a_faire" && t0.statut === "terminee") {
-          pousser({ destinataires: [u.id], titre: "↩ Tâche rouverte", texte: `${t.titre}${t.commentaire_reouverture ? ` — ${t.commentaire_reouverture}` : ""}.`, ecran: "taches", tag: `tache:${t.id}:rouverte`, formation });
+          pousser({ destinataires: [u.id], titre: "↩ Tâche rouverte", texte: `${t.titre}${t.commentaire_reouverture ? ` — ${t.commentaire_reouverture}` : ""}.`, ecran: "taches", tag: `tache:${t.id}:rouverte`, formation, cible: { ligne: t.id, membre: u.id } });
         }
       });
     });
@@ -249,7 +261,7 @@ export function infosDepuisDiff(avant, apres) {
         destinataires: idsParRole(apres, false, ["comptable"]),
         titre: "🧾 À pointer par le comptable",
         texte: `${d.description || d.categorie || "Dépense"} : ${fmt(d.montant)}${payee ? ` — dépense de ${d.boutique}, par ${d.par}, payée avec votre caisse` : ""}.`,
-        ecran: "chez_comptable", tag: `pointage:${d.id}`,
+        ecran: "chez_comptable", tag: `pointage:${d.id}`, cible: { ligne: d.id },
       });
     });
   }
@@ -282,6 +294,7 @@ export function infosDepuisDiff(avant, apres) {
         titre: `⚠ Stock au seuil — ${boutique}`,
         texte: liste.slice(0, 4).map((x) => `${x.nom} (reste ${x.reste})`).join(", ") + (liste.length > 4 ? ` et ${liste.length - 4} autre(s)` : "") + ". À réapprovisionner.",
         ecran: "stocks", tag: `seuil:${boutique}`, formation,
+        cible: { boutique, ligne: LIGNE_A_REAPPROVISIONNER },
       });
     });
   }
@@ -324,6 +337,7 @@ export function infosDepuisDiff(avant, apres) {
           titre: `🔁 Clôture dépassée — ${boutique}`,
           texte: `La caisse a bougé après la clôture du ${dFR(x.date)} (${x.bouge > 0 ? "+" : ""}${fmt(x.bouge)}) : elle est à refaire dans 🔒 Caisse.`,
           ecran: "caisse", tag: `depassee:${boutique}:${x.date}`, formation: !!b.formation,
+          cible: { boutique, ligne: LIGNE_CLOTURES_DEPASSEES },
         });
       });
     });
@@ -349,6 +363,7 @@ export function infosDepuisDiff(avant, apres) {
             ? `Le client vient de verser : l'achat ${achat.numero} qui attendait l'argent du chantier est réglé en partie — reste en attente : ${fmt(enAttente)}.`
             : `Le client vient de verser : l'achat ${achat.numero} qui attendait l'argent du chantier est maintenant réglé.`,
           ecran: "ventes", tag: `achat_chantier:${achat.id}:${enAttente}`, formation,
+          cible: { boutique: achat.boutique, ligne: achat.id },
         });
       });
     });
@@ -367,6 +382,7 @@ export function infosDepuisDiff(avant, apres) {
         titre: `📅 Rendez-vous${r.visite ? " (visite)" : ""} — ${jourEnClair(r.date)} à ${heureEnClair(r.heure)}`,
         texte: `${r.objet}${r.lieu ? ` · ${r.lieu}` : ""} — fixé par ${r.par || "BMI"}.`,
         ecran: "rendez_vous", tag: `rdv:${r.id}`, formation: !!r.formation,
+        cible: { ligne: r.id },
       });
     });
   }

@@ -21,6 +21,7 @@ import { unlinkSync, mkdirSync, readFileSync, readdirSync, statSync } from "node
 import { join } from "node:path";
 import * as R from "../src/lib/rappels.js";
 import * as E from "../src/lib/espace.js";
+import * as C from "../src/lib/cibleNotification.js";
 
 const sortie = join("node_modules", ".cache", `bmi-notif-${process.pid}.mjs`);
 mkdirSync(join("node_modules", ".cache"), { recursive: true });
@@ -67,7 +68,10 @@ const base = () => ({
   messages: [], groupes: [], commandes: [], clients_installes: [],
 });
 const avec = (etat, champs) => ({ ...etat, ...champs });
-const envoisDe = (avant, apres, profile = { id: "quelquun" }) => N.envoisDepuisSave(avant, apres, profile);
+// Tous les envois produits par ce banc sont gardés : à la fin, chacun doit
+// porter sa CIBLE (16/10/2026, « une notification mène à sa source »).
+const tousLesEnvois = [];
+const envoisDe = (avant, apres, profile = { id: "quelquun" }) => { const l = N.envoisDepuisSave(avant, apres, profile); tousLesEnvois.push(...l); return l; };
 const seul = (liste, tagDebut) => liste.filter((e) => e.tag.startsWith(tagDebut));
 
 titre("La chaîne lisible par le serveur (Node importe lib/rappels.js sans bundler)");
@@ -281,9 +285,9 @@ titre("Un seul chemin, et rien de secret dans l'application");
   test("★ la clé PRIVÉE n'est nulle part dans l'application (aucune valeur affectée à VAPID_PRIVATE_KEY / privateKey, aucun VITE_VAPID)", !/VAPID_PRIVATE_KEY\s*[:=]\s*["'`]|privateKey\s*[:=]|VITE_VAPID/.test(tout) && !/VAPID_PRIVATE_KEY/.test(readFileSync(".env.example", "utf8").replace(/^#.*$/gm, "")));
   test("la clé publique est dans constants.js, et src/push.js la lit", /export const CLE_PUBLIQUE_PUSH = "B[A-Za-z0-9_-]{80,}";/.test(lire("src/lib/constants.js")) && /CLE_PUBLIQUE_PUSH/.test(lire("src/push.js")));
   const sw = lire("public/push-sw.js");
-  test("★ le service worker affiche (push → showNotification) et ouvre l'écran au clic (notificationclick → ?ecran=)", /addEventListener\("push"/.test(sw) && /showNotification\(/.test(sw) && /addEventListener\("notificationclick"/.test(sw) && /\?ecran=/.test(sw) && /ouvrir-ecran/.test(sw));
+  test("★ le service worker affiche (push → showNotification) et ouvre l'écran au clic (notificationclick → ?ecran=)", /addEventListener\("push"/.test(sw) && /showNotification\(/.test(sw) && /addEventListener\("notificationclick"/.test(sw) && /p\.set\("ecran", ecran\)/.test(sw) && /clients\.openWindow\(`\.\/\?\$\{p\.toString\(\)\}`\)/.test(sw) && /ouvrir-ecran/.test(sw)); // RETOURNÉ 16/10/2026 : l'adresse porte aussi la cible et la personne visée
   test("vite.config charge push-sw.js dans le service worker généré", /importScripts: \["push-sw\.js"\]/.test(lire("vite.config.js")));
-  test("★ App.jsx ouvre l'écran demandé (?ecran= et message du service worker) SEULEMENT s'il est un onglet du rôle", /new URLSearchParams\(window\.location\.search\)\.get\("ecran"\)/.test(app) && /ONGLETS_ROLE\[profile\.role\] \|\| \[\]\)\.includes\(ecran\)/.test(app) && /"ouvrir-ecran"/.test(app));
+  test("★ App.jsx ouvre l'écran demandé (?ecran= et message du service worker) SEULEMENT s'il est un onglet du rôle", /lireAdresseCible\(window\.location\.search\)/.test(app) && /const e = ecranPour\(permis, ecran\);/.test(app) && /ongletsAffichesRef\.current = tabsAutorises/.test(app) && /"ouvrir-ecran"/.test(app)); // RETOURNÉ 16/10/2026 : les onglets AFFICHÉS (pouvoirs compris), le repli d'un écran absent, la cible
   test("★ la permission est demandée AU CLIC de connexion (Connexion.jsx), et l'appareil est détaché à la déconnexion avant la fin de session",
     /const go = async \(\) => \{\n[^\n]*\n[^\n]*\n[^\n]*\n\s*demanderPermissionPush\(\);/.test(lire("src/screens/Connexion.jsx")) && /try \{ await oublierAppareil\(\); \} catch \{\}\n(?:\s*\/\/[^\n]*\n)*\s*try \{ await oublierSession\(\); \} catch \{\}\n\s*setProfile\(null\);/.test(app));
   test("l'appareil est rattaché à la personne à la connexion ET au retour (F5)", (app.match(/enregistrerAppareil\(u\)/g) || []).length === 2);
@@ -350,6 +354,74 @@ titre("🏗 Un versement du client règle un achat pour son chantier : le géran
     seul(envoisDe(dejaCouvert, avec(dejaCouvert, { dettes: [{ ...dette0, paye: 210000 }] }), { id: "vendD1" }), "achat_chantier:").length === 0
     && seul(envoisDe(avec(avant, { clients_installes: [{ ...chantier, achats_chantier: [] }] }), avec(verse(50000), { clients_installes: [{ ...chantier, achats_chantier: [] }] }), { id: "vendD1" }), "achat_chantier:").length === 0
     && seul(envoisDe(avant, avant, { id: "vendD1" }), "achat_chantier:").length === 0);
+}
+
+// ---- 🔔 UNE NOTIFICATION MÈNE À SA SOURCE (Timo, 16/10/2026, « les deux, lance ») ----
+// « a » : un écran que le rôle n'a pas se replie sur le plus proche ;
+// « b » : chaque notification emporte SA chose (boutique, ligne, conversation).
+titre("🔔 Une notification mène à sa source");
+{
+  test("★ « a » : le vendeur sur « Stock au seuil » (📦 Stocks qu'il n'a pas) arrive dans 🚚 Ravitaillement ; l'administrateur sur une tâche (✅ Mes tâches qu'il n'a pas) dans 👑 Mon équipe ; un écran sans repli → rien",
+    C.ecranPour(["ventes", "ravitaillement", "caisse"], "stocks") === "ravitaillement" && C.ecranPour(["dashboard", "equipe"], "taches") === "equipe"
+    && C.ecranPour(["ventes", "stocks"], "stocks") === "stocks" && C.ecranPour(["ventes"], "stocks") === null && C.ecranPour(["ventes"], "salaires") === null
+    && C.ecranPour(["ventes"], "argent_recu", ["argent_recu"]) === "argent_recu" && C.ecranPour(["ventes"], "") === null);
+  test("★ la cible reste petite et sans secret : quatre champs, des textes de 80 caractères au plus ; vide → rien",
+    JSON.stringify(C.nettoyerCible({ boutique: "BMI DEMAKPOE", ligne: 12, conv: "user:u1", membre: "m", pwd: "secret", autre: "x" })) === JSON.stringify({ boutique: "BMI DEMAKPOE", ligne: "12", conv: "user:u1", membre: "m" })
+    && C.nettoyerCible({ ligne: "x".repeat(200) }).ligne.length === 80 && C.nettoyerCible({}) === null && C.nettoyerCible(null) === null && C.nettoyerCible({ ligne: "" }) === null);
+  test("★ un téléphone partagé : une cible écrite pour QUELQU'UN D'AUTRE ne mène nulle part (seul l'onglet reste) ; pour moi, ou sans destinataire, elle sert",
+    C.ciblePourMoi({ ligne: "d1" }, "kossi", "angele") === null && C.ciblePourMoi({ ligne: "d1" }, "angele", "angele")?.ligne === "d1" && C.ciblePourMoi({ ligne: "d1" }, "", "angele")?.ligne === "d1");
+  const adr = C.adresseDeCible("stocks", { boutique: "BMI DEMAKPOE", ligne: "t1" }, "angele");
+  const relu = C.lireAdresseCible(adr.slice(adr.indexOf("?")));
+  test("★ application FERMÉE : l'adresse d'ouverture porte l'écran, la cible et la personne, et se relit à l'identique ; une adresse sans écran n'est pas une notification (le lien de signature du PV n'est pas touché)",
+    relu?.ecran === "stocks" && relu.cible.boutique === "BMI DEMAKPOE" && relu.cible.ligne === "t1" && relu.pour === "angele"
+    && C.lireAdresseCible("?pv=abc") === null && C.lireAdresseCible("?ecran=caisse&cible=%7Bcass%C3%A9")?.cible === null);
+  test("★ la conversation d'un message : un message direct → celle avec son auteur ; le support → le fil du client ; un groupe → le groupe",
+    C.convDeMessage({ de_id: "u1", a_id: "u2" }) === "user:u1" && C.convDeMessage({ canal: "support", client_id: "c1", de_id: "x" }) === "client:c1"
+    && C.convDeMessage({ canal: "groupe", groupe_id: "g1" }) === "groupe:g1" && JSON.stringify(C.lireConv("groupe:g1")) === JSON.stringify({ type: "groupe", id: "g1" }) && C.lireConv("autre") === null);
+  test("★ la boutique visée : l'administrateur (aucune boutique) y va ; un employé rattaché n'est JAMAIS déplacé hors de SA boutique",
+    C.boutiqueDeLaCible({ boutique: "APESSITO" }, { role: "admin" }) === "APESSITO" && C.boutiqueDeLaCible({ boutique: "APESSITO" }, { role: "gerant", boutique: "APESSITO" }) === "APESSITO"
+    && C.boutiqueDeLaCible({ boutique: "APESSITO" }, { role: "gerant", boutique: "DEMAKPOE" }) === "" && C.boutiqueDeLaCible({}, { role: "admin" }) === "");
+  test("★★ CHAQUE notification produite par ce banc porte sa cible (aucune n'ouvre plus seulement l'onglet)",
+    tousLesEnvois.length > 20 && tousLesEnvois.every((e) => e.cible && Object.keys(e.cible).length > 0), tousLesEnvois.filter((e) => !e.cible).map((e) => e.tag).join(", "));
+  const nj = readFileSync("src/lib/notifications.js", "utf8");
+  test("★★ dans lib/notifications.js, chaque notification (ecran: …) dit ce qu'elle ouvre (cible: …)",
+    (nj.match(/ecran: "/g) || []).length === (nj.match(/cible: \{/g) || []).length && (nj.match(/ecran: "/g) || []).length >= 19);
+  test("★ la tournée du matin : la caisse non clôturée vise sa boutique, la dette en retard sa boutique et sa ligne, le devis à relancer sa ligne ; fabriquerEnvoi la garde",
+    /cible: \{ boutique: b\.nom \}/.test(readFileSync("src/lib/rappels.js", "utf8")) && /cible: \{ boutique, ligne: liste\[0\]\?\.id \}/.test(readFileSync("src/lib/rappels.js", "utf8"))
+    && /cible: \{ ligne: d\.id \}/.test(readFileSync("src/lib/rappels.js", "utf8"))
+    && JSON.stringify(R.fabriquerEnvoi({ destinataires: ["a"], titre: "t", texte: "x", ecran: "caisse", cible: { boutique: "B" } }).cible) === JSON.stringify({ boutique: "B" })
+    && !("cible" in R.fabriquerEnvoi({ destinataires: ["a"], titre: "t", texte: "x", ecran: "caisse" })));
+  const pushSrv = readFileSync("api/_push.js", "utf8"), swC = readFileSync("public/push-sw.js", "utf8"), appC = readFileSync("src/App.jsx", "utf8");
+  test("★ le serveur envoie la cible ET la personne visée, une notification par destinataire ; le service worker les fait suivre (message et adresse)",
+    /cible: nettoyerCible\(e\.cible\),/.test(pushSrv) && /cible: nettoyerCible\(e\.cible\), pour: id \}\);/.test(pushSrv)
+    && /data: \{ ecran: d\.ecran \|\| "", cible: d\.cible \|\| null, pour: d\.pour \|\| "" \}/.test(swC) && /postMessage\(\{ type: "ouvrir-ecran", ecran, cible, pour \}\)/.test(swC) && /p\.set\("cible", JSON\.stringify\(cible\)\)/.test(swC));
+  test("★ l'application lit l'adresse UNE fois et la NETTOIE, garde la demande jusqu'à la connexion, ne suit une cible que pour SON destinataire, et passe la cible aux écrans",
+    /const c = lireAdresseCible\(window\.location\.search\);\n\s*if \(c\) \{ try \{ window\.history\.replaceState/.test(appC)
+    && /if \(cibleEnAttente\) \{ ouvrirDepuisNotification\(cibleEnAttente\); setCibleEnAttente\(null\); \}/.test(appC)
+    && /const mienne = ciblePourMoi\(c, pour, profile\.id\);/.test(appC) && /return allerALaLigne\(cible\.ligne\);/.test(appC)
+    && ["Ventes", "CommandesRecues", "Depenses", "Dettes", "Caisse", "Stocks", "MonEquipe", "Messagerie", "Whatsapp"].every((m) => new RegExp(`<M\\.${m} db=\\{db\\} save=\\{save\\} profile=\\{profile\\} cible=\\{cible\\}`).test(appC)));
+  const lireE = (f) => readFileSync(f, "utf8");
+  test("★ chaque écran fait SA part : la boutique (📦 🔒 📋 📤 💰 🧾, sa mémoire), la conversation (💬 dans MES listes, 📲 jamais une grisée), les tâches d'un membre DE MON équipe",
+    /useCibleBoutique\(cible, "stocks", setBqSel, profile\);/.test(lireE("src/screens/Stocks.jsx"))
+    && /useCibleBoutique\(cible, "caisse", setBq, profile, "caisse", \(\) => setResume\(false\)\);/.test(lireE("src/screens/Caisse.jsx"))
+    && /useCibleBoutique\(cible, "dettes", setBq, profile\);/.test(lireE("src/screens/Dettes.jsx"))
+    && /useCibleBoutique\(cible, "depenses", setBq, profile\);/.test(lireE("src/screens/Depenses.jsx"))
+    && /useCibleBoutique\(cible, "commandes", setBq, profile, "commandes-recues"\);/.test(lireE("src/screens/Commandes.jsx"))
+    && /useCibleBoutique\(cible, "ventes", setBq, profile, "ventes", \(\) => \{ setOngletVentes\("vendre"\); setVueListe\("achats"\); \}\);/.test(lireE("src/screens/Ventes.jsx"))
+    && /const permise = sectionsBrutes\.some/.test(lireE("src/screens/Messagerie.jsx")) && /if \(conv && !conv\.verrouillee\) ouvrir\(conv\);/.test(lireE("src/screens/Whatsapp.jsx"))
+    && /if \(c\.membre && equipe\.some\(\(u\) => u\.id === c\.membre\)\) setMembreTaches\(c\.membre\);/.test(lireE("src/screens/MonEquipe.jsx")));
+  test("★ les lignes visées existent à l'écran (data-ligne) : transferts et demandes, demandes des boutiques, « À réapprovisionner », clôtures dépassées, dettes, commandes, devis, tâches, primes, devis du client, argent rendu, achats chantier",
+    /<div key=\{t\.id\} data-ligne=\{t\.id\}/.test(lireE("src/screens/Ravitaillement.jsx")) && /<div key=\{d\.id\} data-ligne=\{d\.id\}/.test(lireE("src/screens/Ravitaillement.jsx"))
+    && /data-ligne=\{dm\.d\.id\}/.test(lireE("src/screens/Stocks.jsx")) && /data-ligne=\{LIGNE_A_REAPPROVISIONNER\}/.test(lireE("src/screens/Stocks.jsx"))
+    && /data-ligne=\{LIGNE_CLOTURES_DEPASSEES\}/.test(lireE("src/screens/Caisse.jsx")) && /<tr data-ligne=\{d\.id\} onClick=\{\(\) => setDetteDepliee/.test(lireE("src/screens/Dettes.jsx"))
+    && /data-ligne=\{c\.id\} data-commande-attente/.test(lireE("src/screens/Commandes.jsx")) && /data-ligne=\{d\.id\} onClick=\{\(\) => ouvrirDevis\(d\)\}/.test(lireE("src/screens/TousLesDevis.jsx"))
+    && /data-ligne=\{t\.id\}/.test(lireE("src/screens/MesTaches.jsx")) && /data-ligne=\{t\.id\}/.test(lireE("src/screens/MonEquipe.jsx"))
+    && (lireE("src/screens/PrimesRemises.jsx").match(/data-ligne=\{`\$\{c\.id\}:\$\{e\.user_id\}`\}/g) || []).length === 2
+    && /data-ligne=\{d\.id\}/.test(lireE("src/screens/EspaceClient.jsx")) && /data-ligne=\{x\.retour\.id\}/.test(lireE("src/components/ArgentChantier.jsx")) && /data-ligne=\{r\.id\}/.test(lireE("src/components/ArgentChantier.jsx"))
+    && /data-ligne=\{a\.id\}/.test(lireE("src/components/AchatsChantier.jsx")));
+  test("★ le serveur aussi : 📲 la conversation du client qui écrit, 🔧 le chantier du solde de pose, 🔧 la tâche d'entretien",
+    /cible: \{ conv: cle \}/.test(lireE("api/whatsapp-entrant.js")) && /cible: \{ ligne: r\.chantier\?\.id \}/.test(lireE("api/rappels-du-matin.js"))
+    && /notificationTache\(\{ pour: r\.pour, chantier: r\.chantier, tache \}\)/.test(lireE("api/rappels-du-matin.js")) && /cible: \{ ligne: tache\?\.id \|\| "", membre: pour\.id \}/.test(lireE("src/lib/rappelEntretien.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

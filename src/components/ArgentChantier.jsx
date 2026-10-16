@@ -57,7 +57,7 @@ function LignesDetail({ s, onRetirer }) {
       {s.retours.length > 0 && (
         <ul className="mt-1 space-y-0.5 text-xs">
           {s.retours.map((r) => (
-            <li key={r.id} className={r.statut === "rejetee" ? "text-red-700" : r.statut === "attente" ? "text-amber-700" : "text-emerald-700"}>
+            <li key={r.id} data-ligne={r.id} className={r.statut === "rejetee" ? "text-red-700" : r.statut === "attente" ? "text-amber-700" : "text-emerald-700"}>
               ↩ {fmt(r.montant)} rendus le {dFR(r.le)} — {r.statut === "attente" ? "en attente du gérant" : r.statut === "validee" ? `validé par ${r.decide_par} (${r.caisse})` : `refusé par ${r.decide_par} : ${r.motif}`}
             </li>
           ))}
@@ -181,7 +181,7 @@ export function RetoursAValider({ db, save, profile }) {
       <div className="font-bold text-amber-900 mb-2">↩ Argent rendu, à valider ({liste.length})</div>
       <div className="space-y-1">
         {liste.map((x) => (
-          <div key={x.retour.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+          <div key={x.retour.id} data-ligne={x.retour.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
             <div><b className="tabular-nums">{fmt(x.retour.montant)}</b> rendus par <b>{x.technicien.nom}</b> le {dFR(x.retour.le)} — {nomDossier(x.retour)}
               <div className="text-xs text-slate-500">revient à : {x.caisses.map(libelleCaisseRetour).join(" ou ")}</div></div>
             <div className="flex gap-2">

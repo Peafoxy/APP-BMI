@@ -4,6 +4,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useState, useEffect } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { correspond } from "../lib/suggestions";
@@ -122,7 +123,7 @@ export function ChampRemise({ titre, mode, onMode, pct, onPct, montant, onMontan
   );
 }
 
-export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis, venteDeplieeInitiale = null }) {
+export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTransformerEnDevis, venteDeplieeInitiale = null, cible = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "ventes" });
   const [bq, setBq] = useState(profile.boutique || preRempli?.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -1552,6 +1553,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // 📋 L'inventaire (Timo, 10/10/2026, « A a… lance ») : 🛒 Vendre / 📋
   // Inventaire, pour le gérant et l'administrateur (`peutVoirInventaire`).
   const [ongletVentes, setOngletVentes] = useState("vendre");
+  // 🔔 Une notification cliquée (16/10/2026) : un achat pour un chantier
+  // réglé → la boutique qui l'a remis, la liste « 🏗 Achats chantier ».
+  useCibleBoutique(cible, "ventes", setBq, profile, "ventes", () => { setOngletVentes("vendre"); setVueListe("achats"); });
   const [rechercheListe, setRechercheListe] = useState("");
   // ⚠ Demande Timo (capture Ventes) : filtre par période (jour/semaine/
   // mois/année) + onglets par mode de paiement, en plus de la recherche —

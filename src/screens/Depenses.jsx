@@ -4,6 +4,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useState } from "react";
 import { fmt, today, dFR, totalVente, heureCourte } from "../lib/core";
 import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSortieTiroir, fondsAVerser, DEST_DG, DEST_BANQUE } from "../lib/versements";
@@ -191,9 +192,11 @@ function useModifDepense(db, save, profile) {
   return { modif, ouvrirModif: estAdminPrincipal(db, profile) ? ouvrirModif : null, panneauModif };
 }
 
-export function Depenses({ db, save, profile }) {
+export function Depenses({ db, save, profile, cible = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "depenses" });
   const [bq, setBq] = useState(profile.boutique || premiere);
+  // 🔔 Une notification cliquée (16/10/2026) : la boutique dont la caisse reçoit.
+  useCibleBoutique(cible, "depenses", setBq, profile);
   // 📅 Le filtre de période de la liste (Timo, 05/10/2026 : « Toute période »
   // à chaque ouverture). Il ne touche QUE la liste et son total : le cadre des
   // dépenses à valider par le DG reste entier, quelle que soit la date.

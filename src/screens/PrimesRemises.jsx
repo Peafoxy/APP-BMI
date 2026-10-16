@@ -62,7 +62,7 @@ export function PrimesRemises({ db, save, profile }) {
 
         <div className="space-y-2">
           {enAttente.map(({ client: c, entree: e }) => (
-            <div key={`${c.id}-${e.user_id}`} className="flex items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 flex-wrap">
+            <div key={`${c.id}-${e.user_id}`} data-ligne={`${c.id}:${e.user_id}`} className="flex items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 flex-wrap">
               <div>
                 <div className="font-semibold text-sm">{e.nom}{e.chef ? " ⭐" : ""}{e.prime_employe ? " 🎁 prime de chantier" : ""} <span className="text-slate-400 font-normal">· chantier {c.nom} {c.prenom || ""}</span></div>
                 <div className="text-xs text-slate-500">Demandé le {dFR(e.prime_demandee_le)} par {e.prime_demandee_par}</div>
@@ -84,7 +84,7 @@ export function PrimesRemises({ db, save, profile }) {
           <div className="mt-3 space-y-1">
             {historique.length === 0 && <div className="text-sm text-slate-400">Aucune prime payée par cette boutique pour l'instant.</div>}
             {historique.map(({ client: c, entree: e }) => (
-              <div key={`${c.id}-${e.user_id}`} className="flex items-center justify-between text-sm border-t border-slate-100 py-2">
+              <div key={`${c.id}-${e.user_id}`} data-ligne={`${c.id}:${e.user_id}`} className="flex items-center justify-between text-sm border-t border-slate-100 py-2">
                 <span>{e.nom} · chantier {c.nom} {c.prenom || ""} <span className="text-slate-400">— payé le {dFR(e.date_paiement)}</span></span>
                 <span className="font-bold tabular-nums">{fmt(e.montant)}</span>
               </div>

@@ -70,7 +70,7 @@ export const CHAPITRE = {
         ["**🔁 Transfert** (gérant)", "« 📦 Transferts de stock à valider (N) » (✅ Valider la réception · Refuser) et « 🔁 Demandes de transfert reçues (N) » (✅ Valider · Refuser), chacun avec son « Historique récent ». L'onglet s'écrit « 🔁 Transfert (N) », N = les deux à traiter."],
         ["**📦 Stocks** (administrateur, magasinier)", "Les deux mêmes cadres, en tête de l'écran, pour la boutique regardée. Pour l'administrateur, l'onglet s'écrit « 📦 Stocks (N) » : les demandes de transfert en attente dans **toutes** ses boutiques, plus les transferts de stock à valider."],
         ["**💰 Ventes**", "À l'encaissement d'un article manquant : « Stock insuffisant pour : … Comment voulez-vous procéder ? » → « Ravitaillement (demander au dépôt) » ou « Transfert (demander à une autre boutique) » (chapitre 5)."],
-        ["**🔔 Notifications**", "« 🚚 Demande de ravitaillement — BOUTIQUE », « 🔁 Demande de transfert — BOUTIQUE », « 📦 Transfert de stock à valider — BOUTIQUE », « ✅ Transfert reçu par BOUTIQUE » / « ❌ Transfert refusé par BOUTIQUE »."],
+        ["**🔔 Notifications**", "« 🚚 Demande de ravitaillement — BOUTIQUE », « 🔁 Demande de transfert — BOUTIQUE », « 📦 Transfert de stock à valider — BOUTIQUE », « ✅ Transfert reçu par BOUTIQUE » / « ❌ Transfert refusé par BOUTIQUE ». **Un clic dessus** ouvre 📦 Stocks sur la bonne boutique (ou le magasin), à la demande ou au transfert concerné, marqué d'un cadre orange un instant."],
         ["**📦 Stocks**, « Derniers mouvements »", "Chaque ravitaillement et chaque transfert validé y laisse ses deux ajustements (motif « Ravitaillement RAV-… » ou le numéro TRF-…)."],
       ]}],
     ]},

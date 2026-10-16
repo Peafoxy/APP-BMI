@@ -4,6 +4,8 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { useCible, useCibleBoutique } from "../components/cibleEcran";
+import { LIGNE_CLOTURES_DEPASSEES } from "../lib/cibleNotification";
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
 import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois, FormulaireRepliable } from "../components/ui";
@@ -19,7 +21,7 @@ import { soldesMobiles, phraseNumeroMobile } from "../lib/caissesMobiles";
 import { banquesReglees } from "../lib/banques";
 
 // ============ CAISSE ============
-export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
+export function Caisse({ db, save, profile, detailTiroirInitial = false, cible = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "caisse" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -33,6 +35,8 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
   // — Fonds à verser / Total versé / Entrées / Sorties, une ligne par
   // boutique, le total en bas. Dans Caisse, pas dans le tableau de bord.
   const [resume, setResume] = useState(false);
+  // 🔔 Une notification cliquée (16/10/2026) : la boutique visée, résumé refermé.
+  useCibleBoutique(cible, "caisse", setBq, profile, "caisse", () => setResume(false));
   // Timo (13/09/2026) : « ajouter période… devant RÉSUMÉ, appliquée aussi aux
   // boutiques » — la même liste que le tableau de bord (periodes()), « Depuis
   // le début » d'office : rien ne change tant qu'on ne touche pas au choix.
@@ -505,7 +509,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false }) {
           </div>
         )}
         {depassees.length > 0 && (
-          <div className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
+          <div data-ligne={LIGNE_CLOTURES_DEPASSEES} className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-3">
             <div className="font-bold text-amber-900 text-sm mb-1">
               ⚠ {depassees.length} journée{depassees.length > 1 ? "s" : ""} clôturée{depassees.length > 1 ? "s" : ""} dont la caisse a bougé ensuite
             </div>

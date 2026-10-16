@@ -496,7 +496,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
           <div className="text-xs text-slate-500 mb-3">Les propositions d'installation préparées pour vous par BMI Togo.</div>
           <div className="space-y-2">
             {mesDevis.map((d) => (
-              <div key={d.id} className="rounded-xl border-2 border-emerald-200 bg-emerald-50 overflow-hidden">
+              <div key={d.id} data-ligne={d.id} className="rounded-xl border-2 border-emerald-200 bg-emerald-50 overflow-hidden">
                 <button onClick={() => ouvrirMonDevis(d)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-2 hover:bg-emerald-100">
                   <span>
                     <span className="font-bold text-emerald-900">{d.type_devis === "garage" ? "Motorisation portail/garage" : d.type_devis === "autre" ? (d.besoins?.categorie || "Devis") : "Installation solaire"} — {fmt(d.total)}</span>

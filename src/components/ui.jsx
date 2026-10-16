@@ -397,6 +397,38 @@ export function revenirSurLaLigne(id) {
   }, 30);
 }
 
+// UNE NOTIFICATION MÈNE À SA LIGNE (Timo, 16/10/2026 : « elles ne
+// conduisent pas à la source »). L'écran visé est déjà ouvert : on attend que
+// la ligne (`data-ligne`) soit dessinée — l'écran peut se monter pour la
+// première fois, les données arriver —, la page vient à elle et la marque
+// d'un cadre ambre deux secondes et demie. Une ligne introuvable (archivée,
+// filtrée, d'un autre espace) : rien ne bouge, on reste en haut de l'écran.
+// Rend de quoi annuler (un autre clic arrive avant).
+export const DUREE_MARQUE_LIGNE_MS = 2500;
+export function allerALaLigne(id, essais = 16) {
+  if (!id || typeof document === "undefined") return () => {};
+  let fini = false;
+  let minuterie = null;
+  const chercher = (reste) => {
+    if (fini) return;
+    const tous = [...document.querySelectorAll(`[data-ligne="${String(id).replace(/"/g, "")}"]`)];
+    // Les écrans en veille sont masqués : seule la ligne VISIBLE compte.
+    const el = tous.find((x) => x.offsetParent !== null || x.getClientRects().length > 0);
+    if (!el) { if (reste > 0) minuterie = setTimeout(() => chercher(reste - 1), 250); return; }
+    montrerALecran(el, "center");
+    const avant = { outline: el.style.outline, offset: el.style.outlineOffset };
+    el.style.outline = "3px solid #f59e0b";
+    el.style.outlineOffset = "2px";
+    el.setAttribute("data-ligne-visee", "");
+    minuterie = setTimeout(() => {
+      el.style.outline = avant.outline; el.style.outlineOffset = avant.offset;
+      el.removeAttribute("data-ligne-visee");
+    }, DUREE_MARQUE_LIGNE_MS);
+  };
+  minuterie = setTimeout(() => chercher(essais), 120);
+  return () => { fini = true; clearTimeout(minuterie); };
+}
+
 // ============ UN FIL DE MESSAGES S'OUVRE SUR SA FIN ============
 // Timo (02/10/2026) : « quand tu ouvres une discussion, elle affiche le début,
 // jamais la fin ». UNE règle pour 📲 WhatsApp et 💬 Messages : la BOÎTE du fil

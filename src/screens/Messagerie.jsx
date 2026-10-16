@@ -2,6 +2,8 @@
 // screens/Messagerie.jsx — Messagerie interne en différé (via la
 // synchronisation) : fils par client, groupes, visibilité par rôle.
 // ============================================================
+import { useCible } from "../components/cibleEcran";
+import { lireConv } from "../lib/cibleNotification";
 import React, { useState } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { Clients } from "../screens/Clients";
@@ -27,7 +29,7 @@ function libelleRole(role) {
   return role === "admin" ? "Admin" : role === "gerant" ? "Gérant" : role === "magasinier" ? "Magasinier" : role === "commercial" ? "Commercial" : role === "technicien" ? "Technicien" : role === "technicien_bmi" ? "Technicien BMI" : role === "resp_commercial" ? "Resp. Commercial" : role === "comptable" ? "Comptable" : role === "client" ? "Client" : "Vendeur";
 }
 
-export function Messagerie({ db, save, profile }) {
+export function Messagerie({ db, save, profile, cible = null }) {
   const estClient = profile.role === "client";
   const chatLibre = !!profile.chat_libre;
   const isAdmin = profile.role === "admin";
@@ -114,6 +116,16 @@ export function Messagerie({ db, save, profile }) {
       save({ ...db, messages: messages.map((m) => (ids.has(m.id) ? { ...m, lu_par: [...(m.lu_par || []), profile.id] } : m)) });
     }
   };
+
+  // 🔔 Une notification cliquée (16/10/2026) : SA conversation — seulement si
+  // elle est dans MES listes (le mur, les fils que je peux lire).
+  useCible(cible, "messages", (c) => {
+    const visee = lireConv(c.conv);
+    if (!visee || estClient) return;
+    const permise = sectionsBrutes.some((sec) => sec.items.some((it) => it.conv.type === visee.type && it.conv.id === visee.id))
+      || (visee.type === "user" && messagesDe(visee).length > 0);
+    if (permise) ouvrir(visee);
+  });
 
   const envoyer = async () => {
     const t = texte.trim();

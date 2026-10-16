@@ -4,6 +4,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, heureCourte, totalVente } from "../lib/core";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
@@ -282,11 +283,13 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
 // Le vendeur voit les commandes envoyées par les commerciaux pour sa
 // boutique, et les valide pour finaliser la vente (encaissement dans
 // l'onglet Ventes, panier déjà prêt).
-export function CommandesRecues({ db, save, profile, onValider }) {
+export function CommandesRecues({ db, save, profile, onValider, cible = null }) {
   const isAdmin = profile.role === "admin";
   const premiere = boutiqueParDefaut(db, profile, { ecran: "commandes-recues" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "commandes-recues" });
+  // 🔔 Une notification cliquée (16/10/2026) : la boutique de la commande.
+  useCibleBoutique(cible, "commandes", setBq, profile, "commandes-recues");
 
   const enAttente = (db.commandes || []).filter((c) =>
     c.statut === "en_attente" &&
@@ -429,7 +432,7 @@ export function CommandesRecues({ db, save, profile, onValider }) {
               const totalC = totalCommande(c);
               const ouverte = depliee === c.id;
               return (
-                <tr key={c.id} data-commande-attente onClick={() => setDepliee(ouverte ? null : c.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
+                <tr key={c.id} data-ligne={c.id} data-commande-attente onClick={() => setDepliee(ouverte ? null : c.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
                   <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>
                     <div className="font-bold text-slate-800">{c.client || <span className="text-slate-400 font-normal">—</span>}</div>
                     {c.tel && <div className="text-xs text-slate-500">{c.tel}</div>}

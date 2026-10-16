@@ -3,6 +3,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { useState, Fragment } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette, statutDette, FILTRES_STATUT_DETTE, detteDansFiltre } from "../lib/core";
@@ -25,7 +26,7 @@ import { verserDepuisOrigine, choisirDestination } from "../components/verserOri
 import { critiqueSuppressionDette, mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
 // ============ DETTES ============
-export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
+export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "dettes" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -34,6 +35,8 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "dettes" });
+  // 🔔 Une notification cliquée (16/10/2026) : la boutique visée.
+  useCibleBoutique(cible, "dettes", setBq, profile);
   const [f, setF] = useState({ client: "", tel: "", motif: "", montant: "", paye: "", moyen: PAIEMENTS[0] });
   // ➕ Le formulaire « Nouvelle dette client » est fermé d'office (règle commune
   // FormulaireRepliable, 06/10/2026) et se replie après l'enregistrement.
@@ -555,7 +558,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null }) {
               const reglements = d.paiements || [];
               return (
                 <Fragment key={d.id}>
-                <tr onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`} title={lignes.length > ARTICLES_VISIBLES || reglements.length ? (detteDepliee === d.id ? "Cliquer pour replier" : "Cliquer pour voir les articles et les règlements") : undefined}>
+                <tr data-ligne={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`} title={lignes.length > ARTICLES_VISIBLES || reglements.length ? (detteDepliee === d.id ? "Cliquer pour replier" : "Cliquer pour voir les articles et les règlements") : undefined}>
                   {/* Timo (13/09/2026) : la première colonne reste figée (Stocks, Dépenses, Dettes — ordinateur aussi) ; la ligne dépliée garde sa barre bleue.
                       25/09/2026 : « dans Dettes aussi figer le nom du client » — le CLIENT passe en première colonne, la date juste après. */}
                   <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : ""), detteDepliee === d.id)}`}><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</td>

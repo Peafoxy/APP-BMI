@@ -73,7 +73,7 @@ export function TableAchatsChantier({ chantiers, boutique, ventes, dettes, onImp
           const fond = fondLigneDepliable(false, i, a.annule ? "bg-slate-100" : "");
           const pastille = "inline-block px-2 py-0.5 rounded-full text-xs font-bold border";
           return (
-          <tr key={a.id} className={`border-t border-slate-100 align-top ${fond} ${a.annule ? "text-slate-400" : ""}`} data-achat-chantier={a.id}>
+          <tr key={a.id} className={`border-t border-slate-100 align-top ${fond} ${a.annule ? "text-slate-400" : ""}`} data-achat-chantier={a.id} data-ligne={a.id}>
             <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fond)}`}>{nomChantier(c)}</td>
             <td className="px-3 py-2 whitespace-nowrap">{dFR(a.date)}<div className="text-xs text-slate-400">{a.heure || ""}</div></td>
             <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{a.numero}</td>

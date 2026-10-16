@@ -139,10 +139,13 @@ export const tacheEntretien = ({ id, chantier, aujourdhui }) => ({
 });
 
 // La notification qui accompagne la tâche (lib/rappels.js : même forme).
-export const notificationTache = ({ pour, chantier }) => ({
+// `tache` : la tâche posée — le clic l'ouvre (16/10/2026) ; chez quelqu'un
+// sans ✅ Mes tâches, 👑 Mon équipe ouvre les tâches de ce membre.
+export const notificationTache = ({ pour, chantier, tache }) => ({
   destinataires: [pour.id], titre: "🔧 Entretien à prévoir",
   texte: `${nomDuChantier(chantier)} — le ${dFR(chantier.date_entretien)}. Appelez le client pour fixer l'heure.`,
   ecran: "taches", tag: `entretien-${chantier.id}`,
+  cible: { ligne: tache?.id || "", membre: pour.id },
 });
 
 // Ce qui s'écrit APRÈS l'envoi réussi (jamais avant) : la ligne du fil, sa

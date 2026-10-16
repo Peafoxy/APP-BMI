@@ -206,7 +206,7 @@ async function rappelerLesEntretiens(admin, db, aujourdhui) {
           const { error: e3 } = await admin.from("users").update({ data, updated_at: ts }).eq("id", frais.id);
           if (e3) console.error("[rappels-du-matin] rappel d'entretien : tâche non posée", e3.message);
           else {
-            bilan.taches++; marque.tache_le = aujourdhui; marque.tache_pour = frais.data.nom || ""; notifications.push(notificationTache({ pour: r.pour, chantier: r.chantier }));
+            bilan.taches++; marque.tache_le = aujourdhui; marque.tache_pour = frais.data.nom || ""; notifications.push(notificationTache({ pour: r.pour, chantier: r.chantier, tache }));
             // ✅ « B b » (14/10/2026) : l'avis WhatsApp de la tâche, à qui la porte.
             // Rien n'est écrit tant que WhatsApp n'a pas accepté ; un refus ne
             // touche ni la tâche ni le rappel du client.
@@ -397,6 +397,7 @@ async function rappelerLesSoldesDePose(admin, db, aujourdhui) {
           destinataires: idsAdmins(db, false),
           titre: "🔧 Solde de pose non réglé", texte: texteAlerteSolde({ ...r, client: clientParti }, { fmt, dFR }),
           ecran: "parc", tag: `solde-pose:${r.dette.id}`,
+          cible: { ligne: r.chantier?.id },
         });
         if (n) { notifications.push(n); bilan.alertes++; }
       }

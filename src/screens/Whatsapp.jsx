@@ -20,6 +20,7 @@
 // (qui voit quoi, la fenêtre, le refus) et l'envoi dans src/whatsapp.js —
 // cet écran ne fait que les montrer. Rien n'a changé d'elles en déménageant.
 // ============================================================
+import { useCible } from "../components/cibleEcran";
 import React, { useState, useEffect, useRef } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { dFR, today, nouveauMessage } from "../lib/core";
@@ -79,7 +80,7 @@ export function compterNonLusWa(db, profile) {
 // `cleInitiale` : la conversation ouverte au montage — le banc s'en sert pour
 // RENDRE un fil (une phrase de l'IA, une ligne du robot) ; l'application
 // ne la passe pas.
-export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheInitiale = "", profilInitial = false }) {
+export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheInitiale = "", profilInitial = false, cible = null }) {
   const messages = db.messages || [];
   const [cleOuverte, setCleOuverte] = useState(cleInitiale);
   const [texte, setTexte] = useState("");
@@ -214,6 +215,14 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
       save({ ...db, messages: messages.map((m) => (ids.has(m.id) ? { ...m, lu_par: [...(m.lu_par || []), profile.id] } : m)) });
     }
   };
+
+  // 🔔 Une notification cliquée (16/10/2026) : CETTE conversation — si je
+  // peux la lire. Grisée (confiée à un collègue) ou d'un autre espace : on
+  // reste sur la liste, sans rien ouvrir.
+  useCible(cible, "whatsapp", (c) => {
+    const conv = tousConvs.find((x) => x.cle === c.conv);
+    if (conv && !conv.verrouillee) ouvrir(conv);
+  });
 
   // ---- 📲 RÉPONDRE À UN CLIENT SUR WHATSAPP ----
   // ⚠ REVÉRIFIÉ DANS LE GESTE : la fenêtre de 24 h a pu se fermer pendant

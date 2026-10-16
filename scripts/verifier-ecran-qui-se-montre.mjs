@@ -37,7 +37,7 @@ const entree = join(dossier, "entree.jsx");
 writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut, useFilSurSaFin, DialogHost, uChoix, uAlert } from "${process.cwd()}/src/components/ui.jsx";
+import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut, useFilSurSaFin, DialogHost, uChoix, uAlert, allerALaLigne } from "${process.cwd()}/src/components/ui.jsx";
 const LIGNES = Array.from({ length: 60 }, (_, i) => "L" + i);
 function Liste({ ouvrir }) {
   return <table><tbody>{LIGNES.map((id) => (
@@ -90,13 +90,26 @@ function Fil({ regle }) {
   </div>;
 }
 window.remonterEnHaut = remonterEnHaut;
+// 🔔 Une notification mène à SA ligne (16/10/2026) : un écran EN VEILLE
+// (masqué) porte la même ligne, et la liste visible n'arrive qu'après un
+// instant (l'écran se monte, les données arrivent).
+window.allerALaLigne = allerALaLigne;
+function Notification() {
+  const [pret, setPret] = useState(false);
+  React.useEffect(() => { const t = setTimeout(() => setPret(true), 700); return () => clearTimeout(t); }, []);
+  return <div>
+    <div style={{ display: "none" }} data-ecran-en-veille><Liste ouvrir={() => {}} /></div>
+    <div style={{ height: 900 }}>haut de l'écran</div>
+    {pret && <Liste ouvrir={() => {}} />}
+  </div>;
+}
 // 🪟 La fenêtre commune (uChoix, uAlert…) sur un PETIT écran, avec une longue
 // liste — la capture de Timo du 05/10/2026 (« Confier à… »).
 window.ouvrirChoix = () => { window.choisi = "en attente"; uChoix("Confier le brouillon « Villa Agoè » (1 595 000 F) à :",
   Array.from({ length: 16 }, (_, i) => "COLLÈGUE " + i + " — Gérant de boutique · BMI DEMAKPOE")).then((r) => { window.choisi = r; }); };
 window.ouvrirAlerte = () => { uAlert(Array.from({ length: 60 }, (_, i) => "Ligne " + i + " d'un long message").join(" | ")); };
 const quoi = new URLSearchParams(location.search).get("q");
-createRoot(document.getElementById("r")).render(quoi === "dialogue" ? <DialogHost /> : quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
+createRoot(document.getElementById("r")).render(quoi === "notif" ? <Notification /> : quoi === "dialogue" ? <DialogHost /> : quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
@@ -228,6 +241,31 @@ console.log("\n🪟 La fenêtre de question ne dépasse jamais l'écran (capture
   await page.setViewportSize({ width: 800, height: 600 });
 }
 test("aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
+console.log("\n🔔 Une notification mène à sa ligne : la page vient à la ligne VISIBLE et la marque, même si elle arrive en retard");
+{
+  await page.goto(`file://${html}?q=notif`); await attendre(150);
+  const avant = await page.evaluate(() => window.scrollY);
+  await page.evaluate(() => { window.annulerLigne = window.allerALaLigne("L50"); });
+  await attendre(2000);
+  const r = await page.evaluate(() => {
+    const vis = [...document.querySelectorAll('[data-ligne="L50"]')].find((x) => x.offsetParent !== null);
+    const cache = document.querySelector('[data-ecran-en-veille] [data-ligne="L50"]');
+    const b = vis ? vis.getBoundingClientRect() : null;
+    return { haut: b ? b.top : null, marquee: !!vis && vis.hasAttribute("data-ligne-visee"), cadre: vis ? vis.style.outline : "", cacheMarquee: !!cache && cache.hasAttribute("data-ligne-visee"), y: window.scrollY };
+  });
+  test("on part du haut de l'écran", avant === 0, `scrollY = ${avant}`);
+  test("la ligne visée (dessinée 0,7 s plus tard) est à l'écran", visible(r.haut) && r.y > 1500, `haut = ${r.haut} px, scrollY = ${r.y}`);
+  test("elle porte la marque ambre (data-ligne-visee, cadre)", r.marquee && /solid/.test(r.cadre), `marque = ${r.marquee}, cadre = « ${r.cadre} »`);
+  test("la copie d'un écran EN VEILLE (masqué) n'est jamais choisie", !r.cacheMarquee);
+  await attendre(2800);
+  const apres = await page.evaluate(() => { const vis = [...document.querySelectorAll('[data-ligne="L50"]')].find((x) => x.offsetParent !== null); return { marquee: vis.hasAttribute("data-ligne-visee"), cadre: vis.style.outline }; });
+  test("la marque disparaît d'elle-même (2,5 s)", !apres.marquee && !apres.cadre, JSON.stringify(apres));
+  await page.goto(`file://${html}?q=notif`); await attendre(150);
+  await page.evaluate(() => { window.allerALaLigne("INCONNUE"); });
+  await attendre(4800);
+  test("une ligne introuvable (archivée, filtrée, d'un autre espace) : rien ne bouge, on reste en haut", (await page.evaluate(() => window.scrollY)) === 0);
+}
+
 await nav.close();
 
 // ─────────────────────────── 2. CHAQUE PANNEAU RELEVÉ PASSE PAR LA RÈGLE

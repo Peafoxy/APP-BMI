@@ -26,6 +26,7 @@ import { devisRelancable } from "./comptesClients.js";
 import { estSupprime } from "./corbeille.js";
 import { VALIDITE_OFFRE_JOURS } from "./constants.js";
 import { estCompteFormation, boutiqueEstFormation, idsDeLaBoutique, idsParRole, idsAdmins } from "./espace.js";
+import { nettoyerCible } from "./cibleNotification.js";
 
 export const SEUIL_RELANCE_JOURS = 15;
 export const RETARD_DETTE_JOURS = 30;
@@ -82,10 +83,13 @@ export const abreger = (texte, max = LONGUEUR_TEXTE) => {
   const t = String(texte || "").replace(/\s+/g, " ").trim();
   return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
 };
-export function fabriquerEnvoi({ destinataires, titre, texte, ecran = "", tag = "", formation = false }) {
+// `cible` (16/10/2026) : ce que le clic ouvre en plus de l'onglet — la
+// boutique, la ligne, la conversation (lib/cibleNotification.js).
+export function fabriquerEnvoi({ destinataires, titre, texte, ecran = "", tag = "", formation = false, cible = null }) {
   const ids = [...new Set((destinataires || []).filter(Boolean))];
   if (!ids.length) return null;
-  return { destinataires: ids, titre: `${formation ? "🎓 " : ""}${titre}`, texte: abreger(texte), ecran, tag };
+  const c = nettoyerCible(cible);
+  return { destinataires: ids, titre: `${formation ? "🎓 " : ""}${titre}`, texte: abreger(texte), ecran, tag, ...(c ? { cible: c } : {}) };
 }
 
 // ---- La tournée du matin ----
@@ -109,6 +113,7 @@ export function rappelsDuMatin(db, aujourdhui) {
     envois.push(fabriquerEnvoi({
       destinataires: [...idsDeLaBoutique(db, b.nom, ["vendeur", "gerant"]), ...idsAdmins(db, formation)],
       titre: `🔒 Caisse non clôturée — ${b.nom}`, texte, ecran: "caisse", tag: `cloture:${b.nom}`, formation,
+      cible: { boutique: b.nom },
     }));
   });
 
@@ -127,6 +132,7 @@ export function rappelsDuMatin(db, aujourdhui) {
       titre: `📋 Dette${liste.length > 1 ? "s" : ""} en retard — ${boutique}`,
       texte: `${liste.length} dette${liste.length > 1 ? "s passent" : " passe"} les ${RETARD_DETTE_JOURS} jours aujourd'hui : ${detail}${liste.length > 3 ? "…" : ""}. À relancer.`,
       ecran: "dettes", tag: `dettes:${boutique}:${aujourdhui}`, formation,
+      cible: { boutique, ligne: liste[0]?.id },
     }));
   });
 
@@ -143,6 +149,7 @@ export function rappelsDuMatin(db, aujourdhui) {
         titre: `📲 Devis à relancer — ${u.nom_base || u.nom}`,
         texte: `Devis de ${fmt(d.total)} (${dFR(d.date)}) sans réponse depuis ${SEUIL_RELANCE_JOURS} jours${d.relance_le ? ", depuis la dernière relance" : ""}. À relancer depuis 📋 Tous les devis.`,
         ecran: "tous_devis", tag: `devis:${d.id}:${aujourdhui}`, formation,
+        cible: { ligne: d.id },
       }));
     });
   });

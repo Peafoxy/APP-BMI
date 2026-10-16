@@ -87,7 +87,7 @@ export function MesTaches({ db, save, profile }) {
             const ouverte = t.statut !== "terminee" && t.statut !== "validee";
             const retard = ouverte && t.echeance && t.echeance < today();
             return (
-              <div key={t.id} className={`rounded-xl border p-4 flex flex-wrap items-start justify-between gap-3 ${!ouverte ? "bg-slate-50 border-slate-200" : retard ? "bg-red-50 border-red-200" : "bg-white border-slate-200 shadow-sm"}`}>
+              <div key={t.id} data-ligne={t.id} className={`rounded-xl border p-4 flex flex-wrap items-start justify-between gap-3 ${!ouverte ? "bg-slate-50 border-slate-200" : retard ? "bg-red-50 border-red-200" : "bg-white border-slate-200 shadow-sm"}`}>
                 <div className="min-w-[60%]">
                   <div className={`font-bold ${t.statut === "validee" ? "text-slate-400 line-through" : "text-slate-800"}`}>{t.titre}</div>
                   {t.detail && <div className="text-sm text-slate-600 mt-1">{t.detail}</div>}

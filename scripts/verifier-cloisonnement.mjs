@@ -6789,7 +6789,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   // l'icône de WhatsApp par le vrai icône WhatsApp ». Le rendu est MESURÉ dans
   // un vrai navigateur par verifier-ecran-ventes ; ici, la forme du geste.
   test("★ Ventes : la suite des articles se voit au CLIC sur la ligne (une seule vente dépliée, un clic n'importe où replie), la cellule des boutons ne déplie pas, et le bouton WhatsApp porte le vrai logo (IconeWhatsApp, écrit une fois dans ui.jsx), plus l'emoji 💬",
-    /const \[venteDepliee, setVenteDepliee\] = useState\(venteDeplieeInitiale\);/.test(vs) && /venteDeplieeInitiale = null \}\) \{/.test(vs) /* RETOURNÉ 09/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d === v\.id \? null : v\.id\)\)\}/.test(vs) /* 12/09/2026 : « un seul clic pour sélectionner une autre » — une autre ligne se déplie directement */
+    /const \[venteDepliee, setVenteDepliee\] = useState\(venteDeplieeInitiale\);/.test(vs) && /venteDeplieeInitiale = null, cible = null \}\) \{/.test(vs) /* RETOURNÉ 16/10/2026 : l'écran reçoit aussi la cible d'une notification cliquée */ /* RETOURNÉ 09/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setVenteDepliee\(\(d\) => \(d === v\.id \? null : v\.id\)\)\}/.test(vs) /* 12/09/2026 : « un seul clic pour sélectionner une autre » — une autre ligne se déplie directement */
     && /<ArticlesVente v=\{v\} deplie=\{venteDepliee === v\.id\} \/>/.test(vs)
     // Timo (12/09/2026) : « une sélection forte bien visible pour la ligne sélectionnée » — fond bleu soutenu + barre à gauche, couleur de l'espace.
     // 13/09/2026 : la surbrillance est écrite UNE fois (classeLigneDepliable, ui.jsx) — Ventes et Dettes y passent.
@@ -6813,7 +6813,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && JSON.stringify(Core.lignesDette({ motif: "Réparation, pièces et main-d'œuvre" })) === JSON.stringify([{ qte: null, article: "Réparation, pièces et main-d'œuvre" }])
       && Core.lignesDette({ motif: "" }).length === 0 && Core.lignesDette({}).length === 0);
     test("★ écran Dettes : la ligne se déplie au clic (detteDepliee, une seule, un clic sur une autre la déplie directement), surbrillance commune (classeLigneDepliable, retard en rouge pâle), ListeArticles sur lignesDette, montants à droite, boutons ronds (🖨, 💵 Paiement, Relancer = logo WhatsApp, 🗑 admin) dans une cellule qui ne déplie pas ; mêmes gestes, mêmes gardes",
-      /const \[detteDepliee, setDetteDepliee\] = useState\(detteDeplieeInitiale\);/.test(dj) && /detteDeplieeInitiale = null \}\) \{/.test(dj) /* RETOURNÉ 10/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
+      /const \[detteDepliee, setDetteDepliee\] = useState\(detteDeplieeInitiale\);/.test(dj) && /detteDeplieeInitiale = null, cible = null \}\) \{/.test(dj) /* RETOURNÉ 16/10/2026 : la cible d'une notification cliquée */ /* RETOURNÉ 10/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
       && /classeLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\)/.test(dj)
       // 13/09/2026 : la première colonne reste figée, ordinateur aussi ; Dépenses pareil (Date, fond de la ligne gardé) ; plus aucun lg:static dans l'application.
       // RETOURNÉ le 25/09/2026 (« dans Dettes aussi figer le nom du client ») : dans Dettes la colonne figée est le CLIENT, la date vient après.
@@ -15244,7 +15244,8 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
   test("★ « C a » : l'onglet « 💼 Argent reçu » n'apparaît que chez qui a reçu de l'argent (jamais un client), avec le nombre de sommes à expliquer ; un clic de notification peut l'ouvrir",
     /const aDeLArgentRecu = !!ficheArgent && argentRecu\(db\.depenses, ficheArgent\)\.length > 0;/.test(appL) && /const ficheArgent = isClient \? null :/.test(appL)
     && /\{ongletsVisites\.argent_recu && aDeLArgentRecu && \(/.test(appL) && /<M\.ArgentRecu db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(appL)
-    && /ecran === "argent_recu" && profile\.role !== "client"/.test(appL));
+    // RETOURNÉ le 16/10/2026 (une notification mène à sa source) : le clic passe par ecranPour, avec « 💼 Argent reçu » permis hors client.
+    && /profile\.role !== "client" \? \["argent_recu"\] : \[\]/.test(appL) && /const e = ecranPour\(permis, ecran\);/.test(appL));
   {
     const sortieAR = join("node_modules", ".cache", `bmi-argent-recu-${process.pid}.mjs`);
     let R = null, errB = "";

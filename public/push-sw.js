@@ -7,6 +7,10 @@
 // (api/_push.js) : ici on ne décide rien, on affiche. Un clic ouvre
 // l'application sur l'écran demandé (ou la ramène au premier plan et le
 // lui dit). Rien ici ne lit ni n'écrit de données.
+// ⚠ 16/10/2026 (« elles ne conduisent pas à la source ») : la notification
+// porte aussi sa CIBLE (boutique, ligne, conversation) et la personne visée
+// (`pour`). Ici on les fait suivre telles quelles ; c'est l'application qui
+// décide (le rôle, le mur, la bonne personne — lib/cibleNotification.js).
 // ============================================================
 /* global self, clients */
 self.addEventListener("push", (evenement) => {
@@ -19,23 +23,31 @@ self.addEventListener("push", (evenement) => {
     badge: "/icone-bmi-192-v2.png",
     tag: d.tag || undefined,
     renotify: !!d.tag,
-    data: { ecran: d.ecran || "" },
+    data: { ecran: d.ecran || "", cible: d.cible || null, pour: d.pour || "" },
   };
   evenement.waitUntil(self.registration.showNotification(titre, options));
 });
 
 self.addEventListener("notificationclick", (evenement) => {
   evenement.notification.close();
-  const ecran = (evenement.notification.data && evenement.notification.data.ecran) || "";
+  const donnees = evenement.notification.data || {};
+  const ecran = donnees.ecran || "";
+  const cible = donnees.cible || null;
+  const pour = donnees.pour || "";
   evenement.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((fenetres) => {
       const ouverte = fenetres.find((f) => "focus" in f);
       if (ouverte) {
         ouverte.focus();
-        ouverte.postMessage({ type: "ouvrir-ecran", ecran });
+        ouverte.postMessage({ type: "ouvrir-ecran", ecran, cible, pour });
         return undefined;
       }
-      return clients.openWindow(`./?ecran=${encodeURIComponent(ecran)}`);
+      // Même écriture que adresseDeCible (lib/cibleNotification.js).
+      const p = new URLSearchParams();
+      if (ecran) p.set("ecran", ecran);
+      if (cible) p.set("cible", JSON.stringify(cible));
+      if (pour) p.set("pour", String(pour));
+      return clients.openWindow(`./?${p.toString()}`);
     }),
   );
 });

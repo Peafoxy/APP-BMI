@@ -260,7 +260,7 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
       ) : (
         <div className="space-y-3">
           {stockAValider.map((t) => (
-            <div key={t.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+            <div key={t.id} data-ligne={t.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm">
                   <b>{t.de}</b> envoie : {libelleLignes(t)}
@@ -301,7 +301,7 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
       ) : (
         <div className="space-y-3">
           {demandesTransfertRecues.map((d) => (
-            <div key={d.id} className="rounded-lg border border-purple-200 bg-purple-50 p-3">
+            <div key={d.id} data-ligne={d.id} className="rounded-lg border border-purple-200 bg-purple-50 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm">
                   <b>{d.demandeur}</b> demande : {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}

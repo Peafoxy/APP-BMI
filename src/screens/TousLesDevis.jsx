@@ -612,7 +612,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
               const deplie = ouvert === d.id;
               return (
               <Fragment key={d.id}>
-                <tr data-ligne-devis={deplie ? "deplie" : "replie"} onClick={() => ouvrirDevis(d)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
+                <tr data-ligne-devis={deplie ? "deplie" : "replie"} data-ligne={d.id} onClick={() => ouvrirDevis(d)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
                   <td className={`px-3 py-2 min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)}`}>
                     <div className="font-bold text-slate-800 flex items-center gap-1.5">
                       {d.client?.nom_base || d.client?.nom || "Client"}

@@ -3,6 +3,7 @@
 // commercial : performance de l'équipe, réutilise l'écran
 // Commerciaux en vue restreinte.
 // ============================================================
+import { useCible } from "../components/cibleEcran";
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
@@ -14,7 +15,7 @@ import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifS
 import { Commerciaux } from "./Commerciaux";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
-export function MonEquipe({ db, save, profile }) {
+export function MonEquipe({ db, save, profile, cible = null }) {
   const estAdmin = profile.role === "admin";
   const [periode, setPeriode] = useState("mois");
   const bornes = () => {
@@ -487,6 +488,9 @@ export function MonEquipe({ db, save, profile }) {
   const [membreTaches, setMembreTaches] = useState(null); // fiche dont on affiche l'historique des tâches
   // Ce qu'on ouvre se voit (29/09/2026) : les tâches s'affichent en haut de l'écran.
   const refTaches = useMontrerALOuverture(membreTaches);
+  // 🔔 Une notification cliquée (16/10/2026) : les tâches de CE membre — s'il
+  // est de mon équipe (la liste déjà filtrée), jamais quelqu'un d'autre.
+  useCible(cible, "equipe", (c) => { if (c.membre && equipe.some((u) => u.id === c.membre)) setMembreTaches(c.membre); });
 
   const validerTache = async (tv) => {
     if (bloquerSiLecture(db, profile)) return;
@@ -531,7 +535,7 @@ export function MonEquipe({ db, save, profile }) {
             </div>
             <div className="space-y-2">
               {liste.map((t) => (
-                <div key={t.id} className={`rounded-xl border p-3 flex flex-wrap items-start justify-between gap-2 ${t.statut === "validee" ? "bg-slate-50 border-slate-200" : t.statut === "terminee" ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"}`}>
+                <div key={t.id} data-ligne={t.id} className={`rounded-xl border p-3 flex flex-wrap items-start justify-between gap-2 ${t.statut === "validee" ? "bg-slate-50 border-slate-200" : t.statut === "terminee" ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"}`}>
                   <div className="min-w-[55%]">
                     <div className={`font-bold text-sm ${t.statut === "validee" ? "text-slate-400 line-through" : "text-slate-800"}`}>{t.titre}</div>
                     {t.detail && <div className="text-xs text-slate-600 mt-0.5">{t.detail}</div>}

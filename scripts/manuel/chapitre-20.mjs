@@ -13,7 +13,8 @@
 // ✏️ Nommer, 🔓 Rendre à tous, la bande de la fenêtre de 24 h, ✍️ Lui écrire quand
 // même, 🤖 Assistant BMI TOGO, 👨‍💼 attend un conseiller, ✓ ✓✓ ❌),
 // lib/whatsappConversations.js (aAccesWhatsapp, libelleFenetre,
-// motifVerrouillee, critiqueReponse, MOTIF_WA_FORMATION), src/whatsapp.js
+// motifVerrouillee, critiqueReponse, MOTIF_WA_FORMATION), lib/cibleNotification.js
+// (un clic de notification ouvre SA conversation), src/whatsapp.js
 // (envoyerModele, repondreWhatsApp), lib/whatsappModeles.js (les modèles),
 // App.jsx (les onglets et leurs compteurs).
 // Les envois depuis un devis, une dette ou une vente sont décrits dans
@@ -63,6 +64,7 @@ export const CHAPITRE = {
         ["💬 Messages (N)", "À gauche « 💬 Conversations », à droite le fil ouvert. **N** = les messages non lus. Sur téléphone, la liste se cache quand un fil est ouvert (← pour revenir)."],
         ["📲 WhatsApp (N)", "Présenté comme WhatsApp sur un téléphone ou sur Windows. **Sur ordinateur** : à gauche « 📲 Discussions » (« ✍️ Écrire », la recherche, les filtres, la liste), à droite le fil. **Sur téléphone** : la liste prend tout l'écran ; un toucher sur une conversation l'ouvre en plein écran, la flèche **←** revient à la liste. **N** = les non lus des conversations qu'on a le droit d'ouvrir."],
         ["Les notifications du téléphone", "Un nouveau message de 💬 Messages prévient son destinataire. Un message WhatsApp entrant prévient **la personne à qui la conversation est confiée**, sinon **les administrateurs**."],
+        ["Un clic sur une notification", "Il mène à **sa source** : un message de 💬 Messages ouvre **SA conversation**, un message WhatsApp ouvre **la conversation du client** dans 📲 WhatsApp. Une conversation confiée à un collègue (grisée) ou qu'on n'a pas le droit de lire : on arrive sur la liste, rien ne s'ouvre."],
       ]}],
       ["table", { entetes: ["Bloc de 💬 Conversations", "Ce qu'il contient"], largeurs: [3100, 6200], lignes: [
         ["🔴 Nouveaux messages", "Toute conversation qui a un non lu, **la plus récente en tête**. Une fois lue, elle redescend dans son bloc."],

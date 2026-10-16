@@ -260,6 +260,8 @@ export default async function handler(req, res) {
           // notification qui ne sert à rien.
           ecran: "whatsapp",
           tag: `wa-${cle}`,
+          // Le clic ouvre CETTE conversation (16/10/2026).
+          cible: { conv: cle },
         }]);
       }
     } catch (e) {

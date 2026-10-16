@@ -11,6 +11,7 @@
 // nous. Un appareil qui n'existe plus (404 / 410) est retiré de la table.
 // ============================================================
 import webpush from "web-push";
+import { nettoyerCible } from "../src/lib/cibleNotification.js";
 
 export const TABLE_ABONNEMENTS = "abonnements_push";
 export const MAX_DESTINATAIRES = 40;
@@ -37,6 +38,8 @@ export function nettoyerEnvoi(e) {
     texte: String(e.texte || "").slice(0, MAX_TEXTE),
     ecran: String(e.ecran || "").slice(0, 40),
     tag: String(e.tag || "").slice(0, 80),
+    // Ce que le clic ouvre (16/10/2026) : des textes courts, rien d'autre.
+    cible: nettoyerCible(e.cible),
   };
 }
 
@@ -55,8 +58,10 @@ export async function envoyerAuxPersonnes(admin, envois) {
   let envoyes = 0;
   const morts = new Set();
   for (const e of envois) {
-    const corps = JSON.stringify({ titre: e.titre, texte: e.texte, ecran: e.ecran, tag: e.tag });
     for (const id of e.destinataires) {
+      // `pour` : la personne visée — sur un téléphone partagé, le clic ne mène
+      // jamais quelqu'un d'autre sur la ligne de l'ancien occupant.
+      const corps = JSON.stringify({ titre: e.titre, texte: e.texte, ecran: e.ecran, tag: e.tag, cible: nettoyerCible(e.cible), pour: id });
       for (const l of parPersonne.get(id) || []) {
         const abonnement = { endpoint: l.endpoint, keys: (l.data || {}).keys || {} };
         try {

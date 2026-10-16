@@ -4539,7 +4539,8 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
     lig?.wa_prive === true && lig.tache_id === "TA" && lig.tache_user_id === "U1" && !/ERIC/.test(lig.texte)
     && corpsSrv.indexOf("envoyerYCloud(") > 0 && corpsSrv.indexOf("if (!envoi.ok)") > corpsSrv.indexOf("envoyerYCloud(")
     && corpsSrv.indexOf('from("messages").insert') > corpsSrv.indexOf("if (!envoi.ok)")
-    && /notifications\.push\(notificationTache\(\{ pour: r\.pour, chantier: r\.chantier \}\)\);[\s\S]{0,400}await avertirDeLaTache\(admin, db, \{ \.\.\.frais\.data, id: frais\.id \}, tache, bilan\);/.test(SRV));
+    // RETOURNÉ le 16/10/2026 : la notification porte la tâche (un clic l'ouvre).
+    && /notifications\.push\(notificationTache\(\{ pour: r\.pour, chantier: r\.chantier, tache \}\)\);[\s\S]{0,400}await avertirDeLaTache\(admin, db, \{ \.\.\.frais\.data, id: frais\.id \}, tache, bilan\);/.test(SRV));
 }
 
 {

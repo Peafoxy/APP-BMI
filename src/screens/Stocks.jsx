@@ -4,6 +4,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useRef, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
@@ -12,6 +13,7 @@ import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
 import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
+import { LIGNE_A_REAPPROVISIONNER } from "../lib/cibleNotification";
 import { domainesDefinis, famillesDuDomaine, toutesLesFamilles, bloquerSiLecture, boutiquesVente, stockActuel, stockAjuste, stockVendu, demandesDe, demandesEnAttente, alertesBoutiques, articlesAReapprovisionner, couvertureStockJours, critiqueStockCible, JOURS_RYTHME_VENTES, estDepot, magasinsDe, trouverArticle, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, espaceDuCompte, articlesSimilaires, boutiquesDuMemeEspace, refusMouvementEntreEspaces, retoursEnSav, normNom, refuserSaufAdmin, refuserSaufRoles, ROLES_STOCK } from "../lib/calculs";
 import { chantiersDeLEspaceRegarde } from "../lib/calculs";
 import { reservations, reserveParProduit, nomChantier, avertissementReserve } from "../lib/achatsChantier";
@@ -22,7 +24,7 @@ import { nouveauTransfertStock, critiqueEnvoi, envoyerTransfertStock, transferts
 import { COLONNES_IMPORT, EXEMPLE_IMPORT, MODES_IMPORT, lignesDepuisTexte, enregistrementsDepuisLignes, analyserImport, resumeImport, analyserEntrees, resumeEntrees, appliquerEntrees, lireFichierTableur, telechargerModeleImport } from "../lib/importStock";
 
 // ============ STOCKS ============
-export function Stocks({ db, save, profile }) {
+export function Stocks({ db, save, profile, cible = null }) {
   // ⚠ Cet écran travaille aussi dans les MAGASINS (dépôts) — son sélecteur
   // les affiche (avecDepots). La boutique retrouvée après un rechargement
   // doit donc pouvoir en être un, sinon un magasinier repartirait chaque
@@ -38,6 +40,8 @@ export function Stocks({ db, save, profile }) {
   // réinitialisation). Dans les deux cas, on repart de la boutique par
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const bq = boutiqueRetenue(db, profile, bqSel, { ecran: "stocks" });
+  // 🔔 Une notification cliquée (16/10/2026) : la boutique ou le magasin visé.
+  useCibleBoutique(cible, "stocks", setBqSel, profile);
   const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   // ⚠ DEMANDE TIMO (25/08/2026), capture « BZTTERIE LITHUIM 25,6V300AH » :
@@ -863,7 +867,7 @@ export function Stocks({ db, save, profile }) {
       {/* Timo (10/09/2026) : « la liste de tous les articles à approvisionner » —
           TOUS, du plus urgent au moins urgent, exportable, et sur une boutique
           la demande au magasin se pré-remplit avec le manque. */}
-      <div className={`rounded-xl p-4 bg-white border-2 ${aReapprovisionner.length ? "border-red-200" : "border-slate-200"}`}>
+      <div data-ligne={LIGNE_A_REAPPROVISIONNER} className={`rounded-xl p-4 bg-white border-2 ${aReapprovisionner.length ? "border-red-200" : "border-slate-200"}`}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
           <div className={`font-bold ${aReapprovisionner.length ? "text-red-700" : "text-slate-800"}`}>⚠ À réapprovisionner ({aReapprovisionner.length}) <Badge boutique={bq} /></div>
           {aReapprovisionner.length > 0 && (
@@ -974,7 +978,7 @@ export function Stocks({ db, save, profile }) {
           <div className="text-xs text-slate-500 mb-3">Cliquez sur « Préparer le bon » : les articles demandés sont chargés automatiquement dans le bon de ravitaillement ci-dessous.</div>
           <div className="space-y-3">
             {demandesRecues.map((dm) => (
-              <div key={dm.d.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <div key={dm.d.id} data-ligne={dm.d.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="font-bold text-slate-800">🏪 {dm.boutique} <span className="text-xs font-normal text-slate-500">— demandé par {dm.d.par} le {dFR(dm.d.date)}</span></div>
                   <div className="flex gap-2">

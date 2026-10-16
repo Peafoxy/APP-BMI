@@ -41,6 +41,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/bandesVersement.js` | La bande noire d'un versement dans 💰 Ventes, et le résumé des ventes depuis le versement précédent |
 | `lib/banques.js` | La liste des banques et la banque d'un employé |
 | `lib/affectation.js` | 📍 Le lieu d'affectation d'un employé SANS boutique — aucun droit, la boutique l'emporte (sans import) |
+| `lib/cibleNotification.js` | 🔔 Ce qu'une notification ouvre : sa cible (boutique, ligne, conversation, membre), la personne visée, le repli d'un écran que le rôle n'a pas, l'adresse d'ouverture |
 | `lib/connexionsComptes.js` | 👥 Qui a déjà ouvert son compte : dates de première et dernière connexion (comptes sécurisés), lues par le serveur pour l'administrateur principal seul |
 | `lib/contratTravail.js` | 📄 Le contrat de travail d'un employé : type (le code CNSS, une source), fin d'un CDD, sortie, rappel de fin au principal |
 | `lib/certificatTravail.js` | 📄 Les documents remis à un employé : certificat de travail, attestation de stage / de fin d'apprentissage à la sortie, attestation de travail en poste (le texte ; la mise en page dans impression.js) |
@@ -141,7 +142,8 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 
 | Fichier | À quoi il sert |
 |---|---|
-| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`) |
+| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`) |
+| `cibleEcran.js` | 🔔 Ce qu'un écran fait d'une notification cliquée : `useCible`, la boutique visée (`useCibleBoutique`, jamais un employé déplacé hors de sa boutique) |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
 | `FiltrePeriode.jsx` | 📅 Le filtre de période d'une liste (Toute période, quatre périodes, Personnaliser), écrit une fois pour Ventes, Dépenses, Dettes et Tous les devis (et 📋 Inventaire, qui ouvre sur « Aujourd'hui ») |
 | `FicheClient.jsx` | 🗂 La fiche d'un client ouverte d'un clic dans 📋 Clients : achats, dettes, proformas, commandes, devis, chantiers de l'espace regardé |

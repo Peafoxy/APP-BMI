@@ -19,6 +19,7 @@ import { RechercheGlobale } from "./components/RechercheGlobale";
 import { OngletsDeplacables } from "./components/OngletsDeplacables";
 import { poserBlocageRetour, useRetour, useRetourOnglets } from "./retour";
 import { appliquerOrdre, ordreApres } from "./lib/ordreOnglets";
+import { lireAdresseCible, ecranPour, ciblePourMoi } from "./lib/cibleNotification";
 import { Dimensionnement, TYPES_PORTAIL } from "./screens/dimensionnement";
 import { TousLesDevis } from "./screens/TousLesDevis";
 import { Prospects } from "./screens/Prospects";
@@ -115,7 +116,7 @@ import { motAMontrer, motPour, marquerMotLu, CLE_VU_ICI } from "./lib/motInforma
 import { dureeConservation } from "./lib/conservation";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
-  uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info, remonterEnHaut,
+  uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info, remonterEnHaut, allerALaLigne,
 } from "./components/ui";
 import {
   stockVendu, stockAjuste, stockActuel, virementsMois,
@@ -195,20 +196,53 @@ export default function App() {
   // Notifications (13/09/2026) : un clic sur une notification ouvre l'écran
   // qu'elle vise — par l'adresse (?ecran=…) quand l'application était
   // fermée, par un message du service worker quand elle était ouverte.
-  // L'écran doit être un onglet DU RÔLE, sinon rien ne bouge.
+  // ⚠ 16/10/2026 (Timo : « elles ne conduisent pas à la source ») : elle
+  // ouvre aussi SA chose — la boutique, la ligne, la conversation (la
+  // `cible`, lib/cibleNotification.js) — et un écran que le rôle n'a pas
+  // se replie sur le plus proche (le vendeur : 📦 Stocks → 🚚 Ravitaillement).
+  // L'écran doit être un onglet AFFICHÉ pour cette personne (pouvoirs
+  // retirés compris), sinon rien ne bouge. La cible ne fait que DEMANDER :
+  // chaque écran revérifie le mur comme d'habitude.
+  // ⚠ L'adresse est lue UNE fois au démarrage et NETTOYÉE aussitôt ; la
+  // demande attend la connexion (session expirée : on se reconnecte, puis on
+  // arrive sur la ligne). Une cible écrite pour quelqu'un d'autre (téléphone
+  // partagé) ne mène qu'à l'onglet.
+  const [cibleEnAttente, setCibleEnAttente] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const c = lireAdresseCible(window.location.search);
+    if (c) { try { window.history.replaceState({}, "", window.location.pathname); } catch { /* rien */ } }
+    return c;
+  });
+  const [cible, setCible] = useState(null);
+  const compteurCible = useRef(0);
+  const ongletsAffichesRef = useRef([]);
+  const ouvrirDepuisNotification = useCallback(({ ecran, cible: c, pour }) => {
+    if (!profile) return;
+    const affiches = ongletsAffichesRef.current;
+    const permis = affiches.length ? affiches : [...(ONGLETS_ROLE[profile.role] || []), ...(profile.role !== "client" ? ["argent_recu"] : [])];
+    const e = ecranPour(permis, ecran);
+    if (!e) return;
+    setTab(e);
+    const mienne = ciblePourMoi(c, pour, profile.id);
+    compteurCible.current += 1;
+    setCible(mienne ? { ...mienne, ecran: e, n: compteurCible.current } : null);
+  }, [profile]);
   useEffect(() => {
-    if (!profile) return undefined;
-    // « 💼 Argent reçu » n'est l'onglet d'aucun rôle : il s'ouvre chez qui a reçu de l'argent.
-    const ouvrir = (ecran) => { if (ecran && ((ONGLETS_ROLE[profile.role] || []).includes(ecran) || (ecran === "argent_recu" && profile.role !== "client"))) setTab(ecran); };
-    try {
-      const ecran = new URLSearchParams(window.location.search).get("ecran");
-      if (ecran) { ouvrir(ecran); window.history.replaceState({}, "", window.location.pathname); }
-    } catch {}
-    if (!("serviceWorker" in navigator)) return undefined;
-    const ecouteur = (e) => { if (e.data && e.data.type === "ouvrir-ecran") ouvrir(e.data.ecran); };
+    if (!profile || !db) return;
+    if (cibleEnAttente) { ouvrirDepuisNotification(cibleEnAttente); setCibleEnAttente(null); }
+  }, [profile, !!db, cibleEnAttente, ouvrirDepuisNotification]);
+  useEffect(() => {
+    if (!profile || !("serviceWorker" in navigator)) return undefined;
+    const ecouteur = (e) => { if (e.data && e.data.type === "ouvrir-ecran") ouvrirDepuisNotification({ ecran: e.data.ecran, cible: e.data.cible, pour: e.data.pour }); };
     navigator.serviceWorker.addEventListener("message", ecouteur);
     return () => navigator.serviceWorker.removeEventListener("message", ecouteur);
-  }, [profile]);
+  }, [profile, ouvrirDepuisNotification]);
+  // La LIGNE visée : l'écran est ouvert, la page vient à elle et la marque
+  // un instant (`allerALaLigne`, la règle « ce qu'on ouvre se voit »).
+  useEffect(() => {
+    if (!cible?.ligne) return undefined;
+    return allerALaLigne(cible.ligne);
+  }, [cible]);
   // Barre(s) d'onglets défilantes (mobile horizontale, barre latérale
   // desktop) : après une actualisation de la page, l'onglet retrouvé (voir
   // tabDeDepart) peut être hors du cadre visible — la barre reste à son
@@ -1257,6 +1291,8 @@ export default function App() {
   // ne voit QUE « Mon attestation » (lib/attestationSortie.js).
   const enSortie = !isClient && enPeriodeDeSortie(maFiche, maintenantMs());
   const tabsAutorises = enSortie ? [ONGLET_ATTESTATION] : appliquerOrdre(tabsPlus2.filter(([id]) => aDroit(db, profile, id)), maFiche?.ordre_onglets);
+  // Ce qu'un clic de notification a le droit d'ouvrir : les onglets AFFICHÉS.
+  ongletsAffichesRef.current = tabsAutorises.map((t) => (Array.isArray(t) ? t[0] : t));
   const reordonnerOnglets = (ids) => {
     const ordre = ordreApres(ids, maFiche?.ordre_onglets);
     if (!ordre || !maFiche) return;
@@ -1411,7 +1447,7 @@ export default function App() {
       )}
       {ongletsVisites.ventes && !isCommercial && (
         <div style={{ display: tab === "ventes" ? "block" : "none" }}>
-          <M.Ventes db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)}
+          <M.Ventes db={db} save={save} profile={profile} cible={cible} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)}
             onTransformerEnDevis={(pseudoDevis) => { setDevisAReprendre(pseudoDevis); setTab("dimensionnement"); }} />
         </div>
       )}
@@ -1422,7 +1458,7 @@ export default function App() {
       )}
       {ongletsVisites.commandes && !isCommercial && (
         <div style={{ display: tab === "commandes" ? "block" : "none" }}>
-          <M.CommandesRecues db={db} save={save} profile={profile} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct, client, tel, commandeId) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct, client, tel, commandeId }); setTab("ventes"); }} />
+          <M.CommandesRecues db={db} save={save} profile={profile} cible={cible} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct, client, tel, commandeId) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct, client, tel, commandeId }); setTab("ventes"); }} />
         </div>
       )}
       {ongletsVisites.dimensionnement && (
@@ -1445,7 +1481,7 @@ export default function App() {
       )}
       {ongletsVisites.depenses && (
         <div style={{ display: tab === "depenses" ? "block" : "none" }}>
-          <M.Depenses db={db} save={save} profile={profile} />
+          <M.Depenses db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.chez_comptable && (
@@ -1455,7 +1491,7 @@ export default function App() {
       )}
       {ongletsVisites.dettes && (
         <div style={{ display: tab === "dettes" ? "block" : "none" }}>
-          <M.Dettes db={db} save={save} profile={profile} />
+          <M.Dettes db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.clients && (
@@ -1470,12 +1506,12 @@ export default function App() {
       )}
       {ongletsVisites.caisse && (
         <div style={{ display: tab === "caisse" ? "block" : "none" }}>
-          <M.Caisse db={db} save={save} profile={profile} />
+          <M.Caisse db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.stocks && (isAdmin || isMagasinier || isGerant || isComptable) && (
         <div style={{ display: tab === "stocks" ? "block" : "none" }}>
-          <M.Stocks db={db} save={save} profile={profile} />
+          <M.Stocks db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.fournisseurs && (isAdmin || isGerant) && (
@@ -1515,7 +1551,7 @@ export default function App() {
       )}
       {ongletsVisites.equipe && (isAdmin || isRespCom || ((isCommercial || isTechnicien || isTechnicienBMI) && estChefEquipe(db, profile))) && (
         <div style={{ display: tab === "equipe" ? "block" : "none" }}>
-          <M.MonEquipe db={db} save={save} profile={profile} />
+          <M.MonEquipe db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.taches && (isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
@@ -1577,12 +1613,12 @@ export default function App() {
       )}
       {ongletsVisites.messages && (
         <div style={{ display: tab === "messages" ? "block" : "none" }}>
-          <M.Messagerie db={db} save={save} profile={profile} />
+          <M.Messagerie db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.whatsapp && (
         <div style={{ display: tab === "whatsapp" ? "block" : "none" }}>
-          <M.Whatsapp db={db} save={save} profile={profile} />
+          <M.Whatsapp db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.ravitaillement && profile.boutique && (
