@@ -16446,6 +16446,18 @@ titre("🖨 Le devis IMPRIMÉ SANS COMPTE (15/10/2026, « Ab, Ba, Ça, Da, b »)
     && SA.commandeAEncaisser(dbTD, { ...dValide, statut: "paye" }) === null && SA.commandeAEncaisser(dbTD, { ...dValide, pose_seule: true }) === null);
   const tdS = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
   const corpsEnc = tdS.slice(tdS.indexOf("const encaisserDevis = (d) => {"), tdS.indexOf("const modifierDevis = (d) => {"));
+  // ❌ « a » (16/10/2026, capture d'ONG) : une relance automatique NON REÇUE ne
+  // s'écrit plus « Relancé automatiquement » dans la ligne RENDUE.
+  const jourRel = new Date().toISOString().slice(0, 10);
+  const dRel = { ...devisP("d9"), date: jourRel, par: "SENA", par_id: "a2", par_role: "admin", relance_auto_le: jourRel };
+  const ligneRel = { id: "mr", canal: "whatsapp", wa_modele: "relance_devis_expiration", devis_id: "d9", wa_tel: "92112233", date: jourRel, ts: `${jourRel}T07:00:00Z`, wa_envoi_id: "yc", texte: "x" };
+  const motifLimite = "WhatsApp n'a pas remis ce message : elle limite les messages commerciaux qu'une même personne reçoit. Envoyez-le vous-même, ou réessayez plus tard.";
+  const baseRel = (statut) => ({ ...dbTD, users: [principal, adm, { ...avecAcces, devis: [dRel] }], messages: [{ ...ligneRel, wa_statut: statut }] });
+  const hEchec = SA ? rendreTD(adm, "", true, baseRel({ etat: "echec", le: `${jourRel}T07:00:05Z`, motif: motifLimite })) : "";
+  const hRecu = SA ? rendreTD(adm, "", true, baseRel({ etat: "recu", le: `${jourRel}T07:00:05Z` })) : "";
+  test("★★ 📋 Tous les devis RENDU : relance automatique NON REÇUE → « 🤖 Relance automatique non reçue … (limite de WhatsApp) — appelez le client », jamais « Relancé automatiquement » ; reçue → « Relancé automatiquement » comme avant",
+    /data-relance-auto-non-recue/.test(hEchec) && /Relance automatique non reçue le .{0,40}\(limite de WhatsApp\) — appelez le client/.test(hEchec) && !/Relancé automatiquement/.test(hEchec)
+    && !/data-relance-auto-non-recue/.test(hRecu) && /Relancé automatiquement/.test(hRecu), hEchec.slice(0, 0));
   test("★ le geste « 💰 Encaisser » se revérifie DANS le geste (administrateur), passe la commande « validée » comme 🧾 Commandes, et ouvre 💰 Ventes par App (le devis d'origine suit : la fiche 🏠 naît à l'encaissement, « C a »)",
     /refuserSaufAdmin\(profile, "Encaisser un devis depuis 📋 Tous les devis"\)/.test(corpsEnc) && /statut: "validee", valide_par: profile\.nom, suivi_vente: true/.test(corpsEnc)
     && /origineDevis: c\.origine_devis \|\| null/.test(corpsEnc) && /commandeId: c\.id/.test(corpsEnc)

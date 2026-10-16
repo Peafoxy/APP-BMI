@@ -19,6 +19,7 @@ import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELAN
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
+import { etatRelanceAuto } from "../lib/relanceAutoDevis";
 import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
@@ -660,12 +661,24 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                           ⌛ Validé après expiration — prix à confirmer
                         </span>
                       )}
-                      {d.relance_auto_le && (d.statut || "propose") === "propose" && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300"
-                          title="Relance automatique du 8e jour, partie du numéro WhatsApp BMI">
-                          🤖 Relancé automatiquement le {dFR(d.relance_auto_le)}
-                        </span>
-                      )}
+                      {d.relance_auto_le && (d.statut || "propose") === "propose" && (() => {
+                        // ❌ Une relance automatique NON REÇUE ne s'écrit pas « relancé »
+                        // (16/10/2026, capture d'ONG, « les deux, lance ») : la dernière
+                        // ligne du fil décide (lib/relanceAutoDevis.js).
+                        const r = etatRelanceAuto(db.messages, d, today());
+                        if (r?.echec) return (
+                          <span data-relance-auto-non-recue className="text-xs font-bold px-2 py-0.5 rounded-full border bg-red-50 text-red-800 border-red-300"
+                            title={r.motif || "WhatsApp n'a pas remis la relance."}>
+                            🤖 Relance automatique non reçue le {dFR(r.le)}{r.limite ? " (limite de WhatsApp)" : ""} — appelez le client{r.retentera ? " · nouvel essai demain à 7 h" : ""}
+                          </span>
+                        );
+                        return (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300"
+                            title="Relance automatique du 8e jour, partie du numéro WhatsApp BMI">
+                            🤖 Relancé automatiquement le {dFR(d.relance_auto_le)}
+                          </span>
+                        );
+                      })()}
                       {demandeModifEnCours(d) && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
                           title={`Motif : ${d.demande_bmi.motif}`}>

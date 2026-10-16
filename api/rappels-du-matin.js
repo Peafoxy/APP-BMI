@@ -18,6 +18,10 @@
 // 📲 WhatsApp, sa fiche légère, et la marque `relance_auto_le` sur le devis.
 // Un refus de WhatsApp (modèle pas encore approuvé…) part dans le journal
 // Vercel et n'écrit rien : on retentera le lendemain, jusqu'au 15e jour.
+// ↻ 16/10/2026 — une relance ACCEPTÉE puis NON REMISE (❌ posé par l'adresse
+// d'arrivée, ex. la limite des messages commerciaux) se retente UNE fois le
+// lendemain, dans la même fenêtre (`relanceAutoARetenter`) : une seconde
+// ligne du fil, et la marque du devis passe à la date du nouvel essai.
 //
 // 🔧 26/09/2026 — LE RAPPEL D'ENTRETIEN (Timo : « 5 », « 10 jours »). Même
 // tournée. Règle pure : src/lib/rappelEntretien.js. Dix jours avant la date

@@ -2801,6 +2801,7 @@ titre("㉛ ⌛ L'OFFRE EXPIRÉE (option « b ») ET LA RELANCE AUTOMATIQUE DU 8e
   // ok, une seule relance, lance ».
   const R = await import(pathToFileURL(join(process.cwd(), "src/lib/rappels.js")).href);
   const A = await import(pathToFileURL(join(process.cwd(), "src/lib/relanceAutoDevis.js")).href);
+  const sansCommR = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const dv = { id: "D1", date: "2026-09-01", total: 450000, statut: "propose", type_devis: "solaire" };
   test("★★ l'offre est valable 15 jours À COMPTER du devis : le 16/09 encore valable, expirée le 17/09",
     R.finOffre(dv) === "2026-09-16" && !R.offreExpiree(dv, "2026-09-16") && R.offreExpiree(dv, "2026-09-17"));
@@ -2857,6 +2858,39 @@ titre("㉛ ⌛ L'OFFRE EXPIRÉE (option « b ») ET LA RELANCE AUTOMATIQUE DU 8e
     && ligne.devis_id === "D1" && ligne.wa_modele === "relance_devis_expiration");
   test("★ la marque se pose sur le BON devis, et sur lui seul",
     A.compteApresRelance({ ...client, devis: [dv, { id: "D2" }] }, "D1", "2026-09-09T07:00:00Z").devis.map((d) => d.relance_auto_le || "").join("|") === "2026-09-09|");
+
+  // ↻ UNE RELANCE NON REÇUE SE RETENTE UNE FOIS (16/10/2026, capture d'ONG,
+  // ❌ 131049 « limite les messages commerciaux », « les deux, lance »).
+  const dvR = { ...dv, relance_auto_le: "2026-09-09" };
+  const clientR = { ...client, devis: [dvR] };
+  const echec = { ...ligne, wa_statut: { etat: "echec", le: "2026-09-09T07:00:05Z", motif: M.traduireMotifWhatsApp("", 131049) } };
+  const baseR = { ...base, users: [clientR], messages: [echec] };
+  const reliste = A.relancesAutoDuJour(baseR, "2026-09-10");
+  test("★★ « b » : une relance NON REÇUE (❌ posé par WhatsApp) repart le LENDEMAIN, une seule fois, avec les mêmes cinq trous",
+    reliste.length === 1 && reliste[0].devis.id === "D1" && reliste[0].retente === true && reliste[0].envoi.variables[4] === "16/09/2026");
+  test("★★ jamais le jour même de l'échec, ni sans nouvelle de WhatsApp (✓ envoyé, ✓✓ reçu, ✓✓ lu : rien)",
+    A.relancesAutoDuJour(baseR, "2026-09-09").length === 0
+    && ["envoye", "recu", "lu"].every((etat) => A.relancesAutoDuJour({ ...baseR, messages: [{ ...ligne, wa_statut: { etat, le: "2026-09-09T07:00:05Z" } }] }, "2026-09-10").length === 0));
+  const echec2 = { ...echec, id: "m2", date: "2026-09-10", ts: "2026-09-10T07:00:00Z" };
+  test("★★ UNE fois : deux essais non reçus → plus rien (MAX_ESSAIS_RELANCE_AUTO = 2)",
+    A.MAX_ESSAIS_RELANCE_AUTO === 2 && A.relancesAutoDuJour({ ...baseR, messages: [echec, echec2] }, "2026-09-11").length === 0);
+  test("★★ jamais hors de la fenêtre (après le 15e jour), ni relancé à la main, ni plus ⏳ Proposé, ni ligne à la corbeille, ni en formation",
+    A.relancesAutoDuJour(baseR, "2026-09-17").length === 0
+    && A.relancesAutoDuJour({ ...baseR, users: [{ ...clientR, devis: [{ ...dvR, relance_le: "2026-09-09" }] }] }, "2026-09-10").length === 0
+    && A.relancesAutoDuJour({ ...baseR, users: [{ ...clientR, devis: [{ ...dvR, statut: "valide" }] }] }, "2026-09-10").length === 0
+    && A.relancesAutoDuJour({ ...baseR, messages: [{ ...echec, supprime_le: "2026-09-09" }] }, "2026-09-10").length === 0
+    && A.relancesAutoDuJour({ ...baseR, users: [{ ...clientR, formation: true }] }, "2026-09-10").length === 0);
+  const et = A.etatRelanceAuto([echec], dvR, "2026-09-09");
+  test("★★ « a » : l'état dit NON REÇUE, la limite de WhatsApp reconnue, et le nouvel essai de demain ; après le second échec, plus de nouvel essai",
+    et && et.echec && et.limite && et.retentera && et.le === "2026-09-09"
+    && A.etatRelanceAuto([echec, echec2], dvR, "2026-09-10").retentera === false
+    && A.etatRelanceAuto([{ ...ligne, wa_statut: { etat: "lu", le: "x" } }], dvR, "2026-09-09").echec === false
+    && A.etatRelanceAuto([], dvR, "2026-09-09") === null
+    && A.etatRelanceAuto([{ ...echec, wa_statut: { etat: "echec", motif: "Something odd" } }], dvR, "2026-09-09").limite === false);
+  const TDr = sansCommR(lire("src/screens/TousLesDevis.jsx"));
+  test("★★ 📋 Tous les devis lit LA règle (etatRelanceAuto) et ne dit plus « Relancé automatiquement » d'une relance non reçue",
+    /const r = etatRelanceAuto\(db\.messages, d, today\(\)\);\s*if \(r\?\.echec\) return \(/.test(TDr) && /data-relance-auto-non-recue/.test(TDr)
+    && /Relance automatique non reçue le \{dFR\(r\.le\)\}\{r\.limite \? " \(limite de WhatsApp\)" : ""\} — appelez le client/.test(TDr));
 
   // LE SERVEUR : la tournée de 7 h envoie, et n'écrit qu'APRÈS l'accord de WhatsApp.
   const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
