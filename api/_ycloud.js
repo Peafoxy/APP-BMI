@@ -76,6 +76,14 @@ export async function televerserYCloud(cle, expediteur, { octets, mime, nom }) {
 
 // Le message qui cite le fichier déposé. Un son ne porte pas de phrase
 // (Meta la refuserait) ; un document porte son nom, que le client verra.
+// 📎 L'EN-TÊTE DOCUMENT d'un modèle (17/10/2026, `devis_pdf`) : le fichier
+// déjà déposé, cité par son numéro, avec le nom que le client verra.
+// ⚠ Forme de Meta (template « header » → « document » { id, filename }) ;
+// pas encore éprouvée chez YCloud d'ici : le premier vrai devis le dira, et un
+// refus revient tel quel (le devis repart alors sans PDF, côté application).
+export const composantDocument = (id, nom) =>
+  ({ type: "header", parameters: [{ type: "document", document: { id, ...(nom ? { filename: nom } : {}) } }] });
+
 export function corpsMedia(expediteur, destinataire, { type, id, legende, nom }) {
   const bloc = { id };
   if (legende && type !== "audio") bloc.caption = legende;

@@ -28,11 +28,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
 import { estCompteFormation } from "../src/lib/espace.js";
-import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable } from "../src/lib/whatsappModeles.js";
+import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable, modeleAvecDocument, MOTIF_PDF_MANQUANT } from "../src/lib/whatsappModeles.js";
 import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre, critiqueFichier, typeEnvoiFichier, TAILLE_MAX_ENVOI } from "../src/lib/whatsappConversations.js";
 // ⚠ La porte vers YCloud est écrite UNE fois (api/_ycloud.js) : l'assistant
 // du webhook envoie par la même — la clé et la lecture du refus y vivent.
-import { configYCloud, envoyerYCloud, corpsTexte, televerserYCloud, corpsMedia } from "./_ycloud.js";
+import { configYCloud, envoyerYCloud, corpsTexte, televerserYCloud, corpsMedia, composantDocument } from "./_ycloud.js";
 import { enregistrerContactGoogle } from "./_contactGoogle.js";
 
 // Les rôles qui n'écrivent jamais au nom de BMI : un client (il a son fil
@@ -54,14 +54,22 @@ export default async function handler(req, res) {
   // fenêtre de 24 h, mêmes refus — avec une phrase FACULTATIVE. Il arrive
   // codé (base64) ; on le décode et on le REMESURE ici : la taille annoncée
   // par l'écran ne se croit pas sur parole. Il n'est rangé nulle part.
+  // 📎 17/10/2026 : un MODÈLE à en-tête document (`devis_pdf`) porte lui aussi
+  // un fichier — un PDF seulement, déposé de la même façon. Un autre modèle
+  // n'en porte jamais (un fichier envoyé avec lui est ignoré).
+  const enteteDocument = !!modele && modeleAvecDocument(modele);
   let piece = null;
-  if (fichier && !modele) {
+  if (fichier && (!modele || enteteDocument)) {
     const octets = Buffer.from(String(fichier.donnees || ""), "base64");
     piece = { nom: String(fichier.nom || "").slice(0, 200), mime: String(fichier.mime || ""), taille: octets.length, octets };
     if (octets.length > TAILLE_MAX_ENVOI + 1024) return res.status(413).json({ error: critiqueFichier(piece) || "Fichier trop lourd." });
-    const refusFichier = critiqueFichier(piece, texte);
+    const refusFichier = critiqueFichier(piece, enteteDocument ? "" : texte);
     if (refusFichier) return res.status(400).json({ error: refusFichier });
+    if (enteteDocument && (piece.mime !== "application/pdf" || !/\.pdf$/i.test(piece.nom))) {
+      return res.status(400).json({ error: "Ce modèle n'accepte qu'un PDF." });
+    }
   }
+  if (enteteDocument && !piece) return res.status(400).json({ error: MOTIF_PDF_MANQUANT });
 
   // ⚠ DEUX FORMES, UNE SEULE PORTE (étape 2, 20/09/2026) : un MODÈLE
   // approuvé (le seul qui parte quand on veut), ou une RÉPONSE LIBRE dans
@@ -127,12 +135,17 @@ export default async function handler(req, res) {
 
     // 📎 Le fichier est DÉPOSÉ chez WhatsApp d'abord, puis le message le
     // cite. Un dépôt refusé arrête tout : rien ne part, et on dit pourquoi.
+    // 📎 Même dépôt pour le PDF d'un modèle à en-tête document : le modèle
+    // cite le numéro du fichier dans son EN-TÊTE, avec le nom que le client verra.
     let corpsFichier = null;
+    let depot = null;
     if (piece) {
-      const depot = await televerserYCloud(cle, expediteur, piece);
+      depot = await televerserYCloud(cle, expediteur, piece);
       if (!depot.ok) return res.status(502).json({ error: depot.motif, statut_whatsapp: depot.statut_whatsapp, code_whatsapp: depot.code_whatsapp });
-      corpsFichier = corpsMedia(expediteur, destinataire, { type: typeEnvoiFichier(piece.mime), id: depot.id, legende: motReponse, nom: piece.nom });
+      if (reponseLibre) corpsFichier = corpsMedia(expediteur, destinataire, { type: typeEnvoiFichier(piece.mime), id: depot.id, legende: motReponse, nom: piece.nom });
     }
+    const composants = [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }];
+    if (enteteDocument) composants.unshift(composantDocument(depot.id, piece.nom));
     const corps = corpsFichier || (reponseLibre
       ? corpsTexte(expediteur, destinataire, motReponse)
       : {
@@ -142,7 +155,7 @@ export default async function handler(req, res) {
         template: {
           name: nom,
           language: { code: LANGUE_MODELES },
-          components: [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }],
+          components: composants,
         },
       });
     const resultat = await envoyerYCloud(cle, corps);

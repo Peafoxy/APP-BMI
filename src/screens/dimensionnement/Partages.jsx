@@ -10,7 +10,7 @@ import { propositionsComptesDevis, libelleCompteDevis } from "../../lib/clientsC
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, LIBELLE_ROLE_EMPLOYE, estSansAcces, ouvrirAcces } from "../../lib/comptesClients";
 import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte, nouveauMessage } from "../../lib/core";
 import { envoyerModele, envoyerAccesSansRepli, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
-import { envoiDevisDisponible, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye } from "../../lib/whatsappModeles";
+import { envoiDevisDisponible, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye, MOTIF_PDF_MANQUANT } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { devisACompleter } from "../../lib/devisCfVisite";
 import { prospectAvecDevis } from "../../lib/prospects";
@@ -466,6 +466,10 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     ? ((db.users || []).find((u) => u.id === devisAReprendre?.client?.id)?.devis || []).find((x) => x.id === idAReprendre) || null
     : null;
   const [auteurId, setAuteurId] = useState("");
+  // 📎 « Joindre le PDF du devis » (17/10/2026, « A a ») : décochée pour chaque
+  // devis — cochée, le devis part par `devis_pdf` avec son PDF ; si ça ne part
+  // pas, il part sans PDF par `devis_disponible` (« B a »), et l'écran le dit.
+  const [avecPdf, setAvecPdf] = useState(false);
   // 📝 Le brouillon d'un AUTRE repris (« A a, B b, C a », 12/10/2026) : il
   // reste le sien. Le devis part à son nom, le brouillon ré-enregistré
   // retourne dans SES brouillons, et c'est de SA liste qu'il disparaît.
@@ -506,11 +510,11 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     const { devis, idRemplace, dbEnvoi } = prep;
     const envoye = await envoyerDevisEtOuvrirWhatsApp({
       dbApres: dbEnvoi,
-      compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre: idRemplace,
+      compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre: idRemplace, avecPdf,
     });
     if (!envoye) return;
     apresLeDevis(compte, devis);
-    { const m = messageDevisEnvoye(compte.nom, envoye.auto); if (envoye.auto && m) uAlert(m); }
+    { const m = messageDevisEnvoye(compte.nom, envoye.auto, envoye); if (envoye.auto && m) uAlert(m); }
   };
 
   // Ce qui est commun à l'envoi et à l'impression : le devis au nom de son
@@ -555,6 +559,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     setClientDevis("");
     setNouvClient(CLIENT_VIDE());
     setAuteurId("");
+    setAvecPdf(false);
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     effacerBrouillonVolet(volet, profile);
   };
@@ -684,7 +689,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     uAlert(`📝 Brouillon enregistré${client ? ` pour ${client.nom}` : ` pour ${titre} — sans compte`}.\n\nVous le retrouverez dans l'onglet « Mes brouillons » : reprendre, envoyer par WhatsApp, confier à un collègue, ou supprimer.`);
   };
 
-  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, imprimer, convertir, enregistrerBrouillon, etabliPour };
+  return { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, envoyer, imprimer, convertir, enregistrerBrouillon, etabliPour, avecPdf, setAvecPdf };
 }
 
 // ---- Conditions de paiement — % d'acompte et délai d'installation propres
@@ -767,7 +772,7 @@ export function BlocEtabliPour({ etabliPour }) {
   );
 }
 
-export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, onBrouillon, onImprimer = null, profile, etabliPour = null }) {
+export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, onBrouillon, onImprimer = null, profile, etabliPour = null, avecPdf = false, setAvecPdf = null }) {
   // ⚠ La signature était exigée tout à la FIN, après avoir tout rempli et
   // cliqué (relevé par Timo, 18/08/2026). On prévient maintenant AVANT.
   const sansSignature = profile && !profile.signature_personnelle;
@@ -866,6 +871,19 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-xs">
           Compte qui sera créé — identifiant : <b>{identifiantClient(db, nouvClient.nom, nouvClient.tel)}</b> · mot de passe : <b>{motDePasseClient(nouvClient.nom, nouvClient.tel)}</b>
         </div>
+      )}
+
+      {/* 📎 Timo (17/10/2026, « A a, B a ») : décochée pour chaque devis. Cochée,
+          le PDF du devis part avec le message du numéro BMI ; s'il ne peut pas
+          partir, le message habituel part sans PDF, et l'écran le dit. */}
+      {setAvecPdf && (
+        <label className="mt-3 flex items-start gap-2 text-sm text-slate-800" data-joindre-pdf>
+          <input type="checkbox" className="mt-1" checked={!!avecPdf} onChange={(e) => setAvecPdf(e.target.checked)} />
+          <span>
+            <b>📎 Joindre le PDF du devis</b>
+            <span className="block text-[11px] text-slate-500">Le client reçoit le devis en pièce jointe dans WhatsApp. S'il ne peut pas partir, le message habituel part sans PDF.</span>
+          </span>
+        </label>
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -1095,7 +1113,7 @@ export function rangerDevisChezLeClient({ dbApres, compte, devis, profile, idARe
   return { dbFinal, devisMarque, auteurFinal, idDevis: idAReprendre || devisMarque.id };
 }
 
-export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre }) {
+export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre, avecPdf = false }) {
   const range = rangerDevisChezLeClient({ dbApres, compte, devis, profile, idAReprendre });
   if (!range) return false;
   const { dbFinal, devisMarque, auteurFinal } = range;
@@ -1153,8 +1171,16 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     if (rAcces.auto) { accesPartis = true; accesEnvoyes = rAcces; }
     else if (rAcces.motif && !motifAttendu(rAcces.motif)) motifAcces = rAcces.motif;
   }
-  const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt });
-  const r = await envoyerModele({
+  // 📎 LE PDF JOINT (Timo, 17/10/2026, « A a, B a, C a ») : la case cochée,
+  // le PDF du devis — celui de « 📄 Devis PDF » — part avec `devis_pdf`, SANS
+  // repli. S'il ne part pas (modèle pas encore approuvé, PDF refusé…), le
+  // devis part par `devis_disponible` comme avant, et la phrase le dit (« B a »).
+  // Jamais avant ses accès, jamais en formation : la même règle que le devis.
+  const pdf = avecPdf && accesPartis && !espaceFormation
+    ? await envoyerPdfDuDevis({ db: dbFinal, compte, idDevis, devisMarque, tel: telClient, espaceFormation })
+    : { r: null, motif: "" };
+  const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt, avecPdf: !!pdf.r });
+  const r = pdf.r || await envoyerModele({
     tel: telClient,
     modele: envoi.modele,
     variables: envoi.variables,
@@ -1164,7 +1190,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
     demanderConfirmation: uConfirm,
     prevenir: uAlert,
     // Tout se dit AVANT l'ouverture (règle du 29/09/2026), en UNE fenêtre.
-    annonceRepli: `${motifAcces ? `📲 Ses accès ne sont pas partis du numéro BMI.\n\n${motifAcces}\n\n` : ""}✅ Devis enregistré dans l'espace de ${compte.nom}.\n\nAppuyez sur OK : WhatsApp s'ouvre avec ses identifiants et le lien, à envoyer au client.`,
+    annonceRepli: `${motifAcces ? `📲 Ses accès ne sont pas partis du numéro BMI.\n\n${motifAcces}\n\n` : ""}${pdf.motif ? `📎 Le PDF n'est pas parti : ${pdf.motif}\n\n` : ""}✅ Devis enregistré dans l'espace de ${compte.nom}.\n\nAppuyez sur OK : WhatsApp s'ouvre avec ses identifiants et le lien, à envoyer au client.`,
   });
   // ⚠ Un repli muet ressemble à une panne : on DIT pourquoi, sauf quand le
   // motif est attendu (formation, premier message qui porte les identifiants).
@@ -1195,5 +1221,28 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // pouvoir dire la vérité ensuite (WhatsApp s'est ouvert, ou le client a
   // reçu le message du numéro BMI). Un objet reste « vrai » pour les deux
   // appelants, qui testent simplement `if (envoye)`.
-  return { ok: true, auto: !!r.auto };
+  return { ok: true, auto: !!r.auto, pdfDemande: !!avecPdf, pdf: !!pdf.r, motifPdf: pdf.motif };
+}
+
+// 📎 Le devis AVEC SON PDF, du numéro BMI (17/10/2026) — écrit UNE fois pour
+// 📐 Dimensionnement et « ✍️ Compléter le devis » (📋 Tous les devis). Le PDF
+// sort de LA fabrique de « 📄 Devis PDF » (chargée par import() : cycle
+// TousLesDevis → Garage → Partages), sur la fiche telle qu'elle vient d'être
+// rangée. Rend { r } si c'est parti, sinon { r: null, motif } — l'appelant
+// envoie alors le message habituel. Jamais de repli ici : WhatsApp ne doit
+// pas s'ouvrir deux fois.
+export async function envoyerPdfDuDevis({ db, compte, idDevis, devisMarque, tel, espaceFormation }) {
+  let fichier = null;
+  try {
+    const { fichierPdfDuDevis } = await import("../TousLesDevis");
+    const fiche = (db.users || []).find((u) => u.id === compte.id) || compte;
+    const dv = (fiche.devis || []).find((x) => x.id === idDevis) || devisMarque;
+    fichier = fichierPdfDuDevis(db, { ...dv, client: fiche });
+  } catch (e) {
+    console.error("PDF du devis à joindre :", e);
+    return { r: null, motif: MOTIF_PDF_MANQUANT };
+  }
+  const envoiPdf = envoiDevisDisponible({ devis: devisMarque, compte, fmt, avecPdf: true });
+  const r = await envoyerModele({ tel, modele: envoiPdf.modele, variables: envoiPdf.variables, espaceFormation, sansRepli: true, fichier });
+  return r.auto ? { r, motif: "" } : { r: null, motif: r.motif || "" };
 }

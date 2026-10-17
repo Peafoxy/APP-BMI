@@ -43,6 +43,11 @@ export const LANGUE_MODELES = "fr";
 export const MODELES = {
   // « Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt. … »
   devis_disponible: { categorie: "marketing", variables: ["client", "domaine", "montant"] },
+  // 📎 17/10/2026 (Timo, « A a, B a, C a ») : le même devis, son PDF en
+  // EN-TÊTE (`entete: "document"`). Le fichier est déposé chez WhatsApp par le
+  // serveur juste avant l'envoi, jamais rangé chez nous. Choisi par la case
+  // « 📎 Joindre le PDF du devis » ; décochée, c'est `devis_disponible`.
+  devis_pdf: { categorie: "marketing", variables: ["client", "domaine", "montant"], entete: "document" },
   // « Bonjour {{1}}, nous revenons vers vous au sujet du devis {{2}} de {{3}}
   //   que nous vous avons envoyé le {{4}}. … »
   relance_devis: { categorie: "marketing", variables: ["client", "domaine", "montant", "date"] },
@@ -297,6 +302,9 @@ export const NOMS_MODELES = Object.keys(MODELES);
 // Les modèles qu'un écran a le droit d'envoyer aujourd'hui.
 export const MODELES_EN_SERVICE = [
   "devis_disponible", "relance_devis", "devis_valide_paiement", "prise_de_contact",
+  // 📎 17/10/2026 : le devis avec son PDF. En service AVANT l'accord de Meta :
+  // d'ici là il est refusé, et le devis part par `devis_disponible` (« B a »).
+  "devis_pdf",
   // 📋 Dettes, 20/09/2026 (décision « c ») : la relance d'une dette part
   // du numéro BMI. Mis en service AVANT l'accord de Meta (d'ici là, repli
   // sur l'ouverture WhatsApp, refus dit en français) pour éviter un second
@@ -549,14 +557,21 @@ export const MOTIF_PREMIER_CONTACT = "Premier message à ce client : il porte se
 export const MOTIFS_ATTENDUS = [MOTIF_FORMATION, MOTIF_PREMIER_CONTACT];
 export const motifAttendu = (motif) => MOTIFS_ATTENDUS.includes(String(motif || ""));
 
-export function critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact = false, enLigne = true }) {
+export function critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact = false, enLigne = true, avecDocument = false }) {
   if (espaceFormation) return MOTIF_FORMATION;
   if (premierContact) return MOTIF_PREMIER_CONTACT;
   if (!MODELES_EN_SERVICE.includes(modele)) return `Le modèle « ${modele} » n'est pas encore en service.`;
   if (!String(tel || "").replace(/\D/g, "")) return "Ce client n'a pas de numéro de téléphone enregistré.";
   if (!enLigne) return "Pas de connexion : le message ne peut pas partir du numéro BMI.";
+  if (modeleAvecDocument(modele) && !avecDocument) return MOTIF_PDF_MANQUANT;
   return critiqueModele(modele, variables);
 }
+
+// 📎 Un modèle à EN-TÊTE DOCUMENT (17/10/2026, `devis_pdf`) ne part jamais
+// sans son fichier : Meta le refuserait, et le client recevrait « en pièce
+// jointe » sans pièce jointe. Le serveur le revérifie lui aussi.
+export const modeleAvecDocument = (nom) => (MODELES[String(nom || "")] || {}).entete === "document";
+export const MOTIF_PDF_MANQUANT = "Le PDF du devis n'a pas pu être préparé sur cet appareil.";
 
 // ---------------------------------------------------------------
 // CE QUE CHAQUE MODÈLE REÇOIT
@@ -580,10 +595,18 @@ export const nomPourClient = (compte) => texteVariable(compte?.nom_base || compt
 // ne change pas). La marque `cf_visite` est lue ici sans import (ce fichier
 // n'en a aucun ; la règle vit dans lib/devisCfVisite.js).
 export const SUITE_MONTANT_CF_VISITE = " (hors éléments à chiffrer après la visite)";
-export function envoiDevisDisponible({ devis, compte, fmt }) {
+// 📎 17/10/2026 : `avecPdf` choisit `devis_pdf` (mêmes trois trous, le PDF en
+// en-tête) — la case « 📎 Joindre le PDF du devis ». UNE fabrique pour les
+// deux modèles : les trous ne peuvent pas diverger.
+export const TEXTE_DEVIS_PDF =
+  "Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.\n\n"
+  + "Montant : {{3}}\n\n"
+  + "Vous le trouverez en pièce jointe. Vous pouvez aussi le consulter, le valider ou demander une modification dans votre espace client : https://gestion.bmitogo.com\n\n"
+  + "BMI TOGO — Les bâtiments modernes et intelligents";
+export function envoiDevisDisponible({ devis, compte, fmt, avecPdf = false }) {
   const partiel = (Array.isArray(devis?.lignes) ? devis.lignes : []).some((l) => l && l.cf_visite);
   return {
-    modele: "devis_disponible",
+    modele: avecPdf ? "devis_pdf" : "devis_disponible",
     variables: [nomPourClient(compte), domaineDevis(devis), texteVariable(`${fmt(devis?.total)}${partiel ? SUITE_MONTANT_CF_VISITE : ""}`)],
   };
 }
@@ -868,6 +891,7 @@ export function libelleTrace(trace) {
 // une phrase. ⚠ La ligne DIT ce qui est parti, jamais « livré » ni « lu ».
 const LIGNES_ENVOI = {
   devis_disponible: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}.`,
+  devis_pdf: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}, 📎 PDF joint.`,
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
   demande_avis: ([client, installation]) => `Demande d'avis Google envoyée à ${client} (installation ${installation}).`,
   rappel_entretien: ([client, installation, date]) => `Rappel automatique de l'entretien de l'installation ${installation} de ${client}, prévu le ${date}.`,
@@ -1057,10 +1081,15 @@ export function motifEchecWhatsApp({ statut, erreur, code } = {}) {
 // BMI, WhatsApp ne s'ouvre PAS. Une phrase qui décrit autre chose que ce qui
 // vient de se passer fait douter de tout le reste. Écrite UNE fois, pour les
 // deux endroits qui envoient un devis (le volet, et Mes brouillons).
-export const messageDevisEnvoye = (nomClient, auto) =>
+// 📎 17/10/2026 (« B a ») : la case cochée mais le PDF pas parti → le devis
+// est parti par le message habituel, et la phrase le DIT avec la raison.
+export const messageDevisEnvoye = (nomClient, auto, { pdfDemande = false, pdf = false, motifPdf = "" } = {}) =>
   `✅ Devis envoyé dans l'espace de ${nomClient}.\n\n`
   + (auto
-      ? "Le client a reçu un message WhatsApp du numéro BMI."
+      ? (pdf
+          ? "Le client a reçu un message WhatsApp du numéro BMI, avec le PDF du devis."
+          : "Le client a reçu un message WhatsApp du numéro BMI."
+            + (pdfDemande ? `\n\n📎 Le PDF n'est pas parti : ${motifPdf || "WhatsApp ne l'a pas accepté."}\nLe message habituel est parti à la place, sans PDF.` : ""))
       : "");
 // ⚠ 29/09/2026 : quand WhatsApp s'ouvre sur l'appareil, tout a été dit AVANT
 // (`annonceRepli`) — l'écran n'affiche donc cette phrase que si le message

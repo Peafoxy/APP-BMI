@@ -51,7 +51,10 @@ const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== f
 // contact) ne dérange personne. `annonce` dit à l'écran que c'est déjà dit.
 // `annonceRepli` : ce que l'écran veut dire AVANT l'ouverture même quand le
 // motif est attendu (formation, premier contact) — sinon rien n'est dit.
-export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false, prevenir, annonceRepli }) {
+// 📎 `fichier` (17/10/2026) : le PDF d'un modèle à en-tête document
+// (`devis_pdf`) — { nom, mime, donnees } en base64. Sans lui, ce modèle est
+// refusé ici même, avant tout appel (critiqueEnvoiAuto).
+export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false, prevenir, annonceRepli, fichier = null }) {
   const repli = async (motif) => {
     if (sansRepli) return { auto: false, motif, annonce: false, parti: false };
     const imprevu = !!motif && !motifAttendu(motif);
@@ -65,7 +68,7 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     };
   };
 
-  const refus = critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact, enLigne: enLigne() });
+  const refus = critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact, enLigne: enLigne(), avecDocument: !!fichier });
   if (refus) return repli(refus);
 
   let reponse;
@@ -77,7 +80,7 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     // est un écran blanc en puissance (leçon du 19/09/2026). Le message
     // n'en part pas moins vite : personne ne clique en moins d'une seconde.
     const { whatsappEnLigne } = await import("./supabaseClient");
-    reponse = await whatsappEnLigne({ tel, modele, variables });
+    reponse = await whatsappEnLigne({ tel, modele, variables, ...(fichier ? { fichier: { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees } } : {}) });
   } catch (e) {
     return repli(motifEchecWhatsApp({ erreur: e?.message }));
   }

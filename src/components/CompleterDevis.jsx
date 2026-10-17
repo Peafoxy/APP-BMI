@@ -28,6 +28,8 @@ export function CompleterDevis({ devis, produits = [], onAnnuler, onEnregistrer 
     return l.article ? lierAutreAuStock(base, l.article, produits) : base;
   }));
   const [ajouts, setAjouts] = useState([]);
+  // 📎 « C a » (17/10/2026) : la même case que le volet du devis, décochée.
+  const [avecPdf, setAvecPdf] = useState(false);
   const propositions = produits.map((p) => ({ cle: p.id, valeur: p.nom, detail: fmt(p.prix_vente) }));
   // Le NOM passe par la règle des autres équipements : un nom du stock lie la
   // ligne (prix pré-rempli), un nom libre la laisse libre et HB.
@@ -84,9 +86,13 @@ export function CompleterDevis({ devis, produits = [], onAnnuler, onEnregistrer 
           Total provisoire : <b>{fmt(devis.total)}</b>
           {apercu.devis ? <> → total du devis complété : <b className="text-sky-800">{fmt(apercu.devis.total)}</b></> : <span className="text-slate-500"> — {apercu.erreur}</span>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-slate-800" data-joindre-pdf>
+            <input type="checkbox" checked={avecPdf} onChange={(e) => setAvecPdf(e.target.checked)} />
+            <b>📎 Joindre le PDF du devis</b>
+          </label>
           <button onClick={onAnnuler} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold">Annuler</button>
-          <button onClick={() => onEnregistrer({ reponses, ajouts })} disabled={!apercu.devis}
+          <button onClick={() => onEnregistrer({ reponses, ajouts, avecPdf })} disabled={!apercu.devis}
             className={`px-4 py-2 rounded-lg text-sm font-bold ${apercu.devis ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
             ✍️ Enregistrer et envoyer au client
           </button>

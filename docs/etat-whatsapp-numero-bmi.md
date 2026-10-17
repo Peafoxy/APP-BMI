@@ -624,3 +624,20 @@ et peut y répondre. On peut la reconfier ensuite.
 conversation à tout le monde pendant que la base continuerait de la cacher.
 Le script se termine par `true | true | true`.
 ⚠ Effet à la prochaine reconnexion de chacun.
+
+## 📎 `devis_pdf` — le devis avec son PDF (17/10/2026)
+
+À créer chez YCloud : nom **devis_pdf**, catégorie **Marketing**, langue **fr**,
+en-tête **Document** (joindre un PDF d'exemple pour la soumission), corps :
+
+> Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.
+>
+> Montant : {{3}}
+>
+> Vous le trouverez en pièce jointe. Vous pouvez aussi le consulter, le valider ou demander une modification dans votre espace client : https://gestion.bmitogo.com
+>
+> BMI TOGO — Les bâtiments modernes et intelligents
+
+Exemples des trous : {{1}} AMA KOFFI · {{2}} solaire · {{3}} 1 250 000 F.
+Tant qu'il n'est pas approuvé, un devis envoyé avec la case cochée part sans
+PDF par `devis_disponible`, et l'écran le dit.

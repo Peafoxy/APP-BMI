@@ -483,6 +483,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
         nouvClient={nouvClient} setNouvClient={setNouvClient}
         comptesClients={comptesClients} profile={profile} onEnvoyer={envoyerDevisWhatsApp} onBrouillon={enregistrerBrouillon} onImprimer={imprimerDevis}
         etabliPour={envoi.etabliPour}
+        avecPdf={envoi.avecPdf} setAvecPdf={envoi.setAvecPdf}
       />
 
 

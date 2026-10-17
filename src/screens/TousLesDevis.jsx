@@ -8,11 +8,12 @@ import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
-import { fmt, dFR, today, heureCourte, envoyerWhatsApp } from "../lib/core";
+import { fmt, dFR, today, heureCourte, envoyerWhatsApp, fichierPdf } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { envoiRelanceDevis, envoiDevisDisponible, traceEnvoi, libelleTrace } from "../lib/whatsappModeles";
+import { envoiRelanceDevis, envoiDevisDisponible, traceEnvoi, libelleTrace, SUITE_REPLI } from "../lib/whatsappModeles";
 import { estLigneCfVisite, devisACompleter, attendLaVisite, ONGLET_A_COMPLETER, peutCompleterDevis, motifRefusCompletion, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "../lib/devisCfVisite";
 import { completerDevis, peutEtablirPourAutrui, auteursDuFiltre, devisDeLAuteur, auteurDuDevis } from "./dimensionnement/devisCommun";
+import { envoyerPdfDuDevis } from "./dimensionnement/Partages";
 import { CompleterDevis } from "../components/CompleterDevis";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, LIBELLE_ROLE_EMPLOYE, estSansAcces } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
@@ -77,13 +78,16 @@ export function commandeAEncaisser(db, d) {
 // « 🖨 Imprimer le devis (sans l'envoyer) » du volet (15/10/2026, chargé à la
 // demande par Partages.jsx, qui ne peut pas importer cet écran directement :
 // cet écran importe Garage, qui importe Partages). `d.client` = sa fiche.
-export function genererPdfDuDevis(db, d) {
+// 📎 17/10/2026 : les DONNÉES du PDF, écrites UNE fois — « 📄 Devis PDF »
+// (téléchargé) et le PDF joint au message WhatsApp (`fichierPdfDuDevis`)
+// sortent de la même fabrique : le client reçoit le document qu'on imprime.
+function donneesPdfDuDevis(db, d) {
   // ⚠ Bandeau formation (demande Timo) : le devis n'a pas de champ
   // boutique direct avant vente — même repli que le contrat d'installation
   // (impression.js) : la boutique de la personne qui l'a créé (d.par).
   const initiateur = (db.users || []).find((u) => u.nom === d.par);
   const estFormation = !!(db.boutiques || []).find((b) => b.nom === initiateur?.boutique)?.formation;
-  genererDevis({
+  return {
     numero: d.id.slice(0, 8).toUpperCase(),
     date: dFR(d.date),
     boutique: d.boutique,
@@ -124,7 +128,22 @@ export function genererPdfDuDevis(db, d) {
     // l'e-mail de la boutique du devis, comme le reçu — sinon celle de son
     // auteur. Sans fiche trouvée, l'en-tête d'avant.
     bq: (db.boutiques || []).find((b) => b.nom === d.boutique) || (db.boutiques || []).find((b) => b.nom === initiateur?.boutique) || null,
-  }, LOGO);
+  };
+}
+
+export function genererPdfDuDevis(db, d) {
+  genererDevis(donneesPdfDuDevis(db, d), LOGO);
+}
+
+// 📎 Le PDF du devis en FICHIER, pour le joindre au message WhatsApp du numéro
+// BMI (case « 📎 Joindre le PDF du devis », 17/10/2026) : { nom, mime,
+// taille, donnees } — les données en base64, comme un fichier du 📎 de
+// 📲 WhatsApp. Le nom suit la règle des documents (« Devis - Client - N° »).
+export function fichierPdfDuDevis(db, d) {
+  const donnees = donneesPdfDuDevis(db, d);
+  const doc = genererDevis(donnees, LOGO, true);
+  const base64 = String(doc.output("datauristring") || "").split(",")[1] || "";
+  return { nom: fichierPdf("Devis", { client: donnees.client, numero: donnees.numero }), mime: "application/pdf", taille: Math.floor(base64.length * 3 / 4), donnees: base64 };
 }
 
 export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCommande = null, ouvertInitial = null }) {
@@ -524,18 +543,28 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
     // 🖨 Sans accès : rien ne lui est envoyé, le devis complété s'imprime.
     if (estSansAcces(client)) { uAlert(`✅ Devis complété : ${fmt(res.devis.total)}.\n\n${client.nom_base || client.nom} n'a pas d'accès à l'application (devis imprimé sans compte) : rien ne lui est envoyé. Imprimez-le (📄 Devis PDF).`); return; }
     if (!client.tel) { uAlert(`✅ Devis complété : ${fmt(res.devis.total)}.\n\nCe client n'a pas de numéro enregistré : prévenez-le vous-même qu'il peut le valider dans son espace.`); return; }
-    if (!await uConfirm(`✅ Devis complété : ${fmt(res.devis.total)}.\n\nL'envoyer à ${nomClient} (${client.tel}) du numéro WhatsApp BMI ?`)) return;
-    const envoi = envoiDevisDisponible({ devis: res.devis, compte: client, fmt });
+    if (!await uConfirm(`✅ Devis complété : ${fmt(res.devis.total)}.\n\nL'envoyer à ${nomClient} (${client.tel}) du numéro WhatsApp BMI${saisie.avecPdf ? ", avec le PDF du devis" : ""} ?`)) return;
+    const espaceFormation = espaceDuDevis(db, res.devis, profile);
+    // 📎 « C a » (17/10/2026) : la case « Joindre le PDF » d'ici suit la même
+    // règle que le volet — le PDF d'abord (sans repli), sinon le message
+    // habituel sans PDF (« B a »). Le PDF est celui du devis COMPLÉTÉ.
+    const dbComplete = { ...db, users: (db.users || []).map((u) => (u.id === client.id ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? res.devis : x)) } : u)) };
+    const pdf = saisie.avecPdf && !espaceFormation
+      ? await envoyerPdfDuDevis({ db: dbComplete, compte: client, idDevis: d.id, devisMarque: res.devis, tel: client.tel, espaceFormation })
+      : { r: null, motif: "" };
+    const envoi = envoiDevisDisponible({ devis: res.devis, compte: client, fmt, avecPdf: !!pdf.r });
     const texte = [
       `Bonjour ${nomClient}, votre devis BMI TOGO a été complété après la visite.`, ``,
       `Montant : ${fmt(res.devis.total)}`, ``,
       `Consultez-le et validez-le dans votre espace client :`, ADRESSE_APP, ``,
       `BMI TOGO — Les bâtiments modernes et intelligents`,
     ].join("\n");
-    const r = await envoyerModele({
+    const motifPdf = saisie.avecPdf && !espaceFormation && !pdf.r ? (pdf.motif || "le numéro BMI n'a pas pu l'envoyer.") : "";
+    const r = pdf.r || await envoyerModele({
       tel: client.tel, modele: envoi.modele, variables: envoi.variables,
-      espaceFormation: espaceDuDevis(db, res.devis, profile),
+      espaceFormation,
       texteRepli: texte, demanderConfirmation: uConfirm, prevenir: uAlert,
+      ...(motifPdf ? { annonceRepli: `📎 Le PDF n'est pas parti : ${motifPdf}\n\n${SUITE_REPLI}` } : {}),
     });
     if (!r.auto) return;
     const trace = traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id });
@@ -544,7 +573,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
       users: etat.users.map((u) => (u.id === client.id ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, envoi_whatsapp: trace } : x)) } : u)),
       messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: client.tel, nom: nomClient, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: d.id }, envoi: r }) : etat.messages,
     }));
-    uAlert(`✅ Le devis complété est parti à ${nomClient} du numéro WhatsApp BMI.`);
+    uAlert(`✅ Le devis complété est parti à ${nomClient} du numéro WhatsApp BMI${pdf.r ? ", avec le PDF du devis" : ""}.${motifPdf ? `\n\n📎 Le PDF n'est pas parti : ${motifPdf}\nLe message habituel est parti à la place, sans PDF.` : ""}`);
   };
 
   const telechargerPDF = (d) => genererPdfDuDevis(db, d);
