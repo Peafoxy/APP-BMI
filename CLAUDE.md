@@ -1268,7 +1268,15 @@ lit mal est pire qu'un banc absent).
     App.jsx) — pour TOUT devis validé, pas seulement sans compte.
   - **Son espace s'ouvre** (une question, ses identifiants partent du numéro BMI)
     par « 📲 Envoyer par WhatsApp » d'un devis, « 🙋 Créer un client » ou
-    « Convertir » d'un prospect sur son numéro — jamais un doublon. 📋 Clients
+    « Convertir » d'un prospect sur son numéro — jamais un doublon. **Et 👥 Utilisateurs →
+    ➕ Nouvel utilisateur → Client** sur son numéro (17/10/2026, « corrige
+    Utilisateurs pour ouvrir la fiche existante ») : avant, un SECOND compte
+    vide naissait et le devis restait dans la fiche fermée ; la fiche fermée
+    est cherchée dans l'espace REGARDÉ et OUVERTE, rien n'est fabriqué. ⚠ Un
+    compte OUVERT sur le même numéro y donne toujours un doublon (pas demandé,
+    dit à Timo). ⚠ Le bouton « 🧲 Comptes prospects » de 👥 COMPTE les fiches
+    fermées mais ne les MONTRE pas (la liste les écarte) — dit à Timo, en
+    attente de sa réponse. Banc +1, éprouvé. 📋 Clients
     lui envoie le mot de fidélité SANS les lignes de l'espace.
   - Rien à coller (une fiche client n'est pas gardée par `securite-39` au-delà du
     mot de passe ; elle naît avec ses identifiants). Banc (+12, dont 📋 Tous les

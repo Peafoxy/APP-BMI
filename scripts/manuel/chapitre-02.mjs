@@ -86,6 +86,7 @@ export const CHAPITRE = {
         { titre: "Rôle « Client »", texte: "Après « ➕ Nouvel utilisateur », le formulaire se réduit à **« Nom »** et **« Numéro de téléphone »**. Rien d'autre à taper." },
         { titre: "Le mot de passe se fabrique tout seul", texte: "**6 caractères pris dans les chiffres de son numéro et les lettres de son nom**, mélangés toujours de la même façon pour ce client — donc recalculables, jamais écrits en clair. L'identifiant, c'est le nom ; si un autre client le porte déjà, l'application y accole des chiffres du numéro. Les deux s'affichent en bleu avant même de cliquer." },
         { titre: "« Créer », puis la confirmation", texte: "« Créer le compte client de … ? 👤 Identifiant … 🔑 Mot de passe … Remettez-lui ces identifiants. » Puis : « Envoyer ces identifiants au client par WhatsApp ? »" },
+        { titre: "Un client dont le devis a été imprimé sans compte", texte: "Si le numéro tapé est celui d'une fiche **sans accès** (devis « 🖨 Sans compte », chapitre 13), **aucun second compte n'est créé** : « NOM a déjà une fiche, sans accès à l'application… sa fiche s'ouvre, avec son devis dedans. Lui ouvrir son espace ? ». OK : son espace s'ouvre avec ses identifiants habituels, puis « Envoyer ces identifiants au client par WhatsApp ? »." },
       ]],
       ["note", "Parce qu'il est fabriqué par une règle, le mot de passe d'un client **se retrouve** : « 👁 Voir le mot de passe » (administrateur principal) le recalcule et vous pouvez le lui renvoyer. Celui d'un employé, non : il faut en poser un nouveau avec 🔑."],
 

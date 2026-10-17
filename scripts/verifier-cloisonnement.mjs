@@ -16642,6 +16642,24 @@ titre("🖨 Le devis IMPRIMÉ SANS COMPTE (15/10/2026, « Ab, Ba, Ça, Da, b »)
   test("★ « 🙋 Créer un client » et « Convertir » d'un prospect sur le numéro d'une fiche fermée lui OUVRENT son espace (aucun doublon), et ses identifiants partent",
     /if \(existant && estSansAcces\(existant\)\) \{[\s\S]{0,700}ouvrirAcces\(existant, profile\.nom\)[\s\S]{0,500}await renvoyer\(ouvert\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
     && /if \(existant && estSansAcces\(existant\)\) \{[\s\S]{0,900}ouvrirAcces\(existant, profile\.nom\)[\s\S]{0,900}envoyerIdentifiantsDuNumeroBmi\(/.test(readFileSync("src/screens/Prospects.jsx", "utf8")));
+  // 17/10/2026 (Timo : « corrige Utilisateurs pour ouvrir la fiche existante ») :
+  // « ➕ Nouvel utilisateur » → Client sur le numéro d'une fiche fermée créait
+  // un SECOND compte vide, le devis restant dans la fiche fermée. On découpe la
+  // branche client du geste : la fiche fermée est cherchée dans l'espace
+  // REGARDÉ, ouverte, et le geste s'arrête AVANT toute fabrication de compte.
+  {
+    const u = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+    const debut = u.indexOf('if (f.role === "client") {', u.indexOf("const creer = async"));
+    const branche = debut >= 0 ? u.slice(debut, u.indexOf('if (refuserSaufAdmin(profile, "Créer un compte employé"))', debut)) : "";
+    const iFiche = branche.search(/const ficheFermee = utilisateursDeLEspace\(db, profile\)\.find\(\(u\) => u\.role === "client" && estSansAcces\(u\) && u\.tel && memeNumero\(u\.tel, f\.tel\)\);/);
+    const iOuvrir = branche.indexOf("const ouvert = ouvrirAcces(ficheFermee, profile.nom);");
+    const iRetour = branche.indexOf("return;\n      }\n      const identifiant = identifiantClient(");
+    const iFabrique = branche.indexOf("fabriquerCompteClient(");
+    test("★ 👥 Utilisateurs : un client créé sur le numéro d'une fiche fermée (devis imprimé sans compte) OUVRE cette fiche, sans fabriquer un second compte ; ses identifiants partent du numéro BMI",
+      iFiche > 0 && iOuvrir > iFiche && iRetour > iOuvrir && iFabrique > iRetour
+      && /setMsg\(`✅ Espace ouvert pour/.test(branche)
+      && /envoyerIdentifiantsDuNumeroBmi\(\{ nomAffiche: nomFiche, identifiant: ouvert\.nom, motDePasse: mdp, tel: ouvert\.tel, role: "client", espaceFormation: !!ouvert\.formation/.test(branche));
+  }
 }
 
 titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrateur principal seul (15/10/2026, « B »)");

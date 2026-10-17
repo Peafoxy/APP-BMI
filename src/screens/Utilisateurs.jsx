@@ -7,7 +7,7 @@ import { correspond } from "../lib/suggestions";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, envoyerIdentifiantsEmployeWhatsApp, estSansAcces } from "../lib/comptesClients";
+import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, envoyerIdentifiantsEmployeWhatsApp, estSansAcces, ouvrirAcces } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
@@ -32,7 +32,7 @@ import { ChampsEntreprise } from "../components/ChampsEntreprise";
 
 const CHOIX_PRIME_SALAIRE = "💵 Prime sur salaire";
 const CHOIX_PRIME_CHANTIER = "🏠 Prime sur chantier";
-import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie, chantiersDeLEspaceRegarde, boutiqueDuChantier } from "../lib/calculs";
+import { totalRembourseCredit, resteCredit, creditsDe, creditsEnAttente, creditsEnCours, moisPlus, construireCreditAnterieur, critiqueCreditAnterieur, marquerCreditAnterieur, depenseDuCredit, lignesDuCredit, critiqueRetraitCredit, retenuesSalaireDuCredit, rattacherRetenues, retenuesPrises, retenuesOrphelines, choisirBoutiqueDebitG, choisirSourcePaiementG, messagesNotifSortieCaisse, envoyerVirementG, CRITERES_NOTE, moyenneNote, noteMoyenne, evaluationsDe, etoiles, SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, boutiquesVente, pouvoirsDuRole, libelleMoisFR, estAdminPrincipal, adminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, bloquerSiLecture, marqueEspace, comptesEspaceIncoherent, espaceDuCompte, utilisateursDeLEspace, memeNumero, estCompteFormation, clientsSansSuiteDeLEspace, clientsSansActiviteDeLEspace, premierMoisPaie, critiqueDebutPaie, chantiersDeLEspaceRegarde, boutiqueDuChantier } from "../lib/calculs";
 import { chantiersPourPrime, critiquePrimeChantier, ajouterPrimeChantier, partBmiRestante, MOIS_PRIME_CHANTIER } from "../lib/primeChantier";
 import { useRetour } from "../retour";
 import { etatConnexion, libelleConnexion, FILTRES_CONNEXION, dansFiltreConnexion } from "../lib/connexionsComptes";
@@ -254,6 +254,30 @@ export function Users({ db, save, profile, connexionsInitiales }) {
       }
       const refusIdentite = critiquePrenom(f.prenom) || critiqueEntreprise(entCli);
       if (refusIdentite) { setMsg(refusIdentite); return; }
+      // 🖨 Une fiche SANS ACCÈS sur ce numéro (son devis avait été imprimé sans
+      // compte, 15/10/2026) : on ne crée pas un second compte vide — le devis
+      // resterait dans la fiche fermée. On lui OUVRE son espace, comme
+      // 🙋 Créer un client (Timo, 17/10/2026 : « corrige Utilisateurs pour
+      // ouvrir la fiche existante »). Cherchée dans l'espace REGARDÉ (le mur).
+      const ficheFermee = utilisateursDeLEspace(db, profile).find((u) => u.role === "client" && estSansAcces(u) && u.tel && memeNumero(u.tel, f.tel));
+      if (ficheFermee) {
+        const nomFiche = ficheFermee.nom_base || ficheFermee.nom;
+        if (!await uConfirm(`🖨 ${nomFiche} a déjà une fiche, sans accès à l'application : son devis avait été imprimé sans compte.\n\nAucun nouveau compte n'est créé : sa fiche s'ouvre, avec son devis dedans.\n\n👤 Identifiant : ${ficheFermee.nom}\n🔑 Mot de passe : ${motDePasseConnu(ficheFermee) || "—"}\n\nLui ouvrir son espace ?`)) return;
+        const ouvert = ouvrirAcces(ficheFermee, profile.nom);
+        save({ ...db, users: db.users.map((u) => (u.id === ficheFermee.id ? ouvert : u)) }, `🔓 Accès ouvert à ${ficheFermee.nom} (fiche d'un devis imprimé sans compte) par ${profile.nom}`);
+        setF(vide);
+        setEntCli(ENTREPRISE_VIDE());
+        setNouveauOuvert(false);
+        const mdp = motDePasseConnu(ouvert);
+        setMsg(`✅ Espace ouvert pour ${nomFiche} — identifiant : ${ouvert.nom}${mdp ? ` · mot de passe : ${mdp}` : ""}`);
+        if (mdp && await uConfirm(`✅ Espace ouvert.\n\n👤 ${ouvert.nom}\n🔑 ${mdp}\n\nEnvoyer ces identifiants au client par WhatsApp ?`)) {
+          // ⚠ LE MUR : l'espace de la FICHE, jamais celui de qui clique.
+          const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nomFiche, identifiant: ouvert.nom, motDePasse: mdp, tel: ouvert.tel, role: "client", espaceFormation: !!ouvert.formation, demanderConfirmation: uConfirm, prevenir: uAlert });
+          if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: ouvert, envoi: r }) }));
+          const m = messageIdentifiants(nomFiche, r); if (m) uAlert(m);
+        }
+        return;
+      }
       const identifiant = identifiantClient(db, f.nom, f.tel);
       const { motDePasse } = await resoudreMotDePasseClient(db, f.nom, f.tel);
       if (!await uConfirm(

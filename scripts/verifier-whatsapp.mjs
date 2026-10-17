@@ -1330,7 +1330,8 @@ titre("⑰ 🔑 LES IDENTIFIANTS D'UN COMPTE PARTENT DU NUMÉRO BMI (22/09/2026)
       appels.length > 0 && lignes.length === appels.length && /import \{[^}]*messagesAvecLigneAcces[^}]*\} from "\.\.\/whatsapp"/.test(src));
     // LE MUR : l'espace du COMPTE (sa marque), jamais estCompteFormation(db, profile).
     test(`★★ ${f} : chaque envoi passe l'espace du COMPTE CRÉÉ (${appels.length} envoi(s))`,
-      appels.length > 0 && appels.every((a) => /espaceFormation: (!!user\.formation|!!c\.formation|!!existant\.formation|espaceCree === true)/.test(a)));
+      appels.length > 0 && appels.every((a) => /espaceFormation: (!!user\.formation|!!c\.formation|!!existant\.formation|!!ouvert\.formation|espaceCree === true)/.test(a)));
+    // RETOURNÉ le 17/10/2026 : 👥 Utilisateurs ouvre la fiche FERMÉE d'un devis imprimé sans compte — l'espace de CETTE fiche (`ouvert`).
     // RETOURNÉ le 15/10/2026 : « Convertir » sur une fiche SANS ACCÈS (devis imprimé) lui ouvre son espace — l'espace de CETTE fiche (`existant`).
     test(`★ ${f} : chaque envoi porte un texte de repli (la fonction le construit) et la phrase de l'écran`,
       appels.length > 0 && (src.match(/messageIdentifiants\(/g) || []).length >= appels.length);
