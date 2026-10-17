@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2707 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2722 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1272,11 +1272,16 @@ lit mal est pire qu'un banc absent).
     ➕ Nouvel utilisateur → Client** sur son numéro (17/10/2026, « corrige
     Utilisateurs pour ouvrir la fiche existante ») : avant, un SECOND compte
     vide naissait et le devis restait dans la fiche fermée ; la fiche fermée
-    est cherchée dans l'espace REGARDÉ et OUVERTE, rien n'est fabriqué. ⚠ Un
-    compte OUVERT sur le même numéro y donne toujours un doublon (pas demandé,
-    dit à Timo). ⚠ Le bouton « 🧲 Comptes prospects » de 👥 COMPTE les fiches
-    fermées mais ne les MONTRE pas (la liste les écarte) — dit à Timo, en
-    attente de sa réponse. Banc +1, éprouvé. 📋 Clients
+    est cherchée dans l'espace REGARDÉ et OUVERTE, rien n'est fabriqué. **Un
+    compte OUVERT sur le même numéro est REFUSÉ** (« oui refuse aussi le
+    doublon », le même jour — la règle de 🙋 Créer un client, `memeNumero`,
+    espace regardé). **« a » : la fiche fermée se MONTRE dans « 🧲 Comptes
+    prospects »** (le bouton la comptait sans la montrer) et dans la
+    recherche, pastille « 🖨 Sans compte » (`data-fiche-sans-acces`) et la
+    phrase pour lui ouvrir son espace ; elle reste hors de toute liste de
+    RÔLE et des connexions (`fichesFermees`, Utilisateurs.jsx). Banc +5 (l'écran
+    RENDU : onglet, recherche, liste Clients ; props `roleInitial` /
+    `rechercheInitiale` pour le banc seul), éprouvé ; trois contrôles RETOURNÉS. 📋 Clients
     lui envoie le mot de fidélité SANS les lignes de l'espace.
   - Rien à coller (une fiche client n'est pas gardée par `securite-39` au-delà du
     mot de passe ; elle naît avec ses identifiants). Banc (+12, dont 📋 Tous les

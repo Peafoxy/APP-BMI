@@ -54,7 +54,8 @@ const teinteRole = (role) => (role === "admin" ? "bg-slate-800 text-white border
   : role === "client" ? "bg-slate-100 text-slate-600 border-slate-200"
   : "bg-orange-100 text-orange-800 border-orange-200");
 
-export function Users({ db, save, profile, connexionsInitiales }) {
+// `roleInitial` et `rechercheInitiale` ne servent qu'au banc (l'écran rendu sur un onglet ou une recherche).
+export function Users({ db, save, profile, connexionsInitiales, roleInitial, rechercheInitiale }) {
   const premiere = boutiquesVente(db)[0]?.nom || "";
   // Changer OU consulter un mot de passe est réservé à l'administrateur
   // PRINCIPAL — jamais aux autres administrateurs, même avec le pouvoir
@@ -70,8 +71,8 @@ export function Users({ db, save, profile, connexionsInitiales }) {
   useRetour(!!gererOuvert, () => setGererOuvert(null));
   // ---- Liste classée par rôle : un bouton par rôle, ~5 lignes visibles
   // avec défilement, et une recherche par nom qui traverse tous les rôles. ----
-  const [roleActif, setRoleActif] = useState("admin");
-  const [rechercheU, setRechercheU] = useState("");
+  const [roleActif, setRoleActif] = useState(roleInitial || "admin");
+  const [rechercheU, setRechercheU] = useState(rechercheInitiale || "");
   const ROLES_LISTE = [
     ["admin", "👑 Admins"], ["gerant", "Gérants"], ["vendeur", "Vendeurs"],
     ["magasinier", "Magasiniers"], ["commercial", "Commerciaux"], ["technicien", "Techniciens"],
@@ -89,9 +90,13 @@ export function Users({ db, save, profile, connexionsInitiales }) {
   // réel. C'est l'écran où l'on bloque, où l'on change un salaire, où l'on
   // supprime — donc celui où se tromper de cible coûte le plus cher.
   // 🖨 Une fiche client SANS ACCÈS (devis imprimé sans compte, 15/10/2026)
-  // n'est pas un compte : elle n'apparaît pas ici. Son devis vit dans
-  // 📋 Tous les devis (« 🖨 Sans compte »).
+  // n'est pas un compte : elle n'est dans aucune liste de rôle ni dans les
+  // connexions. Mais elle porte un devis, donc elle COMPTE parmi les comptes
+  // prospects — et depuis le 17/10/2026 (Timo : « ces clients sans compte ne
+  // figurent pas dans les comptes prospects » → « a ») elle s'y MONTRE aussi,
+  // avec la pastille « 🖨 Sans compte », et la recherche la trouve.
   const dansMonEspace = utilisateursDeLEspace(db, profile).filter((u) => !estSansAcces(u));
+  const fichesFermees = utilisateursDeLEspace(db, profile).filter((u) => estSansAcces(u));
   const utilisateursVisibles = jeSuisAdminPrincipal ? dansMonEspace : dansMonEspace.filter((x) => adminPrincipal(db)?.id !== x.id);
   // 📁 Les clients SANS SUITE (Timo, 30/09/2026 : « b, 30 jours ») : un devis,
   // aucun validé, aucun achat — archivés 30 jours après leur dernier devis.
@@ -139,9 +144,9 @@ export function Users({ db, save, profile, connexionsInitiales }) {
     // règle commune des écritures d'un numéro (`motsDuNumero`, clientsConnus.js) —
     // « 90112233 », « +228 90 11 22 33 » et « 90 11 22 33 » trouvent le même
     // compte. Le filtre reste `correspond` : UNE règle pour toute recherche tapée.
-    ? utilisateursVisibles.filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""} ${motsDuNumero(x.tel)}`, qU))
+    ? [...utilisateursVisibles, ...fichesFermees].filter((x) => correspond(`${x.nom || ""} ${x.nom_complet || ""} ${motsDuNumero(x.tel)}`, qU))
     : ongletSansSuite
-      ? ongletSansSuite[2].map((c) => c.compte).filter((x) => utilisateursVisibles.some((v) => v.id === x.id))
+      ? ongletSansSuite[2].map((c) => c.compte).filter((x) => estSansAcces(x) || utilisateursVisibles.some((v) => v.id === x.id))
       : utilisateursVisibles.filter((x) => x.role === roleAffiche && !idsSansSuite.has(x.id));
   // ---- 👥 QUI A DÉJÀ OUVERT SON COMPTE (Timo, 15/10/2026, « B ») ----
   // L'administrateur PRINCIPAL seul. Les dates viennent du serveur (comptes
@@ -260,6 +265,14 @@ export function Users({ db, save, profile, connexionsInitiales }) {
       // 🙋 Créer un client (Timo, 17/10/2026 : « corrige Utilisateurs pour
       // ouvrir la fiche existante »). Cherchée dans l'espace REGARDÉ (le mur).
       const ficheFermee = utilisateursDeLEspace(db, profile).find((u) => u.role === "client" && estSansAcces(u) && u.tel && memeNumero(u.tel, f.tel));
+      // Et un compte OUVERT sur ce numéro : on ne crée pas son double (Timo,
+      // 17/10/2026 : « oui refuse aussi le doublon ») — la règle de
+      // 🙋 Créer un client. memeNumero : les 8 derniers chiffres.
+      const compteOuvert = !ficheFermee && utilisateursDeLEspace(db, profile).find((u) => u.role === "client" && !estSansAcces(u) && u.tel && memeNumero(u.tel, f.tel));
+      if (compteOuvert) {
+        setMsg(`Un compte existe déjà pour ce numéro : ${compteOuvert.nom}. Rien n'a été recréé — pour lui renvoyer ses accès, ouvrez sa fiche (⋯ Gérer).`);
+        return;
+      }
       if (ficheFermee) {
         const nomFiche = ficheFermee.nom_base || ficheFermee.nom;
         if (!await uConfirm(`🖨 ${nomFiche} a déjà une fiche, sans accès à l'application : son devis avait été imprimé sans compte.\n\nAucun nouveau compte n'est créé : sa fiche s'ouvre, avec son devis dedans.\n\n👤 Identifiant : ${ficheFermee.nom}\n🔑 Mot de passe : ${motDePasseConnu(ficheFermee) || "—"}\n\nLui ouvrir son espace ?`)) return;
@@ -1735,7 +1748,14 @@ export function Users({ db, save, profile, connexionsInitiales }) {
                   {idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold align-middle" data-client-archive>📁 Archivé</span>}
                   {idsSansSuite.has(u.id) && !idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-bold align-middle" data-compte-prospect>🧲 Prospect</span>}
                   {sansActiviteParId.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold align-middle" data-compte-sans-activite>🆕 Sans activité</span>}
+                  {estSansAcces(u) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold align-middle" data-fiche-sans-acces>🖨 Sans compte</span>}
                   {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
+                  {estSansAcces(u) && (
+                    <div className="text-xs font-normal text-slate-500" data-fiche-sans-acces-aide>
+                      Devis imprimé sans compte : aucun accès à l'application. Pour lui ouvrir son espace (le même compte, son devis dedans) :
+                      ➕ Nouvel utilisateur → Client avec son numéro, ou 📲 Envoyer par WhatsApp son devis.
+                    </div>
+                  )}
                   {sansActiviteParId.has(u.id) && (() => { const c = sansActiviteParId.get(u.id); return (
                     <div className="text-xs font-normal text-slate-500" data-ligne-sans-activite>
                       Créé le {c.creeLe ? dFR(c.creeLe) : "— date inconnue"}{c.parNom ? ` par ${c.parNom}` : ""} · aucun devis, aucun achat

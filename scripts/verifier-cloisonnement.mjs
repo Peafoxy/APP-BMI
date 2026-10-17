@@ -11881,7 +11881,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /x\.role === r && !idsSansSuite\.has\(x\.id\)/.test(ut)
       // RETOURNÉ le 05/10/2026 : l'ensemble porte aussi les comptes sans activité.
       && /const idsSansSuite = new Set\(\[\.\.\.sansSuite\.map\(\(c\) => c\.compte\.id\)/.test(ut)
-      && /\? utilisateursVisibles\.filter\(\(x\) => correspond\(/.test(ut)
+      // RETOURNÉ le 17/10/2026 (« a ») : la recherche regarde aussi les fiches sans compte.
+      && /\? \[\.\.\.utilisateursVisibles, \.\.\.fichesFermees\]\.filter\(\(x\) => correspond\(/.test(ut)
       && /data-client-archive/.test(ut) && /data-clients-archives/.test(ut)
       && /clientsSansSuiteDeLEspace\(db, profile\)/.test(ut));
     test("★★ Le devis ne PROPOSE plus un archivé, mais le retrouve par son numéro (aucun doublon) et garde un client déjà choisi",
@@ -11935,7 +11936,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★★ 🔘 👥 Utilisateurs : « 🧲 Comptes prospects » et « 📁 Clients archivés » sont deux boutons de la rangée des rôles, ouverts dans le tableau ; plus aucun bloc sous la liste",
       /\["prospects", "🧲 Comptes prospects", prospectsDevis\], \["archives", "📁 Clients archivés", archives\]/.test(ut)
       && /const rolesPresents = \[\.\.\.ROLES_LISTE, \.\.\.ONGLETS_SANS_SUITE\.map/.test(ut)
-      && /\? ongletSansSuite\[2\]\.map\(\(c\) => c\.compte\)\.filter\(\(x\) => utilisateursVisibles\.some/.test(ut)
+      // RETOURNÉ le 17/10/2026 (« a ») : une fiche sans compte s'y montre aussi.
+      && /\? ongletSansSuite\[2\]\.map\(\(c\) => c\.compte\)\.filter\(\(x\) => estSansAcces\(x\) \|\| utilisateursVisibles\.some/.test(ut)
       && /data-ligne-sans-suite/.test(ut)
       && !/setVoirProspects|setVoirArchives/.test(ut));
     // 05/10/2026 (Timo : « a ») : les comptes sans devis ni achat ont LEUR
@@ -16635,7 +16637,10 @@ titre("🖨 Le devis IMPRIMÉ SANS COMPTE (15/10/2026, « Ab, Ba, Ça, Da, b »)
     && /messages: sansAcces \? \(db\.messages \|\| \[\]\) : \[\.\.\.messagesNouveauClient/.test(pa)
     && (pa.match(/sansAcces \? \{ base: db, compte: (trouve|choisi) \} : await ouvrirSiSansAcces\(db, (trouve|choisi), profile\)/g) || []).length === 2
     && /if \(!await uConfirm\(`🖨 \$\{compte\.nom_base \|\| compte\.nom\} n'a pas encore d'accès/.test(pa) && /const ouvert = ouvrirAcces\(compte, profile\.nom\);/.test(pa));
-  test("★★ une fiche sans accès n'est PAS proposée comme destinataire (sauf celle du devis qu'on reprend), n'est pas dans 👥 Utilisateurs, et le mot de fidélité de 📋 Clients ne lui parle pas d'un espace",
+  // RETOURNÉ le 17/10/2026 (« a ») : elle n'est dans aucune liste de RÔLE de
+  // 👥 Utilisateurs (la ligne ci-dessous reste vraie), mais se montre dans
+  // « 🧲 Comptes prospects » et la recherche — rendu plus bas.
+  test("★★ une fiche sans accès n'est PAS proposée comme destinataire (sauf celle du devis qu'on reprend), n'est dans aucune liste de rôle de 👥 Utilisateurs, et le mot de fidélité de 📋 Clients ne lui parle pas d'un espace",
     /&& \(!estSansAcces\(u\) \|\| u\.id === clientDevis\)/.test(pa)
     && /const dansMonEspace = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => !estSansAcces\(u\)\);/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8"))
     && /\.find\(\(u\) => u\.role === "client" && !estSansAcces\(u\)\) \|\| null;/.test(readFileSync("src/screens/Clients.jsx", "utf8")));
@@ -16726,6 +16731,31 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
       && /admin\.auth\.getUser\(jeton\)/.test(corpsCx) && /from\("users"\)\.select\("data"\)\.eq\("id", idAppelant\)/.test(corpsCx)
       && /if \(!peutVoirConnexions\(compte\)\) \{\s*return res\.status\(403\)/.test(corpsCx) && /connexionsPourIds\(await tousLesComptesAuth\(admin\), demandes\)/.test(corpsCx)
       && !existsSync("api/connexions.js"));
+    // 🖨 17/10/2026 (Timo : « ces clients sans compte ne figurent pas dans les
+    // comptes prospects » → « a ») : le bouton les COMPTAIT, la liste les
+    // écartait. Rendu sur l'onglet, puis par la recherche.
+    const fermee = { id: "c_klira", nom: "KLIRA", role: "client", tel: "90000001", sans_acces: true, actif: true,
+      devis: [{ id: "dv1", date: "2026-10-16", statut: "propose", total: 5100000, imprime: { le: "2026-10-16" } }] };
+    const prospectOuvert = { id: "c_ama", nom: "AMA", role: "client", tel: "90000002", actif: true,
+      devis: [{ id: "dv2", date: "2026-10-16", statut: "propose", total: 300000 }] };
+    const acheteur = { id: "c_esso", nom: "ESSO", role: "client", tel: "90000003", actif: true };
+    const dbSA = { ...db, users: [timo, adm2, ang, fermee, prospectOuvert, acheteur],
+      ventes: [{ id: "v1", boutique: "DEMAKPOE", client: "ESSO", tel: "90000003", date: "2026-10-10", articles: [], paiement: "Espèces" }] };
+    const rendreSA = (autres) => { const e0 = console.error; console.error = () => {}; try { return U.rendreUtilisateurs(dbSA, timo, { parId: {}, demandes: new Set() }, autres); } catch (e) { return "ERREUR " + String(e && e.message || e).slice(0, 160); } finally { console.error = e0; } };
+    const hPr = rendreSA({ roleInitial: "prospects" });
+    test("★ « 🧲 Comptes prospects » MONTRE la fiche sans compte (KLIRA, pastille « 🖨 Sans compte » et la phrase pour lui ouvrir son espace) à côté du prospect ordinaire, et le bouton compte ce qu'il montre (2)",
+      !hPr.startsWith("ERREUR") && /KLIRA[\s\S]{0,600}data-fiche-sans-acces/.test(hPr) && /data-fiche-sans-acces-aide/.test(hPr)
+      && />AMA</.test(hPr) && hPr.includes("🧲 Comptes prospects (2)") && !/>ESSO</.test(hPr), hPr.slice(0, 160));
+    const hRe = rendreSA({ rechercheInitiale: "klira" });
+    test("★ la recherche trouve aussi la fiche sans compte, avec sa pastille",
+      !hRe.startsWith("ERREUR") && /KLIRA[\s\S]{0,600}data-fiche-sans-acces/.test(hRe), hRe.slice(0, 160));
+    const hCl = rendreSA({ roleInitial: "client" });
+    test("★ la liste « Clients » ne la montre pas (ni prospect, ni acheteur) : ESSO seul",
+      !hCl.startsWith("ERREUR") && />ESSO</.test(hCl) && !/KLIRA/.test(hCl) && !/>AMA</.test(hCl), hCl.slice(0, 160));
+    const brancheC = us.slice(us.indexOf('if (f.role === "client") {', us.indexOf("const creer = async")), us.indexOf('if (refuserSaufAdmin(profile, "Créer un compte employé"))'));
+    const iDoublon = brancheC.search(/const compteOuvert = !ficheFermee && utilisateursDeLEspace\(db, profile\)\.find\(\(u\) => u\.role === "client" && !estSansAcces\(u\) && u\.tel && memeNumero\(u\.tel, f\.tel\)\);\s*if \(compteOuvert\) \{\s*setMsg\(`Un compte existe déjà pour ce numéro/);
+    test("★ « oui refuse aussi le doublon » : un compte OUVERT sur ce numéro (8 derniers chiffres, espace regardé) arrête la création AVANT toute fabrication de compte",
+      iDoublon > 0 && iDoublon < brancheC.indexOf("const identifiant = identifiantClient(") && iDoublon < brancheC.indexOf("fabriquerCompteClient("));
   }
 }
 

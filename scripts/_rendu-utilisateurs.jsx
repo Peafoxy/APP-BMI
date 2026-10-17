@@ -8,5 +8,5 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Users } from "../src/screens/Utilisateurs.jsx";
 export { peutVoirConnexions, connexionsPourIds, etatConnexion, libelleConnexion, dansFiltreConnexion } from "../src/lib/connexionsComptes.js";
 
-export const rendreUtilisateurs = (db, profile, connexionsInitiales) =>
-  renderToStaticMarkup(React.createElement(Users, { db, profile, save: () => {}, connexionsInitiales }));
+export const rendreUtilisateurs = (db, profile, connexionsInitiales, autres = {}) =>
+  renderToStaticMarkup(React.createElement(Users, { db, profile, save: () => {}, connexionsInitiales, ...autres }));
