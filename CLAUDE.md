@@ -7350,6 +7350,31 @@ lit mal est pire qu'un banc absent).
   privés) + trois de `verifier-cloisonnement` (F5, onglets, 27 boutons).
   **À créer par Timo chez YCloud** (utility, fr). ~4 F. Chapitres 1, 18, 25.
 
+### 🪪 LE NOM COMPLET SUR LES DOCUMENTS (17/10/2026, « A a, B b (pour le moment) »)
+- Capture Timo du devis (« Pour BMI Togo — TIMO ») : « lorsque l'identité de
+  l'utilisateur est renseignée, l'utiliser plutôt que son identifiant sur les
+  documents ». Règle pure **`lib/nomSurDocument.js`** (sans import) :
+  `nomSurDocumentDans(personnes, nom, id)` — par l'id d'abord, sinon par le
+  nom parmi les EMPLOYÉS et seulement s'il n'y en a qu'un (entre deux
+  homonymes : l'identifiant reste) ; `nom_complet` (🆔 Identité) s'il est
+  renseigné, sinon ce qui est écrit. `nomSurDocument(nom, id)` lit le registre
+  posé par App.jsx à chaque rendu (`poserPersonnesDesDocuments` : les
+  personnes de l'espace regardé — le mur — plus le compte connecté ; aucun
+  hook). Sans registre (un banc), l'identifiant reste.
+- **Rien d'enregistré ne change** (la vente garde « TIMO ») : c'est
+  l'impression qui lit la fiche — un ancien document réimprimé sort aussi avec
+  le nom complet. **« A a »** : devis PDF (« Pour BMI Togo », « Élaboré par » ;
+  📋 Tous les devis passe `par_id`), reçu de vente (« Vendeur »), reçu de dette
+  / versement (« Établi par », « Reçu par », le tableau des versements), bons de
+  reprise / retour, facture d'achat chantier (« Remis par »), relevé des
+  travaux, bon de ravitaillement, PV (le chef, « forcé par »), contrat
+  (l'initiateur), inventaire PDF (versements, comptages). **« B b »** : les
+  messages WhatsApp (modèles, `texteRecuComplet`, `texteBon`) gardent
+  l'identifiant **pour le moment** ; les ÉCRANS aussi. Rien à coller. Banc
+  (+4, le devis et les reçus IMPRIMÉS), éprouvé (devis, reçu, registre posé
+  sur `db.users` brut) ; un contrôle RETOURNÉ (le reçu de versement).
+  Chapitre 2 à jour.
+
 ### ⚧ LE SEXE D'UN COMPTE (12/10/2026, « Ab, Ba, Ca »)
 - Timo, après les attestations : « ajouter le sexe sur la fiche pour que
   l'application l'utilise ». Règle pure **`lib/civilite.js`** (sans import) :

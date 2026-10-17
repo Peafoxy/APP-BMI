@@ -5,6 +5,7 @@ import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
 import { groupesEquipement } from "./lib/lignesDevis";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
+import { nomSurDocument } from "./lib/nomSurDocument";
 // La phrase d'un devis à compléter tient sur UNE ligne sous le bandeau (toute
 // la largeur : rien d'autre n'est écrit là). Le banc mesure qu'elle y tient.
 const LARGEUR_PHRASE_CF = 176;
@@ -583,7 +584,7 @@ function blocMentions(doc, d, largeur, hauteur, y) {
   doc.setFontSize(7.5);
   doc.setTextColor(...GRIS_TEXTE);
   doc.text("Pour BMI Togo", xG + 2.5, y + 4);
-  if (d.par) doc.text(String(d.par), xG + 2.5, y + 7.5);
+  if (d.par) doc.text(texteSurPdf(nomSurDocument(d.par, d.par_id)), xG + 2.5, y + 7.5);
   imageDansCadre(doc, d.signature, xG + 1, y + 8, 20, 19);
   imageDansCadre(doc, d.cachet, xG + 23, y + 7, 23, 20);
   doc.text("Bon pour accord — signature du client", xD + 2, y + 4);
@@ -682,7 +683,7 @@ export function genererDevis(d, logo, retournerDoc = false) {
   doc.text(`N° ${d.numero}`, 14, yApres + 6.5);
   doc.text(`Date : ${d.date}`, 14, yApres + 10.5);
   if (d.boutique) doc.text(`Boutique : ${d.boutique}`, 14, yApres + 14.5);
-  if (d.par) doc.text(`Élaboré par : ${d.par}`, 14, yApres + 18.5);
+  if (d.par) doc.text(texteSurPdf(`Élaboré par : ${nomSurDocument(d.par, d.par_id)}`), 14, yApres + 18.5);
   // 🏢 29/09/2026 : l'entreprise cliente, et son répondant sur la ligne libre.
   const idDv = identiteClient(d);
   doc.text(texteSurPdf(`Client : ${idDv.titre || "—"}`), largeur - 14, yApres + 6.5, { align: "right" });
@@ -857,7 +858,7 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
   const w = inv.versements;
   const etat = { valide: "validé", attente: "en attente", rejete: "rejeté" };
   bloc("4. Les versements de la période", ["Date", "Vers", "État", "Montant"],
-    w.lignes.map((x) => [`${dFRl(x.date)}${x.heure ? ` ${x.heure}` : ""}`, `${general ? `${caisseLue(x.boutique)} -> ` : ""}${x.destination}${x.aPart ? " (vente ou règlement)" : ""}${x.source !== "Espèces" ? ` - depuis ${x.source}` : ""}${x.par ? ` - par ${x.par}` : ""}`, etat[x.etat], m(x.montant)]),
+    w.lignes.map((x) => [`${dFRl(x.date)}${x.heure ? ` ${x.heure}` : ""}`, `${general ? `${caisseLue(x.boutique)} -> ` : ""}${x.destination}${x.aPart ? " (vente ou règlement)" : ""}${x.source !== "Espèces" ? ` - depuis ${x.source}` : ""}${x.par ? ` - par ${nomSurDocument(x.par)}` : ""}`, etat[x.etat], m(x.montant)]),
     ["Total versé (rejetés exclus)", "", w.enAttente ? `dont ${m(w.enAttente)} en attente` : "", m(w.total)], [3]);
 
   const c = inv.caisse;
@@ -886,7 +887,7 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
     k.parBoutique.map((l) => [`${caisseLue(l.boutique)}${l.nonClotures.length ? ` - non clôturé : ${l.nonClotures.map(dFRl).join(", ")}` : ""}`, String(l.nbClotures), String(l.joursAvecEcart), signe(l.totalEcarts)]),
     [`Total des écarts (${k.nbClotures} clôture(s))`, "", "", signe(k.totalEcarts)], [1, 2, 3]);
   else bloc("7. Le comptage - ce qui a été compté aux clôtures", ["Jour", "Attendu", "Compté", "Écart"],
-    k.lignes.map((l) => [`${dFRl(l.date)}${l.par ? ` - ${l.par}` : ""}${l.bouge ? " (a bougé après la clôture)" : ""}`, m(l.attendu),
+    k.lignes.map((l) => [`${dFRl(l.date)}${l.par ? ` - ${nomSurDocument(l.par)}` : ""}${l.bouge ? " (a bougé après la clôture)" : ""}`, m(l.attendu),
       l.statut === "cloture" ? m(l.compte) : (l.statut === "aujourdhui" ? "pas encore clôturé" : "NON CLÔTURÉ"),
       l.statut === "cloture" ? signe(l.ecart) : ""]),
     [`Total des écarts (${k.nbClotures} clôture(s))`, "", "", signe(k.totalEcarts)], [1, 2, 3]);

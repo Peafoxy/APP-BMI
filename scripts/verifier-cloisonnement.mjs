@@ -3765,8 +3765,9 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
     && imp.includes("<h1${solde ? ' class=\"solde\"' : \"\"}>${titre}</h1>")
     && !/"REÇU DE VERSEMENT"|"REÇU DÉFINITIF/.test(imp)
     && imp.includes("<div><b>Date du versement :</b>") && imp.includes("<div><b>Date :</b> ${dFR(d.date)}</div>")
-    && imp.includes("<div><b>Établi par :</b> ${esc(d.par || \"—\")}</div>")
-    && imp.includes("${versement ? `Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : \"\"}` : `Établi par${d.par ? ` : ${esc(d.par)}` : \"\"}`}"));
+    /* RETOURNÉ le 17/10/2026 (« A a ») : le nom passe par nomSurDocument (nom complet si renseigné) */
+    && imp.includes("<div><b>Établi par :</b> ${esc(nomSurDocument(d.par) || \"—\")}</div>")
+    && imp.includes("${versement ? `Reçu par${dernier?.par ? ` : ${esc(nomSurDocument(dernier.par))}` : \"\"}` : `Établi par${d.par ? ` : ${esc(nomSurDocument(d.par))}` : \"\"}`}"));
   test("sans versement, pas de tableau vide : « Aucun versement à ce jour »",
     imp.includes("${paiements.length > 0 ? `") && imp.includes("Aucun versement à ce jour."));
   // 14/09/2026, Timo : « le reste à payer doit être écrit en rouge » — sur le
@@ -8156,6 +8157,74 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       && LD.groupesEquipement([{ categorie: "Installation", article: "Coffret de protection", qte: 1, pu: 1, total: 1 }])[0].cat === "Installation"
       && /groupesEquipement\(d\.lignes\)/.test(srcPdf) && /g\.separe && i === 0/.test(srcPdf) && /lineWidth: \{ top: 0\.5 \}/.test(srcPdf) && !/lignes\.length >= 2\) body\.push/.test(srcPdf)
       && !/export const estLigneFrais/.test(readFileSync("src/screens/dimensionnement/devisCommun.js", "utf8")));
+  }
+  // 🪪 Timo, 17/10/2026 (« A a, B b ») : sur un DOCUMENT, le nom complet de
+  // l'employé (🆔 Identité) quand il est renseigné, sinon son identifiant.
+  {
+    const ND = await import(pathToFileURL(process.cwd() + "/src/lib/nomSurDocument.js").href);
+    const gens = [
+      { id: "u1", nom: "TIMO", role: "admin", nom_complet: "METONOU Esso Timothée" },
+      { id: "u2", nom: "ANGELE", role: "gerant", nom_complet: "" },
+      { id: "u3", nom: "KOSSI", role: "technicien", nom_complet: "AMEGAH Kossi" },
+      { id: "u4", nom: "KOSSI", role: "vendeur", nom_complet: "DOSSOU Kossi" },
+      { id: "c1", nom: "MENSAH", role: "client", nom_complet: "MENSAH Client" },
+      { id: "u5", nom: "MENSAH", role: "magasinier", nom_complet: "MENSAH Yao" },
+    ];
+    test("★ nomSurDocumentDans : le nom complet quand il est renseigné (casse ignorée), l'identifiant sinon ; par l'id d'abord ; entre deux homonymes on ne devine pas ; jamais un client pris pour un employé",
+      ND.nomSurDocumentDans(gens, "TIMO") === "METONOU Esso Timothée" && ND.nomSurDocumentDans(gens, "timo ") === "METONOU Esso Timothée"
+      && ND.nomSurDocumentDans(gens, "ANGELE") === "ANGELE" && ND.nomSurDocumentDans(gens, "INCONNU") === "INCONNU"
+      && ND.nomSurDocumentDans(gens, "KOSSI") === "KOSSI" && ND.nomSurDocumentDans(gens, "KOSSI", "u4") === "DOSSOU Kossi"
+      && ND.nomSurDocumentDans(gens, "MENSAH") === "MENSAH Yao" && ND.nomSurDocumentDans([], "TIMO") === "TIMO" && ND.nomSurDocumentDans(gens, "") === "");
+    // Le DEVIS, fabriqué pour de vrai (même module : le registre posé est celui que lit le PDF).
+    const entreeND = join("node_modules", ".cache", `bmi-nomdoc-${process.pid}.js`);
+    const sortieND = join("node_modules", ".cache", `bmi-nomdoc-${process.pid}.mjs`);
+    writeFileSync(entreeND, `export * from "${process.cwd()}/src/pdf.js";\nexport { poserPersonnesDesDocuments } from "${process.cwd()}/src/lib/nomSurDocument.js";\n`);
+    await build({ entryPoints: [entreeND], bundle: true, format: "esm", platform: "node", outfile: sortieND, logLevel: "silent", loader: { ".js": "jsx" } });
+    const PdfN = await import(pathToFileURL(sortieND).href);
+    unlinkSync(sortieND); unlinkSync(entreeND);
+    const avant = texteDuPdf(PdfN.genererDevis({ ...dSol, par: "TIMO", par_id: "u1" }, null, true));
+    PdfN.poserPersonnesDesDocuments(gens);
+    const apres = texteDuPdf(PdfN.genererDevis({ ...dSol, par: "TIMO", par_id: "u1" }, null, true));
+    const sansId = texteDuPdf(PdfN.genererDevis({ ...dSol, par: "ANGELE" }, null, true));
+    PdfN.poserPersonnesDesDocuments([]);
+    test("★★ le DEVIS imprimé : « Élaboré par » et « Pour BMI Togo » portent « METONOU Esso Timothée » ; sans registre (ou sans identité renseignée) l'identifiant reste",
+      (apres.match(/METONOU Esso Timoth/g) || []).length === 2 && !/\(TIMO\)/.test(apres) && /Élaboré par : TIMO/.test(avant)
+      && /Élaboré par : ANGELE/.test(sansId), apres.slice(0, 200));
+    // Le REÇU de vente et le BON de reprise, imprimés (printApi remplacé par un témoin).
+    const entreeNI = join("node_modules", ".cache", `bmi-nomdoc-imp-${process.pid}.js`);
+    const sortieNI = join("node_modules", ".cache", `bmi-nomdoc-imp-${process.pid}.mjs`);
+    writeFileSync(entreeNI, `export * from "${process.cwd()}/src/lib/impression.js";\nexport { poserPersonnesDesDocuments } from "${process.cwd()}/src/lib/nomSurDocument.js";\n`);
+    await build({
+      entryPoints: [entreeNI], bundle: true, format: "esm", platform: "node", outfile: sortieNI,
+      logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"],
+      plugins: [{ name: "ui-temoin", setup(b) {
+        b.onResolve({ filter: /components\/ui(\.jsx)?$/ }, (a) => a.importer.endsWith("impression.js") ? { path: "ui-temoin", namespace: "temoin" } : undefined);
+        b.onLoad({ filter: /.*/, namespace: "temoin" }, () => ({ resolveDir: process.cwd(), loader: "js",
+          contents: 'export * from "./src/components/ui.jsx"; export const printApi = { open: (h) => { globalThis.__docNom = h; } };' }));
+      } }],
+    });
+    const ImpN = await import(pathToFileURL(sortieNI).href);
+    unlinkSync(sortieNI); unlinkSync(entreeNI);
+    const nzN = (t) => String(t).replace(/<[^>]+>/g, " ").replace(/[\u202f\u00a0]/g, " ").replace(/\s+/g, " ");
+    ImpN.poserPersonnesDesDocuments(gens);
+    const venteN = { id: "v1", numero: "BMIA-2026-0099", date: "2026-10-17", heure: "10:00", client: "KOFFI", tel: "", boutique: "APESSITO", paiement: "Espèces", par: "TIMO",
+      articles: [{ nom: "PANNEAU 550W", qte: 1, prix: 100000 }] };
+    globalThis.__docNom = ""; try { ImpN.imprimerRecu(venteN, { nom: "APESSITO" }, []); } catch (e) { globalThis.__docNom = String(e); }
+    const recuN = nzN(globalThis.__docNom);
+    const detteN = { id: "d1", numero: "BMIA-DET-2026-0001", date: "2026-10-17", client: "KOFFI", montant: 100000, paye: 20000, boutique: "APESSITO", par: "ANGELE",
+      paiements: [{ id: "p1", date: "2026-10-17", montant: 20000, paiement: "Espèces", par: "TIMO" }] };
+    globalThis.__docNom = ""; try { ImpN.imprimerRecuVersement(detteN, { nom: "APESSITO" }); } catch (e) { globalThis.__docNom = String(e); }
+    const versN = nzN(globalThis.__docNom);
+    ImpN.poserPersonnesDesDocuments([]);
+    test("★★ le REÇU de vente imprimé : « Vendeur : METONOU Esso Timothée » ; le reçu de versement : « Reçu par : METONOU Esso Timothée » (le versement fait par TIMO)",
+      /Vendeur : METONOU Esso Timothée/.test(recuN) && /Reçu par : METONOU Esso Timothée/.test(versN), recuN.slice(0, 200) + " | " + versN.slice(0, 200));
+    const impN = readFileSync("src/lib/impression.js", "utf8");
+    const appN = readFileSync("src/App.jsx", "utf8");
+    test("★ chaque document passe par nomSurDocument (reçus, bons, facture d'achat chantier, relevé des travaux, bon de ravitaillement, PV, contrat, inventaire) ; App.jsx pose les personnes de l'espace regardé (le mur) plus le compte connecté ; « B b » : le texte WhatsApp du reçu garde l'identifiant",
+      (impN.match(/nomSurDocument\(/g) || []).length >= 11 && /nomSurDocumentDans\(\[initiateur\]/.test(impN) && /nomSurDocumentDans\(chefCompte \? \[chefCompte\] : \[\]/.test(impN)
+      && /poserPersonnesDesDocuments\(\[\.\.\.utilisateursDeLEspace\(db, profile\), profile\]\);/.test(appN)
+      && /`Vendeur : \$\{v\.par \|\| ""\}`/.test(impN) && (srcPdf.match(/nomSurDocument\(/g) || []).length === 4
+      && /par: d\.par, par_id: d\.par_id \|\| null,/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
   }
   // ⚠ Timo, 11/09/2026 : « un devis devrait avoir une signature ? » — oui, et
   // BMI n'en avait aucune. Le cadre de gauche l'engage désormais.

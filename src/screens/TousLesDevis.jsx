@@ -98,7 +98,7 @@ function donneesPdfDuDevis(db, d) {
     tel: d.client?.tel || "",
     titre: libelleTypeDevis(d).replace(/^\S+\s/, ""),
     statut: (STATUT_DEVIS[d.statut || "propose"] || STATUT_DEVIS.propose)[0].replace(/^\S+\s/, ""),
-    par: d.par,
+    par: d.par, par_id: d.par_id || null,
     lignes: d.lignes || [],
     // La charge dimensionnée (appareils, mesures de porte, demande) part
     // avec le devis : le PDF la rend au-dessus de la table des prix. Les

@@ -96,7 +96,8 @@ import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
 } from "./lib/constants";
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
-import { adminPrincipal } from "./lib/calculs";
+import { adminPrincipal, utilisateursDeLEspace } from "./lib/calculs";
+import { poserPersonnesDesDocuments } from "./lib/nomSurDocument";
 import { posesAEncaisser } from "./lib/poseSeule";
 import { CLES_CORBEILLE, aPurger, purgerCorbeille, nomDeLaFiche } from "./lib/corbeille";
 import { doitVerrouiller, doitDeconnecter, apresErreur } from "./lib/verrou";
@@ -1097,6 +1098,12 @@ export default function App() {
     setTab(tabDeDepart(u.role, u.id));
   }} /></>;
   }
+
+  // 🪪 Le nom sur les documents imprimés (Timo, 17/10/2026, « A a ») : le nom
+  // complet (🆔 Identité) quand il est renseigné, sinon l'identifiant. Les
+  // fiches où chercher = les personnes de l'espace regardé (le mur), plus le
+  // compte connecté. Aucun hook ici (rien après un return anticipé).
+  poserPersonnesDesDocuments([...utilisateursDeLEspace(db, profile), profile]);
 
   // ---- DÉCONNEXION AVEC PURGE SÉCURISÉE ----
   // Objectif : plus jamais d'anciennes données affichées après un changement

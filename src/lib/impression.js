@@ -19,6 +19,7 @@ import { TITRE_FACTURE_ACHAT, PAIEMENT_CHANTIER } from "./achatsChantier";
 import { phraseContrat } from "./contratTravail";
 import { civilite } from "./civilite";
 import { TITRE_FACTURE_TRAVAUX, TITRE_RELEVE_TRAVAUX, avecInfoTravaux, lignesReleve, montantPrestation, totalArticles, totalAFacturer, LIGNE_PRESTATION } from "./travaux";
+import { nomSurDocument, nomSurDocumentDans } from "./nomSurDocument";
 
 // 🏢 29/09/2026 (Timo) : le client d'un reçu — la personne (NOM Prénom), ou
 // l'ENTREPRISE qu'elle représente, avec ses coordonnées et « Représentée
@@ -173,7 +174,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
 
     <table class="sign"><tr>
       <td></td>
-      <td><div class="ligne">Vendeur${v.par ? ` : ${esc(v.par)}` : ""}${v.apporteur && v.apporteur.nom ? `<br><span style="font-size:10px;color:#666">Apporté par ${esc(v.apporteur.nom)}</span>` : ""}${Number(v.rabais || 0) > 0 ? `<br><span style="font-size:10px;color:#666">Rabais de ${esc(v.commercial || "")} : ${fmt(v.rabais)}</span>` : ""}</div></td>
+      <td><div class="ligne">Vendeur${v.par ? ` : ${esc(nomSurDocument(v.par, v.par_id))}` : ""}${v.apporteur && v.apporteur.nom ? `<br><span style="font-size:10px;color:#666">Apporté par ${esc(v.apporteur.nom)}</span>` : ""}${Number(v.rabais || 0) > 0 ? `<br><span style="font-size:10px;color:#666">Rabais de ${esc(v.commercial || "")} : ${fmt(v.rabais)}</span>` : ""}</div></td>
       <td></td>
     </tr></table>
 
@@ -268,9 +269,9 @@ export function imprimerRecuVersement(d, bq = {}) {
       <div><b>N° de reçu :</b> ${esc(numeroRecuDette(d))}</div>
       ${versement
         ? `<div><b>Date du versement :</b> ${dFR(dernier?.date || d.date)}${dernier?.heure ? ` à ${dernier.heure}` : ""}</div>
-      <div><b>Reçu par :</b> ${esc(dernier?.par || d.par || "—")}</div>`
+      <div><b>Reçu par :</b> ${esc(nomSurDocument(dernier?.par || d.par) || "—")}</div>`
         : `<div><b>Date :</b> ${dFR(d.date)}</div>
-      <div><b>Établi par :</b> ${esc(d.par || "—")}</div>`}
+      <div><b>Établi par :</b> ${esc(nomSurDocument(d.par) || "—")}</div>`}
     </div>
 
     <div class="btitre">CLIENT</div>
@@ -295,7 +296,7 @@ export function imprimerRecuVersement(d, bq = {}) {
     <table class="articles">
       <thead><tr><th>Date</th><th>Moyen</th><th>Reçu par</th><th>Montant</th></tr></thead>
       <tbody>
-        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p.heure ? ` ${p.heure}` : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(p.par || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
+        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p.heure ? ` ${p.heure}` : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(nomSurDocument(p.par) || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
       </tbody>
     </table>` : `
     <div class="btitre">VERSEMENTS</div>
@@ -313,7 +314,7 @@ export function imprimerRecuVersement(d, bq = {}) {
 
     <table class="sign"><tr>
       <td></td>
-      <td><div class="ligne">${versement ? `Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : ""}` : `Établi par${d.par ? ` : ${esc(d.par)}` : ""}`}</div></td>
+      <td><div class="ligne">${versement ? `Reçu par${dernier?.par ? ` : ${esc(nomSurDocument(dernier.par))}` : ""}` : `Établi par${d.par ? ` : ${esc(nomSurDocument(d.par))}` : ""}`}</div></td>
       <td></td>
     </tr></table>
 
@@ -404,7 +405,7 @@ export function imprimerAchatChantier(achat, chantier, bq = {}, argent = null) {
     ${c && c.enAttente > 0 ? `<div style="font-size:11px;color:#92400e;margin:6px 0" data-achat-phrase-attente>Le client n'a pas encore payé assez pour ce matériel : son prochain versement le réglera d'abord.</div>` : ""}
 
     <table class="sign"><tr>
-      <td><div class="ligne">Remis par : ${esc(achat.par || "")}</div></td>
+      <td><div class="ligne">Remis par : ${esc(nomSurDocument(achat.par, achat.par_id))}</div></td>
       <td></td>
       <td><div class="ligne">Reçu par (technicien)</div></td>
     </tr></table>
@@ -465,7 +466,7 @@ export function imprimerReleveTravaux(c, bq = {}, auteur = "", aujourdhui = toda
 
     <table class="sign"><tr>
       <td></td>
-      <td><div class="ligne">Établi par${auteur ? ` : ${esc(auteur)}` : ""}</div></td>
+      <td><div class="ligne">Établi par${auteur ? ` : ${esc(nomSurDocument(auteur))}` : ""}</div></td>
       <td></td>
     </tr></table>
 
@@ -637,7 +638,7 @@ export function imprimerPV(c, db) {
         <div class="sig3-head">POUR BMI</div>
         Chef d'équipe
         ${chefCompte?.signature_personnelle ? `<img class="signature" src="${chefCompte.signature_personnelle}" alt="Signature" />` : "<br><br>"}
-        <div class="ligne">${chef ? esc(chef.nom) : "Nom du chef d'équipe"}</div>
+        <div class="ligne">${chef ? esc(nomSurDocumentDans(chefCompte ? [chefCompte] : [], chef.nom, chefCompte?.id)) : "Nom du chef d'équipe"}</div>
       </td>
       <td class="sig3-cachet">
         <img src="${cachet}" alt="Cachet BMI Togo" />
@@ -645,7 +646,7 @@ export function imprimerPV(c, db) {
       <td class="sig3-col">
         <div class="sig3-head">LE CLIENT</div>
         ${c.contrat_force_par
-          ? `<div style="color:#b91c1c;font-weight:bold;font-size:10px">⚠ Réceptionné sans signature<br>(forcé par ${esc(c.contrat_force_par)})</div>`
+          ? `<div style="color:#b91c1c;font-weight:bold;font-size:10px">⚠ Réceptionné sans signature<br>(forcé par ${esc(nomSurDocument(c.contrat_force_par))})</div>`
           : (avenant ? c.avenant_signature : c.contrat_signature)
             ? `<img class="signature" src="${avenant ? c.avenant_signature : c.contrat_signature}" alt="Signature" />`
             : "<br><br>(en attente)"}
@@ -803,7 +804,7 @@ export function htmlContratInstallation(d, db) {
         <div class="sig3-head">POUR BMI</div>
         ${libelleRoleInitiateur}
         ${initiateur?.signature_personnelle ? `<img class="signature" src="${initiateur.signature_personnelle}" alt="Signature" />` : "<br><br>"}
-        <div class="ligne">${initiateur ? esc(initiateur.nom) : "Nom de l'initiateur du devis"}</div>
+        <div class="ligne">${initiateur ? esc(nomSurDocumentDans([initiateur], initiateur.nom, initiateur.id)) : "Nom de l'initiateur du devis"}</div>
       </div>
       <div class="sig3-cachet">
         <img src="${cachet}" alt="Cachet BMI Togo" />
@@ -866,7 +867,7 @@ export function imprimerBonRavitaillement(bon, db) {
     <div class="meta">
       <div><b>N° :</b> ${esc(bon.numero)}</div>
       <div><b>Date :</b> ${esc(dFR(bon.date))}</div>
-      <div><b>Établi par :</b> ${esc(bon.par)}</div>
+      <div><b>Établi par :</b> ${esc(nomSurDocument(bon.par))}</div>
     </div>
     <div class="flux">🏭 ${esc(bon.source)} &nbsp;→&nbsp; 🏪 ${esc(bon.destination)}</div>
     <table class="art">
@@ -1162,7 +1163,7 @@ export function imprimerBon(bon, bq = {}) {
       <div><b>N° :</b> ${esc(bon.numero)}</div>
       <div><b>Date :</b> ${dFR(bon.date)}</div>
       <div><b>Reçu d'origine :</b> ${esc(bon.recu)} du ${dFR(bon.dateVente)}</div>
-      ${reprise && bon.vendeur ? `<div><b>Vendeur :</b> ${esc(bon.vendeur)}</div>` : ""}
+      ${reprise && bon.vendeur ? `<div><b>Vendeur :</b> ${esc(nomSurDocument(bon.vendeur))}</div>` : ""}
     </div>
     <div class="btitre">CLIENT</div>
     <div class="client">
@@ -1209,7 +1210,7 @@ export function imprimerBon(bon, bq = {}) {
     <div class="paiement"><b>${bon.gratuit ? "Échange GRATUIT sous garantie." : `Frais facturés au client : ${fmt(bon.frais.montant)}${bon.frais.detail ? ` — ${esc(bon.frais.detail)}` : ""}${bon.frais.numero ? ` (dette ${esc(bon.frais.numero)})` : ""}`}</b>
       <div style="margin-top:4px;font-size:11px;color:#555">${bon.qte} article(s) de remplacement remis au client. L'article défectueux est repris par ${esc(bon.boutique)} (service après-vente). Le reçu de vente ${esc(bon.recu)} reste valable.</div></div>`}
     <table class="sign"><tr>
-      <td><div class="ligne">Pour ${esc(bon.boutique)}${bon.par ? ` : ${esc(bon.par)}` : ""}</div></td>
+      <td><div class="ligne">Pour ${esc(bon.boutique)}${bon.par ? ` : ${esc(nomSurDocument(bon.par))}` : ""}</div></td>
       <td></td>
       <td><div class="ligne">${reprise
         ? (bon.rembourse > 0 ? `Le client reconnaît avoir reçu ${fmt(bon.rembourse)}` : "Le client reconnaît la reprise et la réduction de sa dette")
