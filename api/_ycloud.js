@@ -78,9 +78,9 @@ export async function televerserYCloud(cle, expediteur, { octets, mime, nom }) {
 // (Meta la refuserait) ; un document porte son nom, que le client verra.
 // 📎 L'EN-TÊTE DOCUMENT d'un modèle (17/10/2026, `devis_pdf`) : le fichier
 // déjà déposé, cité par son numéro, avec le nom que le client verra.
-// ⚠ Forme de Meta (template « header » → « document » { id, filename }) ;
-// pas encore éprouvée chez YCloud d'ici : le premier vrai devis le dira, et un
-// refus revient tel quel (le devis repart alors sans PDF, côté application).
+// Forme de Meta (template « header » → « document » { id, filename }),
+// CONFIRMÉE par un vrai devis le 17/10/2026 (Timo : « le PDF est bien
+// arrivé »). Un refus revient tel quel (le devis repart alors sans PDF).
 export const composantDocument = (id, nom) =>
   ({ type: "header", parameters: [{ type: "document", document: { id, ...(nom ? { filename: nom } : {}) } }] });
 

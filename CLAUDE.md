@@ -5232,14 +5232,14 @@ lit mal est pire qu'un banc absent).
   puis « une case : cochée → le nouveau modèle, pas cochée → l'ancien ». Le PDF
   est DÉPOSÉ chez YCloud (le chemin du 📎 du 03/10) puis cité dans l'EN-TÊTE
   DOCUMENT du modèle ; rien n'est rangé chez nous.
-- Modèle **`devis_pdf`** (MARKETING, les trois trous de `devis_disponible`,
+- Modèle **`devis_pdf`** (UTILITY — soumis en marketing, rangé en utility par Meta —, les trois trous de `devis_disponible`,
   `entete: "document"` — `modeleAvecDocument`, `TEXTE_DEVIS_PDF`,
   lib/whatsappModeles.js ; le jour même, « pour toute question et
   éclaircissement » + le bloc court des contacts — `BLOC_CONTACT_COURT`). `critiqueEnvoiAuto` refuse un modèle à en-tête sans
   fichier (`MOTIF_PDF_MANQUANT`) ; le serveur (api/whatsapp.js) exige un PDF,
   le dépose, pose `composantDocument` (api/_ycloud.js) AVANT le corps.
-  ⚠ **La forme de l'en-tête chez YCloud n'est pas vérifiée d'ici** : le premier
-  vrai devis le dira (un refus revient tel quel, le devis repart sans PDF).
+  ✅ **La forme de l'en-tête est CONFIRMÉE** par un vrai devis le 17/10/2026
+  (« le PDF est bien arrivé ») ; un refus revient tel quel, le devis repart sans PDF.
 - **« A a »** : la case **« 📎 Joindre le PDF du devis »** (`data-joindre-pdf`,
   `BlocEnvoiDevisClient`, trois volets), DÉCOCHÉE pour chaque devis
   (`useEnvoiDevis`, remise à zéro après chaque devis). **« B a »** : cochée, le
@@ -5251,8 +5251,9 @@ lit mal est pire qu'un banc absent).
   la même case dans ✍️ Compléter le devis (`CompleterDevis` → `completerEtEnvoyer`,
   le PDF du devis COMPLÉTÉ). ⚠ **📝 Mes brouillons n'a pas la case** (dit à
   Timo). La ligne du fil : « … 📎 PDF joint ».
-- **Créé par Timo chez YCloud le 17/10/2026** (marketing, fr, en-tête Document,
-  le texte avec les contacts) ; en attente de l'accord de Meta. ~14 F. Rien à coller. Banc 55 (`verifier-whatsapp`, 16, la case
+- **Créé par Timo chez YCloud le 17/10/2026** (soumis en marketing, fr, en-tête
+  Document, le texte avec les contacts), **approuvé le jour même et RECLASSÉ
+  UTILITY par Meta** (~4 F au lieu de ~14 F) ; premier PDF reçu. Rien à coller. Banc 55 (`verifier-whatsapp`, 16, la case
   RENDUE), éprouvé (case cochée d'office, modèle ignoré, fichier non exigé,
   repli sur le PDF) ; six contrôles RETOURNÉS (cinquante-trois modèles,
   modèles à ligne, repli, phrase, ce que rend l'envoi, le serveur).

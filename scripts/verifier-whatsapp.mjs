@@ -40,7 +40,7 @@ const ATTENDU = {
   devis_disponible: { categorie: "marketing", n: 3 },
   // 📎 17/10/2026 (« A a, B a, C a ») : le devis AVEC son PDF en en-tête
   // document. MARKETING (une offre), les trois trous de devis_disponible.
-  devis_pdf: { categorie: "marketing", n: 3 },
+  devis_pdf: { categorie: "utility", n: 3 }, // RETOURNÉ le 17/10/2026 : Meta l'a rangé en utility
   relance_devis: { categorie: "marketing", n: 4 },
   // ⚠ LE DIX-SEPTIÈME (26/09/2026, « texte ok, une seule relance, lance ») :
   // la relance AUTOMATIQUE du 8e jour, qui annonce la fin de l'offre.
@@ -4699,8 +4699,8 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
 titre("55 📎 LE DEVIS AVEC SON PDF — `devis_pdf`, la case « Joindre le PDF du devis » (17/10/2026, « A a, B a, C a »)");
 {
   const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  test("★ `devis_pdf` : MARKETING (une offre), les TROIS trous de devis_disponible dans le même ordre, et un EN-TÊTE DOCUMENT ; lui seul en porte un",
-    M.MODELES.devis_pdf?.categorie === "marketing" && M.MODELES.devis_pdf.variables.join(",") === M.MODELES.devis_disponible.variables.join(",")
+  test("★ `devis_pdf` : UTILITY (RETOURNÉ le 17/10/2026 — soumis en marketing, Meta l'a rangé en utility), les TROIS trous de devis_disponible dans le même ordre, et un EN-TÊTE DOCUMENT ; lui seul en porte un",
+    M.MODELES.devis_pdf?.categorie === "utility" && M.MODELES.devis_pdf.variables.join(",") === M.MODELES.devis_disponible.variables.join(",")
     && M.modeleAvecDocument("devis_pdf") === true && M.NOMS_MODELES.filter((n) => M.modeleAvecDocument(n)).join(",") === "devis_pdf"
     && M.MODELES_EN_SERVICE.includes("devis_pdf"));
   test("★ le texte du modèle (celui à créer chez YCloud) : trois trous dans l'ordre, la pièce jointe et l'espace client dits",

@@ -47,7 +47,7 @@ export const MODELES = {
   // EN-TÊTE (`entete: "document"`). Le fichier est déposé chez WhatsApp par le
   // serveur juste avant l'envoi, jamais rangé chez nous. Choisi par la case
   // « 📎 Joindre le PDF du devis » ; décochée, c'est `devis_disponible`.
-  devis_pdf: { categorie: "marketing", variables: ["client", "domaine", "montant"], entete: "document" },
+  devis_pdf: { categorie: "utility", variables: ["client", "domaine", "montant"], entete: "document" },
   // « Bonjour {{1}}, nous revenons vers vous au sujet du devis {{2}} de {{3}}
   //   que nous vous avons envoyé le {{4}}. … »
   relance_devis: { categorie: "marketing", variables: ["client", "domaine", "montant", "date"] },
