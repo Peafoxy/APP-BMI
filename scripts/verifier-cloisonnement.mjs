@@ -8108,6 +8108,39 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
   test("★ l'en-tête de catégorie revient quand il regroupe AU MOINS 2 lignes (deux modèles de panneaux), et la catégorie restée seule (Batteries) n'en a toujours pas",
     txtDeuxPanneaux.includes("Panneaux solaires") && txtDeuxPanneaux.includes("PANNEAU 450W")
     && !txtDeuxPanneaux.includes("Batteries") && txtDeuxPanneaux.includes("BATTERIE 5 kWh"));
+  // ⚠ Timo, 17/10/2026 (devis « Barrière levante », « b ») : une ligne SANS
+  // titre placée après un groupe titré se lisait comme en faisant partie
+  // (« Paire de photocellules » sous « Télécommandes »). Les articles seuls
+  // passent AVANT les catégories titrées ; les frais restent en dernier.
+  const lignesBarriere = [
+    { categorie: "Moteurs", article: "MOTEUR BARRIERE 24V", qte: 1, pu: 650000, total: 650000 },
+    { categorie: "Télécommandes", article: "TELECOMMANDE 4 CANAUX", qte: 2, pu: 12000, total: 24000 },
+    { categorie: "Télécommandes", article: "RECEPTEUR RADIO", qte: 1, pu: 25000, total: 25000 },
+    { categorie: "Sécurité", article: "PAIRE DE PHOTOCELLULES", qte: 1, pu: 35000, total: 35000 },
+    { categorie: "Installation", article: "Frais d'installation (10 %)", qte: 1, pu: 73400, total: 73400 },
+    { categorie: "Transport", article: "Transport / livraison", qte: 1, pu: 15000, total: 15000 },
+  ];
+  const txtBarriere = texteDuPdf(Pdf.genererDevis({ ...dSol, besoins: null, lignes: lignesBarriere }, null, true));
+  const posB = (t) => txtBarriere.indexOf(t);
+  test("★ devis : les articles seuls dans leur catégorie passent AVANT les catégories titrées (aucune ligne ne se lit sous le titre d'un autre groupe), les frais restent en dernier (Timo, 17/10/2026, « b »)",
+    posB("MOTEUR BARRIERE 24V") > -1 && posB("PAIRE DE PHOTOCELLULES") > -1 && posB("Télécommandes") > -1
+    && posB("MOTEUR BARRIERE 24V") < posB("Télécommandes") && posB("PAIRE DE PHOTOCELLULES") < posB("Télécommandes")
+    && posB("Télécommandes") < posB("TELECOMMANDE 4 CANAUX") && posB("RECEPTEUR RADIO") < posB("Frais d'installation")
+    && !txtBarriere.includes("(Frais)")
+    && posB("Frais d'installation") < posB("Transport / livraison")
+    && !txtBarriere.includes("Sécurité") && !txtBarriere.includes("Moteurs"));
+  {
+    const LD = await import(pathToFileURL(process.cwd() + "/src/lib/lignesDevis.js").href);
+    const g = LD.groupesEquipement(lignesBarriere);
+    test("★ groupesEquipement (lib/lignesDevis.js) : seuls, puis titrés, puis frais ; un article du stock rangé en « Installation » n'est PAS un frais ; le PDF passe par elle (aucune copie)",
+      g.map((x) => `${x.cat}:${x.titre ? "T" : "-"}:${x.lignes.length}`).join("|") === "Moteurs:-:1|Sécurité:-:1|Télécommandes:T:2|Frais:-:2"
+      && LD.groupesEquipement(lignesBarriere).at(-1).separe === true
+      // sans catégorie titrée avant eux, les frais n'ont pas de titre
+      && LD.groupesEquipement(lignesBarriere.filter((l) => l.categorie !== "Télécommandes")).map((x) => `${x.cat}:${x.titre ? "T" : "-"}:${x.separe ? "S" : "-"}`).join("|") === "Moteurs:-:-|Sécurité:-:-|Frais:-:-"
+      && LD.groupesEquipement([{ categorie: "Installation", article: "Coffret de protection", qte: 1, pu: 1, total: 1 }])[0].cat === "Installation"
+      && /groupesEquipement\(d\.lignes\)/.test(srcPdf) && /g\.separe && i === 0/.test(srcPdf) && /lineWidth: \{ top: 0\.5 \}/.test(srcPdf) && !/lignes\.length >= 2\) body\.push/.test(srcPdf)
+      && !/export const estLigneFrais/.test(readFileSync("src/screens/dimensionnement/devisCommun.js", "utf8")));
+  }
   // ⚠ Timo, 11/09/2026 : « un devis devrait avoir une signature ? » — oui, et
   // BMI n'en avait aucune. Le cadre de gauche l'engage désormais.
   const txtSigne = texteDuPdf(Pdf.genererDevis({ ...dSol, par: "AKUE Jean", cachet: CACHET_ESSAI, signature: CACHET_ESSAI }, null, true));
@@ -8523,7 +8556,9 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     !txtPortail.includes("Motorisation") && txtPortail.includes("MOTEUR 600 kg")
     && txtSol.includes("-100 000 F")
     && srcPdf.includes("const avecCategorie = d.lignes.some((l) => l.categorie);")
-    && srcPdf.includes("if (g.lignes.length >= 2) body.push("));
+    // RETOURNÉ le 17/10/2026 (« b ») : la règle des 2 lignes vit dans
+    // groupesEquipement (lib/lignesDevis.js) ; le PDF ne titre que `g.titre`.
+    && srcPdf.includes("if (g.titre) body.push("));
   const srcDevisEcran = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
   test("★ TousLesDevis TRANSMET les besoins au PDF (sinon rien ne s'imprime), et le cachet de la maison avec la signature de l'élaborateur — UN seul cachet, celui des contrats",
     /besoins: d\.besoins/.test(srcDevisEcran)

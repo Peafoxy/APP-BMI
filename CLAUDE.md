@@ -999,7 +999,12 @@ lit mal est pire qu'un banc absent).
   **Équipement proposé** (**la catégorie ne titre son groupe que s'il compte
   AU MOINS 2 lignes** — 11/09/2026, « trop de tautologie » : « Panneaux
   solaires » au-dessus de « Panneau 400W » se lisait deux fois ; deux modèles
-  et le titre revient seul —, remise en rouge négatif), **TOTAL DU PROJET**
+  et le titre revient seul —, remise en rouge négatif ; **l'ordre** (17/10/2026,
+  devis « Barrière levante », « b ») : les articles SEULS dans leur catégorie
+  d'abord, puis les catégories titrées, puis les frais sous un trait bleu si
+  une catégorie titrée les précède — `groupesEquipement`, `lib/lignesDevis.js`,
+  où vit aussi `estLigneFrais` ; un trait et non un titre « Frais » : il ne
+  prend aucune hauteur, le devis tient sur une page), **TOTAL DU PROJET**
   puis acompte et solde (`pct_acompte`,
   `montant_acompte`, `delai_installation`), **mentions + validité
   (`VALIDITE_OFFRE_JOURS` = 15) + DEUX cadres de signature**. **Le devis

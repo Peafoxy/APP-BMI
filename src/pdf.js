@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { fichierPdf, pctRemiseLisible, dFR, today } from "./lib/core";
 import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
+import { groupesEquipement } from "./lib/lignesDevis";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
 // La phrase d'un devis à compléter tient sur UNE ligne sous le bandeau (toute
 // la largeur : rien d'autre n'est écrit là). Le banc mesure qu'elle y tient.
@@ -408,24 +409,26 @@ function blocEquipement(doc, d, largeur, hauteur, y) {
   const avecCategorie = d.lignes.some((l) => l.categorie);
   const body = [];
   if (avecCategorie) {
-    const groupes = [];
-    for (const l of d.lignes) {
-      const cat = String(l.categorie || "Autres équipements");
-      let g = groupes.find((x) => x.cat === cat);
-      if (!g) { g = { cat, lignes: [] }; groupes.push(g); }
-      g.lignes.push(l);
-    }
     // ⚠ Timo (11/09/2026, capture) : « je pense qu'il y a trop de tautologie
     // dans les équipements proposés » — « Panneaux solaires » au-dessus de
-    // « Panneau 400W », « Batteries » au-dessus de « Batterie lithium »… le
-    // client lisait deux fois la même chose et le tableau faisait le double
-    // de sa hauteur. LA RÈGLE : un en-tête de catégorie n'apparaît que s'il
-    // regroupe AU MOINS 2 lignes. Une catégorie à une seule ligne perd son
-    // titre — le nom de l'article dit déjà tout. Deux modèles de panneaux
-    // dans le même devis, et « Panneaux solaires » revient de lui-même.
-    for (const g of groupes) {
-      if (g.lignes.length >= 2) body.push([{ content: g.cat, colSpan: 4, styles: { fontStyle: "bold", fillColor: [226, 232, 240], textColor: BLEU } }]);
-      for (const l of g.lignes) body.push(ligneEquipement(l));
+    // « Panneau 400W »… LA RÈGLE : un en-tête de catégorie n'apparaît que
+    // s'il regroupe AU MOINS 2 lignes.
+    // ⚠ Timo (17/10/2026, « b ») : les articles SANS titre passent AVANT les
+    // catégories titrées, les frais toujours en dernier — sinon une ligne
+    // seule se lisait sous le titre du groupe d'avant. L'ordre est UNE règle,
+    // `groupesEquipement` (lib/lignesDevis.js).
+    for (const g of groupesEquipement(d.lignes)) {
+      if (g.titre) body.push([{ content: g.cat, colSpan: 4, styles: { fontStyle: "bold", fillColor: [226, 232, 240], textColor: BLEU } }]);
+      g.lignes.forEach((l, i) => {
+        const cellules = ligneEquipement(l);
+        // Le trait qui ferme la catégorie titrée d'avant (aucune hauteur).
+        body.push(g.separe && i === 0
+          ? cellules.map((c) => {
+            const cel = typeof c === "object" && c !== null ? c : { content: c };
+            return { ...cel, styles: { ...(cel.styles || {}), lineWidth: { top: 0.5 }, lineColor: BLEU } };
+          })
+          : cellules);
+      });
     }
   } else {
     for (const l of d.lignes) body.push(ligneEquipement(l));

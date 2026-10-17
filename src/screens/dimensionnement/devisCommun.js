@@ -18,6 +18,7 @@ import { devisModifiable, ROLES_MODIFIENT_TOUT_DEVIS } from "../../lib/comptesCl
 import { cleIdentifiant } from "../../lib/identiteClient";
 import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
+import { estLigneFrais } from "../../lib/lignesDevis";
 import { CATEGORIE_CF_VISITE, estLigneCfVisite, lignesCfVisite, critiqueCompletion, nombreSaisi } from "../../lib/devisCfVisite";
 
 // ---- Les « autres équipements » (saisie libre) ----
@@ -119,17 +120,12 @@ export const lignesFrais = (r) => [
 // articles. Le volet « Autre » reprenait toute ligne qui n'était pas
 // « Autres équipements » : la ligne de frais revenait comme un ARTICLE, et
 // le pourcentage (lui aussi repris) la recomptait par-dessus — frais en
-// double, calculés sur eux-mêmes. UNE règle pour les reconnaître, écrite ICI,
-// à côté de ce qui les fabrique : catégorie ET début du libellé (un article
-// du stock rangé dans une catégorie « Installation » ne doit pas disparaître).
-export const estLigneFrais = (l) => {
-  const a = String((l && l.article) || "");
-  const c = l && l.categorie;
-  // Un montant libre s'écrit sans pourcentage (« Frais d'installation »).
-  return (c === "Installation" && (a.startsWith("Frais d'installation (") || a === "Frais d'installation" || a === "Frais de pose (matériel du client)"))
-    || (c === "Transport" && (a.startsWith("Transport / livraison (") || a === "Transport / livraison"))
-    || (c === "Remise" && (a.startsWith("Remise (") || a === "Remise"));
-};
+// double, calculés sur eux-mêmes. UNE règle pour les reconnaître :
+// catégorie ET début du libellé (un article du stock rangé dans une
+// catégorie « Installation » ne doit pas disparaître). Elle vit depuis le
+// 17/10/2026 dans lib/lignesDevis.js (le PDF la lit aussi pour garder les
+// frais en dernier) — importée ET réexportée ici.
+export { estLigneFrais };
 
 // ---- 📝 La ligne « NB » d'un devis (Timo, 08/10/2026, « 1a, 2b, 3a ») ----
 // Un texte TAPÉ à la main sur chaque devis (facultatif), 300 caractères au
