@@ -627,7 +627,7 @@ Le script se termine par `true | true | true`.
 
 ## 📎 `devis_pdf` — le devis avec son PDF (17/10/2026)
 
-À créer chez YCloud : nom **devis_pdf**, catégorie **Marketing**, langue **fr**,
+✅ Créé chez YCloud par Timo le 17/10/2026 : nom **devis_pdf**, catégorie **Marketing**, langue **fr**,
 en-tête **Document** (joindre un PDF d'exemple pour la soumission), corps :
 
 > Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.

@@ -5251,8 +5251,8 @@ lit mal est pire qu'un banc absent).
   la même case dans ✍️ Compléter le devis (`CompleterDevis` → `completerEtEnvoyer`,
   le PDF du devis COMPLÉTÉ). ⚠ **📝 Mes brouillons n'a pas la case** (dit à
   Timo). La ligne du fil : « … 📎 PDF joint ».
-- **À créer par Timo chez YCloud** (marketing, fr, en-tête Document avec un PDF
-  d'exemple). ~14 F. Rien à coller. Banc 55 (`verifier-whatsapp`, 16, la case
+- **Créé par Timo chez YCloud le 17/10/2026** (marketing, fr, en-tête Document,
+  le texte avec les contacts) ; en attente de l'accord de Meta. ~14 F. Rien à coller. Banc 55 (`verifier-whatsapp`, 16, la case
   RENDUE), éprouvé (case cochée d'office, modèle ignoré, fichier non exigé,
   repli sur le PDF) ; six contrôles RETOURNÉS (cinquante-trois modèles,
   modèles à ligne, repli, phrase, ce que rend l'envoi, le serveur).
