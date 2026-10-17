@@ -9,7 +9,7 @@ import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../../components/ui";
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis, estAdminPrincipal } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, contientLeMot, memeFamille, BlocEnvoiDevisClient, quantiteNecessaire, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
-import { construireDevis, panierAutres } from "./devisCommun";
+import { construireDevis, panierAutres, brouillonManuelDe } from "./devisCommun";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
@@ -410,9 +410,9 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
                   <td className="px-3 py-2">
                     {enManuel ? (
                       <div className="flex flex-wrap gap-2 items-center">
-                        <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuel[l.role.id]?.nom ?? l.produit?.nom ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { qte: "1" }), nom: e.target.value } })} />
-                        <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuel[l.role.id]?.prix ?? l.produit?.prix_vente ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { nom: l.produit?.nom || "" }), prix: e.target.value } })} />
-                        <button onClick={() => validerManuel(l.role.id)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">Valider</button>
+                        <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuelDe(brouillonManuel[l.role.id], l).nom} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...brouillonManuelDe(brouillonManuel[l.role.id], l), nom: e.target.value } })} />
+                        <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuelDe(brouillonManuel[l.role.id], l).prix} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...brouillonManuelDe(brouillonManuel[l.role.id], l), prix: e.target.value } })} />
+                        <button onClick={() => validerManuel(l.role.id, l)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">Valider</button>
                         <button onClick={() => annulerManuel(l.role.id, l.role)} className="text-xs text-slate-500 underline">Annuler (revenir à la sélection automatique)</button>
                       </div>
                     ) : (

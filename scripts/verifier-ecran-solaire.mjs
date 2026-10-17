@@ -10,6 +10,12 @@
 // MAIN sur la boutique (ce qui le verrouille), passer en Libre, revenir sur
 // la boutique. On le REJOUE avec le vrai écran (DimensionnementSolaire) et on
 // lit ce qui s'affiche.
+//
+// Et le volet « Autre » (capture Timo, 17/10/2026, devis de KLIRA repris) :
+// une ligne hors stock reprise, son nom changé, « Valider » répondait
+// « Indiquez au moins le nom et le prix de l'article » alors que les deux
+// cases étaient remplies. On REJOUE la reprise avec le vrai écran
+// (DimensionnementAutre) : changer le nom, Valider, lire la ligne.
 // ============================================================
 import { build } from "esbuild";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
@@ -30,6 +36,8 @@ writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DimensionnementSolaire } from "${process.cwd()}/src/screens/dimensionnement/Solaire.jsx";
+import { DimensionnementAutre } from "${process.cwd()}/src/screens/dimensionnement/Autre.jsx";
+import { DialogHost } from "${process.cwd()}/src/components/ui.jsx";
 const admin = { id: "adm", nom: "TIMO", role: "admin" };
 const depart = {
   boutiques: [{ nom: "LOME", formation: false, couleur: "#0369a1" }],
@@ -50,11 +58,24 @@ function Essai() {
   return <DimensionnementSolaire db={db} profile={admin} save={save} bq={bq} setBq={setBq} />;
 }
 createRoot(document.getElementById("r")).render(<Essai />);
+// Le devis repris de KLIRA : une ligne hors stock (aucun article du stock ne
+// porte ce nom), 6 × 850 000 F.
+const reprise = { devis: { id: "dv1", besoins: { categorie: "Barrière levante" }, lignes: [
+  { categorie: "barriere lévante", article: "PARK-501DFC", qte: 6, pu: 850000, total: 5100000 },
+] } };
+function EssaiAutre() {
+  const [db, setDb] = useState(depart);
+  const [bq, setBq] = useState("LOME");
+  const save = (next) => { setDb(typeof next === "function" ? next(db) : next); };
+  return <><DimensionnementAutre db={db} profile={admin} save={save} bq={bq} setBq={setBq}
+    domaine={{ id: "d1", nom: "Barrière levante" }} devisAReprendre={reprise} onDevisRepriseConsomme={() => {}} /><DialogHost /></>;
+}
+createRoot(document.getElementById("r2")).render(<EssaiAutre />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
 const html = join(dossier, "index.html");
-writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><script src="bundle.js"></script></body></html>`);
+writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><div id="r2"></div><script src="bundle.js"></script></body></html>`);
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await nav.newPage({ viewport: { width: 1300, height: 1000 } });
 const erreurs = [];
@@ -102,6 +123,32 @@ console.log("\nLe chemin de Timo : choix à la main, mode Libre, retour sur la b
   test("★ de retour sur la boutique, les Panneaux reprennent leur liste du stock — plus de « Panneaux solaires — 550 Wc »",
     pan.select === 1 && !/Panneaux solaires — \\d+ Wc/.test(pan.texte), JSON.stringify(pan));
   test("aucune erreur pendant le chemin", erreurs.length === 0, erreurs.join(" | "));
+}
+
+console.log("\nLe volet Autre : une ligne hors stock d'un devis repris, son nom changé, Valider");
+{
+  const zone = page.locator("#r2");
+  const ligneHS = zone.locator("tbody tr", { has: page.locator('input[placeholder="Nom de l\'article"]') }).first();
+  const champNom = ligneHS.locator('input[placeholder="Nom de l\'article"]');
+  test("la ligne hors stock reprise montre son nom et son prix", (await champNom.inputValue()) === "PARK-501DFC"
+    && (await ligneHS.locator('input[placeholder="Prix (F)"]').inputValue()) === "850000");
+  await champNom.fill("MOTEUR PARK-501DFC + 2RC");
+  await ligneHS.locator("button:text-is('Valider')").click();
+  await attendre(300);
+  const alerte = /Indiquez au moins le nom et le prix/.test(await page.locator("body").innerText());
+  const texte = propre(await ligneHS.innerText());
+  test("★ Valider accepte le nom changé : AUCUNE fenêtre « Indiquez au moins le nom et le prix »", !alerte, texte);
+  test("★ la ligne garde son prix (850 000) et sa quantité (6) : sous-total 5 100 000",
+    /850 000/.test(texte) && /5 100 000/.test(texte) && (await champNom.inputValue()) === "MOTEUR PARK-501DFC + 2RC", texte);
+  if (alerte) { await page.locator("button:text-is('OK')").first().click().catch(() => {}); await attendre(150); }
+  // Changer le PRIX seul garde le nom ; Valider sans rien toucher passe aussi.
+  await ligneHS.locator('input[placeholder="Prix (F)"]').fill("900000");
+  await ligneHS.locator("button:text-is('Valider')").click();
+  await attendre(300);
+  const alerte2 = /Indiquez au moins le nom et le prix/.test(await page.locator("body").innerText());
+  const texte2 = propre(await ligneHS.innerText());
+  test("★ changer le prix seul garde le nom ; 6 × 900 000 = 5 400 000", !alerte2 && /5 400 000/.test(texte2) && (await champNom.inputValue()) === "MOTEUR PARK-501DFC + 2RC", texte2);
+  test("aucune erreur dans le volet Autre", erreurs.length === 0, erreurs.join(" | "));
 }
 
 await nav.close();

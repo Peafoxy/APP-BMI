@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-ecran-loyer     # 32  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
-npm run verifier-ecran-solaire   # 5   : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique)
+npm run verifier-ecran-solaire   # 10  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
@@ -650,6 +650,21 @@ lit mal est pire qu'un banc absent).
   ne garde jamais une ligne `libre` sur une boutique. Banc Chromium
   `verifier-ecran-solaire` (le chemin rejoué), éprouvé sans le correctif :
   deux contrôles tombent. Rien à coller. Chapitre 11 à jour.
+- **✏️ UNE LIGNE HORS STOCK D'UN DEVIS REPRIS SE CORRIGE ET SE VALIDE**
+  (capture Timo, 17/10/2026, devis de KLIRA repris : nom changé en « MOTEUR
+  PARK-501DFC + 2RC », « Valider » → « Indiquez au moins le nom et le prix »
+  alors que les deux cases étaient remplies). Les cases AFFICHAIENT le nom et
+  le prix de la ligne, mais le brouillon restait vide : changer le nom
+  écrivait un brouillon sans prix, et « Valider » ramenait aussi la quantité
+  à 1. Défaut présent dans les TROIS volets (Solaire, Portail, Autre).
+  `brouillonManuelDe` (devisCommun.js) : le brouillon part de CE QUE L'ÉCRAN
+  MONTRE (nom, prix, quantité de la ligne), la frappe s'y ajoute ;
+  `validerManuel(id, ligne)` garde la quantité de la ligne. Un prix à 0 reste
+  accepté (comme avant). Rien à coller. Bancs : Chromium
+  `verifier-ecran-solaire` (+5, le volet Autre rejoué), `verifier-cloisonnement`
+  (+4) ; éprouvés (brouillon d'avant remis, quantité ramenée à 1, un volet qui
+  ne passe pas la ligne). Aucun chapitre à corriger (ils décrivaient déjà le
+  bon geste).
 - **🆕 Nouveau devis** (solaire, 09/09/2026) : à côté de « Ajouter un
   appareil », **seulement au-delà de 5 appareils** (en dessous on retire à
   la main) ; confirmation avant d'effacer, qui rappelle « Enregistrer un

@@ -127,6 +127,24 @@ export const lignesFrais = (r) => [
 // frais en dernier) — importée ET réexportée ici.
 export { estLigneFrais };
 
+// ---- ✏️ Le brouillon d'un article hors stock (trois volets) ----
+// ⚠ Capture Timo, 17/10/2026 (devis de KLIRA repris) : une ligne hors stock
+// reprise s'affiche avec son nom et son prix (lus sur la ligne), mais le
+// brouillon, lui, restait VIDE. Changer le nom écrivait un brouillon SANS
+// prix ; « Valider » répondait « Indiquez au moins le nom et le prix » alors
+// que les deux cases étaient remplies — et ramenait la quantité à 1. La
+// règle : le brouillon part de CE QUE L'ÉCRAN MONTRE (le nom, le prix et la
+// quantité de la ligne), la frappe s'y ajoute.
+export function brouillonManuelDe(brouillon, ligne) {
+  const p = ligne && ligne.produit;
+  const base = {
+    nom: (p && p.nom) || "",
+    prix: p && p.prix_vente != null ? String(p.prix_vente) : "",
+    qte: String((ligne && ligne.qte) || 1),
+  };
+  return { ...base, ...(brouillon || {}) };
+}
+
 // ---- 📝 La ligne « NB » d'un devis (Timo, 08/10/2026, « 1a, 2b, 3a ») ----
 // Un texte TAPÉ à la main sur chaque devis (facultatif), 300 caractères au
 // plus (cinq lignes au plus sur le PDF), écrit dans la place blanche à

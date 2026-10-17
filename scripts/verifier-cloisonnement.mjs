@@ -4798,6 +4798,22 @@ titre("📝 Mes brouillons : un devis gardé dans MA fiche, repris ou envoyé pl
     DC.retirerBrouillon(db2, "u_k", "inconnu").users[0] === db2.users[0] && DC.retirerBrouillon(db2, "u_a", "b1").users[1] === db2.users[1]);
   test("★ les objets d'origine ne sont pas modifiés en place", DC.brouillonsDe(db0.users[0]).length === 0 && DC.brouillonsDe(db2.users[0]).length === 2);
 
+  // ⚠ Capture Timo, 17/10/2026 (devis de KLIRA repris) : une ligne hors stock
+  // reprise, son nom changé, « Valider » refusait « Indiquez au moins le nom
+  // et le prix ». Le brouillon part de ce que l'écran MONTRE (brouillonManuelDe).
+  {
+    const ligneReprise = { produit: { nom: "PARK-501DFC", prix_vente: 850000, manuel: true }, qte: 6 };
+    const b = { ...DC.brouillonManuelDe(undefined, ligneReprise), nom: "MOTEUR PARK-501DFC + 2RC" };
+    test("★ hors stock repris : changer le nom garde le prix et la quantité de la ligne (850000, 6)",
+      b.nom === "MOTEUR PARK-501DFC + 2RC" && b.prix === "850000" && b.qte === "6");
+    test("★ un brouillon ouvert à vide (« ✏️ Saisir un article hors stock ») reste vide : la frappe prime sur la ligne",
+      DC.brouillonManuelDe({ nom: "", prix: "", qte: "1" }, ligneReprise).nom === "" && DC.brouillonManuelDe({ nom: "", prix: "", qte: "1" }, ligneReprise).prix === "");
+    const vol = ["Autre", "Garage", "Solaire"].map((f) => [f, readFileSync(`src/screens/dimensionnement/${f}.jsx`, "utf8")]);
+    const fautifs = vol.filter(([, t]) => /\|\| \{ qte: "1" \}\), nom:|\|\| \{ nom: l\.produit\?\.nom \|\| "" \}\), prix:/.test(t) || (t.match(/brouillonManuelDe\(brouillonManuel\[l\./g) || []).length !== 4 || !/validerManuel\(l\.(besoin|role)\.id, l\)/.test(t)).map(([f]) => f);
+    test("★ les trois volets lisent le brouillon hors stock par brouillonManuelDe (nom et prix, affichés ET tapés) et Valider reçoit la ligne", fautifs.length === 0, fautifs.join(", "));
+    const sel = readFileSync("src/screens/dimensionnement/Selecteur.jsx", "utf8") + readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+    test("★ Valider garde la quantité de la ligne (jamais ramenée à 1 par le brouillon)", (sel.match(/\?\.qte \?\? b\.qte\)/g) || []).length === 2);
+  }
   const part = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
   // RETOURNÉ le 05/10/2026 (Timo : « enregistrer un brouillon soit toujours
   // possible ») : le bouton n'est plus grisé ; sans client, une question et un

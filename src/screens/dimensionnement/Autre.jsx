@@ -9,7 +9,7 @@ import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique } from "../../com
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, estAdminPrincipal } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
-import { construireDevis, panierAutres, estLigneFrais } from "./devisCommun";
+import { construireDevis, panierAutres, brouillonManuelDe, estLigneFrais } from "./devisCommun";
 import { estLigneCfVisite } from "../../lib/devisCfVisite";
 import { useSelectionAvecVerrou } from "./Selecteur";
 import { etudePompe, pompesDuStock, ficheLisible } from "../../lib/pompes.js";
@@ -454,9 +454,9 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
                   <td className="px-3 py-2">
                     {enManuel ? (
                       <div className="flex flex-wrap gap-2 items-center">
-                        <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuel[l.besoin.id]?.nom ?? l.produit?.nom ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.besoin.id]: { ...(brouillonManuel[l.besoin.id] || { qte: "1" }), nom: e.target.value } })} />
-                        <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuel[l.besoin.id]?.prix ?? l.produit?.prix_vente ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.besoin.id]: { ...(brouillonManuel[l.besoin.id] || { nom: l.produit?.nom || "" }), prix: e.target.value } })} />
-                        <button onClick={() => validerManuel(l.besoin.id)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">Valider</button>
+                        <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuelDe(brouillonManuel[l.besoin.id], l).nom} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.besoin.id]: { ...brouillonManuelDe(brouillonManuel[l.besoin.id], l), nom: e.target.value } })} />
+                        <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuelDe(brouillonManuel[l.besoin.id], l).prix} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.besoin.id]: { ...brouillonManuelDe(brouillonManuel[l.besoin.id], l), prix: e.target.value } })} />
+                        <button onClick={() => validerManuel(l.besoin.id, l)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">Valider</button>
                         <button onClick={() => annulerManuel(l.besoin.id, l.besoin)} className="text-xs text-slate-500 underline">Annuler (revenir à la recherche automatique)</button>
                       </div>
                     ) : (

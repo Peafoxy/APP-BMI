@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { uAlert } from "../../components/ui";
 import { toucher } from "../../lib/calculs";
+import { brouillonManuelDe } from "./devisCommun";
 
 // ============ ÉLÉMENTS PARTAGÉS ENTRE LES 3 OUTILS DE DIMENSIONNEMENT ============
 // Solaire, Garage et Autre suivent tous la même mécanique de fond (besoins du
@@ -52,10 +53,12 @@ export function useSelectionAvecVerrou(meilleurChoix, initial) {
     setManuelOuvert((v) => ({ ...v, [itemId]: true }));
     setBrouillonManuel((v) => ({ ...v, [itemId]: v[itemId] || brouillonParDefaut }));
   };
-  const validerManuel = (itemId) => {
-    const b = brouillonManuel[itemId];
-    if (!b || !b.nom.trim() || !b.prix) { uAlert("Indiquez au moins le nom et le prix de l'article."); return; }
-    setChoix((avant) => ({ ...avant, [itemId]: { type: "manuel", nom: b.nom.trim(), prix: Number(b.prix), qte: Math.max(1, Number(b.qte) || 1) } }));
+  // `ligne` = la ligne telle que l'écran la montre : le brouillon part d'elle
+  // (brouillonManuelDe, 17/10/2026), et la quantité reste celle de la ligne.
+  const validerManuel = (itemId, ligne) => {
+    const b = brouillonManuelDe(brouillonManuel[itemId], ligne);
+    if (!String(b.nom || "").trim() || String(b.prix ?? "").trim() === "") { uAlert("Indiquez au moins le nom et le prix de l'article."); return; }
+    setChoix((avant) => ({ ...avant, [itemId]: { type: "manuel", nom: b.nom.trim(), prix: Number(b.prix), qte: Math.max(1, Number(avant[itemId]?.qte ?? b.qte) || 1) } }));
     setManuelOuvert((v) => ({ ...v, [itemId]: false }));
   };
   // Repasse cet item en sélection/recherche automatique (relâche le verrou et relance meilleurChoix)

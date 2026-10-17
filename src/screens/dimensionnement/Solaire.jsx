@@ -11,7 +11,7 @@ import { besoinsSolaires, supportsPourRails, etriersPourPanneaux, barresDeRail }
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
-import { construireDevis, panierAutres } from "./devisCommun";
+import { construireDevis, panierAutres, brouillonManuelDe } from "./devisCommun";
 import { apporteurVide } from "../../lib/apporteurDevis";
 import { ROLES_EQUIPEMENT, SOLEIL_DEFAUT, TENSION_DEFAUT, estHybrideTexte, empilable, tensionInfereeConvertisseur, tensionInfereeBatterie, typeBatterieInfere, idDomaineSolaireDes, candidatsSolaire, choixDuStock, supportsDuStock, etrierDuStock, metresRailPourPanneaux } from "../../lib/choixSolaire";
 // Réexportés : d'autres fichiers et le banc les lisent ici depuis toujours.
@@ -493,10 +493,11 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setManuelOuvert({ ...manuelOuvert, [roleId]: true });
     setBrouillonManuel({ ...brouillonManuel, [roleId]: brouillonManuel[roleId] || { nom: "", prix: "", qte: "1" } });
   };
-  const validerManuel = (roleId) => {
-    const b = brouillonManuel[roleId];
-    if (!b || !b.nom.trim() || !b.prix) { uAlert("Indiquez au moins le nom et le prix de l'article."); return; }
-    const nouveauChoix = { ...choix, [roleId]: { type: "manuel", nom: b.nom.trim(), prix: Number(b.prix), qte: Math.max(1, Number(b.qte) || 1) } };
+  // `ligne` = la ligne telle que l'écran la montre (brouillonManuelDe, 17/10/2026).
+  const validerManuel = (roleId, ligne) => {
+    const b = brouillonManuelDe(brouillonManuel[roleId], ligne);
+    if (!String(b.nom || "").trim() || String(b.prix ?? "").trim() === "") { uAlert("Indiquez au moins le nom et le prix de l'article."); return; }
+    const nouveauChoix = { ...choix, [roleId]: { type: "manuel", nom: b.nom.trim(), prix: Number(b.prix), qte: Math.max(1, Number(choix[roleId]?.qte ?? b.qte) || 1) } };
     if (roleId === "convertisseur" && !estHybrideTexte(b.nom)) {
       const c = meilleurChoix(ROLES_EQUIPEMENT.find((r) => r.id === "regulateur"));
       if (c) nouveauChoix.regulateur = c;
@@ -832,9 +833,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                       </div>
                     ) : enManuel ? (
                       <div className="flex flex-wrap gap-2 items-center">
-                        <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuel[l.role.id]?.nom ?? l.produit?.nom ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { qte: "1" }), nom: e.target.value } })} />
-                        <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuel[l.role.id]?.prix ?? l.produit?.prix_vente ?? ""} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...(brouillonManuel[l.role.id] || { nom: l.produit?.nom || "" }), prix: e.target.value } })} />
-                        <button onClick={() => validerManuel(l.role.id)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">Valider</button>
+                        <input className={`${inputCls} w-40`} placeholder="Nom de l'article" value={brouillonManuelDe(brouillonManuel[l.role.id], l).nom} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...brouillonManuelDe(brouillonManuel[l.role.id], l), nom: e.target.value } })} />
+                        <input type="number" className={`${inputCls} w-24`} placeholder="Prix (F)" value={brouillonManuelDe(brouillonManuel[l.role.id], l).prix} onChange={(e) => setBrouillonManuel({ ...brouillonManuel, [l.role.id]: { ...brouillonManuelDe(brouillonManuel[l.role.id], l), prix: e.target.value } })} />
+                        <button onClick={() => validerManuel(l.role.id, l)} className="text-xs font-bold text-white bg-sky-800 rounded-lg px-3 py-1.5">Valider</button>
                         <LienAuto onClick={() => annulerManuel(l.role.id)} />
                       </div>
                     ) : (
