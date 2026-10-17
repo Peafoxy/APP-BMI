@@ -598,11 +598,7 @@ export const SUITE_MONTANT_CF_VISITE = " (hors éléments à chiffrer après la 
 // 📎 17/10/2026 : `avecPdf` choisit `devis_pdf` (mêmes trois trous, le PDF en
 // en-tête) — la case « 📎 Joindre le PDF du devis ». UNE fabrique pour les
 // deux modèles : les trous ne peuvent pas diverger.
-export const TEXTE_DEVIS_PDF =
-  "Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.\n\n"
-  + "Montant : {{3}}\n\n"
-  + "Vous le trouverez en pièce jointe. Vous pouvez aussi le consulter, le valider ou demander une modification dans votre espace client : https://gestion.bmitogo.com\n\n"
-  + "BMI TOGO — Les bâtiments modernes et intelligents";
+// Son texte (`TEXTE_DEVIS_PDF`) est plus bas, après le bloc des contacts BMI.
 export function envoiDevisDisponible({ devis, compte, fmt, avecPdf = false }) {
   const partiel = (Array.isArray(devis?.lignes) ? devis.lignes : []).some((l) => l && l.cf_visite);
   return {
@@ -1400,6 +1396,19 @@ const BLOC_CONTACT_COURT = [
   "",
   "BMI TOGO — Les bâtiments modernes et intelligents",
 ];
+// 📎 Le texte de `devis_pdf` (17/10/2026), à créer chez YCloud mot pour mot.
+// Timo, le jour même : « pour toute question et éclaircissement : les contacts
+// et le site de BMI » — le bloc court commun, jamais recopié.
+export const TEXTE_DEVIS_PDF = [
+  "Bonjour {{1}}, votre devis {{2}} réalisé par BMI TOGO est prêt.",
+  "",
+  "Montant : {{3}}",
+  "",
+  "Vous le trouverez en pièce jointe. Vous pouvez aussi le consulter, le valider ou demander une modification dans votre espace client : https://gestion.bmitogo.com",
+  "",
+  "Pour toute question ou tout éclaircissement :",
+  ...BLOC_CONTACT_COURT,
+].join("\n");
 export const ADRESSE_SIGNATURE_PV = "https://bmitogo.com/signature/";
 export const ADRESSE_AVENANT = "https://bmitogo.com/avenant/";
 export const TEXTE_LIEN_SIGNATURE_PV = [

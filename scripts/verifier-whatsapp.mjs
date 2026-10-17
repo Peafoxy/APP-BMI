@@ -4705,6 +4705,9 @@ titre("55 📎 LE DEVIS AVEC SON PDF — `devis_pdf`, la case « Joindre le PDF 
     && M.MODELES_EN_SERVICE.includes("devis_pdf"));
   test("★ le texte du modèle (celui à créer chez YCloud) : trois trous dans l'ordre, la pièce jointe et l'espace client dits",
     (M.TEXTE_DEVIS_PDF.match(/\{\{\d\}\}/g) || []).join("") === "{{1}}{{2}}{{3}}" && /pièce jointe/.test(M.TEXTE_DEVIS_PDF) && /gestion\.bmitogo\.com/.test(M.TEXTE_DEVIS_PDF));
+  test("★ « pour toute question ou tout éclaircissement » : l'e-mail, les deux numéros et le site de BMI sont sous le texte (Timo, 17/10/2026), dans le bloc commun",
+    /Pour toute question ou tout éclaircissement :\n📧 contact@bmitogo\.com\n📞 \+228 99 96 84 88 \/ \+228 91 13 05 11\n🌐 www\.bmitogo\.com\n\nBMI TOGO — Les bâtiments modernes et intelligents$/.test(M.TEXTE_DEVIS_PDF)
+    && /\.\.\.BLOC_CONTACT_COURT,\n\]\.join\("\\n"\);\nexport const ADRESSE_SIGNATURE_PV/.test(lire("src/lib/whatsappModeles.js")));
   const dv = { id: "DV1", total: 1250000, domaine: "solaire", date: "2026-10-17" };
   const sans = M.envoiDevisDisponible({ devis: dv, compte: { nom: "AMA" }, fmt });
   const avec = M.envoiDevisDisponible({ devis: dv, compte: { nom: "AMA" }, fmt, avecPdf: true });

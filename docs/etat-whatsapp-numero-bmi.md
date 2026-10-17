@@ -636,6 +636,11 @@ en-tête **Document** (joindre un PDF d'exemple pour la soumission), corps :
 >
 > Vous le trouverez en pièce jointe. Vous pouvez aussi le consulter, le valider ou demander une modification dans votre espace client : https://gestion.bmitogo.com
 >
+> Pour toute question ou tout éclaircissement :
+> 📧 contact@bmitogo.com
+> 📞 +228 99 96 84 88 / +228 91 13 05 11
+> 🌐 www.bmitogo.com
+>
 > BMI TOGO — Les bâtiments modernes et intelligents
 
 Exemples des trous : {{1}} AMA KOFFI · {{2}} solaire · {{3}} 1 250 000 F.
