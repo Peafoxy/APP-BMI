@@ -229,7 +229,9 @@ export function conversationIAEnCours(fil) {
   for (let i = liste.length - 1; i >= 0; i--) {
     const m = liste[i];
     if (!m || m.wa_entrant || m.wa_systeme || m.canal === "whatsapp_entete") continue;
-    return !!(m.wa_assistant && m.wa_assistant.ia && m.wa_assistant.etape !== ETAPE_CONSEILLER);
+    // 🤖 Une relance (17/10/2026) appartient à la conversation de l'IA, même
+    // écrite par la phrase de repli.
+    return !!(m.wa_assistant && (m.wa_assistant.ia || m.wa_assistant.relance) && m.wa_assistant.etape !== ETAPE_CONSEILLER);
   }
   return false;
 }

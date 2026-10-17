@@ -646,3 +646,12 @@ en-tête **Document** (joindre un PDF d'exemple pour la soumission), corps :
 Exemples des trous : {{1}} AMA KOFFI · {{2}} solaire · {{3}} 1 250 000 F.
 Tant qu'il n'est pas approuvé, un devis envoyé avec la case cochée part sans
 PDF par `devis_disponible`, et l'écran le dit.
+
+## 🤖 La relance de l'assistant (17/10/2026, « 4 a, le reste ok, lance »)
+
+L'assistant (IA) relance UNE fois le client qui s'est tu, 20 h après son
+dernier message, dans la fenêtre gratuite de 24 h (aucun modèle Meta).
+Jamais : conversation confiée, employé qui a écrit, conseiller demandé,
+demande de devis enregistrée, mode menu. Règle `src/lib/relanceAssistant.js`,
+envoi `api/_relanceAssistant.js` (adresse d'arrivée + tournées 7 h/14 h/17 h).
+À vérifier au premier vrai cas : la réservation de la fiche légère (`.or`).

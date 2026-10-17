@@ -26,6 +26,7 @@ import { configYCloud, envoyerYCloud } from "./_ycloud.js";
 import { lireTable } from "./_tables.js";
 import { installationsDeDemain } from "../src/lib/affectationChantier.js";
 import { rappelerLesRendezVous } from "./_rendezVous.js";
+import { relancerLesConversations } from "./_relanceAssistant.js";
 
 const TABLES = ["users", "boutiques", "clients_installes", "ventes", "dettes"];
 
@@ -43,6 +44,10 @@ export default async function handler(req, res) {
     const db = {};
     for (const t of TABLES) db[t] = await lireTable(admin, t);
     const aujourdhui = new Date().toISOString().slice(0, 10);
+    // 🤖 Le filet de la relance de l'assistant (17/10/2026), à 14 h comme à
+    // 17 h : les conversations arrivées à leur 20e heure que personne n'a
+    // réveillées. Une relance en panne n'arrête pas la tournée.
+    const relances_assistant = await relancerLesConversations(admin, { boutiques: db.boutiques, limite: 5, delaiIA: 20000 }).catch((e) => ({ relances: 0, pourquoi: e?.message || "erreur" }));
     // 📅 LA TOURNÉE DE 14 H (12/10/2026, « C 14h la veille ») : les
     // rendez-vous de DEMAIN, et rien d'autre. Vercel l'appelle avec
     // ?tournee=rendez-vous ; l'heure sert de filet (sur l'offre gratuite,
@@ -50,19 +55,19 @@ export default async function handler(req, res) {
     // c'est celle de 14 h.
     if (estTourneeRendezVous(req)) {
       const rendez_vous = await rappelerLesRendezVous(admin, db, aujourdhui, "veille");
-      return res.status(200).json({ ok: true, jour: aujourdhui, tournee: "rendez-vous", rendez_vous });
+      return res.status(200).json({ ok: true, jour: aujourdhui, tournee: "rendez-vous", rendez_vous, relances_assistant });
     }
     // 📅 « C a » : le rappel de l'installation de demain, au chef d'équipe.
     const installations = await rappelerLesInstallations(db, aujourdhui);
     const rappel = rappelVeilleAnniversaires(db, aujourdhui);
-    if (!rappel) return res.status(200).json({ ok: true, jour: aujourdhui, anniversaires_demain: 0, installations });
+    if (!rappel) return res.status(200).json({ ok: true, jour: aujourdhui, anniversaires_demain: 0, installations, relances_assistant });
     // 🎂 « 1c » : le WhatsApp à l'administrateur part AVANT la notification
     // et sans dépendre d'elle (l'un en panne n'empêche pas l'autre).
     const whatsapp = await rappelerParWhatsApp(db, aujourdhui);
     if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", whatsapp, installations });
     const envoi = fabriquerEnvoi({ ...rappel, ecran: "users" });
     const bilan = envoi ? await envoyerAuxPersonnes(admin, [envoi]) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, anniversaires_demain: 1, ...bilan, whatsapp, installations });
+    return res.status(200).json({ ok: true, jour: aujourdhui, anniversaires_demain: 1, ...bilan, whatsapp, installations, relances_assistant });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }

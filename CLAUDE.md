@@ -69,7 +69,7 @@ npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans 
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
 npm run verifier-ecran-qui-se-montre # 38 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran ; une notification mène à SA ligne (la ligne visible, marquée, jamais la copie en veille)
 npm run verifier-mot-information # 36  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
-npm run verifier-whatsapp        # 1048 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement ; ㊽ supprimer une conversation par un appui long, le principal seul, à la corbeille ; ㊾ le nom d'une conversation : nom donné, compte, nom WhatsApp ; ㊿ la recherche rendue avec un texte tapé ; le loyer qui attend le propriétaire ; 51 📅 les rendez-vous : sept messages, rappels de 14 h et 7 h, le privé neutre, le mur, l'équipe énumérée et le numéro du client au seul chef de la visite ; 52 l'avis WhatsApp de la décision du DG sur une dépense ; 53 l'avis WhatsApp d'une tâche assignée et validée ; 54 le document de fin de contrat disponible et l'accès fermé à 24 h ; 55 le devis avec son PDF, `devis_pdf`)
+npm run verifier-whatsapp        # 1079 : l'envoi WhatsApp du numéro BMI (l'ordre des trous d'un modèle, le mur, aucun secret, un seul chemin, rien de perdu en silence, le refus de WhatsApp dit en français ; l'étape 2 : qui voit quelle conversation, la fenêtre de 24 h, le secret de l'adresse d'arrivée, la ligne GRISÉE d'une conversation confiée, le retour au support, et RIEN en formation ; ⑳ l'assistant du numéro BMI : ses mots, quand il se tait, jamais une dette ni une quantité, rien d'écrit tant que rien n'est parti ; ㉑ sa demande de devis se prend en charge et se prépare ; ㉒ l'IA qui discute, bridée par ses outils et un juge, le faux service joué par le banc ; ㉓ l'estimation solaire en fourchette, la même règle que le vendeur ; ㉔ le client qui attend un conseiller se voit, l'article se décrit sans jamais les notes internes ; ㉕ l'alerte WhatsApp à l'administrateur ; ㉖ le conseil général dans nos métiers, jamais un fait de BMI inventé ; ㉗ 🧲 Prospects : le besoin sur sa ligne, l'estimation une fois ; ㉘ les reçus d'un versement et d'une réservation ; ㉙ les bons de reprise et de retour, la liste du reçu à 500 ; ㉚ le premier devis : ses accès (espace) puis le devis ; ㉛ l'offre expirée (option b) et la relance automatique du 8e jour ; ㉜ les coches ✓ / ✓✓ / ✓✓ bleu / ❌ d'un message parti du numéro BMI ; ㉝ le rappel d'entretien automatique ; ㉞ la demande d'avis Google après la réception ; ㉟ les reçus de vente et les bons, lisibles par le vendeur et l'administrateur principal seulement ; ㊱ la fenêtre qui accompagne une ouverture de WhatsApp : AVANT, jamais après ; ㊲ la pose seule : 70 % avant de programmer, le rappel du solde 3 jours après le PV ; ㊳ l'assistant ne dit jamais ce que BMI ne fait pas ; ㊴ la proforma part du numéro BMI ; ㊵ le PV, l'avenant, l'accueil et la relance d'un prospect ; ㊶ ce que 💬 Messages et 📲 WhatsApp disent est vrai, 🔁 Confier jamais au comptable ; ㊷ le total calculé par l'application et « Nos choix BMI » ; ㊸ nos métiers, la fiche de tous les articles et le choix d'une pompe ; ㊹ il reste dans la conversation : réécriture, retour « assistant », 48 V, panneaux d'une pompe ; ㊺ 📎 envoyer un fichier au client : 3 Mo, phrase facultative, rien rangé ; ㊻ les vœux d'anniversaire et le rappel de la veille ; ㊼ l'avis d'avancement ; ㊽ supprimer une conversation par un appui long, le principal seul, à la corbeille ; ㊾ le nom d'une conversation : nom donné, compte, nom WhatsApp ; ㊿ la recherche rendue avec un texte tapé ; le loyer qui attend le propriétaire ; 51 📅 les rendez-vous : sept messages, rappels de 14 h et 7 h, le privé neutre, le mur, l'équipe énumérée et le numéro du client au seul chef de la visite ; 52 l'avis WhatsApp de la décision du DG sur une dépense ; 53 l'avis WhatsApp d'une tâche assignée et validée ; 54 le document de fin de contrat disponible et l'accès fermé à 24 h ; 55 le devis avec son PDF, `devis_pdf` ; 56 l'assistant relance le client qui s'est tu, 20 h après, une seule fois)
 npm run verifier-partage         # 4   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
@@ -6536,6 +6536,42 @@ lit mal est pire qu'un banc absent).
   par `converserAvecJuge` ×2, la liste du conseil général (+ pompage et
   forage), les outils qui chargent le stock ×2. Chapitre 20 à jour. Rien à
   coller dans Supabase.
+
+### 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU (17/10/2026, « 4 a, le reste ok, lance »)
+- Timo : « 20 h après la dernière discussion avec le client, il peut relancer
+  pour savoir où le client en est avec la demande faite plus haut ». **Pas un
+  modèle de Meta** : tant que le client a écrit depuis moins de 24 h, BMI lui
+  écrit librement — la relance part donc ENTRE la 20e heure et la fermeture de
+  la fenêtre (marge 15 min), jamais après. Règle pure **`lib/relanceAssistant.js`**,
+  envoi **`api/_relanceAssistant.js`**. ~4 F la relance (1 000 offertes / mois).
+- **Quand** (`relanceAFaire`) : l'IA a parlé en DERNIER après le dernier
+  message du client ; **UNE seule relance par demande** (la ligne porte
+  `wa_assistant.relance` ; le client doit réécrire pour un nouveau cycle) ;
+  il se tait comme d'habitude — conversation confiée, un EMPLOYÉ qui a écrit
+  dans les dernières 24 h, un conseiller demandé ; **« 4 a » : une demande de
+  devis ENREGISTRÉE ne se relance pas** (l'assistant est alors à l'étape
+  conseiller) ; **jamais en mode 🔢 menu**, ni sans service d'IA, ni assistant
+  coupé.
+- **Le texte** : l'IA l'écrit d'après la conversation (`consigneRelance` +
+  une note INTERNE en dernier, `messagesPourRelance`), sans outil ; **le juge**
+  s'applique (aucun montant permis, aucune dette) — jetée ou IA en panne →
+  **`TEXTE_RELANCE_FIXE`**. La ligne garde la mémoire (l'estimation) ; une
+  réponse du client retrouve l'IA (`conversationIAEnCours` lit `relance`).
+  📲 WhatsApp l'étiquette « · relance ».
+- **Qui la déclenche** (notre hébergement n'a qu'une tournée par jour) :
+  l'adresse d'arrivée à CHAQUE appel — message d'un client ET coche ✓ / ✓✓ —
+  bornée (3 min entre deux essais par instance, 12 s de budget, une à la
+  fois, IA à 8 s), et les tournées de **7 h, 14 h, 17 h** comme filet (cinq au
+  plus, IA à 20 s). ⚠ Une nuit sans AUCUN message ni coche peut laisser
+  passer une relance (dit à Timo).
+- ⚠ **Rien n'est écrit dans le fil tant que WhatsApp n'a pas accepté** ; la
+  fiche légère est RÉSERVÉE d'abord (`wa_relance_pour`, mise à jour
+  conditionnelle `.or(…)`) — deux arrivées en même temps ne relancent pas deux
+  fois ; un refus de WhatsApp n'est pas retenté pour ce message. ⚠ La forme
+  `.or` de la réservation n'a pas pu être éprouvée sur la vraie base d'ici.
+- Rien à coller. Banc 56 (`verifier-whatsapp`, 31, dont la VRAIE chaîne du
+  serveur sur une base jouée), éprouvé (une seule relance, « 4 a », menu,
+  propriétaire non relu, juge retiré). Chapitre 20 à jour.
 
 ### 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE SEULE FOIS (25/09/2026, « lance les deux »)
 - Captures Timo : « ce n'est pas agréable à regarder… tous les détails dans

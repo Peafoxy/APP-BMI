@@ -12,6 +12,7 @@
 // conversation…, Conversations, Conversations anciennes, 🔁 Confier,
 // ✏️ Nommer, 🔓 Rendre à tous, la bande de la fenêtre de 24 h, ✍️ Lui écrire quand
 // même, 🤖 Assistant BMI TOGO, 👨‍💼 attend un conseiller, ✓ ✓✓ ❌),
+// lib/relanceAssistant.js (la relance du client qui s'est tu, 20 h après),
 // lib/whatsappConversations.js (aAccesWhatsapp, libelleFenetre,
 // motifVerrouillee, critiqueReponse, MOTIF_WA_FORMATION), lib/cibleNotification.js
 // (un clic de notification ouvre SA conversation), src/whatsapp.js
@@ -141,6 +142,7 @@ export const CHAPITRE = {
         "**Il reste dans la conversation** : il ne propose un conseiller que si le client le demande ou si le sujet l'exige (panne, argent, compte), et une demande de devis une fois, au bon moment. Une réponse refusée par le contrôle est réécrite une fois ; au milieu d'une conversation, le menu à chiffres ne coupe plus la parole.",
         "**Après un relais vers un conseiller, le client peut revenir** : il écrit « **assistant** », et l'assistant reprend la conversation là où elle en était. Le message de relais le lui dit.",
         "Il cherche aussi par la **tension** : « batterie 48 V » trouve une lithium 51,2 V (c'est la même famille), et ce que la fiche dit en Tension.",
+        "**Il relance une fois le client qui s'est tu** : environ **20 heures** après le dernier message du client, si c'est l'assistant (IA) qui a parlé en dernier, il lui écrit un mot court — il rappelle sa demande et lui demande où il en est. Sa ligne porte « 🤖 Assistant BMI TOGO (IA) · **relance** ». **Une seule fois** par demande : il ne revient pas tant que le client n'a pas réécrit. Il **ne relance jamais** une conversation confiée, une conversation où un employé a écrit dans les dernières 24 h, un client qui attend un conseiller, ni une **demande de devis déjà enregistrée** (un commercial s'en occupe). Pas de relance non plus quand l'assistant est réglé en menu à chiffres. La relance part pendant les 24 h où WhatsApp permet d'écrire librement : c'est une réponse ordinaire, pas un modèle.",
       ]],
     ]},
 

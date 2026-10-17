@@ -4783,5 +4783,172 @@ titre("55 📎 LE DEVIS AVEC SON PDF — `devis_pdf`, la case « Joindre le PDF 
     /📎 Joindre le PDF du devis/.test(hComp) && !/checked/.test(caseDe(hComp)));
 }
 
+titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA FENÊTRE DE 24 H (17/10/2026, « 4 a, le reste ok, lance »)");
+{
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const RA = await import("../src/lib/relanceAssistant.js");
+  const AW = await import("../src/lib/assistantWhatsapp.js");
+  const H = 3600e3;
+  const maintenant = "2026-10-17T12:00:00.000Z";
+  const il = (h) => new Date(Date.parse(maintenant) - h * H).toISOString();
+  const CLE = "90112233";
+  const ent = (h, texte = "Je veux électrifier ma maison") => ({ id: `e${h}`, canal: "whatsapp", wa_tel: CLE, wa_entrant: true, ts: il(h), texte });
+  const ia = (h, extra = {}) => ({ ...AW.ligneAssistant({ cle: CLE, tel: "22890112233", nom: "", texte: "Combien d'ampoules ?", etape: "ia", ts: il(h), ia: true }), ...extra });
+  const emp = (h) => ({ id: `p${h}`, canal: "whatsapp", wa_tel: CLE, wa_entrant: false, de_id: "u-angele", de_nom: "ANGELE", ts: il(h), texte: "Bonjour" });
+  const dec = (fil, proprietaireId = "") => RA.relanceAFaire({ fil, maintenant, proprietaireId });
+
+  test("★★ 20 h après le dernier message du client, l'IA ayant parlé en dernier : la relance est à faire (et sa marque = les chiffres de l'heure du client)",
+    dec([ent(21), ia(20.9)]).relancer === true && dec([ent(21), ia(20.9)]).marque === il(21).replace(/\D/g, "").slice(0, 17));
+  test("★ avant la 20e heure : rien (19 h 59)", dec([ent(19.99), ia(19.9)]).relancer === false && /moins de 20 h/.test(dec([ent(19.99), ia(19.9)]).pourquoi));
+  test("★★ jamais après la fenêtre de Meta, ni dans son dernier quart d'heure (23 h 50 : non ; 23 h 40 : oui)",
+    dec([ent(23.84), ia(23.8)]).relancer === false && dec([ent(23.67), ia(23.6)]).relancer === true && dec([ent(30), ia(29)]).relancer === false);
+  test("★★ UNE seule relance par demande : après une relance, plus rien tant que le client n'a pas réécrit",
+    dec([ent(22), ia(21.9), ia(1, { wa_assistant: { etape: "ia", ia: true, relance: true } })]).relancer === false
+    && /une seule relance/.test(dec([ent(22), ia(21.9), ia(1, { wa_assistant: { etape: "ia", ia: true, relance: true } })]).pourquoi));
+  test("★ le client réécrit APRÈS la relance : un nouveau cycle peut repartir 20 h plus tard",
+    dec([ent(45, "a"), ia(44.9), ia(25, { wa_assistant: { etape: "ia", ia: true, relance: true } }), ent(21), ia(20.9)]).relancer === true);
+  test("★★ il se tait : conversation confiée à une personne", dec([ent(21), ia(20.9)], "u-com1").relancer === false);
+  test("★★ il se tait : un EMPLOYÉ a écrit dans les dernières 24 h (avant comme après le client)",
+    dec([emp(23), ent(21), ia(20.9)]).relancer === false && dec([ent(21), emp(20.5)]).relancer === false);
+  test("★★ « 4 a » : une demande de devis ENREGISTRÉE ne se relance pas (l'assistant est passé à l'étape conseiller) ; un conseiller demandé non plus",
+    dec([ent(21), ia(20.9, { wa_assistant: { etape: AW.ETAPE_CONSEILLER, ia: true } })]).relancer === false
+    && /demande de devis est enregistrée/.test(dec([ent(21), ia(20.9, { wa_assistant: { etape: AW.ETAPE_CONSEILLER, ia: true } })]).pourquoi));
+  test("★★ « 5 » : l'assistant à MENU (ligne sans `ia`) ne relance pas", dec([ent(21), ia(20.9, { wa_assistant: { etape: "menu" } })]).relancer === false);
+  test("★ l'assistant n'a pas répondu au dernier message : pas de relance", dec([ent(21)]).relancer === false);
+  const lot = [ent(21), ia(20.9), { ...ent(23), id: "x1", wa_tel: "11112222" }, { ...ia(22.9), wa_tel: "11112222" }, { ...ent(21), id: "x2", wa_tel: "33334444" }, { ...emp(20), wa_tel: "33334444" },
+    { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: CLE }, { ...ent(21), id: "x3", wa_tel: "55556666", canal: "messagerie" }];
+  const cands = RA.conversationsARelancer(lot, maintenant);
+  test("★ parmi des messages lus, les conversations à relancer — la plus ancienne (fenêtre qui se ferme le plus tôt) d'abord, jamais une ligne hors WhatsApp",
+    cands.length === 2 && cands[0].cle === "11112222" && cands[1].cle === CLE);
+  const m = RA.messagesPourRelance([ent(21), ia(20.9)]);
+  test("★ l'IA reçoit la conversation entière (le client, puis l'assistant) et la note INTERNE de relance en dernier",
+    m.length === 3 && m[1].role === "assistant" && m[2].role === "user" && /Message interne de BMI TOGO/.test(JSON.stringify(m[2])));
+  test("★ la consigne de relance s'AJOUTE à la consigne habituelle (mêmes interdits), sans montant ni outil",
+    RA.consigneRelance("BASE").startsWith("BASE") && /AUCUN montant/.test(RA.CONSIGNE_RELANCE) && /aucun outil/.test(RA.CONSIGNE_RELANCE));
+  const bonT = RA.texteDeRelance("Bonjour 😊 Vous m'aviez parlé de votre maison. Où en êtes-vous ?");
+  const prixT = RA.texteDeRelance("Bonjour, votre kit coûte 1 250 000 F. Où en êtes-vous ?");
+  const detteT = RA.texteDeRelance("Bonjour, il vous reste une dette à régler.");
+  test("★★ le juge s'applique à la relance : un montant (aucun outil n'a parlé) ou une dette → la PHRASE FIXE part à la place",
+    bonT.ia === true && prixT.ia === false && prixT.texte === RA.TEXTE_RELANCE_FIXE && detteT.ia === false && /F/.test(prixT.motif + "F"));
+  test("★ la phrase fixe passe elle-même le juge (aucun montant, aucun sujet réservé)", (await import("../src/lib/assistantIA.js")).garderReponse(RA.TEXTE_RELANCE_FIXE, { prixConnus: [] }).ok);
+  const lr = RA.ligneRelance({ cle: CLE, tel: "22890112233", nom: "AMA", texte: "x", ts: maintenant, memoire: { estimation: { bas: 1 } }, ia: true });
+  test("★ la ligne écrite est une ligne de l'assistant, marquée `relance`, qui garde la mémoire (l'estimation) et ne porte AUCUN propriétaire",
+    AW.estLigneAssistant(lr) && lr.wa_assistant.relance === true && lr.wa_assistant.memoire?.estimation?.bas === 1 && !lr.proprietaire_id && lr.wa_entrant === false);
+  test("★ après une relance, le client qui répond retrouve l'IA (conversation de l'IA EN COURS, même écrite par la phrase fixe)",
+    AW.conversationIAEnCours([ent(21), { ...lr, wa_assistant: { etape: "ia", relance: true } }]) === true);
+
+  // ── Le serveur
+  const SV = sansComm(lire("api/_relanceAssistant.js"));
+  const EN = sansComm(lire("api/whatsapp-entrant.js"));
+  test("★★ RIEN n'est écrit dans le fil avant l'envoi : l'insertion vient APRÈS `envoyerYCloud`, et un refus n'écrit rien",
+    SV.indexOf("envoyerYCloud(") > 0 && SV.indexOf('.insert(') > SV.indexOf("envoyerYCloud(") && /if \(!envoi\.ok\) \{[\s\S]*?continue;/.test(SV));
+  test("★★ deux arrivées en même temps ne relancent pas deux fois : la fiche légère est RÉSERVÉE par une mise à jour conditionnelle",
+    /\.or\(`data->>wa_relance_pour\.is\.null,data->>wa_relance_pour\.neq\.\$\{d\.marque\}`\)/.test(SV) && /if \(!prise \|\| !prise\.length\)/.test(SV));
+  test("★★ le propriétaire se relit sur le fil ENTIER (`proprietaireDe`) avant d'envoyer", /const proprietaire = proprietaireDe\(fil\);[\s\S]*?relanceAFaire\(\{ fil, maintenant, proprietaireId: proprietaire\.id \}\)/.test(SV));
+  test("★ « 5 » : pas de relance sans service d'IA, ni en mode menu, ni assistant coupé",
+    /if \(!ia\.pret\) return/.test(SV) && /modeAssistant\(bqs\) !== "ia"\) return/.test(SV) && /if \(!assistantActif\(bqs\)\) return/.test(SV));
+  test("★ aucun outil pendant une relance (elle ne cherche rien, n'enregistre rien)", /executer: async \(\) => \(\{ resultat: "Pas d'outil pendant une relance/.test(SV));
+  test("★★ l'adresse d'arrivée relance à chaque appel (message ET coche), bornée : 3 min entre deux essais, 12 s de budget, une à la fois, IA à 8 s",
+    /const ECART_RELANCES_MS = 3 \* 60 \* 1000;/.test(EN) && /const BUDGET_RELANCE_MS = 12000;/.test(EN)
+    && /relancerLesConversations\(admin, \{ boutiques, limite: 1, delaiIA: 8000 \}\)/.test(EN)
+    && (EN.match(/await relancerSiLeMoment\(admin, debut\)/g) || []).length === 2 && /await relancerSiLeMoment\(admin, debut, boutiques\)/.test(EN));
+  test("★ les tournées de 7 h, 14 h et 17 h servent de filet (cinq au plus, l'IA a 20 s)",
+    ["api/rappels-du-matin.js", "api/rappels-du-soir.js"].every((f) => /relancerLesConversations\(admin, \{ boutiques: db\.boutiques, limite: 5, delaiIA: 20000 \}\)/.test(lire(f))));
+  test("★ 📲 WhatsApp dit qu'une ligne est une relance (« · relance »)", /m\.wa_assistant\.relance \? " · relance" : ""/.test(lire("src/screens/Whatsapp.jsx")));
+
+  // ── La VRAIE chaîne du serveur, sur une base jouée
+  const { relancerLesConversations } = await import("../api/_relanceAssistant.js");
+  const fauxAdmin = (tables) => ({
+    from(t) {
+      const q = { op: "select", filtres: [], ou: null, charge: null };
+      const lignes = () => (tables[t] || []).filter((l) => q.filtres.every((f) => f(l)) && (!q.ou || q.ou(l)));
+      const exec = () => {
+        if (q.op === "update") { const ls = lignes(); ls.forEach((l) => Object.assign(l, q.charge)); return { data: ls.map((l) => ({ id: l.id })), error: null }; }
+        if (q.op === "insert") { tables[t].push(structuredClone(q.charge)); return { data: null, error: null }; }
+        if (q.op === "upsert") { const i = tables[t].findIndex((l) => l.id === q.charge.id); if (i >= 0) tables[t][i] = structuredClone(q.charge); else tables[t].push(structuredClone(q.charge)); return { data: null, error: null }; }
+        return { data: structuredClone(lignes()), error: null };
+      };
+      const b = {
+        select() { return b; },
+        update(c) { q.op = "update"; q.charge = c; return b; },
+        insert(c) { q.op = "insert"; q.charge = c; return b; },
+        upsert(c) { q.op = "upsert"; q.charge = c; return b; },
+        gte(col, v) { q.filtres.push((l) => String(l[col] || "") >= v); return b; },
+        eq(col, v) { q.filtres.push((l) => (col.startsWith("data->>") ? String(l.data?.[col.slice(7)] ?? "") : l[col]) === v); return b; },
+        or(expr) { const parts = expr.split(","); q.ou = (l) => parts.some((p) => { const x = p.match(/^data->>(\w+)\.(is|neq)\.(.*)$/); if (!x) return false; const val = l.data?.[x[1]]; return x[2] === "is" ? val == null : val != null && String(val) !== x[3]; }); return b; },
+        then(res, rej) { return Promise.resolve(exec()).then(res, rej); },
+      };
+      return b;
+    },
+  });
+  const ilR = (h) => new Date(Date.now() - h * H).toISOString();
+  const ligneT = (m) => ({ id: m.id, data: m, updated_at: m.ts || ilR(1) });
+  const base = (cle, extra = []) => [
+    ligneT({ id: `e-${cle}`, canal: "whatsapp", wa_tel: cle, wa_numero: `228${cle}`, wa_entrant: true, ts: ilR(21), texte: "Je veux 10 ampoules" }),
+    ligneT({ ...AW.ligneAssistant({ cle, tel: `228${cle}`, nom: "", texte: "Combien d'heures par jour ?", etape: "ia", ts: ilR(20.9), ia: true, memoire: { estimation: { bas: 100, haut: 200 } } }), id: `a-${cle}` }),
+    ligneT({ id: `waent_${cle}`, canal: "whatsapp_entete", wa_tel: cle, wa_numero: `228${cle}`, ts: ilR(20.9) }),
+    ...extra.map(ligneT),
+  ];
+  const envAvant = { a: process.env.ANTHROPIC_API_KEY, b: process.env.ASSISTANT_IA_MODELE, c: process.env.YCLOUD_API_KEY, d: process.env.WHATSAPP_NUMERO_BMI };
+  const fetchAvant = globalThis.fetch;
+  let envois = [], appelsIA = 0, texteIA = "Bonjour 😊 Vous m'aviez parlé de vos 10 ampoules. Où en êtes-vous ?", refusYC = false;
+  globalThis.fetch = async (url, opts) => {
+    const corps = JSON.parse(opts?.body || "{}");
+    if (String(url).includes("anthropic")) { appelsIA++; return new Response(JSON.stringify({ content: [{ type: "text", text: texteIA }], stop_reason: "end_turn" }), { status: 200 }); }
+    if (refusYC) return new Response(JSON.stringify({ error: { message: "Re-engagement message", code: 131047 } }), { status: 400 });
+    envois.push(corps);
+    return new Response(JSON.stringify({ id: `yc_${envois.length}`, wamid: "wamid.X", status: "accepted" }), { status: 200 });
+  };
+  const bqs = [{ nom: "BMI DEMAKPOE" }];
+  let tables, r1, r2, r3, r4, r5, sansIA;
+  try {
+    delete process.env.ANTHROPIC_API_KEY;
+    process.env.YCLOUD_API_KEY = "y"; process.env.WHATSAPP_NUMERO_BMI = "22899968488";
+    sansIA = await relancerLesConversations(fauxAdmin({ messages: base("90112233"), users: [] }), { boutiques: bqs });
+    process.env.ANTHROPIC_API_KEY = "x"; process.env.ASSISTANT_IA_MODELE = "m";
+    tables = {
+      messages: [...base("90112233"), ...base("11112222", [{ id: "p1", canal: "whatsapp", wa_tel: "11112222", wa_entrant: false, de_id: "u-com1", proprietaire_id: "u-com1", ts: ilR(30), texte: "Je vous confie" }])],
+      users: [{ id: "c1", data: { role: "client", nom: "AMA", tel: "22890112233" } }],
+    };
+    // le propriétaire posé hors des 25 h lues : seule la relecture du fil entier le voit
+    tables.messages.find((l) => l.id === "p1").updated_at = ilR(30);
+    r1 = await relancerLesConversations(fauxAdmin(tables), { boutiques: bqs, limite: 5 });
+    r2 = await relancerLesConversations(fauxAdmin(tables), { boutiques: bqs, limite: 5 });
+    // le juge jette un montant → la phrase fixe
+    texteIA = "Bonjour, votre kit coûte 1 250 000 F."; envois = [];
+    const t3 = { messages: base("77778888"), users: [] };
+    r3 = await relancerLesConversations(fauxAdmin(t3), { boutiques: bqs });
+    tables.t3 = t3;
+    // WhatsApp refuse → rien d'écrit, et la réservation empêche de réessayer
+    texteIA = "Bonjour, où en êtes-vous ?"; refusYC = true; envois = [];
+    const t4 = { messages: base("44445555"), users: [] };
+    r4 = await relancerLesConversations(fauxAdmin(t4), { boutiques: bqs });
+    refusYC = false;
+    r5 = await relancerLesConversations(fauxAdmin(t4), { boutiques: bqs });
+    tables.t4 = t4;
+  } catch (e) { console.log("    (erreur de la chaîne jouée :", e?.message || e, ")"); }
+  finally {
+    globalThis.fetch = fetchAvant;
+    for (const [k, v] of Object.entries({ ANTHROPIC_API_KEY: envAvant.a, ASSISTANT_IA_MODELE: envAvant.b, YCLOUD_API_KEY: envAvant.c, WHATSAPP_NUMERO_BMI: envAvant.d })) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  const relanceEcrite = (tbl, cle) => (tbl?.messages || []).filter((l) => l.data?.wa_tel === cle && l.data?.wa_assistant?.relance);
+  const f1 = relanceEcrite(tables, "90112233");
+  test("★ sans service d'IA configuré : aucune relance, rien demandé à personne", sansIA?.relances === 0 && /IA non configuré/.test(sansIA?.pourquoi || ""));
+  test("★★ la chaîne jouée : UNE relance part, du numéro BMI, au numéro du client, avec le texte de l'IA ; la conversation CONFIÉE (propriétaire posé il y a 30 h) ne part pas",
+    r1?.relances === 1 && r1.essais.some((e) => e.cle === "11112222" && /confiée/.test(e.pourquoi || ""))
+    && f1.length === 1 && f1[0].data.texte.includes("10 ampoules") && f1[0].data.wa_assistant.ia === true && f1[0].data.wa_envoi_id === "yc_1");
+  test("★ la ligne garde la mémoire (l'estimation) et la fiche légère suit, réservée pour ce message du client",
+    f1[0]?.data.wa_assistant.memoire?.estimation?.haut === 200
+    && /^\d{17}$/.test(String((tables?.messages || []).find((l) => l.id === "waent_90112233")?.data?.wa_relance_pour || ""))
+    && (tables?.messages || []).find((l) => l.id === "waent_90112233")?.data?.derniere === f1[0]?.data.ts);
+  test("★★ un second passage ne relance PAS une seconde fois", r2?.relances === 0 && relanceEcrite(tables, "90112233").length === 1);
+  const f3 = relanceEcrite(tables?.t3, "77778888");
+  test("★★ une réponse de l'IA jetée par le juge (un montant) → la phrase fixe part, marquée « pas de l'IA »",
+    r3?.relances === 1 && f3.length === 1 && f3[0].data.texte === RA.TEXTE_RELANCE_FIXE && !f3[0].data.wa_assistant.ia);
+  test("★★ WhatsApp refuse → RIEN d'écrit dans le fil, et la relance n'est pas retentée pour ce message",
+    r4?.relances === 0 && relanceEcrite(tables?.t4, "44445555").length === 0 && r5?.relances === 0 && envois.length === 0
+    && r5?.essais?.some((e) => /réservée/.test(e.pourquoi || "")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

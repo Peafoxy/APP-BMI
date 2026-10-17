@@ -44,6 +44,31 @@ import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 // ✓✓ Les coches (26/09/2026) : la règle vit dans lib/suiviEnvoi.js.
 import { lireStatut, statutApres, ligneAttendue, champsEnvoi, valeurSure } from "../src/lib/suiviEnvoi.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
+// 🤖 La relance du client qui s'est tu (17/10/2026) : la règle vit dans
+// lib/relanceAssistant.js, le geste serveur dans api/_relanceAssistant.js.
+import { relancerLesConversations } from "./_relanceAssistant.js";
+
+// ---- 🤖 LA RELANCE, PROFITANT DES NOUVELLES DE WHATSAPP (17/10/2026) ----
+// Timo : « 20 h après la dernière discussion avec le client, il peut relancer ».
+// Nos tournées automatiques ne passent qu'à 7 h, 14 h et 17 h (hébergement
+// gratuit) : on profite donc de chaque appel de cette adresse (un message, une
+// coche ✓ / ✓✓) pour regarder s'il y a une conversation arrivée à sa 20e heure.
+// ⚠ Une fois toutes les 3 minutes au plus par serveur réveillé, une relance au
+// plus par appel, l'IA bornée à 8 secondes : YCloud attend notre réponse.
+// ⚠ Une relance qui trébuche ne fait jamais perdre le message ni la coche.
+const ECART_RELANCES_MS = 3 * 60 * 1000;
+const BUDGET_RELANCE_MS = 12000;
+let prochaineRelance = 0;
+async function relancerSiLeMoment(admin, debut, boutiques = null) {
+  if (Date.now() - debut > BUDGET_RELANCE_MS || Date.now() < prochaineRelance) return null;
+  prochaineRelance = Date.now() + ECART_RELANCES_MS;
+  try {
+    return await relancerLesConversations(admin, { boutiques, limite: 1, delaiIA: 8000 });
+  } catch (e) {
+    console.error("[whatsapp-entrant] relance", e?.message || e);
+    return null;
+  }
+}
 
 // Les formes que YCloud peut donner à un message entrant. On cherche le
 // numéro, le texte et l'identifiant — le reste ne nous sert pas.
@@ -76,6 +101,7 @@ const horodatage = (brut) => {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
+  const debut = Date.now();
 
   const attendu = process.env.WHATSAPP_WEBHOOK_SECRET;
   const donne = String(req.query?.cle || req.headers["x-bmi-cle"] || "");
@@ -84,7 +110,7 @@ export default async function handler(req, res) {
   // ✓✓ UNE NOUVELLE DE SUIVI (envoyé, reçu, lu, échec) n'est pas un message
   // du client : elle met à jour la ligne partie du numéro BMI, rien d'autre.
   const suivi = lireStatut(req.body);
-  if (suivi) return traiterSuivi(req, res, suivi);
+  if (suivi) return traiterSuivi(req, res, suivi, debut);
 
   const { from, texte, media, id, ts } = lireEntrant(req.body);
   // 👤 Le nom que le client s'est donné dans SON WhatsApp (06/10/2026).
@@ -303,7 +329,9 @@ export default async function handler(req, res) {
       console.error("[whatsapp-entrant] notification", e?.message || e);
     }
 
-    return res.status(200).json({ ok: true, de: cle, proprietaire: proprietaire.id || "support", assistant: assistant.repondu ? assistant.etape : `silence : ${assistant.pourquoi || ""}` });
+    // 🤖 La relance d'une AUTRE conversation arrivée à sa 20e heure, s'il reste du temps.
+    const relance = await relancerSiLeMoment(admin, debut, boutiques);
+    return res.status(200).json({ ok: true, de: cle, proprietaire: proprietaire.id || "support", assistant: assistant.repondu ? assistant.etape : `silence : ${assistant.pourquoi || ""}`, ...(relance ? { relance: relance.relances } : {}) });
   } catch (e) {
     // ⚠ On répond 200 quand même : sinon YCloud renvoie le paquet sans fin.
     // Le motif part dans le journal Vercel, pas dans la réponse.
@@ -513,7 +541,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
 // ⚠ Une nouvelle arrivée AVANT la ligne (le téléphone qui a envoyé n'a pas
 // fini d'écrire) : on répond 503 pour que YCloud la renvoie, pendant
 // `ATTENTE_LIGNE_MIN` minutes seulement ; au-delà, 200 et on n'insiste pas.
-async function traiterSuivi(req, res, suivi) {
+async function traiterSuivi(req, res, suivi, debut = Date.now()) {
   const url = process.env.VITE_SUPABASE_URL;
   const cleService = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !cleService) return res.status(500).json({ error: "Serveur mal configuré" });
@@ -531,11 +559,16 @@ async function traiterSuivi(req, res, suivi) {
       return res.status(200).json({ ignore: true, pourquoi: "message inconnu (parti avant le suivi, ou par le repli)" });
     }
     const nouveau = statutApres(trouvee.data?.wa_statut, suivi);
-    if (!nouveau) return res.status(200).json({ deja: true, etat: trouvee.data?.wa_statut?.etat || "" });
+    if (!nouveau) {
+      await relancerSiLeMoment(admin, debut);
+      return res.status(200).json({ deja: true, etat: trouvee.data?.wa_statut?.etat || "" });
+    }
     const ts = new Date().toISOString();
     const data = { ...(trouvee.data || {}), wa_statut: nouveau, updated_at: ts };
     const { error: errMaj } = await admin.from("messages").update({ data, updated_at: ts }).eq("id", trouvee.id);
     if (errMaj) throw errMaj;
+    // 🤖 La coche est posée ; s'il reste du temps, une relance due (17/10/2026).
+    await relancerSiLeMoment(admin, debut);
     return res.status(200).json({ ok: true, etat: nouveau.etat });
   } catch (e) {
     console.error("[whatsapp-entrant] suivi", e?.message || e);

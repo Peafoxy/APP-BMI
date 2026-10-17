@@ -723,7 +723,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
                 const assistant = estLigneAssistant(m);
                 return (
                   <div key={m.id} data-assistant={estLigneAssistant(m) ? "oui" : undefined} className={`w-fit max-w-[85%] sm:max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${m.wa_systeme ? "mx-auto bg-[#fff5c4] text-slate-600 text-xs" : assistant ? "ml-auto bg-[#e7f8ec] border border-emerald-200 text-slate-900" : sortant ? "ml-auto bg-[#d9fdd3] text-slate-900" : "bg-white text-slate-900"}`}>
-                    {assistant && <div className="text-xs font-bold mb-0.5 text-[#008069]">🤖 {NOM_ASSISTANT}{m.wa_assistant.ia ? " (IA)" : ""}</div>}
+                    {assistant && <div className="text-xs font-bold mb-0.5 text-[#008069]">🤖 {NOM_ASSISTANT}{m.wa_assistant.ia ? " (IA)" : ""}{m.wa_assistant.relance ? " · relance" : ""}</div>}
                     {sortant && !assistant && m.de_id !== profile.id && m.de_nom && <div className="text-xs font-bold mb-0.5 text-[#008069]">{m.de_nom}</div>}
                     {m.wa_media && <MediaWa message={m} />}
                     {m.texte ? <div className="whitespace-pre-line break-words">{texteDuFil(m)}</div> : null}
