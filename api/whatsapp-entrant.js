@@ -44,6 +44,8 @@ import { configIA, appelerIA } from "./_assistantIA.js";
 import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 // ✓✓ Les coches (26/09/2026) : la règle vit dans lib/suiviEnvoi.js.
 import { lireStatut, statutApres, ligneAttendue, champsEnvoi, valeurSure } from "../src/lib/suiviEnvoi.js";
+import { relaisAFaire } from "../src/lib/relaisDevisPdf.js";
+import { relayerDevisSansPdf } from "./_relaisDevisPdf.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 // 🤖 La relance du client qui s'est tu (17/10/2026) : la règle vit dans
 // lib/relanceAssistant.js, le geste serveur dans api/_relanceAssistant.js.
@@ -593,9 +595,13 @@ async function traiterSuivi(req, res, suivi, debut = Date.now()) {
       return res.status(200).json({ deja: true, etat: trouvee.data?.wa_statut?.etat || "" });
     }
     const ts = new Date().toISOString();
-    const data = { ...(trouvee.data || {}), wa_statut: nouveau, updated_at: ts };
+    // 📎 Un `devis_pdf` rejeté par Meta (18/10/2026, décision « a ») : la
+    // marque du relais est posée AVEC la coche, avant l'envoi — UNE fois.
+    const relais = relaisAFaire({ ...(trouvee.data || {}), id: trouvee.id }, nouveau);
+    const data = { ...(trouvee.data || {}), wa_statut: nouveau, ...(relais ? { wa_relais_le: ts } : {}), updated_at: ts };
     const { error: errMaj } = await admin.from("messages").update({ data, updated_at: ts }).eq("id", trouvee.id);
     if (errMaj) throw errMaj;
+    if (relais) await relayerDevisSansPdf(admin, { ...data, id: trouvee.id });
     // 🤖 La coche est posée ; s'il reste du temps, une relance due (17/10/2026).
     await relancerSiLeMoment(admin, debut);
     return res.status(200).json({ ok: true, etat: nouveau.etat });

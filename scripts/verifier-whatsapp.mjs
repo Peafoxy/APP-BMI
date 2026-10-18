@@ -2995,7 +2995,7 @@ titre("㉜ ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026, « o
   const suiviCorps = WE.slice(WE.indexOf("async function traiterSuivi"));
   test("★★ elle retrouve la ligne par son numéro de suivi, nettoyé (valeurSure), et ne réécrit QUE cette ligne, avec `updated_at` dans la ligne et dans la fiche",
     /valeurSure\(suivi\.id\)/.test(suiviCorps) && /valeurSure\(suivi\.wamid\)/.test(suiviCorps) && /\.update\(\{ data, updated_at: ts \}\)\.eq\("id", trouvee\.id\)/.test(suiviCorps)
-    && /wa_statut: nouveau, updated_at: ts/.test(suiviCorps) && !/\.insert\(/.test(suiviCorps));
+    && /wa_statut: nouveau, \.\.\.\(relais \? \{ wa_relais_le: ts \} : \{\}\), updated_at: ts/.test(suiviCorps) && !/\.insert\(/.test(suiviCorps));
   test("★★ elle ne fait jamais reculer une coche (LA règle statutApres) et fait renvoyer une nouvelle trop pressée (503)",
     /statutApres\(trouvee\.data\?\.wa_statut, suivi\)/.test(suiviCorps) && /ligneAttendue\(suivi\)\) return res\.status\(503\)/.test(suiviCorps));
   test("★ une nouvelle de suivi ne prévient personne et ne réveille pas l'assistant",
@@ -5229,6 +5229,91 @@ titre("61 🏠 L'ASSISTANT GUIDE LE CLIENT DANS SON ESPACE, ÉCRAN PAR ÉCRAN (1
   test("★★ la réécriture garde le droit : les textes permis passent aux DEUX jugements de converserAvecJuge",
     (codeIA.match(/textesPermis: premier\.effets\.textesPermis/g) || []).length === 2 && /textesPermis: effets\.textesPermis/.test(codeIA));
   test("★ le mode d'emploi n'importe rien (lu par le serveur)", !/^import /m.test(sansComm(lire("src/lib/guideEspaceClient.js"))));
+}
+
+titre("62 📎 LE DEVIS REPART SANS PDF QUAND META REJETTE LE PDF (18/10/2026, capture MANDA, « a »)");
+{
+  const sansComm = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const R = await import(pathToFileURL(join(process.cwd(), "src/lib/relaisDevisPdf.js")).href);
+  const { fmt } = await import(pathToFileURL(join(process.cwd(), "src/lib/core.js")).href);
+  const CLE = "99021319";
+  const lignePdf = { id: "l-pdf", canal: "whatsapp", wa_tel: CLE, wa_numero: `228${CLE}`, wa_nom: "MANDA", de_id: "u-timo", de_nom: "TIMO", wa_modele: "devis_pdf", devis_id: "dv1", texte: "📲 Envoyé du numéro BMI — Devis solaire de 1 429 340 F envoyé à MANDA, 📎 PDF joint.", wa_envoi_id: "yc_pdf" };
+  const echec = { etat: "echec", le: "2026-10-18T18:02:05.000Z", motif: "header: Template does not contain title component" };
+  test("★★★ la règle : un ❌ sur un `devis_pdf` pas encore relayé → relais ; jamais deux fois, jamais sur une coche ordinaire, jamais pour un autre modèle",
+    R.relaisAFaire(lignePdf, echec) === true
+    && R.relaisAFaire({ ...lignePdf, wa_relais_le: "2026-10-18T18:02:06.000Z" }, echec) === false
+    && R.relaisAFaire(lignePdf, { etat: "recu", le: "x" }) === false
+    && R.relaisAFaire({ ...lignePdf, wa_modele: "devis_disponible" }, echec) === false
+    && R.relaisAFaire({ ...lignePdf, devis_id: "" }, echec) === false);
+  const compte = { id: "c-manda", nom: "MANDA", nom_base: "MANDA", tel: `228${CLE}`, devis: [{ id: "dv1", type_devis: "solaire", total: 1429340, lignes: [] }] };
+  const e = R.envoiRelais({ compte, devisId: "dv1", fmt });
+  test("★★ le relais part par `devis_disponible`, avec les trous du devis (client, domaine, montant)", e?.modele === "devis_disponible" && e.variables[0] === "MANDA" && e.variables[1] === "solaire" && /1\s?429\s?340/.test(e.variables[2]));
+  test("★★★ le mur : un devis de formation, à la corbeille, ou d'un compte de formation ne relaie rien",
+    R.envoiRelais({ compte: { ...compte, devis: [{ ...compte.devis[0], formation: true }] }, devisId: "dv1", fmt }) === null
+    && R.envoiRelais({ compte: { ...compte, devis: [{ ...compte.devis[0], supprime_le: "2026-10-18" }] }, devisId: "dv1", fmt }) === null
+    && R.envoiRelais({ compte: { ...compte, formation: true }, devisId: "dv1", fmt }) === null
+    && R.envoiRelais({ compte, devisId: "autre", fmt }) === null);
+  // ── La VRAIE fonction du serveur, sur une base jouée
+  const { relayerDevisSansPdf } = await import("../api/_relaisDevisPdf.js");
+  const fauxAdmin = (tables) => ({
+    from(t) {
+      const q = { op: "select", charge: null, filtres: [], contient: null };
+      const valeur = (l, col) => (col.startsWith("data->>") ? String(l.data?.[col.slice(7)] ?? "") : String(l[col] ?? ""));
+      const exec = () => {
+        if (q.op === "insert") { (tables[t] ||= []).push(structuredClone(q.charge)); return { data: null, error: null }; }
+        if (q.op === "upsert") { const l = (tables[t] ||= []); const i = l.findIndex((x) => x.id === q.charge.id); if (i >= 0) l[i] = structuredClone(q.charge); else l.push(structuredClone(q.charge)); return { data: null, error: null }; }
+        let lignes = (tables[t] || []).filter((l) => q.filtres.every(([c, v]) => valeur(l, c) === String(v)));
+        if (q.contient) lignes = lignes.filter((l) => (l.data?.devis || []).some((d) => d.id === q.contient));
+        return { data: structuredClone(lignes), error: null };
+      };
+      const b = { select() { return b; }, eq(c, v) { q.filtres.push([c, v]); return b; }, limit() { return b; }, contains(_c, v) { q.contient = v?.devis?.[0]?.id; return b; }, insert(c) { q.op = "insert"; q.charge = c; return b; }, upsert(c) { q.op = "upsert"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
+      return b;
+    },
+  });
+  const envAvant = { c: process.env.YCLOUD_API_KEY, d: process.env.WHATSAPP_NUMERO_BMI };
+  const fetchAvant = globalThis.fetch;
+  const errAvant = console.error;
+  let envois = [], refuser = false, ok1, ok2, ok3, tables1, tables2, tables3;
+  globalThis.fetch = async (url, opts) => {
+    envois.push(JSON.parse(opts?.body || "{}"));
+    if (refuser) return new Response(JSON.stringify({ error: { message: "Template not approved", code: 132001 } }), { status: 400 });
+    return new Response(JSON.stringify({ id: `yc_${envois.length}`, wamid: "wamid.R", status: "accepted" }), { status: 200 });
+  };
+  try {
+    console.error = () => {};
+    process.env.YCLOUD_API_KEY = "yc-de-banc"; process.env.WHATSAPP_NUMERO_BMI = "22899968488";
+    const entete = { id: `waent_${CLE}`, canal: "whatsapp_entete", wa_tel: CLE, proprietaire_id: "u-com", proprietaire_nom: "COM1" };
+    tables1 = { users: [{ id: "c-manda", data: compte }], messages: [{ id: "l-pdf", data: lignePdf }, { id: entete.id, data: entete }] };
+    ok1 = await relayerDevisSansPdf(fauxAdmin(tables1), lignePdf);
+    tables2 = { users: [{ id: "c-manda", data: { ...compte, devis: [{ ...compte.devis[0], formation: true }] } }], messages: [] };
+    const n2 = envois.length;
+    ok2 = await relayerDevisSansPdf(fauxAdmin(tables2), lignePdf);
+    tables2.envois = envois.length - n2;
+    refuser = true;
+    tables3 = { users: [{ id: "c-manda", data: compte }], messages: [] };
+    ok3 = await relayerDevisSansPdf(fauxAdmin(tables3), lignePdf);
+  } catch (err) { console.log("    (erreur de la chaîne jouée :", err?.message || err, ")"); }
+  finally {
+    console.error = errAvant; globalThis.fetch = fetchAvant;
+    for (const [k, v] of Object.entries({ YCLOUD_API_KEY: envAvant.c, WHATSAPP_NUMERO_BMI: envAvant.d })) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  const parti = envois[0] || {};
+  const ligneR = (tables1?.messages || []).find((l) => l.data?.wa_relais_de === "l-pdf")?.data;
+  const fiche = (tables1?.messages || []).find((l) => l.id === `waent_${CLE}`)?.data;
+  test("★★★ la chaîne jouée : `devis_disponible` part au client, SANS en-tête document",
+    ok1 === true && parti.type === "template" && parti.template?.name === "devis_disponible" && parti.to === `+228${CLE}`
+    && (parti.template?.components || []).length === 1 && parti.template.components[0].type === "body");
+  test("★★ la ligne du fil dit que le message est parti SANS PDF, porte son numéro de suivi (coches) et le devis, au nom de celui qui avait envoyé le PDF",
+    !!ligneR && /sans PDF/.test(ligneR.texte) && ligneR.wa_modele === "devis_disponible" && ligneR.devis_id === "dv1" && ligneR.de_id === "u-timo" && !!ligneR.wa_envoi_id && !ligneR.proprietaire_id);
+  test("★★ la fiche légère suit SANS changer de propriétaire", fiche?.proprietaire_id === "u-com" && !!fiche?.derniere);
+  test("★★★ le mur sur la vraie fonction : un devis de formation n'envoie RIEN", ok2 === false && tables2?.envois === 0);
+  test("★★★ rien n'est écrit tant que WhatsApp n'a pas accepté : un refus du relais n'écrit aucune ligne", ok3 === false && (tables3?.messages || []).length === 0);
+  const codeE = sansComm(lire("api/whatsapp-entrant.js"));
+  const suivi = codeE.slice(codeE.indexOf("async function traiterSuivi"));
+  test("★★★ le suivi : la marque `wa_relais_le` est posée AVEC la coche (même écriture), AVANT le relais — une seule fois",
+    /const relais = relaisAFaire\(/.test(suivi) && /wa_statut: nouveau, \.\.\.\(relais \? \{ wa_relais_le: ts \} : \{\}\)/.test(suivi)
+    && suivi.indexOf("wa_relais_le: ts") < suivi.indexOf("relayerDevisSansPdf(") && suivi.indexOf(".update({ data, updated_at: ts })") < suivi.indexOf("relayerDevisSansPdf("));
+  test("★ la règle du relais ne lit jamais de clé secrète", !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/relaisDevisPdf.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
