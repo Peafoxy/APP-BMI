@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { emailDeSession, sessionEtrangere } from "./lib/verrou.js";
+import { motifReseau } from "./lib/motifReseau.js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const cle = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -86,7 +87,7 @@ export async function chercherCompteEnLigne(nom, motDePasse) {
     }
     return { user: corps?.user || null };
   } catch (e) {
-    return { error: `Serveur injoignable : ${e?.message || e}` };
+    return { error: motifReseau(e) };
   }
 }
 const URL_CREER_FILLEUL = BASE ? `${BASE}/api/creer-filleul` : "/api/creer-filleul";
@@ -118,7 +119,7 @@ export async function creerFilleulEnLigne({ nom, tel, note }) {
     if (!reponse.ok) return { error: corps?.error || `Le serveur a répondu ${reponse.status}.` };
     return corps;
   } catch (e) {
-    return { error: `Serveur injoignable : ${e?.message || e}` };
+    return { error: motifReseau(e) };
   }
 }
 
@@ -168,7 +169,7 @@ async function appelAvecJeton(urlFonction, corps) {
     if (!reponse.ok) return { ...resultat, error: resultat?.error || `Le serveur a répondu ${reponse.status}.`, statut: reponse.status };
     return resultat;
   } catch (e) {
-    return { error: `Serveur injoignable : ${e?.message || e}`, reseau: true };
+    return { error: motifReseau(e), reseau: true };
   }
 }
 export const abonnerPushEnLigne = ({ abonnement, appareil, retirer = false }) => appelAvecJeton(URL_ABONNER_PUSH, { abonnement, appareil, retirer });
@@ -217,7 +218,7 @@ export async function mediaWaEnLigne(messageId) {
     }
     return { blob: await reponse.blob() };
   } catch (e) {
-    return { error: `Serveur injoignable : ${e?.message || e}` };
+    return { error: motifReseau(e) };
   }
 }
 
@@ -284,7 +285,7 @@ export async function synchroniserAuth(id, motDePasse) {
     Object.assign(etatAuth, { ok: true, sessionPerdue: false, raison: "Session sécurisée active" });
     return { ...etatAuth };
   } catch (e) {
-    Object.assign(etatAuth, { ok: false, raison: `Serveur d'authentification injoignable (${e?.message || e})` });
+    Object.assign(etatAuth, { ok: false, raison: motifReseau(e) });
     return { ...etatAuth };
   }
 }
@@ -413,6 +414,6 @@ export async function etatComptesAuth(ids) {
     const d = await reponse.json();
     return { ok: true, existants: d.existants || [], total: d.total || 0 };
   } catch (e) {
-    return { ok: false, raison: `Serveur injoignable (${e?.message || e})`, existants: [] };
+    return { ok: false, raison: motifReseau(e), existants: [] };
   }
 }

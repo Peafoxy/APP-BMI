@@ -79,6 +79,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/appareils.js` | Le catalogue des appareils électriques proposés dans un devis |
 | `lib/validationDevis.js` | La validation d'un devis (espace client et signature en boutique) |
 | `lib/modifDevis.js` | Modifier un devis DÉJÀ SIGNÉ : le client ouvre la porte |
+| `lib/motifReseau.js` | Une connexion coupée avec le serveur se dit en français (« Failed to fetch » part dans la console) |
 | `lib/contrat.js` | Le contrat et le PV de réception |
 | `lib/reglement.js` | Comment le client va solder son installation (le plan de règlement) |
 | `lib/prospects.js` | Un prospect devient client |

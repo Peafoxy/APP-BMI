@@ -10,7 +10,7 @@ import { genererDevis } from "../pdf";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, heureCourte, envoyerWhatsApp, fichierPdf } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { envoiRelanceDevis, envoiDevisDisponible, traceEnvoi, libelleTrace, SUITE_REPLI } from "../lib/whatsappModeles";
+import { envoiRelanceDevis, envoiDevisDisponible, traceEnvoi, libelleTrace, SUITE_REPLI, lignePdfNonParti } from "../lib/whatsappModeles";
 import { estLigneCfVisite, devisACompleter, attendLaVisite, ONGLET_A_COMPLETER, peutCompleterDevis, motifRefusCompletion, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "../lib/devisCfVisite";
 import { completerDevis, peutEtablirPourAutrui, auteursDuFiltre, devisDeLAuteur, auteurDuDevis } from "./dimensionnement/devisCommun";
 import { envoyerPdfDuDevis } from "./dimensionnement/Partages";
@@ -564,7 +564,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
       tel: client.tel, modele: envoi.modele, variables: envoi.variables,
       espaceFormation,
       texteRepli: texte, demanderConfirmation: uConfirm, prevenir: uAlert,
-      ...(motifPdf ? { annonceRepli: `📎 Le PDF n'est pas parti : ${motifPdf}\n\n${SUITE_REPLI}` } : {}),
+      ...(motifPdf ? { annonceRepli: `${lignePdfNonParti(motifPdf, pdf.incertain)}\n\n${SUITE_REPLI}` } : {}),
     });
     if (!r.auto) return;
     const trace = traceEnvoi({ modele: envoi.modele, par: profile.nom, par_id: profile.id, quand: today(), heure: heureCourte(), id: r.id });
@@ -573,7 +573,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
       users: etat.users.map((u) => (u.id === client.id ? { ...u, devis: (u.devis || []).map((x) => (x.id === d.id ? { ...x, envoi_whatsapp: trace } : x)) } : u)),
       messages: r.auto ? messagesAvecLigneEnvoi(etat.messages, { profile, tel: client.tel, nom: nomClient, modele: envoi.modele, variables: envoi.variables, ref: { devis_id: d.id }, envoi: r }) : etat.messages,
     }));
-    uAlert(`✅ Le devis complété est parti à ${nomClient} du numéro WhatsApp BMI${pdf.r ? ", avec le PDF du devis" : ""}.${motifPdf ? `\n\n📎 Le PDF n'est pas parti : ${motifPdf}\nLe message habituel est parti à la place, sans PDF.` : ""}`);
+    uAlert(`✅ Le devis complété est parti à ${nomClient} du numéro WhatsApp BMI${pdf.r ? ", avec le PDF du devis" : ""}.${motifPdf ? `\n\n${lignePdfNonParti(motifPdf, pdf.incertain)}\nLe message habituel est parti${pdf.incertain ? "" : " à la place"}, sans PDF.` : ""}`);
   };
 
   const telechargerPDF = (d) => genererPdfDuDevis(db, d);

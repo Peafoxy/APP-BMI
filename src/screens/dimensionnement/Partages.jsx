@@ -1221,7 +1221,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // pouvoir dire la vérité ensuite (WhatsApp s'est ouvert, ou le client a
   // reçu le message du numéro BMI). Un objet reste « vrai » pour les deux
   // appelants, qui testent simplement `if (envoye)`.
-  return { ok: true, auto: !!r.auto, pdfDemande: !!avecPdf, pdf: !!pdf.r, motifPdf: pdf.motif };
+  return { ok: true, auto: !!r.auto, pdfDemande: !!avecPdf, pdf: !!pdf.r, motifPdf: pdf.motif, pdfIncertain: !!pdf.incertain };
 }
 
 // 📎 Le devis AVEC SON PDF, du numéro BMI (17/10/2026) — écrit UNE fois pour
@@ -1244,5 +1244,5 @@ export async function envoyerPdfDuDevis({ db, compte, idDevis, devisMarque, tel,
   }
   const envoiPdf = envoiDevisDisponible({ devis: devisMarque, compte, fmt, avecPdf: true });
   const r = await envoyerModele({ tel, modele: envoiPdf.modele, variables: envoiPdf.variables, espaceFormation, sansRepli: true, fichier });
-  return r.auto ? { r, motif: "" } : { r: null, motif: r.motif || "" };
+  return r.auto ? { r, motif: "" } : { r: null, motif: r.motif || "", incertain: !!r.reseau };
 }

@@ -1079,13 +1079,20 @@ export function motifEchecWhatsApp({ statut, erreur, code } = {}) {
 // deux endroits qui envoient un devis (le volet, et Mes brouillons).
 // 📎 17/10/2026 (« B a ») : la case cochée mais le PDF pas parti → le devis
 // est parti par le message habituel, et la phrase le DIT avec la raison.
-export const messageDevisEnvoye = (nomClient, auto, { pdfDemande = false, pdf = false, motifPdf = "" } = {}) =>
+// 📎 La phrase du PDF qui n'est pas parti, écrite UNE fois (📐 et ✍️ Compléter).
+// ⚠ 18/10/2026 (capture Timo, « Failed to fetch ») : quand la connexion tombe
+// AVANT la réponse du serveur, on ne SAIT PAS si le PDF est parti — le
+// serveur a pu l'envoyer quand même. On le dit, on ne l'affirme pas.
+export const lignePdfNonParti = (motif, incertain = false) => (incertain
+  ? "📎 Le PDF n'est peut-être pas parti : la connexion a été coupée avant la réponse du serveur (réseau faible ou interrompu).\nRegardez le WhatsApp du téléphone BMI : s'il est parti, le client a reçu les deux messages."
+  : `📎 Le PDF n'est pas parti : ${motif || "WhatsApp ne l'a pas accepté."}`);
+export const messageDevisEnvoye = (nomClient, auto, { pdfDemande = false, pdf = false, motifPdf = "", pdfIncertain = false } = {}) =>
   `✅ Devis envoyé dans l'espace de ${nomClient}.\n\n`
   + (auto
       ? (pdf
           ? "Le client a reçu un message WhatsApp du numéro BMI, avec le PDF du devis."
           : "Le client a reçu un message WhatsApp du numéro BMI."
-            + (pdfDemande ? `\n\n📎 Le PDF n'est pas parti : ${motifPdf || "WhatsApp ne l'a pas accepté."}\nLe message habituel est parti à la place, sans PDF.` : ""))
+            + (pdfDemande ? `\n\n${lignePdfNonParti(motifPdf, pdfIncertain)}\nLe message habituel est parti${pdfIncertain ? "" : " à la place"}, sans PDF.` : ""))
       : "");
 // ⚠ 29/09/2026 : quand WhatsApp s'ouvre sur l'appareil, tout a été dit AVANT
 // (`annonceRepli`) — l'écran n'affiche donc cette phrase que si le message

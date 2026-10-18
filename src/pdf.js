@@ -48,7 +48,7 @@ export function texteSurPdf(x) {
 export function genererPDF(d, logo) {
   // Paysage si le tableau a beaucoup de colonnes
   const paysage = d.headers.length >= 9;
-  const doc = new jsPDF({ orientation: paysage ? "landscape" : "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: paysage ? "landscape" : "portrait", unit: "mm", format: "a4", compress: true });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
 
@@ -204,7 +204,7 @@ const piedDePage = (doc, largeur, hauteur) => {
 // PROFORMA (pas « Reçu ») et n'a AUCUNE valeur comptable : il n'est pas enregistré
 // comme une vente, ne déduit pas le stock. C'est une simple offre de prix.
 export function genererProforma(p, logo, retournerDoc = false) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
 
@@ -665,7 +665,7 @@ function devisCommercial(doc, d, largeur, hauteur, yDepart) {
 }
 
 export function genererDevis(d, logo, retournerDoc = false) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
 
@@ -715,7 +715,7 @@ export function genererDevis(d, logo, retournerDoc = false) {
 // l'ordre des dates. Rien n'est écrit : le PDF reprend l'écran, tel quel.
 // `r` : { du, au, soldeDebut, entrees, sorties, soldeFin, mouvements }.
 export function genererReleve(r, { caisse, periode, logo, formation = false, edite = "" } = {}, retournerDoc = false) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
   const dFRl = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
@@ -764,7 +764,7 @@ export function genererReleve(r, { caisse, periode, logo, formation = false, edi
 // de lib/inventaireVentes.js ; ici on ne fait que la DESSINER, avec les
 // briques communes (entête, bandeau de titre, pied de page). Aucun calcul.
 export function genererInventaire(inv, { boutique = "", periode = "", logo, formation = false, edite = "" } = {}, retournerDoc = false) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
   const dFRl = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
@@ -909,7 +909,7 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
 // ou un tiret long fait basculer jsPDF en lettres espacées (capture Timo,
 // 12/09/2026 — « V e r s e m e n t »).
 export function genererDossierPersonnel(vue, { logo, formation = false, edite = "", client = "" } = {}, retournerDoc = false) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
   const largeur = doc.internal.pageSize.getWidth();
   const hauteur = doc.internal.pageSize.getHeight();
 

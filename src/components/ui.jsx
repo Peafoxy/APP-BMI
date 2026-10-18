@@ -761,7 +761,7 @@ export async function pdfDeLApercu(html, page = PAGE_A4) {
     // pour que le document remplisse la page comme à l'impression.
     const cadre = cadreContenu(horsEcran);
     const toile = rogner(brute, cadre, 2);
-    const doc = new jsPDF({ orientation: largeur > hauteur ? "landscape" : "portrait", unit: "mm", format: [largeur, hauteur] });
+    const doc = new jsPDF({ orientation: largeur > hauteur ? "landscape" : "portrait", unit: "mm", format: [largeur, hauteur], compress: true });
     const utileL = largeur - 2 * marge, utileH = hauteur - 2 * marge;
     const echelle = utileL / toile.width;              // mm par pixel
     const hauteurPageEnPx = Math.floor(utileH / echelle);

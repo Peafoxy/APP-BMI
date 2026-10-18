@@ -29,6 +29,7 @@ import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptes
 // ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
 import { champsEnvoi } from "./lib/suiviEnvoi";
 import { MOTIFS_CONTACT_GOOGLE } from "./lib/contactGoogle";
+import { motifReseau } from "./lib/motifReseau";
 
 const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== false;
 
@@ -55,14 +56,17 @@ const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== f
 // (`devis_pdf`) — { nom, mime, donnees } en base64. Sans lui, ce modèle est
 // refusé ici même, avant tout appel (critiqueEnvoiAuto).
 export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false, prevenir, annonceRepli, fichier = null }) {
-  const repli = async (motif) => {
-    if (sansRepli) return { auto: false, motif, annonce: false, parti: false };
+  // `reseau` : la connexion est tombée AVANT la réponse du serveur — on ne
+  // sait pas si le message est parti (18/10/2026). L'écran peut le dire.
+  const repli = async (motif, reseau = false) => {
+    if (sansRepli) return { auto: false, motif, annonce: false, parti: false, reseau };
     const imprevu = !!motif && !motifAttendu(motif);
     const texteAnnonce = imprevu ? messageRepli(motif, annonceRepli) : (annonceRepli || "");
     const annonce = !!texteAnnonce && typeof prevenir === "function";
     return {
       auto: false,
       motif,
+      reseau,
       annonce,
       parti: await ouvrirWhatsAppApresAnnonce({ tel, texte: texteRepli, annonce: texteAnnonce, prevenir, demanderConfirmation }),
     };
@@ -92,7 +96,7 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     // l'écran : le diagnostic affiché a déjà été retiré une fois (Timo,
     // 16/09/2026, « je n'aime plus voir ça »).
     if (reponse?.error) console.info("[whatsapp] refus :", reponse.error, reponse.code_whatsapp || "");
-    return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }));
+    return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }), !!reponse?.reseau);
   }
   return { auto: true, parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
 }
@@ -335,7 +339,7 @@ export async function enregistrerContactGoogle({ cle, nom, tel }) {
     const { contactGoogleEnLigne } = await import("./supabaseClient");
     r = await contactGoogleEnLigne({ cle, nom, tel });
   } catch (e) {
-    return { motif: `Serveur injoignable : ${e?.message || e}` };
+    return { motif: motifReseau(e) };
   }
   if (r && r.ok) return { ok: true, deja: !!r.deja, nom: r.nom || nom };
   return { motif: (r && r.code && MOTIFS_CONTACT_GOOGLE[r.code]) || r?.error || MOTIFS_CONTACT_GOOGLE.google };
@@ -348,7 +352,7 @@ export async function chargerMediaWa(messageId) {
     const { mediaWaEnLigne } = await import("./supabaseClient");
     reponse = await mediaWaEnLigne(messageId);
   } catch (e) {
-    return { url: "", motif: `Serveur injoignable : ${e?.message || e}` };
+    return { url: "", motif: motifReseau(e) };
   }
   if (!reponse || reponse.error || !reponse.blob) {
     return { url: "", motif: reponse?.error || "Fichier indisponible." };

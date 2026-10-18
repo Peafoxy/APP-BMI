@@ -398,7 +398,7 @@ test("★ le message de repli DIT ce qui s'est passé à la place",
 {
   const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const wa = sansComm(lire("src/whatsapp.js"));
-  const corpsRepli = (wa.match(/const repli = async \(motif\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  const corpsRepli = (wa.match(/const repli = async \(motif, reseau = false\) => \{[\s\S]*?\n  \};/) || [""])[0];
   test("★★ le motif d'un repli se dit AVANT l'ouverture de WhatsApp (attendu, puis ouverture), et jamais pour un motif attendu",
     corpsRepli.length > 0
     && /messageRepli\(motif, annonceRepli\)/.test(corpsRepli) && /!motifAttendu\(motif\)/.test(corpsRepli)
@@ -432,7 +432,7 @@ test("★ les DEUX endroits qui envoient un devis passent par cette phrase — a
   // La seule phrase « WhatsApp s'ouvre avec ses identifiants » est l'ANNONCE, dite avant (« Appuyez sur OK »).
   && /Appuyez sur OK : WhatsApp s'ouvre avec ses identifiants et le lien/.test(srcPartages)
   && !/WhatsApp s'ouvre avec ses identifiants/.test(lire("src/screens/dimensionnement/Brouillons.jsx")));
-test("★ l'envoi rend CE QUI S'EST PASSÉ, pas un simple oui (RETOURNÉ le 17/10/2026 : et ce qu'est devenu le PDF)", /return \{ ok: true, auto: !!r\.auto, pdfDemande: !!avecPdf, pdf: !!pdf\.r, motifPdf: pdf\.motif \};/.test(srcPartages));
+test("★ l'envoi rend CE QUI S'EST PASSÉ, pas un simple oui (RETOURNÉ le 17/10/2026 : et ce qu'est devenu le PDF)", /return \{ ok: true, auto: !!r\.auto, pdfDemande: !!avecPdf, pdf: !!pdf\.r, motifPdf: pdf\.motif, pdfIncertain: !!pdf\.incertain \};/.test(srcPartages));
 
 // ──────────────────────────────────────────────────────────────
 titre("⑮ LE REFUS DE WHATSAPP SE DIT EN FRANÇAIS (Timo, 20/09/2026)");
@@ -1557,7 +1557,7 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     && /data-recu-whatsapp/.test(ven));
   test("★ src/whatsapp.js : `sansRepli` n'ouvre jamais WhatsApp, `donnerAuSender` ne donne qu'une conversation LIBRE",
     // ⚠ RETOURNÉ le 29/09/2026 : `sansRepli` sort AVANT toute ouverture.
-    /if \(sansRepli\) return \{ auto: false, motif, annonce: false, parti: false \};/.test(srcWhatsapp)
+    /if \(sansRepli\) return \{ auto: false, motif, annonce: false, parti: false, reseau \};/.test(srcWhatsapp)
     && /const libre = !entete\.proprietaire_id \|\| entete\.proprietaire_id === profile\?\.id;/.test(srcWhatsapp)
     && /donnerAuSender && libre && profile\?\.id/.test(srcWhatsapp));
   test("★ ⚙ Paramètres : une boutique sans téléphone est signalée (le reçu indiquerait le numéro BMI principal), et le texte réglable du mot de fidélité n'y est plus (RETOURNÉ le 25/09/2026, décision « a » : la phrase vit chez Meta)",
@@ -5314,6 +5314,73 @@ titre("62 📎 LE DEVIS REPART SANS PDF QUAND META REJETTE LE PDF (18/10/2026, c
     /const relais = relaisAFaire\(/.test(suivi) && /wa_statut: nouveau, \.\.\.\(relais \? \{ wa_relais_le: ts \} : \{\}\)/.test(suivi)
     && suivi.indexOf("wa_relais_le: ts") < suivi.indexOf("relayerDevisSansPdf(") && suivi.indexOf(".update({ data, updated_at: ts })") < suivi.indexOf("relayerDevisSansPdf("));
   test("★ la règle du relais ne lit jamais de clé secrète", !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/relaisDevisPdf.js")));
+}
+
+titre("63 📎 LE PDF DU DEVIS EST LÉGER, ET UNE CONNEXION COUPÉE SE DIT EN FRANÇAIS (18/10/2026, capture « Serveur injoignable : Failed to fetch »)");
+{
+  // ── Le PDF RÉEL du devis, mesuré : 780 Ko avant (images et texte non
+  // compressés) → il doit tenir sous 300 Ko. Sur un téléphone à 45 Ko/s, c'est
+  // 6 secondes d'envoi au lieu de 23.
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-pdf-poids-"));
+  let poids = 0, poidsTemoin = 0;
+  try {
+    const entree = join(dossier, "entree.mjs");
+    writeFileSync(entree, `import { genererDevis } from ${JSON.stringify(join(process.cwd(), "src/pdf.js"))};
+import { LOGO, CACHET_BMI_DEFAUT } from ${JSON.stringify(join(process.cwd(), "src/lib/constants.js"))};
+import { jsPDF } from "jspdf";
+export const poids = () => {
+  const d = { numero: "AB12CD34", date: "18/10/2026", boutique: "BMI DEMAKPOE", client: "MANDA", tel: "+22890112233", titre: "Devis solaire", statut: "Proposé", par: "TIMO",
+    lignes: [{ categorie: "Panneaux", designation: "Panneau 550W", qte: 4, pu: 85000, total: 340000 }, { categorie: "Batteries", designation: "Batterie 51,2V 200Ah", qte: 1, pu: 900000, total: 900000 }],
+    total: 1240000, cachet: CACHET_BMI_DEFAUT, signature: "", bq: null };
+  const s = genererDevis(d, LOGO, true).output("datauristring").split(",")[1];
+  return Math.floor(s.length * 3 / 4);
+};
+// Le TÉMOIN : le même logo dans un document NON compressé — il prouve que
+// la compression commande bien le poids (sinon le contrôle ne prouverait rien).
+export const temoin = () => {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  doc.addImage(LOGO, "PNG", 14, 8, 30, 18);
+  const s = doc.output("datauristring").split(",")[1];
+  return Math.floor(s.length * 3 / 4);
+};`);
+    const sortie = join(dossier, "sortie.mjs");
+    await build({ entryPoints: [entree], bundle: true, format: "esm", platform: "node", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx" }, nodePaths: [join(process.cwd(), "node_modules")] });
+    const P = await import(pathToFileURL(sortie).href);
+    poids = P.poids(); poidsTemoin = P.temoin();
+  } catch (err) { console.log("    (erreur de la mesure du PDF :", err?.message || err, ")"); }
+  finally { rmSync(dossier, { recursive: true, force: true }); }
+  test(`★★★ le PDF RÉEL d'un devis (logo + cachet) pèse moins de 300 Ko — mesuré : ${Math.round(poids / 1024)} Ko`, poids > 20000 && poids < 300 * 1024);
+  test(`★ le TÉMOIN : le logo seul, sans compression, pèse plus de 300 Ko — mesuré : ${Math.round(poidsTemoin / 1024)} Ko (le piège existe toujours)`, poidsTemoin > 300 * 1024);
+  const pdfJs = lire("src/pdf.js");
+  test("★★ TOUS les documents PDF sont compressés (src/pdf.js et le partage de l'aperçu)",
+    (pdfJs.match(/new jsPDF\(/g) || []).length >= 6 && (pdfJs.match(/new jsPDF\(\{[^}]*compress: true/g) || []).length === (pdfJs.match(/new jsPDF\(/g) || []).length
+    && /new jsPDF\(\{[^}]*compress: true/.test(lire("src/components/ui.jsx")));
+
+  // ── Une connexion coupée se dit en français, le détail dans la console
+  const MR = await import(pathToFileURL(join(process.cwd(), "src/lib/motifReseau.js")).href);
+  const errAvant = console.error; let journal = "";
+  console.error = (...a) => { journal += a.join(" "); };
+  let phrase = "";
+  try { phrase = MR.motifReseau(new TypeError("Failed to fetch")); } finally { console.error = errAvant; }
+  test("★★★ « Failed to fetch » n'arrive plus à l'écran : la phrase est en français, le mot du navigateur part dans la console",
+    phrase === MR.MOTIF_RESEAU && !/fetch|injoignable/i.test(phrase) && /coupée/.test(phrase) && /Failed to fetch/.test(journal));
+  const codeC = lire("src/supabaseClient.js"), codeW = lire("src/whatsapp.js");
+  test("★★ plus aucun « Serveur injoignable : ${e…} » dans les appels au serveur (supabaseClient.js, whatsapp.js)",
+    !/injoignable[^`]*\$\{e/.test(codeC) && !/injoignable[^`]*\$\{e/.test(codeW)
+    && /return \{ error: motifReseau\(e\), reseau: true \}/.test(codeC));
+  // ── Après une coupure, on ne SAIT PAS si le PDF est parti : l'écran le dit
+  const M = await import(pathToFileURL(join(process.cwd(), "src/lib/whatsappModeles.js")).href);
+  const msgI = M.messageDevisEnvoye("MANDA", true, { pdfDemande: true, pdf: false, motifPdf: MR.MOTIF_RESEAU, pdfIncertain: true });
+  const msgR = M.messageDevisEnvoye("MANDA", true, { pdfDemande: true, pdf: false, motifPdf: "le modèle n'est pas encore approuvé." });
+  test("★★★ connexion coupée : « Le PDF n'est PEUT-ÊTRE pas parti », et où regarder — jamais « n'est pas parti » affirmé",
+    /peut-être pas parti/.test(msgI) && /téléphone BMI/.test(msgI) && !/Le PDF n'est pas parti/.test(msgI));
+  test("★★ un refus de WhatsApp reste affirmé (« n'est pas parti », avec son motif)",
+    /Le PDF n'est pas parti : le modèle n'est pas encore approuvé\./.test(msgR) && !/peut-être/.test(msgR));
+  test("★★ le drapeau de la coupure traverse : appelAvecJeton → envoyerModele (`reseau`) → envoyerPdfDuDevis (`incertain`) → l'écran",
+    /repli\(motifEchecWhatsApp\(\{[^)]*\}\), !!reponse\?\.reseau\)/.test(codeW) && /parti: false, reseau \}/.test(codeW)
+    && /incertain: !!r\.reseau/.test(lire("src/screens/dimensionnement/Partages.jsx")) && /pdfIncertain: !!pdf\.incertain/.test(lire("src/screens/dimensionnement/Partages.jsx"))
+    && (lire("src/screens/TousLesDevis.jsx").match(/lignePdfNonParti\(motifPdf, pdf\.incertain\)/g) || []).length === 2);
+  test("★ l'envoi du numéro BMI a 60 secondes (le dépôt du PDF chez YCloud prend du temps)", /"api\/whatsapp\.js": \{ "maxDuration": 60 \}/.test(lire("vercel.json")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
