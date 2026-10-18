@@ -220,6 +220,35 @@ export function decisionAssistant({ fil, proprietaireId = "", actif = true, main
   return { repondre: true, etape: ETAPES.includes(etape) ? etape : ETAPE_MENU, pourquoi: "suite de l'échange", memoire: precedent.wa_assistant.memoire || {} };
 }
 
+// ---- ⏳ PLUSIEURS MESSAGES RAPIDES = UNE SEULE RÉPONSE (18/10/2026) ----
+// Capture Timo : « Okay » puis « Comment vous allez » à quelques secondes —
+// deux appels de l'adresse d'arrivée, deux réponses, deux présentations. Le
+// serveur attend un peu (`ATTENTE_GROUPEMENT_MS`), relit la conversation, et
+// ne répond QUE pour le dernier message du client : sa réponse lit tous ceux
+// qui précèdent. ⚠ Seul un message ENTRANT plus récent dépasse : une ligne de
+// BMI arrivée entre-temps ne fait pas taire l'assistant (sinon le second
+// message d'un client pourrait rester sans réponse).
+export const ATTENTE_GROUPEMENT_MS = 4000;
+
+const apres = (a, b) => {
+  const ta = String(a?.ts || ""), tb = String(b?.ts || "");
+  if (ta !== tb) return ta > tb;
+  return String(a?.id || "") > String(b?.id || "");
+};
+
+export function messageDepasse(fil, ligne) {
+  if (!ligne) return false;
+  return (Array.isArray(fil) ? fil : []).some((m) => m && m.wa_entrant && m.id !== ligne.id && apres(m, ligne));
+}
+
+// La conversation telle que la décision et l'IA doivent la lire : la version
+// relue, le message du client EN DERNIER (une réponse de BMI rangée un peu
+// après lui ne doit pas faire croire que le client n'a rien dit).
+export function filPourReponse(fil, ligne) {
+  const liste = (Array.isArray(fil) ? fil : []).filter((m) => m && m.id !== ligne?.id);
+  return ligne ? [...liste, ligne] : liste;
+}
+
 // La conversation est-elle une conversation de l'IA EN COURS ? (le dernier mot
 // de BMI est une ligne de l'IA). Alors une panne ne doit pas y faire surgir le
 // menu à chiffres (capture Timo, 01/10/2026 : « Quel produit cherchez-vous ? »

@@ -101,8 +101,11 @@ export const CONSIGNE_IA = `Tu es « ${NOM_ASSISTANT} », l'assistant virtuel de
 
 QUI TU ES
 - Tu es un programme, pas une personne. Tu ne te fais JAMAIS passer pour un employé, un conseiller ou un humain. Si on te le demande, tu dis que tu es l'assistant virtuel de BMI TOGO.
-- Tu vouvoies toujours. Tu écris en français simple, en phrases courtes, comme dans une conversation WhatsApp : 2 à 6 lignes, sans jargon, un emoji au plus.
-- Tu ne te présentes pas toi-même : le serveur ajoute la phrase de présentation au début d'une nouvelle conversation. Réponds directement.
+- Tu vouvoies toujours. Tu écris en français simple, comme une personne qui répond sur WhatsApp derrière son écran : le plus souvent 1 à 3 lignes, sans jargon, un emoji au plus. Plus long seulement pour une estimation, un total, un choix de pompe ou la présentation de ce que fait BMI TOGO.
+- Tu réagis à ce que le client vient de dire, avec naturel : s'il te salue ou demande comment tu vas, tu réponds simplement (« Très bien, merci ! ») avant d'enchaîner. Tu varies tes tournures, tu ne répètes pas les mêmes phrases d'un message à l'autre.
+- UNE seule question à la fois. Pas de liste à puces, sauf si le client demande plusieurs articles ou une comparaison.
+- Tu ne termines pas tes messages par « Comment puis-je vous aider ? » et tu ne rappelles pas le mot « conseiller » à chaque message : le client le connaît déjà.
+- Tu ne te présentes pas toi-même : le serveur ajoute la phrase de présentation la toute première fois que ce client écrit à BMI TOGO. Réponds directement.
 
 CE QUE FAIT BMI TOGO
 ${activites}
@@ -120,7 +123,7 @@ CE QUE TU AS LE DROIT DE DIRE
 - Dire que tu ne sais pas, et proposer un conseiller.
 - LES CALCULS TECHNIQUES qui ne sont pas de l'argent : énergie d'une batterie (tension × ampères-heures : 51,2 V × 100 Ah ≈ 5,1 kWh, dont environ 80 % utilisables pour une lithium), consommation d'un appareil (watts × heures), ce qu'une batterie peut alimenter pendant combien d'heures, hauteur ou débit d'eau. Tu les fais toi-même, à partir des caractéristiques données par les outils ou par le client, en disant que c'est un ordre de grandeur. Seuls les MONTANTS EN FRANCS viennent des outils.
 - Les tensions : une batterie lithium de 51,2 V est une batterie « 48 V » (25,6 V = 24 V, 12,8 V = 12 V) ; c'est la même famille de système.
-- LE CONSEIL GÉNÉRAL dans les métiers de BMI TOGO (énergie solaire, pompage solaire et forage, domotique, motorisation de portails, portes, volets et garages, ventilation VMC, et tout autre métier réglé dans l'application) : tu peux expliquer, comparer et orienter avec tes connaissances générales — par exemple la différence entre un système hybride et un système autonome, entre une batterie lithium et une batterie gel, pourquoi un appareil allumé jour et nuit demande surtout de la batterie, comment orienter des panneaux, quel type de moteur convient à un portail battant, coulissant ou à un rideau métallique, à quoi sert une VMC. Tu le présentes toujours comme un conseil GÉNÉRAL (« en général », « le plus souvent »), tu précises qu'un conseiller BMI TOGO confirme pour son cas précis, puis tu ramènes vers une solution concrète : chercher un article, estimer (solaire) ou enregistrer une demande de devis.
+- LE CONSEIL GÉNÉRAL dans les métiers de BMI TOGO (énergie solaire, pompage solaire et forage, domotique, motorisation de portails, portes, volets et garages, ventilation VMC, et tout autre métier réglé dans l'application) : tu peux expliquer, comparer et orienter avec tes connaissances générales — par exemple la différence entre un système hybride et un système autonome, entre une batterie lithium et une batterie gel, pourquoi un appareil allumé jour et nuit demande surtout de la batterie, comment orienter des panneaux, quel type de moteur convient à un portail battant, coulissant ou à un rideau métallique, à quoi sert une VMC. Tu le présentes toujours comme un conseil GÉNÉRAL (« en général », « le plus souvent »), tu précises qu'un conseiller BMI TOGO confirme pour son cas précis, puis, quand le client montre qu'il veut avancer, tu ramènes vers une solution concrète : chercher un article, estimer (solaire) ou enregistrer une demande de devis.
 
 CE QUE TU NE DIS JAMAIS
 - Que BMI TOGO NE FAIT PAS quelque chose (« ne fait pas partie de nos services », « nous ne faisons pas… ») : les listes ci-dessus ne sont PAS complètes, et tu ne sais pas tout ce que fait BMI TOGO. Si le client parle d'un métier qui n'y figure pas (forage, pompe, vidéosurveillance, électricité…), cherche d'abord un article avec chercher_article ; puis propose d'enregistrer une demande de devis, ou passe la main à un conseiller qui confirmera.
@@ -137,7 +140,8 @@ COMMENT TU T'Y PRENDS
 - 🗣 TU RESTES DANS LA CONVERSATION. Tu ne proposes PAS un conseiller ni une demande de devis à chaque message : c'est lassant. Un conseiller seulement si le client le demande, ou pour une panne, une réclamation, une question d'argent ou de compte, ou quand aucun outil ne peut répondre. Une demande de devis, propose-la UNE fois, au moment où le client a un besoin clair, puis n'y reviens que s'il en reparle. Si le client te dit qu'il veut rester avec toi, tu ne proposes plus de conseiller sauf s'il le demande.
 - 💡 TU PROPOSES TOI-MÊME. Si le client te demande une proposition sans donner de détails (« pour une maison modeste, fais-moi une proposition »), tu ne refuses pas : tu poses toi-même un EXEMPLE chiffré en appareils (par exemple 6 ampoules LED 6 h par jour, 1 réfrigérateur 24 h sur 24, 1 téléviseur 5 h, 2 ventilateurs 8 h), tu dis clairement que c'est un exemple à ajuster, et tu lances l'outil adapté (estimer_solaire) sur cet exemple. Le client corrige ensuite ce qui ne lui correspond pas.
 - 🏢 BMI TOGO, TU EN PARLES AVEC CONVICTION. Si le client demande si BMI TOGO est sérieuse ou à qui confier son projet, tu réponds positivement avec des faits : une étude et un dimensionnement faits pour lui, l'installation par nos équipes, un contrat, un procès-verbal de réception, des garanties, la maintenance et le suivi après la pose, et un conseiller qui répond sur ce numéro. Tu ne dénigres jamais une autre entreprise et tu n'inventes aucun chiffre (années, nombre de clients).
-- ⭐ LA RÈGLE DE BMI TOGO POUR TOUTE QUESTION DANS SES MÉTIERS : d'abord tu RENSEIGNES le client de manière générale (comment ça marche, ce qu'il faut regarder, les questions à se poser) ; ENSUITE tu passes au PARTICULIER : tu cherches dans NOTRE stock avec chercher_article (ou choisir_pompe, estimer_solaire) et tu lui PROPOSES des articles précis de BMI TOGO qui répondent à son besoin, avec leur prix et leur disponibilité tels que l'outil les donne. Tu termines par une suite concrète : un total (calculer_total), une demande de devis, ou un conseiller. Ne t'arrête jamais au conseil général quand le stock peut répondre.
+- ⭐ LES PRIX VIENNENT QUAND LA DISCUSSION VA VERS UN ACHAT, PAS AVANT. Une question générale (« vous faites le solaire ? », « vous installez des portails ? ») : tu réponds oui en une phrase, puis tu poses UNE question sur son besoin (ce qu'il veut alimenter ou motoriser, où, pour quand). Pas de prix, pas de liste d'articles à ce moment-là. Tu peux renseigner le client de manière générale (comment ça marche, ce qu'il faut regarder) quand il le demande, sans prix.
+- Tu ne cites des articles avec leur prix (chercher_article, calculer_total, choisir_pompe, panneaux_pour_pompe, estimer_solaire) que quand le client montre qu'il veut acheter : il demande un prix, un tarif, « combien », la disponibilité ou les caractéristiques d'un article précis, une quantité, une estimation, une proposition ou un devis. Quand son besoin devient clair sans qu'il ait parlé d'argent, tu lui demandes d'abord s'il souhaite une estimation ou les prix. Quand il en est là, tu lui proposes des articles précis de NOTRE stock tels que l'outil les donne, puis une suite concrète : un total, une demande de devis, ou un conseiller.
 - Si le client demande ce que fait BMI TOGO (« que faites-vous ? », « vos services ? », « vous faites quoi ? ») : réponds avec le texte ci-dessous, TEL QUEL, sans rien changer, sans guillemets autour. C'est la seule réponse qui peut dépasser 6 lignes.
 ---
 ${TEXTE_QUE_FAISONS_NOUS}
@@ -158,15 +162,23 @@ ${TEXTE_QUE_FAISONS_NOUS}
 - Tu réponds au dernier message du client, en tenant compte de ce qui a été dit avant dans la conversation.`;
 
 // Un mot sur le client, quand on le connaît — ajouté à la consigne.
-export const consignePour = ({ client = null, nouvelle = false, metiers = [], memo = "" } = {}) => {
+// `presentation` : le serveur pose la présentation devant la réponse — la
+// toute première fois que ce numéro écrit à BMI TOGO (18/10/2026, « B a »).
+// Une conversation qui REPREND après 24 h (`nouvelle` sans `presentation`) :
+// l'IA salue elle-même, brièvement, comme une personne.
+export const consignePour = ({ client = null, nouvelle = false, presentation = nouvelle, metiers = [], memo = "" } = {}) => {
   const qui = client?.nom
     ? `LE CLIENT : il s'appelle ${client.nom} et a un compte chez BMI TOGO (tu peux l'appeler par son nom). Pour une demande de devis, son nom est connu : ne le redemande pas.`
     : `LE CLIENT : ce numéro n'a pas de compte chez BMI TOGO, son nom est inconnu. Pour une demande de devis, demande-lui son nom avant d'enregistrer.`;
   // Timo, 25/09/2026 : « il y a 2 bonjour dans un seul message ». Le serveur
-  // salue lui-même au début d'une conversation (PHRASE_PRESENTATION).
-  const salut = nouvelle
-    ? "LA SALUTATION : cette conversation commence, et le serveur a DÉJÀ dit bonjour et présenté BMI TOGO juste avant ta réponse. Ne dis PAS bonjour ni bonsoir : réponds directement à la question."
-    : "LA SALUTATION : la conversation est en cours. Ne redis pas bonjour à chaque message.";
+  // salue lui-même la première fois (PHRASE_PRESENTATION), qui se termine
+  // déjà par « Comment puis-je vous aider aujourd'hui ? » (18/10/2026 : la
+  // question partait deux fois).
+  const salut = nouvelle && presentation
+    ? "LA SALUTATION : ce client écrit à BMI TOGO pour la première fois, et le serveur a DÉJÀ dit bonjour, présenté l'assistant et demandé « Comment puis-je vous aider aujourd'hui ? » juste avant ta réponse. Ne dis PAS bonjour ni bonsoir, ne repose pas cette question, ne te présente pas : réponds directement à ce qu'il a écrit. S'il a seulement salué ou demandé comment tu vas, réponds-lui en une courte phrase chaleureuse (« Très bien, merci ! »)."
+    : nouvelle
+      ? `LA SALUTATION : ce client a déjà échangé avec BMI TOGO, et la conversation reprend après une pause. Salue-le une seule fois, brièvement et naturellement, comme une personne qui le retrouve (« Bonjour${client?.nom ? ` ${client.nom}` : ""}, ravi de vous relire ! »), sans te présenter ni rappeler le mot « conseiller », puis réponds à ce qu'il a écrit.`
+      : "LA SALUTATION : la conversation est en cours. Ne redis pas bonjour, ne te représente pas, ne repose pas « Comment puis-je vous aider ? ».";
   // Les MÉTIERS réglés dans l'application (⚙ Paramètres → domaines, boutiques
   // réelles) : un métier ajouté par Timo (Forage…) se dit sans toucher au code.
   // 01/10/2026 (« il faut qu'il accède à nos domaines ») : un métier peut
@@ -205,6 +217,22 @@ export function sansSalutation(texte, nom = "") {
   const reste = t.replace(re, "");
   return reste ? reste.charAt(0).toUpperCase() + reste.slice(1) : "";
 }
+
+// La question qui termine la présentation ne repart pas derrière elle
+// (capture Timo, 18/10/2026 : « Comment puis-je vous aider aujourd'hui ? »
+// deux fois dans la même bulle). Filet derrière la consigne, posé seulement
+// quand la présentation part : « Et vous, comment puis-je vous aider ? »
+// perd sa question, le reste du texte ne bouge pas.
+const RE_QUESTION_ACCUEIL = /(?:et\s+vous\s*,?\s*)?(?:comment|en\s+quoi)\s+(?:puis-je|pourrais-je)\s+vous\s+(?:aider|être\s+utile)(?:\s+aujourd['’]hui)?\s*\?/giu;
+export function sansQuestionAccueil(texte) {
+  return String(texte || "").replace(RE_QUESTION_ACCUEIL, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ").trim();
+}
+
+// La présentation est-elle déjà partie à ce numéro ? (18/10/2026, « B a » :
+// une seule fois, le tout premier jour.) On la reconnaît à sa première ligne,
+// qui ne change pas : les lignes écrites AVANT ce jour comptent aussi.
+export const DEBUT_PRESENTATION = PHRASE_PRESENTATION.split("\n")[0];
+export const dejaPresente = (fil) => (Array.isArray(fil) ? fil : []).some((m) => m && !m.wa_entrant && String(m.texte || "").startsWith(DEBUT_PRESENTATION));
 
 // ---- LES OUTILS (ce que l'IA a le droit de FAIRE, et rien d'autre) ----
 export const OUTILS_IA = [
@@ -738,13 +766,16 @@ export function sansGuillemetsAutour(texte, phrase) {
   return t.replace(new RegExp(`(?:«\\s*|"|\u201c)(${echap})(?:\\s*»|"|\u201d)`, "g"), "$1");
 }
 
-export function reponseDepuisIA({ texte, effets, juge, nouvelle, nom = "" }) {
+// `presentation` (18/10/2026, « B a ») : la présentation ne part que si elle
+// n'est jamais partie à ce numéro ; d'office, comme avant, sur une nouvelle
+// conversation.
+export function reponseDepuisIA({ texte, effets, juge, nouvelle, presentation = nouvelle, nom = "" }) {
   const ef = effets || { prix: [], demandeDevis: null, conseiller: false };
   // L'estimation part avec la réponse (le serveur la range sur la ligne, pour
   // la retrouver sur la fiche 🧲 Prospects) — seulement si la réponse est
   // celle que l'IA a écrite : une phrase fixe ne la cite pas.
-  const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}), ...(!repli && ef.estimation ? { estimation: ef.estimation } : {}) });
-  if (juge?.ok) return pose(sansGuillemetsAutour(nouvelle ? sansSalutation(texte, nom) : texte, ef.estimation?.texte), etapeApresIA(ef), !!ef.conseiller, "");
+  const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle: !!presentation }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}), ...(!repli && ef.estimation ? { estimation: ef.estimation } : {}) });
+  if (juge?.ok) return pose(sansGuillemetsAutour(presentation ? sansQuestionAccueil(sansSalutation(texte, nom)) : texte, ef.estimation?.texte), etapeApresIA(ef), !!ef.conseiller, "");
   if (juge?.reserve) return pose(REPONSE_SUJET_RESERVE, ETAPE_CONSEILLER, true, juge.motif);
   if (juge?.metierNie) return pose(TEXTE_RELAIS_CONSEILLER, ETAPE_CONSEILLER, true, juge.motif);
   if (ef.demandeDevis) return pose(texteDemandeEnregistree(ef.demandeDevis.nom), ETAPE_CONSEILLER, true, juge?.motif || "");

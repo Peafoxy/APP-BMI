@@ -1777,7 +1777,7 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
     && /from\("prospects"\)\.insert\(\{ id: p\.id, data: p, updated_at: ts \}\)/.test(corpsR)
     && /construireEntete\(\{ cle, tel: String\(from\), nom: client\?\.nom \|\| "", proprietaire_id: "", proprietaire_nom: ""/.test(corpsR));
   test("★ une personne n'est prévenue que si l'assistant s'est tu ou a passé la main",
-    /const aPrevenir = !assistant\.repondu \|\| assistant\.conseiller;/.test(entrantA) && /aPrevenir && destinataires\.length/.test(entrantA));
+    /const aPrevenir = \(!assistant\.repondu && !assistant\.groupe\) \|\| assistant\.conseiller;/.test(entrantA) && /aPrevenir && destinataires\.length/.test(entrantA));
   test("★ un assistant qui trébuche ne perd jamais le message (try/catch autour, le message déjà écrit)",
     /assistant = await repondreParAssistant\(/.test(entrantA) && entrantA.indexOf("assistant = await repondreParAssistant(") > entrantA.indexOf('from("messages").insert({ id: ligne.id'));
   test("★★ DÉFAUT RÉPARÉ : le webhook lit le propriétaire par LA règle (marque « rendue à tous » comprise), et le repli par le devis ne rejoue pas sur une conversation rendue",
@@ -2072,13 +2072,14 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
   const corpsR = entrantI.slice(entrantI.indexOf("async function repondreParAssistant"));
   test("★★ le webhook tente l'IA seulement si elle est CHOISIE et CONFIGURÉE, puis retombe sur le menu (`if (!r)`) — la décision de silence est prise UNE fois, avant, par la règle",
     /if \(modeAssistant\(boutiques\) === "ia" && ia\.pret\) \{/.test(corpsR) && /if \(!r\) \{[\s\S]{0,900}r = reponseAssistant\(\{/.test(corpsR)
-    && (corpsR.match(/decisionAssistant\(/g) || []).length === 1 && corpsR.indexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
+    // ⚠ RETOURNÉ le 18/10/2026 : DEUX décisions — une première pour ne pas attendre quand l'assistant doit se taire, puis celle qui compte, sur la conversation RELUE après l'attente ; les deux AVANT l'IA.
+    && (corpsR.match(/decisionAssistant\(/g) || []).length === 2 && corpsR.lastIndexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
   // ⚠ RETOURNÉ le 25/09/2026 : la consigne sait si la conversation commence, et la réponse reçoit le nom du client (un seul bonjour).
   test("★★ l'IA reçoit la consigne, la mémoire du fil, et exécute les outils par `executerOutil` avec les articles RÉELS chargés à la demande ; sa réponse passe par le juge puis `reponseDepuisIA`",
     // ⚠ RETOURNÉ le 01/10/2026 : converserAvecJuge (une réponse jetée se réécrit une fois), le juge vient de lui.
-    /converserAvecJuge\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
+    /converserAvecJuge\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
     && /executerOutil\(nom, entree, \{[^}]*?articles: \["chercher_article", "calculer_total", "choisir_pompe", "panneaux_pour_pompe"\]\.includes\(nom\) \? await chargerArticles\(\) : \[\],/.test(corpsR)
-    && /const juge = conv\.juge;[\s\S]{0,200}r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
+    && /const juge = conv\.juge;[\s\S]{0,200}r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, presentation, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
     && /articlesPourAssistant\(\{[\s\S]{0,300}boutiques,/.test(corpsR));
   test("★★ RIEN N'EST ÉCRIT TANT QUE LE MESSAGE N'EST PAS PARTI, IA comprise : un seul envoi YCloud, APRÈS l'IA et le menu, AVANT toute écriture",
     (corpsR.match(/envoyerYCloud\(/g) || []).length === 1
@@ -2282,7 +2283,7 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
     && I.reponseDepuisIA({ texte: "Bonjour 👋 Je ne peux pas lire les vidéos.", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === `${I.PHRASE_PRESENTATION}\n\nJe ne peux pas lire les vidéos.`
     && I.reponseDepuisIA({ texte: "Bonjour !", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === I.PHRASE_PRESENTATION
     && I.reponseDepuisIA({ texte: "Bonjour Kossi", effets: { prix: [] }, juge: { ok: true }, nouvelle: false }).texte === "Bonjour Kossi"
-    && /consignePour\(\{ client: clientIA, nouvelle, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(entrantS) && /nouvelle, nom: clientIA\?\.nom/.test(entrantS));
+    && /consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(entrantS) && /nouvelle, presentation, nom: clientIA\?\.nom/.test(entrantS));
   test("★ LA QUANTITÉ SE DEMANDE : pour le solaire, la consigne exige le NOMBRE de chaque appareil avant d'estimer, et interdit de supposer qu'il y en a un seul",
     /COMBIEN il y en a \(le nombre\)/.test(I.CONSIGNE_IA) && /Ne suppose jamais qu'il y en a un seul/.test(I.CONSIGNE_IA));
   // 24/09/2026 au soir, Timo : « retire les guillemets ».
@@ -2461,7 +2462,7 @@ titre("㊳ L'ASSISTANT NE DIT JAMAIS CE QUE BMI NE FAIT PAS (30/09/2026, capture
       const m = I.domainesPourIA(bq); const c = I.consignePour({ metiers: m });
       return m.map((d) => d.nom).join("|") === "Solaire|Forage" && /RÉGLÉS DANS L'APPLICATION, avec leurs familles d'articles : Solaire ; Forage/.test(c) && !/Entraînement/.test(c); })());
   test("★ le serveur les passe à la consigne",
-    /consignePour\(\{ client: clientIA, nouvelle, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
+    /consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -3641,9 +3642,10 @@ titre("㊸ L'ASSISTANT VOIT NOS MÉTIERS ET LA FICHE DE TOUS LES ARTICLES, ET CH
       return x.pompes_qui_montent_assez_haut.length === 0 && /Aucune pompe/.test(x.consigne); })());
 
   // La consigne
-  test("★★ LA RÈGLE DE TIMO : d'abord renseigner de manière générale, ENSUITE proposer des articles de NOTRE stock",
-    /d'abord tu RENSEIGNES le client de manière générale/.test(I.CONSIGNE_IA) && /ENSUITE tu passes au PARTICULIER/.test(I.CONSIGNE_IA)
-    && /PROPOSES des articles précis de BMI TOGO/.test(I.CONSIGNE_IA));
+  // ⚠ RETOURNÉ le 18/10/2026 (« C b ») : les articles et leurs prix ne viennent plus d'office après le conseil général, mais quand la discussion va vers un achat.
+  test("★★ LA RÈGLE DE TIMO : renseigner de manière générale sans prix, et ne proposer des articles de NOTRE stock que quand le client montre qu'il veut acheter",
+    /Tu peux renseigner le client de manière générale/.test(I.CONSIGNE_IA) && /que quand le client montre qu'il veut acheter/.test(I.CONSIGNE_IA)
+    && /tu lui proposes des articles précis de NOTRE stock/.test(I.CONSIGNE_IA));
   test("★★ la consigne : pour une pompe, le niveau dynamique d'abord, et jamais un débit promis à une profondeur",
     /NIVEAU DE L'EAU PENDANT LE POMPAGE/.test(I.CONSIGNE_IA) && /Tu ne promets JAMAIS un débit à une profondeur donnée/.test(I.CONSIGNE_IA));
   test("★★ les métiers arrivent dans la consigne AVEC leurs familles (« Forage (Pompe, Tuyaux) »), boutiques réelles seulement",
@@ -4949,6 +4951,121 @@ titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA
   test("★★ WhatsApp refuse → RIEN d'écrit dans le fil, et la relance n'est pas retentée pour ce message",
     r4?.relances === 0 && relanceEcrite(tables?.t4, "44445555").length === 0 && r5?.relances === 0 && envois.length === 0
     && r5?.essais?.some((e) => /réservée/.test(e.pourquoi || "")));
+}
+
+titre("57 🗣 L'ASSISTANT S'HUMANISE : UNE RÉPONSE AUX MESSAGES RAPIDES, LA PRÉSENTATION UNE SEULE FOIS, LES PRIX QUAND ÇA VA VERS UN ACHAT (18/10/2026, « B a, C b, lance »)");
+{
+  const I = await import("../src/lib/assistantIA.js");
+  const AW = await import("../src/lib/assistantWhatsapp.js");
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  // ── Les règles
+  test("★★ la question d'accueil que l'IA ajoute (« Et vous, comment puis-je vous aider aujourd'hui ? », « En quoi puis-je vous être utile ? ») est retirée, le reste garde ses mots",
+    I.sansQuestionAccueil("Très bien, merci ! Et vous, comment puis-je vous aider aujourd’hui ?") === "Très bien, merci !"
+    && I.sansQuestionAccueil("Oui, nous faisons le solaire. En quoi puis-je vous être utile ?") === "Oui, nous faisons le solaire."
+    && I.sansQuestionAccueil("Je peux vous aider à choisir une batterie.") === "Je peux vous aider à choisir une batterie.");
+  const pres = { id: "a1", wa_entrant: false, ts: "2026-10-10T10:00:00.000Z", texte: I.PHRASE_PRESENTATION };
+  test("★★ « B a » : la présentation déjà posée par BMI se reconnaît (celle de l'IA ou l'accueil du menu) ; un client qui la recopie ne compte pas",
+    I.dejaPresente([pres]) === true && I.dejaPresente([{ wa_entrant: false, texte: AW.TEXTE_ACCUEIL }]) === true
+    && I.dejaPresente([{ ...pres, wa_entrant: true }]) === false && I.dejaPresente([]) === false);
+  const repDejaVu = I.reponseDepuisIA({ texte: "Bonjour Kossi, ravi de vous relire ! Oui, nous installons des kits solaires.", effets: { prix: [] }, juge: { ok: true }, nouvelle: true, presentation: false, nom: "Kossi" });
+  const repPremier = I.reponseDepuisIA({ texte: "Très bien, merci ! Et vous, comment puis-je vous aider aujourd'hui ?", effets: { prix: [] }, juge: { ok: true }, nouvelle: true, presentation: true });
+  test("★★ « B a » : une reprise après 24 h ne repose PAS la présentation, et le bonjour de l'IA (qui retrouve le client) reste ; la toute première fois, la présentation part UNE fois, sans la question répétée",
+    !repDejaVu.texte.includes(I.DEBUT_PRESENTATION) && repDejaVu.texte.startsWith("Bonjour Kossi, ravi de vous relire")
+    && repPremier.texte === `${I.PHRASE_PRESENTATION}\n\nTrès bien, merci !`
+    && (repPremier.texte.match(/Comment puis-je vous aider/g) || []).length === 1);
+  test("★ trois salutations dans la consigne : premier contact (ne pas saluer ni reposer la question), reprise (saluer une fois, sans se présenter), conversation en cours (rien)",
+    /Ne dis PAS bonjour[\s\S]*ne repose pas cette question/.test(I.consignePour({ nouvelle: true, presentation: true }))
+    && /ravi de vous relire[\s\S]*sans te présenter/.test(I.consignePour({ nouvelle: true, presentation: false }))
+    && I.consignePour({ nouvelle: true, presentation: false, client: { nom: "KOSSI" } }).includes("Bonjour KOSSI, ravi de vous relire")
+    && /Ne redis pas bonjour/.test(I.consignePour({ nouvelle: false })));
+  test("★★ « C b » : la consigne dit que les PRIX viennent quand la discussion va vers un achat, une question à la fois, sans finir par « Comment puis-je vous aider ? » — consigne SEULE, le juge des prix n'a pas bougé",
+    I.CONSIGNE_IA.includes("LES PRIX VIENNENT QUAND LA DISCUSSION VA VERS UN ACHAT") && I.CONSIGNE_IA.includes("UNE seule question à la fois")
+    && I.CONSIGNE_IA.includes("Tu ne termines pas tes messages par « Comment puis-je vous aider ? »")
+    && I.CONSIGNE_IA.includes("1 à 3 lignes") && !/2 à 6 lignes/.test(I.CONSIGNE_IA)
+    && I.garderReponse("Le panneau 400W coûte 85 000 F.", { prixConnus: [85000] }).ok === true && I.garderReponse("Le panneau 400W coûte 85 000 F.", { prixConnus: [] }).ok === false);
+  const T = "2026-10-18T09:00:00.000Z";
+  const e1 = { id: "wa-1-a", wa_entrant: true, ts: T, texte: "Okay" };
+  const e2 = { id: "wa-2-b", wa_entrant: true, ts: "2026-10-18T09:00:02.000Z", texte: "Comment vous allez" };
+  const e1bis = { id: "wa-1-z", wa_entrant: true, ts: T, texte: "?" };
+  const bmi = { id: "r", wa_entrant: false, ts: "2026-10-18T09:00:05.000Z", texte: "Bonjour" };
+  test("★★ un message est DÉPASSÉ par un message ENTRANT plus récent (même seconde : l'ordre des identifiants départage, un seul répond) ; une ligne de BMI ne dépasse rien",
+    AW.messageDepasse([e1, e2], e1) === true && AW.messageDepasse([e1, e2], e2) === false
+    && AW.messageDepasse([e1, e1bis], e1) === true && AW.messageDepasse([e1, e1bis], e1bis) === false
+    && AW.messageDepasse([e1, bmi], e1) === false && AW.messageDepasse([e1], e1) === false);
+  test("★ la conversation relue se lit avec le message du client EN DERNIER (une réponse rangée après lui ne le cache pas)",
+    AW.filPourReponse([e1, bmi, e2], e2).map((m) => m.id).join() === "wa-1-a,r,wa-2-b" && AW.filPourReponse([e2, bmi], e2).at(-1).id === "wa-2-b");
+  test("★ l'attente est de 4 s", AW.ATTENTE_GROUPEMENT_MS === 4000);
+  // ── Le serveur
+  const EN = sansComm(lire("api/whatsapp-entrant.js"));
+  const corps = EN.slice(EN.indexOf("export async function repondreParAssistant"), EN.indexOf("// ✓✓ LE SUIVI") > 0 ? EN.indexOf("// ✓✓ LE SUIVI") : undefined);
+  test("★★ le serveur attend, relit la conversation, s'efface si le client a réécrit, et revérifie juste AVANT d'envoyer",
+    /if \(attente > 0\) await new Promise\(\(ok\) => setTimeout\(ok, attente\)\);\s*const filFrais = await relireFil\(\);\s*if \(messageDepasse\(filFrais, ligne\)\) return \{ repondu: false, groupe: true/.test(corps)
+    && /const fil = filPourReponse\(filFrais, ligne\);\s*const decision = decisionAssistant\(\{ fil,/.test(corps)
+    && corps.lastIndexOf("messageDepasse(await relireFil(), ligne)") > 0 && corps.lastIndexOf("messageDepasse(await relireFil(), ligne)") < corps.indexOf("envoyerYCloud(cleYCloud, corpsTexte("));
+  test("★★ « B a » : la présentation dépend de l'histoire ENTIÈRE du client (`presentation = nouvelle && !dejaPresente(fil)`), passée à la consigne ET à la réponse",
+    /const presentation = nouvelle && !dejaPresente\(fil\);/.test(corps) && /consignePour\(\{ client: clientIA, nouvelle, presentation,/.test(corps) && /reponseDepuisIA\(\{[^}]*nouvelle, presentation,/.test(corps));
+  // ── La VRAIE chaîne, sur une base jouée
+  const { repondreParAssistant } = await import("../api/whatsapp-entrant.js");
+  const fauxAdmin = (tables) => ({
+    from(t) {
+      const q = { op: "select", charge: null };
+      const exec = () => {
+        if (q.op === "insert") { (tables[t] ||= []).push(structuredClone(q.charge)); return { data: null, error: null }; }
+        if (q.op === "upsert") { const l = (tables[t] ||= []); const i = l.findIndex((x) => x.id === q.charge.id); if (i >= 0) l[i] = structuredClone(q.charge); else l.push(structuredClone(q.charge)); return { data: null, error: null }; }
+        return { data: structuredClone(tables[t] || []), error: null };
+      };
+      const b = { select() { return b; }, insert(c) { q.op = "insert"; q.charge = c; return b; }, upsert(c) { q.op = "upsert"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
+      return b;
+    },
+  });
+  const CLE = "90561234";
+  const ent = (id, ts, texte) => ({ id, canal: "whatsapp", wa_tel: CLE, wa_numero: `228${CLE}`, wa_entrant: true, ts, texte });
+  const lt = (m) => ({ id: m.id, data: m, updated_at: m.ts });
+  const envAvant = { a: process.env.ANTHROPIC_API_KEY, b: process.env.ASSISTANT_IA_MODELE, c: process.env.YCLOUD_API_KEY, d: process.env.WHATSAPP_NUMERO_BMI };
+  const fetchAvant = globalThis.fetch;
+  let envois = [], corpsIA = [];
+  globalThis.fetch = async (url, opts) => {
+    const c = JSON.parse(opts?.body || "{}");
+    if (String(url).includes("anthropic")) { corpsIA.push(c); return new Response(JSON.stringify({ content: [{ type: "text", text: "Très bien, merci ! Et vous, comment puis-je vous aider aujourd'hui ?" }], stop_reason: "end_turn" }), { status: 200 }); }
+    envois.push(c);
+    return new Response(JSON.stringify({ id: `yc_${envois.length}`, wamid: "wamid.X", status: "accepted" }), { status: 200 });
+  };
+  const bqs = [{ nom: "BMI DEMAKPOE" }];
+  let g1, g2, g3, tA, tB;
+  try {
+    process.env.ANTHROPIC_API_KEY = "cle-de-banc"; process.env.ASSISTANT_IA_MODELE = "modele-de-banc";
+    process.env.YCLOUD_API_KEY = "yc-de-banc"; process.env.WHATSAPP_NUMERO_BMI = "22899968488";
+    // Deux messages rapides : les deux appels ont écrit leur ligne avant la fin de l'attente.
+    const m1 = ent("wa-1-a", "2026-10-18T09:00:00.000Z", "Okay"), m2 = ent("wa-2-b", "2026-10-18T09:00:02.000Z", "Comment vous allez");
+    tA = { messages: [lt(m1), lt(m2)] };
+    const appel = (ligne, tables) => repondreParAssistant({ admin: fauxAdmin(tables), boutiques: bqs, fil: [ligne], proprietaireId: "", cle: CLE, from: `228${CLE}`, client: null, ligne, attente: 0 });
+    g1 = await appel(m1, tA);
+    g2 = await appel(m2, tA);
+    // Un client déjà présenté il y a 3 jours, qui revient.
+    const vieux = { ...AW.ligneAssistant({ cle: CLE, tel: `228${CLE}`, nom: "", texte: `${I.PHRASE_PRESENTATION}\n\nOui.`, etape: "ia", ts: "2026-10-15T09:00:01.000Z", ia: true }), id: "vieux" };
+    const m3 = ent("wa-3-c", "2026-10-18T09:00:00.000Z", "Bonjour, vous faites le solaire ?");
+    tB = { messages: [lt(ent("wa-0", "2026-10-15T09:00:00.000Z", "Bonjour")), lt(vieux), lt(m3)] };
+    tA.corpsIA = corpsIA;
+    corpsIA = [];
+    const nEnv = envois.length;
+    g3 = await appel(m3, tB);
+    tB.envoi = envois.slice(nEnv);
+    tB.corpsIA = corpsIA;
+  } catch (e) { console.log("    (erreur de la chaîne jouée :", e?.message || e, ")"); }
+  finally {
+    globalThis.fetch = fetchAvant;
+    for (const [k, v] of Object.entries({ ANTHROPIC_API_KEY: envAvant.a, ASSISTANT_IA_MODELE: envAvant.b, YCLOUD_API_KEY: envAvant.c, WHATSAPP_NUMERO_BMI: envAvant.d })) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  const texteParti = envois[0]?.text?.body || "";
+  test("★★ la chaîne jouée : deux messages rapides → le premier appel s'efface (« regroupé », il ne prévient personne), le second répond UNE fois",
+    g1?.repondu === false && g1?.groupe === true && g2?.repondu === true && envois.length >= 1
+    && (tA?.messages || []).filter((l) => l.data?.wa_assistant).length === 1);
+  test("★★ l'IA a lu les DEUX messages, et la réponse porte la présentation UNE fois, sans « Comment puis-je vous aider » en double",
+    JSON.stringify(tA?.corpsIA?.[0]?.messages || []).includes("Okay") && JSON.stringify(tA?.corpsIA?.[0]?.messages || []).includes("Comment vous allez")
+    && texteParti.startsWith(I.PHRASE_PRESENTATION) && (texteParti.match(/Comment puis-je vous aider/g) || []).length === 1 && texteParti.endsWith("Très bien, merci !"));
+  test("★★ « B a » : un client déjà présenté qui revient 3 jours après — pas de présentation, la consigne lui dit de saluer une fois sans se présenter",
+    g3?.repondu === true && !(tB?.envoi?.[0]?.text?.body || "").includes(I.DEBUT_PRESENTATION)
+    && /ravi de vous relire/.test(JSON.stringify(tB?.corpsIA?.[0]?.system || "")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

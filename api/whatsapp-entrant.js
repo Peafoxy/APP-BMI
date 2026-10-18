@@ -31,11 +31,11 @@ import { estCompteFormation } from "../src/lib/espace.js";
 import { numeroWhatsApp, conseillersAlerte, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 // 🤖 L'assistant (24/09/2026) : la règle vit dans lib/assistantWhatsapp.js,
 // ce fichier ne fait que l'appeler, envoyer, et écrire ce qui est parti.
-import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, conversationIAEnCours, ETAPE_MENU, ETAPE_PRODUIT } from "../src/lib/assistantWhatsapp.js";
+import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, conversationIAEnCours, ETAPE_MENU, ETAPE_PRODUIT, ATTENTE_GROUPEMENT_MS, messageDepasse, filPourReponse } from "../src/lib/assistantWhatsapp.js";
 // 🤖 Niveau 3 (24/09/2026, « Lance avec ces trois réponses ») : l'assistant
 // qui DISCUTE. La règle (consigne, outils, juge) vit dans lib/assistantIA.js,
 // la porte réseau dans api/_assistantIA.js ; le menu reste le repli.
-import { consignePour, messagesPourIA, executerOutil, converserAvecJuge, reponseDepuisIA, REPONSE_REPRISE_IA, ETAPE_IA, conversationNouvelle, modeAssistant, demandeDevisIA, derniereEstimation, domainesPourIA, memoAssistant } from "../src/lib/assistantIA.js";
+import { consignePour, messagesPourIA, executerOutil, converserAvecJuge, reponseDepuisIA, REPONSE_REPRISE_IA, ETAPE_IA, conversationNouvelle, modeAssistant, demandeDevisIA, derniereEstimation, domainesPourIA, memoAssistant, dejaPresente } from "../src/lib/assistantIA.js";
 // L'estimation solaire lit LA règle du vendeur et LA liste des appareils.
 import { idDomaineSolaireDes, prixRailDesBoutiques, longueurRailDesBoutiques } from "../src/lib/choixSolaire.js";
 import { fusionnerCatalogue } from "../src/lib/catalogueAppareils.js";
@@ -307,7 +307,9 @@ export default async function handler(req, res) {
       const destinataires = proprietaire.id
         ? [proprietaire.id]
         : tous.filter((u) => u.role === "admin" && u.actif !== false && !estCompteFormation({ users: tous, boutiques }, u)).map((u) => u.id);
-      const aPrevenir = !assistant.repondu || assistant.conseiller;
+      // ⏳ Un message regroupé avec le suivant ne prévient pas : c'est l'appel
+      // du dernier message qui décide (une notification, pas deux).
+      const aPrevenir = (!assistant.repondu && !assistant.groupe) || assistant.conseiller;
       if (aPrevenir && destinataires.length && configurerWebPush()) {
         await envoyerAuxPersonnes(admin, [{
           destinataires,
@@ -376,10 +378,29 @@ async function envoyerAlerteConseiller({ boutiques, client, numero }) {
 // (`articlesPourAssistant` les filtre sur la fiche de boutique) ; une
 // demande de devis naît réelle. Les listes ne sont chargées QUE si l'étape
 // en a besoin (chercher un article) : un « 5 » tapé ne lit pas les ventes.
-async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle, from, client, ligne, entete = null }) {
+// Exportée pour le banc seul (la chaîne jouée sur une base jouée) ; Vercel ne
+// sert que la fonction par défaut.
+export async function repondreParAssistant({ admin, boutiques, fil: filRecu, proprietaireId, cle, from, client, ligne, entete = null, attente = ATTENTE_GROUPEMENT_MS }) {
+  const premiere = decisionAssistant({ fil: filRecu, proprietaireId, actif: assistantActif(boutiques), maintenant: ligne.ts });
+  if (!premiere.repondre) return { repondu: false, pourquoi: premiere.pourquoi };
+  // ⏳ PLUSIEURS MESSAGES RAPIDES = UNE SEULE RÉPONSE (18/10/2026) : on attend
+  // un peu, on relit la conversation ; si le client a réécrit entre-temps,
+  // c'est l'appel de son DERNIER message qui répondra, en lisant tout.
+  const relireFil = async () => {
+    const { data: lignesFraiches, error } = await admin.from("messages").select("id, data");
+    if (error) throw error;
+    return filDeLaConversation((lignesFraiches || []).map((l) => ({ ...(l.data || {}), id: l.id })), cle);
+  };
+  if (attente > 0) await new Promise((ok) => setTimeout(ok, attente));
+  const filFrais = await relireFil();
+  if (messageDepasse(filFrais, ligne)) return { repondu: false, groupe: true, pourquoi: "le client a réécrit : une seule réponse partira" };
+  const fil = filPourReponse(filFrais, ligne);
   const decision = decisionAssistant({ fil, proprietaireId, actif: assistantActif(boutiques), maintenant: ligne.ts });
   if (!decision.repondre) return { repondu: false, pourquoi: decision.pourquoi };
   const nouvelle = conversationNouvelle(decision);
+  // 👋 La présentation (« Bonjour et bienvenue… ») ne se pose qu'UNE fois pour
+  // ce client, jamais à chaque reprise après 24 h (décision « B a », 18/10/2026).
+  const presentation = nouvelle && !dejaPresente(fil);
   const clientIA = client ? { nom: client.nom } : null;
 
   // Le stock (boutiques RÉELLES seulement, le mur) se charge à la demande,
@@ -440,7 +461,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
     try {
       // Une réponse jetée par le juge se RÉÉCRIT une fois (01/10/2026).
       const conv = await converserAvecJuge({
-        consigne: consignePour({ client: clientIA, nouvelle, metiers: domainesPourIA(boutiques), memo: memoAssistant(boutiques) }),
+        consigne: consignePour({ client: clientIA, nouvelle, presentation, metiers: domainesPourIA(boutiques), memo: memoAssistant(boutiques) }),
         messages: messagesPourIA(fil),
         appeler: (corps) => appelerIA(corps, ia),
         executer: async (nom, entree) => executerOutil(nom, entree, {
@@ -455,7 +476,7 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
       });
       const juge = conv.juge;
       if (conv.reecrit) console.error("[whatsapp-entrant] IA : première réponse jetée —", conv.motifPremier, "(réécrite une fois)");
-      r = reponseDepuisIA({ texte: conv.texte, effets: conv.effets, juge, nouvelle, nom: clientIA?.nom || "" });
+      r = reponseDepuisIA({ texte: conv.texte, effets: conv.effets, juge, nouvelle, presentation, nom: clientIA?.nom || "" });
       if (!juge.ok) console.error("[whatsapp-entrant] IA : réponse jetée —", juge.motif, r ? "(phrase fixe envoyée)" : "(le menu reprend)");
     } catch (e) {
       console.error("[whatsapp-entrant] IA indisponible, le menu reprend —", e?.message || e);
@@ -488,6 +509,9 @@ async function repondreParAssistant({ admin, boutiques, fil, proprietaireId, cle
   const expediteur = numeroWhatsApp(expediteurBrut);
   const destinataire = numeroWhatsApp(from);
   if (!cleYCloud || !expediteur || !destinataire) return { repondu: false, pourquoi: "WhatsApp non configuré sur le serveur" };
+  // ⏳ Le client a pu réécrire pendant que la réponse se préparait : c'est
+  // alors l'appel de son dernier message qui répondra (une seule réponse).
+  if (messageDepasse(await relireFil(), ligne)) return { repondu: false, groupe: true, pourquoi: "le client a réécrit pendant la préparation : une seule réponse partira" };
   const envoi = await envoyerYCloud(cleYCloud, corpsTexte(expediteur, destinataire, r.texte));
   if (!envoi.ok) {
     // ⚠ Le motif part dans le journal du serveur (en anglais, tel que Meta
