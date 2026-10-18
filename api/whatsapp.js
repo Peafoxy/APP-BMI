@@ -27,6 +27,7 @@
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
+import { lireConversation } from "./_tables.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable, modeleAvecDocument, MOTIF_PDF_MANQUANT } from "../src/lib/whatsappModeles.js";
 import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre, critiqueFichier, typeEnvoiFichier, TAILLE_MAX_ENVOI } from "../src/lib/whatsappConversations.js";
@@ -126,9 +127,10 @@ export default async function handler(req, res) {
     // WhatsApp, lui, facturerait un refus que personne ne comprendrait.
     if (reponseLibre) {
       const cleFil = cleConversation(tel);
-      const { data: lignes, error: errMsg } = await admin.from("messages").select("data");
-      if (errMsg) throw errMsg;
-      const fil = filDeLaConversation((lignes || []).map((l) => l.data || {}), cleFil);
+      // ⚠ La conversation seule, page par page (18/10/2026) : la table
+      // entière était coupée à 1 000 lignes — une fenêtre ouverte pouvait
+      // passer pour fermée.
+      const fil = filDeLaConversation(await lireConversation(admin, cleFil), cleFil);
       const f = fenetre(fil);
       if (!f.ouverte) return res.status(403).json({ error: libelleFenetre(f) });
     }

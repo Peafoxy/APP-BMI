@@ -26,6 +26,7 @@
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
+import { lireConversation } from "./_tables.js";
 import { CANAL_WA, proprietaireDe, peutVoirConversation, filDeLaConversation, estALaCorbeille } from "../src/lib/whatsappConversations.js";
 
 // 25 Mo : la limite de WhatsApp elle-même. Au-delà, ce n'est pas un fichier
@@ -56,11 +57,13 @@ export default async function handler(req, res) {
     const compte = fiche && fiche[0] ? { ...(fiche[0].data || {}), id } : null;
     if (!compte || compte.actif === false) return res.status(403).json({ error: "Ce compte ne peut pas ouvrir ce fichier." });
 
-    const { data: lignes, error: errMsg } = await admin.from("messages").select("id, data");
+    // ⚠ LA LIGNE PAR SON id, PUIS SA CONVERSATION SEULE (18/10/2026) : la
+    // table entière était coupée à 1 000 lignes par la base.
+    const { data: trouvees, error: errMsg } = await admin.from("messages").select("id, data").eq("id", String(message)).limit(1);
     if (errMsg) throw errMsg;
-    const messages = (lignes || []).map((l) => ({ ...(l.data || {}), id: l.id }));
-    const ligne = messages.find((m) => m.id === message);
+    const ligne = trouvees && trouvees[0] ? { ...(trouvees[0].data || {}), id: trouvees[0].id } : null;
     if (!ligne || ligne.canal !== CANAL_WA || estALaCorbeille(ligne)) return res.status(404).json({ error: "Message introuvable." });
+    const messages = await lireConversation(admin, ligne.wa_tel);
     const media = ligne.wa_media;
     if (!media || !media.lien) return res.status(404).json({ error: "Ce message ne porte aucun fichier." });
 

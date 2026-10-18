@@ -26,6 +26,7 @@ import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis
 // 📇 Le nom des contacts Google de BMI, cherché tout seul (16/10/2026, « b »).
 import { rechercheGoogleAFaire, traceContactAuto } from "../src/lib/contactGoogle.js";
 import { chercherNomGoogle } from "./_contactGoogle.js";
+import { lireConversation } from "./_tables.js";
 import { numeroComparable } from "../src/lib/identiteClient.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { numeroWhatsApp, conseillersAlerte, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
@@ -133,9 +134,9 @@ export default async function handler(req, res) {
   const admin = createClient(url, cleService, { auth: { persistSession: false } });
 
   try {
-    const { data: lignes, error } = await admin.from("messages").select("id, data");
-    if (error) throw error;
-    const messages = (lignes || []).map((l) => ({ ...(l.data || {}), id: l.id }));
+    // ⚠ LA CONVERSATION SEULE, PAGE PAR PAGE (18/10/2026) : la table entière
+    // était coupée à 1 000 lignes — doublons manqués, réponses en rafale.
+    const messages = await lireConversation(admin, cle);
 
     // Le même message deux fois (YCloud réessaie quand il n'a pas eu de
     // réponse) ne s'écrit pas deux fois — et ne reçoit donc pas deux
@@ -391,9 +392,7 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
   // un peu, on relit la conversation ; si le client a réécrit entre-temps,
   // c'est l'appel de son DERNIER message qui répondra, en lisant tout.
   const relireFil = async () => {
-    const { data: lignesFraiches, error } = await admin.from("messages").select("id, data");
-    if (error) throw error;
-    return filDeLaConversation((lignesFraiches || []).map((l) => ({ ...(l.data || {}), id: l.id })), cle);
+    return filDeLaConversation(await lireConversation(admin, cle), cle);
   };
   if (attente > 0) await new Promise((ok) => setTimeout(ok, attente));
   const filFrais = await relireFil();

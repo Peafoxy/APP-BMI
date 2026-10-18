@@ -5011,13 +5011,17 @@ titre("57 🗣 L'ASSISTANT S'HUMANISE : UNE RÉPONSE AUX MESSAGES RAPIDES, LA PR
   const { repondreParAssistant } = await import("../api/whatsapp-entrant.js");
   const fauxAdmin = (tables) => ({
     from(t) {
-      const q = { op: "select", charge: null };
+      const q = { op: "select", charge: null, filtres: [], de: 0, a: Infinity };
+      // Les filtres de la base, joués (18/10/2026) : `.eq("data->>wa_tel", …)`
+      // et `.range(…)` — la conversation seule, page par page.
+      const valeur = (l, col) => (col.startsWith("data->>") ? String(l.data?.[col.slice(7)] ?? "") : String(l[col] ?? ""));
       const exec = () => {
         if (q.op === "insert") { (tables[t] ||= []).push(structuredClone(q.charge)); return { data: null, error: null }; }
         if (q.op === "upsert") { const l = (tables[t] ||= []); const i = l.findIndex((x) => x.id === q.charge.id); if (i >= 0) l[i] = structuredClone(q.charge); else l.push(structuredClone(q.charge)); return { data: null, error: null }; }
-        return { data: structuredClone(tables[t] || []), error: null };
+        const lignes = (tables[t] || []).filter((l) => q.filtres.every(([c, v]) => valeur(l, c) === String(v)));
+        return { data: structuredClone(lignes.slice(q.de, q.a + 1)), error: null };
       };
-      const b = { select() { return b; }, insert(c) { q.op = "insert"; q.charge = c; return b; }, upsert(c) { q.op = "upsert"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
+      const b = { select() { return b; }, eq(c, v) { q.filtres.push([c, v]); return b; }, order() { return b; }, range(de, a) { q.de = de; q.a = a; return b; }, insert(c) { q.op = "insert"; q.charge = c; return b; }, upsert(c) { q.op = "upsert"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
       return b;
     },
   });
@@ -5134,6 +5138,59 @@ titre("59 📍 L'ASSISTANT DONNE L'ADRESSE, LE TÉLÉPHONE ET LA CARTE DE NOS BO
   const WE59 = sansComm(lire("api/whatsapp-entrant.js"));
   test("★★★ le serveur donne à l'outil les boutiques RÉELLES seulement (`reelles`), jamais toutes les boutiques",
     /executerOutil\(nom, entree, \{[\s\S]{0,900}boutiques: reelles,/.test(WE59) && !/executerOutil\(nom, entree, \{[\s\S]{0,900}boutiques: boutiques/.test(WE59));
+}
+
+titre("60 🗣 L'ASSISTANT NE VOIT PLUS UNE MOITIÉ DE LA CONVERSATION (18/10/2026, captures MANDA « trop bavard »)");
+{
+  const sansComm = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  // ── Contrôle GÉNÉRAL : aucune fonction serveur ne lit TOUTE la table des messages.
+  const fichiersApi = readdirSync(join(process.cwd(), "api")).filter((f) => f.endsWith(".js"));
+  const fautifs = fichiersApi.filter((f) => {
+    const src = sansComm(lire(`api/${f}`));
+    const lectures = src.match(/from\("messages"\)\s*\.select\([^)]*\)[^;]*/g) || [];
+    return lectures.some((l) => !/\.(eq|or|gte|range)\(/.test(l));
+  });
+  test(`★★★ aucune fonction serveur ne lit la table des messages EN ENTIER (la base n'en rend que 1 000)${fautifs.length ? ` — fautif : ${fautifs.join(", ")}` : ""}`, fautifs.length === 0);
+  const TB = sansComm(lire("api/_tables.js"));
+  test("★★ `lireConversation` : les lignes de LA conversation (`data->>wa_tel`), page par page",
+    /export async function lireConversation\(admin, cle/.test(TB) && /\.eq\("data->>wa_tel", k\)/.test(TB) && /\.range\(de, de \+ PAGE - 1\)/.test(TB));
+  const WE = sansComm(lire("api/whatsapp-entrant.js"));
+  test("★★★ l'adresse d'arrivée la lit pour les doublons ET pour la conversation relue (l'attente des 4 s, la mémoire de l'IA)",
+    /const messages = await lireConversation\(admin, cle\);/.test(WE) && /return filDeLaConversation\(await lireConversation\(admin, cle\), cle\);/.test(WE));
+  test("★★ la fenêtre de 24 h d'une réponse, le fichier d'un client et le contact Google aussi",
+    /filDeLaConversation\(await lireConversation\(admin, cleFil\), cleFil\)/.test(sansComm(lire("api/whatsapp.js")))
+    && /await lireConversation\(admin, ligne\.wa_tel\)/.test(sansComm(lire("api/whatsapp-media.js")))
+    && /await lireConversation\(admin, k\)/.test(sansComm(lire("api/_contactGoogle.js"))));
+  // ── La VRAIE fonction, sur une base jouée de 3 700 lignes.
+  const { lireConversation } = await import("../api/_tables.js");
+  const lignes = [];
+  for (let n = 0; n < 2500; n += 1) lignes.push({ id: `a${String(n).padStart(5, "0")}`, data: { canal: "whatsapp", wa_tel: "11111111", texte: "autre" } });
+  for (let n = 0; n < 1200; n += 1) lignes.push({ id: `b${String(n).padStart(5, "0")}`, data: { canal: "whatsapp", wa_tel: "90561234", texte: `m${n}` } });
+  let pages = 0;
+  const fauxAdmin = {
+    from() {
+      const q = { f: [], de: 0, a: Infinity };
+      const b = {
+        select() { return b; }, order() { return b; },
+        eq(c, v) { q.f.push([c, v]); return b; },
+        range(de, a) { q.de = de; q.a = a; return b; },
+        then(res, rej) {
+          pages += 1;
+          const t = lignes.filter((l) => q.f.every(([c, v]) => String(c.startsWith("data->>") ? l.data[c.slice(7)] : l[c]) === String(v)));
+          // La base coupe à 1 000 lignes, comme Supabase.
+          return Promise.resolve({ data: t.slice(q.de, Math.min(q.a + 1, q.de + 1000)), error: null }).then(res, rej);
+        },
+      };
+      return b;
+    },
+  };
+  const conv = await lireConversation(fauxAdmin, "90561234");
+  test("★★★ une conversation de 1 200 lignes revient ENTIÈRE (deux pages), sans une ligne d'une autre conversation",
+    conv.length === 1200 && conv.every((m) => m.wa_tel === "90561234") && conv.at(-1).texte === "m1199" && pages === 2 && conv[0].id === "b00000");
+  test("★ une clé vide ne lit rien", (await lireConversation(fauxAdmin, "")).length === 0);
+  const C = (await import(pathToFileURL(join(process.cwd(), "src/lib/assistantIA.js")).href)).consignePour({});
+  test("★★ la consigne : répondre au DERNIER message, ne jamais redire un calcul déjà donné, ne pas revenir sur une question déjà répondue",
+    /Tu réponds au DERNIER message du client, et à lui seul/.test(C) && /tu ne le redis JAMAIS en entier/.test(C) && /Tu ne reviens pas sur une question à laquelle tu as déjà répondu/.test(C));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

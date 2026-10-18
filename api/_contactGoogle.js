@@ -25,6 +25,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { critiqueContactGoogle, corpsContactGoogle, contactExistant, numeroInternational, nettoyerNomGoogle } from "../src/lib/contactGoogle.js";
 import { CANAL_WA, CANAL_WA_ENTETE, estALaCorbeille, filDeLaConversation, proprietaireDe, peutVoirConversation } from "../src/lib/whatsappConversations.js";
+import { lireConversation } from "./_tables.js";
 
 const PEOPLE = "https://people.googleapis.com/v1";
 
@@ -114,17 +115,15 @@ export async function enregistrerContactGoogle(req, res) {
 
     // La conversation doit exister (et ne pas être à la corbeille) : on
     // n'enregistre pas un numéro inventé au nom de BMI.
-    const { data: lignes, error: errMsg } = await admin.from("messages").select("id, data");
-    if (errMsg) throw errMsg;
+    // ⚠ La conversation seule, page par page (18/10/2026) : la table entière
+    // était coupée à 1 000 lignes par la base.
     const k = String(cle || "");
-    const existe = (lignes || []).some((l) => {
-      const m = l.data || {};
-      return (m.canal === CANAL_WA || m.canal === CANAL_WA_ENTETE) && m.wa_tel === k && !estALaCorbeille(m);
-    });
+    const lignes = await lireConversation(admin, k);
+    const existe = lignes.some((m) => (m.canal === CANAL_WA || m.canal === CANAL_WA_ENTETE) && m.wa_tel === k && !estALaCorbeille(m));
     if (!k || !existe) return res.status(404).json({ error: "Conversation introuvable." });
     // Une conversation confiée à un collègue ne s'ouvre pas : on n'en
     // enregistre pas le client non plus (la règle de l'écran, importée).
-    const fil = filDeLaConversation((lignes || []).map((l) => l.data || {}), k);
+    const fil = filDeLaConversation(lignes, k);
     if (!peutVoirConversation(compte, { proprietaire_id: proprietaireDe(fil).id })) {
       return res.status(403).json({ error: "Cette conversation est confiée à un collègue : seule cette personne, ou un administrateur, peut enregistrer ce contact." });
     }
