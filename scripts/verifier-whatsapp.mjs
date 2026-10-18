@@ -1953,8 +1953,9 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
   // ── LES OUTILS : trois, et rien d'autre
   // ⚠ RETOURNÉ le 24/09/2026 : un quatrième outil, estimer_solaire
   // (décisions de Timo « 1 valeur par défaut, 2 en fourchette, 3 solaire »).
-  test("★★ sept outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total, + choisir_pompe, + panneaux_pour_pompe) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, choisir une pompe, les panneaux d'une pompe, passer la main — chacun avec son schéma",
-    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,choisir_pompe,panneaux_pour_pompe,passer_conseiller"
+  // ⚠ RETOURNÉ le 18/10/2026 : + adresses_boutiques (« b, NON pour les horaires »).
+  test("★★ huit outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total, + choisir_pompe, + panneaux_pour_pompe ; le 18/10/2026 : + adresses_boutiques) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, choisir une pompe, les panneaux d'une pompe, les adresses des boutiques, passer la main — chacun avec son schéma",
+    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,choisir_pompe,panneaux_pour_pompe,adresses_boutiques,passer_conseiller"
     && I.OUTILS_IA.every((o) => o.input_schema?.type === "object" && Array.isArray(o.input_schema.required) && o.description.length > 40));
   const cherche = I.executerOutil("chercher_article", { recherche: "panneau 400" }, ctx);
   // ⚠ RETOURNÉ le 01/10/2026 : un champ VIDE (ici la tension) ne part plus — on n'écrit pas « tension : ».
@@ -5098,6 +5099,41 @@ titre("58 🔁 LE MÊME MESSAGE DU CLIENT REÇU DEUX FOIS NE REÇOIT PAS DEUX R�
     && /doublonEntrant\(messages, \{ cle, id, wamid, texte, mediaId: media\?\.media_id, ts: ts \? horodatage\(ts\) : "" \}\)/.test(WE58));
   test("★★ la ligne du client garde son wamid (`wa_wamid_recu`, jamais `wa_wamid` — celui-là sert aux coches des messages partis)",
     /\.\.\.\(wamid \? \{ wa_wamid_recu: wamid \} : \{\}\)/.test(WE58));
+}
+
+titre("59 📍 L'ASSISTANT DONNE L'ADRESSE, LE TÉLÉPHONE ET LA CARTE DE NOS BOUTIQUES (18/10/2026, « b, NON pour les horaires »)");
+{
+  const IA = await import(pathToFileURL(join(process.cwd(), "src/lib/assistantIA.js")).href);
+  const bqs = [
+    { nom: "BMI DEMAKPOE", adresse: "Démakpoè, face à la pharmacie", tel: "+228 90 11 22 33", lat: 6.17, lng: 1.21 },
+    { nom: "BMI APESSITO", adresse: "Apessito, route de Kpalimé", tel: "91 00 00 00" },
+    { nom: "BMI KAGOME" },
+    { nom: "DFORMATION", adresse: "Adresse de formation", tel: "99 99 99 99", formation: true },
+    { nom: "DEPOT MAISON", adresse: "Adresse du dépôt", depot: true },
+    { nom: "TERRAIN", terrain: true, adresse: "Adresse du chantier" },
+  ];
+  const t = IA.texteBoutiques(bqs);
+  test("★★ chaque vraie boutique : son nom, son adresse et son téléphone tels qu'écrits sur la fiche",
+    t.includes("📍 BMI DEMAKPOE — Démakpoè, face à la pharmacie") && t.includes("📞 +228 90 11 22 33") && t.includes("📍 BMI APESSITO — Apessito, route de Kpalimé") && t.includes("📞 91 00 00 00"));
+  test("★★ « b » : le lien Google Maps de l'itinéraire pour une boutique qui a sa position GPS, rien pour une boutique sans position",
+    t.includes("🗺️ Itinéraire : https://www.google.com/maps?q=6.17,1.21") && (t.match(/google\.com\/maps/g) || []).length === 1);
+  test("★★ une boutique sans coordonnées sur sa fiche : il le DIT, jamais une adresse inventée", t.includes("📍 BMI KAGOME — coordonnées non renseignées : un conseiller vous les donne."));
+  test("★★★ LE MUR : jamais une boutique de formation, jamais un magasin (dépôt), jamais la caisse 🏗 DÉPÔT CHANTIER",
+    !/DFORMATION|formation|DEPOT MAISON|dépôt|TERRAIN|chantier/i.test(t));
+  test("★ les boutiques sont rangées par ordre alphabétique", t.indexOf("BMI APESSITO") < t.indexOf("BMI DEMAKPOE") && t.indexOf("BMI DEMAKPOE") < t.indexOf("BMI KAGOME"));
+  test("★★ « NON pour les horaires » : aucune heure d'ouverture n'est donnée", !/horaire|ouvert|ferm/i.test(t));
+  const r = IA.executerOutil("adresses_boutiques", {}, { boutiques: bqs });
+  test("★★ l'outil rend ce texte à recopier tel quel, et n'autorise AUCUN montant", r.resultat.includes(t) && /tel quel/.test(r.resultat) && r.effets.prix.length === 0 && r.effets.conseiller === false);
+  test("★★ le juge laisse passer la réponse (les numéros de téléphone ne sont pas lus comme des prix)", IA.garderReponse(t, { prixConnus: [] }).ok === true);
+  const vide = IA.executerOutil("adresses_boutiques", {}, { boutiques: [bqs[3], bqs[4]] });
+  test("★★ sans aucune vraie boutique : rien d'inventé, il propose un conseiller", /Ne rien inventer/.test(vide.resultat) && !/📍/.test(vide.resultat));
+  const C = IA.consignePour({});
+  test("★★ la consigne : l'adresse UNIQUEMENT par l'outil, jamais d'horaires, jamais « je ne peux pas me renseigner »",
+    /UNIQUEMENT tels que l'outil adresses_boutiques te les donne/.test(C) && /ni des horaires d'ouverture/.test(C) && /appelle adresses_boutiques/.test(C) && /Ne dis jamais que tu ne peux pas te renseigner sur nos boutiques/.test(C));
+  const sansComm = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const WE59 = sansComm(lire("api/whatsapp-entrant.js"));
+  test("★★★ le serveur donne à l'outil les boutiques RÉELLES seulement (`reelles`), jamais toutes les boutiques",
+    /executerOutil\(nom, entree, \{[\s\S]{0,900}boutiques: reelles,/.test(WE59) && !/executerOutil\(nom, entree, \{[\s\S]{0,900}boutiques: boutiques/.test(WE59));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

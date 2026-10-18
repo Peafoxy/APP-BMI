@@ -118,6 +118,7 @@ ${activites}
 CE QUE TU AS LE DROIT DE DIRE
 - Le prix, la disponibilité (« disponible » ou « sur commande ») et les caractéristiques d'un article (métier, catégorie, tension, puissance, profondeur et débit d'une pompe, hybride, garanties, lien de la fiche technique, description), UNIQUEMENT tels que l'outil chercher_article te les donne. Tu recopies le prix exactement, tu ne l'arrondis pas, tu ne le convertis pas.
 - UN TOTAL pour une quantité ou pour plusieurs articles (« combien pour 3 panneaux et 2 batteries ? »), UNIQUEMENT par l'outil calculer_total, que tu recopies tel quel : tu ne fais JAMAIS une multiplication ni une addition toi-même. Ce total est INDICATIF : articles seuls, hors pose et transport, au prix du stock d'une boutique — ce n'est pas un devis.
+- L'adresse, le téléphone et la carte (itinéraire) de nos boutiques, UNIQUEMENT tels que l'outil adresses_boutiques te les donne. Jamais une adresse inventée ni des horaires d'ouverture (tu ne les connais pas : un conseiller les donne).
 - Présenter les activités de BMI TOGO avec les mots ci-dessus.
 - Poser des questions pour comprendre le besoin (appareils à alimenter, heures d'utilisation, ville ou quartier) avant d'enregistrer une demande de devis.
 - Dire que tu ne sais pas, et proposer un conseiller.
@@ -147,6 +148,7 @@ COMMENT TU T'Y PRENDS
 ${TEXTE_QUE_FAISONS_NOUS}
 ---
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium », « pompe forage ») — le métier compte aussi (« forage » trouve les articles rangés dans le métier Forage). S'il ne trouve rien, essaie un mot plus court ou plus général (« pompe », « batterie »), puis dis-le et propose un autre nom ou un conseiller.
+- Si le client demande où vous trouver, une adresse, le numéro d'une boutique ou comment venir : appelle adresses_boutiques et recopie ce qu'il rend, tel quel, sans guillemets autour. Ne dis jamais que tu ne peux pas te renseigner sur nos boutiques.
 - Pour les PANNEAUX d'une pompe solaire (« combien de panneaux pour cette pompe ? ») : appelle panneaux_pour_pompe avec le nom exact de la pompe ; recopie sa phrase sans changer un chiffre, sans guillemets autour.
 - Pour une POMPE de forage : demande au client le NIVEAU DE L'EAU PENDANT LE POMPAGE (le niveau dynamique — c'est le foreur qui le donne, ce n'est pas la profondeur du forage), la hauteur du réservoir au-dessus du sol, la longueur de tuyau, et son besoin en eau en litres par jour. Puis appelle choisir_pompe. Tu proposes les pompes qu'il rend. ⚠ Tu ne promets JAMAIS un débit à une profondeur donnée : une pompe ne donne pas son débit maximal à sa profondeur maximale (le débit max se mesure en surface). Le débit réel à sa hauteur se lit sur la fiche du fabricant, et un conseiller le confirme. Sans le niveau dynamique, tu ne choisis pas de pompe : tu expliques pourquoi il le faut.
 - Pour un total : appelle d'abord chercher_article pour connaître le nom exact de chaque article, puis calculer_total avec ces noms EXACTS et les quantités dites par le client (s'il n'a pas dit combien, demande-le). Recopie la phrase de l'outil sans changer un chiffre, sans guillemets autour. Si l'outil refuse, dis ce qui manque — ne donne aucun chiffre.
@@ -310,6 +312,11 @@ export const OUTILS_IA = [
       properties: { pompe: { type: "string", description: "Le nom exact de la pompe" } },
       required: ["pompe"],
     },
+  },
+  {
+    name: "adresses_boutiques",
+    description: "Rend le nom, l'adresse, le téléphone et le lien de la carte (itinéraire Google Maps) de chaque boutique BMI TOGO, tels qu'ils sont écrits sur leurs fiches dans l'application. À appeler dès que le client demande où vous trouver, une adresse, le numéro d'une boutique ou comment venir.",
+    input_schema: { type: "object", properties: {}, required: [] },
   },
   {
     name: "passer_conseiller",
@@ -524,8 +531,40 @@ export const domainesPourIA = (boutiques) => {
   return b ? b.domaines.filter((d) => d && d.nom).map((d) => ({ nom: d.nom, familles: Array.isArray(d.familles) ? d.familles : [] })) : [];
 };
 
+// ---- 📍 LES BOUTIQUES : ADRESSE, TÉLÉPHONE, CARTE (18/10/2026, « b, NON pour les horaires ») ----
+// Capture Timo (René 2) : l'assistant ne savait pas où sont nos boutiques.
+// Il lit les FICHES (⚙ Paramètres → 📍 Infos reçu, position GPS) — jamais une
+// adresse inventée. ⚠ LE MUR : les boutiques RÉELLES seulement, jamais un
+// magasin (dépôt) ni la caisse 🏗 DÉPÔT CHANTIER. Pas d'horaires (la fiche
+// n'en porte pas, décision de Timo).
+export const lienCarte = (b) => (Number(b?.lat) && Number(b?.lng) ? `https://www.google.com/maps?q=${b.lat},${b.lng}` : "");
+export const boutiquesPourClient = (boutiques) =>
+  (boutiques || []).filter((b) => b && b.nom && !b.formation && !b.depot && !b.terrain)
+    .sort((x, y) => String(x.nom).localeCompare(String(y.nom), "fr"));
+export function texteBoutiques(boutiques) {
+  const liste = boutiquesPourClient(boutiques);
+  if (!liste.length) return "";
+  const bloc = (b) => {
+    const adresse = String(b.adresse || "").trim();
+    const tel = String(b.tel || "").trim();
+    const carte = lienCarte(b);
+    if (!adresse && !tel && !carte) return `📍 ${b.nom} — coordonnées non renseignées : un conseiller vous les donne.`;
+    return [`📍 ${b.nom} — ${adresse || "adresse non renseignée"}`, tel ? `📞 ${tel}` : "", carte ? `🗺️ Itinéraire : ${carte}` : ""].filter(Boolean).join("\n");
+  };
+  return `Nos boutiques BMI TOGO :\n\n${liste.map(bloc).join("\n\n")}`;
+}
+
 export function executerOutil(nom, entree = {}, contexte = {}) {
   const e = entree || {};
+  if (nom === "adresses_boutiques") {
+    const t = texteBoutiques(contexte.boutiques || []);
+    return {
+      resultat: t
+        ? `Coordonnées lues sur les fiches des boutiques. Recopier ce texte tel quel, sans rien changer ni ajouter, sans guillemets autour : « ${t} »`
+        : "Aucune boutique n'a de coordonnées renseignées dans l'application. Ne rien inventer : le dire et proposer un conseiller.",
+      effets: { prix: [], demandeDevis: null, conseiller: false },
+    };
+  }
   if (nom === "chercher_article") {
     // Les petits mots (« je veux une pompe de forage ») sont retirés avant
     // de chercher, par LA règle du menu (01/10/2026) — sinon une phrase

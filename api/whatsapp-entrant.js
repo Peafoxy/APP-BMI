@@ -475,6 +475,8 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
           articles: ["chercher_article", "calculer_total", "choisir_pompe", "panneaux_pour_pompe"].includes(nom) ? await chargerArticles() : [],
           pertesPct: (reelles.find((b) => Number(b.pertes_tuyau_pct) > 0) || {}).pertes_tuyau_pct,
           client: clientIA,
+          // 📍 Les adresses des boutiques (18/10/2026) : les RÉELLES (le mur).
+          boutiques: reelles,
           ...(nom === "estimer_solaire" ? await contexteSolaire() : {}),
         }),
       });
