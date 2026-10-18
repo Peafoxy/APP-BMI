@@ -22,7 +22,7 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa, nomDeConversation } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa, nomDeConversation, doublonEntrant } from "../src/lib/whatsappConversations.js";
 // 📇 Le nom des contacts Google de BMI, cherché tout seul (16/10/2026, « b »).
 import { rechercheGoogleAFaire, traceContactAuto } from "../src/lib/contactGoogle.js";
 import { chercherNomGoogle } from "./_contactGoogle.js";
@@ -86,8 +86,10 @@ export function lireEntrant(corps) {
   // en silence est pire qu'un message qu'on ne sait pas afficher.
   const texte = ecrit || (media ? media.legende : "") || (!media && m.type && m.type !== "text" ? `[${m.type}]` : "");
   const id = m.id || m.messageId || m.sid || "";
+  // L'identifiant de Meta : le même pour un message renvoyé par YCloud.
+  const wamid = m.wamid || "";
   const ts = m.timestamp || m.createTime || m.sendTime || "";
-  return { from: String(from || ""), texte: String(texte || ""), media, id: String(id || ""), ts: String(ts || "") };
+  return { from: String(from || ""), texte: String(texte || ""), media, id: String(id || ""), wamid: String(wamid || ""), ts: String(ts || "") };
 }
 
 const horodatage = (brut) => {
@@ -112,7 +114,7 @@ export default async function handler(req, res) {
   const suivi = lireStatut(req.body);
   if (suivi) return traiterSuivi(req, res, suivi, debut);
 
-  const { from, texte, media, id, ts } = lireEntrant(req.body);
+  const { from, texte, media, id, wamid, ts } = lireEntrant(req.body);
   // 👤 Le nom que le client s'est donné dans SON WhatsApp (06/10/2026).
   const profil = lireNomProfil(req.body);
   const cle = cleConversation(from);
@@ -136,8 +138,9 @@ export default async function handler(req, res) {
     const messages = (lignes || []).map((l) => ({ ...(l.data || {}), id: l.id }));
 
     // Le même message deux fois (YCloud réessaie quand il n'a pas eu de
-    // réponse) ne s'écrit pas deux fois.
-    if (id && messages.some((m) => m.wa_id === id)) return res.status(200).json({ deja: true });
+    // réponse) ne s'écrit pas deux fois — et ne reçoit donc pas deux
+    // réponses (18/10/2026 : l'identifiant de YCloud seul ne suffisait pas).
+    if (doublonEntrant(messages, { cle, id, wamid, texte, mediaId: media?.media_id, ts: ts ? horodatage(ts) : "" })) return res.status(200).json({ deja: true });
 
     // ---- À QUI EST CETTE CONVERSATION ----
     // (1) ce que le fil dit déjà ; (2) sinon, qui lui a envoyé le dernier
@@ -184,6 +187,7 @@ export default async function handler(req, res) {
       ...(profil ? { wa_profil: profil } : {}),
       wa_entrant: true,
       wa_id: id,
+      ...(wamid ? { wa_wamid_recu: wamid } : {}),
       de_id: null,
       de_nom: client?.nom || String(from),
       texte,

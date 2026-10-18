@@ -182,6 +182,29 @@ export const filDeLaConversation = (messages, cle) =>
     .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
 
 // ---------------------------------------------------------------
+// 🔁 LE MÊME MESSAGE DU CLIENT REÇU DEUX FOIS (18/10/2026)
+// ---------------------------------------------------------------
+// Capture Timo (René 2, 15:45) : DEUX réponses de l'assistant à UN message.
+// YCloud renvoie un message quand notre adresse tarde à répondre — et elle
+// tarde davantage depuis l'attente de 4 s. La garde d'avant ne regardait que
+// l'identifiant de YCloud : un renvoi qui en porte un autre (ou aucun)
+// passait, s'écrivait une seconde fois et recevait sa propre réponse.
+// Un doublon = le même identifiant YCloud, OU le même identifiant de Meta
+// (wamid), OU, dans la même conversation, le même texte (ou le même fichier)
+// envoyé à la MÊME seconde par le client. ⚠ Sans heure d'envoi, on ne compare
+// pas le texte : deux « ok » d'affilée ne se perdent jamais.
+export function doublonEntrant(messages, { cle, id, wamid, texte, mediaId, ts } = {}) {
+  const contenu = String(texte || "") || String(mediaId || "");
+  return (Array.isArray(messages) ? messages : []).some((m) => {
+    if (!m || !m.wa_entrant) return false;
+    if (id && m.wa_id === id) return true;
+    if (wamid && m.wa_wamid_recu === wamid) return true;
+    if (!ts || !contenu || m.wa_tel !== cle || String(m.ts || "") !== String(ts)) return false;
+    return (String(m.texte || "") || String(m.wa_media?.media_id || "")) === contenu;
+  });
+}
+
+// ---------------------------------------------------------------
 // ⏳ LA FENÊTRE DE 24 HEURES — LA RÈGLE DE META, PAS LA NÔTRE
 // ---------------------------------------------------------------
 // Après le DERNIER message du client, on lui répond librement pendant 24 h.

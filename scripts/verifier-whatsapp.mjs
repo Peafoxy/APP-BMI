@@ -582,8 +582,10 @@ test("★★ le secret n'est JAMAIS préfixé VITE_ (Vite l'embarquerait chez to
 test("★★ le serveur RECALCULE la fenêtre sur la base avant d'envoyer une réponse libre",
   /if \(reponseLibre\) \{[\s\S]{0,600}fenetre\(fil\)/.test(lire("api/whatsapp.js"))
   && /return res\.status\(403\)\.json\(\{ error: libelleFenetre\(f\) \}\)/.test(lire("api/whatsapp.js")));
+// RETOURNÉ le 18/10/2026 : la garde vit dans LA règle `doublonEntrant`
+// (identifiant YCloud, wamid, ou même texte à la même seconde) — section 58.
 test("★ le même message reçu deux fois ne s'écrit qu'une fois (YCloud réessaie)",
-  /m\.wa_id === id/.test(entrant) && /deja: true/.test(entrant));
+  /if \(doublonEntrant\(messages, \{[^}]*\}\)\) return res\.status\(200\)\.json\(\{ deja: true \}\)/.test(entrant));
 test("★★ un paquet illisible répond 200 et DIT ce qu'il n'a pas su lire (sinon YCloud le renvoie sans fin)",
   /status\(200\)\.json\(\{ ignore: true/.test(entrant) && /pourquoi: "numéro illisible"/.test(entrant));
 test("★ `updated_at` est posé sur la ligne : sans lui le message n'arriverait jamais sur les téléphones",
@@ -5066,6 +5068,36 @@ titre("57 🗣 L'ASSISTANT S'HUMANISE : UNE RÉPONSE AUX MESSAGES RAPIDES, LA PR
   test("★★ « B a » : un client déjà présenté qui revient 3 jours après — pas de présentation, la consigne lui dit de saluer une fois sans se présenter",
     g3?.repondu === true && !(tB?.envoi?.[0]?.text?.body || "").includes(I.DEBUT_PRESENTATION)
     && /ravi de vous relire/.test(JSON.stringify(tB?.corpsIA?.[0]?.system || "")));
+}
+
+titre("58 🔁 LE MÊME MESSAGE DU CLIENT REÇU DEUX FOIS NE REÇOIT PAS DEUX RÉPONSES (18/10/2026, capture René 2 à 15:45)");
+{
+  const CV = await import(pathToFileURL(join(process.cwd(), "src/lib/whatsappConversations.js")).href);
+  const EN = await import(pathToFileURL(join(process.cwd(), "api/whatsapp-entrant.js")).href);
+  const deja = [
+    { id: "wa-x-1", canal: "whatsapp", wa_entrant: true, wa_tel: "90112233", wa_id: "yc-1", wa_wamid_recu: "wamid.A", texte: "Où sont vos boutiques ?", ts: "2026-10-18T15:45:03.000Z" },
+    { id: "ass-1", canal: "whatsapp", wa_tel: "90112233", wa_assistant: { etape: "ia" }, texte: "Merci !", ts: "2026-10-18T15:45:20.000Z" },
+    { id: "wa-x-2", canal: "whatsapp", wa_entrant: true, wa_tel: "90112233", wa_id: "yc-2", texte: "", wa_media: { media_id: "med-9" }, ts: "2026-10-18T15:46:00.000Z" },
+  ];
+  const D = (o) => CV.doublonEntrant(deja, { cle: "90112233", ...o });
+  test("★★ un renvoi de YCloud avec le MÊME identifiant est un doublon", D({ id: "yc-1", texte: "autre", ts: "2026-10-18T16:00:00.000Z" }) === true);
+  test("★★ un renvoi qui porte un AUTRE identifiant YCloud mais le même wamid de Meta est un doublon", D({ id: "yc-99", wamid: "wamid.A", texte: "x", ts: "2026-10-18T16:00:00.000Z" }) === true);
+  test("★★ un renvoi SANS identifiant : même conversation, même texte, même seconde → doublon", D({ id: "", texte: "Où sont vos boutiques ?", ts: "2026-10-18T15:45:03.000Z" }) === true);
+  test("★★ un fichier renvoyé (même fichier, même seconde) est un doublon", D({ id: "", texte: "", mediaId: "med-9", ts: "2026-10-18T15:46:00.000Z" }) === true);
+  test("★★ le même texte une seconde plus tard N'EST PAS un doublon (deux « ok » d'affilée ne se perdent jamais)", D({ id: "yc-3", texte: "Où sont vos boutiques ?", ts: "2026-10-18T15:45:04.000Z" }) === false);
+  test("★★ sans heure d'envoi, le texte ne suffit jamais", D({ id: "yc-3", texte: "Où sont vos boutiques ?", ts: "" }) === false);
+  test("★ le même texte dans une AUTRE conversation n'est pas un doublon", CV.doublonEntrant(deja, { cle: "91000000", id: "yc-3", texte: "Où sont vos boutiques ?", ts: "2026-10-18T15:45:03.000Z" }) === false);
+  test("★ une réponse de BMI au même texte ne compte pas (seuls les messages du client)", D({ id: "yc-3", texte: "Merci !", ts: "2026-10-18T15:45:20.000Z" }) === false);
+  test("★ un nouveau message ordinaire passe", D({ id: "yc-4", wamid: "wamid.B", texte: "Merci", ts: "2026-10-18T15:47:00.000Z" }) === false);
+  const lu = EN.lireEntrant({ whatsappInboundMessage: { id: "yc-7", wamid: "wamid.Z", from: "+22890112233", type: "text", text: { body: "bonjour" }, sendTime: "2026-10-18T15:45:03.000Z" } });
+  test("★★ l'adresse d'arrivée LIT le wamid du message", lu.wamid === "wamid.Z" && lu.id === "yc-7");
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const WE58 = sansComm(lire("api/whatsapp-entrant.js"));
+  test("★★ l'adresse d'arrivée passe par doublonEntrant AVANT d'écrire la ligne, avec le wamid, le texte, le fichier et l'heure",
+    WE58.indexOf("doublonEntrant(messages") > 0 && WE58.indexOf("doublonEntrant(messages") < WE58.indexOf('admin.from("messages").insert({ id: ligne.id')
+    && /doublonEntrant\(messages, \{ cle, id, wamid, texte, mediaId: media\?\.media_id, ts: ts \? horodatage\(ts\) : "" \}\)/.test(WE58));
+  test("★★ la ligne du client garde son wamid (`wa_wamid_recu`, jamais `wa_wamid` — celui-là sert aux coches des messages partis)",
+    /\.\.\.\(wamid \? \{ wa_wamid_recu: wamid \} : \{\}\)/.test(WE58));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
