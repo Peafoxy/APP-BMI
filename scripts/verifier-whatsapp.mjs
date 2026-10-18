@@ -1954,8 +1954,8 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
   // ⚠ RETOURNÉ le 24/09/2026 : un quatrième outil, estimer_solaire
   // (décisions de Timo « 1 valeur par défaut, 2 en fourchette, 3 solaire »).
   // ⚠ RETOURNÉ le 18/10/2026 : + adresses_boutiques (« b, NON pour les horaires »).
-  test("★★ huit outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total, + choisir_pompe, + panneaux_pour_pompe ; le 18/10/2026 : + adresses_boutiques) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, choisir une pompe, les panneaux d'une pompe, les adresses des boutiques, passer la main — chacun avec son schéma",
-    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,choisir_pompe,panneaux_pour_pompe,adresses_boutiques,passer_conseiller"
+  test("★★ neuf outils exactement (RETOURNÉ le 01/10/2026 : + calculer_total, + choisir_pompe, + panneaux_pour_pompe ; le 18/10/2026 : + adresses_boutiques, + guide_espace_client) — chercher un article, enregistrer une demande de devis, estimer le solaire, calculer un total, choisir une pompe, les panneaux d'une pompe, les adresses des boutiques, le mode d'emploi de l'espace client, passer la main — chacun avec son schéma",
+    I.OUTILS_IA.map((o) => o.name).join(",") === "chercher_article,enregistrer_demande_devis,estimer_solaire,calculer_total,choisir_pompe,panneaux_pour_pompe,adresses_boutiques,guide_espace_client,passer_conseiller"
     && I.OUTILS_IA.every((o) => o.input_schema?.type === "object" && Array.isArray(o.input_schema.required) && o.description.length > 40));
   const cherche = I.executerOutil("chercher_article", { recherche: "panneau 400" }, ctx);
   // ⚠ RETOURNÉ le 01/10/2026 : un champ VIDE (ici la tension) ne part plus — on n'écrit pas « tension : ».
@@ -2067,8 +2067,9 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
   // ⚠ RETOURNÉ le 24/09/2026 : l'estimation lit LA lecture des appareils et
   // LE calcul de l'application — trois imports, tous des règles sans réseau.
   // ⚠ RETOURNÉ le 01/10/2026 : + la règle des pompes (choisir_pompe).
-  test("★★ la règle ne parle JAMAIS au réseau et ne reçoit jamais `db` : aucun fetch, quatre imports (assistant à menu, lecture des appareils, choix du matériel, pompes)",
-    !/fetch\(/.test(codeI) && !/\bdb\b/.test(codeI) && (codeI.match(/^import /mg) || []).length === 4 && /from "\.\/pompes\.js"/.test(codeI)
+  // ⚠ RETOURNÉ le 18/10/2026 : + le mode d'emploi de l'espace client (guide_espace_client).
+  test("★★ la règle ne parle JAMAIS au réseau et ne reçoit jamais `db` : aucun fetch, cinq imports (assistant à menu, lecture des appareils, choix du matériel, pompes, mode d'emploi de l'espace client)",
+    !/fetch\(/.test(codeI) && !/\bdb\b/.test(codeI) && (codeI.match(/^import /mg) || []).length === 5 && /from "\.\/pompes\.js"/.test(codeI) && /from "\.\/guideEspaceClient\.js"/.test(codeI)
     && /from "\.\/assistantWhatsapp\.js"/.test(codeI) && /from "\.\/besoinSolaire\.js"/.test(codeI) && /from "\.\/choixSolaire\.js"/.test(codeI));
 
   // ── LE SERVEUR : l'IA d'abord, le menu en repli, et rien d'écrit avant l'envoi
@@ -5191,6 +5192,43 @@ titre("60 🗣 L'ASSISTANT NE VOIT PLUS UNE MOITIÉ DE LA CONVERSATION (18/10/20
   const C = (await import(pathToFileURL(join(process.cwd(), "src/lib/assistantIA.js")).href)).consignePour({});
   test("★★ la consigne : répondre au DERNIER message, ne jamais redire un calcul déjà donné, ne pas revenir sur une question déjà répondue",
     /Tu réponds au DERNIER message du client, et à lui seul/.test(C) && /tu ne le redis JAMAIS en entier/.test(C) && /Tu ne reviens pas sur une question à laquelle tu as déjà répondu/.test(C));
+}
+
+titre("61 🏠 L'ASSISTANT GUIDE LE CLIENT DANS SON ESPACE, ÉCRAN PAR ÉCRAN (18/10/2026, « il n'a qu'à couvrir tous les aspects et écrans d'un client »)");
+{
+  const sansComm = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const G = await import(pathToFileURL(join(process.cwd(), "src/lib/guideEspaceClient.js")).href);
+  const IA = await import(pathToFileURL(join(process.cwd(), "src/lib/assistantIA.js")).href);
+  test("★★ tous les écrans du client sont couverts : connexion, devis (valider, modifier), paiement, contrat, fin des travaux, messages, parrainage, mot de passe, données, avis et cadeau, vue d'ensemble",
+    ["ensemble", "connexion", "valider_devis", "modifier_devis", "paiement", "contrat", "fin_travaux", "messagerie", "parrainage", "mot_de_passe", "mes_donnees", "avis_cadeau"].every((k) => G.SUJETS_GUIDE.includes(k)));
+  // Chaque bouton nommé existe VRAIMENT à l'écran (sinon l'assistant guide vers un bouton fantôme).
+  const ecrans = ["src/screens/EspaceClient.jsx", "src/screens/Connexion.jsx", "src/screens/Messagerie.jsx", "src/screens/MesDonnees.jsx", "src/screens/ContratsInstallation.jsx", "src/App.jsx"].map(lire).join("\n");
+  const cites = [...new Set(G.SUJETS_GUIDE.flatMap((k) => [...G.texteGuide(k).matchAll(/« ([^»]+) »/g)].map((m) => m[1].trim())))].filter((b) => b !== "conseiller");
+  const signer = (b) => b === "✍️ Signer la réception" ? /✍️ Signer \{estAvenant \? "l'avenant" : "la réception"\}/.test(ecrans) : ecrans.includes(b);
+  const fantomes = cites.filter((b) => !signer(b));
+  test(`★★★ chaque bouton, onglet ou case nommé par le mode d'emploi existe à l'écran${fantomes.length ? ` — introuvable : ${fantomes.join(" | ")}` : ""}`, cites.length >= 30 && fantomes.length === 0);
+  const tous = G.SUJETS_GUIDE.map(G.texteGuide).join("\n");
+  test("★★★ le mode d'emploi ne donne AUCUN code, aucun montant, aucune dette : il dit où regarder", !/\d[\d\s]*F\b|franc|dette|crédit|solde/i.test(tous) && !/ADUM|@S\d/.test(tous));
+  test("★★ codes perdus, mot de passe oublié : un conseiller, jamais un renvoi par l'assistant", /je ne peux ni les voir ni vous les renvoyer/.test(G.texteGuide("connexion")) && /je ne peux ni le voir ni vous le renvoyer/.test(G.texteGuide("mot_de_passe")));
+  test("★ un sujet inconnu rend la vue d'ensemble, jamais rien", G.texteGuide("n'importe quoi") === G.texteGuide("ensemble"));
+  const r = IA.executerOutil("guide_espace_client", { sujet: "connexion" }, {});
+  test("★★ l'outil rend le texte à recopier tel quel, sans aucun montant permis, et le déclare permis au juge",
+    r.resultat.includes(G.texteGuide("connexion")) && /tel quel/.test(r.resultat) && r.effets.prix.length === 0 && r.effets.textesPermis[0] === G.texteGuide("connexion"));
+  const t = G.texteGuide("connexion");
+  test("★★★ le juge : le mode d'emploi recopié passe (même entre guillemets) ; « mot de passe » HORS du mode d'emploi reste un sujet réservé ; sans l'outil, le texte est jeté",
+    IA.garderReponse(t, { textesPermis: [t] }).ok === true && IA.garderReponse(`« ${t} »`, { textesPermis: [t] }).ok === true
+    && IA.garderReponse(`${t}\nDonnez-moi votre mot de passe.`, { textesPermis: [t] }).reserve === true
+    && IA.garderReponse(t, {}).reserve === true && IA.garderReponse("Votre mot de passe est X", { textesPermis: [G.texteGuide("paiement")] }).reserve === true);
+  test("★★ toutes les parties passent le juge une fois déclarées (longueur, aucun métier nié, aucun montant)", G.SUJETS_GUIDE.every((k) => IA.garderReponse(G.texteGuide(k), { textesPermis: [G.texteGuide(k)] }).ok === true));
+  const rep = IA.reponseDepuisIA({ texte: `« ${t} »`, effets: { prix: [], conseiller: false, textesPermis: [t] }, juge: { ok: true }, nouvelle: false });
+  test("★ la réponse part SANS guillemets autour du mode d'emploi", rep.texte === t);
+  const C = IA.consignePour({});
+  test("★★ la consigne : le mode d'emploi UNIQUEMENT par l'outil, jamais un code, et plus jamais « je n'ai pas le détail »",
+    /UNIQUEMENT tel que l'outil guide_espace_client te le donne/.test(C) && /Tu ne donnes JAMAIS un code/.test(C) && /appelle guide_espace_client/.test(C) && /Ne dis jamais que tu n'as pas le détail de l'espace client/.test(C));
+  const codeIA = sansComm(lire("src/lib/assistantIA.js"));
+  test("★★ la réécriture garde le droit : les textes permis passent aux DEUX jugements de converserAvecJuge",
+    (codeIA.match(/textesPermis: premier\.effets\.textesPermis/g) || []).length === 2 && /textesPermis: effets\.textesPermis/.test(codeIA));
+  test("★ le mode d'emploi n'importe rien (lu par le serveur)", !/^import /m.test(sansComm(lire("src/lib/guideEspaceClient.js"))));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

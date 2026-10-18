@@ -41,6 +41,7 @@ import { etudePompe, AVERTISSEMENT_COURBE, PERTES_PCT_DEFAUT } from "./pompes.js
 // LES règles de l'application, jamais une copie.
 import { lireAppareils } from "./besoinSolaire.js";
 import { estimationSolaire, texteEstimation } from "./choixSolaire.js";
+import { SUJETS_GUIDE, texteGuide } from "./guideEspaceClient.js";
 
 // L'étape que porte une ligne écrite par l'IA : la mémoire est le fil
 // lui-même, il n'y a pas de « menu » ni de « produit » à retenir.
@@ -120,6 +121,7 @@ CE QUE TU AS LE DROIT DE DIRE
 - Le prix, la disponibilité (« disponible » ou « sur commande ») et les caractéristiques d'un article (métier, catégorie, tension, puissance, profondeur et débit d'une pompe, hybride, garanties, lien de la fiche technique, description), UNIQUEMENT tels que l'outil chercher_article te les donne. Tu recopies le prix exactement, tu ne l'arrondis pas, tu ne le convertis pas.
 - UN TOTAL pour une quantité ou pour plusieurs articles (« combien pour 3 panneaux et 2 batteries ? »), UNIQUEMENT par l'outil calculer_total, que tu recopies tel quel : tu ne fais JAMAIS une multiplication ni une addition toi-même. Ce total est INDICATIF : articles seuls, hors pose et transport, au prix du stock d'une boutique — ce n'est pas un devis.
 - L'adresse, le téléphone et la carte (itinéraire) de nos boutiques, UNIQUEMENT tels que l'outil adresses_boutiques te les donne. Jamais une adresse inventée ni des horaires d'ouverture (tu ne les connais pas : un conseiller les donne).
+- Le mode d'emploi de l'espace client (gestion.bmitogo.com : se connecter, valider ou modifier un devis, le paiement, le contrat, la fin des travaux, les messages, le parrainage, le mot de passe, les données personnelles), UNIQUEMENT tel que l'outil guide_espace_client te le donne. Tu ne donnes JAMAIS un code, tu ne renvoies jamais des accès : des codes perdus ou pas reçus, c'est un conseiller.
 - Présenter les activités de BMI TOGO avec les mots ci-dessus.
 - Poser des questions pour comprendre le besoin (appareils à alimenter, heures d'utilisation, ville ou quartier) avant d'enregistrer une demande de devis.
 - Dire que tu ne sais pas, et proposer un conseiller.
@@ -149,6 +151,7 @@ COMMENT TU T'Y PRENDS
 ${TEXTE_QUE_FAISONS_NOUS}
 ---
 - Pour un article : appelle chercher_article avec les mots utiles (par exemple « panneau 400 », « batterie lithium », « pompe forage ») — le métier compte aussi (« forage » trouve les articles rangés dans le métier Forage). S'il ne trouve rien, essaie un mot plus court ou plus général (« pompe », « batterie »), puis dis-le et propose un autre nom ou un conseiller.
+- Si le client demande comment utiliser son espace client ou l'application gestion.bmitogo.com (se connecter, valider un devis, payer, télécharger son contrat, signer le PV de fin de travaux, écrire à BMI, parrainer, changer son mot de passe, ses données) : appelle guide_espace_client avec le sujet qui correspond (« ensemble » s'il demande tout ou si tu ne sais pas lequel), recopie ce qu'il rend tel quel, sans guillemets autour, puis demande s'il bloque à une étape. Ne dis jamais que tu n'as pas le détail de l'espace client.
 - Si le client demande où vous trouver, une adresse, le numéro d'une boutique ou comment venir : appelle adresses_boutiques et recopie ce qu'il rend, tel quel, sans guillemets autour. Ne dis jamais que tu ne peux pas te renseigner sur nos boutiques.
 - Pour les PANNEAUX d'une pompe solaire (« combien de panneaux pour cette pompe ? ») : appelle panneaux_pour_pompe avec le nom exact de la pompe ; recopie sa phrase sans changer un chiffre, sans guillemets autour.
 - Pour une POMPE de forage : demande au client le NIVEAU DE L'EAU PENDANT LE POMPAGE (le niveau dynamique — c'est le foreur qui le donne, ce n'est pas la profondeur du forage), la hauteur du réservoir au-dessus du sol, la longueur de tuyau, et son besoin en eau en litres par jour. Puis appelle choisir_pompe. Tu proposes les pompes qu'il rend. ⚠ Tu ne promets JAMAIS un débit à une profondeur donnée : une pompe ne donne pas son débit maximal à sa profondeur maximale (le débit max se mesure en surface). Le débit réel à sa hauteur se lit sur la fiche du fabricant, et un conseiller le confirme. Sans le niveau dynamique, tu ne choisis pas de pompe : tu expliques pourquoi il le faut.
@@ -318,6 +321,15 @@ export const OUTILS_IA = [
     name: "adresses_boutiques",
     description: "Rend le nom, l'adresse, le téléphone et le lien de la carte (itinéraire Google Maps) de chaque boutique BMI TOGO, tels qu'ils sont écrits sur leurs fiches dans l'application. À appeler dès que le client demande où vous trouver, une adresse, le numéro d'une boutique ou comment venir.",
     input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "guide_espace_client",
+    description: "Rend le mode d'emploi, écrit par BMI TOGO d'après les vrais écrans, d'une partie de l'espace client (gestion.bmitogo.com). À appeler dès que le client demande comment se connecter, valider ou modifier un devis, payer, voir ou télécharger son contrat, signer le PV de fin de travaux, écrire à BMI, parrainer un proche, changer son mot de passe, voir ses données, donner son avis.",
+    input_schema: {
+      type: "object",
+      properties: { sujet: { type: "string", enum: SUJETS_GUIDE, description: "La partie de l'espace client ; « ensemble » pour une vue d'ensemble" } },
+      required: ["sujet"],
+    },
   },
   {
     name: "passer_conseiller",
@@ -557,6 +569,15 @@ export function texteBoutiques(boutiques) {
 
 export function executerOutil(nom, entree = {}, contexte = {}) {
   const e = entree || {};
+  if (nom === "guide_espace_client") {
+    const t = texteGuide(String(e.sujet || ""));
+    return {
+      resultat: `Mode d'emploi écrit par BMI TOGO d'après les écrans de l'espace client. Recopier ce texte tel quel, sans rien changer ni ajouter, sans guillemets autour : « ${t} »`,
+      // ⚠ Seul ce texte a le droit de porter « mot de passe » ou
+      // « identifiant » : le juge le retire avant de chercher un sujet réservé.
+      effets: { prix: [], demandeDevis: null, conseiller: false, textesPermis: [t] },
+    };
+  }
   if (nom === "adresses_boutiques") {
     const t = texteBoutiques(contexte.boutiques || []);
     return {
@@ -703,11 +724,26 @@ export function montantsCites(texte) {
 // relais (il confirme, lui).
 export const METIER_NIE = /ne (?:fait|font) pas partie (?:de nos|des) (?:services|activit[ée]s|m[ée]tiers)|(?:nous|BMI(?: TOGO)?) ne (?:faisons|proposons|fait|propose|traitons|traite|r[ée]alisons|r[ée]alise|vendons|vend|installons|installe) pas|(?:n'est|ne sont) pas (?:dans|parmi) nos (?:services|activit[ée]s|m[ée]tiers|domaines)|(?:hors|en dehors) de nos (?:services|activit[ée]s|m[ée]tiers|domaines)/i;
 
-export function garderReponse(texte, { prixConnus = [] } = {}) {
+// 🏠 Le mode d'emploi de l'espace client (18/10/2026) porte « mot de passe »
+// et « identifiant » : une LIGNE recopiée telle quelle depuis un texte rendu
+// par guide_espace_client est retirée avant de chercher un sujet réservé.
+// Tout le reste de la réponse reste jugé comme avant.
+export function sansTextesPermis(texte, textesPermis = []) {
+  let t = String(texte || "");
+  for (const permis of textesPermis || []) {
+    const lignes = String(permis || "").split("\n").map((l) => l.trim()).filter(Boolean).sort((a, b) => b.length - a.length);
+    for (const l of lignes) {
+      const echap = l.split(/[\s\u00a0\u202f]+/).map((m) => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[\\s\\u00a0\\u202f]+");
+      t = t.replace(new RegExp(echap, "g"), " ");
+    }
+  }
+  return t;
+}
+export function garderReponse(texte, { prixConnus = [], textesPermis = [] } = {}) {
   const t = String(texte || "").trim();
   if (!t) return { ok: false, motif: "réponse vide" };
   if (t.length > MAX_LONGUEUR_REPONSE) return { ok: false, motif: "réponse trop longue" };
-  if (MOTS_INTERDITS_IA.test(t)) return { ok: false, motif: "sujet réservé", reserve: true };
+  if (MOTS_INTERDITS_IA.test(sansTextesPermis(t, textesPermis))) return { ok: false, motif: "sujet réservé", reserve: true };
   if (METIER_NIE.test(t)) return { ok: false, motif: "BMI dit ne pas faire un métier (fait inventé)", metierNie: true };
   const connus = new Set((prixConnus || []).map((p) => Math.round(Number(p) || 0)));
   const inconnu = montantsCites(t).find((n) => !connus.has(n));
@@ -724,7 +760,7 @@ export function garderReponse(texte, { prixConnus = [] } = {}) {
 // ce qu'on a — un service qui boucle ne doit jamais coûter sans fin.
 export async function converserAvecIA({ consigne, messages, appeler, executer, outils = OUTILS_IA, maxTokens = MAX_TOKENS_REPONSE } = {}) {
   const suite = [...(messages || [])];
-  const effets = { prix: [], demandeDevis: null, conseiller: false, type: "", estimation: null };
+  const effets = { prix: [], demandeDevis: null, conseiller: false, type: "", estimation: null, textesPermis: [] };
   let texte = "";
   let tours = 0;
   if (!suite.length || suite[suite.length - 1].role !== "user") return { texte: "", effets, tours, motif: "rien du client" };
@@ -744,6 +780,7 @@ export async function converserAvecIA({ consigne, messages, appeler, executer, o
       resultats.push({ type: "tool_result", tool_use_id: a.id, content: String(r?.resultat || "") });
       const ef = r?.effets || {};
       if (Array.isArray(ef.prix)) effets.prix.push(...ef.prix);
+      if (Array.isArray(ef.textesPermis)) effets.textesPermis.push(...ef.textesPermis);
       if (ef.demandeDevis && !effets.demandeDevis) effets.demandeDevis = ef.demandeDevis;
       if (ef.estimation) effets.estimation = ef.estimation;
       if (ef.conseiller) { effets.conseiller = true; effets.type = ef.type || effets.type || "conseiller"; }
@@ -763,7 +800,7 @@ export const noteDeReecriture = (motif) => `[Contrôle de BMI TOGO — message i
 export const peutReecrire = (juge, effets) => !!juge && !juge.ok && !juge.reserve && !(effets && (effets.demandeDevis || effets.conseiller));
 export async function converserAvecJuge({ consigne, messages, appeler, executer, outils = OUTILS_IA, maxTokens = MAX_TOKENS_REPONSE } = {}) {
   const premier = await converserAvecIA({ consigne, messages, appeler, executer, outils, maxTokens });
-  let juge = garderReponse(premier.texte, { prixConnus: premier.effets.prix });
+  let juge = garderReponse(premier.texte, { prixConnus: premier.effets.prix, textesPermis: premier.effets.textesPermis });
   if (!peutReecrire(juge, premier.effets)) return { ...premier, juge, reecrit: false };
   const suite = [...(messages || []), { role: "assistant", content: premier.texte || "…" }, { role: "user", content: noteDeReecriture(juge.motif) }];
   const second = await converserAvecIA({ consigne, messages: suite, appeler, executer, outils, maxTokens });
@@ -771,9 +808,10 @@ export async function converserAvecJuge({ consigne, messages, appeler, executer,
     ...second.effets,
     prix: [...premier.effets.prix, ...second.effets.prix],
     estimation: second.effets.estimation || premier.effets.estimation,
+    textesPermis: [...(premier.effets.textesPermis || []), ...(second.effets.textesPermis || [])],
   };
-  juge = garderReponse(second.texte, { prixConnus: effets.prix });
-  return { texte: second.texte, effets, tours: premier.tours + second.tours, juge, reecrit: true, motifPremier: garderReponse(premier.texte, { prixConnus: premier.effets.prix }).motif };
+  juge = garderReponse(second.texte, { prixConnus: effets.prix, textesPermis: effets.textesPermis });
+  return { texte: second.texte, effets, tours: premier.tours + second.tours, juge, reecrit: true, motifPremier: garderReponse(premier.texte, { prixConnus: premier.effets.prix, textesPermis: premier.effets.textesPermis }).motif };
 }
 
 // L'étape à écrire sur la ligne : conseiller (silence ensuite), sinon « ia ».
@@ -815,7 +853,11 @@ export function reponseDepuisIA({ texte, effets, juge, nouvelle, presentation = 
   // la retrouver sur la fiche 🧲 Prospects) — seulement si la réponse est
   // celle que l'IA a écrite : une phrase fixe ne la cite pas.
   const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle: !!presentation }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}), ...(!repli && ef.estimation ? { estimation: ef.estimation } : {}) });
-  if (juge?.ok) return pose(sansGuillemetsAutour(presentation ? sansQuestionAccueil(sansSalutation(texte, nom)) : texte, ef.estimation?.texte), etapeApresIA(ef), !!ef.conseiller, "");
+  if (juge?.ok) {
+    // Le mode d'emploi de l'espace client se lit comme l'estimation : sans guillemets autour.
+    const net = (ef.textesPermis || []).reduce((t, permis) => sansGuillemetsAutour(t, permis), sansGuillemetsAutour(presentation ? sansQuestionAccueil(sansSalutation(texte, nom)) : texte, ef.estimation?.texte));
+    return pose(net, etapeApresIA(ef), !!ef.conseiller, "");
+  }
   if (juge?.reserve) return pose(REPONSE_SUJET_RESERVE, ETAPE_CONSEILLER, true, juge.motif);
   if (juge?.metierNie) return pose(TEXTE_RELAIS_CONSEILLER, ETAPE_CONSEILLER, true, juge.motif);
   if (ef.demandeDevis) return pose(texteDemandeEnregistree(ef.demandeDevis.nom), ETAPE_CONSEILLER, true, juge?.motif || "");
