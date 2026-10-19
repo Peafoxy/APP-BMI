@@ -123,7 +123,7 @@ export const CHAPITRE = {
     // ── 6
     { titre: "Ce qui se passe automatiquement derrière", blocs: [
       ["table", { entetes: ["Quand", "Ce que l'application fait toute seule"], largeurs: [2900, 6460], lignes: [
-        ["**10 minutes** sans aucun geste", "La carte de verrouillage couvre l'écran (téléphone et ordinateur). Elle survit à un rechargement de la page : on rouvre verrouillé."],
+        ["**20 minutes** sans aucun geste", "La carte de verrouillage couvre l'écran (téléphone et ordinateur). Elle survit à un rechargement de la page : on rouvre verrouillé."],
         ["**30 minutes** sans aucun geste", "La session se ferme, verrouillée ou non. Message : « Session expirée : 30 minutes sans activité. Reconnectez-vous. » Le mot de passe ne la rouvre pas : on se reconnecte."],
         ["**5 mots de passe faux** dans la carte", "La session se ferme. Chaque erreur dit combien d'essais restent."],
         ["Trop d'essais à la **connexion**", "Le serveur bloque l'appareil quelques minutes : 5 échecs → 1 minute, 10 → 15 minutes, 20 → 1 heure. Message : « Trop d'essais. Réessayez dans N minute(s). » Une heure sans échec remet le compteur à zéro."],
@@ -171,7 +171,7 @@ export const CHAPITRE = {
         ["Agir sur la mauvaise boutique", "La vente, la dépense ou l'article vont dans une autre caisse.", "Vérifier la boutique en haut de l'écran ; l'application la mémorise par écran."],
         ["Taper 5 mots de passe faux dans la carte", "La session se ferme.", "Utiliser l'œil pour relire ce qu'on tape ; au doute, réessayer avec l'empreinte."],
         ["Insister après « Trop d'essais »", "Le blocage s'allonge (1 min, puis 15, puis 60).", "Attendre le délai affiché, ou appeler l'administrateur si le mot de passe est oublié."],
-        ["Laisser une session ouverte au comptoir", "N'importe qui peut vendre ou lire des chiffres sous votre nom.", "« Verrouiller » (ou 🔐) dès qu'on s'éloigne. Le verrou vient seul à 10 minutes, mais dix minutes, c'est long."],
+        ["Laisser une session ouverte au comptoir", "N'importe qui peut vendre ou lire des chiffres sous votre nom.", "« Verrouiller » (ou 🔐) dès qu'on s'éloigne. Le verrou vient seul à 20 minutes, mais vingt minutes, c'est long."],
         ["Vider les données du navigateur", "Les opérations en attente sont perdues ; la clé d'empreinte aussi.", "Ne jamais le faire tant que « N en attente » n'est pas à zéro. Réactiver l'empreinte ensuite."],
         ["Refaire une vente parce qu'elle « n'apparaît pas » sur l'autre téléphone", "Elle est comptée deux fois.", "Regarder « N en attente » sur l'appareil qui a vendu ; « ⟳ Synchroniser » sur l'autre."],
         ["Ignorer « Nouvelle version disponible »", "L'appareil garde une vieille version : des boutons manquent, des règles diffèrent.", "« 🔄 Recharger maintenant », tout de suite."],
@@ -182,7 +182,7 @@ export const CHAPITRE = {
     { titre: "Cas pratiques de formation", blocs: [
       ["cas", [
         { situation: "AMA, vendeuse, reçoit son nouveau téléphone de boutique. Elle tape son nom et son mot de passe, et l'écran dit : « Première connexion sur cet appareil : connectez-vous au réseau une fois. »", reponse: "Le téléphone n'a jamais vu son compte. Elle active les données mobiles ou le Wi-Fi, recommence : le compte descend, et ensuite l'application marchera sans réseau." },
-        { situation: "KOSSI quitte le comptoir cinq minutes pour aider un client au dépôt. Il ne verrouille pas.", reponse: "Pendant cinq minutes, n'importe qui peut vendre ou lire la caisse sous son nom. Le verrou automatique ne vient qu'à 10 minutes. Le bon geste : « Verrouiller » avant de partir, « 🔓 Déverrouiller » en revenant, ou l'empreinte." },
+        { situation: "KOSSI quitte le comptoir cinq minutes pour aider un client au dépôt. Il ne verrouille pas.", reponse: "Pendant cinq minutes, n'importe qui peut vendre ou lire la caisse sous son nom. Le verrou automatique ne vient qu'à 20 minutes. Le bon geste : « Verrouiller » avant de partir, « 🔓 Déverrouiller » en revenant, ou l'empreinte." },
         { situation: "Sur le PC du gérant, la carte de verrouillage dit « Session expirée : 30 minutes sans activité. Reconnectez-vous. » Il tape son mot de passe, ça ne rouvre pas.", reponse: "C'est normal : à 30 minutes la session est finie, le mot de passe ne la ressuscite pas. Il se reconnecte sur l'écran de connexion. Rien n'est perdu." },
         { situation: "Deux comptes s'appellent ESSO : un technicien et un client. Le technicien tape « ESSO » et son mot de passe.", reponse: "L'application essaie les deux comptes avec ce mot de passe et ouvre celui qui correspond. Chacun entre avec le sien. Si l'écran dit que le mot de passe est incorrect, c'est qu'il l'est vraiment." },
         { situation: "Le réseau tombe en pleine journée. Trois ventes sont encaissées. L'en-tête dit « 🔌 Hors ligne · 3 ». Le soir, AMA veut se déconnecter.", reponse: "L'application prévient : « 3 opération(s) ne sont pas encore envoyées… Se déconnecter quand même ? » Elle peut : les ventes restent sur le téléphone et partiront à la prochaine connexion avec réseau. Ce qu'elle ne doit surtout pas faire : vider les données du navigateur." },
@@ -212,7 +212,7 @@ export const CHAPITRE = {
       ["questions", [
         "Quelle est la différence entre l'espace réel et l'espace formation, et comment la voit-on à l'écran ?",
         "Pourquoi ne faut-il jamais se connecter avec le compte d'un collègue ?",
-        "Que se passe-t-il après 10 minutes sans geste ? Et après 30 minutes ?",
+        "Que se passe-t-il après 20 minutes sans geste ? Et après 30 minutes ?",
         "Que faire quand l'écran dit « Trop d'essais. Réessayez dans 15 minute(s) » ?",
         "Une vente encaissée hors ligne n'apparaît pas sur le téléphone du gérant. Que vérifie-t-on avant de la refaire ?",
         "L'empreinte rouvre-t-elle une session expirée après 30 minutes ? Pourquoi ?",

@@ -208,6 +208,23 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   };
 }
 
+// ⚠ Capture Timo (19/10/2026) : le lundi à 10:25, ANGELE trouve dans 🔒 Caisse
+// un formulaire de clôture tout prêt — sans jour en retard, il s'ouvre sur la
+// date du JOUR — et clôture le lundi avant d'avoir vendu (elle croyait
+// clôturer le week-end). La vente de 12:24 a ensuite rendu la clôture
+// dépassée. Décision « b » : on ne cache pas le formulaire, on DEMANDE avant
+// de clôturer la journée EN COURS tant qu'elle n'a aucune vente ni aucun
+// encaissement en espèces. Un jour PASSÉ ne pose pas la question (on le
+// clôture parce qu'il est en retard ou à reclôturer).
+// "" = rien à demander ; sinon la question.
+export function questionClotureSansVente(date, aujourdhui, jour, boutique = "", dFR = (x) => x) {
+  if (String(date) !== String(aujourdhui) || !jour || jour.active) return "";
+  return `⚠ Aucune vente n'est enregistrée aujourd'hui (${dFR(date)})${boutique ? ` dans ${boutique}` : ""}.\n\n`
+    + "La clôture du jour se fait le soir, à la fermeture, après la dernière vente. "
+    + "Une vente faite après la clôture obligera à reclôturer.\n\n"
+    + "Clôturer quand même ?";
+}
+
 // Le piège vu sur la capture de Timo (09/09/2026, écart 1 400) : il avait
 // saisi la RECETTE du jour (51 400) à la place du contenu du tiroir
 // (50 000). Quand le montant saisi est exactement la recette du jour alors

@@ -85,7 +85,7 @@ export const CHAPITRE = {
         { titre: "Lire les cinq cases", texte: "**Dans le tiroir hier soir** + **Recette du jour (espèces)** − **Sorties justifiées du jour** (dépenses en espèces payées par le tiroir et versements) = **Montant attendu dans le tiroir**. Quand l'enveloppe du fonds de caisse a été entamée, une case « Rendu au fonds de caisse » apparaît : la recette la rembourse d'abord. Les sorties **ne créent jamais d'écart** : une dépense n'est pas un manque." },
         { titre: "Compter les billets", texte: "Tout ce qu'il y a dans le tiroir, **billets et pièces** — pas le fonds de caisse (il est dans son enveloppe, à part), pas les reçus de dépense. Saisir le total dans **Montant du tiroir**." },
         { titre: "Lire l'écart", texte: "**Écart de caisse (manque ou surplus)** = compté − attendu. Vert à 0 ; rouge sinon. Si on a saisi exactement la recette du jour à la place du tiroir, une phrase rouge le dit : « ⚠ … est la recette du jour, pas le contenu du tiroir… ». Un écart inexpliqué se cherche **avant** de clôturer : une vente encaissée par Mixx et saisie « Espèces », une dépense pas enregistrée, un versement oublié." },
-        { titre: "Remarques, puis « Clôturer le jour »", texte: "La case Remarques grandit avec le texte (« Ex : Monnaie rendue… »). Le bouton ouvre la confirmation, qui récapitule les lignes et l'écart. Confirmer : « Clôture du … enregistrée ! ». La ligne apparaît dans l'historique du bas, le journal note « Clôture du jour BOUTIQUE — date : compté X (écart Y) »." },
+        { titre: "Remarques, puis « Clôturer le jour »", texte: "La case Remarques grandit avec le texte (« Ex : Monnaie rendue… »). Le bouton ouvre la confirmation, qui récapitule les lignes et l'écart. ⚠ Si la journée **en cours** n'a encore **aucune vente ni encaissement**, une question vient d'abord : « ⚠ Aucune vente n'est enregistrée aujourd'hui… La clôture du jour se fait le soir, à la fermeture… Clôturer quand même ? » — « Annuler » ne clôture rien. Confirmer : « Clôture du … enregistrée ! ». La ligne apparaît dans l'historique du bas, le journal note « Clôture du jour BOUTIQUE — date : compté X (écart Y) »." },
       ]],
       ["h3", "B. Une journée en retard"],
       ["etapes", [
@@ -165,7 +165,7 @@ export const CHAPITRE = {
         ["Montant du tiroir", "Ce qu'on a compté en billets. Sans lui : « Comptez la caisse et saisissez le montant. »"],
         ["Remarques", "Texte libre, la case grandit (6 lignes au plus)."],
         ["💼 Fonds de caisse — l'enveloppe, à part du tiroir", "Cadre d'information avant le bouton : « Elle est intacte : il doit y avoir X » ou « Elle a été entamée de X : il devrait y rester Y sur Z. Les prochaines recettes la rembourseront toutes seules. » Rien à saisir."],
-        ["Clôturer le jour", "Grisé tant qu'une dépense en espèces attend le DG. Sinon : confirmation puis enregistrement."],
+        ["Clôturer le jour", "Grisé tant qu'une dépense en espèces attend le DG. Sinon : confirmation puis enregistrement. La journée en cours sans aucune vente : une question d'abord (« Clôturer quand même ? »)."],
         ["✓ La journée du … a déjà été clôturée.", "Remplace le formulaire quand c'est fait — sauf si la journée est à reclôturer."],
       ]}],
     ]},
@@ -225,6 +225,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["L'erreur", "Ce qui se passe", "Ce qu'il faut faire"], largeurs: [2700, 3300, 3300], lignes: [
         ["Saisir la recette du jour à la place du contenu du tiroir", "Phrase rouge : « ⚠ 51 400 F est la recette du jour, pas le contenu du tiroir. Le tiroir doit contenir le fonds d'hier soir (…) + la recette (…) − les sorties du jour (…) = … »", "Compter ce qu'il y a réellement dans le tiroir et saisir ce total."],
         ["Compter le fonds de caisse avec les billets des ventes", "Surplus égal au fonds : l'écart est faux.", "L'enveloppe reste à part. On ne compte que le tiroir."],
+        ["Clôturer le lundi matin en croyant clôturer le week-end", "Le lundi, s'il n'y a aucun jour en retard, le formulaire s'ouvre sur la date du JOUR. Un dimanche sans vente ne demande jamais de clôture. L'écran demande « Aucune vente… Clôturer quand même ? ».", "Répondre « Annuler » et clôturer le soir, à la fermeture. Déjà fait : recompter et reclôturer quand la bande orange apparaît."],
         ["Clôturer à 16 h puis vendre à 17 h", "Pas refusé. Le lendemain : bandeau orange « journée clôturée dont la caisse a bougé ensuite ».", "Recompter et reclôturer cette journée. Règle : clôturer en dernier."],
         ["Oublier de clôturer hier", "Le matin, 💰 Ventes : « 🔒 Vente impossible : la journée du … n'a pas été clôturée… ».", "🔒 Caisse, pastille du jour en retard, compter, clôturer ; puis vendre."],
         ["Clôturer avec une grosse dépense en espèces pas encore validée", "Bouton grisé, « 🔒 Clôture impossible : une dépense en espèces attend la validation du DG : … »", "Faire valider ou rejeter par le DG (📤 Dépenses). À dire aux vendeuses : une grosse dépense en espèces se fait valider AVANT la fermeture."],

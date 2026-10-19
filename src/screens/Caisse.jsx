@@ -15,7 +15,7 @@ import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARem
 import { bloquerSiLecture, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufRoles, refuserSaufAdminPrincipal, estAdminPrincipal, espaceDuCompte, ROLES_CAISSE, periodes, libelleCaisse } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
-import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee, phraseDuJour } from "../lib/cloture";
+import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, cloturesDepassees, messageClotureDepassee, phraseDuJour, questionClotureSansVente } from "../lib/cloture";
 import { detailDuTiroir, destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, DEST_TIROIR, SOURCE_ESPECES, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir } from "../lib/versements";
 import { soldesMobiles, phraseNumeroMobile } from "../lib/caissesMobiles";
 import { banquesReglees } from "../lib/banques";
@@ -85,6 +85,10 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
     if (bloquerSiLecture(db, profile)) return;
     if (blocageCloture) { uAlert(blocageCloture); return; }
     if (compte === "") { uAlert("Comptez la caisse et saisissez le montant."); return; }
+    // Timo (19/10/2026, « b ») : la journée EN COURS sans aucune vente se
+    // clôture après une question — le lundi matin, le formulaire est prêt.
+    const sansVente = questionClotureSansVente(t, aujourdhui, jour, libelleCaisse(boutique), dFR);
+    if (sansVente && !await uConfirm(sansVente)) return;
     if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\n\n`
       + `Dans le tiroir hier soir : ${fmt(fondsHier)}\n`
       + `+ Recette du jour (ventes et encaissements) : ${fmt(recetteDuJour)}\n`

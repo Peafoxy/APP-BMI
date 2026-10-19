@@ -152,7 +152,7 @@ import { enPeriodeDeSortie, accesFerme, messageAccesFerme, ONGLET_ATTESTATION } 
 
 // ⚠ Demande Timo (09/09/2026) : plus de DÉCONNEXION automatique par
 // inactivité (avant : 30 min sur PC, 5 sur Android). À la place, un VERROU :
-// après 10 minutes sans geste (3 à l'origine, Timo 11/09/2026), l'écran se floute et
+// après 20 minutes sans geste (3 à l'origine, 10 le 11/09/2026, 20 le 19/10/2026), l'écran se floute et
 // demande le mot de passe du compte ; la session reste ouverte, rien n'est
 // perdu. Règles dans lib/verrou.js, fenêtre dans components/EcranVerrou.jsx.
 const UA = navigator.userAgent || "";
@@ -674,7 +674,7 @@ export default function App() {
   }, []);
 
   // ---- LE VERROU D'INACTIVITÉ (Timo, 09/09/2026) ----
-  // Sans geste pendant le délai (lib/verrou.js : 10 min, PC comme téléphone),
+  // Sans geste pendant le délai (lib/verrou.js : 20 min, PC comme téléphone),
   // l'écran se verrouille : flouté, mot de passe du compte demandé. La
   // session enregistrée localement est rafraîchie à chaque geste (pour
   // survivre à une actualisation) et note l'état verrouillé.

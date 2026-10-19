@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2728 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2730 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -206,8 +206,9 @@ lit mal est pire qu'un banc absent).
 - **Formation = VIOLET, réel = BLEU** ; la couleur suit l'espace regardé, via
   les variables `--color-sky-*` / `--color-blue-*` de `src/index.css` — jamais
   classe par classe. Vert, rouge, ambre ne changent pas (payé, refusé, attente).
-- **🔒 Verrou d'inactivité** (09/09/2026) : après **10 min sans geste, PC
-  comme téléphone** (11/09/2026 : « augmenter le temps de verrouillage de 3 à
+- **🔒 Verrou d'inactivité** (09/09/2026) : après **20 min sans geste, PC
+  comme téléphone** (19/10/2026 : « augmenter le temps de verrouillage aussi de
+  10 à 20 min » ; la fermeture reste à 30 min. Avant : 11/09/2026 : « augmenter le temps de verrouillage de 3 à
   10 min » — c'était 3 sur PC et 6 sur téléphone ; le téléphone était
   volontairement PLUS tolérant, le laisser à 6 l'aurait rendu plus strict),
   une fenêtre couvre l'écran et demande le mot de
@@ -8127,6 +8128,17 @@ lit mal est pire qu'un banc absent).
   rétrécit jamais). Règles pures `clotureDepassee` / `cloturesDepassees` /
   `messageClotureDepassee` (lib/cloture.js), le banc rejoue SON cas. À dire
   aux vendeuses : **clôturer en dernier, à la fermeture, jamais avant**.
+- **❓ LA JOURNÉE EN COURS SANS VENTE SE CLÔTURE APRÈS UNE QUESTION**
+  (19/10/2026, capture Timo : DEMAKPOE clôturée le lundi à 10:25 par ANGELE,
+  vente de 12:24 et 40 000 F de dépenses ensuite → +338 084 F, clôture
+  dépassée ; « b, lance »). Le lundi matin, sans jour en retard, le formulaire
+  s'ouvre sur la date du JOUR (un dimanche sans vente ne demande jamais de
+  clôture) : elle a cru clôturer le week-end. `questionClotureSansVente`
+  (lib/cloture.js) : la journée EN COURS, ni vente ni encaissement espèces
+  (`!jour.active`) → « ⚠ Aucune vente n'est enregistrée aujourd'hui… Clôturer
+  quand même ? », posée AVANT la confirmation dans le geste (Caisse.jsx) ; un
+  jour passé n'en pose aucune. Jamais un refus (« b »). Rien à coller. Banc
+  (+2, le lundi rejoué), éprouvé. Chapitre 6 à jour.
 
 ### Retours / SAV
 - **↩ Reprise de l'article par BMI** (10/09/2026, « un article vendu

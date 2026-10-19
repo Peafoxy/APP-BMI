@@ -2,7 +2,7 @@
 // MANUEL DE FORMATION — CHAPITRE 25 : Incidents
 //
 // Des MOTS, rien d'autre. Chaque message cité vient du code :
-// screens/Connexion.jsx (les refus de connexion), lib/verrou.js (10 min,
+// screens/Connexion.jsx (les refus de connexion), lib/verrou.js (20 min,
 // 5 erreurs, 30 min), components/EcranVerrou.jsx, App.jsx (la bande orange
 // « Rétablir », la bande rouge et 🗑 Abandonner, la réparation des numéros
 // de reçu), lib/cloture.js (la vente bloquée par une journée non clôturée,
@@ -89,7 +89,7 @@ export const CHAPITRE = {
 
       ["h3", "La fenêtre de verrouillage"],
       ["etapes", [
-        { titre: "Après 10 minutes sans geste", texte: "La fenêtre couvre l'écran : taper son mot de passe (ou l'empreinte, si elle est activée sur cet appareil). Rien n'est perdu." },
+        { titre: "Après 20 minutes sans geste", texte: "La fenêtre couvre l'écran : taper son mot de passe (ou l'empreinte, si elle est activée sur cet appareil). Rien n'est perdu." },
         { titre: "5 erreurs de mot de passe", texte: "La session se ferme : il faut se reconnecter depuis l'écran de connexion. Un doigt non reconnu ne compte **pas** dans les 5 essais." },
         { titre: "30 minutes sans geste", texte: "« Session expirée : 30 minutes sans activité » : la session est finie, même verrouillée. Le mot de passe ne la rouvre pas : on se reconnecte. Les opérations en attente restent sur l'appareil." },
       ]],
@@ -202,7 +202,7 @@ export const CHAPITRE = {
     { titre: "Exercice à faire par l'employé", blocs: [
       ["p", "Dans l'espace de formation :"],
       ["ol", [
-        "Laisser le téléphone 10 minutes sans le toucher ; déverrouiller avec le mot de passe.",
+        "Laisser le téléphone 20 minutes sans le toucher ; déverrouiller avec le mot de passe.",
         "Faire une vente d'entraînement **après** avoir clôturé le jour ; lire le bandeau de 🔒 Caisse, puis reclôturer.",
         "Couper internet, faire une vente, lire le compteur ; rallumer et le regarder redescendre.",
         "Faire une capture d'écran d'un message et l'envoyer au formateur dans 💬 Messages, avec une phrase d'explication.",

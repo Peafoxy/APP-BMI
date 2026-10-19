@@ -5789,7 +5789,7 @@ titre("🎭 Changer le rôle d'un compte : l'administrateur principal seul, jama
     && /le principal change SON propre rôle \(sa fiche reste interdite à tous\)" "REFUSE"/.test(tc));
 }
 
-titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 09/09/2026 ; délai porté à 10 min le 11/09/2026)");
+titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 09/09/2026 ; délai porté à 10 min le 11/09/2026, à 20 min le 19/10/2026)");
 {
   // « Au lieu de déconnecter un compte après un temps d'inactivité, garder
   // la session ouverte mais, après 3 minutes, activer une fenêtre demandant
@@ -5806,13 +5806,15 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   // RETOURNÉ le 11/09/2026 : « augmenter le temps de verrouillage de 3 à
   // 10 min ». Le téléphone suit — il était volontairement PLUS tolérant que le
   // PC (6 contre 3) ; le laisser à 6 l'aurait rendu plus strict.
-  test("★ 10 minutes, PC comme téléphone (Android et iPhone) — le téléphone n'est jamais plus strict que l'ordinateur",
-    V.delaiVerrou(PC) === 600000 && V.delaiVerrou(TEL) === 600000 && V.delaiVerrou(IPHONE) === 600000
-    && V.libelleDelai(PC) === "10 minutes" && V.libelleDelai(TEL) === "10 minutes"
-    && V.DELAI_VERROU_TELEPHONE_MS >= V.DELAI_VERROU_PC_MS);
-  test("★ on verrouille à partir du délai, jamais avant : 9 min 59 → non, 10 min → oui, sur PC comme sur téléphone",
-    V.doitVerrouiller(0, 599999, PC) === false && V.doitVerrouiller(0, 600000, PC) === true
-    && V.doitVerrouiller(0, 599999, TEL) === false && V.doitVerrouiller(0, 600000, TEL) === true
+  // RETOURNÉ le 19/10/2026 : « augmenter le temps de verrouillage aussi de 10
+  // à 20 min » — PC et téléphone ensemble, la fermeture reste à 30 min.
+  test("★ 20 minutes, PC comme téléphone (Android et iPhone) — le téléphone n'est jamais plus strict que l'ordinateur, et le verrou vient avant la fermeture des 30 min",
+    V.delaiVerrou(PC) === 1200000 && V.delaiVerrou(TEL) === 1200000 && V.delaiVerrou(IPHONE) === 1200000
+    && V.libelleDelai(PC) === "20 minutes" && V.libelleDelai(TEL) === "20 minutes"
+    && V.DELAI_VERROU_TELEPHONE_MS >= V.DELAI_VERROU_PC_MS && V.DELAI_VERROU_PC_MS < V.DELAI_DECONNEXION_MS);
+  test("★ on verrouille à partir du délai, jamais avant : 19 min 59 → non, 20 min → oui, sur PC comme sur téléphone",
+    V.doitVerrouiller(0, 1199999, PC) === false && V.doitVerrouiller(0, 1200000, PC) === true
+    && V.doitVerrouiller(0, 1199999, TEL) === false && V.doitVerrouiller(0, 1200000, TEL) === true
     && V.doitVerrouiller(undefined, 1e12, PC) === false);
   test("★ 5 erreurs de mot de passe ferment la session ; avant, on dit combien d'essais restent",
     V.MAX_ERREURS_VERROU === 5 && V.apresErreur(0).restantes === 4 && V.apresErreur(0).fermer === false && V.apresErreur(3).restantes === 1 && V.apresErreur(4).fermer === true && V.apresErreur(4).restantes === 0);
@@ -7219,6 +7221,28 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     && /export const ChampQuiGrandit = /.test(uiG) && /<textarea ref=\{ref\} rows=\{1\}/.test(uiG)
     && /el\.style\.height = `\$\{Math\.min\(el\.scrollHeight, maxLignes \* 20 \+ 18\)\}px`;/.test(uiG)
     && /resize-none overflow-hidden/.test(uiG));
+  // ⚠ Capture Timo (19/10/2026) : le lundi à 10:25, ANGELE trouve le formulaire
+  // tout prêt sur la date du JOUR (aucun jour en retard) et clôture le lundi
+  // avant de vendre ; la vente de 12:24 rend la clôture dépassée (+338 084).
+  // Décision « b » : la journée EN COURS sans vente ni encaissement se clôture
+  // après une QUESTION. Le banc rejoue son lundi.
+  const dbLundi = { ventes: [{ boutique: "DM", date: "2026-10-17", paiement: "Espèces", total: 190900 }], dettes: [], depenses: [], clotures: [{ boutique: "DM", date: "2026-10-17" }] };
+  const jLundi = Cl.activiteDuJour(dbLundi, "DM", "2026-10-19", tv);
+  const qLundi = Cl.questionClotureSansVente("2026-10-19", "2026-10-19", jLundi, "BMI DEMAKPOE", (x) => x.split("-").reverse().join("/"));
+  const avecVente = { ...dbLundi, ventes: [...dbLundi.ventes, { boutique: "DM", date: "2026-10-19", paiement: "Espèces", total: 378084 }] };
+  const avecReglement = { ...dbLundi, dettes: [{ boutique: "DM", paiements: [{ date: "2026-10-19", montant: 5000 }] }] };
+  test("★ lundi matin, aucune vente : clôturer la journée EN COURS pose une question (date, boutique, « Clôturer quand même ? ») ; une vente ou un encaissement du jour, ou un jour PASSÉ, n'en posent aucune ; le dimanche sans vente ne demande toujours aucune clôture",
+    jLundi.theorique === 190900 && /Aucune vente n'est enregistrée aujourd'hui \(19\/10\/2026\) dans BMI DEMAKPOE/.test(qLundi) && /le soir, à la fermeture/.test(qLundi) && /Clôturer quand même \?$/.test(qLundi)
+    && Cl.questionClotureSansVente("2026-10-19", "2026-10-19", Cl.activiteDuJour(avecVente, "DM", "2026-10-19", tv)) === ""
+    && Cl.questionClotureSansVente("2026-10-19", "2026-10-19", Cl.activiteDuJour(avecReglement, "DM", "2026-10-19", tv)) === ""
+    && Cl.questionClotureSansVente("2026-10-18", "2026-10-19", Cl.activiteDuJour(dbLundi, "DM", "2026-10-18", tv)) === ""
+    && Cl.questionClotureSansVente("2026-10-19", "2026-10-19", null) === ""
+    && Cl.joursAClôturer(dbLundi, "DM", "2026-10-19", tv).length === 0);
+  const corpsClot = (csC.match(/const cloturer = async \(\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  test("★ écran Caisse : le geste de clôture pose la question AVANT la confirmation de la clôture, et s'arrête si on répond non",
+    /const sansVente = questionClotureSansVente\(t, aujourdhui, jour, libelleCaisse\(boutique\), dFR\);/.test(corpsClot)
+    && /if \(sansVente && !await uConfirm\(sansVente\)\) return;/.test(corpsClot)
+    && corpsClot.indexOf("questionClotureSansVente") > 0 && corpsClot.indexOf("questionClotureSansVente") < corpsClot.indexOf("Confirmer la clôture du"));
 }
 
 titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avances de frais (Timo, 12/09/2026)");
