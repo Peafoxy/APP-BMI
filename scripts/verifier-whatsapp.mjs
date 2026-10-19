@@ -5331,10 +5331,10 @@ titre("63 📎 LE PDF DU DEVIS EST LÉGER, ET UNE CONNEXION COUPÉE SE DIT EN FR
   // compressés) → il doit tenir sous 300 Ko. Sur un téléphone à 45 Ko/s, c'est
   // 6 secondes d'envoi au lieu de 23.
   const dossier = mkdtempSync(join(tmpdir(), "bmi-pdf-poids-"));
-  let poids = 0, poidsTemoin = 0;
+  let poids = 0, poidsTemoin = 0, poidsPf = 0;
   try {
     const entree = join(dossier, "entree.mjs");
-    writeFileSync(entree, `import { genererDevis } from ${JSON.stringify(join(process.cwd(), "src/pdf.js"))};
+    writeFileSync(entree, `import { genererDevis, genererProforma } from ${JSON.stringify(join(process.cwd(), "src/pdf.js"))};
 import { LOGO, CACHET_BMI_DEFAUT } from ${JSON.stringify(join(process.cwd(), "src/lib/constants.js"))};
 import { jsPDF } from "jspdf";
 export const poids = () => {
@@ -5342,6 +5342,15 @@ export const poids = () => {
     lignes: [{ categorie: "Panneaux", designation: "Panneau 550W", qte: 4, pu: 85000, total: 340000 }, { categorie: "Batteries", designation: "Batterie 51,2V 200Ah", qte: 1, pu: 900000, total: 900000 }],
     total: 1240000, cachet: CACHET_BMI_DEFAUT, signature: "", bq: null };
   const s = genererDevis(d, LOGO, true).output("datauristring").split(",")[1];
+  return Math.floor(s.length * 3 / 4);
+};
+// La PROFORMA (19/10/2026) : elle part elle aussi en PDF du numéro BMI
+// (\`proforma_pdf\`). Quarante articles : le poids vient du logo, pas des lignes.
+export const poidsProforma = () => {
+  const lignes = Array.from({ length: 40 }, (_, i) => ({ article: "Batterie lithium 51,2V 200Ah n° " + i, qte: 2, pu: 85000, total: 170000 }));
+  const p = { numero: "PRF-2026-0012", date: "19/10/2026", boutique: "BMI DEMAKPOE", client: "AMA", tel: "+22890112233", lignes, sous_total: 6800000, total: 6800000, par: "TIMO",
+    bq: { nom: "BMI DEMAKPOE", adresse: "Lomé", tel: "91000000" } };
+  const s = genererProforma(p, LOGO, true).output("datauristring").split(",")[1];
   return Math.floor(s.length * 3 / 4);
 };
 // Le TÉMOIN : le même logo dans un document NON compressé — il prouve que
@@ -5355,10 +5364,11 @@ export const temoin = () => {
     const sortie = join(dossier, "sortie.mjs");
     await build({ entryPoints: [entree], bundle: true, format: "esm", platform: "node", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx" }, nodePaths: [join(process.cwd(), "node_modules")] });
     const P = await import(pathToFileURL(sortie).href);
-    poids = P.poids(); poidsTemoin = P.temoin();
+    poids = P.poids(); poidsTemoin = P.temoin(); poidsPf = P.poidsProforma();
   } catch (err) { console.log("    (erreur de la mesure du PDF :", err?.message || err, ")"); }
   finally { rmSync(dossier, { recursive: true, force: true }); }
   test(`★★★ le PDF RÉEL d'un devis (logo + cachet) pèse moins de 300 Ko — mesuré : ${Math.round(poids / 1024)} Ko`, poids > 20000 && poids < 300 * 1024);
+  test(`★★★ le PDF RÉEL d'une proforma de 40 articles (envoyé par \`proforma_pdf\`) pèse moins de 300 Ko — mesuré : ${Math.round(poidsPf / 1024)} Ko`, poidsPf > 20000 && poidsPf < 300 * 1024);
   test(`★ le TÉMOIN : le logo seul, sans compression, pèse plus de 300 Ko — mesuré : ${Math.round(poidsTemoin / 1024)} Ko (le piège existe toujours)`, poidsTemoin > 300 * 1024);
   const pdfJs = lire("src/pdf.js");
   test("★★ TOUS les documents PDF sont compressés (src/pdf.js et le partage de l'aperçu)",
