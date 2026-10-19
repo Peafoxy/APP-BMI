@@ -224,6 +224,18 @@ export const pctEquivalent = (montant, base) => (Number(base) > 0 ? Math.round((
 // Le pourcentage d'une remise tel qu'un document l'écrit : rien pour une remise libre.
 // Un pourcentage venu d'une remise libre (devis converti) a des décimales : 2 au plus à l'écrit.
 export const pctRemiseLisible = (doc, pct = doc?.remise_pct) => (doc?.remise_mode === MODE_REMISE_MONTANT || !Number(pct) ? "" : ` (${String(Math.round(Number(pct) * 100) / 100).replace(".", ",")} %)`);
+// 🧾 19/10/2026 (Timo : « remise sur un proforma n'apparaît pas sur le
+// fichier pdf ») : une proforma RELUE (🖨️ Réimprimer) passe par ici, pour
+// que son document garde sous-total, remise et mode — la réimpression ne les
+// transmettait pas, la remise disparaissait. Une ancienne proforma sans
+// sous-total le retrouve dans ses lignes.
+export const proformaPourDocument = (pf) => {
+  const lignes = (pf?.lignes || []).map((l) => ({ ...l,
+    total: l.total != null ? Number(l.total) : Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0) }));
+  const sousTotal = pf?.sous_total != null ? Number(pf.sous_total) : lignes.reduce((s, l) => s + Number(l.total || 0), 0);
+  return { ...pf, lignes, sous_total: sousTotal, remise_montant: Number(pf?.remise_montant || 0), validite: pf?.validite || "15 jours" };
+};
+export const remisesDeLignes = (lignes) => (lignes || []).reduce((s, l) => s + Number(l.remise_ligne || 0), 0);
 export const lignesVente = (v) => (v.articles && v.articles.length ? v.articles : [{ produit_id: v.produit_id, article: v.article, qte: v.qte, pu: v.pu }]);
 // ⚠ CORRECTIF 2.99.50 : brutVente() ignorait les remises PAR LIGNE
 // (remise_ligne) — elle ne faisait que qte×pu, sans jamais les soustraire.

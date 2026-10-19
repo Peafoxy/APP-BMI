@@ -8478,6 +8478,39 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       /genererProforma\(\{ \.\.\.pf, formation: [^}]*, bq: infoBq\(pf\.boutique\) \}, LOGO\)/.test(vtx)
       && (vtx.match(/imprimerProforma\([^;]*infoBq\(pf\.boutique\)\)/g) || []).length === 2
       && /infoBq\(pf\.boutique\)\.tel \? \[`\$\{pf\.boutique\} — Tél : /.test(vtx));
+    // 🧾 19/10/2026 (Timo : « remise sur un proforma n'apparaît pas sur le
+    // fichier pdf » — « est-ce une bonne pratique ? » : non). Trois trous :
+    // le PDF n'avait aucune colonne pour la remise d'un article ; « 🖨️
+    // Réimprimer » ne transmettait ni sous-total ni remise ; le mode « libre »
+    // n'était pas rangé sur la proforma.
+    {
+      const CkPf = await import(pathToFileURL("src/lib/core.js").href);
+      const pfLigne = Pdf.genererProforma({ numero: "PF-2", date: "19/10/2026", client: "ESSO",
+        lignes: [{ article: "BATTERIE 200AH", qte: 2, pu: 100000, remise_ligne: 10000, total: 190000 }, { article: "CABLE", qte: 1, pu: 5000, total: 5000 }],
+        sous_total: 195000, total: 195000, bq: bqEssai }, null, true);
+      test("★★ la PROFORMA (PDF) montre la remise d'un ARTICLE dans sa colonne « Remise » (−10 000 F), et rien ne chevauche",
+        texteDuPdf(pfLigne).includes("(Remise)") && texteDuPdf(pfLigne).includes("-10 000 F") && chevauchements(pfLigne) === 0);
+      test("★ sans remise d'article, la proforma garde ses quatre colonnes (pas de colonne « Remise » vide)",
+        !texteDuPdf(pfBq).includes("(Remise)"));
+      // Une proforma RANGÉE (sans sous-total, comme les anciennes) relue pour 🖨️ Réimprimer.
+      const rangee = { numero: "PF-3", date: "2026-10-19", client: "ESSO", lignes: [{ article: "PANNEAU", qte: 2, pu: 50000, total: 100000 }],
+        remise_pct: 4.761905, remise_montant: 5000, remise_mode: "montant", total: 95000 };
+      const relue = CkPf.proformaPourDocument(rangee);
+      test("★★ une proforma relue garde son sous-total (retrouvé dans ses lignes), sa remise et son mode",
+        relue.sous_total === 100000 && relue.remise_montant === 5000 && relue.remise_mode === "montant" && relue.validite === "15 jours" && relue.lignes[0].total === 100000
+        && CkPf.proformaPourDocument({ lignes: [{ qte: 2, pu: 100, remise_ligne: 10 }] }).lignes[0].total === 190);
+      const pfRelue = Pdf.genererProforma({ ...relue, date: "19/10/2026", bq: bqEssai }, null, true);
+      test("★★ la réimpression d'une proforma à remise LIBRE écrit Sous-total et Remise (−5 000 F), sans pourcentage",
+        texteDuPdf(pfRelue).includes("Sous-total") && texteDuPdf(pfRelue).includes("-5 000 F") && texteDuPdf(pfRelue).includes("(Remise :)"));
+      test("★★ 🖨️ Réimprimer passe la proforma entière par proformaPourDocument (plus une liste de champs qui oublie la remise)",
+        /imprimerProforma\(\{ \.\.\.proformaPourDocument\(pf\), date: dFR\(pf\.date\)/.test(vtx)
+        && !/imprimerProforma\(\{ numero: pf\.numero/.test(vtx));
+      test("★★ le MODE de la remise est rangé sur la proforma (émise ET modifiée), et le texte WhatsApp lit la règle des documents",
+        /\.\.\.\(pf\.remise_mode \? \{ remise_mode: pf\.remise_mode \} : \{\}\)/.test(vtx)
+        && C.proformaModifiee({ id: "a", numero: "N", remise_mode: "montant" }, { lignes: [], remise_pct: 3 }, { nom: "T" }, "x").remise_mode === undefined
+        && C.proformaModifiee({ id: "a", numero: "N" }, { lignes: [], remise_pct: 3, remise_mode: "montant" }, { nom: "T" }, "x").remise_mode === "montant"
+        && /`Remise\$\{pctRemiseLisible\(pf\)\} : -/.test(vtx) && /\(remise -\$\{Number\(l\.remise_ligne\)/.test(vtx));
+    }
     test("★ 📋 Tous les devis passe la fiche de la boutique du devis (sinon celle de son auteur)",
       /bq: \(db\.boutiques \|\| \[\]\)\.find\(\(b\) => b\.nom === d\.boutique\)/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
   }
@@ -13474,7 +13507,9 @@ titre("🏢 Le prénom du client et l'entreprise qu'il représente — son répo
     /const idPf = identiteClient\(p\);/.test(pdfS) && /const idDv = identiteClient\(d\);/.test(pdfS) && /idDv\.represente/.test(pdfS));
   test("★ les appels passent l'identité : le PDF du devis de 📋 Tous les devis et la réimpression d'une proforma",
     /prenom: d\.prenom \|\| d\.client\?\.prenom \|\| "",\s*entreprise: d\.entreprise \|\| null,/.test(lireE("src/screens/TousLesDevis.jsx"))
-    && /client: pf\.client, tel: pf\.tel, \.\.\.champsIdentite\(pf\), lignes/.test(ve));
+    // RETOURNÉ le 19/10/2026 : la réimpression passe la proforma entière
+    // (proformaPourDocument) — l'identité y reste.
+    && /imprimerProforma\(\{ \.\.\.proformaPourDocument\(pf\), date: dFR\(pf\.date\), \.\.\.champsIdentite\(pf\) \}/.test(ve));
 }
 
 titre("🔧 L'espace client dit la règle des 70 % de la pose seule, jamais « au technicien à la fin des travaux » (29/09/2026)");

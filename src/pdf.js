@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { fichierPdf, pctRemiseLisible, dFR, today } from "./lib/core";
+import { fichierPdf, pctRemiseLisible, dFR, today, remisesDeLignes } from "./lib/core";
 import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
 import { groupesEquipement } from "./lib/lignesDevis";
@@ -225,20 +225,31 @@ export function genererProforma(p, logo, retournerDoc = false) {
   if (idPf.represente) doc.text(texteSurPdf(idPf.represente), largeur - 14, yApresPf + 18, { align: "right" });
   if (idPf.coordonnees) doc.text(texteSurPdf(idPf.coordonnees), largeur - 14, yApresPf + 22, { align: "right" });
 
-  // Tableau des articles
+  // Tableau des articles. 🧾 19/10/2026 : une remise sur un article a SA
+  // colonne (le PDF ne la montrait nulle part : prix × qté ne donnait pas le
+  // total, sans un mot) — seulement s'il y en a une.
+  const avecRemiseLigne = remisesDeLignes(p.lignes) > 0;
   autoTable(doc, {
-    head: [["Article", "Qté", "Prix unitaire", "Total"]],
-    body: p.lignes.map((l) => [
-      String(l.article),
-      String(l.qte),
-      `${fmtMontant(l.pu)} F`,
-      `${fmtMontant(l.total)} F`,
-    ]),
+    // Un titre de colonne porte son alignement (il ne reçoit pas columnStyles).
+    head: [[enTete("Article"), enTete("Qté", "center"), enTete("Prix unitaire", "right"),
+      ...(avecRemiseLigne ? [enTete("Remise", "right")] : []), enTete("Total", "right")]],
+    body: p.lignes.map((l) => {
+      const rl = Number(l.remise_ligne || 0);
+      return [
+        texteSurPdf(String(l.article)),
+        String(l.qte),
+        `${fmtMontant(l.pu)} F`,
+        ...(avecRemiseLigne ? [rl > 0 ? `-${fmtMontant(rl)} F` : ""] : []),
+        `${fmtMontant(l.total)} F`,
+      ];
+    }),
     startY: yApresPf + (idPf.coordonnees ? 27 : 24),
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [30, 90, 138], textColor: 255 },
     alternateRowStyles: { fillColor: [245, 247, 250] },
-    columnStyles: { 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" } },
+    columnStyles: avecRemiseLigne
+      ? { 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right", textColor: [61, 139, 64] }, 4: { halign: "right" } }
+      : { 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" } },
     margin: { left: 14, right: 14 },
   });
 

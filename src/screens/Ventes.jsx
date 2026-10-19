@@ -15,7 +15,7 @@ import { LOGO, PAIEMENTS, caisseDeVente, LIBELLE_CAISSE_CHANTIER, MOYENS_ENCAISS
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees, fondsAVerser, critiqueSortieTiroir } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
 import { prochainNumeroAchatChantier, estDepotChantier } from "../lib/core";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT, proformaPourDocument, pctRemiseLisible } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -450,6 +450,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const ligne = { id: uid(), date: today(), ts: maintenantISO(),
       numero: pf.numero, boutique, client: pf.client, tel: pf.tel, ...champsIdentite(pf),
       sous_total: pf.sous_total, remise_pct: pf.remise_pct, remise_montant: pf.remise_montant,
+      // 🧾 19/10/2026 : le MODE de la remise se garde aussi (« libre » restait
+      // écrit nulle part : la réimpression et la reprise la lisaient en %).
+      ...(pf.remise_mode ? { remise_mode: pf.remise_mode } : {}),
       total: pf.total, lignes: pf.lignes, par: profile.nom, par_id: profile.id };
     save({ ...db, proformas: [ligne, ...(db.proformas || [])] }, `Proforma ${pf.numero} émis par ${profile.nom} (${fmt(pf.total)})`);
     return true;
@@ -528,9 +531,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       `*FACTURE PROFORMA* — BMI TOGO`,
       `N° ${pf.numero} · ${pf.date}`,
       ``,
-      ...pf.lignes.map((l) => `• ${l.article} ×${l.qte} : ${l.total.toLocaleString("fr-FR")} F`),
+      // 🧾 19/10/2026 : la remise d'un article se lit sur sa ligne, et la
+      // remise générale par LA règle des documents (« 4,76 % », rien en libre).
+      ...pf.lignes.map((l) => `• ${l.article} ×${l.qte} : ${l.total.toLocaleString("fr-FR")} F${Number(l.remise_ligne || 0) > 0 ? ` (remise -${Number(l.remise_ligne).toLocaleString("fr-FR")} F)` : ""}`),
       ``,
-      ...(pf.remise_montant > 0 ? [`Sous-total : ${pf.sous_total.toLocaleString("fr-FR")} F`, `Remise ${pf.remise_pct} % : -${pf.remise_montant.toLocaleString("fr-FR")} F`] : []),
+      ...(pf.remise_montant > 0 ? [`Sous-total : ${pf.sous_total.toLocaleString("fr-FR")} F`, `Remise${pctRemiseLisible(pf)} : -${pf.remise_montant.toLocaleString("fr-FR")} F`] : []),
       `*TOTAL : ${pf.total.toLocaleString("fr-FR")} FCFA*`,
       ``,
       `Ceci est une offre de prix (proforma), sans valeur de reçu. Valable ${pf.validite}.`,
@@ -1975,7 +1980,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                       ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-700 border-green-200">✅ Encaissée le {dFR(vs[0].date)} — {numeroRecu(vs[0])}{vs.length > 1 ? ` (+${vs.length - 1})` : ""}</span>
                       : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-amber-100 text-amber-700 border-amber-200 whitespace-nowrap">⏳ En attente</span>}</td>
                   <CelluleActions>
-                    <BoutonRond icone="🖨" onClick={() => imprimerProforma({ numero: pf.numero, date: dFR(pf.date), boutique: pf.boutique, client: pf.client, tel: pf.tel, ...champsIdentite(pf), lignes: pf.lignes, total: pf.total, validite: "15 jours" }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} titre="🖨️ Réimprimer" />
+                    <BoutonRond icone="🖨" onClick={() => imprimerProforma({ ...proformaPourDocument(pf), date: dFR(pf.date), ...champsIdentite(pf) }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} titre="🖨️ Réimprimer" />
                     {/* ⚠ Timo (11/09/2026) : « reprise » disait déjà, sur une VENTE,
                         que le client rend un article — deux sens opposés dans le même
                         écran. Ici c'est « Vendre » : le panier se remplit, l'encaissement

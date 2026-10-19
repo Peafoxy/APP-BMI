@@ -2185,8 +2185,12 @@ export const critiqueModifProforma = (db, pf, profile) => {
 };
 export const proformaModifiee = (avant, nouvelle, profile, quand = maintenantISO()) => {
   const { historique_modif, ...ancienne } = avant || {};
+  // 🧾 19/10/2026 : le mode de la remise suit la nouvelle version (une remise
+  // repassée en % ne garde pas l'ancien « libre »).
+  const { remise_mode: _ancienMode, ...avantSansMode } = avant || {};
   return {
-    ...avant,
+    ...avantSansMode,
+    ...(nouvelle.remise_mode ? { remise_mode: nouvelle.remise_mode } : {}),
     client: nouvelle.client, tel: nouvelle.tel,
     prenom: nouvelle.prenom, entreprise: nouvelle.entreprise,
     sous_total: nouvelle.sous_total, remise_pct: nouvelle.remise_pct, remise_montant: nouvelle.remise_montant,

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2722 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2728 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1135,6 +1135,19 @@ lit mal est pire qu'un banc absent).
   panier : quatre contrôles tombent ; banc de l'application
   (`verifier-cloisonnement`) éprouvé de même ; un contrôle RETOURNÉ
   (`critiqueRemises` ×2 avec le rôle, ×1 avec la proforma).
+- **🧾 LA REMISE SE LIT SUR LA PROFORMA** (19/10/2026, Timo : « remise sur un
+  proforma n'apparaît pas sur le fichier pdf… est-ce une bonne pratique ? » —
+  non, réparé sans attendre et dit). Trois trous : le PDF (`genererProforma`)
+  n'avait AUCUNE place pour la remise d'un ARTICLE (prix × qté ≠ total, sans un
+  mot) → colonne **« Remise »** (verte, seulement s'il y en a une) ; **🖨️
+  Réimprimer** ne passait ni sous-total, ni remise, ni mode → la proforma entière
+  par `proformaPourDocument` (core.js : sous-total retrouvé dans les lignes d'une
+  ancienne) ; le **mode « libre »** n'était pas RANGÉ sur la proforma (émise ni
+  modifiée — `proformaModifiee` suit la nouvelle version) : la réimpression
+  écrivait un pourcentage à décimales et une reprise repassait en %. Le texte
+  WhatsApp lit `pctRemiseLisible` et la remise de chaque article. ⚠ Les
+  proformas d'AVANT restent sans mode : leur remise libre se lit en % (à
+  2 décimales). Rien à coller. Banc (+6, le PDF lu, un RETOURNÉ), éprouvé.
 - **✏️ Une proforma se MODIFIE** (Timo, 30/09/2026 : « rendre un proforma
   modifiable » → « a, 2 oui, 3 oui »). Bouton ✏️ Modifier sur sa ligne
   (💰 Ventes → 🧾 Proformas) : le panier se remplit comme 🛒 Vendre, un
