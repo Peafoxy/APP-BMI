@@ -80,6 +80,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/validationDevis.js` | La validation d'un devis (espace client et signature en boutique) |
 | `lib/modifDevis.js` | Modifier un devis DÉJÀ SIGNÉ : le client ouvre la porte |
 | `lib/motifReseau.js` | Une connexion coupée avec le serveur se dit en français (« Failed to fetch » part dans la console) |
+| `lib/antiDoublonEnvoi.js` | Le même message WhatsApp (modèle, numéro, mots) ne repart pas pendant qu'il part ni dans la minute qui suit — le filet de `envoyerModele` |
 | `lib/contrat.js` | Le contrat et le PV de réception |
 | `lib/reglement.js` | Comment le client va solder son installation (le plan de règlement) |
 | `lib/prospects.js` | Un prospect devient client |
@@ -148,7 +149,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 
 | Fichier | À quoi il sert |
 |---|---|
-| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`) |
+| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`), et le bouton qui se grise pendant un envoi (`BoutonEnvoi`, `useEnvoiEnCours`) |
 | `cibleEcran.js` | 🔔 Ce qu'un écran fait d'une notification cliquée : `useCible`, la boutique visée (`useCibleBoutique`, jamais un employé déplacé hors de sa boutique) |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
 | `FiltrePeriode.jsx` | 📅 Le filtre de période d'une liste (Toute période, quatre périodes, Personnaliser), écrit une fois pour Ventes, Dépenses, Dettes et Tous les devis (et 📋 Inventaire, qui ouvre sur « Aujourd'hui ») |

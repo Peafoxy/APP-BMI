@@ -14,7 +14,7 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, 
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement, envoiAttestationDisponible } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, FormulaireRepliable, IconeWhatsApp, champRecherche } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, FormulaireRepliable, IconeWhatsApp, champRecherche, BoutonEnvoi } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
@@ -1640,7 +1640,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
           </div>
         )}
         <div className="mt-3 flex items-center gap-3 flex-wrap">
-          <button onClick={creer} className={btnDark}>Créer</button>
+          <BoutonEnvoi onClick={creer} className={btnDark}>Créer</BoutonEnvoi>
           {msg && <span className="text-sm font-semibold text-slate-700">{msg}</span>}
         </div>
         </FormulaireRepliable>
@@ -1837,7 +1837,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
                           utilisateur… ça ouvre toujours le WhatsApp sur
                           l'ordinateur »), comme dans 📋 Clients. Sur un EMPLOYÉ,
                           une conversation vide s'ouvre, comme avant. */}
-                      <button onClick={() => (u.role === "client" ? envoyerFidelite(u) : envoyerWhatsApp(telDigits(u.tel), ""))} title={u.role === "client" ? `Envoyer le mot de fidélité à ${u.nom} du numéro BMI` : `Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></button>
+                      <BoutonEnvoi libelleEnvoi="⏳" onClick={() => (u.role === "client" ? envoyerFidelite(u) : envoyerWhatsApp(telDigits(u.tel), ""))} title={u.role === "client" ? `Envoyer le mot de fidélité à ${u.nom} du numéro BMI` : `Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></BoutonEnvoi>
                     </div>
                   )}
                 </td>

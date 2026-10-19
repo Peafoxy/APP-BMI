@@ -12,7 +12,7 @@ import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, de
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, libellePayeAvecDe, libellePayeAvecDeDansPhrase, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, boutonAction, PastillePaiement, TexteDepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, boutonAction, PastillePaiement, TexteDepliable, BoutonEnvoi } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
@@ -633,7 +633,7 @@ export function Depenses({ db, save, profile, cible = null }) {
           {loyerARemettre && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600" data-loyer-a-remettre>
               {/* « b » (14/10/2026) : une fois prévenu, le même geste s'appelle « Le rappeler ». */}
-              <button onClick={prevenirProprietaire} className="rounded-lg border border-green-600 px-3 py-1.5 text-sm font-semibold text-green-800 bg-green-50" data-prevenir-proprietaire>{dejaPrevenu ? "📲 Le rappeler" : "📲 Prévenir le propriétaire"}</button>
+              <BoutonEnvoi onClick={prevenirProprietaire} className="rounded-lg border border-green-600 px-3 py-1.5 text-sm font-semibold text-green-800 bg-green-50" data-prevenir-proprietaire>{dejaPrevenu ? "📲 Le rappeler" : "📲 Prévenir le propriétaire"}</BoutonEnvoi>
               <button onClick={remettreAuProprietaire} className="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-semibold text-slate-700 bg-white" data-loyer-remis-bouton>✅ Remis au propriétaire</button>
               <span>de venir chercher {fmt(loyerARemettre.montant)} ({libellePeriodeLoyer(moisDeLaDepense(loyerARemettre))}, payé en espèces le {dFR(loyerARemettre.date)})</span>
               {dejaPrevenu && <span className="text-green-700 font-semibold" data-proprietaire-prevenu>· 📲 prévenu le {dFR(dejaPrevenu.date)}{dejaPrevenu.de_nom ? ` par ${dejaPrevenu.de_nom}` : ""}</span>}

@@ -11,7 +11,7 @@ import { correspond } from "../lib/suggestions";
 // (Timo, 15/09/2026). Cet écran avait sa propre copie.
 import { clientsConnus, clientsFideles, SEUILS_FIDELES } from "../lib/clientsConnus";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonEnvoi } from "../components/ui";
 import { FicheClient } from "../components/FicheClient";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -163,7 +163,7 @@ export function CreerClient({ db, save, profile }) {
           </label>
         </div>
 
-        <button onClick={creer} className="px-5 py-2 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800">🙋 Créer + envoyer</button>
+        <BoutonEnvoi onClick={creer} className="px-5 py-2 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800">🙋 Créer + envoyer</BoutonEnvoi>
 
         {f.nom.trim() && chiffresTel(f.tel).length >= 4 && (
           <div className="mt-2 rounded-lg bg-green-50 border border-green-200 p-2 text-xs">
@@ -188,7 +188,7 @@ export function CreerClient({ db, save, profile }) {
             {mesClients.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
                 <span className="font-semibold">{c.nom_base || c.nom}{c.tel ? <span className="text-slate-400 font-normal"> · {c.tel}</span> : null}</span>
-                <button onClick={() => renvoyer(c)} className="text-xs font-bold text-green-700 underline">↻ Renvoyer ses accès</button>
+                <BoutonEnvoi onClick={() => renvoyer(c)} className="text-xs font-bold text-green-700 underline">↻ Renvoyer ses accès</BoutonEnvoi>
               </div>
             ))}
           </div>
@@ -301,7 +301,7 @@ export function Clients({ db, save, profile }) {
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(c.totalAchats)}</td>
                 <td className={`px-3 py-2 tabular-nums font-bold ${c.dette > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(c.dette)}</td>
                 <td className="px-3 py-2">{dFR(c.derniere)}</td>
-                <td className="px-3 py-2">{c.tel && <button onClick={(e) => { e.stopPropagation(); contacter(c); }} className="text-xs font-bold text-green-700 underline">WhatsApp</button>}</td>
+                <td className="px-3 py-2">{c.tel && <BoutonEnvoi onClick={(e) => { e.stopPropagation(); return contacter(c); }} className="text-xs font-bold text-green-700 underline">WhatsApp</BoutonEnvoi>}</td>
               </tr>
               {ouverte && <tr><td colSpan={7} className="p-0"><FicheClient db={db} profile={profile} cible={{ nom: c.nom, tel: c.tel }} /></td></tr>}
               </React.Fragment>

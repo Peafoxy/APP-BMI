@@ -18,7 +18,7 @@ import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
 import { rendezVousVisibles, visitesDuProspect, libelleStatut } from "../lib/rendezVous";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -498,7 +498,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                   <CarteChoixPosition lat={f.lat} lng={f.lng} onChoisir={(lat, lng) => setF((prev) => ({ ...prev, lat, lng }))} />
                 </div>
               )}
-              <button onClick={ajouter} className={`mt-4 ${btnDark}`}>➕ Enregistrer le prospect</button>
+              <BoutonEnvoi onClick={ajouter} className={`mt-4 ${btnDark}`} libelleEnvoi="⏳ Enregistrement et envoi…">➕ Enregistrer le prospect</BoutonEnvoi>
             </>
           )}
           </FormulaireRepliable>
@@ -594,7 +594,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                   <CelluleActions largeur="min-w-[150px] max-w-[230px]">
                     {!isAdmin && <BoutonRond icone="📆" titre="Changer la date de relance" onClick={() => modifierRelance(p)} />}
                     {enRetard && p.tel && sien && (
-                      <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="orange" titre="📱 Relancer par WhatsApp" onClick={() => relancerWhatsApp(p)} />
+                      <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="orange" titre="📱 Relancer par WhatsApp" envoi onClick={() => relancerWhatsApp(p)} />
                     )}
                     {!p.archive && !p.converti && sien && (
                       <BoutonRond icone="🎯" titre="🎯 Projet" onClick={() => changerProjet(p)} />
@@ -615,7 +615,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                       <BoutonRond icone="📞" titre={`📞 Contacté — dernière activité : ${dFR(derniereActivite(p))}`} onClick={() => contacte(p)} />
                     )}
                     {!p.archive && !p.converti && sien && (
-                      <BoutonRond icone="✅" teinte="vert" titre="✅ Convertir en client" onClick={() => convertirEnClient(p)} />
+                      <BoutonRond icone="✅" teinte="vert" titre="✅ Convertir en client" envoi onClick={() => convertirEnClient(p)} />
                     )}
                     {p.archive
                       ? sien && <BoutonRond icone="↩" teinte="vert" titre="↩ Réactiver" onClick={() => reactiver(p)} />

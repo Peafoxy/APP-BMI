@@ -7,15 +7,16 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, dFR, heureCourte, nouveauMessage } from "../../lib/core";
-import { uAlert, uConfirm, uPrompt, uChoix, inputCls } from "../../components/ui";
+import { uAlert, uConfirm, uPrompt, uChoix, inputCls, BoutonEnvoi, LIBELLE_ENVOI_EN_COURS } from "../../components/ui";
 import { bloquerSiLecture, estAdminPrincipal, refuserSaufAdminPrincipal, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { LIBELLE_ROLE_EMPLOYE } from "../../lib/comptesClients";
 import { brouillonsAvecApporteur, fixerTauxBrouillon } from "../../lib/apporteurDevis";
 import { brouillonsDe, retirerBrouillon, nomDuBrouillon, brouillonSansClient, destinatairesBrouillon, confierBrouillon, devisRemplace, auteursDesBrouillons, critiqueBrouillonAutrui, avisBrouillonEnvoye, avisBrouillonSupprime } from "./devisCommun";
-import { resoudreClientDevis, envoyerDevisEtOuvrirWhatsApp } from "./Partages";
+import { resoudreClientDevis, envoyerDevisEtOuvrirWhatsApp, useEtapeEnvoiDevis } from "./Partages";
 import { messageDevisEnvoye } from "../../lib/whatsappModeles";
 
 export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtreInitial = "" /* pour le banc seul */ }) {
+  const etapeEnvoi = useEtapeEnvoiDevis(); // ⏳ 18/10/2026 : l'étape de l'envoi, sur le bouton
   const moi = (db.users || []).find((u) => u.id === profile.id) || profile;
   // 👥 LES BROUILLONS DES AUTRES (Timo, 12/10/2026, « A a, B b, C a ») :
   // « MES BROUILLONS » d'office ; la liste « Utilisateur » (administrateur :
@@ -211,7 +212,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtre
                 {b.remplace && <div className="text-xs text-amber-800" data-brouillon-remplace>✏️ Correction du devis{b.remplace.date ? ` du ${dFR(b.remplace.date)}` : ""} déjà envoyé : l'envoi le remplacera chez le client.</div>}
               </div>
               <button onClick={() => { if (!refus("reprendre")) onReprendre(b, titulaire); }} className="px-3 py-1 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900">✏️ Reprendre</button>
-              <button onClick={() => envoyer(b)} data-envoyer-brouillon className="px-3 py-1 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">{autre ? `📲 Envoyer pour ${titulaire.nom}` : "📲 Envoyer par WhatsApp"}</button>
+              <BoutonEnvoi onClick={() => envoyer(b)} data-envoyer-brouillon libelleEnvoi={() => etapeEnvoi || LIBELLE_ENVOI_EN_COURS} className="px-3 py-1 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700">{autre ? `📲 Envoyer pour ${titulaire.nom}` : "📲 Envoyer par WhatsApp"}</BoutonEnvoi>
               {!autre && <button onClick={() => confier(b)} data-confier-brouillon className="px-3 py-1 rounded-lg border border-sky-300 text-sky-800 text-xs font-bold hover:bg-sky-50">➡ Confier à…</button>}
               {(!autre || profile.role === "admin") && <button onClick={() => supprimer(b)} data-supprimer-brouillon className="px-3 py-1 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Supprimer</button>}
             </div>

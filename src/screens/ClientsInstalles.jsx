@@ -19,7 +19,7 @@ import { changementsAffectation } from "../lib/affectationChantier";
 import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
-import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, BoutonEnvoi } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { estPrimeChantier, primesDuChantier, totalPrimesChantier } from "../lib/primeChantier";
@@ -1028,7 +1028,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
           <div className="block">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">🔑 Compte client (réception)</span>
-              <button type="button" onClick={creerCompteClient} className="text-[10px] font-bold text-white bg-green-700 rounded px-2 py-0.5 hover:bg-green-800 shrink-0">+ Créer</button>
+              <BoutonEnvoi onClick={creerCompteClient} className="text-[10px] font-bold text-white bg-green-700 rounded px-2 py-0.5 hover:bg-green-800 shrink-0" libelleEnvoi="⏳">+ Créer</BoutonEnvoi>
             </div>
             <div className="mt-1">
               <select className={inputCls} value={f.user_id} onChange={(e) => {
@@ -1583,19 +1583,19 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                       )
                     )}
                     {peutTerminer(c, profile, isAdmin) && (
-                      <BoutonRond icone="🏁" teinte="ambre" onClick={() => marquerTermine(c)} titre="🏁 Marquer terminé" />
+                      <BoutonRond icone="🏁" teinte="ambre" envoi onClick={() => marquerTermine(c)} titre="🏁 Marquer terminé" />
                     )}
                     {statutChantier(c) === "termine" && isAdmin && c.contrat_statut !== "attente_signature" && (
-                      <BoutonRond icone="📤" onClick={() => envoyerPourSignature(c)} titre="📤 Envoyer pour signature" />
+                      <BoutonRond icone="📤" envoi onClick={() => envoyerPourSignature(c)} titre="📤 Envoyer pour signature" />
                     )}
                     {statutChantier(c) === "termine" && c.contrat_statut === "attente_signature" && isAdmin && (
-                      <BoutonRond icone="📤" onClick={() => envoyerPourSignature(c)} titre="📤 En attente de signature — renvoyer le lien" />
+                      <BoutonRond icone="📤" envoi onClick={() => envoyerPourSignature(c)} titre="📤 En attente de signature — renvoyer le lien" />
                     )}
                     {statutChantier(c) === "termine" && isAdmin && (
                       <BoutonRond icone="⚠" teinte="rouge" onClick={() => forcerReceptionSansSignature(c)} titre="⚠ Forcer sans signature — cas exceptionnel, aucun PV n'existera" />
                     )}
                     {statutChantier(c) === "reserves" && isAdmin && c.avenant_statut !== "attente_signature" && (
-                      <BoutonRond icone="📤" teinte="rouge" onClick={() => envoyerAvenant(c)} titre="📤 Envoyer l'avenant (réserves corrigées)" />
+                      <BoutonRond icone="📤" teinte="rouge" envoi onClick={() => envoyerAvenant(c)} titre="📤 Envoyer l'avenant (réserves corrigées)" />
                     )}
                     {(c.contrat_statut === "signe" || c.avenant_statut === "signe" || c.contrat_force_par) && (
                       <BoutonRond icone="📄" teinte="gris" onClick={() => imprimerPV(c, db)} titre="📄 Voir le PV" />

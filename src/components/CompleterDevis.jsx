@@ -12,7 +12,7 @@
 // ============================================================
 import { useState } from "react";
 import { ChampSuggestions } from "./ChampSuggestions";
-import { Field, inputCls } from "./ui";
+import { Field, inputCls, BoutonEnvoi } from "./ui";
 import { fmt } from "../lib/core";
 import { lignesCfVisite } from "../lib/devisCfVisite";
 import { completerDevis, lierAutreAuStock } from "../screens/dimensionnement/devisCommun";
@@ -92,10 +92,10 @@ export function CompleterDevis({ devis, produits = [], onAnnuler, onEnregistrer 
             <b>📎 Joindre le PDF du devis</b>
           </label>
           <button onClick={onAnnuler} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold">Annuler</button>
-          <button onClick={() => onEnregistrer({ reponses, ajouts, avecPdf })} disabled={!apercu.devis}
+          <BoutonEnvoi onClick={() => onEnregistrer({ reponses, ajouts, avecPdf })} disabled={!apercu.devis}
             className={`px-4 py-2 rounded-lg text-sm font-bold ${apercu.devis ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
             ✍️ Enregistrer et envoyer au client
-          </button>
+          </BoutonEnvoi>
         </div>
       </div>
     </div>

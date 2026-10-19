@@ -5732,7 +5732,7 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     && /texteRepli: texte,/.test(tld) && /demanderConfirmation: uConfirm,/.test(tld) && !/wa\.me/.test(tld)
     && /relance_le: today\(\), relance_par: profile\.nom, nb_relances: \(x\.nb_relances \|\| 0\) \+ 1/.test(tld)
     // RETOURNÉ le 15/10/2026 : ni bouton ni geste pour un devis imprimé sans compte.
-    && /\{devisRelancable\(d\) && !estSansAcces\(d\.client\) && \(\s*<BoutonRond icone=\{<IconeWhatsApp taille=\{16\} \/>\} teinte="vert" onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld)
+    && /\{devisRelancable\(d\) && !estSansAcces\(d\.client\) && \(\s*<BoutonRond icone=\{<IconeWhatsApp taille=\{16\} \/>\} teinte="vert" envoi onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld) /* RETOURNÉ le 18/10/2026 : le bouton se grise pendant l'envoi (`envoi`) */
     && /if \(estSansAcces\(d\.client\)\) \{ uAlert\(RELANCE_SANS_ACCES\); return; \}\n    const texte = texteRelanceDevis/.test(tld));
   test("★ rien n'est noté si le client n'a rien reçu (ni du numéro BMI, ni par WhatsApp) ; un client sans téléphone est refusé avec son motif",
     /if \(!r\.parti\) return;/.test(tld) && /if \(!d\.client\?\.tel\) \{ uAlert\("Ce client n'a pas de numéro de téléphone enregistré\."\); return; \}/.test(tld));
@@ -6812,7 +6812,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
     // 13/09/2026 : la surbrillance est écrite UNE fois (classeLigneDepliable, ui.jsx) — Ventes et Dettes y passent.
     && /classeLigneDepliable\(venteDepliee === v\.id, i, ventesGrisees\.has\(v\.id\) \? FOND_GRISE : ""\)/.test(vs) /* RETOURNÉ 10/10/2026 : le fond gris d'une vente versée et validée */ && /export const classeLigneDepliable = \(deplie, i, fondSinon = ""\) => deplie \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
-    && /aria-label="WhatsApp"><IconeWhatsApp \/><\/button>/.test(vs) && !/aria-label="WhatsApp">💬/.test(vs)
+    && /aria-label="WhatsApp"><IconeWhatsApp \/><\/BoutonEnvoi>/.test(vs) /* RETOURNÉ le 18/10/2026 : BoutonEnvoi, gris pendant l'envoi */ && !/aria-label="WhatsApp">💬/.test(vs)
     && /export const IconeWhatsApp = \(\{ taille = 18 \}\) =>/.test(readFileSync("src/components/ui.jsx", "utf8")) && /fill="#25D366"/.test(readFileSync("src/components/ui.jsx", "utf8")));
   // Timo (13/09/2026, capture de 📋 Dettes) : « appliquer la même règle que
   // dans Ventes pour restructurer les dettes ». Les briques sont écrites UNE
@@ -6845,7 +6845,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
       && /<ListeArticles lignes=\{lignes\} deplie=\{detteDepliee === d\.id\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
       && (dj.match(/tabular-nums text-right whitespace-nowrap/g) || []).length === 3 && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(dj)
-      && /aria-label="Imprimer le reçu">🖨<\/button>/.test(dj) && /\{st !== "Payée" && \(/.test(dj) && /onClick=\{\(\) => encaisser\(d\)\}[^\n]*aria-label="Paiement">💵<\/button>/.test(dj) && /onClick=\{\(\) => relancer\(d\)\}[^\n]*aria-label="Relancer"><IconeWhatsApp \/><\/button>/.test(dj)
+      && /aria-label="Imprimer le reçu">🖨<\/button>/.test(dj) && /\{st !== "Payée" && \(/.test(dj) && /onClick=\{\(\) => encaisser\(d\)\}[^\n]*aria-label="Paiement">💵<\/button>/.test(dj) && /onClick=\{\(\) => relancer\(d\)\}[^\n]*aria-label="Relancer"><IconeWhatsApp \/><\/BoutonEnvoi>/.test(dj) /* RETOURNÉ le 18/10/2026 : BoutonEnvoi */
       && /\{profile\.role === "admin" && \(\n\s*<button onClick=\{\(\) => supprimerDette\(d\)\}[^\n]*aria-label="Supprimer">🗑<\/button>/.test(dj) && !/underline mr-2">🖨 Reçu/.test(dj));
   }
   const s13 = readFileSync("supabase/securite-13-reprise.sql", "utf8");
@@ -13737,7 +13737,7 @@ titre("🗂 La fiche d'un client dans 📋 Clients : tout son historique, toutes
   const fc = readFileSync("src/components/FicheClient.jsx", "utf8");
   test("★★ 📋 Clients : un clic sur la ligne ouvre la fiche dessous, un second la referme (une seule à la fois) ; le lien WhatsApp ne l'ouvre pas",
     /setFicheOuverte\(\(o\) => \(o === c\.cle \? null : c\.cle\)\)/.test(cl)
-    && /onClick=\{\(e\) => \{ e\.stopPropagation\(\); contacter\(c\); \}\}/.test(cl)
+    && /onClick=\{\(e\) => \{ e\.stopPropagation\(\); return contacter\(c\); \}\}/.test(cl) /* RETOURNÉ le 18/10/2026 : la promesse est rendue (le bouton reste gris pendant l'envoi) */
     && /\{ouverte && <tr><td colSpan=\{7\}[^]*<FicheClient db=\{db\} profile=\{profile\}/.test(cl));
   test("★ « Client non renseigné » ne s'ouvre pas : ce n'est pas un client",
     /const ouvrable = !sansIdentite\(c\)/.test(cl) && /onClick=\{ouvrable \?/.test(cl));
@@ -14975,7 +14975,7 @@ titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dett
     && execSync("grep -rl 'function PastillePaiement' src || true").toString().trim() === "src/components/ui.jsx"
     && execSync("grep -rl 'function TexteDepliable' src || true").toString().trim() === "src/components/ui.jsx"
     // RETOURNÉ le 15/10/2026 (« Tous, lance ») : 💰 Ventes importe aussi le bouton rond et sa cellule.
-    && /\bPastillePaiement\b[^}]*\} from "\.\.\/components\/ui";/.test(vsP) && /PastillePaiement, TexteDepliable \} from "\.\.\/components\/ui";/.test(dpP));
+    && /\bPastillePaiement\b[^}]*\} from "\.\.\/components\/ui";/.test(vsP) && /PastillePaiement, TexteDepliable, BoutonEnvoi \} from "\.\.\/components\/ui";/.test(dpP) /* RETOURNÉ le 18/10/2026 : + BoutonEnvoi */);
   test("★ 📤 Dépenses : la ligne se déplie au clic (UNE à la fois, classeLigneDepliable), les boutons ✏️ / 🗑 sont ronds (boutonAction) dans une cellule qui ne déplie pas",
     /const \[depliee, setDepliee\] = useState\(deplieeInitiale\);/.test(dpP) && /onClick=\{\(\) => setDepliee\(\(d\) => \(d === x\.id \? null : x\.id\)\)\}/.test(dpP)
     && /classeLigneDepliable\(ouverte, i, fond\)/.test(dpP) && /<td className="px-3 py-2 whitespace-nowrap" onClick=\{\(e\) => e\.stopPropagation\(\)\}>/.test(dpP)
@@ -15048,7 +15048,7 @@ titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, 
   const ui = readFileSync("src/components/ui.jsx", "utf8");
   const ecrans = ["Prospects", "TousLesDevis", "ClientsInstalles", "Commandes", "Stocks", "Fournisseurs", "Salaires", "Travaux", "Commerciaux", "MonEquipe", "Ventes", "Dettes"];
   test("★ le bouton rond et la cellule des gestes sont écrits UNE fois (ui.jsx) : l'icône seule, le libellé au survol ET pour les lecteurs d'écran, une cellule qui ne déplie pas la ligne",
-    /export function BoutonRond\(\{ icone, titre, teinte = "bleu", onClick, \.\.\.autres \}\)/.test(ui) && /title=\{titre\} aria-label=\{titre\}/.test(ui)
+    /export function BoutonRond\(\{ icone, titre, teinte = "bleu", onClick, envoi = false, \.\.\.autres \}\)/.test(ui) && /const leTitre = occupe \? LIBELLE_ENVOI_EN_COURS : titre;/.test(ui) && /title=\{leTitre\} aria-label=\{leTitre\}/.test(ui) /* RETOURNÉ le 18/10/2026 : `envoi` le grise pendant l'envoi, le titre dit « Envoi en cours… » */
     && /export function CelluleActions\(/.test(ui) && /data-cellule-actions[^>]*onClick=\{\(e\) => e\.stopPropagation\(\)\}/.test(ui)
     && execSync("grep -rl 'function BoutonRond' src || true").toString().trim() === "src/components/ui.jsx");
   // Le contrôle GÉNÉRAL : dans les tableaux de ces écrans, plus aucun geste écrit

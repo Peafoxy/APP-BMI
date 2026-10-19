@@ -22,7 +22,7 @@ import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, a
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, CelluleActions } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, BoutonEnvoi, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
@@ -1861,7 +1861,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               <button onClick={encaisserVente} className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800 shadow-sm">💳 Encaisser la vente</button>
               )}
               {!enAchatChantier && <>
-              <button onClick={proformaWhatsApp} title="Envoyer une offre de prix au client (non comptabilisée)" className="px-4 py-2.5 rounded-lg bg-white border-2 border-sky-400 text-sky-700 font-bold text-sm hover:bg-sky-50">🧾 Proforma WhatsApp</button>
+              <BoutonEnvoi onClick={proformaWhatsApp} title="Envoyer une offre de prix au client (non comptabilisée)" className="px-4 py-2.5 rounded-lg bg-white border-2 border-sky-400 text-sky-700 font-bold text-sm hover:bg-sky-50">🧾 Proforma WhatsApp</BoutonEnvoi>
               <button onClick={proformaPDF} title="Imprimer une offre de prix (non comptabilisée)" className="px-3 py-2.5 rounded-lg bg-white border-2 border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50">🖨️</button>
               </>}
               <span className="text-base font-bold tabular-nums">Total{fraisInstallDevis > 0 || fraisTransportDevis > 0 ? " articles" : ""} : {fmt(enAchatChantier ? totalPanierAchat : total)}{remise > 0 && <span className="text-red-600 text-sm font-semibold"> (remise −{fmt(remise)})</span>}</span>
@@ -2095,7 +2095,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-1">
                     <button onClick={() => imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title={estVenteACredit(v) ? "Imprimer le reçu de la dette (reçu de dette, de versement ou définitif)" : "Imprimer le reçu"} aria-label="Imprimer le reçu">🖨</button>
-                    <button onClick={() => envoyerRecuLigne(v)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp (du numéro BMI)" aria-label="WhatsApp"><IconeWhatsApp /></button>
+                    <BoutonEnvoi libelleEnvoi="⏳" onClick={() => envoyerRecuLigne(v)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp (du numéro BMI)" aria-label="WhatsApp"><IconeWhatsApp /></BoutonEnvoi>
                     {(() => {
                       // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
                       // et où il en est (lib/suiviEnvoi.js, 26/09/2026).

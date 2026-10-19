@@ -8,7 +8,7 @@ import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { useState, Fragment } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette, statutDette, FILTRES_STATUT_DETTE, detteDansFiltre } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable, BoutonRond, CelluleActions } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable, BoutonRond, BoutonEnvoi, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
 import { avecInfoTravaux } from "../lib/travaux";
@@ -587,7 +587,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
                       {st !== "Payée" && (
                         <>
                           <button onClick={() => encaisser(d)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="+ Paiement : enregistrer un versement du client" aria-label="Paiement">💵</button>
-                          <button onClick={() => relancer(d)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Relancer le client par WhatsApp" aria-label="Relancer"><IconeWhatsApp /></button>
+                          <BoutonEnvoi libelleEnvoi="⏳" onClick={() => relancer(d)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Relancer le client par WhatsApp" aria-label="Relancer"><IconeWhatsApp /></BoutonEnvoi>
                         </>
                       )}
                       {profile.role === "admin" && (

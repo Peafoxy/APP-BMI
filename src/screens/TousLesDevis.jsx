@@ -760,7 +760,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                         titre={`💰 Encaisser — ouvre 💰 Ventes avec ce devis (commande à ${commandeAEncaisser(db, d).boutique})`} />
                     )}
                     {devisRelancable(d) && !estSansAcces(d.client) && (
-                      <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="vert" onClick={() => relancerDevis(d)}
+                      <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="vert" envoi onClick={() => relancerDevis(d)}
                         titre={`📲 Relancer sur WhatsApp${d.relance_le ? ` (déjà le ${dFR(d.relance_le)}${d.nb_relances > 1 ? `, ${d.nb_relances} fois` : ""})` : ""} — ${(d.statut || "propose") === "valide" ? "rappeler au client qu'il reste à régler" : "rappeler le devis au client"}`} />
                     )}
                     {peutModifierDevis(d, profile) && onModifierDevis && (

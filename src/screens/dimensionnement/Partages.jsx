@@ -39,7 +39,7 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
   }, [volet, profile.id, texte]);
 }
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
-import { Field, inputCls, uAlert, uConfirm, uPrompt, ChampQuiGrandit } from "../../components/ui";
+import { Field, inputCls, uAlert, uConfirm, uPrompt, ChampQuiGrandit, BoutonEnvoi, LIBELLE_ENVOI_EN_COURS } from "../../components/ui";
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, refuserSaufAdmin, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
@@ -773,6 +773,7 @@ export function BlocEtabliPour({ etabliPour }) {
 }
 
 export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients, onEnvoyer, onBrouillon, onImprimer = null, profile, etabliPour = null, avecPdf = false, setAvecPdf = null }) {
+  const etapeEnvoi = useEtapeEnvoiDevis();
   // ⚠ La signature était exigée tout à la FIN, après avoir tout rempli et
   // cliqué (relevé par Timo, 18/08/2026). On prévient maintenant AVANT.
   const sansSignature = profile && !profile.signature_personnelle;
@@ -887,9 +888,10 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button onClick={onEnvoyer} disabled={!clientDevis} className={`px-5 py-2 rounded-lg font-bold text-sm ${clientDevis ? "bg-green-600 text-white hover:bg-green-700" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
+        <BoutonEnvoi onClick={onEnvoyer} disabled={!clientDevis} data-envoyer-devis libelleEnvoi={() => etapeEnvoi || LIBELLE_ENVOI_EN_COURS}
+          className={`px-5 py-2 rounded-lg font-bold text-sm ${clientDevis ? "bg-green-600 text-white hover:bg-green-700" : "bg-slate-300 text-slate-500 cursor-not-allowed"}`}>
           📲 Envoyer par WhatsApp
-        </button>
+        </BoutonEnvoi>
         {/* 📝 Brouillon (demande Timo, 08/09/2026) : rien ne part. Depuis le
             05/10/2026, TOUJOURS possible — sans client, une question et un nom. */}
         {onBrouillon && (
@@ -1113,7 +1115,23 @@ export function rangerDevisChezLeClient({ dbApres, compte, devis, profile, idARe
   return { dbFinal, devisMarque, auteurFinal, idDevis: idAReprendre || devisMarque.id };
 }
 
+// ⏳ L'ÉTAPE DE L'ENVOI D'UN DEVIS, DITE SUR SON BOUTON (18/10/2026, « les
+// deux, lance ») : un devis part en un à trois messages (ses accès, le PDF,
+// le devis) — plusieurs secondes. Le bouton « 📲 Envoyer par WhatsApp » est
+// gris pendant tout l'envoi et dit l'étape en cours. Un seul devis part à la
+// fois sur un appareil : une étape commune suffit.
+export const ETAPES_ENVOI_DEVIS = { acces: "⏳ Envoi des accès…", pdf: "⏳ Envoi du PDF…", devis: "⏳ Envoi du devis…" };
+const abonnesEtape = new Set();
+let etapeEnvoiDevis = "";
+export function poserEtapeEnvoi(t) { etapeEnvoiDevis = t || ""; abonnesEtape.forEach((f) => f(etapeEnvoiDevis)); }
+export function useEtapeEnvoiDevis() {
+  const [e, setE] = useState(etapeEnvoiDevis);
+  useEffect(() => { abonnesEtape.add(setE); return () => { abonnesEtape.delete(setE); }; }, []);
+  return e;
+}
+
 export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse, devis, save, profile, nouvClient, ligneEntete, idAReprendre, avecPdf = false }) {
+  try {
   const range = rangerDevisChezLeClient({ dbApres, compte, devis, profile, idAReprendre });
   if (!range) return false;
   const { dbFinal, devisMarque, auteurFinal } = range;
@@ -1164,6 +1182,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   let motifAcces = "";
   if (!accesPartis && motDePasse && compte.nom) {
     // 14/10/2026 : `espace_portail` d'abord, `espace` en relais (décision « a »).
+    poserEtapeEnvoi(ETAPES_ENVOI_DEVIS.acces);
     const rAcces = await envoyerAccesSansRepli({
       nomAffiche: compte.nom_base || compte.nom, identifiant: compte.nom, motDePasse,
       tel: telClient, espaceFormation,
@@ -1176,10 +1195,12 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // repli. S'il ne part pas (modèle pas encore approuvé, PDF refusé…), le
   // devis part par `devis_disponible` comme avant, et la phrase le dit (« B a »).
   // Jamais avant ses accès, jamais en formation : la même règle que le devis.
+  if (avecPdf && accesPartis && !espaceFormation) poserEtapeEnvoi(ETAPES_ENVOI_DEVIS.pdf);
   const pdf = avecPdf && accesPartis && !espaceFormation
     ? await envoyerPdfDuDevis({ db: dbFinal, compte, idDevis, devisMarque, tel: telClient, espaceFormation })
     : { r: null, motif: "" };
   const envoi = envoiDevisDisponible({ devis: devisMarque, compte, fmt, avecPdf: !!pdf.r });
+  if (!pdf.r) poserEtapeEnvoi(ETAPES_ENVOI_DEVIS.devis);
   const r = pdf.r || await envoyerModele({
     tel: telClient,
     modele: envoi.modele,
@@ -1222,6 +1243,7 @@ export async function envoyerDevisEtOuvrirWhatsApp({ dbApres, compte, motDePasse
   // reçu le message du numéro BMI). Un objet reste « vrai » pour les deux
   // appelants, qui testent simplement `if (envoye)`.
   return { ok: true, auto: !!r.auto, pdfDemande: !!avecPdf, pdf: !!pdf.r, motifPdf: pdf.motif, pdfIncertain: !!pdf.incertain };
+  } finally { poserEtapeEnvoi(""); }
 }
 
 // 📎 Le devis AVEC SON PDF, du numéro BMI (17/10/2026) — écrit UNE fois pour

@@ -24,7 +24,7 @@ import { useCible } from "../components/cibleEcran";
 import React, { useState, useEffect, useRef } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { dFR, today, nouveauMessage } from "../lib/core";
-import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong } from "../components/ui";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong, LIBELLE_ENVOI_EN_COURS } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
@@ -85,6 +85,9 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
   const [cleOuverte, setCleOuverte] = useState(cleInitiale);
   const [texte, setTexte] = useState("");
   const [envoi, setEnvoi] = useState(false);
+  // ⏳ 18/10/2026 : le verrou posé dans le même instant que l'appui (un état
+  // React seul laisse passer deux appuis rapprochés, ou Entrée + clic).
+  const verrouEnvoi = useRef(false);
   const [contact, setContact] = useState(null);
   const [recherche, setRecherche] = useState(rechercheInitiale);
   // 📎 Le fichier choisi (03/10/2026), déjà préparé : il part avec la phrase
@@ -267,12 +270,14 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
 
   const envoyer = async () => {
     const t = texte.trim();
-    if ((!t && !fichier) || !ouverte || envoi) return;
+    if ((!t && !fichier) || !ouverte || envoi || verrouEnvoi.current) return;
     const refus = critiqueReponse({ profile, conv: ouverte, texte: t, fichier, enLigne: navigator.onLine !== false, espaceFormation: regardeFormation });
     if (refus) { uAlert(refus); return; }
+    verrouEnvoi.current = true;
     setEnvoi(true);
-    const r = await repondreWhatsApp({ tel: ouverte.tel, texte: t, fichier });
-    setEnvoi(false);
+    let r;
+    try { r = await repondreWhatsApp({ tel: ouverte.tel, texte: t, fichier }); }
+    finally { verrouEnvoi.current = false; setEnvoi(false); }
     if (!r.parti) { uAlert(r.motif || "Le message n'est pas parti."); return; }
     // ⚠ La ligne garde le NOM du fichier, jamais le fichier (décision du
     // 20/09/2026 : on ne range pas de fichiers dans la base).
@@ -315,7 +320,11 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     const sujet = String(contact?.sujet || "").trim();
     if (!tel) { uAlert("Dites à quel numéro écrire."); return; }
     if (!sujet) { uAlert("Dites de quoi il s'agit : c'est ce que le client lira après « concernant »."); return; }
-    if (contact.envoi) return;
+    if (contact.envoi || verrouEnvoi.current) return;
+    verrouEnvoi.current = true;
+    try { await envoyerContactVerrouille(nom, tel, sujet); } finally { verrouEnvoi.current = false; }
+  };
+  const envoyerContactVerrouille = async (nom, tel, sujet) => {
     const client = comptesEspace.find((u) => u.role === "client" && cleConversation(u.tel) === cleConversation(tel));
     const message = texteContact({ client: nom || client?.nom, auteur: profile.nom, sujet });
     if (!(await uConfirm(`Envoyer ce message du numéro BMI à ${nom || tel} ?\n\n${message}`))) return;
@@ -592,7 +601,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
             </div>
             <button onClick={envoyerContact} disabled={contact.envoi || !contact.tel.trim() || !contact.sujet.trim()}
               className="w-full px-4 py-2 rounded-full bg-[#008069] text-white font-bold text-sm hover:bg-[#006e5a] disabled:opacity-50">
-              {contact.envoi ? "Envoi…" : "Envoyer du numéro BMI"}
+              {contact.envoi ? LIBELLE_ENVOI_EN_COURS : "Envoyer du numéro BMI"}
             </button>
             <div className="text-[11px] text-slate-500">
               Le client pourra répondre ici. Tant qu'il n'a pas répondu, WhatsApp n'accepte pas d'autre message libre.
@@ -767,7 +776,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
                     className="w-10 h-10 shrink-0 rounded-full text-xl leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-50">{prepare ? "…" : "📎"}</button>
                   <input className={`${inputCls} rounded-full bg-white border-transparent`} placeholder={fichier ? "Phrase facultative pour accompagner le fichier…" : "Votre réponse, envoyée du numéro BMI..."} value={texte} onChange={(e) => setTexte(e.target.value)} onKeyDown={(e) => e.key === "Enter" && envoyer()} />
                   <button onClick={envoyer} disabled={envoi || prepare} title="Envoyer" aria-label="Envoyer" data-envoyer
-                    className="w-10 h-10 shrink-0 rounded-full bg-[#008069] text-white font-bold text-lg leading-none hover:bg-[#006e5a] disabled:opacity-50">{envoi ? "…" : "➤"}</button>
+                    className="w-10 h-10 shrink-0 rounded-full bg-[#008069] text-white font-bold text-lg leading-none hover:bg-[#006e5a] disabled:opacity-50">{envoi ? "⏳" : "➤"}</button>
                 </div>
               </div>
             )}

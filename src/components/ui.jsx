@@ -266,8 +266,59 @@ const TEINTES_ROND = {
   gris: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
   rose: "border-pink-300 bg-pink-50 text-pink-700 hover:bg-pink-100",
 };
-export function BoutonRond({ icone, titre, teinte = "bleu", onClick, ...autres }) {
-  return <button type="button" {...autres} onClick={onClick} title={titre} aria-label={titre} className={boutonAction(TEINTES_ROND[teinte] || TEINTES_ROND.bleu)}>{icone}</button>;
+// ⏳ UN BOUTON QUI ENVOIE SE GRISE PENDANT L'ENVOI (18/10/2026, Timo :
+// « lorsqu'on appuie envoi WhatsApp, il faut empêcher d'appuyer encore… sinon
+// on envoie plusieurs messages simultanément » → « les deux, lance »).
+// `useEnvoiEnCours` : le verrou est un `useRef` — posé dans le MÊME instant
+// que l'appui, il arrête un second appui avant même que l'écran se redessine
+// (un état React seul laisserait passer deux appuis rapprochés). Le geste
+// doit RENDRE sa promesse (`onClick={() => relancer(d)}`, sans accolades) :
+// le bouton reste gris jusqu'à sa fin, fenêtres de question comprises.
+// Le filet de l'envoi (lib/antiDoublonEnvoi.js) protège le reste.
+export const LIBELLE_ENVOI_EN_COURS = "⏳ Envoi en cours…";
+export function useEnvoiEnCours() {
+  const [enCours, setEnCours] = useState(false);
+  const verrou = useRef(false);
+  const monte = useRef(true);
+  useEffect(() => { monte.current = true; return () => { monte.current = false; }; }, []);
+  const lancer = async (fn) => {
+    if (verrou.current) return undefined;
+    verrou.current = true;
+    setEnCours(true);
+    try {
+      return await fn();
+    } finally {
+      verrou.current = false;
+      if (monte.current) setEnCours(false);
+    }
+  };
+  return [enCours, lancer];
+}
+// Un grand bouton d'envoi : son texte devient « ⏳ Envoi en cours… » (ou
+// `libelleEnvoi`) et il ne répond plus tant que le geste n'est pas fini.
+export function BoutonEnvoi({ children, onClick, disabled, libelleEnvoi = LIBELLE_ENVOI_EN_COURS, className = "", ...autres }) {
+  const [enCours, lancer] = useEnvoiEnCours();
+  return (
+    <button type="button" {...autres} data-envoi-en-cours={enCours ? "oui" : undefined} aria-busy={enCours || undefined}
+      disabled={disabled || enCours} onClick={(e) => lancer(() => onClick && onClick(e))}
+      className={`${className}${enCours ? " opacity-60 cursor-wait" : ""}`}>
+      {enCours ? (typeof libelleEnvoi === "function" ? libelleEnvoi() : libelleEnvoi) : children}
+    </button>
+  );
+}
+export function BoutonRond({ icone, titre, teinte = "bleu", onClick, envoi = false, ...autres }) {
+  const [enCours, lancer] = useEnvoiEnCours();
+  const occupe = envoi && enCours;
+  const leTitre = occupe ? LIBELLE_ENVOI_EN_COURS : titre;
+  return (
+    <button type="button" {...autres} data-envoi-en-cours={occupe ? "oui" : undefined} aria-busy={occupe || undefined}
+      disabled={autres.disabled || occupe}
+      onClick={envoi ? (e) => lancer(() => onClick && onClick(e)) : onClick}
+      title={leTitre} aria-label={leTitre}
+      className={`${boutonAction(TEINTES_ROND[teinte] || TEINTES_ROND.bleu)}${occupe ? " opacity-60 cursor-wait" : ""}`}>
+      {occupe ? "⏳" : icone}
+    </button>
+  );
 }
 export function CelluleActions({ children, className = "", largeur = "" }) {
   return (

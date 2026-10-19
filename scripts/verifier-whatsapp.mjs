@@ -5383,5 +5383,117 @@ export const temoin = () => {
   test("★ l'envoi du numéro BMI a 60 secondes (le dépôt du PDF chez YCloud prend du temps)", /"api\/whatsapp\.js": \{ "maxDuration": 60 \}/.test(lire("vercel.json")));
 }
 
+titre("64 ⏳ UN ENVOI WHATSAPP NE PART PAS DEUX FOIS (18/10/2026, « les deux, lance » : le bouton se grise, et le filet de l'envoi)");
+{
+  // ── La règle pure
+  const AD = await import(pathToFileURL(join(process.cwd(), "src/lib/antiDoublonEnvoi.js")).href);
+  const reg = AD.creerRegistre();
+  const k = AD.cleEnvoi({ modele: "relance_devis", tel: "+228 90 11 22 33", variables: ["KOFFI", "750 000 F"] });
+  const kAutre = AD.cleEnvoi({ modele: "relance_devis", tel: "90112233", variables: ["KOFFI", "800 000 F"] });
+  const kMeme = AD.cleEnvoi({ modele: "relance_devis", tel: "00228 90112233", variables: ["KOFFI", "750 000 F"] });
+  AD.marquerEnCours(reg, k, 1000);
+  const enCours = AD.critiqueDoublon(reg, kMeme, 1500);
+  AD.marquerParti(reg, k, 2000);
+  const dans59 = AD.critiqueDoublon(reg, k, 2000 + 59000), apres60 = AD.critiqueDoublon(reg, k, 2000 + 60000);
+  test("★★★ la règle : le MÊME message (même modèle, même numéro écrit autrement, mêmes mots) est refusé pendant qu'il part, puis pendant UNE minute ; après, il repart",
+    k === kMeme && enCours === AD.MOTIF_DOUBLON_EN_COURS && dans59 === AD.MOTIF_DOUBLON_PARTI && apres60 === "" && AD.DELAI_ANTI_DOUBLON_MS === 60000);
+  test("★★ un message DIFFÉRENT (autres mots, autre modèle, autre client) part toujours",
+    AD.critiqueDoublon(reg, kAutre, 2500) === "" && AD.critiqueDoublon(reg, AD.cleEnvoi({ modele: "devis_disponible", tel: "90112233", variables: ["KOFFI", "750 000 F"] }), 2500) === ""
+    && AD.critiqueDoublon(reg, AD.cleEnvoi({ modele: "relance_devis", tel: "91112233", variables: ["KOFFI", "750 000 F"] }), 2500) === "");
+  const reg2 = AD.creerRegistre(); AD.marquerEnCours(reg2, k, 0);
+  const coince = AD.critiqueDoublon(reg2, k, AD.ATTENTE_MAX_EN_COURS_MS);
+  AD.oublierEnvoi(reg2, k);
+  test("★★ un envoi refusé ou coupé est OUBLIÉ (on réessaie tout de suite) ; un « en cours » jamais revenu ne coince plus après 2 minutes",
+    AD.critiqueDoublon(reg2, k, 10) === "" && coince === "");
+  const reg3 = AD.creerRegistre(); AD.marquerParti(reg3, k, 0); AD.marquerParti(reg3, kAutre, 50000); AD.nettoyerRegistre(reg3, 70000);
+  test("★ le registre ne grandit pas sans fin (ce qui est parti depuis plus d'une minute s'efface)", reg3.size === 1 && reg3.has(kAutre));
+  test("★★ les motifs se lisent en français et ne parlent pas de « livré » ni de « lu »",
+    /déjà de partir à ce client/.test(AD.MOTIF_DOUBLON_PARTI) && /en train de partir/.test(AD.MOTIF_DOUBLON_EN_COURS) && !/livr|\blu\b/.test(AD.MOTIF_DOUBLON_PARTI + AD.MOTIF_DOUBLON_EN_COURS));
+
+  // ── La VRAIE fonction d'envoi, le serveur joué (deux appuis en même temps)
+  const dossierF = mkdtempSync(join(tmpdir(), "bmi-doublon-"));
+  const fauxClient = join(dossierF, "fauxClient.mjs");
+  writeFileSync(fauxClient, `export async function whatsappEnLigne(c) { globalThis.__appelsFaux = (globalThis.__appelsFaux || 0) + 1; await new Promise((r) => setTimeout(r, 30)); const v = globalThis.__reponseFausse; return typeof v === "function" ? v(c) : (v || { id: "Y" + globalThis.__appelsFaux, wamid: "W" }); }`);
+  const sortieW = join(dossierF, "wa.mjs");
+  let W = null;
+  try {
+    await build({ entryPoints: ["src/whatsapp.js"], bundle: true, format: "esm", platform: "node", outfile: sortieW, logLevel: "silent",
+      plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: fauxClient })); } }] });
+    W = await import(pathToFileURL(sortieW).href);
+  } catch (e) { console.log("   (build de whatsapp.js : " + (e?.message || e) + ")"); }
+  const dits = [];
+  let ouvert = 0;
+  const appel = (vars) => W.envoyerModele({ tel: "90112233", modele: "relance_devis", variables: [...vars, "solaire", "18/10/2026"], espaceFormation: false, texteRepli: "texte", prevenir: async (m) => { dits.push(m); }, demanderConfirmation: async () => { ouvert++; return false; } });
+  let a = {}, b = {}, c = {}, d = {}, e = {}, f = {}, ouvertApresC = -1;
+  if (W) {
+    [a, b] = await Promise.all([appel(["KOFFI", "750 000 F"]), appel(["KOFFI", "750 000 F"])]);
+    c = await appel(["KOFFI", "750 000 F"]);
+    ouvertApresC = ouvert;
+    d = await appel(["KOFFI", "800 000 F"]);
+    globalThis.__reponseFausse = { error: "refusé", statut: 502 };
+    e = await appel(["AMA", "100 000 F"]);
+    globalThis.__reponseFausse = undefined;
+    f = await appel(["AMA", "100 000 F"]);
+  }
+  const appels = globalThis.__appelsFaux || 0;
+  test("★★★ DEUX APPUIS EN MÊME TEMPS : UN seul appel au serveur ; le second est refusé « en train de partir », DIT par la fenêtre de l'écran, et WhatsApp ne s'ouvre PAS",
+    a.auto === true && b.doublon === true && b.parti === false && /en train de partir/.test(b.motif) && dits.some((m) => /en train de partir/.test(m)));
+  test("★★★ un troisième appui juste après : refusé « vient déjà de partir », toujours sans ouvrir WhatsApp",
+    c.doublon === true && /déjà de partir/.test(c.motif) && ouvertApresC === 0);
+  test("★★ un message aux autres mots part ; un envoi REFUSÉ par WhatsApp se réessaie tout de suite (pas de faux doublon)",
+    d.auto === true && e.auto === false && !e.doublon && f.auto === true && appels === 4, `appels au serveur : ${appels}`);
+  // La réponse libre de 📲 WhatsApp a le même filet
+  let r1 = {}, r2 = {};
+  if (W) [r1, r2] = await Promise.all([W.repondreWhatsApp({ tel: "90112233", texte: "Bonjour" }), W.repondreWhatsApp({ tel: "90112233", texte: "Bonjour" })]);
+  test("★★ une RÉPONSE tapée deux fois (Entrée + clic) ne part qu'une fois", r1.parti === true && r2.parti === false && r2.doublon === true && globalThis.__appelsFaux === 5);
+  try { rmSync(dossierF, { recursive: true, force: true }); } catch {}
+  delete globalThis.__reponseFausse; delete globalThis.__appelsFaux;
+
+  // ── Les boutons se grisent pendant l'envoi
+  const ui = lire("src/components/ui.jsx");
+  test("★★★ le verrou du bouton est un useRef posé dans le MÊME instant que l'appui (un état React seul laisse passer deux appuis rapprochés), libéré à la FIN du geste",
+    /export function useEnvoiEnCours\(\)/.test(ui) && /const verrou = useRef\(false\);/.test(ui) && /if \(verrou\.current\) return undefined;\n\s*verrou\.current = true;/.test(ui)
+    && /\} finally \{\n\s*verrou\.current = false;/.test(ui));
+  test("★★ BoutonEnvoi : gris (disabled), « ⏳ Envoi en cours… » ; BoutonRond `envoi` : ⏳ et le titre « Envoi en cours… »",
+    /export const LIBELLE_ENVOI_EN_COURS = "⏳ Envoi en cours…";/.test(ui) && /export function BoutonEnvoi\(/.test(ui) && /disabled=\{disabled \|\| enCours\}/.test(ui)
+    && /\{occupe \? "⏳" : icone\}/.test(ui) && /disabled=\{autres\.disabled \|\| occupe\}/.test(ui));
+  const boutons = [
+    ["src/screens/Dettes.jsx", /<BoutonEnvoi libelleEnvoi="⏳" onClick=\{\(\) => relancer\(d\)\}/],
+    ["src/screens/TousLesDevis.jsx", /teinte="vert" envoi onClick=\{\(\) => relancerDevis\(d\)\}/],
+    ["src/screens/Ventes.jsx", /<BoutonEnvoi libelleEnvoi="⏳" onClick=\{\(\) => envoyerRecuLigne\(v\)\}/],
+    ["src/screens/Ventes.jsx", /<BoutonEnvoi onClick=\{proformaWhatsApp\}/],
+    ["src/screens/Utilisateurs.jsx", /<BoutonEnvoi libelleEnvoi="⏳" onClick=\{\(\) => \(u\.role === "client" \? envoyerFidelite\(u\)/],
+    ["src/screens/Utilisateurs.jsx", /<BoutonEnvoi onClick=\{creer\} className=\{btnDark\}>Créer<\/BoutonEnvoi>/],
+    ["src/screens/Clients.jsx", /<BoutonEnvoi onClick=\{creer\}/],
+    ["src/screens/Clients.jsx", /<BoutonEnvoi onClick=\{\(\) => renvoyer\(c\)\}/],
+    ["src/screens/Clients.jsx", /<BoutonEnvoi onClick=\{\(e\) => \{ e\.stopPropagation\(\); return contacter\(c\); \}\}/],
+    ["src/screens/Depenses.jsx", /<BoutonEnvoi onClick=\{prevenirProprietaire\}/],
+    ["src/screens/Prospects.jsx", /<BoutonEnvoi onClick=\{ajouter\}/],
+    ["src/screens/Prospects.jsx", /titre="📱 Relancer par WhatsApp" envoi onClick=/],
+    ["src/screens/Prospects.jsx", /titre="✅ Convertir en client" envoi onClick=/],
+    ["src/screens/ClientsInstalles.jsx", /<BoutonEnvoi onClick=\{creerCompteClient\}/],
+    ["src/screens/ClientsInstalles.jsx", /teinte="ambre" envoi onClick=\{\(\) => marquerTermine\(c\)\}/],
+    ["src/screens/ClientsInstalles.jsx", /icone="📤" envoi onClick=\{\(\) => envoyerPourSignature\(c\)\} titre="📤 Envoyer pour signature"/],
+    ["src/screens/ClientsInstalles.jsx", /teinte="rouge" envoi onClick=\{\(\) => envoyerAvenant\(c\)\}/],
+    ["src/components/CompleterDevis.jsx", /<BoutonEnvoi onClick=\{\(\) => onEnregistrer\(/],
+    ["src/screens/dimensionnement/Brouillons.jsx", /<BoutonEnvoi onClick=\{\(\) => envoyer\(b\)\} data-envoyer-brouillon/],
+    ["src/screens/dimensionnement/Partages.jsx", /<BoutonEnvoi onClick=\{onEnvoyer\} disabled=\{!clientDevis\} data-envoyer-devis/],
+  ];
+  const manquent = boutons.filter(([f, re]) => !re.test(lire(f))).map(([f, re]) => `${f.split("/").pop()} ${String(re).slice(1, 40)}`);
+  test("★★★ les boutons qui envoient du numéro BMI se grisent pendant l'envoi (relances, reçu, proforma, fidélité, créations de compte, renvoi d'accès, prospects, PV, avenant, loyer, devis, brouillons, ✍️ Compléter)", manquent.length === 0, manquent.join(" · "));
+  test("★★ chaque geste RENDU sa promesse (sinon le bouton ne resterait gris qu'un instant) : les volets passent `() => envoi.envoyer(…)` sans accolades",
+    ["Solaire", "Garage", "Autre"].every((v) => /const envoyerDevisWhatsApp = \(\) => envoi\.envoyer\(argumentsEnvoi\(\)\);/.test(lire(`src/screens/dimensionnement/${v}.jsx`))));
+  const PA = lire("src/screens/dimensionnement/Partages.jsx");
+  test("★★ le bouton du devis dit l'ÉTAPE : « ⏳ Envoi des accès… », « ⏳ Envoi du PDF… », « ⏳ Envoi du devis… », remise à zéro quoi qu'il arrive (finally)",
+    /acces: "⏳ Envoi des accès…", pdf: "⏳ Envoi du PDF…", devis: "⏳ Envoi du devis…"/.test(PA)
+    && /poserEtapeEnvoi\(ETAPES_ENVOI_DEVIS\.acces\);\n\s*const rAcces = await envoyerAccesSansRepli/.test(PA) && /if \(!pdf\.r\) poserEtapeEnvoi\(ETAPES_ENVOI_DEVIS\.devis\);/.test(PA)
+    && /\} finally \{ poserEtapeEnvoi\(""\); \}/.test(PA) && /libelleEnvoi=\{\(\) => etapeEnvoi \|\| LIBELLE_ENVOI_EN_COURS\}/.test(PA)
+    && /libelleEnvoi=\{\(\) => etapeEnvoi \|\| LIBELLE_ENVOI_EN_COURS\}/.test(lire("src/screens/dimensionnement/Brouillons.jsx")));
+  const WS = lire("src/screens/Whatsapp.jsx");
+  test("★★ 📲 WhatsApp : la réponse et « ✍️ Écrire » ont le même verrou (useRef), le bouton dit ⏳ / « ⏳ Envoi en cours… »",
+    /const verrouEnvoi = useRef\(false\);/.test(WS) && /envoi \|\| verrouEnvoi\.current\) return;/.test(WS) && /if \(contact\.envoi \|\| verrouEnvoi\.current\) return;/.test(WS)
+    && /\{contact\.envoi \? LIBELLE_ENVOI_EN_COURS : "Envoyer du numéro BMI"\}/.test(WS) && /\{envoi \? "⏳" : "➤"\}/.test(WS));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

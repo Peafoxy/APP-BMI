@@ -30,8 +30,14 @@ import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptes
 import { champsEnvoi } from "./lib/suiviEnvoi";
 import { MOTIFS_CONTACT_GOOGLE } from "./lib/contactGoogle";
 import { motifReseau } from "./lib/motifReseau";
+// 🔁 Le même message ne part pas deux fois (18/10/2026, « les deux, lance »).
+import { creerRegistre, cleEnvoi, critiqueDoublon, marquerEnCours, marquerParti, oublierEnvoi, nettoyerRegistre } from "./lib/antiDoublonEnvoi";
 
 const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== false;
+
+// Le registre des envois de CET appareil (il meurt avec la page, et c'est
+// assez : un double appui se joue en une seconde, pas en un jour).
+const registreEnvois = creerRegistre();
 
 // Rend { auto, parti, motif, id } :
 //   auto  — vrai si le message est parti tout seul, du numéro BMI ;
@@ -75,6 +81,21 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
   const refus = critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact, enLigne: enLigne(), avecDocument: !!fichier });
   if (refus) return repli(refus);
 
+  // 🔁 LE FILET ANTI-DOUBLON (18/10/2026) : le MÊME message (même modèle,
+  // même numéro, mêmes mots) ne repart pas pendant qu'il part, ni dans la
+  // minute qui suit. ⚠ AUCUN REPLI ici : ouvrir WhatsApp ferait justement
+  // partir la copie. On le DIT (la fenêtre de l'écran), et rien ne part.
+  const cle = cleEnvoi({ modele, tel, variables, fichier });
+  const maintenantMs = Date.now();
+  nettoyerRegistre(registreEnvois, maintenantMs);
+  const doublon = critiqueDoublon(registreEnvois, cle, maintenantMs);
+  if (doublon) {
+    const dire = !sansRepli && typeof prevenir === "function";
+    if (dire) await prevenir(doublon);
+    return { auto: false, parti: false, motif: doublon, doublon: true, annonce: dire, reseau: false };
+  }
+  marquerEnCours(registreEnvois, cle, maintenantMs);
+
   let reponse;
   try {
     // ⚠ CHARGÉ AU MOMENT DE L'ENVOI, jamais au chargement de l'écran.
@@ -86,9 +107,12 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     const { whatsappEnLigne } = await import("./supabaseClient");
     reponse = await whatsappEnLigne({ tel, modele, variables, ...(fichier ? { fichier: { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees } } : {}) });
   } catch (e) {
+    oublierEnvoi(registreEnvois, cle);
     return repli(motifEchecWhatsApp({ erreur: e?.message }));
   }
   if (!reponse || reponse.error) {
+    // Refusé ou coupé : on peut réessayer tout de suite.
+    oublierEnvoi(registreEnvois, cle);
     // ⚠ LE REFUS DE WHATSAPP ARRIVE EN ANGLAIS : `motifEchecWhatsApp` le
     // traduit quand il le reconnaît, et le laisse entier quand il ne le
     // reconnaît pas (on n'invente jamais une explication). La phrase
@@ -98,6 +122,7 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     if (reponse?.error) console.info("[whatsapp] refus :", reponse.error, reponse.code_whatsapp || "");
     return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }), !!reponse?.reseau);
   }
+  marquerParti(registreEnvois, cle, Date.now());
   return { auto: true, parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
 }
 
@@ -259,6 +284,13 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
 // Donc : ça part, ou ça ne part pas et on DIT pourquoi.
 export async function repondreWhatsApp({ tel, texte, fichier = null }) {
   if (!enLigne()) return { parti: false, motif: "Pas de connexion : le message ne peut pas partir du numéro BMI." };
+  // 🔁 Le filet anti-doublon vaut aussi pour une réponse (18/10/2026).
+  const cle = cleEnvoi({ modele: "reponse_libre", tel, variables: [String(texte || "")], fichier });
+  const maintenantMs = Date.now();
+  nettoyerRegistre(registreEnvois, maintenantMs);
+  const doublon = critiqueDoublon(registreEnvois, cle, maintenantMs);
+  if (doublon) return { parti: false, motif: doublon, doublon: true };
+  marquerEnCours(registreEnvois, cle, maintenantMs);
   let reponse;
   try {
     const { whatsappEnLigne } = await import("./supabaseClient");
@@ -266,12 +298,15 @@ export async function repondreWhatsApp({ tel, texte, fichier = null }) {
     // remesure lui-même sur les octets reçus.
     reponse = await whatsappEnLigne({ tel, texte, fichier: fichier ? { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees } : null });
   } catch (e) {
+    oublierEnvoi(registreEnvois, cle);
     return { parti: false, motif: motifEchecWhatsApp({ erreur: e?.message }) };
   }
   if (!reponse || reponse.error) {
+    oublierEnvoi(registreEnvois, cle);
     if (reponse?.error) console.info("[whatsapp] refus :", reponse.error, reponse.code_whatsapp || "");
     return { parti: false, motif: motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }) };
   }
+  marquerParti(registreEnvois, cle, Date.now());
   return { parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
 }
 
