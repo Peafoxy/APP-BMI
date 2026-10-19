@@ -5373,9 +5373,10 @@ lit mal est pire qu'un banc absent).
   PDF que celui téléchargé (`genererProforma(…, true)`), après la question,
   sans repli (`proformaPdfDepuis`) ; refusée, le modèle `proforma` d'aujourd'hui.
 - ⚠ Pas de relais si Meta rejette le PDF APRÈS l'envoi (comme `devis_pdf` le
-  18/10) : le client ne recevrait pas le reçu — dit à Timo. **À créer par Timo
-  chez YCloud** (fr, en-tête Document). D'ici l'accord, les messages
-  d'aujourd'hui partent. Rien à coller. Bancs : `verifier-whatsapp` 66 (14, la
+  18/10) : le client ne recevrait pas le reçu — dit à Timo. **Créés par Timo
+  chez YCloud et APPROUVÉS par Meta le 19/10/2026** (« déjà accepté par
+  Meta ») ; le premier vrai reçu et la première vraie proforma diront si
+  l'en-tête Document est bien porté. Rien à coller. Bancs : `verifier-whatsapp` 66 (14, la
   vraie chaîne jouée), `verifier-partage` (+2), éprouvés (repli retiré, ligne
   d'une vente non privée, proforma avec repli) ; contrôles RETOURNÉS :
   cinquante-cinq modèles, modèles à ligne, modèles à en-tête document, le bloc
