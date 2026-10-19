@@ -581,7 +581,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         if (rp.auto) {
           save((e) => ({
             ...e,
-            messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: pf.tel, nom: pf.client, modele: envoiPdf.modele, variables: envoiPdf.variables, ref: { proforma_numero: pf.numero }, envoi: rp }),
+            messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: pf.tel, nom: pf.client, modele: envoiPdf.modele, variables: envoiPdf.variables, ref: { proforma_numero: pf.numero }, envoi: rp, relais: envoi }),
           }));
           await uAlert(`✅ Proforma N° ${pf.numero} envoyée du numéro BMI à ${pf.client || "ce client"}, avec son PDF.`);
           return;

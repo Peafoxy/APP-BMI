@@ -107,7 +107,7 @@ export const CHAPITRE = {
 
       ["h3", "C. Une offre de prix — la proforma"],
       ["ol", [
-        "Le panier composé (client et numéro remplis si on veut l'envoyer), **« 🧾 Proforma WhatsApp »** : la proforma est enregistrée (numéro PRF-…), **le PDF se télécharge**, puis, après une question, **elle part du numéro BMI avec son PDF en pièce jointe** (tant que Meta n'a pas approuvé ce message, elle part sans le PDF, avec la liste des articles) ; si le numéro BMI ne peut pas envoyer, WhatsApp s'ouvre sur le numéro du client avec le texte, et on joint le PDF. Le bouton **🖨️** à côté l'imprime au lieu de l'envoyer.",
+        "Le panier composé (client et numéro remplis si on veut l'envoyer), **« 🧾 Proforma WhatsApp »** : la proforma est enregistrée (numéro PRF-…), **le PDF se télécharge**, puis, après une question, **elle part du numéro BMI avec son PDF en pièce jointe** (si WhatsApp refuse le PDF — même après l'avoir accepté —, elle repart toute seule sans le PDF, avec la liste des articles, une seule fois) ; si le numéro BMI ne peut pas envoyer, WhatsApp s'ouvre sur le numéro du client avec le texte, et on joint le PDF. Le bouton **🖨️** à côté l'imprime au lieu de l'envoyer.",
         "**Rien n'est comptabilisé** : ni stock, ni chiffre d'affaires, ni caisse. Le message le dit : « émis … (non comptabilisé) ». Validité écrite sur le document : 15 jours.",
         "Le client revient : vue **🧾 Proformas**, sur sa ligne **« 🛒 Vendre »**. Le panier se remplit, le nom et le numéro aussi, et **l'encaissement reste à faire** (« Vérifiez, puis encaissez »). Le prix de la proforma est gardé ; si le prix du jour a changé, l'écran le dit.",
         "La colonne **« Suite »** dit ce que chaque proforma est devenue : « ✅ Encaissée le … — reçu N° » ou « ⏳ En attente ». Une proforma déjà encaissée se revend quand même, mais **on prévient** : ce sera une nouvelle vente, avec un nouveau reçu.",
@@ -219,7 +219,7 @@ export const CHAPITRE = {
         ["Avance versée / Avance payée comment ?", "Crédit seulement. L'avance est plafonnée à ce qui est dû ; son moyen de paiement est demandé dès qu'elle est > 0."],
         ["🤝 Un apporteur externe (non-utilisateur) a amené ce client", "Une personne hors de l'équipe : nom, téléphone, commission en % **ou** montant fixe. Sa commission s'affiche ; elle se paie dans 👑 Mon équipe (chapitre 16)."],
         ["🔧 Ce devis inclut des frais…", "Cadre ambre, seulement quand le panier vient d'un devis payé : articles + frais d'installation + transport = « MONTANT TOTAL À DEMANDER AU CLIENT ». Les frais ne sont pas du chiffre d'affaires, mais ils sont bien encaissés."],
-        ["💳 Encaisser la vente", "Le geste. Confirmation, puis reçu automatique : imprimé, et envoyé au client du numéro BMI **avec le PDF du reçu** (s'il ne part pas, le reçu en texte part à sa place)."],
+        ["💳 Encaisser la vente", "Le geste. Confirmation, puis reçu automatique : imprimé, et envoyé au client du numéro BMI **avec le PDF du reçu** (s'il ne part pas — même refusé par WhatsApp après l'envoi —, le reçu en texte part à sa place, une seule fois)."],
         ["🧾 Proforma WhatsApp / 🖨️", "L'offre de prix, envoyée ou imprimée. Non comptabilisée."],
         ["Total : X F (remise −Y)", "Le total des articles, remise déduite. « Total articles » quand des frais de devis s'ajoutent."],
       ]}],

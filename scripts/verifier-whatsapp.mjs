@@ -1493,9 +1493,12 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
   // RETOURNÉ le 26/09/2026 : la fabrique des deux reçus a quitté 💰 Ventes pour
   // lib/lignesPrivees.js (📲 WhatsApp la relit pour recomposer le détail) —
   // la formule du montant est la même, lue au même endroit pour les deux.
+  // RETOURNÉ le 19/10/2026 : elle vit dans lib/recuDeVente.js (le serveur la
+  // relit pour relayer un `recu_pdf` refusé) ; lignesPrivees la réexporte.
   test("★★ le reçu passe le montant de LA formule de la caisse (articles − remises + frais), par LA fabrique commune que 💰 Ventes appelle",
-    /const montant = montantEncaisseVente\(vente, totalVente\);/.test(lire("src/lib/lignesPrivees.js"))
-    && /import \{ montantEncaisseVente \} from "\.\/versements";/.test(lire("src/lib/lignesPrivees.js"))
+    /const montant = montantEncaisseVente\(vente, totalVente\);/.test(lire("src/lib/recuDeVente.js"))
+    && /import \{ montantEncaisseVente \} from "\.\/versements\.js";/.test(lire("src/lib/recuDeVente.js"))
+    && /import \{ envoisRecuDeVente \} from "\.\/recuDeVente";/.test(lire("src/lib/lignesPrivees.js")) && /export \{ envoisRecuDeVente \};/.test(lire("src/lib/lignesPrivees.js"))
     && /const envois = envoisRecuDeVente\(vente, \{ boutique: bq, dette: dette \|\| \{ paye: 0, montant: 0 \} \}\);/.test(lire("src/screens/Ventes.jsx")));
   test("★★ les sept trous viennent de la vente : nom, date, boutique, reçu, montant, formule, TÉLÉPHONE DE LA BOUTIQUE",
     e && e.modele === "recu_vente" && e.variables.join("|") === `ESSO|23/09/2026|BMI DEMAKPOE|DEM-0142|${fmt(160000)}|payé en espèces|+228 91 13 05 11`);
@@ -1550,7 +1553,7 @@ titre("⑲ 💙 LE MOT DE FIDÉLITÉ DEPUIS 📋 CLIENTS, ET 🧾 LE REÇU AUTOM
     && /envoyerRecuDuNumeroBmi\(vente, apres\)/.test(auto)
     && /sansRepli: true/.test(commun) && !/demanderConfirmation/.test(commun + auto) && !/uConfirm/.test(commun + auto) && !/envoyerWhatsApp\(/.test(commun + auto)
     && /espaceFormation: !!bq\.formation/.test(commun) && !/estCompteFormation/.test(commun)
-    && /envoisRecuDeVente\(vente, \{ boutique: bq,/.test(commun) && /envoiRecuVente\(base\)/.test(lire("src/lib/lignesPrivees.js")));
+    && /envoisRecuDeVente\(vente, \{ boutique: bq,/.test(commun) && /envoiRecuVente\(base\)/.test(lire("src/lib/recuDeVente.js")));
   test("★★ 💰 Ventes : à crédit, l'avance et le reste viennent de la DETTE née de la vente ; la ligne s'écrit sur l'état courant, porte la vente et ne donne PAS la conversation",
     /\(etat\.dettes \|\| \[\]\)\.find\(\(d\) => d\.vente_id === vente\.id\)/.test(commun)
     && /save\(\(e\) => \(\{\s*\.\.\.e,\s*messages: messagesAvecLigneEnvoi\(e\.messages, \{ profile, tel: vente\.tel, nom: vente\.client, modele: envoi\.modele, variables: envoi\.variables, ref: \{ vente_id: vente\.id \}, envoi: r \}\)/.test(commun)
@@ -2635,7 +2638,7 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
     const commun2 = (ven2.match(/const envoyerRecuDuNumeroBmi = async \(vente, etat\) => \{[\s\S]*?\n  \};/) || [""])[0];
     const ligne2 = (ven2.match(/const envoyerRecuLigne = async \(v\) => \{[\s\S]*?\n  \};/) || [""])[0];
     test("★★ 💰 Ventes : le DÉTAILLÉ est tenté d'abord, le court ensuite, UNE écriture sur celui qui est parti, et on s'arrête en formation",
-      /return \[envoiRecuVenteDetail\(\{ \.\.\.base, lignes: lignesVente\(vente\) \}\), envoiRecuVente\(base\)\]\.filter\(Boolean\);/.test(lire("src/lib/lignesPrivees.js"))
+      /return \[envoiRecuVenteDetail\(\{ \.\.\.base, lignes: lignesVente\(vente\) \}\), envoiRecuVente\(base\)\]\.filter\(Boolean\);/.test(lire("src/lib/recuDeVente.js"))
       && /const envois = envoisRecuDeVente\(/.test(commun2)
       && /for \(const envoi of envois\)/.test(commun2) && /if \(r\.auto\) \{[\s\S]*?return \{ auto: true/.test(commun2)
       && /if \(motifAttendu\(r\.motif\)\) break;/.test(commun2) && (commun2.match(/save\(/g) || []).length === 1);
@@ -2998,7 +3001,7 @@ titre("㉜ ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026, « o
   const suiviCorps = WE.slice(WE.indexOf("async function traiterSuivi"));
   test("★★ elle retrouve la ligne par son numéro de suivi, nettoyé (valeurSure), et ne réécrit QUE cette ligne, avec `updated_at` dans la ligne et dans la fiche",
     /valeurSure\(suivi\.id\)/.test(suiviCorps) && /valeurSure\(suivi\.wamid\)/.test(suiviCorps) && /\.update\(\{ data, updated_at: ts \}\)\.eq\("id", trouvee\.id\)/.test(suiviCorps)
-    && /wa_statut: nouveau, \.\.\.\(relais \? \{ wa_relais_le: ts \} : \{\}\), updated_at: ts/.test(suiviCorps) && !/\.insert\(/.test(suiviCorps));
+    && /wa_statut: nouveau, \.\.\.\(relais \|\| relaisRecu \? \{ wa_relais_le: ts \} : \{\}\), updated_at: ts/.test(suiviCorps) && !/\.insert\(/.test(suiviCorps));
   test("★★ elle ne fait jamais reculer une coche (LA règle statutApres) et fait renvoyer une nouvelle trop pressée (503)",
     /statutApres\(trouvee\.data\?\.wa_statut, suivi\)/.test(suiviCorps) && /ligneAttendue\(suivi\)\) return res\.status\(503\)/.test(suiviCorps));
   test("★ une nouvelle de suivi ne prévient personne et ne réveille pas l'assistant",
@@ -3015,8 +3018,9 @@ titre("㉜ ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026, « o
   const ecrans = ["Dettes", "TousLesDevis", "Utilisateurs", "Clients", "Ventes", "Prospects", "ClientsInstalles", "dimensionnement/Partages"];
   const appels = ecrans.flatMap((e) => (sansComm(lire(`src/screens/${e}.jsx`)).match(/messagesAvecLigne(Envoi|Acces)\([^\n]*/g) || []));
   test(`★★ CHAQUE appel des écrans passe son envoi (${appels.length} appels) — un appel oublié, c'est un message sans coches`,
-    // RETOURNÉ le 19/10/2026 : l'essai du PDF (reçu, proforma) range SON envoi, `rp`.
-    appels.length >= 13 && appels.every((a) => /envoi: (r|rp|accesEnvoyes) \}/.test(a)));
+    // RETOURNÉ le 19/10/2026 : l'essai du PDF (reçu, proforma) range SON envoi, `rp`,
+    // et le texte du relais (`relais: envoi`, 67).
+    appels.length >= 13 && appels.every((a) => /envoi: (r|rp|accesEnvoyes)(, relais: envoi)? \}/.test(a)));
   const WS = lire("src/screens/Whatsapp.jsx");
   test("★ 📲 WhatsApp : la réponse libre et « ✍️ Écrire » gardent leur numéro, les coches se dessinent sur les lignes suivies, l'échec se lit en toutes lettres",
     (WS.match(/\.\.\.champsEnvoi\(r\),/g) || []).length === 2 && /m\.wa_envoi_id && <CochesEnvoi statut=\{m\.wa_statut\}/.test(WS) && /data-echec-envoi/.test(WS));
@@ -5316,7 +5320,7 @@ titre("62 📎 LE DEVIS REPART SANS PDF QUAND META REJETTE LE PDF (18/10/2026, c
   const codeE = sansComm(lire("api/whatsapp-entrant.js"));
   const suivi = codeE.slice(codeE.indexOf("async function traiterSuivi"));
   test("★★★ le suivi : la marque `wa_relais_le` est posée AVEC la coche (même écriture), AVANT le relais — une seule fois",
-    /const relais = relaisAFaire\(/.test(suivi) && /wa_statut: nouveau, \.\.\.\(relais \? \{ wa_relais_le: ts \} : \{\}\)/.test(suivi)
+    /const relais = relaisAFaire\(/.test(suivi) && /wa_statut: nouveau, \.\.\.\(relais \|\| relaisRecu \? \{ wa_relais_le: ts \} : \{\}\)/.test(suivi)
     && suivi.indexOf("wa_relais_le: ts") < suivi.indexOf("relayerDevisSansPdf(") && suivi.indexOf(".update({ data, updated_at: ts })") < suivi.indexOf("relayerDevisSansPdf("));
   test("★ la règle du relais ne lit jamais de clé secrète", !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/relaisDevisPdf.js")));
 }
@@ -5701,6 +5705,123 @@ titre("66 📎 LE REÇU ET LA PROFORMA AVEC LEUR PDF — `recu_pdf`, `proforma_p
   test("★ le reçu se rend SANS s'imprimer (`rendre`), sans le duplicata de la boutique, et `fichierPdfDepuisHtml` est écrit UNE fois (components/ui.jsx)",
     /if \(rendre\) return html;/.test(lire("src/lib/impression.js")) && (lire("src/lib/impression.js").match(/if \(rendre\) return html;/g) || []).length === 2
     && /export async function fichierPdfDepuisHtml\(/.test(lire("src/components/ui.jsx")) && !/export async function fichierPdfDepuisHtml/.test(lire("src/lib/impression.js")));
+  test("★★ (67) la ligne du PDF d'un VERSEMENT garde le reçu en texte pour un relais (`wa_relais_texte`) ; celle d'une VENTE, privée, n'en garde AUCUN",
+    ligne(a)?.wa_relais_texte?.modele === "recu_reglement" && ligne(a).wa_relais_texte.variables.length === 7 && !("wa_relais_texte" in (ligne(e) || {})), JSON.stringify(ligne(a)?.wa_relais_texte));
+}
+
+titre("67 📎 LE REÇU ET LA PROFORMA REPARTENT EN TEXTE QUAND META REJETTE LE PDF (19/10/2026, « prendre ceux du texte »)");
+{
+  const sansComm = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const R = await import(pathToFileURL(join(process.cwd(), "src/lib/relaisRecuPdf.js")).href);
+  const CLE = "99021377";
+  const f = (n) => `${Number(n).toLocaleString("fr-FR").replace(/ /g, " ")} F`;
+  const rr = M.envoiRecuReglement({ dette: { id: "d1", numero: "BMID-DET-2026-0003", client: "MR ERIC", tel: `228${CLE}`, montant: 150000, paye: 50000 }, versement: { montant: 50000, date: "2026-10-19", paiement: "Espèces" }, boutique: {}, fmt: f, dFR: (x) => x.split("-").reverse().join("/") });
+  const echec = { etat: "echec", le: "2026-10-19T18:02:05.000Z", motif: "header: Template does not contain title component" };
+  const ligneVersement = { id: "l-rp", canal: "whatsapp", wa_tel: CLE, wa_numero: `228${CLE}`, wa_nom: "MR ERIC", de_id: "u-ang", de_nom: "ANGELE", wa_modele: "recu_pdf", dette_id: "d1", texte: "📲 …, 📎 PDF joint.", wa_relais_texte: { modele: rr.modele, variables: rr.variables } };
+  const ligneVente = { id: "l-rv", canal: "whatsapp", wa_tel: CLE, wa_numero: `228${CLE}`, wa_nom: "CHEF EZO", de_id: "u-ang", de_nom: "ANGELE", wa_modele: "recu_pdf", vente_id: "v1", wa_prive: true, texte: M.ligneMasquee("recu_pdf") };
+  test("★★★ la règle : un ❌ sur un `recu_pdf` / `proforma_pdf` pas encore relayé → relais ; jamais deux fois, jamais sur une coche ordinaire, jamais sans texte ni vente, jamais pour un autre modèle",
+    R.relaisRecuAFaire(ligneVersement, echec) === true && R.relaisRecuAFaire(ligneVente, echec) === true
+    && R.relaisRecuAFaire({ ...ligneVersement, wa_modele: "proforma_pdf" }, echec) === true
+    && R.relaisRecuAFaire({ ...ligneVersement, wa_relais_le: "x" }, echec) === false
+    && R.relaisRecuAFaire(ligneVersement, { etat: "lu", le: "x" }) === false
+    && R.relaisRecuAFaire({ ...ligneVersement, wa_relais_texte: null }, echec) === false
+    && R.relaisRecuAFaire({ ...ligneVente, wa_modele: "proforma_pdf" }, echec) === false
+    && R.relaisRecuAFaire({ ...ligneVersement, wa_modele: "devis_pdf" }, echec) === false);
+  test("★★ le texte rangé n'est valable que pour les messages permis, le bon nombre de trous, tous remplis",
+    R.relaisTexteValide({ modele: rr.modele, variables: rr.variables }) === true
+    && R.relaisTexteValide({ modele: "espace", variables: ["a", "b", "c"] }) === false
+    && R.relaisTexteValide({ modele: rr.modele, variables: rr.variables.slice(1) }) === false
+    && R.relaisTexteValide({ modele: rr.modele, variables: [...rr.variables.slice(1), " "] }) === false);
+  test("★★★ ce que la ligne du PDF garde : le texte pour un versement ou une proforma, RIEN pour une vente (privée), rien pour un autre modèle",
+    R.champRelaisTexte("recu_pdf", { dette_id: "d1" }, rr).wa_relais_texte?.modele === "recu_reglement"
+    && Object.keys(R.champRelaisTexte("recu_pdf", { vente_id: "v1" }, rr)).length === 0
+    && Object.keys(R.champRelaisTexte("recu_reglement", { dette_id: "d1" }, rr)).length === 0
+    && Object.keys(R.champRelaisTexte("recu_pdf", { dette_id: "d1" }, null)).length === 0);
+  const vente = { id: "v1", numero: "BMID-2026-0050", date: "2026-10-19", boutique: "BMI DEMAKPOE", client: "CHEF EZO", tel: `228${CLE}`, paiement: "Espèces", articles: [{ article: "Panneau 550W", qte: 2, pu: 9000 }] };
+  const bq = { nom: "BMI DEMAKPOE", tel: "91000000" };
+  const ev = R.envoisDuRelais({ ligne: ligneVente, vente, boutique: bq });
+  test("★★★ une VENTE : le serveur RECOMPOSE ses reçus par la fabrique de l'envoi — le détaillé d'abord, le court ensuite",
+    ev.map((x) => x.modele).join(",") === "recu_vente_detail,recu_vente" && ev[0].variables[0] === "CHEF EZO" && /Panneau 550W/.test(ev[0].variables.join(" ")), JSON.stringify(ev.map((x) => x.modele)));
+  test("★★★ le mur : une vente ou une boutique de FORMATION, une vente à la corbeille, une autre vente ne relaient RIEN",
+    R.envoisDuRelais({ ligne: ligneVente, vente: { ...vente, formation: true }, boutique: bq }).length === 0
+    && R.envoisDuRelais({ ligne: ligneVente, vente, boutique: { ...bq, formation: true } }).length === 0
+    && R.envoisDuRelais({ ligne: ligneVente, vente: { ...vente, supprime_le: "2026-10-19" }, boutique: bq }).length === 0
+    && R.envoisDuRelais({ ligne: ligneVente, vente: { ...vente, id: "v2" }, boutique: bq }).length === 0
+    && R.envoisDuRelais({ ligne: ligneVente, vente: null }).length === 0);
+  const lv = R.ligneRelaisRecu({ id: "x", ligne: ligneVente, envoi: ev[1], ts: "2026-10-19T18:02:06.000Z" });
+  const lr = R.ligneRelaisRecu({ id: "y", ligne: ligneVersement, envoi: rr, ts: "2026-10-19T18:02:06.000Z" });
+  test("★★ la ligne du relais : une vente reste PRIVÉE (rien du montant), un versement dit « sans PDF » ; au nom de celui qui avait envoyé le PDF, sans propriétaire",
+    lv?.wa_prive === true && !/18 000/.test(lv.texte) && lv.vente_id === "v1" && lv.wa_relais_de === "l-rv"
+    && /sans PDF/.test(lr?.texte || "") && /50.000 F/.test(lr.texte) && lr.de_id === "u-ang" && !lr.proprietaire_id && !lr.wa_prive && lr.dette_id === "d1");
+
+  // ── La VRAIE fonction du serveur, sur une base jouée
+  const { relayerRecuSansPdf } = await import("../api/_relaisRecuPdf.js");
+  const fauxAdmin = (tables) => ({
+    from(t) {
+      const q = { op: "select", charge: null, filtres: [] };
+      const valeur = (l, col) => (col.startsWith("data->>") ? String(l.data?.[col.slice(7)] ?? "") : String(l[col] ?? ""));
+      const exec = () => {
+        if (q.op === "insert") { (tables[t] ||= []).push(structuredClone(q.charge)); return { data: null, error: null }; }
+        if (q.op === "upsert") { const l = (tables[t] ||= []); const i = l.findIndex((x) => x.id === q.charge.id); if (i >= 0) l[i] = structuredClone(q.charge); else l.push(structuredClone(q.charge)); return { data: null, error: null }; }
+        return { data: structuredClone((tables[t] || []).filter((l) => q.filtres.every(([c, v]) => valeur(l, c) === String(v)))), error: null };
+      };
+      const b = { select() { return b; }, eq(c, v) { q.filtres.push([c, v]); return b; }, limit() { return b; }, insert(c) { q.op = "insert"; q.charge = c; return b; }, upsert(c) { q.op = "upsert"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
+      return b;
+    },
+  });
+  const envAvant = { c: process.env.YCLOUD_API_KEY, d: process.env.WHATSAPP_NUMERO_BMI };
+  const fetchAvant = globalThis.fetch;
+  const errAvant = console.error;
+  let envois = [], refuser = () => false, res = {};
+  globalThis.fetch = async (url, opts) => {
+    const corps = JSON.parse(opts?.body || "{}");
+    envois.push(corps);
+    if (refuser(corps)) return new Response(JSON.stringify({ error: { message: "Template not approved", code: 132001 } }), { status: 400 });
+    return new Response(JSON.stringify({ id: `yc_${envois.length}`, wamid: "wamid.R", status: "accepted" }), { status: 200 });
+  };
+  const entete = () => ({ id: `waent_${CLE}`, data: { id: `waent_${CLE}`, canal: "whatsapp_entete", wa_tel: CLE, proprietaire_id: "u-com", proprietaire_nom: "COM1" } });
+  const base = (venteData = vente, bqData = bq) => ({ ventes: [{ id: "v1", data: venteData }], boutiques: [{ id: "b1", data: bqData }], dettes: [], messages: [entete()] });
+  const jouer = async (cle, ligne, tables, refus = () => false) => {
+    const n = envois.length; refuser = refus;
+    const ok = await relayerRecuSansPdf(fauxAdmin(tables), ligne);
+    res[cle] = { ok, tables, envois: envois.slice(n) };
+  };
+  try {
+    console.error = () => {};
+    process.env.YCLOUD_API_KEY = "yc-de-banc"; process.env.WHATSAPP_NUMERO_BMI = "22899968488";
+    await jouer("versement", ligneVersement, { ventes: [], boutiques: [], dettes: [], messages: [entete()] });
+    await jouer("vente", ligneVente, base());
+    await jouer("formation", ligneVente, base({ ...vente, formation: true }));
+    await jouer("refus", ligneVersement, { ventes: [], boutiques: [], dettes: [], messages: [] }, () => true);
+    await jouer("court", ligneVente, base(), (c) => c.template?.name === "recu_vente_detail");
+  } catch (err) { console.log("    (erreur de la chaîne jouée :", err?.message || err, ")"); }
+  finally {
+    console.error = errAvant; globalThis.fetch = fetchAvant;
+    for (const [k, v] of Object.entries({ YCLOUD_API_KEY: envAvant.c, WHATSAPP_NUMERO_BMI: envAvant.d })) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  const relais = (k) => (res[k]?.tables?.messages || []).find((l) => l.data?.wa_relais_de)?.data;
+  const p = res.versement?.envois?.[0] || {};
+  test("★★★ la chaîne jouée (versement) : `recu_reglement` part au client, en texte SANS en-tête document, avec les trous rangés",
+    res.versement?.ok === true && res.versement.envois.length === 1 && p.template?.name === "recu_reglement" && p.to === `+228${CLE}`
+    && (p.template?.components || []).length === 1 && p.template.components[0].type === "body"
+    && JSON.stringify(p.template.components[0].parameters.map((x) => x.text)) === JSON.stringify(rr.variables));
+  test("★★ la ligne du fil (versement) : « sans PDF », son numéro de suivi (coches), et la fiche légère suit SANS changer de propriétaire",
+    /sans PDF/.test(relais("versement")?.texte || "") && !!relais("versement")?.wa_envoi_id
+    && (res.versement?.tables?.messages || []).find((l) => l.id === `waent_${CLE}`)?.data?.proprietaire_id === "u-com");
+  test("★★★ la chaîne jouée (vente) : la vente RELUE, le reçu détaillé part, la ligne reste PRIVÉE",
+    res.vente?.ok === true && res.vente.envois.map((x) => x.template?.name).join(",") === "recu_vente_detail" && relais("vente")?.wa_prive === true && relais("vente")?.wa_modele === "recu_vente_detail");
+  test("★★★ le mur sur la vraie fonction : une vente de formation n'envoie RIEN, n'écrit RIEN", res.formation?.ok === false && res.formation.envois.length === 0 && !relais("formation"));
+  test("★★★ rien n'est écrit tant que WhatsApp n'a pas accepté : un refus du texte n'écrit aucune ligne", res.refus?.ok === false && (res.refus?.tables?.messages || []).length === 0);
+  test("★★ le détaillé refusé → le court part, et c'est lui qui entre dans le fil",
+    res.court?.ok === true && res.court.envois.map((x) => x.template?.name).join(",") === "recu_vente_detail,recu_vente" && relais("court")?.wa_modele === "recu_vente");
+  const codeE = sansComm(lire("api/whatsapp-entrant.js"));
+  const suivi = codeE.slice(codeE.indexOf("async function traiterSuivi"));
+  test("★★★ le suivi : la marque `wa_relais_le` est posée AVEC la coche, AVANT le relais du reçu — une seule fois, et jamais en plus du relais d'un devis",
+    /const relaisRecu = !relais && relaisRecuAFaire\(/.test(suivi) && suivi.indexOf(".update({ data, updated_at: ts })") < suivi.indexOf("relayerRecuSansPdf(")
+    && /if \(relaisRecu\) await relayerRecuSansPdf\(admin,/.test(suivi));
+  test("★★ 💰 Ventes et src/whatsapp.js rangent le texte du relais sur la ligne du PDF (`relais: envoi`)",
+    /relais: envoi/.test(sansComm(lire("src/screens/Ventes.jsx"))) && /\.\.\.champRelaisTexte\(modele, ref, relais\)/.test(sansComm(lire("src/whatsapp.js"))));
+  test("★ la règle du relais ne lit jamais de clé secrète", !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/relaisRecuPdf.js")) && !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/recuDeVente.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

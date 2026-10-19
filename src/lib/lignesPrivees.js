@@ -13,30 +13,20 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiRecuVente, envoiRecuVenteDetail, envoiRecuDepotChantier, envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
+import { envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
 import { attestationDe, momentFermeture, nomDocument } from "./attestationSortie";
 import { suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "./validationDepenses";
 import { libelleCaisse } from "./constants";
-import { lignesVente, totalVente, fmt, dFR, numeroBulletin, estDepotChantier, numeroDuRecuDeVente } from "./core";
-import { montantEncaisseVente } from "./versements";
+import { fmt, dFR, numeroBulletin, numeroDuRecuDeVente } from "./core";
+import { envoisRecuDeVente } from "./recuDeVente";
 import { bonsRepriseDeVente, bonRetour, retoursDeVente } from "./bons";
 import { libelleMoisFR } from "./calculs";
 import { envoiDeCommission } from "./commissionsDues";
 
-// Les deux reçus d'une vente, le DÉTAILLÉ d'abord (l'ordre de l'envoi).
-// `avance` / `reste` : ceux de la dette née de la vente quand l'écran les a,
-// sinon ceux posés sur la vente à l'encaissement.
-export function envoisRecuDeVente(vente, { boutique = {}, dette = null } = {}) {
-  if (!vente) return [];
-  const montant = montantEncaisseVente(vente, totalVente);
-  const avance = dette ? Number(dette.paye || 0) : Number(vente.avance || 0);
-  const reste = dette ? Math.max(0, Number(dette.montant || 0) - Number(dette.paye || 0)) : Math.max(0, montant - avance);
-  const base = { vente, boutique, montant, avance, reste, fmt, dFR };
-  // 🏗 Un DÉPÔT CHANTIER (13/10/2026, « C b ») : SON reçu, et lui seul — jamais
-  // le reçu de vente (« merci pour votre achat ») en repli.
-  if (estDepotChantier(vente)) return [envoiRecuDepotChantier(base)].filter(Boolean);
-  return [envoiRecuVenteDetail({ ...base, lignes: lignesVente(vente) }), envoiRecuVente(base)].filter(Boolean);
-}
+// Les deux reçus d'une vente : la fabrique vit dans lib/recuDeVente.js depuis
+// le 19/10/2026 (le serveur la relit pour relayer un `recu_pdf` refusé).
+// Importée PUIS réexportée (un `export … from` ne crée pas de nom local).
+export { envoisRecuDeVente };
 
 // Les bons d'une vente (reprises, puis retours sous garantie).
 export const bonsDeLaVente = (db, vente) => [

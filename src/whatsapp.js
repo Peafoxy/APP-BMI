@@ -28,6 +28,7 @@ import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/w
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 // ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
 import { champsEnvoi } from "./lib/suiviEnvoi";
+import { champRelaisTexte } from "./lib/relaisRecuPdf";
 import { MOTIFS_CONTACT_GOOGLE } from "./lib/contactGoogle";
 import { motifReseau } from "./lib/motifReseau";
 // 🔁 Le même message ne part pas deux fois (18/10/2026, « les deux, lance »).
@@ -228,7 +229,7 @@ export function messagesAvecLigneAcces(messages, { profile, client, renvoi = fal
 // relance, un reçu de vente ne la donnent jamais (`donnerAuSender` absent).
 // ✓✓ `envoi` = la réponse de `envoyerModele` : son numéro de suivi se range
 // sur la ligne, c'est lui qui permettra d'y poser les coches (26/09/2026).
-export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, variables, ref = {}, donnerAuSender = false, envoi = null }) {
+export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, variables, ref = {}, donnerAuSender = false, envoi = null, relais = null }) {
   const liste = Array.isArray(messages) ? messages : [];
   const cle = cleConversation(tel);
   // 🔒 Un reçu de vente ou un bon : la ligne rangée ne porte pas le détail
@@ -262,6 +263,10 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.prime_user_id ? { chantier_id: ref.chantier_id, prime_user_id: ref.prime_user_id } : {}),
     ...(ref && ref.attestation_user_id ? { attestation_user_id: ref.attestation_user_id } : {}),
     ...(prive ? { wa_prive: true } : {}),
+    // 📎 Un reçu ou une proforma en PDF garde le message TEXTE qui le
+    // remplacerait si Meta rejette le PDF après coup (lib/relaisRecuPdf.js) ;
+    // jamais sur une ligne privée (une vente : le serveur recompose).
+    ...champRelaisTexte(modele, ref, relais),
     ...prop,
     ...champsEnvoi(envoi),
   });
@@ -425,7 +430,7 @@ export async function envoyerRecuPdf({ envoi, numero, fabriquer, tel, nom, espac
   if (typeof save === "function") {
     save((etat) => ({
       ...etat,
-      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoiPdf.modele, variables: envoiPdf.variables, ref, envoi: r }),
+      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoiPdf.modele, variables: envoiPdf.variables, ref, envoi: r, relais: envoi }),
     }));
   }
   return { auto: true, motif: "" };
