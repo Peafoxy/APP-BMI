@@ -31,7 +31,7 @@
 // ⚠ LE MUR : comme lib/assistantWhatsapp.js, ce fichier ne reçoit JAMAIS
 // `db` — des listes déjà filtrées (les articles des boutiques RÉELLES).
 // ============================================================
-import { NOM_ASSISTANT, SIGNATURE_BMI, LIGNES_MENU, chercherArticles, construireDemandeDevis, ETAPE_CONSEILLER, texteDemandeEnregistree, TEXTE_RELAIS_CONSEILLER, motsUtiles, CLES_FICHE_ASSISTANT } from "./assistantWhatsapp.js";
+import { NOM_ASSISTANT, SIGNATURE_BMI, LIGNES_MENU, chercherArticles, construireDemandeDevis, ETAPE_CONSEILLER, texteDemandeEnregistree, TEXTE_RELAIS_CONSEILLER, motsUtiles, CLES_FICHE_ASSISTANT, estLigneAssistant, ID_ASSISTANT } from "./assistantWhatsapp.js";
 // 💧 Le choix d'une pompe (01/10/2026, « les 4 ») : LA règle du volet du
 // devis (option « A » du 20/09), jamais une copie — elle dit quelles pompes
 // MONTENT assez haut, et ne promet jamais un débit à une hauteur donnée.
@@ -96,6 +96,11 @@ Nous commercialisons également différents équipements et accessoires liés à
 
 👤 Si vous souhaitez parler directement à un conseiller, écrivez simplement « conseiller ».`;
 
+// La marque d'un message de BMI qui n'est pas de l'assistant (19/10/2026) —
+// définie ici parce que la consigne la cite ; `marqueEquipe` plus bas.
+export const MARQUE_EQUIPE = "[Message de";
+export const MARQUE_AUTO = "[Message automatique de BMI TOGO]";
+
 // ---- LA CONSIGNE (le « system prompt ») ----
 const activites = LIGNES_MENU.filter((l) => l.activite).map((l) => `- ${l.titre}${l.detail ? ` : ${l.detail}` : ""}`).join("\n");
 export const CONSIGNE_IA = `Tu es « ${NOM_ASSISTANT} », l'assistant virtuel de BMI TOGO (Les bâtiments modernes et intelligents), une entreprise de Lomé, au Togo. Tu réponds aux clients qui écrivent au numéro WhatsApp de BMI TOGO.
@@ -108,6 +113,12 @@ QUI TU ES
 - Tu ne termines pas tes messages par « Comment puis-je vous aider ? » et tu ne rappelles pas le mot « conseiller » à chaque message : le client le connaît déjà.
 - Tu réponds au DERNIER message du client, et à lui seul. Ce que tu as déjà dit plus haut dans la conversation (un calcul, une estimation, les panneaux d'une pompe, une liste d'articles, un prix, un total), tu ne le redis JAMAIS en entier : tu y renvoies en une phrase (« comme indiqué plus haut »). Tu ne refais un calcul que si le client change une donnée, et tu ne donnes alors que le nouveau résultat. Tu ne reviens pas sur une question à laquelle tu as déjà répondu.
 - Tu ne te présentes pas toi-même : le serveur ajoute la phrase de présentation la toute première fois que ce client écrit à BMI TOGO. Réponds directement.
+
+LES MESSAGES DE L'ÉQUIPE BMI TOGO
+- Dans la conversation, un message qui commence par « ${MARQUE_EQUIPE} NOM, de l'équipe BMI TOGO] » a été écrit par une PERSONNE de BMI TOGO (un conseiller, un vendeur…), et « ${MARQUE_AUTO} » est un message parti tout seul de l'application (reçu, devis, relance, rappel). Ce n'est PAS toi qui les as écrits : tu ne dis jamais « je » à leur place, tu dis « comme vous l'a indiqué NOM » ou « comme indiqué dans le message de BMI TOGO ».
+- Tu tiens compte de ce que cette personne a dit, demandé ou promis (un rappel, une visite, un rendez-vous, un devis en préparation) : tu ne la contredis JAMAIS, tu ne répètes pas son message, tu ne reposes pas une question à laquelle elle a déjà répondu, et tu ne reprends pas à zéro une demande qu'elle a prise en charge.
+- Un prix, un montant ou un délai cité par cette personne, tu ne le recopies pas (seuls tes outils te donnent des montants) : tu y renvoies (« le prix que NOM vous a indiqué »).
+- Tu n'écris jamais toi-même ces marques entre crochets.
 
 CE QUE FAIT BMI TOGO
 ${activites}
@@ -351,6 +362,22 @@ export const OUTILS_IA = [
 // lignes de suite du même côté sont réunies ; le premier message doit
 // venir du client, le dernier aussi. Une photo ou un vocal devient un mot
 // entre crochets : l'IA ne les lit pas, elle doit le savoir.
+// La marque d'un message de BMI qui n'est pas de l'assistant : la personne
+// qui l'a écrit (`de_nom` d'un compte), sinon BMI (un message parti seul, une
+// tournée, une ligne sans auteur). ⚠ L'IA ne doit jamais l'écrire elle-même :
+// `sansMarqueEquipe` la retire si elle la recopie.
+export function marqueEquipe(m) {
+  const nom = String(m?.de_nom || "").trim();
+  // Les tournées du serveur signent « Relance automatique BMI », « bmi-systeme »… : pas une personne.
+  const id = String(m?.de_id || "");
+  const personne = id && id !== ID_ASSISTANT && !/-bmi$|^bmi-/.test(id) && nom && !/automatique|^bmi\b|^système$/i.test(nom);
+  return personne ? `${MARQUE_EQUIPE} ${nom}, de l'équipe BMI TOGO]` : MARQUE_AUTO;
+}
+export const sansMarqueEquipe = (texte) => String(texte || "")
+  .replace(/\[Message de [^\]\n]{1,80}, de l'équipe BMI TOGO\]\s*/g, "")
+  .replace(/\[Message automatique de BMI TOGO\]\s*/g, "")
+  .trim();
+
 export function messagesPourIA(fil, { max = MAX_MESSAGES_MEMOIRE } = {}) {
   const lignes = (Array.isArray(fil) ? fil : []).filter((m) => m && !m.wa_systeme && m.canal !== "whatsapp_entete").slice(-max);
   const texteDe = (m) => {
@@ -365,8 +392,15 @@ export function messagesPourIA(fil, { max = MAX_MESSAGES_MEMOIRE } = {}) {
   const suite = [];
   for (const m of lignes) {
     const role = m.wa_entrant ? "user" : "assistant";
-    const t = texteDe(m);
-    if (!t) continue;
+    const brut = texteDe(m);
+    if (!brut) continue;
+    // 👨‍💼 Ce qu'une PERSONNE de BMI a écrit n'est pas de l'assistant (Timo,
+    // 19/10/2026 : « même si un conseiller interfère dans la discussion,
+    // l'assistant ne reconnaît pas qu'un conseiller a écrit » → « a »). Le
+    // service ne connaît que deux côtés : chaque ligne de BMI qui n'est pas la
+    // sienne porte donc SA marque, la personne nommée, ou BMI pour un message
+    // parti tout seul (reçu, relance, rappel).
+    const t = role === "user" || estLigneAssistant(m) ? brut : `${marqueEquipe(m)} ${brut}`;
     const dernier = suite[suite.length - 1];
     if (dernier && dernier.role === role) dernier.content += `\n${t}`;
     else suite.push({ role, content: t });
@@ -854,8 +888,11 @@ export function reponseDepuisIA({ texte, effets, juge, nouvelle, presentation = 
   // celle que l'IA a écrite : une phrase fixe ne la cite pas.
   const pose = (t, etape, conseiller, repli) => ({ texte: avecPresentation(t, { nouvelle: !!presentation }), etape, conseiller, demandeDevis: ef.demandeDevis || null, ia: true, ...(repli ? { repli } : {}), ...(!repli && ef.estimation ? { estimation: ef.estimation } : {}) });
   if (juge?.ok) {
+    // 👨‍💼 Une marque « [Message de …] » recopiée par l'IA ne part jamais (19/10/2026).
+    const propre = sansMarqueEquipe(texte);
+    if (!propre) return null;
     // Le mode d'emploi de l'espace client se lit comme l'estimation : sans guillemets autour.
-    const net = (ef.textesPermis || []).reduce((t, permis) => sansGuillemetsAutour(t, permis), sansGuillemetsAutour(presentation ? sansQuestionAccueil(sansSalutation(texte, nom)) : texte, ef.estimation?.texte));
+    const net = (ef.textesPermis || []).reduce((t, permis) => sansGuillemetsAutour(t, permis), sansGuillemetsAutour(presentation ? sansQuestionAccueil(sansSalutation(propre, nom)) : propre, ef.estimation?.texte));
     return pose(net, etapeApresIA(ef), !!ef.conseiller, "");
   }
   if (juge?.reserve) return pose(REPONSE_SUJET_RESERVE, ETAPE_CONSEILLER, true, juge.motif);

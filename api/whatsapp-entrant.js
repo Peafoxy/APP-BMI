@@ -32,7 +32,7 @@ import { estCompteFormation } from "../src/lib/espace.js";
 import { numeroWhatsApp, conseillersAlerte, critiqueNumeroAlerte, variablesAlerte, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 // 🤖 L'assistant (24/09/2026) : la règle vit dans lib/assistantWhatsapp.js,
 // ce fichier ne fait que l'appeler, envoyer, et écrire ce qui est parti.
-import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, conversationIAEnCours, ETAPE_MENU, ETAPE_PRODUIT, ATTENTE_GROUPEMENT_MS, messageDepasse, filPourReponse } from "../src/lib/assistantWhatsapp.js";
+import { decisionAssistant, reponseAssistant, ligneAssistant, articlesPourAssistant, construireDemandeDevis, assistantActif, interpreterEntree, conversationIAEnCours, ETAPE_MENU, ETAPE_PRODUIT, ATTENTE_GROUPEMENT_MS, messageDepasse, filPourReponse, bmiAEcritApres } from "../src/lib/assistantWhatsapp.js";
 // 🤖 Niveau 3 (24/09/2026, « Lance avec ces trois réponses ») : l'assistant
 // qui DISCUTE. La règle (consigne, outils, juge) vit dans lib/assistantIA.js,
 // la porte réseau dans api/_assistantIA.js ; le menu reste le repli.
@@ -399,6 +399,8 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
   if (attente > 0) await new Promise((ok) => setTimeout(ok, attente));
   const filFrais = await relireFil();
   if (messageDepasse(filFrais, ligne)) return { repondu: false, groupe: true, pourquoi: "le client a réécrit : une seule réponse partira" };
+  // 👨‍💼 Une personne de BMI a répondu pendant l'attente (« b », 19/10/2026) : elle passe seule.
+  if (bmiAEcritApres(filFrais, ligne)) return { repondu: false, pourquoi: "une personne de BMI a répondu entre-temps" };
   const fil = filPourReponse(filFrais, ligne);
   const decision = decisionAssistant({ fil, proprietaireId, actif: assistantActif(boutiques), maintenant: ligne.ts });
   if (!decision.repondre) return { repondu: false, pourquoi: decision.pourquoi };
@@ -518,7 +520,10 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
   if (!cleYCloud || !expediteur || !destinataire) return { repondu: false, pourquoi: "WhatsApp non configuré sur le serveur" };
   // ⏳ Le client a pu réécrire pendant que la réponse se préparait : c'est
   // alors l'appel de son dernier message qui répondra (une seule réponse).
-  if (messageDepasse(await relireFil(), ligne)) return { repondu: false, groupe: true, pourquoi: "le client a réécrit pendant la préparation : une seule réponse partira" };
+  const filAvantEnvoi = await relireFil();
+  if (messageDepasse(filAvantEnvoi, ligne)) return { repondu: false, groupe: true, pourquoi: "le client a réécrit pendant la préparation : une seule réponse partira" };
+  // 👨‍💼 Un conseiller a répondu pendant que la réponse se préparait (« b ») : l'assistant se tait.
+  if (bmiAEcritApres(filAvantEnvoi, ligne)) return { repondu: false, pourquoi: "une personne de BMI a répondu pendant la préparation" };
   const envoi = await envoyerYCloud(cleYCloud, corpsTexte(expediteur, destinataire, r.texte));
   if (!envoi.ok) {
     // ⚠ Le motif part dans le journal du serveur (en anglais, tel que Meta

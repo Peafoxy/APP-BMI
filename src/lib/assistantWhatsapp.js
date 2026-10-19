@@ -207,7 +207,14 @@ export function decisionAssistant({ fil, proprietaireId = "", actif = true, main
   const age = t - Date.parse(precedent.ts || "");
   const recent = Number.isFinite(age) && age < HEURES_SILENCE * 3600 * 1000;
   if (!recent) return { repondre: true, etape: null, pourquoi: "plus de 24 h sans un mot de BMI : nouvelle conversation" };
-  if (!estLigneAssistant(precedent)) return { repondre: false, etape: null, pourquoi: "un employé a répondu il y a moins de 24 h" };
+  if (!estLigneAssistant(precedent)) {
+    // 🤖 « assistant » après une personne de BMI (« c oui », 19/10/2026) : le
+    // client fait revenir l'assistant sans attendre 24 h. La conversation
+    // continue (pas de présentation) ; l'IA lit ce que la personne a écrit.
+    // ⚠ Une conversation CONFIÉE ne passe jamais ici (elle s'est tue plus haut).
+    if (entree.assistant) return { repondre: true, etape: ETAPE_MENU, pourquoi: "le client revient à l'assistant après un message de BMI", retour: true, memoire: {} };
+    return { repondre: false, etape: null, pourquoi: "un employé a répondu il y a moins de 24 h" };
+  }
   const etape = precedent.wa_assistant.etape;
   if (etape === ETAPE_CONSEILLER) {
     if (entree.menu) return { repondre: true, etape: null, pourquoi: "le client redemande le menu" };
@@ -225,9 +232,9 @@ export function decisionAssistant({ fil, proprietaireId = "", actif = true, main
 // deux appels de l'adresse d'arrivée, deux réponses, deux présentations. Le
 // serveur attend un peu (`ATTENTE_GROUPEMENT_MS`), relit la conversation, et
 // ne répond QUE pour le dernier message du client : sa réponse lit tous ceux
-// qui précèdent. ⚠ Seul un message ENTRANT plus récent dépasse : une ligne de
-// BMI arrivée entre-temps ne fait pas taire l'assistant (sinon le second
-// message d'un client pourrait rester sans réponse).
+// qui précèdent. ⚠ Seul un message ENTRANT plus récent dépasse ; une ligne
+// d'une PERSONNE de BMI arrivée entre-temps fait taire l'assistant par une
+// règle à part (`bmiAEcritApres`, « b » du 19/10/2026).
 export const ATTENTE_GROUPEMENT_MS = 4000;
 
 const apres = (a, b) => {
@@ -239,6 +246,15 @@ const apres = (a, b) => {
 export function messageDepasse(fil, ligne) {
   if (!ligne) return false;
   return (Array.isArray(fil) ? fil : []).some((m) => m && m.wa_entrant && m.id !== ligne.id && apres(m, ligne));
+}
+
+// ---- 👨‍💼 UNE PERSONNE DE BMI A ÉCRIT APRÈS LE CLIENT (« b », 19/10/2026) ----
+// Pendant que l'assistant attend ou prépare sa réponse, un conseiller (ou un
+// message parti de l'application) a pu répondre : l'assistant se tait, le
+// message de la personne passe seul. Ses propres lignes ne comptent pas.
+export function bmiAEcritApres(fil, ligne) {
+  if (!ligne) return false;
+  return (Array.isArray(fil) ? fil : []).some((m) => m && !m.wa_entrant && !m.wa_systeme && m.canal !== "whatsapp_entete" && !estLigneAssistant(m) && m.id !== ligne.id && apres(m, ligne));
 }
 
 // La conversation telle que la décision et l'IA doivent la lire : la version
