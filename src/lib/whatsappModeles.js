@@ -48,6 +48,14 @@ export const MODELES = {
   // serveur juste avant l'envoi, jamais rangé chez nous. Choisi par la case
   // « 📎 Joindre le PDF du devis » ; décochée, c'est `devis_disponible`.
   devis_pdf: { categorie: "utility", variables: ["client", "domaine", "montant"], entete: "document" },
+  // 📎 19/10/2026 (Timo, « Ab, Ba, Cb, textes ok ») : le reçu et la proforma
+  // avec leur PDF en EN-TÊTE. `recu_pdf` sert les trois reçus qui partent à
+  // l'encaissement (vente, versement d'une dette, réservation) — le titre est
+  // écrit sur le PDF ; il est essayé D'ABORD, sans case (« B a »), et le reçu
+  // en texte d'aujourd'hui part s'il ne passe pas. `proforma_pdf` est essayé
+  // à chaque proforma (« C b », sans case), `proforma` en relais.
+  recu_pdf: { categorie: "utility", variables: ["client", "numero", "date", "detail"], entete: "document" },
+  proforma_pdf: { categorie: "marketing", variables: ["client", "numero", "date", "montant", "fin"], entete: "document" },
   // « Bonjour {{1}}, nous revenons vers vous au sujet du devis {{2}} de {{3}}
   //   que nous vous avons envoyé le {{4}}. … »
   relance_devis: { categorie: "marketing", variables: ["client", "domaine", "montant", "date"] },
@@ -305,6 +313,10 @@ export const MODELES_EN_SERVICE = [
   // 📎 17/10/2026 : le devis avec son PDF. En service AVANT l'accord de Meta :
   // d'ici là il est refusé, et le devis part par `devis_disponible` (« B a »).
   "devis_pdf",
+  // 📎 19/10/2026 : le reçu et la proforma avec leur PDF. En service AVANT
+  // l'accord de Meta : d'ici là ils sont refusés, et le reçu en texte ou le
+  // modèle `proforma` partent à leur place.
+  "recu_pdf", "proforma_pdf",
   // 📋 Dettes, 20/09/2026 (décision « c ») : la relance d'une dette part
   // du numéro BMI. Mis en service AVANT l'accord de Meta (d'ici là, repli
   // sur l'ouverture WhatsApp, refus dit en français) pour éviter un second
@@ -472,6 +484,7 @@ const LIGNES_MASQUEES = {
   prime_installation_payee: "🔒 Avis de paiement d'une part d'installation envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
+  recu_pdf: "🔒 Reçu de vente envoyé au client, 📎 PDF joint — détail réservé au vendeur et à l'administrateur principal.",
   recu_depot_chantier: "🔒 Reçu de dépôt chantier envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   bon_reprise: "🔒 Bon de reprise envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
   bon_retour: "🔒 Bon de retour envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
@@ -481,6 +494,11 @@ const LIGNES_MASQUEES = {
   avancement_employe: "🔒 Avis d'avancement envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
 };
 export const lignePrivee = (modele) => MODELES_PRIVES.includes(modele);
+// 📎 `recu_pdf` sert trois reçus : celui d'une VENTE est privé (comme
+// `recu_vente`), ceux d'un versement et d'une réservation ne le sont pas
+// (comme `recu_reglement` / `recu_reservation`). C'est la référence de la
+// ligne qui le dit : une vente porte `vente_id`.
+export const lignePriveeEnvoi = (modele, ref = {}) => lignePrivee(modele) || (modele === "recu_pdf" && !!(ref && ref.vente_id));
 export const ligneMasquee = (modele) => LIGNES_MASQUEES[modele] || "";
 // `estPrincipal` est calculé par l'écran (cette règle n'importe rien).
 export const peutLireLignePrivee = (m, lecteur, estPrincipal) => !!(m && m.wa_prive && lecteur
@@ -888,6 +906,8 @@ export function libelleTrace(trace) {
 const LIGNES_ENVOI = {
   devis_disponible: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}.`,
   devis_pdf: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}, 📎 PDF joint.`,
+  recu_pdf: ([client, numero, date, detail]) => `Reçu N° ${numero} du ${date} envoyé à ${client}, 📎 PDF joint — ${detail}`,
+  proforma_pdf: ([client, numero, date, montant, fin]) => `Proforma N° ${numero} du ${date} (${montant}, valable jusqu'au ${fin}) envoyée à ${client}, 📎 PDF joint.`,
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
   demande_avis: ([client, installation]) => `Demande d'avis Google envoyée à ${client} (installation ${installation}).`,
   rappel_entretien: ([client, installation, date]) => `Rappel automatique de l'entretien de l'installation ${installation} de ${client}, prévu le ${date}.`,
@@ -1416,6 +1436,49 @@ export const TEXTE_DEVIS_PDF = [
   "Pour toute question ou tout éclaircissement :",
   ...BLOC_CONTACT_COURT,
 ].join("\n");
+// 📎 19/10/2026 (Timo, « textes ok ») : `recu_pdf` et `proforma_pdf`, à créer
+// chez YCloud mot pour mot, en-tête « Document ».
+export const TEXTE_RECU_PDF = [
+  "Bonjour {{1}}, merci pour votre confiance.",
+  "Votre reçu BMI TOGO N° {{2}} du {{3}} est en pièce jointe.",
+  "",
+  "{{4}}",
+  "",
+  "Pour toute question ou tout éclaircissement :",
+  ...BLOC_CONTACT_COURT,
+].join("\n");
+export const TEXTE_PROFORMA_PDF = [
+  "Bonjour {{1}}, voici votre proforma BMI TOGO N° {{2}} du {{3}}.",
+  "",
+  "Montant : {{4}}",
+  "",
+  "Offre valable jusqu'au {{5}}, sans valeur de reçu. Vous la trouverez en pièce jointe. Pour la confirmer, passez en boutique ou répondez à ce message.",
+  "",
+  "Pour toute question ou tout éclaircissement :",
+  ...BLOC_CONTACT_COURT,
+].join("\n");
+// Le reçu PDF se DÉDUIT du reçu en texte qui serait parti — jamais une
+// seconde fabrique : mêmes mots, même montant, même formule. `numero` = le
+// numéro écrit SUR le PDF (une vente à crédit remet le reçu de SA dette).
+// Un dépôt chantier n'a pas de PDF (il ne part que par son modèle, « C b »
+// du 13/10/2026) : null.
+export function recuPdfDepuis(envoi, { numero = "" } = {}) {
+  if (!envoi || !Array.isArray(envoi.variables)) return null;
+  const v = envoi.variables;
+  const num = (x) => texteVariable(numero) || x;
+  if (envoi.modele === "recu_vente") return { modele: "recu_pdf", variables: [v[0], num(v[3]), v[1], `Montant : ${v[4]}, ${v[5]}.`] };
+  if (envoi.modele === "recu_vente_detail") return { modele: "recu_pdf", variables: [v[0], num(v[3]), v[1], `Montant : ${v[5]}, ${v[6]}.`] };
+  if (envoi.modele === "recu_reglement") return { modele: "recu_pdf", variables: [v[0], num(v[4]), v[2], `Versement de ${v[1]} ${v[3]}, ${v[5]}.`] };
+  if (envoi.modele === "recu_reservation") return { modele: "recu_pdf", variables: [v[0], num(v[3]), v[1], `Réservation : total ${v[4]}, ${v[5]}.`] };
+  return null;
+}
+// La proforma PDF se déduit de l'envoi `proforma` (mêmes client, numéro,
+// date, total et fin de l'offre ; la liste des articles est DANS le PDF).
+export function proformaPdfDepuis(envoi) {
+  if (!envoi || envoi.modele !== "proforma" || !Array.isArray(envoi.variables)) return null;
+  const v = envoi.variables;
+  return { modele: "proforma_pdf", variables: [v[0], v[1], v[2], v[5], v[6]] };
+}
 export const ADRESSE_SIGNATURE_PV = "https://bmitogo.com/signature/";
 export const ADRESSE_AVENANT = "https://bmitogo.com/avenant/";
 export const TEXTE_LIEN_SIGNATURE_PV = [
@@ -1705,7 +1768,7 @@ export function envoiBon({ bon, boutique, fmt, dFR }) {
 // Le texte lisible d'un envoi, quel que soit le reçu.
 export function texteRecu(envoi) {
   if (!envoi) return "";
-  const t = { proforma: TEXTE_PROFORMA, recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_depot_chantier: TEXTE_RECU_DEPOT_CHANTIER, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR }[envoi.modele];
+  const t = { proforma: TEXTE_PROFORMA, recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_depot_chantier: TEXTE_RECU_DEPOT_CHANTIER, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR, recu_pdf: TEXTE_RECU_PDF, proforma_pdf: TEXTE_PROFORMA_PDF }[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), t) : "";
 }
 

@@ -4,11 +4,11 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, fmtFcfa, pctRemiseLisible, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp, estDepotChantier } from "./core";
+import { today, dFR, fmt, fmtFcfa, pctRemiseLisible, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp, estDepotChantier, numeroDuRecuDeVente } from "./core";
 import { TITRE_RECU_DEPOT } from "./depotChantier";
 import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
-import { printApi } from "../components/ui";
+import { printApi, fichierPdfDepuisHtml } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation, cumulsPaieAnnee } from "./calculs";
 import { genererSVGCode128 } from "./barcode";
 import { identiteClient, ligneClient, partieClientContrat } from "./clientEntreprise";
@@ -91,7 +91,7 @@ const STYLE_RECU = `
 `;
 
 // ============ REÇU CLIENT ============
-export function imprimerRecu(v, bq = {}, produits = []) {
+export function imprimerRecu(v, bq = {}, produits = [], { rendre = false } = {}) {
   // MODULE GARANTIES : si l'article vendu a une "Garantie boutique"
   // renseignée sur sa fiche produit, on l'ajoute entre parenthèses après le
   // nom — jamais si le champ est vide, pour ne rien changer aux reçus déjà
@@ -183,7 +183,10 @@ export function imprimerRecu(v, bq = {}, produits = []) {
   // Mode 2 exemplaires (réglage de la boutique dans Paramètres) : le même
   // reçu deux fois — l'exemplaire client d'abord, puis, sur une nouvelle
   // page, la souche boutique marquée DUPLICATA.
-  const sortie = bq.recu_duplicata
+  // 📎 `rendre` (19/10/2026) : la page du reçu, SANS le duplicata de la
+  // boutique, pour en faire le PDF du message WhatsApp — rien ne s'imprime.
+  if (rendre) return html;
+const sortie = bq.recu_duplicata
     ? html +
       `<div class="saut-page" style="break-before:page;page-break-before:always"><div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div></div>` +
       html
@@ -206,7 +209,7 @@ export function imprimerRecu(v, bq = {}, produits = []) {
 // tant que rien n'a été encaissé, c'est un REÇU DE DETTE — daté du jour de la
 // dette, établi par celui qui l'a saisie, sans historique de versements. Le
 // titre vient de la règle `titreRecuDette` (core.js), jamais d'ici.
-export function imprimerRecuVersement(d, bq = {}) {
+export function imprimerRecuVersement(d, bq = {}, { rendre = false } = {}) {
   const logo = bq.logo || LOGO;
   const { solde, versement, titre, montantDu, totalVerse, reste } = titreRecuDette(d);
   const paiements = d.paiements || [];
@@ -324,7 +327,8 @@ export function imprimerRecuVersement(d, bq = {}) {
   // à la fois les versements sur dette classique ET sur réservation, puisque
   // les deux passent par cette même fonction. Trouvé manquant ici par Timo :
   // le réglage boutique existait déjà, juste jamais branché sur ce reçu-là.
-  const sortie = bq.recu_duplicata
+  if (rendre) return html;
+const sortie = bq.recu_duplicata
     ? html +
       `<div class="saut-page" style="break-before:page;page-break-before:always"><div style="text-align:center;font-weight:bold;color:#b45309;border:2px dashed #b45309;border-radius:6px;padding:5px;margin:0 auto 10px;max-width:680px;font-family:Arial">DUPLICATA — EXEMPLAIRE BOUTIQUE</div></div>` +
       html
@@ -335,12 +339,22 @@ export function imprimerRecuVersement(d, bq = {}) {
 // ---- Le reçu d'une vente : UN chemin (14/09/2026) ----
 // Vente comptant → reçu de vente ; vente à crédit → le reçu de sa dette
 // (règle `documentDeVente`, core.js). Ventes ne choisit jamais lui-même.
-export function imprimerRecuDeVente(db, v, bq = {}, produits = []) {
+export function imprimerRecuDeVente(db, v, bq = {}, produits = [], { rendre = false } = {}) {
   // 🧾 Une vente de travaux s'imprime « FACTURE — TRAVAUX » (10/10/2026).
   const vt = avecInfoTravaux(db, v);
   const doc = documentDeVente(db, vt);
-  if (doc.type === "dette") imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq);
-  else imprimerRecu(vt, bq, produits);
+  if (doc.type === "dette") return imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq, { rendre });
+  return imprimerRecu(vt, bq, produits, { rendre });
+}
+
+// ---- 📎 LE PDF DU REÇU, POUR LE MESSAGE WHATSAPP (19/10/2026, « B a ») ----
+// La MÊME page que le reçu imprimé (jamais une seconde mise en page), rendue
+// en PDF comme « 📤 Partager » — `fichierPdfDepuisHtml` (components/ui.jsx).
+export function fichierRecuDeVente(db, v, bq = {}, produits = []) {
+  return fichierPdfDepuisHtml(imprimerRecuDeVente(db, v, bq, produits, { rendre: true }), nomDocument("Reçu", { client: v.client, numero: numeroDuRecuDeVente(db, v) }));
+}
+export function fichierRecuVersement(d, bq = {}) {
+  return fichierPdfDepuisHtml(imprimerRecuVersement(d, bq, { rendre: true }), nomDocument("Reçu", { client: d.client, numero: numeroRecuDette(d) }));
 }
 
 // ============ 🧾 LE RELEVÉ DES TRAVAUX (10/10/2026, « b ») ============

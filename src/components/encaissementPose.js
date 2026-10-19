@@ -20,6 +20,7 @@ import { bloquerSiLecture, libelleCaisse, boutiqueDuDocument, estNomCaisseChanti
 import { etatPose, peutEncaisserPose, ACOMPTE_POSE_PCT } from "../lib/poseSeule";
 import { envoyerRecuSansQuestion } from "../whatsapp";
 import { envoiRecuReglement } from "../lib/whatsappModeles";
+import { fichierRecuVersement } from "../lib/impression";
 
 // enBoutique : encaissé au comptoir (sinon sur le terrain) — pour le libellé
 // et le journal. La caisse, elle, est celle de la dette : CHANTIER.
@@ -69,5 +70,7 @@ export async function encaisserDettePose({ db, save, profile, chantier, enBoutiq
     envoi: envoiRecuReglement({ dette: { ...detteApres, tel: telV }, versement: paiement, boutique: bqV, fmt, dFR, numeroDe: numeroRecuDette }),
     tel: telV, nom,
     espaceFormation: !!bqCaisse.formation || !!bqV.formation || !!chantier.formation, save, profile, ref: { dette_id: detteApres.id },
+    // 📎 Le reçu du versement avec son PDF d'abord (19/10/2026, « B a »).
+    pdf: { numero: numeroRecuDette(detteApres), fabriquer: () => fichierRecuVersement({ ...detteApres, tel: telV }, bqV) },
   });
 }

@@ -796,7 +796,7 @@ const rogner = (toile, cadre, echelle) => {
   c.getContext("2d").drawImage(toile, sx, sy, sw, sh, 0, 0, sw, sh);
   return c;
 };
-export async function pdfDeLApercu(html, page = PAGE_A4) {
+export async function pdfDeLApercu(html, page = PAGE_A4, { qualite = 0.92 } = {}) {
   const [largeur, hauteur, marge] = dimensionsPage(page);
   // Rendu hors écran, à la largeur d'une page — jamais à celle du téléphone.
   const horsEcran = document.createElement("div");
@@ -825,13 +825,25 @@ export async function pdfDeLApercu(html, page = PAGE_A4) {
       morceau.width = toile.width; morceau.height = h;
       morceau.getContext("2d").drawImage(toile, 0, y, toile.width, h, 0, 0, toile.width, h);
       if (!premiere) doc.addPage([largeur, hauteur], largeur > hauteur ? "landscape" : "portrait");
-      doc.addImage(morceau.toDataURL("image/jpeg", 0.92), "JPEG", marge, marge, utileL, h * echelle);
+      doc.addImage(morceau.toDataURL("image/jpeg", qualite), "JPEG", marge, marge, utileL, h * echelle);
       premiere = false; y = fin;
     }
     return doc;
   } finally {
     horsEcran.remove();
   }
+}
+// 📎 Le PDF d'un document de l'aperçu, prêt à partir dans l'EN-TÊTE d'un
+// modèle WhatsApp (19/10/2026, le reçu `recu_pdf`) : la MÊME image que
+// « 📤 Partager », un peu plus compressée (QUALITE_PDF_WHATSAPP) pour que
+// l'envoi depuis un téléphone ne soit pas coupé en route (leçon du 18/10).
+// Rend { nom, mime, taille, donnees } (donnees = le PDF codé en base64), la
+// forme qu'attend `envoyerModele({ fichier })`.
+export const QUALITE_PDF_WHATSAPP = 0.8;
+export async function fichierPdfDepuisHtml(html, titre, page = PAGE_A4) {
+  const doc = await pdfDeLApercu(html, page, { qualite: QUALITE_PDF_WHATSAPP });
+  const base64 = String(doc.output("datauristring") || "").split(",")[1] || "";
+  return { nom: nomFichierPartage(titre), mime: "application/pdf", taille: Math.floor(base64.length * 3 / 4), donnees: base64 };
 }
 export async function partagerDocument(html, titre, page = PAGE_A4) {
   const doc = await pdfDeLApercu(html, page);

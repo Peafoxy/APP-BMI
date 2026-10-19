@@ -14,8 +14,8 @@ import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS, caisseDeVente, LIBELLE_CAISSE_CHANTIER, MOYENS_ENCAISSEMENT } from "../lib/constants";
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees, fondsAVerser, critiqueSortieTiroir } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
-import { prochainNumeroAchatChantier, estDepotChantier } from "../lib/core";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT, proformaPourDocument, pctRemiseLisible } from "../lib/core";
+import { prochainNumeroAchatChantier, estDepotChantier, numeroDuRecuDeVente } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT, proformaPourDocument, pctRemiseLisible, fichierPdf } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -24,7 +24,7 @@ import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, BoutonEnvoi, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
-import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp } from "../lib/impression";
+import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp, fichierRecuDeVente, fichierRecuVersement } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
@@ -37,8 +37,8 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
-import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
-import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite } from "../lib/whatsappModeles";
+import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion, envoyerRecuPdf } from "../whatsapp";
+import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite, proformaPdfDepuis, lignePdfNonParti } from "../lib/whatsappModeles";
 import { lierFacture, champsTravauxDocument, propositionsStock, produitSaisi } from "../lib/travaux";
 import { peutEchanger, chiffresEchange, construireEchange, appliquerEchange, montantReprisHorsEchange, echangesDeLaVente, DESTINATION_STOCK, DESTINATION_SAV } from "../lib/echanges";
 import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
@@ -551,7 +551,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // blocage du navigateur ; c'est maintenant le clic sur OK qui l'ouvre,
     // un geste tout frais, et `ouvrirWhatsApp` garde son filet si besoin.
     const bqPf = infoBq(pf.boutique);
-    genererProforma({ ...pf, formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation, bq: infoBq(pf.boutique) }, LOGO);
+    // 📎 19/10/2026 (« C b ») : le MÊME PDF est téléchargé sur l'appareil ET
+    // joint au message du numéro BMI (`proforma_pdf`) — une seule fabrique.
+    const docPf = genererProforma({ ...pf, formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation, bq: infoBq(pf.boutique) }, LOGO, true);
+    const nomPdfPf = fichierPdf("Proforma", { client: pf.client, numero: pf.numero });
+    docPf.save(nomPdfPf);
+    const base64Pf = String(docPf.output("datauristring") || "").split(",")[1] || "";
+    const fichierPf = base64Pf ? { nom: nomPdfPf, mime: "application/pdf", taille: Math.floor(base64Pf.length * 3 / 4), donnees: base64Pf } : null;
     setMsg(`✅ Proforma ${pf.numero} émis (non comptabilisé).`);
     const annonceAppareil = num
       ? `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAppuyez sur OK : WhatsApp s'ouvre sur le numéro du client. Joignez-y le PDF.`
@@ -566,6 +572,22 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const envoi = envoiProforma({ proforma: pf, boutique: bqPf, fin: dFR(finDeValidite(today(), 15)), fmt });
     if (envoi && !bqPf.formation) {
       if (!await uConfirm(`Envoyer la proforma N° ${pf.numero} à ${pf.client || "ce client"} (${pf.tel}) du numéro WhatsApp BMI ?\n\nLe PDF est déjà téléchargé sur l'appareil.`)) return;
+      // 📎 « C b » : la proforma AVEC SON PDF d'abord, sans repli ; refusée
+      // (pas encore approuvée par Meta…), le modèle `proforma` d'aujourd'hui.
+      const envoiPdf = proformaPdfDepuis(envoi);
+      let notePdf = "";
+      if (envoiPdf && fichierPf) {
+        const rp = await envoyerModele({ tel: pf.tel, modele: envoiPdf.modele, variables: envoiPdf.variables, espaceFormation: !!bqPf.formation, sansRepli: true, fichier: fichierPf });
+        if (rp.auto) {
+          save((e) => ({
+            ...e,
+            messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: pf.tel, nom: pf.client, modele: envoiPdf.modele, variables: envoiPdf.variables, ref: { proforma_numero: pf.numero }, envoi: rp }),
+          }));
+          await uAlert(`✅ Proforma N° ${pf.numero} envoyée du numéro BMI à ${pf.client || "ce client"}, avec son PDF.`);
+          return;
+        }
+        notePdf = rp.reseau ? lignePdfNonParti("", true) : (rp.motif && !motifAttendu(rp.motif) ? lignePdfNonParti(rp.motif) : "");
+      }
       const r = await envoyerModele({ tel: pf.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: !!bqPf.formation,
         texteRepli: lignes.join("\n"), prevenir: uAlert, demanderConfirmation: uConfirm,
         annonceRepli: "Appuyez sur OK : WhatsApp s'ouvre avec la proforma complète, depuis VOTRE numéro. Le PDF est téléchargé sur l'appareil : joignez-le au message." });
@@ -574,7 +596,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           ...e,
           messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: pf.tel, nom: pf.client, modele: envoi.modele, variables: envoi.variables, ref: { proforma_numero: pf.numero }, envoi: r }),
         }));
-        await uAlert(`✅ Proforma N° ${pf.numero} envoyée du numéro BMI à ${pf.client || "ce client"}.\n\nLe PDF est aussi téléchargé sur l'appareil, si le client le demande.`);
+        await uAlert(`✅ Proforma N° ${pf.numero} envoyée du numéro BMI à ${pf.client || "ce client"}.\n\nLe PDF est aussi téléchargé sur l'appareil, si le client le demande.${notePdf ? `\n\n${notePdf}` : ""}`);
       }
       return;
     }
@@ -622,6 +644,16 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // deux reçus : UNE fabrique, celle que 📲 WhatsApp relit pour recomposer
     // le détail chez le vendeur et l'administrateur principal (lignesPrivees).
     const envois = envoisRecuDeVente(vente, { boutique: bq, dette: dette || { paye: 0, montant: 0 } });
+    // 📎 19/10/2026 (« B a ») : le reçu AVEC SON PDF d'abord — le même reçu
+    // que celui imprimé (le reçu de SA dette pour une vente à crédit), son
+    // numéro sur le message. Un dépôt chantier n'en a pas (`recuPdfDepuis`).
+    // Ne part pas : les deux reçus en texte, comme avant.
+    const rp = await envoyerRecuPdf({
+      envoi: envois[0], numero: numeroDuRecuDeVente(etat, vente),
+      fabriquer: () => fichierRecuDeVente(etat, vente, bq, etat.produits || db.produits),
+      tel: vente.tel, nom: vente.client, espaceFormation: !!bq.formation, save, profile, ref: { vente_id: vente.id },
+    });
+    if (rp.auto) return { auto: true, detail: true, pdf: true, depot: false };
     let motif = "";
     for (const envoi of envois) {
       const r = await envoyerModele({
@@ -633,18 +665,19 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           ...e,
           messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id }, envoi: r }),
         }));
-        return { auto: true, detail: envoi.modele !== "recu_vente", depot: envoi.modele === "recu_depot_chantier" };
+        return { auto: true, detail: envoi.modele !== "recu_vente", depot: envoi.modele === "recu_depot_chantier", pdfIncertain: !!rp.incertain };
       }
       motif = r.motif || motif;
       if (motifAttendu(r.motif)) break;
     }
-    return { auto: false, motif, rien: !envois.length };
+    return { auto: false, motif, rien: !envois.length, pdfIncertain: !!rp.incertain };
   };
 
   const envoyerRecuAutomatique = async (vente, apres) => {
     const r = await envoyerRecuDuNumeroBmi(vente, apres);
-    if (r.auto) { setNoteRecuWa(`📲 Reçu ${r.depot ? "de dépôt chantier " : ""}${vente.numero} envoyé du numéro BMI à ${vente.client}.`); return; }
-    setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.` : "");
+    const notePdf = r.pdfIncertain ? ` ${lignePdfNonParti("", true)}` : "";
+    if (r.auto) { setNoteRecuWa(`📲 Reçu ${r.depot ? "de dépôt chantier " : ""}${vente.numero} envoyé du numéro BMI à ${vente.client}${r.pdf ? ", avec le PDF" : ""}.${notePdf}`); return; }
+    setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.${notePdf}` : notePdf.trim());
   };
 
   // 🧾 LE BOUTON WHATSAPP DE LA LIGNE (25/09/2026, capture Timo : « depuis
@@ -659,7 +692,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (!await uConfirm(`Envoyer le reçu N° ${v.numero} à ${v.client || "ce client"} (${v.tel}) du numéro WhatsApp BMI ?`)) return;
     const r = await envoyerRecuDuNumeroBmi(v, db);
     if (r.auto) {
-      await uAlert(`✅ Reçu ${r.depot ? "de dépôt chantier " : ""}N° ${v.numero} envoyé du numéro BMI à ${v.client || "ce client"}.${r.detail ? "" : "\n\nSans la liste des articles : le reçu détaillé n'a pas pu partir (pas encore approuvé par Meta ?)."}`);
+      await uAlert(`✅ Reçu ${r.depot ? "de dépôt chantier " : ""}N° ${v.numero} envoyé du numéro BMI à ${v.client || "ce client"}${r.pdf ? ", avec le PDF du reçu" : ""}.${r.detail ? "" : "\n\nSans la liste des articles : le reçu détaillé n'a pas pu partir (pas encore approuvé par Meta ?)."}${r.pdfIncertain ? `\n\n${lignePdfNonParti("", true)}` : ""}`);
       return;
     }
     if (r.motif && !motifAttendu(r.motif)) await uAlert(`${r.motif}\n\nWhatsApp va s'ouvrir avec le reçu complet : le message part de VOTRE numéro.`);
@@ -987,6 +1020,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       envoyerRecuSansQuestion({
         envoi: envoiRecuReservation({ reservation, boutique: bqR, fmt, dFR, numeroDe: numeroRecuDette }),
         tel: reservation.tel, nom: reservation.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: reservation.id },
+        // 📎 Le reçu de la réservation avec son PDF d'abord (19/10/2026, « B a »).
+        pdf: { numero: numeroRecuDette(reservation), fabriquer: () => fichierRecuVersement(reservation, infoBq(boutique)) },
       }).then(setNoteRecuWa);
       setPanier([]);
       setF({ ...identiteDe(null), client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });

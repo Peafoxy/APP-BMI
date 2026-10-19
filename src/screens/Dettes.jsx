@@ -10,7 +10,7 @@ import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNum
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable, BoutonRond, BoutonEnvoi, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
-import { imprimerRecu, imprimerRecuVersement } from "../lib/impression";
+import { imprimerRecu, imprimerRecuVersement, fichierRecuVersement } from "../lib/impression";
 import { avecInfoTravaux } from "../lib/travaux";
 import { bloquerSiLecture, boutiquesVente, estReservation, resteAPayer, stockActuel, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, espaceDeLaDette, boutiqueRetenue, compteClientPour, refuserSaufAdmin, boutiqueDuDocument, estNomCaisseChantier, libelleCaisse } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -138,6 +138,9 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
     setNoteRecuWa(await envoyerRecuSansQuestion({
       envoi: envoiRecuReglement({ dette: dApres, versement: paiement, boutique: bqD, fmt, dFR, numeroDe: numeroRecuDette }),
       tel: dApres.tel, nom: dApres.client, espaceFormation: !!bqD.formation, save, profile, ref: { dette_id: dApres.id },
+      // 📎 Le reçu du versement avec son PDF d'abord (19/10/2026, « B a ») :
+      // le même reçu que celui qui vient de s'imprimer.
+      pdf: { numero: numeroRecuDette(dApres), fabriquer: () => fichierRecuVersement(avecInfoTravaux(db, dApres), bqDe(boutiqueDuDocument(d))) },
     }));
   };
 
@@ -181,6 +184,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
     envoyerRecuSansQuestion({
       envoi: envoiRecuReservation({ reservation: r, boutique: bqR, fmt, dFR, numeroDe: numeroRecuDette }),
       tel: r.tel, nom: r.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: r.id },
+      pdf: { numero: numeroRecuDette(r), fabriquer: () => fichierRecuVersement(r, bqR) },
     }).then(setNoteRecuWa);
     setPanierRes([]);
     setRes({ client: "", tel: "", produit_id: "", qte: "", avance: "", moyen: "Espèces", echeance: "" });

@@ -3798,7 +3798,9 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
     && ventesSrc.includes("imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)")
     // RETOURNÉ le 10/10/2026 : la vente et sa dette passent par avecInfoTravaux (« FACTURE — TRAVAUX »).
     // RETOURNÉ le 12/10/2026 : la dette d'un DÉPÔT CHANTIER porte sa mention (« C b »).
-    && imp.includes("const doc = documentDeVente(db, vt);") && imp.includes('if (doc.type === "dette") imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq);'));
+    // RETOURNÉ le 19/10/2026 : le même chemin REND la page (`rendre`) pour le PDF du reçu WhatsApp.
+    && imp.includes("const doc = documentDeVente(db, vt);") && imp.includes('if (doc.type === "dette") return imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq, { rendre });')
+    && imp.includes("return imprimerRecu(vt, bq, produits, { rendre });"));
 }
 
 titre("Le filet : abandonner un geste refusé par le serveur, sans rien laisser à moitié");
@@ -8499,7 +8501,8 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       && /enteteSociete[\s\S]{0,900}titreEntete\(bq\)/.test(readFileSync("src/pdf.js", "utf8")));
     const vtx = readFileSync("src/screens/Ventes.jsx", "utf8");
     test("★ 💰 Ventes passe la fiche de la boutique aux TROIS chemins de la proforma (PDF, impression, réimpression) et au texte WhatsApp",
-      /genererProforma\(\{ \.\.\.pf, formation: [^}]*, bq: infoBq\(pf\.boutique\) \}, LOGO\)/.test(vtx)
+      // RETOURNÉ le 19/10/2026 : le PDF est RENDU (`true`) pour partir aussi dans `proforma_pdf`.
+      /genererProforma\(\{ \.\.\.pf, formation: [^}]*, bq: infoBq\(pf\.boutique\) \}, LOGO, true\)/.test(vtx)
       && (vtx.match(/imprimerProforma\([^;]*infoBq\(pf\.boutique\)\)/g) || []).length === 2
       && /infoBq\(pf\.boutique\)\.tel \? \[`\$\{pf\.boutique\} — Tél : /.test(vtx));
     // 🧾 19/10/2026 (Timo : « remise sur un proforma n'apparaît pas sur le

@@ -23,7 +23,7 @@
 // suite : la personne voit, décide, envoie.
 // ============================================================
 import { ouvrirWhatsAppApresAnnonce, nouveauMessage } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, MODELES_IDENTIFIANTS, texteEspaceMasque, ligneEnvoiModele, motifAttendu, messageRepli, lignePrivee, ligneMasquee } from "./lib/whatsappModeles";
+import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, MODELES_IDENTIFIANTS, texteEspaceMasque, ligneEnvoiModele, motifAttendu, messageRepli, lignePrivee, lignePriveeEnvoi, ligneMasquee, recuPdfDepuis, lignePdfNonParti } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 // ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
@@ -234,7 +234,7 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
   // 🔒 Un reçu de vente ou un bon : la ligne rangée ne porte pas le détail
   // (lib/whatsappModeles.js, MODELES_PRIVES) — l'écran le recompose depuis la
   // vente pour le vendeur et l'administrateur principal.
-  const prive = lignePrivee(modele);
+  const prive = lignePriveeEnvoi(modele, ref);
   const texte = ligneEnvoiModele(modele, variables) ? (prive ? ligneMasquee(modele) : ligneEnvoiModele(modele, variables)) : "";
   if (!cle || !texte) return liste;
   const nomClient = String(nom || "");
@@ -404,8 +404,44 @@ export async function chargerMediaWa(messageId) {
 // ligne entre dans 📲 WhatsApp sans donner la conversation à personne. Rend
 // la phrase à afficher discrètement (vide si rien à dire : pas de numéro,
 // formation — le cas normal ne dérange personne).
-export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation, save, profile, ref = {}, noms = { titre: "Reçu", sujet: "Le reçu" } }) {
+// ---------------------------------------------------------------
+// 📎 LE REÇU AVEC SON PDF (19/10/2026, Timo : « Ab, Ba, Cb, textes ok »)
+// ---------------------------------------------------------------
+// `recu_pdf` est essayé D'ABORD, sans case ni question (« B a »), avec le PDF
+// du reçu imprimé (`fabriquer`, l'écran le fournit). Le reçu PDF se déduit du
+// reçu en texte (`recuPdfDepuis`) — mêmes mots. Rend { auto, motif, incertain,
+// rien } ; parti, la ligne entre dans 📲 WhatsApp (privée pour une vente). Ne
+// part pas (pas encore approuvé, PDF impossible, réseau) : l'appelant envoie
+// le reçu en texte d'aujourd'hui. ⚠ Rien en formation, rien sans numéro : on
+// ne fabrique même pas le PDF (la règle refuserait l'envoi de toute façon).
+export async function envoyerRecuPdf({ envoi, numero, fabriquer, tel, nom, espaceFormation, save, profile, ref = {} }) {
+  const envoiPdf = recuPdfDepuis(envoi, { numero });
+  if (!envoiPdf || typeof fabriquer !== "function" || espaceFormation || String(tel || "").replace(/\D/g, "").length < 8) return { auto: false, motif: "", rien: true };
+  let fichier = null;
+  try { fichier = await fabriquer(); } catch (e) { console.error("PDF du reçu à joindre :", e); }
+  if (!fichier || !fichier.donnees) return { auto: false, motif: "le PDF du reçu n'a pas pu être fabriqué." };
+  const r = await envoyerModele({ tel, modele: envoiPdf.modele, variables: envoiPdf.variables, espaceFormation, sansRepli: true, fichier });
+  if (!r.auto) return { auto: false, motif: r.motif || "", incertain: !!r.reseau };
+  if (typeof save === "function") {
+    save((etat) => ({
+      ...etat,
+      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoiPdf.modele, variables: envoiPdf.variables, ref, envoi: r }),
+    }));
+  }
+  return { auto: true, motif: "" };
+}
+
+export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation, save, profile, ref = {}, noms = { titre: "Reçu", sujet: "Le reçu" }, pdf = null }) {
   if (!envoi) return "";
+  // 📎 Le reçu avec son PDF d'abord (`pdf` = { numero, fabriquer }) ; le
+  // texte d'aujourd'hui s'il ne part pas. Après une connexion coupée on ne
+  // sait pas si le PDF est parti : le texte part quand même, et on le DIT.
+  let notePdf = "";
+  if (pdf) {
+    const rp = await envoyerRecuPdf({ envoi, numero: pdf.numero, fabriquer: pdf.fabriquer, tel, nom, espaceFormation, save, profile, ref });
+    if (rp.auto) return `📲 ${noms.titre} envoyé du numéro BMI à ${nom}, avec le PDF.`;
+    if (rp.incertain) notePdf = ` ${lignePdfNonParti("", true)}`;
+  }
   const r = await envoyerModele({ tel, modele: envoi.modele, variables: envoi.variables, espaceFormation, sansRepli: true });
   if (r.auto) {
     if (typeof save === "function") {
@@ -414,7 +450,7 @@ export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation
         messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref, envoi: r }),
       }));
     }
-    return `📲 ${noms.titre} envoyé du numéro BMI à ${nom}.`;
+    return `📲 ${noms.titre} envoyé du numéro BMI à ${nom}.${notePdf}`;
   }
-  return r.motif && !motifAttendu(r.motif) ? `${noms.sujet} n'est pas parti du numéro BMI : ${r.motif}` : "";
+  return r.motif && !motifAttendu(r.motif) ? `${noms.sujet} n'est pas parti du numéro BMI : ${r.motif}${notePdf}` : notePdf.trim();
 }

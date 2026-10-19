@@ -715,6 +715,13 @@ export function documentDeVente(db, v) {
 // script pour un encaissement d'avant). Les règles : lib/depotChantier.js.
 export const estDepotChantier = (v) => !!v && (v.depot_chantier === true || (Array.isArray(v.articles) && v.articles.some((l) => l && l.au_chantier)));
 export const numeroRecu = (v) => v.numero || `${prefixeBoutique(v.boutique)}-${String(v.date).slice(0, 4)}-${String(v.id).slice(0, 4).toUpperCase()}`;
+// 📎 Le numéro écrit SUR le reçu remis pour une vente (19/10/2026, le PDF du
+// reçu WhatsApp) : une vente à crédit remet le reçu de SA dette, donc le
+// numéro de la dette ; sinon celui de la vente. La règle `documentDeVente`.
+export const numeroDuRecuDeVente = (db, v) => {
+  const doc = documentDeVente(db, v);
+  return doc.type === "dette" ? numeroRecuDette(doc.dette) : numeroRecu(v);
+};
 // Deux enregistrements sont-ils identiques ? Par référence d'abord (l'app
 // met à jour par recopie immuable : une ligne inchangée garde son objet),
 // repli sur le contenu. UNE règle (point A6 du relevé des doublons,

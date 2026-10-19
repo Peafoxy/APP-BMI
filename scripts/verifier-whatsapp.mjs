@@ -41,6 +41,9 @@ const ATTENDU = {
   // 📎 17/10/2026 (« A a, B a, C a ») : le devis AVEC son PDF en en-tête
   // document. MARKETING (une offre), les trois trous de devis_disponible.
   devis_pdf: { categorie: "utility", n: 3 }, // RETOURNÉ le 17/10/2026 : Meta l'a rangé en utility
+  // 📎 19/10/2026 (« Ab, Ba, Cb, textes ok ») : le reçu et la proforma avec leur PDF.
+  recu_pdf: { categorie: "utility", n: 4 },
+  proforma_pdf: { categorie: "marketing", n: 5 },
   relance_devis: { categorie: "marketing", n: 4 },
   // ⚠ LE DIX-SEPTIÈME (26/09/2026, « texte ok, une seule relance, lance ») :
   // la relance AUTOMATIQUE du 8e jour, qui annonce la fin de l'offre.
@@ -147,7 +150,7 @@ const ATTENDU = {
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les cinquante-trois modèles sont là, et eux seuls (RETOURNÉ le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les cinquante-cinq modèles sont là, et eux seuls (RETOURNÉ le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1383,7 +1386,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,depense_rejetee,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,depense_rejetee,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,proforma_pdf,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3012,7 +3015,8 @@ titre("㉜ ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026, « o
   const ecrans = ["Dettes", "TousLesDevis", "Utilisateurs", "Clients", "Ventes", "Prospects", "ClientsInstalles", "dimensionnement/Partages"];
   const appels = ecrans.flatMap((e) => (sansComm(lire(`src/screens/${e}.jsx`)).match(/messagesAvecLigne(Envoi|Acces)\([^\n]*/g) || []));
   test(`★★ CHAQUE appel des écrans passe son envoi (${appels.length} appels) — un appel oublié, c'est un message sans coches`,
-    appels.length >= 13 && appels.every((a) => /envoi: (r|accesEnvoyes) \}/.test(a)));
+    // RETOURNÉ le 19/10/2026 : l'essai du PDF (reçu, proforma) range SON envoi, `rp`.
+    appels.length >= 13 && appels.every((a) => /envoi: (r|rp|accesEnvoyes) \}/.test(a)));
   const WS = lire("src/screens/Whatsapp.jsx");
   test("★ 📲 WhatsApp : la réponse libre et « ✍️ Écrire » gardent leur numéro, les coches se dessinent sur les lignes suivies, l'échec se lit en toutes lettres",
     (WS.match(/\.\.\.champsEnvoi\(r\),/g) || []).length === 2 && /m\.wa_envoi_id && <CochesEnvoi statut=\{m\.wa_statut\}/.test(WS) && /data-echec-envoi/.test(WS));
@@ -4706,15 +4710,16 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
 titre("55 📎 LE DEVIS AVEC SON PDF — `devis_pdf`, la case « Joindre le PDF du devis » (17/10/2026, « A a, B a, C a »)");
 {
   const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  test("★ `devis_pdf` : UTILITY (RETOURNÉ le 17/10/2026 — soumis en marketing, Meta l'a rangé en utility), les TROIS trous de devis_disponible dans le même ordre, et un EN-TÊTE DOCUMENT ; lui seul en porte un",
+  test("★ `devis_pdf` : UTILITY (RETOURNÉ le 17/10/2026 — soumis en marketing, Meta l'a rangé en utility), les TROIS trous de devis_disponible dans le même ordre, et un EN-TÊTE DOCUMENT (RETOURNÉ le 19/10/2026 : le reçu et la proforma en portent un aussi, et eux seuls)",
     M.MODELES.devis_pdf?.categorie === "utility" && M.MODELES.devis_pdf.variables.join(",") === M.MODELES.devis_disponible.variables.join(",")
-    && M.modeleAvecDocument("devis_pdf") === true && M.NOMS_MODELES.filter((n) => M.modeleAvecDocument(n)).join(",") === "devis_pdf"
+    && M.modeleAvecDocument("devis_pdf") === true && M.NOMS_MODELES.filter((n) => M.modeleAvecDocument(n)).join(",") === "devis_pdf,recu_pdf,proforma_pdf"
     && M.MODELES_EN_SERVICE.includes("devis_pdf"));
   test("★ le texte du modèle (celui à créer chez YCloud) : trois trous dans l'ordre, la pièce jointe et l'espace client dits",
     (M.TEXTE_DEVIS_PDF.match(/\{\{\d\}\}/g) || []).join("") === "{{1}}{{2}}{{3}}" && /pièce jointe/.test(M.TEXTE_DEVIS_PDF) && /gestion\.bmitogo\.com/.test(M.TEXTE_DEVIS_PDF));
   test("★ « pour toute question ou tout éclaircissement » : l'e-mail, les deux numéros et le site de BMI sont sous le texte (Timo, 17/10/2026), dans le bloc commun",
     /Pour toute question ou tout éclaircissement :\n📧 contact@bmitogo\.com\n📞 \+228 99 96 84 88 \/ \+228 91 13 05 11\n🌐 www\.bmitogo\.com\n\nBMI TOGO — Les bâtiments modernes et intelligents$/.test(M.TEXTE_DEVIS_PDF)
-    && /\.\.\.BLOC_CONTACT_COURT,\n\]\.join\("\\n"\);\nexport const ADRESSE_SIGNATURE_PV/.test(lire("src/lib/whatsappModeles.js")));
+    // RETOURNÉ le 19/10/2026 : les textes du reçu et de la proforma PDF suivent celui du devis.
+    && /export const TEXTE_DEVIS_PDF = \[[^\]]*\.\.\.BLOC_CONTACT_COURT,\n\]\.join\("\\n"\);/.test(lire("src/lib/whatsappModeles.js")));
   const dv = { id: "DV1", total: 1250000, domaine: "solaire", date: "2026-10-17" };
   const sans = M.envoiDevisDisponible({ devis: dv, compte: { nom: "AMA" }, fmt });
   const avec = M.envoiDevisDisponible({ devis: dv, compte: { nom: "AMA" }, fmt, avecPdf: true });
@@ -5601,6 +5606,101 @@ titre("65 👨‍💼 L'ASSISTANT RECONNAÎT CE QU'UN CONSEILLER A ÉCRIT, SE TA
     r1?.repondu === true && n1 === 1 && memoire1.includes("[Message de TIMO, de l'équipe BMI TOGO] Je passe chez vous demain"), JSON.stringify(r1));
   test("★★★ la chaîne jouée « b » : TIMO répond pendant l'attente → rien ne part ; TIMO répond PENDANT que l'IA écrit → rien ne part non plus",
     r2?.repondu === false && n2 === 0 && r3?.repondu === false && n3 === 0, `${JSON.stringify(r2)} ${JSON.stringify(r3)}`);
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("66 📎 LE REÇU ET LA PROFORMA AVEC LEUR PDF — `recu_pdf`, `proforma_pdf` (19/10/2026, « Ab, Ba, Cb, textes ok »)");
+{
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const trous = (t) => (t.match(/\{\{\d\}\}/g) || []).join("");
+  test("★ les deux modèles : `recu_pdf` UTILITY à 4 trous, `proforma_pdf` MARKETING à 5 trous, tous deux à EN-TÊTE DOCUMENT et en service",
+    M.MODELES.recu_pdf?.categorie === "utility" && M.MODELES.recu_pdf.variables.join(",") === "client,numero,date,detail"
+    && M.MODELES.proforma_pdf?.categorie === "marketing" && M.MODELES.proforma_pdf.variables.join(",") === "client,numero,date,montant,fin"
+    && M.modeleAvecDocument("recu_pdf") && M.modeleAvecDocument("proforma_pdf") && M.MODELES_EN_SERVICE.includes("recu_pdf") && M.MODELES_EN_SERVICE.includes("proforma_pdf"));
+  test("★ les textes de Timo (« textes ok ») : trous dans l'ordre, « en pièce jointe », « sans valeur de reçu », le bloc des contacts en bas",
+    trous(M.TEXTE_RECU_PDF) === "{{1}}{{2}}{{3}}{{4}}" && /^Bonjour \{\{1\}\}, merci pour votre confiance\.\nVotre reçu BMI TOGO N° \{\{2\}\} du \{\{3\}\} est en pièce jointe\.\n\n\{\{4\}\}\n\nPour toute question ou tout éclaircissement :\n📧 contact@bmitogo\.com/.test(M.TEXTE_RECU_PDF)
+    && trous(M.TEXTE_PROFORMA_PDF) === "{{1}}{{2}}{{3}}{{4}}{{5}}" && /Offre valable jusqu'au \{\{5\}\}, sans valeur de reçu\. Vous la trouverez en pièce jointe\./.test(M.TEXTE_PROFORMA_PDF)
+    && /BMI TOGO — Les bâtiments modernes et intelligents$/.test(M.TEXTE_RECU_PDF) && /BMI TOGO — Les bâtiments modernes et intelligents$/.test(M.TEXTE_PROFORMA_PDF)
+    && M.texteRecu({ modele: "recu_pdf", variables: ["A", "B", "C", "D"] }).startsWith("Bonjour A, merci"));
+  const f = (n) => `${Number(n).toLocaleString("fr-FR").replace(/ /g, " ")} F`;
+  const vente = { id: "v1", numero: "BMID-2026-0050", date: "2026-10-19", boutique: "BMI DEMAKPOE", client: "CHEF EZO", tel: "90112233", paiement: "Espèces", articles: [{ nom: "Panneau", qte: 2, pu: 9000 }] };
+  const rv = M.envoiRecuVente({ vente, boutique: { tel: "91000000" }, montant: 18000, fmt: f, dFR: (x) => x.split("-").reverse().join("/") });
+  const rvd = M.envoiRecuVenteDetail({ vente: { ...vente, paiement: "Crédit (dette)" }, boutique: { tel: "91000000" }, montant: 300000, avance: 100000, reste: 200000, lignes: [{ article: "Batterie", qte: 1 }], fmt: f, dFR: (x) => x.split("-").reverse().join("/") });
+  const dette = { id: "d1", numero: "BMID-DET-2026-0003", client: "MR ERIC", tel: "90112233", montant: 150000, paye: 50000 };
+  const rr = M.envoiRecuReglement({ dette, versement: { montant: 50000, date: "2026-10-19", paiement: "Espèces" }, boutique: {}, fmt: f, dFR: (x) => x.split("-").reverse().join("/") });
+  const rs = M.envoiRecuReservation({ reservation: { ...dette, date: "2026-10-19", boutique: "BMI DEMAKPOE", montant: 300000, paye: 100000 }, boutique: {}, fmt: f, dFR: (x) => x.split("-").reverse().join("/") });
+  const pv = M.recuPdfDepuis(rv), pvd = M.recuPdfDepuis(rvd, { numero: "BMID-DET-2026-0009" }), pr = M.recuPdfDepuis(rr), ps = M.recuPdfDepuis(rs);
+  test("★★ le reçu PDF se DÉDUIT du reçu en texte (mêmes mots) : vente comptant, vente à crédit (le numéro écrit SUR le PDF, celui de sa dette), versement, réservation",
+    JSON.stringify(pv?.variables) === JSON.stringify(["CHEF EZO", "BMID-2026-0050", "19/10/2026", "Montant : 18 000 F, payé en espèces."])
+    && pvd?.variables[1] === "BMID-DET-2026-0009" && pvd.variables[3] === "Montant : 300 000 F, à crédit : avance 100 000 F, reste 200 000 F."
+    && JSON.stringify(pr?.variables) === JSON.stringify(["MR ERIC", "BMID-DET-2026-0003", "19/10/2026", "Versement de 50 000 F en espèces, il reste 100 000 F sur un total de 150 000 F."])
+    && ps?.variables[3] === "Réservation : total 300 000 F, avance 100 000 F, reste 200 000 F." && ps.variables[1] === "BMID-DET-2026-0003", JSON.stringify([pv, pvd, pr, ps]));
+  test("★★ un DÉPÔT CHANTIER n'a pas de PDF (il ne part que par son modèle, « C b » du 13/10) ; un envoi vide non plus",
+    M.recuPdfDepuis({ modele: "recu_depot_chantier", variables: ["a", "b", "c", "d", "e", "f", "g"] }) === null && M.recuPdfDepuis(null) === null);
+  const env = M.envoiProforma({ proforma: { client: "AMA", tel: "90112233", numero: "PF-12", date: "19/10/2026", boutique: "BMI DEMAKPOE", total: 450000, lignes: [{ article: "Onduleur", qte: 1 }] }, boutique: {}, fin: "03/11/2026", fmt: f });
+  test("★★ la proforma PDF se déduit de l'envoi `proforma` (client, numéro, date, total, fin de l'offre) ; la liste des articles est DANS le PDF",
+    JSON.stringify(M.proformaPdfDepuis(env)?.variables) === JSON.stringify(["AMA", "PF-12", "19/10/2026", "450 000 F", "03/11/2026"]) && M.proformaPdfDepuis(rv) === null);
+  test("★★ la ligne du fil : celle d'une VENTE est privée (comme `recu_vente`), celle d'un versement ou d'une réservation ne l'est pas (comme `recu_reglement`) ; elle dit « 📎 PDF joint »",
+    M.lignePriveeEnvoi("recu_pdf", { vente_id: "v1" }) === true && M.lignePriveeEnvoi("recu_pdf", { dette_id: "d1" }) === false && M.lignePriveeEnvoi("recu_vente", {}) === true
+    && /📎 PDF joint/.test(M.ligneEnvoiModele("recu_pdf", pr.variables)) && /📎 PDF joint/.test(M.ligneEnvoiModele("proforma_pdf", M.proformaPdfDepuis(env).variables)) && /📎 PDF joint/.test(M.ligneMasquee("recu_pdf")));
+
+  // ── LA VRAIE CHAÎNE : envoyerRecuSansQuestion, le serveur joué
+  const dossierF = mkdtempSync(join(tmpdir(), "bmi-recupdf-"));
+  const fauxClient = join(dossierF, "fauxClient.mjs");
+  writeFileSync(fauxClient, `export async function whatsappEnLigne(c) { (globalThis.__appelsRecu = globalThis.__appelsRecu || []).push(c); const v = globalThis.__reponseRecu; return typeof v === "function" ? v(c) : (v || { id: "Y" + globalThis.__appelsRecu.length, wamid: "W" }); }`);
+  const sortieW = join(dossierF, "wa.mjs");
+  let W = null;
+  try {
+    await build({ entryPoints: ["src/whatsapp.js"], bundle: true, format: "esm", platform: "node", outfile: sortieW, logLevel: "silent",
+      plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: fauxClient })); } }] });
+    W = await import(pathToFileURL(sortieW).href);
+  } catch (e) { console.log("   (build de whatsapp.js : " + (e?.message || e) + ")"); }
+  const PDF = { nom: "Reçu.pdf", mime: "application/pdf", taille: 3, donnees: "JVBE" };
+  // ⚠ Chaque essai parle à un AUTRE client : le filet anti-doublon (64)
+  // refuserait sinon le même message renvoyé dans la minute.
+  let tour = 0;
+  const jouer = async ({ reponse, espaceFormation = false, fabriquer = async () => PDF, ref = { dette_id: "d1" }, envoi = rr }) => {
+    globalThis.__appelsRecu = []; globalThis.__reponseRecu = reponse; let etat = { messages: [] }; let fabrique = 0; tour++;
+    const tel = `9011${String(2200 + tour)}`;
+    const phrase = W ? await W.envoyerRecuSansQuestion({ envoi, tel, nom: "MR ERIC", espaceFormation, profile: { id: "u1", nom: "ANGELE" }, ref,
+      save: (fn) => { etat = fn(etat); }, pdf: { numero: "BMID-DET-2026-0003", fabriquer: async () => { fabrique++; return fabriquer(); } } }) : "";
+    return { phrase, appels: globalThis.__appelsRecu.slice(), etat, fabrique };
+  };
+  const a = await jouer({});
+  const b = await jouer({ reponse: (c) => (c.modele === "recu_pdf" ? { error: "The template is unavailable, status: PENDING", statut: 502 } : { id: "Y2" }) });
+  const c = await jouer({ espaceFormation: true });
+  const d = await jouer({ fabriquer: async () => { throw new Error("html2canvas"); } });
+  const e = await jouer({ ref: { vente_id: "v1" }, envoi: rv });
+  globalThis.__reponseRecu = undefined;
+  const ligne = (r) => (r.etat.messages || []).find((m) => m.canal === "whatsapp");
+  test("★★★ « B a » : le reçu part AVEC SON PDF — UN appel, `recu_pdf`, le fichier joint, la ligne `recu_pdf` dans le fil, et la phrase le dit",
+    a.appels.length === 1 && a.appels[0].modele === "recu_pdf" && a.appels[0].fichier?.donnees === "JVBE" && ligne(a)?.wa_modele === "recu_pdf" && /avec le PDF/.test(a.phrase), JSON.stringify(a.appels.map((x) => x.modele)));
+  test("★★★ `recu_pdf` refusé (pas encore approuvé par Meta) → le reçu en TEXTE d'aujourd'hui part juste après, et c'est lui qui entre dans le fil",
+    b.appels.map((x) => x.modele).join(",") === "recu_pdf,recu_reglement" && !b.appels[1].fichier && ligne(b)?.wa_modele === "recu_reglement" && !/avec le PDF/.test(b.phrase));
+  test("★★ en FORMATION : le PDF n'est même pas fabriqué, rien ne part ; un PDF impossible à fabriquer → le reçu en texte part quand même",
+    c.appels.length === 0 && c.fabrique === 0 && d.appels.map((x) => x.modele).join(",") === "recu_reglement");
+  test("★★ le reçu d'une VENTE : sa ligne est PRIVÉE (phrase neutre, rien du montant) ; celui d'un versement ne l'est pas",
+    ligne(e)?.wa_prive === true && !/18 000/.test(ligne(e)?.texte || "") && /PDF joint/.test(ligne(e)?.texte || "") && !ligne(a)?.wa_prive && /50 000 F/.test(ligne(a)?.texte || ""));
+  try { rmSync(dossierF, { recursive: true, force: true }); } catch {}
+
+  // ── LES ÉCRANS
+  const VT = sansComm(lire("src/screens/Ventes.jsx")), DT = sansComm(lire("src/screens/Dettes.jsx")), EP = sansComm(lire("src/components/encaissementPose.js"));
+  const corpsRecu = (VT.match(/const envoyerRecuDuNumeroBmi = async \(vente, etat\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  test("★★ 💰 Ventes : le reçu AVEC SON PDF est essayé AVANT les deux reçus en texte (encaissement ET bouton de la ligne), le numéro écrit sur le PDF, le reçu imprimé rendu en PDF",
+    /const rp = await envoyerRecuPdf\(\{/.test(corpsRecu) && /numero: numeroDuRecuDeVente\(etat, vente\)/.test(corpsRecu) && /fabriquer: \(\) => fichierRecuDeVente\(etat, vente, bq,/.test(corpsRecu)
+    && corpsRecu.indexOf("envoyerRecuPdf") < corpsRecu.indexOf("for (const envoi of envois)") && /ref: \{ vente_id: vente\.id \}/.test(corpsRecu));
+  test("★★ les trois reçus de versement et les deux réservations passent `pdf` : 📋 Dettes (versement, réservation), 🏠 la pose seule, 💰 Ventes (réservation)",
+    (DT.match(/pdf: \{ numero: numeroRecuDette\(/g) || []).length === 2 && /fichierRecuVersement\(avecInfoTravaux\(db, dApres\)/.test(DT)
+    && /pdf: \{ numero: numeroRecuDette\(detteApres\), fabriquer: \(\) => fichierRecuVersement\(/.test(EP)
+    && /pdf: \{ numero: numeroRecuDette\(reservation\), fabriquer: \(\) => fichierRecuVersement\(reservation,/.test(VT));
+  const corpsPf = (VT.match(/const envoiPdf = proformaPdfDepuis\(envoi\);[\s\S]*?const r = await envoyerModele\(\{/) || [""])[0];
+  test("★★ « C b » : la proforma part AVEC SON PDF à chaque fois (sans case), le MÊME PDF que celui téléchargé, sans repli ; refusée, le modèle `proforma` d'aujourd'hui prend le relais",
+    /const docPf = genererProforma\([^;]*LOGO, true\);/.test(VT) && /docPf\.save\(nomPdfPf\);/.test(VT)
+    && /modele: envoiPdf\.modele, variables: envoiPdf\.variables, espaceFormation: !!bqPf\.formation, sansRepli: true, fichier: fichierPf/.test(corpsPf)
+    && corpsPf.length > 0 && !/joindrePdf|data-joindre-pdf/.test(corpsPf));
+  test("★ le reçu se rend SANS s'imprimer (`rendre`), sans le duplicata de la boutique, et `fichierPdfDepuisHtml` est écrit UNE fois (components/ui.jsx)",
+    /if \(rendre\) return html;/.test(lire("src/lib/impression.js")) && (lire("src/lib/impression.js").match(/if \(rendre\) return html;/g) || []).length === 2
+    && /export async function fichierPdfDepuisHtml\(/.test(lire("src/components/ui.jsx")) && !/export async function fichierPdfDepuisHtml/.test(lire("src/lib/impression.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

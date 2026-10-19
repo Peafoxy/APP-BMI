@@ -24,7 +24,22 @@ mkdirSync("node_modules/.cache", { recursive: true });
 const entree = join("node_modules", ".cache", `bmi-partage-entree-${process.pid}.jsx`);
 const sortie = join("node_modules", ".cache", `bmi-partage-${process.pid}.js`);
 writeFileSync(entree, `
-import { pdfDeLApercu, cadreContenu, PAGE_A4, LARGEUR_RENDU_PX } from "../../src/components/ui.jsx";
+import { pdfDeLApercu, cadreContenu, PAGE_A4, LARGEUR_RENDU_PX, fichierPdfDepuisHtml, QUALITE_PDF_WHATSAPP } from "../../src/components/ui.jsx";
+import { imprimerRecu, imprimerRecuVersement } from "../../src/lib/impression.js";
+// 📎 19/10/2026 : le PDF du VRAI reçu (la page imprimée, logo compris), tel
+// qu'il part dans l'en-tête de \`recu_pdf\` — son poids est mesuré.
+window.__mesurerRecu = async () => {
+  const vente = { id: "v1", numero: "BMID-2026-0050", date: "2026-10-19", heure: "12:24", boutique: "BMI DEMAKPOE", client: "CHEF EZO ENERGY DU TOGO", tel: "90112233", paiement: "Espèces", par: "ANGELE",
+    articles: Array.from({ length: 8 }, (_, i) => ({ produit_id: "p" + i, nom: "Panneau solaire monocristallin 550W n° " + (i + 1), qte: 2, pu: 45000 })) };
+  const dette = { id: "d1", numero: "BMID-DET-2026-0003", date: "2026-10-19", boutique: "BMI DEMAKPOE", client: "MR ERIC", tel: "90112233", motif: "Batteries", montant: 600000, paye: 200000, par: "ANGELE",
+    paiements: [{ id: "p1", date: "2026-10-19", heure: "10:00", montant: 200000, paiement: "Espèces", par: "ANGELE" }] };
+  const htmlV = imprimerRecu(vente, { nom: "BMI DEMAKPOE", tel: "+228 90 00 00 00" }, [], { rendre: true });
+  const htmlD = imprimerRecuVersement(dette, { nom: "BMI DEMAKPOE" }, { rendre: true });
+  const fv = await fichierPdfDepuisHtml(htmlV, "Reçu - CHEF EZO ENERGY DU TOGO - BMID-2026-0050");
+  const fd = await fichierPdfDepuisHtml(htmlD, "Reçu - MR ERIC - BMID-DET-2026-0003");
+  const pagesV = (atob(fv.donnees).match(new RegExp("/Type /Page[^s]", "g")) || []).length;
+  return { tailleV: fv.taille, tailleD: fd.taille, nomV: fv.nom, mime: fv.mime, pagesV, html: typeof htmlV === "string" && htmlV.includes("BMID-2026-0050"), qualite: QUALITE_PDF_WHATSAPP, imprime: document.querySelectorAll("#zone-impression").length };
+};
 window.__mesurer = async () => {
   const style = '<style>#zone-impression .recu-doc{font-family:Arial;font-size:12px;max-width:680px;margin:0 auto} #zone-impression table{width:100%;border-collapse:collapse} #zone-impression td{border:1px solid #d5e2ee;padding:6px} #zone-impression th{background:#1e5a8a;color:#fff;padding:6px}</style>';
   const lignes = Array.from({ length: 60 }, (_, i) => '<tr><td>Article ' + (i + 1) + '</td><td>' + (i + 1) + '</td><td>1 000 F</td></tr>').join("");
@@ -50,8 +65,10 @@ const mesurer = async (largeur) => {
   await page.setContent('<!doctype html><html><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await page.addScriptTag({ path: sortie });
   const r = await page.evaluate(() => window.__mesurer());
+  let recu = null;
+  try { recu = await page.evaluate(() => window.__mesurerRecu()); } catch (e) { erreurs.push("reçu : " + (e?.message || e)); }
   await page.close();
-  return { ...r, erreurs };
+  return { ...r, recu, erreurs };
 };
 console.log("\n📤 Le PDF partagé, mesuré dans Chromium");
 const tel = await mesurer(390);
@@ -68,6 +85,16 @@ test("★ les marges (capture Timo, 14/09/2026 : « les marges sont trop grandes
   && tel.cadre.x === 53 && tel.cadre.largeur === 688 && pc.cadre.x === 53 && pc.cadre.largeur === 688 /* le reçu de 680 px est trouvé à 53 px du bord, 688 px de large : le blanc autour n'entre plus dans le PDF */);
 test("★ le format de l'aperçu est respecté (une étiquette 60 × 30 sort en 60 × 30) et le cadre hors écran est retiré après le rendu (aucun #zone-impression ne traîne)",
   tel.etiquette.largeur === 60 && tel.etiquette.hauteur === 30 && tel.resteHorsEcran === 0 && pc.resteHorsEcran === 0);
+
+// 📎 19/10/2026 (« B a ») : le reçu part avec son PDF dans l'en-tête de
+// `recu_pdf`. La coupure du 18/10 (« Failed to fetch ») venait d'un PDF de
+// 780 Ko envoyé du téléphone : on MESURE celui du reçu.
+const rv = tel.recu;
+console.log(rv ? `   (PDF d'un reçu de vente de 8 articles : ${Math.round(rv.tailleV / 1024)} Ko ; reçu de versement : ${Math.round(rv.tailleD / 1024)} Ko ; qualité ${rv.qualite})` : `   (mesure du reçu impossible : ${tel.erreurs.join(" | ")})`);
+test("★★ le PDF du VRAI reçu (la page imprimée, logo compris) : un vrai PDF, UNE page, nommé « Reçu - client - numéro.pdf », et rien ne s'imprime (aucun cadre ne traîne)",
+  !!rv && rv.html && rv.mime === "application/pdf" && rv.pagesV === 1 && rv.nomV === "Reçu - CHEF EZO ENERGY DU TOGO - BMID-2026-0050.pdf" && rv.imprime === 0);
+test("★★ il reste LÉGER : moins de 400 Ko pour le reçu de vente comme pour le reçu de versement (le PDF du devis de 780 Ko était coupé en route, le 18/10)",
+  !!rv && rv.tailleV > 10000 && rv.tailleV < 400 * 1024 && rv.tailleD > 10000 && rv.tailleD < 400 * 1024);
 
 console.log();
 if (ko === 0) { console.log(`✅  ${ok} vérification(s) passée(s), 0 en échec.`); process.exit(0); }
