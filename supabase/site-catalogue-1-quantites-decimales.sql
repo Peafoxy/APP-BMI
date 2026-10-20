@@ -61,10 +61,12 @@ as $$
 $$;
 
 -- 3. Vérifier : le catalogue se lit EN ENTIER avec les droits d'un visiteur
---    (doit répondre : true | true)
+--    (doit répondre : true | true). ⚠ count(disponible), jamais count(*) :
+--    compter les lignes ne calcule pas le stock (le 20/10/2026, la première
+--    version répondait true | true pendant que la page restait en panne).
 begin;
 set local role anon;
 select
   (select count(*) from public.catalogue_public) > 0 as catalogue_lisible,
-  (select count(*) from (select disponible from public.catalogue_public) d) > 0 as stock_calcule_partout;
+  (select count(disponible) from public.catalogue_public) > 0 as stock_calcule_partout;
 rollback;

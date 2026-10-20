@@ -85,6 +85,12 @@ verdict "le simple comptage passe (c'est ce qui trompait)" "$(lire 'select count
 R=0; $P -c "begin; set local role anon; select count(disponible) from catalogue_public; rollback;" >/dev/null 2>&1 || R=1
 verdict "la page Boutique (qui lit « disponible ») tombe" "$R" "1"
 
+# La vérification du script doit TOMBER tant que l'ancien calcul est en place
+# (le 20/10/2026, une vérification par count(*) répondait true | true à tort).
+VERIF_AVANT=$(sed -n '/^-- 3\. Vérifier/,$p' supabase/site-catalogue-1-quantites-decimales.sql)
+R=0; $P -c "$VERIF_AVANT" >/dev/null 2>&1 || R=1
+verdict "la vérification du script tombe sur l'ancien calcul (elle mesure vraiment)" "$R" "1"
+
 echo "▸ Le script se colle sans objection, deux fois"
 R=0; $P -f supabase/site-catalogue-1-quantites-decimales.sql >/dev/null 2>&1 || R=1
 verdict "le script passe" "$R" "0"

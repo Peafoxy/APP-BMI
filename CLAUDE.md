@@ -78,7 +78,7 @@ npm run tester-comptes           # 98  : les règles de rôle sur les comptes (s
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
 npm run tester-heure             # 7   : l'heure de la base (heure_serveur, serveur, base jetable) : l'instant de la RÉPONSE, lisible connecté ou non, ne touche aucune table
-npm run tester-catalogue         # 12  : le catalogue du site vitrine (stock_calcule, base jetable) : une quantité à virgule ne fait plus tomber la page Boutique, le visiteur ne lit rien de plus
+npm run tester-catalogue         # 13  : le catalogue du site vitrine (stock_calcule, base jetable) : une quantité à virgule ne fait plus tomber la page Boutique, le visiteur ne lit rien de plus ; la vérification du script lit count(disponible), jamais count(*) (elle répondait true à tort)
 npm run tester-paie              # 77  : la fiche de paie séparée, le numéro de compte bancaire, le contrat de travail, les cases CNSS et le premier mois de paie verrouillés (serveur)
 ```
 
