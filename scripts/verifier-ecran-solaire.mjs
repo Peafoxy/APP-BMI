@@ -37,6 +37,7 @@ import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { DimensionnementSolaire } from "${process.cwd()}/src/screens/dimensionnement/Solaire.jsx";
 import { DimensionnementAutre } from "${process.cwd()}/src/screens/dimensionnement/Autre.jsx";
+import { DimensionnementGarage } from "${process.cwd()}/src/screens/dimensionnement/Garage.jsx";
 import { DialogHost } from "${process.cwd()}/src/components/ui.jsx";
 const admin = { id: "adm", nom: "TIMO", role: "admin" };
 const depart = {
@@ -71,11 +72,30 @@ function EssaiAutre() {
     domaine={{ id: "d1", nom: "Barrière levante" }} devisAReprendre={reprise} onDevisRepriseConsomme={() => {}} /><DialogHost /></>;
 }
 createRoot(document.getElementById("r2")).render(<EssaiAutre />);
+// 🔁 Le brouillon de DJEDJE repris par Timo (20/10/2026) : l'écran est DÉJÀ
+// monté (il reste en veille), puis un devis arrive, puis un autre. Les
+// « autres équipements » doivent suivre chaque reprise.
+const avecAutres = (id) => ({ brouillon_id: id, devis: { id, type_devis: "solaire", besoins: { appareils: [{ nom: "Climatiseur", puissance: 1000, heures: 6, qte: 2 }] }, lignes: [
+  { categorie: "Autres équipements", article: "LOT DE CABLE", qte: 1, pu: 0, total: 0, hors_boutique: true },
+  { categorie: "Autres équipements", article: "SYSTEME DE PROTECTION", qte: 1, pu: 0, total: 0, hors_boutique: true },
+] } });
+const sansAutres = (id) => ({ brouillon_id: id, devis: { id, type_devis: "solaire", besoins: { appareils: [{ nom: "Télévision", puissance: 100, heures: 5, qte: 1 }] }, lignes: [] } });
+function EssaiReprise({ Volet, nom }) {
+  const [db, setDb] = useState(depart);
+  const [bq, setBq] = useState("LOME");
+  const [reprise, setReprise] = useState(null);
+  window["reprendre" + nom] = setReprise;
+  const save = (next) => { setDb(typeof next === "function" ? next(db) : next); };
+  return <Volet db={db} profile={admin} save={save} bq={bq} setBq={setBq} devisAReprendre={reprise} onDevisRepriseConsomme={() => setReprise(null)} />;
+}
+window.avecAutres = avecAutres; window.sansAutres = sansAutres;
+createRoot(document.getElementById("r3")).render(<EssaiReprise Volet={DimensionnementSolaire} nom="Solaire" />);
+createRoot(document.getElementById("r4")).render(<EssaiReprise Volet={DimensionnementGarage} nom="Garage" />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
 const html = join(dossier, "index.html");
-writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><div id="r2"></div><script src="bundle.js"></script></body></html>`);
+writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><script src="bundle.js"></script></body></html>`);
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await nav.newPage({ viewport: { width: 1300, height: 1000 } });
 const erreurs = [];
@@ -150,6 +170,23 @@ console.log("\nLe volet Autre : une ligne hors stock d'un devis repris, son nom 
   test("★ changer le prix seul garde le nom ; 6 × 900 000 = 5 400 000", !alerte2 && /5 400 000/.test(texte2) && (await champNom.inputValue()) === "MOTEUR PARK-501DFC + 2RC", texte2);
   test("aucune erreur dans le volet Autre", erreurs.length === 0, erreurs.join(" | "));
 }
+
+console.log("\nUn brouillon repris quand l'écran est déjà ouvert : ses « Autres équipements » arrivent (Solaire, Portail)");
+for (const nom of ["Solaire", "Garage"]) {
+  const zone = page.locator(nom === "Solaire" ? "#r3" : "#r4");
+  const valeurs = () => zone.locator("input").evaluateAll((els) => els.map((e) => e.value));
+  await page.evaluate((n) => window["reprendre" + n](window.avecAutres("b1")), nom);
+  await attendre(400);
+  const v1 = await valeurs();
+  test(`★ ${nom} : l'écran DÉJÀ ouvert, le brouillon repris montre ses deux « Autres équipements » (LOT DE CABLE, SYSTEME DE PROTECTION)`,
+    v1.includes("LOT DE CABLE") && v1.includes("SYSTEME DE PROTECTION"), JSON.stringify(v1.filter(Boolean)));
+  await page.evaluate((n) => window["reprendre" + n](window.sansAutres("b2")), nom);
+  await attendre(400);
+  const v2 = await valeurs();
+  test(`★ ${nom} : un AUTRE devis repris ensuite ne garde pas les lignes du précédent`,
+    !v2.includes("LOT DE CABLE") && !v2.includes("SYSTEME DE PROTECTION"), JSON.stringify(v2.filter(Boolean)));
+}
+test("aucune erreur pendant les reprises", erreurs.length === 0, erreurs.join(" | "));
 
 await nav.close();
 rmSync(dossier, { recursive: true, force: true });

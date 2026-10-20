@@ -263,7 +263,19 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const [prixBatterieSecours, setPrixBatterieSecours] = useState(ligneBatterieSecours ? String(ligneBatterieSecours.pu) : (brouillon?.prixBatterieSecours ?? ""));
 
   // ---- Autres équipements : coffret de commande, câblage… ----
-  const { autres, ajouterAutre, ajouterAutreCfVisite, majAutre, retirerAutre, totalAutres, aCompleter } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+  const { autres, ajouterAutre, ajouterAutreCfVisite, majAutre, retirerAutre, reprendreAutres, totalAutres, aCompleter } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+  // ⚠ Les autres équipements, le kit solaire et la batterie de secours suivent
+  // AUSSI chaque nouvelle reprise (20/10/2026, même défaut que Solaire.jsx :
+  // l'écran reste en veille, un 2e devis repris gardait ceux d'avant).
+  useEffect(() => {
+    if (!devisAReprendre) return;
+    reprendreAutres(lignesReprises);
+    setKitSolaire(!!ligneKitSolaire);
+    setPrixKitSolaire(ligneKitSolaire ? String(ligneKitSolaire.pu) : "");
+    setBatterieSecours(!!ligneBatterieSecours);
+    setPrixBatterieSecours(ligneBatterieSecours ? String(ligneBatterieSecours.pu) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti, jamais avant. Depuis le 08/09/2026,

@@ -605,6 +605,15 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   // ---- Autres équipements : câbles, protections AC/DC, accessoires (saisie libre) ----
   const { autres, ajouterAutre, ajouterAutreCfVisite, majAutre, retirerAutre, reprendreAutres, totalAutres, aCompleter } = useAutresEquipements(lignesReprises, produitsBoutique, brouillon?.autres);
+  // ⚠ Les autres équipements suivent AUSSI chaque nouvelle reprise (capture
+  // Timo, 20/10/2026 : « Brouillon de DJEDJE repris… mes ajouts ne viennent
+  // pas chez lui »). L'écran reste en veille : sans cette ligne, un 2e devis
+  // ou brouillon repris gardait les « autres » du formulaire d'avant — les
+  // lignes ajoutées disparaissaient, ou celles d'un autre client restaient.
+  useEffect(() => {
+    if (devisAReprendre) reprendreAutres(lignesReprises);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti (voir plus bas), jamais avant.
