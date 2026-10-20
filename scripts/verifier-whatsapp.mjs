@@ -3860,7 +3860,7 @@ titre("㊺ 📎 ENVOYER UN FICHIER AU CLIENT, DU NUMÉRO BMI (03/10/2026, « tou
   test("★★ l'écran vérifie au CHOIX du fichier (critiqueFichier), puis revérifie DANS le geste (critiqueReponse avec le fichier)",
     /const refus = critiqueFichier\(pret\)/.test(ecr) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece,/.test(ecr) && /const piece = vocal \|\| fichier;/.test(ecr));
   test("★★ la ligne du fil ne s'écrit qu'APRÈS le départ, et ne porte que mediaEnvoye (jamais les données)",
-    ecr.indexOf("if (!r.parti)") > -1 && ecr.indexOf("if (!r.parti)") < ecr.indexOf("wa_media: mediaEnvoye(piece, r.media_id)") && !/donnees:\s*(fichier|piece)/.test(ecr.slice(ecr.indexOf("const envoyer = async"), ecr.indexOf("const envoyerContact"))));
+    ecr.indexOf("if (!r.parti)") > -1 && ecr.indexOf("if (!r.parti)") < ecr.indexOf("wa_media: mediaEnvoye(piece)") && !/donnees:\s*(fichier|piece)/.test(ecr.slice(ecr.indexOf("const envoyer = async"), ecr.indexOf("const envoyerContact"))));
   test("★ changer de conversation retire le fichier choisi (on n'envoie pas à l'un le devis préparé pour l'autre)",
     /useEffect\(\(\) => \{ setFichier\(null\); \}, \[cleOuverte\]\)/.test(ecr));
   const r1 = monte(V.renduFichierEnvoye), r2 = monte(V.htmlFichierEnvoye);
@@ -5892,7 +5892,7 @@ titre("67 📎 LE REÇU ET LA PROFORMA REPARTENT EN TEXTE QUAND META REJETTE LE 
     /const MEDIA_AUTO = \["image", "sticker", "audio", "voice"\]/.test(WJ) && /if \(estSon\(media\)\) return <LecteurVocal url=\{url\}/.test(WJ) && !/<audio src=\{url\} controls/.test(WJ));
   test("★★ « B » : le micro remplace ➤ quand la case est vide, et la note part par LE MÊME `envoyer` (refus, verrou, ligne écrite après l'envoi)",
     /texte\.trim\(\) \|\| fichier \|\| envoi \? \(/.test(WJ) && /<BoutonMicro desactive=\{prepare\} onEnvoyer=\{\(f\) => envoyer\(f\)\}/.test(WJ)
-    && /const piece = vocal \|\| fichier;/.test(WJ) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece/.test(WJ) && /wa_media: mediaEnvoye\(piece, r\.media_id\)/.test(WJ));
+    && /const piece = vocal \|\| fichier;/.test(WJ) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece/.test(WJ) && /wa_media: mediaEnvoye\(piece\)/.test(WJ));
   test("★ une note envoyée se réécoute pendant la session ; après, sa ligne dit « 🎤 Message vocal · 0:07 — envoyé » (le son n'est pas rangé)",
     /if \(vocal\?\.blob\) garderVocal\(m\.id, vocal\.blob\)/.test(WJ) && monte(V.htmlVocaleEnvoyee).includes("🎤 Message vocal · 0:07") && monte(V.htmlSonEnvoye).includes("🎵 note-vocale.m4a · 0:12"));
   // --- Dans Chromium : un VRAI enregistrement, le remux, le lecteur, le micro ---
@@ -6071,10 +6071,10 @@ titre("69 🔐 LE SON D'UN CLIENT SE CHARGE AVEC UN JETON RENOUVELÉ (20/10/2026
     /data-media-reessayer onClick=\{charger\}/.test(corpsMediaWa) && /setMotif\(""\)/.test(corpsMediaWa) && /setCharge\(false\)/.test(corpsMediaWa));
 }
 
-titre("70 🎤 UNE NOTE VOCALE ENVOYÉE SE RÉÉCOUTE APRÈS UN F5, PAR LE NUMÉRO DE SON DÉPÔT CHEZ WHATSAPP (20/10/2026, Timo : « impossible de relire nos propres vocaux » → « b »)");
-// La ligne garde le NUMÉRO du dépôt (jamais le fichier) ; le serveur va le
-// rechercher chez WhatsApp, après le même mur qu'un son reçu. La vraie
-// fonction serveur est jouée avec une fausse base et un faux YCloud.
+titre("70 🎤 UNE NOTE VOCALE ENVOYÉE SE RÉÉCOUTE APRÈS UN F5, PAR LA COPIE GARDÉE SUR L'APPAREIL (20/10/2026 « b » RETOURNÉ → « a, lance » : YCloud ne rend pas un fichier déposé)");
+// YCloud n'offre que le dépôt et le téléchargement d'un fichier REÇU : le
+// numéro du dépôt ne commande rien. La note vit 30 jours dans le navigateur
+// de l'appareil qui l'a enregistrée (src/vocauxLocaux.js), jamais dans la base.
 {
   const cache = join("node_modules", ".cache");
   const sortieWc = join(cache, `bmi-wc70-${process.pid}.mjs`);
@@ -6082,107 +6082,122 @@ titre("70 🎤 UNE NOTE VOCALE ENVOYÉE SE RÉÉCOUTE APRÈS UN F5, PAR LE NUMÉ
   const W = await import(pathToFileURL(sortieWc).href);
   unlinkSync(sortieWc);
   const vocal = { nom: "vocal.ogg", mime: "audio/ogg", taille: 2400, duree: 3, vocal: true };
-  const avec = W.mediaEnvoye(vocal, "MED-77");
-  const sans = W.mediaEnvoye(vocal);
-  test("★★ la ligne d'une note envoyée garde le NUMÉRO du dépôt (et jamais le fichier : ni « donnees » ni « blob »)",
-    avec.media_id === "MED-77" && avec.type === "voice" && avec.envoye === true && !("donnees" in avec) && !("blob" in avec), JSON.stringify(avec));
-  test("★ sans numéro (un envoi qui n'en a pas rendu), la ligne reste celle d'avant", !("media_id" in sans), JSON.stringify(sans));
-
-  const apiWa = lire("api/whatsapp.js");
-  test("★★ le serveur rend le numéro du dépôt avec la réponse libre (`media_id: depot.id`)", /reponseLibre && depot\?\.id \? \{ media_id: depot\.id \}/.test(apiWa));
-  test("★ src/whatsapp.js le transmet à l'écran", /media_id: reponse\.media_id \|\| ""/.test(lire("src/whatsapp.js")));
-  const ecran = lire("src/screens/Whatsapp.jsx");
-  test("★★ l'écran range la ligne avec ce numéro (`mediaEnvoye(piece, r.media_id)`)", /mediaEnvoye\(piece, r\.media_id\)/.test(ecran));
+  const ligne = W.mediaEnvoye(vocal, "MED-77");
+  test("★★ RETOURNÉ : la ligne d'une note envoyée ne garde PLUS le numéro du dépôt (il ne commande rien), et jamais le fichier",
+    !("media_id" in ligne) && ligne.type === "voice" && ligne.envoye === true && !("donnees" in ligne) && !("blob" in ligne), JSON.stringify(ligne));
+  const sc = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const apiWa = sc(lire("api/whatsapp.js")), srcWa = sc(lire("src/whatsapp.js")), ycl = sc(lire("api/_ycloud.js")), media = sc(lire("api/whatsapp-media.js"));
+  test("★★ RETOURNÉ : le serveur ne rend plus de numéro de dépôt, l'application ne le transmet plus",
+    !/media_id: depot\.id/.test(apiWa) && !/media_id: reponse\.media_id/.test(srcWa));
+  test("★★ RETOURNÉ : plus aucun essai chez YCloud pour reprendre un fichier déposé (ni `telechargerMediaEnvoye`, ni l'adresse devinée)",
+    !/telechargerMediaEnvoye|urlsMediaEnvoye|media\/download\/\$\{/.test(ycl + media) && !/sonEnvoye/.test(media));
+  const ecran = sc(lire("src/screens/Whatsapp.jsx"));
+  test("★★ l'écran range la ligne SANS numéro (`mediaEnvoye(piece)`) et garde la note sur l'appareil (`garderVocal`)",
+    /wa_media: mediaEnvoye\(piece\)/.test(ecran) && /if \(vocal\?\.blob\) garderVocal\(m\.id, vocal\.blob\)/.test(ecran));
   const corpsMediaWa = ecran.slice(ecran.indexOf("export function MediaWa"), ecran.indexOf("\n}\n", ecran.indexOf("export function MediaWa")));
-  test("★★ une note envoyée qui porte son numéro se CHARGE TOUTE SEULE (sauf si la mémoire de la page l'a encore)",
-    /sonEnvoyeRechargeable\(media\) && !vocalGarde\(message\.id\)/.test(corpsMediaWa));
-  test("★ chargée, elle se joue dans LE lecteur commun ; refusée, la ligne « envoyé » reste avec le motif et « ↻ Réessayer »",
-    /if \(url\) return <LecteurVocal url=\{url\} duree=\{media\.duree\} sortant \/>/.test(corpsMediaWa)
-      && /sonEnvoyeRechargeable\(media\) && motif[\s\S]{0,400}data-media-reessayer onClick=\{charger\}/.test(corpsMediaWa));
+  test("★★ une note envoyée se joue par la copie de l'appareil (`useCopieVocale`) et ne demande RIEN au serveur (`chargerMediaWa` réservé aux fichiers reçus)",
+    /const copie = useCopieVocale\(message\.id, sonEnvoye\)/.test(corpsMediaWa) && /if \(copie\) return <LecteurVocal url=\{copie\}/.test(corpsMediaWa)
+    && /MEDIA_AUTO\.includes\(media\.type\) && !media\.envoye\) ouvrir\(\)/.test(corpsMediaWa));
+  test("★ sans copie, la ligne dit où la réécouter (l'appareil qui l'a envoyée, le téléphone BMI) — plus de « ↻ Réessayer » qui ne peut pas marcher",
+    /data-vocal-ailleurs/.test(corpsMediaWa) && !/sonEnvoyeRechargeable/.test(ecran)
+    && monte(V.htmlVocaleEnvoyee).includes("le téléphone BMI") && !monte(V.htmlVocaleEnvoyee).includes("Réessayer"));
+  test("★★ la copie vit dans le navigateur, JAMAIS dans la base : src/vocauxLocaux.js n'importe rien et ne parle qu'à IndexedDB",
+    !/^\s*import /m.test(lire("src/vocauxLocaux.js")) && /indexedDB\.open\(BASE_VOCAUX/.test(lire("src/vocauxLocaux.js")) && !/supabase/i.test(sc(lire("src/vocauxLocaux.js"))));
+  const L = await import(pathToFileURL(join(process.cwd(), "src/vocauxLocaux.js")).href);
+  const J = 86400000, t0 = Date.UTC(2026, 9, 20);
+  test("★ règle des 30 jours : gardée le jour même et au 30e jour, plus rendue au-delà ; une copie sans date n'est jamais rendue",
+    !L.copieExpiree(t0, t0) && !L.copieExpiree(t0, t0 + 30 * J) && L.copieExpiree(t0, t0 + 30 * J + 1) && L.copieExpiree(0, t0) && L.JOURS_COPIE_VOCAL === 30);
+  test("★ sous Node (pas d'IndexedDB) : rien ne lève, « pas de copie »", (await L.lireCopieVocal("x")) === null && (await L.garderCopieVocal("x", {})) === false);
 
-  // La porte YCloud, jouée : le lien direct, puis la fiche du fichier.
-  const sortieY = join(cache, `bmi-y70-${process.pid}.mjs`);
-  await build({ entryPoints: ["api/_ycloud.js"], bundle: true, format: "esm", platform: "node", outfile: sortieY, logLevel: "silent" });
-  const Y = await import(pathToFileURL(sortieY).href);
-  unlinkSync(sortieY);
-  const fetchAvant = globalThis.fetch;
-  const infoAvant = console.info, errAvant = console.error;
-  console.info = () => {}; console.error = () => {};
-  const appels = [];
-  let scenario = "direct";
-  globalThis.fetch = async (url, init) => {
-    appels.push({ url: String(url), cle: init?.headers?.["X-API-Key"] || "" });
-    const u = String(url);
-    if (scenario === "direct" && /\/media\/download\/MED-77$/.test(u)) return new Response(new Blob(["OggS-envoye"], { type: "audio/ogg" }), { status: 200, headers: { "content-type": "audio/ogg" } });
-    if (scenario === "fiche" && /\/media\/MED-77$/.test(u)) return new Response(JSON.stringify({ id: "MED-77", url: "https://cdn.faux/son-77" }), { status: 200, headers: { "content-type": "application/json" } });
-    if (scenario === "fiche" && u === "https://cdn.faux/son-77") return new Response(new Blob(["OggS-fiche"], { type: "audio/ogg" }), { status: 200, headers: { "content-type": "audio/ogg" } });
-    return new Response(JSON.stringify({ error: { message: "not found" } }), { status: 404, headers: { "content-type": "application/json" } });
-  };
-  try {
-    const r1 = await Y.telechargerMediaEnvoye("CLE", "MED-77");
-    test("★★ le lien direct (`…/media/download/{numéro}`) rend le son, avec la clé YCloud",
-      r1.ok && (await r1.reponse.text()) === "OggS-envoye" && appels.every((a) => a.cle === "CLE"), JSON.stringify(appels));
-    scenario = "fiche"; appels.length = 0;
-    const r2 = await Y.telechargerMediaEnvoye("CLE", "MED-77");
-    test("★★ sinon la FICHE du fichier, et le lien qu'elle porte est suivi (avec la clé)",
-      r2.ok && (await r2.reponse.text()) === "OggS-fiche" && appels.length === 3 && appels.every((a) => a.cle === "CLE"), JSON.stringify(appels));
-    scenario = "rien"; appels.length = 0;
-    const r3 = await Y.telechargerMediaEnvoye("CLE", "MED-77");
-    test("★ tout refusé : rien d'inventé, les statuts sont rendus (pour le journal), quatre appels au plus",
-      !r3.ok && r3.statuts.length === 2 && appels.length <= 4, JSON.stringify(r3));
-
-    // La vraie fonction serveur, avec une fausse base.
-    const faux = join(cache, `faux-supa70-${process.pid}.mjs`);
-    writeFileSync(faux, `export function createClient() {
-      const B = () => globalThis.BASE70;
-      return {
-        auth: { async getUser(j) { return j === "ok" ? { data: { user: { email: B().moi + "@bmi" } }, error: null } : { data: {}, error: { message: "non" } }; } },
-        from(table) {
-          const filtres = [];
-          const q = { select() { return q; }, order() { return q; }, limit() { return q; }, range() { return q; },
-            eq(col, val) { filtres.push([col, val]); return q; },
-            then(ok) {
-              const lignes = (B()[table] || []).filter((l) => filtres.every(([c, v]) => c === "id" ? l.id === v : c === "data->>wa_tel" ? (l.data || {}).wa_tel === v : true));
-              return Promise.resolve({ data: lignes, error: null }).then(ok);
-            } };
-          return q;
-        },
-      };
-    }`);
-    const sortieH = join(cache, `bmi-h70-${process.pid}.mjs`);
-    await build({ entryPoints: ["api/whatsapp-media.js"], bundle: true, format: "esm", platform: "node", outfile: sortieH, logLevel: "silent", alias: { "@supabase/supabase-js": "./" + faux } });
-    const H = await import(pathToFileURL(sortieH).href);
-    unlinkSync(sortieH); unlinkSync(faux);
-    const envAvant = { ...process.env };
-    process.env.YCLOUD_API_KEY = "CLE"; process.env.VITE_SUPABASE_URL = "https://faux.supabase.co"; process.env.SUPABASE_SERVICE_ROLE_KEY = "srv";
-    const ligneVocal = (ts, extra = {}) => ({ id: "wa_v1", data: { canal: "whatsapp", wa_tel: "90112233", ts, de_id: "kossi", wa_media: { type: "voice", mime: "audio/ogg", envoye: true, media_id: "MED-77", duree: 3 }, ...extra } });
-    const appeler = async (moi, ts, extra) => {
-      globalThis.BASE70 = { moi, users: [{ id: "admin1", data: { role: "admin", nom: "TIMO" } }, { id: "com1", data: { role: "commercial", nom: "COM1" } }],
-        messages: [ligneVocal(ts, extra), { id: "wa_p", data: { canal: "whatsapp", wa_tel: "90112233", ts, proprietaire_id: "autre", proprietaire_nom: "AUTRE" } }] };
-      const res = { code: 0, corps: null, entetes: {}, setHeader(k, v) { this.entetes[k] = v; }, status(c) { this.code = c; return this; }, json(o) { this.corps = o; return this; }, send(b) { this.corps = b; return this; }, end() { return this; } };
-      await H.default({ method: "POST", headers: {}, body: { jeton: "ok", message: "wa_v1" } }, res);
-      return res;
+  // Le serveur, joué : une note envoyée n'a pas de lien, il ne va rien chercher.
+  const faux = join(cache, `faux-supa70-${process.pid}.mjs`);
+  writeFileSync(faux, `export function createClient() {
+    const B = () => globalThis.BASE70;
+    return {
+      auth: { async getUser(j) { return j === "ok" ? { data: { user: { email: B().moi + "@bmi" } }, error: null } : { data: {}, error: { message: "non" } }; } },
+      from(table) {
+        const filtres = [];
+        const q = { select() { return q; }, order() { return q; }, limit() { return q; }, range() { return q; },
+          eq(col, val) { filtres.push([col, val]); return q; },
+          then(ok) {
+            const lignes = (B()[table] || []).filter((l) => filtres.every(([c, v]) => c === "id" ? l.id === v : c === "data->>wa_tel" ? (l.data || {}).wa_tel === v : true));
+            return Promise.resolve({ data: lignes, error: null }).then(ok);
+          } };
+        return q;
+      },
     };
-    const maintenant = new Date().toISOString();
-    scenario = "direct";
-    const a = await appeler("admin1", maintenant);
-    test("★★★ la VRAIE fonction serveur rend la note envoyée à l'administrateur (son, type audio/ogg)",
-      a.code === 200 && Buffer.isBuffer(a.corps) && a.corps.toString() === "OggS-envoye" && a.entetes["Content-Type"] === "audio/ogg", JSON.stringify({ code: a.code, corps: String(a.corps).slice(0, 80) }));
-    const b = await appeler("com1", maintenant);
-    test("★★★ LE MUR : un commercial à qui la conversation n'appartient pas ne l'ouvre pas (403)", b.code === 403, JSON.stringify(b.corps));
-    const vieux = new Date(Date.now() - 31 * 86400000).toISOString();
-    appels.length = 0;
-    const c = await appeler("admin1", vieux);
-    test("★★ plus de 30 jours : « WhatsApp les efface au bout de 30 jours », sans rien demander à WhatsApp",
-      c.code === 404 && /30 jours/.test(c.corps?.error || "") && appels.length === 0, JSON.stringify({ c: c.corps, appels }));
-    scenario = "rien";
-    const d = await appeler("admin1", maintenant);
-    test("★ refusé par WhatsApp : le motif est dit en français", d.code === 404 && /n'a pas rendu cette note vocale/.test(d.corps?.error || ""), JSON.stringify(d.corps));
+  }`);
+  const sortieH = join(cache, `bmi-h70-${process.pid}.mjs`);
+  await build({ entryPoints: ["api/whatsapp-media.js"], bundle: true, format: "esm", platform: "node", outfile: sortieH, logLevel: "silent", alias: { "@supabase/supabase-js": "./" + faux } });
+  const H = await import(pathToFileURL(sortieH).href);
+  unlinkSync(sortieH); unlinkSync(faux);
+  const envAvant = { ...process.env };
+  const fetchAvant = globalThis.fetch;
+  const appels = [];
+  globalThis.fetch = async (url) => { appels.push(String(url)); return new Response("x", { status: 200 }); };
+  process.env.YCLOUD_API_KEY = "CLE"; process.env.VITE_SUPABASE_URL = "https://faux.supabase.co"; process.env.SUPABASE_SERVICE_ROLE_KEY = "srv";
+  try {
+    globalThis.BASE70 = { moi: "admin1", users: [{ id: "admin1", data: { role: "admin", nom: "TIMO" } }],
+      messages: [{ id: "wa_v1", data: { canal: "whatsapp", wa_tel: "90112233", ts: new Date().toISOString(), de_id: "kossi", wa_media: { type: "voice", mime: "audio/ogg", envoye: true, media_id: "MED-77", duree: 3 } } }] };
+    const res = { code: 0, corps: null, entetes: {}, setHeader(k, v) { this.entetes[k] = v; }, status(c) { this.code = c; return this; }, json(o) { this.corps = o; return this; }, send(b) { this.corps = b; return this; }, end() { return this; } };
+    await H.default({ method: "POST", headers: {}, body: { jeton: "ok", message: "wa_v1" } }, res);
+    test("★★ la VRAIE fonction serveur : une note envoyée (même une ligne d'avant qui porte un numéro) → « aucun fichier », et AUCUN appel à YCloud",
+      res.code === 404 && /aucun fichier/.test(res.corps?.error || "") && appels.length === 0, JSON.stringify({ code: res.code, corps: res.corps, appels }));
+  } finally {
+    globalThis.fetch = fetchAvant;
     for (const k of Object.keys(process.env)) if (!(k in envAvant)) delete process.env[k];
     Object.assign(process.env, envAvant);
-  } finally {
-    globalThis.fetch = fetchAvant; console.info = infoAvant; console.error = errAvant;
     delete globalThis.BASE70;
+  }
+
+  // Dans Chromium : la copie survit au F5, la ligne la rejoue ; un autre appareil (pas de copie) lit la phrase.
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-vocal70-"));
+  const bundle = join(dossier, "vocal.js");
+  await build({ entryPoints: ["scripts/_navigateur-vocal.jsx"], bundle: true, format: "iife", platform: "browser", outfile: bundle, jsx: "automatic", loader: { ".js": "jsx" }, logLevel: "silent", define: { "process.env.NODE_ENV": '"production"' } });
+  const require = createRequire(import.meta.url);
+  const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+  const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+  try {
+    const page = await nav.newPage();
+    const erreurs = []; page.on("pageerror", (e) => erreurs.push(e.message));
+    const f = join(dossier, "page.html");
+    writeFileSync(f, `<!doctype html><html><head><meta charset="utf-8"></head><body><script src="${bundle}"></script></body></html>`);
+    await page.goto(`file://${f}`);
+    // Un vrai son Ogg (1 s), gardé comme le fait l'envoi.
+    const garde = await page.evaluate(async () => {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator(); const dest = ctx.createMediaStreamDestination(); osc.connect(dest); osc.start();
+      const rec = new MediaRecorder(dest.stream, { mimeType: "audio/webm;codecs=opus" });
+      const morceaux = []; rec.ondataavailable = (e) => morceaux.push(e.data);
+      const fini = new Promise((ok) => { rec.onstop = ok; });
+      rec.start(250); await new Promise((ok) => setTimeout(ok, 1000)); rec.stop(); await fini; osc.stop();
+      const ogg = window.Vocal.webmVersOgg(new Uint8Array(await new Blob(morceaux).arrayBuffer()));
+      // LE geste de l'envoi (garderVocal), puis on attend que la copie soit écrite.
+      window.Vocal.garderVocal("wa_note_1", new Blob([ogg.octets], { type: "audio/ogg" }));
+      let ok = false;
+      for (let i = 0; i < 40 && !ok; i++) { await new Promise((r) => setTimeout(r, 50)); ok = !!(await window.Vocal.lireCopieVocal("wa_note_1")); }
+      // Une copie vieille de 31 jours, rangée à la main.
+      await window.Vocal.garderCopieVocal("wa_vieille", new Blob(["OggS"], { type: "audio/ogg" }), Date.now() - 31 * 86400000);
+      return { ok, taille: ogg.octets.length };
+    });
+    await page.reload();
+    await page.evaluate(() => { window.Vocal.monterLigneEnvoyee("wa_note_1"); window.Vocal.monterLigneEnvoyee("wa_autre_appareil"); window.Vocal.monterLigneEnvoyee("wa_vieille"); });
+    await page.waitForSelector("#ligne-wa_note_1 [data-vocal-lire]", { timeout: 8000 }).catch(() => {});
+    await page.waitForSelector("#ligne-wa_autre_appareil [data-vocal-ailleurs]", { timeout: 8000 }).catch(() => {});
+    await page.waitForSelector("#ligne-wa_vieille [data-vocal-ailleurs]", { timeout: 8000 }).catch(() => {});
+    const apres = await page.evaluate(async () => ({
+      lecteur: !!document.querySelector("#ligne-wa_note_1 [data-vocal-lire]"),
+      ailleurs: document.querySelector("#ligne-wa_autre_appareil")?.textContent || "",
+      vieille: document.querySelector("#ligne-wa_vieille")?.textContent || "",
+      vieilleEffacee: (await window.Vocal.lireCopieVocal("wa_vieille")) === null,
+    }));
+    test("★★★ dans Chromium : la note gardée à l'envoi SURVIT au F5 et sa ligne la rejoue dans LE lecteur commun", garde.ok && apres.lecteur && erreurs.length === 0, JSON.stringify({ garde, apres, erreurs }));
+    test("★★ un appareil qui n'a pas la copie lit « 🎤 Message vocal · 0:02 — envoyé » et où la réécouter, sans erreur",
+      /🎤 Message vocal · 0:02/.test(apres.ailleurs) && /téléphone BMI/.test(apres.ailleurs) && !/Réessayer/.test(apres.ailleurs), apres.ailleurs);
+    test("★★ une copie de plus de 30 jours n'est plus rendue (et elle est retirée du navigateur)", /téléphone BMI/.test(apres.vieille) && apres.vieilleEffacee, JSON.stringify(apres));
+  } finally {
+    await nav.close();
+    rmSync(dossier, { recursive: true, force: true });
   }
 }
 

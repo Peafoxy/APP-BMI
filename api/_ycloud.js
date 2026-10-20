@@ -74,42 +74,10 @@ export async function televerserYCloud(cle, expediteur, { octets, mime, nom }) {
   return { ok: true, id: String(resultat.id) };
 }
 
-// ---------------------------------------------------------------
-// 🎤 RÉÉCOUTER UNE NOTE VOCALE QUE BMI A ENVOYÉE (20/10/2026, « b »)
-// ---------------------------------------------------------------
-// Timo : « Impossible de relire nos propres vocaux » → « b » : le son n'est
-// pas rangé chez nous (décision du 20/09/2026), on va le rechercher chez
-// WhatsApp par le NUMÉRO que le dépôt a rendu (gardé 30 jours chez lui).
-// ⚠⚠ LA FORME DE CET APPEL N'A PAS PU ÊTRE VÉRIFIÉE D'ICI (le site de YCloud
-// est fermé depuis le poste de travail). Le lien d'un fichier REÇU a la forme
-// `…/v2/whatsapp/media/download/{id}?sig=…` : on essaie cette adresse avec la
-// clé, puis la fiche du fichier (`…/media/{id}`), qui peut rendre un lien à
-// suivre. Chaque refus part dans le journal du serveur avec son statut : le
-// premier vrai essai dira laquelle est juste. Quatre appels au plus.
-export const urlsMediaEnvoye = (id) => [
-  `https://api.ycloud.com/v2/whatsapp/media/download/${encodeURIComponent(id)}`,
-  `https://api.ycloud.com/v2/whatsapp/media/${encodeURIComponent(id)}`,
-];
-
-const estJson = (reponse) => /json/i.test(reponse.headers.get("content-type") || "");
-
-export async function telechargerMediaEnvoye(cle, id) {
-  const statuts = [];
-  for (const url of urlsMediaEnvoye(id)) {
-    const reponse = await fetch(url, { headers: { "X-API-Key": cle } });
-    if (!reponse.ok) { statuts.push(reponse.status); console.info("[whatsapp-media] fichier envoyé refusé", reponse.status, url.slice(0, 70)); continue; }
-    if (!estJson(reponse)) return { ok: true, reponse };
-    // Une fiche du fichier : elle porte peut-être le lien à suivre.
-    const fiche = await reponse.json().catch(() => ({}));
-    const lien = String(fiche?.url || fiche?.link || fiche?.downloadUrl || "");
-    if (!lien) { statuts.push("fiche-sans-lien"); console.info("[whatsapp-media] fiche sans lien", JSON.stringify(fiche).slice(0, 200)); continue; }
-    const suite = await fetch(lien, { headers: { "X-API-Key": cle } });
-    if (suite.ok && !estJson(suite)) return { ok: true, reponse: suite };
-    statuts.push(suite.status);
-    console.info("[whatsapp-media] lien de la fiche refusé", suite.status);
-  }
-  return { ok: false, statuts };
-}
+// ⚠ YCLOUD NE REND PAS UN FICHIER DÉPOSÉ (20/10/2026) : sa documentation
+// n'offre que le dépôt ci-dessus, et le téléchargement d'un fichier REÇU d'un
+// client (lien signé posé par YCloud). Une note vocale envoyée se réécoute
+// donc par la copie de l'appareil (src/vocauxLocaux.js), jamais d'ici.
 
 // Le message qui cite le fichier déposé. Un son ne porte pas de phrase
 // (Meta la refuserait) ; un document porte son nom, que le client verra.

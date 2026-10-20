@@ -312,7 +312,7 @@ export async function repondreWhatsApp({ tel, texte, fichier = null }) {
     return { parti: false, motif: motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }) };
   }
   marquerParti(registreEnvois, cle, Date.now());
-  return { parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "", media_id: reponse.media_id || "" };
+  return { parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
 }
 
 // ---------------------------------------------------------------

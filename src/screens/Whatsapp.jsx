@@ -39,7 +39,7 @@ import { texteLignePrivee } from "../lib/lignesPrivees";
 import { motDePasseConnu, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { peutEnregistrerContact, critiqueContactGoogle, nettoyerNomGoogle, traceContactGoogle, COMPTE_CONTACTS_BMI } from "../lib/contactGoogle";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle } from "../whatsapp";
-import { LecteurVocal, BoutonMicro, garderVocal, vocalGarde } from "../components/NoteVocale";
+import { LecteurVocal, BoutonMicro, garderVocal, useCopieVocale } from "../components/NoteVocale";
 import { dureeVocale } from "../lib/oggOpus";
 import { champsEnvoi } from "../lib/suiviEnvoi";
 import { useRetour } from "../retour";
@@ -291,13 +291,13 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
       canal: CANAL_WA, wa_tel: ouverte.cle, wa_numero: ouverte.tel,
       ...(ouverte.nom ? { wa_nom: ouverte.nom } : {}),
       wa_id: r.id || "", texte: t, ...champsEnvoi(r),
-      ...(piece ? { wa_media: mediaEnvoye(piece, r.media_id) } : {}),
+      ...(piece ? { wa_media: mediaEnvoye(piece) } : {}),
       ...(ouverte.proprietaire_id ? { proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom } : {}),
     });
     // ⚠ LA FICHE LÉGÈRE SUIT LE FIL (21/09/2026) : sans ce geste, une
     // conversation qui n'a jamais reçu de message entrant depuis le
     // correctif resterait invisible aux autres au lieu d'apparaître grisée.
-    // 🎤 Une note envoyée se réécoute pendant la session (jamais rangée).
+    // 🎤 Une note envoyée se réécoute sur CET appareil (jamais dans la base).
     if (vocal?.blob) garderVocal(m.id, vocal.blob);
     save({ ...db, messages: messagesAvecEntete([m, ...messages], {
       cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom,
@@ -994,15 +994,17 @@ function NomConversation({ c, sansNumero = false }) {
 // sur WhatsApp — elle pèse quelques dizaines de Ko.
 const MEDIA_AUTO = ["image", "sticker", "audio", "voice"];
 const estSon = (media) => media.type === "audio" || media.type === "voice";
-// 🎤 « b » (20/10/2026) : une note vocale ENVOYÉE qui porte le numéro de son
-// dépôt se recharge depuis WhatsApp, comme un son reçu (30 jours).
-const sonEnvoyeRechargeable = (media) => !!(media.envoye && estSon(media) && media.media_id);
+export const PHRASE_VOCAL_AILLEURS = "À réécouter sur l'appareil qui l'a envoyée, ou sur le téléphone BMI.";
 
 export function MediaWa({ message }) {
   const media = message.wa_media || {};
   const [url, setUrl] = useState("");
   const [charge, setCharge] = useState(false);
   const [motif, setMotif] = useState("");
+  // 🎤 « a » (20/10/2026) : YCloud ne rend pas une note que BMI a déposée ;
+  // elle se réécoute par la copie gardée sur l'appareil qui l'a enregistrée.
+  const sonEnvoye = !!(media.envoye && estSon(media));
+  const copie = useCopieVocale(message.id, sonEnvoye);
 
   const charger = async () => {
     setCharge(true);
@@ -1013,7 +1015,7 @@ export function MediaWa({ message }) {
   const ouvrir = () => { if (!charge) charger(); };
 
   useEffect(() => {
-    if (MEDIA_AUTO.includes(media.type) && (!media.envoye || (sonEnvoyeRechargeable(media) && !vocalGarde(message.id)))) ouvrir();
+    if (MEDIA_AUTO.includes(media.type) && !media.envoye) ouvrir();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message.id]);
 
@@ -1026,27 +1028,19 @@ export function MediaWa({ message }) {
   // 📎 UN FICHIER QUE BMI A ENVOYÉ (03/10/2026) : la ligne ne garde que son
   // nom — le fichier n'est pas chez nous, sa copie reste sur le téléphone
   // BMI. On ne va donc rien chercher : on dit ce qui est parti.
-  if (media.envoye && estSon(media)) {
-    // 🎤 Une note envoyée pendant CETTE session se réécoute tout de suite ;
-    // après un F5 ou sur un autre appareil, elle est recherchée chez WhatsApp
-    // par le numéro de son dépôt (« b », 20/10/2026 — rien n'est rangé chez
-    // nous). Une ligne d'AVANT n'a pas ce numéro : il n'en reste que la ligne.
-    const garde = vocalGarde(message.id);
-    if (garde) return <LecteurVocal url={garde} duree={media.duree} sortant />;
-    if (url) return <LecteurVocal url={url} duree={media.duree} sortant />;
-    const ligne = <>{media.type === "voice" ? "🎤 Message vocal" : `🎵 ${media.nom || nom}`}{media.duree ? ` · ${dureeVocale(media.duree)}` : ""} <span className="font-normal opacity-80">— envoyé</span></>;
-    if (sonEnvoyeRechargeable(media) && motif) {
-      return (
-        <div data-media-envoye data-media-echec className="text-xs font-bold">
-          {ligne}
-          <div className="font-normal italic opacity-80">{motif}{" "}
-            <button type="button" data-media-reessayer onClick={charger} className="not-italic font-bold underline">↻ Réessayer</button>
-          </div>
-        </div>
-      );
-    }
-    if (sonEnvoyeRechargeable(media)) return <div data-vocal-chargement className="text-xs italic opacity-80 py-2">{nom} — chargement…</div>;
-    return <div data-media-envoye className="text-xs font-bold">{ligne}</div>;
+  if (sonEnvoye) {
+    // 🎤 « a » (20/10/2026) : la note se réécoute sur l'appareil qui l'a
+    // enregistrée (la mémoire de la page, puis la copie du navigateur,
+    // 30 jours). Ailleurs, il ne reste que sa ligne : le son est sur le
+    // téléphone BMI. On ne demande RIEN à WhatsApp (il ne le rend pas).
+    if (copie) return <LecteurVocal url={copie} duree={media.duree} sortant />;
+    if (copie === "") return <div data-vocal-chargement className="text-xs italic opacity-80 py-2">{nom} — chargement…</div>;
+    return (
+      <div data-media-envoye className="text-xs font-bold">
+        {media.type === "voice" ? "🎤 Message vocal" : `🎵 ${media.nom || nom}`}{media.duree ? ` · ${dureeVocale(media.duree)}` : ""} <span className="font-normal opacity-80">— envoyé</span>
+        <div data-vocal-ailleurs className="font-normal italic opacity-80">{PHRASE_VOCAL_AILLEURS}</div>
+      </div>
+    );
   }
   if (media.envoye) {
     return <div data-media-envoye className="text-xs font-bold">📎 {media.nom || nom}{media.taille ? ` · ${tailleLisible(media.taille)}` : ""} <span className="font-normal opacity-80">— envoyé</span></div>;

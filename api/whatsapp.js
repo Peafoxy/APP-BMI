@@ -180,7 +180,7 @@ export default async function handler(req, res) {
     }
     // 🎤 Le numéro du fichier déposé repart avec la réponse (20/10/2026,
     // « b ») : la ligne du fil le garde pour réécouter une note envoyée.
-    return res.status(200).json({ ok: true, id: resultat.id, wamid: resultat.wamid || "", statut: resultat.statut, modele: reponseLibre ? "" : nom, ...(reponseLibre && depot?.id ? { media_id: depot.id } : {}) });
+    return res.status(200).json({ ok: true, id: resultat.id, wamid: resultat.wamid || "", statut: resultat.statut, modele: reponseLibre ? "" : nom });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }

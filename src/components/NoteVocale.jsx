@@ -11,11 +11,13 @@
 //   a2 — la note vocale se charge TOUTE SEULE à l'ouverture du fil ;
 //   B  — garder le micro appuyé pour enregistrer, relâcher pour envoyer du
 //        numéro BMI, glisser vers la gauche pour annuler.
-// ⚠ Rien n'est rangé chez nous : une note ENVOYÉE se réécoute pendant la
-// session (la mémoire de la page), puis il ne reste que sa ligne.
+// ⚠ Rien n'est rangé chez nous : une note ENVOYÉE se réécoute sur l'appareil
+// qui l'a enregistrée (copie du navigateur, 30 jours) ; ailleurs il ne reste
+// que sa ligne, et le son est sur le téléphone BMI.
 import { useEffect, useRef, useState } from "react";
 import { demarrerEnregistrement, fichierVocal } from "../enregistreurVocal";
 import { dureeVocale, DUREE_MAX_VOCAL } from "../lib/oggOpus";
+import { garderCopieVocal, lireCopieVocal } from "../vocauxLocaux";
 
 export const NB_BARRES = 36;
 export const VITESSES = [1, 1.5, 2];
@@ -38,13 +40,38 @@ export function barresDuSon(canal, nb = NB_BARRES) {
   return cretes.map((c) => Math.max(0.12, c / plus));
 }
 
-// ---- Les notes ENVOYÉES pendant la session (jamais rangées) ----
+// ---- Les notes ENVOYÉES : la mémoire de la page, et la copie de l'appareil ----
+// « a » (20/10/2026) : YCloud ne rend pas un fichier déposé ; la note se
+// réécoute après un F5 grâce à la copie gardée sur CET appareil, 30 jours
+// (src/vocauxLocaux.js — jamais dans Supabase).
 const vocauxDeLaSession = new Map();
 export function garderVocal(id, blob) {
   if (!id || !blob || typeof URL === "undefined") return;
   vocauxDeLaSession.set(id, URL.createObjectURL(blob));
+  garderCopieVocal(id, blob);
 }
 export const vocalGarde = (id) => vocauxDeLaSession.get(id) || "";
+
+// La copie de l'appareil, relue à l'affichage : « » tant qu'on cherche,
+// une adresse si elle est là, null si l'appareil ne l'a pas (ou ne sait pas
+// garder de copie : rien à attendre).
+const peutGarder = () => typeof indexedDB !== "undefined" && !!indexedDB;
+export function useCopieVocale(id, active = true) {
+  const [url, setUrl] = useState(() => (!active ? null : vocalGarde(id) || (peutGarder() ? "" : null)));
+  useEffect(() => {
+    if (!active || !peutGarder()) { setUrl(active ? vocalGarde(id) || null : null); return undefined; }
+    const deja = vocalGarde(id);
+    if (deja) { setUrl(deja); return undefined; }
+    let fini = false, cree = "";
+    setUrl("");
+    lireCopieVocal(id).then((blob) => {
+      if (fini) return;
+      if (blob && typeof URL !== "undefined") { cree = URL.createObjectURL(blob); setUrl(cree); } else setUrl(null);
+    });
+    return () => { fini = true; if (cree) URL.revokeObjectURL(cree); };
+  }, [id, active]);
+  return url;
+}
 
 // ---- A : le lecteur ----
 export function LecteurVocal({ url, duree: dureeConnue = 0, sortant = false }) {
