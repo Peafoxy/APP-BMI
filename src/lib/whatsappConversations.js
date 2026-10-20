@@ -617,9 +617,12 @@ export function critiqueFichier(fichier, phrase = "") {
 }
 
 // Ce que la ligne du fil garde d'un fichier ENVOYÉ : son nom, son type, sa
-// taille — JAMAIS le fichier. `envoye` dit à l'écran qu'il n'y a rien à
-// aller chercher chez WhatsApp (la copie reste sur le téléphone BMI).
-export function mediaEnvoye(fichier) {
+// taille — JAMAIS le fichier. `envoye` dit à l'écran que c'est BMI qui l'a
+// envoyé (la copie reste sur le téléphone BMI).
+// 🎤 `mediaId` (20/10/2026, « b ») : le numéro du dépôt chez WhatsApp — un
+// numéro, pas un fichier. Une note vocale envoyée se réécoute par lui
+// pendant 30 jours, sur tout appareil qui voit la conversation.
+export function mediaEnvoye(fichier, mediaId = "") {
   const f = fichier || {};
   const vocal = estNoteVocale(f);
   return {
@@ -628,6 +631,7 @@ export function mediaEnvoye(fichier) {
     mime: String(f.mime || ""),
     taille: Number(f.taille) || 0,
     ...(Number(f.duree) > 0 ? { duree: Math.max(1, Math.round(Number(f.duree))) } : {}),
+    ...(mediaId ? { media_id: String(mediaId) } : {}),
     envoye: true,
   };
 }

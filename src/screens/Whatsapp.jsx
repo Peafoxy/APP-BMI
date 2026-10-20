@@ -291,7 +291,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
       canal: CANAL_WA, wa_tel: ouverte.cle, wa_numero: ouverte.tel,
       ...(ouverte.nom ? { wa_nom: ouverte.nom } : {}),
       wa_id: r.id || "", texte: t, ...champsEnvoi(r),
-      ...(piece ? { wa_media: mediaEnvoye(piece) } : {}),
+      ...(piece ? { wa_media: mediaEnvoye(piece, r.media_id) } : {}),
       ...(ouverte.proprietaire_id ? { proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom } : {}),
     });
     // ⚠ LA FICHE LÉGÈRE SUIT LE FIL (21/09/2026) : sans ce geste, une
@@ -994,6 +994,9 @@ function NomConversation({ c, sansNumero = false }) {
 // sur WhatsApp — elle pèse quelques dizaines de Ko.
 const MEDIA_AUTO = ["image", "sticker", "audio", "voice"];
 const estSon = (media) => media.type === "audio" || media.type === "voice";
+// 🎤 « b » (20/10/2026) : une note vocale ENVOYÉE qui porte le numéro de son
+// dépôt se recharge depuis WhatsApp, comme un son reçu (30 jours).
+const sonEnvoyeRechargeable = (media) => !!(media.envoye && estSon(media) && media.media_id);
 
 export function MediaWa({ message }) {
   const media = message.wa_media || {};
@@ -1010,7 +1013,7 @@ export function MediaWa({ message }) {
   const ouvrir = () => { if (!charge) charger(); };
 
   useEffect(() => {
-    if (MEDIA_AUTO.includes(media.type) && !media.envoye) ouvrir();
+    if (MEDIA_AUTO.includes(media.type) && (!media.envoye || (sonEnvoyeRechargeable(media) && !vocalGarde(message.id)))) ouvrir();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message.id]);
 
@@ -1024,11 +1027,26 @@ export function MediaWa({ message }) {
   // nom — le fichier n'est pas chez nous, sa copie reste sur le téléphone
   // BMI. On ne va donc rien chercher : on dit ce qui est parti.
   if (media.envoye && estSon(media)) {
-    // 🎤 Une note envoyée pendant CETTE session se réécoute ; après un F5,
-    // il n'en reste que la ligne (le son n'est pas rangé chez nous).
+    // 🎤 Une note envoyée pendant CETTE session se réécoute tout de suite ;
+    // après un F5 ou sur un autre appareil, elle est recherchée chez WhatsApp
+    // par le numéro de son dépôt (« b », 20/10/2026 — rien n'est rangé chez
+    // nous). Une ligne d'AVANT n'a pas ce numéro : il n'en reste que la ligne.
     const garde = vocalGarde(message.id);
     if (garde) return <LecteurVocal url={garde} duree={media.duree} sortant />;
-    return <div data-media-envoye className="text-xs font-bold">{media.type === "voice" ? "🎤 Message vocal" : `🎵 ${media.nom || nom}`}{media.duree ? ` · ${dureeVocale(media.duree)}` : ""} <span className="font-normal opacity-80">— envoyé</span></div>;
+    if (url) return <LecteurVocal url={url} duree={media.duree} sortant />;
+    const ligne = <>{media.type === "voice" ? "🎤 Message vocal" : `🎵 ${media.nom || nom}`}{media.duree ? ` · ${dureeVocale(media.duree)}` : ""} <span className="font-normal opacity-80">— envoyé</span></>;
+    if (sonEnvoyeRechargeable(media) && motif) {
+      return (
+        <div data-media-envoye data-media-echec className="text-xs font-bold">
+          {ligne}
+          <div className="font-normal italic opacity-80">{motif}{" "}
+            <button type="button" data-media-reessayer onClick={charger} className="not-italic font-bold underline">↻ Réessayer</button>
+          </div>
+        </div>
+      );
+    }
+    if (sonEnvoyeRechargeable(media)) return <div data-vocal-chargement className="text-xs italic opacity-80 py-2">{nom} — chargement…</div>;
+    return <div data-media-envoye className="text-xs font-bold">{ligne}</div>;
   }
   if (media.envoye) {
     return <div data-media-envoye className="text-xs font-bold">📎 {media.nom || nom}{media.taille ? ` · ${tailleLisible(media.taille)}` : ""} <span className="font-normal opacity-80">— envoyé</span></div>;

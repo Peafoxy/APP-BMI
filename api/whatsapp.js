@@ -178,7 +178,9 @@ export default async function handler(req, res) {
       // anglaise que Meta peut réécrire quand elle veut.
       return res.status(502).json({ error: resultat.motif, statut_whatsapp: resultat.statut_whatsapp, code_whatsapp: resultat.code_whatsapp });
     }
-    return res.status(200).json({ ok: true, id: resultat.id, wamid: resultat.wamid || "", statut: resultat.statut, modele: reponseLibre ? "" : nom });
+    // 🎤 Le numéro du fichier déposé repart avec la réponse (20/10/2026,
+    // « b ») : la ligne du fil le garde pour réécouter une note envoyée.
+    return res.status(200).json({ ok: true, id: resultat.id, wamid: resultat.wamid || "", statut: resultat.statut, modele: reponseLibre ? "" : nom, ...(reponseLibre && depot?.id ? { media_id: depot.id } : {}) });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }

@@ -18,6 +18,12 @@
 // La règle est IMPORTÉE (`peutVoirConversation`), jamais recopiée — et elle
 // est revérifiée ICI, dans le geste, pas seulement à l'écran.
 //
+// 🎤 ET UNE NOTE VOCALE QUE BMI A ENVOYÉE (20/10/2026, Timo : « impossible
+// de relire nos propres vocaux » → « b ») : elle n'a pas de lien, seulement
+// le numéro de son dépôt chez WhatsApp, gardé sur la ligne. Même mur, même
+// fonction ; la forme de l'appel à YCloud n'a pas pu être vérifiée d'ici
+// (`telechargerMediaEnvoye`, api/_ycloud.js).
+//
 // ⚠ ON NE GARDE RIEN. Le fichier n'est pas rangé chez nous : il est lu et
 // rendu. Conséquence à DIRE : WhatsApp efface ses fichiers au bout de
 // 30 jours, et passé ce délai la photo n'existe plus nulle part. Les
@@ -27,11 +33,26 @@
 import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
 import { lireConversation } from "./_tables.js";
+import { telechargerMediaEnvoye } from "./_ycloud.js";
 import { CANAL_WA, proprietaireDe, peutVoirConversation, filDeLaConversation, estALaCorbeille } from "../src/lib/whatsappConversations.js";
 
 // 25 Mo : la limite de WhatsApp elle-même. Au-delà, ce n'est pas un fichier
 // qu'un client a envoyé, c'est quelque chose qui ne devrait pas être là.
 const TAILLE_MAX = 25 * 1024 * 1024;
+const JOURS_GARDE_WHATSAPP = 30;
+const MOTIF_EFFACE = "Ce fichier n'est plus disponible : WhatsApp les efface au bout de 30 jours.";
+
+// Le fichier reçu de WhatsApp, rendu tel quel (écrit UNE fois : fichier reçu
+// d'un client, note vocale envoyée par BMI).
+async function rendre(res, reponse, media) {
+  const paquet = Buffer.from(await reponse.arrayBuffer());
+  if (paquet.length > TAILLE_MAX) return res.status(413).json({ error: "Fichier trop volumineux." });
+  res.setHeader("Content-Type", media.mime || reponse.headers.get("content-type") || "application/octet-stream");
+  res.setHeader("Content-Length", String(paquet.length));
+  // Le fichier ne change jamais : le navigateur peut le garder une heure.
+  res.setHeader("Cache-Control", "private, max-age=3600");
+  return res.status(200).send(paquet);
+}
 
 export default async function handler(req, res) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
@@ -65,7 +86,10 @@ export default async function handler(req, res) {
     if (!ligne || ligne.canal !== CANAL_WA || estALaCorbeille(ligne)) return res.status(404).json({ error: "Message introuvable." });
     const messages = await lireConversation(admin, ligne.wa_tel);
     const media = ligne.wa_media;
-    if (!media || !media.lien) return res.status(404).json({ error: "Ce message ne porte aucun fichier." });
+    // 🎤 « b » (20/10/2026) : une note vocale que BMI a ENVOYÉE n'a pas de
+    // lien, seulement le numéro que le dépôt chez WhatsApp a rendu.
+    const sonEnvoye = !!(media && media.envoye && media.media_id && (media.type === "voice" || media.type === "audio"));
+    if (!media || (!media.lien && !sonEnvoye)) return res.status(404).json({ error: "Ce message ne porte aucun fichier." });
 
     // ⚠ LE MUR, REVÉRIFIÉ DANS LE GESTE : c'est le propriétaire du FIL qui
     // décide, pas le message tout seul — une réattribution pose une ligne
@@ -78,24 +102,30 @@ export default async function handler(req, res) {
 
     if (!cleYcloud) return res.status(500).json({ error: "WhatsApp n'est pas encore configuré sur le serveur." });
 
+    if (sonEnvoye) {
+      // WhatsApp garde un fichier déposé 30 jours : passé ce délai, on le dit
+      // sans rien demander.
+      const age = Date.now() - Date.parse(ligne.ts || "");
+      if (age > JOURS_GARDE_WHATSAPP * 86400000) return res.status(404).json({ error: MOTIF_EFFACE });
+      const r = await telechargerMediaEnvoye(cleYcloud, media.media_id);
+      if (!r.ok) {
+        console.error("[whatsapp-media] note envoyée introuvable", r.statuts.join(","));
+        return res.status(404).json({ error: "WhatsApp n'a pas rendu cette note vocale envoyée." });
+      }
+      return rendre(res, r.reponse, media);
+    }
+
     const reponse = await fetch(media.lien, { headers: { "X-API-Key": cleYcloud } });
     if (!reponse.ok) {
       // ⚠ ON DIT POURQUOI, en français. Un cadre vide laisserait croire à
       // une panne de l'application alors que c'est WhatsApp qui a effacé.
       console.error("[whatsapp-media] refus", reponse.status, media.lien.slice(0, 60));
       const motif = reponse.status === 404 || reponse.status === 410
-        ? "Ce fichier n'est plus disponible : WhatsApp les efface au bout de 30 jours."
+        ? MOTIF_EFFACE
         : "WhatsApp n'a pas rendu ce fichier.";
       return res.status(404).json({ error: motif });
     }
-    const paquet = Buffer.from(await reponse.arrayBuffer());
-    if (paquet.length > TAILLE_MAX) return res.status(413).json({ error: "Fichier trop volumineux." });
-
-    res.setHeader("Content-Type", media.mime || reponse.headers.get("content-type") || "application/octet-stream");
-    res.setHeader("Content-Length", String(paquet.length));
-    // Le fichier ne change jamais : le navigateur peut le garder une heure.
-    res.setHeader("Cache-Control", "private, max-age=3600");
-    return res.status(200).send(paquet);
+    return rendre(res, reponse, media);
   } catch (e) {
     console.error("[whatsapp-media]", e?.message || e);
     return res.status(500).json({ error: "Fichier indisponible." });
