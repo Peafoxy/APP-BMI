@@ -9058,6 +9058,7 @@ lit mal est pire qu'un banc absent).
   « disponible ») : un diagnostic doit lire la colonne. Correctif
   `supabase/site-catalogue-1-quantites-decimales.sql` (`nombre_sur`, stock
   arrondi à l'entier inférieur, même signature), banc `tester-catalogue`.
+  **Collé par Timo le 20/10/2026 (`true`) : la boutique s'affiche.**
   ⚠ Ce qu'il fait encore de travers, dit à Timo : il soustrait deux fois une
   ligne `deja_sorti` (travaux) ou `au_chantier` (sa vente ET son ajustement).
   **Toute donnée nouvelle de l'application (une quantité, un champ) passe aussi
