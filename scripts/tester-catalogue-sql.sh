@@ -88,14 +88,21 @@ verdict "la page Boutique (qui lit « disponible ») tombe" "$R" "1"
 # La vérification du script doit TOMBER tant que l'ancien calcul est en place
 # (le 20/10/2026, une vérification par count(*) répondait true | true à tort).
 VERIF_AVANT=$(sed -n '/^-- 3\. Vérifier/,$p' supabase/site-catalogue-1-quantites-decimales.sql)
-R=0; $P -c "$VERIF_AVANT" >/dev/null 2>&1 || R=1
+R=0; $P -c "begin; set local role anon; $VERIF_AVANT rollback;" >/dev/null 2>&1 || R=1
 verdict "la vérification du script tombe sur l'ancien calcul (elle mesure vraiment)" "$R" "1"
 
-echo "▸ Le script se colle sans objection, deux fois"
-R=0; $P -f supabase/site-catalogue-1-quantites-decimales.sql >/dev/null 2>&1 || R=1
+echo "▸ Le script se colle sans objection, deux fois — EN UN SEUL ENVOI, comme l'éditeur de Supabase"
+# L'éditeur de Supabase envoie TOUT le texte d'un coup : une seule transaction.
+# Un « begin; … rollback; » dans le script défait alors TOUT, correctif compris
+# (20/10/2026 : true | true affiché, fonction jamais remplacée).
+R=0; $P -c "$(cat supabase/site-catalogue-1-quantites-decimales.sql)" >/dev/null 2>&1 || R=1
 verdict "le script passe" "$R" "0"
-VERIF=$($P -f supabase/site-catalogue-1-quantites-decimales.sql 2>/dev/null | grep '|' | tail -1)
-verdict "le relancer est sans danger, et sa vérification répond true | true" "$VERIF" "t|t"
+verdict "après l'envoi, la fonction est VRAIMENT remplacée (elle lit nombre_sur)" \
+  "$($P -c "select position('nombre_sur' in prosrc) > 0 from pg_proc where proname = 'stock_calcule'")" "t"
+VERIF=$($P -c "$(cat supabase/site-catalogue-1-quantites-decimales.sql)" 2>/dev/null | tail -1)
+verdict "le relancer est sans danger, et sa vérification répond true" "$VERIF" "t"
+verdict "le script ne contient aucun rollback (il défairait tout dans l'éditeur)" \
+  "$(grep -ciE '^[[:space:]]*rollback' supabase/site-catalogue-1-quantites-decimales.sql || true)" "0"
 
 echo "▸ Le catalogue se lit en entier, comme le visiteur du site"
 verdict "les quatre articles avec leur disponibilité" \

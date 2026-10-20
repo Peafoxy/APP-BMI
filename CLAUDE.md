@@ -78,7 +78,7 @@ npm run tester-comptes           # 98  : les règles de rôle sur les comptes (s
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
 npm run tester-heure             # 7   : l'heure de la base (heure_serveur, serveur, base jetable) : l'instant de la RÉPONSE, lisible connecté ou non, ne touche aucune table
-npm run tester-catalogue         # 13  : le catalogue du site vitrine (stock_calcule, base jetable) : une quantité à virgule ne fait plus tomber la page Boutique, le visiteur ne lit rien de plus ; la vérification du script lit count(disponible), jamais count(*) (elle répondait true à tort)
+npm run tester-catalogue         # 15  : le catalogue du site vitrine (stock_calcule, base jetable) : une quantité à virgule ne fait plus tomber la page Boutique, le visiteur ne lit rien de plus ; la vérification du script lit count(disponible), jamais count(*) (elle répondait true à tort)
 npm run tester-paie              # 77  : la fiche de paie séparée, le numéro de compte bancaire, le contrat de travail, les cases CNSS et le premier mois de paie verrouillés (serveur)
 ```
 
@@ -9062,6 +9062,13 @@ lit mal est pire qu'un banc absent).
   ligne `deja_sorti` (travaux) ou `au_chantier` (sa vente ET son ajustement).
   **Toute donnée nouvelle de l'application (une quantité, un champ) passe aussi
   par cette fonction du site.**
+  ⚠⚠ **UN SCRIPT À COLLER NE FINIT JAMAIS PAR « rollback; »** : l'éditeur de
+  Supabase envoie TOUT le texte en UNE transaction, et le rollback final a
+  défait le correctif entier — Timo a vu `true | true` et la fonction n'avait
+  jamais changé. Une vérification « avec les droits d'un visiteur »
+  (`set local role anon`) se donne dans un message À PART, jamais dans le
+  script. Le banc envoie désormais le script EN UN SEUL ENVOI (`psql -c`),
+  comme l'éditeur, et refuse tout rollback dedans.
 - **La police de base du PDF ne connaît ni « → », ni « − », ni l'espace fine
   de `fmt()`** : devant un caractère inconnu, jsPDF change d'encodage pour
   toute la chaîne et le texte sort en lettres espacées (capture Timo,

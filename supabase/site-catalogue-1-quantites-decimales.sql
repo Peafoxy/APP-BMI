@@ -60,13 +60,11 @@ as $$
   )::int;
 $$;
 
--- 3. Vérifier : le catalogue se lit EN ENTIER avec les droits d'un visiteur
---    (doit répondre : true | true). ⚠ count(disponible), jamais count(*) :
---    compter les lignes ne calcule pas le stock (le 20/10/2026, la première
---    version répondait true | true pendant que la page restait en panne).
-begin;
-set local role anon;
-select
-  (select count(*) from public.catalogue_public) > 0 as catalogue_lisible,
-  (select count(disponible) from public.catalogue_public) > 0 as stock_calcule_partout;
-rollback;
+-- 3. Vérifier : doit répondre « true ».
+--    ⚠ PAS de « begin; … rollback; » ici : l'éditeur de Supabase envoie tout
+--    le texte en UNE transaction, et un rollback final défait TOUT le script,
+--    correctif compris (20/10/2026 : la première version affichait
+--    true | true et la fonction n'avait jamais été remplacée).
+--    ⚠ count(disponible), jamais count(*) : compter les lignes ne calcule pas
+--    le stock.
+select (select count(disponible) from public.catalogue_public) > 0 as catalogue_et_stock_lisibles;
