@@ -78,6 +78,7 @@ npm run tester-comptes           # 98  : les règles de rôle sur les comptes (s
 npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
 npm run tester-heure             # 7   : l'heure de la base (heure_serveur, serveur, base jetable) : l'instant de la RÉPONSE, lisible connecté ou non, ne touche aucune table
+npm run tester-catalogue         # 12  : le catalogue du site vitrine (stock_calcule, base jetable) : une quantité à virgule ne fait plus tomber la page Boutique, le visiteur ne lit rien de plus
 npm run tester-paie              # 77  : la fiche de paie séparée, le numéro de compte bancaire, le contrat de travail, les cases CNSS et le premier mois de paie verrouillés (serveur)
 ```
 
@@ -9046,6 +9047,21 @@ lit mal est pire qu'un banc absent).
   caractères et la règle échoue dans le navigateur alors qu'elle passe en
   Node (13/09/2026, `lignesDette`). Dans le code, un caractère non ASCII
   d'une expression régulière s'écrit `\u00d7`.
+- ⚠⚠ **LE SITE VITRINE LIT NOS TABLES : UNE QUANTITÉ À VIRGULE L'A FAIT
+  TOMBER** (20/10/2026, bmitogo.com/boutique « catalogue temporairement
+  indisponible »). Deux causes, l'une après l'autre : l'ancienne clé publique
+  « anon » désactivée chez Supabase (le site est passé à la clé
+  `sb_publishable_…`, autre session, dépôt site-bmitogo) ; puis
+  `stock_calcule` (fonction du SITE, migration 0001) lisait chaque quantité en
+  ENTIER — une vente de 2,5 et son ajustement de −2,5 faisaient lever toute la
+  vue. ⚠ `select count(*) from catalogue_public` PASSAIT (il ne calcule pas
+  « disponible ») : un diagnostic doit lire la colonne. Correctif
+  `supabase/site-catalogue-1-quantites-decimales.sql` (`nombre_sur`, stock
+  arrondi à l'entier inférieur, même signature), banc `tester-catalogue`.
+  ⚠ Ce qu'il fait encore de travers, dit à Timo : il soustrait deux fois une
+  ligne `deja_sorti` (travaux) ou `au_chantier` (sa vente ET son ajustement).
+  **Toute donnée nouvelle de l'application (une quantité, un champ) passe aussi
+  par cette fonction du site.**
 - **La police de base du PDF ne connaît ni « → », ni « − », ni l'espace fine
   de `fmt()`** : devant un caractère inconnu, jsPDF change d'encodage pour
   toute la chaîne et le texte sort en lettres espacées (capture Timo,
