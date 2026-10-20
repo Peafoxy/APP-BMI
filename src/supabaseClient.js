@@ -130,16 +130,19 @@ const URL_ETAT_AUTH = BASE ? `${BASE}/api/etat-auth` : "/api/etat-auth";
 const URL_ABONNER_PUSH = BASE ? `${BASE}/api/abonner-push` : "/api/abonner-push";
 const URL_NOTIFIER = BASE ? `${BASE}/api/notifier` : "/api/notifier";
 
-async function appelAvecJeton(urlFonction, corps) {
-  if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
-  if (typeof navigator !== "undefined" && navigator.onLine === false) return { error: "Hors ligne." };
-  // ⚠⚠ LE JETON SE RENOUVELLE AVANT L'APPEL, ET UNE FOIS DE PLUS SI LE
-  // SERVEUR LE REFUSE (capture Timo, 25/09/2026 : 📋 Clients → WhatsApp →
-  // « Votre session a expiré. Reconnectez-vous »). Les écritures passaient
-  // déjà par `assurerSession` ; ces appels-là prenaient le jeton tel quel —
-  // un téléphone resté en veille envoyait un jeton périmé. Et « reconnectez-
-  // vous » est interdit depuis le 09/09/2026 : une session tombée se rétablit
-  // toute seule, sinon la fenêtre de verrou demande le mot de passe.
+// ⚠⚠ LE JETON SE RENOUVELLE AVANT L'APPEL, ET UNE FOIS DE PLUS SI LE
+// SERVEUR LE REFUSE (capture Timo, 25/09/2026 : 📋 Clients → WhatsApp →
+// « Votre session a expiré. Reconnectez-vous »). Les écritures passaient
+// déjà par `assurerSession` ; ces appels-là prenaient le jeton tel quel —
+// un téléphone resté en veille envoyait un jeton périmé. Et « reconnectez-
+// vous » est interdit depuis le 09/09/2026 : une session tombée se rétablit
+// toute seule, sinon la fenêtre de verrou demande le mot de passe.
+// ⚠ UNE SEULE FAÇON D'APPELER AVEC LE JETON (20/10/2026, capture Timo : les
+// notes vocales des clients affichaient « Session expirée. Reconnectez-vous »
+// alors que la session était en ligne) : `mediaWaEnLigne` faisait son propre
+// appel, sans renouveler le jeton. Toute fonction serveur passe par ici.
+// Rend la réponse brute, ou { perdue: true } si le jeton reste refusé.
+async function reponseAvecJeton(urlFonction, corps) {
   const envoyer = async () => {
     const { data } = await supabase.auth.getSession();
     const jeton = data?.session?.access_token;
@@ -149,18 +152,26 @@ async function appelAvecJeton(urlFonction, corps) {
       body: JSON.stringify({ jeton, ...corps }),
     });
   };
+  await assurerSession().catch(() => false);
+  let reponse = await envoyer();
+  if (!reponse || reponse.status === 401) {
+    try { await supabase.auth.refreshSession(); } catch { /* on tente les identifiants */ }
+    if (!(await sessionActive())) await assurerSession().catch(() => false);
+    reponse = await envoyer();
+  }
+  if (!reponse || reponse.status === 401) {
+    marquerSessionPerdue("Session sécurisée expirée : entrez votre mot de passe pour la rétablir.");
+    return { perdue: true };
+  }
+  return reponse;
+}
+
+async function appelAvecJeton(urlFonction, corps) {
+  if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return { error: "Hors ligne." };
   try {
-    await assurerSession().catch(() => false);
-    let reponse = await envoyer();
-    if (!reponse || reponse.status === 401) {
-      try { await supabase.auth.refreshSession(); } catch { /* on tente les identifiants */ }
-      if (!(await sessionActive())) await assurerSession().catch(() => false);
-      reponse = await envoyer();
-    }
-    if (!reponse || reponse.status === 401) {
-      marquerSessionPerdue("Session sécurisée expirée : entrez votre mot de passe pour la rétablir.");
-      return { error: "Session sécurisée expirée.", statut: 401 };
-    }
+    const reponse = await reponseAvecJeton(urlFonction, corps);
+    if (reponse.perdue) return { error: "Session sécurisée expirée.", statut: 401 };
     const resultat = await reponse.json().catch(() => ({}));
     // ⚠ On garde ce que la fonction serveur a mis en plus (le code de refus
     // de WhatsApp, par exemple) : `error` et `statut` restent les seuls
@@ -197,7 +208,8 @@ export const contactGoogleEnLigne = ({ cle, nom, tel }) => appelAvecJeton(URL_WH
 
 // ---- 📷 LE FICHIER QU'UN CLIENT A ENVOYÉ (20/09/2026) ----
 // ⚠ Ce n'est PAS du JSON qui revient, c'est le fichier lui-même : cette
-// fonction ne peut donc pas passer par `appelAvecJeton`. Le jeton reste
+// fonction ne lit pas la réponse comme `appelAvecJeton` — mais elle passe
+// par LA MÊME porte, `reponseAvecJeton` (jeton renouvelé). Le jeton reste
 // dans le CORPS de la requête, comme partout ailleurs — jamais dans
 // l'adresse, qui se retrouverait dans les journaux du serveur.
 const URL_WHATSAPP_MEDIA = BASE ? `${BASE}/api/whatsapp-media` : "/api/whatsapp-media";
@@ -205,13 +217,8 @@ export async function mediaWaEnLigne(messageId) {
   if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
   if (typeof navigator !== "undefined" && navigator.onLine === false) return { error: "Hors ligne." };
   try {
-    const { data } = await supabase.auth.getSession();
-    const jeton = data?.session?.access_token;
-    if (!jeton) return { error: "Pas de session sécurisée." };
-    const reponse = await fetch(URL_WHATSAPP_MEDIA, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jeton, message: messageId }),
-    });
+    const reponse = await reponseAvecJeton(URL_WHATSAPP_MEDIA, { message: messageId });
+    if (reponse.perdue) return { error: "Session sécurisée expirée : entrez votre mot de passe, puis réessayez.", statut: 401 };
     if (!reponse.ok) {
       const resultat = await reponse.json().catch(() => ({}));
       return { error: resultat?.error || `Le serveur a répondu ${reponse.status}.`, statut: reponse.status };

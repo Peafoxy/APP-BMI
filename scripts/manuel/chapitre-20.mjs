@@ -112,7 +112,7 @@ export const CHAPITRE = {
         { titre: "Lire les coches", texte: "**✓** parti · **✓✓ gris** arrivé sur son téléphone · **✓✓ bleu** lu · **❌ Non reçu** avec le motif. Un client qui a coupé les confirmations de lecture reste à ✓✓ gris." },
       ]],
       ["attention", "**Un fichier est une réponse** : il ne part que **dans les 24 h** après le dernier message du client, comme un texte. Fenêtre fermée, on écrit d'abord par « ✍️ Lui écrire quand même » ; le fichier partira quand le client aura répondu. Un PDF de plus de 3 Mo est refusé : on l'enregistre en « taille réduite »."],
-      ["note", "**Répondre ne s'approprie pas une conversation** : elle reste au support, visible de tous. Une photo ou une note vocale du client s'ouvre toute seule dans le fil, un document d'un clic ; WhatsApp les efface au bout de **30 jours**."],
+      ["note", "**Répondre ne s'approprie pas une conversation** : elle reste au support, visible de tous. Une photo ou une note vocale du client s'ouvre toute seule dans le fil, un document d'un clic ; si elle n'a pas pu se charger (réseau coupé, session à rétablir), **« ↻ Réessayer »** la relance sans recharger la page. WhatsApp les efface au bout de **30 jours**."],
 
       ["h3", "E. 📲 WhatsApp — écrire le premier (✍️ Écrire)"],
       ["etapes", [

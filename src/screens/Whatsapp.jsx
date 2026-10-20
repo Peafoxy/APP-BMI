@@ -1001,12 +1001,13 @@ export function MediaWa({ message }) {
   const [charge, setCharge] = useState(false);
   const [motif, setMotif] = useState("");
 
-  const ouvrir = async () => {
-    if (charge) return;
+  const charger = async () => {
     setCharge(true);
+    setMotif("");
     const r = await chargerMediaWa(message.id);
-    if (r.url) setUrl(r.url); else setMotif(r.motif || "Fichier indisponible.");
+    if (r.url) setUrl(r.url); else { setMotif(r.motif || "Fichier indisponible."); setCharge(false); }
   };
+  const ouvrir = () => { if (!charge) charger(); };
 
   useEffect(() => {
     if (MEDIA_AUTO.includes(media.type) && !media.envoye) ouvrir();
@@ -1036,7 +1037,14 @@ export function MediaWa({ message }) {
   if (motif) {
     // ⚠ ON DIT POURQUOI. WhatsApp efface ses fichiers au bout de 30 jours :
     // un cadre vide laisserait croire à une panne de l'application.
-    return <div className="text-xs italic opacity-80">{nom} — {motif}</div>;
+    // ↻ Et on peut RÉESSAYER sans recharger la page (20/10/2026 : une
+    // session renouvelée entre-temps, un réseau revenu).
+    return (
+      <div data-media-echec className="text-xs italic opacity-80">
+        {nom} — {motif}{" "}
+        <button type="button" data-media-reessayer onClick={charger} className="not-italic font-bold underline">↻ Réessayer</button>
+      </div>
+    );
   }
   if (!url && estSon(media)) {
     return <div data-vocal-chargement className="text-xs italic opacity-80 py-2">{nom} — chargement…</div>;

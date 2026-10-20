@@ -375,7 +375,9 @@ test("★ une session expirée aussi", !M.motifAttendu(M.MOTIF_ECHEC[401]));
 // sinon la fenêtre de verrou redemande le mot de passe. Jamais « reconnectez-vous ».
 {
   const cli = lire("src/supabaseClient.js");
-  const i = cli.indexOf("async function appelAvecJeton");
+  // ⚠ RETOURNÉ le 20/10/2026 : le renouvellement vit dans LA porte commune
+  // `reponseAvecJeton`, qu'`appelAvecJeton` ET `mediaWaEnLigne` empruntent.
+  const i = cli.indexOf("async function reponseAvecJeton");
   const corpsAppel = cli.slice(i, cli.indexOf("export const abonnerPushEnLigne", i));
   test("★ session : le jeton est RENOUVELÉ avant l'appel (assurerSession avant le premier envoi)",
     corpsAppel.indexOf("assurerSession()") > -1 && corpsAppel.indexOf("assurerSession()") < corpsAppel.indexOf("let reponse = await envoyer()"));
@@ -6003,6 +6005,70 @@ titre("67 📎 LE REÇU ET LA PROFORMA REPARTENT EN TEXTE QUAND META REJETTE LE 
     await nav.close();
     rmSync(dossier, { recursive: true, force: true });
   }
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("69 🔐 LE SON D'UN CLIENT SE CHARGE AVEC UN JETON RENOUVELÉ (20/10/2026, capture Timo : « Son — Session expirée. Reconnectez-vous » alors que la session était en ligne)");
+// Les notes vocales se chargent toutes seules depuis la 2.101.605 ; la
+// fonction qui va chercher le fichier (`mediaWaEnLigne`) prenait le jeton tel
+// quel, sans le renouveler — le défaut fermé le 25/09 pour les autres appels.
+// On JOUE la vraie fonction, avec un faux Supabase et un faux serveur qui
+// refuse le jeton périmé.
+{
+  const cli = lire("src/supabaseClient.js");
+  const corpsMedia = cli.slice(cli.indexOf("export async function mediaWaEnLigne"), cli.indexOf("\n}\n", cli.indexOf("export async function mediaWaEnLigne")));
+  test("★★ `mediaWaEnLigne` passe par LA porte commune (`reponseAvecJeton`), jamais par un fetch à elle",
+    /reponseAvecJeton\(URL_WHATSAPP_MEDIA/.test(corpsMedia) && !/fetch\(/.test(corpsMedia));
+  test("★ `appelAvecJeton` passe par la même porte", /reponseAvecJeton\(urlFonction, corps\)/.test(cli));
+  test("★ un seul endroit du client envoie un jeton à une fonction serveur avec renouvellement (le corps « jeton, ...corps »)",
+    (cli.match(/JSON\.stringify\(\{ jeton, \.\.\.corps \}\)/g) || []).length === 1);
+  const cache = join("node_modules", ".cache");
+  const faux = join(cache, `faux-supabase-${process.pid}.mjs`);
+  writeFileSync(faux, `export function createClient() {
+    const F = () => globalThis.FAUX;
+    return { auth: {
+      async getSession() { return { data: { session: F().jeton ? { access_token: F().jeton, expires_at: 9e12, user: { email: "x@bmi" } } : null } }; },
+      async refreshSession() { F().refresh++; F().jeton = F().apresRefresh; return { data: { session: { access_token: F().jeton, expires_at: 9e12, user: { email: "x@bmi" } } } }; },
+      async signInWithPassword() { return { error: { message: "non" } }; },
+      async signOut() { return {}; },
+    } };
+  }`);
+  const sortieCli = join(cache, `bmi-client-${process.pid}.mjs`);
+  await build({
+    entryPoints: ["src/supabaseClient.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCli, logLevel: "silent",
+    alias: { "@supabase/supabase-js": "./" + faux },
+    define: { "import.meta.env.VITE_SUPABASE_URL": '"https://faux.supabase.co"', "import.meta.env.VITE_SUPABASE_ANON_KEY": '"cle"', "import.meta.env.VITE_SYNC_AUTH_URL": '"https://faux.bmi"' },
+  });
+  const C = await import(pathToFileURL(sortieCli).href);
+  unlinkSync(sortieCli); unlinkSync(faux);
+  const fetchAvant = globalThis.fetch;
+  const appels = [];
+  globalThis.fetch = async (url, init) => {
+    const corps = JSON.parse(init.body);
+    appels.push({ url, jeton: corps.jeton });
+    if (corps.jeton === "neuf") return new Response(new Blob(["OggS-son"], { type: "audio/ogg" }), { status: 200 });
+    return new Response(JSON.stringify({ error: "Session expirée. Reconnectez-vous." }), { status: 401 });
+  };
+  try {
+    globalThis.FAUX = { jeton: "vieux", apresRefresh: "neuf", refresh: 0 };
+    const r = await C.mediaWaEnLigne("wa_1");
+    test("★★★ un jeton PÉRIMÉ est renouvelé : le son arrive (le faux serveur refuse « vieux », accepte « neuf »)",
+      !!r.blob && !r.error && appels.some((a) => /whatsapp-media$/.test(a.url) && a.jeton === "neuf"), JSON.stringify({ r: { ...r, blob: !!r.blob }, appels }));
+    appels.length = 0;
+    globalThis.FAUX = { jeton: "vieux", apresRefresh: "vieux2", refresh: 0 };
+    const r2 = await C.mediaWaEnLigne("wa_1");
+    test("★★ jeton refusé même renouvelé : UN second essai, puis la fenêtre de verrou (session marquée perdue)",
+      r2.statut === 401 && appels.length === 2 && C.etatAuth.sessionPerdue === true, JSON.stringify({ r2, appels, etat: C.etatAuth }));
+    test("★★ et l'écran ne dit JAMAIS « reconnectez-vous » : il dit d'entrer le mot de passe (règle du 09/09/2026)",
+      !/reconnect/i.test(r2.error || "") && /mot de passe/.test(r2.error || ""), r2.error);
+  } finally {
+    globalThis.fetch = fetchAvant;
+    delete globalThis.FAUX;
+  }
+  const wa = lire("src/screens/Whatsapp.jsx");
+  const corpsMediaWa = wa.slice(wa.indexOf("export function MediaWa"), wa.indexOf("\n}\n", wa.indexOf("export function MediaWa")));
+  test("★★ un fichier qui n'a pas pu se charger porte « ↻ Réessayer », qui relance le chargement (sans recharger la page)",
+    /data-media-reessayer onClick=\{charger\}/.test(corpsMediaWa) && /setMotif\(""\)/.test(corpsMediaWa) && /setCharge\(false\)/.test(corpsMediaWa));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
