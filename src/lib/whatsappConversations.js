@@ -621,13 +621,24 @@ export function critiqueFichier(fichier, phrase = "") {
 // aller chercher chez WhatsApp (la copie reste sur le téléphone BMI).
 export function mediaEnvoye(fichier) {
   const f = fichier || {};
+  const vocal = estNoteVocale(f);
   return {
-    type: typeEnvoiFichier(f.mime),
+    type: vocal ? "voice" : typeEnvoiFichier(f.mime),
     nom: String(f.nom || ""),
     mime: String(f.mime || ""),
     taille: Number(f.taille) || 0,
+    ...(Number(f.duree) > 0 ? { duree: Math.max(1, Math.round(Number(f.duree))) } : {}),
     envoye: true,
   };
+}
+
+// 🎤 UNE NOTE VOCALE ENREGISTRÉE DANS L'APPLICATION (20/10/2026, « B ») :
+// WhatsApp ne la montre comme note vocale (le rond, la vitesse) que si c'est
+// un .ogg en Opus ET que le message le dit (`voice: true`). Un son MP4
+// (iPhone) part comme un simple son. Lu par l'écran ET par le serveur.
+export function estNoteVocale(fichier) {
+  const f = fichier || {};
+  return !!f.vocal && String(f.mime || "").toLowerCase().split(";")[0].trim() === "audio/ogg";
 }
 
 // Ce qu'on écrit quand il n'y a pas un mot de texte : une notification

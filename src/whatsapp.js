@@ -301,7 +301,7 @@ export async function repondreWhatsApp({ tel, texte, fichier = null }) {
     const { whatsappEnLigne } = await import("./supabaseClient");
     // 📎 Le fichier voyage codé, sans sa taille annoncée : le serveur la
     // remesure lui-même sur les octets reçus.
-    reponse = await whatsappEnLigne({ tel, texte, fichier: fichier ? { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees } : null });
+    reponse = await whatsappEnLigne({ tel, texte, fichier: fichier ? { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees, ...(fichier.vocal ? { vocal: true } : {}) } : null });
   } catch (e) {
     oublierEnvoi(registreEnvois, cle);
     return { parti: false, motif: motifEchecWhatsApp({ erreur: e?.message }) };

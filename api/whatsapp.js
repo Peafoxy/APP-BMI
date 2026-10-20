@@ -30,7 +30,7 @@ import { poserCors } from "./_cors.js";
 import { lireConversation } from "./_tables.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable, modeleAvecDocument, MOTIF_PDF_MANQUANT } from "../src/lib/whatsappModeles.js";
-import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre, critiqueFichier, typeEnvoiFichier, TAILLE_MAX_ENVOI } from "../src/lib/whatsappConversations.js";
+import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre, critiqueFichier, typeEnvoiFichier, TAILLE_MAX_ENVOI, estNoteVocale } from "../src/lib/whatsappConversations.js";
 // ⚠ La porte vers YCloud est écrite UNE fois (api/_ycloud.js) : l'assistant
 // du webhook envoie par la même — la clé et la lecture du refus y vivent.
 import { configYCloud, envoyerYCloud, corpsTexte, televerserYCloud, corpsMedia, composantDocument } from "./_ycloud.js";
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   let piece = null;
   if (fichier && (!modele || enteteDocument)) {
     const octets = Buffer.from(String(fichier.donnees || ""), "base64");
-    piece = { nom: String(fichier.nom || "").slice(0, 200), mime: String(fichier.mime || ""), taille: octets.length, octets };
+    piece = { nom: String(fichier.nom || "").slice(0, 200), mime: String(fichier.mime || ""), taille: octets.length, octets, vocal: !!fichier.vocal };
     if (octets.length > TAILLE_MAX_ENVOI + 1024) return res.status(413).json({ error: critiqueFichier(piece) || "Fichier trop lourd." });
     const refusFichier = critiqueFichier(piece, enteteDocument ? "" : texte);
     if (refusFichier) return res.status(400).json({ error: refusFichier });
@@ -144,7 +144,7 @@ export default async function handler(req, res) {
     if (piece) {
       depot = await televerserYCloud(cle, expediteur, piece);
       if (!depot.ok) return res.status(502).json({ error: depot.motif, statut_whatsapp: depot.statut_whatsapp, code_whatsapp: depot.code_whatsapp });
-      if (reponseLibre) corpsFichier = corpsMedia(expediteur, destinataire, { type: typeEnvoiFichier(piece.mime), id: depot.id, legende: motReponse, nom: piece.nom });
+      if (reponseLibre) corpsFichier = corpsMedia(expediteur, destinataire, { type: typeEnvoiFichier(piece.mime), id: depot.id, legende: motReponse, nom: piece.nom, vocal: estNoteVocale(piece) });
     }
     const composants = [{ type: "body", parameters: valeurs.map((text) => ({ type: "text", text })) }];
     if (enteteDocument) composants.unshift(composantDocument(depot.id, piece.nom));
@@ -160,7 +160,15 @@ export default async function handler(req, res) {
           components: composants,
         },
       });
-    const resultat = await envoyerYCloud(cle, corps);
+    let resultat = await envoyerYCloud(cle, corps);
+    // 🎤 La marque « note vocale » n'a pas pu être éprouvée sur le vrai
+    // service d'ici : si WhatsApp la refuse, le même son repart UNE fois
+    // sans elle (le client reçoit un simple son plutôt que rien).
+    if (!resultat.ok && corps?.audio?.voice) {
+      console.info("[whatsapp] note vocale refusée, nouvel essai en simple son :", resultat.motif);
+      const { voice, ...sansVoix } = corps.audio;
+      resultat = await envoyerYCloud(cle, { ...corps, audio: sansVoix });
+    }
     if (!resultat.ok) {
       // ⚠ On rend le motif de WhatsApp tel quel : « modèle non approuvé »,
       // « ce client a refusé les messages commerciaux »… L'écran a besoin de

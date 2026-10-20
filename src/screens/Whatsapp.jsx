@@ -39,6 +39,8 @@ import { texteLignePrivee } from "../lib/lignesPrivees";
 import { motDePasseConnu, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { peutEnregistrerContact, critiqueContactGoogle, nettoyerNomGoogle, traceContactGoogle, COMPTE_CONTACTS_BMI } from "../lib/contactGoogle";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle } from "../whatsapp";
+import { LecteurVocal, BoutonMicro, garderVocal, vocalGarde } from "../components/NoteVocale";
+import { dureeVocale } from "../lib/oggOpus";
 import { champsEnvoi } from "../lib/suiviEnvoi";
 import { useRetour } from "../retour";
 
@@ -268,15 +270,19 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     } finally { setPrepare(false); }
   };
 
-  const envoyer = async () => {
-    const t = texte.trim();
-    if ((!t && !fichier) || !ouverte || envoi || verrouEnvoi.current) return;
-    const refus = critiqueReponse({ profile, conv: ouverte, texte: t, fichier, enLigne: navigator.onLine !== false, espaceFormation: regardeFormation });
+  // 🎤 `vocal` (20/10/2026, « B ») : la note enregistrée part par LE MÊME
+  // chemin qu'un fichier choisi — mêmes refus, même ligne écrite APRÈS
+  // l'envoi — sans phrase (un son n'en porte pas chez WhatsApp).
+  const envoyer = async (vocal = null) => {
+    const t = vocal ? "" : texte.trim();
+    const piece = vocal || fichier;
+    if ((!t && !piece) || !ouverte || envoi || verrouEnvoi.current) return;
+    const refus = critiqueReponse({ profile, conv: ouverte, texte: t, fichier: piece, enLigne: navigator.onLine !== false, espaceFormation: regardeFormation });
     if (refus) { uAlert(refus); return; }
     verrouEnvoi.current = true;
     setEnvoi(true);
     let r;
-    try { r = await repondreWhatsApp({ tel: ouverte.tel, texte: t, fichier }); }
+    try { r = await repondreWhatsApp({ tel: ouverte.tel, texte: t, fichier: piece }); }
     finally { verrouEnvoi.current = false; setEnvoi(false); }
     if (!r.parti) { uAlert(r.motif || "Le message n'est pas parti."); return; }
     // ⚠ La ligne garde le NOM du fichier, jamais le fichier (décision du
@@ -285,19 +291,20 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
       canal: CANAL_WA, wa_tel: ouverte.cle, wa_numero: ouverte.tel,
       ...(ouverte.nom ? { wa_nom: ouverte.nom } : {}),
       wa_id: r.id || "", texte: t, ...champsEnvoi(r),
-      ...(fichier ? { wa_media: mediaEnvoye(fichier) } : {}),
+      ...(piece ? { wa_media: mediaEnvoye(piece) } : {}),
       ...(ouverte.proprietaire_id ? { proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom } : {}),
     });
     // ⚠ LA FICHE LÉGÈRE SUIT LE FIL (21/09/2026) : sans ce geste, une
     // conversation qui n'a jamais reçu de message entrant depuis le
     // correctif resterait invisible aux autres au lieu d'apparaître grisée.
+    // 🎤 Une note envoyée se réécoute pendant la session (jamais rangée).
+    if (vocal?.blob) garderVocal(m.id, vocal.blob);
     save({ ...db, messages: messagesAvecEntete([m, ...messages], {
       cle: ouverte.cle, tel: ouverte.tel, nom: ouverte.nom,
       proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom,
       derniere: m.ts,
     }) });
-    setTexte("");
-    setFichier(null);
+    if (!vocal) { setTexte(""); setFichier(null); }
   };
 
   // ---- ✍️ ÉCRIRE LE PREMIER À QUELQU'UN (20/09/2026) ----
@@ -768,15 +775,19 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
                     <button onClick={() => setFichier(null)} title="Retirer le fichier" className="ml-auto font-bold text-slate-500 hover:text-red-600">✕</button>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="relative flex items-center gap-2">
                   <input ref={champFichier} type="file" className="hidden" data-champ-fichier onChange={choisirFichier}
                     accept="image/*,video/mp4,video/3gpp,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
                   <button onClick={() => champFichier.current && champFichier.current.click()} disabled={envoi || prepare}
                     title="Joindre un fichier (photo, PDF, Word, Excel, vidéo, son — 3 Mo au plus)" data-joindre
                     className="w-10 h-10 shrink-0 rounded-full text-xl leading-none text-slate-600 hover:bg-slate-200 disabled:opacity-50">{prepare ? "…" : "📎"}</button>
                   <input className={`${inputCls} rounded-full bg-white border-transparent`} placeholder={fichier ? "Phrase facultative pour accompagner le fichier…" : "Votre réponse, envoyée du numéro BMI..."} value={texte} onChange={(e) => setTexte(e.target.value)} onKeyDown={(e) => e.key === "Enter" && envoyer()} />
-                  <button onClick={envoyer} disabled={envoi || prepare} title="Envoyer" aria-label="Envoyer" data-envoyer
-                    className="w-10 h-10 shrink-0 rounded-full bg-[#008069] text-white font-bold text-lg leading-none hover:bg-[#006e5a] disabled:opacity-50">{envoi ? "⏳" : "➤"}</button>
+                  {texte.trim() || fichier || envoi ? (
+                    <button onClick={() => envoyer()} disabled={envoi || prepare} title="Envoyer" aria-label="Envoyer" data-envoyer
+                      className="w-10 h-10 shrink-0 rounded-full bg-[#008069] text-white font-bold text-lg leading-none hover:bg-[#006e5a] disabled:opacity-50">{envoi ? "⏳" : "➤"}</button>
+                  ) : (
+                    <BoutonMicro desactive={prepare} onEnvoyer={(f) => envoyer(f)} onRefus={(motif) => uAlert(motif)} />
+                  )}
                 </div>
               </div>
             )}
@@ -979,7 +990,10 @@ function NomConversation({ c, sansNumero = false }) {
 // ⚠ UNE PHOTO S'AFFICHE TOUTE SEULE (c'est ce qui a été demandé) ; une
 // vidéo, un son ou un document attendent un clic — on ne fait pas payer
 // dix mégaoctets de forfait à quelqu'un qui ouvre une conversation.
-const MEDIA_AUTO = ["image", "sticker"];
+// 🎤 « a2 » (20/10/2026) : une note vocale se charge AUSSI toute seule, comme
+// sur WhatsApp — elle pèse quelques dizaines de Ko.
+const MEDIA_AUTO = ["image", "sticker", "audio", "voice"];
+const estSon = (media) => media.type === "audio" || media.type === "voice";
 
 export function MediaWa({ message }) {
   const media = message.wa_media || {};
@@ -1008,6 +1022,13 @@ export function MediaWa({ message }) {
   // 📎 UN FICHIER QUE BMI A ENVOYÉ (03/10/2026) : la ligne ne garde que son
   // nom — le fichier n'est pas chez nous, sa copie reste sur le téléphone
   // BMI. On ne va donc rien chercher : on dit ce qui est parti.
+  if (media.envoye && estSon(media)) {
+    // 🎤 Une note envoyée pendant CETTE session se réécoute ; après un F5,
+    // il n'en reste que la ligne (le son n'est pas rangé chez nous).
+    const garde = vocalGarde(message.id);
+    if (garde) return <LecteurVocal url={garde} duree={media.duree} sortant />;
+    return <div data-media-envoye className="text-xs font-bold">{media.type === "voice" ? "🎤 Message vocal" : `🎵 ${media.nom || nom}`}{media.duree ? ` · ${dureeVocale(media.duree)}` : ""} <span className="font-normal opacity-80">— envoyé</span></div>;
+  }
   if (media.envoye) {
     return <div data-media-envoye className="text-xs font-bold">📎 {media.nom || nom}{media.taille ? ` · ${tailleLisible(media.taille)}` : ""} <span className="font-normal opacity-80">— envoyé</span></div>;
   }
@@ -1016,6 +1037,9 @@ export function MediaWa({ message }) {
     // ⚠ ON DIT POURQUOI. WhatsApp efface ses fichiers au bout de 30 jours :
     // un cadre vide laisserait croire à une panne de l'application.
     return <div className="text-xs italic opacity-80">{nom} — {motif}</div>;
+  }
+  if (!url && estSon(media)) {
+    return <div data-vocal-chargement className="text-xs italic opacity-80 py-2">{nom} — chargement…</div>;
   }
   if (!url) {
     return (
@@ -1028,6 +1052,6 @@ export function MediaWa({ message }) {
     return <a href={url} target="_blank" rel="noreferrer"><img src={url} alt={nom} className="rounded-lg max-w-full" style={{ maxHeight: 260 }} /></a>;
   }
   if (media.type === "video") return <video src={url} controls className="rounded-lg max-w-full" style={{ maxHeight: 260 }} />;
-  if (media.type === "audio" || media.type === "voice") return <audio src={url} controls className="w-full" />;
+  if (estSon(media)) return <LecteurVocal url={url} sortant={!message.wa_entrant} />;
   return <a href={url} download={media.nom || "document"} className="text-xs font-bold underline">{nom} — enregistrer</a>;
 }

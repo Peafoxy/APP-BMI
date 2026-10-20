@@ -111,6 +111,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/espace.js` | À quel espace (réel / formation) appartient un compte, et qui prévenir |
 | `lib/verrou.js` | Le verrou d'inactivité, et la reconnaissance d'un téléphone |
 | `lib/empreinte.js` | Qui peut ouvrir le verrou avec son doigt, et la clé rangée par appareil — **aucune empreinte n'entre ici**, le téléphone compare tout seul (`src/empreinte.js` est le seul à lui parler) |
+| `lib/oggOpus.js` | 🎤 Une note vocale WebM / Opus (Chrome) remise dans une boîte Ogg, la seule que WhatsApp lit comme note vocale — sans recoder ; durée lisible « 0:07 » (`src/enregistreurVocal.js` est le seul à toucher le micro) |
 | `lib/notifications.js` | Ce qui part en notification à chaque enregistrement |
 | `lib/rappels.js` | Les rappels « pour information » qui dépendent du temps (tournée du matin) |
 | `lib/conversations.js` | L'ordre de la liste des conversations de 💬 Messages |
@@ -154,6 +155,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`), et le bouton qui se grise pendant un envoi (`BoutonEnvoi`, `useEnvoiEnCours`) |
 | `cibleEcran.js` | 🔔 Ce qu'un écran fait d'une notification cliquée : `useCible`, la boutique visée (`useCibleBoutique`, jamais un employé déplacé hors de sa boutique) |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
+| `NoteVocale.jsx` | 🎤 Les notes vocales de 📲 WhatsApp comme sur WhatsApp : le lecteur (▶, barres, vitesse) et le micro qu'on garde appuyé |
 | `FiltrePeriode.jsx` | 📅 Le filtre de période d'une liste (Toute période, quatre périodes, Personnaliser), écrit une fois pour Ventes, Dépenses, Dettes et Tous les devis (et 📋 Inventaire, qui ouvre sur « Aujourd'hui ») |
 | `FicheClient.jsx` | 🗂 La fiche d'un client ouverte d'un clic dans 📋 Clients : achats, dettes, proformas, commandes, devis, chantiers de l'espace regardé |
 | `CompleterDevis.jsx` | ✍️ Le panneau « Compléter le devis » après la visite (📋 Tous les devis) : chaque élément cf. visite chiffré ou « sans objet », des lignes ajoutées, le nouveau total lu par la vraie règle |

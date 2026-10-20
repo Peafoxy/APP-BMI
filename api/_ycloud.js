@@ -84,8 +84,11 @@ export async function televerserYCloud(cle, expediteur, { octets, mime, nom }) {
 export const composantDocument = (id, nom) =>
   ({ type: "header", parameters: [{ type: "document", document: { id, ...(nom ? { filename: nom } : {}) } }] });
 
-export function corpsMedia(expediteur, destinataire, { type, id, legende, nom }) {
+// 🎤 `vocal` (20/10/2026) : une note vocale .ogg / Opus porte `voice: true`
+// (documentation de Meta) — sans lui, WhatsApp la montre comme un simple son.
+export function corpsMedia(expediteur, destinataire, { type, id, legende, nom, vocal = false }) {
   const bloc = { id };
+  if (vocal && type === "audio") bloc.voice = true;
   if (legende && type !== "audio") bloc.caption = legende;
   if (type === "document" && nom) bloc.filename = nom;
   return { from: expediteur, to: destinataire, type, [type]: bloc };

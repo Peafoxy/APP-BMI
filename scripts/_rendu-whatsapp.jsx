@@ -357,3 +357,11 @@ export const avisAttestation = () => {
   const rangee = msgs.find((x) => x.wa_modele === envoi.modele) || {};
   return { envoi, rangee, attendu: ligneEnvoiModele(envoi.modele, envoi.variables), detail: texteLignePrivee(rangee, { users: [dg, employe], boutiques, messages: [] }) };
 };
+
+// ---- 🎤 LES NOTES VOCALES (20/10/2026, « A avec a2, B ») ----
+// Une note ENVOYÉE, hors de la session qui l'a enregistrée : il n'en reste
+// que la ligne (le son n'est pas rangé chez nous).
+export const htmlVocaleEnvoyee = () => renderToStaticMarkup(
+  <MediaWa message={{ id: "wa-v-env", wa_media: { type: "voice", nom: "note-vocale.ogg", mime: "audio/ogg", taille: 9000, duree: 7, envoye: true } }} />);
+export const htmlSonEnvoye = () => renderToStaticMarkup(
+  <MediaWa message={{ id: "wa-s-env", wa_media: { type: "audio", nom: "note-vocale.m4a", mime: "audio/mp4", taille: 9000, duree: 12, envoye: true } }} />);

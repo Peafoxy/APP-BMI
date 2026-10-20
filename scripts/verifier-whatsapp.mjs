@@ -24,7 +24,7 @@ import { execSync } from "node:child_process";
 import * as M from "../src/lib/whatsappModeles.js";
 
 let ok = 0, ko = 0;
-const test = (nom, cond) => { if (cond) { ok++; console.log(`  ✓ ${nom}`); } else { ko++; console.log(`  ✗ ${nom}`); } };
+const test = (nom, cond, detail) => { if (cond) { ok++; console.log(`  ✓ ${nom}`); } else { ko++; console.log(`  ✗ ${nom}`); if (detail !== undefined) console.log(`      → ${String(detail).slice(0, 400)}`); } };
 const titre = (t) => console.log(`\n${t}`);
 const lire = (f) => readFileSync(f, "utf8");
 
@@ -1218,7 +1218,7 @@ test("★★★ l'écran passe l'espace REGARDÉ (`espaceDuCompte`) à la liste,
   /const regardeFormation = espaceDuCompte\(db, profile\) === true;/.test(codeEcranWa)
   && /conversationsWa\(messages, profile, undefined, \{ espaceFormation: regardeFormation \}\)/.test(codeEcranWa)
   && /const espaceFormation = espaceDuCompte\(db, profile\) === true;\s*return conversationsWa\(messages, profile, undefined, \{ espaceFormation \}\)/.test(codeEcranWa)
-  && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier, enLigne: navigator\.onLine !== false, espaceFormation: regardeFormation \}\)/.test(codeEcranWa)
+  && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece, enLigne: navigator\.onLine !== false, espaceFormation: regardeFormation \}\)/.test(codeEcranWa)
   && !/estCompteFormation\(db, profile\)/.test(codeEcranWa));
 test("★★ l'écran vide le DIT, avec la porte de sortie (👁 Je regarde) — jamais une liste vide qui ressemble à une panne",
   /if \(regardeFormation\) \{\s*return \(/.test(codeEcranWa)
@@ -3856,9 +3856,9 @@ titre("㊺ 📎 ENVOYER UN FICHIER AU CLIENT, DU NUMÉRO BMI (03/10/2026, « tou
   // ── L'écran
   const ecr = lire("src/screens/Whatsapp.jsx").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
   test("★★ l'écran vérifie au CHOIX du fichier (critiqueFichier), puis revérifie DANS le geste (critiqueReponse avec le fichier)",
-    /const refus = critiqueFichier\(pret\)/.test(ecr) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier,/.test(ecr));
+    /const refus = critiqueFichier\(pret\)/.test(ecr) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece,/.test(ecr) && /const piece = vocal \|\| fichier;/.test(ecr));
   test("★★ la ligne du fil ne s'écrit qu'APRÈS le départ, et ne porte que mediaEnvoye (jamais les données)",
-    ecr.indexOf("if (!r.parti)") < ecr.indexOf("wa_media: mediaEnvoye(fichier)") && !/donnees:\s*fichier/.test(ecr.slice(ecr.indexOf("const envoyer = async"), ecr.indexOf("const envoyerContact"))));
+    ecr.indexOf("if (!r.parti)") > -1 && ecr.indexOf("if (!r.parti)") < ecr.indexOf("wa_media: mediaEnvoye(piece)") && !/donnees:\s*(fichier|piece)/.test(ecr.slice(ecr.indexOf("const envoyer = async"), ecr.indexOf("const envoyerContact"))));
   test("★ changer de conversation retire le fichier choisi (on n'envoie pas à l'un le devis préparé pour l'autre)",
     /useEffect\(\(\) => \{ setFichier\(null\); \}, \[cleOuverte\]\)/.test(ecr));
   const r1 = monte(V.renduFichierEnvoye), r2 = monte(V.htmlFichierEnvoye);
@@ -5832,6 +5832,170 @@ titre("67 📎 LE REÇU ET LA PROFORMA REPARTENT EN TEXTE QUAND META REJETTE LE 
   test("★★ 💰 Ventes et src/whatsapp.js rangent le texte du relais sur la ligne du PDF (`relais: envoi`)",
     /relais: envoi/.test(sansComm(lire("src/screens/Ventes.jsx"))) && /\.\.\.champRelaisTexte\(modele, ref, relais\)/.test(sansComm(lire("src/whatsapp.js"))));
   test("★ la règle du relais ne lit jamais de clé secrète", !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/relaisRecuPdf.js")) && !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/recuDeVente.js")));
+}
+
+{
+  titre("68 🎤 LES NOTES VOCALES COMME SUR WHATSAPP : LE LECTEUR, LE CHARGEMENT TOUT SEUL, LE MICRO (20/10/2026, « A avec a2, B lance »)");
+  const O = await import(pathToFileURL(join(process.cwd(), "src/lib/oggOpus.js")).href);
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  // --- Les règles pures, sous Node ---
+  test("★★ le premier octet d'un paquet Opus dit sa durée (RFC 6716) : 20 ms = 960 échantillons, 3 trames de 20 ms = 2 880, 60 ms SILK = 2 880",
+    O.echantillonsOpus(Uint8Array.of((15 << 3) | 0)) === 960 && O.echantillonsOpus(Uint8Array.of((31 << 3) | 3, 3)) === 2880
+    && O.echantillonsOpus(Uint8Array.of((3 << 3) | 0)) === 2880 && O.echantillonsOpus(new Uint8Array(0)) === 0);
+  // Le contrôle des pages Ogg, recalculé ici par une AUTRE écriture (bit à bit, sans table).
+  const crcBits = (o) => { let c = 0; for (const b of o) { c ^= b << 24; for (let k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x04c11db7) : (c << 1); c >>>= 0; } return c >>> 0; };
+  const tete = Uint8Array.from([0x4f,0x70,0x75,0x73,0x48,0x65,0x61,0x64,1,1,0x38,0x01,0x80,0xbb,0,0,0,0,0]);
+  const paquets = Array.from({ length: 300 }, (_, i) => { const p = new Uint8Array(i % 7 === 0 ? 300 : 60); p[0] = (31 << 3); p[1] = i & 255; return p; });
+  const ogg = O.oggDepuisOpus({ tete, paquets });
+  const pages = []; let pos = 0, pagesOk = true;
+  while (pos < ogg.octets.length) {
+    const o = ogg.octets;
+    if (String.fromCharCode(o[pos], o[pos+1], o[pos+2], o[pos+3]) !== "OggS") { pagesOk = false; break; }
+    const nseg = o[pos + 26]; let corps = 0; for (let k = 0; k < nseg; k++) corps += o[pos + 27 + k];
+    const page = o.slice(pos, pos + 27 + nseg + corps);
+    const v = new DataView(page.buffer); const crc = v.getUint32(22, true); v.setUint32(22, 0, true);
+    pages.push({ drapeaux: page[5], granule: v.getUint32(6, true), numero: v.getUint32(18, true), crcJuste: crcBits(page) === crc, nseg });
+    pos += page.length;
+  }
+  test("★★★ le fichier Ogg fabriqué : chaque page commence par « OggS », porte le BON contrôle (recalculé autrement), se suit en numéros, ≤ 255 segments",
+    pagesOk && pages.length > 3 && pages.every((p, i) => p.crcJuste && p.numero === i && p.nseg <= 255), JSON.stringify(pages.slice(0, 4)));
+  test("★★ première page = début (BOS), dernière = fin (EOS) ; la position avance ; la durée = échantillons − pré-saut (300 × 20 ms − 312)",
+    pages[0].drapeaux === 0x02 && pages[pages.length - 1].drapeaux === 0x04 && pages.slice(2).every((p, i, t) => i === 0 || p.granule > t[i - 1].granule)
+    && Math.abs(ogg.duree - (300 * 960 - 312) / 48000) < 1e-9);
+  test("★ un fichier qui n'est pas de l'Opus en WebM rend null (jamais un faux fichier)", O.webmVersOgg(new Uint8Array([1, 2, 3])) === null && O.webmVersOgg(new Uint8Array(0)) === null);
+  test("★ la durée se lit comme WhatsApp : 0:07, 1:35, 5:00", O.dureeVocale(7.4) === "0:07" && O.dureeVocale(95) === "1:35" && O.dureeVocale(300) === "5:00" && O.DUREE_MAX_VOCAL === 300);
+  test("★★ la ligne d'une note envoyée : type « voice », sa durée — un son MP4 (iPhone) reste un simple son ; jamais le fichier",
+    C.mediaEnvoye({ nom: "n.ogg", mime: "audio/ogg", taille: 9000, vocal: true, duree: 7.4, donnees: "AAA", blob: {} }).type === "voice"
+    && C.mediaEnvoye({ nom: "n.ogg", mime: "audio/ogg", taille: 9000, vocal: true, duree: 7.4 }).duree === 7
+    && C.mediaEnvoye({ nom: "n.m4a", mime: "audio/mp4", taille: 9000, vocal: false, duree: 3 }).type === "audio"
+    && !("donnees" in C.mediaEnvoye({ nom: "n.ogg", mime: "audio/ogg", taille: 9, vocal: true, donnees: "AAA" }))
+    && !("blob" in C.mediaEnvoye({ nom: "n.ogg", mime: "audio/ogg", taille: 9, vocal: true, blob: {} }))
+    && C.critiqueFichier({ nom: "n.ogg", mime: "audio/ogg", taille: 9000 }) === "" && C.estNoteVocale({ vocal: true, mime: "audio/ogg" }) && !C.estNoteVocale({ vocal: true, mime: "audio/mp4" }));
+  const Y = await import(pathToFileURL(join(process.cwd(), "api/_ycloud.js")).href);
+  test("★★ le serveur : une note vocale .ogg porte `voice: true` (Meta), un son ordinaire non, jamais de phrase sur un son",
+    Y.corpsMedia("+1", "+2", { type: "audio", id: "x", vocal: true, legende: "a" }).audio.voice === true
+    && !("voice" in Y.corpsMedia("+1", "+2", { type: "audio", id: "x" }).audio) && !("caption" in Y.corpsMedia("+1", "+2", { type: "audio", id: "x", vocal: true, legende: "a" }).audio));
+  const W = sansComm(lire("api/whatsapp.js"));
+  test("★★ la marque vocale part du fichier REÇU (revérifiée par `estNoteVocale`), et si WhatsApp la refuse, le son repart UNE fois sans elle",
+    /vocal: !!fichier\.vocal/.test(W) && /vocal: estNoteVocale\(piece\)/.test(W) && /if \(!resultat\.ok && corps\?\.audio\?\.voice\)/.test(W)
+    && /resultat = await envoyerYCloud\(cle, \{ \.\.\.corps, audio: sansVoix \}\)/.test(W));
+  test("★ le navigateur transmet la marque, jamais le son brut ni sa durée au serveur", /\.\.\.\(fichier\.vocal \? \{ vocal: true \} : \{\}\)/.test(sansComm(lire("src/whatsapp.js"))));
+  // --- Le micro : un seul fichier y touche ---
+  const fichiersSrc = execSync("git ls-files -co --exclude-standard src", { encoding: "utf8" }).split("\n").filter((f) => /\.(js|jsx)$/.test(f));
+  const toucheMicro = fichiersSrc.filter((f) => /getUserMedia|new MediaRecorder|MediaRecorder\.isTypeSupported/.test(sansComm(readFileSync(f, "utf8"))));
+  test("★★ `getUserMedia` et `MediaRecorder` n'existent QUE dans src/enregistreurVocal.js", toucheMicro.join(",") === "src/enregistreurVocal.js", toucheMicro.join(","));
+  // --- L'écran ---
+  const WJ = sansComm(lire("src/screens/Whatsapp.jsx"));
+  test("★★ « a2 » : une note vocale (et un son) se charge TOUTE SEULE à l'ouverture du fil, comme une photo",
+    /const MEDIA_AUTO = \["image", "sticker", "audio", "voice"\]/.test(WJ) && /if \(estSon\(media\)\) return <LecteurVocal url=\{url\}/.test(WJ) && !/<audio src=\{url\} controls/.test(WJ));
+  test("★★ « B » : le micro remplace ➤ quand la case est vide, et la note part par LE MÊME `envoyer` (refus, verrou, ligne écrite après l'envoi)",
+    /texte\.trim\(\) \|\| fichier \|\| envoi \? \(/.test(WJ) && /<BoutonMicro desactive=\{prepare\} onEnvoyer=\{\(f\) => envoyer\(f\)\}/.test(WJ)
+    && /const piece = vocal \|\| fichier;/.test(WJ) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece/.test(WJ) && /wa_media: mediaEnvoye\(piece\)/.test(WJ));
+  test("★ une note envoyée se réécoute pendant la session ; après, sa ligne dit « 🎤 Message vocal · 0:07 — envoyé » (le son n'est pas rangé)",
+    /if \(vocal\?\.blob\) garderVocal\(m\.id, vocal\.blob\)/.test(WJ) && monte(V.htmlVocaleEnvoyee).includes("🎤 Message vocal · 0:07") && monte(V.htmlSonEnvoye).includes("🎵 note-vocale.m4a · 0:12"));
+  // --- Dans Chromium : un VRAI enregistrement, le remux, le lecteur, le micro ---
+  const css = existsSync("dist/assets") ? readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0] : null;
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-vocal-"));
+  const bundle = join(dossier, "vocal.js");
+  await build({ entryPoints: ["scripts/_navigateur-vocal.jsx"], bundle: true, format: "iife", platform: "browser", outfile: bundle, jsx: "automatic", loader: { ".js": "jsx" }, logLevel: "silent", define: { "process.env.NODE_ENV": '"production"' } });
+  const require = createRequire(import.meta.url);
+  const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+  const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required"] });
+  try {
+    const page = await nav.newPage({ viewport: { width: 1000, height: 700 } });
+    const f = join(dossier, "page.html");
+    writeFileSync(f, `<!doctype html><html><head><meta charset="utf-8">${css ? `<link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}">` : ""}</head><body><script src="${bundle}"></script></body></html>`);
+    await page.goto(`file://${f}`);
+    // Un son de 1,5 s enregistré par le VRAI MediaRecorder de Chromium (WebM / Opus), puis remis en Ogg.
+    const r = await page.evaluate(async () => {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator(); osc.frequency.value = 440;
+      // Un son qui MONTE (silence → fort) : la forme dessinée doit le montrer.
+      const gain = ctx.createGain(); gain.gain.setValueAtTime(0.02, ctx.currentTime); gain.gain.linearRampToValueAtTime(1, ctx.currentTime + 1.5);
+      const dest = ctx.createMediaStreamDestination(); osc.connect(gain); gain.connect(dest); osc.start();
+      const rec = new MediaRecorder(dest.stream, { mimeType: "audio/webm;codecs=opus" });
+      const morceaux = []; rec.ondataavailable = (e) => morceaux.push(e.data);
+      const fini = new Promise((ok) => { rec.onstop = ok; });
+      rec.start(250); await new Promise((ok) => setTimeout(ok, 1500)); rec.stop(); await fini; osc.stop();
+      const webm = new Uint8Array(await new Blob(morceaux).arrayBuffer());
+      const lu = window.Vocal.lireWebmOpus(webm);
+      const ogg = window.Vocal.webmVersOgg(webm);
+      const debut = ogg ? String.fromCharCode(...ogg.octets.slice(0, 4)) : "";
+      let decode = -1;
+      try { decode = (await ctx.decodeAudioData(ogg.octets.slice().buffer)).duration; } catch (e) { decode = -2; }
+      const blob = new Blob([ogg.octets], { type: "audio/ogg" });
+      window.urlOgg = URL.createObjectURL(blob);
+      return { webm: webm.length, paquets: lu ? lu.paquets.length : 0, tete: lu ? String.fromCharCode(...lu.tete.slice(0, 8)) : "", debut, duree: ogg ? ogg.duree : -1, decode, oggTaille: ogg ? ogg.octets.length : 0 };
+    });
+    test("★★★ un VRAI enregistrement de Chromium (WebM / Opus) se lit : l'en-tête OpusHead et ses paquets sont retrouvés (Chrome : trames de 60 ms, 25 en 1,5 s)", r.paquets >= 20 && r.tete === "OpusHead", JSON.stringify(r));
+    test("★★★ remis en Ogg, le son se DÉCODE dans le navigateur avec la même durée (≈ 1,5 s), sans être recodé (taille voisine du WebM)",
+      r.debut === "OggS" && r.decode > 1.2 && r.decode < 1.9 && Math.abs(r.decode - r.duree) < 0.1 && r.oggTaille < r.webm * 1.3, JSON.stringify(r));
+    // Le lecteur.
+    await page.evaluate(() => window.Vocal.monterLecteur(window.urlOgg, 0));
+    // On attend la FIN du décodage (les barres prennent la forme du son), pas seulement la durée.
+    await page.waitForFunction(() => new Set([...document.querySelectorAll("[data-vocal-barre]")].map((b) => b.style.height)).size >= 2, null, { timeout: 15000 }).catch(() => {});
+    const avant = await page.evaluate(() => ({ temps: document.querySelector("[data-vocal-temps]")?.textContent, barres: document.querySelectorAll("[data-vocal-barre]").length, hauteurs: new Set([...document.querySelectorAll("[data-vocal-barre]")].map((b) => b.style.height)).size, vitesse: document.querySelector("[data-vocal-vitesse]")?.textContent }));
+    test("★★ « A » : avant d'écouter, le lecteur dit la durée (lue dans le son décodé), 36 barres qui ont la FORME du son, la vitesse 1×",
+      (avant.temps === "0:01" || avant.temps === "0:02") && avant.barres === 36 && avant.hauteurs >= 2 && avant.vitesse === "1×", JSON.stringify(avant));
+    await page.click("[data-vocal-vitesse]");
+    const v15 = await page.evaluate(() => ({ t: document.querySelector("[data-vocal-vitesse]").textContent, r: document.querySelector("#lecteur audio").playbackRate }));
+    await page.click("[data-vocal-vitesse]");
+    const v2 = await page.evaluate(() => document.querySelector("#lecteur audio").playbackRate);
+    await page.click("[data-vocal-vitesse]");
+    const v1 = await page.evaluate(() => document.querySelector("#lecteur audio").playbackRate);
+    test("★★ la vitesse tourne 1× → 1,5× → 2× → 1×, et le son suit vraiment (playbackRate)", v15.t === "1,5×" && v15.r === 1.5 && v2 === 2 && v1 === 1, JSON.stringify({ v15, v2, v1 }));
+    await page.click("[data-vocal-lire]");
+    await page.waitForTimeout(600);
+    const pendant = await page.evaluate(() => ({ etat: document.querySelector("[data-vocal-lire]").dataset.vocalLire, t: document.querySelector("#lecteur audio").currentTime, joues: document.querySelectorAll('[data-vocal-barre][data-joue="1"]').length }));
+    test("★★ ▶ lance la lecture : le bouton devient ⏸, le son avance et les barres jouées se colorent", pendant.etat === "pause" && pendant.t > 0.2 && pendant.joues > 0, JSON.stringify(pendant));
+    await page.click("[data-vocal-lire]");
+    const zone = await page.$("[data-vocal-barres]");
+    const bb = await zone.boundingBox();
+    await page.mouse.click(bb.x + bb.width * 0.75, bb.y + bb.height / 2);
+    const saut = await page.evaluate(() => ({ t: document.querySelector("#lecteur audio").currentTime, d: document.querySelector("#lecteur audio").duration, etat: document.querySelector("[data-vocal-lire]").dataset.vocalLire }));
+    test("★★ toucher les barres aux trois quarts y amène le son (et la pause reste une pause)", saut.etat === "lire" && Math.abs(saut.t / (Number.isFinite(saut.d) ? saut.d : 1.5) - 0.75) < 0.08, JSON.stringify(saut));
+    // Le micro : le faux micro de Chromium (un bip).
+    await page.evaluate(() => window.Vocal.monterMicro());
+    const micro = await page.$("[data-micro]");
+    const mb = await micro.boundingBox();
+    const cx = mb.x + mb.width / 2, cy = mb.y + mb.height / 2;
+    await page.mouse.move(cx, cy); await page.mouse.down();
+    await page.waitForSelector("[data-enregistrement-vocal]", { timeout: 4000 }).catch(() => {});
+    await page.waitForTimeout(1600);
+    const enCours = await page.evaluate(() => ({ bande: !!document.querySelector("[data-enregistrement-vocal]"), chrono: document.querySelector("[data-vocal-chrono]")?.textContent, etat: document.querySelector("[data-micro]")?.dataset.micro }));
+    await page.mouse.up();
+    await page.waitForFunction(() => window.envoye, null, { timeout: 6000 }).catch(() => {});
+    const parti = await page.evaluate(async () => {
+      const f = window.envoye; if (!f) return null;
+      const octets = Uint8Array.from(atob(f.donnees), (c) => c.charCodeAt(0));
+      const debut = String.fromCharCode(...octets.slice(0, 4)), longueur = octets.length;
+      let d = -1; try { d = (await new AudioContext().decodeAudioData(octets.buffer)).duration; } catch { d = -2; }
+      return { nom: f.nom, mime: f.mime, vocal: f.vocal, taille: f.taille, egal: longueur === f.taille, debut, decode: d, duree: f.duree, bande: !!document.querySelector("[data-enregistrement-vocal]") };
+    });
+    test("★★ « B » : garder le micro appuyé ENREGISTRE — la bande rouge couvre la case, le chrono tourne", enCours.bande && /^0:0[1-2]$/.test(enCours.chrono || "") && enCours.etat === "enregistre", JSON.stringify(enCours));
+    test("★★★ relâcher ENVOIE une vraie note vocale .ogg (Opus) qui se décode, ≈ la durée tenue, et la bande disparaît",
+      !!parti && parti.mime === "audio/ogg" && parti.vocal === true && /\.ogg$/.test(parti.nom) && parti.egal && parti.debut === "OggS" && parti.decode > 1 && parti.decode < 3 && !parti.bande, JSON.stringify(parti));
+    // Un simple toucher : l'explication, rien ne part.
+    await page.evaluate(() => { window.envoye = null; window.refus = []; });
+    await page.mouse.move(cx, cy); await page.mouse.down(); await page.waitForTimeout(250); await page.mouse.up();
+    await page.waitForTimeout(800);
+    const toucher = await page.evaluate(() => ({ envoye: !!window.envoye, refus: window.refus.join(" | ") }));
+    test("★★ un simple toucher n'envoie RIEN et explique « gardez le micro appuyé… »", !toucher.envoye && /Gardez le micro appuyé/.test(toucher.refus), JSON.stringify(toucher));
+    // Glisser vers la gauche : annulé.
+    await page.evaluate(() => { window.envoye = null; window.refus = []; });
+    await page.mouse.move(cx, cy); await page.mouse.down();
+    await page.waitForSelector("[data-enregistrement-vocal]", { timeout: 4000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    await page.mouse.move(cx - 100, cy, { steps: 5 });
+    const glisse = await page.evaluate(() => document.querySelector("[data-enregistrement-vocal]")?.textContent || "");
+    await page.mouse.up();
+    await page.waitForTimeout(1200);
+    const annule = await page.evaluate(() => ({ envoye: !!window.envoye, bande: !!document.querySelector("[data-enregistrement-vocal]") }));
+    test("★★ glisser vers la gauche ANNULE : « Relâchez pour annuler », rien ne part", /Relâchez pour annuler/.test(glisse) && !annule.envoye && !annule.bande, JSON.stringify({ glisse, annule }));
+  } finally {
+    await nav.close();
+    rmSync(dossier, { recursive: true, force: true });
+  }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
