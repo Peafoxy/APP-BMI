@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2730 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2731 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-ecran-loyer     # 32  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
-npm run verifier-ecran-solaire   # 15  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail)
+npm run verifier-ecran-solaire   # 17  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
@@ -679,6 +679,17 @@ lit mal est pire qu'un banc absent).
   RÉ-ENREGISTRÉ pendant le défaut a perdu ces lignes pour de bon. Rien à
   coller. Banc Chromium `verifier-ecran-solaire` (+5), éprouvé (deux tombent).
   Aucun chapitre à corriger.
+- **0️⃣ UN APPAREIL À 0 RESTE À 0** (capture Timo, 20/10/2026, le même
+  brouillon de YOMEDA : « Climatiseur 1.5 CV » et « Congélateur coffre » à 0,
+  repris à 1 ; réparé sans attendre, dit à Timo). `a.qte || 1` changeait le
+  NOMBRE 0 rangé sur le devis en 1 — à la reprise (Solaire.jsx ×2) et sur le
+  PDF (« Vos appareils », puissance totale). Règle **`qteAppareil`**
+  (lib/solaire.js) : case vide = 1, un 0 reste 0 ; `consommationJour` et
+  `puissanceSimultanee` la lisent aussi ; la case Quantité accepte 0 (`min="0"`).
+  ⚠ Un devis ENVOYÉ avec un 0 avant le correctif a un PDF qui écrivait 1 (ses
+  totaux, eux, étaient justes : calculés à l'écran). Rien à coller. Bancs :
+  Chromium `verifier-ecran-solaire` (+2), `verifier-cloisonnement` (+1),
+  éprouvés. Aucun chapitre à corriger.
 - **🆕 Nouveau devis** (solaire, 09/09/2026) : à côté de « Ajouter un
   appareil », **seulement au-delà de 5 appareils** (en dessous on retire à
   la main) ; confirmation avant d'effacer, qui rappelle « Enregistrer un

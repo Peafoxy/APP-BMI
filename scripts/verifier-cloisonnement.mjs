@@ -4666,6 +4666,14 @@ titre("Solaire : les supports de rail et les étriers suivent les rails (règles
     && Sol.supportsPourRails(7) === 7 && Sol.supportsPourRails(7) !== 14);
   test("★ la règle « pair suivant » n'existe plus (une règle qui ne commande plus rien ne reste pas)",
     typeof Sol.pairSuivant === "undefined" && !/pairSuivant/.test(readFileSync("src/lib/solaire.js", "utf8")));
+  // 20/10/2026 : 0 climatiseur dans le brouillon de DJEDJE, repris = 1.
+  test("★ quantité d'un appareil : un 0 (nombre ou texte) reste 0, une case vide vaut 1 ; le calcul et le PDF lisent la même règle",
+    Sol.qteAppareil({ qte: 0 }) === 0 && Sol.qteAppareil({ qte: "0" }) === 0 && Sol.qteAppareil({}) === 1 && Sol.qteAppareil({ qte: "" }) === 1
+    && Sol.qteAppareil({ qte: 3 }) === 3
+    && Sol.consommationJour([{ puissance: 1100, heures: 8, qte: 0 }, { puissance: 100, heures: 5 }]) === 500
+    && Sol.puissanceSimultanee([{ puissance: 1100, qte: 0 }, { puissance: 100, qte: 2 }]) === 200
+    && !/a\.qte \|\| 1/.test(readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8"))
+    && (readFileSync("src/pdf.js", "utf8").match(/qteAppareil\(a\)/g) || []).length === 2);
   test("★ étriers : 4 panneaux → 16 ; 10 → 28 ; 0 → 8", Sol.etriersPourPanneaux(4) === 16 && Sol.etriersPourPanneaux(10) === 28 && Sol.etriersPourPanneaux(0) === 8);
   const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
   test("★ les deux lignes n'existent qu'avec des rails ET l'article en stock, liées à lui (produit_id) pour la sortie de stock",

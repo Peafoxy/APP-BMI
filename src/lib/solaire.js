@@ -51,11 +51,22 @@ export const tensionDeCalcul = (typeBatterie, tension) => (typeBatterie === "lif
   ? (TENSION_REELLE_LIFEPO4[Number(tension)] || Number(tension))
   : Number(tension));
 
+// La QUANTITÉ d'un appareil (20/10/2026, capture Timo : le brouillon de
+// DJEDJE portait 0 climatiseur, repris il en montrait 1). Une case VIDE vaut
+// 1 (comme avant) ; un 0 TAPÉ reste 0 — l'appareil est gardé dans la liste
+// sans compter. `a.qte || 1` changeait le nombre 0 en 1 : ne plus l'écrire.
+export const qteAppareil = (a) => {
+  const v = a?.qte;
+  if (v === undefined || v === null || String(v).trim() === "") return 1;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : 1;
+};
+
 // Ce que consomme le client en une journée, et ce qu'il peut tirer d'un coup.
 export const consommationJour = (appareils) => (appareils || [])
-  .reduce((s, a) => s + Number(a.puissance || 0) * Number(a.heures || 0) * Number(a.qte || 1), 0);
+  .reduce((s, a) => s + Number(a.puissance || 0) * Number(a.heures || 0) * qteAppareil(a), 0);
 export const puissanceSimultanee = (appareils) => (appareils || [])
-  .reduce((s, a) => s + Number(a.puissance || 0) * Number(a.qte || 1), 0);
+  .reduce((s, a) => s + Number(a.puissance || 0) * qteAppareil(a), 0);
 
 // Puissance crête à installer : la consommation journalière, divisée par le
 // nombre d'heures de soleil utiles, puis majorée des pertes du système.

@@ -7,7 +7,7 @@ import { uid, fmt, today } from "../../lib/core";
 import { Field, inputCls, Badge, Panel, uAlert, uConfirm, AucuneBoutique, Stat } from "../../components/ui";
 import { ENTREPRISE_VIDE } from "../../lib/clientEntreprise";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, longueurRailBarre, domainesDefinis, memoriserBoutique, estAdminPrincipal } from "../../lib/calculs";
-import { besoinsSolaires, supportsPourRails, etriersPourPanneaux, barresDeRail } from "../../lib/solaire";
+import { besoinsSolaires, supportsPourRails, etriersPourPanneaux, barresDeRail, qteAppareil } from "../../lib/solaire";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
@@ -116,7 +116,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const brouillon = lireBrouillonVolet("solaire", profile, !!besoinsRepris);
   const [appareils, setAppareils] = useState(() =>
     besoinsRepris?.appareils?.length
-      ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(a.qte || 1) }))
+      ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(qteAppareil(a)) }))
       : brouillon?.appareils?.length
         ? brouillon.appareils
         : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
@@ -393,7 +393,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   useEffect(() => {
     if (!devisAReprendre) return;
     if (besoinsRepris?.appareils?.length) {
-      setAppareils(besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(a.qte || 1) })));
+      setAppareils(besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(qteAppareil(a)) })));
     }
     if (besoinsRepris?.autonomie) setAutonomie(String(besoinsRepris.autonomie));
     if (besoinsRepris?.tension) setTension(String(besoinsRepris.tension));
@@ -682,7 +682,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         tension: Number(tension),
         type_batterie: typeBatterie,
         appareils: appareils.filter((a) => a.nom && a.puissance).map((a) => ({
-          nom: a.nom, puissance: Number(a.puissance), heures: Number(a.heures || 0), qte: Number(a.qte || 1),
+          nom: a.nom, puissance: Number(a.puissance), heures: Number(a.heures || 0), qte: qteAppareil(a),
         })),
       },
       panierMetier: panierMetier(), lignesMetier: lignesMetier(), autres, reglages: r,
@@ -736,7 +736,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               <Field label="Appareil"><ChampSuggestions placeholder="Ex : tv, frigo, clim…" valeur={a.nom} suggestions={propositionsAppareils} onChange={(v) => majAppareil(a.id, "nom", v)} onChoisir={(s) => choisirAppareil(a.id, s)} /></Field>
               <Field label="Puissance (W)"><input type="number" className={inputCls} value={a.puissance} onChange={(e) => majAppareil(a.id, "puissance", e.target.value)} /></Field>
               <Field label="Heures/jour"><input type="number" className={inputCls} value={a.heures} onChange={(e) => majAppareil(a.id, "heures", e.target.value)} /></Field>
-              <Field label="Quantité"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => majAppareil(a.id, "qte", e.target.value)} /></Field>
+              <Field label="Quantité"><input type="number" min="0" className={inputCls} value={a.qte} onChange={(e) => majAppareil(a.id, "qte", e.target.value)} /></Field>
               <button onClick={() => retirerAppareil(a.id)} className="text-xs text-red-600 underline pb-2">Retirer</button>
             </div>
           ))}

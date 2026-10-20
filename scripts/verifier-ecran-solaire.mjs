@@ -88,7 +88,14 @@ function EssaiReprise({ Volet, nom }) {
   const save = (next) => { setDb(typeof next === "function" ? next(db) : next); };
   return <Volet db={db} profile={admin} save={save} bq={bq} setBq={setBq} devisAReprendre={reprise} onDevisRepriseConsomme={() => setReprise(null)} />;
 }
-window.avecAutres = avecAutres; window.sansAutres = sansAutres;
+// 0 climatiseur dans le brouillon de DJEDJE (YOMEDA, 20/10/2026) : repris, il
+// montrait 1. Un 0 tapé reste 0 ; une quantité absente vaut 1.
+const avecZero = (id) => ({ brouillon_id: id, devis: { id, type_devis: "solaire", besoins: { appareils: [
+  { nom: "Climatiseur 1.5 CV", puissance: 1100, heures: 8, qte: 0 },
+  { nom: "Congélateur coffre", puissance: 200, heures: 24, qte: 0 },
+  { nom: "Télévision", puissance: 100, heures: 5 },
+] }, lignes: [] } });
+window.avecAutres = avecAutres; window.sansAutres = sansAutres; window.avecZero = avecZero;
 createRoot(document.getElementById("r3")).render(<EssaiReprise Volet={DimensionnementSolaire} nom="Solaire" />);
 createRoot(document.getElementById("r4")).render(<EssaiReprise Volet={DimensionnementGarage} nom="Garage" />);
 `);
@@ -185,6 +192,16 @@ for (const nom of ["Solaire", "Garage"]) {
   const v2 = await valeurs();
   test(`★ ${nom} : un AUTRE devis repris ensuite ne garde pas les lignes du précédent`,
     !v2.includes("LOT DE CABLE") && !v2.includes("SYSTEME DE PROTECTION"), JSON.stringify(v2.filter(Boolean)));
+}
+console.log("\nUn appareil à 0 dans un brouillon repris reste à 0 (le brouillon de DJEDJE)");
+{
+  const zone = page.locator("#r3");
+  await page.evaluate(() => window.reprendreSolaire(window.avecZero("b3")));
+  await attendre(400);
+  const nombres = await zone.locator("input[type=number]").evaluateAll((els) => els.map((e) => e.value));
+  test("★ repris, « Climatiseur 1.5 CV » et « Congélateur coffre » gardent leur quantité 0 (jamais 1)",
+    nombres[2] === "0" && nombres[5] === "0", JSON.stringify(nombres.slice(0, 9)));
+  test("une quantité ABSENTE vaut toujours 1 (la Télévision)", nombres[8] === "1", JSON.stringify(nombres.slice(0, 9)));
 }
 test("aucune erreur pendant les reprises", erreurs.length === 0, erreurs.join(" | "));
 

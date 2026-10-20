@@ -6,6 +6,7 @@ import { identiteClient } from "./lib/clientEntreprise";
 import { groupesEquipement } from "./lib/lignesDevis";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
 import { nomSurDocument } from "./lib/nomSurDocument";
+import { qteAppareil } from "./lib/solaire";
 // La phrase d'un devis à compléter tient sur UNE ligne sous le bandeau (toute
 // la largeur : rien d'autre n'est écrit là). Le banc mesure qu'elle y tient.
 const LARGEUR_PHRASE_CF = 176;
@@ -353,7 +354,7 @@ function besoinSolaire(doc, d, largeur, hauteur, y) {
   ]);
   y = placePour(doc, y, hauteur, 30);
   y = titreBloc(doc, y, "Vos appareils");
-  const totalW = b.appareils.reduce((s, a) => s + Number(a.puissance || 0) * Number(a.qte || 1), 0);
+  const totalW = b.appareils.reduce((s, a) => s + Number(a.puissance || 0) * qteAppareil(a), 0);
   autoTable(doc, {
     // ⚠ Capture Timo (11/09/2026) : « la puissance (W) n'est pas centrée sous
     // la ligne… même souci dans équipement proposé ». Les VALEURS étaient bien
@@ -361,7 +362,7 @@ function besoinSolaire(doc, d, largeur, hauteur, y) {
     // colonne ne transmet pas son alignement à son titre. On le dit donc sur
     // chaque cellule de titre — et sur le pied, qui l'ignorait aussi.
     head: [[enTete("Appareil à alimenter"), enTete("Puissance (W)", "right"), enTete("Qté", "center"), enTete("Heures / jour", "center")]],
-    body: b.appareils.map((a) => [String(a.nom), fmtMontant(a.puissance), String(a.qte || 1), String(a.heures || 0)]),
+    body: b.appareils.map((a) => [String(a.nom), fmtMontant(a.puissance), String(qteAppareil(a)), String(a.heures || 0)]),
     foot: [["Puissance totale installée", { content: `${fmtMontant(totalW)} W`, styles: { halign: "right" } }, "", ""]],
     startY: y,
     styles: { fontSize: 7.5, cellPadding: 1, textColor: GRIS_TEXTE },
