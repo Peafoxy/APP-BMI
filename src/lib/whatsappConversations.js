@@ -71,6 +71,20 @@ export const estALaCorbeille = (m) => !!(m && m.supprime_le);
 export const estEnteteWa = (m) => !!m && m.canal === CANAL_WA_ENTETE && !estALaCorbeille(m);
 export const idEntete = (cle) => `waent_${cle}`;
 
+// ✏️ UN DEVIS CORRIGÉ ET RENVOYÉ (20/10/2026, capture Timo, compte d'un
+// gérant : « 4 opération(s) n'arrivent pas… Effacer une conversation
+// WhatsApp : réservé à l'administrateur principal ») : « Modifier et
+// renvoyer » retirait TOUS les messages qui citent le devis — la demande de
+// modification interne, mais aussi, depuis le 23/09, la ligne « 📲 Envoyé du
+// numéro BMI — Devis… » de 📲 WhatsApp (elle porte `devis_id`). La base
+// refuse cet effacement à tout autre que le principal (securite-36) : tout le
+// lot restait coincé. Chez le principal, il passait — et la trace de ce qui
+// était parti chez le client disparaissait en silence. Seuls les messages
+// INTERNES partent ; une ligne WhatsApp (message ou fiche légère) reste.
+export const estLigneWhatsApp = (m) => !!m && (m.canal === CANAL_WA || m.canal === CANAL_WA_ENTETE);
+export const messagesApresCorrectionDevis = (messages, idDevis) =>
+  (Array.isArray(messages) ? messages : []).filter((m) => !m || m.devis_id !== idDevis || estLigneWhatsApp(m));
+
 // ⚠ AUCUN `texte`, aucun `de_id`, aucun `lu_par` : ce qui n'est pas là ne
 // peut pas fuir. Le banc le MESURE, il ne le présume pas.
 // ⚠ `entete` = la fiche d'AVANT, quand on la connaît : le nom donné par

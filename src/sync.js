@@ -1,5 +1,5 @@
 import { idb, TABLES, compterEnAttente } from "./db";
-import { planAbandon, suppressionsParasitesDePrime, chantiersARedresserDePrime } from "./lib/abandonLot";
+import { planAbandon, suppressionsParasitesDePrime, suppressionsParasitesDeCorrection, chantiersARedresserDePrime } from "./lib/abandonLot";
 import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
@@ -270,12 +270,14 @@ export async function synchroniser(options = {}) {
       // de part d'installation (défaut réparé dans construirePaiementPrime)
       // sont retirés de la file AVANT tout envoi ; les messages sont relus en
       // entier pour revenir sur l'appareil. Le paiement, lui, part.
-      const parasites = new Set(suppressionsParasitesDePrime(ops));
+      // …de même pour un devis corrigé et renvoyé (20/10/2026) : les lignes
+      // de 📲 WhatsApp qu'il effaçait reviennent par la relecture.
+      const parasites = new Set([...suppressionsParasitesDePrime(ops), ...suppressionsParasitesDeCorrection(ops)]);
       if (parasites.size) {
         for (const seq of parasites) await idb.outbox.delete(seq);
         ops = ops.filter((op) => !parasites.has(op.seq));
         await idb.meta.delete("derniere_sync:messages");
-        console.warn(`${parasites.size} effacement(s) de messages retiré(s) de la file (paiement de part d'installation) : les messages sont relus.`);
+        console.warn(`${parasites.size} effacement(s) de messages retiré(s) de la file (paiement de part d'installation, devis corrigé) : les messages sont relus.`);
       }
       // …et les deux champs refusés au vendeur et au gérant sont retirés des
       // chantiers en attente (et de la copie locale, sinon le prochain geste

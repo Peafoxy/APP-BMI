@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2731 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2734 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -9132,6 +9132,23 @@ lit mal est pire qu'un banc absent).
   (aucun `active:scale-*` écrit) ; `:focus-visible { outline }` (les trois
   `outline-none` sont sur des `<input>`). Et **aucune** classe écrite dans le
   code ne manque du CSS construit (597 jetons vérifiés un par un).
+- ⚠⚠ **UN DEVIS CORRIGÉ ET RENVOYÉ EFFAÇAIT LA LIGNE DE 📲 WHATSAPP**
+  (capture Timo, 20/10/2026, compte d'un gérant : « 4 opération(s) n'arrivent
+  pas… Effacer une conversation WhatsApp : réservé à l'administrateur
+  principal » ; réparé sans attendre, dit à Timo). « ✏️ Modifier et
+  renvoyer » retirait TOUS les messages portant `devis_id` — depuis le 23/09,
+  la ligne « 📲 Envoyé du numéro BMI — Devis… » en porte un. La base
+  (securite-36) refuse cet effacement hors du principal : tout le lot restait
+  coincé ; chez le principal, la trace disparaissait en silence.
+  `messagesApresCorrectionDevis` (lib/whatsappConversations.js) ne retire que
+  les messages INTERNES ; la file d'un appareil déjà coincé est nettoyée par
+  `suppressionsParasitesDeCorrection` (lib/abandonLot.js : un lot où un devis
+  voit `nb_modifications` monter perd ses effacements de messages), appelée par
+  sync.js avant l'envoi, qui relit ensuite les messages. **Ne pas « 🗑
+  Abandonner » un tel lot** : la correction du devis serait défaite. Rien à
+  coller. Banc (+3), éprouvé. **Leçon : un champ ajouté à une ligne WhatsApp
+  (`devis_id`) la fait entrer dans tout filtre qui retire « les messages de ce
+  devis ».**
 - **Un cadre confié à une bibliothèque extérieure (Leaflet) n'a JAMAIS
   d'enfant React** : div auto-fermé, textes dans un frère (carte blanche
   du 02/09, trouvée par mesure après trois correctifs à côté).

@@ -88,6 +88,28 @@ export function suppressionsParasitesDePrime(ops) {
   return (ops || []).filter((op) => op?.op === "delete" && op.table === "messages" && lots.has(op.lot)).map((op) => op.seq);
 }
 
+// ⚠⚠ LES EFFACEMENTS D'UN DEVIS CORRIGÉ ET RENVOYÉ (20/10/2026, capture Timo,
+// compte d'un gérant : « Effacer une conversation WhatsApp : réservé à
+// l'administrateur principal »). « Modifier et renvoyer » effaçait les
+// messages qui citent le devis, y compris la ligne « 📲 Envoyé du numéro
+// BMI » de 📲 WhatsApp : la base refuse, tout le lot reste coincé (défaut
+// réparé : messagesApresCorrectionDevis, lib/whatsappConversations.js).
+// Un effacement en file ne garde pas la ligne effacée : on ne sait plus si
+// c'était une ligne WhatsApp. On reconnaît donc le LOT : il porte un compte
+// dont un devis voit son nombre de corrections MONTER (marquerModification).
+// Les effacements de messages de ce lot sont retirés de la file — la
+// correction du devis, le journal et les nouvelles lignes partent ; au pire,
+// une demande de modification interne déjà traitée reste dans le fil.
+export function suppressionsParasitesDeCorrection(ops) {
+  const lots = new Set();
+  for (const op of ops || []) {
+    if (op?.op !== "upsert" || op.table !== "users" || !op.lot || !Array.isArray(op.data?.devis)) continue;
+    const avant = new Map((op.base?.devis || []).filter(Boolean).map((d) => [d.id, Number(d.nb_modifications || 0)]));
+    if (op.data.devis.some((d) => d && avant.has(d.id) && Number(d.nb_modifications || 0) > avant.get(d.id))) lots.add(op.lot);
+  }
+  return (ops || []).filter((op) => op?.op === "delete" && op.table === "messages" && lots.has(op.lot)).map((op) => op.seq);
+}
+
 // …et le CHANTIER de ce lot portait `retenue_outil` / `montant_verse` sur la
 // ligne du technicien : le serveur les refuse au vendeur et au gérant (« réservé
 // à l'administrateur »). On les retire de la ligne en attente — le paiement

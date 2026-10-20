@@ -15691,6 +15691,42 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
     && sy.indexOf("chantiersARedresserDePrime(ops)") > -1 && sy.indexOf("chantiersARedresserDePrime(ops)") < sy.indexOf('supabase.rpc("appliquer_lot"'));
 }
 
+// ⚠⚠ UN DEVIS CORRIGÉ ET RENVOYÉ EFFAÇAIT LA LIGNE DE 📲 WHATSAPP (20/10/2026,
+// capture Timo, compte d'un gérant : « Effacer une conversation WhatsApp :
+// réservé à l'administrateur principal ») — tout le lot restait coincé.
+{
+  titre("✏️ Un devis corrigé et renvoyé n'efface jamais une ligne de 📲 WhatsApp (20/10/2026)");
+  const WC = await import(pathToFileURL("src/lib/whatsappConversations.js").href + "?correction");
+  const msgs = [
+    { id: "int", canal: "client", devis_id: "D1", texte: "Demande de modification" },
+    { id: "wa", canal: "whatsapp", wa_tel: "90112233", devis_id: "D1", texte: "📲 Envoyé du numéro BMI — Devis" },
+    { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: "90112233", devis_id: "D1" },
+    { id: "autre", canal: "client", devis_id: "D2" },
+  ];
+  const reste = WC.messagesApresCorrectionDevis(msgs, "D1").map((m) => m.id);
+  test("★★ la règle : la demande interne qui cite le devis part ; la ligne WhatsApp et la fiche légère RESTENT ; un autre devis n'est pas touché",
+    JSON.stringify(reste) === JSON.stringify(["wa", "waent_90112233", "autre"]));
+  const pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  test("★ « Modifier et renvoyer » passe par cette règle — plus aucun filtre « devis_id !== » sur les messages",
+    /messages: idAReprendre \? messagesApresCorrectionDevis\(dbApres\.messages, idAReprendre\)/.test(pa)
+    && !/messages \|\| \[\]\)\.filter\(\(m\) => m\.devis_id !==/.test(pa));
+  const AL = await import(pathToFileURL("src/lib/abandonLot.js").href + "?r3");
+  const fileC = [
+    { seq: 1, lot: "L", table: "users", op: "upsert", base: { id: "c", devis: [{ id: "D1", nb_modifications: 1 }] }, data: { id: "c", devis: [{ id: "D1", nb_modifications: 2 }] } },
+    { seq: 2, lot: "L", table: "audits", op: "upsert", data: { action: "Devis modifié" } },
+    { seq: 3, lot: "L", table: "messages", op: "delete", id: "wa" },
+    { seq: 4, lot: "L", table: "messages", op: "upsert", data: { id: "n" } },
+    { seq: 5, lot: "M", table: "users", op: "upsert", base: { id: "c2", devis: [{ id: "D2" }] }, data: { id: "c2", devis: [{ id: "D2", statut: "valide" }] } },
+    { seq: 6, lot: "M", table: "messages", op: "delete", id: "x" },
+    { seq: 7, lot: "N", table: "users", op: "upsert", base: { id: "c3", devis: [] }, data: { id: "c3", devis: [{ id: "D3", nb_modifications: 1 }] } },
+    { seq: 8, lot: "N", table: "messages", op: "delete", id: "y" },
+  ];
+  const syC = readFileSync("src/sync.js", "utf8");
+  test("★ la file d'un appareil coincé est nettoyée : seuls les effacements de messages d'un lot où un devis voit ses corrections MONTER sont retirés (pas un autre geste, pas un devis neuf) ; sync.js le fait avant l'envoi et relit les messages",
+    JSON.stringify(AL.suppressionsParasitesDeCorrection(fileC)) === "[3]"
+    && syC.indexOf("suppressionsParasitesDeCorrection(ops)") > -1 && syC.indexOf("suppressionsParasitesDeCorrection(ops)") < syC.indexOf('supabase.rpc("appliquer_lot"'));
+}
+
 // 📝 LA LIGNE « NB » D'UN DEVIS (Timo, 08/10/2026, « 1a, 2b, 3a, lance ») :
 // tapée à la main, 300 caractères au plus, gardée dans le devis (brouillon,
 // reprise), lue par le PDF et l'espace client.

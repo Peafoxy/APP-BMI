@@ -10,6 +10,7 @@ import { propositionsComptesDevis, libelleCompteDevis } from "../../lib/clientsC
 import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, LIBELLE_ROLE_EMPLOYE, estSansAcces, ouvrirAcces } from "../../lib/comptesClients";
 import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte, nouveauMessage } from "../../lib/core";
 import { envoyerModele, envoyerAccesSansRepli, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
+import { messagesApresCorrectionDevis } from "../../lib/whatsappConversations";
 import { envoiDevisDisponible, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye, MOTIF_PDF_MANQUANT } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { devisACompleter } from "../../lib/devisCfVisite";
@@ -1110,7 +1111,8 @@ export function rangerDevisChezLeClient({ dbApres, compte, devis, profile, idARe
           : [devisMarque, ...(u.devis || [])] }
       : u)),
     // Le message de demande de modification / rejet n'a plus lieu d'être : le vendeur vient d'y répondre.
-    messages: idAReprendre ? (dbApres.messages || []).filter((m) => m.devis_id !== idAReprendre) : dbApres.messages,
+    // ⚠ Jamais une ligne de 📲 WhatsApp (20/10/2026) : la base refuse de l'effacer.
+    messages: idAReprendre ? messagesApresCorrectionDevis(dbApres.messages, idAReprendre) : dbApres.messages,
   };
   return { dbFinal, devisMarque, auteurFinal, idDevis: idAReprendre || devisMarque.id };
 }
