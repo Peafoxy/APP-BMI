@@ -117,14 +117,17 @@ export function LecteurVocal({ url, duree: dureeConnue = 0, sortant = false }) {
   const joue = sortant ? "#00a884" : "#0b8f6f";
   const reste = sortant ? "#a7c9bc" : "#c3ccd0";
   return (
-    <div data-lecteur-vocal className="flex items-center gap-2 w-[260px] max-w-full py-1 select-none">
+    // ⚠ La flèche ▶ est alignée sur la LIGNE DES BARRES, pas sur tout le bloc
+    // (capture Timo, 20/10/2026 : centrée sur barres + temps, elle tombait
+    // plus bas que le son). Même hauteur que les barres (h-7), en haut.
+    <div data-lecteur-vocal className="flex items-start gap-2 w-[260px] max-w-full py-1 select-none">
       <audio ref={audio} src={url} preload="metadata"
         onLoadedMetadata={(e) => { const d = e.currentTarget.duration; if (!duree && d > 0 && Number.isFinite(d)) setDuree(d); }}
         onEnded={() => { setLecture(false); setPosition(0); if (audio.current) audio.current.currentTime = 0; }}
         onPause={() => setLecture(false)} />
       <button type="button" onClick={basculer} data-vocal-lire={lecture ? "pause" : "lire"}
         aria-label={lecture ? "Mettre en pause" : "Écouter"} title={lecture ? "Pause" : "Écouter"}
-        className="w-9 h-9 shrink-0 flex items-center justify-center text-[#54656f]">
+        className="w-9 h-7 shrink-0 flex items-center justify-center text-[#54656f]">
         {lecture
           ? <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1" /><rect x="14" y="4.5" width="4" height="15" rx="1" /></svg>
           : <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M8 5.2v13.6a.8.8 0 0 0 1.22.68l10.4-6.8a.8.8 0 0 0 0-1.36L9.22 4.52A.8.8 0 0 0 8 5.2z" /></svg>}
@@ -145,7 +148,7 @@ export function LecteurVocal({ url, duree: dureeConnue = 0, sortant = false }) {
             title="Vitesse de lecture" className="px-1.5 rounded-full bg-black/10 font-bold text-[10px] text-slate-700">{libelleVitesse(VITESSES[vitesse])}</button>
         </div>
       </div>
-      <span className="w-9 h-9 shrink-0 rounded-full bg-[#dfe5e7] flex items-center justify-center text-[#54656f]" aria-hidden>
+      <span className="w-9 h-9 shrink-0 self-center rounded-full bg-[#dfe5e7] flex items-center justify-center text-[#54656f]" aria-hidden>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z" /></svg>
       </span>
     </div>

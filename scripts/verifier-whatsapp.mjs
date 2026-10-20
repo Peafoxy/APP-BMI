@@ -5937,6 +5937,13 @@ titre("67 📎 LE REÇU ET LA PROFORMA REPARTENT EN TEXTE QUAND META REJETTE LE 
     const avant = await page.evaluate(() => ({ temps: document.querySelector("[data-vocal-temps]")?.textContent, barres: document.querySelectorAll("[data-vocal-barre]").length, hauteurs: new Set([...document.querySelectorAll("[data-vocal-barre]")].map((b) => b.style.height)).size, vitesse: document.querySelector("[data-vocal-vitesse]")?.textContent }));
     test("★★ « A » : avant d'écouter, le lecteur dit la durée (lue dans le son décodé), 36 barres qui ont la FORME du son, la vitesse 1×",
       (avant.temps === "0:01" || avant.temps === "0:02") && avant.barres === 36 && avant.hauteurs >= 2 && avant.vitesse === "1×", JSON.stringify(avant));
+    // La flèche ▶ alignée sur la ligne des barres (capture Timo, 20/10/2026).
+    const alignement = await page.evaluate(() => {
+      const c = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+      return { fleche: Math.round(c(document.querySelector("[data-vocal-lire]"))), barres: Math.round(c(document.querySelector("[data-vocal-barres]"))) };
+    });
+    test("★★ la flèche ▶ est au niveau des barres du son (milieux à 2 px près), pas centrée sur tout le bloc",
+      Math.abs(alignement.fleche - alignement.barres) <= 2, JSON.stringify(alignement));
     await page.click("[data-vocal-vitesse]");
     const v15 = await page.evaluate(() => ({ t: document.querySelector("[data-vocal-vitesse]").textContent, r: document.querySelector("#lecteur audio").playbackRate }));
     await page.click("[data-vocal-vitesse]");
