@@ -120,6 +120,49 @@ verdict "le visiteur ne voit toujours aucune ligne de la table des articles" "$(
 verdict "stock_calcule garde son type de réponse (integer)" \
   "$($P -c "select pg_get_function_result('public.stock_calcule(text)'::regprocedure)")" "integer"
 
+# ============================================================
+# Script 2 — le stock suit LA règle de l'application (20/10/2026)
+# ============================================================
+echo "▸ Script 2 : la règle de l'application"
+$P >/dev/null <<'SQL'
+-- un article vendu pour un chantier (« Avec installation ») : la ligne de vente
+-- ne sort pas le stock, l'achat pour le chantier le sort (ajustement -2)
+insert into produits values ('onduleur', '{"nom":"Onduleur 5 kW","boutique":"BMI DEMAKPOE","prix_vente":"650000","initial":"4"}');
+insert into ventes values ('v4', '{"articles":[{"produit_id":"onduleur","qte":2,"au_chantier":true}]}');
+insert into ajustements values ('a2', '{"produit_id":"onduleur","qte":-2,"type":"sortie_chantier"}');
+-- une vente ancienne, sans liste d'articles : son article unique compte
+insert into produits values ('regulateur', '{"nom":"Régulateur 60A","boutique":"BMI DEMAKPOE","prix_vente":"45000","initial":"5"}');
+insert into ventes values ('v5', '{"produit_id":"regulateur","qte":3,"articles":[]}');
+-- une ligne explicitement non sortie (false) se compte
+insert into ventes values ('v6', '{"articles":[{"produit_id":"panneau","qte":1,"deja_sorti":false}]}');
+SQL
+R=0; $P -c "$(cat supabase/site-catalogue-2-regle-application.sql)" >/dev/null 2>&1 || R=1
+verdict "le script 2 passe en un seul envoi, comme l'éditeur" "$R" "0"
+VERIF=$($P -c "$(cat supabase/site-catalogue-2-regle-application.sql)" 2>/dev/null | tail -1)
+verdict "relancé sans danger, sa vérification répond true | true" "$VERIF" "t|t"
+verdict "le script 2 ne contient aucun rollback" \
+  "$(grep -ciE '^[[:space:]]*rollback' supabase/site-catalogue-2-regle-application.sql || true)" "0"
+verdict "le câble des travaux n'est plus retiré deux fois : 100 − 2,5 = 97 (97,5 arrondi)" "$($P -c "select stock_calcule('cable')")" "97"
+verdict "l'onduleur du chantier : 4 − 2 sortis par l'achat = 2 (pas 0)" "$($P -c "select stock_calcule('onduleur')")" "2"
+verdict "la vente ancienne sans liste compte : 5 − 3 = 2" "$($P -c "select stock_calcule('regulateur')")" "2"
+verdict "le panneau : 3 − 1 vendu − 1 commande en ligne payée = 1" "$($P -c "select stock_calcule('panneau')")" "1"
+
+# La MÊME réponse que l'application : on fait calculer stockDepuisLignes
+# (src/lib/assistantWhatsapp.js, la copie lisible par Node de stockActuel)
+# sur les MÊMES lignes, et on compare article par article.
+PRODUITS=$($P -c "select coalesce(json_agg(data || jsonb_build_object('id', id)), '[]') from produits")
+VENTES=$($P -c "select coalesce(json_agg(data), '[]') from ventes")
+AJUST=$($P -c "select coalesce(json_agg(data), '[]') from ajustements")
+APPLI=$(PRODUITS="$PRODUITS" VENTES="$VENTES" AJUST="$AJUST" node --input-type=module -e '
+  const { stockDepuisLignes } = await import(process.cwd() + "/src/lib/assistantWhatsapp.js");
+  const P = JSON.parse(process.env.PRODUITS), V = JSON.parse(process.env.VENTES), A = JSON.parse(process.env.AJUST);
+  console.log(P.map((p) => p.id).sort().map((id) => id + "=" + Math.floor(stockDepuisLignes(P.find((p) => p.id === id), V, A))).join(","));
+')
+SITE=$($P -c "select string_agg(id || '=' || (stock_calcule(id) + case when id = 'panneau' then 1 else 0 end), ',' order by id) from produits")
+verdict "le site et l'application donnent le même stock pour chaque article (hors commande en ligne)" "$SITE" "$APPLI"
+verdict "la vue du visiteur se lit toujours en entier" \
+  "$(lire "select count(disponible) from catalogue_public")" "6"
+
 echo ""
 echo "$ok contrôle(s) réussi(s), $ko échec(s)."
 [ "$ko" -eq 0 ]
