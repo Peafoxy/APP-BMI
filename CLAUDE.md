@@ -9067,6 +9067,7 @@ lit mal est pire qu'un banc absent).
   COUPLE : `stockActuel` / `stockDepuisLignes` et `stock_calcule` du site
   disent la même chose — le banc fait calculer les deux sur les mêmes lignes.
   Une règle de stock qui change dans l'application change AUSSI ici.
+  **Collé par Timo le 20/10/2026 (`true | true`), la boutique s'affiche.**
   **Toute donnée nouvelle de l'application (une quantité, un champ) passe aussi
   par cette fonction du site.**
   ⚠⚠ **UN SCRIPT À COLLER NE FINIT JAMAIS PAR « rollback; »** : l'éditeur de
