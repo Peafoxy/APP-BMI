@@ -4787,6 +4787,8 @@ lit mal est pire qu'un banc absent).
   - **L'espace « vocaux-wa »** (`supabase/vocaux-1-espace.sql`) : PRIVÉ, 3 Mo,
     sons seulement, AUCUNE règle pour les appareils — seul le serveur (clé de
     service) y range et y lit ; l'application ne touche jamais `storage`.
+    **Collé par Timo le 21/10/2026 (`true | true | true`)** : l'espace existe,
+    il est privé, aucune règle ne l'ouvre.
   - **Rangée APRÈS l'accord de WhatsApp** (`rangerVocal`, api/whatsapp.js) :
     seulement une note ENREGISTRÉE au micro (`micro: true`, posé par
     src/enregistreurVocal.js — Ogg, et le MP4 d'un iPhone ; jamais un son
