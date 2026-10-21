@@ -100,6 +100,9 @@ Nous commercialisons également différents équipements et accessoires liés à
 // définie ici parce que la consigne la cite ; `marqueEquipe` plus bas.
 export const MARQUE_EQUIPE = "[Message de";
 export const MARQUE_AUTO = "[Message automatique de BMI TOGO]";
+// 📱 Une personne de BMI qui a répondu depuis le téléphone BMI (21/10/2026) :
+// on ne sait pas qui, on sait que c'est une PERSONNE.
+export const MARQUE_TELEPHONE = "[Message d'une personne de l'équipe BMI TOGO, écrit depuis le téléphone BMI]";
 
 // ---- LA CONSIGNE (le « system prompt ») ----
 const activites = LIGNES_MENU.filter((l) => l.activite).map((l) => `- ${l.titre}${l.detail ? ` : ${l.detail}` : ""}`).join("\n");
@@ -115,7 +118,7 @@ QUI TU ES
 - Tu ne te présentes pas toi-même : le serveur ajoute la phrase de présentation la toute première fois que ce client écrit à BMI TOGO. Réponds directement.
 
 LES MESSAGES DE L'ÉQUIPE BMI TOGO
-- Dans la conversation, un message qui commence par « ${MARQUE_EQUIPE} NOM, de l'équipe BMI TOGO] » a été écrit par une PERSONNE de BMI TOGO (un conseiller, un vendeur…), et « ${MARQUE_AUTO} » est un message parti tout seul de l'application (reçu, devis, relance, rappel). Ce n'est PAS toi qui les as écrits : tu ne dis jamais « je » à leur place, tu dis « comme vous l'a indiqué NOM » ou « comme indiqué dans le message de BMI TOGO ».
+- Dans la conversation, un message qui commence par « ${MARQUE_EQUIPE} NOM, de l'équipe BMI TOGO] » a été écrit par une PERSONNE de BMI TOGO (un conseiller, un vendeur…), et « ${MARQUE_AUTO} » est un message parti tout seul de l'application (reçu, devis, relance, rappel), et « ${MARQUE_TELEPHONE} » a été écrit par une personne de BMI TOGO depuis le téléphone BMI. Ce n'est PAS toi qui les as écrits : tu ne dis jamais « je » à leur place, tu dis « comme vous l'a indiqué NOM » ou « comme indiqué dans le message de BMI TOGO ».
 - Tu tiens compte de ce que cette personne a dit, demandé ou promis (un rappel, une visite, un rendez-vous, un devis en préparation) : tu ne la contredis JAMAIS, tu ne répètes pas son message, tu ne reposes pas une question à laquelle elle a déjà répondu, et tu ne reprends pas à zéro une demande qu'elle a prise en charge.
 - Un prix, un montant ou un délai cité par cette personne, tu ne le recopies pas (seuls tes outils te donnent des montants) : tu y renvoies (« le prix que NOM vous a indiqué »).
 - Tu n'écris jamais toi-même ces marques entre crochets.
@@ -378,12 +381,14 @@ export function marqueEquipe(m) {
   const nom = String(m?.de_nom || "").trim();
   // Les tournées du serveur signent « Relance automatique BMI », « bmi-systeme »… : pas une personne.
   const id = String(m?.de_id || "");
+  if (m?.wa_telephone) return MARQUE_TELEPHONE;
   const personne = id && id !== ID_ASSISTANT && !/-bmi$|^bmi-/.test(id) && nom && !/automatique|^bmi\b|^système$/i.test(nom);
   return personne ? `${MARQUE_EQUIPE} ${nom}, de l'équipe BMI TOGO]` : MARQUE_AUTO;
 }
 export const sansMarqueEquipe = (texte) => String(texte || "")
   .replace(/\[Message de [^\]\n]{1,80}, de l'équipe BMI TOGO\]\s*/g, "")
   .replace(/\[Message automatique de BMI TOGO\]\s*/g, "")
+  .replace(/\[Message d'une personne de l'équipe BMI TOGO, écrit depuis le téléphone BMI\]\s*/g, "")
   .trim();
 
 export function messagesPourIA(fil, { max = MAX_MESSAGES_MEMOIRE } = {}) {
@@ -394,6 +399,7 @@ export function messagesPourIA(fil, { max = MAX_MESSAGES_MEMOIRE } = {}) {
     // client » : l'IA doit savoir de quel côté il est parti.
     const genre = m.wa_media ? (m.wa_media.type === "image" ? "photo" : m.wa_media.type === "audio" ? "message vocal" : m.wa_media.type === "video" ? "vidéo" : "document") : "";
     if (m.wa_media && m.wa_media.envoye) return `[${genre} « ${m.wa_media.nom || ""} » envoyé au client par BMI]${t ? " " + t : ""}`;
+    if (m.wa_media && m.wa_telephone) return `[${genre} envoyé au client par BMI depuis le téléphone BMI]${t ? " " + t : ""}`;
     if (m.wa_media && !t) return `[${genre} envoyé par le client — non lisible]`;
     return t;
   };

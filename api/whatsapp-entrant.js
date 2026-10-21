@@ -22,7 +22,7 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa, nomDeConversation, doublonEntrant } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa, nomDeConversation, doublonEntrant, lireEchoTelephone, echoDejaLa, ligneEchoTelephone } from "../src/lib/whatsappConversations.js";
 // 📇 Le nom des contacts Google de BMI, cherché tout seul (16/10/2026, « b »).
 import { rechercheGoogleAFaire, traceContactAuto } from "../src/lib/contactGoogle.js";
 import { chercherNomGoogle } from "./_contactGoogle.js";
@@ -112,6 +112,13 @@ export default async function handler(req, res) {
   const attendu = process.env.WHATSAPP_WEBHOOK_SECRET;
   const donne = String(req.query?.cle || req.headers["x-bmi-cle"] || "");
   if (!attendu || donne !== attendu) return res.status(401).json({ error: "Appel non reconnu." });
+
+  // 📱 UN MESSAGE ÉCRIT DEPUIS LE TÉLÉPHONE BMI (21/10/2026, « les deux,
+  // lance ») : il entre dans le fil comme une réponse de BMI. ⚠ AVANT le
+  // suivi : il porte lui aussi `status: "sent"`, et pris pour une coche il
+  // attendrait 15 minutes une ligne qui n'existera jamais.
+  const echo = lireEchoTelephone(req.body);
+  if (echo) return traiterEchoTelephone(res, echo, debut);
 
   // ✓✓ UNE NOUVELLE DE SUIVI (envoyé, reçu, lu, échec) n'est pas un message
   // du client : elle met à jour la ligne partie du numéro BMI, rien d'autre.
@@ -347,6 +354,48 @@ export default async function handler(req, res) {
     // Le motif part dans le journal Vercel, pas dans la réponse.
     console.error("[whatsapp-entrant]", e?.message || e);
     return res.status(200).json({ ok: false, erreur: "enregistrement impossible" });
+  }
+}
+
+// ---- 📱 LE MESSAGE ÉCRIT DEPUIS LE TÉLÉPHONE BMI (21/10/2026) ----
+// La règle vit dans lib/whatsappConversations.js (`ligneEchoTelephone`).
+// Ici : la ligne écrite une fois, et la fiche légère qui remonte la
+// conversation. ⚠ Personne n'est prévenu (c'est BMI qui a écrit), la
+// conversation ne change pas de propriétaire, et l'assistant ne se réveille
+// pas : il lira cette ligne comme celle d'une personne et se taira 24 h.
+export async function traiterEchoTelephone(res, echo, debut = Date.now(), adminDonne = null) {
+  const cle = cleConversation(echo.to);
+  if (!cle) return res.status(200).json({ ignore: true, pourquoi: "numéro du client illisible (téléphone BMI)" });
+  if (!echo.texte && !echo.media) return res.status(200).json({ ignore: true, pourquoi: "message vide (téléphone BMI)", de: cle });
+  let admin = adminDonne;
+  if (!admin) {
+    const url = process.env.VITE_SUPABASE_URL;
+    const cleService = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !cleService) return res.status(500).json({ error: "Serveur mal configuré" });
+    admin = createClient(url, cleService, { auth: { persistSession: false } });
+  }
+  try {
+    const messages = await lireConversation(admin, cle);
+    if (echoDejaLa(messages, echo)) return res.status(200).json({ deja: true, telephone: true });
+    const fil = filDeLaConversation(messages, cle);
+    const ficheAvant = messages.find((m) => m.id === idEntete(cle) && estEnteteWa(m)) || null;
+    const ts = horodatage(echo.ts);
+    const ligne = ligneEchoTelephone({ echo, cle, nomClient: ficheAvant?.wa_nom || "", ts });
+    const ecrit = new Date().toISOString();
+    const { error: errIns } = await admin.from("messages").insert({ id: ligne.id, data: { ...ligne, updated_at: ecrit }, updated_at: ecrit });
+    if (errIns) throw errIns;
+    const prop = proprietaireDe(fil);
+    const derniere = String(ficheAvant?.derniere || "") > ts ? ficheAvant.derniere : ts;
+    const fiche = construireEntete({ cle, tel: echo.to, nom: ficheAvant?.wa_nom || "", proprietaire_id: prop.id || "", proprietaire_nom: prop.nom || "", derniere, entete: ficheAvant });
+    if (fiche) {
+      const { error: errFiche } = await admin.from("messages").upsert({ id: fiche.id, data: { ...fiche, updated_at: ecrit }, updated_at: ecrit });
+      if (errFiche) console.error("whatsapp-entrant : fiche de conversation non posée (téléphone BMI)", errFiche);
+    }
+    await relancerSiLeMoment(admin, debut);
+    return res.status(200).json({ ok: true, telephone: true, de: cle });
+  } catch (e) {
+    console.error("[whatsapp-entrant] téléphone BMI", e?.message || e);
+    return res.status(200).json({ ok: false, erreur: "message du téléphone BMI non enregistré" });
   }
 }
 

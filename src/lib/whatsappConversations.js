@@ -565,6 +565,75 @@ export function lireMedia(m) {
 }
 
 // ---------------------------------------------------------------
+// 📱 CE QUI EST ÉCRIT DEPUIS LE TÉLÉPHONE BMI (21/10/2026)
+// ---------------------------------------------------------------
+// Capture Timo (EDEM) : un collègue répond depuis le WhatsApp du téléphone
+// BMI ; l'application n'en voit rien — le fil a l'air sans réponse, et
+// l'assistant reparle par-dessus (il a même renvoyé son menu). « Les deux,
+// lance. » YCloud prévient de ces messages (coexistence) par les événements
+// `whatsapp.smb.message.echoes` / `whatsapp.smb.message.created` : ils entrent
+// dans le fil comme une réponse de BMI écrite par une PERSONNE — donc
+// l'assistant se tait 24 h, comme après un collègue (decisionAssistant).
+// ⚠ Ils sont lus AVANT les nouvelles de suivi : un écho porte lui aussi un
+// `status: "sent"`, et pris pour une coche il attendrait une ligne qui
+// n'existera jamais.
+export const TYPES_ECHO_TELEPHONE = ["whatsapp.smb.message.echoes", "whatsapp.smb.message.created"];
+export const ID_TELEPHONE_BMI = "telephone-bmi-wa";
+export const NOM_TELEPHONE_BMI = "📱 Téléphone BMI";
+
+export function lireEchoTelephone(corps) {
+  const c = corps && typeof corps === "object" ? corps : {};
+  if (!TYPES_ECHO_TELEPHONE.includes(String(c.type || ""))) return null;
+  const m = c.whatsappMessage && typeof c.whatsappMessage === "object" ? c.whatsappMessage : null;
+  if (!m) return null;
+  const media = lireMedia(m);
+  const ecrit = (typeof m.text === "string" ? m.text : m.text?.body) || "";
+  const texte = ecrit || (media ? media.legende : "") || (!media && m.type && m.type !== "text" ? `[${m.type}]` : "");
+  return {
+    to: String(m.to || ""),
+    texte: String(texte || ""),
+    media,
+    id: String(m.id || ""),
+    wamid: String(m.wamid || ""),
+    ts: String(m.sendTime || m.createTime || c.createTime || ""),
+  };
+}
+
+// Déjà dans le fil ? (YCloud renvoie, et les deux événements peuvent arriver
+// pour le même message.) Le wamid de Meta est le même partout.
+export function echoDejaLa(messages, { id, wamid } = {}) {
+  return (Array.isArray(messages) ? messages : []).some((m) => m && !m.wa_entrant && (
+    (id && (m.wa_id === id || m.wa_envoi_id === id)) || (wamid && (m.wa_wamid === wamid || m.wa_wamid_recu === wamid))));
+}
+
+// La ligne du fil : une réponse de BMI, écrite par une personne sur le
+// téléphone. Elle ne prend pas la conversation (pas de propriétaire), ne
+// rouvre pas la fenêtre de 24 h (seul le client la rouvre), et porte son
+// wamid : les coches ✓✓ de Meta la retrouvent.
+export function ligneEchoTelephone({ echo, cle, nomClient = "", ts }) {
+  const e = echo || {};
+  const quand = String(ts || "");
+  return {
+    id: `wa-tel-${e.id || e.wamid || quand}`.replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, 120),
+    date: quand.slice(0, 10),
+    ts: quand,
+    canal: CANAL_WA,
+    wa_tel: String(cle || ""),
+    wa_numero: e.to || String(cle || ""),
+    ...(nomClient ? { wa_nom: nomClient } : {}),
+    wa_telephone: true,
+    wa_id: e.id || "",
+    ...(e.wamid ? { wa_wamid: e.wamid } : {}),
+    wa_statut: { etat: "envoye", le: quand },
+    de_id: ID_TELEPHONE_BMI,
+    de_nom: NOM_TELEPHONE_BMI,
+    texte: e.texte || "",
+    ...(e.media ? { wa_media: e.media } : {}),
+    lu_par: [],
+  };
+}
+
+// ---------------------------------------------------------------
 // 📎 ENVOYER UN FICHIER AU CLIENT, DU NUMÉRO BMI (03/10/2026)
 // ---------------------------------------------------------------
 // Timo : « dans WhatsApp de l'app BMI, ajouter la possibilité d'envoyer les

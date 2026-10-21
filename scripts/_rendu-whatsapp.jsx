@@ -384,3 +384,20 @@ export const htmlVocaleEnvoyee = () => renderToStaticMarkup(
   <MediaWa message={{ id: "wa-v-env", wa_media: { type: "voice", nom: "note-vocale.ogg", mime: "audio/ogg", taille: 9000, duree: 7, envoye: true } }} />);
 export const htmlSonEnvoye = () => renderToStaticMarkup(
   <MediaWa message={{ id: "wa-s-env", wa_media: { type: "audio", nom: "note-vocale.m4a", mime: "audio/mp4", taille: 9000, duree: 12, envoye: true } }} />);
+
+// ---- 🙋 LE CLIENT QUI ATTEND, ET 📱 LE TÉLÉPHONE BMI (21/10/2026) ----
+// Le cas d'EDEM : son message est le dernier, la conversation vient d'être
+// rendue à tout le personnel, personne n'a répondu depuis l'application.
+const clientQuiAttend = (min) => ({ id: "wa1", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO",
+  wa_entrant: true, ts: ilYa(min), date: ilYa(min).slice(0, 10), texte: "les prix svp", lu_par: [] });
+const renduATous = (min) => ({ id: "wa-tous", canal: "whatsapp", wa_tel: "90112233", wa_entrant: false, wa_systeme: true,
+  de_id: "TIMO", de_nom: "TIMO", ts: ilYa(min), texte: "🔓 Conversation rendue à tout le personnel par TIMO.", proprietaire_efface: true, lu_par: [] });
+const sansWa1 = () => garnie.messages.filter((m) => m.id !== "wa1");
+export const renduClientQuiAttend = (min = 10) => {
+  try { return rendre({ ...garnie, messages: [...sansWa1(), clientQuiAttend(min), renduATous(Math.max(0, min - 5))] }, users[0], "90112233"); }
+  catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+export const renduAvecTelephone = (ligneTel) => {
+  try { return rendre({ ...garnie, messages: [...sansWa1(), clientQuiAttend(10), ligneTel] }, users[0], "90112233"); }
+  catch (e) { return `ERREUR ${e?.message || e}`; }
+};

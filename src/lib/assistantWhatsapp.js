@@ -235,12 +235,33 @@ export function ligneRenduAssistant({ cle, tel, nom, par, par_id, ts } = {}) {
     lu_par: [],
   };
 }
+// 🙋 LE CLIENT ATTEND UNE RÉPONSE (21/10/2026, capture Timo d'EDEM, « les
+// deux, lance ») : son message est le DERNIER du fil, personne n'y a répondu
+// (ni l'assistant, ni une personne — téléphone BMI compris), depuis au moins
+// 2 minutes (l'assistant a pu être en train de répondre) et moins de 24 h
+// (au-delà, WhatsApp n'accepte plus de réponse libre).
+export const MINUTES_AVANT_RENDRE = 2;
+export function clientSansReponse(fil, maintenant) {
+  const liste = Array.isArray(fil) ? fil : [];
+  for (let i = liste.length - 1; i >= 0; i--) {
+    const m = liste[i];
+    if (!m || m.canal === "whatsapp_entete") continue;
+    if (estMarqueRendu(m)) return false;
+    if (m.wa_systeme) continue;
+    if (!m.wa_entrant) return false;
+    const age = Date.parse(maintenant || "") - Date.parse(m.ts || "");
+    return Number.isFinite(age) && age >= MINUTES_AVANT_RENDRE * 60 * 1000 && age < HEURES_SILENCE * 3600 * 1000;
+  }
+  return false;
+}
 // L'assistant s'est-il tu à cause d'une PERSONNE (le bouton a alors un sens) ?
 // Conversation confiée sans marque en vigueur ; un employé qui a écrit il y a
-// moins de 24 h ; ou l'assistant qui a passé la main à un conseiller.
+// moins de 24 h ; l'assistant qui a passé la main à un conseiller ; ou — depuis
+// le 21/10/2026 — un client resté sans réponse (`clientSansReponse`).
 export function assistantEnRetrait({ fil, proprietaireId = "", maintenant } = {}) {
   const liste = Array.isArray(fil) ? fil : [];
   if (proprietaireId && !renduActif(liste)) return true;
+  if (clientSansReponse(liste, maintenant)) return true;
   for (let i = liste.length - 1; i >= 0; i--) {
     const m = liste[i];
     if (!m || m.wa_entrant || m.canal === "whatsapp_entete") continue;

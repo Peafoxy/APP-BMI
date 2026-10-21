@@ -4870,10 +4870,10 @@ titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA
   test("★ « 5 » : pas de relance sans service d'IA, ni en mode menu, ni assistant coupé",
     /if \(!ia\.pret\) return/.test(SV) && /modeAssistant\(bqs\) !== "ia"\) return/.test(SV) && /if \(!assistantActif\(bqs\)\) return/.test(SV));
   test("★ aucun outil pendant une relance (elle ne cherche rien, n'enregistre rien)", /executer: async \(\) => \(\{ resultat: "Pas d'outil pendant une relance/.test(SV));
-  test("★★ l'adresse d'arrivée relance à chaque appel (message ET coche), bornée : 3 min entre deux essais, 12 s de budget, une à la fois, IA à 8 s",
+  test("★★ l'adresse d'arrivée relance à chaque appel (message, coche, et — 21/10/2026 — réponse du téléphone BMI), bornée : 3 min entre deux essais, 12 s de budget, une à la fois, IA à 8 s",
     /const ECART_RELANCES_MS = 3 \* 60 \* 1000;/.test(EN) && /const BUDGET_RELANCE_MS = 12000;/.test(EN)
     && /relancerLesConversations\(admin, \{ boutiques, limite: 1, delaiIA: 8000 \}\)/.test(EN)
-    && (EN.match(/await relancerSiLeMoment\(admin, debut\)/g) || []).length === 2 && /await relancerSiLeMoment\(admin, debut, boutiques\)/.test(EN));
+    && (EN.match(/await relancerSiLeMoment\(admin, debut\)/g) || []).length === 3 && /await relancerSiLeMoment\(admin, debut, boutiques\)/.test(EN));
   test("★ les tournées de 7 h, 14 h et 17 h servent de filet (cinq au plus, l'IA a 20 s)",
     ["api/rappels-du-matin.js", "api/rappels-du-soir.js"].every((f) => /relancerLesConversations\(admin, \{ boutiques: db\.boutiques, limite: 5, delaiIA: 20000 \}\)/.test(lire(f))));
   test("★ 📲 WhatsApp dit qu'une ligne est une relance (« · relance »)", /m\.wa_assistant\.relance \? " · relance" : ""/.test(lire("src/screens/Whatsapp.jsx")));
@@ -6619,6 +6619,111 @@ titre("72 🎤 LES NOTES VOCALES ENVOYÉES PAR BMI, RANGÉES 30 JOURS DANS L'ESP
     test("★★ dans Chromium : l'appareil qui l'a enregistrée joue sa COPIE, sans appel au serveur",
       apres.moi && !apres.appels.includes("wa_moi"), JSON.stringify(apres));
   } finally { await nav.close(); rmSync(dossier, { recursive: true, force: true }); }
+}
+
+titre("73 📱 CE QUI EST ÉCRIT DEPUIS LE TÉLÉPHONE BMI ENTRE DANS LE FIL, ET 🙋 LE CLIENT QUI ATTEND PEUT ÊTRE RENDU À L'ASSISTANT (21/10/2026, capture Timo d'EDEM, « les deux, lance »)");
+{
+  const WC = await import("../src/lib/whatsappConversations.js");
+  const AW = await import("../src/lib/assistantWhatsapp.js");
+  const I = await import("../src/lib/assistantIA.js");
+  const RA = await import("../src/lib/relanceAssistant.js");
+  const CLE = "98850976";
+  const T = Date.parse("2026-10-21T13:00:00.000Z");
+  const at = (min) => new Date(T + min * 60000).toISOString();
+  const ent = (id, min, texte) => ({ id, canal: "whatsapp", wa_tel: CLE, wa_numero: `228${CLE}`, wa_entrant: true, ts: at(min), texte });
+  const echoCorps = (type, extra = {}) => ({ id: "evt_1", type, apiVersion: "v2", createTime: at(32),
+    whatsappMessage: { id: "yc_tel_1", wamid: "wamid.TEL1", wabaId: "W", from: "+22899968488", to: `+228${CLE}`, type: "text", text: { body: "4kw/24V non" }, status: "sent", sendTime: at(32), ...extra } });
+  const e1 = WC.lireEchoTelephone(echoCorps("whatsapp.smb.message.echoes"));
+  const e2 = WC.lireEchoTelephone(echoCorps("whatsapp.smb.message.created"));
+  const eDoc = WC.lireEchoTelephone(echoCorps("whatsapp.smb.message.echoes", { type: "document", text: undefined, document: { link: "https://api.ycloud.com/v2/whatsapp/media/download/9", id: "9", caption: "fiche", mime_type: "application/pdf" } }));
+  test("★★★ les deux événements de YCloud (`smb.message.echoes`, `smb.message.created`) sont lus : le CLIENT (to), le texte, les numéros de Meta, l'heure d'envoi",
+    e1 && e1.to === `+228${CLE}` && e1.texte === "4kw/24V non" && e1.id === "yc_tel_1" && e1.wamid === "wamid.TEL1" && e1.ts === at(32)
+    && e2 && e2.wamid === "wamid.TEL1", JSON.stringify(e1));
+  test("★★ un fichier envoyé du téléphone garde son lien (il s'ouvre comme un fichier reçu) ; une coche ou un message de client n'est PAS un écho",
+    eDoc?.media?.lien?.includes("download/9") && eDoc.texte === "fiche"
+    && WC.lireEchoTelephone({ whatsappMessage: { id: "x", status: "delivered" } }) === null
+    && WC.lireEchoTelephone({ type: "whatsapp.inbound_message.received", whatsappInboundMessage: { from: "+228", text: { body: "x" } } }) === null);
+  const ligneTel = WC.ligneEchoTelephone({ echo: e1, cle: CLE, nomClient: "EDEM", ts: at(32) });
+  test("★★★ la ligne : une réponse de BMI écrite par une PERSONNE (`wa_telephone`), sans propriétaire, sans ouvrir la fenêtre, avec son wamid pour les coches",
+    !ligneTel.wa_entrant && !ligneTel.wa_systeme && ligneTel.wa_telephone === true && !ligneTel.proprietaire_id
+    && ligneTel.wa_wamid === "wamid.TEL1" && ligneTel.wa_statut?.etat === "envoye" && ligneTel.de_id === WC.ID_TELEPHONE_BMI && ligneTel.texte === "4kw/24V non"
+    && ligneTel.canal === "whatsapp" && ligneTel.wa_tel === CLE, JSON.stringify(ligneTel));
+  test("★★ déjà dans le fil (YCloud renvoie, ou les deux événements arrivent) : ni deux fois, ni par-dessus une ligne partie de l'application",
+    WC.echoDejaLa([ligneTel], e2) && WC.echoDejaLa([{ wa_wamid: "wamid.TEL1" }], { wamid: "wamid.TEL1" }) && !WC.echoDejaLa([ent("e1", 0, "x")], e1));
+  const fil = [ent("e1", 0, "bonjour"), ent("e2", 22, "les prix svp"), ligneTel];
+  test("★★★ l'assistant le lit comme un COLLÈGUE : il se tait 24 h, se tait s'il était en train de répondre, ne relance pas — et le bouton « Rendre » apparaît",
+    AW.decisionAssistant({ fil: [...fil, ent("e3", 40, "ok merci")], maintenant: at(40) }).repondre === false
+    && AW.bmiAEcritApres(fil, fil[1]) === true
+    && RA.relanceAFaire({ fil, maintenant: at(22 + 21 * 60) }).relancer === false
+    && AW.assistantEnRetrait({ fil, maintenant: at(40) }) === true
+    && AW.attenteConseiller(fil) === null
+    && WC.dernierEntrant(fil)?.id === "e2");
+  const ia = I.messagesPourIA([ent("e2", 22, "les prix svp"), ligneTel, ent("e3", 40, "et le 5 kW ?")]);
+  test("★★ l'IA sait qu'une PERSONNE a écrit depuis le téléphone BMI (sa marque), jamais que c'est elle — et la consigne la nomme",
+    I.marqueEquipe(ligneTel) === I.MARQUE_TELEPHONE && ia.some((m) => m.role === "assistant" && String(m.content).includes(I.MARQUE_TELEPHONE))
+    && I.consignePour({}).includes(I.MARQUE_TELEPHONE) && I.sansMarqueEquipe(`${I.MARQUE_TELEPHONE} bonjour`) === "bonjour", JSON.stringify(ia));
+
+  // 🙋 « a » : le client qui attend.
+  const tous = { id: "s1", canal: "whatsapp", wa_tel: CLE, wa_entrant: false, wa_systeme: true, de_id: "TIMO", ts: at(29), texte: "🔓 rendue à tous", proprietaire_efface: true };
+  const edem = [ent("e1", 0, "bonjour"), ent("e2", 22, "les prix svp"), tous];
+  test("★★★ le cas d'EDEM : son message est le dernier, personne n'a répondu, la conversation vient d'être rendue à tous → le bouton « Rendre à l'assistant »",
+    AW.clientSansReponse(edem, at(34)) === true && AW.assistantEnRetrait({ fil: edem, maintenant: at(34) }) === true);
+  test("★★ mais pas pendant que l'assistant peut encore être en train de répondre (moins de 2 min), ni au-delà de 24 h, ni s'il a déjà répondu, ni une fois rendue",
+    AW.clientSansReponse([ent("e1", 0, "x")], at(1)) === false
+    && AW.clientSansReponse([ent("e1", 0, "x")], at(25 * 60)) === false
+    && AW.clientSansReponse([ent("e1", 0, "x"), { ...AW.ligneAssistant({ cle: CLE, tel: CLE, texte: "r", etape: AW.ETAPE_MENU, ts: at(0.2) }), id: "a1" }], at(10)) === false
+    && AW.clientSansReponse([ent("e1", 0, "x"), AW.ligneRenduAssistant({ cle: CLE, tel: CLE, par: "TIMO", par_id: "TIMO", ts: at(3) })], at(10)) === false
+    && AW.clientSansReponse([ent("e1", 0, "x"), ligneTel], at(40)) === false);
+
+  // ── Le serveur, lu : l'écho passe AVANT le suivi (sinon pris pour une coche, il attendrait 15 min).
+  const EN = lire("api/whatsapp-entrant.js").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★★★ l'adresse d'arrivée reconnaît l'écho AVANT les nouvelles de suivi, et le serveur du bouton suit la MÊME règle (`assistantEnRetrait`)",
+    EN.indexOf("const echo = lireEchoTelephone(req.body)") > 0 && EN.indexOf("const echo = lireEchoTelephone(req.body)") < EN.indexOf("const suivi = lireStatut(req.body)")
+    && /if \(echo\) return traiterEchoTelephone\(res, echo, debut\)/.test(EN)
+    && /assistantEnRetrait\(\{ fil, proprietaireId: proprietaire\.id, maintenant \}\)/.test(lire("api/_rendreAssistant.js")));
+
+  // ── La VRAIE fonction, sur une base jouée.
+  const { traiterEchoTelephone } = await import("../api/whatsapp-entrant.js");
+  const fauxAdmin = (tables) => ({
+    from(t) {
+      const q = { op: "select", charge: null, filtres: [], de: 0, a: Infinity };
+      const valeur = (l, col) => (col.startsWith("data->>") ? String(l.data?.[col.slice(7)] ?? "") : String(l[col] ?? ""));
+      const exec = () => {
+        if (q.op === "insert") { (tables[t] ||= []).push(structuredClone(q.charge)); return { data: null, error: null }; }
+        if (q.op === "upsert") { const l = (tables[t] ||= []); const i = l.findIndex((x) => x.id === q.charge.id); if (i >= 0) l[i] = structuredClone(q.charge); else l.push(structuredClone(q.charge)); return { data: null, error: null }; }
+        return { data: structuredClone((tables[t] || []).filter((l) => q.filtres.every(([c, v]) => valeur(l, c) === String(v))).slice(q.de, q.a + 1)), error: null };
+      };
+      const b = { select() { return b; }, eq(c, v) { q.filtres.push([c, v]); return b; }, order() { return b; }, limit() { return b; }, range(de, a) { q.de = de; q.a = a; return b; }, insert(c) { q.op = "insert"; q.charge = c; return b; }, upsert(c) { q.op = "upsert"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
+      return b;
+    },
+  });
+  const fauxRes = () => { const r = { code: 0, corps: null, status(c) { r.code = c; return r; }, json(o) { r.corps = o; return r; } }; return r; };
+  const entete = { id: WC.idEntete(CLE), canal: "whatsapp_entete", wa_tel: CLE, wa_numero: `+228${CLE}`, wa_nom: "EDEM", wa_nom_donne: "EDEM SOLAIRE", proprietaire_id: "", derniere: at(22), ts: at(22) };
+  const tables = { messages: [ent("e2", 22, "les prix svp"), entete].map((m) => ({ id: m.id, data: m, updated_at: m.ts })) };
+  const r1 = fauxRes(), r2 = fauxRes(), r3 = fauxRes();
+  let err = "";
+  try {
+    await traiterEchoTelephone(r1, e1, Date.now(), fauxAdmin(tables));
+    await traiterEchoTelephone(r2, e1, Date.now(), fauxAdmin(tables));
+    await traiterEchoTelephone(r3, e2, Date.now(), fauxAdmin(tables));
+  } catch (x) { err = x?.message || String(x); }
+  const lignes = tables.messages.map((l) => l.data);
+  const telLignes = lignes.filter((m) => m.wa_telephone);
+  const fiche = lignes.find((m) => m.canal === "whatsapp_entete");
+  test("★★★ la chaîne jouée : la réponse du téléphone s'écrit UNE fois (renvoyée, ou par l'autre événement : rien de plus), et la fiche légère remonte la conversation en gardant son nom",
+    !err && r1.corps?.ok === true && r2.corps?.deja === true && r3.corps?.deja === true && telLignes.length === 1
+    && fiche?.derniere === at(32) && fiche?.wa_nom_donne === "EDEM SOLAIRE" && !fiche?.proprietaire_id, `${err} ${JSON.stringify([r1.corps, r2.corps, r3.corps])}`);
+  const vide = fauxRes();
+  await traiterEchoTelephone(vide, { ...e1, to: "" }, Date.now(), fauxAdmin({ messages: [] }));
+  test("★ un numéro de client illisible est dit, jamais une erreur (YCloud renverrait sans fin)", vide.code === 200 && vide.corps?.ignore === true);
+
+  // ── L'écran RENDU.
+  const attend = monte(() => V.renduClientQuiAttend(10)), tropTot = monte(() => V.renduClientQuiAttend(1));
+  const avecTel = monte(() => V.renduAvecTelephone({ ...WC.ligneEchoTelephone({ echo: { ...e1, texte: "REPONSE DU TELEPHONE" }, cle: "90112233", nomClient: "ESSO", ts: new Date(Date.now() - 5 * 60000).toISOString() }) }));
+  test("★★★ l'écran RENDU : EDEM attend depuis 10 min, conversation rendue à tous → « 🤖 Rendre à l'assistant » ; depuis 1 min → pas encore",
+    attend.includes("data-rendre-assistant") && !tropTot.includes("data-rendre-assistant"), [attend, tropTot].map((h) => h.slice(0, 80)).join(" | "));
+  test("★★ l'écran RENDU : la réponse du téléphone se lit dans le fil, signée « 📱 Téléphone BMI »",
+    avecTel.includes("REPONSE DU TELEPHONE") && avecTel.includes("📱 Téléphone BMI"), avecTel.slice(0, 120));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
