@@ -57,6 +57,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/calculs.js` | Le gros des calculs métier : stock, boutiques, rôles, espaces, remises, index |
 | `lib/core.js` | Les briques de base : montants, dates, numéros, WhatsApp, messages, dépenses, statut d'une dette |
 | `lib/attestationSortie.js` | L'attestation de fin de contrat mise à la disposition de l'employé (CDI au clic, CDD par la tournée), son accès fermé 24 h après ; la ligne privée et la notification de la tournée |
+| `lib/infobulle.js` | La description d'un bouton dans sa fenêtre : la couleur du bouton, la place à l'écran (sans import ; l'hôte `InfobulleHost` vit dans ui.jsx) |
 | `lib/horloge.js` | L'heure du SERVEUR : l'écart de l'horloge de l'appareil, retiré de toute date et heure écrite (sans import) |
 | `lib/panier.js` | Le panier d'une vente ou d'une commande |
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
@@ -153,7 +154,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 
 | Fichier | À quoi il sert |
 |---|---|
-| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`), et le bouton qui se grise pendant un envoi (`BoutonEnvoi`, `useEnvoiEnCours`) |
+| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`), le bouton qui se grise pendant un envoi (`BoutonEnvoi`, `useEnvoiEnCours`), et la fenêtre de description d'un bouton au survol (`InfobulleHost`) |
 | `cibleEcran.js` | 🔔 Ce qu'un écran fait d'une notification cliquée : `useCible`, la boutique visée (`useCibleBoutique`, jamais un employé déplacé hors de sa boutique) |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
 | `NoteVocale.jsx` | 🎤 Les notes vocales de 📲 WhatsApp comme sur WhatsApp : le lecteur (▶, barres, vitesse), le micro qu'on garde appuyé, et la réécoute d'une note envoyée par la copie de l'appareil (`useCopieVocale`) |

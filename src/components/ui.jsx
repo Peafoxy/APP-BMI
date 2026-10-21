@@ -6,7 +6,8 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { couleurDeReference, styleInfobulle, placerInfobulle, LARGEUR_MAX_INFOBULLE, DELAI_INFOBULLE_MS } from "../lib/infobulle";
 import { maintenantISO } from "../lib/horloge";
 import { createPortal } from "react-dom";
 import { col, light, moyensProposes } from "../lib/core";
@@ -628,6 +629,113 @@ export function valeurAnnuler(type) {
   if (type === "prompt" || type === "choix") return null;
   if (type === "alert") return undefined;
   return false; // confirm, info
+}
+// 💬 LA DESCRIPTION D'UN BOUTON, DANS SA FENÊTRE (21/10/2026, Timo : « en
+// fenêtre avec fond qui a la couleur du bouton, la description en plusieurs
+// lignes… une seule règle pour tous les écrans » → « a, lance »). UN hôte,
+// monté une fois dans App.jsx (connexion ET application) : au survol À LA
+// SOURIS de tout <button> qui porte un `title`, le cadre gris de Windows (une
+// seule ligne) est remplacé par cette fenêtre — fond pâle de la couleur du
+// bouton, texte et contour de sa couleur, 280 px au plus, passage à la ligne,
+// jamais hors de l'écran (règles pures : lib/infobulle.js). Le `title` est mis
+// de côté pendant le survol (sinon Windows l'afficherait aussi) et RENDU
+// ensuite ; `aria-label` n'est pas touché. Au doigt, rien (pas de survol).
+// Aucun écran n'a rien à faire : un nouveau bouton en profite tout seul.
+let toileCouleur = null;
+function rgbaDe(couleur) {
+  try {
+    if (!toileCouleur) { toileCouleur = document.createElement("canvas"); toileCouleur.width = toileCouleur.height = 1; }
+    const ctx = toileCouleur.getContext("2d", { willReadFrequently: true });
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = "rgba(0,0,0,0)";
+    ctx.fillStyle = couleur;
+    ctx.fillRect(0, 0, 1, 1);
+    const d = ctx.getImageData(0, 0, 1, 1).data;
+    return [d[0], d[1], d[2], d[3] / 255];
+  } catch { return null; }
+}
+export function InfobulleHost() {
+  const [bulle, setBulle] = useState(null);
+  const [pos, setPos] = useState(null);
+  const ref = useRef(null);
+  useEffect(() => {
+    let cible = null, minuteur = null;
+    const rendre = () => {
+      if (!cible) return;
+      const t = cible.dataset.infobulleTitre;
+      if (t != null && !cible.hasAttribute("title")) cible.setAttribute("title", t);
+      delete cible.dataset.infobulleTitre;
+    };
+    const cacher = () => { clearTimeout(minuteur); rendre(); cible = null; setBulle(null); };
+    const montrer = (b) => {
+      if (cible !== b || !b.isConnected) return;
+      const cs = getComputedStyle(b);
+      const couleur = couleurDeReference(rgbaDe(cs.color), rgbaDe(cs.backgroundColor));
+      setBulle({ texte: b.dataset.infobulleTitre || "", rect: b.getBoundingClientRect(), style: styleInfobulle(couleur) });
+    };
+    const prendre = (b) => {
+      const t = b.getAttribute("title");
+      b.dataset.infobulleTitre = t;
+      b.removeAttribute("title");
+    };
+    const surSurvol = (e) => {
+      if (e.pointerType && e.pointerType !== "mouse") return;
+      const b = e.target && e.target.closest ? e.target.closest("button") : null;
+      if (b && b === cible) return;
+      if (cible) cacher();
+      if (!b) return;
+      const t = b.getAttribute("title");
+      if (!t || !t.trim()) return;
+      cible = b;
+      prendre(b);
+      minuteur = setTimeout(() => montrer(b), DELAI_INFOBULLE_MS);
+    };
+    const surSortie = (e) => {
+      if (!cible) return;
+      if (e.relatedTarget && cible.contains(e.relatedTarget)) return;
+      cacher();
+    };
+    // Le bouton a pu changer de description (React remet `title`) ou quitter
+    // l'écran pendant le survol.
+    const surDeplacement = () => {
+      if (!cible) return;
+      if (!cible.isConnected) { cacher(); return; }
+      if (cible.hasAttribute("title")) {
+        prendre(cible);
+        setBulle((x) => (x ? { ...x, texte: cible.dataset.infobulleTitre || "" } : x));
+      }
+    };
+    document.addEventListener("pointerover", surSurvol, true);
+    document.addEventListener("pointerout", surSortie, true);
+    document.addEventListener("pointermove", surDeplacement, true);
+    document.addEventListener("pointerdown", cacher, true);
+    window.addEventListener("scroll", cacher, true);
+    window.addEventListener("keydown", cacher, true);
+    window.addEventListener("blur", cacher);
+    return () => {
+      cacher();
+      document.removeEventListener("pointerover", surSurvol, true);
+      document.removeEventListener("pointerout", surSortie, true);
+      document.removeEventListener("pointermove", surDeplacement, true);
+      document.removeEventListener("pointerdown", cacher, true);
+      window.removeEventListener("scroll", cacher, true);
+      window.removeEventListener("keydown", cacher, true);
+      window.removeEventListener("blur", cacher);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (!bulle || !ref.current) { setPos(null); return; }
+    const r = ref.current.getBoundingClientRect();
+    setPos(placerInfobulle(bulle.rect, { width: r.width, height: r.height }, { width: window.innerWidth, height: window.innerHeight }));
+  }, [bulle]);
+  if (!bulle || !bulle.texte) return null;
+  return createPortal(
+    <div ref={ref} role="tooltip" data-infobulle={pos ? (pos.dessus ? "dessus" : "dessous") : "mesure"}
+      className="pointer-events-none fixed px-2.5 py-1.5 rounded-lg border text-xs font-medium leading-snug shadow-md whitespace-pre-line break-words"
+      style={{ ...bulle.style, maxWidth: LARGEUR_MAX_INFOBULLE, left: pos ? pos.left : 0, top: pos ? pos.top : 0, visibility: pos ? "visible" : "hidden", zIndex: 2147483000 }}>
+      {bulle.texte}
+    </div>,
+    document.body);
 }
 export function DialogHost() {
   const [d, setD] = useState(null);

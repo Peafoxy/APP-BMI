@@ -117,7 +117,7 @@ import { motAMontrer, motPour, marquerMotLu, CLE_VU_ICI } from "./lib/motInforma
 import { dureeConservation } from "./lib/conservation";
 import {
   Field, inputCls, btnDark, Badge, Panel, LoadingSpinner,
-  uAlert, uConfirm, uPrompt, uChoix, DialogHost, PrintHost, ExportHost, Info, remonterEnHaut, allerALaLigne,
+  uAlert, uConfirm, uPrompt, uChoix, DialogHost, InfobulleHost, PrintHost, ExportHost, Info, remonterEnHaut, allerALaLigne,
 } from "./components/ui";
 import {
   stockVendu, stockAjuste, stockActuel, virementsMois,
@@ -1063,7 +1063,7 @@ export default function App() {
     // connexion avec la vraie table.
     const dbLogin = db.users.length > 0 ? db : { ...db, users: secours };
     const saveLogin = db.users.length > 0 ? save : null;
-    return <><DialogHost /><Login db={dbLogin} apparence={apparence} save={saveLogin} onLogin={(u) => {
+    return <><DialogHost /><InfobulleHost /><Login db={dbLogin} apparence={apparence} save={saveLogin} onLogin={(u) => {
     setProfile(u);
     // ⚠ Une connexion démarre TOUJOURS sur le réel, puisque la déconnexion
     // précédente a remis le réglage à zéro. On relit quand même la valeur
@@ -1713,6 +1713,7 @@ export default function App() {
         </div>
       )}
       <DialogHost />
+      <InfobulleHost />
       <ExportHost />
       <PrintHost />
       {rechercheOuverte && (
