@@ -469,7 +469,7 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
     try {
       // Une réponse jetée par le juge se RÉÉCRIT une fois (01/10/2026).
       const conv = await converserAvecJuge({
-        consigne: consignePour({ client: clientIA, nouvelle, presentation, metiers: domainesPourIA(boutiques), memo: memoAssistant(boutiques) }),
+        consigne: consignePour({ client: clientIA, nouvelle, presentation, metiers: domainesPourIA(boutiques), memo: memoAssistant(boutiques), rendu: !!decision.rendu, dejaVu: dejaPresente(fil) || fil.some((m) => m && m.wa_assistant) }),
         messages: messagesPourIA(fil),
         appeler: (corps) => appelerIA(corps, ia),
         executer: async (nom, entree) => executerOutil(nom, entree, {
@@ -554,9 +554,12 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
     if (errP) console.error("[whatsapp-entrant] assistant : demande de devis non enregistrée", errP);
   }
 
-  // La fiche légère suit (dernier message), SANS propriétaire : l'assistant
-  // ne s'approprie rien.
-  const fiche = construireEntete({ cle, tel: String(from), nom: client?.nom || "", proprietaire_id: "", proprietaire_nom: "", derniere: ts, entete });
+  // La fiche légère suit (dernier message). L'assistant ne s'approprie rien —
+  // ⚠ et ne retire rien non plus (21/10/2026) : une conversation CONFIÉE puis
+  // rendue à l'assistant garde son propriétaire sur la fiche, sinon elle
+  // cesserait d'être grisée chez les autres.
+  const garde = proprietaireId && entete?.proprietaire_id === proprietaireId ? entete.proprietaire_nom || "" : "";
+  const fiche = construireEntete({ cle, tel: String(from), nom: client?.nom || "", proprietaire_id: proprietaireId || "", proprietaire_nom: garde, derniere: ts, entete });
   if (fiche) {
     const { error: errFiche } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: fiche.ts });
     if (errFiche) console.error("whatsapp-entrant : fiche de conversation non posée", errFiche);

@@ -24,7 +24,7 @@
 // le serveur (api/_relanceAssistant.js). Il ne connaît pas le réseau.
 // ⚠ Il est lu par le serveur tel quel : ses imports portent `.js`.
 // ============================================================
-import { estLigneAssistant, ETAPE_CONSEILLER, SIGNATURE_BMI, ligneAssistant } from "./assistantWhatsapp.js";
+import { estLigneAssistant, ETAPE_CONSEILLER, SIGNATURE_BMI, ligneAssistant, renduActif } from "./assistantWhatsapp.js";
 import { estMessageWa } from "./whatsappConversations.js";
 import { messagesPourIA, ETAPE_IA, garderReponse } from "./assistantIA.js";
 
@@ -47,8 +47,11 @@ export const marqueRelance = (entrant) => String(entrant?.ts || "").replace(/\D/
 // `fil` : la conversation, du plus ancien au plus récent. Rend
 //   { relancer: true, depuis, marque, derniere } ou { relancer: false, pourquoi }.
 export function relanceAFaire({ fil, maintenant, proprietaireId = "" } = {}) {
-  if (proprietaireId) return { relancer: false, pourquoi: "conversation confiée à une personne" };
   const liste = (Array.isArray(fil) ? fil : []).filter((m) => m && m.canal !== "whatsapp_entete");
+  // 🤖 Rendue à l'assistant (21/10/2026) : les personnes qui avaient écrit
+  // AVANT la marque ne le font plus taire, et une conversation confiée parle.
+  const rendu = renduActif(liste);
+  if (proprietaireId && !rendu) return { relancer: false, pourquoi: "conversation confiée à une personne" };
   let i = liste.length - 1;
   while (i >= 0 && !liste[i].wa_entrant) i--;
   if (i < 0) return { relancer: false, pourquoi: "le client n'a jamais écrit" };
@@ -61,7 +64,7 @@ export function relanceAFaire({ fil, maintenant, proprietaireId = "" } = {}) {
   // Un EMPLOYÉ (réponse libre, modèle parti de l'application) a écrit dans
   // les dernières 24 h : la conversation est entre humains.
   const employeRecent = liste.some((m) => !m.wa_entrant && !estSysteme(m) && !estLigneAssistant(m) && t - tsDe(m) < HEURES_FENETRE_RELANCE * MS_H);
-  if (employeRecent) return { relancer: false, pourquoi: "un employé a écrit dans les dernières 24 h" };
+  if (employeRecent && !rendu) return { relancer: false, pourquoi: "un employé a écrit dans les dernières 24 h" };
   const apres = liste.slice(i + 1).filter((m) => !estSysteme(m));
   if (!apres.length) return { relancer: false, pourquoi: "l'assistant n'a pas répondu au dernier message" };
   if (apres.some((m) => !estLigneAssistant(m))) return { relancer: false, pourquoi: "un employé a écrit après le client" };

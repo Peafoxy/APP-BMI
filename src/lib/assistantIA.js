@@ -183,7 +183,13 @@ ${TEXTE_QUE_FAISONS_NOUS}
 // toute première fois que ce numéro écrit à BMI TOGO (18/10/2026, « B a »).
 // Une conversation qui REPREND après 24 h (`nouvelle` sans `presentation`) :
 // l'IA salue elle-même, brièvement, comme une personne.
-export const consignePour = ({ client = null, nouvelle = false, presentation = nouvelle, metiers = [], memo = "" } = {}) => {
+// 🤖 `rendu` (21/10/2026) : un membre de l'équipe vient de RENDRE la
+// conversation à l'assistant. Il reprend sans redire bonjour ; s'il ne s'est
+// jamais présenté à ce client (`dejaVu` faux), il dit en une phrase qu'il est
+// l'assistant virtuel — on ne laisse jamais croire à une personne.
+export const CONSIGNE_RENDU = "LA REPRISE : un membre de l'équipe BMI TOGO vient de te rendre cette conversation. Le client a peut-être parlé avec une personne juste avant : tiens compte de ce qu'elle a écrit, ne la contredis pas, ne répète pas ce qu'elle a déjà dit. Ne redis pas bonjour et ne repose pas « Comment puis-je vous aider ? ».";
+export const CONSIGNE_RENDU_PRESENTATION = "Ce client ne t'a encore jamais lu : commence par UNE courte phrase qui dit que tu es l'assistant virtuel de BMI TOGO (un programme, pas une personne) et qu'il peut écrire « conseiller » pour retrouver un membre de l'équipe, puis réponds à son dernier message.";
+export const consignePour = ({ client = null, nouvelle = false, presentation = nouvelle, metiers = [], memo = "", rendu = false, dejaVu = true } = {}) => {
   const qui = client?.nom
     ? `LE CLIENT : il s'appelle ${client.nom} et a un compte chez BMI TOGO (tu peux l'appeler par son nom). Pour une demande de devis, son nom est connu : ne le redemande pas.`
     : `LE CLIENT : ce numéro n'a pas de compte chez BMI TOGO, son nom est inconnu. Pour une demande de devis, demande-lui son nom avant d'enregistrer.`;
@@ -191,7 +197,9 @@ export const consignePour = ({ client = null, nouvelle = false, presentation = n
   // salue lui-même la première fois (PHRASE_PRESENTATION), qui se termine
   // déjà par « Comment puis-je vous aider aujourd'hui ? » (18/10/2026 : la
   // question partait deux fois).
-  const salut = nouvelle && presentation
+  const salut = rendu
+    ? `${CONSIGNE_RENDU}${dejaVu ? "" : ` ${CONSIGNE_RENDU_PRESENTATION}`}`
+    : nouvelle && presentation
     ? "LA SALUTATION : ce client écrit à BMI TOGO pour la première fois, et le serveur a DÉJÀ dit bonjour, présenté l'assistant et demandé « Comment puis-je vous aider aujourd'hui ? » juste avant ta réponse. Ne dis PAS bonjour ni bonsoir, ne repose pas cette question, ne te présente pas : réponds directement à ce qu'il a écrit. S'il a seulement salué ou demandé comment tu vas, réponds-lui en une courte phrase chaleureuse (« Très bien, merci ! »)."
     : nouvelle
       ? `LA SALUTATION : ce client a déjà échangé avec BMI TOGO, et la conversation reprend après une pause. Salue-le une seule fois, brièvement et naturellement, comme une personne qui le retrouve (« Bonjour${client?.nom ? ` ${client.nom}` : ""}, ravi de vous relire ! »), sans te présenter ni rappeler le mot « conseiller », puis réponds à ce qu'il a écrit.`

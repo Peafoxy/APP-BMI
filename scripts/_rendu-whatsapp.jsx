@@ -11,7 +11,7 @@ import { messagesAvecLigneAcces, messagesAvecLigneEnvoi } from "../src/whatsapp.
 import { conversationsWa } from "../src/lib/whatsappConversations.js";
 import { texteAccesAffiche } from "../src/lib/whatsappModeles.js";
 import { motDePasseConnu } from "../src/lib/comptesClients.js";
-import { ligneAssistant, ETAPE_MENU, ETAPE_CONSEILLER } from "../src/lib/assistantWhatsapp.js";
+import { ligneAssistant, ETAPE_MENU, ETAPE_CONSEILLER, ligneRenduAssistant } from "../src/lib/assistantWhatsapp.js";
 
 const boutiques = [{ id: "b1", nom: "APESSITO" }];
 const users = [
@@ -143,6 +143,25 @@ export const renduAttenteRepondue = () => {
     const rep = { id: "wa-rep", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO", wa_entrant: false, de_id: "TIMO", de_nom: "TIMO", texte: "Bonjour, je suis là.", ts: new Date(Date.now() - 60000).toISOString(), lu_par: [] };
     return rendre({ ...garnie, messages: [...garnie.messages, ligneRelais(), rep] }, users[0], "90112233");
   } catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+
+// ---- 🤖 « RENDRE À L'ASSISTANT » (21/10/2026) ----
+// TIMO a répondu il y a une minute : le bouton se montre. Une fois la
+// conversation rendue (la ligne système), il disparaît et la ligne se lit.
+const reponseTimo = () => ({ id: "wa-rep2", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO", wa_entrant: false, de_id: "TIMO", de_nom: "TIMO", texte: "Je regarde votre demande.", ts: new Date(Date.now() - 60000).toISOString(), lu_par: [] });
+export const renduAvantRendu = (profile = users[0]) => {
+  try { return rendre({ ...garnie, messages: [...garnie.messages, reponseTimo()] }, profile, "90112233"); }
+  catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+export const renduApresRendu = () => {
+  try {
+    const marque = ligneRenduAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", par: "TIMO", par_id: "TIMO", ts: new Date(Date.now() - 30000).toISOString() });
+    return rendre({ ...garnie, messages: [...garnie.messages, reponseTimo(), marque] }, users[0], "90112233");
+  } catch (e) { return `ERREUR ${e?.message || e}`; }
+};
+export const renduAvantRenduCoupe = () => {
+  try { return rendre({ ...garnie, boutiques: [{ ...boutiques[0], assistant_wa: false }], messages: [...garnie.messages, reponseTimo()] }, users[0], "90112233"); }
+  catch (e) { return `ERREUR ${e?.message || e}`; }
 };
 
 // ---- ✓✓ LES COCHES (26/09/2026) : la VRAIE chaîne ----

@@ -205,6 +205,8 @@ export const whatsappEnLigne = ({ tel, modele, variables, texte, fichier }) => a
 // api/whatsapp.js — l'offre Vercel ne permet que douze fonctions) ; ici on
 // envoie le nom, le numéro et la conversation, rien de secret.
 export const contactGoogleEnLigne = ({ cle, nom, tel }) => appelAvecJeton(URL_WHATSAPP, { action: "contact_google", cle, nom, tel });
+// 🤖 Rendre une conversation à l'assistant (21/10/2026), par la même fonction.
+export const rendreAssistantEnLigne = ({ cle }) => appelAvecJeton(URL_WHATSAPP, { action: "rendre_assistant", cle });
 
 // ---- 📷 LE FICHIER QU'UN CLIENT A ENVOYÉ (20/09/2026) ----
 // ⚠ Ce n'est PAS du JSON qui revient, c'est le fichier lui-même : cette

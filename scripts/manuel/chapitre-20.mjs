@@ -11,7 +11,8 @@
 // screens/Whatsapp.jsx (📲 WhatsApp : ✍️ Écrire, Rechercher une
 // conversation…, Conversations, Conversations anciennes, 🔁 Confier,
 // ✏️ Nommer, 🔓 Rendre à tous, la bande de la fenêtre de 24 h, ✍️ Lui écrire quand
-// même, 🤖 Assistant BMI TOGO, 👨‍💼 attend un conseiller, ✓ ✓✓ ❌),
+// même, 🤖 Assistant BMI TOGO, 🤖 Rendre à l'assistant, 👨‍💼 attend un conseiller, ✓ ✓✓ ❌),
+// lib/assistantWhatsapp.js (renduActif, assistantEnRetrait), api/_rendreAssistant.js,
 // lib/relanceAssistant.js (la relance du client qui s'est tu, 20 h après),
 // lib/whatsappConversations.js (aAccesWhatsapp, libelleFenetre,
 // motifVerrouillee, critiqueReponse, MOTIF_WA_FORMATION), lib/cibleNotification.js
@@ -147,7 +148,8 @@ export const CHAPITRE = {
         "**Où sont vos boutiques ?** L'assistant donne le **nom, l'adresse et le téléphone** de chaque boutique **tels qu'ils sont écrits sur sa fiche** (⚙ Paramètres → 📍 Infos reçu), et le **lien Google Maps de l'itinéraire** quand sa **position GPS** est posée. Jamais une boutique de formation, un magasin ni la caisse 🏗 DÉPÔT CHANTIER ; **jamais d'horaires d'ouverture** (la fiche n'en porte pas). Une boutique sans adresse : il le dit et propose un conseiller — **une adresse fausse sur la fiche part telle quelle chez le client**, gardez-les à jour. (En mode 🔢 menu à chiffres, il ne les donne pas.)",
         "**Combien de panneaux pour une pompe solaire** : l'application calcule la puissance de la pompe × 1,3, divisée par le panneau le plus puissant du stock, arrondi au panneau supérieur, avec le prix de ces panneaux dans chaque boutique. C'est une estimation : le câblage peut demander un ajustement.",
         "**Il reste dans la conversation** : il ne propose un conseiller que si le client le demande ou si le sujet l'exige (panne, argent, compte), et une demande de devis une fois, au bon moment. Une réponse refusée par le contrôle est réécrite une fois ; au milieu d'une conversation, le menu à chiffres ne coupe plus la parole.",
-        "**Le client peut toujours faire revenir l'assistant** : il écrit « **assistant** » — après un relais vers un conseiller, **et aussi après qu'un employé lui a répondu** — et l'assistant reprend la conversation là où elle en était, sans attendre 24 h. Tout autre message reste pour vous. Le message de relais le lui dit. ⚠ Une conversation **confiée** à quelqu'un reste muette, même sur « assistant ».",
+        "**Le client peut toujours faire revenir l'assistant** : il écrit « **assistant** » — après un relais vers un conseiller, **et aussi après qu'un employé lui a répondu** — et l'assistant reprend la conversation là où elle en était, sans attendre 24 h. Tout autre message reste pour vous. Le message de relais le lui dit. ⚠ Une conversation **confiée** à quelqu'un reste muette, même sur « assistant » — sauf si elle a été **rendue à l'assistant** (bouton ci-dessous).",
+        "**🤖 Rendre à l'assistant** : quand l'assistant s'est tu parce qu'une personne a pris la main (vous avez répondu, le client a demandé un conseiller, ou la conversation est confiée), le bouton **« 🤖 Rendre à l'assistant »** apparaît en haut du fil. Une question, puis : si le **dernier message est celui du client**, resté sans réponse, l'assistant **y répond tout de suite** ; sinon il répondra à son **prochain** message. Ensuite il **continue la conversation seul**. Le fil porte la ligne « 🤖 Conversation rendue à l'assistant par … ». **Pour reprendre la main, écrivez simplement au client** : l'assistant se tait de nouveau (comme quand le client demande un conseiller, ou quand l'administrateur confie la conversation). S'il ne s'était encore jamais présenté à ce client, il dit en une phrase qu'il est l'assistant virtuel. Le bouton se voit par tout le personnel qui a 📲 WhatsApp ; sur une conversation **confiée**, seulement par celle ou celui à qui elle est confiée, et l'administrateur — elle **reste confiée** (grisée chez les autres), l'assistant y parle. Pas de bouton quand l'assistant est coupé dans ⚙ Paramètres. ⚠ La fenêtre de 24 h reste la règle : si le client n'a pas écrit depuis plus de 24 h, l'assistant ne peut rien envoyer avant son prochain message.",
         "Il cherche aussi par la **tension** : « batterie 48 V » trouve une lithium 51,2 V (c'est la même famille), et ce que la fiche dit en Tension.",
         "**Il relance une fois le client qui s'est tu** : environ **20 heures** après le dernier message du client, si c'est l'assistant (IA) qui a parlé en dernier, il lui écrit un mot court — il rappelle sa demande et lui demande où il en est. Sa ligne porte « 🤖 Assistant BMI TOGO (IA) · **relance** ». **Une seule fois** par demande : il ne revient pas tant que le client n'a pas réécrit. Il **ne relance jamais** une conversation confiée, une conversation où un employé a écrit dans les dernières 24 h, un client qui attend un conseiller, ni une **demande de devis déjà enregistrée** (un commercial s'en occupe). Pas de relance non plus quand l'assistant est réglé en menu à chiffres. La relance part pendant les 24 h où WhatsApp permet d'écrire librement : c'est une réponse ordinaire, pas un modèle.",
       ]],
@@ -164,6 +166,7 @@ export const CHAPITRE = {
         ["✍️ Écrire / Envoyer du numéro BMI", "📲 WhatsApp", "Premier message du numéro BMI, par un modèle approuvé."],
         ["✍️ Lui écrire quand même", "📲, fenêtre fermée", "Ouvre « ✍️ Écrire » prérempli avec son nom et son numéro."],
         ["🔁 Confier / 🔓 Rendre à tous", "📲, Infos du contact (admin)", "Donne la conversation à quelqu'un / la rend au support."],
+        ["🤖 Rendre à l'assistant", "📲, en haut du fil (quand l'assistant s'est tu à cause d'une personne)", "L'assistant répond tout de suite au dernier message du client resté sans réponse, puis continue seul jusqu'à ce qu'une personne de BMI réécrive."],
         ["Appui long sur une conversation", "📲 WhatsApp, la liste (administrateur principal)", "La met à la corbeille 30 jours, pour tout le monde."],
         ["✏️ Nommer", "📲, Infos du contact (admin)", "Donne un nom à la conversation, pour tout le personnel ; vide = le retire."],
         ["Clic sur le nom en haut du fil", "📲 WhatsApp", "Ouvre Infos du contact ; ← revient au fil."],
@@ -232,6 +235,7 @@ export const CHAPITRE = {
         { situation: "Un prospect vu au salon n'a jamais écrit à BMI.", reponse: "« ✍️ Écrire », son nom, son numéro, « votre installation solaire » : le modèle part, la conversation vous est confiée, la bande dit qu'il n'a pas encore écrit." },
         { situation: "Une conversation est grisée « confiée à KOSSI », KOSSI est en congé.", reponse: "On demande à l'administrateur : 🔓 Rendre à tous, ou 🔁 Confier à un autre." },
         { situation: "La ligne d'un client porte « 👨‍💼 Attend un conseiller depuis 25 min ».", reponse: "On ouvre et on répond : la bande disparaît, l'assistant reste muet 24 h." },
+        { situation: "Vous avez répondu à un client, puis il pose une question simple sur un prix ; vous voulez laisser l'assistant continuer.", reponse: "« 🤖 Rendre à l'assistant » en haut du fil : il répond tout de suite à sa question, puis continue. Pour reprendre, vous lui écrivez." },
       ]],
     ]},
 

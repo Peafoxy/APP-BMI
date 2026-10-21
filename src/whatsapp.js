@@ -385,6 +385,22 @@ export async function enregistrerContactGoogle({ cle, nom, tel }) {
   return { motif: (r && r.code && MOTIFS_CONTACT_GOOGLE[r.code]) || r?.error || MOTIFS_CONTACT_GOOGLE.google };
 }
 
+// ---- 🤖 RENDRE LA CONVERSATION À L'ASSISTANT (21/10/2026) ----
+// UN chemin, comme le reste. Rend { ok, deja, repondu, pourquoi } ou
+// { motif } — le motif est déjà en français.
+export async function rendreALAssistant({ cle }) {
+  if (!enLigne()) return { motif: "Pas de connexion : la conversation ne peut pas être rendue à l'assistant maintenant." };
+  let r;
+  try {
+    const { rendreAssistantEnLigne } = await import("./supabaseClient");
+    r = await rendreAssistantEnLigne({ cle });
+  } catch (e) {
+    return { motif: motifReseau(e) };
+  }
+  if (r && r.ok) return { ok: true, deja: !!r.deja, repondu: !!r.repondu, pourquoi: r.pourquoi || "" };
+  return { motif: r?.error || "La conversation n'a pas pu être rendue à l'assistant." };
+}
+
 export async function chargerMediaWa(messageId) {
   if (!enLigne()) return { url: "", motif: "Pas de connexion : le fichier ne peut pas être ouvert." };
   let reponse;

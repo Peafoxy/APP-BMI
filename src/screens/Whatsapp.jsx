@@ -24,7 +24,7 @@ import { useCible } from "../components/cibleEcran";
 import React, { useState, useEffect, useRef } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { dFR, today, nouveauMessage } from "../lib/core";
-import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong, LIBELLE_ENVOI_EN_COURS } from "../components/ui";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong, LIBELLE_ENVOI_EN_COURS, BoutonEnvoi } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
@@ -32,13 +32,13 @@ import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte, estAdminPrin
 import { lignesDeLaConversation, mettreConversationALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
-import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente } from "../lib/assistantWhatsapp";
+import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente, assistantActif, assistantEnRetrait } from "../lib/assistantWhatsapp";
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION, critiqueNomContact, nettoyerNomContact, critiqueFichier, mediaEnvoye, tailleLisible } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche, peutLireLignePrivee } from "../lib/whatsappModeles";
 import { texteLignePrivee } from "../lib/lignesPrivees";
 import { motDePasseConnu, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { peutEnregistrerContact, critiqueContactGoogle, nettoyerNomGoogle, traceContactGoogle, COMPTE_CONTACTS_BMI } from "../lib/contactGoogle";
-import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle } from "../whatsapp";
+import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle, rendreALAssistant } from "../whatsapp";
 import { LecteurVocal, BoutonMicro, garderVocal, useCopieVocale } from "../components/NoteVocale";
 import { dureeVocale } from "../lib/oggOpus";
 import { champsEnvoi } from "../lib/suiviEnvoi";
@@ -532,6 +532,34 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
   // effacer chez WhatsApp, et la confirmation le DIT.
   // ⚠ La trace nomme la conversation et le nombre de messages, jamais leur
   // contenu.
+  // ---- 🤖 RENDRE LA CONVERSATION À L'ASSISTANT (21/10/2026, « 1 oui ») ----
+  // Timo : « Nous même ne pouvons pas donner instruction à l'assistant de
+  // répondre à un message ? » → « il ne peut pas continuer toute la
+  // conversation ? ». Le bouton n'apparaît que si l'assistant s'est tu à cause
+  // d'une personne (`assistantEnRetrait`). Le serveur pose la marque, répond
+  // TOUT DE SUITE au dernier message du client resté sans réponse, puis
+  // l'assistant continue seul jusqu'à ce qu'une personne de BMI réécrive.
+  // ⚠ Tout est revérifié par le serveur (droits, formation, réglage coupé).
+  const assistantPeutReprendre = !!ouverte && !ouverte.verrouillee && assistantActif(db.boutiques || [])
+    && assistantEnRetrait({ fil, proprietaireId: ouverte.proprietaire_id || "", maintenant: maintenantISO() });
+  const rendreAssistant = async () => {
+    if (!ouverte) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (!assistantActif(db.boutiques || [])) { uAlert("L'assistant est coupé dans ⚙ Paramètres → 🤖 Assistant : il ne peut pas reprendre la conversation."); return; }
+    const qui = ouverte.nomAffiche || ouverte.tel;
+    if (!(await uConfirm(
+      `🤖 Rendre la conversation de ${qui} à l'assistant ?\n\n`
+      + "Il répond tout de suite au dernier message du client s'il est resté sans réponse, puis il continue la conversation seul.\n\n"
+      + "Pour reprendre la main, écrivez simplement au client."
+    ))) return;
+    const r = await rendreALAssistant({ cle: ouverte.cle });
+    if (!r.ok) { uAlert(`❌ La conversation n'a pas été rendue à l'assistant.\n\n${r.motif}`); return; }
+    if (r.deja) { uAlert("L'assistant a déjà la main dans cette conversation."); return; }
+    uAlert(r.repondu
+      ? "✅ Conversation rendue à l'assistant. Il vient de répondre au client : sa réponse apparaît ici dans quelques secondes.\n\nPour reprendre la main, écrivez au client."
+      : `✅ Conversation rendue à l'assistant. Il répondra au prochain message du client${r.pourquoi === "la fenêtre de 24 h est fermée" ? " (la fenêtre de 24 h est fermée : il ne peut rien envoyer avant)" : ""}.\n\nPour reprendre la main, écrivez au client.`);
+  };
+
   const jeSuisPrincipal = estAdminPrincipal(db, profile);
   const supprimerConversation = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
@@ -697,6 +725,13 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
                   </span>
                 </span>
               </button>
+              {assistantPeutReprendre && (
+                <BoutonEnvoi data-rendre-assistant onClick={() => rendreAssistant()} libelleEnvoi="⏳ L'assistant reprend…"
+                  title="L'assistant répond au dernier message du client, puis continue seul jusqu'à ce qu'une personne de BMI réécrive"
+                  className="text-xs font-bold text-white bg-[#008069] hover:bg-[#006e5a] rounded-full px-3 py-1.5 whitespace-nowrap">
+                  🤖 Rendre à l'assistant
+                </BoutonEnvoi>
+              )}
             </div>
             {profilOuvert && (
               <ProfilWa c={ouverte} fil={fil} comptes={comptesAvecCeNumero(db, profile, ouverte.tel)} profile={profile}

@@ -35,6 +35,7 @@ import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre
 // du webhook envoie par la même — la clé et la lecture du refus y vivent.
 import { configYCloud, envoyerYCloud, corpsTexte, televerserYCloud, corpsMedia, composantDocument } from "./_ycloud.js";
 import { enregistrerContactGoogle } from "./_contactGoogle.js";
+import { rendreAssistant } from "./_rendreAssistant.js";
 
 // Les rôles qui n'écrivent jamais au nom de BMI : un client (il a son fil
 // dans 💬 Messages) et un compte bloqué.
@@ -47,6 +48,8 @@ export default async function handler(req, res) {
   // 📇 Enregistrer un client dans les contacts Google de BMI (09/10/2026) :
   // il passe par CETTE fonction — l'offre Vercel n'en permet que douze.
   if (req.body?.action === "contact_google") return enregistrerContactGoogle(req, res);
+  // 🤖 Rendre une conversation à l'assistant (21/10/2026), par la même fonction.
+  if (req.body?.action === "rendre_assistant") return rendreAssistant(req, res);
 
   const { jeton, tel, modele, variables, texte, fichier } = req.body || {};
   if (!jeton) return res.status(401).json({ error: "Reconnectez-vous." });

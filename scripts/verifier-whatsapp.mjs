@@ -1782,10 +1782,12 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
     // (chargerProduits), pour la recherche d'articles et pour l'estimation.
     && /const chargerArticles = async \(\) => \{\s*if \(articlesCharges\) return articlesCharges;[\s\S]{0,200}chargerProduits\(\)/.test(corpsR)
     && /const chargerProduits = async \(\) => \{\s*if \(!produitsBruts\) \{\s*const \{ data: prods \} = await admin\.from\("produits"\)/.test(corpsR));
-  test("★ sa ligne et la demande de devis partent avec `updated_at`, la fiche légère suit SANS propriétaire",
+  // ⚠ RETOURNÉ le 21/10/2026 (« Rendre à l'assistant ») : la fiche suit SANS propriétaire nouveau — elle garde
+  // celui d'une conversation confiée puis rendue à l'assistant (sinon elle cesserait d'être grisée).
+  test("★ sa ligne et la demande de devis partent avec `updated_at`, la fiche légère suit sans s'approprier la conversation (elle garde le propriétaire d'une conversation confiée)",
     /insert\(\{ id: ligneR\.id, data: ligneR, updated_at: ligneR\.ts \}\)/.test(corpsR)
     && /from\("prospects"\)\.insert\(\{ id: p\.id, data: p, updated_at: ts \}\)/.test(corpsR)
-    && /construireEntete\(\{ cle, tel: String\(from\), nom: client\?\.nom \|\| "", proprietaire_id: "", proprietaire_nom: ""/.test(corpsR));
+    && /construireEntete\(\{ cle, tel: String\(from\), nom: client\?\.nom \|\| "", proprietaire_id: proprietaireId \|\| "", proprietaire_nom: garde,/.test(corpsR));
   test("★ une personne n'est prévenue que si l'assistant s'est tu ou a passé la main",
     /const aPrevenir = \(!assistant\.repondu && !assistant\.groupe\) \|\| assistant\.conseiller;/.test(entrantA) && /aPrevenir && destinataires\.length/.test(entrantA));
   test("★ un assistant qui trébuche ne perd jamais le message (try/catch autour, le message déjà écrit)",
@@ -2087,9 +2089,10 @@ titre("㉒ 🗣 L'ASSISTANT QUI DISCUTE — l'IA bridée par les outils et par l
     // ⚠ RETOURNÉ le 18/10/2026 : DEUX décisions — une première pour ne pas attendre quand l'assistant doit se taire, puis celle qui compte, sur la conversation RELUE après l'attente ; les deux AVANT l'IA.
     && (corpsR.match(/decisionAssistant\(/g) || []).length === 2 && corpsR.lastIndexOf("decisionAssistant(") < corpsR.indexOf("modeAssistant(boutiques)"));
   // ⚠ RETOURNÉ le 25/09/2026 : la consigne sait si la conversation commence, et la réponse reçoit le nom du client (un seul bonjour).
+  // ⚠ RETOURNÉ le 21/10/2026 : la consigne reçoit aussi `rendu` / `dejaVu` (une conversation rendue à l'assistant).
   test("★★ l'IA reçoit la consigne, la mémoire du fil, et exécute les outils par `executerOutil` avec les articles RÉELS chargés à la demande ; sa réponse passe par le juge puis `reponseDepuisIA`",
     // ⚠ RETOURNÉ le 01/10/2026 : converserAvecJuge (une réponse jetée se réécrit une fois), le juge vient de lui.
-    /converserAvecJuge\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
+    /converserAvecJuge\(\{\s*consigne: consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\), rendu: !!decision\.rendu, dejaVu: [^}]* \}\),\s*messages: messagesPourIA\(fil\),\s*appeler: \(corps\) => appelerIA\(corps, ia\),/.test(corpsR)
     && /executerOutil\(nom, entree, \{[^}]*?articles: \["chercher_article", "calculer_total", "choisir_pompe", "panneaux_pour_pompe"\]\.includes\(nom\) \? await chargerArticles\(\) : \[\],/.test(corpsR)
     && /const juge = conv\.juge;[\s\S]{0,200}r = reponseDepuisIA\(\{ texte: conv\.texte, effets: conv\.effets, juge, nouvelle, presentation, nom: clientIA\?\.nom \|\| "" \}\);/.test(corpsR)
     && /articlesPourAssistant\(\{[\s\S]{0,300}boutiques,/.test(corpsR));
@@ -2295,7 +2298,7 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
     && I.reponseDepuisIA({ texte: "Bonjour 👋 Je ne peux pas lire les vidéos.", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === `${I.PHRASE_PRESENTATION}\n\nJe ne peux pas lire les vidéos.`
     && I.reponseDepuisIA({ texte: "Bonjour !", effets: { prix: [] }, juge: { ok: true }, nouvelle: true }).texte === I.PHRASE_PRESENTATION
     && I.reponseDepuisIA({ texte: "Bonjour Kossi", effets: { prix: [] }, juge: { ok: true }, nouvelle: false }).texte === "Bonjour Kossi"
-    && /consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(entrantS) && /nouvelle, presentation, nom: clientIA\?\.nom/.test(entrantS));
+    && /consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\), rendu: !!decision\.rendu, dejaVu: [^}]* \}\)/.test(entrantS) && /nouvelle, presentation, nom: clientIA\?\.nom/.test(entrantS));
   test("★ LA QUANTITÉ SE DEMANDE : pour le solaire, la consigne exige le NOMBRE de chaque appareil avant d'estimer, et interdit de supposer qu'il y en a un seul",
     /COMBIEN il y en a \(le nombre\)/.test(I.CONSIGNE_IA) && /Ne suppose jamais qu'il y en a un seul/.test(I.CONSIGNE_IA));
   // 24/09/2026 au soir, Timo : « retire les guillemets ».
@@ -2474,7 +2477,7 @@ titre("㊳ L'ASSISTANT NE DIT JAMAIS CE QUE BMI NE FAIT PAS (30/09/2026, capture
       const m = I.domainesPourIA(bq); const c = I.consignePour({ metiers: m });
       return m.map((d) => d.nom).join("|") === "Solaire|Forage" && /RÉGLÉS DANS L'APPLICATION, avec leurs familles d'articles : Solaire ; Forage/.test(c) && !/Entraînement/.test(c); })());
   test("★ le serveur les passe à la consigne",
-    /consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\) \}\)/.test(lire("api/whatsapp-entrant.js")));
+    /consignePour\(\{ client: clientIA, nouvelle, presentation, metiers: domainesPourIA\(boutiques\), memo: memoAssistant\(boutiques\), rendu: !!decision\.rendu, dejaVu: [^}]* \}\)/.test(lire("api/whatsapp-entrant.js")));
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -5965,6 +5968,9 @@ titre("67 📎 LE REÇU ET LA PROFORMA REPARTENT EN TEXTE QUAND META REJETTE LE 
     test("★★ toucher les barres aux trois quarts y amène le son (et la pause reste une pause)", saut.etat === "lire" && Math.abs(saut.t / (Number.isFinite(saut.d) ? saut.d : 1.5) - 0.75) < 0.08, JSON.stringify(saut));
     // Le micro : le faux micro de Chromium (un bip).
     await page.evaluate(() => window.Vocal.monterMicro());
+    // React dessine au tour suivant : on ATTEND le bouton (sans quoi le
+    // contrôle dépendait de la vitesse de la machine — tombé le 21/10/2026).
+    await page.waitForSelector("[data-micro]", { timeout: 4000 }).catch(() => {});
     const micro = await page.$("[data-micro]");
     const mb = await micro.boundingBox();
     const cx = mb.x + mb.width / 2, cy = mb.y + mb.height / 2;
@@ -6199,6 +6205,171 @@ titre("70 🎤 UNE NOTE VOCALE ENVOYÉE SE RÉÉCOUTE APRÈS UN F5, PAR LA COPIE
     await nav.close();
     rmSync(dossier, { recursive: true, force: true });
   }
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("71 🤖 « RENDRE À L'ASSISTANT » : IL RÉPOND TOUT DE SUITE, PUIS CONTINUE JUSQU'À CE QU'UNE PERSONNE RÉÉCRIVE (21/10/2026, « 1 oui, et non pour le c, lance »)");
+{
+  const AW = await import("../src/lib/assistantWhatsapp.js");
+  const I = await import("../src/lib/assistantIA.js");
+  const RA = await import("../src/lib/relanceAssistant.js");
+  const CLE = "90881122";
+  const T = Date.parse("2026-10-21T08:00:00.000Z");
+  const at = (min) => new Date(T + min * 60000).toISOString();
+  const ent = (id, min, texte) => ({ id, canal: "whatsapp", wa_tel: CLE, wa_numero: `228${CLE}`, wa_entrant: true, ts: at(min), texte });
+  const pers = (id, min, texte, nom = "TIMO") => ({ id, canal: "whatsapp", wa_tel: CLE, wa_entrant: false, de_id: nom, de_nom: nom, ts: at(min), texte });
+  const marque = (min, par = "KOSSI") => AW.ligneRenduAssistant({ cle: CLE, tel: `228${CLE}`, nom: "", par, par_id: par, ts: at(min) });
+  const assist = (id, min, etape = I.ETAPE_IA) => ({ ...AW.ligneAssistant({ cle: CLE, tel: `228${CLE}`, texte: "réponse", etape, ts: at(min), ia: true }), id });
+  const confier = (min, a = "COM1") => ({ id: `c${min}`, canal: "whatsapp", wa_tel: CLE, wa_entrant: false, wa_systeme: true, de_id: "TIMO", ts: at(min), texte: "🔁 confiée", proprietaire_id: a, proprietaire_nom: a });
+  const d = (fil, proprietaireId = "", min = null) => AW.decisionAssistant({ fil, proprietaireId, maintenant: min === null ? fil[fil.length - 1].ts : at(min) });
+
+  const base = [ent("e1", 0, "bonjour"), pers("p1", 5, "Je regarde votre demande.")];
+  test("★★★ sans la marque, l'assistant se tait (un employé a répondu) ; avec la marque, il reprend : étape menu, pas de présentation du premier jour, `rendu`",
+    d([...base, ent("e2", 10, "et le prix ?")]).repondre === false
+    && (() => { const x = d([...base, marque(8), ent("e2", 10, "et le prix ?")]); return x.repondre === true && x.rendu === true && x.etape === AW.ETAPE_MENU && I.conversationNouvelle(x) === false; })());
+  test("★★★ la marque ne vaut plus dès qu'une PERSONNE réécrit après elle ; l'assistant qui passe la main à un conseiller se tait aussi",
+    d([...base, marque(8), pers("p2", 9, "Je reprends."), ent("e2", 10, "ok")]).repondre === false
+    && d([...base, marque(8), ent("e2", 9, "un conseiller"), assist("a1", 9.1, AW.ETAPE_CONSEILLER), ent("e3", 10, "merci")]).repondre === false
+    && AW.renduActif([...base, marque(8), pers("p2", 9, "x")]) === null);
+  test("★★★ une conversation CONFIÉE puis rendue parle ; confiée de nouveau APRÈS la marque, elle se tait",
+    d([...base, marque(8), ent("e2", 10, "ok")], "COM1").repondre === true
+    && d([...base, marque(8), confier(9), ent("e2", 10, "ok")], "COM1").repondre === false
+    && d([...base, confier(6), ent("e2", 10, "ok")], "COM1").repondre === false);
+  test("★★ la marque laisse passer les lignes du client et de l'assistant : la conversation continue ensuite normalement",
+    !!AW.renduActif([...base, marque(8), ent("e2", 9, "x"), assist("a1", 9.1), ent("e3", 10, "y")])
+    && d([...base, marque(8), ent("e2", 9, "x"), assist("a1", 9.1), ent("e3", 10, "y")], "COM1").repondre === true);
+  test("★★ une marque de plus de 24 h ne compte plus : c'est une nouvelle conversation (comme avant)",
+    d([...base, marque(8), ent("e2", 26 * 60, "re")]).etape === null);
+  test("★★★ le bouton n'a de sens que si l'assistant s'est tu à cause d'une PERSONNE (`assistantEnRetrait`)",
+    AW.assistantEnRetrait({ fil: base, maintenant: at(10) }) === true
+    && AW.assistantEnRetrait({ fil: [...base, marque(8)], maintenant: at(10) }) === false
+    && AW.assistantEnRetrait({ fil: [ent("e1", 0, "bonjour"), assist("a1", 0.1)], maintenant: at(10) }) === false
+    && AW.assistantEnRetrait({ fil: [ent("e1", 0, "x"), assist("a1", 0.1, AW.ETAPE_CONSEILLER)], maintenant: at(10) }) === true
+    && AW.assistantEnRetrait({ fil: [ent("e1", 0, "x"), assist("a1", 0.1)], proprietaireId: "COM1", maintenant: at(10) }) === true
+    && AW.assistantEnRetrait({ fil: base, maintenant: at(30 * 60) }) === false);
+  test("★★ le bandeau « attend un conseiller » s'efface quand la conversation est rendue à l'assistant",
+    !!AW.attenteConseiller([ent("e1", 0, "x"), assist("a1", 0.1, AW.ETAPE_CONSEILLER)])
+    && AW.attenteConseiller([ent("e1", 0, "x"), assist("a1", 0.1, AW.ETAPE_CONSEILLER), marque(3)]) === null);
+  test("★★ la ligne de la marque est une ligne SYSTÈME sans propriétaire : elle n'ouvre pas la fenêtre et ne confie rien",
+    (() => { const m = marque(8, "TIMO"); return m.wa_systeme === true && m.wa_entrant === false && !m.proprietaire_id && m.wa_rendu_assistant?.par === "TIMO" && /rendue à l'assistant par TIMO/.test(m.texte); })());
+  // La relance de la 20e heure : un employé qui avait écrit AVANT la marque ne l'empêche plus.
+  const filRel = [ent("e1", 0, "bonjour"), pers("p1", 1, "un instant"), ent("e2", 2, "alors ?"), marque(3), assist("a1", 3.2)];
+  test("★★ la relance de la 20e heure suit la marque (un employé AVANT elle ne l'empêche plus ; une conversation confiée rendue aussi) — sans la marque, rien",
+    RA.relanceAFaire({ fil: filRel, maintenant: at(2 + 21 * 60) }).relancer === true
+    && RA.relanceAFaire({ fil: filRel, maintenant: at(2 + 21 * 60), proprietaireId: "COM1" }).relancer === true
+    && RA.relanceAFaire({ fil: filRel.filter((m) => !m.wa_rendu_assistant), maintenant: at(2 + 21 * 60) }).relancer === false);
+  const C1 = I.consignePour({ rendu: true, dejaVu: false }), C2 = I.consignePour({ rendu: true, dejaVu: true });
+  test("★★ la consigne de reprise : tenir compte de la personne, sans redire bonjour ; se présenter en UNE phrase seulement si le client ne l'a jamais lu",
+    C1.includes(I.CONSIGNE_RENDU) && C1.includes(I.CONSIGNE_RENDU_PRESENTATION) && C2.includes(I.CONSIGNE_RENDU) && !C2.includes(I.CONSIGNE_RENDU_PRESENTATION)
+    && /un programme, pas une personne/.test(I.CONSIGNE_RENDU_PRESENTATION) && !I.consignePour({}).includes(I.CONSIGNE_RENDU));
+
+  // ── Le serveur et l'écran, lus
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const RS = sansComm(lire("api/_rendreAssistant.js"));
+  test("★★★ le serveur revérifie TOUT dans le geste : WhatsApp, formation, réglage coupé, conversation ouvrable, corbeille — et pose la marque AVANT de répondre",
+    /!aAccesWhatsapp\(compte\)/.test(RS) && /espace === "formation" \|\| estCompteFormation/.test(RS) && /!assistantActif\(boutiques\)/.test(RS)
+    && /!peutVoirConversation\(compte, \{ proprietaire_id: proprietaire\.id \}\)/.test(RS) && /!estALaCorbeille\(m\)/.test(RS)
+    && RS.indexOf('from("messages").insert({ id: marque.id') > 0 && RS.indexOf('from("messages").insert({ id: marque.id') < RS.indexOf("await repondre({")
+    && /attente: 0/.test(RS) && /fenetre\(fil, maintenant\)\.ouverte/.test(RS) && /!dernier \|\| !dernier\.wa_entrant/.test(RS));
+  test("★★ il passe par api/whatsapp.js (`action: \"rendre_assistant\"`) — aucune 13e fonction serveur",
+    /req\.body\?\.action === "rendre_assistant"\) return rendreAssistant\(req, res\)/.test(lire("api/whatsapp.js")));
+  const EN2 = sansComm(lire("api/whatsapp-entrant.js"));
+  test("★★ l'assistant qui répond dans une conversation confiée GARDE son propriétaire sur la fiche légère (elle reste grisée chez les autres)",
+    /proprietaire_id: proprietaireId \|\| ""/.test(EN2) && /rendu: !!decision\.rendu/.test(EN2));
+  const WS = lire("src/screens/Whatsapp.jsx");
+  test("★★ l'écran passe par UN chemin (`rendreALAssistant`, src/whatsapp.js), une QUESTION d'abord, et le bouton est un BoutonEnvoi",
+    /await uConfirm\(\s*`🤖 Rendre la conversation de/.test(WS) && /await rendreALAssistant\(\{ cle: ouverte\.cle \}\)/.test(WS)
+    && /<BoutonEnvoi data-rendre-assistant onClick=\{\(\) => rendreAssistant\(\)\}/.test(WS) && /rendreAssistantEnLigne/.test(lire("src/whatsapp.js")));
+  const avant = monte(() => V.renduAvantRendu()), apres = monte(() => V.renduApresRendu()), coupe = monte(() => V.renduAvantRenduCoupe());
+  const vendeur = monte(() => V.renduAvantRendu(V.lecteurCreateur));
+  test("★★★ l'écran RENDU : TIMO vient de répondre → « 🤖 Rendre à l'assistant » ; rendue → le bouton disparaît et la ligne se lit ; assistant coupé → pas de bouton",
+    avant.includes("data-rendre-assistant") && avant.includes("Rendre à l&#x27;assistant")
+    && !apres.includes("data-rendre-assistant") && apres.includes("Conversation rendue à l&#x27;assistant par TIMO")
+    && !coupe.includes("data-rendre-assistant") && vendeur.includes("data-rendre-assistant"), [avant, apres, coupe].map((h) => h.slice(0, 80)).join(" | "));
+
+  // ── La VRAIE chaîne, sur une base jouée
+  const { rendreAssistant } = await import("../api/_rendreAssistant.js");
+  const fauxAdmin = (tables, email) => ({
+    auth: { getUser: async () => ({ data: { user: { email, app_metadata: {} } }, error: null }) },
+    from(t) {
+      const q = { op: "select", charge: null, filtres: [], de: 0, a: Infinity, lim: Infinity };
+      const valeur = (l, col) => (col.startsWith("data->>") ? String(l.data?.[col.slice(7)] ?? "") : String(l[col] ?? ""));
+      const exec = () => {
+        if (q.op === "insert") { (tables[t] ||= []).push(structuredClone(q.charge)); return { data: null, error: null }; }
+        if (q.op === "upsert") { const l = (tables[t] ||= []); const i = l.findIndex((x) => x.id === q.charge.id); if (i >= 0) l[i] = structuredClone(q.charge); else l.push(structuredClone(q.charge)); return { data: null, error: null }; }
+        const lignes = (tables[t] || []).filter((l) => q.filtres.every(([c, v]) => valeur(l, c) === String(v)));
+        return { data: structuredClone(lignes.slice(q.de, Math.min(q.a + 1, q.lim))), error: null };
+      };
+      const b = { select() { return b; }, eq(c, v) { q.filtres.push([c, v]); return b; }, order() { return b; }, limit(n) { q.lim = n; return b; }, range(de, a) { q.de = de; q.a = a; return b; }, insert(c) { q.op = "insert"; q.charge = c; return b; }, upsert(c) { q.op = "upsert"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
+      return b;
+    },
+  });
+  const fauxRes = () => { const r = { code: 0, corps: null, status(c) { r.code = c; return r; }, json(o) { r.corps = o; return r; } }; return r; };
+  const lt = (m) => ({ id: m.id, data: m, updated_at: m.ts });
+  const maint = Date.now();
+  const rel = (min) => new Date(maint + min * 60000).toISOString();
+  const eR = (id, min, texte) => ({ ...ent(id, 0, texte), ts: rel(min) });
+  const pR = (id, min, texte, nom = "TIMO") => ({ ...pers(id, 0, texte, nom), ts: rel(min) });
+  const comptes = [
+    { id: "TIMO", data: { nom: "TIMO", role: "admin", admin_principal: true } },
+    { id: "KOSSI", data: { nom: "KOSSI", role: "vendeur" } },
+    { id: "COM1", data: { nom: "COM1", role: "commercial" } },
+    { id: "FORMA", data: { nom: "FORMA", role: "vendeur", formation: true } },
+  ];
+  const bqs = [{ id: "b1", data: { nom: "BMI DEMAKPOE" } }];
+  const envAvant = { a: process.env.ANTHROPIC_API_KEY, b: process.env.ASSISTANT_IA_MODELE, c: process.env.YCLOUD_API_KEY, d: process.env.WHATSAPP_NUMERO_BMI };
+  const fetchAvant = globalThis.fetch;
+  let envois = [], corpsIA = [];
+  globalThis.fetch = async (url, opts) => {
+    const c = JSON.parse(opts?.body || "{}");
+    if (String(url).includes("anthropic")) { corpsIA.push(c); return new Response(JSON.stringify({ content: [{ type: "text", text: "Le panneau 400 W est disponible." }], stop_reason: "end_turn" }), { status: 200 }); }
+    envois.push(c);
+    return new Response(JSON.stringify({ id: `yc_${envois.length}`, wamid: "wamid.R", status: "accepted" }), { status: 200 });
+  };
+  const jouer = async (email, messages, boutiques = bqs) => {
+    const tables = { users: structuredClone(comptes), boutiques: structuredClone(boutiques), messages: messages.map(lt) };
+    const res = fauxRes();
+    await rendreAssistant({ body: { jeton: "j", cle: CLE } }, res, { adminClient: fauxAdmin(tables, `${email}@bmi`) });
+    return { res, tables };
+  };
+  let j1, j2, j3, j4, j5, j6, n1 = 0, n2 = 0, consigne1 = "";
+  try {
+    process.env.ANTHROPIC_API_KEY = "cle-de-banc"; process.env.ASSISTANT_IA_MODELE = "modele-de-banc";
+    process.env.YCLOUD_API_KEY = "yc-de-banc"; process.env.WHATSAPP_NUMERO_BMI = "22899968488";
+    // 1) Le client a parlé en dernier (TIMO avait répondu avant) : KOSSI rend, l'assistant répond tout de suite.
+    j1 = await jouer("KOSSI", [eR("e1", -30, "bonjour"), pR("p1", -25, "Je regarde."), eR("e2", -10, "le panneau 400 ?")]);
+    n1 = envois.length; consigne1 = String(corpsIA[0]?.system || JSON.stringify(corpsIA[0] || {}));
+    // 2) La dernière ligne est de TIMO : la marque seulement, rien ne part.
+    envois = [];
+    j2 = await jouer("KOSSI", [eR("e1", -30, "bonjour"), pR("p1", -5, "Je regarde.")]);
+    n2 = envois.length;
+    // 3) Confiée à COM1 : KOSSI est refusé ; COM1 (le propriétaire) peut.
+    const confiee = [eR("e1", -30, "bonjour"), { ...pR("c1", -28, "🔁 confiée"), wa_systeme: true, proprietaire_id: "COM1", proprietaire_nom: "COM1" }, pR("p1", -25, "Je regarde.", "COM1"), eR("e2", -10, "alors ?")];
+    j3 = await jouer("KOSSI", confiee);
+    envois = []; j4 = await jouer("COM1", confiee);
+    // 4) Formation refusée ; assistant coupé refusé.
+    j5 = await jouer("FORMA", [eR("e1", -30, "bonjour"), pR("p1", -25, "x")]);
+    j6 = await jouer("KOSSI", [eR("e1", -30, "bonjour"), pR("p1", -25, "x")], [{ id: "b1", data: { nom: "BMI DEMAKPOE", assistant_wa: false } }]);
+  } catch (er) { console.log("    (erreur de la chaîne jouée :", er?.message || er, ")"); }
+  finally {
+    globalThis.fetch = fetchAvant;
+    for (const [k, v] of Object.entries({ ANTHROPIC_API_KEY: envAvant.a, ASSISTANT_IA_MODELE: envAvant.b, YCLOUD_API_KEY: envAvant.c, WHATSAPP_NUMERO_BMI: envAvant.d })) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  const lignesDe = (j) => (j?.tables?.messages || []).map((l) => l.data);
+  test("★★★ la chaîne jouée : le client a parlé en dernier → la marque, puis l'assistant RÉPOND tout de suite (un envoi, sa ligne après la marque, la consigne de reprise)",
+    j1?.res.code === 200 && j1.res.corps?.repondu === true && n1 === 1
+    && lignesDe(j1).some((m) => m.wa_rendu_assistant?.par === "KOSSI") && lignesDe(j1).some((m) => AW.estLigneAssistant(m) && m.texte.includes("400 W"))
+    && consigne1.includes("LA REPRISE"), JSON.stringify(j1?.res.corps));
+  test("★★ la chaîne jouée : la dernière ligne est d'une personne → la marque seule, rien ne part (il répondra au prochain message)",
+    j2?.res.code === 200 && j2.res.corps?.repondu === false && n2 === 0 && lignesDe(j2).some((m) => m.wa_rendu_assistant), JSON.stringify(j2?.res.corps));
+  test("★★★ la chaîne jouée : une conversation confiée à COM1 → KOSSI refusé (403, rien d'écrit) ; COM1 la rend, l'assistant répond et la fiche reste à COM1",
+    j3?.res.code === 403 && !lignesDe(j3).some((m) => m.wa_rendu_assistant)
+    && j4?.res.code === 200 && j4.res.corps?.repondu === true
+    && lignesDe(j4).filter((m) => m.canal === "whatsapp_entete").every((f) => f.proprietaire_id === "COM1") && lignesDe(j4).some((m) => m.canal === "whatsapp_entete"),
+    `${JSON.stringify(j3?.res.corps)} ${JSON.stringify(j4?.res.corps)}`);
+  test("★★ la chaîne jouée : un compte de formation est refusé ; l'assistant coupé dans ⚙ Paramètres aussi — rien d'écrit",
+    j5?.res.code === 403 && j6?.res.code === 409 && !lignesDe(j5).some((m) => m.wa_rendu_assistant) && !lignesDe(j6).some((m) => m.wa_rendu_assistant),
+    `${j5?.res.code} ${j6?.res.code}`);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

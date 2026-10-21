@@ -189,17 +189,84 @@ export function comprendreLibre(texte, articles = []) {
 // client EN DERNIER (celui qu'on vient de recevoir). Rend
 //   { repondre, etape, pourquoi } — `etape` = l'étape où l'on est (null pour
 // une conversation neuve : l'accueil).
+// ---- 🤖 « RENDRE À L'ASSISTANT » (21/10/2026, « 1 oui, et non pour le c ») ----
+// Timo : « Nous même ne pouvons pas donner instruction à l'assistant de
+// répondre à un message ? » puis « il ne peut pas continuer toute la
+// conversation ? ». Un bouton de 📲 WhatsApp pose une LIGNE SYSTÈME qui porte
+// cette marque : à partir d'elle, l'assistant reprend la main — il répond
+// tout de suite au dernier message du client resté sans réponse (serveur,
+// api/_rendreAssistant.js), puis continue comme si aucun employé n'avait
+// écrit. ⚠ Il se tait de nouveau dans les cas d'aujourd'hui : une personne de
+// BMI écrit après la marque, le client demande un conseiller, ou la
+// conversation est confiée (une ligne `proprietaire_id`) après elle.
+// ⚠ Une conversation CONFIÉE peut être rendue (par son propriétaire ou
+// l'administrateur) : elle reste confiée — visible par lui seul — mais
+// l'assistant y parle.
+export const MARQUE_RENDU_ASSISTANT = "wa_rendu_assistant";
+export const estMarqueRendu = (m) => !!m && !!m[MARQUE_RENDU_ASSISTANT];
+// La marque EN VIGUEUR, ou null : la plus récente, sans personne de BMI qui
+// a écrit après elle, ni conversation confiée après elle. Les lignes du
+// client, de l'assistant et la fiche légère ne l'annulent pas.
+export function renduActif(fil) {
+  const liste = Array.isArray(fil) ? fil : [];
+  for (let i = liste.length - 1; i >= 0; i--) {
+    const m = liste[i];
+    if (!m || m.wa_entrant || m.canal === "whatsapp_entete" || estLigneAssistant(m)) continue;
+    if (estMarqueRendu(m)) return m;
+    if (m.wa_systeme) {
+      if (m.proprietaire_id) return null;
+      continue;
+    }
+    return null;
+  }
+  return null;
+}
+// La ligne posée par le bouton : système (au milieu du fil), sans
+// propriétaire, elle n'ouvre pas la fenêtre et ne compte pas comme non lue.
+export function ligneRenduAssistant({ cle, tel, nom, par, par_id, ts } = {}) {
+  return {
+    id: `wa-rendu-${String(ts || "").replace(/\D/g, "").slice(0, 17) || Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    date: String(ts || "").slice(0, 10), ts: String(ts || ""),
+    canal: "whatsapp", wa_tel: String(cle || ""), wa_numero: String(tel || ""), ...(nom ? { wa_nom: String(nom) } : {}),
+    wa_entrant: false, wa_systeme: true,
+    de_id: String(par_id || ""), de_nom: String(par || ""),
+    texte: `🤖 Conversation rendue à l'assistant par ${par || "un membre de l'équipe"}.`,
+    [MARQUE_RENDU_ASSISTANT]: { par: String(par || ""), par_id: String(par_id || ""), le: String(ts || "") },
+    lu_par: [],
+  };
+}
+// L'assistant s'est-il tu à cause d'une PERSONNE (le bouton a alors un sens) ?
+// Conversation confiée sans marque en vigueur ; un employé qui a écrit il y a
+// moins de 24 h ; ou l'assistant qui a passé la main à un conseiller.
+export function assistantEnRetrait({ fil, proprietaireId = "", maintenant } = {}) {
+  const liste = Array.isArray(fil) ? fil : [];
+  if (proprietaireId && !renduActif(liste)) return true;
+  for (let i = liste.length - 1; i >= 0; i--) {
+    const m = liste[i];
+    if (!m || m.wa_entrant || m.canal === "whatsapp_entete") continue;
+    if (estMarqueRendu(m)) return false;
+    if (m.wa_systeme) continue;
+    if (estLigneAssistant(m)) return m.wa_assistant.etape === ETAPE_CONSEILLER;
+    const age = Date.parse(maintenant || "") - Date.parse(m.ts || "");
+    return Number.isFinite(age) && age < HEURES_SILENCE * 3600 * 1000;
+  }
+  return false;
+}
+
 export function decisionAssistant({ fil, proprietaireId = "", actif = true, maintenant } = {}) {
   if (!actif) return { repondre: false, etape: null, pourquoi: "assistant coupé dans ⚙ Paramètres" };
-  if (proprietaireId) return { repondre: false, etape: null, pourquoi: "conversation confiée à une personne" };
   const liste = Array.isArray(fil) ? fil : [];
+  // 🤖 Une conversation confiée se tait — sauf si elle a été RENDUE à l'assistant.
+  if (proprietaireId && !renduActif(liste)) return { repondre: false, etape: null, pourquoi: "conversation confiée à une personne" };
   const entrant = liste[liste.length - 1];
   if (!entrant || !entrant.wa_entrant) return { repondre: false, etape: null, pourquoi: "pas de message du client" };
   const entree = interpreterEntree(entrant.texte);
-  // Le dernier mot de BMI avant ce message : une personne, un modèle, ou l'assistant.
+  // Le dernier mot de BMI avant ce message : une personne, un modèle, ou
+  // l'assistant — ou la marque « rendue à l'assistant ».
   let precedent = null;
   for (let i = liste.length - 2; i >= 0; i--) {
     const m = liste[i];
+    if (estMarqueRendu(m)) { precedent = m; break; }
     if (m && !m.wa_entrant && !m.wa_systeme) { precedent = m; break; }
   }
   if (!precedent) return { repondre: true, etape: null, pourquoi: "nouvelle conversation" };
@@ -207,6 +274,10 @@ export function decisionAssistant({ fil, proprietaireId = "", actif = true, main
   const age = t - Date.parse(precedent.ts || "");
   const recent = Number.isFinite(age) && age < HEURES_SILENCE * 3600 * 1000;
   if (!recent) return { repondre: true, etape: null, pourquoi: "plus de 24 h sans un mot de BMI : nouvelle conversation" };
+  // 🤖 Rendue à l'assistant : il reprend, la conversation continue (pas de
+  // présentation du premier jour ; `rendu` dit au serveur de se présenter
+  // en une phrase s'il ne l'a jamais fait pour ce client).
+  if (estMarqueRendu(precedent)) return { repondre: true, etape: ETAPE_MENU, pourquoi: "conversation rendue à l'assistant", rendu: true, memoire: {} };
   if (!estLigneAssistant(precedent)) {
     // 🤖 « assistant » après une personne de BMI (« c oui », 19/10/2026) : le
     // client fait revenir l'assistant sans attendre 24 h. La conversation
@@ -273,7 +344,10 @@ export function conversationIAEnCours(fil) {
   const liste = Array.isArray(fil) ? fil : [];
   for (let i = liste.length - 1; i >= 0; i--) {
     const m = liste[i];
-    if (!m || m.wa_entrant || m.wa_systeme || m.canal === "whatsapp_entete") continue;
+    if (!m || m.wa_entrant || m.canal === "whatsapp_entete") continue;
+    // 🤖 Rendue à l'assistant (21/10/2026) : c'est lui qui a la main.
+    if (estMarqueRendu(m)) return true;
+    if (m.wa_systeme) continue;
     // 🤖 Une relance (17/10/2026) appartient à la conversation de l'IA, même
     // écrite par la phrase de repli.
     return !!(m.wa_assistant && (m.wa_assistant.ia || m.wa_assistant.relance) && m.wa_assistant.etape !== ETAPE_CONSEILLER);
@@ -489,7 +563,10 @@ export function attenteConseiller(fil) {
   const liste = Array.isArray(fil) ? fil : [];
   for (let i = liste.length - 1; i >= 0; i--) {
     const m = liste[i];
-    if (!m || m.wa_entrant || m.wa_systeme) continue;
+    if (!m || m.wa_entrant) continue;
+    // 🤖 Rendue à l'assistant : le client n'attend plus personne.
+    if (estMarqueRendu(m)) return null;
+    if (m.wa_systeme) continue;
     if (!estLigneAssistant(m)) return null;
     return m.wa_assistant.etape === ETAPE_CONSEILLER ? { depuis: String(m.ts || "") } : null;
   }
