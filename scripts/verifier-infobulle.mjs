@@ -74,6 +74,7 @@ function Page({ hote }) {
       <button id="sans">Sans description</button>
       <button id="eteint" disabled className="px-3 py-1 rounded border" title="Bouton éteint">Éteint</button>
       <span id="texte" title="Un texte, pas un bouton">survol</span>
+      <table><tbody><tr id="ligne" title="Cliquer pour voir tous les articles"><td id="cellule" title="Cellule"><BoutonRond id="dansLigne" icone="📋" titre="Devis : reprendre cette vente dans un devis d'installation" teinte="violet" /></td></tr></tbody></table>
     </div>
     <button id="droite" style={{ position: "fixed", right: 0, top: 100 }} title={LONG}>D</button>
     <button id="bas" style={{ position: "fixed", left: 300, bottom: 0 }} title={LONG}>B</button>
@@ -139,6 +140,15 @@ b = await bulle();
 const fondPlein = await couleurDe("#plein", "backgroundColor");
 test("bouton plein (texte blanc sur bleu) : la fenêtre prend son bleu", b && b.bord === fondPlein, b ? `${b.bord} / ${fondPlein}` : "");
 test("… et son texte n'est pas blanc (lisible sur le fond pâle)", b && b.couleur !== "rgb(255, 255, 255)", b ? b.couleur : "");
+
+await survoler("#dansLigne");
+b = await bulle();
+const titresAutour = await page.$eval("#dansLigne", (e) => { const t = []; for (let x = e; x; x = x.parentElement) if (x.getAttribute && x.getAttribute("title") != null) t.push(x.id || x.tagName); return t; });
+test("un bouton DANS une ligne qui a sa description : seule la fenêtre parle — la ligne et la cellule se taisent aussi (sinon Windows montre « Cliquer pour voir tous les articles » par-dessus)",
+  b && b.texte.startsWith("Devis : reprendre") && titresAutour.length === 0, JSON.stringify(titresAutour));
+await page.mouse.move(2, 590); await attendre(150);
+test("… et la ligne et la cellule retrouvent leur description quand la souris s'en va",
+  (await titre("#ligne")) === "Cliquer pour voir tous les articles" && (await titre("#cellule")) === "Cellule" && (await titre("#dansLigne")) !== null);
 
 await survoler("#sans");
 test("un bouton SANS description : rien", (await bulle()) === null);

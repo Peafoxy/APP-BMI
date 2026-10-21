@@ -659,12 +659,25 @@ export function InfobulleHost() {
   const [pos, setPos] = useState(null);
   const ref = useRef(null);
   useEffect(() => {
-    let cible = null, minuteur = null;
+    // ⚠ La LIGNE du tableau (ou la cellule) qui porte le bouton a souvent sa
+    // propre description (« Cliquer pour voir tous les articles ») : la
+    // description du bouton retirée, Windows montrait la sienne par-dessus la
+    // fenêtre (capture Timo, 21/10/2026). Celles des parents sont mises de
+    // côté aussi pendant le survol, et rendues ensuite.
+    let cible = null, minuteur = null, parents = [];
     const rendre = () => {
       if (!cible) return;
       const t = cible.dataset.infobulleTitre;
       if (t != null && !cible.hasAttribute("title")) cible.setAttribute("title", t);
       delete cible.dataset.infobulleTitre;
+      for (const [el, titre] of parents) if (!el.hasAttribute("title")) el.setAttribute("title", titre);
+      parents = [];
+    };
+    const taireParents = (b) => {
+      for (let el = b.parentElement; el; el = el.parentElement) {
+        const t = el.getAttribute && el.getAttribute("title");
+        if (t != null) { parents.push([el, t]); el.removeAttribute("title"); }
+      }
     };
     const cacher = () => { clearTimeout(minuteur); rendre(); cible = null; setBulle(null); };
     const montrer = (b) => {
@@ -688,6 +701,7 @@ export function InfobulleHost() {
       if (!t || !t.trim()) return;
       cible = b;
       prendre(b);
+      taireParents(b);
       minuteur = setTimeout(() => montrer(b), DELAI_INFOBULLE_MS);
     };
     const surSortie = (e) => {
@@ -700,6 +714,7 @@ export function InfobulleHost() {
     const surDeplacement = () => {
       if (!cible) return;
       if (!cible.isConnected) { cacher(); return; }
+      taireParents(cible);
       if (cible.hasAttribute("title")) {
         prendre(cible);
         setBulle((x) => (x ? { ...x, texte: cible.dataset.infobulleTitre || "" } : x));
