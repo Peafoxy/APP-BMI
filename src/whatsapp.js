@@ -301,7 +301,7 @@ export async function repondreWhatsApp({ tel, texte, fichier = null }) {
     const { whatsappEnLigne } = await import("./supabaseClient");
     // 📎 Le fichier voyage codé, sans sa taille annoncée : le serveur la
     // remesure lui-même sur les octets reçus.
-    reponse = await whatsappEnLigne({ tel, texte, fichier: fichier ? { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees, ...(fichier.vocal ? { vocal: true } : {}) } : null });
+    reponse = await whatsappEnLigne({ tel, texte, fichier: fichier ? { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees, ...(fichier.vocal ? { vocal: true } : {}), ...(fichier.micro ? { micro: true } : {}) } : null });
   } catch (e) {
     oublierEnvoi(registreEnvois, cle);
     return { parti: false, motif: motifEchecWhatsApp({ erreur: e?.message }) };
@@ -312,7 +312,8 @@ export async function repondreWhatsApp({ tel, texte, fichier = null }) {
     return { parti: false, motif: motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }) };
   }
   marquerParti(registreEnvois, cle, Date.now());
-  return { parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
+  // 🎤 Le chemin de la note rangée 30 jours (21/10/2026), s'il y en a un.
+  return { parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "", stocke: reponse.vocal_stocke || "" };
 }
 
 // ---------------------------------------------------------------

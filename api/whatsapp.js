@@ -34,6 +34,7 @@ import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre
 // ⚠ La porte vers YCloud est écrite UNE fois (api/_ycloud.js) : l'assistant
 // du webhook envoie par la même — la clé et la lecture du refus y vivent.
 import { configYCloud, envoyerYCloud, corpsTexte, televerserYCloud, corpsMedia, composantDocument } from "./_ycloud.js";
+import { rangerVocal } from "./_vocauxStockes.js";
 import { enregistrerContactGoogle } from "./_contactGoogle.js";
 import { rendreAssistant } from "./_rendreAssistant.js";
 
@@ -65,7 +66,7 @@ export default async function handler(req, res) {
   let piece = null;
   if (fichier && (!modele || enteteDocument)) {
     const octets = Buffer.from(String(fichier.donnees || ""), "base64");
-    piece = { nom: String(fichier.nom || "").slice(0, 200), mime: String(fichier.mime || ""), taille: octets.length, octets, vocal: !!fichier.vocal };
+    piece = { nom: String(fichier.nom || "").slice(0, 200), mime: String(fichier.mime || ""), taille: octets.length, octets, vocal: !!fichier.vocal, micro: !!fichier.micro };
     if (octets.length > TAILLE_MAX_ENVOI + 1024) return res.status(413).json({ error: critiqueFichier(piece) || "Fichier trop lourd." });
     const refusFichier = critiqueFichier(piece, enteteDocument ? "" : texte);
     if (refusFichier) return res.status(400).json({ error: refusFichier });
@@ -181,9 +182,16 @@ export default async function handler(req, res) {
       // anglaise que Meta peut réécrire quand elle veut.
       return res.status(502).json({ error: resultat.motif, statut_whatsapp: resultat.statut_whatsapp, code_whatsapp: resultat.code_whatsapp });
     }
-    // 🎤 Le numéro du fichier déposé repart avec la réponse (20/10/2026,
-    // « b ») : la ligne du fil le garde pour réécouter une note envoyée.
-    return res.status(200).json({ ok: true, id: resultat.id, wamid: resultat.wamid || "", statut: resultat.statut, modele: reponseLibre ? "" : nom });
+    // 🎤 LA NOTE VOCALE PARTIE SE RANGE 30 JOURS (21/10/2026, « AVEC l'espace
+    // de fichiers privé de Supabase, il faut lancer pour 30 jours ») : APRÈS
+    // l'accord de WhatsApp, jamais avant. Son chemin repart avec la réponse,
+    // la ligne du fil le garde (`wa_media.stocke`) et toute l'équipe qui voit
+    // la conversation peut la réécouter. Un rangement refusé ne change rien à
+    // l'envoi : la note est partie, elle reste sur l'appareil et le téléphone BMI.
+    const vocalStocke = reponseLibre && piece
+      ? await rangerVocal(admin, { cle: cleConversation(tel), piece, jour: new Date().toISOString().slice(0, 10) })
+      : "";
+    return res.status(200).json({ ok: true, id: resultat.id, wamid: resultat.wamid || "", statut: resultat.statut, modele: reponseLibre ? "" : nom, ...(vocalStocke ? { vocal_stocke: vocalStocke } : {}) });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }

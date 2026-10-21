@@ -18,20 +18,24 @@
 // La règle est IMPORTÉE (`peutVoirConversation`), jamais recopiée — et elle
 // est revérifiée ICI, dans le geste, pas seulement à l'écran.
 //
-// 🎤 UNE NOTE VOCALE QUE BMI A ENVOYÉE NE PASSE PAS PAR ICI (20/10/2026,
-// « a ») : YCloud ne rend pas un fichier déposé. Elle se réécoute par la
-// copie gardée sur l'appareil qui l'a enregistrée (src/vocauxLocaux.js).
+// 🎤 UNE NOTE VOCALE QUE BMI A ENVOYÉE (21/10/2026, « AVEC l'espace de
+// fichiers privé de Supabase, il faut lancer pour 30 jours ») : YCloud ne
+// rend pas un fichier déposé ; la note est donc rangée 30 jours dans l'espace
+// PRIVÉ de Supabase (api/_vocauxStockes.js) et rendue ICI, APRÈS le même mur
+// que pour un fichier reçu — et seulement si le chemin cité par la ligne est
+// bien celui d'une note de CETTE conversation (src/lib/vocauxStockes.js).
 //
-// ⚠ ON NE GARDE RIEN. Le fichier n'est pas rangé chez nous : il est lu et
-// rendu. Conséquence à DIRE : WhatsApp efface ses fichiers au bout de
-// 30 jours, et passé ce délai la photo n'existe plus nulle part. Les
-// garder demanderait un espace de stockage — à la demande de Timo, pas de
-// ma propre initiative.
+// ⚠ UN FICHIER REÇU N'EST PAS RANGÉ CHEZ NOUS : il est lu et rendu.
+// Conséquence à DIRE : WhatsApp efface ses fichiers au bout de 30 jours, et
+// passé ce délai la photo n'existe plus nulle part. Seules les notes vocales
+// envoyées par BMI sont gardées (décision de Timo du 21/10/2026).
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
 import { lireConversation } from "./_tables.js";
 import { CANAL_WA, proprietaireDe, peutVoirConversation, filDeLaConversation, estALaCorbeille } from "../src/lib/whatsappConversations.js";
+import { critiqueEcouteVocal, lireCheminVocal } from "../src/lib/vocauxStockes.js";
+import { lireVocal } from "./_vocauxStockes.js";
 
 // 25 Mo : la limite de WhatsApp elle-même. Au-delà, ce n'est pas un fichier
 // qu'un client a envoyé, c'est quelque chose qui ne devrait pas être là.
@@ -49,7 +53,15 @@ async function rendre(res, reponse, media) {
   return res.status(200).send(paquet);
 }
 
-export default async function handler(req, res) {
+// La note vocale rangée, rendue telle quelle.
+function rendreVocal(res, lu) {
+  res.setHeader("Content-Type", lu.type || "audio/ogg");
+  res.setHeader("Content-Length", String(lu.octets.length));
+  res.setHeader("Cache-Control", "private, max-age=3600");
+  return res.status(200).send(lu.octets);
+}
+
+export default async function handler(req, res, { adminClient = null } = {}) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
@@ -58,10 +70,13 @@ export default async function handler(req, res) {
   if (!message) return res.status(400).json({ error: "Message introuvable." });
 
   const cleYcloud = process.env.YCLOUD_API_KEY;
-  const url = process.env.VITE_SUPABASE_URL;
-  const cleService = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !cleService) return res.status(500).json({ error: "Serveur mal configuré" });
-  const admin = createClient(url, cleService, { auth: { persistSession: false } });
+  let admin = adminClient;
+  if (!admin) {
+    const url = process.env.VITE_SUPABASE_URL;
+    const cleService = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !cleService) return res.status(500).json({ error: "Serveur mal configuré" });
+    admin = createClient(url, cleService, { auth: { persistSession: false } });
+  }
 
   try {
     const { data: auth, error: errAuth } = await admin.auth.getUser(jeton);
@@ -81,7 +96,8 @@ export default async function handler(req, res) {
     if (!ligne || ligne.canal !== CANAL_WA || estALaCorbeille(ligne)) return res.status(404).json({ error: "Message introuvable." });
     const messages = await lireConversation(admin, ligne.wa_tel);
     const media = ligne.wa_media;
-    if (!media || !media.lien) return res.status(404).json({ error: "Ce message ne porte aucun fichier." });
+    const vocalEnvoye = !!(media && media.envoye && media.stocke);
+    if (!media || (!media.lien && !vocalEnvoye)) return res.status(404).json({ error: "Ce message ne porte aucun fichier." });
 
     // ⚠ LE MUR, REVÉRIFIÉ DANS LE GESTE : c'est le propriétaire du FIL qui
     // décide, pas le message tout seul — une réattribution pose une ligne
@@ -90,6 +106,16 @@ export default async function handler(req, res) {
     const prop = proprietaireDe(fil);
     if (!peutVoirConversation(compte, { proprietaire_id: prop.id })) {
       return res.status(403).json({ error: "Cette conversation ne vous appartient pas." });
+    }
+
+    // 🎤 La note vocale envoyée par BMI : le chemin doit être celui d'une note
+    // de CETTE conversation, et de moins de 30 jours.
+    if (vocalEnvoye) {
+      const refus = critiqueEcouteVocal(ligne, new Date().toISOString().slice(0, 10));
+      if (refus) return res.status(404).json({ error: refus });
+      const lu = await lireVocal(admin, media.stocke, lireCheminVocal(media.stocke).type);
+      if (lu.motif) return res.status(404).json({ error: lu.motif });
+      return rendreVocal(res, lu);
     }
 
     if (!cleYcloud) return res.status(500).json({ error: "WhatsApp n'est pas encore configuré sur le serveur." });

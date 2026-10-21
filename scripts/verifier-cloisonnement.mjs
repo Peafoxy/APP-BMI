@@ -5358,7 +5358,10 @@ titre("Doublons B1 et B4 : la question « Moyen de paiement » et le contrôle d
   // d'une remise de fonds de caisse (⚙ Paramètres → 💼 Fonds de caisse), qui
   // se corrige depuis que « Régulariser » a daté 50 000 F du mauvais jour.
   test("★ plus aucun contrôle AAAA-MM ou AAAA-MM-JJ recopié dans un écran : demanderMois ×6 (le mois de paie d'un remboursement d'avance, 12/09/2026 ; la retenue d'un outil perdu à la déclaration puis, mois après mois, depuis le carré « Perdus », 18/09/2026 ; RETOURNÉ le 03/10/2026 : ×7, le premier mois de retenue d'un crédit d'avant l'application), demanderDate ×6 (dont la date réelle d'une remise de fonds ; RETOURNÉ le 26/09/2026 : + les deux dates de « ✅ Entretien fait » ; RETOURNÉ le 05/10/2026 : ×7, la date d'embauche dans 👥 Utilisateurs ; RETOURNÉ le même jour : ×9, la fin d'un contrat et la date de sortie ; RETOURNÉ encore : ×8, la fin se CALCULE depuis une durée tapée)",
-    execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx || true").toString().trim() === ""
+    // RETOURNÉ le 21/10/2026 : src/lib/vocauxStockes.js lit le JOUR dans le
+    // CHEMIN d'une note vocale rangée (« 2026-10-21/90112233_….ogg ») — ce
+    // n'est pas une saisie de date, aucune question ne la remplace.
+    execSync("grep -rl '\\\\d{4}-\\\\d{2}' src --include=*.jsx --include=*.js | grep -v components/ui.jsx | grep -v lib/vocauxStockes.js || true").toString().trim() === ""
     && execSync("grep -rho 'demanderMois(' src/screens src/lib | wc -l").toString().trim() === "7"
     && execSync("grep -rho 'demanderDate(' src/screens src/lib | wc -l").toString().trim() === "8");
   test("les formulations particulières sont gardées par le libellé (« Moyen de remise des fonds », « Moyen de paiement reçu »), et la CNSS propose le virement",

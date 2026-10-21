@@ -635,8 +635,10 @@ export function critiqueFichier(fichier, phrase = "") {
 // envoyé (la copie reste sur le téléphone BMI).
 // 🎤 Le numéro du dépôt chez WhatsApp n'est PAS gardé (20/10/2026, « a ») :
 // YCloud ne rend pas un fichier déposé, ce numéro ne commanderait rien. Une
-// note envoyée se réécoute par la copie de l'appareil (src/vocauxLocaux.js).
-export function mediaEnvoye(fichier) {
+// note envoyée se réécoute par la copie de l'appareil (src/vocauxLocaux.js)
+// ET, depuis le 21/10/2026, par l'espace privé de Supabase : `stocke` est le
+// CHEMIN que le serveur a rendu (src/lib/vocauxStockes.js), jamais le son.
+export function mediaEnvoye(fichier, stocke = "") {
   const f = fichier || {};
   const vocal = estNoteVocale(f);
   return {
@@ -645,6 +647,7 @@ export function mediaEnvoye(fichier) {
     mime: String(f.mime || ""),
     taille: Number(f.taille) || 0,
     ...(Number(f.duree) > 0 ? { duree: Math.max(1, Math.round(Number(f.duree))) } : {}),
+    ...(stocke ? { stocke: String(stocke) } : {}),
     envoye: true,
   };
 }

@@ -41,6 +41,7 @@ import { peutEnregistrerContact, critiqueContactGoogle, nettoyerNomGoogle, trace
 import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle, rendreALAssistant } from "../whatsapp";
 import { LecteurVocal, BoutonMicro, garderVocal, useCopieVocale } from "../components/NoteVocale";
 import { dureeVocale } from "../lib/oggOpus";
+import { lireCheminVocal, vocalExpire } from "../lib/vocauxStockes";
 import { champsEnvoi } from "../lib/suiviEnvoi";
 import { useRetour } from "../retour";
 
@@ -291,7 +292,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
       canal: CANAL_WA, wa_tel: ouverte.cle, wa_numero: ouverte.tel,
       ...(ouverte.nom ? { wa_nom: ouverte.nom } : {}),
       wa_id: r.id || "", texte: t, ...champsEnvoi(r),
-      ...(piece ? { wa_media: mediaEnvoye(piece) } : {}),
+      ...(piece ? { wa_media: mediaEnvoye(piece, r.stocke) } : {}),
       ...(ouverte.proprietaire_id ? { proprietaire_id: ouverte.proprietaire_id, proprietaire_nom: ouverte.proprietaire_nom } : {}),
     });
     // ⚠ LA FICHE LÉGÈRE SUIT LE FIL (21/09/2026) : sans ce geste, une
@@ -1030,6 +1031,8 @@ function NomConversation({ c, sansNumero = false }) {
 const MEDIA_AUTO = ["image", "sticker", "audio", "voice"];
 const estSon = (media) => media.type === "audio" || media.type === "voice";
 export const PHRASE_VOCAL_AILLEURS = "À réécouter sur l'appareil qui l'a envoyée, ou sur le téléphone BMI.";
+// 🎤 Gardée 30 jours pour toute l'équipe (21/10/2026) ; au-delà, cette phrase.
+export const PHRASE_VOCAL_EFFACE = "Effacée 30 jours après son envoi : à réécouter sur l'appareil qui l'a envoyée, ou sur le téléphone BMI.";
 
 export function MediaWa({ message }) {
   const media = message.wa_media || {};
@@ -1040,6 +1043,12 @@ export function MediaWa({ message }) {
   // elle se réécoute par la copie gardée sur l'appareil qui l'a enregistrée.
   const sonEnvoye = !!(media.envoye && estSon(media));
   const copie = useCopieVocale(message.id, sonEnvoye);
+  // 🎤 RANGÉE 30 JOURS POUR TOUTE L'ÉQUIPE (21/10/2026) : sans copie sur cet
+  // appareil, la note se charge depuis l'espace privé de Supabase (le serveur
+  // revérifie le mur). Passé 30 jours, on ne demande plus rien.
+  const stockeVivant = sonEnvoye && !!lireCheminVocal(media.stocke)
+    && !vocalExpire(lireCheminVocal(media.stocke).jour, today());
+  const depuisLEspace = stockeVivant && copie === null;
 
   const charger = async () => {
     setCharge(true);
@@ -1053,6 +1062,10 @@ export function MediaWa({ message }) {
     if (MEDIA_AUTO.includes(media.type) && !media.envoye) ouvrir();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message.id]);
+  useEffect(() => {
+    if (depuisLEspace && !url && !charge && !motif) charger();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.id, depuisLEspace]);
 
   // ⚠ On rend la mémoire du navigateur quand la conversation se ferme :
   // sans ça, chaque photo ouverte resterait accrochée jusqu'au F5.
@@ -1070,10 +1083,22 @@ export function MediaWa({ message }) {
     // téléphone BMI. On ne demande RIEN à WhatsApp (il ne le rend pas).
     if (copie) return <LecteurVocal url={copie} duree={media.duree} sortant />;
     if (copie === "") return <div data-vocal-chargement className="text-xs italic opacity-80 py-2">{nom} — chargement…</div>;
+    if (depuisLEspace) {
+      if (url) return <div data-vocal-equipe><LecteurVocal url={url} duree={media.duree} sortant /></div>;
+      if (motif) {
+        return (
+          <div data-media-echec className="text-xs italic opacity-80">
+            {nom} — {motif}{" "}
+            <button type="button" data-media-reessayer onClick={charger} className="not-italic font-bold underline">↻ Réessayer</button>
+          </div>
+        );
+      }
+      return <div data-vocal-chargement className="text-xs italic opacity-80 py-2">{nom} — chargement…</div>;
+    }
     return (
       <div data-media-envoye className="text-xs font-bold">
         {media.type === "voice" ? "🎤 Message vocal" : `🎵 ${media.nom || nom}`}{media.duree ? ` · ${dureeVocale(media.duree)}` : ""} <span className="font-normal opacity-80">— envoyé</span>
-        <div data-vocal-ailleurs className="font-normal italic opacity-80">{PHRASE_VOCAL_AILLEURS}</div>
+        <div data-vocal-ailleurs className="font-normal italic opacity-80">{media.stocke ? PHRASE_VOCAL_EFFACE : PHRASE_VOCAL_AILLEURS}</div>
       </div>
     );
   }

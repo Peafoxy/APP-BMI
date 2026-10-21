@@ -57,6 +57,7 @@ import { fusionnerPaie } from "../src/lib/paie.js";
 import { rappelerLesRendezVous } from "./_rendezVous.js";
 import { attestationsEtFermetures } from "./_attestationSortie.js";
 import { relancerLesConversations } from "./_relanceAssistant.js";
+import { purgerVocauxStockes } from "./_vocauxStockes.js";
 
 const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
 
@@ -106,11 +107,14 @@ export default async function handler(req, res) {
     // 🤖 Le filet de la relance de l'assistant (17/10/2026) : les conversations
     // arrivées à leur 20e heure pendant la nuit, que personne n'a réveillées.
     const relances_assistant = await relancerLesConversations(admin, { boutiques: db.boutiques, limite: 5, delaiIA: 20000 }).catch((e) => ({ relances: 0, pourquoi: e?.message || "erreur" }));
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant });
+    // 🎤 Les notes vocales envoyées par BMI ne se gardent que 30 jours
+    // (21/10/2026) : les jours plus vieux s'effacent de l'espace privé.
+    const vocaux = await purgerVocauxStockes(admin, aujourdhui);
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux });
     const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...soldes.notifications, ...attestations.notifications,
       ...(finsDeContrat ? [fabriquerEnvoi({ ...finsDeContrat, ecran: "users" })].filter(Boolean) : [])];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant });
+    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }

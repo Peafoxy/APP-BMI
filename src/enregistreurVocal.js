@@ -71,21 +71,24 @@ const enBase64 = (octets) => {
 
 // Le son enregistré, prêt à partir par repondreWhatsApp : { nom, mime,
 // taille, donnees, vocal, duree }, ou { motif } si on ne sait pas le lire.
+// 🎤 `micro` (21/10/2026) : enregistré au micro de l'application — même un
+// son MP4 d'iPhone, qui part comme simple son — donc rangé 30 jours pour que
+// toute l'équipe le réécoute (src/lib/vocauxStockes.js).
 export async function fichierVocal({ blob, mime, duree }) {
   const octets = new Uint8Array(await blob.arrayBuffer());
   const base = String(mime || "").split(";")[0];
   const nom = `note-vocale-${Date.now()}`;
   if (base === "audio/ogg") {
-    return { nom: `${nom}.ogg`, mime: "audio/ogg", taille: octets.length, donnees: enBase64(octets), vocal: true, duree, blob };
+    return { nom: `${nom}.ogg`, mime: "audio/ogg", taille: octets.length, donnees: enBase64(octets), vocal: true, micro: true, duree, blob };
   }
   if (base === "audio/webm") {
     const ogg = webmVersOgg(octets);
     if (!ogg) return { motif: "Le message vocal n'a pas pu être préparé. Réessayez." };
     const b = new Blob([ogg.octets], { type: "audio/ogg" });
-    return { nom: `${nom}.ogg`, mime: "audio/ogg", taille: ogg.octets.length, donnees: enBase64(ogg.octets), vocal: true, duree: ogg.duree || duree, blob: b };
+    return { nom: `${nom}.ogg`, mime: "audio/ogg", taille: ogg.octets.length, donnees: enBase64(ogg.octets), vocal: true, micro: true, duree: ogg.duree || duree, blob: b };
   }
   if (base === "audio/mp4" || base === "audio/aac") {
-    return { nom: `${nom}.m4a`, mime: "audio/mp4", taille: octets.length, donnees: enBase64(octets), vocal: false, duree, blob };
+    return { nom: `${nom}.m4a`, mime: "audio/mp4", taille: octets.length, donnees: enBase64(octets), vocal: false, micro: true, duree, blob };
   }
   return { motif: "Ce navigateur enregistre dans un format que WhatsApp ne lit pas." };
 }

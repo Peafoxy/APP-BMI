@@ -17,11 +17,13 @@ window.Vocal = {
   },
   // La ligne d'une note ENVOYÉE, telle que 📲 WhatsApp la dessine (« a »,
   // 20/10/2026) : la copie de l'appareil la rejoue, sinon la phrase.
-  monterLigneEnvoyee(id) {
+  // 🎤 `stocke` (21/10/2026) : le chemin de la note rangée 30 jours dans
+  // l'espace privé — un collègue sans copie la charge par le serveur.
+  monterLigneEnvoyee(id, stocke = "") {
     const div = document.createElement("div");
     div.id = "ligne-" + id;
     document.body.appendChild(div);
-    createRoot(div).render(<MediaWa message={{ id, wa_media: { type: "voice", mime: "audio/ogg", envoye: true, duree: 2 } }} />);
+    createRoot(div).render(<MediaWa message={{ id, wa_tel: "90112233", wa_media: { type: "voice", mime: "audio/ogg", envoye: true, duree: 2, ...(stocke ? { stocke } : {}) } }} />);
   },
   monterMicro() {
     window.envoye = null; window.refus = [];

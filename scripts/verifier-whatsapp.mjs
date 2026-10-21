@@ -3862,8 +3862,9 @@ titre("㊺ 📎 ENVOYER UN FICHIER AU CLIENT, DU NUMÉRO BMI (03/10/2026, « tou
   const ecr = lire("src/screens/Whatsapp.jsx").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
   test("★★ l'écran vérifie au CHOIX du fichier (critiqueFichier), puis revérifie DANS le geste (critiqueReponse avec le fichier)",
     /const refus = critiqueFichier\(pret\)/.test(ecr) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece,/.test(ecr) && /const piece = vocal \|\| fichier;/.test(ecr));
+  // RETOURNÉ le 21/10/2026 : mediaEnvoye reçoit aussi le chemin de la note rangée.
   test("★★ la ligne du fil ne s'écrit qu'APRÈS le départ, et ne porte que mediaEnvoye (jamais les données)",
-    ecr.indexOf("if (!r.parti)") > -1 && ecr.indexOf("if (!r.parti)") < ecr.indexOf("wa_media: mediaEnvoye(piece)") && !/donnees:\s*(fichier|piece)/.test(ecr.slice(ecr.indexOf("const envoyer = async"), ecr.indexOf("const envoyerContact"))));
+    ecr.indexOf("if (!r.parti)") > -1 && ecr.indexOf("if (!r.parti)") < ecr.indexOf("wa_media: mediaEnvoye(piece, r.stocke)") && !/donnees:\s*(fichier|piece)/.test(ecr.slice(ecr.indexOf("const envoyer = async"), ecr.indexOf("const envoyerContact"))));
   test("★ changer de conversation retire le fichier choisi (on n'envoie pas à l'un le devis préparé pour l'autre)",
     /useEffect\(\(\) => \{ setFichier\(null\); \}, \[cleOuverte\]\)/.test(ecr));
   const r1 = monte(V.renduFichierEnvoye), r2 = monte(V.htmlFichierEnvoye);
@@ -5895,7 +5896,7 @@ titre("67 📎 LE REÇU ET LA PROFORMA REPARTENT EN TEXTE QUAND META REJETTE LE 
     /const MEDIA_AUTO = \["image", "sticker", "audio", "voice"\]/.test(WJ) && /if \(estSon\(media\)\) return <LecteurVocal url=\{url\}/.test(WJ) && !/<audio src=\{url\} controls/.test(WJ));
   test("★★ « B » : le micro remplace ➤ quand la case est vide, et la note part par LE MÊME `envoyer` (refus, verrou, ligne écrite après l'envoi)",
     /texte\.trim\(\) \|\| fichier \|\| envoi \? \(/.test(WJ) && /<BoutonMicro desactive=\{prepare\} onEnvoyer=\{\(f\) => envoyer\(f\)\}/.test(WJ)
-    && /const piece = vocal \|\| fichier;/.test(WJ) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece/.test(WJ) && /wa_media: mediaEnvoye\(piece\)/.test(WJ));
+    && /const piece = vocal \|\| fichier;/.test(WJ) && /critiqueReponse\(\{ profile, conv: ouverte, texte: t, fichier: piece/.test(WJ) && /wa_media: mediaEnvoye\(piece, r\.stocke\)/.test(WJ)); // RETOURNÉ le 21/10/2026 (le chemin rangé)
   test("★ une note envoyée se réécoute pendant la session ; après, sa ligne dit « 🎤 Message vocal · 0:07 — envoyé » (le son n'est pas rangé)",
     /if \(vocal\?\.blob\) garderVocal\(m\.id, vocal\.blob\)/.test(WJ) && monte(V.htmlVocaleEnvoyee).includes("🎤 Message vocal · 0:07") && monte(V.htmlSonEnvoye).includes("🎵 note-vocale.m4a · 0:12"));
   // --- Dans Chromium : un VRAI enregistrement, le remux, le lecteur, le micro ---
@@ -6088,9 +6089,13 @@ titre("70 🎤 UNE NOTE VOCALE ENVOYÉE SE RÉÉCOUTE APRÈS UN F5, PAR LA COPIE
   const W = await import(pathToFileURL(sortieWc).href);
   unlinkSync(sortieWc);
   const vocal = { nom: "vocal.ogg", mime: "audio/ogg", taille: 2400, duree: 3, vocal: true };
-  const ligne = W.mediaEnvoye(vocal, "MED-77");
-  test("★★ RETOURNÉ : la ligne d'une note envoyée ne garde PLUS le numéro du dépôt (il ne commande rien), et jamais le fichier",
-    !("media_id" in ligne) && ligne.type === "voice" && ligne.envoye === true && !("donnees" in ligne) && !("blob" in ligne), JSON.stringify(ligne));
+  const ligne = W.mediaEnvoye(vocal, "2026-10-21/90112233_abcdefgh12.ogg");
+  // RETOURNÉ le 21/10/2026 (« AVEC l'espace de fichiers privé de Supabase,
+  // 30 jours ») : le second argument est le CHEMIN de la note rangée, jamais
+  // le numéro du dépôt chez YCloud.
+  test("★★ RETOURNÉ : la ligne d'une note envoyée ne garde PAS le numéro du dépôt, ni le fichier — seulement le CHEMIN de la note rangée (`stocke`)",
+    !("media_id" in ligne) && ligne.type === "voice" && ligne.envoye === true && !("donnees" in ligne) && !("blob" in ligne)
+    && ligne.stocke === "2026-10-21/90112233_abcdefgh12.ogg" && !("stocke" in W.mediaEnvoye(vocal)), JSON.stringify(ligne));
   const sc = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const apiWa = sc(lire("api/whatsapp.js")), srcWa = sc(lire("src/whatsapp.js")), ycl = sc(lire("api/_ycloud.js")), media = sc(lire("api/whatsapp-media.js"));
   test("★★ RETOURNÉ : le serveur ne rend plus de numéro de dépôt, l'application ne le transmet plus",
@@ -6098,12 +6103,17 @@ titre("70 🎤 UNE NOTE VOCALE ENVOYÉE SE RÉÉCOUTE APRÈS UN F5, PAR LA COPIE
   test("★★ RETOURNÉ : plus aucun essai chez YCloud pour reprendre un fichier déposé (ni `telechargerMediaEnvoye`, ni l'adresse devinée)",
     !/telechargerMediaEnvoye|urlsMediaEnvoye|media\/download\/\$\{/.test(ycl + media) && !/sonEnvoye/.test(media));
   const ecran = sc(lire("src/screens/Whatsapp.jsx"));
-  test("★★ l'écran range la ligne SANS numéro (`mediaEnvoye(piece)`) et garde la note sur l'appareil (`garderVocal`)",
-    /wa_media: mediaEnvoye\(piece\)/.test(ecran) && /if \(vocal\?\.blob\) garderVocal\(m\.id, vocal\.blob\)/.test(ecran));
+  // RETOURNÉ le 21/10/2026 : la ligne porte le chemin rendu par le serveur.
+  test("★★ RETOURNÉ : l'écran range la ligne avec le CHEMIN rendu par le serveur (`mediaEnvoye(piece, r.stocke)`) et garde aussi la note sur l'appareil (`garderVocal`)",
+    /wa_media: mediaEnvoye\(piece, r\.stocke\)/.test(ecran) && /if \(vocal\?\.blob\) garderVocal\(m\.id, vocal\.blob\)/.test(ecran));
   const corpsMediaWa = ecran.slice(ecran.indexOf("export function MediaWa"), ecran.indexOf("\n}\n", ecran.indexOf("export function MediaWa")));
-  test("★★ une note envoyée se joue par la copie de l'appareil (`useCopieVocale`) et ne demande RIEN au serveur (`chargerMediaWa` réservé aux fichiers reçus)",
+  // RETOURNÉ le 21/10/2026 : sans copie, une note RANGÉE (moins de 30 jours)
+  // se charge depuis le serveur ; une note sans chemin ne lui demande toujours rien.
+  test("★★ RETOURNÉ : la copie de l'appareil d'abord (`useCopieVocale`) ; le serveur seulement pour une note RANGÉE de moins de 30 jours, sans copie (`depuisLEspace`)",
     /const copie = useCopieVocale\(message\.id, sonEnvoye\)/.test(corpsMediaWa) && /if \(copie\) return <LecteurVocal url=\{copie\}/.test(corpsMediaWa)
-    && /MEDIA_AUTO\.includes\(media\.type\) && !media\.envoye\) ouvrir\(\)/.test(corpsMediaWa));
+    && /MEDIA_AUTO\.includes\(media\.type\) && !media\.envoye\) ouvrir\(\)/.test(corpsMediaWa)
+    && /const depuisLEspace = stockeVivant && copie === null/.test(corpsMediaWa) && /!vocalExpire\(/.test(corpsMediaWa)
+    && corpsMediaWa.indexOf("if (copie) return") < corpsMediaWa.indexOf("if (depuisLEspace) {"));
   test("★ sans copie, la ligne dit où la réécouter (l'appareil qui l'a envoyée, le téléphone BMI) — plus de « ↻ Réessayer » qui ne peut pas marcher",
     /data-vocal-ailleurs/.test(corpsMediaWa) && !/sonEnvoyeRechargeable/.test(ecran)
     && monte(V.htmlVocaleEnvoyee).includes("le téléphone BMI") && !monte(V.htmlVocaleEnvoyee).includes("Réessayer"));
@@ -6370,6 +6380,245 @@ titre("71 🤖 « RENDRE À L'ASSISTANT » : IL RÉPOND TOUT DE SUITE, PUIS CONT
   test("★★ la chaîne jouée : un compte de formation est refusé ; l'assistant coupé dans ⚙ Paramètres aussi — rien d'écrit",
     j5?.res.code === 403 && j6?.res.code === 409 && !lignesDe(j5).some((m) => m.wa_rendu_assistant) && !lignesDe(j6).some((m) => m.wa_rendu_assistant),
     `${j5?.res.code} ${j6?.res.code}`);
+}
+
+titre("72 🎤 LES NOTES VOCALES ENVOYÉES PAR BMI, RANGÉES 30 JOURS DANS L'ESPACE PRIVÉ DE SUPABASE, RÉÉCOUTÉES PAR TOUTE L'ÉQUIPE (21/10/2026, « AVEC l'espace de fichiers privé de Supabase, il faut lancer pour 30 jours »)");
+{
+  const VS = await import("../src/lib/vocauxStockes.js");
+  const sansC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★★ la règle est lisible par le serveur : src/lib/vocauxStockes.js n'importe rien, espace « vocaux-wa », 30 jours",
+    !/^\s*import /m.test(lire("src/lib/vocauxStockes.js")) && VS.ESPACE_VOCAUX === "vocaux-wa" && VS.JOURS_VOCAUX_STOCKES === 30);
+  const ch = VS.cheminVocal({ cle: "90112233", jour: "2026-10-21", alea: "3f2a-91bc-77de-0011", mime: "audio/ogg;codecs=opus" });
+  test("★★ le chemin : « jour/clé_hasard.ext », relu à l'identique ; une clé, un jour ou un type faux → aucun chemin",
+    ch === "2026-10-21/90112233_3f2a91bc77de0011.ogg" && VS.lireCheminVocal(ch)?.cle === "90112233" && VS.lireCheminVocal(ch)?.type === "audio/ogg"
+    && VS.cheminVocal({ cle: "9011", jour: "2026-10-21", alea: "abcdefgh12", mime: "audio/ogg" }) === ""
+    && VS.cheminVocal({ cle: "90112233", jour: "21/10/2026", alea: "abcdefgh12", mime: "audio/ogg" }) === ""
+    && VS.cheminVocal({ cle: "90112233", jour: "2026-10-21", alea: "abcdefgh12", mime: "image/png" }) === ""
+    && VS.cheminVocal({ cle: "90112233", jour: "2026-10-21", alea: "x", mime: "audio/ogg" }) === "", ch);
+  test("★★ un chemin venu d'une ligne ne se croit pas sur parole : « ../ », autre dossier, autre extension → refusé",
+    VS.lireCheminVocal("../2026-10-21/90112233_abcdefgh12.ogg") === null && VS.lireCheminVocal("2026-10-21/../../x.ogg") === null
+    && VS.lireCheminVocal("2026-10-21/90112233_abcdefgh12.exe") === null && VS.lireCheminVocal("autre/90112233_abcdefgh12.ogg") === null);
+  test("★★ 30 jours : gardée le jour même et le 30e jour, plus le 31e ; seuls les dossiers-jours de plus de 30 jours s'effacent",
+    !VS.vocalExpire("2026-10-21", "2026-10-21") && !VS.vocalExpire("2026-09-21", "2026-10-21") && VS.vocalExpire("2026-09-20", "2026-10-21")
+    && VS.vocalExpire("pas une date", "2026-10-21")
+    && JSON.stringify(VS.joursAPurger(["2026-09-01", "2026-09-20", "2026-09-21", "2026-10-21", "autre", ""], "2026-10-21")) === JSON.stringify(["2026-09-01", "2026-09-20"]));
+  test("★★ seules les notes ENREGISTRÉES au micro se rangent (Ogg, et le son MP4 d'un iPhone) — jamais un son choisi, une image, ni plus de 3 Mo",
+    VS.doitRangerVocal({ vocal: true, micro: true, mime: "audio/ogg", taille: 2400 }) && VS.doitRangerVocal({ vocal: false, micro: true, mime: "audio/mp4", taille: 2400 })
+    && !VS.doitRangerVocal({ mime: "audio/ogg", taille: 2400 }) && !VS.doitRangerVocal({ micro: true, mime: "image/jpeg", taille: 2400 })
+    && !VS.doitRangerVocal({ micro: true, mime: "audio/ogg", taille: 4 * 1024 * 1024 }) && !VS.doitRangerVocal({ micro: true, mime: "audio/ogg", taille: 0 }));
+  const enreg = sansC(lire("src/enregistreurVocal.js"));
+  test("★ l'enregistreur marque chaque note du micro (`micro: true`, trois formes), et l'application le transmet au serveur",
+    (enreg.match(/micro: true/g) || []).length === 3 && /\.\.\.\(fichier\.micro \? \{ micro: true \} : \{\}\)/.test(sansC(lire("src/whatsapp.js")))
+    && /micro: !!fichier\.micro/.test(sansC(lire("api/whatsapp.js"))));
+  test("★★ la ligne et l'écoute : le chemin d'une AUTRE conversation est refusé, une note de plus de 30 jours aussi, la bonne passe",
+    VS.critiqueEcouteVocal({ wa_tel: "90112233", wa_media: { envoye: true, stocke: ch } }, "2026-10-21") === ""
+    && /n'appartient pas/.test(VS.critiqueEcouteVocal({ wa_tel: "91000000", wa_media: { envoye: true, stocke: ch } }, "2026-10-21"))
+    && VS.critiqueEcouteVocal({ wa_tel: "90112233", wa_media: { envoye: true, stocke: ch } }, "2026-11-21") === VS.MOTIF_VOCAL_EXPIRE
+    && /pas été gardée/.test(VS.critiqueEcouteVocal({ wa_tel: "90112233", wa_media: { envoye: true } }, "2026-10-21")));
+
+  // ---- L'envoi, joué : api/whatsapp.js avec un faux Supabase et un faux YCloud ----
+  const cache = join("node_modules", ".cache");
+  const faux = join(cache, `faux-supa72-${process.pid}.mjs`);
+  writeFileSync(faux, `export function createClient() {
+    const B = () => globalThis.BASE72;
+    return {
+      auth: { async getUser(j) { return j === "ok" ? { data: { user: { email: B().moi + "@bmi", app_metadata: {} } }, error: null } : { data: {}, error: { message: "non" } }; } },
+      from(table) {
+        const filtres = [];
+        const q = { select() { return q; }, order() { return q; }, limit() { return q; }, range() { return q; },
+          eq(col, val) { filtres.push([col, val]); return q; },
+          then(ok) {
+            const lignes = (B()[table] || []).filter((l) => filtres.every(([c, v]) => c === "id" ? l.id === v : c === "data->>wa_tel" ? (l.data || {}).wa_tel === v : true));
+            return Promise.resolve({ data: lignes, error: null }).then(ok);
+          } };
+        return q;
+      },
+      storage: { from(espace) { return { async upload(chemin, octets, opts) {
+        B().evenements.push("rangement");
+        B().ranges.push({ espace, chemin, taille: octets.length, type: opts && opts.contentType, upsert: opts && opts.upsert });
+        return B().refusRangement ? { data: null, error: { message: "Bucket not found" } } : { data: { path: chemin }, error: null };
+      } }; } },
+    };
+  }`);
+  const sortieW = join(cache, `bmi-w72-${process.pid}.mjs`);
+  await build({ entryPoints: ["api/whatsapp.js"], bundle: true, format: "esm", platform: "node", outfile: sortieW, logLevel: "silent", alias: { "@supabase/supabase-js": "./" + faux }, external: ["web-push"] });
+  const APIW = await import(pathToFileURL(sortieW).href);
+  unlinkSync(sortieW); unlinkSync(faux);
+  const envAvant = { ...process.env };
+  const fetchAvant = globalThis.fetch;
+  const clientTel = "22890112233";
+  const octetsNote = Buffer.from("OggS" + "x".repeat(2000));
+  const jouerEnvoi = async ({ fichier, refusYcloud = false, refusRangement = false }) => {
+    globalThis.BASE72 = { moi: "kossi", evenements: [], ranges: [], refusRangement,
+      users: [{ id: "kossi", data: { role: "vendeur", nom: "KOSSI", boutique: "BMI DEMAKPOE" } }],
+      boutiques: [{ id: "b1", data: { nom: "BMI DEMAKPOE" } }],
+      messages: [{ id: "e1", data: { canal: "whatsapp", wa_tel: "90112233", wa_numero: clientTel, wa_entrant: true, ts: new Date(Date.now() - 3600000).toISOString(), texte: "bonjour" } }] };
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (/upload/.test(u)) return new Response(JSON.stringify({ id: "MED1" }), { status: 200 });
+      globalThis.BASE72.evenements.push("envoi");
+      return refusYcloud ? new Response(JSON.stringify({ error: { message: "refusé" } }), { status: 400 }) : new Response(JSON.stringify({ id: "Y1", wamid: "W1", status: "accepted" }), { status: 200 });
+    };
+    const res = { code: 0, corps: null, setHeader() {}, status(c) { this.code = c; return this; }, json(o) { this.corps = o; return this; }, send(b) { this.corps = b; return this; }, end() { return this; } };
+    await APIW.default({ method: "POST", headers: {}, body: { jeton: "ok", tel: clientTel, texte: "", fichier } }, res);
+    return { res, base: globalThis.BASE72 };
+  };
+  let e1, e2, e3, e4;
+  process.env.YCLOUD_API_KEY = "CLE"; process.env.WHATSAPP_NUMERO_BMI = "22899968488";
+  process.env.VITE_SUPABASE_URL = "https://faux.supabase.co"; process.env.SUPABASE_SERVICE_ROLE_KEY = "srv";
+  try {
+    const note = { nom: "note.ogg", mime: "audio/ogg", donnees: octetsNote.toString("base64"), vocal: true, micro: true };
+    e1 = await jouerEnvoi({ fichier: note });
+    e2 = await jouerEnvoi({ fichier: note, refusYcloud: true });
+    e3 = await jouerEnvoi({ fichier: { nom: "chanson.ogg", mime: "audio/ogg", donnees: octetsNote.toString("base64") } });
+    e4 = await jouerEnvoi({ fichier: note, refusRangement: true });
+  } catch (er) { console.log("    (erreur de l'envoi joué :", er?.message || er, ")"); }
+  finally {
+    globalThis.fetch = fetchAvant;
+    for (const k of Object.keys(process.env)) if (!(k in envAvant)) delete process.env[k];
+    Object.assign(process.env, envAvant);
+    delete globalThis.BASE72;
+  }
+  const r1 = e1?.base.ranges[0] || {};
+  test("★★★ l'envoi joué : la note partie est rangée UNE fois dans « vocaux-wa », APRÈS l'accord de WhatsApp, sous la clé de la conversation — et son chemin repart avec la réponse",
+    e1?.res.code === 200 && e1.base.ranges.length === 1 && r1.espace === "vocaux-wa" && r1.type === "audio/ogg" && r1.taille === octetsNote.length && r1.upsert === false
+    && JSON.stringify(e1.base.evenements) === JSON.stringify(["envoi", "rangement"])
+    && VS.lireCheminVocal(e1.res.corps?.vocal_stocke)?.cle === "90112233" && e1.res.corps.vocal_stocke === r1.chemin,
+    JSON.stringify({ code: e1?.res.code, corps: e1?.res.corps, ev: e1?.base.evenements, r1 }));
+  test("★★★ l'envoi joué : WhatsApp refuse → RIEN n'est rangé (on ne garde pas un message qui n'est pas parti)",
+    e2?.res.code === 502 && e2.base.ranges.length === 0, JSON.stringify({ code: e2?.res.code, ranges: e2?.base.ranges }));
+  test("★★ l'envoi joué : un son CHOISI dans les fichiers (pas le micro) part, mais ne se range pas",
+    e3?.res.code === 200 && e3.base.ranges.length === 0 && !("vocal_stocke" in (e3.res.corps || {})), JSON.stringify(e3?.res.corps));
+  test("★★ l'envoi joué : l'espace refuse (SQL pas encore collé) → la note est quand même partie, simplement sans chemin",
+    e4?.res.code === 200 && e4.res.corps?.ok === true && !("vocal_stocke" in (e4.res.corps || {})), JSON.stringify(e4?.res.corps));
+  test("★ l'application garde le chemin rendu (`stocke: reponse.vocal_stocke`)",
+    /stocke: reponse\.vocal_stocke \|\| ""/.test(sansC(lire("src/whatsapp.js"))));
+
+  // ---- L'écoute, jouée : api/whatsapp-media.js avec un faux admin ----
+  const sortieM = join(cache, `bmi-m72-${process.pid}.mjs`);
+  await build({ entryPoints: ["api/whatsapp-media.js"], bundle: true, format: "esm", platform: "node", outfile: sortieM, logLevel: "silent", external: ["@supabase/supabase-js"] });
+  const APIM = await import(pathToFileURL(sortieM).href);
+  unlinkSync(sortieM);
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const ilYa40 = new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10);
+  const cheminOk = `${aujourdhui}/90112233_abcdefgh12.ogg`, cheminVieux = `${ilYa40}/90112233_abcdefgh34.ogg`, cheminAutre = `${aujourdhui}/91999999_abcdefgh56.ogg`;
+  const fauxAdmin = (moi, lignes, magasin, telecharges) => ({
+    auth: { async getUser(j) { return j === "ok" ? { data: { user: { email: moi + "@bmi" } }, error: null } : { data: {}, error: { message: "non" } }; } },
+    from(table) {
+      const filtres = [];
+      const tables = { users: [{ id: "kossi", data: { role: "vendeur", nom: "KOSSI" } }, { id: "com1", data: { role: "commercial", nom: "COM1" } }, { id: "compta", data: { role: "comptable", nom: "COMPTA" } }], messages: lignes };
+      const q = { select() { return q; }, order() { return q; }, limit() { return q; }, range() { return q; },
+        eq(col, val) { filtres.push([col, val]); return q; },
+        then(ok) { return Promise.resolve({ data: (tables[table] || []).filter((l) => filtres.every(([c, v]) => c === "id" ? l.id === v : c === "data->>wa_tel" ? (l.data || {}).wa_tel === v : true)), error: null }).then(ok); } };
+      return q;
+    },
+    storage: { from(espace) { return { async download(chemin) { telecharges.push(`${espace}:${chemin}`); const o = magasin[chemin]; return o ? { data: new Blob([o]), error: null } : { data: null, error: { message: "Object not found" } }; } }; } },
+  });
+  const ligneVocal = (id, stocke, wa_tel = "90112233") => ({ id, data: { canal: "whatsapp", wa_tel, ts: new Date().toISOString(), de_id: "kossi", wa_media: { type: "voice", mime: "audio/ogg", envoye: true, duree: 2, stocke } } });
+  const confie = { id: "c1", data: { canal: "whatsapp", wa_tel: "90112233", wa_systeme: true, ts: new Date(Date.now() - 60000).toISOString(), proprietaire_id: "com1", proprietaire_nom: "COM1", texte: "🔁 confiée" } };
+  const ecouter = async (moi, message, lignes) => {
+    const magasin = { [cheminOk]: Buffer.from("OggS-note-ok"), [cheminVieux]: Buffer.from("OggS-vieille"), [cheminAutre]: Buffer.from("OggS-autre") };
+    const telecharges = [];
+    const res = { code: 0, corps: null, entetes: {}, setHeader(k, v) { this.entetes[k] = v; }, status(c) { this.code = c; return this; }, json(o) { this.corps = o; return this; }, send(b) { this.corps = b; return this; }, end() { return this; } };
+    await APIM.default({ method: "POST", headers: {}, body: { jeton: "ok", message } }, res, { adminClient: fauxAdmin(moi, lignes, magasin, telecharges) });
+    return { res, telecharges };
+  };
+  const support = [ligneVocal("v1", cheminOk), ligneVocal("v2", cheminVieux), ligneVocal("v3", cheminAutre)];
+  let m1, m2, m3, m4, m5, m6;
+  try {
+    m1 = await ecouter("kossi", "v1", support);
+    m2 = await ecouter("com1", "v1", support);
+    m3 = await ecouter("kossi", "v1", [...support, confie]);
+    m4 = await ecouter("kossi", "v2", support);
+    m5 = await ecouter("kossi", "v3", support);
+    m6 = await ecouter("compta", "v1", support);
+  } catch (er) { console.log("    (erreur de l'écoute jouée :", er?.message || er, ")"); }
+  test("★★★ l'écoute jouée : un COLLÈGUE qui voit la conversation (support) entend la note rangée — le son rendu tel quel, en audio/ogg",
+    m2?.res.code === 200 && String(m2.res.corps) === "OggS-note-ok" && m2.res.entetes["Content-Type"] === "audio/ogg" && m1?.res.code === 200
+    && JSON.stringify(m2.telecharges) === JSON.stringify([`vocaux-wa:${cheminOk}`]), JSON.stringify({ code: m2?.res.code, corps: String(m2?.res.corps), t: m2?.telecharges }));
+  test("★★★ LE MUR, dans le geste : une conversation CONFIÉE à COM1 → KOSSI refusé (403) et l'espace n'est même pas lu ; le comptable aussi",
+    m3?.res.code === 403 && m3.telecharges.length === 0 && m6?.res.code === 403 && m6.telecharges.length === 0, `${m3?.res.code} ${m6?.res.code}`);
+  test("★★★ plus de 30 jours → « plus gardée », sans lire l'espace ; le chemin d'une AUTRE conversation → refusé, sans lire l'espace",
+    m4?.res.code === 404 && m4.res.corps?.error === VS.MOTIF_VOCAL_EXPIRE && m4.telecharges.length === 0
+    && m5?.res.code === 404 && /n'appartient pas/.test(m5.res.corps?.error || "") && m5.telecharges.length === 0,
+    JSON.stringify({ m4: m4?.res.corps, m5: m5?.res.corps }));
+
+  // ---- L'effacement à 30 jours, joué ----
+  const PV = await import("../api/_vocauxStockes.js");
+  const fichiersParJour = { "2026-09-01": ["a_1.ogg", "b_2.ogg"], "2026-09-20": ["c_3.ogg"], "2026-09-21": ["d_4.ogg"], "2026-10-21": ["e_5.ogg"] };
+  const retires = [];
+  const adminPurge = { storage: { from(espace) { return {
+    async list(dossier) { if (espace !== "vocaux-wa") return { data: [], error: null }; return { data: dossier ? (fichiersParJour[dossier] || []).map((name) => ({ name })) : [...Object.keys(fichiersParJour), "autre"].map((name) => ({ name, id: null })), error: null }; },
+    async remove(chemins) { retires.push(...chemins); return { data: chemins, error: null }; },
+  }; } } };
+  const bilanPurge = await PV.purgerVocauxStockes(adminPurge, "2026-10-21");
+  test("★★★ l'effacement joué : les jours de plus de 30 jours partent, fichier par fichier ; le 30e jour, aujourd'hui et un dossier inconnu restent",
+    bilanPurge.jours === 2 && bilanPurge.effaces === 3 && JSON.stringify(retires.sort()) === JSON.stringify(["2026-09-01/a_1.ogg", "2026-09-01/b_2.ogg", "2026-09-20/c_3.ogg"]),
+    JSON.stringify({ bilanPurge, retires }));
+  const bilanPanne = await PV.purgerVocauxStockes({ storage: { from() { return { async list() { return { data: null, error: { message: "Bucket not found" } }; } }; } } }, "2026-10-21");
+  test("★★ un espace absent ne fait pas tomber la tournée : un bilan avec son motif, jamais une erreur",
+    bilanPanne.effaces === 0 && /Bucket not found/.test(bilanPanne.pourquoi || ""));
+  test("★★ la tournée de 7 h appelle l'effacement et en rend le bilan",
+    /const vocaux = await purgerVocauxStockes\(admin, aujourdhui\)/.test(sansC(lire("api/rappels-du-matin.js"))) && /relances_assistant, vocaux \}/.test(lire("api/rappels-du-matin.js")));
+
+  // ---- Le SQL et les gardes ----
+  const sql = lire("supabase/vocaux-1-espace.sql");
+  test("★★ le SQL : l'espace « vocaux-wa » PRIVÉ, 3 Mo, sons seulement, sans « rollback », et il a son banc sur base jetable",
+    /'vocaux-wa', 'vocaux-wa', false, 3145728/.test(sql) && /set public = false/.test(sql) && !/^\s*rollback/im.test(sql)
+    && /tester-vocaux-sql\.sh/.test(lire("package.json")));
+  const toutSrc = ["src/whatsapp.js", "src/screens/Whatsapp.jsx", "src/components/NoteVocale.jsx", "src/supabaseClient.js"].map((f) => sansC(lire(f))).join("\n");
+  test("★★ l'application ne touche JAMAIS l'espace de fichiers elle-même : seul le serveur y range et y lit",
+    !/\.storage\b/.test(toutSrc) && !/vocaux-wa/.test(toutSrc));
+
+  // ---- L'écran, dans Chromium : un collègue sans copie entend la note rangée ----
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-vocal72-"));
+  const fauxClient = join(dossier, "fauxClient.js");
+  writeFileSync(fauxClient, `export async function mediaWaEnLigne(id) { (window.appelsMedia = window.appelsMedia || []).push(id); const b = (window.FAUX_VOCAUX || {})[id]; return b ? { blob: b } : { error: "Cette note vocale n'est plus disponible." }; }`);
+  const bundle = join(dossier, "vocal.js");
+  await build({ entryPoints: ["scripts/_navigateur-vocal.jsx"], bundle: true, format: "iife", platform: "browser", outfile: bundle, jsx: "automatic", loader: { ".js": "jsx" }, logLevel: "silent", define: { "process.env.NODE_ENV": '"production"' },
+    plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: fauxClient })); } }] });
+  const require = createRequire(import.meta.url);
+  const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+  const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+  try {
+    const page = await nav.newPage();
+    const erreurs = []; page.on("pageerror", (e) => erreurs.push(e.message));
+    const f = join(dossier, "page.html");
+    writeFileSync(f, `<!doctype html><html><head><meta charset="utf-8"></head><body><script src="${bundle}"></script></body></html>`);
+    await page.goto(`file://${f}`);
+    const etat = await page.evaluate(async ({ cheminOk, cheminVieux }) => {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator(); const dest = ctx.createMediaStreamDestination(); osc.connect(dest); osc.start();
+      const rec = new MediaRecorder(dest.stream, { mimeType: "audio/webm;codecs=opus" });
+      const morceaux = []; rec.ondataavailable = (e) => morceaux.push(e.data);
+      const fini = new Promise((ok) => { rec.onstop = ok; });
+      rec.start(250); await new Promise((ok) => setTimeout(ok, 900)); rec.stop(); await fini; osc.stop();
+      const ogg = window.Vocal.webmVersOgg(new Uint8Array(await new Blob(morceaux).arrayBuffer()));
+      window.FAUX_VOCAUX = { wa_equipe: new Blob([ogg.octets], { type: "audio/ogg" }) };
+      // La ligne vue par un collègue (aucune copie ici), une ligne de plus de 30 jours,
+      // et la ligne de l'appareil qui l'a enregistrée (copie gardée).
+      await window.Vocal.garderCopieVocal("wa_moi", new Blob([ogg.octets], { type: "audio/ogg" }));
+      window.Vocal.monterLigneEnvoyee("wa_equipe", cheminOk);
+      window.Vocal.monterLigneEnvoyee("wa_vieille72", cheminVieux);
+      window.Vocal.monterLigneEnvoyee("wa_moi", cheminOk);
+      return true;
+    }, { cheminOk, cheminVieux });
+    await page.waitForSelector("#ligne-wa_equipe [data-vocal-equipe] [data-vocal-lire]", { timeout: 8000 }).catch(() => {});
+    await page.waitForSelector("#ligne-wa_vieille72 [data-vocal-ailleurs]", { timeout: 8000 }).catch(() => {});
+    await page.waitForSelector("#ligne-wa_moi [data-vocal-lire]", { timeout: 8000 }).catch(() => {});
+    const apres = await page.evaluate(() => ({
+      equipe: !!document.querySelector("#ligne-wa_equipe [data-vocal-equipe] [data-vocal-lire]"),
+      vieille: document.querySelector("#ligne-wa_vieille72")?.textContent || "",
+      moi: !!document.querySelector("#ligne-wa_moi [data-vocal-lire]") && !document.querySelector("#ligne-wa_moi [data-vocal-equipe]"),
+      appels: window.appelsMedia || [],
+    }));
+    test("★★★ dans Chromium : un COLLÈGUE (aucune copie sur son appareil) entend la note rangée dans LE lecteur commun",
+      etat && apres.equipe && apres.appels.includes("wa_equipe") && erreurs.length === 0, JSON.stringify({ apres, erreurs }));
+    test("★★★ dans Chromium : une note de plus de 30 jours ne demande RIEN au serveur et dit qu'elle est effacée",
+      !apres.appels.includes("wa_vieille72") && apres.vieille.includes("Effacée 30 jours") && apres.vieille.includes("téléphone BMI"), JSON.stringify(apres));
+    test("★★ dans Chromium : l'appareil qui l'a enregistrée joue sa COPIE, sans appel au serveur",
+      apres.moi && !apres.appels.includes("wa_moi"), JSON.stringify(apres));
+  } finally { await nav.close(); rmSync(dossier, { recursive: true, force: true }); }
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
