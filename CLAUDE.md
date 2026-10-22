@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2747 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2748 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -8003,6 +8003,15 @@ lit mal est pire qu'un banc absent).
   (+4, le devis et les reçus IMPRIMÉS), éprouvé (devis, reçu, registre posé
   sur `db.users` brut) ; un contrôle RETOURNÉ (le reçu de versement).
   Chapitre 2 à jour.
+  ⚠⚠ **SUR L'APPAREIL DE LA VENDEUSE, ÇA NE MARCHAIT PAS** (capture Timo,
+  22/10/2026 : BMID-2026-0066 « Vendeur : ANGELE » envoyé de son téléphone,
+  BMID-2026-0063 « AKPOSSOGNA Kossiwa » ; réparé sans attendre, dit à Timo).
+  Une vente ne porte que `par` (pas d'id) : la règle cherche par le NOM, et le
+  registre = les fiches de l'espace PLUS le compte connecté — chez la vendeuse,
+  SA fiche et SON compte, deux fois le même nom, pris pour deux homonymes.
+  `unParPersonne` (lib/nomSurDocument.js) compte des PERSONNES (par id), la
+  copie qui porte le nom complet l'emporte. Le banc du 17/10 n'avait jamais
+  joué le registre RÉEL (fiches + compte connecté) : il le joue (+1), éprouvé.
 
 ### ⚧ LE SEXE D'UN COMPTE (12/10/2026, « Ab, Ba, Ca »)
 - Timo, après les attestations : « ajouter le sexe sur la fiche pour que

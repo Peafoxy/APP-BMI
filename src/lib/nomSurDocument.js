@@ -17,12 +17,29 @@ const cle = (x) => String(x == null ? "" : x).trim().toLowerCase();
 // quand le document le porte. Trouvée par l'id d'abord ; sinon par le nom,
 // parmi les employés (jamais un client), et SEULEMENT s'il n'y en a qu'un —
 // entre deux homonymes on ne devine pas, on garde ce qui est écrit.
+// ⚠⚠ UNE MÊME PERSONNE PEUT FIGURER DEUX FOIS (Timo, 22/10/2026 : reçu de
+// BMID-2026-0066 « Vendeur : ANGELE », envoyé du téléphone d'ANGELE, alors que
+// celui de BMID-2026-0063 disait « AKPOSSOGNA Kossiwa ») : App.jsx pose les
+// fiches de l'espace PLUS le compte connecté — sur l'appareil de la vendeuse,
+// SA fiche et SON compte portent le même nom. Comptés comme deux homonymes, on
+// ne devinait pas et l'identifiant restait. On compte des PERSONNES (par id),
+// et parmi les copies d'une personne on prend celle qui porte le nom complet.
+const unParPersonne = (liste) => {
+  const vues = new Map();
+  for (const u of liste) {
+    const k = u.id || u;
+    const deja = vues.get(k);
+    if (!deja || (!String(deja.nom_complet || "").trim() && String(u.nom_complet || "").trim())) vues.set(k, u);
+  }
+  return [...vues.values()];
+};
+
 export function nomSurDocumentDans(personnes, nom, id) {
   const ecrit = String(nom == null ? "" : nom).trim();
-  const liste = Array.isArray(personnes) ? personnes : [];
-  let fiche = id ? liste.find((u) => u && u.id === id) : null;
+  const liste = Array.isArray(personnes) ? personnes.filter(Boolean) : [];
+  let fiche = id ? unParPersonne(liste.filter((u) => u.id === id))[0] || null : null;
   if (!fiche && ecrit) {
-    const memes = liste.filter((u) => u && u.role !== "client" && cle(u.nom) === cle(ecrit));
+    const memes = unParPersonne(liste.filter((u) => u.role !== "client" && cle(u.nom) === cle(ecrit)));
     if (memes.length === 1) fiche = memes[0];
   }
   const complet = fiche && String(fiche.nom_complet || "").trim();

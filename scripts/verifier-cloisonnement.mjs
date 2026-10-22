@@ -8255,6 +8255,23 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     ImpN.poserPersonnesDesDocuments([]);
     test("★★ le REÇU de vente imprimé : « Vendeur : METONOU Esso Timothée » ; le reçu de versement : « Reçu par : METONOU Esso Timothée » (le versement fait par TIMO)",
       /Vendeur : METONOU Esso Timothée/.test(recuN) && /Reçu par : METONOU Esso Timothée/.test(versN), recuN.slice(0, 200) + " | " + versN.slice(0, 200));
+    // ⚠⚠ Timo, 22/10/2026 : le reçu envoyé du téléphone de la VENDEUSE disait
+    // « Vendeur : ANGELE ». Le registre réel = les fiches de l'espace PLUS le
+    // compte connecté (le même que sa fiche, souvent sans nom complet) : la
+    // même personne deux fois, prise pour deux homonymes.
+    const ficheAng = { id: "g1", nom: "ANGELE", role: "gerant", nom_complet: "AKPOSSOGNA Kossiwa" };
+    const profilAng = { id: "g1", nom: "ANGELE", role: "gerant" };
+    const registreReel = [...gens.filter((u) => u.id !== "u2"), ficheAng, profilAng];
+    ImpN.poserPersonnesDesDocuments(registreReel);
+    globalThis.__docNom = ""; try { ImpN.imprimerRecu({ ...venteN, par: "ANGELE" }, { nom: "APESSITO" }, []); } catch (e) { globalThis.__docNom = String(e); }
+    const recuAng = nzN(globalThis.__docNom);
+    ImpN.poserPersonnesDesDocuments([]);
+    test("★★ sur l'appareil de la vendeuse (sa fiche ET son compte connecté dans le registre) : « Vendeur : AKPOSSOGNA Kossiwa », jamais l'identifiant ; le compte connecté placé AVANT sa fiche ne cache pas le nom complet ; deux VRAIES personnes du même nom restent indécidables",
+      /Vendeur : AKPOSSOGNA Kossiwa/.test(recuAng)
+      && ND.nomSurDocumentDans([profilAng, ficheAng], "ANGELE") === "AKPOSSOGNA Kossiwa"
+      && ND.nomSurDocumentDans([profilAng, ficheAng], "ANGELE", "g1") === "AKPOSSOGNA Kossiwa"
+      && ND.nomSurDocumentDans([...registreReel, { id: "g2", nom: "ANGELE", role: "vendeur", nom_complet: "AUTRE Angele" }], "ANGELE") === "ANGELE",
+      recuAng.slice(0, 300));
     const impN = readFileSync("src/lib/impression.js", "utf8");
     const appN = readFileSync("src/App.jsx", "utf8");
     test("★ chaque document passe par nomSurDocument (reçus, bons, facture d'achat chantier, relevé des travaux, bon de ravitaillement, PV, contrat, inventaire) ; App.jsx pose les personnes de l'espace regardé (le mur) plus le compte connecté ; « B b » : le texte WhatsApp du reçu garde l'identifiant",
