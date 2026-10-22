@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2734 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2745 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -7744,6 +7744,36 @@ lit mal est pire qu'un banc absent).
   05/10/2026 : `paie-4-debut-paie.sql` le réserve à l'administrateur.
   Banc (10 contrôles), éprouvé (argent caché, employé non suivi compté) ;
   un contrôle RETOURNÉ (`tousEmployes`). Chapitre 18 à jour.
+
+### 🗑 RETIRER UNE PRIME OU UNE AVANCE SAISIE PAR ERREUR (22/10/2026, « lance, oui pour l'avance »)
+- Timo : « Possible de retirer une prime sur salaire ajoutée par erreur ». Rien
+  ne le permettait. 💵 Salaires → un clic déplie la ligne de l'employé → un
+  bouton rond **🗑** sur chaque prime et chaque avance du mois
+  (`data-prime-salaire`, `data-avance-salaire`). **L'administrateur**, la fiche
+  FRAÎCHE, une confirmation, **motif obligatoire**, une ligne de journal
+  (montant, mois, motif d'origine, motif du retrait). Règles pures
+  `critiqueRetraitPrime` / `retirerPrime` / `critiqueRetraitAvance` /
+  `retirerAvance` / `depenseDeLAvance` (calculs.js, à côté de `paieMois`).
+- **Une prime** : jamais un remboursement d'avance de frais (`hors_cnss`,
+  `auto: "avance_frais"` — pas de 🗑) ; **refusée si le salaire déjà versé du
+  mois dépasserait le nouveau net** (l'argent est parti : on annule d'abord le
+  paiement non confirmé).
+- **Une avance** part AVEC sa sortie de caisse : l'argent est compté de nouveau
+  dans la caisse qui l'avait payée (la confirmation le dit ; une clôture déjà
+  faite devient « dépassée », le bandeau de 🔒 Caisse le signale). Elle passe
+  par `refusSuppressionDepense`. Sans dépense retrouvée, seule la déduction part
+  et le journal le dit.
+- Une prime et une avance NOUVELLES portent un `id`, l'avance l'id de SA
+  dépense (`depense_id`) ; une ancienne (sans id) se retire UNE fois (même mois,
+  montant, date, motif, auteur), sa dépense retrouvée par l'employé, le jour et
+  le montant — jamais celle d'un autre employé. ⚠ **Défaut réparé au passage** :
+  supprimer la dépense d'une avance dans 📤 Dépenses (`annulerLiensDepense`)
+  retire maintenant CETTE avance par son `depense_id` (avant : la première du
+  même jour et du même montant). Rien à coller (l'administrateur écrit déjà la
+  fiche de paie et supprime les dépenses). Banc (+11, l'écran RENDU par
+  `scripts/_rendu-salaires.jsx`, props `moisInitial` / `employeDeplieInitial`
+  pour le banc seul), éprouvé (refus du salaire versé retiré, 🗑 sur le
+  remboursement, avance d'un autre prise). Chapitre 18 à jour.
 
 ### 🧾 LE BULLETIN DE PAIE COMPARÉ À UN BULLETIN DE SOLDE (05/10/2026, « 1 »)
 - Capture d'un bulletin de l'État, « compare et fais sortir les

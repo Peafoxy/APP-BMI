@@ -4,13 +4,12 @@
 // gérants, magasiniers) avec bulletin imprimable.
 // ============================================================
 import { Fragment, useState, useEffect } from "react";
-import { SALARIES, BULLETIN_EMPLOYE_OUVERT, MESSAGE_BULLETIN_FERME } from "../lib/constants";
+import { SALARIES, BULLETIN_EMPLOYE_OUVERT, MESSAGE_BULLETIN_FERME, libelleCaisse } from "../lib/constants";
 import { uid, fmt, today, dFR, normPaiement, nouvelleDepense } from "../lib/core";
 // Timo (12/09/2026) : l'employé voit où en sont ses avances de frais.
 import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
-import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour } from "../lib/calculs";
-import { imprimerBulletin } from "../lib/impression";
+import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour, refuserSaufAdmin, critiqueRetraitPrime, retirerPrime, critiqueRetraitAvance, retirerAvance, depenseDeLAvance, refusSuppressionDepense } from "../lib/calculs";import { imprimerBulletin } from "../lib/impression";
 import { phraseContrat } from "../lib/contratTravail";
 import { LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { exportCSV } from "../lib/export";
@@ -28,10 +27,11 @@ import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsC
 // écrans. Sa signature accepte `valeur`, donc rien d'autre n'a bougé ici.
 
 // ============ SALAIRES — VUE ADMINISTRATEUR ============
-export function SalairesAdmin({ db, save, profile }) {
+// `moisInitial` / `employeDeplieInitial` : pour le banc seul (l'écran rendu).
+export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieInitial = null }) {
   const [modeVue, setModeVue] = useState("salaires"); // "salaires" | "cnss"
-  const [mois, setMois] = useState(today().slice(0, 7));
-  const [employeDeplie, setEmployeDeplie] = useState(null); // la ligne dépliée (15/10/2026)
+  const [mois, setMois] = useState(moisInitial || today().slice(0, 7));
+  const [employeDeplie, setEmployeDeplie] = useState(employeDeplieInitial); // la ligne dépliée (15/10/2026)
   // ⚠ RELEVÉ PAR TIMO (05/09/2026) : « dans Salaires aussi les employés
   // formation apparaissent ». La liste lisait db.users brut. Toute liste de
   // personnes passe par utilisateursDeLEspace — c'est l'espace REGARDÉ qui décide.
@@ -64,6 +64,46 @@ export function SalairesAdmin({ db, save, profile }) {
     if (p.reste > 0) return <span className={`${pastille} bg-orange-100 text-orange-700 border-orange-200`}>🟠 Partiel</span>;
     if (p.enAttente > 0) return <span className={`${pastille} bg-amber-100 text-amber-700 border-amber-200`}>⏳ À confirmer</span>;
     return <span className={`${pastille} bg-green-100 text-green-700 border-green-200`}>✅ Payé & confirmé</span>;
+  };
+
+  // 🗑 Retirer une prime ou une avance saisie par erreur (22/10/2026, « lance,
+  // oui pour l'avance ») : l'administrateur, motif obligatoire, revérifié sur
+  // la fiche FRAÎCHE. L'avance part avec SA sortie de caisse.
+  const demanderMotifRetrait = async () => {
+    const motif = await uPrompt("Motif du retrait (obligatoire) — par exemple « saisie en double » :", "");
+    if (motif === null) return null;
+    if (!String(motif).trim()) { uAlert("Le motif est obligatoire : un retrait sans motif ne s'explique à personne."); return null; }
+    return String(motif).trim();
+  };
+  const retirerUnePrime = async (u, prime) => {
+    if (refuserSaufAdmin(profile, "Retirer une prime")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = (db.users || []).find((x) => x.id === u.id);
+    const refus = critiqueRetraitPrime(frais, prime);
+    if (refus) { uAlert(refus); return; }
+    if (!(await uConfirm(`Retirer la prime de ${fmt(prime.montant)} (${libelleMoisFR(prime.mois)}) de ${u.nom} ?${prime.motif ? `\nMotif d'origine : ${prime.motif}` : ""}\n\nElle ne comptera plus dans son salaire ni sur son bulletin.`))) return;
+    const motif = await demanderMotifRetrait();
+    if (!motif) return;
+    const r = retirerPrime(db, frais, prime, motif, profile);
+    save({ ...db, users: r.users }, r.journal);
+  };
+  const retirerUneAvance = async (u, avance) => {
+    if (refuserSaufAdmin(profile, "Retirer une avance sur salaire")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = (db.users || []).find((x) => x.id === u.id);
+    const refus = critiqueRetraitAvance(frais, avance);
+    if (refus) { uAlert(refus); return; }
+    const dep = depenseDeLAvance(db.depenses, frais, avance);
+    const refusDep = dep ? refusSuppressionDepense(db, dep) : null;
+    if (refusDep) { uAlert(refusDep); return; }
+    const suite = dep
+      ? `\n\nSa sortie de caisse (${fmt(dep.montant)}, ${libelleCaisse(dep.boutique)}, du ${dFR(dep.date)}) sera retirée aussi : l'argent est compté DE NOUVEAU dans cette caisse. Il doit y être (jamais sorti, ou rendu par l'employé). Si la journée a déjà été clôturée, 🔒 Caisse le signalera.`
+      : "\n\n⚠ Aucune sortie de caisse n'a été retrouvée pour cette avance : seule la déduction sur le salaire sera retirée.";
+    if (!(await uConfirm(`Retirer l'avance de ${fmt(avance.montant)} (${libelleMoisFR(avance.mois)}) de ${u.nom} ?${avance.motif ? `\nMotif d'origine : ${avance.motif}` : ""}\n\nElle ne sera plus déduite de son salaire.${suite}`))) return;
+    const motif = await demanderMotifRetrait();
+    if (!motif) return;
+    const r = retirerAvance(db, frais, avance, motif, profile);
+    save({ ...db, users: r.users, depenses: r.depenses }, r.journal);
   };
 
   return (
@@ -144,11 +184,21 @@ export function SalairesAdmin({ db, save, profile }) {
                       <div className="grid sm:grid-cols-3 gap-3 max-w-[900px]">
                         <div>
                           <div className="font-bold text-slate-800 mb-0.5">Primes de {libelleMoisFR(mois)}</div>
-                          {primesMois.length === 0 ? <div className="text-slate-400">Aucune.</div> : primesMois.map((x, k) => <div key={x.id || k}>+ {fmt(x.montant)} — {x.motif || "prime"}{x.hors_cnss ? " (remboursement, hors CNSS)" : ""}</div>)}
+                          {primesMois.length === 0 ? <div className="text-slate-400">Aucune.</div> : primesMois.map((x, k) => (
+                            <div key={x.id || k} data-prime-salaire className="flex items-center gap-1.5 py-0.5">
+                              <span>+ {fmt(x.montant)} — {x.motif || "prime"}{x.hors_cnss ? " (remboursement, hors CNSS)" : ""}</span>
+                              {!x.hors_cnss && x.auto !== "avance_frais" && <BoutonRond icone="🗑" teinte="rouge" onClick={() => retirerUnePrime(u, x)} titre="🗑 Retirer cette prime (saisie par erreur)" />}
+                            </div>
+                          ))}
                         </div>
                         <div>
                           <div className="font-bold text-slate-800 mb-0.5">Avances</div>
-                          {avancesMois.length === 0 ? <div className="text-slate-400">Aucune.</div> : avancesMois.map((x, k) => <div key={x.id || k}>− {fmt(x.montant)} — {x.motif || "avance"}</div>)}
+                          {avancesMois.length === 0 ? <div className="text-slate-400">Aucune.</div> : avancesMois.map((x, k) => (
+                            <div key={x.id || k} data-avance-salaire className="flex items-center gap-1.5 py-0.5">
+                              <span>− {fmt(x.montant)} — {x.motif || "avance"}</span>
+                              <BoutonRond icone="🗑" teinte="rouge" onClick={() => retirerUneAvance(u, x)} titre="🗑 Retirer cette avance (saisie par erreur) — sa sortie de caisse aussi" />
+                            </div>
+                          ))}
                         </div>
                         <div>
                           <div className="font-bold text-slate-800 mb-0.5">Paiements</div>

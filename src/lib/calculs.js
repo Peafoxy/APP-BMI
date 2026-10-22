@@ -1454,8 +1454,12 @@ export function annulerLiensDepense(db, d) {
     return { users: (db.users || []).map((u) => {
       if (u.id !== d.user_id) return u;
       let unefois = false;
+      // Depuis le 22/10/2026 l'avance porte l'id de SA dépense : on la retrouve
+      // par lui d'abord ; sinon une avance d'avant, du même jour et du même montant.
+      const parId = (u.avances || []).some((a) => a.depense_id === d.id);
       return { ...u, avances: (u.avances || []).filter((a) => {
-        if (!unefois && a.date === d.date && Number(a.montant || 0) === cible) { unefois = true; return false; }
+        const sienne = parId ? a.depense_id === d.id : (!a.depense_id && a.date === d.date && Number(a.montant || 0) === cible);
+        if (!unefois && sienne) { unefois = true; return false; }
         return true;
       }) };
     }) };
@@ -3089,6 +3093,71 @@ export function paieMois(u, mois) {
   const enAttente = vs.filter((v) => v.statut !== "accepte").reduce((s, v) => s + Number(v.montant || 0), 0);
   const net = base + primes - avances - retenueCredit - retenueCNSS;
   return { base, primes, primesHorsCnss, remunerationCNSS, avances, retenueCredit, retenueCNSS, net, verse, accepte, enAttente, reste: net - verse, virements: vs };
+}
+
+// 🗑 RETIRER UNE PRIME OU UNE AVANCE SAISIE PAR ERREUR (Timo, 22/10/2026,
+// « Possible de retirer une prime sur salaire ajoutée par erreur » → « lance,
+// oui pour l'avance »). Administrateur seul (comme l'ajout), motif obligatoire,
+// ligne de journal. Les mouvements d'avant n'ont pas d'identifiant : on retire
+// CELUI-LÀ, une seule fois (même mois, montant, date, motif, auteur).
+const memeMouvement = (a, b) => {
+  if (!a || !b) return false;
+  if (a.id || b.id) return a.id === b.id;
+  return a.mois === b.mois && Number(a.montant) === Number(b.montant) && a.date === b.date
+    && (a.motif || "") === (b.motif || "") && (a.par || "") === (b.par || "");
+};
+const sansUnMouvement = (liste, m) => {
+  let fait = false;
+  return (liste || []).filter((x) => { if (!fait && memeMouvement(x, m)) { fait = true; return false; } return true; });
+};
+
+// Une PRIME : jamais un remboursement d'avance de frais (il est lié à sa
+// dépense, 💼 Avances de frais), et jamais quand le salaire déjà versé du mois
+// dépasserait ce qui resterait dû — l'argent est parti, le retrait ferait
+// croire à un trop-payé.
+export function critiqueRetraitPrime(u, prime) {
+  if (!u || !prime || !(u.primes || []).some((x) => memeMouvement(x, prime))) return "Cette prime n'est plus sur la fiche (déjà retirée ?).";
+  if (prime.hors_cnss || prime.auto === "avance_frais") return "🔒 C'est le remboursement d'une avance de frais, pas une prime : il ne se retire pas ici (il est lié à la dépense que l'employé avait avancée).";
+  const apres = paieMois({ ...u, primes: sansUnMouvement(u.primes, prime) }, prime.mois);
+  if (apres.verse > 0 && apres.verse > apres.net) {
+    return `🔒 Le salaire de ${libelleMoisFR(prime.mois)} est déjà versé avec cette prime : ${fmt(apres.verse)} payés, il ne resterait dû que ${fmt(Math.max(0, apres.net))}.\n\n`
+      + "Si le paiement n'a pas encore été confirmé par l'employé, annulez-le d'abord (👥 Utilisateurs → ⋯ Gérer → « Annuler le paiement »), puis retirez la prime.";
+  }
+  return "";
+}
+export function retirerPrime(db, u, prime, motif, profile) {
+  const users = (db.users || []).map((x) => (x.id === u.id ? { ...x, primes: sansUnMouvement(x.primes, prime) } : x));
+  return {
+    users,
+    journal: `Prime RETIRÉE à ${u.nom} : ${fmt(prime.montant)} (${libelleMoisFR(prime.mois)})${prime.motif ? ` — motif d'origine : ${prime.motif}` : ""} — motif du retrait : ${String(motif).trim()} — par ${profile?.nom || ""}`,
+  };
+}
+
+// La sortie de caisse d'une AVANCE : son identifiant si elle le porte (depuis
+// le 22/10/2026), sinon la dépense « Salaires » automatique de CET employé, du
+// même jour et du même montant (la règle d'annulerLiensDepense).
+export function depenseDeLAvance(depenses, u, avance) {
+  const liste = depenses || [];
+  if (avance?.depense_id) return liste.find((d) => d.id === avance.depense_id) || null;
+  // (Une dépense déjà rattachée à une autre avance n'est jamais prise.)
+  const prises = new Set((u?.avances || []).map((a) => a.depense_id).filter(Boolean));
+  return liste.find((d) => d.auto === "avance" && d.user_id === u?.id && !prises.has(d.id) && d.date === avance?.date
+    && Number(d.montant || 0) === Number(avance?.montant || 0)) || null;
+}
+export function critiqueRetraitAvance(u, avance) {
+  if (!u || !avance || !(u.avances || []).some((x) => memeMouvement(x, avance))) return "Cette avance n'est plus sur la fiche (déjà retirée ?).";
+  return "";
+}
+// L'avance quitte la fiche ET sa sortie de caisse disparaît : l'argent revient
+// dans la caisse qui l'avait payée (jamais sorti, ou rendu par l'employé).
+export function retirerAvance(db, u, avance, motif, profile) {
+  const dep = depenseDeLAvance(db.depenses, u, avance);
+  const users = (db.users || []).map((x) => (x.id === u.id ? { ...x, avances: sansUnMouvement(x.avances, avance) } : x));
+  const depenses = dep ? (db.depenses || []).filter((d) => d.id !== dep.id) : (db.depenses || []);
+  return {
+    users, depenses, depense: dep,
+    journal: `Avance sur salaire RETIRÉE à ${u.nom} : ${fmt(avance.montant)} (${libelleMoisFR(avance.mois)})${dep ? ` — sortie de caisse retirée (${libelleCaisse(dep.boutique)})` : " — aucune sortie de caisse retrouvée"} — motif du retrait : ${String(motif).trim()} — par ${profile?.nom || ""}`,
+  };
 }
 
 // 🧾 Les cumuls de l'année d'un bulletin (05/10/2026, « NIVEAU 2 ») : du

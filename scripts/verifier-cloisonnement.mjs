@@ -16868,5 +16868,79 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
   }
 }
 
+// ── 🗑 RETIRER UNE PRIME OU UNE AVANCE SAISIE PAR ERREUR (22/10/2026, « lance, oui pour l'avance ») ──
+{
+  console.log("\n— 🗑 Retirer une prime ou une avance sur salaire —");
+  const timoR = { id: "u_timo", nom: "TIMO", role: "admin" };
+  const pOk = { mois: "2026-10", montant: 10000, motif: "double", date: "2026-10-20", par: "TIMO" };
+  const pRemb = { id: "pr1", mois: "2026-10", montant: 3000, motif: "Remboursement", date: "2026-10-20", hors_cnss: true, auto: "avance_frais" };
+  const angR = { id: "u_ang", nom: "ANGELE", role: "vendeur", salaire_base: 60000, primes: [pOk, { ...pOk }, pRemb], avances: [], virements: [] };
+  const rP = C.retirerPrime({ users: [angR] }, angR, pOk, "saisie en double", timoR);
+  const apresP = rP.users[0];
+  test("★ une prime sans identifiant se retire UNE seule fois (sa jumelle identique reste), le remboursement d'avance de frais reste, le journal dit le montant, le mois, le motif d'origine et celui du retrait",
+    apresP.primes.length === 2 && apresP.primes.filter((x) => x.montant === 10000).length === 1 && apresP.primes.some((x) => x.id === "pr1")
+    && /^Prime RETIRÉE à ANGELE : 10\s000 F \(octobre 2026\) — motif d'origine : double — motif du retrait : saisie en double — par TIMO$/i.test(rP.journal), rP.journal);
+  test("★ un remboursement d'avance de frais (hors CNSS) ne se retire pas ici",
+    /remboursement d'une avance de frais/.test(C.critiqueRetraitPrime(angR, pRemb)) && C.critiqueRetraitPrime(angR, pOk) === "");
+  const paye = { ...angR, virements: [{ id: "v1", mois: "2026-10", montant: 83000, statut: "envoye" }] };
+  test("★ le salaire déjà versé AVEC la prime (83 000 versés, il ne resterait dû que 73 000) → retrait refusé, la porte « Annuler le paiement » nommée ; versé sous le nouveau net → permis",
+    /déjà versé avec cette prime/.test(C.critiqueRetraitPrime(paye, pOk)) && /Annuler le paiement/.test(C.critiqueRetraitPrime(paye, pOk))
+    && C.critiqueRetraitPrime({ ...angR, virements: [{ id: "v2", mois: "2026-10", montant: 50000, statut: "envoye" }] }, pOk) === ""
+    && /n'est plus sur la fiche/.test(C.critiqueRetraitPrime({ ...angR, primes: [] }, pOk)));
+  // L'avance : avec son identifiant de dépense (nouvelle), puis une ancienne retrouvée par jour + montant.
+  const avNeuve = { id: "a1", mois: "2026-10", montant: 20000, date: "2026-10-21", par: "TIMO", depense_id: "d_neuve" };
+  const avVieille = { mois: "2026-10", montant: 15000, date: "2026-10-05", par: "TIMO", motif: "" };
+  const kossi = { id: "u_kos", nom: "KOSSI", role: "magasinier", salaire_base: 80000, avances: [avNeuve, avVieille] };
+  const deps = [
+    { id: "d_neuve", auto: "avance", user_id: "u_kos", date: "2026-10-21", montant: 20000, boutique: "BMI DEMAKPOE", categorie: "Salaires" },
+    { id: "d_vieille", auto: "avance", user_id: "u_kos", date: "2026-10-05", montant: 15000, boutique: "Chez le DG", categorie: "Salaires" },
+    { id: "d_autre", auto: "avance", user_id: "u_x", date: "2026-10-05", montant: 15000, boutique: "BMI DEMAKPOE", categorie: "Salaires" },
+  ];
+  const dbA = { users: [kossi], depenses: deps };
+  const rA = C.retirerAvance(dbA, kossi, avNeuve, "pas versée", timoR);
+  test("★ une avance retirée emporte SA sortie de caisse (par son identifiant), jamais celle d'un autre employé ; la déduction quitte la fiche",
+    rA.users[0].avances.length === 1 && !rA.depenses.some((d) => d.id === "d_neuve") && rA.depenses.length === 2 && /sortie de caisse retirée \(/.test(rA.journal));
+  const rV = C.retirerAvance(dbA, kossi, avVieille, "erreur", timoR);
+  test("★ une avance d'AVANT (sans identifiant) retrouve sa dépense par l'employé, le jour et le montant — jamais celle d'un autre employé du même jour et du même montant",
+    rV.depense?.id === "d_vieille" && rV.depenses.some((d) => d.id === "d_autre") && rV.users[0].avances.length === 1);
+  test("★ sans sortie de caisse retrouvée, seule la déduction part, et le journal le dit ; une avance déjà retirée est refusée",
+    /aucune sortie de caisse retrouvée/.test(C.retirerAvance({ users: [kossi], depenses: [] }, kossi, avVieille, "x", timoR).journal)
+    && /n'est plus sur la fiche/.test(C.critiqueRetraitAvance({ ...kossi, avances: [] }, avNeuve)) && C.critiqueRetraitAvance(kossi, avNeuve) === "");
+  test("★ supprimer la dépense d'une avance (📤 Dépenses) retire CETTE avance par son identifiant de dépense",
+    (() => { const u2 = { ...kossi, avances: [{ ...avVieille, montant: 20000, date: "2026-10-21" }, avNeuve] }; const r = C.annulerLiensDepense({ users: [u2] }, deps[0]); const reste = r.users[0].avances; return reste.length === 1 && !reste[0].depense_id; })());
+  const sal = readFileSync("src/screens/Salaires.jsx", "utf8");
+  const ut = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  test("★ 💵 Salaires : un 🗑 sur chaque prime (jamais sur un remboursement de frais) et chaque avance de la ligne dépliée ; l'administrateur, la fiche FRAÎCHE, le motif obligatoire ; l'avance part avec sa dépense",
+    /data-prime-salaire[\s\S]{0,400}\{!x\.hors_cnss && x\.auto !== "avance_frais" && <BoutonRond icone="🗑"[^>]*onClick=\{\(\) => retirerUnePrime\(u, x\)\}/.test(sal)
+    && /data-avance-salaire[\s\S]{0,300}onClick=\{\(\) => retirerUneAvance\(u, x\)\}/.test(sal)
+    && /const retirerUnePrime = async[\s\S]{0,200}refuserSaufAdmin\(profile, "Retirer une prime"\)[\s\S]{0,200}const frais = \(db\.users \|\| \[\]\)\.find/.test(sal)
+    && /const retirerUneAvance = async[\s\S]{0,200}refuserSaufAdmin\(profile, "Retirer une avance sur salaire"\)/.test(sal)
+    && /Le motif est obligatoire/.test(sal) && /save\(\{ \.\.\.db, users: r\.users, depenses: r\.depenses \}, r\.journal\)/.test(sal));
+  {
+    const sortieSa = join("node_modules", ".cache", `bmi-salaires-${process.pid}.mjs`);
+    let S = null, err = "";
+    try {
+      await build({ entryPoints: ["scripts/_rendu-salaires.jsx"], bundle: true, format: "esm",
+        platform: "node", outfile: sortieSa, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+        define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+        external: ["react", "react-dom", "react-dom/server", "xlsx", "html2canvas", "jspdf", "jspdf-autotable"] });
+      S = await import(pathToFileURL(sortieSa).href);
+    } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+    try { unlinkSync(sortieSa); } catch {}
+    test("💵 Salaires (administrateur) se monte dans le banc" + (err ? ` (${err})` : ""), !!S);
+    if (S) {
+      const angS = { ...angR, boutique: "DEMAKPOE", actif: true, paie_debut: "2026-10",
+        avances: [{ id: "a9", mois: "2026-10", montant: 5000, motif: "transport", date: "2026-10-02", par: "TIMO", depense_id: "d9" }] };
+      let h = "";
+      try { h = S.rendreSalaires({ users: [timoR, angS], depenses: [], boutiques: [] }, timoR, { moisInitial: "2026-10", employeDeplieInitial: "u_ang" }); } catch (e) { h = "ERREUR " + String(e && e.message || e).slice(0, 160); }
+      const nb = (re) => (h.match(re) || []).length;
+      test("★ rendu : la ligne dépliée montre trois primes et une avance, un 🗑 « Retirer cette prime » sur les DEUX primes ordinaires (pas sur le remboursement de frais) et un 🗑 sur l'avance",
+        !h.startsWith("ERREUR") && nb(/data-prime-salaire/g) === 3 && nb(/title="🗑 Retirer cette prime/g) === 2 && nb(/data-avance-salaire/g) === 1 && nb(/title="🗑 Retirer cette avance/g) === 1, h.slice(0, 160));
+    }
+  }
+  test("★ une prime ou une avance NOUVELLE porte un identifiant, l'avance celui de SA dépense",
+    /const mouvement = \{ id: uid\(\), mois: mois\.trim\(\)/.test(ut) && /if \(depenseId\) mouvement\.depense_id = depenseId;/.test(ut) && /auto: "avance", user_id: u\.id, id: depenseId,/.test(ut));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

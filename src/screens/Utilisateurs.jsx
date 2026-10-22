@@ -1265,8 +1265,12 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
     if (!montant || montant <= 0) { uAlert("Montant invalide."); return; }
     const motif = await uPrompt("Motif (facultatif) :", "");
     if (motif === null) return;
-    const mouvement = { mois: mois.trim(), montant, motif: motif.trim(), date: today(), par: profile.nom };
+    // Un identifiant (22/10/2026) : la prime ou l'avance se retire ensuite sans
+    // ambiguïté (💵 Salaires → 🗑), l'avance avec SA sortie de caisse.
+    const mouvement = { id: uid(), mois: mois.trim(), montant, motif: motif.trim(), date: today(), par: profile.nom };
     const champ = type === "prime" ? "primes" : "avances";
+    const depenseId = type === "avance" ? uid() : null;
+    if (depenseId) mouvement.depense_id = depenseId;
     let next = { ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, [champ]: [...(x[champ] || []), mouvement] } : x)) };
 
     // Une AVANCE est de l'argent réellement remis à l'employé : elle sort de la caisse.
@@ -1280,7 +1284,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
       const dep = nouvelleDepense(profile, {
         boutique: bq, categorie: "Salaires",
         description: `Avance sur salaire ${libelleMoisFR(mois.trim())} — ${u.nom}`,
-        montant, moyen, auto: "avance", user_id: u.id,
+        montant, moyen, auto: "avance", user_id: u.id, id: depenseId,
         ...mentionVirement(u, moyen),
         ...src.champs,
       });
