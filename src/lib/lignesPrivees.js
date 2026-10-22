@@ -13,7 +13,8 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
+import { envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, envoiFondsRemis, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
+import { remisParDe } from "./payeDirectement";
 import { attestationDe, momentFermeture, nomDocument } from "./attestationSortie";
 import { suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "./validationDepenses";
 import { libelleCaisse } from "./constants";
@@ -86,6 +87,14 @@ export function texteLignePrivee(m, db) {
     const u = auteurDeLaDepense(db || {}, dep);
     const commun = { employe: u?.nom_complet || u?.nom || m.wa_nom || dep.par, tel: m.wa_numero || u?.tel || "90000000", dep: avant, boutique: libelleCaisse(dep.boutique), fmt, dFR };
     const e = rejet ? envoiDepenseRejetee({ ...commun, motif, suite: suiteRejetDepense(avant) }) : envoiDepenseValidee({ ...commun, suite: suiteValidationDepense(avant) });
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // 💸 L'argent remis directement à quelqu'un : recomposé depuis la dépense.
+  if (m.wa_modele === "fonds_remis") {
+    const dep = (db?.depenses || []).find((x) => x.id === m.depense_id);
+    if (!dep || !dep.paye_a) return "";
+    const u = auteurDeLaDepense(db || {}, dep);
+    const e = envoiFondsRemis({ dep: { ...dep, paye_a: { ...dep.paye_a, tel: m.wa_numero || dep.paye_a.tel || "90000000" } }, remisPar: remisParDe(u?.nom_complet || u?.nom || dep.par, libelleCaisse(dep.boutique)), fmt, dFR });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   // 📄 L'attestation de fin de contrat : recomposée depuis la marque de la fiche.

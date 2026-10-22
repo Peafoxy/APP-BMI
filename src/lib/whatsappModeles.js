@@ -296,6 +296,9 @@ export const MODELES = {
   // et la validation (« Cb »). UTILITY ; lignes PRIVÉES dans 📲 WhatsApp.
   depense_rejetee: { categorie: "utility", variables: ["employe", "montant", "depense", "date", "boutique", "motif", "suite"] },
   depense_validee: { categorie: "utility", variables: ["employe", "montant", "depense", "date", "boutique", "suite"] },
+  // 💸 22/10/2026 (« Ab, Bb, Cb, texte ok ») : « Personne — payé directement »
+  // — la personne qui a reçu l'argent est prévenue (lib/payeDirectement.js).
+  fonds_remis: { categorie: "utility", variables: ["beneficiaire", "montant", "date", "moyen", "pour", "remis_par"] },
   tache_assignee: { categorie: "utility", variables: ["employe", "par", "tache", "details", "echeance"] },
   tache_validee: { categorie: "utility", variables: ["employe", "par", "tache"] },
   // 📄 14/10/2026, Timo (« A a CDI, b CDD, B b, C ok, D oui ») : l'attestation de
@@ -387,6 +390,9 @@ export const MODELES_EN_SERVICE = [
   // service AVANT l'accord de Meta : d'ici là rien ne part (aucun repli), et
   // l'écran le dit.
   "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee",
+  // 22/10/2026 : l'argent remis directement à quelqu'un hors du personnel.
+  // Rien ne part d'ici l'accord de Meta, et l'écran le dit.
+  "fonds_remis",
   // 14/10/2026 : l'attestation de fin de contrat (geste de l'administrateur
   // principal ; la tournée de 7 h l'envoie aussi pour un CDD). Rien ne part
   // d'ici l'accord de Meta, et l'écran le dit.
@@ -474,10 +480,11 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis"];
 const LIGNES_MASQUEES = {
   depense_rejetee: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
+  fonds_remis: "🔒 Avis d'argent remis envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   tache_assignee: "🔒 Avis de tâche assignée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   tache_validee: "🔒 Avis de tâche validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   attestation_disponible: "🔒 Avis d'attestation de fin de contrat envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
@@ -950,6 +957,7 @@ const LIGNES_ENVOI = {
   visite_client: ([client, date, heure, , chef]) => `Visite annoncée à ${client} : le ${date} à ${heure}, chef de la visite ${chef}.`,
   depense_rejetee: ([employe, montant, depense, date, boutique, motif]) => `Avis de dépense REJETÉE envoyé à ${employe} : ${montant} (${depense}) du ${date}, ${boutique}. Motif : ${motif}.`,
   depense_validee: ([employe, montant, depense, date, boutique]) => `Avis de dépense validée envoyé à ${employe} : ${montant} (${depense}) du ${date}, ${boutique}.`,
+  fonds_remis: ([beneficiaire, montant, date, moyen, pour, remisPar]) => `Avis d'argent remis envoyé à ${beneficiaire} : ${montant} le ${date}, en ${moyen}, pour : ${pour}. Remis par ${remisPar}.`,
   tache_assignee: ([employe, par, tache, details, echeance]) => `Avis de tâche envoyé à ${employe} (par ${par}) : ${tache}. Détails : ${details}. Échéance : ${echeance}.`,
   tache_validee: ([employe, par, tache]) => `Avis de tâche validée envoyé à ${employe} (par ${par}) : ${tache}.`,
   attestation_disponible: ([employe, document, date, heure]) => `Avis envoyé à ${employe} : son ${document} est disponible dans son espace ; accès fermé le ${date} à ${heure}.`,
@@ -2321,6 +2329,33 @@ export function envoiDepenseValidee({ employe, tel, dep, boutique, suite, fmt, d
   if (!base || !s) return null;
   return { modele: "depense_validee", variables: [...base, s] };
 }
+
+// ---------------------------------------------------------------
+// 💸 L'ARGENT REMIS DIRECTEMENT À QUELQU'UN (22/10/2026, « Ab, Bb, Cb, texte ok »)
+// — « Personne — payé directement » dans 📤 Dépenses : la personne qui a
+// reçu l'argent (son nom et son numéro sur la dépense, `paye_a`) est
+// prévenue. Le texte est celui accepté par Timo. Trou 6 = celui qui a saisi
+// la dépense, et la caisse qui a payé.
+// ---------------------------------------------------------------
+export const TEXTE_FONDS_REMIS = "Bonjour {{1}}, BMI TOGO vous a remis {{2}} le {{3}}, en {{4}}, pour : {{5}}. Remis par {{6}}. Si ce montant ne correspond pas à ce que vous avez reçu, répondez simplement à ce message. Merci. BMI TOGO";
+// « en espèces », « en Mobile Money (Flooz) », « en virement bancaire ».
+export function moyenFondsRemis(paiement) {
+  const p = String(paiement || "").trim();
+  if (!p || /esp[eè]ces/i.test(p)) return "espèces";
+  return /^virement/i.test(p) ? p.charAt(0).toLowerCase() + p.slice(1) : p;
+}
+export function envoiFondsRemis({ dep, remisPar, fmt, dFR }) {
+  const p = dep?.paye_a;
+  const nom = texteVariable(p?.nom);
+  const montant = Number(dep?.montant || 0);
+  if (!nom || !numeroWhatsApp(p?.tel) || !(montant > 0)) return null;
+  const f = typeof fmt === "function" ? fmt : (x) => `${x} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => x;
+  const pour = texteVariable([dep.categorie, dep.description].filter(Boolean).join(" — ")) || "dépense";
+  return { modele: "fonds_remis", variables: [nom, f(montant), texteVariable(d(dep.date)) || "—", moyenFondsRemis(dep.paiement), pour, texteVariable(remisPar) || "BMI TOGO"] };
+}
+export const texteFondsRemis = (envoi) => (envoi && envoi.modele === "fonds_remis"
+  ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), TEXTE_FONDS_REMIS) : "");
 
 // ---- ✅ L'AVIS D'UNE TÂCHE (14/10/2026, « A c, B b, C b, texte ok ») ----
 // `tache_assignee` : le texte accepté par Timo, mot pour mot chez Meta ;

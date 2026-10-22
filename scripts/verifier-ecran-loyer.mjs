@@ -243,6 +243,63 @@ console.log("\n✅ Remis au propriétaire, et « 📲 Le rappeler » (Timo, 14/1
   await page.close();
 }
 
+console.log("\n💸 « Argent remis à » se CHOISIT, et « Personne — payé directement » demande le nom (Timo, 22/10/2026 : « Ab, Bb, Cb » puis « la case reste à choisir… sinon impossible d'enregistrer »)");
+{
+  const { page, erreurs } = await ouvrir();
+  await page.locator("button", { hasText: "Nouvelle dépense" }).first().click(); await attendre(200);
+  await page.selectOption("[data-categorie-depense]", "Livraison");
+  await page.locator('input[type="number"]').first().fill("8000");
+  test("★★ la case « Argent remis à » démarre VIDE (« — Choisir — »), plus de « Personne » d'office ; ni nom ni numéro tant qu'on n'a rien choisi",
+    (await page.$eval("[data-remis-a]", (e) => e.value)) === "" && (await page.$("[data-paye-nom]")) === null);
+  await page.locator("button", { hasText: "Enregistrer la dépense" }).click(); await attendre(200);
+  const r1 = await dialogue(page);
+  test("★★★ sans choix, la dépense NE S'ENREGISTRE PAS, et on dit quoi choisir", /Choisissez à qui l'argent a été remis/.test(r1) && (await saves(page)) === 0, r1);
+  await ok_(page);
+  await page.selectOption("[data-remis-a]", { label: "Personne — payé directement" }); await attendre(150);
+  test("★★ « Personne » choisie : les cases « Nom de la personne payée » et « Son numéro WhatsApp (facultatif) » apparaissent",
+    (await page.$("[data-paye-nom]")) !== null && (await page.$("[data-paye-tel]")) !== null && /Son numéro WhatsApp \(facultatif\)/.test(propre(await page.innerText("#r"))));
+  await page.locator("button", { hasText: "Enregistrer la dépense" }).click(); await attendre(200);
+  const r2 = await dialogue(page);
+  test("★★★ « A b » : sans le nom, rien ne s'enregistre", /Indiquez le nom de la personne/.test(r2) && (await saves(page)) === 0, r2);
+  await ok_(page);
+  await page.fill("[data-paye-tel]", "90 1");
+  await page.fill("[data-paye-nom]", "Station Total");
+  await page.locator("button", { hasText: "Enregistrer la dépense" }).click(); await attendre(200);
+  const r3 = await dialogue(page);
+  test("★ un numéro tapé trop court est refusé (on le laisse vide s'il n'en a pas)", /trop court/.test(r3) && (await saves(page)) === 0, r3);
+  await ok_(page);
+  await page.fill("[data-paye-tel]", "90 11 22 33");
+  await page.locator("button", { hasText: "Enregistrer la dépense" }).click(); await attendre(200);
+  const conf = await dialogue(page);
+  test("★★ « B b » : la confirmation nomme la personne payée et dit que le message partira une fois la dépense validée par le DG (8 000 F, saisie par la gérante)",
+    /Payé directement à Station Total : un message du numéro BMI lui confirmera ce qu'il a reçu, une fois la dépense validée par le DG/.test(conf), conf);
+  await ok_(page);
+  const dep = await derniere(page);
+  test("★★★ la dépense porte `paye_a` (nom et numéro), en attente du DG, et AUCUN message n'est encore parti (une seule écriture)",
+    dep?.paye_a?.nom === "Station Total" && dep?.paye_a?.tel === "90 11 22 33" && !dep?.paye_a?.avise_le && !dep?.remis_a && dep?.validation?.statut === "attente" && (await saves(page)) === 1
+    && !(await page.evaluate(() => (window.saves.at(-1)?.n.messages || []).some((m) => m.wa_modele === "fonds_remis"))), JSON.stringify(dep));
+  await ok_(page);
+  const ligne = propre(await page.$eval("[data-paye-a-ligne]", (e) => e.innerText).catch(() => ""));
+  test("★★ la ligne du tableau dit « 💸 payé à Station Total (90 11 22 33) »", /payé à Station Total \(90 11 22 33\)/.test(ligne), ligne);
+  test("★ aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
+  await page.close();
+}
+{
+  const { page } = await ouvrir();
+  await page.locator("button", { hasText: "Nouvelle dépense" }).first().click(); await attendre(200);
+  await page.selectOption("[data-categorie-depense]", "Carburant");
+  await page.locator('input[type="number"]').first().fill("3000");
+  await page.selectOption("[data-remis-a]", { label: "Personne — payé directement" }); await attendre(150);
+  await page.fill("[data-paye-nom]", "Station Total");
+  await page.locator("button", { hasText: "Enregistrer la dépense" }).click(); await attendre(200);
+  const conf = await dialogue(page);
+  test("★★ sans numéro (« A b ») : la dépense s'enregistre, et la confirmation dit qu'aucun message ne part", /Payé directement à Station Total \(sans numéro : aucun message ne part\)/.test(conf), conf);
+  await ok_(page);
+  const dep = await derniere(page);
+  test("★ `paye_a` sans numéro, sous le seuil (rien à valider)", dep?.paye_a?.nom === "Station Total" && dep?.paye_a?.tel === "" && !dep?.validation, JSON.stringify(dep));
+  await page.close();
+}
+
 await nav.close();
 rmSync(dossier, { recursive: true, force: true });
 console.log(ko === 0 ? `\n✅  ${ok} vérification(s) passée(s), 0 en échec.` : `\n❌  ${ko} en échec sur ${ok + ko}.`);

@@ -345,6 +345,22 @@ export const avisDepense = () => {
   return { rejet: un("rejetee"), validation: un("validee") };
 };
 
+// ---- 💸 L'ARGENT REMIS DIRECTEMENT À QUELQU'UN (22/10/2026, « Ab, Bb, Cb ») ----
+// La VRAIE chaîne : l'avis construit sur la dépense, la ligne rangée (privée,
+// sans détail), puis le détail RECOMPOSÉ par 📲 WhatsApp depuis la dépense.
+import { envoiFondsRemis, texteFondsRemis } from "../src/lib/whatsappModeles.js";
+import { remisParDe } from "../src/lib/payeDirectement.js";
+export const avisFondsRemis = () => {
+  const auteur = { id: "AMA", nom: "AMA", nom_complet: "AMA Koffi", role: "gerant", tel: "90445566" };
+  const dg = users[0];
+  const dep = { id: "DEPF", date: "2026-10-22", boutique: "APESSITO", categorie: "Livraison", description: "Tricycle Adidogomé", montant: 3000, paiement: "Espèces", paye_avec: "caisse", par: "AMA", par_id: "AMA", paye_a: { nom: "Station Total", tel: "90 11 22 33" } };
+  const base = { users: [dg, auteur], boutiques, depenses: [dep], messages: [] };
+  const envoi = envoiFondsRemis({ dep, remisPar: remisParDe(auteur.nom_complet, "APESSITO"), fmt, dFR });
+  const msgs = messagesAvecLigneEnvoi([], { profile: auteur, tel: dep.paye_a.tel, nom: dep.paye_a.nom, modele: envoi.modele, variables: envoi.variables, ref: { depense_id: dep.id }, envoi: { id: "yc-fr" } });
+  const rangee = msgs.find((x) => x.wa_modele === "fonds_remis") || {};
+  return { envoi, texte: texteFondsRemis(envoi), rangee, attendu: ligneEnvoiModele(envoi.modele, envoi.variables), detail: texteLignePrivee(rangee, base) };
+};
+
 // ---- ✅ L'AVIS D'UNE TÂCHE (14/10/2026, « A c, B b, C b ») ----
 import { envoiTacheAssignee, envoiTacheValidee } from "../src/lib/whatsappModeles.js";
 export const avisTache = () => {

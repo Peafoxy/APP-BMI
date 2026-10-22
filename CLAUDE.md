@@ -60,7 +60,7 @@ npm run tester-notifications     # 99  : les notifications (liste A = messages, 
 npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone ; 🔒 Matériel réservé rendu, le mur, la réappro sur le disponible)
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
-npm run verifier-ecran-loyer     # 32  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
+npm run verifier-ecran-loyer     # 43  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée ; « Argent remis à » à choisir, le nom de la personne payée directement (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
 npm run verifier-ecran-solaire   # 17  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0
@@ -2492,7 +2492,7 @@ lit mal est pire qu'un banc absent).
 - **A b** : tout le personnel de l'espace regardé (`personnesProposees`,
   lib/argentChantier.js — jamais un client, un compte désactivé ni soi-même ;
   pour un chantier, son équipe en tête, marquée 🏠). `techniciensProposes`
-  RETIRÉE. **B b** : hors chantier, « Personne — payé directement » d'office ;
+  RETIRÉE. **B b** : hors chantier, ~~« Personne — payé directement » d'office~~ (RETOURNÉ le 22/10/2026 : plus de choix d'office, voir § « 💸 PERSONNE — PAYÉ DIRECTEMENT ») ;
   la case n'y est que pour le gérant et l'administrateur
   (`peutRemettreHorsChantier`, revérifié par `critiqueRemisA(…, profile)`) ;
   pour un chantier, le choix reste exigé. **C a** : l'onglet **« 💼 Argent
@@ -2517,6 +2517,43 @@ lit mal est pire qu'un banc absent).
 - **« Laisse le remboursement dans Mon salaire » (10/10/2026)** : un
   remboursement d'avance de frais payé avec le salaire n'est pas une prime ; il
   reste hors de 💰 Primes reçues. Ne pas le reproposer.
+
+### 💸 « PERSONNE — PAYÉ DIRECTEMENT » DIT À QUI, ET LA PERSONNE PAYÉE EST PRÉVENUE (22/10/2026, « Ab, Bb, Cb, texte ok »)
+- Capture Timo (✏️ Modifier, « Personne — payé directement ») : « on peut
+  demander le nom et le numéro de la personne… et la personne reçoit aussi le
+  message de réception des fonds », puis « Personne payé n'est pas choisi
+  d'office… la case reste à choisir… sinon impossible d'enregistrer la
+  dépense ». Règle pure **`lib/payeDirectement.js`** (sans import).
+- **« Argent remis à » n'a PLUS de choix d'office** (formulaire de 📤 Dépenses,
+  là où la case existe : gérant + administrateur, et tout chantier) :
+  « — Choisir — », refus DANS le geste (`critiqueChoixRemis`). **« A b »** :
+  « Personne » exige le **NOM** de qui a reçu l'argent (le nom exigé partout,
+  sa réponse à la question posée), le numéro WhatsApp est facultatif (8
+  chiffres s'il est tapé) — `critiquePayeA`, `paye_a = { nom, tel }` sur la
+  dépense, « 💸 payé à … » sur la ligne. ⚠ Le paiement du **loyer** garde son
+  geste (`duFormulaire: false`, le propriétaire est sur la fiche du local).
+- **« B b »** : modèle **`fonds_remis`** (UTILITY, 6 trous : nom, montant, date,
+  moyen — « espèces » / « Mobile Money (Flooz) » / « virement bancaire » —,
+  « catégorie — description », « qui a saisi, caisse » — `TEXTE_FONDS_REMIS`, le
+  texte accepté par Timo). Envoyé du numéro BMI, sans question ni repli, **UNE
+  fois** (`avise_le`, posé dans la même écriture que la ligne du fil par
+  `apresEnvoi` d'`envoyerRecuSansQuestion`), quand la dépense **compte** : à la
+  saisie sous 5 000 F, à la **validation du DG** au-dessus ; une dépense rejetée
+  n'envoie rien. ⚠ Le mur : la boutique de la dépense en formation → rien.
+  Ligne **PRIVÉE** dans 📲 WhatsApp (`depense_id`, recomposée par
+  `texteLignePrivee`). **« C b »** : ✏️ Modifier ajoute ou corrige le nom et le
+  numéro (facultatifs là : une ancienne dépense n'en a pas ; un numéro exige le
+  nom) et envoie le message si la personne n'en a jamais reçu ; la marque reste
+  si le NUMÉRO ne change pas.
+- **À créer par Timo chez YCloud** (utility, fr). ~4 F. D'ici l'accord, rien ne
+  part et l'écran le dit. Rien à coller dans Supabase. Bancs : Chromium
+  `verifier-ecran-loyer` (+11, la case vide, le nom exigé, la dépense écrite),
+  `verifier-whatsapp` 76 (12, la chaîne de l'avis rendue), éprouvés (choix non
+  exigé, nom facultatif, compte ignoré, marque oubliée, ligne non privée) ;
+  quatre contrôles RETOURNÉS (`verifier-cloisonnement` : plus de « Personne »
+  d'office, ✏️ Modifier async avec `payeA`) et trois (`verifier-whatsapp` :
+  cinquante-six modèles, modèles à ligne, seize privés). Chapitre 17 et guide du
+  gérant à jour.
 
 ### 💼 QUI SORT L'ARGENT D'UNE CAISSE (10/10/2026)
 - Capture Timo (« Argent remis à… dans dépense d'un commercial ? ») : un

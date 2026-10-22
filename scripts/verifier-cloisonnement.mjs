@@ -13230,7 +13230,7 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     }
     {
       const dpM = readFileSync("src/screens/Depenses.jsx", "utf8");
-      const corps = (dpM.match(/const enregistrerModif = \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+      const corps = (dpM.match(/const enregistrerModif = async \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
       test("★ l'écran ✏️ Modifier porte la case « Chantier rattaché » et revérifie DANS le geste (critiqueChangementChantier) avant d'enregistrer",
         /<Field label="Chantier rattaché">/.test(dpM) && /data-modif-chantier/.test(dpM)
         && /const refusChantier = critiqueChangementChantier\(db, profile, fraiche, ch\);/.test(corps) && corps.indexOf("critiqueChangementChantier") < corps.indexOf("save("));
@@ -13246,8 +13246,9 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
       && Vd.critiqueModifDepense(d0, { categorie: "Transport", description: "" }) === null);
     test("★★ modifier = l'administrateur PRINCIPAL seul, revérifié DANS le geste, sur la fiche FRAÎCHE",
       /ouvrirModif: estAdminPrincipal\(db, profile\) \? ouvrirModif : null/.test(dsrc)
-      && /const enregistrerModif = \(\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile, "Modifier une dépense"\)\) return;/.test(dsrc)
-      && /const refus = critiqueModifDepense\(fraiche, \{ \.\.\.modif, chantier, remisA \}\);/.test(dsrc));
+      // RETOURNÉ le 22/10/2026 : le geste est async (l'avis à la personne payée) et passe `payeA`.
+      && /const enregistrerModif = async \(\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile, "Modifier une dépense"\)\) return;/.test(dsrc)
+      && /const refus = critiqueModifDepense\(fraiche, \{ \.\.\.modif, chantier, remisA, payeA \}\);/.test(dsrc));
     // « Chez le comptable » (Timo, 25/09/2026, décision « a ») : le même bouton,
     // la même règle, écrite UNE fois (useModifDepense) ; le comptable reste en
     // lecture seule ; ni l'entrée d'un versement ni une ligne automatique.
@@ -15389,7 +15390,7 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     && sansChantier.depense.remis_a?.id === "t1" && !("chantier_id" in sansChantier.depense));
   {
     const dpM = readFileSync("src/screens/Depenses.jsx", "utf8");
-    const corpsM = (dpM.match(/const enregistrerModif = \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
+    const corpsM = (dpM.match(/const enregistrerModif = async \(\) => \{([\s\S]*?)\n  \};/) || [])[1] || "";
     // ⚠ RETOURNÉ le 10/10/2026 : la case est là même sans chantier (« Personne » d'office) ; le choix reste exigé pour un chantier.
     test("★ l'écran ✏️ Modifier : la case « Argent remis à » toujours là, choix exigé pour un chantier, revérifié DANS le geste (critiqueRemisA avec le profil, et refusSuppressionRemise pour la personne d'avant) avant d'écrire",
       /<Field label="Argent remis à"><select className=\{inputCls\} value=\{modif\.remisA \|\| \(modif\.chantierId \? "" : REMIS_A_PERSONNE\)\}/.test(dpM) && /data-modif-remis-a/.test(dpM)
@@ -15480,8 +15481,9 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
     })());
   const dpL = readFileSync("src/screens/Depenses.jsx", "utf8");
   const corpsL = dpL.slice(dpL.indexOf("const enregistrerDepense = async"), dpL.indexOf("const ajouter = () =>"));
-  test("★ l'écran 📤 Dépenses : la case vaut hors chantier pour le gérant et l'administrateur (« Personne » d'office, l'équipe marquée 🏠), le geste revérifie AVEC le profil sur la liste de tout le personnel, la ligne dit « remis à » même sans chantier",
-    /value=\{f\.remis_a \|\| \(f\.chantier_id \? "" : REMIS_A_PERSONNE\)\}/.test(dpL) && /\{f\.chantier_id && <option value="">— Choisir —<\/option>\}/.test(dpL)
+  // RETOURNÉ le 22/10/2026 (Timo : « Personne payé n'est pas choisi d'office… la case reste à choisir ») : plus de choix d'office, « — Choisir — » toujours.
+  test("★ l'écran 📤 Dépenses : la case vaut hors chantier pour le gérant et l'administrateur (« — Choisir — » TOUJOURS, plus de « Personne » d'office ; l'équipe marquée 🏠), le geste revérifie AVEC le profil sur la liste de tout le personnel, la ligne dit « remis à » même sans chantier",
+    /value=\{f\.remis_a \|\| ""\} onChange/.test(dpL) && /<option value="">— Choisir —<\/option>\n\s*<option value=\{REMIS_A_PERSONNE\}>Personne — payé directement<\/option>/.test(dpL) && !/value=\{f\.remis_a \|\| \(f\.chantier_id \? "" : REMIS_A_PERSONNE\)\}/.test(dpL)
     && corpsL.includes("const proposes = personnesProposees(utilisateursDeLEspace(db, profile), chantierChoisi, profile);")
     && corpsL.includes("critiqueRemisA(chantierChoisi, f.remis_a, proposes, profile)") && corpsL.indexOf("if (refusRemis)") < corpsL.indexOf("save(")
     && /: x\.remis_a\?\.nom \? <span className="text-xs text-slate-600" data-remis-a-ligne>/.test(dpL) && !/techniciensProposes/.test(dpL));

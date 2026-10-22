@@ -30,6 +30,7 @@
 //
 // UNE règle, pure (le banc l'exerce). Serveur : securite-15.
 // ============================================================
+import { changeDePayeA, avecPayeA, phrasePayeA } from "./payeDirectement.js";
 import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core.js";
 import { CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_CHANTIER, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT, libelleCaisse } from "./constants.js";
 
@@ -425,14 +426,14 @@ export function motifNonModifiable(d) {
   return null;
 }
 export const depenseModifiable = (d) => !motifNonModifiable(d);
-export function critiqueModifDepense(d, { categorie, description, chantier, remisA } = {}) {
+export function critiqueModifDepense(d, { categorie, description, chantier, remisA, payeA } = {}) {
   const motif = motifNonModifiable(d);
   if (motif) return motif;
   if (!CATEGORIES.includes(categorie)) return "Choisissez une catégorie de la liste.";
   // Le chantier qui restera : undefined = inchangé, null = détaché.
   const refusChantier = critiqueCategorieChantier(categorie, chantier === undefined ? d.chantier_id : chantier?.id);
   if (refusChantier) return refusChantier;
-  if (categorie === d.categorie && String(description || "").trim() === String(d.description || "").trim() && !changeDeChantier(d, chantier) && !changeDeRemis(d, remisA)) return "Rien n'a changé.";
+  if (categorie === d.categorie && String(description || "").trim() === String(d.description || "").trim() && !changeDeChantier(d, chantier) && !changeDeRemis(d, remisA) && !changeDePayeA(d, payeA)) return "Rien n'a changé.";
   return null;
 }
 // 💼 À qui l'argent a été remis (Timo, 07/10/2026 : « à qui l'argent a été
@@ -449,7 +450,7 @@ export const changeDeRemis = (d, remisA) => remisA !== undefined && String(remis
 // lib/depensesChantier.js (critiqueChangementChantier), revérifiés dans le geste.
 export const changeDeChantier = (d, chantier) => chantier !== undefined && String(chantier?.id || "") !== String(d?.chantier_id || "");
 // La dépense corrigée et la phrase du journal (qui dit ce qui a changé).
-export function modifierDepense(d, { categorie, description, chantier, remisA }, par, le) {
+export function modifierDepense(d, { categorie, description, chantier, remisA, payeA }, par, le) {
   const desc = String(description || "").trim();
   const changes = [];
   if (categorie !== d.categorie) changes.push(`catégorie : ${d.categorie} → ${categorie}`);
@@ -467,6 +468,12 @@ export function modifierDepense(d, { categorie, description, chantier, remisA },
     changes.push(`remis à : ${d.remis_a?.nom || "personne"} → ${remis?.nom || "personne"}`);
     const { remis_a, ...reste } = base;
     base = remis ? { ...reste, remis_a: { id: remis.id, nom: remis.nom } } : reste;
+  }
+  // 💸 La personne payée directement (22/10/2026, « C b ») : undefined = on n'y
+  // touche pas ; null = plus personne ; { nom, tel } = elle.
+  if (changeDePayeA(d, payeA)) {
+    changes.push(`payé à : ${phrasePayeA(d.paye_a).replace(/^payé à /, "") || "—"} → ${phrasePayeA(payeA).replace(/^payé à /, "") || "—"}`);
+    base = avecPayeA(base, payeA);
   }
   return {
     depense: { ...base, categorie, description: desc, modifie_le: le, modifie_par: par },

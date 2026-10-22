@@ -453,7 +453,10 @@ export async function envoyerRecuPdf({ envoi, numero, fabriquer, tel, nom, espac
   return { auto: true, motif: "" };
 }
 
-export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation, save, profile, ref = {}, noms = { titre: "Reçu", sujet: "Le reçu" }, pdf = null }) {
+// `apresEnvoi(etat)` (22/10/2026) : ce que l'écran pose en plus, DANS la même
+// écriture que la ligne du fil, seulement si le message est parti (la marque
+// « déjà prévenu » d'une dépense payée directement).
+export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation, save, profile, ref = {}, noms = { titre: "Reçu", sujet: "Le reçu" }, pdf = null, apresEnvoi = null }) {
   if (!envoi) return "";
   // 📎 Le reçu avec son PDF d'abord (`pdf` = { numero, fabriquer }) ; le
   // texte d'aujourd'hui s'il ne part pas. Après une connexion coupée on ne
@@ -467,10 +470,10 @@ export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation
   const r = await envoyerModele({ tel, modele: envoi.modele, variables: envoi.variables, espaceFormation, sansRepli: true });
   if (r.auto) {
     if (typeof save === "function") {
-      save((etat) => ({
-        ...etat,
-        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref, envoi: r }),
-      }));
+      save((etat) => {
+        const suite = typeof apresEnvoi === "function" ? apresEnvoi(etat) : etat;
+        return { ...suite, messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref, envoi: r }) };
+      });
     }
     return `📲 ${noms.titre} envoyé du numéro BMI à ${nom}.${notePdf}`;
   }

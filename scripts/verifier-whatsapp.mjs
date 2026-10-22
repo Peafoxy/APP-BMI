@@ -141,6 +141,8 @@ const ATTENDU = {
   // du client — l'avis (écran) et le rappel (serveur seul).
   depense_rejetee: { categorie: "utility", n: 7 },
   depense_validee: { categorie: "utility", n: 6 },
+  // 22/10/2026 (« Ab, Bb, Cb, texte ok ») : l'argent remis directement à quelqu'un.
+  fonds_remis: { categorie: "utility", n: 6 },
   tache_assignee: { categorie: "utility", n: 5 },
   tache_validee: { categorie: "utility", n: 3 },
   // 14/10/2026 (« A a CDI, b CDD, B b, C ok, D oui ») : l'attestation de fin de contrat disponible.
@@ -150,7 +152,7 @@ const ATTENDU = {
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les cinquante-cinq modèles sont là, et eux seuls (RETOURNÉ le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les cinquante-six modèles sont là, et eux seuls (RETOURNÉ le 22/10/2026 : + `fonds_remis`, l'argent remis directement à quelqu'un ; le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1387,8 +1389,8 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
-  test("★ les modèles à ligne (RETOURNÉ le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,depense_rejetee,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,proforma_pdf,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+  test("★ les modèles à ligne (RETOURNÉ le 22/10/2026 : + l'argent remis directement ; le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,depense_rejetee,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,fonds_remis,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,proforma_pdf,rappel_dette,rappel_echeance,rappel_entretien,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3230,8 +3232,8 @@ test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni
   && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
   && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
 // RETOURNÉ le 03/10/2026 : + l'avis de salaire (un salaire ne se lit pas par les collègues).
-test("★ les quinze modèles privés (RETOURNÉ le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
-  M.MODELES_PRIVES.slice().sort().join(",") === "attestation_disponible,avancement_employe,bon_reprise,bon_retour,commission_due,depense_rejetee,depense_validee,prime_installation_payee,recu_depot_chantier,recu_vente,recu_vente_detail,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+test("★ les seize modèles privés (RETOURNÉ le 22/10/2026 : + l'argent remis directement à quelqu'un ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "attestation_disponible,avancement_employe,bon_reprise,bon_retour,commission_due,depense_rejetee,depense_validee,fonds_remis,prime_installation_payee,recu_depot_chantier,recu_vente,recu_vente_detail,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
 {
   // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE (Timo, 03/10/2026, son texte).
   const eS = M.envoiVirementSalaire({ employe: "AKPOSSOGNA Kossiwa", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-202610-ROBS", initiateur: { role: "Comptable", tel: "91123456" }, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
@@ -6932,6 +6934,64 @@ titre("75 🔑 LES IDENTIFIANTS REPARTENT PAR `espace` QUAND META REJETTE `espac
   test("★★ « c » : le refus 130472 se dit en français (par le code, et par les mots si le code manque)",
     /essai de Meta/.test(MW.traduireMotifWhatsApp("", 130472)) && /essai de Meta/.test(MW.traduireMotifWhatsApp("Failed to send message because this user's phone number is part of an experiment", "")));
   test("★ la règle du relais ne lit jamais de clé secrète", !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/relaisAcces.js")));
+}
+
+titre("76 💸 « PERSONNE — PAYÉ DIRECTEMENT » DIT À QUI, ET LA PERSONNE PAYÉE EST PRÉVENUE (22/10/2026, « Ab, Bb, Cb, texte ok », « la case reste à choisir »)");
+{
+  const sansComm = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const P = await import(pathToFileURL(join(process.cwd(), "src/lib/payeDirectement.js")).href);
+  const MW = await import(pathToFileURL(join(process.cwd(), "src/lib/whatsappModeles.js")).href);
+  const Vd = await import(pathToFileURL(join(process.cwd(), "src/lib/validationDepenses.js")).href);
+  test("★★★ la case se CHOISIT : vide = refus ; « A b » : le nom exigé, le numéro facultatif mais de 8 chiffres s'il est tapé",
+    !!P.critiqueChoixRemis("") && P.critiqueChoixRemis("personne") === null
+    && !!P.critiquePayeA({ nom: "", tel: "" }) && P.critiquePayeA({ nom: "Station Total", tel: "" }) === null
+    && !!P.critiquePayeA({ nom: "X", tel: "90 1" }) && P.critiquePayeA({ nom: "X", tel: "+228 90 11 22 33" }) === null
+    && P.critiquePayeA({ nom: "", tel: "" }, { nomExige: false }) === null && !!P.critiquePayeA({ nom: "", tel: "90112233" }, { nomExige: false }));
+  const dep = { id: "d1", montant: 3000, paiement: "Espèces", categorie: "Livraison", description: "Tricycle", date: "2026-10-22", paye_a: { nom: "Station Total", tel: "90112233" } };
+  test("★★★ « B b » : le message part quand la dépense COMPTE, jamais en attente ni rejetée, jamais sans numéro, jamais en formation, UNE fois",
+    P.avisFondsRemisAFaire(dep, { compte: true }) === true
+    && P.avisFondsRemisAFaire(dep, { compte: false }) === false
+    && P.avisFondsRemisAFaire(dep, { compte: true, rejetee: true }) === false
+    && P.avisFondsRemisAFaire({ ...dep, paye_a: { nom: "X", tel: "" } }, { compte: true }) === false
+    && P.avisFondsRemisAFaire(dep, { compte: true, formation: true }) === false
+    && P.avisFondsRemisAFaire(P.marquerFondsRemisAnnonce(dep, "2026-10-22"), { compte: true }) === false);
+  test("★★ « C b » : ✏️ Modifier corrige le nom et le numéro ; la marque « déjà prévenu » reste si le NUMÉRO ne change pas, part s'il change",
+    P.changeDePayeA(dep, undefined) === false && P.changeDePayeA(dep, { nom: "Station Total", tel: "90 11 22 33" }) === false && P.changeDePayeA(dep, { nom: "Total", tel: "90112233" }) === true
+    && P.avecPayeA({ ...dep, paye_a: { ...dep.paye_a, avise_le: "x" } }, { nom: "Total", tel: "90 11 22 33" }).paye_a.avise_le === "x"
+    && !P.avecPayeA({ ...dep, paye_a: { ...dep.paye_a, avise_le: "x" } }, { nom: "Total", tel: "91000000" }).paye_a.avise_le
+    && !("paye_a" in P.avecPayeA(dep, null)));
+  const m1 = Vd.modifierDepense({ ...dep, boutique: "APESSITO" }, { categorie: "Livraison", description: "Tricycle", payeA: { nom: "Station Total", tel: "91000000" } }, "TIMO", "2026-10-22");
+  test("★★ modifierDepense écrit la nouvelle personne payée et le DIT au journal ; critiqueModifDepense voit le changement (pas « Rien n'a changé »)",
+    m1.depense.paye_a?.tel === "91000000" && /payé à : Station Total \(90112233\) → Station Total \(91000000\)/.test(m1.journal)
+    && Vd.critiqueModifDepense({ ...dep, boutique: "APESSITO" }, { categorie: "Livraison", description: "Tricycle", payeA: { nom: "Station Total", tel: "91000000" } }) === null);
+  const A = V.avisFondsRemis();
+  test("★★★ le modèle `fonds_remis` (UTILITY) : nom · montant · date · moyen · pour · remis par, le texte accepté par Timo",
+    MW.MODELES.fonds_remis?.categorie === "utility" && A.envoi.variables.length === 6 && A.envoi.variables[0] === "Station Total" && /^3.000 F$/.test(A.envoi.variables[1]) && A.envoi.variables[2] === "22/10/2026" && A.envoi.variables[3] === "espèces" && A.envoi.variables[4] === "Livraison — Tricycle Adidogomé" && A.envoi.variables[5] === "AMA Koffi, APESSITO",
+    JSON.stringify(A.envoi));
+  test("★★ le texte : « Bonjour Station Total, BMI TOGO vous a remis 3 000 F le 22/10/2026, en espèces, pour : … Remis par AMA Koffi, APESSITO. Si ce montant ne correspond pas… »",
+    /^Bonjour Station Total, BMI TOGO vous a remis 3.000 F le 22\/10\/2026, en espèces, pour : Livraison — Tricycle Adidogomé\. Remis par AMA Koffi, APESSITO\. Si ce montant ne correspond pas à ce que vous avez reçu, répondez simplement à ce message\. Merci\. BMI TOGO$/.test(A.texte)
+    && MW.moyenFondsRemis("Mobile Money (Flooz)") === "Mobile Money (Flooz)" && MW.moyenFondsRemis("Virement bancaire") === "virement bancaire", A.texte);
+  test("★★★ la ligne du fil est PRIVÉE (le montant ne se lit pas par tous) ; le détail se recompose depuis la dépense pour qui a le droit",
+    A.rangee.wa_prive === true && A.rangee.depense_id === "DEPF" && !/3.000/.test(A.rangee.texte) && A.detail === A.attendu && /Station Total/.test(A.detail), JSON.stringify({ r: A.rangee.texte, d: A.detail }));
+  test("★ sans numéro, aucun envoi ne se fabrique", MW.envoiFondsRemis({ dep: { ...dep, paye_a: { nom: "X", tel: "" } } }) === null);
+  const D = sansComm(lire("src/screens/Depenses.jsx"));
+  const corpsEnr = D.slice(D.indexOf("const enregistrerDepense = async"), D.indexOf("const ajouter = () =>"));
+  const corpsVal = D.slice(D.indexOf("const validerDG = async"), D.indexOf("const rejeterDG = async"));
+  const corpsMod = D.slice(D.indexOf("const enregistrerModif = async"), D.indexOf("const chantiersModif ="));
+  const corpsEnv = D.slice(D.indexOf("async function envoyerAvisFondsRemis"), D.indexOf("function useModifDepense"));
+  test("★★★ UNE fonction d'envoi, appelée APRÈS l'écriture par la saisie, la validation du DG et ✏️ Modifier — jamais par le rejet",
+    corpsEnr.indexOf("envoyerAvisFondsRemis(") > corpsEnr.indexOf("save(") && corpsVal.indexOf("envoyerAvisFondsRemis(") > corpsVal.indexOf("save(")
+    && corpsMod.indexOf("envoyerAvisFondsRemis(") > corpsMod.indexOf("save(") && !D.slice(D.indexOf("const rejeterDG = async"), D.indexOf("const supprimerDepense")).includes("envoyerAvisFondsRemis("));
+  test("★★★ le mur et l'unique fois : la boutique de la dépense en formation → rien ; `avise_le` posé DANS la même écriture que la ligne (apresEnvoi), sans question ni repli",
+    /const formation = !!\(db\.boutiques \|\| \[\]\)\.find\(\(b\) => b\.nom === dep\?\.boutique\)\?\.formation;/.test(corpsEnv)
+    && /avisFondsRemisAFaire\(dep, \{ compte: !estEnAttente\(dep\), rejetee: estRejetee\(dep\), formation \}\)/.test(corpsEnv)
+    && /envoyerRecuSansQuestion\(/.test(corpsEnv) && /apresEnvoi: \(etat\) => \(\{ \.\.\.etat, depenses: .*marquerFondsRemisAnnonce\(x, today\(\)\)/.test(corpsEnv));
+  test("★★ le loyer garde son geste : la case n'est exigée que DU FORMULAIRE (le propriétaire est sur la fiche du local)",
+    /const caseExigee = duFormulaire && !sansCaisse && \(!!f\.chantier_id \|\| peutRemettreHorsChantier\(profile\)\);/.test(corpsEnr) && /if \(caseExigee\) \{\s*const refusChoix = critiqueChoixRemis\(f\.remis_a\);/.test(corpsEnr)
+    && corpsEnr.indexOf("critiqueChoixRemis") < corpsEnr.indexOf("save("));
+  const W = sansComm(lire("src/whatsapp.js"));
+  test("★ `apresEnvoi` n'agit que si le message est PARTI (dans le `if (r.auto)` de envoyerRecuSansQuestion)",
+    /if \(r\.auto\) \{\s*if \(typeof save === "function"\) \{\s*save\(\(etat\) => \{\s*const suite = typeof apresEnvoi === "function" \? apresEnvoi\(etat\) : etat;/.test(W));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

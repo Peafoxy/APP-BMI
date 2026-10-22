@@ -20,7 +20,8 @@ import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { RetoursAValider } from "../components/ArgentChantier";
 import { compteExploitant } from "../lib/compteExploitant";
 import { ficheLoyer, etatLoyer, critiquePaiementLoyer, formulaireLoyer, libelleMois, libellePeriodeLoyer, moisAPayer, moisDeLaDepense, CATEGORIE_LOYER, dernierLoyerARemettre, dernierLoyerRemis, marquerLoyerRemis, moisEnClair } from "../lib/loyer";
-import { envoiLoyerDisponible, texteLoyerDisponible, envoiDepenseRejetee, envoiDepenseValidee } from "../lib/whatsappModeles";
+import { envoiLoyerDisponible, texteLoyerDisponible, envoiDepenseRejetee, envoiDepenseValidee, envoiFondsRemis } from "../lib/whatsappModeles";
+import { critiqueChoixRemis, critiquePayeA, payeANormalise, avisFondsRemisAFaire, marquerFondsRemisAnnonce, remisParDe, phrasePayeA } from "../lib/payeDirectement";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { refuserSaufRoles, bloquerSiLecture, annulerLiensDepense, refusSuppressionDepense, aLienAAnnuler, boutiquesVente, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, refuserSaufAdmin, estAdminPrincipal, refuserSaufAdminPrincipal, afficheChiffresFormation, utilisateursDeLEspace } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -90,8 +91,9 @@ export function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide,
               {ouverte && (estEnAttente(x) || estRejetee(x) || estValidee(x)) && <div data-depense-decision className="mt-1 whitespace-normal w-0 min-w-full"><BadgeValidation x={x} /></div>}
             </td>
             <td className="px-3 py-2 text-xs">
-              {x.chantier_id ? <span className="font-semibold text-purple-800 whitespace-normal">{String(x.chantier_nom || "").startsWith("🛠") ? "" : "🏠 "}{x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}</span>
-                : x.remis_a?.nom ? <span className="text-xs text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span> : <span className="text-slate-300">—</span>}
+              {x.chantier_id ? <span className="font-semibold text-purple-800 whitespace-normal">{String(x.chantier_nom || "").startsWith("🛠") ? "" : "🏠 "}{x.chantier_nom || "chantier"}{x.remis_a?.nom && <span className="block text-xs font-normal text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>}{x.paye_a?.nom && <span className="block text-xs font-normal text-slate-600" data-paye-a-ligne>💸 {phrasePayeA(x.paye_a)}{x.paye_a.avise_le ? " · 📲 prévenu" : ""}</span>}</span>
+                : x.remis_a?.nom ? <span className="text-xs text-slate-600" data-remis-a-ligne>💼 remis à {x.remis_a.nom}</span>
+                : x.paye_a?.nom ? <span className="text-xs text-slate-600 whitespace-normal" data-paye-a-ligne>💸 {phrasePayeA(x.paye_a)}{x.paye_a.avise_le ? " · 📲 prévenu" : ""}</span> : <span className="text-slate-300">—</span>}
             </td>
             <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-1.5">
@@ -106,6 +108,25 @@ export function TableauDepenses({ liste, profile, onSupprimer, onModifier, vide,
   );
 }
 
+// 💸 L'ARGENT REMIS DIRECTEMENT À QUELQU'UN (22/10/2026, « Ab, Bb, Cb ») :
+// la personne qui l'a reçu (`paye_a`) est prévenue du numéro BMI, sans
+// question ni repli, UNE fois (`avise_le`), quand la dépense COMPTE (sous le
+// seuil, ou validée par le DG) — jamais rejetée. ⚠ Le mur : la boutique de la
+// dépense en formation → rien. Écrit UNE fois pour la saisie, la validation
+// du DG et ✏️ Modifier.
+async function envoyerAvisFondsRemis(db, save, profile, dep) {
+  const formation = !!(db.boutiques || []).find((b) => b.nom === dep?.boutique)?.formation;
+  if (!avisFondsRemisAFaire(dep, { compte: !estEnAttente(dep), rejetee: estRejetee(dep), formation })) return "";
+  const auteur = auteurDeLaDepense(db, dep);
+  const envoi = envoiFondsRemis({ dep, remisPar: remisParDe(auteur?.nom_complet || auteur?.nom || dep.par, libelleCaisse(dep.boutique)), fmt, dFR });
+  if (!envoi) return "";
+  return envoyerRecuSansQuestion({
+    envoi, tel: dep.paye_a.tel, nom: dep.paye_a.nom, espaceFormation: formation, save, profile, ref: { depense_id: dep.id },
+    noms: { titre: "Avis d'argent remis", sujet: "L'avis d'argent remis" },
+    apresEnvoi: (etat) => ({ ...etat, depenses: (etat.depenses || []).map((x) => (x.id === dep.id ? marquerFondsRemisAnnonce(x, today()) : x)) }),
+  });
+}
+
 // ============ DÉPENSES ============
 // ✏️ Modifier une dépense (Timo, 25/09/2026) : catégorie et description,
 // l'administrateur PRINCIPAL seul, revérifié DANS le geste. Écrit UNE fois
@@ -115,9 +136,9 @@ function useModifDepense(db, save, profile) {
   const [modif, setModif] = useState(null);
   const ouvrirModif = (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
-    setModif({ d, categorie: d.categorie, description: d.description || "", chantierId: d.chantier_id || "", remisA: d.remis_a?.id || REMIS_A_PERSONNE });
+    setModif({ d, categorie: d.categorie, description: d.description || "", chantierId: d.chantier_id || "", remisA: d.remis_a?.id || REMIS_A_PERSONNE, payeNom: d.paye_a?.nom || "", payeTel: d.paye_a?.tel || "" });
   };
-  const enregistrerModif = () => {
+  const enregistrerModif = async () => {
     if (refuserSaufAdminPrincipal(db, profile, "Modifier une dépense")) return;
     if (bloquerSiLecture(db, profile)) return;
     const fraiche = (db.depenses || []).find((x) => x.id === modif.d.id);
@@ -150,11 +171,23 @@ function useModifDepense(db, save, profile) {
         remisA = t ? { id: t.id, nom: t.nom } : null;
       }
     }
-    const refus = critiqueModifDepense(fraiche, { ...modif, chantier, remisA });
+    // 💸 « Personne — payé directement » : le nom et le numéro de qui a reçu
+    // l'argent (« C b ») — facultatifs ici (une ancienne dépense n'en a pas) ;
+    // un numéro exige le nom. Un employé choisi retire la personne payée.
+    const choixFinal = remisA !== undefined ? remisA : (fraiche?.remis_a?.id ? { id: fraiche.remis_a.id } : null);
+    let payeA;
+    if (fraiche && !choixFinal) {
+      const refusP = critiquePayeA({ nom: modif.payeNom, tel: modif.payeTel }, { nomExige: false });
+      if (refusP) { uAlert(refusP); return; }
+      payeA = payeANormalise({ nom: modif.payeNom, tel: modif.payeTel });
+    } else if (fraiche && fraiche.paye_a) payeA = null;
+    const refus = critiqueModifDepense(fraiche, { ...modif, chantier, remisA, payeA });
     if (refus) { uAlert(refus); return; }
-    const r = modifierDepense(fraiche, { ...modif, chantier, remisA }, profile.nom, today());
+    const r = modifierDepense(fraiche, { ...modif, chantier, remisA, payeA }, profile.nom, today());
     save({ ...db, depenses: db.depenses.map((x) => (x.id === fraiche.id ? r.depense : x)) }, r.journal);
     setModif(null);
+    const phrase = await envoyerAvisFondsRemis(db, save, profile, r.depense);
+    if (phrase) uAlert(phrase);
   };
   const chantiersModif = modif ? chantiersRattachables(db, profile) : [];
   const chantierModif = modif?.chantierId ? (db.clients_installes || []).find((c) => c.id === modif.chantierId) : null;
@@ -178,6 +211,10 @@ function useModifDepense(db, save, profile) {
                 {personnesModif.map((u) => <option key={u.id} value={u.id}>{estDeLEquipe(chantierModif, u) ? "🏠 " : ""}{u.nom}</option>)}
                 {modif.d.remis_a?.id && !personnesModif.some((u) => u.id === modif.d.remis_a.id) && <option value={modif.d.remis_a.id}>{modif.d.remis_a.nom}</option>}
               </select></Field>
+              {(modif.remisA || (modif.chantierId ? "" : REMIS_A_PERSONNE)) === REMIS_A_PERSONNE && (<>
+                <Field label="Nom de la personne payée"><input className={inputCls} value={modif.payeNom} maxLength={80} onChange={(e) => setModif({ ...modif, payeNom: e.target.value })} data-modif-paye-nom /></Field>
+                <Field label="Son numéro WhatsApp (facultatif)"><input className={inputCls} inputMode="tel" value={modif.payeTel} onChange={(e) => setModif({ ...modif, payeTel: e.target.value })} data-modif-paye-tel /></Field>
+              </>)}
             </div>
             <div className="text-xs text-slate-500 mt-2">Le chantier se change seulement tant que le chantier n'est pas réceptionné (ni soldé, ni ses techniciens payés).</div>
             <div className="text-xs text-slate-500 mt-2">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>
@@ -211,7 +248,7 @@ export function Depenses({ db, save, profile, cible = null }) {
   // ⚠ Aucune catégorie d'office (Timo, 25/09/2026) : « Loyer », la première de
   // la liste, était proposée d'office — une dépense de 5 000 F saisie sans y
   // toucher est tombée en « Loyer » et le cadre du loyer l'a comptée. On CHOISIT.
-  const formVide = { categorie: "", description: "", montant: "", paiement: MOYENS_ENCAISSEMENT[0], paye_avec: "", chantier_id: "", remis_a: "" };
+  const formVide = { categorie: "", description: "", montant: "", paiement: MOYENS_ENCAISSEMENT[0], paye_avec: "", chantier_id: "", remis_a: "", paye_nom: "", paye_tel: "" };
   const caissesPossibles = boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom);
   // Les chantiers de devis auxquels on peut rattacher une dépense (espace regardé, en cours).
   const chantiersOuverts = chantiersRattachables(db, profile);
@@ -391,6 +428,20 @@ export function Depenses({ db, save, profile, cible = null }) {
     // 💼 Timo (07/10/2026) : « lorsqu'on choisit un chantier, il faut choisir
     // aussi le technicien qui reçoit l'argent » ; puis (10/10/2026) « pour
     // chaque dépense côté gérant ou administrateur ». Revérifié DANS le geste.
+    // 💸 Timo (22/10/2026) : « Personne payé n'est pas choisi d'office… la case
+    // reste à choisir… sinon impossible d'enregistrer la dépense » ; et
+    // « Personne » exige le nom de qui a reçu l'argent (le numéro facultatif).
+    // Le loyer garde son geste (le propriétaire est sur la fiche du local).
+    const caseExigee = duFormulaire && !sansCaisse && (!!f.chantier_id || peutRemettreHorsChantier(profile));
+    if (caseExigee) {
+      const refusChoix = critiqueChoixRemis(f.remis_a);
+      if (refusChoix) { uAlert(refusChoix); return; }
+    }
+    const payeA = caseExigee && f.remis_a === REMIS_A_PERSONNE ? payeANormalise({ nom: f.paye_nom, tel: f.paye_tel }) : null;
+    if (caseExigee && f.remis_a === REMIS_A_PERSONNE) {
+      const refusP = critiquePayeA({ nom: f.paye_nom, tel: f.paye_tel });
+      if (refusP) { uAlert(refusP); return; }
+    }
     const proposes = personnesProposees(utilisateursDeLEspace(db, profile), chantierChoisi, profile);
     const refusRemis = critiqueRemisA(chantierChoisi, f.remis_a, proposes, profile);
     if (refusRemis) { uAlert(refusRemis); return; }
@@ -408,7 +459,8 @@ export function Depenses({ db, save, profile, cible = null }) {
       if (!propositionFonds.possible) { uAlert(`Le fonds de caisse ne peut pas payer cette dépense.\n\nTiroir de ${boutique} : ${fmt(Math.max(0, poches.montant))} · enveloppe : ${fmt(propositionFonds.reste)}.\n\nOn n'ouvre l'enveloppe que si le tiroir ne suffit pas, et seulement pour ce qu'elle contient.`); return; }
     }
     const rattache = (chantierChoisi ? `\n\n🏠 Rattachée au chantier ${libelleChantier(chantierChoisi)} : elle sera déduite des frais d'installation avant le partage entre techniciens.` : "")
-      + (recoit ? `\n\n💼 Argent remis à ${recoit.nom} : dans son onglet « 💼 Argent reçu », ${recoit.nom} dira à quoi il a servi et rendra le reste.` : "");
+      + (recoit ? `\n\n💼 Argent remis à ${recoit.nom} : dans son onglet « 💼 Argent reçu », ${recoit.nom} dira à quoi il a servi et rendra le reste.` : "")
+      + (payeA ? `\n\n💸 Payé directement à ${payeA.nom}${payeA.tel ? ` : un message du numéro BMI lui confirmera ce qu'il a reçu${r.aValider && !jeSuisDG ? ", une fois la dépense validée par le DG" : ""}.` : " (sans numéro : aucun message ne part)."}` : "");
     // Timo (15/09/2026) : « la dépense prend les 20 000 de la caisse et on
     // passe avec 10 000 de fonds de caisse » — la confirmation DIT le partage.
     const partage = r.depense.paye_avec === PAYE_AVEC_FONDS
@@ -430,12 +482,14 @@ export function Depenses({ db, save, profile, cible = null }) {
     }
     const depenseLoyer = estLoyerDuMois ? { ...r.depense, loyer_mois: f.loyer_mois, loyer_boutique: f.loyer_boutique } : r.depense;
     const rattachee = chantierChoisi ? rattacherDepense(depenseLoyer, chantierChoisi) : depenseLoyer;
-    const depense = recoit ? { ...rattachee, remis_a: { id: recoit.id, nom: recoit.nom } } : rattachee;
-    save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : "") + (recoit ? ` · remis à ${recoit.nom}` : ""));
+    const depense = recoit ? { ...rattachee, remis_a: { id: recoit.id, nom: recoit.nom } } : payeA ? { ...rattachee, paye_a: payeA } : rattachee;
+    save({ ...db, depenses: [depense, ...db.depenses], messages: [...r.messages, ...(db.messages || [])] }, r.journal + (chantierChoisi ? ` · chantier ${libelleChantier(chantierChoisi)}` : "") + (recoit ? ` · remis à ${recoit.nom}` : "") + (payeA ? ` · ${phrasePayeA(payeA)}` : ""));
     if (duFormulaire) { setF(formVide); setDepenseOuverte(false); }
     if (r.aValider && !jeSuisDG) uAlert(`Dépense enregistrée — en attente de validation par le DG.${choixCaisse.boutique !== boutique ? `\n\nElle est rangée sous ${choixCaisse.boutique} : choisissez cette boutique en haut pour la voir.` : ""}`);
     else if (choixCaisse.boutique !== boutique) uAlert(`Dépense enregistrée sur ${choixCaisse.boutique} (sa caisse a payé). Choisissez cette boutique en haut pour la voir.`);
     else if (!duFormulaire) uAlert(`✅ ${f.description} : ${fmt(Number(f.montant))} payés avec ${libelleChoixPayeAvec(f.paye_avec, boutique)}.`);
+    const phraseAvis = await envoyerAvisFondsRemis(db, save, profile, depense);
+    if (phraseAvis) uAlert(phraseAvis);
   };
   const ajouter = () => enregistrerDepense(f);
 
@@ -481,6 +535,10 @@ export function Depenses({ db, save, profile, cible = null }) {
     const r = validerDepense(db, profile, d, today());
     save({ ...db, depenses: r.depenses, messages: [...r.messages, ...(db.messages || [])] }, r.journal);
     await avisDecisionWhatsApp(d, "validee");
+    // 💸 « B b » : une dépense payée directement à quelqu'un l'annonce une fois validée.
+    const validee = (r.depenses || []).find((x) => x.id === d.id);
+    const phraseAvis = validee ? await envoyerAvisFondsRemis({ ...db, depenses: r.depenses }, save, profile, validee) : "";
+    if (phraseAvis) uAlert(phraseAvis);
   };
   const rejeterDG = async (d) => {
     if (refuserSaufAdminPrincipal(db, profile, "Rejeter une dépense (DG)")) return;
@@ -667,7 +725,7 @@ export function Depenses({ db, save, profile, cible = null }) {
               puis, capture : « devant Payé avec, avoir la ligne : chantier à
               rattacher… pas sur la ligne de dépense ». La ligne est TOUJOURS là. */}
           <Field label="Chantier à rattacher">
-            <select className={inputCls} value={f.chantier_id} onChange={(e) => setF({ ...f, chantier_id: e.target.value, remis_a: "" })}>
+            <select className={inputCls} value={f.chantier_id} onChange={(e) => setF({ ...f, chantier_id: e.target.value, remis_a: "", paye_nom: "", paye_tel: "" })}>
               <option value="">— Aucun —</option>
               {chantiersOuverts.length === 0 && <option value="" disabled>Aucun chantier de devis en cours</option>}
               {chantiersOuverts.map((c) => <option key={c.id} value={c.id}>{c.travaux ? "" : "🏠 "}{libelleChantier(c)}</option>)}
@@ -675,13 +733,17 @@ export function Depenses({ db, save, profile, cible = null }) {
           </Field>
           {caseRemise && (
             <Field label="Argent remis à">
-              <select className={inputCls} value={f.remis_a || (f.chantier_id ? "" : REMIS_A_PERSONNE)} onChange={(e) => setF({ ...f, remis_a: e.target.value })} data-remis-a>
-                {f.chantier_id && <option value="">— Choisir —</option>}
+              <select className={inputCls} value={f.remis_a || ""} onChange={(e) => setF({ ...f, remis_a: e.target.value })} data-remis-a>
+                <option value="">— Choisir —</option>
                 <option value={REMIS_A_PERSONNE}>Personne — payé directement</option>
                 {personnesDuChoix.map((u) => <option key={u.id} value={u.id}>{estDeLEquipe(chantierDuChoix, u) ? "🏠 " : ""}{u.nom}</option>)}
               </select>
             </Field>
           )}
+          {caseRemise && f.remis_a === REMIS_A_PERSONNE && (<>
+            <Field label="Nom de la personne payée"><input className={inputCls} value={f.paye_nom} maxLength={80} placeholder="Ex. Station Total, CEET, M. KOFFI" onChange={(e) => setF({ ...f, paye_nom: e.target.value })} data-paye-nom /></Field>
+            <Field label="Son numéro WhatsApp (facultatif)"><input className={inputCls} inputMode="tel" value={f.paye_tel} placeholder="Sans numéro, aucun message" onChange={(e) => setF({ ...f, paye_tel: e.target.value })} data-paye-tel /></Field>
+          </>)}
         </div>
         {propositionFonds.possible && <div className="mt-2 text-xs text-amber-800" data-fonds="propose">💼 Le tiroir de {boutique} ne contient que {fmt(Math.max(0, poches.montant))} : le <b>fonds de caisse</b> peut compléter. Le tiroir paiera {fmt(Math.max(0, poches.montant))} et l'enveloppe {fmt(propositionFonds.manqueAuTiroir)} (il y reste {fmt(propositionFonds.reste)}). Choisissez « Le fonds de caisse » dans « Payé avec » ; les prochaines recettes le rembourseront.</div>}
         {f.categorie === CATEGORIE_CHANTIER && !f.chantier_id && <div className="mt-2 text-xs font-bold text-red-700" data-chantier-obligatoire>🏗 Catégorie « Chantier » : choisissez le chantier dans « Chantier à rattacher » (obligatoire).</div>}
