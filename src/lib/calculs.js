@@ -1482,7 +1482,7 @@ export const aLienAAnnuler = (d) =>
 // Envoi d'un virement de salaire (utilisé par 👥 Utilisateurs et 💵 Salaires)
 export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   if (refuserSaufAdmin(profile, "Payer un salaire")) return;
-  const mois = moisImpose || await demanderMois(`Mois du salaire payé à ${u.nom}`, today().slice(0, 7));
+  const mois = moisImpose || await demanderMois(`Mois du salaire payé à ${u.nom}`, moisDePaiePropose());
   if (!mois) return;
   const m = String(mois).trim();
   const p = paieMois(u, m);
@@ -3064,6 +3064,19 @@ export const moisRecents = (premier, aujourdhui = today(), n = 12) => {
   return out;
 };
 export const moisPaieProposes = (u, aujourdhui = today(), n = 12) => moisRecents(premierMoisPaie(u, aujourdhui), aujourdhui, n);
+// 📅 LE MOIS PROPOSÉ QUAND ON PAIE UN SALAIRE (Timo, 22/10/2026, « oui, lance
+// le mois précédent du 1er au 15 ») : les salaires de septembre payés début
+// octobre avaient été rangés sur octobre (le mois en cours était proposé).
+// Du 1er au 15 → le mois PRÉCÉDENT ; à partir du 16 → le mois en cours. Ce
+// n'est qu'une proposition : on la change toujours à la main.
+export const JOUR_LIMITE_MOIS_PRECEDENT = 15;
+export const moisDePaiePropose = (aujourdhui = today()) => {
+  const j = String(aujourdhui);
+  if (Number(j.slice(8, 10)) > JOUR_LIMITE_MOIS_PRECEDENT) return j.slice(0, 7);
+  const [a, m] = j.slice(0, 7).split("-").map(Number);
+  const d = new Date(Date.UTC(a, m - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+};
 export const critiqueDebutPaie = (valeur, aujourdhui = today()) => {
   const v = String(valeur || "").trim();
   if (v === "") return "";

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2745 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2747 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -7774,6 +7774,18 @@ lit mal est pire qu'un banc absent).
   `scripts/_rendu-salaires.jsx`, props `moisInitial` / `employeDeplieInitial`
   pour le banc seul), éprouvé (refus du salaire versé retiré, 🗑 sur le
   remboursement, avance d'un autre prise). Chapitre 18 à jour.
+
+### 📅 LE MOIS PROPOSÉ AU PAIEMENT D'UN SALAIRE (22/10/2026, « oui, lance le mois précédent du 1er au 15 »)
+- Bulletin d'AFERIKI (embauché le 01/09) : le salaire de SEPTEMBRE payé le
+  05/10 était rangé sur OCTOBRE — « Mois du salaire payé » proposait le mois en
+  cours. Deux autres (AKPOSSOGNA, 03/10 ; HOWOU, 05/10) aussi rangés sur
+  octobre. AFERIKI corrigé par un SQL collé par Timo (le paiement passe sur
+  septembre, `paie_debut` = 2026-09, la dépense renommée).
+- `moisDePaiePropose` / `JOUR_LIMITE_MOIS_PRECEDENT` = 15 (calculs.js) : du 1er
+  au 15 le mois PRÉCÉDENT, à partir du 16 le mois en cours ; lu par
+  `envoyerVirementG` et par l'ouverture de 💵 Salaires (s'il est dans la liste
+  des mois, sinon le mois en cours). Toujours modifiable. Banc (+2), éprouvé.
+  Chapitre 18 à jour.
 
 ### 🧾 LE BULLETIN DE PAIE COMPARÉ À UN BULLETIN DE SOLDE (05/10/2026, « 1 »)
 - Capture d'un bulletin de l'État, « compare et fais sortir les

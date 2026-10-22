@@ -9,7 +9,8 @@ import { uid, fmt, today, dFR, normPaiement, nouvelleDepense } from "../lib/core
 // Timo (12/09/2026) : l'employé voit où en sont ses avances de frais.
 import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
-import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour, refuserSaufAdmin, critiqueRetraitPrime, retirerPrime, critiqueRetraitAvance, retirerAvance, depenseDeLAvance, refusSuppressionDepense } from "../lib/calculs";import { imprimerBulletin } from "../lib/impression";
+import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour, moisDePaiePropose, refuserSaufAdmin, critiqueRetraitPrime, retirerPrime, critiqueRetraitAvance, retirerAvance, depenseDeLAvance, refusSuppressionDepense } from "../lib/calculs";
+import { imprimerBulletin } from "../lib/impression";
 import { phraseContrat } from "../lib/contratTravail";
 import { LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { exportCSV } from "../lib/export";
@@ -30,8 +31,6 @@ import { CODES_TYPE_ASSURE, CODES_NATURE_REMUN, CODES_MOTIF_SORTIE, cotisationsC
 // `moisInitial` / `employeDeplieInitial` : pour le banc seul (l'écran rendu).
 export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieInitial = null }) {
   const [modeVue, setModeVue] = useState("salaires"); // "salaires" | "cnss"
-  const [mois, setMois] = useState(moisInitial || today().slice(0, 7));
-  const [employeDeplie, setEmployeDeplie] = useState(employeDeplieInitial); // la ligne dépliée (15/10/2026)
   // ⚠ RELEVÉ PAR TIMO (05/09/2026) : « dans Salaires aussi les employés
   // formation apparaissent ». La liste lisait db.users brut. Toute liste de
   // personnes passe par utilisateursDeLEspace — c'est l'espace REGARDÉ qui décide.
@@ -41,6 +40,11 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
   // dans la masse. La liste des mois s'arrête au plus ancien suivi.
   const premierSuivi = tousEmployes.map((u) => premierMoisPaie(u)).sort()[0];
   const options = moisRecents(premierSuivi);
+  // 📅 22/10/2026 (« le mois précédent du 1er au 15 ») : l'écran s'ouvre sur le
+  // mois que 💸 Payer le salaire réglera — le précédent du 1er au 15, s'il est
+  // dans la liste ; sinon le mois en cours.
+  const [mois, setMois] = useState(() => moisInitial || (options.includes(moisDePaiePropose()) ? moisDePaiePropose() : today().slice(0, 7)));
+  const [employeDeplie, setEmployeDeplie] = useState(employeDeplieInitial); // la ligne dépliée (15/10/2026)
   const employes = tousEmployes.filter((u) => moisSuiviPour(u, mois));
   const pasEncoreSuivis = tousEmployes.length - employes.length;
   const lignes = employes.map((u) => ({ u, p: paieMois(u, mois), credit: creditsEnCours(u).reduce((s, c) => s + resteCredit(c), 0) }));

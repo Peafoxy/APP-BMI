@@ -16938,6 +16938,13 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
         !h.startsWith("ERREUR") && nb(/data-prime-salaire/g) === 3 && nb(/title="🗑 Retirer cette prime/g) === 2 && nb(/data-avance-salaire/g) === 1 && nb(/title="🗑 Retirer cette avance/g) === 1, h.slice(0, 160));
     }
   }
+  // 📅 « le mois précédent du 1er au 15 » (22/10/2026) : les salaires de septembre payés début octobre étaient rangés sur octobre.
+  test("★ le mois proposé au paiement d'un salaire : du 1er au 15 le mois PRÉCÉDENT (janvier → décembre de l'année d'avant), à partir du 16 le mois en cours",
+    C.moisDePaiePropose("2026-10-01") === "2026-09" && C.moisDePaiePropose("2026-10-15") === "2026-09" && C.moisDePaiePropose("2026-10-16") === "2026-10"
+    && C.moisDePaiePropose("2026-10-31") === "2026-10" && C.moisDePaiePropose("2027-01-05") === "2026-12" && C.JOUR_LIMITE_MOIS_PRECEDENT === 15);
+  test("★ « Mois du salaire payé » propose moisDePaiePropose() (plus le mois en cours), et 💵 Salaires s'ouvre sur ce mois s'il est dans la liste",
+    /await demanderMois\(`Mois du salaire payé à \$\{u\.nom\}`, moisDePaiePropose\(\)\)/.test(readFileSync("src/lib/calculs.js", "utf8"))
+    && /useState\(\(\) => moisInitial \|\| \(options\.includes\(moisDePaiePropose\(\)\) \? moisDePaiePropose\(\) : today\(\)\.slice\(0, 7\)\)\)/.test(sal));
   test("★ une prime ou une avance NOUVELLE porte un identifiant, l'avance celui de SA dépense",
     /const mouvement = \{ id: uid\(\), mois: mois\.trim\(\)/.test(ut) && /if \(depenseId\) mouvement\.depense_id = depenseId;/.test(ut) && /auto: "avance", user_id: u\.id, id: depenseId,/.test(ut));
 }
