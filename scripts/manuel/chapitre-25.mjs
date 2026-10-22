@@ -9,7 +9,8 @@
 // la clôture dépassée), lib/validationDepenses.js et lib/versements.js (la
 // dépense en attente qui bloque la clôture, le tiroir qui ne suffit pas),
 // src/whatsapp.js et lib/whatsappModeles.js (le refus de WhatsApp dit en
-// français, le repli), lib/caissesMobiles.js (le solde Flooz / Mixx qui
+// français, le repli), lib/panneIA.js (l'assistant IA en panne signalé au
+// principal), lib/caissesMobiles.js (le solde Flooz / Mixx qui
 // découle des saisies), screens/Parametres.jsx (les notifications bloquées,
 // 🔁 Tout retélécharger), src/main.jsx (« Nouvelle version disponible »),
 // lib/horloge.js, src/horloge.js et components/HeureServeur.jsx (« 🕓 Heure serveur »,
@@ -142,6 +143,7 @@ export const CHAPITRE = {
         "**Deux reçus au même numéro** (deux téléphones hors ligne) : l'un reçoit tout seul le numéro suivant ; l'ancien numéro reste noté sur la vente et dans 🕘 Historique.",
         "**La session sécurisée est renouvelée** au réveil de l'appareil et avant son expiration : la bande orange reste rare.",
         "**Un refus de WhatsApp est traduit en français** (« pas encore approuvé », « numéro illisible »…). Un motif inconnu reste tel quel, précédé de « WhatsApp a refusé le message : ».",
+        "**L'assistant IA en panne se signale à l'administrateur principal** : si le service d'IA refuse de répondre parce que le **crédit Anthropic est épuisé** ou que **sa clé est refusée**, une notification « ⚠ Assistant IA en panne » part sur ses appareils, **une fois par jour au plus**. En attendant, l'assistant répond par le menu à chiffres. Il suffit de recharger le crédit (console.anthropic.com → Settings → Billing) : l'assistant reprend tout seul au message suivant. Une simple lenteur du service ne prévient personne.",
         "**Un envoi du numéro BMI qui ne part pas** : la plupart du temps, WhatsApp s'ouvre sur l'appareil avec le texte complet, après une fenêtre qui dit pourquoi. **Un reçu automatique après encaissement ne s'ouvre jamais** : la note sous le titre le dit, et le bouton WhatsApp de la ligne reste là.",
         "**Le solde Flooz / Mixx affiché découle des saisies**, pas du téléphone de l'opérateur : l'application ne parle ni à Flooz ni à Moov.",
         "**L'heure écrite est celle du serveur** : à l'ouverture puis toutes les 10 minutes, l'application mesure l'écart entre l'horloge de l'appareil et celle du serveur, et le retire de toute date et toute heure qu'elle écrit. Hors connexion, le dernier écart mesuré reste appliqué. L'heure du serveur se lit dans la barre du haut de l'ordinateur (« 🕓 Heure serveur »).",

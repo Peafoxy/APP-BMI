@@ -22,6 +22,7 @@ import { consignePour, converserAvecIA, modeAssistant, domainesPourIA, memoAssis
 import { conversationsARelancer, relanceAFaire, consigneRelance, messagesPourRelance, texteDeRelance, ligneRelance, TEXTE_RELANCE_FIXE } from "../src/lib/relanceAssistant.js";
 import { champsEnvoi } from "../src/lib/suiviEnvoi.js";
 import { configIA, appelerIA } from "./_assistantIA.js";
+import { signalerPanneIA } from "./_alertePanneIA.js";
 import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 
 const HEURES_LUES = 25;
@@ -98,6 +99,7 @@ export async function relancerLesConversations(admin, { boutiques = null, limite
         texteIA = conv.texte;
       } catch (e) {
         console.error("[relance assistant] IA indisponible, phrase fixe —", e?.message || e);
+        await signalerPanneIA(admin, e);
       }
       const choix = texteIA ? texteDeRelance(texteIA) : { texte: TEXTE_RELANCE_FIXE, ia: false, motif: "pas de réponse de l'IA" };
       if (choix.motif && texteIA) console.error("[relance assistant] réponse de l'IA jetée —", choix.motif, "(phrase fixe)");

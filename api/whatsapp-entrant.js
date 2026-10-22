@@ -41,6 +41,7 @@ import { consignePour, messagesPourIA, executerOutil, converserAvecJuge, reponse
 import { idDomaineSolaireDes, prixRailDesBoutiques, longueurRailDesBoutiques } from "../src/lib/choixSolaire.js";
 import { fusionnerCatalogue } from "../src/lib/catalogueAppareils.js";
 import { configIA, appelerIA } from "./_assistantIA.js";
+import { signalerPanneIA } from "./_alertePanneIA.js";
 import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
 // ✓✓ Les coches (26/09/2026) : la règle vit dans lib/suiviEnvoi.js.
 import { lireStatut, statutApres, ligneAttendue, champsEnvoi, valeurSure } from "../src/lib/suiviEnvoi.js";
@@ -539,6 +540,9 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
       if (!juge.ok) console.error("[whatsapp-entrant] IA : réponse jetée —", juge.motif, r ? "(phrase fixe envoyée)" : "(le menu reprend)");
     } catch (e) {
       console.error("[whatsapp-entrant] IA indisponible, le menu reprend —", e?.message || e);
+      // ⚠ Crédit épuisé, clé refusée (22/10/2026, « b ») : le principal est
+      // prévenu, une fois par jour. Le client, lui, reçoit le menu comme avant.
+      await signalerPanneIA(admin, e);
     }
     // ⚠ Au MILIEU d'une conversation de l'IA, le menu à chiffres ne coupe pas
     // la parole (capture Timo, 01/10/2026) : une phrase neutre, et l'IA reprend

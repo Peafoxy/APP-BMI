@@ -6765,5 +6765,76 @@ titre("73 📱 CE QUI EST ÉCRIT DEPUIS LE TÉLÉPHONE BMI ENTRE DANS LE FIL, ET
     avecTel.includes("REPONSE DU TELEPHONE") && avecTel.includes("📱 Téléphone BMI"), avecTel.slice(0, 120));
 }
 
+titre("74 ⚠ QUAND LE SERVICE D'IA REFUSE DE RÉPONDRE, L'ADMINISTRATEUR PRINCIPAL EST PRÉVENU, UNE FOIS PAR JOUR (22/10/2026, crédit Anthropic épuisé, « b, lance »)");
+{
+  const P = await import("../src/lib/panneIA.js");
+  const credit = Object.assign(new Error("Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."), { statut: 400 });
+  const cle = Object.assign(new Error("invalid x-api-key"), { statut: 401 });
+  const lent = Object.assign(new Error("Overloaded"), { statut: 529 });
+  test("★★★ la règle : crédit épuisé → « credit », clé refusée → « cle » ; une surcharge, une coupure, un délai dépassé ne préviennent PERSONNE",
+    P.motifPanneIA(credit) === "credit" && P.motifPanneIA(cle) === "cle" && P.motifPanneIA(lent) === null
+    && P.motifPanneIA(new Error("This operation was aborted")) === null && P.motifPanneIA(new Error("fetch failed")) === null && P.motifPanneIA(null) === null);
+  test("★★ une fois par jour et par sorte de panne : la marque du jour arrête, celle d'hier ou d'une autre panne non",
+    P.alerteAEnvoyer({}, "credit", "2026-10-22") && !P.alerteAEnvoyer({ alerte_ia: { jour: "2026-10-22", motif: "credit" } }, "credit", "2026-10-22")
+    && P.alerteAEnvoyer({ alerte_ia: { jour: "2026-10-21", motif: "credit" } }, "credit", "2026-10-22")
+    && P.alerteAEnvoyer({ alerte_ia: { jour: "2026-10-22", motif: "credit" } }, "cle", "2026-10-22") && !P.alerteAEnvoyer({}, null, "2026-10-22"));
+  const env = P.envoiPanneIA("timo", "credit");
+  test("★★ la notification : au principal SEUL, elle dit quoi faire (recharger sur console.anthropic.com) et que le menu répond en attendant",
+    env.destinataires.length === 1 && env.destinataires[0] === "timo" && /crédit Anthropic épuisé/.test(env.titre) && /console\.anthropic\.com/.test(env.texte)
+    && /menu à chiffres/.test(env.texte) && env.ecran === "parametres" && P.envoiPanneIA("", "credit") === null && P.envoiPanneIA("timo", null) === null);
+  test("★ panneIA.js n'importe rien (lu par le serveur tel quel)", !/^\s*import /m.test(lire("src/lib/panneIA.js")));
+
+  // ── La chaîne jouée sur une base factice.
+  const webpush = (await import("web-push")).default;
+  const k = webpush.generateVAPIDKeys();
+  const avant = { pub: process.env.VAPID_PUBLIC_KEY, priv: process.env.VAPID_PRIVATE_KEY };
+  process.env.VAPID_PUBLIC_KEY = k.publicKey; process.env.VAPID_PRIVATE_KEY = k.privateKey;
+  const { signalerPanneIA } = await import("../api/_alertePanneIA.js");
+  const base = () => ({ users: [
+    { id: "timo", data: { nom: "TIMO", role: "admin", admin_principal: true } },
+    { id: "adm2", data: { nom: "ADM2", role: "admin" } },
+    { id: "kossi", data: { nom: "KOSSI", role: "vendeur" } },
+  ], abonnements_push: [] });
+  const fauxAdminP = (tables, ecrits) => ({
+    from(t) {
+      const q = { op: "select", charge: null, filtres: [] };
+      const exec = () => {
+        if (q.op === "update") { ecrits.push({ t, filtres: q.filtres, charge: structuredClone(q.charge) }); (tables[t] || []).filter((l) => q.filtres.every(([c, v]) => String(l[c]) === String(v))).forEach((l) => Object.assign(l, structuredClone(q.charge))); return { data: null, error: null }; }
+        const lignes = (tables[t] || []).filter((l) => q.filtres.every(([c, v]) => (Array.isArray(v) ? v.includes(l[c]) : String(l[c]) === String(v))));
+        return { data: q.un ? structuredClone(lignes[0] || null) : structuredClone(lignes), error: null };
+      };
+      const b = { select() { return b; }, eq(c, v) { q.filtres.push([c, v]); return b; }, in(c, v) { q.filtres.push([c, v]); return b; }, maybeSingle() { q.un = true; return b; }, update(c) { q.op = "update"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
+      return b;
+    },
+  });
+  // (d'abord : une base injoignable ne laisse aucune mémoire derrière elle)
+  const r4 = await signalerPanneIA({ from() { throw new Error("base injoignable"); } }, Object.assign(new Error("credit balance is too low"), { statut: 400 }));
+  const t1 = base(), e1 = [];
+  const r1 = await signalerPanneIA(fauxAdminP(t1, e1), credit);
+  const marque = t1.users.find((u) => u.id === "timo").data.alerte_ia;
+  test("★★★ la chaîne jouée : crédit épuisé → la marque du jour sur la fiche du PRINCIPAL (jamais un autre administrateur), puis la notification",
+    r1.prevenu === true && r1.motif === "credit" && marque?.motif === "credit" && marque?.jour === new Date().toISOString().slice(0, 10)
+    && e1.length === 1 && e1[0].filtres.some(([c, v]) => c === "id" && v === "timo") && !t1.users.find((u) => u.id === "adm2").data.alerte_ia, JSON.stringify(r1));
+  const t2 = base(), e2 = [];
+  t2.users[0].data.alerte_ia = { jour: new Date().toISOString().slice(0, 10), motif: "cle" };
+  const r2a = await signalerPanneIA(fauxAdminP(t2, e2), cle);
+  const r2b = await signalerPanneIA(fauxAdminP(base(), e2), cle);
+  test("★★★ la chaîne jouée : déjà prévenu aujourd'hui (la marque de la fiche, puis la mémoire de l'instance) → rien n'est écrit ni envoyé",
+    r2a.prevenu === false && r2b.prevenu === false && e2.length === 0, JSON.stringify([r2a, r2b]));
+  const t3 = base(), e3 = [];
+  const r3 = await signalerPanneIA(fauxAdminP(t3, e3), lent);
+  test("★★ une panne passagère ne touche à rien ; une base injoignable ne lève JAMAIS (le menu répond quand même au client)",
+    r3.prevenu === false && e3.length === 0 && r4.prevenu === false);
+  process.env.VAPID_PUBLIC_KEY = avant.pub || ""; process.env.VAPID_PRIVATE_KEY = avant.priv || "";
+  if (!avant.pub) delete process.env.VAPID_PUBLIC_KEY;
+  if (!avant.priv) delete process.env.VAPID_PRIVATE_KEY;
+
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const EN = sansComm(lire("api/whatsapp-entrant.js")), RL = sansComm(lire("api/_relanceAssistant.js"));
+  test("★★★ branchée là où l'IA échoue : l'adresse d'arrivée (puis le menu répond) ET la relance (puis la phrase fixe)",
+    /IA indisponible, le menu reprend[^\n]*\n\s*await signalerPanneIA\(admin, e\);/.test(EN)
+    && /IA indisponible, phrase fixe[^\n]*\n\s*await signalerPanneIA\(admin, e\);/.test(RL));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
