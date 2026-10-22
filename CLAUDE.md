@@ -6949,6 +6949,40 @@ lit mal est pire qu'un banc absent).
   forage), les outils qui chargent le stock ×2. Chapitre 20 à jour. Rien à
   coller dans Supabase.
 
+### 🧠 L'APPUI LONG SUR UN MESSAGE : « 📋 COPIER » ET « 🧠 APPRENDRE CECI À L'IA » (22/10/2026, « b, appui long, lance »)
+- Timo : « notre assistant est-il toujours figé ou il apprend de nos réponses
+  et de nos habitudes ? » — **figé** (dit tel quel) : à chaque message il relit
+  sa consigne, « Nos choix BMI », les métiers, le stock et la conversation en
+  cours ; rien d'une conversation ne lui sert pour une autre, et le service
+  d'IA n'apprend pas de nos échanges. Deux voies proposées (a : relire et
+  remplir le mémo à la main · b : un geste) → **« b… appui long… copier et
+  apprendre ceci à l'IA apparaît »**.
+- Dans le fil de 📲 WhatsApp, un **appui long (½ s, LE hook `useAppuiLong`) sur
+  une bulle qui porte du texte** (`BulleAppuiLong`, Whatsapp.jsx) ouvre
+  `uChoix` : **« 📋 Copier »** pour tout le monde (`copierTexte`, ui.jsx, écrit
+  UNE fois — « Copier pour Excel » y passe aussi ; « 📋 Copié » 2 s sous la
+  bulle ; le texte copié est celui que la personne VOIT, `texteDuFil`) ;
+  **« 🧠 Apprendre ceci à l'IA »** pour l'**administrateur PRINCIPAL seul**,
+  sur un message écrit par une PERSONNE de BMI (`peutApprendreDuMessage`,
+  lib/assistantIA.js : jamais le client, une ligne système, l'assistant, un
+  modèle, des accès, une ligne privée). Un clic reste un clic.
+- **« Apprendre »** : revérifié DANS le geste (principal, ligne FRAÎCHE), la
+  phrase PRÉ-REMPLIE se relit et se corrige (`uPrompt` : « elle servira à TOUS
+  les clients : ni le nom d'un client, ni un prix, ni une date »), puis s'
+  **AJOUTE** sur sa propre ligne au mémo « 📝 Nos choix BMI » (`memoAvecPhrase`,
+  `poserMemoAssistant`) après une confirmation ; doublon reconnu
+  (`phraseDejaDansMemo`) ; **les règles du mémo valent** (`critiqueMemoAssistant` :
+  pas de prix, ni dette ni mot de passe, 1 500 caractères). Ligne de journal.
+  L'assistant n'apprend rien d'autre tout seul — **ne pas construire
+  d'apprentissage automatique sans sa demande** (il copierait les erreurs).
+- ⚠ Sur téléphone, la sélection native du texte est coupée sur les bulles
+  (`[@media(pointer:coarse)]:select-none`) : « 📋 Copier » la remplace ; à la
+  souris, on sélectionne encore. ⚠ La case de correction est d'UNE ligne (la
+  question commune `uPrompt`). Rien à coller. Banc 77 (`verifier-whatsapp`, 18,
+  l'appui long JOUÉ dans Chromium : principal, autre administrateur, gérant,
+  presse-papiers lu), éprouvé (ouvert à tous, client appris, mémo remplacé,
+  règles sautées). Chapitres 20 et 23 à jour.
+
 ### 🗣 L'ASSISTANT S'HUMANISE (18/10/2026, « B a, C b, lance »)
 - Captures Timo : « Comment puis-je vous aider aujourd'hui ? » deux fois, la
   présentation (« Bonjour et bienvenue… / Je suis l'assistant… / À tout

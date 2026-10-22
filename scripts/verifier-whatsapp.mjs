@@ -6994,5 +6994,134 @@ titre("76 💸 « PERSONNE — PAYÉ DIRECTEMENT » DIT À QUI, ET LA PERSONNE P
     /if \(r\.auto\) \{\s*if \(typeof save === "function"\) \{\s*save\(\(etat\) => \{\s*const suite = typeof apresEnvoi === "function" \? apresEnvoi\(etat\) : etat;/.test(W));
 }
 
+titre("77 🧠 L'APPUI LONG SUR UNE BULLE : « 📋 COPIER » ET « 🧠 APPRENDRE CECI À L'IA » (22/10/2026, « b… appui long… copier et apprendre ceci à l'IA apparaît »)");
+{
+  const IA = await import(pathToFileURL(join(process.cwd(), "src/lib/assistantIA.js")).href);
+  const perso = { id: "p1", canal: "whatsapp", wa_tel: "90112233", de_id: "KOSSI", de_nom: "KOSSI", texte: "Pour une maison, nous conseillons un onduleur hybride 48 V." };
+  test("★★★ ne s'apprend QUE ce qu'une personne de BMI a écrit : jamais le client, une ligne système, l'assistant, un modèle, des accès, une ligne privée, une bulle sans texte",
+    IA.peutApprendreDuMessage(perso) === true && IA.peutApprendreDuMessage({ ...perso, de_id: "telephone-bmi-wa", wa_telephone: true }) === true
+    && !IA.peutApprendreDuMessage({ ...perso, wa_entrant: true }) && !IA.peutApprendreDuMessage({ ...perso, wa_systeme: true })
+    && !IA.peutApprendreDuMessage({ ...perso, de_id: "assistant-bmi", wa_assistant: { etape: "ia" } }) && !IA.peutApprendreDuMessage({ ...perso, wa_modele: "relance_devis" })
+    && !IA.peutApprendreDuMessage({ ...perso, wa_acces: { client_id: "c" } }) && !IA.peutApprendreDuMessage({ ...perso, wa_prive: true }) && !IA.peutApprendreDuMessage({ ...perso, texte: "  " }));
+  test("★★ la phrase s'AJOUTE au mémo sur sa ligne, une seule fois (accents, majuscules et ponctuation ignorés pour reconnaître un doublon)",
+    IA.memoAvecPhrase("Nous posons du 48 V.", "  Toujours du lithium. ") === "Nous posons du 48 V.\nToujours du lithium." && IA.memoAvecPhrase("", "x") === "x"
+    && IA.phraseDejaDansMemo("Nous posons du 48 V.\nToujours du LITHIUM.", "toujours du lithium") === true && IA.phraseDejaDansMemo("Nous posons du 48 V.", "du lithium") === false);
+  test("★★ les règles du mémo valent pour la phrase apprise : un prix, une dette, trop long → refusé",
+    !!IA.critiqueMemoAssistant(IA.memoAvecPhrase("x", "Le panneau coûte 350 000 F")) && !!IA.critiqueMemoAssistant(IA.memoAvecPhrase("x", "Rappelez-lui sa dette"))
+    && !!IA.critiqueMemoAssistant(IA.memoAvecPhrase("x".repeat(1490), "une phrase de plus")));
+
+  // ---- L'écran, dans Chromium : l'appui long joué sur une bulle ----
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-apprendre-"));
+  const fauxClient = join(dossier, "fauxClient.js");
+  writeFileSync(fauxClient, "export const supabase = null; export async function appelAvecJeton() { return { error: 'hors ligne' }; } export async function mediaWaEnLigne() { return { error: 'x' }; }");
+  const entree = join(dossier, "entree.jsx");
+  writeFileSync(entree, `
+import React, { useState } from "react";
+import { createRoot } from "react-dom/client";
+import { Whatsapp } from "${process.cwd()}/src/screens/Whatsapp.jsx";
+import { DialogHost } from "${process.cwd()}/src/components/ui.jsx";
+const qui = location.hash.slice(1) || "principal";
+const maintenant = new Date().toISOString();
+const users = [{ id: "TIMO", nom: "TIMO", role: "admin", admin_principal: true }, { id: "ADM2", nom: "ADM2", role: "admin" }, { id: "KOSSI", nom: "KOSSI", role: "gerant" }];
+const depart = {
+  boutiques: [{ id: "b1", nom: "APESSITO", assistant_memo: "Nous posons du 48 V." }, { id: "b2", nom: "DEMAKPOE" }],
+  users, produits: [], ventes: [],
+  messages: [
+    { id: "m-client", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO", wa_entrant: true, ts: maintenant, date: maintenant.slice(0, 10), texte: "Quel onduleur pour ma maison ?", lu_par: [] },
+    { id: "m-kossi", canal: "whatsapp", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO", de_id: "KOSSI", de_nom: "KOSSI", ts: maintenant, date: maintenant.slice(0, 10), texte: "Pour une maison, nous conseillons un onduleur hybride.", lu_par: ["KOSSI"] },
+    { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: "90112233", wa_numero: "+22890112233", wa_nom: "ESSO", derniere: maintenant, ts: maintenant },
+  ],
+};
+window.saves = [];
+function Essai() {
+  const [db, setDb] = useState(depart);
+  const save = (next, journal) => { const n = typeof next === "function" ? next(db) : next; window.saves.push({ n, journal }); setDb(n); };
+  const profile = users.find((u) => u.id === (qui === "gerant" ? "KOSSI" : qui === "autre" ? "ADM2" : "TIMO"));
+  return <><Whatsapp db={db} save={save} profile={profile} cleInitiale="90112233" /><DialogHost /></>;
+}
+createRoot(document.getElementById("r")).render(<Essai />);
+`);
+  const bundle = join(dossier, "bundle.js");
+  await build({ entryPoints: [entree], bundle: true, format: "iife", platform: "browser", outfile: bundle, jsx: "automatic", loader: { ".js": "jsx", ".jsx": "jsx" }, logLevel: "silent", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" },
+    plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: fauxClient })); } }] });
+  const html = join(dossier, "index.html");
+  writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><script src="bundle.js"></script></body></html>`);
+  const require = createRequire(import.meta.url);
+  const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+  const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+  const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+  const propre = (t) => String(t).replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
+  try {
+    const ctx = await nav.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+    const ouvrir = async (qui) => {
+      const page = await ctx.newPage();
+      const erreurs = []; page.on("pageerror", (e) => erreurs.push(String(e.message).split("\n")[0]));
+      await page.goto(`file://${html}#${qui}`); await attendre(500);
+      return { page, erreurs };
+    };
+    const appuiLong = async (page, id) => {
+      const b = await page.$(`[data-bulle-wa="${id}"]`); const r = await b.boundingBox();
+      await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await page.mouse.down(); await attendre(700); await page.mouse.up(); await attendre(200);
+    };
+    const dialogue = async (page) => propre(await page.$eval("[data-dialogue]", (e) => e.innerText).catch(() => ""));
+    const boutons = async (page) => page.$$eval("[data-dialogue] button", (bs) => bs.map((b) => b.innerText.trim()));
+    const ok = async (page) => { await page.locator("[data-dialogue-boutons] button", { hasText: "OK" }).click(); await attendre(200); };
+
+    const { page, erreurs } = await ouvrir("principal");
+    await page.locator('[data-bulle-wa="m-kossi"]').click(); await attendre(150);
+    test("★★ un simple clic sur une bulle n'ouvre rien", (await page.$("[data-dialogue]")) === null);
+    await appuiLong(page, "m-kossi");
+    const b1 = await boutons(page);
+    test("★★★ l'administrateur PRINCIPAL, appui long sur le message de KOSSI : « 📋 Copier » ET « 🧠 Apprendre ceci à l'IA »",
+      b1.includes("📋 Copier") && b1.includes("🧠 Apprendre ceci à l'IA"), JSON.stringify(b1));
+    await page.locator("[data-dialogue] button", { hasText: "Apprendre ceci" }).click(); await attendre(200);
+    const valeur = await page.$eval("[data-dialogue] input", (e) => e.value).catch(() => "");
+    test("★★ la phrase arrive PRÉ-REMPLIE, à relire et corriger (elle servira à TOUS les clients)",
+      valeur === "Pour une maison, nous conseillons un onduleur hybride." && /TOUS les clients/.test(await dialogue(page)), valeur);
+    await page.fill("[data-dialogue] input", "Le panneau coûte 350 000 F.");
+    await ok(page);
+    test("★★★ un prix tapé : refusé, rien n'est appris", /Pas de prix dans le mémo/.test(await dialogue(page)) && (await page.evaluate(() => window.saves.length)) === 0, await dialogue(page));
+    await ok(page);
+    await appuiLong(page, "m-kossi");
+    await page.locator("[data-dialogue] button", { hasText: "Apprendre ceci" }).click(); await attendre(200);
+    await page.fill("[data-dialogue] input", "Pour une maison, nous conseillons un onduleur hybride.");
+    await ok(page);
+    test("★★ la confirmation montre la phrase et dit où la retirer", /Ajouter à « Nos choix BMI »/.test(await dialogue(page)) && /se retire dans ⚙ Paramètres/.test(await dialogue(page)), await dialogue(page));
+    await ok(page);
+    const ecrit = await page.evaluate(() => { const n = window.saves.at(-1); return n ? { memos: n.n.boutiques.map((b) => b.assistant_memo), journal: n.journal } : null; });
+    test("★★★ la phrase s'AJOUTE au mémo existant (sur sa ligne), sur les boutiques, avec une ligne de journal",
+      !!ecrit && ecrit.memos.every((x) => x === "Nous posons du 48 V.\nPour une maison, nous conseillons un onduleur hybride.") && /phrase apprise/.test(ecrit.journal), JSON.stringify(ecrit));
+    await ok(page);
+    await appuiLong(page, "m-kossi");
+    await page.locator("[data-dialogue] button", { hasText: "Apprendre ceci" }).click(); await attendre(200);
+    await ok(page);
+    test("★ la même phrase une seconde fois : « déjà dans Nos choix BMI », rien n'est réécrit", /déjà dans « Nos choix BMI »/.test(await dialogue(page)) && (await page.evaluate(() => window.saves.length)) === 1, await dialogue(page));
+    await ok(page);
+    await appuiLong(page, "m-client");
+    const b2 = await boutons(page);
+    test("★★★ sur le message du CLIENT : « 📋 Copier » seulement", b2.includes("📋 Copier") && !b2.some((x) => /Apprendre/.test(x)), JSON.stringify(b2));
+    await page.locator("[data-dialogue] button", { hasText: "Copier" }).click(); await attendre(300);
+    const copie = await page.evaluate(() => navigator.clipboard.readText()).catch(() => "");
+    test("★★ « 📋 Copier » met le texte du message dans le presse-papiers et le dit sous la bulle",
+      copie === "Quel onduleur pour ma maison ?" && (await page.$('[data-bulle-wa="m-client"] [data-bulle-copiee]')) !== null, copie);
+    test("★ aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
+    await page.close();
+    for (const qui of ["autre", "gerant"]) {
+      const { page: p2 } = await ouvrir(qui);
+      await appuiLong(p2, "m-kossi");
+      const b3 = await boutons(p2);
+      test(`★★★ ${qui === "autre" ? "un AUTRE administrateur" : "le gérant qui a écrit le message"} : « 📋 Copier » seulement — apprendre est au principal`,
+        b3.includes("📋 Copier") && !b3.some((x) => /Apprendre/.test(x)), JSON.stringify(b3));
+      await p2.close();
+    }
+  } finally { await nav.close(); rmSync(dossier, { recursive: true, force: true }); }
+  const WA = lire("src/screens/Whatsapp.jsx").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const corps = WA.slice(WA.indexOf("const apprendreALIA = async"), WA.indexOf("const menuBulle = async"));
+  test("★★★ le geste revérifie DANS le geste : le principal (refuserSaufAdminPrincipal), la ligne FRAÎCHE, les règles du mémo — avant d'écrire",
+    /if \(refuserSaufAdminPrincipal\(db, profile, "Apprendre une phrase à l'assistant"\)\) return;/.test(corps)
+    && corps.indexOf("peutApprendreDuMessage(fraiche)") > -1 && corps.indexOf("critiqueMemoAssistant(nouveau)") > -1 && corps.indexOf("critiqueMemoAssistant(nouveau)") < corps.indexOf("save("));
+  test("★ la copie est écrite UNE fois (copierTexte, ui.jsx) : l'écran ne touche pas lui-même au presse-papiers", !/navigator\.clipboard/.test(WA) && /copierTexte\(texte\)/.test(WA));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

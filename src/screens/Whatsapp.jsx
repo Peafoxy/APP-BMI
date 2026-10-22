@@ -24,7 +24,7 @@ import { useCible } from "../components/cibleEcran";
 import React, { useState, useEffect, useRef } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { dFR, today, nouveauMessage } from "../lib/core";
-import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong, LIBELLE_ENVOI_EN_COURS, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, champRecherche, uAlert, uChoix, uConfirm, uPrompt, CochesEnvoi, PanneauQuiSeMontre, useFilSurSaFin, useAppuiLong, LIBELLE_ENVOI_EN_COURS, BoutonEnvoi, copierTexte } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
@@ -33,6 +33,7 @@ import { lignesDeLaConversation, mettreConversationALaCorbeille, DUREE_CORBEILLE
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
 import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente, assistantActif, assistantEnRetrait } from "../lib/assistantWhatsapp";
+import { peutApprendreDuMessage, phraseApprise, phraseDejaDansMemo, memoAvecPhrase, memoAssistant, poserMemoAssistant, critiqueMemoAssistant } from "../lib/assistantIA";
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION, critiqueNomContact, nettoyerNomContact, critiqueFichier, mediaEnvoye, tailleLisible } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche, peutLireLignePrivee } from "../lib/whatsappModeles";
 import { texteLignePrivee } from "../lib/lignesPrivees";
@@ -252,6 +253,43 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     if (!m || !m.wa_acces) return m ? m.texte : "";
     const client = utilisateursDeLEspace(db, profile).find((u) => u.id === m.wa_acces.client_id);
     return texteAccesAffiche(m, profile, client ? { identifiant: client.nom, motDePasse: motDePasseConnu(client) } : null);
+  };
+
+  // 📋🧠 L'APPUI LONG SUR UNE BULLE (22/10/2026, Timo : « appui long… copier
+  // et apprendre ceci à l'IA apparaît ») : « 📋 Copier » pour tous ; « 🧠
+  // Apprendre ceci à l'IA » pour l'administrateur PRINCIPAL seul, sur un
+  // message écrit par une PERSONNE de BMI. La phrase se relit et se corrige,
+  // puis s'AJOUTE au mémo « Nos choix BMI » (lib/assistantIA.js) — l'assistant
+  // n'apprend rien tout seul.
+  const [copiee, setCopiee] = useState(null);
+  const LIBELLE_COPIER = "📋 Copier";
+  const LIBELLE_APPRENDRE = "🧠 Apprendre ceci à l'IA";
+  const apprendreALIA = async (m, texte) => {
+    if (refuserSaufAdminPrincipal(db, profile, "Apprendre une phrase à l'assistant")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const fraiche = (db.messages || []).find((x) => x && x.id === m.id);
+    if (!peutApprendreDuMessage(fraiche)) { uAlert("Seul un message écrit par une personne de BMI s'apprend à l'assistant (ni celui du client, ni celui de l'assistant, ni un message automatique)."); return; }
+    const saisie = await uPrompt("🧠 Apprendre ceci à l'assistant\n\nIl suivra cette phrase avec TOUS les clients. Corrigez-la pour qu'elle serve à tous : ni le nom d'un client, ni un prix, ni une date.", texte);
+    if (saisie === null) return;
+    const phrase = phraseApprise(saisie);
+    if (!phrase) { uAlert("Phrase vide : rien n'est appris."); return; }
+    const memo = memoAssistant(db.boutiques);
+    if (phraseDejaDansMemo(memo, phrase)) { uAlert("Cette phrase est déjà dans « Nos choix BMI ». Rien n'a changé."); return; }
+    const nouveau = memoAvecPhrase(memo, phrase);
+    const motif = critiqueMemoAssistant(nouveau);
+    if (motif) { uAlert(`${motif}\n\nRien n'est appris. Le mémo entier se relit dans ⚙ Paramètres → 🤖 Assistant → « Nos choix BMI ».`); return; }
+    if (!await uConfirm(`Ajouter à « Nos choix BMI » :\n\n« ${phrase} »\n\nL'assistant la suivra quand il conseille un client, et la présentera comme ce que BMI TOGO recommande. Elle se corrige ou se retire dans ⚙ Paramètres → 🤖 Assistant.`)) return;
+    save({ ...db, boutiques: poserMemoAssistant(db.boutiques, nouveau) }, `Assistant WhatsApp : phrase apprise depuis une conversation (« ${phrase} »)`);
+    uAlert("🧠 Appris : l'assistant la suivra dès le prochain message d'un client.");
+  };
+  const menuBulle = async (m) => {
+    const texte = texteDuFil(m);
+    const apprendre = estAdminPrincipal(db, profile) && peutApprendreDuMessage(m);
+    const choix = await uChoix("Ce message :", [LIBELLE_COPIER, ...(apprendre ? [LIBELLE_APPRENDRE] : [])]);
+    if (choix === LIBELLE_COPIER) {
+      if (await copierTexte(texte)) { setCopiee(m.id); setTimeout(() => setCopiee((x) => (x === m.id ? null : x)), 2000); }
+      else uAlert("La copie n'a pas marché sur cet appareil. Sélectionnez le texte du message et copiez-le à la main.");
+    } else if (choix === LIBELLE_APPRENDRE) await apprendreALIA(m, texte);
   };
 
   // 📎 Choisir un fichier : il est préparé (une photo est réduite) et
@@ -774,14 +812,15 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
                 const sortant = !m.wa_entrant && !m.wa_systeme;
                 const assistant = estLigneAssistant(m);
                 return (
-                  <div key={m.id} data-assistant={estLigneAssistant(m) ? "oui" : undefined} className={`w-fit max-w-[85%] sm:max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm ${m.wa_systeme ? "mx-auto bg-[#fff5c4] text-slate-600 text-xs" : assistant ? "ml-auto bg-[#e7f8ec] border border-emerald-200 text-slate-900" : sortant ? "ml-auto bg-[#d9fdd3] text-slate-900" : "bg-white text-slate-900"}`}>
+                  <BulleAppuiLong key={m.id} actif={!!String(m.texte || "").trim()} onAppui={() => menuBulle(m)} data-bulle-wa={m.id} data-assistant={estLigneAssistant(m) ? "oui" : undefined} className={`w-fit max-w-[85%] sm:max-w-[70%] rounded-lg px-2.5 py-1.5 text-sm shadow-sm [-webkit-touch-callout:none] [@media(pointer:coarse)]:select-none ${m.wa_systeme ? "mx-auto bg-[#fff5c4] text-slate-600 text-xs" : assistant ? "ml-auto bg-[#e7f8ec] border border-emerald-200 text-slate-900" : sortant ? "ml-auto bg-[#d9fdd3] text-slate-900" : "bg-white text-slate-900"}`}>
                     {assistant && <div className="text-xs font-bold mb-0.5 text-[#008069]">🤖 {NOM_ASSISTANT}{m.wa_assistant.ia ? " (IA)" : ""}{m.wa_assistant.relance ? " · relance" : ""}</div>}
                     {sortant && !assistant && m.de_id !== profile.id && m.de_nom && <div className="text-xs font-bold mb-0.5 text-[#008069]">{m.de_nom}</div>}
                     {m.wa_media && <MediaWa message={m} />}
                     {m.texte ? <div className="whitespace-pre-line break-words">{texteDuFil(m)}</div> : null}
                     <div className="text-[10px] mt-0.5 text-slate-500 text-right whitespace-nowrap">{dFR(m.date)} {String(m.ts || "").slice(11, 16)}{m.wa_envoi_id && <CochesEnvoi statut={m.wa_statut} surFonce={false} />}</div>
                     {m.wa_statut?.etat === "echec" && <div data-echec-envoi className="text-[11px] mt-1 font-semibold text-red-600 bg-white/90 rounded px-1">❌ Non reçu : {m.wa_statut.motif}</div>}
-                  </div>
+                    {copiee === m.id && <div data-bulle-copiee className="text-[11px] mt-0.5 font-semibold text-[#008069]">📋 Copié</div>}
+                  </BulleAppuiLong>
                 );
               })}
             </div>
@@ -884,6 +923,14 @@ function Avatar({ c }) {
 // Une ligne de la liste — écrite UNE fois, comme LigneConversation de 💬 Messages.
 // ⚠ C'est une LIGNE DE TABLEAU : le composant commun d'archivage dessine un
 // <table>. UNE seule ligne pour la liste et les archives.
+// Une bulle du fil qui répond à l'appui long (½ s, LE hook commun) : un clic
+// reste un clic (le lecteur d'une note vocale, un lien), un doigt qui bouge
+// fait défiler.
+function BulleAppuiLong({ actif, onAppui, children, ...props }) {
+  const appui = useAppuiLong(onAppui, { actif });
+  return <div {...props} {...appui}>{children}</div>;
+}
+
 function LigneWa({ item, cleOuverte, ouvrir, supprimer = null, apercu }) {
   const c = item.wa;
   // 🗑 L'appui long n'existe QUE pour l'administrateur principal (`supprimer`

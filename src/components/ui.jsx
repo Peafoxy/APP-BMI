@@ -524,6 +524,23 @@ export function useFilSurSaFin(cle, nombre) {
 // `actif` faux : aucun écouteur, la ligne se comporte comme avant.
 export const DUREE_APPUI_LONG_MS = 500;
 const TOLERANCE_APPUI_PX = 10;
+// 📋 COPIER UN TEXTE DANS LE PRESSE-PAPIERS — écrit UNE fois (22/10/2026 :
+// « Copier » d'une bulle de 📲 WhatsApp, et « Copier pour Excel »). Le
+// presse-papiers du navigateur d'abord, sinon l'ancienne façon (un champ
+// caché) ; rend true si la copie a marché.
+export async function copierTexte(texte) {
+  try { await navigator.clipboard.writeText(String(texte || "")); return true; } catch {}
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = String(texte || "");
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return !!ok;
+  } catch { return false; }
+}
+
 export function useAppuiLong(action, { actif = true, ms = DUREE_APPUI_LONG_MS } = {}) {
   const minuteur = useRef(null);
   const depart = useRef(null);
@@ -1067,22 +1084,9 @@ export function ExportHost() {
   };
 
   const copier = async () => {
-    try {
-      await navigator.clipboard.writeText(d.tsv);
-      setInfo("✓ Copié ! Ouvrez Excel et collez (Ctrl+V) : les colonnes se placeront automatiquement.");
-    } catch {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = d.tsv;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        setInfo("✓ Copié ! Ouvrez Excel et collez (Ctrl+V) : les colonnes se placeront automatiquement.");
-      } catch {
-        setInfo("Copie impossible. Sélectionnez le texte ci-dessous et copiez-le manuellement.");
-      }
-    }
+    setInfo(await copierTexte(d.tsv)
+      ? "✓ Copié ! Ouvrez Excel et collez (Ctrl+V) : les colonnes se placeront automatiquement."
+      : "Copie impossible. Sélectionnez le texte ci-dessous et copiez-le manuellement.");
   };
 
   const pdf = () => {

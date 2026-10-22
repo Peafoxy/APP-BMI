@@ -529,6 +529,33 @@ export function critiqueMemoAssistant(texte) {
   return "";
 }
 
+// ---- 🧠 « APPRENDRE CECI À L'IA » (22/10/2026, « b… appui long… copier et
+// apprendre ceci à l'IA apparaît ») ----
+// L'assistant n'apprend RIEN tout seul (une réponse copiée sans tri lui ferait
+// répéter les erreurs à tout le monde) : c'est l'administrateur PRINCIPAL qui
+// choisit une phrase écrite par une personne de BMI dans 📲 WhatsApp, la relit,
+// et l'AJOUTE au mémo « Nos choix BMI ». Les règles du mémo valent (pas de
+// prix, ni dette ni mot de passe, 1 500 caractères au plus).
+// Un message qui s'apprend : écrit par une PERSONNE de BMI (dans
+// l'application ou depuis le téléphone BMI), avec du texte — jamais le client,
+// une ligne système, l'assistant lui-même, un modèle parti du numéro BMI, des
+// accès ou une ligne privée.
+export const peutApprendreDuMessage = (m) => !!m && !m.wa_entrant && !m.wa_systeme && !estLigneAssistant(m)
+  && !m.wa_modele && !m.wa_acces && !m.wa_prive && !!String(m.texte || "").trim();
+const memoNormalise = (t) => sansAcc(t).replace(/[^a-z0-9]+/g, " ").trim();
+export const phraseApprise = (phrase) => String(phrase || "").replace(/\s+/g, " ").trim();
+export const phraseDejaDansMemo = (memo, phrase) => {
+  const p = memoNormalise(phrase);
+  return !!p && memoNormalise(memo).includes(p);
+};
+// Le mémo APRÈS l'ajout : la phrase sur sa propre ligne, à la fin.
+export const memoAvecPhrase = (memo, phrase) => {
+  const m = String(memo || "").trim();
+  const p = phraseApprise(phrase);
+  if (!p) return m;
+  return m ? `${m}\n${p}` : p;
+};
+
 // ---- ☀️💧 LES PANNEAUX D'UNE POMPE SOLAIRE (01/10/2026, « marge 1,3, le plus puissant du stock ») ----
 // Puissance de la pompe × 1,3 (les pertes et les heures de faible soleil),
 // divisée par la puissance du panneau le PLUS PUISSANT du stock, arrondie au
