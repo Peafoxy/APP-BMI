@@ -4837,7 +4837,25 @@ titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA
     && /demande de devis est enregistrée/.test(dec([ent(21), ia(20.9, { wa_assistant: { etape: AW.ETAPE_CONSEILLER, ia: true } })]).pourquoi));
   test("★★ « 5 » : l'assistant à MENU (ligne sans `ia`) ne relance pas", dec([ent(21), ia(20.9, { wa_assistant: { etape: "menu" } })]).relancer === false);
   test("★ l'assistant n'a pas répondu au dernier message : pas de relance", dec([ent(21)]).relancer === false);
-  const lot = [ent(21), ia(20.9), { ...ent(23), id: "x1", wa_tel: "11112222" }, { ...ia(22.9), wa_tel: "11112222" }, { ...ent(21), id: "x2", wa_tel: "33334444" }, { ...emp(20), wa_tel: "33334444" },
+  // ── (22/10/2026, « a, lance ») rien à reprendre, rien ne part
+  test("★★★ le cas de Timo : le client n'a dit que « D'accord 👍 » (puis « Ok merci ») — aucun besoin exprimé, AUCUNE relance",
+    dec([ent(21.5, "D'accord 👍"), ia(21.4)]).relancer === false && /aucun besoin/.test(dec([ent(21.5, "D'accord 👍"), ia(21.4)]).pourquoi)
+    && dec([ent(22, "Bonjour"), ia(21.9), ent(21, "Ok merci beaucoup 🙏"), ia(20.9)]).relancer === false);
+  test("★★ un seul vrai mot suffit : « ok pour le devis », « d'accord, combien la batterie ? », une photo — la relance reste possible",
+    dec([ent(21, "ok pour le devis"), ia(20.9)]).relancer === true && dec([ent(21, "D'accord, combien la batterie ?"), ia(20.9)]).relancer === true
+    && dec([ent(21, ""), ia(20.9)].map((m, k) => (k === 0 ? { ...m, wa_media: { type: "image" } } : m))).relancer === true);
+  test("★★ un besoin dit plus tôt dans la conversation (moins de 24 h avant) compte encore, même si le dernier mot n'est que « merci »",
+    dec([ent(23, "Je veux 10 ampoules"), ia(22.9), ent(21, "Merci"), ia(20.9)]).relancer === true);
+  test("★ un besoin vieux de plus de 24 h avant le dernier « ok » ne compte plus (c'était une autre conversation)",
+    dec([ent(50, "Je veux 10 ampoules"), ia(49.9), ent(21, "ok"), ia(20.9)]).relancer === false);
+  test("★★ les mots : « D'accord 👍 », « Ok merci », « Bonne journée », « Jvp » ne sont pas un besoin ; « devis », « solaire », « 3 » en sont",
+    ["D'accord 👍", "Ok merci", "Bonne journée à vous", "Jvp", "👍🙏", "Très bien, noté"].every((t) => RA.messageSansBesoin({ texte: t }))
+    && ["Je veux un devis", "solaire", "3", "Combien ?"].every((t) => !RA.messageSansBesoin({ texte: t })));
+  const rienT = RA.texteDeRelance("AUCUNE_RELANCE");
+  test("★★★ l'IA juge qu'il n'y a rien à reprendre (« AUCUNE_RELANCE ») : RIEN ne part, ni sa phrase ni la phrase fixe ; la consigne le lui demande",
+    rienT.rien === true && rienT.texte === "" && RA.texteDeRelance("Aucune relance.").rien === true && !RA.texteDeRelance("Bonjour, où en êtes-vous ?").rien
+    && /RIEN À REPRENDRE[\s\S]*réponds exactement AUCUNE_RELANCE/.test(RA.CONSIGNE_RELANCE));
+  const lot =[ent(21), ia(20.9), { ...ent(23), id: "x1", wa_tel: "11112222" }, { ...ia(22.9), wa_tel: "11112222" }, { ...ent(21), id: "x2", wa_tel: "33334444" }, { ...emp(20), wa_tel: "33334444" },
     { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: CLE }, { ...ent(21), id: "x3", wa_tel: "55556666", canal: "messagerie" }];
   const cands = RA.conversationsARelancer(lot, maintenant);
   test("★ parmi des messages lus, les conversations à relancer — la plus ancienne (fenêtre qui se ferme le plus tôt) d'abord, jamais une ligne hors WhatsApp",
@@ -4922,7 +4940,7 @@ titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA
     return new Response(JSON.stringify({ id: `yc_${envois.length}`, wamid: "wamid.X", status: "accepted" }), { status: 200 });
   };
   const bqs = [{ nom: "BMI DEMAKPOE" }];
-  let tables, r1, r2, r3, r4, r5, sansIA;
+  let tables, r1, r2, r3, r4, r5, r6, r7, sansIA;
   try {
     delete process.env.ANTHROPIC_API_KEY;
     process.env.YCLOUD_API_KEY = "y"; process.env.WHATSAPP_NUMERO_BMI = "22899968488";
@@ -4947,7 +4965,13 @@ titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA
     r4 = await relancerLesConversations(fauxAdmin(t4), { boutiques: bqs });
     refusYC = false;
     r5 = await relancerLesConversations(fauxAdmin(t4), { boutiques: bqs });
-    tables.t4 = t4;
+    tables.t4 = t4; tables.envois4 = envois.length;
+    // l'IA répond « AUCUNE_RELANCE » → rien n'est envoyé, rien d'écrit, pas de nouvel essai
+    texteIA = "AUCUNE_RELANCE"; envois = [];
+    const t6 = { messages: base("66667777"), users: [] };
+    r6 = await relancerLesConversations(fauxAdmin(t6), { boutiques: bqs });
+    r7 = await relancerLesConversations(fauxAdmin(t6), { boutiques: bqs });
+    tables.t6 = t6; tables.envois6 = envois.length;
   } catch (e) { console.log("    (erreur de la chaîne jouée :", e?.message || e, ")"); }
   finally {
     globalThis.fetch = fetchAvant;
@@ -4968,8 +4992,11 @@ titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA
   test("★★ une réponse de l'IA jetée par le juge (un montant) → la phrase fixe part, marquée « pas de l'IA »",
     r3?.relances === 1 && f3.length === 1 && f3[0].data.texte === RA.TEXTE_RELANCE_FIXE && !f3[0].data.wa_assistant.ia);
   test("★★ WhatsApp refuse → RIEN d'écrit dans le fil, et la relance n'est pas retentée pour ce message",
-    r4?.relances === 0 && relanceEcrite(tables?.t4, "44445555").length === 0 && r5?.relances === 0 && envois.length === 0
+    r4?.relances === 0 && relanceEcrite(tables?.t4, "44445555").length === 0 && r5?.relances === 0 && tables?.envois4 === 0
     && r5?.essais?.some((e) => /réservée/.test(e.pourquoi || "")));
+  test("★★★ la chaîne jouée : l'IA répond « AUCUNE_RELANCE » → aucun message envoyé, rien d'écrit dans le fil, et pas de nouvel essai pour ce message",
+    r6?.relances === 0 && r6?.essais?.some((e) => /rien à reprendre/.test(e.pourquoi || "")) && tables?.envois6 === 0
+    && relanceEcrite(tables?.t6, "66667777").length === 0 && r7?.relances === 0 && r7?.essais?.some((e) => /réservée/.test(e.pourquoi || "")));
 }
 
 titre("57 🗣 L'ASSISTANT S'HUMANISE : UNE RÉPONSE AUX MESSAGES RAPIDES, LA PRÉSENTATION UNE SEULE FOIS, LES PRIX QUAND ÇA VA VERS UN ACHAT (18/10/2026, « B a, C b, lance »)");

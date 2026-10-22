@@ -19,6 +19,11 @@
 //     donc la même règle la couvre ;
 //   • « 5 » : en mode 🔢 menu à chiffres, aucune relance (le menu ne sait pas
 //     résumer une demande) — et sans service d'IA configuré, pas non plus.
+//   • (22/10/2026, « a, lance ») RIEN À REPRENDRE, RIEN NE PART : un client
+//     qui n'a dit que « d'accord », « merci », « ok », 👍 n'a exprimé aucun
+//     besoin — on ne le relance pas (`besoinExprime`, sans appeler l'IA). Et
+//     si l'IA, qui lit toute la conversation, juge qu'il n'y a rien de
+//     concret à reprendre, elle répond `AUCUNE_RELANCE` et rien ne part.
 //
 // ⚠ Ce fichier ne reçoit JAMAIS `db` : des LISTES de messages, déjà lues par
 // le serveur (api/_relanceAssistant.js). Il ne connaît pas le réseau.
@@ -42,6 +47,38 @@ const estSysteme = (m) => !m || m.wa_systeme || m.canal === "whatsapp_entete";
 // client. Elle sert à « réserver » la relance sur la fiche légère pendant
 // qu'on l'écrit (deux arrivées en même temps ne relancent pas deux fois).
 export const marqueRelance = (entrant) => String(entrant?.ts || "").replace(/\D/g, "").slice(0, 17);
+
+// ---- LE CLIENT A-T-IL EXPRIMÉ UN BESOIN ? (22/10/2026, « a, lance ») ----
+// Capture Timo : BMI écrit le premier depuis le téléphone, le client répond
+// « D'accord 👍 », et l'assistant le relance le lendemain « vous m'aviez dit
+// être partant… » — « il n'y a rien concrètement sur quoi il faudrait
+// revenir ». Un message qui n'est fait QUE de ces mots (et d'emojis) n'est
+// pas un besoin. Un seul autre mot suffit à en faire un (« ok pour le
+// devis » : « pour », « le », « devis »). Une photo, un document, une note
+// vocale comptent comme un besoin : on ne sait pas les lire.
+export const MOTS_SANS_BESOIN = new Set([
+  "ok", "okay", "oki", "okk", "okey", "d", "accord", "daccord", "dac", "merci", "mrc", "mci", "beaucoup", "bcp",
+  "bien", "tres", "oui", "ouais", "ouai", "bonjour", "bonsoir", "salut", "slt", "bjr", "bsr", "cc", "coucou",
+  "super", "parfait", "cool", "top", "genial", "entendu", "compris", "note", "vu", "recu", "ca", "marche",
+  "bonne", "journee", "soiree", "nuit", "a", "plus", "tard", "bientot", "demain", "je", "vous", "remercie",
+  "thanks", "thank", "you", "jvp", "de", "rien", "pas", "souci", "soucis", "probleme", "aussi", "et", "comment",
+  "allez", "va", "vas", "toi", "ah", "oh", "hum", "hmm", "mr", "mme", "monsieur", "madame",
+]);
+export function messageSansBesoin(m) {
+  if (!m || m.wa_media) return false;
+  const mots = String(m.texte || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+  return mots.every((w) => MOTS_SANS_BESOIN.has(w));
+}
+// Les messages du client de la conversation du moment (les 24 h qui
+// précèdent son dernier message) : un seul qui n'est pas qu'un « d'accord »
+// suffit.
+export function besoinExprime(liste, i) {
+  const tDernier = tsDe(liste[i]);
+  return liste.slice(0, i + 1).some((m) => m && m.wa_entrant
+    && !(Number.isFinite(tDernier) && tDernier - tsDe(m) > HEURES_FENETRE_RELANCE * MS_H)
+    && !messageSansBesoin(m));
+}
 
 // ---- FAUT-IL RELANCER CETTE CONVERSATION, MAINTENANT ? ----
 // `fil` : la conversation, du plus ancien au plus récent. Rend
@@ -72,6 +109,7 @@ export function relanceAFaire({ fil, maintenant, proprietaireId = "" } = {}) {
   if (apres.some((m) => m.wa_assistant.etape === ETAPE_CONSEILLER)) return { relancer: false, pourquoi: "un conseiller a été demandé, ou la demande de devis est enregistrée" };
   const derniere = apres[apres.length - 1];
   if (!derniere.wa_assistant.ia) return { relancer: false, pourquoi: "assistant à menu : il ne relance pas" };
+  if (!besoinExprime(liste, i)) return { relancer: false, pourquoi: "le client n'a exprimé aucun besoin (seulement « d'accord », « merci »…) : rien à reprendre" };
   return { relancer: true, depuis: String(entrant.ts || ""), marque: marqueRelance(entrant), derniere };
 }
 
@@ -100,7 +138,7 @@ export function conversationsARelancer(messages, maintenant) {
 // La relance s'ajoute à la consigne habituelle (mêmes interdits : aucun prix
 // inventé, aucune dette) ; une note INTERNE, à la place du client, demande la
 // relance — l'IA voit toute la conversation, donc ce que le client voulait.
-export const CONSIGNE_RELANCE = `LA RELANCE : le client ne t'a plus répondu depuis environ ${HEURES_AVANT_RELANCE} heures. Tu lui écris UNE relance courte (3 à 5 lignes), aimable, sans insister : tu peux dire bonjour ; rappelle en une phrase ce qu'il avait demandé ; demande-lui où il en est ; propose la suite utile (une estimation, une demande de devis, ou un conseiller s'il le souhaite). Ne cite AUCUN montant en francs, n'appelle aucun outil, ne pose qu'une question.`;
+export const CONSIGNE_RELANCE = `LA RELANCE : le client ne t'a plus répondu depuis environ ${HEURES_AVANT_RELANCE} heures. Tu lui écris UNE relance courte (3 à 5 lignes), aimable, sans insister : tu peux dire bonjour ; rappelle en une phrase ce qu'il avait demandé ; demande-lui où il en est ; propose la suite utile (une estimation, une demande de devis, ou un conseiller s'il le souhaite). Ne cite AUCUN montant en francs, n'appelle aucun outil, ne pose qu'une question. RIEN À REPRENDRE : si le client n'a demandé AUCUN produit, prix, estimation, devis ni service (par exemple il n'a fait que répondre « d'accord » ou « merci » à un message de BMI TOGO), n'invente pas de demande : réponds exactement AUCUNE_RELANCE, sans rien d'autre — et rien ne lui sera envoyé.`;
 export const NOTE_RELANCE = "[Message interne de BMI TOGO, pas du client] Le client n'a pas répondu depuis environ 20 heures. Écris maintenant la relance, selon la consigne « LA RELANCE ».";
 export const consigneRelance = (consigneDeBase) => `${String(consigneDeBase || "")}\n\n${CONSIGNE_RELANCE}`;
 // La conversation telle qu'elle est, et la note interne en dernier (le
@@ -114,7 +152,11 @@ export const messagesPourRelance = (fil) =>
 export const TEXTE_RELANCE_FIXE = `Bonjour, je reviens vers vous au sujet de votre demande d'hier. Où en êtes-vous ? Je reste à votre disposition pour vous renseigner ou préparer votre demande de devis.\n\n👤 Écrivez « conseiller » pour parler à un membre de notre équipe.\n\n${SIGNATURE_BMI}`;
 // Le texte qui part : celui de l'IA s'il passe le juge (SANS montant permis :
 // aucun outil n'a parlé), sinon la phrase fixe.
+// ⚠ `AUCUNE_RELANCE` (même entourée d'autres mots) : l'IA juge qu'il n'y a
+// rien à reprendre — rien ne part, ni sa phrase ni la phrase fixe.
+export const MARQUE_RIEN_A_RELANCER = "AUCUNE_RELANCE";
 export function texteDeRelance(texteIA) {
+  if (String(texteIA || "").toUpperCase().replace(/[\s-]+/g, "_").includes(MARQUE_RIEN_A_RELANCER)) return { texte: "", ia: true, rien: true, motif: "" };
   const juge = garderReponse(texteIA, { prixConnus: [] });
   return juge.ok ? { texte: String(texteIA).trim(), ia: true, motif: "" } : { texte: TEXTE_RELANCE_FIXE, ia: false, motif: juge.motif };
 }

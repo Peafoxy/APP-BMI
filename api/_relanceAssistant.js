@@ -101,6 +101,9 @@ export async function relancerLesConversations(admin, { boutiques = null, limite
       }
       const choix = texteIA ? texteDeRelance(texteIA) : { texte: TEXTE_RELANCE_FIXE, ia: false, motif: "pas de réponse de l'IA" };
       if (choix.motif && texteIA) console.error("[relance assistant] réponse de l'IA jetée —", choix.motif, "(phrase fixe)");
+      // L'IA juge qu'il n'y a rien à reprendre (22/10/2026) : rien ne part, et
+      // la réservation reste — on ne redemande pas pour ce message du client.
+      if (choix.rien) { essais.push({ cle: c.cle, pourquoi: "rien à reprendre (jugé par l'IA)" }); continue; }
 
       const destinataire = numeroWhatsApp(numero);
       if (!destinataire) { essais.push({ cle: c.cle, pourquoi: "numéro illisible" }); continue; }
