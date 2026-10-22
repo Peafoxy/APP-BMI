@@ -4838,23 +4838,35 @@ titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA
   test("★★ « 5 » : l'assistant à MENU (ligne sans `ia`) ne relance pas", dec([ent(21), ia(20.9, { wa_assistant: { etape: "menu" } })]).relancer === false);
   test("★ l'assistant n'a pas répondu au dernier message : pas de relance", dec([ent(21)]).relancer === false);
   // ── (22/10/2026, « a, lance ») rien à reprendre, rien ne part
-  test("★★★ le cas de Timo : le client n'a dit que « D'accord 👍 » (puis « Ok merci ») — aucun besoin exprimé, AUCUNE relance",
-    dec([ent(21.5, "D'accord 👍"), ia(21.4)]).relancer === false && /aucun besoin/.test(dec([ent(21.5, "D'accord 👍"), ia(21.4)]).pourquoi)
-    && dec([ent(22, "Bonjour"), ia(21.9), ent(21, "Ok merci beaucoup 🙏"), ia(20.9)]).relancer === false);
-  test("★★ un seul vrai mot suffit : « ok pour le devis », « d'accord, combien la batterie ? », une photo — la relance reste possible",
-    dec([ent(21, "ok pour le devis"), ia(20.9)]).relancer === true && dec([ent(21, "D'accord, combien la batterie ?"), ia(20.9)]).relancer === true
-    && dec([ent(21, ""), ia(20.9)].map((m, k) => (k === 0 ? { ...m, wa_media: { type: "image" } } : m))).relancer === true);
-  test("★★ un besoin dit plus tôt dans la conversation (moins de 24 h avant) compte encore, même si le dernier mot n'est que « merci »",
-    dec([ent(23, "Je veux 10 ampoules"), ia(22.9), ent(21, "Merci"), ia(20.9)]).relancer === true);
-  test("★ un besoin vieux de plus de 24 h avant le dernier « ok » ne compte plus (c'était une autre conversation)",
-    dec([ent(50, "Je veux 10 ampoules"), ia(49.9), ent(21, "ok"), ia(20.9)]).relancer === false);
+  // ⚠ (précision de Timo le même jour) : on ne se tait que si PERSONNE n'a parlé d'un sujet concret
+  const N = (h) => ia(h, { texte: "Très bien ! Dites-moi, de quoi avez-vous besoin exactement ?" });
+  test("★★★ le cas de Timo : rien de concret dans la conversation, le client n'a dit que « D'accord 👍 » (puis « Ok merci ») — AUCUNE relance",
+    dec([ent(21.5, "D'accord 👍"), N(21.4)]).relancer === false && /rien à reprendre/.test(dec([ent(21.5, "D'accord 👍"), N(21.4)]).pourquoi)
+    && dec([ent(22, "Bonjour"), N(21.9), ent(21, "Ok merci beaucoup 🙏"), N(20.9)]).relancer === false);
+  test("★★★ la précision de Timo : on a parlé d'une INSTALLATION, le client a fini par « d'accord » sans se décider — il EST relancé (BMI en a parlé, l'assistant, un employé ou le téléphone BMI)",
+    dec([ent(21.5, "D'accord"), ia(21.4, { texte: "Pour votre installation solaire, je peux vous faire une estimation." })]).relancer === true
+    && dec([ia(30, { texte: "Bonjour, nous pouvons motoriser votre portail." }), ent(21.5, "D'accord 👍"), N(21.4)]).relancer === true
+    && dec([ent(22, "Oui"), ia(21.9, { texte: "Souhaitez-vous l'estimation ?", wa_assistant: { etape: "ia", ia: true, memoire: { estimation: { bas: 1, haut: 2 } } } }), ent(21.5, "d'accord"), N(21.4)]).relancer === true);
+  test("★★ un seul vrai mot du client suffit : « ok pour le devis », « d'accord, combien la batterie ? », une photo — la relance reste possible",
+    dec([ent(21, "ok pour le devis"), N(20.9)]).relancer === true && dec([ent(21, "D'accord, combien la batterie ?"), N(20.9)]).relancer === true
+    && dec([ent(21, ""), N(20.9)].map((m, k) => (k === 0 ? { ...m, wa_media: { type: "image" } } : m))).relancer === true);
+  test("★★ un besoin dit plus tôt dans la conversation compte encore, même si le dernier mot n'est que « merci » (même vieux de deux jours : l'assistant le relit)",
+    dec([ent(23, "Je veux 10 ampoules"), N(22.9), ent(21, "Merci"), N(20.9)]).relancer === true
+    && dec([ent(50, "Je veux 10 ampoules"), N(49.9), ent(21, "ok"), N(20.9)]).relancer === true);
+  test("★★ les mots d'un sujet : installation, panneaux, batterie, motoriser, devis, un montant, une puissance — et pas « Comment puis-je vous aider ? »",
+    ["Votre installation", "4 panneaux", "la batterie lithium", "motoriser la porte", "le devis part", "150 000 F", "un frigo de 200 W"].every((t) => RA.parleDUnSujet(t))
+    && ["Comment puis-je vous aider ?", "Bonjour, bonne journée", "Très bien ! Dites-moi, de quoi avez-vous besoin exactement ?"].every((t) => !RA.parleDUnSujet(t)));
+  test("★★ le tri des candidates (25 h lues) ne juge PAS le sujet ; le serveur le juge sur le fil ENTIER avant d'envoyer",
+    RA.relanceAFaire({ fil: [ent(21.5, "D'accord"), N(21.4)], maintenant, sujet: false }).relancer === true
+    && /relanceAFaire\(\{ fil, maintenant, sujet: false \}\)/.test(readFileSync("src/lib/relanceAssistant.js", "utf8"))
+    && /relanceAFaire\(\{ fil, maintenant, proprietaireId: proprietaire\.id \}\)/.test(readFileSync("api/_relanceAssistant.js", "utf8")));
   test("★★ les mots : « D'accord 👍 », « Ok merci », « Bonne journée », « Jvp » ne sont pas un besoin ; « devis », « solaire », « 3 » en sont",
     ["D'accord 👍", "Ok merci", "Bonne journée à vous", "Jvp", "👍🙏", "Très bien, noté"].every((t) => RA.messageSansBesoin({ texte: t }))
     && ["Je veux un devis", "solaire", "3", "Combien ?"].every((t) => !RA.messageSansBesoin({ texte: t })));
   const rienT = RA.texteDeRelance("AUCUNE_RELANCE");
   test("★★★ l'IA juge qu'il n'y a rien à reprendre (« AUCUNE_RELANCE ») : RIEN ne part, ni sa phrase ni la phrase fixe ; la consigne le lui demande",
     rienT.rien === true && rienT.texte === "" && RA.texteDeRelance("Aucune relance.").rien === true && !RA.texteDeRelance("Bonjour, où en êtes-vous ?").rien
-    && /RIEN À REPRENDRE[\s\S]*réponds exactement AUCUNE_RELANCE/.test(RA.CONSIGNE_RELANCE));
+    && /RIEN À REPRENDRE[\s\S]*personne[\s\S]*réponds exactement AUCUNE_RELANCE[\s\S]*RELANCE-le/.test(RA.CONSIGNE_RELANCE));
   const lot =[ent(21), ia(20.9), { ...ent(23), id: "x1", wa_tel: "11112222" }, { ...ia(22.9), wa_tel: "11112222" }, { ...ent(21), id: "x2", wa_tel: "33334444" }, { ...emp(20), wa_tel: "33334444" },
     { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: CLE }, { ...ent(21), id: "x3", wa_tel: "55556666", canal: "messagerie" }];
   const cands = RA.conversationsARelancer(lot, maintenant);
