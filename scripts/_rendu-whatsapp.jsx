@@ -360,6 +360,17 @@ export const avisFondsRemis = () => {
   const rangee = msgs.find((x) => x.wa_modele === "fonds_remis") || {};
   return { envoi, texte: texteFondsRemis(envoi), rangee, attendu: ligneEnvoiModele(envoi.modele, envoi.variables), detail: texteLignePrivee(rangee, base) };
 };
+// L'écran RENDU (« oui ajoute-le », 22/10/2026) : une dépense de 7 500 F
+// saisie par AMA, validée par le DG — l'avis part du DG (`de_id` = TIMO).
+// AMA (qui a saisi) lit le détail, comme TIMO ; ADMIN2 et KOSSI non.
+export const htmlFondsRemisValide = (lecteurId) => {
+  try {
+    const dep = { id: "DEPV", date: "2026-10-22", boutique: "APESSITO", categorie: "Carburant", description: "Groupe électrogène", montant: 7500, paiement: "Espèces", paye_avec: "caisse", par: "AMA", par_id: "AMA", validation: { statut: "validee", par: "TIMO" }, paye_a: { nom: "Station Oando", tel: "90112233" } };
+    const envoi = envoiFondsRemis({ dep, remisPar: remisParDe("AMA", "APESSITO"), fmt, dFR });
+    const lignes = messagesAvecLigneEnvoi([], { profile: users[0], tel: "+22890112233", nom: "ESSO", modele: envoi.modele, variables: envoi.variables, ref: { depense_id: dep.id }, envoi: { id: "yc-fv" } });
+    return rendre({ ...garnie, users: usersPrives, depenses: [dep], messages: [...lignes, ...garnie.messages] }, usersPrives.find((u) => u.id === lecteurId), "90112233");
+  } catch (e) { return `ERREUR ${e?.message || e}`; }
+};
 
 // ---- ✅ L'AVIS D'UNE TÂCHE (14/10/2026, « A c, B b, C b ») ----
 import { envoiTacheAssignee, envoiTacheValidee } from "../src/lib/whatsappModeles.js";

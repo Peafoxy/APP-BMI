@@ -36,7 +36,7 @@ import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente, as
 import { peutApprendreDuMessage, phraseApprise, phraseDejaDansMemo, memoAvecPhrase, memoAssistant, poserMemoAssistant, critiqueMemoAssistant } from "../lib/assistantIA";
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION, critiqueNomContact, nettoyerNomContact, critiqueFichier, mediaEnvoye, tailleLisible } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche, peutLireLignePrivee } from "../lib/whatsappModeles";
-import { texteLignePrivee } from "../lib/lignesPrivees";
+import { texteLignePrivee, lecteursEnPlus } from "../lib/lignesPrivees";
 import { motDePasseConnu, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
 import { peutEnregistrerContact, critiqueContactGoogle, nettoyerNomGoogle, traceContactGoogle, COMPTE_CONTACTS_BMI } from "../lib/contactGoogle";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle, rendreALAssistant } from "../whatsapp";
@@ -249,7 +249,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
   // recomposé depuis la vente (lib/lignesPrivees.js). Les autres, la phrase
   // neutre. Une vente absente de l'appareil laisse la phrase neutre.
   const texteDuFil = (m) => {
-    if (m && m.wa_prive) return (peutLireLignePrivee(m, profile, estAdminPrincipal(db, profile)) && texteLignePrivee(m, db)) || m.texte;
+    if (m && m.wa_prive) return (peutLireLignePrivee(m, profile, estAdminPrincipal(db, profile), lecteursEnPlus(m, db)) && texteLignePrivee(m, db)) || m.texte;
     if (!m || !m.wa_acces) return m ? m.texte : "";
     const client = utilisateursDeLEspace(db, profile).find((u) => u.id === m.wa_acces.client_id);
     return texteAccesAffiche(m, profile, client ? { identifiant: client.nom, motDePasse: motDePasseConnu(client) } : null);

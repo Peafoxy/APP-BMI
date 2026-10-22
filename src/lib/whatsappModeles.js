@@ -484,7 +484,7 @@ export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_ch
 const LIGNES_MASQUEES = {
   depense_rejetee: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
-  fonds_remis: "🔒 Avis d'argent remis envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
+  fonds_remis: "🔒 Avis d'argent remis envoyé — détail réservé à celui qui a saisi la dépense, à celui qui l'a envoyé et à l'administrateur principal.",
   tache_assignee: "🔒 Avis de tâche assignée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   tache_validee: "🔒 Avis de tâche validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   attestation_disponible: "🔒 Avis d'attestation de fin de contrat envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
@@ -508,8 +508,11 @@ export const lignePrivee = (modele) => MODELES_PRIVES.includes(modele);
 export const lignePriveeEnvoi = (modele, ref = {}) => lignePrivee(modele) || (modele === "recu_pdf" && !!(ref && ref.vente_id));
 export const ligneMasquee = (modele) => LIGNES_MASQUEES[modele] || "";
 // `estPrincipal` est calculé par l'écran (cette règle n'importe rien).
-export const peutLireLignePrivee = (m, lecteur, estPrincipal) => !!(m && m.wa_prive && lecteur
-  && (estPrincipal === true || (lecteur.id != null && m.de_id === lecteur.id)));
+// `enPlus` = d'autres lecteurs permis, calculés par l'écran
+// (`lecteursEnPlus`, lib/lignesPrivees.js) : la personne qui a SAISI une
+// dépense lit l'avis `fonds_remis` parti à la validation du DG (22/10/2026).
+export const peutLireLignePrivee = (m, lecteur, estPrincipal, enPlus = []) => !!(m && m.wa_prive && lecteur
+  && (estPrincipal === true || (lecteur.id != null && (m.de_id === lecteur.id || (Array.isArray(enPlus) && enPlus.includes(lecteur.id))))));
 
 // Ce que l'écran dit APRÈS l'envoi des identifiants — UNE phrase pour les
 // six écrans qui créent ou renvoient un compte. Un repli muet ressemble à

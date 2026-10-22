@@ -2554,6 +2554,16 @@ lit mal est pire qu'un banc absent).
   d'office, ✏️ Modifier async avec `payeA`) et trois (`verifier-whatsapp` :
   cinquante-six modèles, modèles à ligne, seize privés). Chapitre 17 et guide du
   gérant à jour.
+- **🔒 QUI LIT LE DÉTAIL DANS 📲 WHATSAPP** (22/10/2026, « oui ajoute-le ») : la
+  ligne est privée ; le détail se lit par celui qui l'a envoyé (`de_id` — le DG
+  quand l'avis part à sa validation), le principal, **et la personne qui a SAISI
+  la dépense** (`lecteursEnPlus`, lib/lignesPrivees.js → 4e argument de
+  `peutLireLignePrivee`) — par `par_id` SEUL, jamais par le nom (homonymes).
+  Les lignes déjà écrites en profitent (calculé à l'affichage). ⚠ La personne qui
+  a saisi ne reçoit PAS `fonds_remis` (il va au seul numéro de la personne
+  payée) ; au-delà du seuil elle reçoit `depense_validee` et le 💬 Messages de
+  la décision. Banc 76 (+2, l'écran RENDU pour AMA, TIMO, ADMIN2, KOSSI),
+  éprouvé ; un contrôle RETOURNÉ (l'appel de l'écran). Chapitre 17 à jour.
 
 ### 💼 QUI SORT L'ARGENT D'UNE CAISSE (10/10/2026)
 - Capture Timo (« Argent remis à… dans dépense d'un commercial ? ») : un

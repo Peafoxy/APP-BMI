@@ -3298,7 +3298,7 @@ test("★ le bon : établi par TIMO, KOSSI (qui n'a pas fait ce geste) ne lit pa
 const srcLP = lire("src/lib/lignesPrivees.js");
 test("★ UNE fabrique pour l'envoi et l'affichage : 💰 Ventes et 📲 WhatsApp passent par lib/lignesPrivees.js, l'écran demande l'administrateur PRINCIPAL",
   /import \{ envoisRecuDeVente \} from "\.\.\/lib\/lignesPrivees";/.test(lire("src/screens/Ventes.jsx"))
-  && /peutLireLignePrivee\(m, profile, estAdminPrincipal\(db, profile\)\) && texteLignePrivee\(m, db\)/.test(ecranWa)
+  && /peutLireLignePrivee\(m, profile, estAdminPrincipal\(db, profile\), lecteursEnPlus\(m, db\)\) && texteLignePrivee\(m, db\)/.test(ecranWa)
   && /envoiBon\(\{ bon, boutique, fmt, dFR \}\)/.test(srcLP));
 }
 
@@ -6974,6 +6974,19 @@ titre("76 💸 « PERSONNE — PAYÉ DIRECTEMENT » DIT À QUI, ET LA PERSONNE P
   test("★★★ la ligne du fil est PRIVÉE (le montant ne se lit pas par tous) ; le détail se recompose depuis la dépense pour qui a le droit",
     A.rangee.wa_prive === true && A.rangee.depense_id === "DEPF" && !/3.000/.test(A.rangee.texte) && A.detail === A.attendu && /Station Total/.test(A.detail), JSON.stringify({ r: A.rangee.texte, d: A.detail }));
   test("★ sans numéro, aucun envoi ne se fabrique", MW.envoiFondsRemis({ dep: { ...dep, paye_a: { nom: "X", tel: "" } } }) === null);
+  // « oui ajoute-le » (22/10/2026) : au-delà du seuil l'avis part du DG ; la
+  // personne qui a SAISI la dépense lit aussi son détail — par `par_id` seul.
+  const fv = {};
+  for (const id of ["AMA", "TIMO", "ADMIN2", "KOSSI"]) { try { fv[id] = V.htmlFondsRemisValide(id); } catch (e) { fv[id] = ""; } }
+  test("★★★ l'écran RENDU : l'avis parti à la validation du DG — AMA (qui a saisi) et le principal lisent le détail ; un autre administrateur et un autre vendeur la phrase neutre",
+    /Station Oando/.test(fv.AMA) && /7.500 F/.test(fv.AMA) && /Station Oando/.test(fv.TIMO)
+    && !/Station Oando/.test(fv.ADMIN2) && /celui qui a saisi la dépense/.test(fv.ADMIN2)
+    && !/Station Oando/.test(fv.KOSSI), JSON.stringify(Object.fromEntries(Object.entries(fv).map(([k, h]) => [k, /Station Oando/.test(h) ? "détail" : /ERREUR/.test(h) ? h.slice(0, 120) : "neutre"]))));
+  test("★★ la règle : jamais par le NOM (deux homonymes), jamais pour un autre modèle",
+    MW.peutLireLignePrivee({ wa_prive: true, de_id: "TIMO" }, { id: "AMA" }, false, ["AMA"]) === true
+    && MW.peutLireLignePrivee({ wa_prive: true, de_id: "TIMO" }, { id: "AMA" }, false) === false
+    && /return dep && dep\.par_id \? \[dep\.par_id\] : \[\];/.test(lire("src/lib/lignesPrivees.js"))
+    && /if \(!m \|\| !m\.wa_prive \|\| m\.wa_modele !== "fonds_remis"\) return \[\];/.test(lire("src/lib/lignesPrivees.js")));
   const D = sansComm(lire("src/screens/Depenses.jsx"));
   const corpsEnr = D.slice(D.indexOf("const enregistrerDepense = async"), D.indexOf("const ajouter = () =>"));
   const corpsVal = D.slice(D.indexOf("const validerDG = async"), D.indexOf("const rejeterDG = async"));

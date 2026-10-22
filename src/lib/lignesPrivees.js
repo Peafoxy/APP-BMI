@@ -35,6 +35,17 @@ export const bonsDeLaVente = (db, vente) => [
   ...retoursDeVente(db, vente).map((r) => bonRetour(db, vente, r)),
 ].filter(Boolean);
 
+// Les lecteurs EN PLUS de celui qui a envoyé (et du principal) : l'avis
+// `fonds_remis` part à la validation du DG au-delà du seuil — la personne qui
+// a SAISI la dépense lit aussi son détail (Timo, 22/10/2026, « oui ajoute-le »).
+// ⚠ Par l'identifiant de la dépense seul (`par_id`), jamais par le nom : deux
+// homonymes ne lisent pas l'un pour l'autre.
+export function lecteursEnPlus(m, db) {
+  if (!m || !m.wa_prive || m.wa_modele !== "fonds_remis") return [];
+  const dep = (db?.depenses || []).find((x) => x.id === m.depense_id);
+  return dep && dep.par_id ? [dep.par_id] : [];
+}
+
 // Le détail d'une ligne privée, ou "" si la vente n'est pas sur cet appareil.
 export function texteLignePrivee(m, db) {
   if (!m || !m.wa_prive) return "";
