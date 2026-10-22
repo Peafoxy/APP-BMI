@@ -1026,6 +1026,12 @@ export const MOTIFS_WHATSAPP = [
   // — Le client —
   { code: 131050, dit: "Ce client a demandé à ne plus recevoir de messages commerciaux sur WhatsApp." },
   { code: 131049, dit: "WhatsApp n'a pas remis ce message : elle limite les messages commerciaux qu'une même personne reçoit. Envoyez-le vous-même, ou réessayez plus tard." },
+  // Vu pour de vrai le 22/10/2026 (capture Timo, KATAKA, `espace_portail`) :
+  // « Failed to send message because this user's phone number is part of an
+  // experiment ». Meta retient une partie des messages COMMERCIAUX pour
+  // certains numéros ; un message de service, lui, passe.
+  { code: 130472, dit: "WhatsApp n'a pas remis ce message : ce numéro fait partie d'un essai de Meta, qui retient une partie des messages commerciaux. Les identifiants repartent tout seuls par le message de service ; pour un autre message, envoyez-le vous-même." },
+  { marques: ["part of an experiment"], dit: "WhatsApp n'a pas remis ce message : ce numéro fait partie d'un essai de Meta, qui retient une partie des messages commerciaux. Les identifiants repartent tout seuls par le message de service ; pour un autre message, envoyez-le vous-même." },
   { code: 131026, dit: "Ce numéro ne peut pas recevoir de message WhatsApp (pas de compte WhatsApp, ou un réglage l'en empêche)." },
   { code: 131047, dit: "Plus de 24 h se sont écoulées depuis le dernier message du client : WhatsApp n'accepte plus qu'un modèle approuvé." },
   { marques: ["invalid", "phone"], dit: "Ce numéro n'est pas un numéro WhatsApp valide." },

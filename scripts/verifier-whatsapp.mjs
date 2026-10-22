@@ -3006,7 +3006,7 @@ titre("㉜ ✓✓ LES COCHES D'UN MESSAGE PARTI DU NUMÉRO BMI (26/09/2026, « o
   const suiviCorps = WE.slice(WE.indexOf("async function traiterSuivi"));
   test("★★ elle retrouve la ligne par son numéro de suivi, nettoyé (valeurSure), et ne réécrit QUE cette ligne, avec `updated_at` dans la ligne et dans la fiche",
     /valeurSure\(suivi\.id\)/.test(suiviCorps) && /valeurSure\(suivi\.wamid\)/.test(suiviCorps) && /\.update\(\{ data, updated_at: ts \}\)\.eq\("id", trouvee\.id\)/.test(suiviCorps)
-    && /wa_statut: nouveau, \.\.\.\(relais \|\| relaisRecu \? \{ wa_relais_le: ts \} : \{\}\), updated_at: ts/.test(suiviCorps) && !/\.insert\(/.test(suiviCorps));
+    && /wa_statut: nouveau, \.\.\.\(relais \|\| relaisRecu \|\| relaisAcces \? \{ wa_relais_le: ts \} : \{\}\), updated_at: ts/.test(suiviCorps) && !/\.insert\(/.test(suiviCorps));
   test("★★ elle ne fait jamais reculer une coche (LA règle statutApres) et fait renvoyer une nouvelle trop pressée (503)",
     /statutApres\(trouvee\.data\?\.wa_statut, suivi\)/.test(suiviCorps) && /ligneAttendue\(suivi\)\) return res\.status\(503\)/.test(suiviCorps));
   test("★ une nouvelle de suivi ne prévient personne et ne réveille pas l'assistant",
@@ -5365,7 +5365,7 @@ titre("62 📎 LE DEVIS REPART SANS PDF QUAND META REJETTE LE PDF (18/10/2026, c
   const codeE = sansComm(lire("api/whatsapp-entrant.js"));
   const suivi = codeE.slice(codeE.indexOf("async function traiterSuivi"));
   test("★★★ le suivi : la marque `wa_relais_le` est posée AVEC la coche (même écriture), AVANT le relais — une seule fois",
-    /const relais = relaisAFaire\(/.test(suivi) && /wa_statut: nouveau, \.\.\.\(relais \|\| relaisRecu \? \{ wa_relais_le: ts \} : \{\}\)/.test(suivi)
+    /const relais = relaisAFaire\(/.test(suivi) && /wa_statut: nouveau, \.\.\.\(relais \|\| relaisRecu \|\| relaisAcces \? \{ wa_relais_le: ts \} : \{\}\)/.test(suivi)
     && suivi.indexOf("wa_relais_le: ts") < suivi.indexOf("relayerDevisSansPdf(") && suivi.indexOf(".update({ data, updated_at: ts })") < suivi.indexOf("relayerDevisSansPdf("));
   test("★ la règle du relais ne lit jamais de clé secrète", !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/relaisDevisPdf.js")));
 }
@@ -6834,6 +6834,104 @@ titre("74 ⚠ QUAND LE SERVICE D'IA REFUSE DE RÉPONDRE, L'ADMINISTRATEUR PRINCI
   test("★★★ branchée là où l'IA échoue : l'adresse d'arrivée (puis le menu répond) ET la relance (puis la phrase fixe)",
     /IA indisponible, le menu reprend[^\n]*\n\s*await signalerPanneIA\(admin, e\);/.test(EN)
     && /IA indisponible, phrase fixe[^\n]*\n\s*await signalerPanneIA\(admin, e\);/.test(RL));
+}
+
+titre("75 🔑 LES IDENTIFIANTS REPARTENT PAR `espace` QUAND META REJETTE `espace_portail` APRÈS L'ENVOI (22/10/2026, capture KATAKA, « b+c »)");
+{
+  const sansComm = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const R = await import(pathToFileURL(join(process.cwd(), "src/lib/relaisAcces.js")).href);
+  const CC = await import(pathToFileURL(join(process.cwd(), "src/lib/comptesClients.js")).href);
+  const MW = await import(pathToFileURL(join(process.cwd(), "src/lib/whatsappModeles.js")).href);
+  const CLE = "90112233";
+  const compte = { id: "c-kat", role: "client", nom: "KATAKA", nom_base: "KATAKA", tel: `228${CLE}`, mdp_auto: true, mdp_variante: 0, mdp_longueur: 6 };
+  const mdp = CC.motDePasseConnu(compte);
+  const ligneAcces = { id: "l-acc", canal: "whatsapp", wa_tel: CLE, wa_numero: `228${CLE}`, wa_nom: "KATAKA", de_id: "u-com", de_nom: "COM1", texte: MW.texteEspaceMasque("KATAKA", "espace_portail"), wa_acces: { client_id: "c-kat", renvoi: false, modele: "espace_portail" }, wa_envoi_id: "yc_acc" };
+  const echec = { etat: "echec", le: "2026-10-22T09:00:00.000Z", motif: "Failed to send message because this user's phone number is part of an experiment", code: 130472 };
+  test("★★★ la règle : un ❌ sur un `espace_portail` pas encore relayé → relais ; jamais deux fois, jamais sur une coche ordinaire, jamais pour `espace` lui-même, jamais sans compte",
+    R.relaisAccesAFaire(ligneAcces, echec) === true
+    && R.relaisAccesAFaire({ ...ligneAcces, wa_relais_le: "x" }, echec) === false
+    && R.relaisAccesAFaire(ligneAcces, { etat: "recu", le: "x" }) === false
+    && R.relaisAccesAFaire({ ...ligneAcces, wa_acces: { ...ligneAcces.wa_acces, modele: "espace" } }, echec) === false
+    && R.relaisAccesAFaire({ ...ligneAcces, wa_acces: { ...ligneAcces.wa_acces, client_id: "" } }, echec) === false
+    && R.relaisAccesAFaire({ ...ligneAcces, wa_acces: null, wa_modele: "espace_portail" }, echec) === false);
+  const e = R.envoiRelaisAcces({ compte, nomAffiche: "KATAKA" });
+  test("★★★ le relais part par `espace` (message de SERVICE), le mot de passe RECALCULÉ depuis la fiche, dans l'ordre nom · identifiant · mot de passe",
+    !!mdp && e?.modele === "espace" && e.variables[0] === "KATAKA" && e.variables[1] === "KATAKA" && e.variables[2] === mdp && MW.MODELES.espace?.categorie === "utility");
+  test("★★★ le mur : formation, fiche fermée, désactivée, bloquée, un employé, un mot de passe non recalculable → rien",
+    R.envoiRelaisAcces({ compte: { ...compte, formation: true } }) === null
+    && R.envoiRelaisAcces({ compte: { ...compte, sans_acces: true } }) === null
+    && R.envoiRelaisAcces({ compte: { ...compte, actif: false } }) === null
+    && R.envoiRelaisAcces({ compte: { ...compte, bloque: true } }) === null
+    && R.envoiRelaisAcces({ compte: { ...compte, role: "vendeur" } }) === null
+    && R.envoiRelaisAcces({ compte: { ...compte, mdp_auto: false } }) === null
+    && R.envoiRelaisAcces({ compte: null }) === null);
+  const lr = R.ligneRelaisAcces({ id: "x", ligne: ligneAcces, ts: "2026-10-22T09:00:01.000Z" });
+  test("★★★ la ligne du fil ne porte JAMAIS le mot de passe : texte masqué de `espace`, `wa_acces` (le créateur et l'administrateur la lisent en clair), sans propriétaire",
+    !!lr && !JSON.stringify(lr).includes(mdp) && lr.texte === MW.texteEspaceMasque("KATAKA", "espace") && lr.wa_acces?.client_id === "c-kat" && lr.wa_acces?.modele === "espace"
+    && lr.de_id === "u-com" && lr.wa_relais_de === "l-acc" && !lr.proprietaire_id
+    && MW.texteAccesAffiche(lr, { id: "u-com", role: "commercial" }, { identifiant: "KATAKA", motDePasse: mdp }).includes(mdp)
+    && !MW.texteAccesAffiche(lr, { id: "u-autre", role: "vendeur" }, { identifiant: "KATAKA", motDePasse: mdp }).includes(mdp));
+  // ── La VRAIE fonction du serveur, sur une base jouée
+  const { relayerAccesSansPortail } = await import("../api/_relaisAcces.js");
+  const fauxAdmin = (tables) => ({
+    from(t) {
+      const q = { op: "select", charge: null, filtres: [] };
+      const exec = () => {
+        if (q.op === "insert") { (tables[t] ||= []).push(structuredClone(q.charge)); return { data: null, error: null }; }
+        if (q.op === "upsert") { const l = (tables[t] ||= []); const i = l.findIndex((x) => x.id === q.charge.id); if (i >= 0) l[i] = structuredClone(q.charge); else l.push(structuredClone(q.charge)); return { data: null, error: null }; }
+        return { data: structuredClone((tables[t] || []).filter((l) => q.filtres.every(([c, v]) => String(l[c]) === String(v)))), error: null };
+      };
+      const b = { select() { return b; }, eq(c, v) { q.filtres.push([c, v]); return b; }, limit() { return b; }, insert(c) { q.op = "insert"; q.charge = c; return b; }, upsert(c) { q.op = "upsert"; q.charge = c; return b; }, then(res, rej) { return Promise.resolve(exec()).then(res, rej); } };
+      return b;
+    },
+  });
+  const envAvant = { c: process.env.YCLOUD_API_KEY, d: process.env.WHATSAPP_NUMERO_BMI };
+  const fetchAvant = globalThis.fetch;
+  const errAvant = console.error;
+  let envois = [], journal = [], refuser = false, ok1, ok2, ok3, tables1, tables2, tables3;
+  globalThis.fetch = async (url, opts) => {
+    envois.push(JSON.parse(opts?.body || "{}"));
+    if (refuser) return new Response(JSON.stringify({ error: { message: "Template not approved", code: 132001 } }), { status: 400 });
+    return new Response(JSON.stringify({ id: `yc_${envois.length}`, wamid: "wamid.A", status: "accepted" }), { status: 200 });
+  };
+  try {
+    console.error = (...a) => { journal.push(a.map(String).join(" ")); };
+    process.env.YCLOUD_API_KEY = "yc-de-banc"; process.env.WHATSAPP_NUMERO_BMI = "22899968488";
+    const entete = { id: `waent_${CLE}`, canal: "whatsapp_entete", wa_tel: CLE, proprietaire_id: "u-com", proprietaire_nom: "COM1" };
+    tables1 = { users: [{ id: "c-kat", data: compte }], messages: [{ id: "l-acc", data: ligneAcces }, { id: entete.id, data: entete }] };
+    ok1 = await relayerAccesSansPortail(fauxAdmin(tables1), ligneAcces);
+    tables2 = { users: [{ id: "c-kat", data: { ...compte, formation: true } }], messages: [] };
+    const n2 = envois.length;
+    ok2 = await relayerAccesSansPortail(fauxAdmin(tables2), ligneAcces);
+    tables2.envois = envois.length - n2;
+    refuser = true;
+    tables3 = { users: [{ id: "c-kat", data: compte }], messages: [] };
+    ok3 = await relayerAccesSansPortail(fauxAdmin(tables3), ligneAcces);
+  } catch (err) { console.log("    (erreur de la chaîne jouée :", err?.message || err, ")"); }
+  finally {
+    console.error = errAvant; globalThis.fetch = fetchAvant;
+    for (const [k, v] of Object.entries({ YCLOUD_API_KEY: envAvant.c, WHATSAPP_NUMERO_BMI: envAvant.d })) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  const parti = envois[0] || {};
+  const ligneR = (tables1?.messages || []).find((l) => l.data?.wa_relais_de === "l-acc")?.data;
+  const fiche = (tables1?.messages || []).find((l) => l.id === `waent_${CLE}`)?.data;
+  test("★★★ la chaîne jouée : `espace` part au client avec ses trois codes, le mot de passe recalculé",
+    ok1 === true && parti.type === "template" && parti.template?.name === "espace" && parti.to === `+228${CLE}`
+    && JSON.stringify(parti.template?.components?.[0]?.parameters?.map((p) => p.text)) === JSON.stringify(["KATAKA", "KATAKA", mdp]));
+  test("★★★ la ligne écrite dans la base ne porte pas le mot de passe, porte son numéro de suivi (coches), et la fiche légère garde son propriétaire",
+    !!ligneR && !JSON.stringify(tables1.messages).includes(mdp) && ligneR.wa_acces?.modele === "espace" && !!ligneR.wa_envoi_id && fiche?.proprietaire_id === "u-com" && !!fiche?.derniere);
+  test("★★★ le mur sur la vraie fonction : un compte de formation n'envoie RIEN", ok2 === false && tables2?.envois === 0);
+  test("★★★ rien n'est écrit tant que WhatsApp n'a pas accepté, et le journal du serveur ne porte jamais le mot de passe",
+    ok3 === false && (tables3?.messages || []).length === 0 && !journal.join("\n").includes(mdp));
+  const codeE = sansComm(lire("api/whatsapp-entrant.js"));
+  const suivi = codeE.slice(codeE.indexOf("async function traiterSuivi"));
+  test("★★★ le suivi : la marque `wa_relais_le` est posée AVEC la coche, AVANT le relais des accès — une seule fois",
+    /const relaisAcces = !relais && !relaisRecu && relaisAccesAFaire\(/.test(suivi)
+    && suivi.indexOf(".update({ data, updated_at: ts })") < suivi.indexOf("relayerAccesSansPortail(")
+    && /if \(relaisAcces\) await relayerAccesSansPortail\(admin, \{ \.\.\.data, id: trouvee\.id \}\);/.test(suivi));
+  test("★★ « c » : le refus 130472 se dit en français (par le code, et par les mots si le code manque)",
+    /essai de Meta/.test(MW.traduireMotifWhatsApp("", 130472)) && /essai de Meta/.test(MW.traduireMotifWhatsApp("Failed to send message because this user's phone number is part of an experiment", "")));
+  test("★ la règle du relais ne lit jamais de clé secrète", !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/relaisAcces.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

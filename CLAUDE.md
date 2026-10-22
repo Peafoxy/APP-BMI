@@ -5630,6 +5630,32 @@ lit mal est pire qu'un banc absent).
   RETOURNÉS (cinquante et un modèles, porteurs de secret, Partages) + un de
   `verifier-cloisonnement` (l'import de Partages). Chapitre 3 à jour.
 
+### 🔑 META REJETTE `espace_portail` APRÈS L'ENVOI → `espace` PART TOUT SEUL (22/10/2026, « b+c »)
+- Capture Timo (KATAKA) : `espace_portail` accepté, puis ❌ « Failed to send
+  message because this user's phone number is part of an experiment » (code
+  **130472** — Meta retient une partie des messages COMMERCIAUX pour certains
+  numéros ; `espace_portail` a été reclassé marketing, `espace` est utility et
+  passe). Le refus arrive APRÈS : `espace` n'était jamais essayé, le client
+  n'avait aucun code (son `devis_pdf`, utility, était arrivé).
+- **« b »** : l'ordre d'essai NE CHANGE PAS (« a », `espace` d'abord, proposé
+  et écarté). Au ❌ d'une ligne d'accès `wa_acces.modele === "espace_portail"`,
+  l'adresse d'arrivée pose `wa_relais_le` AVEC la coche, puis envoie `espace`
+  (`relaisAccesAFaire` / `envoiRelaisAcces` / `ligneRelaisAcces`,
+  **`lib/relaisAcces.js`** ; `api/_relaisAcces.js`) — UNE fois. ⚠⚠ Le mot de
+  passe est RECALCULÉ depuis la fiche relue (`motDePasseConnu`) et ne va QUE
+  dans le message : la seconde ligne du fil est le texte MASQUÉ de `espace`
+  (`wa_acces`, au nom de celui qui avait envoyé — il la lit en clair, comme
+  l'administrateur), le journal du serveur ne le porte jamais. Jamais un compte
+  de formation, fermé (`sans_acces`), désactivé, bloqué, un employé, ou un mot
+  de passe non recalculable. Rien d'écrit avant l'accord de WhatsApp ; un refus
+  n'est pas retenté. ⚠ Une ligne DÉJÀ en ❌ avant le correctif (KATAKA) ne se
+  relaie pas : « ↻ Renvoyer ses accès » ou l'envoi à la main.
+- **« c »** : 130472 (et les mots « part of an experiment ») se disent en
+  français dans `MOTIFS_WHATSAPP`. Rien à coller. Banc 75 (`verifier-whatsapp`,
+  11, la vraie fonction sur une base jouée), éprouvé (mur retiré, mot de passe
+  sur la ligne, relais débranché, 130472 retiré, deux relais) ; deux contrôles
+  RETOURNÉS (la marque du suivi lit `relaisAcces`). Chapitre 3 à jour.
+
 ### 🔑 (ancien) LES IDENTIFIANTS NE PARTAIENT PAS DU NUMÉRO BMI — ET PAS DE LIEN D'ACTIVATION (21/09/2026 — RETOURNÉ le 22/09, voir ci-dessus ; ce qui suit reste vrai pour le LIEN d'activation et les deux textes)
 - Timo a cherché à faire partir **les comptes clients et employés du numéro
   BMI**, en reformulant le message trois fois pour que Meta l'accepte

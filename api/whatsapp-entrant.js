@@ -48,6 +48,7 @@ import { lireStatut, statutApres, ligneAttendue, champsEnvoi, valeurSure } from 
 import { relaisAFaire } from "../src/lib/relaisDevisPdf.js";
 import { relayerDevisSansPdf } from "./_relaisDevisPdf.js";
 import { relaisRecuAFaire, relayerRecuSansPdf } from "./_relaisRecuPdf.js";
+import { relaisAccesAFaire, relayerAccesSansPortail } from "./_relaisAcces.js";
 import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 // 🤖 La relance du client qui s'est tu (17/10/2026) : la règle vit dans
 // lib/relanceAssistant.js, le geste serveur dans api/_relanceAssistant.js.
@@ -663,11 +664,15 @@ async function traiterSuivi(req, res, suivi, debut = Date.now()) {
     // texte ») : la même marque, le message TEXTE part (lib/relaisRecuPdf.js).
     const relais = relaisAFaire({ ...(trouvee.data || {}), id: trouvee.id }, nouveau);
     const relaisRecu = !relais && relaisRecuAFaire({ ...(trouvee.data || {}), id: trouvee.id }, nouveau);
-    const data = { ...(trouvee.data || {}), wa_statut: nouveau, ...(relais || relaisRecu ? { wa_relais_le: ts } : {}), updated_at: ts };
+    // 🔑 Un `espace_portail` rejeté (22/10/2026, KATAKA, « b ») : la même
+    // marque, et les identifiants repartent par `espace` (lib/relaisAcces.js).
+    const relaisAcces = !relais && !relaisRecu && relaisAccesAFaire({ ...(trouvee.data || {}), id: trouvee.id }, nouveau);
+    const data = { ...(trouvee.data || {}), wa_statut: nouveau, ...(relais || relaisRecu || relaisAcces ? { wa_relais_le: ts } : {}), updated_at: ts };
     const { error: errMaj } = await admin.from("messages").update({ data, updated_at: ts }).eq("id", trouvee.id);
     if (errMaj) throw errMaj;
     if (relais) await relayerDevisSansPdf(admin, { ...data, id: trouvee.id });
     if (relaisRecu) await relayerRecuSansPdf(admin, { ...data, id: trouvee.id });
+    if (relaisAcces) await relayerAccesSansPortail(admin, { ...data, id: trouvee.id });
     // 🤖 La coche est posée ; s'il reste du temps, une relance due (17/10/2026).
     await relancerSiLeMoment(admin, debut);
     return res.status(200).json({ ok: true, etat: nouveau.etat });
