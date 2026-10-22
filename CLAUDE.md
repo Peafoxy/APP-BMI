@@ -567,6 +567,32 @@ lit mal est pire qu'un banc absent).
   dernière synchronisation automatique (20 s au plus). **Décision : laisser
   comme c'est pour le moment.** Ne pas le construire sans sa demande.
 
+### 🔐 UNE CONNEXION FERME LES AUTRES APPAREILS DU MÊME COMPTE — « on laisse comme ça, j'aime plus la sécurité que la facilité » (22/10/2026)
+- Capture Timo (bande « ⚠ Votre session sécurisée a expiré… Rétablir » sur
+  👥 Utilisateurs) : « devient trop fréquent… même parfois dès la 1ère
+  connexion ». **La cause, vérifiée dans le code source de Supabase**
+  (supabase/auth, `UpdatePassword(tx, nil)` → `Logout` : TOUTES les sessions
+  du compte) : `api/sync-auth.js` redonne le mot de passe au compte sécurisé
+  à CHAQUE connexion (`updateUserById({ password, app_metadata })`), même
+  inchangé — donc se connecter, ou « Rétablir », sur un appareil annule le
+  laissez-passer de tous les autres appareils du même compte ; ceux-ci
+  continuent de tourner (rien de perdu), n'échangent plus rien, et montrent
+  la bande après un F5 ou une reprise (plus d'identifiants en mémoire). Le
+  renouvellement horaire, lui, ne touche pas au mot de passe. ⚠ « Expirée »
+  est inexact dans ce cas (annulée), l'application ne voit pas la différence.
+  Cause très probable de SA bande, non prouvée (ses sessions ne se lisent pas
+  d'ici).
+- **Proposé et REFUSÉ** : ne réécrire le mot de passe que s'il a changé
+  (drapeau `garderMotDePasse` envoyé à sync-auth, la connexion qui suit
+  refusée pour mot de passe faux → seconde demande sans le drapeau ; le mot
+  de passe toujours vérifié contre la fiche). Dit à Timo : rien n'est ouvert,
+  mais on perd l'effet « ma connexion met dehors celui qui utiliserait mon
+  compte ailleurs » ; proposé aussi plus tard un bouton « 🔒 Déconnecter tous
+  les appareils de ce compte ». **Sa décision : laisser comme c'est pour le
+  moment.** Ne pas le reproposer ; s'il revient (« corrige la session qui
+  expire quand j'ouvre un autre appareil »), c'est cette correction.
+  Un compte reste donc ouvrable sur deux appareils, mais ils se gênent.
+
 ### Boutique de travail
 - « **NE JAMAIS CHANGER DE BOUTIQUE APRÈS UNE SÉRIE D'ACTUALISATIONS.** » La
   boutique est mémorisée **par écran** (`bmi_boutique:<id>:<écran>`) ; le
