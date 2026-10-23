@@ -13,7 +13,7 @@ import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres, brouillonManuelDe } from "./devisCommun";
 import { apporteurVide } from "../../lib/apporteurDevis";
-import { ROLES_EQUIPEMENT, SOLEIL_DEFAUT, TENSION_DEFAUT, estHybrideTexte, empilable, tensionInfereeConvertisseur, tensionInfereeBatterie, typeBatterieInfere, idDomaineSolaireDes, candidatsSolaire, choixDuStock, supportsDuStock, etrierDuStock, metresRailPourPanneaux } from "../../lib/choixSolaire";
+import { ROLES_EQUIPEMENT, SOLEIL_DEFAUT, TENSION_DEFAUT, RACCORDEMENT_DEFAUT, RACCORDEMENT_TRI, LIBELLE_RACCORDEMENT, raccordementSur, estTriphase, motifRaccordement, qteConvertisseur, estHybrideTexte, empilable, tensionInfereeConvertisseur, tensionInfereeBatterie, typeBatterieInfere, idDomaineSolaireDes, candidatsSolaire, choixDuStock, supportsDuStock, etrierDuStock, metresRailPourPanneaux } from "../../lib/choixSolaire";
 // Réexportés : d'autres fichiers et le banc les lisent ici depuis toujours.
 export { SOLEIL_DEFAUT, TENSION_DEFAUT, supportsDuStock };
 
@@ -132,6 +132,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     const v = besoinsRepris?.type_batterie || brouillon?.typeBatterie || "lifepo4";
     return v === "plomb" ? "gel" : v;
   });
+  // ⚡ Monophasé / triphasé (Timo, 23/10/2026) : monophasé d'office ; le
+  // devis repris et le brouillon le gardent.
+  const [raccordement, setRaccordement] = useState(() => raccordementSur(besoinsRepris?.raccordement || brouillon?.raccordement || RACCORDEMENT_DEFAUT));
 
   const majAppareil = (id, champ, val) => setAppareils(appareils.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   // Le catalogue (lib/appareils.js) est PROPOSÉ sous le champ ; la
@@ -261,6 +264,8 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         return { p, spec, ok: false, proche: true,
           raison: `${dev} V, incompatible avec un système ${tension} V` };
       }
+      const motif = motifRaccordement(p, raccordement);
+      if (motif) return { p, spec, ok: false, proche: true, raison: motif };
     }
     return { p, spec, ok: true, proche: true, raison: "" };
   });
@@ -291,7 +296,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   // La règle vit dans lib/choixSolaire.js (24/09/2026) : le serveur la lit
   // aussi, pour l'estimation que l'assistant WhatsApp donne au client.
-  const candidats = (role) => candidatsSolaire(produitsBoutique, role, { tension, typeBatterie, idDomaineSolaire });
+  const candidats = (role) => candidatsSolaire(produitsBoutique, role, { tension, typeBatterie, idDomaineSolaire, raccordement });
 
   // Panneaux/batteries : le plus gros calibre dispo (on empile plusieurs unités).
   // Convertisseur/régulateur : le plus PETIT modèle qui couvre le besoin (un seul article,
@@ -324,6 +329,13 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     if (role.id === "convertisseur") {
       // "hybride" reste dans le nom : c'est ce mot qui fait disparaître
       // automatiquement la ligne Régulateur juste en dessous (déjà intégré).
+      // ⚡ Triphasé (23/10/2026) : un appareil par phase, mis en parallèle —
+      // trois de la taille qui couvre le tiers du besoin.
+      if (estTriphase(raccordement)) {
+        const tiers = TAILLES_CONVERTISSEUR_W.find((t) => t * 3 >= wConvertisseur) || TAILLES_CONVERTISSEUR_W[TAILLES_CONVERTISSEUR_W.length - 1];
+        const kw3 = kwConvertisseurLibre ? Number(kwConvertisseurLibre) : tiers / 1000;
+        return { type: "manuel", nom: `Convertisseur hybride ${tension}V — ${kw3} kW (mise en parallèle, un par phase)`, prix, qte: Math.max(3, 3 * Math.ceil(wConvertisseur / (3 * kw3 * 1000))), libre: true };
+      }
       const kw = kwConvertisseurLibre ? Number(kwConvertisseurLibre) : tailleConvertisseurReco / 1000;
       return { type: "manuel", nom: `Convertisseur hybride ${tension}V — ${kw} kW`, prix, qte: 1, libre: true };
     }
@@ -334,7 +346,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     if (modeLibre) return specLibre(role);
     // Watts utiles, plus petit modèle suffisant ou empilement : la règle
     // vit dans lib/choixSolaire.js (choixDuStock), lue aussi par le serveur.
-    return choixDuStock(produitsBoutique, role, besoinParRole[role.id], { tension, typeBatterie, idDomaineSolaire });
+    return choixDuStock(produitsBoutique, role, besoinParRole[role.id], { tension, typeBatterie, idDomaineSolaire, raccordement });
   };
 
   // choix[roleId] = { type: "stock", produit_id, qte } OU { type: "manuel", nom, prix, qte }
@@ -398,6 +410,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     if (besoinsRepris?.autonomie) setAutonomie(String(besoinsRepris.autonomie));
     if (besoinsRepris?.tension) setTension(String(besoinsRepris.tension));
     if (besoinsRepris?.type_batterie) setTypeBatterie(besoinsRepris.type_batterie === "plomb" ? "gel" : besoinsRepris.type_batterie);
+    setRaccordement(raccordementSur(besoinsRepris?.raccordement));
     if (initialSelectionSolaire) {
       setChoix(initialSelectionSolaire.choix || {});
       setRolesManuels(initialSelectionSolaire.verrous || {});
@@ -445,7 +458,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       return nouveauChoix;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whParJour, autonomie, soleil, tension, typeBatterie, boutique, modeLibre, db.produits, pxPanneauLibre, ahBatterieLibre, kwConvertisseurLibre, prixLibre]);
+  }, [whParJour, autonomie, soleil, tension, typeBatterie, raccordement, boutique, modeLibre, db.produits, pxPanneauLibre, ahBatterieLibre, kwConvertisseurLibre, prixLibre]);
 
   const produitConvertisseurChoisi = choix.convertisseur?.type === "stock" && produitsBoutique.find((p) => p.id === choix.convertisseur.produit_id);
   const convertisseurEstHybride = choix.convertisseur?.type === "manuel"
@@ -472,9 +485,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     // Même conversion VA → W que dans meilleurChoix : le vendeur qui choisit
     // lui-même un « 5000VA » doit obtenir la quantité calculée sur 4 000 W.
     const utile = roleId === "convertisseur" ? puissanceUtileW(spec) : (spec ? spec.valeur : 0);
-    const qte = utile > 0
-      ? (!empilable(roleId) && utile >= besoin ? 1 : quantiteNecessaire(besoin, utile))
-      : 1;
+    // ⚡ Convertisseur : la quantité suit le raccordement (un par phase en
+    // triphasé ; plusieurs seulement s'il se met en parallèle). Choisi à la
+    // main, il n'est jamais refusé : au pire, une seule unité.
+    const qte = roleId === "convertisseur"
+      ? (qteConvertisseur(p, utile, besoin, raccordement) || 1)
+      : utile > 0
+        ? (!empilable(roleId) && utile >= besoin ? 1 : quantiteNecessaire(besoin, utile))
+        : 1;
     const nouveauChoix = { ...choix, [roleId]: { type: "stock", produit_id: produitId, qte } };
     if (roleId === "convertisseur") {
       const hybride = p && estHybrideTexte(p.nom + " " + (p.categorie || ""));
@@ -617,7 +635,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti (voir plus bas), jamais avant.
-  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres });
+  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, raccordement, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres });
 
   const totalArticles = totalRoles + sousTotalRails + sousTotalSupports + sousTotalEtriers + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
@@ -645,6 +663,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setAppareils([{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
     setChoix({}); setRolesManuels({}); setRolesHB({}); setManuelOuvert({}); setBrouillonManuel({});
     setRailsQte(0); setFixationManuelle({});
+    setRaccordement(RACCORDEMENT_DEFAUT);
     reprendreAutres([]);
     envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE() });
     r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide()); r.setNb(""); r.setAvecInstallation(null); r.setModeRemise("pct"); r.setMontantRemise(""); r.setModeInstall("pct"); r.setMontantInstall(""); r.setModeTransport("pct"); r.setMontantTransport("");
@@ -681,6 +700,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         autonomie: Number(autonomie || 1),
         tension: Number(tension),
         type_batterie: typeBatterie,
+        raccordement,
         appareils: appareils.filter((a) => a.nom && a.puissance).map((a) => ({
           nom: a.nom, puissance: Number(a.puissance), heures: Number(a.heures || 0), qte: qteAppareil(a),
         })),
@@ -762,13 +782,28 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
             </select>
           </Field>
         </div>
+        {/* ⚡ Raccordement (Timo, 23/10/2026) : sous la ligne autonomie /
+            tension / batterie, monophasé d'office. Deux boutons ronds : on
+            ne peut être que l'un ou l'autre. */}
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-sm" data-raccordement>
+          <span className="text-xs font-semibold text-slate-500 uppercase">Raccordement</span>
+          {["mono", RACCORDEMENT_TRI].map((r) => (
+            <label key={r} className="flex items-center gap-2">
+              <input type="radio" name="raccordement-solaire" value={r} checked={raccordement === r} onChange={() => setRaccordement(r)} data-raccordement-choix={r} />
+              {LIBELLE_RACCORDEMENT[r]}
+            </label>
+          ))}
+          {estTriphase(raccordement) && (
+            <span className="text-xs text-slate-500">Un convertisseur triphasé, ou des convertisseurs « mise en parallèle » par 3 (un par phase).</span>
+          )}
+        </div>
       </Panel>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat label={<>Consommation</>} valeur={<>{Math.round(whParJour)} Wh/j</>} nature="technique" />
         <Stat label={<>Panneaux nécessaires</>} valeur={<>{wcPanneaux} Wc</>} nature="technique" />
         <Stat label={<>Batterie ({tension}V)</>} valeur={<>{ahBatterie} Ah</>} nature="technique" />
-        <Stat label={<>Convertisseur{!convertisseurEstHybride ? " / MPPT" : ""}</>} valeur={<>{kwConvertisseur.toFixed(2)} kW{!convertisseurEstHybride ? ` · ${aRegulateur} A` : ""}</>} nature="technique" />
+        <Stat label={<>Convertisseur{!convertisseurEstHybride ? " / MPPT" : ""}{estTriphase(raccordement) ? " (triphasé)" : ""}</>} valeur={<>{kwConvertisseur.toFixed(2)} kW{!convertisseurEstHybride ? ` · ${aRegulateur} A` : ""}</>} nature="technique" />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -851,7 +886,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                       <div className="flex flex-wrap items-center gap-2">
                         {options.length === 0 ? (
                           <div className="text-xs">
-                            <span className="text-orange-600">Aucun article correspondant dans le stock de {boutique}</span>
+                            <span className="text-orange-600">{l.role.id === "convertisseur" && estTriphase(raccordement)
+                              ? `Aucun convertisseur triphasé ni capable de mise en parallèle dans le stock de ${boutique}`
+                              : `Aucun article correspondant dans le stock de ${boutique}`}</span>
                             {/* On dit POURQUOI, en UNE ligne (demande Timo, 06/09/2026). */}
                             {ligneEcartes(l.role) && <div className="mt-1 text-slate-500 max-w-md">{ligneEcartes(l.role)}</div>}
                           </div>
@@ -863,9 +900,16 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                               // Un article en VA : on montre aussi ce qu'il donne VRAIMENT en watts.
                               const utile = puissanceUtileW(spec);
                               const reel = spec.unite === "va" ? ` = ${utile >= 1000 ? (utile / 1000).toFixed(1) + "kW" : utile + "W"} utiles` : "";
-                              return <option key={p.id} value={p.id}>{p.nom} ({brut}{reel}){estHybrideTexte(p.nom) ? " — hybride" : ""}</option>;
+                              return <option key={p.id} value={p.id}>{p.nom} ({brut}{reel}){estHybrideTexte(p.nom) ? " — hybride" : ""}{p.triphase ? " — triphasé" : ""}{p.parallele ? " — mise en parallèle" : ""}</option>;
                             })}
                           </select>
+                        )}
+                        {/* ⚡ Des convertisseurs en stock, mais aucun qui suffise seul
+                            et aucun coché « mise en parallèle » : on le DIT (« c »). */}
+                        {l.role.id === "convertisseur" && options.length > 0 && !auto && !c && (
+                          <div className="w-full text-xs text-orange-600" data-convertisseur-sans-parallele>
+                            Aucun convertisseur de {boutique} ne couvre {(besoinParRole.convertisseur / 1000).toFixed(2)} kW seul, et aucun n'est coché « Supporte la mise en parallèle » (fiche de l'article dans 📦 Stocks).
+                          </div>
                         )}
                         <button onClick={() => ouvrirManuel(l.role.id)} className="text-xs font-bold text-sky-800 underline whitespace-nowrap">✏️ Saisir un article hors stock</button>
                         {ecarte && <LienAuto onClick={() => annulerManuel(l.role.id)} />}

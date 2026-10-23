@@ -9,6 +9,7 @@ import { useRef, useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
 import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
+import { estCategorieConvertisseur } from "../lib/choixSolaire.js";
 import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
 import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
@@ -42,7 +43,7 @@ export function Stocks({ db, save, profile, cible = null }) {
   const bq = boutiqueRetenue(db, profile, bqSel, { ecran: "stocks" });
   // 🔔 Une notification cliquée (16/10/2026) : la boutique ou le magasin visé.
   useCibleBoutique(cible, "stocks", setBqSel, profile);
-  const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
+  const [f, setF] = useState({ nom: "", domaine: "", categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, triphase: false, parallele: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
   const [autresInfosOuvert, setAutresInfosOuvert] = useState(false);
   // ⚠ DEMANDE TIMO (25/08/2026), capture « BZTTERIE LITHUIM 25,6V300AH » :
   // un article mal saisi ne se corrigeait pas. On pouvait changer son
@@ -339,6 +340,8 @@ export function Stocks({ db, save, profile, cible = null }) {
     ["profondeur_max_m", "Profondeur max", "nombre", "m"],
     ["debit_max_m3h", "Débit max", "nombre", "m\u00b3/h"],
     ["hybride", "Hybride (solaire + secteur)", "case"],
+    ["triphase", "Triphasé", "case"],
+    ["parallele", "Supporte la mise en parallèle", "case"],
     ["fiche_technique", "Fiche technique", "texte"],
     ["notes", "Notes internes", "texte"],
     ["note_assistant", "Ce que l'assistant dit aux clients", "texte"],
@@ -367,6 +370,7 @@ export function Stocks({ db, save, profile, cible = null }) {
       fiche_technique: p.fiche_technique || "", notes: p.notes || "", note_assistant: p.note_assistant || "",
       puissance_kw: p.puissance_kw || "", profondeur_max_m: p.profondeur_max_m || "",
       debit_max_m3h: p.debit_max_m3h || "", hybride: !!p.hybride,
+      triphase: !!p.triphase, parallele: !!p.parallele,
     });
     // Le volet des garanties s'ouvre tout seul s'il contient déjà quelque
     // chose : sinon on corrigerait à l'aveugle un champ qu'on ne voit pas.
@@ -379,7 +383,7 @@ export function Stocks({ db, save, profile, cible = null }) {
   const annulerCorrection = () => {
     setEnEdition(null);
     setNouvelArticleOuvert(false);
-    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, triphase: false, parallele: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
   };
 
   const enregistrerCorrection = async () => {
@@ -423,6 +427,10 @@ export function Stocks({ db, save, profile, cible = null }) {
       profondeur_max_m: f.profondeur_max_m ? Number(f.profondeur_max_m) : "",
       debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "",
       hybride: !!f.hybride,
+      // ⚡ Les deux cases d'un convertisseur (23/10/2026) — recopiées ici,
+      // sinon la correction les perdrait (leçon des pompes).
+      triphase: !!f.triphase,
+      parallele: !!f.parallele,
       // ⚠ « entrees » n'est PAS dans ce formulaire : il se nourrit des
       // réceptions (+ Entrée). L'écraser ici effacerait tout le
       // ravitaillement de l'article.
@@ -555,8 +563,8 @@ export function Stocks({ db, save, profile, cible = null }) {
     }
     save({ ...db, produits: [...db.produits, { id: uid(), boutique: bq, nom: f.nom, domaine: f.domaine || "", categorie: f.categorie || "Autre", fournisseur: f.fournisseur || "", initial: Number(f.initial || 0), entrees: 0, seuil: Number(f.seuil || 0), ...(Number(f.stock_cible) > 0 ? { stock_cible: Number(f.stock_cible) } : {}), prix_achat: Number(f.prix_achat || 0), prix_vente: Number(f.prix_vente || 0), code: (f.code || "").trim(), tension: f.tension ? Number(f.tension) : "",
       puissance_kw: f.puissance_kw ? Number(f.puissance_kw) : "", profondeur_max_m: f.profondeur_max_m ? Number(f.profondeur_max_m) : "",
-      debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "", ...(f.hybride ? { hybride: true } : {}), garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim(), note_assistant: (f.note_assistant || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
-    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
+      debit_max_m3h: f.debit_max_m3h ? Number(f.debit_max_m3h) : "", ...(f.hybride ? { hybride: true } : {}), ...(f.triphase ? { triphase: true } : {}), ...(f.parallele ? { parallele: true } : {}), garantie_boutique: (f.garantie_boutique || "").trim(), garantie_fabricant: (f.garantie_fabricant || "").trim(), conditions_garantie: (f.conditions_garantie || "").trim(), fiche_technique: (f.fiche_technique || "").trim(), notes: (f.notes || "").trim(), note_assistant: (f.note_assistant || "").trim() }] }, `Nouvel article « ${f.nom} » — ${bq}${f.fournisseur ? ` (fournisseur : ${f.fournisseur})` : ""}`);
+    setF({ nom: "", domaine: f.domaine, categorie: "", fournisseur: "", initial: "", seuil: "", stock_cible: "", prix_achat: "", prix_vente: "", code: "", tension: "", puissance_kw: "", profondeur_max_m: "", debit_max_m3h: "", hybride: false, triphase: false, parallele: false, garantie_boutique: "", garantie_fabricant: "", conditions_garantie: "", fiche_technique: "", notes: "", note_assistant: "" });
     setNouvelArticleOuvert(false);
     uAlert("Article ajouté !");
   };
@@ -1274,6 +1282,23 @@ export function Stocks({ db, save, profile, cible = null }) {
             (« les pompes sont rangées dans domaine forage, catégorie pompe »).
             ⚠ `tension` existe depuis toujours sur une fiche article : on la
             réutilise, on n'en crée pas une deuxième. */}
+        {/* ⚡ LES DEUX CASES D'UN CONVERTISSEUR (Timo, 23/10/2026) : elles
+            n'apparaissent QUE sur un convertisseur (la catégorie décide, comme
+            pour les pompes). Le devis solaire les lit pour le monophasé /
+            triphasé. Rien de coché d'office. */}
+        {estCategorieConvertisseur(f.categorie) && (
+          <div className="flex flex-wrap items-center gap-4 mt-3 p-3 rounded-lg bg-sky-50 border border-sky-200 text-sm" data-cases-convertisseur>
+            <span className="text-xs text-slate-600">⚡ <b>Convertisseur</b> — pour le devis solaire :</span>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={!!f.triphase} onChange={(e) => setF({ ...f, triphase: e.target.checked })} data-case-triphase />
+              Triphasé
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={!!f.parallele} onChange={(e) => setF({ ...f, parallele: e.target.checked })} data-case-parallele />
+              Supporte la mise en parallèle
+            </label>
+          </div>
+        )}
         {estPompe({ categorie: f.categorie }) && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3 p-3 rounded-lg bg-sky-50 border border-sky-200">
             <div className="sm:col-span-2 lg:col-span-5 text-xs text-slate-600">

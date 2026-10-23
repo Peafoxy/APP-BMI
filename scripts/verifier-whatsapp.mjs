@@ -2171,8 +2171,8 @@ titre("㉓ ☀️ L'ESTIMATION SOLAIRE DE L'ASSISTANT (24/09/2026, « 1 valeur p
 
   // ── LA MÊME RÈGLE QUE LE VENDEUR
   test("★★ le choix du matériel a QUITTÉ l'écran : Solaire.jsx appelle candidatsSolaire et choixDuStock, il ne les réécrit plus",
-    /const candidats = \(role\) => candidatsSolaire\(produitsBoutique, role, \{ tension, typeBatterie, idDomaineSolaire \}\);/.test(solJsx)
-    && /return choixDuStock\(produitsBoutique, role, besoinParRole\[role\.id\], \{ tension, typeBatterie, idDomaineSolaire \}\);/.test(solJsx)
+    /const candidats = \(role\) => candidatsSolaire\(produitsBoutique, role, \{ tension, typeBatterie, idDomaineSolaire, raccordement \}\);/.test(solJsx)
+    && /return choixDuStock\(produitsBoutique, role, besoinParRole\[role\.id\], \{ tension, typeBatterie, idDomaineSolaire, raccordement \}\);/.test(solJsx)
     && !/const tensionInfereeBatterie = /.test(solJsx) && !/const MOTS_TYPE_BATTERIE = /.test(solJsx) && !/const ROLES_EQUIPEMENT = \[/.test(solJsx)
     && /const idDomaineSolaire = idDomaineSolaireDes\(db\.boutiques\);/.test(solJsx));
   test("★ Partages.jsx IMPORTE puis RÉEXPORTE (jamais `export … from`, qui ne crée pas de nom local)",

@@ -89,6 +89,68 @@ export const AUTONOMIE_DEFAUT = "1";
 export const TYPE_BATTERIE_DEFAUT = "lifepo4";
 export const PCT_INSTALLATION_DEFAUT = 10;
 
+// ---- ⚡ MONOPHASÉ / TRIPHASÉ (Timo, 23/10/2026 : « a- pas de troisième
+// choix, b- celui qui couvre les besoins… si triphasé mais besoin de 12 kW,
+// il devrait proposer 5 kW × 3 et non triphasé de 24 kW, c- oui, d- ne pas
+// mettre pour le moment ») ----
+// Deux cases sur la fiche d'un CONVERTISSEUR : `triphase` et `parallele`
+// (« supporte la mise en parallèle »). Monophasé d'office.
+//  • MONOPHASÉ : un convertisseur non triphasé qui suffit seul (le plus
+//    petit) ; sinon plusieurs, mais SEULEMENT des modèles « mise en
+//    parallèle » (« c » : additionner des convertisseurs qui ne savent pas
+//    travailler ensemble n'est plus proposé).
+//  • TRIPHASÉ : un convertisseur triphasé (seul, ou plusieurs s'il est aussi
+//    « mise en parallèle »), OU des monophasés « mise en parallèle » PAR 3
+//    (un par phase : 3, 6, 9…). « b » : on garde la solution dont la
+//    puissance TOTALE est la plus proche du besoin (12 kW → 3 × 5 kW = 15 kW
+//    plutôt qu'un triphasé de 24 kW) ; à égalité, le moins d'appareils, puis
+//    le moins cher.
+//  • « d » : aucun nombre maximal en parallèle (pas pour le moment).
+export const RACCORDEMENT_MONO = "mono";
+export const RACCORDEMENT_TRI = "tri";
+export const RACCORDEMENT_DEFAUT = RACCORDEMENT_MONO;
+export const estTriphase = (r) => r === RACCORDEMENT_TRI;
+export const raccordementSur = (r) => (estTriphase(r) ? RACCORDEMENT_TRI : RACCORDEMENT_MONO);
+export const LIBELLE_RACCORDEMENT = { mono: "Monophasé", tri: "Triphasé" };
+export const estCategorieConvertisseur = (categorie) => /(convertisseur|onduleur|inverter|inverseur)/i.test(String(categorie || "").trim());
+// Un convertisseur PEUT-il servir sur ce raccordement ? (la liste du devis)
+export const convertisseurPourRaccordement = (p, raccordement) => (estTriphase(raccordement)
+  ? !!(p?.triphase || p?.parallele)
+  : !p?.triphase);
+// Le motif quand il ne peut pas (dit à l'écran, une ligne).
+export const motifRaccordement = (p, raccordement) => {
+  if (convertisseurPourRaccordement(p, raccordement)) return "";
+  return estTriphase(raccordement)
+    ? "monophasé sans mise en parallèle, or le raccordement est triphasé"
+    : "triphasé, or le raccordement est monophasé";
+};
+// La quantité d'UN modèle choisi pour couvrir `besoin` (watts utiles `w`) :
+// rend 0 si ce modèle ne peut pas couvrir ce besoin sur ce raccordement.
+export function qteConvertisseur(p, w, besoin, raccordement) {
+  const u = Number(w || 0);
+  const b = Number(besoin || 0);
+  if (!(u > 0) || !(b > 0) || !convertisseurPourRaccordement(p, raccordement)) return 0;
+  if (estTriphase(raccordement) && !p.triphase) return 3 * Math.max(1, Math.ceil(b / (3 * u)));
+  if (u >= b) return 1;
+  return p.parallele ? Math.ceil(b / u) : 0;
+}
+// La meilleure solution parmi les convertisseurs candidats (`options` :
+// [{ p, w }]). Rend { p, qte } ou null.
+export function meilleurConvertisseur(options, besoin, raccordement) {
+  const solutions = (options || [])
+    .map((o) => ({ ...o, qte: qteConvertisseur(o.p, o.w, besoin, raccordement) }))
+    .filter((o) => o.qte > 0);
+  if (!solutions.length) return null;
+  if (!estTriphase(raccordement)) {
+    // Monophasé : un seul appareil qui suffit d'abord (le plus petit).
+    const seuls = solutions.filter((o) => o.qte === 1).sort((a, b) => a.w - b.w);
+    if (seuls.length) return { p: seuls[0].p, qte: 1 };
+  }
+  const prix = (o) => Number(o.p.prix_vente || 0) * o.qte;
+  solutions.sort((a, b) => (a.w * a.qte - b.w * b.qte) || (a.qte - b.qte) || (prix(a) - prix(b)));
+  return { p: solutions[0].p, qte: solutions[0].qte };
+}
+
 // Convertisseur HYBRIDE sans tension en stock : déduite de la puissance
 // (règle de Timo : ≤ 2,5 kW → 12 V, ≤ 4,5 kW → 24 V, au-delà 48 V). Reçoit
 // des WATTS UTILES (défaut d'audit du 29/08/2026 : des VA faisaient monter
@@ -137,7 +199,7 @@ export const idDomaineSolaireDes = (boutiques) => {
 // ---- LES ARTICLES QUI PEUVENT TENIR UN RÔLE ----
 // Le rangement d'abord (domaine + famille), le nom en repli ; jamais une
 // tension ni un type de batterie qui ne vont pas avec le système.
-export const candidatsSolaire = (produits, role, { tension, typeBatterie, idDomaineSolaire = "solaire" } = {}) => (produits || [])
+export const candidatsSolaire = (produits, role, { tension, typeBatterie, idDomaineSolaire = "solaire", raccordement = RACCORDEMENT_DEFAUT } = {}) => (produits || [])
   .map((p) => ({ p, spec: specDepuisNom(p.nom + " " + (p.categorie || "")) }))
   .filter(({ p, spec }) => {
     const motCorrespond = p.domaine
@@ -153,6 +215,9 @@ export const candidatsSolaire = (produits, role, { tension, typeBatterie, idDoma
       tensionOk = p.tension
         ? Number(p.tension) === Number(tension)
         : (!spec || tensionInfereeConvertisseur(puissanceUtileW(spec)) === Number(tension));
+      // ⚡ Le raccordement (23/10/2026) : un triphasé n'est jamais proposé en
+      // monophasé ; en triphasé, seuls un triphasé ou un « mise en parallèle ».
+      if (tensionOk) tensionOk = convertisseurPourRaccordement(p, raccordement);
     }
     let typeOk = true;
     if (role.id === "batterie") {
@@ -169,6 +234,12 @@ export function choixDuStock(produits, role, besoin, opts = {}) {
   const valeurUtile = (o) => (role.id === "convertisseur" ? puissanceUtileW(o.spec) : o.spec.valeur);
   const options = candidatsSolaire(produits, role, opts).sort((a, b) => valeurUtile(a) - valeurUtile(b));
   if (options.length === 0 || !(besoin > 0)) return null;
+  if (role.id === "convertisseur") {
+    // ⚡ Monophasé / triphasé et mise en parallèle (23/10/2026) : la règle
+    // vit dans meilleurConvertisseur, aucun empilement d'office.
+    const m = meilleurConvertisseur(options.map((o) => ({ p: o.p, w: valeurUtile(o) })), besoin, opts.raccordement);
+    return m ? { type: "stock", produit_id: m.p.id, qte: m.qte } : null;
+  }
   if (!empilable(role.id)) {
     const suffisant = options.find((o) => valeurUtile(o) >= besoin);
     if (suffisant) return { type: "stock", produit_id: suffisant.p.id, qte: 1 };
@@ -219,7 +290,7 @@ export const etrierDuStock = (produits) => (produits || []).find((p) => /[ée]tr
 // + 15 %. On ne choisit pas une boutique à la place du client.
 // ============================================================
 export const MARGE_FOURCHETTE = 0.15;
-export const REGLAGES_ESTIMATION = { autonomie: AUTONOMIE_DEFAUT, soleil: SOLEIL_DEFAUT, tension: TENSION_DEFAUT, typeBatterie: TYPE_BATTERIE_DEFAUT };
+export const REGLAGES_ESTIMATION = { autonomie: AUTONOMIE_DEFAUT, soleil: SOLEIL_DEFAUT, tension: TENSION_DEFAUT, typeBatterie: TYPE_BATTERIE_DEFAUT, raccordement: RACCORDEMENT_DEFAUT };
 
 // Ce qui manque dans la liste des appareils pour pouvoir calculer.
 export function appareilsIncomplets(appareils) {
@@ -230,7 +301,7 @@ export function appareilsIncomplets(appareils) {
 // { boutique, total, panneaux, wcPanneau, batteries, ahBatterie, kwConvertisseur }
 // ou { boutique, manque: "panneaux" | … } si un rôle principal n'y est pas.
 export function chiffrageBoutique(besoins, { nom, produits = [], prixRail = PRIX_RAIL_DEFAUT, longueurRail = LONGUEUR_RAIL_DEFAUT, idDomaineSolaire = "solaire" } = {}, reglages = REGLAGES_ESTIMATION) {
-  const opts = { tension: reglages.tension, typeBatterie: reglages.typeBatterie, idDomaineSolaire };
+  const opts = { tension: reglages.tension, typeBatterie: reglages.typeBatterie, idDomaineSolaire, raccordement: raccordementSur(reglages.raccordement) };
   const besoin = besoinParRoleDe(besoins);
   const parId = (id) => (produits || []).find((p) => p.id === id);
   const lignes = {};
@@ -267,6 +338,9 @@ export function chiffrageBoutique(besoins, { nom, produits = [], prixRail = PRIX
     // La taille du convertisseur RETENU dans le stock (watts utiles), pas le
     // besoin brut : c'est ce qu'on installerait.
     kwConvertisseur: (() => { const c = parId(lignes.convertisseur.produit_id); return Math.round((puissanceUtileW(specDepuisNom(c.nom + " " + (c.categorie || ""))) * lignes.convertisseur.qte) / 100) / 10; })(),
+    // ⚡ Combien d'appareils, et de quelle taille chacun (23/10/2026).
+    convertisseurs: lignes.convertisseur.qte,
+    kwParConvertisseur: (() => { const c = parId(lignes.convertisseur.produit_id); return Math.round(puissanceUtileW(specDepuisNom(c.nom + " " + (c.categorie || ""))) / 100) / 10; })(),
   };
 }
 
@@ -303,7 +377,22 @@ export function estimationSolaire(appareils, boutiques, reglages = REGLAGES_ESTI
     whParJour: besoins.whParJour, kwhParJour: Math.round(besoins.whParJour / 100) / 10,
     panneaux: ref.panneaux, wcPanneau: ref.wcPanneau, batteries: ref.batteries, ahBatterie: ref.ahBatterie,
     kwConvertisseur: ref.kwConvertisseur, tension: Number(reglages.tension), boutiques: complets.length,
+    convertisseurs: ref.convertisseurs, kwParConvertisseur: ref.kwParConvertisseur,
+    raccordement: raccordementSur(reglages.raccordement),
   };
+}
+
+// Le convertisseur dit dans la phrase : « un convertisseur de 5 kW » (comme
+// avant), ou « 3 convertisseurs de 5 kW en parallèle (raccordement
+// triphasé) » quand il y en a plusieurs ou que c'est du triphasé.
+const kwLisible = (n) => String(n).replace(".", ",");
+export function texteConvertisseur(e) {
+  const tri = estTriphase(e.raccordement);
+  const n = Number(e.convertisseurs || 1);
+  if (n <= 1 && !tri) return `un convertisseur de ${kwLisible(e.kwConvertisseur)} kW`;
+  const unite = Number(e.kwParConvertisseur) > 0 ? e.kwParConvertisseur : e.kwConvertisseur;
+  const base = n <= 1 ? `un convertisseur triphasé de ${kwLisible(unite)} kW` : `${n} convertisseurs de ${kwLisible(unite)} kW en parallèle`;
+  return n > 1 && tri ? `${base} (raccordement triphasé)` : base;
 }
 
 // La phrase à citer au client (l'IA la reprend telle quelle, le juge
@@ -312,5 +401,5 @@ const fmtF = (n) => `${Math.round(Number(n || 0)).toLocaleString("fr-FR")} F`;
 export const PHRASE_INDICATIVE = "Estimation indicative, pose comprise ; un conseiller BMI TOGO vous confirme le prix exact dans un devis.";
 export function texteEstimation(e) {
   if (!e || !e.ok) return "";
-  return `Pour environ ${String(e.kwhParJour).replace(".", ",")} kWh par jour : ${e.panneaux} panneaux de ${e.wcPanneau} W, ${e.batteries} batterie${e.batteries > 1 ? "s" : ""} de ${e.ahBatterie} Ah (${e.tension} V) et un convertisseur de ${String(e.kwConvertisseur).replace(".", ",")} kW. Comptez entre ${fmtF(e.bas)} et ${fmtF(e.haut)}. ${PHRASE_INDICATIVE}`;
+  return `Pour environ ${String(e.kwhParJour).replace(".", ",")} kWh par jour : ${e.panneaux} panneaux de ${e.wcPanneau} W, ${e.batteries} batterie${e.batteries > 1 ? "s" : ""} de ${e.ahBatterie} Ah (${e.tension} V) et ${texteConvertisseur(e)}. Comptez entre ${fmtF(e.bas)} et ${fmtF(e.haut)}. ${PHRASE_INDICATIVE}`;
 }

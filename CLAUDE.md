@@ -671,6 +671,36 @@ lit mal est pire qu'un banc absent).
   ⚙ Paramètres → 🔌 Appareils (admin ; écrit `appareils_catalogue` sur les
   boutiques de l'espace regardé) ; « à classer » = les inconnus des devis,
   dérivé, jamais écrit par un vendeur.
+- **⚡ MONOPHASÉ / TRIPHASÉ** (23/10/2026, capture du volet solaire : « sous
+  la ligne autonomie tension et type de batterie… monophasé, triphasé…
+  monophasé coché par défaut… dans stock, sur les fiches de convertisseur :
+  triphasé, supporte la mise en parallèle » → « a- pas de troisième choix,
+  b- celui qui couvre les besoins… 12 kW → 5 kW × 3 et non triphasé de
+  24 kW, c- oui, d- ne pas mettre pour le moment »). Ligne **Raccordement**
+  (deux boutons ronds, monophasé d'office, `data-raccordement`) ; le
+  brouillon, le devis repris (`besoins.raccordement`) la gardent ;
+  « 🆕 Nouveau devis » la remet en monophasé ; le PDF écrit « Raccordement
+  triphasé » (rien en monophasé). Fiche d'un CONVERTISSEUR (📦 Stocks,
+  catégorie convertisseur / onduleur — `estCategorieConvertisseur`) : cases
+  `triphase` et `parallele`, création ET ✏️ Corriger, lues sous le nom
+  (`ficheLisible`). Règle pure dans `lib/choixSolaire.js`
+  (`meilleurConvertisseur`, `qteConvertisseur`, `convertisseurPourRaccordement`) :
+  **monophasé** = le plus petit qui suffit seul, sinon plusieurs SEULEMENT
+  d'un modèle « parallèle » (**« c »** : additionner des convertisseurs qui ne
+  se mettent pas en parallèle n'est plus proposé — ligne vide, l'écran le dit,
+  `data-convertisseur-sans-parallele`) ; un triphasé jamais proposé ;
+  **triphasé** = un triphasé (plusieurs s'il est aussi « parallèle ») ou des
+  « parallèle » PAR 3 (un par phase) ; **« b »** la puissance totale la plus
+  proche du besoin, à égalité le moins d'appareils, puis le moins cher.
+  **« d »** aucun nombre maximal en parallèle. L'assistant WhatsApp : monophasé
+  d'office, `raccordement: "tri"` à `estimer_solaire` seulement si le client
+  parle de triphasé (`texteConvertisseur` : « 3 convertisseurs de 5 kW en
+  parallèle (raccordement triphasé) »). ⚠ Tant que les fiches ne sont pas
+  cochées, le triphasé ne trouve rien et un besoin plus gros que le plus gros
+  convertisseur laisse la ligne vide en monophasé. Rien à coller. Banc
+  (`verifier-cloisonnement`, +15), éprouvé (24 kW préféré, parallèle non
+  exigé, correction qui perd la case) ; deux contrôles RETOURNÉS (le brouillon,
+  les options de `candidatsSolaire` / `choixDuStock`). Chapitres 8 et 11.
 - **↩ APRÈS LE MODE LIBRE, TOUTES LES LIGNES REPARTENT DU STOCK** (captures
   Timo, 07/10/2026 : « Convertisseur hybride 48V — 3 kW » sans liste ni prix
   sur DEMAKPOE, « même chose pour la ligne panneaux » → « répare ») : une

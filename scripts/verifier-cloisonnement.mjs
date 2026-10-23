@@ -4721,7 +4721,7 @@ titre("Solaire : supports et étriers ont leur case de quantité, et tout survit
   test("★ chaque ligne (supports, étriers) a sa case de quantité, et dit le calculé quand on s'en écarte",
     /onChange=\{\(e\) => corrigerFixation\(cle, base, e\.target\.value\)\}/.test(sol) && /calculé : \{calcule\}/.test(sol) && /retiré du devis/.test(sol));
   test("★ le brouillon du volet garde les équipements, leurs quantités, les rails, les corrections de fixation et le modèle de support (F5)",
-    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres \}\)/.test(sol));
+    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, raccordement, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres \}\)/.test(sol));
   // 14/09/2026, Timo, trois messages : « les supports doivent être sélectionnés
   // dans le devis, il y a les M8 et les M10 » ; capture : « on ne peut pas
   // choisir, il reste choisi par défaut » (la liste ne s'affichait qu'à partir
@@ -17020,6 +17020,64 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
     && /useState\(\(\) => moisInitial \|\| \(options\.includes\(moisDePaiePropose\(\)\) \? moisDePaiePropose\(\) : today\(\)\.slice\(0, 7\)\)\)/.test(sal));
   test("★ une prime ou une avance NOUVELLE porte un identifiant, l'avance celui de SA dépense",
     /const mouvement = \{ id: uid\(\), mois: mois\.trim\(\)/.test(ut) && /if \(depenseId\) mouvement\.depense_id = depenseId;/.test(ut) && /auto: "avance", user_id: u\.id, id: depenseId,/.test(ut));
+}
+
+// ⚡ MONOPHASÉ / TRIPHASÉ (Timo, 23/10/2026 : « a- pas de troisième choix, b- celui qui couvre les besoins… 12 kW → 5 kW × 3 et non
+// triphasé de 24 kW, c- oui, d- ne pas mettre pour le moment »).
+{
+  const CS = await import("../src/lib/choixSolaire.js");
+  const PO = await import("../src/lib/pompes.js");
+  const conv = CS.ROLES_EQUIPEMENT.find((r) => r.id === "convertisseur");
+  const P = (id, nom, x = {}) => ({ id, nom, categorie: "Convertisseur", tension: 48, prix_vente: 100000, ...x });
+  const stock = [P("p5", "Convertisseur hybride 5KW", { parallele: true }), P("t24", "Convertisseur triphasé 24KW", { triphase: true }), P("m8", "Convertisseur hybride 8KW"), P("m6", "Convertisseur hybride 6KW")];
+  const ch = (liste, besoin, raccordement) => CS.choixDuStock(liste, conv, besoin, { tension: "48", raccordement });
+  const egal = (c, id, qte) => !!c && c.produit_id === id && c.qte === qte;
+  test("★★ « b » triphasé, 12 kW : 3 × 5 kW en parallèle (15 kW), jamais le triphasé de 24 kW", egal(ch(stock, 12144, "tri"), "p5", 3));
+  test("★ triphasé : à puissance totale égale, le moins d'appareils (un triphasé de 15 kW plutôt que 3 × 5 kW)",
+    egal(ch([...stock, P("t15", "Convertisseur triphasé 15KW", { triphase: true })], 12144, "tri"), "t15", 1));
+  test("★ triphasé : des monophasés « mise en parallèle » partent PAR 3 (16 kW avec des 5 kW → 6, un par phase)",
+    CS.qteConvertisseur(stock[0], 5000, 16000, "tri") === 6 && egal(ch([stock[0]], 16000, "tri"), "p5", 6));
+  test("★ triphasé : un monophasé SANS mise en parallèle n'est jamais proposé ; sans triphasé ni parallèle, rien",
+    ch([stock[2], stock[3]], 12144, "tri") === null && CS.candidatsSolaire(stock, conv, { tension: "48", raccordement: "tri" }).map((o) => o.p.id).sort().join() === "p5,t24");
+  test("★ monophasé : un seul appareil qui suffit d'abord, le plus petit (7 kW → le 8 kW, une unité)", egal(ch(stock, 7000, "mono"), "m8", 1));
+  test("★★ « c » monophasé : plusieurs convertisseurs SEULEMENT s'ils se mettent en parallèle (12 kW → 3 × 5 kW) ; sans aucun modèle « parallèle », la ligne reste vide",
+    egal(ch(stock, 12144, "mono"), "p5", 3) && ch(stock.filter((p) => !p.parallele), 12144, "mono") === null);
+  test("★ monophasé : un convertisseur triphasé n'est jamais proposé, et le motif le dit",
+    !CS.candidatsSolaire(stock, conv, { tension: "48" }).some((o) => o.p.id === "t24")
+    && /triphasé, or le raccordement est monophasé/.test(CS.motifRaccordement(stock[1], "mono")) && /sans mise en parallèle/.test(CS.motifRaccordement(stock[2], "tri")));
+  test("★ « a » deux choix seulement, monophasé d'office ; toute autre valeur redevient monophasé",
+    CS.RACCORDEMENT_DEFAUT === "mono" && CS.raccordementSur("tri") === "tri" && CS.raccordementSur("biphasé") === "mono" && CS.raccordementSur(undefined) === "mono"
+    && Object.keys(CS.LIBELLE_RACCORDEMENT).join() === "mono,tri");
+  test("★ la phrase de l'estimation : « un convertisseur de 5 kW » comme avant ; « 3 convertisseurs de 5 kW en parallèle (raccordement triphasé) » en triphasé",
+    CS.texteConvertisseur({ convertisseurs: 1, kwParConvertisseur: 5, kwConvertisseur: 5, raccordement: "mono" }) === "un convertisseur de 5 kW"
+    && CS.texteConvertisseur({ convertisseurs: 3, kwParConvertisseur: 5, kwConvertisseur: 15, raccordement: "tri" }) === "3 convertisseurs de 5 kW en parallèle (raccordement triphasé)"
+    && /\$\{texteConvertisseur\(e\)\}/.test(readFileSync("src/lib/choixSolaire.js", "utf8")));
+  test("★ la fiche lisible d'un convertisseur dit « triphasé » et « mise en parallèle » (sous le nom, partout)",
+    PO.ficheLisible({ tension: 48, triphase: true, parallele: true }) === "48 V · triphasé · mise en parallèle" && PO.ficheLisible({ tension: 48 }) === "48 V");
+  const stk = readFileSync("src/screens/Stocks.jsx", "utf8");
+  test("★★ 📦 Stocks : les deux cases n'apparaissent QUE sur un convertisseur, s'enregistrent à la création ET par ✏️ Corriger (leçon des pompes), et la correction les raconte",
+    /\{estCategorieConvertisseur\(f\.categorie\) && \(/.test(stk) && /data-case-triphase/.test(stk) && /data-case-parallele/.test(stk)
+    && /triphase: !!f\.triphase,\s*\n\s*parallele: !!f\.parallele,/.test(stk) && /triphase: !!p\.triphase, parallele: !!p\.parallele,/.test(stk)
+    && /\.\.\.\(f\.triphase \? \{ triphase: true \} : \{\}\), \.\.\.\(f\.parallele \? \{ parallele: true \} : \{\}\)/.test(stk)
+    && /\["triphase", "Triphasé", "case"\],/.test(stk) && /\["parallele", "Supporte la mise en parallèle", "case"\],/.test(stk)
+    && CS.estCategorieConvertisseur("Convertisseur") && CS.estCategorieConvertisseur("Onduleur") && !CS.estCategorieConvertisseur("Batterie"));
+  const solR = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ volet solaire : la ligne « Raccordement » (deux boutons ronds), gardée par le brouillon et le devis repris, relancée au changement, remise en monophasé par « 🆕 Nouveau devis »",
+    /data-raccordement/.test(solR) && /type="radio" name="raccordement-solaire"/.test(solR)
+    && /raccordementSur\(besoinsRepris\?\.raccordement \|\| brouillon\?\.raccordement \|\| RACCORDEMENT_DEFAUT\)/.test(solR)
+    && /setRaccordement\(raccordementSur\(besoinsRepris\?\.raccordement\)\);/.test(solR)
+    && /\[whParJour, autonomie, soleil, tension, typeBatterie, raccordement, boutique/.test(solR)
+    && /setRaccordement\(RACCORDEMENT_DEFAUT\);/.test(solR) && /type_batterie: typeBatterie,\s*\n\s*raccordement,/.test(solR));
+  test("★ volet solaire : un convertisseur choisi à la main suit le raccordement (qteConvertisseur), et l'écran DIT quand aucun ne se met en parallèle",
+    /\? \(qteConvertisseur\(p, utile, besoin, raccordement\) \|\| 1\)/.test(solR) && /data-convertisseur-sans-parallele/.test(solR)
+    && /Aucun convertisseur triphasé ni capable de mise en parallèle dans le stock de/.test(solR));
+  test("★ le devis PDF dit « Raccordement triphasé » (rien en monophasé : un devis d'avant ne change pas)",
+    /b\.raccordement === "tri" \? "Raccordement triphasé" : ""/.test(readFileSync("src/pdf.js", "utf8")));
+  const iaR = readFileSync("src/lib/assistantIA.js", "utf8");
+  test("★ l'assistant : monophasé d'office, triphasé seulement si le client en parle — la même règle (estimationSolaire) que l'écran",
+    /raccordement: \{ type: "string", enum: \["mono", "tri"\]/.test(iaR)
+    && /estimationSolaire\(appareils, contexte\.boutiquesSolaire \|\| \[\], \{ \.\.\.REGLAGES_ESTIMATION, raccordement: e\.raccordement === "tri" \? "tri" : "mono" \}\)/.test(iaR)
+    && /passe raccordement « tri » à estimer_solaire/.test(iaR));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

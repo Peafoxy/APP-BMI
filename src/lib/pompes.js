@@ -58,6 +58,10 @@ export function ficheLisible(p) {
   if (nb(p.debit_max_m3h)) bouts.push(`${joli(nb(p.debit_max_m3h))} m³/h`);
   if (nb(p.tension)) bouts.push(`${joli(nb(p.tension))} V`);
   if (p.hybride) bouts.push("hybride");
+  // ⚡ Un convertisseur coché « Triphasé » / « Supporte la mise en parallèle »
+  // (Timo, 23/10/2026) : la même ligne sous le nom, partout.
+  if (p.triphase) bouts.push("triphasé");
+  if (p.parallele) bouts.push("mise en parallèle");
   return bouts.join(" · ");
 }
 

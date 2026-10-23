@@ -40,7 +40,7 @@ import { etudePompe, AVERTISSEMENT_COURBE, PERTES_PCT_DEFAUT } from "./pompes.js
 // fourchette, 3 solaire ») : la lecture des appareils et le calcul sont
 // LES règles de l'application, jamais une copie.
 import { lireAppareils } from "./besoinSolaire.js";
-import { estimationSolaire, texteEstimation } from "./choixSolaire.js";
+import { estimationSolaire, texteEstimation, REGLAGES_ESTIMATION } from "./choixSolaire.js";
 import { SUJETS_GUIDE, texteGuide } from "./guideEspaceClient.js";
 
 // L'étape que porte une ligne écrite par l'IA : la mémoire est le fil
@@ -173,7 +173,7 @@ ${TEXTE_QUE_FAISONS_NOUS}
 - Si l'outil rend une « description » pour un article, c'est BMI TOGO qui l'a écrite : tu peux la redire pour expliquer ce qu'est l'article et à quoi il sert, sans rien y ajouter. Sans description, tu ne décris pas l'article au-delà de son nom.
 - Si le client veut t'apprendre quelque chose sur un produit : dis que tu ne retiens rien d'une conversation à l'autre, mais que l'équipe BMI TOGO peut l'ajouter à la fiche du produit.
 - Pour une installation SOLAIRE, demande TOUJOURS, pour CHAQUE appareil : COMBIEN il y en a (le nombre), combien d'heures par jour il fonctionne, et sa puissance si le client la connaît. Ne suppose jamais qu'il y en a un seul : tant que le nombre d'un appareil n'est pas dit, redemande-le avant d'estimer. « une ampoule » ou « 1 ampoule » est un nombre ; « les ampoules » ou « quelques lumières » n'en est PAS un. Dans estimer_solaire, écris le nombre tel que le client l'a donné, n'en invente jamais.
-- Quand le client a décrit ses appareils (lesquels, combien de chacun, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul.
+- Quand le client a décrit ses appareils (lesquels, combien de chacun, combien d'heures par jour) : appelle estimer_solaire avec SES mots. Si l'outil rend une estimation, recopie sa phrase telle quelle, sans changer un seul chiffre et SANS guillemets autour (elle fait partie de ta réponse, ce n'est pas une citation), puis propose d'enregistrer une demande de devis. Si l'outil refuse (heures ou puissance manquantes, stock insuffisant), pose la question qu'il indique ou propose un conseiller — ne donne aucun chiffre. Jamais d'estimation pour le garage, la domotique, la VMC ou un produit seul. Le raccordement est monophasé d'office ; si le client dit que son installation est en TRIPHASÉ (compteur triphasé, pompe ou appareil triphasé), passe raccordement « tri » à estimer_solaire. Ne lui pose pas la question s'il n'en parle pas.
 - Une estimation n'est JAMAIS un devis : tu dis toujours qu'elle est indicative et qu'un conseiller confirme le prix exact.
 - Pour un devis : quand tu connais le besoin (et le nom du client si l'outil te dit qu'il est inconnu), appelle enregistrer_demande_devis (le besoin avec les mots du client seulement, jamais l'estimation ni un montant : l'application garde l'estimation à part). Ensuite dis que la demande est enregistrée et qu'un conseiller rappelle sur ce numéro.
 - Pour un problème technique, une réclamation, une question d'argent, ou dès que le client demande une personne : appelle passer_conseiller, puis dis qu'un conseiller BMI TOGO prend le relais sur ce numéro, et qu'il peut revenir vers toi à tout moment en écrivant « assistant ».
@@ -290,7 +290,10 @@ export const OUTILS_IA = [
     description: "Pour une installation solaire uniquement : calcule avec les règles et le stock de BMI TOGO une estimation INDICATIVE en fourchette (nombre de panneaux, batteries, convertisseur, prix entre X et Y, pose comprise). Donner les mots du client tels quels : appareils, quantités, puissance si connue, heures d'utilisation par jour. Refuse s'il manque une puissance ou des heures, et dit quoi demander.",
     input_schema: {
       type: "object",
-      properties: { description: { type: "string", description: "Les appareils décrits par le client, avec ses mots : « 2 clims 1,5 CV 8 h par jour, 10 ampoules toute la nuit, un congélateur 24 h sur 24 »" } },
+      properties: {
+        description: { type: "string", description: "Les appareils décrits par le client, avec ses mots : « 2 clims 1,5 CV 8 h par jour, 10 ampoules toute la nuit, un congélateur 24 h sur 24 »" },
+        raccordement: { type: "string", enum: ["mono", "tri"], description: "« tri » seulement si le client parle de triphasé (compteur triphasé, appareil ou pompe triphasé) ; sinon « mono » (d'office)." },
+      },
       required: ["description"],
     },
   },
@@ -724,7 +727,9 @@ export function executerOutil(nom, entree = {}, contexte = {}) {
     const description = String(e.description || "").trim();
     const appareils = lireAppareils(description, contexte.catalogue || []);
     const inconnus = appareils.filter((a) => !a.reconnu).map((a) => a.nom);
-    const est = estimationSolaire(appareils, contexte.boutiquesSolaire || []);
+    // ⚡ Monophasé d'office ; triphasé seulement si le client en a parlé
+    // (23/10/2026) — la même règle que l'écran du devis.
+    const est = estimationSolaire(appareils, contexte.boutiquesSolaire || [], { ...REGLAGES_ESTIMATION, raccordement: e.raccordement === "tri" ? "tri" : "mono" });
     if (!est.ok) {
       return {
         resultat: `Pas d'estimation. ${est.motif}${inconnus.length ? ` Appareils non reconnus : ${inconnus.join(", ")}.` : ""} Ne donner AUCUN chiffre.`,

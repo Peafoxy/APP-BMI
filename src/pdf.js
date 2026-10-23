@@ -351,6 +351,9 @@ function besoinSolaire(doc, d, largeur, hauteur, y) {
   y = ligneDetail(doc, y, [
     b.tension ? `Tension du système : ${b.tension} V` : "",
     b.type_batterie ? `Batterie : ${LIBELLE_BATTERIE[b.type_batterie] || b.type_batterie}` : "",
+    // ⚡ 23/10/2026 : dit seulement en triphasé (un devis d'avant ou
+    // monophasé ne change pas d'une ligne).
+    b.raccordement === "tri" ? "Raccordement triphasé" : "",
   ]);
   y = placePour(doc, y, hauteur, 30);
   y = titreBloc(doc, y, "Vos appareils");
