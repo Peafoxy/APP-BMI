@@ -80,8 +80,8 @@ export const CHAPITRE = {
       ["h3", "A. Demander un ravitaillement (boutique)"],
       ["etapes", [
         { titre: "Ouvrir le cadre", texte: "Vendeur : onglet **🚚 Ravitaillement**. Gérant, administrateur : 📦 Stocks, sous le tableau. « Listez ce dont la boutique X a besoin. Le magasinier reçoit la demande et prépare le bon. » Le raccourci : dans « ⚠ À réapprovisionner », **« 🚚 Demander ce ravitaillement »** charge d'un coup tous les articles au seuil avec leur Manque — on corrige ensuite ce qu'on veut." },
-        { titre: "Ajouter les articles", texte: "« Article souhaité » : une liste **« — Choisir dans le catalogue du magasin — »** (les articles des magasins de l'espace, « nom — catégorie »), ou un nom tapé librement ; « Catégorie (facultatif) » ; « Quantité » ; **« + Ajouter »**. Refus : « Indiquez l'article souhaité. », « Quantité invalide. ». Chaque ligne apparaît dans « Demande en préparation » avec « Retirer »." },
-        { titre: "Une note, puis envoyer", texte: "« Note pour le magasinier (facultatif) » — « Ex : urgent, chantier de vendredi ». **« 📤 Envoyer la demande »** : « Envoyer la demande de ravitaillement ? N article(s) — elle sera visible par le magasinier. » → « ✅ Demande envoyée au magasin. » Sans magasin dans l'espace : « Aucun magasin de votre espace de travail n'est déclaré. Demandez à l'administrateur d'en créer un (⚙ Paramètres). »" },
+        { titre: "Ajouter les articles", texte: "« Article souhaité » : une liste **« — Choisir dans le catalogue du magasin — »** (les articles des magasins de l'espace, « nom — catégorie »), ou un nom tapé librement ; « Catégorie » ; « Quantité » ; **« + Ajouter »**. Refus : « Indiquez l'article souhaité. », « Quantité invalide. ». Chaque ligne apparaît dans « Demande en préparation » avec « Retirer »." },
+        { titre: "Une note, puis envoyer", texte: "« Note pour le magasinier » — « Ex : urgent, chantier de vendredi ». **« 📤 Envoyer la demande »** : « Envoyer la demande de ravitaillement ? N article(s) — elle sera visible par le magasinier. » → « ✅ Demande envoyée au magasin. » Sans magasin dans l'espace : « Aucun magasin de votre espace de travail n'est déclaré. Demandez à l'administrateur d'en créer un (⚙ Paramètres). »" },
         { titre: "Suivre « Mes demandes »", texte: "Les dix dernières : Date · Articles · Statut — **« ⏳ En attente »**, **« ✅ Servie (RAV-…) »**, **« ❌ Refusée — motif »** — et « Annuler » sur une demande en attente (« Annuler cette demande de ravitaillement ? »). Rien n'arrive en rayon tant que le statut n'est pas « Servie » : c'est le magasinier qui fait bouger le stock." },
       ]],
       ["h3", "B. Servir une demande (magasin)"],
@@ -125,7 +125,7 @@ export const CHAPITRE = {
       ["h3", "La demande de ravitaillement (boutique)"],
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
         ["Article souhaité", "La liste du catalogue des magasins de l'espace (« nom — catégorie »), ou un nom tapé. Un nom tapé approximatif sera reconnu souplement par le magasinier, sinon proposé « à associer »."],
-        ["Catégorie (facultatif) / Quantité", "La catégorie se remplit seule depuis le catalogue. La quantité doit être un nombre positif."],
+        ["Catégorie / Quantité", "La catégorie se remplit seule depuis le catalogue. La quantité doit être un nombre positif."],
         ["+ Ajouter / Retirer", "Compose « Demande en préparation ». Rien n'est envoyé avant « 📤 Envoyer la demande »."],
         ["Note pour le magasinier", "Une phrase libre, lue par le magasinier sous la demande (urgence, chantier)."],
         ["📤 Envoyer la demande", "Confirmation, puis « ✅ Demande envoyée au magasin. » Ligne de journal « Demande de ravitaillement de BOUTIQUE : N article(s) (par X) », notification au magasin."],

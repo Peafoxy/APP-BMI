@@ -282,7 +282,7 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
                   <Field label="Date"><input type="date" value={f.date} min={edition ? undefined : aujourdhui} onChange={champ("date")} className={inputCls} /></Field>
                   <Field label="Heure"><input type="time" value={f.heure} onChange={champ("heure")} className={inputCls} /></Field>
                   <Field label="Objet"><input value={f.objet} maxLength={OBJET_MAX} onChange={champ("objet")} placeholder={typeForm === TYPE_PRO ? "Visite chez MR ERIC" : "Banque, médecin…"} className={inputCls} /></Field>
-                  <Field label="Lieu (facultatif)"><input value={f.lieu} onChange={champ("lieu")} placeholder="Adagbe, près du marché" className={inputCls} /></Field>
+                  <Field label="Lieu"><input value={f.lieu} onChange={champ("lieu")} placeholder="Adagbe, près du marché" className={inputCls} /></Field>
                 </div>
                 {typeForm === TYPE_PRO && (
                   <div className="mt-3 space-y-3">

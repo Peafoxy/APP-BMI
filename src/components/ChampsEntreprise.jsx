@@ -22,8 +22,8 @@ export function ChampsEntreprise({ valeur, onChange, libelle = "🏢 Le client p
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
             <Field label="Nom de l'entreprise"><input className={inputCls} value={e.nom} onChange={(ev) => maj("nom", ev.target.value)} data-entreprise-nom /></Field>
             <Field label="Téléphone de l'entreprise"><input type="tel" className={inputCls} value={e.tel} onChange={(ev) => maj("tel", ev.target.value)} placeholder="+228 ..." /></Field>
-            <Field label="NIF (facultatif)"><input className={inputCls} value={e.nif} onChange={(ev) => maj("nif", ev.target.value)} /></Field>
-            <Field label="RCCM (facultatif)"><input className={inputCls} value={e.rccm} onChange={(ev) => maj("rccm", ev.target.value)} /></Field>
+            <Field label="NIF"><input className={inputCls} value={e.nif} onChange={(ev) => maj("nif", ev.target.value)} /></Field>
+            <Field label="RCCM"><input className={inputCls} value={e.rccm} onChange={(ev) => maj("rccm", ev.target.value)} /></Field>
           </div>
           {aide && <div className="text-xs text-slate-500 mt-2">{aide}</div>}
         </>

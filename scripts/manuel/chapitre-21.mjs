@@ -103,7 +103,7 @@ export const CHAPITRE = {
 
       ["h3", "F. Parrainer"],
       ["etapes", [
-        { titre: "🤝 Parrainez vos proches", texte: "« Nom de votre filleul », « Son numéro », « Son besoin (facultatif) », puis **🤝 Parrainer** : un compte est créé pour le filleul, et WhatsApp s'ouvre **sur le téléphone du client** pour le prévenir — c'est lui qui recommande." },
+        { titre: "🤝 Parrainez vos proches", texte: "« Nom de votre filleul », « Son numéro », « Son besoin », puis **🤝 Parrainer** : un compte est créé pour le filleul, et WhatsApp s'ouvre **sur le téléphone du client** pour le prévenir — c'est lui qui recommande." },
         { titre: "Ses gains", texte: "Il touche **le pourcentage affiché** du montant de l'installation du filleul, **quand elle est réceptionnée ET entièrement payée**. Trois cases : À vous verser, En attente de réception, Déjà reçu ; et « Mes filleuls » avec l'état de chacun." },
       ]],
 

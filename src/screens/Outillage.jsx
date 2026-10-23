@@ -1437,7 +1437,7 @@ export function Outillage({ db, save, profile }) {
               {/* 🏗 Timo, 18/09/2026 : « saisie libre ET sélection de chantier
                   en cours et chantier à crédit ». Un chantier TERMINÉ n'est
                   plus proposé ; un nom tapé reste toujours possible. */}
-              <Field label="Chantier (facultatif)">
+              <Field label="Chantier">
                 <ChampSuggestions
                   valeur={f.chantier}
                   onChange={(v) => setF({ ...f, chantier: v })}

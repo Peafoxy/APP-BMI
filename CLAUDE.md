@@ -66,7 +66,7 @@ npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans
 npm run verifier-ecran-solaire   # 17  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
-npm run verifier-champs          # 18  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien)
+npm run verifier-champs          # 20  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`)
 npm run verifier-ecran-qui-se-montre # 38 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran ; une notification mène à SA ligne (la ligne visible, marquée, jamais la copie en veille)
 npm run verifier-infobulle       # 39  : la description d'un bouton dans SA fenêtre, mesurée dans Chromium (fond pâle de la couleur du bouton, plusieurs lignes, 280 px au plus, au-dessus en bas de l'écran, jamais hors de l'écran ; le `title` mis de côté puis rendu, celui de la LIGNE aussi ; rien au doigt ; un TÉMOIN sans l'hôte)
 npm run verifier-mot-information # 36  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
@@ -9276,6 +9276,21 @@ lit mal est pire qu'un banc absent).
   mois ») ; « Dettes en cours » ne dépend pas de la période. **Le sélecteur
   démarre sur « Aujourd'hui »** (11/09/2026 : « Période doit rester sur
   Aujourd'hui par défaut » — c'était « Ce mois »).
+- **📐 LES CASES D'UN FORMULAIRE S'ALIGNENT, ET AUCUN LIBELLÉ NE DIT
+  « FACULTATIF »** (deux captures Timo de 📦 Stocks, 23/10/2026 : « corriger
+  les alignements et supprimer partout il y a facultatif »). `Field` (ui.jsx)
+  est `flex flex-col justify-end` : dans une rangée de grille, la case va en
+  bas et le libellé au-dessus — un libellé sur deux ou trois lignes ne descend
+  plus sa case. UNE règle pour tous les formulaires ; mesurée dans Chromium
+  (`verifier-champs`, avec un témoin `block`). « (facultatif) », « —
+  facultatif » retirés de TOUS les libellés de cases (35, quatorze écrans) ;
+  « Tension — batterie/convertisseur » → « Tension » ; les cases du
+  convertisseur passent AVANT « ▸ Autres informations ». ⚠ Restent, exprès :
+  les QUESTIONS d'une fenêtre (« Motif (facultatif) : » — sans le mot, on
+  croirait la réponse obligatoire), le « Facultatif » écrit DANS la case
+  « Son numéro » de 📤 Dépenses (sa décision du 23/10), la phrase « sa
+  clôture est facultative » de ⚙ Paramètres, et le modèle Excel des entrées.
+  Un NOUVEAU libellé n'écrit pas « facultatif ».
 - **🔍 UNE SEULE RÈGLE POUR TOUTE LIGNE DE RECHERCHE** (capture Timo,
   18/09/2026, 🧰 Outillage : « réduire la ligne rechercher un outil, trop
   long… mais est-ce que ce n'est pas mieux d'avoir une seule règle qui gère ce

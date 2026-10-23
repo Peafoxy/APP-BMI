@@ -13562,7 +13562,7 @@ titre("🏢 Le prénom du client et l'entreprise qu'il représente — son répo
     /const telClient = compte\.tel \|\| nouvClient\.tel;/.test(pa) && !/entreprise\.tel/.test(pa));
   const ve = lireE("src/screens/Ventes.jsx");
   test("★ 💰 Ventes : prénom FACULTATIF, la case entreprise, revérifiée dans l'encaissement et les deux proformas",
-    /<Field label="Prénom \(facultatif\)">/.test(ve) && /<ChampsEntreprise valeur=\{f\.entreprise\}/.test(ve)
+    /<Field label="Prénom">/.test(ve) && /<ChampsEntreprise valeur=\{f\.entreprise\}/.test(ve)
     // RETOURNÉ le 30/09/2026 : + la proforma modifiée — 4.
     && (ve.match(/critiqueEntreprise\(f\.entreprise\)/g) || []).length === 4);
   test("★ 💰 Ventes : la vente, la proforma, la réservation et la dette portent l'identité (champsIdentite)",
@@ -17078,6 +17078,14 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
     /raccordement: \{ type: "string", enum: \["mono", "tri"\]/.test(iaR)
     && /estimationSolaire\(appareils, contexte\.boutiquesSolaire \|\| \[\], \{ \.\.\.REGLAGES_ESTIMATION, raccordement: e\.raccordement === "tri" \? "tri" : "mono" \}\)/.test(iaR)
     && /passe raccordement « tri » à estimer_solaire/.test(iaR));
+}
+
+// 📐 « supprimer partout il y a facultatif » (Timo, 23/10/2026) : aucun libellé de case ne le dit plus.
+{
+  const fautifs = [];
+  const parcourir = (d) => { for (const n of readdirSync(d, { withFileTypes: true })) { const c = `${d}/${n.name}`; if (n.isDirectory()) parcourir(c); else if (/\.jsx$/.test(n.name)) { for (const m of readFileSync(c, "utf8").matchAll(/label=["`]([^"`]*facultati[^"`]*)["`]/gi)) fautifs.push(`${c} : ${m[1]}`); } } };
+  parcourir("src");
+  test("★ GÉNÉRAL : aucun libellé de case (label=…) n'écrit « facultatif » dans src/" + (fautifs.length ? ` — ${fautifs.slice(0, 3).join(" ; ")}` : ""), fautifs.length === 0);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

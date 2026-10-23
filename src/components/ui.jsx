@@ -54,8 +54,13 @@ export function Pagination({ page, setPage, totalPages }) {
   );
 }
 
+// ⚠ Les cases d'une même rangée s'alignent par le BAS (capture Timo,
+// 23/10/2026, 📦 Stocks : « corriger les alignements ») : un libellé qui passe
+// sur deux lignes poussait sa case plus bas que ses voisines. Dans une grille,
+// les cellules d'une rangée ont la même hauteur : la case va en bas, le
+// libellé au-dessus d'elle. UNE règle, pour tous les formulaires.
 export const Field = ({ label, children }) => (
-  <label className="block">
+  <label className="flex flex-col justify-end">
     <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</span>
     <div className="mt-1">{children}</div>
   </label>

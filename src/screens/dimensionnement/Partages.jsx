@@ -124,7 +124,7 @@ export function BlocAutresEquipements({ titre, autres, onAjouter, onAjouterCfVis
               <ChampSuggestions placeholder="Article du stock ou nom libre (ex : câblage)" valeur={a.nom} suggestions={propositions} onChange={(v) => onModifier(a.id, "nom", v)} />
             </Field>
             <div className="text-sm font-bold text-amber-800 pb-2">Prix : cf. visite</div>
-            <Field label="Quantité (facultative)"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => onModifier(a.id, "qte", e.target.value)} /></Field>
+            <Field label="Quantité"><input type="number" min="1" className={inputCls} value={a.qte} onChange={(e) => onModifier(a.id, "qte", e.target.value)} /></Field>
             <div />
             <button onClick={() => onRetirer(a.id)} className="text-xs text-red-600 underline pb-2">Retirer</button>
           </div>
@@ -394,7 +394,7 @@ export function BlocNbDevis({ r }) {
   const reste = NB_DEVIS_MAX - String(r.nb || "").length;
   return (
     <div className="px-4 py-3 border-t border-slate-200" data-nb-devis>
-      <Field label="📝 NB (facultatif) — écrit sur le devis, à gauche du total">
+      <Field label="📝 NB — écrit sur le devis, à gauche du total">
         <ChampQuiGrandit valeur={r.nb || ""} onChange={(v) => r.setNb(String(v).slice(0, NB_DEVIS_MAX))}
           placeholder="Ex : le câblage au-delà de 20 m sera facturé à part." maxLignes={4} />
       </Field>

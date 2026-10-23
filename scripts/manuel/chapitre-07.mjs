@@ -62,7 +62,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
-        ["**🧾 Dettes**, cadre vert « 💰 Réservation prépayée » (le formulaire s'ouvre par le bouton « ➕ Réservation prépayée », se replie après la création ; la liste des réservations reste visible)", "Client · Téléphone · Article (« — Choisir — ») · Quantité · « + Ajouter » ; le panier réservé (TOTAL RÉSERVÉ) ; Avance versée aujourd'hui · Moyen de paiement · Livraison prévue (facultatif) · « ✅ Créer la réservation » ; puis la liste des réservations : Client · Articles réservés · Total · Versé · Reste · Statut (⏳ En cours · 💰 Soldée — à livrer · ✅ Livrée le …) · 🖨 Reçu · + Versement · 📦 Livrer · Annuler."],
+        ["**🧾 Dettes**, cadre vert « 💰 Réservation prépayée » (le formulaire s'ouvre par le bouton « ➕ Réservation prépayée », se replie après la création ; la liste des réservations reste visible)", "Client · Téléphone · Article (« — Choisir — ») · Quantité · « + Ajouter » ; le panier réservé (TOTAL RÉSERVÉ) ; Avance versée aujourd'hui · Moyen de paiement · Livraison prévue · « ✅ Créer la réservation » ; puis la liste des réservations : Client · Articles réservés · Total · Versé · Reste · Statut (⏳ En cours · 💰 Soldée — à livrer · ✅ Livrée le …) · 🖨 Reçu · + Versement · 📦 Livrer · Annuler."],
         ["**🧾 Dettes**, bande rouge", "« ⚠ N dette(s) de plus de 30 jours à relancer » — seulement s'il y en a."],
         ["**🧾 Dettes**, bouton « ➕ Nouvelle dette client » (le formulaire est fermé d'office, il s'ouvre au clic et se replie après l'enregistrement)", "Client · Téléphone · Article / Motif · Montant dette (F) · Déjà payé (F) · (si un acompte) Payé comment ? · « Enregistrer la dette »."],
         ["**🧾 Dettes**, la liste « Dettes — BOUTIQUE · Reste total : X »", "Colonnes Date (numéro dessous) · Client (téléphone dessous) · Motif (un article par ligne, deux au plus, « + N autres », la suite au clic) · Dette · Payé · Reste · Statut (pastille + ancienneté, et la trace 📲) · Actions (🖨 · 💵 · logo WhatsApp · 🗑). 50 lignes par page."],
@@ -109,7 +109,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "D. Une réservation prépayée"],
       ["etapes", [
-        { titre: "La créer", texte: "Cadre vert. Client, Téléphone, puis Article (« — Choisir — », la liste de la boutique avec le prix) et Quantité, « + Ajouter » : le panier se remplit (« 2 × Panneau 400W », TOTAL RÉSERVÉ). Avance versée aujourd'hui, Moyen de paiement, Livraison prévue (facultatif), « ✅ Créer la réservation ». Confirmation : Total · Avance versée · Reste à payer · « La marchandise ne sortira du stock qu'à la livraison. »" },
+        { titre: "La créer", texte: "Cadre vert. Client, Téléphone, puis Article (« — Choisir — », la liste de la boutique avec le prix) et Quantité, « + Ajouter » : le panier se remplit (« 2 × Panneau 400W », TOTAL RÉSERVÉ). Avance versée aujourd'hui, Moyen de paiement, Livraison prévue, « ✅ Créer la réservation ». Confirmation : Total · Avance versée · Reste à payer · « La marchandise ne sortira du stock qu'à la livraison. »" },
         { titre: "Les versements", texte: "« + Versement » sur sa ligne : la même question, le même reçu — avec le **filigrane NON LIVRÉ** tant que la marchandise n'est pas partie. À la création comme à chaque versement, le reçu part aussi du numéro BMI, en PDF. Quand tout est versé : statut « 💰 Soldée — à livrer »." },
         { titre: "📦 Livrer", texte: "**C'est ici que le stock sort et que la vente existe** (numéro de reçu de vente, journal « Livraison de la réservation de … »). Si un article manque : « Stock insuffisant pour : … Ravitaillez la boutique avant de livrer. » Le reçu de vente s'imprime." },
         { titre: "Livrer avant que ce soit soldé", texte: "L'application prévient : « ⚠ KOSSI n'a pas tout payé : il reste 50 000 F. Ce n'est plus une réservation prépayée si elle est livrée maintenant — elle va devenir une DETTE CLASSIQUE (elle quittera la liste des réservations pour rejoindre « Dettes », avec son historique de versements conservé). Continuer ? » Si oui, la fiche passe dans la liste des dettes avec le motif « Vente livrée avant solde (ex-réservation) », et le reçu de vente porte l'avance et RESTE À PAYER." },
@@ -157,7 +157,7 @@ export const CHAPITRE = {
         ["Article / Quantité / + Ajouter", "La liste des articles de la boutique, avec leur prix de vente ; le prix est **bloqué** à la réservation."],
         ["TOTAL RÉSERVÉ / Retirer", "Le panier, ligne par ligne."],
         ["Avance versée aujourd'hui / Moyen de paiement", "Le premier versement ; l'avance ne peut pas dépasser le total. Pas de « Crédit » dans la liste des moyens."],
-        ["Livraison prévue (facultatif)", "Une date indicative, affichée sous le client (« prévu 30/09/2026 »)."],
+        ["Livraison prévue", "Une date indicative, affichée sous le client (« prévu 30/09/2026 »)."],
         ["Statut", "⏳ En cours · 💰 Soldée — à livrer · ✅ Livrée le …"],
         ["🖨 Reçu", "Le reçu de versement avec le filigrane NON LIVRÉ tant qu'elle n'est pas livrée."],
         ["+ Versement / 📦 Livrer / Annuler", "Encaisser ; sortir le stock et créer la vente (bascule en dette si pas soldée) ; annuler (le remboursement se fait à la main, en dépense)."],

@@ -476,7 +476,7 @@ export function EspaceClient({ db, profile, save, setTab, devisOuvertInitial = n
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
           <Field label="Nom de votre filleul"><input className={inputCls} placeholder="KOFFI AMA" value={parr.nom} onChange={(e) => setParr({ ...parr, nom: e.target.value })} /></Field>
           <Field label="Son numéro"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={parr.tel} onChange={(e) => setParr({ ...parr, tel: e.target.value })} /></Field>
-          <Field label="Son besoin (facultatif)"><input className={inputCls} placeholder="Ex : maison 4 pièces" value={parr.note} onChange={(e) => setParr({ ...parr, note: e.target.value })} /></Field>
+          <Field label="Son besoin"><input className={inputCls} placeholder="Ex : maison 4 pièces" value={parr.note} onChange={(e) => setParr({ ...parr, note: e.target.value })} /></Field>
           <button onClick={parrainer} disabled={parrainageEnCours} className="px-5 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-60">{parrainageEnCours ? "⏳ Création du compte…" : "🤝 Parrainer"}</button>
         </div>
 
@@ -718,7 +718,7 @@ export function EspaceClient({ db, profile, save, setTab, devisOuvertInitial = n
                           </div>
                         ))}
 
-                        <input className={inputCls} placeholder="Un commentaire (facultatif)"
+                        <input className={inputCls} placeholder="Un commentaire"
                           value={(notes[d.id] || {}).commentaire || ""}
                           onChange={(e) => setNotes({ ...notes, [d.id]: { ...(notes[d.id] || {}), commentaire: e.target.value } })} />
 

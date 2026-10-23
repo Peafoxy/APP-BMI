@@ -474,7 +474,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                   </Field>
                 </div>
                 <div className="lg:col-span-2">
-                  <Field label="Nature du chantier / besoin (facultatif)">
+                  <Field label="Nature du chantier / besoin">
                     <textarea className={inputCls + " min-h-[70px]"} value={f.nature} onChange={(e) => setF({ ...f, nature: e.target.value })}
                       placeholder="Ex : électrifier une maison 4 pièces, 3 ventilateurs + frigo. Pas encore de budget arrêté. Rappeler après le 15." />
                   </Field>
@@ -491,7 +491,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                     <option>Désintéressé</option>
                   </select>
                 </Field>
-                <Field label="Date de relance (facultatif)"><input type="date" className={inputCls} value={f.relance} onChange={(e) => setF({ ...f, relance: e.target.value })} /></Field>
+                <Field label="Date de relance"><input type="date" className={inputCls} value={f.relance} onChange={(e) => setF({ ...f, relance: e.target.value })} /></Field>
               </div>
               {carteOuverte && (
                 <div className="mt-3">

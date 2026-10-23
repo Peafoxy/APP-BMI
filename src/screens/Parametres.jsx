@@ -64,13 +64,13 @@ function ChampsLoyer({ valeur, onChange }) {
           <Field label="Échéance : le … du mois"><input type="number" min="1" max="31" className={inputCls} value={v.jour} onChange={pose("jour")} /></Field>
           <Field label="Nom du propriétaire"><input className={inputCls} value={v.proprietaire} onChange={pose("proprietaire")} /></Field>
           <Field label="Téléphone du propriétaire"><input type="tel" className={inputCls} value={v.tel} onChange={pose("tel")} placeholder="+228 90 00 00 00" /></Field>
-          <Field label="Début du bail (facultatif)"><input type="date" className={inputCls} value={v.debut} onChange={pose("debut")} /></Field>
-          <Field label="Caution versée (F, facultatif)"><input type="number" className={inputCls} value={v.caution} onChange={pose("caution")} /></Field>
+          <Field label="Début du bail"><input type="date" className={inputCls} value={v.debut} onChange={pose("debut")} /></Field>
+          <Field label="Caution versée (F)"><input type="number" className={inputCls} value={v.caution} onChange={pose("caution")} /></Field>
           {/* Timo (25/09/2026) : « une ligne de dernier mois payé, pour mieux suivre
               les arriérés ». Les loyers d'avant l'application n'y sont pas :
               c'est ici qu'on dit où on en est ; ensuite ça avance tout seul. */}
           <Field label="Dernier mois payé"><input type="month" className={inputCls} value={v.dernier_mois_paye || ""} onChange={pose("dernier_mois_paye")} data-dernier-mois /></Field>
-          <div className="sm:col-span-2"><Field label="Autres informations (facultatif)"><input className={inputCls} value={v.note} onChange={pose("note")} placeholder="Ex : payé par trimestre, contrat chez le notaire…" /></Field></div>
+          <div className="sm:col-span-2"><Field label="Autres informations"><input className={inputCls} value={v.note} onChange={pose("note")} placeholder="Ex : payé par trimestre, contrat chez le notaire…" /></Field></div>
         </div>
       )}
     </div>
@@ -1561,7 +1561,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               </Field>
               {fondsForm.origine === DEST_BANQUE && <Field label="Nom de la banque"><input className={inputCls} value={fondsForm.banque} onChange={(e) => setFondsForm({ ...fondsForm, banque: e.target.value })} placeholder="Ex : Ecobank" /></Field>}
               <Field label="Date de la remise"><input type="date" className={inputCls} value={fondsForm.date} max={today()} onChange={(e) => setFondsForm({ ...fondsForm, date: e.target.value })} /></Field>
-              <Field label="Précision (facultatif)"><input className={inputCls} value={fondsForm.note} onChange={(e) => setFondsForm({ ...fondsForm, note: e.target.value })} /></Field>
+              <Field label="Précision"><input className={inputCls} value={fondsForm.note} onChange={(e) => setFondsForm({ ...fondsForm, note: e.target.value })} /></Field>
             </div>
             {remisesFondsDe(db, fondsPour.nom).length > 0 && (
               <div className="mt-3">
@@ -1673,8 +1673,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           bouton="➕ Ajouter une boutique" titre="Ajouter une boutique">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <Field label="Nom"><input className={inputCls} value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} placeholder="Ex : BMISHOP CENTRE" /></Field>
-          <Field label="Localisation (facultatif)"><input className={inputCls} value={f.adresse} onChange={(e) => setF({ ...f, adresse: e.target.value })} placeholder="Ex : Agoè, non loin de la station Total" /></Field>
-          <Field label="Téléphone (facultatif)"><input type="tel" className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} placeholder="+228 90 00 00 00" /></Field>
+          <Field label="Localisation"><input className={inputCls} value={f.adresse} onChange={(e) => setF({ ...f, adresse: e.target.value })} placeholder="Ex : Agoè, non loin de la station Total" /></Field>
+          <Field label="Téléphone"><input type="tel" className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} placeholder="+228 90 00 00 00" /></Field>
           <div className="lg:col-span-3">
             <Field label="Couleur">
               <div className="flex flex-wrap gap-2 items-center">

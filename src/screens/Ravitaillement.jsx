@@ -100,7 +100,7 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
               .map((p) => <option key={p.id} value={p.nom}>{p.nom}{p.categorie ? ` — ${p.categorie}` : ""}</option>)}
           </select>
         </Field>
-        <Field label="Catégorie (facultatif)">
+        <Field label="Catégorie">
           <ChampSuggestions valeur={dem.categorie} onChange={(v) => setDem({ ...dem, categorie: v })}
             suggestions={[...new Set(db.produits.map((p) => p.categorie).filter(Boolean))].map((c) => ({ valeur: c }))} />
         </Field>
@@ -122,7 +122,7 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
             ))}
           </ul>
           <div className="mt-3">
-            <Field label="Note pour le magasinier (facultatif)">
+            <Field label="Note pour le magasinier">
               <input className={inputCls} value={dem.note} onChange={(e) => setDem({ ...dem, note: e.target.value })} placeholder="Ex : urgent, chantier de vendredi" />
             </Field>
           </div>

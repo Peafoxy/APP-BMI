@@ -44,6 +44,12 @@ const app = readFileSync("src/App.jsx", "utf8");
 const mc = app.match(/<main className="(w-full max-w-[^"]+)">/);
 if (!mc) { console.log("❌ Le cadre <main> d'App.jsx n'a pas la forme attendue."); process.exit(1); }
 const cadreCls = mc[1];
+// ⚠ La case d'un formulaire (Field, ui.jsx) est LUE, jamais recopiée (23/10/2026,
+// capture Timo de 📦 Stocks : « corriger les alignements »).
+const mfld = ui.match(/export const Field = \(\{ label, children \}\) => \(\n  <label className="([^"]+)">\n    <span className="([^"]+)">\{label\}<\/span>\n    <div className="([^"]+)">\{children\}<\/div>/);
+if (!mfld) { console.log("❌ Field (ui.jsx) n'a pas la forme attendue."); process.exit(1); }
+const [, fieldCls, fieldLabelCls, fieldBoiteCls] = mfld;
+const caseForm = (id, libelle, cls = fieldCls) => `<label class="${cls}"><span class="${fieldLabelCls}">${libelle}</span><div class="${fieldBoiteCls}"><input id="${id}" class="${inputCls}"></div></label>`;
 
 const css = readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0];
 if (!css) { console.log("❌ Pas de CSS construit — lancez `npm run build` d'abord."); process.exit(1); }
@@ -70,6 +76,9 @@ writeFileSync(page, `<!doctype html><html><head><meta charset="utf-8">
 <!-- ⚠ LE CADRE DE L'APPLICATION (20/09/2026) : la classe est LUE dans
      App.jsx et posée telle quelle, pour que le banc mesure ce que Timo voit
      et non ce que je crois avoir écrit. -->
+<!-- Une rangée de formulaire : un libellé long (trois lignes) à côté de libellés courts -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:700px">${caseForm("fCourt", "Seuil")}${caseForm("fLong", "Un libellé très long qui passe sur trois lignes dans sa case")}${caseForm("fCourt2", "Prix")}${caseForm("fLong2", "Encore un libellé assez long")}</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:700px">${caseForm("tCourt", "Seuil", "block")}${caseForm("tLong", "Un libellé très long qui passe sur trois lignes dans sa case", "block")}</div>
 <main id="cadre" class="${cadreCls}"><div id="dedans" style="width:100%"></div></main>
 <!-- La fenêtre du sélecteur d'article, telle qu'elle s'ouvre vraiment -->
 <div class="fixed inset-0 flex items-end sm:items-center justify-center">
@@ -97,6 +106,7 @@ const mesurer = async (largeur) => {
     dansFenetre: Math.round(document.getElementById("dansFenetre").getBoundingClientRect().width),
     listeFenetre: Math.round(document.getElementById("listeFenetre").getBoundingClientRect().width),
     cadre: Math.round(document.getElementById("cadre").getBoundingClientRect().width),
+    cases: ["fCourt", "fLong", "fCourt2", "fLong2", "tCourt", "tLong"].reduce((o, id) => ({ ...o, [id]: Math.round(document.getElementById(id).getBoundingClientRect().top) }), {}),
   }));
   await p.close();
   return r;
@@ -147,6 +157,13 @@ test("★★ sur TÉLÉPHONE (390 px) RIEN ne change : la limite n'a jamais rogn
 test("★ et sur tablette non plus", tablette.cadre >= 690 && tablette.cadre <= 700, `mesuré : ${tablette.cadre} px`);
 test("★ la limite EXISTE quand même : un moniteur immense n'étale pas un formulaire sur toute sa largeur",
   grandEcran.cadre < 1920);
+
+console.log("\n── 📐 LES CASES D'UNE MÊME RANGÉE S'ALIGNENT (23/10/2026) ──");
+test("★★ un libellé qui passe sur plusieurs lignes ne descend plus SA case : les quatre cases de la rangée commencent à la même hauteur",
+  new Set([pc.cases.fCourt, pc.cases.fLong, pc.cases.fCourt2, pc.cases.fLong2]).size === 1,
+  `mesuré : ${JSON.stringify(pc.cases)}`);
+test("★ le TÉMOIN (l'ancienne case, `block`) le prouve : sans la règle, la case au libellé long tombe plus bas",
+  pc.cases.tLong > pc.cases.tCourt, `témoin : court ${pc.cases.tCourt}, long ${pc.cases.tLong}`);
 
 console.log("\n── ⚠ LE PIÈGE, GRAVÉ : `max-w-*` NE COMMANDE RIEN SUR UN CHAMP ──");
 test("★ le TÉMOIN le prouve : un `max-w-xs` posé sur un input ne bride RIEN (la règle globale d'index.css l'écrase)",

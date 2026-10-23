@@ -1769,7 +1769,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
                   placeholder={origineDevis ? "Pré-rempli avec le nom du client — modifiez si quelqu'un d'autre paie" : "Nom, ou numéro du client"} />
               </Field>
-              <Field label="Prénom (facultatif)">
+              <Field label="Prénom">
                 <input className={inputCls} value={f.prenom || ""} onChange={(e) => setF({ ...f, prenom: e.target.value })} data-prenom-client />
               </Field>
               <Field label={origineDevis ? "Son numéro" : "Numéro du client"}>

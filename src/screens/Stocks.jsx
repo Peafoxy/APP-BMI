@@ -1245,10 +1245,10 @@ export function Stocks({ db, save, profile, cible = null }) {
           <Field label="Seuil"><input type="number" className={inputCls} value={f.seuil} onChange={(e) => setF({ ...f, seuil: e.target.value })} /></Field>
           {/* 🎯 Stock à atteindre (Timo, 29/09/2026, « b ») : sous le seuil, la
               liste « À réapprovisionner » propose de remonter jusqu'ici. */}
-          <Field label="Stock à atteindre (facultatif)"><input type="number" data-stock-cible className={inputCls} value={f.stock_cible} onChange={(e) => setF({ ...f, stock_cible: e.target.value })} placeholder="Vide = jusqu'au seuil" /></Field>
+          <Field label="Stock à atteindre"><input type="number" data-stock-cible className={inputCls} value={f.stock_cible} onChange={(e) => setF({ ...f, stock_cible: e.target.value })} placeholder="Vide = jusqu'au seuil" /></Field>
           <Field label="Prix achat (F)"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.prix_achat} onChange={(e) => setF({ ...f, prix_achat: e.target.value })} /></Field>
           <Field label="Prix vente (F)"><input type="number" disabled={argentVerrouille} className={inputCls} value={f.prix_vente} onChange={(e) => setF({ ...f, prix_vente: e.target.value })} /></Field>
-          <Field label="Code-barres (facultatif)"><input className={inputCls} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} placeholder="Scannez ou tapez" /></Field>
+          <Field label="Code-barres"><input className={inputCls} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} placeholder="Scannez ou tapez" /></Field>
           {/* Champ Tension : uniquement utile pour une batterie ou un
               convertisseur — masqué pour toute autre catégorie d'article
               (demande Timo : « il y a beaucoup d'autres produits qui ne
@@ -1256,7 +1256,7 @@ export function Stocks({ db, save, profile, cible = null }) {
               la catégorie saisie, les mêmes que ceux utilisés pour
               proposer les équipements en dimensionnement. */}
           {/(batterie|battery|lifepo4|lithium|convertisseur|onduleur|inverter|inverseur)/i.test((f.categorie || "").trim()) && (
-            <Field label="Tension — batterie/convertisseur (facultatif)">
+            <Field label="Tension">
               <select className={inputCls} value={f.tension} onChange={(e) => setF({ ...f, tension: e.target.value })}>
                 <option value="">— Non applicable —</option>
                 <option value="12">12V</option>
@@ -1267,21 +1267,6 @@ export function Stocks({ db, save, profile, cible = null }) {
           )}
         </div>
 
-        {/* MODULE GARANTIES — bouton "Autres informations" pour ne pas
-            surcharger la fiche produit (demande Timo, après discussion avec
-            ChatGPT sur la spec) : garantie boutique (affichée sur reçu/
-            facture, à côté du nom de l'article, uniquement si renseignée),
-            garantie fabricant (utilisée pour devis/contrat/SAV, jamais sur
-            le reçu), conditions, fiche technique, notes internes. */}
-        <button type="button" onClick={() => setAutresInfosOuvert(!autresInfosOuvert)} className="mt-3 text-xs font-bold text-sky-800 underline">
-          {autresInfosOuvert ? "▾" : "▸"} Autres informations (garanties, notes...)
-        </button>
-        {/* ⚠ LES CINQ RENSEIGNEMENTS D'UNE POMPE (Timo, 20/09/2026). Ils
-            n'apparaissent QUE sur une pompe — pas question de demander sa
-            profondeur maximale à un tournevis. C'est la CATÉGORIE qui décide
-            (« les pompes sont rangées dans domaine forage, catégorie pompe »).
-            ⚠ `tension` existe depuis toujours sur une fiche article : on la
-            réutilise, on n'en crée pas une deuxième. */}
         {/* ⚡ LES DEUX CASES D'UN CONVERTISSEUR (Timo, 23/10/2026) : elles
             n'apparaissent QUE sur un convertisseur (la catégorie décide, comme
             pour les pompes). Le devis solaire les lit pour le monophasé /
@@ -1299,6 +1284,21 @@ export function Stocks({ db, save, profile, cible = null }) {
             </label>
           </div>
         )}
+        {/* MODULE GARANTIES — bouton "Autres informations" pour ne pas
+            surcharger la fiche produit (demande Timo, après discussion avec
+            ChatGPT sur la spec) : garantie boutique (affichée sur reçu/
+            facture, à côté du nom de l'article, uniquement si renseignée),
+            garantie fabricant (utilisée pour devis/contrat/SAV, jamais sur
+            le reçu), conditions, fiche technique, notes internes. */}
+        <button type="button" onClick={() => setAutresInfosOuvert(!autresInfosOuvert)} className="mt-3 text-xs font-bold text-sky-800 underline">
+          {autresInfosOuvert ? "▾" : "▸"} Autres informations (garanties, notes...)
+        </button>
+        {/* ⚠ LES CINQ RENSEIGNEMENTS D'UNE POMPE (Timo, 20/09/2026). Ils
+            n'apparaissent QUE sur une pompe — pas question de demander sa
+            profondeur maximale à un tournevis. C'est la CATÉGORIE qui décide
+            (« les pompes sont rangées dans domaine forage, catégorie pompe »).
+            ⚠ `tension` existe depuis toujours sur une fiche article : on la
+            réutilise, on n'en crée pas une deuxième. */}
         {estPompe({ categorie: f.categorie }) && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3 p-3 rounded-lg bg-sky-50 border border-sky-200">
             <div className="sm:col-span-2 lg:col-span-5 text-xs text-slate-600">
@@ -1327,13 +1327,13 @@ export function Stocks({ db, save, profile, cible = null }) {
             <Field label="🏭 Garantie fabricant — pour devis/contrat/SAV">
               <input className={inputCls} value={f.garantie_fabricant} onChange={(e) => setF({ ...f, garantie_fabricant: e.target.value })} placeholder="Ex : 10 ans" />
             </Field>
-            <Field label="📄 Conditions de garantie (facultatif)">
+            <Field label="📄 Conditions de garantie">
               <input className={inputCls} value={f.conditions_garantie} onChange={(e) => setF({ ...f, conditions_garantie: e.target.value })} placeholder="Ex : hors casse, hors surtension..." />
             </Field>
-            <Field label="🔗 Fiche technique — lien (facultatif)">
+            <Field label="🔗 Fiche technique — lien">
               <input className={inputCls} value={f.fiche_technique} onChange={(e) => setF({ ...f, fiche_technique: e.target.value })} placeholder="https://..." />
             </Field>
-            <Field label="📝 Notes internes (facultatif)">
+            <Field label="📝 Notes internes">
               <input className={inputCls} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />
             </Field>
             {/* 🤖 Timo, 25/09/2026 : « dès qu'un client te parle de moteurs
@@ -1341,7 +1341,7 @@ export function Stocks({ db, save, profile, cible = null }) {
                 ⚠ UN CHAMP À PART, jamais « Notes internes » : ce qui est écrit
                 ici PART chez le client, mot pour mot. */}
             <div className="sm:col-span-2 lg:col-span-3">
-              <Field label="🤖 Ce que l'assistant WhatsApp peut dire aux clients (facultatif)">
+              <Field label="🤖 Ce que l'assistant WhatsApp peut dire aux clients">
                 <ChampQuiGrandit valeur={f.note_assistant} onChange={(v) => setF({ ...f, note_assistant: String(v).slice(0, NOTE_ASSISTANT_MAX) })} placeholder="Ex : moteur central pour rideau métallique, se monte au centre de l'axe, jusqu'à 600 kg." />
               </Field>
               <div className="text-[11px] text-amber-800 mt-1">⚠ Ce texte est lu par l'assistant et <b>répété aux clients</b> : jamais de prix d'achat, de fournisseur ni de remarque interne (ceux-là vont dans « Notes internes »).</div>

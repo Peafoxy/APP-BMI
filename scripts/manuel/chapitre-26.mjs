@@ -67,7 +67,7 @@ export const CHAPITRE = {
       ["h3", "A. Noter un rendez-vous privé"],
       ["etapes", [
         { titre: "Choisir « 🔒 Rendez-vous privé »", texte: "Dans la liste en haut de l'écran." },
-        { titre: "➕ Nouveau rendez-vous privé", texte: "« Date », « Heure », « Objet » (obligatoires), « Lieu (facultatif) »." },
+        { titre: "➕ Nouveau rendez-vous privé", texte: "« Date », « Heure », « Objet » (obligatoires), « Lieu »." },
         { titre: "📅 Enregistrer le rendez-vous", texte: "Une confirmation résume le rendez-vous. Il ne prévient personne. La veille à 14 h et le jour même à 7 h, un WhatsApp du numéro BMI vous le rappelle **sans dire l'objet** : « vous avez un rendez-vous personnel le … à … »." },
       ]],
       ["h3", "B. Fixer une visite (rendez-vous pro)"],

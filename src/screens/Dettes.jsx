@@ -435,7 +435,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
                   {PAIEMENTS.filter((p) => !/Crédit/i.test(p)).map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </Field>
-              <Field label="Livraison prévue (facultatif)"><input type="date" className={inputCls} value={res.echeance} onChange={(e) => setRes({ ...res, echeance: e.target.value })} /></Field>
+              <Field label="Livraison prévue"><input type="date" className={inputCls} value={res.echeance} onChange={(e) => setRes({ ...res, echeance: e.target.value })} /></Field>
             </div>
             <button onClick={creerReservation} className="mt-3 px-5 py-2 rounded-lg bg-emerald-700 text-white font-bold text-sm hover:bg-emerald-800">✅ Créer la réservation</button>
           </div>

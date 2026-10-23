@@ -208,28 +208,28 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
             </div>
 
             <div className="mt-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <Field label="Client (facultatif)"><input className={inputCls} value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} /></Field>
+              <Field label="Client"><input className={inputCls} value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })} /></Field>
               <Field label="Numéro du client"><input type="tel" placeholder="+228 ..." className={inputCls} value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
-              <Field label="Remise (%) — facultatif"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} /></Field>
+              <Field label="Remise (%)"><input type="number" min="0" max="100" step="0.5" className={inputCls} value={f.remise} onChange={(e) => setF({ ...f, remise: e.target.value })} /></Field>
               <Field label="Paiement proposé">
                 <select className={inputCls} value={f.paiement} onChange={(e) => setF({ ...f, paiement: e.target.value })}>
                   {PAIEMENTS.map((p) => <option key={p}>{p}</option>)}
                 </select>
               </Field>
-              <Field label="Vendeur destinataire (facultatif)">
+              <Field label="Vendeur destinataire">
                 <select className={inputCls} value={f.vendeurCible} onChange={(e) => setF({ ...f, vendeurCible: e.target.value })}>
                   <option value="">— N'importe quel vendeur —</option>
                   {vendeursBoutique.map((v) => <option key={v.id} value={v.nom}>{v.nom}</option>)}
                 </select>
               </Field>
               {Number(profile.taux_commission || 0) > 0 && (
-                <Field label="Rabais offert au client (F) — facultatif">
+                <Field label="Rabais offert au client (F)">
                   <input type="number" min="0" className={inputCls} value={f.rabais} onChange={(e) => setF({ ...f, rabais: e.target.value })} />
                   <div className="text-xs text-orange-600 mt-1 font-semibold">Ce rabais est pris sur VOTRE commission ({profile.taux_commission} %), pas sur la marge de BMI.</div>
                 </Field>
               )}
               {responsables.length > 0 && (
-                <Field label="Associer mon responsable (facultatif)">
+                <Field label="Associer mon responsable">
                   <select className={inputCls} value={f.responsable} onChange={(e) => setF({ ...f, responsable: e.target.value })}>
                     <option value="">— Aucun (je garde toute ma commission) —</option>
                     {responsables.map((r) => <option key={r.id} value={r.nom}>{r.nom}{Number(r.taux_commission || 0) > 0 ? ` — ${r.taux_commission} %` : ""}</option>)}

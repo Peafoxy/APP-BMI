@@ -1047,8 +1047,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             </select>
           </Field>
           <Field label="Date d'installation"><input type="date" className={inputCls} value={f.date_installation} onChange={(e) => setF({ ...f, date_installation: e.target.value })} /></Field>
-          <Field label="Prochain entretien (facultatif)"><input type="date" className={inputCls} value={f.date_entretien} onChange={(e) => setF({ ...f, date_entretien: e.target.value })} /></Field>
-          <Field label="🧾 Vente rattachée (facultatif)">
+          <Field label="Prochain entretien"><input type="date" className={inputCls} value={f.date_entretien} onChange={(e) => setF({ ...f, date_entretien: e.target.value })} /></Field>
+          <Field label="🧾 Vente rattachée">
             <select className={inputCls} value={f.vente_id} onChange={(e) => chargerDepuisVente(e.target.value)}>
               <option value="">— Aucune —</option>
               {[...ventesDeLEspace].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 80).map((v) => (
@@ -1058,7 +1058,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
           </Field>
           <Field label="🛡 Garantie (mois)"><input type="number" min="0" className={inputCls} value={f.garantie_mois} onChange={(e) => setF({ ...f, garantie_mois: e.target.value })} /></Field>
           {isAdmin && (
-            <Field label="Commercial rattaché (facultatif)">
+            <Field label="Commercial rattaché">
               <select className={inputCls} value={f.commercial || ""} onChange={(e) => setF({ ...f, commercial: e.target.value })}>
                 <option value="">— Aucun —</option>
                 {commerciauxActifs.map((u) => <option key={u.id} value={u.nom}>{u.nom}</option>)}
@@ -1123,7 +1123,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             <ChampSuggestions placeholder="Matériel (ex : Panneau 555W)" valeur={mat.nom} onChange={(v) => setMat({ ...mat, nom: v })}
               suggestions={[...new Set(db.produits.map((p) => p.nom))].map((n) => ({ valeur: n }))} />
             <input type="number" min="1" className={inputCls} placeholder="Quantité" value={mat.qte} onChange={(e) => setMat({ ...mat, qte: e.target.value })} />
-            <input className={inputCls} placeholder="N° de série (facultatif)" value={mat.serie} onChange={(e) => setMat({ ...mat, serie: e.target.value })} />
+            <input className={inputCls} placeholder="N° de série" value={mat.serie} onChange={(e) => setMat({ ...mat, serie: e.target.value })} />
             <button onClick={ajouterMateriel} className="px-4 py-2 rounded-lg bg-slate-800 text-white text-sm font-bold hover:bg-slate-900">+ Ajouter</button>
           </div>
           {(f.materiel || []).length > 0 && (
