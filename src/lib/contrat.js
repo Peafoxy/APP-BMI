@@ -18,6 +18,14 @@ import { maintenant, maintenantISO } from "./horloge";
 // portent le même numéro.
 export const numeroContrat = () => `CTR-${maintenant().getUTCFullYear()}-${uid().slice(0, 8).toUpperCase()}`;
 
+// 📄 LE CLIENT TÉLÉCHARGE SON DEVIS (Timo, 23/10/2026 : « le client après
+// validation arrive à télécharger le contrat, le PV, mais pas le devis » →
+// « b ») : seulement APRÈS validation — un devis ✅ Validé ou 💰 Payé. Un
+// devis ⏳ Proposé, 🔄 Corrigé (nouvelle version pas encore re-signée),
+// rejeté ou classé sans suite ne se télécharge pas depuis son espace.
+export const STATUTS_DEVIS_TELECHARGEABLE = ["valide", "paye"];
+export const devisTelechargeableParLeClient = (d) => STATUTS_DEVIS_TELECHARGEABLE.includes(d?.statut);
+
 // PV-année-6 caractères de l'identifiant du chantier : le même chantier
 // garde le même numéro de PV, même si le lien est renvoyé.
 export const numeroPv = (chantier) => `PV-${today().slice(0, 4)}-${String(chantier?.id || "").slice(0, 6).toUpperCase()}`;

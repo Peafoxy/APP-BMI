@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2748 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2757 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -926,6 +926,19 @@ lit mal est pire qu'un banc absent).
   en vente » (la commission partirait — refusé). Tout revérifié DANS le geste
   (`critiqueBrouillonAutrui`). Rien à coller. Banc (+5, l'écran RENDU, le geste
   JOUÉ), éprouvé ; quatre contrôles RETOURNÉS. Chapitre 11 et guide commercial.
+- **📄 LE CLIENT TÉLÉCHARGE SON DEVIS** (23/10/2026, Timo : « le client
+  après validation arrive à télécharger le contrat, le PV, mais pas le devis »
+  → « b ») : bouton « 📄 Télécharger mon devis » sous le TOTAL, dans 📋 Mes
+  devis de l'espace client, **seulement ✅ Validé ou 💰 Payé**
+  (`devisTelechargeableParLeClient`, lib/contrat.js, revérifié dans le geste).
+  LA fabrique de « 📄 Devis PDF » (`genererPdfDuDevis`, chargée par `import()`).
+  ⚠ Dit à Timo : sur le téléphone du client, **la signature personnelle du
+  vendeur n'y est pas** (il ne reçoit que sa fiche) ; l'en-tête de la boutique
+  peut manquer. Le banc a trouvé en passant un écran blanc : un devis validé
+  ouvert sur une base sans boutiques lisait `db.boutiques.find` — protégé.
+  Banc (+4, l'écran RENDU sur la base d'un téléphone de client, le PDF
+  fabriqué), éprouvé ; un contrôle RETOURNÉ (l'import de contrat). Rien à
+  coller. Chapitres 3 et 21.
 - Signature en boutique : admin principal seul, jusqu'au mode superviseur.
 - **Aucun avertissement « quantité inhabituelle »** dans le dimensionnement
   (08/09/2026, « quelle que soit la quantité ») : la quantité est juste, sans

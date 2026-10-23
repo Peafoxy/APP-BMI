@@ -78,3 +78,20 @@ export const htmlPoseAcompte = rendrePose(avecPaye(210000));
 export const htmlPoseSolde = rendrePose(avecPaye(300000));
 // ⚠ La vraie base d'un téléphone de client ne porte pas les boutiques.
 export const htmlPoseNu = rendrePose({ ...rP.db, boutiques: undefined });
+
+// 5. 📄 « Télécharger mon devis » (23/10/2026, « b ») : le bouton sur un devis
+// VALIDÉ ou PAYÉ, jamais sur un devis proposé ; et le PDF fabriqué sur la
+// VRAIE base d'un téléphone de client (sa fiche seule, ni boutiques ni
+// employés) par LA fabrique de « 📄 Devis PDF ».
+import { fichierPdfDuDevis } from "../src/screens/TousLesDevis.jsx";
+const devisDe = (statut) => ({ id: `dv-${statut}`, date: "2026-10-20", par: "AMA", par_id: "e1", statut, boutique: "BMI DEMAKPOE",
+  lignes: [{ article: "Panneau 550W", categorie: "Panneaux solaires", qte: 4, pu: 90000, total: 360000 }], total: 360000 });
+const rendreDevis = (statut) => {
+  const d = devisDe(statut);
+  return renderToStaticMarkup(React.createElement(EspaceClient, {
+    db: { users: [{ ...moi, devis: [d] }], messages: [] }, profile, save: () => {}, setTab: () => {}, devisOuvertInitial: d.id,
+  }));
+};
+export const htmlDevisPar = (statut) => rendreDevis(statut);
+export const pdfDevisClient = () => fichierPdfDuDevis({ users: [{ ...moi, devis: [devisDe("valide")] }], messages: [] },
+  { ...devisDe("valide"), client: moi });

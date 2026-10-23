@@ -21,20 +21,37 @@ import { validerDevis } from "../lib/validationDevis";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER, MOTIF_VALIDATION_A_COMPLETER } from "../lib/devisCfVisite";
 import { offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { demandeModifEnCours, devisCorrige, repondreDemandeModif, accepterDevisCorrige, refuserDevisCorrige } from "../lib/modifDevis";
-import { numeroContrat, planReglementSigne } from "../lib/contrat";
+import { numeroContrat, planReglementSigne, devisTelechargeableParLeClient } from "../lib/contrat";
 import { useRetour } from "../retour";
 // 🔒 VOS DONNÉES (point 3, 18/09/2026) — le client se sert lui-même.
 // MÊME dossier, MÊMES mentions, MÊME document que celui remis depuis
 // ⚙ Paramètres : une seule source, sinon le client verrait la différence.
 
 // ============ ESPACE CLIENT (rôle client) ============
-export function EspaceClient({ db, profile, save, setTab }) {
+export function EspaceClient({ db, profile, save, setTab, devisOuvertInitial = null }) {
   // Fiche du client installé correspondant à ce compte (rattaché par user_id)
   const fiche = (db.clients_installes || []).find((c) => c.user_id === profile.id);
   // Ses devis, déposés par un technicien depuis l'écran Dimensionnement
   const moi = (db.users || []).find((u) => u.id === profile.id) || {};
   const mesDevis = moi.devis || [];
-  const [devisOuvert, setDevisOuvert] = useState(null);
+  // `devisOuvertInitial` : pour le banc seul (l'écran rendu, un devis déplié).
+  const [devisOuvert, setDevisOuvert] = useState(devisOuvertInitial);
+
+  // 📄 Télécharger mon devis (23/10/2026, « b ») : LA fabrique de « 📄 Devis
+  // PDF » de 📋 Tous les devis, chargée à la demande (cet écran ne peut pas
+  // l'importer directement : TousLesDevis → Garage → Partages). ⚠ Sur le
+  // téléphone du client, la base ne lui envoie que SA fiche : la signature
+  // personnelle du vendeur n'y est donc pas (le cachet BMI et le nom, oui).
+  const telechargerMonDevis = async (d) => {
+    if (!devisTelechargeableParLeClient(d)) return;
+    try {
+      const { genererPdfDuDevis } = await import("./TousLesDevis");
+      genererPdfDuDevis(db, { ...d, client: moi });
+    } catch (e) {
+      console.error("[devis PDF]", e);
+      await uAlert("Le devis n'a pas pu être préparé. Réessayez dans un instant ; si ça continue, écrivez-nous dans 💬 Messages.");
+    }
+  };
   const [bqPaiement, setBqPaiement] = useState({});
 
   // Ouvrir un devis le marque comme vu par le client — la pastille clignotante
@@ -370,7 +387,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
     }
     const boutique = bqPaiement[d.id];
     if (!boutique) { uAlert("Choisissez d'abord la boutique où vous irez payer."); return false; }
-    const infosBoutique = db.boutiques.find((b) => b.nom === boutique);
+    const infosBoutique = (db.boutiques || []).find((b) => b.nom === boutique);
     const localisation = infosBoutique?.adresse ? `\n📍 ${infosBoutique.adresse}` : "";
     const lienCarte = infosBoutique?.lat && infosBoutique?.lng ? `\n🗺️ Itinéraire : https://www.google.com/maps?q=${infosBoutique.lat},${infosBoutique.lng}` : "";
     const telBoutique = infosBoutique?.tel ? `\n📞 ${infosBoutique.tel}` : "";
@@ -562,6 +579,9 @@ export function EspaceClient({ db, profile, save, setTab }) {
                       <span className="font-bold text-slate-700">{devisACompleter(d) ? "TOTAL PROVISOIRE" : "TOTAL"}</span>
                       <span className="text-xl font-bold text-emerald-800">{fmt(d.total)}</span>
                     </div>
+                    {devisTelechargeableParLeClient(d) && (
+                      <button data-telecharger-devis onClick={() => telechargerMonDevis(d)} className="mt-3 px-4 py-1.5 rounded-lg bg-white border-2 border-emerald-700 text-emerald-800 font-bold text-xs hover:bg-emerald-100">📄 Télécharger mon devis</button>
+                    )}
                     {/* 📋 Décision « A a » (08/10/2026) : un devis à compléter après la
                         visite ne se valide pas encore — le client valide le devis complet. */}
                     {devisACompleter(d) && (
@@ -721,7 +741,7 @@ export function EspaceClient({ db, profile, save, setTab }) {
                       // Lu EN DIRECT depuis la fiche boutique — pas figé au moment de la validation,
                       // pour que le client voie toujours les informations à jour, même si elles ont
                       // été complétées après coup.
-                      const infosBoutique = db.boutiques.find((b) => b.nom === d.boutique_paiement);
+                      const infosBoutique = (db.boutiques || []).find((b) => b.nom === d.boutique_paiement);
                       const adresse = infosBoutique?.adresse || d.boutique_adresse;
                       const tel = infosBoutique?.tel || d.boutique_tel;
                       const lat = infosBoutique?.lat || d.boutique_lat;

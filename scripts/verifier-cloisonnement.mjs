@@ -5182,7 +5182,8 @@ titre("Contrat et PV : UN fichier (lib/contrat.js) — numéros, plan de règlem
     execSync("grep -rl 'CTR-\\${\\|PV-\\${\\|solde_engage:' src || true").toString().trim() === "src/lib/contrat.js");
   test("★ signature sur le téléphone du client (EspaceClient) et en boutique (TousLesDevis) passent par numeroContrat et planReglementSigne du fichier commun",
     ["src/screens/EspaceClient.jsx", "src/screens/TousLesDevis.jsx"].every((f) => { const src = readFileSync(f, "utf8");
-      return /import \{ numeroContrat, planReglementSigne \} from "\.\.\/lib\/contrat";/.test(src) && /const planSigne = planReglementSigne\(plan, solde\);/.test(src) && !/planSigne = \{/.test(src); }));
+      // RETOURNÉ le 23/10/2026 : EspaceClient importe aussi devisTelechargeableParLeClient du même fichier.
+      return /import \{ numeroContrat, planReglementSigne(, devisTelechargeableParLeClient)? \} from "\.\.\/lib\/contrat";/.test(src) && /const planSigne = planReglementSigne\(plan, solde\);/.test(src) && !/planSigne = \{/.test(src); }));
   test("★ « Marquer terminé » et « Envoyer pour signature » écrivent les champs du lien PV par champsLienPv, et le numéro par numeroPv",
     (readFileSync("src/screens/ClientsInstalles.jsx", "utf8").match(/\.\.\.champsLienPv\(jeton, numero\)/g) || []).length === 2
     && /const numero = numeroPv\(c\);/.test(readFileSync("src/screens/ClientsInstalles.jsx", "utf8")));
@@ -11741,6 +11742,26 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
   test("★ …et le panneau a QUITTÉ 🏠 Mon espace : il n'y est plus en double (deux endroits finiraient par se contredire)",
     !!ecranClient && !/données personnelles/i.test(ecranClient.htmlGarni));
+
+  // 📄 Le client télécharge son devis (Timo, 23/10/2026, « b » : après validation).
+  test("★★ 📄 « Télécharger mon devis » apparaît sur un devis ✅ Validé et 💰 Payé (l'écran RENDU, la vraie base d'un téléphone de client)",
+    !!ecranClient && ["valide", "paye"].every((s) => /data-telecharger-devis[^>]*>📄 Télécharger mon devis/.test(ecranClient.htmlDevisPar(s))),
+    ecranClientErreur);
+  test("★★ …JAMAIS sur un devis ⏳ Proposé, 🔄 Corrigé, rejeté ou sans suite (« b » : seulement après validation)",
+    !!ecranClient && ["propose", "corrige", "rejete", "sans_suite"].every((s) => {
+      const h = ecranClient.htmlDevisPar(s);
+      return /Panneau 550W/.test(h) && !/data-telecharger-devis/.test(h);
+    }));
+  test("★★ …et le PDF se FABRIQUE sur la base du téléphone d'un client (sa fiche seule, ni boutiques ni employés) par LA fabrique de « 📄 Devis PDF »",
+    (() => { try { const f = ecranClient.pdfDevisClient(); return f.mime === "application/pdf" && f.taille > 5000 && /^Devis - KOSSI/.test(f.nom); } catch (e) { return false; } })());
+  test("★ …le geste revérifie la règle, et charge LA fabrique de 📋 Tous les devis (jamais une copie du devis PDF)",
+    (() => {
+      const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+      const corps = ec.slice(ec.indexOf("const telechargerMonDevis"), ec.indexOf("const telechargerMonDevis") + 700);
+      return /if \(!devisTelechargeableParLeClient\(d\)\) return;/.test(corps)
+        && /await import\("\.\/TousLesDevis"\)/.test(corps) && /genererPdfDuDevis\(db, \{ \.\.\.d, client: moi \}\)/.test(corps)
+        && !/genererDevis\(/.test(ec);
+    })());
 
   test("★★ l'onglet est À CÔTÉ DE 💬 Messages, dans cet ordre, et il est LISTÉ dans ONGLETS_ROLE — donc retirable dans 🔐 Pouvoirs (un onglet qu'on ne peut pas retirer est un pouvoir qui échappe à l'administrateur)",
     (() => {

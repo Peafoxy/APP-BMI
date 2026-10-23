@@ -88,6 +88,7 @@ export const CHAPITRE = {
         { titre: "Une pose seule : « 🔧 Validé — votre chantier est créé »", texte: "« Pour que nos équipes programment l'intervention, réglez l'acompte de 70 % : X F, à la boutique Y ou au chef d'équipe sur le terrain. » Puis : « Le solde de 30 % (Z F) se règle à la signature du procès-verbal de réception, ou dans les 3 jours qui suivent. » Dessous, **« 💰 Où en est votre paiement »** : montant total, acompte de 70 %, déjà versé, **Reste à payer**. Les 70 % versés : « ✅ Acompte reçu — nos équipes vous appellent pour programmer l'intervention. » Tout versé : « ✅ Soldé — merci ! »" },
         { titre: "« ✅ Payé — installation programmée »", texte: "« Nos équipes vous contacteront pour convenir de la date. » et **📄 Télécharger mon contrat**." },
       ]],
+      ["note", "**📄 Télécharger mon devis** : sous le TOTAL d'un devis **✅ Validé ou 💰 Payé** — jamais avant la validation. C'est le même PDF que « 📄 Devis PDF » de 📋 Tous les devis (mêmes lignes, mêmes prix, cachet BMI), à une différence près : **la signature personnelle du vendeur n'y est pas**, parce que le téléphone du client ne reçoit que sa propre fiche. L'en-tête de la boutique peut aussi manquer pour la même raison."],
 
       ["h3", "D. L'installation et sa réception"],
       ["etapes", [
@@ -124,6 +125,7 @@ export const CHAPITRE = {
         ["✅ J'accepte et je re-signe / ❌ Je refuse", "Un devis corrigé", "Re-signe, ou rejette le devis."],
         ["⭐ Envoyer mon avis", "Sous un devis", "Note celui qui est venu, une fois."],
         ["🗺️ Voir l'itinéraire sur la carte", "Devis validé", "Ouvre la boutique de paiement sur la carte."],
+        ["📄 Télécharger mon devis", "Devis validé ou payé", "Le PDF du devis, avec le cachet BMI — sans la signature du vendeur, que son téléphone ne reçoit pas."],
         ["📄 Télécharger mon contrat", "Devis payé", "Le contrat signé."],
         ["✉️ Écrire au chef d'équipe", "🏠 Bienvenue", "Ouvre 💬 Messages."],
         ["📄 Lire et signer le PV / l'avenant directement ici", "Installation terminée / réserves", "La signature dans l'espace, sans le lien."],
