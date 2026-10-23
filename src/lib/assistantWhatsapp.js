@@ -57,6 +57,7 @@ import { correspond, sansAccents } from "./suggestions.js";
 // La règle des pompes (sans import elle aussi) : c'est la CATÉGORIE qui fait
 // une pompe, jamais le nom — même règle que 📦 Stocks.
 import { estPompe } from "./pompes.js";
+import { estCategorieConvertisseur } from "./choixSolaire.js";
 import { maintenantISO } from "./horloge.js";
 
 export const NOM_ASSISTANT = "Assistant BMI TOGO";
@@ -408,7 +409,7 @@ export const noteAssistantDe = (p) => String(p?.note_assistant || "").trim().sli
 // hybride) ne passent QUE pour une pompe : c'est la catégorie qui décide.
 const nbPos = (v) => (Number(v) > 0 ? Number(v) : 0);
 const texteCourt = (v, max = 300) => String(v || "").trim().slice(0, max);
-export const CLES_FICHE_ASSISTANT = ["puissance_kw", "profondeur_max_m", "debit_max_m3h", "hybride", "garantie_boutique", "garantie_fabricant", "conditions_garantie", "fiche_technique"];
+export const CLES_FICHE_ASSISTANT = ["puissance_kw", "profondeur_max_m", "debit_max_m3h", "hybride", "triphase", "parallele", "garantie_boutique", "garantie_fabricant", "conditions_garantie", "fiche_technique"];
 export function ficheArticleAssistant(p) {
   const f = {};
   if (nbPos(p?.puissance_kw)) f.puissance_kw = nbPos(p.puissance_kw);
@@ -416,6 +417,13 @@ export function ficheArticleAssistant(p) {
     if (nbPos(p.profondeur_max_m)) f.profondeur_max_m = nbPos(p.profondeur_max_m);
     if (nbPos(p.debit_max_m3h)) f.debit_max_m3h = nbPos(p.debit_max_m3h);
     if (p.hybride) f.hybride = true;
+  }
+  // ⚡ 23/10/2026 (capture Timo : « Je n'ai pas trouvé de convertisseur
+  // triphasé » alors que les fiches sont cochées) : les deux cases d'un
+  // CONVERTISSEUR — la catégorie décide, comme pour une pompe.
+  if (estCategorieConvertisseur(p?.categorie)) {
+    if (p.triphase) f.triphase = true;
+    if (p.parallele) f.parallele = true;
   }
   for (const k of ["garantie_boutique", "garantie_fabricant", "conditions_garantie", "fiche_technique"]) {
     const t = texteCourt(p?.[k]);
@@ -470,7 +478,7 @@ export function chercherArticles(articles, requete) {
   return (articles || [])
     // On cherche aussi dans le MÉTIER (« pompe forage » trouve les pompes
     // rangées dans Forage, 01/10/2026) et dans ce que la fiche dit.
-    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.metier || ""} ${motsDeTension(a)} ${a.description || ""}${a.hybride ? " hybride" : ""}`, q))
+    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.metier || ""} ${motsDeTension(a)} ${a.description || ""}${a.hybride ? " hybride" : ""}${a.triphase ? " triphasé" : ""}${a.parallele ? " parallèle" : ""}`, q))
     .sort((a, b) => (a.disponible === b.disponible ? a.nom.localeCompare(b.nom, "fr") : a.disponible ? -1 : 1))
     .slice(0, MAX_ARTICLES_CITES);
 }
@@ -483,6 +491,8 @@ export function ficheEnClair(a) {
   if (a?.profondeur_max_m) b.push(`jusqu'à ${virgule(a.profondeur_max_m)} m`);
   if (a?.debit_max_m3h) b.push(`débit max ${virgule(a.debit_max_m3h)} m³/h (en surface)`);
   if (a?.hybride) b.push("hybride");
+  if (a?.triphase) b.push("triphasé");
+  if (a?.parallele) b.push("mise en parallèle");
   if (a?.garantie_boutique) b.push(`garantie : ${a.garantie_boutique}`);
   else if (a?.garantie_fabricant) b.push(`garantie fabricant : ${a.garantie_fabricant}`);
   return b.join(" · ");

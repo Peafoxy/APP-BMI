@@ -1747,8 +1747,10 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
       .every((t) => !/dette|cr[ée]dit|solde|mot de passe|identifiant/i.test(t)));
   // ⚠ RETOURNÉ le 01/10/2026 : + la règle des pompes (sans import elle aussi), pour la fiche d'un article.
   // ⚠ RETOURNÉ le 14/10/2026 : + lib/horloge.js (l'heure du serveur, sans import elle aussi).
-  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et ses trois imports sont la règle commune de recherche, celle des pompes et l'heure du serveur",
-    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 3 && /from "\.\/suggestions\.js"/.test(codeA) && /from "\.\/pompes\.js"/.test(codeA)
+  // RETOURNÉ le 23/10/2026 : + choixSolaire.js (estCategorieConvertisseur — la catégorie d'un convertisseur).
+  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et ses quatre imports sont la règle commune de recherche, celle des pompes, celle des convertisseurs et l'heure du serveur",
+    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 4 && /from "\.\/suggestions\.js"/.test(codeA) && /from "\.\/pompes\.js"/.test(codeA)
+    && /import \{ estCategorieConvertisseur \} from "\.\/choixSolaire\.js"/.test(codeA)
     && /from "\.\/horloge\.js"/.test(codeA)
     && !/^import /m.test(lire("src/lib/pompes.js")) && !/^import /m.test(lire("src/lib/horloge.js")));
 
@@ -7216,6 +7218,37 @@ titre("78 ✏️ UN MESSAGE MODIFIÉ SE LIT, ET ⏱ LE REÇU AUTOMATIQUE NE SE T
     && /PHRASE_PDF_LENT\b/.test(corpsAuto) && /PHRASE_PDF_LENT_RIEN/.test(corpsAuto) && (V78.match(/pdfLent: !!rp\.lent/g) || []).length === 2);
   test("★★ le bouton WhatsApp de la ligne aussi : une erreur rouvre l'envoi sur l'appareil au lieu de se taire",
     /catch \(e\) \{ console\.error\("\[whatsapp\] reçu de la ligne :", e\); r = \{ auto: false, motif:/.test(V78));
+}
+
+titre("79 ⚡ L'ASSISTANT VOIT LES CONVERTISSEURS TRIPHASÉS ET EN PARALLÈLE (23/10/2026, capture Timo : « Je n'ai pas trouvé de convertisseur triphasé » — les cases n'étaient jamais transmises)");
+{
+  const A = await import("../src/lib/assistantWhatsapp.js");
+  const I = await import("../src/lib/assistantIA.js");
+  const produits79 = [
+    { id: "c1", nom: "CONVERTISSEUR HYBRIDE 12KW", categorie: "Convertisseur", boutique: "BMI DEMAKPOE", prix_vente: 1500000, quantite_initiale: 2, tension: 48, triphase: true, parallele: true },
+    { id: "c2", nom: "CONVERTISSEUR 2000W", categorie: "Onduleur", boutique: "BMI DEMAKPOE", prix_vente: 200000, quantite_initiale: 3, tension: 12 },
+    { id: "c3", nom: "CABLE TRIPHASE 5X6", categorie: "Câble", boutique: "BMI DEMAKPOE", prix_vente: 3000, quantite_initiale: 50, triphase: true },
+    { id: "c4", nom: "CONVERTISSEUR FORMATION 10KW", categorie: "Convertisseur", boutique: "BMI ECOLE", prix_vente: 1, quantite_initiale: 1, triphase: true },
+  ];
+  const bq79 = [{ nom: "BMI DEMAKPOE" }, { nom: "BMI ECOLE", formation: true }];
+  const art79 = A.articlesPourAssistant({ produits: produits79, boutiques: bq79 });
+  const c12 = art79.find((x) => x.nom === "CONVERTISSEUR HYBRIDE 12KW");
+  test("★★★ la fiche d'un CONVERTISSEUR porte triphasé et mise en parallèle (la catégorie décide : un câble « triphasé » n'en porte pas) ; le mur tient",
+    c12 && c12.triphase === true && c12.parallele === true && !("triphase" in art79.find((x) => x.nom === "CONVERTISSEUR 2000W"))
+    && !("triphase" in art79.find((x) => x.nom === "CABLE TRIPHASE 5X6")) && !art79.some((x) => /FORMATION/.test(x.nom))
+    && A.CLES_FICHE_ASSISTANT.includes("triphase") && A.CLES_FICHE_ASSISTANT.includes("parallele"));
+  const trouves79 = A.chercherArticles(art79, "convertisseur triphasé");
+  test("★★★ « convertisseur triphasé » trouve le convertisseur coché (et pas celui qui ne l'est pas) ; le menu l'écrit sous le nom",
+    trouves79.length === 1 && trouves79[0].nom === "CONVERTISSEUR HYBRIDE 12KW"
+    && A.chercherArticles(art79, "convertisseur parallele").length === 1
+    && /triphasé · mise en parallèle/.test(A.ficheEnClair(c12)));
+  const r79 = I.executerOutil("chercher_article", { recherche: "convertisseur triphasé" }, { articles: art79, client: null, cle: "90112233", tel: "+22890112233" });
+  const lu79 = JSON.parse(r79.resultat);
+  test("★★★ l'outil chercher_article de l'IA rend le convertisseur avec triphase et parallele à true",
+    Array.isArray(lu79) && lu79.length === 1 && lu79[0].triphase === true && lu79[0].parallele === true, r79.resultat);
+  test("★★ la consigne : triphasé SEULEMENT si l'outil le rend, chercher « convertisseur triphasé », jamais « nous n'en avons pas », jamais « j'ai vérifié » sans outil",
+    /Un convertisseur est triphasé, ou se met en parallèle, SEULEMENT si l'outil le rend/.test(I.CONSIGNE_IA) && /jamais « nous n'en avons pas »/.test(I.CONSIGNE_IA)
+    && /Ne dis jamais « j'ai vérifié » ou « j'ai revérifié » sans avoir appelé l'outil dans ce tour/.test(I.CONSIGNE_IA));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
