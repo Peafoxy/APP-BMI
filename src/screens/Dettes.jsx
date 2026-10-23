@@ -129,7 +129,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
     // ⚠ Demande Timo : un reçu sort à CHAQUE versement, reprenant tout
     // l'historique cumulé (pas seulement celui du jour) — et devient
     // automatiquement le reçu DÉFINITIF si ce versement solde la dette.
-    imprimerRecuVersement(avecInfoTravaux(db, dApres), bqDe(boutiqueDuDocument(d)));
+    imprimerRecuVersement(avecInfoTravaux(db, dApres), bqDe(boutiqueDuDocument(d)), { produits: db.produits });
     // 🧾 Le reçu du versement part du numéro BMI (Timo, 25/09/2026), tout
     // seul. ⚠ Le mur : l'espace de la BOUTIQUE de la dette.
     // Le reçu porte la boutique de la vente ou du devis (son téléphone) ; le
@@ -140,7 +140,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
       tel: dApres.tel, nom: dApres.client, espaceFormation: !!bqD.formation, save, profile, ref: { dette_id: dApres.id },
       // 📎 Le reçu du versement avec son PDF d'abord (19/10/2026, « B a ») :
       // le même reçu que celui qui vient de s'imprimer.
-      pdf: { numero: numeroRecuDette(dApres), fabriquer: () => fichierRecuVersement(avecInfoTravaux(db, dApres), bqDe(boutiqueDuDocument(d))) },
+      pdf: { numero: numeroRecuDette(dApres), fabriquer: () => fichierRecuVersement(avecInfoTravaux(db, dApres), bqDe(boutiqueDuDocument(d)), db.produits) },
     }));
   };
 
@@ -184,7 +184,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
     envoyerRecuSansQuestion({
       envoi: envoiRecuReservation({ reservation: r, boutique: bqR, fmt, dFR, numeroDe: numeroRecuDette }),
       tel: r.tel, nom: r.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: r.id },
-      pdf: { numero: numeroRecuDette(r), fabriquer: () => fichierRecuVersement(r, bqR) },
+      pdf: { numero: numeroRecuDette(r), fabriquer: () => fichierRecuVersement(r, bqR, db.produits) },
     }).then(setNoteRecuWa);
     setPanierRes([]);
     setRes({ client: "", tel: "", produit_id: "", qte: "", avance: "", moyen: "Espèces", echeance: "" });
@@ -468,7 +468,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
                           : <span className={`${pastille} bg-amber-100 text-amber-700 border-amber-200`}>⏳ En cours</span>}
                     </td>
                     <CelluleActions>
-                      <BoutonRond icone="🖨" onClick={() => imprimerRecuVersement(r, db.boutiques.find((b) => b.nom === r.boutique) || {})} titre="🖨 Reçu — avec le filigrane NON LIVRÉ si pas encore livrée" />
+                      <BoutonRond icone="🖨" onClick={() => imprimerRecuVersement(r, db.boutiques.find((b) => b.nom === r.boutique) || {}, { produits: db.produits })} titre="🖨 Reçu — avec le filigrane NON LIVRÉ si pas encore livrée" />
                       {r.statut !== "livree" && <BoutonRond icone="💵" teinte="vert" onClick={() => encaisser(r)} titre="+ Versement" />}
                       {r.statut !== "livree" && <BoutonRond icone="📦" teinte="vert" onClick={() => livrer(r)} titre="📦 Livrer" />}
                       {r.statut !== "livree" && <BoutonRond icone="✕" teinte="rouge" onClick={() => annulerReservation(r)} titre="Annuler la réservation" />}
@@ -587,7 +587,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex items-center gap-1">
-                      <button onClick={() => imprimerRecuVersement(avecInfoTravaux(db, d), bqDe(boutiqueDuDocument(d)))} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" aria-label="Imprimer le reçu">🖨</button>
+                      <button onClick={() => imprimerRecuVersement(avecInfoTravaux(db, d), bqDe(boutiqueDuDocument(d)), { produits: db.produits })} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" aria-label="Imprimer le reçu">🖨</button>
                       {st !== "Payée" && (
                         <>
                           <button onClick={() => encaisser(d)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="+ Paiement : enregistrer un versement du client" aria-label="Paiement">💵</button>

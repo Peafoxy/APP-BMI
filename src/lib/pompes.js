@@ -65,6 +65,31 @@ export function ficheLisible(p) {
   return bouts.join(" · ");
 }
 
+// 🧾 LA FICHE D'UNE LIGNE DE PROFORMA OU DE REÇU (23/10/2026, Timo : « a les
+// 2, b lue au jour de l'impression, c à tous les articles »). La fiche est
+// LUE dans le stock au moment où le document se fabrique — jamais rangée sur
+// la vente ni sur la proforma : une fiche corrigée dans 📦 Stocks change aussi
+// un ancien document réimprimé (« b »). L'article par son `produit_id`, sinon
+// (une ancienne ligne) par son nom dans la boutique du document. Tout article
+// renseigné (« c ») : une pompe, un convertisseur, une batterie qui porte sa
+// tension… Une ligne sans fiche rend "" et le document ne grandit pas.
+export function ficheDeLaLigne(l, produits, boutique) {
+  const liste = Array.isArray(produits) ? produits : [];
+  if (!l || !liste.length) return "";
+  let p = l.produit_id ? liste.find((x) => x.id === l.produit_id) : null;
+  if (!p) {
+    const nom = sansAccents(l.article || l.nom).trim();
+    if (nom) p = liste.find((x) => sansAccents(x.nom).trim() === nom && (!boutique || x.boutique === boutique));
+  }
+  return ficheLisible(p);
+}
+// Les lignes d'un document avec leur fiche (`fiche`), pour l'impression seule.
+export const lignesAvecFiche = (lignes, produits, boutique) =>
+  (Array.isArray(lignes) ? lignes : []).map((l) => {
+    const fiche = ficheDeLaLigne(l, produits, boutique);
+    return fiche ? { ...l, fiche } : l;
+  });
+
 // Une pompe dont on ne sait rien ne peut pas être proposée par le calcul.
 // L'écran le DIT — sinon le vendeur croit qu'aucune pompe ne convient.
 export const pompeRenseignee = (p) => nb(p?.profondeur_max_m) > 0;

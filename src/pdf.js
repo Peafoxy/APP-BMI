@@ -237,7 +237,9 @@ export function genererProforma(p, logo, retournerDoc = false) {
     body: p.lignes.map((l) => {
       const rl = Number(l.remise_ligne || 0);
       return [
-        texteSurPdf(String(l.article)),
+        // 🧾 23/10/2026 : la fiche de l'article sous son nom, comme sur le
+        // devis (Ventes passe `fiche`, lue au jour de l'impression).
+        texteSurPdf(l.fiche ? `${String(l.article)}\n${String(l.fiche)}` : String(l.article)),
         String(l.qte),
         `${fmtMontant(l.pu)} F`,
         ...(avecRemiseLigne ? [rl > 0 ? `-${fmtMontant(rl)} F` : ""] : []),

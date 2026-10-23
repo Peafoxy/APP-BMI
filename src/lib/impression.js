@@ -20,6 +20,7 @@ import { phraseContrat } from "./contratTravail";
 import { civilite } from "./civilite";
 import { TITRE_FACTURE_TRAVAUX, TITRE_RELEVE_TRAVAUX, avecInfoTravaux, lignesReleve, montantPrestation, totalArticles, totalAFacturer, LIGNE_PRESTATION } from "./travaux";
 import { nomSurDocument, nomSurDocumentDans } from "./nomSurDocument";
+import { ficheDeLaLigne } from "./pompes";
 
 // 🏢 29/09/2026 (Timo) : le client d'un reçu — la personne (NOM Prénom), ou
 // l'ENTREPRISE qu'elle représente, avec ses coordonnées et « Représentée
@@ -76,6 +77,7 @@ const STYLE_RECU = `
   #zone-impression .recu-doc table.articles th{background:#1e5a8a;color:#fff;padding:6px;font-size:11px;text-align:left}
   #zone-impression .recu-doc table.articles th:not(:first-child),#zone-impression .recu-doc table.articles td:not(:first-child){text-align:right}
   #zone-impression .recu-doc table.articles td{border:1px solid #d5e2ee;padding:6px}
+  #zone-impression .recu-doc table.articles small.fiche{color:#475569;font-size:10px}
   #zone-impression .recu-doc table.totaux{width:52%;margin-left:auto;border-collapse:collapse}
   #zone-impression .recu-doc table.totaux td{padding:4px 6px}
   #zone-impression .recu-doc table.totaux td:last-child{text-align:right;white-space:nowrap}
@@ -89,6 +91,11 @@ const STYLE_RECU = `
   #zone-impression .recu-doc .merci{text-align:center;font-style:italic;color:#555;margin-top:16px;border-top:1px dashed #aaa;padding-top:8px}
   </style>
 `;
+
+// 🧾 23/10/2026 : la fiche d'un article (une pompe, un convertisseur, une
+// batterie…) se lit SOUS son nom, en petit gris — lue dans le stock au jour
+// de l'impression (`ficheDeLaLigne`, lib/pompes.js). Rien sans fiche.
+const ligneFiche = (fiche) => (fiche ? `<br><small class="fiche" data-fiche-article>${esc(fiche)}</small>` : "");
 
 // ============ REÇU CLIENT ============
 export function imprimerRecu(v, bq = {}, produits = [], { rendre = false } = {}) {
@@ -155,7 +162,7 @@ export function imprimerRecu(v, bq = {}, produits = [], { rendre = false } = {})
       <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th><th>Montant</th></tr></thead>
       <tbody>
         ${lignesVente(v).map((l) => { const rl = Number(l.remise_ligne || 0); const net = Number(l.qte) * Number(l.pu) - rl;
-          return `<tr><td>${esc(l.article)}${garantieBoutiqueDe(l)}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(net)}</td></tr>`; }).join("")}
+          return `<tr><td>${esc(l.article)}${garantieBoutiqueDe(l)}${ligneFiche(ficheDeLaLigne(l, produits, v.boutique))}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(net)}</td></tr>`; }).join("")}
       </tbody>
     </table>
 
@@ -209,7 +216,7 @@ const sortie = bq.recu_duplicata
 // tant que rien n'a été encaissé, c'est un REÇU DE DETTE — daté du jour de la
 // dette, établi par celui qui l'a saisie, sans historique de versements. Le
 // titre vient de la règle `titreRecuDette` (core.js), jamais d'ici.
-export function imprimerRecuVersement(d, bq = {}, { rendre = false } = {}) {
+export function imprimerRecuVersement(d, bq = {}, { rendre = false, produits = [] } = {}) {
   const logo = bq.logo || LOGO;
   const { solde, versement, titre, montantDu, totalVerse, reste } = titreRecuDette(d);
   const paiements = d.paiements || [];
@@ -233,6 +240,7 @@ export function imprimerRecuVersement(d, bq = {}, { rendre = false } = {}) {
   #zone-impression .recu-doc table.articles th{background:#1e5a8a;color:#fff;padding:6px;font-size:11px;text-align:left}
   #zone-impression .recu-doc table.articles th:not(:first-child),#zone-impression .recu-doc table.articles td:not(:first-child){text-align:right}
   #zone-impression .recu-doc table.articles td{border:1px solid #d5e2ee;padding:6px}
+  #zone-impression .recu-doc table.articles small.fiche{color:#475569;font-size:10px}
   #zone-impression .recu-doc table.articles tr.jour td{background:#f2f6fa;font-weight:bold}
   #zone-impression .recu-doc table.totaux{width:60%;margin-left:auto;border-collapse:collapse}
   #zone-impression .recu-doc table.totaux td{padding:4px 6px}
@@ -290,7 +298,7 @@ export function imprimerRecuVersement(d, bq = {}, { rendre = false } = {}) {
     <table class="articles">
       <thead><tr><th>Description</th><th>Quantité</th><th>Prix Unitaire</th><th>Montant</th></tr></thead>
       <tbody>
-        ${d.articles.map((l) => `<tr><td>${esc(l.nom || l.article || "")}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0))}</td></tr>`).join("")}
+        ${d.articles.map((l) => `<tr><td>${esc(l.nom || l.article || "")}${ligneFiche(ficheDeLaLigne(l, produits, d.boutique_vente || d.boutique))}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(Number(l.qte) * Number(l.pu) - Number(l.remise_ligne || 0))}</td></tr>`).join("")}
       </tbody>
     </table>` : ""}
 
@@ -343,7 +351,7 @@ export function imprimerRecuDeVente(db, v, bq = {}, produits = [], { rendre = fa
   // 🧾 Une vente de travaux s'imprime « FACTURE — TRAVAUX » (10/10/2026).
   const vt = avecInfoTravaux(db, v);
   const doc = documentDeVente(db, vt);
-  if (doc.type === "dette") return imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq, { rendre });
+  if (doc.type === "dette") return imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq, { rendre, produits });
   return imprimerRecu(vt, bq, produits, { rendre });
 }
 
@@ -353,8 +361,8 @@ export function imprimerRecuDeVente(db, v, bq = {}, produits = [], { rendre = fa
 export function fichierRecuDeVente(db, v, bq = {}, produits = []) {
   return fichierPdfDepuisHtml(imprimerRecuDeVente(db, v, bq, produits, { rendre: true }), nomDocument("Reçu", { client: v.client, numero: numeroDuRecuDeVente(db, v) }));
 }
-export function fichierRecuVersement(d, bq = {}) {
-  return fichierPdfDepuisHtml(imprimerRecuVersement(d, bq, { rendre: true }), nomDocument("Reçu", { client: d.client, numero: numeroRecuDette(d) }));
+export function fichierRecuVersement(d, bq = {}, produits = []) {
+  return fichierPdfDepuisHtml(imprimerRecuVersement(d, bq, { rendre: true, produits }), nomDocument("Reçu", { client: d.client, numero: numeroRecuDette(d) }));
 }
 
 // ============ 🧾 LE RELEVÉ DES TRAVAUX (10/10/2026, « b ») ============
@@ -509,6 +517,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
   #zone-impression .prf-doc table.articles th{background:#1e5a8a;color:#fff;padding:6px;font-size:11px;text-align:left}
   #zone-impression .prf-doc table.articles th:not(:first-child),#zone-impression .prf-doc table.articles td:not(:first-child){text-align:right}
   #zone-impression .prf-doc table.articles td{border:1px solid #d5e2ee;padding:6px}
+  #zone-impression .prf-doc table.articles small.fiche{color:#475569;font-size:10px}
   #zone-impression .prf-doc table.totaux{width:52%;margin-left:auto;border-collapse:collapse}
   #zone-impression .prf-doc table.totaux td{padding:6px}
   #zone-impression .prf-doc table.totaux tr.total td{border-top:2px solid #1e5a8a;font-weight:bold;font-size:14px;color:#1e5a8a}
@@ -537,7 +546,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
       <thead><tr><th>Article</th><th>Qté</th><th>Prix unitaire</th><th>Total</th></tr></thead>
       <tbody>
         ${p.lignes.map((l) => { const rl = Number(l.remise_ligne || 0);
-          return `<tr><td>${esc(l.article)}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(l.total)}</td></tr>`; }).join("")}
+          return `<tr><td>${esc(l.article)}${ligneFiche(l.fiche)}${rl > 0 ? `<br><small style="color:#3d8b40">Remise −${fmt(rl)} (prix normal <s>${fmt(Number(l.qte) * Number(l.pu))}</s>)</small>` : ""}</td><td>${l.qte}</td><td>${fmt(l.pu)}</td><td>${fmt(l.total)}</td></tr>`; }).join("")}
       </tbody>
     </table>
     <table class="totaux">

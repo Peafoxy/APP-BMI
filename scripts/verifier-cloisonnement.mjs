@@ -3778,7 +3778,7 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
     && (imp.match(/tr\.reste td\{border-top:2px solid #dc2626;font-weight:bold;font-size:14px;color:#dc2626\}/g) || []).length === 2);
   test("Dettes et Ventes impriment toujours par la même fonction (le titre s'adapte tout seul)",
     (readFileSync("src/screens/Dettes.jsx", "utf8").match(/imprimerRecuVersement\(/g) || []).length === 3
-    && readFileSync("src/screens/Ventes.jsx", "utf8").includes("imprimerRecuVersement(reservation, infoBq(boutique))"));
+    && readFileSync("src/screens/Ventes.jsx", "utf8").includes("imprimerRecuVersement(reservation, infoBq(boutique), { produits: db.produits })") /* RETOURNÉ le 23/10/2026 : la fiche des articles */);
   // 14/09/2026, Timo devant le reçu d'une vente à crédit sans avance : « le
   // document porte reçu de vente au lieu de reçu de dette, le motif a disparu »
   // → « ta proposition » : une vente à crédit remet le reçu de SA dette.
@@ -3799,7 +3799,7 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
     // RETOURNÉ le 10/10/2026 : la vente et sa dette passent par avecInfoTravaux (« FACTURE — TRAVAUX »).
     // RETOURNÉ le 12/10/2026 : la dette d'un DÉPÔT CHANTIER porte sa mention (« C b »).
     // RETOURNÉ le 19/10/2026 : le même chemin REND la page (`rendre`) pour le PDF du reçu WhatsApp.
-    && imp.includes("const doc = documentDeVente(db, vt);") && imp.includes('if (doc.type === "dette") return imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq, { rendre });')
+    && imp.includes("const doc = documentDeVente(db, vt);") && imp.includes('if (doc.type === "dette") return imprimerRecuVersement(avecInfoTravaux(db, estDepotChantier(vt) ? { ...doc.dette, depot_chantier: true } : doc.dette), bq, { rendre, produits });') /* RETOURNÉ le 23/10/2026 : le stock, pour la fiche des articles */
     && imp.includes("return imprimerRecu(vt, bq, produits, { rendre });"));
 }
 
@@ -8280,6 +8280,53 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       && /poserPersonnesDesDocuments\(\[\.\.\.utilisateursDeLEspace\(db, profile\), profile\]\);/.test(appN)
       && /`Vendeur : \$\{v\.par \|\| ""\}`/.test(impN) && (srcPdf.match(/nomSurDocument\(/g) || []).length === 4
       && /par: d\.par, par_id: d\.par_id \|\| null,/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
+    // 🧾 LA FICHE DES ARTICLES SUR LA PROFORMA ET LE REÇU DE VENTE (23/10/2026,
+    // Timo : « a les 2, b lue au jour de l'impression, c à tous les articles »).
+    {
+      const Po = await import(pathToFileURL("src/lib/pompes.js").href);
+      const pompe = { id: "pp1", nom: "POMPE 0,75KW", categorie: "Pompe", boutique: "APESSITO", puissance_kw: 0.75, profondeur_max_m: 95, debit_max_m3h: 1.5, tension: 220, hybride: true };
+      const conv = { id: "cv1", nom: "CONVERTISSEUR 5KW", categorie: "Convertisseur", boutique: "APESSITO", tension: 48, triphase: true, parallele: true };
+      const batt = { id: "bt1", nom: "BATTERIE 51,2V 200AH", categorie: "Batterie", boutique: "APESSITO", tension: 51.2 };
+      const cable = { id: "cb1", nom: "CABLE 6MM", categorie: "Câble", boutique: "APESSITO" };
+      const stockF = [pompe, conv, batt, cable, { ...pompe, id: "pp2", boutique: "DEMAKPOE", puissance_kw: 9 }];
+      test("★★ la fiche d'une ligne : par son article (pompe, convertisseur — « c » : une batterie aussi), sinon par son NOM dans la boutique du document ; un article sans fiche ne rend rien",
+        Po.ficheDeLaLigne({ produit_id: "pp1", article: "X" }, stockF, "APESSITO") === "0,75 kW · 95 m · 1,5 m³/h · 220 V · hybride"
+        && Po.ficheDeLaLigne({ produit_id: "cv1" }, stockF) === "48 V · triphasé · mise en parallèle"
+        && Po.ficheDeLaLigne({ produit_id: "bt1" }, stockF) === "51,2 V"
+        && Po.ficheDeLaLigne({ article: "pompe 0,75kw" }, stockF, "APESSITO").startsWith("0,75 kW")
+        && Po.ficheDeLaLigne({ article: "POMPE 0,75KW" }, stockF, "DEMAKPOE").startsWith("9 kW")
+        && Po.ficheDeLaLigne({ produit_id: "cb1" }, stockF) === "" && Po.ficheDeLaLigne({ article: "INCONNU" }, stockF, "APESSITO") === ""
+        && Po.ficheDeLaLigne({ produit_id: "pp1" }, undefined) === ""
+        && Po.lignesAvecFiche([{ produit_id: "cb1", article: "CABLE 6MM" }], stockF)[0].fiche === undefined);
+      const venteF = { id: "vf", numero: "BMIA-2026-0100", date: "2026-10-23", heure: "10:00", client: "KOFFI", tel: "", boutique: "APESSITO", paiement: "Espèces", par: "TIMO",
+        articles: [{ produit_id: "pp1", article: "POMPE 0,75KW", qte: 1, pu: 450000 }, { produit_id: "cb1", article: "CABLE 6MM", qte: 10, pu: 1500 }] };
+      const htmlRecu = ImpN.imprimerRecu(venteF, { nom: "APESSITO" }, stockF, { rendre: true });
+      const recuF = nzN(htmlRecu);
+      test("★★ le REÇU de vente imprimé écrit la fiche de la pompe sous son nom, en petit gris ; le câble (sans fiche) ne grandit pas",
+        /POMPE 0,75KW 0,75 kW · 95 m · 1,5 m³\/h · 220 V · hybride/.test(recuF) && (htmlRecu.match(/data-fiche-article/g) || []).length === 1
+        && /small class="fiche" data-fiche-article/.test(htmlRecu) && /small\.fiche\{color:#475569;font-size:10px\}/.test(htmlRecu), recuF.slice(0, 400));
+      const recuB = nzN(ImpN.imprimerRecu(venteF, { nom: "APESSITO" }, stockF.map((x) => x.id === "pp1" ? { ...x, profondeur_max_m: 120 } : x), { rendre: true }));
+      test("★★ « b » : la fiche est LUE au jour de l'impression — corrigée dans 📦 Stocks, le reçu réimprimé suit ; sans stock (un banc, un appareil vide), rien n'est écrit",
+        /0,75 kW · 120 m/.test(recuB) && !/data-fiche-article/.test(ImpN.imprimerRecu(venteF, { nom: "APESSITO" }, [], { rendre: true })));
+      const detteF = { id: "df", numero: "BMIA-DET-2026-0002", date: "2026-10-23", client: "KOFFI", montant: 450000, paye: 0, boutique: "APESSITO", par: "ANGELE",
+        articles: [{ produit_id: "cv1", nom: "CONVERTISSEUR 5KW", qte: 1, pu: 450000 }] };
+      test("★★ le reçu d'une VENTE À CRÉDIT (celui de sa dette) écrit aussi la fiche ; imprimerRecuDeVente lui passe le stock",
+        /CONVERTISSEUR 5KW 48 V · triphasé · mise en parallèle/.test(nzN(ImpN.imprimerRecuVersement(detteF, { nom: "APESSITO" }, { rendre: true, produits: stockF })))
+        && impN.includes("doc.dette), bq, { rendre, produits });") && /export function fichierRecuVersement\(d, bq = \{\}, produits = \[\]\)/.test(impN));
+      globalThis.__docNom = ""; try { ImpN.imprimerProforma({ numero: "PF-9", date: "23/10/2026", client: "KOFFI", boutique: "APESSITO",
+        lignes: Po.lignesAvecFiche([{ produit_id: "pp1", article: "POMPE 0,75KW", qte: 1, pu: 450000, total: 450000 }, { produit_id: "cb1", article: "CABLE 6MM", qte: 1, pu: 1500, total: 1500 }], stockF, "APESSITO"),
+        total: 451500 }, null, false, { nom: "APESSITO" }); } catch (e) { globalThis.__docNom = String(e); }
+      const pfImp = globalThis.__docNom;
+      test("★★ la PROFORMA imprimée écrit la fiche de la pompe sous son nom, une seule fois",
+        /POMPE 0,75KW 0,75 kW · 95 m/.test(nzN(pfImp)) && (pfImp.match(/data-fiche-article/g) || []).length === 1, nzN(pfImp).slice(0, 300));
+      const vtF = readFileSync("src/screens/Ventes.jsx", "utf8");
+      const dtF = readFileSync("src/screens/Dettes.jsx", "utf8");
+      test("★ 💰 Ventes lit la fiche aux TROIS chemins de la proforma (PDF, impression, réimpression) — jamais rangée sur la proforma ; le reçu de la réservation reçoit le stock ; 📋 Dettes passe le stock à chacun de ses reçus",
+        (vtF.match(/lignesAvecFiche\(/g) || []).length === 3 && !/fiche: ficheDeLaLigne|fiche: ficheLisible/.test(vtF)
+        && /imprimerRecuVersement\(reservation, infoBq\(boutique\), \{ produits: db\.produits \}\)/.test(vtF) && /fichierRecuVersement\(reservation, infoBq\(boutique\), db\.produits\)/.test(vtF)
+        && (dtF.match(/imprimerRecuVersement\(/g) || []).length === (dtF.match(/imprimerRecuVersement\([^\n]*produits: db\.produits \}\)/g) || []).length
+        && (dtF.match(/fichierRecuVersement\(/g) || []).length === (dtF.match(/fichierRecuVersement\([^\n]*, db\.produits\)/g) || []).length);
+    }
   }
   // ⚠ Timo, 11/09/2026 : « un devis devrait avoir une signature ? » — oui, et
   // BMI n'en avait aucune. Le cadre de gauche l'engage désormais.
@@ -8346,9 +8393,14 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     let n = 0;
     for (let p = 1; p < doc.internal.pages.length; p++) {
       const lignes = [];
-      let x = null, yy = null, taille = 10;
+      let x = null, yy = null, taille = 10, interligne = 0;
       for (const l of doc.internal.pages[p].join("\n").split("\n")) {
         let m = l.match(/\/F\d+ ([\d.]+) Tf/); if (m) taille = +m[1];
+        m = l.match(/^([\d.]+) TL/); if (m) interligne = +m[1] / 2.8346;
+        // 23/10/2026 : « T* » = la ligne suivante d'un texte sur plusieurs
+        // lignes (la fiche d'un article sous son nom) — elle est PLUS BAS,
+        // pas au même endroit (sinon le banc criait au chevauchement à tort).
+        if (/^T\* /.test(l) && yy !== null) yy -= interligne;
         m = l.match(/1 0 0 1 ([\d.]+) ([\d.]+) Tm/) || l.match(/^([\d.]+) ([\d.]+) Td/);
         if (m) { x = +m[1] / 2.8346; yy = +m[2] / 2.8346; }
         m = l.match(/\((.*?)\)\s*Tj/);
@@ -8531,7 +8583,7 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     const vtx = readFileSync("src/screens/Ventes.jsx", "utf8");
     test("★ 💰 Ventes passe la fiche de la boutique aux TROIS chemins de la proforma (PDF, impression, réimpression) et au texte WhatsApp",
       // RETOURNÉ le 19/10/2026 : le PDF est RENDU (`true`) pour partir aussi dans `proforma_pdf`.
-      /genererProforma\(\{ \.\.\.pf, formation: [^}]*, bq: infoBq\(pf\.boutique\) \}, LOGO, true\)/.test(vtx)
+      /genererProforma\(\{ \.\.\.pf, lignes: lignesAvecFiche\(pf\.lignes, db\.produits, pf\.boutique\), formation: [^}]*, bq: infoBq\(pf\.boutique\) \}, LOGO, true\)/.test(vtx) /* RETOURNÉ le 23/10/2026 : la fiche des articles */
       && (vtx.match(/imprimerProforma\([^;]*infoBq\(pf\.boutique\)\)/g) || []).length === 2
       && /infoBq\(pf\.boutique\)\.tel \? \[`\$\{pf\.boutique\} — Tél : /.test(vtx));
     // 🧾 19/10/2026 (Timo : « remise sur un proforma n'apparaît pas sur le
@@ -8546,6 +8598,15 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
         sous_total: 195000, total: 195000, bq: bqEssai }, null, true);
       test("★★ la PROFORMA (PDF) montre la remise d'un ARTICLE dans sa colonne « Remise » (−10 000 F), et rien ne chevauche",
         texteDuPdf(pfLigne).includes("(Remise)") && texteDuPdf(pfLigne).includes("-10 000 F") && chevauchements(pfLigne) === 0);
+      // 🧾 23/10/2026 : la fiche des articles sur la proforma (PDF).
+      const PoF = await import(pathToFileURL("src/lib/pompes.js").href);
+      const stockPdf = [{ id: "pp1", nom: "POMPE 0,75KW", categorie: "Pompe", puissance_kw: 0.75, profondeur_max_m: 95, debit_max_m3h: 1.5, tension: 220, hybride: true }, { id: "bt1", nom: "BATTERIE 51,2V 200AH", categorie: "Batterie", tension: 51.2 }];
+      const pfFiche = Pdf.genererProforma({ numero: "PF-9", date: "23/10/2026", client: "KOFFI",
+        lignes: PoF.lignesAvecFiche([{ produit_id: "pp1", article: "POMPE 0,75KW", qte: 1, pu: 450000, total: 450000 }, { produit_id: "bt1", article: "BATTERIE 51,2V 200AH", qte: 2, pu: 300000, total: 600000 }], stockPdf),
+        total: 1050000, validite: "15 jours", bq: bqEssai }, null, true);
+      test("★★ la PROFORMA (PDF) écrit la fiche sous le nom (pompe et batterie), tient sur une page, et rien ne chevauche",
+        texteDuPdf(pfFiche).includes("0,75 kW") && texteDuPdf(pfFiche).includes("95 m") && texteDuPdf(pfFiche).includes("51,2 V")
+        && pfFiche.internal.getNumberOfPages() === 1 && chevauchements(pfFiche) === 0);
       test("★ sans remise d'article, la proforma garde ses quatre colonnes (pas de colonne « Remise » vide)",
         !texteDuPdf(pfBq).includes("(Remise)"));
       // Une proforma RANGÉE (sans sous-total, comme les anciennes) relue pour 🖨️ Réimprimer.
@@ -8559,7 +8620,7 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       test("★★ la réimpression d'une proforma à remise LIBRE écrit Sous-total et Remise (−5 000 F), sans pourcentage",
         texteDuPdf(pfRelue).includes("Sous-total") && texteDuPdf(pfRelue).includes("-5 000 F") && texteDuPdf(pfRelue).includes("(Remise :)"));
       test("★★ 🖨️ Réimprimer passe la proforma entière par proformaPourDocument (plus une liste de champs qui oublie la remise)",
-        /imprimerProforma\(\{ \.\.\.proformaPourDocument\(pf\), date: dFR\(pf\.date\)/.test(vtx)
+        /imprimerProforma\(\{ \.\.\.proformaPourDocument\(pf\), lignes: lignesAvecFiche\(proformaPourDocument\(pf\)\.lignes, db\.produits, pf\.boutique\), date: dFR\(pf\.date\)/.test(vtx) /* RETOURNÉ le 23/10/2026 : la fiche */
         && !/imprimerProforma\(\{ numero: pf\.numero/.test(vtx));
       test("★★ le MODE de la remise est rangé sur la proforma (émise ET modifiée), et le texte WhatsApp lit la règle des documents",
         /\.\.\.\(pf\.remise_mode \? \{ remise_mode: pf\.remise_mode \} : \{\}\)/.test(vtx)
@@ -13586,7 +13647,7 @@ titre("🏢 Le prénom du client et l'entreprise qu'il représente — son répo
     /prenom: d\.prenom \|\| d\.client\?\.prenom \|\| "",\s*entreprise: d\.entreprise \|\| null,/.test(lireE("src/screens/TousLesDevis.jsx"))
     // RETOURNÉ le 19/10/2026 : la réimpression passe la proforma entière
     // (proformaPourDocument) — l'identité y reste.
-    && /imprimerProforma\(\{ \.\.\.proformaPourDocument\(pf\), date: dFR\(pf\.date\), \.\.\.champsIdentite\(pf\) \}/.test(ve));
+    && /imprimerProforma\(\{ \.\.\.proformaPourDocument\(pf\), lignes: lignesAvecFiche\([^)]*\)\.lignes, db\.produits, pf\.boutique\), date: dFR\(pf\.date\), \.\.\.champsIdentite\(pf\) \}/.test(ve) /* RETOURNÉ le 23/10/2026 : la fiche */);
 }
 
 titre("🔧 L'espace client dit la règle des 70 % de la pose seule, jamais « au technicien à la fin des travaux » (29/09/2026)");

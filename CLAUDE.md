@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2757 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2790 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1245,6 +1245,27 @@ lit mal est pire qu'un banc absent).
   WhatsApp lit `pctRemiseLisible` et la remise de chaque article. ⚠ Les
   proformas d'AVANT restent sans mode : leur remise libre se lit en % (à
   2 décimales). Rien à coller. Banc (+6, le PDF lu, un RETOURNÉ), éprouvé.
+- **📋 LA FICHE DES ARTICLES SUR LA PROFORMA ET LE REÇU DE VENTE** (23/10/2026,
+  « pour les pompes et convertisseurs, les caractéristiques peuvent apparaître
+  sur les proformas et les reçus ? » → « a les 2, b lue au jour de
+  l'impression, c à tous les articles »). Sous le nom, en petit gris, la ligne
+  de `ficheLisible` (« 0,75 kW · 95 m · 1,5 m³/h · 220 V · hybride »,
+  « 48 V · triphasé · mise en parallèle », « 51,2 V » d'une batterie) —
+  `ficheDeLaLigne` / `lignesAvecFiche` (lib/pompes.js : l'article par son
+  `produit_id`, sinon par son nom dans la boutique du document). **« a »** : la
+  proforma (PDF `genererProforma` — `l.fiche` comme le devis — et impression,
+  les TROIS chemins de 💰 Ventes passent `lignesAvecFiche`) et le reçu de vente
+  (`imprimerRecu`, donc aussi son PDF `recu_pdf`), et le reçu d'une vente à
+  crédit = celui de sa dette (`imprimerRecuVersement(…, { produits })`, que
+  📋 Dettes et la réservation passent aussi). **« b »** : LUE dans le stock au
+  moment de l'impression, **jamais rangée** sur la vente ni la proforma — une
+  fiche corrigée change un document réimprimé. **« c »** : tout article
+  renseigné. Une ligne sans fiche ne grandit pas. Les messages WhatsApp en
+  texte n'ont pas bougé. Rien à coller. Banc (+7, le reçu et la proforma
+  FABRIQUÉS), éprouvé (reçu, PDF, dette sans le stock) ; trois contrôles
+  RETOURNÉS (les appels de Ventes). ⚠ Le compteur de chevauchements du banc
+  ignorait « T* » (la 2e ligne d'une cellule) et criait à tort : il descend
+  d'une ligne désormais. Chapitres 5, 8, 13.
 - **✏️ Une proforma se MODIFIE** (Timo, 30/09/2026 : « rendre un proforma
   modifiable » → « a, 2 oui, 3 oui »). Bouton ✏️ Modifier sur sa ligne
   (💰 Ventes → 🧾 Proformas) : le panier se remplit comme 🛒 Vendre, un

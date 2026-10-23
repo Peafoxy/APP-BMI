@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { correspond } from "../lib/suggestions";
 import { genererProforma } from "../pdf";
+import { lignesAvecFiche } from "../lib/pompes.js";
 import { chiffresTel } from "../lib/comptesClients";
 import { TYPES_INSTALLATION } from "../lib/constants";
 import { LOGO, PAIEMENTS, caisseDeVente, LIBELLE_CAISSE_CHANTIER, MOYENS_ENCAISSEMENT } from "../lib/constants";
@@ -553,7 +554,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const bqPf = infoBq(pf.boutique);
     // 📎 19/10/2026 (« C b ») : le MÊME PDF est téléchargé sur l'appareil ET
     // joint au message du numéro BMI (`proforma_pdf`) — une seule fabrique.
-    const docPf = genererProforma({ ...pf, formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation, bq: infoBq(pf.boutique) }, LOGO, true);
+    const docPf = genererProforma({ ...pf, lignes: lignesAvecFiche(pf.lignes, db.produits, pf.boutique), formation: !!db.boutiques.find((b) => b.nom === pf.boutique)?.formation, bq: infoBq(pf.boutique) }, LOGO, true);
     const nomPdfPf = fichierPdf("Proforma", { client: pf.client, numero: pf.numero });
     docPf.save(nomPdfPf);
     const base64Pf = String(docPf.output("datauristring") || "").split(",")[1] || "";
@@ -610,7 +611,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const pf = construireProforma();
     if (!enregistrerProforma(pf)) return;
-    imprimerProforma(pf, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique));
+    imprimerProforma({ ...pf, lignes: lignesAvecFiche(pf.lignes, db.produits, pf.boutique) }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique));
     setMsg(`✅ Proforma ${pf.numero} imprimé (non comptabilisé).`);
   };
 
@@ -1027,7 +1028,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // que celui d'un versement ultérieur (2.99.54), avec le filigrane
       // "NON LIVRÉ" (2.99.62) qui s'applique automatiquement puisque
       // reservation.type === "prepaye" et statut !== "livree".
-      try { imprimerRecuVersement(reservation, infoBq(boutique)); } catch {}
+      try { imprimerRecuVersement(reservation, infoBq(boutique), { produits: db.produits }); } catch {}
       // 🧾 Le reçu de la réservation part du numéro BMI (Timo, 25/09/2026).
       // Son avance est dedans : pas de reçu de versement en plus.
       const bqR = infoBq(reservation.boutique);
@@ -1035,7 +1036,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         envoi: envoiRecuReservation({ reservation, boutique: bqR, fmt, dFR, numeroDe: numeroRecuDette }),
         tel: reservation.tel, nom: reservation.client, espaceFormation: !!bqR.formation, save, profile, ref: { dette_id: reservation.id },
         // 📎 Le reçu de la réservation avec son PDF d'abord (19/10/2026, « B a »).
-        pdf: { numero: numeroRecuDette(reservation), fabriquer: () => fichierRecuVersement(reservation, infoBq(boutique)) },
+        pdf: { numero: numeroRecuDette(reservation), fabriquer: () => fichierRecuVersement(reservation, infoBq(boutique), db.produits) },
       }).then(setNoteRecuWa);
       setPanier([]);
       setF({ ...identiteDe(null), client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
@@ -2029,7 +2030,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                       ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-700 border-green-200">✅ Encaissée le {dFR(vs[0].date)} — {numeroRecu(vs[0])}{vs.length > 1 ? ` (+${vs.length - 1})` : ""}</span>
                       : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-amber-100 text-amber-700 border-amber-200 whitespace-nowrap">⏳ En attente</span>}</td>
                   <CelluleActions>
-                    <BoutonRond icone="🖨" onClick={() => imprimerProforma({ ...proformaPourDocument(pf), date: dFR(pf.date), ...champsIdentite(pf) }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} titre="🖨️ Réimprimer" />
+                    <BoutonRond icone="🖨" onClick={() => imprimerProforma({ ...proformaPourDocument(pf), lignes: lignesAvecFiche(proformaPourDocument(pf).lignes, db.produits, pf.boutique), date: dFR(pf.date), ...champsIdentite(pf) }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique))} titre="🖨️ Réimprimer" />
                     {/* ⚠ Timo (11/09/2026) : « reprise » disait déjà, sur une VENTE,
                         que le client rend un article — deux sens opposés dans le même
                         écran. Ici c'est « Vendre » : le panier se remplit, l'encaissement
