@@ -181,7 +181,7 @@ export function imprimerRecu(v, bq = {}, produits = [], { rendre = false } = {})
 
     <table class="sign"><tr>
       <td></td>
-      <td><div class="ligne">Vendeur${v.par ? ` : ${esc(nomSurDocument(v.par, v.par_id))}` : ""}${v.apporteur && v.apporteur.nom ? `<br><span style="font-size:10px;color:#666">Apporté par ${esc(v.apporteur.nom)}</span>` : ""}${Number(v.rabais || 0) > 0 ? `<br><span style="font-size:10px;color:#666">Rabais de ${esc(v.commercial || "")} : ${fmt(v.rabais)}</span>` : ""}</div></td>
+      <td><div class="ligne">Vendeur${v.par ? ` : ${esc(v.par)}` : ""}${v.apporteur && v.apporteur.nom ? `<br><span style="font-size:10px;color:#666">Apporté par ${esc(v.apporteur.nom)}</span>` : ""}${Number(v.rabais || 0) > 0 ? `<br><span style="font-size:10px;color:#666">Rabais de ${esc(v.commercial || "")} : ${fmt(v.rabais)}</span>` : ""}</div></td>
       <td></td>
     </tr></table>
 
@@ -280,9 +280,9 @@ export function imprimerRecuVersement(d, bq = {}, { rendre = false, produits = [
       <div><b>N° de reçu :</b> ${esc(numeroRecuDette(d))}</div>
       ${versement
         ? `<div><b>Date du versement :</b> ${dFR(dernier?.date || d.date)}${dernier?.heure ? ` à ${dernier.heure}` : ""}</div>
-      <div><b>Reçu par :</b> ${esc(nomSurDocument(dernier?.par || d.par) || "—")}</div>`
+      <div><b>Reçu par :</b> ${esc(dernier?.par || d.par || "—")}</div>`
         : `<div><b>Date :</b> ${dFR(d.date)}</div>
-      <div><b>Établi par :</b> ${esc(nomSurDocument(d.par) || "—")}</div>`}
+      <div><b>Établi par :</b> ${esc(d.par || "—")}</div>`}
     </div>
 
     <div class="btitre">CLIENT</div>
@@ -307,7 +307,7 @@ export function imprimerRecuVersement(d, bq = {}, { rendre = false, produits = [
     <table class="articles">
       <thead><tr><th>Date</th><th>Moyen</th><th>Reçu par</th><th>Montant</th></tr></thead>
       <tbody>
-        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p.heure ? ` ${p.heure}` : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(nomSurDocument(p.par) || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
+        ${paiements.map((p, i) => `<tr${p === dernier && i === paiements.length - 1 ? ' class="jour"' : ""}><td>${dFR(p.date)}${p.heure ? ` ${p.heure}` : ""}</td><td>${esc(p.paiement || "—")}</td><td>${esc(p.par || "—")}</td><td>${fmt(p.montant)}</td></tr>`).join("")}
       </tbody>
     </table>` : `
     <div class="btitre">VERSEMENTS</div>
@@ -325,7 +325,7 @@ export function imprimerRecuVersement(d, bq = {}, { rendre = false, produits = [
 
     <table class="sign"><tr>
       <td></td>
-      <td><div class="ligne">${versement ? `Reçu par${dernier?.par ? ` : ${esc(nomSurDocument(dernier.par))}` : ""}` : `Établi par${d.par ? ` : ${esc(nomSurDocument(d.par))}` : ""}`}</div></td>
+      <td><div class="ligne">${versement ? `Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : ""}` : `Établi par${d.par ? ` : ${esc(d.par)}` : ""}`}</div></td>
       <td></td>
     </tr></table>
 

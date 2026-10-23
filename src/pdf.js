@@ -5,7 +5,7 @@ import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
 import { groupesEquipement } from "./lib/lignesDevis";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
-import { nomSurDocument } from "./lib/nomSurDocument";
+import { nomSurDocument, nomCourtSurDocument } from "./lib/nomSurDocument";
 import { qteAppareil } from "./lib/solaire";
 // La phrase d'un devis à compléter tient sur UNE ligne sous le bandeau (toute
 // la largeur : rien d'autre n'est écrit là). Le banc mesure qu'elle y tient.
@@ -601,7 +601,7 @@ function blocMentions(doc, d, largeur, hauteur, y) {
   doc.setFontSize(7.5);
   doc.setTextColor(...GRIS_TEXTE);
   doc.text("Pour BMI Togo", xG + 2.5, y + 4);
-  if (d.par) doc.text(texteSurPdf(nomSurDocument(d.par, d.par_id)), xG + 2.5, y + 7.5);
+  if (d.par) doc.text(texteSurPdf(nomCourtSurDocument(d.par, d.par_id)), xG + 2.5, y + 7.5);
   imageDansCadre(doc, d.signature, xG + 1, y + 8, 20, 19);
   imageDansCadre(doc, d.cachet, xG + 23, y + 7, 23, 20);
   doc.text("Bon pour accord — signature du client", xD + 2, y + 4);
@@ -700,7 +700,7 @@ export function genererDevis(d, logo, retournerDoc = false) {
   doc.text(`N° ${d.numero}`, 14, yApres + 6.5);
   doc.text(`Date : ${d.date}`, 14, yApres + 10.5);
   if (d.boutique) doc.text(`Boutique : ${d.boutique}`, 14, yApres + 14.5);
-  if (d.par) doc.text(texteSurPdf(`Élaboré par : ${nomSurDocument(d.par, d.par_id)}`), 14, yApres + 18.5);
+  if (d.par) doc.text(texteSurPdf(`Élaboré par : ${nomCourtSurDocument(d.par, d.par_id)}`), 14, yApres + 18.5);
   // 🏢 29/09/2026 : l'entreprise cliente, et son répondant sur la ligne libre.
   const idDv = identiteClient(d);
   doc.text(texteSurPdf(`Client : ${idDv.titre || "—"}`), largeur - 14, yApres + 6.5, { align: "right" });

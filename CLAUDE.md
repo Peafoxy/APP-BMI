@@ -8290,6 +8290,21 @@ lit mal est pire qu'un banc absent).
   (+4, le devis et les reçus IMPRIMÉS), éprouvé (devis, reçu, registre posé
   sur `db.users` brut) ; un contrôle RETOURNÉ (le reçu de versement).
   Chapitre 2 à jour.
+  ⚠⚠ **RETOURNÉ le 23/10/2026 pour les REÇUS et le DEVIS** (Timo : « le nom et
+  prénom des gérants sur les reçus, est-ce professionnellement une bonne
+  chose ? » → « C sur les reçus, et b sur les devis, lance ») : **les reçus**
+  (vente — donc aussi la facture de travaux et le reçu de dépôt chantier —,
+  dette, versement, réservation, et leurs PDF) **écrivent l'IDENTIFIANT**
+  (« Vendeur : ANGELE ») : ils n'appellent plus `nomSurDocument` ; **le devis**
+  (« Pour BMI Togo », « Élaboré par ») écrit **le prénom et l'initiale du nom**
+  (`nomCourt` / `nomCourtSurDocument` : « AKPOSSOGNA Kossiwa » → « Kossiwa A. »,
+  premier mot = le nom de famille ; sans nom complet, l'identifiant). La
+  proforma, les bons, la facture d'achat chantier, le relevé des travaux, le
+  bon de ravitaillement, le PV, le contrat, l'inventaire gardent le nom complet
+  (non demandé). Raison dite à Timo : la loi ne demande pas le nom du vendeur ;
+  le nom complet d'un employé, sur un reçu qui circule, l'expose. Rien à
+  coller. Banc (+1, le devis et les reçus IMPRIMÉS), éprouvé ; cinq contrôles
+  RETOURNÉS. Chapitre 2 à jour.
   ⚠⚠ **SUR L'APPAREIL DE LA VENDEUSE, ÇA NE MARCHAIT PAS** (capture Timo,
   22/10/2026 : BMID-2026-0066 « Vendeur : ANGELE » envoyé de son téléphone,
   BMID-2026-0063 « AKPOSSOGNA Kossiwa » ; réparé sans attendre, dit à Timo).

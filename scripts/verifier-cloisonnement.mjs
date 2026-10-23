@@ -3766,8 +3766,9 @@ titre("Le reçu d'une dette : « reçu de dette » tant que rien n'est encaissé
     && !/"REÇU DE VERSEMENT"|"REÇU DÉFINITIF/.test(imp)
     && imp.includes("<div><b>Date du versement :</b>") && imp.includes("<div><b>Date :</b> ${dFR(d.date)}</div>")
     /* RETOURNÉ le 17/10/2026 (« A a ») : le nom passe par nomSurDocument (nom complet si renseigné) */
-    && imp.includes("<div><b>Établi par :</b> ${esc(nomSurDocument(d.par) || \"—\")}</div>")
-    && imp.includes("${versement ? `Reçu par${dernier?.par ? ` : ${esc(nomSurDocument(dernier.par))}` : \"\"}` : `Établi par${d.par ? ` : ${esc(nomSurDocument(d.par))}` : \"\"}`}"));
+    /* RETOURNÉ le 23/10/2026 (« C sur les reçus ») : un reçu écrit l'IDENTIFIANT, plus le nom complet */
+    && imp.includes("<div><b>Établi par :</b> ${esc(d.par || \"—\")}</div>")
+    && imp.includes("${versement ? `Reçu par${dernier?.par ? ` : ${esc(dernier.par)}` : \"\"}` : `Établi par${d.par ? ` : ${esc(d.par)}` : \"\"}`}"));
   test("sans versement, pas de tableau vide : « Aucun versement à ce jour »",
     imp.includes("${paiements.length > 0 ? `") && imp.includes("Aucun versement à ce jour."));
   // 14/09/2026, Timo : « le reste à payer doit être écrit en rouge » — sur le
@@ -8225,9 +8226,14 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     const apres = texteDuPdf(PdfN.genererDevis({ ...dSol, par: "TIMO", par_id: "u1" }, null, true));
     const sansId = texteDuPdf(PdfN.genererDevis({ ...dSol, par: "ANGELE" }, null, true));
     PdfN.poserPersonnesDesDocuments([]);
-    test("★★ le DEVIS imprimé : « Élaboré par » et « Pour BMI Togo » portent « METONOU Esso Timothée » ; sans registre (ou sans identité renseignée) l'identifiant reste",
-      (apres.match(/METONOU Esso Timoth/g) || []).length === 2 && !/\(TIMO\)/.test(apres) && /Élaboré par : TIMO/.test(avant)
+    // ⚠ RETOURNÉ le 23/10/2026 (« b sur les devis ») : le prénom et l'initiale du nom, plus le nom complet.
+    test("★★ le DEVIS imprimé : « Élaboré par » et « Pour BMI Togo » portent « Esso Timothée M. » (le prénom, l'initiale du nom — jamais le nom complet) ; sans registre (ou sans identité renseignée) l'identifiant reste",
+      (apres.match(/Esso Timothée M\./g) || []).length === 2 && !/METONOU/.test(apres) && !/\(TIMO\)/.test(apres) && /Élaboré par : TIMO/.test(avant)
       && /Élaboré par : ANGELE/.test(sansId), apres.slice(0, 200));
+    test("★ nomCourt : « AKPOSSOGNA Kossiwa » → « Kossiwa A. », un seul mot reste tel quel ; nomCourtSurDocumentDans garde l'identifiant sans nom complet (ni « A. » fabriqué)",
+      ND.nomCourt("AKPOSSOGNA Kossiwa") === "Kossiwa A." && ND.nomCourt("  metonou  Esso Timothée ") === "Esso Timothée M." && ND.nomCourt("TIMO") === "TIMO" && ND.nomCourt("") === ""
+      && ND.nomCourtSurDocumentDans(gens, "TIMO") === "Esso Timothée M." && ND.nomCourtSurDocumentDans(gens, "ANGELE") === "ANGELE"
+      && ND.nomCourtSurDocumentDans(gens, "KOSSI") === "KOSSI" && ND.nomCourtSurDocumentDans([], "TIMO") === "TIMO");
     // Le REÇU de vente et le BON de reprise, imprimés (printApi remplacé par un témoin).
     const entreeNI = join("node_modules", ".cache", `bmi-nomdoc-imp-${process.pid}.js`);
     const sortieNI = join("node_modules", ".cache", `bmi-nomdoc-imp-${process.pid}.mjs`);
@@ -8254,8 +8260,9 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     globalThis.__docNom = ""; try { ImpN.imprimerRecuVersement(detteN, { nom: "APESSITO" }); } catch (e) { globalThis.__docNom = String(e); }
     const versN = nzN(globalThis.__docNom);
     ImpN.poserPersonnesDesDocuments([]);
-    test("★★ le REÇU de vente imprimé : « Vendeur : METONOU Esso Timothée » ; le reçu de versement : « Reçu par : METONOU Esso Timothée » (le versement fait par TIMO)",
-      /Vendeur : METONOU Esso Timothée/.test(recuN) && /Reçu par : METONOU Esso Timothée/.test(versN), recuN.slice(0, 200) + " | " + versN.slice(0, 200));
+    // ⚠ RETOURNÉ le 23/10/2026 (« C sur les reçus ») : l'IDENTIFIANT, même quand le nom complet est renseigné.
+    test("★★ le REÇU de vente imprimé : « Vendeur : TIMO » ; le reçu de versement : « Reçu par : TIMO » — l'identifiant, jamais le nom complet (même renseigné)",
+      /Vendeur : TIMO\b/.test(recuN) && /Reçu par : TIMO\b/.test(versN) && !/METONOU/.test(recuN + versN), recuN.slice(0, 200) + " | " + versN.slice(0, 200));
     // ⚠⚠ Timo, 22/10/2026 : le reçu envoyé du téléphone de la VENDEUSE disait
     // « Vendeur : ANGELE ». Le registre réel = les fiches de l'espace PLUS le
     // compte connecté (le même que sa fiche, souvent sans nom complet) : la
@@ -8267,18 +8274,21 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     globalThis.__docNom = ""; try { ImpN.imprimerRecu({ ...venteN, par: "ANGELE" }, { nom: "APESSITO" }, []); } catch (e) { globalThis.__docNom = String(e); }
     const recuAng = nzN(globalThis.__docNom);
     ImpN.poserPersonnesDesDocuments([]);
-    test("★★ sur l'appareil de la vendeuse (sa fiche ET son compte connecté dans le registre) : « Vendeur : AKPOSSOGNA Kossiwa », jamais l'identifiant ; le compte connecté placé AVANT sa fiche ne cache pas le nom complet ; deux VRAIES personnes du même nom restent indécidables",
-      /Vendeur : AKPOSSOGNA Kossiwa/.test(recuAng)
+    // ⚠ RETOURNÉ le 23/10/2026 (« C sur les reçus ») : le reçu écrit « Vendeur : ANGELE » ; la règle du registre réel reste (les autres documents la lisent).
+    test("★★ sur l'appareil de la vendeuse (sa fiche ET son compte connecté dans le registre) : le reçu dit « Vendeur : ANGELE » (l'identifiant) ; la règle des autres documents trouve toujours « AKPOSSOGNA Kossiwa » ; le compte connecté placé AVANT sa fiche ne cache pas le nom complet ; deux VRAIES personnes du même nom restent indécidables",
+      /Vendeur : ANGELE\b/.test(recuAng) && !/AKPOSSOGNA/.test(recuAng)
       && ND.nomSurDocumentDans([profilAng, ficheAng], "ANGELE") === "AKPOSSOGNA Kossiwa"
       && ND.nomSurDocumentDans([profilAng, ficheAng], "ANGELE", "g1") === "AKPOSSOGNA Kossiwa"
       && ND.nomSurDocumentDans([...registreReel, { id: "g2", nom: "ANGELE", role: "vendeur", nom_complet: "AUTRE Angele" }], "ANGELE") === "ANGELE",
       recuAng.slice(0, 300));
     const impN = readFileSync("src/lib/impression.js", "utf8");
     const appN = readFileSync("src/App.jsx", "utf8");
-    test("★ chaque document passe par nomSurDocument (reçus, bons, facture d'achat chantier, relevé des travaux, bon de ravitaillement, PV, contrat, inventaire) ; App.jsx pose les personnes de l'espace regardé (le mur) plus le compte connecté ; « B b » : le texte WhatsApp du reçu garde l'identifiant",
-      (impN.match(/nomSurDocument\(/g) || []).length >= 11 && /nomSurDocumentDans\(\[initiateur\]/.test(impN) && /nomSurDocumentDans\(chefCompte \? \[chefCompte\] : \[\]/.test(impN)
+    // ⚠ RETOURNÉ le 23/10/2026 : les reçus ne passent plus par nomSurDocument (identifiant) ; le devis passe par nomCourtSurDocument.
+    test("★ les documents passent par nomSurDocument (bons, facture d'achat chantier, relevé des travaux, bon de ravitaillement, PV, contrat, inventaire) — JAMAIS les reçus ; le devis par nomCourtSurDocument ; App.jsx pose les personnes de l'espace regardé (le mur) plus le compte connecté ; « B b » : le texte WhatsApp du reçu garde l'identifiant",
+      (impN.match(/nomSurDocument\(/g) || []).length === 6 && !/Vendeur\$\{v\.par \? ` : \$\{esc\(nomSurDocument/.test(impN) && !/esc\(nomSurDocument\((dernier|d\.par|p\.par)/.test(impN)
+      && (srcPdf.match(/nomCourtSurDocument\(/g) || []).length === 2 && /nomSurDocumentDans\(\[initiateur\]/.test(impN) && /nomSurDocumentDans\(chefCompte \? \[chefCompte\] : \[\]/.test(impN)
       && /poserPersonnesDesDocuments\(\[\.\.\.utilisateursDeLEspace\(db, profile\), profile\]\);/.test(appN)
-      && /`Vendeur : \$\{v\.par \|\| ""\}`/.test(impN) && (srcPdf.match(/nomSurDocument\(/g) || []).length === 4
+      && /`Vendeur : \$\{v\.par \|\| ""\}`/.test(impN) && (srcPdf.match(/nomSurDocument\(/g) || []).length === 2
       && /par: d\.par, par_id: d\.par_id \|\| null,/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
     // 🧾 LA FICHE DES ARTICLES SUR LA PROFORMA ET LE REÇU DE VENTE (23/10/2026,
     // Timo : « a les 2, b lue au jour de l'impression, c à tous les articles »).

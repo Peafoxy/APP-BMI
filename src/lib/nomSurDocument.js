@@ -9,6 +9,12 @@
 // ancien document réimprimé sort donc lui aussi avec le nom complet.
 // ⚠ Les ÉCRANS (colonnes, historique) et les messages WhatsApp (« B b, pour
 // le moment ») gardent l'identifiant : seuls les documents l'appliquent.
+// ⚠⚠ 23/10/2026 (Timo : « le nom et prénom des gérants sur les reçus, est-ce
+// professionnellement une bonne chose ? » → « C sur les reçus, et b sur les
+// devis ») : les REÇUS (vente, dette, versement, réservation) gardent
+// l'IDENTIFIANT — ils n'appellent plus cette règle ; le DEVIS écrit le prénom
+// et l'initiale du nom (`nomCourtSurDocument` : « Kossiwa A. »). Les autres
+// documents (proforma, bons, PV, contrat, inventaire…) gardent le nom complet.
 
 const cle = (x) => String(x == null ? "" : x).trim().toLowerCase();
 
@@ -46,6 +52,22 @@ export function nomSurDocumentDans(personnes, nom, id) {
   return complet || ecrit || (fiche ? String(fiche.nom || "") : "");
 }
 
+// « b » : le PRÉNOM et l'initiale du NOM. Le nom complet s'écrit « NOM
+// Prénoms » (premier mot = le nom de famille, comme le bulletin et la CNSS) :
+// « AKPOSSOGNA Kossiwa » → « Kossiwa A. », « METONOU Esso Timothée » → « Esso
+// Timothée M. ». Un seul mot reste tel quel.
+export function nomCourt(complet) {
+  const mots = String(complet == null ? "" : complet).trim().split(/\s+/).filter(Boolean);
+  if (mots.length < 2) return mots[0] || "";
+  return `${mots.slice(1).join(" ")} ${mots[0][0].toUpperCase()}.`;
+}
+// La même recherche que nomSurDocumentDans ; sans nom complet, l'identifiant.
+export function nomCourtSurDocumentDans(personnes, nom, id) {
+  const lu = nomSurDocumentDans(personnes, nom, id);
+  const ecrit = String(nom == null ? "" : nom).trim();
+  return lu && lu !== ecrit ? nomCourt(lu) : lu;
+}
+
 // Les fiches que l'application a posées (App.jsx, à chaque rendu : les
 // personnes de l'espace regardé, plus le compte connecté). Sans elles (un
 // banc qui imprime seul), le document garde l'identifiant, comme avant.
@@ -54,3 +76,4 @@ export const poserPersonnesDesDocuments = (liste) => {
   personnesDesDocuments = Array.isArray(liste) ? liste : [];
 };
 export const nomSurDocument = (nom, id) => nomSurDocumentDans(personnesDesDocuments, nom, id);
+export const nomCourtSurDocument = (nom, id) => nomCourtSurDocumentDans(personnesDesDocuments, nom, id);
