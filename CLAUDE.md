@@ -9361,6 +9361,19 @@ lit mal est pire qu'un banc absent).
   Une politique RLS d'INSERT a le même piège (pointage du comptable). **Le
   banc SQL teste chaque règle par UPSERT (`UPS`), pas seulement par UPDATE**
   — le banc par UPDATE seul rassurait sans protéger.
+- ⚠⚠ **L'APPAREIL D'UN CLIENT N'ÉCRIT JAMAIS UNE VENTE** (23/10/2026,
+  capture Timo, compte KLOMEGAN : « role_client_ne_cree_pas_de_vente » ;
+  réparé sans attendre, dit à Timo). La règle de CRÉATION d'une politique RLS
+  s'applique aussi à un upsert (`insert … on conflict do update`) — mesuré
+  sur base jetable. Or `client-2` refuse toute création de vente à un client :
+  la signature du PV dans l'espace client et le rattrapage des commissions
+  (App.jsx) écrivaient la vente depuis son téléphone, tout le lot restait
+  coincé (PV compris). Le banc SQL ne testait que par UPDATE. Depuis : le PV
+  signé n'écrit que le chantier, le rattrapage ne tourne jamais chez un client
+  (un compte de BMI débloque à sa prochaine ouverture), et sync.js retire de la
+  file d'une session CLIENT toute vente et le mot au parrain du même lot
+  (`ventesRefuseesAuClient`, lib/abandonLot.js). Bancs `verifier-cloisonnement`
+  (+5) et `tester-client-lecture` (+1, le refus par upsert). Rien à coller.
 - **Supabase donne les droits par défaut à `anon` sur toute nouvelle table
   ET toute nouvelle fonction.** `revoke from public` ne suffit pas.
 - ⚠⚠ **LA FICHE DES BOUTIQUES N'EST PLUS LISIBLE SANS CONNEXION**

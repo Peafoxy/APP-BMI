@@ -118,6 +118,13 @@ echo
 echo "── ET LES GESTES DU CLIENT PASSENT ENCORE ──"
 lire "il signe son PV (la vente de SON chantier, 3 champs autorisés)" "$PARRAIN" \
   "with x as (update public.ventes set data = data || '{\"commission_a_la_reception\":false,\"commission_debloquee_le\":\"2026-08-31\"}' where id='vt_pv' returning 1) select count(*) from x;" "1"
+# ⚠ 23/10/2026 (capture Timo, compte KLOMEGAN) : l'application n'écrit que par
+# UPSERT (appliquer_lot), et un upsert passe par la règle de CRÉATION — refusée
+# à un client. La mise à jour ci-dessus n'arrive donc jamais par l'application :
+# l'appareil d'un client n'écrit plus aucune vente (le rattrapage d'un compte
+# de BMI débloque les commissions). Ce contrôle prouve le refus.
+lire "★ par l'application (UPSERT), la base refuse au client toute écriture d'une vente — même la sienne" "$PARRAIN" \
+  "create function pg_temp.essai() returns text language plpgsql as \$f\$ begin insert into public.ventes (id,data) select id, data || '{\"commission_a_la_reception\":false}' from public.ventes where id='vt_pv' on conflict (id) do update set data = excluded.data; return 'passe'; exception when insufficient_privilege then return 'refuse'; end \$f\$; select pg_temp.essai();" "refuse"
 lire "mais il ne touche pas à la vente d'un autre" "$PARRAIN" \
   "with x as (update public.ventes set data = data || '{\"commission_a_la_reception\":false}' where id='vt_passage' returning 1) select count(*) from x;" "0"
 lire "il crée encore la dette de son devis « pose seule »" "$PARRAIN" \

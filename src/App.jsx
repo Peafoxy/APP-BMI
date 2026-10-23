@@ -295,6 +295,9 @@ export default function App() {
   useEffect(() => {
     if (!db || !profile || syncInitiale) return;
     if (!peutEcrire(dbRef.current, profile)) return;
+    // ⚠ 23/10/2026 : jamais sur l'appareil d'un CLIENT — il n'écrit pas les
+    // ventes (la base refuse, le lot restait coincé). Un compte de BMI s'en charge.
+    if (profile.role === "client") return;
     const seuil = Date.now() - 7 * 86400000;
     // ⚠ Cloisonnement : ce rattrapage tourne sous le compte connecté et
     // écrit tout d'un seul save(). S'il mélangeait des chantiers réels et

@@ -63,6 +63,23 @@ export function resumeAbandon(refus, plan) {
     + `Ce qui a été refusé ne sera PAS enregistré — ni ici, ni au serveur.`;
 }
 
+// ⚠⚠ UNE VENTE ÉCRITE PAR L'APPAREIL D'UN CLIENT (23/10/2026, capture Timo,
+// compte KLOMEGAN : « role_client_ne_cree_pas_de_vente »). La base refuse à un
+// client TOUTE écriture d'une vente — même la mise à jour, puisqu'un upsert
+// passe par la création. Le rattrapage des commissions (App.jsx) et la
+// signature du PV (EspaceClient) en écrivaient une : tout le lot restait
+// coincé. On retire de la file ces ventes, et le mot au parrain du même lot
+// (un compte de BMI le reposera en débloquant). Le reste — le chantier
+// réceptionné, le journal — part. Seulement si la session est celle d'un client.
+export const DEBUT_MOT_PARRAIN = "🎉 Bonne nouvelle ! L'installation de votre filleul";
+export function ventesRefuseesAuClient(ops, role) {
+  if (role !== "client") return [];
+  const lots = new Set((ops || []).filter((op) => op?.table === "ventes" && op.lot).map((op) => op.lot));
+  return (ops || []).filter((op) => op?.table === "ventes"
+    || (op?.op !== "delete" && op?.table === "messages" && lots.has(op.lot) && String(op.data?.texte || "").startsWith(DEBUT_MOT_PARRAIN)))
+    .map((op) => op.seq);
+}
+
 // ⚠⚠ LES EFFACEMENTS PARASITES D'UN PAIEMENT DE PART D'INSTALLATION
 // (07/10/2026, capture Timo : ANGELE, « 538 opération(s) n'arrivent pas »).
 // `construirePaiementPrime` remplaçait la liste des messages par les deux

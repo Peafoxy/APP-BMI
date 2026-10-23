@@ -15749,6 +15749,34 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
     && syC.indexOf("suppressionsParasitesDeCorrection(ops)") > -1 && syC.indexOf("suppressionsParasitesDeCorrection(ops)") < syC.indexOf('supabase.rpc("appliquer_lot"'));
 }
 
+// 🧾 L'APPAREIL D'UN CLIENT N'ÉCRIT JAMAIS UNE VENTE (23/10/2026, capture Timo,
+// compte KLOMEGAN : « role_client_ne_cree_pas_de_vente »).
+{
+  titre("🧾 L'appareil d'un client n'écrit jamais une vente — la base la refuse, le lot restait coincé (23/10/2026)");
+  const AL = await import(pathToFileURL("src/lib/abandonLot.js").href + "?r4");
+  const fileV = [
+    { seq: 1, lot: "P", table: "clients_installes", op: "upsert", data: { id: "ch", statut: "receptionne" } },
+    { seq: 2, lot: "P", table: "ventes", op: "upsert", data: { id: "v", commission_a_la_reception: false } },
+    { seq: 3, lot: "P", table: "messages", op: "upsert", data: { id: "m", texte: AL.DEBUT_MOT_PARRAIN + " X a été réceptionnée." } },
+    { seq: 4, lot: "P", table: "audits", op: "upsert", data: { action: "PV de réception signé" } },
+    { seq: 5, lot: "Q", table: "messages", op: "upsert", data: { id: "m2", texte: "Bonjour" } },
+  ];
+  test("★★ la règle : sur une session CLIENT, la vente et le mot au parrain du même lot sont retirés ; le chantier, le journal et un autre message partent",
+    JSON.stringify(AL.ventesRefuseesAuClient(fileV, "client")) === "[2,3]");
+  test("★ sur la session d'un compte de BMI, rien n'est retiré (son rattrapage débloque les commissions)",
+    AL.ventesRefuseesAuClient(fileV, "admin").length === 0 && AL.ventesRefuseesAuClient(fileV, "").length === 0);
+  const syV = readFileSync("src/sync.js", "utf8");
+  test("★ sync.js lit le rôle de la session et nettoie la file AVANT l'envoi, puis relit les ventes",
+    /ventesRefuseesAuClient\(ops, roleSession\)/.test(syV) && syV.indexOf("ventesRefuseesAuClient(ops") < syV.indexOf('supabase.rpc("appliquer_lot"')
+    && /derniere_sync:ventes/.test(syV));
+  const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
+  test("★★ la signature du PV dans l'espace client n'écrit plus la vente (le rattrapage d'un compte de BMI débloque)",
+    !/debloquerCommissionsReception/.test(ec.replace(/\/\/.*$/gm, "")));
+  const ap = readFileSync("src/App.jsx", "utf8");
+  test("★★ la réception automatique et le rattrapage des commissions ne tournent jamais sur l'appareil d'un client",
+    /if \(profile\.role === "client"\) return;\s*const seuil = Date\.now\(\) - 7 \* 86400000;/.test(ap));
+}
+
 // 📝 LA LIGNE « NB » D'UN DEVIS (Timo, 08/10/2026, « 1a, 2b, 3a, lance ») :
 // tapée à la main, 300 caractères au plus, gardée dans le devis (brouillon,
 // reprise), lue par le PDF et l'espace client.

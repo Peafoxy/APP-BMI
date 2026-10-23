@@ -15,7 +15,7 @@ import { PAIEMENTS } from "../lib/constants";
 import { uid, fmt, fmtFcfa, today, dFR, telDigits, definirMotDePasse, totalVente, nouveauMessage, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { soldeApresAcompte, echeancier, critiquePlan, resumePlan, prochaineEcheance, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, Info } from "../components/ui";
-import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, debloquerCommissionsReception, partParrainBloquee, memeNumero, boutiquesVisibles, marqueEspace } from "../lib/calculs";
+import { CRITERES_NOTE, moyenneNote, tauxParrain, boutiquesVente, statutChantier, partParrainBloquee, memeNumero, boutiquesVisibles, marqueEspace } from "../lib/calculs";
 import { imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER, MOTIF_VALIDATION_A_COMPLETER } from "../lib/devisCfVisite";
@@ -335,18 +335,17 @@ export function EspaceClient({ db, profile, save, setTab }) {
       ? { avenant_signature: signatureDataUrl, avenant_statut: "signe", avenant_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom }
       : { contrat_signature: signatureDataUrl, contrat_statut: "signe", contrat_date_signature: maintenant, statut: "receptionne", receptionne_le: today(), receptionne_par: profile.nom };
     signaturePvRef.current?.effacer();
-    // ⚠ debloquerCommissionsReception était importée ici… et jamais appelée
-    // (défaut trouvé lors de la revue, 18/08/2026) : signer le PV marquait le
-    // chantier réceptionné SANS débloquer la commission du commercial ni la
-    // part du parrain — et le rattrapage J+7, réservé aux chantiers encore
-    // « terminés », ne repassait jamais derrière. Gelées pour toujours.
-    // Le déblocage est maintenant immédiat, et le rattrapage de App.jsx
-    // couvre les signatures faites sur bmitogo.com ainsi que le passé.
+    // ⚠⚠ 23/10/2026 (capture Timo, compte KLOMEGAN) : l'appareil d'un CLIENT
+    // n'écrit JAMAIS une vente — la base le refuse (client-2 : aucune
+    // création, et un upsert passe par la création), et tout le lot restait
+    // coincé, signature du PV comprise. Le chantier seul part d'ici ; la
+    // commission et la part du parrain sont débloquées par le rattrapage de
+    // App.jsx (chantiersAReconcilier) à la prochaine ouverture d'un compte de
+    // BMI, comme pour un PV signé sur bmitogo.com.
     save({
       ...db,
       clients_installes: db.clients_installes.map((x) => (x.id === fiche.id ? { ...x, ...champs } : x)),
-      ...debloquerCommissionsReception(db, fiche.vente_id, "PV signé dans l'application"),
-    }, `${estAvenant ? "Avenant" : "PV de réception"} signé directement dans l'app par ${profile.nom} — ${fiche.nom} — commissions débloquées`);
+    }, `${estAvenant ? "Avenant" : "PV de réception"} signé directement dans l'app par ${profile.nom} — ${fiche.nom}`);
     return true;
   };
 

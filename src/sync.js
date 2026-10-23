@@ -1,5 +1,5 @@
 import { idb, TABLES, compterEnAttente } from "./db";
-import { planAbandon, suppressionsParasitesDePrime, suppressionsParasitesDeCorrection, chantiersARedresserDePrime } from "./lib/abandonLot";
+import { planAbandon, suppressionsParasitesDePrime, suppressionsParasitesDeCorrection, chantiersARedresserDePrime, ventesRefuseesAuClient } from "./lib/abandonLot";
 import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
@@ -278,6 +278,18 @@ export async function synchroniser(options = {}) {
         ops = ops.filter((op) => !parasites.has(op.seq));
         await idb.meta.delete("derniere_sync:messages");
         console.warn(`${parasites.size} effacement(s) de messages retiré(s) de la file (paiement de part d'installation, devis corrigé) : les messages sont relus.`);
+      }
+      // …une vente écrite par l'appareil d'un CLIENT (23/10/2026) : la base la
+      // refuse toujours ; on la retire, et les ventes sont relues.
+      let roleSession = "";
+      try { roleSession = (await supabase.auth.getSession())?.data?.session?.user?.app_metadata?.role || ""; } catch { /* sans session : rien à retirer */ }
+      const refuseesClient = new Set(ventesRefuseesAuClient(ops, roleSession));
+      if (refuseesClient.size) {
+        for (const seq of refuseesClient) await idb.outbox.delete(seq);
+        ops = ops.filter((op) => !refuseesClient.has(op.seq));
+        await idb.meta.delete("derniere_sync:ventes");
+        await idb.meta.delete("derniere_sync:messages");
+        console.warn(`${refuseesClient.size} écriture(s) de vente retirée(s) de la file : un compte client n'écrit pas les ventes, elles sont relues.`);
       }
       // …et les deux champs refusés au vendeur et au gérant sont retirés des
       // chantiers en attente (et de la copie locale, sinon le prochain geste

@@ -166,7 +166,7 @@ export const CHAPITRE = {
       ["ul", [
         "**À la réception** d'un chantier (PV signé, forcé, ou automatique à 7 jours), la commission du commercial et la part du parrain ou de l'apporteur sont **débloquées**. Le parrain reçoit un message : « maintenant due » si son filleul a fini de payer, sinon « deviendra due dès que votre filleul aura fini de payer ».",
         "**Au solde de la dette**, la commission gelée « 💰 » passe d'elle-même dans « Commission due ».",
-        "**Un rattrapage**, à l'ouverture de l'application, débloque les chantiers déjà réceptionnés dont la vente était restée gelée.",
+        "**Un rattrapage**, à l'ouverture de l'application par un compte de BMI, débloque les chantiers déjà réceptionnés dont la vente était restée gelée. C'est lui qui débloque un PV **signé par le client** (dans son espace ou sur bmitogo.com) : l'appareil d'un client ne touche jamais une vente.",
         "**Chaque paiement** crée une dépense (« Commissions », « Prime d'installation »), prévient le bénéficiaire et le vendeur ou le comptable de la caisse qui paie.",
         "**Un paiement relit la base** juste avant d'écrire : si quelqu'un a payé la même chose sur un autre appareil, rien n'est enregistré.",
         "**Le montant versé est inscrit sur la vente** : changer un taux plus tard ne change pas ce qui a déjà été payé.",
