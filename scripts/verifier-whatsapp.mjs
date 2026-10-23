@@ -4771,14 +4771,14 @@ titre("55 📎 LE DEVIS AVEC SON PDF — `devis_pdf`, la case « Joindre le PDF 
     && /sansRepli: true, fichier \}\)/.test(PA));
   test("★ le PDF joint est celui de « 📄 Devis PDF » (LA fabrique de 📋 Tous les devis), chargée à la demande",
     /const \{ fichierPdfDuDevis \} = await import\("\.\.\/TousLesDevis"\);/.test(PA) && /export function fichierPdfDuDevis\(db, d\)/.test(sansComm(lire("src/screens/TousLesDevis.jsx"))));
-  test("★ la case vit dans le hook : décochée au départ, remise à zéro après chaque devis, passée aux trois volets",
-    /const \[avecPdf, setAvecPdf\] = useState\(false\);/.test(PA) && /setAvecPdf\(false\);/.test(PA) && /idAReprendre: idRemplace, avecPdf,/.test(PA)
+  test("★ la case vit dans le hook : COCHÉE au départ (RETOURNÉ le 23/10/2026, « cocher joindre pdf par défaut »), recochée après chaque devis, passée aux trois volets",
+    /const \[avecPdf, setAvecPdf\] = useState\(true\);/.test(PA) && /setAvecPdf\(true\);/.test(PA) && !/setAvecPdf\(false\);/.test(PA) && /idAReprendre: idRemplace, avecPdf,/.test(PA)
     && ["Solaire", "Garage", "Autre"].every((v) => /avecPdf=\{envoi\.avecPdf\} setAvecPdf=\{envoi\.setAvecPdf\}/.test(lire(`src/screens/dimensionnement/${v}.jsx`))));
   // ── « C a » : ✍️ Compléter le devis
   const TD = sansComm(lire("src/screens/TousLesDevis.jsx"));
   const corpsComp = (TD.match(/const completerEtEnvoyer = async[\s\S]*?\n  \};/) || [""])[0];
   test("★★ « C a » : ✍️ Compléter le devis a la même case, et suit la même règle (PDF du devis COMPLÉTÉ d'abord, sinon le message habituel)",
-    /onEnregistrer\(\{ reponses, ajouts, avecPdf \}\)/.test(lire("src/components/CompleterDevis.jsx")) && /useState\(false\)/.test(lire("src/components/CompleterDevis.jsx"))
+    /onEnregistrer\(\{ reponses, ajouts, avecPdf \}\)/.test(lire("src/components/CompleterDevis.jsx")) && /const \[avecPdf, setAvecPdf\] = useState\(true\);/.test(lire("src/components/CompleterDevis.jsx"))
     && /const pdf = saisie\.avecPdf && !espaceFormation/.test(corpsComp) && /devisMarque: res\.devis/.test(corpsComp)
     && /avecPdf: !!pdf\.r \}\);/.test(corpsComp) && /const r = pdf\.r \|\| await envoyerModele\(\{/.test(corpsComp));
   // ── La case RENDUE
@@ -4799,12 +4799,12 @@ titre("55 📎 LE DEVIS AVEC SON PDF — `devis_pdf`, la case « Joindre le PDF 
   const hCoche = R ? rendre({ avecPdf: true, setAvecPdf() {} }) : "";
   const hSans = R ? rendre({}) : "";
   const caseDe = (h) => (h.match(/data-joindre-pdf[\s\S]*?<input[^>]*>/) || [""])[0];
-  test("★★ l'écran RENDU : « 📎 Joindre le PDF du devis » est là, DÉCOCHÉE d'office ; cochée elle le dit ; sans le hook (📝 Mes brouillons), pas de case",
+  test("★★ l'écran RENDU : « 📎 Joindre le PDF du devis » est là, elle montre l'état que le hook lui donne (décochée / cochée) ; sans le hook (📝 Mes brouillons), pas de case",
     /📎 Joindre le PDF du devis/.test(hDecoche) && caseDe(hDecoche) !== "" && !/checked/.test(caseDe(hDecoche)) && /checked/.test(caseDe(hCoche))
     && hSans !== "" && !/data-joindre-pdf/.test(hSans));
   const hComp = (() => { if (!R) return ""; const e0 = console.error; console.error = () => {}; try { return String(renderToStaticMarkup(React.createElement(R.CompleterDevis, { devis: { id: "D", total: 100, lignes: [{ designation: "Câble", cf_visite: true, qte: 1, pu: 0 }] }, produits: [], onAnnuler() {}, onEnregistrer() {} }))); } catch (e) { return ""; } finally { console.error = e0; } })();
-  test("★ ✍️ Compléter le devis RENDU : la case est là, décochée",
-    /📎 Joindre le PDF du devis/.test(hComp) && !/checked/.test(caseDe(hComp)));
+  test("★ ✍️ Compléter le devis RENDU : la case est là, COCHÉE d'office (RETOURNÉ le 23/10/2026)",
+    /📎 Joindre le PDF du devis/.test(hComp) && /checked/.test(caseDe(hComp)));
 }
 
 titre("56 🤖 L'ASSISTANT RELANCE LE CLIENT QUI S'EST TU, ~20 H APRÈS, DANS LA FENÊTRE DE 24 H (17/10/2026, « 4 a, le reste ok, lance »)");

@@ -256,8 +256,9 @@ console.log("\n💸 « Argent remis à » se CHOISIT, et « Personne — payé d
   test("★★★ sans choix, la dépense NE S'ENREGISTRE PAS, et on dit quoi choisir", /Choisissez à qui l'argent a été remis/.test(r1) && (await saves(page)) === 0, r1);
   await ok_(page);
   await page.selectOption("[data-remis-a]", { label: "Personne — payé directement" }); await attendre(150);
-  test("★★ « Personne » choisie : les cases « Nom de la personne payée » et « Son numéro WhatsApp (facultatif) » apparaissent",
-    (await page.$("[data-paye-nom]")) !== null && (await page.$("[data-paye-tel]")) !== null && /Son numéro WhatsApp \(facultatif\)/.test(propre(await page.innerText("#r"))));
+  test("★★ « Personne » choisie : les cases « Nom de la personne payée » et « Son numéro » apparaissent (libellé court depuis le 23/10/2026, « Ecrire son numéro, tout court » ; « Facultatif » dans la case)",
+    (await page.$("[data-paye-nom]")) !== null && (await page.$("[data-paye-tel]")) !== null && /Son numéro/.test(propre(await page.innerText("#r"))) && !/Son numéro WhatsApp/.test(propre(await page.innerText("#r")))
+    && /^Facultatif/.test(await page.getAttribute("[data-paye-tel]", "placeholder") || ""));
   await page.locator("button", { hasText: "Enregistrer la dépense" }).click(); await attendre(200);
   const r2 = await dialogue(page);
   test("★★★ « A b » : sans le nom, rien ne s'enregistre", /Indiquez le nom de la personne/.test(r2) && (await saves(page)) === 0, r2);

@@ -467,10 +467,11 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     ? ((db.users || []).find((u) => u.id === devisAReprendre?.client?.id)?.devis || []).find((x) => x.id === idAReprendre) || null
     : null;
   const [auteurId, setAuteurId] = useState("");
-  // 📎 « Joindre le PDF du devis » (17/10/2026, « A a ») : décochée pour chaque
-  // devis — cochée, le devis part par `devis_pdf` avec son PDF ; si ça ne part
-  // pas, il part sans PDF par `devis_disponible` (« B a »), et l'écran le dit.
-  const [avecPdf, setAvecPdf] = useState(false);
+  // 📎 « Joindre le PDF du devis » : COCHÉE pour chaque devis (Timo, 23/10/2026,
+  // « cocher joindre pdf par défaut » — RETOURNE le « A a » du 17/10, décochée).
+  // Cochée, le devis part par `devis_pdf` avec son PDF ; si ça ne part pas, il
+  // part sans PDF par `devis_disponible` (« B a »), et l'écran le dit.
+  const [avecPdf, setAvecPdf] = useState(true);
   // 📝 Le brouillon d'un AUTRE repris (« A a, B b, C a », 12/10/2026) : il
   // reste le sien. Le devis part à son nom, le brouillon ré-enregistré
   // retourne dans SES brouillons, et c'est de SA liste qu'il disparaît.
@@ -560,7 +561,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     setClientDevis("");
     setNouvClient(CLIENT_VIDE());
     setAuteurId("");
-    setAvecPdf(false);
+    setAvecPdf(true);
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
     effacerBrouillonVolet(volet, profile);
   };
@@ -875,7 +876,7 @@ export function BlocEnvoiDevisClient({ db, clientDevis, setClientDevis, nouvClie
         </div>
       )}
 
-      {/* 📎 Timo (17/10/2026, « A a, B a ») : décochée pour chaque devis. Cochée,
+      {/* 📎 Timo (17/10/2026 « B a », 23/10/2026) : cochée d'office pour chaque devis. Cochée,
           le PDF du devis part avec le message du numéro BMI ; s'il ne peut pas
           partir, le message habituel part sans PDF, et l'écran le dit. */}
       {setAvecPdf && (

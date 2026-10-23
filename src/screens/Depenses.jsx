@@ -213,7 +213,7 @@ function useModifDepense(db, save, profile) {
               </select></Field>
               {(modif.remisA || (modif.chantierId ? "" : REMIS_A_PERSONNE)) === REMIS_A_PERSONNE && (<>
                 <Field label="Nom de la personne payée"><input className={inputCls} value={modif.payeNom} maxLength={80} onChange={(e) => setModif({ ...modif, payeNom: e.target.value })} data-modif-paye-nom /></Field>
-                <Field label="Son numéro WhatsApp (facultatif)"><input className={inputCls} inputMode="tel" value={modif.payeTel} onChange={(e) => setModif({ ...modif, payeTel: e.target.value })} data-modif-paye-tel /></Field>
+                <Field label="Son numéro"><input className={inputCls} inputMode="tel" value={modif.payeTel} placeholder="Facultatif" onChange={(e) => setModif({ ...modif, payeTel: e.target.value })} data-modif-paye-tel /></Field>
               </>)}
             </div>
             <div className="text-xs text-slate-500 mt-2">Le chantier se change seulement tant que le chantier n'est pas réceptionné (ni soldé, ni ses techniciens payés).</div>
@@ -742,7 +742,7 @@ export function Depenses({ db, save, profile, cible = null }) {
           )}
           {caseRemise && f.remis_a === REMIS_A_PERSONNE && (<>
             <Field label="Nom de la personne payée"><input className={inputCls} value={f.paye_nom} maxLength={80} placeholder="Ex. Station Total, CEET, M. KOFFI" onChange={(e) => setF({ ...f, paye_nom: e.target.value })} data-paye-nom /></Field>
-            <Field label="Son numéro WhatsApp (facultatif)"><input className={inputCls} inputMode="tel" value={f.paye_tel} placeholder="Sans numéro, aucun message" onChange={(e) => setF({ ...f, paye_tel: e.target.value })} data-paye-tel /></Field>
+            <Field label="Son numéro"><input className={inputCls} inputMode="tel" value={f.paye_tel} placeholder="Facultatif — sans numéro, aucun message" onChange={(e) => setF({ ...f, paye_tel: e.target.value })} data-paye-tel /></Field>
           </>)}
         </div>
         {propositionFonds.possible && <div className="mt-2 text-xs text-amber-800" data-fonds="propose">💼 Le tiroir de {boutique} ne contient que {fmt(Math.max(0, poches.montant))} : le <b>fonds de caisse</b> peut compléter. Le tiroir paiera {fmt(Math.max(0, poches.montant))} et l'enveloppe {fmt(propositionFonds.manqueAuTiroir)} (il y reste {fmt(propositionFonds.reste)}). Choisissez « Le fonds de caisse » dans « Payé avec » ; les prochaines recettes le rembourseront.</div>}

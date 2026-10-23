@@ -28,8 +28,9 @@ export function CompleterDevis({ devis, produits = [], onAnnuler, onEnregistrer 
     return l.article ? lierAutreAuStock(base, l.article, produits) : base;
   }));
   const [ajouts, setAjouts] = useState([]);
-  // 📎 « C a » (17/10/2026) : la même case que le volet du devis, décochée.
-  const [avecPdf, setAvecPdf] = useState(false);
+  // 📎 « C a » (17/10/2026) : la même case que le volet du devis, cochée
+  // d'office depuis le 23/10/2026 (« cocher joindre pdf par défaut »).
+  const [avecPdf, setAvecPdf] = useState(true);
   const propositions = produits.map((p) => ({ cle: p.id, valeur: p.nom, detail: fmt(p.prix_vente) }));
   // Le NOM passe par la règle des autres équipements : un nom du stock lie la
   // ligne (prix pré-rempli), un nom libre la laisse libre et HB.

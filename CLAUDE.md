@@ -2542,7 +2542,9 @@ lit mal est pire qu'un banc absent).
   « — Choisir — », refus DANS le geste (`critiqueChoixRemis`). **« A b »** :
   « Personne » exige le **NOM** de qui a reçu l'argent (le nom exigé partout,
   sa réponse à la question posée), le numéro WhatsApp est facultatif (8
-  chiffres s'il est tapé) — `critiquePayeA`, `paye_a = { nom, tel }` sur la
+  chiffres s'il est tapé ; la case s'appelle **« Son numéro »** tout court
+  depuis le 23/10/2026, « Facultatif » écrit DANS la case — Timo : « Ecrire
+  son numéro, tout court ») — `critiquePayeA`, `paye_a = { nom, tel }` sur la
   dépense, « 💸 payé à … » sur la ligne. ⚠ Le paiement du **loyer** garde son
   geste (`duFormulaire: false`, le propriétaire est sur la fiche du local).
 - **« B b »** : modèle **`fonds_remis`** (UTILITY, 6 trous : nom, montant, date,
@@ -5515,8 +5517,11 @@ lit mal est pire qu'un banc absent).
   ✅ **La forme de l'en-tête est CONFIRMÉE** par un vrai devis le 17/10/2026
   (« le PDF est bien arrivé ») ; un refus revient tel quel, le devis repart sans PDF.
 - **« A a »** : la case **« 📎 Joindre le PDF du devis »** (`data-joindre-pdf`,
-  `BlocEnvoiDevisClient`, trois volets), DÉCOCHÉE pour chaque devis
-  (`useEnvoiDevis`, remise à zéro après chaque devis). **« B a »** : cochée, le
+  `BlocEnvoiDevisClient`, trois volets), ~~DÉCOCHÉE pour chaque devis~~ —
+  **RETOURNÉ le 23/10/2026** (capture Timo : « cocher joindre pdf par
+  défaut ») : **COCHÉE d'office** pour chaque devis (`useEnvoiDevis`,
+  `useState(true)`, recochée après chaque devis ; ✍️ Compléter aussi). Ne pas
+  la remettre décochée sans sa demande. **« B a »** : cochée, le
   PDF est essayé APRÈS les accès, SANS repli (`envoyerPdfDuDevis`, Partages.jsx —
   le PDF de `fichierPdfDuDevis`, la fabrique de « 📄 Devis PDF », chargée par
   `import()`) ; s'il ne part pas, `devis_disponible` part avec son repli
