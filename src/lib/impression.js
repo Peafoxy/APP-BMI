@@ -181,7 +181,7 @@ export function imprimerRecu(v, bq = {}, produits = [], { rendre = false } = {})
 
     <table class="sign"><tr>
       <td></td>
-      <td><div class="ligne">Vendeur${v.par ? ` : ${esc(v.par)}` : ""}${v.apporteur && v.apporteur.nom ? `<br><span style="font-size:10px;color:#666">Apporté par ${esc(v.apporteur.nom)}</span>` : ""}${Number(v.rabais || 0) > 0 ? `<br><span style="font-size:10px;color:#666">Rabais de ${esc(v.commercial || "")} : ${fmt(v.rabais)}</span>` : ""}</div></td>
+      <td><div class="ligne">Vendeur${v.par ? ` : ${esc(v.par)}` : ""}${Number(v.rabais || 0) > 0 ? `<br><span style="font-size:10px;color:#666">Rabais de ${esc(v.commercial || "")} : ${fmt(v.rabais)}</span>` : ""}</div></td>
       <td></td>
     </tr></table>
 
@@ -534,6 +534,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
       <div><b>N° :</b> ${esc(p.numero)}</div>
       <div><b>Date :</b> ${esc(p.date)}</div>
       ${p.boutique ? `<div><b>Boutique :</b> ${esc(p.boutique)}</div>` : ""}
+      ${p.par ? `<div><b>Établi par :</b> ${esc(p.par)}</div>` : ""}
     </div>
     <div class="btitre">CLIENT</div>
     <div class="client">

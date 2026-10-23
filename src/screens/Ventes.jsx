@@ -400,6 +400,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // ✏️ Une proforma modifiée GARDE son numéro.
     numero: proformaEnModif?.numero || numeroProforma(),
     date: dFR(today()),
+    // 🧾 23/10/2026 (« c, lance ») : « Établi par » sur la proforma = le NOM DE
+    // CONNEXION de qui l'a établie, comme sur les reçus ; une proforma
+    // modifiée garde son auteur (proformaModifiee ne change pas `par`).
+    par: (proformaEnModif && (db.proformas || []).find((x) => x.id === proformaEnModif.id)?.par) || profile.nom,
     boutique,
     client: f.client || "",
     tel: f.tel || "",

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2790 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2794 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -8298,10 +8298,16 @@ lit mal est pire qu'un banc absent).
   (« Vendeur : ANGELE ») : ils n'appellent plus `nomSurDocument` ; **le devis**
   (« Pour BMI Togo », « Élaboré par ») écrit **le prénom et l'initiale du nom**
   (`nomCourt` / `nomCourtSurDocument` : « AKPOSSOGNA Kossiwa » → « Kossiwa A. »,
-  premier mot = le nom de famille ; sans nom complet, l'identifiant). La
-  proforma, les bons, la facture d'achat chantier, le relevé des travaux, le
-  bon de ravitaillement, le PV, le contrat, l'inventaire gardent le nom complet
-  (non demandé). Raison dite à Timo : la loi ne demande pas le nom du vendeur ;
+  premier mot = le nom de famille ; sans nom complet, l'identifiant). Les
+  bons, la facture d'achat chantier, le relevé des travaux, le bon de
+  ravitaillement, le PV, le contrat, l'inventaire gardent le nom complet
+  (non demandé). **La proforma** (« c, lance », le même jour — elle n'écrivait
+  AUCUN nom, PDF ni impression) porte **« Établi par : ANGELE »**, l'identifiant
+  (`par`, posé par `construireProforma` ; une modification garde l'auteur), et
+  **« Apporté par » est RETIRÉ du reçu de vente** (capture Timo : « l'apporteur
+  ne devrait pas apparaître sur les reçus » ; la vente le garde, seul
+  « Vendeur : » reste ; le « Rabais de … » d'un commercial n'a pas bougé).
+  Banc (+3, éprouvés). Raison dite à Timo : la loi ne demande pas le nom du vendeur ;
   le nom complet d'un employé, sur un reçu qui circule, l'expose. Rien à
   coller. Banc (+1, le devis et les reçus IMPRIMÉS), éprouvé ; cinq contrôles
   RETOURNÉS. Chapitre 2 à jour.

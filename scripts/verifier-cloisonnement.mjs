@@ -8225,11 +8225,17 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     PdfN.poserPersonnesDesDocuments(gens);
     const apres = texteDuPdf(PdfN.genererDevis({ ...dSol, par: "TIMO", par_id: "u1" }, null, true));
     const sansId = texteDuPdf(PdfN.genererDevis({ ...dSol, par: "ANGELE" }, null, true));
+    PdfN.poserPersonnesDesDocuments(gens);
+    const pfPdfN = texteDuPdf(PdfN.genererProforma({ numero: "PF-1", date: "23/10/2026", boutique: "APESSITO", client: "KOFFI", par: "TIMO", lignes: [{ article: "PANNEAU 550W", qte: 1, pu: 100000, total: 100000 }], total: 100000 }, null, true));
+    PdfN.poserPersonnesDesDocuments([]);
     PdfN.poserPersonnesDesDocuments([]);
     // ⚠ RETOURNÉ le 23/10/2026 (« b sur les devis ») : le prénom et l'initiale du nom, plus le nom complet.
     test("★★ le DEVIS imprimé : « Élaboré par » et « Pour BMI Togo » portent « Esso Timothée M. » (le prénom, l'initiale du nom — jamais le nom complet) ; sans registre (ou sans identité renseignée) l'identifiant reste",
       (apres.match(/Esso Timothée M\./g) || []).length === 2 && !/METONOU/.test(apres) && !/\(TIMO\)/.test(apres) && /Élaboré par : TIMO/.test(avant)
       && /Élaboré par : ANGELE/.test(sansId), apres.slice(0, 200));
+    test("★★ la PROFORMA en PDF dit « Établi par : TIMO » — l'identifiant même quand le nom complet est renseigné (Timo, 23/10/2026, « c ») ; 💰 Ventes la pose à l'émission, une modification garde l'auteur",
+      /Établi par : TIMO/.test(pfPdfN) && !/METONOU/.test(pfPdfN) && !/Esso Timothée/.test(pfPdfN)
+      && /par: \(proformaEnModif && \(db\.proformas \|\| \[\]\)\.find\(\(x\) => x\.id === proformaEnModif\.id\)\?\.par\) \|\| profile\.nom,/.test(readFileSync("src/screens/Ventes.jsx", "utf8")), pfPdfN.slice(0, 200));
     test("★ nomCourt : « AKPOSSOGNA Kossiwa » → « Kossiwa A. », un seul mot reste tel quel ; nomCourtSurDocumentDans garde l'identifiant sans nom complet (ni « A. » fabriqué)",
       ND.nomCourt("AKPOSSOGNA Kossiwa") === "Kossiwa A." && ND.nomCourt("  metonou  Esso Timothée ") === "Esso Timothée M." && ND.nomCourt("TIMO") === "TIMO" && ND.nomCourt("") === ""
       && ND.nomCourtSurDocumentDans(gens, "TIMO") === "Esso Timothée M." && ND.nomCourtSurDocumentDans(gens, "ANGELE") === "ANGELE"
@@ -8255,6 +8261,12 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       articles: [{ nom: "PANNEAU 550W", qte: 1, prix: 100000 }] };
     globalThis.__docNom = ""; try { ImpN.imprimerRecu(venteN, { nom: "APESSITO" }, []); } catch (e) { globalThis.__docNom = String(e); }
     const recuN = nzN(globalThis.__docNom);
+    // 🧾 23/10/2026 (« l'apporteur ne devrait pas apparaître sur les reçus ») : une vente avec apporteur.
+    globalThis.__docNom = ""; try { ImpN.imprimerRecu({ ...venteN, apporteur: { nom: "DUMAS", montant: 3000 } }, { nom: "APESSITO" }, []); } catch (e) { globalThis.__docNom = String(e); }
+    const recuApp = nzN(globalThis.__docNom);
+    // 🧾 La PROFORMA imprimée (« c, lance ») : « Établi par » avec l'identifiant.
+    globalThis.__docNom = ""; try { ImpN.imprimerProforma({ numero: "PF-1", date: "23/10/2026", boutique: "APESSITO", client: "KOFFI", par: "TIMO", lignes: [{ article: "PANNEAU 550W", qte: 1, pu: 100000, total: 100000 }], total: 100000 }, "", false, {}); } catch (e) { globalThis.__docNom = String(e); }
+    const pfImpN = nzN(globalThis.__docNom);
     const detteN = { id: "d1", numero: "BMIA-DET-2026-0001", date: "2026-10-17", client: "KOFFI", montant: 100000, paye: 20000, boutique: "APESSITO", par: "ANGELE",
       paiements: [{ id: "p1", date: "2026-10-17", montant: 20000, paiement: "Espèces", par: "TIMO" }] };
     globalThis.__docNom = ""; try { ImpN.imprimerRecuVersement(detteN, { nom: "APESSITO" }); } catch (e) { globalThis.__docNom = String(e); }
@@ -8263,6 +8275,10 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     // ⚠ RETOURNÉ le 23/10/2026 (« C sur les reçus ») : l'IDENTIFIANT, même quand le nom complet est renseigné.
     test("★★ le REÇU de vente imprimé : « Vendeur : TIMO » ; le reçu de versement : « Reçu par : TIMO » — l'identifiant, jamais le nom complet (même renseigné)",
       /Vendeur : TIMO\b/.test(recuN) && /Reçu par : TIMO\b/.test(versN) && !/METONOU/.test(recuN + versN), recuN.slice(0, 200) + " | " + versN.slice(0, 200));
+    test("★★ le REÇU de vente d'une vente amenée par un apporteur ne le nomme pas (Timo, 23/10/2026 : « l'apporteur ne devrait pas apparaître sur les reçus ») ; la vente le garde",
+      /Vendeur : TIMO\b/.test(recuApp) && !/DUMAS/.test(recuApp) && !/Apporté par/.test(recuApp) && !/Apporté par/.test(readFileSync("src/lib/impression.js", "utf8")), recuApp.slice(0, 300));
+    test("★★ la PROFORMA imprimée dit « Établi par : TIMO » (l'identifiant, comme les reçus — Timo, 23/10/2026, « c ») ; jamais le nom complet",
+      /Établi par : TIMO\b/.test(pfImpN) && !/METONOU/.test(pfImpN), pfImpN.slice(0, 300));
     // ⚠⚠ Timo, 22/10/2026 : le reçu envoyé du téléphone de la VENDEUSE disait
     // « Vendeur : ANGELE ». Le registre réel = les fiches de l'espace PLUS le
     // compte connecté (le même que sa fiche, souvent sans nom complet) : la

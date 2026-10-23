@@ -219,6 +219,9 @@ export function genererProforma(p, logo, retournerDoc = false) {
   doc.text(`N° ${p.numero}`, 14, yApresPf + 8);
   doc.text(`Date : ${p.date}`, 14, yApresPf + 13);
   if (p.boutique) doc.text(`Boutique : ${p.boutique}`, 14, yApresPf + 18);
+  // 🧾 23/10/2026 (« c ») : qui a établi la proforma, par son NOM DE CONNEXION
+  // (comme les reçus, jamais le nom complet).
+  if (p.par) doc.text(texteSurPdf(`Établi par : ${p.par}`), 14, yApresPf + 22);
   // 🏢 29/09/2026 : l'entreprise cliente et son répondant (lib/clientEntreprise.js).
   const idPf = identiteClient(p);
   doc.text(texteSurPdf(`Client : ${idPf.titre || "—"}`), largeur - 14, yApresPf + 8, { align: "right" });
@@ -246,7 +249,7 @@ export function genererProforma(p, logo, retournerDoc = false) {
         `${fmtMontant(l.total)} F`,
       ];
     }),
-    startY: yApresPf + (idPf.coordonnees ? 27 : 24),
+    startY: yApresPf + (idPf.coordonnees || p.par ? 27 : 24),
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [30, 90, 138], textColor: 255 },
     alternateRowStyles: { fillColor: [245, 247, 250] },
