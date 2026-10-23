@@ -15390,10 +15390,15 @@ titre("💼 L'argent remis à un technicien pour un chantier : le détail, le re
     !!AC.refusSuppressionRemise([dep[0]], [{ ...k, argent_chantier: { justifs: [{ chantier_id: "c1", montant: 8000 }], retours: [] } }], dep[0])
     && AC.refusSuppressionRemise(dep, [{ ...kossi }], dep[1]) === null);
   // ⚠ RETOURNÉ le 10/10/2026 (« A b ») : plus seulement les techniciens — tout le personnel de l'espace, l'équipe en tête.
-  test("★ les personnes proposées : TOUT le personnel (le vendeur aussi), l'équipe du chantier EN TÊTE puis les autres par nom ; jamais un client, un compte désactivé, ni soi-même ; « Personne » permis, le choix exigé pour un chantier",
+  // ⚠ RETOURNÉ le 23/10/2026 : sans chantier, la vendeuse (salariée) passe devant les techniciens à commission.
+  test("★ les personnes proposées : TOUT le personnel (le vendeur aussi), l'équipe du chantier EN TÊTE puis les autres, les salariés d'abord ; jamais un client, un compte désactivé, ni soi-même ; « Personne » permis, le choix exigé pour un chantier",
     AC.personnesProposees([kossi, ama, { id: "v", nom: "BELLA", role: "vendeur" }], { equipe: [{ user_id: "t2" }] }).map((u) => u.id).join() === "t2,v,t1"
-    && AC.personnesProposees([kossi, ama, { id: "v", nom: "BELLA", role: "vendeur" }, { id: "cl", nom: "CLIENT", role: "client" }, { id: "x", nom: "OFF", role: "vendeur", actif: false }, { id: "g", nom: "MOI", role: "gerant" }], null, { id: "g" }).map((u) => u.id).join() === "t2,v,t1"
+    && AC.personnesProposees([kossi, ama, { id: "v", nom: "BELLA", role: "vendeur" }, { id: "cl", nom: "CLIENT", role: "client" }, { id: "x", nom: "OFF", role: "vendeur", actif: false }, { id: "g", nom: "MOI", role: "gerant" }], null, { id: "g" }).map((u) => u.id).join() === "v,t2,t1"
     && !!AC.critiqueRemisA({ id: "c1" }, "", [kossi]) && AC.critiqueRemisA({ id: "c1" }, AC.REMIS_A_PERSONNE, []) === null && AC.critiqueRemisA({ id: "c1" }, "t1", [kossi]) === null);
+  // 👥 « Afficher les salariés avant les autres » (Timo, 23/10/2026, capture de « Argent remis à »).
+  test("★ les SALARIÉS d'abord (ceux de la paie), puis les autres (technicien à commission, commercial, administrateur), chaque groupe par nom ; pour un chantier, l'équipe reste en tête et se range de même",
+    AC.personnesProposees([kossi, ama, { id: "a", nom: "ADJI", role: "admin" }, { id: "v", nom: "BELLA", role: "vendeur" }, { id: "tb", nom: "ZOE", role: "technicien_bmi" }, { id: "c", nom: "CALEB", role: "commercial" }, { id: "g", nom: "GAELLE", role: "gerant" }], null).map((u) => u.id).join() === "v,g,tb,a,t2,c,t1"
+    && AC.personnesProposees([kossi, ama, { id: "tb", nom: "ZOE", role: "technicien_bmi" }, { id: "v", nom: "BELLA", role: "vendeur" }], { equipe: [{ user_id: "t1" }, { user_id: "tb" }] }).map((u) => u.id).join() === "tb,t1,v,t2");
   test("★ l'argent rendu diminue la charge du chantier (déduite des frais avant le partage)",
     Dc.totalDepensesChantier({ depenses: [{ chantier_id: "c1", montant: 10000 }, { chantier_id: "c1", montant: -2000, categorie: "Argent rendu d'un chantier" }] }, "c1") === 8000
     && /Cette somme a été remise/.test(Dc.critiqueChangementChantier({ clients_installes: [] }, { role: "admin" }, { chantier_id: "c1", remis_a: { id: "t1", nom: "KOSSI" } }, { id: "c2" }) || ""));

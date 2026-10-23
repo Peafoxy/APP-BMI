@@ -39,7 +39,7 @@
 // Règles pures : ce fichier n'importe que ce qui dit si une dépense compte.
 // ============================================================
 import { estEnAttente, estRejetee, PAYE_AVEC_CAISSE, PAYE_AVEC_AVANCE, PAYE_AVEC_COMPTABLE, PAYE_AVEC_FONDS, PAYE_AVEC_DG } from "./validationDepenses.js";
-import { CATEGORIE_RETOUR_CHANTIER, CATEGORIE_RETOUR_ARGENT, CATEGORIES_RETOUR_ARGENT } from "./constants.js";
+import { CATEGORIE_RETOUR_CHANTIER, CATEGORIE_RETOUR_ARGENT, CATEGORIES_RETOUR_ARGENT, SALARIES } from "./constants.js";
 import { fmt } from "./core.js";
 
 const n = (x) => Math.round(Number(x || 0));
@@ -237,11 +237,17 @@ export function refusSuppressionRemise(depenses, personnes, d) {
 // client, jamais un compte désactivé, jamais soi-même ; pour un chantier, son
 // équipe en tête (rangée par nom), puis les autres.
 // `personnes` = la liste DÉJÀ filtrée par l'espace (utilisateursDeLEspace).
+// 👥 Les SALARIÉS d'abord (Timo, 23/10/2026, capture de « Argent remis à » :
+// « afficher les salariés avant les autres ») — ceux de la paie (`SALARIES`),
+// puis les autres (technicien à commission, commercial, administrateurs),
+// chacun des deux groupes par nom ; pour un chantier, l'équipe reste en tête.
 export const estDeLEquipe = (chantier, u) => (chantier?.equipe || []).some((e) => e.user_id && e.user_id === u?.id);
+export const estSalarie = (u) => SALARIES.includes(u?.role);
 export function personnesProposees(personnes, chantier, moi = null) {
   const parNom = (a, b) => String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" });
+  const ranger = (liste) => [...liste.filter(estSalarie).sort(parNom), ...liste.filter((u) => !estSalarie(u)).sort(parNom)];
   const staff = (personnes || []).filter((u) => u?.role && u.role !== "client" && u.actif !== false && u.id !== moi?.id);
-  return [...staff.filter((u) => estDeLEquipe(chantier, u)).sort(parNom), ...staff.filter((u) => !estDeLEquipe(chantier, u)).sort(parNom)];
+  return [...ranger(staff.filter((u) => estDeLEquipe(chantier, u))), ...ranger(staff.filter((u) => !estDeLEquipe(chantier, u)))];
 }
 // La réponse « personne » : la dépense a été payée directement (rien à justifier).
 export const REMIS_A_PERSONNE = "aucun";

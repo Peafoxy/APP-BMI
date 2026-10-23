@@ -2504,7 +2504,7 @@ lit mal est pire qu'un banc absent).
   Le mécanisme du 07/10 (§ précédent) s'étend, rien de neuf à coller.
 - **A b** : tout le personnel de l'espace regardé (`personnesProposees`,
   lib/argentChantier.js — jamais un client, un compte désactivé ni soi-même ;
-  pour un chantier, son équipe en tête, marquée 🏠). `techniciensProposes`
+  pour un chantier, son équipe en tête, marquée 🏠 ; **les SALARIÉS d'abord** dans chaque groupe — `SALARIES`, puis technicien à commission, commercial, administrateur, chacun par nom : Timo, 23/10/2026, « afficher les salariés avant les autres »). `techniciensProposes`
   RETIRÉE. **B b** : hors chantier, ~~« Personne — payé directement » d'office~~ (RETOURNÉ le 22/10/2026 : plus de choix d'office, voir § « 💸 PERSONNE — PAYÉ DIRECTEMENT ») ;
   la case n'y est que pour le gérant et l'administrateur
   (`peutRemettreHorsChantier`, revérifié par `critiqueRemisA(…, profile)`) ;
