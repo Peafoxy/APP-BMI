@@ -2186,6 +2186,27 @@ lit mal est pire qu'un banc absent).
   la liste de Dépenses et de « Chez le comptable »). Chapitres 7, 13 et 17
   à jour.
 
+### 🚚 LA FICHE D'UN FOURNISSEUR SE MODIFIE, ET PORTE SON REPRÉSENTANT (23/10/2026, « a oui, b oui, c non — modifiable par l'administrateur principal seul »)
+- Timo : « rendre modifiable la fiche d'un fournisseur et ajouter le nom du
+  commercial ou du représentant ». Règle pure **`lib/fournisseurs.js`** (sans
+  import). Bouton rond **✏️ Modifier la fiche du fournisseur** sur la ligne
+  (gérant + admin, `ROLES_FOURNISSEURS`, revérifié DANS le geste sur la fiche
+  FRAÎCHE) → cadre `PanneauQuiSeMontre` au-dessus du tableau (`retour` sur la
+  ligne, `data-ligne`). **« a »** : `representant` + `representant_tel` (cases
+  « Commercial / représentant » et « Son numéro », création ET modification),
+  lus sous le nom (`data-representant-fournisseur`, logo WhatsApp par
+  `lienWhatsApp`). **« b »** : un nouveau NOM suit les articles du stock des
+  boutiques de l'espace REGARDÉ qui portaient l'ancien (`articlesQuiSuivent`,
+  accents / majuscules ignorés ; la question dit combien) ; un nom déjà porté
+  par un autre fournisseur de l'espace est refusé. **« c »** : le Dû et le
+  Réglé se corrigent, **l'administrateur PRINCIPAL seul** (cases grisées sinon,
+  refus dans la règle) ; ⚠ une correction ne crée ni ne retire aucune dépense.
+  Journal « champ : A → B ». ⚠ La base (securite-4) laisse le gérant écrire
+  tout fournisseur : le « principal seul » du dû est l'application. Rien à
+  coller. Banc (+9, l'écran RENDU par `scripts/_rendu-fournisseurs.jsx`),
+  éprouvé (dû ouvert à tous, mur des articles ouvert, représentant pas
+  affiché). Chapitre 10 à jour.
+
 ### 🏦 Les banques, et le moyen de paiement en BOUTONS (15/09/2026)
 - Timo, dans l'ordre : **« et si ce mode était à sélectionner ? »** (la
   question « Moyen de paiement » se TAPAIT — un mot non reconnu retombait en

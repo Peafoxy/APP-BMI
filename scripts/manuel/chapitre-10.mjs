@@ -3,7 +3,8 @@
 //
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
 // screens/Fournisseurs.jsx (« Nouveau fournisseur » : Nom, Téléphone,
-// Adresse, Site web, Produits, Dû (F), Réglé (F), « Enregistrer » ; le
+// Adresse, Site web, Produits, Commercial / représentant, Son numéro,
+// Dû (F), Réglé (F), « Enregistrer » ; ✏️ Modifier la fiche, lib/fournisseurs.js ; le
 // tableau « Fournisseurs · Reste à régler : … » ; « + Commande »,
 // « + Règlement », « Suppr. » ; le refus « Le montant dépasse le reste dû… » ;
 // la dépense « Achat marchandises » créée par un règlement, avec la
@@ -35,7 +36,8 @@ export const CHAPITRE = {
     { titre: "Objectif du module", blocs: [
       ["p", "À la fin de ce chapitre, l'employé sait :"],
       ["ul", [
-        "**créer la fiche d'un fournisseur** (nom, téléphone, adresse, site, produits) et lire son ardoise : Dû, Réglé, Reste ;",
+        "**créer la fiche d'un fournisseur** (nom, téléphone, adresse, site, produits, son commercial ou représentant) et lire son ardoise : Dû, Réglé, Reste ;",
+        "**modifier la fiche** d'un fournisseur (✏️) — le Dû et le Réglé, l'administrateur principal seul ;",
         "**enregistrer une commande à crédit** (« + Commande ») et **un règlement** (« + Règlement »), et ce que le règlement écrit derrière : une dépense « Achat marchandises » qui sort d'une caisse précise ;",
         "**rattacher un article à son fournisseur** dans 📦 Stocks, à la création de la fiche ou après coup ;",
         "**faire entrer la marchandise reçue** : « + Entrée » sur une ligne, ou d'un coup par fichier Excel en mode « ➕ Entrées de stock » ;",
@@ -48,7 +50,8 @@ export const CHAPITRE = {
     { titre: "Qui peut l'utiliser", blocs: [
       ["table", { entetes: ["Le geste", "Qui"], largeurs: [5200, 4100], lignes: [
         ["Voir l'onglet 🚚 Fournisseurs", "**Administrateur et gérant** seulement. Le vendeur, le magasinier, le technicien ne l'ont pas."],
-        ["Créer un fournisseur (« Enregistrer »), 📦 + Commande, 💵 + Règlement, 🗑 supprimer", "**Gérant et administrateur** (règle du 04/09/2026 : « gérant + admin : fournisseurs »). Le refus nomme le geste : « Créer un fournisseur », « Régler un fournisseur », « Enregistrer une dette fournisseur », « Supprimer un fournisseur »."],
+        ["Créer un fournisseur (« Enregistrer »), ✏️ Modifier la fiche, 📦 + Commande, 💵 + Règlement, 🗑 supprimer", "**Gérant et administrateur** (règle du 04/09/2026 : « gérant + admin : fournisseurs »). Le refus nomme le geste : « Créer un fournisseur », « Modifier un fournisseur », « Régler un fournisseur », « Enregistrer une dette fournisseur », « Supprimer un fournisseur »."],
+        ["Corriger le Dû ou le Réglé dans ✏️ Modifier", "**L'administrateur PRINCIPAL seul** (Timo, 23/10/2026). Pour les autres, les deux cases sont grisées : « 🔒 Le dû et le réglé ne se corrigent que par l'administrateur principal. »"],
         ["Choisir le fournisseur d'un article (formulaire « Nouvel article », bouton rond 🚚 sur la ligne du tableau)", "Ceux qui écrivent dans 📦 Stocks : magasinier, gérant, administrateur — et tout compte qui n'est pas en lecture seule pour le lien de la colonne."],
         ["« + Entrée » sur une ligne, importer un fichier « ➕ Entrées de stock »", "**Magasinier, gérant, administrateur** (les rôles du stock). Refus : « Enregistrer une entrée de stock »."],
         ["Mettre à jour un **prix d'achat** par le fichier d'entrées", "**Administrateur seul** (décision du 04/09/2026). Pour les autres, la colonne « Prix d'achat » du fichier est ignorée, et l'écran le dit."],
@@ -60,7 +63,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
-        ["**🚚 Fournisseurs**", "En haut, le bouton **« ➕ Nouveau fournisseur »** ouvre le formulaire (fermé d'office, replié après l'enregistrement) : Nom · Téléphone · Adresse · Site web · Produits · Dû (F) · Réglé (F), et le bouton **« Enregistrer »**. Dessous, le tableau **« Fournisseurs · Reste à régler : … »** : Fournisseur (figé) · Téléphone · Adresse · Site (« Visiter ») · Produits · Dû · Réglé · Reste, et sur chaque ligne les boutons ronds **📦 + Commande**, **💵 + Règlement**, **🗑 supprimer** (le nom au survol)."],
+        ["**🚚 Fournisseurs**", "En haut, le bouton **« ➕ Nouveau fournisseur »** ouvre le formulaire (fermé d'office, replié après l'enregistrement) : Nom · Téléphone · Adresse · Site web · Produits · **Commercial / représentant** · **Son numéro** · Dû (F) · Réglé (F), et le bouton **« Enregistrer »**. Dessous, le tableau **« Fournisseurs · Reste à régler : … »** : Fournisseur (figé, avec dessous « 👤 son représentant · son numéro » et le logo WhatsApp) · Téléphone · Adresse · Site (« Visiter ») · Produits · Dû · Réglé · Reste, et sur chaque ligne les boutons ronds **📦 + Commande**, **💵 + Règlement**, **✏️ Modifier la fiche**, **🗑 supprimer** (le nom au survol)."],
         ["**📦 Stocks**, formulaire d'article", "La liste déroulante **« Fournisseur »** (« — Aucun — », puis les fournisseurs de l'espace). Elle ne propose que des fiches déjà créées dans 🚚 Fournisseurs."],
         ["**📦 Stocks**, tableau", "La colonne **« Fournisseur »** : le nom du fournisseur de l'article, ou **« — à définir — »**. Le bouton rond **🚚** de la ligne ouvre la question « Fournisseur de « … » ? » avec la liste des fournisseurs enregistrés. La colonne **« Entrées »** cumule tout ce qui est entré depuis la création de la fiche."],
         ["**📦 Stocks**, sur la ligne d'un article", "**« + Entrée »** : « Quantité reçue pour « … » : »."],
@@ -69,16 +72,23 @@ export const CHAPITRE = {
         ["**📊 Tableau de bord**, pastille 🏦 BANQUE", "Un règlement par virement bancaire sort de la caisse BANQUE (chapitre 6)."],
         ["**🕘 Historique**", "« Paiement fournisseur X (montant) — BOUTIQUE », « Entrée stock +N « article » — BOUTIQUE », « Fournisseur de « article » : X », et l'import d'entrées ligne par ligne."],
       ]}],
-      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans la liste des fournisseurs, le **nom reste figé à gauche**, l'adresse et les produits tiennent sur deux lignes et **se lisent en entier au clic sur la ligne**, et les gestes sont des **boutons ronds** — 📦 + Commande, 💵 + Règlement, 🗑 supprimer — le nom au survol. Dans 📦 Stocks, le fournisseur d'un article se change par le bouton rond **🚚** de sa ligne (la colonne Fournisseur ne fait plus que le montrer, « — à définir — » s'il manque)."],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans la liste des fournisseurs, le **nom reste figé à gauche**, l'adresse et les produits tiennent sur deux lignes et **se lisent en entier au clic sur la ligne**, et les gestes sont des **boutons ronds** — 📦 + Commande, 💵 + Règlement, ✏️ Modifier la fiche, 🗑 supprimer — le nom au survol. Dans 📦 Stocks, le fournisseur d'un article se change par le bouton rond **🚚** de sa ligne (la colonne Fournisseur ne fait plus que le montrer, « — à définir — » s'il manque)."],
     ]},
 
     // ── 4
     { titre: "Procédure pas à pas", blocs: [
       ["h3", "A. Créer un fournisseur"],
       ["etapes", [
-        { titre: "Ouvrir 🚚 Fournisseurs", texte: "Le bouton « ➕ Nouveau fournisseur » est en haut : un clic ouvre le formulaire. Le **Nom** est le seul champ obligatoire (« Veuillez saisir un nom. »). Téléphone (« +228 … »), Adresse, Site web (« https://… »), Produits (ce qu'il vend, en clair : « panneaux, batteries ») sont facultatifs mais utiles : c'est ce que l'équipe lira." },
+        { titre: "Ouvrir 🚚 Fournisseurs", texte: "Le bouton « ➕ Nouveau fournisseur » est en haut : un clic ouvre le formulaire. Le **Nom** est le seul champ obligatoire (« Veuillez saisir un nom. »). Téléphone (« +228 … »), Adresse, Site web (« https://… »), Produits (ce qu'il vend, en clair : « panneaux, batteries »), **Commercial / représentant** et **Son numéro** (la personne à qui l'on parle chez lui) ne sont pas obligatoires mais utiles : c'est ce que l'équipe lira. Le représentant se lit ensuite sous le nom du fournisseur, avec le logo WhatsApp pour lui écrire." },
         { titre: "Reprendre une ardoise existante", texte: "**Dû (F)** et **Réglé (F)** servent à reprendre l'historique d'un fournisseur qu'on connaît déjà : ce qu'on lui doit au total, ce qu'on lui a déjà versé. Pour un fournisseur neuf, on laisse vide. ⚠ Ces deux montants de départ **ne créent aucune dépense** : ils décrivent le passé, avant l'application." },
         { titre: "Enregistrer", texte: "**« Enregistrer »** → « Fournisseur ajouté ! ». La fiche naît dans l'espace regardé (réel ou formation) et apparaît dans le tableau, avec son Reste = Dû − Réglé, en rouge s'il reste quelque chose, en vert sinon." },
+      ]],
+      ["h3", "A bis. Modifier la fiche d'un fournisseur"],
+      ["etapes", [
+        { titre: "✏️ sur la ligne", texte: "Le bouton rond **✏️ Modifier la fiche du fournisseur** ouvre, au-dessus du tableau, le cadre « ✏️ Modifier la fiche du fournisseur » déjà rempli : Nom, Téléphone, Adresse, Site web, Produits, Commercial / représentant, Son numéro, Dû (F), Réglé (F). « Fermer » ramène sur la ligne sans rien changer." },
+        { titre: "Le Dû et le Réglé : l'administrateur principal", texte: "Pour tout autre que l'administrateur principal, ces deux cases sont grisées. Le principal peut les corriger ; ⚠ **une correction ne crée ni ne retire aucune dépense** — un vrai règlement passe toujours par 💵 sur la ligne." },
+        { titre: "Un nouveau NOM suit les articles", texte: "Un article du stock retient son fournisseur par son NOM. Si on renomme le fournisseur, la question le dit : « N article(s) du stock prendront le nouveau nom » — les articles des boutiques de l'espace regardé qui portaient l'ancien nom passent au nouveau. Un nom déjà porté par un autre fournisseur est refusé." },
+        { titre: "Enregistrer les modifications", texte: "La question liste chaque changement (« téléphone : A → B »). → « Fiche du fournisseur modifiée. » 🕘 Historique garde la même liste. « Rien n'a été modifié. » si rien n'a changé." },
       ]],
       ["h3", "B. Enregistrer une commande à crédit"],
       ["etapes", [
@@ -117,6 +127,7 @@ export const CHAPITRE = {
         ["Site → « Visiter »", "Ouvre le site du fournisseur dans un nouvel onglet (« https:// » ajouté s'il manque)."],
         ["Reste (rouge / vert)", "Rouge : il reste à payer. Vert : à jour. Jamais négatif — un règlement ne peut pas dépasser le reste."],
         ["+ Commande", "Ajoute une commande à crédit au Dû. N'écrit ni stock ni dépense."],
+        ["✏️ Modifier la fiche", "Corrige nom, téléphone, adresse, site, produits, représentant et son numéro ; le Dû et le Réglé au principal seul, sans dépense. Un nouveau nom suit les articles du stock de l'espace."],
         ["+ Règlement", "Demande le montant (plafonné au reste), le moyen (quatre boutons), la caisse ; augmente le Réglé et crée la dépense « Achat marchandises »."],
         ["🗑 (bouton rond)", "« Supprimer le fournisseur « X » ? » : la fiche part avec son ardoise. Les dépenses déjà créées restent dans 📤 Dépenses ; les articles gardent le nom en colonne Fournisseur tant qu'on ne le change pas."],
       ]}],
@@ -188,7 +199,7 @@ export const CHAPITRE = {
         ["Un gérant met un prix d'achat dans le fichier", "« Colonne « Prix d'achat » ignorée : corriger un prix est réservé à l'administrateur. » Les quantités entrent, le prix ne bouge pas.", "Transmettre le nouveau prix à l'administrateur (✏️ Corriger ou son propre import)."],
         ["Taper un fournisseur inconnu après 🚚", "« Ce fournisseur n'existe pas. Créez-le d'abord dans 🚚 Fournisseurs. »", "Créer la fiche, puis revenir sur l'article."],
         ["Supprimer un fournisseur qui a encore un Reste", "L'ardoise disparaît avec la fiche ; personne ne rappellera ce qui est dû.", "Régler ou noter le reste avant, ou garder la fiche."],
-        ["Mettre le montant d'une facture dans « Dû (F) » d'une fiche existante", "Ce champ n'existe qu'à la création. Après, c'est « + Commande ».", "« + Commande » sur la ligne."],
+        ["Corriger le « Dû (F) » d'une fiche existante pour y mettre une nouvelle facture", "Seul l'administrateur principal peut le corriger, et une correction ne laisse que la ligne de l'historique : la commande n'apparaît pas comme telle.", "« + Commande » sur la ligne ; ✏️ Modifier ne sert qu'à rattraper une erreur."],
       ]}],
     ]},
 

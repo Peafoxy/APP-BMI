@@ -3858,7 +3858,7 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
     // pas bougé : le geste revérifie toujours son rôle.
     ["src/screens/Caisse.jsx", ["Faire la clôture du jour"]],
     ["src/screens/Commerciaux.jsx", ["Créer un agent commercial", "Modifier un agent commercial", "Activer ou désactiver un agent commercial", "Supprimer un agent commercial"]],
-    ["src/screens/Fournisseurs.jsx", ["Créer un fournisseur", "Régler un fournisseur", "Enregistrer une dette fournisseur", "Supprimer un fournisseur"]],
+    ["src/screens/Fournisseurs.jsx", ["Créer un fournisseur", "Régler un fournisseur", "Enregistrer une dette fournisseur", "Supprimer un fournisseur", "Modifier un fournisseur", "Modifier un fournisseur"]],
     ["src/screens/Ravitaillement.jsx", ["Servir une demande de transfert", "Refuser une demande de transfert"]],
   ];
   for (const [fichier, gestes] of attendus) {
@@ -17078,6 +17078,66 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
     /raccordement: \{ type: "string", enum: \["mono", "tri"\]/.test(iaR)
     && /estimationSolaire\(appareils, contexte\.boutiquesSolaire \|\| \[\], \{ \.\.\.REGLAGES_ESTIMATION, raccordement: e\.raccordement === "tri" \? "tri" : "mono" \}\)/.test(iaR)
     && /passe raccordement « tri » à estimer_solaire/.test(iaR));
+}
+
+// 🚚 MODIFIER LA FICHE D'UN FOURNISSEUR, ET SON REPRÉSENTANT (Timo, 23/10/2026,
+// « a oui, b oui, c non — modifiable par l'administrateur principal seul »).
+titre("La fiche d'un fournisseur se modifie ; le représentant ; le dû au principal seul");
+{
+  const sortieFo = join("node_modules", ".cache", `bmi-fournisseurs-${process.pid}.mjs`);
+  let F = null, err = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-fournisseurs.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieFo, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server"] });
+    F = await import(pathToFileURL(sortieFo).href);
+  } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieFo); } catch {}
+  test("l'écran 🚚 Fournisseurs et sa règle se construisent" + (err ? ` — ${err}` : ""), !!F);
+  if (F) {
+    const R = F.R;
+    const src = readFileSync("src/lib/fournisseurs.js", "utf8");
+    test("★ lib/fournisseurs.js n'importe RIEN (lisible par Node, comme lib/banques.js)", !/^\s*import\s/m.test(src));
+    const avant = { id: "f1", nom: "SOLAR PLUS", tel: "90000000", doit: 100000, paye: 40000, formation: false };
+    const autres = [avant, { id: "f2", nom: "Énergie Togo" }];
+    const saisie = { nom: "SOLARPLUS SARL", tel: "90000000", adresse: "", site_web: "", produits: "", representant: "KOFFI", representant_tel: "91112233", doit: "100000", paye: "40000" };
+    test("★ « a » : le représentant (nom ET numéro) se range sur la fiche, le reste de la fiche est gardé",
+      (() => { const a = R.fournisseurModifie(avant, saisie, { principal: false }); return a.representant === "KOFFI" && a.representant_tel === "91112233" && a.nom === "SOLARPLUS SARL" && a.id === "f1" && a.formation === false; })());
+    test("★ « c » : le dû ou le réglé corrigé par un autre que le principal est REFUSÉ, accepté du principal",
+      /administrateur PRINCIPAL/.test(R.critiqueModifFournisseur(avant, { ...saisie, paye: "90000" }, { autres, principal: false }))
+      && R.critiqueModifFournisseur(avant, { ...saisie, paye: "90000" }, { autres, principal: true }) === ""
+      && R.fournisseurModifie(avant, { ...saisie, paye: "90000" }, { principal: true }).paye === 90000
+      && R.fournisseurModifie(avant, { ...saisie, paye: "90000" }, { principal: false }).paye === 40000);
+    test("★ un nom vide, un nom déjà pris (accents et majuscules ignorés), un montant négatif : refusés",
+      !!R.critiqueModifFournisseur(avant, { ...saisie, nom: "  " }, { autres })
+      && /déjà/.test(R.critiqueModifFournisseur(avant, { ...saisie, nom: "energie togo" }, { autres }))
+      && !!R.critiqueModifFournisseur(avant, { ...saisie, doit: "-5" }, { autres, principal: true })
+      && R.critiqueModifFournisseur(avant, { ...saisie, nom: "solar plus" }, { autres }) === "");
+    const produits = [
+      { id: "p1", boutique: "DEMAKPOE", fournisseur: "SOLAR PLUS" },
+      { id: "p2", boutique: "DEMAKPOE", fournisseur: "solar plus " },
+      { id: "p3", boutique: "DFORMATION", fournisseur: "SOLAR PLUS" },
+      { id: "p4", boutique: "DEMAKPOE", fournisseur: "Autre" },
+    ];
+    const suivent = R.articlesQuiSuivent(produits, "SOLAR PLUS", ["DEMAKPOE"]);
+    test("★ « b » : un nouveau nom suit les articles de l'espace regardé qui portaient l'ancien — jamais ceux de l'autre espace",
+      suivent.map((p) => p.id).join(",") === "p1,p2"
+      && R.produitsRenommes(produits, suivent.map((p) => p.id), "SOLARPLUS SARL").filter((p) => p.fournisseur === "SOLARPLUS SARL").length === 2);
+    test("le journal raconte chaque champ changé (« représentant : — → KOFFI »)",
+      /représentant : — → KOFFI/.test(R.phraseChangements(R.changementsFournisseur(avant, saisie))));
+    const ecran = readFileSync("src/screens/Fournisseurs.jsx", "utf8");
+    test("★ l'écran revérifie DANS le geste sur la fiche FRAÎCHE, passe par la règle, et les articles par l'espace regardé (boutiquesVisibles)",
+      /const avant = \(db\.fournisseurs \|\| \[\]\)\.find\(\(x\) => x\.id === edition\);/.test(ecran)
+      && /critiqueModifFournisseur\(avant, fe, \{ autres: liste, principal: estAdminPrincipal\(db, profile\) \}\)/.test(ecran)
+      && /articlesQuiSuivent\(db\.produits, avant\.nom, nomsBoutiques\)/.test(ecran)
+      && /boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)/.test(ecran));
+    const db = { boutiques: [{ nom: "DEMAKPOE" }], produits: [], users: [], fournisseurs: [{ id: "f1", nom: "SOLAR PLUS", tel: "90000000", representant: "KOFFI", representant_tel: "91112233", doit: 0, paye: 0 }] };
+    const html = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "admin" }); } catch { return ""; } finally { console.error = e0; } })();
+    test("★ RENDU : le représentant se lit sous le nom, avec son numéro et le logo WhatsApp ; le bouton ✏️ Modifier est sur la ligne",
+      /data-representant-fournisseur/.test(html) && /👤 KOFFI · 91112233/.test(html) && /wa\.me\/22891112233/.test(html)
+      && /✏️ Modifier la fiche du fournisseur/.test(html));
+  }
 }
 
 // 📐 « supprimer partout il y a facultatif » (Timo, 23/10/2026) : aucun libellé de case ne le dit plus.

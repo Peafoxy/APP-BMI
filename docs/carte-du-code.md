@@ -69,6 +69,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/outillage.js` | 🧰 Le matériel de travail de BMI : le registre, les sorties et retours, les pertes, l'appel de la semaine |
 | `lib/impression.js` | Les documents imprimables : reçus, bons, contrats |
 | `lib/export.js` | L'export CSV des tableaux |
+| `lib/fournisseurs.js` | Modifier la fiche d'un fournisseur : représentant, dû / réglé au principal, un nouveau nom suit les articles |
 | `lib/barcode.js` | Le code-barres des étiquettes |
 | `lib/archivage.js` | LA règle d'archivage des historiques (10 lignes, puis les archives) |
 
