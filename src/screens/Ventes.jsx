@@ -37,7 +37,7 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
-import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion, envoyerRecuPdf } from "../whatsapp";
+import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion, envoyerRecuPdf, PHRASE_PDF_LENT, PHRASE_PDF_LENT_RIEN } from "../whatsapp";
 import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite, proformaPdfDepuis, lignePdfNonParti } from "../lib/whatsappModeles";
 import { lierFacture, champsTravauxDocument, propositionsStock, produitSaisi } from "../lib/travaux";
 import { peutEchanger, chiffresEchange, construireEchange, appliquerEchange, montantReprisHorsEchange, echangesDeLaVente, DESTINATION_STOCK, DESTINATION_SAV } from "../lib/echanges";
@@ -661,23 +661,35 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         espaceFormation: !!bq.formation, sansRepli: true,
       });
       if (r.auto) {
-        save((e) => ({
-          ...e,
-          messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id }, envoi: r }),
-        }));
-        return { auto: true, detail: envoi.modele !== "recu_vente", depot: envoi.modele === "recu_depot_chantier", pdfIncertain: !!rp.incertain };
+        // ⚠ PARTI : une écriture qui trébuche ne le fait pas passer pour un échec.
+        try {
+          save((e) => ({
+            ...e,
+            messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: vente.tel, nom: vente.client, modele: envoi.modele, variables: envoi.variables, ref: { vente_id: vente.id }, envoi: r }),
+          }));
+        } catch (e) { console.error("[whatsapp] ligne du reçu :", e); }
+        return { auto: true, detail: envoi.modele !== "recu_vente", depot: envoi.modele === "recu_depot_chantier", pdfIncertain: !!rp.incertain, pdfLent: !!rp.lent };
       }
       motif = r.motif || motif;
       if (motifAttendu(r.motif)) break;
     }
-    return { auto: false, motif, rien: !envois.length, pdfIncertain: !!rp.incertain };
+    return { auto: false, motif, rien: !envois.length, pdfIncertain: !!rp.incertain, pdfLent: !!rp.lent };
   };
 
+  // ⚠ 23/10/2026 (BMID-2026-0070 : rien n'est parti, rien n'a été dit) : une
+  // erreur en route ne fait plus taire l'écran — la phrase sous le titre le dit.
   const envoyerRecuAutomatique = async (vente, apres) => {
-    const r = await envoyerRecuDuNumeroBmi(vente, apres);
+    let r;
+    try { r = await envoyerRecuDuNumeroBmi(vente, apres); }
+    catch (e) {
+      console.error("[whatsapp] reçu automatique :", e);
+      setNoteRecuWa(`Le reçu ${vente.numero} n'est pas parti du numéro BMI : une erreur est survenue pendant l'envoi. Le bouton WhatsApp de la vente reste là pour l'envoyer.`);
+      return;
+    }
     const notePdf = r.pdfIncertain ? ` ${lignePdfNonParti("", true)}` : "";
-    if (r.auto) { setNoteRecuWa(`📲 Reçu ${r.depot ? "de dépôt chantier " : ""}${vente.numero} envoyé du numéro BMI à ${vente.client}${r.pdf ? ", avec le PDF" : ""}.${notePdf}`); return; }
-    setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.${notePdf}` : notePdf.trim());
+    if (r.auto) { setNoteRecuWa(`📲 Reçu ${r.depot ? "de dépôt chantier " : ""}${vente.numero} envoyé du numéro BMI à ${vente.client}${r.pdf ? ", avec le PDF" : ""}.${notePdf}${r.pdfLent ? ` ${PHRASE_PDF_LENT}` : ""}`); return; }
+    const noteLent = r.pdfLent ? ` ${PHRASE_PDF_LENT_RIEN}` : "";
+    setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.${notePdf}${noteLent}` : `${notePdf}${noteLent}`.trim());
   };
 
   // 🧾 LE BOUTON WHATSAPP DE LA LIGNE (25/09/2026, capture Timo : « depuis
@@ -690,9 +702,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const bq = infoBq(v.boutique);
     if (!telDigits(v.tel) || bq.formation) { recuWhatsApp(v, bq); return; }
     if (!await uConfirm(`Envoyer le reçu N° ${v.numero} à ${v.client || "ce client"} (${v.tel}) du numéro WhatsApp BMI ?`)) return;
-    const r = await envoyerRecuDuNumeroBmi(v, db);
+    let r;
+    try { r = await envoyerRecuDuNumeroBmi(v, db); }
+    catch (e) { console.error("[whatsapp] reçu de la ligne :", e); r = { auto: false, motif: "Une erreur est survenue pendant l'envoi du numéro BMI." }; }
     if (r.auto) {
-      await uAlert(`✅ Reçu ${r.depot ? "de dépôt chantier " : ""}N° ${v.numero} envoyé du numéro BMI à ${v.client || "ce client"}${r.pdf ? ", avec le PDF du reçu" : ""}.${r.detail ? "" : "\n\nSans la liste des articles : le reçu détaillé n'a pas pu partir (pas encore approuvé par Meta ?)."}${r.pdfIncertain ? `\n\n${lignePdfNonParti("", true)}` : ""}`);
+      await uAlert(`✅ Reçu ${r.depot ? "de dépôt chantier " : ""}N° ${v.numero} envoyé du numéro BMI à ${v.client || "ce client"}${r.pdf ? ", avec le PDF du reçu" : ""}.${r.detail ? "" : "\n\nSans la liste des articles : le reçu détaillé n'a pas pu partir (pas encore approuvé par Meta ?)."}${r.pdfIncertain ? `\n\n${lignePdfNonParti("", true)}` : ""}${r.pdfLent ? `\n\n${PHRASE_PDF_LENT}` : ""}`);
       return;
     }
     if (r.motif && !motifAttendu(r.motif)) await uAlert(`${r.motif}\n\nWhatsApp va s'ouvrir avec le reçu complet : le message part de VOTRE numéro.`);

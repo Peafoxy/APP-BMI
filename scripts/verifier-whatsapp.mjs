@@ -344,8 +344,11 @@ test("★ tout refus ramène l'ouverture WhatsApp d'aujourd'hui (par la règle q
   /const repli = async[\s\S]*ouvrirWhatsAppApresAnnonce\(\{ tel, texte: texteRepli/.test(srcWhatsapp));
 test("★ une panne du serveur aussi", /catch[\s\S]*return repli\(/.test(srcWhatsapp));
 test("★ une réponse en erreur aussi", /reponse\.error[\s\S]*return repli\(/.test(srcWhatsapp));
-test("★ aucune file d'attente (une relance en retard est une faute)",
-  !/localStorage/.test(srcWhatsapp) && !/setTimeout/.test(srcWhatsapp));
+// ⚠ RETOURNÉ le 23/10/2026 : le seul minuteur permis est celui d'`avecDelai`
+// (le PDF du reçu a 20 s pour être prêt) — il ABANDONNE, il ne renvoie rien.
+test("★ aucune file d'attente (une relance en retard est une faute) : le seul minuteur est celui qui abandonne un PDF trop lent",
+  !/localStorage/.test(srcWhatsapp) && (srcWhatsapp.match(/setTimeout/g) || []).length === 1
+  && /export function avecDelai\(promesse, ms\) \{\n  let minuteur;\n  const delai = new Promise\(\(resoudre\) => \{ minuteur = setTimeout\(\(\) => resoudre\(\{ hors_delai: true \}\), ms\); \}\);/.test(srcWhatsapp));
 // ⚠ RETOURNÉ le 25/09/2026 : Partages envoie aussi `espace` AVANT le premier
 // devis, SANS repli (sinon WhatsApp s'ouvrirait deux fois) — c'est le repli
 // du DEVIS qui porte alors les codes. Seul cet envoi-là est dispensé.
@@ -2676,7 +2679,10 @@ titre("㉘ 🧾 LE REÇU D'UN VERSEMENT ET D'UNE RÉSERVATION (25/09/2026, « La
       && /export function texteRecuComplet\(v, bq = \{\}\)/.test(imp) && /return lignes\.join\("\\n"\);/.test(imp));
   }
   const W = sansComm(lire("src/whatsapp.js"));
-  const i = W.indexOf("export async function envoyerRecuSansQuestion");
+  // ⚠ RETOURNÉ le 23/10/2026 : le corps vit dans `envoyerRecuSansQuestionSur`,
+  // `envoyerRecuSansQuestion` n'est plus que le filet qui l'entoure (une erreur
+  // en route se dit, ⑦⑧).
+  const i = W.indexOf("async function envoyerRecuSansQuestionSur");
   const corps = W.slice(i, W.indexOf("\n}", i));
   test("★★ UNE fonction envoie les deux reçus : SANS repli (WhatsApp ne s'ouvre jamais), la ligne du fil seulement si parti du numéro BMI, sans donner la conversation",
     i > 0 && /sansRepli: true/.test(corps) && !/envoyerWhatsApp\(/.test(corps)
@@ -7003,8 +7009,10 @@ titre("76 💸 « PERSONNE — PAYÉ DIRECTEMENT » DIT À QUI, ET LA PERSONNE P
     /const caseExigee = duFormulaire && !sansCaisse && \(!!f\.chantier_id \|\| peutRemettreHorsChantier\(profile\)\);/.test(corpsEnr) && /if \(caseExigee\) \{\s*const refusChoix = critiqueChoixRemis\(f\.remis_a\);/.test(corpsEnr)
     && corpsEnr.indexOf("critiqueChoixRemis") < corpsEnr.indexOf("save("));
   const W = sansComm(lire("src/whatsapp.js"));
+  // ⚠ RETOURNÉ le 23/10/2026 : l'écriture est sous `try` (un message parti ne
+  // passe jamais pour un échec, ⑦⑧) — toujours DANS le `if (r.auto)`.
   test("★ `apresEnvoi` n'agit que si le message est PARTI (dans le `if (r.auto)` de envoyerRecuSansQuestion)",
-    /if \(r\.auto\) \{\s*if \(typeof save === "function"\) \{\s*save\(\(etat\) => \{\s*const suite = typeof apresEnvoi === "function" \? apresEnvoi\(etat\) : etat;/.test(W));
+    /if \(r\.auto\) \{\s*if \(typeof save === "function"\) \{\s*try \{\s*save\(\(etat\) => \{\s*const suite = typeof apresEnvoi === "function" \? apresEnvoi\(etat\) : etat;/.test(W));
 }
 
 titre("77 🧠 L'APPUI LONG SUR UNE BULLE : « 📋 COPIER » ET « 🧠 APPRENDRE CECI À L'IA » (22/10/2026, « b… appui long… copier et apprendre ceci à l'IA apparaît »)");
@@ -7134,6 +7142,80 @@ createRoot(document.getElementById("r")).render(<Essai />);
     /if \(refuserSaufAdminPrincipal\(db, profile, "Apprendre une phrase à l'assistant"\)\) return;/.test(corps)
     && corps.indexOf("peutApprendreDuMessage(fraiche)") > -1 && corps.indexOf("critiqueMemoAssistant(nouveau)") > -1 && corps.indexOf("critiqueMemoAssistant(nouveau)") < corps.indexOf("save("));
   test("★ la copie est écrite UNE fois (copierTexte, ui.jsx) : l'écran ne touche pas lui-même au presse-papiers", !/navigator\.clipboard/.test(WA) && /copierTexte\(texte\)/.test(WA));
+}
+
+titre("78 ✏️ UN MESSAGE MODIFIÉ SE LIT, ET ⏱ LE REÇU AUTOMATIQUE NE SE TAIT PLUS (23/10/2026, BMID-2026-0070 : « [edit] » dans le fil, aucun reçu parti — « les deux, lance »)");
+{
+  const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const WC = await import("../src/lib/whatsappConversations.js");
+  const E78 = await import("../api/whatsapp-entrant.js");
+  const avecTexte = E78.lireEntrant({ whatsappInboundMessage: { from: "+22879242507", type: "edit", edit: { message: { type: "text", text: { body: "3 coffrets de 12 modules" } } }, id: "e1" } });
+  const sansTexte = E78.lireEntrant({ whatsappInboundMessage: { from: "+22879242507", type: "edit", id: "e2" } });
+  test("★★★ le client modifie un message : la ligne dit « ✏️ Le client a modifié son message », avec le NOUVEAU texte quand l'avis le porte — plus jamais « [edit] »",
+    avecTexte.texte === "✏️ Le client a modifié son message : « 3 coffrets de 12 modules »" && sansTexte.texte === "✏️ Le client a modifié son message" && !/\[edit\]/.test(avecTexte.texte + sansTexte.texte), JSON.stringify([avecTexte.texte, sansTexte.texte]));
+  const echo = WC.lireEchoTelephone({ type: "whatsapp.smb.message.echoes", whatsappMessage: { id: "x9", to: "+22879242507", type: "edit", edit: { text: { body: "Ok, à demain" } } } });
+  test("★★ une modification faite depuis le téléphone BMI se dit aussi (« depuis le téléphone BMI »), avec le nouveau texte",
+    echo && echo.texte === "✏️ Message modifié depuis le téléphone BMI : « Ok, à demain »", echo && echo.texte);
+  test("★★ rien d'autre ne bouge : un texte reste son texte, une légende reste la légende, un type inconnu garde son nom entre crochets",
+    E78.lireEntrant({ type: "text", text: { body: "bonjour" } }).texte === "bonjour"
+    && E78.lireEntrant({ type: "image", image: { link: "https://x/y.jpg", caption: "mon compteur" } }).texte === "mon compteur"
+    && E78.lireEntrant({ type: "location", location: { latitude: 6.1 } }).texte === "[location]");
+  const WEsc = sansComm(lire("api/whatsapp-entrant.js")), WCsc = sansComm(lire("src/lib/whatsappConversations.js"));
+  test("★ UNE règle pour l'entrée du client et l'écho du téléphone (texteDuMessageWa) : plus aucune recopie du « [${m.type}] »",
+    /texteDuMessageWa\(m, media, \{ ecrit \}\)/.test(WEsc) && /texteDuMessageWa\(m, media, \{ ecrit, parBmi: true \}\)/.test(WCsc)
+    && (WEsc + WCsc).split("`[${m.type}]`").length === 2);
+
+  // ── ⏱ Le reçu : la VRAIE fonction, le serveur joué
+  const dossier78 = mkdtempSync(join(tmpdir(), "bmi-recu-lent-"));
+  const faux78 = join(dossier78, "fauxClient.mjs");
+  writeFileSync(faux78, `export async function whatsappEnLigne(c) { (globalThis.__appels78 = globalThis.__appels78 || []).push(c.modele); return { id: "Y", wamid: "W" }; }`);
+  const sortie78 = join(dossier78, "wa.mjs");
+  let W78 = null;
+  try {
+    await build({ entryPoints: ["src/whatsapp.js"], bundle: true, format: "esm", platform: "node", outfile: sortie78, logLevel: "silent",
+      plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: faux78 })); } }] });
+    W78 = await import(pathToFileURL(sortie78).href);
+  } catch (e) { console.log("   (build de whatsapp.js : " + (e?.message || e) + ")"); }
+  const M78 = await import("../src/lib/whatsappModeles.js");
+  const envoi78 = M78.envoiRecuVente({ vente: { numero: "BMID-2026-0070", date: "2026-10-23", boutique: "BMI DEMAKPOE", client: "CHEF EZO ENERGY DU TOGO", tel: "+228 79 24 25 07", paiement: "Espèces" }, boutique: { tel: "90000000" }, montant: 231000, fmt: (n) => `${n} F` });
+  const jamais = () => new Promise(() => {});
+  // Si la limite disparaît, le banc ne reste pas pendu : il écrit ✗ au bout de 3 s.
+  const garde78 = (p) => Promise.race([p, new Promise((r) => setTimeout(() => r({ pendu: true }), 3000))]);
+  let rLent = {}, phraseLent = "", phraseErreur = "", leve = false, enregistre = 0;
+  if (W78) {
+    globalThis.__appels78 = [];
+    rLent = await garde78(W78.envoyerRecuPdf({ envoi: envoi78, numero: "BMID-2026-0070", fabriquer: jamais, tel: "+228 79 24 25 07", nom: "CHEF EZO", espaceFormation: false, delaiMs: 80 }));
+    const appelsPdf = [...globalThis.__appels78];
+    test("★★★ un PDF qui ne finit JAMAIS est abandonné au bout du délai (`lent`) : rien n'est envoyé avec lui",
+      rLent.auto === false && rLent.lent === true && appelsPdf.length === 0 && W78.DELAI_PDF_RECU_MS === 20000, JSON.stringify(rLent));
+    globalThis.__appels78 = [];
+    phraseLent = await garde78(W78.envoyerRecuSansQuestion({ envoi: envoi78, tel: "+228 79 24 25 07", nom: "CHEF EZO", espaceFormation: false, save: () => { enregistre++; }, profile: { id: "u1", nom: "ANGELE" }, pdf: { numero: "BMID-2026-0070", fabriquer: jamais, delaiMs: 80 } }));
+    phraseLent = typeof phraseLent === "string" ? phraseLent : "(pendu)";
+    test("★★★ et le reçu en TEXTE part tout de suite à sa place, la ligne entre dans le fil, la phrase le DIT",
+      globalThis.__appels78.join(",") === "recu_vente" && enregistre === 1 && phraseLent.includes(W78.PHRASE_PDF_LENT), `${globalThis.__appels78.join(",")} | ${phraseLent}`);
+    try {
+      const piege = { modele: "recu_vente" };
+      Object.defineProperty(piege, "variables", { get() { throw new Error("panne avant l'envoi"); } });
+      globalThis.__appels78 = [];
+      phraseErreur = await W78.envoyerRecuSansQuestion({ envoi: piege, tel: "+228 79 24 25 07", nom: "CHEF EZO", espaceFormation: false, save: () => {}, profile: { id: "u1" }, pdf: { numero: "BMID-2026-0070", fabriquer: jamais, delaiMs: 80 } });
+    } catch { leve = true; }
+    test("★★★ une ERREUR en route ne fait plus taire l'écran : la fonction ne lève plus, elle rend la phrase « n'est pas parti … une erreur est survenue »",
+      !leve && /n'est pas parti du numéro BMI : une erreur est survenue/.test(phraseErreur) && globalThis.__appels78.length === 0, phraseErreur);
+    // ⚠ Et l'inverse : une écriture qui échoue APRÈS l'envoi ne fait pas dire
+    // « n'est pas parti » — le client l'a reçu, le renvoyer ferait un doublon.
+    globalThis.__appels78 = [];
+    const phraseApres = await W78.envoyerRecuSansQuestion({ envoi: { modele: "recu_vente", variables: ["AUTRE CLIENT", ...envoi78.variables.slice(1)] }, tel: "+228 79 24 25 07", nom: "CHEF EZO", espaceFormation: false, save: () => { throw new Error("panne"); }, profile: { id: "u1" } });
+    test("★★★ une écriture qui échoue APRÈS l'envoi : la phrase dit « envoyé », jamais « n'est pas parti » (sinon on le renverrait en double)",
+      globalThis.__appels78.join(",") === "recu_vente" && /^📲 Reçu envoyé du numéro BMI/.test(phraseApres), phraseApres);
+  }
+  rmSync(dossier78, { recursive: true, force: true });
+  const V78 = sansComm(lire("src/screens/Ventes.jsx"));
+  const corpsAuto = V78.slice(V78.indexOf("const envoyerRecuAutomatique = async"), V78.indexOf("const envoyerRecuLigne = async"));
+  test("★★★ 💰 Ventes : le reçu automatique est sous filet — une erreur écrit la phrase sous le titre, un PDF trop lent le dit (envoyé en texte, ou rien)",
+    /try \{ r = await envoyerRecuDuNumeroBmi\(vente, apres\); \}/.test(corpsAuto) && /catch \(e\) \{[\s\S]*?setNoteRecuWa\(`Le reçu \$\{vente\.numero\} n'est pas parti du numéro BMI : une erreur est survenue/.test(corpsAuto)
+    && /PHRASE_PDF_LENT\b/.test(corpsAuto) && /PHRASE_PDF_LENT_RIEN/.test(corpsAuto) && (V78.match(/pdfLent: !!rp\.lent/g) || []).length === 2);
+  test("★★ le bouton WhatsApp de la ligne aussi : une erreur rouvre l'envoi sur l'appareil au lieu de se taire",
+    /catch \(e\) \{ console\.error\("\[whatsapp\] reçu de la ligne :", e\); r = \{ auto: false, motif:/.test(V78));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

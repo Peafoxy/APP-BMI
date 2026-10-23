@@ -577,6 +577,45 @@ export function lireMedia(m) {
 // ⚠ Ils sont lus AVANT les nouvelles de suivi : un écho porte lui aussi un
 // `status: "sent"`, et pris pour une coche il attendrait une ligne qui
 // n'existera jamais.
+// ---------------------------------------------------------------
+// ✏️ UN MESSAGE MODIFIÉ (23/10/2026, capture Timo : « [edit] » dans le fil)
+// ---------------------------------------------------------------
+// Le client modifie un message déjà envoyé : WhatsApp le prévient comme d'un
+// message à part, de type « edit ». La règle du 20/09 (« on ne comprend pas,
+// on ne perd pas ») écrivait le nom du type, « [edit] », qui ne dit rien à
+// l'équipe. Il se lit maintenant en français, avec le NOUVEAU texte quand
+// l'avis le porte. ⚠ La forme exacte de cet avis n'a été lue nulle part chez
+// YCloud : on cherche le texte dans le bloc `edit` (ou `edited`) sans
+// deviner davantage ; sans texte, la phrase seule.
+export const TYPES_MODIFICATION = ["edit", "edited"];
+const texteDansBloc = (b, profondeur = 0) => {
+  if (!b || profondeur > 3) return "";
+  if (typeof b === "string") return b;
+  if (typeof b !== "object") return "";
+  if (typeof b.body === "string" && b.body.trim()) return b.body;
+  if (typeof b.text === "string" && b.text.trim()) return b.text;
+  for (const k of ["text", "message", "new_message", "newMessage", "content"]) {
+    const t = texteDansBloc(b[k], profondeur + 1);
+    if (t && t.trim()) return t;
+  }
+  return "";
+};
+export function texteModification(m, { parBmi = false, ecrit = "" } = {}) {
+  const bloc = (m && (m.edit || m.edited)) || null;
+  const nouveau = String(texteDansBloc(bloc) || ecrit || "").trim();
+  const phrase = parBmi ? "✏️ Message modifié depuis le téléphone BMI" : "✏️ Le client a modifié son message";
+  return nouveau ? `${phrase} : « ${nouveau} »` : phrase;
+}
+// Le texte d'un message que WhatsApp nous donne : ce qui est écrit, sinon la
+// légende d'un fichier, sinon (un type qu'on ne sait pas lire) son nom entre
+// crochets — UNE règle pour l'entrée du client et l'écho du téléphone BMI.
+export function texteDuMessageWa(m, media, { ecrit = "", parBmi = false } = {}) {
+  if (m && TYPES_MODIFICATION.includes(String(m.type || ""))) return texteModification(m, { parBmi, ecrit });
+  if (ecrit) return ecrit;
+  if (media) return media.legende || "";
+  return m && m.type && m.type !== "text" ? `[${m.type}]` : "";
+}
+
 export const TYPES_ECHO_TELEPHONE = ["whatsapp.smb.message.echoes", "whatsapp.smb.message.created"];
 export const ID_TELEPHONE_BMI = "telephone-bmi-wa";
 export const NOM_TELEPHONE_BMI = "📱 Téléphone BMI";
@@ -588,7 +627,7 @@ export function lireEchoTelephone(corps) {
   if (!m) return null;
   const media = lireMedia(m);
   const ecrit = (typeof m.text === "string" ? m.text : m.text?.body) || "";
-  const texte = ecrit || (media ? media.legende : "") || (!media && m.type && m.type !== "text" ? `[${m.type}]` : "");
+  const texte = texteDuMessageWa(m, media, { ecrit, parBmi: true });
   return {
     to: String(m.to || ""),
     texte: String(texte || ""),

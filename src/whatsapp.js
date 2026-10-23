@@ -436,19 +436,40 @@ export async function chargerMediaWa(messageId) {
 // part pas (pas encore approuvé, PDF impossible, réseau) : l'appelant envoie
 // le reçu en texte d'aujourd'hui. ⚠ Rien en formation, rien sans numéro : on
 // ne fabrique même pas le PDF (la règle refuserait l'envoi de toute façon).
-export async function envoyerRecuPdf({ envoi, numero, fabriquer, tel, nom, espaceFormation, save, profile, ref = {} }) {
+// ⏱ 23/10/2026 (BMID-2026-0070 : ni PDF, ni texte, rien de dit) : le PDF a
+// DELAI_PDF_RECU_MS pour être prêt. Au-delà on l'abandonne (`lent`) et le reçu
+// en texte part tout de suite : une fabrication qui ne finit jamais ne doit
+// plus retenir le reçu en silence. Un PDF fini trop tard n'est jamais envoyé.
+export const DELAI_PDF_RECU_MS = 20000;
+// Ce que la phrase sous le titre ajoute : parti en texte, ou rien du tout.
+export const PHRASE_PDF_LENT = "Le PDF n'a pas pu être préparé à temps : le reçu est parti en texte.";
+export const PHRASE_PDF_LENT_RIEN = "Le PDF n'a pas pu être préparé à temps.";
+export function avecDelai(promesse, ms) {
+  let minuteur;
+  const delai = new Promise((resoudre) => { minuteur = setTimeout(() => resoudre({ hors_delai: true }), ms); });
+  return Promise.race([Promise.resolve(promesse).then((v) => ({ valeur: v })), delai]).finally(() => clearTimeout(minuteur));
+}
+export async function envoyerRecuPdf({ envoi, numero, fabriquer, tel, nom, espaceFormation, save, profile, ref = {}, delaiMs = DELAI_PDF_RECU_MS }) {
   const envoiPdf = recuPdfDepuis(envoi, { numero });
   if (!envoiPdf || typeof fabriquer !== "function" || espaceFormation || String(tel || "").replace(/\D/g, "").length < 8) return { auto: false, motif: "", rien: true };
   let fichier = null;
-  try { fichier = await fabriquer(); } catch (e) { console.error("PDF du reçu à joindre :", e); }
-  if (!fichier || !fichier.donnees) return { auto: false, motif: "le PDF du reçu n'a pas pu être fabriqué." };
+  try {
+    const r = await avecDelai(fabriquer(), delaiMs);
+    if (r.hors_delai) return { auto: false, motif: "le PDF du reçu n'a pas pu être préparé à temps.", lent: true };
+    fichier = r.valeur;
+  } catch (e) { console.error("PDF du reçu à joindre :", e); }
+  if (!fichier || !fichier.donnees) return { auto: false, motif: "le PDF du reçu n'a pas pu être fabriqué.", rate: true };
   const r = await envoyerModele({ tel, modele: envoiPdf.modele, variables: envoiPdf.variables, espaceFormation, sansRepli: true, fichier });
   if (!r.auto) return { auto: false, motif: r.motif || "", incertain: !!r.reseau };
+  // ⚠ Le message est PARTI : une écriture qui trébuche ne doit pas le faire
+  // passer pour un échec (on le renverrait en double au client).
   if (typeof save === "function") {
-    save((etat) => ({
-      ...etat,
-      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoiPdf.modele, variables: envoiPdf.variables, ref, envoi: r, relais: envoi }),
-    }));
+    try {
+      save((etat) => ({
+        ...etat,
+        messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoiPdf.modele, variables: envoiPdf.variables, ref, envoi: r, relais: envoi }),
+      }));
+    } catch (e) { console.error("[whatsapp] ligne du reçu PDF :", e); }
   }
   return { auto: true, motif: "" };
 }
@@ -456,26 +477,40 @@ export async function envoyerRecuPdf({ envoi, numero, fabriquer, tel, nom, espac
 // `apresEnvoi(etat)` (22/10/2026) : ce que l'écran pose en plus, DANS la même
 // écriture que la ligne du fil, seulement si le message est parti (la marque
 // « déjà prévenu » d'une dépense payée directement).
-export async function envoyerRecuSansQuestion({ envoi, tel, nom, espaceFormation, save, profile, ref = {}, noms = { titre: "Reçu", sujet: "Le reçu" }, pdf = null, apresEnvoi = null }) {
+// ⚠ 23/10/2026 : une erreur en route ne fait plus taire l'écran — la phrase le
+// dit (`envoyerRecuSansQuestionSur`, le corps d'avant, sans un mot changé).
+export async function envoyerRecuSansQuestion(args) {
+  try { return await envoyerRecuSansQuestionSur(args); }
+  catch (e) {
+    console.error("[whatsapp] reçu automatique :", e);
+    const sujet = (args && args.noms && args.noms.sujet) || "Le reçu";
+    return `${sujet} n'est pas parti du numéro BMI : une erreur est survenue pendant l'envoi.`;
+  }
+}
+async function envoyerRecuSansQuestionSur({ envoi, tel, nom, espaceFormation, save, profile, ref = {}, noms = { titre: "Reçu", sujet: "Le reçu" }, pdf = null, apresEnvoi = null }) {
   if (!envoi) return "";
   // 📎 Le reçu avec son PDF d'abord (`pdf` = { numero, fabriquer }) ; le
   // texte d'aujourd'hui s'il ne part pas. Après une connexion coupée on ne
   // sait pas si le PDF est parti : le texte part quand même, et on le DIT.
-  let notePdf = "";
+  let notePdf = "", lent = false;
   if (pdf) {
-    const rp = await envoyerRecuPdf({ envoi, numero: pdf.numero, fabriquer: pdf.fabriquer, tel, nom, espaceFormation, save, profile, ref });
+    const rp = await envoyerRecuPdf({ envoi, numero: pdf.numero, fabriquer: pdf.fabriquer, tel, nom, espaceFormation, save, profile, ref, delaiMs: pdf.delaiMs });
     if (rp.auto) return `📲 ${noms.titre} envoyé du numéro BMI à ${nom}, avec le PDF.`;
     if (rp.incertain) notePdf = ` ${lignePdfNonParti("", true)}`;
+    else if (rp.lent) lent = true;
   }
   const r = await envoyerModele({ tel, modele: envoi.modele, variables: envoi.variables, espaceFormation, sansRepli: true });
   if (r.auto) {
     if (typeof save === "function") {
-      save((etat) => {
-        const suite = typeof apresEnvoi === "function" ? apresEnvoi(etat) : etat;
-        return { ...suite, messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref, envoi: r }) };
-      });
+      try {
+        save((etat) => {
+          const suite = typeof apresEnvoi === "function" ? apresEnvoi(etat) : etat;
+          return { ...suite, messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel, nom, modele: envoi.modele, variables: envoi.variables, ref, envoi: r }) };
+        });
+      } catch (e) { console.error("[whatsapp] ligne du reçu :", e); }
     }
-    return `📲 ${noms.titre} envoyé du numéro BMI à ${nom}.${notePdf}`;
+    return `📲 ${noms.titre} envoyé du numéro BMI à ${nom}.${notePdf}${lent ? ` ${PHRASE_PDF_LENT}` : ""}`;
   }
+  if (lent) notePdf += ` ${PHRASE_PDF_LENT_RIEN}`;
   return r.motif && !motifAttendu(r.motif) ? `${noms.sujet} n'est pas parti du numéro BMI : ${r.motif}${notePdf}` : notePdf.trim();
 }

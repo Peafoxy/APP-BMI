@@ -22,7 +22,7 @@
 // disant ce qu'il n'a pas su lire.
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa, nomDeConversation, doublonEntrant, lireEchoTelephone, echoDejaLa, ligneEchoTelephone } from "../src/lib/whatsappConversations.js";
+import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa, nomDeConversation, doublonEntrant, lireEchoTelephone, echoDejaLa, ligneEchoTelephone, texteDuMessageWa } from "../src/lib/whatsappConversations.js";
 // 📇 Le nom des contacts Google de BMI, cherché tout seul (16/10/2026, « b »).
 import { rechercheGoogleAFaire, traceContactAuto } from "../src/lib/contactGoogle.js";
 import { chercherNomGoogle } from "./_contactGoogle.js";
@@ -89,8 +89,9 @@ export function lireEntrant(corps) {
   // Une photo porte souvent sa légende : c'est ELLE le texte du message.
   // ⚠ Et si le type ne nous dit rien (une position, une fiche contact…),
   // on écrit quand même la ligne, avec le nom du type : un message perdu
-  // en silence est pire qu'un message qu'on ne sait pas afficher.
-  const texte = ecrit || (media ? media.legende : "") || (!media && m.type && m.type !== "text" ? `[${m.type}]` : "");
+  // en silence est pire qu'un message qu'on ne sait pas afficher. Un message
+  // MODIFIÉ par le client se dit en français (texteDuMessageWa, 23/10/2026).
+  const texte = texteDuMessageWa(m, media, { ecrit });
   const id = m.id || m.messageId || m.sid || "";
   // L'identifiant de Meta : le même pour un message renvoyé par YCloud.
   const wamid = m.wamid || "";

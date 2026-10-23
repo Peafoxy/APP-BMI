@@ -219,7 +219,7 @@ export const CHAPITRE = {
         ["Avance versée / Avance payée comment ?", "Crédit seulement. L'avance est plafonnée à ce qui est dû ; son moyen de paiement est demandé dès qu'elle est > 0."],
         ["🤝 Un apporteur externe (non-utilisateur) a amené ce client", "Une personne hors de l'équipe : nom, téléphone, commission en % **ou** montant fixe. Sa commission s'affiche ; elle se paie dans 👑 Mon équipe (chapitre 16)."],
         ["🔧 Ce devis inclut des frais…", "Cadre ambre, seulement quand le panier vient d'un devis payé : articles + frais d'installation + transport = « MONTANT TOTAL À DEMANDER AU CLIENT ». Les frais ne sont pas du chiffre d'affaires, mais ils sont bien encaissés."],
-        ["💳 Encaisser la vente", "Le geste. Confirmation, puis reçu automatique : imprimé, et envoyé au client du numéro BMI **avec le PDF du reçu** (s'il ne part pas — même refusé par WhatsApp après l'envoi —, le reçu en texte part à sa place, une seule fois)."],
+        ["💳 Encaisser la vente", "Le geste. Confirmation, puis reçu automatique : imprimé, et envoyé au client du numéro BMI **avec le PDF du reçu** (s'il ne part pas — même refusé par WhatsApp après l'envoi, ou pas prêt en 20 secondes —, le reçu en texte part à sa place, une seule fois ; la note sous le titre le dit)."],
         ["🧾 Proforma WhatsApp / 🖨️", "L'offre de prix, envoyée ou imprimée. Non comptabilisée."],
         ["Total : X F (remise −Y)", "Le total des articles, remise déduite. « Total articles » quand des frais de devis s'ajoutent."],
       ]}],
