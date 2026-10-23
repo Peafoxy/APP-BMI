@@ -14,8 +14,11 @@
 // vraie courbe, 3 à 5 points saisis par modèle) reste ouverte : « avec le
 // temps on peut implémenter le C. Mais pas aujourd'hui ».
 //
-// Module PUR, sans aucun import (même règle que lib/banques.js).
+// Module PUR ; son seul import, lib/ficheArticle.js, n'importe rien (lu par
+// le serveur).
 // ============================================================
+
+import { ligneGrise } from "./ficheArticle.js";
 
 const sansAccents = (t) => String(t ?? "")
   .normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -46,24 +49,14 @@ export const CHAMPS_POMPE = [
 ];
 
 const nb = (v) => (Number(v) > 0 ? Number(v) : 0);
-const joli = (v) => String(v).replace(".", ",");
 
 // La ligne qui se lit SOUS le nom, partout où on choisit un article.
 // Rend "" quand on ne sait rien : on n'écrit pas une ligne vide.
-export function ficheLisible(p) {
-  if (!p) return "";
-  const bouts = [];
-  if (nb(p.puissance_kw)) bouts.push(`${joli(nb(p.puissance_kw))} kW`);
-  if (nb(p.profondeur_max_m)) bouts.push(`${joli(nb(p.profondeur_max_m))} m`);
-  if (nb(p.debit_max_m3h)) bouts.push(`${joli(nb(p.debit_max_m3h))} m³/h`);
-  if (nb(p.tension)) bouts.push(`${joli(nb(p.tension))} V`);
-  if (p.hybride) bouts.push("hybride");
-  // ⚡ Un convertisseur coché « Triphasé » / « Supporte la mise en parallèle »
-  // (Timo, 23/10/2026) : la même ligne sous le nom, partout.
-  if (p.triphase) bouts.push("triphasé");
-  if (p.parallele) bouts.push("mise en parallèle");
-  return bouts.join(" · ");
-}
+// ⚠ 23/10/2026 (« a, lance ») : elle suit LE registre des cases de la fiche
+// (lib/ficheArticle.js, les cases marquées `ligne`) — une caractéristique
+// nouvelle y apparaît toute seule. kW · m · m³/h · V · hybride · triphasé ·
+// mise en parallèle, dans cet ordre.
+export const ficheLisible = (p) => ligneGrise(p);
 
 // 🧾 LA FICHE D'UNE LIGNE DE PROFORMA OU DE REÇU (23/10/2026, Timo : « a les
 // 2, b lue au jour de l'impression, c à tous les articles »). La fiche est

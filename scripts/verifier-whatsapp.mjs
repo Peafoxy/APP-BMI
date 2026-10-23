@@ -1748,11 +1748,13 @@ titre("⑳ 🤖 L'ASSISTANT DU NUMÉRO WHATSAPP BMI (24/09/2026, « Lance »)");
   // ⚠ RETOURNÉ le 01/10/2026 : + la règle des pompes (sans import elle aussi), pour la fiche d'un article.
   // ⚠ RETOURNÉ le 14/10/2026 : + lib/horloge.js (l'heure du serveur, sans import elle aussi).
   // RETOURNÉ le 23/10/2026 : + choixSolaire.js (estCategorieConvertisseur — la catégorie d'un convertisseur).
-  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et ses quatre imports sont la règle commune de recherche, celle des pompes, celle des convertisseurs et l'heure du serveur",
-    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 4 && /from "\.\/suggestions\.js"/.test(codeA) && /from "\.\/pompes\.js"/.test(codeA)
+  // ⚠ RETOURNÉ le 23/10/2026 (« a, lance ») : un cinquième import, le registre des cases de la fiche (lib/ficheArticle.js, sans import) ; pompes.js le lit aussi.
+  test("★★ la règle ne reçoit JAMAIS `db` : des listes déjà filtrées, et ses cinq imports sont la règle commune de recherche, celle des pompes, celle des convertisseurs, le registre de la fiche et l'heure du serveur",
+    !/\bdb\b/.test(codeA) && (codeA.match(/^import /mg) || []).length === 5 && /from "\.\/suggestions\.js"/.test(codeA) && /from "\.\/pompes\.js"/.test(codeA)
     && /import \{ estCategorieConvertisseur \} from "\.\/choixSolaire\.js"/.test(codeA)
-    && /from "\.\/horloge\.js"/.test(codeA)
-    && !/^import /m.test(lire("src/lib/pompes.js")) && !/^import /m.test(lire("src/lib/horloge.js")));
+    && /from "\.\/ficheArticle\.js"/.test(codeA) && /from "\.\/horloge\.js"/.test(codeA)
+    && (lire("src/lib/pompes.js").match(/^import /mg) || []).length === 1 && /from "\.\/ficheArticle\.js"/.test(lire("src/lib/pompes.js"))
+    && !/^import /m.test(lire("src/lib/ficheArticle.js")) && !/^import /m.test(lire("src/lib/horloge.js")));
 
   // ── LA LIGNE QU'IL ÉCRIT
   const lg = A.ligneAssistant({ cle: "90112233", tel: "+22890112233", nom: "ESSO", texte: "…", etape: A.ETAPE_MENU, ts: "2026-09-24T10:00:01.000Z" });
@@ -7249,6 +7251,81 @@ titre("79 ⚡ L'ASSISTANT VOIT LES CONVERTISSEURS TRIPHASÉS ET EN PARALLÈLE (2
   test("★★ la consigne : triphasé SEULEMENT si l'outil le rend, chercher « convertisseur triphasé », jamais « nous n'en avons pas », jamais « j'ai vérifié » sans outil",
     /Un convertisseur est triphasé, ou se met en parallèle, SEULEMENT si l'outil le rend/.test(I.CONSIGNE_IA) && /jamais « nous n'en avons pas »/.test(I.CONSIGNE_IA)
     && /Ne dis jamais « j'ai vérifié » ou « j'ai revérifié » sans avoir appelé l'outil dans ce tour/.test(I.CONSIGNE_IA));
+}
+
+// ──────────────────────────────────────────────────────────────
+titre("80 📋 L'ASSISTANT LIT TOUTE LA FICHE, SAUF L'INTERNE — UN REGISTRE, ET LE BANC TOMBE SUR UNE CASE NON RANGÉE (23/10/2026, « la règle d'or : qu'il lise les fiches produit… il récupère automatiquement » → « a, lance »)");
+{
+  const F = await import("../src/lib/ficheArticle.js");
+  const A = await import("../src/lib/assistantWhatsapp.js");
+  const I = await import("../src/lib/assistantIA.js");
+  const P = await import("../src/lib/pompes.js");
+  // Les clés d'un objet écrit dans le code (création, correction, import…).
+  const clesDe = (texte) => [...new Set([...String(texte || "").replace(/\/\/[^\n]*/g, "").matchAll(/(?:^|[{,\s])([a-z_][a-z0-9_]*)\s*:(?!:)/g)].map((m) => m[1]))];
+  const stocks = lire("src/screens/Stocks.jsx");
+  const objets = [];
+  const etat = stocks.match(/const \[f, setF\] = useState\(\{([^}]*)\}\)/); objets.push(["formulaire de 📦 Stocks", etat?.[1]]);
+  const corr = stocks.match(/setF\(\{\s*\n\s*nom: p\.nom[\s\S]*?\}\);/); objets.push(["✏️ Corriger (relecture)", corr?.[0]]);
+  const apres = stocks.match(/const apres = \{([\s\S]*?)\n    \};/); objets.push(["✏️ Corriger (enregistrement)", apres?.[1]]);
+  const cree = stocks.match(/produits: \[\.\.\.db\.produits, \{ id: uid\(\), boutique: bq,([\s\S]*?)\}\] \}, `Nouvel article/); objets.push(["➕ Nouvel article", cree?.[1]]);
+  const corrigeables = stocks.match(/const CHAMPS_CORRIGEABLES = \[([\s\S]*?)\n  \];/);
+  const clesCorrigeables = [...String(corrigeables?.[1] || "").matchAll(/\["([a-z_0-9]+)"/g)].map((m) => m[1]);
+  const imp = lire("src/lib/importStock.js").match(/nouveaux\.push\(\{([\s\S]*?)\}\);/); objets.push(["l'import Excel", imp?.[1]]);
+  for (const f of ["src/lib/transfertsStock.js", "src/screens/Ravitaillement.jsx"]) {
+    const m = lire(f).match(/cible = \{ id: uid\(\),([^}]*)\}/); objets.push([f.split("/").pop(), m?.[1]]);
+  }
+  const rav = stocks.match(/cible = \{ id: uid\(\), boutique: rav\.dest,([^\n]*)\};/); objets.push(["ravitaillement de 📦 Stocks", rav?.[1]]);
+  const toutes = new Set([...clesCorrigeables, ...objets.flatMap(([, t]) => clesDe(t))]);
+  const nonRangees = [...toutes].filter((k) => !F.estRangee(k));
+  test("★★ le banc retrouve les cases dans les huit endroits qui écrivent une fiche d'article (sinon il ne surveillerait rien)",
+    objets.every(([, t]) => t) && clesCorrigeables.length >= 20 && toutes.has("note_assistant") && toutes.has("triphase") && toutes.has("stock_cible"),
+    objets.filter(([, t]) => !t).map(([n]) => n).join(", "));
+  test("★★★ TOUTE case de la fiche est rangée « client », « interne » ou « à part » — une case nouvelle non rangée fait tomber ce contrôle",
+    nonRangees.length === 0, `non rangées : ${nonRangees.join(", ")}`);
+  test("★★★ l'interne, c'est la liste de Timo : prix d'achat, fournisseur, notes internes, code-barres, seuil, stock à atteindre, quantités",
+    ["prix_achat", "fournisseur", "notes", "code", "seuil", "stock_cible", "initial", "entrees"].every((k) => F.CLES_INTERNES.includes(k))
+    && F.CLES_INTERNES.every((k) => !F.CLES_CLIENT.includes(k) && !F.champFiche(k).ligne));
+  test("★★ l'assistant et le menu ne nomment AUCUNE case : ils lisent le registre (une case nouvelle n'a rien à toucher ici)",
+    (() => { const w = lire("src/lib/assistantWhatsapp.js"); const corps = w.slice(w.indexOf("export function ficheArticleAssistant"), w.indexOf("// Le MÉTIER d'un article"));
+      const menu = w.slice(w.indexOf("export function ficheEnClair"), w.indexOf("const fmtF"));
+      return /CHAMPS_CLIENT/.test(corps) && /CHAMPS_CLIENT/.test(menu) && /CLES_FICHE_ASSISTANT = CLES_CLIENT/.test(w)
+        && !/garantie|puissance_kw|triphase|hybride/.test(corps) && !/garantie|puissance_kw|triphase|hybride/.test(menu); })());
+
+  // Chaque case CLIENT, une par une : remplie, elle part à l'assistant, à l'IA et au menu.
+  const valeurDe = (c) => (c.sorte === "nombre" ? 7.5 : c.sorte === "case" ? true : `valeur de ${c.cle}`);
+  const categorieDe = (c) => (c.pour === "pompe" ? "Pompe" : c.pour === "convertisseur" ? "Convertisseur" : "Divers");
+  const manquees = [];
+  for (const c of F.CHAMPS_CLIENT) {
+    const prod = { id: `x-${c.cle}`, nom: `ARTICLE ${c.cle}`, categorie: categorieDe(c), boutique: "BMI DEMAKPOE", prix_vente: 1000, [c.cle]: valeurDe(c) };
+    const art = A.articlesPourAssistant({ produits: [prod], boutiques: [{ nom: "BMI DEMAKPOE" }] })[0];
+    const ia = I.articlePourIA(art);
+    const cleIA = c.cle === "debit_max_m3h" ? "debit_max_m3h_en_surface" : c.cle;
+    if (!art || art[c.cle] === undefined || ia[cleIA] === undefined || !A.ficheEnClair(art)) manquees.push(c.cle);
+  }
+  test("★★★ chaque case « client » remplie part toute seule : à l'assistant, à l'IA, au menu à chiffres", manquees.length === 0, manquees.join(", "));
+  // Chaque case INTERNE, une par une : jamais.
+  const prodInterne = { id: "y", nom: "ARTICLE INTERNE", categorie: "Pompe", boutique: "BMI DEMAKPOE", prix_vente: 1000,
+    ...Object.fromEntries(F.CLES_INTERNES.map((k) => [k, k === "notes" || k === "fournisseur" || k === "code" ? `SECRET-${k}` : 98765])) };
+  const artI = A.articlesPourAssistant({ produits: [prodInterne], boutiques: [{ nom: "BMI DEMAKPOE" }] })[0];
+  const sortie = `${JSON.stringify(artI)} ${I.executerOutil("chercher_article", { recherche: "article interne" }, { articles: [artI] }).resultat} ${A.texteArticles("article interne", [artI])} ${P.ficheLisible(prodInterne)}`;
+  test("★★★ chaque case « interne » ne sort JAMAIS : ni dans la liste, ni à l'IA, ni dans le menu, ni sur la ligne grise",
+    F.CLES_INTERNES.every((k) => !(k in artI)) && !/SECRET|98765/.test(sortie), sortie.slice(0, 300));
+  // Une case qui n'est rangée nulle part ne part pas non plus (on ne devine pas qu'elle est publique).
+  const artX = A.articlesPourAssistant({ produits: [{ id: "z", nom: "ARTICLE INCONNU", categorie: "Divers", boutique: "BMI DEMAKPOE", prix_vente: 1, marge_secrete: 123456 }], boutiques: [{ nom: "BMI DEMAKPOE" }] })[0];
+  test("★★ une case rangée nulle part ne part jamais chez le client", !("marge_secrete" in artX) && !/123456/.test(JSON.stringify(I.articlePourIA(artX))));
+  // Une case NOUVELLE rangée « client » part sans une ligne de plus (on la range, et c'est tout).
+  const neuve = { cle: "indice_ip", libelle: "Indice de protection", destination: "client", sorte: "texte", pour: "tous" };
+  F.CHAMPS_CLIENT.push(neuve); F.CLES_CLIENT.push(neuve.cle);
+  const artN = A.articlesPourAssistant({ produits: [{ id: "n", nom: "PROJECTEUR LED", categorie: "Éclairage", boutique: "BMI DEMAKPOE", prix_vente: 1, indice_ip: "IP65" }], boutiques: [{ nom: "BMI DEMAKPOE" }] })[0];
+  const okNeuve = artN.indice_ip === "IP65" && I.articlePourIA(artN).indice_ip === "IP65" && /indice de protection : IP65/.test(A.ficheEnClair(artN));
+  F.CHAMPS_CLIENT.pop(); F.CLES_CLIENT.pop();
+  test("★★★ une case NOUVELLE, rangée « client » dans le registre, arrive chez l'assistant, l'IA et le menu sans rien toucher d'autre", okNeuve);
+  // La ligne grise suit le registre.
+  test("★★ la ligne grise des reçus et proformas suit le registre (les cases `ligne`, dans leur ordre) ; jamais une garantie ni un lien",
+    P.ficheLisible({ puissance_kw: 0.75, profondeur_max_m: 95, debit_max_m3h: 1.5, tension: 220, hybride: true, triphase: true, parallele: true, garantie_boutique: "1 an", fiche_technique: "http://x", prix_achat: 5 })
+      === "0,75 kW · 95 m · 1,5 m³/h · 220 V · hybride · triphasé · mise en parallèle"
+    && F.CHAMPS_LIGNE.every((c) => c.destination !== "interne") && !F.champFiche("garantie_boutique").ligne && !F.champFiche("fiche_technique").ligne);
+  test("★ lib/ficheArticle.js n'importe rien (le serveur le lit tel quel)", !/^\s*import /m.test(lire("src/lib/ficheArticle.js")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

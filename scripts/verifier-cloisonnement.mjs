@@ -12733,7 +12733,10 @@ titre("💧 LES POMPES : CE QU'ON EN SAIT, ET CE QU'ON NE PROMET PAS (Timo, 20/0
     /Cette étude ne s'enregistre pas/.test(autre) && !/save\(\{[^}]*pompe/.test(autre));
   test("★ le réglage des frottements est réservé à l'administrateur",
     /refuserSaufAdmin\(profile, "Modifier l'estimation des frottements"\)/.test(lit("src/screens/Parametres.jsx")));
-  test("la règle pure ne dépend de rien", !/^\s*import\s/m.test(lit("src/lib/pompes.js")));
+  // ⚠ RETOURNÉ le 23/10/2026 (« a, lance ») : pompes.js lit le registre des cases de la fiche (ficheArticle.js), qui, lui, ne dépend de rien.
+  test("la règle pure ne dépend que du registre de la fiche, qui ne dépend de rien",
+    (lit("src/lib/pompes.js").match(/^\s*import\s/mg) || []).length === 1 && /from "\.\/ficheArticle\.js"/.test(lit("src/lib/pompes.js"))
+    && !/^\s*import\s/m.test(lit("src/lib/ficheArticle.js")));
 }
 
 

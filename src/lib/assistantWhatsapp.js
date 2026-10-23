@@ -58,6 +58,7 @@ import { correspond, sansAccents } from "./suggestions.js";
 // une pompe, jamais le nom — même règle que 📦 Stocks.
 import { estPompe } from "./pompes.js";
 import { estCategorieConvertisseur } from "./choixSolaire.js";
+import { CHAMPS_CLIENT, CLES_CLIENT, valeurDiteDe, bouClair } from "./ficheArticle.js";
 import { maintenantISO } from "./horloge.js";
 
 export const NOM_ASSISTANT = "Assistant BMI TOGO";
@@ -398,36 +399,27 @@ export function stockDepuisLignes(p, ventes = [], ajustements = []) {
 export const NOTE_ASSISTANT_MAX = 400;
 export const noteAssistantDe = (p) => String(p?.note_assistant || "").trim().slice(0, NOTE_ASSISTANT_MAX);
 
-// ---- LA FICHE D'UN ARTICLE, TELLE QUE L'ASSISTANT PEUT LA DIRE (01/10/2026) ----
-// Timo : « pas seulement la fiche des pompes… mais de tous les articles… il
-// faut qu'il y accède ». Tout ce que la fiche porte et qui PEUT être dit à un
-// client passe ; un champ vide ne passe pas (on n'écrit pas « garantie : »).
-// ⚠⚠ JAMAIS : le prix d'achat, le fournisseur, les « Notes internes »
-// (`notes`), le code-barres, la quantité, le seuil, le stock à atteindre —
-// le banc lit les clés rendues et tombe si l'une d'elles apparaît.
-// ⚠ Les trois renseignements propres à une pompe (profondeur, débit,
-// hybride) ne passent QUE pour une pompe : c'est la catégorie qui décide.
-const nbPos = (v) => (Number(v) > 0 ? Number(v) : 0);
-const texteCourt = (v, max = 300) => String(v || "").trim().slice(0, max);
-export const CLES_FICHE_ASSISTANT = ["puissance_kw", "profondeur_max_m", "debit_max_m3h", "hybride", "triphase", "parallele", "garantie_boutique", "garantie_fabricant", "conditions_garantie", "fiche_technique"];
+// ---- LA FICHE D'UN ARTICLE, TELLE QUE L'ASSISTANT PEUT LA DIRE ----
+// 01/10/2026, Timo : « pas seulement la fiche des pompes… mais de tous les
+// articles ». 23/10/2026 : « la règle d'or devrait être qu'il lise les fiches
+// produit tant qu'elles existent… demain si on ajoute une fiche à un produit,
+// on n'aura plus besoin d'aller informer l'assistant » → « a, lance ».
+// Il lit donc LE registre (lib/ficheArticle.js) : toute case rangée « client »
+// et remplie part, sans une ligne de plus ici. Un champ vide ne passe pas (on
+// n'écrit pas « garantie : »).
+// ⚠⚠ JAMAIS : ce qui est rangé « interne » (prix d'achat, fournisseur, notes
+// internes, code-barres, seuil, stock à atteindre, quantités) — ni ce qui
+// n'est rangé nulle part. Le banc lit les clés rendues.
+// ⚠ Une case propre à une pompe ou à un convertisseur ne passe QUE pour lui :
+// c'est la catégorie qui décide (`pour` dans le registre).
+export const CLES_FICHE_ASSISTANT = CLES_CLIENT;
+const portePour = (pour, p) => (pour === "pompe" ? estPompe(p) : pour === "convertisseur" ? estCategorieConvertisseur(p?.categorie) : true);
 export function ficheArticleAssistant(p) {
   const f = {};
-  if (nbPos(p?.puissance_kw)) f.puissance_kw = nbPos(p.puissance_kw);
-  if (estPompe(p)) {
-    if (nbPos(p.profondeur_max_m)) f.profondeur_max_m = nbPos(p.profondeur_max_m);
-    if (nbPos(p.debit_max_m3h)) f.debit_max_m3h = nbPos(p.debit_max_m3h);
-    if (p.hybride) f.hybride = true;
-  }
-  // ⚡ 23/10/2026 (capture Timo : « Je n'ai pas trouvé de convertisseur
-  // triphasé » alors que les fiches sont cochées) : les deux cases d'un
-  // CONVERTISSEUR — la catégorie décide, comme pour une pompe.
-  if (estCategorieConvertisseur(p?.categorie)) {
-    if (p.triphase) f.triphase = true;
-    if (p.parallele) f.parallele = true;
-  }
-  for (const k of ["garantie_boutique", "garantie_fabricant", "conditions_garantie", "fiche_technique"]) {
-    const t = texteCourt(p?.[k]);
-    if (t) f[k] = t;
+  for (const c of CHAMPS_CLIENT) {
+    if (!portePour(c.pour, p)) continue;
+    const v = valeurDiteDe(c, p);
+    if (v !== null) f[c.cle] = v;
   }
   return f;
 }
@@ -471,6 +463,9 @@ export function motsDeTension(a) {
 }
 // « 48 V » → « 48v », « 51,2 V » → « 51,2v » : le nombre et son unité collés.
 const requeteTension = (q) => String(q || "").replace(/(\d+(?:[.,]\d+)?)\s+v\b/gi, "$1v");
+// Les cases cochées de la fiche se cherchent aussi (« convertisseur triphasé »,
+// « pompe hybride ») — toutes celles du registre, sans les nommer ici.
+const motsDesCases = (a) => CHAMPS_CLIENT.filter((c) => c.sorte === "case" && a?.[c.cle] === true).map((c) => c.mot).join(" ");
 export const MAX_ARTICLES_CITES = 6;
 export function chercherArticles(articles, requete) {
   const q = requeteTension(String(requete || "").trim());
@@ -478,23 +473,20 @@ export function chercherArticles(articles, requete) {
   return (articles || [])
     // On cherche aussi dans le MÉTIER (« pompe forage » trouve les pompes
     // rangées dans Forage, 01/10/2026) et dans ce que la fiche dit.
-    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.metier || ""} ${motsDeTension(a)} ${a.description || ""}${a.hybride ? " hybride" : ""}${a.triphase ? " triphasé" : ""}${a.parallele ? " parallèle" : ""}`, q))
+    .filter((a) => correspond(`${a.nom} ${a.categorie} ${a.metier || ""} ${motsDeTension(a)} ${a.description || ""} ${motsDesCases(a)}`, q))
     .sort((a, b) => (a.disponible === b.disponible ? a.nom.localeCompare(b.nom, "fr") : a.disponible ? -1 : 1))
     .slice(0, MAX_ARTICLES_CITES);
 }
 
 // La fiche en une ligne, pour le menu à chiffres (l'IA la reçoit en clair).
-const virgule = (n) => String(n).replace(".", ",");
+// Elle suit LE registre : chaque case client remplie, dans son ordre.
 export function ficheEnClair(a) {
   const b = [];
-  if (a?.puissance_kw) b.push(`${virgule(a.puissance_kw)} kW`);
-  if (a?.profondeur_max_m) b.push(`jusqu'à ${virgule(a.profondeur_max_m)} m`);
-  if (a?.debit_max_m3h) b.push(`débit max ${virgule(a.debit_max_m3h)} m³/h (en surface)`);
-  if (a?.hybride) b.push("hybride");
-  if (a?.triphase) b.push("triphasé");
-  if (a?.parallele) b.push("mise en parallèle");
-  if (a?.garantie_boutique) b.push(`garantie : ${a.garantie_boutique}`);
-  else if (a?.garantie_fabricant) b.push(`garantie fabricant : ${a.garantie_fabricant}`);
+  for (const c of CHAMPS_CLIENT) {
+    const v = a?.[c.cle];
+    if (v === undefined || v === null || v === "" || v === false || v === 0) continue;
+    b.push(bouClair(c, v));
+  }
   return b.join(" · ");
 }
 const fmtF = (n) => `${Math.round(Number(n || 0)).toLocaleString("fr-FR")} F`;

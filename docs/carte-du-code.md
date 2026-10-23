@@ -65,7 +65,8 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/travaux.js` | 🛠 Travaux à crédit : les prestations hors devis |
 | `lib/depotChantier.js` | 🏗 Le dépôt chantier : l'encaissement d'un devis avec installation n'est pas une vente ; ce qui compte comme vente (achats « 🏗 Chantier », reste à la réception), l'état de chaque dépôt |
 | `lib/achatsChantier.js` | 🏗 Le matériel qui part au chantier : la case « Avec installation » du devis, les achats payés par le chantier, l'argent du chantier, 🔒 le matériel réservé (avertissement de vente, « Marquer terminé » sans achat) |
-| `lib/pompes.js` | Les pompes : ce qu'on en note (puissance, profondeur, débit, tension, hybride), et « quelle pompe pour ce forage » — **n'importe RIEN** |
+| `lib/pompes.js` | Les pompes : ce qu'on en note (puissance, profondeur, débit, tension, hybride), « quelle pompe pour ce forage », la ligne grise sous le nom (`ficheLisible`, lue dans le registre) — son seul import : ficheArticle.js |
+| `lib/ficheArticle.js` | LE registre des cases de la fiche d'un article : « client » (l'assistant, le menu, la ligne grise la lisent toutes seules), « interne » (prix d'achat, fournisseur, notes… jamais chez le client), « à part » — **n'importe RIEN** |
 | `lib/outillage.js` | 🧰 Le matériel de travail de BMI : le registre, les sorties et retours, les pertes, l'appel de la semaine |
 | `lib/impression.js` | Les documents imprimables : reçus, bons, contrats |
 | `lib/export.js` | L'export CSV des tableaux |
