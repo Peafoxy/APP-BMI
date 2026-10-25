@@ -15064,7 +15064,16 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
   // même « Chez le DG » par 💸 — l'enveloppe est devenue « intacte » (50 000)
   // TOUTE SEULE, et le tiroir est tombé à −2 500 F. Ni l'un ni l'autre n'est
   // vrai physiquement : rien n'a été remis dans l'enveloppe, et 15 000 sont
-  // entrés puis ressortis d'un coup — net zéro pour le tiroir.
+  // entrés puis ressortis d'un coup — net zéro pour le tiroir. ÉLARGIE LE
+  // SOIR MÊME (capture Timo : la même vente versée le LENDEMAIN faisait
+  // encore tomber le tiroir à −2 500 F, impossible à compter — un tiroir ne
+  // contient jamais moins que 0 F) : « compensé le jour du versement » (option
+  // A, l'enveloppe se sert sur CE versement) a été PROPOSÉE puis REFUSÉE par
+  // Timo (« B » — elle aurait reparé l'enveloppe même le jour même, ce qu'il
+  // avait justement refusé le matin) ; **option B retenue** : la paire ne
+  // touche JAMAIS ni le tiroir ni l'enveloppe, quel que soit le jour du
+  // versement — l'enveloppe reste entamée tant qu'une vente ORDINAIRE ou une
+  // vraie remise du DG ne la renfloue pas.
   const jE = "2026-10-20";
   const dbE0 = {
     boutiques: [{ id: "bE", nom: BQ, fonds_caisse_fixe: 50000 }], users: [angele], produits: [],
@@ -15085,18 +15094,25 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
   const apresE = Vo.deuxPoches(dbE1, BQ, Co.totalVente);
   test("★★★ LE CORRECTIF : versée en entier LE MÊME JOUR, la vente ne touche NI le tiroir NI l'enveloppe — fonds toujours 47 500 (pas « réparé » tout seul), tiroir toujours 0 (pas −2 500)",
     !rVE.refus && apresE.fonds === 47500 && apresE.recette === 0);
-  test("★ la même vente versée un AUTRE JOUR reste une entrée ordinaire : elle rembourse l'enveloppe comme avant (règle 1)",
-    (() => {
-      const dbEAutreJour = { ...dbE0, depenses: [...dbE0.depenses, { ...rVE.sortie, date: "2026-10-21", heure: "08:00" }] };
-      const p = Vo.deuxPoches(dbEAutreJour, BQ, Co.totalVente);
-      return p.fonds === 50000 && p.recette === -2500;
-    })());
+  const jAutre = "2026-10-21";
+  const dbEAutreJour = { ...dbE0, depenses: [...dbE0.depenses, { ...rVE.sortie, date: jAutre, heure: "08:00" }] };
+  test("★★★ ÉLARGI : la même vente versée le LENDEMAIN ne touche TOUJOURS ni le tiroir ni l'enveloppe — fonds encore 47 500, tiroir encore 0 (pas −2 500, option « B »)",
+    (() => { const p = Vo.deuxPoches(dbEAutreJour, BQ, Co.totalVente); return p.fonds === 47500 && p.recette === 0; })());
   test("★ le détail du tiroir compte TOUJOURS la vente et son versement (affichés « hors totaux »), et le soir reste exact",
     (() => {
       const dT = Vo.detailDuTiroir(dbE1, BQ, Co.totalVente);
       const j = dT.jours.find((x) => x.jour === jE);
       return j.aPartEntrees === 15000 && j.aPartSorties === 15000 && j.entrees === 0 && j.sorties === 0 && j.soir === 0
         && j.lignes.filter((l) => l.aPart).length === 2;
+    })());
+  test("★★ le détail du tiroir retrouve la paire SUR DEUX JOURS DIFFÉRENTS : la vente est « hors totaux » le jour E, son versement « hors totaux » le lendemain, les deux soirs restent à 0",
+    (() => {
+      const dT = Vo.detailDuTiroir(dbEAutreJour, BQ, Co.totalVente);
+      const jourVente = dT.jours.find((x) => x.jour === jE), jourVersement = dT.jours.find((x) => x.jour === jAutre);
+      return jourVente.aPartEntrees === 15000 && jourVente.sorties === 0 && jourVente.soir === 0
+        && jourVersement.aPartSorties === 15000 && jourVersement.entrees === 0 && jourVersement.soir === 0
+        && jourVente.lignes.find((l) => l.type === "vente")?.aPart === true
+        && jourVersement.lignes.find((l) => l.type === "versement")?.aPart === true;
     })());
 
   test("★★ il ne pose PAS de bande noire (« seulement entre les versements généraux ») ; un versement de 🔒 Caisse en pose toujours une",
@@ -16020,7 +16036,7 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
   const j9 = dT.jours[2];
   const aPartLibs = j9.lignes.filter((l) => l.aPart).map((l) => l.libelle).join(" | ");
   test("★★ « a, dans le détail » : la vente ET le règlement versés à part le jour même restent affichés (marqués « hors totaux »), mais sortent des entrées et des sorties du jour ; le soir ne bouge pas",
-    j9.lignes.filter((l) => l.aPart).length === 4 && /BMID-v4 — CLIENT v4 — versée à part le jour même, hors totaux/.test(aPartLibs)
+    j9.lignes.filter((l) => l.aPart).length === 4 && /BMID-v4 — CLIENT v4 — versée à part, hors totaux/.test(aPartLibs)
     && /Règlement de dette DET-9 — KOMLA — versée à part/.test(aPartLibs) && /versement à part, hors totaux/.test(aPartLibs)
     && j9.aPartEntrees === 127000 && j9.aPartSorties === 127000 && j9.entrees === 0 && j9.sorties === 0
     && dT.jours[1].aPartEntrees === 0 && !dT.jours[1].lignes.some((l) => l.aPart) && j9.soir === 13600);

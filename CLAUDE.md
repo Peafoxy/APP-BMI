@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2798 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2799 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1856,39 +1856,56 @@ lit mal est pire qu'un banc absent).
   (`mentionVersementGeneral`, `data-vente-dans-versement` /
   `data-reglement-dans-versement`), refus revérifié DANS le geste
   (`critiqueVersementOrigine` avec `caisse` + `quand`). Banc (+5), éprouvé.
-- ⚠⚠ **UNE VENTE VERSÉE EN ENTIER LE MÊME JOUR NE TOUCHE NI LE TIROIR NI
-  L'ENVELOPPE** (25/10/2026, capture Timo : fonds de caisse affiché à
-  47 500 F — l'enveloppe entamée de 2 500 F —, une vente de 15 000 F versée
-  EN ENTIER à la minute même à Chez le DG ; l'enveloppe est devenue
-  « intacte » (50 000 F) TOUTE SEULE, et « Fonds à verser » est tombé à
-  **−2 500 F**. « Mais on ne veut pas que les 2 500 soit déduit pour être
-  remis au fonds de caisse… comment faire »). **Réparé le jour même, dit à
-  Timo.** Ni l'un ni l'autre n'était vrai : rien n'a été physiquement remis
-  dans l'enveloppe, et 15 000 F sont entrés puis ressortis d'un coup — net
-  zéro pour le tiroir. La cause : la règle 1 des « DEUX POCHES » (« une
+- ⚠⚠ **UNE VENTE VERSÉE DIRECT PAR 💸 NE TOUCHE NI LE TIROIR NI L'ENVELOPPE —
+  QUEL QUE SOIT LE JOUR DU VERSEMENT** (25/10/2026, capture Timo : fonds de
+  caisse affiché à 47 500 F — l'enveloppe entamée de 2 500 F —, une vente de
+  15 000 F versée EN ENTIER à la minute même à Chez le DG ; l'enveloppe est
+  devenue « intacte » (50 000 F) TOUTE SEULE, et « Fonds à verser » est
+  tombé à **−2 500 F**. « Mais on ne veut pas que les 2 500 soit déduit pour
+  être remis au fonds de caisse… comment faire »). **Réparé le jour même,
+  dit à Timo.** Ni l'un ni l'autre n'était vrai : rien n'a été physiquement
+  remis dans l'enveloppe, et 15 000 F sont entrés puis ressortis d'un coup —
+  net zéro pour le tiroir. La cause : la règle 1 des « DEUX POCHES » (« une
   ENTRÉE rembourse d'abord l'enveloppe si elle est entamée ») s'appliquait à
   CETTE vente avant même de savoir qu'elle repartirait en entier par 💸.
-  **Règle 5** : une vente ou un règlement versé DIRECT par 💸, LE MÊME JOUR,
-  n'entre jamais dans la marche des deux poches — ni l'enveloppe ni le
-  tiroir ne bougent. Un versement REJETÉ n'est plus `vivant` : la vente
-  revient alors normalement dans le tiroir, à sa vraie place. **Versée un
-  AUTRE jour**, elle reste une entrée ordinaire (la règle 1 s'applique comme
-  avant — le prix de la règle du même jour).
+  **Règle 5** : une vente ou un règlement versé DIRECT par 💸 n'entre jamais
+  dans la marche des deux poches — ni l'enveloppe ni le tiroir ne bougent.
+  Un versement REJETÉ n'est plus `vivant` : la vente revient alors
+  normalement dans le tiroir, à sa vraie place.
+  ⚠⚠ **LE SOIR MÊME, ÉLARGIE À N'IMPORTE QUEL JOUR** (deuxième capture :
+  la MÊME vente versée le LENDEMAIN faisait encore tomber le tiroir à
+  −2 500 F — « impossible à compter » : un tiroir ne contient jamais moins
+  que 0 F. La version du matin ne couvrait que « LE MÊME JOUR » ; versée un
+  AUTRE jour, c'était encore la règle 1 ordinaire qui s'appliquait).
+  **Deux façons ont été chiffrées, et c'est Timo qui a choisi** :
+  **« A »** — l'enveloppe se sert sur CE versement, au moment où il part
+  (« le fonds de caisse soit compensé le jour du versement et non
+  automatiquement dès qu'il y a une entrée ») : réparerait bien le
+  cas du lendemain, mais réparerait AUSSI l'enveloppe pour un versement fait
+  LE JOUR MÊME — exactement ce que la toute première capture du matin
+  refusait. **« B », choisie** : la paire ne touche JAMAIS ni le tiroir ni
+  l'enveloppe, quel que soit le jour — l'enveloppe reste entamée tant
+  qu'une vente ORDINAIRE (règle 1) ou une vraie remise du DG (règle 4) ne la
+  renfloue pas. `mouvementsAPart` (lib/versements.js) retrouve la paire par
+  référence, sans plus regarder la date.
   ⚠⚠ **UNE SEULE RÈGLE, PAS UNE COPIE** : cette paire (vente/règlement +
   son versement) était DÉJÀ détectée depuis le 10/10/2026 par « 🔍 Le détail
   du tiroir », mais UNIQUEMENT pour l'AFFICHER en gris « hors totaux » —
-  jamais pour le CALCUL du carré. `mouvementsAPart` (lib/versements.js) est
-  désormais la seule source : `deuxPoches` (le carré « Fonds à verser » et
-  le fonds de caisse) ET `detailDuTiroir` (l'affichage) l'appellent tous les
-  deux — ma première tentative avait RETIRÉ la paire du tiroir dès
-  `mouvementsEspeces`, ce qui aurait fait DISPARAÎTRE les lignes grises du
-  détail (régression d'une fonctionnalité déjà validée par Timo) : corrigé
-  avant de livrer. Rien à coller (lecture seule). Banc (+5, dont un qui
-  rejoue EXACTEMENT la capture : enveloppe à 47 500, tiroir à 0, la vente
-  versée en entier ne change ni l'un ni l'autre, et le détail du tiroir
-  garde ses deux lignes grises), éprouvé (désactivé exprès : les deux
-  contrôles qui comptent tombent). Aucun chapitre du manuel à corriger (rien
-  d'affiché n'était faux — seul le calcul interne l'était).
+  jamais pour le CALCUL du carré. `mouvementsAPart` est désormais la seule
+  source : `deuxPoches` (le carré « Fonds à verser » et le fonds de caisse)
+  ET `detailDuTiroir` (l'affichage, qui retrouve maintenant la paire sur
+  TOUTE l'histoire — une vente du 24 versée le 25 doit trouver son
+  versement même si l'affichage ne porte que sur le 24) l'appellent tous
+  les deux — ma première tentative du matin avait RETIRÉ la paire du
+  tiroir dès `mouvementsEspeces`, ce qui aurait fait DISPARAÎTRE les lignes
+  grises du détail (régression d'une fonctionnalité déjà validée par Timo) :
+  corrigé avant de livrer. Rien à coller (lecture seule). Bancs (+5 le matin,
+  +3 le soir, dont un qui rejoue EXACTEMENT chaque capture — même jour,
+  lendemain, et le détail du tiroir sur deux jours différents), éprouvés
+  (désactivé exprès à chaque fois : les contrôles qui comptent tombent).
+  **Chapitre 6 corrigé** (il décrivait encore « versé un autre jour, il
+  compte normalement », devenu faux) : envoyé à Timo avec les guides
+  administrateur, comptable, gérant et vendeur qui le contiennent.
 - **📏 DANS 💰 VENTES, UN MOT COURT, LE DÉTAIL AU CLIC** (09/10/2026, capture,
   « afficher juste versée… dès qu'on clique, le reste apparaît », « les deux ») :
   sous le paiement, « 💸 versée » (vert validé / orange en attente) ou, en gris,

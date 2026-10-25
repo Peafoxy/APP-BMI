@@ -463,17 +463,32 @@ export const remisesFondsDe = (db, boutique) => (db?.depenses || []).filter((d) 
 //      pour ce que le tiroir ne couvre pas (« que si pas de vente ») ;
 //   3. un VERSEMENT ne sort QUE du tiroir — on ne verse jamais le fonds ;
 //   4. une REMISE du DG va dans l'enveloppe, jamais dans le tiroir ;
-//   5. une vente ou un règlement versé DIRECT par 💸 LE MÊME JOUR
+//   5. une vente ou un règlement versé DIRECT par 💸, QUEL QUE SOIT LE JOUR
 //      (25/10/2026, capture Timo : une vente de 15 000 F versée en entier,
 //      à la minute même, « Chez le DG » — le fonds de caisse entamé de
 //      2 500 F devenait « intact » tout seul, et le tiroir tombait à
-//      −2 500 F) ne touche NI le tiroir NI l'enveloppe : l'argent part
-//      tout de suite, il n'a jamais dormi ici. Sinon la règle 1 lui
-//      prendrait « sa » part pour l'enveloppe avant qu'il ne reparte en
-//      entier. C'est la MÊME paire que « 🔍 LE DÉTAIL DU TIROIR »
-//      affiche déjà en gris, « hors totaux » (10/10/2026) — ici on
-//      l'applique aussi au CALCUL, pas seulement à l'affichage ; voir
-//      `mouvementsAPart`, réutilisée par les deux.
+//      −2 500 F ; **même soir, deuxième capture** : versée le LENDEMAIN,
+//      l'enveloppe se réparait bien, mais le tiroir tombait quand même à
+//      −2 500 F — impossible à compter, puisqu'un tiroir ne contient jamais
+//      moins que 0 F) ne touche NI le tiroir NI l'enveloppe, **quel que soit
+//      le jour où le versement est fait** : l'argent n'y est jamais entré, il
+//      est parti tout de suite, qu'il reparte à la minute ou des jours plus
+//      tard. ⚠⚠ **Option « B », celle que Timo a choisie** (entre deux
+//      proposées le 25/10/2026 : « A » faisait rembourser l'enveloppe par CE
+//      versement au moment où il part — refusée, parce qu'elle aurait
+//      remis à neuf l'enveloppe même pour un versement fait le jour même,
+//      exactement ce que la toute première capture du jour refusait déjà) :
+//      **l'enveloppe RESTE entamée** si elle l'était — rien dans cette paire
+//      ne la rembourse jamais. Elle ne se renfloue que par une vente
+//      ORDINAIRE (règle 1, non versée directement) ou par une vraie remise du
+//      DG (règle 4). C'est la MÊME paire que « 🔍 LE DÉTAIL DU TIROIR »
+//      affiche déjà en gris, « hors totaux » (10/10/2026) — ici on l'applique
+//      aussi au CALCUL, pas seulement à l'affichage ; voir `mouvementsAPart`,
+//      réutilisée par les deux.
+//      ⚠ Ce que ça ne change PAS : un versement GÉNÉRAL (🔒 Caisse → 💸 Verser
+//      les fonds, sans origine) reste étranger à cette paire — la règle 1
+//      continue de s'appliquer immédiatement, comme toujours, à toute vente
+//      qui n'est PAS versée directement par son propre bouton 💸.
 // Ce que le client remet pour une vente : la vente, plus les frais qui partent
 // avec elle. ⚠ EXPORTÉE : lib/cloture.js s'en sert pour le bloc « Ventes du
 // jour, tous moyens » (Timo, 21/09/2026). Deux formules finiraient par donner
@@ -519,12 +534,17 @@ const mouvementsEspeces = (db, boutique, totalVente) => {
 };
 
 // 💸 LES MOUVEMENTS VERSÉS À PART (10/10/2026 pour l'affichage, 25/10/2026
-// pour le calcul — UNE seule règle, réutilisée par `deuxPoches` ET par
-// `detailDuTiroir`, pour que les deux disent la même chose). Une vente (ou
-// un règlement) versé DIRECTEMENT par le bouton 💸, LE MÊME JOUR, n'a jamais
-// dormi dans le tiroir : son entrée et son propre versement forment une
-// PAIRE qu'on retrouve ici, par référence d'objet (les deux viennent de
-// `mouvements`, donc la comparaison `===` suffit).
+// pour le calcul LE MÊME JOUR, 25/10/2026 au soir pour N'IMPORTE QUEL JOUR —
+// UNE seule règle, réutilisée par `deuxPoches` ET par `detailDuTiroir`, pour
+// que les deux disent la même chose). Une vente (ou un règlement) versée
+// DIRECTEMENT par le bouton 💸 n'a JAMAIS dormi dans le tiroir — qu'elle soit
+// versée le jour même ou des jours plus tard (Timo, capture d'une vente
+// versée le LENDEMAIN : le tiroir attendu tombait quand même à −2 500 F,
+// impossible à compter, un tiroir ne contenant jamais moins que 0 F — « on
+// peut construire que ça soit n'importe quel jour si une vente veut se
+// verser seule »). La vente et SON versement forment une PAIRE qu'on
+// retrouve ici, par référence d'objet, quelle que soit la date de chacun
+// des deux.
 function mouvementsAPart(db, mouvements) {
   const aPart = new Set();
   mouvements.forEach((m) => {
@@ -532,7 +552,7 @@ function mouvementsAPart(db, mouvements) {
     const v = m.type === "vente"
       ? versementDeVente(db, m.src?.id)
       : versementDeReglement(db, cleReglement(m.dette, m.src, m.place));
-    const sortie = v && mouvements.find((x) => x.type === "versement" && x.src === v && x.date === m.date);
+    const sortie = v && mouvements.find((x) => x.type === "versement" && x.src === v);
     if (sortie) { aPart.add(m); aPart.add(sortie); }
   });
   return aPart;
@@ -549,9 +569,11 @@ export function deuxPoches(db, boutique, totalVente, periode = null) {
     if (!avantFin(m.date, periode)) break;
     const dedans = dansPeriode(m.date, periode);
     if (aPart.has(m)) {
-      // 💸 Règle 5 (voir plus haut) : ni le tiroir ni l'enveloppe ne bougent —
-      // mais les compteurs du détail restent justes (`detailDuTiroir` les
-      // affiche puis les retranche lui-même des totaux du jour).
+      // 💸 Règle 5 (voir plus haut, option « B » de Timo) : NI le tiroir NI
+      // l'enveloppe ne bougent pour cette paire, quel que soit le jour — les
+      // compteurs du détail restent justes (`detailDuTiroir` les affiche puis
+      // les retranche lui-même des totaux du jour), mais rien n'est écrit ni
+      // dans `recette` ni dans `fonds`.
       if (dedans) {
         if (m.type === "vente") d.ventes += m.montant;
         else if (m.type === "reglement") d.reglements += m.montant;
@@ -663,6 +685,15 @@ function libelleMouvement(db, m) {
 export function detailDuTiroir(db, boutique, totalVente) {
   const general = dernierVersementGeneral(db, boutique);
   const tous = mouvementsEspeces(db, boutique, totalVente);
+  // 💸 VERSÉE À PART (Timo, 10/10/2026, « il détaille mais ne le compte pas
+  // dans les totaux » → « a, dans le détail »), ÉLARGIE le 25/10/2026 à
+  // n'importe quel jour : la paire se retrouve sur TOUTE l'histoire, pas
+  // seulement dans le jour qu'on affiche — sinon une vente du 24 versée le
+  // 25 ne trouverait jamais son versement. MÊME règle, `mouvementsAPart`
+  // (ci-dessus), jamais une copie : deux formules finiraient par donner deux
+  // chiffres. La paire reste AFFICHÉE (en gris) sur chacun de ses deux jours,
+  // mais sort des entrées et des sorties de CHACUN.
+  const aPart = mouvementsAPart(db, tous);
   const debut = general ? String(general.date).slice(0, 10) : (tous[0]?.date || "");
   const dedans = tous.filter((m) => m.date >= debut);
   const avant = debut ? deuxPoches(db, boutique, totalVente, { du: debut, au: veilleDe(debut) }).recette : 0;
@@ -670,15 +701,6 @@ export function detailDuTiroir(db, boutique, totalVente) {
   const parJour = jours.map((jour) => {
     const p = deuxPoches(db, boutique, totalVente, { du: jour, au: jour });
     const duJour = dedans.filter((m) => m.date === jour);
-    // 💸 VERSÉE À PART (Timo, 10/10/2026, « il détaille mais ne le compte pas
-    // dans les totaux » → « a, dans le détail ») : une vente ou un règlement
-    // versé par le bouton 💸 LE MÊME JOUR entre et ressort aussitôt — il n'a
-    // jamais dormi dans le tiroir. La paire reste AFFICHÉE (en gris), mais
-    // sort des entrées et des sorties du jour. Le soir ne bouge pas (l'un
-    // annule l'autre, et depuis le 25/10/2026 c'est `deuxPoches` lui-même
-    // qui les ignore) — MÊME règle, `mouvementsAPart` (ci-dessus), jamais
-    // une copie : deux formules finiraient par donner deux chiffres.
-    const aPart = mouvementsAPart(db, duJour);
     let aPartEntrees = 0, aPartSorties = 0;
     const lignes = duJour.map((m) => {
       const entre = ["vente", "reglement", "retrait"].includes(m.type);
@@ -688,7 +710,7 @@ export function detailDuTiroir(db, boutique, totalVente) {
       if (part) { aPartEntrees += entree; aPartSorties += sortie; }
       return {
         type: m.type, heure: heureDuMouvement(m),
-        libelle: `${libelleMouvement(db, m)}${part ? (m.type === "versement" ? " — versement à part, hors totaux" : " — versée à part le jour même, hors totaux") : ""}`,
+        libelle: `${libelleMouvement(db, m)}${part ? (m.type === "versement" ? " — versement à part, hors totaux" : " — versée à part, hors totaux") : ""}`,
         entree, sortie, aPart: part,
         general: m.type === "versement" && m.src === general,
       };
