@@ -462,7 +462,18 @@ export const remisesFondsDe = (db, boutique) => (db?.depenses || []).filter((d) 
 //   2. une DÉPENSE se paie sur le tiroir ; on ne pioche dans l'enveloppe que
 //      pour ce que le tiroir ne couvre pas (« que si pas de vente ») ;
 //   3. un VERSEMENT ne sort QUE du tiroir — on ne verse jamais le fonds ;
-//   4. une REMISE du DG va dans l'enveloppe, jamais dans le tiroir.
+//   4. une REMISE du DG va dans l'enveloppe, jamais dans le tiroir ;
+//   5. une vente ou un règlement versé DIRECT par 💸 LE MÊME JOUR
+//      (25/10/2026, capture Timo : une vente de 15 000 F versée en entier,
+//      à la minute même, « Chez le DG » — le fonds de caisse entamé de
+//      2 500 F devenait « intact » tout seul, et le tiroir tombait à
+//      −2 500 F) ne touche NI le tiroir NI l'enveloppe : l'argent part
+//      tout de suite, il n'a jamais dormi ici. Sinon la règle 1 lui
+//      prendrait « sa » part pour l'enveloppe avant qu'il ne reparte en
+//      entier. C'est la MÊME paire que « 🔍 LE DÉTAIL DU TIROIR »
+//      affiche déjà en gris, « hors totaux » (10/10/2026) — ici on
+//      l'applique aussi au CALCUL, pas seulement à l'affichage ; voir
+//      `mouvementsAPart`, réutilisée par les deux.
 // Ce que le client remet pour une vente : la vente, plus les frais qui partent
 // avec elle. ⚠ EXPORTÉE : lib/cloture.js s'en sert pour le bloc « Ventes du
 // jour, tous moyens » (Timo, 21/09/2026). Deux formules finiraient par donner
@@ -507,14 +518,47 @@ const mouvementsEspeces = (db, boutique, totalVente) => {
   return out.sort((a, b) => a.q.localeCompare(b.q));
 };
 
+// 💸 LES MOUVEMENTS VERSÉS À PART (10/10/2026 pour l'affichage, 25/10/2026
+// pour le calcul — UNE seule règle, réutilisée par `deuxPoches` ET par
+// `detailDuTiroir`, pour que les deux disent la même chose). Une vente (ou
+// un règlement) versé DIRECTEMENT par le bouton 💸, LE MÊME JOUR, n'a jamais
+// dormi dans le tiroir : son entrée et son propre versement forment une
+// PAIRE qu'on retrouve ici, par référence d'objet (les deux viennent de
+// `mouvements`, donc la comparaison `===` suffit).
+function mouvementsAPart(db, mouvements) {
+  const aPart = new Set();
+  mouvements.forEach((m) => {
+    if (m.type !== "vente" && m.type !== "reglement") return;
+    const v = m.type === "vente"
+      ? versementDeVente(db, m.src?.id)
+      : versementDeReglement(db, cleReglement(m.dette, m.src, m.place));
+    const sortie = v && mouvements.find((x) => x.type === "versement" && x.src === v && x.date === m.date);
+    if (sortie) { aPart.add(m); aPart.add(sortie); }
+  });
+  return aPart;
+}
+
 // L'état des deux poches à la fin d'une période (ou depuis toujours), et le
 // détail de ce qui s'est passé PENDANT la période.
 export function deuxPoches(db, boutique, totalVente, periode = null) {
   let recette = 0, fonds = 0, plafond = 0;
   const d = { ventes: 0, reglements: 0, depenses: 0, surRecette: 0, surFonds: 0, versements: 0, remises: 0, rendu: 0, retraits: 0 };
-  for (const m of mouvementsEspeces(db, boutique, totalVente)) {
+  const mouvements = mouvementsEspeces(db, boutique, totalVente);
+  const aPart = mouvementsAPart(db, mouvements);
+  for (const m of mouvements) {
     if (!avantFin(m.date, periode)) break;
     const dedans = dansPeriode(m.date, periode);
+    if (aPart.has(m)) {
+      // 💸 Règle 5 (voir plus haut) : ni le tiroir ni l'enveloppe ne bougent —
+      // mais les compteurs du détail restent justes (`detailDuTiroir` les
+      // affiche puis les retranche lui-même des totaux du jour).
+      if (dedans) {
+        if (m.type === "vente") d.ventes += m.montant;
+        else if (m.type === "reglement") d.reglements += m.montant;
+        else d.versements += m.montant;
+      }
+      continue;
+    }
     if (m.type === "remise") {
       fonds += m.montant; plafond += m.montant;
       if (dedans) d.remises += m.montant;
@@ -631,16 +675,10 @@ export function detailDuTiroir(db, boutique, totalVente) {
     // versé par le bouton 💸 LE MÊME JOUR entre et ressort aussitôt — il n'a
     // jamais dormi dans le tiroir. La paire reste AFFICHÉE (en gris), mais
     // sort des entrées et des sorties du jour. Le soir ne bouge pas (l'un
-    // annule l'autre), et les carrés de 🔒 Caisse non plus.
-    const aPart = new Set();
-    duJour.forEach((m) => {
-      if (m.type !== "vente" && m.type !== "reglement") return;
-      const v = m.type === "vente"
-        ? versementDeVente(db, m.src?.id)
-        : versementDeReglement(db, cleReglement(m.dette, m.src, m.place));
-      const sortie = v && duJour.find((x) => x.type === "versement" && x.src === v);
-      if (sortie) { aPart.add(m); aPart.add(sortie); }
-    });
+    // annule l'autre, et depuis le 25/10/2026 c'est `deuxPoches` lui-même
+    // qui les ignore) — MÊME règle, `mouvementsAPart` (ci-dessus), jamais
+    // une copie : deux formules finiraient par donner deux chiffres.
+    const aPart = mouvementsAPart(db, duJour);
     let aPartEntrees = 0, aPartSorties = 0;
     const lignes = duJour.map((m) => {
       const entre = ["vente", "reglement", "retrait"].includes(m.type);

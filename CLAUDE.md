@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2794 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2798 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1856,6 +1856,39 @@ lit mal est pire qu'un banc absent).
   (`mentionVersementGeneral`, `data-vente-dans-versement` /
   `data-reglement-dans-versement`), refus revérifié DANS le geste
   (`critiqueVersementOrigine` avec `caisse` + `quand`). Banc (+5), éprouvé.
+- ⚠⚠ **UNE VENTE VERSÉE EN ENTIER LE MÊME JOUR NE TOUCHE NI LE TIROIR NI
+  L'ENVELOPPE** (25/10/2026, capture Timo : fonds de caisse affiché à
+  47 500 F — l'enveloppe entamée de 2 500 F —, une vente de 15 000 F versée
+  EN ENTIER à la minute même à Chez le DG ; l'enveloppe est devenue
+  « intacte » (50 000 F) TOUTE SEULE, et « Fonds à verser » est tombé à
+  **−2 500 F**. « Mais on ne veut pas que les 2 500 soit déduit pour être
+  remis au fonds de caisse… comment faire »). **Réparé le jour même, dit à
+  Timo.** Ni l'un ni l'autre n'était vrai : rien n'a été physiquement remis
+  dans l'enveloppe, et 15 000 F sont entrés puis ressortis d'un coup — net
+  zéro pour le tiroir. La cause : la règle 1 des « DEUX POCHES » (« une
+  ENTRÉE rembourse d'abord l'enveloppe si elle est entamée ») s'appliquait à
+  CETTE vente avant même de savoir qu'elle repartirait en entier par 💸.
+  **Règle 5** : une vente ou un règlement versé DIRECT par 💸, LE MÊME JOUR,
+  n'entre jamais dans la marche des deux poches — ni l'enveloppe ni le
+  tiroir ne bougent. Un versement REJETÉ n'est plus `vivant` : la vente
+  revient alors normalement dans le tiroir, à sa vraie place. **Versée un
+  AUTRE jour**, elle reste une entrée ordinaire (la règle 1 s'applique comme
+  avant — le prix de la règle du même jour).
+  ⚠⚠ **UNE SEULE RÈGLE, PAS UNE COPIE** : cette paire (vente/règlement +
+  son versement) était DÉJÀ détectée depuis le 10/10/2026 par « 🔍 Le détail
+  du tiroir », mais UNIQUEMENT pour l'AFFICHER en gris « hors totaux » —
+  jamais pour le CALCUL du carré. `mouvementsAPart` (lib/versements.js) est
+  désormais la seule source : `deuxPoches` (le carré « Fonds à verser » et
+  le fonds de caisse) ET `detailDuTiroir` (l'affichage) l'appellent tous les
+  deux — ma première tentative avait RETIRÉ la paire du tiroir dès
+  `mouvementsEspeces`, ce qui aurait fait DISPARAÎTRE les lignes grises du
+  détail (régression d'une fonctionnalité déjà validée par Timo) : corrigé
+  avant de livrer. Rien à coller (lecture seule). Banc (+5, dont un qui
+  rejoue EXACTEMENT la capture : enveloppe à 47 500, tiroir à 0, la vente
+  versée en entier ne change ni l'un ni l'autre, et le détail du tiroir
+  garde ses deux lignes grises), éprouvé (désactivé exprès : les deux
+  contrôles qui comptent tombent). Aucun chapitre du manuel à corriger (rien
+  d'affiché n'était faux — seul le calcul interne l'était).
 - **📏 DANS 💰 VENTES, UN MOT COURT, LE DÉTAIL AU CLIC** (09/10/2026, capture,
   « afficher juste versée… dès qu'on clique, le reste apparaît », « les deux ») :
   sous le paiement, « 💸 versée » (vert validé / orange en attente) ou, en gris,

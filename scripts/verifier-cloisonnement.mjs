@@ -15058,6 +15058,47 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
   test("★★ « 2 tout de suite » : en attente du DG, la somme a DÉJÀ quitté le tiroir (pas de faux manque à la clôture) — et y revient si le DG la rejette",
     tiroirAvant - tiroirApres === 120000 && !Vo.validationVersement(dbApres, rV.sortie)
     && Vo.deuxPoches({ ...dbApres, depenses: Vo.rejeterVersement(dbApres, { nom: "TIMO" }, rV.sortie, "erreur", j).depenses }, BQ, Co.totalVente).recette === tiroirAvant);
+
+  // ⚠⚠ RÈGLE 5 (25/10/2026, capture Timo : fonds de caisse à 47 500 F
+  // (entamé de 2 500 F), une vente de 15 000 F versée EN ENTIER à la minute
+  // même « Chez le DG » par 💸 — l'enveloppe est devenue « intacte » (50 000)
+  // TOUTE SEULE, et le tiroir est tombé à −2 500 F. Ni l'un ni l'autre n'est
+  // vrai physiquement : rien n'a été remis dans l'enveloppe, et 15 000 sont
+  // entrés puis ressortis d'un coup — net zéro pour le tiroir.
+  const jE = "2026-10-20";
+  const dbE0 = {
+    boutiques: [{ id: "bE", nom: BQ, fonds_caisse_fixe: 50000 }], users: [angele], produits: [],
+    ventes: [{ id: "sE", numero: "BMID-2026-0100", date: jE, heure: "11:00", boutique: BQ, client: "CLIENT", paiement: "Espèces", articles: [{ article: "Lot", qte: 1, pu: 15000 }] }],
+    dettes: [],
+    depenses: [
+      { id: "fE0", date: "2026-10-01", boutique: BQ, categorie: Vo.CATEGORIE_FONDS_CAISSE, description: "Fonds de caisse remis", montant: -50000, paiement: "Espèces", par: "TIMO", fonds_caisse: { montant: 50000, origine: "Chez le DG" } },
+      { id: "fE1", date: "2026-10-02", boutique: BQ, categorie: "Transport", description: "Avant toute vente", montant: 2500, paiement: "Espèces", paye_avec: "caisse", par: "ANGELE" },
+    ],
+    clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], clotures: [],
+  };
+  const avantE = Vo.deuxPoches({ ...dbE0, ventes: [] }, BQ, Co.totalVente);
+  test("★★ la mise en situation (avant la vente) : l'enveloppe est bien entamée de 2 500 F (47 500), le tiroir à 0 — exactement la capture de Timo",
+    avantE.fonds === 47500 && avantE.recette === 0);
+  const oVE = { type: Vo.ORIGINE_VENTE, vente_id: "sE", numero: "BMID-2026-0100", client: "CLIENT" };
+  const rVE = Vo.construireVersementOrigine(angele, dbE0, { origine: oVE, boutique: BQ, montant: 15000, source: "Espèces", destination: Vo.DEST_DG });
+  const dbE1 = { ...dbE0, depenses: [...dbE0.depenses, { ...rVE.sortie, date: jE, heure: "11:05" }] };
+  const apresE = Vo.deuxPoches(dbE1, BQ, Co.totalVente);
+  test("★★★ LE CORRECTIF : versée en entier LE MÊME JOUR, la vente ne touche NI le tiroir NI l'enveloppe — fonds toujours 47 500 (pas « réparé » tout seul), tiroir toujours 0 (pas −2 500)",
+    !rVE.refus && apresE.fonds === 47500 && apresE.recette === 0);
+  test("★ la même vente versée un AUTRE JOUR reste une entrée ordinaire : elle rembourse l'enveloppe comme avant (règle 1)",
+    (() => {
+      const dbEAutreJour = { ...dbE0, depenses: [...dbE0.depenses, { ...rVE.sortie, date: "2026-10-21", heure: "08:00" }] };
+      const p = Vo.deuxPoches(dbEAutreJour, BQ, Co.totalVente);
+      return p.fonds === 50000 && p.recette === -2500;
+    })());
+  test("★ le détail du tiroir compte TOUJOURS la vente et son versement (affichés « hors totaux »), et le soir reste exact",
+    (() => {
+      const dT = Vo.detailDuTiroir(dbE1, BQ, Co.totalVente);
+      const j = dT.jours.find((x) => x.jour === jE);
+      return j.aPartEntrees === 15000 && j.aPartSorties === 15000 && j.entrees === 0 && j.sorties === 0 && j.soir === 0
+        && j.lignes.filter((l) => l.aPart).length === 2;
+    })());
+
   test("★★ il ne pose PAS de bande noire (« seulement entre les versements généraux ») ; un versement de 🔒 Caisse en pose toujours une",
     !BVo.poseUneBande(rV.sortie, BQ) && BVo.bandesDeVersement(dbApres, BQ, Co.totalVente).length === 0
     && BVo.poseUneBande(Vo.construireVersement(angele, { boutique: BQ, montant: 5000, destination: Vo.DEST_DG }).sortie, BQ));
