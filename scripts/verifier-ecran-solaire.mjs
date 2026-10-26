@@ -340,27 +340,40 @@ console.log("\n🔌 F5 : un brouillon « consommation connue » DÉJÀ dans loca
   test("aucune erreur au montage sur un brouillon de consommation connue", erreurs.length === 0, erreurs.join(" | "));
 }
 
-console.log("\n📱 La rangée des métiers défile sur téléphone, reste comme avant sur ordinateur (Timo, « 2 ok »)");
+console.log("\n📱 La rangée des métiers, en GRILLE à 2 colonnes sur téléphone, reste comme avant sur ordinateur (Timo : « 2 ok », puis « Oui, lance la grille » après l'aperçu)");
 {
   const zone = page.locator("#r7");
   const rangee = zone.locator("[data-onglets-domaines]");
-  // Téléphone (375 px) : sept métiers + « Mes brouillons » ne tiennent pas
-  // sur une ligne — la rangée doit DÉFILER (scrollWidth > clientWidth) et
-  // rester sur UNE SEULE ligne, pas s'empiler en plusieurs rangées.
-  await page.setViewportSize({ width: 375, height: 700 });
+  // Téléphone (375 px) : sept métiers + « Mes brouillons » (8 boutons) ne
+  // tiennent pas sur une ligne — la rangée doit tenir en LARGEUR (plus de
+  // défilement, au contraire de la bande) en s'étalant sur PLUSIEURS rangées
+  // de 2 colonnes.
+  await page.setViewportSize({ width: 375, height: 900 });
   await attendre(200);
   const phone = await rangee.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, hauteur: el.getBoundingClientRect().height }));
   const hauteurUnBouton = await zone.locator("button:text-is('☀️ Solaire')").evaluate((el) => el.getBoundingClientRect().height);
-  test("★ sur téléphone (375 px), la rangée DÉBORDE (elle défile) : scrollWidth > clientWidth",
-    phone.scrollWidth > phone.clientWidth, JSON.stringify(phone));
-  test("★ sur téléphone, la rangée reste sur UNE SEULE ligne (jamais un empilement de plusieurs rangées)",
-    phone.hauteur < hauteurUnBouton * 1.8, JSON.stringify({ phone, hauteurUnBouton }));
+  test("★ sur téléphone (375 px), la rangée NE DÉBORDE PLUS (scrollWidth ≈ clientWidth — plus de défilement)",
+    phone.scrollWidth <= phone.clientWidth + 2, JSON.stringify(phone));
+  test("★ sur téléphone, la grille s'étale sur PLUSIEURS rangées (8 boutons ÷ 2 colonnes = 4 rangées)",
+    phone.hauteur > hauteurUnBouton * 3, JSON.stringify({ phone, hauteurUnBouton }));
+  // La grille est bien à DEUX colonnes, pas un simple retour à la ligne
+  // (flex-wrap) : « Vidéosurveillance » (long nom) et « Électricité » (nom
+  // court) sont sur la MÊME ligne (3e et 4e domaine), ET ont LA MÊME LARGEUR
+  // — une grille impose deux colonnes égales, quelle que soit la longueur du
+  // texte ; un simple flex-wrap aurait donné à chacun la largeur de son texte
+  // (c'est exactement ce qui distingue la grille d'un empilement ordinaire).
+  const bv = await zone.locator("button:text-is('📹 Vidéosurveillance')").evaluate((el) => el.getBoundingClientRect());
+  const be = await zone.locator("button:text-is('⚡ Électricité')").evaluate((el) => el.getBoundingClientRect());
+  test("★ « Vidéosurveillance » et « Électricité » sont sur la MÊME ligne (même y)",
+    Math.abs(bv.y - be.y) < 2, JSON.stringify({ bv, be }));
+  test("★★ les DEUX COLONNES ont la MÊME LARGEUR, malgré des noms de longueur différente (preuve de la grille)",
+    Math.abs(bv.width - be.width) < 2, JSON.stringify({ bv, be }));
   // Ordinateur (1300 px, comme le reste du banc) : « ça reste comme
   // aujourd'hui » — la rangée tient sans défiler (pas de scrollWidth > clientWidth).
   await page.setViewportSize({ width: 1300, height: 1000 });
   await attendre(200);
   const pc = await rangee.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
-  test("★ sur ordinateur, la rangée ne défile plus (scrollWidth ≈ clientWidth, comme avant)",
+  test("★ sur ordinateur, la rangée ne défile pas (scrollWidth ≈ clientWidth, comme avant)",
     pc.scrollWidth <= pc.clientWidth + 2, JSON.stringify(pc));
   test("aucune erreur sur la rangée des métiers", erreurs.length === 0, erreurs.join(" | "));
 }
