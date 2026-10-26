@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-ecran-loyer     # 43  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée ; « Argent remis à » à choisir, le nom de la personne payée directement (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
-npm run verifier-ecran-solaire   # 31  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET), en liste déroulante étroite entre la boutique et le panneau : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape, un F5 sur un brouillon déjà posé en localStorage retrouve le mode et ses chiffres
+npm run verifier-ecran-solaire   # 35  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET), en liste déroulante étroite entre la boutique et le panneau : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape, un F5 sur un brouillon déjà posé en localStorage retrouve le mode et ses chiffres ; 📱 la rangée des métiers défile sur téléphone (sept métiers, 375 px), reste comme avant sur ordinateur (1300 px)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 20  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`)
@@ -854,6 +854,33 @@ lit mal est pire qu'un banc absent).
     Chromium `verifier-ecran-solaire` (+2, 31). Chapitre 11 à jour (la liste
     déroulante remplace « deux boutons », sa place sur la ligne des
     boutiques). Rien à coller.
+- **📱 LA RANGÉE DES MÉTIERS DÉFILE SUR TÉLÉPHONE** (26/10/2026, capture Timo
+  de la rangée ☀️ Solaire / 🚪 Garage / 📹 Vidéosurveillance / … qui
+  s'empilait sur plusieurs lignes désordonnées : « Sur téléphone on peu pas
+  mieu organiser ces bouton ? Répond d'abord » → deux options rendues : une
+  grille à 2 colonnes, ou **une bande qui défile** comme les onglets du
+  téléphone (`OngletsDeplacables sens="horizontal"`, App.jsx) → **« 2 ok »**).
+  ⚠ Sa réponse « 2 ok » est d'abord passée pour un accusé de réception de la
+  liste déroulante du point précédent (rien n'avait été construit) ; sa
+  question « C'est déjà corrigé ? » l'a fait remarquer, réparé dans la foulée.
+  Dans `screens/dimensionnement/index.jsx`, la rangée des domaines (plus
+  « 📝 Mes brouillons ») passe de `inline-flex flex-wrap` à `flex
+  flex-nowrap overflow-x-auto` **sur téléphone** (boutons `shrink-0
+  whitespace-nowrap`), et **`sm:flex-wrap sm:overflow-visible` ramène
+  EXACTEMENT le rendu d'avant sur ordinateur** — sa demande du matin même
+  tenait toujours (« sur ordinateur, ça reste comme aujourd'hui »). Affichage
+  seul : aucun geste, aucun droit, aucune règle pure touchés — c'est le MÊME
+  bouton qui change de domaine. Rien à coller.
+  **Banc Chromium `verifier-ecran-solaire`** (+4, 35) : un nouveau montage de
+  l'écran ENTIER `Dimensionnement` (pas seulement `DimensionnementSolaire`,
+  qui ne porte pas cette rangée) avec sept métiers réglés, mesuré à 375 px
+  (la rangée DÉBORDE, `scrollWidth > clientWidth`, et reste sur UNE seule
+  ligne — pas de hauteur de plusieurs rangées) puis à 1300 px (elle ne défile
+  plus, comme avant). Éprouvé en remettant l'ancienne classe
+  (`inline-flex flex-wrap`, sans défilement) : les deux contrôles de
+  téléphone tombent (`scrollWidth === clientWidth`, hauteur 150 px —
+  l'empilement de sa capture). **Aucun chapitre à corriger** : le manuel
+  décrit « un bouton par domaine », jamais leur mise en page.
 - **↩ APRÈS LE MODE LIBRE, TOUTES LES LIGNES REPARTENT DU STOCK** (captures
   Timo, 07/10/2026 : « Convertisseur hybride 48V — 3 kW » sans liste ni prix
   sur DEMAKPOE, « même chose pour la ligne panneaux » → « répare ») : une

@@ -89,15 +89,22 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
 
   return (
     <div className="space-y-4">
-      <div className="inline-flex flex-wrap rounded-lg border border-slate-300 bg-white p-1 shadow-sm gap-1">
+      {/* 📱 Sur téléphone, une bande qui défile horizontalement — comme les
+          onglets de l'application (App.jsx, sens="horizontal") — plutôt qu'un
+          empilement désordonné quand les métiers ne tiennent pas sur une
+          ligne (Timo, 26/10/2026, « 2 ok » entre deux propositions). Sur
+          ordinateur (sm et plus), ça reste comme avant : la rangée revient en
+          ligne et les boutons passent à la suivante s'il en faut. */}
+      <div data-onglets-domaines
+           className="flex sm:inline-flex flex-nowrap sm:flex-wrap items-stretch gap-1 overflow-x-auto sm:overflow-visible rounded-lg border border-slate-300 bg-white p-1 shadow-sm">
         {domaines.map((d) => (
           <button key={d.id} onClick={() => setMode(d.id)}
-                  className={`px-4 py-1.5 rounded-md text-sm font-bold ${mode === d.id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                  className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-md text-sm font-bold ${mode === d.id ? "bg-sky-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
             {d.icone} {d.nom}
           </button>
         ))}
         <button onClick={() => setMode("brouillons")}
-                className={`px-4 py-1.5 rounded-md text-sm font-bold ${mode === "brouillons" ? "bg-amber-500 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                className={`shrink-0 whitespace-nowrap px-4 py-1.5 rounded-md text-sm font-bold ${mode === "brouillons" ? "bg-amber-500 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
           📝 Mes brouillons{nbBrouillons ? ` (${nbBrouillons})` : ""}
         </button>
       </div>

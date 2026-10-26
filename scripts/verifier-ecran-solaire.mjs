@@ -38,6 +38,7 @@ import { createRoot } from "react-dom/client";
 import { DimensionnementSolaire } from "${process.cwd()}/src/screens/dimensionnement/Solaire.jsx";
 import { DimensionnementAutre } from "${process.cwd()}/src/screens/dimensionnement/Autre.jsx";
 import { DimensionnementGarage } from "${process.cwd()}/src/screens/dimensionnement/Garage.jsx";
+import { Dimensionnement } from "${process.cwd()}/src/screens/dimensionnement/index.jsx";
 import { DialogHost } from "${process.cwd()}/src/components/ui.jsx";
 const admin = { id: "adm", nom: "TIMO", role: "admin" };
 const depart = {
@@ -108,6 +109,28 @@ const avecZero = (id) => ({ brouillon_id: id, devis: { id, type_devis: "solaire"
 window.avecAutres = avecAutres; window.sansAutres = sansAutres; window.avecZero = avecZero;
 createRoot(document.getElementById("r3")).render(<EssaiReprise Volet={DimensionnementSolaire} nom="Solaire" />);
 createRoot(document.getElementById("r4")).render(<EssaiReprise Volet={DimensionnementGarage} nom="Garage" />);
+// 📱 La rangée des métiers (26/10/2026, Timo : « 2 ok » — la bande qui
+// défile sur téléphone) : plusieurs domaines, pour que la rangée déborde
+// sur un téléphone étroit.
+const avecBeaucoupDeDomaines = {
+  ...depart,
+  boutiques: [{ ...depart.boutiques[0], domaines: [
+    { id: "solaire", nom: "Solaire", icone: "☀️", calcul: "solaire", familles: [] },
+    { id: "garage", nom: "Garage", icone: "🚪", calcul: "garage", familles: [] },
+    { id: "video", nom: "Vidéosurveillance", icone: "📹", calcul: "libre", familles: [] },
+    { id: "elec", nom: "Électricité", icone: "⚡", calcul: "libre", familles: [] },
+    { id: "forage", nom: "Forage", icone: "💧", calcul: "libre", familles: [] },
+    { id: "domotique", nom: "Domotique", icone: "🏠", calcul: "libre", familles: [] },
+    { id: "autre", nom: "Autre", icone: "📦", calcul: "libre", familles: [] },
+  ] }],
+};
+function EssaiDomaines() {
+  const [db, setDb] = useState(avecBeaucoupDeDomaines);
+  const [bq, setBq] = useState("LOME");
+  const save = (next) => { setDb(typeof next === "function" ? next(db) : next); };
+  return <Dimensionnement db={db} profile={admin} save={save} />;
+}
+createRoot(document.getElementById("r7")).render(<EssaiDomaines />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
@@ -120,7 +143,7 @@ const css = readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0];
 if (!css) { console.log("❌ Pas de CSS construit — lancez `npm run build` d'abord."); process.exit(1); }
 writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}">
-</head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><div id="r5"></div><div id="r6"></div><script src="bundle.js"></script></body></html>`);
+</head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><div id="r5"></div><div id="r6"></div><div id="r7"></div><script src="bundle.js"></script></body></html>`);
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await nav.newPage({ viewport: { width: 1300, height: 1000 } });
 const erreurs = [];
@@ -315,6 +338,31 @@ console.log("\n🔌 F5 : un brouillon « consommation connue » DÉJÀ dans loca
   test("★ la description du client revient telle quelle",
     (await zone.locator("textarea").first().inputValue()) === "LE DEVIS SUR LA BASE D'UNE CONSOMMATION INSTANTANEE DE 2KVA");
   test("aucune erreur au montage sur un brouillon de consommation connue", erreurs.length === 0, erreurs.join(" | "));
+}
+
+console.log("\n📱 La rangée des métiers défile sur téléphone, reste comme avant sur ordinateur (Timo, « 2 ok »)");
+{
+  const zone = page.locator("#r7");
+  const rangee = zone.locator("[data-onglets-domaines]");
+  // Téléphone (375 px) : sept métiers + « Mes brouillons » ne tiennent pas
+  // sur une ligne — la rangée doit DÉFILER (scrollWidth > clientWidth) et
+  // rester sur UNE SEULE ligne, pas s'empiler en plusieurs rangées.
+  await page.setViewportSize({ width: 375, height: 700 });
+  await attendre(200);
+  const phone = await rangee.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, hauteur: el.getBoundingClientRect().height }));
+  const hauteurUnBouton = await zone.locator("button:text-is('☀️ Solaire')").evaluate((el) => el.getBoundingClientRect().height);
+  test("★ sur téléphone (375 px), la rangée DÉBORDE (elle défile) : scrollWidth > clientWidth",
+    phone.scrollWidth > phone.clientWidth, JSON.stringify(phone));
+  test("★ sur téléphone, la rangée reste sur UNE SEULE ligne (jamais un empilement de plusieurs rangées)",
+    phone.hauteur < hauteurUnBouton * 1.8, JSON.stringify({ phone, hauteurUnBouton }));
+  // Ordinateur (1300 px, comme le reste du banc) : « ça reste comme
+  // aujourd'hui » — la rangée tient sans défiler (pas de scrollWidth > clientWidth).
+  await page.setViewportSize({ width: 1300, height: 1000 });
+  await attendre(200);
+  const pc = await rangee.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  test("★ sur ordinateur, la rangée ne défile plus (scrollWidth ≈ clientWidth, comme avant)",
+    pc.scrollWidth <= pc.clientWidth + 2, JSON.stringify(pc));
+  test("aucune erreur sur la rangée des métiers", erreurs.length === 0, erreurs.join(" | "));
 }
 
 await nav.close();
