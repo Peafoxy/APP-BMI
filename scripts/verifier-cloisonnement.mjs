@@ -8222,6 +8222,23 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     txtSol.includes("600 000 FCFA") && txtSol.includes("400 000 FCFA") && txtSol.includes("Acompte à la commande (60 %)")
     && txtSol.includes("Solde à l'installation") && txtSol.includes("Délai d'installation : 3 semaines")
     && texteDuPdf(Pdf.genererDevis({ ...dSol, pct_acompte: 100, montant_acompte: 1000000 }, null, true)).includes("Paiement intégral à la commande"));
+  // ⚠⚠ LE DÉFAUT TROUVÉ PAR TIMO LE 26/10/2026 : un devis en « consommation
+  // connue » (appareils: []) ne déclenchait AUCUN bloc besoin — `blocBesoin`
+  // ne regardait que `b.appareils.length > 0` — donc ni « Votre
+  // consommation » ni la description libre du client n'apparaissaient sur
+  // le PDF. Réparé le jour même (blocBesoin regarde aussi `b.conso_connue`).
+  // Le banc RENDUT le PDF, il ne lit pas seulement le code : les deux
+  // contrôles d'avant (texte source de besoinSolaire) passaient DÉJÀ avec
+  // le défaut présent — la leçon du § 5, une fois de plus.
+  const dConso = { ...dSol, besoins: { wh_jour: 0, puissance_simultanee: 0, autonomie: 1, tension: 48, type_batterie: "lifepo4",
+    appareils: [],
+    conso_connue: { consommation_mensuelle_kwh: null, puissance_cumulee_kw: 2, heures_utilisation: 4,
+      description: "LE DEVIS SUR LA BASE D'UNE CONSOMMATION INSTANTANEE DE 2KVA" } } };
+  const txtConso = texteDuPdf(Pdf.genererDevis(dConso, null, true));
+  test("★★ un devis en « consommation connue » (appareils: []) affiche bien « Votre consommation » (titre en majuscules, comme tous les titres de bloc) ET la description du client sur le PDF — le bug du 26/10/2026",
+    txtConso.includes("VOTRE CONSOMMATION") && txtConso.includes("Puissance cumulée : 2 kW, 4 h/jour")
+    && txtConso.includes("LE DEVIS SUR LA BASE D'UNE CONSOMMATION INSTANTANEE DE 2KVA")
+    && !txtConso.includes("VOS APPAREILS"));
   // RETOURNÉ le 11/09/2026 (capture Timo : « trop de tautologie dans les
   // équipements proposés ») : le contrôle exigeait un en-tête par catégorie.
   // Il exige maintenant le contraire quand l'en-tête ne sert à rien — une

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2817 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2818 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -800,6 +800,25 @@ lit mal est pire qu'un banc absent).
     vrais chiffres, 10 000 Wh puis 24 000 Wh, le retour au mode appareils sans
     perte), éprouvés (priorité des deux chemins inversée : le contrôle
     tombe). Chapitre 11 à jour (le mode, ses trois cases, le PDF).
+  - ⚠⚠ **TROUVÉ PAR TIMO LE LENDEMAIN (26/10/2026) : LA DESCRIPTION N'APPARAISSAIT
+    NULLE PART SUR LE DEVIS.** Deux captures (un devis de KOFFIVI MASSA, 2 kW ×
+    4 h, description remplie) : le PDF sautait tout droit à « ÉQUIPEMENT
+    PROPOSÉ », sans aucun bloc « Votre consommation ». Cause : `blocBesoin`
+    (src/pdf.js) décidait quelle fonction écrit le bloc besoin en regardant
+    **seulement** `b.appareils.length > 0` — et ce mode part justement avec
+    `appareils: []` (décision du 25/10 : rien à détailler). `besoinSolaire`,
+    qui contient tout le code du bloc « Votre consommation » et de la
+    description, n'était donc **jamais appelée**. Réparé le jour même :
+    `blocBesoin` regarde aussi `b.conso_connue`. ⚠⚠ **LES DEUX CONTRÔLES DU
+    25/10 NE PROTÉGEAIENT PAS** : ils lisaient le TEXTE SOURCE de
+    `besoinSolaire` (elle contenait bien le bon code) sans jamais vérifier
+    qu'elle était APPELÉE — exactement la leçon du § 5 (« le banc mesure, il
+    ne présume pas »). Un troisième contrôle a été ajouté, qui RENDU le PDF
+    pour de vrai (un devis `appareils: []` + `conso_connue` rempli) et lit le
+    texte réellement écrit ; éprouvé en remettant le défaut : il tombe.
+    Le devis déjà envoyé à KOFFIVI MASSA n'a rien d'écrit de faux dans sa
+    fiche — un nouveau téléchargement du même devis portera désormais la
+    description. Rien à coller. Banc `verifier-cloisonnement` (+1, 2818).
 - **↩ APRÈS LE MODE LIBRE, TOUTES LES LIGNES REPARTENT DU STOCK** (captures
   Timo, 07/10/2026 : « Convertisseur hybride 48V — 3 kW » sans liste ni prix
   sur DEMAKPOE, « même chose pour la ligne panneaux » → « répare ») : une

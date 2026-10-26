@@ -656,6 +656,12 @@ const hauteurBlocFinal = (d) => {
 // pas (ancien devis) : la charpente commence alors à l'équipement.
 const blocBesoin = (b) => {
   if (b && Array.isArray(b.appareils) && b.appareils.length > 0) return besoinSolaire;
+  // 🔌 Consommation connue (25/10/2026) : ce mode part avec `appareils: []`
+  // (décision Timo — aucune liste à détailler), donc la ligne du dessus ne
+  // le voit jamais ; sans celle-ci, `besoinSolaire` n'était JAMAIS appelée
+  // et la description du client disparaissait du devis (défaut trouvé par
+  // Timo le 26/10/2026, réparé le jour même).
+  if (b && b.conso_connue) return besoinSolaire;
   if (b && b.type_ouvrant) return besoinPortail;
   if (b && Array.isArray(b.articles_demandes) && b.articles_demandes.length > 0) return besoinAutre;
   return null;
