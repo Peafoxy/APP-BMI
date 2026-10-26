@@ -52,16 +52,23 @@ const depart = {
   ],
   ventes: [], dettes: [], ajustements: [], messages: [], depenses: [], clients_installes: [],
 };
-function Essai() {
+function Essai({ profile = admin }) {
   const [db, setDb] = useState(depart);
   const [bq, setBq] = useState("LOME");
   const save = (next) => { setDb(typeof next === "function" ? next(db) : next); };
-  return <DimensionnementSolaire db={db} profile={admin} save={save} bq={bq} setBq={setBq} />;
+  return <DimensionnementSolaire db={db} profile={profile} save={save} bq={bq} setBq={setBq} />;
 }
 createRoot(document.getElementById("r")).render(<Essai />);
 // 🔌 Consommation connue (25/10/2026, Timo) : une instance à part, pour ne
 // pas se mélanger avec le chemin « mode Libre » joué sur #r.
 createRoot(document.getElementById("r5")).render(<Essai />);
+// 🔌 F5 — le brouillon est DÉJÀ dans localStorage AVANT que l'écran ne se
+// monte (comme après une vraie actualisation de page) : #r6 se monte sur un
+// localStorage pré-rempli par le banc, jamais tapé à l'écran. UN AUTRE
+// compte (admF5) : localStorage est GLOBAL à la page — avec le même id que
+// #r/#r5, le brouillon posé pour #r6 aurait aussi basculé #r et #r5.
+const admF5 = { id: "admF5", nom: "TIMO F5", role: "admin" };
+createRoot(document.getElementById("r6")).render(<Essai profile={admF5} />);
 // Le devis repris de KLIRA : une ligne hors stock (aucun article du stock ne
 // porte ce nom), 6 × 850 000 F.
 const reprise = { devis: { id: "dv1", besoins: { categorie: "Barrière levante" }, lignes: [
@@ -105,11 +112,24 @@ createRoot(document.getElementById("r4")).render(<EssaiReprise Volet={Dimensionn
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
 const html = join(dossier, "index.html");
-writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><div id="r5"></div><script src="bundle.js"></script></body></html>`);
+writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><div id="r5"></div><div id="r6"></div><script src="bundle.js"></script></body></html>`);
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await nav.newPage({ viewport: { width: 1300, height: 1000 } });
 const erreurs = [];
 page.on("pageerror", (e) => erreurs.push(String(e.message).split("\n")[0]));
+// 🔌 F5 (26/10/2026, Timo : « le devis je connais la consommation est
+// effacé et revient sur détail des appareils ») : on pose le brouillon dans
+// localStorage AVANT que la page ne charge — exactement l'état d'un
+// navigateur qu'on vient d'actualiser — plutôt que de taper à l'écran.
+await page.addInitScript(() => {
+  localStorage.setItem("bmi_brouillon_dim_solaire:admF5", JSON.stringify({
+    appareils: [{ id: "x", nom: "", puissance: "", heures: "", qte: "1" }],
+    autonomie: "1", soleil: 5, tension: "48", typeBatterie: "lifepo4", raccordement: "mono",
+    choix: {}, rolesManuels: {}, rolesHB: {}, railsQte: 0, fixationManuelle: {}, supportId: null, autres: [],
+    modeConsommation: true, consommationMensuelle: "", puissanceCumulee: "2", heuresUtilisation: "4",
+    descriptionAppareils: "LE DEVIS SUR LA BASE D'UNE CONSOMMATION INSTANTANEE DE 2KVA",
+  }));
+});
 await page.goto(`file://${html}`);
 await attendre(600);
 
@@ -256,6 +276,20 @@ console.log("\n🔌 Consommation connue (facture CEET) : sans détailler les app
     (await zone.locator("[data-bloc-consommation-connue]").count()) === 0
     && (await zone.locator('input[placeholder="Ex : tv, frigo, clim…"]').count()) === 1);
   test("aucune erreur pendant le mode consommation connue", erreurs.length === 0, erreurs.join(" | "));
+}
+
+console.log("\n🔌 F5 : un brouillon « consommation connue » DÉJÀ dans localStorage se retrouve au montage");
+{
+  const zone = page.locator("#r6");
+  test("★★ l'écran se monte DIRECTEMENT sur le mode « consommation connue » (le bouton est actif, pas « Détailler les appareils »)",
+    (await zone.locator("[data-bloc-consommation-connue]").count()) === 1
+    && (await zone.locator('input[placeholder="Ex : tv, frigo, clim…"]').count()) === 0);
+  test("★ la puissance cumulée (2 kW) et les heures (4 h) du brouillon reviennent dans les cases",
+    (await zone.locator("[data-champ-puissance-cumulee]").inputValue()) === "2"
+    && (await zone.locator("[data-champ-heures-utilisation]").inputValue()) === "4");
+  test("★ la description du client revient telle quelle",
+    (await zone.locator("textarea").first().inputValue()) === "LE DEVIS SUR LA BASE D'UNE CONSOMMATION INSTANTANEE DE 2KVA");
+  test("aucune erreur au montage sur un brouillon de consommation connue", erreurs.length === 0, erreurs.join(" | "));
 }
 
 await nav.close();
