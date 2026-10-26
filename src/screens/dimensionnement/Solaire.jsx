@@ -750,47 +750,58 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // mode LIBRE reste ouvert (il ne touche à aucun stock ni à aucune
   // boutique) — c'est tout le reste de l'écran qui écrirait à côté.
   if (!boutique && !modeLibre) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
+  // 🔌 Consommation connue (26/10/2026, Timo, trois captures) : « Transformer
+  // en lignes à choisir devant la boutique » → « Cette ligne est à poser là
+  // où j'ai mis mon doigt » (le cadre rouge, SUR LA MÊME LIGNE que les
+  // boutiques et « Libre », juste après) → « qu'elle s'adapte à la longueur
+  // de ce qui est écrit à l'intérieur » (pas `inputCls` : il porte `w-full`,
+  // qui étirait la liste sur toute la largeur). « Détailler les appareils »
+  // reste par défaut (l'état `modeConsommation` ne change pas
+  // d'initialisation). Écrite UNE fois : la rangée des boutiques (absente
+  // pour un compte avec UNE boutique attitrée) n'a pas toujours cette ligne
+  // à partager — le choix du besoin se retrouve alors seul sur sa rangée.
+  const choixBesoin = (
+    <div className="flex items-center gap-2 flex-wrap" data-mode-besoin-solaire>
+      <label className="text-sm font-bold text-slate-700" htmlFor="mode-besoin-solaire">Besoin du client :</label>
+      <select id="mode-besoin-solaire" data-select-mode-besoin
+        className="inline-block w-auto rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold bg-white focus:outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+        value={modeConsommation ? "conso" : "appareils"}
+        onChange={(e) => setModeConsommation(e.target.value === "conso")}>
+        <option value="appareils">📋 Détailler les appareils</option>
+        <option value="conso">🔌 Je connais la consommation (facture CEET)</option>
+      </select>
+    </div>
+  );
   return (
     <div className="space-y-4">
-      {/* 🔌 Consommation connue (26/10/2026, Timo : « transformer en lignes à
-          choisir devant la boutique ») : une liste déroulante, DEVANT la
-          rangée des boutiques — le choix ne dépend d'aucune boutique.
-          « Détailler les appareils » reste par défaut (l'état `modeConsommation`
-          ne change pas d'initialisation). */}
-      <div className="flex items-center gap-2 flex-wrap" data-mode-besoin-solaire>
-        <label className="text-sm font-bold text-slate-700" htmlFor="mode-besoin-solaire">Besoin du client :</label>
-        <select id="mode-besoin-solaire" className={`${inputCls} w-auto`} data-select-mode-besoin
-          value={modeConsommation ? "conso" : "appareils"}
-          onChange={(e) => setModeConsommation(e.target.value === "conso")}>
-          <option value="appareils">📋 Détailler les appareils</option>
-          <option value="conso">🔌 Je connais la consommation (facture CEET)</option>
-        </select>
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {!profile.boutique && (
+          <>
+            {/* Rendu ici même (plutôt que via <BoutiqueTabs>) : ce composant
+                partagé s'enveloppe dans son PROPRE conteneur — Libre se
+                retrouvait alors hors de cette rangée interne, mal aligné
+                (signalé par Timo). Même code/style que BoutiqueTabs, pour
+                rester identique visuellement. */}
+            {/* ⚠ Cloisonnement : boutiquesVente(db) était utilisé brut ici —
+                cette rangée montrait donc les VRAIES boutiques à un compte de
+                formation (et l'inverse). Même filtre que BoutiqueTabs. */}
+            {boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => (
+              // ⚠ Cette rangée est écrite à la main (voir ci-dessus) : elle doit
+              // donc mémoriser elle-même la boutique, comme le fait BoutiqueTabs.
+              // Sans cette ligne, cet écran serait le seul à repartir de zéro
+              // après un rechargement.
+              <button key={b.nom} onClick={() => { memoriserBoutique(profile, "dimensionnement", b.nom); setBq(b.nom); setModeLibre(false); }}
+                className={`px-4 py-1.5 rounded-full text-sm font-bold ${!modeLibre && bq === b.nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
+                style={!modeLibre && bq === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : ""}{b.nom}</button>
+            ))}
+            <button onClick={() => setModeLibre(true)}
+              className={`px-4 py-1.5 rounded-full text-sm font-bold ${modeLibre ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>
+              Libre
+            </button>
+          </>
+        )}
+        {choixBesoin}
       </div>
-      {!profile.boutique && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          {/* Rendu ici même (plutôt que via <BoutiqueTabs>) : ce composant
-              partagé s'enveloppe dans son PROPRE conteneur — Libre se
-              retrouvait alors hors de cette rangée interne, mal aligné
-              (signalé par Timo). Même code/style que BoutiqueTabs, pour
-              rester identique visuellement. */}
-          {/* ⚠ Cloisonnement : boutiquesVente(db) était utilisé brut ici —
-              cette rangée montrait donc les VRAIES boutiques à un compte de
-              formation (et l'inverse). Même filtre que BoutiqueTabs. */}
-          {boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => (
-            // ⚠ Cette rangée est écrite à la main (voir ci-dessus) : elle doit
-            // donc mémoriser elle-même la boutique, comme le fait BoutiqueTabs.
-            // Sans cette ligne, cet écran serait le seul à repartir de zéro
-            // après un rechargement.
-            <button key={b.nom} onClick={() => { memoriserBoutique(profile, "dimensionnement", b.nom); setBq(b.nom); setModeLibre(false); }}
-              className={`px-4 py-1.5 rounded-full text-sm font-bold ${!modeLibre && bq === b.nom ? "text-white" : "bg-white border border-slate-300 text-slate-600"}`}
-              style={!modeLibre && bq === b.nom ? { backgroundColor: b.couleur } : {}}>{b.depot ? "🏭 " : ""}{b.nom}</button>
-          ))}
-          <button onClick={() => setModeLibre(true)}
-            className={`px-4 py-1.5 rounded-full text-sm font-bold ${modeLibre ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>
-            Libre
-          </button>
-        </div>
-      )}
 
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">☀️ Besoins électriques du client <Badge boutique={boutique} /></div>

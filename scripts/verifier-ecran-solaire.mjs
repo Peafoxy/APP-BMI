@@ -18,7 +18,7 @@
 // (DimensionnementAutre) : changer le nom, Valider, lire la ligne.
 // ============================================================
 import { build } from "esbuild";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -112,7 +112,15 @@ createRoot(document.getElementById("r4")).render(<EssaiReprise Volet={Dimensionn
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
 const html = join(dossier, "index.html");
-writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><div id="r5"></div><div id="r6"></div><script src="bundle.js"></script></body></html>`);
+// ⚠ Le VRAI CSS construit (npm run build d'abord) : sans lui, `flex` ne
+// commande rien, les `<div>` s'empilent chacun sur sa ligne, et une
+// vérification de POSITION (même ligne, largeur) mesurerait un rendu que
+// personne ne voit jamais (leçon de `verifier-champs`, 20/09/2026).
+const css = readdirSync("dist/assets").filter((f) => f.endsWith(".css"))[0];
+if (!css) { console.log("❌ Pas de CSS construit — lancez `npm run build` d'abord."); process.exit(1); }
+writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}">
+</head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><div id="r5"></div><div id="r6"></div><script src="bundle.js"></script></body></html>`);
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await nav.newPage({ viewport: { width: 1300, height: 1000 } });
 const erreurs = [];
@@ -238,13 +246,23 @@ console.log("\n🔌 Consommation connue (facture CEET) : sans détailler les app
     const l = ligneDans(label);
     return { texte: propre(await l.innerText()), select: await l.locator("select").count() };
   };
-  // 🔌 26/10/2026 (Timo : « transformer en lignes à choisir devant la
-  // boutique ») : une liste déroulante, AU-DESSUS de la rangée des
-  // boutiques — mesuré, pas présumé.
-  const yMode = (await zone.locator("[data-select-mode-besoin]").boundingBox()).y;
-  const yBoutique = (await zone.locator('button:text-is("LOME")').boundingBox()).y;
-  test("★ le choix du besoin (liste déroulante) est bien AU-DESSUS de la rangée des boutiques",
-    yMode < yBoutique, JSON.stringify({ yMode, yBoutique }));
+  // 🔌 26/10/2026 (Timo, trois captures : « devant la boutique » → « cette
+  // ligne est à poser là où j'ai mis mon doigt » — le cadre rouge, SUR LA
+  // MÊME LIGNE que les boutiques et « Libre », juste à droite — puis
+  // « qu'elle s'adapte à la longueur de ce qui est écrit à l'intérieur »,
+  // pas une ligne étirée sur toute la largeur) — mesuré, pas présumé.
+  const modeBox = await zone.locator("[data-select-mode-besoin]").boundingBox();
+  const boiteLibre = await zone.locator('button:text-is("Libre")').boundingBox();
+  test("★ le choix du besoin (liste déroulante) est SUR LA MÊME LIGNE que la rangée des boutiques, après « Libre »",
+    Math.abs(modeBox.y - boiteLibre.y) < 15 && modeBox.x > boiteLibre.x + boiteLibre.width,
+    JSON.stringify({ modeBox, boiteLibre }));
+  // ⚠ Largeur mesurée avec le VRAI CSS (police, padding, bordure) : un
+  // `<select>` colle à son option la PLUS LONGUE (« 🔌 Je connais la
+  // consommation (facture CEET) »), jamais à l'option affichée — 364 px
+  // mesurés, bien loin d'une ligne qui traverserait l'écran (plus de 700 px
+  // dans sa capture).
+  test("★ la liste n'est PAS étirée sur toute la largeur : elle colle à son contenu (moins de 420 px)",
+    modeBox.width < 420, JSON.stringify(modeBox));
   await zone.locator("[data-select-mode-besoin]").selectOption("conso");
   await attendre(300);
   test("★ le mode activé cache la liste d'appareils et montre le bloc consommation connue",
