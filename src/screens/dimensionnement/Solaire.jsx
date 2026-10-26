@@ -752,6 +752,20 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   if (!boutique && !modeLibre) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
+      {/* 🔌 Consommation connue (26/10/2026, Timo : « transformer en lignes à
+          choisir devant la boutique ») : une liste déroulante, DEVANT la
+          rangée des boutiques — le choix ne dépend d'aucune boutique.
+          « Détailler les appareils » reste par défaut (l'état `modeConsommation`
+          ne change pas d'initialisation). */}
+      <div className="flex items-center gap-2 flex-wrap" data-mode-besoin-solaire>
+        <label className="text-sm font-bold text-slate-700" htmlFor="mode-besoin-solaire">Besoin du client :</label>
+        <select id="mode-besoin-solaire" className={`${inputCls} w-auto`} data-select-mode-besoin
+          value={modeConsommation ? "conso" : "appareils"}
+          onChange={(e) => setModeConsommation(e.target.value === "conso")}>
+          <option value="appareils">📋 Détailler les appareils</option>
+          <option value="conso">🔌 Je connais la consommation (facture CEET)</option>
+        </select>
+      </div>
       {!profile.boutique && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           {/* Rendu ici même (plutôt que via <BoutiqueTabs>) : ce composant
@@ -780,19 +794,6 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">☀️ Besoins électriques du client <Badge boutique={boutique} /></div>
-        {/* 🔌 Consommation connue (25/10/2026, Timo) : une autre façon de
-            donner le besoin — sans détailler les appareils un par un. Un
-            choix, l'ancienne méthode (liste d'appareils) reste d'office. */}
-        <div className="flex flex-wrap gap-2 mb-3" data-mode-besoin-solaire>
-          <button type="button" onClick={() => setModeConsommation(false)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold ${!modeConsommation ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>
-            📋 Détailler les appareils
-          </button>
-          <button type="button" onClick={() => setModeConsommation(true)} data-mode-consommation-connue
-            className={`px-3 py-1.5 rounded-full text-xs font-bold ${modeConsommation ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>
-            🔌 Je connais la consommation (facture CEET)
-          </button>
-        </div>
         {modeConsommation ? (
           <div className="space-y-3" data-bloc-consommation-connue>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-ecran-loyer     # 43  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée ; « Argent remis à » à choisir, le nom de la personne payée directement (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
-npm run verifier-ecran-solaire   # 25  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET) : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape
+npm run verifier-ecran-solaire   # 30  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET), en liste déroulante devant la boutique : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape, un F5 sur un brouillon déjà posé en localStorage retrouve le mode et ses chiffres
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 20  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`)
@@ -819,6 +819,21 @@ lit mal est pire qu'un banc absent).
     Le devis déjà envoyé à KOFFIVI MASSA n'a rien d'écrit de faux dans sa
     fiche — un nouveau téléchargement du même devis portera désormais la
     description. Rien à coller. Banc `verifier-cloisonnement` (+1, 2818).
+  - **📐 LE CHOIX DU BESOIN DEVIENT UNE LISTE DÉROULANTE, DEVANT LA BOUTIQUE**
+    (26/10/2026, capture Timo : « Détailler les appareil et je connais la
+    consommation… Transformer en lignes à choisir devant la boutique. Garder
+    par défaut sur détailler les appareil »). Les deux boutons-pilules dans le
+    panneau « Besoins électriques du client » sont retirés ; **une liste
+    déroulante** (`[data-select-mode-besoin]`) les remplace, posée **tout en
+    haut de l'écran, AVANT la rangée des boutiques** (le choix ne dépend
+    d'aucune boutique). **Rien d'autre ne change** : même état
+    `modeConsommation`, même valeur par défaut (« 📋 Détailler les
+    appareils »), mêmes champs, même brouillon, même PDF. Mesuré dans
+    Chromium : la position de la liste est au-dessus de celle de la rangée
+    des boutiques. Banc Chromium `verifier-ecran-solaire` (+1, 30), éprouvé
+    (ordre inversé : le contrôle tombe). Chapitre 11 à jour (la liste
+    déroulante remplace « deux boutons », sa place devant la boutique).
+    Rien à coller.
 - **↩ APRÈS LE MODE LIBRE, TOUTES LES LIGNES REPARTENT DU STOCK** (captures
   Timo, 07/10/2026 : « Convertisseur hybride 48V — 3 kW » sans liste ni prix
   sur DEMAKPOE, « même chose pour la ligne panneaux » → « répare ») : une

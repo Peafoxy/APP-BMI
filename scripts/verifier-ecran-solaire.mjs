@@ -238,7 +238,14 @@ console.log("\n🔌 Consommation connue (facture CEET) : sans détailler les app
     const l = ligneDans(label);
     return { texte: propre(await l.innerText()), select: await l.locator("select").count() };
   };
-  await zone.locator("[data-mode-consommation-connue]").click();
+  // 🔌 26/10/2026 (Timo : « transformer en lignes à choisir devant la
+  // boutique ») : une liste déroulante, AU-DESSUS de la rangée des
+  // boutiques — mesuré, pas présumé.
+  const yMode = (await zone.locator("[data-select-mode-besoin]").boundingBox()).y;
+  const yBoutique = (await zone.locator('button:text-is("LOME")').boundingBox()).y;
+  test("★ le choix du besoin (liste déroulante) est bien AU-DESSUS de la rangée des boutiques",
+    yMode < yBoutique, JSON.stringify({ yMode, yBoutique }));
+  await zone.locator("[data-select-mode-besoin]").selectOption("conso");
   await attendre(300);
   test("★ le mode activé cache la liste d'appareils et montre le bloc consommation connue",
     (await zone.locator("[data-bloc-consommation-connue]").count()) === 1
@@ -270,7 +277,7 @@ console.log("\n🔌 Consommation connue (facture CEET) : sans détailler les app
     (await zone.locator("textarea").first().inputValue()) === "2 climatiseurs, un congélateur");
   // On revient au mode « Détailler les appareils » : rien n'a été perdu de
   // ce côté, l'ancienne liste réapparaît telle quelle.
-  await zone.locator('button:text-is("📋 Détailler les appareils")').click();
+  await zone.locator("[data-select-mode-besoin]").selectOption("appareils");
   await attendre(300);
   test("★ de retour en mode « appareils », le bloc consommation connue disparaît",
     (await zone.locator("[data-bloc-consommation-connue]").count()) === 0
