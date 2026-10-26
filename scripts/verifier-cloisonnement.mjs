@@ -1863,6 +1863,84 @@ titre("Dimensionnement solaire : les chiffres de l'écran de Timo, verrouillés"
 }
 
 
+titre("🔌 Consommation connue (facture CEET), 25/10/2026 — sans détailler les appareils");
+{
+  // Timo : « puissance cumulée × nombre d'heures peut élaborer le devis sans
+  // facture de la CEET » ; « on peut taper le nombre de kW sur facture et
+  // diviser par 30 ». DEUX chemins, un seul à remplir — la consommation
+  // MENSUELLE l'emporte si elle est donnée.
+  test("une consommation mensuelle de 300 kWh donne 10 000 Wh/jour (÷ 30)",
+    Sol.whJourDepuisConsommationMensuelle(300) === 10000);
+  test("0 ou vide : aucune erreur, 0 Wh",
+    Sol.whJourDepuisConsommationMensuelle(0) === 0 && Sol.whJourDepuisConsommationMensuelle(undefined) === 0);
+  test("3 kW cumulés pendant 8 h donnent 24 000 Wh/jour",
+    Sol.whJourDepuisPuissanceHeures(3, 8) === 24000);
+  test("sans puissance ou sans heures : 0 Wh, pas d'infini",
+    Sol.whJourDepuisPuissanceHeures(0, 8) === 0 && Sol.whJourDepuisPuissanceHeures(3, 0) === 0);
+
+  test("★ la consommation mensuelle l'emporte quand les deux sont données (300 kWh ET 3 kW × 8 h → le mois, pas les heures)",
+    Sol.sourceWhJourConsommationConnue({ consommationMensuelle: 300, puissanceCumulee: 3, heuresUtilisation: 8 }) === "mensuelle"
+    && Sol.whJourDepuisConsommationConnue({ consommationMensuelle: 300, puissanceCumulee: 3, heuresUtilisation: 8 }) === 10000);
+  test("★ sans consommation mensuelle, on se rabat sur puissance × heures",
+    Sol.sourceWhJourConsommationConnue({ puissanceCumulee: 3, heuresUtilisation: 8 }) === "heures"
+    && Sol.whJourDepuisConsommationConnue({ puissanceCumulee: 3, heuresUtilisation: 8 }) === 24000);
+  test("ni l'un ni l'autre : aucune source, 0 Wh, aucune erreur",
+    Sol.sourceWhJourConsommationConnue({}) === null && Sol.whJourDepuisConsommationConnue({}) === 0);
+
+  // La puissance cumulée sert TOUJOURS la pointe (convertisseur), qu'elle
+  // serve ou non à calculer le Wh/jour.
+  const avecFacture = Sol.besoinsDepuisConsommationConnue(
+    { consommationMensuelle: 300, puissanceCumulee: 3 }, { autonomie: 1, soleil: 5, tension: 48, typeBatterie: "lifepo4" });
+  test("★ avec facture : whParJour = 10 000, puissanceSimultanee = 3 000 W (la pointe, même sans heures)",
+    avecFacture.whParJour === 10000 && avecFacture.puissanceSimultanee === 3000);
+  const avecHeures = Sol.besoinsDepuisConsommationConnue(
+    { puissanceCumulee: 3, heuresUtilisation: 8 }, { autonomie: 1, soleil: 5, tension: 48, typeBatterie: "lifepo4" });
+  test("★ sans facture : whParJour = 24 000, puissanceSimultanee = 3 000 W — même pointe",
+    avecHeures.whParJour === 24000 && avecHeures.puissanceSimultanee === 3000);
+
+  // ⚠ LE REFACTOR NE DOIT RIEN CASSER : le cas de référence de Timo
+  // (18/08/2026, 8 616 Wh/j → 3 590 Wc, 187 Ah, 2,47 kW, 88 A), rejoué en
+  // passant directement le whParJour/puissanceSimultanee qu'une liste
+  // d'appareils aurait produits, donne EXACTEMENT les mêmes chiffres.
+  const parAppareils = Sol.besoinsSolaires(
+    [{ puissance: 1235, heures: 8616 / 1235, qte: 1 }], { autonomie: 1, soleil: 3, tension: 48, typeBatterie: "lifepo4" });
+  const parConsommation = Sol.besoinsDepuisConsommation(8616, 1235, { autonomie: 1, soleil: 3, tension: 48, typeBatterie: "lifepo4" });
+  test("★★ le cœur du calcul (besoinsDepuisConsommation) rend EXACTEMENT les mêmes chiffres que besoinsSolaires (3 590 Wc, 187 Ah, 2,47 kW, 88 A)",
+    parConsommation.wcPanneaux === parAppareils.wcPanneaux && parConsommation.ahBatterie === parAppareils.ahBatterie
+    && parConsommation.kwConvertisseur === parAppareils.kwConvertisseur && parConsommation.aRegulateur === parAppareils.aRegulateur
+    && parAppareils.wcPanneaux === 3590 && parAppareils.ahBatterie === 187 && parAppareils.kwConvertisseur === 2.47 && parAppareils.aRegulateur === 88);
+
+  // L'écran : le mode, les trois cases, la ligne libre, et la phrase qui lit
+  // whParJour (le MÊME chiffre que les panneaux/batteries) au lieu de le
+  // recalculer à part — deux calculs auraient fini par diverger.
+  const solJsx = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  test("★ le mode « consommation connue » se bascule, et remplace la liste d'appareils dans le devis envoyé (appareils: [])",
+    /setModeConsommation\(true\)/.test(solJsx) && /appareils: modeConsommation \? \[\] :/.test(solJsx));
+  test("★★ LE COUPLE : la phrase affichée lit `whParJour` (déjà calculé pour les panneaux) et `sourceWhJourConsommationConnue` — jamais un second calcul de Wh/jour dans l'écran",
+    /sourceWhJourConsommationConnue\(consoConnue\)/.test(solJsx)
+    && /Math\.round\(whParJour\)\} Wh \(facture ÷ 30\)/.test(solJsx)
+    && /Math\.round\(whParJour\)\} Wh \(puissance × heures\)/.test(solJsx)
+    && !/whJourDepuisConsommationMensuelle\(consommationMensuelle\)/.test(solJsx)
+    && !/whJourDepuisPuissanceHeures\(puissanceCumulee, heuresUtilisation\)/.test(solJsx));
+  test("★ la case « Heures d'utilisation » se bloque dès qu'une consommation mensuelle est tapée (une seule des deux compte)",
+    /disabled=\{Number\(consommationMensuelle\) > 0\}/.test(solJsx));
+  test("★ la ligne libre (équipements du client) part dans le devis, pour le PDF — conso_connue.description",
+    /description: descriptionAppareils \|\| ""/.test(solJsx));
+  test("★ le brouillon ET la reprise d'un devis gardent le mode consommation connue (F5, « Modifier et renvoyer »)",
+    /besoinsRepris\?\.conso_connue/.test(solJsx) && /brouillon\?\.modeConsommation/.test(solJsx));
+  test("★ « 🆕 Nouveau devis » efface aussi la consommation connue",
+    /setModeConsommation\(false\); setConsommationMensuelle\(""\); setPuissanceCumulee\(""\); setHeuresUtilisation\(""\); setDescriptionAppareils\(""\);/.test(solJsx));
+
+  // Le PDF : le bloc « Vos appareils » est remplacé par « Votre consommation »
+  // + la ligne libre, dès que le devis porte une consommation connue.
+  const pdfJs = readFileSync("src/pdf.js", "utf8");
+  test("★ le PDF du devis dit « Votre consommation » (jamais « Vos appareils ») quand besoins.conso_connue existe",
+    /if \(b\.conso_connue\) \{/.test(pdfJs) && /titreBloc\(doc, y, "Votre consommation"\)/.test(pdfJs));
+  test("★ le PDF écrit la description libre, texteSurPdf (jamais un texte brut qui casserait la police)",
+    /texteSurPdf\(b\.conso_connue\.description\)/.test(pdfJs));
+}
+
+
 titre("Domaines de produits : la liste vient des Paramètres, plus du code");
 {
   const vierge = { boutiques: [{ nom: "DEMAKPOE" }], produits: [] };
@@ -4722,7 +4800,7 @@ titre("Solaire : supports et étriers ont leur case de quantité, et tout survit
   test("★ chaque ligne (supports, étriers) a sa case de quantité, et dit le calculé quand on s'en écarte",
     /onChange=\{\(e\) => corrigerFixation\(cle, base, e\.target\.value\)\}/.test(sol) && /calculé : \{calcule\}/.test(sol) && /retiré du devis/.test(sol));
   test("★ le brouillon du volet garde les équipements, leurs quantités, les rails, les corrections de fixation et le modèle de support (F5)",
-    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, raccordement, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres \}\)/.test(sol));
+    /useEcrireBrouillonVolet\("solaire", profile, \{ appareils, autonomie, soleil, tension, typeBatterie, raccordement, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres, modeConsommation, consommationMensuelle, puissanceCumulee, heuresUtilisation, descriptionAppareils \}\)/.test(sol));
   // 14/09/2026, Timo, trois messages : « les supports doivent être sélectionnés
   // dans le devis, il y a les M8 et les M10 » ; capture : « on ne peut pas
   // choisir, il reste choisi par défaut » (la liste ne s'affichait qu'à partir

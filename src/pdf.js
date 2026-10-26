@@ -361,6 +361,28 @@ function besoinSolaire(doc, d, largeur, hauteur, y) {
     b.raccordement === "tri" ? "Raccordement triphasé" : "",
   ]);
   y = placePour(doc, y, hauteur, 30);
+  // 🔌 Consommation connue (25/10/2026, Timo) : pas de liste d'appareils
+  // dans ce mode — on dit sur quoi le calcul s'est appuyé (la facture CEET,
+  // ou la puissance cumulée × les heures d'utilisation), puis la
+  // description libre du client, si elle a été donnée.
+  if (b.conso_connue) {
+    y = titreBloc(doc, y, "Votre consommation");
+    y = ligneDetail(doc, y, [
+      b.conso_connue.consommation_mensuelle_kwh ? `Consommation mensuelle (facture CEET) : ${fmtMontant(b.conso_connue.consommation_mensuelle_kwh)} kWh` : "",
+      !b.conso_connue.consommation_mensuelle_kwh && b.conso_connue.puissance_cumulee_kw && b.conso_connue.heures_utilisation
+        ? `Puissance cumulée : ${fmtMontant(b.conso_connue.puissance_cumulee_kw)} kW, ${fmtMontant(b.conso_connue.heures_utilisation)} h/jour`
+        : "",
+    ]);
+    if (b.conso_connue.description) {
+      y = placePour(doc, y, hauteur, 10);
+      doc.setFontSize(8);
+      doc.setTextColor(...GRIS_TEXTE);
+      const l = doc.splitTextToSize(`Équipements du client : ${texteSurPdf(b.conso_connue.description)}`, largeur - 28);
+      doc.text(l, 14, y + 1);
+      y += 4 * l.length + 3;
+    }
+    return y;
+  }
   y = titreBloc(doc, y, "Vos appareils");
   const totalW = b.appareils.reduce((s, a) => s + Number(a.puissance || 0) * qteAppareil(a), 0);
   autoTable(doc, {

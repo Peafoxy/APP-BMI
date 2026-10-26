@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2799 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2817 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -63,7 +63,7 @@ npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté
 npm run verifier-ecran-loyer     # 43  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée ; « Argent remis à » à choisir, le nom de la personne payée directement (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
 npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
-npm run verifier-ecran-solaire   # 17  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0
+npm run verifier-ecran-solaire   # 25  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET) : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 20  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`)
@@ -736,6 +736,70 @@ lit mal est pire qu'un banc absent).
   d'achat rangé client, l'assistant qui laisse passer l'inconnu) ; deux
   contrôles RETOURNÉS (les imports de l'assistant et de pompes.js). Chapitres
   8 et 20.
+- **🔌 LA CONSOMMATION CONNUE (FACTURE CEET) : LE DEVIS SOLAIRE SANS DÉTAILLER
+  LES APPAREILS** (25/10/2026, Timo : « est-il possible d'entrer la
+  consommation d'une personne de son compteur électrique de la CEET pour que
+  le dimensionnement solaire lui soit automatiquement proposé ? » → vérifié
+  dans le code : panneaux, batteries, convertisseur et régulateur ne
+  dépendaient DÉJÀ que de deux chiffres, `consommationJour` et
+  `puissanceSimultanee` — rien n'empêchait de les donner directement plutôt
+  que de les calculer sur une liste d'appareils → **« a, lance »**, puis trois
+  précisions : « on ajoute une case de puissance cumulé » ; « on peut taper le
+  nombre de kW sur facture et diviser par 30 » ; « si on connaît la charge
+  instantanée avec le nombre d'heures… ça peut aller aussi » ; et « garde une
+  ligne libre pour décrire » les équipements, pour le devis).
+  - **Le cœur du calcul est sorti en UNE fonction** (`besoinsDepuisConsommation`,
+    lib/solaire.js), qui ne prend que `whParJour` et `puissanceSimultanee` —
+    `besoinsSolaires(appareils, …)` ne fait plus que calculer ces deux chiffres
+    à partir des appareils puis l'appeler. **Preuve que ça ne casse rien** : le
+    cas de référence de Timo (18/08/2026, 8 616 Wh/j → 3 590 Wc, 187 Ah,
+    2,47 kW, 88 A) rejoué en passant directement ces deux chiffres donne les
+    MÊMES résultats, mesuré par le banc.
+  - **Dans 📐 Dimensionnement → ☀️ Solaire**, deux boutons au-dessus des
+    besoins : « 📋 Détailler les appareils » (d'office) / « 🔌 Je connais la
+    consommation (facture CEET) ». En consommation connue : **Puissance
+    cumulée (kW)** — toujours tapée, c'est la pointe qui dimensionne le
+    **convertisseur**, qu'elle serve ou non au Wh/jour — puis **une seule des
+    deux** : « Consommation mensuelle (kWh, facture CEET) » (÷ 30) **ou**
+    « … ou heures d'utilisation / jour » (puissance × heures) — la case des
+    heures se grise dès qu'une consommation mensuelle est tapée, et **la
+    consommation mensuelle l'emporte si les deux sont données** (un chiffre
+    réel de facture vaut mieux qu'une estimation d'heures). Une phrase sous
+    les cases dit le Wh/jour retenu et par quel chemin — elle **lit le même
+    `whParJour`** que celui qui dimensionne panneaux et batteries, jamais un
+    second calcul (deux chemins auraient fini par diverger, CLAUDE.md § 5 —
+    piégé puis corrigé pendant la construction, voir plus bas). Puis une
+    **ligne libre** « Équipements du client » (texte, sans aucun calcul), pour
+    le devis seulement. Basculer d'un mode à l'autre ne perd rien de ce qui
+    est tapé dans l'autre.
+  - **Le reste ne change pas** : le choix du matériel dans le stock
+    (`choixDuStock`, `candidatsSolaire`), les rails, supports, étriers, les
+    autres équipements, la fin du devis — tout ne dépend que de `besoins`
+    (panneaux/batteries/convertisseur/régulateur), quelle que soit son
+    origine.
+  - **Le brouillon et la reprise d'un devis gardent le mode** (`conso_connue`
+    sur `besoins`, comme `appareils`) ; « 🆕 Nouveau devis » efface aussi la
+    consommation connue, et revient au mode « Détailler les appareils ».
+  - **Le PDF** : quand le devis porte une consommation connue, le bloc
+    « Vos appareils » est remplacé par « Votre consommation » (puissance
+    cumulée OU consommation mensuelle, selon ce qui a servi) puis la ligne
+    libre, par `texteSurPdf` (jamais un texte brut qui casse la police, règle
+    du § 5). Rien d'autre du devis ne change.
+  - ⚠⚠ **LE PIÈGE TROUVÉ EN CONSTRUISANT** : la première version recalculait
+    le Wh/jour affiché dans la PHRASE à part (`whJourDepuisConsommationMensuelle`
+    / `whJourDepuisPuissanceHeures` rappelées directement dans l'écran), au
+    lieu de lire `whParJour` — exactement la faute que le banc, éprouvé en
+    inversant la priorité des deux chemins, n'aurait PAS attrapée (les deux
+    calculs auraient divergé en silence). Réparé avant livraison : une seule
+    fonction, `sourceWhJourConsommationConnue`, dit QUEL chemin a été pris ;
+    la phrase lit `whParJour`, jamais un second calcul.
+  - Rien à coller dans Supabase. Bancs : `verifier-cloisonnement` (+18,
+    dont la comparaison des deux chemins de calcul, et le couple phrase /
+    `whParJour` qui ne doit JAMAIS diverger), Chromium `verifier-ecran-solaire`
+    (+8, le mode basculé, les deux chemins mesurés à l'écran avec leurs
+    vrais chiffres, 10 000 Wh puis 24 000 Wh, le retour au mode appareils sans
+    perte), éprouvés (priorité des deux chemins inversée : le contrôle
+    tombe). Chapitre 11 à jour (le mode, ses trois cases, le PDF).
 - **↩ APRÈS LE MODE LIBRE, TOUTES LES LIGNES REPARTENT DU STOCK** (captures
   Timo, 07/10/2026 : « Convertisseur hybride 48V — 3 kW » sans liste ni prix
   sur DEMAKPOE, « même chose pour la ligne panneaux » → « répare ») : une

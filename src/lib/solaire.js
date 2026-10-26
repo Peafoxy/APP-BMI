@@ -91,10 +91,12 @@ export const aRegulateur = (wc, tensionCalcul) => (Number(tensionCalcul) > 0
   ? Math.ceil((wc / Number(tensionCalcul)) * 1.25)
   : 0);
 
-// Tout le dimensionnement en une fois — c'est ce que l'écran affiche.
-export function besoinsSolaires(appareils, { autonomie, soleil, tension, typeBatterie }) {
-  const whParJour = consommationJour(appareils);
-  const simultanee = puissanceSimultanee(appareils);
+// Le cœur du calcul : à partir de la consommation du jour (Wh) et de la
+// puissance qui tourne en même temps (W), QUELLE QUE SOIT LEUR ORIGINE —
+// une liste d'appareils détaillée, ou une consommation connue (25/10/2026,
+// voir plus bas). Tout le reste (panneaux, batteries, convertisseur,
+// régulateur) ne dépend que de ces deux chiffres.
+export function besoinsDepuisConsommation(whParJour, simultanee, { autonomie, soleil, tension, typeBatterie }) {
   const dod = profondeurDecharge(typeBatterie);
   const tensionCalcul = tensionDeCalcul(typeBatterie, tension);
   const wc = wcPanneaux(whParJour, soleil);
@@ -110,6 +112,51 @@ export function besoinsSolaires(appareils, { autonomie, soleil, tension, typeBat
     kwConvertisseur: w / 1000,
     aRegulateur: aRegulateur(wc, tensionCalcul),
   };
+}
+
+// Tout le dimensionnement en une fois, à partir d'une liste d'appareils —
+// c'est ce que l'écran affiche par défaut.
+export function besoinsSolaires(appareils, reglages) {
+  return besoinsDepuisConsommation(consommationJour(appareils), puissanceSimultanee(appareils), reglages);
+}
+
+// ---- 🔌 Consommation connue (facture CEET), 25/10/2026 ----
+// Timo : « est-il possible d'entrer la consommation d'une personne de son
+// compteur électrique de la CEET pour que le dimensionnement solaire lui
+// soit automatiquement proposé ? » — puis, après avoir vérifié que les
+// panneaux/batteries/convertisseur ne dépendent que de DEUX chiffres
+// (consommationJour, puissanceSimultanee ci-dessus), il a choisi l'option
+// « a » : une case « Puissance cumulée (kW) » en plus de la consommation.
+// « En même temps aussi, on peut taper le nombre de kW sur facture et
+// diviser par 30… et si on connaît la charge instantanée avec le nombre
+// d'heures, ça peut aller aussi » : DEUX chemins, un seul à remplir —
+// la consommation MENSUELLE (÷ 30) si le client a sa facture, OU la
+// puissance cumulée × les heures d'utilisation s'il ne l'a pas. La
+// puissance cumulée, elle, sert TOUJOURS : c'est la pointe qui dimensionne
+// le convertisseur, qu'on l'utilise aussi pour le Wh/jour ou non.
+export const whJourDepuisConsommationMensuelle = (kwhMois) => (Number(kwhMois) > 0 ? (Number(kwhMois) * 1000) / 30 : 0);
+export const whJourDepuisPuissanceHeures = (puissanceCumuleeKw, heures) =>
+  (Number(puissanceCumuleeKw) > 0 && Number(heures) > 0 ? Number(puissanceCumuleeKw) * 1000 * Number(heures) : 0);
+// La consommation mensuelle l'emporte si elle est donnée (un chiffre réel
+// de facture vaut mieux qu'une estimation d'heures) ; sinon on se rabat sur
+// puissance × heures. UNE SEULE décision — `sourceWhJourConsommationConnue`
+// — que le calcul ET la phrase affichée à l'écran lisent toutes les deux :
+// deux copies de ce « si » auraient fini par diverger (CLAUDE.md § 5).
+export const sourceWhJourConsommationConnue = (conso) =>
+  (Number(conso?.consommationMensuelle) > 0
+    ? "mensuelle"
+    : (Number(conso?.puissanceCumulee) > 0 && Number(conso?.heuresUtilisation) > 0 ? "heures" : null));
+export const whJourDepuisConsommationConnue = (conso) => {
+  const source = sourceWhJourConsommationConnue(conso);
+  if (source === "mensuelle") return whJourDepuisConsommationMensuelle(conso.consommationMensuelle);
+  if (source === "heures") return whJourDepuisPuissanceHeures(conso.puissanceCumulee, conso.heuresUtilisation);
+  return 0;
+};
+
+// Tout le dimensionnement à partir d'une consommation connue, au lieu d'une
+// liste d'appareils — même résultat, mêmes formules.
+export function besoinsDepuisConsommationConnue(conso, reglages) {
+  return besoinsDepuisConsommation(whJourDepuisConsommationConnue(conso), Number(conso?.puissanceCumulee) > 0 ? Number(conso.puissanceCumulee) * 1000 : 0, reglages);
 }
 
 // ---- Supports de rail et étriers ----

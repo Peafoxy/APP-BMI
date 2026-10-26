@@ -4,10 +4,10 @@
 // ============================================================
 import { useState, useEffect, useRef } from "react";
 import { uid, fmt, today } from "../../lib/core";
-import { Field, inputCls, Badge, Panel, uAlert, uConfirm, AucuneBoutique, Stat } from "../../components/ui";
+import { Field, inputCls, Badge, Panel, uAlert, uConfirm, AucuneBoutique, Stat, ChampQuiGrandit } from "../../components/ui";
 import { ENTREPRISE_VIDE } from "../../lib/clientEntreprise";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, longueurRailBarre, domainesDefinis, memoriserBoutique, estAdminPrincipal } from "../../lib/calculs";
-import { besoinsSolaires, supportsPourRails, etriersPourPanneaux, barresDeRail, qteAppareil } from "../../lib/solaire";
+import { besoinsSolaires, besoinsDepuisConsommationConnue, sourceWhJourConsommationConnue, supportsPourRails, etriersPourPanneaux, barresDeRail, qteAppareil } from "../../lib/solaire";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
@@ -121,6 +121,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         ? brouillon.appareils
         : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
   );
+  // 🔌 Consommation connue (facture CEET), 25/10/2026 : une autre façon de
+  // donner le besoin, sans détailler les appareils un par un — voir
+  // lib/solaire.js (besoinsDepuisConsommationConnue) pour la règle.
+  const [modeConsommation, setModeConsommation] = useState(() => !!(besoinsRepris?.conso_connue || brouillon?.modeConsommation));
+  const [consommationMensuelle, setConsommationMensuelle] = useState(() => besoinsRepris?.conso_connue?.consommation_mensuelle_kwh ? String(besoinsRepris.conso_connue.consommation_mensuelle_kwh) : (brouillon?.consommationMensuelle ?? ""));
+  const [puissanceCumulee, setPuissanceCumulee] = useState(() => besoinsRepris?.conso_connue?.puissance_cumulee_kw ? String(besoinsRepris.conso_connue.puissance_cumulee_kw) : (brouillon?.puissanceCumulee ?? ""));
+  const [heuresUtilisation, setHeuresUtilisation] = useState(() => besoinsRepris?.conso_connue?.heures_utilisation ? String(besoinsRepris.conso_connue.heures_utilisation) : (brouillon?.heuresUtilisation ?? ""));
+  const [descriptionAppareils, setDescriptionAppareils] = useState(() => besoinsRepris?.conso_connue?.description ?? (brouillon?.descriptionAppareils ?? ""));
   const [autonomie, setAutonomie] = useState(() => besoinsRepris?.autonomie ? String(besoinsRepris.autonomie) : (brouillon?.autonomie ?? "1"));
   // Valeurs par défaut demandées par Timo (06/09/2026) : 5 h de soleil, 48 V.
   const [soleil, setSoleil] = useState(() => brouillon?.soleil ?? SOLEIL_DEFAUT);
@@ -157,7 +165,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // j'espère ? »). Les formules sont IDENTIQUES, mot pour mot — elles
   // reproduisent exactement les chiffres de son écran du 18/08/2026, et ce cas
   // est désormais verrouillé dans le harnais de vérification.
-  const besoins = besoinsSolaires(appareils, { autonomie, soleil, tension, typeBatterie });
+  const consoConnue = { consommationMensuelle, puissanceCumulee, heuresUtilisation };
+  const besoins = modeConsommation
+    ? besoinsDepuisConsommationConnue(consoConnue, { autonomie, soleil, tension, typeBatterie })
+    : besoinsSolaires(appareils, { autonomie, soleil, tension, typeBatterie });
   const { whParJour, puissanceSimultanee, dod, tensionCalcul,
           wcPanneaux, ahBatterie, wConvertisseur, kwConvertisseur } = besoins;
   const aRegulateur = besoins.aRegulateur;
@@ -404,8 +415,18 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // Ventes/Commandes : « vérifie s'il n'y a pas autre chose de cassé ».
   useEffect(() => {
     if (!devisAReprendre) return;
-    if (besoinsRepris?.appareils?.length) {
-      setAppareils(besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(qteAppareil(a)) })));
+    if (besoinsRepris?.conso_connue) {
+      setModeConsommation(true);
+      setConsommationMensuelle(besoinsRepris.conso_connue.consommation_mensuelle_kwh ? String(besoinsRepris.conso_connue.consommation_mensuelle_kwh) : "");
+      setPuissanceCumulee(besoinsRepris.conso_connue.puissance_cumulee_kw ? String(besoinsRepris.conso_connue.puissance_cumulee_kw) : "");
+      setHeuresUtilisation(besoinsRepris.conso_connue.heures_utilisation ? String(besoinsRepris.conso_connue.heures_utilisation) : "");
+      setDescriptionAppareils(besoinsRepris.conso_connue.description || "");
+    } else {
+      setModeConsommation(false);
+      setConsommationMensuelle(""); setPuissanceCumulee(""); setHeuresUtilisation(""); setDescriptionAppareils("");
+      if (besoinsRepris?.appareils?.length) {
+        setAppareils(besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(qteAppareil(a)) })));
+      }
     }
     if (besoinsRepris?.autonomie) setAutonomie(String(besoinsRepris.autonomie));
     if (besoinsRepris?.tension) setTension(String(besoinsRepris.tension));
@@ -635,7 +656,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti (voir plus bas), jamais avant.
-  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, raccordement, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres });
+  useEcrireBrouillonVolet("solaire", profile, { appareils, autonomie, soleil, tension, typeBatterie, raccordement, choix, rolesManuels, rolesHB, railsQte, fixationManuelle, supportId, autres, modeConsommation, consommationMensuelle, puissanceCumulee, heuresUtilisation, descriptionAppareils });
 
   const totalArticles = totalRoles + sousTotalRails + sousTotalSupports + sousTotalEtriers + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
@@ -658,9 +679,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const nouveauDevis = async () => {
     if (!await uConfirm(
       `Commencer un NOUVEAU devis ?\n\n` +
-      `Les ${appareils.length} appareils, les équipements choisis, les rails et les autres équipements du devis en cours seront effacés, ainsi que le client choisi.\n\n` +
+      `${modeConsommation ? "La consommation connue" : `Les ${appareils.length} appareils`}, les équipements choisis, les rails et les autres équipements du devis en cours seront effacés, ainsi que le client choisi.\n\n` +
       `Pour garder ce devis, annulez et cliquez d'abord « 📝 Enregistrer un brouillon » en bas de la page.`)) return;
     setAppareils([{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]);
+    setModeConsommation(false); setConsommationMensuelle(""); setPuissanceCumulee(""); setHeuresUtilisation(""); setDescriptionAppareils("");
     setChoix({}); setRolesManuels({}); setRolesHB({}); setManuelOuvert({}); setBrouillonManuel({});
     setRailsQte(0); setFixationManuelle({});
     setRaccordement(RACCORDEMENT_DEFAUT);
@@ -701,9 +723,17 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         tension: Number(tension),
         type_batterie: typeBatterie,
         raccordement,
-        appareils: appareils.filter((a) => a.nom && a.puissance).map((a) => ({
+        appareils: modeConsommation ? [] : appareils.filter((a) => a.nom && a.puissance).map((a) => ({
           nom: a.nom, puissance: Number(a.puissance), heures: Number(a.heures || 0), qte: qteAppareil(a),
         })),
+        // 🔌 Consommation connue (25/10/2026) : présent seulement dans ce
+        // mode — le PDF du devis le lit pour afficher le bon bloc.
+        conso_connue: modeConsommation ? {
+          consommation_mensuelle_kwh: Number(consommationMensuelle) > 0 ? Number(consommationMensuelle) : null,
+          puissance_cumulee_kw: Number(puissanceCumulee) > 0 ? Number(puissanceCumulee) : null,
+          heures_utilisation: Number(heuresUtilisation) > 0 ? Number(heuresUtilisation) : null,
+          description: descriptionAppareils || "",
+        } : null,
       },
       panierMetier: panierMetier(), lignesMetier: lignesMetier(), autres, reglages: r,
     }),
@@ -750,23 +780,66 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
 
       <Panel boutique={boutique}>
         <div className="font-bold mb-3">☀️ Besoins électriques du client <Badge boutique={boutique} /></div>
-        <div className="space-y-2">
-          {appareils.map((a) => (
-            <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
-              <Field label="Appareil"><ChampSuggestions placeholder="Ex : tv, frigo, clim…" valeur={a.nom} suggestions={propositionsAppareils} onChange={(v) => majAppareil(a.id, "nom", v)} onChoisir={(s) => choisirAppareil(a.id, s)} /></Field>
-              <Field label="Puissance (W)"><input type="number" className={inputCls} value={a.puissance} onChange={(e) => majAppareil(a.id, "puissance", e.target.value)} /></Field>
-              <Field label="Heures/jour"><input type="number" className={inputCls} value={a.heures} onChange={(e) => majAppareil(a.id, "heures", e.target.value)} /></Field>
-              <Field label="Quantité"><input type="number" min="0" className={inputCls} value={a.qte} onChange={(e) => majAppareil(a.id, "qte", e.target.value)} /></Field>
-              <button onClick={() => retirerAppareil(a.id)} className="text-xs text-red-600 underline pb-2">Retirer</button>
+        {/* 🔌 Consommation connue (25/10/2026, Timo) : une autre façon de
+            donner le besoin — sans détailler les appareils un par un. Un
+            choix, l'ancienne méthode (liste d'appareils) reste d'office. */}
+        <div className="flex flex-wrap gap-2 mb-3" data-mode-besoin-solaire>
+          <button type="button" onClick={() => setModeConsommation(false)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold ${!modeConsommation ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>
+            📋 Détailler les appareils
+          </button>
+          <button type="button" onClick={() => setModeConsommation(true)} data-mode-consommation-connue
+            className={`px-3 py-1.5 rounded-full text-xs font-bold ${modeConsommation ? "bg-slate-800 text-white" : "bg-white border border-slate-300 text-slate-600"}`}>
+            🔌 Je connais la consommation (facture CEET)
+          </button>
+        </div>
+        {modeConsommation ? (
+          <div className="space-y-3" data-bloc-consommation-connue>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <Field label="Puissance cumulée (kW)"><input type="number" className={inputCls} value={puissanceCumulee} onChange={(e) => setPuissanceCumulee(e.target.value)} data-champ-puissance-cumulee /></Field>
+              <Field label="Consommation mensuelle (kWh, facture CEET)"><input type="number" className={inputCls} value={consommationMensuelle} onChange={(e) => setConsommationMensuelle(e.target.value)} data-champ-consommation-mensuelle /></Field>
+              <Field label="… ou heures d'utilisation / jour">
+                <input type="number" className={inputCls} value={heuresUtilisation} onChange={(e) => setHeuresUtilisation(e.target.value)} disabled={Number(consommationMensuelle) > 0} data-champ-heures-utilisation />
+              </Field>
             </div>
-          ))}
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-4">
-          <button onClick={ajouterAppareil} className="text-sm font-bold text-sky-800 underline">➕ Ajouter un appareil</button>
-          {appareils.length > 5 && (
+            {/* ⚠ La phrase lit `whParJour` — LE chiffre déjà calculé pour les
+                panneaux et les batteries (`besoins`, plus haut) — et
+                `sourceWhJourConsommationConnue` pour savoir QUEL chemin a
+                été pris. Jamais un second calcul : les deux divergeraient. */}
+            <div className="text-xs text-slate-500" data-phrase-consommation-connue>
+              {(() => {
+                const source = sourceWhJourConsommationConnue(consoConnue);
+                if (source === "mensuelle") return `Consommation du jour calculée : ${Math.round(whParJour)} Wh (facture ÷ 30).`;
+                if (source === "heures") return `Consommation du jour calculée : ${Math.round(whParJour)} Wh (puissance × heures).`;
+                return "Donnez la consommation mensuelle (facture CEET), ou la puissance cumulée et les heures d'utilisation.";
+              })()}
+            </div>
+            <Field label="Équipements du client (description libre, pour le devis)">
+              <ChampQuiGrandit valeur={descriptionAppareils} onChange={setDescriptionAppareils} placeholder="Ex : 2 climatiseurs, un congélateur, l'éclairage…" />
+            </Field>
             <button onClick={nouveauDevis} className="text-sm font-bold text-red-700 underline">🆕 Nouveau devis (tout effacer)</button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              {appareils.map((a) => (
+                <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
+                  <Field label="Appareil"><ChampSuggestions placeholder="Ex : tv, frigo, clim…" valeur={a.nom} suggestions={propositionsAppareils} onChange={(v) => majAppareil(a.id, "nom", v)} onChoisir={(s) => choisirAppareil(a.id, s)} /></Field>
+                  <Field label="Puissance (W)"><input type="number" className={inputCls} value={a.puissance} onChange={(e) => majAppareil(a.id, "puissance", e.target.value)} /></Field>
+                  <Field label="Heures/jour"><input type="number" className={inputCls} value={a.heures} onChange={(e) => majAppareil(a.id, "heures", e.target.value)} /></Field>
+                  <Field label="Quantité"><input type="number" min="0" className={inputCls} value={a.qte} onChange={(e) => majAppareil(a.id, "qte", e.target.value)} /></Field>
+                  <button onClick={() => retirerAppareil(a.id)} className="text-xs text-red-600 underline pb-2">Retirer</button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-4">
+              <button onClick={ajouterAppareil} className="text-sm font-bold text-sky-800 underline">➕ Ajouter un appareil</button>
+              {appareils.length > 5 && (
+                <button onClick={nouveauDevis} className="text-sm font-bold text-red-700 underline">🆕 Nouveau devis (tout effacer)</button>
+              )}
+            </div>
+          </>
+        )}
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
           <Field label="Autonomie souhaitée (jours)"><input type="number" min="1" className={inputCls} value={autonomie} onChange={(e) => setAutonomie(e.target.value)} /></Field>

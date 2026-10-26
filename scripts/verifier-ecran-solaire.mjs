@@ -59,6 +59,9 @@ function Essai() {
   return <DimensionnementSolaire db={db} profile={admin} save={save} bq={bq} setBq={setBq} />;
 }
 createRoot(document.getElementById("r")).render(<Essai />);
+// 🔌 Consommation connue (25/10/2026, Timo) : une instance à part, pour ne
+// pas se mélanger avec le chemin « mode Libre » joué sur #r.
+createRoot(document.getElementById("r5")).render(<Essai />);
 // Le devis repris de KLIRA : une ligne hors stock (aucun article du stock ne
 // porte ce nom), 6 × 850 000 F.
 const reprise = { devis: { id: "dv1", besoins: { categorie: "Barrière levante" }, lignes: [
@@ -102,7 +105,7 @@ createRoot(document.getElementById("r4")).render(<EssaiReprise Volet={Dimensionn
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
 const html = join(dossier, "index.html");
-writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><script src="bundle.js"></script></body></html>`);
+writeFileSync(html, `<!doctype html><html><head><meta charset="utf-8"></head><body><div id="r"></div><div id="r2"></div><div id="r3"></div><div id="r4"></div><div id="r5"></div><script src="bundle.js"></script></body></html>`);
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await nav.newPage({ viewport: { width: 1300, height: 1000 } });
 const erreurs = [];
@@ -204,6 +207,56 @@ console.log("\nUn appareil à 0 dans un brouillon repris reste à 0 (le brouillo
   test("une quantité ABSENTE vaut toujours 1 (la Télévision)", nombres[8] === "1", JSON.stringify(nombres.slice(0, 9)));
 }
 test("aucune erreur pendant les reprises", erreurs.length === 0, erreurs.join(" | "));
+
+console.log("\n🔌 Consommation connue (facture CEET) : sans détailler les appareils");
+{
+  // Timo, 25/10/2026 : « puissance cumulée × nombre d'heures peut élaborer
+  // le devis sans facture de la CEET… ou la consommation mensuelle ÷ 30 ».
+  const zone = page.locator("#r5");
+  const ligneDans = (label) => zone.locator("tbody tr", { has: page.locator(`td:first-child:text-is("${label}")`) }).first();
+  const etatDans = async (label) => {
+    const l = ligneDans(label);
+    return { texte: propre(await l.innerText()), select: await l.locator("select").count() };
+  };
+  await zone.locator("[data-mode-consommation-connue]").click();
+  await attendre(300);
+  test("★ le mode activé cache la liste d'appareils et montre le bloc consommation connue",
+    (await zone.locator("[data-bloc-consommation-connue]").count()) === 1
+    && (await zone.locator('input[placeholder="Ex : tv, frigo, clim…"]').count()) === 0);
+  // Puissance cumulée 3 kW, consommation mensuelle 300 kWh → 300*1000/30 = 10 000 Wh/jour.
+  await zone.locator("[data-champ-puissance-cumulee]").fill("3");
+  await zone.locator("[data-champ-consommation-mensuelle]").fill("300");
+  await attendre(300);
+  const phrase1 = propre(await zone.locator("[data-phrase-consommation-connue]").innerText());
+  test("★ consommation mensuelle (300 kWh) ÷ 30 = 10 000 Wh/jour, dit à l'écran",
+    /10000 Wh.*facture.*30/.test(phrase1), phrase1);
+  const panMens = await etatDans("Panneaux solaires");
+  test("★ les panneaux sont proposés à partir de cette consommation (liste du stock)",
+    panMens.select === 1, JSON.stringify(panMens));
+  // On vide la consommation mensuelle : le champ heures se débloque, et le
+  // Wh/jour se calcule alors par puissance × heures (3 kW × 8 h = 24 000 Wh).
+  await zone.locator("[data-champ-consommation-mensuelle]").fill("");
+  await zone.locator("[data-champ-heures-utilisation]").fill("8");
+  await attendre(300);
+  const phrase2 = propre(await zone.locator("[data-phrase-consommation-connue]").innerText());
+  test("★ sans facture : puissance cumulée (3 kW) × heures (8 h) = 24 000 Wh/jour",
+    /24000 Wh/.test(phrase2), phrase2);
+  const panHeures = await etatDans("Panneaux solaires");
+  test("★ le besoin a changé (plus de panneaux qu'avec 10 000 Wh/jour) : la liste reste celle du stock",
+    panHeures.select === 1 && panHeures.texte !== panMens.texte, JSON.stringify({ panHeures, panMens }));
+  // La ligne libre, pour le devis — jamais calculée, juste gardée.
+  await zone.locator("textarea").first().fill("2 climatiseurs, un congélateur");
+  test("★ la description libre se tape sans erreur, le reste du bloc tient toujours",
+    (await zone.locator("textarea").first().inputValue()) === "2 climatiseurs, un congélateur");
+  // On revient au mode « Détailler les appareils » : rien n'a été perdu de
+  // ce côté, l'ancienne liste réapparaît telle quelle.
+  await zone.locator('button:text-is("📋 Détailler les appareils")').click();
+  await attendre(300);
+  test("★ de retour en mode « appareils », le bloc consommation connue disparaît",
+    (await zone.locator("[data-bloc-consommation-connue]").count()) === 0
+    && (await zone.locator('input[placeholder="Ex : tv, frigo, clim…"]').count()) === 1);
+  test("aucune erreur pendant le mode consommation connue", erreurs.length === 0, erreurs.join(" | "));
+}
 
 await nav.close();
 rmSync(dossier, { recursive: true, force: true });
