@@ -35,6 +35,12 @@ writeFileSync(bouchonUI, [
   "export const uConfirm = async () => true;",
   "export const uPrompt = async () => null;",
   "export const uChoix = async () => null;",
+  // ⚠ Fonctions apparues dans ui.jsx après ce script : le bouchon doit les
+  // fournir aussi, sinon la construction échoue au lieu de s'exécuter
+  // (même piège que le reste du bouchon — leçon du § 5 de CLAUDE.md).
+  "export const demanderMoyenPaiement = async () => null;",
+  "export const demanderMois = async () => null;",
+  "export const fichierPdfDepuisHtml = async () => null;",
   "",
 ].join("\n"));
 await build({
@@ -54,7 +60,10 @@ unlinkSync(sortie); unlinkSync(bouchonUI);
 // ⚠ Trois longueurs de code : c'est ce qui a revele le defaut. Le dessin
 // gardait ses proportions, donc un code long s'ecrasait en hauteur — 6,3 mm
 // pour 20 caracteres, sous le seuil de lecture fiable.
-const CODES = ["12345678", "ARTMG9K2P4X7", "BMICOFFRETIP6512"];
+// ⚠ Le troisieme code est a la LIMITE exacte (LONGUEUR_MAX_CODE = 15
+// caracteres depuis la marge de silence du 26/10/2026) : il doit encore
+// se lire, pas juste depasser la limite sans crier.
+const CODES = ["12345678", "ARTMG9K2P4X7", "BMICOFFRETIP651"];
 // ⚠ Le nom le plus long qu'on ait vu dans le stock, et un pire cas invente :
 // c'est LUI qui pousse le code-barres hors de la vignette quand la hauteur
 // est juste. On le mesure au lieu de l'esperer.
@@ -68,7 +77,7 @@ const BARRE_MINI = 0.25;   // mm — largeur de la barre la plus fine
 const HAUTEUR_MINI = 10;   // mm
 
 let ko = 0;
-const test = (nom, ok) => { console.log(`  ${ok ? "✓" : "✗"} ${nom}`); if (!ok) ko++; };
+const test = (nom, ok, detail = "") => { console.log(`  ${ok ? "✓" : "✗"} ${nom}${!ok && detail ? `\n     ${detail}` : ""}`); if (!ok) ko++; };
 
 const nav = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const mesures = [];
@@ -88,11 +97,16 @@ for (const [i, code] of CODES.entries()) {
     const sv = document.querySelector("svg").getBoundingClientRect();
     const boite = document.body.firstElementChild;
     return { l: et.width / mm, h: et.height / mm, cl: sv.width / mm, ch: sv.height / mm,
-             deborde: (boite.scrollHeight - boite.clientHeight) / mm };
+             deborde: (boite.scrollHeight - boite.clientHeight) / mm,
+             // ⚠ ZONE DE SILENCE (26/10/2026) : la marge blanche entre le bord
+             // de l'étiquette et la PREMIÈRE / DERNIÈRE barre. C'est elle qui
+             // manquait et qui a fait mal lire un lecteur réel (le début et la
+             // fin d'un code scanné étaient faux, le milieu juste).
+             margeGauche: (sv.left - et.left) / mm, margeDroite: (et.right - sv.right) / mm };
   }, MM);
   await page.close();
   mesures.push({ code, modules, ...d });
-  console.log(`  · « ${code} » (${code.length} car., nom de ${article.nom.length} car.) → étiquette ${d.l.toFixed(1)}×${d.h.toFixed(1)} mm · code-barres ${d.cl.toFixed(1)}×${d.ch.toFixed(1)} mm · barre fine ${(d.cl / modules).toFixed(3)} mm`);
+  console.log(`  · « ${code} » (${code.length} car., nom de ${article.nom.length} car.) → étiquette ${d.l.toFixed(1)}×${d.h.toFixed(1)} mm · code-barres ${d.cl.toFixed(1)}×${d.ch.toFixed(1)} mm · barre fine ${(d.cl / modules).toFixed(3)} mm · marge ${d.margeGauche.toFixed(2)}/${d.margeDroite.toFixed(2)} mm`);
 }
 
 const proche = (v, cible) => Math.abs(v - cible) < 0.4;
@@ -111,6 +125,16 @@ test(`la limite annoncée est cohérente avec la mesure (${M.LONGUEUR_MAX_CODE} 
 test("le calcul de largeur de barre colle à ce qui est réellement imprimé",
   mesures.every((m) => Math.abs(M.largeurBarreMm(m.code) - m.cl / m.modules) < 0.02));
 test(`le code-barres reste plus haut que ${HAUTEUR_MINI} mm`, mesures.every((m) => m.ch >= HAUTEUR_MINI));
+// ⚠⚠ LA ZONE DE SILENCE (26/10/2026, Timo : « le code barre ne marche pas
+// avec le lecteur »). Preuve que le défaut est fermé : une marge blanche
+// d'au moins ZONE_SILENCE_MM existe des DEUX côtés du dessin, mesurée dans
+// le VRAI navigateur — pas devinée dans le code. Avant ce correctif, la
+// marge était quasi nulle (≈ 0,2 mm, le padding de l'étiquette seul) ; le
+// lecteur lisait mal le DÉBUT et la FIN du code (preuve de Timo : le milieu
+// était juste, les deux bouts faux).
+test(`★★ une marge d'au moins ${M.ZONE_SILENCE_MM} mm existe des DEUX côtés du code-barres (zone de silence, sans elle un lecteur mal lit le début et la fin)`,
+  mesures.every((m) => m.margeGauche >= M.ZONE_SILENCE_MM - 0.1 && m.margeDroite >= M.ZONE_SILENCE_MM - 0.1),
+  JSON.stringify(mesures.map((m) => ({ code: m.code, margeGauche: +m.margeGauche.toFixed(2), margeDroite: +m.margeDroite.toFixed(2) }))));
 // ⚠ SUR 30 mm DE HAUT, C'EST LE PIÈGE PRINCIPAL : si le contenu déborde, ce
 // n'est pas le nom qui est rogné mais le CODE-BARRES, et l'étiquette devient
 // inutilisable sans que personne ne s'en aperçoive avant le scan.

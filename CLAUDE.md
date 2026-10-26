@@ -9727,7 +9727,54 @@ lit mal est pire qu'un banc absent).
   le principal seul pour tout ; b : le fichier automatique chez le principal
   seul) → **refusées**. **Ne pas le reproposer.**
 - Étiquettes **60 × 30 mm**, boutique en haut, article en bas, code-barres
-  11 mm ; `LONGUEUR_MAX_CODE = 17` (barre fine jamais sous 0,25 mm).
+  11 mm ; `LONGUEUR_MAX_CODE = 15` (barre fine jamais sous 0,25 mm, voir la
+  zone de silence ci-dessous).
+- **⚠⚠ LA ZONE DE SILENCE DU CODE-BARRES — « le code barre ne marche pas avec
+  le lecteur » (26/10/2026)**. Timo a scanné une étiquette collée
+  (« Cosse Batterie 25mm », code ARTXEDV1PDQM) et le lecteur a lu
+  « QRTXEDV1PDA? » : **le MILIEU du code était juste, les DEUX BOUTS
+  faux.** C'est la signature exacte d'un défaut connu des codes-barres : le
+  dessin allait jusqu'au bord de l'étiquette, **sans AUCUNE marge blanche**
+  — un lecteur a besoin d'un espace totalement vide avant la première barre
+  et après la dernière (la « zone de silence ») pour savoir où le code
+  COMMENCE et FINIT ; au milieu, encadré de barres des deux côtés, il lit
+  sans ambiguïté, d'où le symptôme exact observé.
+  - **Vérifié avant de toucher au code** : l'encodage Code128 lui-même
+    n'était PAS en cause — recalculé à la main et comparé, barre pour
+    barre, à une bibliothèque de référence indépendante (`python-barcode`) :
+    identique au bit près. Le défaut était uniquement dans la MISE EN PAGE
+    de l'étiquette (`lib/impression.js`), pas dans `lib/barcode.js`.
+  - **`ZONE_SILENCE_MM = 3`** : une marge réservée des DEUX côtés du
+    code-barres (`padding:0 ${ZONE_SILENCE_MM}mm` autour du SVG, dans
+    `imprimerEtiquetteProduit`) — mesurée dans Chromium à **4,46 mm**
+    réels de chaque côté (le padding de l'étiquette s'ajoute). `LARGEUR_CODE_BARRES_MM`
+    est passée de 57,1 à **51,1 mm** (mesuré, pas deviné) pour tenir compte
+    de cette marge perdue ; `LONGUEUR_MAX_CODE` en découle et descend
+    automatiquement de 17 à **15** caractères — les codes générés par
+    l'application (toujours 12 caractères) restent largement dans la
+    limite.
+  - ⚠ **Les étiquettes DÉJÀ IMPRIMÉES ne se corrigent pas toutes seules** :
+    l'encre sur le papier ne bouge pas. Dit à Timo : pour celles qu'on
+    garde, le code en CLAIR sous le code-barres (prévu depuis l'origine
+    pour ce cas) se tape à la main dans la même case où le lecteur
+    « écrit » (`articleParCode`, lib/panier.js, fait une correspondance
+    exacte, tapé ou scanné — aucune différence). Seules les étiquettes
+    **réimprimées après la correction** profitent de la marge.
+  - ⚠ **3 mm est une valeur choisie, pas calculée au plus juste pour
+    chaque longueur de code** : la règle courante (marge ≥ 10 × la barre
+    la plus fine) donne une marge qui grandit quand le code est COURT
+    (barres plus épaisses) et rétrécit quand il est LONG. Mesuré sur les
+    trois longueurs testées (8, 12, 15 caractères) : la marge réelle
+    (4,46 mm) couvre large même le pire cas (8 caractères, barre à
+    0,415 mm, 10× = 4,15 mm). Un code très court tapé à la main (au lieu
+    du code généré par l'application) pourrait en théorie demander un peu
+    plus — sans commune mesure avec l'absence totale de marge d'avant.
+  - **Rien à coller dans Supabase.** Banc `node scripts/apercu-etiquette.mjs`
+    (mesure dans un VRAI Chromium, pas devinée), éprouvé en retirant la
+    marge exprès : la marge mesurée retombe à 1,46 mm (le padding seul de
+    l'étiquette) et le contrôle tombe. `scripts/verifier-imports` et
+    `scripts/verifier-cloisonnement` passent sans changement (seul
+    `lib/impression.js` touché, aucun nom exporté retiré).
 - **Les icônes `public/icone-bmi-192-v2.png` / `icone-bmi-512-v2.png` ont un fond TRANSPARENT**
   (capture Timo, 12/09/2026 : « le logo de lancement est toujours dans un
   carré blanc… il devrait être sans fond ») : Android pose l'icône du

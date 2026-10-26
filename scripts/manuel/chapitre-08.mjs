@@ -14,7 +14,7 @@
 // lib/transfertsStock.js (critiqueEnvoi, critiqueValidation, TRF-…),
 // lib/importStock.js (COLONNES_IMPORT, MODES_IMPORT, resumeImport,
 // resumeEntrees), lib/impression.js (imprimerEtiquetteProduit : 60 × 30 mm,
-// largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE = 17),
+// largeurBarreMm, BARRE_LA_PLUS_FINE_MM, ZONE_SILENCE_MM, LONGUEUR_MAX_CODE = 15),
 // lib/pompes.js (estPompe, CHAMPS_POMPE, ficheLisible), lib/ficheArticle.js (les cases de la fiche : client / interne), lib/notifications.js
 // (« ⚠ Stock au seuil — BOUTIQUE »), screens/Ravitaillement.jsx
 // (📦 Transferts de stock à valider : « ✅ Valider la réception »).
@@ -107,7 +107,7 @@ export const CHAPITRE = {
       ["h3", "E. Code-barres et étiquette"],
       ["etapes", [
         { titre: "🏷 (code)", texte: "« Code-barres de « … » (scannez dans le champ) : » — le lecteur tape le code, ou on le saisit. Vide = retiré. Un article garde **toujours le même code**, quelle que soit la quantité : c'est l'identifiant du modèle, pas un numéro de série." },
-        { titre: "🖨 (étiquette)", texte: "Une étiquette **60 × 30 mm** : la boutique en haut, l'article en bas, le code-barres au milieu. Sans code, l'application en fabrique un (ART… sur 12 caractères) et l'enregistre. Un code de **plus de 17 caractères** fait des barres trop fines : l'écran prévient (« … ses barres ne feront que 0,22 mm — en dessous de 0,25 mm, un lecteur ordinaire commence à refuser… ») et propose de raccourcir avec « Code »." },
+        { titre: "🖨 (étiquette)", texte: "Une étiquette **60 × 30 mm** : la boutique en haut, l'article en bas, le code-barres au milieu, avec une **marge blanche de chaque côté** (sans elle, le lecteur lit mal le début et la fin du code — défaut trouvé et fermé le 26/10/2026). Sans code, l'application en fabrique un (ART… sur 12 caractères) et l'enregistre. Un code de **plus de 15 caractères** fait des barres trop fines : l'écran prévient (« … ses barres ne feront que 0,20 mm — en dessous de 0,25 mm, un lecteur ordinaire commence à refuser… ») et propose de raccourcir avec « Code »." },
       ]],
       ["h3", "F. Importer un fichier"],
       ["etapes", [
@@ -209,7 +209,7 @@ export const CHAPITRE = {
         "Chaque **ajustement porte un motif** clair : on doit pouvoir le relire dans six mois.",
         "La liste **⚠ À réapprovisionner** est vide, ou la demande au magasin est partie.",
         "L'inventaire est fait **article par article, en rayon**, pas de mémoire ; les écarts sont expliqués avant de valider.",
-        "Les codes-barres font **17 caractères ou moins** ; l'étiquette se scanne avant d'imprimer le rouleau.",
+        "Les codes-barres font **15 caractères ou moins** ; l'étiquette se scanne avant d'imprimer le rouleau.",
         "Le cadre **🔧 Défectueux / SAV** ne traîne pas : chaque article a reçu son sort.",
       ]],
     ]},
@@ -227,7 +227,7 @@ export const CHAPITRE = {
         ["Transférer vers une boutique d'entraînement", "« 🚫 Mouvement impossible : … boutique réel … boutique entraînement »", "Les deux espaces ne se mélangent jamais."],
         ["Envoyer un ⇄ Transfert qui prend le matériel d'un chantier", "« ⚠ Du matériel réservé pour une installation… Après ce transfert, il manquera N pour ce chantier. Continuer quand même ? »", "Annuler, ou continuer en sachant que le chantier manquera de matériel (cadre « 🔒 Matériel réservé »)."],
         ["Croire qu'un ⇄ Transfert a déplacé l'article", "« En attente de validation par … L'article reste dans le stock de … jusque-là. »", "La boutique qui reçoit valide dans 🔁 Transfert (chapitre 9) ; l'envoyeur peut annuler avant."],
-        ["Un code-barres de 20 caractères", "Avertissement : barres trop fines, le lecteur refuse.", "Raccourcir avec le bouton 🏷 (17 caractères au plus)."],
+        ["Un code-barres de 20 caractères", "Avertissement : barres trop fines, le lecteur refuse.", "Raccourcir avec le bouton 🏷 (15 caractères au plus)."],
         ["Importer un classeur de trois feuilles", "« Seule la première, « … », sera lue — pour BOUTIQUE. Continuer ? »", "Une feuille par boutique : enregistrer chaque feuille à part, ou changer de boutique entre deux imports."],
         ["Chercher un article dans la mauvaise catégorie", "La recherche est « toutes catégories confondues » : elle trouve.", "Taper le nom dans 🔍 plutôt que dérouler les catégories."],
         ["Remplir la fiche d'une pompe dans « Notes »", "Le calcul de forage ne lit que les cinq cases du cadre 💧.", "Renseigner Puissance, Profondeur max, Débit max, Tension, Hybride — la catégorie doit contenir « pompe »."],

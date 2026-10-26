@@ -1268,7 +1268,28 @@ export function bonWhatsApp(bon, bq = {}) {
 //
 // Code128 occupe 11 modules par caractère, plus 35 modules fixes
 // (départ + contrôle + arrêt). D'où le calcul ci-dessous, vérifié au banc.
-export const LARGEUR_CODE_BARRES_MM = 57.1; // mesuré sur l'étiquette 60 mm
+// ⚠⚠ LA ZONE DE SILENCE (26/10/2026, Timo : « le code barre ne marche pas
+// avec le lecteur »). Capture : il a scanné une étiquette collée et le
+// lecteur a lu « QRTXEDV1PDA? » au lieu du vrai « ARTXEDV1PDQM » — le
+// MILIEU parfait, les deux BOUTS faux. C'est la signature exacte d'un
+// défaut connu : le code-barres allait jusqu'au bord de l'étiquette, sans
+// la moindre marge blanche. Un lecteur a besoin d'un espace totalement
+// vide avant la première barre et après la dernière pour savoir où le
+// code COMMENCE et FINIT ; sans lui, il devine — et il se trompe
+// justement au début et à la fin, pendant que le milieu (encadré de
+// barres des deux côtés) se lit sans ambiguïté. On réserve désormais
+// cette marge, DE CHAQUE CÔTÉ du dessin, qui ne fait plus partie du
+// code-barres lui-même.
+// ⚠ 3 mm est une valeur choisie, pas calculée au plus juste pour CHAQUE
+// longueur de code : la règle courante (10 × la barre la plus fine) donne
+// une marge qui grandit quand le code est COURT (barres plus épaisses) et
+// rétrécit quand il est LONG. Un code très court et tapé à la main
+// (au lieu du code généré par l'application, toujours sur 12 caractères)
+// pourrait en théorie demander un peu plus que 3 mm — mais c'est sans
+// commune mesure avec l'absence totale de marge d'avant, qui est ce qui a
+// été scanné et mal lu.
+export const ZONE_SILENCE_MM = 3;
+export const LARGEUR_CODE_BARRES_MM = 51.1; // mesuré sur l'étiquette 60 mm, marge de silence déduite
 export const BARRE_LA_PLUS_FINE_MM = 0.25;
 export const modulesCode128 = (code) => 11 * String(code || "").length + 35;
 export const largeurBarreMm = (code) => LARGEUR_CODE_BARRES_MM / modulesCode128(code);
@@ -1319,7 +1340,7 @@ export function imprimerEtiquetteProduit(p) {
   const html = `
     <div style="width:60mm;height:30mm;padding:1.2mm;border:0.3mm solid #94a3b8;border-radius:1.5mm;text-align:center;font-family:Arial,sans-serif;box-sizing:border-box;line-height:1.05;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:0.3mm">
       ${p.boutique ? `<div style="font-size:9px;font-weight:700;letter-spacing:0.4px;color:#475569;word-break:break-word">${esc(p.boutique)}</div>` : ""}
-      <div>${svg}</div>
+      <div style="padding:0 ${ZONE_SILENCE_MM}mm">${svg}</div>
       <div style="font-family:monospace;font-size:10px;letter-spacing:0.8px">${esc(p.code)}</div>
       ${p.prix_vente ? `<div style="font-weight:700;font-size:13px">${fmt(p.prix_vente)}</div>` : ""}
       <div style="font-weight:700;font-size:10px;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.nom)}</div>
