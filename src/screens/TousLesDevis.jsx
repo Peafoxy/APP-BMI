@@ -21,7 +21,7 @@ import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeMo
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { etatRelanceAuto } from "../lib/relanceAutoDevis";
-import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE } from "../lib/calculs";
+import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
@@ -533,6 +533,21 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
     const produits = (db.produits || []).filter((p) => p.boutique === frais.boutique);
     const res = completerDevis(frais, { ...saisie, produits, par: profile.nom, par_id: profile.id, le: today() });
     if (res.erreur) { uAlert(res.erreur); return; }
+    // ⚠⚠ 27/10/2026 (capture Timo, « Remise supérieure à 3 % sur un devis :
+    // réservé à l'administrateur (vous : gerant) ») : UN DEVIS DÉJÀ TAMPONNÉ
+    // D'UNE REMISE > 3 % (fixée plus tôt par l'administrateur) ne se
+    // complétait par AUCUNE revérification locale — seul l'envoi d'un
+    // NOUVEAU devis passe par rangerDevisChezLeClient. `completerDevis`
+    // recalcule le pourcentage ÉQUIVALENT d'une remise libre sur le nouveau
+    // total (les éléments cf. visite s'y ajoutent) : ce recalcul, même sans
+    // toucher à la remise, suffisait à faire REFUSER le geste par le
+    // serveur (users_regles_remise) — après coup, dans la file d'attente,
+    // en rouge. LA MÊME limite que pour envoyer un devis : l'administrateur
+    // seul complète un devis qui porte déjà une remise au-delà de 3 %.
+    if (remiseExigeAdmin(res.devis.pct_remise) && profile.role !== "admin") {
+      uAlert(`🔒 Ce devis porte une remise supérieure à ${PLAFOND_REMISE_PCT} % : seul l'administrateur peut le compléter. Faites-le compléter par lui, ou faites-lui ramener d'abord la remise à ${PLAFOND_REMISE_PCT} % au plus.`);
+      return;
+    }
     const nomClient = client.nom_base || client.nom;
     if (!await uConfirm(`Compléter le devis de ${nomClient} ?\n\nTotal provisoire : ${fmt(frais.total)}\nTotal du devis complété : ${fmt(res.devis.total)}\n\nLes lignes déjà chiffrées ne changent pas. Le devis garde son numéro et redevient validable par le client.`)) return;
     save((etat) => ({

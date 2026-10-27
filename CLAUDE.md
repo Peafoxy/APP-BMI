@@ -1256,6 +1256,38 @@ lit mal est pire qu'un banc absent).
   LE champ commun `ChampSuggestions`, la ligne reste sans prix ni lien ;
   « ✍️ Compléter » arrive déjà lié (prix rempli) si le nom est celui d'un
   article du stock (`lierAutreAuStock`). Banc +1, éprouvé.
+- **✍️ COMPLÉTER UN DEVIS QUI PORTE DÉJÀ UNE REMISE > 3 % : ADMIN SEUL**
+  (27/10/2026, capture Timo : bande rouge « 6 opération(s) n'arrivent pas…
+  Remise supérieure à 3 % sur un devis : réservé à l'administrateur (vous :
+  gerant) » ; « Oui, confirme — fais la correction »). La gérante n'avait
+  PAS touché la remise — le devis la portait déjà, fixée plus tôt par
+  l'administrateur (légitimement, > 3 %). Elle voulait seulement chiffrer
+  des éléments « cf. visite ». **Le trou** : `completerDevis` RECALCULE le
+  pourcentage ÉQUIVALENT d'une remise libre sur le nouveau total (les
+  éléments cf. visite s'y ajoutent) — ce recalcul suffisait, même sans
+  toucher à la remise, à faire REFUSER le geste par le serveur
+  (`users_regles_remise`), **après coup**, dans la file d'attente, en
+  rouge. Seul l'ENVOI d'un NOUVEAU devis (`rangerDevisChezLeClient`)
+  revérifiait cette limite localement ; `completerEtEnvoyer`
+  (📋 Tous les devis) ne la revérifiait PAS avant d'enregistrer.
+  ⚠⚠ **LA LEÇON GÉNÉRALE** : un geste « hors ligne » qui enregistre d'abord
+  et ne découvre le refus qu'au moment de la synchronisation produit une
+  bande rouge confuse — même quand le geste de la personne était innocent.
+  **La bonne réponse n'est pas de retirer le mode hors ligne** (une
+  vendeuse sans réseau doit continuer à travailler), **c'est que CHAQUE
+  écriture qui peut être refusée par une règle de rôle soit revérifiée EN
+  LOCAL, avant l'enregistrement** — comme `rangerDevisChezLeClient` le fait
+  déjà pour l'envoi. `completerEtEnvoyer` revérifie désormais
+  `remiseExigeAdmin(res.devis.pct_remise)` AVANT le `save()`, avec le même
+  message que l'envoi d'un devis : « seul l'administrateur peut le
+  compléter ». Rien à coller dans Supabase (le serveur refusait déjà cette
+  écriture, c'est le refus LOCAL qui manquait). Banc (`verifier-cloisonnement`,
+  +2), éprouvé en retirant la garde : le contrôle tombe. Chapitre 13 à jour.
+  **Pour les deux bandes rouges déjà sur son écran** (celle-ci, et celle de
+  📲 WhatsApp fermée par `securite-41` le même jour) : le bouton
+  « 🗑 Abandonner ce geste refusé (administrateur principal) », sous la
+  bande, les retire de la file sans rien perdre d'important — la gérante
+  ayant laissé tomber sa tentative, rien n'avait été fait après sur ce devis.
 - **✏️ Modifier un devis DÉJÀ SIGNÉ : le client ouvre la porte** (11/09/2026,
   « s'il a déjà signé, impossible de modifier… l'utilisateur va faire une
   demande de modification auprès du client… le client valide la demande avant

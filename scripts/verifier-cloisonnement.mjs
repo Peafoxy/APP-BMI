@@ -17382,6 +17382,26 @@ titre("La fiche d'un fournisseur se modifie ; le représentant ; le dû au princ
   }
 }
 
+// 🔒 « ✍️ Compléter le devis » REVÉRIFIE AUSSI LA LIMITE DE REMISE (27/10/2026,
+// capture Timo : « Remise supérieure à 3 % sur un devis : réservé à
+// l'administrateur (vous : gerant) » — la gérante n'avait pas touché la
+// remise, le devis la portait déjà, fixée plus tôt par l'admin ; seul
+// l'envoi d'un NOUVEAU devis (rangerDevisChezLeClient) revérifiait cette
+// limite, pas la complétion d'un devis « cf. visite »).
+titre("🔒 « ✍️ Compléter le devis » revérifie aussi la limite de remise (27/10/2026)");
+{
+  const tld = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+  const codeNu = tld.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const i = codeNu.indexOf("const completerEtEnvoyer");
+  const corps = codeNu.slice(i, codeNu.indexOf("const telechargerPDF", i));
+  const iGarde = corps.search(/remiseExigeAdmin\(res\.devis\.pct_remise\) && profile\.role !== "admin"/);
+  const iSave = corps.indexOf("save((etat)");
+  test("★★ un devis qui porte déjà une remise > 3 % (fixée par l'admin) ne se complète pas hors de l'administrateur — revérifié AVANT le save",
+    i > 0 && iGarde >= 0 && iSave > 0 && iGarde < iSave);
+  test("import de remiseExigeAdmin / PLAFOND_REMISE_PCT depuis lib/calculs",
+    /remiseExigeAdmin, PLAFOND_REMISE_PCT \} from "\.\.\/lib\/calculs"/.test(tld));
+}
+
 // 📐 « supprimer partout il y a facultatif » (Timo, 23/10/2026) : aucun libellé de case ne le dit plus.
 {
   const fautifs = [];
