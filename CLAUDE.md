@@ -5320,11 +5320,13 @@ lit mal est pire qu'un banc absent).
   (section 10) écrit désormais `begin; insert … returning id; rollback;` à la
   main pour ce genre de preuve, et porte la leçon en commentaire à côté de
   `$TOUCHE` pour que personne n'y retombe.
-- Rien à coller dans Supabase pour l'application. Banc `tester-conversations`
+- Banc `tester-conversations`
   (98 contrôles, section 10 : le trou reproduit, la correction, la réponse
   manuelle toujours bloquée, le `de_id` falsifié toujours bloqué, la
   messagerie interne et la formation intactes, un second passage sans
   danger), éprouvé.
+  **Collé par Timo le 27/10/2026 (`true | true | true | true | true`)** : les
+  11 opérations de BMI DEMAKPOE partent au prochain F5.
 
 ### 📲 LA LISTE COMME WHATSAPP SUR TÉLÉPHONE ET SUR WINDOWS (09/10/2026, « a1 b1 c1 d2, lance »)
 - Quatre captures de Timo (WhatsApp mobile / Windows / app BMI) : « présenter
