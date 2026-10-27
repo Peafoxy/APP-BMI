@@ -9775,6 +9775,31 @@ lit mal est pire qu'un banc absent).
     l'étiquette) et le contrôle tombe. `scripts/verifier-imports` et
     `scripts/verifier-cloisonnement` passent sans changement (seul
     `lib/impression.js` touché, aucun nom exporté retiré).
+  - ⚠⚠ **LA VRAIE CAUSE DU SOUCI DE TIMO ÉTAIT AILLEURS, ET ELLE EST FERMÉE
+    (27/10/2026)** : la marge ci-dessus était un vrai défaut (corrigé, et il
+    le reste), mais Timo a continué d'avoir des lectures fausses APRÈS la
+    correction — toujours le MÊME dessin : un A lu Q, un Q lu A, un M lu « ? »
+    (jamais un défaut aléatoire : A↔Q se retrouvait dans les DEUX sens sur
+    deux codes différents). **La vraie cause : le lecteur HENEX H1100R était
+    réglé en clavier AMÉRICAIN (QWERTY) alors que son PC est en FRANÇAIS
+    (AZERTY)** — le lecteur se fait passer pour un clavier et « tape »
+    chaque caractère ; sur les deux dispositions, la touche qui donne A en
+    QWERTY donne Q en AZERTY (et réciproquement), et celle qui donne M
+    majuscule en QWERTY donne « ? » en AZERTY. **C'est pour ça que les
+    codes-barres de tiers (boîte du lecteur, produit du commerce — tous
+    numériques) passaient toujours bien** : ils ne contiennent aucune
+    lettre, seuls nos codes « ART… » en portent. **Le fournisseur a envoyé
+    le code-barres de réglage du vrai manuel (absent du dépliant fourni) :
+    « %%SpecCode42 / France »** — un seul scan de ce code a réglé le
+    lecteur, et tout est rentré dans l'ordre. **Rien à corriger dans
+    l'application : ce n'est ni l'encodage, ni l'impression, c'est un
+    réglage matériel du lecteur.** À savoir pour la prochaine fois (nouveau
+    lecteur, nouvel employé) : si un code-barres scanné donne un texte
+    FAUX SEULEMENT SUR DES LETTRES (jamais sur les chiffres), chercher
+    d'abord un code de réglage « Country / Keyboard Language : France »
+    dans la notice complète du lecteur (pas toujours sur le dépliant
+    fourni dans la boîte — demander au fournisseur au besoin), avant de
+    chercher un défaut côté application.
 - **Les icônes `public/icone-bmi-192-v2.png` / `icone-bmi-512-v2.png` ont un fond TRANSPARENT**
   (capture Timo, 12/09/2026 : « le logo de lancement est toujours dans un
   carré blanc… il devrait être sans fond ») : Android pose l'icône du
