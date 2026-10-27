@@ -5269,6 +5269,63 @@ lit mal est pire qu'un banc absent).
   +5, souris et doigt), éprouvés (fiche vivante écrasée, serveur qui compte la
   corbeille, garde du principal retirée, clic non avalé). Chapitres 20 et 23.
 
+### 🧾 UNE LIGNE AUTOMATIQUE (REÇU, BON, ACCÈS…) PART MÊME SI LA CONVERSATION EST CONFIÉE À QUELQU'UN D'AUTRE (27/10/2026)
+- Capture Timo, BMI DEMAKPOE : « 11 opération(s) n'arrivent pas à partir…
+  new row violates row-level security policy "wa_conversations_visibles"
+  for table "messages" » → « Oui, confirme — fais la correction ».
+- ⚠⚠ **LE TROU** : `securite-28` à `-30` réservent une conversation CONFIÉE
+  (🔁 Confier) à son propriétaire et à l'administrateur — voulu pour une
+  RÉPONSE tapée à la main. Mais la même barrière bloquait AUSSI les lignes
+  AUTOMATIQUES que l'application pose toute seule après un geste d'argent
+  sans rapport avec la conversation : le reçu WhatsApp d'une vente au
+  comptoir, un bon de reprise, la ligne « accès envoyés »… N'IMPORTE QUEL
+  employé peut légitimement vendre à un client dont la conversation est
+  confiée à un collègue (un commercial, par exemple) — l'application ne fait
+  qu'ANNONCER ce qui vient de se passer, elle ne répond pas à la place de
+  personne. Le serveur refusait pourtant cette annonce, et **tout le lot
+  restait coincé derrière** (les ventes, elles, étaient déjà enregistrées
+  séparément : rien d'autre que la ligne « reçu envoyé » n'était en jeu).
+- **`securite-41`** ajoute UNE clause à `wa_conversations_visibles` : une
+  ligne que l'employé vient de poser LUI-MÊME (`de_id` = lui, posé par
+  `nouveauMessage(profile, …)`) ET qui porte `wa_modele` (un modèle Meta
+  approuvé, posé par `messagesAvecLigneEnvoi`) ou `wa_acces` (posé par
+  `messagesAvecLigneAcces`) passe, même si la conversation est confiée à
+  quelqu'un d'autre. ⚠ **Une RÉPONSE tapée à la main ne porte JAMAIS l'un ou
+  l'autre** (`repondreWhatsApp`/`screens/Whatsapp.jsx`) : elle reste bloquée
+  exactement comme avant — seule une annonce automatique, jamais du texte
+  libre, profite du passage. ⚠ **`de_id = wa_moi()`** empêche qu'on se fasse
+  passer pour un collègue (un `de_id` falsifié reste bloqué). ⚠ Ça n'ouvre
+  AUCUNE lecture de plus sur le RESTE de la conversation confiée : l'écran
+  continue de la griser, comme avant — ça laisse seulement PARTIR l'annonce.
+- **Rien dans l'application n'a changé** : les fonctions `messagesAvecLigneEnvoi`
+  / `messagesAvecLigneAcces` ne réclamaient déjà aucune propriété (sauf
+  `donnerAuSender` sur une conversation libre) — c'est uniquement la règle du
+  serveur qui était trop stricte.
+- ⚠ **LE COUPLE : `securite-41`** reprend `securite-36` EN ENTIER (donc `-30`,
+  `-29`, `-28`, `-27`) : c'est le SEUL à coller. `wa_role`, `wa_moi`,
+  `wa_proprietaire` et le déclencheur de la corbeille sont identiques, mot
+  pour mot ; la politique de lecture gagne une clause.
+- ⚠⚠ **LE PIÈGE DU BANC, TROUVÉ EN LE CONSTRUISANT** : `with d as (insert …
+  returning 1) select … from d` — la forme utilisée depuis `securite-36`
+  pour prouver un refus — **ne déclenche pas de façon fiable** la politique
+  de SELECT restrictive sur un INSERT quand rien n'est refusé QUE par elle
+  (sans déclencheur qui lève une exception) : mesuré, elle laissait passer
+  ce qu'un `insert … returning` DIRECT refusait bien. Pire : même en DIRECT,
+  `returning 1` (une CONSTANTE) laissait aussi passer — seul `returning id`
+  (une vraie COLONNE, ce que PostgREST redemande toujours en production)
+  déclenche la vérification. **Le banc mesure, il ne présume pas** : un
+  premier jeu de contrôles pour `securite-41` « passait » sans rien prouver,
+  et ça ne se voyait qu'en reproduisant le VRAI refus de Timo avant de
+  corriger — ce qui a été fait. `scripts/tester-conversations-sql.sh`
+  (section 10) écrit désormais `begin; insert … returning id; rollback;` à la
+  main pour ce genre de preuve, et porte la leçon en commentaire à côté de
+  `$TOUCHE` pour que personne n'y retombe.
+- Rien à coller dans Supabase pour l'application. Banc `tester-conversations`
+  (98 contrôles, section 10 : le trou reproduit, la correction, la réponse
+  manuelle toujours bloquée, le `de_id` falsifié toujours bloqué, la
+  messagerie interne et la formation intactes, un second passage sans
+  danger), éprouvé.
+
 ### 📲 LA LISTE COMME WHATSAPP SUR TÉLÉPHONE ET SUR WINDOWS (09/10/2026, « a1 b1 c1 d2, lance »)
 - Quatre captures de Timo (WhatsApp mobile / Windows / app BMI) : « présenter
   le WhatsApp app BMI comme WhatsApp se présente ». **Affichage seul** : qui

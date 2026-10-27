@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Rejoue supabase/securite-27, -28, -29, -30 PUIS -36 sur un PostgreSQL
+# Rejoue supabase/securite-27, -28, -29, -30, -36 PUIS -41 sur un PostgreSQL
 # local jetable, dans un environnement qui reproduit celui de Supabase
 # (mêmes tables, mêmes rôles, même auth.jwt(), mêmes politiques de départ,
 # ET la règle des comptes clients déjà posée — client-1-fermer-annuaire).
@@ -305,6 +305,13 @@ COM2_9='{"role":"authenticated","email":"COM2@bmi.internal","app_metadata":{"rol
 # défait (rollback) — la base reste celle du départ pour l'essai suivant.
 # ⚠ « 1/0 » écrit tel quel serait calculé d'avance par PostgreSQL (et
 # lèverait toujours) : la division porte sur le compte, donc sur le fait.
+# ⚠⚠ `$TOUCHE` ne prouve un REFUS que pour un geste refusé par un
+# DÉCLENCHEUR qui lève une vraie exception (`refus_role`) — pas pour un
+# refus qui ne vient QUE d'une politique de SELECT restrictive sur un
+# INSERT : mesuré (27/10/2026), `with d as (insert … returning 1) select …`
+# laisse parfois passer ce qu'un `insert … returning` DIRECT refuse. Pour
+# tester un INSERT jugé par une politique de SELECT seule (sans déclencheur),
+# écrire `begin; insert … returning 1; rollback;` à la main (section 10).
 TOUCHE="select case when count(*) = 1 then 1 else 1/(count(*)*0) end from d; rollback;"
 MARQUE='"supprime_le":"2026-10-05T10:00:00Z","supprime_par":"TIMO"'
 # D'ABORD LE TROU, tel qu'il est avec securite-30 : un vendeur efface une
@@ -362,6 +369,56 @@ verite "★ la phrase de vérification du script répond juste (aucune apostroph
 VERIF36=$(psql -h /tmp -p $PORT -U postgres -d bmi -tA -f supabase/securite-36-corbeille-whatsapp.sql 2>&1 | tail -1)
 if [ "$VERIF36" = "t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ ★ la vérification du script (second passage, sans danger) répond true | true | true | true"
 else ko=$((ko+1)); echo "  ✗ la vérification du script répond : $VERIF36"; fi
+
+echo
+echo "▸ 10. 🧾 UNE LIGNE AUTOMATIQUE PART MÊME SI LA CONVERSATION EST CONFIÉE (securite-41)"
+# Capture Timo, BMI DEMAKPOE, 27/10/2026 : le vendeur ne peut pas enregistrer
+# le reçu WhatsApp d'une vente qu'il vient de faire à un client dont la
+# conversation est confiée à COM1 — tout le lot restait coincé.
+COM1_9='{"role":"authenticated","email":"COM1@bmi.internal","app_metadata":{"role":"commercial","espace":"reel","ecriture":true}}'
+# ⚠⚠ UN INSERT DIRECT (jamais « with d as (insert … returning 1) select … »)
+# : PostgreSQL n'applique la politique de SELECT restrictive à un RETURNING
+# consommé dans une CTE agrégée QUE de façon peu fiable (mesuré ici : la
+# forme CTE laisse passer ce qu'un `insert … returning` direct refuse bien,
+# exactement l'avertissement du § 5 — « le banc mesure, il ne présume pas »).
+# PostgREST, en production, envoie un INSERT avec RETURNING direct : c'est
+# cette forme qu'il faut rejouer pour voir ce que le serveur voit vraiment.
+# ⚠⚠ `returning id` (une vraie COLONNE), JAMAIS `returning 1` : mesuré
+# (27/10/2026), PostgreSQL semble SAUTER la vérification de visibilité
+# quand RETURNING ne redemande qu'une constante — rien de la ligne n'étant
+# à relire, rien ne déclenche le filtre. PostgREST, en production, relit
+# TOUJOURS la ligne (il répond avec son contenu), donc `returning id` est
+# la forme qui rejoue fidèlement ce qui arrive réellement au serveur.
+essai "AVANT securite-41 : le vendeur ne peut pas annoncer un reçu dans la conversation confiée à COM1 (le trou de Timo)" REFUSE "$VEND9" \
+  "begin; insert into public.messages (id, data) values ('wa1d','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-10-27T09:00:00Z\",\"de_id\":\"KOSSI\",\"wa_modele\":\"recu_vente\",\"texte\":\"recu\"}') returning id; rollback;"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-41-lignes-automatiques-whatsapp.sql >/dev/null
+essai "★★ APRÈS : le vendeur peut annoncer un reçu, même conversation confiée à COM1" PASSE "$VEND9" \
+  "begin; insert into public.messages (id, data) values ('wa1e','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-10-27T09:05:00Z\",\"de_id\":\"KOSSI\",\"wa_modele\":\"recu_vente\",\"texte\":\"recu\"}') returning id; rollback;"
+essai "★★ …mais une RÉPONSE tapée à la main (sans wa_modele ni wa_acces) reste bloquée" REFUSE "$VEND9" \
+  "begin; insert into public.messages (id, data) values ('wa1f','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-10-27T09:10:00Z\",\"de_id\":\"KOSSI\",\"texte\":\"bonjour, je reponds a la place de COM1\"}') returning id; rollback;"
+essai "★ …et personne ne peut se faire passer pour un collègue (de_id falsifié)" REFUSE "$COM2_9" \
+  "begin; insert into public.messages (id, data) values ('wa1g','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-10-27T09:15:00Z\",\"de_id\":\"COM1\",\"wa_modele\":\"recu_vente\",\"texte\":\"recu\"}') returning id; rollback;"
+essai "★ …et une ligne d'accès (wa_acces, sans wa_modele) passe aussi" PASSE "$VEND9" \
+  "begin; insert into public.messages (id, data) values ('wa1h','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-10-27T09:20:00Z\",\"de_id\":\"KOSSI\",\"wa_acces\":{\"client_id\":\"CLI1\"},\"texte\":\"acces\"}') returning id; rollback;"
+# L'OWNER LUI-MÊME peut toujours tout écrire — rien n'a changé pour lui.
+essai "COM1 (le propriétaire) répond toujours normalement" PASSE "$COM1_9" \
+  "begin; insert into public.messages (id, data) values ('wa1i','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-10-27T09:25:00Z\",\"de_id\":\"COM1\",\"proprietaire_id\":\"COM1\",\"texte\":\"je reponds\"}') returning id; rollback;"
+# ⚠ Ce qui ne doit PAS bouger : la messagerie interne, la formation, la
+# corbeille, et la lecture ordinaire de la conversation confiée.
+essai "★ la messagerie INTERNE n'est pas examinée" PASSE "$VEND9" \
+  "begin; update public.messages set data = data || '{\"lu\":true}' where id = 'int1' returning 1; rollback;"
+compte "★ la politique de formation tient toujours" "$FORMA" "$WA" "0"
+essai "★★ un vendeur ne peut toujours pas effacer une ligne WhatsApp (corbeille, principal seul)" REFUSE "$VEND9" \
+  "begin; delete from public.messages where id = 'wa2' returning 1; rollback;"
+compte "★ le vendeur ne lit toujours pas le CONTENU de la conversation confiée (il annonce, il ne lit pas)" "$VEND" \
+  "select count(*) from public.messages where data->>'wa_tel' = '90112233' and data->>'canal' = 'whatsapp' and coalesce(data->>'wa_modele','') = '' and not (data ? 'wa_acces') and coalesce(data->>'de_id','') <> 'KOSSI';" "0"
+# Relancer doit être sans danger — on le VÉRIFIE, et le vendeur garde son droit.
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-41-lignes-automatiques-whatsapp.sql >/dev/null
+essai "après un second passage, le vendeur peut toujours annoncer un reçu" PASSE "$VEND9" \
+  "begin; insert into public.messages (id, data) values ('wa1j','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-10-27T09:30:00Z\",\"de_id\":\"KOSSI\",\"wa_modele\":\"recu_vente\",\"texte\":\"recu\"}') returning id; rollback;"
+VERIF41=$(psql -h /tmp -p $PORT -U postgres -d bmi -tA -f supabase/securite-41-lignes-automatiques-whatsapp.sql 2>&1 | tail -1)
+if [ "$VERIF41" = "t|t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ ★ la vérification du script répond true | true | true | true | true"
+else ko=$((ko+1)); echo "  ✗ la vérification du script répond : $VERIF41"; fi
 
 echo
 echo "──────────────────────────────────────────"
