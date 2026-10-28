@@ -7490,6 +7490,22 @@ lit mal est pire qu'un banc absent).
   question gardée, ligne de BMI qui dépasse) ; quatre contrôles RETOURNÉS
   (deux décisions, `presentation` passée ×3, la règle ⭐, la notification).
   Chapitre 20 à jour.
+- **🙏 IL DIT MERCI À UN COMPLIMENT** (28/10/2026, capture Timo : un client
+  écrit « Félicitations » après une annonce « Nous sommes ouverts », et
+  l'assistant répond « je ne suis pas sûr de bien comprendre votre message »
+  → « Dire merci au moins à la félicitations »). La consigne réagissait déjà
+  à une salutation (« comment allez-vous ? ») mais pas à un compliment : un
+  « Félicitations » / « Bravo » n'est PAS une question floue à faire
+  clarifier, c'est une gentillesse à laquelle on répond. Une phrase de plus
+  dans **D (le ton)** : « s'il te félicite, te complimente ou te souhaite
+  quelque chose de bien, tu dis MERCI simplement, jamais « je ne comprends
+  pas » ». ⚠ **Le juge n'a pas bougé** : aucun montant en jeu, rien à
+  vérifier après coup. Rien à coller. Non vérifiable sur le vrai service
+  d'ici. Banc (`verifier-whatsapp`, +1), éprouvé en remettant l'ancienne
+  phrase : il tombe. Aucun chapitre à corriger : le chapitre 20 décrit déjà
+  « il répond simplement à « comment allez-vous ? » » comme exemple d'un ton
+  naturel — la consigne en ajoute un second, sans changer ce que le chapitre
+  dit du geste.
 
 ### 📍 L'ASSISTANT DONNE L'ADRESSE DES BOUTIQUES (18/10/2026, « b, et NON pour les horaires, lance »)
 - Capture Timo (René 2) : « L'adresse des boutiques, il n'a pas » — l'IA

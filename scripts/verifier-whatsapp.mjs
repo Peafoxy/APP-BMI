@@ -5048,6 +5048,8 @@ titre("57 🗣 L'ASSISTANT S'HUMANISE : UNE RÉPONSE AUX MESSAGES RAPIDES, LA PR
     && /ravi de vous relire[\s\S]*sans te présenter/.test(I.consignePour({ nouvelle: true, presentation: false }))
     && I.consignePour({ nouvelle: true, presentation: false, client: { nom: "KOSSI" } }).includes("Bonjour KOSSI, ravi de vous relire")
     && /Ne redis pas bonjour/.test(I.consignePour({ nouvelle: false })));
+  test("★ « Dire merci au moins à la félicitations » (28/10/2026, capture Timo : « Félicitations » répondu par « je ne suis pas sûr de bien comprendre ») : la consigne dit de répondre MERCI à un compliment, jamais « je ne comprends pas »",
+    /félicite|complimente/i.test(I.CONSIGNE_IA) && /dis MERCI simplement/i.test(I.CONSIGNE_IA) && /jamais « je ne comprends pas »/i.test(I.CONSIGNE_IA));
   test("★★ « C b » : la consigne dit que les PRIX viennent quand la discussion va vers un achat, une question à la fois, sans finir par « Comment puis-je vous aider ? » — consigne SEULE, le juge des prix n'a pas bougé",
     I.CONSIGNE_IA.includes("LES PRIX VIENNENT QUAND LA DISCUSSION VA VERS UN ACHAT") && I.CONSIGNE_IA.includes("UNE seule question à la fois")
     && I.CONSIGNE_IA.includes("Tu ne termines pas tes messages par « Comment puis-je vous aider ? »")
