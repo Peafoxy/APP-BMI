@@ -3922,10 +3922,23 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
 {
   // Décisions Timo du 04/09/2026. Le bouton caché ne suffit pas (inventaire
   // du 04/09) : le geste lui-même refuse — comme le fera le serveur.
-  test("★ les aides existent, avec les rôles tranchés (stock : magasinier+gérant+admin ; caisse et fournisseurs : gérant+admin ; remise : 3 %)",
+  test("★ les aides existent, avec les rôles tranchés (stock : magasinier+gérant+admin ; caisse et fournisseurs : gérant+admin ; remise : 3 % d'office, réglable — 29/10/2026)",
     C.ROLES_STOCK.join() === "magasinier,gerant,admin" && C.ROLES_CAISSE.join() === "vendeur,gerant,admin"
-    && C.ROLES_FOURNISSEURS.join() === "gerant,admin" && C.PLAFOND_REMISE_PCT === 3
-    && C.remiseExigeAdmin(3.5) && !C.remiseExigeAdmin(3) && !C.remiseExigeAdmin("") );
+    && C.ROLES_FOURNISSEURS.join() === "gerant,admin" && C.PLAFOND_REMISE_PCT_DEFAUT === 3
+    && C.remiseExigeAdmin(3.5) && !C.remiseExigeAdmin(3) && !C.remiseExigeAdmin("")
+    && C.plafondRemise({ boutiques: [{ nom: "A" }] }) === 3
+    && C.plafondRemise({ boutiques: [{ nom: "A", plafond_remise_pct: 7 }] }) === 7
+    && C.remiseExigeAdmin(5, 7) === false && C.remiseExigeAdmin(8, 7) === true );
+  test("★ 🏷 ⚙ Paramètres : la limite de remise se règle (admin, écrite sur TOUTES les boutiques comme reappro_couverture_jours — 29/10/2026)",
+    /const \[plafondRemiseSaisi, setPlafondRemiseSaisi\] = useState\(String\(plafondRemise\(db\)\)\);/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
+    && /const enregistrerPlafondRemise = \(\) => \{\s*if \(refuserSaufAdmin\(profile, "Modifier la limite de remise sans administrateur"\)\) return;/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
+    && /plafond_remise_pct: v/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
+    && /data-reglage="plafond-remise"/.test(readFileSync("src/screens/Parametres.jsx", "utf8")));
+  test("★★ LE COUPLE (29/10/2026) : le serveur (securite-42) lit le MÊME champ `plafond_remise_pct` que celui écrit par ⚙ Paramètres — sans lui, l'écran laisserait passer une remise que la base refuserait encore",
+    (() => { const s42 = readFileSync("supabase/securite-42-plafond-remise-reglable.sql", "utf8");
+      return /b\.data ->> 'plafond_remise_pct'/.test(s42) && /plafond_remise_boutique/.test(s42)
+        && /drop function if exists public\.remise_ligne_excessive\(jsonb\);/.test(s42)
+        && /remise_ligne_excessive\(lignes jsonb, plafond numeric default 3\)/.test(s42); })());
   const attendus = [
     ["src/screens/Ventes.jsx", ["Supprimer une vente"]], // 14/09/2026 : le retour sous garantie passe au gérant (refuserSaufRoles, ROLES_RETOUR_GARANTIE)
     ["src/screens/Dettes.jsx", ["Supprimer une dette"]],
@@ -3945,15 +3958,17 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
     const manquants = gestes.filter((g, i) => (src.match(new RegExp(`refuserSauf(?:Admin|Roles)\\(profile, (?:ROLES_[A-Z]+, )?"${g.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"\\)`, "g")) || []).length < gestes.filter((x) => x === g).length);
     test(`★ ${fichier.split("/").pop()} : ${gestes.length} geste(s) revérifient leur rôle`, manquants.length === 0);
   }
-  test("★ la remise au-delà de 3 % est refusée à l'envoi du devis pour tout autre que l'administrateur (les 3 volets)",
-    /if \(remiseExigeAdmin\(devis\?\.pct_remise\) && profile\.role !== "admin"\)/.test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8")));
+  test("★ la remise au-delà de la limite (réglable, 3 % d'office) est refusée à l'envoi du devis pour tout autre que l'administrateur (les 3 volets)",
+    /if \(remiseExigeAdmin\(devis\?\.pct_remise, plafond\) && profile\.role !== "admin"\)/.test(readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8")));
   const ventesSrc = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ …et à l'encaissement d'une vente (sauf remise venant de la commande encaissée), sur les proformas et les commandes",
-    /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin"/.test(ventesSrc) && /Number\(cmd\.remise_pct \|\| 0\) !== remisePct/.test(ventesSrc)
+    /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin"/.test(ventesSrc) && /Number\(cmd\.remise_pct \|\| 0\) !== remisePct/.test(ventesSrc)
     // RETOURNÉ le 30/09/2026 : + « 💾 Enregistrer la proforma modifiée » — 4.
     // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier (🏗) — 5.
-    && (ventesSrc.match(/remiseExigeAdmin\(remisePct\)/g) || []).length === 5
-    && /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin"/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
+    // RETOURNÉ le 29/10/2026 : la limite se lit sur la boutique (plafondRemise), partout.
+    && (ventesSrc.match(/remiseExigeAdmin\(remisePct, plafond\)/g) || []).length === 5
+    && /const plafond = plafondRemise\(db\);/.test(ventesSrc)
+    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin"/.test(readFileSync("src/screens/Commandes.jsx", "utf8")));
   test("l'entrée de stock par fichier ignore la colonne Prix d'achat pour tout autre que l'administrateur",
     /profile\.role !== "admin" && resultat\.entrees\.some\(\(x\) => x\.prix_achat\)/.test(readFileSync("src/screens/Stocks.jsx", "utf8")));
   test("★ le SQL des verrous serveur existe, avec ses 11 déclencheurs et l'exception du pointage comptable",
@@ -7103,11 +7118,11 @@ titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (
   const vr = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran Ventes : la règle est vérifiée à l'ajout au panier, à l'encaissement et sur les deux proformas ; la remise générale est grisée dès qu'un article porte une remise, et les remises de ligne dès qu'une remise générale est saisie",
     // RETOURNÉ le 12/10/2026 : la remise générale peut être LIBRE — « saisie » se lit sur remiseGeneraleSaisie (% ou F).
-    /if \(remL > 0 && remiseGeneraleSaisie\) \{ uAlert\(`🔒 \$\{MSG_REMISE_EXCLUSIVE\}`\); return; \}/.test(vr) && /remL > 0 && profile\.role !== "admin" && remiseLigneExigeAdmin\(\{ qte: q, pu: sel\.pu, remise_ligne: remL \}\)/.test(vr)
+    /if \(remL > 0 && remiseGeneraleSaisie\) \{ uAlert\(`🔒 \$\{MSG_REMISE_EXCLUSIVE\}`\); return; \}/.test(vr) && /remL > 0 && profile\.role !== "admin" && remiseLigneExigeAdmin\(\{ qte: q, pu: sel\.pu, remise_ligne: remL \}, plafond\)/.test(vr)
     // RETOURNÉ le 30/09/2026 : l'encaissement passe « admin » quand la remise est celle d'une proforma reprise telle quelle (securite-33).
     // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier (🏗) — 4.
-    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 4
-    && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role\)/g) || []).length === 1
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role, plafond\)/g) || []).length === 4
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role, plafond\)/g) || []).length === 1
     // RETOURNÉ le 12/10/2026 : UNE case de remise (ChampRemise) — la générale grisée par aRemiseSurArticle, la ligne par remiseGeneraleSaisie.
     && /pct=\{f\.remise\}[^\n]*\n[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && /titre="Remise ligne"[^\n]*\n[^\n]*disabled=\{remiseGeneraleSaisie\}/.test(vr));
   const s14 = readFileSync("supabase/securite-14-remise-article.sql", "utf8");
@@ -9298,7 +9313,7 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
   const corpsR = srcTvR.slice(srcTvR.indexOf("const remiser = async"), srcTvR.indexOf("const enregistrerPrestation"));
   test("★★ l'écran : « Remise » sur chaque ligne (gérant, administrateur), revérifié DANS le geste sur la fiche FRAÎCHE ; facturer revérifie « C a » ; la colonne Remise et le total net",
     /refuserSaufRoles\(profile, ROLES_FICHE, "Accorder une remise/.test(corpsR) && /\(db\.clients_installes \|\| \[\]\)\.find\(\(x\) => x\.id === c\.id\)/.test(corpsR) && /poserRemise\(profile, fraiche/.test(corpsR)
-    && /critiqueFacturation\(c\) \|\| critiqueFacturationRemises\(c, profile\.role\)/.test(srcTvR) && /data-remise-ligne/.test(srcTvR)
+    && /critiqueFacturation\(c\) \|\| critiqueFacturationRemises\(c, profile\.role, plafondRemise\(db\)\)/.test(srcTvR) && /data-remise-ligne/.test(srcTvR)
     // RETOURNÉ le 15/10/2026 (la règle des lignes) : un bouton rond.
     && /!vente && ROLES_FICHE\.includes\(profile\.role\) && <BoutonRond data-remiser icone="🏷" onClick=\{\(\) => remiser\(c, l\)\}/.test(srcTvR) && /\{fmt\(montantLigne\(l\)\)\}/.test(srcTvR));
   const pre = Tv.preRempliPourFacture(c2);
@@ -13879,13 +13894,14 @@ titre("🧾 La remise d'une proforma reprise telle quelle, pour tout vendeur (30
   const corps = ve.slice(i, ve.indexOf("const vente = {", i));
   test("★★ l'encaissement passe par la règle (remise générale ET remise de ligne) et DIT pourquoi quand le panier a bougé",
     /const remiseDeLaProforma = remiseDeProformaGardee\(pfReprise, panier, remisePct\);/.test(corps)
-    && /critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role\)/.test(corps)
-    && /remiseExigeAdmin\(remisePct\) && profile\.role !== "admin" && !remiseDeLaProforma/.test(corps)
+    && /critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role, plafond\)/.test(corps)
+    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin" && !remiseDeLaProforma/.test(corps)
     && /ne vaut que pour son panier tel quel/.test(corps));
-  test("★ la proforma elle-même reste réservée à l'administrateur au-delà de 3 % (on n'a rien ouvert de ce côté)",
+  test("★ la proforma elle-même reste réservée à l'administrateur au-delà de la limite réglable (on n'a rien ouvert de ce côté)",
     // RETOURNÉ le 30/09/2026 : + la proforma modifiée (émettre, modifier : trois gestes, tous au rôle).
     // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier, au rôle lui aussi — 4.
-    (ve.match(/critiqueRemises\(panier, remisePct, remise, profile\.role\)/g) || []).length === 4);
+    // RETOURNÉ le 29/10/2026 : + le plafond réglé sur la boutique, en 5e argument.
+    (ve.match(/critiqueRemises\(panier, remisePct, remise, profile\.role, plafond\)/g) || []).length === 4);
   const sql = readFileSync("supabase/securite-33-remise-proforma-reprise.sql", "utf8");
   test("★★ LE COUPLE : le serveur compare le même panier (produit, prix, quantité, remise de ligne, pourcentage) et exige produit_id",
     /panier_normalise\(pf -> 'lignes'\) = public\.panier_normalise\(vente -> 'articles'\)/.test(sql)
@@ -16601,7 +16617,7 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
     && corpsAchat.length > 500 && !/envoyerModele|envoyerRecu|numeroManquant|QUESTION_SANS_NUMERO|ventes:|dettes:/.test(corpsAchat)
     && /chantiersPourAchat\(chantiersDeLEspaceRegarde\(db, profile\)\)\.find/.test(corpsAchat) && /critiqueAchatChantier\(\{ profile, chantier: c, panier \}\)/.test(corpsAchat)
     && /prochainNumeroAchatChantier\(db, boutique\)/.test(corpsAchat) && /imprimerAchatChantier\(r\.achat, r\.fiche/.test(corpsAchat) && /Stock insuffisant pour/.test(corpsAchat)
-    && /critiqueRemises\(panier, remisePct, remise, profile\.role\)/.test(corpsAchat));
+    && /critiqueRemises\(panier, remisePct, remise, profile\.role, plafond\)/.test(corpsAchat));
   test("★★ 1 : l'encaissement d'un devis « avec installation » marque ses lignes au_chantier, ne contrôle pas leur stock, et pose stock_au_chantier sur le chantier",
     /const auChantier = !!origineDevis && stockAuChantier\(devisOrigine\);/.test(vS) && /articles: auChantier \? panier\.map\(\(l\) => \(l\.produit_id && !l\.hors_boutique \? \{ \.\.\.l, au_chantier: true \} : l\)\) : panier,/.test(vS)
     && /\.\.\.\(auChantier \? \{ stock_au_chantier: true \} : \{\}\),/.test(vS));
@@ -17394,12 +17410,12 @@ titre("🔒 « ✍️ Compléter le devis » revérifie aussi la limite de remis
   const codeNu = tld.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const i = codeNu.indexOf("const completerEtEnvoyer");
   const corps = codeNu.slice(i, codeNu.indexOf("const telechargerPDF", i));
-  const iGarde = corps.search(/remiseExigeAdmin\(res\.devis\.pct_remise\) && profile\.role !== "admin"/);
+  const iGarde = corps.search(/remiseExigeAdmin\(res\.devis\.pct_remise, plafond\) && profile\.role !== "admin"/);
   const iSave = corps.indexOf("save((etat)");
-  test("★★ un devis qui porte déjà une remise > 3 % (fixée par l'admin) ne se complète pas hors de l'administrateur — revérifié AVANT le save",
+  test("★★ un devis qui porte déjà une remise au-delà de la limite réglable (fixée par l'admin) ne se complète pas hors de l'administrateur — revérifié AVANT le save",
     i > 0 && iGarde >= 0 && iSave > 0 && iGarde < iSave);
-  test("import de remiseExigeAdmin / PLAFOND_REMISE_PCT depuis lib/calculs",
-    /remiseExigeAdmin, PLAFOND_REMISE_PCT \} from "\.\.\/lib\/calculs"/.test(tld));
+  test("import de remiseExigeAdmin / plafondRemise depuis lib/calculs (29/10/2026 : la limite de 3 % se règle désormais dans ⚙ Paramètres)",
+    /remiseExigeAdmin, plafondRemise \} from "\.\.\/lib\/calculs"/.test(tld));
 }
 
 // 📐 « supprimer partout il y a facultatif » (Timo, 23/10/2026) : aucun libellé de case ne le dit plus.

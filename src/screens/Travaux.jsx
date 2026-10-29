@@ -15,7 +15,7 @@ import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, Aucu
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
-import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdmin, refusSuppressionDepense, aLienAAnnuler, annulerLiensDepense, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, marqueEspace, stockActuel, utilisateursDeLEspace, chantiersDeLEspaceRegarde } from "../lib/calculs";
+import { bloquerSiLecture, refuserSaufRoles, refuserSaufAdmin, refusSuppressionDepense, aLienAAnnuler, annulerLiensDepense, refuserSaufAdminPrincipal, estAdminPrincipal, boutiqueParDefaut, boutiqueRetenue, estCompteFormation, marqueEspace, stockActuel, utilisateursDeLEspace, chantiersDeLEspaceRegarde, plafondRemise } from "../lib/calculs";
 import { reservations, avertissementReserve } from "../lib/achatsChantier";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
@@ -112,11 +112,12 @@ export function Travaux({ db, save, profile, onFacturer }) {
     const fraiche = (db.clients_installes || []).find((x) => x.id === c.id) || c;
     const l = (fraiche.articles_travaux || []).find((x) => x.id === ligne.id);
     if (!l) { uAlert("Ligne introuvable."); return; }
-    const v = await uPrompt(`Remise sur ${l.qte} × ${l.nom} (${fmt(brutLigne(l))}) :\n\nen francs (ex. 2000) ou en pourcentage (ex. 3 %). Laissez vide pour retirer la remise.\n\nAu-delà de 3 %, l'administrateur seul. Une remise sur un article interdit la remise générale à la facture.`, remiseDe(l) ? String(remiseDe(l)) : "");
+    const plafond = plafondRemise(db);
+    const v = await uPrompt(`Remise sur ${l.qte} × ${l.nom} (${fmt(brutLigne(l))}) :\n\nen francs (ex. 2000) ou en pourcentage (ex. 3 %). Laissez vide pour retirer la remise.\n\nAu-delà de ${plafond} %, l'administrateur seul. Une remise sur un article interdit la remise générale à la facture.`, remiseDe(l) ? String(remiseDe(l)) : "");
     if (v === null) return;
     const montant = lireRemise(v, l);
     if (montant === null) { uAlert("Remise illisible : tapez un montant en francs (2000) ou un pourcentage (3 %)."); return; }
-    const r = poserRemise(profile, fraiche, l.id, montant);
+    const r = poserRemise(profile, fraiche, l.id, montant, db);
     if (r.refus) { uAlert(r.refus); return; }
     majFiche(r.fiche, r.journal);
   };
@@ -175,7 +176,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
   const facturer = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
     if (refuserSaufRoles(profile, ROLES_FACTURER, "Facturer des travaux")) return;
-    const refus = critiqueFacturation(c) || critiqueFacturationRemises(c, profile.role);
+    const refus = critiqueFacturation(c) || critiqueFacturationRemises(c, profile.role, plafondRemise(db));
     if (refus) { uAlert(refus); return; }
     if (!await uConfirm(`Facturer les travaux de ${c.prenom || ""} ${c.nom} : ${fmt(totalAFacturer(c))} ?\n\nLe panier s'ouvre dans 💰 Ventes : vous y choisissez espèces ou crédit (avec avance), puis vous encaissez. Le reçu reviendra sur cette fiche.`)) return;
     onFacturer(preRempliPourFacture(c));
@@ -307,7 +308,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
                                 <td className="px-3 py-1.5 tabular-nums">{l.qte}</td>
                                 <td className="px-3 py-1.5 tabular-nums">{fmt(l.pu_vente)}</td>
                                 <td className="px-3 py-1.5 tabular-nums" data-remise-ligne>
-                                  {remiseDe(l) > 0 ? <span className={`font-semibold ${remiseTravauxExigeAdmin(l) ? "text-red-700" : "text-red-600"}`}>−{fmt(remiseDe(l))}</span> : <span className="text-slate-400">—</span>}
+                                  {remiseDe(l) > 0 ? <span className={`font-semibold ${remiseTravauxExigeAdmin(l, plafondRemise(db)) ? "text-red-700" : "text-red-600"}`}>−{fmt(remiseDe(l))}</span> : <span className="text-slate-400">—</span>}
                                 </td>
                                 <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(l.pu_achat)}</td>
                                 <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(montantLigne(l))}</td>

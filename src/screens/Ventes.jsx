@@ -30,7 +30,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, PLAFOND_REMISE_PCT, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalVenteDuJour, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation, chantiersDeLEspaceRegarde } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, plafondRemise, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalVenteDuJour, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation, chantiersDeLEspaceRegarde } from "../lib/calculs";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { bandesDeVersement, intercalerBandes, resumeBande } from "../lib/bandesVersement";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -134,6 +134,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // défaut plutôt que d'afficher un écran figé ou un nom fantôme.
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "ventes" });
   const produits = db.produits.filter((p) => p.boutique === boutique);
+  // 29/10/2026, Timo : la limite de remise sans administrateur se règle
+  // désormais dans ⚙ Paramètres (plafondRemise), 3 % d'office.
+  const plafond = plafondRemise(db);
   const commerciaux = apporteursPossibles(db, profile);
   // ⚠ Filtre par DOMAINE (demande Timo, 18/08/2026) — des familles comme
   // « Câbles » ou « Accessoires » existent dans plusieurs métiers : filtrer
@@ -309,7 +312,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // Timo (10/09/2026) : remise sur un article > 3 % → administrateur seul ;
     // remise sur un article ET remise générale → jamais (l'une ou l'autre).
     if (remL > 0 && remiseGeneraleSaisie) { uAlert(`🔒 ${MSG_REMISE_EXCLUSIVE}`); return; }
-    if (remL > 0 && profile.role !== "admin" && remiseLigneExigeAdmin({ qte: q, pu: sel.pu, remise_ligne: remL })) { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % sur un article est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus.`); return; }
+    if (remL > 0 && profile.role !== "admin" && remiseLigneExigeAdmin({ qte: q, pu: sel.pu, remise_ligne: remL }, plafond)) { uAlert(`🔒 Une remise supérieure à ${plafond} % sur un article est réservée à l'administrateur. Ramenez-la à ${plafond} % au plus.`); return; }
     mettreAuPanier(p, q, sel.pu, remL);
     setSel({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   };
@@ -488,8 +491,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
   const enregistrerModifProforma = () => {
     if (panier.length === 0) { setMsg("Une proforma porte au moins un article."); return; }
-    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
-    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const pf = construireProforma();
     if (!enregistrerProforma(pf)) return;
@@ -527,8 +530,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
   const proformaWhatsApp = async () => {
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
-    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
-    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const pf = construireProforma();
     if (!enregistrerProforma(pf)) return;
@@ -610,8 +613,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
 
   const proformaPDF = () => {
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
-    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
-    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const pf = construireProforma();
     if (!enregistrerProforma(pf)) return;
@@ -728,8 +731,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const refus = critiqueAchatChantier({ profile, chantier: c, panier });
     if (refus) { setMsg(refus); uAlert(refus); return; }
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
-    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}`); return; } }
-    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
+    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}`); return; } }
+    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
     const gratuits = panier.filter((l) => !(Number(l.pu) > 0));
     if (gratuits.length && !await uConfirm(`⚠ ${gratuits.length} article(s) sont à 0 F :\n${gratuits.map((l) => `• ${l.article}`).join("\n")}\n\nIls sortiront quand même du stock. Continuer ?`)) return;
     // Le matériel doit être LÀ : un achat pour un chantier ne se réserve pas.
@@ -819,17 +822,18 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const pourquoiPasProforma = pfReprise && !remiseDeLaProforma
       ? `\n\nLa remise de la proforma N° ${pfReprise.numero} ne vaut que pour son panier tel quel : un article, une quantité, un prix ou la remise a changé depuis la reprise.`
       : "";
-    { const refusR = critiqueRemises(panier, remisePct, remise, remiseDeLaProforma ? "admin" : profile.role); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}${pourquoiPasProforma}`); return; } }
+    { const refusR = critiqueRemises(panier, remisePct, remise, remiseDeLaProforma ? "admin" : profile.role, plafond); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}${pourquoiPasProforma}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { setMsg(refusE); uAlert(refusE); return; } }
-    // ⚠ Décision Timo (04/09/2026) : au-delà de 3 % de remise, l'administrateur
-    // seul — sauf si la remise est CELLE de la commande encaissée (devis
-    // validé), déjà contrôlée en amont, ou celle d'une proforma reprise telle
-    // quelle (30/09/2026). Le serveur applique la même règle.
-    if (remiseExigeAdmin(remisePct) && profile.role !== "admin" && !remiseDeLaProforma) {
+    // ⚠ Décision Timo (04/09/2026) : au-delà de la limite de remise (réglable
+    // depuis ⚙ Paramètres, 3 % d'office), l'administrateur seul — sauf si la
+    // remise est CELLE de la commande encaissée (devis validé), déjà
+    // contrôlée en amont, ou celle d'une proforma reprise telle quelle
+    // (30/09/2026). Le serveur applique la même règle.
+    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin" && !remiseDeLaProforma) {
       const cmd = origineCommande ? (db.commandes || []).find((c) => c.id === origineCommande) : null;
       if (!cmd || Number(cmd.remise_pct || 0) !== remisePct) {
-        setMsg(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`);
-        uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus, ou faites encaisser par l'administrateur.${pourquoiPasProforma}`);
+        setMsg(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`);
+        uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur. Ramenez-la à ${plafond} % au plus, ou faites encaisser par l'administrateur.${pourquoiPasProforma}`);
         return;
       }
     }
@@ -2041,7 +2045,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                         reste à faire. */}
                     <BoutonRond data-vendre-proforma icone="🛒" teinte="vert" onClick={() => reprendreLaProforma(pf)} titre="🛒 Vendre — mettre les articles de cette proforma dans le panier, l'encaissement reste à faire" />
                     {/* ✏️ 30/09/2026 : l'auteur et l'administrateur, jamais sur une proforma encaissée ; au-delà de 3 % l'administrateur seul (revérifié dans le geste). */}
-                    {!vs.length && (profile.role === "admin" || (auteurDeLaProforma(pf, profile) && !proformaAuDelaDuPlafond(pf))) && (
+                    {!vs.length && (profile.role === "admin" || (auteurDeLaProforma(pf, profile) && !proformaAuDelaDuPlafond(pf, plafond))) && (
                       <BoutonRond data-modifier-proforma icone="✏️" teinte="ambre" onClick={() => modifierLaProforma(pf)} titre="✏️ Modifier — elle garde son numéro, la modification est notée" />
                     )}
                   </CelluleActions>

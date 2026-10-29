@@ -43,7 +43,7 @@ export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBro
 import { Field, inputCls, uAlert, uConfirm, uPrompt, ChampQuiGrandit, BoutonEnvoi, LIBELLE_ENVOI_EN_COURS } from "../../components/ui";
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
-import { marqueEspace, memeNumero, remiseExigeAdmin, PLAFOND_REMISE_PCT, bloquerSiLecture, refuserSaufAdmin, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
+import { marqueEspace, memeNumero, remiseExigeAdmin, plafondRemise, bloquerSiLecture, refuserSaufAdmin, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, MODE_POURCENT, MODE_MONTANT, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX, peutEtablirPourAutrui, auteursPossibles, auteurDuDevis, devisEtabliPour, garderAuteur, critiqueAuteur, remplacePour, devisRemplace, auteursDesBrouillons, critiqueBrouillonAutrui, avisBrouillonEnvoye } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
@@ -1054,11 +1054,13 @@ export function rangerDevisChezLeClient({ dbApres, compte, devis, profile, idARe
   // cette personne, plutôt que d'être redemandée à chaque fois. Un seul
   // point de contrôle ici, puisque cette fonction est déjà partagée par
   // les 3 volets du dimensionnement (Solaire/Garage/Autre).
-  // ⚠ Décision Timo (04/09/2026) : au-delà de 3 % de remise, l'administrateur
-  // seul. Vérifié ici (les trois volets passent par cette fonction) — et le
-  // serveur appliquera la même règle (vague 3, étape 2).
-  if (remiseExigeAdmin(devis?.pct_remise) && profile.role !== "admin") {
-    uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur. Ramenez la remise à ${PLAFOND_REMISE_PCT} % au plus, ou faites établir ce devis par l'administrateur.`);
+  // ⚠ Décision Timo (04/09/2026) : au-delà de la limite de remise (réglable
+  // dans ⚙ Paramètres, 3 % d'office), l'administrateur seul. Vérifié ici
+  // (les trois volets passent par cette fonction) — et le serveur applique
+  // la même règle (vague 3, étape 2 ; 29/10/2026 : securite-42).
+  const plafond = plafondRemise(dbApres);
+  if (remiseExigeAdmin(devis?.pct_remise, plafond) && profile.role !== "admin") {
+    uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur. Ramenez la remise à ${plafond} % au plus, ou faites établir ce devis par l'administrateur.`);
     return null;
   }
   if (!profile.signature_personnelle) {

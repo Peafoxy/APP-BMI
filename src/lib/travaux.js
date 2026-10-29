@@ -26,7 +26,7 @@
 //     le reçu ou la dette revient sur la fiche (vente_id / dette_id).
 // ============================================================
 import { uid, today, fmt, totalVente } from "./core";
-import { stockActuel, resteAPayer, travauxSolde, remiseLigneExigeAdmin, PLAFOND_REMISE_PCT } from "./calculs";
+import { stockActuel, resteAPayer, travauxSolde, remiseLigneExigeAdmin, PLAFOND_REMISE_PCT_DEFAUT, plafondRemise } from "./calculs";
 import { sansAccents } from "./suggestions";
 import { dansLEspaceRegarde, totalDepensesChantier } from "./depensesChantier";
 import { ficheLisible } from "./pompes.js";
@@ -167,7 +167,7 @@ export const montantLigne = (l) => brutLigne(l) - remiseDe(l);
 export const totalRemises = (c) => (c.articles_travaux || []).reduce((s, l) => s + remiseDe(l), 0);
 // La ligne vue par la règle de Ventes ({ qte, pu, remise_ligne }).
 const ligneVente = (l) => ({ qte: Number(l.qte || 0), pu: Number(l.pu_vente || 0), remise_ligne: remiseDe(l), article: l.nom });
-export const remiseTravauxExigeAdmin = (l) => remiseLigneExigeAdmin(ligneVente(l));
+export const remiseTravauxExigeAdmin = (l, plafond = PLAFOND_REMISE_PCT_DEFAUT) => remiseLigneExigeAdmin(ligneVente(l), plafond);
 // « 5 % » ou « 5% » → pourcentage de la ligne ; un nombre seul → francs ;
 // vide → 0 (la remise est retirée). Rend null si illisible.
 export function lireRemise(texte, ligne) {
@@ -178,28 +178,29 @@ export function lireRemise(texte, ligne) {
   const f = /^\d+(?:\.\d+)?F?$/i.test(t) ? Number(t.replace(/F$/i, "")) : NaN;
   return Number.isFinite(f) ? Math.round(f) : null;
 }
-export function critiqueRemiseTravaux(c, ligne, montant, role) {
+export function critiqueRemiseTravaux(c, ligne, montant, role, plafond = PLAFOND_REMISE_PCT_DEFAUT) {
   if (!ligne) return "Ligne introuvable.";
   if (c.vente_id) return "Ces travaux sont déjà facturés : la remise ne se change plus.";
   const m = Number(montant);
   if (!Number.isFinite(m) || m < 0) return "La remise doit être un montant positif (en F) ou un pourcentage (ex. 5 %).";
   if (m > brutLigne(ligne)) return "La remise ne peut pas dépasser le montant de la ligne.";
-  if (role !== "admin" && remiseTravauxExigeAdmin({ ...ligne, remise: m })) return `🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % sur un article est réservée à l'administrateur. Ramenez-la à ${PLAFOND_REMISE_PCT} % au plus (${Math.floor((brutLigne(ligne) * PLAFOND_REMISE_PCT) / 100)} F).`;
+  if (role !== "admin" && remiseTravauxExigeAdmin({ ...ligne, remise: m }, plafond)) return `🔒 Une remise supérieure à ${plafond} % sur un article est réservée à l'administrateur. Ramenez-la à ${plafond} % au plus (${Math.floor((brutLigne(ligne) * plafond) / 100)} F).`;
   return null;
 }
-export function poserRemise(profile, c, ligneId, montant) {
+export function poserRemise(profile, c, ligneId, montant, db) {
   const ligne = (c.articles_travaux || []).find((l) => l.id === ligneId);
-  const refus = critiqueRemiseTravaux(c, ligne, montant, profile?.role);
+  const refus = critiqueRemiseTravaux(c, ligne, montant, profile?.role, plafondRemise(db));
   if (refus) return { refus };
   const m = Math.round(Number(montant));
   const fiche = { ...c, articles_travaux: (c.articles_travaux || []).map((l) => (l.id === ligneId ? (m > 0 ? { ...l, remise: m, remise_par: profile.nom } : (({ remise, remise_par, ...reste }) => reste)(l)) : l)) };
   return { fiche, journal: `Travaux ${c.nom} : remise sur ${ligne.qte} × ${ligne.nom} : ${remiseDe(ligne)} F → ${m} F` };
 }
-// « C a » : une remise au-delà de 3 % ne se facture que par l'administrateur.
-export function critiqueFacturationRemises(c, role) {
+// « C a » : une remise au-delà de la limite (réglable, 3 % d'office) ne se
+// facture que par l'administrateur.
+export function critiqueFacturationRemises(c, role, plafond = PLAFOND_REMISE_PCT_DEFAUT) {
   if (role === "admin") return null;
-  const trop = (c.articles_travaux || []).find(remiseTravauxExigeAdmin);
-  return trop ? `🔒 « ${trop.nom} » porte une remise de plus de ${PLAFOND_REMISE_PCT} % : seul l'administrateur peut facturer ces travaux.` : null;
+  const trop = (c.articles_travaux || []).find((l) => remiseTravauxExigeAdmin(l, plafond));
+  return trop ? `🔒 « ${trop.nom} » porte une remise de plus de ${plafond} % : seul l'administrateur peut facturer ces travaux.` : null;
 }
 
 // ---- Les montants ----

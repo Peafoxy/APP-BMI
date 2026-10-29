@@ -12,7 +12,7 @@
 // fenêtres ↩ Reprise, 🔁 Retour et 🔄 Échanger), lib/echanges.js (l'échange d'un article), screens/Commandes.jsx (🛒 Nouvelle
 // commande, 📥 Commandes reçues), components/SelecteurArticle.jsx (la
 // fenêtre « Rechercher un article »), lib/constants.js (PAIEMENTS),
-// lib/calculs.js (PLAFOND_REMISE_PCT = 3, critiqueRemises,
+// lib/calculs.js (PLAFOND_REMISE_PCT_DEFAUT = 3, plafondRemise, critiqueRemises,
 // MSG_REMISE_EXCLUSIVE, remiseExigeAdmin, apporteursPossibles,
 // compteClientPour, reprendreProforma, ventesDeProforma, periodes,
 // bornesPersonnalisees, recetteDesVentes, totalDesProformas,
@@ -52,7 +52,7 @@ export const CHAPITRE = {
       ["table", { entetes: ["Le geste", "Qui"], largeurs: [5200, 4100], lignes: [
         ["Ouvrir 💰 Ventes, composer un panier, « 💳 Encaisser la vente », « 🧾 Proforma WhatsApp », 🖨️ proforma, 🛒 Vendre une proforma, 🖨 / WhatsApp sur une vente", "**Vendeur, gérant, administrateur**"],
         ["Voir la liste 🧾 Proformas", "Vendeur, gérant, responsable commercial, administrateur"],
-        ["Une remise **au-delà de 3 %** (générale, ou sur un article)", "**L'administrateur seul** — le serveur applique la même règle. **Sauf** la remise d'une proforma reprise par 🛒 Vendre **avec son panier inchangé** : tout vendeur l'encaisse."],
+        ["Une remise **au-delà de la limite** (3 % d'office)", "**L'administrateur seul** — le serveur applique la même règle. **Sauf** la remise d'une proforma reprise par 🛒 Vendre **avec son panier inchangé** : tout vendeur l'encaisse. **⚠ Depuis le 29/10/2026, cette limite se règle dans ⚙ Paramètres** (« 🏷 Limite de remise sans administrateur ») : elle peut être montée ou baissée à tout moment par l'administrateur, pour toute l'entreprise."],
         ["📋 Devis (reprendre la vente pour en faire un devis d'installation)", "L'administrateur, le responsable commercial, et **le vendeur qui a fait cette vente**"],
         ["🔁 Retour / échange sous garantie", "**Gérant et administrateur**"],
         ["🔄 Échanger un article contre un autre (le client paie ou reçoit la différence)", "**Gérant et administrateur**"],

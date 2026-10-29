@@ -10,7 +10,7 @@ import { uid, fmt, today, dFR, heureCourte, totalVente } from "../lib/core";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, ListeArticles, PastillePaiement, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
-import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../lib/calculs";
+import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, plafondRemise } from "../lib/calculs";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { posesAEncaisser, libelleEncaissementPose, ACOMPTE_POSE_PCT } from "../lib/poseSeule";
@@ -121,8 +121,10 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     if (bloquerSiLecture(db, profile)) return;
     if (panier.length === 0) { setMsg("Le panier est vide : ajoutez au moins un article."); return; }
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
-    // Décision Timo (04/09/2026) : au-delà de 3 %, l'administrateur seul.
-    if (remiseExigeAdmin(remisePct) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % est réservée à l'administrateur.`); return; }
+    // Décision Timo (04/09/2026) : au-delà de la limite de remise (réglable
+    // dans ⚙ Paramètres, 3 % d'office), l'administrateur seul.
+    const plafond = plafondRemise(db);
+    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
     setMsg("");
     const dest = f.vendeurCible || "un vendeur disponible";
     if (!await uConfirm(`Envoyer cette commande (${panier.length} article(s), ${fmt(total)}) à ${boutique} pour ${dest} ?`)) return;

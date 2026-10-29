@@ -21,7 +21,7 @@ import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeMo
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { etatRelanceAuto } from "../lib/relanceAutoDevis";
-import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE, remiseExigeAdmin, PLAFOND_REMISE_PCT } from "../lib/calculs";
+import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE, remiseExigeAdmin, plafondRemise } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
@@ -544,8 +544,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
     // serveur (users_regles_remise) — après coup, dans la file d'attente,
     // en rouge. LA MÊME limite que pour envoyer un devis : l'administrateur
     // seul complète un devis qui porte déjà une remise au-delà de 3 %.
-    if (remiseExigeAdmin(res.devis.pct_remise) && profile.role !== "admin") {
-      uAlert(`🔒 Ce devis porte une remise supérieure à ${PLAFOND_REMISE_PCT} % : seul l'administrateur peut le compléter. Faites-le compléter par lui, ou faites-lui ramener d'abord la remise à ${PLAFOND_REMISE_PCT} % au plus.`);
+    const plafond = plafondRemise(db);
+    if (remiseExigeAdmin(res.devis.pct_remise, plafond) && profile.role !== "admin") {
+      uAlert(`🔒 Ce devis porte une remise supérieure à ${plafond} % : seul l'administrateur peut le compléter. Faites-le compléter par lui, ou faites-lui ramener d'abord la remise à ${plafond} % au plus.`);
       return;
     }
     const nomClient = client.nom_base || client.nom;

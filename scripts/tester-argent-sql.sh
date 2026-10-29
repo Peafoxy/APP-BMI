@@ -73,6 +73,10 @@ echo "▸ L'échange d'un article (gérant, administrateur) : supabase/securite-
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-40-echange-article.sql >/dev/null 2>&1 || echo "   ❌ securite-40 refusé par la base"
 VERIF40=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-40-echange-article.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF40" = "t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-40 répond true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-40 répond : $VERIF40"; exit 1; fi
+echo "▸ La limite de remise réglable (ex-3 %), lue sur la boutique : supabase/securite-42-plafond-remise-reglable.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-42-plafond-remise-reglable.sql >/dev/null 2>&1 || echo "   ❌ securite-42 refusé par la base"
+VERIF42=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-42-plafond-remise-reglable.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF42" = "t|t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-42 répond true | true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-42 répond : $VERIF42"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -347,6 +351,28 @@ essai "★ un vendeur émet un proforma avec 3 % sur un article" "PERMIS" "$VEND
 essai "★ l'admin émet un proforma avec 3 % sur un article ET 2 % de remise générale" "REFUSE" "$ADMIN" "$(UPS proformas zpl1 "{\"id\":\"zpl1\",\"remise_pct\":2,\"remise_montant\":4000,\"lignes\":$L3}")"
 essai "l'admin émet un proforma avec 5 % sur un article" "PERMIS" "$ADMIN" "$(UPS proformas zpl1 "{\"id\":\"zpl1\",\"remise_pct\":0,\"lignes\":$L5}")"
 essai "★ l'ancien verrou tient : un vendeur émet un proforma à 5 % de remise générale" "REFUSE" "$VENDEUR" "$(UPS proformas zpl2 "{\"id\":\"zpl2\",\"remise_pct\":5,\"lignes\":$L0}")"
+
+echo
+echo "── 🏷 LA LIMITE DE REMISE EST RÉGLABLE PAR BOUTIQUE (securite-42, Timo 29/10/2026) : 5 % sur ZPLAFOND, 3 % partout ailleurs ──"
+$P -c "insert into public.boutiques (id, data) values ('zbq5', '{\"nom\":\"ZPLAFOND\",\"plafond_remise_pct\":5}');
+insert into public.produits (id, data) values ('zp5', '{\"id\":\"zp5\",\"boutique\":\"ZPLAFOND\",\"nom\":\"CABLE\",\"prix_achat\":1000,\"prix_vente\":100000}');" >/dev/null
+L4P='[{"produit_id":"zp5","article":"CABLE","qte":1,"pu":100000,"remise_ligne":4000}]'
+L6P='[{"produit_id":"zp5","article":"CABLE","qte":1,"pu":100000,"remise_ligne":6000}]'
+L0P='[{"produit_id":"zp5","article":"CABLE","qte":1,"pu":100000}]'
+LU=$($P -c "select public.plafond_remise_boutique('ZPLAFOND');" | tr -d ' ')
+if [ "$LU" = "5" ]; then echo "  ✓ plafond_remise_boutique('ZPLAFOND') = 5"; ok=$((ok+1)); else echo "  ❌ plafond_remise_boutique('ZPLAFOND') = $LU (attendu 5)"; ko=$((ko+1)); fi
+LU=$($P -c "select public.plafond_remise_boutique('APESSITO');" | tr -d ' ')
+if [ "$LU" = "3" ]; then echo "  ✓ plafond_remise_boutique('APESSITO') (rien réglé) = 3, la valeur d'office"; ok=$((ok+1)); else echo "  ❌ plafond_remise_boutique('APESSITO') = $LU (attendu 3)"; ko=$((ko+1)); fi
+LU=$($P -c "select public.plafond_remise_boutique('BOUTIQUE INCONNUE');" | tr -d ' ')
+if [ "$LU" = "3" ]; then echo "  ✓ plafond_remise_boutique(…) sur une boutique introuvable = 3, pas une erreur"; ok=$((ok+1)); else echo "  ❌ plafond_remise_boutique(boutique introuvable) = $LU (attendu 3)"; ko=$((ko+1)); fi
+essai "★ un vendeur de ZPLAFOND (limite réglée à 5 %) vend avec 4 % sur un article — passerait pour REFUS à 3 %" "PERMIS" "$VENDEUR" "$(UPS ventes zrlp1 "{\"id\":\"zrlp1\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":0,\"articles\":$L4P}")"
+essai "★ …mais 6 % reste refusé, même à 5 % de limite" "REFUSE" "$VENDEUR" "$(UPS ventes zrlp2 "{\"id\":\"zrlp2\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":0,\"articles\":$L6P}")"
+essai "★ l'admin passe toujours, quelle que soit la limite" "PERMIS" "$ADMIN" "$(UPS ventes zrlp3 "{\"id\":\"zrlp3\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":0,\"articles\":$L6P}")"
+essai "★ 4 % de remise GÉNÉRALE sur ZPLAFOND (sans remise de ligne) passe aussi" "PERMIS" "$VENDEUR" "$(UPS ventes zrlp4 "{\"id\":\"zrlp4\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":4,\"articles\":$L0P}")"
+essai "★ …mais 6 % de remise générale reste refusé" "REFUSE" "$VENDEUR" "$(UPS ventes zrlp5 "{\"id\":\"zrlp5\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":6,\"articles\":$L0P}")"
+essai "★ la limite d'APESSITO (rien réglé dessus) reste à 3 %, inchangée par le réglage de ZPLAFOND" "REFUSE" "$VENDEUR" "$(UPS ventes zrlp6 "{\"id\":\"zrlp6\",\"boutique\":\"APESSITO\",\"remise_pct\":4,\"articles\":$L0}")"
+essai "★ un vendeur émet un proforma à 4 % sur ZPLAFOND" "PERMIS" "$VENDEUR" "$(UPS proformas zplp1 "{\"id\":\"zplp1\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":4,\"lignes\":$L0P}")"
+essai "★ …mais 6 % sur ZPLAFOND reste refusé à un vendeur" "REFUSE" "$VENDEUR" "$(UPS proformas zplp2 "{\"id\":\"zplp2\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":6,\"lignes\":$L0P}")"
 
 echo
 echo "── LA REMISE D'UNE PROFORMA REPRISE TELLE QUELLE (securite-33, Timo 30/09/2026, « b ») ──"

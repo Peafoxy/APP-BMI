@@ -9916,6 +9916,52 @@ lit mal est pire qu'un banc absent).
   change pas (12/09/2026, « rien n'a changé » après la première correction).
   Le banc lit l'en-tête PNG, le premier pixel, et le nom cité par le manifeste.
 
+### 🏷 LA LIMITE DE REMISE SANS ADMINISTRATEUR EST RÉGLABLE (29/10/2026, « Ramener la limite de 3 % d'un gérant dans paramètres.. Ou on peu augmenter ou diminuer à tout moment »)
+- Jusqu'ici, « au-delà de 3 %, l'administrateur seul » était un chiffre
+  **gravé dans le code** (`PLAFOND_REMISE_PCT`, lib/calculs.js) et **gravé
+  dans la base** (securite-14, repris par securite-33, -34, -40). Timo veut
+  pouvoir la monter ou la baisser lui-même, à tout moment.
+- **Réglage** : ⚙ Paramètres → 🗂 Catalogue & devis → **« 🏷 Limite de remise
+  sans administrateur (%) »** (administrateur, revérifié DANS le geste),
+  champ `plafond_remise_pct` écrit sur **TOUTES** les boutiques — exactement
+  comme `reappro_couverture_jours` (📦 Stock à prévoir) : **rien à coller
+  pour le réglage lui-même**, l'administrateur écrit déjà ce champ.
+- **`plafondRemise(db)`** (lib/calculs.js) rend le pourcentage réglé, sinon
+  `PLAFOND_REMISE_PCT_DEFAUT` = 3 (l'ancienne constante `PLAFOND_REMISE_PCT`
+  est RETIRÉE, remplacée partout). `remiseExigeAdmin`, `remiseLigneExigeAdmin`,
+  `critiqueRemises`, `proformaAuDelaDuPlafond`, `critiqueModifProforma`
+  reçoivent désormais ce plafond (second ou dernier argument, par défaut
+  3 pour un appel qui ne le donnerait pas). ⚠ **Jamais en callback nu**
+  (`.find(remiseLigneExigeAdmin)` passerait l'INDEX du tableau comme plafond,
+  et un index 0 écraserait la valeur par défaut) : chaque appel en tableau
+  est enveloppé (`.find((l) => remiseLigneExigeAdmin(l, plafond))`).
+- **Tous les écrans qui vérifiaient la remise lisent maintenant la limite
+  réglée** : 💰 Ventes (panier, encaissement, proformas, commandes),
+  📐 Dimensionnement (`rangerDevisChezLeClient`), 📋 Tous les devis
+  (« ✍️ Compléter le devis »), 🛒 Nouvelle commande, 🛠 Travaux à crédit (la
+  remise sur un article, la facturation). Chaque message de refus nomme
+  la VRAIE limite réglée, jamais « 3 % » en dur.
+- ⚠⚠ **LE COUPLE : `securite-42`** (reprend `securite-40`, donc `-33`, `-14`,
+  pour les ventes ; `securite-34`, donc `-14`, pour les proformas — **le
+  SEUL à coller**). Une nouvelle fonction, `plafond_remise_boutique(nom)`,
+  lit `plafond_remise_pct` sur la boutique de la vente / de la proforma (par
+  son NOM — `max()` garantit toujours une ligne, 3 % si rien n'est réglé ou
+  si la boutique n'existe plus). `remise_ligne_excessive` reçoit ce plafond
+  en second argument (l'ANCIENNE forme à un seul argument est retirée, pour
+  ne jamais laisser deux signatures ambiguës coexister). **Sans ce script,
+  l'écran laisserait passer une remise que la base refuserait encore à
+  3 %, et tout le lot resterait coincé.**
+- Rien d'autre ne change : les reprises, l'échange, la remise d'une
+  proforma reprise telle quelle, la modification d'une proforma — tout le
+  reste des scripts repris est MOT POUR MOT.
+- Banc `tester-argent` (`scripts/tester-argent-sql.sh`, +11) : une boutique
+  d'essai réglée à 5 % (ZPLAFOND) prouve qu'un vendeur passe à 4 % et reste
+  refusé à 6 %, pendant qu'APESSITO (rien réglé) reste à 3 % — et que
+  retirer le script fait échouer le banc tout de suite (la fonction
+  `plafond_remise_boutique` n'existe plus). Banc `verifier-cloisonnement`
+  (+9, dont le COUPLE JS/SQL sur le nom exact du champ), éprouvé en
+  neutralisant `plafondRemise` (il tombe). Chapitres 5 et 23 à jour.
+
 ---
 
 ## 5. Les pièges rencontrés — ne pas y retomber

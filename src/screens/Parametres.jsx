@@ -18,7 +18,7 @@ import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, ma
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
-import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe } from "../lib/calculs";
+import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe, plafondRemise, PLAFOND_REMISE_PCT_DEFAUT } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, critiqueRestauration, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { catalogueAppareils, appareilsAClasser, idAppareil, CATALOGUE_APPAREILS } from "../lib/appareils";
@@ -566,6 +566,22 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, prix_rail: v })) },
       `Prix du rail de fixation fixé à ${fmt(v)} le mètre`);
     uAlert(`✅ Le rail de fixation est désormais facturé ${fmt(v)} le mètre.\n\nCe prix s'applique aux PROCHAINS devis. Les devis déjà envoyés gardent le prix auquel ils ont été établis.`);
+  };
+
+  // 🏷 LA LIMITE DE REMISE SANS ADMINISTRATEUR (29/10/2026, Timo : « ramener
+  // la limite de 3 % d'un gérant dans paramètres… on peut augmenter ou
+  // diminuer à tout moment »). UN chiffre pour toutes les boutiques, rangé
+  // comme la durée de stock visée — administrateur, et le serveur applique
+  // la MÊME limite (securite-42).
+  const [plafondRemiseSaisi, setPlafondRemiseSaisi] = useState(String(plafondRemise(db)));
+  const enregistrerPlafondRemise = () => {
+    if (refuserSaufAdmin(profile, "Modifier la limite de remise sans administrateur")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const v = Number(String(plafondRemiseSaisi).replace(",", "."));
+    if (Number.isNaN(v) || v < 0 || v > 100) { uAlert("Entrez un pourcentage entre 0 et 100 (par exemple 3)."); return; }
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, plafond_remise_pct: v })) },
+      `Limite de remise sans administrateur fixée à ${v} %`);
+    uAlert(`✅ Au-delà de ${v} %, une remise (générale, de ligne, sur un devis, une vente, une proforma, une commande ou des travaux à crédit) restera réservée à l'administrateur.\n\nCette nouvelle limite s'applique dès maintenant, partout dans l'application, et sur le serveur.`);
   };
 
   // ---- DOMAINES DE PRODUITS ET LEURS FAMILLES ----
@@ -1916,6 +1932,30 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             className="mt-2 text-xs font-semibold text-slate-500 underline"
           >
             Revenir au prix d'origine ({fmt(PRIX_RAIL_DEFAUT)} le mètre)
+          </button>
+        )}
+      </div>
+
+      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="plafond-remise">
+        <div className="font-bold mb-1">🏷 Limite de remise sans administrateur (%)</div>
+        <div className="text-xs text-slate-500 mb-3">
+          Au-delà de cette limite, une remise — générale, sur un article, sur un devis, une vente, une proforma, une commande ou des travaux à crédit — est réservée à l'administrateur. L'une ou l'autre : une remise sur un article interdit déjà la remise générale, quel que soit le pourcentage.
+        </div>
+        <div className="flex gap-2 items-end flex-wrap">
+          <Field label="Limite (%)">
+            <input type="number" min="0" max="100" step="0.5" className={inputCls + " w-36"} value={plafondRemiseSaisi} onChange={(e) => setPlafondRemiseSaisi(e.target.value)} />
+          </Field>
+          <button onClick={enregistrerPlafondRemise} className={btnDark}>✅ Enregistrer la limite</button>
+        </div>
+        <div className="text-xs text-slate-500 mt-2">
+          Exemple : une vente de 240 000 F avec {Number(plafondRemiseSaisi) || PLAFOND_REMISE_PCT_DEFAUT} % de remise ({fmt(Math.round((240000 * (Number(plafondRemiseSaisi) || PLAFOND_REMISE_PCT_DEFAUT)) / 100))}) passe pour tout le monde ; au-delà, le gérant et le vendeur sont refusés.
+        </div>
+        {Number(plafondRemiseSaisi) !== PLAFOND_REMISE_PCT_DEFAUT && (
+          <button
+            onClick={() => setPlafondRemiseSaisi(String(PLAFOND_REMISE_PCT_DEFAUT))}
+            className="mt-2 text-xs font-semibold text-slate-500 underline"
+          >
+            Revenir à la limite d'origine ({PLAFOND_REMISE_PCT_DEFAUT} %)
           </button>
         )}
       </div>

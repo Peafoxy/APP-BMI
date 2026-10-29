@@ -2175,8 +2175,8 @@ export function reprendreProforma(db, pf, boutique) {
 // Elle GARDE son numéro, remplace l'ancienne (jamais un doublon), et laisse
 // sa TRACE : modifie_le, modifie_par, nb_modifications, et l'ancienne version
 // dans historique_modif (liste qui ne rétrécit jamais).
-export const proformaAuDelaDuPlafond = (pf) =>
-  remiseExigeAdmin(pf?.remise_pct) || (pf?.lignes || []).some(remiseLigneExigeAdmin);
+export const proformaAuDelaDuPlafond = (pf, plafond = PLAFOND_REMISE_PCT_DEFAUT) =>
+  remiseExigeAdmin(pf?.remise_pct, plafond) || (pf?.lignes || []).some((l) => remiseLigneExigeAdmin(l, plafond));
 export const auteurDeLaProforma = (pf, profile) =>
   pf?.par_id ? pf.par_id === profile?.id : !!pf?.par && pf.par === profile?.nom;
 export const critiqueModifProforma = (db, pf, profile) => {
@@ -2184,7 +2184,8 @@ export const critiqueModifProforma = (db, pf, profile) => {
   const vs = ventesDeProforma(db, pf);
   if (vs.length) return `La proforma N° ${pf.numero} a déjà été encaissée le ${dFR(vs[0].date)} : elle ne se modifie plus. Pour une nouvelle offre, établissez une nouvelle proforma.`;
   if (profile?.role !== "admin" && !auteurDeLaProforma(pf, profile)) return `Seuls ${pf.par || "son auteur"}, qui l'a établie, et l'administrateur peuvent modifier la proforma N° ${pf.numero}.`;
-  if (profile?.role !== "admin" && proformaAuDelaDuPlafond(pf)) return `La proforma N° ${pf.numero} porte une remise de plus de ${PLAFOND_REMISE_PCT} % : seul l'administrateur peut la modifier.`;
+  const plafond = plafondRemise(db);
+  if (profile?.role !== "admin" && proformaAuDelaDuPlafond(pf, plafond)) return `La proforma N° ${pf.numero} porte une remise de plus de ${plafond} % : seul l'administrateur peut la modifier.`;
   return "";
 };
 export const proformaModifiee = (avant, nouvelle, profile, quand = maintenantISO()) => {
@@ -2738,7 +2739,19 @@ export const ROLES_CAISSE = ["vendeur", "gerant", "admin"];          // clôture
 // (renvoyé au fournisseur / rebut) reste admin. Serveur : securite-17.
 export const ROLES_RETOUR_GARANTIE = ["gerant", "admin"];
 export const ROLES_FOURNISSEURS = ["gerant", "admin"];               // régler, endetter, supprimer un fournisseur
-export const PLAFOND_REMISE_PCT = 3;                                  // au-delà : admin seul
+// 29/10/2026, Timo : « Ramener la limite de 3 % d'un gérant dans paramètres..
+// Ou on peut augmenter ou diminuer à tout moment. » LA limite reste 3 % par
+// défaut (PLAFOND_REMISE_PCT_DEFAUT), mais se règle désormais sur les
+// boutiques (champ `plafond_remise_pct`), comme la durée de stock visée —
+// UN chiffre pour toute la maison, rien à coller dans Supabase côté lecture.
+// ⚠ LE COUPLE : le serveur (securite-42) lit le MÊME champ sur `boutiques`
+// pour appliquer la même limite — sans lui, l'écran laisserait passer une
+// remise que la base refuserait encore à 3 %, et tout le lot resterait coincé.
+export const PLAFOND_REMISE_PCT_DEFAUT = 3;                           // au-delà : admin seul (valeur d'office)
+export const plafondRemise = (db) => {
+  const b = (db?.boutiques || []).find((x) => Number(x?.plafond_remise_pct) > 0);
+  return b ? Number(b.plafond_remise_pct) : PLAFOND_REMISE_PCT_DEFAUT;
+};
 const LIBELLE_ROLE_COURT = { admin: "l'administrateur", gerant: "le gérant", magasinier: "le magasinier",
   vendeur: "le vendeur", commercial: "le commercial", technicien: "le technicien", resp_commercial: "le responsable commercial", comptable: "le comptable" };
 export const refuserSaufRoles = (profile, roles, geste) => {
@@ -2747,7 +2760,7 @@ export const refuserSaufRoles = (profile, roles, geste) => {
   return true;
 };
 export const refuserSaufAdmin = (profile, geste) => refuserSaufRoles(profile, ["admin"], geste);
-export const remiseExigeAdmin = (pct) => Number(pct || 0) > PLAFOND_REMISE_PCT;
+export const remiseExigeAdmin = (pct, plafond = PLAFOND_REMISE_PCT_DEFAUT) => Number(pct || 0) > plafond;
 
 // ---- LES REMISES PAR ARTICLE (Timo, 10/09/2026) ----
 // « Même sur la remise sur un article, au-delà de 3 % ça devrait refuser »
@@ -2762,15 +2775,15 @@ export const pctRemiseLigne = (l) => {
   const base = Number(l.qte || 0) * Number(l.pu || 0);
   return base > 0 ? (Number(l.remise_ligne || 0) * 100) / base : 0;
 };
-export const remiseLigneExigeAdmin = (l) => Number(l.remise_ligne || 0) > 0 && pctRemiseLigne(l) > PLAFOND_REMISE_PCT + 1e-9;
+export const remiseLigneExigeAdmin = (l, plafond = PLAFOND_REMISE_PCT_DEFAUT) => Number(l.remise_ligne || 0) > 0 && pctRemiseLigne(l) > plafond + 1e-9;
 export const aRemiseSurArticle = (lignes) => (lignes || []).some((l) => Number(l.remise_ligne || 0) > 0);
 // "" si les remises du panier sont acceptables pour ce rôle, sinon le motif.
-export const critiqueRemises = (lignes, remisePct, remiseF, role) => {
+export const critiqueRemises = (lignes, remisePct, remiseF, role, plafond = PLAFOND_REMISE_PCT_DEFAUT) => {
   const lg = lignes || [];
   if (aRemiseSurArticle(lg) && (Number(remisePct || 0) > 0 || Number(remiseF || 0) > 0)) return MSG_REMISE_EXCLUSIVE;
   if (role !== "admin") {
-    const trop = lg.find(remiseLigneExigeAdmin);
-    if (trop) return `🔒 Une remise supérieure à ${PLAFOND_REMISE_PCT} % sur un article est réservée à l'administrateur (« ${trop.article || "article"} » : ${Math.round(pctRemiseLigne(trop) * 10) / 10} %).`;
+    const trop = lg.find((l) => remiseLigneExigeAdmin(l, plafond));
+    if (trop) return `🔒 Une remise supérieure à ${plafond} % sur un article est réservée à l'administrateur (« ${trop.article || "article"} » : ${Math.round(pctRemiseLigne(trop) * 10) / 10} %).`;
   }
   return "";
 };
