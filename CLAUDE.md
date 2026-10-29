@@ -10093,7 +10093,7 @@ lit mal est pire qu'un banc absent).
   `ventes_regles_roles` (reprend securite-44 en entier). Bancs : `tester-argent`
   (+10), `verifier-cloisonnement` (+9, la carte IMPRIMÉE ; cinq RETOURNÉS),
   Chromium `verifier-ecran-achat-chantier` (+1, le scan joué), éprouvés.
-  Chapitres 2, 3, 5. **À coller par Timo.**
+  Chapitres 2, 3, 5. **Collé par Timo le 29/10/2026 (`true | true | true | true`).**
 
 ---
 
