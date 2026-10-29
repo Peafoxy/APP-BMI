@@ -10124,7 +10124,7 @@ lit mal est pire qu'un banc absent).
   base. Bancs `tester-argent` (+5, éprouvé : sans le script il tombe),
   `verifier-cloisonnement` (+2, éprouvé), Chromium `verifier-ecran-achat-chantier`
   (RETOURNÉ : la carte d'avant joue la remise commune réglée à 10 %).
-  Chapitres 2, 3, 5, 23.
+  Chapitres 2, 3, 5, 23. **Collé par Timo le 29/10/2026 (`true | true | true`).**
 
 ---
 
