@@ -118,7 +118,7 @@ export const CHAPITRE = {
         ["Paie", "💵 Salaire · 📈 Taux % · 📅 Paie suivie depuis · 📅 Embauche et contrat · 🔁 Renouveler (15 jours avant la fin) · + Prime · − Avance · 🏦 Banque · 💸 Payer le salaire · Annuler le paiement · 🚪 Sortie · les crédits (Approuver / Refuser / + Remboursement)", "Administrateur — voir le chapitre 18"],
         ["Commercial", "💰 Commission (taux) · 🤝 Parrain · ⭐ Équipe (taux du chef) · Nommer chef / Retirer chef", "Administrateur — voir le chapitre 16"],
         ["Client", "Autoriser chat libre / Retirer chat libre", "Administrateur — voir le chapitre 20"],
-        ["Client", "💳 Carte de fidélité (créer, changer la remise, remplacer, retirer, imprimer)", "Administrateur PRINCIPAL seul — voir les chapitres 3 et 5"],
+        ["Client", "💳 Carte de fidélité (créer, changer la remise — commune ou à lui —, remplacer, retirer, imprimer)", "Administrateur PRINCIPAL seul — voir les chapitres 3, 5 et 23"],
       ]}],
 
       ["h3", "G. Changer le rôle d'un compte (principal)"],

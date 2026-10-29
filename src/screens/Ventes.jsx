@@ -20,7 +20,7 @@ import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
-import { estCodeCarte, trouverCarte, carteDe, critiqueRemiseCarte, traceCarteSurLaVente } from "../lib/carteFidelite";
+import { estCodeCarte, trouverCarte, carteDe, critiqueRemiseCarte, traceCarteSurLaVente, carteEffective, pctCommunCarte } from "../lib/carteFidelite";
 import { autorisationPour, demandeDeLOffre, construireDemandeRemise, critiqueDemandeRemise, poserDemandeRemise, critiqueDecisionRemise, accorderRemise, refuserRemise, annulerDemandeRemise, traceSurLaVente, marquerUtilisee, demandesAAutoriser, mesDemandesRemise, demandesRemiseDe, STATUT_ATTENTE_REMISE, STATUT_REFUSEE_REMISE, STATUT_ACCORDEE, LIBELLE_STATUT_REMISE } from "../lib/autorisationRemise";
 import { ROLES_REMISE_APRES_VENTE, plafondRemiseApresVente, construireRemiseApresVente, appliquerRemiseApresVente } from "../lib/remiseApresVente";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
@@ -333,13 +333,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // le client se remplit, sa remise s'applique, FIXE. Cherchée dans l'espace
     // regardé seulement (le mur) ; une carte remplacée ou retirée est refusée.
     if (estCodeCarte(c)) {
-      const r = trouverCarte(utilisateursDeLEspace(db, profile), c);
+      const r = trouverCarte(utilisateursDeLEspace(db, profile), c, pctCommunCarte(db.boutiques));
       if (r.refus) { setMsg(r.refus); uAlert(r.refus); return; }
       if (aRemiseSurArticle(panier)) { uAlert("💳 Le panier porte une remise sur un article : avec la carte de fidélité, c'est sa remise seule. Retirez d'abord la remise de l'article."); return; }
       const nom = r.compte.nom_base || r.compte.nom;
-      setCarteVente({ compte_id: r.compte.id, numero: r.carte.numero, pct: Number(r.carte.pct), nom: [nom, r.compte.prenom].filter(Boolean).join(" ") });
+      setCarteVente({ compte_id: r.compte.id, numero: r.carte.numero, pct: Number(r.carte.pct), commune: r.carte.commune, nom: [nom, r.compte.prenom].filter(Boolean).join(" ") });
       setF({ ...f, client: nom, tel: r.compte.tel || "", ...(r.compte.prenom ? { prenom: r.compte.prenom } : {}), remise: String(r.carte.pct), remiseMode: "pct", remiseMontant: "" });
-      setMsg(`💳 Carte ${r.carte.numero} : ${nom} — remise de ${r.carte.pct} %. Vérifiez que c'est bien lui.`);
+      setMsg(`💳 Carte ${r.carte.numero} : ${nom} — remise de ${r.carte.pct} %${r.carte.commune ? " (remise commune)" : ""}. Vérifiez que c'est bien lui.`);
       return;
     }
     const p = articleParCode(produits, c);
@@ -912,7 +912,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     let carte = null;
     if (carteVente) {
       const compteCarte = utilisateursDeLEspace(db, profile).find((u) => u.id === carteVente.compte_id);
-      carte = carteDe(compteCarte);
+      carte = carteEffective(carteDe(compteCarte), pctCommunCarte(db.boutiques));
       if (!carte || carte.numero !== carteVente.numero) { setCarteVente(null); uAlert(`💳 La carte ${carteVente.numero} ne vaut plus (remplacée, retirée ou changée). Rescannez la carte du client.`); return; }
       const refusC = critiqueRemiseCarte({ carte, panier, remisePct, remiseLibre });
       if (refusC) { setMsg(refusC); uAlert(refusC); return; }
@@ -1856,7 +1856,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       {aRemiseSurArticle(panier) && <div className="text-xs text-orange-600 mt-1 font-semibold">Remise déjà accordée sur un article : pas de remise générale.</div>}
       {carteVente && (
         <div data-carte-vente className="mt-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs text-emerald-900 flex items-center gap-2">
-          <span>💳 <b>{carteVente.numero}</b> — {carteVente.nom} · remise fixe de {String(carteVente.pct).replace(".", ",")} %</span>
+          <span>💳 <b>{carteVente.numero}</b> — {carteVente.nom} · remise fixe de {String(carteVente.pct).replace(".", ",")} %{carteVente.commune ? " (commune)" : " (à lui)"}</span>
           <BoutonRond icone="✕" teinte="gris" titre="Retirer la carte de cette vente (la remise part avec elle)" onClick={() => { setCarteVente(null); setF({ ...f, remise: "", remiseMode: "pct", remiseMontant: "" }); setMsg(""); }} />
         </div>
       )}

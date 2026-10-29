@@ -13,8 +13,10 @@ import { fabriquerCompteClient } from "../lib/comptesClients";
 import { imprimerCarteFidelite } from "../lib/impression";
 import {
   carteDe, prochainNumeroCarte, critiquePctCarte, critiqueGesteCarte, poserCarte, changerPctCarte, remplacerCarte, retirerCarte,
+  pctCommunCarte, aSaRemise, libellePctCarte, suivreRemiseCommune,
 } from "../lib/carteFidelite";
 
+const PCT_MAX_TXT = "50 % au plus";
 const nomDe = (u) => [u.nom_base || u.nom, u.prenom].filter(Boolean).join(" ");
 const remplacerFiche = (db, compte) => ({ ...db, users: (db.users || []).map((u) => (u.id === compte.id ? compte : u)) });
 
@@ -24,26 +26,38 @@ export async function gererCarteFidelite({ db, save, profile, compte }) {
   const frais = (db.users || []).find((u) => u.id === compte.id) || compte;
   const carte = carteDe(frais);
   const nom = nomDe(frais);
+  const commun = pctCommunCarte(db.boutiques);
+  const pctTxt = (n) => `${String(n).replace(".", ",")} %`;
   if (!carte) {
-    const pct = await uPrompt(`💳 Carte de fidélité pour ${nom}.\n\nQuelle remise lui accorder sur ses achats (en %) ?\nElle s'appliquera toute seule quand le vendeur scannera la carte, même au-delà de la limite de remise ; fixe : le vendeur ne pourra ni la changer, ni ajouter une remise sur un article.`, "");
-    if (pct === null) return;
-    const r = critiquePctCarte(pct); if (r) { uAlert(r); return; }
+    // Elle naît sur la remise COMMUNE (⚙ Paramètres) : aucun chiffre à taper.
+    if (!await uConfirm(`💳 Carte de fidélité pour ${nom}.\n\nElle suivra la remise commune de la carte : ${pctTxt(commun)} aujourd'hui (réglée dans ⚙ Paramètres). Elle s'appliquera toute seule quand le vendeur scannera la carte, même au-delà de la limite de remise ; fixe : le vendeur ne pourra ni la changer, ni ajouter une remise sur un article.\n\nPour lui donner une remise à lui, « ✏️ Changer la remise » après la création.\n\nCréer la carte ?`)) return;
     const numero = prochainNumeroCarte(db.users);
-    const fiche = poserCarte(frais, { numero, pct, profile, aujourdhui: today() });
-    save(remplacerFiche(db, fiche), `💳 Carte de fidélité ${numero} créée pour ${nom} (${fiche.fidelite.pct} %) par ${profile.nom}`);
-    if (await uConfirm(`✅ Carte ${numero} créée pour ${nom} (${fiche.fidelite.pct} %).\n\nL'imprimer maintenant ? (format carte bancaire, 85,6 × 54 mm)`)) imprimerCarteFidelite(fiche);
+    const fiche = poserCarte(frais, { numero, profile, aujourdhui: today() });
+    save(remplacerFiche(db, fiche), `💳 Carte de fidélité ${numero} créée pour ${nom} (remise commune, ${pctTxt(commun)}) par ${profile.nom}`);
+    if (await uConfirm(`✅ Carte ${numero} créée pour ${nom} (remise commune, ${pctTxt(commun)}).\n\nL'imprimer maintenant ? (format carte bancaire, 85,6 × 54 mm)`)) imprimerCarteFidelite(fiche);
     return;
   }
-  const choix = await uChoix(`💳 Carte ${carte.numero} — ${nom}\nRemise : ${String(carte.pct).replace(".", ",")} % · posée le ${carte.le} par ${carte.par}`,
+  const choix = await uChoix(`💳 Carte ${carte.numero} — ${nom}\nRemise : ${libellePctCarte(carte, commun)} · posée le ${carte.le} par ${carte.par}`,
     ["🖨 Imprimer la carte", "✏️ Changer la remise", "🔁 Remplacer (carte perdue)", "🗑 Retirer la carte"]);
   if (choix === "🖨 Imprimer la carte") { imprimerCarteFidelite(frais); return; }
   if (choix === "✏️ Changer la remise") {
-    const pct = await uPrompt(`Nouvelle remise de la carte ${carte.numero} (en %) — aujourd'hui ${carte.pct} % :`, String(carte.pct));
+    const SUIVRE = `🏷 Suivre la remise commune (${pctTxt(commun)})`;
+    const A_LUI = "✏️ Une remise à lui";
+    const quoi = await uChoix(`Remise de la carte ${carte.numero} — aujourd'hui ${libellePctCarte(carte, commun)}.`, [SUIVRE, A_LUI]);
+    if (quoi === SUIVRE) {
+      if (!aSaRemise(carte)) { uAlert(`Cette carte suit déjà la remise commune (${pctTxt(commun)}).`); return; }
+      const fiche = suivreRemiseCommune(frais, profile, today());
+      save(remplacerFiche(db, fiche), `💳 Carte ${carte.numero} de ${nom} : remise à lui ${pctTxt(carte.pct)} → remise commune (${pctTxt(commun)}) — ${profile.nom}`);
+      uAlert(`✅ La carte suit maintenant la remise commune (${pctTxt(commun)}).`);
+      return;
+    }
+    if (quoi !== A_LUI) return;
+    const pct = await uPrompt(`Remise à lui pour la carte ${carte.numero} (en %, ${PCT_MAX_TXT}) :`, aSaRemise(carte) ? String(carte.pct) : "");
     if (pct === null) return;
     const r = critiquePctCarte(pct); if (r) { uAlert(r); return; }
     const fiche = changerPctCarte(frais, pct, profile, today());
-    save(remplacerFiche(db, fiche), `💳 Carte ${carte.numero} de ${nom} : remise ${carte.pct} % → ${fiche.fidelite.pct} % (${profile.nom})`);
-    uAlert("✅ Remise changée. La carte imprimée porte l'ancien pourcentage : réimprimez-la si vous voulez qu'elle dise le nouveau (le numéro ne change pas).");
+    save(remplacerFiche(db, fiche), `💳 Carte ${carte.numero} de ${nom} : remise ${libellePctCarte(carte, commun)} → ${pctTxt(fiche.fidelite.pct)} (à lui) — ${profile.nom}`);
+    uAlert(`✅ Remise à lui : ${pctTxt(fiche.fidelite.pct)}. Elle ne bouge plus quand la remise commune change. La carte imprimée ne porte aucun pourcentage : rien à réimprimer.`);
     return;
   }
   if (choix === "🔁 Remplacer (carte perdue)" || choix === "🗑 Retirer la carte") {

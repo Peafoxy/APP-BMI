@@ -14,7 +14,7 @@ import { uid, fmt, today, dFR, telDigits } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonEnvoi, BoutonRond } from "../components/ui";
 import { FicheClient } from "../components/FicheClient";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, estAdminPrincipal } from "../lib/calculs";
-import { carteDe, porteursDeCarte } from "../lib/carteFidelite";
+import { carteDe, porteursDeCarte, libellePctCarte, pctCommunCarte } from "../lib/carteFidelite";
 import { carteDepuisClientComptoir } from "../components/carteFidelite";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 // 🏢 Le prénom et l'entreprise du client (29/09/2026) : UNE règle, UN bloc.
@@ -307,7 +307,7 @@ export function Clients({ db, save, profile }) {
                 className={`border-t border-slate-100 align-middle ${ouvrable ? "cursor-pointer" : ""} ${classeLigneDepliable(ouverte, i)}`}
                 title={ouvrable ? (ouverte ? "Cliquer pour refermer la fiche" : "Cliquer pour ouvrir la fiche du client") : "Ventes sans nom : ce n'est pas un client, pas de fiche"} data-ligne-client>
                 {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo, 25/09/2026 : « dans Clients aussi figer le nom du client »), par LA règle commune. */}
-                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{c.nom}{ouvrable && <span className="ml-1 text-[10px] font-normal text-slate-400">{ouverte ? "▴" : "▾"}</span>}{carte && <div data-carte-client className="text-[11px] font-bold text-emerald-700">💳 {carte.numero} · {String(carte.pct).replace(".", ",")} %</div>}</td>
+                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{c.nom}{ouvrable && <span className="ml-1 text-[10px] font-normal text-slate-400">{ouverte ? "▴" : "▾"}</span>}{carte && <div data-carte-client className="text-[11px] font-bold text-emerald-700">💳 {carte.numero} · {libellePctCarte(carte, pctCommunCarte(db.boutiques))}</div>}</td>
                 <td className="px-3 py-2">{c.tel || "—"}</td>
                 <td className="px-3 py-2 tabular-nums">{c.achats}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(c.totalAchats)}</td>

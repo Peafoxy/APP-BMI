@@ -10106,6 +10106,25 @@ lit mal est pire qu'un banc absent).
   (+10), `verifier-cloisonnement` (+9, la carte IMPRIMÉE ; cinq RETOURNÉS),
   Chromium `verifier-ecran-achat-chantier` (+1, le scan joué), éprouvés.
   Chapitres 2, 3, 5. **Collé par Timo le 29/10/2026 (`true | true | true | true`).**
+- **🏷 LA REMISE COMMUNE DE LA CARTE** (29/10/2026, « Régler dans paramètres 3 %
+  pour tous les clients… et d'une manière individuelle, on peut modifier pour
+  chacun » → « A a, B oui ») : ⚙ Paramètres → 🗂 Catalogue & devis → « 💳 Remise
+  de la carte de fidélité (%) », **le principal seul** (revérifié DANS le geste),
+  `fidelite_pct_commun` écrit sur toutes les boutiques, **3 % d'office**
+  (`PCT_CARTE_DEFAUT`, `pctCommunCarte`), 50 % au plus (« B oui »). Une carte
+  la SUIT, sauf `a_lui: true` qui garde SON `pct` (`pctDeLaCarte`,
+  `carteEffective`, `libellePctCarte` : « 3 % (commune) » / « 7 % (à lui) »).
+  **« A a »** : les cartes d'AVANT (sans `a_lui`, FID-000001 compris) suivent la
+  remise commune. Une carte neuve naît commune, sans chiffre tapé ; « ✏️ Changer
+  la remise » → « 🏷 Suivre la remise commune » / « ✏️ Une remise à lui » ;
+  remplacer garde le mode. Le scan et l'encaissement lisent la carte EFFECTIVE ;
+  la vente garde le % appliqué. ⚠ LE COUPLE : **`securite-46`** ne remplace que
+  `remise_de_la_carte` (et ajoute `pct_commun_carte(nom)`, lue sur la boutique
+  de la vente, 3 % d'office) — sans lui, une carte commune est refusée par la
+  base. Bancs `tester-argent` (+5, éprouvé : sans le script il tombe),
+  `verifier-cloisonnement` (+2, éprouvé), Chromium `verifier-ecran-achat-chantier`
+  (RETOURNÉ : la carte d'avant joue la remise commune réglée à 10 %).
+  Chapitres 2, 3, 5, 23.
 
 ---
 

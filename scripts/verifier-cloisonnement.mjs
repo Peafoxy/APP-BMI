@@ -7303,21 +7303,39 @@ titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code b
   test("★ le pourcentage : plus de 0, 50 % au plus ; le geste = l'administrateur PRINCIPAL seul",
     /pourcentage/.test(Cf.critiquePctCarte("")) && /50 %/.test(Cf.critiquePctCarte(60)) && Cf.critiquePctCarte("12,5") === ""
     && /administrateur principal/.test(Cf.critiqueGesteCarte(timo, false)) && Cf.critiqueGesteCarte(timo, true) === "");
-  const s1 = Cf.poserCarte(sena, { numero: "FID-000001", pct: "12,5", profile: timo, aujourdhui: "2026-10-29" });
+  // RETOURNÉ le 29/10/2026 (Timo : « régler dans paramètres 3 % pour tous… et
+  // d'une manière individuelle, on peut modifier pour chacun », « A a ») : une
+  // carte NAÎT sur la remise commune, sans chiffre tapé ; « à lui » la fige.
+  const s0 = Cf.poserCarte(sena, { numero: "FID-000001", profile: timo, aujourdhui: "2026-10-29" });
+  const s1 = Cf.changerPctCarte(s0, "12,5", timo, "2026-10-29");
   const s2 = Cf.remplacerCarte(s1, { numero: "FID-000002", profile: timo, aujourdhui: "2026-10-30", motif: "perdue" });
   const s3 = Cf.retirerCarte(s2, { profile: timo, aujourdhui: "2026-10-31", motif: "parti" });
-  test("★★ poser, remplacer (l'ancienne MORTE dans l'historique, même remise), retirer : le scan trouve la bonne, refuse l'ancienne en le DISANT",
-    s1.fidelite.pct === 12.5 && Cf.carteDe(s1).numero === "FID-000001"
-    && Cf.carteDe(s2).numero === "FID-000002" && s2.fidelite.pct === 12.5 && Cf.cartesPasseesDe(s2)[0].active === false
+  const s4 = Cf.suivreRemiseCommune(s1, timo, "2026-11-01");
+  const ancienne = { ...sena, id: "c9", fidelite: { numero: "FID-000009", pct: 10, active: true } };
+  test("★★ LA REMISE COMMUNE : 3 % sans réglage, le chiffre réglé sinon (0 compris n'est jamais pris pour « rien ») ; une carte neuve la SUIT sans chiffre tapé ; une carte d'AVANT (sans « à lui ») la suit aussi (« A a ») ; « à lui » la fige ; « suivre la remise commune » la rend",
+    Cf.pctCommunCarte([]) === 3 && Cf.pctCommunCarte([{ nom: "A" }, { nom: "B", fidelite_pct_commun: 5 }]) === 5
+    && s0.fidelite.a_lui === false && s0.fidelite.pct === undefined && Cf.pctDeLaCarte(s0.fidelite, 5) === 5
+    && Cf.pctDeLaCarte(ancienne.fidelite, 3) === 3 && Cf.libellePctCarte(ancienne.fidelite, 3) === "3 % (commune)"
+    && s1.fidelite.a_lui === true && s1.fidelite.pct === 12.5 && Cf.pctDeLaCarte(s1.fidelite, 3) === 12.5 && Cf.libellePctCarte(s1.fidelite, 3) === "12,5 % (à lui)"
+    && s4.fidelite.a_lui === false && s4.fidelite.pct === undefined && s4.fidelite.numero === "FID-000001"
+    && Cf.trouverCarte([s0], "FID-000001", 7).carte.pct === 7 && Cf.trouverCarte([s0], "FID-000001", 7).carte.commune === true
+    && Cf.trouverCarte([s1], "FID-000001", 7).carte.pct === 12.5 && Cf.trouverCarte([s1], "FID-000001", 7).carte.commune === false);
+  test("★★ poser, remplacer (l'ancienne MORTE dans l'historique, même remise — « à lui » ou commune), retirer : le scan trouve la bonne, refuse l'ancienne en le DISANT",
+    Cf.carteDe(s1).numero === "FID-000001"
+    && Cf.carteDe(s2).numero === "FID-000002" && s2.fidelite.pct === 12.5 && s2.fidelite.a_lui === true && Cf.cartesPasseesDe(s2)[0].active === false
+    && Cf.remplacerCarte(s0, { numero: "FID-000003", profile: timo, aujourdhui: "2026-10-30", motif: "perdue" }).fidelite.a_lui === false
     && Cf.trouverCarte([s2], "FID-000002").compte?.id === "c1" && /ne vaut plus.*remplacée.*perdue/.test(Cf.trouverCarte([s2], "fid-000001").refus)
     && Cf.carteDe(s3) === null && /retirée/.test(Cf.trouverCarte([s3], "FID-000002").refus) && /Aucune carte/.test(Cf.trouverCarte([], "FID-000007").refus));
   test("★ LE MUR : trouverCarte ne lit QUE les fiches qu'on lui passe (l'écran passe utilisateursDeLEspace), et seulement des CLIENTS",
     Cf.trouverCarte([], "FID-000001").compte === undefined && Cf.trouverCarte([{ ...s1, role: "vendeur" }], "FID-000001").compte === undefined);
-  test("★★ « 2 oui » : la remise de la carte est FIXE — un autre %, une remise libre, ou une remise d'article en plus : refusé",
-    Cf.critiqueRemiseCarte({ carte: s1.fidelite, panier: [{ qte: 1, pu: 100 }], remisePct: 12.5 }) === ""
-    && /fixe/.test(Cf.critiqueRemiseCarte({ carte: s1.fidelite, panier: [], remisePct: 15 }))
-    && /fixe/.test(Cf.critiqueRemiseCarte({ carte: s1.fidelite, panier: [], remisePct: 12.5, remiseLibre: true }))
-    && /pas de remise sur un article/.test(Cf.critiqueRemiseCarte({ carte: s1.fidelite, panier: [{ qte: 1, pu: 100, remise_ligne: 5 }], remisePct: 12.5 })));
+  const eff = Cf.carteEffective(s1.fidelite, 3);
+  test("★★ « 2 oui » : la remise de la carte est FIXE — un autre %, une remise libre, ou une remise d'article en plus : refusé ; une carte commune n'accepte QUE la remise commune",
+    Cf.critiqueRemiseCarte({ carte: eff, panier: [{ qte: 1, pu: 100 }], remisePct: 12.5 }) === ""
+    && /fixe/.test(Cf.critiqueRemiseCarte({ carte: eff, panier: [], remisePct: 15 }))
+    && /fixe/.test(Cf.critiqueRemiseCarte({ carte: eff, panier: [], remisePct: 12.5, remiseLibre: true }))
+    && /pas de remise sur un article/.test(Cf.critiqueRemiseCarte({ carte: eff, panier: [{ qte: 1, pu: 100, remise_ligne: 5 }], remisePct: 12.5 }))
+    && Cf.critiqueRemiseCarte({ carte: Cf.carteEffective(ancienne.fidelite, 3), panier: [], remisePct: 3 }) === ""
+    && /fixe/.test(Cf.critiqueRemiseCarte({ carte: Cf.carteEffective(ancienne.fidelite, 3), panier: [], remisePct: 10 })));
   // La carte IMPRIMÉE (printApi remplacé par un témoin) : 85,6 × 54 mm, le code-barres, le numéro, le nom, la remise.
   {
     const sortie = join("node_modules", ".cache", `bmi-carte-imp-${process.pid}.mjs`);
@@ -7347,7 +7365,8 @@ titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code b
   // Les écrans.
   const va = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★★ 💰 Ventes : la carte se SCANNE dans la case du code-barres (cherchée dans l'espace regardé), remplit le client et fixe la remise ; la case de remise se grise ; à l'encaissement, la carte est revérifiée sur la fiche FRAÎCHE, sa remise passe la limite, la vente porte la trace",
-    /if \(estCodeCarte\(c\)\) \{\s*\n\s*const r = trouverCarte\(utilisateursDeLEspace\(db, profile\), c\);/.test(va)
+    /if \(estCodeCarte\(c\)\) \{\s*\n\s*const r = trouverCarte\(utilisateursDeLEspace\(db, profile\), c, pctCommunCarte\(db\.boutiques\)\);/.test(va)
+    && /carte = carteEffective\(carteDe\(compteCarte\), pctCommunCarte\(db\.boutiques\)\);/.test(va)
     && /disabled=\{aRemiseSurArticle\(panier\) \|\| !!carteVente\}/.test(va) && /data-carte-vente/.test(va)
     && /const compteCarte = utilisateursDeLEspace\(db, profile\)\.find\(\(u\) => u\.id === carteVente\.compte_id\);/.test(va)
     && /critiqueRemiseCarte\(\{ carte, panier, remisePct, remiseLibre \}\)/.test(va)
@@ -7368,6 +7387,14 @@ titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code b
     && /u\.data -> 'fidelite' ->> 'numero' = num/.test(s45) && /'active'\)::boolean, true\)/.test(s45) && /a_remise_sur_article\(vente -> 'articles'\)/.test(s45)
     && /remise_autorisee_par_admin/.test(s45) && /remises_apres_vente/.test(s45) && !/rollback;\s*$/.test(s45)
     && /-f supabase\/securite-45-carte-fidelite\.sql/.test(ta) && /une carte REMPLACÉE \(FID-000002, morte\) : refusé" "REFUSE"/.test(ta) && /un vendeur CRÉE une fiche de client qui porte déjà une carte : refusé" "REFUSE"/.test(ta));
+  const s46 = readFileSync("supabase/securite-46-remise-commune-carte.sql", "utf8");
+  const pa = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ LE COUPLE (securite-46) : une carte « à lui » garde son %, sinon la remise COMMUNE lue sur la boutique de la vente (3 % d'office) — le MÊME champ `fidelite_pct_commun` dans l'application et le serveur ; ⚙ Paramètres la règle, le principal seul, sur toutes les boutiques ; le banc la rejoue",
+    /'a_lui'\)::boolean, false\)/.test(s46) && /pct_commun_carte\(vente ->> 'boutique'\)/.test(s46) && /'fidelite_pct_commun'/.test(s46) && /\), 3\)/.test(s46)
+    && !/rollback;\s*$/.test(s46) && /fidelite_pct_commun/.test(readFileSync("src/lib/carteFidelite.js", "utf8"))
+    && /refuserSaufAdminPrincipal\(db, profile, "Régler la remise commune de la carte de fidélité"\)/.test(pa)
+    && /boutiques: db\.boutiques\.map\(\(b\) => \(\{ \.\.\.b, fidelite_pct_commun: v \}\)\)/.test(pa) && /\{jeSuisPrincipal && \(\s*\n\s*<div [^>]*data-reglage="remise-carte"/.test(pa)
+    && /-f supabase\/securite-46-remise-commune-carte\.sql/.test(ta) && /son ancien pourcentage de fiche \(10 %\) ne vaut plus : refusé" "REFUSE"/.test(ta));
 }
 
 titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (Timo, 10/09/2026)");

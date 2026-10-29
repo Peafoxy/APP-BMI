@@ -34,10 +34,12 @@ const quoi = location.hash.slice(1);
 const gerant = { id: "g1", nom: "AFI", role: "gerant", boutique: "BMI DEMAKPOE", actif: true };
 const vendeuse = { id: "v1", nom: "ANGELE", role: "vendeur", boutique: "BMI DEMAKPOE", actif: true };
 const depart = {
-  boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", prefixe: "BMID", formation: false }, { id: "t", nom: "TERRAIN", terrain: true, formation: false }],
+  boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", prefixe: "BMID", formation: false, fidelite_pct_commun: 10 }, { id: "t", nom: "TERRAIN", terrain: true, formation: false, fidelite_pct_commun: 10 }],
   users: [gerant, vendeuse,
-    // 💳 Un porteur de carte (10 %), et une carte REMPLACÉE (29/10/2026).
-    { id: "cl1", nom: "SENA90", nom_base: "SENA", role: "client", tel: "90112233", formation: false, fidelite: { numero: "FID-000001", pct: 10, active: true } },
+    // 💳 Un porteur de carte, et une carte REMPLACÉE (29/10/2026). RETOURNÉ le
+    // 29/10/2026 (« A a ») : sa carte d'avant (pct 3, sans « à lui ») SUIT la
+    // remise COMMUNE réglée à 10 % sur la boutique — elle se joue ici.
+    { id: "cl1", nom: "SENA90", nom_base: "SENA", role: "client", tel: "90112233", formation: false, fidelite: { numero: "FID-000001", pct: 3, active: true } },
     { id: "cl2", nom: "AFI91", nom_base: "AFI", role: "client", tel: "91000000", formation: false, fidelite: null, fidelite_passees: [{ numero: "FID-000002", pct: 20, active: false, remplacee_le: "2026-10-20", motif: "perdue" }] }],
   produits: [{ id: "p1", nom: "Panneau 550W", boutique: "BMI DEMAKPOE", prix_achat: 60000, prix_vente: 80000, initial: 10, seuil: 1 }],
   ventes: [{ id: "vD", numero: "BMID-2026-0050", date: "2026-10-01", boutique: "BMI DEMAKPOE", caisse: "TERRAIN", paiement: "Crédit (dette)", avance: 100000, client: "Kossi MENSAH",
@@ -236,7 +238,7 @@ console.log("\n🏷 UNE case de remise, en % ou libre (12/10/2026, « case uniqu
   if (q) await bouton(page, /Confirmer/.test(q) ? "OK" : "Annuler"); await attendre(300);
   const v = await page.evaluate(() => { const x = window.saves[window.saves.length - 1]; return x ? x.n.ventes[0] : null; });
   test("★★ 💳 une carte REMPLACÉE est refusée en le disant ; la bonne remplit le client, fixe la remise (case grisée, bandeau) ; la vendeuse encaisse 10 % — au-delà de la limite — et la vente porte la carte",
-    /ne vaut plus.*remplacée/.test(refusVieille) && etat.client && /FID-000001/.test(etat.bandeau) && /10 %/.test(etat.bandeau) && etat.grisee
+    /ne vaut plus.*remplacée/.test(refusVieille) && etat.client && /FID-000001/.test(etat.bandeau) && /10 % \(commune\)/.test(etat.bandeau) && etat.grisee
     && /remise 10 %/.test(q) && v && v.carte_fidelite?.numero === "FID-000001" && v.remise_pct === 10 && v.client_user_id === "cl1" && erreurs.length === 0,
     JSON.stringify({ refusVieille, etat, q, v: v && { c: v.carte_fidelite, r: v.remise_pct, u: v.client_user_id }, erreurs }));
   await page.close();

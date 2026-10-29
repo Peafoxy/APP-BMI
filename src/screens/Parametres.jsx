@@ -18,6 +18,7 @@ import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, ma
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
+import { pctCommunCarte, carteDe, aSaRemise, critiquePctCarte, PCT_CARTE_MAX } from "../lib/carteFidelite";
 import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe, plafondRemise, PLAFOND_REMISE_PCT_DEFAUT } from "../lib/calculs";
 import { telechargerSauvegarde, NOM_FICHIER_AUTO, dossierDispo, dossierAutorise, ecrireDansDossier } from "../lib/sauvegarde";
 import { separerCorbeille, contenuCorbeille, restaurerDeLaCorbeille, critiqueRestauration, supprimerDefinitivement, nomDeLaFiche, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
@@ -582,6 +583,24 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, plafond_remise_pct: v })) },
       `Limite de remise sans administrateur fixée à ${v} %`);
     uAlert(`✅ Au-delà de ${v} %, une remise (générale, de ligne, sur un devis, une vente, une proforma, une commande ou des travaux à crédit) restera réservée à l'administrateur.\n\nCette nouvelle limite s'applique dès maintenant, partout dans l'application, et sur le serveur.`);
+  };
+
+  // 💳 LA REMISE COMMUNE DE LA CARTE DE FIDÉLITÉ (29/10/2026, Timo : « Régler
+  // dans paramètres 3 % pour tous les clients… et d'une manière individuelle,
+  // on peut modifier pour chacun », « A a », « B oui »). UN chiffre écrit sur
+  // toutes les boutiques ; une carte le suit, sauf une remise « à lui ».
+  // L'administrateur PRINCIPAL seul (la carte est son geste) ; le serveur lit
+  // le même chiffre (securite-46).
+  const [pctCarteSaisi, setPctCarteSaisi] = useState(String(pctCommunCarte(db.boutiques)));
+  const cartesQuiSuivent = utilisateursDeLEspace(db, profile).filter((u) => carteDe(u) && !aSaRemise(carteDe(u))).length;
+  const enregistrerPctCarte = () => {
+    if (refuserSaufAdminPrincipal(db, profile, "Régler la remise commune de la carte de fidélité")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const r = critiquePctCarte(pctCarteSaisi); if (r) { uAlert(r); return; }
+    const v = Math.round(Number(String(pctCarteSaisi).replace(",", ".")) * 100) / 100;
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, fidelite_pct_commun: v })) },
+      `Remise commune de la carte de fidélité fixée à ${v} %`);
+    uAlert(`✅ Remise commune de la carte : ${String(v).replace(".", ",")} %.\n\nToutes les cartes qui la suivent (${cartesQuiSuivent}) l'appliquent dès le prochain scan. Une carte qui a sa remise à lui ne bouge pas.`);
   };
 
   // ---- DOMAINES DE PRODUITS ET LEURS FAMILLES ----
@@ -1959,6 +1978,21 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           </button>
         )}
       </div>
+
+      {jeSuisPrincipal && (
+      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="remise-carte">
+        <div className="font-bold mb-1">💳 Remise de la carte de fidélité (%)</div>
+        <div className="text-xs text-slate-500 mb-3">
+          La remise que donne une carte de fidélité au scan, pour tous les clients qui la suivent ({cartesQuiSuivent} carte(s) aujourd'hui). Une carte peut avoir sa remise à lui : 👥 Utilisateurs ou 📋 Clients → 💳 → ✏️ Changer la remise. {PCT_CARTE_MAX} % au plus.
+        </div>
+        <div className="flex gap-2 items-end flex-wrap">
+          <Field label="Remise commune (%)">
+            <input type="number" min="0" max={PCT_CARTE_MAX} step="0.5" className={inputCls + " w-36"} value={pctCarteSaisi} onChange={(e) => setPctCarteSaisi(e.target.value)} />
+          </Field>
+          <button onClick={enregistrerPctCarte} className={btnDark}>✅ Enregistrer la remise</button>
+        </div>
+      </div>
+      )}
 
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="banques">
         <div className="font-bold mb-1">🏦 Banques</div>

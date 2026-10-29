@@ -23,11 +23,31 @@
 //
 // ⚠ LE COUPLE : securite-45 (la fiche `fidelite` = le principal seul ; une
 // vente qui cite une carte ACTIVE avec SON pourcentage passe au-delà de la
-// limite, sans remise d'article).
+// limite, sans remise d'article), puis securite-46 (la remise COMMUNE).
+//
+// 🏷 LA REMISE COMMUNE (Timo, 29/10/2026 : « Régler dans paramètres 3 % pour
+// tous les clients… et d'une manière individuelle, on peut modifier pour
+// chacun », « A a », « B oui ») : ⚙ Paramètres règle `fidelite_pct_commun`
+// sur les boutiques (3 % d'office). Une carte la SUIT, sauf si elle porte
+// `a_lui: true` — elle garde alors SON `pct`. Les cartes posées avant ce
+// jour (sans `a_lui`) suivent la remise commune (« A a »).
 // ============================================================
 
 export const PREFIXE_CARTE = "FID-";
 export const PCT_CARTE_MAX = 50;
+export const PCT_CARTE_DEFAUT = 3;
+
+// La remise commune, lue sur les boutiques (le réglage est écrit sur toutes).
+export const pctCommunCarte = (boutiques) => {
+  const b = (boutiques || []).find((x) => x && x.fidelite_pct_commun !== undefined && x.fidelite_pct_commun !== null && x.fidelite_pct_commun !== "" && Number.isFinite(Number(x.fidelite_pct_commun)));
+  return b ? Number(b.fidelite_pct_commun) : PCT_CARTE_DEFAUT;
+};
+export const aSaRemise = (carte) => !!(carte && carte.a_lui === true);
+export const pctDeLaCarte = (carte, commun) => (aSaRemise(carte) ? Number(carte.pct) : Number(commun));
+// La carte avec le pourcentage qui S'APPLIQUE aujourd'hui (`commune` dit d'où il vient).
+export const carteEffective = (carte, commun) => (carte ? { ...carte, pct: pctDeLaCarte(carte, commun), commune: !aSaRemise(carte) } : null);
+export const libellePctCarte = (carte, commun) =>
+  `${String(pctDeLaCarte(carte, commun)).replace(".", ",")} % (${aSaRemise(carte) ? "à lui" : "commune"})`;
 
 export const carteDe = (u) => (u && u.fidelite && u.fidelite.numero && u.fidelite.active !== false ? u.fidelite : null);
 export const cartesPasseesDe = (u) => (u && u.fidelite_passees) || [];
@@ -85,19 +105,25 @@ const pctLu = (pct) => Math.round(Number(String(pct).replace(",", ".")) * 100) /
 export const critiqueGesteCarte = (profile, estPrincipal) =>
   (estPrincipal ? "" : "Seul l'administrateur principal met en place une carte de fidélité (la créer, changer sa remise, la remplacer, l'imprimer).");
 
-// Poser une carte neuve (ou changer le % d'une carte en cours : même numéro).
-export const poserCarte = (u, { numero, pct, profile, aujourdhui }) => ({
+// Poser une carte neuve : elle SUIT la remise commune (aucun chiffre à taper).
+export const poserCarte = (u, { numero, profile, aujourdhui }) => ({
   ...u,
-  fidelite: { numero, pct: pctLu(pct), le: aujourdhui, par: profile.nom, active: true },
+  fidelite: { numero, a_lui: false, le: aujourdhui, par: profile.nom, active: true },
 });
+// Une remise À LUI (même numéro).
 export const changerPctCarte = (u, pct, profile, aujourdhui) => ({
-  ...u, fidelite: { ...u.fidelite, pct: pctLu(pct), modifie_le: aujourdhui, modifie_par: profile.nom },
+  ...u, fidelite: { ...u.fidelite, a_lui: true, pct: pctLu(pct), modifie_le: aujourdhui, modifie_par: profile.nom },
 });
+// Revenir à la remise commune (même numéro).
+export const suivreRemiseCommune = (u, profile, aujourdhui) => {
+  const { pct, ...reste } = u.fidelite || {};
+  return { ...u, fidelite: { ...reste, a_lui: false, modifie_le: aujourdhui, modifie_par: profile.nom } };
+};
 // Remplacer (carte perdue) : l'ancienne part, morte, dans l'historique.
 export const remplacerCarte = (u, { numero, profile, aujourdhui, motif }) => ({
   ...u,
   fidelite_passees: [...cartesPasseesDe(u), { ...u.fidelite, active: false, remplacee_le: aujourdhui, remplacee_par: profile.nom, motif: String(motif || "").trim() }],
-  fidelite: { numero, pct: u.fidelite.pct, le: aujourdhui, par: profile.nom, active: true },
+  fidelite: { numero, ...(aSaRemise(u.fidelite) ? { a_lui: true, pct: u.fidelite.pct } : { a_lui: false }), le: aujourdhui, par: profile.nom, active: true },
 });
 // Retirer : plus de carte du tout (l'ancienne reste dans l'historique).
 export const retirerCarte = (u, { profile, aujourdhui, motif }) => ({
@@ -107,12 +133,13 @@ export const retirerCarte = (u, { profile, aujourdhui, motif }) => ({
 });
 
 // Le SCAN : on cherche sur les fiches DÉJÀ filtrées par l'espace regardé
-// (le mur : jamais `db.users` en entier). Rend { compte, carte } ou { refus }.
-export const trouverCarte = (comptesEspace, code) => {
+// (le mur : jamais `db.users` en entier). Rend { compte, carte } ou { refus } ;
+// la carte rendue porte le pourcentage qui S'APPLIQUE (`commun` : la remise commune).
+export const trouverCarte = (comptesEspace, code, commun = PCT_CARTE_DEFAUT) => {
   const c = String(code || "").trim().toUpperCase();
   if (!estCodeCarte(c)) return { refus: "" };
   const compte = (comptesEspace || []).find((u) => u.role === "client" && carteDe(u)?.numero === c);
-  if (compte) return { compte, carte: carteDe(compte) };
+  if (compte) return { compte, carte: carteEffective(carteDe(compte), commun) };
   const ancienne = (comptesEspace || []).find((u) => cartesPasseesDe(u).some((x) => x.numero === c));
   if (ancienne) {
     const x = cartesPasseesDe(ancienne).find((y) => y.numero === c);
@@ -122,7 +149,7 @@ export const trouverCarte = (comptesEspace, code) => {
 };
 
 // À l'encaissement : la remise de la carte est-elle intacte ? (FIXE, aucune
-// remise d'article en plus — « 2 oui ».)
+// remise d'article en plus — « 2 oui ».) `carte` = la carte EFFECTIVE.
 export const critiqueRemiseCarte = ({ carte, panier, remisePct, remiseLibre }) => {
   if (!carte) return "";
   if (remiseLibre || Number(remisePct || 0) !== Number(carte.pct)) return `💳 La remise de la carte est de ${carte.pct} %, fixe : elle ne se modifie pas.`;
