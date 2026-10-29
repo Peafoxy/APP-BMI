@@ -48,6 +48,7 @@ export const CHAPITRE = {
         ["Changer le mot de passe d'un client", "Le client, dans son espace (« 🔑 Mon mot de passe ») ; l'administrateur principal (chapitre 2)"],
         ["Corriger le nom ou le numéro d'un client, effacer ses données", "Le numéro : jamais depuis 👥 Utilisateurs (voir la rubrique 9). L'effacement : l'administrateur principal, ⚙ Paramètres → 🔒 Données personnelles (chapitre 23)"],
       ]}],
+      ["regle", "**💳 La carte de fidélité se met en place par l'administrateur PRINCIPAL seul** (créer, fixer la remise, remplacer, retirer, imprimer). Le vendeur **remet** la carte imprimée au client ; il ne l'imprime pas. La remise de la carte vaut même au-delà de la limite de remise, mais elle est **fixe** : au comptoir, personne ne la change ni n'ajoute une remise sur un article (chapitre 5)."],
       ["regle", "**Créer un client ne donne aucune commission.** L'application note simplement qui l'a amené (« Les clients que j'ai amenés »), pour la traçabilité. La commission d'un commercial vient de la vente ou du chantier, jamais de la création du compte."],
     ]},
 
@@ -55,7 +56,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
         ["**🙋 Créer un client**", "Le formulaire « 🙋 Créer un compte client » (nom, numéro WhatsApp, « Ce contact est… »), le bouton « 🙋 Créer + envoyer », puis le cadre « Les clients que j'ai amenés » avec « ↻ Renvoyer ses accès »."],
-        ["**👤 Clients**", "La liste des clients **de la boutique regardée** : pastilles de boutique en haut (pour qui n'a pas de boutique attitrée), « Clients — NOM DE LA BOUTIQUE (N) », la liste « Tous les clients / ⭐ Fidèles — N achats ou plus », la ligne « Rechercher un client… », le tableau, 50 lignes par page."],
+        ["**👤 Clients**", "La liste des clients **de la boutique regardée** : pastilles de boutique en haut (pour qui n'a pas de boutique attitrée), « Clients — NOM DE LA BOUTIQUE (N) », la liste « Tous les clients / ⭐ Fidèles — N achats ou plus / 💳 Porteurs de carte », la ligne « Rechercher un client… », le tableau, 50 lignes par page."],
         ["**👥 Utilisateurs** (administrateur)", "Tous les comptes, clients compris : le « 📞 numéro » sous le nom avec le logo WhatsApp, « 👁 Voir le mot de passe » (principal), « Autoriser chat libre ». Dans la rangée des rôles, les boutons **« 🧲 Comptes prospects »** et **« 📁 Clients archivés »** et **« 🆕 Comptes sans activité »** (aucun devis, aucun achat) : ces comptes ne sont pas encore des clients."],
         ["**🧲 Prospects**", "« ✅ Convertir en client » sur la ligne d'un prospect qui a dit oui."],
         ["**💰 Ventes**, **🧾 Dettes**, **🛠 Travaux à crédit**", "La case « Client » et la case « Numéro du client » proposent les clients que la boutique connaît déjà : un clic remplit les deux."],
@@ -125,6 +126,8 @@ export const CHAPITRE = {
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
         ["Pastilles de boutique", "La boutique dont on lit les clients. Absentes pour un vendeur ou un gérant rattaché à une boutique : c'est la sienne."],
         ["Tous les clients / ⭐ Fidèles", "N'affiche que les clients qui ont acheté au moins 2, 3, 5 ou 10 fois dans la boutique."],
+        ["💳 Porteurs de carte", "Les clients de l'espace qui ont une carte de fidélité, même s'ils n'ont encore rien acheté ici. Sous le nom de chaque porteur : « 💳 FID-000001 · 10 % »."],
+        ["💳 (bouton rond, administrateur principal)", "Donne une carte de fidélité au client de la ligne : son compte s'il en a un, sinon une fiche FERMÉE (il ne se connecte pas, il est seulement enregistré comme client fidèle). Puis : la remise (en %), le numéro FID-… donné tout seul, et l'impression au format carte bancaire. Sur une carte existante : imprimer, changer la remise, remplacer (carte perdue : nouveau numéro, l'ancienne ne vaut plus), retirer."],
         ["Rechercher un client…", "Filtre la liste par le nom ou le numéro."],
         ["Achats", "Le nombre de ventes de cette boutique à ce client."],
         ["Total acheté", "La somme de ces ventes."],

@@ -1348,3 +1348,37 @@ export function imprimerEtiquetteProduit(p) {
   if (printApi) printApi.open(html, nomDocument("Étiquette", { client: p.nom }), "size: 60mm 30mm; margin: 0;");
   return true;
 }
+
+// 💳 LA CARTE DE FIDÉLITÉ (Timo, 29/10/2026) : format CARTE BANCAIRE, 85,6 × 54 mm,
+// le logo BMI, le nom du client, sa remise, le code-barres Code128 de son numéro
+// (lu par le même lecteur que les articles) avec sa zone de silence, et le numéro
+// en clair — tapé à la main si le code-barres s'abîme. Imprimée par
+// l'administrateur PRINCIPAL seul (le geste le revérifie) ; le vendeur la REMET.
+export function imprimerCarteFidelite(compte) {
+  const carte = compte && compte.fidelite;
+  if (!carte || !carte.numero) return false;
+  const svg = genererSVGCode128(carte.numero, {
+    largeurModule: 2, hauteur: 60,
+    styleCss: "width:100%;height:12mm;display:block",
+    etirerEnHauteur: true,
+  });
+  if (!svg) return false;
+  const nom = [compte.nom_base || compte.nom, compte.prenom].filter(Boolean).join(" ");
+  const html = `
+    <div style="width:85.6mm;height:54mm;padding:3mm 3.5mm;border:0.3mm solid #1e3a8a;border-radius:3mm;font-family:Arial,sans-serif;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:1.2mm;background:linear-gradient(135deg,#eff6ff,#ffffff)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:2mm">
+        <img src="${LOGO}" style="height:9mm;object-fit:contain" />
+        <div style="text-align:right;line-height:1.1">
+          <div style="font-size:9px;font-weight:800;letter-spacing:0.6px;color:#1e3a8a">CARTE DE FIDÉLITÉ</div>
+          <div style="font-size:8px;color:#475569">BMI TOGO</div>
+        </div>
+      </div>
+      ${compte.formation ? `<div style="font-size:7px;font-weight:700;color:#7c3aed">FORMATION — carte d'entraînement, sans valeur</div>` : ""}
+      <div style="font-size:12px;font-weight:800;color:#0f172a;word-break:break-word;line-height:1.1">${esc(nom)}</div>
+      <div style="font-size:10px;font-weight:700;color:#047857">Remise de ${esc(String(carte.pct).replace(".", ","))} % sur vos achats</div>
+      <div style="margin-top:auto;padding:0 ${ZONE_SILENCE_MM}mm">${svg}</div>
+      <div style="font-family:monospace;font-size:10px;letter-spacing:1px;text-align:center">${esc(carte.numero)}</div>
+    </div>`;
+  if (printApi) printApi.open(html, nomDocument("Carte de fidélité", { client: nom, numero: carte.numero }), "size: 85.6mm 54mm; margin: 0;");
+  return true;
+}

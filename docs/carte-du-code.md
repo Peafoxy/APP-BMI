@@ -37,6 +37,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/primeChantier.js` | La prime de chantier d'un employé de boutique : quels chantiers, prise sur la part de BMI |
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
 | `lib/echanges.js` | L'échange d'un article vendu contre un autre : avoir, différence payée ou rendue, stock ou SAV |
+| `lib/carteFidelite.js` | La carte de fidélité à code-barres : numéro FID-, % sur la fiche du client, remplacement, scan dans l'espace regardé, remise fixe — couple securite-45 |
 | `lib/autorisationRemise.js` | La remise ponctuelle autorisée à distance : le vendeur ou le gérant demande (`demandes_remise`), tout administrateur accorde (`remises_autorisees`), pour ce panier, ce %, ce client, une fois — couple securite-44 |
 | `lib/remiseApresVente.js` | La remise après-vente (gérant, admin) : un montant retiré d'une vente déjà encaissée, sans article rendu — dette réduite ou remboursement |
 | `lib/bons.js` | Le bon de reprise et le bon de retour (des documents, jamais des écritures) |
@@ -166,6 +167,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
 | `NoteVocale.jsx` | 🎤 Les notes vocales de 📲 WhatsApp comme sur WhatsApp : le lecteur (▶, barres, vitesse), le micro qu'on garde appuyé, et la réécoute d'une note envoyée par la copie de l'appareil (`useCopieVocale`) |
 | `FiltrePeriode.jsx` | 📅 Le filtre de période d'une liste (Toute période, quatre périodes, Personnaliser), écrit une fois pour Ventes, Dépenses, Dettes et Tous les devis (et 📋 Inventaire, qui ouvre sur « Aujourd'hui ») |
+| `carteFidelite.js` | 💳 Les gestes de la carte de fidélité (administrateur principal) : créer, changer la remise, remplacer, retirer, imprimer ; la fiche fermée d'un client de comptoir |
 | `FicheClient.jsx` | 🗂 La fiche d'un client ouverte d'un clic dans 📋 Clients : achats, dettes, proformas, commandes, devis, chantiers de l'espace regardé |
 | `CompleterDevis.jsx` | ✍️ Le panneau « Compléter le devis » après la visite (📋 Tous les devis) : chaque élément cf. visite chiffré ou « sans objet », des lignes ajoutées, le nouveau total lu par la vraie règle |
 | `ChampsEntreprise.jsx` | La case « entreprise cliente » et ses lignes (nom, téléphone, NIF, RCCM), écrite une fois pour Ventes, le devis et la création d'un compte client |

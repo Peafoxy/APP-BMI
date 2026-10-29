@@ -11,9 +11,11 @@ import { correspond } from "../lib/suggestions";
 // (Timo, 15/09/2026). Cet écran avait sa propre copie.
 import { clientsConnus, clientsFideles, SEUILS_FIDELES } from "../lib/clientsConnus";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonEnvoi, BoutonRond } from "../components/ui";
 import { FicheClient } from "../components/FicheClient";
-import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero } from "../lib/calculs";
+import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, estAdminPrincipal } from "../lib/calculs";
+import { carteDe, porteursDeCarte } from "../lib/carteFidelite";
+import { carteDepuisClientComptoir } from "../components/carteFidelite";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 // 🏢 Le prénom et l'entreprise du client (29/09/2026) : UNE règle, UN bloc.
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
@@ -211,7 +213,15 @@ export function Clients({ db, save, profile }) {
   // ⭐ Le filtre des fidèles (03/10/2026) : « Tous » d'office, rien ne change
   // pour qui n'y touche pas. LA règle vit dans lib/clientsConnus.js.
   const [seuilFideles, setSeuilFideles] = useState(0);
-  let clients = clientsFideles(clientsConnus(db, boutique).sort((a, b) => b.totalAchats - a.totalAchats), seuilFideles);
+  // 💳 « −1 » = les PORTEURS DE CARTE de l'espace regardé (29/10/2026 : « l'essentiel
+  // qu'on l'enregistre comme fidèle client ») — même ceux qui n'ont rien acheté ici.
+  const connus = clientsConnus(db, boutique).sort((a, b) => b.totalAchats - a.totalAchats);
+  const porteurs = porteursDeCarte(utilisateursDeLEspace(db, profile));
+  let clients = seuilFideles === -1
+    ? porteurs.map((u) => connus.find((c) => c.tel && memeNumero(c.tel, u.tel)) || { cle: `carte:${u.id}`, nom: u.nom_base || u.nom, tel: u.tel || "", achats: 0, totalAchats: 0, dette: 0, derniere: "" })
+    : clientsFideles(connus, seuilFideles);
+  const carteDuClient = (c) => (c.tel ? comptesAvecCeNumero(db, profile, c.tel).map(carteDe).find(Boolean) : null) || null;
+  const principal = estAdminPrincipal(db, profile);
   if (q) clients = clients.filter((c) => correspond(c.nom + " " + (c.tel || ""), q));
   const { pageItems: clientsPage, page, setPage, totalPages } = usePagination(clients, 50);
   // 🗂 LA FICHE D'UN CLIENT (05/10/2026, Timo : « b, lance ») : un clic sur
@@ -278,6 +288,7 @@ export function Clients({ db, save, profile }) {
             <select className={`${inputCls} sm:w-56`} value={seuilFideles} onChange={(e) => setSeuilFideles(Number(e.target.value))} data-filtre-fideles aria-label="Afficher">
               <option value={0}>Tous les clients</option>
               {SEUILS_FIDELES.map((n) => <option key={n} value={n}>⭐ Fidèles — {n} achats ou plus</option>)}
+              <option value={-1}>💳 Porteurs de carte ({porteurs.length})</option>
             </select>
             <input className={champRecherche} placeholder="Rechercher un client…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
@@ -285,23 +296,25 @@ export function Clients({ db, save, profile }) {
         <table className="w-full text-sm min-w-[720px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Téléphone", "Achats", "Total acheté", "Dette en cours", "Dernier achat", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
-            {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{seuilFideles > 0 ? `Aucun client n'a encore acheté ${seuilFideles} fois dans cette boutique.` : "Aucun client trouvé."}</td></tr>}
+            {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{seuilFideles === -1 ? "Aucune carte de fidélité dans cet espace : l'administrateur principal en crée une avec le bouton 💳 d'un client." : seuilFideles > 0 ? `Aucun client n'a encore acheté ${seuilFideles} fois dans cette boutique.` : "Aucun client trouvé."}</td></tr>}
             {clientsPage.map((c, i) => {
               const ouverte = ficheOuverte === c.cle;
               const ouvrable = !sansIdentite(c);
+              const carte = carteDuClient(c);
               return (
               <React.Fragment key={c.cle || i}>
               <tr onClick={ouvrable ? () => setFicheOuverte((o) => (o === c.cle ? null : c.cle)) : undefined}
                 className={`border-t border-slate-100 align-middle ${ouvrable ? "cursor-pointer" : ""} ${classeLigneDepliable(ouverte, i)}`}
                 title={ouvrable ? (ouverte ? "Cliquer pour refermer la fiche" : "Cliquer pour ouvrir la fiche du client") : "Ventes sans nom : ce n'est pas un client, pas de fiche"} data-ligne-client>
                 {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo, 25/09/2026 : « dans Clients aussi figer le nom du client »), par LA règle commune. */}
-                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{c.nom}{ouvrable && <span className="ml-1 text-[10px] font-normal text-slate-400">{ouverte ? "▴" : "▾"}</span>}</td>
+                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{c.nom}{ouvrable && <span className="ml-1 text-[10px] font-normal text-slate-400">{ouverte ? "▴" : "▾"}</span>}{carte && <div data-carte-client className="text-[11px] font-bold text-emerald-700">💳 {carte.numero} · {String(carte.pct).replace(".", ",")} %</div>}</td>
                 <td className="px-3 py-2">{c.tel || "—"}</td>
                 <td className="px-3 py-2 tabular-nums">{c.achats}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(c.totalAchats)}</td>
                 <td className={`px-3 py-2 tabular-nums font-bold ${c.dette > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(c.dette)}</td>
                 <td className="px-3 py-2">{dFR(c.derniere)}</td>
-                <td className="px-3 py-2">{c.tel && <BoutonEnvoi onClick={(e) => { e.stopPropagation(); return contacter(c); }} className="text-xs font-bold text-green-700 underline">WhatsApp</BoutonEnvoi>}</td>
+                <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}><div className="flex items-center gap-2">{c.tel && <BoutonEnvoi onClick={(e) => { e.stopPropagation(); return contacter(c); }} className="text-xs font-bold text-green-700 underline">WhatsApp</BoutonEnvoi>}
+                  {principal && c.tel && <BoutonRond icone="💳" teinte="vert" titre={carte ? "Sa carte de fidélité : imprimer, changer la remise, remplacer, retirer" : "Lui donner une carte de fidélité"} onClick={() => carteDepuisClientComptoir({ db, save, profile, client: c, comptesDuNumero: comptesAvecCeNumero(db, profile, c.tel), boutique })} />}</div></td>
               </tr>
               {ouverte && <tr><td colSpan={7} className="p-0"><FicheClient db={db} profile={profile} cible={{ nom: c.nom, tel: c.tel }} /></td></tr>}
               </React.Fragment>

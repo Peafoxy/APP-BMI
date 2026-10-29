@@ -35,7 +35,10 @@ const gerant = { id: "g1", nom: "AFI", role: "gerant", boutique: "BMI DEMAKPOE",
 const vendeuse = { id: "v1", nom: "ANGELE", role: "vendeur", boutique: "BMI DEMAKPOE", actif: true };
 const depart = {
   boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", prefixe: "BMID", formation: false }, { id: "t", nom: "TERRAIN", terrain: true, formation: false }],
-  users: [gerant, vendeuse],
+  users: [gerant, vendeuse,
+    // 💳 Un porteur de carte (10 %), et une carte REMPLACÉE (29/10/2026).
+    { id: "cl1", nom: "SENA90", nom_base: "SENA", role: "client", tel: "90112233", formation: false, fidelite: { numero: "FID-000001", pct: 10, active: true } },
+    { id: "cl2", nom: "AFI91", nom_base: "AFI", role: "client", tel: "91000000", formation: false, fidelite: null, fidelite_passees: [{ numero: "FID-000002", pct: 20, active: false, remplacee_le: "2026-10-20", motif: "perdue" }] }],
   produits: [{ id: "p1", nom: "Panneau 550W", boutique: "BMI DEMAKPOE", prix_achat: 60000, prix_vente: 80000, initial: 10, seuil: 1 }],
   ventes: [{ id: "vD", numero: "BMID-2026-0050", date: "2026-10-01", boutique: "BMI DEMAKPOE", caisse: "TERRAIN", paiement: "Crédit (dette)", avance: 100000, client: "Kossi MENSAH",
     articles: [{ produit_id: "p1", article: "Panneau 550W", qte: 4, pu: 80000, au_chantier: true }], frais_installation: 32000 }],
@@ -212,6 +215,30 @@ console.log("\n🏷 UNE case de remise, en % ou libre (12/10/2026, « case uniqu
   test("★★ 🏷 la demande JOUÉE : motif, une écriture dans `demandes_remise` (5 %, en attente, motif gardé), aucune vente, rien dans `demandes` ; réencaisser le même panier dit « attend la réponse d'un administrateur »",
     dem && dem.n === 1 && dem.d && dem.d.statut === "en_attente" && dem.d.motif === "client fidèle" && Math.abs(dem.d.remise_pct - 5) < 0.001 && dem.r === 0 && /Remise de 12/.test(dem.j)
     && /attend la réponse d'un administrateur/.test(q2) && (await saves(page)) === 1, JSON.stringify(dem) + " | " + q2);
+  await page.close();
+}
+{
+  // 💳 LA CARTE DE FIDÉLITÉ JOUÉE (29/10/2026) : la vendeuse scanne, le client se remplit,
+  // la remise de 10 % (au-delà de la limite de 3 %) se fixe, la vente porte la carte.
+  const { page, erreurs } = await ouvrir("vendeuse");
+  const codeCase = page.locator('input[placeholder*="Scannez"]');
+  await codeCase.fill("FID-000002"); await codeCase.press("Enter"); await attendre(250);
+  const refusVieille = await dialogue(page);
+  if (refusVieille) await bouton(page, "OK");
+  await codeCase.fill("fid-000001"); await codeCase.press("Enter"); await attendre(250);
+  const etat = await page.evaluate(() => ({
+    client: [...document.querySelectorAll("input")].map((i) => i.value).includes("SENA"),
+    bandeau: document.querySelector("[data-carte-vente]")?.innerText || "",
+    grisee: !!document.querySelector("[data-remise-generale] input:disabled"),
+  }));
+  await page.locator("button", { hasText: "Encaisser la vente" }).first().click(); await attendre(250);
+  const q = await dialogue(page);
+  if (q) await bouton(page, /Confirmer/.test(q) ? "OK" : "Annuler"); await attendre(300);
+  const v = await page.evaluate(() => { const x = window.saves[window.saves.length - 1]; return x ? x.n.ventes[0] : null; });
+  test("★★ 💳 une carte REMPLACÉE est refusée en le disant ; la bonne remplit le client, fixe la remise (case grisée, bandeau) ; la vendeuse encaisse 10 % — au-delà de la limite — et la vente porte la carte",
+    /ne vaut plus.*remplacée/.test(refusVieille) && etat.client && /FID-000001/.test(etat.bandeau) && /10 %/.test(etat.bandeau) && etat.grisee
+    && /remise 10 %/.test(q) && v && v.carte_fidelite?.numero === "FID-000001" && v.remise_pct === 10 && v.client_user_id === "cl1" && erreurs.length === 0,
+    JSON.stringify({ refusVieille, etat, q, v: v && { c: v.carte_fidelite, r: v.remise_pct, u: v.client_user_id }, erreurs }));
   await page.close();
 }
 {

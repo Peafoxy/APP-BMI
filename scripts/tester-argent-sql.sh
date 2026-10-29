@@ -85,6 +85,10 @@ echo "▸ La remise ponctuelle autorisée à distance (tout administrateur) : su
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-44-remise-autorisee.sql >/dev/null 2>&1 || echo "   ❌ securite-44 refusé par la base"
 VERIF44=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-44-remise-autorisee.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF44" = "t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-44 répond true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-44 répond : $VERIF44"; exit 1; fi
+echo "▸ La carte de fidélité (le principal la pose ; sa remise passe au-delà de la limite) : supabase/securite-45-carte-fidelite.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-45-carte-fidelite.sql >/dev/null 2>&1 || echo "   ❌ securite-45 refusé par la base"
+VERIF45=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-45-carte-fidelite.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF45" = "t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-45 répond true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-45 répond : $VERIF45"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -549,6 +553,23 @@ essai "★ …un accord DÉJÀ utilisé par une autre vente : refusé (une seule
 $(UPS ventes zra7 "$(VA zra7 90112233 10 "$L2" "$AUT")")"
 essai "★ une remise SUR UN ARTICLE (10 %) accordée passe aussi" "PERMIS" "$VENDEUR" "$(UPS ventes zra8 "$(VA zra8 90112233 0 "$LR" ',"remise_autorisee":{"id":"ACC3"}')")"
 essai "★ remise sur un article ET remise générale, même accordées : refusé pour tout le monde" "REFUSE" "$VENDEUR" "$(UPS ventes zra9 "$(VA zra9 90112233 10 "$LR" ',"remise_autorisee":{"id":"ACC3"}')")"
+echo
+echo "── 💳 LA CARTE DE FIDÉLITÉ (securite-45, Timo 29/10/2026) : le principal la pose, sa remise passe telle quelle ──"
+$P -c "insert into public.users (id, data) values
+  ('zc_carte', '{\"id\":\"zc_carte\",\"nom\":\"SENA\",\"role\":\"client\",\"tel\":\"90112233\",\"fidelite\":{\"numero\":\"FID-000001\",\"pct\":10,\"active\":true}}'),
+  ('zc_vieille', '{\"id\":\"zc_vieille\",\"nom\":\"AFI\",\"role\":\"client\",\"fidelite\":null,\"fidelite_passees\":[{\"numero\":\"FID-000002\",\"pct\":20,\"active\":false}]}');" >/dev/null
+VC() { echo "{\"id\":\"$1\",\"boutique\":\"APESSITO\",\"client\":\"SENA\",\"remise_pct\":$2,\"articles\":$3,\"carte_fidelite\":{\"numero\":\"$4\"}}"; }
+essai "★ un vendeur encaisse avec la CARTE (10 %, au-delà de la limite de 3 %)" "PERMIS" "$VENDEUR" "$(UPS ventes zcf1 "$(VC zcf1 10 "$L2" FID-000001)")"
+essai "★ …12 % avec la même carte (la remise est fixe) : refusé" "REFUSE" "$VENDEUR" "$(UPS ventes zcf2 "$(VC zcf2 12 "$L2" FID-000001)")"
+essai "★ …une carte REMPLACÉE (FID-000002, morte) : refusé" "REFUSE" "$VENDEUR" "$(UPS ventes zcf3 "$(VC zcf3 20 "$L2" FID-000002)")"
+essai "★ …une carte inventée : refusé" "REFUSE" "$VENDEUR" "$(UPS ventes zcf4 "$(VC zcf4 10 "$L2" FID-999999)")"
+essai "★ …la carte ET une remise sur un article : refusé" "REFUSE" "$VENDEUR" "$(UPS ventes zcf5 "$(VC zcf5 0 "$LR" FID-000001)")"
+essai "★ un vendeur pose une carte sur la fiche d'un client : refusé" "REFUSE" "$VENDEUR" "$(UPS users zc_ama '{"id":"zc_ama","nom":"AMA","role":"client","fidelite":{"numero":"FID-000009","pct":40,"active":true}}')"
+essai "★ un vendeur CRÉE une fiche de client qui porte déjà une carte : refusé" "REFUSE" "$VENDEUR" "$(UPS users zc_neuf '{"id":"zc_neuf","nom":"NEUF","role":"client","fidelite":{"numero":"FID-000010","pct":50,"active":true}}')"
+essai "★ un administrateur SECONDAIRE change la remise d'une carte : refusé (le principal seul)" "REFUSE" "$ADMIN2" "$(UPS users zc_carte '{"id":"zc_carte","nom":"SENA","role":"client","tel":"90112233","fidelite":{"numero":"FID-000001","pct":30,"active":true}}')"
+essai "★ l'administrateur PRINCIPAL change la remise d'une carte" "PERMIS" "$ADMIN" "$(UPS users zc_carte '{"id":"zc_carte","nom":"SENA","role":"client","tel":"90112233","fidelite":{"numero":"FID-000001","pct":15,"active":true}}')"
+essai "★ un vendeur réécrit la fiche d'un porteur de carte SANS toucher à la carte (le quotidien passe)" "PERMIS" "$VENDEUR" "$(UPS users zc_carte '{"id":"zc_carte","nom":"SENA","role":"client","tel":"90112233","adresse":"Bè","fidelite":{"numero":"FID-000001","pct":10,"active":true}}')"
+
 # Les DEMANDES et ACCORDS sur la boutique (securite-44, règle des boutiques) se
 # jouent dans tester-devis-chantiers-sql.sh, qui pose les briques de l'outillage.
 

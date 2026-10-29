@@ -14,6 +14,7 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, 
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement, envoiAttestationDisponible } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
+import { gererCarteFidelite } from "../components/carteFidelite";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, FormulaireRepliable, IconeWhatsApp, champRecherche, BoutonEnvoi } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
@@ -1964,6 +1965,8 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
                       <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Client</div>
                       <div className="flex flex-wrap gap-1.5 min-w-0">
                   <BoutonGerer onClick={() => basculerChatLibre(u)} nom={u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"} />
+                  {/* 💳 La carte de fidélité (29/10/2026) : l'administrateur principal seul la met en place. */}
+                  {jeSuisAdminPrincipal && <BoutonGerer data-carte-fidelite onClick={() => gererCarteFidelite({ db, save, profile, compte: u })} titre="Créer, changer la remise, remplacer, retirer ou imprimer sa carte" nom="💳 Carte de fidélité" />}
                       </div>
                     </div>
                     )}

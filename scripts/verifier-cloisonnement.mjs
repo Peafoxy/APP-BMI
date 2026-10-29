@@ -3453,7 +3453,8 @@ titre("Vague 2, etape 1 : chaque dette et chaque vente naissent avec leur PROPRI
     /client_user_id: client\.id, numero: prochainNumeroDette\(dbT/.test(readFileSync("src/lib/validationDevis.js", "utf8"))
     && !/prochainNumeroDette\(/.test(espaceJsx));
   test("la vente et sa dette de credit partagent LA MEME resolution (jamais deux reponses)",
-    /const clientCompteId = origineDevis\?\.client_id \|\| compteClientPour\(db, f\.tel, f\.client\)/.test(ventesJsx)
+    // RETOURNÉ le 29/10/2026 : la carte de fidélité scannée désigne le compte (le même pour la vente ET la dette).
+    /const clientCompteId = origineDevis\?\.client_id \|\| \(carte \? carteVente\.compte_id : null\) \|\| compteClientPour\(db, f\.tel, f\.client\)/.test(ventesJsx)
     && /client_user_id: clientCompteId, vente_id: vente\.id/.test(ventesJsx));
   test("le devis d'origine fait foi quand il existe (l'identifiant exact bat le rapprochement)",
     /origineDevis\?\.client_id \|\|/.test(ventesJsx));
@@ -7257,8 +7258,9 @@ titre("🏷 La remise ponctuelle autorisée À DISTANCE par un administrateur (T
   // L'écran.
   const va = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran 💰 Ventes : l'encaissement cherche l'accord (autorisationPour), ouvre la limite quand il existe, propose « 📨 Demander l'autorisation » au lieu de refuser net, pose la trace sur la vente et marque la demande « utilisée » ; tout administrateur décide, revérifié DANS le geste sur la demande FRAÎCHE",
-    /const autorisation = profile\.role !== "admin" \? autorisationPour\(ficheBoutique, db\.ventes, offreRemise\) : null;/.test(va)
-    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin" && !remiseDeLaProforma && !autorisation\)/.test(va)
+    // RETOURNÉ le 29/10/2026 : une vente à carte de fidélité ne cherche pas d'accord (sa remise est celle de la carte).
+    /const autorisation = profile\.role !== "admin" && !carte \? autorisationPour\(ficheBoutique, db\.ventes, offreRemise\) : null;/.test(va)
+    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin" && !remiseDeLaProforma && !autorisation && !carte\)/.test(va)
     && /await proposerDemandeRemise\(/.test(va) && /"📨 Demander l'autorisation"/.test(va)
     && /\.\.\.\(autorisation \? \{ remise_autorisee: traceSurLaVente\(autorisation\) \} : \{\}\)/.test(va)
     && /if \(autorisation\) next = \{ \.\.\.next, boutiques: marquerUtilisee\(next\.boutiques, boutique, autorisation\.id, vente\.id\) \};/.test(va)
@@ -7275,6 +7277,85 @@ titre("🏷 La remise ponctuelle autorisée À DISTANCE par un administrateur (T
     && /- 'demandes' - 'demandes_remise' - 'updated_at' - 'outillage'/.test(s44) && !/rollback;\s*$/.test(s44)
     && /-f supabase\/securite-44-remise-autorisee\.sql/.test(ta) && /-f supabase\/securite-44-remise-autorisee\.sql/.test(td)
     && /DÉJÀ utilisé par une autre vente : refusé \(une seule fois\)" "REFUSE"/.test(ta) && /un vendeur écrit lui-même un ACCORD \(remises_autorisees\) : refusé" "REFUSE"/.test(td));
+}
+
+titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code barre, C remise sur la fiche, D hors limite, E les deux, F le principal », « 2 oui », « 3 non »)");
+{
+  const charger = async (entree, nom) => {
+    const out = join("node_modules", ".cache", `bmi-${nom}-${process.pid}.mjs`);
+    await build({ entryPoints: [entree], bundle: true, format: "esm", platform: "node", outfile: out, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+    const m = await import(pathToFileURL(out).href); unlinkSync(out); return m;
+  };
+  const Cf = await charger("src/lib/carteFidelite.js", "carte-fidelite");
+  const timo = { id: "a1", nom: "TIMO", role: "admin" };
+  const sena = { id: "c1", nom: "SENA90", nom_base: "SENA", role: "client", tel: "90112233" };
+  test("★ le numéro : FID- + 6 chiffres, le plus grand + 1, cartes PASSÉES comprises (un numéro ne redescend jamais) ; le code se reconnaît au scan",
+    Cf.prochainNumeroCarte([]) === "FID-000001"
+    && Cf.prochainNumeroCarte([{ fidelite: { numero: "FID-000004" } }, { fidelite_passees: [{ numero: "FID-000009" }] }]) === "FID-000010"
+    && Cf.estCodeCarte("fid-000003") && !Cf.estCodeCarte("ART123") && !Cf.estCodeCarte("FID-"));
+  test("★ le pourcentage : plus de 0, 50 % au plus ; le geste = l'administrateur PRINCIPAL seul",
+    /pourcentage/.test(Cf.critiquePctCarte("")) && /50 %/.test(Cf.critiquePctCarte(60)) && Cf.critiquePctCarte("12,5") === ""
+    && /administrateur principal/.test(Cf.critiqueGesteCarte(timo, false)) && Cf.critiqueGesteCarte(timo, true) === "");
+  const s1 = Cf.poserCarte(sena, { numero: "FID-000001", pct: "12,5", profile: timo, aujourdhui: "2026-10-29" });
+  const s2 = Cf.remplacerCarte(s1, { numero: "FID-000002", profile: timo, aujourdhui: "2026-10-30", motif: "perdue" });
+  const s3 = Cf.retirerCarte(s2, { profile: timo, aujourdhui: "2026-10-31", motif: "parti" });
+  test("★★ poser, remplacer (l'ancienne MORTE dans l'historique, même remise), retirer : le scan trouve la bonne, refuse l'ancienne en le DISANT",
+    s1.fidelite.pct === 12.5 && Cf.carteDe(s1).numero === "FID-000001"
+    && Cf.carteDe(s2).numero === "FID-000002" && s2.fidelite.pct === 12.5 && Cf.cartesPasseesDe(s2)[0].active === false
+    && Cf.trouverCarte([s2], "FID-000002").compte?.id === "c1" && /ne vaut plus.*remplacée.*perdue/.test(Cf.trouverCarte([s2], "fid-000001").refus)
+    && Cf.carteDe(s3) === null && /retirée/.test(Cf.trouverCarte([s3], "FID-000002").refus) && /Aucune carte/.test(Cf.trouverCarte([], "FID-000007").refus));
+  test("★ LE MUR : trouverCarte ne lit QUE les fiches qu'on lui passe (l'écran passe utilisateursDeLEspace), et seulement des CLIENTS",
+    Cf.trouverCarte([], "FID-000001").compte === undefined && Cf.trouverCarte([{ ...s1, role: "vendeur" }], "FID-000001").compte === undefined);
+  test("★★ « 2 oui » : la remise de la carte est FIXE — un autre %, une remise libre, ou une remise d'article en plus : refusé",
+    Cf.critiqueRemiseCarte({ carte: s1.fidelite, panier: [{ qte: 1, pu: 100 }], remisePct: 12.5 }) === ""
+    && /fixe/.test(Cf.critiqueRemiseCarte({ carte: s1.fidelite, panier: [], remisePct: 15 }))
+    && /fixe/.test(Cf.critiqueRemiseCarte({ carte: s1.fidelite, panier: [], remisePct: 12.5, remiseLibre: true }))
+    && /pas de remise sur un article/.test(Cf.critiqueRemiseCarte({ carte: s1.fidelite, panier: [{ qte: 1, pu: 100, remise_ligne: 5 }], remisePct: 12.5 })));
+  // La carte IMPRIMÉE (printApi remplacé par un témoin) : 85,6 × 54 mm, le code-barres, le numéro, le nom, la remise.
+  {
+    const sortie = join("node_modules", ".cache", `bmi-carte-imp-${process.pid}.mjs`);
+    await build({
+      entryPoints: ["src/lib/impression.js"], bundle: true, format: "esm", platform: "node", outfile: sortie,
+      logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"],
+      plugins: [{ name: "ui-temoin", setup(b) {
+        b.onResolve({ filter: /components\/ui(\.jsx)?$/ }, (x) => x.importer.endsWith("impression.js") ? { path: "ui-temoin", namespace: "temoin" } : undefined);
+        b.onLoad({ filter: /.*/, namespace: "temoin" }, () => ({ resolveDir: process.cwd(), loader: "js",
+          contents: 'export * from "./src/components/ui.jsx"; export const printApi = { open: (h, t, f) => { globalThis.__carte = { h, t, f }; } };' }));
+      } }],
+    });
+    const Imp = await import(pathToFileURL(sortie).href); unlinkSync(sortie);
+    globalThis.__carte = null;
+    const ok = Imp.imprimerCarteFidelite({ ...s1, prenom: "Kossi" });
+    const c = globalThis.__carte || { h: "", t: "", f: "" };
+    test("★★ la carte IMPRIMÉE : format carte bancaire (85,6 × 54 mm), CARTE DE FIDÉLITÉ, le nom et le prénom, « 12,5 % », le code-barres (SVG) avec sa zone de silence, le numéro en clair",
+      ok === true && /size: 85\.6mm 54mm/.test(c.f) && /CARTE DE FIDÉLITÉ/.test(c.h) && /SENA Kossi/.test(c.h) && /12,5 %/.test(c.h)
+      && /<svg/.test(c.h) && /padding:0 3mm/.test(c.h) && /FID-000001/.test(c.h) && /Carte de fidélité - SENA Kossi - FID-000001/.test(c.t)
+      && Imp.imprimerCarteFidelite(sena) === false);
+  }
+  // Les écrans.
+  const va = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★★ 💰 Ventes : la carte se SCANNE dans la case du code-barres (cherchée dans l'espace regardé), remplit le client et fixe la remise ; la case de remise se grise ; à l'encaissement, la carte est revérifiée sur la fiche FRAÎCHE, sa remise passe la limite, la vente porte la trace",
+    /if \(estCodeCarte\(c\)\) \{\s*\n\s*const r = trouverCarte\(utilisateursDeLEspace\(db, profile\), c\);/.test(va)
+    && /disabled=\{aRemiseSurArticle\(panier\) \|\| !!carteVente\}/.test(va) && /data-carte-vente/.test(va)
+    && /const compteCarte = utilisateursDeLEspace\(db, profile\)\.find\(\(u\) => u\.id === carteVente\.compte_id\);/.test(va)
+    && /critiqueRemiseCarte\(\{ carte, panier, remisePct, remiseLibre \}\)/.test(va)
+    && /carte_fidelite: traceCarteSurLaVente\(/.test(va));
+  const ut = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  const cl = readFileSync("src/screens/Clients.jsx", "utf8");
+  const gc = readFileSync("src/components/carteFidelite.js", "utf8");
+  test("★ « F » et « 3 non » : 👥 Utilisateurs et 📋 Clients n'offrent le 💳 qu'à l'administrateur PRINCIPAL (le vendeur n'imprime rien) ; les gestes le revérifient ; un client de comptoir reçoit une fiche FERMÉE (sans_acces) ; ⭐ Fidèles montre les porteurs de carte",
+    /\{jeSuisAdminPrincipal && <BoutonGerer data-carte-fidelite onClick=\{\(\) => gererCarteFidelite\(/.test(ut)
+    && /\{principal && c\.tel && <BoutonRond icone="💳"/.test(cl) && /const principal = estAdminPrincipal\(db, profile\);/.test(cl)
+    && (gc.match(/critiqueGesteCarte\(profile, estAdminPrincipal\(db, profile\)\)/g) || []).length === 2
+    && /sans_acces: true/.test(gc) && /porteursDeCarte\(utilisateursDeLEspace\(db, profile\)\)/.test(cl) && /💳 Porteurs de carte/.test(cl));
+  // ⚠ LE COUPLE.
+  const s45 = readFileSync("supabase/securite-45-carte-fidelite.sql", "utf8");
+  const ta = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+  test("★ LE COUPLE : securite-45 réserve `fidelite` et `fidelite_passees` au principal (création de fiche comprise), lit la carte ACTIVE avec SON % exact et sans remise d'article, reprend securite-44 en entier ; le banc tester-argent le rejoue",
+    /before insert or update on public\.users/.test(s45) && /'fidelite_passees'/.test(s45) && /not public\.est_admin_principal\(\)/.test(s45)
+    && /u\.data -> 'fidelite' ->> 'numero' = num/.test(s45) && /'active'\)::boolean, true\)/.test(s45) && /a_remise_sur_article\(vente -> 'articles'\)/.test(s45)
+    && /remise_autorisee_par_admin/.test(s45) && /remises_apres_vente/.test(s45) && !/rollback;\s*$/.test(s45)
+    && /-f supabase\/securite-45-carte-fidelite\.sql/.test(ta) && /une carte REMPLACÉE \(FID-000002, morte\) : refusé" "REFUSE"/.test(ta) && /un vendeur CRÉE une fiche de client qui porte déjà une carte : refusé" "REFUSE"/.test(ta));
 }
 
 titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (Timo, 10/09/2026)");
@@ -7296,9 +7377,10 @@ titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (
     // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier (🏗) — 4.
     && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role, plafond\)/g) || []).length === 4
     // RETOURNÉ le 29/10/2026 : + la remise accordée À DISTANCE par un administrateur (securite-44).
-    && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \|\| autorisation \? "admin" : profile\.role, plafond\)/g) || []).length === 1
+    // RETOURNÉ le 29/10/2026 : + la carte de fidélité scannée (securite-45).
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \|\| autorisation \|\| carte \? "admin" : profile\.role, plafond\)/g) || []).length === 1
     // RETOURNÉ le 12/10/2026 : UNE case de remise (ChampRemise) — la générale grisée par aRemiseSurArticle, la ligne par remiseGeneraleSaisie.
-    && /pct=\{f\.remise\}[^\n]*\n[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && /titre="Remise ligne"[^\n]*\n[^\n]*disabled=\{remiseGeneraleSaisie\}/.test(vr));
+    && /pct=\{f\.remise\}[^\n]*\n[^\n]*disabled=\{aRemiseSurArticle\(panier\) \|\| !!carteVente\}/.test(vr) /* RETOURNÉ le 29/10/2026 : grisée aussi sous une carte de fidélité */ && /titre="Remise ligne"[^\n]*\n[^\n]*disabled=\{remiseGeneraleSaisie\}/.test(vr));
   const s14 = readFileSync("supabase/securite-14-remise-article.sql", "utf8");
   const ta14 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
   test("★ securite-14 : deux lectures SQL des lignes (a_remise_sur_article, remise_ligne_excessive, retirées à anon), ventes et proformas — 3 % par ligne sauf admin, ligne + générale refusé pour tous, seulement quand lignes ou remise changent (upsert relu) ; la reprise (securite-13) est reprise telle quelle ; le banc rejoue 14 cas",
@@ -9840,7 +9922,8 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
       && CC.SEUILS_FIDELES.join(",") === "2,3,5,10");
     const ecranCl = readFileSync("src/screens/Clients.jsx", "utf8");
     test("★ ⭐ 👤 Clients passe par LA règle des fidèles, « Tous » d'office (aucun filtre maison sur `achats`)",
-      /clientsFideles\(clientsConnus\(db, boutique\)/.test(ecranCl) && /useState\(0\)/.test(ecranCl)
+      // RETOURNÉ le 29/10/2026 : la liste triée est rangée dans `connus`, puis passe par clientsFideles (ou les porteurs de carte, « −1 »).
+      /const connus = clientsConnus\(db, boutique\)/.test(ecranCl) && /clientsFideles\(connus, seuilFideles\)/.test(ecranCl) && /useState\(0\)/.test(ecranCl)
       && /data-filtre-fideles/.test(ecranCl) && !/\.achats\s*>=/.test(ecranCl));
   }
 
@@ -9898,7 +9981,9 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("★ UNE règle, pas deux : 👥 Clients lit clientsConnus au lieu de refaire son propre regroupement (plus de `const map = {}` ni de clé maison)",
     // RETOURNÉ le 03/10/2026 : la liste passe aussi par le filtre des fidèles (même règle commune).
     /import \{ clientsConnus, clientsFideles, SEUILS_FIDELES \} from "\.\.\/lib\/clientsConnus";/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
-    && /let clients = clientsFideles\(clientsConnus\(db, boutique\)\.sort\(\(a, b\) => b\.totalAchats - a\.totalAchats\), seuilFideles\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+    // RETOURNÉ le 29/10/2026 : + le filtre « 💳 Porteurs de carte » (seuilFideles === -1).
+    && /const connus = clientsConnus\(db, boutique\)\.sort\(\(a, b\) => b\.totalAchats - a\.totalAchats\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+    && /: clientsFideles\(connus, seuilFideles\);/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
     && !/const key = \(nom, tel\)/.test(readFileSync("src/screens/Clients.jsx", "utf8")));
   // ═══════════════════════════════════════════════════════════
   // 👥 UTILISATEURS : LE NUMÉRO SE VOIT, ET SE CHERCHE (Timo, 16/09/2026)
@@ -14069,8 +14154,9 @@ titre("🧾 La remise d'une proforma reprise telle quelle, pour tout vendeur (30
   test("★★ l'encaissement passe par la règle (remise générale ET remise de ligne) et DIT pourquoi quand le panier a bougé",
     /const remiseDeLaProforma = remiseDeProformaGardee\(pfReprise, panier, remisePct\);/.test(corps)
     // RETOURNÉ le 29/10/2026 : + la remise accordée à distance (`autorisation`, securite-44).
-    && /critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \|\| autorisation \? "admin" : profile\.role, plafond\)/.test(corps)
-    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin" && !remiseDeLaProforma && !autorisation/.test(corps)
+    // RETOURNÉ le 29/10/2026 : + la carte de fidélité (`carte`, securite-45).
+    && /critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \|\| autorisation \|\| carte \? "admin" : profile\.role, plafond\)/.test(corps)
+    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin" && !remiseDeLaProforma && !autorisation && !carte/.test(corps)
     && /ne vaut que pour son panier tel quel/.test(corps));
   test("★ la proforma elle-même reste réservée à l'administrateur au-delà de la limite réglable (on n'a rien ouvert de ce côté)",
     // RETOURNÉ le 30/09/2026 : + la proforma modifiée (émettre, modifier : trois gestes, tous au rôle).
@@ -15046,7 +15132,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   test("★★ ⋯ Gérer : UN composant pour tous ses boutons (BoutonGerer), plus aucun bouton maison, et AUCUNE valeur dans un nom (date, contrat, banque, taux, numéro)",
     // RETOURNÉ le 12/10/2026 : 26 (📄 Attestation de travail, 📄 Document de fin de contrat) ; ⚧ Sexe vit dans 🆔 Identité, pas ici.
     // RETOURNÉ le 14/10/2026 : 27 (📤 Mettre à disposition).
-    noms.length === 27 && !/boutonGerer/.test(u)
+    // RETOURNÉ le 29/10/2026 : 28 (💳 Carte de fidélité, le principal).
+    noms.length === 28 && !/boutonGerer/.test(u)
     && noms.every((n) => n.startsWith('"') || /^\{u\.[a-z_]+ \? "[^"]*" : "[^"]*"\}$/.test(n))
     && /export function BoutonGerer\(\{ nom, onClick, titre, ton, info, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /\{String\(nom\)\}<\/button>/.test(readFileSync("src/components/ui.jsx", "utf8")));

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2845 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2854 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -61,7 +61,7 @@ npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Tout
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 43  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée ; « Argent remis à » à choisir, le nom de la personne payée directement (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
-npm run verifier-ecran-achat-chantier # 22 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
+npm run verifier-ecran-achat-chantier # 23 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
 npm run verifier-ecran-solaire   # 37  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET), en liste déroulante étroite entre la boutique et le panneau : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape, un F5 sur un brouillon déjà posé en localStorage retrouve le mode et ses chiffres ; 📱 la rangée des métiers en grille à 2 colonnes sur téléphone (sept métiers, 375 px, colonnes de largeur égale), reste comme avant sur ordinateur (1300 px)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
@@ -74,7 +74,7 @@ npm run verifier-whatsapp        # 1394 : l'envoi WhatsApp du numéro BMI (l'ord
 npm run verifier-partage         # 6   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette ; le PDF du VRAI reçu, une page, moins de 400 Ko)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 274 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 284 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 98  : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 129 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
@@ -10058,7 +10058,42 @@ lit mal est pire qu'un banc absent).
   `demandes`. Bancs SQL `tester-argent` (+9) et `tester-devis-chantiers` (+6),
   éprouvés (porte retirée, une seule fois retirée, demande refusée) ;
   `verifier-cloisonnement` (+10, deux RETOURNÉS) et Chromium `verifier-ecran-achat-chantier` (+1 joué, un RETOURNÉ), éprouvés. Chapitres 5 et 23.
-  **À coller par Timo.**
+  **Collé par Timo le 29/10/2026 (`true | true | true | true`).**
+
+### 💳 LA CARTE DE FIDÉLITÉ À CODE-BARRES (29/10/2026, « B code barre, C remise sur la fiche, D hors limite, E les deux, F le principal », « 2 oui », « 3 non »)
+- Timo : « une carte de fidélité… on scanne et le client a une réduction ».
+  Règle pure **`lib/carteFidelite.js`**, gestes **`components/carteFidelite.js`**,
+  impression `imprimerCarteFidelite` (lib/impression.js : 85,6 × 54 mm, logo,
+  nom + prénom, « Remise de X % », Code128 avec sa zone de silence, numéro en
+  clair).
+- **La carte vit sur la FICHE du client** : `fidelite = { numero, pct, le, par,
+  active }` ; une carte remplacée ou retirée part dans `fidelite_passees` (morte,
+  le scan le DIT). Numéro **FID-000001** = le plus grand + 1, cartes passées
+  comprises (ne redescend jamais). Remise : plus de 0, **50 % au plus**.
+- **« F » et « 3 non »** : l'administrateur **PRINCIPAL seul** crée, change le %,
+  remplace (carte perdue : nouveau numéro, même remise), retire, imprime —
+  👥 Utilisateurs → ⋯ Gérer → **💳 Carte de fidélité** (client), et 📋 Clients
+  (bouton rond 💳). **Le vendeur REMET la carte, il ne l'imprime pas.**
+  **« E »** : un client de comptoir sans compte reçoit une fiche **FERMÉE**
+  (`sans_acces`, `fabriquerCompteClient`) — il est enregistré, jamais connecté ;
+  sans numéro, pas de carte. ⭐ Fidèles : option **« 💳 Porteurs de carte »**
+  (même sans achat ici) ; sous le nom « 💳 FID-… · X % ».
+- **Le scan** (💰 Ventes, la case 🔍 Code-barres, `estCodeCarte`) : cherché dans
+  l'espace REGARDÉ (`utilisateursDeLEspace`, le mur) ; client, numéro, prénom
+  remplis ; la remise en % posée ; bandeau `data-carte-vente` (« vérifiez que
+  c'est bien le client »), ✕ la retire. **« D »** : elle passe AU-DELÀ de la
+  limite, sans accord. **« 2 oui »** : FIXE — case Remise grisée, aucune remise
+  d'article (`critiqueRemiseCarte`, revérifiée à l'encaissement sur la fiche
+  FRAÎCHE). La vente porte `carte_fidelite` (numéro, %, compte) et le compte du
+  porteur (`client_user_id`).
+- ⚠ LE COUPLE : **`securite-45`** — déclencheur À PART `users_regles_fidelite`
+  (avant insertion ou mise à jour : `fidelite` / `fidelite_passees` = le
+  principal seul, création de fiche comprise) ; `remise_de_la_carte` (carte
+  ACTIVE, SON % exact, sans remise d'article) ouvre la limite dans
+  `ventes_regles_roles` (reprend securite-44 en entier). Bancs : `tester-argent`
+  (+10), `verifier-cloisonnement` (+9, la carte IMPRIMÉE ; cinq RETOURNÉS),
+  Chromium `verifier-ecran-achat-chantier` (+1, le scan joué), éprouvés.
+  Chapitres 2, 3, 5. **À coller par Timo.**
 
 ---
 

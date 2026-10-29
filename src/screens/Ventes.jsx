@@ -20,6 +20,7 @@ import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
+import { estCodeCarte, trouverCarte, carteDe, critiqueRemiseCarte, traceCarteSurLaVente } from "../lib/carteFidelite";
 import { autorisationPour, demandeDeLOffre, construireDemandeRemise, critiqueDemandeRemise, poserDemandeRemise, critiqueDecisionRemise, accorderRemise, refuserRemise, annulerDemandeRemise, traceSurLaVente, marquerUtilisee, demandesAAutoriser, mesDemandesRemise, demandesRemiseDe, STATUT_ATTENTE_REMISE, STATUT_REFUSEE_REMISE, STATUT_ACCORDEE, LIBELLE_STATUT_REMISE } from "../lib/autorisationRemise";
 import { ROLES_REMISE_APRES_VENTE, plafondRemiseApresVente, construireRemiseApresVente, appliquerRemiseApresVente } from "../lib/remiseApresVente";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
@@ -32,7 +33,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 // document à part, jamais le reçu réimprimé (lib/bons.js).
 import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
-import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, plafondRemise, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalVenteDuJour, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation, chantiersDeLEspaceRegarde } from "../lib/calculs";
+import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, plafondRemise, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalVenteDuJour, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation, chantiersDeLEspaceRegarde, utilisateursDeLEspace } from "../lib/calculs";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { bandesDeVersement, intercalerBandes, resumeBande } from "../lib/bandesVersement";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -154,6 +155,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   const [cat, setCat] = useState("");
   const [sel, setSel] = useState({ produit_id: "", qte: "", pu: "", remF: "", remP: "" });
   const [panier, setPanier] = useState(() => preRempli?.panier || []);
+  // 💳 La carte de fidélité scannée (29/10/2026) : { compte_id, numero, pct, nom }.
+  const [carteVente, setCarteVente] = useState(null);
   // 🧾 Le reçu WhatsApp automatique : ce qui s'est passé au dernier
   // encaissement, dit discrètement sous le titre (jamais une fenêtre).
   const [noteRecuWa, setNoteRecuWa] = useState("");
@@ -326,6 +329,19 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const c = code.trim();
     setCode("");
     if (!c) return;
+    // 💳 Une CARTE DE FIDÉLITÉ se scanne dans la même case (Timo, 29/10/2026) :
+    // le client se remplit, sa remise s'applique, FIXE. Cherchée dans l'espace
+    // regardé seulement (le mur) ; une carte remplacée ou retirée est refusée.
+    if (estCodeCarte(c)) {
+      const r = trouverCarte(utilisateursDeLEspace(db, profile), c);
+      if (r.refus) { setMsg(r.refus); uAlert(r.refus); return; }
+      if (aRemiseSurArticle(panier)) { uAlert("💳 Le panier porte une remise sur un article : avec la carte de fidélité, c'est sa remise seule. Retirez d'abord la remise de l'article."); return; }
+      const nom = r.compte.nom_base || r.compte.nom;
+      setCarteVente({ compte_id: r.compte.id, numero: r.carte.numero, pct: Number(r.carte.pct), nom: [nom, r.compte.prenom].filter(Boolean).join(" ") });
+      setF({ ...f, client: nom, tel: r.compte.tel || "", ...(r.compte.prenom ? { prenom: r.compte.prenom } : {}), remise: String(r.carte.pct), remiseMode: "pct", remiseMontant: "" });
+      setMsg(`💳 Carte ${r.carte.numero} : ${nom} — remise de ${r.carte.pct} %. Vérifiez que c'est bien lui.`);
+      return;
+    }
     const p = articleParCode(produits, c);
     if (!p) { setMsg(`Aucun article avec le code « ${c} » dans ${boutique}. Assignez les codes dans l'onglet Stocks.`); return; }
     if (dispoRestant(p) < 1) { setMsg(`⚠ Stock épuisé pour « ${p.nom} » — ajouté quand même, l'encaissement proposera une réservation si besoin.`); }
@@ -891,10 +907,20 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // 29/10/2026, « A a », « 1 tout admin ») : un accord rangé sur la boutique,
     // pour CE panier, CE % et CE client, jamais deux fois (lib/autorisationRemise.js ;
     // la base compare pareil, securite-44).
+    // 💳 La carte de fidélité, revérifiée sur la fiche FRAÎCHE : toujours active,
+    // même numéro, et SA remise intacte (fixe, sans remise d'article — « 2 oui »).
+    let carte = null;
+    if (carteVente) {
+      const compteCarte = utilisateursDeLEspace(db, profile).find((u) => u.id === carteVente.compte_id);
+      carte = carteDe(compteCarte);
+      if (!carte || carte.numero !== carteVente.numero) { setCarteVente(null); uAlert(`💳 La carte ${carteVente.numero} ne vaut plus (remplacée, retirée ou changée). Rescannez la carte du client.`); return; }
+      const refusC = critiqueRemiseCarte({ carte, panier, remisePct, remiseLibre });
+      if (refusC) { setMsg(refusC); uAlert(refusC); return; }
+    }
     const offreRemise = { panier, remisePct, tel: f.tel };
-    const autorisation = profile.role !== "admin" ? autorisationPour(ficheBoutique, db.ventes, offreRemise) : null;
+    const autorisation = profile.role !== "admin" && !carte ? autorisationPour(ficheBoutique, db.ventes, offreRemise) : null;
     {
-      const refusR = critiqueRemises(panier, remisePct, remise, remiseDeLaProforma || autorisation ? "admin" : profile.role, plafond);
+      const refusR = critiqueRemises(panier, remisePct, remise, remiseDeLaProforma || autorisation || carte ? "admin" : profile.role, plafond);
       if (refusR) {
         // L'une ou l'autre (ligne OU générale) : personne ne passe, même accordé.
         if (critiqueRemises(panier, remisePct, remise, "admin", plafond)) { setMsg(refusR); uAlert(`🔒 ${refusR}${pourquoiPasProforma}`); return; }
@@ -908,7 +934,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // remise est CELLE de la commande encaissée (devis validé), déjà
     // contrôlée en amont, ou celle d'une proforma reprise telle quelle
     // (30/09/2026). Le serveur applique la même règle.
-    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin" && !remiseDeLaProforma && !autorisation) {
+    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin" && !remiseDeLaProforma && !autorisation && !carte) {
       const cmd = origineCommande ? (db.commandes || []).find((c) => c.id === origineCommande) : null;
       if (!cmd || Number(cmd.remise_pct || 0) !== remisePct) {
         await proposerDemandeRemise(`🔒 Une remise supérieure à ${plafond} % demande l'accord d'un administrateur.${pourquoiPasProforma}`);
@@ -1128,6 +1154,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       setF({ ...identiteDe(null), client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
       setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
       setApporteurConverti(null);
+      setCarteVente(null);
       setCat("");
       uAlert("✅ Réservation créée — le stock ne sera déduit et la vente enregistrée qu'à la livraison, depuis Dettes → Réservations prépayées.");
       return;
@@ -1145,7 +1172,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // ⚠ Vague 2, étape 1 : le compte du client, résolu UNE fois pour la
     // vente ET la dette. Le devis d'origine fait foi quand il existe — il
     // porte déjà l'identifiant exact ; sinon, le téléphone puis le nom.
-    const clientCompteId = origineDevis?.client_id || compteClientPour(db, f.tel, f.client);
+    const clientCompteId = origineDevis?.client_id || (carte ? carteVente.compte_id : null) || compteClientPour(db, f.tel, f.client);
     // 🏗 Une vente issue d'un devis (Timo, 08/10/2026, étape 1) : le stock sort
     // de CETTE boutique et le chiffre d'affaires reste le sien, mais l'ARGENT
     // entre dans la caisse CHANTIER — jamais dans le tiroir de la boutique.
@@ -1193,6 +1220,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ...(origineProforma ? { proforma_id: origineProforma.id, proforma_numero: origineProforma.numero } : {}),
       // 🏷 La remise accordée à distance : qui, quand, pourquoi (la trace).
       ...(autorisation ? { remise_autorisee: traceSurLaVente(autorisation) } : {}),
+      // 💳 La carte scannée : son numéro, sa remise, le client (la trace ; securite-45).
+      ...(carte ? { carte_fidelite: traceCarteSurLaVente({ id: carteVente.compte_id }, carte) } : {}),
     };
 
     let next = { ...avecFicheClient(db, clientCompteId), ventes: [vente, ...db.ventes] };
@@ -1348,7 +1377,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       setOrigineTravaux(null);
     }
     const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";
-    const noteAutorisee = autorisation ? ` — remise ${remisePct} % autorisée par ${autorisation.par} (demandée par ${profile.nom})` : "";
+    const noteAutorisee = autorisation ? ` — remise ${remisePct} % autorisée par ${autorisation.par} (demandée par ${profile.nom})` : carte ? ` — 💳 carte ${carte.numero} (${carte.pct} %)` : "";
     save(next, od
       ? `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne}${noteAutorisee} — DEVIS PAYÉ : chantier créé, à programmer`
       : `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne}${noteAutorisee}`);
@@ -1362,6 +1391,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       uAlert(`✅ Devis encaissé.\n\nUne fiche d'installation a été créée automatiquement. L'administrateur ou le responsable commercial va programmer la date et l'équipe.${auChantier ? "\n\n🏗 C'est un DÉPÔT CHANTIER : le matériel est resté en stock. Il sortira par la case « 🏗 Chantier » d'une vente, quand les techniciens viendront le chercher — chaque sortie deviendra une vente." : ""}`);
     }
     setPanier([]);
+    setCarteVente(null);
     setOrigineProforma(null);   // consommée : la proforma a donné sa vente
     setTransfertEnAttente(null);
     setF({ ...identiteDe(null), client: "", tel: "", remise: "", paiement: PAIEMENTS[0], avance: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
@@ -1822,8 +1852,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     <div>
       <ChampRemise titre="Remise" mode={f.remiseMode || "pct"} onMode={changerModeRemise}
         pct={f.remise} onPct={(v) => setF({ ...f, remise: v })} montant={f.remiseMontant || ""} onMontant={(v) => setF({ ...f, remiseMontant: v })}
-        disabled={aRemiseSurArticle(panier)} attr={{ "data-remise-generale": "" }} />
+        disabled={aRemiseSurArticle(panier) || !!carteVente} attr={{ "data-remise-generale": "" }} />
       {aRemiseSurArticle(panier) && <div className="text-xs text-orange-600 mt-1 font-semibold">Remise déjà accordée sur un article : pas de remise générale.</div>}
+      {carteVente && (
+        <div data-carte-vente className="mt-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs text-emerald-900 flex items-center gap-2">
+          <span>💳 <b>{carteVente.numero}</b> — {carteVente.nom} · remise fixe de {String(carteVente.pct).replace(".", ",")} %</span>
+          <BoutonRond icone="✕" teinte="gris" titre="Retirer la carte de cette vente (la remise part avec elle)" onClick={() => { setCarteVente(null); setF({ ...f, remise: "", remiseMode: "pct", remiseMontant: "" }); setMsg(""); }} />
+        </div>
+      )}
     </div>
   );
   return (
