@@ -10,7 +10,7 @@
 // FIXE : pas modifiable, pas d'autre remise en plus) et « 3 non… le vendeur
 // remet la carte imprimée au client… pas l'imprimer lui-même ».
 //
-// LA CARTE VIT SUR LA FICHE DU CLIENT (`fidelite`) : son numéro (FID-000001,
+// LA CARTE VIT SUR LA FICHE DU CLIENT (`fidelite`) : son numéro (FID- suivi de dix chiffres tirés au hasard,
 // imprimé en code-barres Code128), son pourcentage, qui l'a posée et quand.
 // Un client de comptoir sans compte reçoit une fiche FERMÉE (`sans_acces`,
 // la règle du devis imprimé sans compte) : il ne se connecte jamais, il est
@@ -38,15 +38,40 @@ const numeroDe = (s) => {
 };
 export const estCodeCarte = (code) => /^FID-\d+$/i.test(String(code || "").trim());
 
-// Le prochain numéro : le plus grand déjà donné + 1, cartes passées comprises
-// (une carte remplacée garde son numéro réservé — il ne redescend jamais).
-export const prochainNumeroCarte = (users) => {
-  let max = 0;
+// Le numéro d'une carte NEUVE est TIRÉ AU HASARD (Timo, 29/10/2026 : « il
+// faut que ça soit un code aléatoire et non un numéro d'ordre ») : dix
+// chiffres, jamais un numéro déjà donné — cartes passées comprises (une
+// carte remplacée garde son numéro réservé). Des CHIFFRES seulement : le
+// lecteur les tape pareil en clavier français ou américain.
+// Les cartes déjà imprimées (FID-000001…) restent valables telles quelles.
+export const CHIFFRES_CARTE = 10;
+export const numerosPris = (users) => {
+  const pris = new Set();
   for (const u of users || []) {
-    max = Math.max(max, numeroDe(u.fidelite && u.fidelite.numero));
-    for (const c of cartesPasseesDe(u)) max = Math.max(max, numeroDe(c.numero));
+    if (u.fidelite && u.fidelite.numero) pris.add(String(u.fidelite.numero).toUpperCase());
+    for (const c of cartesPasseesDe(u)) if (c.numero) pris.add(String(c.numero).toUpperCase());
   }
-  return `${PREFIXE_CARTE}${String(max + 1).padStart(6, "0")}`;
+  return pris;
+};
+export const prochainNumeroCarte = (users, hasard = Math.random) => {
+  const pris = numerosPris(users);
+  for (let essai = 0; essai < 1000; essai++) {
+    let n = String(1 + Math.floor(hasard() * 9)); // jamais un 0 en tête
+    while (n.length < CHIFFRES_CARTE) n += String(Math.floor(hasard() * 10));
+    const numero = `${PREFIXE_CARTE}${n}`;
+    if (!pris.has(numero)) return numero;
+  }
+  return "";
+};
+
+// Ce qui s'IMPRIME en clair sous le code-barres : masqué, seuls les DEUX
+// derniers chiffres se lisent (le code-barres, lui, porte le numéro entier :
+// c'est lui qui se scanne). ⚠ Le texte masqué ne se tape donc plus à la main.
+export const numeroMasque = (numero) => {
+  const m = String(numero || "").toUpperCase().match(/^FID-(\d+)$/);
+  if (!m) return "";
+  const d = m[1];
+  return `${PREFIXE_CARTE}${"•".repeat(Math.max(d.length - 2, 0))}${d.slice(-2)}`;
 };
 
 export const critiquePctCarte = (pct) => {

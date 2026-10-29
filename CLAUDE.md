@@ -10068,15 +10068,27 @@ lit mal est pire qu'un banc absent).
   clair).
 - **La carte vit sur la FICHE du client** : `fidelite = { numero, pct, le, par,
   active }` ; une carte remplacée ou retirée part dans `fidelite_passees` (morte,
-  le scan le DIT). Numéro **FID-000001** = le plus grand + 1, cartes passées
-  comprises (ne redescend jamais). Remise : plus de 0, **50 % au plus**.
+  le scan le DIT). Numéro ~~FID-000001 = le plus grand + 1~~ (RETOURNÉ, tiré au hasard — voir plus bas). Remise : plus de 0, **50 % au plus**.
 - **« F » et « 3 non »** : l'administrateur **PRINCIPAL seul** crée, change le %,
   remplace (carte perdue : nouveau numéro, même remise), retire, imprime —
   👥 Utilisateurs → ⋯ Gérer → **💳 Carte de fidélité** (client), et 📋 Clients
   (bouton rond 💳). **Le vendeur REMET la carte, il ne l'imprime pas.**
   **« E »** : un client de comptoir sans compte reçoit une fiche **FERMÉE**
   (`sans_acces`, `fabriquerCompteClient`) — il est enregistré, jamais connecté ;
-  sans numéro, pas de carte. ⭐ Fidèles : option **« 💳 Porteurs de carte »**
+  sans numéro, pas de carte.
+  **La carte IMPRIMÉE** (le même jour, capture Timo : « écrire juste : Remise
+  sur vos achats… numéro FID : le masquer… un code aléatoire… le verso… au
+  recto, fond plus bleu vers la droite ») : **le pourcentage ne s'écrit PAS**
+  (il peut changer), le texte en clair sous le code-barres est MASQUÉ
+  (`numeroMasque` : « FID-••••••••60 », le code-barres porte le numéro entier —
+  il se scanne, il ne se tape plus), le numéro d'une carte NEUVE est **tiré au
+  hasard** (FID- + dix chiffres, jamais un 0 en tête, jamais un déjà donné,
+  cartes passées comprises — `prochainNumeroCarte`, plus « le plus grand + 1 ») ;
+  FID-000001 d'avant reste valable. Recto : dégradé blanc → bleu vers la droite ;
+  **verso** : logo, « Les bâtiments modernes et intelligents », les activités
+  (`ACTIVITES_CARTE`), www.bmitogo.com. Les écrans du principal et le bandeau de
+  💰 Ventes gardent le numéro entier. Rien à coller (securite-45 compare le
+  numéro). ⭐ Fidèles : option **« 💳 Porteurs de carte »**
   (même sans achat ici) ; sous le nom « 💳 FID-… · X % ».
 - **Le scan** (💰 Ventes, la case 🔍 Code-barres, `estCodeCarte`) : cherché dans
   l'espace REGARDÉ (`utilisateursDeLEspace`, le mur) ; client, numéro, prénom

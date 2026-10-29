@@ -7289,10 +7289,17 @@ titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code b
   const Cf = await charger("src/lib/carteFidelite.js", "carte-fidelite");
   const timo = { id: "a1", nom: "TIMO", role: "admin" };
   const sena = { id: "c1", nom: "SENA90", nom_base: "SENA", role: "client", tel: "90112233" };
-  test("★ le numéro : FID- + 6 chiffres, le plus grand + 1, cartes PASSÉES comprises (un numéro ne redescend jamais) ; le code se reconnaît au scan",
-    Cf.prochainNumeroCarte([]) === "FID-000001"
-    && Cf.prochainNumeroCarte([{ fidelite: { numero: "FID-000004" } }, { fidelite_passees: [{ numero: "FID-000009" }] }]) === "FID-000010"
-    && Cf.estCodeCarte("fid-000003") && !Cf.estCodeCarte("ART123") && !Cf.estCodeCarte("FID-"));
+  // RETOURNÉ le 29/10/2026 (Timo : « un code aléatoire et non un numéro d'ordre »).
+  const suite = (vals) => { let i = 0; return () => vals[i++ % vals.length]; };
+  const tire1 = Cf.prochainNumeroCarte([], suite([0.31, 0.4, 0.1, 0.9, 0.5, 0.2, 0.7, 0.3, 0.6, 0.05]));
+  const tireEvite = Cf.prochainNumeroCarte([{ fidelite_passees: [{ numero: tire1 }] }], suite([0.31, 0.4, 0.1, 0.9, 0.5, 0.2, 0.7, 0.3, 0.6, 0.05, 0.8, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]));
+  const tires = new Set(Array.from({ length: 50 }, () => Cf.prochainNumeroCarte([])));
+  test("★ le numéro : FID- + DIX chiffres TIRÉS AU HASARD, jamais un 0 en tête, jamais un numéro déjà donné (cartes PASSÉES comprises), plus jamais « le plus grand + 1 » ; le code se reconnaît au scan (FID-000001 d'avant aussi)",
+    /^FID-[1-9]\d{9}$/.test(tire1) && tire1 === "FID-3419527360" && tireEvite !== tire1 && /^FID-\d{10}$/.test(tireEvite)
+    && tires.size === 50 && Cf.prochainNumeroCarte([{ fidelite: { numero: "FID-000004" } }]) !== "FID-000005"
+    && Cf.estCodeCarte("fid-000003") && Cf.estCodeCarte(tire1) && !Cf.estCodeCarte("ART123") && !Cf.estCodeCarte("FID-"));
+  test("★ le numéro IMPRIMÉ en clair est MASQUÉ : seuls les deux derniers chiffres se lisent",
+    Cf.numeroMasque("FID-3419527360") === "FID-••••••••60" && Cf.numeroMasque("FID-000001") === "FID-••••01" && Cf.numeroMasque("ART1") === "");
   test("★ le pourcentage : plus de 0, 50 % au plus ; le geste = l'administrateur PRINCIPAL seul",
     /pourcentage/.test(Cf.critiquePctCarte("")) && /50 %/.test(Cf.critiquePctCarte(60)) && Cf.critiquePctCarte("12,5") === ""
     && /administrateur principal/.test(Cf.critiqueGesteCarte(timo, false)) && Cf.critiqueGesteCarte(timo, true) === "");
@@ -7327,9 +7334,14 @@ titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code b
     globalThis.__carte = null;
     const ok = Imp.imprimerCarteFidelite({ ...s1, prenom: "Kossi" });
     const c = globalThis.__carte || { h: "", t: "", f: "" };
-    test("★★ la carte IMPRIMÉE : format carte bancaire (85,6 × 54 mm), CARTE DE FIDÉLITÉ, le nom et le prénom, « 12,5 % », le code-barres (SVG) avec sa zone de silence, le numéro en clair",
-      ok === true && /size: 85\.6mm 54mm/.test(c.f) && /CARTE DE FIDÉLITÉ/.test(c.h) && /SENA Kossi/.test(c.h) && /12,5 %/.test(c.h)
-      && /<svg/.test(c.h) && /padding:0 3mm/.test(c.h) && /FID-000001/.test(c.h) && /Carte de fidélité - SENA Kossi - FID-000001/.test(c.t)
+    // RETOURNÉ le 29/10/2026 : plus de pourcentage, numéro masqué, un VERSO.
+    test("★★ la carte IMPRIMÉE : format carte bancaire (85,6 × 54 mm), CARTE DE FIDÉLITÉ, le nom et le prénom, « Remise sur vos achats » SANS pourcentage, le code-barres (SVG) avec sa zone de silence, le numéro MASQUÉ en clair (jamais entier hors du code-barres), le fond plus bleu vers la droite, et un VERSO (logo, activités)",
+      ok === true && /size: 85\.6mm 54mm/.test(c.f) && /CARTE DE FIDÉLITÉ/.test(c.h) && /SENA Kossi/.test(c.h)
+      && /Remise sur vos achats/.test(c.h) && !/%/.test(c.h.replace(/\d+%/g, "")) && !/12,5/.test(c.h)
+      && /<svg/.test(c.h) && /padding:1\.5mm 3mm 0\.8mm/.test(c.h) && /FID-••••01/.test(c.h) && !/>FID-000001</.test(c.h)
+      && /linear-gradient\(90deg,#ffffff/.test(c.h) && /break-before:page/.test(c.h) && /Énergie solaire/.test(c.h) && /Domotique/.test(c.h)
+      && (c.h.match(/<img src=/g) || []).length === 2
+      && /Carte de fidélité - SENA Kossi - FID-000001/.test(c.t)
       && Imp.imprimerCarteFidelite(sena) === false);
   }
   // Les écrans.

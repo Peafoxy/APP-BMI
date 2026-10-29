@@ -14,6 +14,7 @@ import { genererSVGCode128 } from "./barcode";
 import { identiteClient, ligneClient, partieClientContrat } from "./clientEntreprise";
 import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
 import { compteMasque } from "./banques";
+import { numeroMasque } from "./carteFidelite";
 import { affectationDe } from "./affectation";
 import { TITRE_FACTURE_ACHAT, PAIEMENT_CHANTIER } from "./achatsChantier";
 import { phraseContrat } from "./contratTravail";
@@ -1354,31 +1355,58 @@ export function imprimerEtiquetteProduit(p) {
 // (lu par le même lecteur que les articles) avec sa zone de silence, et le numéro
 // en clair — tapé à la main si le code-barres s'abîme. Imprimée par
 // l'administrateur PRINCIPAL seul (le geste le revérifie) ; le vendeur la REMET.
+// Les activités de BMI dessinées au VERSO de la carte (Timo, 29/10/2026 :
+// « le verso aussi avoir une représentation de nos activités et le logo BMI »).
+export const ACTIVITES_CARTE = [
+  ["☀️", "Énergie solaire"],
+  ["🚪", "Portails et garages motorisés"],
+  ["🏠", "Domotique"],
+  ["🌬️", "Ventilation (VMC)"],
+  ["📹", "Vidéosurveillance"],
+  ["💧", "Forage et pompage"],
+];
+
 export function imprimerCarteFidelite(compte) {
   const carte = compte && compte.fidelite;
   if (!carte || !carte.numero) return false;
-  const svg = genererSVGCode128(carte.numero, {
-    largeurModule: 2, hauteur: 60,
-    styleCss: "width:100%;height:12mm;display:block",
-    etirerEnHauteur: true,
-  });
+  // Le code-barres porte le numéro ENTIER (c'est lui qui se scanne) ; le texte
+  // en clair dessous est MASQUÉ, seuls les deux derniers chiffres se lisent.
+  const svg = genererSVGCode128(carte.numero, { largeurModule: 2, hauteur: 60, styleCss: "width:100%;height:12mm;display:block", etirerEnHauteur: true });
   if (!svg) return false;
   const nom = [compte.nom_base || compte.nom, compte.prenom].filter(Boolean).join(" ");
-  const html = `
-    <div style="width:85.6mm;height:54mm;padding:3mm 3.5mm;border:0.3mm solid #1e3a8a;border-radius:3mm;font-family:Arial,sans-serif;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:1.2mm;background:linear-gradient(135deg,#eff6ff,#ffffff)">
+  const cadre = "width:85.6mm;height:54mm;padding:3mm 3.5mm;border:0.3mm solid #1e3a8a;border-radius:3mm;font-family:Arial,sans-serif;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;-webkit-print-color-adjust:exact;print-color-adjust:exact";
+  const formation = compte.formation ? `<div style="font-size:7px;font-weight:700;color:#7c3aed">FORMATION — carte d'entraînement, sans valeur</div>` : "";
+  // RECTO : le fond devient plus bleu vers la droite (« flou plus bleu vers la
+  // droite »). La remise ne dit PAS son pourcentage : il peut changer à tout
+  // moment (« pas bien de le mentionner sur la carte »).
+  const recto = `
+    <div style="${cadre};gap:1.2mm;background:linear-gradient(90deg,#ffffff 0%,#eff6ff 35%,#bfdbfe 75%,#93c5fd 100%)">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:2mm">
         <img src="${LOGO}" style="height:9mm;object-fit:contain" />
         <div style="text-align:right;line-height:1.1">
           <div style="font-size:9px;font-weight:800;letter-spacing:0.6px;color:#1e3a8a">CARTE DE FIDÉLITÉ</div>
-          <div style="font-size:8px;color:#475569">BMI TOGO</div>
+          <div style="font-size:8px;color:#1e3a8a">BMI TOGO</div>
         </div>
       </div>
-      ${compte.formation ? `<div style="font-size:7px;font-weight:700;color:#7c3aed">FORMATION — carte d'entraînement, sans valeur</div>` : ""}
+      ${formation}
       <div style="font-size:12px;font-weight:800;color:#0f172a;word-break:break-word;line-height:1.1">${esc(nom)}</div>
-      <div style="font-size:10px;font-weight:700;color:#047857">Remise de ${esc(String(carte.pct).replace(".", ","))} % sur vos achats</div>
-      <div style="margin-top:auto;padding:0 ${ZONE_SILENCE_MM}mm">${svg}</div>
-      <div style="font-family:monospace;font-size:10px;letter-spacing:1px;text-align:center">${esc(carte.numero)}</div>
+      <div style="font-size:10px;font-weight:700;color:#047857">Remise sur vos achats</div>
+      <div style="margin-top:auto;padding:${ZONE_SILENCE_MM / 2}mm ${ZONE_SILENCE_MM}mm 0.8mm;background:#ffffff;border-radius:1.5mm">${svg}
+        <div style="font-family:monospace;font-size:10px;letter-spacing:1px;text-align:center;color:#0f172a">${esc(numeroMasque(carte.numero))}</div>
+      </div>
     </div>`;
+  // VERSO : le logo de BMI et ses activités.
+  const verso = `
+    <div style="${cadre};gap:1.5mm;align-items:center;background:linear-gradient(90deg,#eff6ff 0%,#bfdbfe 60%,#93c5fd 100%)">
+      <img src="${LOGO}" style="height:13mm;object-fit:contain" />
+      <div style="font-size:8px;font-weight:800;letter-spacing:0.6px;color:#1e3a8a">LES BÂTIMENTS MODERNES ET INTELLIGENTS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8mm 3mm;width:100%;margin-top:0.5mm">
+        ${ACTIVITES_CARTE.map(([ic, t]) => `<div style="font-size:8.5px;color:#0f172a;white-space:nowrap"><span style="font-size:10px">${ic}</span> ${esc(t)}</div>`).join("")}
+      </div>
+      ${formation}
+      <div style="margin-top:auto;font-size:7.5px;color:#1e3a8a;text-align:center">www.bmitogo.com · Présentez cette carte à chaque achat</div>
+    </div>`;
+  const html = `${recto}<div class="saut-page" style="break-before:page;page-break-before:always"></div>${verso}`;
   if (printApi) printApi.open(html, nomDocument("Carte de fidélité", { client: nom, numero: carte.numero }), "size: 85.6mm 54mm; margin: 0;");
   return true;
 }
