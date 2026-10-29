@@ -9962,6 +9962,73 @@ lit mal est pire qu'un banc absent).
   (+9, dont le COUPLE JS/SQL sur le nom exact du champ), éprouvé en
   neutralisant `plafondRemise` (il tombe). Chapitres 5 et 23 à jour.
 
+### ✏️ LA REMISE APRÈS-VENTE (gérant, administrateur) — 29/10/2026
+- Timo : « Di si on peut effectuer une remise à une vente déjà encaissé ? »
+  (réponse : non, rien ne le permettait — ni ↩ Reprise ni 🔄 Échange ne
+  touchent au pourcentage, tous deux exigent qu'un article revienne) puis
+  « Je veux que ça soit une fonctionnalité… Comment on peut la construire ? »
+  Décrit avant de construire, cinq points soumis → **« 1 admin + gérant,
+  2 oui, 3 ok, 4 oui, 5 oui, lance »**.
+- **C'EST LA MÊME MÉCANIQUE QU'UNE REPRISE (lib/reprises.js), SANS AUCUN
+  ARTICLE RENDU** : le reçu, le numéro, la date, le total encaissé et la
+  caisse du jour ne bougent JAMAIS — la remise est notée sur la vente
+  (`remises_apres_vente`, liste qui ne fait QUE grandir, comme les reprises),
+  et le chiffre d'affaires comme la commission en deviennent NETS
+  (`caVente`, `caLigneVente`, lib/core.js — `montantRemiseApresVente(v)`
+  s'ajoute à la réduction prorata-temporis de `v.remise`/`v.rabais`, exactement
+  comme la remise générale ; `caVenteBrut` la retire aussi, pour que la somme
+  des lignes redonne toujours `caVente` au franc près). **Aucun ajustement de
+  stock, aucun bon** : rien ne revient, rien ne se physique. Règle complète :
+  **`lib/remiseApresVente.js`**.
+- **(1) Qui : le gérant ET l'administrateur** — `ROLES_REMISE_APRES_VENTE`,
+  **pas l'administrateur principal seul** comme la reprise (une remise qui
+  n'exige aucun retour physique, mais c'est un geste commercial courant, pas
+  une annulation de vente). **(2) Aucun plafond en %** : la seule limite est
+  **`plafondRemiseApresVente(v)` = `caVente(v)`** au moment du geste — ce qui
+  reste réellement net des reprises et des remises déjà accordées. Une
+  remise de plus que ça est refusée en le disant. **(3)** bouton **« ✏️ »**
+  sur la ligne de la vente dans 💰 Ventes (à côté de ↩ Reprise et 🔄 Échange),
+  visible pour `ROLES_REMISE_APRES_VENTE` tant qu'il reste quelque chose à
+  offrir. **(4) Cumul possible** : plusieurs remises après-vente sur la même
+  vente, le plafond baisse à chaque fois.
+- **L'ARGENT** (`construireRemiseApresVente`, même marche qu'une reprise) :
+  **dette pas soldée** → elle **DIMINUE** d'autant (et ce qui avait été
+  versé AU-DELÀ du nouveau montant est rendu) ; **dette soldée ou vente
+  comptant** → une sortie de caisse **« Remboursement client »** (du JOUR DU
+  GESTE, pas de la vente — hors charges, même catégorie que la reprise) rend
+  le montant. **Motif obligatoire** ; **refusée** si la vente a créé un
+  chantier ou si la commission a déjà été payée — mêmes refus qu'une
+  reprise, pour la même raison (on ne retouche pas une commission versée en
+  silence).
+- **(5) Un message WhatsApp part AUTOMATIQUEMENT du numéro BMI**, sans
+  question ni repli (`envoyerRecuSansQuestion`, la règle des reçus et des
+  versements) : modèle **`remise_apres_vente`** (UTILITY, 6 trous — client,
+  numéro du reçu, montant, motif, situation, téléphone de la boutique ;
+  `envoiRemiseApresVente` / `situationRemiseApresVente`, lib/whatsappModeles.js).
+  **Ligne PRIVÉE** dans 📲 WhatsApp (comme un reçu de vente : réservée à
+  celui qui l'a accordée et à l'administrateur principal) — le détail se
+  recompose depuis l'entrée de la vente (`m.remise_ref`), lib/lignesPrivees.js,
+  jamais une copie en clair sur la ligne. **À créer par Timo chez YCloud**
+  (utility, fr) ; d'ici l'accord de Meta, l'avis échoue en silence côté
+  WhatsApp (comme tout modèle non encore approuvé) sans empêcher le geste.
+- ⚠⚠ **LE COUPLE : `securite-43`** (reprend `ventes_regles_roles` de
+  securite-42 EN ENTIER + une clause, et `depenses_regles_versement` de
+  securite-13 EN ENTIER + une clause relâchée) : écrire ou changer
+  `remises_apres_vente` sur une vente = gérant, administrateur, **jamais en
+  arrière** (une entrée posée reste posée) ; une dépense « Remboursement
+  client » qui porte **`remise_apres_vente_ref`** = gérant, administrateur —
+  **une REPRISE (sans ce champ) reste à l'administrateur PRINCIPAL seul,
+  rien n'a changé pour elle**. Sans ce script, l'écran laisserait passer un
+  geste que la base refuserait encore, et tout le lot resterait coincé.
+  **Collé par Timo le 29/10/2026 (`true | true | true`).** Banc
+  `tester-argent` (`scripts/tester-argent-sql.sh`, +9), éprouvé en retirant
+  les deux clauses (régression confirmée, `f|f|t`). Banc
+  `verifier-cloisonnement` (+13, dont le COUPLE, le modèle WhatsApp, la
+  ligne privée, l'écran RENDU par lecture de source), éprouvé en neutralisant
+  le plafond et le câblage de `core.js` (deux régressions confirmées). Banc
+  `verifier-whatsapp` (+4, trois comptages RETOURNÉS : cinquante-sept
+  modèles, les modèles à ligne, les dix-sept modèles privés).
+
 ---
 
 ## 5. Les pièges rencontrés — ne pas y retomber

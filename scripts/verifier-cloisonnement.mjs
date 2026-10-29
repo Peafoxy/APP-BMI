@@ -5494,7 +5494,7 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
   test("★ nouveauMessage sert aux 36 fabrications (le brouillon envoyé ou supprimé à la place de son auteur, 12/10/2026 ; le brouillon préparé pour un autre, 12/10/2026 ; le brouillon confié à un collègue, 05/10/2026 ; les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026 ; le pourcentage d'apporteur fixé par le principal, 29/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
     execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "36" /* RETOURNÉ 12/10/2026 : + l'avis du brouillon préparé pour un autre ; + l'avis du brouillon envoyé ou supprimé à la place de son auteur */
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "19" /* RETOURNÉ le 14/10/2026 : + la différence rendue à un échange (lib/echanges.js) */);
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "20" /* RETOURNÉ le 29/10/2026 : + le remboursement d'une remise après-vente (lib/remiseApresVente.js) */);
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
   // considérés comme dépense ? ». Sa règle du 10/09 (« un versement n'est
@@ -7102,6 +7102,105 @@ titre("🔄 Échanger un article contre un autre (Timo, 14/10/2026, « A c, B c,
     Ec.ROLES_ECHANGE.join("|") === "gerant|admin" && /r in \('gerant', 'admin'\) and public\.reprises_ajout_echange/.test(s40) && /'echange'\) is distinct from 'true'::jsonb/.test(s40)
     && /'rembourse', '0'::jsonb\) is distinct from '0'::jsonb/.test(s40) && /-> 'avoir_echange'\) is distinct from \(new\.data -> 'avoir_echange'\)/.test(s40) && /panier_de_la_proforma/.test(s40)
     && r.reprises.every((x) => x.echange === true && x.rembourse === 0));
+}
+
+titre("✏️ La remise après-vente (gérant, administrateur) : un montant retiré d'une vente déjà encaissée, sans article rendu (Timo, 29/10/2026, « 1 admin + gérant, 2 oui, 3 ok, 4 oui, 5 oui, lance »)");
+{
+  const charger = async (entree, nom) => {
+    const out = join("node_modules", ".cache", `bmi-${nom}-${process.pid}.mjs`);
+    await build({ entryPoints: [entree], bundle: true, format: "esm", platform: "node", outfile: out, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+    const m = await import(pathToFileURL(out).href); unlinkSync(out); return m;
+  };
+  const Rav = await charger("src/lib/remiseApresVente.js", "remise-apres-vente");
+  const Wm = await charger("src/lib/whatsappModeles.js", "whatsapp-modeles-rav");
+  const Lp = await charger("src/lib/lignesPrivees.js", "lignes-privees-rav");
+  const ali = { id: "g1", nom: "ALI", role: "gerant", boutique: "APESSITO" };
+  const vente = { id: "v1", numero: "BMIA-2026-0010", boutique: "APESSITO", client: "SENA", tel: "90112233", date: "2026-10-20", articles: [{ produit_id: "p1", article: "MOTEUR", qte: 2, pu: 50000 }] };
+  const dbR = { ventes: [vente], dettes: [], depenses: [], clients_installes: [] };
+
+  test("★ ROLES_REMISE_APRES_VENTE = gérant, administrateur (comme l'échange, pas comme la reprise — l'administrateur principal seul)",
+    Rav.ROLES_REMISE_APRES_VENTE.join("|") === "gerant|admin");
+
+  test("★ les REFUS : vente introuvable, montant à 0, montant au-delà du plafond (= caVente), motif vide, moyen manquant, chantier créé, commission déjà payée",
+    Rav.plafondRemiseApresVente(vente) === 100000
+    && Rav.critiqueRemiseApresVente(dbR, null, { montant: 1000, motif: "x", moyen: "Espèces" }) !== ""
+    && /Indiquez le montant/.test(Rav.critiqueRemiseApresVente(dbR, vente, { montant: 0, motif: "x", moyen: "Espèces" }))
+    && /dépasser 100000 F/.test(Rav.critiqueRemiseApresVente(dbR, vente, { montant: 150000, motif: "x", moyen: "Espèces" }))
+    && /motif/.test(Rav.critiqueRemiseApresVente(dbR, vente, { montant: 1000, motif: "   ", moyen: "Espèces" }))
+    && /Choisissez comment/.test(Rav.critiqueRemiseApresVente(dbR, vente, { montant: 1000, motif: "x", moyen: "" }))
+    && /chantier de SENA/.test(Rav.critiqueRemiseApresVente({ ...dbR, clients_installes: [{ vente_id: "v1", nom: "SENA" }] }, vente, { montant: 1000, motif: "x", moyen: "Espèces" }))
+    && /commission.*déjà été payée à KOSSI/.test(Rav.critiqueRemiseApresVente(dbR, { ...vente, commission_payee: true, commercial: "KOSSI" }, { montant: 1000, motif: "x", moyen: "Espèces" })));
+
+  const r1 = Rav.construireRemiseApresVente(dbR, vente, { montant: 10000, motif: " erreur de prix ", moyen: "Espèces" }, ali, "2026-10-29");
+  test("★★ SANS dette (vente comptant) : une dépense « Remboursement client » du JOUR DU GESTE (hors charges) rend les 10 000 F ; le reçu et le total encaissé NE CHANGENT PAS ; le chiffre d'affaires et la commission deviennent nets (100 000 → 90 000), répartis sur la ligne unique",
+    !r1.refus && r1.depense.categorie === "Remboursement client" && r1.depense.montant === 10000 && r1.depense.date === "2026-10-29" && r1.depense.paiement === "Espèces" && r1.depense.vente_id === "v1" && r1.depense.remise_apres_vente_ref === r1.ref && r1.depense.boutique === "APESSITO"
+    && r1.dette === null && r1.rembourse === 10000 && r1.montant === 10000 && /^RAV-[A-Z0-9]{8}$/.test(r1.ref) && r1.entree.motif === "erreur de prix" && r1.entree.moyen === "Espèces"
+    && Core.totalVente(r1.vente) === 100000 && Core.caVente(r1.vente) === 90000 && Core.caLigneVente(r1.vente, r1.vente.articles[0]) === 90000 && Core.montantRemiseApresVente(r1.vente) === 10000
+    && /✏️ Remise après-vente RAV-[A-Z0-9]{8} de 10000 F sur la vente \(reçu BMIA-2026-0010 — SENA\) — erreur de prix — 10000 rendu\(s\) \(Espèces\) — par ALI/.test(r1.journal));
+
+  const venteC = { ...vente, id: "v2", numero: "BMIA-2026-0011", paiement: "Crédit (dette)" };
+  const dbC = { ventes: [venteC], dettes: [{ id: "d1", vente_id: "v2", montant: 100000, paye: 30000, client: "SENA", tel: "90112233" }], depenses: [], clients_installes: [] };
+  const r2 = Rav.construireRemiseApresVente(dbC, venteC, { montant: 20000, motif: "geste commercial", moyen: "Espèces" }, ali, "2026-10-29");
+  test("★★ AVEC une dette PAS soldée : elle diminue d'autant (100 000 → 80 000) ; rien à rendre tant que le versé (30 000) ne dépasse pas le nouveau montant — aucune dépense créée",
+    !r2.refus && r2.dette.montant === 80000 && r2.rembourse === 0 && r2.depense === null && r2.detteAvant.montant === 100000
+    && r2.dette.remises_apres_vente[0].ref === r2.ref && r2.dette.remises_apres_vente[0].montant === 20000);
+
+  const dbC2 = { ventes: [{ ...venteC, id: "v3", numero: "BMIA-2026-0012" }], dettes: [{ id: "d2", vente_id: "v3", montant: 100000, paye: 95000, client: "SENA", tel: "90112233" }], depenses: [], clients_installes: [] };
+  const r3 = Rav.construireRemiseApresVente(dbC2, dbC2.ventes[0], { montant: 20000, motif: "geste commercial", moyen: "Mobile Money (Flooz)" }, ali, "2026-10-29");
+  test("★★ dette presque soldée (95 000 / 100 000) : la remise de 20 000 ramène la dette à 80 000, et le TROP VERSÉ (95 000 − 80 000 = 15 000) est rendu par une dépense, au moyen choisi",
+    !r3.refus && r3.dette.montant === 80000 && r3.rembourse === 15000 && r3.depense.montant === 15000 && r3.depense.paiement === "Mobile Money (Flooz)");
+
+  test("★ CUMUL : le plafond baisse après une remise déjà posée — sur la vente de r1 (déjà nette à 90 000), 95 000 dépasse, 90 000 passe",
+    Rav.plafondRemiseApresVente(r1.vente) === 90000
+    && /dépasser 90000 F/.test(Rav.critiqueRemiseApresVente(dbR, r1.vente, { montant: 95000, motif: "x", moyen: "Espèces" }))
+    && Rav.critiqueRemiseApresVente(dbR, r1.vente, { montant: 90000, motif: "x", moyen: "Espèces" }) === "");
+
+  const venteComb = { id: "v4", boutique: "APESSITO", articles: [{ produit_id: "p1", article: "MOTEUR", qte: 2, pu: 50000 }], reprises: [{ produit_id: "p1", qte: 1, montant: 50000 }], remises_apres_vente: [{ ref: "RAV-X", montant: 10000, rembourse: 10000, moyen: "Espèces", motif: "x", par: "ALI" }] };
+  test("★★ core.js : une reprise ET une remise après-vente SE COMBINENT sans double compte — 100 000 − 10 000 (remise) − 50 000 (repris) = 40 000, et la ligne unique redonne le même chiffre",
+    Core.caVenteBrut(venteComb) === 90000 && Core.caVente(venteComb) === 40000 && Core.caLigneVente(venteComb, venteComb.articles[0]) === 40000 && Core.montantRemiseApresVente(venteComb) === 10000);
+
+  // 📲 Le modèle WhatsApp (sans question ni repli, comme un reçu de versement) et sa ligne privée.
+  test("★ le modèle `remise_apres_vente` : UTILITY, 6 trous, en service, PRIVÉ (réservé à celui qui l'a accordée et à l'administrateur principal)",
+    Wm.MODELES.remise_apres_vente.categorie === "utility" && Wm.MODELES.remise_apres_vente.variables.length === 6
+    && Wm.MODELES_EN_SERVICE.includes("remise_apres_vente") && Wm.lignePrivee("remise_apres_vente") === true && /celui qui l'a accordée et à l'administrateur principal/.test(Wm.ligneMasquee("remise_apres_vente")));
+  test("★ envoiRemiseApresVente : rend null sans numéro, sans montant, sans motif, sans numéro de reçu ni situation ; sinon les 6 variables dans l'ORDRE du modèle",
+    Wm.envoiRemiseApresVente({ client: "SENA", tel: "", numero: "BMIA-2026-0010", montant: 10000, motif: "x", situation: "y" }) === null
+    && Wm.envoiRemiseApresVente({ client: "SENA", tel: "90112233", numero: "BMIA-2026-0010", montant: 0, motif: "x", situation: "y" }) === null
+    && Wm.envoiRemiseApresVente({ client: "SENA", tel: "90112233", numero: "BMIA-2026-0010", montant: 10000, motif: "", situation: "y" }) === null
+    && Wm.envoiRemiseApresVente({ client: "SENA", tel: "90112233", numero: "", montant: 10000, motif: "x", situation: "y" }) === null
+    && (() => { const e = Wm.envoiRemiseApresVente({ client: "SENA", tel: "90112233", numero: "BMIA-2026-0010", montant: 10000, motif: "erreur de prix.", situation: "y" }); return e && e.modele === "remise_apres_vente" && e.variables[0] === "SENA" && e.variables[1] === "BMIA-2026-0010" && e.variables[2] === "10000 F" && e.variables[3] === "erreur de prix" && e.variables[4] === "y"; })());
+  test("★ situationRemiseApresVente : la dette (si elle existe) prime, sinon l'argent rendu, sinon « votre compte est soldé »",
+    /il reste 20000 F sur un total de 80000 F/.test(Wm.situationRemiseApresVente({ rembourse: 0, moyen: "Espèces", dette: { montant: 80000, paye: 60000 } }))
+    && /10000 F vous a été rendu \(en espèces\)/.test(Wm.situationRemiseApresVente({ rembourse: 10000, moyen: "Espèces", dette: null }))
+    && /soldé/.test(Wm.situationRemiseApresVente({ rembourse: 0, moyen: "Espèces", dette: null })));
+  test("★ lib/lignesPrivees.js : le détail d'une remise après-vente se recompose depuis l'entrée de la vente (par son `remise_ref`), jamais une copie",
+    (() => {
+      const m = { wa_prive: true, wa_modele: "remise_apres_vente", vente_id: "v1", remise_ref: r1.ref };
+      const dbLp = { ventes: [r1.vente], boutiques: [{ nom: "APESSITO" }] };
+      const t1 = Lp.texteLignePrivee(m, dbLp).replace(/[  ]/g, " ");
+      const t2 = Lp.texteLignePrivee({ ...m, remise_ref: "RAV-INCONNU" }, dbLp);
+      return /Remise après-vente de 10 000 F accordée à SENA sur le reçu N° BMIA-2026-0010 \(erreur de prix\)/.test(t1) && /rendu \(en espèces\)/.test(t1) && t2 === "";
+    })());
+
+  // L'écran.
+  const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ écran 💰 Ventes : « ✏️ » pour ROLES_REMISE_APRES_VENTE seulement, tant qu'il reste quelque chose à offrir (plafondRemiseApresVente > 0) ; revérifié DANS le geste sur la vente FRAÎCHE, construit puis appliqué, une confirmation qui nomme ce qui bouge, et l'avis WhatsApp part SANS QUESTION (envoyerRecuSansQuestion)",
+    /\{ROLES_REMISE_APRES_VENTE\.includes\(profile\.role\) && plafondRemiseApresVente\(v\) > 0 && \(/.test(vs)
+    && /if \(!ROLES_REMISE_APRES_VENTE\.includes\(profile\.role\)\) \{ uAlert/.test(vs)
+    && /const venteFraiche = \(db\.ventes \|\| \[\]\)\.find\(\(x\) => x\.id === v\.id\) \|\| v;\s*\n\s*const plafond = plafondRemiseApresVente\(venteFraiche\);/.test(vs)
+    && /const r = construireRemiseApresVente\(db, venteFraiche, \{ montant, motif, moyen \}, profile, today\(\)\);/.test(vs)
+    && /const dbApres = appliquerRemiseApresVente\(db, r\);\s*\n\s*save\(dbApres, r\.journal\);/.test(vs)
+    && /await envoyerRecuSansQuestion\(\{\s*\n\s*envoi, tel: venteFraiche\.tel, nom: venteFraiche\.client, espaceFormation: !!bq\.formation, save, profile,/.test(vs)
+    && /data-vente-remise-apres/.test(vs) && /✏️ remise après-vente : −/.test(vs));
+
+  // ⚠ LE COUPLE avec le serveur.
+  const s43 = readFileSync("supabase/securite-43-remise-apres-vente.sql", "utf8");
+  const ta43 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+  test("★ LE COUPLE : securite-43 ouvre au gérant et à l'administrateur l'écriture de `remises_apres_vente` (jamais en arrière), et une dépense « Remboursement client » qui porte `remise_apres_vente_ref` — une REPRISE (sans ce champ) reste à l'administrateur PRINCIPAL seul ; le banc tester-argent le rejoue",
+    /remises_apres_vente[^]*?r not in \('gerant', 'admin'\)[^]*?Accorder une remise après-vente/.test(s43) && /jsonb_array_length\(new\.data -> 'remises_apres_vente'\)[^]*?Effacer une remise après-vente/.test(s43)
+    && /new\.data ->> 'remise_apres_vente_ref' is not null then[^]*?r not in \('gerant', 'admin'\)/.test(s43) && /elsif not public\.est_admin_principal\(\) then[^]*?Rembourser un client \(reprise d''un article\)/.test(s43)
+    && /-f supabase\/securite-43-remise-apres-vente\.sql/.test(ta43) && /un gérant accorde une remise après-vente — ouvert, au contraire d'une reprise" "PERMIS"/.test(ta43)
+    && /personne n'efface une remise après-vente déjà posée \(même l'administrateur\)" "REFUSE"/.test(ta43) && /SANS remise_apres_vente_ref \(une reprise\)[^]*?"REFUSE"/.test(ta43));
 }
 
 titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (Timo, 10/09/2026)");

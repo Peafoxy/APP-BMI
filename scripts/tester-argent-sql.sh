@@ -77,6 +77,10 @@ echo "▸ La limite de remise réglable (ex-3 %), lue sur la boutique : supabase
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-42-plafond-remise-reglable.sql >/dev/null 2>&1 || echo "   ❌ securite-42 refusé par la base"
 VERIF42=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-42-plafond-remise-reglable.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF42" = "t|t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-42 répond true | true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-42 répond : $VERIF42"; exit 1; fi
+echo "▸ La remise après-vente (gérant, administrateur) : supabase/securite-43-remise-apres-vente.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-43-remise-apres-vente.sql >/dev/null 2>&1 || echo "   ❌ securite-43 refusé par la base"
+VERIF43=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-43-remise-apres-vente.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF43" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-43 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-43 répond : $VERIF43"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -373,6 +377,22 @@ essai "★ …mais 6 % de remise générale reste refusé" "REFUSE" "$VENDEUR" "
 essai "★ la limite d'APESSITO (rien réglé dessus) reste à 3 %, inchangée par le réglage de ZPLAFOND" "REFUSE" "$VENDEUR" "$(UPS ventes zrlp6 "{\"id\":\"zrlp6\",\"boutique\":\"APESSITO\",\"remise_pct\":4,\"articles\":$L0}")"
 essai "★ un vendeur émet un proforma à 4 % sur ZPLAFOND" "PERMIS" "$VENDEUR" "$(UPS proformas zplp1 "{\"id\":\"zplp1\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":4,\"lignes\":$L0P}")"
 essai "★ …mais 6 % sur ZPLAFOND reste refusé à un vendeur" "REFUSE" "$VENDEUR" "$(UPS proformas zplp2 "{\"id\":\"zplp2\",\"boutique\":\"ZPLAFOND\",\"remise_pct\":6,\"lignes\":$L0P}")"
+
+echo
+echo "── ✏️ LA REMISE APRÈS-VENTE, GÉRANT + ADMINISTRATEUR (securite-43, Timo 29/10/2026) ──"
+$P -c "insert into public.ventes (id, data) values ('zrav1', '{\"id\":\"zrav1\",\"boutique\":\"APESSITO\",\"client\":\"KLOMEGAN\",\"articles\":[{\"produit_id\":\"zp1\",\"qte\":1,\"pu\":100000}]}');" >/dev/null
+RAV1='{"ref":"RAV-AAAA1111","date":"2026-10-29","montant":5000,"rembourse":5000,"moyen":"Espèces","motif":"erreur de prix","par":"ALI"}'
+ZRAV1_AVEC="{\"id\":\"zrav1\",\"boutique\":\"APESSITO\",\"client\":\"KLOMEGAN\",\"articles\":[{\"produit_id\":\"zp1\",\"qte\":1,\"pu\":100000}],\"remises_apres_vente\":[$RAV1]}"
+essai "★ un vendeur accorde une remise après-vente" "REFUSE" "$VENDEUR" "$(UPS ventes zrav1 "$ZRAV1_AVEC")"
+essai "★ un magasinier accorde une remise après-vente" "REFUSE" "$MAGASINIER" "$(UPS ventes zrav1 "$ZRAV1_AVEC")"
+essai "★ un gérant accorde une remise après-vente — ouvert, au contraire d'une reprise" "PERMIS" "$GERANT" "$(UPS ventes zrav1 "$ZRAV1_AVEC")"
+essai "★ un administrateur SECONDAIRE accorde une remise après-vente — ouvert à tout admin" "PERMIS" "$ADMIN2" "$(UPS ventes zrav1 "$ZRAV1_AVEC")"
+essai "★ personne n'efface une remise après-vente déjà posée (même l'administrateur)" "REFUSE" "$ADMIN" "$(UPS ventes zrav1 "$ZRAV1_AVEC")
+$(UPS ventes zrav1 "{\"id\":\"zrav1\",\"boutique\":\"APESSITO\",\"client\":\"KLOMEGAN\",\"articles\":[{\"produit_id\":\"zp1\",\"qte\":1,\"pu\":100000}],\"remises_apres_vente\":[]}")"
+essai "★ un vendeur crée une dépense « Remboursement client » d'une remise après-vente" "REFUSE" "$VENDEUR" "$(UPS depenses zrav2 '{"id":"zrav2","boutique":"APESSITO","categorie":"Remboursement client","montant":5000,"paiement":"Espèces","remise_apres_vente_ref":"RAV-AAAA1111"}')"
+essai "★ un gérant crée une dépense « Remboursement client » d'une remise après-vente — ouvert" "PERMIS" "$GERANT" "$(UPS depenses zrav3 '{"id":"zrav3","boutique":"APESSITO","categorie":"Remboursement client","montant":5000,"paiement":"Espèces","remise_apres_vente_ref":"RAV-AAAA1112"}')"
+essai "★ un administrateur SECONDAIRE crée une dépense « Remboursement client » d'une remise après-vente — ouvert" "PERMIS" "$ADMIN2" "$(UPS depenses zrav4 '{"id":"zrav4","boutique":"APESSITO","categorie":"Remboursement client","montant":5000,"paiement":"Espèces","remise_apres_vente_ref":"RAV-AAAA1113"}')"
+essai "la même dépense, SANS remise_apres_vente_ref (une reprise) : l'administrateur secondaire reste refusé (rien n'a bougé pour la reprise)" "REFUSE" "$ADMIN2" "$(UPS depenses zrav5 '{"id":"zrav5","boutique":"APESSITO","categorie":"Remboursement client","montant":5000,"paiement":"Espèces"}')"
 
 echo
 echo "── LA REMISE D'UNE PROFORMA REPRISE TELLE QUELLE (securite-33, Timo 30/09/2026, « b ») ──"

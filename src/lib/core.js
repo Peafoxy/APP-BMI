@@ -307,12 +307,24 @@ export const montantRepris = (v, produit_id) => reprisesDe(v)
   .filter((r) => produit_id === undefined || r.produit_id === produit_id)
   .reduce((s, r) => s + Number(r.montant || 0), 0);
 
+// ---- ✏️ LA REMISE APRÈS-VENTE (Timo, 29/10/2026) ----
+// « Je veux que ça soit une fonctionnalité » : une remise accordée APRÈS
+// l'encaissement, sans qu'aucun article ne revienne (au contraire d'une
+// reprise). Notée SUR la vente (`remises_apres_vente`), elle se traite
+// EXACTEMENT comme la remise générale (`v.remise`) — un montant qui réduit
+// le chiffre d'affaires de TOUTE la vente, réparti au prorata entre les
+// lignes — mais posée après coup. Règle complète : lib/remiseApresVente.js.
+export const remisesApresVenteDe = (v) => (Array.isArray(v?.remises_apres_vente) ? v.remises_apres_vente : []);
+export const montantRemiseApresVente = (v) => remisesApresVenteDe(v).reduce((s, r) => s + Number(r.montant || 0), 0);
+
 // Le chiffre d'affaires TEL QUE VENDU (avant toute reprise) — sert à chiffrer
-// une reprise au prix effectivement payé par le client.
+// une reprise au prix effectivement payé par le client. ✏️ Une remise
+// après-vente y est déjà déduite (comme v.remise/v.rabais) : une reprise
+// faite ensuite se chiffre sur ce qui reste réellement dû.
 export const caVenteBrut = (v) => {
   const { brutInclus, part } = partIncluse(v);
   if (part === 0) return 0;
-  return Math.round(brutInclus - Number(v.remise || 0) * part - Number(v.rabais || 0) * part);
+  return Math.max(0, Math.round(brutInclus - (Number(v.remise || 0) + montantRemiseApresVente(v)) * part - Number(v.rabais || 0) * part));
 };
 export const caVente = (v) => Math.max(0, caVenteBrut(v) - montantRepris(v));
 
@@ -362,7 +374,8 @@ export const caLigneVenteBrut = (v, ligne) => {
   const brutTotal = lignesVente(v).reduce(
     (s, l) => s + Number(l.qte || 0) * Number(l.pu || 0) - Number(l.remise_ligne || 0), 0);
   if (!(brutTotal > 0)) return 0;
-  const reduction = Number(v.remise || 0) + Number(v.rabais || 0);
+  // ✏️ Une remise après-vente est répartie comme la remise générale (ci-dessus).
+  const reduction = Number(v.remise || 0) + Number(v.rabais || 0) + montantRemiseApresVente(v);
   return net - reduction * (net / brutTotal);
 };
 // Net des reprises de CET article (Timo, 10/09/2026) — Rentabilité.

@@ -13,7 +13,7 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, envoiFondsRemis, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
+import { envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, envoiFondsRemis, envoiRemiseApresVente, situationRemiseApresVente, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
 import { remisParDe } from "./payeDirectement";
 import { attestationDe, momentFermeture, nomDocument } from "./attestationSortie";
 import { suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "./validationDepenses";
@@ -138,6 +138,21 @@ export function texteLignePrivee(m, db) {
   }
   if (m.wa_modele === "recu_vente" || m.wa_modele === "recu_vente_detail" || m.wa_modele === "recu_depot_chantier") {
     const e = envoisRecuDeVente(vente, { boutique }).find((x) => x.modele === m.wa_modele);
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // ✏️ La remise après-vente : recomposée depuis l'entrée de la vente (son
+  // `ref`, posé sur `m.remise_ref`). La dette liée, si elle existe, est
+  // relue FRAÎCHE (elle a pu recevoir d'autres mouvements depuis).
+  if (m.wa_modele === "remise_apres_vente") {
+    const entree = (vente.remises_apres_vente || []).find((x) => x.ref === m.remise_ref);
+    if (!entree) return "";
+    const dette = entree.dette_id ? (db?.dettes || []).find((d) => d.id === entree.dette_id) : null;
+    const e = envoiRemiseApresVente({
+      client: vente.client, tel: m.wa_numero || vente.tel, numero: numeroDuRecuDeVente(db || {}, vente),
+      montant: entree.montant, motif: entree.motif,
+      situation: situationRemiseApresVente({ rembourse: entree.rembourse, moyen: entree.moyen, dette, fmt }),
+      boutique, fmt,
+    });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   const bon = bonsDeLaVente(db, vente).find((b) => b.numero === m.bon_numero);

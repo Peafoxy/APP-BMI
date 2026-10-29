@@ -16,10 +16,11 @@ import { LOGO, PAIEMENTS, caisseDeVente, LIBELLE_CAISSE_CHANTIER, MOYENS_ENCAISS
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees, fondsAVerser, critiqueSortieTiroir } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
 import { prochainNumeroAchatChantier, estDepotChantier, numeroDuRecuDeVente } from "../lib/core";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT, proformaPourDocument, pctRemiseLisible, fichierPdf } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, montantRemiseApresVente, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT, proformaPourDocument, pctRemiseLisible, fichierPdf } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
+import { ROLES_REMISE_APRES_VENTE, plafondRemiseApresVente, construireRemiseApresVente, appliquerRemiseApresVente } from "../lib/remiseApresVente";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
@@ -39,7 +40,7 @@ import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion, envoyerRecuPdf, PHRASE_PDF_LENT, PHRASE_PDF_LENT_RIEN } from "../whatsapp";
-import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite, proformaPdfDepuis, lignePdfNonParti } from "../lib/whatsappModeles";
+import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite, proformaPdfDepuis, lignePdfNonParti, envoiRemiseApresVente, situationRemiseApresVente } from "../lib/whatsappModeles";
 import { lierFacture, champsTravauxDocument, propositionsStock, produitSaisi } from "../lib/travaux";
 import { peutEchanger, chiffresEchange, construireEchange, appliquerEchange, montantReprisHorsEchange, echangesDeLaVente, DESTINATION_STOCK, DESTINATION_SAV } from "../lib/echanges";
 import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
@@ -1470,6 +1471,52 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // Le bon de reprise, tout de suite (Timo, 14/09/2026) — le reçu de vente reste tel quel.
     await proposerBon(bonReprise(dbApres, r.vente, r.reprise), infoBq(r.vente.boutique), { apresGeste: true });
   };
+  // ---- ✏️ REMISE APRÈS-VENTE (Timo, 29/10/2026, « 1 admin + gérant, 2 oui,
+  // 3 ok, 4 oui, 5 oui, lance ») : une remise accordée APRÈS l'encaissement,
+  // sans qu'aucun article ne revienne (au contraire d'une reprise). Le reçu
+  // ne change pas ; le chiffre d'affaires et la commission deviennent nets ;
+  // l'argent part par la dette (si elle n'est pas soldée) ou par une sortie
+  // de caisse « Remboursement client » du jour (lib/remiseApresVente.js).
+  const remiseApresVente = async (v) => {
+    if (!ROLES_REMISE_APRES_VENTE.includes(profile.role)) { uAlert("🔒 Remise après-vente : réservée au gérant et à l'administrateur."); return; }
+    if (bloquerSiLecture(db, profile)) return;
+    const venteFraiche = (db.ventes || []).find((x) => x.id === v.id) || v;
+    const plafond = plafondRemiseApresVente(venteFraiche);
+    if (!(plafond > 0)) { uAlert("Il ne reste rien à offrir en remise sur cette vente (déjà soldée par des reprises ou des remises après-vente)."); return; }
+    const saisie = await uPrompt(`Montant de la remise après-vente sur le reçu ${numeroRecu(venteFraiche)} (au plus ${fmt(plafond)}) :`, "");
+    if (saisie == null) return;
+    const montant = Math.round(Number(String(saisie).replace(",", ".")) || 0);
+    if (!(montant >= 1) || montant > plafond) { uAlert(`Entrez un montant entre 1 F et ${fmt(plafond)}.`); return; }
+    const motif = await uPrompt("Motif de cette remise (obligatoire) :", "");
+    if (motif == null) return;
+    if (!String(motif).trim()) { uAlert("Le motif est obligatoire."); return; }
+    const moyen = await uChoix("Si un remboursement est dû, par quel moyen l'argent est-il rendu ?", MOYENS_REMBOURSEMENT);
+    if (!moyen) return;
+    const r = construireRemiseApresVente(db, venteFraiche, { montant, motif, moyen }, profile, today());
+    if (r.refus) { uAlert(r.refus); return; }
+    if (!(await uConfirm(
+      `Accorder une remise de ${fmt(r.montant)} sur la vente (reçu ${numeroRecu(venteFraiche)}) ?\n\n` +
+      `• Motif : ${motif}\n` +
+      (r.dette
+        ? `• La dette du client passe de ${fmt(r.detteAvant.montant)} à ${fmt(r.dette.montant)}${r.rembourse > 0 ? `\n• ${fmt(r.rembourse)} versés en trop lui sont rendus (${moyen})` : ""}`
+        : `• ${fmt(r.rembourse)} rendus au client (${moyen}) — sortie de caisse du jour`) +
+      `\n• Le reçu et le total encaissé ne changent pas ; le chiffre d'affaires et la commission sont réduits d'autant`
+    ))) return;
+    const dbApres = appliquerRemiseApresVente(db, r);
+    save(dbApres, r.journal);
+    // 📲 L'avis part TOUT SEUL du numéro BMI, sans question (Timo, « 5 oui »).
+    const bq = infoBq(venteFraiche.boutique);
+    const envoi = envoiRemiseApresVente({
+      client: venteFraiche.client, tel: venteFraiche.tel, numero: numeroRecu(venteFraiche), montant: r.montant, motif,
+      situation: situationRemiseApresVente({ rembourse: r.rembourse, moyen, dette: r.dette, fmt }), boutique: bq, fmt,
+    });
+    const msgWa = await envoyerRecuSansQuestion({
+      envoi, tel: venteFraiche.tel, nom: venteFraiche.client, espaceFormation: !!bq.formation, save, profile,
+      ref: { vente_id: venteFraiche.id, remise_ref: r.ref },
+      noms: { titre: "L'avis de remise après-vente", sujet: "L'avis de remise après-vente" },
+    });
+    if (msgWa) uAlert(msgWa);
+  };
   // 🧾 LE BON PART DU NUMÉRO BMI (Timo, 25/09/2026 : « le bon de retour et de
   // reprise n'envoie pas le message WhatsApp automatiquement par le numéro de
   // BMI »). Modèles `bon_reprise` / `bon_retour` : la forme du bon imprimé.
@@ -2099,18 +2146,23 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                      (« avance : 0 F » s'il n'y en a pas). Une vente ordinaire garde son total en gras. */
                   const repris = montantRepris(v);
                   const reprisOrdinaire = montantReprisHorsEchange(v);
+                  // ✏️ 29/10/2026 : la remise après-vente baisse le reste à payer tout
+                  // comme une reprise, sans qu'aucun article ne revienne.
+                  const remiseApres = montantRemiseApresVente(v);
+                  const resteNet = Math.max(0, totalVente(v) - reprisOrdinaire - remiseApres);
                   const avance = avanceDeVente(db, v);
                   const credit = avance !== null;
-                  const classeTotal = credit ? "text-amber-800" : repris > 0 ? "text-slate-700" : "font-bold text-slate-900";
+                  const classeTotal = credit ? "text-amber-800" : (repris > 0 || remiseApres > 0) ? "text-slate-700" : "font-bold text-slate-900";
                   return <>
                     <div data-vente-total className={classeTotal}>{fmt(totalVente(v))}</div>
                     {v.remise ? <div className="text-xs text-red-600">−{fmt(v.remise)}{v.remise_pct ? ` · ${v.remise_pct} %` : ""}</div> : null}
+                    {remiseApres > 0 ? <div data-vente-remise-apres className="text-xs text-pink-700">✏️ remise après-vente : −{fmt(remiseApres)}</div> : null}
                     {repris > 0 ? (
                       /* 07/10/2026 : ce qui a été repris et la valeur restante de la facture.
                          🔄 14/10/2026 (Timo : « l'échange a rendu 45 000… pourquoi −110 000 ? ») :
                          un ÉCHANGE dit où est partie la valeur de l'article rendu — le nouveau
                          reçu, et l'argent qui a bougé (le chiffre en gras). « reste » ne se dit
-                         que s'il y a eu une reprise ordinaire. */
+                         que s'il y a eu une reprise ordinaire (ou une remise après-vente). */
                       <div data-vente-reprise>
                         {reprisOrdinaire > 0 ? <div className="text-xs text-amber-700">↩ repris : −{fmt(reprisOrdinaire)}</div> : null}
                         {echangesDeLaVente(liste, v).map((e) => (
@@ -2122,9 +2174,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                               : e.nouvelle ? <div>même valeur</div> : null}
                           </div>
                         ))}
-                        {reprisOrdinaire > 0 ? <div className="font-bold text-slate-900">reste : {fmt(Math.max(0, totalVente(v) - repris))}</div> : null}
+                        {reprisOrdinaire > 0 ? <div className="font-bold text-slate-900">reste : {fmt(resteNet)}</div> : null}
                       </div>
                     ) : null}
+                    {remiseApres > 0 && !(reprisOrdinaire > 0) ? <div className="font-bold text-slate-900">reste : {fmt(resteNet)}</div> : null}
                     {Number(v.avoir_echange || 0) > 0 ? (
                       /* 🔄 La vente née d'un échange : l'article rendu en a payé une part. */
                       <div data-vente-avoir title={`Échange du reçu ${v.echange_de?.numero || ""}`}><div className="text-xs text-teal-700">🔄 avoir {v.echange_de?.numero || ""} : −{fmt(v.avoir_echange)}</div><div className="font-bold text-slate-900">payé : {fmt(Math.max(0, totalVente(v) - Number(v.avoir_echange || 0)))}</div></div>
@@ -2182,6 +2235,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                     )}
                     {jeSuisPrincipal && lignesReprenables(v).length > 0 && (
                       <button onClick={() => ouvrirReprise(v)} className={boutonAction("text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100")} title="↩ Reprise de l'article par BMI : le client ne le prend pas — retour au stock, argent rendu ou dette réduite" aria-label="Reprise">↩</button>
+                    )}
+                    {ROLES_REMISE_APRES_VENTE.includes(profile.role) && plafondRemiseApresVente(v) > 0 && (
+                      <button data-bouton-remise-apres-vente onClick={() => remiseApresVente(v)} className={boutonAction("text-pink-700 bg-pink-50 border-pink-200 hover:bg-pink-100")} title="✏️ Remise après-vente : réduit le montant d'une vente déjà encaissée, sans article rendu — la dette diminue, ou l'argent est rendu" aria-label="Remise après-vente">✏️</button>
                     )}
                     {profile.role === "admin" && (
                       <button onClick={() => supprimerVente(v)} className={boutonAction("text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title="Supprimer cette vente" aria-label="Supprimer">🗑</button>

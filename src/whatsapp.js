@@ -251,6 +251,8 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.devis_id ? { devis_id: ref.devis_id } : {}),
     ...(ref && ref.dette_id ? { dette_id: ref.dette_id } : {}),
     ...(ref && ref.vente_id ? { vente_id: ref.vente_id } : {}),
+    // ✏️ 29/10/2026 : la remise après-vente retrouve SON entrée sur la vente.
+    ...(ref && ref.remise_ref ? { remise_ref: ref.remise_ref } : {}),
     ...(ref && ref.bon_numero ? { bon_numero: ref.bon_numero } : {}),
     ...(ref && ref.bon_vente_id ? { bon_vente_id: ref.bon_vente_id } : {}),
     ...(ref && ref.salaire_user_id ? { salaire_user_id: ref.salaire_user_id, virement_id: ref.virement_id } : {}),

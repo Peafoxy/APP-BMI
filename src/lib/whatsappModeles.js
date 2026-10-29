@@ -170,6 +170,10 @@ export const MODELES = {
   // UTILITY tous les deux : des transactions en cours.
   recu_reglement: { categorie: "utility", variables: ["client", "montant", "date", "paiement", "numero", "situation", "telephone"] },
   recu_reservation: { categorie: "utility", variables: ["client", "date", "boutique", "numero", "montant", "situation", "telephone"] },
+  // ✏️ LA REMISE APRÈS-VENTE (29/10/2026, Timo : « 1 admin + gérant, 2 oui,
+  // 3 ok, 4 oui, 5 oui, lance »). UTILITY : une correction sur une
+  // transaction DÉJÀ conclue, jamais une offre. Règle : lib/remiseApresVente.js.
+  remise_apres_vente: { categorie: "utility", variables: ["client", "numero", "montant", "motif", "situation", "telephone"] },
   // 🧾 25/09/2026, Timo : « le bon de retour et de reprise n'envoie pas le
   // message WhatsApp automatiquement par le numéro de BMI », puis l'exemple
   // du bon d'EZO ENERGY → « lance les deux bons ». La FORME du bon imprimé,
@@ -346,6 +350,9 @@ export const MODELES_EN_SERVICE = [
   // En service AVANT l'accord de Meta : d'ici là rien ne part, et l'écran le
   // dit discrètement (même règle que le reçu de vente).
   "recu_reglement", "recu_reservation",
+  // ✏️ 29/10/2026 : la remise après-vente. En service AVANT l'accord de Meta :
+  // d'ici là rien ne part, et l'écran le dit (même règle que le reçu de vente).
+  "remise_apres_vente",
   // 25/09/2026 : les bons de reprise et de retour. En service AVANT l'accord
   // de Meta : d'ici là rien ne part tout seul, et l'écran le dit.
   "bon_reprise", "bon_retour",
@@ -480,7 +487,7 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente"];
 const LIGNES_MASQUEES = {
   depense_rejetee: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
@@ -489,6 +496,7 @@ const LIGNES_MASQUEES = {
   tache_validee: "🔒 Avis de tâche validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   attestation_disponible: "🔒 Avis d'attestation de fin de contrat envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   prime_installation_payee: "🔒 Avis de paiement d'une part d'installation envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
+  remise_apres_vente: "🔒 Avis de remise après-vente envoyé — détail réservé à celui qui l'a accordée et à l'administrateur principal.",
   recu_vente: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_vente_detail: "🔒 Reçu de vente envoyé au client — détail réservé au vendeur et à l'administrateur principal.",
   recu_pdf: "🔒 Reçu de vente envoyé au client, 📎 PDF joint — détail réservé au vendeur et à l'administrateur principal.",
@@ -933,6 +941,7 @@ const LIGNES_ENVOI = {
   recu_depot_chantier: ([client, date, boutique, recu, montant, paiement]) => `Reçu de dépôt chantier N° ${recu} envoyé à ${client} : dépôt du ${date} à ${boutique}, devis de ${montant}, ${paiement}.`,
   recu_reglement: ([client, montant, date, paiement, numero, situation]) => `Reçu de versement N° ${numero} envoyé à ${client} : ${montant} le ${date} (${paiement}), ${situation}.`,
   recu_reservation: ([client, date, boutique, numero, montant, situation]) => `Reçu de réservation N° ${numero} envoyé à ${client} : ${montant} le ${date} à ${boutique}, ${situation}.`,
+  remise_apres_vente: ([client, numero, montant, motif, situation]) => `Remise après-vente de ${montant} accordée à ${client} sur le reçu N° ${numero} (${motif}) — ${situation}.`,
   bon_reprise: ([, , , numero, date, recu, client, article, motif, valeur, reglement]) => `Bon de reprise N° ${numero} envoyé à ${client} : ${article} repris le ${date} (reçu ${recu}), motif : ${motif}, valeur ${valeur}. ${reglement}.`,
   proforma: ([client, numero, date, boutique, articles, total, fin]) => `Proforma N° ${numero} envoyée à ${client} : ${articles}, total ${total}, du ${date} (${boutique}), valable jusqu'au ${fin}.`,
   // ⚠ Le CODE du lien n'est jamais écrit dans le fil : c'est une clé de
@@ -1688,6 +1697,44 @@ export function envoiRecuReservation({ reservation, boutique, fmt, dFR, numeroDe
     ],
   };
 }
+
+// ---------------------------------------------------------------
+// ✏️ LA REMISE APRÈS-VENTE (29/10/2026, Timo : « Je veux que ça soit une
+// fonctionnalité » → « 1 admin + gérant, 2 oui, 3 ok, 4 oui, 5 oui, lance »)
+// ---------------------------------------------------------------
+// UTILITY, mêmes règles que le reçu d'un versement : part tout seul, sans
+// question ni repli, rien en formation, rien sans numéro. Règle de la
+// remise : lib/remiseApresVente.js.
+export const TEXTE_REMISE_APRES_VENTE = [
+  "Bonjour {{1}},",
+  "Une remise de {{3}} vous a été accordée sur votre achat (reçu N° {{2}}).",
+  "Motif : {{4}}.",
+  "{{5}}",
+  "Pour toute question veuillez contacter : {{6}}.",
+  "Merci de votre confiance. BMI TOGO — Les bâtiments modernes et intelligents",
+].join("\n");
+// Où en est la vente APRÈS la remise (trou 5) : la dette qui diminue (même
+// phrase que `situationDette`), ou l'argent rendu (jamais les deux à la fois).
+export function situationRemiseApresVente({ rembourse, moyen, dette, fmt }) {
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  if (dette) return situationDette({ total: dette.montant, paye: dette.paye, fmt: f });
+  return rembourse > 0 ? `${f(rembourse)} vous a été rendu (${moyenVersement(moyen)}).` : "votre compte est soldé, merci.";
+}
+export function envoiRemiseApresVente({ client, tel, numero, montant, motif, situation, boutique, fmt }) {
+  if (!String(tel || "").replace(/\D/g, "")) return null;
+  const m = Number(montant);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const mo = sansPointFinal(motif);
+  const s = texteVariable(situation);
+  const n = texteVariable(numero);
+  if (!mo || !s || !n) return null;
+  return {
+    modele: "remise_apres_vente",
+    variables: [nomClientRecu(client), n, f(m), mo, s, texteVariable(boutique?.tel) || NUMERO_BMI_PRINCIPAL],
+  };
+}
+
 // ---------------------------------------------------------------
 // 🧾 LE BON DE REPRISE, LE BON DE RETOUR (25/09/2026)
 // ---------------------------------------------------------------
