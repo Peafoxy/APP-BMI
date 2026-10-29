@@ -9953,7 +9953,9 @@ lit mal est pire qu'un banc absent).
   en second argument (l'ANCIENNE forme à un seul argument est retirée, pour
   ne jamais laisser deux signatures ambiguës coexister). **Sans ce script,
   l'écran laisserait passer une remise que la base refuserait encore à
-  3 %, et tout le lot resterait coincé.**
+  3 %, et tout le lot resterait coincé.** **En place sur la vraie base,
+  confirmé par Timo le 29/10/2026** (lecture de vérification des scripts 42
+  à 46 : neuf `true` — fonctions et déclencheurs tous présents).
 - Rien d'autre ne change : les reprises, l'échange, la remise d'une
   proforma reprise telle quelle, la modification d'une proforma — tout le
   reste des scripts repris est MOT POUR MOT.
