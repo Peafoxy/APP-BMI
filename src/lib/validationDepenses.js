@@ -259,7 +259,7 @@ export function critiqueDecision(dep, { estPrincipal: principal }, motif) {
 
 // Ce que l'auteur doit savoir après la décision du DG — UNE phrase, lue par
 // le message de 💬 Messages ET par l'avis WhatsApp (13/10/2026, « Aa, Ba,
-// Cb » : `depense_rejetee` / `depense_validee`, lib/whatsappModeles.js).
+// Cb » : `depense_rejetee4` / `depense_validee`, lib/whatsappModeles.js).
 // `dep` = la dépense telle qu'elle était AVANT la décision (son montant).
 export function suiteRejetDepense(dep) {
   if (sortDuTiroir(dep)) return `Cet argent reste dû à la caisse de ${libelleCaisse(dep.boutique)} : remettez ${fmt(dep.montant)} dans le tiroir.`;

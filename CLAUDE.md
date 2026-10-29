@@ -8249,7 +8249,10 @@ lit mal est pire qu'un banc absent).
 
 ### 📲 L'AVIS WHATSAPP DE LA DÉCISION DU DG SUR UNE DÉPENSE (13/10/2026, « Aa, Ba, Cb, texte ok »)
 - Timo : « modèle Meta pour une dépense rejetée ». Deux modèles UTILITY :
-  **`depense_rejetee`** (7 trous : auteur — `nom_complet` sinon `nom` —,
+  **`depense_rejetee4`** (⚠ c'est son NOM chez YCloud — l'application envoyait
+  `depense_rejetee`, introuvable : aucun rejet n'est parti avant le
+  29/10/2026, capture Timo ; **un modèle se nomme dans le code EXACTEMENT
+  comme chez YCloud**) (7 trous : auteur — `nom_complet` sinon `nom` —,
   montant, « catégorie — description », date, caisse (`libelleCaisse`), motif
   sans son point final, la SUITE) — **le texte accepté par Timo** ; et
   **`depense_validee`** (6 trous, la suite en 6e) — **« C b », texte PROPOSÉ

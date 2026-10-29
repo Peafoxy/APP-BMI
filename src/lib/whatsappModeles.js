@@ -298,7 +298,9 @@ export const MODELES = {
   // 📤 13/10/2026, Timo (« Aa, Ba, Cb, texte ok ») : la décision du DG sur
   // une dépense, à celui qui l'a saisie. Le rejet (texte accepté tel quel)
   // et la validation (« Cb »). UTILITY ; lignes PRIVÉES dans 📲 WhatsApp.
-  depense_rejetee: { categorie: "utility", variables: ["employe", "montant", "depense", "date", "boutique", "motif", "suite"] },
+  // ⚠ Le nom chez YCloud est `depense_rejetee4` (capture Timo, 29/10/2026) :
+  // l'application envoyait `depense_rejetee`, introuvable — aucun rejet ne partait.
+  depense_rejetee4: { categorie: "utility", variables: ["employe", "montant", "depense", "date", "boutique", "motif", "suite"] },
   depense_validee: { categorie: "utility", variables: ["employe", "montant", "depense", "date", "boutique", "suite"] },
   // 💸 22/10/2026 (« Ab, Bb, Cb, texte ok ») : « Personne — payé directement »
   // — la personne qui a reçu l'argent est prévenue (lib/payeDirectement.js).
@@ -396,7 +398,7 @@ export const MODELES_EN_SERVICE = [
   // 13/10/2026 : la décision du DG sur une dépense (rejet, validation). En
   // service AVANT l'accord de Meta : d'ici là rien ne part (aucun repli), et
   // l'écran le dit.
-  "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee",
+  "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee",
   // 22/10/2026 : l'argent remis directement à quelqu'un hors du personnel.
   // Rien ne part d'ici l'accord de Meta, et l'écran le dit.
   "fonds_remis",
@@ -487,9 +489,9 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente"];
 const LIGNES_MASQUEES = {
-  depense_rejetee: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
+  depense_rejetee4: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   fonds_remis: "🔒 Avis d'argent remis envoyé — détail réservé à celui qui a saisi la dépense, à celui qui l'a envoyé et à l'administrateur principal.",
   tache_assignee: "🔒 Avis de tâche assignée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
@@ -967,7 +969,7 @@ const LIGNES_ENVOI = {
   rendez_vous_modifie: ([employe, objet, changement]) => `Avis de changement de rendez-vous envoyé à ${employe} (${objet}) : ${changement}`,
   // ⚠ Le numéro du chef de la visite (trou 6) n'est pas recopié dans le fil.
   visite_client: ([client, date, heure, , chef]) => `Visite annoncée à ${client} : le ${date} à ${heure}, chef de la visite ${chef}.`,
-  depense_rejetee: ([employe, montant, depense, date, boutique, motif]) => `Avis de dépense REJETÉE envoyé à ${employe} : ${montant} (${depense}) du ${date}, ${boutique}. Motif : ${motif}.`,
+  depense_rejetee4: ([employe, montant, depense, date, boutique, motif]) => `Avis de dépense REJETÉE envoyé à ${employe} : ${montant} (${depense}) du ${date}, ${boutique}. Motif : ${motif}.`,
   depense_validee: ([employe, montant, depense, date, boutique]) => `Avis de dépense validée envoyé à ${employe} : ${montant} (${depense}) du ${date}, ${boutique}.`,
   fonds_remis: ([beneficiaire, montant, date, moyen, pour, remisPar]) => `Avis d'argent remis envoyé à ${beneficiaire} : ${montant} le ${date}, en ${moyen}, pour : ${pour}. Remis par ${remisPar}.`,
   tache_assignee: ([employe, par, tache, details, echeance]) => `Avis de tâche envoyé à ${employe} (par ${par}) : ${tache}. Détails : ${details}. Échéance : ${echeance}.`,
@@ -2371,7 +2373,7 @@ export function envoiDepenseRejetee({ employe, tel, dep, boutique, motif, suite,
   const m = texteVariable(motif).replace(/[.\s]+$/, "");
   const s = texteVariable(suite);
   if (!base || !m || !s) return null;
-  return { modele: "depense_rejetee", variables: [...base, m, s] };
+  return { modele: "depense_rejetee4", variables: [...base, m, s] };
 }
 export function envoiDepenseValidee({ employe, tel, dep, boutique, suite, fmt, dFR }) {
   const base = trousDepense({ employe, tel, dep, boutique, fmt, dFR });

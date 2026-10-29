@@ -86,10 +86,10 @@ export function texteLignePrivee(m, db) {
   // 🧾 L'avis de décision du DG sur une dépense : recomposé depuis la dépense.
   // Rejetée, son montant est à 0 : celui d'origine vit dans `validation`, et
   // la description porte « ✖ REJETÉE (motif) — » devant (rejeterDepense).
-  if (m.wa_modele === "depense_rejetee" || m.wa_modele === "depense_validee") {
+  if (m.wa_modele === "depense_rejetee4" || m.wa_modele === "depense_validee") {
     const dep = (db?.depenses || []).find((x) => x.id === m.depense_id);
     if (!dep) return "";
-    const rejet = m.wa_modele === "depense_rejetee";
+    const rejet = m.wa_modele === "depense_rejetee4";
     const motif = String(dep.validation?.motif || "");
     const avant = rejet
       ? { ...dep, montant: Number(dep.validation?.montant || 0), description: String(dep.description || "").replace(/^\u2716 REJET\u00c9E \(.*?\) \u2014 /, "") }

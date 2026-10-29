@@ -13,7 +13,7 @@
 // lib/validationDepenses.js (SEUIL_VALIDATION_DEPENSE = 5000, PAYE_AVEC,
 // optionsPayeAvec, payeDeSaPocheSeulement, ROLES_REMISE_ARGENT, fondsProposable, ROLES_FONDS_CAISSE, construireDepenseSaisie,
 // critiqueDecision, validerDepense, rejeterDepense, suiteRejetDepense, depensesBloquantCloture,
-// lib/whatsappModeles.js (depense_rejetee, depense_validee), lib/lignesPrivees.js,
+// lib/whatsappModeles.js (depense_rejetee4, depense_validee), lib/lignesPrivees.js,
 // MOYENS_REMBOURSEMENT, ROLES_REMB_CAISSE, critiqueRemboursement,
 // neVoitQueSesDepenses, motifNonModifiable, critiqueModifDepense),
 // lib/versements.js (critiqueSortieTiroir, MSG_AVANCE_PERSONNELLE),
