@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2818 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2845 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 40  : les échéanciers client
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -61,7 +61,7 @@ npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Tout
 npm run verifier-ecran-ventes    # 51  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
 npm run verifier-ecran-loyer     # 43  : « 💵 Payer le loyer » joué dans Chromium, du clic à la dépense enregistrée ; « Argent remis à » à choisir, le nom de la personne payée directement (moyen, « Payé avec », confirmation, validation du DG, caisse d'une autre boutique, annulation, tiroir vide ; « La caisse du DG » insuffisante dite sans son solde ; « 📲 Prévenir le propriétaire » après un paiement validé en espèces seulement)
-npm run verifier-ecran-achat-chantier # 21 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
+npm run verifier-ecran-achat-chantier # 22 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
 npm run verifier-ecran-solaire   # 37  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET), en liste déroulante étroite entre la boutique et le panneau : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape, un F5 sur un brouillon déjà posé en localStorage retrouve le mode et ses chiffres ; 📱 la rangée des métiers en grille à 2 colonnes sur téléphone (sept métiers, 375 px, colonnes de largeur égale), reste comme avant sur ordinateur (1300 px)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
@@ -74,9 +74,9 @@ npm run verifier-whatsapp        # 1394 : l'envoi WhatsApp du numéro BMI (l'ord
 npm run verifier-partage         # 6   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette ; le PDF du VRAI reçu, une page, moins de 400 Ko)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 245 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 274 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 98  : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 123 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 129 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
 npm run tester-heure             # 7   : l'heure de la base (heure_serveur, serveur, base jetable) : l'instant de la RÉPONSE, lisible connecté ou non, ne touche aucune table
 npm run tester-catalogue         # 24  : le catalogue du site vitrine (stock_calcule, base jetable) : une quantité à virgule ne fait plus tomber la page Boutique, le stock du site = celui de l'application (comparé article par article à stockDepuisLignes), le visiteur ne lit rien de plus ; la vérification du script lit count(disponible), jamais count(*) (elle répondait true à tort)
@@ -10031,6 +10031,34 @@ lit mal est pire qu'un banc absent).
   le plafond et le câblage de `core.js` (deux régressions confirmées). Banc
   `verifier-whatsapp` (+4, trois comptages RETOURNÉS : cinquante-sept
   modèles, les modèles à ligne, les dix-sept modèles privés).
+
+### 🏷 LA REMISE PONCTUELLE AUTORISÉE À DISTANCE (29/10/2026, « A a », « 1 tout admin »)
+- Timo : « donner la possibilité ponctuelle à un gérant ou vendeur d'appliquer
+  une remise à un client ». Règle pure **`lib/autorisationRemise.js`**.
+- À l'encaissement (💰 Ventes), au-delà de la limite (générale OU d'un article),
+  plus de refus net : « 📨 Demander l'autorisation », **motif obligatoire**. La
+  demande se range sur SA boutique dans **`demandes_remise`** — ⚠ JAMAIS dans
+  `demandes` (une vingtaine d'endroits y lisent des ravitaillements). **Tout
+  administrateur** de l'espace est prévenu (liste B, `infosDepuisDiff` § 1 bis)
+  et décide en haut de 💰 Ventes (« 🏷 Remises à autoriser », `data-remises-a-autoriser`,
+  `boutiquesVisibles` — le mur) : ✅ accorde (l'accord va dans
+  **`remises_autorisees`**, champ que SEUL un administrateur écrit — la base le
+  garde depuis toujours) ou ✖ refuse (motif). Le demandeur est prévenu et suit
+  dans « 🏷 Mes demandes de remise » (🛒 remet le panier accordé, ✕ annule).
+- **L'accord vaut pour CE panier** (`panierNormalise` : articles, quantités,
+  prix, remises de ligne), **CE %**, **CE client** (8 derniers chiffres), **une
+  seule fois** (`autorisationPour` refuse un accord déjà cité par une vente).
+  La vente porte `remise_autorisee` (qui, quand, motif), la demande passe
+  « utilisée ». Ligne + générale reste refusé, même accordé. Une réservation
+  prépayée consomme aussi l'accord.
+- ⚠ LE COUPLE : **`securite-44`** — `remise_autorisee_par_admin` (même panier
+  par `panier_normalise`, même %, même client, une vente) ouvre la limite dans
+  `ventes_regles_roles` (reprend securite-43 en entier) ; `boutiques_regles_roles`
+  (reprend securite-26 en entier) laisse écrire `demandes_remise` comme
+  `demandes`. Bancs SQL `tester-argent` (+9) et `tester-devis-chantiers` (+6),
+  éprouvés (porte retirée, une seule fois retirée, demande refusée) ;
+  `verifier-cloisonnement` (+10, deux RETOURNÉS) et Chromium `verifier-ecran-achat-chantier` (+1 joué, un RETOURNÉ), éprouvés. Chapitres 5 et 23.
+  **À coller par Timo.**
 
 ---
 

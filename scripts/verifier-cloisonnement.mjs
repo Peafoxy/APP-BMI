@@ -7203,6 +7203,80 @@ titre("✏️ La remise après-vente (gérant, administrateur) : un montant reti
     && /personne n'efface une remise après-vente déjà posée \(même l'administrateur\)" "REFUSE"/.test(ta43) && /SANS remise_apres_vente_ref \(une reprise\)[^]*?"REFUSE"/.test(ta43));
 }
 
+titre("🏷 La remise ponctuelle autorisée À DISTANCE par un administrateur (Timo, 29/10/2026, « A a », « 1 tout admin »)");
+{
+  const charger = async (entree, nom) => {
+    const out = join("node_modules", ".cache", `bmi-${nom}-${process.pid}.mjs`);
+    await build({ entryPoints: [entree], bundle: true, format: "esm", platform: "node", outfile: out, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"] });
+    const m = await import(pathToFileURL(out).href); unlinkSync(out); return m;
+  };
+  const Ar = await charger("src/lib/autorisationRemise.js", "autorisation-remise");
+  const Nt = await charger("src/lib/notifications.js", "notifications-remise");
+  const kossi = { id: "v1", nom: "KOSSI", role: "vendeur", boutique: "APESSITO" };
+  const caleb = { id: "a2", nom: "CALEB", role: "admin" };
+  const panier = [{ produit_id: "p1", article: "BATTERIE", qte: 2, pu: 12000 }];
+  const offre = { panier, remisePct: 10, tel: "+228 90 11 22 33" };
+  test("★ besoinAutorisation : au-delà de la limite (générale OU d'un article) pour qui n'est pas administrateur ; jamais pour l'administrateur ; jamais à la limite",
+    Ar.besoinAutorisation({ panier, remisePct: 10, plafond: 3, role: "vendeur" }) && !Ar.besoinAutorisation({ panier, remisePct: 10, plafond: 3, role: "admin" })
+    && !Ar.besoinAutorisation({ panier, remisePct: 3, plafond: 3, role: "vendeur" })
+    && Ar.besoinAutorisation({ panier: [{ ...panier[0], remise_ligne: 2400 }], remisePct: 0, plafond: 3, role: "gerant" }));
+  const dem = Ar.construireDemandeRemise({ profile: kossi, boutique: "APESSITO", panier, remisePct: 10, remise: 2400, brut: 24000, client: "AMA", tel: "90112233", motif: " client fidèle " });
+  test("★ la demande : motif OBLIGATOIRE, rangée dans `demandes_remise` de SA boutique — JAMAIS dans `demandes` (les ravitaillements)",
+    /motif est obligatoire/.test(Ar.critiqueDemandeRemise({ ...dem, motif: "  " })) && Ar.critiqueDemandeRemise(dem) === "" && dem.statut === "en_attente" && dem.motif === "client fidèle" && dem.par_id === "v1"
+    && (() => { const b = Ar.poserDemandeRemise([{ nom: "APESSITO", demandes: [{ id: "r1" }] }, { nom: "DEMAKPOE" }], dem); return b[0].demandes_remise.length === 1 && b[0].demandes.length === 1 && !b[1].demandes_remise; })());
+  const bq1 = Ar.poserDemandeRemise([{ nom: "APESSITO" }], dem);
+  test("★ décider : un ADMINISTRATEUR seul (tout administrateur, pas seulement le principal), une seule fois, motif obligatoire pour refuser",
+    /Seul un administrateur/.test(Ar.critiqueDecisionRemise({ profile: { role: "gerant" }, demande: dem })) && Ar.critiqueDecisionRemise({ profile: caleb, demande: dem }) === ""
+    && /motif du refus/.test(Ar.critiqueDecisionRemise({ profile: caleb, demande: dem, refus: true, motif: "" }))
+    && /déjà reçu une réponse/.test(Ar.critiqueDecisionRemise({ profile: caleb, demande: { ...dem, statut: "accordee" } })));
+  const bq2 = Ar.accorderRemise(bq1, dem, caleb);
+  test("★★ accordé : l'accord se range dans `remises_autorisees` (le champ que seul un administrateur écrit), et vaut pour CE panier, CE %, CE client — un article de plus, un autre %, un autre numéro : plus rien",
+    bq2[0].remises_autorisees.length === 1 && bq2[0].demandes_remise[0].statut === "accordee" && bq2[0].demandes_remise[0].decide_par === "CALEB"
+    && Ar.autorisationPour(bq2[0], [], offre)?.id === dem.id
+    && Ar.autorisationPour(bq2[0], [], { ...offre, panier: [{ ...panier[0], qte: 3 }] }) === null
+    && Ar.autorisationPour(bq2[0], [], { ...offre, remisePct: 12 }) === null
+    && Ar.autorisationPour(bq2[0], [], { ...offre, tel: "91000000" }) === null);
+  test("★★ une seule fois : une vente qui l'a déjà utilisé le ferme ; la vente porte la trace (qui, quand, pourquoi)",
+    Ar.autorisationPour(bq2[0], [{ id: "x", remise_autorisee: { id: dem.id } }], offre) === null
+    && (() => { const t = Ar.traceSurLaVente(bq2[0].remises_autorisees[0]); return t.id === dem.id && t.par === "CALEB" && t.motif === "client fidèle"; })()
+    && Ar.marquerUtilisee(bq2, "APESSITO", dem.id, "vte1")[0].demandes_remise[0].statut === "utilisee");
+  test("★ refusé : la demande garde le motif ; aucun accord n'est rangé",
+    (() => { const b = Ar.refuserRemise(bq1, dem, caleb, "trop"); return b[0].demandes_remise[0].statut === "refusee" && b[0].demandes_remise[0].motif_refus === "trop" && !b[0].remises_autorisees; })());
+  test("★ le MUR : demandesAAutoriser ne lit QUE les boutiques qu'on lui passe (l'écran passe boutiquesVisibles)",
+    Ar.demandesAAutoriser([{ nom: "APESSITO", demandes_remise: [dem] }]).length === 1 && Ar.demandesAAutoriser([]).length === 0);
+  // 🔔 La notification (UN chemin, liste B).
+  const users = [kossi, caleb, { id: "a1", nom: "TIMO", role: "admin", admin_principal: true }, { id: "g1", nom: "ALI", role: "gerant", boutique: "APESSITO" }];
+  const avant = { users, boutiques: [{ nom: "APESSITO" }] };
+  const apres = { users, boutiques: bq1 };
+  const e1 = Nt.infosDepuisDiff(avant, apres).filter((e) => /Remise à autoriser/.test(e.titre));
+  const e2 = Nt.infosDepuisDiff(apres, { users, boutiques: bq2 }).filter((e) => /Remise accordée/.test(e.titre));
+  test("★ 🔔 la demande prévient TOUS les administrateurs (jamais le gérant ni le vendeur) ; l'accord prévient celui qui a demandé ; la cible mène à la ligne",
+    e1.length === 1 && e1[0].destinataires.includes("a1") && e1[0].destinataires.includes("a2") && !e1[0].destinataires.includes("g1") && !e1[0].destinataires.includes("v1")
+    && e1[0].ecran === "ventes" && e1[0].cible?.ligne === dem.id
+    && e2.length === 1 && e2[0].destinataires.join() === "v1");
+  // L'écran.
+  const va = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ écran 💰 Ventes : l'encaissement cherche l'accord (autorisationPour), ouvre la limite quand il existe, propose « 📨 Demander l'autorisation » au lieu de refuser net, pose la trace sur la vente et marque la demande « utilisée » ; tout administrateur décide, revérifié DANS le geste sur la demande FRAÎCHE",
+    /const autorisation = profile\.role !== "admin" \? autorisationPour\(ficheBoutique, db\.ventes, offreRemise\) : null;/.test(va)
+    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin" && !remiseDeLaProforma && !autorisation\)/.test(va)
+    && /await proposerDemandeRemise\(/.test(va) && /"📨 Demander l'autorisation"/.test(va)
+    && /\.\.\.\(autorisation \? \{ remise_autorisee: traceSurLaVente\(autorisation\) \} : \{\}\)/.test(va)
+    && /if \(autorisation\) next = \{ \.\.\.next, boutiques: marquerUtilisee\(next\.boutiques, boutique, autorisation\.id, vente\.id\) \};/.test(va)
+    && /if \(refuserSaufAdmin\(profile, "Accorder ou refuser une remise"\)\) return;/.test(va) && /const refus = critiqueDecisionRemise\(\{ profile, demande: fraiche/.test(va)
+    && /demandesAAutoriser\(boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\)/.test(va) && /data-remises-a-autoriser/.test(va) && /data-mes-demandes-remise/.test(va));
+  // ⚠ LE COUPLE avec le serveur.
+  const s44 = readFileSync("supabase/securite-44-remise-autorisee.sql", "utf8");
+  const ta = readFileSync("scripts/tester-argent-sql.sh", "utf8");
+  const td = readFileSync("scripts/tester-devis-chantiers-sql.sh", "utf8");
+  test("★ LE COUPLE : securite-44 lit l'accord dans `remises_autorisees` de la boutique de la vente (même panier par panier_normalise, même %, même client, une seule vente), reprend securite-43 et securite-26 en entier, et laisse écrire `demandes_remise` ; les deux bancs SQL le rejouent",
+    /x ->> 'id' = cle/.test(s44) && /b\.data -> 'remises_autorisees'/.test(s44) && /panier_normalise\(a -> 'lignes'\) <> public\.panier_normalise\(vente -> 'articles'\)/.test(s44)
+    && /v\.id <> vente_id and v\.data -> 'remise_autorisee' ->> 'id' = cle/.test(s44)
+    && /remises_apres_vente/.test(s44) && /reprises_ajout_echange/.test(s44) && /outillage_sans_gestes_du_detenteur/.test(s44)
+    && /- 'demandes' - 'demandes_remise' - 'updated_at' - 'outillage'/.test(s44) && !/rollback;\s*$/.test(s44)
+    && /-f supabase\/securite-44-remise-autorisee\.sql/.test(ta) && /-f supabase\/securite-44-remise-autorisee\.sql/.test(td)
+    && /DÉJÀ utilisé par une autre vente : refusé \(une seule fois\)" "REFUSE"/.test(ta) && /un vendeur écrit lui-même un ACCORD \(remises_autorisees\) : refusé" "REFUSE"/.test(td));
+}
+
 titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (Timo, 10/09/2026)");
 {
   const l3 = { article: "BATTERIE", qte: 2, pu: 100000, remise_ligne: 6000 };   // 3 %
@@ -7221,7 +7295,8 @@ titre("Les remises par article : 3 % max sauf admin, jamais ligne + générale (
     // RETOURNÉ le 30/09/2026 : l'encaissement passe « admin » quand la remise est celle d'une proforma reprise telle quelle (securite-33).
     // RETOURNÉ le 11/10/2026 : + l'achat pour un chantier (🏗) — 4.
     && (vr.match(/critiqueRemises\(panier, remisePct, remise, profile\.role, plafond\)/g) || []).length === 4
-    && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role, plafond\)/g) || []).length === 1
+    // RETOURNÉ le 29/10/2026 : + la remise accordée À DISTANCE par un administrateur (securite-44).
+    && (vr.match(/critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \|\| autorisation \? "admin" : profile\.role, plafond\)/g) || []).length === 1
     // RETOURNÉ le 12/10/2026 : UNE case de remise (ChampRemise) — la générale grisée par aRemiseSurArticle, la ligne par remiseGeneraleSaisie.
     && /pct=\{f\.remise\}[^\n]*\n[^\n]*disabled=\{aRemiseSurArticle\(panier\)\}/.test(vr) && /titre="Remise ligne"[^\n]*\n[^\n]*disabled=\{remiseGeneraleSaisie\}/.test(vr));
   const s14 = readFileSync("supabase/securite-14-remise-article.sql", "utf8");
@@ -13993,8 +14068,9 @@ titre("🧾 La remise d'une proforma reprise telle quelle, pour tout vendeur (30
   const corps = ve.slice(i, ve.indexOf("const vente = {", i));
   test("★★ l'encaissement passe par la règle (remise générale ET remise de ligne) et DIT pourquoi quand le panier a bougé",
     /const remiseDeLaProforma = remiseDeProformaGardee\(pfReprise, panier, remisePct\);/.test(corps)
-    && /critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \? "admin" : profile\.role, plafond\)/.test(corps)
-    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin" && !remiseDeLaProforma/.test(corps)
+    // RETOURNÉ le 29/10/2026 : + la remise accordée à distance (`autorisation`, securite-44).
+    && /critiqueRemises\(panier, remisePct, remise, remiseDeLaProforma \|\| autorisation \? "admin" : profile\.role, plafond\)/.test(corps)
+    && /remiseExigeAdmin\(remisePct, plafond\) && profile\.role !== "admin" && !remiseDeLaProforma && !autorisation/.test(corps)
     && /ne vaut que pour son panier tel quel/.test(corps));
   test("★ la proforma elle-même reste réservée à l'administrateur au-delà de la limite réglable (on n'a rien ouvert de ce côté)",
     // RETOURNÉ le 30/09/2026 : + la proforma modifiée (émettre, modifier : trois gestes, tous au rôle).

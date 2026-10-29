@@ -81,6 +81,10 @@ echo "▸ La remise après-vente (gérant, administrateur) : supabase/securite-4
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-43-remise-apres-vente.sql >/dev/null 2>&1 || echo "   ❌ securite-43 refusé par la base"
 VERIF43=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-43-remise-apres-vente.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF43" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-43 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-43 répond : $VERIF43"; exit 1; fi
+echo "▸ La remise ponctuelle autorisée à distance (tout administrateur) : supabase/securite-44-remise-autorisee.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-44-remise-autorisee.sql >/dev/null 2>&1 || echo "   ❌ securite-44 refusé par la base"
+VERIF44=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-44-remise-autorisee.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF44" = "t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-44 répond true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-44 répond : $VERIF44"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -524,6 +528,29 @@ essai "★ le montant d'une reprise déjà enregistrée ne se modifie plus" "REF
 essai "★ l'admin supprime une remise (règle générale des dépenses : admin seul)" "PERMIS" "$ADMIN" "$(SUPPR depenses zfc0)"
 essai "★ un gérant supprime une remise" "REFUSE" "$GERANT" "$(SUPPR depenses zfc0)"
 essai "un vendeur enregistre toujours une dépense ordinaire de 2 000 F (rien ne change pour le quotidien)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord '{"id":"zd_ord","boutique":"APESSITO","categorie":"Transport","montant":2000,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
+
+echo
+echo "── 🏷 LA REMISE PONCTUELLE AUTORISÉE À DISTANCE (securite-44, Timo 29/10/2026) : un accord rangé sur la boutique, même panier, même %, même client, une fois ──"
+L2='[{"produit_id":"zp1","article":"BATTERIE","qte":2,"pu":12000,"remise_ligne":0}]'
+L3='[{"produit_id":"zp1","article":"BATTERIE","qte":3,"pu":12000,"remise_ligne":0}]'
+LR='[{"produit_id":"zp1","article":"BATTERIE","qte":2,"pu":12000,"remise_ligne":2400}]'
+ACC="[{\"id\":\"ACC1\",\"par\":\"TIMO\",\"remise_pct\":10,\"tel\":\"+228 90 11 22 33\",\"lignes\":$L2},{\"id\":\"ACC3\",\"par\":\"TIMO\",\"remise_pct\":0,\"tel\":\"90112233\",\"lignes\":$LR}]"
+BQ6="{\"nom\":\"ZREMISE\",\"remises_autorisees\":$ACC}"
+$P -c "insert into public.boutiques (id, data) values ('zbq6', '$BQ6');" >/dev/null
+VA() { echo "{\"id\":\"$1\",\"boutique\":\"ZREMISE\",\"client\":\"AMA\",\"tel\":\"$2\",\"remise_pct\":$3,\"articles\":$4$5}"; }
+AUT=',"remise_autorisee":{"id":"ACC1","par":"TIMO"}'
+essai "★ un vendeur encaisse 10 % de remise ACCORDÉE par un administrateur (même panier, même client)" "PERMIS" "$VENDEUR" "$(UPS ventes zra1 "$(VA zra1 90112233 10 "$L2" "$AUT")")"
+essai "★ …la même vente SANS citer l'accord reste refusée" "REFUSE" "$VENDEUR" "$(UPS ventes zra2 "$(VA zra2 90112233 10 "$L2" "")")"
+essai "★ …un article de plus (quantité 3 au lieu de 2) : l'accord ne vaut plus" "REFUSE" "$VENDEUR" "$(UPS ventes zra3 "$(VA zra3 90112233 10 "$L3" "$AUT")")"
+essai "★ …12 % au lieu des 10 % accordés : refusé" "REFUSE" "$VENDEUR" "$(UPS ventes zra4 "$(VA zra4 90112233 12 "$L2" "$AUT")")"
+essai "★ …un autre client (autre numéro) : refusé" "REFUSE" "$VENDEUR" "$(UPS ventes zra5 "$(VA zra5 91000000 10 "$L2" "$AUT")")"
+essai "★ …un accord inventé (absent de la boutique) : refusé" "REFUSE" "$VENDEUR" "$(UPS ventes zra6 "$(VA zra6 90112233 10 "$L2" ',"remise_autorisee":{"id":"FAUX"}')")"
+essai "★ …un accord DÉJÀ utilisé par une autre vente : refusé (une seule fois)" "REFUSE" "$VENDEUR" "$(UPS ventes zra1 "$(VA zra1 90112233 10 "$L2" "$AUT")")
+$(UPS ventes zra7 "$(VA zra7 90112233 10 "$L2" "$AUT")")"
+essai "★ une remise SUR UN ARTICLE (10 %) accordée passe aussi" "PERMIS" "$VENDEUR" "$(UPS ventes zra8 "$(VA zra8 90112233 0 "$LR" ',"remise_autorisee":{"id":"ACC3"}')")"
+essai "★ remise sur un article ET remise générale, même accordées : refusé pour tout le monde" "REFUSE" "$VENDEUR" "$(UPS ventes zra9 "$(VA zra9 90112233 10 "$LR" ',"remise_autorisee":{"id":"ACC3"}')")"
+# Les DEMANDES et ACCORDS sur la boutique (securite-44, règle des boutiques) se
+# jouent dans tester-devis-chantiers-sql.sh, qui pose les briques de l'outillage.
 
 echo
 echo "── LE COMPTE DE L'EXPLOITANT (securite-31, Timo 23/09/2026) : le DG seul, une ligne bien formée, rien ne se réécrit ──"

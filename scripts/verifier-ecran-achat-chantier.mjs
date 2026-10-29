@@ -192,8 +192,26 @@ console.log("\n🏷 UNE case de remise, en % ou libre (12/10/2026, « case uniqu
   await page.locator("button", { hasText: "Encaisser la vente" }).first().click(); await attendre(250);
   let q = await dialogue(page);
   if (/pas de numéro/i.test(q)) { await bouton(page, "Continuer"); q = await dialogue(page); }
-  test("★★ une remise LIBRE de 12 000 F sur 240 000 (5 %) par la gérante → refusée comme 5 % (au-delà de 3 %, l'administrateur), rien n'est écrit",
-    /réservée à l'administrateur/.test(q) && (await saves(page)) === 0, q);
+  // RETOURNÉ le 29/10/2026 : au-delà de la limite, l'écran ne refuse plus net — il propose
+  // « 📨 Demander l'autorisation » (securite-44). « Annuler » n'écrit toujours rien.
+  const proposeDemande = /demande l'accord d'un administrateur/.test(q) && (await page.locator("button", { hasText: "Demander l'autorisation" }).count()) > 0;
+  await bouton(page, "Annuler"); await attendre(200);
+  test("★★ une remise LIBRE de 12 000 F sur 240 000 (5 %) par la gérante → arrêtée comme 5 % (au-delà de 3 %) : la question propose de demander l'accord d'un administrateur ; Annuler, rien n'est écrit",
+    proposeDemande && (await saves(page)) === 0, q);
+  // 🏷 La demande JOUÉE (29/10/2026) : « 📨 Demander l'autorisation », le motif, UNE écriture
+  // dans `demandes_remise` de la boutique (jamais `demandes`) ; réencaisser dit « attend la réponse ».
+  await page.locator("button", { hasText: "Encaisser la vente" }).first().click(); await attendre(250);
+  if (/pas de numéro/i.test(await dialogue(page))) await bouton(page, "Continuer");
+  await page.locator("[data-dialogue] button", { hasText: "Demander l'autorisation" }).click(); await attendre(200);
+  await page.fill("[data-dialogue] input, [data-dialogue] textarea", "client fidèle"); await bouton(page, "OK"); await attendre(250);
+  if (await page.$("[data-dialogue]")) await bouton(page, "OK");
+  const dem = await page.evaluate(() => { const x = window.saves[window.saves.length - 1]; const b = x && x.n.boutiques.find((b) => (b.demandes_remise || []).length); return x ? { n: window.saves.length, d: b && b.demandes_remise[0], r: (b && b.demandes || []).length, v: x.n.ventes.length, j: x.journal } : null; });
+  await page.locator("button", { hasText: "Encaisser la vente" }).first().click(); await attendre(250);
+  if (/pas de numéro/i.test(await dialogue(page))) await bouton(page, "Continuer");
+  const q2 = await dialogue(page);
+  test("★★ 🏷 la demande JOUÉE : motif, une écriture dans `demandes_remise` (5 %, en attente, motif gardé), aucune vente, rien dans `demandes` ; réencaisser le même panier dit « attend la réponse d'un administrateur »",
+    dem && dem.n === 1 && dem.d && dem.d.statut === "en_attente" && dem.d.motif === "client fidèle" && Math.abs(dem.d.remise_pct - 5) < 0.001 && dem.r === 0 && /Remise de 12/.test(dem.j)
+    && /attend la réponse d'un administrateur/.test(q2) && (await saves(page)) === 1, JSON.stringify(dem) + " | " + q2);
   await page.close();
 }
 {

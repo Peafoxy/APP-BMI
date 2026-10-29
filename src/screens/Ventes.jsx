@@ -20,6 +20,7 @@ import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
+import { autorisationPour, demandeDeLOffre, construireDemandeRemise, critiqueDemandeRemise, poserDemandeRemise, critiqueDecisionRemise, accorderRemise, refuserRemise, annulerDemandeRemise, traceSurLaVente, marquerUtilisee, demandesAAutoriser, mesDemandesRemise, demandesRemiseDe, STATUT_ATTENTE_REMISE, STATUT_REFUSEE_REMISE, STATUT_ACCORDEE, LIBELLE_STATUT_REMISE } from "../lib/autorisationRemise";
 import { ROLES_REMISE_APRES_VENTE, plafondRemiseApresVente, construireRemiseApresVente, appliquerRemiseApresVente } from "../lib/remiseApresVente";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
@@ -138,6 +139,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // 29/10/2026, Timo : la limite de remise sans administrateur se règle
   // désormais dans ⚙ Paramètres (plafondRemise), 3 % d'office.
   const plafond = plafondRemise(db);
+  const ficheBoutique = (db.boutiques || []).find((b) => b.nom === boutique) || null;
   const commerciaux = apporteursPossibles(db, profile);
   // ⚠ Filtre par DOMAINE (demande Timo, 18/08/2026) — des familles comme
   // « Câbles » ou « Accessoires » existent dans plusieurs métiers : filtrer
@@ -504,6 +506,68 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // Le client revient avec son offre de prix : le panier se remplit tout seul.
   // Règle pure : reprendreProforma (lib/calculs.js). Rien n'est enregistré ici,
   // le vendeur vérifie puis encaisse normalement.
+  // ---- 🏷 LA REMISE PONCTUELLE AUTORISÉE À DISTANCE (Timo, 29/10/2026) ----
+  // Le vendeur ou le gérant DEMANDE (motif obligatoire) ; tout administrateur
+  // ACCORDE ou REFUSE ; l'accord vaut pour ce panier seul (lib/autorisationRemise.js).
+  const proposerDemandeRemise = async (pourquoi) => {
+    const offre = { panier, remisePct, tel: f.tel };
+    const enAttente = demandeDeLOffre(ficheBoutique, offre, STATUT_ATTENTE_REMISE);
+    if (enAttente) {
+      setMsg("⏳ Remise demandée : en attente d'un administrateur.");
+      uAlert(`⏳ Votre demande de remise pour ce panier attend la réponse d'un administrateur (envoyée le ${dFR(enAttente.date)} à ${enAttente.heure}).\n\nGardez le panier tel quel : dès qu'elle est accordée, cliquez à nouveau sur « Encaisser ».`);
+      return;
+    }
+    const refusee = demandeDeLOffre(ficheBoutique, offre, STATUT_REFUSEE_REMISE);
+    const choix = await uChoix(`${pourquoi}${refusee ? `\n\n✖ Une demande pour ce même panier a été refusée par ${refusee.decide_par} : ${refusee.motif_refus}` : ""}\n\nVous pouvez demander l'accord d'un administrateur : il reçoit une notification et répond depuis 💰 Ventes. L'accord ne vaudra que pour CE panier, CETTE remise et CE client.`,
+      ["📨 Demander l'autorisation"]);
+    if (choix !== "📨 Demander l'autorisation") return;
+    const motif = await uPrompt(`Remise de ${remiseLibre ? fmt(remise) : `${remisePct} %`} pour ${f.client || "ce client"} (${fmt(brut)} d'articles).\n\nPourquoi cette remise ? (obligatoire — l'administrateur le lira)`, "");
+    if (motif === null) return;
+    const demande = construireDemandeRemise({ profile, boutique, panier, remisePct, remise, remiseMode: remiseLibre ? MODE_REMISE_MONTANT : null, brut, client: f.client, tel: f.tel, motif });
+    const refus = critiqueDemandeRemise(demande);
+    if (refus) { uAlert(refus); return; }
+    save({ ...db, boutiques: poserDemandeRemise(db.boutiques, demande) },
+      `🏷 Remise de ${remiseLibre ? fmt(remise) : `${remisePct} %`} demandée par ${profile.nom} pour ${demande.client} (${fmt(brut)}) — ${boutique} — motif : ${demande.motif}`);
+    setMsg("📨 Remise demandée à un administrateur. Gardez le panier : dès qu'elle est accordée, encaissez.");
+    uAlert("📨 Demande envoyée à tous les administrateurs.\n\nGardez le panier tel quel. Quand la réponse arrive (« Mes demandes de remise », juste au-dessus du panier), cliquez à nouveau sur « Encaisser ».");
+  };
+
+  // L'administrateur décide, sur la fiche FRAÎCHE de la boutique.
+  const deciderRemise = async (d, accorder) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (refuserSaufAdmin(profile, "Accorder ou refuser une remise")) return;
+    const fraiche = demandesRemiseDe((db.boutiques || []).find((b) => b.nom === d.boutique)).find((x) => x.id === d.id);
+    let motif = "";
+    if (accorder) {
+      if (!await uConfirm(`Accorder à ${d.par} une remise de ${d.remise_mode === MODE_REMISE_MONTANT ? fmt(d.remise_montant) : `${d.remise_pct} %`} (−${fmt(d.remise_montant)}) pour ${d.client} — ${d.boutique} ?\n\nArticles : ${fmt(d.sous_total)} → ${fmt(d.sous_total - d.remise_montant)}\nMotif : ${d.motif}\n\nL'accord ne vaut que pour ce panier, une seule fois.`)) return;
+    } else {
+      motif = await uPrompt(`Refuser la remise demandée par ${d.par} pour ${d.client} ?\n\nMotif du refus (obligatoire — ${d.par} le lira) :`, "");
+      if (motif === null) return;
+    }
+    const refus = critiqueDecisionRemise({ profile, demande: fraiche, motif, refus: !accorder });
+    if (refus) { uAlert(`🔒 ${refus}`); return; }
+    save({ ...db, boutiques: accorder ? accorderRemise(db.boutiques, fraiche, profile) : refuserRemise(db.boutiques, fraiche, profile, motif) },
+      accorder
+        ? `✅ Remise de ${fraiche.remise_pct} % (−${fmt(fraiche.remise_montant)}) ACCORDÉE par ${profile.nom} à ${fraiche.par} pour ${fraiche.client} — ${fraiche.boutique}`
+        : `✖ Remise de ${fraiche.remise_pct} % REFUSÉE par ${profile.nom} à ${fraiche.par} pour ${fraiche.client} — ${fraiche.boutique} — motif : ${String(motif).trim()}`);
+  };
+
+  // Une demande accordée remise au panier (le vendeur a servi un autre client entre-temps).
+  const remettreAuPanier = async (d) => {
+    const r = reprendreProforma(db, { boutique: d.boutique, lignes: d.lignes, remise_pct: d.remise_pct }, boutique);
+    if (r.refus) { uAlert(`🔒 ${r.refus}`); return; }
+    if (r.introuvables.length) { uAlert(`🔒 Introuvables dans le stock de ${boutique} : ${r.introuvables.join(", ")}. L'accord ne vaut que pour le panier tel quel : refaites une demande.`); return; }
+    if (panier.length > 0 && !await uConfirm(`Le panier contient déjà ${panier.length} article(s).\n\nLe remplacer par le panier de la remise accordée (${d.client}) ?`)) return;
+    setPanier(r.panier);
+    setF({ ...f, client: d.client === "Client non renseigné" ? "" : d.client, tel: d.tel || "", ...formeRemiseProforma(d, r) });
+    setMsg(`🏷 Panier de ${d.client} remis, avec la remise accordée par ${d.decide_par}. Vérifiez, puis encaissez.`);
+    remonterEnHaut(true);
+  };
+  const annulerMaDemande = async (d) => {
+    if (!await uConfirm(`Annuler votre demande de remise pour ${d.client} ?`)) return;
+    save({ ...db, boutiques: annulerDemandeRemise(db.boutiques, d) }, `🏷 Demande de remise pour ${d.client} annulée par ${profile.nom} — ${d.boutique}`);
+  };
+
   const reprendreLaProforma = async (pf) => {
     const r = reprendreProforma(db, pf, boutique);
     if (r.refus) { uAlert(`🔒 ${r.refus}`); return; }
@@ -823,18 +887,31 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const pourquoiPasProforma = pfReprise && !remiseDeLaProforma
       ? `\n\nLa remise de la proforma N° ${pfReprise.numero} ne vaut que pour son panier tel quel : un article, une quantité, un prix ou la remise a changé depuis la reprise.`
       : "";
-    { const refusR = critiqueRemises(panier, remisePct, remise, remiseDeLaProforma ? "admin" : profile.role, plafond); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}${pourquoiPasProforma}`); return; } }
+    // 🏷 La remise ponctuelle accordée À DISTANCE par un administrateur (Timo,
+    // 29/10/2026, « A a », « 1 tout admin ») : un accord rangé sur la boutique,
+    // pour CE panier, CE % et CE client, jamais deux fois (lib/autorisationRemise.js ;
+    // la base compare pareil, securite-44).
+    const offreRemise = { panier, remisePct, tel: f.tel };
+    const autorisation = profile.role !== "admin" ? autorisationPour(ficheBoutique, db.ventes, offreRemise) : null;
+    {
+      const refusR = critiqueRemises(panier, remisePct, remise, remiseDeLaProforma || autorisation ? "admin" : profile.role, plafond);
+      if (refusR) {
+        // L'une ou l'autre (ligne OU générale) : personne ne passe, même accordé.
+        if (critiqueRemises(panier, remisePct, remise, "admin", plafond)) { setMsg(refusR); uAlert(`🔒 ${refusR}${pourquoiPasProforma}`); return; }
+        await proposerDemandeRemise(`🔒 ${refusR}${pourquoiPasProforma}`);
+        return;
+      }
+    }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { setMsg(refusE); uAlert(refusE); return; } }
     // ⚠ Décision Timo (04/09/2026) : au-delà de la limite de remise (réglable
     // depuis ⚙ Paramètres, 3 % d'office), l'administrateur seul — sauf si la
     // remise est CELLE de la commande encaissée (devis validé), déjà
     // contrôlée en amont, ou celle d'une proforma reprise telle quelle
     // (30/09/2026). Le serveur applique la même règle.
-    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin" && !remiseDeLaProforma) {
+    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin" && !remiseDeLaProforma && !autorisation) {
       const cmd = origineCommande ? (db.commandes || []).find((c) => c.id === origineCommande) : null;
       if (!cmd || Number(cmd.remise_pct || 0) !== remisePct) {
-        setMsg(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`);
-        uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur. Ramenez-la à ${plafond} % au plus, ou faites encaisser par l'administrateur.${pourquoiPasProforma}`);
+        await proposerDemandeRemise(`🔒 Une remise supérieure à ${plafond} % demande l'accord d'un administrateur.${pourquoiPasProforma}`);
         return;
       }
     }
@@ -1032,7 +1109,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         commercial: f.commercial || null, responsable: f.responsable || null,
         rabais, apporteur: apporteurExterne(total),
       };
-      save({ ...avecFicheClient(db, reservation.client_user_id), dettes: [reservation, ...db.dettes] }, `Réservation prépayée ${f.client || "Client non renseigné"} (${fmt(total)}) — ${boutique} — créée depuis Ventes`);
+      save({ ...avecFicheClient(db, reservation.client_user_id), dettes: [reservation, ...db.dettes], ...(autorisation ? { boutiques: marquerUtilisee(db.boutiques, boutique, autorisation.id, reservation.id) } : {}) }, `Réservation prépayée ${f.client || "Client non renseigné"} (${fmt(total)}) — ${boutique} — créée depuis Ventes`);
       // Le client repart avec une preuve de ce qu'il a payé — même document
       // que celui d'un versement ultérieur (2.99.54), avec le filigrane
       // "NON LIVRÉ" (2.99.62) qui s'applique automatiquement puisque
@@ -1114,9 +1191,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ...(origineTravaux ? { travaux_id: origineTravaux, ...champsTravauxDocument((db.clients_installes || []).find((c) => c.id === origineTravaux)) } : {}),
       // D'où vient ce panier, quand il a été repris d'une proforma.
       ...(origineProforma ? { proforma_id: origineProforma.id, proforma_numero: origineProforma.numero } : {}),
+      // 🏷 La remise accordée à distance : qui, quand, pourquoi (la trace).
+      ...(autorisation ? { remise_autorisee: traceSurLaVente(autorisation) } : {}),
     };
 
     let next = { ...avecFicheClient(db, clientCompteId), ventes: [vente, ...db.ventes] };
+    if (autorisation) next = { ...next, boutiques: marquerUtilisee(next.boutiques, boutique, autorisation.id, vente.id) };
     if (caisseVente) next = assurerBoutiqueTerrain(next, !!(db.boutiques || []).find((b) => b.nom === boutique)?.formation);
 
     // ══════ LE PAIEMENT D'UN DEVIS DÉCLENCHE L'INSTALLATION ══════
@@ -1268,9 +1348,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       setOrigineTravaux(null);
     }
     const noteRemLigne = totalRemisesLigne > 0 ? ` — remises ligne : −${fmt(totalRemisesLigne)}` : "";
+    const noteAutorisee = autorisation ? ` — remise ${remisePct} % autorisée par ${autorisation.par} (demandée par ${profile.nom})` : "";
     save(next, od
-      ? `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne} — DEVIS PAYÉ : chantier créé, à programmer`
-      : `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne}`);
+      ? `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne}${noteAutorisee} — DEVIS PAYÉ : chantier créé, à programmer`
+      : `Vente ${numero} (${fmt(total)}) — ${boutique}${noteRemLigne}${noteAutorisee}`);
     // Le reçu s'imprime immédiatement, sans clic supplémentaire : au comptoir,
     // l'encaissement et le reçu ne font qu'un geste. À crédit, c'est le reçu de
     // la dette qui vient d'être créée (elle est dans `next`) — 14/09/2026.
@@ -1727,6 +1808,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
+  // 🏷 Les demandes de remise : à décider (administrateur, espace regardé) ou à suivre (les miennes).
+  const remisesAAutoriser = profile.role === "admin" ? demandesAAutoriser(boutiquesVisibles(db, profile, db.boutiques || [])) : [];
+  const mesRemises = profile.role !== "admin" ? mesDemandesRemise(ficheBoutique, profile).filter((d) => d.statut !== "utilisee") : [];
   // La remise générale : UNE case, en % ou libre (12/10/2026). Changer de mode
   // reprend la remise déjà saisie, dans l'autre unité. Un élément JSX, jamais
   // un composant défini ici : la case garderait son curseur.
@@ -1760,6 +1844,48 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         {/* 🏗 Un achat pour un chantier n'est pas une vente : la clôture ne le bloque pas. */}
         {blocageCloture && !enAchatChantier && <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-800">{blocageCloture}</div>}
         {noteRecuWa && <div data-recu-whatsapp className="mb-3 text-xs text-slate-600">{noteRecuWa}</div>}
+        {/* 🏷 Les remises à autoriser (tout administrateur, 29/10/2026), dans
+            les boutiques de l'espace regardé. */}
+        {remisesAAutoriser.length > 0 && (
+          <div data-remises-a-autoriser className="mb-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-3">
+            <div className="text-sm font-bold text-amber-900 mb-2">🏷 Remises à autoriser ({remisesAAutoriser.length})</div>
+            <div className="space-y-2">
+              {remisesAAutoriser.map((d) => (
+                <div key={d.id} data-ligne={d.id} data-demande-remise className="rounded-md bg-white border border-amber-200 p-2 text-sm flex flex-wrap items-start gap-3">
+                  <div className="flex-1 min-w-[220px]">
+                    <div className="font-bold">{d.client}{d.tel ? <span className="font-normal text-slate-500"> · {d.tel}</span> : null} <span className="text-xs font-normal text-slate-500">— {d.boutique}</span></div>
+                    <div className="text-xs text-slate-600">{(d.lignes || []).map((l) => `${l.qte} × ${l.article}`).join(" · ")}</div>
+                    <div className="text-xs mt-1"><b>{d.remise_mode === MODE_REMISE_MONTANT ? `Remise libre ${fmt(d.remise_montant)}` : `Remise ${d.remise_pct} %`}</b> : {fmt(d.sous_total)} → <b>{fmt(d.sous_total - d.remise_montant)}</b></div>
+                    <div className="text-xs text-slate-700 mt-1">Demandée par <b>{d.par}</b> le {dFR(d.date)} à {d.heure} — « {d.motif} »</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <BoutonRond icone="✅" teinte="vert" titre="Accorder cette remise (pour ce panier seulement)" onClick={() => deciderRemise(d, true)} />
+                    <BoutonRond icone="✖" teinte="rouge" titre="Refuser (motif obligatoire)" onClick={() => deciderRemise(d, false)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* 🏷 Mes demandes de remise (vendeur, gérant) : la réponse se lit ici. */}
+        {mesRemises.length > 0 && (
+          <div data-mes-demandes-remise className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="text-sm font-bold text-slate-700 mb-2">🏷 Mes demandes de remise</div>
+            <div className="space-y-1">
+              {mesRemises.map((d) => (
+                <div key={d.id} data-ligne={d.id} className="text-sm flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{d.client}</span>
+                  <span className="text-xs text-slate-500">{d.remise_mode === MODE_REMISE_MONTANT ? fmt(d.remise_montant) : `${d.remise_pct} %`} sur {fmt(d.sous_total)}</span>
+                  <span className={`text-xs font-bold ${d.statut === STATUT_ACCORDEE ? "text-emerald-700" : d.statut === STATUT_REFUSEE_REMISE ? "text-red-700" : "text-amber-700"}`}>
+                    {LIBELLE_STATUT_REMISE[d.statut]}{d.decide_par ? ` par ${d.decide_par}` : ""}{d.motif_refus ? ` — ${d.motif_refus}` : ""}
+                  </span>
+                  {d.statut === STATUT_ACCORDEE && <BoutonRond icone="🛒" teinte="vert" titre="Remettre ce panier, avec sa remise accordée" onClick={() => remettreAuPanier(d)} />}
+                  {d.statut === STATUT_ATTENTE_REMISE && <BoutonRond icone="✕" teinte="gris" titre="Annuler ma demande" onClick={() => annulerMaDemande(d)} />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {produits.length === 0 ? (
           <div className="text-sm text-slate-600">Aucun article en stock. L'administrateur doit d'abord enregistrer les articles dans Stocks.</div>
         ) : (

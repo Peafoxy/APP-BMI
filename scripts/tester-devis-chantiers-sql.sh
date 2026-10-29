@@ -55,6 +55,10 @@ echo "▸ Pose des verrous : supabase/securite-25-chantier-outil.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-25-chantier-outil.sql >/dev/null 2>&1 || echo "   ❌ securite-25 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-26-comptage-boite.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-26-comptage-boite.sql >/dev/null 2>&1 || echo "   ❌ securite-26 refusé par la base"
+# 🏷 securite-44 reprend la règle des boutiques de securite-26 (29/10/2026) :
+# `demandes_remise` s'écrit comme `demandes`, l'accord reste à l'administrateur.
+echo "▸ Pose des verrous : supabase/securite-44-remise-autorisee.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-44-remise-autorisee.sql >/dev/null 2>&1 || echo "   ❌ securite-44 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -338,6 +342,14 @@ essai "★ un VENDEUR ne compte aucune boîte (ce n'est pas un technicien)" "REF
 essai "★ le chef technicien, lui, compte ET enregistre le retour" "PERMIS" "$CHEF_BMI" "$(MAJ boutiques "data || '$RENTRE2'::jsonb" b1)"
 $P -c "update public.boutiques set data = data - 'outillage' where id='b1';" >/dev/null
 
+echo
+echo "── 🏷 LA REMISE PONCTUELLE (securite-44) : le vendeur DEMANDE sur sa boutique, tout administrateur ACCORDE ──"
+essai "★ un vendeur pose une demande de remise (demandes_remise)" "PERMIS" "$VENDEUR" "$(MAJ boutiques "data || '{\"demandes_remise\":[{\"id\":\"dr1\",\"statut\":\"en_attente\",\"remise_pct\":15,\"motif\":\"client fidele\"}]}'::jsonb" b1)"
+essai "★ …et par UPSERT, comme l'application" "PERMIS" "$VENDEUR" "$(UPS boutiques b1 "$($P -c "select (data || '{\"demandes_remise\":[{\"id\":\"dr2\",\"statut\":\"en_attente\"}]}'::jsonb)::text from public.boutiques where id='b1'")")"
+essai "★ un vendeur écrit lui-même un ACCORD (remises_autorisees) : refusé" "REFUSE" "$VENDEUR" "$(MAJ boutiques "data || '{\"remises_autorisees\":[{\"id\":\"dr1\",\"remise_pct\":50}]}'::jsonb" b1)"
+essai "★ un gérant écrit lui-même un accord : refusé" "REFUSE" "$GERANT" "$(MAJ boutiques "data || '{\"remises_autorisees\":[{\"id\":\"dr1\",\"remise_pct\":15}]}'::jsonb" b1)"
+essai "★ un administrateur SECONDAIRE accorde (« tout admin »)" "PERMIS" "$CALEB" "$(MAJ boutiques "data || '{\"remises_autorisees\":[{\"id\":\"dr1\",\"remise_pct\":15}]}'::jsonb" b1)"
+essai "★ le registre de l'outillage reste gardé (un vendeur n'y écrit pas)" "REFUSE" "$VENDEUR" "$(MAJ boutiques "data || '$COMPTE'::jsonb" b1)"
 echo
 if [ $ko -eq 0 ]; then echo "✅  $ok vérification(s) passée(s), 0 en échec."; exit 0
 else echo "❌  $ok passée(s), $ko en échec."; exit 1; fi

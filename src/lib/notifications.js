@@ -139,6 +139,40 @@ export function infosDepuisDiff(avant, apres) {
     });
   }
 
+  // 1 bis. 🏷 La remise ponctuelle demandée à un administrateur (Timo,
+  // 29/10/2026, « 1 tout admin ») : la demande → tous les administrateurs de
+  // l'espace ; la réponse → celui qui l'a demandée (lib/autorisationRemise.js).
+  if (apres.boutiques !== avant.boutiques) {
+    const avantB = new Map((avant.boutiques || []).map((b) => [b.nom, b]));
+    (apres.boutiques || []).forEach((b) => {
+      const deja = parId((avantB.get(b.nom) || {}).demandes_remise);
+      const formation = !!b.formation;
+      (b.demandes_remise || []).forEach((d) => {
+        const d0 = deja.get(d.id);
+        const remiseLue = d.remise_mode === "montant" ? `${Math.round(Number(d.remise_montant || 0))} F` : `${d.remise_pct} %`;
+        if (!d0 && d.statut === "en_attente") {
+          pousser({
+            destinataires: idsAdmins(apres, formation),
+            titre: `🏷 Remise à autoriser — ${b.nom}`,
+            texte: `${d.par} demande une remise de ${remiseLue} pour ${d.client} : « ${d.motif} ».`,
+            ecran: "ventes", tag: `remise:${d.id}`, formation,
+            cible: { boutique: b.nom, ligne: d.id },
+          });
+        } else if (d0 && d0.statut === "en_attente" && (d.statut === "accordee" || d.statut === "refusee")) {
+          pousser({
+            destinataires: [d.par_id],
+            titre: d.statut === "accordee" ? `✅ Remise accordée — ${d.client}` : `✖ Remise refusée — ${d.client}`,
+            texte: d.statut === "accordee"
+              ? `${d.decide_par} accorde ${remiseLue}. Gardez le même panier et encaissez.`
+              : `${d.decide_par} refuse ${remiseLue} : ${d.motif_refus || "sans motif"}.`,
+            ecran: "ventes", tag: `remise:${d.id}:${d.statut}`, formation,
+            cible: { boutique: b.nom, ligne: d.id },
+          });
+        }
+      });
+    });
+  }
+
   // 2. Une commande d'un commercial, à valider par la boutique (le vendeur
   //    visé s'il y en a un, sinon tous les vendeurs ; le gérant toujours).
   if (apres.commandes !== avant.commandes) {
