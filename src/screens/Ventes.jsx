@@ -34,6 +34,7 @@ import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersem
 import { bonReprise, bonsRepriseDeVente, articlesDuBon, bonRetour, retoursDeVente } from "../lib/bons";
 import { critiqueApporteur, TAUX_APPORTEUR_DEFAUT } from "../lib/apporteurDevis";
 import { stockActuel, domainesDefinis, tauxParrain, apporteursPossibles, boutiquesVente, bloquerSiLecture, normNom, demandesDe, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, boutiqueRetenue, boutiquesDuMemeEspace, marqueEspace, memeNumero , compteClientPour, construireRetour, refuserSaufAdmin, refuserSaufRoles, ROLES_RETOUR_GARANTIE, refuserSaufAdminPrincipal, estAdminPrincipal, remiseExigeAdmin, plafondRemise, critiqueRemises, aRemiseSurArticle, remiseLigneExigeAdmin, MSG_REMISE_EXCLUSIVE, reprendreProforma, ventesDeProforma, remiseDeProformaGardee, critiqueModifProforma, proformaModifiee, auteurDeLaProforma, proformaAuDelaDuPlafond, filtreEspaceAffichage, comptesAvecCeNumero, recetteDesVentes, totalVenteDuJour, totalDesProformas, caisseChantierDe, assurerBoutiqueTerrain, libelleCaisse, afficheChiffresFormation, chantiersDeLEspaceRegarde, utilisateursDeLEspace } from "../lib/calculs";
+import { qteManquante } from "../lib/transfertsStock";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { bandesDeVersement, intercalerBandes, resumeBande } from "../lib/bandesVersement";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -311,7 +312,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // le client doit pouvoir continuer la vente ; c'est SEULEMENT au moment
     // d'encaisser que l'app tranche (vente immédiate si stock dispo, sinon
     // proposition de réservation prépayée — voir encaisserVente()).
-    if (q > dispoRestant(p)) { setMsg(`⚠ Stock insuffisant pour « ${p.nom} » (${dispoRestant(p)} disponible) — ajouté quand même, l'encaissement proposera une réservation si besoin.`); }
+    if (q > dispoRestant(p)) { setMsg(`⚠ Stock insuffisant pour « ${p.nom} » (${dispoRestant(p)} disponible) — ajouté quand même, l'encaissement proposera une réservation, un ravitaillement ou un transfert si besoin.`); }
     else { setMsg(""); }
     const remL = Math.max(0, Number(sel.remF || 0));
     if (remL > q * Number(sel.pu)) { setMsg("La remise de la ligne ne peut pas dépasser son montant."); return; }
@@ -344,7 +345,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     }
     const p = articleParCode(produits, c);
     if (!p) { setMsg(`Aucun article avec le code « ${c} » dans ${boutique}. Assignez les codes dans l'onglet Stocks.`); return; }
-    if (dispoRestant(p) < 1) { setMsg(`⚠ Stock épuisé pour « ${p.nom} » — ajouté quand même, l'encaissement proposera une réservation si besoin.`); }
+    if (dispoRestant(p) < 1) { setMsg(`⚠ Stock épuisé pour « ${p.nom} » — ajouté quand même, l'encaissement proposera une réservation, un ravitaillement ou un transfert si besoin.`); }
     else { setMsg(""); }
     mettreAuPanier(p, 1, p.prix_vente);
   };
@@ -1019,7 +1020,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     }
     let creerCommeReservation = nonLivreCredit;
     if (manquants.length > 0 && !origineDevis) {
+      // ⚠ Timo (30/10/2026) : on ne demande que ce qui MANQUE (8 voulus, 6 en
+      // stock → 2), jamais toute la ligne — sinon l'autre boutique en envoie 8.
+      const manqueDe = (l) => { const p = produits.find((x) => x.id === l.produit_id); return qteManquante(l.qte, p ? stockActuel(db, p) : 0); };
       const noms = manquants.map((l) => `${l.qte}× ${l.article}`).join(", ");
+      const nomsManque = manquants.map((l) => `${manqueDe(l)}× ${l.article}`).join(", ");
       // ⚠ Demande Timo : proposer TROIS chemins distincts, pas deux —
       // (1) le client paie tout de suite, réservation prépayée (2.99.80) ;
       // (2) RAVITAILLEMENT — demande au dépôt (magasin ↔ boutique, mécanisme
@@ -1029,19 +1034,19 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // (Timo y a tenu, après m'avoir corrigé d'avoir mélangé les deux la
       // première fois) : le ravitaillement passe par une file d'attente que
       // SEUL le dépôt peut voir ; le transfert est stocké directement sur la
-      // fiche de la boutique cible, visible d'elle seule (voir Stocks.jsx,
-      // section "🔁 Demandes de transfert reçues", ajoutée pour l'occasion).
+      // fiche de la boutique cible, visible d'elle seule (son 🔁 Transfert,
+      // section "🔁 Demandes de transfert reçues", Ravitaillement.jsx).
       // Dans les deux cas (2) et (3) : le client ne paie rien aujourd'hui,
       // l'encaissement n'a lieu qu'une fois le stock réellement arrivé.
       const choix = await uChoix(
-        `Stock insuffisant pour : ${noms}.\n\nComment voulez-vous procéder ?`,
+        `Stock insuffisant pour : ${noms}.\nIl manque : ${nomsManque}.\n\nComment voulez-vous procéder ?`,
         ["Le client paie maintenant (réservation prépayée)", "Ravitaillement (demander au dépôt)", "Transfert (demander à une autre boutique)", "Annuler"]
       );
       if (choix === "Le client paie maintenant (réservation prépayée)") {
         creerCommeReservation = true;
       } else if (choix === "Ravitaillement (demander au dépôt)") {
-        const lignesDemande = manquants.map((l) => ({ nom: l.article, categorie: "", qte: Number(l.qte) }));
-        if (!await uConfirm(`Envoyer une demande de ravitaillement au dépôt pour : ${noms} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (visible dans l'onglet 🚚 Ravitaillement).`)) return;
+        const lignesDemande = manquants.map((l) => ({ nom: l.article, categorie: "", qte: manqueDe(l) }));
+        if (!await uConfirm(`Envoyer une demande de ravitaillement au dépôt pour ce qui manque : ${nomsManque} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (visible dans l'onglet 🚚 Ravitaillement).`)) return;
         const demandeR = { id: uid(), date: today(), par: profile.nom, lignes: lignesDemande, note: `Demandé depuis Ventes — client ${f.client || "non renseigné"}${f.tel ? ` (${f.tel})` : ""} en attente pour finaliser sa vente.`, statut: "en_attente" };
         save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === boutique ? { ...b, demandes: [...demandesDe(b), demandeR] } : b)) },
           `Demande de ravitaillement de ${boutique} (depuis Ventes, ${lignesDemande.length} article(s)) — pour ${f.client || "client non renseigné"}`);
@@ -1071,8 +1076,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         const choixBoutique = await uChoix(`Demander ce transfert à quelle boutique ?\n\n(stock actuel affiché pour chacune)`, optionsBoutiques);
         if (!choixBoutique) return;
         const dest = autresBoutiques[optionsBoutiques.indexOf(choixBoutique)];
-        const lignesDemande = manquants.map((l) => ({ nom: l.article, categorie: "", qte: Number(l.qte) }));
-        if (!await uConfirm(`Envoyer une demande de transfert à ${dest} pour : ${noms} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (${dest} doit valider depuis son propre écran Stocks).`)) return;
+        const lignesDemande = manquants.map((l) => ({ nom: l.article, categorie: "", qte: manqueDe(l) }));
+        if (!await uConfirm(`Envoyer une demande de transfert à ${dest} pour ce qui manque : ${nomsManque} ?\n\nLe client ne paie rien aujourd'hui — vous encaisserez une fois le stock arrivé (${dest} doit valider dans son onglet 🔁 Transfert).`)) return;
         const demandeT = { id: uid(), type: "transfert", demandeur: boutique, date: today(), par: profile.nom, lignes: lignesDemande, note: `Demandé depuis Ventes par ${boutique} — client ${f.client || "non renseigné"}${f.tel ? ` (${f.tel})` : ""} en attente pour finaliser sa vente.`, statut: "en_attente" };
         save({ ...db, boutiques: db.boutiques.map((b) => (b.nom === dest ? { ...b, demandes: [...demandesDe(b), demandeT] } : b)) },
           `Demande de transfert de ${boutique} vers ${dest} (depuis Ventes, ${lignesDemande.length} article(s)) — pour ${f.client || "client non renseigné"}`);

@@ -150,3 +150,49 @@ export function annulerTransfertStock(db, transfert, profile, date = today()) {
 }
 
 export const libelleLignes = (t) => (t?.lignes || []).map((l) => `${l.qte}× ${l.nom}`).join(", ");
+
+// ============================================================
+// 📨 DEMANDER un article à une autre boutique (Timo, 30/10/2026 : « avoir la
+// possibilité de demander du transfert sans passer toujours par la vente…
+// sur ce bouton, d'abord demande ou envoie »). Même fiche que la demande née
+// de 💰 Ventes (`type: "transfert"`, rangée chez la boutique QUI A le stock,
+// servie dans son 🔁 Transfert par servirDemandeTransfert) — une seule forme,
+// deux portes d'entrée.
+// ============================================================
+export const TYPE_DEMANDE_TRANSFERT = "transfert";
+
+// Ce qui MANQUE réellement (et non toute la ligne) : 8 demandés, 6 en stock
+// → 2. Jamais moins de 1 (une ligne n'est « manquante » que si elle dépasse).
+export const qteManquante = (qteVoulue, dispo) => Math.max(1, Number(qteVoulue || 0) - Math.max(0, Number(dispo || 0)));
+
+export function nouvelleDemandeTransfert({ demandeur, lignes, profile, note = "", date = today() }) {
+  return { id: uid(), type: TYPE_DEMANDE_TRANSFERT, demandeur, date, heure: heureCourte(), par: profile?.nom || "", par_id: profile?.id || "",
+    lignes: (lignes || []).map((l) => ({ nom: l.nom, categorie: l.categorie || "", qte: Number(l.qte) })), note, statut: STATUT_ATTENTE };
+}
+
+export function critiqueDemande({ demandeur, aupres, qte }) {
+  if (!aupres) return "Choisissez la boutique à qui demander.";
+  if (aupres === demandeur) return "On ne se demande pas un transfert à soi-même.";
+  const q = Number(qte);
+  if (!Number.isFinite(q) || q <= 0) return "Quantité invalide.";
+  return "";
+}
+
+export function envoyerDemandeTransfert(db, aupres, demande) {
+  return { ...db, boutiques: (db.boutiques || []).map((b) => (b.nom === aupres ? { ...b, demandes: [...demandesDe(b), demande] } : b)) };
+}
+
+// Les demandes que CETTE boutique a faites et qui attendent encore l'autre.
+export const demandesTransfertEnvoyees = (db, boutique) =>
+  (db.boutiques || []).flatMap((b) => demandesDe(b)
+    .filter((d) => d && d.type === TYPE_DEMANDE_TRANSFERT && d.demandeur === boutique && d.statut === STATUT_ATTENTE)
+    .map((d) => ({ ...d, aupres: b.nom })));
+
+export function annulerDemandeTransfert(db, demande, profile, date = today()) {
+  const chez = boutiqueNommee(db, demande.aupres);
+  const actuelle = demandesDe(chez || {}).find((x) => x.id === demande.id);
+  if (!actuelle) return { erreur: "Demande introuvable." };
+  if (actuelle.statut !== STATUT_ATTENTE) return { erreur: `${demande.aupres} a déjà traité cette demande : elle ne s'annule plus.` };
+  return { db: { ...db, boutiques: majDemande(db, demande.aupres, demande.id, { statut: STATUT_ANNULE, traite_par: profile?.nom || "", date_traitement: date }) },
+    journal: `Demande de transfert annulée : ${libelleLignes(demande)} demandé à ${demande.aupres} par ${demande.demandeur}` };
+}

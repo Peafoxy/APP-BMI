@@ -9876,6 +9876,31 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("★ 🔁 Transfert : « Transferts de stock à valider », Valider la réception / Refuser, rôles du stock revérifiés DANS le geste, historique",
     /data-transferts="a-valider"/.test(rv) && /validerTransfertStock\(db, bq, t, profile\)/.test(rv) && /refuserTransfertStock\(db, bq, t, profile, motif\)/.test(rv)
     && /refuserSaufRoles\(profile, ROLES_STOCK, "Valider un transfert de stock"\)/.test(rv) && /refuserSaufRoles\(profile, ROLES_STOCK, "Refuser un transfert de stock"\)/.test(rv) && /Valider la réception/.test(rv));
+  // 📨 DEMANDER sans vente (Timo, 30/10/2026 : « sur ce bouton, d'abord demande ou envoie »), et la quantité MANQUANTE.
+  test("★ qteManquante : 8 voulus, 6 en stock → 2 (jamais toute la ligne) ; 3 voulus, rien en stock → 3 ; au moins 1",
+    Ts.qteManquante(8, 6) === 2 && Ts.qteManquante(3, 0) === 3 && Ts.qteManquante(3, -2) === 3 && Ts.qteManquante(5, 5) === 1);
+  const dT = Ts.nouvelleDemandeTransfert({ demandeur: "DEMAKPOE", lignes: [{ nom: "Batterie 200Ah", qte: 2 }], profile: gerantD, note: "x", date: "2026-10-30" });
+  const dbD = Ts.envoyerDemandeTransfert(dbT, "APESSITO", dT);
+  const envoyees = Ts.demandesTransfertEnvoyees(dbD, "DEMAKPOE");
+  test("★ la demande DE 📦 Stocks a la MÊME forme que celle de 💰 Ventes (type transfert, demandeur, lignes nom / qte, en_attente), rangée chez la boutique qui a le stock, sans aucun mouvement ; DEMAKPOE la voit dans ses demandes envoyées",
+    dT.type === "transfert" && dT.demandeur === "DEMAKPOE" && dT.statut === "en_attente" && dT.lignes[0].qte === 2 && dbD.ajustements.length === 0
+    && C.demandesDe(dbD.boutiques.find((b) => b.nom === "APESSITO")).some((d) => d.id === dT.id) && envoyees.length === 1 && envoyees[0].aupres === "APESSITO"
+    && Ts.demandesTransfertEnvoyees(dbD, "APESSITO").length === 0);
+  test("critiqueDemande : sans boutique, à soi-même, quantité vide → refus",
+    Ts.critiqueDemande({ demandeur: "A", aupres: "", qte: 1 }) !== "" && Ts.critiqueDemande({ demandeur: "A", aupres: "A", qte: 1 }) !== "" && Ts.critiqueDemande({ demandeur: "A", aupres: "B", qte: "" }) !== "" && Ts.critiqueDemande({ demandeur: "A", aupres: "B", qte: 2 }) === "");
+  const anD = Ts.annulerDemandeTransfert(dbD, envoyees[0], gerantD);
+  const servie = { ...dbD, boutiques: dbD.boutiques.map((b) => b.nom === "APESSITO" ? { ...b, demandes: C.demandesDe(b).map((d) => ({ ...d, statut: "servie" })) } : b) };
+  test("l'annulation retire la demande des envoyées ; une demande déjà servie ne s'annule plus",
+    !anD.erreur && Ts.demandesTransfertEnvoyees(anD.db, "DEMAKPOE").length === 0 && !!Ts.annulerDemandeTransfert(servie, envoyees[0], gerantD).erreur);
+  test("★ 📦 Stocks : ⇄ demande d'abord « Envoyer » ou « Demander » ; Demander passe par envoyerDemandeTransfert, la liste des demandes envoyées est annulable",
+    /\[CHOIX_ENVOYER, CHOIX_DEMANDER\]/.test(st) && /save\(envoyerDemandeTransfert\(db, aupres, demande\)/.test(st) && /demandesTransfertEnvoyees\(db, bq\)/.test(st)
+    && /data-demandes-transfert="envoyees"/.test(st) && /annulerDemandeTransfert\(db, d, profile\)/.test(st) && /refusMouvementEntreEspaces\(db, bq, aupres\)/.test(st));
+  const ve = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★ 💰 Ventes : le transfert ET le ravitaillement ne demandent que ce qui MANQUE (qteManquante), plus toute la ligne ; la confirmation renvoie à 🔁 Transfert, plus à « son propre écran Stocks » ; le message rouge cite les trois chemins",
+    (ve.match(/qte: manqueDe\(l\)/g) || []).length === 2 && !/qte: Number\(l\.qte\) \}\)\);\n\s*if \(!await uConfirm\(`Envoyer une demande de (transfert|ravitaillement)/.test(ve)
+    && !/propre écran Stocks/.test(ve) && /doit valider dans son onglet 🔁 Transfert/.test(ve) && (ve.match(/proposera une réservation, un ravitaillement ou un transfert si besoin/g) || []).length === 2);
+  test("🔁 Transfert : une demande annulée se lit « Annulée par … » dans l'historique, jamais « Refusée »",
+    /d\.statut === "annule"/.test(rv) && /Annulée par \{d\.demandeur\}/.test(rv));
   test("le badge de 🔁 Transfert (gérant) et de 📦 Stocks (admin) comptent les transferts de stock à valider",
     /compterDemandesTransfertRecues\(db, profile\) \+ \(profile\.boutique \? compterTransfertsStockAValider\(db, profile\) : 0\)/.test(appT)
     && /compterDemandesTransfertToutes\(db, profile\) \+ \(profile\.boutique \? 0 : compterTransfertsStockAValider\(db, profile\)\)/.test(appT));

@@ -21,7 +21,7 @@ import { reservations, reserveParProduit, nomChantier, avertissementReserve } fr
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { exportCSV } from "../lib/export";
 import { DemandeRavitaillement, DemandesTransfertRecues } from "./Ravitaillement";
-import { nouveauTransfertStock, critiqueEnvoi, envoyerTransfertStock, transfertsStockEnvoyes, annulerTransfertStock, libelleLignes } from "../lib/transfertsStock";
+import { nouveauTransfertStock, critiqueEnvoi, envoyerTransfertStock, transfertsStockEnvoyes, annulerTransfertStock, libelleLignes, nouvelleDemandeTransfert, critiqueDemande, envoyerDemandeTransfert, demandesTransfertEnvoyees, annulerDemandeTransfert } from "../lib/transfertsStock";
 import { COLONNES_IMPORT, EXEMPLE_IMPORT, MODES_IMPORT, lignesDepuisTexte, enregistrementsDepuisLignes, analyserImport, resumeImport, analyserEntrees, resumeEntrees, appliquerEntrees, lireFichierTableur, telechargerModeleImport } from "../lib/importStock";
 
 // ============ STOCKS ============
@@ -704,8 +704,45 @@ export function Stocks({ db, save, profile, cible = null }) {
     uAlert("Ajustement enregistré !");
   };
 
+  // ⇄ (Timo, 30/10/2026 : « sur ce bouton, d'abord demande ou envoie ») :
+  // ENVOYER = ce qui existait (la boutique qui a le stock pousse, l'autre
+  // valide) ; DEMANDER = cette boutique demande l'article à une autre, comme
+  // depuis 💰 Ventes mais sans vente — l'autre le sert dans son 🔁 Transfert.
+  const CHOIX_ENVOYER = "📤 Envoyer à une autre boutique";
+  const CHOIX_DEMANDER = "📨 Demander à une autre boutique";
   const transferer = async (p) => {
     if (refuserSaufRoles(profile, ROLES_STOCK, "Transférer du stock")) return;
+    const sens = await uChoix(`« ${p.nom} » — ${bq}\n\nVoulez-vous envoyer cet article à une autre boutique, ou le lui demander ?`, [CHOIX_ENVOYER, CHOIX_DEMANDER]);
+    if (!sens) return;
+    if (sens === CHOIX_DEMANDER) { await demanderTransfert(p); return; }
+    await envoyerTransfert(p);
+  };
+
+  const demanderTransfert = async (p) => {
+    if (bloquerSiLecture(db, profile)) return;
+    if (!autres.length) { uAlert("Aucune autre boutique disponible."); return; }
+    const memeArticle = (nomBoutique) => db.produits.find((x) => x.boutique === nomBoutique && normNom(x.nom) === normNom(p.nom));
+    const options = autres.map((n) => { const x = memeArticle(n); return `${n} — en stock : ${x ? stockActuel(db, x) : 0}`; });
+    const choix = await uChoix(`Demander « ${p.nom} » à quelle boutique ?\n\n(stock actuel affiché pour chacune)`, options);
+    if (!choix) return;
+    const aupres = autres[options.indexOf(choix)];
+    const refus = refusMouvementEntreEspaces(db, bq, aupres);
+    if (refus) { uAlert(refus); return; }
+    const s = await uPrompt(`Combien de « ${p.nom} » demandez-vous à ${aupres} ?\n(vous en avez ${stockActuel(db, p)})`);
+    if (s === null || s === "") return;
+    const refusDemande = critiqueDemande({ demandeur: bq, aupres, qte: s });
+    if (refusDemande) { uAlert(refusDemande); return; }
+    const motif = await uPrompt("Motif (facultatif) :", "");
+    if (motif === null) return;
+    const q = Number(s);
+    if (!await uConfirm(`Demander ${q}× ${p.nom} à ${aupres} ?\n\nRien ne bouge tant que ${aupres} n'a pas validé dans son 🔁 Transfert.`)) return;
+    const demande = nouvelleDemandeTransfert({ demandeur: bq, lignes: [{ nom: p.nom, categorie: p.categorie, qte: q }], profile,
+      note: `Demandé depuis 📦 Stocks par ${bq}${motif.trim() ? ` — ${motif.trim()}` : ""}.` });
+    save(envoyerDemandeTransfert(db, aupres, demande), `Demande de transfert : ${q}× « ${p.nom} » demandé à ${aupres} par ${bq}`);
+    uAlert(`✅ Demande envoyée à ${aupres} : ${q}× ${p.nom}.\n\nVous la suivez ici, dans « 📨 Demandes de transfert envoyées ». Le stock arrivera quand ${aupres} l'aura validée.`);
+  };
+
+  const envoyerTransfert = async (p) => {
     const dispo = stockActuel(db, p);
     let dest = autres[0];
     if (autres.length > 1) {
@@ -745,6 +782,15 @@ export function Stocks({ db, save, profile, cible = null }) {
 
   // Les envois de CETTE boutique qui attendent la validation de l'autre.
   const envoisEnAttente = transfertsStockEnvoyes(db, bq);
+  const demandesEnvoyees = demandesTransfertEnvoyees(db, bq);
+  const annulerDemande = async (d) => {
+    if (refuserSaufRoles(profile, ROLES_STOCK, "Annuler une demande de transfert")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    if (!await uConfirm(`Annuler la demande ${libelleLignes(d)} faite à ${d.aupres} ?`)) return;
+    const r = annulerDemandeTransfert(db, d, profile);
+    if (r.erreur) { uAlert(r.erreur); return; }
+    save(r.db, r.journal);
+  };
   const annulerEnvoi = async (t) => {
     if (refuserSaufRoles(profile, ROLES_STOCK, "Annuler un transfert de stock")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -972,6 +1018,21 @@ export function Stocks({ db, save, profile, cible = null }) {
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
                 <span>{libelleLignes(t)} → <b>{t.vers}</b> <span className="text-xs text-slate-400">— {dFR(t.date)}, par {t.par}</span></span>
                 <button onClick={() => annulerEnvoi(t)} className="text-xs text-red-600 underline">Annuler</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {demandesEnvoyees.length > 0 && (
+        <div className="rounded-xl p-4 bg-white border-2 border-purple-200" data-demandes-transfert="envoyees">
+          <div className="font-bold mb-1 text-purple-800">📨 Demandes de transfert envoyées, en attente ({demandesEnvoyees.length})</div>
+          <div className="text-xs text-slate-500 mb-3">L'autre boutique les voit dans son 🔁 Transfert ; le stock arrive quand elle les valide.</div>
+          <ul className="text-sm space-y-2">
+            {demandesEnvoyees.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2">
+                <span>{libelleLignes(d)} ← <b>{d.aupres}</b> <span className="text-xs text-slate-400">— {dFR(d.date)}, par {d.par}</span></span>
+                <BoutonRond icone="✕" teinte="rouge" onClick={() => annulerDemande(d)} titre="Annuler la demande" />
               </li>
             ))}
           </ul>
@@ -1513,7 +1574,7 @@ export function Stocks({ db, save, profile, cible = null }) {
                     <BoutonRond icone="🖨" onClick={() => imprimerEtiquette(p)} titre="🖨 Étiquette" />
                     <BoutonRond icone="➕" teinte="vert" onClick={() => reappro(p)} titre="+ Entrée — ce qui arrive en stock" />
                     <BoutonRond icone="±" onClick={() => ajuster(p)} titre="± Ajuster le stock" />
-                    <BoutonRond icone="⇄" onClick={() => transferer(p)} titre="⇄ Transfert vers une autre boutique" />
+                    <BoutonRond icone="⇄" onClick={() => transferer(p)} titre="⇄ Transfert : envoyer à une autre boutique, ou lui demander" />
                     {profile.role === "admin" && <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(p)} titre="🗑 Supprimer l'article" />}
                   </CelluleActions>
                 </tr>

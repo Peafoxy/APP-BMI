@@ -9414,6 +9414,29 @@ lit mal est pire qu'un banc absent).
   (admin) comptent ces fiches ; notification « pour information » à la
   boutique qui reçoit, puis à l'envoyeur (reçu / refusé). La demande de
   transfert depuis 💰 Ventes (type `transfert`) reste ce qu'elle est.
+- **📨 DEMANDER UN ARTICLE À UNE AUTRE BOUTIQUE, SANS VENTE, ET SEULEMENT CE
+  QUI MANQUE** (30/10/2026, capture Timo — 8 moteurs dans le panier, 6 en
+  stock — puis « oui lance les deux… avoir la possibilité de demander du
+  transfert sans passer toujours par la vente… sur ce bouton, d'abord demande
+  ou envoie »). **⇄ de 📦 Stocks demande d'abord « 📤 Envoyer à une autre
+  boutique » / « 📨 Demander à une autre boutique »** ; envoyer = le transfert
+  de stock du 14/09 inchangé ; demander = LA MÊME fiche que la demande née de
+  💰 Ventes (`type: "transfert"`, rangée chez la boutique sollicitée, servie
+  ou refusée dans SON 🔁 Transfert par `servirDemandeTransfert`) — le stock de
+  chaque boutique affiché, quantité, motif facultatif, le mur
+  (`refusMouvementEntreEspaces`). Chez qui demande : « 📨 Demandes de
+  transfert envoyées, en attente » (`data-demandes-transfert="envoyees"`,
+  ✕ annule tant que l'autre n'a pas répondu ; « ↩ Annulée par … » dans son
+  historique). Règles pures `nouvelleDemandeTransfert`, `critiqueDemande`,
+  `envoyerDemandeTransfert`, `demandesTransfertEnvoyees`,
+  `annulerDemandeTransfert`, `qteManquante` (lib/transfertsStock.js).
+  **💰 Ventes ne demande plus toute la ligne** : transfert ET ravitaillement
+  portent `qteManquante` (8 voulus, 6 en stock → 2 ; avant, l'autre boutique
+  en aurait envoyé 8) ; la question dit « Il manque : 2× … ». Deux phrases
+  fausses corrigées : la confirmation renvoyait à « son propre écran Stocks »
+  (c'est 🔁 Transfert), et le message rouge du panier ne citait que la
+  réservation. Rien à coller (`demandes` est libre, securite-8). Banc (+7),
+  éprouvé (la ligne entière remise : il tombe). Chapitres 5, 8, 9 à jour.
 - **⚠ À réapprovisionner** (10/09/2026, « comment avoir la liste de tous les
   articles à approvisionner ? ») : un encadré dans 📦 Stocks, pour la
   boutique ou le magasin regardé, avec **TOUS** les articles au seuil ou en

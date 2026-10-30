@@ -326,6 +326,8 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
                 {d.demandeur} (demandé par {d.par}) — {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")} —{" "}
                 {d.statut === "servie"
                   ? <span className="text-green-700 font-semibold">✅ Servie par {d.traite_par}</span>
+                  : d.statut === "annule"
+                  ? <span className="text-slate-500 font-semibold">↩ Annulée par {d.demandeur}</span>
                   : <span className="text-red-600 font-semibold">❌ Refusée par {d.traite_par}{d.motif ? ` (${d.motif})` : ""}</span>}
               </li>
             ))}
