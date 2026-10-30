@@ -70,7 +70,7 @@ export const CHAPITRE = {
       ["ul", [
         "**« 🟢 En ligne »** ou **« 🔌 Hors ligne »** : l'état du réseau, avec le nombre d'opérations qui attendent d'être envoyées (« 3 à envoyer »).",
         "**La boutique** affichée en haut de chaque écran : l'application se souvient de la boutique choisie **écran par écran**. Vérifiez-la avant d'agir.",
-        "**« 🔍 Rechercher… »** cherche un client, une vente, un article (avec son prix et son stock, rangés par boutique : la vôtre d'abord, puis les autres par ordre alphabétique, 6 au plus par boutique), un devis, un prospect, en tapant quelques lettres dans n'importe quel ordre.",
+        "**« 🔍 Rechercher… »** cherche un client, une vente, un article (avec son prix et son stock, rangés par boutique : la vôtre d'abord, puis les autres par ordre alphabétique, 6 au plus par boutique ; si vous avez une boutique, sous chaque article « 📍 Ailleurs : BMI APESSITO : 5 » donne le stock des autres boutiques de votre espace, et « 📍 Dans les autres boutiques seulement » liste ce que vous n'avez pas du tout — des quantités, jamais un prix), un devis, un prospect, en tapant quelques lettres dans n'importe quel ordre.",
       ]],
       ["h3", "D. Ranger ses onglets dans son ordre"],
       ["p", "On **tient** un onglet une demi-seconde sans bouger : il vibre et se soulève. On le glisse à la place voulue, on relâche. L'ordre est le vôtre seul, il vous suit sur tous vos appareils. Un doigt qui part tout de suite fait défiler comme d'habitude ; un clic reste un clic."],

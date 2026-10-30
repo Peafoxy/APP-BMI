@@ -9437,6 +9437,16 @@ lit mal est pire qu'un banc absent).
   (c'est 🔁 Transfert), et le message rouge du panier ne citait que la
   réservation. Rien à coller (`demandes` est libre, securite-8). Banc (+7),
   éprouvé (la ligne entière remise : il tombe). Chapitres 5, 8, 9 à jour.
+  **📍 Et la loupe le dit avant** (« et comment un gérant saura qu'il y a du
+  stock à APESSITO ? » → « a ») : pour un compte QUI A une boutique, la
+  recherche générale écrit sous chacun de ses articles « 📍 Ailleurs : BMI
+  APESSITO : 5 » (`data-stock-ailleurs`) et un bloc « 📍 Dans les autres
+  boutiques seulement » (`data-seulement-ailleurs`) pour ce qu'il n'a pas du
+  tout — `stockAilleurs` (RechercheGlobale.jsx). **Des quantités seulement**
+  (jamais un prix), boutiques de l'espace regardé (`boutiquesVisibles`), jamais
+  TERRAIN ; ses groupes de prix restent sa boutique seule. L'administrateur
+  (sans boutique) n'a rien de plus. Banc (+4, rendu), éprouvé (mur retiré).
+  Chapitres 1 et 9.
 - **⚠ À réapprovisionner** (10/09/2026, « comment avoir la liste de tous les
   articles à approvisionner ? ») : un encadré dans 📦 Stocks, pour la
   boutique ou le magasin regardé, avec **TOUS** les articles au seuil ou en

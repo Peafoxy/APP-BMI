@@ -62,6 +62,14 @@ export function rechercherGlobalement(db, profile, texte) {
     maBoutique,
   );
   const produits = produitsParBoutique.flatMap((g) => g.items);
+  // 📍 Le stock des AUTRES boutiques, pour qui a une boutique (Timo, 30/10/2026 :
+  // « comment un gérant saura qu'il y a du stock à APESSITO pour faire une
+  // demande ? » → « a ») : des QUANTITÉS seulement, jamais un prix ni une
+  // vente, et seulement dans l'espace regardé (boutiquesEspace).
+  const { ailleurs, seulementAilleurs } = maBoutique
+    ? stockAilleurs(db, (db.produits || []).filter((p) => correspond(`${p.nom} ${p.code || ""}`, q)), maBoutique,
+        (db.boutiques || []).filter((b) => boutiquesEspace.has(b.nom) && !b.terrain && b.nom !== maBoutique).map((b) => b.nom))
+    : { ailleurs: new Map(), seulementAilleurs: [] };
 
   const devis = db.users
     .filter((u) => u.role === "client")
@@ -86,9 +94,34 @@ export function rechercherGlobalement(db, profile, texte) {
     .filter((p) => correspond(`${p.nom} ${p.tel || ""}`, q))
     .slice(0, 6);
 
-  const total = clients.length + ventes.length + produits.length + devis.length + prospects.length + proformas.length;
-  return { clients, ventes, produits, produitsParBoutique, devis, prospects, proformas, total };
+  const total = clients.length + ventes.length + produits.length + seulementAilleurs.length + devis.length + prospects.length + proformas.length;
+  return { clients, ventes, produits, produitsParBoutique, ailleurs, seulementAilleurs, devis, prospects, proformas, total };
 }
+
+// Les articles trouvés (`trouves`, déjà cherchés) dans les boutiques `autres`.
+// → ailleurs : Map(nom normalisé d'un article de MA boutique → [{ boutique, stock }])
+// → seulementAilleurs : les articles qu'on n'a pas du tout chez soi, [{ nom, lieux }]
+export function stockAilleurs(db, trouves, maBoutique, autres) {
+  const autresSet = new Set(autres || []);
+  const lieux = new Map();
+  const chezMoi = new Set();
+  const nomDe = new Map();
+  (trouves || []).forEach((p) => {
+    const k = normNom(p.nom);
+    if (p.boutique === maBoutique) { chezMoi.add(k); return; }
+    if (!autresSet.has(p.boutique)) return;
+    if (!lieux.has(k)) lieux.set(k, []);
+    if (!nomDe.has(k)) nomDe.set(k, p.nom);
+    lieux.get(k).push({ boutique: p.boutique, stock: stockActuel(db, p) });
+  });
+  const trier = (l) => [...l].sort((a, b) => comparerFr(a.boutique, b.boutique));
+  const ailleurs = new Map([...lieux].filter(([k]) => chezMoi.has(k)).map(([k, l]) => [k, trier(l)]));
+  const seulementAilleurs = [...lieux].filter(([k]) => !chezMoi.has(k))
+    .map(([k, l]) => ({ nom: nomDe.get(k), lieux: trier(l) }))
+    .sort((a, b) => comparerFr(a.nom, b.nom)).slice(0, PRODUITS_PAR_BOUTIQUE);
+  return { ailleurs, seulementAilleurs };
+}
+const texteLieux = (lieux) => lieux.map((l) => `${l.boutique} : ${l.stock}`).join(" · ");
 
 export const PRODUITS_PAR_BOUTIQUE = 6;
 const comparerFr = (a, b) => String(a || "").localeCompare(String(b || ""), "fr", { numeric: true, sensitivity: "base" });
@@ -178,13 +211,31 @@ export function RechercheGlobale({ db, profile, onFermer, onNaviguer, texteIniti
                           <button key={p.id || i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100 flex items-center justify-between gap-2">
                             {/* Le prix et le stock accompagnent l'article (Timo, 08/09/2026 :
                                 « le prix n'est pas accompagné »). */}
-                            <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span></span>
+                            <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span>
+                              {resultats.ailleurs.get(normNom(p.nom))?.length > 0 && (
+                                <span className="block text-xs text-slate-500" data-stock-ailleurs>📍 Ailleurs : {texteLieux(resultats.ailleurs.get(normNom(p.nom)))}</span>
+                              )}
+                            </span>
                             <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(p.prix_vente)}</span>
                           </button>
                         ))}
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {resultats.seulementAilleurs.length > 0 && (
+                <div className="mb-3" data-seulement-ailleurs>
+                  <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">📍 Dans les autres boutiques seulement</div>
+                  <div className="space-y-1">
+                    {resultats.seulementAilleurs.map((a, i) => (
+                      <button key={i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100">
+                        <span className="text-sm"><span className="font-semibold">{a.nom}</span>
+                          <span className="block text-xs text-slate-500">{texteLieux(a.lieux)}</span></span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-xs text-slate-400 px-1 mt-1">Pour en obtenir : 📦 Stocks → ⇄ → « 📨 Demander à une autre boutique », ou depuis une vente.</div>
                 </div>
               )}
               <Categorie titre="📋 Devis" tab="tous_devis" items={resultats.devis} rendu={(d) => (

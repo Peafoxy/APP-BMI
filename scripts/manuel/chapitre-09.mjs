@@ -120,6 +120,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "G. Demander un article à une autre boutique, sans vente"],
       ["etapes", [
+        { titre: "Savoir où il y en a", texte: "La loupe 🔍 : tapez le nom de l'article. Sous votre article, « 📍 Ailleurs : BMI APESSITO : 5 » ; un article que votre boutique n'a pas du tout se lit dans « 📍 Dans les autres boutiques seulement ». Des quantités seulement, et seulement dans votre espace." },
         { titre: "« ⇄ Transfert » → « 📨 Demander à une autre boutique »", texte: "Dans 📦 Stocks, sur la ligne de l'article (magasinier, gérant, administrateur). « Demander « X » à quelle boutique ? (stock actuel affiché pour chacune) » — par ex. « BMI APESSITO — en stock : 5 ». Puis la quantité, un motif facultatif, et la confirmation : « Rien ne bouge tant que … n'a pas validé dans son 🔁 Transfert. »" },
         { titre: "Ce que la demande écrit", texte: "La même fiche que la demande née d'une vente, chez la boutique sollicitée : elle la voit dans « 🔁 Demandes de transfert reçues », avec la note « Demandé depuis 📦 Stocks par BOUTIQUE — motif », et la sert ou la refuse comme en F. **Le stock ne bouge qu'à son « ✅ Valider »**." },
         { titre: "Suivre et annuler", texte: "Chez celui qui demande : « 📨 Demandes de transfert envoyées, en attente (N) », avec un bouton ✕ pour annuler tant que l'autre n'a pas répondu (« … a déjà traité cette demande : elle ne s'annule plus. »). L'historique de l'autre boutique écrit « ↩ Annulée par … »." },

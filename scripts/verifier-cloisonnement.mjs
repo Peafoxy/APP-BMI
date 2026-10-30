@@ -15744,6 +15744,36 @@ titre("🔍 LA RECHERCHE GÉNÉRALE RANGE LES ARTICLES PAR BOUTIQUE (16/10/2026,
     /data-produits-par-boutique/.test(hG) && ordreRendu(hG) === "BMI DEMAKPOE" && ordreRendu(hA) === "BMI AGOE|BMI APESSITO|BMI DEMAKPOE", `${ordreRendu(hG)} / ${ordreRendu(hA)}`);
 }
 
+titre("📍 LA LOUPE MONTRE LE STOCK DES AUTRES BOUTIQUES À QUI A UNE BOUTIQUE (Timo, 30/10/2026, « a »)");
+{
+  const sortieRa = join("node_modules", ".cache", `bmi-rendu-recherche-ail-${process.pid}.mjs`);
+  let RRa = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-recherche.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRa, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RRa = await import(pathToFileURL(sortieRa).href);
+  } catch {}
+  try { unlinkSync(sortieRa); } catch {}
+  const art = (id, nom, boutique, initial) => ({ id, nom, boutique, prix_vente: 280000, prix_achat: 190000, initial, entrees: 0 });
+  const produits = [art("m1", "Moteur sectionnelle", "BMI DEMAKPOE", 6), art("m2", "Moteur sectionnelle", "BMI APESSITO", 5),
+    art("m3", "Moteur battant", "BMI APESSITO", 3), art("m4", "Moteur sectionnelle", "APESSITO (formation)", 40), art("m5", "Moteur battant", "TERRAIN", 9)];
+  const db = { users: [], ventes: [], proformas: [], prospects: [], ajustements: [], entrees: [],
+    boutiques: [{ nom: "BMI DEMAKPOE", type: "vente" }, { nom: "BMI APESSITO", type: "vente" }, { nom: "APESSITO (formation)", type: "vente", formation: true }, { nom: "TERRAIN", terrain: true }], produits };
+  const ang = { id: "g1", nom: "ANGELE", role: "gerant", boutique: "BMI DEMAKPOE" };
+  const r = RRa?.rechercherGlobalement ? RRa.rechercherGlobalement(db, ang, "moteur") : null;
+  const h = (() => { try { return String(RRa?.rendreRecherche(db, ang, "moteur") || ""); } catch (e) { return "ERREUR " + e.message; } })();
+  test("★★ le gérant de DEMAKPOE lit sous SON article « 📍 Ailleurs : BMI APESSITO : 5 » — jamais la boutique de formation (40), jamais TERRAIN",
+    /data-stock-ailleurs[^>]*>📍 Ailleurs : BMI APESSITO : 5</.test(h) && !/formation\) : 40/.test(h) && !/TERRAIN : 9/.test(h), h.slice(0, 0));
+  test("★★ un article qu'il n'a pas du tout chez lui se lit dans « 📍 Dans les autres boutiques seulement » (Moteur battant — BMI APESSITO : 3), avec le chemin pour le demander",
+    /data-seulement-ailleurs/.test(h) && /Moteur battant/.test(h) && /BMI APESSITO : 3/.test(h) && /Demander à une autre boutique/.test(h));
+  test("★ des QUANTITÉS seulement : le bloc des autres boutiques n'écrit ni prix de vente ni prix d'achat ; ses groupes de prix restent sa boutique seule",
+    r && r.seulementAilleurs.every((a) => a.lieux.every((l) => Object.keys(l).join() === "boutique,stock")) && !/190\s?000/.test(h)
+    && [...h.matchAll(/data-groupe-boutique="([^"]+)"/g)].map((m) => m[1]).join("|") === "BMI DEMAKPOE");
+  const rA = RRa?.rechercherGlobalement ? RRa.rechercherGlobalement(db, { id: "a1", nom: "TIMO", role: "admin" }, "moteur") : null;
+  test("l'administrateur (sans boutique) voit déjà toutes les boutiques : pas de bloc « Ailleurs » en plus",
+    rA && rA.seulementAilleurs.length === 0 && rA.ailleurs.size === 0);
+}
+
 titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, lance »)");
 {
   const ui = readFileSync("src/components/ui.jsx", "utf8");
