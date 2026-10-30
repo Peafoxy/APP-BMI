@@ -10127,6 +10127,18 @@ lit mal est pire qu'un banc absent).
   `verifier-cloisonnement` (+2, éprouvé), Chromium `verifier-ecran-achat-chantier`
   (RETOURNÉ : la carte d'avant joue la remise commune réglée à 10 %).
   Chapitres 2, 3, 5, 23. **Collé par Timo le 29/10/2026 (`true | true | true`).**
+- **🖼 LES PHOTOS DE FOND DE LA CARTE** (30/10/2026, deux images de Timo : « cette
+  image pour en faire le fond de la carte sur le verso » ; « celle-ci en recto mais
+  la flouter un peu légèrement pour une meilleure visibilité des informations ») :
+  `public/carte-fidelite-recto.jpg` (FLOUTÉE dans le fichier, voilée de blanc par un
+  dégradé CSS plus clair à gauche où sont le nom et la remise) et
+  `public/carte-fidelite-verso.jpg` (logo, devise et activités dans la partie
+  BLANCHE, à droite de la vague) — `FOND_CARTE_RECTO` / `FOND_CARTE_VERSO`
+  (impression.js), ~50 et ~80 Ko. ⚠ Le code-barres garde son cadre BLANC plein (il
+  doit se scanner). Le dégradé bleu du recto est RETIRÉ. Pour changer une photo : un
+  NOUVEAU fichier JPEG d'environ 1000 px de large, sous le même nom. Rien à coller.
+  Banc (le contrôle de la carte imprimée RETOURNÉ : les deux photos, le cadre blanc,
+  les fichiers < 150 Ko). Chapitre 3 à jour.
 
 ---
 

@@ -7353,11 +7353,16 @@ titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code b
     const ok = Imp.imprimerCarteFidelite({ ...s1, prenom: "Kossi" });
     const c = globalThis.__carte || { h: "", t: "", f: "" };
     // RETOURNÉ le 29/10/2026 : plus de pourcentage, numéro masqué, un VERSO.
-    test("★★ la carte IMPRIMÉE : format carte bancaire (85,6 × 54 mm), CARTE DE FIDÉLITÉ, le nom et le prénom, « Remise sur vos achats » SANS pourcentage, le code-barres (SVG) avec sa zone de silence, le numéro MASQUÉ en clair (jamais entier hors du code-barres), le fond plus bleu vers la droite, et un VERSO (logo, activités)",
+    // RETOURNÉ le 30/10/2026 : les photos de Timo en fond (recto floutée et
+    // voilée de blanc, verso derrière la vague) ; le code-barres garde son cadre blanc.
+    test("★★ la carte IMPRIMÉE : format carte bancaire (85,6 × 54 mm), CARTE DE FIDÉLITÉ, le nom et le prénom, « Remise sur vos achats » SANS pourcentage, le code-barres (SVG) avec sa zone de silence sur fond BLANC, le numéro MASQUÉ en clair (jamais entier hors du code-barres), la photo floutée en fond du recto (voilée de blanc), la photo du verso derrière le logo et les activités",
       ok === true && /size: 85\.6mm 54mm/.test(c.f) && /CARTE DE FIDÉLITÉ/.test(c.h) && /SENA Kossi/.test(c.h)
       && /Remise sur vos achats/.test(c.h) && !/%/.test(c.h.replace(/\d+%/g, "")) && !/12,5/.test(c.h)
       && /<svg/.test(c.h) && /padding:1\.5mm 3mm 0\.8mm/.test(c.h) && /FID-••••01/.test(c.h) && !/>FID-000001</.test(c.h)
-      && /linear-gradient\(90deg,#ffffff/.test(c.h) && /break-before:page/.test(c.h) && /Énergie solaire/.test(c.h) && /Domotique/.test(c.h)
+      && /rgba\(255,255,255,0\.88\)[^"]*url\('\/carte-fidelite-recto\.jpg'\)/.test(c.h) && /url\('\/carte-fidelite-verso\.jpg'\)/.test(c.h)
+      && /0\.8mm;background:#ffffff;border-radius/.test(c.h)
+      && ["public/carte-fidelite-recto.jpg", "public/carte-fidelite-verso.jpg"].every((f) => existsSync(f) && statSync(f).size < 150000)
+      && /break-before:page/.test(c.h) && /Énergie solaire/.test(c.h) && /Domotique/.test(c.h)
       && (c.h.match(/<img src=/g) || []).length === 2
       && /Carte de fidélité - SENA Kossi - FID-000001/.test(c.t)
       && Imp.imprimerCarteFidelite(sena) === false);

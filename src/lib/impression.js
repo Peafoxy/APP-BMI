@@ -1357,6 +1357,9 @@ export function imprimerEtiquetteProduit(p) {
 // l'administrateur PRINCIPAL seul (le geste le revérifie) ; le vendeur la REMET.
 // Les activités de BMI dessinées au VERSO de la carte (Timo, 29/10/2026 :
 // « le verso aussi avoir une représentation de nos activités et le logo BMI »).
+// Les deux photos de fond de la carte (public/, servies à la racine du site).
+export const FOND_CARTE_RECTO = "/carte-fidelite-recto.jpg";
+export const FOND_CARTE_VERSO = "/carte-fidelite-verso.jpg";
 export const ACTIVITES_CARTE = [
   ["☀️", "Énergie solaire"],
   ["🚪", "Portails et garages motorisés"],
@@ -1376,11 +1379,14 @@ export function imprimerCarteFidelite(compte) {
   const nom = [compte.nom_base || compte.nom, compte.prenom].filter(Boolean).join(" ");
   const cadre = "width:85.6mm;height:54mm;padding:3mm 3.5mm;border:0.3mm solid #1e3a8a;border-radius:3mm;font-family:Arial,sans-serif;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;-webkit-print-color-adjust:exact;print-color-adjust:exact";
   const formation = compte.formation ? `<div style="font-size:7px;font-weight:700;color:#7c3aed">FORMATION — carte d'entraînement, sans valeur</div>` : "";
-  // RECTO : le fond devient plus bleu vers la droite (« flou plus bleu vers la
-  // droite »). La remise ne dit PAS son pourcentage : il peut changer à tout
+  // RECTO : la photo de Timo (maison solaire, porte de garage), FLOUTÉE dans le
+  // fichier et voilée de blanc pour que le nom se lise (30/10/2026 : « la
+  // flouter un peu légèrement pour permettre une meilleure visibilité des
+  // informations »). Le code-barres garde son cadre BLANC plein : il doit se
+  // scanner. La remise ne dit PAS son pourcentage : il peut changer à tout
   // moment (« pas bien de le mentionner sur la carte »).
   const recto = `
-    <div style="${cadre};gap:1.2mm;background:linear-gradient(90deg,#ffffff 0%,#eff6ff 35%,#bfdbfe 75%,#93c5fd 100%)">
+    <div style="${cadre};gap:1.2mm;background:linear-gradient(90deg,rgba(255,255,255,0.88) 0%,rgba(255,255,255,0.72) 45%,rgba(255,255,255,0.45) 100%),url('${FOND_CARTE_RECTO}') center/cover no-repeat,#ffffff">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:2mm">
         <img src="${LOGO}" style="height:9mm;object-fit:contain" />
         <div style="text-align:right;line-height:1.1">
@@ -1395,16 +1401,20 @@ export function imprimerCarteFidelite(compte) {
         <div style="font-family:monospace;font-size:10px;letter-spacing:1px;text-align:center;color:#0f172a">${esc(numeroMasque(carte.numero))}</div>
       </div>
     </div>`;
-  // VERSO : le logo de BMI et ses activités.
+  // VERSO : la photo de Timo en fond (30/10/2026 : « cette image pour en faire
+  // le fond de la carte sur le verso ») ; le logo, la devise et les activités
+  // dans sa partie BLANCHE, à droite de la vague.
   const verso = `
-    <div style="${cadre};gap:1.5mm;align-items:center;background:linear-gradient(90deg,#eff6ff 0%,#bfdbfe 60%,#93c5fd 100%)">
-      <img src="${LOGO}" style="height:13mm;object-fit:contain" />
-      <div style="font-size:8px;font-weight:800;letter-spacing:0.6px;color:#1e3a8a">LES BÂTIMENTS MODERNES ET INTELLIGENTS</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8mm 3mm;width:100%;margin-top:0.5mm">
-        ${ACTIVITES_CARTE.map(([ic, t]) => `<div style="font-size:8.5px;color:#0f172a;white-space:nowrap"><span style="font-size:10px">${ic}</span> ${esc(t)}</div>`).join("")}
+    <div style="${cadre};padding:0;background:url('${FOND_CARTE_VERSO}') center/cover no-repeat,#ffffff">
+      <div style="margin-left:50%;height:100%;padding:2.5mm 3mm 2.5mm 2mm;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:1mm">
+        <img src="${LOGO}" style="height:10mm;object-fit:contain" />
+        <div style="font-size:6.5px;font-weight:800;letter-spacing:0.3px;color:#1e3a8a;text-align:center;line-height:1.15">LES BÂTIMENTS MODERNES ET INTELLIGENTS</div>
+        <div style="display:flex;flex-direction:column;gap:0.5mm;width:100%;margin-top:0.5mm">
+          ${ACTIVITES_CARTE.map(([ic, t]) => `<div style="font-size:7px;color:#0f172a;line-height:1.15"><span style="font-size:8px">${ic}</span> ${esc(t)}</div>`).join("")}
+        </div>
+        ${formation}
+        <div style="margin-top:auto;font-size:6.5px;color:#1e3a8a;text-align:center;line-height:1.2">www.bmitogo.com<br/>Présentez cette carte à chaque achat</div>
       </div>
-      ${formation}
-      <div style="margin-top:auto;font-size:7.5px;color:#1e3a8a;text-align:center">www.bmitogo.com · Présentez cette carte à chaque achat</div>
     </div>`;
   const html = `${recto}<div class="saut-page" style="break-before:page;page-break-before:always"></div>${verso}`;
   if (printApi) printApi.open(html, nomDocument("Carte de fidélité", { client: nom, numero: carte.numero }), "size: 85.6mm 54mm; margin: 0;");
