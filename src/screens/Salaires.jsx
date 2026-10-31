@@ -642,7 +642,7 @@ export function Salaire({ db, save, profile }) {
                   </div>
                 </div>
                 <button onClick={() => accepterVirement(v)} className="px-4 py-2 rounded-lg bg-green-700 text-white text-sm font-bold hover:bg-green-800">
-                  ✅ J'ai bien reçu ce montant
+                  ✅ Confirmer la réception
                 </button>
               </div>
             ))}

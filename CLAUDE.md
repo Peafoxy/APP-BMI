@@ -8360,6 +8360,7 @@ lit mal est pire qu'un banc absent).
   (`verifier-whatsapp`, 15), éprouvé (fenêtre retirée, marque ignorée) ; cinq
   contrôles RETOURNÉS (58 modèles, modèles à ligne, 18 privés, le bilan de la
   tournée ; la lecture de la paie dans `verifier-cloisonnement`). Chapitre 18.
+- **Le bouton de l'employé s'appelle « ✅ Confirmer la réception »** (31/10/2026, « a, renomme le bouton » — avant : « J'ai bien reçu ce montant ») : les mêmes mots que le texte du modèle WhatsApp.
 
 ### 📅 LE PREMIER MOIS DE PAIE SUIVI (04/10/2026, « lance la première voie »)
 - Capture Timo (bulletin d'avril 2026 d'ANGELE : « Reste à percevoir

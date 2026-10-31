@@ -124,7 +124,7 @@ export const CHAPITRE = {
       ["h3", "E. L'employé confirme qu'il a reçu son argent"],
       ["etapes", [
         { titre: "Le cadre 💸 Salaire payé par l'administration", texte: "En haut de 💵 Mon salaire : montant, mois, moyen, date d'envoi, qui l'a envoyé. « Vérifiez que l'argent est bien arrivé, puis confirmez la réception. »" },
-        { titre: "Confirmer", texte: "Une question : « Confirmez-vous avoir bien reçu … ? ». La confirmation est enregistrée et **visible par l'administration** : dans 💵 Salaires, le statut passe de ⏳ À confirmer à ✅ Payé & confirmé." },
+        { titre: "✅ Confirmer la réception", texte: "Le bouton vert **✅ Confirmer la réception** (les mêmes mots que le message WhatsApp de relance). Une question : « Confirmez-vous avoir bien reçu … ? ». La confirmation est enregistrée et **visible par l'administration** : dans 💵 Salaires, le statut passe de ⏳ À confirmer à ✅ Payé & confirmé." },
       ]],
       ["h3", "E bis. Relancer un employé qui n'a pas confirmé"],
       ["etapes", [
