@@ -13,7 +13,7 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiBon, envoiVirementSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, envoiFondsRemis, envoiRemiseApresVente, situationRemiseApresVente, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
+import { envoiBon, envoiVirementSalaire, envoiRappelConfirmationSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, envoiFondsRemis, envoiRemiseApresVente, situationRemiseApresVente, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
 import { remisParDe } from "./payeDirectement";
 import { attestationDe, momentFermeture, nomDocument } from "./attestationSortie";
 import { suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "./validationDepenses";
@@ -56,6 +56,15 @@ export function texteLignePrivee(m, db) {
     const v = (u?.virements || []).find((x) => x.id === m.virement_id);
     if (!u || !v) return "";
     const e = envoiVirementSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, moyen: v.moyen, reference: v.ref || numeroBulletin(v.mois, u.id), initiateur: { role: v.par, tel: " " }, retenue: m.wa_modele === "virement_salaire_credit" ? v.retenue_credit : 0, resteCredit: v.reste_credit, fmt, dFR });
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // ⏳ La relance de confirmation d'un salaire (31/10/2026) : recomposée
+  // depuis le virement de la fiche.
+  if (m.wa_modele === "rappel_confirmation_salaire") {
+    const u = (db?.users || []).find((x) => x.id === m.salaire_user_id);
+    const v = (u?.virements || []).find((x) => x.id === m.virement_id);
+    if (!u || !v) return "";
+    const e = envoiRappelConfirmationSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, fmt, dFR });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   // 📈 L'avis d'avancement : recomposé depuis l'évolution de salaire de la fiche.

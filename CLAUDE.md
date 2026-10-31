@@ -8329,6 +8329,37 @@ lit mal est pire qu'un banc absent).
     ils gardent `choisirBoutiqueDebitG`. Rien à coller. Banc (8 contrôles),
     éprouvé en remettant trois fautes : chacune tombe.
 
+### ⏳ LA RELANCE DE CONFIRMATION D'UN SALAIRE (31/10/2026, « a et b »)
+- Timo : « Relance de confirmation salaire ». Un salaire payé restait
+  « ⏳ à confirmer » pour toujours si l'employé n'ouvrait pas l'application.
+  Règle pure **`lib/relanceSalaire.js`** (lisible par le serveur), modèle
+  **`rappel_confirmation_salaire`** (UTILITY, 4 trous : employé, montant, mois
+  en lettres, date — `TEXTE_RAPPEL_CONFIRMATION_SALAIRE`, texte PROPOSÉ : s'il
+  le crée autrement chez YCloud, recopier le sien), ligne PRIVÉE dans
+  📲 WhatsApp (recomposée depuis le virement, `texteLignePrivee`).
+- **« a »** : 💵 Salaires → ligne dépliée → Paiements : bouton rond **📲** sur
+  un paiement « ⏳ à confirmer » (`relancerConfirmation`, administrateur, fiche
+  FRAÎCHE, une question, le mur = le compte de l'employé ; repli = le texte du
+  modèle sur l'appareil) ; la trace `relances_main` sur le virement, seulement
+  si parti du numéro BMI.
+- **« b »** : la tournée de 7 h (`relancerLesConfirmationsSalaire`,
+  api/rappels-du-matin.js), **du 3e au 10e jour** après le paiement
+  (`JOURS_AVANT_RELANCE_SALAIRE` / `JOURS_FENETRE_RELANCE_SALAIRE` — sans la
+  fenêtre, le premier matin aurait relancé tous les vieux paiements), **une
+  fois** : notification à l'employé (écran `salaire`) et le WhatsApp ; la
+  marque `relance_auto = { le, notif_le, whatsapp_le }` posée sur la fiche de
+  PAIE RELUE (seul ce virement change), la ligne du fil en filet ; un WhatsApp
+  refusé se retente le lendemain (sans seconde notification). Jamais un compte
+  de formation, client, inactif ou bloqué. Sous le paiement : « 📲 relancé
+  automatiquement le … · relancé le … par … » (`phraseRelances`).
+- ⚠ Le serveur écrit la table `paie` avec sa clé : `interdire_escalade_paie`
+  (paie-4) le laisse passer (rien d'ajouté ni de fixé par l'administrateur ne
+  change) — déduit du script, non éprouvé sur la vraie base. Rien à coller.
+  **À créer par Timo chez YCloud** (utility, fr). ~4 F. Banc 81
+  (`verifier-whatsapp`, 15), éprouvé (fenêtre retirée, marque ignorée) ; cinq
+  contrôles RETOURNÉS (58 modèles, modèles à ligne, 18 privés, le bilan de la
+  tournée ; la lecture de la paie dans `verifier-cloisonnement`). Chapitre 18.
+
 ### 📅 LE PREMIER MOIS DE PAIE SUIVI (04/10/2026, « lance la première voie »)
 - Capture Timo (bulletin d'avril 2026 d'ANGELE : « Reste à percevoir
   60 000 F, aucun versement ») : les mois d'AVANT le suivi dans

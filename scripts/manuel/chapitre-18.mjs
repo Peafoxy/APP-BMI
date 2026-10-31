@@ -126,6 +126,12 @@ export const CHAPITRE = {
         { titre: "Le cadre 💸 Salaire payé par l'administration", texte: "En haut de 💵 Mon salaire : montant, mois, moyen, date d'envoi, qui l'a envoyé. « Vérifiez que l'argent est bien arrivé, puis confirmez la réception. »" },
         { titre: "Confirmer", texte: "Une question : « Confirmez-vous avoir bien reçu … ? ». La confirmation est enregistrée et **visible par l'administration** : dans 💵 Salaires, le statut passe de ⏳ À confirmer à ✅ Payé & confirmé." },
       ]],
+      ["h3", "E bis. Relancer un employé qui n'a pas confirmé"],
+      ["etapes", [
+        { titre: "📲 Relancer (administrateur)", texte: "💵 Salaires → un clic sur la ligne de l'employé → **Paiements** : sous un paiement « ⏳ à confirmer », le bouton rond **📲**. Une question nomme l'employé, son numéro, le mois, le montant et la date ; puis un WhatsApp part du numéro BMI : « Rappel : BMI TOGO vous a payé … pour votre salaire de …, le …. Merci de confirmer la réception… Si vous n'avez rien reçu, signalez-le à l'administration. » Si le numéro BMI ne peut pas l'envoyer, WhatsApp s'ouvre avec le même texte. Un paiement déjà confirmé ne se relance pas." },
+        { titre: "La relance automatique", texte: "Chaque matin à 7 h, un paiement toujours « ⏳ à confirmer » **3 jours** après son envoi est relancé **une seule fois** : une notification sur le téléphone de l'employé (« 💵 Confirmez la réception de votre salaire ») et le même WhatsApp. Elle ne vaut que du 3e au 10e jour : un paiement plus ancien se relance au bouton 📲. Jamais un compte de formation, inactif ou bloqué ; sans numéro, la notification part seule." },
+        { titre: "Ce qui se lit", texte: "Sous le paiement : « 📲 relancé automatiquement le … » et « relancé le … par … ». Dans 📲 WhatsApp, la ligne ne montre pas le salaire : seuls celui qui a relancé et l'administrateur principal en lisent le détail." },
+      ]],
 
       ["h3", "F. Le crédit BMI"],
       ["etapes", [

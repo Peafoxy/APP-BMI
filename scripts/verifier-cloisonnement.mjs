@@ -15280,7 +15280,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     /<select data-type-contrat title=/.test(sal) && !/<select disabled=\{!actif\} className=\{`\$\{inputCls\} w-40`\} value=\{b\.codeType\}/.test(sal));
   const api = readFileSync("api/rappels-du-matin.js", "utf8");
   test("★★ 📄 la tournée du matin lit la fiche de PAIE (recollée) avant de chercher les fins de contrat",
-    /rappelFinsDeContrat\(\{ \.\.\.db, users: fusionnerPaie\(db\.users, await lireTable\(admin, "paie"\)\) \}, aujourdhui\)/.test(api));
+    /const paie = await lireTable\(admin, "paie"\);/.test(api) && /rappelFinsDeContrat\(\{ \.\.\.db, users: fusionnerPaie\(db\.users, paie\) \}, aujourdhui\)/.test(api)); /* RETOURNÉ le 31/10/2026 : la fiche de paie est lue UNE fois, la relance de salaire la relit aussi */
   const dE = DosEmp.dossierEmploye(cdd, {});
   test("★ 📄 le dossier d'accès de l'employé porte son contrat", dE.sections.some((x) => x.lignes.some(([k, v]) => k === "Contrat de travail" && v === "CDD jusqu'au 20/10/2026")));
 }

@@ -58,6 +58,7 @@ import { rappelerLesRendezVous } from "./_rendezVous.js";
 import { attestationsEtFermetures } from "./_attestationSortie.js";
 import { relancerLesConversations } from "./_relanceAssistant.js";
 import { purgerVocauxStockes } from "./_vocauxStockes.js";
+import { relancesSalaireDuJour, notificationRelanceSalaire, paieApresRelance, ligneRelanceSalaire, enteteApresRelanceSalaire, MODELE_RELANCE_SALAIRE } from "../src/lib/relanceSalaire.js";
 
 const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
 
@@ -81,7 +82,11 @@ export default async function handler(req, res) {
     const aujourdhui = new Date().toISOString().slice(0, 10);
     // 📄 La fin d'un CDD (05/10/2026) : la date vit dans la fiche de PAIE,
     // recollée ici sur une copie des fiches (lue seulement, jamais réécrite).
-    const finsDeContrat = rappelFinsDeContrat({ ...db, users: fusionnerPaie(db.users, await lireTable(admin, "paie")) }, aujourdhui);
+    const paie = await lireTable(admin, "paie");
+    const finsDeContrat = rappelFinsDeContrat({ ...db, users: fusionnerPaie(db.users, paie) }, aujourdhui);
+    // ⏳ La relance de confirmation d'un salaire payé (31/10/2026, « a et b ») :
+    // au 3e jour sans confirmation, une notification et le WhatsApp, une fois.
+    const salaires = await relancerLesConfirmationsSalaire(admin, { ...db, users: fusionnerPaie(db.users, paie) }, aujourdhui);
     // ⚠ La relance ne dépend pas des notifications : l'une en panne
     // n'empêche pas l'autre.
     const relances = await relancerLesDevis(admin, db, aujourdhui);
@@ -110,11 +115,11 @@ export default async function handler(req, res) {
     // 🎤 Les notes vocales envoyées par BMI ne se gardent que 30 jours
     // (21/10/2026) : les jours plus vieux s'effacent de l'espace privé.
     const vocaux = await purgerVocauxStockes(admin, aujourdhui);
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux });
-    const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...soldes.notifications, ...attestations.notifications,
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux, salaires: salaires.bilan });
+    const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...salaires.notifications, ...soldes.notifications, ...attestations.notifications,
       ...(finsDeContrat ? [fabriquerEnvoi({ ...finsDeContrat, ecran: "users" })].filter(Boolean) : [])];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux });
+    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux, salaires: salaires.bilan });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }
@@ -423,6 +428,67 @@ async function rappelerLesSoldesDePose(admin, db, aujourdhui) {
       }
     } catch (e) {
       console.error("[rappels-du-matin] rappel du solde de pose", e?.message || e);
+    }
+  }
+  return { bilan, notifications };
+}
+
+// ---- ⏳ LA RELANCE DE CONFIRMATION D'UN SALAIRE (31/10/2026) ----
+// Rend { bilan, notifications }. Le WhatsApp : rien n'est écrit tant qu'il
+// n'est pas accepté ; refusé (modèle pas encore approuvé…), il se retente le
+// lendemain dans la fenêtre. La notification part une fois. La marque est
+// posée sur la fiche de PAIE RELUE juste avant (seul CE virement change).
+async function relancerLesConfirmationsSalaire(admin, db, aujourdhui) {
+  const liste = relancesSalaireDuJour(db, aujourdhui, { fmt, dFR });
+  const bilan = { a_relancer: liste.length, notifications: 0, envoyes: 0, refuses: 0 };
+  const notifications = [];
+  if (!liste.length) return { bilan, notifications };
+  const { cle, expediteurBrut } = configYCloud();
+  const expediteur = numeroWhatsApp(expediteurBrut);
+  for (const r of liste) {
+    try {
+      let parti = false;
+      if (r.whatsapp) {
+        if (!cle || !expediteur) console.error("[rappels-du-matin] relance de salaire : WhatsApp non configuré sur le serveur");
+        else {
+          const envoi = await envoyerYCloud(cle, {
+            from: expediteur, to: r.tel, type: "template",
+            template: { name: MODELE_RELANCE_SALAIRE, language: { code: LANGUE_MODELES }, components: [{ type: "body", parameters: r.envoi.variables.map((text) => ({ type: "text", text })) }] },
+          });
+          if (!envoi.ok) { bilan.refuses++; console.error("[rappels-du-matin] relance de salaire refusée", envoi.code_whatsapp, envoi.motif); }
+          else {
+            parti = true; bilan.envoyes++;
+            const ts = new Date().toISOString();
+            const ligneBase = ligneRelanceSalaire({ id: randomUUID(), tel: r.tel, employe: r.employe, virement: r.virement, variables: r.envoi.variables, ts });
+            if (ligneBase) {
+              const ligne = { ...ligneBase, ...champsEnvoi(envoi) };
+              const { error } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ts });
+              if (error) console.error("[rappels-du-matin] relance de salaire : ligne du fil non écrite", error.message);
+              const entete = (db.messages || []).find((m) => m.id === idEntete(cleConversation(r.tel)));
+              const fiche = enteteApresRelanceSalaire({ tel: r.tel, employe: r.employe, ts, entete });
+              if (fiche) {
+                const { error: e2 } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: ts });
+                if (e2) console.error("[rappels-du-matin] relance de salaire : fiche légère non posée", e2.message);
+              }
+            }
+          }
+        }
+      }
+      if (r.notifier) {
+        const n = fabriquerEnvoi(notificationRelanceSalaire(r.employe, r.virement, { fmt, dFR }));
+        if (n) { notifications.push(n); bilan.notifications++; }
+      }
+      if (r.notifier || parti) {
+        const { data: lu } = await admin.from("paie").select("id, data").eq("id", r.employe.id).maybeSingle();
+        if (lu?.data) {
+          const ts = new Date().toISOString();
+          const data = { ...paieApresRelance({ ...lu.data, id: lu.id }, r.virement.id, { le: aujourdhui, notif: r.notifier, whatsapp: parti }), updated_at: ts };
+          const { error: e3 } = await admin.from("paie").update({ data, updated_at: ts }).eq("id", lu.id);
+          if (e3) console.error("[rappels-du-matin] relance de salaire : marque non posée", e3.message);
+        }
+      }
+    } catch (e) {
+      console.error("[rappels-du-matin] relance de salaire", e?.message || e);
     }
   }
   return { bilan, notifications };

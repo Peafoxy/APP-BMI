@@ -30,6 +30,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/rendezVous.js` | 📅 Les rendez-vous : pro ou privé, qui modifie (auteur, administrateur), qui marque fait (+ participants), le conflit, ce qu'un changement dit à chacun, les rappels du serveur (la veille à 14 h, le jour même à 7 h, un privé neutre) |
 | `lib/affectationChantier.js` | Qui est prévenu quand une installation est programmée : l'affectation (nouveaux, nouveau chef), le changement (retiré, chef remplacé, date déplacée), le rappel de la veille au chef (tournée de 17 h) |
 | `lib/anniversaires.js` | Les anniversaires des employés : qui est fêté tel jour (le dernier jour du mois pour un jour absent), le rappel de la veille au principal (17 h), les vœux du numéro BMI le jour même (7 h), une fois par an |
+| `lib/relanceSalaire.js` | La relance d'un salaire payé que l'employé n'a pas confirmé reçu : le bouton 📲 de 💵 Salaires et la tournée de 7 h (3e au 10e jour, une fois — notification et WhatsApp `rappel_confirmation_salaire`), la marque sur le virement, la ligne privée du fil |
 | `lib/commissionsDues.js` | Les commissions devenues dues (réception ET solde) à annoncer par WhatsApp, et leur marque « annoncée » |
 | `lib/compteExploitant.js` | Le compte de l'exploitant (BMI est une entreprise individuelle) : la caisse de BMI chez le DG, à part de ce que BMI lui doit ; ses apports et ses prélèvements |
 | `lib/depensesChantier.js` | Les petites dépenses rattachées à un chantier de devis |

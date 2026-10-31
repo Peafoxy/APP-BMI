@@ -224,6 +224,10 @@ export const MODELES = {
   // (décision « b », 03/10/2026) : le salaire, la retenue, le versé et ce qui
   // reste à rembourser se lisent dans le message.
   virement_salaire_credit: { categorie: "utility", variables: ["employe", "mois", "date", "salaire", "retenue", "montant", "moyen", "reference", "reste", "initiateur"] },
+  // ⏳ 31/10/2026, Timo : « relance de confirmation salaire » → « a et b » :
+  // un salaire payé que l'employé n'a pas confirmé reçu. UTILITY (un paiement
+  // fait). Bouton 📲 de 💵 Salaires, et la tournée de 7 h au 3e jour.
+  rappel_confirmation_salaire: { categorie: "utility", variables: ["employe", "montant", "mois", "date"] },
   // 💰 03/10/2026, Timo (son texte) : une commission DEVENUE DUE (réception
   // ET solde), au commercial, au technicien, au parrain, à l'apporteur. Le
   // trou 4 = « Détail dans votre espace… » pour qui a un compte, « Passez à
@@ -369,6 +373,10 @@ export const MODELES_EN_SERVICE = [
   // 03/10/2026 : l'avis de paiement d'un salaire. En service AVANT l'accord
   // de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
   "virement_salaire", "virement_salaire_credit",
+  // 31/10/2026 : la relance de confirmation d'un salaire payé (💵 Salaires
+  // et la tournée de 7 h). En service AVANT l'accord de Meta : d'ici là le
+  // bouton ouvre WhatsApp avec le même texte, la tournée n'envoie rien.
+  "rappel_confirmation_salaire",
   // 03/10/2026 : la commission devenue due (envoyée à l'ouverture de
   // l'application par l'administrateur principal, lib/commissionsDues.js).
   "commission_due",
@@ -489,7 +497,7 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "rappel_confirmation_salaire", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente"];
 const LIGNES_MASQUEES = {
   depense_rejetee4: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
@@ -507,6 +515,7 @@ const LIGNES_MASQUEES = {
   bon_retour: "🔒 Bon de retour envoyé au client — détail réservé à celui qui l'a établi et à l'administrateur principal.",
   virement_salaire: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   virement_salaire_credit: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
+  rappel_confirmation_salaire: "🔒 Relance de confirmation de salaire envoyée — détail réservé à celui qui l'a envoyée et à l'administrateur principal.",
   commission_due: "🔒 Avis de commission due envoyé — détail réservé à l'administrateur principal.",
   avancement_employe: "🔒 Avis d'avancement envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
 };
@@ -957,6 +966,7 @@ const LIGNES_ENVOI = {
   prime_installation_payee: ([employe, client, date, montant, moyen, retenue]) => `Avis de paiement envoyé à ${employe} : part d'installation du chantier ${client}, ${montant} (${moyen}) le ${date}. ${retenue}`,
   commission_due: ([beneficiaire, montant, client]) => `Avis de commission due envoyé à ${beneficiaire} : ${montant} (client ${client}).`,
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
+  rappel_confirmation_salaire: ([employe, montant, mois, date]) => `Relance de confirmation envoyée à ${employe} : salaire de ${mois}, ${montant} payé le ${date}, pas encore confirmé reçu.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
   loyer_disponible: ([proprietaire, montant, mois, aupres, boutique]) => `Loyer disponible : ${proprietaire} prévenu(e) de venir chercher ${montant} pour ${mois} auprès de ${aupres} (boutique ${boutique}).`,
   // ⚠ Le numéro du client (trou 9 / 7) n'est pas recopié dans le fil.
@@ -1985,6 +1995,44 @@ export function envoiVirementSalaire({ employe, tel, mois, date, montant, moyen,
     ],
   };
 }
+
+// ---------------------------------------------------------------
+// ⏳ LA RELANCE DE CONFIRMATION D'UN SALAIRE — `rappel_confirmation_salaire`
+// (31/10/2026, « a et b ») — texte proposé ; si Timo le crée autrement chez
+// YCloud, on recopie le sien ici. Quatre trous : employé, montant, mois en
+// lettres, date du paiement. Rend null sans numéro ou sans montant.
+// ---------------------------------------------------------------
+export const TEXTE_RAPPEL_CONFIRMATION_SALAIRE = [
+  "Bonjour {{1}},",
+  "",
+  "Rappel : BMI TOGO vous a payé {{2}} pour votre salaire de {{3}}, le {{4}}.",
+  "",
+  "Merci de confirmer la réception depuis votre espace sur :",
+  "gestion.bmitogo.com, dans l'onglet « Salaire ».",
+  "",
+  "Si vous n'avez rien reçu, signalez-le à l'administration.",
+  "BMI TOGO",
+].join("\n");
+export function envoiRappelConfirmationSalaire({ employe, tel, mois, date, montant, fmt, dFR }) {
+  if (!String(tel || "").replace(/\D/g, "")) return null;
+  const m = Number(montant);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
+  return {
+    modele: "rappel_confirmation_salaire",
+    variables: [
+      texteVariable(employe) || "cher collaborateur",
+      f(m),
+      texteVariable(mois) || "ce mois",
+      d(date) || "ces derniers jours",
+    ],
+  };
+}
+// Le texte du repli (bouton de 💵 Salaires sans le numéro BMI) : celui du
+// modèle, mot pour mot, trous remplis.
+export const texteRappelConfirmationSalaire = (variables) =>
+  TEXTE_RAPPEL_CONFIRMATION_SALAIRE.replace(/\{\{(\d+)\}\}/g, (_, n) => String((variables || [])[Number(n) - 1] ?? ""));
 
 // ---------------------------------------------------------------
 // 🔧 LA PART DES FRAIS D'INSTALLATION PAYÉE — `prime_installation_payee`

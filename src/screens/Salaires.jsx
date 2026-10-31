@@ -5,11 +5,13 @@
 // ============================================================
 import { Fragment, useState, useEffect } from "react";
 import { SALARIES, BULLETIN_EMPLOYE_OUVERT, MESSAGE_BULLETIN_FERME, libelleCaisse } from "../lib/constants";
-import { uid, fmt, today, dFR, normPaiement, nouvelleDepense } from "../lib/core";
+import { uid, fmt, today, dFR, normPaiement, nouvelleDepense, heureCourte } from "../lib/core";
+import { envoiRelanceSalaire, virementAConfirmer, phraseRelances } from "../lib/relanceSalaire";
+import { texteRappelConfirmationSalaire } from "../lib/whatsappModeles";
 // Timo (12/09/2026) : l'employé voit où en sont ses avances de frais.
 import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
-import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour, moisDePaiePropose, refuserSaufAdmin, critiqueRetraitPrime, retirerPrime, critiqueRetraitAvance, retirerAvance, depenseDeLAvance, refusSuppressionDepense } from "../lib/calculs";
+import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour, moisDePaiePropose, refuserSaufAdmin, estCompteFormation, critiqueRetraitPrime, retirerPrime, critiqueRetraitAvance, retirerAvance, depenseDeLAvance, refusSuppressionDepense } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { phraseContrat } from "../lib/contratTravail";
 import { LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
@@ -79,6 +81,36 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
     if (!String(motif).trim()) { uAlert("Le motif est obligatoire : un retrait sans motif ne s'explique à personne."); return null; }
     return String(motif).trim();
   };
+  // ⏳ 📲 RELANCER UN SALAIRE PAYÉ PAS ENCORE CONFIRMÉ (31/10/2026, « a ») :
+  // administrateur, une question avant, le numéro BMI (repli : WhatsApp
+  // s'ouvre avec le même texte). Revérifié sur la fiche FRAÎCHE : un paiement
+  // déjà confirmé ne se relance pas. Le mur = l'espace du COMPTE de l'employé.
+  const relancerConfirmation = async (u, v) => {
+    if (refuserSaufAdmin(profile, "Relancer la confirmation d'un salaire")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const fiche = (db.users || []).find((x) => x.id === u.id) || u;
+    const frais = (fiche.virements || []).find((x) => x.id === v.id);
+    if (!virementAConfirmer(frais)) { uAlert("Ce paiement est déjà confirmé reçu : il n'y a rien à relancer."); return; }
+    const envoi = envoiRelanceSalaire(fiche, frais, { fmt, dFR });
+    if (!envoi) { uAlert(`La fiche de ${fiche.nom} n'a pas de numéro : aucun message ne peut partir (👥 Utilisateurs → ⋯ Gérer → 📞).`); return; }
+    if (!await uConfirm(`Relancer ${fiche.nom_complet || fiche.nom} (${fiche.tel}) ?\n\nSalaire de ${libelleMoisFR(frais.mois)} : ${fmt(frais.montant)} payé le ${dFR(frais.date_envoi)}, pas encore confirmé reçu.\n\nLe message part du numéro WhatsApp BMI.`)) return;
+    const { envoyerModele, messagesAvecLigneEnvoi } = await import("../whatsapp.js");
+    const r = await envoyerModele({
+      tel: fiche.tel, modele: envoi.modele, variables: envoi.variables,
+      espaceFormation: estCompteFormation(db, fiche),
+      texteRepli: texteRappelConfirmationSalaire(envoi.variables),
+      demanderConfirmation: uConfirm, prevenir: uAlert,
+    });
+    if (!r.auto) return;
+    const relance = { le: today(), heure: heureCourte(), par: profile.nom, par_id: profile.id };
+    save((etat) => ({
+      ...etat,
+      users: etat.users.map((x) => (x.id === fiche.id ? { ...x, virements: (x.virements || []).map((y) => (y.id === frais.id ? { ...y, relances_main: [...(y.relances_main || []), relance] } : y)) } : x)),
+      messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: fiche.tel, nom: fiche.nom_complet || fiche.nom, modele: envoi.modele, variables: envoi.variables, ref: { salaire_user_id: fiche.id, virement_id: frais.id }, envoi: r }),
+    }), `Relance de confirmation du salaire de ${fmt(frais.montant)} (${libelleMoisFR(frais.mois)}) envoyée à ${fiche.nom} du numéro BMI`);
+    uAlert(`✅ Relance envoyée du numéro BMI à ${fiche.nom_complet || fiche.nom}.`);
+  };
+
   const retirerUnePrime = async (u, prime) => {
     if (refuserSaufAdmin(profile, "Retirer une prime")) return;
     if (bloquerSiLecture(db, profile)) return;
@@ -207,7 +239,13 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
                         <div>
                           <div className="font-bold text-slate-800 mb-0.5">Paiements</div>
                           {p.virements.length === 0 ? <div className="text-slate-400">Aucun paiement ce mois-ci.</div> : p.virements.map((v) => (
-                            <div key={v.id}>{dFR(v.date_envoi)} · <b className="tabular-nums">{fmt(v.montant)}</b> · {v.moyen || "—"}{v.ref ? ` · ${v.ref}` : ""} — {v.statut === "accepte" ? "✅ reçu confirmé" : "⏳ à confirmer"}</div>
+                            <div key={v.id} data-paiement-salaire className="py-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span>{dFR(v.date_envoi)} · <b className="tabular-nums">{fmt(v.montant)}</b> · {v.moyen || "—"}{v.ref ? ` · ${v.ref}` : ""} — {v.statut === "accepte" ? "✅ reçu confirmé" : "⏳ à confirmer"}</span>
+                                {virementAConfirmer(v) && <BoutonRond icone="📲" teinte="vert" envoi onClick={() => relancerConfirmation(u, v)} titre="📲 Relancer : lui demander de confirmer la réception (WhatsApp du numéro BMI)" />}
+                              </div>
+                              {phraseRelances(v, dFR) && <div data-relance-salaire className="text-slate-500">{phraseRelances(v, dFR)}</div>}
+                            </div>
                           ))}
                         </div>
                       </div>
