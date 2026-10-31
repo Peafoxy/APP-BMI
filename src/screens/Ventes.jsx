@@ -1335,7 +1335,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       // La dette était créée avec le seul total des ARTICLES. Or l'écran
       // venait de demander au vendeur d'encaisser articles + installation +
       // transport (totalAEncaisser, voir plus haut), et le reçu imprimé dit
-      // exactement la même chose : « TOTAL TTC » puis « RESTE À PAYER ».
+      // exactement la même chose : « TOTAL HT » puis « RESTE À PAYER ».
       // Sur un devis de 1 000 000 F de matériel et 150 000 F de pose réglé à
       // moitié, la dette enregistrée était de 500 000 F : les 150 000 F de
       // pose n'étaient réclamés nulle part. Le papier remis au client et la

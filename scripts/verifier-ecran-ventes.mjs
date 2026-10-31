@@ -87,7 +87,10 @@ titre("Le reçu de vente et la dette disent le MÊME chiffre");
     detteResteAPayer(1000000, 150000, 0, 0) === 1150000);
 
   test("le reçu imprime bien le total AVEC les frais",
-    /TOTAL TTC[\s\S]{0,200}?frais_installation[\s\S]{0,120}?frais_transport/.test(impr));
+    /TOTAL HT[\s\S]{0,200}?frais_installation[\s\S]{0,120}?frais_transport/.test(impr));
+  // Timo, 31/10/2026 : le reçu n'a aucune TVA — « TOTAL TTC » mentait.
+  test("le reçu ne dit jamais « TTC » (aucune TVA n'y est calculée)",
+    !/TTC/.test(impr));
   test("…et son « RESTE À PAYER » part du même total",
     /RESTE À PAYER[\s\S]{0,220}?frais_installation[\s\S]{0,160}?avance/.test(impr));
 }

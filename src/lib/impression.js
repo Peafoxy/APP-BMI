@@ -173,7 +173,7 @@ export function imprimerRecu(v, bq = {}, produits = [], { rendre = false } = {})
       ${Number(v.rabais || 0) > 0 ? `<tr><td>Rabais commercial${v.commercial ? ` (${esc(v.commercial)})` : ""} :</td><td>−${fmt(v.rabais)}</td></tr>` : ""}
       ${Number(v.frais_installation || 0) > 0 ? `<tr><td>Frais d'installation :</td><td>${fmt(v.frais_installation)}</td></tr>` : ""}
       ${Number(v.frais_transport || 0) > 0 ? `<tr><td>Transport / livraison :</td><td>${fmt(v.frais_transport)}</td></tr>` : ""}
-      <tr class="total"><td>TOTAL TTC :</td><td>${fmt(net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0))}</td></tr>
+      <tr class="total"><td>TOTAL HT :</td><td>${fmt(net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0))}</td></tr>
       ${v.echange_de ? `<tr><td>Article(s) rendu(s) — reçu n° ${esc(v.echange_de.numero)} :</td><td>−${fmt(Number(v.echange_de.valeur_rendue || v.avoir_echange || 0))}</td></tr><tr class="total"><td>PAYÉ PAR LE CLIENT :</td><td>${fmt(Math.max(0, net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0) - Number(v.avoir_echange || 0)))}</td></tr>${Number(v.echange_de.rendu || 0) > 0 ? `<tr class="reste"><td>RENDU AU CLIENT :</td><td>${fmt(v.echange_de.rendu)}</td></tr>` : ""}` : ""}
       ${v.paiement === "Crédit (dette)" ? `<tr><td>Avance versée :</td><td>${fmt(v.avance || 0)}</td></tr><tr class="reste"><td>RESTE À PAYER :</td><td>${fmt(Math.max(0, net + Number(v.frais_installation || 0) + Number(v.frais_transport || 0) - (Number(v.avance) || 0)))}</td></tr>` : ""}
     </table>

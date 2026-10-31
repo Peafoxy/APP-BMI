@@ -7094,7 +7094,7 @@ titre("🔄 Échanger un article contre un autre (Timo, 14/10/2026, « A c, B c,
     globalThis.__recuEch = ""; ImpE.imprimerRecuDeVente(db3, rs.nouvelleVente, { nom: "APESSITO" }, produits);
     const h2 = nz(globalThis.__recuEch);
     test("★★ le REÇU de l'échange, imprimé : « Échange du reçu n° BMIA-2026-0001 … 1 × BATTERIE rendu(s) », TOTAL 20 000, l'article rendu −11 376, « PAYÉ PAR LE CLIENT » 8 624 ; moins cher : payé 0 et « RENDU AU CLIENT » 6 376",
-      /Échange du reçu n° BMIA-2026-0001 \(ECH-[A-Z0-9]{8}\) : 1 × BATTERIE rendu\(s\)/.test(h1) && /TOTAL TTC : 20 000 F/.test(h1) && /Article\(s\) rendu\(s\) — reçu n° BMIA-2026-0001 : −11 376 F/.test(h1) && /PAYÉ PAR LE CLIENT : 8 624 F/.test(h1) && !/RENDU AU CLIENT/.test(h1)
+      /Échange du reçu n° BMIA-2026-0001 \(ECH-[A-Z0-9]{8}\) : 1 × BATTERIE rendu\(s\)/.test(h1) && /TOTAL HT : 20 000 F/.test(h1) && /Article\(s\) rendu\(s\) — reçu n° BMIA-2026-0001 : −11 376 F/.test(h1) && /PAYÉ PAR LE CLIENT : 8 624 F/.test(h1) && !/RENDU AU CLIENT/.test(h1)
       && /PAYÉ PAR LE CLIENT : 0 F/.test(h2) && /RENDU AU CLIENT : 6 376 F/.test(h2), h1.slice(0, 300));
   }
   // ⚠ LE COUPLE avec le serveur.

@@ -9989,6 +9989,21 @@ lit mal est pire qu'un banc absent).
   change pas (12/09/2026, « rien n'a changé » après la première correction).
   Le banc lit l'en-tête PNG, le premier pixel, et le nom cité par le manifeste.
 
+### 🧾 LA TVA : RIEN N'EST CALCULÉ AUJOURD'HUI (31/10/2026)
+- Timo : « CALCUL DE TVA… qu'est-ce que l'app fait aujourd'hui ? » → rien :
+  aucun taux, aucun HT / TVA / TTC sur un document, aucun compte de TVA dans le
+  journal ; « Impôts / Taxes » n'est qu'une catégorie de dépense (641).
+- **Le reçu écrivait « TOTAL TTC » sans aucune TVA** : il écrit **« TOTAL HT »**
+  (« C seul tout de suite », 2.101.671). Le banc (`verifier-ecran-ventes`)
+  refuse « TTC » sur le reçu.
+- **Décidé, PAS ENCORE CONSTRUIT** : une case « 🧾 Facture avec TVA », non
+  cochée d'office — **« A a b c »** dans 💰 Ventes, les proformas ET les devis ;
+  **« B a »** la TVA s'AJOUTE au prix du stock (le client paie HT + TVA). Prévu :
+  taux réglable (18 % proposé, À CONFIRMER par le comptable), la TVA dans la
+  caisse mais hors chiffre d'affaires / commissions / limite de remise, compte
+  443 au journal, rapport de TVA collectée. ⚠ BMI doit être enregistré pour la
+  TVA auprès de l'OTR (dit à Timo, à confirmer par le comptable).
+
 ### 🏷 LA LIMITE DE REMISE SANS ADMINISTRATEUR EST RÉGLABLE (29/10/2026, « Ramener la limite de 3 % d'un gérant dans paramètres.. Ou on peu augmenter ou diminuer à tout moment »)
 - Jusqu'ici, « au-delà de 3 %, l'administrateur seul » était un chiffre
   **gravé dans le code** (`PLAFOND_REMISE_PCT`, lib/calculs.js) et **gravé
