@@ -273,7 +273,7 @@ export function Depenses({ db, save, profile, cible = null }) {
   // caisse : la dépense est déjà enregistrée. Le trou 4 = celui qui clique.
   const loyerARemettre = fiche ? dernierLoyerARemettre(db.depenses, boutique) : null;
   const dejaPrevenu = loyerARemettre
-    ? (db.messages || []).filter((m) => m && m.wa_modele === "loyer_disponible" && m.loyer_depense_id === loyerARemettre.id).sort((a, b) => String(b.ts || b.date || "").localeCompare(String(a.ts || a.date || "")))[0] || null
+    ? (db.messages || []).filter((m) => m && (m.wa_modele === "loyer_disponible" || m.wa_modele === "rappel_loyer_disponible") && m.loyer_depense_id === loyerARemettre.id).sort((a, b) => String(b.ts || b.date || "").localeCompare(String(a.ts || a.date || "")))[0] || null
     : null;
   const loyerDejaRemis = fiche && !loyerARemettre ? dernierLoyerRemis(db.depenses, boutique) : null;
   // ✅ « Remis au propriétaire » (14/10/2026, « b ») : le gérant ou
@@ -300,13 +300,16 @@ export function Depenses({ db, save, profile, cible = null }) {
     const dep = ficheFraiche ? dernierLoyerARemettre(db.depenses, boutique) : null;
     if (!dep) { uAlert("Aucun paiement de loyer en espèces validé pour ce local : le propriétaire n'a rien à venir chercher. Un loyer en attente du DG se prévient une fois validé."); return; }
     if (!String(ficheFraiche.tel || "").replace(/\D/g, "")) { uAlert(`La fiche du loyer n'a pas le numéro du propriétaire${ficheFraiche.proprietaire ? ` (${ficheFraiche.proprietaire})` : ""}. L'administrateur l'ajoute dans ⚙ Paramètres → Boutiques → 🏠 Loyer. Rien n'est parti.`); return; }
+    // 31/10/2026 (« pour le rappel, il faut un message différent ») : déjà
+    // prévenu pour CE paiement → le rappel, avec ses propres mots.
+    const rappel = (db.messages || []).some((m) => m && (m.wa_modele === "loyer_disponible" || m.wa_modele === "rappel_loyer_disponible") && m.loyer_depense_id === dep.id);
     const envoi = envoiLoyerDisponible({
       proprietaire: ficheFraiche.proprietaire, tel: ficheFraiche.tel, montant: dep.montant,
-      mois: moisEnClair(moisDeLaDepense(dep)), aupres: profile.nom, boutique, telBoutique: bqLocal?.tel, fmt,
+      mois: moisEnClair(moisDeLaDepense(dep)), aupres: profile.nom, boutique, telBoutique: bqLocal?.tel, fmt, rappel,
     });
     if (!envoi) { uAlert("Ce paiement n'a pas de montant : rien à annoncer."); return; }
     const texte = texteLoyerDisponible(envoi);
-    if (!await uConfirm(`Prévenir ${ficheFraiche.proprietaire || "le propriétaire"} (${ficheFraiche.tel}) que le loyer l'attend ?\n\n${envoi.variables[1]} pour ${envoi.variables[2]}, à récupérer auprès de ${profile.nom} à la boutique ${boutique}.\n\nLe message part du numéro WhatsApp BMI.`)) return;
+    if (!await uConfirm(`${rappel ? "Rappeler à" : "Prévenir"} ${ficheFraiche.proprietaire || "le propriétaire"} (${ficheFraiche.tel}) que le loyer l'attend${rappel ? " toujours" : ""} ?\n\n${envoi.variables[1]} pour ${envoi.variables[2]}, à récupérer auprès de ${profile.nom} à la boutique ${boutique}.\n\nLe message part du numéro WhatsApp BMI.`)) return;
     // ⚠ LE MUR : l'espace de la BOUTIQUE du local, jamais celui de qui clique.
     const r = await envoyerModele({
       tel: ficheFraiche.tel, modele: envoi.modele, variables: envoi.variables,
@@ -317,8 +320,8 @@ export function Depenses({ db, save, profile, cible = null }) {
     save((etat) => ({
       ...etat,
       messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: ficheFraiche.tel, nom: ficheFraiche.proprietaire || "Propriétaire", modele: envoi.modele, variables: envoi.variables, ref: { loyer_depense_id: dep.id }, envoi: r }),
-    }), `Propriétaire du local ${boutique} prévenu (loyer disponible : ${fmt(Number(dep.montant))}, ${envoi.variables[2]}) — du numéro BMI`);
-    uAlert(`✅ Message envoyé du numéro BMI à ${ficheFraiche.proprietaire || "le propriétaire"}.`);
+    }), `Propriétaire du local ${boutique} ${rappel ? "rappelé" : "prévenu"} (loyer disponible : ${fmt(Number(dep.montant))}, ${envoi.variables[2]}) — du numéro BMI`);
+    uAlert(`✅ ${rappel ? "Rappel" : "Message"} envoyé du numéro BMI à ${ficheFraiche.proprietaire || "le propriétaire"}.`);
   };
 
   // Timo (25/09/2026) : « payer tous les mois en même temps ou avec
@@ -694,7 +697,7 @@ export function Depenses({ db, save, profile, cible = null }) {
               <BoutonEnvoi onClick={prevenirProprietaire} className="rounded-lg border border-green-600 px-3 py-1.5 text-sm font-semibold text-green-800 bg-green-50" data-prevenir-proprietaire>{dejaPrevenu ? "📲 Le rappeler" : "📲 Prévenir le propriétaire"}</BoutonEnvoi>
               <button onClick={remettreAuProprietaire} className="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-semibold text-slate-700 bg-white" data-loyer-remis-bouton>✅ Remis au propriétaire</button>
               <span>de venir chercher {fmt(loyerARemettre.montant)} ({libellePeriodeLoyer(moisDeLaDepense(loyerARemettre))}, payé en espèces le {dFR(loyerARemettre.date)})</span>
-              {dejaPrevenu && <span className="text-green-700 font-semibold" data-proprietaire-prevenu>· 📲 prévenu le {dFR(dejaPrevenu.date)}{dejaPrevenu.de_nom ? ` par ${dejaPrevenu.de_nom}` : ""}</span>}
+              {dejaPrevenu && <span className="text-green-700 font-semibold" data-proprietaire-prevenu>· 📲 {dejaPrevenu.wa_modele === "rappel_loyer_disponible" ? "rappelé" : "prévenu"} le {dFR(dejaPrevenu.date)}{dejaPrevenu.de_nom ? ` par ${dejaPrevenu.de_nom}` : ""}</span>}
             </div>
           )}
           {loyerDejaRemis && (

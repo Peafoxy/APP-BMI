@@ -5730,6 +5730,17 @@ lit mal est pire qu'un banc absent).
   prévenu, le bouton s'appelle **« 📲 Le rappeler »**. Rien à coller (la base
   accepte, `tester-argent` +2). Banc Chromium `verifier-ecran-loyer` (+6),
   éprouvé (remise ignorée, libellé figé). Chapitre 17 à jour.
+- **📲 LE RAPPEL A SES PROPRES MOTS — `rappel_loyer_disponible`** (31/10/2026,
+  « pour le rappel, il faut un message différent ») : UTILITY, les MÊMES six
+  trous dans le même ordre (`TEXTE_RAPPEL_LOYER_DISPONIBLE` : « petit rappel de
+  BMI TOGO : le loyer … vous attend toujours »). `envoiLoyerDisponible({ rappel })`
+  le choisit quand CE paiement a déjà une ligne `loyer_disponible` ou
+  `rappel_loyer_disponible` (relu DANS le geste) ; la question dit « Rappeler à »,
+  la mention « 📲 rappelé le … ». Le repli est le texte du rappel. **Créé et
+  approuvé par Timo chez YCloud le 31/10/2026** (⚠ le texte n'a pas pu être relu
+  d'ici : celui proposé et accepté). Rien à coller. Banc `verifier-whatsapp` (+4,
+  éprouvé), deux contrôles RETOURNÉS (cinquante-neuf modèles, modèles à ligne).
+  Chapitre 17 à jour.
 
 ### ✏️ MODIFIER UNE DÉPENSE (25/09/2026, « catégorie et description seulement · admin principal »)
 - **La catégorie et la description, rien d'autre** : le montant, le moyen et

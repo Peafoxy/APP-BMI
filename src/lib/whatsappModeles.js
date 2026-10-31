@@ -258,6 +258,10 @@ export const MODELES = {
   // B b après validation du paiement, C a, lance ». UTILITY (un paiement dû
   // sur un bail en cours). Le trou 4 = le NOM de celui qui envoie (« B b »).
   loyer_disponible: { categorie: "utility", variables: ["proprietaire", "montant", "mois", "aupres", "boutique", "telephone"] },
+  // 🏠 31/10/2026, Timo : « pour le rappel, il faut un message différent ».
+  // « 📲 Le rappeler » (le propriétaire déjà prévenu) : les MÊMES six trous,
+  // dans le même ordre, avec ses propres mots.
+  rappel_loyer_disponible: { categorie: "utility", variables: ["proprietaire", "montant", "mois", "aupres", "boutique", "telephone"] },
   // 📅 12/10/2026, Timo (capture des messages internes « Vous avez été
   // affecté… » → « de cette manière mais amélioré » → « Aa, Ba, Ca, texte
   // ok »). UTILITY : une affectation de travail, rien de commercial.
@@ -389,6 +393,8 @@ export const MODELES_EN_SERVICE = [
   // loyer). En service AVANT l'accord de Meta : d'ici là, repli sur
   // l'ouverture WhatsApp avec le texte du modèle, refus dit en français.
   "loyer_disponible",
+  // 31/10/2026 : le rappel au propriétaire déjà prévenu (« 📲 Le rappeler »).
+  "rappel_loyer_disponible",
   // 12/10/2026 : l'affectation d'un technicien à un chantier et ses
   // changements (🏠 Clients installés → Programmer). En service AVANT
   // l'accord de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
@@ -969,6 +975,7 @@ const LIGNES_ENVOI = {
   rappel_confirmation_salaire: ([employe, mois, montant, date, moyen]) => `Relance de confirmation envoyée à ${employe} : salaire de ${mois}, ${montant} FCFA payé le ${date} (${moyen}), pas encore confirmé reçu.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
   loyer_disponible: ([proprietaire, montant, mois, aupres, boutique]) => `Loyer disponible : ${proprietaire} prévenu(e) de venir chercher ${montant} pour ${mois} auprès de ${aupres} (boutique ${boutique}).`,
+  rappel_loyer_disponible: ([proprietaire, montant, mois, aupres, boutique]) => `Rappel du loyer disponible : ${proprietaire} rappelé(e) de venir chercher ${montant} pour ${mois} auprès de ${aupres} (boutique ${boutique}).`,
   // ⚠ Le numéro du client (trou 9 / 7) n'est pas recopié dans le fil.
   affectation_chantier: ([technicien, role, installation, client, date]) => `Avis d'affectation envoyé à ${technicien} : ${role} pour l'installation ${installation} de ${client}, le ${date}.`,
   changement_affectation: ([technicien, client, changement]) => `Avis de changement envoyé à ${technicien} (installation de ${client}) : ${changement}`,
@@ -2074,15 +2081,19 @@ export function envoiPrimeInstallationPayee({ employe, tel, client, date, montan
 // ---------------------------------------------------------------
 // Le texte proposé et accepté par Timo, mot pour mot chez Meta.
 export const TEXTE_LOYER_DISPONIBLE = "Bonjour {{1}}, le loyer de {{2}} pour {{3}} est disponible. Vous pouvez passer le récupérer auprès de {{4}} à la boutique {{5}}. Contact : {{6}}. Merci de votre confiance. BMI TOGO";
+// 31/10/2026 : le RAPPEL (« 📲 Le rappeler », propriétaire déjà prévenu) a
+// son propre texte — le texte proposé et accepté par Timo, créé chez YCloud.
+export const TEXTE_RAPPEL_LOYER_DISPONIBLE = "Bonjour {{1}}, petit rappel de BMI TOGO : le loyer de {{2}} pour {{3}} vous attend toujours. Vous pouvez passer le récupérer auprès de {{4}} à la boutique {{5}}. Contact : {{6}}. Merci de votre confiance. BMI TOGO";
 // `mois` arrive DÉJÀ en clair (`moisEnClair`, lib/loyer.js — ce fichier
 // n'importe rien). Rend null sans numéro du propriétaire ou sans montant.
-export function envoiLoyerDisponible({ proprietaire, tel, montant, mois, aupres, boutique, telBoutique, fmt }) {
+// `rappel` : le propriétaire a déjà été prévenu → `rappel_loyer_disponible`.
+export function envoiLoyerDisponible({ proprietaire, tel, montant, mois, aupres, boutique, telBoutique, fmt, rappel = false }) {
   if (!String(tel || "").replace(/\D/g, "")) return null;
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return null;
   const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
   return {
-    modele: "loyer_disponible",
+    modele: rappel ? "rappel_loyer_disponible" : "loyer_disponible",
     variables: [
       texteVariable(proprietaire) || "Monsieur, Madame",
       f(m),
@@ -2094,7 +2105,7 @@ export function envoiLoyerDisponible({ proprietaire, tel, montant, mois, aupres,
   };
 }
 export const texteLoyerDisponible = (envoi) =>
-  envoi ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), TEXTE_LOYER_DISPONIBLE) : "";
+  envoi ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), envoi.modele === "rappel_loyer_disponible" ? TEXTE_RAPPEL_LOYER_DISPONIBLE : TEXTE_LOYER_DISPONIBLE) : "";
 
 // ---------------------------------------------------------------
 // 💰 LA COMMISSION DEVENUE DUE — `commission_due` (03/10/2026)
