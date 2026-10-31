@@ -9439,14 +9439,18 @@ lit mal est pire qu'un banc absent).
   éprouvé (la ligne entière remise : il tombe). Chapitres 5, 8, 9 à jour.
   **📍 Et la loupe le dit avant** (« et comment un gérant saura qu'il y a du
   stock à APESSITO ? » → « a ») : pour un compte QUI A une boutique, la
-  recherche générale écrit sous chacun de ses articles « 📍 Ailleurs : BMI
-  APESSITO : 5 » (`data-stock-ailleurs`) et un bloc « 📍 Dans les autres
-  boutiques seulement » (`data-seulement-ailleurs`) pour ce qu'il n'a pas du
-  tout — `stockAilleurs` (RechercheGlobale.jsx). **Des quantités seulement**
-  (jamais un prix), boutiques de l'espace regardé (`boutiquesVisibles`), jamais
-  TERRAIN ; ses groupes de prix restent sa boutique seule. L'administrateur
-  (sans boutique) n'a rien de plus. Banc (+4, rendu), éprouvé (mur retiré).
-  Chapitres 1 et 9.
+  recherche générale montre le stock des autres boutiques — `stockAilleurs`
+  (RechercheGlobale.jsx). ~~sous chacun de ses articles « 📍 Ailleurs : … »~~
+  **RETOURNÉ le 31/10/2026** (capture Timo : « faire afficher sa boutique
+  d'abord, ensuite le stock d'ailleurs ») : ses articles d'abord, PROPRES ;
+  PUIS un bloc à part « 📍 Stock des autres boutiques »
+  (`data-stock-autres-boutiques`), une pastille par boutique, « nom — N en
+  stock », 6 au plus chacune, ce qu'il n'a pas du tout en tête et marqué « pas
+  chez vous ». **Des quantités seulement** (jamais un prix), boutiques de
+  l'espace regardé (`boutiquesVisibles`), jamais TERRAIN ; ses groupes de prix
+  restent sa boutique seule. L'administrateur (sans boutique) n'a rien de plus.
+  Banc (4, rendu ; RETOURNÉS), éprouvé (une ligne « Ailleurs » remise dans ses
+  articles : il tombe). Chapitres 1 et 9.
 - **⚠ À réapprovisionner** (10/09/2026, « comment avoir la liste de tous les
   articles à approvisionner ? ») : un encadré dans 📦 Stocks, pour la
   boutique ou le magasin regardé, avec **TOUS** les articles au seuil ou en

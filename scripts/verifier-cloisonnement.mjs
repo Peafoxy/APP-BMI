@@ -15762,16 +15762,22 @@ titre("📍 LA LOUPE MONTRE LE STOCK DES AUTRES BOUTIQUES À QUI A UNE BOUTIQUE 
   const ang = { id: "g1", nom: "ANGELE", role: "gerant", boutique: "BMI DEMAKPOE" };
   const r = RRa?.rechercherGlobalement ? RRa.rechercherGlobalement(db, ang, "moteur") : null;
   const h = (() => { try { return String(RRa?.rendreRecherche(db, ang, "moteur") || ""); } catch (e) { return "ERREUR " + e.message; } })();
-  test("★★ le gérant de DEMAKPOE lit sous SON article « 📍 Ailleurs : BMI APESSITO : 5 » — jamais la boutique de formation (40), jamais TERRAIN",
-    /data-stock-ailleurs[^>]*>📍 Ailleurs : BMI APESSITO : 5</.test(h) && !/formation\) : 40/.test(h) && !/TERRAIN : 9/.test(h), h.slice(0, 0));
-  test("★★ un article qu'il n'a pas du tout chez lui se lit dans « 📍 Dans les autres boutiques seulement » (Moteur battant — BMI APESSITO : 3), avec le chemin pour le demander",
-    /data-seulement-ailleurs/.test(h) && /Moteur battant/.test(h) && /BMI APESSITO : 3/.test(h) && /Demander à une autre boutique/.test(h));
+  // ⚠ RETOURNÉ le 31/10/2026 (« faire afficher sa boutique d'abord, ensuite le stock d'ailleurs ») :
+  // plus de « 📍 Ailleurs » sous SES lignes — un bloc À PART, après sa boutique, rangé par boutique.
+  const posMien = h.indexOf('data-produits-par-boutique'), posAutres = h.indexOf('data-stock-autres-boutiques');
+  const blocMien = posMien >= 0 && posAutres > posMien ? h.slice(posMien, posAutres) : "";
+  test("★★ sa boutique D'ABORD, propre (aucune ligne « Ailleurs » mêlée à ses articles), PUIS le bloc « 📍 Stock des autres boutiques »",
+    posMien >= 0 && posAutres > posMien && !/data-stock-ailleurs|Ailleurs :|APESSITO/.test(blocMien) && /📍 Stock des autres boutiques/.test(h));
+  test("★★ le bloc range par boutique : BMI APESSITO, Moteur sectionnelle 5 en stock et Moteur battant 3 « pas chez vous » (en tête) — jamais la formation (40), jamais TERRAIN",
+    r && r.autresBoutiques.map((g) => g.boutique).join("|") === "BMI APESSITO"
+    && r.autresBoutiques[0].items.map((i) => `${i.nom}:${i.stock}:${i.chezMoi}`).join("|") === "Moteur battant:3:false|Moteur sectionnelle:5:true"
+    && /data-autre-boutique="BMI APESSITO"/.test(h) && /data-pas-chez-moi/.test(h) && !/40 en stock/.test(h) && !/9 en stock/.test(h) && /Demander à une autre boutique/.test(h));
   test("★ des QUANTITÉS seulement : le bloc des autres boutiques n'écrit ni prix de vente ni prix d'achat ; ses groupes de prix restent sa boutique seule",
-    r && r.seulementAilleurs.every((a) => a.lieux.every((l) => Object.keys(l).join() === "boutique,stock")) && !/190\s?000/.test(h)
+    r && r.autresBoutiques.every((g) => g.items.every((i) => Object.keys(i).join() === "nom,stock,chezMoi")) && !/190\s?000/.test(h)
     && [...h.matchAll(/data-groupe-boutique="([^"]+)"/g)].map((m) => m[1]).join("|") === "BMI DEMAKPOE");
   const rA = RRa?.rechercherGlobalement ? RRa.rechercherGlobalement(db, { id: "a1", nom: "TIMO", role: "admin" }, "moteur") : null;
   test("l'administrateur (sans boutique) voit déjà toutes les boutiques : pas de bloc « Ailleurs » en plus",
-    rA && rA.seulementAilleurs.length === 0 && rA.ailleurs.size === 0);
+    rA && rA.autresBoutiques.length === 0);
 }
 
 titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, lance »)");

@@ -65,11 +65,13 @@ export function rechercherGlobalement(db, profile, texte) {
   // 📍 Le stock des AUTRES boutiques, pour qui a une boutique (Timo, 30/10/2026 :
   // « comment un gérant saura qu'il y a du stock à APESSITO pour faire une
   // demande ? » → « a ») : des QUANTITÉS seulement, jamais un prix ni une
-  // vente, et seulement dans l'espace regardé (boutiquesEspace).
-  const { ailleurs, seulementAilleurs } = maBoutique
+  // vente, et seulement dans l'espace regardé (boutiquesEspace). Rangé À PART,
+  // APRÈS sa boutique (31/10/2026 : « faire afficher sa boutique d'abord,
+  // ensuite le stock d'ailleurs ») — jamais mêlé à ses propres lignes.
+  const autresBoutiques = maBoutique
     ? stockAilleurs(db, (db.produits || []).filter((p) => correspond(`${p.nom} ${p.code || ""}`, q)), maBoutique,
         (db.boutiques || []).filter((b) => boutiquesEspace.has(b.nom) && !b.terrain && b.nom !== maBoutique).map((b) => b.nom))
-    : { ailleurs: new Map(), seulementAilleurs: [] };
+    : [];
 
   const devis = db.users
     .filter((u) => u.role === "client")
@@ -94,34 +96,30 @@ export function rechercherGlobalement(db, profile, texte) {
     .filter((p) => correspond(`${p.nom} ${p.tel || ""}`, q))
     .slice(0, 6);
 
-  const total = clients.length + ventes.length + produits.length + seulementAilleurs.length + devis.length + prospects.length + proformas.length;
-  return { clients, ventes, produits, produitsParBoutique, ailleurs, seulementAilleurs, devis, prospects, proformas, total };
+  const total = clients.length + ventes.length + produits.length + autresBoutiques.reduce((n, g) => n + g.items.length, 0) + devis.length + prospects.length + proformas.length;
+  return { clients, ventes, produits, produitsParBoutique, autresBoutiques, devis, prospects, proformas, total };
 }
 
-// Les articles trouvés (`trouves`, déjà cherchés) dans les boutiques `autres`.
-// → ailleurs : Map(nom normalisé d'un article de MA boutique → [{ boutique, stock }])
-// → seulementAilleurs : les articles qu'on n'a pas du tout chez soi, [{ nom, lieux }]
+// Les articles trouvés (`trouves`, déjà cherchés) dans les boutiques `autres`,
+// rangés PAR BOUTIQUE (ordre alphabétique) : [{ boutique, items: [{ nom, stock, chezMoi }] }].
+// `chezMoi` dit si ma boutique a aussi cet article ; ceux que je n'ai pas viennent
+// en tête de leur boutique. PRODUITS_PAR_BOUTIQUE au plus chacune. Rien d'autre
+// que le nom et la quantité : ni prix de vente, ni prix d'achat.
 export function stockAilleurs(db, trouves, maBoutique, autres) {
   const autresSet = new Set(autres || []);
-  const lieux = new Map();
-  const chezMoi = new Set();
-  const nomDe = new Map();
+  const chezMoi = new Set((trouves || []).filter((p) => p.boutique === maBoutique).map((p) => normNom(p.nom)));
+  const groupes = new Map();
   (trouves || []).forEach((p) => {
-    const k = normNom(p.nom);
-    if (p.boutique === maBoutique) { chezMoi.add(k); return; }
     if (!autresSet.has(p.boutique)) return;
-    if (!lieux.has(k)) lieux.set(k, []);
-    if (!nomDe.has(k)) nomDe.set(k, p.nom);
-    lieux.get(k).push({ boutique: p.boutique, stock: stockActuel(db, p) });
+    if (!groupes.has(p.boutique)) groupes.set(p.boutique, []);
+    groupes.get(p.boutique).push({ nom: p.nom, stock: stockActuel(db, p), chezMoi: chezMoi.has(normNom(p.nom)) });
   });
-  const trier = (l) => [...l].sort((a, b) => comparerFr(a.boutique, b.boutique));
-  const ailleurs = new Map([...lieux].filter(([k]) => chezMoi.has(k)).map(([k, l]) => [k, trier(l)]));
-  const seulementAilleurs = [...lieux].filter(([k]) => !chezMoi.has(k))
-    .map(([k, l]) => ({ nom: nomDe.get(k), lieux: trier(l) }))
-    .sort((a, b) => comparerFr(a.nom, b.nom)).slice(0, PRODUITS_PAR_BOUTIQUE);
-  return { ailleurs, seulementAilleurs };
+  return [...groupes.entries()]
+    .sort(([a], [b]) => comparerFr(a, b))
+    .map(([boutique, items]) => ({ boutique, items: [...items]
+      .sort((x, y) => (x.chezMoi !== y.chezMoi ? (x.chezMoi ? 1 : -1) : comparerFr(x.nom, y.nom)))
+      .slice(0, PRODUITS_PAR_BOUTIQUE) }));
 }
-const texteLieux = (lieux) => lieux.map((l) => `${l.boutique} : ${l.stock}`).join(" · ");
 
 export const PRODUITS_PAR_BOUTIQUE = 6;
 const comparerFr = (a, b) => String(a || "").localeCompare(String(b || ""), "fr", { numeric: true, sensitivity: "base" });
@@ -211,11 +209,7 @@ export function RechercheGlobale({ db, profile, onFermer, onNaviguer, texteIniti
                           <button key={p.id || i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100 flex items-center justify-between gap-2">
                             {/* Le prix et le stock accompagnent l'article (Timo, 08/09/2026 :
                                 « le prix n'est pas accompagné »). */}
-                            <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span>
-                              {resultats.ailleurs.get(normNom(p.nom))?.length > 0 && (
-                                <span className="block text-xs text-slate-500" data-stock-ailleurs>📍 Ailleurs : {texteLieux(resultats.ailleurs.get(normNom(p.nom)))}</span>
-                              )}
-                            </span>
+                            <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span></span>
                             <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(p.prix_vente)}</span>
                           </button>
                         ))}
@@ -224,17 +218,22 @@ export function RechercheGlobale({ db, profile, onFermer, onNaviguer, texteIniti
                   ))}
                 </div>
               )}
-              {resultats.seulementAilleurs.length > 0 && (
-                <div className="mb-3" data-seulement-ailleurs>
-                  <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">📍 Dans les autres boutiques seulement</div>
-                  <div className="space-y-1">
-                    {resultats.seulementAilleurs.map((a, i) => (
-                      <button key={i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100">
-                        <span className="text-sm"><span className="font-semibold">{a.nom}</span>
-                          <span className="block text-xs text-slate-500">{texteLieux(a.lieux)}</span></span>
-                      </button>
-                    ))}
-                  </div>
+              {resultats.autresBoutiques.length > 0 && (
+                <div className="mb-3" data-stock-autres-boutiques>
+                  <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">📍 Stock des autres boutiques</div>
+                  {resultats.autresBoutiques.map((g) => (
+                    <div key={g.boutique} className="mb-2" data-autre-boutique={g.boutique}>
+                      <div className="px-1 mb-1"><Badge boutique={g.boutique} /></div>
+                      <div className="space-y-1">
+                        {g.items.map((a, i) => (
+                          <button key={i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100 flex items-center justify-between gap-2" data-stock-ailleurs>
+                            <span className="text-sm"><span className="font-semibold">{a.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {a.stock} en stock</span></span>
+                            {!a.chezMoi && <span className="text-xs text-amber-700 whitespace-nowrap" data-pas-chez-moi>pas chez vous</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                   <div className="text-xs text-slate-400 px-1 mt-1">Pour en obtenir : 📦 Stocks → ⇄ → « 📨 Demander à une autre boutique », ou depuis une vente.</div>
                 </div>
               )}
