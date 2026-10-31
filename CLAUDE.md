@@ -10003,6 +10003,11 @@ lit mal est pire qu'un banc absent).
   caisse mais hors chiffre d'affaires / commissions / limite de remise, compte
   443 au journal, rapport de TVA collectée. ⚠ BMI doit être enregistré pour la
   TVA auprès de l'OTR (dit à Timo, à confirmer par le comptable).
+- ⚠⚠ **« 1 non… laisser le volet là pour le moment » (31/10/2026)** : BMI
+  n'est PAS enregistré pour la TVA. **Rien n'est construit, et on ne le
+  construit pas sans sa demande** — écrire de la TVA sur une facture sans être
+  enregistré serait prendre au client un argent qu'on n'a pas le droit de
+  percevoir. S'il revient (BMI enregistré), le plan ci-dessus tient.
 
 ### 🏷 LA LIMITE DE REMISE SANS ADMINISTRATEUR EST RÉGLABLE (29/10/2026, « Ramener la limite de 3 % d'un gérant dans paramètres.. Ou on peu augmenter ou diminuer à tout moment »)
 - Jusqu'ici, « au-delà de 3 %, l'administrateur seul » était un chiffre
