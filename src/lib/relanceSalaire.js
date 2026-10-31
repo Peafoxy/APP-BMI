@@ -47,7 +47,7 @@ export const moisDuVirement = (v) => moisEnClair([v?.mois]) || "ce mois";
 
 // L'envoi WhatsApp de la relance, UNE fabrique pour le bouton et la tournée.
 export const envoiRelanceSalaire = (u, v, { fmt, dFR } = {}) => envoiRappelConfirmationSalaire({
-  employe: u?.nom_complet || u?.nom, tel: u?.tel, mois: moisDuVirement(v), date: v?.date_envoi, montant: v?.montant, fmt, dFR,
+  employe: u?.nom_complet || u?.nom, tel: u?.tel, mois: moisDuVirement(v), date: v?.date_envoi, montant: v?.montant, moyen: v?.moyen, fmt, dFR,
 });
 
 const dejaEnvoyesAuFil = (messages) => new Set((messages || [])

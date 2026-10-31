@@ -64,7 +64,7 @@ export function texteLignePrivee(m, db) {
     const u = (db?.users || []).find((x) => x.id === m.salaire_user_id);
     const v = (u?.virements || []).find((x) => x.id === m.virement_id);
     if (!u || !v) return "";
-    const e = envoiRappelConfirmationSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, fmt, dFR });
+    const e = envoiRappelConfirmationSalaire({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "0", mois: libelleMoisFR(v.mois), date: v.date_envoi, montant: v.montant, moyen: v.moyen, fmt, dFR });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   // 📈 L'avis d'avancement : recomposé depuis l'évolution de salaire de la fiche.

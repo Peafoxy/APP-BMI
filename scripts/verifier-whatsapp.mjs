@@ -114,7 +114,7 @@ const ATTENDU = {
   virement_salaire: { categorie: "utility", n: 7 },
   virement_salaire_credit: { categorie: "utility", n: 10 },
   // 31/10/2026 : la relance de confirmation d'un salaire payé (« a et b »).
-  rappel_confirmation_salaire: { categorie: "utility", n: 4 },
+  rappel_confirmation_salaire: { categorie: "utility", n: 5 },
   // 03/10/2026 : la commission devenue due (texte de Timo).
   commission_due: { categorie: "utility", n: 4 },
   avancement_employe: { categorie: "utility", n: 5 },
@@ -7361,7 +7361,7 @@ console.log("\n81 — ⏳ la relance d'un salaire payé pas encore confirmé re�
   test("★★ sans numéro : la notification part quand même, pas de WhatsApp", !!sansNum && sansNum.notifier && !sansNum.whatsapp && !sansNum.envoi);
   const r3 = l.find((x) => x.virement.id === "v3");
   test("★ le WhatsApp : quatre trous dans l'ordre — employé, montant, mois en lettres, date",
-    r3.envoi.modele === "rappel_confirmation_salaire" && r3.envoi.variables.join("|") === "AKPOSSOGNA Kossiwa|60000 F|octobre 2026|27/10/2026");
+    r3.envoi.modele === "rappel_confirmation_salaire" && r3.envoi.variables.join("|") === "AKPOSSOGNA Kossiwa|octobre 2026|60000|27/10/2026|Espèces");
   // Une fois : la marque.
   const marque = R.virementApresRelance(v("v3", "2026-10-27"), { le: "2026-10-30", notif: true, whatsapp: true });
   const db2 = { ...db, users: db.users.map((u) => (u.id === "e1" ? { ...u, virements: [marque] } : u)) };
@@ -7394,7 +7394,7 @@ console.log("\n81 — ⏳ la relance d'un salaire payé pas encore confirmé re�
     && corpsB.indexOf("uConfirm(") < corpsB.indexOf("envoyerModele(") && /espaceFormation: estCompteFormation\(db, fiche\)/.test(corpsB)
     && /if \(!r\.auto\) return;/.test(corpsB) && /virementAConfirmer\(v\) && <BoutonRond icone="📲"[^>]*envoi/.test(ecr));
   test("★ le repli = le texte du modèle, mot pour mot",
-    M.texteRappelConfirmationSalaire(r3.envoi.variables).startsWith("Bonjour AKPOSSOGNA Kossiwa,") && /60000 F pour votre salaire de octobre 2026, le 27\/10\/2026/.test(M.texteRappelConfirmationSalaire(r3.envoi.variables)));
+    M.texteRappelConfirmationSalaire(r3.envoi.variables).startsWith("Bonjour AKPOSSOGNA Kossiwa,") && /salaire du mois de octobre 2026 a été enregistré/.test(M.texteRappelConfirmationSalaire(r3.envoi.variables)) && /Montant : 60000 FCFA\nDate de paiement : 27\/10\/2026\nMode de paiement : Espèces/.test(M.texteRappelConfirmationSalaire(r3.envoi.variables)) && /Administration – BMI TOGO$/.test(M.texteRappelConfirmationSalaire(r3.envoi.variables)));
   test("★ la relance s'écrit sous le paiement (auto et à la main)",
     R.phraseRelances({ relance_auto: { le: "2026-10-30" }, relances_main: [{ le: "2026-10-31", par: "TIMO" }] }, dT) === "📲 relancé automatiquement le 30/10/2026 · relancé le 31/10/2026 par TIMO");
 }

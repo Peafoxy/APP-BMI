@@ -227,7 +227,7 @@ export const MODELES = {
   // ⏳ 31/10/2026, Timo : « relance de confirmation salaire » → « a et b » :
   // un salaire payé que l'employé n'a pas confirmé reçu. UTILITY (un paiement
   // fait). Bouton 📲 de 💵 Salaires, et la tournée de 7 h au 3e jour.
-  rappel_confirmation_salaire: { categorie: "utility", variables: ["employe", "montant", "mois", "date"] },
+  rappel_confirmation_salaire: { categorie: "utility", variables: ["employe", "mois", "montant", "date", "moyen"] },
   // 💰 03/10/2026, Timo (son texte) : une commission DEVENUE DUE (réception
   // ET solde), au commercial, au technicien, au parrain, à l'apporteur. Le
   // trou 4 = « Détail dans votre espace… » pour qui a un compte, « Passez à
@@ -966,7 +966,7 @@ const LIGNES_ENVOI = {
   prime_installation_payee: ([employe, client, date, montant, moyen, retenue]) => `Avis de paiement envoyé à ${employe} : part d'installation du chantier ${client}, ${montant} (${moyen}) le ${date}. ${retenue}`,
   commission_due: ([beneficiaire, montant, client]) => `Avis de commission due envoyé à ${beneficiaire} : ${montant} (client ${client}).`,
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
-  rappel_confirmation_salaire: ([employe, montant, mois, date]) => `Relance de confirmation envoyée à ${employe} : salaire de ${mois}, ${montant} payé le ${date}, pas encore confirmé reçu.`,
+  rappel_confirmation_salaire: ([employe, mois, montant, date, moyen]) => `Relance de confirmation envoyée à ${employe} : salaire de ${mois}, ${montant} FCFA payé le ${date} (${moyen}), pas encore confirmé reçu.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
   loyer_disponible: ([proprietaire, montant, mois, aupres, boutique]) => `Loyer disponible : ${proprietaire} prévenu(e) de venir chercher ${montant} pour ${mois} auprès de ${aupres} (boutique ${boutique}).`,
   // ⚠ Le numéro du client (trou 9 / 7) n'est pas recopié dans le fil.
@@ -1998,22 +1998,28 @@ export function envoiVirementSalaire({ employe, tel, mois, date, montant, moyen,
 
 // ---------------------------------------------------------------
 // ⏳ LA RELANCE DE CONFIRMATION D'UN SALAIRE — `rappel_confirmation_salaire`
-// (31/10/2026, « a et b ») — texte proposé ; si Timo le crée autrement chez
-// YCloud, on recopie le sien ici. Quatre trous : employé, montant, mois en
-// lettres, date du paiement. Rend null sans numéro ou sans montant.
+// (31/10/2026, « a et b ») — LE TEXTE DE TIMO, mot pour mot. Cinq trous,
+// dans SON ordre : salarié, mois / année, montant (le chiffre seul : le texte
+// écrit « FCFA »), date du paiement, mode de paiement. Rend null sans numéro
+// ou sans montant.
 // ---------------------------------------------------------------
 export const TEXTE_RAPPEL_CONFIRMATION_SALAIRE = [
   "Bonjour {{1}},",
   "",
-  "Rappel : BMI TOGO vous a payé {{2}} pour votre salaire de {{3}}, le {{4}}.",
+  "Votre salaire du mois de {{2}} a été enregistré dans le système de gestion BMI.",
   "",
-  "Merci de confirmer la réception depuis votre espace sur :",
-  "gestion.bmitogo.com, dans l'onglet « Salaire ».",
+  "Nous vous invitons à vous connecter à votre espace personnel avec gestion.bmitogo.com afin de vérifier et de confirmer la réception de votre salaire.",
   "",
-  "Si vous n'avez rien reçu, signalez-le à l'administration.",
-  "BMI TOGO",
+  "Montant : {{3}} FCFA",
+  "Date de paiement : {{4}}",
+  "Mode de paiement : {{5}}",
+  "",
+  "Merci de cliquer sur « Confirmer la réception » après vérification.",
+  "",
+  "Cordialement,",
+  "Administration – BMI TOGO",
 ].join("\n");
-export function envoiRappelConfirmationSalaire({ employe, tel, mois, date, montant, fmt, dFR }) {
+export function envoiRappelConfirmationSalaire({ employe, tel, mois, date, montant, moyen, fmt, dFR }) {
   if (!String(tel || "").replace(/\D/g, "")) return null;
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return null;
@@ -2023,9 +2029,11 @@ export function envoiRappelConfirmationSalaire({ employe, tel, mois, date, monta
     modele: "rappel_confirmation_salaire",
     variables: [
       texteVariable(employe) || "cher collaborateur",
-      f(m),
       texteVariable(mois) || "ce mois",
+      // le chiffre seul : « FCFA » est écrit dans le texte
+      String(f(m)).replace(/\s*F\s*$/, ""),
       d(date) || "ces derniers jours",
+      texteVariable(moyen) || "non précisé",
     ],
   };
 }

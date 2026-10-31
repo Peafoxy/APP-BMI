@@ -8333,9 +8333,10 @@ lit mal est pire qu'un banc absent).
 - Timo : « Relance de confirmation salaire ». Un salaire payé restait
   « ⏳ à confirmer » pour toujours si l'employé n'ouvrait pas l'application.
   Règle pure **`lib/relanceSalaire.js`** (lisible par le serveur), modèle
-  **`rappel_confirmation_salaire`** (UTILITY, 4 trous : employé, montant, mois
-  en lettres, date — `TEXTE_RAPPEL_CONFIRMATION_SALAIRE`, texte PROPOSÉ : s'il
-  le crée autrement chez YCloud, recopier le sien), ligne PRIVÉE dans
+  **`rappel_confirmation_salaire`** (UTILITY, 5 trous dans SON ordre :
+  salarié, mois en lettres, montant — le chiffre seul, le texte écrit
+  « FCFA » —, date, mode de paiement — `TEXTE_RAPPEL_CONFIRMATION_SALAIRE`,
+  **le texte de Timo, mot pour mot**, 31/10/2026), ligne PRIVÉE dans
   📲 WhatsApp (recomposée depuis le virement, `texteLignePrivee`).
 - **« a »** : 💵 Salaires → ligne dépliée → Paiements : bouton rond **📲** sur
   un paiement « ⏳ à confirmer » (`relancerConfirmation`, administrateur, fiche
