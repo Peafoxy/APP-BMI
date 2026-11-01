@@ -7,7 +7,7 @@ import { useState, useCallback } from "react";
 import { maintenant } from "../lib/horloge";
 import { fmt, today, dFR, inP, col, totalVente, caVenteDuJour, lignesAuChiffre, coutDesVentes, avertissementSansPrix, qteVente, resumeArticles, lignesJournal, numeroRecu, estDepotChantier } from "../lib/core";
 // Timo (12/09/2026) : « seules les dépenses validées comptent » — depensesComptees.
-import { depensesComptees, CATEGORIE_VERSEMENT, horsAchatsDeStock } from "../lib/constants";
+import { depensesComptees, CATEGORIE_VERSEMENT, horsAchatsDeStock, CATEGORIE_RENDU_ECHANGE } from "../lib/constants";
 // Timo (12/09/2026) : trois pastilles DG, BANQUE, COMPTABLE, chacune sa caisse lue
 // (lib/caissesCentrales.js).
 import { mouvementsBanque, mouvementsComptable, releve, CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE, libellePastille } from "../lib/caissesCentrales";
@@ -152,7 +152,7 @@ export function Dashboard({ db, profile, save }) {
   // dépenses « Achat marchandises » et « Commande en Chine » en sortent (sinon la marchandise serait
   // comptée deux fois). UNE fabrique pour la carte ET la synthèse par période.
   const ligneDePeriode = (label, a, b) => {
-    const v = {}, d = {}, c = {}, dr = {};
+    const v = {}, d = {}, c = {}, dr = {}, re = {};
     let sansPrix = [], caSansPrix = 0;
     NOMS_VUES.forEach((bq) => {
       // Les achats « 🏗 Chantier » y sont : leur prix de vente ET leur prix
@@ -162,10 +162,16 @@ export function Dashboard({ db, profile, save }) {
       v[bq] = ventesBq.reduce((s, x) => s + caVenteDuJour(x), 0);
       d[bq] = depBq.reduce((s, x) => s + Number(x.montant), 0);
       dr[bq] = horsAchatsDeStock(depBq).reduce((s, x) => s + Number(x.montant), 0);
+      // 🔄 Timo (01/11/2026, « Lance 7 » — option « b » du 14/10) : l'argent RENDU
+      // au client sur un échange sort du RÉSULTAT (seulement) — il reste hors des
+      // charges et hors de la carte « Dépenses ». En attente du DG : ne compte pas ;
+      // rejeté : son montant est déjà 0.
+      re[bq] = (db.depenses || []).filter((x) => x.boutique === bq && x.categorie === CATEGORIE_RENDU_ECHANGE
+        && x?.validation?.statut !== "attente" && inP(x.date, a, b)).reduce((s, x) => s + Number(x.montant || 0), 0);
       const k = coutDesVentes(db.produits, ventesBq);
       c[bq] = k.cout; sansPrix = [...sansPrix, ...k.sansPrix]; caSansPrix += k.caSansPrix;
     });
-    return { label, v, d, c, dr, sansPrix, caSansPrix };
+    return { label, v, d, c, dr, re, sansPrix, caSansPrix };
   };
   const rows = periodes().map(([label, a, b]) => ligneDePeriode(label, a, b));
   const customRow = (() => { const [label, a, b] = getPeriod(); return ligneDePeriode(label, a, b); })();
@@ -181,8 +187,10 @@ export function Dashboard({ db, profile, save }) {
   });
 
   const somme = (obj) => NOMS_VUES.reduce((s, b) => s + (obj[b] || 0), 0);
-  // Résultat = ventes − prix d'achat des articles vendus − dépenses (hors achats de marchandises).
-  const resultatDe = (r) => somme(r.v) - somme(r.c) - somme(r.dr);
+  // Résultat = ventes − prix d'achat des articles vendus − dépenses (hors achats de marchandises)
+  // − l'argent rendu sur un échange (Timo, 01/11/2026). UNE formule : carte ET synthèse.
+  const resultatDe = (r) => somme(r.v) - somme(r.c) - somme(r.dr) - somme(r.re);
+  const avecRendu = [...rows, customRow].some((r) => somme(r.re) > 0);
   const resCustom = resultatDe(customRow);
 
   // 🔄 Un échange ne compte que sa différence, le jour de l'échange (Timo, 14/10/2026).
@@ -475,6 +483,7 @@ export function Dashboard({ db, profile, save }) {
             {NOMS_GRAPHE.map((b) => <th key={b} className="text-right px-3 py-2">Ventes {b}</th>)}
             <th className="text-right px-3 py-2">Prix d'achat vendus</th>
             <th className="text-right px-3 py-2">Dépenses (hors achats)</th>
+            {avecRendu && <th className="text-right px-3 py-2">Rendu sur échanges</th>}
             <th className="text-right px-4 py-2">Résultat</th>
           </tr></thead>
           <tbody>
@@ -486,6 +495,7 @@ export function Dashboard({ db, profile, save }) {
                   {NOMS_GRAPHE.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums" style={{ color: col(b) }}>{fmt(r.v[b])}</td>)}
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(somme(r.c))}{r.sansPrix.length > 0 && <span className="text-amber-600" title={avertissementSansPrix(r.sansPrix, r.caSansPrix)}> ⚠</span>}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(somme(r.dr))}</td>
+                  {avecRendu && <td data-rendu-echange className="px-3 py-2 text-right tabular-nums">{fmt(somme(r.re))}</td>}
                   <td className={`px-4 py-2 text-right tabular-nums font-bold ${res >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(res)}</td>
                 </tr>
               );
@@ -496,6 +506,7 @@ export function Dashboard({ db, profile, save }) {
                 {NOMS_GRAPHE.map((b) => <td key={b} className="px-3 py-2 text-right tabular-nums font-bold" style={{ color: col(b) }}>{fmt(customRow.v[b])}</td>)}
                 <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(somme(customRow.c))}</td>
                 <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(somme(customRow.dr))}</td>
+                {avecRendu && <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(somme(customRow.re))}</td>}
                 <td className={`px-4 py-2 text-right tabular-nums font-bold ${resCustom >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(resCustom)}</td>
               </tr>
             )}

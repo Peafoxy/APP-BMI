@@ -14593,6 +14593,18 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     test("★★ 📊 BMI rend 70 000 : « Ventes — Aujourd'hui » = 0 F (jamais −70 000), et aucune ligne d'échange sous les cartes",
       /Ventes — Aujourd'hui[\s\S]{0,400}?>0 F</.test(dashM) && !/-70 000 F|−70 000 F/.test(dashM) && !/data-echanges-periode|1 échange : les ventes/.test(dashM),
       (dashM.match(/Ventes — Aujourd'hui[\s\S]{0,400}/) || [dashM.slice(0, 300)])[0]);
+    // 🔄 RETOURNÉ le 01/11/2026 (Timo, « Lance 7 », l'option « b » du 14/10) : l'argent RENDU au client
+    // sur un échange sort du RÉSULTAT (carte ET synthèse, une formule) — jamais de la carte « Dépenses ».
+    // Jour de l'échange : ventes 0 − prix d'achat (20 000 − 60 000) − rendu 70 000 = −30 000.
+    const rendu = { id: "dRe", date: auj, boutique: "DEMAKPOE", categorie: "Rendu sur échange", montant: 70000, paiement: "Espèces" };
+    let dashRe = "", dashReAtt = "";
+    try { R.setRegardeFormation(false); dashRe = lisible(R.rendreDashboard({ ...db, produits: prodsX, ventes: [ancienne, moins], depenses: [rendu] }, timo)).replace(/[\u202f\u00a0]/g, " ");
+      dashReAtt = lisible(R.rendreDashboard({ ...db, produits: prodsX, ventes: [ancienne, moins], depenses: [{ ...rendu, validation: { statut: "attente" } }] }, timo)).replace(/[\u202f\u00a0]/g, " "); } catch (e) { dashRe = "ERREUR " + e.message; }
+    test("★★ 📊 « Résultat — Aujourd'hui » retire l'argent rendu sur un échange : 0 − (20 000 − 60 000) − 70 000 = −30 000 ; la carte « Dépenses » ne le compte pas ; la synthèse a sa colonne « Rendu sur échanges » ; en attente du DG, il ne compte pas (+40 000)",
+      /Résultat — Aujourd'hui[\s\S]{0,400}?-30 000 F/.test(dashRe) && /Dépenses — Aujourd'hui[\s\S]{0,400}?>0 F</.test(dashRe)
+      && /Rendu sur échanges/.test(dashRe) && /data-rendu-echange/.test(dashRe)
+      && /Résultat — Aujourd'hui[\s\S]{0,400}?40 000 F/.test(dashReAtt) && !/Rendu sur échanges/.test(dashReAtt),
+      (dashRe.match(/Résultat — Aujourd'hui[\s\S]{0,300}/) || [dashRe.slice(0, 300)])[0]);
     const lA = Core.lignesAuChiffre(ancienne), lP = Core.lignesAuChiffre(plus), lM = Core.lignesAuChiffre(moins);
     // RETOURNÉ le 14/10/2026 au soir : le panneau rendu revient EN QUANTITÉ (−1, son prix d'achat aussi),
     // à 0 F de chiffre ; l'onduleur ne porte que ce que le client a ajouté.

@@ -9490,7 +9490,14 @@ lit mal est pire qu'un banc absent).
   ligne de la vente, à côté de « Aujourd'hui » dans 💰 Ventes (`data-jour-rendu`,
   gardé) et dans 📤 Dépenses. Deux contrôles RETOURNÉS (aucune ligne sous les
   cartes), éprouvés.
-  ⚠ **LA CARTE RÉSULTAT NE RETIRE PAS L'ARGENT RENDU SUR UN ÉCHANGE — « pour
+  ✅ **RETOURNÉ le 01/11/2026 (« Lance 7 », l'option « b ») : le RÉSULTAT
+  (carte ET synthèse, `resultatDe`, une formule) retire l'argent rendu sur un
+  échange** (« Rendu sur échange » qui compte — pas en attente du DG), par
+  boutique et période ; la carte « Dépenses » ne le compte toujours pas ; la
+  synthèse a une colonne « Rendu sur échanges » (`data-rendu-echange`) quand il
+  y en a. Banc (+1, l'écran RENDU), éprouvé. Chapitre 22. Ce qui suit est
+  l'histoire :
+  ⚠ **LA CARTE RÉSULTAT NE RETIRAIT PAS L'ARGENT RENDU SUR UN ÉCHANGE — « pour
   le moment laisser comme ça » (14/10/2026)**. Capture Timo (« 17 100 je ne
   comprends pas ») : Résultat = ventes − prix d'achat des articles sortis (le
   prix d'achat de l'article RENDU revient ce jour-là, d'où un prix d'achat
