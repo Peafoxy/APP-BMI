@@ -657,7 +657,7 @@ export function Depenses({ db, save, profile, cible = null }) {
             <div>
               <div className="font-bold text-slate-800">🏠 Loyer de la boutique <Badge boutique={boutique} /></div>
               <div className="text-sm text-slate-600 mt-1">
-                <b className="tabular-nums">{fmt(loyer.montant)}</b> par mois · échéance le <b>{Number(fiche.jour)}</b> du mois
+                <b className="tabular-nums">{fmt(loyer.montant)}</b> par mois · payé à terme échu, le <b>{Number(fiche.jour)}</b> du mois suivant
                 {fiche.proprietaire && <> · propriétaire : <b>{fiche.proprietaire}</b></>}{fiche.tel && <> ({fiche.tel})</>}
               </div>
               {(fiche.debut || fiche.caution > 0 || fiche.note) && (
@@ -674,8 +674,8 @@ export function Depenses({ db, save, profile, cible = null }) {
               <div className={`text-sm font-bold mt-2 ${loyer.statut === "retard" ? "text-red-700" : loyer.statut === "paye" ? "text-green-700" : "text-amber-700"}`}>
                 {loyer.statut === "paye" && `✅ ${libelleMois(loyer.mois)} : payé${loyer.derniere ? ` le ${dFR(loyer.derniere.date)}` : ""}`}
                 {loyer.statut === "attente" && `⏳ Le loyer dû est saisi, en attente de la validation du DG`}
-                {loyer.statut === "a_payer" && `⏳ ${libelleMois(loyer.mois)} : ${fmt(loyer.reste)} à payer avant le ${dFR(loyer.echeance)}`}
-                {loyer.statut === "retard" && `⚠ Arriérés : ${loyer.moisEnRetard} mois (${libellePeriodeLoyer(loyer.dus.filter((x) => !x.attente && x.enRetard).map((x) => x.mois), { avecNombre: false })}) — ${fmt(loyer.reste)} dus · en retard de ${loyer.joursRetard} jour${loyer.joursRetard > 1 ? "s" : ""} (échéance du plus ancien : ${dFR(loyer.dus.find((x) => !x.attente && x.enRetard).echeance)})`}
+                {loyer.statut === "a_payer" && `⏳ ${libelleMois(loyer.prochain.mois)} : ${fmt(loyer.prochain.reste)} à payer avant le ${dFR(loyer.prochain.echeance)}${loyer.suivant ? ` · puis ${libelleMois(loyer.suivant.mois)} avant le ${dFR(loyer.suivant.echeance)}` : ""}`}
+                {loyer.statut === "retard" && `⚠ Arriérés : ${loyer.moisEnRetard} mois (${libellePeriodeLoyer(loyer.dus.filter((x) => !x.attente && x.enRetard).map((x) => x.mois), { avecNombre: false })}) — ${fmt(loyer.resteEnRetard)} en retard${loyer.reste > loyer.resteEnRetard ? ` (${fmt(loyer.reste)} en tout avec le mois en cours)` : ""} · en retard de ${loyer.joursRetard} jour${loyer.joursRetard > 1 ? "s" : ""} (échéance du plus ancien : ${dFR(loyer.dus.find((x) => !x.attente && x.enRetard).echeance)})`}
               </div>
             </div>
             <button onClick={payerLoyer} className={btnDark} data-payer-loyer>

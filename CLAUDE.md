@@ -5785,6 +5785,20 @@ lit mal est pire qu'un banc absent).
   `verifier-ecran-loyer` (+4, éprouvé : toujours / jamais affichée). Chapitres
   17 et 22, guide du gérant à jour.
 
+### ⏳ LE LOYER SE PAIE À TERME ÉCHU (01/11/2026)
+- Capture Timo (cadre 🏠 Loyer, août à octobre payés, « novembre 2026 : 90 000 F
+  à payer avant le 05/11/2026 ») : « c'est au plus tard en décembre que je
+  devrais payer pour novembre… c'est un post-paiement pour les loyers, même
+  réglé dans toute l'app ». **Le loyer d'un mois est dû le jour réglé du mois
+  SUIVANT** : `echeanceDuMois` (lib/loyer.js, `LOYER_A_TERME_ECHU`) — UNE règle,
+  lue par « à payer avant », « en retard », « arriérés ». Le cadre annonce le
+  plus ANCIEN mois à régler (`prochain`, puis `suivant`) ; en retard, le montant
+  EN RETARD seul (`resteEnRetard`), le total avec le mois en cours entre
+  parenthèses. ⚙ Paramètres : « Payé le … du mois suivant (terme échu) » ; le
+  cadre dit « payé à terme échu, le 5 du mois suivant ». Pour TOUS les locaux.
+  Rien à coller. Banc (+3, cinq RETOURNÉS), éprouvé (règle ramenée au même
+  mois : cinq tombent). Chapitre 17 à jour.
+
 ### 📲 LE LOYER QUI ATTEND LE PROPRIÉTAIRE — `loyer_disponible` (10/10/2026, « A a, B b après validation du paiement, C a »)
 - Timo : « modèle Meta pour demander au bailleur de passer chercher l'argent
   du loyer disponible chez le ou la gérante ». Modèle **`loyer_disponible`**

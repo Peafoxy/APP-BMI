@@ -71,9 +71,20 @@ export function libelleMois(mois) {
   return `${MOIS_FR[m - 1]} ${a}`;
 }
 
-// La date d'échéance du mois : le jour réglé, ramené au dernier jour du mois
-// s'il n'existe pas (le 31 en février tombe le 28 ou le 29).
-export function echeanceDuMois(fiche, mois) {
+// ⏳ LE LOYER SE PAIE À TERME ÉCHU (01/11/2026, Timo, capture du cadre :
+// « août, septembre, octobre est payé, donc c'est au plus tard en décembre que
+// je devrais payer pour novembre… c'est un post-paiement pour les loyers, même
+// réglé dans toute l'app ») : le loyer d'un mois est dû le jour réglé du mois
+// SUIVANT — novembre, échéance le 5, se paie au plus tard le 5 décembre.
+// ⚠ UNE règle : tout ce qui dit « à payer avant », « en retard » ou « arriérés »
+// lit cette fonction, jamais un calcul à part.
+export const LOYER_A_TERME_ECHU = true;
+
+// La date d'échéance du loyer d'un mois : le jour réglé du mois SUIVANT
+// (terme échu), ramené au dernier jour de ce mois s'il n'existe pas (le 31
+// tombe le 28 ou le 29 en février).
+export function echeanceDuMois(fiche, moisLoyer) {
+  const mois = LOYER_A_TERME_ECHU ? moisPlus(moisLoyer, 1) : moisLoyer;
   const [a, m] = String(mois).split("-").map(Number);
   const dernier = new Date(Date.UTC(a, m, 0)).getUTCDate();
   const j = Math.min(Math.max(1, Number(fiche?.jour) || JOUR_ECHEANCE_DEFAUT), dernier);
@@ -144,7 +155,10 @@ export function etatLoyer({ fiche, depenses, boutique, aujourdhui }) {
   const lignes = depensesDuLocal(depenses, boutique).filter((d) => moisDeLaDepense(d).some((m) => m === mois || dus.some((x) => x.mois === m)));
   const derniere = [...loyersDuMois(depenses, boutique, mois)].sort((x, y) => String(y.date).localeCompare(String(x.date)))[0] || null;
   const base = {
-    mois, echeance: echeanceDuMois(fiche, mois), montant, paye: paye[mois] || 0, lignes, derniere,
+    mois, echeance: echeanceDuMois(fiche, mois),
+    // Le plus ancien mois à régler (terme échu : sur le 2 décembre, novembre
+    // avant le 5 décembre, puis décembre) — c'est LUI que le cadre annonce.
+    prochain: aRegler[0] || null, suivant: aRegler[1] || null, montant, paye: paye[mois] || 0, lignes, derniere,
     dernierPaye, dus, reste: aRegler.reduce((s, x) => s + x.reste, 0),
     avance: dernierPaye && dernierPaye > mois ? dernierPaye : "",
     // Les mois À VENIR déjà payés ou déjà saisis (en attente du DG) : on ne
@@ -153,8 +167,8 @@ export function etatLoyer({ fiche, depenses, boutique, aujourdhui }) {
   };
   if (!dus.length) return { ...base, statut: "paye" };
   if (!aRegler.length) return { ...base, statut: "attente" };
-  if (retards.length) return { ...base, statut: "retard", joursRetard: joursEntre(retards[0].echeance, aujourdhui), moisEnRetard: retards.length };
-  return { ...base, statut: "a_payer", joursAvant: -joursEntre(base.echeance, aujourdhui) };
+  if (retards.length) return { ...base, statut: "retard", resteEnRetard: retards.reduce((t, x) => t + x.reste, 0), joursRetard: joursEntre(retards[0].echeance, aujourdhui), moisEnRetard: retards.length };
+  return { ...base, statut: "a_payer", joursAvant: -joursEntre(aRegler[0].echeance, aujourdhui) };
 }
 
 // Les n prochains mois à payer, du plus ancien dû vers l'avance : les mois dus

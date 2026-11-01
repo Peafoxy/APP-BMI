@@ -62,7 +62,7 @@ function ChampsLoyer({ valeur, onChange }) {
       {v.loue && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-2" data-champs-loyer>
           <Field label="Loyer mensuel (F)"><input type="number" className={inputCls} value={v.montant} onChange={pose("montant")} /></Field>
-          <Field label="Échéance : le … du mois"><input type="number" min="1" max="31" className={inputCls} value={v.jour} onChange={pose("jour")} /></Field>
+          <Field label="Payé le … du mois suivant (terme échu)"><input type="number" min="1" max="31" className={inputCls} value={v.jour} onChange={pose("jour")} /></Field>
           <Field label="Nom du propriétaire"><input className={inputCls} value={v.proprietaire} onChange={pose("proprietaire")} /></Field>
           <Field label="Téléphone du propriétaire"><input type="tel" className={inputCls} value={v.tel} onChange={pose("tel")} placeholder="+228 90 00 00 00" /></Field>
           <Field label="Début du bail"><input type="date" className={inputCls} value={v.debut} onChange={pose("debut")} /></Field>
@@ -925,7 +925,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (refus) { uAlert(refus); return; }
     const loyer = nettoyerFicheLoyer(loyerForm);
     save({ ...db, boutiques: db.boutiques.map((x) => (x.id === b.id ? { ...x, loyer } : x)) },
-      loyer.loue ? `Loyer de ${b.nom} : ${fmt(loyer.montant)} par mois, échéance le ${loyer.jour}, propriétaire ${loyer.proprietaire}` : `${b.nom} : local marqué « non loué »`);
+      loyer.loue ? `Loyer de ${b.nom} : ${fmt(loyer.montant)} par mois, payé le ${loyer.jour} du mois suivant, propriétaire ${loyer.proprietaire}` : `${b.nom} : local marqué « non loué »`);
     setLoyerPour(null);
     uAlert(loyer.loue ? `🏠 Loyer de ${b.nom} enregistré : ${fmt(loyer.montant)} par mois.` : `${b.nom} n'est plus marqué « loué ».`);
   };

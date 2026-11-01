@@ -13747,19 +13747,27 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     && !!L.critiqueFicheLoyer({ loue: true, montant: 1000, proprietaire: "X", jour: 40 })
     && L.critiqueFicheLoyer({ loue: true, montant: 1000, proprietaire: "X", jour: 5 }) === null
     && L.critiqueFicheLoyer({ loue: false }) === null);
-  test("★ l'échéance du 31 tombe au dernier jour d'un mois court", L.echeanceDuMois({ jour: 31 }, "2026-02") === "2026-02-28");
+  // RETOURNÉ le 01/11/2026 (Timo : « c'est un post-paiement pour les loyers ») :
+  // le loyer d'un mois est dû le jour réglé du mois SUIVANT (terme échu).
+  test("★ l'échéance du 31 tombe au dernier jour d'un mois court (le loyer de janvier, payé fin février)", L.echeanceDuMois({ jour: 31 }, "2026-01") === "2026-02-28");
+  test("★★ TERME ÉCHU : le loyer de novembre (jour 5) est dû le 5 DÉCEMBRE, celui de décembre le 5 janvier", L.echeanceDuMois({ jour: 5 }, "2026-11") === "2026-12-05" && L.echeanceDuMois({ jour: 5 }, "2026-12") === "2027-01-05");
+  const ficheEchu = { ...fiche, dernier_mois_paye: "2026-09" };
+  const eE = (depenses, jour) => L.etatLoyer({ fiche: ficheEchu, depenses, boutique: "DEMAKPOE", aujourdhui: jour });
   const dep = (x) => ({ categorie: "Loyer", boutique: "DEMAKPOE", date: "2026-10-03", montant: 150000, ...x });
   const e = (depenses, jour) => L.etatLoyer({ fiche, depenses, boutique: "DEMAKPOE", aujourdhui: jour });
-  test("★★ à payer avant l'échéance, en retard après", e([], "2026-10-03").statut === "a_payer" && e([], "2026-10-09").statut === "retard" && e([], "2026-10-09").joursRetard === 4);
+  test("★★ à payer avant l'échéance, en retard après (terme échu : octobre jusqu'au 5 novembre)", e([], "2026-10-09").statut === "a_payer" && e([], "2026-10-09").prochain.echeance === "2026-11-05"
+    && eE([], "2026-11-03").statut === "a_payer" && eE([], "2026-11-03").prochain.mois === "2026-10" && eE([], "2026-11-09").statut === "retard" && eE([], "2026-11-09").joursRetard === 4);
+  test("★★ la capture de Timo : août à octobre payés, on est le 1er novembre → novembre à payer avant le 5 DÉCEMBRE, rien en retard",
+    (() => { const x = L.etatLoyer({ fiche: { ...fiche, jour: 5, dernier_mois_paye: "2026-10" }, depenses: [], boutique: "DEMAKPOE", aujourdhui: "2026-11-01" }); return x.statut === "a_payer" && x.prochain.mois === "2026-11" && x.prochain.echeance === "2026-12-05"; })());
   test("★★ payé : une dépense Loyer du mois suffit (même saisie à la main, sans marque)", e([dep({})], "2026-10-20").statut === "paye");
-  test("★★ une dépense REJETÉE par le DG ne paie pas le loyer", e([dep({ validation: { statut: "rejetee" }, montant: 0 })], "2026-10-20").statut === "retard" && e([dep({ validation: { statut: "rejetee" } })], "2026-10-20").statut === "retard");
+  test("★★ une dépense REJETÉE par le DG ne paie pas le loyer", eE([dep({ loyer_mois: "2026-10", validation: { statut: "rejetee" }, montant: 0 })], "2026-11-20").statut === "retard" && eE([dep({ loyer_mois: "2026-10", validation: { statut: "rejetee" } })], "2026-11-20").statut === "retard");
   test("★★ une dépense EN ATTENTE du DG se dit en attente, et bloque un second paiement",
     e([dep({ validation: { statut: "attente" } })], "2026-10-20").statut === "attente"
     && !!L.critiquePaiementLoyer(e([dep({ validation: { statut: "attente" } })], "2026-10-20")));
   test("★★ LE LOCAL, pas la caisse : payé par la caisse d'APESSITO, c'est le loyer de DEMAKPOE",
     e([dep({ boutique: "APESSITO", loyer_boutique: "DEMAKPOE", loyer_mois: "2026-10" })], "2026-10-20").statut === "paye"
     && L.etatLoyer({ fiche, depenses: [dep({ boutique: "APESSITO", loyer_boutique: "DEMAKPOE" })], boutique: "APESSITO", aujourdhui: "2026-10-20" }).statut !== "paye");
-  test("★★ le mois de septembre ne paie pas octobre", e([dep({ date: "2026-09-30" })], "2026-10-20").statut === "retard");
+  test("★★ le mois de septembre ne paie pas octobre", eE([dep({ date: "2026-09-30" })], "2026-11-20").statut === "retard" && eE([dep({ date: "2026-09-30" })], "2026-11-20").dus[0].mois === "2026-10");
   test("★★ jamais deux fois : le loyer payé refuse un second paiement", !!L.critiquePaiementLoyer(e([dep({})], "2026-10-20")) && L.critiquePaiementLoyer(e([], "2026-10-20")) === null);
   const pf = L.formulaireLoyer(fiche, e([], "2026-10-20"), "DEMAKPOE");
   test("★ « Payer » pré-remplit catégorie Loyer, montant, mois et local", pf.categorie === "Loyer" && pf.montant === "150000" && pf.loyer_mois === "2026-10" && pf.loyer_boutique === "DEMAKPOE");
@@ -13802,8 +13810,10 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
     const f2 = L.nettoyerFicheLoyer({ loue: true, montant: 90000, jour: 1, proprietaire: "GEDEON", dernier_mois_paye: "2026-06" });
     const E = (depenses, jour = "2026-09-25") => L.etatLoyer({ fiche: f2, depenses, boutique: "DEMAKPOE", aujourdhui: jour });
     const e0 = E([]);
-    test("★★ dernier mois payé DÉCLARÉ (juin) → arriérés juillet, août, septembre = 270 000 F, le retard compté depuis le plus ancien",
-      e0.statut === "retard" && e0.dernierPaye === "2026-06" && e0.dus.map((x) => x.mois).join() === "2026-07,2026-08,2026-09" && e0.reste === 270000 && e0.moisEnRetard === 3 && e0.joursRetard === 86);
+    // RETOURNÉ le 01/11/2026 (terme échu) : le 25 septembre, juillet (dû le 1er août) et août (dû le 1er septembre)
+    // sont en retard ; septembre n'est dû que le 1er octobre.
+    test("★★ dernier mois payé DÉCLARÉ (juin) → dus juillet, août, septembre = 270 000 F ; en retard juillet et août (180 000 F), compté depuis le plus ancien",
+      e0.statut === "retard" && e0.dernierPaye === "2026-06" && e0.dus.map((x) => x.mois).join() === "2026-07,2026-08,2026-09" && e0.reste === 270000 && e0.resteEnRetard === 180000 && e0.moisEnRetard === 2 && e0.joursRetard === 55);
     test("★★ « Payer » paie le mois le plus ANCIEN d'abord", L.formulaireLoyer(f2, e0, "DEMAKPOE", 1).loyer_mois === "2026-07");
     const tous = L.formulaireLoyer(f2, e0, "DEMAKPOE", 3);
     test("★★ tous les mois dus en UNE dépense : 270 000 F, la liste des trois mois", tous.montant === "270000" && tous.loyer_mois.join() === "2026-07,2026-08,2026-09");
