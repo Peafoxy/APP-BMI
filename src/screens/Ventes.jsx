@@ -26,6 +26,7 @@ import { ROLES_REMISE_APRES_VENTE, plafondRemiseApresVente, construireRemiseApre
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
+import { mettreVenteALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, BoutonEnvoi, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp, fichierRecuDeVente, fichierRecuVersement } from "../lib/impression";
@@ -1436,14 +1437,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       uAlert(`🔒 Le client a déjà versé ${fmt(dette.paye)} sur la dette de cette vente.\n\nCes versements sont entrés dans la caisse : supprimer la vente (et sa dette) les retirerait du tiroir et rendrait fausses les clôtures déjà faites. Une vente dont la dette a reçu de l'argent ne se supprime pas. Pour un article rendu, passez par ↩ Reprise.`);
       return;
     }
-    const noteDette = dette ? `\n\nSa dette liée (${fmt(dette.montant)}, aucun versement) sera supprimée avec elle.` : "";
-    if (await uConfirm(`Supprimer la vente ${numeroRecu(v)} (${fmt(totalVente(v))}) du ${dFR(v.date)} ?${noteDette}`)) {
-      save({
-        ...db,
-        ventes: db.ventes.filter((x) => x.id !== v.id),
-        ...(dette ? { dettes: db.dettes.filter((x) => x.id !== dette.id) } : {}),
-      }, `Suppression vente ${numeroRecu(v)} (${fmt(totalVente(v))}) — ${v.boutique}${dette ? " — dette liée supprimée (aucun versement)" : ""}`);
-    }
+    const noteDette = dette ? `\n\nSa dette liée (${fmt(dette.montant)}, aucun versement) part avec elle, et reviendra avec elle.` : "";
+    // 🗑 La corbeille (01/11/2026, « A a, B oui, C oui ») : 30 jours, motif obligatoire.
+    const motif = await uPrompt(`Supprimer la vente ${numeroRecu(v)} (${fmt(totalVente(v))}) du ${dFR(v.date)} ?${noteDette}\n\nElle part à la corbeille ${DUREE_CORBEILLE_JOURS} jours : sa recette sort du tiroir ; l'administrateur principal pourra la restaurer (⚙ Paramètres → 🗑 Corbeille), l'argent reviendra alors dans le tiroir. Ensuite, elle sera effacée définitivement.\n\nMotif de la suppression (obligatoire) :`, "");
+    if (motif === null) return;
+    if (!String(motif).trim()) { uAlert("Le motif est obligatoire : une vente supprimée sans motif ne s'explique à personne."); return; }
+    const suite = mettreVenteALaCorbeille(db, v.id, profile, motif);
+    if (suite === db) return;
+    save(suite, `🗑 Vente ${numeroRecu(v)} (${fmt(totalVente(v))}) — ${v.boutique} mise à la corbeille${dette ? " avec sa dette liée (aucun versement)" : ""} — motif : ${String(motif).trim()}`);
   };
 
   // ---- 🔁 RETOUR / ÉCHANGE SOUS GARANTIE ----

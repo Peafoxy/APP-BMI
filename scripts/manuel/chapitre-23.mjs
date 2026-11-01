@@ -143,7 +143,7 @@ export const CHAPITRE = {
       ]],
 
       ["h3", "I. La corbeille (principal)"],
-      ["p", "Une fiche supprimée y reste **30 jours** : **♻ Restaurer** la remet telle qu'elle était, **Supprimer définitivement** l'efface tout de suite. On y trouve les chantiers, les devis, les **dettes** supprimées dans 📋 Dettes (avec leur motif — une dette qui a reçu de l'argent n'y arrive jamais : elle ne se supprime pas), et les **conversations WhatsApp** supprimées par un appui long dans 📲 WhatsApp (une ligne par conversation, avec son nombre de messages)."],
+      ["p", "Une fiche supprimée y reste **30 jours** : **♻ Restaurer** la remet telle qu'elle était, **Supprimer définitivement** l'efface tout de suite. On y trouve les chantiers, les devis, les **dettes** supprimées dans 📋 Dettes (avec leur motif — une dette qui a reçu de l'argent n'y arrive jamais : elle ne se supprime pas), les **conversations WhatsApp** supprimées par un appui long dans 📲 WhatsApp (une ligne par conversation, avec son nombre de messages), et depuis le 1er novembre 2026 les **ventes**, les **articles** et les **prospects** supprimés (avec leur motif). **Une vente restaurée** remet sa recette dans le tiroir de sa boutique (les clôtures de ce jour-là se recalent toutes seules) et ramène sa dette liée si elle en avait une ; son numéro de reçu ne peut pas avoir été repris entre-temps."],
 
       ["h3", "J. L'apparence (principal)"],
       ["ul", [
@@ -240,6 +240,7 @@ export const CHAPITRE = {
         { situation: "Un client demande ce que BMI garde sur lui.", reponse: "🔒 Données personnelles (principal) → le chercher → 🖨 Dossier personnel (PDF), à lui remettre en main propre." },
         { situation: "Un chantier supprimé par erreur hier.", reponse: "🗑 Corbeille → ♻ Restaurer (moins de 30 jours)." },
         { situation: "Une dette supprimée par erreur ce matin.", reponse: "🗑 Corbeille → ♻ Restaurer (moins de 30 jours) : elle revient avec son numéro, sur tous les appareils." },
+        { situation: "Une vente de 120 000 F en espèces supprimée par erreur hier.", reponse: "🗑 Corbeille → ♻ Restaurer : la vente revient avec son numéro de reçu, et ses 120 000 F reviennent dans le tiroir de la boutique ; la clôture d'hier se recale toute seule." },
         { situation: "Un téléphone n'a pas les ventes saisies sur l'ordinateur.", reponse: "💾 Données → 🔁 Tout retélécharger depuis le serveur, avec internet." },
       ]],
     ]},

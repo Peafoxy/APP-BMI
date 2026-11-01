@@ -11,6 +11,7 @@ import { uid, fmt, nombreFr, today, dFR } from "../lib/core";
 import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
 import { estCategorieConvertisseur } from "../lib/choixSolaire.js";
 import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
+import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
@@ -806,7 +807,13 @@ export function Stocks({ db, save, profile, cible = null }) {
     if (profile.role !== "admin") { uAlert("🔒 Seul l'administrateur peut supprimer un article. Vous pouvez ajuster le stock (± Ajuster) en indiquant le motif."); return; }
     if (bloquerSiLecture(db, profile)) return;
     if (stockVendu(db, p.id) > 0) { uAlert("Cet article a des ventes enregistrées : impossible de le supprimer."); return; }
-    if (await uConfirm(`Supprimer « ${p.nom} » ?`)) save({ ...db, produits: db.produits.filter((x) => x.id !== p.id) }, `Suppression article « ${p.nom} » — ${bq}`);
+    // 🗑 La corbeille (01/11/2026, « A a, B oui, C oui ») : 30 jours, motif obligatoire.
+    const motif = await uPrompt(`Supprimer « ${p.nom} » ?\n\nIl part à la corbeille ${DUREE_CORBEILLE_JOURS} jours : l'administrateur principal pourra le restaurer (⚙ Paramètres → 🗑 Corbeille). Ensuite, il sera effacé définitivement.\n\nMotif de la suppression (obligatoire) :`, "");
+    if (motif === null) return;
+    if (!String(motif).trim()) { uAlert("Le motif est obligatoire : un article supprimé sans motif ne s'explique à personne."); return; }
+    const suite = mettreALaCorbeille(db, "produits", p.id, profile, undefined, motif);
+    if (suite === db) return;
+    save(suite, `🗑 Article « ${p.nom} » — ${bq} mis à la corbeille — motif : ${String(motif).trim()}`);
   };
 
   const definirCode = async (p) => {

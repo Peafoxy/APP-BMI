@@ -93,6 +93,8 @@ echo "▸ La remise COMMUNE de la carte (réglée dans Paramètres, 3 % d'office
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-46-remise-commune-carte.sql >/dev/null 2>&1 || echo "   ❌ securite-46 refusé par la base"
 VERIF46=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-46-remise-commune-carte.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF46" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-46 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-46 répond : $VERIF46"; exit 1; fi
+echo "▸ La corbeille des ventes, articles et prospects : supabase/securite-49-corbeille-ventes-articles-prospects.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-49-corbeille-ventes-articles-prospects.sql >/dev/null 2>&1 || echo "   ❌ securite-49 refusé par la base"
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -608,6 +610,25 @@ essai "★ le motif d'un prélèvement déjà enregistré ne se modifie plus" "R
 essai "★ la même ligne renvoyée telle quelle (upsert de synchronisation) passe" "PERMIS" "$ADMIN" "$(UPS depenses zex1 "$APPORT")"
 essai "un vendeur enregistre toujours une dépense ordinaire de 2 000 F (rien ne change pour le quotidien, securite-31 compris)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord2 '{"id":"zd_ord2","boutique":"APESSITO","categorie":"Transport","montant":2000,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
 
+echo
+echo "── 🗑 LA CORBEILLE DES VENTES ET DES ARTICLES (securite-49, 01/11/2026, « A a, B oui, C oui ») ──"
+$P -c "insert into public.ventes (id, data) values ('zcv1', '{\"id\":\"zcv1\",\"boutique\":\"APESSITO\",\"client\":\"X\"}'), ('zcv2', '{\"id\":\"zcv2\",\"boutique\":\"APESSITO\",\"client\":\"Y\",\"supprime_le\":\"2026-11-01\",\"supprime_par\":\"CALEB\"}') on conflict (id) do nothing;
+insert into public.produits (id, data) values ('zcp1', '{\"id\":\"zcp1\",\"nom\":\"Câble\",\"boutique\":\"APESSITO\"}') on conflict (id) do nothing;" >/dev/null
+MARQUE="data || '{\"supprime_le\":\"2026-11-01\",\"supprime_par\":\"X\",\"supprime_motif\":\"erreur\"}'::jsonb"
+essai "★ un vendeur met une vente à la corbeille" "REFUSE" "$VENDEUR" "$(MAJ ventes "$MARQUE" zcv1)"
+essai "★ un gérant met une vente à la corbeille" "REFUSE" "$GERANT" "$(MAJ ventes "$MARQUE" zcv1)"
+essai "★ un administrateur SECONDAIRE met une vente à la corbeille" "PERMIS" "$ADMIN2" "$(MAJ ventes "$MARQUE" zcv1)"
+essai "★ …et par UPSERT, comme l'application (le vendeur : refusé)" "REFUSE" "$VENDEUR" "$(UPS ventes zcv1 '{"id":"zcv1","boutique":"APESSITO","client":"X","supprime_le":"2026-11-01"}')"
+essai "★ un administrateur SECONDAIRE restaure une vente de la corbeille" "REFUSE" "$ADMIN2" "$(MAJ ventes "data - 'supprime_le' - 'supprime_par'" zcv2)"
+essai "★ …par UPSERT aussi (refusé)" "REFUSE" "$ADMIN2" "$(UPS ventes zcv2 '{"id":"zcv2","boutique":"APESSITO","client":"Y"}')"
+essai "★ l'administrateur PRINCIPAL restaure une vente" "PERMIS" "$ADMIN" "$(MAJ ventes "data - 'supprime_le' - 'supprime_par'" zcv2)"
+$P -c "update public.ventes set data = data || '{\"supprime_le\":\"2026-11-01\"}'::jsonb where id = 'zcv2';" >/dev/null
+essai "★ un vendeur change une vente qui est à la corbeille" "REFUSE" "$VENDEUR" "$(MAJ ventes "data || '{\"client\":\"Z\"}'::jsonb" zcv2)"
+essai "★ le principal anonymise une vente à la corbeille (droit à l'effacement)" "PERMIS" "$ADMIN" "$(MAJ ventes "data || '{\"client\":\"CLIENT EFFACÉ N° 1\"}'::jsonb" zcv2)"
+essai "★ un vendeur crée une vente déjà marquée (passer par la porte de côté)" "REFUSE" "$VENDEUR" "$(INS ventes zcv9 '{"id":"zcv9","boutique":"APESSITO","supprime_le":"2026-11-01"}')"
+essai "★ le magasinier met un article à la corbeille" "REFUSE" "$MAGASINIER" "$(MAJ produits "$MARQUE" zcp1)"
+essai "★ l'administrateur met un article à la corbeille" "PERMIS" "$ADMIN2" "$(MAJ produits "$MARQUE" zcp1)"
+essai "★ le quotidien passe : un vendeur encaisse une vente vivante (securite-49 compris)" "PERMIS" "$VENDEUR" "$(UPS ventes zcv8 '{"id":"zcv8","boutique":"APESSITO","client":"Q","remise_pct":0}')"
 echo
 echo "── L'ÉDITEUR SQL (jeton vide) n'est jamais gêné ──"
 essai "l'éditeur SQL supprime une vente" "PERMIS" "$ADMIN" "set local request.jwt.claims = ''; set local role postgres; $(SUPPR ventes zv1)"

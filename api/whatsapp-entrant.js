@@ -23,6 +23,7 @@
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { cleConversation, CANAL_WA, filDeLaConversation, proprietaireDepuisDevis, proprietaireDe, MARQUE_RENDUE, lireMedia, libelleMedia, construireEntete, lireNomProfil, idEntete, estEnteteWa, nomDeConversation, doublonEntrant, lireEchoTelephone, echoDejaLa, ligneEchoTelephone, texteDuMessageWa } from "../src/lib/whatsappConversations.js";
+import { estSupprime } from "../src/lib/corbeille.js";
 // 📇 Le nom des contacts Google de BMI, cherché tout seul (16/10/2026, « b »).
 import { rechercheGoogleAFaire, traceContactAuto } from "../src/lib/contactGoogle.js";
 import { chercherNomGoogle } from "./_contactGoogle.js";
@@ -471,7 +472,8 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
   const chargerProduits = async () => {
     if (!produitsBruts) {
       const { data: prods } = await admin.from("produits").select("id, data");
-      produitsBruts = (prods || []).map((l) => ({ ...(l.data || {}), id: l.id }));
+      // 🗑 Un article à la corbeille n'existe plus pour l'assistant (01/11/2026).
+      produitsBruts = (prods || []).map((l) => ({ ...(l.data || {}), id: l.id })).filter((p) => !estSupprime(p));
     }
     return produitsBruts;
   };
@@ -485,7 +487,7 @@ export async function repondreParAssistant({ admin, boutiques, fil: filRecu, pro
     articlesCharges = articlesPourAssistant({
       produits,
       boutiques,
-      ventes: (vts || []).map((l) => ({ ...(l.data || {}), id: l.id })),
+      ventes: (vts || []).map((l) => ({ ...(l.data || {}), id: l.id })).filter((v) => !estSupprime(v)),
       ajustements: (ajs || []).map((l) => l.data || {}),
     });
     return articlesCharges;

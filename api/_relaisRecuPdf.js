@@ -20,7 +20,8 @@ async function lireVente(admin, venteId) {
   const { data: vs, error } = await admin.from("ventes").select("id, data").eq("id", venteId).limit(1);
   if (error) throw error;
   const v = vs && vs[0];
-  if (!v) return { vente: null, boutique: {}, dette: null };
+  // 🗑 Une vente à la corbeille ne se relaie pas (01/11/2026).
+  if (!v || (v.data && v.data.supprime_le)) return { vente: null, boutique: {}, dette: null };
   const vente = { ...(v.data || {}), id: v.id };
   const { data: bqs } = await admin.from("boutiques").select("data");
   const boutique = ((bqs || []).map((b) => b.data || {})).find((b) => b.nom === vente.boutique) || {};

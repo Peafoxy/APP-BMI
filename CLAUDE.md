@@ -1608,6 +1608,28 @@ lit mal est pire qu'un banc absent).
   par l'admin principal (⚙ Paramètres → 🗑), purge automatique ; aucun écran
   ne voit une fiche à la corbeille (`lib/corbeille.js`, séparée au chargement,
   refusionnée à l'écriture, comme la paie).
+- **🗑 LES VENTES, LES ARTICLES ET LES PROSPECTS VONT AUSSI À LA CORBEILLE**
+  (01/11/2026, « Lance 3 » → « A a, B oui, C oui »). `TABLES_CORBEILLE` porte
+  `ventes`, `produits`, `prospects` ; supprimer = 30 jours, **motif
+  obligatoire**, mêmes gardes qu'avant (« C oui » : vente et article =
+  administrateur, prospect = administrateur ou commercial rattaché ; restaurer
+  / effacer = le principal). **« B oui »** : une vente supprimée retire sa
+  recette du tiroir (comme avant) ; restaurée, l'argent revient et les
+  clôtures se recalent seules. **Sa dette liée sans versement la suit**
+  (`mettreVenteALaCorbeille`, marque `supprime_avec_vente` : cachée dans la
+  liste, restaurée et effacée AVEC la vente). **Un numéro de la corbeille reste
+  réservé** (`prochainNumeroVente` / `prochainNumeroDette` lisent la corbeille) :
+  une vente restaurée ne trouve jamais son numéro pris. Le serveur écarte les
+  lignes marquées (tournées de 7 h et du soir, stock de l'assistant, relais du
+  reçu) ; le droit à l'effacement suit `corbeille_ventes` et
+  `corbeille_prospects`. ⚠ LE COUPLE : **`securite-49`** (poser la marque =
+  qui pouvait supprimer ; la retirer, ou changer une fiche marquée = le
+  principal) et **`site-catalogue-3-corbeille.sql`** (le site ne compte plus
+  une vente à la corbeille ; un article à la corbeille vaut 0, « indisponible »).
+  Bancs : `tester-argent` (+12), `tester-devis-chantiers` (+6),
+  `tester-catalogue` (+8), `verifier-cloisonnement` (+12, deux RETOURNÉS :
+  la dette liée, la numérotation), éprouvés. Chapitres 4, 5, 8, 23.
+  **À coller par Timo : `securite-49` puis `site-catalogue-3`.**
 - **🗑 UNE DETTE SUPPRIMÉE VA À LA CORBEILLE ; UNE DETTE QUI A REÇU DE
   L'ARGENT NE SE SUPPRIME PAS** (12/10/2026, « a+b lance »). Le matin même,
   Timo avait supprimé la dette de POUDAMA (TER-DET-2026-0001, 354 900 F,

@@ -221,6 +221,7 @@ export const CHAPITRE = {
         ["Enregistrer une livraison en changeant « Initial »", "Le stock bouge sans trace de réception ; réservé à l'administrateur de toute façon.", "« + Entrée » sur la ligne, ou l'import « ➕ Entrées de stock »."],
         ["Corriger un prix en tant que gérant", "Les cases sont grisées : « 🔒 Quantité initiale et prix : réservés à l'administrateur. »", "Demander à l'administrateur."],
         ["Supprimer un article qui s'est déjà vendu", "« Cet article a des ventes enregistrées : impossible de le supprimer. »", "Le mettre à 0 par ± Ajuster avec un motif ; la fiche reste pour l'historique."],
+        ["Supprimer un article par erreur (jamais vendu)", "Il part à la **corbeille 30 jours** (motif obligatoire) : sur le site bmitogo.com il s'affiche « indisponible ».", "L'administrateur principal le restaure : ⚙ Paramètres → 🗑 Corbeille → ♻ Restaurer."],
         ["Ajuster sans motif", "Le motif vide devient « Ajustement » : personne ne saura pourquoi.", "Toujours écrire le motif (casse, perte, erreur…)."],
         ["Laisser le seuil à 0", "L'article n'est jamais en alerte, il disparaît des listes à réapprovisionner.", "Mettre un seuil réaliste sur chaque fiche."],
         ["Valider un inventaire de mémoire", "Les ajustements sont définitifs, à la valeur du prix d'achat.", "Compter en rayon ; laisser vide ce qu'on ne compte pas."],

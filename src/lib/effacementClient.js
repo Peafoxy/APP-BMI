@@ -62,6 +62,7 @@ export function prochainNumeroEffacement(db) {
     ...(d.clients_installes || []).map((x) => x.nom),
     ...(d.corbeille_clients_installes || []).map((x) => x.nom),
     ...(d.corbeille_dettes || []).map((x) => x.client),
+    ...(d.corbeille_ventes || []).map((x) => x.client),
     // ⚠ Un client SANS aucune vente (le client sans suite, 30/09/2026) ne
     // laisse son numéro QUE dans le journal : sans lui, le suivant
     // reprendrait la même référence.
@@ -374,6 +375,9 @@ export function effacerClient(db, dossier, profile, { motif, numero, autresNoms 
     corbeille_clients_installes: (db.corbeille_clients_installes || []).map((c) => (idCh.has(c.id) ? chantierAnonyme(c) : c)),
     // Une dette mise à la corbeille aussi (12/10/2026) : elle porte son nom.
     corbeille_dettes: (db.corbeille_dettes || []).map((x) => (idD.has(x.id) ? anonyme(x) : x)),
+    // Une vente et un prospect à la corbeille aussi (01/11/2026) : ils portent son nom.
+    corbeille_ventes: (db.corbeille_ventes || []).map((x) => (idV.has(x.id) ? anonyme(x) : x)),
+    corbeille_prospects: (db.corbeille_prospects || []).filter((p) => !idPr.has(p.id)),
     // Ses devis mis à la corbeille partent avec son compte (ils portent son nom).
     corbeille_devis: (db.corbeille_devis || []).filter((x) => !d.compte || x.corbeille_client_id !== d.compte.id),
     // Le journal garde QUI a fait QUOI et QUAND — il perd seulement le nom.

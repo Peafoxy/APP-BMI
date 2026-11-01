@@ -3359,8 +3359,9 @@ titre("Les sept petits defauts de l'audit, fermes le 29/08/2026");
     /if \(v\.commission_payee\) \{[\s\S]{0,300}?Annulez d'abord le règlement/.test(vt));
   test("★ une vente dont la dette porte des VERSEMENTS non plus",
     /Number\(dette\.paye \|\| 0\) > 0/.test(vt));
-  test("…mais sa dette liee SANS versement part avec elle",
-    /dettes: db\.dettes\.filter\(\(x\) => x\.id !== dette\.id\)/.test(vt));
+  // RETOURNÉ le 01/11/2026 (la corbeille) : elle part AVEC la vente, à la corbeille.
+  test("…mais sa dette liee SANS versement part avec elle (à la corbeille, avec la vente)",
+    /mettreVenteALaCorbeille\(db, v\.id, profile, motif\)/.test(vt) && !/dettes: db\.dettes\.filter\(\(x\) => x\.id !== dette\.id\)/.test(vt));
 
   // 3. Le double paiement simultane, sur les TROIS chemins de paiement.
   test("★ les trois paiements relisent l'etat APRES les fenetres de confirmation",
@@ -4449,6 +4450,78 @@ titre("🗑 Une dette supprimée part à la corbeille, une dette qui a reçu de 
     !/Traitez d'abord la dette/.test(ve) && /Une vente dont la dette a reçu de l'argent ne se supprime pas/.test(ve));
 }
 
+titre("🗑 La corbeille des VENTES, des ARTICLES et des PROSPECTS (01/11/2026, « A a, B oui, C oui »)");
+{
+  const sortieV = join("node_modules", ".cache", `bmi-corbv-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/corbeille.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieV, logLevel: "silent", loader: { ".js": "jsx" } });
+  const C = await import(pathToFileURL(sortieV).href);
+  unlinkSync(sortieV);
+  const sortieK = join("node_modules", ".cache", `bmi-corbk-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/lib/core.js"], bundle: true, format: "esm",
+    platform: "node", outfile: sortieK, logLevel: "silent", loader: { ".js": "jsx" } });
+  const K = await import(pathToFileURL(sortieK).href);
+  unlinkSync(sortieK);
+  const v1 = { id: "v1", numero: "BMIA-2026-0007", boutique: "APESSITO", client: "AMA", date: "2026-10-30", paiement: "Crédit (dette)", articles: [{ article: "Panneau", qte: 2, pu: 50000 }] };
+  const dv1 = { id: "dv1", vente_id: "v1", client: "AMA", montant: 100000, paye: 0, boutique: "APESSITO", paiements: [] };
+  const autre = { id: "d9", client: "KOFFI", montant: 5000, paye: 0, boutique: "APESSITO", paiements: [] };
+  const db0 = { ventes: [v1], dettes: [dv1, autre], produits: [{ id: "p1", nom: "Câble", boutique: "APESSITO" }], prospects: [{ id: "pr1", nom: "MANDA", commercial: "COM" }] };
+  const apres = C.mettreVenteALaCorbeille(db0, "v1", { nom: "CALEB" }, "  Saisie en double ", "2026-11-01T09:00:00Z");
+  test("★ « A a » : ventes, articles et prospects ont leur corbeille (30 jours)",
+    ["ventes", "produits", "prospects"].every((t) => C.TABLES_CORBEILLE.includes(t)) && C.LIBELLES_CORBEILLE.ventes === "Vente" && C.LIBELLES_CORBEILLE.produits === "Article" && C.LIBELLES_CORBEILLE.prospects === "Prospect");
+  test("★ une vente part à la corbeille avec son motif ; sa dette SANS versement part AVEC elle (supprime_avec_vente), l'autre dette reste",
+    apres.ventes.length === 0 && apres.corbeille_ventes[0].supprime_motif === "Saisie en double" && apres.corbeille_ventes[0].supprime_par === "CALEB"
+    && apres.dettes.length === 1 && apres.dettes[0].id === "d9" && apres.corbeille_dettes[0].supprime_avec_vente === "v1");
+  test("★ la corbeille ne montre QUE la vente (sa dette la suit), nommée par son numéro, son client, son montant",
+    C.contenuCorbeille(apres).length === 1 && C.contenuCorbeille(apres)[0].table === "ventes"
+    && /BMIA-2026-0007 — AMA — 100.000 F du 2026-10-30 \(APESSITO\)/.test(C.nomDeLaFiche("ventes", apres.corbeille_ventes[0])));
+  const restauree = C.restaurerDeLaCorbeille(apres, "ventes", "v1");
+  test("★ « B oui » : restaurée, la vente revient telle qu'elle était, ET sa dette avec elle, sans marque",
+    JSON.stringify(restauree.ventes[0]) === JSON.stringify(v1) && restauree.dettes.some((d) => JSON.stringify(d) === JSON.stringify(dv1))
+    && restauree.corbeille_ventes.length === 0 && restauree.corbeille_dettes.length === 0);
+  const efface = C.supprimerDefinitivement(apres, "ventes", "v1");
+  test("★ effacée pour de bon (à la main ou à 30 jours), sa dette part avec elle",
+    efface.corbeille_ventes.length === 0 && efface.corbeille_dettes.length === 0
+    && C.purgerCorbeille(apres, "2026-12-02T09:00:00Z").corbeille_dettes.length === 0);
+  const vp = { ...v1, id: "v2", numero: "BMIA-2026-0008" };
+  const dp = { ...dv1, id: "dv2", vente_id: "v2", paye: 5000, paiements: [{ montant: 5000 }] };
+  const apres2 = C.mettreVenteALaCorbeille({ ventes: [vp], dettes: [dp] }, "v2", { nom: "CALEB" }, "x");
+  test("★ une dette qui a reçu de l'argent ne part jamais à la corbeille par ce chemin (l'écran refuse d'abord la vente)",
+    apres2.dettes.length === 1 && !(apres2.corbeille_dettes || []).length);
+  test("★ fusion / séparation : à l'écriture la vente retourne dans sa table, marquée ; au chargement elle est de nouveau mise de côté",
+    C.fusionnerCorbeille(apres).ventes.length === 1 && C.separerCorbeille(C.fusionnerCorbeille(apres)).ventes.length === 0
+    && C.separerCorbeille(C.fusionnerCorbeille(apres)).corbeille_ventes.length === 1);
+  const art = C.mettreALaCorbeille(db0, "produits", "p1", { nom: "CALEB" }, "2026-11-01T09:00:00Z", "doublon");
+  const pro = C.mettreALaCorbeille(db0, "prospects", "pr1", { nom: "COM" }, "2026-11-01T09:00:00Z", "erreur");
+  test("★ un article et un prospect partent à la corbeille, et reviennent",
+    art.produits.length === 0 && art.corbeille_produits.length === 1 && C.restaurerDeLaCorbeille(art, "produits", "p1").produits.length === 1
+    && pro.prospects.length === 0 && /MANDA \(COM\)/.test(C.nomDeLaFiche("prospects", pro.corbeille_prospects[0])));
+  test("★ un numéro de la corbeille reste RÉSERVÉ : la vente suivante ne le reprend pas (une vente restaurée ne trouve jamais son numéro pris)",
+    K.prochainNumeroDeSerie([...(apres.ventes || []), ...(apres.corbeille_ventes || [])], "BMIA-2026-") === "BMIA-2026-0008");
+  const vt = readFileSync("src/screens/Ventes.jsx", "utf8"), st = readFileSync("src/screens/Stocks.jsx", "utf8"), pr = readFileSync("src/screens/Prospects.jsx", "utf8");
+  const gV = vt.slice(vt.indexOf("const supprimerVente = async"), vt.indexOf("// ---- 🔁 RETOUR / ÉCHANGE SOUS GARANTIE"));
+  test("★ « C oui » : 💰 Ventes, 📦 Stocks, 🧲 Prospects gardent leur garde (admin ; commercial rattaché), exigent un motif et mettent à la CORBEILLE — plus aucun effacement direct",
+    /refuserSaufAdmin\(profile, "Supprimer une vente"\)/.test(gV) && /motif est obligatoire/.test(gV) && /mettreVenteALaCorbeille\(db, v\.id, profile, motif\)/.test(gV) && !/ventes: db\.ventes\.filter\(\(x\) => x\.id !== v\.id\)/.test(gV)
+    && /profile\.role !== "admin"/.test(st) && /mettreALaCorbeille\(db, "produits", p\.id, profile, undefined, motif\)/.test(st) && !/produits: db\.produits\.filter\(\(x\) => x\.id !== p\.id\)/.test(st)
+    && /refuserSaufProprietaire\(profile, p\.commercial, "Supprimer un prospect"\)/.test(pr) && /mettreALaCorbeille\(db, "prospects", p\.id, profile, undefined, motif\)/.test(pr) && !/prospects: db\.prospects\.filter\(\(x\) => x\.id !== p\.id\)/.test(pr));
+  const matin = readFileSync("api/rappels-du-matin.js", "utf8"), soir = readFileSync("api/rappels-du-soir.js", "utf8"), entrant = readFileSync("api/whatsapp-entrant.js", "utf8"), relais = readFileSync("api/_relaisRecuPdf.js", "utf8");
+  test("★ le serveur (qui lit les lignes brutes) écarte les ventes et les articles à la corbeille : tournées de 7 h et du soir, stock de l'assistant, relais du reçu",
+    /db\.ventes = db\.ventes\.filter\(\(v\) => !estSupprime\(v\)\);/.test(matin)
+    && /for \(const t of \["clients_installes", "ventes", "dettes"\]\) db\[t\] = \(db\[t\] \|\| \[\]\)\.filter\(\(x\) => !estSupprime\(x\)\);/.test(soir)
+    && /\.filter\(\(p\) => !estSupprime\(p\)\)/.test(entrant) && /\.filter\(\(v\) => !estSupprime\(v\)\)/.test(entrant)
+    && /v\.data && v\.data\.supprime_le/.test(relais));
+  const eff = readFileSync("src/lib/effacementClient.js", "utf8"), par = readFileSync("src/screens/Parametres.jsx", "utf8");
+  test("★ le droit à l'effacement suit la vente et le prospect à la corbeille (ils portent son nom)",
+    /corbeille_ventes: \(db\.corbeille_ventes \|\| \[\]\)\.map\(\(x\) => \(idV\.has\(x\.id\) \? anonyme\(x\) : x\)\)/.test(eff)
+    && /corbeille_prospects: \(db\.corbeille_prospects \|\| \[\]\)\.filter\(\(p\) => !idPr\.has\(p\.id\)\)/.test(eff)
+    && /ventes: \[\.\.\.\(db\.ventes \|\| \[\]\), \.\.\.\(db\.corbeille_ventes \|\| \[\]\)\]\.filter\(espaceEff\)/.test(par)
+    && /prospects: \[\.\.\.\(db\.prospects \|\| \[\]\), \.\.\.\(db\.corbeille_prospects \|\| \[\]\)\]/.test(par));
+  const sql = readFileSync("supabase/securite-49-corbeille-ventes-articles-prospects.sql", "utf8");
+  test("★ LE COUPLE : securite-49 garde la marque sur les trois tables (poser = qui pouvait supprimer, retirer = le principal) ; le site ne compte plus la corbeille (site-catalogue-3)",
+    ["ventes_regles_corbeille", "produits_regles_corbeille", "prospects_regles_corbeille"].every((t) => sql.includes(t)) && /est_admin_principal\(\)/.test(sql)
+    && /supprime_le/.test(readFileSync("supabase/site-catalogue-3-corbeille.sql", "utf8")) && !/^\s*rollback/im.test(sql));
+}
+
 titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurable par l'administrateur principal");
 {
   // Demande Timo (« lance la corbeille », 05/09/2026). Supprimer un chantier
@@ -5316,9 +5389,10 @@ titre("Doublons A5, A6, A7 : numéro de série, même fiche, code-barres et pani
   test("★ …et avance tant que le numéro existe déjà (trou dans la série)",
     Core.prochainNumeroDeSerie([{ numero: "AP-2026-0002" }, { numero: "AP-2026-0003" }, { numero: "AP-2026-0004" }], "AP-2026-") === "AP-2026-0005");
   const core = readFileSync("src/lib/core.js", "utf8");
-  test("★ ventes ET dettes passent par prochainNumeroDeSerie (plus deux copies de la boucle)",
-    /export const prochainNumeroVente = \(db, boutique, date = today\(\)\) =>\s*prochainNumeroDeSerie\(db\.ventes, serieDe\(db, boutique, String\(date\)\.slice\(0, 4\)\)\);/.test(core)
-    && /export const prochainNumeroDette = \(db, boutique, date = today\(\)\) =>\s*prochainNumeroDeSerie\(db\.dettes, serieDe\(db, boutique, String\(date\)\.slice\(0, 4\), "DET-"\)\);/.test(core)
+  // RETOURNÉ le 01/11/2026 (la corbeille des ventes) : un numéro de la corbeille reste RÉSERVÉ.
+  test("★ ventes ET dettes passent par prochainNumeroDeSerie (plus deux copies de la boucle), corbeille comprise",
+    /export const prochainNumeroVente = \(db, boutique, date = today\(\)\) =>\s*prochainNumeroDeSerie\(\[\.\.\.\(db\.ventes \|\| \[\]\), \.\.\.\(db\.corbeille_ventes \|\| \[\]\)\], serieDe\(db, boutique, String\(date\)\.slice\(0, 4\)\)\);/.test(core)
+    && /export const prochainNumeroDette = \(db, boutique, date = today\(\)\) =>\s*prochainNumeroDeSerie\(\[\.\.\.\(db\.dettes \|\| \[\]\), \.\.\.\(db\.corbeille_dettes \|\| \[\]\)\], serieDe\(db, boutique, String\(date\)\.slice\(0, 4\), "DET-"\)\);/.test(core)
     && (core.match(/while \(pris\.has\(prefixe \+ String\(seq\)\.padStart\(4, "0"\)\)\) seq \+= 1;/g) || []).length === 2 /* la règle + la réparation des collisions */);
   // A6 — « même fiche ? » : le contrôle d'espace et le report d'état périmé
   // avaient chacun leur copie.

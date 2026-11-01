@@ -59,6 +59,10 @@ psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/secur
 # `demandes_remise` s'écrit comme `demandes`, l'accord reste à l'administrateur.
 echo "▸ Pose des verrous : supabase/securite-44-remise-autorisee.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-44-remise-autorisee.sql >/dev/null 2>&1 || echo "   ❌ securite-44 refusé par la base"
+# 🗑 securite-49 (01/11/2026, « Lance 3 » → « A a, B oui, C oui ») : la corbeille des ventes,
+# des articles et des prospects — poser la marque = qui pouvait supprimer, la retirer = le principal.
+echo "▸ Pose des verrous : supabase/securite-49-corbeille-ventes-articles-prospects.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-49-corbeille-ventes-articles-prospects.sql >/dev/null 2>&1 || echo "   ❌ securite-49 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -350,6 +354,18 @@ essai "★ un vendeur écrit lui-même un ACCORD (remises_autorisees) : refusé"
 essai "★ un gérant écrit lui-même un accord : refusé" "REFUSE" "$GERANT" "$(MAJ boutiques "data || '{\"remises_autorisees\":[{\"id\":\"dr1\",\"remise_pct\":15}]}'::jsonb" b1)"
 essai "★ un administrateur SECONDAIRE accorde (« tout admin »)" "PERMIS" "$CALEB" "$(MAJ boutiques "data || '{\"remises_autorisees\":[{\"id\":\"dr1\",\"remise_pct\":15}]}'::jsonb" b1)"
 essai "★ le registre de l'outillage reste gardé (un vendeur n'y écrit pas)" "REFUSE" "$VENDEUR" "$(MAJ boutiques "data || '$COMPTE'::jsonb" b1)"
+echo
+echo "── 🗑 LA CORBEILLE DES VENTES, ARTICLES ET PROSPECTS (securite-49, 01/11/2026) — les prospects ; ventes et articles : tester-argent ──"
+VERIF49=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-49-corbeille-ventes-articles-prospects.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF49" = "t|t|t" ]; then echo "  ✓ la phrase de vérification de securite-49 répond true | true | true"; ok=$((ok+1)); else echo "  ❌ la phrase de vérification de securite-49 répond : $VERIF49"; ko=$((ko+1)); fi
+$P -c "insert into public.prospects (id, data) values ('zcpr1', '{\"id\":\"zcpr1\",\"nom\":\"P\",\"commercial\":\"COM\"}'), ('zcpr2', '{\"id\":\"zcpr2\",\"nom\":\"P2\",\"commercial\":\"COM\",\"supprime_le\":\"2026-11-01\"}') on conflict (id) do nothing;" >/dev/null
+MARQUE="data || '{\"supprime_le\":\"2026-11-01\",\"supprime_par\":\"X\",\"supprime_motif\":\"erreur\"}'::jsonb"
+essai "★ un commercial met le prospect d'un AUTRE à la corbeille" "REFUSE" "$COM2" "$(MAJ prospects "$MARQUE" zcpr1)"
+essai "★ le commercial rattaché met son prospect à la corbeille" "PERMIS" "$COM" "$(MAJ prospects "$MARQUE" zcpr1)"
+essai "★ le commercial rattaché restaure son prospect (le principal seul)" "REFUSE" "$COM" "$(MAJ prospects "data - 'supprime_le'" zcpr2)"
+essai "★ l'administrateur PRINCIPAL restaure un prospect" "PERMIS" "$PRINCIPAL" "$(MAJ prospects "data - 'supprime_le'" zcpr2)"
+essai "★ le quotidien passe : un vendeur marque un prospect vivant converti" "PERMIS" "$VENDEUR" "$(MAJ prospects "data || '{\"converti\":true}'::jsonb" zcpr1)"
+essai "★ un vendeur change un prospect qui est à la corbeille" "REFUSE" "$VENDEUR" "$(MAJ prospects "data || '{\"converti\":true}'::jsonb" zcpr2)"
 echo
 if [ $ko -eq 0 ]; then echo "✅  $ok vérification(s) passée(s), 0 en échec."; exit 0
 else echo "❌  $ok passée(s), $ko en échec."; exit 1; fi

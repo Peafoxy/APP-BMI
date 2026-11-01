@@ -163,6 +163,37 @@ verdict "le site et l'application donnent le même stock pour chaque article (ho
 verdict "la vue du visiteur se lit toujours en entier" \
   "$(lire "select count(disponible) from catalogue_public")" "6"
 
+# ============================================================
+# Script 3 — la corbeille des ventes et des articles (01/11/2026)
+# ============================================================
+echo "▸ Script 3 : la corbeille"
+$P >/dev/null <<'SQL'
+-- une vente de 2 régulateurs mise à la corbeille : son stock revient
+insert into ventes values ('v7', '{"articles":[{"produit_id":"regulateur","qte":2}],"supprime_le":"2026-11-01"}');
+-- un article à la corbeille (jamais vendu)
+insert into produits values ('vieux', '{"nom":"Ancien câble","boutique":"BMI DEMAKPOE","prix_vente":"500","initial":"10","supprime_le":"2026-11-01"}');
+SQL
+verdict "AVANT le script 3, la vente à la corbeille retire encore son stock (2 − 2 = 0)" "$($P -c "select stock_calcule('regulateur')")" "0"
+R=0; $P -c "$(cat supabase/site-catalogue-3-corbeille.sql)" >/dev/null 2>&1 || R=1
+verdict "le script 3 passe en un seul envoi, comme l'éditeur" "$R" "0"
+VERIF=$($P -c "$(cat supabase/site-catalogue-3-corbeille.sql)" 2>/dev/null | tail -1)
+verdict "relancé sans danger, sa vérification répond true | true" "$VERIF" "t|t"
+verdict "le script 3 ne contient aucun rollback" \
+  "$(grep -ciE '^[[:space:]]*rollback' supabase/site-catalogue-3-corbeille.sql || true)" "0"
+verdict "la vente à la corbeille ne retire plus rien : régulateur 5 − 3 = 2" "$($P -c "select stock_calcule('regulateur')")" "2"
+verdict "un article à la corbeille vaut 0 (indisponible sur le site)" "$($P -c "select stock_calcule('vieux')")" "0"
+verdict "le reste ne bouge pas (règle du script 2) : câble 97, onduleur 2, panneau 1" \
+  "$($P -c "select stock_calcule('cable') || ',' || stock_calcule('onduleur') || ',' || stock_calcule('panneau')")" "97,2,1"
+PRODUITS=$($P -c "select coalesce(json_agg(data || jsonb_build_object('id', id)), '[]') from produits where coalesce(data->>'supprime_le','') = ''")
+VENTES=$($P -c "select coalesce(json_agg(data), '[]') from ventes where coalesce(data->>'supprime_le','') = ''")
+APPLI=$(PRODUITS="$PRODUITS" VENTES="$VENTES" AJUST="$AJUST" node --input-type=module -e '
+  const { stockDepuisLignes } = await import(process.cwd() + "/src/lib/assistantWhatsapp.js");
+  const P = JSON.parse(process.env.PRODUITS), V = JSON.parse(process.env.VENTES), A = JSON.parse(process.env.AJUST);
+  console.log(P.map((p) => p.id).sort().map((id) => id + "=" + Math.floor(stockDepuisLignes(P.find((p) => p.id === id), V, A))).join(","));
+')
+SITE=$($P -c "select string_agg(id || '=' || (stock_calcule(id) + case when id = 'panneau' then 1 else 0 end), ',' order by id) from produits where coalesce(data->>'supprime_le','') = ''")
+verdict "le site et l'application (qui ne voit pas la corbeille) donnent le même stock" "$SITE" "$APPLI"
+
 echo ""
 echo "$ok contrôle(s) réussi(s), $ko échec(s)."
 [ "$ko" -eq 0 ]

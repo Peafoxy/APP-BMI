@@ -18,6 +18,7 @@ import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
 import { rendezVousVisibles, visitesDuProspect, libelleStatut } from "../lib/rendezVous";
+import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
 
@@ -102,9 +103,13 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
 
   const supprimer = async (p) => {
     if (refuserSaufProprietaire(profile, p.commercial, "Supprimer un prospect")) return;
-    if (await uConfirm(`Supprimer le prospect « ${p.nom} » ?`)) {
-      save({ ...db, prospects: db.prospects.filter((x) => x.id !== p.id) }, `Suppression prospect « ${p.nom} »`);
-    }
+    // 🗑 La corbeille (01/11/2026, « A a, B oui, C oui ») : 30 jours, motif obligatoire.
+    const motif = await uPrompt(`Supprimer le prospect « ${p.nom} » ?\n\nIl part à la corbeille ${DUREE_CORBEILLE_JOURS} jours : l'administrateur principal pourra le restaurer (⚙ Paramètres → 🗑 Corbeille). Ensuite, il sera effacé définitivement.\n\nMotif de la suppression (obligatoire) :`, "");
+    if (motif === null) return;
+    if (!String(motif).trim()) { uAlert("Le motif est obligatoire : un prospect supprimé sans motif ne s'explique à personne."); return; }
+    const suite = mettreALaCorbeille(db, "prospects", p.id, profile, undefined, motif);
+    if (suite === db) return;
+    save(suite, `🗑 Prospect « ${p.nom} » mis à la corbeille — motif : ${String(motif).trim()}`);
   };
 
   // ---- « JE L'AI CONTACTÉ » ----

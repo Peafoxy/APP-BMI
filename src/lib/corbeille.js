@@ -28,7 +28,15 @@
 export const DUREE_CORBEILLE_JOURS = 30;
 
 // Une famille à la fois : les chantiers d'abord (les plus longs à ressaisir).
-export const TABLES_CORBEILLE = ["clients_installes", "dettes"];
+export const TABLES_CORBEILLE = ["clients_installes", "dettes", "ventes", "produits", "prospects"];
+// 🗑 Les VENTES, les ARTICLES et les PROSPECTS (01/11/2026, Timo : « Lance 3 »
+// → « A a, B oui, C oui ») : supprimer les met ici 30 jours, motif obligatoire.
+// « B oui » : une vente supprimée retire sa recette du tiroir (comme avant) ;
+// restaurée, l'argent revient et les clôtures se recalent toutes seules. Sa
+// dette liée (sans versement) part AVEC elle (`supprime_avec_vente`), ne se
+// montre pas à part dans la corbeille, et revient avec elle.
+// « C oui » : supprimer = comme avant (administrateur ; commercial rattaché
+// pour un prospect) ; restaurer ou effacer = le principal. Serveur : securite-49.
 // ⚠ Les DETTES (12/10/2026, Timo : « a+b lance ») — après la dette de POUDAMA
 // effacée pour de bon avec ses 354 000 F de versements : le tiroir de
 // DEMAKPOE est tombé à −238 800 F et cinq clôtures sont devenues fausses.
@@ -57,7 +65,7 @@ export const FAMILLE_DEVIS = "devis";
 export const FAMILLE_CONVERSATION_WA = "conversation_wa";
 const CANAUX_WA = ["whatsapp", "whatsapp_entete"];
 const estLigneWa = (m) => !!m && CANAUX_WA.includes(m.canal) && !!m.wa_tel;
-export const LIBELLES_CORBEILLE = { clients_installes: "Chantier", dettes: "Dette", devis: "Devis", conversation_wa: "Conversation WhatsApp" };
+export const LIBELLES_CORBEILLE = { clients_installes: "Chantier", dettes: "Dette", ventes: "Vente", produits: "Article", prospects: "Prospect", devis: "Devis", conversation_wa: "Conversation WhatsApp" };
 export const cleCorbeille = (table) => `corbeille_${table}`;
 export const CLE_CORBEILLE_DEVIS = cleCorbeille(FAMILLE_DEVIS);
 export const CLE_CORBEILLE_WA = cleCorbeille(FAMILLE_CONVERSATION_WA);
@@ -262,6 +270,23 @@ export const mettreALaCorbeille = (db, table, id, profile, maintenant = new Date
   };
 };
 
+// ---- 💰 Une VENTE passe à la corbeille avec sa dette liée (si elle n'a reçu
+// aucun versement — sinon la vente ne se supprime pas du tout, refus dans
+// l'écran). La dette porte `supprime_avec_vente` : elle suit la vente.
+export const mettreVenteALaCorbeille = (db, venteId, profile, motif, maintenant = new Date().toISOString()) => {
+  const vente = (db?.ventes || []).find((v) => v.id === venteId);
+  if (!vente) return db;
+  let suite = mettreALaCorbeille(db, "ventes", venteId, profile, maintenant, motif);
+  const dette = (suite.dettes || []).find((d) => d.vente_id === venteId);
+  if (dette && !critiqueSuppressionDette(dette)) {
+    const m = String(motif || "").trim();
+    const marquee = { ...dette, supprime_le: maintenant, supprime_par: profile?.nom || "?", supprime_avec_vente: venteId, ...(m ? { supprime_motif: m } : {}) };
+    suite = { ...suite, dettes: suite.dettes.filter((d) => d.id !== dette.id), corbeille_dettes: [marquee, ...(suite.corbeille_dettes || []).filter((d) => d.id !== dette.id)] };
+  }
+  return suite;
+};
+const dettesDeLaVente = (db, venteId) => (db?.corbeille_dettes || []).filter((d) => d.supprime_avec_vente === venteId);
+
 // ---- Restaurer : la fiche revient telle qu'elle était, sans la marque.
 export const restaurerDeLaCorbeille = (db, table, id) => {
   const cle = cleCorbeille(table);
@@ -293,18 +318,28 @@ export const restaurerDeLaCorbeille = (db, table, id) => {
   const fiche = (db[cle] || []).find((r) => r.id === id);
   if (!fiche) return db;
   const { supprime_le, supprime_par, supprime_motif, ...propre } = fiche;
-  return {
+  const suite = {
     ...db,
     [table]: [propre, ...(db[table] || []).filter((r) => r.id !== id)],
     [cle]: (db[cle] || []).filter((r) => r.id !== id),
   };
+  if (table !== "ventes") return suite;
+  // La dette partie avec la vente revient avec elle.
+  const dettes = dettesDeLaVente(db, id);
+  if (!dettes.length) return suite;
+  const ids = new Set(dettes.map((d) => d.id));
+  const propres = dettes.map(({ supprime_le: a, supprime_par: b, supprime_motif: c, supprime_avec_vente: e, ...d }) => d);
+  return { ...suite, dettes: [...propres, ...(suite.dettes || []).filter((d) => !ids.has(d.id))], corbeille_dettes: (suite.corbeille_dettes || []).filter((d) => !ids.has(d.id)) };
 };
 
 // ---- Supprimer pour de bon (à la main, ou par la purge).
 export const supprimerDefinitivement = (db, table, id) => {
   const cle = cleCorbeille(table);
   if (table === FAMILLE_CONVERSATION_WA) return { ...db, [cle]: (db[cle] || []).filter((m) => !(estLigneWa(m) && m.wa_tel === id)) };
-  return { ...db, [cle]: (db[cle] || []).filter((r) => r.id !== id) };
+  const suite = { ...db, [cle]: (db[cle] || []).filter((r) => r.id !== id) };
+  // La dette partie avec la vente part pour de bon avec elle.
+  if (table === "ventes") return { ...suite, corbeille_dettes: (suite.corbeille_dettes || []).filter((d) => d.supprime_avec_vente !== id) };
+  return suite;
 };
 
 const JOUR_MS = 24 * 60 * 60 * 1000;
@@ -318,7 +353,7 @@ export const joursRestants = (fiche, maintenant = new Date().toISOString()) => {
 // Tout ce que contient la corbeille, à plat, la plus récente en tête.
 export const contenuCorbeille = (db, maintenant = new Date().toISOString()) =>
   [
-    ...FAMILLES.flatMap((table) => (db?.[cleCorbeille(table)] || []).map((fiche) => ({
+    ...FAMILLES.flatMap((table) => (db?.[cleCorbeille(table)] || []).filter((f) => !f.supprime_avec_vente).map((fiche) => ({
       table, fiche, libelle: LIBELLES_CORBEILLE[table] || table, restants: joursRestants(fiche, maintenant),
     }))),
     ...conversationsALaCorbeille(db).map((fiche) => ({
@@ -340,6 +375,12 @@ export const nomDeLaFiche = (table, fiche) => {
     const montant = Number(fiche.montant) ? ` — ${Math.round(Number(fiche.montant)).toLocaleString("fr-FR")} F` : "";
     return `${fiche.client || "client"}${montant} du ${fiche.date || "?"}${fiche.boutique ? ` (${fiche.boutique})` : ""}`;
   }
+  if (table === "ventes") {
+    const montant = Array.isArray(fiche.articles) ? fiche.articles.reduce((t, a) => t + (Number(a.qte) || 0) * (Number(a.pu) || 0), 0) : 0;
+    return `${fiche.numero || "vente"} — ${fiche.client || "client non renseigné"}${montant ? ` — ${Math.round(montant).toLocaleString("fr-FR")} F` : ""} du ${fiche.date || "?"}${fiche.boutique ? ` (${fiche.boutique})` : ""}`;
+  }
+  if (table === "produits") return `${fiche.nom || fiche.id}${fiche.boutique ? ` (${fiche.boutique})` : ""}`;
+  if (table === "prospects") return `${fiche.nom || fiche.id}${fiche.tel ? ` — ${fiche.tel}` : ""}${fiche.commercial ? ` (${fiche.commercial})` : ""}`;
   if (table === FAMILLE_DEVIS) {
     const montant = Number(fiche.total) ? ` — ${Math.round(Number(fiche.total)).toLocaleString("fr-FR")} F` : "";
     return `${fiche.corbeille_client_nom || "client"} du ${fiche.date || "?"}${montant}`;

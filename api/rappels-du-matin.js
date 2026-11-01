@@ -79,6 +79,8 @@ export default async function handler(req, res) {
     // tournée : ni retard, ni rappel. Le serveur lit les lignes brutes, la
     // corbeille n'y est pas séparée — on l'écarte ici, une fois pour toutes.
     db.dettes = db.dettes.filter((d) => !estSupprime(d));
+    // 🗑 Une vente à la corbeille aussi (01/11/2026) : elle n'existe plus.
+    db.ventes = db.ventes.filter((v) => !estSupprime(v));
     const aujourdhui = new Date().toISOString().slice(0, 10);
     // 📄 La fin d'un CDD (05/10/2026) : la date vit dans la fiche de PAIE,
     // recollée ici sur une copie des fiches (lue seulement, jamais réécrite).

@@ -24,6 +24,7 @@ import { rappelVeilleAnniversaires, rappelWhatsAppVeille } from "../src/lib/anni
 import { numeroWhatsApp, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
 import { configYCloud, envoyerYCloud } from "./_ycloud.js";
 import { lireTable } from "./_tables.js";
+import { estSupprime } from "../src/lib/corbeille.js";
 import { installationsDeDemain } from "../src/lib/affectationChantier.js";
 import { rappelerLesRendezVous } from "./_rendezVous.js";
 import { relancerLesConversations } from "./_relanceAssistant.js";
@@ -43,6 +44,8 @@ export default async function handler(req, res) {
   try {
     const db = {};
     for (const t of TABLES) db[t] = await lireTable(admin, t);
+    // 🗑 La corbeille (chantiers, dettes, ventes) : le serveur lit les lignes brutes.
+    for (const t of ["clients_installes", "ventes", "dettes"]) db[t] = (db[t] || []).filter((x) => !estSupprime(x));
     const aujourdhui = new Date().toISOString().slice(0, 10);
     // 🤖 Le filet de la relance de l'assistant (17/10/2026), à 14 h comme à
     // 17 h : les conversations arrivées à leur 20e heure que personne n'a

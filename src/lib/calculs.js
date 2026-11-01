@@ -561,7 +561,8 @@ const comptesEtAchatsDeLEspace = (db, profile) => {
   const f = filtreEspaceAffichage(db, profile);
   return {
     comptes: utilisateursDeLEspace(db, profile),
-    ventes: (db?.ventes || []).filter(f),
+    // Une vente à la corbeille aussi (01/11/2026) : devant un doute, elle protège.
+    ventes: [...(db?.ventes || []), ...(db?.corbeille_ventes || [])].filter(f),
     // Une dette à la corbeille aussi (12/10/2026) : devant un doute, elle protège.
     dettes: [...(db?.dettes || []), ...(db?.corbeille_dettes || [])].filter(f),
     commandes: (db?.commandes || []).filter(f),

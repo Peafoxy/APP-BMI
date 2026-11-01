@@ -589,8 +589,10 @@ export const prochainNumeroDeSerie = (lignes, prefixe) => {
   while (pris.has(prefixe + String(seq).padStart(4, "0"))) seq += 1;
   return prefixe + String(seq).padStart(4, "0");
 };
+// 🗑 Un numéro de la corbeille reste RÉSERVÉ (01/11/2026) : une vente restaurée
+// ne doit jamais retrouver son numéro pris par une autre.
 export const prochainNumeroVente = (db, boutique, date = today()) =>
-  prochainNumeroDeSerie(db.ventes, serieDe(db, boutique, String(date).slice(0, 4)));
+  prochainNumeroDeSerie([...(db.ventes || []), ...(db.corbeille_ventes || [])], serieDe(db, boutique, String(date).slice(0, 4)));
 // 🏗 Un achat pour un chantier (11/10/2026) : sa propre série, « BMID-ACH-2026-0001 »
 // — il n'est pas une vente, il ne prend pas un numéro de reçu de vente.
 export const prochainNumeroAchatChantier = (db, boutique, date = today()) =>
@@ -652,7 +654,7 @@ export function repararNumerosVentes(db) {
 // préfixe "-DET-" pour ne jamais se confondre visuellement avec un numéro
 // de vente sur un même reçu (une réservation n'est pas encore une vente).
 export const prochainNumeroDette = (db, boutique, date = today()) =>
-  prochainNumeroDeSerie(db.dettes, serieDe(db, boutique, String(date).slice(0, 4), "DET-"));
+  prochainNumeroDeSerie([...(db.dettes || []), ...(db.corbeille_dettes || [])], serieDe(db, boutique, String(date).slice(0, 4), "DET-"));
 // Secours pour une dette/réservation créée AVANT ce numéro (legacy) — même
 // principe que numeroRecu() ci-dessus.
 export const numeroRecuDette = (d) => d.numero || `${prefixeBoutique(d.boutique)}-DET-${String(d.date).slice(0, 4)}-${String(d.id).slice(0, 4).toUpperCase()}`;

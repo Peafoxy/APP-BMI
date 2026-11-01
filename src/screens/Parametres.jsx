@@ -172,7 +172,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     if (refuserSaufAdminPrincipal(db, profile, "Restaurer une fiche de la corbeille")) return;
     const refus = critiqueRestauration(db, x.table, x.fiche);
     if (refus) { await uAlert(refus); return; }
-    if (!await uConfirm(`Restaurer ${x.libelle.toLowerCase()} « ${nomDeLaFiche(x.table, x.fiche)} » ?\n\nLa fiche revient exactement telle qu'elle était au moment de sa suppression, sur tous les appareils.`)) return;
+    if (!await uConfirm(`Restaurer ${x.libelle.toLowerCase()} « ${nomDeLaFiche(x.table, x.fiche)} » ?\n\nLa fiche revient exactement telle qu'elle était au moment de sa suppression, sur tous les appareils.${x.table === "ventes" ? "\n\n💰 Sa recette revient dans le tiroir de sa boutique (et sa dette liée, s'il y en avait une) : les clôtures de ce jour-là se recalent toutes seules." : ""}`)) return;
     save(restaurerDeLaCorbeille(db, x.table, x.fiche.id), `♻ ${x.libelle} « ${nomDeLaFiche(x.table, x.fiche)} » restauré(e) de la corbeille par ${profile.nom}`);
   };
   const effacerFiche = async (x) => {
@@ -207,7 +207,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   const idsEspaceEff = new Set(comptesEff.map((u) => u.id));
   const visibleEff = {
     comptes: comptesEff,
-    ventes: (db.ventes || []).filter(espaceEff),
+    // Une vente mise à la corbeille porte encore le nom du client (01/11/2026).
+    ventes: [...(db.ventes || []), ...(db.corbeille_ventes || [])].filter(espaceEff),
     // Une dette mise à la corbeille porte encore le nom du client (12/10/2026).
     dettes: [...(db.dettes || []), ...(db.corbeille_dettes || [])].filter(espaceEff),
     proformas: (db.proformas || []).filter(espaceEff),
@@ -217,7 +218,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     chantiers: [...chantiersEff, ...(db.corbeille_clients_installes || [])],
     // Les prospects portent leur propre marque d'espace (ils n'ont pas de
     // boutique) : on compare à l'espace REGARDÉ, jamais à ce qu'EST le compte.
-    prospects: (db.prospects || []).filter((p) => !!p.formation === !!espaceDuCompte(db, profile)),
+    prospects: [...(db.prospects || []), ...(db.corbeille_prospects || [])].filter((p) => !!p.formation === !!espaceDuCompte(db, profile)),
     // ⚠ LE MUR sur les textes libres : un message appartient à l'espace des
     // gens qui se parlent, une ligne de journal porte sa propre marque. Sans
     // ces deux filtres, effacer en formation nettoierait le journal RÉEL.
