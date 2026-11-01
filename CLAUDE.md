@@ -2602,6 +2602,7 @@ lit mal est pire qu'un banc absent).
   destinataire. Rien ne change à l'écran ; effet à la prochaine connexion de
   chacun. Bancs `tester-conversations` (+25, éprouvé : marque retirée,
   règle ouverte), `verifier-cloisonnement` (+11). Chapitre 20 à jour.
+  **Collé par Timo le 01/11/2026 (`true | true`).**
   **Le reste du cloisonnement par boutique** (ventes, dettes, prix d'achat…
   qui descendent chez tout le personnel du réel) reste OUVERT : « B » et
   « C » proposés, pas demandés.
