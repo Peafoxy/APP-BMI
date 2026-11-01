@@ -421,7 +421,7 @@ lit mal est pire qu'un banc absent).
   RETOURNÉS : ROLES_TACHES ×2, ROLES_CHANGEABLES, 📤 Dépenses ×6, primes reçues,
   le libellé de 💵 Salaires et des attestations. Guide
   `guide-assistant-direction`, chapitres 2 et 15 à jour.
-  **⏳ `securite-48` à coller par Timo** (sinon ses tâches sont refusées par la base).
+  **`securite-48` collé par Timo le 01/11/2026 (`true | true | true`).**
 - **👷 LE CHEF DES TECHNICIENS = un TECHNICIEN BMI coché ⭐ chef d'équipe**
   (17/09/2026 : « ouvre le rôle technicien BMI »). Le chef des techniciens est
   un SALARIÉ : le seul rôle qui lui convienne est « technicien BMI » — le
