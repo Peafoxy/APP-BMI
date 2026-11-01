@@ -1,4 +1,5 @@
 import { idb, TABLES, compterEnAttente } from "./db";
+import { messagesASigner } from "./lib/ecritPar";
 import { planAbandon, suppressionsParasitesDePrime, suppressionsParasitesDeCorrection, chantiersARedresserDePrime, ventesRefuseesAuClient } from "./lib/abandonLot";
 import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
@@ -314,6 +315,21 @@ export async function synchroniser(options = {}) {
         ops = ops.map((op) => (parSeq.has(op.seq) ? { ...op, data: parSeq.get(op.seq) } : op));
         recuQuelqueChose = true;
         console.warn(`${redresses.length} chantier(s) en attente redressé(s) : champs de retenue retirés.`);
+      }
+      // ✍️ …et les messages écrits AVANT securite-47, encore dans la file,
+      // reçoivent la marque du compte qui les a écrits sur cet appareil :
+      // sinon la base refuserait de les relire, et le lot resterait coincé.
+      let moiSession = "";
+      try { moiSession = String((await supabase.auth.getSession())?.data?.session?.user?.email || "").split("@")[0]; } catch { /* sans session : rien à marquer */ }
+      const aSigner = messagesASigner(ops, moiSession);
+      if (aSigner.length) {
+        for (const { seq, data } of aSigner) {
+          await idb.outbox.update(seq, { data });
+          const local = await idb.table("messages").get(data.id);
+          if (local && !local.ecrit_par) await idb.table("messages").put({ ...local, ecrit_par: data.ecrit_par });
+        }
+        const parSeq = new Map(aSigner.map((r) => [r.seq, r.data]));
+        ops = ops.map((op) => (parSeq.has(op.seq) ? { ...op, data: parSeq.get(op.seq) } : op));
       }
       const bloques = new Set();
       refusEnCours = null; // ce cycle dira s'il y en a encore un

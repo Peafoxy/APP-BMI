@@ -149,6 +149,7 @@ import { surveillerHorloge } from "./horloge";
 import { HeureServeur } from "./components/HeureServeur";
 import { MonAttestation } from "./screens/MonAttestation";
 import { enPeriodeDeSortie, accesFerme, messageAccesFerme, ONGLET_ATTESTATION } from "./lib/attestationSortie";
+import { signerNouveauxMessages } from "./lib/ecritPar";
 
 // ⚠ Demande Timo (09/09/2026) : plus de DÉCONNEXION automatique par
 // inactivité (avant : 30 min sur PC, 5 sur Android). À la place, un VERROU :
@@ -908,6 +909,10 @@ export default function App() {
         return;
       }
     }
+    // ✍️ securite-47 (01/11/2026) : chaque message qui NAÎT ici porte le
+    // compte qui l'a écrit — la base ne laisse relire un message interne
+    // qu'à ses lecteurs, et à celui qui l'a écrit (lib/ecritPar.js).
+    next = signerNouveauxMessages(prev, next, profile?.id);
     const final = action
       // ⚠ Le journal portait les actions des DEUX espaces mélangées : les
       // gestes d'entraînement apparaissaient dans l'historique réel, avec de

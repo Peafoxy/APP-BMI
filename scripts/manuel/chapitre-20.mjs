@@ -24,7 +24,8 @@
 // lib/vocauxStockes.js et api/_vocauxStockes.js (🎤 les notes envoyées gardées
 // 30 jours pour toute l'équipe, dans l'espace privé de Supabase),
 // src/enregistreurVocal.js, lib/oggOpus.js (la note enregistrée remise en .ogg),
-// App.jsx (les onglets et leurs compteurs).
+// App.jsx (les onglets et leurs compteurs), lib/ecritPar.js et securite-47
+// (🔒 un message interne ne descend que chez ses lecteurs).
 // Les envois depuis un devis, une dette ou une vente sont décrits dans
 // leurs chapitres (5, 7, 13) ; le réglage de l'assistant au chapitre 23.
 // ============================================================
@@ -92,6 +93,7 @@ export const CHAPITRE = {
         { titre: "Écrire puis « Envoyer »", texte: "Dans « Votre message… » (Entrée envoie aussi). Le message part avec la synchronisation : il arrive chez l'autre dès que son appareil se met à jour." },
         { titre: "Un groupe (administrateur)", texte: "« + Nouveau » à côté de 👥 Groupes : « Nom du groupe » (ex. : Chantier Agoè), puis cocher les membres, « Créer le groupe ». Dans un groupe ouvert : « Membres » pour en ajouter ou en retirer, « Supprimer » efface le groupe **et tous ses messages**, sans retour." },
       ]],
+      ["note", "**🔒 Une conversation privée ne va que chez ses deux personnes.** Ce que vous écrivez à un collègue n'est envoyé que sur **son** appareil et le vôtre ; un message de groupe, chez ses membres et les administrateurs ; un message automatique (« dépense à valider »…), chez son destinataire. Les autres téléphones ne le reçoivent **pas du tout** — ce n'est pas seulement l'écran qui le cache. Seul l'administrateur principal les reçoit tous (le droit d'accès et d'effacement des données en a besoin). Le fil d'un client (support) suit sa propre règle, plus bas."],
 
       ["h3", "B. 💬 Messages — le support d'un client"],
       ["etapes", [

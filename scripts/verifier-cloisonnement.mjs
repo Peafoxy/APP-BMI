@@ -17793,5 +17793,40 @@ titre("🔒 « ✍️ Compléter le devis » revérifie aussi la limite de remis
   test("★ GÉNÉRAL : aucun libellé de case (label=…) n'écrit « facultatif » dans src/" + (fautifs.length ? ` — ${fautifs.slice(0, 3).join(" ; ")}` : ""), fautifs.length === 0);
 }
 
+// ✍️ securite-47 (01/11/2026, « A, lance ») : chaque message qui naît porte
+// le compte qui l'a écrit — la base ne laisse relire un message interne qu'à
+// ses lecteurs ET à celui qui l'a écrit. Sans la marque, le message
+// automatique d'une vendeuse à l'administrateur serait refusé et tout le lot
+// resterait coincé.
+titre("✍️ Les messages internes : la marque « écrit par » (securite-47, 01/11/2026)");
+{
+  const EP = await import(pathToFileURL("src/lib/ecritPar.js").href);
+  const prev = { messages: [{ id: "a", de_id: "X", a_id: "Y" }] };
+  const next = { messages: [{ id: "a", de_id: "X", a_id: "Y", lu_par: ["Y"] }, { id: "b", de_id: null, a_id: "TIMO" }, { id: "c", de_id: "K", ecrit_par: "Z" }] };
+  const r = EP.signerNouveauxMessages(prev, next, "KOSSI");
+  test("★★ un message NOUVEAU reçoit le compte qui l'écrit (le message automatique à l'administrateur)", r.messages[1].ecrit_par === "KOSSI");
+  test("★ un message déjà là ne la reçoit pas (un « lu » ne réécrit pas qui l'a écrit)", !("ecrit_par" in r.messages[0]));
+  test("★ une marque déjà posée n'est jamais remplacée", r.messages[2].ecrit_par === "Z");
+  test("rien à marquer : le même état, tel quel", EP.signerNouveauxMessages(next, next, "KOSSI") === next);
+  const ops = [
+    { seq: 1, op: "upsert", table: "messages", data: { id: "b", a_id: "TIMO" }, base: null },
+    { seq: 2, op: "upsert", table: "messages", data: { id: "a", lu_par: ["Y"] }, base: { id: "a" } },
+    { seq: 3, op: "upsert", table: "ventes", data: { id: "v" }, base: null },
+    { seq: 4, op: "delete", table: "messages", id: "z" },
+  ];
+  const s = EP.messagesASigner(ops, "KOSSI");
+  test("★★ la FILE D'ENVOI : une création de message d'avant la version reçoit la marque (sinon le lot reste coincé au collage)", s.length === 1 && s[0].seq === 1 && s[0].data.ecrit_par === "KOSSI");
+  test("★ sans compte connecté, rien n'est marqué", EP.messagesASigner(ops, "").length === 0);
+  const app = readFileSync("src/App.jsx", "utf8");
+  const iSign = app.indexOf("next = signerNouveauxMessages(prev, next, profile?.id)");
+  const iFinal = app.indexOf("const final = action", iSign);
+  test("★★ App.jsx : save() marque les nouveaux messages AVANT d'écrire (une seule fois, à la source)", iSign > 0 && iFinal > iSign && app.split("signerNouveauxMessages(").length === 2);
+  const sync = readFileSync("src/sync.js", "utf8");
+  test("★★ sync.js : la file d'envoi est marquée AVANT l'envoi", sync.includes("messagesASigner(ops, moiSession)") && sync.indexOf("messagesASigner(ops, moiSession)") < sync.indexOf("const bloques = new Set();"));
+  const sql = readFileSync("supabase/securite-47-messages-internes.sql", "utf8");
+  test("★ LE COUPLE : le script lit le MÊME champ ecrit_par que l'application", sql.includes("data ->> 'ecrit_par'"));
+  test("★ le script ne touche ni WhatsApp ni le Support (canal autre que vide ou groupe : laissé à sa règle)", sql.includes("not in ('', 'groupe')") && !/drop policy if exists "wa_conversations_visibles"/.test(sql));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

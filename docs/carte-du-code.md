@@ -38,6 +38,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/primeChantier.js` | La prime de chantier d'un employé de boutique : quels chantiers, prise sur la part de BMI |
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
 | `lib/echanges.js` | L'échange d'un article vendu contre un autre : avoir, différence payée ou rendue, stock ou SAV |
+| `lib/ecritPar.js` | ✍️ Le compte qui a écrit un message (`ecrit_par`) : posé par save() et sur la file d'envoi — securite-47 ne laisse relire un message interne qu'à ses lecteurs et à celui qui l'a écrit |
 | `lib/carteFidelite.js` | La carte de fidélité à code-barres : numéro FID-, % sur la fiche du client, remplacement, scan dans l'espace regardé, remise fixe — couple securite-45 |
 | `lib/autorisationRemise.js` | La remise ponctuelle autorisée à distance : le vendeur ou le gérant demande (`demandes_remise`), tout administrateur accorde (`remises_autorisees`), pour ce panier, ce %, ce client, une fois — couple securite-44 |
 | `lib/remiseApresVente.js` | La remise après-vente (gérant, admin) : un montant retiré d'une vente déjà encaissée, sans article rendu — dette réduite ou remboursement |

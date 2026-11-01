@@ -2582,6 +2582,29 @@ lit mal est pire qu'un banc absent).
   redescend dans son bloc). UNE ligne, `LigneConversation` ; plus de tri
   maison par bloc. Le client connecté ne voit toujours que son fil.
 
+- **🔒 UN MESSAGE INTERNE NE DESCEND QUE CHEZ SES LECTEURS** (01/11/2026,
+  « Vérifie » → « A, lance » : vérifié dans les règles de la base, TOUS les
+  messages de 💬 Messages descendaient sur chaque téléphone d'employé, y
+  compris la conversation privée de deux AUTRES personnes ; seul l'écran
+  triait). **`securite-47`** (une règle de lecture À PART, `messages_internes_prives`)
+  : conversation privée = ses deux personnes ; groupe = ses membres + les
+  administrateurs (l'écran leur montre tous les groupes) ; message
+  automatique = son destinataire ; **l'administrateur PRINCIPAL reçoit tout**
+  (droit d'effacement et dossier d'accès en ont besoin — écart avec ce que
+  j'avais annoncé, dit à Timo). Le fil d'un client (Support), WhatsApp et les
+  comptes clients gardent leur règle. ⚠ **LE PIÈGE** : un appareil écrit des
+  messages ni « de » lui ni « pour » lui (le message automatique d'une
+  vendeuse à l'administrateur) — refusé à la relecture, il coincerait tout le
+  lot. D'où **`ecrit_par`** (lib/ecritPar.js) : posé par `save()` sur chaque
+  message qui naît, et par sync.js sur les créations déjà dans la file
+  d'envoi ; la base laisse toujours relire ce qu'on vient d'écrire. ⚠ Les
+  anciens messages automatiques (sans marque) ne vont qu'à leur
+  destinataire. Rien ne change à l'écran ; effet à la prochaine connexion de
+  chacun. Bancs `tester-conversations` (+25, éprouvé : marque retirée,
+  règle ouverte), `verifier-cloisonnement` (+11). Chapitre 20 à jour.
+  **Le reste du cloisonnement par boutique** (ventes, dettes, prix d'achat…
+  qui descendent chez tout le personnel du réel) reste OUVERT : « B » et
+  « C » proposés, pas demandés.
 - ⚠ **LE RÔLE RESTE VISIBLE DANS 💬 MESSAGES — « a », c'est-à-dire « laisse
   comme c'est » (20/09/2026).** Timo, capture de la liste des conversations :
   « masquer les rôles des utilisateurs pour les autres utilisateurs… sauf pour

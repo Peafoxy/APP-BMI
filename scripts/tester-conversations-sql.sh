@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Rejoue supabase/securite-27, -28, -29, -30, -36 PUIS -41 sur un PostgreSQL
+# Rejoue supabase/securite-27, -28, -29, -30, -36, -41 PUIS -47 sur un PostgreSQL
 # local jetable, dans un environnement qui reproduit celui de Supabase
 # (mêmes tables, mêmes rôles, même auth.jwt(), mêmes politiques de départ,
 # ET la règle des comptes clients déjà posée — client-1-fermer-annuaire).
@@ -419,6 +419,59 @@ essai "après un second passage, le vendeur peut toujours annoncer un reçu" PAS
 VERIF41=$(psql -h /tmp -p $PORT -U postgres -d bmi -tA -f supabase/securite-41-lignes-automatiques-whatsapp.sql 2>&1 | tail -1)
 if [ "$VERIF41" = "t|t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ ★ la vérification du script répond true | true | true | true | true"
 else ko=$((ko+1)); echo "  ✗ la vérification du script répond : $VERIF41"; fi
+
+echo
+echo "▸ 11. ✍️ LES MESSAGES INTERNES NE DESCENDENT QUE CHEZ LEURS LECTEURS (securite-47)"
+# Timo, 01/11/2026 (« A, lance ») : la conversation privée de deux employés
+# descendait chez tout le personnel ; seul l'écran triait.
+$P -c "
+insert into public.groupes (id, data) values ('G1', '{\"nom\":\"Chantier\",\"membres\":[\"KOSSI\",\"COM1\"]}');
+insert into public.messages (id, data) values
+  ('grp1', '{\"canal\":\"groupe\",\"groupe_id\":\"G1\",\"de_id\":\"COM1\",\"texte\":\"au groupe\"}'),
+  ('sys1', '{\"de_id\":null,\"de_nom\":\"Système\",\"a_id\":\"TIMO\",\"texte\":\"depense a valider\"}'),
+  ('sup1', '{\"canal\":\"support\",\"client_id\":\"CLI1\",\"de_id\":\"CLI1\",\"texte\":\"question client\"}');
+" >/dev/null
+COM2_11='{"role":"authenticated","email":"COM2@bmi.internal","app_metadata":{"role":"commercial","espace":"reel","ecriture":true}}'
+KOSSI_11='{"role":"authenticated","email":"KOSSI@bmi.internal","app_metadata":{"role":"vendeur","espace":"reel","ecriture":true}}'
+ADM2_11='{"role":"authenticated","email":"ADM2@bmi.internal","app_metadata":{"role":"admin","espace":"reel","ecriture":true}}'
+CLI_11='{"role":"authenticated","email":"CLI1@bmi.internal","app_metadata":{"role":"client","espace":"reel","ecriture":true}}'
+UN="select count(*) from public.messages where id ="
+compte "AVANT : COM2 reçoit la conversation privée de KOSSI et TIMO (le trou)" "$COM2_11" "$UN 'int1';" "1"
+compte "AVANT : COM2 reçoit le message d'un groupe dont il n'est pas membre (le trou)" "$COM2_11" "$UN 'grp1';" "1"
+essai "AVANT : un message automatique SANS marque s'écrit encore (rien ne le garde)" PASSE "$KOSSI_11" \
+  "begin; insert into public.messages (id, data) values ('sys9','{\"de_id\":null,\"a_id\":\"TIMO\",\"texte\":\"x\"}') returning id; rollback;"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-47-messages-internes.sql >/dev/null
+compte "★★ APRÈS : COM2 ne reçoit plus la conversation privée de KOSSI et TIMO" "$COM2_11" "$UN 'int1';" "0"
+compte "★★ …KOSSI, qui l'a écrite, la reçoit toujours" "$KOSSI_11" "$UN 'int1';" "1"
+compte "★★ …TIMO (principal, destinataire) la reçoit toujours" "$ADMIN9" "$UN 'int1';" "1"
+compte "★ …un autre administrateur ne la reçoit pas (son écran ne la montre pas)" "$ADM2_11" "$UN 'int1';" "0"
+compte "★★ COM2 ne reçoit plus le message d'un groupe dont il n'est pas membre" "$COM2_11" "$UN 'grp1';" "0"
+compte "★★ …KOSSI, membre, le reçoit" "$KOSSI_11" "$UN 'grp1';" "1"
+compte "★ …un administrateur le reçoit (l'écran lui montre tous les groupes)" "$ADM2_11" "$UN 'grp1';" "1"
+compte "★★ un message automatique va à son destinataire (TIMO)" "$ADMIN9" "$UN 'sys1';" "1"
+compte "★★ …et plus chez COM2" "$COM2_11" "$UN 'sys1';" "0"
+compte "★ le fil d'un client (Support) n'a pas bougé : COM2 le reçoit" "$COM2_11" "$UN 'sup1';" "1"
+compte "★ le client reçoit toujours le message qui lui est adressé" "$CLI_11" "$UN 'int2';" "1"
+compte "★ …et pas la conversation privée de deux employés" "$CLI_11" "$UN 'int1';" "0"
+compte "★ la politique de formation de WhatsApp tient toujours" "$FORMA" "$WA" "0"
+essai "★★ LE PIÈGE : un message automatique SANS marque ne s'écrit plus (le lot serait coincé)" REFUSE "$KOSSI_11" \
+  "begin; insert into public.messages (id, data) values ('sys9','{\"de_id\":null,\"a_id\":\"TIMO\",\"texte\":\"x\"}') returning id; rollback;"
+essai "★★ …AVEC la marque ecrit_par, il part" PASSE "$KOSSI_11" \
+  "begin; insert into public.messages (id, data) values ('sys9','{\"de_id\":null,\"a_id\":\"TIMO\",\"ecrit_par\":\"KOSSI\",\"texte\":\"x\"}') returning id; rollback;"
+essai "★ un message privé de KOSSI à COM1 part" PASSE "$KOSSI_11" \
+  "begin; insert into public.messages (id, data) values ('int9','{\"de_id\":\"KOSSI\",\"a_id\":\"COM1\",\"ecrit_par\":\"KOSSI\",\"texte\":\"x\"}') returning id; rollback;"
+essai "★ …personne ne se fait passer pour un collègue (de_id et ecrit_par d'un autre)" REFUSE "$COM2_11" \
+  "begin; insert into public.messages (id, data) values ('int8','{\"de_id\":\"KOSSI\",\"a_id\":\"COM1\",\"ecrit_par\":\"KOSSI\",\"texte\":\"x\"}') returning id; rollback;"
+essai "★ le destinataire marque toujours « lu »" PASSE "$ADMIN9" \
+  "begin; update public.messages set data = data || '{\"lu_par\":[\"TIMO\"]}' where id = 'sys1' returning id; rollback;"
+essai "★ un membre du groupe y écrit" PASSE "$KOSSI_11" \
+  "begin; insert into public.messages (id, data) values ('grp9','{\"canal\":\"groupe\",\"groupe_id\":\"G1\",\"de_id\":\"KOSSI\",\"ecrit_par\":\"KOSSI\",\"texte\":\"x\"}') returning id; rollback;"
+essai "★ une ligne WhatsApp automatique part toujours (securite-41 intacte)" PASSE "$VEND9" \
+  "begin; insert into public.messages (id, data) values ('wa1k','{\"canal\":\"whatsapp\",\"wa_tel\":\"90112233\",\"ts\":\"2026-11-01T09:00:00Z\",\"de_id\":\"KOSSI\",\"ecrit_par\":\"KOSSI\",\"wa_modele\":\"recu_vente\",\"texte\":\"recu\"}') returning id; rollback;"
+VERIF47=$(psql -h /tmp -p $PORT -U postgres -d bmi -tA -f supabase/securite-47-messages-internes.sql 2>&1 | tail -1)
+if [ "$VERIF47" = "t|t" ]; then ok=$((ok+1)); echo "  ✓ ★ la vérification du script (second passage, sans danger) répond true | true"
+else ko=$((ko+1)); echo "  ✗ la vérification du script répond : $VERIF47"; fi
+compte "après un second passage, COM2 ne reçoit toujours pas la conversation privée" "$COM2_11" "$UN 'int1';" "0"
 
 echo
 echo "──────────────────────────────────────────"
