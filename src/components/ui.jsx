@@ -850,7 +850,7 @@ export const PAGE_A4 = "size: A4; margin: 12mm;";
 // fichier suggéré à l'impression/enregistrement PDF — identique pour TOUS
 // les documents. Avec cette balise, chaque document propose son propre nom
 // (numéro de reçu, de devis, de contrat...).
-function imprimerDocumentDedie(html, titre = "Document", page = PAGE_A4) {
+export function imprimerDocumentDedie(html, titre = "Document", page = PAGE_A4) {
   const cadre = document.createElement("iframe");
   cadre.setAttribute("aria-hidden", "true");
   cadre.style.cssText = "position:absolute;width:0;height:0;border:0;overflow:hidden";
@@ -882,8 +882,31 @@ function imprimerDocumentDedie(html, titre = "Document", page = PAGE_A4) {
     setTimeout(() => { document.title = titrePrincipalOriginal; }, 1000);
     setTimeout(() => { try { cadre.remove(); } catch {} }, 60000);
   };
-  if (d.readyState === "complete") setTimeout(lancer, 50);
-  else cadre.addEventListener("load", () => setTimeout(lancer, 50));
+  // ⚠ Capture Timo (01/11/2026, carte de fidélité imprimée du téléphone) : le
+  // PDF sortait SANS les photos de fond — l'impression partait avant qu'elles
+  // soient chargées (un fond CSS ne retient pas la page). On attend donc
+  // chaque image du document, balise ou fond, 8 secondes au plus.
+  attendreImages(cadre.contentWindow, html).then(lancer, lancer);
+}
+export const ATTENTE_IMAGES_MS = 8000;
+export function adressesImages(html) {
+  const vues = new Set();
+  const re = /(?:url\(\s*['"]?|<img[^>]*\ssrc=['"])([^'")\s>]+)/gi;
+  let m;
+  while ((m = re.exec(String(html || "")))) if (!/^data:/i.test(m[1])) vues.add(m[1]);
+  return [...vues];
+}
+function attendreImages(fenetre, html) {
+  const adresses = adressesImages(html);
+  if (!fenetre || !adresses.length) return new Promise((r) => setTimeout(r, 50));
+  const une = (src) => new Promise((r) => {
+    try { const im = new fenetre.Image(); im.onload = im.onerror = () => r(); im.src = src; if (im.complete) r(); }
+    catch { r(); }
+  });
+  return Promise.race([
+    Promise.all(adresses.map(une)).then(() => new Promise((r) => setTimeout(r, 100))),
+    new Promise((r) => setTimeout(r, ATTENTE_IMAGES_MS)),
+  ]);
 }
 
 // Le format de page de l'aperçu (« size: A4; margin: 12mm; » ou une étiquette
@@ -926,7 +949,10 @@ export function cadreContenu(conteneur, air = 4) {
   conteneur.querySelectorAll("*").forEach((el) => {
     if (el.tagName === "STYLE" || el.tagName === "SCRIPT") return;
     const r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return;
+    // ⚠ Une boîte PLATE (le séparateur `.saut-page`, 0 px de haut sur toute la
+    // largeur) ne porte rien : la compter élargissait le cadre à 794 px et la
+    // carte de fidélité sortait rétrécie (capture Timo, 01/11/2026).
+    if (r.width === 0 || r.height === 0) return;
     g = Math.min(g, r.left); d = Math.max(d, r.right); h = Math.min(h, r.top); b = Math.max(b, r.bottom);
   });
   if (!Number.isFinite(g)) return { x: 0, y: 0, largeur: base.width, hauteur: base.height };
@@ -957,6 +983,12 @@ export async function pdfDeLApercu(html, page = PAGE_A4, { qualite = 0.92 } = {}
     // pour que le document remplisse la page comme à l'impression.
     const cadre = cadreContenu(horsEcran);
     const toile = rogner(brute, cadre, 2);
+    // Les sauts de page VOULUS (`.saut-page` : recto / verso d'une carte, le
+    // duplicata d'un reçu) coupent la page là où l'impression la couperait.
+    const base = horsEcran.getBoundingClientRect();
+    const sauts = [...horsEcran.querySelectorAll(".saut-page")]
+      .map((el) => Math.round((el.getBoundingClientRect().top - base.top - cadre.y) * 2))
+      .filter((v) => v > 0 && v < toile.height).sort((a, b) => a - b);
     const doc = new jsPDF({ orientation: largeur > hauteur ? "landscape" : "portrait", unit: "mm", format: [largeur, hauteur], compress: true });
     const utileL = largeur - 2 * marge, utileH = hauteur - 2 * marge;
     const echelle = utileL / toile.width;              // mm par pixel
@@ -964,7 +996,8 @@ export async function pdfDeLApercu(html, page = PAGE_A4, { qualite = 0.92 } = {}
     const blanche = ligneBlanche(toile.getContext("2d"), toile.width);
     let y = 0, premiere = true;
     while (y < toile.height) {
-      const fin = positionCoupe(Math.min(y + hauteurPageEnPx, toile.height), toile.height, blanche);
+      const saut = sauts.find((v) => v > y + 1 && v <= y + hauteurPageEnPx);
+      const fin = saut || positionCoupe(Math.min(y + hauteurPageEnPx, toile.height), toile.height, blanche);
       const h = Math.max(1, fin - y);
       const morceau = document.createElement("canvas");
       morceau.width = toile.width; morceau.height = h;

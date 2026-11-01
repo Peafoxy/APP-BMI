@@ -5788,7 +5788,7 @@ titre("66 📎 LE REÇU ET LA PROFORMA AVEC LEUR PDF — `recu_pdf`, `proforma_p
     && /modele: envoiPdf\.modele, variables: envoiPdf\.variables, espaceFormation: !!bqPf\.formation, sansRepli: true, fichier: fichierPf/.test(corpsPf)
     && corpsPf.length > 0 && !/joindrePdf|data-joindre-pdf/.test(corpsPf));
   test("★ le reçu se rend SANS s'imprimer (`rendre`), sans le duplicata de la boutique, et `fichierPdfDepuisHtml` est écrit UNE fois (components/ui.jsx)",
-    /if \(rendre\) return html;/.test(lire("src/lib/impression.js")) && (lire("src/lib/impression.js").match(/if \(rendre\) return html;/g) || []).length === 2
+    /if \(rendre\) return html;/.test(lire("src/lib/impression.js")) && (lire("src/lib/impression.js").match(/if \(rendre\) return html;/g) || []).length === 3 /* RETOURNÉ le 01/11/2026 : la carte de fidélité se rend aussi (banc du partage) */
     && /export async function fichierPdfDepuisHtml\(/.test(lire("src/components/ui.jsx")) && !/export async function fichierPdfDepuisHtml/.test(lire("src/lib/impression.js")));
   test("★★ (67) la ligne du PDF d'un VERSEMENT garde le reçu en texte pour un relais (`wa_relais_texte`) ; celle d'une VENTE, privée, n'en garde AUCUN",
     ligne(a)?.wa_relais_texte?.modele === "recu_reglement" && ligne(a).wa_relais_texte.variables.length === 7 && !("wa_relais_texte" in (ligne(e) || {})), JSON.stringify(ligne(a)?.wa_relais_texte));

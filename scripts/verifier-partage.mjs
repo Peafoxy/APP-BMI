@@ -13,7 +13,7 @@
 // ============================================================
 import { build } from "esbuild";
 import { createRequire } from "node:module";
-import { writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { writeFileSync, unlinkSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const require = createRequire(import.meta.url);
@@ -24,8 +24,26 @@ mkdirSync("node_modules/.cache", { recursive: true });
 const entree = join("node_modules", ".cache", `bmi-partage-entree-${process.pid}.jsx`);
 const sortie = join("node_modules", ".cache", `bmi-partage-${process.pid}.js`);
 writeFileSync(entree, `
-import { pdfDeLApercu, cadreContenu, PAGE_A4, LARGEUR_RENDU_PX, fichierPdfDepuisHtml, QUALITE_PDF_WHATSAPP } from "../../src/components/ui.jsx";
-import { imprimerRecu, imprimerRecuVersement } from "../../src/lib/impression.js";
+import { pdfDeLApercu, cadreContenu, PAGE_A4, LARGEUR_RENDU_PX, fichierPdfDepuisHtml, QUALITE_PDF_WHATSAPP, imprimerDocumentDedie, adressesImages } from "../../src/components/ui.jsx";
+import { imprimerRecu, imprimerRecuVersement, imprimerCarteFidelite, FOND_CARTE_RECTO, FOND_CARTE_VERSO } from "../../src/lib/impression.js";
+// 💳 01/11/2026 (capture Timo : le PDF de la carte de fidélité sans recto ni
+// photos) : la carte PARTAGÉE fait deux pages au format de la carte, photos
+// comprises ; l'IMPRESSION attend les photos avant de partir.
+window.__mesurerCarte = async () => {
+  const html = imprimerCarteFidelite({ nom: "CHEF EZO", fidelite: { numero: "FID-3194455171", pct: 3 } }, { rendre: true });
+  const d = await pdfDeLApercu(html, "size: 85.6mm 54mm; margin: 0;");
+  const taille = (d.output("datauristring").split(",")[1] || "").length * 3 / 4;
+  const adresses = adressesImages(html);
+  window.__imprime = null;
+  const obs = new MutationObserver(() => { const f = document.querySelector("iframe"); if (f && f.contentWindow && !f.__espion) { f.__espion = true; f.contentWindow.print = () => { window.__imprime = Date.now(); }; } });
+  obs.observe(document.body, { childList: true });
+  const depart = Date.now();
+  imprimerDocumentDedie(html, "Carte", "size: 85.6mm 54mm; margin: 0;");
+  for (let i = 0; i < 100 && !window.__imprime; i++) await new Promise((r) => setTimeout(r, 100));
+  obs.disconnect();
+  return { pages: d.getNumberOfPages(), largeur: Math.round(d.internal.pageSize.getWidth() * 10) / 10, hauteur: Math.round(d.internal.pageSize.getHeight()), taille,
+    fonds: adresses.includes(FOND_CARTE_RECTO) && adresses.includes(FOND_CARTE_VERSO), attente: window.__imprime ? window.__imprime - depart : -1 };
+};
 // 📎 19/10/2026 : le PDF du VRAI reçu (la page imprimée, logo compris), tel
 // qu'il part dans l'en-tête de \`recu_pdf\` — son poids est mesuré.
 window.__mesurerRecu = async () => {
@@ -70,9 +88,30 @@ const mesurer = async (largeur) => {
   await page.close();
   return { ...r, recu, erreurs };
 };
+// La carte : les photos sont servies LENTEMENT (1,5 s), comme sur un téléphone.
+const mesurerCarte = async () => {
+  const page = await nav.newPage({ viewport: { width: 390, height: 800 } });
+  const erreurs = [];
+  page.on("pageerror", (e) => erreurs.push(e.message));
+  await page.route("http://bmi.test/**", async (r) => {
+    const chemin = new URL(r.request().url()).pathname;
+    if (chemin === "/") return r.fulfill({ contentType: "text/html", body: '<!doctype html><html><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>' });
+    const f = join("public", chemin);
+    if (!existsSync(f)) return r.fulfill({ status: 404 });
+    await new Promise((ok) => setTimeout(ok, 1500));
+    return r.fulfill({ path: f });
+  });
+  await page.goto("http://bmi.test/");
+  await page.addScriptTag({ path: sortie });
+  let r = null;
+  try { r = await page.evaluate(() => window.__mesurerCarte()); } catch (e) { erreurs.push(e?.message || String(e)); }
+  await page.close();
+  return { ...r, erreurs };
+};
 console.log("\n📤 Le PDF partagé, mesuré dans Chromium");
 const tel = await mesurer(390);
 const pc = await mesurer(1280);
+const carte = await mesurerCarte();
 await nav.close();
 try { unlinkSync(entree); unlinkSync(sortie); } catch {}
 
@@ -95,6 +134,14 @@ test("★★ le PDF du VRAI reçu (la page imprimée, logo compris) : un vrai PD
   !!rv && rv.html && rv.mime === "application/pdf" && rv.pagesV === 1 && rv.nomV === "Reçu - CHEF EZO ENERGY DU TOGO - BMID-2026-0050.pdf" && rv.imprime === 0);
 test("★★ il reste LÉGER : moins de 400 Ko pour le reçu de vente comme pour le reçu de versement (le PDF du devis de 780 Ko était coupé en route, le 18/10)",
   !!rv && rv.tailleV > 10000 && rv.tailleV < 400 * 1024 && rv.tailleD > 10000 && rv.tailleD < 400 * 1024);
+
+console.log(`   (carte partagée : ${carte.pages} page(s) de ${carte.largeur} × ${carte.hauteur} mm, ${Math.round((carte.taille || 0) / 1024)} Ko ; impression partie après ${carte.attente} ms)`);
+test("★★ 💳 la carte de fidélité PARTAGÉE (capture Timo, 01/11/2026) : DEUX pages au format de la carte (85,6 × 54 mm) — le recto puis le verso, coupés au saut de page, jamais serrés sur une seule",
+  carte.erreurs.length === 0 && carte.pages === 2 && carte.largeur === 85.6 && carte.hauteur === 54);
+test("★★ 💳 ses photos de fond sont dans le PDF (un PDF de carte sans photo pèse quelques Ko ; avec les deux photos, plus de 60 Ko)",
+  carte.fonds && carte.taille > 60 * 1024);
+test("★★ 💳 « Imprimer / Enregistrer en PDF » ATTEND les photos (servies en 1,5 s ici) avant de lancer l'impression — sans elles, le PDF du téléphone sortait sans fond",
+  carte.attente >= 1500 && carte.attente < 9000);
 
 console.log();
 if (ko === 0) { console.log(`✅  ${ok} vérification(s) passée(s), 0 en échec.`); process.exit(0); }

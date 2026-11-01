@@ -1369,7 +1369,7 @@ export const ACTIVITES_CARTE = [
   ["💧", "Forage et pompage"],
 ];
 
-export function imprimerCarteFidelite(compte) {
+export function imprimerCarteFidelite(compte, { rendre = false } = {}) {
   const carte = compte && compte.fidelite;
   if (!carte || !carte.numero) return false;
   // Le code-barres porte le numéro ENTIER (c'est lui qui se scanne) ; le texte
@@ -1417,6 +1417,7 @@ export function imprimerCarteFidelite(compte) {
       </div>
     </div>`;
   const html = `${recto}<div class="saut-page" style="break-before:page;page-break-before:always"></div>${verso}`;
+  if (rendre) return html;
   if (printApi) printApi.open(html, nomDocument("Carte de fidélité", { client: nom, numero: carte.numero }), "size: 85.6mm 54mm; margin: 0;");
   return true;
 }
