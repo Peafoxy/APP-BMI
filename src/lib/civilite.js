@@ -27,5 +27,14 @@ export const civilite = (u, neutre = "M./Mme") => (sexeDe(u) === "H" ? "M." : se
 // L'accord d'un mot : accorde(u, "employé", "employée", "employé(e)").
 export const accorde = (u, masculin, feminin, neutre) => (sexeDe(u) === "H" ? masculin : sexeDe(u) === "F" ? feminin : neutre);
 
+// 🗂 L'ASSISTANT(E) DE DIRECTION (01/11/2026, Timo : « Assistant de direction
+// peut être un homme… tenir compte si c'est masculin ou féminin sur la fiche
+// pour dire assistante ou assistant »). UN seul rôle dans la base
+// (`assistant_direction`) ; le MOT suit le sexe de la fiche, et reste neutre
+// quand il n'est pas saisi.
+export const ROLE_ASSISTANT_DIRECTION = "assistant_direction";
+export const libelleAssistantDirection = (u) =>
+  accorde(u, "Assistant de direction", "Assistante de direction", "Assistant(e) de direction");
+
 // "" = accepté (vide = effacer).
 export const critiqueSexe = (v) => (v === "" || v === "H" || v === "F" ? "" : "Choisissez Homme ou Femme.");

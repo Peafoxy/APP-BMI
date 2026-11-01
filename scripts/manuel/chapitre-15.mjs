@@ -1,6 +1,7 @@
 // ============================================================
 // MANUEL DE FORMATION — CHAPITRE 15 : Chantiers et travaux
 //
+// components/TachesConfiees.jsx (l'assistant(e) de direction donne des tâches aux gérants — 01/11/2026),
 // Des MOTS, rien d'autre. Chaque bouton, chaque chiffre vient du code :
 // lib/affectationChantier.js et api/rappels-du-soir.js (l'avis WhatsApp d'affectation, le changement, le rappel de la veille au chef — 12/10/2026),
 // lib/achatsChantier.js (critiqueTerminerChantier — 12/10/2026),
@@ -88,7 +89,8 @@ export const CHAPITRE = {
         ["Un clic sur la ligne → le dossier", "Statut, garantie, vente rattachée, équipe ; programmation ; matériel posé ; photos ; observations."],
         ["La ligne → 🔧 Frais", "La répartition des frais d'installation et le paiement des parts."],
         ["🛠 Travaux à crédit", "Les travaux hors devis, jusqu'à ce qu'ils soient soldés."],
-        ["👑 Mon équipe / ✅ Mes tâches", "Les tâches d'entretien posées automatiquement pour le chef de chantier."],
+        ["👑 Mon équipe / ✅ Mes tâches", "Les tâches d'entretien posées automatiquement pour le chef de chantier. Le **gérant** a aussi ✅ Mes tâches (01/11/2026) : il y reçoit les tâches de l'administrateur ou de l'assistant(e) de direction."],
+        ["✅ Tâches → « 📋 Tâches confiées aux gérants » (assistant(e) de direction)", "Un bouton « ➕ » par gérant de l'espace : titre (obligatoire), détails, échéance. Le gérant reçoit la tâche, une notification et un WhatsApp du numéro BMI. Terminée, elle revient « ⏳ À valider » : ✅ Valider, ou ↩ Rouvrir avec un motif obligatoire."],
       ]}],
       ["h3", "Les catégories de la liste"],
       ["table", { entetes: ["Catégorie", "Ce qu'elle regroupe"], largeurs: [3100, 6200], lignes: [

@@ -12,7 +12,7 @@ import { printApi, fichierPdfDepuisHtml } from "../components/ui";
 import { paieMois, resteCredit, libelleMoisFR, totalRembourseCredit, estReservation, cumulsPaieAnnee } from "./calculs";
 import { genererSVGCode128 } from "./barcode";
 import { identiteClient, ligneClient, partieClientContrat } from "./clientEntreprise";
-import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
+import { libelleRoleEmploye } from "./comptesClients";
 import { compteMasque } from "./banques";
 import { numeroMasque } from "./carteFidelite";
 import { affectationDe } from "./affectation";
@@ -922,7 +922,7 @@ export function imprimerBulletin(u, mois, db) {
   // d'ici ne connaissait que trois rôles et écrivait « Vendeur » pour un
   // comptable ou un responsable commercial — le défaut réparé le 30/09 dans
   // 💵 Salaires, oublié sur le bulletin imprimé.
-  const roleLbl = LIBELLE_ROLE_EMPLOYE[u.role] || u.role || "—";
+  const roleLbl = libelleRoleEmploye(u) || "—";
   const numero = numeroBulletin(mois, u.id);
 
   // 🧾 NIVEAU 2 (05/10/2026) : deux colonnes Gains / Retenues, comme un

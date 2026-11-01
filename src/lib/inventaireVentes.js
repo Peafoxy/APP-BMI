@@ -36,7 +36,8 @@ import { estEnAttente, estRejetee, montantOrigine, sortDuTiroir } from "./valida
 import { detteEnRetard, resteDette, joursDeDette } from "./rappels.js";
 import { ventesAuChiffre, estDepotChantier } from "./depotChantier.js";
 
-export const ROLES_INVENTAIRE = ["gerant", "admin"];
+// 🗂 + l'assistant(e) de direction (01/11/2026) : l'inventaire se lit, rien ne s'y écrit.
+export const ROLES_INVENTAIRE = ["gerant", "admin", "assistant_direction"];
 export const peutVoirInventaire = (profile) => ROLES_INVENTAIRE.includes(profile?.role);
 
 const jour = (x) => String(x || "").slice(0, 10);

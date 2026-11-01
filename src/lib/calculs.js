@@ -11,7 +11,7 @@ import { PERTES_PCT_DEFAUT } from "./pompes.js";
 import { PRIX_RAIL_DEFAUT, LONGUEUR_RAIL_DEFAUT, prixRailDesBoutiques, longueurRailDesBoutiques } from "./choixSolaire.js";
 import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME, numeroBulletin } from "./core";
 import { envoiVirementSalaire, envoiPrimeInstallationPayee, envoiTacheAssignee, envoiTacheValidee } from "./whatsappModeles";
-import { LIBELLE_ROLE_EMPLOYE } from "./comptesClients";
+import { libelleRoleEmploye } from "./comptesClients";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES, MOYENS_ENCAISSEMENT, NOM_CAISSE_TERRAIN, NOM_CAISSE_TERRAIN_FORMATION, libelleCaisse, caisseDeVente, boutiqueDuDocument, estNomCaisseChantier } from "./constants";
 import { mettreAuPanier } from "./panier";
@@ -1548,7 +1548,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   const envoi = envoiVirementSalaire({
     employe: fiche.nom_complet || fiche.nom, tel: fiche.tel, mois: libelleMoisFR(m), date: today(),
     montant, moyen, reference: String(ref).trim() || numeroBulletin(m, u.id),
-    initiateur: { role: LIBELLE_ROLE_EMPLOYE[moi.role] || moi.role, tel: moi.tel },
+    initiateur: { role: libelleRoleEmploye(moi), tel: moi.tel },
     retenue, resteCredit: virement.reste_credit || 0, fmt, dFR,
   });
   let note = "";
@@ -1562,7 +1562,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
     const essais = [envoi, envoi.modele === "virement_salaire_credit" ? envoiVirementSalaire({
       employe: fiche.nom_complet || fiche.nom, tel: fiche.tel, mois: libelleMoisFR(m), date: today(),
       montant, moyen, reference: String(ref).trim() || numeroBulletin(m, u.id),
-      initiateur: { role: LIBELLE_ROLE_EMPLOYE[moi.role] || moi.role, tel: moi.tel }, fmt, dFR,
+      initiateur: { role: libelleRoleEmploye(moi), tel: moi.tel }, fmt, dFR,
     }) : null].filter(Boolean);
     let r = "";
     for (const e of essais) {
@@ -2672,7 +2672,9 @@ export const ONGLETS_ROLE = {
   // ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
   technicien_bmi: ["dimensionnement", "tous_devis", "parc", "prospects", "taches", "equipe", "commission", "primes_recues", "rendez_vous", "messages", "whatsapp", "salaire", "nouveau_client", "contrats", "depenses", "outillage"],
   magasinier: ["stocks", "salaire", "primes_recues", "rendez_vous", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
-  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "salaire", "primes_recues", "rendez_vous", "messages", "whatsapp", "nouveau_client", "contrats", "travaux", "primes_remises"],
+  // ✅ « taches » ajouté le 01/11/2026 : l'assistant(e) de direction donne des
+  // tâches aux gérants — sans cet onglet, elles ne s'affichaient nulle part chez eux.
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "taches", "salaire", "primes_recues", "rendez_vous", "messages", "whatsapp", "nouveau_client", "contrats", "travaux", "primes_remises"],
   // ⚠ 01/10/2026 : alignée sur App.jsx — « 📤 Dépenses » retiré (le vendeur
   // ne l'a plus depuis le 15/09), « 🏠 Clients installés » ajouté (il l'a).
   // Pareil pour 🔁 Transfert du gérant et 💰 Ventes du resp. commercial :
@@ -2687,6 +2689,11 @@ export const ONGLETS_ROLE = {
   // onglet à lui. Listé ici, donc retirable dans 🔐 Pouvoirs — un onglet
   // qu'on ne peut pas retirer est un pouvoir qui échappe à l'administrateur.
   client: ["espace_client", "messages", "mes_donnees", "mes_contrats"],
+  // 🗂 L'ASSISTANT(E) DE DIRECTION (01/11/2026, lib/assistantDirection.js) :
+  // elle / il REGARDE (lecture seule, garde dans save()) et AGIT sur les
+  // tâches des gérants, ses rendez-vous, ses messages et WhatsApp. Pas la
+  // paie des autres (« B a pour le moment »).
+  assistant_direction: ["dashboard", "taches", "ventes", "commandes", "tous_devis", "dettes", "clients", "caisse", "stocks", "fournisseurs", "depenses", "parc", "rendez_vous", "messages", "whatsapp", "salaire", "primes_recues"],
 };
 
 // Pouvoirs d'action (au-delà des onglets)
@@ -2695,7 +2702,7 @@ export const ACTIONS_POUVOIR = [
   ["act_credit", "🏦 Demander un crédit BMI", (r) => SALARIES.includes(r)],
   ["act_reaffecter", "🔁 Réaffecter les prospects", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"].includes(r)],
   ["act_commission", "💰 Valider / payer les commissions", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"].includes(r)],
-  ["act_taches", "✅ Assigner des tâches", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"].includes(r)],
+  ["act_taches", "✅ Assigner des tâches", (r) => ROLES_TACHES.includes(r)],
   // ⚠ RETIRÉ EN 2.101.14 : « act_voir_tout » (voir les deux espaces).
   // Il ne commande plus rien — seul l'administrateur PRINCIPAL traverse le
   // mur formation / réel, et ce n'est pas un pouvoir qu'on accorde, c'est
@@ -2753,7 +2760,7 @@ export const plafondRemise = (db) => {
   return b ? Number(b.plafond_remise_pct) : PLAFOND_REMISE_PCT_DEFAUT;
 };
 const LIBELLE_ROLE_COURT = { admin: "l'administrateur", gerant: "le gérant", magasinier: "le magasinier",
-  vendeur: "le vendeur", commercial: "le commercial", technicien: "le technicien", resp_commercial: "le responsable commercial", comptable: "le comptable" };
+  vendeur: "le vendeur", commercial: "le commercial", technicien: "le technicien", resp_commercial: "le responsable commercial", comptable: "le comptable", assistant_direction: "l'assistant(e) de direction" };
 export const refuserSaufRoles = (profile, roles, geste) => {
   if (roles.includes(profile?.role)) return false;
   uAlert(`🔒 ${geste} : réservé à ${roles.map((r) => LIBELLE_ROLE_COURT[r] || r).join(", ")}.`);
@@ -2800,7 +2807,9 @@ export const critiqueRemises = (lignes, remisePct, remiseF, role, plafond = PLAF
 //     si ce pouvoir leur a été retiré.
 // Chacun garde SA propre fiche pour le quotidien : signature, disponibilité,
 // ses tâches, sa demande de crédit, la confirmation de son virement.
-export const ROLES_TACHES = ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"];
+// 🗂 + l'assistant(e) de direction (01/11/2026, « A a » : des tâches aux
+// gérants). ⚠ LE COUPLE : `a_pouvoir_taches()` (securite-48) nomme les MÊMES.
+export const ROLES_TACHES = ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi", "assistant_direction"];
 export const refuserSaufAdminPrincipal = (db, profile, geste) => {
   if (estAdminPrincipal(db, profile)) return false;
   uAlert(`🔒 ${geste} : réservé à l'administrateur PRINCIPAL.`);
@@ -2828,7 +2837,7 @@ export const refuserSaufReaffectation = (db, profile, geste) => {
 };
 export const refuserSaufTaches = (db, profile, geste) => {
   if (ROLES_TACHES.includes(profile?.role) && aDroit(db, profile, "act_taches")) return false;
-  uAlert(`🔒 ${geste} : réservé aux comptes qui ont le pouvoir « Assigner des tâches » (administrateur, responsable commercial, commercial, technicien, technicien BMI).`);
+  uAlert(`🔒 ${geste} : réservé aux comptes qui ont le pouvoir « Assigner des tâches » (administrateur, responsable commercial, commercial, technicien, technicien BMI, assistant(e) de direction).`);
   return true;
 };
 

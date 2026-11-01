@@ -9,7 +9,7 @@ import { useState } from "react";
 import { uid, fmt, today, dFR, heureCourte, nouveauMessage } from "../../lib/core";
 import { uAlert, uConfirm, uPrompt, uChoix, inputCls, BoutonEnvoi, LIBELLE_ENVOI_EN_COURS } from "../../components/ui";
 import { bloquerSiLecture, estAdminPrincipal, refuserSaufAdminPrincipal, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
-import { LIBELLE_ROLE_EMPLOYE } from "../../lib/comptesClients";
+import { libelleRoleEmploye } from "../../lib/comptesClients";
 import { brouillonsAvecApporteur, fixerTauxBrouillon } from "../../lib/apporteurDevis";
 import { brouillonsDe, retirerBrouillon, nomDuBrouillon, brouillonSansClient, destinatairesBrouillon, confierBrouillon, devisRemplace, auteursDesBrouillons, critiqueBrouillonAutrui, avisBrouillonEnvoye, avisBrouillonSupprime } from "./devisCommun";
 import { resoudreClientDevis, envoyerDevisEtOuvrirWhatsApp, useEtapeEnvoiDevis } from "./Partages";
@@ -102,7 +102,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtre
     if (bloquerSiLecture(db, profile)) return;
     if (destinataires.length === 0) { uAlert("Personne d'autre dans cet espace n'a l'onglet Dimensionnement : ce brouillon ne peut être confié à personne."); return; }
     // Le nom ET le rôle sur chaque bouton : deux homonymes ne se confondent pas.
-    const libelle = (u) => `${u.nom} — ${LIBELLE_ROLE_EMPLOYE[u.role] || u.role}${u.boutique && u.boutique !== "Toutes" ? ` · ${u.boutique}` : ""}`;
+    const libelle = (u) => `${u.nom} — ${libelleRoleEmploye(u)}${u.boutique && u.boutique !== "Toutes" ? ` · ${u.boutique}` : ""}`;
     const choix = await uChoix(`Confier le brouillon « ${nomDuBrouillon(b)} » (${fmt(b.devis?.total)}) à :`, destinataires.map(libelle));
     if (!choix) return;
     const a = destinataires.find((u) => libelle(u) === choix);
@@ -181,7 +181,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtre
                   title="Voir les brouillons d'une personne">
             <option value="">👥 Utilisateur — moi</option>
             {auteursListe.map((u) => (
-              <option key={u.id} value={u.id}>{u.nom} — {LIBELLE_ROLE_EMPLOYE[u.role] || u.role} ({brouillonsDe(u).length})</option>
+              <option key={u.id} value={u.id}>{u.nom} — {libelleRoleEmploye(u)} ({brouillonsDe(u).length})</option>
             ))}
           </select>
         )}

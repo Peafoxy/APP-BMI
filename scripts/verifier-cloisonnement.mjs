@@ -3986,8 +3986,10 @@ titre("Vague 3, étape 3 (les comptes) : chaque geste sur un compte revérifie s
   // ⚠ RETOURNÉ le 17/09/2026 (Timo : « ouvre le rôle technicien BMI ») : le
   // chef des techniciens est un SALARIÉ, donc « technicien BMI ». La liste
   // du 05/09 ne l'avait pas — elle en compte cinq depuis.
-  test("★ les aides existent (ROLES_TACHES = admin, resp. commercial, commercial, technicien, technicien BMI)",
-    C.ROLES_TACHES.join() === "admin,resp_commercial,commercial,technicien,technicien_bmi"
+  // ⚠ RETOURNÉ le 01/11/2026 : + l'assistant(e) de direction (« A a » : des
+  // tâches aux gérants). Six rôles depuis.
+  test("★ les aides existent (ROLES_TACHES = admin, resp. commercial, commercial, technicien, technicien BMI, assistant(e) de direction)",
+    C.ROLES_TACHES.join() === "admin,resp_commercial,commercial,technicien,technicien_bmi,assistant_direction"
     && typeof C.refuserSaufAdminPrincipal === "function" && typeof C.refuserSaufTaches === "function");
   const dbT = { users: [{ id: "a", role: "admin", admin_principal: true, actif: true }, { id: "c", role: "commercial" }, { id: "v", role: "vendeur" }, { id: "x", role: "commercial", droits_off: ["act_taches"] }] };
   test("★ refuserSaufAdminPrincipal ne laisse passer que le porteur du drapeau",
@@ -5880,7 +5882,8 @@ titre("🎭 Changer le rôle d'un compte : l'administrateur principal seul, jama
   test("★ le bouton 🎭 Rôle n'est montré qu'au principal, hors clients et hors sa propre fiche",
     /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <BoutonGerer onClick=\{\(\) => changerRole\(u\)\}/.test(us));
   test("★ la liste des rôles proposés ne contient jamais « client »",
-    /const ROLES_CHANGEABLES = \["vendeur", "gerant", "magasinier", "commercial", "technicien", "technicien_bmi", "resp_commercial", "comptable", "admin"\];/.test(us)
+    // RETOURNÉ le 01/11/2026 : + « assistant_direction ».
+    /const ROLES_CHANGEABLES = \["vendeur", "gerant", "magasinier", "commercial", "technicien", "technicien_bmi", "resp_commercial", "comptable", "assistant_direction", "admin"\];/.test(us)
     && !/ROLES_CHANGEABLES = \[[^\]]*"client"/.test(us));
   test("★ la boutique suit le rôle : demandée (dans l'espace du compte, jamais TERRAIN) pour vendeur / gérant / magasinier, retirée pour les autres ; la trace (role_avant, role_change_le) est écrite",
     /if \(SALARIES_BOUTIQUE\.includes\(nouveau\)\) \{/.test(us) && /db\.boutiques\.filter\(\(b\) => !b\.terrain && !!b\.formation === espaceDeU\)\.map\(\(b\) => b\.nom\)/.test(us)
@@ -7736,8 +7739,10 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     const calJ = readFileSync("src/lib/calculs.js", "utf8");
     const corpsVir = calJ.slice(calJ.indexOf("export async function envoyerVirementG"), calJ.indexOf("const moyen = await demanderMoyenPaiement", calJ.indexOf("export async function envoyerVirementG")));
     test("★ 💵 Salaires nomme le rôle par LA liste commune (un comptable n'est plus écrit « Vendeur »), et la liste vide nomme les six rôles salariés",
-      /const roleCourt = \(r\) => LIBELLE_ROLE_EMPLOYE\[r\] \|\| r;/.test(salJ) && !/: "Vendeur";/.test(salJ)
-      && /Responsable commercial ou Comptable/.test(salJ));
+      // RETOURNÉ le 01/11/2026 : le rôle d'une PERSONNE passe par libelleRoleEmploye
+      // (le mot de l'assistant(e) de direction suit le sexe de sa fiche).
+      /libelleRoleEmploye\(u\)/.test(salJ) && !/LIBELLE_ROLE_EMPLOYE\[/.test(salJ) && !/: "Vendeur";/.test(salJ)
+      && /Responsable commercial, Comptable ou Assistant\(e\) de direction/.test(salJ));
     test("★ la fenêtre du virement de salaire détaille la retenue CNSS : ses lignes aboutissent au net annoncé",
       /Retenue CNSS \(9 %\) : −\$\{fmt\(p\.retenueCNSS\)\}/.test(corpsVir) && /Net à percevoir : \$\{fmt\(p\.net\)\}/.test(corpsVir));
   }
@@ -10240,7 +10245,8 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     test("★ le VENDEUR n'a plus l'onglet 📤 Dépenses (« il ne fait jamais le versement ni dépense ») — mais il GARDE 🔒 Caisse : la clôture reste son geste (règle du 09/09/2026)",
       vendeurE.length > 0 && !/\["depenses", "📤 Dépenses"\]/.test(vendeurE) && /\["caisse", "🔒 Caisse"\]/.test(vendeurE) && /\["ventes", "💰 Ventes"\]/.test(vendeurE)
       // …et il reste là où il doit être : admin, comptable, gérant, techniciens.
-      && (appE.match(/\["depenses", "📤 Dépenses"\]/g) || []).length === 5);
+      // RETOURNÉ le 01/11/2026 : ×6, l'assistant(e) de direction la LIT.
+      && (appE.match(/\["depenses", "📤 Dépenses"\]/g) || []).length === 6);
     const caE = readFileSync("src/screens/Caisse.jsx", "utf8");
     // ⚠ RETOURNÉ dans la journée du 15/09/2026. Le comptage obligatoire de
     // l'enveloppe a été posé puis RETIRÉ sur décision de Timo : « enlève cette
@@ -10584,6 +10590,11 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   const usC = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
   const sqlC = existsSync("supabase/securite-21-chef-technicien-bmi.sql")
     ? readFileSync("supabase/securite-21-chef-technicien-bmi.sql", "utf8") : "";
+  // ⚠ RETOURNÉ le 01/11/2026 : la DERNIÈRE version de a_pouvoir_taches() vit
+  // dans securite-48 (+ l'assistant(e) de direction) — c'est elle que le
+  // couple compare.
+  const sqlC48 = existsSync("supabase/securite-48-assistant-direction.sql")
+    ? readFileSync("supabase/securite-48-assistant-direction.sql", "utf8") : "";
 
   const ongletsBMI = C.ONGLETS_ROLE.technicien_bmi || [];
   test("★ le rôle « technicien BMI » a bien 👑 Équipe et ✅ Mes tâches dans ONGLETS_ROLE — donc l'administrateur peut les lui RETIRER dans 🔐 Pouvoirs (« taches » y manquait alors qu'App.jsx le donnait déjà : un onglet qu'on ne peut pas retirer est un pouvoir qui échappe à l'administrateur)",
@@ -10625,10 +10636,10 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   // ⚠ LE COUPLE application / serveur, MESURÉ des deux côtés.
   const rolesApp = (calC.match(/export const ROLES_TACHES = \[([^\]]*)\]/) || [, ""])[1]
     .split(",").map((x) => x.trim().replace(/"/g, "")).filter(Boolean).sort();
-  const rolesSql = ((sqlC.match(/role_jeton\(\) in \(([^)]*)\)/) || [, ""])[1])
+  const rolesSql = ((sqlC48.match(/role_jeton\(\) in \(([^)]*)\)/) || [, ""])[1])
     .split(",").map((x) => x.trim().replace(/'/g, "")).filter(Boolean).sort();
-  test(`★ LE COUPLE : ROLES_TACHES (application) et a_pouvoir_taches() (serveur, securite-21) nomment EXACTEMENT les mêmes rôles — application : ${rolesApp.join(", ") || "(vide)"} | serveur : ${rolesSql.join(", ") || "(vide)"}`,
-    rolesApp.length === 5 && rolesApp.includes("technicien_bmi")
+  test(`★ LE COUPLE : ROLES_TACHES (application) et a_pouvoir_taches() (serveur, securite-48) nomment EXACTEMENT les mêmes rôles — application : ${rolesApp.join(", ") || "(vide)"} | serveur : ${rolesSql.join(", ") || "(vide)"}`,
+    rolesApp.length === 6 && rolesApp.includes("technicien_bmi") && rolesApp.includes("assistant_direction")
     && rolesApp.join("|") === rolesSql.join("|"));
 
   test("★ securite-21 REMPLACE la fonction sans toucher au reste : il ne pose aucun déclencheur, ne supprime rien, et porte sa vérification « doit afficher : true | true »",
@@ -14421,7 +14432,8 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
     if (P) {
       const appSrc = readFileSync("src/App.jsx", "utf8");
       test("★ 💰 Timo (10/10/2026, « tout utilisateur qui peut recevoir une prime devrait avoir l'onglet » → « B a ») : l'onglet est dans ONGLETS_ROLE de TOUS les salariés et du technicien à commission — jamais du commercial ni du client — et App.jsx le rend pour ROLES_PRIMES_RECUES, plus pour le seul technicien",
-        P.ROLES_PRIMES_RECUES.join("|") === "technicien|vendeur|gerant|magasinier|technicien_bmi|resp_commercial|comptable"
+        // RETOURNÉ le 01/11/2026 : + l'assistant(e) de direction, salarié(e).
+        P.ROLES_PRIMES_RECUES.join("|") === "technicien|vendeur|gerant|magasinier|technicien_bmi|resp_commercial|comptable|assistant_direction"
         && P.ROLES_PRIMES_RECUES.every((r) => (P.ONGLETS_ROLE[r] || []).includes("primes_recues"))
         && !(P.ONGLETS_ROLE.commercial || []).includes("primes_recues") && !(P.ONGLETS_ROLE.client || []).includes("primes_recues")
         && /ongletsVisites\.primes_recues && ROLES_PRIMES_RECUES\.includes\(profile\.role\)/.test(appSrc)
@@ -14706,6 +14718,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     commercial: /\(isCommercial \|\| isTechnicien\)\n\s*\? (\[\[[^\n]*)/,
     technicien: /\(isCommercial \|\| isTechnicien\)\n\s*\? (\[\[[^\n]*)/,
     technicien_bmi: /isTechnicienBMI\n\s*\? (\[\[[^\n]*)/,
+    assistant_direction: /isAssistant\n\s*\? (\[\[[^\n]*)/,
   };
   const ongletsDe = (role) => {
     const m = app.match(BRANCHE[role]);
@@ -14933,7 +14946,9 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
       /d'abord en qualité de <b>Vendeur<\/b> jusqu'au 14\/06\/2026, puis en qualité de <b>Gérant de boutique<\/b> \(BMI DEMAKPOE\) à partir du 15\/06\/2026\./.test(certP.paragraphes[0])
       && /d'abord en qualité de <b>Vendeur<\/b> jusqu'au 14\/06\/2026, puis en qualité de <b>Gérant de boutique<\/b> depuis le 15\/06\/2026, sous contrat/.test(attP.paragraphes[0])
       && /du <b>01\/03\/2025<\/b> au <b>10\/10\/2026<\/b>, en qualité de <b>Gérant de boutique<\/b>\./.test(avant.paragraphes[0]) && !/d'abord/.test(avant.paragraphes[0])
-      && /libelleRole: \(r\) => LIBELLE_ROLE_EMPLOYE\[r\] \|\| r,/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")));
+      // RETOURNÉ le 01/11/2026 : le poste passe par libelleRoleEmploye (le mot
+      // de l'assistant(e) de direction suit le sexe de la fiche).
+      && /libelleRole: \(r\) => libelleRoleEmploye\(\{ \.\.\.frais, role: r \}\),/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")));
     const ceSrc = readFileSync("src/lib/clientEntreprise.js", "utf8");
     test("★★ ⚧ « A b » : le contrat d'un CLIENT écrit « M. » ou « Mme » d'après sa fiche (« Mr/Mme » si rien), à l'impression ET dans son espace",
       /export function partieClientContrat\(\{ nom, prenom, tel, entreprise, civ = "Mr\/Mme" \} = \{\}\)/.test(ceSrc) && /return `\$\{civ\} : \$\{personne\}/.test(ceSrc)
@@ -17826,6 +17841,81 @@ titre("✍️ Les messages internes : la marque « écrit par » (securite-47, 0
   const sql = readFileSync("supabase/securite-47-messages-internes.sql", "utf8");
   test("★ LE COUPLE : le script lit le MÊME champ ecrit_par que l'application", sql.includes("data ->> 'ecrit_par'"));
   test("★ le script ne touche ni WhatsApp ni le Support (canal autre que vide ou groupe : laissé à sa règle)", sql.includes("not in ('', 'groupe')") && !/drop policy if exists "wa_conversations_visibles"/.test(sql));
+}
+
+// ── 🗂 L'ASSISTANT(E) DE DIRECTION (01/11/2026, « A a », « B a », « C b », « D a ») ──
+// Un rôle qui REGARDE tout et n'agit que sur les tâches des gérants, ses
+// rendez-vous et ses messages. Le mot suit le sexe de la fiche.
+{
+  const sortieAD = join("node_modules", ".cache", `bmi-assistant-${process.pid}.mjs`);
+  let R = null, err = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-assistant-direction.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieAD, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server"] });
+    R = await import(pathToFileURL(sortieAD).href);
+  } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieAD); } catch {}
+  test("🗂 l'onglet ✅ Tâches de l'assistant(e) se monte dans le banc" + (err ? ` (${err})` : ""), !!R);
+  if (R) {
+    const AD = R.AD;
+    test("★★ le mot suit le SEXE de la fiche : « Assistant de direction » (H), « Assistante de direction » (F), « Assistant(e) de direction » sans sexe",
+      R.libelleRoleEmploye({ role: "assistant_direction", sexe: "H" }) === "Assistant de direction"
+      && R.libelleRoleEmploye({ role: "assistant_direction", sexe: "F" }) === "Assistante de direction"
+      && R.libelleRoleEmploye({ role: "assistant_direction" }) === "Assistant(e) de direction"
+      && R.libelleRoleEmploye({ role: "gerant", sexe: "F" }) === "Gérant de boutique");
+    const prev = { ventes: [{ id: "v1" }], messages: [], users: [{ id: "g" }], boutiques: [{ nom: "B" }], corbeille_devis: [] };
+    test("★★ « D a » : écrire un message, une tâche, un rendez-vous passe ; une vente, une boutique, la corbeille — refusé",
+      AD.tablesInterditesAssistant(prev, { ...prev, messages: [{ id: "m" }], users: [{ id: "g", taches: [{}] }] }, R.TABLES).length === 0
+      && AD.tablesInterditesAssistant(prev, { ...prev, ventes: [{ id: "v1" }, { id: "v2" }] }, R.TABLES).join() === "ventes"
+      && AD.tablesInterditesAssistant(prev, { ...prev, boutiques: [{ nom: "B", demandes: [1] }] }, R.TABLES).join() === "boutiques"
+      && AD.tablesInterditesAssistant(prev, { ...prev, corbeille_devis: [{ id: "d" }] }, [...R.TABLES, "corbeille_devis"]).join() === "corbeille_devis");
+    test("★ une table RECONSTRUITE à l'identique (un .map qui ne change rien) n'est pas une écriture",
+      AD.tablesInterditesAssistant(prev, { ...prev, ventes: prev.ventes.map((v) => ({ ...v })) }, R.TABLES).length === 0);
+    const gens = [{ id: "g1", nom: "ZOE", role: "gerant" }, { id: "g2", nom: "ALI", role: "gerant", actif: false }, { id: "v", nom: "KOSSI", role: "vendeur" },
+      { id: "g3", nom: "ANGELE", role: "gerant", taches: [{ id: "t1", par: "AWA", par_id: "a1", statut: "terminee", date: "2026-11-01" }, { id: "t2", par: "TIMO", statut: "a_faire" }] }];
+    test("★★ « A a » : les tâches vont aux GÉRANTS actifs seulement (rangés par nom) ; un vendeur ou un gérant désactivé est refusé dans le geste",
+      AD.gerantsPourTaches(gens).map((u) => u.nom).join() === "ANGELE,ZOE"
+      && AD.critiqueTacheAssistant(gens[0]) === "" && !!AD.critiqueTacheAssistant(gens[2]) && !!AD.critiqueTacheAssistant(gens[1]));
+    test("★ « Tâches confiées » : celles qu'elle / il a données (par son identifiant), pas celles de l'administrateur",
+      AD.tachesConfiees(gens, { id: "a1", nom: "AWA" }).map((t) => t.id).join() === "t1");
+    test("★ ONGLETS_ROLE : ✅ Tâches, 📲 WhatsApp (« C b ») ; ni 💵 Salaires des autres (« B a »), ni 👥 Utilisateurs, ni ⚙ Paramètres ; et le gérant a désormais ✅ Mes tâches",
+      ["taches", "whatsapp", "dashboard", "caisse", "rendez_vous"].every((o) => R.ONGLETS_ROLE.assistant_direction.includes(o))
+      && !["salaires", "users", "parametres", "chez_comptable"].some((o) => R.ONGLETS_ROLE.assistant_direction.includes(o))
+      && R.ONGLETS_ROLE.gerant.includes("taches"));
+    test("★ le pouvoir « ✅ Assigner des tâches » est LISTÉ pour l'assistant(e) : l'administrateur peut le lui retirer",
+      R.ACTIONS_POUVOIR.find(([id]) => id === "act_taches")[2]("assistant_direction") && R.ROLES_TACHES.includes("assistant_direction"));
+    const TABLES_SQL = [...readFileSync("supabase/securite-48-assistant-direction.sql", "utf8").match(/foreach t in array array\[([\s\S]*?)\]/)[1].matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
+    const TABLES_APP = R.TABLES.filter((t) => !AD.TABLES_ECRITES_PAR_ASSISTANT.includes(t)).sort();
+    test(`★★ LE COUPLE : la base (securite-48) refuse EXACTEMENT les tables que l'application lui interdit — application : ${TABLES_APP.length}, serveur : ${TABLES_SQL.length}`,
+      TABLES_APP.join() === TABLES_SQL.join() && TABLES_SQL.length === 15);
+    const base = { boutiques: [{ nom: "B" }], users: [
+      { id: "awa", nom: "AWA", role: "assistant_direction", sexe: "F" },
+      { id: "ang", nom: "ANGELE", role: "gerant", boutique: "B", taches: [{ id: "t9", titre: "Compter les batteries", par: "AWA", par_id: "awa", statut: "terminee", date: "2026-11-01" }] }] };
+    const html = R.rendreTaches(base, { id: "awa", nom: "AWA", role: "assistant_direction" });
+    test("★★ RENDU : l'onglet de l'assistant(e) montre « Tâches confiées aux gérants », un bouton « ➕ » par gérant, la tâche à valider et ses boutons",
+      html.includes("data-taches-confiees") && html.includes('data-donner-tache="ang"') && html.includes("Compter les batteries") && html.includes("À valider") && html.includes("Valider la tâche"));
+    test("★ un gérant, lui, ne voit pas ce cadre dans ✅ Mes tâches",
+      !R.rendreTaches(base, { id: "ang", nom: "ANGELE", role: "gerant", boutique: "B" }).includes("data-taches-confiees"));
+    test("★ « Tâche terminée, à valider » (écran 👑 Équipe) mène l'assistant(e) à ✅ Tâches", (R.REPLIS_ECRAN.equipe || []).includes("taches"));
+    test("★ idsAssistants : les assistant(e)s de l'espace, pas ceux de l'autre",
+      R.idsAssistants({ users: [{ id: "a", role: "assistant_direction", actif: true }, { id: "b", role: "assistant_direction", formation: true }] }, false).join() === "a");
+  }
+  const app = readFileSync("src/App.jsx", "utf8");
+  const iPrev = app.indexOf("    const prev = dbRef.current;");
+  const iGarde = app.indexOf("tablesInterditesAssistant(prev, next, [...TABLES, ...CLES_CORBEILLE])");
+  test("★★ la garde de lecture seule est dans save(), APRÈS le report d'un état périmé (sinon une synchronisation arrivée entre-temps serait prise pour une écriture)",
+    iPrev > 0 && iGarde > iPrev && iGarde - iPrev < 900);
+  const notif = readFileSync("src/lib/notifications.js", "utf8");
+  const blocRemise = notif.slice(notif.indexOf("🏷 Remise à autoriser"), notif.indexOf("🏷 Remise à autoriser") + 10) && notif.slice(notif.indexOf("titre: `🏷 Remise à autoriser") - 400, notif.indexOf("titre: `🏷 Remise à autoriser"));
+  test("★ les avis « pour information » (transferts, ravitaillement, seuil, clôture dépassée) vont aussi à l'assistant(e), jamais « Remise à autoriser »",
+    (notif.match(/\.\.\.idsAssistants\(/g) || []).length === 5 && !blocRemise.includes("idsAssistants"));
+  const rap = readFileSync("src/lib/rappels.js", "utf8");
+  test("★ la tournée du matin (caisse non clôturée, dettes en retard, devis à relancer) aussi", (rap.match(/\.\.\.idsAssistants\(/g) || []).length === 3);
+  const us = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+  test("★ 👥 Utilisateurs : le rôle se choisit à la création, a sa rangée et sa pastille (qui suit le sexe)",
+    us.includes('<option value="assistant_direction">') && us.includes('["assistant_direction", "🗂 Assistants de direction"]') && us.includes("libelleAssistantDirection(u)"));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

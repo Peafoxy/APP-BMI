@@ -32,6 +32,7 @@
 import { CHAMPS_INTERDITS } from "./dossierPersonnel.js";
 import { compteMasque } from "./banques.js";
 import { phraseContrat } from "./contratTravail.js";
+import { ROLE_ASSISTANT_DIRECTION, libelleAssistantDirection } from "./civilite.js";
 
 export { CHAMPS_INTERDITS };
 
@@ -61,7 +62,7 @@ export function dossierEmploye(employe, activite = {}, { fmt = (x) => `${x} F`, 
     // passe, JAMAIS — voir CHAMPS_INTERDITS en tête de fichier.
     ["Identifiant de connexion", txt(u.nom)],
     ["Téléphone", txt(u.tel) || "non renseigné"],
-    ["Rôle", LIBELLE_ROLE[u.role] || txt(u.role)],
+    ["Rôle", u.role === ROLE_ASSISTANT_DIRECTION ? libelleAssistantDirection(u) : (LIBELLE_ROLE[u.role] || txt(u.role))],
     ["Boutique", txt(u.boutique) || "toutes"],
     ...(!txt(u.boutique) && txt(u.affectation) ? [["Lieu d'affectation", txt(u.affectation)]] : []),
     ["Chef d'équipe", oui(u.chef_equipe)],

@@ -25,7 +25,7 @@ import { totalVente, fmt, dFR } from "./core.js";
 import { devisRelancable } from "./comptesClients.js";
 import { estSupprime } from "./corbeille.js";
 import { VALIDITE_OFFRE_JOURS } from "./constants.js";
-import { estCompteFormation, boutiqueEstFormation, idsDeLaBoutique, idsParRole, idsAdmins } from "./espace.js";
+import { estCompteFormation, boutiqueEstFormation, idsDeLaBoutique, idsParRole, idsAdmins, idsAssistants } from "./espace.js";
 import { nettoyerCible } from "./cibleNotification.js";
 
 export const SEUIL_RELANCE_JOURS = 15;
@@ -111,7 +111,7 @@ export function rappelsDuMatin(db, aujourdhui) {
       ? `La journée du ${premier} de ${b.nom} n'a pas été clôturée : les ventes y sont bloquées jusqu'à la clôture du jour.`
       : `La journée du ${premier} de ${b.nom} n'a pas été clôturée (et ${jours.length - 1} autre${jours.length > 2 ? "s" : ""} jour${jours.length > 2 ? "s" : ""}) : les ventes y sont bloquées jusqu'à la clôture du jour.`;
     envois.push(fabriquerEnvoi({
-      destinataires: [...idsDeLaBoutique(db, b.nom, ["vendeur", "gerant"]), ...idsAdmins(db, formation)],
+      destinataires: [...idsDeLaBoutique(db, b.nom, ["vendeur", "gerant"]), ...idsAdmins(db, formation), ...idsAssistants(db, formation)],
       titre: `🔒 Caisse non clôturée — ${b.nom}`, texte, ecran: "caisse", tag: `cloture:${b.nom}`, formation,
       cible: { boutique: b.nom },
     }));
@@ -128,7 +128,7 @@ export function rappelsDuMatin(db, aujourdhui) {
     const formation = boutiqueEstFormation(db, boutique);
     const detail = liste.slice(0, 3).map((d) => `${d.client || "client"} (reste ${fmt(resteDette(d))})`).join(", ");
     envois.push(fabriquerEnvoi({
-      destinataires: [...idsDeLaBoutique(db, boutique, ["vendeur", "gerant"]), ...idsAdmins(db, formation)],
+      destinataires: [...idsDeLaBoutique(db, boutique, ["vendeur", "gerant"]), ...idsAdmins(db, formation), ...idsAssistants(db, formation)],
       titre: `📋 Dette${liste.length > 1 ? "s" : ""} en retard — ${boutique}`,
       texte: `${liste.length} dette${liste.length > 1 ? "s passent" : " passe"} les ${RETARD_DETTE_JOURS} jours aujourd'hui : ${detail}${liste.length > 3 ? "…" : ""}. À relancer.`,
       ecran: "dettes", tag: `dettes:${boutique}:${aujourdhui}`, formation,
@@ -145,7 +145,7 @@ export function rappelsDuMatin(db, aujourdhui) {
       if (!devisAtteintLeSeuil(d, aujourdhui)) return;
       const formation = estCompteFormation(db, u);
       envois.push(fabriquerEnvoi({
-        destinataires: [d.par_id, ...idsParRole(db, formation, ["resp_commercial"]), ...idsAdmins(db, formation)],
+        destinataires: [d.par_id, ...idsParRole(db, formation, ["resp_commercial"]), ...idsAdmins(db, formation), ...idsAssistants(db, formation)],
         titre: `📲 Devis à relancer — ${u.nom_base || u.nom}`,
         texte: `Devis de ${fmt(d.total)} (${dFR(d.date)}) sans réponse depuis ${SEUIL_RELANCE_JOURS} jours${d.relance_le ? ", depuis la dernière relance" : ""}. À relancer depuis 📋 Tous les devis.`,
         ecran: "tous_devis", tag: `devis:${d.id}:${aujourdhui}`, formation,

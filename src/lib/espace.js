@@ -44,6 +44,11 @@ export const idsParRole = (db, formation, roles) =>
 // Les administrateurs de l'espace — et l'administrateur PRINCIPAL toujours
 // (il est le seul à voir les deux espaces ; en formation, sa notification
 // porte la marque 🎓, posée par fabriquerEnvoi dans lib/rappels.js).
+// 🗂 L'assistant(e) de direction (01/11/2026) : les avis « pour information »
+// des boutiques (transferts, ravitaillement, seuil, clôtures, tournée du
+// matin) — jamais ce qui attend une décision de l'administrateur.
+export const idsAssistants = (db, formation) => idsParRole(db, formation, ["assistant_direction"]);
+
 export const idsAdmins = (db, formation) => [...new Set([
   ...idsParRole(db, formation, ["admin"]),
   ...(db.users || []).filter(estAdminPrincipalActif).map((u) => u.id),

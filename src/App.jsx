@@ -150,6 +150,7 @@ import { HeureServeur } from "./components/HeureServeur";
 import { MonAttestation } from "./screens/MonAttestation";
 import { enPeriodeDeSortie, accesFerme, messageAccesFerme, ONGLET_ATTESTATION } from "./lib/attestationSortie";
 import { signerNouveauxMessages } from "./lib/ecritPar";
+import { estAssistantDirection, tablesInterditesAssistant, MESSAGE_LECTURE_ASSISTANT } from "./lib/assistantDirection";
 
 // ⚠ Demande Timo (09/09/2026) : plus de DÉCONNEXION automatique par
 // inactivité (avant : 30 min sur PC, 5 sur Android). À la place, un VERROU :
@@ -164,7 +165,7 @@ const UA = navigator.userAgent || "";
 // l'onglet par défaut habituel de ce rôle. Demandé par Timo : ne plus jamais
 // revenir au premier onglet après une actualisation de la page.
 function tabDeDepart(role, userId) {
-  const parDefaut = role === "admin" || role === "comptable" ? "dashboard"
+  const parDefaut = role === "admin" || role === "comptable" || role === "assistant_direction" ? "dashboard"
     : (role === "commercial" || role === "technicien") ? "commande"
     : role === "resp_commercial" ? "equipe"
     : role === "technicien_bmi" ? "dimensionnement"
@@ -891,6 +892,16 @@ export default function App() {
       }
     }
     const prev = dbRef.current;
+    // 🗂 L'ASSISTANT(E) DE DIRECTION (01/11/2026, « D a ») : elle / il regarde
+    // tout et n'écrit QUE ses tâches, rendez-vous, messages, le journal et la
+    // confirmation de SON salaire (lib/assistantDirection.js). Toute autre
+    // table changée = lecture seule, quel que soit l'écran. Le serveur refuse
+    // la même chose (securite-48).
+    if (estAssistantDirection(profile) && next && typeof next === "object"
+        && tablesInterditesAssistant(prev, next, [...TABLES, ...CLES_CORBEILLE]).length) {
+      if (action) uAlert(MESSAGE_LECTURE_ASSISTANT);
+      return;
+    }
     // ---- VERROU DE CLOISONNEMENT FORMATION / RÉEL, À LA SOURCE ----
     // Deuxième verrou du même genre que celui juste au-dessus, et pour la
     // même raison : TOUTE écriture de l'application passe par ici, donc un
@@ -1167,6 +1178,7 @@ export default function App() {
   const isTechnicienBMI = profile.role === "technicien_bmi";
   const isRespCom = profile.role === "resp_commercial";
   const isComptable = profile.role === "comptable";
+  const isAssistant = estAssistantDirection(profile);
   const isClient = profile.role === "client";
 
   const nonLus = compterNonLus(db, profile);
@@ -1219,8 +1231,11 @@ export default function App() {
   const nbTransfertToutes = compterDemandesTransfertToutes(db, profile) + (profile.boutique ? 0 : compterTransfertsStockAValider(db, profile));
   const labelStocksAdmin = `📦 Stocks${nbTransfertToutes ? ` (${nbTransfertToutes})` : ""}`;
   const nbTaches = compterTaches(db, profile);
-  const labelTaches = `✅ Mes tâches${nbTaches ? ` (${nbTaches})` : ""}`;
   const nbAValider = compterTachesAValider(db, profile);
+  // 🗂 L'assistant(e) de direction : son onglet compte aussi les tâches de
+  // gérants qui attendent sa validation (elle / il les valide là).
+  const nbTachesOnglet = nbTaches + (isAssistant ? nbAValider : 0);
+  const labelTaches = isAssistant ? `✅ Tâches${nbTachesOnglet ? ` (${nbTachesOnglet})` : ""}` : `✅ Mes tâches${nbTaches ? ` (${nbTaches})` : ""}`;
   const labelEquipe = `👑 Équipe${nbAValider ? ` (${nbAValider})` : ""}`;
   const labelMonEquipe = `👑 Mon équipe${nbAValider ? ` (${nbAValider})` : ""}`;
   // 🧰 Outillage : le chef tient le registre ; un technicien ordinaire n'a
@@ -1247,6 +1262,11 @@ export default function App() {
     // ⚠ Le comptable N'A PAS 📲 WhatsApp (Timo, 20/09/2026, « 2a ») : l'onglet
     // était resté ici et s'ouvrait vide. Trouvé le 01/10/2026 en écrivant son
     // guide ; un contrôle compare désormais ces lignes à ONGLETS_ROLE.
+    // 🗂 L'assistant(e) de direction (01/11/2026) : les écrans en lecture
+    // seule (garde dans save()), ✅ Tâches pour les gérants, ses rendez-vous,
+    // ses messages et WhatsApp. Pas la paie des autres (« B a »).
+    : isAssistant
+    ? [["dashboard", "📊 Tableau de bord"], ["taches", labelTaches], ["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["tous_devis", labelTousDevis], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["fournisseurs", "🚚 Fournisseurs"], ["depenses", "📤 Dépenses"], ["parc", labelParc], ["rendez_vous", labelRdv], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["salaire", labelSalaire], ["primes_recues", "💰 Primes reçues"]]
     : isComptable
     ? [["dashboard", "📊 Tableau de bord"], ["rentabilite", "📈 Rentabilité"], ["depenses", "📤 Dépenses"], ["chez_comptable", "🧾 Chez le comptable"], ["dettes", "🧾 Dettes"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["clients", "👤 Clients"], ["historique", "🕘 Historique"], ["rendez_vous", labelRdv], ["messages", labelMessages], ["salaire", labelSalaire], ["primes_recues", "💰 Primes reçues"], ["nouveau_client", "🙋 Créer un client"]]
     : isRespCom
@@ -1258,7 +1278,7 @@ export default function App() {
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["primes_recues", "💰 Primes reçues"], ["rendez_vous", labelRdv], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["salaire", labelSalaire], ["primes_recues", "💰 Primes reçues"], ["rendez_vous", labelRdv], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["primes_remises", "💰 Primes remises"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["taches", labelTaches], ["salaire", labelSalaire], ["primes_recues", "💰 Primes reçues"], ["rendez_vous", labelRdv], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["primes_remises", "💰 Primes remises"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages], ["mes_donnees", "🔒 Mes données"]]
     // ⚠ "parc" (Clients installés) ajouté au menu vendeur — demande Timo :
@@ -1455,7 +1475,7 @@ export default function App() {
         );
       })()}
 
-      {ongletsVisites.dashboard && (isAdmin || isComptable) && (
+      {ongletsVisites.dashboard && (isAdmin || isComptable || isAssistant) && (
         <div style={{ display: tab === "dashboard" ? "block" : "none" }}>
           <M.Dashboard db={db} profile={profile} save={save} />
         </div>
@@ -1524,12 +1544,12 @@ export default function App() {
           <M.Caisse db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
-      {ongletsVisites.stocks && (isAdmin || isMagasinier || isGerant || isComptable) && (
+      {ongletsVisites.stocks && (isAdmin || isMagasinier || isGerant || isComptable || isAssistant) && (
         <div style={{ display: tab === "stocks" ? "block" : "none" }}>
           <M.Stocks db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
-      {ongletsVisites.fournisseurs && (isAdmin || isGerant) && (
+      {ongletsVisites.fournisseurs && (isAdmin || isGerant || isAssistant) && (
         <div style={{ display: tab === "fournisseurs" ? "block" : "none" }}>
           <M.Fournisseurs db={db} save={save} profile={profile} />
         </div>
@@ -1569,12 +1589,12 @@ export default function App() {
           <M.MonEquipe db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
-      {ongletsVisites.taches && (isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
+      {ongletsVisites.taches && (isCommercial || isTechnicien || isTechnicienBMI || isRespCom || isGerant || isAssistant) && (
         <div style={{ display: tab === "taches" ? "block" : "none" }}>
           <M.MesTaches db={db} save={save} profile={profile} />
         </div>
       )}
-      {ongletsVisites.parc && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom || isVendeur) && (
+      {ongletsVisites.parc && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom || isVendeur || isAssistant) && (
         <div style={{ display: tab === "parc" ? "block" : "none" }}>
           <M.ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />
         </div>

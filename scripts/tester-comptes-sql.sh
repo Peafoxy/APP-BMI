@@ -46,6 +46,8 @@ echo "▸ Pose des verrous : supabase/securite-38-sexe.sql (reprend securite-37)
 VERIF38=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-38-sexe.sql 2>&1 | tail -1) || echo "   ❌ securite-38 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-39-attestation-sortie.sql (reprend securite-38)"
 VERIF39=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-39-attestation-sortie.sql 2>&1 | tail -1) || echo "   ❌ securite-39 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-48-assistant-direction.sql"
+VERIF48=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-48-assistant-direction.sql 2>&1 | tail -1) || echo "   ❌ securite-48 refusé par la base"
 
 $P -c "
 insert into public.users (id, data) values
@@ -57,6 +59,7 @@ insert into public.users (id, data) values
   ('zt_tech',  '{\"id\":\"zt_tech\",\"nom\":\"TECH\",\"role\":\"technicien\",\"parrain_id\":\"zo_com\",\"taux_commission\":3,\"taches\":[{\"id\":\"tt1\",\"titre\":\"Poser\",\"statut\":\"terminee\"}]}'),
   ('zr_resp',  '{\"id\":\"zr_resp\",\"nom\":\"RESP\",\"role\":\"resp_commercial\"}'),
   ('zb_chef',  '{\"id\":\"zb_chef\",\"nom\":\"CHEF BMI\",\"role\":\"technicien_bmi\",\"chef_equipe\":true,\"taches\":[{\"id\":\"tb1\",\"titre\":\"Poser\",\"statut\":\"a_faire\"}]}'),
+  ('zd_awa',   '{\"id\":\"zd_awa\",\"nom\":\"AWA\",\"role\":\"assistant_direction\",\"sexe\":\"F\"}'),
   ('zc_ama',   '{\"id\":\"zc_ama\",\"nom\":\"AMA\",\"role\":\"client\",\"tel\":\"90112233\",\"pwd_hash2\":\"h-ama\",\"pwd_salt\":\"s\",\"mdp_auto\":true,\"devis\":[]}')
 on conflict (id) do nothing;
 " >/dev/null
@@ -94,6 +97,9 @@ TECHNICIEN=$(jeton zt_tech technicien true '')
 CHEF_BMI=$(jeton zb_chef technicien_bmi true ',"pouvoirs_off":[]')
 CHEF_BMI_SANS_TACHES=$(jeton zb_chef technicien_bmi true ',"pouvoirs_off":["act_taches"]')
 RESP=$(jeton zr_resp resp_commercial true '')
+# 🗂 L'ASSISTANT(E) DE DIRECTION (securite-48, 01/11/2026).
+ASSISTANTE=$(jeton zd_awa assistant_direction true ',"pouvoirs_off":[]')
+ASSISTANTE_SANS_TACHES=$(jeton zd_awa assistant_direction true ',"pouvoirs_off":["act_taches"]')
 CLIENT=$(jeton zc_ama client true '')
 VIDE='{}'
 
@@ -243,6 +249,26 @@ essai "un commercial marque « devis validé » sur la fiche d'un client" "PERMI
 essai "un client écrit son évaluation dans SA fiche" "PERMIS" "$CLIENT" "$(MAJ "$(SET evaluations_donnees '[{"note":5}]')" zc_ama)"
 essai "un vendeur autorise le chat libre à un client" "REFUSE" "$VENDEUR" "$(MAJ "$(SET chat_libre true)" zc_ama)"
 essai "un admin secondaire autorise le chat libre à un client" "PERMIS" "$CALEB" "$(MAJ "$(SET chat_libre true)" zc_ama)"
+
+echo
+echo "── 🗂 L'ASSISTANT(E) DE DIRECTION : des tâches aux gérants, rien sur l'argent ni le stock (securite-48) ──"
+if [ "$VERIF48" = "t|t|t" ]; then ok=$((ok+1)); echo "  ✓ la vérification de securite-48 répond true | true | true";
+else ko=$((ko+1)); echo "  ❌ la vérification de securite-48 répond « $VERIF48 » (attendu t|t|t)"; fi
+$P -c "insert into public.ventes (id, data) values ('zv_v1', '{\"id\":\"zv_v1\",\"boutique\":\"APESSITO\"}'), ('zv_v2', '{\"id\":\"zv_v2\"}') on conflict do nothing;
+       insert into public.produits (id, data) values ('zp_p1', '{\"id\":\"zp_p1\",\"nom\":\"Panneau\"}') on conflict do nothing;
+       insert into public.depenses (id, data) values ('zd_d1', '{\"id\":\"zd_d1\",\"montant\":1000}') on conflict do nothing;" >/dev/null
+essai "★ l'assistante donne une tâche à un gérant" "PERMIS" "$ASSISTANTE" "$(MAJ "jsonb_set(data,'{taches}', coalesce(data->'taches','[]') || '[{\"id\":\"ta1\",\"titre\":\"Inventaire\",\"statut\":\"a_faire\"}]')" zg_ali)"
+essai "★ …par UPSERT, comme l'application écrit" "PERMIS" "$ASSISTANTE" "$(UPS zg_ali "jsonb_set(data,'{taches}', coalesce(data->'taches','[]') || '[{\"id\":\"ta2\",\"titre\":\"Caisse\"}]')")"
+essai "l'assistante valide la tâche terminée d'un technicien" "PERMIS" "$ASSISTANTE" "$(MAJ "jsonb_set(data,'{taches,0,statut}','\"validee\"')" zt_tech)"
+essai "une assistante à qui l'admin a RETIRÉ le pouvoir « tâches »" "REFUSE" "$ASSISTANTE_SANS_TACHES" "$(MAJ "jsonb_set(data,'{taches}','[{\"id\":\"ta3\"}]')" zg_ali)"
+essai "l'assistante enregistre sa signature sur SA fiche" "PERMIS" "$ASSISTANTE" "$(MAJ "$(SET signature_personnelle '"data:image/png;base64,x"')" zd_awa)"
+essai "★ l'assistante saisit une dépense" "REFUSE" "$ASSISTANTE" "with x as (insert into public.depenses (id, data) values ('zd_d2', '{\"id\":\"zd_d2\",\"montant\":5000}') returning 1) select count(*) from x;"
+essai "★ l'assistante modifie une dépense" "REFUSE" "$ASSISTANTE" "with x as (update public.depenses set data = data || '{\"montant\":1}' where id='zd_d1' returning 1) select count(*) from x;"
+essai "★ l'assistante enregistre une vente" "REFUSE" "$ASSISTANTE" "with x as (insert into public.ventes (id, data) values ('zv_v3', '{\"id\":\"zv_v3\"}') returning 1) select count(*) from x;"
+essai "★ l'assistante supprime une vente" "REFUSE" "$ASSISTANTE" "with x as (delete from public.ventes where id='zv_v2' returning 1) select count(*) from x;"
+essai "★ l'assistante change un prix (produit)" "REFUSE" "$ASSISTANTE" "with x as (update public.produits set data = data || '{\"prix_vente\":1}' where id='zp_p1' returning 1) select count(*) from x;"
+essai "l'administrateur modifie ce même produit (le verrou ne gêne que l'assistante)" "PERMIS" "$CALEB" "with x as (update public.produits set data = data || '{\"prix_vente\":1}' where id='zp_p1' returning 1) select count(*) from x;"
+essai "le serveur (jeton vide) écrit une vente" "PERMIS" "$VIDE" "with x as (update public.ventes set data = data || '{\"x\":1}' where id='zv_v1' returning 1) select count(*) from x;"
 
 echo
 if [ $ko -eq 0 ]; then echo "✅  $ok vérification(s) passée(s), 0 en échec."; exit 0

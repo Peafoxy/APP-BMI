@@ -14,7 +14,7 @@ import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, deman
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour, moisDePaiePropose, refuserSaufAdmin, estCompteFormation, critiqueRetraitPrime, retirerPrime, critiqueRetraitAvance, retirerAvance, depenseDeLAvance, refusSuppressionDepense } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { phraseContrat } from "../lib/contratTravail";
-import { LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
+import { libelleRoleEmploye } from "../lib/comptesClients";
 import { exportCSV } from "../lib/export";
 
 // Les colonnes de 💵 Salaires (15/10/2026, la règle des lignes).
@@ -60,7 +60,6 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
   // ⚠ 30/09/2026 (relu en écrivant le chapitre 18 du manuel) : la copie
   // maison écrivait « Vendeur » pour un comptable ou un responsable
   // commercial — salariés eux aussi. LA liste commune des rôles décide.
-  const roleCourt = (r) => LIBELLE_ROLE_EMPLOYE[r] || r;
 
   const statut = (p) => {
     // Le statut en PASTILLE (15/10/2026, la règle des lignes de 💰 Ventes et 📋 Dettes).
@@ -174,12 +173,12 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
           <span>Détail par employé</span>
           <button className={btnDark} onClick={() => exportCSV(`salaires_${mois}`,
             ["Employé", "Rôle", "Boutique", "Salaire de base", "Primes", "Avances", "Retenue crédit", "Retenue CNSS", "Net à percevoir", "Versé", "Reste à verser", "Crédit en cours"],
-            lignes.map(({ u, p, credit }) => [u.nom, roleCourt(u.role), u.boutique || "Toutes", p.base, p.primes, p.avances, p.retenueCredit, p.retenueCNSS || 0, p.net, p.verse, Math.max(0, p.reste), credit]),
+            lignes.map(({ u, p, credit }) => [u.nom, libelleRoleEmploye(u), u.boutique || "Toutes", p.base, p.primes, p.avances, p.retenueCredit, p.retenueCNSS || 0, p.net, p.verse, Math.max(0, p.reste), credit]),
             `Paie ${libelleMoisFR(mois)}`)}>📄 Exporter</button>
         </div>
         {pasEncoreSuivis > 0 && <div data-pas-encore-suivis className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100">📅 {pasEncoreSuivis} employé(s) pas encore suivi(s) dans l'application en {libelleMoisFR(mois)} : ce mois-là a été payé hors de l'application, il n'est pas compté ici (👥 Utilisateurs → ⋯ Gérer → 📅 Paie suivie depuis).</div>}
         {lignes.length === 0 ? (
-          <div className="text-sm text-slate-400 text-center py-6">{pasEncoreSuivis > 0 ? `Aucun employé suivi dans l'application en ${libelleMoisFR(mois)}.` : "Aucun employé salarié actif. Créez des comptes Vendeur, Gérant, Magasinier, Technicien BMI, Responsable commercial ou Comptable."}</div>
+          <div className="text-sm text-slate-400 text-center py-6">{pasEncoreSuivis > 0 ? `Aucun employé suivi dans l'application en ${libelleMoisFR(mois)}.` : "Aucun employé salarié actif. Créez des comptes Vendeur, Gérant, Magasinier, Technicien BMI, Responsable commercial, Comptable ou Assistant(e) de direction."}</div>
         ) : (
           <div className="max-h-[460px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm min-w-[860px]">
@@ -196,7 +195,7 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
                 <Fragment key={u.id}>
                 <tr data-ligne-salaire={deplie ? "deplie" : "replie"} onClick={() => setEmployeDeplie(deplie ? null : u.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
                   <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)}`}>{u.nom_complet || u.nom}
-                    <div className="text-xs font-normal text-slate-500">{roleCourt(u.role)} · {u.boutique || "Toutes boutiques"}</div>
+                    <div className="text-xs font-normal text-slate-500">{libelleRoleEmploye(u)} · {u.boutique || "Toutes boutiques"}</div>
                     {!u.nom_complet && <div className="text-xs font-normal text-orange-500">⚠ Identité non renseignée (👥 Utilisateurs → 🪪 Identité)</div>}
                     {credit > 0 && <div className="text-xs font-bold text-purple-700">🏦 Crédit : reste {fmt(credit)}</div>}
                   </td>

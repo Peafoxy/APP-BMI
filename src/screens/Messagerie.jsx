@@ -12,6 +12,7 @@ import { Field, inputCls, btnDark, uConfirm, useFilSurSaFin } from "../component
 import { utilisateursDeLEspace, refuserSaufAdmin, peutVoirFilClient } from "../lib/calculs";
 import { separerNonLues } from "../lib/conversations";
 import { useRetour } from "../retour";
+import { ROLE_ASSISTANT_DIRECTION, libelleAssistantDirection } from "../lib/civilite";
 
 // ============ MESSAGERIE INTERNE (en différé, via la synchronisation) ============
 // - Conversations 1-à-1 entre tous les membres de l'équipe (tous rôles sauf client)
@@ -25,7 +26,11 @@ import { useRetour } from "../retour";
 export { peutVoirFilClient };
 
 // Libellé du rôle affiché dans les listes de contacts / membres
-function libelleRole(role) {
+// ⚠ Reçoit la PERSONNE : le mot de l'assistant(e) de direction suit le sexe
+// de sa fiche (01/11/2026).
+function libelleRole(u) {
+  const role = u?.role;
+  if (role === ROLE_ASSISTANT_DIRECTION) return libelleAssistantDirection(u);
   return role === "admin" ? "Admin" : role === "gerant" ? "Gérant" : role === "magasinier" ? "Magasinier" : role === "commercial" ? "Commercial" : role === "technicien" ? "Technicien" : role === "technicien_bmi" ? "Technicien BMI" : role === "resp_commercial" ? "Resp. Commercial" : role === "comptable" ? "Comptable" : role === "client" ? "Client" : "Vendeur";
 }
 
@@ -98,7 +103,7 @@ export function Messagerie({ db, save, profile, cible = null }) {
   const derniereActivite = (c) => { const f = messagesDe(c); return f.length ? String(f[f.length - 1].ts || "") : ""; };
 
   const sectionsBrutes = estClient ? [] : [
-    { cle: "equipe", titre: "👤 Équipe", items: contacts.map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="text-sm"><span className="font-semibold">{u.nom}</span> <span className="text-xs text-slate-400">{libelleRole(u.role)}</span></span> })) },
+    { cle: "equipe", titre: "👤 Équipe", items: contacts.map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="text-sm"><span className="font-semibold">{u.nom}</span> <span className="text-xs text-slate-400">{libelleRole(u)}</span></span> })) },
     { cle: "groupes", titre: "👥 Groupes", toujours: true, items: mesGroupes.map((g) => ({ cle: g.id, conv: { type: "groupe", id: g.id }, libelle: <span className="text-sm"><span className="font-semibold">{g.nom}</span> <span className="text-xs text-slate-400">({(g.membres || []).length})</span></span> })) },
     { cle: "clients_ecrit", titre: "👤 Clients qui vous ont écrit", items: clientsQuiMOntEcrit.filter((u) => !mesClientsEnTantQueChef.some((c) => c.id === u.id)).map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="font-semibold text-sm">{u.nom_base || u.nom}</span> })) },
     { cle: "clients_chef", titre: "👷 Mes clients (chef d'équipe)", items: mesClientsEnTantQueChef.map((u) => ({ cle: u.id, conv: { type: "user", id: u.id }, libelle: <span className="font-semibold text-sm">{u.nom_base || u.nom}</span> })) },
@@ -253,7 +258,7 @@ export function Messagerie({ db, save, profile, cible = null }) {
                       <label key={u.id} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs cursor-pointer ${dedans ? "bg-sky-50 border-sky-200" : "bg-white border-slate-200"} ${u.id === profile.id ? "opacity-60" : ""}`}>
                         <input type="checkbox" checked={dedans} disabled={u.id === profile.id} onChange={() => basculerMembre(groupeOuvert, u.id)} />
                         <span className="font-semibold">{u.nom}</span>
-                        <span className="text-slate-400">{libelleRole(u.role)}</span>
+                        <span className="text-slate-400">{libelleRole(u)}</span>
                       </label>
                     );
                   })}
@@ -328,7 +333,7 @@ function CreationGroupeModal({ db, profile, onFermer, onCreer }) {
                   <label key={u.id} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs cursor-pointer ${dedans ? "bg-sky-50 border-sky-200" : "bg-white border-slate-200"}`}>
                     <input type="checkbox" checked={dedans} onChange={() => basculer(u.id)} />
                     <span className="font-semibold">{u.nom}</span>
-                    <span className="text-slate-400">{libelleRole(u.role)}</span>
+                    <span className="text-slate-400">{libelleRole(u)}</span>
                   </label>
                 );
               })}

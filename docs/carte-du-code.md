@@ -39,6 +39,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/reprises.js` | La reprise d'un article par BMI (le client rend, l'argent repart) |
 | `lib/echanges.js` | L'échange d'un article vendu contre un autre : avoir, différence payée ou rendue, stock ou SAV |
 | `lib/ecritPar.js` | ✍️ Le compte qui a écrit un message (`ecrit_par`) : posé par save() et sur la file d'envoi — securite-47 ne laisse relire un message interne qu'à ses lecteurs et à celui qui l'a écrit |
+| `lib/assistantDirection.js` | 🗂 L'assistant(e) de direction : les tables qu'il / elle peut écrire (garde de lecture seule dans save()), les gérants à qui il / elle donne des tâches, les tâches confiées — couple securite-48 |
 | `lib/carteFidelite.js` | La carte de fidélité à code-barres : numéro FID-, % sur la fiche du client, remplacement, scan dans l'espace regardé, remise fixe — couple securite-45 |
 | `lib/autorisationRemise.js` | La remise ponctuelle autorisée à distance : le vendeur ou le gérant demande (`demandes_remise`), tout administrateur accorde (`remises_autorisees`), pour ce panier, ce %, ce client, une fois — couple securite-44 |
 | `lib/remiseApresVente.js` | La remise après-vente (gérant, admin) : un montant retiré d'une vente déjà encaissée, sans article rendu — dette réduite ou remboursement |
@@ -173,6 +174,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `FicheClient.jsx` | 🗂 La fiche d'un client ouverte d'un clic dans 📋 Clients : achats, dettes, proformas, commandes, devis, chantiers de l'espace regardé |
 | `CompleterDevis.jsx` | ✍️ Le panneau « Compléter le devis » après la visite (📋 Tous les devis) : chaque élément cf. visite chiffré ou « sans objet », des lignes ajoutées, le nouveau total lu par la vraie règle |
 | `ChampsEntreprise.jsx` | La case « entreprise cliente » et ses lignes (nom, téléphone, NIF, RCCM), écrite une fois pour Ventes, le devis et la création d'un compte client |
+| `TachesConfiees.jsx` | 🗂 « Tâches confiées aux gérants » : l'assistant(e) de direction donne, valide ou rouvre les tâches des gérants (onglet ✅ Tâches) |
 | `SelecteurArticle.jsx` | La fenêtre « Rechercher un article » |
 | `encaissementPose.js` | LE geste qui encaisse une pose seule (acompte 70 %, puis solde) — 🧾 Commandes et 🏠 Clients installés |
 | `verserOrigine.js` | LE geste « 💸 Verser » l'argent d'UNE vente (💰 Ventes) ou d'UN règlement de dette (📋 Dettes) au DG / BANQUE / comptable — sans bande noire |

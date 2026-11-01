@@ -27,7 +27,7 @@ import { fmt, dFR, totalVente } from "./core";
 import { demandesDe, stockActuel, construireIndexDb, peutVoirFilClient } from "./calculs";
 import { clotureDepassee, estCloturee } from "./cloture";
 import { payeeParLeComptable } from "./validationDepenses";
-import { estCompteFormation, boutiqueEstFormation, personnesDeLEspace, idsDeLaBoutique, idsParRole, idsAdmins } from "./espace";
+import { estCompteFormation, boutiqueEstFormation, personnesDeLEspace, idsDeLaBoutique, idsParRole, idsAdmins, idsAssistants } from "./espace";
 import { fabriquerEnvoi, CAISSE_COMPTABLE } from "./rappels";
 import { TYPE_TRANSFERT_STOCK, STATUT_ATTENTE, STATUT_VALIDE, STATUT_REFUSE, libelleLignes } from "./transfertsStock";
 import { fiche as ficheArgent, soldeDuRetour, caissesDuRetour, nomDossier } from "./argentChantier";
@@ -97,7 +97,7 @@ export function infosDepuisDiff(avant, apres) {
           const d0 = deja.get(d.id);
           if (!d0 && d.statut === STATUT_ATTENTE) {
             pousser({
-              destinataires: [...idsDeLaBoutique(apres, b.nom, ["gerant", "magasinier"]), ...idsAdmins(apres, formation)],
+              destinataires: [...idsDeLaBoutique(apres, b.nom, ["gerant", "magasinier"]), ...idsAdmins(apres, formation), ...idsAssistants(apres, formation)],
               titre: `📦 Transfert de stock à valider — ${b.nom}`,
               texte: `${d.de} envoie ${libelleLignes(d)} (par ${d.par}). L'article ne bouge pas tant que vous n'avez pas validé.`,
               ecran: "stocks", tag: `transfert_stock:${d.id}`, formation,
@@ -119,7 +119,7 @@ export function infosDepuisDiff(avant, apres) {
         if (deja.has(d.id) || d.statut !== "en_attente") return;
         if (d.type === "transfert") {
           pousser({
-            destinataires: [...idsDeLaBoutique(apres, b.nom, ["gerant"]), ...idsAdmins(apres, formation)],
+            destinataires: [...idsDeLaBoutique(apres, b.nom, ["gerant"]), ...idsAdmins(apres, formation), ...idsAssistants(apres, formation)],
             titre: `🔁 Demande de transfert — ${b.nom}`,
             texte: `${d.demandeur || "Une boutique"} demande ${d.lignes?.length || 0} article(s) : ${nomsLignes(d.lignes)}`,
             ecran: "stocks", tag: `transfert:${d.id}`, formation,
@@ -127,7 +127,7 @@ export function infosDepuisDiff(avant, apres) {
           });
         } else {
           pousser({
-            destinataires: [...idsParRole(apres, formation, ["magasinier"]), ...idsAdmins(apres, formation)],
+            destinataires: [...idsParRole(apres, formation, ["magasinier"]), ...idsAdmins(apres, formation), ...idsAssistants(apres, formation)],
             titre: `🚚 Demande de ravitaillement — ${b.nom}`,
             texte: `${d.par || b.nom} demande ${d.lignes?.length || 0} article(s) : ${nomsLignes(d.lignes)}`,
             ecran: "stocks", tag: `ravitaillement:${d.id}`, formation,
@@ -323,7 +323,7 @@ export function infosDepuisDiff(avant, apres) {
       pousser({
         destinataires: [
           ...(b.depot ? idsParRole(apres, formation, ["magasinier"]) : idsDeLaBoutique(apres, boutique, ["vendeur", "gerant"])),
-          ...idsAdmins(apres, formation),
+          ...idsAdmins(apres, formation), ...idsAssistants(apres, formation),
         ],
         titre: `⚠ Stock au seuil — ${boutique}`,
         texte: liste.slice(0, 4).map((x) => `${x.nom} (reste ${x.reste})`).join(", ") + (liste.length > 4 ? ` et ${liste.length - 4} autre(s)` : "") + ". À réapprovisionner.",
@@ -367,7 +367,7 @@ export function infosDepuisDiff(avant, apres) {
         const x = clotureDepassee(apres, boutique, date, totalVente);
         if (!x || clotureDepassee(avant, boutique, date, totalVente)) return;
         pousser({
-          destinataires: [...idsDeLaBoutique(apres, boutique, ["vendeur", "gerant"]), ...idsAdmins(apres, !!b.formation)],
+          destinataires: [...idsDeLaBoutique(apres, boutique, ["vendeur", "gerant"]), ...idsAdmins(apres, !!b.formation), ...idsAssistants(apres, !!b.formation)],
           titre: `🔁 Clôture dépassée — ${boutique}`,
           texte: `La caisse a bougé après la clôture du ${dFR(x.date)} (${x.bouge > 0 ? "+" : ""}${fmt(x.bouge)}) : elle est à refaire dans 🔒 Caisse.`,
           ecran: "caisse", tag: `depassee:${boutique}:${x.date}`, formation: !!b.formation,

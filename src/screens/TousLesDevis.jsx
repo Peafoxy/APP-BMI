@@ -15,7 +15,7 @@ import { estLigneCfVisite, devisACompleter, attendLaVisite, ONGLET_A_COMPLETER, 
 import { completerDevis, peutEtablirPourAutrui, auteursDuFiltre, devisDeLAuteur, auteurDuDevis } from "./dimensionnement/devisCommun";
 import { envoyerPdfDuDevis } from "./dimensionnement/Partages";
 import { CompleterDevis } from "../components/CompleterDevis";
-import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, LIBELLE_ROLE_EMPLOYE, estSansAcces } from "../lib/comptesClients";
+import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, libelleRoleEmploye, estSansAcces } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
@@ -147,7 +147,8 @@ export function fichierPdfDuDevis(db, d) {
 }
 
 export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCommande = null, ouvertInitial = null }) {
-  const voitTout = profile.role === "admin" || profile.role === "resp_commercial";
+  // 🗂 + l'assistant(e) de direction (01/11/2026) : elle / il regarde tout, en lecture seule.
+  const voitTout = profile.role === "admin" || profile.role === "resp_commercial" || profile.role === "assistant_direction";
 
   // ⚠ Cloisonnement : un devis porte l'espace de son auteur (`formation`,
   // posé à l'envoi — voir envoyerDevisEtOuvrirWhatsApp). Sans ce filtre,
@@ -602,7 +603,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
             <select className={`${inputCls} sm:w-72`} value={auteurFiltre ? filtreAuteur : ""} onChange={(e) => setFiltreAuteur(e.target.value)} data-filtre-auteur-devis>
               <option value="">👥 Utilisateur — tous</option>
               {auteursListe.map((u) => (
-                <option key={u.id} value={u.id}>{u.nom} — {LIBELLE_ROLE_EMPLOYE[u.role] || u.role} ({devisDeLEspace.filter((d) => devisDeLAuteur(d, u)).length})</option>
+                <option key={u.id} value={u.id}>{u.nom} — {libelleRoleEmploye(u)} ({devisDeLEspace.filter((d) => devisDeLAuteur(d, u)).length})</option>
               ))}
             </select>
           )}

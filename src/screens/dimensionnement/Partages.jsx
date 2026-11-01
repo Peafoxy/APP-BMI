@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { maintenantISO } from "../../lib/horloge";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { propositionsComptesDevis, libelleCompteDevis } from "../../lib/clientsConnus";
-import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, LIBELLE_ROLE_EMPLOYE, estSansAcces, ouvrirAcces } from "../../lib/comptesClients";
+import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabriquerCompteClient, messagesNouveauClient, motDePasseConnu, marquerModification, libelleRoleEmploye, estSansAcces, ouvrirAcces } from "../../lib/comptesClients";
 import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte, nouveauMessage } from "../../lib/core";
 import { envoyerModele, envoyerAccesSansRepli, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
 import { messagesApresCorrectionDevis } from "../../lib/whatsappConversations";
@@ -736,7 +736,7 @@ export function BlocConditionsPaiement({ pctAcompte, setPctAcompte, delaiInstall
 // responsable commercial seulement (`etabliPour` vaut null pour les autres).
 // « Moi » d'office ; une autre personne → le devis part à son nom, la
 // commission est la sienne. Une correction ne se choisit pas : elle le dit.
-const libelleAuteur = (u) => `${u.nom} — ${LIBELLE_ROLE_EMPLOYE[u.role] || u.role}${u.boutique && u.boutique !== "Toutes" ? ` · ${u.boutique}` : ""}`;
+const libelleAuteur = (u) => `${u.nom} — ${libelleRoleEmploye(u)}${u.boutique && u.boutique !== "Toutes" ? ` · ${u.boutique}` : ""}`;
 export function BlocEtabliPour({ etabliPour }) {
   if (!etabliPour) return null;
   const { auteurs, auteurId, setAuteurId, fixe, moi } = etabliPour;

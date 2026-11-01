@@ -3,7 +3,7 @@ import { today } from "../lib/core";
 import { maintenantMs } from "../lib/horloge";
 import { contenuDocument } from "../lib/certificatTravail";
 import { attestationDe, momentFermeture, nomDocument } from "../lib/attestationSortie";
-import { LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
+import { libelleRoleEmploye } from "../lib/comptesClients";
 import { affectationDe } from "../lib/affectation";
 import { imprimerDocumentEmploye } from "../lib/impression";
 import { estCompteFormation } from "../lib/calculs";
@@ -23,8 +23,8 @@ export function MonAttestation({ db, profile }) {
   const signataire = (db.users || []).find((u) => u.id === a.par_id) || {};
   const telecharger = () => {
     const contenu = contenuDocument(a.type, {
-      u: moi, poste: LIBELLE_ROLE_EMPLOYE[moi.role] || moi.role, lieu: affectationDe(moi),
-      libelleRole: (r) => LIBELLE_ROLE_EMPLOYE[r] || r,
+      u: moi, poste: libelleRoleEmploye(moi), lieu: affectationDe(moi),
+      libelleRole: (r) => libelleRoleEmploye({ ...moi, role: r }),
       signataire: { nom: signataire.nom_complet || signataire.nom || a.par, signature: signataire.signature_personnelle || "", sexe: signataire.sexe },
       appreciation: a.appreciation || "", aujourdhui: String(a.dispo_le || today()).slice(0, 10),
     });

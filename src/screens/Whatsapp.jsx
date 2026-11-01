@@ -37,7 +37,7 @@ import { peutApprendreDuMessage, phraseApprise, phraseDejaDansMemo, memoAvecPhra
 import { conversationsWa, critiqueReponse, libelleFenetre, peutReattribuer, aAccesWhatsapp, libelleMedia, motifVerrouillee, messagesAvecEntete, idEntete, MARQUE_RENDUE, CANAL_WA, cleConversation, MOTIF_WA_FORMATION, critiqueNomContact, nettoyerNomContact, critiqueFichier, mediaEnvoye, tailleLisible } from "../lib/whatsappConversations";
 import { texteContact, texteAccesAffiche, peutLireLignePrivee } from "../lib/whatsappModeles";
 import { texteLignePrivee, lecteursEnPlus } from "../lib/lignesPrivees";
-import { motDePasseConnu, LIBELLE_ROLE_EMPLOYE } from "../lib/comptesClients";
+import { motDePasseConnu, libelleRoleEmploye } from "../lib/comptesClients";
 import { peutEnregistrerContact, critiqueContactGoogle, nettoyerNomGoogle, traceContactGoogle, COMPTE_CONTACTS_BMI } from "../lib/contactGoogle";
 import { envoyerModele, repondreWhatsApp, chargerMediaWa, preparerFichier, enregistrerContactGoogle, rendreALAssistant } from "../whatsapp";
 import { LecteurVocal, BoutonMicro, garderVocal, useCopieVocale } from "../components/NoteVocale";
@@ -45,14 +45,17 @@ import { dureeVocale } from "../lib/oggOpus";
 import { lireCheminVocal, vocalExpire } from "../lib/vocauxStockes";
 import { champsEnvoi } from "../lib/suiviEnvoi";
 import { useRetour } from "../retour";
+import { ROLE_ASSISTANT_DIRECTION, libelleAssistantDirection } from "../lib/civilite";
 
 // Libellé du rôle, pour la question « à qui confier ». Même mots que
 // 💬 Messages — un rôle ne se nomme pas de deux façons dans l'application.
-const libelleRole = (role) =>
-  role === "admin" ? "Admin" : role === "gerant" ? "Gérant" : role === "magasinier" ? "Magasinier"
+// ⚠ Reçoit la PERSONNE (01/11/2026) : le mot de l'assistant(e) de direction
+// suit le sexe de sa fiche.
+const libelleRole = (u) => u?.role === ROLE_ASSISTANT_DIRECTION ? libelleAssistantDirection(u)
+  : ((role) => role === "admin" ? "Admin" : role === "gerant" ? "Gérant" : role === "magasinier" ? "Magasinier"
   : role === "commercial" ? "Commercial" : role === "technicien" ? "Technicien"
   : role === "technicien_bmi" ? "Technicien BMI" : role === "resp_commercial" ? "Resp. Commercial"
-  : role === "comptable" ? "Comptable" : role === "client" ? "Client" : "Vendeur";
+  : role === "comptable" ? "Comptable" : role === "client" ? "Client" : "Vendeur")(u?.role);
 
 // ---- LES MESSAGES D'UNE CONVERSATION, ET CEUX QU'ON N'A PAS LUS ----
 // ⚠ Écrit UNE fois et exporté : App.jsx s'en sert pour le compteur de
@@ -435,7 +438,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     // quelqu'un qui peut l'ouvrir : LA règle de l'onglet, `aAccesWhatsapp`.
     const gens = utilisateursDeLEspace(db, profile).filter((u) => u.actif !== false && aAccesWhatsapp(u));
     if (!gens.length) { uAlert("Aucun membre de l'équipe à qui la confier."); return; }
-    const noms = gens.map((u) => `${u.nom} — ${libelleRole(u.role)}`);
+    const noms = gens.map((u) => `${u.nom} — ${libelleRole(u)}`);
     const choix = await uChoix(`📲 Confier la conversation de ${ouverte.nomAffiche || ouverte.tel} à qui ?`, noms);
     if (choix === null) return;
     const u = gens[noms.indexOf(choix)];
@@ -1000,7 +1003,7 @@ function ProfilWa({ c, fil, comptes = [], onFermer, actions, enregistrer, enregi
   const premier = entrants[0];
   const dernier = fil[fil.length - 1];
   const quand = (m) => (m ? `${dFR(m.date || String(m.ts || "").split("T")[0])} ${String(m.ts || "").slice(11, 16)}` : "—");
-  const libelleRole = (u) => (u.role === "client" ? "client" : (LIBELLE_ROLE_EMPLOYE[u.role] || u.role));
+  const libelleRole = (u) => (u.role === "client" ? "client" : libelleRoleEmploye(u));
   const g = c.contactGoogle;
   const ligne = (titre, valeur) => (
     <div className="py-2 border-b border-slate-100">

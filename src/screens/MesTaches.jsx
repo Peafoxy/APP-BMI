@@ -8,6 +8,8 @@ import { useRef, useState } from "react";
 import { today, dFR, compresserPhoto } from "../lib/core";
 import { Panel, uConfirm, uAlert } from "../components/ui";
 import { tachesDe } from "../lib/calculs";
+import { estAssistantDirection } from "../lib/assistantDirection";
+import { TachesConfiees } from "../components/TachesConfiees";
 
 const ORDRE_STATUT = { a_faire: 0, terminee: 1, validee: 2 };
 
@@ -56,6 +58,8 @@ export function MesTaches({ db, save, profile }) {
 
   return (
     <div className="space-y-4">
+      {/* 🗂 L'assistant(e) de direction donne ici ses tâches aux gérants (01/11/2026). */}
+      {estAssistantDirection(profile) && <TachesConfiees db={db} save={save} profile={profile} />}
       <Panel>
         <div className="font-bold mb-1">✅ Mes tâches</div>
         <div className="text-xs text-slate-500 mb-4">Tâches assignées par l'administration ou votre responsable. Quand vous terminez une tâche, elle part en validation chez celui qui l'a assignée — joignez une photo de preuve si possible.</div>

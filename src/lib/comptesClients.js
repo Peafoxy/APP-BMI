@@ -32,6 +32,7 @@ export const ADRESSE_APP = "https://gestion.bmitogo.com";
 // le réexport. « export { x } from "y" » ne crée AUCUNE variable locale : les
 // fonctions de ce fichier appelaient alors un motDePasseClient inexistant, et
 // la création d'un compte client plantait. Le banc de parrainage l'a vu.
+import { ROLE_ASSISTANT_DIRECTION, libelleAssistantDirection } from "./civilite.js";
 import { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant, estSansAcces, MESSAGE_SANS_ACCES } from "./identiteClient.js";
 export { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant, estSansAcces, MESSAGE_SANS_ACCES };
 
@@ -196,7 +197,14 @@ export const LIBELLE_ROLE_EMPLOYE = {
   vendeur: "Vendeur", gerant: "Gérant de boutique", magasinier: "Magasinier",
   commercial: "Commercial", technicien: "Technicien", technicien_bmi: "Technicien BMI",
   resp_commercial: "Responsable Commercial", comptable: "Comptable", admin: "Administrateur",
+  assistant_direction: "Assistant(e) de direction",
 };
+
+// Le rôle d'une PERSONNE : pour l'assistant(e) de direction, le mot suit le
+// sexe de sa fiche (01/11/2026). Tout écran qui nomme le rôle d'un compte
+// passe par ici, jamais par LIBELLE_ROLE_EMPLOYE[u.role] directement.
+export const libelleRoleEmploye = (u) =>
+  u?.role === ROLE_ASSISTANT_DIRECTION ? libelleAssistantDirection(u) : (LIBELLE_ROLE_EMPLOYE[u?.role] || u?.role || "");
 
 // ---- 💬 LE MOT DE FIDÉLITÉ AU CLIENT ----
 // Il part du numéro BMI, par les modèles `mot_fidelite` / `mot_fidelite_simple`

@@ -4,7 +4,8 @@
 // Des MOTS, rien d'autre. Chaque bouton, chaque règle vient du code :
 // screens/Utilisateurs.jsx, screens/Parametres.jsx (👑 Administrateur
 // principal), lib/calculs.js (ONGLETS_ROLE, ACTIONS_POUVOIR, aDroit,
-// estAdminPrincipal), lib/constants.js (SALARIES), lib/comptesClients.js.
+// estAdminPrincipal), lib/constants.js (SALARIES), lib/comptesClients.js,
+// lib/assistantDirection.js et lib/civilite.js (l'assistant(e) de direction, 01/11/2026).
 // ============================================================
 export const CHAPITRE = {
   numero: 2,
@@ -55,17 +56,20 @@ export const CHAPITRE = {
       ["h3", "A. Les rôles, et ce que chacun voit"],
       ["table", { entetes: ["Rôle (tel qu'il s'affiche)", "Métier", "Ses onglets"], largeurs: [2500, 2100, 4700], lignes: [
         ["Vendeur", "Vend en boutique, clôture le jour", "Ventes, Commandes reçues, Dimensionnement, Tous les devis, Ravitaillement, Clients installés, Travaux à crédit, Dettes, Clients, Caisse, Salaire, Primes reçues, Rendez-vous, Messages, WhatsApp, Créer un client, Primes remises, Contrats"],
-        ["Gérant de boutique", "Tient la boutique : stock, dépenses, versements", "Ventes, Commandes reçues, Dimensionnement, Tous les devis, Contrats, Stocks, Transfert, Dépenses, Dettes, Clients, Caisse, Fournisseurs, Salaire, Primes reçues, Rendez-vous, Messages, WhatsApp, Créer un client, Travaux à crédit"],
+        ["Gérant de boutique", "Tient la boutique : stock, dépenses, versements", "Ventes, Commandes reçues, Dimensionnement, Tous les devis, Contrats, Stocks, Transfert, Dépenses, Dettes, Clients, Caisse, Fournisseurs, Mes tâches, Salaire, Primes reçues, Rendez-vous, Messages, WhatsApp, Créer un client, Travaux à crédit, Primes remises"],
         ["Magasinier", "Tient le magasin et l'outillage", "Stocks, Salaire, Primes reçues, Rendez-vous, Messages, WhatsApp, Créer un client, Travaux à crédit, Outillage"],
         ["Commercial", "À commission, apporte des clients", "Nouvelle commande, Dimensionnement, Tous les devis, Prospects, Clients installés, Mes tâches, Rendez-vous, Messages, WhatsApp, Ma commission, Équipe (s'il est chef), Créer un client, Contrats"],
         ["Technicien (commission)", "Installe, à commission", "Comme le commercial, plus Primes reçues, Dépenses (les siennes), Outillage"],
         ["Technicien BMI (salarié)", "Installe, salarié ; peut être chef des techniciens", "Dimensionnement, Tous les devis, Clients installés, Prospects, Mes tâches, Équipe (s'il est chef), Ma commission, Rendez-vous, Messages, WhatsApp, Salaire, Primes reçues, Créer un client, Contrats, Dépenses, Outillage"],
         ["Responsable Commercial (salarié)", "Dirige les commerciaux", "Équipe, Ventes, Prospects, Mes tâches, Clients installés, Dimensionnement, Tous les devis, Contrats, Rendez-vous, Messages, WhatsApp, Ma commission, Salaire, Primes reçues, Créer un client"],
         ["Comptable (lecture seule)", "Consulte, exporte, pointe les décaissements", "Tableau de bord, Rentabilité, Dépenses, Chez le comptable, Dettes, Caisse, Stocks, Clients, Historique, Rendez-vous, Messages, Salaire, Primes reçues, Créer un client"],
+        ["Assistant de direction / Assistante de direction (salarié)", "Suit l'activité, donne des tâches aux gérants — ne sort jamais d'argent", "Tableau de bord, Tâches, Ventes, Commandes reçues, Tous les devis, Dettes, Clients, Caisse, Stocks, Fournisseurs, Dépenses, Clients installés, Rendez-vous, Messages, WhatsApp, Salaire, Primes reçues — tout en lecture seule, sauf les tâches, les rendez-vous et les messages"],
         ["Administrateur", "Dirige", "Tout, y compris Salaires (tous), Utilisateurs, Historique, Paramètres"],
         ["Client", "A acheté chez BMI", "Mon espace, Messages, Mes données, Mes contrats"],
       ]}],
-      ["note", "**Salariés** (sur le bulletin de paie) : vendeur, gérant, magasinier, technicien BMI, responsable commercial, comptable. Le commercial et le technicien à commission ne sont pas sur la paie : ils touchent une commission. Le vendeur, le gérant et le magasinier sont **rattachés à une boutique** ; les autres couvrent toutes les boutiques."],
+      ["note", "**Salariés** (sur le bulletin de paie) : vendeur, gérant, magasinier, technicien BMI, responsable commercial, comptable, assistant(e) de direction. Le commercial et le technicien à commission ne sont pas sur la paie : ils touchent une commission. Le vendeur, le gérant et le magasinier sont **rattachés à une boutique** ; les autres couvrent toutes les boutiques."],
+
+      ["note", "**🗂 L'assistant(e) de direction** (01/11/2026) : son rôle s'écrit **« Assistant de direction »** pour un homme et **« Assistante de direction »** pour une femme, d'après le sexe de la fiche (🆔 Identité) ; sans sexe renseigné, « Assistant(e) de direction ». Il ou elle **regarde** toutes les boutiques de son espace sans rien modifier — un geste d'argent ou de stock répond « lecture seule », et la base refuse la même chose — et **agit** sur trois choses : les tâches des gérants (✅ Tâches → « 📋 Tâches confiées aux gérants »), ses rendez-vous et ses messages (💬, 📲). Il ou elle ne voit pas la paie des autres."],
 
       ["h3", "B. Créer un compte d'employé"],
       ["etapes", [

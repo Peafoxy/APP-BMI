@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.674";
+export const VERSION = "2.101.675";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -130,7 +130,7 @@ export const CATEGORIES = ["Loyer", "Électricité / Eau", "Salaires", "Commissi
 
 // ============ RÔLES ============
 // Salariés : fiche de paie, avancement, primes/avances, virements, crédit BMI.
-export const SALARIES = ["vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial", "comptable"];
+export const SALARIES = ["vendeur", "gerant", "magasinier", "technicien_bmi", "resp_commercial", "comptable", "assistant_direction"];
 // Salariés rattachés à UNE boutique précise (le Technicien BMI intervient partout).
 export const SALARIES_BOUTIQUE = ["vendeur", "gerant", "magasinier"];
 

@@ -40,7 +40,9 @@ export function nettoyerCible(c) {
 // (« a », 16/10/2026) — le vendeur n'a pas 📦 Stocks : un stock au seuil se
 // règle par 🚚 Ravitaillement ; l'administrateur n'a pas ✅ Mes tâches : il
 // suit les tâches dans 👑 Mon équipe.
-export const REPLIS_ECRAN = { stocks: ["ravitaillement"], taches: ["equipe"] };
+// 🗂 « equipe » → « taches » (01/11/2026) : l'assistant(e) de direction valide
+// les tâches des gérants dans son onglet ✅ Tâches, pas dans 👑 Mon équipe.
+export const REPLIS_ECRAN = { stocks: ["ravitaillement"], taches: ["equipe"], equipe: ["taches"] };
 
 // `onglets` : les onglets du rôle (ONGLETS_ROLE) — passés en argument pour
 // que ce fichier n'importe rien. `extra` : un onglet ouvert hors du rôle

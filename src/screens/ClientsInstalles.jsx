@@ -125,7 +125,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // (créés par lui) et ceux où il intervient réellement (présent dans
   // l'équipe du chantier). Le chef d'équipe et l'admin gardent leur vue
   // complète, inchangée.
-  const voitTout = isAdmin || estChef;
+  // 🗂 + l'assistant(e) de direction (01/11/2026) : tout, en lecture seule.
+  const voitTout = isAdmin || estChef || profile.role === "assistant_direction";
 
   const vide = { nom: "", prenom: "", tel: "", type_installation: TYPES_INSTALLATION[0], date_installation: today(), date_entretien: "", localisation: "", adresse_contrat: "", lat: null, lng: null, user_id: "", vente_id: "", garantie_mois: "24", equipe_prevue: [], chef_prevu: "", materiel: [] };
   const [f, setF] = useState(vide);

@@ -7,7 +7,7 @@ import { correspond } from "../lib/suggestions";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { Commerciaux } from "../screens/Commerciaux";
 import { Salaire } from "../screens/Salaires";
-import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, envoyerIdentifiantsEmployeWhatsApp, estSansAcces, ouvrirAcces } from "../lib/comptesClients";
+import { chiffresTel, critiqueIdentifiantEmploye, propositionIdentifiant, identifiantClient, motDePasseClient, resoudreMotDePasseClient, motDePasseConnu, fabriquerCompteClient, messagesNouveauClient, LIBELLE_ROLE_EMPLOYE, libelleRoleEmploye, envoyerIdentifiantsEmployeWhatsApp, estSansAcces, ouvrirAcces } from "../lib/comptesClients";
 import { SALARIES, SALARIES_BOUTIQUE } from "../lib/constants";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
@@ -26,7 +26,7 @@ import { critiqueMiseADisposition, construireMiseADisposition, attestationDe, mo
 import { maintenantMs } from "../lib/horloge";
 import { imprimerDocumentEmploye } from "../lib/impression";
 // ⚧ Le sexe d'un compte (12/10/2026, « Ab, Ba, Ca ») : employés et clients, l'administrateur seul.
-import { SEXES, libelleSexe, critiqueSexe } from "../lib/civilite";
+import { SEXES, libelleSexe, critiqueSexe, libelleAssistantDirection } from "../lib/civilite";
 import { TYPES_CONTRAT, CODE_CDI, CODE_CDD, phraseContrat, critiqueContrat, critiqueSortie, etatFinContrat, phraseFinContrat, lireDuree, dureeEnClair, finDepuisDuree, peutRenouveler, critiqueRenouvellement, finApresRenouvellement, MESSAGE_DUREE_ILLISIBLE } from "../lib/contratTravail";
 import { CODES_MOTIF_SORTIE } from "../lib/cnss";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
@@ -40,7 +40,7 @@ import { etatConnexion, libelleConnexion, FILTRES_CONNEXION, dansFiltreConnexion
 
 // ============ UTILISATEURS ============
 // Les rôles qu'un compte d'employé peut recevoir (jamais « client », voir changerRole).
-const ROLES_CHANGEABLES = ["vendeur", "gerant", "magasinier", "commercial", "technicien", "technicien_bmi", "resp_commercial", "comptable", "admin"];
+const ROLES_CHANGEABLES = ["vendeur", "gerant", "magasinier", "commercial", "technicien", "technicien_bmi", "resp_commercial", "comptable", "assistant_direction", "admin"];
 
 // ---- La liste des utilisateurs, lisible (capture Timo, 12/09/2026) ----
 // Un bouton d'action rond (icône seule, libellé au survol), un bouton du
@@ -52,6 +52,7 @@ const teinteRole = (role) => (role === "admin" ? "bg-slate-800 text-white border
   : role === "vendeur" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
   : role === "magasinier" ? "bg-amber-100 text-amber-800 border-amber-200"
   : role === "comptable" ? "bg-violet-100 text-violet-800 border-violet-200"
+  : role === "assistant_direction" ? "bg-teal-100 text-teal-800 border-teal-200"
   : role === "client" ? "bg-slate-100 text-slate-600 border-slate-200"
   : "bg-orange-100 text-orange-800 border-orange-200");
 
@@ -78,7 +79,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
     ["admin", "👑 Admins"], ["gerant", "Gérants"], ["vendeur", "Vendeurs"],
     ["magasinier", "Magasiniers"], ["commercial", "Commerciaux"], ["technicien", "Techniciens"],
     ["technicien_bmi", "🔧 Tech. BMI"], ["resp_commercial", "Resp. com."],
-    ["comptable", "📒 Comptables"], ["client", "Clients"],
+    ["comptable", "📒 Comptables"], ["assistant_direction", "🗂 Assistants de direction"], ["client", "Clients"],
   ];
   // Le compte de l'admin PRINCIPAL n'apparaît dans AUCUNE liste ni compteur
   // pour les autres admins (demande Timo) — mais reste visible pour
@@ -326,7 +327,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
       setMsg(`${refusNom} Proposition : ${propositionIdentifiant(db, f.nom, f.prenom, f.tel)}`);
       return;
     }
-    const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "client";
+    const estMultiBoutique = f.role === "admin" || f.role === "commercial" || f.role === "technicien" || f.role === "technicien_bmi" || f.role === "resp_commercial" || f.role === "comptable" || f.role === "assistant_direction" || f.role === "client";
     // ⚠ Dernier verrou : un compte rattaché à une boutique ne peut pas être
     // créé sans boutique VALIDE de son espace. Sans ce contrôle, cocher
     // « compte de formation » alors qu'aucune boutique d'entraînement
@@ -1157,8 +1158,8 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
     }
     const moi = db.users.find((x) => x.id === profile.id) || profile;
     const contenu = contenuDocument(type, {
-      u: frais, poste: LIBELLE_ROLE_EMPLOYE[frais.role] || frais.role, lieu: affectationDe(frais),
-      libelleRole: (r) => LIBELLE_ROLE_EMPLOYE[r] || r,
+      u: frais, poste: libelleRoleEmploye(frais), lieu: affectationDe(frais),
+      libelleRole: (r) => libelleRoleEmploye({ ...frais, role: r }),
       signataire: { nom: moi.nom_complet || moi.nom, signature: moi.signature_personnelle || "", sexe: moi.sexe },
       appreciation, aujourdhui: today(),
     });
@@ -1419,7 +1420,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
     if (bloquerSiLecture(db, profile)) return;
     // Un libellé par compte (nom + rôle) : deux homonymes ne se confondent pas.
     const employes = dansMonEspace.filter((x) => x.role !== "client" && !x.bloque)
-      .map((x) => ({ x, libelle: `${x.nom} — ${LIBELLE_ROLE_EMPLOYE[x.role] || x.role}` })).sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
+      .map((x) => ({ x, libelle: `${x.nom} — ${libelleRoleEmploye(x)}` })).sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
     if (!employes.length) { uAlert("Aucun employé dans cet espace."); return; }
     const choix = await uChoix("📥 Crédit d'avant l'application — pour quel employé ?", employes.map((e) => e.libelle));
     if (choix === null) return;
@@ -1591,7 +1592,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
           {f.role !== "client" && (
             <Field label="Téléphone"><input type="tel" className={inputCls} placeholder="+228 90 55 44 33" value={f.tel} onChange={(e) => setF({ ...f, tel: e.target.value })} /></Field>
           )}
-          <Field label="Rôle"><select className={inputCls} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="vendeur">Vendeur</option><option value="gerant">Gérant de boutique</option><option value="magasinier">Magasinier</option><option value="commercial">Commercial</option><option value="technicien">Technicien (commission)</option><option value="technicien_bmi">Technicien BMI (salarié)</option><option value="resp_commercial">Responsable Commercial (salarié)</option><option value="comptable">Comptable (lecture seule)</option><option value="client">Client</option><option value="admin">Administrateur</option></select></Field>
+          <Field label="Rôle"><select className={inputCls} value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="vendeur">Vendeur</option><option value="gerant">Gérant de boutique</option><option value="magasinier">Magasinier</option><option value="commercial">Commercial</option><option value="technicien">Technicien (commission)</option><option value="technicien_bmi">Technicien BMI (salarié)</option><option value="resp_commercial">Responsable Commercial (salarié)</option><option value="comptable">Comptable (lecture seule)</option><option value="assistant_direction">Assistant(e) de direction (salarié, lecture seule sauf tâches)</option><option value="client">Client</option><option value="admin">Administrateur</option></select></Field>
           {/* ⚠ La liste ne propose que les boutiques de l'espace coché. Quand
               cet espace n'en contient AUCUNE, la liste devenait vide — et le
               formulaire gardait en silence la boutique précédemment
@@ -1846,7 +1847,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinteRole(u.role)}`}>{u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</span></td>
+                <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinteRole(u.role)}`}>{u.role === "assistant_direction" ? `🗂 ${libelleAssistantDirection(u)}` : u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</span></td>
                 <td className="px-4 py-2">
                   {u.boutique
                     ? <Badge boutique={u.boutique} />
