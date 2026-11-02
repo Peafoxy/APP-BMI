@@ -1166,9 +1166,16 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       return;
     }
 
+    // 💳 À crédit, on n'encaisse AUJOURD'HUI que l'avance (capture Timo,
+    // 02/11/2026 : « pourquoi on dit encore 2 900 000 à encaisser ? ») : la
+    // confirmation dit le total, ce qui entre maintenant, et ce qui reste en dette.
+    const avanceConfirm = Math.max(0, Math.min(totalAEncaisser, Number(f.avance) || 0));
+    const lignesCredit = f.paiement === "Crédit (dette)"
+      ? `\nAvance encaissée aujourd'hui : ${fmt(avanceConfirm)}\nReste à payer (dette) : ${fmt(totalAEncaisser - avanceConfirm)}`
+      : "";
     const messageConfirm = (fraisInstallDevis > 0 || fraisTransportDevis > 0)
-      ? `Confirmer la vente de ${panier.length} article(s) ?\n\nArticles : ${fmt(total)}${remise ? ` (${texteRemise})` : ""}\n${fraisInstallDevis > 0 ? `Frais d'installation : ${fmt(fraisInstallDevis)}\n` : ""}${fraisTransportDevis > 0 ? `Transport : ${fmt(fraisTransportDevis)}\n` : ""}\nMONTANT TOTAL À ENCAISSER : ${fmt(totalAEncaisser)}`
-      : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (${texteRemise})` : ""} ?`;
+      ? `Confirmer la vente de ${panier.length} article(s) ?\n\nArticles : ${fmt(total)}${remise ? ` (${texteRemise})` : ""}\n${fraisInstallDevis > 0 ? `Frais d'installation : ${fmt(fraisInstallDevis)}\n` : ""}${fraisTransportDevis > 0 ? `Transport : ${fmt(fraisTransportDevis)}\n` : ""}\n${lignesCredit ? `MONTANT TOTAL : ${fmt(totalAEncaisser)}${lignesCredit}` : `MONTANT TOTAL À ENCAISSER : ${fmt(totalAEncaisser)}`}`
+      : `Confirmer la vente de ${panier.length} article(s) pour ${fmt(total)}${remise ? ` (${texteRemise})` : ""} ?${lignesCredit ? `\n${lignesCredit}` : ""}`;
     if (!await uConfirm(auChantier ? `${messageConfirm}\n\n🏗 Devis avec installation : c'est un DÉPÔT CHANTIER, pas encore une vente. Le client reçoit un reçu de dépôt ; le matériel ne sort PAS du stock maintenant. Il sortira quand les techniciens viendront le chercher (case « 🏗 Chantier » d'une nouvelle vente) : chaque sortie deviendra une vente, et le reste du devis à la réception.` : messageConfirm)) return;
 
     // 2.99.44 (Lot C) : numérotation robuste partagée — (max attribué) + 1,

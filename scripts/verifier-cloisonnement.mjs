@@ -18014,5 +18014,13 @@ titre("✍️ Les messages internes : la marque « écrit par » (securite-47, 0
     us.includes('<option value="assistant_direction">') && us.includes('["assistant_direction", "🗂 Assistants de direction"]') && us.includes("libelleAssistantDirection(u)"));
 }
 
+// 💳 À CRÉDIT, LA CONFIRMATION NE DIT PAS « TOTAL À ENCAISSER » (capture Timo, 02/11/2026)
+{
+  const v = readFileSync("src/screens/Ventes.jsx", "utf8");
+  const bloc = v.slice(v.indexOf("const avanceConfirm"), v.indexOf("if (!await uConfirm(auChantier ? `${messageConfirm}"));
+  test("★★ à crédit, la confirmation d'une vente dit l'avance encaissée aujourd'hui et le reste en dette, jamais « MONTANT TOTAL À ENCAISSER »",
+    bloc.includes("Avance encaissée aujourd'hui") && bloc.includes("Reste à payer (dette)")
+    && /lignesCredit \? `MONTANT TOTAL : /.test(bloc) && bloc.includes('f.paiement === "Crédit (dette)"'));
+}
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
