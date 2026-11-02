@@ -609,8 +609,19 @@ export function texteModification(m, { parBmi = false, ecrit = "" } = {}) {
 // Le texte d'un message que WhatsApp nous donne : ce qui est écrit, sinon la
 // légende d'un fichier, sinon (un type qu'on ne sait pas lire) son nom entre
 // crochets — UNE règle pour l'entrée du client et l'écho du téléphone BMI.
+// 🗑 Un message SUPPRIMÉ (02/11/2026, capture Timo : « [revoke] ») : WhatsApp
+// prévient par un avis de type `revoke` ; on le dit en français.
+export const TYPES_SUPPRESSION = ["revoke", "revoked", "delete", "deleted"];
+export const texteSuppression = (parBmi) => (parBmi ? "🗑 Message supprimé depuis le téléphone BMI" : "🗑 Le client a supprimé un message");
+// Une ligne déjà rangée avec le mot brut (« [revoke] ») se lit aussi en français.
+export function texteLisibleWa(m) {
+  const t = String((m && m.texte) || "");
+  const brut = /^\[(revoke|revoked|delete|deleted)\]$/.exec(t.trim());
+  return brut ? texteSuppression(!!(m && (m.wa_telephone || m.sens === "sortant" || m.de_id === ID_TELEPHONE_BMI))) : t;
+}
 export function texteDuMessageWa(m, media, { ecrit = "", parBmi = false } = {}) {
   if (m && TYPES_MODIFICATION.includes(String(m.type || ""))) return texteModification(m, { parBmi, ecrit });
+  if (m && TYPES_SUPPRESSION.includes(String(m.type || ""))) return texteSuppression(parBmi);
   if (ecrit) return ecrit;
   if (media) return media.legende || "";
   return m && m.type && m.type !== "text" ? `[${m.type}]` : "";

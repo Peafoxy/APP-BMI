@@ -1447,8 +1447,8 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
     /export function messagesAvecLigneEnvoi/.test(srcWhatsapp) && /ligneEnvoiModele\(modele, variables\)/.test(srcWhatsapp)
     && (srcWhatsapp.match(/entete\.proprietaire_id/g) || []).length >= 3
     && /proprietaire_id: prop\.proprietaire_id \|\| entete\.proprietaire_id/.test(srcWhatsapp));
-  test("★ 📲 WhatsApp dessine cette ligne comme les autres (texteDuFil rend m.texte quand il n'y a pas d'accès à remplir)",
-    /if \(!m \|\| !m\.wa_acces\) return m \? m\.texte : "";/.test(sansComm(lire("src/screens/Whatsapp.jsx"))));
+  test("★ 📲 WhatsApp dessine cette ligne comme les autres (texteDuFil rend le texte rangé, lu par texteLisibleWa, quand il n'y a pas d'accès à remplir — RETOURNÉ le 02/11/2026 : « [revoke] » se lit en français)",
+    /if \(!m \|\| !m\.wa_acces\) return m \? texteLisibleWa\(m\) : "";/.test(sansComm(lire("src/screens/Whatsapp.jsx"))));
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -7413,5 +7413,15 @@ console.log("\n81 — ⏳ la relance d'un salaire payé pas encore confirmé re�
     R.phraseRelances({ relance_auto: { le: "2026-10-30" }, relances_main: [{ le: "2026-10-31", par: "TIMO" }] }, dT) === "📲 relancé automatiquement le 30/10/2026 · relancé le 31/10/2026 par TIMO");
 }
 
+{
+  titre("🗑 UN MESSAGE SUPPRIMÉ SE LIT EN FRANÇAIS (02/11/2026, capture « [revoke] »)");
+  const W = await import("../src/lib/whatsappConversations.js").catch(() => null);
+  test("★★ l'avis « revoke » du téléphone BMI devient « 🗑 Message supprimé depuis le téléphone BMI », celui du client « 🗑 Le client a supprimé un message »",
+    !!W && W.texteDuMessageWa({ type: "revoke" }, null, { parBmi: true }) === "🗑 Message supprimé depuis le téléphone BMI"
+    && W.texteDuMessageWa({ type: "revoke" }, null, {}) === "🗑 Le client a supprimé un message");
+  test("★ une ligne déjà rangée « [revoke] » se lit aussi en français dans le fil (texteLisibleWa, lue par 📲 WhatsApp)",
+    !!W && W.texteLisibleWa({ texte: "[revoke]", wa_telephone: true }) === "🗑 Message supprimé depuis le téléphone BMI"
+    && W.texteLisibleWa({ texte: "Bonjour" }) === "Bonjour" && /texteLisibleWa\(m\)/.test(lire("src/screens/Whatsapp.jsx")));
+}
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
