@@ -1381,7 +1381,12 @@ export const TEXTE_RECU_DEPOT_CHANTIER = [
 // l'écran, rien sans numéro, le téléphone de la boutique sinon le numéro BMI).
 export function envoiRecuDepotChantier(args) {
   const court = envoiRecuVente(args);
-  return court ? { modele: "recu_depot_chantier", variables: court.variables } : null;
+  if (!court) return null;
+  // 💳 Un dépôt payé en plusieurs fois se dit « par tranche », jamais « à
+  // crédit » (Timo, 02/11/2026). Le mot est dans le trou {{6}}, pas dans le
+  // texte figé chez Meta : rien à recréer chez YCloud.
+  const variables = court.variables.map((v, i) => (i === 5 ? v.replace(/^à crédit/, "par tranche") : v));
+  return { modele: "recu_depot_chantier", variables };
 }
 
 // ---------------------------------------------------------------

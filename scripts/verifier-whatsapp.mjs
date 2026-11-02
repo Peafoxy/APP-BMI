@@ -4515,8 +4515,9 @@ titre("51 📅 LES RENDEZ-VOUS : les cinq messages, les rappels de 14 h et de 7 
   test("★★ les sept trous dans l'ordre : client, date, boutique du devis, n° du reçu, montant du DEVIS (articles + frais), comment c'est payé, téléphone de la boutique ; « B non » : pas de liste d'articles",
     d[0]?.variables.join("|") === "KLOMEGAN|12/10/2026|APESSITO|BMIA-2026-0003|" + d[0]?.variables[4] + "|payé en espèces|91000000"
     && /750[\s\u202f\u00a0.]?000/.test(d[0]?.variables[4] || "") && !/Panneau/.test(d[0]?.variables.join("|") || ""));
-  test("★ à crédit : « à crédit : avance X, reste Y », lu sur la dette",
-    /^à crédit : avance 300[\s\u202f\u00a0.]?000 F, reste 450[\s\u202f\u00a0.]?000 F$/.test(R?.depotCredit?.[0]?.variables[5] || ""));
+  test("★ en plusieurs fois : « par tranche : avance X, reste Y », lu sur la dette — jamais « à crédit » sur un dépôt (RETOURNÉ le 02/11/2026, Timo : « au lieu de dire à crédit, dit par tranche ») ; une vente ordinaire garde « à crédit »",
+    /^par tranche : avance 300[\s\u202f\u00a0.]?000 F, reste 450[\s\u202f\u00a0.]?000 F$/.test(R?.depotCredit?.[0]?.variables[5] || "")
+    && /^à crédit/.test(M.formulePaiement({ paiement: "Crédit (dette)", avance: 1, reste: 2 })));
   test("★★ le texte, mot pour mot : « dépôt pour votre chantier », « Reçu de dépôt chantier N° », jamais « achat » ; les contacts, le mail et le site EN DESSOUS (sa demande)",
     /^Bonjour KLOMEGAN,\nBMI TOGO a bien reçu votre dépôt pour votre chantier, le 12\/10\/2026 à APESSITO\.\nReçu de dépôt chantier N° BMIA-2026-0003\nMontant du devis : .+, payé en espèces\.\nCe dépôt servira à la fourniture du matériel et à l'installation de votre chantier\.\nPour toute question veuillez contacter : 91000000\.\nMerci de votre confiance\.\n\n📧 contact@bmitogo\.com\n📞 \+228 99 96 84 88 \/ \+228 91 13 05 11\n🌐 www\.bmitogo\.com\n\nBMI TOGO — Les bâtiments modernes et intelligents$/.test(texteD)
     && !/achat/i.test(M.TEXTE_RECU_DEPOT_CHANTIER) && texteD.length < M.LIMITE_MESSAGE_META);
