@@ -54,7 +54,7 @@ npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
 npm run verifier-cloisonnement   # 2901 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
-npm run tester-reglement         # 40  : les échéanciers client
+npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
 npm run tester-notifications     # 99  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret ; un clic mène à SA source : la cible, le repli, la personne visée)
 npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone ; 🔒 Matériel réservé rendu, le mur, la réappro sur le disponible)

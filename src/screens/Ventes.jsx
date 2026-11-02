@@ -27,6 +27,7 @@ import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
 import { mettreVenteALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
+import { paiementDuDevis } from "../lib/reglement";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, BoutonEnvoi, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp, fichierRecuDeVente, fichierRecuVersement } from "../lib/impression";
@@ -199,9 +200,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // que le total des articles — le vendeur n'avait alors aucune indication du
   // montant RÉEL à demander au client (articles + frais), et la caisse ne
   // comptait jamais ces frais, même quand ils étaient bel et bien encaissés.
-  const devisOrigine = origineDevis
-    ? (db.users.find((u) => u.id === origineDevis.client_id)?.devis || []).find((d) => d.id === origineDevis.devis_id)
-    : null;
+  const devisDeLOrigine = (od) => (od
+    ? ((db.users || []).find((u) => u.id === od.client_id)?.devis || []).find((d) => d.id === od.devis_id) || null
+    : null);
+  const devisOrigine = devisDeLOrigine(origineDevis);
   const fraisInstallDevis = Number(devisOrigine?.frais_installation || 0);
   const fraisTransportDevis = Number(devisOrigine?.frais_transport || 0);
   // RÉACTIF à chaque nouveau preRempli — pas seulement au tout premier
@@ -229,11 +231,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       responsable: preRempli.responsable || f0.responsable,
       rabais: preRempli.rabais || f0.rabais,
       ...identiteDe(preRempli.origineDevis),
+      // 💳 Un devis payé en plusieurs fois arrive en « Crédit (dette) », l'avance
+      // = son acompte (02/11/2026) ; sinon le paiement repart d'office.
+      ...(paiementDuDevis(devisDeLOrigine(preRempli.origineDevis)) || { paiement: PAIEMENTS[0], avance: "" }),
     }));
     if (onPreRempliConsomme) onPreRempliConsomme();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preRempli]);
-  const [f, setF] = useState({ ...identiteDe(preRempli?.origineDevis), client: preRempli?.client || "", tel: preRempli?.tel || "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
+  const [f, setF] = useState({ ...identiteDe(preRempli?.origineDevis), client: preRempli?.client || "", tel: preRempli?.tel || "", remise: preRempli?.remise ? String(preRempli.remise) : "", paiement: PAIEMENTS[0], avance: "", ...(paiementDuDevis(devisDeLOrigine(preRempli?.origineDevis)) || {}), commercial: preRempli?.commercial || (profile.role === "commercial" ? profile.nom : ""), responsable: preRempli?.responsable || null, rabais: preRempli?.rabais || "" });
   // 🏢 29/09/2026 (Timo) : le prénom (facultatif ici, « C a ») et
   // l'entreprise pour laquelle le client paie. Ils vont sur le reçu, la
   // proforma, la dette — et sur la fiche du client s'il a un compte (« B b »).

@@ -140,5 +140,18 @@ titre("Qui accepte un plan de reglement : l'administrateur PRINCIPAL, et lui seu
     /Seul l'administrateur PRINCIPAL peut accepter ou rejeter ce plan/.test(src));
 }
 
+console.log("\n💳 L'encaissement d'un devis payé en plusieurs fois (02/11/2026)");
+{
+  const p = R.paiementDuDevis({ total: 2900000, montant_acompte: 1700250, pct_acompte: 58.63 });
+  test("★★ un devis à acompte arrive en « Crédit (dette) », l'avance = son acompte (KOFFIVI : 1 700 250 sur 2 900 000)",
+    p && p.paiement === "Crédit (dette)" && p.avance === "1700250");
+  test("★ un devis payé en totalité, ou sans acompte défini, ne change rien (null)",
+    R.paiementDuDevis({ total: 500000, montant_acompte: 500000 }) === null && R.paiementDuDevis({ total: 500000 }) === null
+    && R.paiementDuDevis(null) === null && R.paiementDuDevis({ total: 500000, montant_acompte: 0 }) === null);
+  const V = readFileSync("src/screens/Ventes.jsx", "utf8");
+  test("★★ 💰 Ventes l'applique à l'arrivée d'un devis (le panier d'une commande comme au premier montage), sinon le paiement repart sur le premier moyen",
+    (V.match(/paiementDuDevis\(devisDeLOrigine\(preRempli\??\.origineDevis\)\)/g) || []).length === 2
+    && /\|\| \{ paiement: PAIEMENTS\[0\], avance: "" \}/.test(V));
+}
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -30,6 +30,19 @@ export const soldeApresAcompte = (devis) => {
   return Math.max(0, total - acompte);
 };
 
+// 💳 L'ENCAISSEMENT D'UN DEVIS PAYÉ EN PLUSIEURS FOIS (Timo, 02/11/2026 :
+// « l'option dette est choisie automatiquement et l'avance pré-remplie, pas à
+// la personne qui encaisse de remplir ») : un devis dont l'acompte est en
+// dessous du total arrive dans 💰 Ventes en « Crédit (dette) », l'avance = son
+// acompte. Un devis payé en totalité (ou sans acompte défini) : rien (null).
+export const PAIEMENT_CREDIT = "Crédit (dette)";
+export const paiementDuDevis = (devis) => {
+  const total = Number(devis?.total || 0);
+  const acompte = Math.round(Number(devis?.montant_acompte ?? total));
+  if (!(total > 0) || !(acompte > 0) || acompte >= total) return null;
+  return { paiement: PAIEMENT_CREDIT, avance: String(acompte) };
+};
+
 // Le dernier jour d'un mois donné — c'est ce que veut dire « fin du mois ».
 // ⚠ Le 31 n'existe pas partout : en passant du 31 janvier au mois suivant,
 // une addition naïve donnerait le 2 ou le 3 mars. On demande donc le jour 0
