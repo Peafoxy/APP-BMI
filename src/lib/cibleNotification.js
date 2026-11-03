@@ -55,6 +55,35 @@ export function ecranPour(onglets, ecran, extra = []) {
   return repli || null;
 }
 
+// 📍 UN MESSAGE AUTOMATIQUE MÈNE OÙ L'ON AGIT (03/11/2026, Timo : « cette
+// notification doit-elle conduire vers l'écran de validation des dépenses ou
+// vers les messages ? » → « a+b »). Un message que l'application écrit toute
+// seule (« ⏳ Dépense à valider », « 💰 Votre commission vous a été payée »…)
+// porte `vers` = { ecran, boutique, ligne } ; sa notification mène LÀ, et le
+// message reste dans 💬 Messages comme une trace. Un message tapé par une
+// personne n'en porte pas : il ouvre sa conversation, comme avant.
+export function versEcran(ecran, boutique, ligne) {
+  if (!ecran) return null;
+  const v = { ecran: String(ecran).slice(0, 40) };
+  if (boutique) v.boutique = String(boutique).slice(0, LONGUEUR_MAX);
+  if (ligne) v.ligne = String(ligne).slice(0, LONGUEUR_MAX);
+  return v;
+}
+export function versDuMessage(m) {
+  const v = m && m.vers;
+  if (!v || typeof v !== "object" || !v.ecran) return null;
+  return { ecran: String(v.ecran).slice(0, 40), cible: nettoyerCible({ boutique: v.boutique, ligne: v.ligne }) };
+}
+
+// L'écran où l'on agit n'est pas un onglet de la personne (le gérant qui n'a
+// pas 💵 Mon salaire, le commercial qui n'a pas 📋 Tous les devis…) : la
+// notification d'un MESSAGE retombe sur sa conversation, jamais sur rien.
+export function ecranOuConversation(onglets, ecran, cible, extra = []) {
+  const e = ecranPour(onglets, ecran, extra);
+  if (e) return e;
+  return cible && lireConv(cible.conv) ? ecranPour(onglets, "messages", extra) : null;
+}
+
 // Une cible écrite pour une AUTRE personne ne mène nulle part sur cet
 // appareil (un téléphone partagé) : seul l'onglet reste, s'il est permis.
 export function ciblePourMoi(cible, pour, idCompte) {

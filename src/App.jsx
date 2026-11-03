@@ -19,7 +19,7 @@ import { RechercheGlobale } from "./components/RechercheGlobale";
 import { OngletsDeplacables } from "./components/OngletsDeplacables";
 import { poserBlocageRetour, useRetour, useRetourOnglets } from "./retour";
 import { appliquerOrdre, ordreApres } from "./lib/ordreOnglets";
-import { lireAdresseCible, ecranPour, ciblePourMoi } from "./lib/cibleNotification";
+import { lireAdresseCible, ecranOuConversation, ciblePourMoi } from "./lib/cibleNotification";
 import { Dimensionnement, TYPES_PORTAIL } from "./screens/dimensionnement";
 import { TousLesDevis } from "./screens/TousLesDevis";
 import { Prospects } from "./screens/Prospects";
@@ -223,7 +223,7 @@ export default function App() {
     if (!profile) return;
     const affiches = ongletsAffichesRef.current;
     const permis = affiches.length ? affiches : [...(ONGLETS_ROLE[profile.role] || []), ...(profile.role !== "client" ? ["argent_recu"] : [])];
-    const e = ecranPour(permis, ecran);
+    const e = ecranOuConversation(permis, ecran, c);
     if (!e) return;
     setTab(e);
     const mienne = ciblePourMoi(c, pour, profile.id);
@@ -1498,7 +1498,7 @@ export default function App() {
       )}
       {ongletsVisites.dimensionnement && (
         <div style={{ display: tab === "dimensionnement" ? "block" : "none" }}>
-          <M.Dimensionnement db={db} profile={profile} save={save} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise, apporteur) => {
+          <M.Dimensionnement db={db} profile={profile} save={save} cible={cible} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise, apporteur) => {
             if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
             // 🤝 L'apporteur nommé dans le volet suit le panier jusqu'à 💰 Ventes
             // (29/09/2026). Une COMMANDE ne le porte pas : on le dit.

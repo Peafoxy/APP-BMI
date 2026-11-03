@@ -287,7 +287,7 @@ titre("Un seul chemin, et rien de secret dans l'application");
   const sw = lire("public/push-sw.js");
   test("★ le service worker affiche (push → showNotification) et ouvre l'écran au clic (notificationclick → ?ecran=)", /addEventListener\("push"/.test(sw) && /showNotification\(/.test(sw) && /addEventListener\("notificationclick"/.test(sw) && /p\.set\("ecran", ecran\)/.test(sw) && /clients\.openWindow\(`\.\/\?\$\{p\.toString\(\)\}`\)/.test(sw) && /ouvrir-ecran/.test(sw)); // RETOURNÉ 16/10/2026 : l'adresse porte aussi la cible et la personne visée
   test("vite.config charge push-sw.js dans le service worker généré", /importScripts: \["push-sw\.js"\]/.test(lire("vite.config.js")));
-  test("★ App.jsx ouvre l'écran demandé (?ecran= et message du service worker) SEULEMENT s'il est un onglet du rôle", /lireAdresseCible\(window\.location\.search\)/.test(app) && /const e = ecranPour\(permis, ecran\);/.test(app) && /ongletsAffichesRef\.current = tabsAutorises/.test(app) && /"ouvrir-ecran"/.test(app)); // RETOURNÉ 16/10/2026 : les onglets AFFICHÉS (pouvoirs compris), le repli d'un écran absent, la cible
+  test("★ App.jsx ouvre l'écran demandé (?ecran= et message du service worker) SEULEMENT s'il est un onglet du rôle", /lireAdresseCible\(window\.location\.search\)/.test(app) && /const e = ecranOuConversation\(permis, ecran, c\);/.test(app) && /ongletsAffichesRef\.current = tabsAutorises/.test(app) && /"ouvrir-ecran"/.test(app)); // RETOURNÉ 16/10/2026 : les onglets AFFICHÉS (pouvoirs compris), le repli d'un écran absent, la cible
   test("★ la permission est demandée AU CLIC de connexion (Connexion.jsx), et l'appareil est détaché à la déconnexion avant la fin de session",
     /const go = async \(\) => \{\n[^\n]*\n[^\n]*\n[^\n]*\n\s*demanderPermissionPush\(\);/.test(lire("src/screens/Connexion.jsx")) && /try \{ await oublierAppareil\(\); \} catch \{\}\n(?:\s*\/\/[^\n]*\n)*\s*try \{ await oublierSession\(\); \} catch \{\}\n\s*setProfile\(null\);/.test(app));
   test("l'appareil est rattaché à la personne à la connexion ET au retour (F5)", (app.match(/enregistrerAppareil\(u\)/g) || []).length === 2);
@@ -385,7 +385,7 @@ titre("🔔 Une notification mène à sa source");
     tousLesEnvois.length > 20 && tousLesEnvois.every((e) => e.cible && Object.keys(e.cible).length > 0), tousLesEnvois.filter((e) => !e.cible).map((e) => e.tag).join(", "));
   const nj = readFileSync("src/lib/notifications.js", "utf8");
   test("★★ dans lib/notifications.js, chaque notification (ecran: …) dit ce qu'elle ouvre (cible: …)",
-    (nj.match(/ecran: "/g) || []).length === (nj.match(/cible: \{/g) || []).length && (nj.match(/ecran: "/g) || []).length >= 19);
+    (nj.match(/ecran: (?:"|vers \?)/g) || []).length === (nj.match(/cible: \{/g) || []).length && (nj.match(/ecran: (?:"|vers \?)/g) || []).length >= 19);
   test("★ la tournée du matin : la caisse non clôturée vise sa boutique, la dette en retard sa boutique et sa ligne, le devis à relancer sa ligne ; fabriquerEnvoi la garde",
     /cible: \{ boutique: b\.nom \}/.test(readFileSync("src/lib/rappels.js", "utf8")) && /cible: \{ boutique, ligne: liste\[0\]\?\.id \}/.test(readFileSync("src/lib/rappels.js", "utf8"))
     && /cible: \{ ligne: d\.id \}/.test(readFileSync("src/lib/rappels.js", "utf8"))
@@ -422,6 +422,71 @@ titre("🔔 Une notification mène à sa source");
   test("★ le serveur aussi : 📲 la conversation du client qui écrit, 🔧 le chantier du solde de pose, 🔧 la tâche d'entretien",
     /cible: \{ conv: cle \}/.test(lireE("api/whatsapp-entrant.js")) && /cible: \{ ligne: r\.chantier\?\.id \}/.test(lireE("api/rappels-du-matin.js"))
     && /notificationTache\(\{ pour: r\.pour, chantier: r\.chantier, tache \}\)/.test(lireE("api/rappels-du-matin.js")) && /cible: \{ ligne: tache\?\.id \|\| "", membre: pour\.id \}/.test(lireE("src/lib/rappelEntretien.js")));
+}
+
+// ---- 📍 UN MESSAGE AUTOMATIQUE MÈNE OÙ L'ON AGIT (Timo, 03/11/2026, « a+b ») ----
+// « ⏳ Dépense à valider » ouvrait 💬 Messages : le DG devait changer
+// d'onglet, de boutique, et chercher la ligne. Le message porte `vers`.
+titre("📍 Un message automatique mène où l'on agit");
+{
+  const V = await import("../src/lib/versements.js");
+  const db0 = { users: [{ id: "dg", nom: "TIMO", role: "admin", admin_principal: true, actif: true }, { id: "gD", nom: "ANGELE", role: "gerant", boutique: "BMI DEMAKPOE", actif: true }, { id: "cpt", nom: "AMA", role: "comptable", actif: true }], boutiques: [{ nom: "BMI DEMAKPOE" }], messages: [] };
+  const avecVers = { id: "m1", de_id: "gD", de_nom: "ANGELE", a_id: "dg", texte: "⏳ Dépense à valider : 57 000 F", vers: C.versEcran("depenses", "BMI DEMAKPOE", "dep9") };
+  const e1 = N.envoiPourMessage(db0, avecVers);
+  test("★ la dépense à valider : la notification ouvre 📤 Dépenses, sur BMI DEMAKPOE et la ligne de la dépense — la conversation reste en repli",
+    e1?.ecran === "depenses" && e1?.cible?.boutique === "BMI DEMAKPOE" && e1?.cible?.ligne === "dep9" && e1?.cible?.conv === "user:gD");
+  const e2 = N.envoiPourMessage(db0, { id: "m2", de_id: "gD", de_nom: "ANGELE", a_id: "dg", texte: "Bonjour" });
+  test("★ un message TAPÉ par une personne (sans `vers`) ouvre toujours sa conversation, comme avant",
+    e2?.ecran === "messages" && e2?.cible?.conv === "user:gD" && !e2?.cible?.ligne);
+  test("★ l'écran où l'on agit n'est pas un onglet de la personne : un MESSAGE retombe sur 💬 Messages ; une notification qui n'est pas un message ne retombe sur rien",
+    C.ecranOuConversation(["messages", "ventes"], "depenses", { conv: "user:gD" }) === "messages"
+    && C.ecranOuConversation(["messages", "depenses"], "depenses", { conv: "user:gD" }) === "depenses"
+    && C.ecranOuConversation(["messages"], "depenses", { ligne: "x" }) === null
+    && C.ecranOuConversation(["ventes", "ravitaillement"], "stocks", {}) === "ravitaillement");
+  test("★ `vers` reste petit : un écran et deux textes courts, jamais autre chose (un champ inconnu est jeté)",
+    JSON.stringify(C.versDuMessage({ vers: { ecran: "caisse", boutique: "B", ligne: "l", pwd: "x" } })) === JSON.stringify({ ecran: "caisse", cible: { boutique: "B", ligne: "l" } })
+    && C.versDuMessage({}) === null && C.versDuMessage({ vers: {} }) === null && C.versEcran("") === null);
+  const sortieDG = { id: "v1", montant: 100000, boutique: "BMI DEMAKPOE", versement: { destination: V.DEST_DG } };
+  const sortieCpt = { id: "v2", montant: 100000, boutique: "BMI DEMAKPOE", versement: { destination: V.DEST_COMPTABLE } };
+  const mDG = V.messagesVersement(db0, { id: "gD", nom: "ANGELE" }, sortieDG);
+  const mCpt = V.messagesVersement(db0, { id: "gD", nom: "ANGELE" }, sortieCpt);
+  test("★ le versement à valider : le DG arrive dans 🔒 Caisse sur sa boutique et sa ligne, le comptable dans 🧾 Chez le comptable",
+    mDG.length === 1 && mDG[0].vers?.ecran === "caisse" && mDG[0].vers?.boutique === "BMI DEMAKPOE" && mDG[0].vers?.ligne === "v1"
+    && mCpt.length === 1 && mCpt[0].vers?.ecran === "chez_comptable");
+  const src = (f) => readFileSync(f, "utf8");
+  const sites = [
+    ["src/lib/validationDepenses.js", /versEcran\("depenses", boutique, depense\.id\)/, "⏳ Dépense à valider"],
+    ["src/lib/validationDepenses.js", /versEcran\("depenses", dep\.boutique, dep\.id\), texte: `✅ Dépense validée/, "✅ Dépense validée"],
+    ["src/lib/validationDepenses.js", /versEcran\("depenses", dep\.boutique, dep\.id\), texte: `✖ Dépense REJETÉE/, "✖ Dépense rejetée"],
+    ["src/lib/validationDepenses.js", /versEcran\("salaire"\), texte: `💵 Avance remboursée/, "💵 Avance remboursée"],
+    ["src/lib/versements.js", /versEcran\("caisse", dep\.boutique, dep\.id\), texte \}/, "✖ Versement rejeté"],
+    ["src/lib/calculs.js", /versEcran\(ongletDetail === "💰 Primes reçues" \? "primes_recues" : "commission"\)/, "💰 Prime d'installation payée"],
+    ["src/lib/calculs.js", /destination === "Chez le comptable" \? versEcran\("chez_comptable"\) : versEcran\("caisse", destination\)/, "💰 Sortie de caisse signalée"],
+    ["src/lib/calculs.js", /client_id: app\.parrain_user_id, vers: versEcran\("espace_client"\)/, "🎉 Commission de parrainage"],
+    ["src/lib/modifDevis.js", /a_id: client\.id, devis_id: devis\.id, vers: versEcran\("espace_client", "", devis\.id\)/, "✏️ BMI demande de modifier (client)"],
+    ["src/screens/EspaceClient.jsx", /vers: versEcran\("tous_devis", "", d\.id\), texte: `❌ DEVIS REJETÉ/, "❌ Devis rejeté"],
+    ["src/screens/EspaceClient.jsx", /vers: versEcran\("tous_devis", "", d\.id\), texte: `✏️ MODIFICATION DEMANDÉE/, "✏️ Modification demandée"],
+    ["src/lib/comptesClients.js", /a_id: admin\.id, vers: versEcran\("users", "", user\.id\)/, "🙋 Nouveau client"],
+    ["src/screens/dimensionnement/Brouillons.jsx", /vers: versEcran\("dimensionnement", "", b\.id\),\n\s*texte: `📨/, "📨 Brouillon confié"],
+    ["src/screens/dimensionnement/Brouillons.jsx", /vers: versEcran\("dimensionnement", "", b\.id\),\n\s*texte: `🤝/, "🤝 Taux fixé"],
+    ["src/screens/dimensionnement/Partages.jsx", /vers: versEcran\("dimensionnement", "", brouillon\.id\)/, "📝 Brouillon préparé pour vous"],
+    ["src/screens/ClientsInstalles.jsx", /vers: versEcran\("parc", "", c\.id\), texte \}/, "📅 Affecté à une installation"],
+    ["src/screens/ClientsInstalles.jsx", /vers: versEcran\("primes_remises"\),\n\s*texte: `↩ La demande de prime/, "↩ Demande de prime annulée"],
+    ["src/screens/Outillage.jsx", /vers: versEcran\("outillage"\), texte: `🧰 Vous répondez/, "🧰 Outil sorti à votre nom"],
+    ["src/screens/Outillage.jsx", /vers: versEcran\("outillage"\), texte: texteResp/, "🧰 Outil déclaré perdu"],
+    ["src/screens/Outillage.jsx", /vers: versEcran\("salaire"\), texte: `💵/, "💵 Retenue pour un outil perdu"],
+  ];
+  const manquants = sites.filter(([f, re]) => !re.test(src(f))).map(([, , nom]) => nom);
+  test(`★ chaque message automatique porte SA destination (${sites.length} messages relus)${manquants.length ? ` — manque : ${manquants.join(", ")}` : ""}`, manquants.length === 0);
+  test("★ les trois de 👑 Mon équipe (commission payée, d'équipe payée, règlement annulé) mènent à 💵 Ma commission ; les trois réponses du client sur un devis corrigé, à 📋 Tous les devis",
+    (src("src/screens/MonEquipe.jsx").match(/vers: versEcran\("commission"\)/g) || []).length === 3
+    && (src("src/lib/modifDevis.js").match(/vers: versEcran\("tous_devis", "", devis\.id\)/g) || []).length === 3);
+  test("★ App.jsx passe par la règle (jamais `ecranPour` seul), et 📐 Dimensionnement ouvre 📝 Mes brouillons sur une notification ; les brouillons et les deux cadres « à valider par le DG » portent leur ligne",
+    /ecranOuConversation\(permis, ecran, c\)/.test(src("src/App.jsx")) && !/ecranPour\(permis/.test(src("src/App.jsx"))
+    && /useCible\(cible, "dimensionnement", \(\) => setMode\("brouillons"\)\)/.test(src("src/screens/dimensionnement/index.jsx")) && /<M\.Dimensionnement db=\{db\} profile=\{profile\} save=\{save\} cible=\{cible\}/.test(src("src/App.jsx"))
+    && (src("src/screens/dimensionnement/Brouillons.jsx").match(/data-ligne=\{b\.id\}/g) || []).length === 2
+    && /aValiderDG\.map\(\(d\) => \(\n\s*<div key=\{d\.id\} data-ligne=\{d\.id\}/.test(src("src/screens/Depenses.jsx"))
+    && /aValiderDG\.map\(\(d\) => \(\n\s*<div key=\{d\.id\} data-ligne=\{d\.id\}/.test(src("src/screens/Caisse.jsx")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

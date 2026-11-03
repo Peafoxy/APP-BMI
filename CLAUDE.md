@@ -56,7 +56,7 @@ npm run verifier-cloisonnement   # 2901 contrôles : la séparation formation / 
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run tester-notifications     # 99  : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret ; un clic mène à SA source : la cible, le repli, la personne visée)
+npm run tester-notifications     # 107 : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret ; un clic mène à SA source : la cible, le repli, la personne visée ; un message automatique mène où l'on agit)
 npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone ; 🔒 Matériel réservé rendu, le mur, la réappro sur le disponible)
 npm run verifier-ecran-ventes    # 52  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
@@ -526,6 +526,29 @@ lit mal est pire qu'un banc absent).
   une cible sur chaque envoi produit. Rien à coller. Bancs
   `tester-notifications` (+14), `verifier-ecran-qui-se-montre` (+6, Chromium),
   éprouvés ; deux contrôles RETOURNÉS dans chacun. Chapitres 1, 8, 9, 20.
+- **📍 UN MESSAGE AUTOMATIQUE MÈNE OÙ L'ON AGIT** (03/11/2026, capture Timo :
+  « ⏳ Dépense à valider » ouvrait 💬 Messages → « a+b »). Un message que
+  l'application écrit toute seule porte **`vers`** = { ecran, boutique, ligne }
+  (`versEcran` / `versDuMessage`, lib/cibleNotification.js) ; `envoiPourMessage`
+  y mène, la conversation reste en repli (`ecranOuConversation`, App.jsx : un
+  écran que la personne n'a pas → 💬 Messages). Un message TAPÉ n'en porte pas.
+  Posé sur 20 messages + 6 : dépense à valider / validée / rejetée → 📤 Dépenses
+  (sa ligne, `data-ligne` sur le cadre du DG) ; versement à valider → 🔒 Caisse
+  (DG) ou 🧾 Chez le comptable ; versement rejeté et sortie de caisse signalée →
+  🔒 Caisse ; devis rejeté / modification demandée / réponses du client sur un
+  devis corrigé → 📋 Tous les devis ; BMI demande de modifier, cadeau, date
+  d'installation, part du parrain → 🏠 Mon espace (client) ; brouillon confié /
+  préparé pour vous / taux fixé → 📐 → 📝 Mes brouillons (`useCible` dans
+  dimensionnement/index.jsx) ; brouillon envoyé → 📋 Tous les devis ; nouveau
+  client → 👥 Utilisateurs ; commission payée / annulée → 💵 Ma commission ;
+  prime d'installation → 💰 Primes reçues ou 💵 Ma commission ; demande de prime
+  annulée → 💰 Primes remises ; affectation → 🏠 Clients installés ; outil sorti
+  / perdu → 🧰 ; avance remboursée, retenue d'outil → 💵 Mon salaire. **Un
+  NOUVEAU message automatique porte son `vers`.** « 🔁 Demande de transfert »
+  vers 📦 Stocks était juste (le panneau y est aussi). ⚠ Les messages d'AVANT
+  gardent la conversation. Rien à coller. Banc `tester-notifications` (+8, deux
+  RETOURNÉS), éprouvé ; deux contrôles RETOURNÉS dans `verifier-cloisonnement`.
+  Chapitres 1, 17, 20.
 - **Rien de secret dans l'application** : clé publique `CLE_PUBLIQUE_PUSH`
   (constants.js) ; clé privée = variable Vercel `VAPID_PRIVATE_KEY`
   uniquement ; la tournée exige `CRON_SECRET`. Table `abonnements_push` sans

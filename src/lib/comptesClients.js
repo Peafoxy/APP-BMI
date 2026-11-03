@@ -34,6 +34,7 @@ export const ADRESSE_APP = "https://gestion.bmitogo.com";
 // la création d'un compte client plantait. Le banc de parrainage l'a vu.
 import { ROLE_ASSISTANT_DIRECTION, libelleAssistantDirection } from "./civilite.js";
 import { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant, estSansAcces, MESSAGE_SANS_ACCES } from "./identiteClient.js";
+import { versEcran } from "./cibleNotification.js";
 export { chiffresTel, lettresNom, motDePasseClient, memeIdentifiant, estSansAcces, MESSAGE_SANS_ACCES };
 
 // 🖨 La fiche d'un client SANS ACCÈS s'ouvre (15/10/2026) : on POSE
@@ -406,7 +407,7 @@ export function messagesNouveauClient(db, user, parQui) {
   const admins = db.users.filter((u) => u.role === "admin" && u.actif !== false && u.id !== parQui?.id
     && (u.admin_principal === true || !!u.formation === !!user.formation));
   return admins.map((admin) => nouveauMessage(parQui, {
-    a_id: admin.id,
+    a_id: admin.id, vers: versEcran("users", "", user.id),
     texte: `🙋 Nouveau client créé par ${parQui?.nom || "quelqu'un"} : ${user.nom_base || user.nom}${user.tel ? ` (${user.tel})` : ""}.`,
   }));
 }

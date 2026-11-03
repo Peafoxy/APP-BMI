@@ -38,6 +38,7 @@ import { travauxSolde, filtreEspaceAffichage } from "../lib/calculs";
 import { factureMontant, coutTravaux, margeTravaux } from "../lib/travaux";
 import { dateApresMois, critiqueEntretienFait, marquerEntretienFait, dernierEntretien, MOIS_ENTRE_ENTRETIENS, MARQUE_TACHE_ENTRETIEN } from "../lib/rappelEntretien";
 import { useRetour } from "../retour";
+import { versEcran } from "../lib/cibleNotification";
 
 // ============ FRAIS D'INSTALLATION ============
 // Les frais facturés au client sont répartis entre les techniciens présents sur le
@@ -295,7 +296,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
     // Le message : il le verra même s'il ne regarde pas sa fiche.
     const message = c.user_id ? nouveauMessage(profile, {
-      canal: "support", client_id: c.user_id,
+      canal: "support", client_id: c.user_id, vers: versEcran("espace_client"),
       texte: `🎁 Bonne nouvelle ! BMI Togo vous offre : ${quoi.trim()}.\n\nPassez le récupérer à la boutique ${boutique}. À très bientôt !`,
     }) : null;
 
@@ -479,13 +480,13 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
       ...principal.map((e) => ({ e, texte: `📅 Vous avez été affecté${e.chef ? " comme chef d'équipe ⭐" : ""} à l'installation de ${c.prenom} ${c.nom} le ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.` })),
       ...changements.map(({ e, phrase }) => ({ e, texte: `📅 Changement sur l'installation de ${c.prenom} ${c.nom} : ${phrase}` })),
     ];
-    const messagesNotif = avis.map(({ e, texte }) => nouveauMessage(profile, { a_id: e.user_id, texte }));
+    const messagesNotif = avis.map(({ e, texte }) => nouveauMessage(profile, { a_id: e.user_id, vers: versEcran("parc", "", c.id), texte }));
 
     // Le CLIENT aussi doit savoir — surtout s'il avait émis des réserves et
     // attend un passage de rattrapage. Sans ce message, il n'avait aucun moyen
     // de savoir qu'une date (nouvelle ou changée) venait d'être fixée.
     const messageClient = (c.user_id && dateAChange) ? [nouveauMessage(profile, {
-      a_id: c.user_id,
+      a_id: c.user_id, vers: versEcran("espace_client"),
       texte: dateAvant
         ? `📅 La date de votre installation a été mise à jour : ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`
         : `📅 Votre installation est programmée le ${dFR(p.date)}${c.localisation ? ` (${c.localisation})` : ""}.`,
@@ -833,7 +834,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const avis = annulees.flatMap((e) => (db.users || [])
       .filter((u) => u.actif !== false && u.boutique === e.prime_boutique && ["vendeur", "gerant"].includes(u.role))
       .map((u) => nouveauMessage(profile, {
-        a_id: u.id,
+        a_id: u.id, vers: versEcran("primes_remises"),
         texte: `↩ La demande de prime de ${e.nom} (${fmt(e.montant)}, chantier ${c.nom} ${c.prenom || ""}) a été annulée : la répartition des frais vient d'être refaite par ${profile.nom}. Ne la payez pas — une nouvelle demande vous sera envoyée si besoin.`,
       })));
 

@@ -625,7 +625,7 @@ export function Depenses({ db, save, profile, cible = null }) {
           {aValiderDG.length === 0 && <div className="text-sm text-slate-400">Aucune dépense de {boutique} en attente de votre validation (à partir de {fmt(SEUIL_VALIDATION_DEPENSE)}).</div>}
           <div className="space-y-1">
             {aValiderDG.map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+              <div key={d.id} data-ligne={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
                 <div><b>{dFR(d.date)}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.categorie}{d.description ? ` — ${d.description}` : ""}
                   <div className="text-xs text-slate-500">saisie par {d.par} · {d.paiement} · payée avec : {libellePayeAvecDeDansPhrase(d)}</div>
                 </div>

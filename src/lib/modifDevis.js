@@ -27,6 +27,7 @@
 // Règles PURES : le banc les exerce, aucun accès à l'écran.
 // ============================================================
 import { today, fmt, nouveauMessage } from "./core";
+import { versEcran } from "./cibleNotification";
 import { PLAN_EN_ATTENTE } from "./reglement";
 import { acomptePose } from "./poseSeule";
 import { apporteurPourDettePose } from "./apporteurDevis";
@@ -91,7 +92,7 @@ export function poserDemandeModif(db, client, devis, profile, motif, date = toda
     motif: String(motif).trim(), par: profile?.nom || "", par_id: profile?.id || "",
     le: date, statut: "attente",
   };
-  const message = nouveauMessage(profile, { a_id: client.id, devis_id: devis.id,
+  const message = nouveauMessage(profile, { a_id: client.id, devis_id: devis.id, vers: versEcran("espace_client", "", devis.id),
     texte: `✏️ DEMANDE DE MODIFICATION du devis de ${fmt(devis.total)} — motif : ${demande.motif}` });
   return {
     db: { ...db, messages: [message, ...(db.messages || [])],
@@ -105,7 +106,7 @@ export function poserDemandeModif(db, client, devis, profile, motif, date = toda
 export function repondreDemandeModif(db, client, devis, accepte, date = today()) {
   if (!demandeModifEnCours(devis)) return { erreur: "Cette demande n'est plus en attente." };
   const demande = { ...devis.demande_bmi, statut: accepte ? "acceptee" : "refusee", repondu_le: date };
-  const message = nouveauMessage(client, { a_id: devis.demande_bmi.par_id, devis_id: devis.id,
+  const message = nouveauMessage(client, { a_id: devis.demande_bmi.par_id, devis_id: devis.id, vers: versEcran("tous_devis", "", devis.id), 
     texte: accepte
       ? `✅ Le client ACCEPTE que le devis de ${fmt(devis.total)} soit modifié. Corrigez-le et renvoyez-le.`
       : `❌ Le client REFUSE la modification du devis de ${fmt(devis.total)} : il reste tel qu'il a été signé.` });
@@ -176,7 +177,7 @@ export function accepterDevisCorrige(db, clientId, devisId, { signature, plan, d
       clients_installes: ch && ch.pose_seule
         ? (db.clients_installes || []).map((c) => (c.id === ch.id ? { ...c, frais_installation: Number(devis.total || 0) } : c))
         : db.clients_installes,
-      messages: [nouveauMessage(client, { a_id: devis.par_id, devis_id: devis.id,
+      messages: [nouveauMessage(client, { a_id: devis.par_id, devis_id: devis.id, vers: versEcran("tous_devis", "", devis.id), 
         texte: `✅ Le client ACCEPTE le devis corrigé (${fmt(devis.total)}) et l'a re-signé.${planRevalide ? " Le plan de règlement est à revalider." : ""}` }), ...(db.messages || [])],
     },
     journal: `Devis corrigé ${fmt(devis.total)} ACCEPTÉ et re-signé par ${acteur?.nom || client.nom}${planRevalide ? " — plan de règlement à revalider" : ""}`,
@@ -197,7 +198,7 @@ export function refuserDevisCorrige(db, clientId, devisId, { motif, date = today
       users: majDevis(db, clientId, devisId, {
         statut: "rejete", motif_rejet: String(motif).trim(), rejete_le: date, demande_bmi: null, vu_par: [],
       }),
-      messages: [nouveauMessage(client, { a_id: devis.par_id, devis_id: devis.id,
+      messages: [nouveauMessage(client, { a_id: devis.par_id, devis_id: devis.id, vers: versEcran("tous_devis", "", devis.id), 
         texte: `❌ Le client REFUSE le devis corrigé (${fmt(devis.total)}) — motif : ${String(motif).trim()}` }), ...(db.messages || [])],
     },
     journal: `Devis corrigé ${fmt(devis.total)} REFUSÉ par ${acteur?.nom || client.nom} — ${String(motif).trim()}`,

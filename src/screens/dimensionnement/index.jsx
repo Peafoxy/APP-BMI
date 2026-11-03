@@ -10,6 +10,7 @@ import { DimensionnementGarage } from "./Garage";
 import { DimensionnementAutre } from "./Autre";
 import { MesBrouillons } from "./Brouillons";
 import { remonterEnHaut } from "../../components/ui";
+import { useCible } from "../../components/cibleEcran";
 import { brouillonsDe } from "./devisCommun";
 
 // ⚠ Demande Timo (18/08/2026) : « dès qu'un domaine est créé dans les
@@ -22,7 +23,7 @@ import { brouillonsDe } from "./devisCommun";
 //   • "libre" — aucun calcul : les familles du domaine, les articles, le
 //     devis. Personne ne peut inventer les règles de dimensionnement d'un
 //     métier à partir de son seul nom.
-export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAReprendre: devisAReprendreProp, onDevisRepriseConsomme: onDevisRepriseConsommeProp }) {
+export function Dimensionnement({ db, profile, save, cible, onConvertirEnVente, devisAReprendre: devisAReprendreProp, onDevisRepriseConsomme: onDevisRepriseConsommeProp }) {
   const domaines = domainesDefinis(db);
   // 📝 Mes brouillons (demande Timo, 08/09/2026) : un brouillon repris ici
   // suit le même chemin qu'un devis repris depuis « Tous les devis ».
@@ -75,6 +76,10 @@ export function Dimensionnement({ db, profile, save, onConvertirEnVente, devisAR
     if (cible) { setMode(cible); remonterEnHaut(true); } // le devis repris se lit depuis son haut
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [devisAReprendre]);
+
+  // 📍 Une notification de brouillon (confié, préparé pour vous, taux fixé —
+  // 03/11/2026) ouvre 📝 Mes brouillons ; la ligne est marquée par App.jsx.
+  useCible(cible, "dimensionnement", () => setMode("brouillons"));
 
   // Le devis repris n'est transmis qu'au volet qui doit le reprendre.
   const pourCeDomaine = (id) => (domaineDuDevis(devisAReprendre?.devis) === id ? devisAReprendre : null);

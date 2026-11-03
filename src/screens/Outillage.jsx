@@ -29,6 +29,7 @@ import { construireDepenseSaisie, optionsPayeAvec, interpreterPayeAvec, libelleC
 import { critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
 import { CATEGORIE_REPARATION_OUTIL, MOYENS_ENCAISSEMENT } from "../lib/constants";
 import { bloquerSiLecture, refuserSaufAdmin, refuserSaufAdminPrincipal, estAdminPrincipal, estCompteFormation, utilisateursDeLEspace, boutiquesVisibles, chantiersOuvertsPourOutil } from "../lib/calculs";
+import { versEcran } from "../lib/cibleNotification";
 import {
   ETATS_OUTIL, peutTenirOutillage, outilsDe, outilsVivants, etatOutil, libelleEtat,
   detenteurOutil, sortieEnCours, enRetard, joursDehors, critiqueSortieLot, critiqueAjoutLot, nommerLot, sortirOutil, critiqueRetour,
@@ -415,7 +416,7 @@ export function Outillage({ db, save, profile }) {
     // UN seul message, qui liste les outils : on ne fait pas vibrer cinq fois
     // le téléphone de la même personne pour un seul geste.
     const messages = p.id !== profile.id
-      ? [nouveauMessage(profile, { a_id: p.id, texte: `🧰 Vous répondez de ${nommerLot(lot)}, ${lot.length > 1 ? "sortis" : "sorti"} le ${dFR(jour)}${f.chantier ? ` pour ${f.chantier}` : ""}. Retour attendu le ${dFR(f.retour_prevu)}.` })]
+      ? [nouveauMessage(profile, { a_id: p.id, vers: versEcran("outillage"), texte: `🧰 Vous répondez de ${nommerLot(lot)}, ${lot.length > 1 ? "sortis" : "sorti"} le ${dFR(jour)}${f.chantier ? ` pour ${f.chantier}` : ""}. Retour attendu le ${dFR(f.retour_prevu)}.` })]
       : [];
     save(
       { ...db, boutiques, ...(messages.length ? { messages: [...(db.messages || []), ...messages] } : {}) },
@@ -628,7 +629,7 @@ export function Outillage({ db, save, profile }) {
         : mode === "commission" ? ` ${fmt(du)} vous seront retenus sur vos prochaines parts d'installation.`
         : retenues.length ? ` ${fmt(retenues[0])} sont retenus sur votre salaire de ${retenues[1]}${du > retenues[0] ? `, et ${fmt(du - retenues[0])} restent à rembourser` : ""}.`
         : ` ${fmt(du)} restent à rembourser sur votre salaire.`);
-    const messages = resp && resp.id !== profile.id ? [nouveauMessage(profile, { a_id: resp.id, texte: texteResp })] : [];
+    const messages = resp && resp.id !== profile.id ? [nouveauMessage(profile, { a_id: resp.id, vers: versEcran("outillage"), texte: texteResp })] : [];
     return { apres, mention, extra: { users, ...(messages.length ? { messages: [...(db.messages || []), ...messages] } : {}) }, valeur };
   };
 
@@ -835,7 +836,7 @@ export function Outillage({ db, save, profile }) {
     const apres = ajouterRetenue(outil, perte.id, { id: uid(), le: jour, montant, sur: "salaire", mois, ref: `Salaire ${mois}`, par: profile.nom });
     const reste = resteARetenir(perteDe(apres));
     ecrireOutil(outil, apres, `🧰 Retenue de ${fmt(montant)} sur le salaire de ${qui.nom} (${mois}) — outil perdu « ${outil.nom} »`,
-      { users, messages: [...(db.messages || []), nouveauMessage(profile, { a_id: qui.id, texte: `💵 ${fmt(montant)} sont retenus sur votre salaire de ${mois} pour l'outil perdu « ${outil.nom} ».${reste > 0 ? ` Reste à rembourser : ${fmt(reste)}.` : " Cette perte est soldée."}` })] });
+      { users, messages: [...(db.messages || []), nouveauMessage(profile, { a_id: qui.id, vers: versEcran("salaire"), texte: `💵 ${fmt(montant)} sont retenus sur votre salaire de ${mois} pour l'outil perdu « ${outil.nom} ».${reste > 0 ? ` Reste à rembourser : ${fmt(reste)}.` : " Cette perte est soldée."}` })] });
   };
 
   const reformer = async (outil) => {

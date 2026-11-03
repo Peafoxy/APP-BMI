@@ -15,6 +15,7 @@ import { envoiDevisDisponible, accesDejaEnvoyes, traceEnvoi, motifAttendu, messa
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { devisACompleter } from "../../lib/devisCfVisite";
 import { prospectAvecDevis } from "../../lib/prospects";
+import { versEcran } from "../../lib/cibleNotification";
 import { apporteurVide, apporteurDepuisDevis, apporteurDuFormulaire, critiqueApporteur, baseApporteurSaisie, commissionApporteur, TAUX_APPORTEUR_DEFAUT } from "../../lib/apporteurDevis";
 
 // ============ BROUILLONS DES TROIS VOLETS — LA RÈGLE EN UN SEUL ENDROIT ============
@@ -678,7 +679,7 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
       const base = brouillonRepris ? retirerBrouillon(db, idProprio, brouillonRepris) : db;
       // Son propre brouillon, repris et corrigé : il le retrouve à sa place.
       const dejaLeSien = !!proprioBrouillon && proprioBrouillon.id === pourQui.id;
-      const avis = nouveauMessage(profile, { a_id: pourQui.id,
+      const avis = nouveauMessage(profile, { a_id: pourQui.id, vers: versEcran("dimensionnement", "", brouillon.id),
         texte: `📝 ${profile.nom} a ${dejaLeSien ? "modifié votre" : "préparé pour vous un"} brouillon de devis : « ${titre} » (${fmt(devis.total)})${remplace ? " — la correction de votre devis déjà envoyé" : ""}. Retrouvez-le dans 📐 Dimensionnement → 📝 Mes brouillons pour le vérifier et l'envoyer : il partira à votre nom.` });
       const dbB = ajouterBrouillon(base, pourQui.id, brouillon);
       save({ ...dbB, messages: [...(dbB.messages || []), avis] }, `📝 Brouillon de devis enregistré pour ${pourQui.nom} — ${titre}${client ? "" : " (sans compte)"} (${fmt(devis.total)}) par ${profile.nom}`);

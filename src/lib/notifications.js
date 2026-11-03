@@ -34,7 +34,7 @@ import { fiche as ficheArgent, soldeDuRetour, caissesDuRetour, nomDossier } from
 import { achatsReglesParUnVersement, nomChantier as nomChantierAchat } from "./achatsChantier";
 import { TYPE_PRO, personnesDuRdv } from "./rendezVous";
 import { jourEnClair, heureEnClair } from "./whatsappModeles";
-import { convDeMessage, LIGNE_A_REAPPROVISIONNER, LIGNE_CLOTURES_DEPASSEES } from "./cibleNotification";
+import { convDeMessage, versDuMessage, LIGNE_A_REAPPROVISIONNER, LIGNE_CLOTURES_DEPASSEES } from "./cibleNotification";
 
 const parId = (liste) => new Map((liste || []).map((x) => [x.id, x]));
 const nomsLignes = (lignes) => (lignes || []).map((l) => `${l.qte}× ${l.nom}`).join(", ");
@@ -67,10 +67,11 @@ export function destinatairesMessage(db, m) {
 export function envoiPourMessage(db, m) {
   const client = m.canal === "support" ? (db.users || []).find((u) => u.id === m.client_id) : null;
   const formation = client ? estCompteFormation(db, client) : false;
+  const vers = versDuMessage(m);
   return fabriquerEnvoi({
     destinataires: destinatairesMessage(db, m),
-    titre: `💬 ${m.de_nom || "BMI Togo"}`, texte: m.texte, ecran: "messages", tag: `message:${m.id}`, formation,
-    cible: { conv: convDeMessage(m) },
+    titre: `💬 ${m.de_nom || "BMI Togo"}`, texte: m.texte, ecran: vers ? vers.ecran : "messages", tag: `message:${m.id}`, formation,
+    cible: { conv: convDeMessage(m), ...(vers?.cible || {}) },
   });
 }
 

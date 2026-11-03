@@ -11,6 +11,7 @@ import { uAlert, uConfirm, uPrompt, uChoix, inputCls, BoutonEnvoi, LIBELLE_ENVOI
 import { bloquerSiLecture, estAdminPrincipal, refuserSaufAdminPrincipal, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { libelleRoleEmploye } from "../../lib/comptesClients";
 import { brouillonsAvecApporteur, fixerTauxBrouillon } from "../../lib/apporteurDevis";
+import { versEcran } from "../../lib/cibleNotification";
 import { brouillonsDe, retirerBrouillon, nomDuBrouillon, brouillonSansClient, destinatairesBrouillon, confierBrouillon, devisRemplace, auteursDesBrouillons, critiqueBrouillonAutrui, avisBrouillonEnvoye, avisBrouillonSupprime } from "./devisCommun";
 import { resoudreClientDevis, envoyerDevisEtOuvrirWhatsApp, useEtapeEnvoiDevis } from "./Partages";
 import { messageDevisEnvoye } from "../../lib/whatsappModeles";
@@ -109,7 +110,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtre
     if (!a || !await uConfirm(`Confier le brouillon « ${nomDuBrouillon(b)} » à ${a.nom} ?\n\nIl quitte vos brouillons et arrive dans les siens, client compris. C'est ${a.nom} qui l'enverra : le devis partira à son nom (avec la mention « préparé par ${b.devis?.prepare_par || profile.nom} »).`)) return;
     const r = confierBrouillon(db, profile.id, a.id, b.id, { par: profile.nom, le: today() });
     if (r.erreur) { uAlert(r.erreur); return; }
-    const message = nouveauMessage(profile, { a_id: a.id,
+    const message = nouveauMessage(profile, { a_id: a.id, vers: versEcran("dimensionnement", "", b.id),
       texte: `📨 ${profile.nom} vous confie son brouillon de devis : « ${nomDuBrouillon(b)} » (${fmt(b.devis?.total)}). Retrouvez-le dans 📐 Dimensionnement → 📝 Mes brouillons pour le finaliser et l'envoyer.` });
     save({ ...r.db, messages: [...(r.db.messages || []), message] },
       `📨 Brouillon de devis « ${nomDuBrouillon(b)} » (${fmt(b.devis?.total)}) confié par ${profile.nom} à ${a.nom}`);
@@ -138,7 +139,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtre
     const frais = brouillonsDe(auteur).find((x) => x.id === b.id);
     if (!frais) { uAlert("Ce brouillon n'existe plus : il a été envoyé ou supprimé."); return; }
     const maj = fixerTauxBrouillon(frais, taux, profile, today());
-    const avis = u.id === profile.id ? [] : [nouveauMessage(profile, { a_id: u.id,
+    const avis = u.id === profile.id ? [] : [nouveauMessage(profile, { a_id: u.id, vers: versEcran("dimensionnement", "", b.id),
       texte: `🤝 Le pourcentage de l'apporteur ${a.nom} est fixé à ${taux} % sur votre brouillon de devis pour ${b.client?.nom || "?"}. Reprenez-le dans 📝 Mes brouillons pour l'envoyer au client.` })];
     save({
       ...db,
@@ -161,7 +162,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtre
         ) : (
           <div className="divide-y divide-amber-200">
             {aFixer.map(({ u, b }) => (
-              <div key={`${u.id}-${b.id}`} className="py-2 flex flex-wrap items-center gap-2 text-sm">
+              <div key={`${u.id}-${b.id}`} data-ligne={b.id} className="py-2 flex flex-wrap items-center gap-2 text-sm">
                 <div className="flex-1 min-w-[12rem]">
                   <span className="font-bold">{b.devis.apporteur_externe.nom}</span> · <b>{b.devis.apporteur_externe.taux} %</b>
                   {b.devis.apporteur_externe.taux_fixe_par ? <span className="text-xs text-slate-500"> (fixé par {b.devis.apporteur_externe.taux_fixe_par})</span> : null}
@@ -203,7 +204,7 @@ export function MesBrouillons({ db, profile, save, domaines, onReprendre, filtre
       ) : (
         <div className="divide-y divide-slate-100">
           {liste.map((b) => (
-            <div key={b.id} className="py-2 flex flex-wrap items-center gap-2 text-sm">
+            <div key={b.id} data-ligne={b.id} className="py-2 flex flex-wrap items-center gap-2 text-sm">
               <div className="flex-1 min-w-[12rem]">
                 <span className="font-bold">{nomDuBrouillon(b)}</span>{b.client?.tel ? <span className="text-slate-500"> · {b.client.tel}</span> : null}
                 {brouillonSansClient(b) && <span className="ml-2 text-[11px] font-bold text-amber-800 bg-amber-100 rounded-full px-2 py-0.5" data-brouillon-sans-client>sans compte</span>}

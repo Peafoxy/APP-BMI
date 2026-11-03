@@ -11,6 +11,7 @@ import { PERTES_PCT_DEFAUT } from "./pompes.js";
 import { PRIX_RAIL_DEFAUT, LONGUEUR_RAIL_DEFAUT, prixRailDesBoutiques, longueurRailDesBoutiques } from "./choixSolaire.js";
 import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME, numeroBulletin } from "./core";
 import { envoiVirementSalaire, envoiPrimeInstallationPayee, envoiTacheAssignee, envoiTacheValidee } from "./whatsappModeles";
+import { versEcran } from "./cibleNotification";
 import { libelleRoleEmploye } from "./comptesClients";
 import { mentionVirement, ficheParId } from "./banques";
 import { SALARIES, MOYENS_ENCAISSEMENT, NOM_CAISSE_TERRAIN, NOM_CAISSE_TERRAIN_FORMATION, libelleCaisse, caisseDeVente, boutiqueDuDocument, estNomCaisseChantier } from "./constants";
@@ -1024,10 +1025,11 @@ export async function choisirSourcePaiementG(db, u, titre, profile, moyen, monta
 // comptable) sache que cette sortie est passée, et à qui.
 export function messagesNotifSortieCaisse(db, profile, destination, nomBeneficiaire, montant, libelle = "Commission payée à", sens = "sortie") {
   const texte = `💰 ${libelle} ${nomBeneficiaire} : ${fmt(montant)} — ${sens === "entree" ? "entrée de caisse" : "sortie de caisse"} : ${destination}.`;
+  const vers = destination === "Chez le comptable" ? versEcran("chez_comptable") : versEcran("caisse", destination);
   const destinataires = destination === "Chez le comptable"
     ? db.users.filter((u) => u.role === "comptable" && u.actif !== false)
     : db.users.filter((u) => (u.role === "vendeur" || u.role === "gerant") && u.boutique === destination && u.actif !== false);
-  return destinataires.map((u) => nouveauMessage(profile, { a_id: u.id, texte }));
+  return destinataires.map((u) => nouveauMessage(profile, { a_id: u.id, vers, texte }));
 }
 // Ancien nom conservé par compatibilité (les 3 flux de commission l'utilisaient déjà).
 export const messagesNotifPaiementCommission = messagesNotifSortieCaisse;
@@ -1125,6 +1127,7 @@ export function construirePaiementPrime(db, profile, c, e, moyen, retenue) {
     messages: [
       ...(e.user_id ? [nouveauMessage(profile, {
         a_id: e.user_id,
+        vers: versEcran(ongletDetail === "💰 Primes reçues" ? "primes_recues" : "commission"),
         texte: pris > 0
           ? `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} : ${fmt(e.montant)}. Retenue pour outil perdu : ${fmt(pris)}. Vous recevez ${fmt(net)}${net > 0 ? ` (${normPaiement(moyen)})` : ""}. Retrouvez le détail dans « ${ongletDetail} ».`
           : `💰 Votre prime d'installation du chantier ${c.nom} ${c.prenom || ""} vous a été payée : ${fmt(e.montant)} (${normPaiement(moyen)}). Retrouvez le détail dans « ${ongletDetail} ».`,
@@ -1898,7 +1901,7 @@ export const debloquerCommissionsReception = (db, vente_id, contexte) => {
   const app = vente.apporteur;
   if (app && app.parrain_user_id && app.a_la_reception && Number(app.montant || 0) > 0) {
     messages = [nouveauMessage(SYSTEME, {
-      canal: "support", client_id: app.parrain_user_id,
+      canal: "support", client_id: app.parrain_user_id, vers: versEcran("espace_client"),
       // ⚠ « maintenant due » n'est vrai que si le filleul a fini de payer
       // (règle du 29/08/2026 : réception ET solde) — sinon on le dit.
       texte: `🎉 Bonne nouvelle ! L'installation de votre filleul${app.nom ? ` ${app.nom}` : ""} a été réceptionnée${contexte ? ` (${contexte})` : ""}. ${venteSoldee(db, vente)

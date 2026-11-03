@@ -20,6 +20,7 @@
 import { nouvelleDepense, nouveauMessage, uid, fmt, dFR, heureCourte, today } from "./core.js";
 import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen, caisseDeVente } from "./constants.js";
 import { compteDansLaCaisse } from "./validationDepenses.js";
+import { versEcran } from "./cibleNotification.js";
 
 // La catégorie vit dans constants.js (lue aussi par le journal comptable) :
 // importée ET réexportée — jamais `export { x } from` seul (piège connu).
@@ -815,7 +816,7 @@ export function rejeterVersement(db, profile, dep, motif, aujourdhui) {
   });
   const auteur = (db.users || []).find((u) => (dep.par_id && u.id === dep.par_id) || (!dep.par_id && u.nom === dep.par));
   const texte = `✖ ${libelleVersementDu(dep)} REJETÉ : ${fmt(dep.versement.montant)} de ${dep.boutique} → ${libelleDestination(dep.versement)}, rejeté par ${profile.nom}. Motif : ${m}. L'argent est considéré comme toujours en caisse à ${dep.boutique} : refaites le versement.`;
-  const messages = auteur ? [nouveauMessage(profile, { a_id: auteur.id, texte })] : [];
+  const messages = auteur ? [nouveauMessage(profile, { a_id: auteur.id, vers: versEcran("caisse", dep.boutique, dep.id), texte })] : [];
   return { depenses, messages, journal: `Versement de fonds REJETÉ par ${profile.nom} : ${fmt(dep.versement.montant)} de ${dep.boutique} → ${libelleDestination(dep.versement)} — ${m}` };
 }
 
@@ -831,5 +832,8 @@ export function messagesVersement(db, profile, sortie) {
   const destinataires = v.destination === DEST_COMPTABLE
     ? (db.users || []).filter((u) => u.role === "comptable" && u.actif !== false)
     : (db.users || []).filter((u) => u.role === "admin" && u.admin_principal === true && u.actif !== false);
-  return destinataires.map((u) => nouveauMessage(profile, { a_id: u.id, texte }));
+  // 📍 Le DG valide dans 🔒 Caisse (la boutique du versement) ; le comptable
+  // pointe « Encaissé » dans 🧾 Chez le comptable.
+  const vers = v.destination === DEST_COMPTABLE ? versEcran("chez_comptable") : versEcran("caisse", sortie.boutique, sortie.id);
+  return destinataires.map((u) => nouveauMessage(profile, { a_id: u.id, vers, texte }));
 }

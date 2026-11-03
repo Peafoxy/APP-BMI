@@ -13,6 +13,7 @@ import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demander
 import { mentionVirement } from "../lib/banques";
 import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
+import { versEcran } from "../lib/cibleNotification";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
 export function MonEquipe({ db, save, profile, cible = null }) {
@@ -144,7 +145,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
     // Sans ce message, ce mot restait vrai à ses yeux alors que le règlement
     // venait d'être défait — et les caisses recréditées n'en savaient rien.
     const avis = [
-      nouveauMessage(profile, { a_id: st.u.id,
+      nouveauMessage(profile, { a_id: st.u.id, vers: versEcran("commission"),
         texte: `↩ Le règlement de votre commission a été ANNULÉ par ${profile.nom} : ${fmt(st.commissionReglee)} redeviennent « à payer ». ${st.nbReglees} vente(s) concernée(s). Rapprochez-vous de la direction si cela vous surprend.` }),
       ...depsSupprimees.flatMap((d) => messagesNotifSortieCaisse(db, profile, d.boutique, st.u.nom, Number(d.montant || 0), "Règlement de commission ANNULÉ —", "entree")),
     ];
@@ -275,7 +276,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
         : v)),
       depenses: [dep, ...db.depenses],
       messages: [
-        nouveauMessage(profile, { a_id: c.u.id,
+        nouveauMessage(profile, { a_id: c.u.id, vers: versEcran("commission"),
           texte: `💰 Votre commission d'équipe vous a été payée : ${fmt(c.due)} (${normPaiement(moyen)}) — ${c.tauxEq} % sur les commissions de vos ${c.nbFilleuls} recrue(s). Retrouvez le détail dans « Ma commission ».` }),
         ...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, c.u.nom, c.due) : []),
         ...(db.messages || []),
@@ -472,7 +473,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
       messages: [
         // Le bénéficiaire est prévenu DIRECTEMENT — sans ce message, le
         // paiement n'apparaissait que dans la caisse, jamais chez lui.
-        nouveauMessage(profile, { a_id: st.u.id,
+        nouveauMessage(profile, { a_id: st.u.id, vers: versEcran("commission"),
           texte: `💰 Votre commission vous a été payée : ${fmt(st.commissionDue)} (${normPaiement(moyen)}) — ${ids.size} vente(s) de la période. Retrouvez le détail dans « Ma commission ».` }),
         ...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, st.u.nom, st.commissionDue) : []),
         ...(db.messages || []),

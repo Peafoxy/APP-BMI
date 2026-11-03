@@ -10826,7 +10826,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       && /save\(\s*\{ \.\.\.db, boutiques,/.test(ecrC));
 
     test("★ UN seul message pour tout le lot : on ne fait pas vibrer cinq fois le téléphone de la même personne pour un seul geste",
-      (ecrC.match(/nouveauMessage\(profile, \{ a_id: p\.id, texte: `🧰 Vous répondez de \$\{nommerLot\(lot\)\}/g) || []).length === 1);
+      (ecrC.match(/nouveauMessage\(profile, \{ a_id: p\.id, vers: versEcran\("outillage"\), texte: `🧰 Vous répondez de \$\{nommerLot\(lot\)\}/g) || []).length === 1);
 
     test("★ la case « Outils assignés » ne s'affiche PAS tant qu'elle est vide, n'impose AUCUNE hauteur (elle grandit avec les outils), et chaque outil porte sa ✕",
       /\{f\.lot\.length > 0 && \(/.test(ecrC)
@@ -16254,7 +16254,7 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
     /const aDeLArgentRecu = !!ficheArgent && argentRecu\(db\.depenses, ficheArgent\)\.length > 0;/.test(appL) && /const ficheArgent = isClient \? null :/.test(appL)
     && /\{ongletsVisites\.argent_recu && aDeLArgentRecu && \(/.test(appL) && /<M\.ArgentRecu db=\{db\} save=\{save\} profile=\{profile\} \/>/.test(appL)
     // RETOURNÉ le 16/10/2026 (une notification mène à sa source) : le clic passe par ecranPour, avec « 💼 Argent reçu » permis hors client.
-    && /profile\.role !== "client" \? \["argent_recu"\] : \[\]/.test(appL) && /const e = ecranPour\(permis, ecran\);/.test(appL));
+    && /profile\.role !== "client" \? \["argent_recu"\] : \[\]/.test(appL) && /const e = ecranOuConversation\(permis, ecran, c\);/.test(appL)); // RETOURNÉ le 03/11/2026 : un message retombe sur sa conversation
   {
     const sortieAR = join("node_modules", ".cache", `bmi-argent-recu-${process.pid}.mjs`);
     let R = null, errB = "";

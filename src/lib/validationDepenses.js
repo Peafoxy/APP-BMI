@@ -32,6 +32,7 @@
 // ============================================================
 import { changeDePayeA, avecPayeA, phrasePayeA } from "./payeDirectement.js";
 import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core.js";
+import { versEcran } from "./cibleNotification.js";
 import { CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_CHANTIER, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT, libelleCaisse } from "./constants.js";
 
 export { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees };
@@ -223,7 +224,7 @@ export function construireDepenseSaisie(db, profile, { boutique, categorie, desc
     ...(validation ? { validation } : {}),
   });
   const messages = validation?.statut === "attente"
-    ? principauxActifs(db).map((u) => nouveauMessage(profile, { a_id: u.id, texte: `⏳ Dépense à valider : ${fmt(m)} (${categorie}${depense.description ? ` — ${depense.description}` : ""}) à ${boutique}, payée avec ${libellePayeAvecDansPhrase(paye_avec)}, par ${profile.nom}.` }))
+    ? principauxActifs(db).map((u) => nouveauMessage(profile, { a_id: u.id, vers: versEcran("depenses", boutique, depense.id), texte: `⏳ Dépense à valider : ${fmt(m)} (${categorie}${depense.description ? ` — ${depense.description}` : ""}) à ${boutique}, payée avec ${libellePayeAvecDansPhrase(paye_avec)}, par ${profile.nom}.` }))
     : [];
   return {
     depense, messages, aValider,
@@ -276,7 +277,7 @@ export function validerDepense(db, profile, dep, aujourdhui) {
   const auteur = auteurDe(db, dep);
   const suite = estAvance(dep) ? ` ${suiteValidationDepense(dep)}` : "";
   const messages = auteur && auteur.id !== profile.id
-    ? [nouveauMessage(profile, { a_id: auteur.id, texte: `✅ Dépense validée par ${profile.nom} : ${fmt(dep.montant)} (${dep.categorie}${dep.description ? ` — ${dep.description}` : ""}) à ${dep.boutique}.${suite}` })]
+    ? [nouveauMessage(profile, { a_id: auteur.id, vers: versEcran("depenses", dep.boutique, dep.id), texte: `✅ Dépense validée par ${profile.nom} : ${fmt(dep.montant)} (${dep.categorie}${dep.description ? ` — ${dep.description}` : ""}) à ${dep.boutique}.${suite}` })]
     : [];
   return { depenses, messages, journal: `Dépense VALIDÉE par le DG : ${fmt(dep.montant)} (${dep.categorie}) — ${dep.boutique}, saisie par ${dep.par}` };
 }
@@ -293,7 +294,7 @@ export function rejeterDepense(db, profile, dep, motif, aujourdhui) {
   const auteur = auteurDe(db, dep);
   const suite = ` ${suiteRejetDepense(dep)}`;
   const messages = auteur && auteur.id !== profile.id
-    ? [nouveauMessage(profile, { a_id: auteur.id, texte: `✖ Dépense REJETÉE par ${profile.nom} : ${fmt(dep.montant)} (${dep.categorie}${dep.description ? ` — ${dep.description}` : ""}) à ${dep.boutique}. Motif : ${m}.${suite}` })]
+    ? [nouveauMessage(profile, { a_id: auteur.id, vers: versEcran("depenses", dep.boutique, dep.id), texte: `✖ Dépense REJETÉE par ${profile.nom} : ${fmt(dep.montant)} (${dep.categorie}${dep.description ? ` — ${dep.description}` : ""}) à ${dep.boutique}. Motif : ${m}.${suite}` })]
     : [];
   return { depenses, messages, journal: `Dépense REJETÉE par le DG : ${fmt(dep.montant)} (${dep.categorie}) — ${dep.boutique}, saisie par ${dep.par} — ${m}` };
 }
@@ -378,7 +379,7 @@ export function rembourserAvance(db, profile, dep, moyen, aujourdhui, { mois } =
   }
   depenses = depenses.map((x) => (x.id === dep.id ? { ...x, remboursement } : x));
   const messages = auteur && auteur.id !== profile.id
-    ? [nouveauMessage(profile, { a_id: auteur.id, texte: `💵 Avance remboursée : ${fmt(dep.montant)} (${dep.description || dep.categorie} du ${dFR(dep.date)}) — ${libelleMoyenRemb(moyen).toLowerCase()}${moyen === MOYEN_REMB_SALAIRE ? ` (${mois})` : ""}, par ${profile.nom}.` })]
+    ? [nouveauMessage(profile, { a_id: auteur.id, vers: versEcran("salaire"), texte: `💵 Avance remboursée : ${fmt(dep.montant)} (${dep.description || dep.categorie} du ${dFR(dep.date)}) — ${libelleMoyenRemb(moyen).toLowerCase()}${moyen === MOYEN_REMB_SALAIRE ? ` (${mois})` : ""}, par ${profile.nom}.` })]
     : [];
   return { depenses, users, messages, journal: `Avance de frais REMBOURSÉE à ${dep.par} : ${fmt(dep.montant)} — ${libelleMoyenRemb(moyen)}${moyen === MOYEN_REMB_SALAIRE ? ` (${mois})` : ""} (${dep.boutique})` };
 }

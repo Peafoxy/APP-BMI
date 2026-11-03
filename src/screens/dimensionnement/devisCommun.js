@@ -16,6 +16,7 @@
 import { uid, today, heureCourte, montantSaisi, pctEquivalent, nouveauMessage, fmt } from "../../lib/core";
 import { devisModifiable, ROLES_MODIFIENT_TOUT_DEVIS } from "../../lib/comptesClients";
 import { cleIdentifiant } from "../../lib/identiteClient";
+import { versEcran } from "../../lib/cibleNotification";
 import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { estLigneFrais } from "../../lib/lignesDevis";
@@ -330,7 +331,7 @@ export function auteursDesBrouillons(personnes, profile, ongletsRole) {
 }
 // « C a » : l'auteur est prévenu quand son brouillon part à sa place, et
 // quand l'administrateur le supprime (il chercherait un brouillon disparu).
-export const avisBrouillonEnvoye = (profile, auteur, client, total) => nouveauMessage(profile, { a_id: auteur.id,
+export const avisBrouillonEnvoye = (profile, auteur, client, total) => nouveauMessage(profile, { a_id: auteur.id, vers: versEcran("tous_devis"),
   texte: `📲 ${profile.nom} a envoyé votre brouillon de devis pour ${client || "?"} (${fmt(total)}) à votre nom : la commission reste la vôtre. Le devis est dans 📋 Tous les devis ; le brouillon a quitté 📝 Mes brouillons.` });
 export const avisBrouillonSupprime = (profile, auteur, titre, total) => nouveauMessage(profile, { a_id: auteur.id,
   texte: `🗑 ${profile.nom} a supprimé votre brouillon de devis « ${titre} » (${fmt(total)}).` });

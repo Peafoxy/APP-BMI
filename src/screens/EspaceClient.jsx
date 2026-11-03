@@ -6,6 +6,7 @@ import { ACOMPTE_POSE_PCT, acomptePose, etatPose, dettePoseDuDevis } from "../li
 import { maintenantISO } from "../lib/horloge";
 import { partieClientContrat } from "../lib/clientEntreprise";
 import { civilite } from "../lib/civilite";
+import { versEcran } from "../lib/cibleNotification";
 import { useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
 import { Dimensionnement, TYPES_PORTAIL } from "./dimensionnement";
@@ -153,7 +154,7 @@ export function EspaceClient({ db, profile, save, setTab, devisOuvertInitial = n
     if (motif === null) return;
     if (!motif.trim()) { uAlert("Merci d'indiquer la raison du rejet."); return; }
 
-    const message = nouveauMessage(profile, { a_id: d.par_id, devis_id: d.id, texte: `❌ DEVIS REJETÉ (${fmt(d.total)}) — motif : ${motif.trim()}` });
+    const message = nouveauMessage(profile, { a_id: d.par_id, devis_id: d.id, vers: versEcran("tous_devis", "", d.id), texte: `❌ DEVIS REJETÉ (${fmt(d.total)}) — motif : ${motif.trim()}` });
 
     save({
       ...db,
@@ -176,7 +177,7 @@ export function EspaceClient({ db, profile, save, setTab, devisOuvertInitial = n
     if (quoi === null) return;
     if (!quoi.trim()) { uAlert("Décrivez ce que vous souhaitez changer."); return; }
 
-    const message = nouveauMessage(profile, { a_id: d.par_id, devis_id: d.id, texte: `✏️ MODIFICATION DEMANDÉE sur le devis de ${fmt(d.total)} : ${quoi.trim()}` });
+    const message = nouveauMessage(profile, { a_id: d.par_id, devis_id: d.id, vers: versEcran("tous_devis", "", d.id), texte: `✏️ MODIFICATION DEMANDÉE sur le devis de ${fmt(d.total)} : ${quoi.trim()}` });
 
     save({
       ...db,
