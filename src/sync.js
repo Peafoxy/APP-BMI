@@ -5,7 +5,7 @@ import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
 import { sessionPerdueSelon, MESSAGE_SESSION_PERDUE } from "./lib/verrou";
-import { prendreVersionServeur, horodatee, CLE_RELECTURE_HORLOGE } from "./lib/versionDistante";
+import { prendreVersionServeur, horodatee, CLE_RELECTURE_HORLOGE, fautTelecharger, SEUIL_LECTURE_DIRECTE } from "./lib/versionDistante";
 import { mesurerParLaBase } from "./horloge";
 
 // Moteur de synchronisation :
@@ -166,6 +166,40 @@ async function lireTout(table, colonneDate, depuis) {
     if (lot.length < PAGE) break;   // dernière page
     de += PAGE;
     if (de > 200000) break;         // garde-fou : jamais de boucle infinie
+  }
+  return tout;
+}
+
+// 📉 L'étiquette seule (id + heure du serveur) de ce qui a changé depuis
+// `depuis` — quelques octets par ligne (04/11/2026, quota d'Egress).
+async function lireEtiquettes(table, depuis) {
+  const tout = [];
+  let de = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("id,updated_at")
+      .gt("updated_at", depuis)
+      .order("updated_at", { ascending: true })
+      .range(de, de + PAGE - 1);
+    if (error) throw error;
+    const lot = data || [];
+    tout.push(...lot);
+    if (lot.length < PAGE) break;
+    de += PAGE;
+    if (de > 200000) break;
+  }
+  return tout;
+}
+
+// Les lignes entières, par identifiant, en petits lots (une adresse trop
+// longue serait refusée). Une ligne disparue entre-temps est simplement absente.
+async function lireParIds(table, ids) {
+  const tout = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const { data, error } = await supabase.from(table).select("*").in("id", ids.slice(i, i + 50));
+    if (error) throw error;
+    tout.push(...(data || []));
   }
   return tout;
 }
@@ -743,7 +777,16 @@ export async function synchroniser(options = {}) {
           const curseur = await curseurDe(cle);
           const depuis = reculer(curseur, MARGE_HORLOGE_MS);
           let maxVu = curseur;
-          const lignes = await lireTout(t, "updated_at", depuis);
+          // 📉 04/11/2026 : l'étiquette d'abord, la ligne entière seulement si
+          // elle manque ou a changé (lib/versionDistante.js, fautTelecharger).
+          const etiquettes = await lireEtiquettes(t, depuis);
+          for (const e of etiquettes) if (e.updated_at > maxVu) maxVu = e.updated_at;
+          const locaux = new Map();
+          for (const e of etiquettes) locaux.set(e.id, await idb.table(t).get(e.id));
+          const aLire = etiquettes.filter((e) => fautTelecharger(locaux.get(e.id), e, enAttente.has(`${t}:${e.id}`))).map((e) => e.id);
+          const lignes = !aLire.length ? []
+            : aLire.length > SEUIL_LECTURE_DIRECTE ? await lireTout(t, "updated_at", depuis)
+            : await lireParIds(t, aLire);
           for (const ligne of lignes) {
             const local = await idb.table(t).get(ligne.id);
             // La version du serveur l'emporte dès qu'elle diffère, sauf si une

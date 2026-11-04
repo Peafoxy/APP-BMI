@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2901 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2920 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -10505,6 +10505,17 @@ lit mal est pire qu'un banc absent).
   la faute : quatre contrôles tombent. **Leçon, une fois de plus : un contrôle
   qui lit le TEXTE d'une ligne garantit ce texte, faute comprise — seul le
   RENDU attrape un écran blanc.**
+- ⚠⚠ **LA LECTURE DE 20 S NE RETÉLÉCHARGE PLUS CE QU'ELLE A DÉJÀ** (04/11/2026,
+  Supabase : « Egress Exceeded » — plus de 5 Go envoyés en octobre, offre
+  gratuite, bridage annoncé au 24/11 → « lance »). La marge de prudence de 10 min
+  (`MARGE_HORLOGE_MS`, src/sync.js) faisait relire EN ENTIER, toutes les 20 s et
+  par chaque appareil ouvert, toute ligne changée dans les 10 dernières minutes.
+  Désormais `lireEtiquettes` ne demande que `id,updated_at`, puis `lireParIds`
+  télécharge seulement ce que `fautTelecharger` (lib/versionDistante.js) désigne :
+  absente, ou version du serveur différente, jamais une ligne en attente d'envoi ;
+  au-delà de `SEUIL_LECTURE_DIRECTE` (200) on relit d'un bloc comme avant. La
+  marge reste. Rien à coller. Banc (+2), éprouvé. **Toute nouvelle lecture
+  périodique passe par l'étiquette d'abord.**
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
 - **Un banc Chromium écrit sa page AVEC `<meta charset="utf-8">`** : sans
   lui, le « × » d'une expression régulière du bundle est lu en deux

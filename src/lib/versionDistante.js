@@ -36,6 +36,23 @@ export function prendreVersionServeur(local, ligne, enAttente = false) {
   return String(local.updated_at || "") !== versionServeur(ligne);
 }
 
+// 📉 LA LECTURE EN DEUX TEMPS (04/11/2026, Supabase : « Egress Exceeded », plus
+// de 5 Go envoyés aux appareils en octobre → « lance »). Toutes les 20 s,
+// chaque appareil relisait EN ENTIER tout ce qui avait changé dans les 10
+// dernières minutes (la marge de prudence) — une fiche de boutique, un client
+// et ses devis retéléchargés une trentaine de fois, déjà connus. Désormais il
+// ne demande d'abord que l'ÉTIQUETTE (id + heure du serveur), et ne télécharge
+// en entier que ce qu'il n'a pas encore, ou qui a changé. Même règle que
+// `prendreVersionServeur`, sur l'étiquette seule.
+export function fautTelecharger(local, etiquette, enAttente = false) {
+  if (!etiquette?.id) return false;
+  if (!local) return true;
+  if (enAttente) return false;
+  return String(local.updated_at || "") !== versionServeur(etiquette);
+}
+// Au-delà, on relit d'un bloc (premier passage d'un appareil neuf, rattrapage).
+export const SEUIL_LECTURE_DIRECTE = 200;
+
 // La fiche à ranger : les données du serveur, horodatées par le serveur.
 export const horodatee = (ligne) => ({ ...ligne.data, updated_at: versionServeur(ligne) });
 

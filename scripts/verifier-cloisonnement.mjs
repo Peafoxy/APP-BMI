@@ -16035,6 +16035,20 @@ titre("🏗 La caisse CHANTIER (08/10/2026, « lance l'étape 1, clôture facult
   const corpsTable = sy.slice(sy.indexOf("async function synchroniserTable"), sy.indexOf("async function synchroniserTable") + 1500);
   test("★★ src/sync.js lit les tables par LA règle (prendreVersionServeur + horodatee), sans comparer data.updated_at",
     /prendreVersionServeur\(local, ligne, enAttente\.has/.test(corpsTable) && /put\(horodatee\(ligne\)\)/.test(corpsTable) && !/ligne\.data\?\.updated_at/.test(corpsTable));
+  // 📉 04/11/2026 (Supabase : « Egress Exceeded ») : l'étiquette d'abord.
+  const et = { id: "v43", updated_at: "2026-10-06T15:00:00Z" };
+  test("★★ 📉 une ligne déjà connue, même version, n'est PAS retéléchargée ; absente ou changée, si ; en attente d'envoi, non (sauf absente)",
+    VD.fautTelecharger({ id: "v43", updated_at: "2026-10-06T15:00:00Z" }, et, false) === false
+    && VD.fautTelecharger(null, et, false) === true && VD.fautTelecharger(null, et, true) === true
+    && VD.fautTelecharger(localAligne, et, false) === true && VD.fautTelecharger(localAligne, et, true) === false);
+  const corpsTable2 = sy.slice(sy.indexOf("async function synchroniserTable"), sy.indexOf("async function synchroniserTable") + 2200).replace(/\/\/.*$/gm, "");
+  const corpsEtiq = sy.slice(sy.indexOf("async function lireEtiquettes"), sy.indexOf("async function lireParIds"));
+  test("★★ 📉 toutes les 20 s, src/sync.js demande d'abord l'ÉTIQUETTE (id, updated_at), puis seulement les lignes à télécharger",
+    /select\("id,updated_at"\)/.test(corpsEtiq) && /\.gt\("updated_at", depuis\)/.test(corpsEtiq)
+    && corpsTable2.indexOf("lireEtiquettes(t, depuis)") > 0
+    && corpsTable2.indexOf("lireEtiquettes(t, depuis)") < corpsTable2.indexOf("lireParIds(t, aLire)")
+    && /fautTelecharger\(locaux\.get\(e\.id\), e, enAttente\.has/.test(corpsTable2)
+    && /aLire\.length > SEUIL_LECTURE_DIRECTE \? await lireTout/.test(corpsTable2));
   test("★ la relecture complète de rattrapage est faite une fois par appareil (marque locale, curseurs des tables remis à zéro)",
     /idb\.meta\.get\(CLE_RELECTURE_HORLOGE\)/.test(sy) && /idb\.meta\.delete\(`derniere_sync:\$\{t\}`\)/.test(sy) && /idb\.meta\.put\(\{ cle: CLE_RELECTURE_HORLOGE/.test(sy));
 }
