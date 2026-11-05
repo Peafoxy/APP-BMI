@@ -28,7 +28,7 @@ export const CHAPITRE = {
   numero: 16,
   titre: "Commissions et primes",
   sousTitre: "Qui touche quoi, quand l'argent devient dû, et comment il sort de la caisse — commerciaux, chefs d'équipe, apporteurs, parrains, primes d'installation",
-  public: "Administrateur, responsable commercial, chefs d'équipe ; commercial, technicien, technicien BMI (leur propre commission) ; vendeur (les primes à payer par sa boutique)",
+  public: "Administrateur, responsable commercial, gérant, chefs d'équipe ; commercial, technicien, technicien BMI (leur propre commission) ; vendeur (les primes à payer par sa boutique)",
   duree: "1 h 15, puis l'exercice en espace formation",
   prerequis: "Le chapitre 5 (Ventes) : c'est la vente qui porte le commercial, le rabais et l'apporteur. Le chapitre 7 (Dettes) : une commission attend le solde du client. Le chapitre 15 (Chantiers) : la réception et les parts d'installation.",
 
@@ -51,7 +51,7 @@ export const CHAPITRE = {
     { titre: "Qui peut l'utiliser", blocs: [
       ["table", { entetes: ["Le geste", "Qui"], largeurs: [4300, 5000], lignes: [
         ["Voir 👑 Équipe (tout)", "**L'administrateur** (onglet « 👑 Équipe »)."],
-        ["Voir 👑 Mon équipe", "**Le responsable commercial** ; le **commercial, le technicien, le technicien BMI** seulement s'il est **chef d'équipe ⭐**."],
+        ["Voir 👑 Mon équipe", "**Le responsable commercial** ; **le gérant** (depuis le 05/11/2026 : il paie ce que l'application a calculé — commerciaux, chefs d'équipe, apporteurs externes ; il n'assigne pas de tâches d'ici) ; le **commercial, le technicien, le technicien BMI** seulement s'il est **chef d'équipe ⭐**."],
         ["✓ Marquer payé / ✓ Payer / ✏️ Moyen", "Ceux qui ont l'écran **et** le pouvoir « 💰 Valider / payer les commissions » (retirable dans 🔐 Pouvoirs)."],
         ["↩ Annuler paiement", "**L'administrateur.**"],
         ["🎖 Promouvoir commercial (un apporteur externe)", "**L'administrateur.**"],

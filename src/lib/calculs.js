@@ -2678,7 +2678,7 @@ export const ONGLETS_ROLE = {
   magasinier: ["stocks", "salaire", "primes_recues", "rendez_vous", "messages", "whatsapp", "nouveau_client", "travaux", "outillage"],
   // ✅ « taches » ajouté le 01/11/2026 : l'assistant(e) de direction donne des
   // tâches aux gérants — sans cet onglet, elles ne s'affichaient nulle part chez eux.
-  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "taches", "salaire", "primes_recues", "rendez_vous", "messages", "whatsapp", "nouveau_client", "contrats", "travaux", "primes_remises"],
+  gerant: ["ventes", "commandes", "dimensionnement", "tous_devis", "stocks", "transfert", "depenses", "dettes", "clients", "caisse", "fournisseurs", "equipe", "taches", "salaire", "primes_recues", "rendez_vous", "messages", "whatsapp", "nouveau_client", "contrats", "travaux", "primes_remises"],
   // ⚠ 01/10/2026 : alignée sur App.jsx — « 📤 Dépenses » retiré (le vendeur
   // ne l'a plus depuis le 15/09), « 🏠 Clients installés » ajouté (il l'a).
   // Pareil pour 🔁 Transfert du gérant et 💰 Ventes du resp. commercial :
@@ -2705,7 +2705,10 @@ export const ACTIONS_POUVOIR = [
   ["act_ecriture", "✏️ Créer / modifier / supprimer (sinon : lecture seule)", (r) => r !== "comptable" && r !== "client"],
   ["act_credit", "🏦 Demander un crédit BMI", (r) => SALARIES.includes(r)],
   ["act_reaffecter", "🔁 Réaffecter les prospects", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"].includes(r)],
-  ["act_commission", "💰 Valider / payer les commissions", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi"].includes(r)],
+  // 👑 Le gérant (05/11/2026, « c ») : il ouvre 👑 Mon équipe et PAIE les
+  // commissions calculées par l'application — listé ici pour que
+  // l'administrateur puisse le lui retirer dans 🔐 Pouvoirs.
+  ["act_commission", "💰 Valider / payer les commissions", (r) => ["admin", "resp_commercial", "commercial", "technicien", "technicien_bmi", "gerant"].includes(r)],
   ["act_taches", "✅ Assigner des tâches", (r) => ROLES_TACHES.includes(r)],
   // ⚠ RETIRÉ EN 2.101.14 : « act_voir_tout » (voir les deux espaces).
   // Il ne commande plus rien — seul l'administrateur PRINCIPAL traverse le

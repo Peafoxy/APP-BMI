@@ -1278,7 +1278,7 @@ export default function App() {
     : isMagasinier
     ? [["stocks", "📦 Stocks"], ["salaire", labelSalaire], ["primes_recues", "💰 Primes reçues"], ["rendez_vous", labelRdv], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["outillage", labelOutillage]]
     : isGerant
-    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["taches", labelTaches], ["salaire", labelSalaire], ["primes_recues", "💰 Primes reçues"], ["rendez_vous", labelRdv], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["primes_remises", "💰 Primes remises"]]
+    ? [["ventes", "💰 Ventes"], ["commandes", labelCommandes], ["dimensionnement", "☀️ Dimensionnement"], ["tous_devis", labelTousDevis], ["contrats", "📄 Contrats"], ["stocks", "📦 Stocks"], ["transfert", labelTransfert], ["depenses", "📤 Dépenses"], ["dettes", "🧾 Dettes"], ["clients", "👤 Clients"], ["caisse", "🔒 Caisse"], ["fournisseurs", "🚚 Fournisseurs"], ["equipe", labelMonEquipe], ["taches", labelTaches], ["salaire", labelSalaire], ["primes_recues", "💰 Primes reçues"], ["rendez_vous", labelRdv], ["messages", labelMessages], ["whatsapp", labelWhatsapp], ["nouveau_client", "🙋 Créer un client"], ["travaux", "🛠 Travaux à crédit"], ["primes_remises", "💰 Primes remises"]]
     : isClient
     ? [["espace_client", "🏠 Mon espace"], ["messages", labelMessages], ["mes_donnees", "🔒 Mes données"]]
     // ⚠ "parc" (Clients installés) ajouté au menu vendeur — demande Timo :
@@ -1584,7 +1584,7 @@ export default function App() {
           <M.MaCommission db={db} profile={profile} />
         </div>
       )}
-      {ongletsVisites.equipe && (isAdmin || isRespCom || ((isCommercial || isTechnicien || isTechnicienBMI) && estChefEquipe(db, profile))) && (
+      {ongletsVisites.equipe && (isAdmin || isRespCom || isGerant || ((isCommercial || isTechnicien || isTechnicienBMI) && estChefEquipe(db, profile))) && (
         <div style={{ display: tab === "equipe" ? "block" : "none" }}>
           <M.MonEquipe db={db} save={save} profile={profile} cible={cible} />
         </div>

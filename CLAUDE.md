@@ -448,6 +448,16 @@ lit mal est pire qu'un banc absent).
   CE chantier : marquer terminé. Admin ou son commercial (« laisser comme
   tel ») : supprimer un chantier, gestes sur un prospect. Réassigner un
   prospect : admin / resp. com / chef d'équipe avec le pouvoir.
+- **👑 LE GÉRANT OUVRE MON ÉQUIPE ET PAIE LES COMMISSIONS** (05/11/2026, « par où
+  le gérant peut revoir les primes d'apporteur externe ? » → « c… il ne fabrique
+  pas ce qu'il faut payer, c'est calculé par l'application et lui il ne fait que
+  payer »). `equipe` dans `ONGLETS_ROLE.gerant` et son menu ; `act_commission`
+  LISTÉ pour lui (retirable dans 🔐 Pouvoirs) ; les trois paiements (commercial,
+  chef d'équipe, apporteur externe) revérifient `act_commission` DANS le geste.
+  Il n'assigne pas de tâches d'ici (✅ réservé à `ROLES_TACHES`) ; ↩ Annuler et
+  🎖 Promouvoir restent à l'administrateur. Rien à coller (aucune règle serveur
+  ne garde `commission_payee` ni `apporteur.payee`). Banc (+1, un RETOURNÉ).
+  Chapitre 16 et guide du gérant.
 - **Remise au-delà de 3 %** : admin seul (devis, vente, proforma, commande).
   **Les remises par article suivent la même limite** (10/09/2026 : « même
   sur la remise sur un article, au-delà de 3 % ça devrait refuser ») : une

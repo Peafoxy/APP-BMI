@@ -10679,7 +10679,21 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
 
   test("★ 👑 Mon équipe ne s'affiche QUE s'il est chef (estChefEquipe, comme pour le commercial et le technicien) — le menu et l'écran le disent tous les deux",
     /\["taches", labelTaches\], \.\.\.\(estChefEquipe\(db, profile\) \? \[\["equipe", labelMonEquipe\]\] : \[\]\), \["outillage", labelOutillage\], \["commission", "💵 Ma commission"\]/.test(appC)
-    && /ongletsVisites\.equipe && \(isAdmin \|\| isRespCom \|\| \(\(isCommercial \|\| isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appC));
+    && /ongletsVisites\.equipe && \(isAdmin \|\| isRespCom \|\| isGerant \|\| \(\(isCommercial \|\| isTechnicien \|\| isTechnicienBMI\) && estChefEquipe\(db, profile\)\)\)/.test(appC));
+  // ⚠ RETOURNÉ le 05/11/2026 (Timo, « c ») : le GÉRANT ouvre aussi 👑 Mon
+  // équipe, sans être chef — il paie les commissions calculées par
+  // l'application (apporteurs externes compris). Le chef d'équipe, lui, ne
+  // l'ouvre toujours QUE s'il est chef.
+  {
+    const meC = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+    test("★ 👑 le GÉRANT a Mon équipe (menu ET ONGLETS_ROLE, donc retirable), le pouvoir de payer est LISTÉ pour lui (retirable dans 🔐 Pouvoirs), chaque paiement revérifie act_commission DANS le geste, et le bouton ✅ Tâche n'apparaît qu'aux rôles de ROLES_TACHES (le gérant n'assigne pas de tâches d'ici)",
+      (C.ONGLETS_ROLE.gerant || []).includes("equipe")
+      && C.pouvoirsDuRole("gerant").some(([id]) => id === "act_commission")
+      && /isGerant\s*\n?\s*\? \[\[.*\["equipe", labelMonEquipe\]/.test(appC)
+      && (meC.match(/if \(!aDroit\(db, profile, "act_commission"\)\) \{ uAlert\("Payer une commission/g) || []).length === 3
+      && /ROLES_TACHES\.includes\(profile\.role\) && aDroit\(db, profile, "act_taches"\) && <BoutonRond icone="✅"/.test(meC)
+      && /estAdmin && clientsApportes\(a\) >= SEUIL_COMMERCIAL/.test(meC));
+  }
 
   test("★ le bouton « Nommer chef » existe enfin sur la fiche d'un technicien BMI, la case est proposée à la création, et l'étoile ⭐ Chef se VOIT sur sa pastille",
     /\{\["commercial", "technicien", "technicien_bmi"\]\.includes\(u\.role\) && <BoutonGerer onClick=\{\(\) => basculerChef\(u\)\}/.test(usC)

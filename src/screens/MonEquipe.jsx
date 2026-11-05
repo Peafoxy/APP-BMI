@@ -11,7 +11,7 @@ import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
-import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache} from "../lib/calculs";
+import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache, ROLES_TACHES} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 import { versEcran } from "../lib/cibleNotification";
 
@@ -251,6 +251,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
 
   const payerCommissionEquipe = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
+    if (!aDroit(db, profile, "act_commission")) { uAlert("Payer une commission : ce pouvoir vous a été retiré (🔐 Pouvoirs)."); return; }
     if (c.due <= 0) { uAlert("Aucune commission d'équipe en attente pour " + c.u.nom + "."); return; }
     const moyen = await demanderMoyenPaiement(`pour ${c.u.nom}`, "Espèces", "Moyen de paiement", c.u);
     if (moyen === null) return;
@@ -346,6 +347,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
 
   const payerApporteur = async (a) => {
     if (bloquerSiLecture(db, profile)) return;
+    if (!aDroit(db, profile, "act_commission")) { uAlert("Payer une commission : ce pouvoir vous a été retiré (🔐 Pouvoirs)."); return; }
     if (a.due <= 0) { uAlert("Aucune commission en attente pour " + a.nom + "."); return; }
     // ⚠ Timo, 21/09/2026 : « Sa devrai être automatique... Moyen utilisé avec
     // le client, automatiquement utilisé pour payer l'apporteur externe... Au
@@ -440,6 +442,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
 
   const payerCommission = async (st) => {
     if (bloquerSiLecture(db, profile)) return;
+    if (!aDroit(db, profile, "act_commission")) { uAlert("Payer une commission : ce pouvoir vous a été retiré (🔐 Pouvoirs)."); return; }
     if (st.commissionDue === 0) { uAlert("Aucune commission en attente pour " + st.u.nom + " sur cette période."); return; }
     const moyen = await demanderMoyenPaiement(`pour ${st.u.nom}`, "Espèces", "Moyen de paiement", st.u);
     if (moyen === null) return;
@@ -631,7 +634,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
                 </td>
                 <CelluleActions>
                   {(st.u.taches || []).length > 0 && <BoutonRond icone="🗂" teinte="gris" onClick={() => setMembreTaches(membreTaches === st.u.id ? null : st.u.id)} titre={`🗂 voir ses tâches (${(st.u.taches || []).length})`} />}
-                  {aDroit(db, profile, "act_taches") && <BoutonRond icone="✅" onClick={() => assignerTache(st)} titre="✅ Tâche — assigner une tâche" />}
+                  {ROLES_TACHES.includes(profile.role) && aDroit(db, profile, "act_taches") && <BoutonRond icone="✅" onClick={() => assignerTache(st)} titre="✅ Tâche — assigner une tâche" />}
                   {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <BoutonRond icone="💵" teinte="vert" onClick={() => payerCommission(st)} titre="✓ Marquer payé — payer la commission due" />}
                   {estAdmin && st.nbReglees > 0 && <BoutonRond icone="↩" teinte="rouge" onClick={() => annulerPaiement(st)} titre="↩ Annuler paiement" />}
                 </CelluleActions>
