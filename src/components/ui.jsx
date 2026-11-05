@@ -333,6 +333,39 @@ export function CelluleActions({ children, className = "", largeur = "" }) {
     </td>
   );
 }
+// 📜 UN TABLEAU QUI MONTRE 6 LIGNES PUIS DÉFILE (Timo, 05/11/2026, trois
+// captures — historique des clôtures, versements de la boutique, produits
+// dormants : « tous ces écrans affichent tout… limiter l'affichage à 6 lignes
+// et ajouter la barre de défilement »). UNE règle : la hauteur est MESURÉE
+// (le haut de la 7e ligne), jamais devinée — une remarque sur deux lignes ne
+// cache pas la 6e. L'en-tête reste collé en haut pendant le défilement ; le
+// cadre défile aussi de gauche à droite sur téléphone.
+export const LIGNES_DEFILANT = 6;
+export function TableauDefilant({ lignes = LIGNES_DEFILANT, children, className = "" }) {
+  const ref = useRef(null);
+  const [haut, setHaut] = useState(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const mesurer = () => {
+      const trs = el.querySelectorAll(":scope > table > tbody > tr");
+      if (trs.length <= lignes) { setHaut(null); return; }
+      setHaut(Math.ceil(trs[lignes].getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop));
+    };
+    mesurer();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(mesurer);
+    const table = el.querySelector(":scope > table");
+    if (table) ro.observe(table);
+    return () => ro.disconnect();
+  });
+  return (
+    <div ref={ref} data-tableau-defilant style={haut ? { maxHeight: `${haut}px` } : undefined}
+      className={`overflow-auto [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-white ${className}`}>
+      {children}
+    </div>
+  );
+}
 // La ligne d'un tableau qu'on déplie au clic (Ventes, Dettes) : UNE ligne
 // dépliée à la fois, fond bleu soutenu + barre épaisse à gauche (couleur de
 // l'espace : violet en formation), sinon zébrage et survol.

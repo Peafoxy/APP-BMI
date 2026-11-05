@@ -66,7 +66,7 @@ export const CHAPITRE = {
         ["**🔒 Caisse**, cadre « 💸 Verser les fonds »", "Les carrés : Fonds à verser · 💼 Fonds de caisse · Total versé · Entrées · Sorties (versements compris) · 📱 Flooz · 📱 Mixx/T-Money. Le bouton **« 🔍 Détail du tiroir »** (gérant, administrateur) ouvre le tiroir ligne par ligne depuis le dernier versement général. Le formulaire, fermé d'office, s'ouvre par le bouton **« 💸 Faire un versement »** (« Fermer » le replie, il se replie seul une fois le versement enregistré) : « D'où part l'argent ? » (si la boutique a un compte mobile) · Montant versé (F) · Destination · (BANQUE) Banque, N° du bordereau de versement · Note (justification) · « 💸 Verser ». Puis « Versements de BOUTIQUE »."],
         ["**🔒 Caisse**, cadre « 💼 Avances de frais à rembourser (N) »", "Une ligne par avance qui compte, trois boutons : « 💵 Rembourser en espèces », « 🧾 Avec le salaire », « 👤 Par le DG »."],
         ["**🔒 Caisse**, cadre « Clôture du jour »", "Le bandeau rouge des journées sans clôture, le bandeau orange des journées à reclôturer, le bloc « 📊 Ventes du … — tous moyens de paiement », les cinq cases (Dans le tiroir hier soir · Recette du jour (espèces) · Sorties justifiées du jour · Montant attendu dans le tiroir · Écart de caisse), « Recette du … par vendeur », « Détail des encaissements du … », **Montant du tiroir**, **Remarques**, « **Clôturer le jour** »."],
-        ["**🔒 Caisse**, en bas", "« Historique des clôtures — BOUTIQUE » : Date · Attendu dans le tiroir · Compté · Écart · Remarques · Par."],
+        ["**🔒 Caisse**, en bas", "« Historique des clôtures — BOUTIQUE » : Date · Attendu dans le tiroir · Compté · Écart · Remarques · Par. Six lignes se voient, la suite se lit en faisant défiler le tableau (l'en-tête reste en haut)."],
         ["**🧾 Chez le comptable**", "Le comptable pointe « ✅ Encaissé » les versements qu'il a reçus, ou les rejette."],
         ["**⚙ Paramètres → Boutiques**", "« 💼 Fonds de caisse » sur chaque boutique : régler, augmenter, diminuer, « Régulariser », « 📅 Date » sur chaque remise."],
         ["**📊 Tableau de bord**", "Les pastilles 👤 DG · 🏦 BANQUE · 🧾 COMPTABLE · 📱 FLOOZ · 📱 MIXX/T-MONEY : le relevé de chaque caisse centrale et de chaque compte mobile (chapitre 22)."],
@@ -146,7 +146,7 @@ export const CHAPITRE = {
         ["N° du bordereau de versement", "Obligatoire pour BANQUE."],
         ["⚠ Justifiez pourquoi le montant n'est pas X / Note (justification)", "N'apparaissent que si le montant diffère de l'attendu ; la note est alors obligatoire. Elle suit le versement partout (« attendu 200 000 F, écart − 50 000 F : la note »)."],
         ["💸 Verser", "Le geste. Confirmation, message au DG ou au comptable, ligne « ⏳ en attente »."],
-        ["Versements de BOUTIQUE", "Date · Montant · Destination (écart et note) · Par · Validation : « ⏳ en attente », « ✅ validé le … par … », « ✖ rejeté le … par … — motif » (ligne rouge, montant barré)."],
+        ["Versements de BOUTIQUE", "Date · Montant · Destination (écart et note) · Par · Validation : « ⏳ en attente », « ✅ validé le … par … », « ✖ rejeté le … par … — motif » (ligne rouge, montant barré). Six lignes se voient, la suite se lit en faisant défiler le tableau."],
       ]}],
       ["h3", "Le cadre « Clôture du jour »"],
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [

@@ -6653,7 +6653,8 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     && /const nomsDG = jeSuisDG \? boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\)\.filter\(\(n\) => n === boutique\) : \[\];/.test(cs) && /versementsAValiderParDG\(db, nomsDG\)/.test(cs)
     && /Versements à valider par le DG \(\{aValiderDG\.length\}\) <Badge boutique=\{boutique\} \/>/.test(cs)
     // Captures Timo (10/09/2026) : montant en gras chez le DG ; les tableaux de la caisse défilent de droite à gauche sur téléphone.
-    && /<b className="text-base tabular-nums">\{fmt\(d\.montant\)\}<\/b>/.test(cs) && /bg-white overflow-x-auto">\s*(\{\/\*[^]*?\*\/\}\s*)?<div[^>]*>Versements de \{libelleCaisse\(boutique\)\}<\/div>\s*<table className="w-full text-sm min-w-\[640px\]">/.test(cs)
+    // RETOURNÉ le 05/11/2026 : les versements passent par TableauDefilant (6 lignes, puis défilement).
+    && /<b className="text-base tabular-nums">\{fmt\(d\.montant\)\}<\/b>/.test(cs) && /bg-white overflow-x-auto">\s*(\{\/\*[^]*?\*\/\}\s*)?<div[^>]*>Versements de \{libelleCaisse\(boutique\)\}<\/div>\s*<TableauDefilant>\s*<table className="w-full text-sm min-w-\[640px\]">/.test(cs)
     && /bg-white overflow-x-auto">\s*<div[^>]*>Détail des encaissements/.test(cs) && !/bg-white overflow-hidden/.test(cs)
     && /messages: \[\.\.\.messagesVersement\(db, profile, r\.sortie\), \.\.\.\(db\.messages \|\| \[\]\)\]/.test(cs) && /\{vers\.destination === DEST_BANQUE && \(/.test(cs));
 }

@@ -37,7 +37,7 @@ const entree = join(dossier, "entree.jsx");
 writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut, useFilSurSaFin, DialogHost, uChoix, uAlert, allerALaLigne } from "${process.cwd()}/src/components/ui.jsx";
+import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut, useFilSurSaFin, DialogHost, uChoix, uAlert, allerALaLigne, TableauDefilant, LIGNES_DEFILANT } from "${process.cwd()}/src/components/ui.jsx";
 const LIGNES = Array.from({ length: 60 }, (_, i) => "L" + i);
 function Liste({ ouvrir }) {
   return <table><tbody>{LIGNES.map((id) => (
@@ -108,8 +108,17 @@ function Notification() {
 window.ouvrirChoix = () => { window.choisi = "en attente"; uChoix("Confier le brouillon « Villa Agoè » (1 595 000 F) à :",
   Array.from({ length: 16 }, (_, i) => "COLLÈGUE " + i + " — Gérant de boutique · BMI DEMAKPOE")).then((r) => { window.choisi = r; }); };
 window.ouvrirAlerte = () => { uAlert(Array.from({ length: 60 }, (_, i) => "Ligne " + i + " d'un long message").join(" | ")); };
+// 📜 Un tableau de 12 lignes (la 3e sur plusieurs lignes : une longue remarque),
+// avec la règle, puis un TÉMOIN sans elle.
+function Defilant({ regle }) {
+  const lignes = Array.from({ length: 12 }, (_, i) => <tr key={i} data-l={i}><td className="px-3 py-2">{"J" + i}</td>
+    <td className="px-3 py-2" style={{ maxWidth: 160 }}>{i === 2 ? "une très longue remarque qui passe sur plusieurs lignes dans la cellule" : "—"}</td></tr>);
+  const t = <table className="w-full text-sm"><thead><tr><th className="text-left px-3 py-2">Date</th><th>Remarques</th></tr></thead><tbody>{lignes}</tbody></table>;
+  return <div id="d">{regle ? <TableauDefilant>{t}</TableauDefilant> : <div data-tableau-defilant className="overflow-auto">{t}</div>}</div>;
+}
+window.LIGNES_DEFILANT = LIGNES_DEFILANT;
 const quoi = new URLSearchParams(location.search).get("q");
-createRoot(document.getElementById("r")).render(quoi === "notif" ? <Notification /> : quoi === "dialogue" ? <DialogHost /> : quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
+createRoot(document.getElementById("r")).render(quoi === "defilant" ? <Defilant regle /> : quoi === "defilanttemoin" ? <Defilant /> : quoi === "notif" ? <Notification /> : quoi === "dialogue" ? <DialogHost /> : quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
@@ -264,6 +273,29 @@ console.log("\n🔔 Une notification mène à sa ligne : la page vient à la lig
   await page.evaluate(() => { window.allerALaLigne("INCONNUE"); });
   await attendre(4800);
   test("une ligne introuvable (archivée, filtrée, d'un autre espace) : rien ne bouge, on reste en haut", (await page.evaluate(() => window.scrollY)) === 0);
+}
+
+console.log("\n📜 Un tableau montre 6 lignes, puis défile (clôtures, versements, produits dormants)");
+{
+  const mesure = () => page.evaluate(() => {
+    const c = document.querySelector("[data-tableau-defilant]"); const r = c.getBoundingClientRect();
+    const vus = [...c.querySelectorAll("tbody tr")].filter((tr) => { const b = tr.getBoundingClientRect(); return b.top >= r.top - 1 && b.bottom <= r.bottom + 1; }).length;
+    return { vus, defile: c.scrollHeight > c.clientHeight + 1, n: window.LIGNES_DEFILANT };
+  });
+  await page.goto(`file://${htmlDialogue}?q=defilanttemoin`); await attendre(200);
+  const t = await mesure();
+  test("TÉMOIN sans la règle : les 12 lignes s'affichent, rien ne défile (le défaut des captures)", t.vus === 12 && !t.defile, JSON.stringify(t));
+  await page.goto(`file://${htmlDialogue}?q=defilant`); await attendre(200);
+  const m = await mesure();
+  test("avec la règle : exactement 6 lignes visibles, même avec une remarque sur plusieurs lignes", m.n === 6 && m.vus === 6, JSON.stringify(m));
+  test("le reste se lit en défilant (barre de défilement)", m.defile, JSON.stringify(m));
+  await page.$eval("[data-tableau-defilant]", (c) => { c.scrollTop = c.scrollHeight; }); await attendre(100);
+  const enTete = await page.evaluate(() => { const c = document.querySelector("[data-tableau-defilant]"); return Math.abs(c.querySelector("thead th").getBoundingClientRect().top - c.getBoundingClientRect().top) <= 1; });
+  test("l'en-tête reste collé en haut pendant le défilement", enTete);
+}
+for (const [f, n] of [["src/screens/Caisse.jsx", 2], ["src/screens/Rentabilite.jsx", 1]]) {
+  const s = sansCommentaires(lire(f));
+  test(`${f} : ${n} tableau(x) passent par TableauDefilant (clôtures, versements / produits dormants)`, (s.match(/<TableauDefilant>/g) || []).length === n);
 }
 
 await nav.close();

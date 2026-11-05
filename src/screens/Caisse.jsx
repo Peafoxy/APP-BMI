@@ -8,7 +8,7 @@ import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { LIGNE_CLOTURES_DEPASSEES } from "../lib/cibleNotification";
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente } from "../lib/core";
-import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois, FormulaireRepliable, TableauDefilant } from "../components/ui";
 // Timo (12/09/2026) : la clôture est impossible tant qu'une dépense en
 // espèces attend la validation du DG ; les avances de frais se remboursent ici.
 import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
@@ -455,6 +455,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
           <div className="mt-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
             {/* Timo (10/09/2026) : « je n'arrive pas à défiler de droite à gauche » — le cadre défile, le tableau garde sa largeur. */}
             <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Versements de {libelleCaisse(boutique)}</div>
+            <TableauDefilant>
             <table className="w-full text-sm min-w-[640px]">
               <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Date</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Destination</th><th className="text-left px-3 py-1.5">Par</th><th className="text-left px-3 py-1.5">Validation</th></tr></thead>
               <tbody>
@@ -469,6 +470,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
                 ); })}
               </tbody>
             </table>
+            </TableauDefilant>
           </div>
         )}
       </Panel>
@@ -703,6 +705,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Historique des clôtures — {libelleCaisse(boutique)}</div>
+        <TableauDefilant>
         <table className="w-full text-sm min-w-[640px]">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Attendu dans le tiroir", "Compté", "Écart", "Remarques", "Par"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
@@ -722,6 +725,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
             })}
           </tbody>
         </table>
+        </TableauDefilant>
       </div>
       </>)}
     </div>

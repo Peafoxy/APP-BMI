@@ -4,7 +4,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, today, inP, lignesAuChiffre, coutDesVentes, avertissementSansPrix } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Stat } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Stat, TableauDefilant } from "../components/ui";
 import { stockActuel, periodes, filtreEspaceAffichage, afficheChiffresFormation, voitLesDeuxEspaces, boutiquesFormation, coutGarantie, boutiqueDuChantier } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 import { ventesAuChiffre } from "../lib/depotChantier";
@@ -187,6 +187,7 @@ export function Rentabilite({ db, profile }) {
           <div className="px-4 py-3 font-bold text-orange-800 border-b border-orange-200 bg-orange-50">
             😴 Produits dormants — invendus sur la période, mais en stock ({fmt(capitalDormant)} immobilisés){dormants.length > 25 ? ` · les 25 plus lourds sur ${dormants.length}` : ""}
           </div>
+          <TableauDefilant>
           <table className="w-full text-sm min-w-[520px]">
             <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Site", "Stock", "Valeur immobilisée"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
             <tbody>
@@ -200,6 +201,7 @@ export function Rentabilite({ db, profile }) {
               ))}
             </tbody>
           </table>
+          </TableauDefilant>
         </div>
       )}
     </div>

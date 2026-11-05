@@ -165,7 +165,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 
 | Fichier | À quoi il sert |
 |---|---|
-| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`), le bouton qui se grise pendant un envoi (`BoutonEnvoi`, `useEnvoiEnCours`), et la fenêtre de description d'un bouton au survol (`InfobulleHost`) |
+| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`), le bouton qui se grise pendant un envoi (`BoutonEnvoi`, `useEnvoiEnCours`), la fenêtre de description d'un bouton au survol (`InfobulleHost`), et le tableau qui montre 6 lignes puis défile (`TableauDefilant`) |
 | `cibleEcran.js` | 🔔 Ce qu'un écran fait d'une notification cliquée : `useCible`, la boutique visée (`useCibleBoutique`, jamais un employé déplacé hors de sa boutique) |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
 | `NoteVocale.jsx` | 🎤 Les notes vocales de 📲 WhatsApp comme sur WhatsApp : le lecteur (▶, barres, vitesse), le micro qu'on garde appuyé, et la réécoute d'une note envoyée par la copie de l'appareil (`useCopieVocale`) |

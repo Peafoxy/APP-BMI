@@ -108,7 +108,7 @@ export const CHAPITRE = {
         { titre: "Période et tri", texte: "Aujourd'hui, Cette semaine, **Ce mois** (d'office), Cette année ; trier par Marge, Taux de marge, Chiffre d'affaires ou Quantités vendues." },
         { titre: "Les cartes", texte: "**Chiffre d'affaires**, **Marge brute**, **Taux de marge global** (ambre sous 15 %), **Capital dormant** ; et le **Coût des échanges garantie (SAV)** s'il y en a eu." },
         { titre: "« Produits vendus — … »", texte: "Par article : catégorie, vendus, CA, coût, **marge** (rouge si négative), **taux** (orange sous 15 %). Ligne TOTAL. **📄 Exporter.**" },
-        { titre: "« 😴 Produits dormants »", texte: "Les articles **en stock mais pas vendus** sur la période, du plus lourd au plus léger, avec la valeur immobilisée au prix d'achat. Les 25 plus lourds sont listés ; le titre le dit s'il y en a plus." },
+        { titre: "« 😴 Produits dormants »", texte: "Les articles **en stock mais pas vendus** sur la période, du plus lourd au plus léger, avec la valeur immobilisée au prix d'achat. Les 25 plus lourds sont listés ; le titre le dit s'il y en a plus. Six lignes se voient, la suite se lit en faisant défiler le tableau." },
       ]],
       ["regle", "**La marge = prix auquel l'article a été vendu** (remises déduites, articles repris retirés) **− son prix d'achat ACTUEL**, celui de sa fiche. Si le prix d'achat a changé depuis la vente, la marge d'une vente ancienne se recalcule avec le nouveau."],
       ["note", "Un article **sans prix d'achat** sur sa fiche passerait à 100 % de marge : l'écran le DIT en ambre, avec le nom de l'article, comme le tableau de bord."],
