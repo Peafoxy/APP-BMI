@@ -2733,8 +2733,10 @@ titre("Le selecteur « je regarde » vit dans les Parametres, et recharge la pag
     /changerEspace\(false\)/.test(par) && /changerEspace\(true\)/.test(par));
   test("★ …et ont quitte le menu de tous les ecrans",
     !/basculerEspaceRegarde/.test(app));
+  // ⚠ RETOURNÉ le 06/11/2026 (la page d'icônes) : plus de barre latérale — le
+  // rappel est la pastille « 🎓 Formation » de l'en-tête, pour tous les écrans.
   test("le menu garde un RAPPEL de l'espace regarde, sans bouton",
-    /Vous regardez la FORMATION/.test(app));
+    /title="Vous regardez l'espace d'entraînement\. Pour en changer : ⚙ Paramètres\.">\s*🎓 Formation/.test(app) && !/Vous regardez la FORMATION/.test(app));
   test("★ la cle du reglage n'est ecrite qu'a UN endroit (plus de copie dans App.jsx)",
     /export const CLE_REGARDE = "bmi_regarde_formation";/.test(cal)
     && !/const CLE_REGARDE = "bmi_regarde_formation";/.test(app));
@@ -6042,7 +6044,8 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     // cadre insensible aux clics, aucun flou — n'a pas bougé.
     /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\}\n/.test(app)
     && /onDeconnecter=\{async \(\) => \{ await deconnexion\(true\); setVerrouille\(false\); \}\} \/>\}/.test(app)
-    && /className=\{`min-h-screen bg-slate-100 lg:flex\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
+    // ⚠ RETOURNÉ le 06/11/2026 : plus de `lg:flex` (la barre latérale est partie).
+    && /className=\{`min-h-screen bg-slate-100\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (masqué, un œil 👁 l'affiche comme à la connexion), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
     /type=\{visible \? "text" : "password"\}/.test(ev) && /\{visible \? "🙈" : "👁"\}/.test(ev) && /z-\[10000\]/.test(ev) && /\{profile\?\.nom\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
@@ -6051,7 +6054,11 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   const cnxV = readFileSync("src/screens/Connexion.jsx", "utf8");
   test("★ le fond et les bulles sont UNE règle (decorAccueil + FondAccueil + Bulles, Connexion.jsx) : la connexion pose sa carte dessus, le verrou sa petite fenêtre (sans logo ni bandeau) ; rien recopié dans EcranVerrou",
     /export function decorAccueil\(db, apparence\)/.test(cnxV) && /export function FondAccueil\(\{ decor, children, className = "min-h-screen" \}\)/.test(cnxV) && /export \{ Bulles \};/.test(cnxV)
-    && /<CarteAccueil decor=\{decor\} pied=\{souhaits\.length > 0 && <Souhaits/.test(cnxV) && /<FondAccueil decor=\{decor\} className=\{className\}>/.test(cnxV) && (cnxV.match(/backgroundImage: `url\(\$\{accueilImage\}\)`/g) || []).length === 2
+    && /<CarteAccueil decor=\{decor\} pied=\{souhaits\.length > 0 && <Souhaits/.test(cnxV) && /<FondAccueil decor=\{decor\} className=\{className\}>/.test(cnxV)
+    // ⚠ RETOURNÉ le 06/11/2026 : le fond SEUL est sorti en `fondAccueil` (la page
+    // d'icônes le pose aussi) — FondAccueil le lit, rien n'est recopié.
+    && /export function fondAccueil\(decor, \{ voile = false \} = \{\}\)/.test(cnxV) && /const fond = fondAccueil\(decor\);/.test(cnxV)
+    && (cnxV.match(/backgroundImage: `url\(\$\{accueilImage\}\)`/g) || []).length === 1
     && /const decorBase = decorAccueil\(db \|\| \{ boutiques: \[\] \}, apparence\);\n\s+const decor = \{ \.\.\.decorBase, pleinEcran: !!decorBase\.accueilImage \};/.test(ev) && /<FondAccueil decor=\{decor\} className="min-h-full">/.test(ev)
     && /\{decor\.bulles && <Bulles couleur=\{decor\.couleurBulles\} \/>\}/.test(ev) && !/CarteAccueil/.test(ev) && !/LOGO/.test(ev)
     && !/backgroundImage/.test(ev) && !/Etoiles|bg-gradient/.test(ev));
@@ -6063,8 +6070,10 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     // 12/09/2026 (capture Timo) : le bouton Se déconnecter est REMPLI (rouge pâle, « petit danger ») — invisible sur certains fonds quand il n'avait qu'un contour.
     && /onClick=\{onDeconnecter\} className="w-full px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-bold">/.test(ev) && !/laisser la place/.test(ev) && !/opérations non encore envoyées/.test(ev) && !/MAX_ERREURS_VERROU/.test(ev)
     && !/Rien n'est perdu/.test(ev));
-  test("★ barre du haut (ordinateur) : plus de badge En ligne / version / nom, un bouton « Verrouiller » sans cadenas qui pose le verrou ; la barre latérale garde le badge",
-    /<button onClick=\{verrouiller\} className="[^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && (app.match(/<BadgeSync /g) || []).length === 1 && /<BadgeSync sombre \/>/.test(app));
+  // ⚠ RETOURNÉ le 06/11/2026 (la page d'icônes) : plus de barre latérale, donc
+  // plus de BadgeSync — l'en-tête unique dit « En ligne » sur tous les écrans.
+  test("★ barre du haut (ordinateur) : un bouton « Verrouiller » sans cadenas qui pose le verrou ; l'état En ligne / Hors ligne dans l'en-tête unique",
+    /<button onClick=\{verrouiller\} className="hidden lg:inline-block [^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && !/BadgeSync/.test(app) && /🟢 En ligne/.test(app));
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
     /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
   // Timo (09/09/2026) : « avoir le réglage des couleurs de la carte de
@@ -7975,12 +7984,36 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     && Oo.resteImmobile(3, 4) === true && Oo.resteImmobile(6, 6) === false && Oo.DELAI_APPUI_LONG_MS === 500 && Oo.SEUIL_MOUVEMENT_PX === 8);
   const appOo = readFileSync("src/App.jsx", "utf8");
   test("★ App.jsx : les deux barres (ordinateur, téléphone) passent par OngletsDeplacables ; l'ordre vient de la fiche (ordre_onglets) APRÈS le filtre des pouvoirs ; l'écriture ne part que si l'ordre change (ordreApres), dans la fiche de la personne seule, sans ligne de réglage",
-    (appOo.match(/<OngletsDeplacables tabs=\{tabsAutorises\} tab=\{enSortie \? ONGLET_ATTESTATION\[0\] : tab\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\} sens="(vertical|horizontal)"/g) || []).length === 2
+    // ⚠ RETOURNÉ le 06/11/2026 (Timo, « A2, B1, C1 ») : plus de barres — UNE
+    // page d'icônes, qui passe par OngletsDeplacables (sens « grille »).
+    !/<OngletsDeplacables/.test(appOo) && /<PageIcones tabs=\{tabsAutorises\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\}/.test(appOo)
+    && /<OngletsDeplacables tabs=\{tabs\} tab=\{null\} onChoisir=\{onChoisir\} onReordonner=\{onReordonner\} sens="grille"/.test(readFileSync("src/components/PageIcones.jsx", "utf8"))
     // (l'onglet à part 🏦 Chez le DG / BANQUE a vécu une heure : Timo l'a voulu dans le tableau de bord — retour à tabsPlus2)
     // ⚠ RETOURNÉ le 14/10/2026 : pendant ses 24 dernières heures, un employé sorti n'a QUE « 📄 Mon attestation ».
     && /const tabsAutorises = enSortie \? \[ONGLET_ATTESTATION\] : appliquerOrdre\(tabsPlus2\.filter\(\(\[id\]\) => aDroit\(db, profile, id\)\), maFiche\?\.ordre_onglets\);/.test(appOo)
     && /const ordre = ordreApres\(ids, maFiche\?\.ordre_onglets\);\n\s*if \(!ordre \|\| !maFiche\) return;\n\s*save\(\{ \.\.\.db, users: db\.users\.map\(\(u\) => \(u\.id === profile\.id \? \{ \.\.\.u, ordre_onglets: ordre \} : u\)\) \}\);/.test(appOo)
     && !/Ordre de mes onglets|ordre des onglets/i.test(appOo) && !/tabsAutorises\.map\(\(\[id, label\]\)/.test(appOo));
+  // 🔲 LA PAGE D'ICÔNES (06/11/2026, Timo : « A2, B1, C1 », « 1 »).
+  {
+    const sortiePi = join("node_modules", ".cache", `bmi-page-icones-${process.pid}.mjs`);
+    await build({ entryPoints: ["src/lib/pageIcones.js"], bundle: true, format: "esm", platform: "node", outfile: sortiePi, logLevel: "silent" });
+    const Pi = await import(pathToFileURL(sortiePi).href);
+    const d1 = Pi.decomposerLibelle("💬 Messages (3)"), d2 = Pi.decomposerLibelle("📋 Tous les devis"), d3 = Pi.decomposerLibelle("Sans icône (12)");
+    test("★ decomposerLibelle : l'emoji devient l'icône, « (N) » la pastille, le reste le nom ; sans emoji le nom reste entier",
+      d1.icone === "💬" && d1.nom === "Messages" && d1.nombre === 3 && d2.icone === "📋" && d2.nom === "Tous les devis" && d2.nombre === 0
+      && d3.icone === "" && d3.nom === "Sans icône" && d3.nombre === 12 && Pi.decomposerLibelle("⚙ Paramètres").nom === "Paramètres");
+    test("★ chaque icône a son fond pâle (un onglet inconnu le gris bleuté) — ni rouge ni violet",
+      Pi.couleurIcone("ventes") === "#dbeafe" && Pi.couleurIcone("caisse") === "#dcfce7" && Pi.couleurIcone("inconnu") === Pi.COULEUR_ICONE_DEFAUT && Pi.ACCUEIL === "accueil");
+    const c = [{ x: 50, y: 50 }, { x: 150, y: 50 }, { x: 250, y: 50 }, { x: 50, y: 150 }, { x: 150, y: 150 }];
+    test("★★ indexDeposeGrille : la place se lit dans l'ordre de LECTURE (rangées au-dessus, puis la gauche de sa rangée)",
+      Oo.indexDeposeGrille({ x: 10, y: 50 }, c, 80) === 0 && Oo.indexDeposeGrille({ x: 200, y: 50 }, c, 80) === 2 && Oo.indexDeposeGrille({ x: 300, y: 50 }, c, 80) === 3
+      && Oo.indexDeposeGrille({ x: 10, y: 150 }, c, 80) === 3 && Oo.indexDeposeGrille({ x: 300, y: 150 }, c, 80) === 5);
+    test("★★ App.jsx : on arrive sur la page d'icônes (état de départ ET connexion), le LOGO y ramène (« B1 »), plus de barre latérale, et les libellés sont des TEXTES (le chiffre devient la pastille)",
+      /const \[tab, setTab\] = useState\(ACCUEIL\);/.test(appOo) && /\/\/ 🔲 06\/11\/2026 : à la connexion, la page d'icônes[^\n]*\n\s*setTab\(ACCUEIL\);/.test(appOo)
+      && /<button type="button" data-logo-accueil onClick=\{allerAccueil\}/.test(appOo) && /const allerAccueil = \(\) => \{ if \(!enSortie\) setTab\(ACCUEIL\); \};/.test(appOo)
+      && !/<aside/.test(appOo) && !/const label(TousDevis|Commandes|Parc) = \(/.test(appOo)
+      && /if \(dernier === ACCUEIL\) return ACCUEIL;/.test(appOo));
+  }
   const cmp = readFileSync("src/components/OngletsDeplacables.jsx", "utf8");
   test("★ le composant : appui long minuté (DELAI_APPUI_LONG_MS), annulé dès que le doigt bouge (resteImmobile), touchmove avalé en NON passif pendant le déplacement seulement, capture du pointeur, le clic qui suit un déplacement est avalé, pas de menu contextuel",
     /setTimeout\(\(\) => \{[^]*?\}, DELAI_APPUI_LONG_MS\);/.test(cmp) && /if \(!resteImmobile\(e\.clientX - d\.x, e\.clientY - d\.y\)\) \{ annulerMinuteur\(\); depart\.current = null; \}/.test(cmp)
@@ -17452,7 +17485,9 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
   const hsv = readFileSync("src/components/HeureServeur.jsx", "utf8");
   test("★★ App mesure l'écart (surveillerHorloge) AVANT le retour anticipé, et « 🕓 Heure serveur » est dans la barre du haut, entre le nom de l'onglet et « Verrouiller » (RETOURNÉ le 14/10/2026 : plus de bande)",
     appH.indexOf("surveillerHorloge();") > 0 && appH.indexOf("surveillerHorloge();") < appH.indexOf("if (!db) return")
-    && /\{titreOnglet\}<\/div>\s*<div className="flex items-center gap-4">[\s\S]{0,900}<HeureServeur \/>\s*<button onClick=\{verrouiller\}/.test(appH)
+    // ⚠ RETOURNÉ le 06/11/2026 : l'en-tête unique (fond sombre) — l'heure à
+    // gauche de « Verrouiller », en clair (`sombre`).
+    && /<HeureServeur sombre \/><\/span>[\s\S]{0,700}<button onClick=\{verrouiller\} className="hidden lg:inline-block/.test(appH)
     && /heureCourte\(\)/.test(hsv) && /Heure serveur/.test(hsv) && /setInterval/.test(hsv));
   const mes = readFileSync("src/horloge.js", "utf8");
   // ⚠ RETOURNÉ le 15/10/2026 : la mesure ne lit plus « Age », et l'écart gardé

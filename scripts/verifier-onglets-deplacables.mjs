@@ -215,6 +215,89 @@ console.log("\nL'appui long qui DÉCLENCHE (05/10/2026 — supprimer une convers
 }
 test("aucune erreur JavaScript pendant les gestes", erreurs.length === 0, erreurs.join(" | "));
 
+// ============================================================
+// 🔲 LA PAGE D'ICÔNES (06/11/2026, Timo : « A2, B1, C1 », « 1 », « sur ordi
+// on ferait mieux de les centraliser, comme Odoo »). Le VRAI composant
+// (components/PageIcones.jsx), avec le VRAI CSS construit (dist/assets) —
+// sinon la grille ne serait qu'une pile de boutons (leçon du 26/10/2026).
+// ============================================================
+console.log("\nPage d'icônes (grille), téléphone et ordinateur");
+{
+  const { readdirSync, readFileSync: lire } = await import("node:fs");
+  const css = readdirSync("dist/assets").filter((f) => f.endsWith(".css")).map((f) => lire(join("dist/assets", f), "utf8")).join("\n");
+  const entree2 = join(dossier, "icones.jsx");
+  writeFileSync(entree2, `
+import React, { useState } from "react";
+import { createRoot } from "react-dom/client";
+import { PageIcones } from "${process.cwd()}/src/components/PageIcones.jsx";
+const TABS = [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes (2)"], ["commandes", "📥 Commandes reçues"], ["tous_devis", "📋 Tous les devis (4)"], ["depenses", "📤 Dépenses"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["messages", "💬 Messages (3)"], ["parametres", "⚙ Paramètres"]];
+window.journal = [];
+function Essai() {
+  const [ordre, setOrdre] = useState(null);
+  const tabs = ordre ? ordre.map((id) => TABS.find((t) => t[0] === id)) : TABS;
+  return <PageIcones tabs={tabs} nom="TIMO" onChoisir={(id) => window.journal.push("choisir:" + id)}
+    onReordonner={(ids) => { window.journal.push("ordre:" + ids.join(",")); setOrdre(ids); }} />;
+}
+createRoot(document.getElementById("g")).render(<Essai />);
+`);
+  const sortie2 = join(dossier, "icones.js");
+  await build({ entryPoints: [entree2], bundle: true, format: "iife", outfile: sortie2, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
+  const html2 = join(dossier, "icones.html");
+  writeFileSync(html2, `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}</style></head><body class="bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900"><main class="w-full max-w-[1600px] mx-auto px-4 py-5"><div id="g"></div></main><script src="icones.js"></script></body></html>`);
+  const mesurer = async (largeur) => {
+    const ctx2 = await nav.newContext({ hasTouch: true, viewport: { width: largeur, height: 800 } });
+    const p2 = await ctx2.newPage();
+    const err2 = [];
+    p2.on("pageerror", (e) => err2.push(String(e.message).split("\n")[0]));
+    await p2.goto(`file://${html2}`);
+    await attendre(400);
+    const boites = await p2.$$eval("[data-page-icones] [data-tab-id]", (els) => els.map((e) => { const r = e.getBoundingClientRect(); return { id: e.dataset.tabId, x: r.left, y: r.top, w: r.width, h: r.height }; }));
+    const nombres = await p2.$$eval("[data-icone-nombre]", (els) => els.map((e) => e.textContent));
+    const noms = await p2.$$eval("[data-page-icones] [data-tab-id]", (els) => els.map((e) => e.textContent));
+    return { ctx2, p2, err2, boites, nombres, noms };
+  };
+  const parRangee = (boites) => { const r = new Map(); for (const b of boites) { const k = Math.round(b.y); r.set(k, (r.get(k) || 0) + 1); } return [...r.values()]; };
+
+  const tel = await mesurer(390);
+  test("★ téléphone : 4 icônes par rangée", parRangee(tel.boites)[0] === 4, JSON.stringify(parRangee(tel.boites)));
+  test("★ le nom sans l'emoji ni le chiffre, le chiffre en PASTILLE rouge (« Ventes », pastille 2)",
+    tel.noms.some((t) => t.includes("Ventes") && !t.includes("(2)")) && tel.nombres.join(",") === "2,4,3", `${tel.nombres.join(",")} — ${tel.noms.join(" | ")}`);
+  // Un toucher ouvre l'écran.
+  const v = tel.boites.find((b) => b.id === "ventes");
+  await tel.p2.touchscreen.tap(v.x + v.w / 2, v.y + v.h / 2);
+  await attendre(150);
+  const jt = await tel.p2.evaluate(() => window.journal.splice(0));
+  test("★ un toucher sur une icône ouvre son écran (onChoisir)", jt.join("|") === "choisir:ventes", jt.join("|"));
+  // Appui long à la souris : « Caisse » (2e rangée) glissée sur « Tous les
+  // devis » (4e place de la 1re rangée). ⚠ Ce point discrimine la grille : une
+  // lecture par x seul la mettrait tout au bout, une lecture par y seul en tête.
+  const ca = tel.boites.find((b) => b.id === "caisse");
+  const dv = tel.boites.find((b) => b.id === "tous_devis");
+  const but = { x: dv.x + dv.w * 0.8, y: dv.y + dv.h / 2 };
+  await tel.p2.mouse.move(ca.x + ca.w / 2, ca.y + ca.h / 2);
+  await tel.p2.mouse.down();
+  await attendre(650);
+  for (let i = 1; i <= 8; i++) { await tel.p2.mouse.move(ca.x + ca.w / 2 + (but.x - ca.x - ca.w / 2) * (i / 8), ca.y + ca.h / 2 + (but.y - ca.y - ca.h / 2) * (i / 8)); await attendre(20); }
+  await tel.p2.mouse.up();
+  await attendre(150);
+  const jo = await tel.p2.evaluate(() => window.journal.splice(0));
+  // Pendant le geste, les icônes se poussent : « Caisse » prend la place SOUS
+  // le doigt (la 4e de la 1re rangée), « Tous les devis » passe à la suite.
+  test("★★ appui long dans la GRILLE : « Caisse » (2e rangée) prend la place sous le doigt, la 4e de la 1re rangée, sans clic parasite",
+    jo.join("|") === "ordre:dashboard,ventes,commandes,caisse,tous_devis,depenses,stocks,messages,parametres", jo.join("|"));
+  test("aucune erreur JavaScript (téléphone)", tel.err2.length === 0, tel.err2.join(" | "));
+  await tel.ctx2.close();
+
+  const pc = await mesurer(1300);
+  const gauche = Math.min(...pc.boites.map((b) => b.x));
+  const droite = Math.max(...pc.boites.map((b) => b.x + b.w));
+  test("★ ordinateur : 6 icônes par rangée", parRangee(pc.boites)[0] === 6, JSON.stringify(parRangee(pc.boites)));
+  test("★★ ordinateur : les icônes sont REGROUPÉES AU CENTRE (« comme Odoo »), pas étalées d'un bord à l'autre",
+    droite - gauche <= 660 && Math.abs((gauche + droite) / 2 - 650) <= 20, `de ${Math.round(gauche)} à ${Math.round(droite)} px`);
+  test("aucune erreur JavaScript (ordinateur)", pc.err2.length === 0, pc.err2.join(" | "));
+  await pc.ctx2.close();
+}
+
 await nav.close();
 rmSync(dossier, { recursive: true, force: true });
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

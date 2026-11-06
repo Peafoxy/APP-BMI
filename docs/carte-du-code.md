@@ -126,7 +126,8 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/rappels.js` | Les rappels « pour information » qui dépendent du temps (tournée du matin) |
 | `lib/conversations.js` | L'ordre de la liste des conversations de 💬 Messages |
 | `lib/contactGoogle.js` | 📇 Enregistrer un client WhatsApp dans les contacts Google de BMI (bmitogo.info) : numéro international, refus, corps envoyé à Google, trace sur la fiche ; quand chercher tout seul le nom d'un client qui écrit |
-| `lib/ordreOnglets.js` | L'ordre des onglets, au choix de chacun |
+| `lib/ordreOnglets.js` | L'ordre des onglets, au choix de chacun (aussi en grille : la page d'icônes) |
+| `lib/pageIcones.js` | La page d'icônes : nom, icône et chiffre d'un onglet, couleur pâle de chaque icône |
 | `lib/pileRetour.js` | La touche retour d'Android : ce qu'il faut fermer à chaque appui |
 
 ## Les données : charger, fusionner, sauvegarder
@@ -179,7 +180,8 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `encaissementPose.js` | LE geste qui encaisse une pose seule (acompte 70 %, puis solde) — 🧾 Commandes et 🏠 Clients installés |
 | `verserOrigine.js` | LE geste « 💸 Verser » l'argent d'UNE vente (💰 Ventes) ou d'UN règlement de dette (📋 Dettes) au DG / BANQUE / comptable — sans bande noire |
 | `SelecteurBoutique.jsx` | La rangée de pastilles des boutiques |
-| `OngletsDeplacables.jsx` | La barre d'onglets qu'on déplace par appui long |
+| `OngletsDeplacables.jsx` | Les onglets qu'on déplace par appui long (la grille de la page d'icônes) |
+| `PageIcones.jsx` | La page d'icônes de l'accueil : un onglet = une icône, le logo BMI y ramène |
 | `HistoriqueArchive.jsx` | LE cadre d'historique qui défile et archive |
 | `ArgentChantier.jsx` | Les cadres de l'argent remis (onglet 💼 Argent reçu, validation du gérant, fiche du chantier) |
 | `AchatsChantier.jsx` | 🏗 La case « Chantier » de 💰 Ventes et la liste des achats pour les chantiers |

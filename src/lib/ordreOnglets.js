@@ -66,3 +66,20 @@ export function indexDepose(position, milieux) {
 
 // Un appui est-il encore un appui long (pas devenu un défilement) ?
 export const resteImmobile = (dx, dy) => Math.hypot(dx, dy) < SEUIL_MOUVEMENT_PX;
+
+// 🔲 LA PAGE D'ICÔNES (06/11/2026, Timo : « A2, B1, C1 » puis « 1 ») : les
+// onglets sont posés en GRILLE. La place où l'on dépose se lit dans l'ordre
+// de lecture : toutes les icônes d'une rangée au-dessus du doigt, puis celles
+// de SA rangée qui sont à sa gauche. `centres` = [{ x, y }] des autres icônes
+// (dans leur ordre), `hauteur` = la hauteur d'une icône (une rangée).
+export function indexDeposeGrille(point, centres, hauteur) {
+  const m = centres || [];
+  const demi = Math.max(1, (hauteur || 0) / 2);
+  let n = 0;
+  for (const c of m) {
+    const rangeeAuDessus = c.y + demi <= point.y;
+    const memeRangee = Math.abs(c.y - point.y) < demi;
+    if (rangeeAuDessus || (memeRangee && c.x < point.x)) n += 1;
+  }
+  return n;
+}

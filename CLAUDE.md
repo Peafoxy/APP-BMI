@@ -599,6 +599,42 @@ lit mal est pire qu'un banc absent).
   navigateur** (`verifier-onglets-deplacables`, Chromium : souris ET doigt,
   l'exemple exact de Timo — Caisse juste après Ventes).
 
+### 🔲 LA PAGE D'ICÔNES — PLUS DE BARRE D'ONGLETS (06/11/2026, « A2, B1, C1 », « 1 », « centraliser comme Odoo », « reprendre l'image de fond de session verrouillée »)
+- Après des captures d'Odoo envoyées par Timo : **chaque onglet devient une
+  ICÔNE** (« A2 » — pas de familles), **le logo BMI en haut à gauche ramène à la
+  page d'icônes** (« B1 » — pas au tableau de bord : une vendeuse ne l'a pas),
+  **téléphone ET ordinateur** (« C1 »), **l'icône seule sur un fond pâle**
+  (« 1 » — pas de carré blanc), **regroupées au centre sur ordinateur** (6 par
+  ligne, 640 px ; 4 par ligne sur téléphone), posées sur **le fond de la fenêtre
+  de verrou** (`fondAccueil`, Connexion.jsx — la règle du décor, FondAccueil la
+  lit aussi ; voile sombre dans l'image ; les étoiles ne sont pas reprises).
+- `ACCUEIL` = "accueil" (lib/pageIcones.js) : l'état de départ et la CONNEXION
+  ouvrent la page d'icônes ; un F5 retrouve l'écran où l'on était (`tabDeDepart`
+  accepte `accueil`) ; un clic de notification ouvre l'écran directement ; la
+  touche retour d'Android revient à l'écran d'avant (les icônes depuis un écran
+  ouvert d'elles). En période de sortie (« 📄 Mon attestation »), pas d'icônes.
+- `components/PageIcones.jsx` passe par `OngletsDeplacables sens="grille"`
+  (`indexDeposeGrille`, lib/ordreOnglets.js : l'ordre de LECTURE) — le même ordre
+  qu'avant (`ordre_onglets`), l'appui long déplace une icône. **Le chiffre rouge
+  vient du libellé** : `decomposerLibelle` (« 💬 Messages (3) » → icône, nom,
+  3) ; les libellés sont tous des TEXTES (Tous les devis, Commandes, Clients
+  installés étaient des pastilles JSX). Couleur pâle par métier (`couleurIcone`,
+  ni rouge ni violet). « Dimensionnement » se coupe à un trait d'union propre.
+- **L'en-tête est UNIQUE** (téléphone et ordinateur) : logo (→ icônes), nom,
+  version, 🎓 Formation, 💬 +N ; ordinateur : heure du serveur (`HeureServeur
+  sombre`), « Verrouiller », date ; téléphone : 🔐 ; deuxième ligne : 🔍, En
+  ligne, Synchroniser, boutique, Se déconnecter. Sous lui, le nom de l'écran
+  ouvert et « ← Accueil ». **La barre latérale et la barre d'onglets du
+  téléphone sont RETIRÉES**, `BadgeSync` aussi. Le prix, dit à Timo avant : deux
+  gestes (logo puis icône) pour passer d'un écran à un autre.
+- Rien à coller. Bancs : `verifier-onglets-deplacables` (+8, la grille JOUÉE
+  dans Chromium avec le vrai CSS : 4 / 6 par ligne, pastille, toucher, appui
+  long qui prend la place sous le doigt, centrage), éprouvé (lecture 1D, grille
+  étalée) ; `verifier-cloisonnement` (+4, dont l'arrivée sur les icônes,
+  éprouvé) ; six contrôles RETOURNÉS (deux barres → une grille, rappel de la
+  formation, BadgeSync, cadre sans `lg:flex`, heure du serveur, le fond sorti en
+  `fondAccueil`). Chapitres 1 et 25 et le guide administrateur à jour.
+
 ### ⬅ LA TOUCHE RETOUR D'ANDROID (13/10/2026, « A a, B b, C a, lance »)
 - Timo : « la touche retour de l'Android quitte l'application… pourquoi ça
   ne peut pas retourner les écrans en arrière ? » — l'application ne notait

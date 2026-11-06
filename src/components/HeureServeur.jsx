@@ -7,14 +7,14 @@ import { heureCourte } from "../lib/core";
 // C'est l'heure que l'application écrit sur tout ce qu'elle enregistre
 // (lib/horloge.js) : on la voit, on peut la comparer à l'horloge de l'appareil.
 // Son propre minuteur : l'écran entier ne se redessine pas pour une horloge.
-export function HeureServeur() {
+export function HeureServeur({ sombre = false }) {
   const [heure, setHeure] = useState(() => heureCourte());
   useEffect(() => {
     const t = setInterval(() => setHeure(heureCourte()), 15000);
     return () => clearInterval(t);
   }, []);
   return (
-    <span data-heure-serveur className="text-xs font-semibold text-slate-500 whitespace-nowrap" title="L'heure du serveur : celle que l'application écrit sur les ventes, dépenses, versements…">
+    <span data-heure-serveur className={`text-xs font-semibold whitespace-nowrap ${sombre ? "text-sky-100" : "text-slate-500"}`} title="L'heure du serveur : celle que l'application écrit sur les ventes, dépenses, versements…">
       🕓 Heure serveur {heure}
     </span>
   );

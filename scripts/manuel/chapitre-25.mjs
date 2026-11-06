@@ -111,7 +111,7 @@ export const CHAPITRE = {
       ["regle", "**On clôture en dernier, à la fermeture, jamais avant.** Une vente faite après la clôture ne se perd pas, mais elle oblige à reclôturer."],
 
       ["h3", "« 🕓 Heure serveur » ne correspond pas à l'horloge de l'appareil"],
-      ["p", "La barre du haut de l'ordinateur affiche **« 🕓 Heure serveur »**, entre le nom de l'onglet et le bouton « Verrouiller » : c'est l'heure que l'application écrit sur les ventes, dépenses, versements et dettes. Si l'horloge de l'appareil (en bas à droite de Windows, ou en haut du téléphone) dit autre chose, **les données restent justes**, mais le reste de l'appareil (WhatsApp, rappels) garde sa fausse heure."],
+      ["p", "La barre du haut de l'ordinateur affiche **« 🕓 Heure serveur »**, juste à gauche du bouton « Verrouiller » : c'est l'heure que l'application écrit sur les ventes, dépenses, versements et dettes. Si l'horloge de l'appareil (en bas à droite de Windows, ou en haut du téléphone) dit autre chose, **les données restent justes**, mais le reste de l'appareil (WhatsApp, rappels) garde sa fausse heure."],
       ["etapes", [
         { titre: "Ouvrir les réglages de l'appareil", texte: "Ordinateur Windows : Paramètres → Heure et langue → Date et heure. Téléphone : Paramètres → Date et heure." },
         { titre: "Régler le fuseau horaire sur Lomé (GMT)", texte: "Activer « Régler l'heure automatiquement » et « Fuseau horaire automatique », ou choisir à la main le fuseau **Lomé / Monrovia / Abidjan (GMT)**." },

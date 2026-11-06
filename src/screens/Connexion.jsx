@@ -226,18 +226,34 @@ export function decorAccueil(db, apparence) {
 // étoiles. `className` habille le conteneur : plein écran défilant pour la
 // connexion, voile fixe pour le verrou. Ce qu'on pose dessus (`children`)
 // est centré.
+// 🔲 Le fond SEUL, en classe + style (06/11/2026) : la page d'icônes le pose
+// sur son cadre sans couche par-dessus (Timo : « reprendre l'image de fond de
+// session verrouillée pour le fond des icônes »). UNE règle : FondAccueil la
+// lit aussi. `voile` met le voile sombre DANS l'image (la page d'icônes n'a
+// pas de couche à part où le poser).
+export function fondAccueil(decor, { voile = false } = {}) {
+  const { accueilFond, accueilImage, tailleImage, positionImage, pleinEcran } = decor;
+  if (!pleinEcran) return { classe: "bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900", style: undefined };
+  const voileCss = "linear-gradient(rgba(2, 20, 40, 0.45), rgba(2, 20, 40, 0.45))";
+  return {
+    classe: "",
+    style: {
+      backgroundColor: accueilFond,
+      backgroundImage: voile ? `${voileCss}, url(${accueilImage})` : `url(${accueilImage})`,
+      backgroundSize: voile ? `auto, ${tailleImage}` : tailleImage,
+      backgroundPosition: voile ? `center, ${positionImage}` : positionImage,
+      backgroundRepeat: "no-repeat",
+    },
+  };
+}
+
 export function FondAccueil({ decor, children, className = "min-h-screen" }) {
-  const { accueilFond, accueilImage, etoiles, tailleImage, positionImage, pleinEcran } = decor;
+  const { etoiles, pleinEcran } = decor;
+  const fond = fondAccueil(decor);
   return (
     <div
-      className={`${className} relative flex items-center justify-center p-4${pleinEcran ? "" : " bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900"}`}
-      style={pleinEcran ? {
-        backgroundColor: accueilFond,
-        backgroundImage: `url(${accueilImage})`,
-        backgroundSize: tailleImage,
-        backgroundPosition: positionImage,
-        backgroundRepeat: "no-repeat",
-      } : undefined}
+      className={`${className} relative flex items-center justify-center p-4${fond.classe ? ` ${fond.classe}` : ""}`}
+      style={fond.style}
     >
       {/* Voile sombre entre l'image et la carte : sans lui, une photo claire
           rendrait le texte de la carte difficile à lire, et la carte elle-même

@@ -10,11 +10,14 @@
 // défiler le menu comme avant (règle pure lib/ordreOnglets.js). Le même
 // composant sert à la barre latérale (verticale, ordinateur) et à la barre du
 // téléphone (horizontale) : `sens` dit dans quel axe on lit la position.
+// 🔲 06/11/2026 : `sens="grille"` pour la PAGE D'ICÔNES (Timo, « A2, B1,
+// C1 ») — la place se lit dans l'ordre de lecture (indexDeposeGrille), et
+// `contenu(id, label, actif)` dessine l'icône à la place du libellé.
 // ============================================================
 import { useEffect, useRef, useState } from "react";
-import { DELAI_APPUI_LONG_MS, appliquerOrdre, deplacer, indexDepose, resteImmobile } from "../lib/ordreOnglets";
+import { DELAI_APPUI_LONG_MS, appliquerOrdre, deplacer, indexDepose, indexDeposeGrille, resteImmobile } from "../lib/ordreOnglets";
 
-export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = "vertical", classeBouton, className = "" }) {
+export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = "vertical", classeBouton, className = "", contenu = null }) {
   const cadre = useRef(null);
   const minuteur = useRef(null);
   const depart = useRef(null);            // { x, y, id, pointerId }
@@ -22,6 +25,7 @@ export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = 
   const [saisi, setSaisi] = useState(null); // id de l'onglet soulevé
   const [ordreVif, setOrdreVif] = useState(null); // ids pendant le déplacement
   const vertical = sens === "vertical";
+  const grille = sens === "grille";
   const affiches = ordreVif ? appliquerOrdre(tabs, ordreVif) : tabs;
 
   const annulerMinuteur = () => { if (minuteur.current) { clearTimeout(minuteur.current); minuteur.current = null; } };
@@ -47,7 +51,7 @@ export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = 
   // pendant un déplacement (l'onglet soulevé suit le doigt).
   useEffect(() => {
     const el = cadre.current;
-    if (!el || saisi) return;
+    if (!el || saisi || grille) return;
     const bouton = [...el.querySelectorAll("[data-tab-id]")].find((b) => b.dataset.tabId === tab);
     if (!bouton) return;
     const r = bouton.getBoundingClientRect();
@@ -57,7 +61,7 @@ export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = 
     } else if (r.left < c.left || r.right > c.right) {
       el.scrollLeft += (r.left - c.left) - (c.width - r.width) / 2;
     }
-  }, [tab, vertical, saisi, affiches.length]);
+  }, [tab, vertical, grille, saisi, affiches.length]);
 
   const commencer = (e, id) => {
     if (e.button !== undefined && e.button !== 0) return;
@@ -83,11 +87,18 @@ export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = 
       if (!resteImmobile(e.clientX - d.x, e.clientY - d.y)) { annulerMinuteur(); depart.current = null; }
       return;
     }
-    const position = vertical ? e.clientY : e.clientX;
     const autres = [...cadre.current.querySelectorAll("[data-tab-id]")].filter((el) => el.dataset.tabId !== d.id);
-    const milieux = autres.map((el) => { const r = el.getBoundingClientRect(); return vertical ? r.top + r.height / 2 : r.left + r.width / 2; });
     const idsSans = autres.map((el) => el.dataset.tabId);
-    const cible = indexDepose(position, milieux);
+    let cible;
+    if (grille) {
+      const rects = autres.map((el) => el.getBoundingClientRect());
+      const centres = rects.map((r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 }));
+      cible = indexDeposeGrille({ x: e.clientX, y: e.clientY }, centres, rects[0]?.height || 0);
+    } else {
+      const position = vertical ? e.clientY : e.clientX;
+      const milieux = autres.map((el) => { const r = el.getBoundingClientRect(); return vertical ? r.top + r.height / 2 : r.left + r.width / 2; });
+      cible = indexDepose(position, milieux);
+    }
     const nouveau = deplacer([...idsSans, d.id], idsSans.length, cible);
     setOrdreVif((actuel) => (actuel && actuel.join("|") === nouveau.join("|") ? actuel : nouveau));
   };
@@ -122,7 +133,7 @@ export function OngletsDeplacables({ tabs, tab, onChoisir, onReordonner, sens = 
           onContextMenu={(e) => e.preventDefault()}
           style={saisi === id ? { touchAction: "none" } : undefined}
           className={`${classeBouton(id, tab === id)}${saisi === id ? " ring-2 ring-white/80 scale-105 opacity-90 shadow-lg z-10" : ""}`}>
-          {label}
+          {contenu ? contenu(id, label, tab === id) : label}
         </button>
       ))}
     </nav>
