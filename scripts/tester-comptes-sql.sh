@@ -46,6 +46,8 @@ echo "▸ Pose des verrous : supabase/securite-38-sexe.sql (reprend securite-37)
 VERIF38=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-38-sexe.sql 2>&1 | tail -1) || echo "   ❌ securite-38 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-39-attestation-sortie.sql (reprend securite-38)"
 VERIF39=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-39-attestation-sortie.sql 2>&1 | tail -1) || echo "   ❌ securite-39 refusé par la base"
+echo "▸ Pose des verrous : supabase/securite-50-affichage.sql (reprend securite-39)"
+VERIF50=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-50-affichage.sql 2>&1 | tail -1) || echo "   ❌ securite-50 refusé par la base"
 echo "▸ Pose des verrous : supabase/securite-48-assistant-direction.sql"
 VERIF48=$(psql -h /tmp -p $PORT -U postgres -d bmi -qtA -v ON_ERROR_STOP=1 -f supabase/securite-48-assistant-direction.sql 2>&1 | tail -1) || echo "   ❌ securite-48 refusé par la base"
 
@@ -172,6 +174,19 @@ essai "★ un administrateur la pose (la mise à disposition)" "PERMIS" "$CALEB"
 essai "le technicien sorti écrit encore sa fiche sans toucher à la marque" "PERMIS" "$TECHNICIEN" "$(UPS zt_tech "$(SET ordre_onglets '["mon_attestation"]')")"
 if [ "$VERIF39" = "t|t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ la phrase de vérification de securite-39 répond true | true | true | true | true";
 else ko=$((ko+1)); echo "  ❌ la phrase de vérification de securite-39 répond « $VERIF39 »"; fi
+
+# 06/11/2026 (securite-50, « 1b, 2b ») : l'affichage FIXÉ par l'administrateur.
+$P -c "update public.users set data = jsonb_set(data, '{interface_imposee}', '\"icones\"') where id = 'zv_kossi';" >/dev/null
+essai "★ un vendeur RETIRE l'affichage fixé sur sa fiche" "REFUSE" "$VENDEUR" "$(MAJ "$(SET interface_imposee '""')" zv_kossi)"
+essai "★ …par UPSERT, comme l'application écrit" "REFUSE" "$VENDEUR" "$(UPS zv_kossi "$(SET interface_imposee '"barre"')")"
+essai "★ un client se fixe un affichage" "REFUSE" "$CLIENT" "$(MAJ "$(SET interface_imposee '"barre"')" zc_ama)"
+essai "★ un gérant fixe l'affichage d'un vendeur" "REFUSE" "$GERANT" "$(MAJ "$(SET interface_imposee '"barre"')" zv_kossi)"
+essai "★ un admin secondaire fixe l'affichage d'un vendeur" "PERMIS" "$CALEB" "$(UPS zv_kossi "$(SET interface_imposee '"barre"')")"
+essai "★ un admin secondaire fixe l'affichage d'un client" "PERMIS" "$CALEB" "$(UPS zc_ama "$(SET interface_imposee '"icones"')")"
+essai "le vendeur change encore SON choix (interface)" "PERMIS" "$VENDEUR" "$(UPS zv_kossi "$(SET interface '"icones"')")"
+essai "un client change encore SON choix (interface)" "PERMIS" "$CLIENT" "$(MAJ "$(SET interface '"barre"')" zc_ama)"
+if [ "$VERIF50" = "t|t|t|t|t|t" ]; then ok=$((ok+1)); echo "  ✓ la phrase de vérification de securite-50 répond true | true | true | true | true | true";
+else ko=$((ko+1)); echo "  ❌ la phrase de vérification de securite-50 répond « $VERIF50 »"; fi
 
 echo
 echo "── LE MOT DE PASSE D'UN AUTRE COMPTE : admin PRINCIPAL seul ──"

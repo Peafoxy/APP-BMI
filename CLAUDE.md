@@ -75,7 +75,7 @@ npm run verifier-partage         # 9   : le PDF partagé, mesuré dans Chromium 
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
 npm run tester-argent            # 289 : les règles de rôle sur l'argent (serveur)
-npm run tester-comptes           # 111 : les règles de rôle sur les comptes (serveur)
+npm run tester-comptes           # 120 : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 129 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
 npm run tester-heure             # 7   : l'heure de la base (heure_serveur, serveur, base jetable) : l'instant de la RÉPONSE, lisible connecté ou non, ne touche aucune table
@@ -634,6 +634,32 @@ lit mal est pire qu'un banc absent).
   éprouvé) ; six contrôles RETOURNÉS (deux barres → une grille, rappel de la
   formation, BadgeSync, cadre sans `lg:flex`, heure du serveur, le fond sorti en
   `fondAccueil`). Chapitres 1 et 25 et le guide administrateur à jour.
+
+### 🧭 L'AFFICHAGE AU CHOIX : BARRE D'ONGLETS OU PAGE D'ICÔNES (06/11/2026, « je préfère que ça soit un choix pour les utilisateurs » → « 1b, 2b »)
+- RETOURNE en partie le § précédent : la barre latérale (ordinateur) et la
+  barre d'onglets du téléphone REVIENNENT, au choix de chacun. **« 1b » : la
+  BARRE D'ONGLETS d'office** — la première interface, telle quelle
+  (`BadgeSync`, `<aside>`, `OngletsDeplacables` vertical / horizontal) ; la
+  connexion ouvre l'écran habituel du rôle (`ongletParDefaut`), pas les
+  icônes, et en barre la page d'icônes n'existe pas (`tab === ACCUEIL` →
+  l'écran habituel). Règle pure dans `lib/pageIcones.js` : `interfaceDe(fiche)`
+  = fixé par l'administrateur, sinon le choix de la personne (`interface`, sur
+  SA fiche, comme `ordre_onglets` — rien à coller), sinon « barre ».
+- Bouton **« 🧭 Affichage »** dans l'en-tête des DEUX affichages (téléphone :
+  deuxième ligne ; ordinateur en barre : la barre blanche du haut), pour TOUS
+  les rôles (le vendeur n'a pas ⚙ Paramètres) ; revérifié sur la fiche
+  FRAÎCHE (`critiqueChoixInterface`). Le même ordre d'onglets dans les deux.
+- **« 2b » : l'administrateur FIXE l'affichage** d'une personne (employé OU
+  client) : 👥 → ⋯ Gérer → **🧭 Affichage** (barre / icônes / « 🔓 Laisser la
+  personne choisir » ; `interface_imposee`, `refuserSaufAdmin`), jamais sur sa
+  propre fiche ; fixé, le 🧭 de la personne le lui dit.
+- ⚠ LE COUPLE : **`securite-50`** (reprend securite-39 en entier) — changer
+  `interface_imposee` = administrateur, client compris (avant « les fiches des
+  clients s'arrêtent là ») ; `interface` reste libre. Banc `tester-comptes`
+  (+9, éprouvé : sans la règle, quatre tombent). **À coller par Timo.**
+- Bancs `verifier-cloisonnement` (+3, six RETOURNÉS : les deux barres, le
+  BadgeSync, `lg:flex` au choix, la connexion, ⋯ Gérer 29 / 14). Chapitres 1,
+  2 et 25 et le guide administrateur à jour.
 
 ### ⬅ LA TOUCHE RETOUR D'ANDROID (13/10/2026, « A a, B b, C a, lance »)
 - Timo : « la touche retour de l'Android quitte l'application… pourquoi ça

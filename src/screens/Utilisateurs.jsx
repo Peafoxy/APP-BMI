@@ -15,6 +15,7 @@ import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancemen
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { gererCarteFidelite } from "../components/carteFidelite";
+import { INTERFACE_BARRE, INTERFACE_ICONES, LIBELLES_INTERFACE, interfaceDe, interfaceImposee } from "../lib/pageIcones";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, FormulaireRepliable, IconeWhatsApp, champRecherche, BoutonEnvoi } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
@@ -959,6 +960,25 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
       `Lieu d'affectation de ${u.nom} : ${String(frais.affectation || "").trim() || "aucun"} → ${val || "aucun"}`);
   };
 
+  // ---- 🧭 L'AFFICHAGE FIXÉ PAR L'ADMINISTRATEUR (06/11/2026, « 2b ») ----
+  // Chacun choisit son affichage (barre d'onglets ou page d'icônes) ;
+  // l'administrateur peut le FIXER pour quelqu'un — tant qu'il est fixé, la
+  // personne ne le change pas. Champ `interface_imposee` (securite-50).
+  const fixerAffichage = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer l'affichage d'un compte")) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = db.users.find((x) => x.id === u.id) || u;
+    const avant = interfaceImposee(frais);
+    const LIBRE = "🔓 Laisser la personne choisir";
+    const options = [LIBELLES_INTERFACE[INTERFACE_BARRE], LIBELLES_INTERFACE[INTERFACE_ICONES], LIBRE];
+    const choix = await uChoix(`🧭 Affichage de ${u.nom}\n\nActuellement : ${avant ? `${LIBELLES_INTERFACE[avant]} (fixé)` : `${LIBELLES_INTERFACE[interfaceDe(frais)]} (choisi par la personne)`}.\n\nFixer l'affichage l'empêche d'en changer.`, options);
+    if (choix === null || choix === undefined) return;
+    const valeur = choix === LIBRE ? "" : [INTERFACE_BARRE, INTERFACE_ICONES].find((v) => LIBELLES_INTERFACE[v] === choix) || "";
+    if (valeur === avant) return;
+    save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, interface_imposee: valeur } : x)) },
+      `Affichage de ${u.nom} : ${avant ? `fixé (${LIBELLES_INTERFACE[avant]})` : "libre"} → ${valeur ? `fixé (${LIBELLES_INTERFACE[valeur]})` : "libre"}`);
+  };
+
   // ---- ANNIVERSAIRE (jour et mois seulement) ----
   // ⚠ Demande Timo (20/08/2026) : souhaiter automatiquement les anniversaires
   // sur l'écran de connexion. On ne demande PAS l'année : cet écran s'affiche
@@ -1039,6 +1059,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
     const motif = (CODES_MOTIF_SORTIE.find((x) => String(x.code) === String(u.cnss_code_motif_sortie)) || {}).libelle || "";
     const fiches = {
       boutique: { titre: `Boutique de ${u.nom}`, lignes: [u.boutique ? `Boutique : ${u.boutique}` : ""] },
+      affichage: { titre: `Affichage de ${u.nom}`, lignes: [interfaceImposee(u) ? `Fixé par l'administrateur : ${LIBELLES_INTERFACE[interfaceImposee(u)]}` : `Choisi par la personne : ${LIBELLES_INTERFACE[interfaceDe(u)]}`] },
       affectation: { titre: `Lieu d'affectation de ${u.nom}`, lignes: [u.affectation ? `Lieu : ${u.affectation}` : ""] },
       telephone: { titre: `Téléphone de ${u.nom}`, lignes: [u.tel ? `Téléphone : ${u.tel}` : ""] },
       anniversaire: { titre: `Anniversaire de ${u.nom}`, lignes: [anniv ? `Anniversaire : ${anniv}` : ""] },
@@ -1907,6 +1928,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
                   )}
                   {SALARIES_BOUTIQUE.includes(u.role) && <BoutonGerer onClick={() => changerBoutique(u)} info={() => infoGerer(u, "boutique")} nom="🏬 Boutique" />}
                   {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} info={() => infoGerer(u, "affectation")} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
+                  {!surMaPropreFiche(u) && <BoutonGerer data-fixer-affichage onClick={() => fixerAffichage(u)} info={() => infoGerer(u, "affichage")} titre="Barre d'onglets ou page d'icônes — l'administrateur peut le fixer" nom="🧭 Affichage" />}
                   {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} info={() => infoGerer(u, "telephone")} nom="📞 Téléphone" />}
                   {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} info={() => infoGerer(u, "anniversaire")} nom="🎂 Anniversaire" />}
                   {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Voir le mot de passe" />}

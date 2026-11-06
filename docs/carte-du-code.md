@@ -127,7 +127,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/conversations.js` | L'ordre de la liste des conversations de 💬 Messages |
 | `lib/contactGoogle.js` | 📇 Enregistrer un client WhatsApp dans les contacts Google de BMI (bmitogo.info) : numéro international, refus, corps envoyé à Google, trace sur la fiche ; quand chercher tout seul le nom d'un client qui écrit |
 | `lib/ordreOnglets.js` | L'ordre des onglets, au choix de chacun (aussi en grille : la page d'icônes) |
-| `lib/pageIcones.js` | La page d'icônes : nom, icône et chiffre d'un onglet, couleur pâle de chaque icône |
+| `lib/pageIcones.js` | La page d'icônes : nom, icône et chiffre d'un onglet, couleur pâle de chaque icône ; le choix de l'affichage (barre d'onglets / icônes, fixé par l'administrateur) |
 | `lib/pileRetour.js` | La touche retour d'Android : ce qu'il faut fermer à chaque appui |
 
 ## Les données : charger, fusionner, sauvegarder

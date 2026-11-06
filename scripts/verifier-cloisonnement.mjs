@@ -2736,7 +2736,8 @@ titre("Le selecteur « je regarde » vit dans les Parametres, et recharge la pag
   // ⚠ RETOURNÉ le 06/11/2026 (la page d'icônes) : plus de barre latérale — le
   // rappel est la pastille « 🎓 Formation » de l'en-tête, pour tous les écrans.
   test("le menu garde un RAPPEL de l'espace regarde, sans bouton",
-    /title="Vous regardez l'espace d'entraînement\. Pour en changer : ⚙ Paramètres\.">\s*🎓 Formation/.test(app) && !/Vous regardez la FORMATION/.test(app));
+    // ⚠ RETOURNÉ le 06/11/2026 (🧭 « 1b ») : la barre d'onglets revient au choix — sa barre latérale garde son rappel, sans bouton.
+    /title="Vous regardez l'espace d'entraînement\. Pour en changer : ⚙ Paramètres\.">\s*🎓 Formation/.test(app) && /peutRegarderLaFormation && regardeFormation && \(\n\s*<div className="px-4 pt-3">\n\s*<div [^>]*>\n\s*🎓 Vous regardez la FORMATION/.test(app) && !/basculerEspaceRegarde/.test(app));
   test("★ la cle du reglage n'est ecrite qu'a UN endroit (plus de copie dans App.jsx)",
     /export const CLE_REGARDE = "bmi_regarde_formation";/.test(cal)
     && !/const CLE_REGARDE = "bmi_regarde_formation";/.test(app));
@@ -6044,8 +6045,8 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     // cadre insensible aux clics, aucun flou — n'a pas bougé.
     /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\}\n/.test(app)
     && /onDeconnecter=\{async \(\) => \{ await deconnexion\(true\); setVerrouille\(false\); \}\} \/>\}/.test(app)
-    // ⚠ RETOURNÉ le 06/11/2026 : plus de `lg:flex` (la barre latérale est partie).
-    && /className=\{`min-h-screen bg-slate-100\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
+    // ⚠ RETOURNÉ le 06/11/2026 : `lg:flex` seulement en barre d'onglets (🧭, la barre latérale).
+    && /className=\{`min-h-screen bg-slate-100\$\{modeIcones \? "" : " lg:flex"\}\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (masqué, un œil 👁 l'affiche comme à la connexion), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
     /type=\{visible \? "text" : "password"\}/.test(ev) && /\{visible \? "🙈" : "👁"\}/.test(ev) && /z-\[10000\]/.test(ev) && /\{profile\?\.nom\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
@@ -6073,7 +6074,9 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   // ⚠ RETOURNÉ le 06/11/2026 (la page d'icônes) : plus de barre latérale, donc
   // plus de BadgeSync — l'en-tête unique dit « En ligne » sur tous les écrans.
   test("★ barre du haut (ordinateur) : un bouton « Verrouiller » sans cadenas qui pose le verrou ; l'état En ligne / Hors ligne dans l'en-tête unique",
-    /<button onClick=\{verrouiller\} className="hidden lg:inline-block [^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && !/BadgeSync/.test(app) && /🟢 En ligne/.test(app));
+    // ⚠ RETOURNÉ le 06/11/2026 (🧭 « 1b ») : la barre d'onglets revient au choix, avec sa barre latérale et son BadgeSync ; les deux affichages ont « Verrouiller ».
+    /<button onClick=\{verrouiller\} className="hidden lg:inline-block [^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && /<button onClick=\{verrouiller\} className="px-3 py-1\.5 rounded-lg bg-sky-800 [^"]*" title="[^"]*">Verrouiller<\/button>/.test(app)
+    && /<BadgeSync sombre \/>/.test(app) && /🟢 En ligne/.test(app));
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
     /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
   // Timo (09/09/2026) : « avoir le réglage des couleurs de la carte de
@@ -7986,7 +7989,9 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
   test("★ App.jsx : les deux barres (ordinateur, téléphone) passent par OngletsDeplacables ; l'ordre vient de la fiche (ordre_onglets) APRÈS le filtre des pouvoirs ; l'écriture ne part que si l'ordre change (ordreApres), dans la fiche de la personne seule, sans ligne de réglage",
     // ⚠ RETOURNÉ le 06/11/2026 (Timo, « A2, B1, C1 ») : plus de barres — UNE
     // page d'icônes, qui passe par OngletsDeplacables (sens « grille »).
-    !/<OngletsDeplacables/.test(appOo) && /<PageIcones tabs=\{tabsAutorises\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\}/.test(appOo)
+    // ⚠ RETOURNÉ À NOUVEAU le 06/11/2026 (🧭 « 1b, 2b ») : les deux barres reviennent, au CHOIX de la personne ; la page d'icônes reste l'autre affichage.
+    (appOo.match(/<OngletsDeplacables tabs=\{tabsAutorises\} tab=\{enSortie \? ONGLET_ATTESTATION\[0\] : tab\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\} sens="(vertical|horizontal)"/g) || []).length === 2
+    && /<PageIcones tabs=\{tabsAutorises\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\}/.test(appOo) && /\{modeIcones \? \(<>/.test(appOo)
     && /<OngletsDeplacables tabs=\{tabs\} tab=\{null\} onChoisir=\{onChoisir\} onReordonner=\{onReordonner\} sens="grille"/.test(readFileSync("src/components/PageIcones.jsx", "utf8"))
     // (l'onglet à part 🏦 Chez le DG / BANQUE a vécu une heure : Timo l'a voulu dans le tableau de bord — retour à tabsPlus2)
     // ⚠ RETOURNÉ le 14/10/2026 : pendant ses 24 dernières heures, un employé sorti n'a QUE « 📄 Mon attestation ».
@@ -8009,10 +8014,27 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       Oo.indexDeposeGrille({ x: 10, y: 50 }, c, 80) === 0 && Oo.indexDeposeGrille({ x: 200, y: 50 }, c, 80) === 2 && Oo.indexDeposeGrille({ x: 300, y: 50 }, c, 80) === 3
       && Oo.indexDeposeGrille({ x: 10, y: 150 }, c, 80) === 3 && Oo.indexDeposeGrille({ x: 300, y: 150 }, c, 80) === 5);
     test("★★ App.jsx : on arrive sur la page d'icônes (état de départ ET connexion), le LOGO y ramène (« B1 »), plus de barre latérale, et les libellés sont des TEXTES (le chiffre devient la pastille)",
-      /const \[tab, setTab\] = useState\(ACCUEIL\);/.test(appOo) && /\/\/ 🔲 06\/11\/2026 : à la connexion, la page d'icônes[^\n]*\n\s*setTab\(ACCUEIL\);/.test(appOo)
+      // ⚠ RETOURNÉ le 06/11/2026 (🧭 « 1b ») : la page d'icônes n'ouvre plus d'office — seulement pour qui l'a choisie ; la barre latérale revient dans l'autre affichage.
+      /const \[tab, setTab\] = useState\(ACCUEIL\);/.test(appOo) && /setTab\(interfaceDe\(db\.users\.find\(\(x\) => x\.id === u\.id\) \|\| u\) === INTERFACE_ICONES \? ACCUEIL : ongletParDefaut\(u\.role\)\);/.test(appOo)
       && /<button type="button" data-logo-accueil onClick=\{allerAccueil\}/.test(appOo) && /const allerAccueil = \(\) => \{ if \(!enSortie\) setTab\(ACCUEIL\); \};/.test(appOo)
-      && !/<aside/.test(appOo) && !/const label(TousDevis|Commandes|Parc) = \(/.test(appOo)
-      && /if \(dernier === ACCUEIL\) return ACCUEIL;/.test(appOo));
+      && (appOo.match(/<aside/g) || []).length === 1 && !/const label(TousDevis|Commandes|Parc) = \(/.test(appOo)
+      && /if \(dernier === ACCUEIL\) return affichage === INTERFACE_ICONES \? ACCUEIL : ongletParDefaut\(role\);/.test(appOo));
+    // 🧭 LE CHOIX DE L'AFFICHAGE (06/11/2026, « je préfère que ça soit un choix… » → « 1b, 2b »).
+    test("★★ 🧭 l'affichage : la barre d'onglets d'office (« 1b »), le choix de la personne, et ce que l'administrateur a FIXÉ l'emporte (« 2b ») ; le choix est refusé quand c'est fixé",
+      Pi.INTERFACE_DEFAUT === "barre" && Pi.interfaceDe({}) === "barre" && Pi.interfaceDe(null) === "barre" && Pi.interfaceDe({ interface: "icones" }) === "icones"
+      && Pi.interfaceDe({ interface: "icones", interface_imposee: "barre" }) === "barre" && Pi.interfaceDe({ interface: "n'importe" }) === "barre"
+      && Pi.critiqueChoixInterface({ interface_imposee: "icones" }, "barre") !== "" && Pi.critiqueChoixInterface({}, "icones") === "" && Pi.critiqueChoixInterface({}, "x") !== "");
+    test("★★ 🧭 App.jsx : le bouton « Affichage » dans les DEUX affichages ; le choix s'écrit sur SA fiche (`interface`), revérifié sur la fiche FRAÎCHE ; en barre d'onglets la page d'icônes n'existe pas",
+      (appOo.match(/\{boutonAffichage\(/g) || []).length === 3
+      && /const refus = critiqueChoixInterface\(db\.users\.find\(\(u\) => u\.id === profile\.id\), valeur\);\n\s*if \(refus\) \{ uAlert\(refus\); return; \}\n\s*save\(\{ \.\.\.db, users: db\.users\.map\(\(u\) => \(u\.id === profile\.id \? \{ \.\.\.u, interface: valeur \} : u\)\) \}\);/.test(appOo)
+      && /const surAccueil = modeIcones && tab === ACCUEIL && !enSortie && tabsAutorises\.length > 0;/.test(appOo)
+      && /if \(!modeIcones && tab === ACCUEIL && !enSortie && tabsAutorises\.length\) \{/.test(appOo));
+    const uAff = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
+    const s50 = readFileSync("supabase/securite-50-affichage.sql", "utf8");
+    test("★★ 🧭 LE COUPLE : l'administrateur FIXE l'affichage (⋯ Gérer, refuserSaufAdmin dans le geste) et securite-50 le réserve à l'administrateur, client compris (avant « les fiches des clients s'arrêtent là ») ; il reprend securite-39",
+      /const fixerAffichage = async \(u\) => \{\n\s*if \(refuserSaufAdmin\(profile, "Fixer l'affichage d'un compte"\)\) return;/.test(uAff) && /\{ \.\.\.x, interface_imposee: valeur \}/.test(uAff)
+      && s50.indexOf("'interface_imposee') is distinct from") > 0 && s50.indexOf("'interface_imposee') is distinct from") < s50.indexOf("Les fiches des CLIENTS s'arrêtent là")
+      && /'attestation_sortie', 'attestations_passees', 'ferme_apres_sortie_le'/.test(s50) && /Modifier le sexe/.test(s50) && /tester-comptes|securite-50/.test(readFileSync("scripts/tester-comptes-sql.sh", "utf8")));
   }
   const cmp = readFileSync("src/components/OngletsDeplacables.jsx", "utf8");
   test("★ le composant : appui long minuté (DELAI_APPUI_LONG_MS), annulé dès que le doigt bouge (resteImmobile), touchmove avalé en NON passif pendant le déplacement seulement, capture du pointeur, le clic qui suit un déplacement est avalé, pas de menu contextuel",
@@ -15361,7 +15383,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     // RETOURNÉ le 12/10/2026 : 26 (📄 Attestation de travail, 📄 Document de fin de contrat) ; ⚧ Sexe vit dans 🆔 Identité, pas ici.
     // RETOURNÉ le 14/10/2026 : 27 (📤 Mettre à disposition).
     // RETOURNÉ le 29/10/2026 : 28 (💳 Carte de fidélité, le principal).
-    noms.length === 28 && !/boutonGerer/.test(u)
+    // RETOURNÉ le 06/11/2026 : 29 (🧭 Affichage).
+    noms.length === 29 && !/boutonGerer/.test(u)
     && noms.every((n) => n.startsWith('"') || /^\{u\.[a-z_]+ \? "[^"]*" : "[^"]*"\}$/.test(n))
     && /export function BoutonGerer\(\{ nom, onClick, titre, ton, info, \.\.\.autres \}\)/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /\{String\(nom\)\}<\/button>/.test(readFileSync("src/components/ui.jsx", "utf8")));
@@ -15371,7 +15394,8 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const avecInfo = blocs.filter((b) => / info=\{\(\) => infoGerer\(u, "[a-zA-Z]+"\)\}/.test(b)).map((b) => b.match(/ nom="([^"]*)"/)?.[1]);
   const uiG = readFileSync("src/components/ui.jsx", "utf8");
   test("★★ ⋯ Gérer : l'appui MONTRE l'information (Fermer / ✏️ Modifier) sur les 13 boutons qui en gardent une, et fait son geste tout de suite sur les autres (Prime, Avance, Virement, Supprimer, Rôle…)",
-    JSON.stringify(avecInfo.sort()) === JSON.stringify(["🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe"].sort())
+    // RETOURNÉ le 06/11/2026 : 14 (🧭 Affichage montre l'affichage en vigueur).
+    JSON.stringify(avecInfo.sort()) === JSON.stringify(["🧭 Affichage", "🏬 Boutique", "📍 Lieu d'affectation", "📞 Téléphone", "🎂 Anniversaire", "💵 Salaire", "📈 Taux %", "📅 Paie suivie depuis", "📅 Embauche et contrat", "🏦 Banque", "🚪 Sortie", "💰 Commission", "🤝 Parrain", "⭐ Équipe"].sort())
     && blocs.filter((b) => /nom="(\+ Prime|− Avance|💸 Payer le salaire|🗑 Supprimer|🎭 Rôle|🔁 Renouveler|👁 Voir le mot de passe)"/.test(b)).every((b) => !/ info=/.test(b)));
   // RETOURNÉ le 13/10/2026 : « Fermer » passe par valeurAnnuler (la touche retour d'Android rend la même chose), qui vaut false pour « info ».
   test("★★ ⋯ Gérer : la fenêtre d'information ne modifie RIEN — seul « ✏️ Modifier » (ou « ✏️ Saisir » si vide) lance le geste ; « Fermer » ne fait rien",

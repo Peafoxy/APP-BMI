@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from
 import { createPortal } from "react-dom";
 import { Login, decorAccueil, fondAccueil } from "./screens/Connexion";
 import { PageIcones } from "./components/PageIcones";
-import { ACCUEIL } from "./lib/pageIcones";
+import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface } from "./lib/pageIcones";
 import { Dashboard } from "./screens/Dashboard";
 import { Ventes } from "./screens/Ventes";
 import { NouvelleCommande, CommandesRecues } from "./screens/Commandes";
@@ -139,7 +139,7 @@ import {
   droitsOffDe, aDroit, peutEcrire, bloquerSiLecture,
   tachesDe, tachesOuvertes, compterReponsesRavitaillement, compterDemandesTransfertRecues, compterDemandesTransfertToutes, compterTaches, compterTachesAValider, compterNotifsSalaire, compterDemandesCredit,
   paieMois, libelleMoisFR, periodes,
-  NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier,
+  NOTE_DIM_DEFAUT, noteDimensionnement, statutChantier, estAppWindows,
   debloquerCommissionsReception, chantiersAReconcilier, construireIndexDb,
   verifierEcritureEspace, messageEcritureRefusee, estCompteFormation, espaceDuCompte, chantiersDeMonEspace, marqueEspace, setRegardeFormation, lireEspaceRegarde, memoriserEspaceRegarde, voitLesDeuxEspaces, boutiquesFormation, estAdminPrincipal
 } from "./lib/calculs";
@@ -166,13 +166,18 @@ const UA = navigator.userAgent || "";
 // s'il existe encore et reste valide pour son rôle — sinon on retombe sur
 // l'onglet par défaut habituel de ce rôle. Demandé par Timo : ne plus jamais
 // revenir au premier onglet après une actualisation de la page.
-function tabDeDepart(role, userId) {
-  const parDefaut = role === "admin" || role === "comptable" || role === "assistant_direction" ? "dashboard"
+function ongletParDefaut(role) {
+  return role === "admin" || role === "comptable" || role === "assistant_direction" ? "dashboard"
     : (role === "commercial" || role === "technicien") ? "commande"
     : role === "resp_commercial" ? "equipe"
     : role === "technicien_bmi" ? "dimensionnement"
     : role === "magasinier" ? "stocks"
     : role === "client" ? "espace_client" : "ventes";
+}
+// 🧭 06/11/2026 (« 1b ») : en BARRE D'ONGLETS, la page d'icônes n'existe pas —
+// la connexion ouvre l'écran d'habitude du rôle, comme avant.
+function tabDeDepart(role, userId, affichage = INTERFACE_BARRE) {
+  const parDefaut = affichage === INTERFACE_ICONES ? ACCUEIL : ongletParDefaut(role);
   try {
     // Clé PROPRE À CHAQUE COMPTE (id inclus) — sinon, sur un appareil
     // partagé (plusieurs employés sur le même téléphone Android), la
@@ -180,7 +185,7 @@ function tabDeDepart(role, userId) {
     // celle-ci travaillait. Bug signalé par Timo.
     const dernier = localStorage.getItem(`bmi_dernier_onglet:${userId}`);
     // 🔲 La page d'icônes (06/11/2026) se retrouve elle aussi après un F5.
-    if (dernier === ACCUEIL) return ACCUEIL;
+    if (dernier === ACCUEIL) return affichage === INTERFACE_ICONES ? ACCUEIL : ongletParDefaut(role);
     if (dernier && ((ONGLETS_ROLE[role] || []).includes(dernier) || (dernier === "argent_recu" && role !== "client"))) return dernier;
   } catch {}
   return parDefaut;
@@ -631,7 +636,7 @@ export default function App() {
             // nouvelle version, on remet le compte dans l'espace qu'il
             // regardait, au lieu de le ramener au réel.
             restaurerEspaceRegarde(u.id);
-            setTab(tabDeDepart(u.role, u.id));
+            setTab(tabDeDepart(u.role, u.id, interfaceDe(u)));
           } else {
             localStorage.removeItem("bmi_session");
           }
@@ -1119,8 +1124,10 @@ export default function App() {
       majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       setSyncInitiale(false);
     })();
-    // 🔲 06/11/2026 : à la connexion, la page d'icônes (Timo, « A2, B1, C1 »).
-    setTab(ACCUEIL);
+    // 🔲 06/11/2026 : à la connexion, la page d'icônes (Timo, « A2, B1, C1 »)
+    // — si c'est l'affichage de la personne ; en barre d'onglets, l'écran
+    // d'habitude de son rôle (🧭 « 1b »).
+    setTab(interfaceDe(db.users.find((x) => x.id === u.id) || u) === INTERFACE_ICONES ? ACCUEIL : ongletParDefaut(u.role));
   }} /></>;
   }
 
@@ -1320,9 +1327,38 @@ export default function App() {
     if (!ordre || !maFiche) return;
     save({ ...db, users: db.users.map((u) => (u.id === profile.id ? { ...u, ordre_onglets: ordre } : u)) });
   };
+  // 🧭 L'AFFICHAGE de la personne (06/11/2026, « 1b, 2b ») : la barre
+  // d'onglets d'office, la page d'icônes si elle l'a choisie, ou ce que
+  // l'administrateur a fixé (lib/pageIcones.js).
+  const affichage = interfaceDe(maFiche || profile);
+  const modeIcones = affichage === INTERFACE_ICONES;
+  // En barre d'onglets, la page d'icônes n'existe pas : on ouvre l'écran
+  // d'habitude du rôle (s'il est affiché), sinon le premier onglet.
+  if (!modeIcones && tab === ACCUEIL && !enSortie && tabsAutorises.length) {
+    const d = ongletParDefaut(profile.role);
+    setTab(tabsAutorises.some(([id]) => id === d) ? d : tabsAutorises[0][0]);
+  }
+  const choisirAffichage = async () => {
+    const fixe = interfaceImposee(maFiche);
+    if (fixe) { uAlert(critiqueChoixInterface(maFiche, fixe)); return; }
+    const options = [INTERFACE_BARRE, INTERFACE_ICONES];
+    const choix = await uChoix(`🧭 Mon affichage\n\nActuellement : ${LIBELLES_INTERFACE[affichage]}.\n\nVotre choix vous suit sur tous vos appareils.`, options.map((v) => LIBELLES_INTERFACE[v] + (v === affichage ? " (actuel)" : "")));
+    if (choix === null || choix === undefined) return;
+    const valeur = options.find((v) => choix === LIBELLES_INTERFACE[v] + (v === affichage ? " (actuel)" : ""));
+    if (!valeur || valeur === affichage || !maFiche) return;
+    // La fiche FRAÎCHE : l'administrateur a pu fixer l'affichage entre-temps.
+    const refus = critiqueChoixInterface(db.users.find((u) => u.id === profile.id), valeur);
+    if (refus) { uAlert(refus); return; }
+    save({ ...db, users: db.users.map((u) => (u.id === profile.id ? { ...u, interface: valeur } : u)) });
+    if (valeur === INTERFACE_ICONES) setTab(ACCUEIL);
+  };
+  const boutonAffichage = (classe) => (
+    <button type="button" data-choix-affichage onClick={choisirAffichage} className={classe}
+      title={interfaceImposee(maFiche) ? "Affichage fixé par l'administrateur" : "Choisir mon affichage : barre d'onglets ou page d'icônes"}>🧭<span className="hidden sm:inline"> Affichage</span></button>
+  );
   // 🔲 La page d'icônes (06/11/2026) : elle n'existe que hors période de
-  // sortie et s'il reste au moins un onglet.
-  const surAccueil = tab === ACCUEIL && !enSortie && tabsAutorises.length > 0;
+  // sortie, s'il reste au moins un onglet, et dans l'affichage « icônes ».
+  const surAccueil = modeIcones && tab === ACCUEIL && !enSortie && tabsAutorises.length > 0;
   const ongletAutorise = enSortie || surAccueil || tabsAutorises.some(([id]) => id === tab);
   const titreOnglet = enSortie ? ONGLET_ATTESTATION[1] : surAccueil ? "Accueil" : (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
   // Le logo BMI ramène à la page d'icônes (« B1 »), depuis n'importe quel écran.
@@ -1343,6 +1379,44 @@ export default function App() {
     synchroniser({ urgent: true });
   };
 
+
+  // 📋 La barre latérale de la BARRE D'ONGLETS (🧭, 06/11/2026) porte l'état de la synchronisation.
+  const BadgeSync = ({ sombre }) => (
+    <span className="inline-flex flex-col shrink-0">
+      <span className="inline-flex items-center gap-1.5">
+        {sync.enLigne && sync.supabaseOk
+          ? <span className={`text-xs font-semibold whitespace-nowrap ${sombre ? "text-green-400" : "text-green-700"}`}>🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente} à envoyer` : ""}</span>
+          : <span className={`text-xs font-semibold whitespace-nowrap ${sombre ? "text-amber-400" : "text-amber-600"}`}>🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente} en attente` : ""}</span>}
+        {/* La version : maintenant déjà affichée en haut à côté de « Lomé, Togo »
+            (visible partout, y compris sur téléphone). Ici, on ne la garde en double
+            que sur ordinateur, où la barre latérale est toujours visible — sur
+            téléphone, elle ferait doublon avec l'en-tête juste au-dessus. */}
+        <span className={`hidden lg:inline text-[10px] font-bold ${sombre ? "text-sky-300/80" : "text-slate-400"}`}>v{VERSION}</span>
+      </span>
+      {/* Le nom de l'utilisateur connecté, en orange, sous le point vert.
+          Visible partout — y compris sur téléphone où la barre latérale est cachée. */}
+      {profile?.nom && (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-xs font-bold text-orange-500">👤 {profile.nom}</span>
+          {nonLus > 0 && (
+            <button
+              onClick={() => setTab("messages")}
+              className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded-full px-1.5 py-0.5 animate-pulse"
+              title={`${nonLus} message${nonLus > 1 ? "s" : ""} non lu${nonLus > 1 ? "s" : ""}`}
+            >
+              💬 +{nonLus}
+            </button>
+          )}
+        </span>
+      )}
+      {sync.erreur && <span className="text-[10px] text-red-400 max-w-[260px] truncate" title={sync.erreur}>⚠ {sync.erreur}</span>}
+      {/* Dans le logiciel Windows, l'absence de VITE_SYNC_AUTH_URL empêche toute
+          session sécurisée. On le dit, au lieu de laisser un « Failed to fetch » nu. */}
+      {estAppWindows() && !etatAuth.ok && (
+        <span className="text-[10px] text-amber-400 max-w-[260px] truncate" title={etatAuth.raison}>🔐 {etatAuth.raison}</span>
+      )}
+    </span>
+  );
 
   const contenu = enSortie ? <MonAttestation db={db} profile={profile} /> : !tabsAutorises.length ? (
     <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
@@ -1685,7 +1759,7 @@ export default function App() {
         passe ne s'écrit pas ») : la fenêtre de verrou couvre tout l'écran
         avec son fond, le flou ne se voyait pas et coûtait un redessin de
         toute l'application à chaque lettre tapée sur un PC modeste. */}
-    <div className={`min-h-screen bg-slate-100${verrouille ? " pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>
+    <div className={`min-h-screen bg-slate-100${modeIcones ? "" : " lg:flex"}${verrouille ? " pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>
       {syncInitiale && (
         <div className="fixed top-0 inset-x-0 z-[9999] bg-sky-800 text-white text-center text-sm font-semibold py-2 shadow-lg">
           ⏳ Synchronisation avec le serveur — les données arrivent…
@@ -1710,6 +1784,9 @@ export default function App() {
         />
       )}
 
+      {/* 🧭 L'AFFICHAGE CHOISI (06/11/2026, « 1b, 2b ») : la page d'icônes, ou
+          la BARRE D'ONGLETS — la première interface, d'office. */}
+      {modeIcones ? (<>
       {/* ══ 🔲 LA PAGE D'ICÔNES (06/11/2026, Timo : « A2, B1, C1 », « 1 ») ══
           Plus de barre latérale ni de barre d'onglets : chaque onglet est une
           icône de la page d'accueil, et le LOGO BMI en haut à gauche y ramène
@@ -1760,6 +1837,7 @@ export default function App() {
               plutôt qu'un empilement désordonné quand tout ne tient pas. */}
           <div className="px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
             <button onClick={() => setRechercheOuverte(true)} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold" aria-label="Rechercher">🔍<span className="hidden lg:inline"> Rechercher…</span></button>
+            {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
             <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap">
               {sync.enLigne && sync.supabaseOk
                 ? <span className="text-xs font-semibold text-green-400 whitespace-nowrap">🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>
@@ -1802,6 +1880,136 @@ export default function App() {
           {surAccueil && <PageIcones tabs={tabsAutorises} onChoisir={setTab} onReordonner={reordonnerOnglets} nom={profile?.nom || ""} />}
         </main>
       </div>
+      </>) : (<>
+      {/* ══ Barre latérale professionnelle (grand écran) ══ */}
+      <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 text-white h-screen sticky top-0">
+        <div className="px-4 py-4 flex items-center gap-3 border-b border-white/10">
+          {/* ⚠ Version CLAIRE, posée directement sur le menu — plus de plaque
+              blanche. Le logo est déjà sans fond ; c'était `bg-white` qui lui
+              collait ce carré. Voir LOGO_CLAIR dans lib/constants.js. */}
+          <img src={LOGO_CLAIR} alt="BMI Togo" className="h-11 w-auto" />
+          <div>
+            <div className="font-bold leading-tight tracking-wide">BMI-GESTION SYSTÈME</div>
+            <div className="text-[10px] text-sky-200/70 uppercase tracking-widest">v{VERSION} — Lomé, Togo</div>
+          </div>
+        </div>
+        <div className="px-4 pt-3">
+          <button onClick={() => setRechercheOuverte(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm text-sky-100/80 text-left">
+            🔍 Rechercher…
+          </button>
+        </div>
+        {/* ⚠ Le sélecteur « Je regarde » est reparti dans ⚙ Paramètres
+            (demande Timo, 29/08/2026 : « ramener le basculement dans les
+            paramètres »). Il ne reste ici qu'un RAPPEL, sans bouton : on doit
+            voir d'un coup d'œil dans quel espace on travaille, mais changer
+            d'espace est un geste rare, qui n'a pas à occuper le menu de tous
+            les écrans. La couleur violette dit déjà l'essentiel. */}
+        {peutRegarderLaFormation && regardeFormation && (
+          <div className="px-4 pt-3">
+            <div className="rounded-lg bg-violet-600/30 border border-violet-400/40 px-2 py-1.5 text-[11px] font-bold text-violet-100 text-center">
+              🎓 Vous regardez la FORMATION
+            </div>
+          </div>
+        )}
+        <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="vertical"
+          className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5"
+          classeBouton={(id, actif) => `w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold ${actif ? "bg-sky-700/60 text-white shadow-inner" : "text-sky-100/70 hover:bg-white/10 hover:text-white"}`} />
+        <div className="px-4 py-3 border-t border-white/10 space-y-2">
+          <BadgeSync sombre />
+          {profile.boutique && <div className="text-xs text-sky-100 flex items-center gap-2"><Badge boutique={profile.boutique} /></div>}
+          <div className="flex gap-2">
+            <button onClick={load} disabled={syncEnCours} className="flex-1 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold disabled:opacity-70">
+              <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
+            </button>
+            <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-semibold ${sync.enAttente > 0 ? "bg-amber-500/30 text-amber-100 hover:bg-amber-500/40" : "bg-white/10 hover:bg-white/20"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* ══ En-tête compact (petit écran) ══ */}
+        <header className="lg:hidden bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
+          <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={LOGO_CLAIR} alt="BMI Togo" className="h-10 w-auto shrink-0" />
+              <div className="min-w-0">
+                <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
+                <div className="text-xs text-slate-400 truncate flex items-center gap-2 flex-wrap">
+                  {profile?.nom && <span className="font-bold text-orange-500">👤 {profile.nom}</span>}
+                  <span>v{VERSION}</span>
+                </div>
+              </div>
+            </div>
+            {peutRegarderLaFormation && regardeFormation && (
+              <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-600 text-white"
+                    title="Vous regardez l'espace d'entraînement. Pour en changer : ⚙ Paramètres.">
+                🎓 Formation
+              </span>
+            )}
+            {nonLus > 0 && (
+              <button onClick={() => setTab("messages")} className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold text-white bg-red-600 rounded-full px-1.5 py-0.5 animate-pulse" title={`${nonLus} message${nonLus > 1 ? "s" : ""} non lu${nonLus > 1 ? "s" : ""}`}>
+                💬 +{nonLus}
+              </button>
+            )}
+            {/* Téléphone (Timo, 09/09/2026) : juste le cadenas, sur la ligne du titre. */}
+            <button onClick={verrouiller} className="shrink-0 px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-base leading-none" aria-label="Verrouiller la session" title="Verrouiller la session maintenant">🔐</button>
+          </div>
+          {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
+              plutôt qu'un empilement désordonné quand tout ne tient pas. */}
+          <div className="px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
+            <button onClick={() => setRechercheOuverte(true)} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold" aria-label="Rechercher">🔍</button>
+            {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
+            <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap">
+              {sync.enLigne && sync.supabaseOk
+                ? <span className="text-xs font-semibold text-green-400 whitespace-nowrap">🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>
+                : <span className="text-xs font-semibold text-amber-400 whitespace-nowrap">🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>}
+            </span>
+            {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}
+            <button onClick={load} disabled={syncEnCours} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold disabled:opacity-70 whitespace-nowrap">
+              <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
+            </button>
+            {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
+            <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
+          </div>
+          <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="horizontal"
+            className="px-4 flex gap-1 overflow-x-auto"
+            classeBouton={(id, actif) => `px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg ${actif ? "bg-slate-100 text-slate-900" : "text-slate-300 hover:text-white"}`} />
+        </header>
+
+        {/* ══ Barre supérieure (grand écran) ══ */}
+        <div className="hidden lg:flex items-center justify-between bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-20 shadow-sm">
+          <div className="text-lg font-bold text-slate-800">{titreOnglet}</div>
+          <div className="flex items-center gap-4">
+            {saveStatus === "error" && <span className="text-xs text-red-600 font-semibold">⚠ Erreur locale</span>}
+            {/* ⚠ Capture Timo (09/09/2026) : plus de « En ligne / version / nom »
+                ici (la barre latérale les garde) — un bouton « Verrouiller »,
+                sans cadenas, qui pose le verrou tout de suite. */}
+            {/* 🕓 Timo (14/10/2026) : l'heure du serveur, entre le nom de l'onglet et « Verrouiller ». */}
+            <HeureServeur />
+            {boutonAffichage("px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 whitespace-nowrap")}
+            <button onClick={verrouiller} className="px-3 py-1.5 rounded-lg bg-sky-800 text-white text-xs font-bold hover:bg-sky-900" title="Verrouiller la session maintenant (mot de passe pour reprendre)">Verrouiller</button>
+            <span className="text-xs text-slate-400">{dFR(today())}</span>
+          </div>
+        </div>
+
+        {/* ⚠ LA LARGEUR DE TOUT L'ÉCRAN (Timo, 20/09/2026, capture de 💰 Ventes
+            sur son XPS : « pourquoi ces marges des 2 côtés ? », puis « ces
+            marges c'est sur ordinateur » — et « b »). C'était `max-w-6xl`,
+            soit 1152 px : tout ce qui dépassait partait en marges égales, et
+            la liste des ventes se tassait pendant qu'il y avait 300 px de
+            blanc de chaque côté. Élargi à 1600 px.
+            ⚠ Le TÉLÉPHONE n'est pas concerné, par construction : son écran
+            fait moins que la limite, elle ne l'a donc jamais rogné — ni avant,
+            ni maintenant. La limite reste, pour qu'un formulaire à quatre
+            colonnes ne s'étale pas sur un moniteur de 2560 px.
+            ⚠ Ici `max-w-*` COMMANDE (c'est un bloc) — le piège du § 5 ne vaut
+            que pour les champs de saisie. Le banc MESURE la largeur obtenue
+            dans Chromium, il ne lit pas la classe. */}
+        <main className="w-full max-w-[1600px] mx-auto px-4 py-5">
+          {contenu}
+        </main>
+      </div>
+      </>)}
     </div>
     </>
   );

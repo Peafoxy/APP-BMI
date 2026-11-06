@@ -53,3 +53,44 @@ const COULEURS = {
 };
 export const COULEUR_ICONE_DEFAUT = "#e2e8f0";
 export const couleurIcone = (id) => COULEURS[id] || COULEUR_ICONE_DEFAUT;
+
+// ---- 🧭 LE CHOIX DE L'AFFICHAGE (Timo, 06/11/2026 : « je préfère que ça
+// soit un choix pour les utilisateurs… il choisit la première interface ou
+// celle-ci » → « 1b, 2b ») ----
+// Deux affichages : la BARRE d'onglets (la première interface — colonne à
+// gauche sur ordinateur, bande qui défile sur téléphone) et la PAGE
+// D'ICÔNES. « 1b » : la barre d'onglets d'office. « 2b » : l'administrateur
+// peut FIXER l'affichage d'une personne (`interface_imposee`, sur sa fiche,
+// réservé à l'administrateur — securite-50) ; tant qu'il est fixé, la
+// personne ne le change pas. Son propre choix vit sur SA fiche
+// (`interface`), comme l'ordre de ses onglets : il suit ses appareils.
+export const INTERFACE_BARRE = "barre";
+export const INTERFACE_ICONES = "icones";
+export const INTERFACE_DEFAUT = INTERFACE_BARRE;
+export const LIBELLES_INTERFACE = {
+  [INTERFACE_BARRE]: "📋 Barre d'onglets",
+  [INTERFACE_ICONES]: "🔲 Page d'icônes",
+};
+export const estInterface = (v) => v === INTERFACE_BARRE || v === INTERFACE_ICONES;
+
+// L'affichage fixé par l'administrateur, ou "" s'il n'y en a pas.
+export function interfaceImposee(fiche) {
+  const v = fiche?.interface_imposee;
+  return estInterface(v) ? v : "";
+}
+
+// L'affichage EN VIGUEUR : celui fixé par l'administrateur, sinon celui
+// choisi par la personne, sinon la barre d'onglets.
+export function interfaceDe(fiche) {
+  const imposee = interfaceImposee(fiche);
+  if (imposee) return imposee;
+  return estInterface(fiche?.interface) ? fiche.interface : INTERFACE_DEFAUT;
+}
+
+// Le choix de la personne : refusé s'il est fixé par l'administrateur.
+export function critiqueChoixInterface(fiche, valeur) {
+  if (!estInterface(valeur)) return "Affichage inconnu.";
+  const imposee = interfaceImposee(fiche);
+  if (imposee) return `L'administrateur a fixé votre affichage : ${LIBELLES_INTERFACE[imposee]}. Demandez-lui pour en changer.`;
+  return "";
+}
