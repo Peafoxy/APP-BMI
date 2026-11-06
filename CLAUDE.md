@@ -656,7 +656,7 @@ lit mal est pire qu'un banc absent).
 - ⚠ LE COUPLE : **`securite-50`** (reprend securite-39 en entier) — changer
   `interface_imposee` = administrateur, client compris (avant « les fiches des
   clients s'arrêtent là ») ; `interface` reste libre. Banc `tester-comptes`
-  (+9, éprouvé : sans la règle, quatre tombent). **À coller par Timo.**
+  (+9, éprouvé : sans la règle, quatre tombent). **Collé par Timo le 06/11/2026 (`true | true | true | true | true | true`).**
 - Bancs `verifier-cloisonnement` (+3, six RETOURNÉS : les deux barres, le
   BadgeSync, `lg:flex` au choix, la connexion, ⋯ Gérer 29 / 14). Chapitres 1,
   2 et 25 et le guide administrateur à jour.
