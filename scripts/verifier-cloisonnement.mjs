@@ -7014,7 +7014,8 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
     && /classeLigneDepliable\(venteDepliee === v\.id, i, ventesGrisees\.has\(v\.id\) \? FOND_GRISE : ""\)/.test(vs) /* RETOURNÉ 10/10/2026 : le fond gris d'une vente versée et validée */ && /export const classeLigneDepliable = \(deplie, i, fondSinon = ""\) => deplie \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(readFileSync("src/components/ui.jsx", "utf8"))
     && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
     && /aria-label="WhatsApp"><IconeWhatsApp \/><\/BoutonEnvoi>/.test(vs) /* RETOURNÉ le 18/10/2026 : BoutonEnvoi, gris pendant l'envoi */ && !/aria-label="WhatsApp">💬/.test(vs)
-    && /export const IconeWhatsApp = \(\{ taille = 18 \}\) =>/.test(readFileSync("src/components/ui.jsx", "utf8")) && /fill="#25D366"/.test(readFileSync("src/components/ui.jsx", "utf8")));
+    // RETOURNÉ le 06/11/2026 : une couleur réglable (blanc sur la tuile verte de la page d'icônes), vert d'office.
+    && /export const IconeWhatsApp = \(\{ taille = 18, couleur = "#25D366" \}\) =>/.test(readFileSync("src/components/ui.jsx", "utf8")) && /fill=\{couleur\}/.test(readFileSync("src/components/ui.jsx", "utf8")));
   // Timo (13/09/2026, capture de 📋 Dettes) : « appliquer la même règle que
   // dans Ventes pour restructurer les dettes ». Les briques sont écrites UNE
   // fois dans ui.jsx (ListeArticles, boutonAction, classeLigneDepliable) et
@@ -8019,6 +8020,15 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       && /<button type="button" data-logo-accueil onClick=\{allerAccueil\}/.test(appOo) && /const allerAccueil = \(\) => \{ if \(!enSortie\) setTab\(ACCUEIL\); \};/.test(appOo)
       && (appOo.match(/<aside/g) || []).length === 1 && !/const label(TousDevis|Commandes|Parc) = \(/.test(appOo)
       && /if \(dernier === ACCUEIL\) return affichage === INTERFACE_ICONES \? ACCUEIL : ongletParDefaut\(role\);/.test(appOo));
+    // Timo (06/11/2026) : « fond des onglets bleu… j'avais dit de reprendre le fond d'écran de la page de session verrouillée ».
+    test("★★ la page d'icônes pose l'image du verrou dès qu'elle existe (pleinEcran comme EcranVerrou), jamais le dégradé bleu par défaut",
+      /const decorIcones = \{ \.\.\.decorBaseIcones, pleinEcran: !!decorBaseIcones\.accueilImage \};/.test(appOo)
+      && /const decor = \{ \.\.\.decorBase, pleinEcran: !!decorBase\.accueilImage \};/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8")));
+    const piW = readFileSync("src/components/PageIcones.jsx", "utf8");
+    test("★★ le VRAI logo de WhatsApp : blanc sur la tuile verte de la page d'icônes, et dans les deux barres d'onglets (LibelleOnglet, écrit une fois)",
+      /id === "whatsapp" \? <IconeWhatsApp taille=\{34\} couleur="#ffffff" \/>/.test(piW) && Pi.couleurIcone("whatsapp") === "#25D366"
+      && /export function LibelleOnglet\(id, label\)/.test(piW) && (appOo.match(/contenu=\{LibelleOnglet\}/g) || []).length === 2
+      && /<path fill=\{couleur\} d="M17\.472/.test(readFileSync("src/components/ui.jsx", "utf8")));
     // 🧭 LE CHOIX DE L'AFFICHAGE (06/11/2026, « je préfère que ça soit un choix… » → « 1b, 2b »).
     test("★★ 🧭 l'affichage : la barre d'onglets d'office (« 1b »), le choix de la personne, et ce que l'administrateur a FIXÉ l'emporte (« 2b ») ; le choix est refusé quand c'est fixé",
       Pi.INTERFACE_DEFAUT === "barre" && Pi.interfaceDe({}) === "barre" && Pi.interfaceDe(null) === "barre" && Pi.interfaceDe({ interface: "icones" }) === "icones"

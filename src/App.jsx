@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Login, decorAccueil, fondAccueil } from "./screens/Connexion";
-import { PageIcones } from "./components/PageIcones";
+import { PageIcones, LibelleOnglet } from "./components/PageIcones";
 import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface } from "./lib/pageIcones";
 import { Dashboard } from "./screens/Dashboard";
 import { Ventes } from "./screens/Ventes";
@@ -1363,7 +1363,13 @@ export default function App() {
   const titreOnglet = enSortie ? ONGLET_ATTESTATION[1] : surAccueil ? "Accueil" : (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
   // Le logo BMI ramène à la page d'icônes (« B1 »), depuis n'importe quel écran.
   const allerAccueil = () => { if (!enSortie) setTab(ACCUEIL); };
-  const decorIcones = decorAccueil(db, apparence);
+  // ⚠ Le fond de la FENÊTRE DE VERROU, pour de bon (Timo, 06/11/2026 : « fond
+  // des onglets bleu… j'avais dit de reprendre le fond d'écran de la page de
+  // session verrouillée ») : le verrou pose son image dès qu'elle existe
+  // (EcranVerrou.jsx, `pleinEcran: !!accueilImage`) ; sans la même ligne ici,
+  // la page d'icônes retombait sur le dégradé bleu.
+  const decorBaseIcones = decorAccueil(db, apparence);
+  const decorIcones = { ...decorBaseIcones, pleinEcran: !!decorBaseIcones.accueilImage };
 
   const abandonnerLeRefus = async () => {
     const refus = sync.refus;
@@ -1911,7 +1917,7 @@ export default function App() {
             </div>
           </div>
         )}
-        <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="vertical"
+        <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="vertical" contenu={LibelleOnglet}
           className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5"
           classeBouton={(id, actif) => `w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold ${actif ? "bg-sky-700/60 text-white shadow-inner" : "text-sky-100/70 hover:bg-white/10 hover:text-white"}`} />
         <div className="px-4 py-3 border-t border-white/10 space-y-2">
@@ -1971,7 +1977,7 @@ export default function App() {
             {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
             <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
           </div>
-          <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="horizontal"
+          <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="horizontal" contenu={LibelleOnglet}
             className="px-4 flex gap-1 overflow-x-auto"
             classeBouton={(id, actif) => `px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg ${actif ? "bg-slate-100 text-slate-900" : "text-slate-300 hover:text-white"}`} />
         </header>

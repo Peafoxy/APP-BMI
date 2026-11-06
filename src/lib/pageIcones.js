@@ -47,7 +47,10 @@ const COULEURS = {
   parc: "#ffedd5", travaux: "#ffedd5", primes_remises: "#ffedd5",
   equipe: "#fce7f3", commerciaux: "#fce7f3", taches: "#fce7f3", rendez_vous: "#fce7f3", salaires: "#fce7f3",
   salaire: "#fce7f3", users: "#fce7f3", commission: "#fce7f3", primes_recues: "#fce7f3",
-  messages: "#cffafe", whatsapp: "#cffafe",
+  messages: "#cffafe",
+  // 06/11/2026 (Timo : « mettre un vrai icône de WhatsApp ») : la tuile verte
+  // de WhatsApp, le logo en blanc dessus (PageIcones.jsx).
+  whatsapp: "#25D366",
   dashboard: "#ccfbf1", rentabilite: "#ccfbf1", historique: "#ccfbf1",
   parametres: "#cbd5e1", mes_donnees: "#cbd5e1",
 };

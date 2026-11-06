@@ -657,6 +657,15 @@ lit mal est pire qu'un banc absent).
   `interface_imposee` = administrateur, client compris (avant « les fiches des
   clients s'arrêtent là ») ; `interface` reste libre. Banc `tester-comptes`
   (+9, éprouvé : sans la règle, quatre tombent). **Collé par Timo le 06/11/2026 (`true | true | true | true | true | true`).**
+- ⚠ **Le fond de la page d'icônes = celui du VERROU, pour de bon** (Timo, le
+  même jour : « fond des onglets bleu… j'avais dit de reprendre le fond
+  d'écran de la page de session verrouillée ») : le verrou pose son image dès
+  qu'elle existe (`pleinEcran: !!accueilImage`) ; App.jsx lisait le décor brut
+  (`pleinEcran` = seulement si « image étendue » cochée) et retombait sur le
+  dégradé bleu. Même ligne désormais (`decorIcones`).
+- **📲 → le VRAI logo de WhatsApp** (le même jour) : tuile VERTE (#25D366),
+  logo blanc (`IconeWhatsApp couleur`), et dans les deux barres d'onglets
+  (`LibelleOnglet`, PageIcones.jsx, écrit une fois). Banc (+2, un RETOURNÉ).
 - Bancs `verifier-cloisonnement` (+3, six RETOURNÉS : les deux barres, le
   BadgeSync, `lg:flex` au choix, la connexion, ⋯ Gérer 29 / 14). Chapitres 1,
   2 et 25 et le guide administrateur à jour.

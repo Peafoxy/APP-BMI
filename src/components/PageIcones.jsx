@@ -14,6 +14,19 @@
 // ============================================================
 import { OngletsDeplacables } from "./OngletsDeplacables";
 import { decomposerLibelle, couleurIcone } from "../lib/pageIcones";
+import { IconeWhatsApp } from "./ui";
+
+// 📲 → le VRAI logo de WhatsApp (Timo, 06/11/2026 : « mettre un vrai icône de
+// WhatsApp »), dans la barre d'onglets aussi : écrit UNE fois, ici.
+export function LibelleOnglet(id, label) {
+  if (id !== "whatsapp") return label;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <IconeWhatsApp taille={16} />
+      {String(label).replace(/^📲\s*/u, "")}
+    </span>
+  );
+}
 
 export function PageIcones({ tabs, onChoisir, onReordonner, nom = "" }) {
   return (
@@ -29,7 +42,7 @@ export function PageIcones({ tabs, onChoisir, onReordonner, nom = "" }) {
           const titre = nom.replace("Dimensionnement", "Dimension\u00ADnement");
           return (
             <>
-              <span className="flex items-center justify-center w-14 h-14 rounded-2xl text-[28px] leading-none shadow-md" style={{ backgroundColor: couleurIcone(id) }}>{icone || "•"}</span>
+              <span className="flex items-center justify-center w-14 h-14 rounded-2xl text-[28px] leading-none shadow-md" style={{ backgroundColor: couleurIcone(id) }}>{id === "whatsapp" ? <IconeWhatsApp taille={34} couleur="#ffffff" /> : (icone || "•")}</span>
               <span lang="fr" className="mt-1.5 w-full text-[11.5px] font-semibold leading-tight text-white drop-shadow hyphens-auto [overflow-wrap:anywhere]">{titre}</span>
               {nombre > 0 && (
                 <span data-icone-nombre className="absolute top-0 left-[calc(50%+14px)] min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full ring-2 ring-white/70">{nombre}</span>
