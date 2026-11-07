@@ -54,7 +54,7 @@ export const GUIDE = {
     ["h3", "Un nouveau contact — 🧲 Prospects"],
     ["etapes", [
       { titre: "« Nouveau prospect »", texte: "Catégorie, **Projet**, nom, numéro, localisation, le besoin (mes notes : il ne part jamais au client), l'avis, l'intérêt, la date de relance. Puis « ➕ Enregistrer le prospect »." },
-      { titre: "Le mot d'accueil part tout seul", texte: "Du **numéro WhatsApp BMI**. S'il ne peut pas partir (formation, réseau, modèle pas encore approuvé), l'écran le dit d'abord, puis WhatsApp s'ouvre sur mon téléphone avec le même texte." },
+      { titre: "Le mot d'accueil part tout seul", texte: "Du **numéro WhatsApp BMI**. S'il ne peut pas partir (formation, réseau, modèle pas encore approuvé), l'écran le dit d'abord. Rien ne s'ouvre sur mon téléphone : sans réseau, le message est gardé et repart tout seul du numéro BMI ; sinon l'administrateur est prévenu." },
       { titre: "« 📱 Relancer »", texte: "Sur une relance en retard : une question, puis le message part du numéro BMI **en nommant le projet** de la fiche (s'il manque, l'application le demande une fois)." },
       { titre: "« ✅ Convertir en client »", texte: "Quand il dit oui : sa fiche devient un compte client, ses accès partent du numéro BMI. Rien n'est retapé." },
     ]],
@@ -104,7 +104,7 @@ export const GUIDE = {
   ],
 
   examen: {
-    intro: "L'examen se passe **dans l'espace de formation** (barre violette), avec le formateur à côté. La personne fait chaque épreuve seule ; le formateur regarde l'écran et coche. Une épreuve est réussie quand on voit à l'écran ce que dit la colonne « Ce qu'on doit voir ». En formation, rien ne part du numéro BMI : WhatsApp s'ouvre sur le téléphone, c'est normal. Les épreuves 11 et 12 sont pour le responsable commercial (ou un commercial chef d'équipe pour la 12) ; l'épreuve 6 est pour le commercial.",
+    intro: "L'examen se passe **dans l'espace de formation** (barre violette), avec le formateur à côté. La personne fait chaque épreuve seule ; le formateur regarde l'écran et coche. Une épreuve est réussie quand on voit à l'écran ce que dit la colonne « Ce qu'on doit voir ». En formation, rien ne part du numéro BMI et rien ne s'ouvre : c'est normal. Les épreuves 11 et 12 sont pour le responsable commercial (ou un commercial chef d'équipe pour la 12) ; l'épreuve 6 est pour le commercial.",
     epreuves: [
       { titre: "Nouveau prospect", consigne: "Enregistrer un prospect avec un projet « solaire » et une date de relance à hier.", attendu: "La fiche est à son nom ; la ligne est en orange (relance en retard) et porte « 📱 Relancer »." },
       { titre: "Relancer", consigne: "Relancer ce prospect.", attendu: "Une question est posée avant l'envoi ; le message nomme le projet ; l'historique de la fiche note la relance." },

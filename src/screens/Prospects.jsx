@@ -91,6 +91,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     // (décision « a » du 29/09/2026). ⚠ LE MUR : l'espace de la FICHE.
     const envoi = envoiAccueilProspect({ nom: f.nom });
     const r = await envoyerModele({ tel: f.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: !!p.formation,
+      ligne: { nom: f.nom, ecran: "prospects", cible: p.id },
       texteRepli: texteEnvoi(envoi), prevenir: uAlert, demanderConfirmation: uConfirm,
       annonceRepli: `✅ Prospect « ${f.nom} » enregistré.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le message d'accueil, à lui envoyer.` });
     if (r.auto) {
@@ -306,6 +307,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     if (!envoi) return;
     if (!await uConfirm(`Relancer ${p.nom} (${p.tel}) du numéro WhatsApp BMI, au sujet de son projet ${projetDansLaPhrase(projet)} ?`)) return;
     const r = await envoyerModele({ tel: p.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: !!p.formation,
+      ligne: { nom: p.nom, ecran: "prospects", cible: p.id },
       texteRepli: texteEnvoi(envoi), prevenir: uAlert, demanderConfirmation: uConfirm });
     if (!r.auto && !r.parti && !projetDemande) return;
     const note = r.auto ? "Relance WhatsApp envoyée du numéro BMI" : "Relance WhatsApp envoyée";

@@ -44,7 +44,8 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
-import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion, envoyerRecuPdf, PHRASE_PDF_LENT, PHRASE_PDF_LENT_RIEN } from "../whatsapp";
+import { envoyerModele, signalerEnvoiImpossible, messagesAvecLigneEnvoi, envoyerRecuSansQuestion, envoyerRecuPdf, PHRASE_PDF_LENT, PHRASE_PDF_LENT_RIEN } from "../whatsapp";
+import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
 import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite, proformaPdfDepuis, lignePdfNonParti, envoiRemiseApresVente, situationRemiseApresVente } from "../lib/whatsappModeles";
 import { lierFacture, champsTravauxDocument, propositionsStock, produitSaisi } from "../lib/travaux";
 import { peutEchanger, chiffresEchange, construireEchange, appliquerEchange, montantReprisHorsEchange, echangesDeLaVente, DESTINATION_STOCK, DESTINATION_SAV } from "../lib/echanges";
@@ -685,6 +686,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         notePdf = rp.reseau ? lignePdfNonParti("", true) : (rp.motif && !motifAttendu(rp.motif) ? lignePdfNonParti(rp.motif) : "");
       }
       const r = await envoyerModele({ tel: pf.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: !!bqPf.formation,
+        ligne: { nom: pf.client, ref: { proforma_numero: pf.numero }, ecran: "ventes", boutique: pf.boutique },
         texteRepli: lignes.join("\n"), prevenir: uAlert, demanderConfirmation: uConfirm,
         annonceRepli: "Appuyez sur OK : WhatsApp s'ouvre avec la proforma complète, depuis VOTRE numéro. Le PDF est téléchargé sur l'appareil : joignez-le au message." });
       if (r.auto) {
@@ -750,12 +752,13 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       tel: vente.tel, nom: vente.client, espaceFormation: !!bq.formation, save, profile, ref: { vente_id: vente.id },
     });
     if (rp.auto) return { auto: true, detail: true, pdf: true, depot: false };
-    let motif = "";
+    let motif = ""; let dernier = null; let reseau = false;
     for (const envoi of envois) {
       const r = await envoyerModele({
         tel: vente.tel, modele: envoi.modele, variables: envoi.variables,
         espaceFormation: !!bq.formation, sansRepli: true,
       });
+      dernier = envoi; reseau = !!r.reseau;
       if (r.auto) {
         // ⚠ PARTI : une écriture qui trébuche ne le fait pas passer pour un échec.
         try {
@@ -769,7 +772,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       motif = r.motif || motif;
       if (motifAttendu(r.motif)) break;
     }
-    return { auto: false, motif, rien: !envois.length, pdfIncertain: !!rp.incertain, pdfLent: !!rp.lent };
+    return { auto: false, motif, rien: !envois.length, pdfIncertain: !!rp.incertain, pdfLent: !!rp.lent, envoi: dernier, reseau };
   };
 
   // ⚠ 23/10/2026 (BMID-2026-0070 : rien n'est parti, rien n'a été dit) : une
@@ -785,6 +788,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const notePdf = r.pdfIncertain ? ` ${lignePdfNonParti("", true)}` : "";
     if (r.auto) { setNoteRecuWa(`📲 Reçu ${r.depot ? "de dépôt chantier " : ""}${vente.numero} envoyé du numéro BMI à ${vente.client}${r.pdf ? ", avec le PDF" : ""}.${notePdf}${r.pdfLent ? ` ${PHRASE_PDF_LENT}` : ""}`); return; }
     const noteLent = r.pdfLent ? ` ${PHRASE_PDF_LENT_RIEN}` : "";
+    // 📶 Un employé sans réseau (07/11/2026) : le reçu est GARDÉ et repart tout
+    // seul du numéro BMI au retour de la connexion (« b »).
+    if (!peutEcrireDeSonNumero(profile) && r.envoi && !infoBq(vente.boutique).formation && (r.reseau || !navigator.onLine)) {
+      const g = await signalerEnvoiImpossible({ tel: vente.tel, envoi: r.envoi, motif: r.motif, reessayable: true, ligne: { nom: vente.client, ref: { vente_id: vente.id }, ecran: "ventes", boutique: vente.boutique, cible: vente.id } });
+      if (g.garde) { setNoteRecuWa(`📶 Le reçu ${vente.numero} n'a pas pu partir (pas de réseau) : il est gardé et repartira tout seul du numéro BMI dès que la connexion reviendra.`); return; }
+    }
     setNoteRecuWa(r.motif && !motifAttendu(r.motif) ? `Le reçu ${vente.numero} n'est pas parti du numéro BMI : ${r.motif} Le bouton WhatsApp de la vente reste là pour l'envoyer.${notePdf}${noteLent}` : `${notePdf}${noteLent}`.trim());
   };
 
@@ -803,6 +812,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     catch (e) { console.error("[whatsapp] reçu de la ligne :", e); r = { auto: false, motif: "Une erreur est survenue pendant l'envoi du numéro BMI." }; }
     if (r.auto) {
       await uAlert(`✅ Reçu ${r.depot ? "de dépôt chantier " : ""}N° ${v.numero} envoyé du numéro BMI à ${v.client || "ce client"}${r.pdf ? ", avec le PDF du reçu" : ""}.${r.detail ? "" : "\n\nSans la liste des articles : le reçu détaillé n'a pas pu partir (pas encore approuvé par Meta ?)."}${r.pdfIncertain ? `\n\n${lignePdfNonParti("", true)}` : ""}${r.pdfLent ? `\n\n${PHRASE_PDF_LENT}` : ""}`);
+      return;
+    }
+    // 🚫 Un employé n'envoie jamais de son numéro (07/11/2026) : gardé (pas de
+    // réseau) ou l'administrateur prévenu.
+    if (!peutEcrireDeSonNumero(profile)) {
+      await signalerEnvoiImpossible({ tel: v.tel, envoi: r.envoi, motif: r.motif, reessayable: r.reseau, ligne: { nom: v.client, ref: { vente_id: v.id }, ecran: "ventes", boutique: v.boutique, cible: v.id }, prevenir: uAlert });
       return;
     }
     if (r.motif && !motifAttendu(r.motif)) await uAlert(`${r.motif}\n\nWhatsApp va s'ouvrir avec le reçu complet : le message part de VOTRE numéro.`);
@@ -1661,7 +1676,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
         messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: bon.tel, nom: bon.client, modele: envoi.modele, variables: envoi.variables, ref: { bon_numero: bon.numero, bon_vente_id: bon.vente_id }, envoi: r }),
       }));
     }
-    return { auto: !!r.auto, motif: r.motif || "" };
+    return { auto: !!r.auto, motif: r.motif || "", envoi, reseau: !!r.reseau };
   };
   // UN chemin pour proposer un bon (reprise ou retour). Juste APRÈS le geste
   // (`apresGeste`), il part TOUT SEUL du numéro BMI, sans question et sans
@@ -1683,10 +1698,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const choix = await uChoix(`${libelle} ${bon.numero} — le client garde une trace de ce qui a été repris et rendu.${parti ? "\n\n📲 Déjà envoyé au client du numéro WhatsApp BMI." : ""}`, options);
     if (choix === "🖨 Imprimer") imprimerBon(bon, bq);
     else if (choix === "Envoyer par WhatsApp") {
-      if (apresGeste || !telDigits(bon.tel) || bq.formation) { bonWhatsApp(bon, bq); return; }
+      if ((apresGeste && peutEcrireDeSonNumero(profile)) || !telDigits(bon.tel) || bq.formation) { bonWhatsApp(bon, bq); return; }
       if (!await uConfirm(`Envoyer le ${libelle.toLowerCase()} N° ${bon.numero} à ${bon.client || "ce client"} (${bon.tel}) du numéro WhatsApp BMI ?`)) return;
       const r = await envoyerBonDuNumeroBmi(bon, bq);
       if (r.auto) { await uAlert(`✅ ${libelle} N° ${bon.numero} envoyé du numéro BMI à ${bon.client || "ce client"}.`); return; }
+      if (!peutEcrireDeSonNumero(profile)) {
+        await signalerEnvoiImpossible({ tel: bon.tel, envoi: r.envoi, motif: r.motif, reessayable: r.reseau, ligne: { nom: bon.client, ref: { bon_numero: bon.numero, bon_vente_id: bon.vente_id }, ecran: "ventes", boutique: bon.boutique || "" }, prevenir: uAlert });
+        return;
+      }
       if (r.motif && !motifAttendu(r.motif)) await uAlert(`${r.motif}\n\nWhatsApp va s'ouvrir avec le bon : le message part de VOTRE numéro.`);
       bonWhatsApp(bon, bq);
     }

@@ -255,6 +255,7 @@ export function Clients({ db, save, profile }) {
     if (!await uConfirm(`Envoyer le mot de fidélité à ${nom} du numéro BMI ?`)) return;
     const bqRegardee = (db.boutiques || []).find((b) => b.nom === boutique) || {};
     const r = await envoyerModele({
+      ligne: { nom, ecran: "clients" },
       tel: c.tel,
       modele: envoi.modele,
       variables: envoi.variables,

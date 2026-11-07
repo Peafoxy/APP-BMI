@@ -22,8 +22,13 @@
 // déjà passé payer, est une faute. Hors ligne, on ouvre WhatsApp tout de
 // suite : la personne voit, décide, envoie.
 // ============================================================
-import { ouvrirWhatsAppApresAnnonce, nouveauMessage } from "./lib/core";
-import { critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, MODELES_IDENTIFIANTS, texteEspaceMasque, ligneEnvoiModele, motifAttendu, messageRepli, lignePrivee, lignePriveeEnvoi, ligneMasquee, recuPdfDepuis, lignePdfNonParti } from "./lib/whatsappModeles";
+import { ouvrirWhatsAppApresAnnonce, nouveauMessage, SYSTEME, uid, poserCompteOuvreur } from "./lib/core";
+import { maintenantISO, maintenantMs as horlogeMs } from "./lib/horloge";
+import { idsAdmins } from "./lib/espace";
+import { versEcran } from "./lib/cibleNotification";
+// 🚫 Personne n'écrit de son propre numéro, sauf l'administrateur (07/11/2026).
+import { peutEcrireDeSonNumero, entreeFile, ajouterAFile, trierFile, texteAlerteAdmins, texteEmployeGarde, texteEmployeAdmins } from "./lib/numeroPersonnel";
+import { MODELES_EN_SERVICE, PREFIXE_LIGNE_ENVOI, critiqueEnvoiAuto, motifEchecWhatsApp, envoiIdentifiants, MODELES_IDENTIFIANTS, texteEspaceMasque, ligneEnvoiModele, motifAttendu, messageRepli, lignePrivee, lignePriveeEnvoi, ligneMasquee, recuPdfDepuis, lignePdfNonParti } from "./lib/whatsappModeles";
 import { CANAL_WA, cleConversation, messagesAvecEntete, idEntete } from "./lib/whatsappConversations";
 import { texteIdentifiantsClient, texteIdentifiantsEmploye } from "./lib/comptesClients";
 // ✓✓ Les coches (26/09/2026) : le numéro de suivi se range sur la ligne.
@@ -39,6 +44,131 @@ const enLigne = () => typeof navigator === "undefined" || navigator.onLine !== f
 // Le registre des envois de CET appareil (il meurt avec la page, et c'est
 // assez : un double appui se joue en une seconde, pas en un jour).
 const registreEnvois = creerRegistre();
+
+// ---------------------------------------------------------------
+// 🚫 LE COMPTE CONNECTÉ, ET LES MESSAGES GARDÉS (07/11/2026)
+// ---------------------------------------------------------------
+// App.jsx pose le compte connecté et son `save` à chaque rendu
+// (`poserContexteEnvoi`), comme le registre des noms des documents : la règle
+// « personne n'écrit de son propre numéro, sauf l'administrateur »
+// (lib/numeroPersonnel.js) le lit ici, et nulle part ailleurs. Sans contexte
+// (un banc), rien ne change.
+const contexte = { profile: null, save: null };
+export const poserContexteEnvoi = ({ profile, save, prevenir }) => {
+  contexte.profile = profile || null;
+  contexte.save = typeof save === "function" ? save : null;
+  poserCompteOuvreur(profile || null, prevenir);
+};
+
+// La file vit dans le navigateur, par COMPTE : un téléphone partagé ne fait
+// pas repartir les messages de quelqu'un d'autre.
+const cleFile = (id) => `bmi_file_wa:${id}`;
+const lireFile = (id) => {
+  try { const v = JSON.parse(localStorage.getItem(cleFile(id)) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; }
+};
+const ecrireFile = (id, liste) => {
+  try {
+    if (liste.length) localStorage.setItem(cleFile(id), JSON.stringify(liste));
+    else localStorage.removeItem(cleFile(id));
+  } catch { /* navigation privée : on prévient les administrateurs à la place */ }
+};
+export const nombreEnvoisGardes = (id) => (id ? lireFile(id).length : 0);
+
+// Une annonce d'écran sans sa phrase « WhatsApp s'ouvre » (elle serait fausse).
+const annonceSansOuverture = (annonce) => String(annonce || "")
+  .split(/\n\s*\n/).filter((p) => !/WhatsApp s'ouvre|Appuyez sur OK/i.test(p)).join("\n\n").trim();
+
+// Ce que dit la ligne du fil, sans son « 📲 Envoyé du numéro BMI — ».
+const ceQueDitLeMessage = (modele, variables, ref) => {
+  if (lignePriveeEnvoi(modele, ref || {})) return ligneMasquee(modele);
+  return String(ligneEnvoiModele(modele, variables) || "").replace(PREFIXE_LIGNE_ENVOI, "").trim();
+};
+
+// « a » : un message aux ADMINISTRATEURS (liste A : il notifie). Écrit par
+// le `save` de l'application — il part avec le reste, réseau ou pas.
+function prevenirLesAdmins({ tel, modele, variables, ligne, motif, expire = false, par }) {
+  const save = contexte.save;
+  if (typeof save !== "function") return false;
+  const auteur = contexte.profile || SYSTEME;
+  save((e) => {
+    const ids = idsAdmins(e, false).filter((id) => id !== auteur.id);
+    if (!ids.length) return e;
+    const texte = texteAlerteAdmins({ quoi: ceQueDitLeMessage(modele, variables, ligne?.ref), client: ligne?.nom || "", tel, par: par || auteur.nom, motif, expire });
+    const vers = versEcran(ligne?.ecran || "whatsapp", ligne?.boutique || "", ligne?.cible || "");
+    return { ...e, messages: [...ids.map((id) => nouveauMessage(auteur, { a_id: id, texte, ...(vers ? { vers } : {}) })), ...(e.messages || [])] };
+  });
+  return true;
+}
+
+// Garder (pas de réseau) ou prévenir les administrateurs (tout le reste).
+async function garderOuSignaler({ tel, modele, variables, motif, reessayable, ligne, prevenir, annonceRepli, fichier }) {
+  const p = contexte.profile;
+  const annonce = annonceSansOuverture(annonceRepli);
+  if (reessayable && !fichier && p?.id && MODELES_EN_SERVICE.includes(modele)) {
+    const entree = entreeFile({ id: uid(), tel, modele, variables, nom: ligne?.nom, ref: { ...(ligne?.ref || {}), ...(ligne?.ecran ? { _ecran: ligne.ecran, _boutique: ligne.boutique || "", _cible: ligne.cible || "" } : {}) }, motif, le: maintenantISO(), par: p.nom });
+    ecrireFile(p.id, ajouterAFile(lireFile(p.id), entree));
+    if (typeof prevenir === "function") await prevenir(texteEmployeGarde(annonce));
+    return { garde: true, annonce: typeof prevenir === "function" };
+  }
+  prevenirLesAdmins({ tel, modele, variables, ligne, motif, par: p?.nom });
+  if (typeof prevenir === "function") await prevenir(texteEmployeAdmins(motif, annonce));
+  return { admins: true, annonce: typeof prevenir === "function" };
+}
+
+// Pour un écran qui a fait ses essais lui-même (`sansRepli` : le reçu, le
+// bon) et veut, pour un employé, garder le message ou prévenir les
+// administrateurs au lieu d'ouvrir WhatsApp. Rend { garde } ou { admins }.
+// `reessayable` : pas de réseau / session tombée. Sans `prevenir`, rien n'est dit.
+export async function signalerEnvoiImpossible({ tel, envoi, motif, reessayable, ligne, prevenir }) {
+  if (!envoi?.modele) return {};
+  return garderOuSignaler({ tel, modele: envoi.modele, variables: envoi.variables, motif, reessayable: !!reessayable || !enLigne(), ligne, prevenir });
+}
+
+// « b » : la file repart du numéro BMI. App.jsx l'appelle au retour du
+// réseau, à l'ouverture et chaque minute. Une à la fois (`enCours`).
+let relanceEnCours = false;
+export async function relancerEnvoisGardes() {
+  const p = contexte.profile;
+  if (relanceEnCours || !p?.id || peutEcrireDeSonNumero(p) || !enLigne()) return 0;
+  const file = lireFile(p.id);
+  if (!file.length) return 0;
+  relanceEnCours = true;
+  let partis = 0;
+  try {
+    const { expirees, aRelancer } = trierFile(file, horlogeMs());
+    const reste = [];
+    for (const e of expirees) {
+      const ligne = { nom: e.nom, ref: e.ref, ecran: e.ref?._ecran, boutique: e.ref?._boutique, cible: e.ref?._cible };
+      prevenirLesAdmins({ tel: e.tel, modele: e.modele, variables: e.variables, ligne, motif: e.motif, expire: true, par: e.par });
+    }
+    for (const e of aRelancer) {
+      if (!enLigne()) { reste.push(e); continue; }
+      let rep;
+      try {
+        const { whatsappEnLigne } = await import("./supabaseClient");
+        rep = await whatsappEnLigne({ tel: e.tel, modele: e.modele, variables: e.variables });
+      } catch (err) { rep = { error: err?.message, reseau: true }; }
+      const ligne = { nom: e.nom, ref: e.ref, ecran: e.ref?._ecran, boutique: e.ref?._boutique, cible: e.ref?._cible };
+      if (rep && !rep.error) {
+        partis += 1;
+        const ref = Object.fromEntries(Object.entries(e.ref || {}).filter(([k]) => !k.startsWith("_")));
+        if (typeof contexte.save === "function") {
+          contexte.save((etat) => ({ ...etat, messages: messagesAvecLigneEnvoi(etat.messages, { profile: p, tel: e.tel, nom: e.nom, modele: e.modele, variables: e.variables, ref, envoi: { auto: true, id: rep.id || "", wamid: rep.wamid || "" } }) }));
+        }
+      } else if (!rep || rep.reseau || rep.statut === 401 || rep.error === "Hors ligne.") {
+        reste.push(e);
+      } else {
+        prevenirLesAdmins({ tel: e.tel, modele: e.modele, variables: e.variables, ligne, motif: motifEchecWhatsApp({ statut: rep.statut, erreur: rep.error, code: rep.code_whatsapp }), par: e.par });
+      }
+    }
+    // Ce qui a pu entrer dans la file PENDANT la relance est gardé.
+    const pendant = lireFile(p.id).filter((x) => !file.some((y) => y.id === x.id));
+    ecrireFile(p.id, [...reste, ...pendant]);
+  } finally {
+    relanceEnCours = false;
+  }
+  return partis;
+}
 
 // Rend { auto, parti, motif, id } :
 //   auto  — vrai si le message est parti tout seul, du numéro BMI ;
@@ -62,10 +192,31 @@ const registreEnvois = creerRegistre();
 // 📎 `fichier` (17/10/2026) : le PDF d'un modèle à en-tête document
 // (`devis_pdf`) — { nom, mime, donnees } en base64. Sans lui, ce modèle est
 // refusé ici même, avant tout appel (critiqueEnvoiAuto).
-export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false, prevenir, annonceRepli, fichier = null }) {
+export async function envoyerModele({ tel, modele, variables, espaceFormation, premierContact, texteRepli, demanderConfirmation, sansRepli = false, prevenir, annonceRepli, fichier = null, ligne = null }) {
   // `reseau` : la connexion est tombée AVANT la réponse du serveur — on ne
   // sait pas si le message est parti (18/10/2026). L'écran peut le dire.
-  const repli = async (motif, reseau = false) => {
+  // 📶 `reessayable` : pas de réseau, ou session tombée — le message peut
+  // repartir plus tard, tel quel (07/11/2026).
+  const repli = async (motif, reseau = false, reessayable = false) => {
+    // 🚫 PERSONNE N'ÉCRIT DE SON PROPRE NUMÉRO, SAUF L'ADMINISTRATEUR
+    // (07/11/2026). Un employé ne voit jamais WhatsApp s'ouvrir chez lui : le
+    // message est GARDÉ (pas de réseau) ou les administrateurs sont prévenus.
+    // ⚠ `sansRepli` (un essai suivi d'un autre : le PDF puis le texte, le
+    // modèle d'accès puis l'autre, le reçu automatique) n'ouvrait déjà rien :
+    // c'est l'appelant qui décide de la suite, rien ne change pour lui.
+    if (sansRepli) return { auto: false, motif, annonce: false, parti: false, reseau };
+    if (!peutEcrireDeSonNumero(contexte.profile) && !espaceFormation) {
+      // Un premier contact porte des codes qu'un modèle ne porte pas : il ne
+      // se garde pas, l'administrateur le reprend.
+      const r = await garderOuSignaler({ tel, modele, variables, motif, reessayable: reessayable && !premierContact, ligne, prevenir, annonceRepli, fichier });
+      return { auto: false, motif, reseau, parti: false, ...r };
+    }
+    if (!peutEcrireDeSonNumero(contexte.profile)) {
+      // 🎓 Formation : rien ne part, et rien ne s'ouvre chez l'employé.
+      const dire = !sansRepli && typeof prevenir === "function";
+      if (dire) await prevenir(`${annonceSansOuverture(annonceRepli)}${annonceSansOuverture(annonceRepli) ? "\n\n" : ""}🎓 Espace formation : aucun message WhatsApp ne part d'ici.`);
+      return { auto: false, motif, annonce: dire, parti: false, reseau };
+    }
     if (sansRepli) return { auto: false, motif, annonce: false, parti: false, reseau };
     const imprevu = !!motif && !motifAttendu(motif);
     const texteAnnonce = imprevu ? messageRepli(motif, annonceRepli) : (annonceRepli || "");
@@ -80,7 +231,7 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
   };
 
   const refus = critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact, enLigne: enLigne(), avecDocument: !!fichier });
-  if (refus) return repli(refus);
+  if (refus) return repli(refus, false, !enLigne() && !premierContact && !espaceFormation);
 
   // 🔁 LE FILET ANTI-DOUBLON (18/10/2026) : le MÊME message (même modèle,
   // même numéro, mêmes mots) ne repart pas pendant qu'il part, ni dans la
@@ -109,7 +260,7 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     reponse = await whatsappEnLigne({ tel, modele, variables, ...(fichier ? { fichier: { nom: fichier.nom, mime: fichier.mime, donnees: fichier.donnees } } : {}) });
   } catch (e) {
     oublierEnvoi(registreEnvois, cle);
-    return repli(motifEchecWhatsApp({ erreur: e?.message }));
+    return repli(motifEchecWhatsApp({ erreur: e?.message }), false, true);
   }
   if (!reponse || reponse.error) {
     // Refusé ou coupé : on peut réessayer tout de suite.
@@ -121,7 +272,8 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
     // l'écran : le diagnostic affiché a déjà été retiré une fois (Timo,
     // 16/09/2026, « je n'aime plus voir ça »).
     if (reponse?.error) console.info("[whatsapp] refus :", reponse.error, reponse.code_whatsapp || "");
-    return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }), !!reponse?.reseau);
+    return repli(motifEchecWhatsApp({ statut: reponse?.statut, erreur: reponse?.error, code: reponse?.code_whatsapp }), !!reponse?.reseau,
+      !reponse || !!reponse.reseau || reponse.statut === 401 || reponse.error === "Hors ligne.");
   }
   marquerParti(registreEnvois, cle, Date.now());
   return { auto: true, parti: true, motif: "", id: reponse.id || "", wamid: reponse.wamid || "" };
@@ -263,6 +415,9 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.depense_id ? { depense_id: ref.depense_id } : {}),
     ...(ref && ref.tache_id ? { tache_user_id: ref.tache_user_id, tache_id: ref.tache_id } : {}),
     ...(ref && ref.prime_user_id ? { chantier_id: ref.chantier_id, prime_user_id: ref.prime_user_id } : {}),
+    // 🏗 07/11/2026 : le lien du PV, l'avenant… gardent leur chantier — la
+    // fiche sait ainsi si son lien est vraiment parti du numéro BMI.
+    ...(ref && ref.chantier_id && !ref.prime_user_id ? { chantier_id: ref.chantier_id } : {}),
     ...(ref && ref.attestation_user_id ? { attestation_user_id: ref.attestation_user_id } : {}),
     ...(prive ? { wa_prive: true } : {}),
     // 📎 Un reçu ou une proforma en PDF garde le message TEXTE qui le

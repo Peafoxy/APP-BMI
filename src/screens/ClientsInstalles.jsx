@@ -70,6 +70,18 @@ const garantieActive = (c) => {
 // ============ RÉCEPTION DES TRAVAUX ============
 const chefDuChantier = (c) => (c.equipe || []).find((e) => e.chef);
 // Le chef de CE chantier, ou l'administrateur, peut le déclarer terminé.
+// ⚠ 07/11/2026 (KOFFIVI MASSA : « En attente de signature » alors que rien
+// n'était parti) : un lien posé depuis le 07/11 se dit « pas encore parti »
+// tant qu'aucune ligne « lien de signature » de CE chantier, du numéro BMI,
+// ne l'a suivi. Avant cette date, les lignes ne portaient pas le chantier :
+// on ne dit rien (on ne crie pas à tort).
+const DEBUT_SUIVI_LIEN_PV = "2026-11-07T12:00:00.000Z";
+export const lienPvPasParti = (c, messages) => {
+  const le = String(c?.contrat_jeton_le || "");
+  if (!le || le < DEBUT_SUIVI_LIEN_PV) return false;
+  return !(messages || []).some((m) => m && m.wa_modele === "lien_signature_pv" && m.chantier_id === c.id && String(m.ts || "") >= le);
+};
+
 const peutTerminer = (c, profile, isAdmin) =>
   statutChantier(c) === "en_cours" && (isAdmin || chefDuChantier(c)?.user_id === profile.id);
 
@@ -583,6 +595,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   // dans 📲 WhatsApp, qui ne donne la conversation à personne.
   const envoyerDuNumeroBmi = async (c, envoi, annonceRepli) => {
     const r = await envoyerModele({ tel: c.tel, modele: envoi.modele, variables: envoi.variables,
+      ligne: { nom: `${c.nom} ${c.prenom || ""}`.trim(), ref: { chantier_id: c.id }, ecran: "parc", cible: c.id },
       espaceFormation: !!espaceDuChantier(db, c, profile), texteRepli: texteEnvoi(envoi),
       prevenir: uAlert, demanderConfirmation: uConfirm, annonceRepli });
     if (r.auto) {
@@ -635,6 +648,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
     const r = await envoyerDuNumeroBmi(c, envoiLienPv({ nom: `${c.nom} ${c.prenom || ""}`, installation: c.type_installation, jeton }),
       "✅ Travaux déclarés terminés.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le lien de signature du PV, à envoyer au client.");
     if (r.auto) await uAlert(`✅ Travaux déclarés terminés.\n\n📲 Le lien de signature du PV est parti du numéro BMI à ${c.nom} ${c.prenom || ""}.`);
+    else if (!r.annonce) await uAlert(`✅ Travaux déclarés terminés.\n\n⚠ Le lien de signature du PV n'est pas parti du numéro BMI${r.motif ? ` : ${r.motif}` : "."}`);
   };
 
   // ---- ENVOI DU LIEN DE SIGNATURE (contrat de réception) ----
@@ -1532,7 +1546,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     {c.type_installation}
                     {/* Ce que le chantier attend ou porte : de courtes lignes sous l'installation. */}
                     <div className="text-[11px] leading-snug mt-0.5 space-y-0.5">
-                      {statutChantier(c) === "termine" && c.contrat_statut === "attente_signature" && <div className="font-bold text-sky-700">📤 En attente de signature</div>}
+                      {statutChantier(c) === "termine" && c.contrat_statut === "attente_signature" && (isAdmin && lienPvPasParti(c, db.messages)
+                        ? <div className="font-bold text-red-700" data-lien-pv-pas-parti>⚠ Lien du PV pas encore parti du numéro BMI — renvoyez-le</div>
+                        : <div className="font-bold text-sky-700">📤 En attente de signature</div>)}
                       {statutChantier(c) === "reserves" && c.avenant_statut === "attente_signature" && <div className="font-bold text-sky-700">📤 Avenant en attente de signature</div>}
                       {c.pose_seule && (() => {
                         const dette = (db.dettes || []).find((x) => x.id === c.dette_id);

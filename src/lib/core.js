@@ -9,6 +9,7 @@
 // ============================================================
 
 import { maintenantISO } from "./horloge.js";
+import { peutEcrireDeSonNumero, MOTIF_NUMERO_PERSONNEL } from "./numeroPersonnel.js";
 import { COMPTE_TRESORERIE, COMPTE_CHARGE, depensesComptees, MOYENS_ENCAISSEMENT, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL } from "./constants.js";
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -943,10 +944,31 @@ export function envoyerWhatsApp(tel, texte, demanderConfirmation) {
 // (décision « b » : quand le bouton dit déjà ce qu'il fait, pas de clic en
 // plus). Le banc interdit toute phrase « s'est ouvert » après coup.
 export async function ouvrirWhatsAppApresAnnonce({ tel, texte, annonce, prevenir, demanderConfirmation }) {
+  // 🚫 Rien ne s'ouvrira (07/11/2026) : l'annonce « WhatsApp s'ouvre »
+  // serait fausse — `ouvrirWhatsApp` dit pourquoi, une seule fois.
+  if (ouvertureInterdite()) return ouvrirWhatsApp("", demanderConfirmation);
   if (annonce && typeof prevenir === "function") await prevenir(annonce);
   return envoyerWhatsApp(tel, texte, demanderConfirmation);
 }
+// 🚫 PERSONNE N'ÉCRIT DE SON PROPRE NUMÉRO, SAUF L'ADMINISTRATEUR (Timo,
+// 07/11/2026 : « dans toute l'application, que personne ne puisse envoyer
+// quoi que ce soit avec son numéro personnel, à part les administrateurs »).
+// TOUTE ouverture de WhatsApp sur l'appareil passe ici (`envoyerWhatsApp`,
+// `ouvrirWhatsAppApresAnnonce`) : pour un employé qui n'est pas
+// administrateur, rien ne s'ouvre, et on le DIT (`prevenirOuvreur`). Le
+// compte est posé par App.jsx (src/whatsapp.js, `poserContexteEnvoi`). Le
+// client écrit de SON numéro (parrainage, 🔒 Mes données) : permis.
+const ouvreur = { profile: null, prevenir: null };
+export const poserCompteOuvreur = (profile, prevenir) => {
+  ouvreur.profile = profile || null;
+  if (typeof prevenir === "function") ouvreur.prevenir = prevenir;
+};
+export const ouvertureInterdite = () => !peutEcrireDeSonNumero(ouvreur.profile);
 export async function ouvrirWhatsApp(url, demanderConfirmation) {
+  if (ouvertureInterdite()) {
+    if (typeof ouvreur.prevenir === "function") await ouvreur.prevenir(`🚫 ${MOTIF_NUMERO_PERSONNEL}`);
+    return false;
+  }
   let fenetre = null;
   try { fenetre = window.open(url, "_blank"); } catch { fenetre = null; }
   if (fenetre) return true;

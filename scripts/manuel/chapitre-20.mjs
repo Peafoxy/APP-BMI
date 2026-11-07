@@ -127,7 +127,7 @@ export const CHAPITRE = {
         { titre: "Relire l'aperçu", texte: "Le cadre blanc montre **le message exact** : « Bonjour …, c'est VOTRE NOM de BMI Togo. Nous revenons vers vous concernant … »." },
         { titre: "« Envoyer du numéro BMI »", texte: "Une question de confirmation, puis le message part. **La conversation vous est confiée** : la réponse du client arrivera chez vous." },
       ]],
-      ["note", "Si le numéro BMI ne peut pas envoyer, l'écran le dit d'abord, puis WhatsApp s'ouvre sur **votre** téléphone : la réponse du client n'arrivera alors **pas** dans l'application."],
+      ["note", "Si le numéro BMI ne peut pas envoyer, l'écran le dit d'abord. **Personne n'écrit à un client de son propre numéro, sauf l'administrateur** (07/11/2026) : chez l'administrateur, WhatsApp s'ouvre sur son téléphone (la réponse du client n'arrivera alors pas dans l'application) ; **chez un employé, rien ne s'ouvre** — sans réseau, le message est **gardé** sur l'appareil et repart **tout seul** du numéro BMI dès que la connexion revient (24 h au plus) ; s'il est refusé pour une autre raison, ou si les 24 h passent, **les administrateurs reçoivent un message** dans 💬 Messages qui mène au bon endroit, pour le renvoyer. Les liens WhatsApp d'un fournisseur, d'un agent ou d'un réparateur ne s'affichent qu'à l'administrateur. Le client, lui, écrit toujours de son numéro (parrainage, 🔒 Mes données)."],
 
       ["h3", "F. Confier, rendre (administrateur)"],
       ["etapes", [

@@ -325,6 +325,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
     if (!await uConfirm(`Relancer ${d.client?.nom_base || d.client?.nom || "ce client"} (${d.client.tel}) pour son devis de ${fmt(d.total)} ?\n\nLe message part du numéro WhatsApp BMI.`)) return;
     const r = await envoyerModele({
       tel: d.client.tel,
+      ligne: { nom: d.client.nom, ref: { devis_id: d.id }, ecran: "tous_devis", cible: d.id },
       modele: envoi?.modele,
       variables: envoi?.variables,
       espaceFormation: espaceDuDevis(db, d, profile),

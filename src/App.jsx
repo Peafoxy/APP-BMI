@@ -100,6 +100,7 @@ import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BO
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import { adminPrincipal, utilisateursDeLEspace } from "./lib/calculs";
 import { poserPersonnesDesDocuments } from "./lib/nomSurDocument";
+import { poserContexteEnvoi, relancerEnvoisGardes } from "./whatsapp";
 import { posesAEncaisser } from "./lib/poseSeule";
 import { CLES_CORBEILLE, aPurger, purgerCorbeille, nomDeLaFiche } from "./lib/corbeille";
 import { doitVerrouiller, doitDeconnecter, apresErreur } from "./lib/verrou";
@@ -1082,6 +1083,21 @@ export default function App() {
       return () => clearInterval(t);
     }
   }, [db?.users, profile]);
+
+  // 🚫 PERSONNE N'ÉCRIT DE SON PROPRE NUMÉRO, SAUF L'ADMINISTRATEUR
+  // (07/11/2026, « a + b, lance… dans toute l'application ») : le chemin
+  // commun des envois (src/whatsapp.js) connaît le compte connecté et son
+  // `save` ; un message gardé faute de réseau (« b ») repart tout seul du
+  // numéro BMI — à l'ouverture, au retour du réseau, et chaque minute.
+  poserContexteEnvoi({ profile, save, prevenir: uAlert });
+  useEffect(() => {
+    if (!profile?.id) return undefined;
+    const relancer = () => { relancerEnvoisGardes().catch((e) => console.error("[whatsapp] messages gardés :", e)); };
+    relancer();
+    const t = setInterval(relancer, 60000);
+    window.addEventListener("online", relancer);
+    return () => { clearInterval(t); window.removeEventListener("online", relancer); };
+  }, [profile?.id]);
 
   if (!db) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><LoadingSpinner /></div>;
   if (!profile) {

@@ -17,6 +17,7 @@
 // ============================================================
 import { Fragment, useState } from "react";
 import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp, totalVente } from "../lib/core";
+import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
 import { chiffresTel } from "../lib/identiteClient";
 import { ficheParId } from "../lib/banques";
 import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp, champRecherche, PanneauQuiSeMontre } from "../components/ui";
@@ -1283,7 +1284,7 @@ export function Outillage({ db, save, profile }) {
                           <td className="px-3 py-2">
                             {rep && rep.tel ? (
                               <span className="inline-flex items-center gap-2">{rep.tel}
-                                <button title="Écrire sur WhatsApp" onClick={(e) => { e.stopPropagation(); envoyerWhatsApp(chiffresTel(rep.tel), ""); }} className={boutonAction("border-emerald-300 hover:bg-emerald-50")}><IconeWhatsApp taille={14} /></button>
+                                {peutEcrireDeSonNumero(profile) && <button title="Écrire sur WhatsApp" onClick={(e) => { e.stopPropagation(); envoyerWhatsApp(chiffresTel(rep.tel), ""); }} className={boutonAction("border-emerald-300 hover:bg-emerald-50")}><IconeWhatsApp taille={14} /></button>}
                               </span>
                             ) : "—"}
                           </td>

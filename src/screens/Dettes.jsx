@@ -306,6 +306,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
     // personne qui clique — l'administrateur principal est un compte RÉEL
     // même quand il regarde la formation.
     const r = await envoyerModele({
+      ligne: { nom: d.client, ref: { dette_id: d.id }, ecran: "dettes", boutique: d.boutique, cible: d.id },
       tel: d.tel,
       modele: envoi.modele,
       variables: envoi.variables,

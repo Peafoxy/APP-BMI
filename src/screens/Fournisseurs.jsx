@@ -4,6 +4,7 @@
 // ============================================================
 import { useState } from "react";
 import { uid, fmt, today, normPaiement, lienWhatsApp } from "../lib/core";
+import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions, PanneauQuiSeMontre, IconeWhatsApp } from "../components/ui";
 import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte, refuserSaufRoles, ROLES_FOURNISSEURS, estAdminPrincipal, boutiquesVisibles } from "../lib/calculs";
 import { critiqueModifFournisseur, changementsFournisseur, fournisseurModifie, articlesQuiSuivent, produitsRenommes, phraseChangements } from "../lib/fournisseurs";
@@ -192,7 +193,7 @@ export function Fournisseurs({ db, save, profile }) {
                     {(fo.representant || fo.representant_tel) && (
                       <div data-representant-fournisseur className="text-xs font-normal text-slate-500 mt-0.5">
                         👤 {fo.representant || "Représentant"}{fo.representant_tel ? ` · ${fo.representant_tel}` : ""}
-                        {fo.representant_tel && <a href={lienWhatsApp(fo.representant_tel)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={`WhatsApp — ${fo.representant_tel}`} className="ml-1.5 inline-block align-middle"><IconeWhatsApp taille={14} /></a>}
+                        {fo.representant_tel && peutEcrireDeSonNumero(profile) && <a href={lienWhatsApp(fo.representant_tel)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={`WhatsApp — ${fo.representant_tel}`} className="ml-1.5 inline-block align-middle"><IconeWhatsApp taille={14} /></a>}
                       </div>
                     )}
                   </td>

@@ -351,8 +351,13 @@ test("★ une panne du serveur aussi", /catch[\s\S]*return repli\(/.test(srcWhat
 test("★ une réponse en erreur aussi", /reponse\.error[\s\S]*return repli\(/.test(srcWhatsapp));
 // ⚠ RETOURNÉ le 23/10/2026 : le seul minuteur permis est celui d'`avecDelai`
 // (le PDF du reçu a 20 s pour être prêt) — il ABANDONNE, il ne renvoie rien.
-test("★ aucune file d'attente (une relance en retard est une faute) : le seul minuteur est celui qui abandonne un PDF trop lent",
-  !/localStorage/.test(srcWhatsapp) && (srcWhatsapp.match(/setTimeout/g) || []).length === 1
+// ⚠ RETOURNÉ le 07/11/2026 (« a + b, lance ») : UNE file existe désormais —
+// celle des messages d'un EMPLOYÉ gardés faute de réseau, qui repartent du
+// numéro BMI au retour de la connexion (24 h au plus). Le navigateur n'est
+// lu QUE par elle (sa clé `bmi_file_wa:`), et le seul minuteur reste celui du PDF.
+test("★ la seule file d'attente est celle des messages gardés d'un employé (clé bmi_file_wa:) ; le seul minuteur est celui qui abandonne un PDF trop lent",
+  (srcWhatsapp.match(/localStorage\./g) || []).length === 3 && /const cleFile = \(id\) => `bmi_file_wa:\$\{id\}`;/.test(srcWhatsapp)
+  && (srcWhatsapp.match(/setTimeout/g) || []).length === 1
   && /export function avecDelai\(promesse, ms\) \{\n  let minuteur;\n  const delai = new Promise\(\(resoudre\) => \{ minuteur = setTimeout\(\(\) => resoudre\(\{ hors_delai: true \}\), ms\); \}\);/.test(srcWhatsapp));
 // ⚠ RETOURNÉ le 25/09/2026 : Partages envoie aussi `espace` AVANT le premier
 // devis, SANS repli (sinon WhatsApp s'ouvrirait deux fois) — c'est le repli
@@ -413,7 +418,12 @@ test("★ le message de repli DIT ce qui s'est passé à la place",
 {
   const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const wa = sansComm(lire("src/whatsapp.js"));
-  const corpsRepli = (wa.match(/const repli = async \(motif, reseau = false\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  // ⚠ RETOURNÉ le 07/11/2026 : `reessayable` en plus, et un employé qui
+  // n'est pas administrateur ne passe JAMAIS par l'ouverture (garderOuSignaler).
+  const corpsRepli = (wa.match(/const repli = async \(motif, reseau = false, reessayable = false\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  test("★★★ 🚫 dans le repli, un employé (pas administrateur) est gardé ou signalé AVANT toute ouverture de WhatsApp",
+    corpsRepli.indexOf("garderOuSignaler(") > 0 && corpsRepli.indexOf("garderOuSignaler(") < corpsRepli.indexOf("ouvrirWhatsAppApresAnnonce(")
+    && /!peutEcrireDeSonNumero\(contexte\.profile\) && !espaceFormation/.test(corpsRepli));
   test("★★ le motif d'un repli se dit AVANT l'ouverture de WhatsApp (attendu, puis ouverture), et jamais pour un motif attendu",
     corpsRepli.length > 0
     && /messageRepli\(motif, annonceRepli\)/.test(corpsRepli) && /!motifAttendu\(motif\)/.test(corpsRepli)
@@ -2781,7 +2791,9 @@ titre("㉙ 🧾 LE BON DE REPRISE ET LE BON DE RETOUR PARTENT DU NUMÉRO BMI (25
     && pro.indexOf("envoyerBonDuNumeroBmi(bon, bq)") < pro.indexOf("uChoix("));
   const ligne = pro.slice(pro.indexOf('else if (choix === "Envoyer par WhatsApp")'));
   test("★★ depuis la ligne : une QUESTION avant le numéro BMI ; en formation ou sans numéro, WhatsApp s'ouvre sur l'appareil ; un échec se dit, puis le bon complet sur l'appareil",
-    /if \(apresGeste \|\| !telDigits\(bon\.tel\) \|\| bq\.formation\) \{ bonWhatsApp\(bon, bq\); return; \}/.test(ligne)
+    // ⚠ RETOURNÉ le 07/11/2026 : juste après le geste, seul l'administrateur
+    // ouvre WhatsApp chez lui ; un employé repasse par le numéro BMI.
+    /if \(\(apresGeste && peutEcrireDeSonNumero\(profile\)\) \|\| !telDigits\(bon\.tel\) \|\| bq\.formation\) \{ bonWhatsApp\(bon, bq\); return; \}/.test(ligne)
     && /if \(!await uConfirm\(`Envoyer le /.test(ligne) && ligne.indexOf("if (!await uConfirm(") < ligne.indexOf("envoyerBonDuNumeroBmi(")
     && /motifAttendu\(r\.motif\)/.test(ligne));
   test("★★ la reprise ET le retour appellent le bon avec apresGeste (les deux gestes)",
@@ -5472,7 +5484,7 @@ export const temoin = () => {
   test("★★ un refus de WhatsApp reste affirmé (« n'est pas parti », avec son motif)",
     /Le PDF n'est pas parti : le modèle n'est pas encore approuvé\./.test(msgR) && !/peut-être/.test(msgR));
   test("★★ le drapeau de la coupure traverse : appelAvecJeton → envoyerModele (`reseau`) → envoyerPdfDuDevis (`incertain`) → l'écran",
-    /repli\(motifEchecWhatsApp\(\{[^)]*\}\), !!reponse\?\.reseau\)/.test(codeW) && /parti: false, reseau \}/.test(codeW)
+    /repli\(motifEchecWhatsApp\(\{[^)]*\}\), !!reponse\?\.reseau,/.test(codeW) && /parti: false, reseau \}/.test(codeW)
     && /incertain: !!r\.reseau/.test(lire("src/screens/dimensionnement/Partages.jsx")) && /pdfIncertain: !!pdf\.incertain/.test(lire("src/screens/dimensionnement/Partages.jsx"))
     && (lire("src/screens/TousLesDevis.jsx").match(/lignePdfNonParti\(motifPdf, pdf\.incertain\)/g) || []).length === 2);
   test("★ l'envoi du numéro BMI a 60 secondes (le dépôt du PDF chez YCloud prend du temps)", /"api\/whatsapp\.js": \{ "maxDuration": 60 \}/.test(lire("vercel.json")));
@@ -7422,6 +7434,95 @@ console.log("\n81 — ⏳ la relance d'un salaire payé pas encore confirmé re�
   test("★ une ligne déjà rangée « [revoke] » se lit aussi en français dans le fil (texteLisibleWa, lue par 📲 WhatsApp)",
     !!W && W.texteLisibleWa({ texte: "[revoke]", wa_telephone: true }) === "🗑 Message supprimé depuis le téléphone BMI"
     && W.texteLisibleWa({ texte: "Bonjour" }) === "Bonjour" && /texteLisibleWa\(m\)/.test(lire("src/screens/Whatsapp.jsx")));
+}
+titre("82 🚫 PERSONNE N'ÉCRIT DE SON PROPRE NUMÉRO, SAUF L'ADMINISTRATEUR (07/11/2026, « a + b, lance… dans toute l'application ») — joué sur la vraie fonction d'envoi");
+{
+  const NP = await import(pathToFileURL(join(process.cwd(), "src/lib/numeroPersonnel.js")).href);
+  test("★★ la règle : l'administrateur et le client écrivent de leur numéro ; vendeur, gérant, technicien, magasinier, comptable jamais ; sans compte connu, rien ne change",
+    NP.peutEcrireDeSonNumero({ role: "admin" }) && NP.peutEcrireDeSonNumero({ role: "client" }) && NP.peutEcrireDeSonNumero(null)
+    && ["vendeur", "gerant", "technicien", "technicien_bmi", "magasinier", "comptable", "commercial", "resp_commercial", "assistant_direction"].every((r) => !NP.peutEcrireDeSonNumero({ role: r })));
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-numperso-"));
+  const faux = join(dossier, "fauxClient.mjs");
+  writeFileSync(faux, `export async function whatsappEnLigne(c) { (globalThis.__appelsNP = globalThis.__appelsNP || []).push(c); const v = globalThis.__repNP; return typeof v === "function" ? v(c) : (v || { id: "Y1", wamid: "W1" }); }`);
+  const sortie = join(dossier, "wa.mjs");
+  let W = null;
+  try {
+    await build({ entryPoints: ["src/whatsapp.js"], bundle: true, format: "esm", platform: "node", outfile: sortie, logLevel: "silent",
+      plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: faux })); } }] });
+    W = await import(pathToFileURL(sortie).href);
+  } catch (e) { console.log("   (build : " + (e?.message || e) + ")"); }
+  // Le navigateur joué : stockage, réseau, ouverture de WhatsApp.
+  const stock = new Map();
+  globalThis.localStorage = { getItem: (k) => (stock.has(k) ? stock.get(k) : null), setItem: (k, v) => stock.set(k, String(v)), removeItem: (k) => stock.delete(k) };
+  let ouvertures = 0;
+  globalThis.window = { open: () => { ouvertures++; return {}; } };
+  const reseau = (oui) => Object.defineProperty(globalThis, "navigator", { value: { onLine: oui }, configurable: true, writable: true });
+  let etat = { users: [{ id: "TIMO", nom: "TIMO", role: "admin", admin_principal: true, actif: true }, { id: "AGBEKO", nom: "AGBEKO", role: "technicien" }], boutiques: [], messages: [] };
+  const save = (f) => { etat = typeof f === "function" ? f(etat) : f; };
+  const tech = { id: "AGBEKO", nom: "AGBEKO", role: "technicien" };
+  const dits = [];
+  const prevenir = async (m) => { dits.push(m); };
+  const lien = { tel: "90112233", modele: "lien_signature_pv", variables: ["KOFFIVI MASSA", "solaire", "AbC123xYz9"], espaceFormation: false, texteRepli: "texte du lien",
+    prevenir, demanderConfirmation: async () => true, annonceRepli: "✅ Travaux déclarés terminés.\n\nAppuyez sur OK : WhatsApp s'ouvre avec le lien de signature du PV, à envoyer au client.",
+    ligne: { nom: "KOFFIVI MASSA", ref: { chantier_id: "CH1" }, ecran: "parc", cible: "CH1" } };
+  let r1 = {}, r2 = {}, r3 = {}, partis = -1, ouvApres1 = -1;
+  if (W) {
+    W.poserContexteEnvoi({ profile: tech, save, prevenir });
+    reseau(false);
+    r1 = await W.envoyerModele(lien);
+    ouvApres1 = ouvertures;
+  }
+  const file = JSON.parse(stock.get("bmi_file_wa:AGBEKO") || "[]");
+  test("★★★ « b » le technicien SANS RÉSEAU : rien ne s'ouvre chez lui, le lien est GARDÉ sur l'appareil, et il le lit (jamais « WhatsApp s'ouvre »)",
+    r1.garde === true && r1.auto === false && ouvApres1 === 0 && file.length === 1 && file[0].modele === "lien_signature_pv"
+    && /GARDÉ/.test(dits[0] || "") && /Travaux déclarés terminés/.test(dits[0] || "") && !/s'ouvre/.test(dits[0] || ""));
+  if (W) { reseau(true); partis = await W.relancerEnvoisGardes(); }
+  const ligne = (etat.messages || []).find((m) => m.wa_modele === "lien_signature_pv");
+  test("★★★ « b » le réseau revient : le lien repart TOUT SEUL du numéro BMI, la ligne entre dans 📲 WhatsApp avec son chantier, la file se vide",
+    partis === 1 && (globalThis.__appelsNP || []).length === 1 && !!ligne && ligne.chantier_id === "CH1" && ligne.de_id === "AGBEKO" && !stock.has("bmi_file_wa:AGBEKO"));
+  if (W) {
+    globalThis.__repNP = { error: "The template is unavailable", statut: 502 };
+    dits.length = 0;
+    r2 = await W.envoyerModele(lien);
+  }
+  const alerte = (etat.messages || []).filter((m) => m.a_id === "TIMO" && /NON PARTI du numéro BMI/.test(m.texte || ""));
+  test("★★★ « a » un REFUS de WhatsApp (pas le réseau) : rien ne s'ouvre, rien n'est gardé, l'administrateur reçoit un message qui mène au chantier, le technicien le lit",
+    r2.admins === true && ouvertures === 0 && !stock.has("bmi_file_wa:AGBEKO") && alerte.length === 1
+    && /KOFFIVI MASSA/.test(alerte[0].texte) && /AGBEKO/.test(alerte[0].texte) && alerte[0].vers?.ecran === "parc" && /administrateur est prévenu/.test(dits[0] || ""));
+  if (W) {
+    W.poserContexteEnvoi({ profile: { id: "TIMO", nom: "TIMO", role: "admin" }, save, prevenir });
+    r3 = await W.envoyerModele(lien);
+  }
+  test("★★ l'ADMINISTRATEUR garde le repli d'avant : WhatsApp s'ouvre chez lui", r3.auto === false && ouvertures === 1);
+  // L'ouverture directe (reçu complet, bon, lien d'un représentant) passe par la même porte.
+  const C = W ? await import(pathToFileURL(sortie).href) : null;
+  let directe = null, ouvAvant = ouvertures;
+  if (W) { W.poserContexteEnvoi({ profile: tech, save, prevenir }); dits.length = 0; }
+  const core = await (async () => { try { const d2 = join(dossier, "core.mjs"); await build({ entryPoints: ["src/lib/core.js"], bundle: true, format: "esm", platform: "node", outfile: d2, logLevel: "silent" }); return await import(pathToFileURL(d2).href); } catch { return null; } })();
+  if (core) { core.poserCompteOuvreur(tech, prevenir); directe = await core.envoyerWhatsApp("90112233", "reçu complet"); }
+  test("★★★ l'ouverture DIRECTE (reçu complet, bon, proforma sans numéro) est refusée à un employé, et dite",
+    !!core && directe === false && ouvertures === ouvAvant && /Seul l'administrateur/.test(dits[0] || ""));
+  if (core) { core.poserCompteOuvreur({ id: "C1", role: "client" }); directe = await core.envoyerWhatsApp("90112233", "ma demande"); }
+  test("★ le CLIENT écrit toujours de son numéro (parrainage, 🔒 Mes données)", directe === true && ouvertures === ouvAvant + 1);
+  // 24 h passées sans réseau : on renonce, l'administrateur est prévenu.
+  stock.set("bmi_file_wa:AGBEKO", JSON.stringify([NP.entreeFile({ id: "x", tel: "90112233", modele: "lien_signature_pv", variables: ["KOFFIVI MASSA", "solaire", "AbC123xYz9"], nom: "KOFFIVI MASSA", le: "2026-01-01T00:00:00.000Z", par: "AGBEKO" })]));
+  globalThis.__repNP = undefined; const avant = (globalThis.__appelsNP || []).length;
+  if (W) await W.relancerEnvoisGardes();
+  test("★★ au-delà de 24 h, le message gardé n'est plus envoyé (trop tard) : l'administrateur est prévenu",
+    (globalThis.__appelsNP || []).length === avant && !stock.has("bmi_file_wa:AGBEKO")
+    && (etat.messages || []).some((m) => m.a_id === "TIMO" && /en 24 h/.test(m.texte || "")));
+  // Les liens et boutons d'écran qui ouvraient WhatsApp chez un employé.
+  test("★★ les liens WhatsApp d'un représentant, d'un agent, d'un réparateur ne s'affichent qu'à qui peut écrire de son numéro",
+    /representant_tel && peutEcrireDeSonNumero\(profile\) &&/.test(lire("src/screens/Fournisseurs.jsx"))
+    && /c\.tel && peutEcrireDeSonNumero\(profile\) &&/.test(lire("src/screens/Commerciaux.jsx"))
+    && /\{peutEcrireDeSonNumero\(profile\) && <button title="Écrire sur WhatsApp"/.test(lire("src/screens/Outillage.jsx")));
+  test("★★ la fiche du chantier dit « Lien du PV pas encore parti » à l'administrateur tant qu'aucune ligne du lien n'a suivi",
+    /data-lien-pv-pas-parti/.test(lire("src/screens/ClientsInstalles.jsx")) && /export const lienPvPasParti = /.test(lire("src/screens/ClientsInstalles.jsx")));
+  test("★★ App.jsx pose le compte et relance les messages gardés (ouverture, retour du réseau, chaque minute)",
+    /poserContexteEnvoi\(\{ profile, save, prevenir: uAlert \}\);/.test(lire("src/App.jsx")) && /window\.addEventListener\("online", relancer\)/.test(lire("src/App.jsx")));
+  try { rmSync(dossier, { recursive: true, force: true }); } catch {}
+  delete globalThis.__repNP; delete globalThis.__appelsNP; delete globalThis.window; delete globalThis.localStorage;
+  void C;
 }
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

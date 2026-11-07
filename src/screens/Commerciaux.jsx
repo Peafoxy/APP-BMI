@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, caVente, fmt, today, dFR, telDigits, inP, lienWhatsApp } from "../lib/core";
+import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte, refuserSaufAdmin, utilisateursDeLEspace, compteDeLAgent, tauxDeLAgent } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
@@ -169,7 +170,7 @@ export function Commerciaux({ db, save, profile }) {
                 <tr key={c.id} className={`border-t border-slate-100 ${classeLigneDepliable(false, i)}`}>
                   <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(fondLigneDepliable(false, i))}`}>
                     <span className="font-bold mr-1">{medaille(i)}</span>{c.nom}
-                    {c.tel && <a href={lienWhatsApp(c.tel)} target="_blank" rel="noreferrer" title={`WhatsApp — ${c.tel}`} className="ml-2 inline-block align-middle"><IconeWhatsApp taille={16} /></a>}
+                    {c.tel && peutEcrireDeSonNumero(profile) && <a href={lienWhatsApp(c.tel)} target="_blank" rel="noreferrer" title={`WhatsApp — ${c.tel}`} className="ml-2 inline-block align-middle"><IconeWhatsApp taille={16} /></a>}
                   </td>
                   <td className="px-3 py-2">{c.zone || "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{s.nb}</td>

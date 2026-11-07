@@ -73,7 +73,7 @@ export const CHAPITRE = {
       ["h3", "B. Ce qui demande internet"],
       ["table", { entetes: ["Le geste", "Sans internet"], largeurs: [3800, 5500], lignes: [
         ["La première connexion d'un compte sur un appareil", "Refusée, avec la phrase qui le dit."],
-        ["Un message du numéro WhatsApp BMI (reçu, devis, relance…)", "Ne part pas du numéro BMI. Selon le geste, WhatsApp s'ouvre sur l'appareil avec le texte (il partira quand le téléphone aura du réseau), ou une note sous le titre le dit (reçu automatique)."],
+        ["Un message du numéro WhatsApp BMI (reçu, devis, relance…)", "Ne part pas du numéro BMI. **Il est gardé sur l'appareil et repart tout seul du numéro BMI** quand le réseau revient (24 h au plus ; ensuite l'administrateur est prévenu). Chez l'administrateur, WhatsApp s'ouvre sur son téléphone avec le texte."],
         ["Répondre à un client dans 📲 WhatsApp", "Refusé : la réponse doit partir du numéro BMI."],
         ["Les notifications des autres appareils", "Elles attendent sur l'appareil, **24 heures au plus**, et partent au retour du réseau."],
         ["Parrainer un filleul (espace client)", "« Le parrainage demande une connexion internet. »"],

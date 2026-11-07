@@ -220,6 +220,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
     const envoi = envoiMotFidelite({ nom, avecCompte: true });
     if (!await uConfirm(`Envoyer le mot de fidélité à ${nom} du numéro BMI ?`)) return;
     const r = await envoyerModele({
+      ligne: { nom: u.nom, ecran: "users", cible: u.id },
       tel: u.tel,
       modele: envoi.modele,
       variables: envoi.variables,

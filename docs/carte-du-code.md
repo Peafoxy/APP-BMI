@@ -88,6 +88,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/appareils.js` | Le catalogue des appareils électriques proposés dans un devis |
 | `lib/validationDevis.js` | La validation d'un devis (espace client et signature en boutique) |
 | `lib/modifDevis.js` | Modifier un devis DÉJÀ SIGNÉ : le client ouvre la porte |
+| `lib/numeroPersonnel.js` | 🚫 Personne n'écrit à un client de son propre numéro WhatsApp, sauf l'administrateur (et le client lui-même) : la règle, la file des messages gardés faute de réseau, les textes de l'alerte aux administrateurs (07/11/2026) |
 | `lib/motifReseau.js` | Une connexion coupée avec le serveur se dit en français (« Failed to fetch » part dans la console) |
 | `lib/antiDoublonEnvoi.js` | Le même message WhatsApp (modèle, numéro, mots) ne repart pas pendant qu'il part ni dans la minute qui suit — le filet de `envoyerModele` |
 | `lib/contrat.js` | Le contrat et le PV de réception |
