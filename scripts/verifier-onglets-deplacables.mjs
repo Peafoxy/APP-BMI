@@ -37,7 +37,8 @@ window.journal = [];
 function Essai({ sens }) {
   const [tab, setTab] = useState("ventes");
   const [ordre, setOrdre] = useState(null);
-  const tabs = ordre ? ordre.map((id) => TABS.find((t) => t[0] === id)) : TABS;
+  const base = location.hash === "#27" ? VINGT_SEPT : TABS;
+  const tabs = ordre ? ordre.map((id) => base.find((t) => t[0] === id)) : base;
   return <OngletsDeplacables tabs={tabs} tab={tab} sens={sens}
     onChoisir={(id) => { window.journal.push("choisir:" + id); setTab(id); }}
     onReordonner={(ids) => { window.journal.push("ordre:" + ids.join(",")); setOrdre(ids); }}
@@ -231,10 +232,13 @@ import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { PageIcones } from "${process.cwd()}/src/components/PageIcones.jsx";
 const TABS = [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes (2)"], ["commandes", "📥 Commandes reçues"], ["tous_devis", "📋 Tous les devis (4)"], ["depenses", "📤 Dépenses"], ["caisse", "🔒 Caisse"], ["stocks", "📦 Stocks"], ["messages", "💬 Messages (3)"], ["parametres", "⚙ Paramètres"]];
+// #27 : les 27 onglets de l'administrateur (la page qui doit tenir sans défiler).
+const VINGT_SEPT = ["📊 Tableau de bord","📈 Rentabilité","💰 Ventes (2)","📥 Commandes reçues","📐 Dimensionnement","📋 Tous les devis (4)","📄 Contrats","📤 Dépenses","🧾 Chez le comptable","📋 Dettes","👤 Clients","🔒 Caisse","📦 Stocks","🚚 Fournisseurs","🎯 Commerciaux","👑 Mon équipe","🧲 Prospects","🏠 Clients installés","📅 Rendez-vous","💬 Messages (3)","📲 WhatsApp (1)","💵 Salaires","👥 Utilisateurs","🕘 Historique","⚙ Paramètres","🛠 Travaux à crédit","🧰 Outillage"].map((l, i) => ["t" + i, l]);
 window.journal = [];
 function Essai() {
   const [ordre, setOrdre] = useState(null);
-  const tabs = ordre ? ordre.map((id) => TABS.find((t) => t[0] === id)) : TABS;
+  const base = location.hash === "#27" ? VINGT_SEPT : TABS;
+  const tabs = ordre ? ordre.map((id) => base.find((t) => t[0] === id)) : base;
   return <PageIcones tabs={tabs} nom="TIMO" onChoisir={(id) => window.journal.push("choisir:" + id)}
     onReordonner={(ids) => { window.journal.push("ordre:" + ids.join(",")); setOrdre(ids); }} />;
 }
@@ -244,12 +248,12 @@ createRoot(document.getElementById("g")).render(<Essai />);
   await build({ entryPoints: [entree2], bundle: true, format: "iife", outfile: sortie2, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
   const html2 = join(dossier, "icones.html");
   writeFileSync(html2, `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}</style></head><body class="bg-gradient-to-br from-slate-900 via-sky-950 to-sky-900"><main class="w-full max-w-[1600px] mx-auto px-4 py-5"><div id="g"></div></main><script src="icones.js"></script></body></html>`);
-  const mesurer = async (largeur) => {
+  const mesurer = async (largeur, ancre = "") => {
     const ctx2 = await nav.newContext({ hasTouch: true, viewport: { width: largeur, height: 800 } });
     const p2 = await ctx2.newPage();
     const err2 = [];
     p2.on("pageerror", (e) => err2.push(String(e.message).split("\n")[0]));
-    await p2.goto(`file://${html2}`);
+    await p2.goto(`file://${html2}${ancre}`);
     await attendre(400);
     const boites = await p2.$$eval("[data-page-icones] [data-tab-id]", (els) => els.map((e) => { const r = e.getBoundingClientRect(); return { id: e.dataset.tabId, x: r.left, y: r.top, w: r.width, h: r.height }; }));
     const nombres = await p2.$$eval("[data-icone-nombre]", (els) => els.map((e) => e.textContent));
@@ -259,7 +263,9 @@ createRoot(document.getElementById("g")).render(<Essai />);
   const parRangee = (boites) => { const r = new Map(); for (const b of boites) { const k = Math.round(b.y); r.set(k, (r.get(k) || 0) + 1); } return [...r.values()]; };
 
   const tel = await mesurer(390);
-  test("★ téléphone : 4 icônes par rangée", parRangee(tel.boites)[0] === 4, JSON.stringify(parRangee(tel.boites)));
+  // RETOURNÉ le 07/11/2026 (4 → 5 par rangée : « réduire les espaces… avoir
+  // tout sans défilement »).
+  test("★ téléphone : 5 icônes par rangée", parRangee(tel.boites)[0] === 5, JSON.stringify(parRangee(tel.boites)));
   test("★ le nom sans l'emoji ni le chiffre, le chiffre en PASTILLE rouge (« Ventes », pastille 2)",
     tel.noms.some((t) => t.includes("Ventes") && !t.includes("(2)")) && tel.nombres.join(",") === "2,4,3", `${tel.nombres.join(",")} — ${tel.noms.join(" | ")}`);
   // Un toucher ouvre l'écran.
@@ -287,6 +293,19 @@ createRoot(document.getElementById("g")).render(<Essai />);
     jo.join("|") === "ordre:dashboard,ventes,commandes,caisse,tous_devis,depenses,stocks,messages,parametres", jo.join("|"));
   test("aucune erreur JavaScript (téléphone)", tel.err2.length === 0, tel.err2.join(" | "));
   await tel.ctx2.close();
+
+  // 📱 Les 27 icônes de l'administrateur tiennent sur UN écran de téléphone
+  // (375 px de large) : la page d'icônes, salut compris, fait au plus 500 px de
+  // haut — l'en-tête de l'application (~110 px) et la marge de l'écran
+  // (~40 px) s'y ajoutent, un téléphone montre ~670 px. Avec l'ancien
+  // espacement (4 par rangée, icônes de 56 px), elle faisait ~840 px.
+  const t27 = await mesurer(375, "#27");
+  const haut27 = await t27.p2.$eval("[data-page-icones]", (e) => Math.round(e.getBoundingClientRect().height));
+  test("★★ téléphone : les 27 icônes de l'administrateur tiennent sans défiler (page d'icônes ≤ 500 px)",
+    t27.boites.length === 27 && haut27 <= 500, `${t27.boites.length} icônes, ${haut27} px, rangées ${JSON.stringify(parRangee(t27.boites))}`);
+  const deborde = await t27.p2.$eval("[data-page-icones]", (e) => e.scrollWidth > e.clientWidth + 1);
+  test("téléphone : rien ne déborde sur le côté", !deborde, "");
+  await t27.ctx2.close();
 
   const pc = await mesurer(1300);
   const gauche = Math.min(...pc.boites.map((b) => b.x));

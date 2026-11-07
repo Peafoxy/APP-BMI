@@ -28,13 +28,20 @@ export function LibelleOnglet(id, label) {
   );
 }
 
+// 📱 07/11/2026 (Timo, deux captures : « sur téléphone, réduire les espaces
+// entre icônes pour qu'on puisse avoir tout sans défilement ») : sur
+// téléphone 5 icônes par rangée, plus petites, serrées — les 27 icônes de
+// l'administrateur tiennent sur un écran. Les classes `sm:` gardent
+// l'ordinateur comme avant (6 par rangée, centrées) ; seul le logo WhatsApp
+// passe de 34 à 28 px partout. Mesuré par
+// le banc (verifier-onglets-deplacables).
 export function PageIcones({ tabs, onChoisir, onReordonner, nom = "" }) {
   return (
     <div data-page-icones className="relative z-10 w-full py-2">
-      <h2 className="text-center text-white text-base font-bold mb-5 drop-shadow">Bonjour{nom ? ` ${nom}` : ""}</h2>
+      <h2 className="text-center text-white text-base font-bold mb-2 sm:mb-5 drop-shadow">Bonjour{nom ? ` ${nom}` : ""}</h2>
       <OngletsDeplacables tabs={tabs} tab={null} onChoisir={onChoisir} onReordonner={onReordonner} sens="grille"
-        className="grid grid-cols-4 gap-x-2 gap-y-4 sm:grid-cols-6 sm:gap-x-5 sm:gap-y-6 sm:max-w-[640px] sm:mx-auto"
-        classeBouton={() => "relative flex flex-col items-center text-center rounded-2xl px-0.5 py-1 hover:bg-white/10"}
+        className="grid grid-cols-5 gap-x-1 gap-y-0.5 sm:grid-cols-6 sm:gap-x-5 sm:gap-y-6 sm:max-w-[640px] sm:mx-auto"
+        classeBouton={() => "relative flex flex-col items-center text-center rounded-2xl px-0 py-0 sm:px-0.5 sm:py-1 hover:bg-white/10"}
         contenu={(id, label) => {
           const { icone, nom, nombre } = decomposerLibelle(label);
           // Un mot trop long pour la largeur d'une icône se coupe à un endroit
@@ -42,10 +49,10 @@ export function PageIcones({ tabs, onChoisir, onReordonner, nom = "" }) {
           const titre = nom.replace("Dimensionnement", "Dimension\u00ADnement");
           return (
             <>
-              <span className="flex items-center justify-center w-14 h-14 rounded-2xl text-[28px] leading-none shadow-md" style={{ backgroundColor: couleurIcone(id) }}>{id === "whatsapp" ? <IconeWhatsApp taille={34} couleur="#ffffff" /> : (icone || "•")}</span>
-              <span lang="fr" className="mt-1.5 w-full text-[11.5px] font-semibold leading-tight text-white drop-shadow hyphens-auto [overflow-wrap:anywhere]">{titre}</span>
+              <span className="flex items-center justify-center w-11 h-11 text-[22px] sm:w-14 sm:h-14 sm:text-[28px] rounded-2xl leading-none shadow-md" style={{ backgroundColor: couleurIcone(id) }}>{id === "whatsapp" ? <IconeWhatsApp taille={28} couleur="#ffffff" /> : (icone || "•")}</span>
+              <span lang="fr" className="mt-1 sm:mt-1.5 w-full text-[10px] tracking-[-0.03em] sm:text-[11.5px] sm:tracking-normal font-semibold leading-[1.15] sm:leading-tight text-white drop-shadow hyphens-auto [overflow-wrap:anywhere]">{titre}</span>
               {nombre > 0 && (
-                <span data-icone-nombre className="absolute top-0 left-[calc(50%+14px)] min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full ring-2 ring-white/70">{nombre}</span>
+                <span data-icone-nombre className="absolute top-0 left-[calc(50%+10px)] sm:left-[calc(50%+14px)] min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full ring-2 ring-white/70">{nombre}</span>
               )}
             </>
           );
