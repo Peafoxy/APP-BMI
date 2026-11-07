@@ -782,6 +782,26 @@ export const appliquerRetenuesCredit = (u, mois, par) =>
     return { ...c, echeances, remboursements, statut: solde ? "solde" : "approuve", date_solde: solde ? today() : c.date_solde };
   });
 
+// ⚠ UNE RETENUE DÉJÀ MARQUÉE SUR UN MOIS QU'AUCUN PAIEMENT DE CE MOIS N'A
+// FAITE (Timo, 07/11/2026, crédit d'ANGELE : la retenue du salaire de
+// septembre avait été rangée sous « octobre » ; au paiement d'octobre, la
+// retenue s'affichait dans le détail mais rien n'était noté sur le crédit).
+// Rend { montant, dates } quand l'échéance du mois est déjà cochée sans qu'un
+// virement de CE mois porte la retenue ; null sinon (une deuxième paie du même
+// mois, après une première qui a retenu, est le cas normal : rien à dire).
+export function retenueSansPaiementDuMois(u, mois) {
+  const prises = creditsDe(u).filter((c) => c.statut === "approuve" || c.statut === "solde")
+    .flatMap((c) => (c.echeances || []).filter((e) => e.mois === mois && e.paye));
+  const montant = prises.reduce((s, e) => s + Number(e.montant || 0), 0);
+  if (!(montant > 0)) return null;
+  const parUnPaiement = (u.virements || []).filter((v) => v.mois === mois).reduce((s, v) => s + Number(v.retenue_credit || 0), 0);
+  if (parUnPaiement >= montant) return null;
+  return { montant: montant - parUnPaiement, dates: [...new Set(prises.map((e) => e.date_paiement).filter(Boolean))] };
+}
+export const phraseRetenueSansPaiement = (r, mois) => r
+  ? `⚠ ATTENTION : la retenue crédit BMI de ${fmt(r.montant)} pour ${libelleMoisFR(mois)} est déjà marquée comme prise${r.dates.length ? ` (le ${r.dates.map(dFR).join(", ")})` : ""}, mais aucun paiement de salaire de ${libelleMoisFR(mois)} ne l'a faite. Ce paiement ne notera RIEN de plus sur le crédit : si cette retenue appartient en réalité à un autre mois, ne payez pas — faites corriger le crédit d'abord.`
+  : "";
+
 // ⚠⚠ UN CRÉDIT D'AVANT L'APPLICATION (Timo, 03/10/2026 : « en réalité
 // c'était un ancien crédit dont il restait 400 mil… on n'avait pas l'app en
 // ce moment » → « lance 1 et 2 »). Accorder un crédit écrit une dépense
@@ -1491,7 +1511,10 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   const m = String(mois).trim();
   const p = paieMois(u, m);
   const suggestion = Math.max(0, p.reste);
+  // ⚠ 07/11/2026 : une retenue déjà cochée sur ce mois sans paiement de ce mois (crédit d'ANGELE).
+  const avertRetenue = phraseRetenueSansPaiement(retenueSansPaiementDuMois(u, m), m);
   const v = await uPrompt(
+    (avertRetenue ? `${avertRetenue}\n\n` : "") +
     `Montant payé (F CFA) — salaire de ${libelleMoisFR(m)}\n\n` +
     // ⚠ 30/09/2026 (relu en écrivant le chapitre 18) : la retenue CNSS manquait
     // au détail — pour un assujetti, les lignes n'aboutissaient pas au net annoncé.
@@ -1514,7 +1537,7 @@ export async function envoyerVirementG(db, save, profile, u, moisImpose) {
   // Les crédits APRÈS la retenue de ce mois : ce qui restera à rembourser
   // (l'avis WhatsApp le dit — décision « b », 03/10/2026).
   const creditsApres = appliquerRetenuesCredit(u, m, profile.nom);
-  if (!await uConfirm(`Payer ${fmt(montant)} de salaire à ${u.nom} pour ${libelleMoisFR(m)} ?\n\nSortie : ${src.libelle} — ${fmt(montant)}${retenue ? `\nRetenue crédit BMI comptabilisée : ${fmt(retenue)}` : ""}\n\nIl devra confirmer la réception depuis son espace « Salaire ».`)) return;
+  if (!await uConfirm(`Payer ${fmt(montant)} de salaire à ${u.nom} pour ${libelleMoisFR(m)} ?\n\nSortie : ${src.libelle} — ${fmt(montant)}${retenue ? `\nRetenue crédit BMI comptabilisée : ${fmt(retenue)}` : ""}${avertRetenue ? `\n\n${avertRetenue}` : ""}\n\nIl devra confirmer la réception depuis son espace « Salaire ».`)) return;
   const virement = {
     id: uid(), mois: m, montant, moyen: String(moyen).trim(), ref: String(ref).trim(), boutique: bq,
     statut: "envoye", date_envoi: today(), par: profile.nom,

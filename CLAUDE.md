@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2920 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2931 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -8600,6 +8600,10 @@ lit mal est pire qu'un banc absent).
   05/10/2026 : `paie-4-debut-paie.sql` le réserve à l'administrateur.
   Banc (10 contrôles), éprouvé (argent caché, employé non suivi compté) ;
   un contrôle RETOURNÉ (`tousEmployes`). Chapitre 18 à jour.
+
+### ⚠ LA RETENUE DE CRÉDIT DÉJÀ COCHÉE SANS PAIEMENT DE CE MOIS (07/11/2026, « oui ajoute l'avertissement »)
+- Crédit d'ANGELE : la retenue du salaire de SEPTEMBRE (payé le 03/10) avait été rattachée sous « octobre » (la ligne de retenue n'avait pas de mois, j'avais pris celui de sa date) ; au paiement d'octobre (30/10), `paieMois` déduisait 25 000 F mais `appliquerRetenuesCredit` ne trouvait rien à cocher : le crédit restait à 375 000 F au lieu de 350 000 F. **Données remises par un SQL collé par Timo le 07/11/2026 (`true | true | true`)** : accordé 400 000, remboursé 50 000 (sept + oct), reste 350 000, 14 mensualités dès novembre ; la paie d'octobre porte sa retenue ; 📤 Dépenses : salaire d'octobre à 65 000 + la retenue −25 000 ajoutée, celle du 03/10 renommée « septembre ». Ne pas relancer ce SQL.
+- **L'avertissement** : `retenueSansPaiementDuMois` / `phraseRetenueSansPaiement` (calculs.js) — une échéance du mois déjà cochée qu'aucun virement de CE mois ne porte (`retenue_credit`) → « ⚠ ATTENTION… ce paiement ne notera RIEN de plus sur le crédit », en tête de la question du montant ET dans la confirmation (`envoyerVirementG`). Une deuxième paie du même mois après une première qui a retenu : rien. Jamais un refus. Rien à coller. Banc (+1), éprouvé. Chapitre 18 à jour.
 
 ### 🗑 RETIRER UNE PRIME OU UNE AVANCE SAISIE PAR ERREUR (22/10/2026, « lance, oui pour l'avance »)
 - Timo : « Possible de retirer une prime sur salaire ajoutée par erreur ». Rien

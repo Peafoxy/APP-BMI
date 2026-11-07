@@ -8271,6 +8271,19 @@ titre("🏦 DG / BANQUE / COMPTABLE : trois caisses lues, dans le tableau de bor
         && rat.montant_accorde === 400000 && C.resteCredit(rat) === 375000 && C.retenueCreditMois({ credits: [rat] }, "2026-10") === 25000
         && C.retenuesOrphelines({ id: "ang", credits: [rat] }, depsO).length === 0
         && C.retenuesPrises({ echeances: [{ mois: "2026-10", montant: 25000, paye: true }, { mois: "2026-11", montant: 25000 }] }).length === 1);
+      // ⚠ LA RETENUE DÉJÀ COCHÉE SANS PAIEMENT DE CE MOIS (Timo, 07/11/2026 : « oui ajoute l'avertissement »).
+      const cOct = { id: "c2", statut: "approuve", montant_accorde: 400000, echeances: [{ mois: "2026-10", montant: 25000, paye: true, date_paiement: "2026-10-03" }, { mois: "2026-11", montant: 25000, paye: false }] };
+      const rsp = C.retenueSansPaiementDuMois({ credits: [cOct], virements: [{ mois: "2026-09", retenue_credit: 25000 }] }, "2026-10");
+      const corpsVir = (() => { const s = readFileSync("src/lib/calculs.js", "utf8"); return s.slice(s.indexOf("export async function envoyerVirementG"), s.indexOf("const virement = {", s.indexOf("export async function envoyerVirementG"))); })();
+      test("★ ⚠ payer le salaire d'un mois dont l'échéance est déjà cochée sans qu'un paiement de CE mois l'ait faite AVERTIT (question du montant ET confirmation) ; une deuxième paie du même mois, après une première qui a retenu, ne dit rien ; un mois sans retenue non plus",
+        rsp && rsp.montant === 25000 && rsp.dates[0] === "2026-10-03"
+        && /ne notera RIEN de plus sur le crédit/.test(C.phraseRetenueSansPaiement(rsp, "2026-10"))
+        && C.retenueSansPaiementDuMois({ credits: [cOct], virements: [{ mois: "2026-10", retenue_credit: 25000 }] }, "2026-10") === null
+        && C.retenueSansPaiementDuMois({ credits: [cOct], virements: [] }, "2026-11") === null
+        && C.phraseRetenueSansPaiement(null, "2026-10") === ""
+        && /const avertRetenue = phraseRetenueSansPaiement\(retenueSansPaiementDuMois\(u, m\), m\)/.test(corpsVir)
+        && /\(avertRetenue \? `\$\{avertRetenue\}\\n\\n` : ""\) \+/.test(corpsVir)
+        && /\$\{avertRetenue \? `\\n\\n\$\{avertRetenue\}` : ""\}/.test(corpsVir));
       const uR2 = readFileSync("src/screens/Utilisateurs.jsx", "utf8").replace(/\/\/[^\n]*/g, "");
       const corpsR2 = uR2.slice(uR2.indexOf("const retirerCredit"), uR2.indexOf("const rattacherRetenueOrpheline"));
       test("★ 🗑 retirer un crédit propose de rattacher SES retenues déjà prises à un autre crédit (reste dû inchangé) ; sans autre crédit, la confirmation le dit",
