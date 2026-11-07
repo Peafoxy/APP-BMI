@@ -297,3 +297,19 @@ html[data-espace="formation"] {
   --color-blue-800: oklch(43.2% .232 292.759);
   --color-blue-900: oklch(38%   .189 293.745);
 }
+
+/* 📱 LES RANGÉES DE BOUTONS DE CHOIX — UNE règle (07/11/2026, Timo, trois
+   captures : « ranger les boutons comme c'est fait dans dimensionnement…
+   une règle commune à toute l'app »). Sur téléphone, toute rangée marquée
+   `data-rangee-boutons` (boutiques, rôles, statuts, périodes…) devient une
+   GRILLE à deux colonnes égales, comme la rangée des métiers de
+   📐 Dimensionnement — rangées droites, plus d'empilement en escalier. Un
+   champ ou une liste déroulante y prend toute la largeur. Sur ordinateur
+   (640 px et plus) rien ne change : la rangée reste en ligne.
+   ⚠ Écrite APRÈS Tailwind, hors layer : elle l'emporte sur `flex` posé par
+   l'écran. Mesurée dans Chromium (verifier-champs). */
+@media (max-width: 639.98px) {
+  [data-rangee-boutons] { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+  [data-rangee-boutons] > button { width: 100%; }
+  [data-rangee-boutons] > input, [data-rangee-boutons] > select, [data-rangee-boutons] > label, [data-rangee-boutons] > div { grid-column: 1 / -1; }
+}

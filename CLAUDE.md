@@ -66,7 +66,7 @@ npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans
 npm run verifier-ecran-solaire   # 37  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET), en liste déroulante étroite entre la boutique et le panneau : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape, un F5 sur un brouillon déjà posé en localStorage retrouve le mode et ses chiffres ; 📱 la rangée des métiers en grille à 2 colonnes sur téléphone (sept métiers, 375 px, colonnes de largeur égale), reste comme avant sur ordinateur (1300 px)
 npm run verifier-onglets-deplacables # 18 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt) ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
-npm run verifier-champs          # 20  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`)
+npm run verifier-champs          # 26  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`) ; 📱 une rangée de boutons de choix (`data-rangee-boutons`) en grille à 2 colonnes sur téléphone, en ligne sur ordinateur (un témoin sans la marque)
 npm run verifier-ecran-qui-se-montre # 44 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran ; une notification mène à SA ligne (la ligne visible, marquée, jamais la copie en veille) ; un tableau long montre 6 lignes puis défile (`TableauDefilant`)
 npm run verifier-infobulle       # 39  : la description d'un bouton dans SA fenêtre, mesurée dans Chromium (fond pâle de la couleur du bouton, plusieurs lignes, 280 px au plus, au-dessus en bas de l'écran, jamais hors de l'écran ; le `title` mis de côté puis rendu, celui de la LIGNE aussi ; rien au doigt ; un TÉMOIN sans l'hôte)
 npm run verifier-mot-information # 36  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
@@ -10079,6 +10079,19 @@ lit mal est pire qu'un banc absent).
   « Son numéro » de 📤 Dépenses (sa décision du 23/10), la phrase « sa
   clôture est facultative » de ⚙ Paramètres, et le modèle Excel des entrées.
   Un NOUVEAU libellé n'écrit pas « facultatif ».
+- **📱 LES RANGÉES DE BOUTONS DE CHOIX : 2 COLONNES ÉGALES SUR TÉLÉPHONE —
+  UNE règle** (07/11/2026, trois captures Timo : 👥 Utilisateurs, 📊 Tableau
+  de bord, 🏠 Clients installés — « ranger les boutons comme c'est fait dans
+  dimensionnement… une règle commune à toute l'app »). UNE règle CSS dans
+  `src/index.css` (`[data-rangee-boutons]`, sous 640 px : grille à deux
+  colonnes égales, une liste ou un champ sur toute la largeur), posée sur :
+  `BoutiqueTabs` (donc toutes les rangées de boutiques), les pastilles du
+  📊 Tableau de bord, les rôles de 👥 Utilisateurs, les statuts de
+  🏠 Clients installés et de 📋 Tous les devis, Vendre / Inventaire de
+  💰 Ventes, les périodes de 👑 Mon équipe et 💵 Ma commission, les
+  boutiques du volet ☀️ Solaire. Sur ordinateur rien ne change. **Une
+  NOUVELLE rangée de boutons de choix porte `data-rangee-boutons`.** Mesuré
+  dans Chromium (`verifier-champs`, un témoin sans la marque). Rien à coller.
 - **🔍 UNE SEULE RÈGLE POUR TOUTE LIGNE DE RECHERCHE** (capture Timo,
   18/09/2026, 🧰 Outillage : « réduire la ligne rechercher un outil, trop
   long… mais est-ce que ce n'est pas mieux d'avoir une seule règle qui gère ce

@@ -79,6 +79,10 @@ writeFileSync(page, `<!doctype html><html><head><meta charset="utf-8">
 <!-- Une rangée de formulaire : un libellé long (trois lignes) à côté de libellés courts -->
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:700px">${caseForm("fCourt", "Seuil")}${caseForm("fLong", "Un libellé très long qui passe sur trois lignes dans sa case")}${caseForm("fCourt2", "Prix")}${caseForm("fLong2", "Encore un libellé assez long")}</div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:700px">${caseForm("tCourt", "Seuil", "block")}${caseForm("tLong", "Un libellé très long qui passe sur trois lignes dans sa case", "block")}</div>
+<!-- 📱 LA RANGÉE DE BOUTONS DE CHOIX (07/11/2026) : la vraie forme de
+     BoutiqueTabs (flex flex-wrap), avec et sans la marque, plus une liste. -->
+<div id="rangee" data-rangee-boutons class="flex gap-2 flex-wrap" style="width:100%"><button id="rb1" class="px-4 py-1.5 rounded-full text-sm font-bold">TOUTES</button><button id="rb2" class="px-4 py-1.5 rounded-full text-sm font-bold">BMI APESSITO</button><button id="rb3" class="px-4 py-1.5 rounded-full text-sm font-bold">🏗 DÉPÔT CHANTIER</button><select id="rsel"><option>Période</option></select></div>
+<div id="rangeeTemoin" class="flex gap-2 flex-wrap" style="width:100%"><button id="rt1" class="px-4 py-1.5 rounded-full text-sm font-bold">TOUTES</button><button id="rt2" class="px-4 py-1.5 rounded-full text-sm font-bold">BMI APESSITO</button></div>
 <main id="cadre" class="${cadreCls}"><div id="dedans" style="width:100%"></div></main>
 <!-- La fenêtre du sélecteur d'article, telle qu'elle s'ouvre vraiment -->
 <div class="fixed inset-0 flex items-end sm:items-center justify-center">
@@ -106,6 +110,8 @@ const mesurer = async (largeur) => {
     dansFenetre: Math.round(document.getElementById("dansFenetre").getBoundingClientRect().width),
     listeFenetre: Math.round(document.getElementById("listeFenetre").getBoundingClientRect().width),
     cadre: Math.round(document.getElementById("cadre").getBoundingClientRect().width),
+    rangee: ["rb1", "rb2", "rb3", "rsel", "rt1", "rt2"].reduce((o, id) => { const r = document.getElementById(id).getBoundingClientRect(); return { ...o, [id]: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width) } }; }, {}),
+    largeurPage: document.documentElement.clientWidth,
     cases: ["fCourt", "fLong", "fCourt2", "fLong2", "tCourt", "tLong"].reduce((o, id) => ({ ...o, [id]: Math.round(document.getElementById(id).getBoundingClientRect().top) }), {}),
   }));
   await p.close();
@@ -159,6 +165,24 @@ test("★ la limite EXISTE quand même : un moniteur immense n'étale pas un for
   grandEcran.cadre < 1920);
 
 console.log("\n── 📐 LES CASES D'UNE MÊME RANGÉE S'ALIGNENT (23/10/2026) ──");
+// 📱 LES RANGÉES DE BOUTONS DE CHOIX (07/11/2026, Timo : « ranger les boutons
+// comme c'est fait dans dimensionnement… une règle commune à toute l'app »).
+{
+  const r = tel.rangee, t = tel.rangee;
+  test("★★ téléphone : une rangée `data-rangee-boutons` est une GRILLE à deux colonnes égales (« TOUTES » et « BMI APESSITO » ont la MÊME largeur, côte à côte)",
+    r.rb1.w === r.rb2.w && r.rb1.y === r.rb2.y && r.rb3.x === r.rb1.x && r.rb3.y > r.rb1.y, JSON.stringify(r));
+  test("★ téléphone : une liste déroulante dans la rangée prend TOUTE la largeur",
+    tel.rangee.rsel.w > tel.rangee.rb1.w * 1.8, JSON.stringify(r.rsel));
+  test("★ le TÉMOIN (même rangée SANS la marque) le prouve : les boutons y gardent la largeur de leur texte",
+    t.rt1.w !== t.rt2.w, JSON.stringify([t.rt1, t.rt2]));
+  test("★★ ordinateur : RIEN ne change, la rangée reste en ligne (les trois boutons sur la même hauteur, chacun à la largeur de son texte)",
+    pc.rangee.rb1.y === pc.rangee.rb3.y && pc.rangee.rb1.w !== pc.rangee.rb2.w, JSON.stringify(pc.rangee));
+  const css = readFileSync("src/index.css", "utf8");
+  test("la règle vit UNE fois, dans index.css", (css.match(/\[data-rangee-boutons\] \{ display: grid/g) || []).length === 1);
+  const rangees = { "src/components/SelecteurBoutique.jsx": 1, "src/screens/Dashboard.jsx": 1, "src/screens/Utilisateurs.jsx": 1, "src/screens/ClientsInstalles.jsx": 1, "src/screens/TousLesDevis.jsx": 1, "src/screens/MonEquipe.jsx": 1, "src/screens/MaCommission.jsx": 1, "src/screens/Ventes.jsx": 1, "src/screens/dimensionnement/Solaire.jsx": 1 };
+  const manque = Object.entries(rangees).filter(([f, n]) => (readFileSync(f, "utf8").match(/data-rangee-boutons/g) || []).length < n).map(([f]) => f);
+  test("★ les rangées de choix (boutiques, rôles, statuts, périodes, Vendre / Inventaire) portent la marque", manque.length === 0, manque.join(", "));
+}
 test("★★ un libellé qui passe sur plusieurs lignes ne descend plus SA case : les quatre cases de la rangée commencent à la même hauteur",
   new Set([pc.cases.fCourt, pc.cases.fLong, pc.cases.fCourt2, pc.cases.fLong2]).size === 1,
   `mesuré : ${JSON.stringify(pc.cases)}`);

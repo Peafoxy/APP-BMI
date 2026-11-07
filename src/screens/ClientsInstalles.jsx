@@ -1478,7 +1478,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             <input className={champRecherche} placeholder="🔍 Rechercher..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
-        <div className="px-4 py-2 border-b border-slate-200 flex gap-2 flex-wrap">
+        <div data-rangee-boutons className="px-4 py-2 border-b border-slate-200 flex gap-2 flex-wrap">
           <button onClick={() => setOngletChantier("tout")}
             className={`px-3 py-1.5 rounded-full text-sm font-bold border ${ongletChantier === "tout" ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
             Tout <span className={`ml-1 ${ongletChantier === "tout" ? "text-sky-200" : "text-slate-400"}`}>({liste.length})</span>

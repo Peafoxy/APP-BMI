@@ -1715,7 +1715,7 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
         <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
           <div className="font-bold text-slate-800 mb-2">Utilisateurs ({db.users.length})</div>
-          <div className="flex flex-wrap gap-1.5 mb-2">
+          <div data-rangee-boutons className="flex flex-wrap gap-1.5 mb-2">
             {rolesPresents.map(([r, lbl]) => (
               <button key={r} onClick={() => { setRoleActif(r); setRechercheU(""); }}
                 className={`px-3 py-1 rounded-lg text-xs font-bold ${!enRecherche && roleAffiche === r ? "bg-sky-800 text-white" : "bg-white border border-slate-300 text-slate-600 hover:bg-slate-100"}`}>

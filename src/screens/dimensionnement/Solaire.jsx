@@ -774,7 +774,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   );
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
+      <div data-rangee-boutons className="flex items-center gap-2 mb-4 flex-wrap">
         {!profile.boutique && (
           <>
             {/* Rendu ici même (plutôt que via <BoutiqueTabs>) : ce composant

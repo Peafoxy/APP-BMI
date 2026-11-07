@@ -1903,7 +1903,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="ventes" db={db} value={enGeneral ? "" : bq} onChange={(nom) => { setBq(nom); if (ongletVentes === "general") setOngletVentes("inventaire"); }} profile={profile} />}
       {peutVoirInventaire(profile) && (
-        <div className="flex gap-2 flex-wrap" data-onglets-ventes>
+        <div data-rangee-boutons className="flex gap-2 flex-wrap" data-onglets-ventes>
           <button onClick={() => setOngletVentes("vendre")} className={btnVue(ongletVentes === "vendre")} data-onglet-vendre>🛒 Vendre</button>
           <button onClick={() => setOngletVentes("inventaire")} className={btnVue(ongletVentes === "inventaire")} data-onglet-inventaire>📋 Inventaire</button>
           {voitGeneral && <button onClick={() => setOngletVentes("general")} className={btnVue(enGeneral)} data-onglet-inventaire-general>📊 INVENTAIRE GÉNÉRAL</button>}

@@ -24,7 +24,7 @@ export function BoutiqueTabs({ db, value, onChange, avecDepots = false, avecTerr
   // construction : mieux vaut ne rien afficher et que le manque se voie.
   const liste = boutiquesVisibles(db, profile, [...base, ...terrain]);
   return (
-    <div className="flex gap-2 mb-4 flex-wrap">
+    <div data-rangee-boutons className="flex gap-2 mb-4 flex-wrap">
       {liste.map((b) => (
         // ⚠ Le clic est le SEUL geste qui mémorise (demande Timo : ne plus
         // changer de boutique après un rechargement). On ne mémorise jamais

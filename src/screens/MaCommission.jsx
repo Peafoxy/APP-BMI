@@ -151,7 +151,7 @@ export function MaCommission({ db, profile }) {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div data-rangee-boutons className="flex flex-wrap gap-2 mb-4">
           {[["mois", "Ce mois"], ["annee", "Cette année"], ["tout", "Depuis le début"], ["perso", "Personnalisée"]].map(([id, label]) => (
             <button key={id} onClick={() => setPeriode(id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${periode === id ? "bg-sky-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{label}</button>
           ))}

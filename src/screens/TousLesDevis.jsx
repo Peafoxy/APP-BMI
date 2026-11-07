@@ -615,7 +615,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
         )}
         {/* ⚠ Demande Timo : de VRAIS boutons cliquables pour filtrer par statut,
             juste sous le titre — pas un simple classement passif de la liste. */}
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div data-rangee-boutons className="flex flex-wrap gap-2 mb-3">
           {[["", "📋 Tous"], ["propose", "⏳ Proposé"], [ONGLET_A_COMPLETER, "📋 À compléter"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"], [STATUT_SANS_SUITE, "📁 Sans suite"]].map(([id, label]) => (
             <button key={id || "tous"} onClick={() => setFiltreStatut(id)}
               className={`px-3 py-1.5 rounded-full text-sm font-bold border ${filtreStatut === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
