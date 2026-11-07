@@ -295,14 +295,16 @@ createRoot(document.getElementById("g")).render(<Essai />);
   await tel.ctx2.close();
 
   // 📱 Les 27 icônes de l'administrateur tiennent sur UN écran de téléphone
-  // (375 px de large) : la page d'icônes, salut compris, fait au plus 500 px de
+  // (375 px de large) : la page d'icônes, salut compris, fait au plus 560 px de
   // haut — l'en-tête de l'application (~110 px) et la marge de l'écran
-  // (~40 px) s'y ajoutent, un téléphone montre ~670 px. Avec l'ancien
-  // espacement (4 par rangée, icônes de 56 px), elle faisait ~840 px.
+  // (~40 px) s'y ajoutent, un téléphone récent montre ~740 à 780 px. Avec
+  // l'ancien espacement (4 par rangée), elle faisait ~840 px. ⚠ 07/11/2026,
+  // Timo : « c'est redevenu trop petit » (icônes de 44 px, 500 px) — les
+  // icônes reviennent à 54 px, la limite à 560 px.
   const t27 = await mesurer(375, "#27");
   const haut27 = await t27.p2.$eval("[data-page-icones]", (e) => Math.round(e.getBoundingClientRect().height));
-  test("★★ téléphone : les 27 icônes de l'administrateur tiennent sans défiler (page d'icônes ≤ 500 px)",
-    t27.boites.length === 27 && haut27 <= 500, `${t27.boites.length} icônes, ${haut27} px, rangées ${JSON.stringify(parRangee(t27.boites))}`);
+  test("★★ téléphone : les 27 icônes de l'administrateur tiennent sans défiler (page d'icônes ≤ 560 px)",
+    t27.boites.length === 27 && haut27 <= 560, `${t27.boites.length} icônes, ${haut27} px, rangées ${JSON.stringify(parRangee(t27.boites))}`);
   const deborde = await t27.p2.$eval("[data-page-icones]", (e) => e.scrollWidth > e.clientWidth + 1);
   test("téléphone : rien ne déborde sur le côté", !deborde, "");
   await t27.ctx2.close();

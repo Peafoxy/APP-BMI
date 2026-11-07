@@ -8025,9 +8025,9 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       /const decorIcones = \{ \.\.\.decorBaseIcones, pleinEcran: !!decorBaseIcones\.accueilImage \};/.test(appOo)
       && /const decor = \{ \.\.\.decorBase, pleinEcran: !!decorBase\.accueilImage \};/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8")));
     const piW = readFileSync("src/components/PageIcones.jsx", "utf8");
-    // RETOURNÉ le 07/11/2026 : le logo passe de 34 à 28 px (la tuile du téléphone fait 44 px).
+    // RETOURNÉ le 07/11/2026 : le logo passe de 34 à 32 px (la tuile du téléphone fait 54 px).
     test("★★ le VRAI logo de WhatsApp : blanc sur la tuile verte de la page d'icônes, et dans les deux barres d'onglets (LibelleOnglet, écrit une fois)",
-      /id === "whatsapp" \? <IconeWhatsApp taille=\{28\} couleur="#ffffff" \/>/.test(piW) && Pi.couleurIcone("whatsapp") === "#25D366"
+      /id === "whatsapp" \? <IconeWhatsApp taille=\{32\} couleur="#ffffff" \/>/.test(piW) && Pi.couleurIcone("whatsapp") === "#25D366"
       && /export function LibelleOnglet\(id, label\)/.test(piW) && (appOo.match(/contenu=\{LibelleOnglet\}/g) || []).length === 2
       && /<path fill=\{couleur\} d="M17\.472/.test(readFileSync("src/components/ui.jsx", "utf8")));
     // 🧭 LE CHOIX DE L'AFFICHAGE (06/11/2026, « je préfère que ça soit un choix… » → « 1b, 2b »).
