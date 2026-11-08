@@ -50,7 +50,9 @@ export function LibelleOnglet(id, label) {
 // la page d'icônes ET la colonne d'icônes (« petite »). 📱 Sur téléphone, 5 par
 // rangée serrées (07/11/2026 : « tout sans défilement ») ; l'ordinateur 6,
 // centrées.
-export function TuileIcone({ id, label, petite = false }) {
+export function TuileIcone({ id, label, petite = false, clair = true }) {
+  // 🎨 Le nom suit le fond (`clair` = texte blanc sur un fond sombre).
+  const couleurNom = clair ? "text-white drop-shadow" : "text-slate-900";
   const { icone, nom, nombre } = decomposerLibelle(label);
   // Un mot trop long pour la largeur d'une tuile se coupe à un endroit
   // propre (trait d'union conditionnel), jamais au hasard des lettres.
@@ -63,8 +65,8 @@ export function TuileIcone({ id, label, petite = false }) {
         <DessinOnglet id={id} icone={icone} texte={petite ? "text-[24px]" : "text-[28px] sm:text-[40px]"} />
       </span>
       <span lang="fr" className={petite
-        ? "mt-1 w-full text-[9px] tracking-[-0.03em] font-bold leading-[1.1] text-white drop-shadow hyphens-auto"
-        : "mt-1 sm:mt-2 w-full text-[9.5px] tracking-[-0.04em] sm:text-[12.5px] sm:tracking-normal font-bold leading-[1.12] sm:leading-tight text-white drop-shadow hyphens-auto"}>{titre}</span>
+        ? `mt-1 w-full text-[9px] tracking-[-0.03em] font-bold leading-[1.1] ${couleurNom} hyphens-auto`
+        : `mt-1 sm:mt-2 w-full text-[9.5px] tracking-[-0.04em] sm:text-[12.5px] sm:tracking-normal font-bold leading-[1.12] sm:leading-tight ${couleurNom} hyphens-auto`}>{titre}</span>
       {nombre > 0 && (
         <span data-icone-nombre className={`absolute ${petite ? "top-0.5 left-[calc(50%+9px)]" : "top-0 left-[calc(50%+10px)] sm:top-0.5 sm:left-[calc(50%+18px)]"} min-w-[18px] h-[18px] sm:min-w-[22px] sm:h-[22px] px-1 inline-flex items-center justify-center text-[10px] sm:text-[11px] font-bold text-white bg-red-600 rounded-full ring-2 ring-white`}>{nombre}</span>
       )}
@@ -74,25 +76,25 @@ export function TuileIcone({ id, label, petite = false }) {
 
 // 📌 LA COLONNE D'ICÔNES (08/11/2026) : les mêmes tuiles, les unes sous les
 // autres, l'écran ouvert encadré. Même ordre (appui long pour déplacer).
-export function ColonneIcones({ tabs, tab, onChoisir, onReordonner, className = "" }) {
+export function ColonneIcones({ tabs, tab, onChoisir, onReordonner, className = "", clair = true }) {
   return (
     <OngletsDeplacables tabs={tabs} tab={tab} onChoisir={onChoisir} onReordonner={onReordonner} sens="vertical"
       className={`flex flex-col items-stretch gap-1 overflow-y-auto px-1.5 py-2 ${className}`}
-      classeBouton={(id, actif) => `relative flex flex-col items-center text-center rounded-[14px] p-1 ${actif ? "bg-sky-400" : "hover:bg-white/10"}`}
-      contenu={(id, label) => <TuileIcone id={id} label={label} petite />} />
+      classeBouton={(id, actif) => `relative flex flex-col items-center text-center rounded-[14px] p-1 ${actif ? "bg-sky-400" : clair ? "hover:bg-white/10" : "hover:bg-black/10"}`}
+      contenu={(id, label) => <TuileIcone id={id} label={label} petite clair={clair || tab === id} />} />
   );
 }
 
-export function PageIcones({ tabs, onChoisir, onReordonner, nom = "" }) {
+export function PageIcones({ tabs, onChoisir, onReordonner, nom = "", clair = true }) {
   return (
     <div data-page-icones className="relative z-10 w-full py-2">
-      <h2 className="text-center text-white text-base sm:text-2xl font-bold drop-shadow">Bonjour{nom ? ` ${nom}` : ""}</h2>
+      <h2 className={`text-center text-base sm:text-2xl font-bold ${clair ? "text-white drop-shadow" : "text-slate-900"}`}>Bonjour{nom ? ` ${nom}` : ""}</h2>
       {/* Le trait bleu sous le salut, comme sur l'image de Timo. */}
       <div data-trait-salut className="mx-auto mt-1.5 mb-3 sm:mt-2 sm:mb-6 w-12 sm:w-14 h-1 rounded-full bg-blue-500" />
       <OngletsDeplacables tabs={tabs} tab={null} onChoisir={onChoisir} onReordonner={onReordonner} sens="grille"
         className="grid grid-cols-5 gap-x-1 gap-y-1.5 sm:grid-cols-6 sm:gap-x-5 sm:gap-y-5 sm:max-w-[820px] sm:mx-auto"
         classeBouton={() => "relative flex flex-col items-stretch text-center rounded-2xl p-0 hover:brightness-95"}
-        contenu={(id, label) => <TuileIcone id={id} label={label} />} />
+        contenu={(id, label) => <TuileIcone id={id} label={label} clair={clair} />} />
     </div>
   );
 }

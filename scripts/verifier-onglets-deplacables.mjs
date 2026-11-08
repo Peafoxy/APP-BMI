@@ -239,7 +239,7 @@ function Essai() {
   const [ordre, setOrdre] = useState(null);
   const base = location.hash === "#27" ? VINGT_SEPT : TABS;
   const tabs = ordre ? ordre.map((id) => base.find((t) => t[0] === id)) : base;
-  return <PageIcones tabs={tabs} nom="TIMO" onChoisir={(id) => window.journal.push("choisir:" + id)}
+  return <PageIcones tabs={tabs} nom="TIMO" clair={location.hash !== "#clair"} onChoisir={(id) => window.journal.push("choisir:" + id)}
     onReordonner={(ids) => { window.journal.push("ordre:" + ids.join(",")); setOrdre(ids); }} />;
 }
 createRoot(document.getElementById("g")).render(<Essai />);
@@ -297,6 +297,21 @@ createRoot(document.getElementById("g")).render(<Essai />);
     dessins.length === 9 && dessins.every(([src, fond]) => /^\/icones-onglets\/[a-z_]+\.png$/.test(src) && fond === "rgba(0, 0, 0, 0)") && dessins.some(([src]) => src === "/icones-onglets/ventes.png"), JSON.stringify(dessins.slice(0, 3)));
   test("aucune erreur JavaScript (téléphone)", tel.err2.length === 0, tel.err2.join(" | "));
   await tel.ctx2.close();
+  // 🎨 08/11/2026 : sur une couleur de fond CLAIRE réglée dans ⚙ Paramètres (clair = false), le salut et
+  // les noms passent en FONCÉ (lisibles) ; sur le fond sombre d'office, ils restent blancs.
+  {
+    const couleurs = async (ancre) => {
+      const m = await mesurer(390, ancre);
+      const c = await m.p2.evaluate(() => ({ titre: getComputedStyle(document.querySelector("[data-page-icones] h2")).color,
+        nom: getComputedStyle(document.querySelector("[data-carte-icone] span[lang]")).color }));
+      await m.ctx2.close();
+      return c;
+    };
+    const sombre = await couleurs(""), claire = await couleurs("#clair");
+    const lum = (rgb) => { const n = (String(rgb).match(/[\d.]+/g) || []).map(Number); return n.length >= 3 ? (0.299 * n[0] + 0.587 * n[1] + 0.114 * n[2]) / 255 : -1; };
+    test("★★ 🎨 fond clair réglé : « Bonjour » et les noms s'écrivent en FONCÉ ; fond sombre : en blanc",
+      lum(sombre.titre) > 0.9 && lum(sombre.nom) > 0.9 && lum(claire.titre) >= 0 && lum(claire.titre) < 0.3 && lum(claire.nom) >= 0 && lum(claire.nom) < 0.3, JSON.stringify({ sombre, claire }));
+  }
 
   // 📱 Les 27 icônes de l'administrateur tiennent sur UN écran de téléphone
   // (375 px de large) : la page d'icônes, salut compris, fait au plus 560 px de

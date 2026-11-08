@@ -8044,9 +8044,32 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       && (appOo.match(/<aside/g) || []).length === 3 && !/const label(TousDevis|Commandes|Parc) = \(/.test(appOo)
       && /if \(dernier === ACCUEIL\) return affichage === INTERFACE_ICONES \? ACCUEIL : ongletParDefaut\(role\);/.test(appOo));
     // Timo (06/11/2026) : « fond des onglets bleu… j'avais dit de reprendre le fond d'écran de la page de session verrouillée ».
-    test("★★ la page d'icônes pose l'image du verrou dès qu'elle existe (pleinEcran comme EcranVerrou), jamais le dégradé bleu par défaut",
+    // ⚠ RETOURNÉ le 08/11/2026 (« remplacer le fond des icônes en couleur modifiable dans les paramètres » →
+    // « 1a, 2a, 3 ») : SANS couleur réglée, la photo du verrou reste ; une couleur réglée la REMPLACE.
+    test("★★ la page d'icônes pose l'image du verrou tant qu'aucune couleur n'est réglée (pleinEcran comme EcranVerrou) ; une couleur la remplace",
       /const decorIcones = \{ \.\.\.decorBaseIcones, pleinEcran: !!decorBaseIcones\.accueilImage \};/.test(appOo)
+      && /const fondPageIcones = couleurIcones \? \{ classe: "", style: \{ backgroundColor: couleurIcones \} \} : fondAccueil\(decorIcones, \{ voile: true \}\);/.test(appOo)
+      && /style=\{surAccueil \? fondPageIcones\.style : undefined\}/.test(appOo)
       && /const decor = \{ \.\.\.decorBase, pleinEcran: !!decorBase\.accueilImage \};/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8")));
+    // 🎨 08/11/2026 : la couleur du fond des icônes, réglée par le principal seul, la même pour tous ; la colonne suit.
+    test("★★ 🎨 couleurFondIcones : la première couleur lisible des boutiques, vide sinon ; un texte BLANC sur une couleur sombre, FONCÉ sur une claire",
+      Pi.couleurFondIcones([{ icones_couleur_fond: "" }, { icones_couleur_fond: "#1E3A8A" }]) === "#1e3a8a"
+      && Pi.couleurFondIcones([{ icones_couleur_fond: "rouge" }]) === "" && Pi.couleurFondIcones(undefined) === ""
+      && Pi.texteClairSurIcones("#0f172a") === true && Pi.texteClairSurIcones("#fef3c7") === false && Pi.texteClairSurIcones("") === true);
+    {
+      const parI = readFileSync("src/screens/Parametres.jsx", "utf8");
+      const blocI = (parI.split("data-reglage-fond-icones")[1] || "").slice(0, 2500);
+      test("★★ 🎨 le réglage du fond des icônes : une couleur LIBRE (input color) dans ⚙ Paramètres, par enregistrerAccueil (le principal seul), le retour à la photo",
+        /type="color"[^\n]*enregistrerAccueil\(\{ icones_couleur_fond: e\.target\.value \}\)/.test(blocI)
+        && /enregistrerAccueil\(\{ icones_couleur_fond: "" \}\)/.test(blocI)
+        && /const enregistrerAccueil = \(champs\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile,/.test(parI)
+        && /icones_couleur_fond: "",/.test(parI));
+      test("★★ 🎨 la couleur va à la page d'icônes ET aux deux colonnes (ordinateur, téléphone), et le texte suit (clair)",
+        (appOo.match(/style=\{styleColonneIcones\}/g) || []).length === 2
+        && (appOo.match(/clair=\{texteIconesClair\}/g) || []).length === 3
+        && /const couleurIcones = couleurFondIcones\(db\?\.boutiques\);/.test(appOo)
+        && /clair \? "text-white drop-shadow" : "text-slate-900"/.test(readFileSync("src/components/PageIcones.jsx", "utf8")));
+    }
     const piW = readFileSync("src/components/PageIcones.jsx", "utf8");
     // RETOURNÉ le 08/11/2026 (Timo, son image « Bonjour TIMO » : « reprendre exactement les icônes ») :
     // WhatsApp prend SON dessin (le logo vert découpé de l'image) comme les autres onglets ; le logo
@@ -8088,7 +8111,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       Pi.INTERFACES.join(",") === "barre,icones,colonne" && Pi.interfaceDe({ interface: "colonne" }) === "colonne" && Pi.interfaceDe({ interface: "colonne", interface_imposee: "icones" }) === "icones"
       && Pi.critiqueChoixInterface({}, "colonne") === "" && Pi.aQuelqueChoseEnAttente([["a", "💰 Ventes"], ["b", "📋 Dettes (3)"]]) && !Pi.aQuelqueChoseEnAttente([["a", "💰 Ventes"], ["b", "📋 Dettes"]]));
     test("★★ 📌 App.jsx : ordinateur, la colonne toujours ouverte ; téléphone, le bouton ☰ avec son point rouge, les icônes repliées après le choix, au toucher à côté, par ✕ et par la touche retour ; les deux choix (personne, administrateur) proposent les TROIS",
-      /const options = INTERFACES;/.test(appOo) && /<aside data-colonne-icones className="hidden lg:flex/.test(appOo)
+      /const options = INTERFACES;/.test(appOo) && /<aside data-colonne-icones className=\{`hidden lg:flex/.test(appOo) // RETOURNÉ le 08/11/2026 : la classe suit la couleur réglée
       && /data-bouton-colonne onClick=\{\(\) => setColonneOuverte\(true\)\}/.test(appOo) && /\{aQuelqueChoseEnAttente\(tabsAutorises\) && <span data-point-rouge/.test(appOo)
       && /const choisirDansLaColonne = \(id\) => \{ setTab\(id\); setColonneOuverte\(false\); \};/.test(appOo) && /onChoisir=\{choisirDansLaColonne\}/.test(appOo)
       && /<div className="absolute inset-0 bg-black\/40" onClick=\{\(\) => setColonneOuverte\(false\)\} \/>/.test(appOo) && /data-fermer-colonne onClick=\{\(\) => setColonneOuverte\(false\)\}/.test(appOo)

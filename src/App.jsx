@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from
 import { createPortal } from "react-dom";
 import { Login, decorAccueil, fondAccueil } from "./screens/Connexion";
 import { PageIcones, LibelleOnglet, ColonneIcones } from "./components/PageIcones";
-import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, INTERFACE_COLONNE, INTERFACES, aQuelqueChoseEnAttente, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface } from "./lib/pageIcones";
+import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, INTERFACE_COLONNE, INTERFACES, aQuelqueChoseEnAttente, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface, couleurFondIcones, texteClairSurIcones } from "./lib/pageIcones";
 import { Dashboard } from "./screens/Dashboard";
 import { Ventes } from "./screens/Ventes";
 import { NouvelleCommande, CommandesRecues } from "./screens/Commandes";
@@ -1406,6 +1406,15 @@ export default function App() {
   // la page d'icônes retombait sur le dégradé bleu.
   const decorBaseIcones = decorAccueil(db, apparence);
   const decorIcones = { ...decorBaseIcones, pleinEcran: !!decorBaseIcones.accueilImage };
+  // 🎨 08/11/2026 (Timo : « remplacer le fond des icônes en couleur modifiable
+  // dans les paramètres » → « 1a, 2a, 3 ») : une couleur choisie par le
+  // principal remplace la photo du verrou (page d'icônes) et le dégradé
+  // (colonne d'icônes) ; le texte passe en blanc ou en foncé selon elle.
+  const couleurIcones = couleurFondIcones(db?.boutiques);
+  const texteIconesClair = texteClairSurIcones(couleurIcones);
+  const fondPageIcones = couleurIcones ? { classe: "", style: { backgroundColor: couleurIcones } } : fondAccueil(decorIcones, { voile: true });
+  const classeColonneIcones = couleurIcones ? "" : "bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900";
+  const styleColonneIcones = couleurIcones ? { backgroundColor: couleurIcones } : undefined;
 
   const abandonnerLeRefus = async () => {
     const refus = sync.refus;
@@ -1836,8 +1845,8 @@ export default function App() {
           l'écran d'avant (useRetourOnglets). Ce que la barre latérale portait
           (version, recherche, état de la synchronisation, boutique,
           Synchroniser, Se déconnecter) est dans l'en-tête, pour tous. */}
-      <div className={`min-w-0 min-h-screen flex flex-col${surAccueil && fondAccueil(decorIcones, { voile: true }).classe ? ` ${fondAccueil(decorIcones, { voile: true }).classe}` : ""}`}
-        style={surAccueil ? fondAccueil(decorIcones, { voile: true }).style : undefined}>
+      <div className={`min-w-0 min-h-screen flex flex-col${surAccueil && fondPageIcones.classe ? ` ${fondPageIcones.classe}` : ""}`}
+        style={surAccueil ? fondPageIcones.style : undefined}>
         <header className="bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
           <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
@@ -1930,8 +1939,8 @@ export default function App() {
           <div className="flex-1 flex min-w-0">
             {/* 📌 Ordinateur : la colonne d'icônes toujours ouverte, à gauche. */}
             {!enSortie && (
-              <aside data-colonne-icones className="hidden lg:flex lg:flex-col w-24 shrink-0 bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 sticky top-[49px] h-[calc(100vh-49px)]">
-                <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} className="flex-1" />
+              <aside data-colonne-icones className={`hidden lg:flex lg:flex-col w-24 shrink-0 ${classeColonneIcones} sticky top-[49px] h-[calc(100vh-49px)]`} style={styleColonneIcones}>
+                <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} className="flex-1" clair={texteIconesClair} />
               </aside>
             )}
             <main className="flex-1 min-w-0 w-full max-w-[1600px] mx-auto px-4 py-5">
@@ -1941,7 +1950,7 @@ export default function App() {
         ) : (
         <main className="w-full max-w-[1600px] mx-auto px-4 py-5">
           {contenu}
-          {surAccueil && <PageIcones tabs={tabsAutorises} onChoisir={setTab} onReordonner={reordonnerOnglets} nom={profile?.nom || ""} />}
+          {surAccueil && <PageIcones tabs={tabsAutorises} onChoisir={setTab} onReordonner={reordonnerOnglets} nom={profile?.nom || ""} clair={texteIconesClair} />}
         </main>
         )}
       </div>
@@ -1950,8 +1959,8 @@ export default function App() {
       {modeColonne && colonneOuverte && !enSortie && (
         <div data-colonne-ouverte className="lg:hidden fixed inset-0 z-40">
           <div className="absolute inset-0 bg-black/40" onClick={() => setColonneOuverte(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-[88px] flex flex-col bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 shadow-2xl">
-            <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={choisirDansLaColonne} onReordonner={reordonnerOnglets} className="flex-1" />
+          <aside className={`absolute left-0 top-0 bottom-0 w-[88px] flex flex-col ${classeColonneIcones} shadow-2xl`} style={styleColonneIcones}>
+            <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={choisirDansLaColonne} onReordonner={reordonnerOnglets} className="flex-1" clair={texteIconesClair} />
           </aside>
           <button type="button" data-fermer-colonne onClick={() => setColonneOuverte(false)} aria-label="Replier les icônes"
             className="absolute left-[88px] top-3 w-14 h-11 inline-flex items-center justify-center rounded-r-2xl border-[3px] border-l-0 border-slate-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-md">

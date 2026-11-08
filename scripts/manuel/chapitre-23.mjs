@@ -59,7 +59,7 @@ export const CHAPITRE = {
         ["🏪 Boutiques", "👁 Je regarde (principal), Ajouter une boutique, le tableau des boutiques et leurs boutons."],
         ["🗂 Catalogue & devis", "Taux de parrainage, domaines et familles, rail, stock à prévoir, limite de remise sans administrateur, frottements du forage, banques, assistant WhatsApp, note du dimensionnement."],
         ["🔌 Appareils", "La liste des appareils du volet solaire, et « À classer » (le nombre s'affiche sur l'onglet)."],
-        ["🎨 Apparence", "L'écran de connexion, la fenêtre de verrouillage, le cachet (principal)."],
+        ["🎨 Apparence", "L'écran de connexion, la fenêtre de verrouillage, le fond de la page d'icônes, le cachet (principal)."],
         ["💾 Données", "Sauvegarde de secours, sauvegarde automatique toutes les heures, synchronisation forcée."],
         ["🔒 Données personnelles", "Le dossier ou l'effacement d'un client, le dossier d'un employé, la durée de conservation (principal)."],
         ["🗑 Corbeille", "Les fiches supprimées, 30 jours (principal)."],
@@ -149,6 +149,7 @@ export const CHAPITRE = {
       ["ul", [
         "**🎉 Écran de connexion** : texte du bandeau, couleurs, transparence des cadres, ciel étoilé, bulles, messages qui montent (6 au plus), anniversaires du jour, image de fond. **↺ Revenir à l'écran normal**.",
         "**🔒 Fenêtre de verrouillage** : couleur et transparence de sa carte.",
+        "**🔲 Fond de la page d'icônes** : une couleur au choix, qui remplace la photo du verrou sur la page d'icônes et le fond bleu nuit de la colonne d'icônes, pour tout le monde ; les noms passent en blanc ou en foncé selon la couleur. « ↺ Reprendre la photo du verrou » revient à l'ancien fond.",
         "**🏷️ Cachet BMI Togo** : un seul cachet, posé sur tous les contrats et devis.",
       ]],
 

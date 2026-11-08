@@ -43,6 +43,7 @@ import { dossierEmploye, critiqueDossierEmploye, journalDossierEmploye, nomDossi
 import { exportCSV } from "../lib/export";
 import { ficheLoyer, nettoyerFicheLoyer, critiqueFicheLoyer, JOUR_ECHEANCE_DEFAUT } from "../lib/loyer";
 import { correspond } from "../lib/suggestions";
+import { lireCouleurHex } from "../lib/pageIcones";
 import { useRetour } from "../retour";
 
 // ============ PARAMÈTRES ============
@@ -452,7 +453,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       accueil_image_ajustement: "", accueil_image_position: "",
       accueil_messages: "", accueil_anniversaires: false, accueil_image_etendue: false,
       accueil_etoiles: false, accueil_couleur_bulles: "",
-      verrou_couleur_carte: "", verrou_opacite_carte: "",
+      verrou_couleur_carte: "", verrou_opacite_carte: "", icones_couleur_fond: "",
     });
   };
 
@@ -2698,6 +2699,26 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                 </Field>
               </div>
               <div className="text-xs text-slate-500 mt-1">La photo de fond et les bulles de la fenêtre de verrouillage sont celles de l'écran de connexion. Une carte sombre passe son texte en clair d'elle-même.</div>
+            </div>
+            {/* 🎨 08/11/2026 (Timo : « remplacer le fond des icônes en couleur
+                modifiable dans les paramètres » → « 1a » le principal seul, la
+                même pour tous ; « 2a » une couleur libre ; « 3 » la colonne
+                d'icônes aussi). */}
+            <div data-reglage-fond-icones className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-sm font-bold text-slate-800 mb-2">🔲 Fond de la page d'icônes</div>
+              <div className="flex flex-wrap items-end gap-4">
+                <Field label="Couleur du fond">
+                  <input type="color" value={lireCouleurHex(boutiqueRef.icones_couleur_fond) || "#0f172a"} onChange={(e) => enregistrerAccueil({ icones_couleur_fond: e.target.value })} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+                </Field>
+                {lireCouleurHex(boutiqueRef.icones_couleur_fond) && (
+                  <button type="button" onClick={() => enregistrerAccueil({ icones_couleur_fond: "" })} className="h-10 px-3 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700">↺ Reprendre la photo du verrou</button>
+                )}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                {lireCouleurHex(boutiqueRef.icones_couleur_fond)
+                  ? "La page d'icônes et la colonne d'icônes prennent cette couleur, pour tout le monde. Sur une couleur sombre les noms s'écrivent en blanc, sur une couleur claire en foncé."
+                  : "Aujourd'hui la page d'icônes reprend la photo de la fenêtre de verrouillage, et la colonne d'icônes un fond bleu nuit. Choisir une couleur les remplace, pour tout le monde."}
+              </div>
             </div>
             <div className="text-xs text-slate-500 -mt-1">
               ⭐ Les étoiles habillent le grand espace autour de la carte — surtout visible sur PC, où la fenêtre est large. Elles restent DERRIÈRE la carte : elles ne gênent jamais la saisie.

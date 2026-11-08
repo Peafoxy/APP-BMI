@@ -79,6 +79,33 @@ export function imageIcone(id) {
   return vrai ? `${DOSSIER_ICONES}/${vrai}.png` : "";
 }
 
+// ---- 🎨 LA COULEUR DU FOND DES ICÔNES (Timo, 08/11/2026 : « remplacer le
+// fond des icônes en couleur modifiable dans les paramètres » → « 1a » le
+// principal seul, la même pour tous ; « 2a » une couleur libre ; « 3 » la
+// colonne d'icônes aussi). Champ `icones_couleur_fond` sur les boutiques,
+// comme la couleur de la carte de verrou. Vide = l'ancien fond (la photo du
+// verrou pour la page, le dégradé sombre pour la colonne).
+export const lireCouleurHex = (v) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(v || "").trim());
+  return m ? `#${m[1].toLowerCase()}` : "";
+};
+export const couleurFondIcones = (boutiques) => {
+  for (const b of boutiques || []) {
+    const c = lireCouleurHex(b?.icones_couleur_fond);
+    if (c) return c;
+  }
+  return "";
+};
+// Une couleur sombre veut un texte BLANC, une claire un texte FONCÉ
+// (luminance perçue sous 0,5 = sombre). Sans couleur : le fond est sombre.
+export const texteClairSurIcones = (hex) => {
+  const c = lireCouleurHex(hex);
+  if (!c) return true;
+  const n = parseInt(c.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
+};
+
 // ---- 🧭 LE CHOIX DE L'AFFICHAGE (Timo, 06/11/2026 : « je préfère que ça
 // soit un choix pour les utilisateurs… il choisit la première interface ou
 // celle-ci » → « 1b, 2b ») ----
