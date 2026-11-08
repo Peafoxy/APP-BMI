@@ -60,12 +60,12 @@ export const couleurIcone = (id) => COULEURS[id] || COULEUR_ICONE_DEFAUT;
 // 🎨 08/11/2026 (Timo, une image de la page « Bonjour TIMO » : « reprendre
 // exactement les icônes que je t'ai envoyées », « 1c (même taille que les
 // emoji) », « 2b ») : chaque onglet a SON dessin, découpé au pixel près dans
-// son image (public/icones-onglets/<id>.png, fond transparent). Un onglet que
+// son image (public/icones-onglets-v2/<id>.png, fond transparent ; v2 = la version HD, « A », 08/11/2026). Un onglet que
 // son image ne montre pas reprend le dessin d'un onglet voisin s'il est le
 // même (mes contrats = contrats…) ; sinon il garde son emoji.
 // ⚠ Un dessin CHANGÉ se livre sous un NOUVEAU dossier (-v2…) : le navigateur
 // garde l'image qu'il a déjà.
-export const DOSSIER_ICONES = "/icones-onglets";
+export const DOSSIER_ICONES = "/icones-onglets-v2";
 const IMAGES_ICONES = [
   "whatsapp", "dashboard", "rentabilite", "caisse", "ventes", "depenses",
   "dettes", "stocks", "contrats", "dimensionnement", "tous_devis", "commandes",

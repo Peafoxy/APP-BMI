@@ -8075,7 +8075,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     // WhatsApp prend SON dessin (le logo vert découpé de l'image) comme les autres onglets ; le logo
     // dessiné (IconeWhatsApp) ne reste qu'en repli si l'image manquait. LibelleOnglet reste écrit UNE fois.
     test("★★ le VRAI logo de WhatsApp : le dessin de l'image de Timo, sur la page d'icônes, la colonne et les deux barres d'onglets (LibelleOnglet, écrit une fois)",
-      Pi.imageIcone("whatsapp") === "/icones-onglets/whatsapp.png" && existsSync("public/icones-onglets/whatsapp.png")
+      Pi.imageIcone("whatsapp") === "/icones-onglets-v2/whatsapp.png" && existsSync("public/icones-onglets-v2/whatsapp.png")
       && /if \(id === "whatsapp"\) return <IconeWhatsApp/.test(piW)
       && /export function LibelleOnglet\(id, label\)/.test(piW) && (appOo.match(/contenu=\{LibelleOnglet\}/g) || []).length === 2
       && /<path fill=\{couleur\} d="M17\.472/.test(readFileSync("src/components/ui.jsx", "utf8")));
@@ -8083,11 +8083,17 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     // emoji) », « 2b » (le fond du verrou), puis « enlever le fond carré des icônes » → « a ».
     {
       const ids27 = ["whatsapp","dashboard","rentabilite","caisse","ventes","depenses","dettes","stocks","contrats","dimensionnement","tous_devis","commandes","chez_comptable","clients","parc","fournisseurs","salaires","commerciaux","equipe","prospects","messages","travaux","outillage","rendez_vous","users","parametres","historique"];
-      test("★★ 🎨 les 27 dessins de l'image de Timo : chaque onglet a SON fichier (public/icones-onglets), trois onglets reprennent un dessin voisin (mes contrats, mon salaire, nouvelle commande), les autres gardent leur emoji",
-        ids27.every((id) => Pi.imageIcone(id) === `/icones-onglets/${id}.png` && existsSync(`public/icones-onglets/${id}.png`))
-        && Pi.imageIcone("mes_contrats") === "/icones-onglets/contrats.png" && Pi.imageIcone("salaire") === "/icones-onglets/salaires.png"
-        && Pi.imageIcone("commande") === "/icones-onglets/ventes.png" && Pi.imageIcone("taches") === "" && Pi.imageIcone("inconnu") === ""
-        && readdirSync("public/icones-onglets").filter((f) => f.endsWith(".png")).length === 27);
+      test("★★ 🎨 les 27 dessins de l'image de Timo : chaque onglet a SON fichier (public/icones-onglets-v2, la version HD « A » du 08/11/2026), trois onglets reprennent un dessin voisin (mes contrats, mon salaire, nouvelle commande), les autres gardent leur emoji",
+        ids27.every((id) => Pi.imageIcone(id) === `/icones-onglets-v2/${id}.png` && existsSync(`public/icones-onglets-v2/${id}.png`))
+        && Pi.imageIcone("mes_contrats") === "/icones-onglets-v2/contrats.png" && Pi.imageIcone("salaire") === "/icones-onglets-v2/salaires.png"
+        && Pi.imageIcone("commande") === "/icones-onglets-v2/ventes.png" && Pi.imageIcone("taches") === "" && Pi.imageIcone("inconnu") === ""
+        && readdirSync("public/icones-onglets-v2").filter((f) => f.endsWith(".png")).length === 27);
+      // 🎨 08/11/2026 (« HD et 3D » → aperçus → « A ») : les dessins redessinés plus nets, 192 px
+      // (largeur lue dans l'en-tête PNG), livrés sous un NOUVEAU dossier — l'ancien est retiré, sinon le
+      // navigateur garderait les petites images.
+      test("★★ 🎨 « A » : les 27 dessins en HD (192 px au moins), sous icones-onglets-v2, l'ancien dossier retiré",
+        ids27.every((id) => { const t = readFileSync(`public/icones-onglets-v2/${id}.png`); return t.readUInt32BE(16) >= 192 && t.readUInt32BE(20) >= 192; })
+        && !existsSync("public/icones-onglets"));
       const tuile = piW.slice(piW.indexOf("export function TuileIcone"), piW.indexOf("export function ColonneIcones"));
       const barre = piW.slice(piW.indexOf("export function LibelleOnglet"), piW.indexOf("export function TuileIcone"));
       test("★★ 🎨 « enlever le fond carré » (« a ») : ni carte blanche, ni carré pâle, ni ombre derrière le dessin — dans la tuile ET dans la barre ; le nom en blanc ; le dessin à la taille de l'emoji dans la barre (« 1c ») ; le trait bleu sous le salut",

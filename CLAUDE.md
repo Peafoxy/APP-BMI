@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2950 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2951 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -678,6 +678,7 @@ lit mal est pire qu'un banc absent).
 
 ### 🎨 LES DESSINS DES ICÔNES — CEUX DE L'IMAGE DE TIMO (08/11/2026, « reprendre exactement les icônes que je t'ai envoyées », « 1c », « 2b », puis « enlever le fond carré des icônes » → aperçus → « a »)
 - Les 27 dessins sont DÉCOUPÉS au pixel dans son image « Bonjour TIMO » (fond rendu transparent, la pastille rouge du WhatsApp retirée) : `public/icones-onglets/<id>.png`. `imageIcone(id)` (lib/pageIcones.js) — un onglet absent de son image reprend un dessin voisin (`MEME_DESSIN` : mes contrats → contrats, mon salaire → salaires, nouvelle commande → ventes), sinon garde son emoji (Tâches, Ravitaillement, Transfert, primes, Ma commission, Argent reçu, Mes données, Créer un client, Mon espace). ⚠ Un dessin CHANGÉ se livre dans un NOUVEAU dossier (le navigateur garde l'ancien).
+- **HD — « A » (08/11/2026, « les icônes en HD et 3D » → trois aperçus → « A »)** : les 27 dessins REDESSINÉS plus nets (agrandis, contour de transparence refait, netteté, couleurs un peu plus vives), 192 px, livrés sous **`public/icones-onglets-v2`** (l'ancien dossier retiré : le navigateur aurait gardé les petites images). Le relief « 3D » (option B) n'a PAS été retenu. ⚠ Dit à Timo : la vraie HD demande une image source plus grande (les découpes faisaient ~100 px) ; s'il l'envoie, nouveau dossier -v3.
 - **« a » : AUCUN carré derrière** (ni carte blanche, ni carré pâle — `couleurIcone` ne commande plus rien à l'écran) : `DessinOnglet` (components/PageIcones.jsx, écrit UNE fois) dans la page d'icônes, la colonne et **la barre d'onglets à la taille de l'emoji, 20 px (« 1c »)** ; le nom en blanc, le chiffre rouge contre le dessin, le trait bleu sous « Bonjour ». **« 2b »** : le fond reste celui du verrou. ⚠ Dit à Timo : les dessins à traits bleu foncé (Contrats, Dettes, Historique…) se lisent moins bien sur le fond sombre — il a choisi « a » après les aperçus avec et sans cartes.
 - Rien à coller. Bancs : `verifier-cloisonnement` (+2, éprouvés : une carte blanche remise, un dessin manquant ; un RETOURNÉ — le logo WhatsApp), `verifier-onglets-deplacables` (+1, Chromium : chaque icône porte son dessin, sans fond ; la largeur de la grille sur ordinateur RETOURNÉE à 840 px). Chapitre 1 à jour.
 
