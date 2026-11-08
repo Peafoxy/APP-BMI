@@ -38,7 +38,7 @@ export function LibelleOnglet(id, label) {
   if (!imageIcone(id) && id !== "whatsapp") return label;
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="inline-flex items-center justify-center w-5 h-5 rounded-[5px] bg-white shrink-0"><DessinOnglet id={id} icone={icone} taille={16} /></span>
+      <span className="inline-flex items-center justify-center w-5 h-5 shrink-0"><DessinOnglet id={id} icone={icone} taille={20} /></span>
       {nom}{nombre > 0 ? ` (${nombre})` : ""}
     </span>
   );
