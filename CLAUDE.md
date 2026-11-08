@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2931 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2936 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -1758,6 +1758,23 @@ lit mal est pire qu'un banc absent).
   aussi sa recette du tiroir (pas demandé). Banc (+10), éprouvé (« b » retiré
   de la règle, effacement direct remis dans l'écran, tournée qui lit la
   corbeille). Chapitres 5, 7, 23 et le guide administrateur à jour.
+- **🏷 LE TITRE DU BANDEAU D'UN DEVIS** (08/11/2026, capture Timo « DEVIS — Solaire » :
+  « DEVIS solaire anti délestage, DEVIS garage coulissant… » → « b », « oui lance b »).
+  Règle pure **`lib/titreDevis.js`** (sans import) : `titreAutoDevis` — le type
+  réel d'un portail (« Portail coulissant », « Rideau métallique » ; avant, tout
+  portail s'écrivait « Garage »), le NOM du métier d'un devis sans calcul
+  (`domaineParId`, jamais « Autre » s'il y en a un vrai, sinon la catégorie),
+  « Solaire » sinon. Case **« 🏷 Titre du devis »** (`BlocTitreDevis`, Partages.jsx,
+  dans `BlocsFinDevis`, trois volets) : montre l'automatique tant qu'on n'y touche
+  pas, 50 caractères au plus, « ↺ Titre automatique ». Le devis ne range QUE le
+  titre tapé (`titre_devis`, `titreARanger` — égal à l'automatique ou vide = rien :
+  il suit le type) ; relu à la reprise, remis par « 🆕 Nouveau devis » ; le PDF
+  (`donneesPdfDuDevis`, 📋 Tous les devis — UNE fabrique, aussi l'espace client et
+  le PDF joint) écrit `titreDuDevis`. ⚠ Sur le téléphone d'un client, un métier
+  renommé dans ⚙ Paramètres se lit sous son nom d'origine (il ne reçoit pas les
+  boutiques). Le message WhatsApp ne change pas. Les devis d'avant prennent
+  l'automatique. Rien à coller. Banc (+5, le PDF RENDU), éprouvé ; quatre
+  contrôles RETOURNÉS. Chapitres 11 et 12.
 - **🖨 LE DEVIS IMPRIMÉ SANS COMPTE** (15/10/2026, « Ab, Ba, Ça, Da », puis
   « b ») : Timo, « imprimer un devis sans création de compte, ensuite l'envoyer
   dans client installé pour programmer l'installation avec tout ce qui suit ».

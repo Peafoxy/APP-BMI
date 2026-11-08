@@ -4788,6 +4788,8 @@ titre("Les trois volets du dimensionnement finissent leur devis par UNE seule r�
       pct_acompte: Number(pctAcompte || 100), montant_acompte: montantAcompte, delai_installation: delaiInstallation.trim(),
       // RETOURNÉ le 08/10/2026 : le devis porte la ligne NB, vide quand rien n'est tapé.
       nb: "",
+      // RETOURNÉ le 08/11/2026 : le titre TAPÉ du bandeau, vide = automatique.
+      titre_devis: "",
       // RETOURNÉ le 11/10/2026 : la case « 🔧 Avec installation », cochée
       // d'office dès qu'il y a des frais d'installation (jamais une pose seule).
       avec_installation: !poseSeule && fraisInstallation > 0,
@@ -8683,6 +8685,37 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
       appareils: [{ nom: "Téléviseur", puissance: 100, heures: 5, qte: 2 }, { nom: "Congélateur", puissance: 250, heures: 8, qte: 1 }] } };
   const docSol = Pdf.genererDevis(dSol, null, true);
   const txtSol = texteDuPdf(docSol);
+  // 🏷 LE TITRE DU BANDEAU D'UN DEVIS (Timo, 08/11/2026, « oui lance b »).
+  {
+    const TD = await import(pathToFileURL("src/lib/titreDevis.js").href);
+    test("★ 🏷 titre automatique : le type réel d'un portail, le NOM du métier d'un devis sans calcul (jamais « Autre » s'il y en a un), « Solaire » sinon",
+      TD.titreAutoDevis({ typeDevis: "garage", libellePortail: "Portail battant" }) === "Portail battant"
+      && TD.titreAutoDevis({ typeDevis: "garage" }) === "Portail"
+      && TD.titreAutoDevis({ typeDevis: "autre", nomMetier: "Forage", categorie: "Pompes" }) === "Forage"
+      && TD.titreAutoDevis({ typeDevis: "autre", nomMetier: "Autre", categorie: "Caméras" }) === "Caméras"
+      && TD.titreAutoDevis({ typeDevis: "autre" }) === "Autre"
+      && TD.titreAutoDevis({}) === "Solaire");
+    test("★ 🏷 le titre tapé l'emporte ; identique à l'automatique ou vide, RIEN n'est rangé (il suivra le type) ; 50 caractères au plus",
+      TD.titreDuDevis("Solaire  anti-délestage ", "Solaire") === "Solaire anti-délestage"
+      && TD.titreDuDevis("", "Portail coulissant") === "Portail coulissant"
+      && TD.titreARanger("Portail coulissant", "Portail coulissant") === "" && TD.titreARanger(" ", "Solaire") === ""
+      && TD.titreARanger("Solaire anti-délestage", "Solaire") === "Solaire anti-délestage"
+      && TD.nettoyerTitreDevis("x".repeat(80)).length === TD.TITRE_DEVIS_MAX && TD.TITRE_DEVIS_MAX === 50);
+    test("★ 🏷 le bandeau du PDF RENDU écrit le titre corrigé (« DEVIS — Solaire anti-délestage »)",
+      texteDuPdf(Pdf.genererDevis({ ...dSol, titre: "Solaire anti-délestage" }, null, true)).includes("Solaire anti-délestage"));
+    const tld = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+    const pt = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+    const dc = readFileSync("src/screens/dimensionnement/devisCommun.js", "utf8");
+    test("★ 🏷 le PDF du devis lit le titre TAPÉ, sinon l'automatique (type du portail, NOM du métier) — plus le seul mot du volet",
+      /titre: titreDuDevis\(d\.titre_devis, titreAutoDevis\(/.test(tld) && /nomMetier: domaineParId\(db, d\.domaine\)\?\.nom/.test(tld)
+      && /libellePortail: TYPES_PORTAIL\.find/.test(tld) && !/titre: libelleTypeDevis\(d\)/.test(tld));
+    test("★ 🏷 la case « Titre du devis » est dans la fin de devis des TROIS volets, le titre se range (champsReglages) et revient à la reprise",
+      /<BlocTitreDevis r=\{r\} \/>/.test(pt) && /titre_devis: titreARanger\(r\.titreDevis, r\.titreAuto\)/.test(dc)
+      && /if \(s\.setTitreDevis\) s\.setTitreDevis\(String\(devis\.titre_devis \|\| ""\)\)/.test(pt)
+      && /titreAuto: titreAutoDevis\(\{ typeDevis: "garage"/.test(readFileSync("src/screens/dimensionnement/Garage.jsx", "utf8"))
+      && /titreAuto: titreAutoDevis\(\{ typeDevis: "autre", nomMetier: domaine\?\.nom/.test(readFileSync("src/screens/dimensionnement/Autre.jsx", "utf8"))
+      && /r\.setTitreDevis\(""\)/.test(readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8")));
+  }
   test("★ devis solaire : le besoin est dit en kWh et kW (jamais en Wh bruts), avec l'autonomie en jours, la tension et la batterie en clair",
     txtSol.includes("8,4 kWh") && txtSol.includes("3,2 kW") && txtSol.includes("2 jours")
     && txtSol.includes("Tension du système : 48 V") && txtSol.includes("Lithium LiFePO4") && !txtSol.includes("8400 Wh"));
@@ -14195,7 +14228,8 @@ titre("🤝 L'apporteur externe nommé dans le devis : 3 % d'office, le principa
   test("★ les trois volets passent le principal et leur réglage à l'envoi",
     ["Solaire", "Garage", "Autre"].every((f) => {
       const t = readFileSync(`src/screens/dimensionnement/${f}.jsx`, "utf8");
-      return /devisAReprendre, \{ principal: estAdminPrincipal\(db, profile\) \}\)/.test(t) && /onConvertirEnVente, r, aCompleter \}\)/.test(t);
+      // RETOURNÉ le 08/11/2026 : Garage et Autre passent aussi leur titre automatique.
+      return /devisAReprendre, \{ principal: estAdminPrincipal\(db, profile\)(, titreAuto: titreAutoDevis\(.*\))? \}\)/.test(t) && /onConvertirEnVente, r, aCompleter \}\)/.test(t);
     }));
   const ve = readFileSync("src/screens/Ventes.jsx", "utf8");
   const encaisser = ve.slice(ve.indexOf("const encaisserVente"), ve.indexOf("const numero = prochainNumeroVente(db, boutique);"));
@@ -17077,7 +17111,7 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
   const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
   test("★ la case est dans la fin commune des trois volets (BlocsFinDevis), revient à la reprise (appliquerConditionsReprises), repart d'office avec « 🆕 Nouveau devis »",
     /<BlocAvecInstallation r=\{r\} \/>\n\s*<BlocApporteurDevis r=\{r\} \/>/.test(part) && /if \(s\.setAvecInstallation\) s\.setAvecInstallation\(devis\.avec_installation === true \|\| devis\.avec_installation === false \? devis\.avec_installation : null\);/.test(part)
-    && /setNb, setAvecInstallation,\n/.test(part) && /r\.setNb\(""\); r\.setAvecInstallation\(null\);/.test(sol) && /if \(r\.poseSeule\) return null;/.test(part));
+    && /setNb, setTitreDevis, setAvecInstallation,\n/.test(part) && /r\.setNb\(""\); r\.setTitreDevis\(""\); r\.setAvecInstallation\(null\);/.test(sol) && /if \(r\.poseSeule\) return null;/.test(part));
 
   // ---- Le stock : la vente du devis ne le sort pas, l'achat le sort ----
   const pA = { id: "p1", nom: "Panneau 550W", boutique: "BMI DEMAKPOE", prix_achat: 60000, prix_vente: 80000, initial: 10, seuil: 1 };
@@ -18005,7 +18039,7 @@ titre("🔒 « ✍️ Compléter le devis » revérifie aussi la limite de remis
   test("★★ un devis qui porte déjà une remise au-delà de la limite réglable (fixée par l'admin) ne se complète pas hors de l'administrateur — revérifié AVANT le save",
     i > 0 && iGarde >= 0 && iSave > 0 && iGarde < iSave);
   test("import de remiseExigeAdmin / plafondRemise depuis lib/calculs (29/10/2026 : la limite de 3 % se règle désormais dans ⚙ Paramètres)",
-    /remiseExigeAdmin, plafondRemise \} from "\.\.\/lib\/calculs"/.test(tld));
+    /remiseExigeAdmin, plafondRemise(, domaineParId)? \} from "\.\.\/lib\/calculs"/.test(tld));
 }
 
 // 📐 « supprimer partout il y a facultatif » (Timo, 23/10/2026) : aucun libellé de case ne le dit plus.

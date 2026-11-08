@@ -21,12 +21,13 @@ import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeMo
 import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { etatRelanceAuto } from "../lib/relanceAutoDevis";
-import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE, remiseExigeAdmin, plafondRemise } from "../lib/calculs";
+import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE, remiseExigeAdmin, plafondRemise, domaineParId } from "../lib/calculs";
 import { htmlContratInstallation, imprimerContratInstallation } from "../lib/impression";
 import { validerDevis } from "../lib/validationDevis";
 import { numeroContrat, planReglementSigne } from "../lib/contrat";
 import { TYPES_PORTAIL, LABEL_FREQUENCE } from "./dimensionnement/Garage";
 import { STATUT_DEVIS } from "../lib/libellesStatuts";
+import { titreAutoDevis, titreDuDevis } from "../lib/titreDevis";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { STATUT_SANS_SUITE, estSansSuite, peutClasserDevis, critiqueClassement, classerSansSuite, critiqueReouverture, rouvrirDevis, avecDevis, devisDans } from "../lib/devisSansSuite";
 import { mettreDevisALaCorbeille, critiqueSuppressionDevis, critiqueSuppressionDevisDans, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
@@ -96,7 +97,14 @@ function donneesPdfDuDevis(db, d) {
     prenom: d.prenom || d.client?.prenom || "",
     entreprise: d.entreprise || null,
     tel: d.client?.tel || "",
-    titre: libelleTypeDevis(d).replace(/^\S+\s/, ""),
+    // 🏷 08/11/2026 (« b ») : le titre TAPÉ du devis, sinon le titre automatique
+    // — le type réel d'un portail, le NOM du métier d'un devis sans calcul.
+    titre: titreDuDevis(d.titre_devis, titreAutoDevis({
+      typeDevis: d.type_devis,
+      libellePortail: TYPES_PORTAIL.find((t) => t.id === d.besoins?.type_ouvrant)?.label,
+      nomMetier: domaineParId(db, d.domaine)?.nom,
+      categorie: d.besoins?.categorie,
+    })),
     statut: (STATUT_DEVIS[d.statut || "propose"] || STATUT_DEVIS.propose)[0].replace(/^\S+\s/, ""),
     par: d.par, par_id: d.par_id || null,
     lignes: d.lignes || [],

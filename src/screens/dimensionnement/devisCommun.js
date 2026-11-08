@@ -20,6 +20,7 @@ import { versEcran } from "../../lib/cibleNotification";
 import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { estLigneFrais } from "../../lib/lignesDevis";
+import { titreARanger } from "../../lib/titreDevis";
 import { CATEGORIE_CF_VISITE, estLigneCfVisite, lignesCfVisite, critiqueCompletion, nombreSaisi } from "../../lib/devisCfVisite";
 
 // ---- Les « autres équipements » (saisie libre) ----
@@ -172,6 +173,9 @@ export const champsReglages = (r) => ({
   montant_acompte: r.montantAcompte,
   delai_installation: String(r.delaiInstallation || "").trim(),
   nb: nettoyerNb(r.nb),
+  // 🏷 Le titre TAPÉ du bandeau (08/11/2026) : rien = le titre automatique,
+  // recalculé à chaque PDF (lib/titreDevis.js).
+  titre_devis: titreARanger(r.titreDevis, r.titreAuto),
   // 🔧 La case « Avec installation » (Timo, 11/10/2026, « H : la case sur le
   // devis ») : cochée, le matériel ne sort du stock que par les achats du
   // chantier ; décochée, matériel seul, il sort au paiement comme avant.

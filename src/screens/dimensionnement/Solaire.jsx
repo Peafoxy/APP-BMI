@@ -688,7 +688,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setRaccordement(RACCORDEMENT_DEFAUT);
     reprendreAutres([]);
     envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE() });
-    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide()); r.setNb(""); r.setAvecInstallation(null); r.setModeRemise("pct"); r.setMontantRemise(""); r.setModeInstall("pct"); r.setMontantInstall(""); r.setModeTransport("pct"); r.setMontantTransport("");
+    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide()); r.setNb(""); r.setTitreDevis(""); r.setAvecInstallation(null); r.setModeRemise("pct"); r.setMontantRemise(""); r.setModeInstall("pct"); r.setMontantInstall(""); r.setModeTransport("pct"); r.setMontantTransport("");
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
   };
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;

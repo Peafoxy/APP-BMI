@@ -46,6 +46,7 @@ import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, plafondRemise, bloquerSiLecture, refuserSaufAdmin, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
+import { TITRE_DEVIS_MAX, nettoyerTitreDevis, titreDuDevis, titreARanger } from "../../lib/titreDevis";
 import { reprisesAutres, nouvelAutre, nouvelAutreCfVisite, autresACompleter, totalAutres, calculerTotaux, MODE_POURCENT, MODE_MONTANT, ajouterBrouillon, retirerBrouillon, lierAutreAuStock, nomDuBrouillon, critiqueNomBrouillon, nomRepris, clientDeLaReprise, NB_DEVIS_MAX, peutEtablirPourAutrui, auteursPossibles, auteurDuDevis, devisEtabliPour, garderAuteur, critiqueAuteur, remplacePour, devisRemplace, auteursDesBrouillons, critiqueBrouillonAutrui, avisBrouillonEnvoye } from "./devisCommun";
 // ⚠ Ces règles vivent dans lib/choixSolaire.js depuis le 24/09/2026 (le
 // serveur les lit aussi, pour l'estimation de l'assistant WhatsApp). On les
@@ -81,6 +82,8 @@ export function appliquerConditionsReprises(devis, s) {
   s.setDelaiInstallation(String(devis.delai_installation || ""));
   // 📝 La ligne NB (08/10/2026) revient avec le devis repris ou le brouillon.
   if (s.setNb) s.setNb(String(devis.nb || ""));
+  // 🏷 Le titre tapé du devis (08/11/2026) revient aussi ; vide = automatique.
+  if (s.setTitreDevis) s.setTitreDevis(String(devis.titre_devis || ""));
   // 🔧 La case « Avec installation » (11/10/2026) : un devis d'avant ne la
   // porte pas — elle repart d'office (cochée s'il y a des frais d'installation).
   if (s.setAvecInstallation) s.setAvecInstallation(devis.avec_installation === true || devis.avec_installation === false ? devis.avec_installation : null);
@@ -245,7 +248,7 @@ export function useAutresEquipements(lignesReprises, produitsBoutique = [], autr
 // (devisCommun.js). Un devis repris rétablit tout ce qui avait été négocié
 // (appliquerConditionsReprises) : sans cela le devis renvoyé au client
 // n'était plus celui convenu avec lui.
-export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, { principal = false } = {}) {
+export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, { principal = false, titreAuto = "Solaire" } = {}) {
   const [pctRemise, setPctRemise] = useState("0");
   const [pctInstall, setPctInstall] = useState("10");
   const [pctTransport, setPctTransport] = useState("0");
@@ -266,13 +269,15 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
   const [apporteur, setApporteur] = useState(apporteurVide);
   // 📝 La ligne NB du devis (Timo, 08/10/2026) — tapée à la main, facultative.
   const [nb, setNb] = useState("");
+  // 🏷 Le titre du bandeau (08/11/2026, « b ») — "" = le titre automatique.
+  const [titreDevis, setTitreDevis] = useState("");
   // 🔧 « Avec installation » : null = d'office (cochée dès qu'il y a des frais
   // d'installation) ; vrai / faux = choisi par celui qui établit le devis.
   const [avecInstallation, setAvecInstallation] = useState(null);
   useEffect(() => {
     appliquerConditionsReprises(devisAReprendre?.devis, {
       setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
-      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur, setNb, setAvecInstallation,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur, setNb, setTitreDevis, setAvecInstallation,
       setModeRemise, setMontantRemise, setModeInstall, setMontantInstall, setModeTransport, setMontantTransport,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -286,6 +291,7 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
     poseSeule, setPoseSeule, montantPoseFixe, setMontantPoseFixe,
     pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, ...totaux,
     apporteur, setApporteur, principal, nb, setNb, avecInstallation, setAvecInstallation,
+    titreDevis, setTitreDevis, titreAuto,
   };
 }
 
@@ -359,6 +365,7 @@ export function BlocsFinDevis({ r, onConvertir, aCompleter = false }) {
       />
       <BlocAvecInstallation r={r} />
       <BlocApporteurDevis r={r} />
+      <BlocTitreDevis r={r} />
       <BlocNbDevis r={r} />
     </>
   );
@@ -382,6 +389,29 @@ export function BlocAvecInstallation({ r }) {
         {coche
           ? <>Le matériel ne sortira du stock qu'au moment où les techniciens viendront le chercher (case « 🏗 Chantier » de 💰 Ventes).{!(Number(r.fraisInstallation) > 0) && <b className="text-amber-700"> Installation offerte : aucun frais d'installation sur ce devis.</b>}</>
           : <>Matériel seul, sans frais d'installation : il sortira du stock au paiement du devis.</>}
+      </div>
+    </div>
+  );
+}
+
+// ---- 🏷 Le titre du devis (Timo, 08/11/2026, « oui lance b ») ----
+// Le bandeau du PDF écrit « DEVIS — <titre> ». La case montre le titre
+// AUTOMATIQUE (type du portail, métier, « Solaire ») tant qu'on n'y touche pas ;
+// on le corrige (« Solaire anti-délestage »), 50 caractères au plus. Vider la
+// case ou « ↺ Titre automatique » y revient. lib/titreDevis.js.
+export function BlocTitreDevis({ r }) {
+  const auto = nettoyerTitreDevis(r.titreAuto);
+  const tape = titreARanger(r.titreDevis, auto);
+  return (
+    <div className="px-4 py-3 border-t border-slate-200" data-titre-devis>
+      <Field label="🏷 Titre du devis — écrit dans le bandeau : « DEVIS — … »">
+        <input className={inputCls} maxLength={TITRE_DEVIS_MAX} value={r.titreDevis !== "" ? r.titreDevis : auto}
+          onChange={(e) => r.setTitreDevis(e.target.value.slice(0, TITRE_DEVIS_MAX))}
+          onBlur={() => r.setTitreDevis(titreARanger(r.titreDevis, auto))} data-case-titre-devis />
+      </Field>
+      <div className="text-xs mt-1 text-slate-500">
+        Sur le devis : <b data-apercu-titre-devis>DEVIS — {titreDuDevis(r.titreDevis, auto)}</b>
+        {tape && <> · <button type="button" className="text-sky-800 underline" onClick={() => r.setTitreDevis("")} data-titre-auto>↺ Titre automatique ({auto})</button></>}
       </div>
     </div>
   );

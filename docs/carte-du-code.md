@@ -24,6 +24,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/cloture.js` | La clôture du jour (les ventes tous moyens, et le comptage du tiroir), et le blocage des ventes du lendemain |
 | `lib/validationDepenses.js` | La validation des dépenses par le DG, l'origine des fonds (« Payé avec »), les avances de frais |
 | `lib/apporteurDevis.js` | L'apporteur externe nommé dans le devis : 3 % d'office, le pourcentage changé par l'administrateur principal seul (brouillon), la commission sur les articles ou la pose, la dette de pose qui le porte |
+| `lib/titreDevis.js` | Le titre du bandeau d'un devis (« DEVIS — … ») : le titre tapé, sinon l'automatique (type du portail, nom du métier, « Solaire ») |
 | `lib/caissesCentrales.js` | Les caisses « Chez le DG », « BANQUE », « Chez le comptable » et leurs relevés |
 | `lib/caissesMobiles.js` | Le solde des comptes Flooz et Mixx/T-Money, boutique par boutique |
 | `lib/inventaireVentes.js` | 📋 L'inventaire de 💰 Ventes : ventes, recettes, dépenses, versements, caisse, dettes et comptage d'une boutique sur une période, et `inventaireGeneral` : toutes les caisses ensemble, dettes comptées une fois, caisses centrales à part (lecture seule, les règles de Caisse et de la clôture) |

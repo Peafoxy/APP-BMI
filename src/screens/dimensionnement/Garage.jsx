@@ -10,6 +10,7 @@ import { Field, inputCls, Badge, Panel, uAlert, AucuneBoutique, Stat } from "../
 import { boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, domainesDefinis, estAdminPrincipal } from "../../lib/calculs";
 import { specDepuisNom, BlocAutresEquipements, contientLeMot, memeFamille, BlocEnvoiDevisClient, quantiteNecessaire, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres, brouillonManuelDe } from "./devisCommun";
+import { titreAutoDevis } from "../../lib/titreDevis";
 import { useSelectionAvecVerrou } from "./Selecteur";
 
 // ============ OUTIL DE DIMENSIONNEMENT — PORTAIL / PORTE DE GARAGE MOTORISÉ ============
@@ -289,7 +290,7 @@ export function DimensionnementGarage({ db, profile, save, onConvertirEnVente, d
   const totalArticles = totalRoles + totalAutres + totalKitSolaire + totalBatterieSecours + sousTotalPorte;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
-  const r = useReglagesDevis(totalArticles, {}, devisAReprendre, { principal: estAdminPrincipal(db, profile) });
+  const r = useReglagesDevis(totalArticles, {}, devisAReprendre, { principal: estAdminPrincipal(db, profile), titreAuto: titreAutoDevis({ typeDevis: "garage", libellePortail: TYPES_PORTAIL.find((t) => t.id === type)?.label }) });
   const { remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
 
   // ============ ENVOYER LE DEVIS DANS L'ESPACE DU CLIENT ============

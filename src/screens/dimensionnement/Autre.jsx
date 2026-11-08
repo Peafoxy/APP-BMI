@@ -10,6 +10,7 @@ import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { normNom, boutiquesVente, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, estAdminPrincipal } from "../../lib/calculs";
 import { BlocAutresEquipements, BlocEnvoiDevisClient, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres, brouillonManuelDe, estLigneFrais } from "./devisCommun";
+import { titreAutoDevis } from "../../lib/titreDevis";
 import { estLigneCfVisite } from "../../lib/devisCfVisite";
 import { useSelectionAvecVerrou } from "./Selecteur";
 import { etudePompe, pompesDuStock, ficheLisible } from "../../lib/pompes.js";
@@ -262,7 +263,7 @@ export function DimensionnementAutre({ db, profile, save, onConvertirEnVente, de
   const totalArticles = totalRoles + totalAutres;
   // La fin du devis (remise, installation ou pose seule, transport, acompte,
   // délai) : la même règle pour les trois volets (Partages.jsx / devisCommun.js).
-  const r = useReglagesDevis(totalArticles, { poseSeule: brouillon?.poseSeule ?? false, montantPoseFixe: brouillon?.montantPoseFixe ?? "" }, devisAReprendre, { principal: estAdminPrincipal(db, profile) });
+  const r = useReglagesDevis(totalArticles, { poseSeule: brouillon?.poseSeule ?? false, montantPoseFixe: brouillon?.montantPoseFixe ?? "" }, devisAReprendre, { principal: estAdminPrincipal(db, profile), titreAuto: titreAutoDevis({ typeDevis: "autre", nomMetier: domaine?.nom, categorie: besoinsRepris?.categorie }) });
   const { remise, fraisInstallation, fraisTransport, totalDevis, poseSeule, montantPoseFixe, montantAcompte } = r;
   // Écrit le brouillon à chaque changement — effacé uniquement une fois le
   // devis réellement envoyé ou converti, jamais avant.
