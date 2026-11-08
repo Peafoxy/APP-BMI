@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Login, decorAccueil, fondAccueil } from "./screens/Connexion";
-import { PageIcones, LibelleOnglet } from "./components/PageIcones";
-import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface } from "./lib/pageIcones";
+import { PageIcones, LibelleOnglet, ColonneIcones } from "./components/PageIcones";
+import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, INTERFACE_COLONNE, INTERFACES, aQuelqueChoseEnAttente, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface } from "./lib/pageIcones";
 import { Dashboard } from "./screens/Dashboard";
 import { Ventes } from "./screens/Ventes";
 import { NouvelleCommande, CommandesRecues } from "./screens/Commandes";
@@ -700,6 +700,10 @@ export default function App() {
   // de passe ; la recherche générale se ferme par retour (Timo, 13/10/2026).
   useEffect(() => { poserBlocageRetour(() => verrouille); }, [verrouille]);
   useRetour(rechercheOuverte, () => setRechercheOuverte(false));
+  // 📌 La colonne d'icônes ouverte sur téléphone (bouton ☰, 08/11/2026) : la
+  // touche retour la replie.
+  const [colonneOuverte, setColonneOuverte] = useState(false);
+  useRetour(colonneOuverte, () => setColonneOuverte(false));
   const [erreursVerrou, setErreursVerrou] = useState(0);
   // Pourquoi c'est verrouillé : "inactivite" (ou clic sur Verrouiller), ou
   // "session" — la session sécurisée est tombée, le mot de passe la rouvre.
@@ -1359,6 +1363,11 @@ export default function App() {
   // l'administrateur a fixé (lib/pageIcones.js).
   const affichage = interfaceDe(maFiche || profile);
   const modeIcones = affichage === INTERFACE_ICONES;
+  // 📌 La colonne d'icônes (08/11/2026) prend l'en-tête unique de la page
+  // d'icônes, sans la page d'accueil : les icônes sont à gauche.
+  const modeColonne = affichage === INTERFACE_COLONNE;
+  const enTeteUnique = modeIcones || modeColonne;
+  const choisirDansLaColonne = (id) => { setTab(id); setColonneOuverte(false); };
   // En barre d'onglets, la page d'icônes n'existe pas : on ouvre l'écran
   // d'habitude du rôle (s'il est affiché), sinon le premier onglet.
   if (!modeIcones && tab === ACCUEIL && !enSortie && tabsAutorises.length) {
@@ -1368,7 +1377,7 @@ export default function App() {
   const choisirAffichage = async () => {
     const fixe = interfaceImposee(maFiche);
     if (fixe) { uAlert(critiqueChoixInterface(maFiche, fixe)); return; }
-    const options = [INTERFACE_BARRE, INTERFACE_ICONES];
+    const options = INTERFACES;
     const choix = await uChoix(`🧭 Mon affichage\n\nActuellement : ${LIBELLES_INTERFACE[affichage]}.\n\nVotre choix vous suit sur tous vos appareils.`, options.map((v) => LIBELLES_INTERFACE[v] + (v === affichage ? " (actuel)" : "")));
     if (choix === null || choix === undefined) return;
     const valeur = options.find((v) => choix === LIBELLES_INTERFACE[v] + (v === affichage ? " (actuel)" : ""));
@@ -1381,7 +1390,7 @@ export default function App() {
   };
   const boutonAffichage = (classe) => (
     <button type="button" data-choix-affichage onClick={choisirAffichage} className={classe}
-      title={interfaceImposee(maFiche) ? "Affichage fixé par l'administrateur" : "Choisir mon affichage : barre d'onglets ou page d'icônes"}>🧭<span className="hidden sm:inline"> Affichage</span></button>
+      title={interfaceImposee(maFiche) ? "Affichage fixé par l'administrateur" : "Choisir mon affichage : barre d'onglets, page d'icônes ou colonne d'icônes"}>🧭<span className="hidden sm:inline"> Affichage</span></button>
   );
   // 🔲 La page d'icônes (06/11/2026) : elle n'existe que hors période de
   // sortie, s'il reste au moins un onglet, et dans l'affichage « icônes ».
@@ -1792,7 +1801,7 @@ export default function App() {
         passe ne s'écrit pas ») : la fenêtre de verrou couvre tout l'écran
         avec son fond, le flou ne se voyait pas et coûtait un redessin de
         toute l'application à chaque lettre tapée sur un PC modeste. */}
-    <div className={`min-h-screen bg-slate-100${modeIcones ? "" : " lg:flex"}${verrouille ? " pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>
+    <div className={`min-h-screen bg-slate-100${enTeteUnique ? "" : " lg:flex"}${verrouille ? " pointer-events-none select-none" : ""}`} aria-hidden={verrouille || undefined}>
       {syncInitiale && (
         <div className="fixed top-0 inset-x-0 z-[9999] bg-sky-800 text-white text-center text-sm font-semibold py-2 shadow-lg">
           ⏳ Synchronisation avec le serveur — les données arrivent…
@@ -1819,7 +1828,7 @@ export default function App() {
 
       {/* 🧭 L'AFFICHAGE CHOISI (06/11/2026, « 1b, 2b ») : la page d'icônes, ou
           la BARRE D'ONGLETS — la première interface, d'office. */}
-      {modeIcones ? (<>
+      {enTeteUnique ? (<>
       {/* ══ 🔲 LA PAGE D'ICÔNES (06/11/2026, Timo : « A2, B1, C1 », « 1 ») ══
           Plus de barre latérale ni de barre d'onglets : chaque onglet est une
           icône de la page d'accueil, et le LOGO BMI en haut à gauche y ramène
@@ -1833,8 +1842,8 @@ export default function App() {
           <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {/* « B1 » : le logo ramène à la page d'icônes, depuis n'importe quel écran. */}
-              <button type="button" data-logo-accueil onClick={allerAccueil} aria-label="Accueil : toutes les icônes"
-                className="shrink-0 rounded-lg p-0.5 hover:bg-white/10" title="Accueil — toutes les icônes">
+              <button type="button" data-logo-accueil onClick={allerAccueil} aria-label={modeColonne ? "Écran d'accueil" : "Accueil : toutes les icônes"}
+                className="shrink-0 rounded-lg p-0.5 hover:bg-white/10" title={modeColonne ? "Revenir à l'écran habituel" : "Accueil — toutes les icônes"}>
                 <img src={LOGO_CLAIR} alt="BMI Togo" className="h-10 w-auto" />
               </button>
               <div className="min-w-0">
@@ -1888,7 +1897,16 @@ export default function App() {
         {/* Le nom de l'écran ouvert (la page d'icônes n'en a pas : elle dit bonjour). */}
         {!surAccueil && (
           <div data-titre-ecran className="flex items-center gap-3 bg-white border-b border-slate-200 px-4 lg:px-6 py-2.5 sticky top-0 z-20 shadow-sm">
-            {!enSortie && (
+            {/* 📌 Téléphone : le bouton ☰ (Timo, 08/11/2026 : « menu classique en
+                3 tirets », en haut à gauche, « oui avec le point rouge »). */}
+            {modeColonne && !enSortie && (
+              <button type="button" data-bouton-colonne onClick={() => setColonneOuverte(true)} aria-label="Ouvrir les icônes" title="Ouvrir les icônes"
+                className="lg:hidden relative shrink-0 -ml-4 w-14 h-11 inline-flex items-center justify-center rounded-r-2xl border-[3px] border-l-0 border-slate-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-md">
+                <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" /></svg>
+                {aQuelqueChoseEnAttente(tabsAutorises) && <span data-point-rouge className="absolute top-1 right-1.5 w-3 h-3 rounded-full bg-red-600 ring-2 ring-white" />}
+              </button>
+            )}
+            {modeIcones && !enSortie && (
               <button type="button" onClick={allerAccueil} className="shrink-0 text-sky-700 text-sm font-semibold hover:underline" title="Retour à la page d'icônes">← Accueil</button>
             )}
             <div className="text-base lg:text-lg font-bold text-slate-800 truncate">{titreOnglet}</div>
@@ -1908,11 +1926,39 @@ export default function App() {
             ⚠ Ici `max-w-*` COMMANDE (c'est un bloc) — le piège du § 5 ne vaut
             que pour les champs de saisie. Le banc MESURE la largeur obtenue
             dans Chromium, il ne lit pas la classe. */}
+        {modeColonne ? (
+          <div className="flex-1 flex min-w-0">
+            {/* 📌 Ordinateur : la colonne d'icônes toujours ouverte, à gauche. */}
+            {!enSortie && (
+              <aside data-colonne-icones className="hidden lg:flex lg:flex-col w-24 shrink-0 bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 sticky top-[49px] h-[calc(100vh-49px)]">
+                <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} className="flex-1" />
+              </aside>
+            )}
+            <main className="flex-1 min-w-0 w-full max-w-[1600px] mx-auto px-4 py-5">
+              {contenu}
+            </main>
+          </div>
+        ) : (
         <main className="w-full max-w-[1600px] mx-auto px-4 py-5">
           {contenu}
           {surAccueil && <PageIcones tabs={tabsAutorises} onChoisir={setTab} onReordonner={reordonnerOnglets} nom={profile?.nom || ""} />}
         </main>
+        )}
       </div>
+      {/* 📌 Téléphone : les icônes sortent par-dessus l'écran, se replient
+          après le choix, au toucher à côté, par ✕ ou par la touche retour. */}
+      {modeColonne && colonneOuverte && !enSortie && (
+        <div data-colonne-ouverte className="lg:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setColonneOuverte(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-[88px] flex flex-col bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 shadow-2xl">
+            <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={choisirDansLaColonne} onReordonner={reordonnerOnglets} className="flex-1" />
+          </aside>
+          <button type="button" data-fermer-colonne onClick={() => setColonneOuverte(false)} aria-label="Replier les icônes"
+            className="absolute left-[88px] top-3 w-14 h-11 inline-flex items-center justify-center rounded-r-2xl border-[3px] border-l-0 border-slate-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-md">
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" /></svg>
+          </button>
+        </div>
+      )}
       </>) : (<>
       {/* ══ Barre latérale professionnelle (grand écran) ══ */}
       <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 text-white h-screen sticky top-0">

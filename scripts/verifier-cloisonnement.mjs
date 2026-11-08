@@ -6067,7 +6067,8 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     /\{verrouille && <EcranVerrou profile=\{profile\} db=\{db\} apparence=\{apparence\} motif=\{motifVerrou\} onDeverrouiller=\{deverrouiller\}\n/.test(app)
     && /onDeconnecter=\{async \(\) => \{ await deconnexion\(true\); setVerrouille\(false\); \}\} \/>\}/.test(app)
     // ⚠ RETOURNÉ le 06/11/2026 : `lg:flex` seulement en barre d'onglets (🧭, la barre latérale).
-    && /className=\{`min-h-screen bg-slate-100\$\{modeIcones \? "" : " lg:flex"\}\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
+    // ⚠ RETOURNÉ le 08/11/2026 : la colonne d'icônes prend aussi l'en-tête unique (`enTeteUnique`).
+    && /className=\{`min-h-screen bg-slate-100\$\{enTeteUnique \? "" : " lg:flex"\}\$\{verrouille \? " pointer-events-none select-none" : ""\}`\} aria-hidden=\{verrouille \|\| undefined\}/.test(app) && !/blur-lg/.test(app));
   const ev = readFileSync("src/components/EcranVerrou.jsx", "utf8");
   test("★ la fenêtre : champ mot de passe (masqué, un œil 👁 l'affiche comme à la connexion), flou du voile, nom du compte, bouton Se déconnecter, message d'erreur avec les essais restants",
     /type=\{visible \? "text" : "password"\}/.test(ev) && /\{visible \? "🙈" : "👁"\}/.test(ev) && /z-\[10000\]/.test(ev) && /\{profile\?\.nom\}/.test(ev) && /onClick=\{onDeconnecter\}/.test(ev) && /Mot de passe incorrect/.test(ev) && !/wa\.me/.test(ev));
@@ -8013,7 +8014,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     // page d'icônes, qui passe par OngletsDeplacables (sens « grille »).
     // ⚠ RETOURNÉ À NOUVEAU le 06/11/2026 (🧭 « 1b, 2b ») : les deux barres reviennent, au CHOIX de la personne ; la page d'icônes reste l'autre affichage.
     (appOo.match(/<OngletsDeplacables tabs=\{tabsAutorises\} tab=\{enSortie \? ONGLET_ATTESTATION\[0\] : tab\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\} sens="(vertical|horizontal)"/g) || []).length === 2
-    && /<PageIcones tabs=\{tabsAutorises\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\}/.test(appOo) && /\{modeIcones \? \(<>/.test(appOo)
+    && /<PageIcones tabs=\{tabsAutorises\} onChoisir=\{setTab\} onReordonner=\{reordonnerOnglets\}/.test(appOo) && /\{enTeteUnique \? \(<>/.test(appOo)
     && /<OngletsDeplacables tabs=\{tabs\} tab=\{null\} onChoisir=\{onChoisir\} onReordonner=\{onReordonner\} sens="grille"/.test(readFileSync("src/components/PageIcones.jsx", "utf8"))
     // (l'onglet à part 🏦 Chez le DG / BANQUE a vécu une heure : Timo l'a voulu dans le tableau de bord — retour à tabsPlus2)
     // ⚠ RETOURNÉ le 14/10/2026 : pendant ses 24 dernières heures, un employé sorti n'a QUE « 📄 Mon attestation ».
@@ -8039,7 +8040,8 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       // ⚠ RETOURNÉ le 06/11/2026 (🧭 « 1b ») : la page d'icônes n'ouvre plus d'office — seulement pour qui l'a choisie ; la barre latérale revient dans l'autre affichage.
       /const \[tab, setTab\] = useState\(ACCUEIL\);/.test(appOo) && /setTab\(interfaceDe\(db\.users\.find\(\(x\) => x\.id === u\.id\) \|\| u\) === INTERFACE_ICONES \? ACCUEIL : ongletParDefaut\(u\.role\)\);/.test(appOo)
       && /<button type="button" data-logo-accueil onClick=\{allerAccueil\}/.test(appOo) && /const allerAccueil = \(\) => \{ if \(!enSortie\) setTab\(ACCUEIL\); \};/.test(appOo)
-      && (appOo.match(/<aside/g) || []).length === 1 && !/const label(TousDevis|Commandes|Parc) = \(/.test(appOo)
+      // ⚠ RETOURNÉ le 08/11/2026 : trois <aside> — la barre latérale, et la colonne d'icônes (ordinateur, et ouverte sur téléphone).
+      && (appOo.match(/<aside/g) || []).length === 3 && !/const label(TousDevis|Commandes|Parc) = \(/.test(appOo)
       && /if \(dernier === ACCUEIL\) return affichage === INTERFACE_ICONES \? ACCUEIL : ongletParDefaut\(role\);/.test(appOo));
     // Timo (06/11/2026) : « fond des onglets bleu… j'avais dit de reprendre le fond d'écran de la page de session verrouillée ».
     test("★★ la page d'icônes pose l'image du verrou dès qu'elle existe (pleinEcran comme EcranVerrou), jamais le dégradé bleu par défaut",
@@ -8048,7 +8050,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     const piW = readFileSync("src/components/PageIcones.jsx", "utf8");
     // RETOURNÉ le 07/11/2026 : le logo passe de 34 à 32 px (la tuile du téléphone fait 54 px).
     test("★★ le VRAI logo de WhatsApp : blanc sur la tuile verte de la page d'icônes, et dans les deux barres d'onglets (LibelleOnglet, écrit une fois)",
-      /id === "whatsapp" \? <IconeWhatsApp taille=\{32\} couleur="#ffffff" \/>/.test(piW) && Pi.couleurIcone("whatsapp") === "#25D366"
+      /id === "whatsapp" \? <IconeWhatsApp taille=\{petite \? 26 : 32\} couleur="#ffffff" \/>/.test(piW) && Pi.couleurIcone("whatsapp") === "#25D366"
       && /export function LibelleOnglet\(id, label\)/.test(piW) && (appOo.match(/contenu=\{LibelleOnglet\}/g) || []).length === 2
       && /<path fill=\{couleur\} d="M17\.472/.test(readFileSync("src/components/ui.jsx", "utf8")));
     // 🧭 LE CHOIX DE L'AFFICHAGE (06/11/2026, « je préfère que ça soit un choix… » → « 1b, 2b »).
@@ -8061,6 +8063,18 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       && /const refus = critiqueChoixInterface\(db\.users\.find\(\(u\) => u\.id === profile\.id\), valeur\);\n\s*if \(refus\) \{ uAlert\(refus\); return; \}\n\s*save\(\{ \.\.\.db, users: db\.users\.map\(\(u\) => \(u\.id === profile\.id \? \{ \.\.\.u, interface: valeur \} : u\)\) \}\);/.test(appOo)
       && /const surAccueil = modeIcones && tab === ACCUEIL && !enSortie && tabsAutorises\.length > 0;/.test(appOo)
       && /if \(!modeIcones && tab === ACCUEIL && !enSortie && tabsAutorises\.length\) \{/.test(appOo));
+    // 📌 LA COLONNE D'ICÔNES (08/11/2026, aperçus validés : « oui avec le point rouge, lance »).
+    test("★★ 📌 la colonne d'icônes est un TROISIÈME affichage : choisi par la personne, fixable par l'administrateur ; le point rouge s'allume dès qu'un onglet porte un nombre",
+      Pi.INTERFACES.join(",") === "barre,icones,colonne" && Pi.interfaceDe({ interface: "colonne" }) === "colonne" && Pi.interfaceDe({ interface: "colonne", interface_imposee: "icones" }) === "icones"
+      && Pi.critiqueChoixInterface({}, "colonne") === "" && Pi.aQuelqueChoseEnAttente([["a", "💰 Ventes"], ["b", "📋 Dettes (3)"]]) && !Pi.aQuelqueChoseEnAttente([["a", "💰 Ventes"], ["b", "📋 Dettes"]]));
+    test("★★ 📌 App.jsx : ordinateur, la colonne toujours ouverte ; téléphone, le bouton ☰ avec son point rouge, les icônes repliées après le choix, au toucher à côté, par ✕ et par la touche retour ; les deux choix (personne, administrateur) proposent les TROIS",
+      /const options = INTERFACES;/.test(appOo) && /<aside data-colonne-icones className="hidden lg:flex/.test(appOo)
+      && /data-bouton-colonne onClick=\{\(\) => setColonneOuverte\(true\)\}/.test(appOo) && /\{aQuelqueChoseEnAttente\(tabsAutorises\) && <span data-point-rouge/.test(appOo)
+      && /const choisirDansLaColonne = \(id\) => \{ setTab\(id\); setColonneOuverte\(false\); \};/.test(appOo) && /onChoisir=\{choisirDansLaColonne\}/.test(appOo)
+      && /<div className="absolute inset-0 bg-black\/40" onClick=\{\(\) => setColonneOuverte\(false\)\} \/>/.test(appOo) && /data-fermer-colonne onClick=\{\(\) => setColonneOuverte\(false\)\}/.test(appOo)
+      && /useRetour\(colonneOuverte, \(\) => setColonneOuverte\(false\)\);/.test(appOo)
+      && appOo.indexOf("useRetour(colonneOuverte") < appOo.indexOf("if (!db) return")
+      && /INTERFACES\.map\(\(v\) => LIBELLES_INTERFACE\[v\]\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")));
     const uAff = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
     const s50 = readFileSync("supabase/securite-50-affichage.sql", "utf8");
     test("★★ 🧭 LE COUPLE : l'administrateur FIXE l'affichage (⋯ Gérer, refuserSaufAdmin dans le geste) et securite-50 le réserve à l'administrateur, client compris (avant « les fiches des clients s'arrêtent là ») ; il reprend securite-39",

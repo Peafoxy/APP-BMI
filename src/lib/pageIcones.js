@@ -69,12 +69,25 @@ export const couleurIcone = (id) => COULEURS[id] || COULEUR_ICONE_DEFAUT;
 // (`interface`), comme l'ordre de ses onglets : il suit ses appareils.
 export const INTERFACE_BARRE = "barre";
 export const INTERFACE_ICONES = "icones";
+// 📌 08/11/2026 (Timo : « une 3e manière d'afficher… à la place des onglets,
+// on met les icônes sur le côté » → aperçus validés, « oui avec le point
+// rouge, lance ») : la COLONNE D'ICÔNES. Sur ordinateur, les icônes restent à
+// gauche ; sur téléphone elles sont repliées derrière un bouton ☰ (en haut à
+// gauche), avec un point rouge s'il y a quelque chose en attente, et se
+// replient toutes seules après le choix d'un écran.
+export const INTERFACE_COLONNE = "colonne";
 export const INTERFACE_DEFAUT = INTERFACE_BARRE;
+export const INTERFACES = [INTERFACE_BARRE, INTERFACE_ICONES, INTERFACE_COLONNE];
 export const LIBELLES_INTERFACE = {
   [INTERFACE_BARRE]: "📋 Barre d'onglets",
   [INTERFACE_ICONES]: "🔲 Page d'icônes",
+  [INTERFACE_COLONNE]: "📌 Colonne d'icônes",
 };
-export const estInterface = (v) => v === INTERFACE_BARRE || v === INTERFACE_ICONES;
+export const estInterface = (v) => INTERFACES.includes(v);
+
+// Le point rouge du bouton ☰ : au moins un onglet porte un nombre « (N) ».
+export const aQuelqueChoseEnAttente = (tabs) =>
+  (tabs || []).some((t) => decomposerLibelle(Array.isArray(t) ? t[1] : t).nombre > 0);
 
 // L'affichage fixé par l'administrateur, ou "" s'il n'y en a pas.
 export function interfaceImposee(fiche) {

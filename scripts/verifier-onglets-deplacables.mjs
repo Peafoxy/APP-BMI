@@ -319,6 +319,56 @@ createRoot(document.getElementById("g")).render(<Essai />);
   await pc.ctx2.close();
 }
 
+// ============================================================
+// 📌 LA COLONNE D'ICÔNES (08/11/2026, Timo : « une 3e manière d'afficher…
+// les icônes sur le côté »). Les MÊMES tuiles (TuileIcone), les unes SOUS les
+// autres, l'écran ouvert encadré, un toucher choisit. Le vrai CSS construit.
+// ============================================================
+console.log("\nColonne d'icônes (sur le côté)");
+{
+  const { readdirSync, readFileSync: lire } = await import("node:fs");
+  const css = readdirSync("dist/assets").filter((f) => f.endsWith(".css")).map((f) => lire(join("dist/assets", f), "utf8")).join("\n");
+  const entree3 = join(dossier, "colonne.jsx");
+  writeFileSync(entree3, `
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { ColonneIcones } from "${process.cwd()}/src/components/PageIcones.jsx";
+const TABS = [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["dettes", "📋 Dettes (3)"], ["dimensionnement", "📐 Dimensionnement"], ["whatsapp", "📲 WhatsApp (1)"]];
+window.journal = [];
+createRoot(document.getElementById("g")).render(
+  <aside data-essai className="w-24 h-[700px] flex flex-col bg-slate-900">
+    <ColonneIcones tabs={TABS} tab="ventes" onChoisir={(id) => window.journal.push("choisir:" + id)} onReordonner={() => {}} className="flex-1" />
+  </aside>);
+`);
+  const sortie3 = join(dossier, "colonne.js");
+  await build({ entryPoints: [entree3], bundle: true, format: "iife", outfile: sortie3, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
+  const html3 = join(dossier, "colonne.html");
+  writeFileSync(html3, `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}</style></head><body><div id="g"></div><script src="colonne.js"></script></body></html>`);
+  const ctx3 = await nav.newContext({ hasTouch: true, viewport: { width: 375, height: 760 } });
+  const p3 = await ctx3.newPage();
+  const err3 = [];
+  p3.on("pageerror", (e) => err3.push(String(e.message).split("\n")[0]));
+  await p3.goto(`file://${html3}`);
+  await attendre(400);
+  const bt = await p3.$$eval("[data-essai] [data-tab-id]", (els) => els.map((e) => { const r = e.getBoundingClientRect(); return { id: e.dataset.tabId, x: r.left, y: r.top, w: r.width, h: r.height, actif: getComputedStyle(e).backgroundColor }; }));
+  const memeX = bt.every((b) => Math.abs(b.x - bt[0].x) < 1);
+  const descend = bt.every((b, i) => i === 0 || b.y >= bt[i - 1].y + bt[i - 1].h - 1);
+  test("★★ colonne : les icônes les unes SOUS les autres (même x, une par rangée)", bt.length === 5 && memeX && descend, JSON.stringify(bt.map((b) => [b.id, Math.round(b.x), Math.round(b.y)])));
+  const largeur = await p3.$eval("[data-essai]", (e) => ({ s: e.scrollWidth, c: e.clientWidth }));
+  test("colonne : rien ne déborde de la colonne de 96 px", largeur.s <= largeur.c + 1, JSON.stringify(largeur));
+  const nombres3 = await p3.$$eval("[data-essai] [data-icone-nombre]", (els) => els.map((e) => e.textContent).join(","));
+  test("colonne : le chiffre rouge reste sur l'icône", nombres3 === "3,1", nombres3);
+  const actifs = bt.filter((b) => b.actif !== "rgba(0, 0, 0, 0)").map((b) => b.id);
+  test("★ colonne : l'écran ouvert (Ventes) est encadré, et lui seul", actifs.join(",") === "ventes", actifs.join(","));
+  const d = bt.find((b) => b.id === "dettes");
+  await p3.touchscreen.tap(d.x + d.w / 2, d.y + d.h / 2);
+  await attendre(150);
+  const j3 = await p3.evaluate(() => window.journal.splice(0));
+  test("★ colonne : un toucher ouvre l'écran", j3.join("|") === "choisir:dettes", j3.join("|"));
+  test("aucune erreur JavaScript (colonne)", err3.length === 0, err3.join(" | "));
+  await ctx3.close();
+}
+
 await nav.close();
 rmSync(dossier, { recursive: true, force: true });
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

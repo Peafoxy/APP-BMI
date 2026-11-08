@@ -15,7 +15,7 @@ import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancemen
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
 import { gererCarteFidelite } from "../components/carteFidelite";
-import { INTERFACE_BARRE, INTERFACE_ICONES, LIBELLES_INTERFACE, interfaceDe, interfaceImposee } from "../lib/pageIcones";
+import { INTERFACES, LIBELLES_INTERFACE, interfaceDe, interfaceImposee } from "../lib/pageIcones";
 import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, FormulaireRepliable, IconeWhatsApp, champRecherche, BoutonEnvoi } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
@@ -971,10 +971,10 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
     const frais = db.users.find((x) => x.id === u.id) || u;
     const avant = interfaceImposee(frais);
     const LIBRE = "🔓 Laisser la personne choisir";
-    const options = [LIBELLES_INTERFACE[INTERFACE_BARRE], LIBELLES_INTERFACE[INTERFACE_ICONES], LIBRE];
+    const options = [...INTERFACES.map((v) => LIBELLES_INTERFACE[v]), LIBRE];
     const choix = await uChoix(`🧭 Affichage de ${u.nom}\n\nActuellement : ${avant ? `${LIBELLES_INTERFACE[avant]} (fixé)` : `${LIBELLES_INTERFACE[interfaceDe(frais)]} (choisi par la personne)`}.\n\nFixer l'affichage l'empêche d'en changer.`, options);
     if (choix === null || choix === undefined) return;
-    const valeur = choix === LIBRE ? "" : [INTERFACE_BARRE, INTERFACE_ICONES].find((v) => LIBELLES_INTERFACE[v] === choix) || "";
+    const valeur = choix === LIBRE ? "" : INTERFACES.find((v) => LIBELLES_INTERFACE[v] === choix) || "";
     if (valeur === avant) return;
     save({ ...db, users: db.users.map((x) => (x.id === u.id ? { ...x, interface_imposee: valeur } : x)) },
       `Affichage de ${u.nom} : ${avant ? `fixé (${LIBELLES_INTERFACE[avant]})` : "libre"} → ${valeur ? `fixé (${LIBELLES_INTERFACE[valeur]})` : "libre"}`);

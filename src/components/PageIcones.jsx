@@ -35,6 +35,35 @@ export function LibelleOnglet(id, label) {
 // l'ordinateur comme avant (6 par rangée, centrées) ; seul le logo WhatsApp
 // passe de 34 à 32 px partout. Mesuré par
 // le banc (verifier-onglets-deplacables).
+// UNE tuile : l'icône sur son fond pâle, le nom dessous, le chiffre rouge.
+// Écrite une fois pour la page d'icônes ET la colonne d'icônes.
+export function TuileIcone({ id, label, petite = false }) {
+  const { icone, nom, nombre } = decomposerLibelle(label);
+  // Un mot trop long pour la largeur d'une icône se coupe à un endroit
+  // propre (trait d'union conditionnel), jamais au hasard des lettres.
+  const titre = nom.replace("Dimensionnement", "Dimension\u00ADnement");
+  return (
+    <>
+      <span className={petite ? "flex items-center justify-center w-11 h-11 text-[22px] rounded-xl leading-none shadow-md" : "flex items-center justify-center w-[54px] h-[54px] text-[27px] sm:w-14 sm:h-14 sm:text-[28px] rounded-2xl leading-none shadow-md"} style={{ backgroundColor: couleurIcone(id) }}>{id === "whatsapp" ? <IconeWhatsApp taille={petite ? 26 : 32} couleur="#ffffff" /> : (icone || "•")}</span>
+      <span lang="fr" className={petite ? "mt-1 w-full text-[10px] font-semibold leading-[1.15] text-white drop-shadow hyphens-auto [overflow-wrap:anywhere]" : "mt-1 sm:mt-1.5 w-full text-[10.5px] tracking-[-0.05em] sm:text-[11.5px] sm:tracking-normal font-semibold leading-[1.15] sm:leading-tight text-white drop-shadow hyphens-auto [overflow-wrap:anywhere]"}>{titre}</span>
+      {nombre > 0 && (
+        <span data-icone-nombre className={`absolute ${petite ? "top-0.5 left-[calc(50%+11px)]" : "top-0 left-[calc(50%+13px)] sm:left-[calc(50%+14px)]"} min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full ring-2 ring-white/70`}>{nombre}</span>
+      )}
+    </>
+  );
+}
+
+// 📌 LA COLONNE D'ICÔNES (08/11/2026) : les mêmes tuiles, les unes sous les
+// autres, l'écran ouvert encadré. Même ordre (appui long pour déplacer).
+export function ColonneIcones({ tabs, tab, onChoisir, onReordonner, className = "" }) {
+  return (
+    <OngletsDeplacables tabs={tabs} tab={tab} onChoisir={onChoisir} onReordonner={onReordonner} sens="vertical"
+      className={`flex flex-col items-stretch gap-1 overflow-y-auto px-1.5 py-2 ${className}`}
+      classeBouton={(id, actif) => `relative flex flex-col items-center text-center rounded-xl px-0.5 py-1.5 ${actif ? "bg-white/20 shadow-[inset_3px_0_0_#fff]" : "hover:bg-white/10"}`}
+      contenu={(id, label) => <TuileIcone id={id} label={label} petite />} />
+  );
+}
+
 export function PageIcones({ tabs, onChoisir, onReordonner, nom = "" }) {
   return (
     <div data-page-icones className="relative z-10 w-full py-2">
@@ -42,21 +71,7 @@ export function PageIcones({ tabs, onChoisir, onReordonner, nom = "" }) {
       <OngletsDeplacables tabs={tabs} tab={null} onChoisir={onChoisir} onReordonner={onReordonner} sens="grille"
         className="grid grid-cols-5 gap-x-1 gap-y-1 sm:grid-cols-6 sm:gap-x-5 sm:gap-y-6 sm:max-w-[640px] sm:mx-auto"
         classeBouton={() => "relative flex flex-col items-center text-center rounded-2xl px-0 py-0 sm:px-0.5 sm:py-1 hover:bg-white/10"}
-        contenu={(id, label) => {
-          const { icone, nom, nombre } = decomposerLibelle(label);
-          // Un mot trop long pour la largeur d'une icône se coupe à un endroit
-          // propre (trait d'union conditionnel), jamais au hasard des lettres.
-          const titre = nom.replace("Dimensionnement", "Dimension\u00ADnement");
-          return (
-            <>
-              <span className="flex items-center justify-center w-[54px] h-[54px] text-[27px] sm:w-14 sm:h-14 sm:text-[28px] rounded-2xl leading-none shadow-md" style={{ backgroundColor: couleurIcone(id) }}>{id === "whatsapp" ? <IconeWhatsApp taille={32} couleur="#ffffff" /> : (icone || "•")}</span>
-              <span lang="fr" className="mt-1 sm:mt-1.5 w-full text-[10.5px] tracking-[-0.05em] sm:text-[11.5px] sm:tracking-normal font-semibold leading-[1.15] sm:leading-tight text-white drop-shadow hyphens-auto [overflow-wrap:anywhere]">{titre}</span>
-              {nombre > 0 && (
-                <span data-icone-nombre className="absolute top-0 left-[calc(50%+13px)] sm:left-[calc(50%+14px)] min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[10px] font-bold text-white bg-red-600 rounded-full ring-2 ring-white/70">{nombre}</span>
-              )}
-            </>
-          );
-        }} />
+        contenu={(id, label) => <TuileIcone id={id} label={label} />} />
     </div>
   );
 }
