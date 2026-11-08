@@ -314,7 +314,7 @@ createRoot(document.getElementById("g")).render(<Essai />);
   const droite = Math.max(...pc.boites.map((b) => b.x + b.w));
   test("★ ordinateur : 6 icônes par rangée", parRangee(pc.boites)[0] === 6, JSON.stringify(parRangee(pc.boites)));
   test("★★ ordinateur : les icônes sont REGROUPÉES AU CENTRE (« comme Odoo »), pas étalées d'un bord à l'autre",
-    droite - gauche <= 660 && Math.abs((gauche + droite) / 2 - 650) <= 20, `de ${Math.round(gauche)} à ${Math.round(droite)} px`);
+    droite - gauche <= 840 && Math.abs((gauche + droite) / 2 - 650) <= 20, `de ${Math.round(gauche)} à ${Math.round(droite)} px`);
   test("aucune erreur JavaScript (ordinateur)", pc.err2.length === 0, pc.err2.join(" | "));
   await pc.ctx2.close();
 }

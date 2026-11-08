@@ -57,6 +57,28 @@ const COULEURS = {
 export const COULEUR_ICONE_DEFAUT = "#e2e8f0";
 export const couleurIcone = (id) => COULEURS[id] || COULEUR_ICONE_DEFAUT;
 
+// 🎨 08/11/2026 (Timo, une image de la page « Bonjour TIMO » : « reprendre
+// exactement les icônes que je t'ai envoyées », « 1c (même taille que les
+// emoji) », « 2b ») : chaque onglet a SON dessin, découpé au pixel près dans
+// son image (public/icones-onglets/<id>.png, fond transparent). Un onglet que
+// son image ne montre pas reprend le dessin d'un onglet voisin s'il est le
+// même (mes contrats = contrats…) ; sinon il garde son emoji.
+// ⚠ Un dessin CHANGÉ se livre sous un NOUVEAU dossier (-v2…) : le navigateur
+// garde l'image qu'il a déjà.
+export const DOSSIER_ICONES = "/icones-onglets";
+const IMAGES_ICONES = [
+  "whatsapp", "dashboard", "rentabilite", "caisse", "ventes", "depenses",
+  "dettes", "stocks", "contrats", "dimensionnement", "tous_devis", "commandes",
+  "chez_comptable", "clients", "parc", "fournisseurs", "salaires", "commerciaux",
+  "equipe", "prospects", "messages", "travaux", "outillage", "rendez_vous",
+  "users", "parametres", "historique",
+];
+const MEME_DESSIN = { mes_contrats: "contrats", salaire: "salaires", commande: "ventes" };
+export function imageIcone(id) {
+  const vrai = IMAGES_ICONES.includes(id) ? id : MEME_DESSIN[id];
+  return vrai ? `${DOSSIER_ICONES}/${vrai}.png` : "";
+}
+
 // ---- 🧭 LE CHOIX DE L'AFFICHAGE (Timo, 06/11/2026 : « je préfère que ça
 // soit un choix pour les utilisateurs… il choisit la première interface ou
 // celle-ci » → « 1b, 2b ») ----
