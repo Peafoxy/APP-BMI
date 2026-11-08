@@ -16162,9 +16162,10 @@ titre("🏗 La caisse CHANTIER (08/10/2026, « lance l'étape 1, clôture facult
   test("★ la même version relue (la marge de dix minutes) ne réécrit rien ; une ligne absente est prise",
     VD.prendreVersionServeur({ id: "v43", updated_at: "2026-10-06T15:00:00Z" }, serveur, false) === false && VD.prendreVersionServeur(null, serveur, false) === true);
   const sy = readFileSync("src/sync.js", "utf8");
-  const corpsTable = sy.slice(sy.indexOf("async function synchroniserTable"), sy.indexOf("async function synchroniserTable") + 1500);
+  const corpsTable = sy.slice(sy.indexOf("async function synchroniserTable"), sy.indexOf("async function synchroniserTable") + 3200);
   test("★★ src/sync.js lit les tables par LA règle (prendreVersionServeur + horodatee), sans comparer data.updated_at",
-    /prendreVersionServeur\(local, ligne, enAttente\.has/.test(corpsTable) && /put\(horodatee\(ligne\)\)/.test(corpsTable) && !/ligne\.data\?\.updated_at/.test(corpsTable));
+    // RETOURNÉ le 08/11/2026 (« c ») : la copie locale vient de la lecture groupée, le rangement est groupé.
+    /prendreVersionServeur\(locaux\.get\(ligne\.id\), ligne, enAttente\.has/.test(corpsTable) && /aRanger\.push\(horodatee\(ligne\)\)/.test(corpsTable) && !/ligne\.data\?\.updated_at/.test(corpsTable));
   // 📉 04/11/2026 (Supabase : « Egress Exceeded ») : l'étiquette d'abord.
   const et = { id: "v43", updated_at: "2026-10-06T15:00:00Z" };
   test("★★ 📉 une ligne déjà connue, même version, n'est PAS retéléchargée ; absente ou changée, si ; en attente d'envoi, non (sauf absente)",
@@ -16203,7 +16204,36 @@ titre("🏗 La caisse CHANTIER (08/10/2026, « lance l'étape 1, clôture facult
   test("★★ « Se déconnecter » ferme AUSSI la session sécurisée (oublierSession)",
     /await oublierSession\(\)/.test(corpsDeco));
   test("★★ le miroir de la connexion n'efface rien si la session n'est pas celle de la personne qui entre",
-    /if \(await sessionDuCompteConnecte\(\)\) await reconcilierMiroir\(\)/.test(app) && (app.match(/reconcilierMiroir\(\)/g) || []).length === 1);
+    // RETOURNÉ le 08/11/2026 : son résultat est gardé (la note du compte synchronisé en dépend).
+    /if \(await sessionDuCompteConnecte\(\)\) miroir = await reconcilierMiroir\(\)/.test(app) && (app.match(/reconcilierMiroir\(\)/g) || []).length === 1);
+  // ⚡ LA CONNEXION NE REPART PLUS DE ZÉRO, LE MIROIR EN PARALLÈLE, LA COMPARAISON GROUPÉE (Timo, 08/11/2026, « a+b+c lance »).
+  {
+    const VD = await import(pathToFileURL("src/lib/versionDistante.js").href);
+    const u = { id: "u1", role: "vendeur", boutique: "APESSITO", droits_off: ["b", "a"] };
+    const sig = VD.signatureCompteSynchro(u);
+    test("★★ ⚡ « a » : même compte, mêmes droits → la connexion ne repart PAS de zéro ; rien de noté, un autre compte, un autre rôle, une autre boutique, l'espace, le principal, les pouvoirs, un blocage → elle repart de zéro",
+      VD.faitRepartirDeZero(sig, { ...u, droits_off: ["a", "b"] }) === false
+      && VD.faitRepartirDeZero("", u) && VD.faitRepartirDeZero(sig, { ...u, id: "u2" }) && VD.faitRepartirDeZero(sig, { ...u, role: "gerant" })
+      && VD.faitRepartirDeZero(sig, { ...u, boutique: "DEMAKPOE" }) && VD.faitRepartirDeZero(sig, { ...u, formation: true })
+      && VD.faitRepartirDeZero(sig, { ...u, admin_principal: true }) && VD.faitRepartirDeZero(sig, { ...u, droits_off: ["a"] })
+      && VD.faitRepartirDeZero(sig, { ...u, bloque: true }) && VD.faitRepartirDeZero(sig, { ...u, actif: false }));
+    test("★★ ⚡ un SQL qui élargit la lecture se rattrape : le numéro des règles de lecture est DANS la signature",
+      VD.signatureCompteSynchro(u).startsWith(`[${VD.REGLES_LECTURE_SERVEUR},`) && Number.isInteger(VD.REGLES_LECTURE_SERVEUR));
+    const corpsCnx = app.slice(app.indexOf("setSyncInitiale(true);"), app.indexOf("setSyncInitiale(false);"));
+    test("★★ ⚡ la connexion repart de zéro SEULEMENT si la signature diffère, efface la note AVANT, et ne la pose qu'après un miroir RÉUSSI",
+      /faitRepartirDeZero\(await compteSynchroNote\(\), u\)\) \{\s*await oublierCompteSynchro\(\);\s*await forcerResynchronisation\(\);/.test(corpsCnx)
+      && /if \(miroir && miroir\.fait\) await noterCompteSynchro\(u\)/.test(corpsCnx)
+      && corpsCnx.indexOf("reconcilierMiroir()") < corpsCnx.indexOf("noterCompteSynchro(u)"));
+    const sy = readFileSync("src/sync.js", "utf8");
+    const corpsMiroir = sy.slice(sy.indexOf("export async function reconcilierMiroirAvec"), sy.indexOf("async function listerIdsSupabase"));
+    test("★★ ⚡ « b » : le miroir lit les listes du serveur cinq tables à la fois, TOUT avant d'effacer (une lecture ratée = rien d'effacé), et revérifie la file avant d'effacer",
+      /Promise\.all\(lot\.map\(\(t\) => listerIdsServeur\(t\)\)\)/.test(corpsMiroir)
+      && corpsMiroir.indexOf('raison: "lecture"') < corpsMiroir.indexOf("bulkDelete")
+      && (corpsMiroir.match(/compterEnAttente\(\)/g) || []).length === 2 && !/\.delete\(l\.id\)/.test(corpsMiroir));
+    test("★ ⚡ « c » : la copie de l'appareil se lit et se range en une fois (bulkGet / bulkPut), plus ligne par ligne",
+      /await idb\.table\(t\)\.bulkGet\(etiquettes\.map/.test(sy) && /await idb\.table\(t\)\.bulkPut\(aRanger\)/.test(sy)
+      && !/locaux\.set\(e\.id, await idb\.table\(t\)\.get\(e\.id\)\)/.test(sy) && !/const local = await idb\.table\(t\)\.get\(ligne\.id\)/.test(sy));
+  }
   test("★ au retour (F5), une session étrangère se ferme avant la première lecture, et tout se relit",
     /if \(await fermerSessionEtrangere\(u\.id\)\) \{ try \{ await forcerResynchronisation\(\); \} catch \{\} \}\s*setProfile\(u\)/.test(app));
 }

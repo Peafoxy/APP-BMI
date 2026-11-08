@@ -59,3 +59,26 @@ export const horodatee = (ligne) => ({ ...ligne.data, updated_at: versionServeur
 // La relecture complète qui rattrape ce que l'ancienne règle a laissé passer :
 // faite UNE fois par appareil (marque dans la base locale).
 export const CLE_RELECTURE_HORLOGE = "relecture_horloge_2026_10_07";
+
+// ---- ⚡ LA CONNEXION NE REPART PLUS DE ZÉRO (Timo, 08/11/2026, « a+b+c lance ») ----
+// Avant, CHAQUE connexion remettait tous les curseurs au 01/01/1970 : toute la
+// base était redemandée, puis comparée ligne par ligne — la bande bleue
+// « ⏳ Synchronisation » durait. Désormais on ne repart de zéro que si ce qui
+// décide de ce que le serveur laisse voir a CHANGÉ depuis la dernière
+// connexion réussie sur cet appareil : un autre compte, un rôle, une
+// boutique, l'espace, le statut de principal, les pouvoirs retirés, un compte
+// bloqué / réactivé (le jeton du serveur est réécrit à la connexion,
+// api/sync-auth.js). Même signature → seulement ce qui a changé. Le miroir
+// (effacer ce que le serveur ne montre plus) reste fait à CHAQUE connexion.
+export const CLE_COMPTE_SYNCHRO = "compte_synchronise";
+// ⚠ Un SQL qui ÉLARGIT ce qu'un compte voit (une politique de lecture ouverte
+// à plus de lignes) ne change pas le compte : sans ce numéro, les anciennes
+// lignes devenues visibles n'arriveraient jamais. On l'AUGMENTE d'un dans le
+// même envoi que ce SQL : chaque appareil repart alors de zéro une fois.
+export const REGLES_LECTURE_SERVEUR = 1;
+export const signatureCompteSynchro = (u) => (u ? JSON.stringify([
+  REGLES_LECTURE_SERVEUR, u.id || "", u.role || "", u.boutique || "", !!u.formation, u.admin_principal === true,
+  [...(u.droits_off || [])].map(String).sort(), u.actif !== false, !!u.bloque,
+]) : "");
+// Faut-il tout redemander ? Oui si rien n'est noté, ou si la signature diffère.
+export const faitRepartirDeZero = (noteeSurAppareil, u) => !noteeSurAppareil || noteeSurAppareil !== signatureCompteSynchro(u);

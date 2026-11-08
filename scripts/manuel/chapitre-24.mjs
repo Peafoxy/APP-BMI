@@ -56,7 +56,7 @@ export const CHAPITRE = {
         ["La bande orange tout en haut", "« ⚠ Votre session sécurisée a expiré. Vos saisies restent sur cet appareil. » et **Rétablir**."],
         ["Le bouton de déconnexion", "« 📤 N à envoyer — se déconnecter » quand il reste des envois."],
         ["Une fenêtre au centre", "« 🔄 Nouvelle version disponible » et **🔄 Recharger maintenant**."],
-        ["La bande bleue au démarrage", "« ⏳ Synchronisation avec le serveur — les données arrivent… »"],
+        ["La bande bleue au démarrage", "« ⏳ Synchronisation avec le serveur — les données arrivent… ». Elle est longue la première fois qu'un compte se connecte sur un appareil (tout est téléchargé), ou quand ce compte a changé de rôle, de boutique ou de pouvoirs ; ensuite, seulement ce qui a changé depuis la dernière fois : elle passe vite."],
       ]}],
     ]},
 

@@ -82,9 +82,10 @@ import {
   ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, envoyerIdentifiantsWhatsApp,
   fabriquerCompteClient, messagesNouveauClient, motDePasseConnu,
 } from "./lib/comptesClients";
-import { TABLES, initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite,
+import { TABLES, initialiserDonnees, amorcerSiVide, chargerTout, sauvegarderDiff, joursDepuisSauvegarde, marquerSauvegarde, forcerResynchronisation, autoResyncDejaFaite, marquerAutoResyncFaite, compteSynchroNote, noterCompteSynchro, oublierCompteSynchro,
   memoriserDossier, lireDossier, oublierDossier, marquerSauvegardeAuto, heuresDepuisSauvegardeAuto, viderLocal, compterEnAttente, majComptesSecours, lireComptesSecours } from "./db";
 import { rebaser } from "./lib/rebase";
+import { faitRepartirDeZero } from "./lib/versionDistante";
 import { demarrerSync, arreterSync, synchroniser, synchroniserOuverture, reinitialiserDistant, reconcilierMiroir, abandonnerGesteRefuse } from "./sync";
 import { planAbandon, resumeAbandon } from "./lib/abandonLot";
 import { idb } from "./db";
@@ -1128,14 +1129,24 @@ export default function App() {
       // et rien n'est supprimé. S'il reste des opérations à envoyer, elles
       // partent d'abord ; le miroir attendra qu'elles soient toutes parties.
       setSyncInitiale(true);
+      // ⚡ 08/11/2026 (Timo, « a+b+c lance ») : on ne repart de zéro que si le
+      // compte (ou ce qui décide de ce que le serveur lui montre) a changé
+      // depuis la dernière connexion réussie sur CET appareil — sinon,
+      // seulement ce qui a changé. lib/versionDistante.js.
       try {
-        if ((await compterEnAttente()) === 0) await forcerResynchronisation();
+        if ((await compterEnAttente()) === 0 && faitRepartirDeZero(await compteSynchroNote(), u)) {
+          await oublierCompteSynchro();
+          await forcerResynchronisation();
+        }
       } catch {}
       try { await synchroniserOuverture(); } catch {}
       // ⚠ 07/10/2026 : le miroir n'efface RIEN si la session n'est pas celle
       // de la personne qui vient d'entrer — avec les droits d'un autre, il
       // effaçait tout ce que cet autre ne voit pas.
-      try { if (await sessionDuCompteConnecte()) await reconcilierMiroir(); } catch {}
+      let miroir = null;
+      try { if (await sessionDuCompteConnecte()) miroir = await reconcilierMiroir(); } catch {}
+      // La note n'est posée qu'après un miroir RÉUSSI (file vide, tout lu).
+      try { if (miroir && miroir.fait) await noterCompteSynchro(u); } catch {}
       setDb(await chargerEtReparer());
       majComptesSecours().then(() => lireComptesSecours().then(setSecours)).catch(() => {});
       setSyncInitiale(false);

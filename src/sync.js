@@ -782,21 +782,29 @@ export async function synchroniser(options = {}) {
           const etiquettes = await lireEtiquettes(t, depuis);
           for (const e of etiquettes) if (e.updated_at > maxVu) maxVu = e.updated_at;
           const locaux = new Map();
-          for (const e of etiquettes) locaux.set(e.id, await idb.table(t).get(e.id));
+          // ⚡ 08/11/2026 (« c ») : la copie de l'appareil lue en UNE fois,
+          // plus ligne par ligne (lent sur un téléphone modeste).
+          const lusIci = etiquettes.length ? await idb.table(t).bulkGet(etiquettes.map((e) => e.id)) : [];
+          etiquettes.forEach((e, k) => locaux.set(e.id, lusIci[k]));
           const aLire = etiquettes.filter((e) => fautTelecharger(locaux.get(e.id), e, enAttente.has(`${t}:${e.id}`))).map((e) => e.id);
           const lignes = !aLire.length ? []
             : aLire.length > SEUIL_LECTURE_DIRECTE ? await lireTout(t, "updated_at", depuis)
             : await lireParIds(t, aLire);
+          // Les lignes lues d'un bloc (au-delà de 200) n'ont pas toutes été
+          // regardées sur l'appareil : on complète, toujours en une fois.
+          const manquantes = lignes.filter((l) => !locaux.has(l.id)).map((l) => l.id);
+          if (manquantes.length) {
+            const lus = await idb.table(t).bulkGet(manquantes);
+            manquantes.forEach((id, k) => locaux.set(id, lus[k]));
+          }
+          const aRanger = [];
           for (const ligne of lignes) {
-            const local = await idb.table(t).get(ligne.id);
             // La version du serveur l'emporte dès qu'elle diffère, sauf si une
             // modification locale attend encore de partir : l'envoi la fusionnera.
-            if (prendreVersionServeur(local, ligne, enAttente.has(`${t}:${ligne.id}`))) {
-              await idb.table(t).put(horodatee(ligne));
-              recuQuelqueChose = true;
-            }
+            if (prendreVersionServeur(locaux.get(ligne.id), ligne, enAttente.has(`${t}:${ligne.id}`))) aRanger.push(horodatee(ligne));
             if (ligne.updated_at > maxVu) maxVu = ligne.updated_at;
           }
+          if (aRanger.length) { await idb.table(t).bulkPut(aRanger); recuQuelqueChose = true; }
           // Le curseur de CETTE table n'avance que si CETTE table a réussi.
           await idb.meta.put({ cle, valeur: maxVu });
           await idb.meta.delete(cleTableAbsente(t));
@@ -944,13 +952,25 @@ export async function reinitialiserDistant() {
 export async function reconcilierMiroirAvec(listerIdsServeur) {
   if ((await compterEnAttente()) > 0) return { fait: false, raison: "outbox" };
   let supprimees = 0;
-  for (const table of TABLES) {
-    const ids = await listerIdsServeur(table);
-    if (ids === null) return { fait: false, raison: "lecture", table }; // erreur : on s'arrête sans rien toucher de plus
-    const locaux = await idb.table(table).toArray();
-    for (const l of locaux) {
-      if (!ids.has(l.id)) { await idb.table(table).delete(l.id); supprimees++; }
+  // ⚡ 08/11/2026 (« b ») : les listes du serveur se demandent cinq tables à
+  // la fois (avant : une après l'autre). ET on lit TOUT avant d'effacer quoi
+  // que ce soit : une seule lecture ratée, et rien n'est touché.
+  const listes = new Map();
+  const PAR_LOT = 5;
+  for (let i = 0; i < TABLES.length; i += PAR_LOT) {
+    const lot = TABLES.slice(i, i + PAR_LOT);
+    const lus = await Promise.all(lot.map((t) => listerIdsServeur(t)));
+    for (let k = 0; k < lot.length; k++) {
+      if (lus[k] === null) return { fait: false, raison: "lecture", table: lot[k] }; // erreur : on s'arrête sans rien toucher
+      listes.set(lot[k], lus[k]);
     }
+  }
+  // La file a pu se remplir pendant la lecture : on revérifie avant d'effacer.
+  if ((await compterEnAttente()) > 0) return { fait: false, raison: "outbox" };
+  for (const table of TABLES) {
+    const ids = listes.get(table);
+    const aEffacer = (await idb.table(table).toCollection().primaryKeys()).filter((id) => !ids.has(id));
+    if (aEffacer.length) { await idb.table(table).bulkDelete(aEffacer); supprimees += aEffacer.length; }
   }
   return { fait: true, supprimees };
 }

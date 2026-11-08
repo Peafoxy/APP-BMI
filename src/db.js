@@ -1,6 +1,7 @@
 import Dexie from "dexie";
 import { fusionnerPaie, separerPaie } from "./lib/paie";
 import { separerCorbeille, fusionnerCorbeille } from "./lib/corbeille";
+import { CLE_COMPTE_SYNCHRO, signatureCompteSynchro } from "./lib/versionDistante";
 
 // Tables synchronisées avec Supabase
 const TABLES_V1 = [
@@ -270,6 +271,22 @@ export async function marquerSauvegarde() {
 // FOIS par machine (au premier démarrage après cette mise à jour), pour
 // rattraper les données créées avant la mise en place de Supabase — puis
 // plus jamais, afin de ne pas ralentir les démarrages suivants.
+// ⚡ 08/11/2026 : la signature du dernier compte entièrement synchronisé sur
+// cet appareil (lib/versionDistante.js) — la connexion ne repart de zéro que
+// si elle change.
+export async function compteSynchroNote() {
+  const m = await idb.meta.get(CLE_COMPTE_SYNCHRO);
+  return m ? m.valeur : "";
+}
+export async function noterCompteSynchro(u) {
+  await idb.meta.put({ cle: CLE_COMPTE_SYNCHRO, valeur: signatureCompteSynchro(u) });
+}
+// Repartir de zéro efface la note : si la lecture complète est coupée en route,
+// la connexion suivante la refait.
+export async function oublierCompteSynchro() {
+  await idb.meta.delete(CLE_COMPTE_SYNCHRO);
+}
+
 export async function autoResyncDejaFaite() {
   const m = await idb.meta.get("auto_resync_v1");
   return !!m;

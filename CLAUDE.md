@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2936 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2941 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -10675,6 +10675,20 @@ lit mal est pire qu'un banc absent).
   au-delà de `SEUIL_LECTURE_DIRECTE` (200) on relit d'un bloc comme avant. La
   marge reste. Rien à coller. Banc (+2), éprouvé. **Toute nouvelle lecture
   périodique passe par l'étiquette d'abord.**
+- ⚡ **LA CONNEXION NE REPART PLUS DE ZÉRO** (08/11/2026, « pourquoi la synchronisation
+  prend le temps… celle à l'ouverture » → « a+b+c lance »). Avant, chaque connexion
+  remettait les curseurs à 1970 (toute la base redemandée et comparée ligne par
+  ligne), puis le miroir relisait les identifiants table après table. **« a »** :
+  `faitRepartirDeZero` / `signatureCompteSynchro` (lib/versionDistante.js : id, rôle,
+  boutique, formation, principal, pouvoirs retirés, actif, bloqué, et
+  **`REGLES_LECTURE_SERVEUR`**) — la note (`compteSynchroNote`, db.js) n'est posée
+  qu'après un miroir RÉUSSI, effacée avant de repartir de zéro. ⚠⚠ **Un SQL qui
+  ÉLARGIT ce qu'un compte peut lire → augmenter `REGLES_LECTURE_SERVEUR` d'un dans
+  le même envoi**, sinon les anciennes lignes devenues visibles n'arrivent jamais.
+  **« b »** : le miroir lit les listes cinq tables à la fois, TOUT avant d'effacer,
+  revérifie la file. **« c »** : `bulkGet` / `bulkPut`. Le miroir reste à chaque
+  connexion. Rien à coller. Banc (+5, un RETOURNÉ, le geste « a » éprouvé) ; le vrai
+  miroir joué sur une base d'appareil simulée (fake-indexeddb). Chapitre 24.
 - **`src/lib/identiteClient.js` ne doit rien importer** (lu par Node aussi).
 - **Un banc Chromium écrit sa page AVEC `<meta charset="utf-8">`** : sans
   lui, le « × » d'une expression régulière du bundle est lu en deux
