@@ -149,7 +149,7 @@ export const CHAPITRE = {
       ["ul", [
         "**🎉 Écran de connexion** : texte du bandeau, couleurs, transparence des cadres, ciel étoilé, bulles, messages qui montent (6 au plus), anniversaires du jour, image de fond. **↺ Revenir à l'écran normal**.",
         "**🔒 Fenêtre de verrouillage** : couleur et transparence de sa carte.",
-        "**🔲 Fond de la page d'icônes** : une couleur au choix, qui remplace la photo du verrou sur la page d'icônes et le fond bleu nuit de la colonne d'icônes, pour tout le monde ; les noms passent en blanc ou en foncé selon la couleur. « ↺ Reprendre la photo du verrou » revient à l'ancien fond.",
+        "**🔲 Fond de la page d'icônes** : une couleur au choix, qui remplace le fond bleu aux vagues claires de la page d'icônes et de la colonne d'icônes, pour tout le monde ; les noms passent en blanc ou en foncé selon la couleur. « ↺ Reprendre le fond bleu » revient au fond d'origine.",
         "**🏷️ Cachet BMI Togo** : un seul cachet, posé sur tous les contrats et devis.",
       ]],
 

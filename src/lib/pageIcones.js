@@ -60,12 +60,18 @@ export const couleurIcone = (id) => COULEURS[id] || COULEUR_ICONE_DEFAUT;
 // 🎨 08/11/2026 (Timo, une image de la page « Bonjour TIMO » : « reprendre
 // exactement les icônes que je t'ai envoyées », « 1c (même taille que les
 // emoji) », « 2b ») : chaque onglet a SON dessin, découpé au pixel près dans
-// son image (public/icones-onglets-v2/<id>.png, fond transparent ; v2 = la version HD, « A », 08/11/2026). Un onglet que
+// son image (public/icones-onglets-v3/<id>.png, fond transparent ; v2 = la version HD, « A » ;
+// v3 = les icônes 3D brillantes de sa seconde image sur fond bleu, « reprendre exactement ces
+// icônes avec le fond d'écran sans rien changer », 08/11/2026). Un onglet que
 // son image ne montre pas reprend le dessin d'un onglet voisin s'il est le
 // même (mes contrats = contrats…) ; sinon il garde son emoji.
 // ⚠ Un dessin CHANGÉ se livre sous un NOUVEAU dossier (-v2…) : le navigateur
 // garde l'image qu'il a déjà.
-export const DOSSIER_ICONES = "/icones-onglets-v2";
+export const DOSSIER_ICONES = "/icones-onglets-v3";
+// Le fond de SON image (dégradé bleu nuit et ses deux vagues claires), icônes, noms et titre
+// retirés : celui de la page d'icônes et de la colonne tant qu'aucune couleur n'est réglée.
+// ⚠ Un fond CHANGÉ se livre sous un NOUVEAU nom (-v2…), comme les dessins.
+export const FOND_ICONES = "/fond-icones-v1.jpg";
 const IMAGES_ICONES = [
   "whatsapp", "dashboard", "rentabilite", "caisse", "ventes", "depenses",
   "dettes", "stocks", "contrats", "dimensionnement", "tous_devis", "commandes",

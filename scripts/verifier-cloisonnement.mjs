@@ -8046,11 +8046,16 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     // Timo (06/11/2026) : « fond des onglets bleu… j'avais dit de reprendre le fond d'écran de la page de session verrouillée ».
     // ⚠ RETOURNÉ le 08/11/2026 (« remplacer le fond des icônes en couleur modifiable dans les paramètres » →
     // « 1a, 2a, 3 ») : SANS couleur réglée, la photo du verrou reste ; une couleur réglée la REMPLACE.
-    test("★★ la page d'icônes pose l'image du verrou tant qu'aucune couleur n'est réglée (pleinEcran comme EcranVerrou) ; une couleur la remplace",
-      /const decorIcones = \{ \.\.\.decorBaseIcones, pleinEcran: !!decorBaseIcones\.accueilImage \};/.test(appOo)
-      && /const fondPageIcones = couleurIcones \? \{ classe: "", style: \{ backgroundColor: couleurIcones \} \} : fondAccueil\(decorIcones, \{ voile: true \}\);/.test(appOo)
+    // ⚠ RETOURNÉ une seconde fois le 08/11/2026 (Timo, son image bleue « Bonjour TIMO » : « reprendre exactement
+    // ces icônes avec le fond d'écran sans rien changer ») : sans couleur, le fond de SON image (FOND_ICONES),
+    // plus la photo du verrou — page ET colonne ; une couleur réglée le remplace toujours.
+    test("★★ la page d'icônes et la colonne posent le fond de l'image de Timo (fond-icones-v1.jpg) tant qu'aucune couleur n'est réglée ; une couleur le remplace ; plus la photo du verrou",
+      Pi.FOND_ICONES === "/fond-icones-v1.jpg" && existsSync("public/fond-icones-v1.jpg")
+      && /const imageFondIcones = \{ backgroundImage: `url\(\$\{FOND_ICONES\}\)`/.test(appOo)
+      && /const fondPageIcones = couleurIcones \? \{ classe: "", style: \{ backgroundColor: couleurIcones \} \} : \{ classe: "bg-cover bg-center bg-fixed", style: imageFondIcones \};/.test(appOo)
+      && /const styleColonneIcones = couleurIcones \? \{ backgroundColor: couleurIcones \} : imageFondIcones;/.test(appOo)
       && /style=\{surAccueil \? fondPageIcones\.style : undefined\}/.test(appOo)
-      && /const decor = \{ \.\.\.decorBase, pleinEcran: !!decorBase\.accueilImage \};/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8")));
+      && !/decorIcones|fondAccueil/.test(appOo));
     // 🎨 08/11/2026 : la couleur du fond des icônes, réglée par le principal seul, la même pour tous ; la colonne suit.
     test("★★ 🎨 couleurFondIcones : la première couleur lisible des boutiques, vide sinon ; un texte BLANC sur une couleur sombre, FONCÉ sur une claire",
       Pi.couleurFondIcones([{ icones_couleur_fond: "" }, { icones_couleur_fond: "#1E3A8A" }]) === "#1e3a8a"
@@ -8075,7 +8080,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     // WhatsApp prend SON dessin (le logo vert découpé de l'image) comme les autres onglets ; le logo
     // dessiné (IconeWhatsApp) ne reste qu'en repli si l'image manquait. LibelleOnglet reste écrit UNE fois.
     test("★★ le VRAI logo de WhatsApp : le dessin de l'image de Timo, sur la page d'icônes, la colonne et les deux barres d'onglets (LibelleOnglet, écrit une fois)",
-      Pi.imageIcone("whatsapp") === "/icones-onglets-v2/whatsapp.png" && existsSync("public/icones-onglets-v2/whatsapp.png")
+      Pi.imageIcone("whatsapp") === "/icones-onglets-v3/whatsapp.png" && existsSync("public/icones-onglets-v3/whatsapp.png")
       && /if \(id === "whatsapp"\) return <IconeWhatsApp/.test(piW)
       && /export function LibelleOnglet\(id, label\)/.test(piW) && (appOo.match(/contenu=\{LibelleOnglet\}/g) || []).length === 2
       && /<path fill=\{couleur\} d="M17\.472/.test(readFileSync("src/components/ui.jsx", "utf8")));
@@ -8083,17 +8088,19 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     // emoji) », « 2b » (le fond du verrou), puis « enlever le fond carré des icônes » → « a ».
     {
       const ids27 = ["whatsapp","dashboard","rentabilite","caisse","ventes","depenses","dettes","stocks","contrats","dimensionnement","tous_devis","commandes","chez_comptable","clients","parc","fournisseurs","salaires","commerciaux","equipe","prospects","messages","travaux","outillage","rendez_vous","users","parametres","historique"];
-      test("★★ 🎨 les 27 dessins de l'image de Timo : chaque onglet a SON fichier (public/icones-onglets-v2, la version HD « A » du 08/11/2026), trois onglets reprennent un dessin voisin (mes contrats, mon salaire, nouvelle commande), les autres gardent leur emoji",
-        ids27.every((id) => Pi.imageIcone(id) === `/icones-onglets-v2/${id}.png` && existsSync(`public/icones-onglets-v2/${id}.png`))
-        && Pi.imageIcone("mes_contrats") === "/icones-onglets-v2/contrats.png" && Pi.imageIcone("salaire") === "/icones-onglets-v2/salaires.png"
-        && Pi.imageIcone("commande") === "/icones-onglets-v2/ventes.png" && Pi.imageIcone("taches") === "" && Pi.imageIcone("inconnu") === ""
-        && readdirSync("public/icones-onglets-v2").filter((f) => f.endsWith(".png")).length === 27);
+      test("★★ 🎨 les 27 dessins de l'image de Timo : chaque onglet a SON fichier (public/icones-onglets-v3, les icônes 3D de sa seconde image, 08/11/2026), trois onglets reprennent un dessin voisin (mes contrats, mon salaire, nouvelle commande), les autres gardent leur emoji",
+        ids27.every((id) => Pi.imageIcone(id) === `/icones-onglets-v3/${id}.png` && existsSync(`public/icones-onglets-v3/${id}.png`))
+        && Pi.imageIcone("mes_contrats") === "/icones-onglets-v3/contrats.png" && Pi.imageIcone("salaire") === "/icones-onglets-v3/salaires.png"
+        && Pi.imageIcone("commande") === "/icones-onglets-v3/ventes.png" && Pi.imageIcone("taches") === "" && Pi.imageIcone("inconnu") === ""
+        && readdirSync("public/icones-onglets-v3").filter((f) => f.endsWith(".png")).length === 27);
       // 🎨 08/11/2026 (« HD et 3D » → aperçus → « A ») : les dessins redessinés plus nets, 192 px
       // (largeur lue dans l'en-tête PNG), livrés sous un NOUVEAU dossier — l'ancien est retiré, sinon le
       // navigateur garderait les petites images.
-      test("★★ 🎨 « A » : les 27 dessins en HD (192 px au moins), sous icones-onglets-v2, l'ancien dossier retiré",
-        ids27.every((id) => { const t = readFileSync(`public/icones-onglets-v2/${id}.png`); return t.readUInt32BE(16) >= 192 && t.readUInt32BE(20) >= 192; })
-        && !existsSync("public/icones-onglets"));
+      // RETOURNÉ le 08/11/2026 au soir : les icônes 3D de sa seconde image (v3) remplacent la HD « A » (v2) ;
+      // les anciens dossiers sont retirés (sinon le navigateur garderait les anciennes images).
+      test("★★ 🎨 les 27 dessins 3D (192 px au moins), sous icones-onglets-v3, les anciens dossiers (v1, v2) retirés",
+        ids27.every((id) => { const t = readFileSync(`public/icones-onglets-v3/${id}.png`); return t.readUInt32BE(16) >= 192 && t.readUInt32BE(20) >= 192; })
+        && !existsSync("public/icones-onglets") && !existsSync("public/icones-onglets-v2"));
       const tuile = piW.slice(piW.indexOf("export function TuileIcone"), piW.indexOf("export function ColonneIcones"));
       const barre = piW.slice(piW.indexOf("export function LibelleOnglet"), piW.indexOf("export function TuileIcone"));
       test("★★ 🎨 « enlever le fond carré » (« a ») : ni carte blanche, ni carré pâle, ni ombre derrière le dessin — dans la tuile ET dans la barre ; le nom en blanc ; le dessin à la taille de l'emoji dans la barre (« 1c ») ; le trait bleu sous le salut",

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Login, decorAccueil, fondAccueil } from "./screens/Connexion";
+import { Login } from "./screens/Connexion";
 import { PageIcones, LibelleOnglet, ColonneIcones } from "./components/PageIcones";
-import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, INTERFACE_COLONNE, INTERFACES, aQuelqueChoseEnAttente, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface, couleurFondIcones, texteClairSurIcones } from "./lib/pageIcones";
+import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, INTERFACE_COLONNE, INTERFACES, aQuelqueChoseEnAttente, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface, couleurFondIcones, texteClairSurIcones, FOND_ICONES } from "./lib/pageIcones";
 import { Dashboard } from "./screens/Dashboard";
 import { Ventes } from "./screens/Ventes";
 import { NouvelleCommande, CommandesRecues } from "./screens/Commandes";
@@ -1399,22 +1399,21 @@ export default function App() {
   const titreOnglet = enSortie ? ONGLET_ATTESTATION[1] : surAccueil ? "Accueil" : (tabsAutorises.find(([id]) => id === tab) || ["", ""])[1];
   // Le logo BMI ramène à la page d'icônes (« B1 »), depuis n'importe quel écran.
   const allerAccueil = () => { if (!enSortie) setTab(ACCUEIL); };
-  // ⚠ Le fond de la FENÊTRE DE VERROU, pour de bon (Timo, 06/11/2026 : « fond
-  // des onglets bleu… j'avais dit de reprendre le fond d'écran de la page de
-  // session verrouillée ») : le verrou pose son image dès qu'elle existe
-  // (EcranVerrou.jsx, `pleinEcran: !!accueilImage`) ; sans la même ligne ici,
-  // la page d'icônes retombait sur le dégradé bleu.
-  const decorBaseIcones = decorAccueil(db, apparence);
-  const decorIcones = { ...decorBaseIcones, pleinEcran: !!decorBaseIcones.accueilImage };
+  // ⚠ Le fond de la fenêtre de verrou (06/11/2026, « 2b ») a été RETOURNÉ le 08/11/2026 :
+  // la page d'icônes a désormais SON fond, celui de l'image de Timo (FOND_ICONES).
   // 🎨 08/11/2026 (Timo : « remplacer le fond des icônes en couleur modifiable
   // dans les paramètres » → « 1a, 2a, 3 ») : une couleur choisie par le
   // principal remplace la photo du verrou (page d'icônes) et le dégradé
   // (colonne d'icônes) ; le texte passe en blanc ou en foncé selon elle.
   const couleurIcones = couleurFondIcones(db?.boutiques);
   const texteIconesClair = texteClairSurIcones(couleurIcones);
-  const fondPageIcones = couleurIcones ? { classe: "", style: { backgroundColor: couleurIcones } } : fondAccueil(decorIcones, { voile: true });
-  const classeColonneIcones = couleurIcones ? "" : "bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900";
-  const styleColonneIcones = couleurIcones ? { backgroundColor: couleurIcones } : undefined;
+  // 🖼 08/11/2026 (Timo, son image bleue « Bonjour TIMO » : « reprendre exactement ces icônes
+  // avec le fond d'écran sans rien changer ») : sans couleur réglée, la page d'icônes ET la
+  // colonne prennent le fond de SON image (FOND_ICONES), plus la photo du verrou.
+  const imageFondIcones = { backgroundImage: `url(${FOND_ICONES})`, backgroundColor: "#00246e" };
+  const fondPageIcones = couleurIcones ? { classe: "", style: { backgroundColor: couleurIcones } } : { classe: "bg-cover bg-center bg-fixed", style: imageFondIcones };
+  const classeColonneIcones = couleurIcones ? "" : "bg-cover bg-left";
+  const styleColonneIcones = couleurIcones ? { backgroundColor: couleurIcones } : imageFondIcones;
 
   const abandonnerLeRefus = async () => {
     const refus = sync.refus;

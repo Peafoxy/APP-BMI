@@ -2711,13 +2711,13 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
                   <input type="color" value={lireCouleurHex(boutiqueRef.icones_couleur_fond) || "#0f172a"} onChange={(e) => enregistrerAccueil({ icones_couleur_fond: e.target.value })} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
                 </Field>
                 {lireCouleurHex(boutiqueRef.icones_couleur_fond) && (
-                  <button type="button" onClick={() => enregistrerAccueil({ icones_couleur_fond: "" })} className="h-10 px-3 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700">↺ Reprendre la photo du verrou</button>
+                  <button type="button" onClick={() => enregistrerAccueil({ icones_couleur_fond: "" })} className="h-10 px-3 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700">↺ Reprendre le fond bleu</button>
                 )}
               </div>
               <div className="text-xs text-slate-500 mt-1">
                 {lireCouleurHex(boutiqueRef.icones_couleur_fond)
                   ? "La page d'icônes et la colonne d'icônes prennent cette couleur, pour tout le monde. Sur une couleur sombre les noms s'écrivent en blanc, sur une couleur claire en foncé."
-                  : "Aujourd'hui la page d'icônes reprend la photo de la fenêtre de verrouillage, et la colonne d'icônes un fond bleu nuit. Choisir une couleur les remplace, pour tout le monde."}
+                  : "Aujourd'hui la page d'icônes et la colonne d'icônes ont le fond bleu aux vagues claires. Choisir une couleur le remplace, pour tout le monde."}
               </div>
             </div>
             <div className="text-xs text-slate-500 -mt-1">

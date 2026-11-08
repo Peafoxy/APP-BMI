@@ -89,8 +89,8 @@ export function PageIcones({ tabs, onChoisir, onReordonner, nom = "", clair = tr
   return (
     <div data-page-icones className="relative z-10 w-full py-2">
       <h2 className={`text-center text-base sm:text-2xl font-bold ${clair ? "text-white drop-shadow" : "text-slate-900"}`}>Bonjour{nom ? ` ${nom}` : ""}</h2>
-      {/* Le trait bleu sous le salut, comme sur l'image de Timo. */}
-      <div data-trait-salut className="mx-auto mt-1.5 mb-3 sm:mt-2 sm:mb-6 w-12 sm:w-14 h-1 rounded-full bg-blue-500" />
+      {/* Le trait cyan sous le salut, comme sur l'image de Timo (sa seconde image, 08/11/2026). */}
+      <div data-trait-salut className="mx-auto mt-1.5 mb-3 sm:mt-2 sm:mb-6 w-12 sm:w-14 h-1 rounded-full bg-cyan-400" />
       <OngletsDeplacables tabs={tabs} tab={null} onChoisir={onChoisir} onReordonner={onReordonner} sens="grille"
         className="grid grid-cols-5 gap-x-1 gap-y-1.5 sm:grid-cols-6 sm:gap-x-5 sm:gap-y-5 sm:max-w-[820px] sm:mx-auto"
         classeBouton={() => "relative flex flex-col items-stretch text-center rounded-2xl p-0 hover:brightness-95"}
