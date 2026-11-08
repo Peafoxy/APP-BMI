@@ -8131,6 +8131,17 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       && /useRetour\(colonneOuverte, \(\) => setColonneOuverte\(false\)\);/.test(appOo)
       && appOo.indexOf("useRetour(colonneOuverte") < appOo.indexOf("if (!db) return")
       && /INTERFACES\.map\(\(v\) => LIBELLES_INTERFACE\[v\]\)/.test(readFileSync("src/screens/Utilisateurs.jsx", "utf8")));
+    // 📌 Timo (08/11/2026) : « la colonne d'icônes devrait croiser le bandeau
+    // d'en-tête juste en bas de la loupe de recherche ». RETOURNÉ : elle était
+    // collée SOUS le nom de l'écran (`top-[49px]`) ; le nom de l'écran est
+    // maintenant posé À DROITE de la colonne, écrit UNE fois (`barreTitre`).
+    test("★★ 📌 ordinateur : la colonne d'icônes commence juste sous la ligne de la loupe et longe le nom de l'écran (posé à sa droite, écrit une fois) ; en barre et en page d'icônes, le nom reste en haut",
+      /<aside data-colonne-icones className=\{`hidden lg:flex lg:flex-col w-24 shrink-0 \$\{classeColonneIcones\} sticky top-0 h-screen`\}/.test(appOo)
+      && !/top-\[49px\]/.test(appOo)
+      && (appOo.match(/data-titre-ecran/g) || []).length === 1
+      && (appOo.match(/\{!surAccueil && !modeColonne && barreTitre\}/g) || []).length === 1
+      && /<div data-droite-colonne className="flex-1 min-w-0 flex flex-col">\s*\{!surAccueil && barreTitre\}\s*<main/.test(appOo)
+      && appOo.indexOf("data-colonne-icones className") < appOo.indexOf("data-droite-colonne"));
     const uAff = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
     const s50 = readFileSync("supabase/securite-50-affichage.sql", "utf8");
     test("★★ 🧭 LE COUPLE : l'administrateur FIXE l'affichage (⋯ Gérer, refuserSaufAdmin dans le geste) et securite-50 le réserve à l'administrateur, client compris (avant « les fiches des clients s'arrêtent là ») ; il reprend securite-39",

@@ -1778,6 +1778,25 @@ export default function App() {
     </>
   );
 
+  // Le nom de l'écran ouvert, écrit UNE fois (en haut, ou à droite de la colonne d'icônes).
+  const barreTitre = (
+          <div data-titre-ecran className="flex items-center gap-3 bg-white border-b border-slate-200 px-4 lg:px-6 py-2.5 sticky top-0 z-20 shadow-sm">
+            {/* 📌 Téléphone : le bouton ☰ (Timo, 08/11/2026 : « menu classique en
+                3 tirets », en haut à gauche, « oui avec le point rouge »). */}
+            {modeColonne && !enSortie && (
+              <button type="button" data-bouton-colonne onClick={() => setColonneOuverte(true)} aria-label="Ouvrir les icônes" title="Ouvrir les icônes"
+                className="lg:hidden relative shrink-0 -ml-4 w-14 h-11 inline-flex items-center justify-center rounded-r-2xl border-[3px] border-l-0 border-slate-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-md">
+                <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" /></svg>
+                {aQuelqueChoseEnAttente(tabsAutorises) && <span data-point-rouge className="absolute top-1 right-1.5 w-3 h-3 rounded-full bg-red-600 ring-2 ring-white" />}
+              </button>
+            )}
+            {modeIcones && !enSortie && (
+              <button type="button" onClick={allerAccueil} className="shrink-0 text-sky-700 text-sm font-semibold hover:underline" title="Retour à la page d'icônes">← Accueil</button>
+            )}
+            <div className="text-base lg:text-lg font-bold text-slate-800 truncate">{titreOnglet}</div>
+          </div>
+  );
+
   return (
     <>
     {verrouille && <EcranVerrou profile={profile} db={db} apparence={apparence} motif={motifVerrou} onDeverrouiller={deverrouiller}
@@ -1902,24 +1921,11 @@ export default function App() {
           </div>
         </header>
 
-        {/* Le nom de l'écran ouvert (la page d'icônes n'en a pas : elle dit bonjour). */}
-        {!surAccueil && (
-          <div data-titre-ecran className="flex items-center gap-3 bg-white border-b border-slate-200 px-4 lg:px-6 py-2.5 sticky top-0 z-20 shadow-sm">
-            {/* 📌 Téléphone : le bouton ☰ (Timo, 08/11/2026 : « menu classique en
-                3 tirets », en haut à gauche, « oui avec le point rouge »). */}
-            {modeColonne && !enSortie && (
-              <button type="button" data-bouton-colonne onClick={() => setColonneOuverte(true)} aria-label="Ouvrir les icônes" title="Ouvrir les icônes"
-                className="lg:hidden relative shrink-0 -ml-4 w-14 h-11 inline-flex items-center justify-center rounded-r-2xl border-[3px] border-l-0 border-slate-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-md">
-                <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" /></svg>
-                {aQuelqueChoseEnAttente(tabsAutorises) && <span data-point-rouge className="absolute top-1 right-1.5 w-3 h-3 rounded-full bg-red-600 ring-2 ring-white" />}
-              </button>
-            )}
-            {modeIcones && !enSortie && (
-              <button type="button" onClick={allerAccueil} className="shrink-0 text-sky-700 text-sm font-semibold hover:underline" title="Retour à la page d'icônes">← Accueil</button>
-            )}
-            <div className="text-base lg:text-lg font-bold text-slate-800 truncate">{titreOnglet}</div>
-          </div>
-        )}
+        {/* Le nom de l'écran ouvert (la page d'icônes n'en a pas : elle dit bonjour).
+            📌 En colonne d'icônes, il est posé À DROITE de la colonne (Timo,
+            08/11/2026 : « la colonne d'icônes devrait croiser le bandeau
+            d'en-tête juste en bas de la loupe de recherche ») — voir plus bas. */}
+        {!surAccueil && !modeColonne && barreTitre}
 
         {/* ⚠ LA LARGEUR DE TOUT L'ÉCRAN (Timo, 20/09/2026, capture de 💰 Ventes
             sur son XPS : « pourquoi ces marges des 2 côtés ? », puis « ces
@@ -1936,15 +1942,19 @@ export default function App() {
             dans Chromium, il ne lit pas la classe. */}
         {modeColonne ? (
           <div className="flex-1 flex min-w-0">
-            {/* 📌 Ordinateur : la colonne d'icônes toujours ouverte, à gauche. */}
+            {/* 📌 Ordinateur : la colonne d'icônes toujours ouverte, à gauche,
+                collée sous la ligne de la loupe (elle longe le nom de l'écran). */}
             {!enSortie && (
-              <aside data-colonne-icones className={`hidden lg:flex lg:flex-col w-24 shrink-0 ${classeColonneIcones} sticky top-[49px] h-[calc(100vh-49px)]`} style={styleColonneIcones}>
+              <aside data-colonne-icones className={`hidden lg:flex lg:flex-col w-24 shrink-0 ${classeColonneIcones} sticky top-0 h-screen`} style={styleColonneIcones}>
                 <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} className="flex-1" clair={texteIconesClair} />
               </aside>
             )}
-            <main className="flex-1 min-w-0 w-full max-w-[1600px] mx-auto px-4 py-5">
-              {contenu}
-            </main>
+            <div data-droite-colonne className="flex-1 min-w-0 flex flex-col">
+              {!surAccueil && barreTitre}
+              <main className="flex-1 min-w-0 w-full max-w-[1600px] mx-auto px-4 py-5">
+                {contenu}
+              </main>
+            </div>
           </div>
         ) : (
         <main className="w-full max-w-[1600px] mx-auto px-4 py-5">
