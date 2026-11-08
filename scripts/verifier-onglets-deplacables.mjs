@@ -291,6 +291,10 @@ createRoot(document.getElementById("g")).render(<Essai />);
   // le doigt (la 4e de la 1re rangée), « Tous les devis » passe à la suite.
   test("★★ appui long dans la GRILLE : « Caisse » (2e rangée) prend la place sous le doigt, la 4e de la 1re rangée, sans clic parasite",
     jo.join("|") === "ordre:dashboard,ventes,commandes,caisse,tous_devis,depenses,stocks,messages,parametres", jo.join("|"));
+  // 🎨 08/11/2026 : chaque icône est SON dessin (l'image de Timo), sans carré derrière (« a »).
+  const dessins = await tel.p2.$$eval("[data-page-icones] img[data-dessin-onglet]", (els) => els.map((e) => [e.getAttribute("src"), getComputedStyle(e.closest("[data-carte-icone]")).backgroundColor]));
+  test("★★ 🎨 page d'icônes : les 9 onglets portent LEUR dessin (/icones-onglets/<id>.png), aucun fond derrière",
+    dessins.length === 9 && dessins.every(([src, fond]) => /^\/icones-onglets\/[a-z_]+\.png$/.test(src) && fond === "rgba(0, 0, 0, 0)") && dessins.some(([src]) => src === "/icones-onglets/ventes.png"), JSON.stringify(dessins.slice(0, 3)));
   test("aucune erreur JavaScript (téléphone)", tel.err2.length === 0, tel.err2.join(" | "));
   await tel.ctx2.close();
 

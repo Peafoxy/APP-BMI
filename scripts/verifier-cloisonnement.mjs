@@ -8048,11 +8048,31 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       /const decorIcones = \{ \.\.\.decorBaseIcones, pleinEcran: !!decorBaseIcones\.accueilImage \};/.test(appOo)
       && /const decor = \{ \.\.\.decorBase, pleinEcran: !!decorBase\.accueilImage \};/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8")));
     const piW = readFileSync("src/components/PageIcones.jsx", "utf8");
-    // RETOURNÉ le 07/11/2026 : le logo passe de 34 à 32 px (la tuile du téléphone fait 54 px).
-    test("★★ le VRAI logo de WhatsApp : blanc sur la tuile verte de la page d'icônes, et dans les deux barres d'onglets (LibelleOnglet, écrit une fois)",
-      /id === "whatsapp" \? <IconeWhatsApp taille=\{petite \? 26 : 32\} couleur="#ffffff" \/>/.test(piW) && Pi.couleurIcone("whatsapp") === "#25D366"
+    // RETOURNÉ le 08/11/2026 (Timo, son image « Bonjour TIMO » : « reprendre exactement les icônes ») :
+    // WhatsApp prend SON dessin (le logo vert découpé de l'image) comme les autres onglets ; le logo
+    // dessiné (IconeWhatsApp) ne reste qu'en repli si l'image manquait. LibelleOnglet reste écrit UNE fois.
+    test("★★ le VRAI logo de WhatsApp : le dessin de l'image de Timo, sur la page d'icônes, la colonne et les deux barres d'onglets (LibelleOnglet, écrit une fois)",
+      Pi.imageIcone("whatsapp") === "/icones-onglets/whatsapp.png" && existsSync("public/icones-onglets/whatsapp.png")
+      && /if \(id === "whatsapp"\) return <IconeWhatsApp/.test(piW)
       && /export function LibelleOnglet\(id, label\)/.test(piW) && (appOo.match(/contenu=\{LibelleOnglet\}/g) || []).length === 2
       && /<path fill=\{couleur\} d="M17\.472/.test(readFileSync("src/components/ui.jsx", "utf8")));
+    // 🎨 08/11/2026 : « reprendre exactement les icônes que je t'ai envoyées », « 1c (même taille que les
+    // emoji) », « 2b » (le fond du verrou), puis « enlever le fond carré des icônes » → « a ».
+    {
+      const ids27 = ["whatsapp","dashboard","rentabilite","caisse","ventes","depenses","dettes","stocks","contrats","dimensionnement","tous_devis","commandes","chez_comptable","clients","parc","fournisseurs","salaires","commerciaux","equipe","prospects","messages","travaux","outillage","rendez_vous","users","parametres","historique"];
+      test("★★ 🎨 les 27 dessins de l'image de Timo : chaque onglet a SON fichier (public/icones-onglets), trois onglets reprennent un dessin voisin (mes contrats, mon salaire, nouvelle commande), les autres gardent leur emoji",
+        ids27.every((id) => Pi.imageIcone(id) === `/icones-onglets/${id}.png` && existsSync(`public/icones-onglets/${id}.png`))
+        && Pi.imageIcone("mes_contrats") === "/icones-onglets/contrats.png" && Pi.imageIcone("salaire") === "/icones-onglets/salaires.png"
+        && Pi.imageIcone("commande") === "/icones-onglets/ventes.png" && Pi.imageIcone("taches") === "" && Pi.imageIcone("inconnu") === ""
+        && readdirSync("public/icones-onglets").filter((f) => f.endsWith(".png")).length === 27);
+      const tuile = piW.slice(piW.indexOf("export function TuileIcone"), piW.indexOf("export function ColonneIcones"));
+      const barre = piW.slice(piW.indexOf("export function LibelleOnglet"), piW.indexOf("export function TuileIcone"));
+      test("★★ 🎨 « enlever le fond carré » (« a ») : ni carte blanche, ni carré pâle, ni ombre derrière le dessin — dans la tuile ET dans la barre ; le nom en blanc ; le dessin à la taille de l'emoji dans la barre (« 1c ») ; le trait bleu sous le salut",
+        !/bg-white|backgroundColor|couleurIcone|shadow-/.test(tuile) && !/bg-white|rounded/.test(barre)
+        && /<DessinOnglet id=\{id\} icone=\{icone\} taille=\{20\} \/>/.test(barre) && /text-white drop-shadow/.test(tuile)
+        && /<DessinOnglet id=\{id\} icone=\{icone\} texte=/.test(tuile) && /data-trait-salut/.test(piW)
+        && !/couleurIcone/.test(piW));
+    }
     // 🧭 LE CHOIX DE L'AFFICHAGE (06/11/2026, « je préfère que ça soit un choix… » → « 1b, 2b »).
     test("★★ 🧭 l'affichage : la barre d'onglets d'office (« 1b »), le choix de la personne, et ce que l'administrateur a FIXÉ l'emporte (« 2b ») ; le choix est refusé quand c'est fixé",
       Pi.INTERFACE_DEFAUT === "barre" && Pi.interfaceDe({}) === "barre" && Pi.interfaceDe(null) === "barre" && Pi.interfaceDe({ interface: "icones" }) === "icones"
