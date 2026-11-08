@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2941 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2943 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -775,6 +775,13 @@ lit mal est pire qu'un banc absent).
   **Supports de rail = UN par mètre de rail calculé** (14/09/2026 : « c'était
   une erreur, le nombre de supports, c'est le nombre de mètres de rail » — le
   « rails × 2, pair suivant » du 07/09 est RETOURNÉ, `pairSuivant` retiré) ;
+  **Les panneaux vont par PAIRE** (08/11/2026, « toujours la quantité de
+  panneaux en nombre pair » → « 1 on la garde, 2 non pas, 3 rien à l'écran ») :
+  le nombre CALCULÉ (aussi quand on choisit un autre panneau) monte au pair
+  juste au-dessus (`nombrePair` / `qtePanneaux`, lib/choixSolaire.js, lue par
+  `choixDuStock`, donc aussi l'estimation de l'assistant) ; une quantité
+  TAPÉE reste telle quelle ; les panneaux d'une POMPE (`panneauxPourPompe`)
+  n'y passent pas ; rien d'écrit à l'écran. Rails, supports, étriers suivent.
   **étriers = (panneaux × 2) + 8** (07/09/2026) ; lignes ajoutées seulement
   si l'article est en stock, au prix du stock, liées à lui pour la sortie.
   **Le MODÈLE de support se choisit dans le devis, dans UNE liste déroulante

@@ -13,7 +13,7 @@ import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres, brouillonManuelDe } from "./devisCommun";
 import { apporteurVide } from "../../lib/apporteurDevis";
-import { ROLES_EQUIPEMENT, SOLEIL_DEFAUT, TENSION_DEFAUT, RACCORDEMENT_DEFAUT, RACCORDEMENT_TRI, LIBELLE_RACCORDEMENT, raccordementSur, estTriphase, motifRaccordement, qteConvertisseur, estHybrideTexte, empilable, tensionInfereeConvertisseur, tensionInfereeBatterie, typeBatterieInfere, idDomaineSolaireDes, candidatsSolaire, choixDuStock, supportsDuStock, etrierDuStock, metresRailPourPanneaux } from "../../lib/choixSolaire";
+import { ROLES_EQUIPEMENT, SOLEIL_DEFAUT, TENSION_DEFAUT, RACCORDEMENT_DEFAUT, RACCORDEMENT_TRI, LIBELLE_RACCORDEMENT, raccordementSur, estTriphase, motifRaccordement, qteConvertisseur, qtePanneaux, estHybrideTexte, empilable, tensionInfereeConvertisseur, tensionInfereeBatterie, typeBatterieInfere, idDomaineSolaireDes, candidatsSolaire, choixDuStock, supportsDuStock, etrierDuStock, metresRailPourPanneaux } from "../../lib/choixSolaire";
 // Réexportés : d'autres fichiers et le banc les lisent ici depuis toujours.
 export { SOLEIL_DEFAUT, TENSION_DEFAUT, supportsDuStock };
 
@@ -512,7 +512,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     const qte = roleId === "convertisseur"
       ? (qteConvertisseur(p, utile, besoin, raccordement) || 1)
       : utile > 0
-        ? (!empilable(roleId) && utile >= besoin ? 1 : quantiteNecessaire(besoin, utile))
+        ? (roleId === "panneau" ? qtePanneaux(besoin, utile) : !empilable(roleId) && utile >= besoin ? 1 : quantiteNecessaire(besoin, utile))
         : 1;
     const nouveauChoix = { ...choix, [roleId]: { type: "stock", produit_id: produitId, qte } };
     if (roleId === "convertisseur") {

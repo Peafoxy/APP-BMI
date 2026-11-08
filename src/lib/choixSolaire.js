@@ -39,6 +39,20 @@ export const quantiteNecessaire = (besoin, valeurUnitaire) => {
   return Math.max(1, Math.ceil(Number(besoin || 0) / u));
 };
 
+// ---- LES PANNEAUX VONT PAR PAIRE (Timo, 08/11/2026 : « toujours prendre
+// soin de donner la quantité de panneaux en nombre pair » → « 1 on la garde,
+// 2 non pas, 3 non rien mentionner à l'écran ») ----
+// Le nombre de panneaux CALCULÉ (ou recalculé quand on choisit un autre
+// panneau) monte au pair juste au-dessus : 1 → 2, 3 → 4 ; un pair reste.
+// ⚠ Une quantité TAPÉE à la main reste telle quelle (« 1 on la garde ») ;
+// les panneaux d'une pompe solaire n'y passent pas (« 2 non ») ; rien n'est
+// écrit à l'écran (« 3 non »). Rails, supports et étriers suivent tout seuls.
+export const nombrePair = (n) => {
+  const x = Math.max(0, Math.ceil(Number(n) || 0));
+  return x % 2 === 0 ? x : x + 1;
+};
+export const qtePanneaux = (besoin, valeurUnitaire) => nombrePair(quantiteNecessaire(besoin, valeurUnitaire));
+
 // ---- « BATERIE » reconnu (relevé par Timo, 18/08/2026) ----
 // Mots simplifiés : sans accent, sans lettres doublées.
 export const simplifierMot = (s) => String(s || "")
@@ -247,7 +261,8 @@ export function choixDuStock(produits, role, besoin, opts = {}) {
     return { type: "stock", produit_id: plusGros.p.id, qte: quantiteNecessaire(besoin, valeurUtile(plusGros)) };
   }
   const meilleur = options[options.length - 1];
-  return { type: "stock", produit_id: meilleur.p.id, qte: quantiteNecessaire(besoin, valeurUtile(meilleur)) };
+  const qte = role.id === "panneau" ? qtePanneaux(besoin, valeurUtile(meilleur)) : quantiteNecessaire(besoin, valeurUtile(meilleur));
+  return { type: "stock", produit_id: meilleur.p.id, qte };
 }
 
 // Le besoin de chaque rôle, tel que l'écran le calcule (besoinsSolaires).

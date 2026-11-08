@@ -4841,6 +4841,25 @@ titre("Solaire : les supports de rail et les étriers suivent les rails (règles
     && Sol.supportsPourRails(7) === 7 && Sol.supportsPourRails(7) !== 14);
   test("★ la règle « pair suivant » n'existe plus (une règle qui ne commande plus rien ne reste pas)",
     typeof Sol.pairSuivant === "undefined" && !/pairSuivant/.test(readFileSync("src/lib/solaire.js", "utf8")));
+  // 08/11/2026 : « toujours donner la quantité de panneaux en nombre pair »
+  // → « 1 on la garde (tapée à la main), 2 non (pas les pompes), 3 rien à l'écran ».
+  {
+    const CSp = await import("../src/lib/choixSolaire.js");
+    const pan = CSp.ROLES_EQUIPEMENT.find((r) => r.id === "panneau");
+    const bat = CSp.ROLES_EQUIPEMENT.find((r) => r.id === "batterie");
+    const stockP = [{ id: "pn", nom: "Panneau 550W", categorie: "Panneaux solaires", prix_vente: 1 },
+      { id: "bt", nom: "Batterie lithium 48V 100Ah", categorie: "Batteries", prix_vente: 1 }];
+    test("★★ panneaux en nombre PAIR : 1 → 2, 3 → 4, 4 reste 4 ; le choix du stock arrondit les panneaux (1 650 Wc / 550 = 3 → 4), jamais les batteries",
+      CSp.nombrePair(1) === 2 && CSp.nombrePair(3) === 4 && CSp.nombrePair(4) === 4 && CSp.nombrePair(0) === 0
+      && CSp.choixDuStock(stockP, pan, 1650, { tension: "48" })?.qte === 4
+      && CSp.choixDuStock(stockP, pan, 2200, { tension: "48" })?.qte === 4
+      && CSp.choixDuStock(stockP, bat, 300, { tension: "48", typeBatterie: "lifepo4" })?.qte === 3);
+    const srcSol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+    test("★ choisir un autre panneau recalcule en pair ; une quantité TAPÉE reste telle quelle ; rien d'écrit à l'écran ; les panneaux d'une pompe n'y passent pas",
+      /roleId === "panneau" \? qtePanneaux\(besoin, utile\)/.test(srcSol)
+      && /const changerQte = \(roleId, qte\) => setChoix\(\{ \.\.\.choix, \[roleId\]: \{ \.\.\.choix\[roleId\], qte: Math\.max\(1, Number\(qte\) \|\| 1\) \} \}\)/.test(srcSol)
+      && !/nombre pair/i.test(srcSol) && !/qtePanneaux|nombrePair/.test(readFileSync("src/lib/assistantIA.js", "utf8")));
+  }
   // 20/10/2026 : 0 climatiseur dans le brouillon de DJEDJE, repris = 1.
   test("★ quantité d'un appareil : un 0 (nombre ou texte) reste 0, une case vide vaut 1 ; le calcul et le PDF lisent la même règle",
     Sol.qteAppareil({ qte: 0 }) === 0 && Sol.qteAppareil({ qte: "0" }) === 0 && Sol.qteAppareil({}) === 1 && Sol.qteAppareil({ qte: "" }) === 1
