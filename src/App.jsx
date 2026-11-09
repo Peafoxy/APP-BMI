@@ -703,6 +703,16 @@ export default function App() {
   // 📌 La colonne d'icônes ouverte sur téléphone (bouton ☰, 08/11/2026) : la
   // touche retour la replie.
   const [colonneOuverte, setColonneOuverte] = useState(false);
+  // 📱 La colonne du téléphone sort SOUS le bandeau d'en-tête (09/11/2026,
+  // photo Timo : « elle ne devrait pas monter sur le logo… sortir en bas du
+  // bandeau ») : le bas de l'en-tête est mesuré au moment de l'ouvrir.
+  const refEnTete = useRef(null);
+  const [hautColonne, setHautColonne] = useState(0);
+  const ouvrirColonne = () => {
+    const bas = refEnTete.current?.getBoundingClientRect().bottom || 0;
+    setHautColonne(Math.max(0, Math.round(bas)));
+    setColonneOuverte(true);
+  };
   useRetour(colonneOuverte, () => setColonneOuverte(false));
   const [erreursVerrou, setErreursVerrou] = useState(0);
   // Pourquoi c'est verrouillé : "inactivite" (ou clic sur Verrouiller), ou
@@ -1784,7 +1794,7 @@ export default function App() {
             {/* 📌 Téléphone : le bouton ☰ (Timo, 08/11/2026 : « menu classique en
                 3 tirets », en haut à gauche, « oui avec le point rouge »). */}
             {modeColonne && !enSortie && (
-              <button type="button" data-bouton-colonne onClick={() => setColonneOuverte(true)} aria-label="Ouvrir les icônes" title="Ouvrir les icônes"
+              <button type="button" data-bouton-colonne onClick={ouvrirColonne} aria-label="Ouvrir les icônes" title="Ouvrir les icônes"
                 className="lg:hidden relative shrink-0 -ml-4 w-14 h-11 inline-flex items-center justify-center rounded-r-2xl border-[3px] border-l-0 border-slate-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-md">
                 <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" /></svg>
                 {aQuelqueChoseEnAttente(tabsAutorises) && <span data-point-rouge className="absolute top-1 right-1.5 w-3 h-3 rounded-full bg-red-600 ring-2 ring-white" />}
@@ -1865,7 +1875,7 @@ export default function App() {
           Synchroniser, Se déconnecter) est dans l'en-tête, pour tous. */}
       <div className={`min-w-0 min-h-screen flex flex-col${surAccueil && fondPageIcones.classe ? ` ${fondPageIcones.classe}` : ""}`}
         style={surAccueil ? fondPageIcones.style : undefined}>
-        <header className="bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
+        <header ref={refEnTete} data-en-tete-unique className="bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
           <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {/* « B1 » : le logo ramène à la page d'icônes, depuis n'importe quel écran. */}
@@ -1966,13 +1976,13 @@ export default function App() {
       {/* 📌 Téléphone : les icônes sortent par-dessus l'écran, se replient
           après le choix, au toucher à côté, par ✕ ou par la touche retour. */}
       {modeColonne && colonneOuverte && !enSortie && (
-        <div data-colonne-ouverte className="lg:hidden fixed inset-0 z-40">
+        <div data-colonne-ouverte className="lg:hidden fixed inset-x-0 bottom-0 z-40" style={{ top: hautColonne }}>
           <div className="absolute inset-0 bg-black/40" onClick={() => setColonneOuverte(false)} />
-          <aside className={`absolute left-0 top-0 bottom-0 w-[88px] flex flex-col ${classeColonneIcones} shadow-2xl`} style={styleColonneIcones}>
+          <aside className={`absolute left-0 top-0 bottom-0 w-[72px] flex flex-col ${classeColonneIcones} shadow-2xl`} style={styleColonneIcones}>
             <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={choisirDansLaColonne} onReordonner={reordonnerOnglets} className="flex-1" clair={texteIconesClair} />
           </aside>
           <button type="button" data-fermer-colonne onClick={() => setColonneOuverte(false)} aria-label="Replier les icônes"
-            className="absolute left-[88px] top-3 w-14 h-11 inline-flex items-center justify-center rounded-r-2xl border-[3px] border-l-0 border-slate-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-md">
+            className="absolute left-[72px] top-3 w-14 h-11 inline-flex items-center justify-center rounded-r-2xl border-[3px] border-l-0 border-slate-200 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-md">
             <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" /></svg>
           </button>
         </div>

@@ -8125,7 +8125,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       && Pi.critiqueChoixInterface({}, "colonne") === "" && Pi.aQuelqueChoseEnAttente([["a", "💰 Ventes"], ["b", "📋 Dettes (3)"]]) && !Pi.aQuelqueChoseEnAttente([["a", "💰 Ventes"], ["b", "📋 Dettes"]]));
     test("★★ 📌 App.jsx : ordinateur, la colonne toujours ouverte ; téléphone, le bouton ☰ avec son point rouge, les icônes repliées après le choix, au toucher à côté, par ✕ et par la touche retour ; les deux choix (personne, administrateur) proposent les TROIS",
       /const options = INTERFACES;/.test(appOo) && /<aside data-colonne-icones className=\{`hidden lg:flex/.test(appOo) // RETOURNÉ le 08/11/2026 : la classe suit la couleur réglée
-      && /data-bouton-colonne onClick=\{\(\) => setColonneOuverte\(true\)\}/.test(appOo) && /\{aQuelqueChoseEnAttente\(tabsAutorises\) && <span data-point-rouge/.test(appOo)
+      && /data-bouton-colonne onClick=\{ouvrirColonne\}/.test(appOo) // RETOURNÉ le 09/11/2026 : l'ouverture mesure d'abord le bas de l'en-tête && /\{aQuelqueChoseEnAttente\(tabsAutorises\) && <span data-point-rouge/.test(appOo)
       && /const choisirDansLaColonne = \(id\) => \{ setTab\(id\); setColonneOuverte\(false\); \};/.test(appOo) && /onChoisir=\{choisirDansLaColonne\}/.test(appOo)
       && /<div className="absolute inset-0 bg-black\/40" onClick=\{\(\) => setColonneOuverte\(false\)\} \/>/.test(appOo) && /data-fermer-colonne onClick=\{\(\) => setColonneOuverte\(false\)\}/.test(appOo)
       && /useRetour\(colonneOuverte, \(\) => setColonneOuverte\(false\)\);/.test(appOo)
@@ -8135,6 +8135,15 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     // d'en-tête juste en bas de la loupe de recherche ». RETOURNÉ : elle était
     // collée SOUS le nom de l'écran (`top-[49px]`) ; le nom de l'écran est
     // maintenant posé À DROITE de la colonne, écrit UNE fois (`barreTitre`).
+    // 📱 Timo (09/11/2026, photo) : sur téléphone la colonne « trop large… ne
+    // devrait pas monter sur le logo… sortir en bas du bandeau ».
+    test("★★ 📱 téléphone : la colonne d'icônes sort SOUS le bandeau d'en-tête (son bas mesuré à l'ouverture), 72 px de large",
+      /<header ref=\{refEnTete\} data-en-tete-unique/.test(appOo)
+      && /const bas = refEnTete\.current\?\.getBoundingClientRect\(\)\.bottom \|\| 0;/.test(appOo)
+      && /setHautColonne\(Math\.max\(0, Math\.round\(bas\)\)\);/.test(appOo)
+      && /<div data-colonne-ouverte className="lg:hidden fixed inset-x-0 bottom-0 z-40" style=\{\{ top: hautColonne \}\}>/.test(appOo)
+      && !/data-colonne-ouverte className="lg:hidden fixed inset-0/.test(appOo)
+      && /absolute left-0 top-0 bottom-0 w-\[72px\]/.test(appOo) && /absolute left-\[72px\] top-3/.test(appOo) && !/w-\[88px\]/.test(appOo));
     test("★★ 📌 ordinateur : la colonne d'icônes commence juste sous la ligne de la loupe et longe le nom de l'écran (posé à sa droite, écrit une fois) ; en barre et en page d'icônes, le nom reste en haut",
       /<aside data-colonne-icones className=\{`hidden lg:flex lg:flex-col w-24 shrink-0 \$\{classeColonneIcones\} sticky top-0 h-screen`\}/.test(appOo)
       && !/top-\[49px\]/.test(appOo)

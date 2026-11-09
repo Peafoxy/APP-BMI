@@ -354,10 +354,13 @@ import { createRoot } from "react-dom/client";
 import { ColonneIcones } from "${process.cwd()}/src/components/PageIcones.jsx";
 const TABS = [["dashboard", "📊 Tableau de bord"], ["ventes", "💰 Ventes"], ["dettes", "📋 Dettes (3)"], ["dimensionnement", "📐 Dimensionnement"], ["whatsapp", "📲 WhatsApp (1)"]];
 window.journal = [];
-createRoot(document.getElementById("g")).render(
+createRoot(document.getElementById("g")).render(<>
   <aside data-essai className="w-24 h-[700px] flex flex-col bg-slate-900">
     <ColonneIcones tabs={TABS} tab="ventes" onChoisir={(id) => window.journal.push("choisir:" + id)} onReordonner={() => {}} className="flex-1" />
-  </aside>);
+  </aside>
+  <aside data-essai-tel className="w-[72px] h-[700px] flex flex-col bg-slate-900">
+    <ColonneIcones tabs={TABS} tab="ventes" onChoisir={() => {}} onReordonner={() => {}} className="flex-1" />
+  </aside></>);
 `);
   const sortie3 = join(dossier, "colonne.js");
   await build({ entryPoints: [entree3], bundle: true, format: "iife", outfile: sortie3, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"' } });
@@ -375,6 +378,9 @@ createRoot(document.getElementById("g")).render(
   test("★★ colonne : les icônes les unes SOUS les autres (même x, une par rangée)", bt.length === 5 && memeX && descend, JSON.stringify(bt.map((b) => [b.id, Math.round(b.x), Math.round(b.y)])));
   const largeur = await p3.$eval("[data-essai]", (e) => ({ s: e.scrollWidth, c: e.clientWidth }));
   test("colonne : rien ne déborde de la colonne de 96 px", largeur.s <= largeur.c + 1, JSON.stringify(largeur));
+  // 📱 Téléphone (09/11/2026, « trop large ») : la colonne passe à 72 px, rien ne déborde.
+  const largeurTel = await p3.$eval("[data-essai-tel]", (e) => ({ s: e.scrollWidth, c: e.clientWidth, w: e.getBoundingClientRect().width }));
+  test("★ colonne du téléphone : 72 px, rien ne déborde (Dimensionnement se coupe proprement)", Math.round(largeurTel.w) === 72 && largeurTel.s <= largeurTel.c + 1, JSON.stringify(largeurTel));
   const nombres3 = await p3.$$eval("[data-essai] [data-icone-nombre]", (els) => els.map((e) => e.textContent).join(","));
   test("colonne : le chiffre rouge reste sur l'icône", nombres3 === "3,1", nombres3);
   const actifs = bt.filter((b) => b.actif !== "rgba(0, 0, 0, 0)").map((b) => b.id);
