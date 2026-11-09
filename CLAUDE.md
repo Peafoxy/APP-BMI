@@ -1758,7 +1758,8 @@ lit mal est pire qu'un banc absent).
   Bancs : `tester-argent` (+12), `tester-devis-chantiers` (+6),
   `tester-catalogue` (+8), `verifier-cloisonnement` (+12, deux RETOURNÉS :
   la dette liée, la numérotation), éprouvés. Chapitres 4, 5, 8, 23.
-  **À coller par Timo : `securite-49` puis `site-catalogue-3`.**
+  **`securite-49` et `site-catalogue-3` en place sur la vraie base, confirmé
+  par Timo le 09/11/2026 (lecture de vérification : `true | true`).**
 - **🗑 UNE DETTE SUPPRIMÉE VA À LA CORBEILLE ; UNE DETTE QUI A REÇU DE
   L'ARGENT NE SE SUPPRIME PAS** (12/10/2026, « a+b lance »). Le matin même,
   Timo avait supprimé la dette de POUDAMA (TER-DET-2026-0001, 354 900 F,
