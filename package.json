@@ -1,7 +1,7 @@
 {
   "name": "bmi-gestion-boutiques",
   "private": true,
-  "version": "2.101.712",
+  "version": "2.101.713",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -49,6 +49,7 @@
     "manuel-formation": "node scripts/manuel-formation.mjs",
     "verifier-ecran-echange": "node scripts/verifier-ecran-echange.mjs",
     "tester-heure": "bash scripts/tester-heure-sql.sh",
+    "tester-connexion": "bash scripts/tester-connexion-sql.sh",
     "tester-catalogue": "bash scripts/tester-catalogue-sql.sh",
     "tester-vocaux": "bash scripts/tester-vocaux-sql.sh"
   },

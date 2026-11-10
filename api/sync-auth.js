@@ -21,6 +21,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash, pbkdf2Sync } from "crypto";
 import { poserCors } from "./_cors.js";
+import { preparerCompteSecurise } from "./_compteSecurise.js";
 import { accesFerme, messageAccesFerme } from "../src/lib/attestationSortie.js";
 import { estSansAcces, MESSAGE_SANS_ACCES } from "../src/lib/identiteClient.js";
 import {
@@ -72,7 +73,6 @@ export default async function handler(req, res) {
   }
 
   const admin = createClient(url, cleService, { auth: { autoRefreshToken: false, persistSession: false } });
-  const email = `${id}@bmi.internal`;
   // Trois compteurs : cet appareil sur ce compte, cet appareil en général,
   // ce compte depuis partout. Voir api/_verrouillage.js pour le détail.
   const verrous = clesDeControle("auth", String(id), adresseAppelant(req));
@@ -122,113 +122,12 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: MESSAGE_SANS_ACCES });
     }
 
-    // Cherche si un compte d'authentification existe déjà pour cet utilisateur.
-    // ⚠ On parcourt TOUTES les pages (comme dans etat-auth.js) : au-delà de
-    // 1000 comptes, une seule page pouvait « manquer » un compte existant —
-    // il aurait alors été recréé, et la création aurait échoué (email déjà
-    // pris), bloquant la connexion de cet utilisateur.
-    let existant = null;
-    let page = 1;
-    for (;;) {
-      const { data: liste, error: erreurListe } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-      if (erreurListe) throw erreurListe;
-      existant = (liste.users || []).find((u) => u.email === email) || null;
-      if (existant) break;
-      if (!liste.users || liste.users.length < 1000) break;
-      page += 1;
-      if (page > 20) break; // garde-fou, même limite qu'etat-auth
-    }
-
-    // ⚠ CLOISONNEMENT FORMATION / RÉEL — la revendication d'espace.
-    // C'est le SEUL endroit du système qui a le droit de la poser :
-    // `app_metadata` fait partie du jeton de session, mais n'est
-    // modifiable qu'avec la clé service_role — un appareil ne peut donc
-    // pas se l'attribuer lui-même, contrairement à `user_metadata`.
-    // Les politiques RLS (voir supabase/espace-3-politiques.sql) la
-    // comparent à la colonne `espace` de chaque ligne.
-    //
-    // Elle est réécrite à CHAQUE connexion, juste avant que la session ne
-    // soit créée : basculer un compte en formation prend donc effet dès sa
-    // prochaine connexion, sans aucune manipulation.
-    //
-    // Tant que l'étape 3 n'est pas déployée, cette valeur ne restreint
-    // rien du tout — elle est simplement présente dans le jeton.
-    //
-    // ⚠ TROISIÈME VALEUR : 'tous' (relevé par Timo, 18/08/2026).
-    // L'application prévoit depuis la 2.100.30 qu'un administrateur qui a le
-    // pouvoir « voir les deux espaces » les voie effectivement tous les deux.
-    // Le serveur, lui, ne connaissait que 'reel' et 'formation' : l'écran
-    // Paramètres proposait donc de créer une boutique de FORMATION que le
-    // serveur refusait ensuite, laissant l'opération bloquée dans la file
-    // d'attente pour toujours — avec un message conseillant à tort de se
-    // reconnecter. Une application qui propose un geste que le serveur
-    // refuse est une application cassée.
-    //
-    // La règle reproduit EXACTEMENT voitLesDeuxEspaces() de lib/calculs.js :
-    // SEUL l'administrateur principal traverse le mur formation / réel.
-    //
-    // ⚠ RESSERRAGE (demandé par Timo, 28/08/2026) : « Je suis le seul admin
-    // principal qui peut voir les 2 espaces à la fois. Le reste, soit tu es
-    // admin formation, soit admin réel. » Avant, tout administrateur qui
-    // avait gardé le pouvoir « act_voir_tout » recevait 'tous'. Or
-    // act_voir_tout n'a jamais voulu dire « traverser le mur entre le réel
-    // et la formation » : il veut dire « voir toutes les boutiques de SON
-    // espace ». Les deux notions avaient été confondues, ce qui donnait à
-    // chaque administrateur secondaire une revendication 'tous' — et donc
-    // des politiques RLS ouvertes sur les deux côtés.
-    //
-    // ⚠ Cette revendication n'est réécrite qu'À LA CONNEXION. Les
-    // administrateurs déjà connectés gardent leur ancien 'tous' jusqu'à
-    // leur prochaine reconnexion : c'est le comportement voulu (aucune
-    // session n'est cassée en cours de route), mais il faut le savoir.
-    const voitLesDeuxEspaces = champs.role === "admin" && champs.admin_principal === true;
-    const espace = voitLesDeuxEspaces ? "tous" : (champs.formation ? "formation" : "reel");
-
-    // ⚠ FAILLE N° 3 — LE SERVEUR NE CONNAISSAIT QUE « connecté ou pas ».
-    // Aucune notion de rôle ni de droits : n'importe lequel des comptes —
-    // y compris un compte CLIENT — pouvait, en dehors de l'application,
-    // effacer toutes les ventes, lire les salaires, ou se nommer
-    // administrateur en modifiant sa propre fiche.
-    // On ajoute donc deux revendications, posées ici pour la même raison
-    // que l'espace : app_metadata n'est modifiable qu'avec la clé
-    // service_role, un appareil ne peut pas se l'attribuer lui-même.
-    //
-    // `ecriture` reproduit peutEcrire() de lib/calculs.js. En cas de doute
-    // on ACCORDE l'écriture : refuser à tort casserait l'application,
-    // accorder à tort laisse simplement la situation d'avant.
-    const droitsOff = Array.isArray(champs.droits_off) ? champs.droits_off : [];
-    const role = String(champs.role || "");
-    const ecriture = champs.admin_principal === true
-      || (role !== "comptable" && !droitsOff.includes("act_ecriture"));
-
-    // ⚠ VAGUE 3, ÉTAPE 1 (04/09/2026) — trois revendications de plus, pour
-    // que le serveur puisse enfin distinguer les EMPLOYÉS entre eux :
-    //   • principal    : l'administrateur PRINCIPAL (drapeau admin_principal
-    //                    sur un compte admin actif). ⚠ Le serveur ne reproduit
-    //                    PAS le repli de l'application (« à défaut, le premier
-    //                    admin ») : sans drapeau, personne n'est principal
-    //                    côté serveur — l'application prévient l'intéressé ;
-    //   • boutique     : la boutique de rattachement (règles « vendeur de
-    //                    la boutique X ») ;
-    //   • pouvoirs_off : les pouvoirs retirés (règles « pouvoir act_… »).
-    // Comme l'espace, tout ceci n'est réécrit qu'À LA CONNEXION.
-    const principal = role === "admin" && champs.admin_principal === true && champs.actif !== false;
-    const boutique = String(champs.boutique || "");
-    const pouvoirsOff = droitsOff.filter((x) => typeof x === "string").slice(0, 40);
-
-    if (existant) {
-      const { error } = await admin.auth.admin.updateUserById(existant.id, {
-        password: String(motDePasse),
-        app_metadata: { ...(existant.app_metadata || {}), espace, role, ecriture, principal, boutique, pouvoirs_off: pouvoirsOff },
-      });
-      if (error) { console.error("sync-auth updateUserById:", JSON.stringify(error)); throw error; }
-    } else {
-      const { error } = await admin.auth.admin.createUser({
-        email, password: String(motDePasse), email_confirm: true,
-        app_metadata: { espace, role, ecriture, principal, boutique, pouvoirs_off: pouvoirsOff },
-      });
-      if (error) { console.error("sync-auth createUser:", JSON.stringify(error)); throw error; }
-    }
+    // Le compte sécurisé : retrouvé (directement par la base depuis le
+    // 10/11/2026, la vieille méthode en repli), mot de passe redonné,
+    // revendications de l'espace, du rôle, de la boutique et des pouvoirs
+    // posées. Écrit UNE fois : api/_compteSecurise.js (aussi appelé par
+    // chercher-compte pour la connexion rapide).
+    await preparerCompteSecurise(admin, id, champs, motDePasse);
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error("sync-auth erreur finale:", e?.message || e);

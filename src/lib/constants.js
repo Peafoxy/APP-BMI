@@ -67,7 +67,16 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.712";
+export const VERSION = "2.101.713";
+
+// ⚡ LA CONNEXION RAPIDE (10/11/2026, Timo : « les 4… si un souci se passe à
+// l'usage, on revient à la vieille méthode »). Vrai : le téléphone ne refait
+// pas le calcul du mot de passe quand le serveur vient de dire oui (« a »),
+// le serveur prépare la session dans le même appel (« c »), l'écran s'ouvre
+// sans attendre la fin de l'ouverture de session (« d »). FAUX = la vieille
+// méthode, telle qu'elle était, sans rien d'autre à toucher (« b » a son
+// propre repli, côté serveur).
+export const CONNEXION_RAPIDE = true;
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =

@@ -1562,13 +1562,17 @@ titre("L'administrateur qui voit les deux espaces doit le pouvoir AUSSI côté s
 
   // Vague 3, étape 1 (04/09/2026) : trois revendications de plus, pour que
   // le serveur distingue enfin les employés entre eux.
-  const auth = readFileSync("api/sync-auth.js", "utf8");
+  // ⚠ RETOURNÉ le 10/11/2026 (connexion rapide) : les revendications vivent
+  // dans api/_compteSecurise.js, écrites UNE fois pour sync-auth ET
+  // chercher-compte — plus dans sync-auth.js.
+  const auth = readFileSync("api/_compteSecurise.js", "utf8");
   test("★ l'étiquette porte « principal » (drapeau admin_principal sur un admin ACTIF — pas de repli « premier admin » côté serveur)",
     /const principal = role === "admin" && champs\.admin_principal === true && champs\.actif !== false;/.test(auth));
   test("★ l'étiquette porte la boutique de rattachement et les pouvoirs retirés",
     /const boutique = String\(champs\.boutique \|\| ""\);/.test(auth) && /const pouvoirsOff = droitsOff\.filter/.test(auth));
   test("★ …posées à la CRÉATION comme à la MISE À JOUR du compte de session",
-    (auth.match(/espace, role, ecriture, principal, boutique, pouvoirs_off: pouvoirsOff/g) || []).length === 2);
+    /return \{ espace, role, ecriture, principal, boutique, pouvoirs_off: pouvoirsOff \};/.test(auth)
+    && /app_metadata: revendications,/.test(auth) && /app_metadata: \{ \.\.\.\(existant\.app_metadata \|\| \{\}\), \.\.\.revendications \}/.test(auth));
   test("l'application prévient l'administrateur principal dont la fiche n'a pas le drapeau",
     /chef\.admin_principal !== true/.test(readFileSync("src/App.jsx", "utf8")));
   test("l'administrateur principal reste « tous » même marqué formation (comme dans l'app)",
@@ -18414,6 +18418,85 @@ titre("💵 La dotation de caisse (Timo, 10/11/2026, « A b, B les trois avec co
   test("★ LE COUPLE : securite-51 pose la règle côté serveur, et le banc SQL le rejoue (tester-argent)",
     existsSync("supabase/securite-51-remise-tiroir.sql") && readFileSync("scripts/tester-argent-sql.sh", "utf8").includes("securite-51-remise-tiroir.sql")
     && readFileSync("supabase/securite-51-remise-tiroir.sql", "utf8").includes("'Dotation de caisse'"));
+}
+
+titre("⚡ La connexion rapide (Timo, 10/11/2026, « les 4… si un souci, on revient à la vieille méthode ») : aucune sécurité retirée");
+{
+  const CS = await import(pathToFileURL(join(process.cwd(), "api/_compteSecurise.js")).href);
+  // Un faux Supabase côté serveur : il note chaque appel.
+  const fauxAdmin = ({ rpc, comptes = [], creationRefusee = false } = {}) => {
+    const appels = [];
+    return { appels,
+      rpc: async (nom, args) => { appels.push(["rpc", nom, args.adresse]); return rpc ? rpc(args.adresse) : { data: null, error: { message: "fonction absente" } }; },
+      auth: { admin: {
+        getUserById: async (uid) => { appels.push(["get", uid]); return { data: { user: comptes.find((c) => c.id === uid) || null }, error: null }; },
+        listUsers: async ({ page }) => { appels.push(["liste", page]); return { data: { users: page === 1 ? comptes : [] }, error: null }; },
+        createUser: async (o) => { appels.push(["cree", o.email, o.app_metadata]); return { error: creationRefusee ? { message: "déjà pris" } : null }; },
+        updateUserById: async (uid, o) => { appels.push(["maj", uid, o.password, o.app_metadata]); return { error: null }; },
+      } } };
+  };
+  const timo = { id: "auth-1", email: "u_timo@bmi.internal", app_metadata: { provider: "email" } };
+  const champs = { nom: "TIMO", role: "admin", admin_principal: true, boutique: "" };
+  // « b » : la base retrouve le compte d'un coup, la liste n'est pas lue.
+  const A1 = fauxAdmin({ rpc: () => ({ data: "auth-1", error: null }), comptes: [timo] });
+  await CS.preparerCompteSecurise(A1, "u_timo", champs, "secret123");
+  const maj1 = A1.appels.find((a) => a[0] === "maj");
+  test("★★ « b » : le compte est retrouvé par la base (une question), la liste des comptes n'est PAS lue, le mot de passe est redonné",
+    A1.appels[0][0] === "rpc" && A1.appels[0][2] === "u_timo@bmi.internal" && !A1.appels.some((a) => a[0] === "liste")
+    && maj1 && maj1[1] === "auth-1" && maj1[2] === "secret123");
+  test("★★ …et les revendications sont posées (le mur : « tous » pour le principal seul), l'ancien contenu gardé",
+    maj1 && maj1[3].espace === "tous" && maj1[3].principal === true && maj1[3].provider === "email"
+    && CS.revendicationsDe({ role: "vendeur", formation: true }).espace === "formation" && CS.revendicationsDe({ role: "admin" }).espace === "reel");
+  // La vieille méthode : fonction absente → la liste.
+  const A2 = fauxAdmin({ comptes: [timo] });
+  await CS.preparerCompteSecurise(A2, "u_timo", champs, "secret123");
+  test("★★ fonction absente de la base (SQL pas collé, ou en panne) : la VIEILLE MÉTHODE reprend — la liste est lue, le compte mis à jour",
+    A2.appels.some((a) => a[0] === "liste") && A2.appels.some((a) => a[0] === "maj" && a[1] === "auth-1"));
+  // Une réponse qui ne colle pas (autre adresse) : la vieille méthode.
+  const A3 = fauxAdmin({ rpc: () => ({ data: "auth-9", error: null }), comptes: [timo, { id: "auth-9", email: "autre@bmi.internal" }] });
+  await CS.preparerCompteSecurise(A3, "u_timo", champs, "secret123");
+  test("★★ la base rend un compte d'une AUTRE adresse : il n'est jamais touché, la liste retrouve le bon",
+    !A3.appels.some((a) => a[0] === "maj" && a[1] === "auth-9") && A3.appels.some((a) => a[0] === "maj" && a[1] === "auth-1"));
+  // Compte absent : créé ; création refusée (déjà pris) : la liste le retrouve.
+  const A4 = fauxAdmin({ rpc: () => ({ data: null, error: null }) });
+  await CS.preparerCompteSecurise(A4, "u_neuf", { role: "vendeur" }, "secret123");
+  const A5 = fauxAdmin({ rpc: () => ({ data: null, error: null }), comptes: [{ id: "auth-5", email: "u_neuf@bmi.internal" }], creationRefusee: true });
+  await CS.preparerCompteSecurise(A5, "u_neuf", { role: "vendeur" }, "secret123");
+  test("★ un compte absent est créé avec ses revendications ; une création refusée (déjà pris) retombe sur la liste et met à jour",
+    A4.appels.some((a) => a[0] === "cree" && a[1] === "u_neuf@bmi.internal" && a[2].espace === "reel")
+    && A5.appels.some((a) => a[0] === "maj" && a[1] === "auth-5"));
+
+  const sans = (f) => readFileSync(f, "utf8").replace(/^\s*\/\/.*$/gm, "");
+  const cc = sans("api/chercher-compte.js"), sa = sans("api/sync-auth.js");
+  const prep = cc.indexOf("preparerCompteSecurise(admin, ligne.id, champs, motDePasse)");
+  test("★★ « c » : chercher-compte ne prépare la session qu'APRÈS le mot de passe vérifié et tous les refus (bloqué, accès fermé, sans accès, compteurs remis à zéro), seulement si l'écran le demande",
+    prep > cc.indexOf("if (!ligne) return await echec();") && prep > cc.indexOf("champs.actif === false") && prep > cc.indexOf("accesFerme(champs, Date.now())")
+    && prep > cc.indexOf("estSansAcces(champs)") && prep > cc.indexOf("await reinitialiserEchecs(admin, verrous);")
+    && /if \(preparerSession === true && String\(motDePasse\)\.length >= 6\)/.test(cc));
+  test("★★ …un échec de préparation ne refuse PAS la connexion (session_prete reste faux : sync-auth prend le relais)",
+    /\} catch \(e\) \{\s*console\.error\("chercher-compte, préparation/.test(cc) && /session_prete: sessionPrete/.test(cc));
+  test("★ sync-auth passe par la MÊME fabrique, après ses propres vérifications",
+    sa.indexOf("await preparerCompteSecurise(admin, id, champs, motDePasse);") > sa.indexOf("if (estSansAcces(champs))")
+    && !/listUsers|updateUserById|createUser/.test(sa));
+  test("★ la réécriture du mot de passe (décision du 22/10/2026) est GARDÉE",
+    /updateUserById\(existant\.id, \{\s*password: String\(motDePasse\),/.test(readFileSync("api/_compteSecurise.js", "utf8")));
+  test("★ « b » : le SQL existe, réservé au serveur, et son banc tourne (tester-connexion)",
+    existsSync("supabase/connexion-rapide-1.sql") && /grant execute on function public\.compte_securise_par_email\(text\) to service_role;/.test(readFileSync("supabase/connexion-rapide-1.sql", "utf8"))
+    && /"tester-connexion": "bash scripts\/tester-connexion-sql\.sh"/.test(readFileSync("package.json", "utf8")));
+
+  const cx = sans("src/screens/Connexion.jsx"), sc = sans("src/supabaseClient.js"), cst = readFileSync("src/lib/constants.js", "utf8");
+  test("★★ LE RETOUR À LA VIEILLE MÉTHODE : un seul interrupteur, CONNEXION_RAPIDE, commande « a », « c » et « d »",
+    /export const CONNEXION_RAPIDE = (true|false);/.test(cst)
+    && /\{ preparerSession: CONNEXION_RAPIDE \}/.test(cx) && /\(CONNEXION_RAPIDE && venuDuServeur\)/.test(cx)
+    && /sessionPrete = CONNEXION_RAPIDE && r\.session_prete === true;/.test(cx) && /if \(CONNEXION_RAPIDE\) \{\s*poserOuvertureSession\(ouvrir\(\)\);\s*onLogin\(u\);\s*return;\s*\}/.test(cx));
+  test("★★ « a » : le téléphone ne saute le calcul QUE si la fiche vient du serveur — hors réseau il vérifie toujours",
+    /\? \{ ok: true, aMigrer: !\(u\.pwd_salt && u\.pwd_hash2\) \}\s*: await verifierMotDePasse\(u, pwd\);/.test(cx)
+    && cx.indexOf("venuDuServeur = true;") > cx.indexOf("if (r.user) {"));
+  test("★★ « d » : toute synchronisation et tout appel au serveur ATTENDENT l'ouverture en cours (assurerSession), jamais une seconde ouverture en même temps",
+    /export async function assurerSession\(\) \{\s*if \(!supabaseConfigure\) return false;\s*await attendreOuvertureSession\(\);/.test(sc)
+    && /await assurerSession\(\)/.test(readFileSync("src/sync.js", "utf8")) && /await assurerSession\(\)\.catch/.test(sc));
+  test("★ « c » côté écran : une session préparée refusée reprend la vieille méthode (synchroniserAuth)",
+    /export async function ouvrirSessionPreparee\(id, motDePasse\) \{[\s\S]*?return synchroniserAuth\(id, motDePasse\);\s*\}/.test(sc));
 }
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

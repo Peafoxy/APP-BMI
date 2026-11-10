@@ -62,14 +62,17 @@ export async function chargerApparence() {
 // sinon { error } avec un message affichable tel quel.
 // N'est appelée QUE lorsque le compte est introuvable en local : une
 // connexion hors réseau sur un appareil déjà utilisé ne passe jamais par ici.
-export async function chercherCompteEnLigne(nom, motDePasse) {
+// ⚡ 10/11/2026 : `preparerSession` demande au serveur de préparer le compte
+// sécurisé dans le même appel (connexion rapide) ; la réponse dit alors
+// `session_prete`. Sans lui, comme avant.
+export async function chercherCompteEnLigne(nom, motDePasse, { preparerSession = false } = {}) {
   if (!supabaseConfigure) return { error: "Application non configurée pour le réseau." };
   if (!navigator.onLine) return { error: "hors_ligne" };
   try {
     const reponse = await fetch(URL_CHERCHER_COMPTE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nom, motDePasse }),
+      body: JSON.stringify(preparerSession ? { nom, motDePasse, preparerSession: true } : { nom, motDePasse }),
     });
     const corps = await reponse.json().catch(() => ({}));
     if (!reponse.ok) {
@@ -85,7 +88,7 @@ export async function chercherCompteEnLigne(nom, motDePasse) {
           : `Le serveur a répondu ${reponse.status}.`),
       };
     }
-    return { user: corps?.user || null };
+    return { user: corps?.user || null, session_prete: corps?.session_prete === true };
   } catch (e) {
     return { error: motifReseau(e) };
   }
@@ -303,6 +306,46 @@ export async function synchroniserAuth(id, motDePasse) {
 // `id` ? Si oui, on la ferme (sur cet appareil seulement) et on le dit : rien
 // ne doit partir ni arriver avec les droits de quelqu'un d'autre. Rend vrai si
 // une session a été fermée.
+// ⚡ LA CONNEXION RAPIDE (10/11/2026, « d ») : l'écran s'ouvre dès que le
+// mot de passe est reconnu, pendant que la session sécurisée finit de
+// s'ouvrir. Tout ce qui a besoin d'elle (synchronisation, appels au serveur)
+// passe par assurerSession, qui ATTEND d'abord cette ouverture — sinon il
+// lancerait une seconde ouverture en même temps, et la réécriture du mot de
+// passe de l'une fermerait la session de l'autre. 30 s au plus : au-delà,
+// assurerSession reprend la main comme avant.
+let ouvertureEnCours = null;
+export const ATTENTE_OUVERTURE_MAX_MS = 30000;
+export function poserOuvertureSession(promesse) {
+  const p = Promise.resolve(promesse).catch(() => {});
+  ouvertureEnCours = p;
+  p.then(() => { if (ouvertureEnCours === p) ouvertureEnCours = null; });
+  return p;
+}
+export async function attendreOuvertureSession(maxMs = ATTENTE_OUVERTURE_MAX_MS) {
+  const p = ouvertureEnCours;
+  if (!p) return;
+  let minuteur;
+  await Promise.race([p, new Promise((r) => { minuteur = setTimeout(r, maxMs); })]);
+  clearTimeout(minuteur);
+}
+
+// ⚡ « c » : le serveur a DÉJÀ préparé le compte sécurisé (chercher-compte,
+// session_prete) — il ne reste qu'à ouvrir la session. ⚠ Refusée, la VIEILLE
+// MÉTHODE reprend la main (synchroniserAuth : un appel à sync-auth).
+export async function ouvrirSessionPreparee(id, motDePasse) {
+  if (!supabaseConfigure) return synchroniserAuth(id, motDePasse);
+  identifiants = { id, motDePasse };
+  await fermerSessionEtrangere(id);
+  try {
+    const { error } = await supabase.auth.signInWithPassword({ email: emailDeSession(id), password: motDePasse });
+    if (!error) {
+      Object.assign(etatAuth, { ok: true, sessionPerdue: false, raison: "Session sécurisée active" });
+      return { ...etatAuth };
+    }
+  } catch { /* la vieille méthode ci-dessous */ }
+  return synchroniserAuth(id, motDePasse);
+}
+
 export async function fermerSessionEtrangere(id) {
   if (!supabaseConfigure || !id) return false;
   try {
@@ -352,6 +395,8 @@ export const expireBientot = (session, maintenantS = Date.now() / 1000) =>
 // silence et restait « en attente » pour toujours.
 export async function assurerSession() {
   if (!supabaseConfigure) return false;
+  // ⚡ Une ouverture de session lancée par la connexion rapide : on l'attend.
+  await attendreOuvertureSession();
   // Si un refus d'écriture a marqué la session comme morte (etatAuth.ok à
   // false), on NE la croit PAS sur parole même si supabase-js la dit active :
   // on force le rafraîchissement, puis la reconnexion complète si possible.

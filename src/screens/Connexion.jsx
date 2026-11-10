@@ -12,7 +12,8 @@ import { verifierMotDePasse, definirMotDePasse } from "../lib/core";
 import { memeIdentifiant } from "../lib/identiteClient.js";
 import { Field, inputCls } from "../components/ui";
 import { souhaitsDuJour } from "../lib/calculs";
-import { synchroniserAuth, chercherCompteEnLigne } from "../supabaseClient";
+import { synchroniserAuth, chercherCompteEnLigne, ouvrirSessionPreparee, poserOuvertureSession } from "../supabaseClient";
+import { CONNEXION_RAPIDE } from "../lib/constants";
 import { demanderPermissionPush } from "../push";
 import { enregistrerCompteLocal, oublierCompteLocal } from "../db";
 import { fondCarteVerrou, texteClairSur, COULEUR_CARTE_VERROU_DEFAUT } from "../lib/verrou";
@@ -38,6 +39,7 @@ export function Login({ db, apparence, onLogin, save }) {
     const candidats = db.users.filter((x) => memeIdentifiant(x.nom, saisie));
     let u = candidats[0];
     let venuDuServeur = false;
+    let sessionPrete = false;
     // ⚠ ÉTAPE 2 de la fermeture du « trou n° 1 » : la table des comptes n'est
     // plus téléchargée à l'avance (elle était lisible par n'importe qui). Un
     // appareil NEUF ne connaît donc encore personne : on demande au serveur
@@ -62,7 +64,7 @@ export function Login({ db, apparence, onLogin, save }) {
     // réseau faiblit. C'est toute l'utilité du drapeau « refuse ».
     if (navigator.onLine) {
       setConnexionEnCours(true);
-      const r = await chercherCompteEnLigne(nomSaisi.trim(), pwd);
+      const r = await chercherCompteEnLigne(nomSaisi.trim(), pwd, { preparerSession: CONNEXION_RAPIDE });
       setConnexionEnCours(false);
       if (r.refuse) {
         // ⚠ On n'oublie QUE la copie périmée qui aurait laissé entrer : avec
@@ -77,6 +79,7 @@ export function Login({ db, apparence, onLogin, save }) {
       if (r.user) {
         u = r.user;
         venuDuServeur = true;
+        sessionPrete = CONNEXION_RAPIDE && r.session_prete === true;
         // La fiche est rangée en local : les connexions suivantes se feront
         // sans réseau. On n'utilise volontairement pas save() — ce n'est pas
         // une action de l'utilisateur, et personne n'est encore connecté.
@@ -102,7 +105,14 @@ export function Login({ db, apparence, onLogin, save }) {
     if (accesFerme(u, maintenantMs())) { setErr(messageAccesFerme(u)); return; }
     // 🖨 La fiche d'un client dont le devis a été imprimé sans compte (15/10/2026).
     if (estSansAcces(u)) { setErr(MESSAGE_SANS_ACCES); return; }
-    const { ok, aMigrer } = await verifierMotDePasse(u, pwd);
+    // ⚡ « a » (10/11/2026, connexion rapide) : le SERVEUR vient de vérifier
+    // ce mot de passe (il ne rend la fiche qu'à ce prix) — le téléphone ne
+    // refait pas le calcul, volontairement lent (plus d'une seconde sur un
+    // petit téléphone). Hors réseau ou serveur injoignable, le téléphone
+    // vérifie lui-même, comme avant. Un ancien format reste à migrer.
+    const { ok, aMigrer } = (CONNEXION_RAPIDE && venuDuServeur)
+      ? { ok: true, aMigrer: !(u.pwd_salt && u.pwd_hash2) }
+      : await verifierMotDePasse(u, pwd);
     if (!ok) { setErr("Mot de passe incorrect."); return; }
     // Migration transparente vers le hachage renforcé (sel individuel + PBKDF2),
     // qu'il s'agisse d'un ancien hachage à sel partagé ou d'un mot de passe en clair.
@@ -122,8 +132,21 @@ export function Login({ db, apparence, onLogin, save }) {
     // prête, et ne récupérait alors que les données publiques (les comptes),
     // pas le reste (devis, chantiers, messages...). Un échec ici (hors ligne,
     // serveur indisponible) ne bloque jamais la connexion locale.
+    //
+    // ⚡ « d » (10/11/2026, connexion rapide) : le mot de passe est reconnu,
+    // l'écran s'ouvre TOUT DE SUITE ; la session finit de s'ouvrir derrière
+    // (poserOuvertureSession). La synchronisation l'ATTEND avant de lire ou
+    // d'écrire (assurerSession, supabaseClient.js) : le défaut décrit plus
+    // haut ne revient pas. Le serveur a préparé le compte (« c ») → il ne
+    // reste qu'à ouvrir la session ; sinon la vieille méthode (sync-auth).
+    const ouvrir = () => (sessionPrete ? ouvrirSessionPreparee(u.id, pwd) : synchroniserAuth(u.id, pwd)).catch(() => {});
+    if (CONNEXION_RAPIDE) {
+      poserOuvertureSession(ouvrir());
+      onLogin(u);
+      return;
+    }
     setConnexionEnCours(true);
-    await synchroniserAuth(u.id, pwd).catch(() => {});
+    await ouvrir();
     setConnexionEnCours(false);
     onLogin(u);
   };

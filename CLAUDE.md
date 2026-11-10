@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2966 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2985 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -78,6 +78,7 @@ npm run tester-argent            # 319 : les règles de rôle sur l'argent (serv
 npm run tester-comptes           # 120 : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 129 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
+npm run tester-connexion         # 12  : la fonction qui retrouve le compte sécurisé (connexion rapide, serveur seul, base jetable)
 npm run tester-heure             # 7   : l'heure de la base (heure_serveur, serveur, base jetable) : l'instant de la RÉPONSE, lisible connecté ou non, ne touche aucune table
 npm run tester-catalogue         # 24  : le catalogue du site vitrine (stock_calcule, base jetable) : une quantité à virgule ne fait plus tomber la page Boutique, le stock du site = celui de l'application (comparé article par article à stockDepuisLignes), le visiteur ne lit rien de plus ; la vérification du script lit count(disponible), jamais count(*) (elle répondait true à tort)
 npm run tester-vocaux            # 15  : l'espace PRIVÉ des notes vocales envoyées (`vocaux-1-espace.sql`, base jetable) : privé, 3 Mo, sons seulement ; aucun appareil n'y lit ni n'y dépose, le serveur oui ; la vérification répond false devant une règle qui l'ouvrirait
@@ -722,6 +723,15 @@ lit mal est pire qu'un banc absent).
 - Rien à coller. Banc Chromium `verifier-retour-android` (63), éprouvé
   (compactage retiré, verrou ignoré, confirmation qui rend OK, profil non
   branché : chacun tombe).
+
+### ⚡ LA CONNEXION RAPIDE (10/11/2026, « les 4… si un souci se passe à l'usage, on revient à la vieille méthode »)
+- Timo : « la connexion dure à peine 2 secondes sans rien casser côté sécurité ». Quatre gestes, **aucune sécurité retirée** ; la réécriture du mot de passe à chaque connexion (décision du 22/10) est GARDÉE.
+  - **« a »** : le téléphone ne refait pas le calcul du mot de passe (PBKDF2, plus d'une seconde sur un petit téléphone) quand la fiche vient du SERVEUR, qui vient de le vérifier ; hors réseau, il vérifie comme avant (Connexion.jsx).
+  - **« b »** : le compte sécurisé est retrouvé par la base (`compte_securise_par_email`, **`supabase/connexion-rapide-1.sql`**, réservé au serveur — `service_role` seul, search_path vide, ne rend qu'un uuid) au lieu de lire la liste des comptes par paquets de 1 000. **Repli** : fonction absente, en panne, ou réponse d'une autre adresse → la vieille méthode (`parcourirLaListe`).
+  - **« c »** : `api/_compteSecurise.js` (écrit UNE fois : `trouverCompteSecurise`, `revendicationsDe`, `preparerCompteSecurise`) — `chercher-compte` prépare la session dans le même appel quand l'écran le demande (`preparerSession`), APRÈS le mot de passe et tous les refus ; un échec rend `session_prete: false` et l'écran rappelle `sync-auth` comme avant. `sync-auth` passe par la même fabrique.
+  - **« d »** : l'écran s'ouvre dès le mot de passe reconnu ; la session finit de s'ouvrir derrière (`poserOuvertureSession`, `ouvrirSessionPreparee` qui retombe sur `synchroniserAuth`) ; **`assurerSession` ATTEND cette ouverture** (30 s au plus), donc toute synchronisation et tout appel au serveur — jamais une seconde ouverture en même temps (la réécriture du mot de passe de l'une fermerait l'autre).
+- **LE RETOUR À LA VIEILLE MÉTHODE** : `CONNEXION_RAPIDE` (constants.js) à `false` ramène « a », « c » et « d » tels qu'avant, sans rien d'autre à toucher ; « b » a son propre repli côté serveur. ⚠ Non mesuré d'ici sur son téléphone ni sur le vrai serveur ; un serveur Vercel qui se réveille peut encore coûter 1 à 2 s.
+- Bancs : `tester-connexion` (12, nouveau, éprouvé : la porte rouverte aux visiteurs, trois tombent — le banc reproduit les droits d'office de Supabase sur une nouvelle fonction), `verifier-cloisonnement` (+16, le vrai module serveur joué avec un faux Supabase ; éprouvé : repli retiré, attente retirée) ; trois contrôles RETOURNÉS (les revendications lues dans `_compteSecurise.js`). Chapitre 1 à jour. **SQL à coller par Timo** (`true | true | true`).
 
 ### ⏱ LA DÉCONNEXION PREND 3 À 5 SECONDES — « on laisse comme ça pour le moment » (14/10/2026)
 - Timo : « pourquoi la déconnexion prend assez de temps ? ». Trois échanges

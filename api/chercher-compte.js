@@ -31,6 +31,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash, pbkdf2Sync } from "crypto";
 import { poserCors } from "./_cors.js";
+import { preparerCompteSecurise } from "./_compteSecurise.js";
 import {
   adresseAppelant, clesDeControle, lireVerrous, enregistrerEchec, reinitialiserEchecs,
 } from "./_verrouillage.js";
@@ -71,7 +72,7 @@ export default async function handler(req, res) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
 
-  const { nom, motDePasse } = req.body || {};
+  const { nom, motDePasse, preparerSession } = req.body || {};
   if (!nom || !motDePasse) return res.status(400).json({ error: "Identifiant ou mot de passe manquant" });
 
   const url = process.env.VITE_SUPABASE_URL;
@@ -147,7 +148,23 @@ export default async function handler(req, res) {
     // ⚠ Les champs d'argent n'y sont plus (voir supabase/paie-1-table.sql) :
     // ils vivent dans la table `paie`, que la synchronisation ira chercher
     // après la connexion, si le compte y a droit.
-    return res.status(200).json({ user: { id: ligne.id, ...champs } });
+    // ⚡ LA CONNEXION RAPIDE (10/11/2026, « c ») : le mot de passe vient
+    // d'être vérifié ICI, avec les compteurs d'essais — le compte sécurisé
+    // se prépare dans le même appel, au lieu d'un second appel à sync-auth
+    // (qui revérifiait le même mot de passe). Les mêmes contrôles ont été
+    // faits juste au-dessus : compte bloqué, accès fermé, fiche sans accès.
+    // ⚠ Un échec ici ne refuse PAS la connexion : `session_prete` reste
+    // faux et l'écran reprend la vieille méthode (sync-auth).
+    let sessionPrete = false;
+    if (preparerSession === true && String(motDePasse).length >= 6) {
+      try {
+        await preparerCompteSecurise(admin, ligne.id, champs, motDePasse);
+        sessionPrete = true;
+      } catch (e) {
+        console.error("chercher-compte, préparation de la session (sync-auth prendra le relais):", e?.message || e);
+      }
+    }
+    return res.status(200).json({ user: { id: ligne.id, ...champs }, session_prete: sessionPrete });
   } catch (e) {
     console.error("chercher-compte:", e?.message || e);
     return res.status(500).json({ error: "Le serveur a rencontré un problème. Réessayez ; si cela continue, prévenez l'administrateur." });
