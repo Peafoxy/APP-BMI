@@ -1382,6 +1382,12 @@ export function refusSuppressionDepense(db, d) {
     return `🔒 Cet argent a été rendu au client lors de la reprise ${d.reprise_ref} : il ne se supprime pas seul.\n\n`
       + "La reprise ne se défait pas ; si le montant est faux, prévenez l'administrateur principal.";
   }
+  // 🛒 Un paiement ou un frais d'une commande à l'étranger (10/11/2026) : il
+  // entre dans le prix de revient des articles — il se retire depuis la commande.
+  if (d?.commande_import) {
+    return `🔒 Cette dépense appartient à la commande ${d.commande_import.numero || ""} (${d.commande_import.fournisseur || "fournisseur"}).\n\n`
+      + "Elle se retire depuis 🚚 Fournisseurs → 🛒 la commande, tant que la marchandise n'est pas reçue.";
+  }
   if (d.auto === "virement" || d.auto === "retenue") {
     return "🔒 Un paiement de salaire ne s'annule pas depuis cet écran.\n\n"
       + "Allez dans 👥 Utilisateurs → la fiche de l'employé → ⋯ Gérer → « Annuler le paiement ». "

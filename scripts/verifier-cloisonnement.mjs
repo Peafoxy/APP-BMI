@@ -18198,6 +18198,72 @@ titre("La fiche d'un fournisseur se modifie ; le représentant ; le dû au princ
   }
 }
 
+// 🛒 LES COMMANDES À L'ÉTRANGER (Alibaba) — Timo, 10/11/2026 : « 1b, 2a, 3a,
+// 4b », et pour un prix déjà connu « a » (rendu Lomé, aucun frais).
+titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la valeur, prix de revient, prix moyen (10/11/2026)");
+{
+  const sortieCI = join("node_modules", ".cache", `bmi-commandes-${process.pid}.mjs`);
+  let F = null, err = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-fournisseurs.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieCI, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server"] });
+    F = await import(pathToFileURL(sortieCI).href);
+  } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieCI); } catch {}
+  test("la règle des commandes à l'étranger se construit" + (err ? ` — ${err}` : ""), !!F);
+  if (F) {
+    const L = F.CI;
+    test("★ lib/commandesImport.js n'importe RIEN", !/^\s*import\s/m.test(readFileSync("src/lib/commandesImport.js", "utf8")));
+    const c = { id: "c1", numero: "IMP-2026-0001", etape: "douane", lignes: [
+      { id: "a", nom: "Panneau 550W", qte: 10, pu: 50, mode: "calcul" },
+      { id: "b", nom: "Câble", qte: 100, pu: 1, mode: "calcul" },
+      { id: "d", nom: "Batterie", qte: 2, pu: 300, mode: "connu", prix_connu: 400000 }],
+      paiements: [{ montant_devise: 600, taux: 600, montant_f: 360000, depense_id: "p1" }, { montant_devise: 600, taux: 620, montant_f: 372000, depense_id: "p2" }],
+      frais: [{ montant: 120000, depense_id: "f1" }, { montant: 30000, depense_id: "f2" }] };
+    const dep = [{ id: "p1" }, { id: "p2" }, { id: "f1" }, { id: "f2", validation: { statut: "validee" } }];
+    const r = L.calculerCouts(c, dep, {});
+    const cout = (n) => r.lignes.find((l) => l.nom === n);
+    test("★ acompte + solde à deux taux : le taux de la commande = ce qui a VRAIMENT été payé en francs ÷ le total en dollars (732 000 ÷ 1 200 = 610)",
+      Math.abs(r.taux - 610) < 1e-9 && L.etatPaiements(c, dep).payeF === 732000);
+    test("★★ « 2a » : les frais (150 000) se répartissent au prorata de la VALEUR — le panneau 43 000 F, le câble 860 F",
+      cout("Panneau 550W").part_frais === 125000 && cout("Panneau 550W").cout === 43000 && cout("Câble").cout === 860);
+    test("★★ « a » : un prix connu (rendu Lomé) est gardé tel quel, AUCUN frais ne s'y ajoute",
+      cout("Batterie").cout === 400000 && cout("Batterie").part_frais === 0);
+    const c2 = { ...c, paiements: [c.paiements[0]] };
+    test("★ une part pas encore payée : le taux du jour est EXIGÉ à la réception, puis compté (360 000 + 600 × 650) ÷ 1 200 = 625",
+      /taux du jour/.test(L.critiqueReception(c2, dep, {})) && L.calculerCouts(c2, dep, { tauxReste: 650 }).taux === 625);
+    test("★ « 3a » : un paiement ou un frais EN ATTENTE du DG ne compte pas, et bloque le calcul du prix de revient",
+      /validation du DG/.test(L.critiqueReception(c, [...dep.filter((d) => d.id !== "f1"), { id: "f1", validation: { statut: "attente" } }], {}))
+      && L.etatFrais(c, [...dep.filter((d) => d.id !== "f1"), { id: "f1", validation: { statut: "rejetee" } }]).total === 30000);
+    test("★★ « 4b » : le nouveau prix d'achat = la MOYENNE avec le stock restant (5 à 30 000 + 10 à 45 000 → 40 000) ; rien en stock → le prix de revient",
+      L.prixMoyen(5, 30000, 10, 45000) === 40000 && L.prixMoyen(0, 30000, 10, 45000) === 45000 && L.prixMoyen(5, 0, 10, 45000) === 45000);
+    test("★ on ne paie pas plus que le reste en dollars ; un frais ou un paiement après la réception est refusé",
+      /dépasse/.test(L.critiquePaiement(c, { montant_devise: 1, taux: 600 }, dep))
+      && /déjà reçue/.test(L.critiqueFrais({ ...c, etape: "recue" }, { sorte: "Douane", montant: 1000 }))
+      && /déjà reçue/.test(L.critiquePaiement({ ...c, etape: "recue" }, { montant_devise: 1, taux: 600 }, dep)));
+    test("le numéro suit le plus grand déjà donné (IMP-2026-0002)", L.prochainNumeroCommande([{ commandes_import: [c] }], "2026") === "IMP-2026-0002");
+    test("★ les frais d'importation sortent du Résultat (achat de stock), ne se saisissent pas à la main, et vont en 6015 au journal ; « Commande en Chine » en 601",
+      F.CATEGORIES_ACHAT_STOCK.includes(F.CATEGORIE_FRAIS_IMPORT) && !F.CATEGORIES.includes(F.CATEGORIE_FRAIS_IMPORT)
+      && F.COMPTE_CHARGE[F.CATEGORIE_FRAIS_IMPORT][0] === "6015" && F.COMPTE_CHARGE["Commande en Chine"][0] === "601");
+    const depCmd = { id: "x", categorie: "Commande en Chine", montant: 1000, commande_import: { numero: "IMP-2026-0001", fournisseur: "ALIBABA" } };
+    test("★★ une dépense d'une commande ne se supprime ni ne se modifie depuis 📤 Dépenses (elle fait le prix de revient)",
+      /IMP-2026-0001/.test(F.refusSuppressionDepense({ depenses: [] }, depCmd) || "") && /IMP-2026-0001/.test(F.motifNonModifiable(depCmd) || ""));
+    const comp = readFileSync("src/components/CommandesImport.jsx", "utf8");
+    test("★★ paiements et frais passent par LA fabrique des dépenses (validation du DG) et la limite du tiroir",
+      /construireDepenseSaisie\(db, profile,/.test(comp) && /critiqueSortieTiroir\(\{ tiroir: p\.montant \+ p\.resteFonds/.test(comp));
+    test("★★ le prix d'achat d'un article EXISTANT ne change que par l'administrateur (règle du 04/09, securite-4) ; sinon « 💲 Appliquer les prix »",
+      /\.\.\.\(admin \? \{ prix_achat: l\.prix_moyen \} : \{\}\)/.test(comp) && /refuserSaufAdmin\(profile, "Appliquer les prix d'achat d'une commande"\)/.test(comp));
+    test("★ le gérant et l'administrateur (« 1b ») : chaque geste revérifie ROLES_FOURNISSEURS ; les lieux = l'espace regardé (boutiquesVisibles)",
+      /refuserSaufRoles\(profile, ROLES_FOURNISSEURS, geste\)/.test(comp) && /boutiquesVisibles\(db, profile, \(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => !b\.terrain\)\)/.test(comp));
+    const db = { boutiques: [{ nom: "DEMAKPOE" }], produits: [], users: [], depenses: dep, fournisseurs: [{ id: "f1", nom: "ALIBABA", doit: 0, paye: 0, commandes_import: [c] }] };
+    const html = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "gerant" }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
+    test("★ RENDU : le cadre « 🛒 Commandes à l'étranger » montre la commande en cours, et le bouton 🛒 est sur la ligne du fournisseur",
+      /data-commandes-import/.test(html) && /IMP-2026-0001/.test(html) && /1 en cours/.test(html) && /Nouvelle commande à l&#x27;étranger/.test(html));
+  }
+}
+
 // 🔒 « ✍️ Compléter le devis » REVÉRIFIE AUSSI LA LIMITE DE REMISE (27/10/2026,
 // capture Timo : « Remise supérieure à 3 % sur un devis : réservé à
 // l'administrateur (vous : gerant) » — la gérante n'avait pas touché la

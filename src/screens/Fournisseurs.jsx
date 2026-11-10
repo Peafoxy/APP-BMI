@@ -7,6 +7,8 @@ import { uid, fmt, today, normPaiement, lienWhatsApp } from "../lib/core";
 import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
 import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions, PanneauQuiSeMontre, IconeWhatsApp } from "../components/ui";
 import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte, refuserSaufRoles, ROLES_FOURNISSEURS, estAdminPrincipal, boutiquesVisibles } from "../lib/calculs";
+import { CommandesImport } from "../components/CommandesImport";
+import { estEnCours } from "../lib/commandesImport";
 import { critiqueModifFournisseur, changementsFournisseur, fournisseurModifie, articlesQuiSuivent, produitsRenommes, phraseChangements } from "../lib/fournisseurs";
 
 const FICHE_VIDE = { nom: "", tel: "", adresse: "", site_web: "", produits: "", representant: "", representant_tel: "", doit: "", paye: "" };
@@ -22,6 +24,8 @@ export function Fournisseurs({ db, save, profile }) {
   const [edition, setEdition] = useState(null);
   const [fe, setFe] = useState(FICHE_VIDE);
   const principal = estAdminPrincipal(db, profile);
+  // 🛒 La commande à l'étranger ouverte depuis la ligne d'un fournisseur (10/11/2026).
+  const [commandePour, setCommandePour] = useState(null);
 
   const ajouter = () => {
     if (refuserSaufRoles(profile, ROLES_FOURNISSEURS, "Créer un fournisseur")) return;
@@ -120,6 +124,7 @@ export function Fournisseurs({ db, save, profile }) {
   const supprimer = async (fo) => {
     if (refuserSaufRoles(profile, ROLES_FOURNISSEURS, "Supprimer un fournisseur")) return;
     if (bloquerSiLecture(db, profile)) return;
+    if ((fo.commandes_import || []).some(estEnCours)) { uAlert(`${fo.nom} a une commande à l'étranger en cours : réceptionnez-la ou annulez-la d'abord.`); return; }
     if (await uConfirm(`Supprimer le fournisseur « ${fo.nom} » ?`)) save({ ...db, fournisseurs: db.fournisseurs.filter((x) => x.id !== fo.id) });
   };
 
@@ -172,6 +177,8 @@ export function Fournisseurs({ db, save, profile }) {
         <button onClick={enregistrerModif} className={`mt-3 ${btnDark}`}>Enregistrer les modifications</button>
       </PanneauQuiSeMontre>)}
 
+      <CommandesImport db={db} save={save} profile={profile} fournisseurs={liste} commandePour={commandePour} onCommandePourFini={() => setCommandePour(null)} />
+
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">
           Fournisseurs <span className="text-sm font-normal text-slate-500">· Reste à régler : {fmt(resteTotal)}</span>
@@ -205,6 +212,7 @@ export function Fournisseurs({ db, save, profile }) {
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(fo.paye)}</td>
                   <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${reste > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(reste)}</td>
                   <CelluleActions>
+                    <BoutonRond icone="🛒" teinte="violet" onClick={() => setCommandePour(fo.id)} titre="🛒 Nouvelle commande à l'étranger (Alibaba…)" />
                     <BoutonRond icone="📦" onClick={() => nouvelleDette(fo)} titre="+ Commande — une marchandise reçue à régler" />
                     <BoutonRond icone="💵" teinte="vert" onClick={() => payer(fo)} titre="+ Règlement" />
                     <BoutonRond icone="✏️" teinte="ambre" onClick={() => ouvrirModif(fo)} titre="✏️ Modifier la fiche du fournisseur" />

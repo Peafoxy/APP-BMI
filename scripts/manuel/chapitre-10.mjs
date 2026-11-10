@@ -21,7 +21,9 @@
 // components/ui.jsx (demanderMoyenPaiement : les quatre moyens en boutons),
 // lib/constants.js (catégorie « Achat marchandises », compte 601),
 // lib/validationDepenses.js (une dépense sans « Payé avec » = la caisse de
-// la boutique), App.jsx (onglet 🚚 Fournisseurs : administrateur, gérant).
+// la boutique), App.jsx (onglet 🚚 Fournisseurs : administrateur, gérant) ;
+// components/CommandesImport.jsx et lib/commandesImport.js (🛒 Commandes à
+// l'étranger : paiements en dollars, frais, réception, prix de revient).
 // ============================================================
 export const CHAPITRE = {
   numero: 10,
@@ -116,6 +118,15 @@ export const CHAPITRE = {
         { titre: "Après coup, dans le tableau", texte: "Sur la ligne de l'article, le bouton rond **🚚** : « Fournisseur de « … » ? » avec la liste des fournisseurs enregistrés. On tape un nom de la liste (majuscules libres) ; **vide = retirer le fournisseur**. Un nom hors liste est refusé : « Ce fournisseur n'existe pas. Créez-le d'abord dans 🚚 Fournisseurs. » Sans aucun fournisseur : « Aucun fournisseur enregistré. Créez-le d'abord dans l'onglet 🚚 Fournisseurs. »" },
         { titre: "Par l'import d'articles", texte: "En mode « 📦 Nouveaux articles », la colonne Fournisseur du fichier doit porter un nom **déjà enregistré** : un fournisseur inconnu n'est pas créé (on ne crée pas un fournisseur par faute de frappe), l'article est importé **sans** fournisseur et le résumé le dit." },
       ]],
+      ["h3", "F. Une commande à l'étranger (Alibaba…)"],
+      ["etapes", [
+        { titre: "Créer la commande", texte: "En haut de 🚚 Fournisseurs, le cadre **« 🛒 Commandes à l'étranger (Alibaba…) »** → « ➕ Nouvelle commande » (ou le bouton rond **🛒** sur la ligne du fournisseur). On choisit le **Fournisseur**, où la marchandise sera **Reçue à** (une boutique ou un magasin) et une **Note** (le numéro de commande Alibaba). Puis une ligne par article : l'**Article** (on tape son nom, les articles du stock de ce lieu sont proposés ; un nom nouveau deviendra un nouvel article), la **Quantité**, le **Prix unitaire ($)**, et le **Prix d'achat** : « À calculer » d'office, ou « Prix connu (rendu Lomé) » avec le prix en francs. « ➕ Article » ajoute une ligne. **« Enregistrer la commande »** lui donne son numéro (IMP-2026-0001…). Rien n'est encore payé ni en stock." },
+        { titre: "Payer le fournisseur, en dollars", texte: "Un clic sur la commande la déplie. **« 💳 Payer le fournisseur »** : le montant payé en **dollars**, le **taux du jour** (combien de francs pour 1 dollar), le moyen, puis « Payé avec » (la caisse d'une boutique, la caisse du DG, celle du comptable ; un virement sort de la BANQUE). On paie en une fois, ou en plusieurs (acompte puis solde, chacun à son taux) ; jamais plus que le reste en dollars. Chaque paiement est une **dépense « Commande en Chine »** : au-delà de 5 000 F, elle attend la validation du DG comme toute dépense." },
+        { titre: "Les frais", texte: "**« ➕ Frais »**, autant de fois qu'il le faut : Fret, Transitaire, Douane, Manutention / port, Transport jusqu'au magasin, ou « ✏️ Autre… » ; payé à qui ; le montant en francs ; « Payé avec ». Chaque frais est une **dépense « Frais d'importation »**, qui porte le numéro de la commande." },
+        { titre: "Les étapes", texte: "Le bouton **« ➡ 🚢 Expédiée »**, puis **« ➡ 🏛 En douane »** fait avancer la commande ; l'étape se lit sur sa ligne." },
+        { titre: "Réceptionner", texte: "À l'arrivée, **« ✅ Réceptionner »** : la quantité réellement reçue de chaque article (0 si rien n'est arrivé), et le **taux du jour** si une partie n'est pas encore payée. **« Calculer et réceptionner »** montre, avant de confirmer, le prix de revient de chaque article. Les articles entrent dans le stock du lieu choisi (colonne Entrées) ; un nom nouveau devient un **nouvel article**, avec un prix de vente à 0 F à fixer dans 📦 Stocks avant de le vendre." },
+        { titre: "Le prix d'achat qui en sort", texte: "**« À calculer »** : prix en dollars × le taux de la commande (ce qui a vraiment été payé en francs, divisé par le total en dollars), plus sa part des frais, **au prorata de la valeur**. **« Prix connu »** : le prix rendu Lomé, gardé tel quel, sans frais. Le nouveau prix d'achat d'un article déjà en stock est la **moyenne** entre ce qui reste en stock (à l'ancien prix) et ce qui arrive. ⚠ Reçue par un gérant, la commande porte « 💲 prix à appliquer » : c'est l'administrateur qui clique **« 💲 Appliquer les prix d'achat »** (le prix d'achat reste son geste)." },
+      ]],
     ]},
 
     // ── 5
@@ -140,6 +151,10 @@ export const CHAPITRE = {
         ["📄 Modèle Excel → ➕ Entrées de stock", "Le fichier vide à trois colonnes (Nom, Quantité reçue, Prix d'achat) au nom de la boutique regardée."],
         ["📥 Importer un fichier Excel → ➕ Entrées de stock", "Toutes les réceptions d'un coup, pour des articles **existants** ; ne crée jamais d'article."],
         ["📋 Coller du texte", "Nouveaux articles seulement (huit colonnes). Pas d'entrées par ce chemin."],
+        ["🛒 Commandes à l'étranger → ➕ Nouvelle commande", "Une commande Alibaba : ses articles, son prix en dollars, le lieu de réception. Le bouton rond 🛒 sur la ligne d'un fournisseur l'ouvre pour lui."],
+        ["💳 Payer le fournisseur · ➕ Frais", "Un paiement en dollars au taux du jour, un frais en francs : chacun est une dépense, validée par le DG au-delà de 5 000 F."],
+        ["✅ Réceptionner · 💲 Appliquer les prix d'achat", "Fait entrer la marchandise et calcule le prix de revient rendu Lomé ; l'administrateur applique les prix d'achat des articles déjà en stock."],
+        ["🗑 (paiement ou frais) · ✖ Annuler la commande", "Administrateur, avant la réception : retire un paiement ou un frais saisi par erreur (sa dépense avec lui) ; annule une commande sans paiement ni frais (motif obligatoire)."],
       ]}],
     ]},
 
@@ -156,6 +171,7 @@ export const CHAPITRE = {
         "**Le mur** : les fournisseurs proposés (formulaire, colonne, import) sont ceux de l'espace de la boutique regardée ; la caisse qui paie un règlement est une caisse de l'espace regardé, et « Chez le comptable » n'est proposée qu'en réel.",
         "**Le journal** (🕘 Historique) garde le paiement avec sa caisse, chaque « + Entrée » avec sa quantité, chaque changement de fournisseur — et, pour un import, une ligne qui nomme chaque article entré et le fichier.",
         "**Aucune notification** n'est envoyée par ces gestes : ni le règlement ni l'entrée ne préviennent quelqu'un.",
+        "**Une commande à l'étranger** : ses paiements (« Commande en Chine ») et ses frais (« Frais d'importation », compte 6015) sont des dépenses ordinaires, qui passent par le DG au-delà de 5 000 F et ne se modifient ni ne se suppriment depuis 📤 Dépenses. Elles **sortent du Résultat** du tableau de bord : elles entrent dans le prix d'achat des articles reçus, qui revient dans le Résultat au fil des ventes. Elle ne touche ni le Dû ni le Réglé du fournisseur.",
       ]],
     ]},
 

@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.716";
+export const VERSION = "2.101.717";
 
 // ⚡ LA CONNEXION RAPIDE (10/11/2026, Timo : « les 4… si un souci se passe à
 // l'usage, on revient à la vieille méthode »). Vrai : le téléphone ne refait
@@ -128,6 +128,12 @@ export const mobileParMoyen = (moyen) => MOYENS_MOBILES.find((x) => x.moyen === 
 // Outillage quand on envoie un outil chez un réparateur, ou quand il en
 // revient ; « Autre » reste en dernier.
 export const CATEGORIE_REPARATION_OUTIL = "Réparation d'outillage";
+// 🛒 Les frais d'une commande à l'étranger (fret, transitaire, douane…) —
+// Timo, 10/11/2026. Ils entrent dans le prix de revient des articles reçus :
+// comme l'achat de la marchandise, ils sortent du Résultat (CATEGORIES_ACHAT_STOCK).
+// Pas dans CATEGORIES : seule la commande en crée une (saisi à la main, il
+// sortirait du Résultat sans entrer dans aucun prix).
+export const CATEGORIE_FRAIS_IMPORT = "Frais d'importation";
 // 🏗 « Chantier » et « Visite » (Timo, 14/10/2026, « A a, B a ») : après
 // Nourriture, avec les frais de terrain. Une dépense « Chantier » se rattache
 // OBLIGATOIREMENT à son chantier (critiqueCategorieChantier,
@@ -258,7 +264,7 @@ export const caisseDeVente = (v) => v?.caisse || v?.boutique;
 // celle de la vente ou du devis, même quand son argent entre dans CHANTIER.
 export const boutiqueDuDocument = (d) => d?.boutique_vente || d?.boutique_pose || d?.boutique;
 
-export const CATEGORIES_ACHAT_STOCK = ["Achat marchandises", "Commande en Chine"];
+export const CATEGORIES_ACHAT_STOCK = ["Achat marchandises", "Commande en Chine", CATEGORIE_FRAIS_IMPORT];
 export const horsAchatsDeStock = (liste) => (liste || []).filter((x) => !CATEGORIES_ACHAT_STOCK.includes(x?.categorie));
 
 // Validité d'une offre de prix (devis) — Timo, 11/09/2026 : 15 jours, comme
@@ -271,6 +277,8 @@ export const COMPTE_CHARGE = {
   "Salaires": ["661", "Rémunérations du personnel"],
   "Transport": ["618", "Autres frais de transport"],
   "Achat marchandises": ["601", "Achats de marchandises"],
+  "Commande en Chine": ["601", "Achats de marchandises"],
+  [CATEGORIE_FRAIS_IMPORT]: ["6015", "Frais sur achats (transport, douane)"],
   "Communication": ["628", "Frais de télécommunications"],
   "Impôts / Taxes": ["641", "Impôts et taxes directs"],
   "Commissions": ["632", "Rémunérations d'intermédiaires et de conseils"],

@@ -9,3 +9,8 @@ import { Fournisseurs } from "../src/screens/Fournisseurs.jsx";
 export * as R from "../src/lib/fournisseurs.js";
 
 export const rendreFournisseurs = (db, profile) => renderToStaticMarkup(React.createElement(Fournisseurs, { db, save() {}, profile }));
+// 🛒 Les commandes à l'étranger (10/11/2026) : la règle, et ce qui protège leurs dépenses.
+export * as CI from "../src/lib/commandesImport.js";
+export { CATEGORIES, CATEGORIES_ACHAT_STOCK, CATEGORIE_FRAIS_IMPORT, COMPTE_CHARGE } from "../src/lib/constants.js";
+export { refusSuppressionDepense } from "../src/lib/calculs.js";
+export { motifNonModifiable } from "../src/lib/validationDepenses.js";
