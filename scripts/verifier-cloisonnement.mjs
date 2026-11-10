@@ -5595,7 +5595,7 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
   // fabrications de dépense (la saisie de l'écran, le remboursement d'une avance).
   test("★ nouveauMessage sert aux 36 fabrications (le brouillon envoyé ou supprimé à la place de son auteur, 12/10/2026 ; le brouillon préparé pour un autre, 12/10/2026 ; le brouillon confié à un collègue, 05/10/2026 ; les quatre de la validation des dépenses, 12/09/2026 ; la réponse WhatsApp, la réattribution d'une conversation et le PREMIER message à un client, 20/09/2026 ; le retour d'une conversation à tout le personnel, 21/09/2026 ; le pourcentage d'apporteur fixé par le principal, 29/09/2026), nouvelleDepense aux 18 dépenses (la saisie de l'écran Dépenses et le remboursement d'une avance de frais compris, 12/09/2026 ; le fonds de caisse remis par le DG, 14/09/2026 ; la sortie et la perte d'un outil, 17/09/2026 ; la retenue sur salaire d'un outil perdu, 18/09/2026 ; le retrait d'un compte mobile vers le tiroir, 21/09/2026 ; l'apport et le prélèvement de l'exploitant, 23/09/2026)",
     execSync("grep -rn 'nouveauMessage(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "36" /* RETOURNÉ 12/10/2026 : + l'avis du brouillon préparé pour un autre ; + l'avis du brouillon envoyé ou supprimé à la place de son auteur */
-    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "21" /* RETOURNÉ le 29/10/2026 : + le remboursement d'une remise après-vente (lib/remiseApresVente.js) ; le 10/11/2026 : + la remise du DG au tiroir (lib/remiseTiroir.js) */);
+    && execSync("grep -rn 'nouvelleDepense(' src/screens src/lib | grep -v 'src/lib/core.js' | wc -l").toString().trim() === "21" /* RETOURNÉ le 29/10/2026 : + le remboursement d'une remise après-vente (lib/remiseApresVente.js) ; le 10/11/2026 : + la dotation de caisse (lib/remiseTiroir.js) */);
   const dep = readFileSync("src/screens/Depenses.jsx", "utf8");
   // ⚠ Timo (11/09/2026) : « pourquoi jusqu'à lors les versements sont
   // considérés comme dépense ? ». Sa règle du 10/09 (« un versement n'est
@@ -6778,7 +6778,7 @@ titre("💸 Un versement de fonds n'est pas une dépense (Timo, 10/09/2026 : « 
     // la catégorie est IMPORTÉE puis RÉEXPORTÉE — jamais `export { x } from`
     // seul, qui ne crée aucune variable locale (piège touché deux fois).
     // ⚠ RETOURNÉ le 08/10/2026 : l'import porte aussi `caisseDeVente` (la caisse CHANTIER).
-    // ⚠ RETOURNÉ le 10/11/2026 : l'import porte aussi la remise du DG au tiroir.
+    // ⚠ RETOURNÉ le 10/11/2026 : l'import porte aussi la dotation de caisse.
     && /import \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen, caisseDeVente, estRemiseTiroir, remiseTiroirRecue \} from "\.\/constants\.js";\n[^]*?export \{ CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements \};/.test(readFileSync("src/lib/versements.js", "utf8")));
   const dbJ = { ...base(), ventes: [], dettes: [],
     depenses: [{ id: "j1", boutique: "APESSITO", montant: 252299, date: "2026-09-10", categorie: "Versement de fonds", paiement: "Espèces", versement: { destination: "Chez le DG" } },
@@ -7012,7 +7012,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
   unlinkSync(sortieK2);
   test("★ « Remboursement client » n'est pas une charge : hors tableau de bord, hors journal (horsVersements l'exclut comme le versement)",
     // 12/09/2026 : « Remboursement d'avance de frais » rejoint la liste (la charge est déjà comptée le jour de l'avance).
-    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Rendu sur échange|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant|Prêt au personnel|Remise du DG au tiroir" /* RETOURNÉ le 10/11/2026 : la remise du DG au tiroir non plus (ni une vente ni une charge) ; 03/10/2026 : un prêt au personnel non plus (une créance, compte 421) ; 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) ; RETOURNÉ le 14/10/2026 : la différence rendue à un échange non plus */);
+    K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Rendu sur échange|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant|Prêt au personnel|Dotation de caisse" /* RETOURNÉ le 10/11/2026 : la dotation de caisse non plus (ni une vente ni une charge) ; 03/10/2026 : un prêt au personnel non plus (une créance, compte 421) ; 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) ; RETOURNÉ le 14/10/2026 : la différence rendue à un échange non plus */);
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ les MOTS (Timo, 14/09/2026, capture : « Reprise d'un article par BMI ou par le client ? » → « Reprise de l'article par BMI ») : la fenêtre, l'infobulle et le journal disent que BMI reprend ; plus jamais « par le client »",
     /↩ Reprise d'articles par BMI<\/div>/.test(vs) /* RETOURNÉ le 06/10/2026 : plusieurs articles d'un coup, le titre dit « d'articles » ; BMI reprend toujours */ && /title="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) && !/Reprise d'un article par le client|repris par le client/.test(vs)
@@ -8641,7 +8641,7 @@ titre("📒 LE COMPTE DE L'EXPLOITANT : la caisse de BMI chez le DG, à part de 
     apport.boutique === "Chez le DG" && apport.categorie === "Apport de l'exploitant" && apport.montant === 500000 && apport.date === "2026-09-01" && apport.exploitant.sens === "apport" && apport.exploitant.note === "mise de départ" && apport.par_id === "u_timo" && /Apport de l'exploitant le 01\/09\/2026 par TIMO — mise de départ/.test(apport.description)
     && prelev.categorie === "Prélèvement de l'exploitant" && prelev.exploitant.sens === "prelevement" && prelev.date === "2026-09-20"
     && Ex.estApport(apport) && Ex.estPrelevement(prelev) && !Ex.estMouvementExploitant({ categorie: "Apport de l'exploitant" })
-    && (() => { const K = readFileSync("src/lib/constants.js", "utf8"); return /export const CATEGORIES_HORS_CHARGES = \[CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_RENDU_ECHANGE, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL, CATEGORIE_REMISE_TIROIR\];/.test(K) /* RETOURNÉ le 03/10/2026 : + le prêt au personnel ; le 14/10/2026 : + le rendu sur échange ; le 10/11/2026 : + la remise du DG au tiroir */ && !/CATEGORIE_APPORT_EXPLOITANT, /.test(K.match(/export const CATEGORIES = \[[^\]]*\]/)[0]); })());
+    && (() => { const K = readFileSync("src/lib/constants.js", "utf8"); return /export const CATEGORIES_HORS_CHARGES = \[CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_RENDU_ECHANGE, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL, CATEGORIE_REMISE_TIROIR\];/.test(K) /* RETOURNÉ le 03/10/2026 : + le prêt au personnel ; le 14/10/2026 : + le rendu sur échange ; le 10/11/2026 : + la dotation de caisse */ && !/CATEGORIE_APPORT_EXPLOITANT, /.test(K.match(/export const CATEGORIES = \[[^\]]*\]/)[0]); })());
   const c1 = Ex.compteExploitant({ depenses: [...dbE.depenses, apport, prelev] }, noms);
   test("★ avec une mise de départ de 500 000 (le 01/09) et un prélèvement de 100 000 (le 20/09) : la caisse de BMI = 500 000 + 300 000 + 50 000 − 20 000 − 100 000 − 730 000 = 0 ; l'apport automatique tombe à 270 000 ; le compte de l'exploitant = 500 000 + 270 000 − 100 000 = 670 000 — les deux soldes se lisent par UNE marche",
     c1.caisse.solde === 0 && c1.caisse.totalEntrees === 850000 && c1.caisse.totalSorties === 850000 && c1.apportsAuto === 270000
@@ -18308,7 +18308,7 @@ titre("✍️ Les messages internes : la marque « écrit par » (securite-47, 0
     bloc.includes("Avance encaissée aujourd'hui") && bloc.includes("Reste à payer (dette)")
     && /lignesCredit \? `MONTANT TOTAL : /.test(bloc) && bloc.includes('f.paiement === "Crédit (dette)"'));
 }
-titre("💵 La remise du DG au tiroir (Timo, 10/11/2026, « A b, B les trois avec comptable, C a, D… ») : rien ne compte avant le « ✅ Reçu » du gérant");
+titre("💵 La dotation de caisse (Timo, 10/11/2026, « A b, B les trois avec comptable, C a, D… ») : rien ne compte avant le « ✅ Reçu » du gérant");
 {
   const charger = async (entree, nom) => {
     const out = join("node_modules", ".cache", `bmi-${nom}-${process.pid}.mjs`);
@@ -18334,8 +18334,8 @@ titre("💵 La remise du DG au tiroir (Timo, 10/11/2026, « A b, B les trois ave
   const enAttente = { ...base0, depenses: [L, ...base0.depenses] };
   const recue = RT.confirmerRemise(L, ali, { date: "2026-11-10", heure: "11:00" }).ligne;
   const dbRecue = { ...base0, depenses: [recue, ...base0.depenses] };
-  test("★ la ligne : montant NÉGATIF (une entrée), catégorie « Remise du DG au tiroir », hors charges, sa source et son motif",
-    L.montant === -20000 && L.categorie === "Remise du DG au tiroir" && L.remise_tiroir.source === "Chez le DG" && L.remise_tiroir.motif === "monnaie" && !L.remise_tiroir.recue_le
+  test("★ la ligne : montant NÉGATIF (une entrée), catégorie « Dotation de caisse », hors charges, sa source et son motif",
+    L.montant === -20000 && L.categorie === "Dotation de caisse" && L.remise_tiroir.source === "Chez le DG" && L.remise_tiroir.motif === "monnaie" && !L.remise_tiroir.recue_le
     && RT.estRemiseTiroir(L) && RT.remiseEnAttente(L));
   test("★★ « A b » : EN ATTENTE, rien ne compte — ni le tiroir, ni l'enveloppe, ni la caisse « Chez le DG »",
     Vs.deuxPoches(enAttente, "APESSITO", tv).recette === avant.recette && Vs.deuxPoches(enAttente, "APESSITO", tv).fonds === avant.fonds
@@ -18345,7 +18345,7 @@ titre("💵 La remise du DG au tiroir (Timo, 10/11/2026, « A b, B les trois ave
     apres.recette === avant.recette + 20000 && apres.fonds === avant.fonds && avant.fonds === 45000 && apres.detail.apports === 20000);
   test("★★ la caisse « Chez le DG » sort de 20 000 le jour de la confirmation, et le dit",
     CC.mouvementsDG(dbRecue, ["APESSITO"]).solde === CC.mouvementsDG(base0, ["APESSITO"]).solde - 20000
-    && CC.mouvementsDG(dbRecue, ["APESSITO"]).sorties.some((m) => m.id === L.id && m.date === "2026-11-10" && /Remis au tiroir de APESSITO/.test(m.libelle) && /reçu par ALI/.test(m.libelle)));
+    && CC.mouvementsDG(dbRecue, ["APESSITO"]).sorties.some((m) => m.id === L.id && m.date === "2026-11-10" && /Dotation de caisse de APESSITO/.test(m.libelle) && /reçu par ALI/.test(m.libelle)));
   const parBanque = RT.confirmerRemise(RT.construireRemiseTiroir(timo, { boutique: "APESSITO", montant: 5000, source: "BANQUE", banque: "Ecobank", motif: "x", date: "2026-11-10" }).ligne, ali, { date: "2026-11-10", heure: "12:00" }).ligne;
   const parCompta = RT.confirmerRemise(RT.construireRemiseTiroir(timo, { boutique: "APESSITO", montant: 3000, source: "Chez le comptable", motif: "y", date: "2026-11-10" }).ligne, ali, { date: "2026-11-10", heure: "12:30" }).ligne;
   const db3 = { ...base0, depenses: [parBanque, parCompta, ...base0.depenses] };
@@ -18380,15 +18380,15 @@ titre("💵 La remise du DG au tiroir (Timo, 10/11/2026, « A b, B les trois ave
     && /\{jeSuisDG && <button onClick=\{\(\) => annulerLaRemise\(d\)\}/.test(csR)
     && corps("enregistrerRemise").includes("refuserSaufAdminPrincipal(db, profile") && corps("annulerLaRemise").includes("refuserSaufAdminPrincipal(db, profile")
     && corps("confirmerReception").includes("(db.depenses || []).find((x) => x.id === d.id)") && corps("confirmerReception").includes("critiqueConfirmation(frais, profile)"));
-  test("★★ « D » : WhatsApp au gérant à l'enregistrement (remise_tiroir), aux administrateurs principaux à la réception (remise_tiroir_recue) ; le mur = l'espace regardé ; les gérants viennent de utilisateursDeLEspace",
+  test("★★ « D » : WhatsApp au gérant à l'enregistrement (dotation_caisse), aux administrateurs principaux à la réception (dotation_caisse_recue) ; le mur = l'espace regardé ; les gérants viennent de utilisateursDeLEspace",
     corps("enregistrerRemise").includes("envoiRemiseTiroir({") && corps("confirmerReception").includes("envoiRemiseTiroirRecue({")
     && csR.includes("espaceFormation: enFormationRegardee") && csR.includes("const personnesEspace = utilisateursDeLEspace(db, profile);"));
   const nt = readFileSync("src/lib/notifications.js", "utf8");
   test("★ la notification : au gérant de la boutique à l'enregistrement, aux administrateurs à la réception",
-    nt.includes('idsDeLaBoutique(apres, d.boutique, ["gerant"])') && /titre: `✅ Remise au tiroir reçue/.test(nt));
+    nt.includes('idsDeLaBoutique(apres, d.boutique, ["gerant"])') && /titre: `✅ Dotation de caisse reçue/.test(nt));
   test("★ LE COUPLE : securite-51 pose la règle côté serveur, et le banc SQL le rejoue (tester-argent)",
     existsSync("supabase/securite-51-remise-tiroir.sql") && readFileSync("scripts/tester-argent-sql.sh", "utf8").includes("securite-51-remise-tiroir.sql")
-    && readFileSync("supabase/securite-51-remise-tiroir.sql", "utf8").includes("'Remise du DG au tiroir'"));
+    && readFileSync("supabase/securite-51-remise-tiroir.sql", "utf8").includes("'Dotation de caisse'"));
 }
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

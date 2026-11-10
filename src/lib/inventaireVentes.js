@@ -58,7 +58,7 @@ const estReservation = (d) => d?.type === "prepaye";
 // Ce qui n'est ni une charge ni un mouvement de tiroir à part : les sorties
 // d'argent « pas des charges » (remboursement d'un client, d'une avance, un
 // prêt au personnel). Les versements et le fonds de caisse ont leur section.
-// 💵 La remise du DG au tiroir (10/11/2026) est une ENTRÉE : elle est comptée
+// 💵 La dotation de caisse (10/11/2026) est une ENTRÉE : elle est comptée
 // dans le tiroir (bloc 5), jamais parmi les sorties.
 const AUTRES_SORTIES = CATEGORIES_HORS_CHARGES.filter((c) => c !== CATEGORIE_VERSEMENT && c !== CATEGORIE_FONDS_CAISSE && c !== CATEGORIE_REMISE_TIROIR);
 

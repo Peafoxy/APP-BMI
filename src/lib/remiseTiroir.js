@@ -19,8 +19,8 @@
 //     administrateurs principaux à la confirmation (lib/whatsappModeles.js).
 //
 // LA LIGNE : une ligne de la table des dépenses, montant NÉGATIF (la
-// convention des entrées de caisse), catégorie « Remise du DG au tiroir »
-// (HORS CHARGES : ni une vente, ni une charge), et le détail `remise_tiroir`
+// convention des entrées de caisse), catégorie « Dotation de caisse »
+// (HORS CHARGES : ni une vente, ni une charge), et le détail `dotation_caisse`
 // { id, source, banque, motif, recue_le, recue_heure, recue_par, recue_par_id,
 // annulee_le, annulee_par, annulee_motif }. Une remise ANNULÉE (le principal,
 // tant qu'elle n'est pas reçue) passe à 0 F, comme un versement rejeté.
@@ -57,9 +57,9 @@ export function critiqueRemiseTiroir({ montant, source, banque, motif, date, auj
     ? "Indiquez d'où vient l'argent : Chez le DG ou BANQUE (la caisse du comptable n'existe pas en formation)."
     : "Indiquez d'où vient l'argent : Chez le DG, BANQUE ou Chez le comptable.";
   if (source === DEST_BANQUE && !String(banque || "").trim()) return "Indiquez le nom de la banque.";
-  if (!estDateValide(date)) return "Indiquez la date de la remise.";
+  if (!estDateValide(date)) return "Indiquez la date de la dotation.";
   if (aujourdhui && String(date) > String(aujourdhui)) return "La date ne peut pas être dans le futur.";
-  if (!String(motif || "").trim()) return "Indiquez le motif (« monnaie pour rendre », « pas de vente ce matin »…) : une remise sans motif ne s'explique à personne.";
+  if (!String(motif || "").trim()) return "Indiquez le motif (« monnaie pour rendre », « pas de vente ce matin »…) : une dotation sans motif ne s'explique à personne.";
   if (!(gerants || []).length) return `${boutique || "Cette boutique"} n'a aucun gérant actif : personne ne pourrait confirmer la réception. Rattachez d'abord un gérant (👥 Utilisateurs).`;
   return "";
 }
@@ -73,33 +73,33 @@ export function construireRemiseTiroir(profile, { boutique, montant, source, ban
   const ligne = {
     ...nouvelleDepense(profile, {
       boutique, categorie: CATEGORIE_REMISE_TIROIR,
-      description: `Remise au tiroir de ${boutique} le ${dFR(date)} par ${profile.nom} (${libelleSourceRemise(remise_tiroir)}) — ${remise_tiroir.motif}`,
+      description: `Dotation de caisse de ${boutique} le ${dFR(date)} par ${profile.nom} (${libelleSourceRemise(remise_tiroir)}) — ${remise_tiroir.motif}`,
       montant: -m, moyen: "Espèces", remise_tiroir, par_id: profile.id ?? null, date: String(date),
     }),
     date: String(date),
   };
-  return { ligne, journal: `💵 Remise au tiroir de ${boutique} : ${fmt(m)} (${libelleSourceRemise(remise_tiroir)}) par ${profile.nom}, en attente de confirmation — ${remise_tiroir.motif}` };
+  return { ligne, journal: `💵 Dotation de caisse de ${boutique} : ${fmt(m)} (${libelleSourceRemise(remise_tiroir)}) par ${profile.nom}, en attente de confirmation — ${remise_tiroir.motif}` };
 }
 
 // ---- « ✅ Reçu » : le gérant DE CETTE BOUTIQUE (revérifié dans le geste) ----
 export function critiqueConfirmation(d, profile) {
-  if (!estRemiseTiroir(d)) return "Cette ligne n'est pas une remise au tiroir.";
-  if (remiseTiroirAnnulee(d)) return "Cette remise a été annulée par le DG.";
-  if (d.remise_tiroir.recue_le) return `Cette remise est déjà confirmée (le ${dFR(d.remise_tiroir.recue_le)} par ${d.remise_tiroir.recue_par}).`;
+  if (!estRemiseTiroir(d)) return "Cette ligne n'est pas une dotation de caisse.";
+  if (remiseTiroirAnnulee(d)) return "Cette dotation a été annulée par le DG.";
+  if (d.remise_tiroir.recue_le) return `Cette dotation est déjà confirmée (le ${dFR(d.remise_tiroir.recue_le)} par ${d.remise_tiroir.recue_par}).`;
   if (profile?.role !== ROLE_CONFIRME_REMISE || profile?.boutique !== d.boutique) return `Seul le gérant de ${d.boutique} confirme avoir reçu cet argent.`;
   return "";
 }
 export function confirmerRemise(d, profile, { date, heure = heureCourte() }) {
   return {
     ligne: { ...d, remise_tiroir: { ...d.remise_tiroir, recue_le: String(date), recue_heure: heure, recue_par: profile.nom, recue_par_id: profile.id ?? null } },
-    journal: `💵 Remise au tiroir de ${d.boutique} REÇUE : ${fmt(montantRemise(d))} (${libelleSourceRemise(d.remise_tiroir)}) — confirmée par ${profile.nom}`,
+    journal: `💵 Dotation de caisse de ${d.boutique} REÇUE : ${fmt(montantRemise(d))} (${libelleSourceRemise(d.remise_tiroir)}) — confirmée par ${profile.nom}`,
   };
 }
 
 // ---- « ✕ Annuler » : le principal, tant qu'elle n'est pas reçue ----
 export function critiqueAnnulation(d, motif) {
-  if (!estRemiseTiroir(d)) return "Cette ligne n'est pas une remise au tiroir.";
-  if (remiseTiroirAnnulee(d)) return "Cette remise est déjà annulée.";
+  if (!estRemiseTiroir(d)) return "Cette ligne n'est pas une dotation de caisse.";
+  if (remiseTiroirAnnulee(d)) return "Cette dotation est déjà annulée.";
   if (d.remise_tiroir.recue_le) return "Le gérant a déjà confirmé l'avoir reçue : elle ne s'annule plus (rendez-la par un versement).";
   if (!String(motif || "").trim()) return "Indiquez le motif de l'annulation.";
   return "";
@@ -108,7 +108,7 @@ export function annulerRemise(d, profile, motif, date) {
   const m = -Number(d.montant || 0);
   return {
     ligne: { ...d, montant: 0, remise_tiroir: { ...d.remise_tiroir, montant: m, annulee_le: String(date), annulee_par: profile.nom, annulee_motif: String(motif).trim() } },
-    journal: `💵 Remise au tiroir de ${d.boutique} ANNULÉE : ${fmt(m)} — ${String(motif).trim()} (par ${profile.nom})`,
+    journal: `💵 Dotation de caisse de ${d.boutique} ANNULÉE : ${fmt(m)} — ${String(motif).trim()} (par ${profile.nom})`,
   };
 }
 

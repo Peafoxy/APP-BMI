@@ -916,7 +916,7 @@ export function genererInventaire(inv, { boutique = "", periode = "", logo, form
       ...c.mobiles.map((x) => [`Solde ${x.libelle}${x.numero ? ` (n° ${x.numero})` : ""}, d'après les saisies`, m(x.solde)]),
       ["Tiroir la veille au soir de la période", m(c.periode.debut)],
       ["+ Entrées en espèces", m(c.periode.entrees)],
-      ...(c.periode.remisesDg ? [["  dont remis par le DG au tiroir", m(c.periode.remisesDg)]] : []),
+      ...(c.periode.remisesDg ? [["  dont dotation de caisse", m(c.periode.remisesDg)]] : []),
       ...(c.periode.renduEnveloppe ? [["- Retourné dans l'enveloppe", m(c.periode.renduEnveloppe)]] : []),
       ["- Dépenses payées par le tiroir", m(c.periode.depenses)],
       ["- Versements", m(c.periode.versements)]],

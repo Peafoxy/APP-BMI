@@ -227,7 +227,7 @@ export function InventaireVentes({ db, boutique, general = false, noms = [], ave
           <table className="w-full text-sm"><tbody>
             <tr className={ligneTable}><td className="py-1">Dans le tiroir la veille au soir</td><td className={montant}>{fmt(caisse.periode.debut)}</td></tr>
             <tr className={ligneTable}><td className="py-1">+ Entrées en espèces</td><td className={`${montant} text-emerald-700`}>+ {fmt(caisse.periode.entrees)}</td></tr>
-            {caisse.periode.remisesDg > 0 && <tr className={ligneTable} data-inv-remises-dg><td className="py-1 pl-4 text-xs text-slate-500">dont 💵 remis par le DG au tiroir</td><td className={`${montant} text-xs text-slate-500`}>{fmt(caisse.periode.remisesDg)}</td></tr>}
+            {caisse.periode.remisesDg > 0 && <tr className={ligneTable} data-inv-remises-dg><td className="py-1 pl-4 text-xs text-slate-500">dont 💵 dotation de caisse</td><td className={`${montant} text-xs text-slate-500`}>{fmt(caisse.periode.remisesDg)}</td></tr>}
             {caisse.periode.renduEnveloppe > 0 && <tr className={ligneTable}><td className="py-1">− Retourné dans l'enveloppe du fonds de caisse</td><td className={montant}>− {fmt(caisse.periode.renduEnveloppe)}</td></tr>}
             <tr className={ligneTable}><td className="py-1">− Dépenses payées par le tiroir</td><td className={montant}>− {fmt(caisse.periode.depenses)}</td></tr>
             <tr className={ligneTable}><td className="py-1">− Versements</td><td className={montant}>− {fmt(caisse.periode.versements)}</td></tr>

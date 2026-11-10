@@ -79,7 +79,7 @@ const mouvementsFondsRemis = (db, origine, nomsBoutiques) => (db.depenses || [])
 export const sortiesRemiseTiroir = (db, origine, nomsBoutiques) => (db.depenses || [])
   .filter((d) => remiseTiroirRecue(d) && (d.remise_tiroir.source || DEST_DG) === origine && nomsBoutiques.includes(d.boutique))
   .map((d) => ({ id: d.id, sens: "sortie", date: String(d.remise_tiroir.recue_le).slice(0, 10), montant: -Number(d.montant || 0), boutique: d.boutique, par: d.par,
-    libelle: `💵 Remis au tiroir de ${d.boutique} (par ${d.par}, reçu par ${d.remise_tiroir.recue_par || "?"})${origine === DEST_BANQUE && d.remise_tiroir.banque ? ` · BANQUE ${d.remise_tiroir.banque}` : ""}${d.remise_tiroir.motif ? ` — ${d.remise_tiroir.motif}` : ""}` }));
+    libelle: `💵 Dotation de caisse de ${d.boutique} (par ${d.par}, reçu par ${d.remise_tiroir.recue_par || "?"})${origine === DEST_BANQUE && d.remise_tiroir.banque ? ` · BANQUE ${d.remise_tiroir.banque}` : ""}${d.remise_tiroir.motif ? ` — ${d.remise_tiroir.motif}` : ""}` }));
 const sortiesFondsRemis = (db, origine, nomsBoutiques) => mouvementsFondsRemis(db, origine, nomsBoutiques).filter((m) => m.sens === "sortie");
 const entreesFondsRepris = (db, origine, nomsBoutiques) => mouvementsFondsRemis(db, origine, nomsBoutiques).filter((m) => m.sens === "entree");
 
@@ -124,7 +124,7 @@ export function mouvementsComptable(db, nomsBoutiques = null) {
     .map((d) => ({ id: d.id, sens: "entree", date: d.decaisse_le, montant: -Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || "Versement reçu"} — encaissé le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
   const sorties = lignes.filter((d) => Number(d.montant || 0) > 0 && d.decaisse_le)
     .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie}${payeeParLeComptable(d) ? ` (dépense de ${d.boutique}, par ${d.par})` : ""} — remis le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }))
-    // 💵 Une remise au tiroir d'une boutique partie de SA caisse (10/11/2026) :
+    // 💵 Une dotation de caisse d'une boutique partie de SA caisse (10/11/2026) :
     // la confirmation du gérant tient lieu de pointage. Le comptable est réel :
     // sans liste, toutes les boutiques réelles qui en portent une.
     .concat(sortiesRemiseTiroir(db, DEST_COMPTABLE, nomsBoutiques || (db.depenses || []).filter((d) => remiseTiroirRecue(d)).map((d) => d.boutique)));

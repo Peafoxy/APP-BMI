@@ -1,12 +1,12 @@
 -- ============================================================
--- SÉCURITÉ 51 — 💵 LA REMISE DU DG AU TIROIR D'UNE BOUTIQUE
+-- SÉCURITÉ 51 — 💵 LA DOTATION DE CAISSE D'UNE BOUTIQUE (le DG remet de l'argent au tiroir)
 -- (Timo, 10/11/2026 : « l'argent peut-il quitter physiquement la caisse du DG
 --  vers la caisse du gérant ? » → « oui je veux ça » → « A b, B les trois avec
 --  comptable, C a, D… »)
 --
 -- L'application écrit la remise comme une ligne de la table des dépenses,
--- catégorie « Remise du DG au tiroir », montant NÉGATIF (une entrée de
--- caisse), avec un détail `remise_tiroir` { source, banque, motif, … }.
+-- catégorie « Dotation de caisse », montant NÉGATIF (une entrée de
+-- caisse), avec un détail `dotation_caisse` { source, banque, motif, … }.
 -- Elle ne compte NULLE PART tant que le gérant de la boutique n'a pas
 -- confirmé « ✅ Reçu » (lib/remiseTiroir.js).
 --
@@ -42,8 +42,8 @@ begin
   -- et « not (… or NULL) » aussi — sans coalesce, TOUTE dépense nouvelle
   -- entrerait ici et serait refusée (vu au banc le 10/11/2026).
   if not (coalesce(new.data ? 'remise_tiroir', false) or coalesce(avant ? 'remise_tiroir', false)
-     or coalesce(new.data ->> 'categorie', '') = 'Remise du DG au tiroir'
-     or coalesce(avant ->> 'categorie', '') = 'Remise du DG au tiroir') then
+     or coalesce(new.data ->> 'categorie', '') = 'Dotation de caisse'
+     or coalesce(avant ->> 'categorie', '') = 'Dotation de caisse') then
     return new;
   end if;
 
@@ -52,22 +52,22 @@ begin
   -- ── Créer : le DG seul, une ligne bien formée. ──
   if avant is null then
     if not public.est_admin_principal() then
-      perform public.refus_role('Remettre de l''argent dans le tiroir d''une boutique', 'l''administrateur principal (le DG)');
+      perform public.refus_role('Faire une dotation de caisse à une boutique', 'l''administrateur principal (le DG)');
     end if;
-    if not (new.data ? 'remise_tiroir') or coalesce(new.data ->> 'categorie', '') <> 'Remise du DG au tiroir' then
-      perform public.refus_role('Enregistrer une remise au tiroir sans son détail (remise_tiroir + catégorie)', 'personne');
+    if not (new.data ? 'remise_tiroir') or coalesce(new.data ->> 'categorie', '') <> 'Dotation de caisse' then
+      perform public.refus_role('Enregistrer une dotation de caisse sans son détail (remise_tiroir + catégorie)', 'personne');
     end if;
     if coalesce(r_ap ->> 'source', '') not in ('Chez le DG', 'BANQUE', 'Chez le comptable') then
-      perform public.refus_role('Remettre de l''argent au tiroir sans dire d''où il vient (Chez le DG, BANQUE, Chez le comptable)', 'personne');
+      perform public.refus_role('Faire une dotation de caisse sans dire d''où il vient (Chez le DG, BANQUE, Chez le comptable)', 'personne');
     end if;
     if coalesce((new.data ->> 'montant')::numeric, 0) >= 0 then
-      perform public.refus_role('Enregistrer une remise au tiroir sans montant (une entrée : montant négatif)', 'personne');
+      perform public.refus_role('Enregistrer une dotation de caisse sans montant (une entrée : montant négatif)', 'personne');
     end if;
     if btrim(coalesce(r_ap ->> 'motif', '')) = '' then
-      perform public.refus_role('Enregistrer une remise au tiroir sans motif', 'personne');
+      perform public.refus_role('Enregistrer une dotation de caisse sans motif', 'personne');
     end if;
     if r_ap ? 'recue_le' or r_ap ? 'annulee_le' then
-      perform public.refus_role('Créer une remise au tiroir déjà reçue ou annulée (le gérant confirme lui-même)', 'personne');
+      perform public.refus_role('Créer une dotation de caisse déjà reçue ou annulée (le gérant confirme lui-même)', 'personne');
     end if;
     return new;
   end if;
@@ -82,11 +82,11 @@ begin
   if r_av ->> 'recue_le' is null and r_av ->> 'annulee_le' is null and r_ap ->> 'recue_le' is not null then
     if public.role_jeton() <> 'gerant'
        or coalesce(auth.jwt() -> 'app_metadata' ->> 'boutique', '') <> coalesce(avant ->> 'boutique', '') then
-      perform public.refus_role('Confirmer la réception d''une remise au tiroir', 'le gérant de cette boutique');
+      perform public.refus_role('Confirmer la réception d''une dotation de caisse', 'le gérant de cette boutique');
     end if;
     if (avant - 'updated_at' - 'remise_tiroir') is distinct from (new.data - 'updated_at' - 'remise_tiroir')
        or (r_av) is distinct from (r_ap - 'recue_le' - 'recue_heure' - 'recue_par' - 'recue_par_id') then
-      perform public.refus_role('Changer autre chose qu''« ✅ Reçu » sur une remise au tiroir', 'personne');
+      perform public.refus_role('Changer autre chose qu''« ✅ Reçu » sur une dotation de caisse', 'personne');
     end if;
     return new;
   end if;
@@ -94,22 +94,22 @@ begin
   -- ── Annuler : le DG, tant qu'elle n'est pas reçue ; motif ; montant à 0. ──
   if r_av ->> 'recue_le' is null and r_av ->> 'annulee_le' is null and r_ap ->> 'annulee_le' is not null then
     if not public.est_admin_principal() then
-      perform public.refus_role('Annuler une remise au tiroir', 'l''administrateur principal (le DG)');
+      perform public.refus_role('Annuler une dotation de caisse', 'l''administrateur principal (le DG)');
     end if;
     if btrim(coalesce(r_ap ->> 'annulee_motif', '')) = '' then
-      perform public.refus_role('Annuler une remise au tiroir sans motif', 'personne');
+      perform public.refus_role('Annuler une dotation de caisse sans motif', 'personne');
     end if;
     montant_avant := coalesce((avant ->> 'montant')::numeric, 0);
     if (avant - 'updated_at' - 'remise_tiroir' - 'montant') is distinct from (new.data - 'updated_at' - 'remise_tiroir' - 'montant')
        or (r_av) is distinct from (r_ap - 'annulee_le' - 'annulee_par' - 'annulee_motif' - 'montant') then
-      perform public.refus_role('Changer autre chose que l''annulation d''une remise au tiroir', 'personne');
+      perform public.refus_role('Changer autre chose que l''annulation d''une dotation de caisse', 'personne');
     end if;
     new.data := jsonb_set(new.data, '{montant}', '0'::jsonb, true);
     new.data := jsonb_set(new.data, '{remise_tiroir,montant}', to_jsonb(-montant_avant), true);
     return new;
   end if;
 
-  perform public.refus_role('Modifier une remise au tiroir (reçue ou annulée, elle ne se réécrit plus)', 'personne');
+  perform public.refus_role('Modifier une dotation de caisse (reçue ou annulée, elle ne se réécrit plus)', 'personne');
   return new;
 end;
 $$;

@@ -688,7 +688,7 @@ const heureDuMouvement = (m) => (m.type === "apport" ? (m.src?.remise_tiroir?.re
   : m.type === "versement" || m.type === "retrait"
     ? (m.src?.versement?.heure || m.src?.heure || "")
     : (m.src?.heure || ""));
-// D'où vient l'argent d'une remise au tiroir, en clair.
+// D'où vient l'argent d'une dotation de caisse, en clair.
 export const libelleSourceRemise = (r) => (r?.source === DEST_BANQUE ? `BANQUE ${String(r.banque || "").trim()}`.trim() : (r?.source || DEST_DG));
 function libelleMouvement(db, m) {
   const x = m.src || {};
@@ -696,7 +696,7 @@ function libelleMouvement(db, m) {
   if (m.type === "reglement") return `Règlement de dette${m.dette?.numero ? ` ${m.dette.numero}` : ""}${m.dette?.client ? ` — ${m.dette.client}` : ""}`;
   if (m.type === "remise") return "💼 Fonds de caisse remis — il va dans l'enveloppe, pas dans le tiroir";
   if (m.type === "retrait") return "📱 Retrait d'un compte mobile, entré dans le tiroir";
-  if (m.type === "apport") return `💵 Remise du DG au tiroir (${libelleSourceRemise(x.remise_tiroir)})${x.remise_tiroir?.motif ? ` — ${x.remise_tiroir.motif}` : ""} · reçue par ${x.remise_tiroir?.recue_par || "?"}`;
+  if (m.type === "apport") return `💵 Dotation de caisse (${libelleSourceRemise(x.remise_tiroir)})${x.remise_tiroir?.motif ? ` — ${x.remise_tiroir.motif}` : ""} · reçue par ${x.remise_tiroir?.recue_par || "?"}`;
   if (m.type === "versement") {
     const etat = estRejete(x) ? "✖ rejeté (compte comme jamais versé)" : (validationVersement(db, x) ? "✅ validé" : "⏳ en attente");
     const genre = x.versement?.origine ? "💸 Versement d'une vente ou d'un règlement" : "💸 Versement général";

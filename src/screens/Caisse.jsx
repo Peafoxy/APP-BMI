@@ -94,7 +94,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
     if (!await uConfirm(`Confirmer la clôture du ${dFR(t)} ?\n\n`
       + `Dans le tiroir hier soir : ${fmt(fondsHier)}\n`
       + `+ Recette du jour (ventes et encaissements) : ${fmt(recetteDuJour)}\n`
-      + (remisesDgDuJour > 0 ? `+ Remis par le DG dans le tiroir (confirmé) : ${fmt(remisesDgDuJour)}\n` : "")
+      + (remisesDgDuJour > 0 ? `+ Dotation de caisse (confirmée) : ${fmt(remisesDgDuJour)}\n` : "")
       + `− Sorties du jour (dépenses, versements) : ${fmt(sortiesJustifiees)}\n`
       + (rembourseAuFonds > 0 ? `− Rendu au fonds de caisse : ${fmt(rembourseAuFonds)}\n` : "")
       // Le fonds remis par le DG a SA ligne, sous un trait : ce n'est pas une
@@ -233,12 +233,12 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
     return notes.join("\n");
   };
   const enregistrerRemise = async () => {
-    if (refuserSaufAdminPrincipal(db, profile, "Remettre de l'argent dans le tiroir d'une boutique")) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Faire une dotation de caisse à une boutique")) return;
     if (bloquerSiLecture(db, profile)) return;
     const refus = critiqueRemiseTiroir({ ...rem, aujourdhui: today(), gerants: gerantsBq, enFormation: enFormationRegardee, boutique: libelleCaisse(boutique) });
     if (refus) { uAlert(refus); return; }
     const source = libelleSourceRemise({ source: rem.source, banque: rem.banque });
-    if (!await uConfirm(`Remettre ${fmt(Number(rem.montant))} en espèces dans le tiroir de ${libelleCaisse(boutique)} ?\n\nArgent venant de : ${source}\nMotif : ${rem.motif.trim()}\n\n⏳ Rien ne compte tant que ${gerantsBq.map((g) => g.nom).join(" ou ")} n'a pas confirmé « ✅ Reçu » : ni dans le tiroir, ni dans la caisse « ${rem.source} ».\n📲 Le gérant est prévenu par WhatsApp.`)) return;
+    if (!await uConfirm(`Dotation de caisse : ${fmt(Number(rem.montant))} en espèces pour le tiroir de ${libelleCaisse(boutique)} ?\n\nArgent venant de : ${source}\nMotif : ${rem.motif.trim()}\n\n⏳ Rien ne compte tant que ${gerantsBq.map((g) => g.nom).join(" ou ")} n'a pas confirmé « ✅ Reçu » : ni dans le tiroir, ni dans la caisse « ${rem.source} ».\n📲 Le gérant est prévenu par WhatsApp.`)) return;
     // La date est celle du jour : la remise compte de toute façon au moment
     // où le gérant confirme l'avoir reçue (pas de champ de date dans
     // 🔒 Caisse — le banc l'interdit depuis le 14/09/2026).
@@ -249,16 +249,16 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
     const notes = await avisRemise(gerantsBq.map((g) => ({
       fiche: g,
       envoi: envoiRemiseTiroir({ gerant: g.nom_complet || g.nom, tel: g.tel, montant: -r.ligne.montant, boutique: libelleCaisse(boutique), source, motif: r.ligne.remise_tiroir.motif, par: profile.nom, fmt }),
-      ref: { remise_tiroir_id: r.ligne.id }, noms: { titre: "Avis de remise au tiroir", sujet: "L'avis de remise au tiroir" },
+      ref: { remise_tiroir_id: r.ligne.id }, noms: { titre: "Avis de dotation de caisse", sujet: "L'avis de dotation de caisse" },
     })));
-    uAlert(`💵 Remise enregistrée — en attente de la confirmation du gérant.${notes ? `\n\n${notes}` : ""}`);
+    uAlert(`💵 Dotation de caisse enregistrée — en attente de la confirmation du gérant.${notes ? `\n\n${notes}` : ""}`);
   };
   const confirmerReception = async (d) => {
     if (bloquerSiLecture(db, profile)) return;
     const frais = (db.depenses || []).find((x) => x.id === d.id) || d;
     const refus = critiqueConfirmation(frais, profile);
     if (refus) { uAlert(refus); return; }
-    if (!await uConfirm(`Confirmez-vous avoir reçu ${fmt(montantRemise(frais))} en espèces de ${frais.par}, pour le tiroir de ${libelleCaisse(frais.boutique)} ?\n\nL'argent comptera dans le tiroir à partir de maintenant (la clôture du jour le verra).`)) return;
+    if (!await uConfirm(`Confirmez-vous avoir reçu la dotation de caisse de ${fmt(montantRemise(frais))} en espèces de ${frais.par}, pour le tiroir de ${libelleCaisse(frais.boutique)} ?\n\nL'argent comptera dans le tiroir à partir de maintenant (la clôture du jour le verra).`)) return;
     const quand = { date: today(), heure: heureCourte() };
     const r = confirmerRemise(frais, profile, quand);
     save({ ...db, depenses: (db.depenses || []).map((x) => (x.id === frais.id ? r.ligne : x)) }, r.journal);
@@ -271,10 +271,10 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
     uAlert(`✅ Réception confirmée : ${fmt(montantRemise(frais))} comptent maintenant dans le tiroir.${notes ? `\n\n${notes}` : ""}`);
   };
   const annulerLaRemise = async (d) => {
-    if (refuserSaufAdminPrincipal(db, profile, "Annuler une remise au tiroir")) return;
+    if (refuserSaufAdminPrincipal(db, profile, "Annuler une dotation de caisse")) return;
     if (bloquerSiLecture(db, profile)) return;
     const frais = (db.depenses || []).find((x) => x.id === d.id) || d;
-    const motif = await uPrompt(`Annuler la remise de ${fmt(montantRemise(frais))} au tiroir de ${libelleCaisse(frais.boutique)} ?\n\nIndiquez le motif — obligatoire.`, "");
+    const motif = await uPrompt(`Annuler la dotation de caisse de ${fmt(montantRemise(frais))} pour ${libelleCaisse(frais.boutique)} ?\n\nIndiquez le motif — obligatoire.`, "");
     if (motif === null) return;
     const refus = critiqueAnnulation(frais, motif);
     if (refus) { uAlert(refus); return; }
@@ -556,12 +556,12 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
           enregistre, le gérant de la boutique confirme « ✅ Reçu ». */}
       {voitRemises && (
         <Panel boutique={boutique}>
-          <div className="font-bold mb-2 flex items-center gap-2" data-remises-tiroir>💵 Remises du DG au tiroir ({remises.filter(remiseEnAttente).length} en attente) <Badge boutique={boutique} /></div>
+          <div className="font-bold mb-2 flex items-center gap-2" data-remises-tiroir>💵 Dotations de caisse ({remises.filter(remiseEnAttente).length} en attente) <Badge boutique={boutique} /></div>
           {jeSuisDG && (
             <FormulaireRepliable ouvert={remiseOuverte} onOuvrir={() => setRemiseOuverte(true)} onFermer={() => setRemiseOuverte(false)}
-              bouton="💵 Remise du DG au tiroir" titre={`Remettre de l'argent dans le tiroir de ${libelleCaisse(boutique)}`}>
+              bouton="💵 Dotation de caisse" titre={`Dotation de caisse — ${libelleCaisse(boutique)}`}>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3" data-formulaire-remise-tiroir>
-                <Field label="Montant remis (F)"><input type="number" inputMode="numeric" className={inputCls} value={rem.montant} onChange={(e) => setRem({ ...rem, montant: e.target.value })} /></Field>
+                <Field label="Montant de la dotation (F)"><input type="number" inputMode="numeric" className={inputCls} value={rem.montant} onChange={(e) => setRem({ ...rem, montant: e.target.value })} /></Field>
                 <Field label="D'où vient l'argent ?">
                   <select className={inputCls} value={rem.source} data-choix="source-remise" onChange={(e) => setRem({ ...rem, source: e.target.value, banque: "" })}>
                     {sourcesRemise.map((x) => <option key={x} value={x}>{x}</option>)}
@@ -581,7 +581,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
               <div className="text-xs text-slate-500 mt-2">{gerantsBq.length ? `${gerantsBq.map((g) => g.nom).join(" ou ")} devra confirmer « ✅ Reçu » : rien ne compte avant (ni dans le tiroir, ni dans la caisse d'où vient l'argent). L'argent entre tout entier dans le tiroir, pas dans l'enveloppe du fonds de caisse.` : `⚠ ${libelleCaisse(boutique)} n'a aucun gérant actif : personne ne pourrait confirmer.`}</div>
             </FormulaireRepliable>
           )}
-          {remises.length === 0 && <div className="text-sm text-slate-400 mt-2">Aucune remise du DG au tiroir de {libelleCaisse(boutique)}.</div>}
+          {remises.length === 0 && <div className="text-sm text-slate-400 mt-2">Aucune dotation de caisse pour {libelleCaisse(boutique)}.</div>}
           <div className="space-y-1 mt-2">
             {remises.slice(0, 15).map((d) => {
               const e = etatRemise(d);
@@ -732,7 +732,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
                   réellement remis de l'argent. */}
               <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Recette du jour (espèces)</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(recetteDuJour)}</div><div className="text-[11px] text-slate-400">ventes {fmt(especesVentes)} · encaissements {fmt(especesReglements)}</div></div>
               {remisesDgDuJour > 0 && (
-                <div className="bg-white rounded-lg p-3 border border-slate-200" data-carte="remise-dg-jour"><div className="text-xs text-slate-500">💵 Remis par le DG dans le tiroir</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(remisesDgDuJour)}</div><div className="text-[11px] text-slate-400">confirmé par le gérant — ni une vente, ni une recette</div></div>
+                <div className="bg-white rounded-lg p-3 border border-slate-200" data-carte="remise-dg-jour"><div className="text-xs text-slate-500">💵 Dotation de caisse</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(remisesDgDuJour)}</div><div className="text-[11px] text-slate-400">confirmé par le gérant — ni une vente, ni une recette</div></div>
               )}
               {rembourseAuFonds > 0 && (
                 <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Rendu au fonds de caisse</div><div className="font-bold tabular-nums">− {fmt(rembourseAuFonds)}</div><div className="text-[11px] text-slate-400">la recette rembourse ce que le fonds avait avancé</div></div>

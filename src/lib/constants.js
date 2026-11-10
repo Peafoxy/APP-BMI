@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.708";
+export const VERSION = "2.101.709";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -208,7 +208,7 @@ export const CATEGORIES_RETOUR_ARGENT = [CATEGORIE_RETOUR_CHANTIER, CATEGORIE_RE
 // gérant a confirmé « ✅ Reçu ». Ni une vente, ni une charge. Règle :
 // lib/remiseTiroir.js. Les deux lectures vivent ICI (versements.js et
 // caissesCentrales.js les lisent sans tourner en rond).
-export const CATEGORIE_REMISE_TIROIR = "Remise du DG au tiroir";
+export const CATEGORIE_REMISE_TIROIR = "Dotation de caisse";
 export const estRemiseTiroir = (d) => !!d?.remise_tiroir && d.categorie === CATEGORIE_REMISE_TIROIR;
 export const remiseTiroirAnnulee = (d) => estRemiseTiroir(d) && !!d.remise_tiroir.annulee_le;
 export const remiseTiroirRecue = (d) => estRemiseTiroir(d) && !!d.remise_tiroir.recue_le && !d.remise_tiroir.annulee_le;

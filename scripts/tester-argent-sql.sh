@@ -95,7 +95,7 @@ VERIF46=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-46-remise-commune
 if [ "$VERIF46" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-46 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-46 répond : $VERIF46"; exit 1; fi
 echo "▸ La corbeille des ventes, articles et prospects : supabase/securite-49-corbeille-ventes-articles-prospects.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-49-corbeille-ventes-articles-prospects.sql >/dev/null 2>&1 || echo "   ❌ securite-49 refusé par la base"
-echo "▸ La remise du DG au tiroir : supabase/securite-51-remise-tiroir.sql"
+echo "▸ La dotation de caisse : supabase/securite-51-remise-tiroir.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-51-remise-tiroir.sql >/dev/null 2>&1 || echo "   ❌ securite-51 refusé par la base"
 VERIF51=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-51-remise-tiroir.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF51" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-51 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-51 répond : $VERIF51"; exit 1; fi
@@ -639,16 +639,16 @@ jetonBq() { echo "{\"role\":\"authenticated\",\"email\":\"$1@bmi.internal\",\"ap
 GERANT_ICI=$(jetonBq zg_ali gerant APESSITO)
 GERANT_AILLEURS=$(jetonBq zg_bob gerant DEMAKPOE)
 VENDEUR_ICI=$(jetonBq zv_kossi vendeur APESSITO)
-CAT_RT="Remise du DG au tiroir"
-RT='{"id":"zrt1","boutique":"APESSITO","categorie":"Remise du DG au tiroir","montant":-20000,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie"}}'
-RT_RECUE='{"id":"zrt1","boutique":"APESSITO","categorie":"Remise du DG au tiroir","montant":-20000,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie","recue_le":"2026-11-10","recue_heure":"10:00","recue_par":"ALI","recue_par_id":"zg_ali"}}'
-RT_ANNULEE='{"id":"zrt1","boutique":"APESSITO","categorie":"Remise du DG au tiroir","montant":0,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie","montant":20000,"annulee_le":"2026-11-10","annulee_par":"TIMO","annulee_motif":"erreur"}}'
+CAT_RT="Dotation de caisse"
+RT='{"id":"zrt1","boutique":"APESSITO","categorie":"Dotation de caisse","montant":-20000,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie"}}'
+RT_RECUE='{"id":"zrt1","boutique":"APESSITO","categorie":"Dotation de caisse","montant":-20000,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie","recue_le":"2026-11-10","recue_heure":"10:00","recue_par":"ALI","recue_par_id":"zg_ali"}}'
+RT_ANNULEE='{"id":"zrt1","boutique":"APESSITO","categorie":"Dotation de caisse","montant":0,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie","montant":20000,"annulee_le":"2026-11-10","annulee_par":"TIMO","annulee_motif":"erreur"}}'
 CREE="$(UPS depenses zrt1 "$RT")"
 # La remise posée par le DG dans la MÊME transaction, puis on reprend le jeton donné.
 PAR_DG() { echo "set local request.jwt.claims = '$ADMIN'; $CREE set local request.jwt.claims = '$1';"; }
 essai "★ le DG enregistre une remise de 20 000 au tiroir d'APESSITO" "PERMIS" "$ADMIN" "$CREE"
-essai "★ un gérant enregistre lui-même une remise au tiroir" "REFUSE" "$GERANT_ICI" "$CREE"
-essai "★ un administrateur SECONDAIRE enregistre une remise au tiroir" "REFUSE" "$ADMIN2" "$CREE"
+essai "★ un gérant enregistre lui-même une dotation de caisse" "REFUSE" "$GERANT_ICI" "$CREE"
+essai "★ un administrateur SECONDAIRE enregistre une dotation de caisse" "REFUSE" "$ADMIN2" "$CREE"
 essai "★ une remise sans motif" "REFUSE" "$ADMIN" "$(UPS depenses zrt2 "$(echo "$RT" | sed 's/zrt1/zrt2/; s/"motif":"monnaie"/"motif":""/')")"
 essai "★ une remise dont la source n'existe pas" "REFUSE" "$ADMIN" "$(UPS depenses zrt3 "$(echo "$RT" | sed 's/zrt1/zrt3/; s/Chez le DG/Mon sac/')")"
 essai "★ une remise à montant positif (une sortie déguisée)" "REFUSE" "$ADMIN" "$(UPS depenses zrt4 "$(echo "$RT" | sed 's/zrt1/zrt4/; s/-20000/20000/')")"

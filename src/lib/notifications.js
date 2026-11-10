@@ -444,7 +444,7 @@ export function infosDepuisDiff(avant, apres) {
       } else if (d0 && !d0.remise_tiroir?.recue_le && d.remise_tiroir.recue_le) {
         pousser({
           destinataires: idsAdmins(apres, formation),
-          titre: `✅ Remise au tiroir reçue — ${d.boutique}`,
+          titre: `✅ Dotation de caisse reçue — ${d.boutique}`,
           texte: `${d.remise_tiroir.recue_par || "Le gérant"} a confirmé avoir reçu ${montant} (remis par ${d.par}).`,
           ecran: "caisse", tag: `remise_tiroir:${d.id}:recue`, formation, cible: { boutique: d.boutique, ligne: d.id },
         });

@@ -85,10 +85,10 @@ export const CHAPITRE = {
         { titre: "🖨 Imprimer le relevé (PDF) / Exporter (CSV)", texte: "Le même relevé, même période, mêmes chiffres, avec **tous** les mouvements. À remettre au comptable." },
       ]],
       ["table", { entetes: ["Pastille", "Ce qui entre", "Ce qui sort"], largeurs: [1900, 3700, 3700], lignes: [
-        ["👤 DG — caisse de BMI chez le DG", "Les versements « Chez le DG » **validés**, les fonds de caisse repris, ses apports.", "Les dépenses « payées avec la caisse du DG », les fonds de caisse remis, **l'argent remis au tiroir d'une boutique** (le jour où le gérant confirme « ✅ Reçu »), les avances remboursées par lui, ses prélèvements. **Jamais négative.**"],
+        ["👤 DG — caisse de BMI chez le DG", "Les versements « Chez le DG » **validés**, les fonds de caisse repris, ses apports.", "Les dépenses « payées avec la caisse du DG », les fonds de caisse remis, **les dotations de caisse** (le jour où le gérant confirme « ✅ Reçu »), les avances remboursées par lui, ses prélèvements. **Jamais négative.**"],
         ["👤 DG — 📒 compte de l'exploitant", "Ses **apports** (et ce qu'il a payé de sa poche).", "Ses **prélèvements**. Peut être négatif : la phrase sous le solde le dit."],
-        ["🏦 BANQUE", "Les versements « BANQUE » validés.", "Les dépenses payées par virement bancaire, l'argent remis au tiroir d'une boutique (une fois reçu)."],
-        ["🧾 COMPTABLE", "Les versements qu'il a pointés « Encaissé ».", "Ce qu'il a pointé « Remis », l'argent remis au tiroir d'une boutique (une fois reçu). Ce qui attend son pointage est dit à part."],
+        ["🏦 BANQUE", "Les versements « BANQUE » validés.", "Les dépenses payées par virement bancaire, les dotations de caisse (une fois reçues)."],
+        ["🧾 COMPTABLE", "Les versements qu'il a pointés « Encaissé ».", "Ce qu'il a pointé « Remis », les dotations de caisse (une fois reçues). Ce qui attend son pointage est dit à part."],
         ["📱 FLOOZ / MIXX", "Les ventes et règlements de dettes encaissés par ce moyen.", "Les dépenses payées par ce moyen, les versements partis de ce compte."],
       ]}],
       ["attention", "**Le solde d'un compte mobile vient des SAISIES**, pas du téléphone. S'il diffère du solde lu sur le téléphone, un mouvement n'a pas été saisi."],

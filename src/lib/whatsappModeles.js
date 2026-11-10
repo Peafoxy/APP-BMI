@@ -317,8 +317,8 @@ export const MODELES = {
   // 💵 10/11/2026 (« A b, B les trois, C a, D… ») : l'argent remis par le DG
   // DANS le tiroir d'une boutique — au gérant à l'enregistrement, aux
   // administrateurs principaux quand il confirme l'avoir reçu. UTILITY.
-  remise_tiroir: { categorie: "utility", variables: ["gerant", "montant", "boutique", "source", "motif", "par"] },
-  remise_tiroir_recue: { categorie: "utility", variables: ["admin", "gerant", "montant", "boutique", "quand", "source"] },
+  dotation_caisse: { categorie: "utility", variables: ["gerant", "montant", "boutique", "source", "motif", "par"] },
+  dotation_caisse_recue: { categorie: "utility", variables: ["admin", "gerant", "montant", "boutique", "quand", "source"] },
   tache_validee: { categorie: "utility", variables: ["employe", "par", "tache"] },
   // 📄 14/10/2026, Timo (« A a CDI, b CDD, B b, C ok, D oui ») : l'attestation de
   // fin de contrat disponible dans l'espace, et l'heure où l'accès se ferme.
@@ -425,9 +425,9 @@ export const MODELES_EN_SERVICE = [
   // principal ; la tournée de 7 h l'envoie aussi pour un CDD). Rien ne part
   // d'ici l'accord de Meta, et l'écran le dit.
   "attestation_disponible",
-  // 💵 10/11/2026 : la remise du DG au tiroir. En service AVANT l'accord de
+  // 💵 10/11/2026 : la dotation de caisse. En service AVANT l'accord de
   // Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
-  "remise_tiroir", "remise_tiroir_recue",
+  "dotation_caisse", "dotation_caisse_recue",
   // ⚠ `devis_premier` (un devis ET ses accès en UN message) a été REFUSÉ par
   // Meta le 25/09/2026 — trois fois, sous trois noms (INCORRECT_CATEGORY,
   // en marketing comme en utility) — et supprimé par Timo. Meta ne mélange
@@ -999,8 +999,8 @@ const LIGNES_ENVOI = {
   fonds_remis: ([beneficiaire, montant, date, moyen, pour, remisPar]) => `Avis d'argent remis envoyé à ${beneficiaire} : ${montant} le ${date}, en ${moyen}, pour : ${pour}. Remis par ${remisPar}.`,
   tache_assignee: ([employe, par, tache, details, echeance]) => `Avis de tâche envoyé à ${employe} (par ${par}) : ${tache}. Détails : ${details}. Échéance : ${echeance}.`,
   tache_validee: ([employe, par, tache]) => `Avis de tâche validée envoyé à ${employe} (par ${par}) : ${tache}.`,
-  remise_tiroir: ([gerant, montant, boutique, source, motif, par]) => `Remise au tiroir annoncée à ${gerant} : ${montant} pour ${boutique} (${source}), par ${par}. Motif : ${motif}.`,
-  remise_tiroir_recue: ([admin, gerant, montant, boutique, quand]) => `Avis envoyé à ${admin} : ${gerant} a confirmé avoir reçu ${montant} dans le tiroir de ${boutique} le ${quand}.`,
+  dotation_caisse: ([gerant, montant, boutique, source, motif, par]) => `Dotation de caisse annoncée à ${gerant} : ${montant} pour ${boutique} (${source}), par ${par}. Motif : ${motif}.`,
+  dotation_caisse_recue: ([admin, gerant, montant, boutique, quand]) => `Avis envoyé à ${admin} : ${gerant} a confirmé avoir reçu la dotation de caisse de ${montant} pour ${boutique} le ${quand}.`,
   attestation_disponible: ([employe, document, date, heure]) => `Avis envoyé à ${employe} : son ${document} est disponible dans son espace ; accès fermé le ${date} à ${heure}.`,
   // ⚠ Le numéro du client (trou 8) n'est pas recopié dans le fil.
   visite_chef: ([employe, , objet, date, heure, , client]) => `Avis de visite envoyé au chef de la visite ${employe} : ${objet}, le ${date} à ${heure}, client ${client}.`,
@@ -2536,19 +2536,19 @@ export function envoiTacheValidee({ employe, tel, tache, par }) {
 // ---- 💵 LA REMISE DU DG AU TIROIR (10/11/2026, « D ») ----
 // Textes PROPOSÉS (à créer par Timo chez YCloud, utility, fr) — s'il les
 // corrige chez Meta, recopier les siens ici, mot pour mot.
-export const TEXTE_REMISE_TIROIR = "Bonjour {{1}}, {{6}} vous remet {{2}} en espèces pour le tiroir de {{3}} (argent venant de : {{4}}). Motif : {{5}}. Dès que vous avez l'argent en main, confirmez « ✅ Reçu » dans l'application BMI, onglet Caisse : il ne compte dans la caisse qu'après votre confirmation. BMI TOGO";
-export const TEXTE_REMISE_TIROIR_RECUE = "Bonjour {{1}}, {{2}} a confirmé avoir reçu {{3}} dans le tiroir de {{4}} le {{5}} (argent venant de : {{6}}). Il compte désormais dans la caisse de la boutique. BMI TOGO";
+export const TEXTE_REMISE_TIROIR = "Bonjour {{1}}, {{6}} vous remet une dotation de caisse de {{2}} en espèces pour {{3}} (argent venant de : {{4}}). Motif : {{5}}. Dès que vous avez l'argent en main, confirmez « ✅ Reçu » dans l'application BMI, onglet Caisse : la dotation ne compte dans la caisse qu'après votre confirmation. BMI TOGO";
+export const TEXTE_REMISE_TIROIR_RECUE = "Bonjour {{1}}, {{2}} a confirmé avoir reçu la dotation de caisse de {{3}} pour {{4}} le {{5}} (argent venant de : {{6}}). Elle compte désormais dans la caisse de la boutique. BMI TOGO";
 export function envoiRemiseTiroir({ gerant, tel, montant, boutique, source, motif, par, fmt = (x) => `${x} F` }) {
   const nom = texteVariable(gerant), qui = texteVariable(par), bq = texteVariable(boutique), src = texteVariable(source);
   const m = Number(montant), mot = texteVariable(motif).replace(/[.\s]+$/, "");
   if (!nom || !qui || !bq || !src || !mot || !(m > 0) || !numeroWhatsApp(tel)) return null;
-  return { modele: "remise_tiroir", variables: [nom, texteVariable(fmt(m)), bq, src, mot, qui] };
+  return { modele: "dotation_caisse", variables: [nom, texteVariable(fmt(m)), bq, src, mot, qui] };
 }
 export function envoiRemiseTiroirRecue({ admin, tel, gerant, montant, boutique, quand, source, fmt = (x) => `${x} F` }) {
   const nom = texteVariable(admin), g = texteVariable(gerant), bq = texteVariable(boutique), q = texteVariable(quand), src = texteVariable(source);
   const m = Number(montant);
   if (!nom || !g || !bq || !q || !src || !(m > 0) || !numeroWhatsApp(tel)) return null;
-  return { modele: "remise_tiroir_recue", variables: [nom, g, texteVariable(fmt(m)), bq, q, src] };
+  return { modele: "dotation_caisse_recue", variables: [nom, g, texteVariable(fmt(m)), bq, q, src] };
 }
-export const texteRemiseTiroir = (envoi) => (envoi && (envoi.modele === "remise_tiroir" || envoi.modele === "remise_tiroir_recue")
-  ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), envoi.modele === "remise_tiroir" ? TEXTE_REMISE_TIROIR : TEXTE_REMISE_TIROIR_RECUE) : "");
+export const texteRemiseTiroir = (envoi) => (envoi && (envoi.modele === "dotation_caisse" || envoi.modele === "dotation_caisse_recue")
+  ? envoi.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), envoi.modele === "dotation_caisse" ? TEXTE_REMISE_TIROIR : TEXTE_REMISE_TIROIR_RECUE) : "");
