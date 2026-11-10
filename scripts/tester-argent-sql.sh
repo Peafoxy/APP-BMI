@@ -99,6 +99,10 @@ echo "▸ La dotation de caisse : supabase/securite-51-remise-tiroir.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-51-remise-tiroir.sql >/dev/null 2>&1 || echo "   ❌ securite-51 refusé par la base"
 VERIF51=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-51-remise-tiroir.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF51" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-51 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-51 répond : $VERIF51"; exit 1; fi
+echo "▸ La dotation remise à un gérant désigné : supabase/securite-52-dotation-gerant-designe.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-52-dotation-gerant-designe.sql >/dev/null 2>&1 || echo "   ❌ securite-52 refusé par la base"
+VERIF52=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-52-dotation-gerant-designe.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF52" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-52 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-52 répond : $VERIF52"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -662,6 +666,17 @@ essai "★ le DG annule une remise en attente (motif)" "PERMIS" "$ADMIN" "$CREE 
 essai "★ un gérant annule une remise" "REFUSE" "$GERANT_ICI" "$(PAR_DG "$GERANT_ICI") $(UPS depenses zrt1 "$RT_ANNULEE")"
 essai "★ le DG annule une remise DÉJÀ reçue" "REFUSE" "$ADMIN" "$(PAR_DG "$GERANT_ICI") $(UPS depenses zrt1 "$RT_RECUE") set local request.jwt.claims = '$ADMIN'; $(UPS depenses zrt1 "$RT_ANNULEE")"
 essai "★ la même ligne renvoyée telle quelle (synchronisation) passe" "PERMIS" "$GERANT_ICI" "$(PAR_DG "$GERANT_ICI") $(UPS depenses zrt1 "$RT")"
+# 👤 securite-52 : la dotation remise à UN gérant désigné (pour_id) ne se confirme que par lui.
+GERANT_ICI2=$(jetonBq zg_ama gerant APESSITO)
+RTP=$(echo "$RT" | sed 's/zrt1/zrt9/; s/"motif":"monnaie"/"motif":"monnaie","pour_id":"zg_ali","pour_nom":"ALI"/')
+RTP_RECUE=$(echo "$RT_RECUE" | sed 's/zrt1/zrt9/; s/"motif":"monnaie"/"motif":"monnaie","pour_id":"zg_ali","pour_nom":"ALI"/')
+CREEP="$(UPS depenses zrt9 "$RTP")"
+PAR_DGP() { echo "set local request.jwt.claims = '$ADMIN'; $CREEP set local request.jwt.claims = '$1';"; }
+essai "★ le DG remet une dotation à ALI (gérant désigné)" "PERMIS" "$ADMIN" "$CREEP"
+essai "★ ALI, le gérant désigné, confirme « ✅ Reçu »" "PERMIS" "$GERANT_ICI" "$(PAR_DGP "$GERANT_ICI") $(UPS depenses zrt9 "$RTP_RECUE")"
+essai "★ AMA, l'AUTRE gérant de la même boutique, confirme la dotation remise à ALI" "REFUSE" "$GERANT_ICI2" "$(PAR_DGP "$GERANT_ICI2") $(UPS depenses zrt9 "$(echo "$RTP_RECUE" | sed 's/"recue_par":"ALI","recue_par_id":"zg_ali"/"recue_par":"AMA","recue_par_id":"zg_ama"/')")"
+essai "★ AMA confirme en changeant le gérant désigné à son nom" "REFUSE" "$GERANT_ICI2" "$(PAR_DGP "$GERANT_ICI2") $(UPS depenses zrt9 "$(echo "$RTP_RECUE" | sed 's/"pour_id":"zg_ali","pour_nom":"ALI"/"pour_id":"zg_ama","pour_nom":"AMA"/')")"
+essai "★ une dotation d'AVANT (sans gérant désigné) reste confirmable par AMA" "PERMIS" "$GERANT_ICI2" "$(PAR_DG "$GERANT_ICI2") $(UPS depenses zrt1 "$RT_RECUE")"
 essai "★ le quotidien passe : un vendeur enregistre une dépense ordinaire (securite-51 compris)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord3 '{"id":"zd_ord3","boutique":"APESSITO","categorie":"Transport","montant":1500,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
 echo
 echo "── L'ÉDITEUR SQL (jeton vide) n'est jamais gêné ──"

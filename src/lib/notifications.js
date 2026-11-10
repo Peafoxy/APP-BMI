@@ -436,7 +436,7 @@ export function infosDepuisDiff(avant, apres) {
       const montant = fmt(-Number(d.montant || 0));
       if (!d0 && !d.remise_tiroir.recue_le && !d.remise_tiroir.annulee_le) {
         pousser({
-          destinataires: idsDeLaBoutique(apres, d.boutique, ["gerant"]),
+          destinataires: d.remise_tiroir.pour_id ? idsDeLaBoutique(apres, d.boutique, ["gerant"]).filter((id) => String(id) === String(d.remise_tiroir.pour_id)) : idsDeLaBoutique(apres, d.boutique, ["gerant"]),
           titre: `💵 ${montant} remis par ${d.par} pour votre tiroir`,
           texte: `Motif : ${d.remise_tiroir.motif || "—"}. Confirmez « ✅ Reçu » dans 🔒 Caisse dès que vous avez l'argent en main.`,
           ecran: "caisse", tag: `remise_tiroir:${d.id}`, formation, cible: { boutique: d.boutique, ligne: d.id },

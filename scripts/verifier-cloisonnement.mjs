@@ -18376,7 +18376,7 @@ titre("💵 La dotation de caisse (Timo, 10/11/2026, « A b, B les trois avec co
   const csR = readFileSync("src/screens/Caisse.jsx", "utf8");
   const corps = (nom) => csR.slice(csR.indexOf(`const ${nom} = async`), csR.indexOf(`const ${nom} = async`) + 2600);
   test("★★ l'écran : le formulaire au DG seul, « ✅ Reçu » au gérant de la boutique, « ✕ Annuler » au DG ; chaque geste revérifie (principal / la fiche FRAÎCHE)",
-    /\{jeSuisDG && \(\s*<FormulaireRepliable ouvert=\{remiseOuverte\}/.test(csR) && /\{jeSuisGerantIci && <BoutonEnvoi onClick=\{\(\) => confirmerReception\(d\)\}/.test(csR)
+    /\{jeSuisDG && \(\s*<FormulaireRepliable ouvert=\{remiseOuverte\}/.test(csR) && /\{jeSuisGerantIci && \(!r\.pour_id \|\| String\(r\.pour_id\) === String\(profile\.id\)\) && <BoutonEnvoi onClick=\{\(\) => confirmerReception\(d\)\}/.test(csR)
     && /\{jeSuisDG && <button onClick=\{\(\) => annulerLaRemise\(d\)\}/.test(csR)
     && corps("enregistrerRemise").includes("refuserSaufAdminPrincipal(db, profile") && corps("annulerLaRemise").includes("refuserSaufAdminPrincipal(db, profile")
     && corps("confirmerReception").includes("(db.depenses || []).find((x) => x.id === d.id)") && corps("confirmerReception").includes("critiqueConfirmation(frais, profile)"));
@@ -18386,6 +18386,24 @@ titre("💵 La dotation de caisse (Timo, 10/11/2026, « A b, B les trois avec co
   const nt = readFileSync("src/lib/notifications.js", "utf8");
   test("★ la notification : au gérant de la boutique à l'enregistrement, aux administrateurs à la réception",
     nt.includes('idsDeLaBoutique(apres, d.boutique, ["gerant"])') && /titre: `✅ Dotation de caisse reçue/.test(nt));
+  // 👤 LE GÉRANT DÉSIGNÉ (10/11/2026, « choisir le gérant à qui il a donné… la dotation ira vers celui qui a réellement reçu l'argent »)
+  const ama = { id: "u_ama", nom: "AMA", role: "gerant", boutique: "APESSITO", actif: true };
+  const Lp = RT.construireRemiseTiroir(timo, { boutique: "APESSITO", montant: 20000, source: "Chez le DG", motif: "m", date: "2026-11-10", pour: ama }).ligne;
+  test("★★★ deux gérants : la dotation porte le gérant choisi ; SEUL lui confirme, l'autre est refusé en le nommant ; une dotation d'avant reste à tout gérant",
+    Lp.remise_tiroir.pour_id === "u_ama" && Lp.remise_tiroir.pour_nom === "AMA"
+    && RT.critiqueConfirmation(Lp, ama) === "" && /remise à AMA/.test(RT.critiqueConfirmation(Lp, ali))
+    && RT.critiqueConfirmation(L, ama) === "" && RT.critiqueConfirmation(L, ali) === "");
+  test("★★ deux gérants : sans choix, l'enregistrement est refusé ; un seul gérant : choisi d'office",
+    /plusieurs gérants/.test(RT.critiqueRemiseTiroir({ ...ok0, gerants: [ali, ama] })) && RT.critiqueRemiseTiroir({ ...ok0, gerants: [ali, ama], gerantId: "u_ama" }) === ""
+    && RT.gerantDesigne([ali], "") === ali && RT.gerantDesigne([ali, ama], "") === null && RT.gerantDesigne([ali, ama], "u_ama") === ama);
+  test("★★ le WhatsApp ne part qu'au gérant choisi (une dotation d'avant : à tous) ; la notification aussi ; la case « Remise à » n'apparaît qu'à partir de deux gérants",
+    RT.destinatairesRemise([ali, ama], Lp).map((g) => g.id).join() === "u_ama" && RT.destinatairesRemise([ali, ama], L).length === 2
+    && corps("enregistrerRemise").includes("destinatairesRemise(gerantsBq, r.ligne)") && corps("enregistrerRemise").includes("gerantDesigne(gerantsBq, rem.gerantId)")
+    && /\{gerantsBq\.length > 1 && \(\s*<Field label="Remise à">/.test(csR)
+    && nt.includes('d.remise_tiroir.pour_id ? idsDeLaBoutique(apres, d.boutique, ["gerant"]).filter((id) => String(id) === String(d.remise_tiroir.pour_id))'));
+  test("★ LE COUPLE : securite-52 réserve la confirmation au gérant désigné (pour_id), et le banc SQL le rejoue",
+    existsSync("supabase/securite-52-dotation-gerant-designe.sql") && readFileSync("scripts/tester-argent-sql.sh", "utf8").includes("securite-52-dotation-gerant-designe.sql")
+    && readFileSync("supabase/securite-52-dotation-gerant-designe.sql", "utf8").includes("r_av ->> 'pour_id'"));
   test("★ LE COUPLE : securite-51 pose la règle côté serveur, et le banc SQL le rejoue (tester-argent)",
     existsSync("supabase/securite-51-remise-tiroir.sql") && readFileSync("scripts/tester-argent-sql.sh", "utf8").includes("securite-51-remise-tiroir.sql")
     && readFileSync("supabase/securite-51-remise-tiroir.sql", "utf8").includes("'Dotation de caisse'"));

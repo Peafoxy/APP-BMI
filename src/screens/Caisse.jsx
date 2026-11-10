@@ -19,7 +19,7 @@ import { activiteDuJour, joursAClôturer, estCloturee, alerteSaisieRecette, clot
 import { detailDuTiroir, destinationsPour, DEST_BANQUE, DEST_COMPTABLE, DEST_DG, DEST_TIROIR, SOURCE_ESPECES, ROLES_VERSEMENT, construireVersement, versementsDe, fondsAVerser, totalVerse, resumeCaisses, validationVersement, versementsAValiderParDG, versementsValidesParDG, messagesVersement, libelleDestination, libelleVersementDu, libelleEcart, montantDifferent, messageJustification, critiqueRejet, rejeterVersement, rejetVersement, critiqueSortieTiroir } from "../lib/versements";
 import { soldesMobiles, phraseNumeroMobile } from "../lib/caissesMobiles";
 import { banquesReglees } from "../lib/banques";
-import { remisesDe, remiseEnAttente, etatRemise, montantRemise, sourcesRemisePour, gerantsDeLaBoutique, critiqueRemiseTiroir, construireRemiseTiroir, critiqueConfirmation, confirmerRemise, critiqueAnnulation, annulerRemise, libelleSourceRemise } from "../lib/remiseTiroir";
+import { remisesDe, remiseEnAttente, etatRemise, montantRemise, sourcesRemisePour, gerantsDeLaBoutique, gerantDesigne, destinatairesRemise, nomDuDesigne, critiqueRemiseTiroir, construireRemiseTiroir, critiqueConfirmation, confirmerRemise, critiqueAnnulation, annulerRemise, libelleSourceRemise } from "../lib/remiseTiroir";
 import { envoiRemiseTiroir, envoiRemiseTiroirRecue } from "../lib/whatsappModeles";
 
 // ============ CAISSE ============
@@ -215,7 +215,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
   const enFormationRegardee = espaceDuCompte(db, profile) === true;
   const sourcesRemise = sourcesRemisePour(enFormationRegardee);
   const [remiseOuverte, setRemiseOuverte] = useState(false);
-  const [rem, setRem] = useState({ montant: "", source: DEST_DG, banque: "", motif: "", date: today() });
+  const [rem, setRem] = useState({ montant: "", source: DEST_DG, banque: "", motif: "", date: today(), gerantId: "" });
   const personnesEspace = utilisateursDeLEspace(db, profile);
   const gerantsBq = gerantsDeLaBoutique(personnesEspace, boutique);
   const remises = remisesDe(db, boutique);
@@ -238,15 +238,16 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
     const refus = critiqueRemiseTiroir({ ...rem, aujourdhui: today(), gerants: gerantsBq, enFormation: enFormationRegardee, boutique: libelleCaisse(boutique) });
     if (refus) { uAlert(refus); return; }
     const source = libelleSourceRemise({ source: rem.source, banque: rem.banque });
-    if (!await uConfirm(`Dotation de caisse : ${fmt(Number(rem.montant))} en espèces pour le tiroir de ${libelleCaisse(boutique)} ?\n\nArgent venant de : ${source}\nMotif : ${rem.motif.trim()}\n\n⏳ Rien ne compte tant que ${gerantsBq.map((g) => g.nom).join(" ou ")} n'a pas confirmé « ✅ Reçu » : ni dans le tiroir, ni dans la caisse « ${rem.source} ».\n📲 Le gérant est prévenu par WhatsApp.`)) return;
+    const pour = gerantDesigne(gerantsBq, rem.gerantId);
+    if (!await uConfirm(`Dotation de caisse : ${fmt(Number(rem.montant))} en espèces pour le tiroir de ${libelleCaisse(boutique)}, remise à ${pour.nom} ?\n\nArgent venant de : ${source}\nMotif : ${rem.motif.trim()}\n\n⏳ Rien ne compte tant que ${pour.nom} n'a pas confirmé « ✅ Reçu » : ni dans le tiroir, ni dans la caisse « ${rem.source} ».\n📲 ${pour.nom} est prévenu par WhatsApp.`)) return;
     // La date est celle du jour : la remise compte de toute façon au moment
     // où le gérant confirme l'avoir reçue (pas de champ de date dans
     // 🔒 Caisse — le banc l'interdit depuis le 14/09/2026).
-    const r = construireRemiseTiroir(profile, { boutique, ...rem, date: today() });
+    const r = construireRemiseTiroir(profile, { boutique, ...rem, date: today(), pour });
     save({ ...db, depenses: [r.ligne, ...(db.depenses || [])] }, r.journal);
-    setRem({ montant: "", source: DEST_DG, banque: "", motif: "", date: today() });
+    setRem({ montant: "", source: DEST_DG, banque: "", motif: "", date: today(), gerantId: "" });
     setRemiseOuverte(false);
-    const notes = await avisRemise(gerantsBq.map((g) => ({
+    const notes = await avisRemise(destinatairesRemise(gerantsBq, r.ligne).map((g) => ({
       fiche: g,
       envoi: envoiRemiseTiroir({ gerant: g.nom_complet || g.nom, tel: g.tel, montant: -r.ligne.montant, boutique: libelleCaisse(boutique), source, motif: r.ligne.remise_tiroir.motif, par: profile.nom, fmt }),
       ref: { remise_tiroir_id: r.ligne.id }, noms: { titre: "Avis de dotation de caisse", sujet: "L'avis de dotation de caisse" },
@@ -575,10 +576,18 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
                     </select>
                   </Field>
                 ) : <Field label="Nom de la banque"><input className={inputCls} value={rem.banque} onChange={(e) => setRem({ ...rem, banque: e.target.value })} /></Field>)}
+                {gerantsBq.length > 1 && (
+                  <Field label="Remise à">
+                    <select className={inputCls} value={rem.gerantId} data-choix="gerant-remise" onChange={(e) => setRem({ ...rem, gerantId: e.target.value })}>
+                      <option value="">— Choisir —</option>
+                      {gerantsBq.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
+                    </select>
+                  </Field>
+                )}
                 <div className="sm:col-span-2 lg:col-span-3"><Field label="Motif"><input className={inputCls} value={rem.motif} placeholder="Ex : monnaie pour rendre" onChange={(e) => setRem({ ...rem, motif: e.target.value })} /></Field></div>
                 <div className="flex items-end"><button onClick={enregistrerRemise} className={btnDark}>💵 Enregistrer</button></div>
               </div>
-              <div className="text-xs text-slate-500 mt-2">{gerantsBq.length ? `${gerantsBq.map((g) => g.nom).join(" ou ")} devra confirmer « ✅ Reçu » : rien ne compte avant (ni dans le tiroir, ni dans la caisse d'où vient l'argent). L'argent entre tout entier dans le tiroir, pas dans l'enveloppe du fonds de caisse.` : `⚠ ${libelleCaisse(boutique)} n'a aucun gérant actif : personne ne pourrait confirmer.`}</div>
+              <div className="text-xs text-slate-500 mt-2">{gerantsBq.length ? `${gerantsBq.length > 1 ? "Le gérant choisi" : gerantsBq[0].nom} devra confirmer « ✅ Reçu » : rien ne compte avant (ni dans le tiroir, ni dans la caisse d'où vient l'argent). L'argent entre tout entier dans le tiroir, pas dans l'enveloppe du fonds de caisse.` : `⚠ ${libelleCaisse(boutique)} n'a aucun gérant actif : personne ne pourrait confirmer.`}</div>
             </FormulaireRepliable>
           )}
           {remises.length === 0 && <div className="text-sm text-slate-400 mt-2">Aucune dotation de caisse pour {libelleCaisse(boutique)}.</div>}
@@ -589,16 +598,16 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
               return (
                 <div key={d.id} data-ligne={d.id} data-remise-tiroir={e} className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${e === "attente" ? "border-amber-300 bg-amber-50" : e === "annulee" ? "border-slate-200 bg-slate-50 text-slate-500" : "border-slate-200 bg-white"}`}>
                   <div>
-                    <b className={`tabular-nums ${e === "annulee" ? "line-through" : ""}`}>{fmt(montantRemise(d))}</b> — {libelleSourceRemise(r)} · remis par {d.par} le {dFR(d.date)}
+                    <b className={`tabular-nums ${e === "annulee" ? "line-through" : ""}`}>{fmt(montantRemise(d))}</b> — {libelleSourceRemise(r)} · remis par {d.par}{nomDuDesigne(d) ? ` à ${nomDuDesigne(d)}` : ""} le {dFR(d.date)}
                     <div className="text-xs text-slate-500">{r.motif}{" · "}
-                      {e === "attente" && <span className="text-amber-800 font-semibold">⏳ en attente de la confirmation du gérant — ne compte pas encore</span>}
+                      {e === "attente" && <span className="text-amber-800 font-semibold">⏳ en attente de la confirmation {nomDuDesigne(d) ? `de ${nomDuDesigne(d)}` : "du gérant"} — ne compte pas encore</span>}
                       {e === "recue" && <span className="text-green-700">✅ reçu le {dFR(r.recue_le)}{r.recue_heure ? ` à ${r.recue_heure}` : ""} par {r.recue_par} — dans le tiroir</span>}
                       {e === "annulee" && <span className="text-red-700">✖ annulée le {dFR(r.annulee_le)} par {r.annulee_par} — {r.annulee_motif}</span>}
                     </div>
                   </div>
                   {e === "attente" && (
                     <div className="flex gap-1 shrink-0">
-                      {jeSuisGerantIci && <BoutonEnvoi onClick={() => confirmerReception(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap" data-confirmer-remise>✅ Reçu</BoutonEnvoi>}
+                      {jeSuisGerantIci && (!r.pour_id || String(r.pour_id) === String(profile.id)) && <BoutonEnvoi onClick={() => confirmerReception(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap" data-confirmer-remise>✅ Reçu</BoutonEnvoi>}
                       {jeSuisDG && <button onClick={() => annulerLaRemise(d)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-1 hover:bg-red-800 whitespace-nowrap">✕ Annuler</button>}
                     </div>
                   )}

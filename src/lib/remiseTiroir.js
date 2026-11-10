@@ -42,6 +42,23 @@ export const ROLE_CONFIRME_REMISE = "gerant";
 export const gerantsDeLaBoutique = (personnes, boutique) => (personnes || [])
   .filter((u) => u && u.role === ROLE_CONFIRME_REMISE && u.boutique === boutique && u.actif !== false && !u.bloque);
 
+// 👤 LE GÉRANT DÉSIGNÉ (Timo, 10/11/2026 : « choisir le gérant à qui il a
+// donné si la boutique comporte plusieurs gérants… la dotation ira vers celui
+// qui a réellement reçu l'argent » → « oui lance »). La remise porte `pour_id`
+// / `pour_nom` : seul CE gérant est prévenu et confirme. Un seul gérant :
+// choisi d'office. Une remise d'AVANT (sans `pour_id`) reste confirmable par
+// tout gérant de la boutique, comme avant.
+export const gerantDesigne = (gerants, choixId) => {
+  const liste = gerants || [];
+  if (liste.length === 1) return liste[0];
+  return liste.find((g) => String(g.id) === String(choixId || "")) || null;
+};
+export const destinatairesRemise = (gerants, d) => {
+  const pour = d?.remise_tiroir?.pour_id;
+  return pour ? (gerants || []).filter((g) => String(g.id) === String(pour)) : (gerants || []);
+};
+export const nomDuDesigne = (d) => d?.remise_tiroir?.pour_nom || "";
+
 export const remiseEnAttente = (d) => estRemiseTiroir(d) && !d.remise_tiroir.recue_le && !d.remise_tiroir.annulee_le;
 export const montantRemise = (d) => (remiseTiroirAnnulee(d) ? Number(d.remise_tiroir.montant || 0) : -Number(d?.montant || 0));
 export const etatRemise = (d) => (remiseTiroirAnnulee(d) ? "annulee" : remiseTiroirRecue(d) ? "recue" : "attente");
@@ -50,7 +67,7 @@ const estDateValide = (t) => { const p = String(t || "").split("-"); return p.le
 
 // Le refus DIT ce qui manque. `gerants` = les gérants actifs de la boutique
 // (dans l'espace regardé) : sans gérant, personne ne pourrait confirmer.
-export function critiqueRemiseTiroir({ montant, source, banque, motif, date, aujourdhui, gerants, enFormation = false, boutique = "" }) {
+export function critiqueRemiseTiroir({ montant, source, banque, motif, date, aujourdhui, gerants, gerantId = "", enFormation = false, boutique = "" }) {
   const m = Number(montant);
   if (!Number.isFinite(m) || m <= 0) return "Indiquez le montant remis (supérieur à zéro).";
   if (!sourcesRemisePour(enFormation).includes(source)) return enFormation
@@ -61,14 +78,16 @@ export function critiqueRemiseTiroir({ montant, source, banque, motif, date, auj
   if (aujourdhui && String(date) > String(aujourdhui)) return "La date ne peut pas être dans le futur.";
   if (!String(motif || "").trim()) return "Indiquez le motif (« monnaie pour rendre », « pas de vente ce matin »…) : une dotation sans motif ne s'explique à personne.";
   if (!(gerants || []).length) return `${boutique || "Cette boutique"} n'a aucun gérant actif : personne ne pourrait confirmer la réception. Rattachez d'abord un gérant (👥 Utilisateurs).`;
+  if (!gerantDesigne(gerants, gerantId)) return `${boutique || "Cette boutique"} a plusieurs gérants : choisissez celui à qui vous remettez l'argent (« Remise à »). C'est lui seul qui confirmera « ✅ Reçu ».`;
   return "";
 }
 
-export function construireRemiseTiroir(profile, { boutique, montant, source, banque = "", motif, date }) {
+export function construireRemiseTiroir(profile, { boutique, montant, source, banque = "", motif, date, pour = null }) {
   const m = Math.round(Number(montant));
   const remise_tiroir = {
     id: `rt-${Math.random().toString(36).slice(2, 10)}`,
     source, banque: source === DEST_BANQUE ? String(banque).trim() : "", motif: String(motif || "").trim(),
+    ...(pour ? { pour_id: pour.id ?? null, pour_nom: pour.nom || "" } : {}),
   };
   const ligne = {
     ...nouvelleDepense(profile, {
@@ -78,7 +97,7 @@ export function construireRemiseTiroir(profile, { boutique, montant, source, ban
     }),
     date: String(date),
   };
-  return { ligne, journal: `💵 Dotation de caisse de ${boutique} : ${fmt(m)} (${libelleSourceRemise(remise_tiroir)}) par ${profile.nom}, en attente de confirmation — ${remise_tiroir.motif}` };
+  return { ligne, journal: `💵 Dotation de caisse de ${boutique} : ${fmt(m)} (${libelleSourceRemise(remise_tiroir)}) par ${profile.nom}${pour ? `, remise à ${pour.nom}` : ""}, en attente de confirmation — ${remise_tiroir.motif}` };
 }
 
 // ---- « ✅ Reçu » : le gérant DE CETTE BOUTIQUE (revérifié dans le geste) ----
@@ -87,6 +106,7 @@ export function critiqueConfirmation(d, profile) {
   if (remiseTiroirAnnulee(d)) return "Cette dotation a été annulée par le DG.";
   if (d.remise_tiroir.recue_le) return `Cette dotation est déjà confirmée (le ${dFR(d.remise_tiroir.recue_le)} par ${d.remise_tiroir.recue_par}).`;
   if (profile?.role !== ROLE_CONFIRME_REMISE || profile?.boutique !== d.boutique) return `Seul le gérant de ${d.boutique} confirme avoir reçu cet argent.`;
+  if (d.remise_tiroir.pour_id && String(d.remise_tiroir.pour_id) !== String(profile?.id ?? "")) return `Cette dotation a été remise à ${nomDuDesigne(d) || "un autre gérant"} : c'est lui seul qui confirme l'avoir reçue.`;
   return "";
 }
 export function confirmerRemise(d, profile, { date, heure = heureCourte() }) {
