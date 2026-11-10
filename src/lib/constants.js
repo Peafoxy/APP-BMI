@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.707";
+export const VERSION = "2.101.708";
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
@@ -202,7 +202,17 @@ export const CATEGORIE_RETOUR_CHANTIER = "Argent rendu d'un chantier";
 // se lisent ensemble partout (CATEGORIES_RETOUR_ARGENT).
 export const CATEGORIE_RETOUR_ARGENT = "Argent rendu";
 export const CATEGORIES_RETOUR_ARGENT = [CATEGORIE_RETOUR_CHANTIER, CATEGORIE_RETOUR_ARGENT];
-export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_RENDU_ECHANGE, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL];
+// 💵 L'argent que le DG (ou la BANQUE, ou le comptable) remet DANS LE TIROIR
+// d'une boutique (Timo, 10/11/2026, « A b, B les trois, C a, D… ») : une ligne
+// NÉGATIVE sur la boutique (une entrée), qui ne compte qu'une fois que le
+// gérant a confirmé « ✅ Reçu ». Ni une vente, ni une charge. Règle :
+// lib/remiseTiroir.js. Les deux lectures vivent ICI (versements.js et
+// caissesCentrales.js les lisent sans tourner en rond).
+export const CATEGORIE_REMISE_TIROIR = "Remise du DG au tiroir";
+export const estRemiseTiroir = (d) => !!d?.remise_tiroir && d.categorie === CATEGORIE_REMISE_TIROIR;
+export const remiseTiroirAnnulee = (d) => estRemiseTiroir(d) && !!d.remise_tiroir.annulee_le;
+export const remiseTiroirRecue = (d) => estRemiseTiroir(d) && !!d.remise_tiroir.recue_le && !d.remise_tiroir.annulee_le;
+export const CATEGORIES_HORS_CHARGES = [CATEGORIE_VERSEMENT, CATEGORIE_REMBOURSEMENT, CATEGORIE_RENDU_ECHANGE, CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_FONDS_CAISSE, CATEGORIE_APPORT_EXPLOITANT, CATEGORIE_PRELEVEMENT_EXPLOITANT, CATEGORIE_PRET_PERSONNEL, CATEGORIE_REMISE_TIROIR];
 export const horsVersements = (liste) => (liste || []).filter((x) => !CATEGORIES_HORS_CHARGES.includes(x?.categorie));
 // ⚠ Timo (12/09/2026) : « seules les dépenses validées comptent ». Une
 // dépense en attente de la validation du DG (5 000 F et plus, saisie par un

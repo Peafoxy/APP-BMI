@@ -34,6 +34,7 @@ import { fiche as ficheArgent, soldeDuRetour, caissesDuRetour, nomDossier } from
 import { achatsReglesParUnVersement, nomChantier as nomChantierAchat } from "./achatsChantier";
 import { TYPE_PRO, personnesDuRdv } from "./rendezVous";
 import { jourEnClair, heureEnClair } from "./whatsappModeles";
+import { estRemiseTiroir } from "./constants";
 import { convDeMessage, versDuMessage, LIGNE_A_REAPPROVISIONNER, LIGNE_CLOTURES_DEPASSEES } from "./cibleNotification";
 
 const parId = (liste) => new Map((liste || []).map((x) => [x.id, x]));
@@ -419,6 +420,35 @@ export function infosDepuisDiff(avant, apres) {
         ecran: "rendez_vous", tag: `rdv:${r.id}`, formation: !!r.formation,
         cible: { ligne: r.id },
       });
+    });
+  }
+
+  // 11. 💵 La REMISE DU DG AU TIROIR (Timo, 10/11/2026, « D … l'administrateur
+  //    aussi est informé ») : enregistrée → le gérant de la boutique (il doit
+  //    confirmer) ; reçue → les administrateurs de l'espace. Le WhatsApp part
+  //    en plus, de l'écran.
+  if (apres.depenses !== avant.depenses) {
+    const avantD = parId(avant.depenses);
+    (apres.depenses || []).forEach((d) => {
+      if (!estRemiseTiroir(d)) return;
+      const d0 = avantD.get(d.id);
+      const formation = boutiqueEstFormation(apres, d.boutique);
+      const montant = fmt(-Number(d.montant || 0));
+      if (!d0 && !d.remise_tiroir.recue_le && !d.remise_tiroir.annulee_le) {
+        pousser({
+          destinataires: idsDeLaBoutique(apres, d.boutique, ["gerant"]),
+          titre: `💵 ${montant} remis par ${d.par} pour votre tiroir`,
+          texte: `Motif : ${d.remise_tiroir.motif || "—"}. Confirmez « ✅ Reçu » dans 🔒 Caisse dès que vous avez l'argent en main.`,
+          ecran: "caisse", tag: `remise_tiroir:${d.id}`, formation, cible: { boutique: d.boutique, ligne: d.id },
+        });
+      } else if (d0 && !d0.remise_tiroir?.recue_le && d.remise_tiroir.recue_le) {
+        pousser({
+          destinataires: idsAdmins(apres, formation),
+          titre: `✅ Remise au tiroir reçue — ${d.boutique}`,
+          texte: `${d.remise_tiroir.recue_par || "Le gérant"} a confirmé avoir reçu ${montant} (remis par ${d.par}).`,
+          ecran: "caisse", tag: `remise_tiroir:${d.id}:recue`, formation, cible: { boutique: d.boutique, ligne: d.id },
+        });
+      }
     });
   }
 

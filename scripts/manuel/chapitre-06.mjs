@@ -17,7 +17,8 @@
 // ROLES_REMB_AUTRES, critiqueRemboursement), lib/caissesMobiles.js
 // (soldesMobiles, phraseNumeroMobile), lib/calculs.js (ROLES_CAISSE,
 // periodes), screens/Depenses.jsx (le pointage « ✅ Encaissé » du comptable
-// dans 🧾 Chez le comptable), screens/Parametres.jsx (💼 Fonds de caisse).
+// dans 🧾 Chez le comptable), screens/Parametres.jsx (💼 Fonds de caisse), lib/remiseTiroir.js (💵 la
+// remise du DG au tiroir, 10/11/2026).
 // ============================================================
 export const CHAPITRE = {
   numero: 6,
@@ -64,6 +65,7 @@ export const CHAPITRE = {
         ["**🔒 Caisse**, en haut", "La rangée des boutiques (+ 🏗 DÉPÔT CHANTIER), le bouton **📊 RÉSUMÉ**, et « **Période :** » (Aujourd'hui · Cette semaine · Ce mois · Cette année · **Depuis le début**, d'office)."],
         ["**🔒 Caisse**, « 💸 Versements à valider par le DG (N) »", "Administrateur principal seul, **toujours affiché** : vide, il le dit. « ✅ Valider » / « ✖ Rejeter », puis « Derniers versements traités »."],
         ["**🔒 Caisse**, cadre « 💸 Verser les fonds »", "Les carrés : Fonds à verser · 💼 Fonds de caisse · Total versé · Entrées · Sorties (versements compris) · 📱 Flooz · 📱 Mixx/T-Money. Le bouton **« 🔍 Détail du tiroir »** (gérant, administrateur) ouvre le tiroir ligne par ligne depuis le dernier versement général. Le formulaire, fermé d'office, s'ouvre par le bouton **« 💸 Faire un versement »** (« Fermer » le replie, il se replie seul une fois le versement enregistré) : « D'où part l'argent ? » (si la boutique a un compte mobile) · Montant versé (F) · Destination · (BANQUE) Banque, N° du bordereau de versement · Note (justification) · « 💸 Verser ». Puis « Versements de BOUTIQUE »."],
+        ["**🔒 Caisse**, cadre « 💵 Remises du DG au tiroir (N en attente) »", "L'administrateur principal y trouve le bouton **« 💵 Remise du DG au tiroir »** ; le gérant de la boutique y confirme **« ✅ Reçu »**. Chaque ligne dit le montant, d'où vient l'argent, le motif et l'état : ⏳ en attente · ✅ reçu · ✖ annulée."],
         ["**🔒 Caisse**, cadre « 💼 Avances de frais à rembourser (N) »", "Une ligne par avance qui compte, trois boutons : « 💵 Rembourser en espèces », « 🧾 Avec le salaire », « 👤 Par le DG »."],
         ["**🔒 Caisse**, cadre « Clôture du jour »", "Le bandeau rouge des journées sans clôture, le bandeau orange des journées à reclôturer, le bloc « 📊 Ventes du … — tous moyens de paiement », les cinq cases (Dans le tiroir hier soir · Recette du jour (espèces) · Sorties justifiées du jour · Montant attendu dans le tiroir · Écart de caisse), « Recette du … par vendeur », « Détail des encaissements du … », **Montant du tiroir**, **Remarques**, « **Clôturer le jour** »."],
         ["**🔒 Caisse**, en bas", "« Historique des clôtures — BOUTIQUE » : Date · Attendu dans le tiroir · Compté · Écart · Remarques · Par. Six lignes se voient, la suite se lit en faisant défiler le tableau (l'en-tête reste en haut)."],
@@ -119,7 +121,14 @@ export const CHAPITRE = {
         { titre: "Le bandeau orange", texte: "« ⚠ 1 journée clôturée dont la caisse a bougé ensuite — Une vente ou une dépense a été enregistrée APRÈS la clôture : le montant compté ce jour-là ne correspond plus. Le solde de la caisse reste juste — c'est la clôture qu'il faut refaire. » Une pastille par jour, avec ce qui a bougé (« 10/09/2026 · +225 000 »)." },
         { titre: "Reclôturer", texte: "Cliquer la pastille : « 🔁 Cette journée est à RECLÔTURER » avec le message complet (attendu à la clôture, compté, attendu maintenant, écart). On recompte, on saisit, « Clôturer le jour » : la nouvelle clôture **remplace** l'ancienne, qui reste gardée dans la fiche (journal « RECLÔTURE du jour … »)." },
       ]],
-      ["h3", "G. Le 📊 RÉSUMÉ (administrateur)"],
+      ["h3", "G. La remise du DG au tiroir (administrateur principal, puis le gérant)"],
+      ["etapes", [
+        { titre: "Le DG enregistre", texte: "Sur la boutique regardée, cadre « 💵 Remises du DG au tiroir », bouton **« 💵 Remise du DG au tiroir »** : Montant remis (F) · **D'où vient l'argent ?** (Chez le DG, BANQUE — avec le nom de la banque —, ou Chez le comptable, espace réel seulement) · **Motif** (obligatoire : « monnaie pour rendre », « pas de vente ce matin »…) · « 💵 Enregistrer ». Une boutique sans gérant actif est refusée : personne ne pourrait confirmer." },
+        { titre: "Rien ne compte encore", texte: "La ligne apparaît « ⏳ en attente de la confirmation du gérant — ne compte pas encore ». Ni le tiroir, ni la caisse d'où vient l'argent ne bougent. Le gérant est prévenu par une notification et par WhatsApp du numéro BMI. Tant qu'elle attend, le DG peut **« ✕ Annuler »** (motif obligatoire)." },
+        { titre: "Le gérant confirme « ✅ Reçu »", texte: "Seul le gérant **de cette boutique** a le bouton, et seulement quand il a l'argent en main. À cet instant, l'argent entre **tout entier dans le tiroir** (il ne rembourse pas l'enveloppe du fonds de caisse) et sort de la caisse « Chez le DG », de la BANQUE ou de celle du comptable. L'administrateur principal est prévenu (notification et WhatsApp). Une remise reçue ne s'annule plus : si l'argent doit repartir, c'est un versement." },
+        { titre: "À la clôture du jour", texte: "Une case **« 💵 Remis par le DG dans le tiroir »** apparaît, et la confirmation de clôture la nomme. Le montant attendu dans le tiroir la compte : la vendeuse n'est pas en écart. Ce n'est ni une vente ni une recette ; le « 🔍 Détail du tiroir » la montre à son heure." },
+      ]],
+      ["h3", "H. Le 📊 RÉSUMÉ (administrateur)"],
       ["etapes", [
         { titre: "Cliquer 📊 RÉSUMÉ", texte: "Une ligne par boutique de l'espace regardé (ventes + 🏗 DÉPÔT CHANTIER) : Fonds à verser · Fonds de caisse · Total versé · Entrées · Sorties (versements compris), « ⚠ N jours sans clôture » en rouge, la ligne TOTAL. En dessous, « 💸 Historique des versements » de toutes ces boutiques (10 lignes puis on défile, archives au-delà de 3 mois). **Rien d'autre ne s'affiche** en mode résumé ; un clic sur une boutique le referme." },
         { titre: "Changer la « Période : »", texte: "Elle commande les carrés de la boutique regardée, le résumé ET l'historique. Avec une période, Entrées / Sorties / Versé sont ceux de la période, et « Fonds à verser » devient **le tiroir à la fin de la période**. Le montant attendu par le formulaire de versement, lui, reste toujours le tiroir d'aujourd'hui." },
@@ -173,7 +182,7 @@ export const CHAPITRE = {
     // ── 6
     { titre: "Ce qui se passe automatiquement derrière", blocs: [
       ["ul", [
-        "**Deux poches, jamais additionnées.** Le **tiroir** = la recette en espèces. **L'enveloppe** = le fonds de caisse remis par le DG. Une entrée rembourse d'abord l'enveloppe si elle est entamée, le reste va au tiroir ; une dépense se paie sur le tiroir, l'enveloppe ne complète que ce qu'il ne couvre pas ; un versement ne sort **que** du tiroir ; une remise du DG va dans l'enveloppe. L'enveloppe n'est jamais comptée physiquement : la clôture informe, elle ne demande rien.",
+        "**Deux poches, jamais additionnées.** Le **tiroir** = la recette en espèces. **L'enveloppe** = le fonds de caisse remis par le DG. Une entrée rembourse d'abord l'enveloppe si elle est entamée, le reste va au tiroir ; une dépense se paie sur le tiroir, l'enveloppe ne complète que ce qu'il ne couvre pas ; un versement ne sort **que** du tiroir ; une remise de fonds de caisse va dans l'enveloppe ; une **remise du DG au tiroir**, une fois confirmée « ✅ Reçu » par le gérant, va tout entière dans le tiroir. L'enveloppe n'est jamais comptée physiquement : la clôture informe, elle ne demande rien.",
         "**Le montant attendu est un SOLDE**, pas le flux du jour : tout ce qui est entré en espèces jusqu'à ce soir, moins tout ce qui est sorti. C'est pourquoi une boutique qui a versé hier attend peu ce soir, et pourquoi « Dans le tiroir hier soir » est recalculé à chaque fois.",
         "**Une journée « active »** (au moins une vente, tout moyen, ou un encaissement en espèces) demande une clôture. Le lendemain, sans clôture, 💰 Ventes refuse : « 🔒 Vente impossible : la journée du … de BOUTIQUE n'a pas été clôturée. Faites la clôture du jour dans 🔒 Caisse, puis revenez vendre. » La règle ne regarde pas avant le **09/09/2026**.",
         "**Une seule clôture par jour et par boutique**, quel que soit le nombre de vendeurs : c'est la même caisse. Une reclôture remplace la fiche et garde l'ancienne dans son histoire.",

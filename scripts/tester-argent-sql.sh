@@ -95,6 +95,10 @@ VERIF46=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-46-remise-commune
 if [ "$VERIF46" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-46 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-46 répond : $VERIF46"; exit 1; fi
 echo "▸ La corbeille des ventes, articles et prospects : supabase/securite-49-corbeille-ventes-articles-prospects.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-49-corbeille-ventes-articles-prospects.sql >/dev/null 2>&1 || echo "   ❌ securite-49 refusé par la base"
+echo "▸ La remise du DG au tiroir : supabase/securite-51-remise-tiroir.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-51-remise-tiroir.sql >/dev/null 2>&1 || echo "   ❌ securite-51 refusé par la base"
+VERIF51=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-51-remise-tiroir.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF51" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-51 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-51 répond : $VERIF51"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -629,6 +633,36 @@ essai "★ un vendeur crée une vente déjà marquée (passer par la porte de c�
 essai "★ le magasinier met un article à la corbeille" "REFUSE" "$MAGASINIER" "$(MAJ produits "$MARQUE" zcp1)"
 essai "★ l'administrateur met un article à la corbeille" "PERMIS" "$ADMIN2" "$(MAJ produits "$MARQUE" zcp1)"
 essai "★ le quotidien passe : un vendeur encaisse une vente vivante (securite-49 compris)" "PERMIS" "$VENDEUR" "$(UPS ventes zcv8 '{"id":"zcv8","boutique":"APESSITO","client":"Q","remise_pct":0}')"
+echo
+echo "── 💵 LA REMISE DU DG AU TIROIR (securite-51, 10/11/2026, « A b ») : le DG crée, le gérant de CETTE boutique confirme ──"
+jetonBq() { echo "{\"role\":\"authenticated\",\"email\":\"$1@bmi.internal\",\"app_metadata\":{\"role\":\"$2\",\"ecriture\":true,\"espace\":\"reel\",\"principal\":false,\"boutique\":\"$3\"}}"; }
+GERANT_ICI=$(jetonBq zg_ali gerant APESSITO)
+GERANT_AILLEURS=$(jetonBq zg_bob gerant DEMAKPOE)
+VENDEUR_ICI=$(jetonBq zv_kossi vendeur APESSITO)
+CAT_RT="Remise du DG au tiroir"
+RT='{"id":"zrt1","boutique":"APESSITO","categorie":"Remise du DG au tiroir","montant":-20000,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie"}}'
+RT_RECUE='{"id":"zrt1","boutique":"APESSITO","categorie":"Remise du DG au tiroir","montant":-20000,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie","recue_le":"2026-11-10","recue_heure":"10:00","recue_par":"ALI","recue_par_id":"zg_ali"}}'
+RT_ANNULEE='{"id":"zrt1","boutique":"APESSITO","categorie":"Remise du DG au tiroir","montant":0,"paiement":"Espèces","par":"TIMO","date":"2026-11-10","remise_tiroir":{"id":"rt1","source":"Chez le DG","banque":"","motif":"monnaie","montant":20000,"annulee_le":"2026-11-10","annulee_par":"TIMO","annulee_motif":"erreur"}}'
+CREE="$(UPS depenses zrt1 "$RT")"
+# La remise posée par le DG dans la MÊME transaction, puis on reprend le jeton donné.
+PAR_DG() { echo "set local request.jwt.claims = '$ADMIN'; $CREE set local request.jwt.claims = '$1';"; }
+essai "★ le DG enregistre une remise de 20 000 au tiroir d'APESSITO" "PERMIS" "$ADMIN" "$CREE"
+essai "★ un gérant enregistre lui-même une remise au tiroir" "REFUSE" "$GERANT_ICI" "$CREE"
+essai "★ un administrateur SECONDAIRE enregistre une remise au tiroir" "REFUSE" "$ADMIN2" "$CREE"
+essai "★ une remise sans motif" "REFUSE" "$ADMIN" "$(UPS depenses zrt2 "$(echo "$RT" | sed 's/zrt1/zrt2/; s/"motif":"monnaie"/"motif":""/')")"
+essai "★ une remise dont la source n'existe pas" "REFUSE" "$ADMIN" "$(UPS depenses zrt3 "$(echo "$RT" | sed 's/zrt1/zrt3/; s/Chez le DG/Mon sac/')")"
+essai "★ une remise à montant positif (une sortie déguisée)" "REFUSE" "$ADMIN" "$(UPS depenses zrt4 "$(echo "$RT" | sed 's/zrt1/zrt4/; s/-20000/20000/')")"
+essai "★ le DG crée une remise DÉJÀ reçue (passer par la porte de côté)" "REFUSE" "$ADMIN" "$(UPS depenses zrt5 "$(echo "$RT_RECUE" | sed 's/zrt1/zrt5/')")"
+essai "★ le gérant d'APESSITO confirme « ✅ Reçu »" "PERMIS" "$GERANT_ICI" "$(PAR_DG "$GERANT_ICI") $(UPS depenses zrt1 "$RT_RECUE")"
+essai "★ le gérant d'une AUTRE boutique confirme" "REFUSE" "$GERANT_AILLEURS" "$(PAR_DG "$GERANT_AILLEURS") $(UPS depenses zrt1 "$RT_RECUE")"
+essai "★ un vendeur d'APESSITO confirme" "REFUSE" "$VENDEUR_ICI" "$(PAR_DG "$VENDEUR_ICI") $(UPS depenses zrt1 "$RT_RECUE")"
+essai "★ le DG confirme lui-même (A b : c'est le gérant)" "REFUSE" "$ADMIN" "$CREE $(UPS depenses zrt1 "$RT_RECUE")"
+essai "★ le gérant confirme ET change le montant" "REFUSE" "$GERANT_ICI" "$(PAR_DG "$GERANT_ICI") $(UPS depenses zrt1 "$(echo "$RT_RECUE" | sed 's/-20000/-50000/')")"
+essai "★ le DG annule une remise en attente (motif)" "PERMIS" "$ADMIN" "$CREE $(UPS depenses zrt1 "$RT_ANNULEE")"
+essai "★ un gérant annule une remise" "REFUSE" "$GERANT_ICI" "$(PAR_DG "$GERANT_ICI") $(UPS depenses zrt1 "$RT_ANNULEE")"
+essai "★ le DG annule une remise DÉJÀ reçue" "REFUSE" "$ADMIN" "$(PAR_DG "$GERANT_ICI") $(UPS depenses zrt1 "$RT_RECUE") set local request.jwt.claims = '$ADMIN'; $(UPS depenses zrt1 "$RT_ANNULEE")"
+essai "★ la même ligne renvoyée telle quelle (synchronisation) passe" "PERMIS" "$GERANT_ICI" "$(PAR_DG "$GERANT_ICI") $(UPS depenses zrt1 "$RT")"
+essai "★ le quotidien passe : un vendeur enregistre une dépense ordinaire (securite-51 compris)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord3 '{"id":"zd_ord3","boutique":"APESSITO","categorie":"Transport","montant":1500,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
 echo
 echo "── L'ÉDITEUR SQL (jeton vide) n'est jamais gêné ──"
 essai "l'éditeur SQL supprime une vente" "PERMIS" "$ADMIN" "set local request.jwt.claims = ''; set local role postgres; $(SUPPR ventes zv1)"

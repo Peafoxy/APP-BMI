@@ -31,7 +31,7 @@
 import { ventesParMoyen, activiteDuJour, clotureDe, DEBUT_REGLE_CLOTURE } from "./cloture.js";
 import { deuxPoches, fondsAVerser, versementsDe, validationVersement, estRejete, libelleDestination, montantEncaisseVente, SOURCE_ESPECES } from "./versements.js";
 import { soldesMobiles } from "./caissesMobiles.js";
-import { caisseDeVente, boutiqueDuDocument, libelleCaisse, CATEGORIES_HORS_CHARGES, CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, PAIEMENTS } from "./constants.js";
+import { caisseDeVente, boutiqueDuDocument, libelleCaisse, CATEGORIES_HORS_CHARGES, CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, CATEGORIE_REMISE_TIROIR, PAIEMENTS } from "./constants.js";
 import { estEnAttente, estRejetee, montantOrigine, sortDuTiroir } from "./validationDepenses.js";
 import { detteEnRetard, resteDette, joursDeDette } from "./rappels.js";
 import { ventesAuChiffre, estDepotChantier } from "./depotChantier.js";
@@ -58,7 +58,9 @@ const estReservation = (d) => d?.type === "prepaye";
 // Ce qui n'est ni une charge ni un mouvement de tiroir à part : les sorties
 // d'argent « pas des charges » (remboursement d'un client, d'une avance, un
 // prêt au personnel). Les versements et le fonds de caisse ont leur section.
-const AUTRES_SORTIES = CATEGORIES_HORS_CHARGES.filter((c) => c !== CATEGORIE_VERSEMENT && c !== CATEGORIE_FONDS_CAISSE);
+// 💵 La remise du DG au tiroir (10/11/2026) est une ENTRÉE : elle est comptée
+// dans le tiroir (bloc 5), jamais parmi les sorties.
+const AUTRES_SORTIES = CATEGORIES_HORS_CHARGES.filter((c) => c !== CATEGORIE_VERSEMENT && c !== CATEGORIE_FONDS_CAISSE && c !== CATEGORIE_REMISE_TIROIR);
 
 // La période : [du, au] (le filtre commun) ou null = toute période.
 export function bornesInventaire(bornes) {
@@ -209,7 +211,7 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
   // sorti en espèces, le soir du dernier jour. Mêmes chiffres que la clôture.
   const periodeTiroir = du <= fin ? deuxPoches(db, boutique, totalVente, { du, au: fin }) : null;
   const tiroirDebut = du > "0000-01-01" ? deuxPoches(db, boutique, totalVente, { du: "", au: veilleDe(du) }).recette : 0;
-  const t = periodeTiroir?.detail || { ventes: 0, reglements: 0, retraits: 0, rendu: 0, surRecette: 0, versements: 0, surFonds: 0 };
+  const t = periodeTiroir?.detail || { ventes: 0, reglements: 0, retraits: 0, apports: 0, rendu: 0, surRecette: 0, versements: 0, surFonds: 0 };
   const sectionCaisse = {
     tiroir: f.montant,
     enveloppe: f.resteFonds,
@@ -219,7 +221,9 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
     mobiles,
     periode: {
       debut: tiroirDebut,
-      entrees: t.ventes + t.reglements + t.retraits,
+      entrees: t.ventes + t.reglements + t.retraits + t.apports,
+      // 💵 dont ce que le DG a remis dans le tiroir (confirmé par le gérant).
+      remisesDg: t.apports,
       renduEnveloppe: t.rendu,
       depenses: t.surRecette,
       versements: t.versements,
@@ -390,7 +394,7 @@ export function inventaireGeneral(db, noms, totalVente, bornes, aujourdhui, { av
     dernierVersement: null,
     mobiles: fusionner(parBq.map((i) => i.caisse.mobiles), "libelle", ["solde"]).map((m) => ({ ...m, numero: "" })),
     periode: {
-      debut: P("debut"), entrees: P("entrees"), renduEnveloppe: P("renduEnveloppe"), depenses: P("depenses"),
+      debut: P("debut"), entrees: P("entrees"), remisesDg: P("remisesDg"), renduEnveloppe: P("renduEnveloppe"), depenses: P("depenses"),
       versements: P("versements"), depensesSurEnveloppe: P("depensesSurEnveloppe"), fin: P("fin"),
       jusquau: parBq[0]?.caisse.periode.jusquau || (au < aujourdhui ? au : aujourdhui),
     },

@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 2951 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 2966 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -74,7 +74,7 @@ npm run verifier-whatsapp        # 1430 : l'envoi WhatsApp du numéro BMI (l'ord
 npm run verifier-partage         # 9   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette ; le PDF du VRAI reçu, une page, moins de 400 Ko)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 289 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 319 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 120 : les règles de rôle sur les comptes (serveur)
 npm run tester-devis-chantiers   # 129 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
@@ -8551,6 +8551,14 @@ lit mal est pire qu'un banc absent).
   Cinq contrôles RETOURNÉS (la carte DG devenue composant, `nouvelleDepense`
   ×18, la liste hors charges, le mot « Entrées » qui suit `mots`, les cartes
   nommées comptées dans deux fichiers).
+
+### 💵 LA REMISE DU DG AU TIROIR D'UNE BOUTIQUE (10/11/2026, « A b, B les trois avec comptable, C a, D prévenu par WhatsApp à l'enregistrement et à la validation, l'administrateur aussi est informé »)
+- Timo : « l'argent peut-il quitter physiquement la caisse du DG vers la caisse du gérant ? » — avant, seul le fonds de caisse (l'ENVELOPPE) le permettait. Règle pure **`lib/remiseTiroir.js`** ; les lectures `estRemiseTiroir` / `remiseTiroirRecue` vivent dans constants.js (versements.js et caissesCentrales.js les lisent sans tourner en rond).
+- 🔒 Caisse → cadre **« 💵 Remises du DG au tiroir »** : le **principal** enregistre (bouton « 💵 Remise du DG au tiroir », `refuserSaufAdminPrincipal`) — montant, **« B »** source Chez le DG / BANQUE (son nom) / Chez le comptable (réel seulement, `sourcesRemisePour`), **motif obligatoire** ; refusé si la boutique n'a aucun gérant actif. ⚠ Pas de champ de date (le banc interdit `type="date"` dans 🔒 Caisse) : la date est celle du jour, et la remise compte de toute façon au moment de la confirmation.
+- **« A b »** : rien ne compte tant que le **GÉRANT de CETTE boutique** n'a pas confirmé **« ✅ Reçu »** (`critiqueConfirmation`, fiche FRAÎCHE) — ni le tiroir, ni la caisse d'où vient l'argent. Le DG peut **« ✕ Annuler »** tant qu'elle attend (motif, montant à 0 comme un versement rejeté). Reçue, elle ne s'annule plus.
+- **« C a »** : confirmée, elle entre **TOUT ENTIÈRE dans le tiroir** à l'heure de la confirmation (type `apport` de `deuxPoches`, `detail.apports`) — elle ne rembourse PAS l'enveloppe. Elle sort de « Chez le DG » / BANQUE / la caisse du comptable ce jour-là (`sortiesRemiseTiroir`, caissesCentrales.js ; la confirmation tient lieu de pointage du comptable) ; chez le DG, le manque devient un apport de l'exploitant comme d'habitude. La clôture a sa case « 💵 Remis par le DG dans le tiroir » (`remisesDgDuJour`, dans le montant attendu, jamais dans la recette) ; 🔍 Détail du tiroir, 📋 Inventaire (« dont remis par le DG ») et son PDF la disent. Ligne de dépense NÉGATIVE, catégorie « Remise du DG au tiroir », **hors charges** ; ni le journal (comme un versement : un mouvement interne de trésorerie), ni 📤 Dépenses.
+- **« D »** : WhatsApp du numéro BMI sans question ni repli — **`remise_tiroir`** (UTILITY, 6 trous : gérant, montant, boutique, source, motif, qui) au gérant à l'enregistrement ; **`remise_tiroir_recue`** (UTILITY, 6 trous : administrateur, gérant, montant, boutique, quand, source) aux **administrateurs principaux** à la confirmation (mon interprétation de « l'administrateur aussi est informé », dite à Timo). Textes PROPOSÉS (`TEXTE_REMISE_TIROIR*`), **à créer par Timo chez YCloud** ; d'ici l'accord rien ne part, l'écran le dit. Plus les notifications (liste B § 11 : le gérant à l'enregistrement, les administrateurs à la réception). Jamais en formation (le mur = l'espace regardé).
+- ⚠ LE COUPLE : **`securite-51`** (nouveau déclencheur `depenses_regles_remise_tiroir`, ne touche rien d'autre) — créer = le principal, ligne bien formée (montant négatif, source, motif, jamais déjà reçue) ; « ✅ Reçu » = rôle gérant ET boutique du jeton = boutique de la ligne, rien d'autre ne bouge ; annuler = le principal, en attente seulement, motif ; tout autre changement refusé. ⚠ Piège vu au banc : `avant ? 'x'` vaut NULL pour une création — sans `coalesce`, TOUTE dépense nouvelle était refusée. Banc `tester-argent` (+17, éprouvé : la garde du gérant retirée, il tombe) ; `verifier-cloisonnement` (+12, éprouvé : « C a » et « A b » remis faux, ils tombent) ; cinq contrôles RETOURNÉS (nouvelleDepense ×21, l'import de versements.js, la liste hors charges ×2, la carte du code) ; deux dans `verifier-whatsapp` (soixante et un modèles, modèles à ligne). Chapitres 6 et 22 à jour.
 
 ### 📲 L'AVIS WHATSAPP DE LA DÉCISION DU DG SUR UNE DÉPENSE (13/10/2026, « Aa, Ba, Cb, texte ok »)
 - Timo : « modèle Meta pour une dépense rejetée ». Deux modèles UTILITY :

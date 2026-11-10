@@ -145,6 +145,10 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   // caisse entamé, les ventes viennent rembourser ») : cet argent est sorti
   // du tiroir pour retourner dans l'enveloppe.
   const rembourseAuFonds = jour.detail.rendu;
+  // 💵 Ce que le DG (la BANQUE, le comptable) a remis DANS le tiroir ce jour-là,
+  // confirmé par le gérant (Timo, 10/11/2026) : ni une vente ni une recette —
+  // sa ligne à part, mais il est bien dans le tiroir.
+  const remisesDgDuJour = jour.detail.apports;
   const detailReglements = (db.dettes || []).filter((d) => d.boutique === boutique)
     .flatMap((d) => (d.paiements || [])
       .filter((p) => String(p.date).slice(0, 10) === d0)
@@ -184,13 +188,13 @@ export function activiteDuJour(db, boutique, date, totalVente) {
   // retourné dans l'enveloppe) = ce que le tiroir doit contenir.
   const recetteDuJour = especesVentes + especesReglements;
   const sortiesJustifiees = especesDepenses + versementsDuJour;
-  const fluxDuJour = recetteDuJour - rembourseAuFonds - sortiesJustifiees;
+  const fluxDuJour = recetteDuJour + remisesDgDuJour - rembourseAuFonds - sortiesJustifiees;
   // L'état de l'enveloppe ce soir-là, montré À PART.
   const etatFonds = etatFondsCaisse(finDuJour.fonds, finDuJour.plafond);
   return {
     date: d0,
     nbVentes: ventesDuJour.length,
-    especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, depensesSurFonds, rembourseAuFonds, detailReglements,
+    especesVentes, especesReglements, especesDepenses, versementsDuJour, fondsRemisDuJour, remisesDgDuJour, depensesSurFonds, rembourseAuFonds, detailReglements,
     // 📊 Les ventes du jour, tous moyens (Timo, 21/09/2026).
     moyens: ventesParMoyen(ventesDuJour, detailReglements, totalVente),
     recetteDuJour, sortiesJustifiees, recetteParPersonne,

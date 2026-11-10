@@ -18,7 +18,7 @@
 // liée par `versement_id` — c'est elle que le comptable pointe.
 // ============================================================
 import { nouvelleDepense, nouveauMessage, uid, fmt, dFR, heureCourte, today } from "./core.js";
-import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen, caisseDeVente } from "./constants.js";
+import { CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, horsVersements, estMoyenMobile, mobileParMoyen, caisseDeVente, estRemiseTiroir, remiseTiroirRecue } from "./constants.js";
 import { compteDansLaCaisse } from "./validationDepenses.js";
 import { versEcran } from "./cibleNotification.js";
 
@@ -518,6 +518,17 @@ const mouvementsEspeces = (db, boutique, totalVente) => {
   // Timo (12/09/2026) : une dépense en attente de validation ne compte pas ;
   // une avance personnelle ou l'argent du DG ne sortent pas du tiroir.
   (db?.depenses || []).forEach((x) => {
+    // 💵 Une REMISE DU DG AU TIROIR (Timo, 10/11/2026, « A b, C a ») : rien ne
+    // compte tant que le gérant n'a pas confirmé « ✅ Reçu » ; confirmée, elle
+    // ENTRE dans le tiroir au moment de la confirmation — tout entière, sans
+    // rembourser l'enveloppe (« C a » : c'est ce que le DG a remis).
+    if (estRemiseTiroir(x)) {
+      if (x.boutique === boutique && remiseTiroirRecue(x)) {
+        const r = x.remise_tiroir;
+        out.push({ q: `${String(r.recue_le).slice(0, 10)} ${r.recue_heure || ""}`, date: String(r.recue_le).slice(0, 10), type: "apport", montant: -Number(x.montant || 0), src: x });
+      }
+      return;
+    }
     if (x.boutique !== boutique || !compteDansLaCaisse(x)) return;
     const base = { q: quand(x), date: String(x.date).slice(0, 10), src: x };
     if (estFondsCaisseRemis(x)) out.push({ ...base, type: "remise", montant: -Number(x.montant || 0) });
@@ -563,7 +574,7 @@ function mouvementsAPart(db, mouvements) {
 // détail de ce qui s'est passé PENDANT la période.
 export function deuxPoches(db, boutique, totalVente, periode = null) {
   let recette = 0, fonds = 0, plafond = 0;
-  const d = { ventes: 0, reglements: 0, depenses: 0, surRecette: 0, surFonds: 0, versements: 0, remises: 0, rendu: 0, retraits: 0 };
+  const d = { ventes: 0, reglements: 0, depenses: 0, surRecette: 0, surFonds: 0, versements: 0, remises: 0, rendu: 0, retraits: 0, apports: 0 };
   const mouvements = mouvementsEspeces(db, boutique, totalVente);
   const aPart = mouvementsAPart(db, mouvements);
   for (const m of mouvements) {
@@ -585,6 +596,10 @@ export function deuxPoches(db, boutique, totalVente, periode = null) {
     if (m.type === "remise") {
       fonds += m.montant; plafond += m.montant;
       if (dedans) d.remises += m.montant;
+    } else if (m.type === "apport") {
+      // 💵 « C a » : tout dans le tiroir, l'enveloppe n'est pas remboursée.
+      recette += m.montant;
+      if (dedans) d.apports += m.montant;
     } else if (m.type === "versement") {
       recette -= m.montant;
       if (dedans) d.versements += m.montant;
@@ -632,6 +647,8 @@ export function fondsAVerser(db, boutique, totalVente, periode = null) {
     ventes: p.detail.ventes, reglements: p.detail.reglements,
     // Ce qui est entré dans le tiroir en venant d'un compte mobile (retraits).
     retraits: p.detail.retraits,
+    // 💵 Ce que le DG (la BANQUE, le comptable) a remis DANS le tiroir, confirmé.
+    remisesDg: p.detail.apports,
     // « Sorties » = tout ce qui est sorti en espèces (dépenses + versements),
     // quelle que soit la poche ; `depensesSurFonds` dit la part de l'enveloppe.
     depenses: p.detail.depenses + p.detail.versements,
@@ -667,15 +684,19 @@ const veilleDe = (jour) => {
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
 };
-const heureDuMouvement = (m) => (m.type === "versement" || m.type === "retrait"
-  ? (m.src?.versement?.heure || m.src?.heure || "")
-  : (m.src?.heure || ""));
+const heureDuMouvement = (m) => (m.type === "apport" ? (m.src?.remise_tiroir?.recue_heure || "")
+  : m.type === "versement" || m.type === "retrait"
+    ? (m.src?.versement?.heure || m.src?.heure || "")
+    : (m.src?.heure || ""));
+// D'où vient l'argent d'une remise au tiroir, en clair.
+export const libelleSourceRemise = (r) => (r?.source === DEST_BANQUE ? `BANQUE ${String(r.banque || "").trim()}`.trim() : (r?.source || DEST_DG));
 function libelleMouvement(db, m) {
   const x = m.src || {};
   if (m.type === "vente") return `Vente ${x.numero || ""}${x.client ? ` — ${x.client}` : ""}`.trim();
   if (m.type === "reglement") return `Règlement de dette${m.dette?.numero ? ` ${m.dette.numero}` : ""}${m.dette?.client ? ` — ${m.dette.client}` : ""}`;
   if (m.type === "remise") return "💼 Fonds de caisse remis — il va dans l'enveloppe, pas dans le tiroir";
   if (m.type === "retrait") return "📱 Retrait d'un compte mobile, entré dans le tiroir";
+  if (m.type === "apport") return `💵 Remise du DG au tiroir (${libelleSourceRemise(x.remise_tiroir)})${x.remise_tiroir?.motif ? ` — ${x.remise_tiroir.motif}` : ""} · reçue par ${x.remise_tiroir?.recue_par || "?"}`;
   if (m.type === "versement") {
     const etat = estRejete(x) ? "✖ rejeté (compte comme jamais versé)" : (validationVersement(db, x) ? "✅ validé" : "⏳ en attente");
     const genre = x.versement?.origine ? "💸 Versement d'une vente ou d'un règlement" : "💸 Versement général";
@@ -704,7 +725,7 @@ export function detailDuTiroir(db, boutique, totalVente) {
     const duJour = dedans.filter((m) => m.date === jour);
     let aPartEntrees = 0, aPartSorties = 0;
     const lignes = duJour.map((m) => {
-      const entre = ["vente", "reglement", "retrait"].includes(m.type);
+      const entre = ["vente", "reglement", "retrait", "apport"].includes(m.type);
       const entree = entre ? m.montant : 0;
       const sortie = m.type === "versement" || m.type === "sortie" ? m.montant : 0;
       const part = aPart.has(m);
@@ -718,7 +739,7 @@ export function detailDuTiroir(db, boutique, totalVente) {
     });
     return {
       jour, lignes,
-      entrees: p.detail.ventes + p.detail.reglements + p.detail.retraits - aPartEntrees,
+      entrees: p.detail.ventes + p.detail.reglements + p.detail.retraits + p.detail.apports - aPartEntrees,
       sorties: p.detail.depenses + p.detail.versements - aPartSorties,
       aPartEntrees, aPartSorties,
       renduEnveloppe: p.detail.rendu, prisEnveloppe: p.detail.surFonds,

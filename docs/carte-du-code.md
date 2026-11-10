@@ -44,6 +44,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/carteFidelite.js` | La carte de fidélité à code-barres : numéro FID-, % sur la fiche du client, remplacement, scan dans l'espace regardé, remise fixe — couple securite-45 |
 | `lib/autorisationRemise.js` | La remise ponctuelle autorisée à distance : le vendeur ou le gérant demande (`demandes_remise`), tout administrateur accorde (`remises_autorisees`), pour ce panier, ce %, ce client, une fois — couple securite-44 |
 | `lib/remiseApresVente.js` | La remise après-vente (gérant, admin) : un montant retiré d'une vente déjà encaissée, sans article rendu — dette réduite ou remboursement |
+| `lib/remiseTiroir.js` | La remise du DG au tiroir d'une boutique (DG, BANQUE ou comptable) : le principal l'enregistre, le gérant confirme « ✅ Reçu », rien ne compte avant |
 | `lib/bons.js` | Le bon de reprise et le bon de retour (des documents, jamais des écritures) |
 | `lib/bandesVersement.js` | La bande noire d'un versement dans 💰 Ventes, et le résumé des ventes depuis le versement précédent |
 | `lib/banques.js` | La liste des banques et la banque d'un employé |

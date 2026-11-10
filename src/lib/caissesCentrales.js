@@ -33,7 +33,7 @@ import { DEST_DG, DEST_BANQUE, DEST_COMPTABLE, estVersement, estRejete, libelleD
 import { dFR } from "./core";
 // Les comptes mobiles viennent de constants.js (jamais de caissesMobiles.js :
 // c'est LUI qui lit ce fichier-ci, l'inverse tournerait en rond).
-import { mobileParCaisse, libelleCaisse } from "./constants";
+import { mobileParCaisse, libelleCaisse, remiseTiroirRecue } from "./constants";
 import { PAYE_AVEC_DG, MOYEN_REMB_DG, estEnAttente, estRejetee, payeAvecCaisse, payeeParLeComptable } from "./validationDepenses";
 
 export const CAISSE_DG = DEST_DG;
@@ -73,6 +73,13 @@ const mouvementsFondsRemis = (db, origine, nomsBoutiques) => (db.depenses || [])
     return { id: d.id, sens: repris ? "entree" : "sortie", date: d.date, montant: Math.abs(Number(d.montant || 0)), boutique: d.boutique, par: d.par,
       libelle: `Fonds de caisse ${repris ? "repris de" : "remis à"} ${d.boutique} (par ${d.par})${origine === DEST_BANQUE ? ` · ${libelleOrigineFonds(d.fonds_caisse)}` : ""}${d.fonds_caisse.note ? ` — ${d.fonds_caisse.note}` : ""}` };
   });
+// 💵 La REMISE DU DG AU TIROIR d'une boutique (Timo, 10/11/2026) : elle sort
+// de la caisse d'où vient l'argent (Chez le DG, BANQUE, Chez le comptable) le
+// jour où le gérant confirme l'avoir reçue — jamais avant (« A b »).
+export const sortiesRemiseTiroir = (db, origine, nomsBoutiques) => (db.depenses || [])
+  .filter((d) => remiseTiroirRecue(d) && (d.remise_tiroir.source || DEST_DG) === origine && nomsBoutiques.includes(d.boutique))
+  .map((d) => ({ id: d.id, sens: "sortie", date: String(d.remise_tiroir.recue_le).slice(0, 10), montant: -Number(d.montant || 0), boutique: d.boutique, par: d.par,
+    libelle: `💵 Remis au tiroir de ${d.boutique} (par ${d.par}, reçu par ${d.remise_tiroir.recue_par || "?"})${origine === DEST_BANQUE && d.remise_tiroir.banque ? ` · BANQUE ${d.remise_tiroir.banque}` : ""}${d.remise_tiroir.motif ? ` — ${d.remise_tiroir.motif}` : ""}` }));
 const sortiesFondsRemis = (db, origine, nomsBoutiques) => mouvementsFondsRemis(db, origine, nomsBoutiques).filter((m) => m.sens === "sortie");
 const entreesFondsRepris = (db, origine, nomsBoutiques) => mouvementsFondsRemis(db, origine, nomsBoutiques).filter((m) => m.sens === "entree");
 
@@ -83,7 +90,7 @@ export function mouvementsDG(db, nomsBoutiques) {
   // lit ici comme celles des boutiques. Les apports et prélèvements, qui y sont
   // rangés aussi, ne portent pas `paye_avec` : le compte de l'exploitant les lit
   // à part, jamais deux fois.
-  const sorties = sortiesFondsRemis(db, DEST_DG, nomsBoutiques).concat((db.depenses || []).flatMap((d) => {
+  const sorties = sortiesFondsRemis(db, DEST_DG, nomsBoutiques).concat(sortiesRemiseTiroir(db, DEST_DG, nomsBoutiques), (db.depenses || []).flatMap((d) => {
     if (!nomsBoutiques.includes(d.boutique) && d.boutique !== CAISSE_DG) return [];
     const lignes = [];
     if (d.paye_avec === PAYE_AVEC_DG && compteSigne(d)) {
@@ -99,7 +106,7 @@ export function mouvementsDG(db, nomsBoutiques) {
 
 export function mouvementsBanque(db, nomsBoutiques) {
   const entrees = entreesVersements(db, DEST_BANQUE, nomsBoutiques).concat(entreesFondsRepris(db, DEST_BANQUE, nomsBoutiques));
-  const sorties = sortiesFondsRemis(db, DEST_BANQUE, nomsBoutiques).concat((db.depenses || [])
+  const sorties = sortiesFondsRemis(db, DEST_BANQUE, nomsBoutiques).concat(sortiesRemiseTiroir(db, DEST_BANQUE, nomsBoutiques), (db.depenses || [])
     // Une dépense rangée dans la caisse « BANQUE » (05/10/2026) se lit aussi.
     .filter((d) => (nomsBoutiques.includes(d.boutique) || d.boutique === CAISSE_BANQUE) && d.paiement === "Virement bancaire" && payeAvecCaisse(d) && !estVersement(d) && compteSigne(d))
     .map((d) => ({ id: d.id, sens: "sortie", date: d.date, montant: Number(d.montant), boutique: d.boutique, par: d.par, libelle: `${d.categorie}${d.description ? ` — ${d.description}` : ""} (${d.boutique}, par ${d.par})` })));
@@ -111,12 +118,16 @@ export function mouvementsBanque(db, nomsBoutiques) {
 // Timo (13/09/2026) : une dépense de BOUTIQUE « payée avec la caisse du
 // comptable » est une sortie de sa caisse, comptée quand il la pointe
 // « Remis » (le montant d'une dépense rejetée par le DG est à 0 : rien).
-export function mouvementsComptable(db) {
+export function mouvementsComptable(db, nomsBoutiques = null) {
   const lignes = (db.depenses || []).filter((d) => (d.boutique === DEST_COMPTABLE || payeeParLeComptable(d)) && !estRejete(d));
   const entrees = lignes.filter((d) => Number(d.montant || 0) < 0 && d.decaisse_le)
     .map((d) => ({ id: d.id, sens: "entree", date: d.decaisse_le, montant: -Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || "Versement reçu"} — encaissé le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
   const sorties = lignes.filter((d) => Number(d.montant || 0) > 0 && d.decaisse_le)
-    .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie}${payeeParLeComptable(d) ? ` (dépense de ${d.boutique}, par ${d.par})` : ""} — remis le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }));
+    .map((d) => ({ id: d.id, sens: "sortie", date: d.decaisse_le, montant: Number(d.montant), boutique: DEST_COMPTABLE, par: d.decaisse_par, libelle: `${d.description || d.categorie}${payeeParLeComptable(d) ? ` (dépense de ${d.boutique}, par ${d.par})` : ""} — remis le ${dFR(d.decaisse_le)} par ${d.decaisse_par}` }))
+    // 💵 Une remise au tiroir d'une boutique partie de SA caisse (10/11/2026) :
+    // la confirmation du gérant tient lieu de pointage. Le comptable est réel :
+    // sans liste, toutes les boutiques réelles qui en portent une.
+    .concat(sortiesRemiseTiroir(db, DEST_COMPTABLE, nomsBoutiques || (db.depenses || []).filter((d) => remiseTiroirRecue(d)).map((d) => d.boutique)));
   const aEncaisser = lignes.filter((d) => Number(d.montant || 0) < 0 && !d.decaisse_le).reduce((s, d) => s - Number(d.montant), 0);
   const aRemettre = lignes.filter((d) => Number(d.montant || 0) > 0 && !d.decaisse_le).reduce((s, d) => s + Number(d.montant), 0);
   return { ...bilanCaisse(entrees, sorties), aEncaisser, aRemettre };
