@@ -7814,6 +7814,19 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && s7.messages.length === 1 && s7.messages[0].a_id === "u_admin" && s7.messages[0].texte.includes(`Dépense à valider : ${Core.fmt(7000)}`) && /à valider par le DG/.test(s7.journal)
     && s2.depense.validation === undefined && s2.aValider === false && s2.messages.length === 0
     && sT.depense.validation.statut === "validee" && sT.depense.validation.auto === true && sT.messages.length === 0);
+  // 🏗 10/11/2026 (« b ») : une dépense payée avec la caisse du DÉPÔT CHANTIER — le message du DG dit les vrais mots, l'écran avertit.
+  const dbTer = { ...dbV, boutiques: [...(dbV.boutiques || []), { nom: "TERRAIN", terrain: true }] };
+  const sTer = Vd.construireDepenseSaisie(dbTer, kossiG, { boutique: "TERRAIN", categorie: "Achat marchandises", description: "", montant: 1142000, paiement: "Espèces", paye_avec: "caisse" }, "2026-11-10");
+  const txtTer = sTer.messages?.[0]?.texte || "";
+  test("★ 🏗 DÉPÔT CHANTIER (10/11/2026, « b ») : le message au DG dit « à 🏗 DÉPÔT CHANTIER, payée avec la caisse de 🏗 DÉPÔT CHANTIER (l'argent des clients pour leurs chantiers) » — jamais « TERRAIN » ni « la caisse de la boutique » ; le journal aussi",
+    /à 🏗 DÉPÔT CHANTIER, payée avec la caisse de 🏗 DÉPÔT CHANTIER \(l'argent des clients pour leurs chantiers\)/.test(txtTer) && !/TERRAIN|caisse de la boutique/.test(txtTer) && !/TERRAIN/.test(sTer.journal || "")
+    && !/l'argent des clients/.test(s7.messages[0]?.texte || "") /* une boutique ordinaire n'a pas la mention */);
+  test("★ 🏗 l'avertissement : paieAvecDepotChantier ne reconnaît QUE la caisse du dépôt chantier ; la confirmation nomme la boutique regardée ; l'écran l'affiche sous « Payé avec » (rouge) et le met en tête de la confirmation",
+    Vd.paieAvecDepotChantier("caisse:TERRAIN") && Vd.paieAvecDepotChantier("caisse:TERRAIN (formation)") && !Vd.paieAvecDepotChantier("caisse:BMI DEMAKPOE") && !Vd.paieAvecDepotChantier("poche") && !Vd.paieAvecDepotChantier("")
+    && /^⚠ Attention : vous payez avec l'argent déposé par les clients pour leurs chantiers\./.test(Vd.AVERTISSEMENT_DEPOT_CHANTIER)
+    && /sort du 🏗 DÉPÔT CHANTIER \(l'argent des clients pour leurs chantiers\), pas de la caisse de BMI DEMAKPOE\./.test(Vd.confirmationDepotChantier("BMI DEMAKPOE")) && !/pas de la caisse/.test(Vd.confirmationDepotChantier("TERRAIN"))
+    && /!sansCaisse && paieAvecDepotChantier\(f\.paye_avec \|\| `caisse:\$\{boutique\}`\) && \(\s*<div className="mt-1 text-xs font-semibold text-red-700" data-avertissement-depot-chantier>\{AVERTISSEMENT_DEPOT_CHANTIER\}<\/div>/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
+    && /const depotChantier = paieAvecDepotChantier\(f\.paye_avec \|\| `caisse:\$\{boutique\}`\) \? `\$\{confirmationDepotChantier\(boutique\)\}\\n\\n` : "";/.test(readFileSync("src/screens/Depenses.jsx", "utf8")));
   test("★ la saisie refuse un montant nul, une origine inconnue, une boutique absente",
     /montant/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 0, paye_avec: "caisse" }).refus || "")
     && /caisse de la boutique, le fonds de caisse, une avance personnelle/.test(Vd.construireDepenseSaisie(dbV, kossi, { boutique: "APESSITO", montant: 10, paye_avec: "poche" }).refus || "")
@@ -7974,7 +7987,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     /optionsPayeAvec\(caissesPossibles, boutique, \{ avecComptable: !afficheChiffresFormation\(db, profile\), fonds: propositionFonds, seulementPoche: sansCaisse \}\)\.map/.test(dpV) /* ⚠ RETOURNÉ le 10/10/2026 : + seulementPoche (un technicien ne choisit aucune caisse) */ /* 13/09/2026 : la caisse du comptable, réel seulement */ && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
     && /doitEtreValidee\(f\.montant\) && !jeSuisDG/.test(dpV) && /en attente de validation \(non comptées\)/.test(dpV));
   test("★ écran Dépenses : l'encadré PERMANENT « Dépenses à valider par le DG » (principal seul, la boutique regardée seule, « Ailleurs, en attente »), valider / rejeter revérifiés DANS le geste (refuserSaufAdminPrincipal ×2, critiqueDecision ×2), motif demandé, badge d'état et colonnes « Payé avec » / « Validation » dans LE tableau commun",
-    /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /Ailleurs, en attente/.test(dpV)
+    /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /data-ailleurs-dg/.test(dpV) /* ⚠ RETOURNÉ le 10/11/2026 : « Ailleurs, en attente » → une phrase et des boutons qui mènent à la caisse */
     && (dpV.match(/refuserSaufAdminPrincipal\(db, profile, "(Valider|Rejeter) une dépense \(DG\)"\)/g) || []).length === 2 && (dpV.match(/critiqueDecision\(d, \{ estPrincipal: true \}/g) || []).length === 2
     && /const motif = await uPrompt\(`Rejeter la dépense/.test(dpV) && /export function BadgeValidation/.test(dpV)
     // 13/09/2026 : la colonne « Chantier » (dépense rattachée à un chantier de devis) s'ajoute au tableau commun.
@@ -16071,6 +16084,18 @@ titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dett
   test("★★ RENDU : le paiement en PASTILLE (« Flooz »), « payé avec » dessous ; le statut en pastille (« ✅ Validée »), « par ANGELE » dessous ; la décision du DG en entier seulement dépliée",
     /<span title="Mobile Money \(Flooz\)"[^>]*rounded-full[^>]*>Flooz<\/span><div data-paye-avec/.test(ligne1(hR)) && /✅ Validée<\/span><div[^>]*>par ANGELE<\/div>/.test(ligne1(hR))
     && !/data-depense-decision/.test(ligne1(hR)) && /data-depense-decision[\s\S]*validée le 15\/10\/2026 par TIMO/.test(ligne1(hD)));
+  // 🏗 10/11/2026 (« b ») : l'ÉCRAN entier rendu — le principal voit la pastille 🏗 DÉPÔT CHANTIER et la ligne « attend aussi votre validation ».
+  const principalDp = { id: "a1", nom: "TIMO", role: "admin", boutique: "", admin_principal: true, actif: true };
+  const gerantDp = { id: "g1", nom: "ANGELE", role: "gerant", boutique: "BMI DEMAKPOE", actif: true };
+  const dbDp = { boutiques: [{ nom: "BMI DEMAKPOE" }, { nom: "BMI APESSITO" }, { nom: "TERRAIN", terrain: true }], users: [principalDp, gerantDp],
+    depenses: [{ id: "dx", date: "2026-11-10", boutique: "TERRAIN", categorie: "Achat marchandises", montant: 1142000, paiement: "Espèces", par: "ANGELE", paye_avec: "caisse", validation: { statut: "attente" } }],
+    ventes: [], dettes: [], messages: [], clients_installes: [], produits: [], ajustements: [] };
+  const rendreEcranDp = (p) => { const e0 = console.error; console.error = () => {}; try { return String(RDp?.rendreEcranDepenses(dbDp, p) || ""); } catch { return ""; } finally { console.error = e0; } };
+  const hPr = rendreEcranDp(principalDp), hGe = rendreEcranDp(gerantDp);
+  const ailleurs = (hPr.match(/<div[^>]*data-ailleurs-dg[\s\S]*?<\/div>/) || [""])[0];
+  test("★★ RENDU 🏗 (10/11/2026) : le principal a la pastille « 🏗 DÉPÔT CHANTIER » en haut de 📤 Dépenses ; la dépense qui y attend se dit « Une dépense attend aussi votre validation dans : » avec un BOUTON « 🏗 DÉPÔT CHANTIER (1) → », jamais « TERRAIN » ; le gérant n'a ni l'un ni l'autre",
+    hPr !== "" && />🏗 DÉPÔT CHANTIER<\/button>/.test(hPr) && /Une dépense attend aussi votre validation dans :/.test(ailleurs) && /<button[^>]*>🏗 DÉPÔT CHANTIER \(1\) →<\/button>/.test(ailleurs)
+    && !/TERRAIN/.test(hPr) && !/Ailleurs, en attente/.test(hPr) && hGe !== "" && !/DÉPÔT CHANTIER/.test(hGe) && !/data-ailleurs-dg/.test(hGe));
 }
 
 titre("🔍 LA RECHERCHE GÉNÉRALE RANGE LES ARTICLES PAR BOUTIQUE (16/10/2026, « a, 6 par boutique, lance »)");

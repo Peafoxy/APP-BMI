@@ -11,7 +11,7 @@ import { critiqueRejet, rejeterVersement, estRejete, estVersement, critiqueSorti
 import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, depensesComptees, CATEGORIE_PRET_PERSONNEL, CATEGORIE_RENDU_ECHANGE, CATEGORIE_REMBOURSEMENT, libelleCaisse } from "../lib/constants";
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
-import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, libellePayeAvecDe, libellePayeAvecDeDansPhrase, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "../lib/validationDepenses";
+import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, libellePayeAvecDe, libellePayeAvecDeDansPhrase, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense, paieAvecDepotChantier, AVERTISSEMENT_DEPOT_CHANTIER, confirmationDepotChantier } from "../lib/validationDepenses";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, boutonAction, PastillePaiement, TexteDepliable, BoutonEnvoi } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
@@ -474,7 +474,9 @@ export function Depenses({ db, save, profile, cible = null }) {
     // (compte de l'exploitant) — réel seulement : la caisse du DG n'a pas de jumelle.
     const caisseDgInsuffisante = r.depense.paye_avec === PAYE_AVEC_DG && caisseDgNeSuffitPas(Number(f.montant));
     const dg = caisseDgInsuffisante ? "\n\n👤 La caisse du DG est insuffisante : ce qu'elle ne couvre pas sera compté comme un apport du DG (payé de sa poche)." : "";
-    if (!await uConfirm(`Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}${partage}${dg}`)) return;
+    // 🏗 Timo (10/11/2026, « b ») : la confirmation redit d'où sort l'argent.
+    const depotChantier = paieAvecDepotChantier(f.paye_avec || `caisse:${boutique}`) ? `${confirmationDepotChantier(boutique)}\n\n` : "";
+    if (!await uConfirm(`${depotChantier}Confirmer la dépense de ${fmt(Number(f.montant))} en ${f.categorie}, payée avec : ${libelleChoixPayeAvec(f.paye_avec, boutique)} ?${suite}${autreBoutique}${rattache}${partage}${dg}`)) return;
     // 🏠 Le loyer pré-rempli garde son mois et SON local (la caisse d'une autre
     // boutique peut l'avoir payé) ; revérifié DANS le geste : jamais deux fois.
     const estLoyerDuMois = f.loyer_mois && f.categorie === CATEGORIE_LOYER;
@@ -614,7 +616,10 @@ export function Depenses({ db, save, profile, cible = null }) {
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs ecran="depenses" db={db} value={bq} onChange={setBq} profile={profile} />}
+      {/* 🏗 Capture Timo (10/11/2026) : une dépense payée avec « La caisse de 🏗 DÉPÔT
+          CHANTIER » se range dans cette caisse — l'administrateur y a SON bouton,
+          sinon il ne pouvait ni la voir ni la valider. */}
+      {!profile.boutique && <BoutiqueTabs ecran="depenses" db={db} value={bq} onChange={setBq} profile={profile} avecTerrain={profile.role === "admin"} />}
       {["gerant", "admin"].includes(profile.role) && <RetoursAValider db={db} save={save} profile={profile} />}
       {/* Timo (12/09/2026) : le DG valide les dépenses de 5 000 F et plus —
           l'encadré est PERMANENT (vide, il le dit), sur la boutique regardée
@@ -636,7 +641,19 @@ export function Depenses({ db, save, profile, cible = null }) {
               </div>
             ))}
           </div>
-          {ailleursDG.length > 0 && <div className="mt-2 text-xs text-amber-800">Ailleurs, en attente : {ailleursDG.map((x) => `${x.boutique} (${x.n})`).join(", ")} — choisissez la boutique en haut.</div>}
+          {/* Capture Timo (10/11/2026, « Ailleurs en attente… j'ai pas compris ») :
+              la caisse NOMMÉE à l'écran (jamais « TERRAIN »), et un bouton qui y mène
+              au lieu de « choisissez la boutique en haut ». */}
+          {ailleursDG.length > 0 && (
+            <div className="mt-2 text-xs text-amber-800 flex flex-wrap items-center gap-1.5" data-ailleurs-dg>
+              <span>{ailleursDG.reduce((t, x) => t + x.n, 0) > 1 ? "D'autres dépenses attendent" : "Une dépense attend"} aussi votre validation dans :</span>
+              {ailleursDG.map((x) => (
+                <button key={x.boutique} type="button" onClick={() => setBq(x.boutique)} className="px-2 py-0.5 rounded-full border border-amber-400 bg-amber-50 font-bold text-amber-900 hover:bg-amber-100">
+                  {libelleCaisse(x.boutique)} ({x.n}) →
+                </button>
+              ))}
+            </div>
+          )}
           {traiteesDG.length > 0 && (
             <div className="mt-3">
               <div className="text-xs font-bold text-slate-500 uppercase mb-1">Dernières dépenses tranchées</div>
@@ -722,6 +739,10 @@ export function Depenses({ db, save, profile, cible = null }) {
             <select className={inputCls} value={f.paye_avec || (sansCaisse ? PAYE_AVEC_AVANCE : `caisse:${boutique}`)} onChange={(e) => setF({ ...f, paye_avec: e.target.value })} data-paye-avec>
               {optionsPayeAvec(caissesPossibles, boutique, { avecComptable: !afficheChiffresFormation(db, profile), fonds: propositionFonds, seulementPoche: sansCaisse }).map(([c, l]) => <option key={c} value={c}>{l}</option>)}
             </select>
+            {/* 🏗 Timo (10/11/2026, « b ») : l'argent des chantiers, averti — jamais bloqué. */}
+            {!sansCaisse && paieAvecDepotChantier(f.paye_avec || `caisse:${boutique}`) && (
+              <div className="mt-1 text-xs font-semibold text-red-700" data-avertissement-depot-chantier>{AVERTISSEMENT_DEPOT_CHANTIER}</div>
+            )}
           </Field>
           {/* Timo (13/09/2026) : « au moment d'enregistrer la dépense, rattacher à
               un devis : les chantiers en cours apparaissent et il rattache » —

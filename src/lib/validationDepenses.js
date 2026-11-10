@@ -33,7 +33,7 @@
 import { changeDePayeA, avecPayeA, phrasePayeA } from "./payeDirectement.js";
 import { nouvelleDepense, nouveauMessage, fmt, dFR, uid } from "./core.js";
 import { versEcran } from "./cibleNotification.js";
-import { CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_CHANTIER, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT, libelleCaisse } from "./constants.js";
+import { CATEGORIE_REMBOURSEMENT_AVANCE, CATEGORIE_CHANTIER, depensesComptees, CATEGORIES, CATEGORIES_HORS_CHARGES, MOYENS_ENCAISSEMENT, libelleCaisse, estNomCaisseChantier, LIBELLE_CAISSE_CHANTIER } from "./constants.js";
 
 export { CATEGORIE_REMBOURSEMENT_AVANCE, depensesComptees };
 
@@ -140,8 +140,25 @@ export const libellePayeAvecDe = (d) => {
 export const libellePayeAvecDeDansPhrase = (d) => { const l = libellePayeAvecDe(d); return /^L/.test(l) ? l.charAt(0).toLowerCase() + l.slice(1) : l; };
 export const libelleChoixPayeAvec = (valeur, boutiqueRegardee) => {
   const c = interpreterPayeAvec(valeur, boutiqueRegardee);
-  return c.paye_avec === PAYE_AVEC_CAISSE ? `la caisse de ${c.boutique}` : libellePayeAvecDansPhrase(c.paye_avec);
+  return c.paye_avec === PAYE_AVEC_CAISSE ? `la caisse de ${libelleCaisse(c.boutique)}` : libellePayeAvecDansPhrase(c.paye_avec);
 };
+// 🏗 LE DÉPÔT CHANTIER DANS « PAYÉ AVEC » (capture Timo, 10/11/2026 : 1 142 000 F
+// d'« Achat marchandises » saisis « à TERRAIN, payée avec la caisse de la
+// boutique » — c'était l'argent déposé par les clients ; « b ») : le choix
+// reste ouvert à tous, mais il est AVERTI en rouge sous la case, et redit
+// dans la confirmation. Jamais un blocage.
+export const paieAvecDepotChantier = (valeur) => {
+  const v = String(valeur || "");
+  return v.startsWith("caisse:") && estNomCaisseChantier(v.slice(7));
+};
+export const AVERTISSEMENT_DEPOT_CHANTIER = "⚠ Attention : vous payez avec l'argent déposé par les clients pour leurs chantiers. Cet argent sert à acheter leur matériel et à payer leurs installations. Si cette dépense ne concerne pas un chantier, choisissez la caisse de votre boutique.";
+export const confirmationDepotChantier = (boutiqueRegardee) =>
+  `⚠ Cette dépense sort du ${LIBELLE_CAISSE_CHANTIER} (l'argent des clients pour leurs chantiers)${boutiqueRegardee && !estNomCaisseChantier(boutiqueRegardee) ? `, pas de la caisse de ${boutiqueRegardee}` : ""}.`;
+// La phrase « payée avec … » d'une dépense, telle qu'elle part dans un
+// message : la caisse NOMMÉE (« la caisse de 🏗 DÉPÔT CHANTIER (l'argent des
+// clients pour leurs chantiers) »), jamais « la caisse de la boutique ».
+export const phrasePayeAvecDepense = (d) => libellePayeAvecDeDansPhrase(d)
+  + (payeAvecCaisse(d) && estNomCaisseChantier(d?.boutique) ? " (l'argent des clients pour leurs chantiers)" : "");
 // Une dépense sans `paye_avec` (anciennes lignes, dépenses automatiques :
 // salaires, commissions, CNSS, versements…) vient de la caisse de la boutique.
 export const payeAvecCaisse = (d) => !d?.paye_avec || d.paye_avec === PAYE_AVEC_CAISSE;
@@ -224,11 +241,11 @@ export function construireDepenseSaisie(db, profile, { boutique, categorie, desc
     ...(validation ? { validation } : {}),
   });
   const messages = validation?.statut === "attente"
-    ? principauxActifs(db).map((u) => nouveauMessage(profile, { a_id: u.id, vers: versEcran("depenses", boutique, depense.id), texte: `⏳ Dépense à valider : ${fmt(m)} (${categorie}${depense.description ? ` — ${depense.description}` : ""}) à ${boutique}, payée avec ${libellePayeAvecDansPhrase(paye_avec)}, par ${profile.nom}.` }))
+    ? principauxActifs(db).map((u) => nouveauMessage(profile, { a_id: u.id, vers: versEcran("depenses", boutique, depense.id), texte: `⏳ Dépense à valider : ${fmt(m)} (${categorie}${depense.description ? ` — ${depense.description}` : ""}) à ${libelleCaisse(boutique)}, payée avec ${phrasePayeAvecDepense(depense)}, par ${profile.nom}.` }))
     : [];
   return {
     depense, messages, aValider,
-    journal: `Dépense ${fmt(m)} (${categorie}) — ${boutique}${paye_avec !== PAYE_AVEC_CAISSE ? ` · ${libellePayeAvec(paye_avec)}` : ""}${validation?.statut === "attente" ? " · à valider par le DG" : ""}`,
+    journal: `Dépense ${fmt(m)} (${categorie}) — ${libelleCaisse(boutique)}${paye_avec !== PAYE_AVEC_CAISSE ? ` · ${libellePayeAvec(paye_avec)}` : ""}${validation?.statut === "attente" ? " · à valider par le DG" : ""}`,
   };
 }
 
