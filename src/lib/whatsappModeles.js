@@ -317,7 +317,7 @@ export const MODELES = {
   // 💵 10/11/2026 (« A b, B les trois, C a, D… ») : l'argent remis par le DG
   // DANS le tiroir d'une boutique — au gérant à l'enregistrement, aux
   // administrateurs principaux quand il confirme l'avoir reçu. UTILITY.
-  dotation_caisse: { categorie: "utility", variables: ["gerant", "montant", "boutique", "source", "motif", "par"] },
+  dotation_caisse: { categorie: "utility", variables: ["gerant", "par", "montant", "boutique", "source", "motif"] },
   dotation_caisse_recue: { categorie: "utility", variables: ["admin", "gerant", "montant", "boutique", "quand", "source"] },
   tache_validee: { categorie: "utility", variables: ["employe", "par", "tache"] },
   // 📄 14/10/2026, Timo (« A a CDI, b CDD, B b, C ok, D oui ») : l'attestation de
@@ -999,7 +999,7 @@ const LIGNES_ENVOI = {
   fonds_remis: ([beneficiaire, montant, date, moyen, pour, remisPar]) => `Avis d'argent remis envoyé à ${beneficiaire} : ${montant} le ${date}, en ${moyen}, pour : ${pour}. Remis par ${remisPar}.`,
   tache_assignee: ([employe, par, tache, details, echeance]) => `Avis de tâche envoyé à ${employe} (par ${par}) : ${tache}. Détails : ${details}. Échéance : ${echeance}.`,
   tache_validee: ([employe, par, tache]) => `Avis de tâche validée envoyé à ${employe} (par ${par}) : ${tache}.`,
-  dotation_caisse: ([gerant, montant, boutique, source, motif, par]) => `Dotation de caisse annoncée à ${gerant} : ${montant} pour ${boutique} (${source}), par ${par}. Motif : ${motif}.`,
+  dotation_caisse: ([gerant, par, montant, boutique, source, motif]) => `Dotation de caisse annoncée à ${gerant} : ${montant} pour ${boutique} (${source}), par ${par}. Motif : ${motif}.`,
   dotation_caisse_recue: ([admin, gerant, montant, boutique, quand]) => `Avis envoyé à ${admin} : ${gerant} a confirmé avoir reçu la dotation de caisse de ${montant} pour ${boutique} le ${quand}.`,
   attestation_disponible: ([employe, document, date, heure]) => `Avis envoyé à ${employe} : son ${document} est disponible dans son espace ; accès fermé le ${date} à ${heure}.`,
   // ⚠ Le numéro du client (trou 8) n'est pas recopié dans le fil.
@@ -2536,13 +2536,14 @@ export function envoiTacheValidee({ employe, tel, tache, par }) {
 // ---- 💵 LA REMISE DU DG AU TIROIR (10/11/2026, « D ») ----
 // Textes PROPOSÉS (à créer par Timo chez YCloud, utility, fr) — s'il les
 // corrige chez Meta, recopier les siens ici, mot pour mot.
-export const TEXTE_REMISE_TIROIR = "Bonjour {{1}}, {{6}} vous remet une dotation de caisse de {{2}} en espèces pour {{3}} (argent venant de : {{4}}). Motif : {{5}}. Dès que vous avez l'argent en main, confirmez « ✅ Reçu » dans l'application BMI, onglet Caisse : la dotation ne compte dans la caisse qu'après votre confirmation. BMI TOGO";
+// ⚠ Les trous se suivent DANS L'ORDRE du texte ({{1}}, {{2}}, … — Timo, 10/11/2026).
+export const TEXTE_REMISE_TIROIR = "Bonjour {{1}}, {{2}} vous remet une dotation de caisse de {{3}} en espèces pour {{4}} (argent venant de : {{5}}). Motif : {{6}}. Dès que vous avez l'argent en main, confirmez « ✅ Reçu » dans l'application BMI, onglet Caisse : la dotation ne compte dans la caisse qu'après votre confirmation. BMI TOGO";
 export const TEXTE_REMISE_TIROIR_RECUE = "Bonjour {{1}}, {{2}} a confirmé avoir reçu la dotation de caisse de {{3}} pour {{4}} le {{5}} (argent venant de : {{6}}). Elle compte désormais dans la caisse de la boutique. BMI TOGO";
 export function envoiRemiseTiroir({ gerant, tel, montant, boutique, source, motif, par, fmt = (x) => `${x} F` }) {
   const nom = texteVariable(gerant), qui = texteVariable(par), bq = texteVariable(boutique), src = texteVariable(source);
   const m = Number(montant), mot = texteVariable(motif).replace(/[.\s]+$/, "");
   if (!nom || !qui || !bq || !src || !mot || !(m > 0) || !numeroWhatsApp(tel)) return null;
-  return { modele: "dotation_caisse", variables: [nom, texteVariable(fmt(m)), bq, src, mot, qui] };
+  return { modele: "dotation_caisse", variables: [nom, qui, texteVariable(fmt(m)), bq, src, mot] };
 }
 export function envoiRemiseTiroirRecue({ admin, tel, gerant, montant, boutique, quand, source, fmt = (x) => `${x} F` }) {
   const nom = texteVariable(admin), g = texteVariable(gerant), bq = texteVariable(boutique), q = texteVariable(quand), src = texteVariable(source);

@@ -165,6 +165,19 @@ for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
 }
+// Timo, 10/11/2026 (« Model 1 : les trous ne sont pas ordonnés ») : dans
+// chaque texte, les trous apparaissent 1, 2, 3… dans l'ordre de lecture.
+// Seule exception : `remise_apres_vente`, déjà soumis à Meta tel quel.
+{
+  const desordre = Object.entries(M).filter(([k, t]) => typeof t === "string" && /\{\{\d+\}\}/.test(t) && k !== "TEXTE_REMISE_APRES_VENTE")
+    .filter(([, t]) => { const vus = []; for (const x of t.matchAll(/\{\{(\d+)\}\}/g)) if (!vus.includes(+x[1])) vus.push(+x[1]); return !vus.every((v, i) => v === i + 1); })
+    .map(([k]) => k);
+  test(`★★ chaque texte de modèle a ses trous 1, 2, 3… DANS L'ORDRE de lecture${desordre.length ? " — en désordre : " + desordre.join(", ") : ""}`, desordre.length === 0);
+  const e = M.envoiRemiseTiroir({ gerant: "ALI", tel: "90112233", montant: 20000, boutique: "BMI DEMAKPOE", source: "Chez le DG", motif: "monnaie", par: "TIMO", fmt: (x) => `${x} F` });
+  test("★★ dotation_caisse : {{1}} gérant, {{2}} qui remet, {{3}} montant, {{4}} boutique, {{5}} source, {{6}} motif",
+    !!e && e.variables.join("|") === "ALI|TIMO|20000 F|BMI DEMAKPOE|Chez le DG|monnaie"
+    && M.texteRemiseTiroir(e).startsWith("Bonjour ALI, TIMO vous remet une dotation de caisse de 20000 F en espèces pour BMI DEMAKPOE (argent venant de : Chez le DG). Motif : monnaie."));
+}
 test("un devis est du MARKETING (leçon des refus du 19/09)",
   M.MODELES.devis_disponible.categorie === "marketing" && M.MODELES.relance_devis.categorie === "marketing");
 test("un contrat signé est de l'UTILITY",
