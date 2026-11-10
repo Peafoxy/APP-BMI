@@ -714,6 +714,21 @@ export default function App() {
     setColonneOuverte(true);
   };
   useRetour(colonneOuverte, () => setColonneOuverte(false));
+  // 📌 LE BANDEAU D'EN-TÊTE RESTE EN HAUT AU DÉFILEMENT (Timo, 10/11/2026 :
+  // « en affichage page d'icône ou colonne d'icône, fixer le bandeau d'en
+  // haut… qu'il ne disparaisse pas au défilement »). Sa hauteur est MESURÉE
+  // (elle change avec la largeur de l'écran) : le nom de l'écran et la
+  // colonne d'icônes se collent juste dessous, jamais derrière lui.
+  const [hautEnTete, setHautEnTete] = useState(0);
+  useEffect(() => {
+    const el = refEnTete.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const mesurer = () => setHautEnTete(Math.round(el.getBoundingClientRect().height));
+    mesurer();
+    const ro = new ResizeObserver(mesurer);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
   const [erreursVerrou, setErreursVerrou] = useState(0);
   // Pourquoi c'est verrouillé : "inactivite" (ou clic sur Verrouiller), ou
   // "session" — la session sécurisée est tombée, le mot de passe la rouvre.
@@ -1790,7 +1805,7 @@ export default function App() {
 
   // Le nom de l'écran ouvert, écrit UNE fois (en haut, ou à droite de la colonne d'icônes).
   const barreTitre = (
-          <div data-titre-ecran className="flex items-center gap-3 bg-white border-b border-slate-200 px-4 lg:px-6 py-2.5 sticky top-0 z-20 shadow-sm">
+          <div data-titre-ecran className="flex items-center gap-3 bg-white border-b border-slate-200 px-4 lg:px-6 py-2.5 sticky top-0 z-20 shadow-sm" style={enTeteUnique ? { top: hautEnTete } : undefined}>
             {/* 📌 Téléphone : le bouton ☰ (Timo, 08/11/2026 : « menu classique en
                 3 tirets », en haut à gauche, « oui avec le point rouge »). */}
             {modeColonne && !enSortie && (
@@ -1875,7 +1890,7 @@ export default function App() {
           Synchroniser, Se déconnecter) est dans l'en-tête, pour tous. */}
       <div className={`min-w-0 min-h-screen flex flex-col${surAccueil && fondPageIcones.classe ? ` ${fondPageIcones.classe}` : ""}`}
         style={surAccueil ? fondPageIcones.style : undefined}>
-        <header ref={refEnTete} data-en-tete-unique className="bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
+        <header ref={refEnTete} data-en-tete-unique className="sticky top-0 z-30 bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
           <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {/* « B1 » : le logo ramène à la page d'icônes, depuis n'importe quel écran. */}
@@ -1955,7 +1970,7 @@ export default function App() {
             {/* 📌 Ordinateur : la colonne d'icônes toujours ouverte, à gauche,
                 collée sous la ligne de la loupe (elle longe le nom de l'écran). */}
             {!enSortie && (
-              <aside data-colonne-icones className={`hidden lg:flex lg:flex-col w-24 shrink-0 ${classeColonneIcones} sticky top-0 h-screen`} style={styleColonneIcones}>
+              <aside data-colonne-icones className={`hidden lg:flex lg:flex-col w-24 shrink-0 ${classeColonneIcones} sticky top-0 h-screen`} style={{ ...styleColonneIcones, top: hautEnTete, height: `calc(100vh - ${hautEnTete}px)` }}>
                 <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} className="flex-1" clair={texteIconesClair} />
               </aside>
             )}

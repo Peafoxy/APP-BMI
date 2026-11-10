@@ -8071,7 +8071,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
         && /const enregistrerAccueil = \(champs\) => \{\s*if \(refuserSaufAdminPrincipal\(db, profile,/.test(parI)
         && /icones_couleur_fond: "",/.test(parI));
       test("★★ 🎨 la couleur va à la page d'icônes ET aux deux colonnes (ordinateur, téléphone), et le texte suit (clair)",
-        (appOo.match(/style=\{styleColonneIcones\}/g) || []).length === 2
+        (appOo.match(/style=\{styleColonneIcones\}/g) || []).length === 1 && /style=\{\{ \.\.\.styleColonneIcones, top: hautEnTete/.test(appOo) // RETOURNÉ le 10/11/2026 : la colonne de l'ordinateur se colle sous le bandeau fixé
         && (appOo.match(/clair=\{texteIconesClair\}/g) || []).length === 3
         && /const couleurIcones = couleurFondIcones\(db\?\.boutiques\);/.test(appOo)
         && /clair \? "text-white drop-shadow" : "text-slate-900"/.test(readFileSync("src/components/PageIcones.jsx", "utf8")));
@@ -8146,12 +8146,19 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       && !/data-colonne-ouverte className="lg:hidden fixed inset-0/.test(appOo)
       && /absolute left-0 top-0 bottom-0 w-\[72px\]/.test(appOo) && /absolute left-\[72px\] top-3/.test(appOo) && !/w-\[88px\]/.test(appOo));
     test("★★ 📌 ordinateur : la colonne d'icônes commence juste sous la ligne de la loupe et longe le nom de l'écran (posé à sa droite, écrit une fois) ; en barre et en page d'icônes, le nom reste en haut",
-      /<aside data-colonne-icones className=\{`hidden lg:flex lg:flex-col w-24 shrink-0 \$\{classeColonneIcones\} sticky top-0 h-screen`\}/.test(appOo)
+      /<aside data-colonne-icones className=\{`hidden lg:flex lg:flex-col w-24 shrink-0 \$\{classeColonneIcones\} sticky top-0 h-screen`\} style=\{\{ \.\.\.styleColonneIcones, top: hautEnTete, height: `calc\(100vh - \$\{hautEnTete\}px\)` \}\}>/.test(appOo) // RETOURNÉ le 10/11/2026 : collée SOUS le bandeau fixé
       && !/top-\[49px\]/.test(appOo)
       && (appOo.match(/data-titre-ecran/g) || []).length === 1
       && (appOo.match(/\{!surAccueil && !modeColonne && barreTitre\}/g) || []).length === 1
       && /<div data-droite-colonne className="flex-1 min-w-0 flex flex-col">\s*\{!surAccueil && barreTitre\}\s*<main/.test(appOo)
       && appOo.indexOf("data-colonne-icones className") < appOo.indexOf("data-droite-colonne"));
+    // 📌 Timo (10/11/2026) : « en affichage page d'icône ou colonne d'icône,
+    // fixer le bandeau d'en haut… qu'il ne disparaisse pas au défilement ».
+    test("★★ 📌 le bandeau d'en-tête unique reste en haut au défilement (sticky), sa hauteur MESURÉE ; le nom de l'écran et la colonne se collent juste dessous ; la barre d'onglets n'est pas touchée",
+      /<header ref=\{refEnTete\} data-en-tete-unique className="sticky top-0 z-30 /.test(appOo)
+      && /const mesurer = \(\) => setHautEnTete\(Math\.round\(el\.getBoundingClientRect\(\)\.height\)\);/.test(appOo) && /new ResizeObserver\(mesurer\)/.test(appOo)
+      && /data-titre-ecran className="[^"]*sticky top-0 z-20[^"]*" style=\{enTeteUnique \? \{ top: hautEnTete \} : undefined\}/.test(appOo)
+      && appOo.indexOf("const [hautEnTete") < appOo.indexOf("if (!db) return"));
     const uAff = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
     const s50 = readFileSync("supabase/securite-50-affichage.sql", "utf8");
     test("★★ 🧭 LE COUPLE : l'administrateur FIXE l'affichage (⋯ Gérer, refuserSaufAdmin dans le geste) et securite-50 le réserve à l'administrateur, client compris (avant « les fiches des clients s'arrêtent là ») ; il reprend securite-39",
