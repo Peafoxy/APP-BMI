@@ -18718,5 +18718,23 @@ titre("⚡ La connexion rapide (Timo, 10/11/2026, « les 4… si un souci, on re
   test("★★ la bibliothèque Excel est la version corrigée (0.20.2 ou plus, venue de cdn.sheetjs.com), jamais la 0.18 de npm",
     (a > 0 || b >= 20) && /^https:\/\/cdn\.sheetjs\.com\//.test(pkg.dependencies?.xlsx || ""));
 }
+// 🔒 Les en-têtes de sécurité du site (11/11/2026, « Lance les en-têtes de sécurité ») :
+// posés par Vercel sur TOUTES les réponses ; le micro, la position GPS et l'empreinte
+// restent permis à NOTRE page (notes vocales, chantier, verrou), jamais à un autre site.
+{
+  const vc = JSON.parse(readFileSync("vercel.json", "utf8"));
+  const bloc = (vc.headers || []).find((h) => h.source === "/(.*)") || { headers: [] };
+  const val = (k) => (bloc.headers.find((h) => h.key.toLowerCase() === k.toLowerCase()) || {}).value || "";
+  test("★★ en-têtes de sécurité sur tout le site : nosniff, referrer, cadre interdit aux autres sites, HSTS",
+    val("X-Content-Type-Options") === "nosniff" && /strict-origin/.test(val("Referrer-Policy"))
+    && /^(DENY|SAMEORIGIN)$/.test(val("X-Frame-Options")) && /frame-ancestors 'self'/.test(val("Content-Security-Policy"))
+    && /object-src 'none'/.test(val("Content-Security-Policy")) && /max-age=\d{7,}/.test(val("Strict-Transport-Security")));
+  const pp = val("Permissions-Policy");
+  test("★★ Permissions-Policy garde ce que l'application utilise (micro, position GPS, empreinte) pour elle seule, et coupe le paiement",
+    /microphone=\(self\)/.test(pp) && /geolocation=\(self\)/.test(pp) && /publickey-credentials-get=\(self\)/.test(pp)
+    && /publickey-credentials-create=\(self\)/.test(pp) && /payment=\(\)/.test(pp) && !/microphone=\(\)|geolocation=\(\)/.test(pp));
+  test("★ aucune politique de contenu stricte (script-src, default-src) qui couperait Supabase, les cartes ou les polices sans essai",
+    !/default-src|script-src|connect-src/.test(val("Content-Security-Policy")));
+}
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
