@@ -194,15 +194,26 @@ export function Fournisseurs({ db, save, profile }) {
           {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026) :
               le fournisseur figé, ses produits sur deux lignes puis le reste au
               clic, les gestes en boutons ronds. */}
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Fournisseur", "Téléphone", "Adresse", "Site", "Produits", "Dû", "Réglé", "Reste", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Fournisseur", "Téléphone", "Adresse", "Site", "Produits", "Dû", "Réglé", "Reste", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}${i === 8 ? " hidden sm:table-cell" : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">Aucun fournisseur.</td></tr>}
             {liste.map((fo, i) => {
               const reste = Math.max(0, fo.doit - fo.paye);
               const deplie = ouvert === fo.id;
+              // 📱 Sur téléphone, les gestes passent SOUS le nom, sur une seule
+              // ligne (Timo, 11/11/2026, « b ») ; sur ordinateur, la colonne
+              // de droite comme avant. Une seule liste de boutons, écrite ici.
+              const gestes = (fo) => (<>
+                    <BoutonRond icone="📨" teinte="violet" onClick={() => setDemandePour(fo.id)} titre="📨 Nouvelle demande de prix à ce fournisseur" />
+                    <BoutonRond icone="🛒" teinte="violet" onClick={() => setCommandePour(fo.id)} titre="🛒 Nouvelle commande à l'étranger (Alibaba…)" />
+                    <BoutonRond icone="📦" onClick={() => nouvelleDette(fo)} titre="+ Commande — une marchandise reçue à régler" />
+                    <BoutonRond icone="💵" teinte="vert" onClick={() => payer(fo)} titre="+ Règlement" />
+                    <BoutonRond icone="✏️" teinte="ambre" onClick={() => ouvrirModif(fo)} titre="✏️ Modifier la fiche du fournisseur" />
+                    <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(fo)} titre="🗑 Supprimer le fournisseur" />
+              </>);
               return (
                 <tr key={fo.id} data-ligne={fo.id} data-ligne-fournisseur={deplie ? "deplie" : "replie"} onClick={() => setOuvert(deplie ? null : fo.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
-                  <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)}`}>
+                  <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)} max-sm:min-w-[250px] max-sm:max-w-[250px]`}>
                     {fo.nom}
                     {(fo.representant || fo.representant_tel) && (
                       <div data-representant-fournisseur className="text-xs font-normal text-slate-500 mt-0.5">
@@ -210,6 +221,7 @@ export function Fournisseurs({ db, save, profile }) {
                         {fo.representant_tel && peutEcrireDeSonNumero(profile) && <a href={lienWhatsApp(fo.representant_tel)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={`WhatsApp — ${fo.representant_tel}`} className="ml-1.5 inline-block align-middle"><IconeWhatsApp taille={14} /></a>}
                       </div>
                     )}
+                    <div data-gestes-telephone className="sm:hidden mt-2 flex flex-nowrap items-center gap-1.5 font-normal [&>button]:shrink-0" onClick={(e) => e.stopPropagation()}>{gestes(fo)}</div>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{fo.tel || "—"}</td>
                   <td className="px-3 py-2 min-w-[140px]"><TexteDepliable texte={fo.adresse} deplie={deplie} largeur="max-w-[200px]" /></td>
@@ -218,14 +230,7 @@ export function Fournisseurs({ db, save, profile }) {
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(fo.doit)}</td>
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(fo.paye)}</td>
                   <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${reste > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(reste)}</td>
-                  <CelluleActions>
-                    <BoutonRond icone="📨" teinte="violet" onClick={() => setDemandePour(fo.id)} titre="📨 Nouvelle demande de prix à ce fournisseur" />
-                    <BoutonRond icone="🛒" teinte="violet" onClick={() => setCommandePour(fo.id)} titre="🛒 Nouvelle commande à l'étranger (Alibaba…)" />
-                    <BoutonRond icone="📦" onClick={() => nouvelleDette(fo)} titre="+ Commande — une marchandise reçue à régler" />
-                    <BoutonRond icone="💵" teinte="vert" onClick={() => payer(fo)} titre="+ Règlement" />
-                    <BoutonRond icone="✏️" teinte="ambre" onClick={() => ouvrirModif(fo)} titre="✏️ Modifier la fiche du fournisseur" />
-                    <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(fo)} titre="🗑 Supprimer le fournisseur" />
-                  </CelluleActions>
+                  <CelluleActions className="hidden sm:table-cell">{gestes(fo)}</CelluleActions>
                 </tr>
               );
             })}

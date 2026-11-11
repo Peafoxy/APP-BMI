@@ -18199,6 +18199,16 @@ titre("La fiche d'un fournisseur se modifie ; le représentant ; le dû au princ
     test("★ RENDU : le représentant se lit sous le nom, avec son numéro et le logo WhatsApp ; le bouton ✏️ Modifier est sur la ligne",
       /data-representant-fournisseur/.test(html) && /👤 KOFFI · 91112233/.test(html) && /wa\.me\/22891112233/.test(html)
       && /✏️ Modifier la fiche du fournisseur/.test(html));
+    // 📱 Timo, 11/11/2026 (capture, « b ») : sur téléphone, les six gestes
+    // s'empilaient à droite et chaque ligne faisait un écran ; ils passent SOUS
+    // le nom, sur une seule ligne, à leur taille (32 px, mesuré dans Chromium :
+    // ligne de 555 → 96 px). Sur ordinateur, la colonne de droite comme avant.
+    const sousNom = (html.match(/<div data-gestes-telephone[^>]*>([\s\S]*?)<\/div><\/td>/) || [])[0] || "";
+    const cellule = (html.match(/<td data-cellule-actions[^>]*>[\s\S]*?<\/td>/) || [])[0] || "";
+    test("★ 📱 RENDU : les six gestes d'un fournisseur sont SOUS le nom sur téléphone (une ligne, sm:hidden, sans rétrécir), la colonne de droite cachée sur téléphone seulement",
+      (sousNom.match(/<button/g) || []).length === 6 && /sm:hidden/.test(sousNom) && /flex-nowrap/.test(sousNom) && /\[&amp;&gt;button\]:shrink-0|\[&>button\]:shrink-0/.test(sousNom)
+      && (cellule.match(/<button/g) || []).length === 6 && /hidden sm:table-cell/.test(cellule)
+      && /max-sm:min-w-\[250px\] max-sm:max-w-\[250px\]/.test(ecran));
   }
 }
 
