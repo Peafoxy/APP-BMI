@@ -218,3 +218,77 @@ export function critiqueReception(c, depenses, { qtes = {}, tauxReste } = {}) {
 
 // La commande, une fois ses prix appliqués à la fiche des articles (l'administrateur).
 export const prixAAppliquer = (c) => !!c?.reception && !c.reception.prix_appliques_le;
+
+// ---- ✏️ MODIFIER UNE COMMANDE (11/11/2026, « A a ») ----
+// Tout sauf le fournisseur : articles, quantités, prix en dollars, mode,
+// lieu, note — tant qu'elle n'est ni reçue ni annulée. Le nouveau total ne
+// descend jamais sous ce qui est déjà payé (ou attend le DG).
+export function critiqueModification(c, { lieu, lignes }, depenses) {
+  if (!c || c.annulee) return "Cette commande n'existe plus.";
+  if (c.etape === "recue") return "Cette commande est déjà reçue : ses prix de revient sont calculés, elle ne se modifie plus.";
+  const refus = critiqueCommande({ lieu, lignes });
+  if (refus) return refus;
+  const e = etatPaiements(c, depenses);
+  const deja = centimes(e.payeDevise + e.attenteDevise);
+  const nouveau = totalDevise({ lignes: lignes.map(ligneRangee) });
+  if (nouveau + 0.009 < deja) return `Le nouveau total (${fmtDevise(nouveau)}) est plus bas que ce qui est déjà payé sur cette commande (${fmtDevise(deja)}). Retirez d'abord un paiement.`;
+  return "";
+}
+
+// ---- 🔗 RATTACHER DES DÉPENSES DÉJÀ PAYÉES (11/11/2026, « B a, C, D a ») ----
+// Une dépense déjà saisie dans 📤 Dépenses devient un paiement ou un frais de
+// la commande : rien n'est dépensé deux fois, la dépense reçoit seulement la
+// marque `commande_import` (`rattachee`). « B a » : seules les catégories
+// « Commande en Chine » et « Achat marchandises » sont proposées.
+export const CATEGORIES_RATTACHABLES = ["Commande en Chine", "Achat marchandises"];
+// `noms` : les caisses de l'espace REGARDÉ (le mur) — jamais toute la table.
+export const depensesRattachables = (depenses, noms) => {
+  const permis = new Set(noms || []);
+  return (depenses || [])
+    .filter((d) => CATEGORIES_RATTACHABLES.includes(d.categorie) && !d.commande_import && permis.has(d.boutique)
+      && d.validation?.statut !== "rejetee" && Number(d.montant || 0) > 0)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+};
+
+// « C » : le montant d'un paiement se dit en dollars, en francs (avec le taux
+// F / $) ou en yuans (avec le taux ¥ / $). Rend { md, taux } — `taux` en F / $,
+// celui de la commande — ou { refus }.
+export const DEVISES_SAISIE = [["dollars", "En dollars ($)"], ["cfa", "En francs CFA (avec le taux F / $)"], ["yuan", "En yuans (¥, avec le taux ¥ / $)"]];
+export function dollarsDepuis({ devise, montant, taux, francs }) {
+  const f = Number(francs || 0);
+  if (!(f > 0)) return { refus: "Cette dépense n'a pas de montant." };
+  const m = nombreSaisi(montant);
+  const t = nombreSaisi(taux);
+  let md;
+  if (devise === "dollars") {
+    if (!(m > 0)) return { refus: "Indiquez le montant en dollars." };
+    md = m;
+  } else if (devise === "cfa") {
+    if (!(t > 0)) return { refus: "Indiquez le taux du jour (combien de francs pour 1 dollar)." };
+    md = f / t;
+  } else if (devise === "yuan") {
+    if (!(m > 0)) return { refus: "Indiquez le montant en yuans." };
+    if (!(t > 0)) return { refus: "Indiquez le taux (combien de yuans pour 1 dollar)." };
+    md = m / t;
+  } else return { refus: "Choisissez la monnaie." };
+  md = centimes(md);
+  if (!(md > 0)) return { refus: "Le montant en dollars est nul." };
+  return { md, taux: Math.round((f / md) * 100) / 100 };
+}
+
+// Le contrôle d'un lot de rattachements : la commande ouverte, chaque dépense
+// encore libre, et les paiements ne dépassant jamais ce qui reste à payer.
+export function critiqueRattachement(c, choix, depenses) {
+  if (!c || c.annulee) return "Cette commande n'existe plus.";
+  if (c.etape === "recue") return "Cette commande est déjà reçue : ses prix de revient sont calculés, plus rien ne s'y rattache.";
+  if (!(choix || []).length) return "Choisissez au moins une dépense.";
+  for (const x of choix) {
+    const d = (depenses || []).find((y) => y.id === x.depense_id);
+    if (!d || d.commande_import || d.validation?.statut === "rejetee") return "Une des dépenses choisies n'est plus libre : rouvrez la liste.";
+    if (x.type === "frais" && !String(x.sorte || "").trim()) return "Indiquez de quel frais il s'agit.";
+  }
+  const e = etatPaiements(c, depenses);
+  const ajout = centimes((choix || []).filter((x) => x.type === "paiement").reduce((s, x) => s + Number(x.md || 0), 0));
+  if (ajout > e.resteDevise + 0.009) return `Ces paiements (${fmtDevise(ajout)}) dépassent ce qui reste à payer sur la commande : ${fmtDevise(e.resteDevise)}.`;
+  return "";
+}

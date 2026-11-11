@@ -27,7 +27,9 @@ import {
   nombreSaisi, fmtDevise, commandesDe, estEnCours, prochainNumeroCommande, critiqueCommande, ligneRangee,
   totalDevise, etatPaiements, etatFrais, etatDeLaDepense, critiquePaiement, critiqueFrais, calculerCouts,
   prixMoyen, critiqueReception, resteAPayerAuTaux, prixAAppliquer,
+  critiqueModification, depensesRattachables, DEVISES_SAISIE, dollarsDepuis, critiqueRattachement, CATEGORIES_RATTACHABLES,
 } from "../lib/commandesImport";
+import { CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE } from "../lib/caissesCentrales";
 
 const LIGNE_VIDE = () => ({ id: uid(), produit_id: null, nom: "", qte: "", pu: "", mode: MODE_CALCUL, prix_connu: "" });
 
@@ -38,11 +40,16 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
   const [voirRecues, setVoirRecues] = useState(false);
   const [forme, setForme] = useState(null); // la nouvelle commande en cours de saisie
   const [reception, setReception] = useState(null); // { cmdId, qtes, taux }
+  const [rattache, setRattache] = useState(null); // 🔗 { cmdId, choix: { depense_id → { coche, type, devise, montant, taux, sorte } } }
 
   // Les lieux : boutiques ET magasins de l'espace regardé (jamais la caisse DÉPÔT CHANTIER).
   const lieux = boutiquesVisibles(db, profile, (db.boutiques || []).filter((b) => !b.terrain));
   const nomsCaisses = boutiquesVisibles(db, profile, boutiquesVente(db)).map((b) => b.nom);
   const formation = espaceDuCompte(db, profile) === true;
+  // Les caisses dont on peut rattacher une dépense : l'espace regardé (le mur),
+  // plus les caisses centrales en réel.
+  const nomsDepenses = [...boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom),
+    ...(formation ? [] : [CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE])];
 
   const toutes = commandesDe(fournisseurs).sort((a, b) => String(b.le).localeCompare(String(a.le)));
   const enCours = toutes.filter(estEnCours);
@@ -72,6 +79,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     const fo = (db.fournisseurs || []).find((x) => x.id === forme.fournisseur_id);
     if (!fo) { uAlert("Choisissez le fournisseur."); return; }
     const lignes = forme.lignes.filter((l) => String(l.nom).trim() || l.qte || l.pu);
+    if (forme.modif) { modifierCommande(fo, lignes); return; }
     const refus = critiqueCommande({ lieu: forme.lieu, lignes });
     if (refus) { uAlert(refus); return; }
     const numero = prochainNumeroCommande(db.fournisseurs, today().slice(0, 4));
@@ -82,6 +90,30 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     setForme(null);
     setOuverte(cmd.id);
     uAlert(`✅ Commande ${numero} enregistrée (${fmtDevise(totalDevise(cmd))}).\n\nRien n'est encore payé ni en stock : enregistrez les paiements et les frais sur la commande, puis « ✅ Réceptionner » à l'arrivée.`);
+  };
+
+  // ---- 1 bis. ✏️ MODIFIER (11/11/2026, « A a » : tout sauf le fournisseur) ----
+  const ouvrirModification = (c0) => {
+    if (garde("Modifier une commande à l'étranger")) return;
+    const c = commandeFraiche(c0);
+    if (!c || c.annulee || c.etape === "recue") { uAlert("Cette commande ne se modifie plus (reçue ou annulée)."); return; }
+    setReception(null); setRattache(null);
+    setForme({ modif: c.id, fournisseur_id: c0.fournisseur_id, lieu: c.lieu, note: c.note || "",
+      lignes: (c.lignes || []).map((l) => ({ id: l.id, produit_id: l.produit_id || null, nom: l.nom, qte: String(l.qte), pu: String(l.pu), mode: l.mode || MODE_CALCUL, prix_connu: l.prix_connu != null ? String(l.prix_connu) : "" })) });
+  };
+  const modifierCommande = async (fo, lignes) => {
+    const c = (fo.commandes_import || []).find((x) => x.id === forme.modif);
+    const refus = critiqueModification(c, { lieu: forme.lieu, lignes }, db.depenses);
+    if (refus) { uAlert(refus); return; }
+    const nouvelles = lignes.map(ligneRangee);
+    const avant = totalDevise(c), apres = totalDevise({ lignes: nouvelles });
+    if (!await uConfirm(`Enregistrer les modifications de la commande ${c.numero} ?\n\nTotal : ${fmtDevise(avant)} → ${fmtDevise(apres)} · ${nouvelles.length} article(s) · réception à ${libelleCaisse(forme.lieu)}.`)) return;
+    const trace = { le: today(), par: profile.nom, total_avant: avant, total_apres: apres };
+    save((etat) => ecrireCommande(etat, fo.id, c.id, (x) => ({ ...x, lieu: forme.lieu, note: String(forme.note || "").trim(), lignes: nouvelles,
+      modifications: [...(x.modifications || []), trace] })),
+    `✏️ Commande ${c.numero} (${fo.nom}) modifiée : ${fmtDevise(avant)} → ${fmtDevise(apres)}, ${nouvelles.length} article(s), réception à ${forme.lieu}`);
+    setForme(null);
+    setOuverte(c.id);
   };
 
   // ---- 2. D'OÙ SORT L'ARGENT ? (paiement ou frais) ----
@@ -163,10 +195,55 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     if (bloquerSiLecture(db, profile)) return;
     const c = commandeFraiche(c0);
     if (c.etape === "recue") { uAlert("La commande est reçue : ses prix de revient sont calculés, plus rien ne se retire."); return; }
+    const montant = genre === "paiements" ? item.montant_f : item.montant;
+    if (item.rattachee) {
+      if (!await uConfirm(`Détacher ce ${genre === "paiements" ? "paiement" : "frais"} de ${fmt(montant)} de la commande ${c.numero} ?\n\nLa dépense reste dans 📤 Dépenses, telle qu'elle était avant d'être rattachée.`)) return;
+      save((etat) => ({ ...ecrireCommande(etat, c0.fournisseur_id, c.id, (x) => ({ ...x, [genre]: (x[genre] || []).filter((y) => y.id !== item.id) })),
+        depenses: (etat.depenses || []).map((d) => { if (d.id !== item.depense_id) return d; const { commande_import, ...reste } = d; return reste; }) }),
+      `🔗 Commande ${c.numero} : ${genre === "paiements" ? "paiement" : "frais"} de ${fmt(montant)} détaché (la dépense reste dans 📤 Dépenses)`);
+      return;
+    }
     if (!await uConfirm(`Retirer ce ${genre === "paiements" ? "paiement" : "frais"} de ${fmt(genre === "paiements" ? item.montant_f : item.montant)} ?\n\nSa dépense est supprimée avec lui : l'argent est compté de nouveau dans la caisse qui l'avait payé.`)) return;
     save((etat) => ({ ...ecrireCommande(etat, c0.fournisseur_id, c.id, (x) => ({ ...x, [genre]: (x[genre] || []).filter((y) => y.id !== item.id) })),
       depenses: (etat.depenses || []).filter((d) => d.id !== item.depense_id) }),
     `🛒 Commande ${c.numero} : ${genre === "paiements" ? "paiement" : "frais"} de ${fmt(genre === "paiements" ? item.montant_f : item.montant)} retiré`);
+  };
+
+  // ---- 5 bis. 🔗 RATTACHER DES DÉPENSES DÉJÀ PAYÉES (11/11/2026) ----
+  const ouvrirRattachement = (c0) => {
+    if (garde("Rattacher des dépenses à une commande")) return;
+    setReception(null);
+    setRattache({ cmdId: c0.id, choix: {} });
+  };
+  const fixeChoix = (id, champs) => setRattache((r) => ({ ...r, choix: { ...r.choix, [id]: { type: "paiement", devise: "dollars", montant: "", taux: "", sorte: "", ...(r.choix[id] || {}), ...champs } } }));
+  const rattacher = async (c0) => {
+    if (garde("Rattacher des dépenses à une commande")) return;
+    const c = commandeFraiche(c0);
+    const coches = Object.entries(rattache.choix).filter(([, x]) => x.coche);
+    const lot = [];
+    for (const [id, x] of coches) {
+      const d = (db.depenses || []).find((y) => y.id === id);
+      if (!d) { uAlert("Une des dépenses choisies n'existe plus : rouvrez la liste."); return; }
+      if (x.type === "paiement") {
+        const r = dollarsDepuis({ devise: x.devise, montant: x.montant, taux: x.taux, francs: d.montant });
+        if (r.refus) { uAlert(`${dFR(d.date)} · ${fmt(d.montant)} : ${r.refus}`); return; }
+        lot.push({ depense_id: id, d, type: "paiement", md: r.md, taux: r.taux, devise: x.devise, saisie: x.devise === "dollars" ? null : { montant: x.montant, taux: x.taux } });
+      } else lot.push({ depense_id: id, d, type: "frais", sorte: String(x.sorte || "").trim() });
+    }
+    const refus = critiqueRattachement(c, lot, db.depenses);
+    if (refus) { uAlert(refus); return; }
+    const texte = lot.map((x) => x.type === "paiement"
+      ? `• ${dFR(x.d.date)} · ${fmt(x.d.montant)} → paiement de ${fmtDevise(x.md)} (taux ${x.taux} F / $)`
+      : `• ${dFR(x.d.date)} · ${fmt(x.d.montant)} → frais « ${x.sorte} »`).join("\n");
+    if (!await uConfirm(`Rattacher ${lot.length} dépense(s) à la commande ${c.numero} ?\n\n${texte}\n\nRien n'est dépensé de nouveau : les dépenses existent déjà. Elles ne se modifieront plus depuis 📤 Dépenses.`)) return;
+    const marque = (x) => ({ fournisseur_id: c0.fournisseur_id, fournisseur: c0.fournisseur_nom, commande_id: c.id, numero: c.numero, type: x.type, rattachee: { le: today(), par: profile.nom } });
+    const paiements = lot.filter((x) => x.type === "paiement").map((x) => ({ id: uid(), le: x.d.date || today(), montant_devise: x.md, taux: x.taux, montant_f: Number(x.d.montant), depense_id: x.depense_id, par: profile.nom, rattachee: true, devise_saisie: x.devise, ...(x.saisie ? { saisie: x.saisie } : {}) }));
+    const frais = lot.filter((x) => x.type === "frais").map((x) => ({ id: uid(), le: x.d.date || today(), sorte: x.sorte, qui: "", montant: Number(x.d.montant), depense_id: x.depense_id, par: profile.nom, rattachee: true }));
+    const parId = Object.fromEntries(lot.map((x) => [x.depense_id, x]));
+    save((etat) => ({ ...ecrireCommande(etat, c0.fournisseur_id, c.id, (x) => ({ ...x, paiements: [...(x.paiements || []), ...paiements], frais: [...(x.frais || []), ...frais] })),
+      depenses: (etat.depenses || []).map((d) => (parId[d.id] ? { ...d, commande_import: marque(parId[d.id]) } : d)) }),
+    `🔗 Commande ${c.numero} : ${lot.length} dépense(s) déjà payée(s) rattachée(s) — ${lot.map((x) => `${fmt(x.d.montant)} (${x.type === "paiement" ? fmtDevise(x.md) : x.sorte})`).join(" ; ")}`);
+    setRattache(null);
   };
 
   // ---- 6. L'ÉTAPE ----
@@ -255,6 +332,62 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
   const fixeLigne = (i, champs) => setForme({ ...forme, lignes: forme.lignes.map((l, j) => (j === i ? { ...l, ...champs } : l)) });
   const suggestions = forme ? produitsDuLieu(forme.lieu).map((p) => ({ cle: p.id, produit_id: p.id, valeur: p.nom, detail: `${stockActuel(db, p)} en stock · achat ${fmt(p.prix_achat)}` })) : [];
 
+  const panneauRattachement = (c) => {
+    const liste = depensesRattachables(db.depenses, nomsDepenses);
+    const nb = Object.values(rattache.choix).filter((x) => x.coche).length;
+    return (
+      <div data-panneau-rattachement className="rounded-lg border-2 border-green-300 p-3 space-y-2">
+        <div className="font-semibold">🔗 Dépenses déjà payées — cochez celles qui concernent la commande {c.numero}</div>
+        <div className="text-xs text-slate-600">Catégories « {CATEGORIES_RATTACHABLES.join(" » et « ")} », pas encore rattachées à une commande. Rien n'est dépensé de nouveau.</div>
+        {liste.length === 0 && <div className="text-slate-500">Aucune dépense libre dans ces catégories.</div>}
+        {liste.map((d) => {
+          const x = rattache.choix[d.id] || {};
+          return (
+            <div key={d.id} data-depense-rattachable className={`border rounded-lg p-2 ${x.coche ? "border-green-400 bg-green-50" : "border-slate-200"}`}>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" className="mt-1" checked={!!x.coche} onChange={(e) => fixeChoix(d.id, { coche: e.target.checked })} />
+                <span><span className="font-semibold tabular-nums">{fmt(d.montant)}</span> · {dFR(d.date)} · {d.categorie} · {libelleCaisse(d.boutique)}{d.validation?.statut === "attente" ? <span className="text-amber-700"> · ⏳ à valider par le DG</span> : null}
+                  {d.description ? <span className="block text-xs text-slate-600">{d.description}</span> : null}</span>
+              </label>
+              {x.coche && (
+                <div className="grid sm:grid-cols-4 gap-2 mt-2">
+                  <Field label="C'est">
+                    <select className={inputCls} value={x.type || "paiement"} onChange={(e) => fixeChoix(d.id, { type: e.target.value })}>
+                      <option value="paiement">Un paiement au fournisseur</option>
+                      <option value="frais">Un frais (fret, douane…)</option>
+                    </select>
+                  </Field>
+                  {(x.type || "paiement") === "paiement" ? (<>
+                    <Field label="Montant dit">
+                      <select data-devise-rattachement className={inputCls} value={x.devise || "dollars"} onChange={(e) => fixeChoix(d.id, { devise: e.target.value })}>
+                        {DEVISES_SAISIE.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                      </select>
+                    </Field>
+                    {(x.devise || "dollars") !== "cfa" && <Field label={(x.devise || "dollars") === "yuan" ? "Montant (¥)" : "Montant ($)"}><input type="number" step="0.01" className={inputCls} value={x.montant || ""} onChange={(e) => fixeChoix(d.id, { montant: e.target.value })} /></Field>}
+                    {(x.devise || "dollars") !== "dollars" && <Field label={x.devise === "yuan" ? "Taux (¥ pour 1 $)" : "Taux (F pour 1 $)"}><input type="number" step="0.01" className={inputCls} value={x.taux || ""} onChange={(e) => fixeChoix(d.id, { taux: e.target.value })} /></Field>}
+                  </>) : (
+                    <Field label="Quel frais ?">
+                      <select className={inputCls} value={SORTES_FRAIS.includes(x.sorte) || !x.sorte ? (x.sorte || "") : "autre"} onChange={(e) => fixeChoix(d.id, { sorte: e.target.value === "autre" ? " " : e.target.value })}>
+                        <option value="">— Choisir —</option>
+                        {SORTES_FRAIS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        <option value="autre">✏️ Autre…</option>
+                      </select>
+                      {x.sorte && !SORTES_FRAIS.includes(x.sorte) && <input className={`${inputCls} mt-1`} placeholder="De quel frais s'agit-il ?" value={x.sorte.trim() ? x.sorte : ""} onChange={(e) => fixeChoix(d.id, { sorte: e.target.value || " " })} />}
+                    </Field>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div className="flex gap-2">
+          <button onClick={() => rattacher(c)} disabled={!nb} className={btnDark}>Rattacher {nb ? `(${nb})` : ""}</button>
+          <button onClick={() => setRattache(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold">Annuler</button>
+        </div>
+      </div>
+    );
+  };
+
   const carte = (c) => {
     const ep = etatPaiements(c, db.depenses);
     const ef = etatFrais(c, db.depenses);
@@ -289,6 +422,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
               </table>
             </div>
             {c.note && <div className="text-slate-600">📝 {c.note}</div>}
+            {(c.modifications || []).length > 0 && <div className="text-xs text-slate-500">✏️ Modifiée {c.modifications.length} fois — dernière le {dFR(c.modifications[c.modifications.length - 1].le)} par {c.modifications[c.modifications.length - 1].par} ({fmtDevise(c.modifications[c.modifications.length - 1].total_avant)} → {fmtDevise(c.modifications[c.modifications.length - 1].total_apres)})</div>}
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <div className="font-semibold mb-1">💳 Paiements au fournisseur</div>
@@ -297,9 +431,10 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
                   const e = etatDeLaDepense(db.depenses, p.depense_id);
                   return (<div key={p.id} className="flex items-center gap-2">
                     <span className="tabular-nums">{dFR(p.le)} · {fmtDevise(p.montant_devise)} × {p.taux} = {fmt(p.montant_f)}</span>
+                    {p.rattachee && <span data-paiement-rattache className="text-xs text-slate-500">🔗 dépense rattachée{p.saisie ? ` (${p.devise_saisie === "yuan" ? `${p.saisie.montant} ¥ à ${p.saisie.taux} ¥ / $` : `taux ${p.saisie.taux} F / $`})` : ""}</span>}
                     {e === "attente" && <span className="text-xs text-amber-700">⏳ à valider par le DG</span>}
                     {e === "rejetee" && <span className="text-xs text-red-700">✖ rejeté</span>}
-                    {admin && c.etape !== "recue" && <BoutonRond icone="🗑" teinte="rouge" titre="Retirer ce paiement" onClick={() => retirer(c, "paiements", p)} />}
+                    {admin && c.etape !== "recue" && <BoutonRond icone={p.rattachee ? "⛓" : "🗑"} teinte="rouge" titre={p.rattachee ? "Détacher cette dépense (elle reste dans 📤 Dépenses)" : "Retirer ce paiement"} onClick={() => retirer(c, "paiements", p)} />}
                   </div>);
                 })}
                 <div className="text-xs text-slate-600 mt-1">Payé : {fmt(ep.payeF)}{ep.payeDevise > 0 ? ` (taux moyen ${Math.round(ep.tauxMoyen * 100) / 100} F / $)` : ""}</div>
@@ -310,10 +445,10 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
                 {(c.frais || []).map((f) => {
                   const e = etatDeLaDepense(db.depenses, f.depense_id);
                   return (<div key={f.id} className="flex items-center gap-2">
-                    <span>{dFR(f.le)} · {f.sorte}{f.qui ? ` — ${f.qui}` : ""} : <span className="tabular-nums">{fmt(f.montant)}</span></span>
+                    <span>{dFR(f.le)} · {f.sorte}{f.qui ? ` — ${f.qui}` : ""} : <span className="tabular-nums">{fmt(f.montant)}</span>{f.rattachee && <span className="text-xs text-slate-500"> · 🔗 dépense rattachée</span>}</span>
                     {e === "attente" && <span className="text-xs text-amber-700">⏳ à valider par le DG</span>}
                     {e === "rejetee" && <span className="text-xs text-red-700">✖ rejeté</span>}
-                    {admin && c.etape !== "recue" && <BoutonRond icone="🗑" teinte="rouge" titre="Retirer ce frais" onClick={() => retirer(c, "frais", f)} />}
+                    {admin && c.etape !== "recue" && <BoutonRond icone={f.rattachee ? "⛓" : "🗑"} teinte="rouge" titre={f.rattachee ? "Détacher cette dépense (elle reste dans 📤 Dépenses)" : "Retirer ce frais"} onClick={() => retirer(c, "frais", f)} />}
                   </div>);
                 })}
                 <div className="text-xs text-slate-600 mt-1">Total des frais : {fmt(ef.total)}</div>
@@ -321,13 +456,16 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
             </div>
             {!c.annulee && c.etape !== "recue" && !enRecep && (
               <div className="flex flex-wrap gap-2">
+                <button data-modifier-commande onClick={() => ouvrirModification(c)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold">✏️ Modifier</button>
                 <button onClick={() => payer(c)} className="px-3 py-1.5 rounded-lg bg-green-700 text-white text-sm font-semibold">💳 Payer le fournisseur</button>
+                <button data-rattacher-depenses onClick={() => ouvrirRattachement(c)} className="px-3 py-1.5 rounded-lg border border-green-700 text-green-800 text-sm font-semibold">🔗 Dépenses déjà payées</button>
                 <button onClick={() => ajouterFrais(c)} className="px-3 py-1.5 rounded-lg bg-sky-700 text-white text-sm font-semibold">➕ Frais</button>
                 {etapeSuivante(c.etape) && <button onClick={() => avancer(c)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold">➡ {libelleEtape(etapeSuivante(c.etape))}</button>}
                 <button data-receptionner onClick={() => ouvrirReception(c)} className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white text-sm font-semibold">✅ Réceptionner</button>
                 {admin && <button onClick={() => annuler(c)} className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-sm font-semibold">✖ Annuler la commande</button>}
               </div>
             )}
+            {rattache?.cmdId === c.id && panneauRattachement(c)}
             {enRecep && (
               <div data-reception-commande className="rounded-lg border-2 border-emerald-300 p-3 space-y-2">
                 <div className="font-semibold">✅ Réception à {libelleCaisse(c.lieu)} — quantités réellement reçues</div>
@@ -374,10 +512,10 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
 
       {forme && (
         <PanneauQuiSeMontre cle="nouvelle-commande-import" onFermer={() => setForme(null)} data-nouvelle-commande-import="" className="rounded-lg border-2 border-sky-300 p-3 space-y-3">
-          <div className="flex items-center justify-between"><div className="font-semibold">Nouvelle commande</div><button onClick={() => setForme(null)} className="px-3 py-1 rounded-lg border border-slate-300 text-sm font-semibold">Fermer</button></div>
+          <div className="flex items-center justify-between"><div className="font-semibold">{forme.modif ? `✏️ Modifier la commande ${(commandesDe(fournisseurs).find((x) => x.id === forme.modif) || {}).numero || ""}` : "Nouvelle commande"}</div><button onClick={() => setForme(null)} className="px-3 py-1 rounded-lg border border-slate-300 text-sm font-semibold">Fermer</button></div>
           <div className="grid sm:grid-cols-3 gap-3">
             <Field label="Fournisseur">
-              <select className={inputCls} value={forme.fournisseur_id} onChange={(e) => setForme({ ...forme, fournisseur_id: e.target.value })}>
+              <select className={inputCls} disabled={!!forme.modif} title={forme.modif ? "Le fournisseur d'une commande ne change pas" : undefined} value={forme.fournisseur_id} onChange={(e) => setForme({ ...forme, fournisseur_id: e.target.value })}>
                 <option value="">— Choisir —</option>
                 {fournisseurs.map((fo) => <option key={fo.id} value={fo.id}>{fo.nom}</option>)}
               </select>
@@ -418,7 +556,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setForme({ ...forme, lignes: [...forme.lignes, LIGNE_VIDE()] })} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold">➕ Article</button>
             <span className="text-sm text-slate-600">Total : {fmtDevise(forme.lignes.reduce((s, l) => s + (nombreSaisi(l.qte) || 0) * (nombreSaisi(l.pu) || 0), 0))}</span>
-            <button onClick={enregistrerCommande} className={`ml-auto ${btnDark}`}>Enregistrer la commande</button>
+            <button onClick={enregistrerCommande} className={`ml-auto ${btnDark}`}>{forme.modif ? "Enregistrer les modifications" : "Enregistrer la commande"}</button>
           </div>
           <div className="text-xs text-slate-500">« Prix connu » : le prix rendu Lomé est gardé tel quel, aucun frais ne s'y ajoute. « À calculer » : prix en dollars × taux, plus sa part des frais (au prorata de la valeur).</div>
         </PanneauQuiSeMontre>

@@ -18276,6 +18276,35 @@ titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la val
     test("★ RENDU : le cadre « 🛒 Commandes à l'étranger » montre la commande en cours, et le bouton 🛒 est sur la ligne du fournisseur",
       /data-commandes-import/.test(html) && /IMP-2026-0001/.test(html) && /1 en cours/.test(html) && /Nouvelle commande à l&#x27;étranger/.test(html));
 
+    // ✏️ MODIFIER une commande, 🔗 RATTACHER des dépenses déjà payées (11/11/2026, « A a, B a, C $ / CFA / ¥, D a »)
+    const nouvelles = c.lignes.map((l) => ({ ...l, qte: String(l.qte), pu: String(l.pu) }));
+    test("★★ ✏️ une commande se modifie tant qu'elle n'est pas reçue ; le nouveau total ne descend jamais sous ce qui est déjà payé (1 200 $)",
+      L.critiqueModification(c, { lieu: "DEMAKPOE", lignes: nouvelles }, dep) === ""
+      && /plus bas que ce qui est déjà payé/.test(L.critiqueModification(c, { lieu: "DEMAKPOE", lignes: [{ ...nouvelles[0], qte: "1" }] }, dep))
+      && /déjà reçue/.test(L.critiqueModification({ ...c, etape: "recue" }, { lieu: "DEMAKPOE", lignes: nouvelles }, dep)));
+    test("★★ « C » : un paiement rattaché se dit en dollars, en francs (taux F / $) ou en yuans (taux ¥ / $) → toujours un montant en dollars",
+      L.dollarsDepuis({ devise: "dollars", montant: "500", francs: 300000 }).md === 500 && L.dollarsDepuis({ devise: "dollars", montant: "500", francs: 300000 }).taux === 600
+      && L.dollarsDepuis({ devise: "cfa", taux: "600", francs: 300000 }).md === 500
+      && L.dollarsDepuis({ devise: "yuan", montant: "3600", taux: "7.2", francs: 300000 }).md === 500
+      && !!L.dollarsDepuis({ devise: "yuan", montant: "3600", francs: 300000 }).refus);
+    const depsR = [{ id: "r1", categorie: "Commande en Chine", montant: 300000, boutique: "DEMAKPOE", date: "2026-11-01" },
+      { id: "r2", categorie: "Achat marchandises", montant: 5000, boutique: "DFORMATION", date: "2026-11-02" },
+      { id: "r3", categorie: "Transport", montant: 9000, boutique: "DEMAKPOE" },
+      { id: "r4", categorie: "Commande en Chine", montant: 9000, boutique: "DEMAKPOE", commande_import: { numero: "X" } },
+      { id: "r5", categorie: "Commande en Chine", montant: 0, boutique: "DEMAKPOE", validation: { statut: "rejetee" } }];
+    test("★★ « B a » : seules les dépenses LIBRES « Commande en Chine » / « Achat marchandises » de l'espace regardé (le mur) sont proposées",
+      L.depensesRattachables(depsR, ["DEMAKPOE"]).map((d) => d.id).join() === "r1");
+    const cR = { ...c, paiements: [] };
+    test("★ un lot de rattachements ne dépasse jamais ce qui reste à payer, et une dépense déjà rattachée est refusée",
+      L.critiqueRattachement(cR, [{ depense_id: "r1", type: "paiement", md: 500 }], depsR) === ""
+      && /dépassent/.test(L.critiqueRattachement(cR, [{ depense_id: "r1", type: "paiement", md: 5000 }], depsR))
+      && /plus libre/.test(L.critiqueRattachement(cR, [{ depense_id: "r4", type: "paiement", md: 1 }], depsR)));
+    test("★★ « D a » : une dépense rattachée se DÉTACHE (elle reste dans 📤 Dépenses, sans la marque) — jamais supprimée ; l'administrateur seul",
+      /if \(item\.rattachee\)/.test(comp) && /const \{ commande_import, \.\.\.reste \} = d; return reste;/.test(comp)
+      && /refuserSaufAdmin\(profile, "Retirer un paiement ou un frais d'une commande"\)/.test(comp));
+    test("★ ✏️ Modifier ne change jamais le fournisseur (case grisée) et laisse une trace (modifications)",
+      /disabled=\{!!forme\.modif\}/.test(comp) && /modifications: \[\.\.\.\(x\.modifications \|\| \[\]\), trace\]/.test(comp));
+
     // 📨 LA DEMANDE DE PRIX (11/11/2026, « 1+2 ok, Ba, Cb, Db, lance », document en anglais)
     const D = F.DP;
     test("★ lib/demandesPrix.js n'importe RIEN", !/^\s*import\s/m.test(readFileSync("src/lib/demandesPrix.js", "utf8")));
