@@ -7540,5 +7540,32 @@ titre("82 🚫 PERSONNE N'ÉCRIT DE SON PROPRE NUMÉRO, SAUF L'ADMINISTRATEUR (0
   delete globalThis.__repNP; delete globalThis.__appelsNP; delete globalThis.window; delete globalThis.localStorage;
   void C;
 }
+// ── 83 · 🔒 Le fichier reçu ne se va chercher QUE chez YCloud, et sa taille se mesure en le lisant (11/11/2026) ──
+{
+  console.log("\n83 · 🔒 Fichier reçu : seulement chez YCloud, taille limitée pendant la lecture");
+  const dossier = mkdtempSync(join(tmpdir(), "bmi-media83-"));
+  const stub = join(dossier, "supa.mjs");
+  writeFileSync(stub, "export function createClient() { return {}; }");
+  const sortie = join(dossier, "media.mjs");
+  await build({ entryPoints: ["api/whatsapp-media.js"], bundle: true, format: "esm", platform: "node", outfile: sortie, logLevel: "silent", alias: { "@supabase/supabase-js": stub } });
+  const M = await import(pathToFileURL(sortie).href);
+  test("★★ un lien de YCloud est suivi ; tout autre site, http, ou un lien piégé (identifiants, sous-domaine imité) est refusé",
+    M.lienMediaPermis("https://api.ycloud.com/v2/whatsapp/media/download/592623615738103?sig=x")
+    && !M.lienMediaPermis("https://evil.example.com/x") && !M.lienMediaPermis("http://api.ycloud.com/x")
+    && !M.lienMediaPermis("https://api.ycloud.com.evil.com/x") && !M.lienMediaPermis("https://a:b@api.ycloud.com/x")
+    && !M.lienMediaPermis("") && !M.lienMediaPermis(null));
+  const flux = (morceaux, entetes = {}) => new Response(new ReadableStream({ start(c) { for (const m of morceaux) c.enqueue(m); c.close(); } }), { headers: entetes });
+  const petit = await M.lireAvecLimite(flux([new Uint8Array(10), new Uint8Array(5)]), 100);
+  let lus = 0;
+  const gros = await M.lireAvecLimite(new Response(new ReadableStream({ pull(c) { lus++; if (lus > 1000) { c.close(); return; } c.enqueue(new Uint8Array(40)); } })), 100);
+  const annonce = await M.lireAvecLimite(new Response("x", { headers: { "content-length": "999999" } }), 100);
+  test("★★ la lecture s'arrête dès que la limite est dépassée (pas tout le fichier en mémoire), et un fichier annoncé trop gros n'est pas lu",
+    petit.paquet && petit.paquet.length === 15 && gros.tropGros === true && lus < 10 && annonce.tropGros === true, JSON.stringify({ petit: petit.paquet?.length, gros, lus, annonce }));
+  const code = lire("api/whatsapp-media.js").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  test("★★ la fonction serveur vérifie le lien AVANT d'envoyer la clé YCloud, et lit le fichier par lireAvecLimite",
+    /if \(!lienMediaPermis\(media\.lien\)\)[\s\S]*?fetch\(media\.lien, \{ headers: \{ "X-API-Key"/.test(code)
+    && /const lu = await lireAvecLimite\(reponse\)/.test(code) && !/arrayBuffer\(\)\);\s*if \(paquet\.length > TAILLE_MAX/.test(code));
+  try { rmSync(dossier, { recursive: true, force: true }); } catch {}
+}
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

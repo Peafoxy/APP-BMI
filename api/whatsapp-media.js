@@ -42,10 +42,50 @@ import { lireVocal } from "./_vocauxStockes.js";
 const TAILLE_MAX = 25 * 1024 * 1024;
 const MOTIF_EFFACE = "Ce fichier n'est plus disponible : WhatsApp les efface au bout de 30 jours.";
 
-// Le fichier reçu de WhatsApp, rendu tel quel.
+// 🔒 LE LIEN D'UN FICHIER REÇU N'EST SUIVI QUE CHEZ YCLOUD (11/11/2026, avis
+// extérieur relu par Timo, « lance 6 ») : notre clé YCloud part avec la
+// demande ; si une ligne portait un lien vers un autre site, la clé partirait
+// chez lui. YCloud donne toujours ses fichiers sur api.ycloud.com (sa
+// documentation, vérifiée le 11/11/2026).
+export const HOTES_MEDIA = ["api.ycloud.com"];
+export function lienMediaPermis(lien) {
+  try {
+    const u = new URL(String(lien || ""));
+    return u.protocol === "https:" && HOTES_MEDIA.includes(u.hostname.toLowerCase()) && !u.username && !u.password;
+  } catch { return false; }
+}
+
+// Le fichier reçu de WhatsApp, rendu tel quel. ⚠ La taille se vérifie
+// PENDANT la lecture (11/11/2026) : un fichier annoncé trop gros est refusé
+// avant d'être lu, et la lecture s'arrête dès qu'elle dépasse 25 Mo — avant,
+// tout le fichier entrait en mémoire, puis on regardait sa taille.
+export async function lireAvecLimite(reponse, max = TAILLE_MAX) {
+  const annonce = Number(reponse.headers.get("content-length"));
+  if (Number.isFinite(annonce) && annonce > max) return { tropGros: true };
+  if (!reponse.body || typeof reponse.body.getReader !== "function") {
+    const tout = Buffer.from(await reponse.arrayBuffer());
+    return tout.length > max ? { tropGros: true } : { paquet: tout };
+  }
+  const lecteur = reponse.body.getReader();
+  const morceaux = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await lecteur.read();
+    if (done) break;
+    total += value.length;
+    if (total > max) {
+      try { await lecteur.cancel(); } catch { /* rien */ }
+      return { tropGros: true };
+    }
+    morceaux.push(Buffer.from(value));
+  }
+  return { paquet: Buffer.concat(morceaux) };
+}
+
 async function rendre(res, reponse, media) {
-  const paquet = Buffer.from(await reponse.arrayBuffer());
-  if (paquet.length > TAILLE_MAX) return res.status(413).json({ error: "Fichier trop volumineux." });
+  const lu = await lireAvecLimite(reponse);
+  if (lu.tropGros) return res.status(413).json({ error: "Fichier trop volumineux." });
+  const paquet = lu.paquet;
   res.setHeader("Content-Type", media.mime || reponse.headers.get("content-type") || "application/octet-stream");
   res.setHeader("Content-Length", String(paquet.length));
   // Le fichier ne change jamais : le navigateur peut le garder une heure.
@@ -120,6 +160,10 @@ export default async function handler(req, res, { adminClient = null } = {}) {
 
     if (!cleYcloud) return res.status(500).json({ error: "WhatsApp n'est pas encore configuré sur le serveur." });
 
+    if (!lienMediaPermis(media.lien)) {
+      console.error("[whatsapp-media] lien refusé (pas chez YCloud)", String(media.lien).slice(0, 60));
+      return res.status(404).json({ error: "Ce fichier ne vient pas de WhatsApp : il n'est pas ouvert." });
+    }
     const reponse = await fetch(media.lien, { headers: { "X-API-Key": cleYcloud } });
     if (!reponse.ok) {
       // ⚠ ON DIT POURQUOI, en français. Un cadre vide laisserait croire à

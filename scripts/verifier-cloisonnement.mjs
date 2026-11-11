@@ -18708,5 +18708,15 @@ titre("⚡ La connexion rapide (Timo, 10/11/2026, « les 4… si un souci, on re
   test("★ « c » côté écran : une session préparée refusée reprend la vieille méthode (synchroniserAuth)",
     /export async function ouvrirSessionPreparee\(id, motDePasse\) \{[\s\S]*?return synchroniserAuth\(id, motDePasse\);\s*\}/.test(sc));
 }
+// 🔒 La bibliothèque Excel corrigée (11/11/2026, « lance 5 ») : la 0.18.5 de npm a des failles
+// connues (un fichier piégé) ; la version corrigée vient du site de l'éditeur.
+{
+  const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+  const verrou = JSON.parse(readFileSync("package-lock.json", "utf8"));
+  const v = (verrou.packages?.["node_modules/xlsx"] || {}).version || "";
+  const [a, b] = v.split(".").map(Number);
+  test("★★ la bibliothèque Excel est la version corrigée (0.20.2 ou plus, venue de cdn.sheetjs.com), jamais la 0.18 de npm",
+    (a > 0 || b >= 20) && /^https:\/\/cdn\.sheetjs\.com\//.test(pkg.dependencies?.xlsx || ""));
+}
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

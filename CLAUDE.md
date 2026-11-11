@@ -10626,6 +10626,12 @@ lit mal est pire qu'un banc absent).
   (les deux défauts remis : deux tombent) ; un contrôle RETOURNÉ dans
   `verifier-whatsapp` (trois documents qui se rendent). Aucun chapitre concerné.
 
+### 🔒 L'AVIS DE SÉCURITÉ EXTÉRIEUR (11/11/2026, avis ChatGPT relu par Timo → « lance 6 et 5, donne les requêtes pour 4 et 1 »)
+- **« 6 »** : `api/whatsapp-media.js` ne va chercher un fichier reçu QUE sur `api.ycloud.com` en https (`lienMediaPermis`, `HOTES_MEDIA` — la documentation YCloud, vérifiée) : notre clé YCloud ne part jamais chez un autre site. La taille (25 Mo) se mesure PENDANT la lecture (`lireAvecLimite` : annonce trop grosse refusée sans lire, lecture coupée dès le dépassement). Banc `verifier-whatsapp` 83 (3), éprouvé.
+- **« 5 »** : la bibliothèque Excel passe de 0.18.5 (npm, failles connues) à **0.20.3, prise sur cdn.sheetjs.com** (l'éditeur ne publie plus sur npm ; hôte ajouté à l'environnement). ⚠ Une mise à jour future se prend AU MÊME ENDROIT, jamais `npm install xlsx` (qui remettrait la 0.18). Banc `verifier-cloisonnement` (+1), éprouvé.
+- **« 4 » et « 1 »** : requêtes de LECTURE données à Timo (anciens mots de passe ; règles de la base et lignes sans espace). Le reste de l'avis (en-têtes, signature du webhook, sauvegardes, Vite) : proposé, pas demandé.
+- ⚠ Vu au passage, non demandé : `npm audit` signale dompurify (tiré par jsPDF) — dit à Timo.
+
 ---
 
 ## 5. Les pièges rencontrés — ne pas y retomber
