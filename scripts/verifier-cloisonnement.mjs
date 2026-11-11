@@ -18321,6 +18321,9 @@ titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la val
     const htmlDp = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(dbDp, { id: "a", nom: "TIMO", role: "gerant" }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
     test("★ RENDU : le cadre « 📨 Demandes de prix » montre la demande en attente, et le bouton 📨 est sur la ligne du fournisseur",
       /data-demandes-prix/.test(htmlDp) && /DP-2026-0001/.test(htmlDp) && /1 en attente/.test(htmlDp) && /Nouvelle demande de prix à ce fournisseur/.test(htmlDp));
+    test("★★ les fournisseurs se CHOISISSENT dans une ligne (liste déroulante), jamais des cases à cocher ; AUCUN d'office, même ouverte par 📨 (11/11/2026)",
+      /<select data-choix-fournisseur/.test(dpc) && /— Choisir un fournisseur —/.test(dpc) && /data-fournisseurs-choisis/.test(dpc)
+      && !/type="checkbox" checked=\{forme\.fournisseurs/.test(dpc) && /const nouvelle = \(\) => \(\{ fournisseurs: \[\],/.test(dpc) && /setForme\(nouvelle\(\)\);/.test(dpc));
   }
 }
 

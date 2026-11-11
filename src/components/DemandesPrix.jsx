@@ -37,11 +37,12 @@ export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onD
   const enCours = toutes.filter(estOuverte);
   const finies = toutes.filter((g) => !estOuverte(g));
   const garde = (geste) => refuserSaufRoles(profile, ROLES_FOURNISSEURS, geste) || bloquerSiLecture(db, profile);
-  const nouvelle = (fid) => ({ fournisseurs: fid ? [fid] : [], lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], note: "", langue: LANGUE_DEFAUT });
+  // Aucun fournisseur d'office (Timo, 11/11/2026 : « pas de fournisseur par défaut »), même ouverte par 📨 sur une ligne.
+  const nouvelle = () => ({ fournisseurs: [], lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], note: "", langue: LANGUE_DEFAUT });
 
   useEffect(() => {
     if (!demandePour) return;
-    setForme(nouvelle(demandePour));
+    setForme(nouvelle());
     onDemandePourFini?.();
   }, [demandePour]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -269,7 +270,7 @@ export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onD
     <div data-demandes-prix className="rounded-xl p-4 bg-white border border-slate-200 space-y-3">
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <div className="font-bold">📨 Demandes de prix {enCours.length ? <span className="text-sm font-normal text-slate-500">· {enCours.length} en attente</span> : null}</div>
-        {!forme && <button onClick={() => setForme(nouvelle(null))} className={btnDark}>➕ Nouvelle demande de prix</button>}
+        {!forme && <button onClick={() => setForme(nouvelle())} className={btnDark}>➕ Nouvelle demande de prix</button>}
       </div>
 
       {forme && (
@@ -277,15 +278,23 @@ export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onD
           <div className="flex items-center justify-between"><div className="font-semibold">Nouvelle demande de prix</div><button onClick={() => setForme(null)} className="px-3 py-1 rounded-lg border border-slate-300 text-sm font-semibold">Fermer</button></div>
           <div>
             <div className="text-sm font-medium text-slate-700 mb-1">Fournisseurs</div>
-            <div className="flex flex-wrap gap-2">
-              {fournisseurs.length === 0 && <span className="text-sm text-slate-500">Aucun fournisseur : créez-en d'abord un.</span>}
-              {fournisseurs.map((fo) => (
-                <label key={fo.id} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-sm cursor-pointer ${forme.fournisseurs.includes(fo.id) ? "border-violet-500 bg-violet-50" : "border-slate-300"}`}>
-                  <input type="checkbox" checked={forme.fournisseurs.includes(fo.id)} onChange={(e) => setForme({ ...forme, fournisseurs: e.target.checked ? [...forme.fournisseurs, fo.id] : forme.fournisseurs.filter((x) => x !== fo.id) })} />
-                  {fo.nom}
-                </label>
-              ))}
-            </div>
+            {fournisseurs.length === 0 ? <span className="text-sm text-slate-500">Aucun fournisseur : créez-en d'abord un.</span> : (
+              // Une LIGNE à sélectionner, jamais des cases à cocher (Timo, 11/11/2026) ; chaque choix s'ajoute dessous, ✕ le retire.
+              <select data-choix-fournisseur className={inputCls + " sm:w-80"} value="" onChange={(e) => e.target.value && setForme({ ...forme, fournisseurs: [...forme.fournisseurs, e.target.value] })}>
+                <option value="">{forme.fournisseurs.length ? "— Ajouter un autre fournisseur —" : "— Choisir un fournisseur —"}</option>
+                {fournisseurs.filter((fo) => !forme.fournisseurs.includes(fo.id)).map((fo) => <option key={fo.id} value={fo.id}>{fo.nom}</option>)}
+              </select>
+            )}
+            {forme.fournisseurs.length > 0 && (
+              <div data-fournisseurs-choisis className="flex flex-wrap gap-2 mt-2">
+                {forme.fournisseurs.map((fid) => (
+                  <span key={fid} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-violet-500 bg-violet-50 text-sm">
+                    {fournisseurs.find((x) => x.id === fid)?.nom || "?"}
+                    <button type="button" title="Retirer ce fournisseur" onClick={() => setForme({ ...forme, fournisseurs: forme.fournisseurs.filter((x) => x !== fid) })} className="text-violet-700 font-bold">✕</button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid sm:grid-cols-3 gap-3">
             <Field label="Serait reçue à">
