@@ -3745,8 +3745,9 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
   // 12/09/2026 : le relevé d'une caisse centrale aussi (genererReleve) — trois.
   // 18/09/2026 : le DOSSIER PERSONNEL d'un client (droit d'accès) — quatre.
   // RETOURNÉ le 10/10/2026 : l'INVENTAIRE de 💰 Ventes (« D a ») — cinq.
-  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire) suivent la même règle",
-    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 5 && !/doc\.save\(`/.test(pdf));
+  // RETOURNÉ le 11/11/2026 : la DEMANDE DE PRIX à un fournisseur — six.
+  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire, demande de prix) suivent la même règle",
+    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 6 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
     // RETOURNÉ le 15/10/2026 : un bouton rond, « 📄 Devis PDF » en libellé (au survol).
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes('<BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />'));
@@ -5512,7 +5513,10 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
     && (pdf.match(/y = bandeauTotal\(doc, largeur, y, /g) || []).length === 2 && (pdf.match(/mentionsOffre\(doc, y[ +0-9.]*, /g) || []).length === 2
-    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 3);
+    // RETOURNÉ le 11/11/2026 : la demande de prix pose son pied de page sur la
+    // page ajoutée après son tableau — quatre (son en-tête est en ANGLAIS :
+    // elle écrit son propre bandeau, mais lit les mêmes NIF_BMI / RCCM_BMI).
+    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 4);
   test("★ chaque document garde son titre et sa nature : « FACTURE PROFORMA » / « une facture proforma », « DEVIS — … » / « un devis »",
     /bandeauTitre\(doc, largeur, "FACTURE PROFORMA", p\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "une facture proforma"\)/.test(pdf)
     && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf)
@@ -18261,6 +18265,52 @@ titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la val
     const html = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "gerant" }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
     test("★ RENDU : le cadre « 🛒 Commandes à l'étranger » montre la commande en cours, et le bouton 🛒 est sur la ligne du fournisseur",
       /data-commandes-import/.test(html) && /IMP-2026-0001/.test(html) && /1 en cours/.test(html) && /Nouvelle commande à l&#x27;étranger/.test(html));
+
+    // 📨 LA DEMANDE DE PRIX (11/11/2026, « 1+2 ok, Ba, Cb, Db, lance », document en anglais)
+    const D = F.DP;
+    test("★ lib/demandesPrix.js n'importe RIEN", !/^\s*import\s/m.test(readFileSync("src/lib/demandesPrix.js", "utf8")));
+    const lignesDp = [{ id: "a", nom: "Panneau 550W", qte: 40, produit_id: "pA" }, { id: "b", nom: "Batterie 200Ah", qte: 10 }, { id: "c", nom: "Onduleur 5kW", qte: 6 }];
+    const base = { numero: "DP-2026-0001", le: "2026-11-11", lieu: "DEMAKPOE", lignes: lignesDp, langue: "en" };
+    const fos = [
+      { id: "f1", nom: "SHENZHEN", demandes_prix: [{ ...D.copiePour({ ...base, id: "x1" }), reponse: { prix: { a: 50, b: 300, c: 400 } } }] },
+      { id: "f2", nom: "NINGBO", demandes_prix: [{ ...D.copiePour({ ...base, id: "x2" }), reponse: { prix: { a: 48, b: 320 } } }] },
+      { id: "f3", nom: "GUANGZHOU", demandes_prix: [{ ...D.copiePour({ ...base, id: "x3" }), reponse: { decline: true } }] },
+    ];
+    const g = D.demandesGroupees(fos)[0];
+    const cp = D.comparaison(g);
+    test("une demande à TROIS fournisseurs = UNE demande (même numéro), trois copies ; le suivant est DP-2026-0002",
+      D.demandesGroupees(fos).length === 1 && g.copies.length === 3 && D.prochainNumeroDemande(fos, "2026") === "DP-2026-0002");
+    test("★★ « C b » : le moins cher PAR ARTICLE (panneau chez NINGBO, batterie chez SHENZHEN) ET le meilleur total parmi ceux qui proposent TOUT",
+      cp.lignes[0].moinsCher[0] === "f2" && cp.lignes[1].moinsCher[0] === "f1" && cp.meilleurTotal === 7400
+      && cp.totaux.find((t) => t.copie.fournisseur_id === "f2").complet === false && cp.offres.length === 2);
+    const ch = D.choixParDefaut(g);
+    const aCreer = D.commandesARetenir(g, ch);
+    test("★★ « D b » : un fournisseur PAR ARTICLE — deux commandes (NINGBO : le panneau ; SHENZHEN : batterie + onduleur), le lien au stock gardé",
+      aCreer.length === 2 && aCreer.find((e) => e.fournisseur_id === "f2").lignes.map((l) => l.nom).join() === "Panneau 550W"
+      && aCreer.find((e) => e.fournisseur_id === "f1").lignes.length === 2 && aCreer.find((e) => e.fournisseur_id === "f2").lignes[0].produit_id === "pA"
+      && aCreer.find((e) => e.fournisseur_id === "f2").lignes[0].pu === 48);
+    test("★ on ne retient pas un fournisseur sur un article qu'il n'a pas proposé (NINGBO n'a pas l'onduleur) ; une demande commandée ne se recommande pas",
+      /pas donné de prix/.test(D.critiqueRetenue(g, { c: "f2" })) && D.critiqueRetenue(g, ch) === ""
+      && /déjà commandée/.test(D.critiqueRetenue({ ...g, copies: g.copies.map((c) => ({ ...c, retenue: { le: "x" } })) }, ch)));
+    test("★ une offre sans aucun prix est refusée (sauf « pas d'offre »), et un fournisseur, un lieu, un article sont exigés",
+      /au moins un prix/.test(D.critiqueReponse(g.copies[0], { prix: {} })) && D.critiqueReponse(g.copies[0], { decline: true }) === ""
+      && /fournisseur/.test(D.critiqueDemande({ lieu: "X", lignes: lignesDp, fournisseurs: [] })) && /deux fois/.test(D.critiqueDemande({ lieu: "X", lignes: [lignesDp[0], lignesDp[0]], fournisseurs: ["f1"] })));
+    const docEn = F.genererDemandePrix({ ...base, lignes: [{ ...lignesDp[0], precision: "Monocrystalline" }] }, { fournisseur: "SHENZHEN" }, true);
+    const docFr = F.genererDemandePrix({ ...base, langue: "fr" }, { fournisseur: "SHENZHEN" }, true);
+    const txtDoc = (d) => JSON.stringify(d.internal.pages);
+    test("★★ le PDF en ANGLAIS d'office (« REQUEST FOR QUOTATION », sans aucun prix) ; en français au choix (« DEMANDE DE PRIX »)",
+      /REQUEST FOR QUOTATION/.test(txtDoc(docEn)) && /Monocrystalline/.test(txtDoc(docEn)) && /Unit price/.test(txtDoc(docEn))
+      && /DEMANDE DE PRIX/.test(txtDoc(docFr)) && !/REQUEST FOR/.test(txtDoc(docFr)) && D.LANGUE_DEFAUT === "en");
+    const dpc = readFileSync("src/components/DemandesPrix.jsx", "utf8");
+    test("★★ « B a » : chaque geste revérifie ROLES_FOURNISSEURS ; le WhatsApp ne s'offre qu'à qui peut écrire de son numéro (l'administrateur) ; les lieux = l'espace regardé",
+      /refuserSaufRoles\(profile, ROLES_FOURNISSEURS, geste\)/.test(dpc) && /peutEcrireDeSonNumero\(profile\) && <BoutonRond/.test(dpc)
+      && /ouvrirWhatsAppApresAnnonce\(/.test(dpc) && /boutiquesVisibles\(db, profile,/.test(dpc));
+    test("★ commander crée les commandes par LA fabrique des commandes (numéro IMP suivant, lignes rangées, rien de payé)",
+      /prochainNumeroCommande\(fos,/.test(dpc) && /ligneRangee\(/.test(dpc) && /paiements: \[\], frais: \[\]/.test(dpc));
+    const dbDp = { boutiques: [{ nom: "DEMAKPOE" }], produits: [], users: [], depenses: [], fournisseurs: fos.map((f) => ({ ...f, doit: 0, paye: 0 })) };
+    const htmlDp = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(dbDp, { id: "a", nom: "TIMO", role: "gerant" }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
+    test("★ RENDU : le cadre « 📨 Demandes de prix » montre la demande en attente, et le bouton 📨 est sur la ligne du fournisseur",
+      /data-demandes-prix/.test(htmlDp) && /DP-2026-0001/.test(htmlDp) && /1 en attente/.test(htmlDp) && /Nouvelle demande de prix à ce fournisseur/.test(htmlDp));
   }
 }
 

@@ -78,6 +78,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/outillage.js` | 🧰 Le matériel de travail de BMI : le registre, les sorties et retours, les pertes, l'appel de la semaine |
 | `lib/impression.js` | Les documents imprimables : reçus, bons, contrats |
 | `lib/export.js` | L'export CSV des tableaux |
+| `lib/demandesPrix.js` | Les demandes de prix aux fournisseurs : une demande à plusieurs fournisseurs (copie sur chaque fiche), réponses en dollars, comparaison par article et par total, un fournisseur retenu par article, les mots du PDF (anglais / français) |
 | `lib/commandesImport.js` | Les commandes à l'étranger (Alibaba) : étapes, paiements en dollars au taux du jour, frais répartis à la valeur, prix de revient rendu Lomé, prix moyen à la réception |
 | `lib/fournisseurs.js` | Modifier la fiche d'un fournisseur : représentant, dû / réglé au principal, un nouveau nom suit les articles |
 | `lib/barcode.js` | Le code-barres des étiquettes |
@@ -195,6 +196,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `CarteCaisse.jsx` | LA carte d'une caisse centrale (DG, BANQUE, comptable) |
 
 | `DepotsChantier.jsx` | 🏗 La pastille DÉPÔT CHANTIER du tableau de bord : déposé, puisé (devenu vente), vendu à la réception, reste en dépôt |
+| `DemandesPrix.jsx` | 📨 Le cadre des demandes de prix dans 🚚 Fournisseurs : créer, PDF / WhatsApp, noter les offres, comparer, retenir → commandes |
 | `CommandesImport.jsx` | 🛒 Le cadre des commandes à l'étranger dans 🚚 Fournisseurs : créer, payer, frais, étapes, réceptionner, appliquer les prix |
 | `CompteExploitant.jsx` | La pastille 👤 DG en deux relevés (caisse de BMI chez lui, compte de l'exploitant) et ses gestes ➕ Apport / ➖ Prélèvement |
 | `RechercheGlobale.jsx` | La loupe du menu : recherche transversale (ventes, articles, devis, clients, prospects) |

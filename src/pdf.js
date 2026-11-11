@@ -7,6 +7,7 @@ import { groupesEquipement } from "./lib/lignesDevis";
 import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
 import { nomSurDocument, nomCourtSurDocument } from "./lib/nomSurDocument";
 import { qteAppareil } from "./lib/solaire";
+import { motsPdf } from "./lib/demandesPrix";
 // La phrase d'un devis à compléter tient sur UNE ligne sous le bandeau (toute
 // la largeur : rien d'autre n'est écrit là). Le banc mesure qu'elle y tient.
 const LARGEUR_PHRASE_CF = 176;
@@ -1016,5 +1017,91 @@ export function genererDossierPersonnel(vue, { logo, formation = false, edite = 
 
   if (retournerDoc) return doc;
   doc.save(fichierPdf("Dossier personnel", { client }));
+  return null;
+}
+
+// ============ 📨 LA DEMANDE DE PRIX À UN FOURNISSEUR (11/11/2026) ============
+// Timo : « est-ce possible que le document soit en anglais ? » — oui : les mots
+// viennent de lib/demandesPrix.js (`motsPdf`, anglais d'office, français au
+// choix). Le prix se laisse VIDE : c'est le fournisseur qui le remplit.
+// `d` : { numero, le, lignes, note, langue } ; `fournisseur` : son nom ;
+// `bq` : la fiche de la boutique (téléphone, e-mail).
+export function genererDemandePrix(d, { fournisseur = "", bq = null, logo, formation = false } = {}, retournerDoc = false) {
+  const m = motsPdf(d.langue);
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+  const largeur = doc.internal.pageSize.getWidth();
+  const hauteur = doc.internal.pageSize.getHeight();
+  const dateDoc = String(d.le || today()).slice(0, 10).split("-").reverse().join("/");
+  if (logo) {
+    try {
+      const props = doc.getImageProperties(logo);
+      const w = 30;
+      doc.addImage(logo, "JPEG", 14, 10, w, Math.min((props.height * w) / props.width, 18));
+    } catch {}
+  }
+  const tel = (bq && bq.tel) || "+228 99 96 84 88";
+  const email = (bq && bq.email) || EMAIL_BMI_DEFAUT;
+  doc.setFontSize(16);
+  doc.setTextColor(...BLEU);
+  doc.text("BMI TOGO", largeur - 14, 16, { align: "right" });
+  doc.setFontSize(8);
+  doc.setTextColor(110, 110, 110);
+  [m.lomé, texteSurPdf(`${m.tel} : ${tel}  ·  ${m.email} : ${email}`), `${NIF_BMI}  ·  ${RCCM_BMI}`]
+    .forEach((t, i) => doc.text(t, largeur - 14, 21 + i * 4, { align: "right" }));
+  doc.setFillColor(...BLEU);
+  doc.rect(14, 32, largeur - 28, 10, "F");
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text(m.titre, largeur / 2, 39, { align: "center" });
+  let y = 42;
+  if (formation) {
+    doc.setFillColor(180, 83, 9);
+    doc.rect(14, 44, largeur - 28, 8, "F");
+    doc.setFontSize(11);
+    doc.text(m.formation, largeur / 2, 49.5, { align: "center" });
+    y = 54;
+  }
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(texteSurPdf(`${m.numero} ${d.numero}`), 14, y + 8);
+  doc.text(`${m.date} : ${dateDoc}`, 14, y + 13);
+  doc.text(texteSurPdf(`${m.livraison} : ${m.lomé}`), 14, y + 18);
+  if (fournisseur) {
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(texteSurPdf(`${m.a} : ${fournisseur}`), largeur - 14, y + 8, { align: "right" });
+  }
+  autoTable(doc, {
+    head: [m.colonnes.map((t, i) => ({ content: t, styles: { halign: i === 0 || i === 2 ? "center" : "left" } }))],
+    body: (d.lignes || []).map((l, i) => [String(i + 1), texteSurPdf(l.precision ? `${l.nom}\n${l.precision}` : l.nom), String(l.qte), "", ""]),
+    startY: y + 24,
+    styles: { fontSize: 9, cellPadding: 2.2, minCellHeight: 9 },
+    headStyles: { fillColor: BLEU, textColor: 255, fontSize: 9 },
+    columnStyles: { 0: { cellWidth: 9, halign: "center" }, 2: { cellWidth: 16, halign: "center" }, 3: { cellWidth: 34 }, 4: { cellWidth: 34 } },
+    margin: { left: 14, right: 14 },
+    didDrawPage: () => piedDePage(doc, largeur, hauteur),
+  });
+  y = doc.lastAutoTable.finalY + 8;
+  if (d.note) {
+    doc.setFontSize(9);
+    doc.setTextColor(30, 30, 30);
+    const lignesNote = doc.splitTextToSize(texteSurPdf(`${m.note} : ${d.note}`), largeur - 28);
+    doc.text(lignesNote, 14, y);
+    y += lignesNote.length * 4.5 + 3;
+  }
+  if (y > hauteur - 60) { doc.addPage(); piedDePage(doc, largeur, hauteur); y = 20; }
+  doc.setFontSize(10);
+  doc.setTextColor(...BLEU);
+  doc.text(m.demandeTitre, 14, y);
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  m.demandes.forEach((t, i) => doc.text(texteSurPdf(`- ${t}`), 18, y + 6 + i * 5));
+  y += 6 + m.demandes.length * 5 + 4;
+  doc.text(texteSurPdf(m.retour), 14, y);
+  doc.text(texteSurPdf(`${m.contact} : ${tel}  ·  ${email}`), 14, y + 5);
+  doc.setTextColor(...BLEU);
+  doc.text(m.merci, 14, y + 12);
+  if (retournerDoc) return doc;
+  doc.save(fichierPdf(d.langue === "fr" ? "Demande de prix" : "RFQ", { client: fournisseur, numero: d.numero }));
   return null;
 }

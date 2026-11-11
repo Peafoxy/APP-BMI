@@ -23,7 +23,10 @@
 // lib/validationDepenses.js (une dépense sans « Payé avec » = la caisse de
 // la boutique), App.jsx (onglet 🚚 Fournisseurs : administrateur, gérant) ;
 // components/CommandesImport.jsx et lib/commandesImport.js (🛒 Commandes à
-// l'étranger : paiements en dollars, frais, réception, prix de revient).
+// l'étranger : paiements en dollars, frais, réception, prix de revient) ;
+// components/DemandesPrix.jsx et lib/demandesPrix.js (📨 Demandes de prix :
+// plusieurs fournisseurs, PDF anglais / français, offres, comparaison,
+// un fournisseur retenu par article) ; src/pdf.js (genererDemandePrix).
 // ============================================================
 export const CHAPITRE = {
   numero: 10,
@@ -127,6 +130,14 @@ export const CHAPITRE = {
         { titre: "Réceptionner", texte: "À l'arrivée, **« ✅ Réceptionner »** : la quantité réellement reçue de chaque article (0 si rien n'est arrivé), et le **taux du jour** si une partie n'est pas encore payée. **« Calculer et réceptionner »** montre, avant de confirmer, le prix de revient de chaque article. Les articles entrent dans le stock du lieu choisi (colonne Entrées) ; un nom nouveau devient un **nouvel article**, avec un prix de vente à 0 F à fixer dans 📦 Stocks avant de le vendre." },
         { titre: "Le prix d'achat qui en sort", texte: "**« À calculer »** : prix en dollars × le taux de la commande (ce qui a vraiment été payé en francs, divisé par le total en dollars), plus sa part des frais, **au prorata de la valeur**. **« Prix connu »** : le prix rendu Lomé, gardé tel quel, sans frais. Le nouveau prix d'achat d'un article déjà en stock est la **moyenne** entre ce qui reste en stock (à l'ancien prix) et ce qui arrive. ⚠ Reçue par un gérant, la commande porte « 💲 prix à appliquer » : c'est l'administrateur qui clique **« 💲 Appliquer les prix d'achat »** (le prix d'achat reste son geste)." },
       ]],
+      ["h3", "G. Demander un prix avant de commander"],
+      ["etapes", [
+        { titre: "Créer la demande", texte: "Dans le cadre **« 📨 Demandes de prix »** → « ➕ Nouvelle demande de prix » (ou le bouton rond **📨** sur la ligne d'un fournisseur). On coche **un ou plusieurs fournisseurs**, on choisit où la marchandise **Serait reçue à**, la **Langue du document** (« English » d'office, ou « Français ») et une **Note pour le fournisseur**. Puis une ligne par article : l'**Article** (les articles du stock de ce lieu sont proposés), la **Quantité**, et une **Précision** (les caractéristiques, écrites dans la langue du document). **« Enregistrer la demande »** lui donne son numéro (DP-2026-0001…), le même pour tous les fournisseurs cochés." },
+        { titre: "L'envoyer", texte: "Un clic sur la demande la déplie : une ligne par fournisseur. Le bouton rond **📄** télécharge le document (« REQUEST FOR QUOTATION » en anglais, « DEMANDE DE PRIX » en français) : les articles, les quantités, et des colonnes de prix **vides**, que le fournisseur remplit ; on le joint sur Alibaba ou dans un e-mail. **L'administrateur** a aussi le bouton **WhatsApp** : le PDF se télécharge, WhatsApp s'ouvre sur son téléphone avec le message déjà écrit, il joint le PDF et envoie. La ligne dit « 📨 envoyée le … par … »." },
+        { titre: "Noter les offres", texte: "Quand un fournisseur répond, le bouton rond **✍️** : le **prix unitaire en dollars** de chaque article (une case vide = l'article n'est pas proposé), le **Délai**, la **Validité de l'offre**, une **Note** ; ou la case « Le fournisseur ne fait pas d'offre ». « Enregistrer l'offre ». Une offre se corrige en la notant de nouveau." },
+        { titre: "Comparer", texte: "Dès la première offre, le tableau **« ⚖ Comparaison des offres »** met les fournisseurs côte à côte : pour chaque article son prix et son total ; **en vert, le moins cher de chaque article**, et sur la dernière ligne **le meilleur total** parmi les fournisseurs qui proposent TOUT (un fournisseur incomplet le dit : « N article(s) non proposé(s) »). Les prix sont hors frais (fret, douane…)." },
+        { titre: "Retenir et commander", texte: "**« ✅ Retenir les offres »** : une colonne « Retenu » propose d'office le moins cher de chaque article ; on peut choisir un autre fournisseur, ou « — Laisser de côté — ». **On peut partager** : les panneaux chez l'un, les batteries chez l'autre. **« 🛒 Commander »** crée **une commande à l'étranger par fournisseur retenu** (partie F), déjà remplie avec les quantités et les prix retenus, « à calculer » ; rien n'est payé. La demande passe « ✅ Commandée ». Sans suite : **« ✖ Clore sans commander »**, motif obligatoire." },
+      ]],
     ]},
 
     // ── 5
@@ -154,6 +165,9 @@ export const CHAPITRE = {
         ["🛒 Commandes à l'étranger → ➕ Nouvelle commande", "Une commande Alibaba : ses articles, son prix en dollars, le lieu de réception. Le bouton rond 🛒 sur la ligne d'un fournisseur l'ouvre pour lui."],
         ["💳 Payer le fournisseur · ➕ Frais", "Un paiement en dollars au taux du jour, un frais en francs : chacun est une dépense, validée par le DG au-delà de 5 000 F."],
         ["✅ Réceptionner · 💲 Appliquer les prix d'achat", "Fait entrer la marchandise et calcule le prix de revient rendu Lomé ; l'administrateur applique les prix d'achat des articles déjà en stock."],
+        ["📨 Demandes de prix → ➕ Nouvelle demande de prix", "Une demande à un ou plusieurs fournisseurs, en anglais d'office ou en français. Le bouton rond 📨 sur la ligne d'un fournisseur l'ouvre pour lui."],
+        ["📄 · WhatsApp · ✍️ (sur la ligne d'un fournisseur de la demande)", "Télécharge le document à envoyer ; l'administrateur l'envoie aussi par WhatsApp depuis son téléphone ; ✍️ note l'offre reçue (prix en dollars, délai, validité)."],
+        ["✅ Retenir les offres → 🛒 Commander · ✖ Clore sans commander", "Choisit un fournisseur par article (le moins cher d'office) et crée une commande à l'étranger par fournisseur retenu ; ou clôt la demande (motif)."],
         ["🗑 (paiement ou frais) · ✖ Annuler la commande", "Administrateur, avant la réception : retire un paiement ou un frais saisi par erreur (sa dépense avec lui) ; annule une commande sans paiement ni frais (motif obligatoire)."],
       ]}],
     ]},
@@ -172,6 +186,7 @@ export const CHAPITRE = {
         "**Le journal** (🕘 Historique) garde le paiement avec sa caisse, chaque « + Entrée » avec sa quantité, chaque changement de fournisseur — et, pour un import, une ligne qui nomme chaque article entré et le fichier.",
         "**Aucune notification** n'est envoyée par ces gestes : ni le règlement ni l'entrée ne préviennent quelqu'un.",
         "**Une commande à l'étranger** : ses paiements (« Commande en Chine ») et ses frais (« Frais d'importation », compte 6015) sont des dépenses ordinaires, qui passent par le DG au-delà de 5 000 F et ne se modifient ni ne se suppriment depuis 📤 Dépenses. Elles **sortent du Résultat** du tableau de bord : elles entrent dans le prix d'achat des articles reçus, qui revient dans le Résultat au fil des ventes. Elle ne touche ni le Dû ni le Réglé du fournisseur.",
+        "**Une demande de prix n'écrit rien d'autre qu'elle-même** : ni dépense, ni stock, ni Dû. Elle est rangée sur la fiche de chaque fournisseur sollicité, sous le même numéro. Elle ne lit pas les messages du fournisseur : ses prix se recopient à la main. Un fournisseur qui a une demande en attente ne se supprime pas.",
       ]],
     ]},
 
