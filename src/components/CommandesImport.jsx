@@ -24,10 +24,11 @@ import { construireDepenseSaisie, optionsPayeAvec, interpreterPayeAvec, PAYE_AVE
 import { critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
 import {
   ETAPES_COMMANDE, libelleEtape, etapeSuivante, MODE_CALCUL, MODE_CONNU, SORTES_FRAIS,
-  nombreSaisi, fmtDevise, commandesDe, estEnCours, prochainNumeroCommande, critiqueCommande, ligneRangee,
+  nombreSaisi, commandesDe, estEnCours, prochainNumeroCommande, critiqueCommande, ligneRangee,
   totalDevise, etatPaiements, etatFrais, etatDeLaDepense, critiquePaiement, critiqueFrais, calculerCouts,
   prixMoyen, critiqueReception, resteAPayerAuTaux, prixAAppliquer,
   critiqueModification, depensesRattachables, DEVISES_SAISIE, dollarsDepuis, critiqueRattachement, CATEGORIES_RATTACHABLES,
+  DEVISES_COMMANDE, deviseDe, estCfa, symboleDe, motDevise, fmtCmd, tauxDuRecu,
 } from "../lib/commandesImport";
 import { CAISSE_DG, CAISSE_BANQUE, CAISSE_COMPTABLE } from "../lib/caissesCentrales";
 
@@ -58,7 +59,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
   // Ouvrir le formulaire depuis la ligne d'un fournisseur (bouton 🛒).
   useEffect(() => {
     if (!commandePour) return;
-    setForme({ fournisseur_id: commandePour, lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], note: "" });
+    setForme({ fournisseur_id: commandePour, devise: "dollars", lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], note: "" });
     onCommandePourFini?.();
   }, [commandePour]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -80,16 +81,16 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     if (!fo) { uAlert("Choisissez le fournisseur."); return; }
     const lignes = forme.lignes.filter((l) => String(l.nom).trim() || l.qte || l.pu);
     if (forme.modif) { modifierCommande(fo, lignes); return; }
-    const refus = critiqueCommande({ lieu: forme.lieu, lignes });
+    const refus = critiqueCommande({ lieu: forme.lieu, lignes, devise: forme.devise });
     if (refus) { uAlert(refus); return; }
     const numero = prochainNumeroCommande(db.fournisseurs, today().slice(0, 4));
-    const cmd = { id: uid(), numero, le: today(), par: profile.nom, par_id: profile.id ?? null, lieu: forme.lieu,
+    const cmd = { id: uid(), numero, le: today(), par: profile.nom, par_id: profile.id ?? null, lieu: forme.lieu, devise: deviseDe(forme),
       etape: "commandee", etapes: {}, lignes: lignes.map(ligneRangee), paiements: [], frais: [], note: String(forme.note || "").trim() };
     save({ ...db, fournisseurs: db.fournisseurs.map((x) => (x.id === fo.id ? { ...x, commandes_import: [...(x.commandes_import || []), cmd] } : x)) },
-      `🛒 Commande ${numero} chez ${fo.nom} : ${cmd.lignes.length} article(s), ${fmtDevise(totalDevise(cmd))} — réception à ${forme.lieu}`);
+      `🛒 Commande ${numero} chez ${fo.nom} : ${cmd.lignes.length} article(s), ${fmtCmd(cmd, totalDevise(cmd))} — réception à ${forme.lieu}`);
     setForme(null);
     setOuverte(cmd.id);
-    uAlert(`✅ Commande ${numero} enregistrée (${fmtDevise(totalDevise(cmd))}).\n\nRien n'est encore payé ni en stock : enregistrez les paiements et les frais sur la commande, puis « ✅ Réceptionner » à l'arrivée.`);
+    uAlert(`✅ Commande ${numero} enregistrée (${fmtCmd(cmd, totalDevise(cmd))}).\n\nRien n'est encore payé ni en stock : enregistrez les paiements et les frais sur la commande, puis « ✅ Réceptionner » à l'arrivée.`);
   };
 
   // ---- 1 bis. ✏️ MODIFIER (11/11/2026, « A a » : tout sauf le fournisseur) ----
@@ -98,20 +99,21 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     const c = commandeFraiche(c0);
     if (!c || c.annulee || c.etape === "recue") { uAlert("Cette commande ne se modifie plus (reçue ou annulée)."); return; }
     setReception(null); setRattache(null);
-    setForme({ modif: c.id, fournisseur_id: c0.fournisseur_id, lieu: c.lieu, note: c.note || "",
+    setForme({ modif: c.id, fournisseur_id: c0.fournisseur_id, devise: deviseDe(c), verrouDevise: (c.paiements || []).length > 0, lieu: c.lieu, note: c.note || "",
       lignes: (c.lignes || []).map((l) => ({ id: l.id, produit_id: l.produit_id || null, nom: l.nom, qte: String(l.qte), pu: String(l.pu), mode: l.mode || MODE_CALCUL, prix_connu: l.prix_connu != null ? String(l.prix_connu) : "" })) });
   };
   const modifierCommande = async (fo, lignes) => {
     const c = (fo.commandes_import || []).find((x) => x.id === forme.modif);
-    const refus = critiqueModification(c, { lieu: forme.lieu, lignes }, db.depenses);
+    const refus = critiqueModification(c, { lieu: forme.lieu, lignes, devise: forme.devise }, db.depenses);
     if (refus) { uAlert(refus); return; }
     const nouvelles = lignes.map(ligneRangee);
     const avant = totalDevise(c), apres = totalDevise({ lignes: nouvelles });
-    if (!await uConfirm(`Enregistrer les modifications de la commande ${c.numero} ?\n\nTotal : ${fmtDevise(avant)} → ${fmtDevise(apres)} · ${nouvelles.length} article(s) · réception à ${libelleCaisse(forme.lieu)}.`)) return;
-    const trace = { le: today(), par: profile.nom, total_avant: avant, total_apres: apres };
-    save((etat) => ecrireCommande(etat, fo.id, c.id, (x) => ({ ...x, lieu: forme.lieu, note: String(forme.note || "").trim(), lignes: nouvelles,
+    const cv = { devise: deviseDe(forme) };
+    if (!await uConfirm(`Enregistrer les modifications de la commande ${c.numero} ?\n\nTotal : ${fmtCmd(c, avant)} → ${fmtCmd(cv, apres)} · ${nouvelles.length} article(s) · réception à ${libelleCaisse(forme.lieu)}.`)) return;
+    const trace = { le: today(), par: profile.nom, total_avant: avant, total_apres: apres, ...(deviseDe(c) !== cv.devise ? { devise_avant: deviseDe(c), devise_apres: cv.devise } : {}) };
+    save((etat) => ecrireCommande(etat, fo.id, c.id, (x) => ({ ...x, devise: cv.devise, lieu: forme.lieu, note: String(forme.note || "").trim(), lignes: nouvelles,
       modifications: [...(x.modifications || []), trace] })),
-    `✏️ Commande ${c.numero} (${fo.nom}) modifiée : ${fmtDevise(avant)} → ${fmtDevise(apres)}, ${nouvelles.length} article(s), réception à ${forme.lieu}`);
+    `✏️ Commande ${c.numero} (${fo.nom}) modifiée : ${fmtCmd(c, avant)} → ${fmtCmd(cv, apres)}, ${nouvelles.length} article(s), réception à ${forme.lieu}`);
     setForme(null);
     setOuverte(c.id);
   };
@@ -139,28 +141,38 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
   };
   const phraseDG = (r) => (r.aValider && !principal ? `\n\n⏳ Au-delà de 5 000 F : la dépense attend la validation du DG et ne comptera qu'une fois validée.` : "");
 
-  // ---- 3. PAYER LE FOURNISSEUR (en dollars, au taux du jour) ----
+  // ---- 3. PAYER LE FOURNISSEUR (11/11/2026, « a et b ») ----
+  // « a » : une commande en francs → le montant en francs, aucun taux.
+  // « b » : en dollars ou en yuans → les DEUX chiffres du reçu (francs sortis,
+  // montant reçu par le fournisseur) ; le taux se calcule, jamais tapé.
   const payer = async (c0) => {
     if (garde("Payer une commande à l'étranger")) return;
     const c = commandeFraiche(c0);
     const e = etatPaiements(c, db.depenses);
-    const s = await uPrompt(`Paiement à ${c0.fournisseur_nom} — commande ${c.numero}.\nReste à payer : ${fmtDevise(e.resteDevise)}.\n\nMontant payé en DOLLARS :`, e.resteDevise ? String(e.resteDevise) : "");
-    if (s === null) return;
-    const t = await uPrompt("Taux du jour : combien de francs pour 1 dollar ?", c.dernier_taux ? String(c.dernier_taux) : "");
-    if (t === null) return;
-    const refus = critiquePaiement(c, { montant_devise: s, taux: t }, db.depenses);
+    const cfa = estCfa(c);
+    const sf = await uPrompt(`Paiement à ${c0.fournisseur_nom} — commande ${c.numero}.\nReste à payer : ${fmtCmd(c, e.resteDevise)}.\n\nMontant sorti de la caisse, en FRANCS :`, cfa && e.resteDevise ? String(e.resteDevise) : "");
+    if (sf === null) return;
+    let sd = sf;
+    if (!cfa) {
+      sd = await uPrompt(`Montant reçu par le fournisseur, en ${motDevise(c).toUpperCase()} (il est sur le reçu du transfert) :\nReste à payer : ${fmtCmd(c, e.resteDevise)}.`, e.resteDevise ? String(e.resteDevise) : "");
+      if (sd === null) return;
+    }
+    const refus = critiquePaiement(c, { montant_f: sf, montant_devise: sd }, db.depenses);
     if (refus) { uAlert(refus); return; }
-    const md = nombreSaisi(s); const tx = nombreSaisi(t); const mf = Math.round(md * tx);
+    const mf = Math.round(nombreSaisi(sf));
+    const md = cfa ? mf : Math.round(nombreSaisi(sd) * 100) / 100;
+    const tx = cfa ? 1 : tauxDuRecu(mf, md);
+    const detail = cfa ? fmt(mf) : `${fmtCmd(c, md)} reçus pour ${fmt(mf)} (taux ${tx} F / ${symboleDe(c)})`;
     const origine = await choisirOrigine(mf, `à ${c0.fournisseur_nom}`, c.lieu);
     if (!origine) return;
-    const r = preparerDepense(origine, { categorie: "Commande en Chine", description: `Paiement ${c0.fournisseur_nom} — commande ${c.numero} : ${fmtDevise(md)} × ${tx}`, montant: mf });
+    const r = preparerDepense(origine, { categorie: "Commande en Chine", description: `Paiement ${c0.fournisseur_nom} — commande ${c.numero} : ${detail}`, montant: mf });
     if (r.refus) { uAlert(r.refus); return; }
-    if (!await uConfirm(`Payer ${fmtDevise(md)} × ${tx} = ${fmt(mf)} à ${c0.fournisseur_nom} (commande ${c.numero}), payé avec : ${origine.libelle} ?${phraseDG(r)}`)) return;
+    if (!await uConfirm(`Payer ${c0.fournisseur_nom} (commande ${c.numero}) : ${detail}, payé avec : ${origine.libelle} ?${phraseDG(r)}`)) return;
     const dep = { ...r.depense, commande_import: { fournisseur_id: c0.fournisseur_id, fournisseur: c0.fournisseur_nom, commande_id: c.id, numero: c.numero, type: "paiement" } };
     const paiement = { id: uid(), le: today(), montant_devise: md, taux: tx, montant_f: mf, depense_id: dep.id, par: profile.nom };
-    save((etat) => ({ ...ecrireCommande(etat, c0.fournisseur_id, c.id, (x) => ({ ...x, dernier_taux: tx, paiements: [...(x.paiements || []), paiement] })),
+    save((etat) => ({ ...ecrireCommande(etat, c0.fournisseur_id, c.id, (x) => ({ ...x, ...(cfa ? {} : { dernier_taux: tx }), paiements: [...(x.paiements || []), paiement] })),
       depenses: [dep, ...(etat.depenses || [])], messages: [...r.messages, ...(etat.messages || [])] }),
-    `${r.journal} — paiement commande ${c.numero} (${fmtDevise(md)} × ${tx})`);
+    `${r.journal} — paiement commande ${c.numero} (${detail})`);
   };
 
   // ---- 4. UN FRAIS (fret, transitaire, douane…) ----
@@ -225,15 +237,19 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
       const d = (db.depenses || []).find((y) => y.id === id);
       if (!d) { uAlert("Une des dépenses choisies n'existe plus : rouvrez la liste."); return; }
       if (x.type === "paiement") {
-        const r = dollarsDepuis({ devise: x.devise, montant: x.montant, taux: x.taux, francs: d.montant });
+        // « a » : en francs, la dépense EST le paiement ; « b » : en ¥, le montant reçu (le taux se calcule).
+        const r = estCfa(c) ? { md: Number(d.montant), taux: 1 }
+          : deviseDe(c) === "yuan" ? (nombreSaisi(x.montant) > 0 ? { md: Math.round(nombreSaisi(x.montant) * 100) / 100, taux: tauxDuRecu(d.montant, nombreSaisi(x.montant)) } : { refus: "Indiquez le montant reçu en yuans." })
+          : dollarsDepuis({ devise: x.devise, montant: x.montant, taux: x.taux, francs: d.montant });
         if (r.refus) { uAlert(`${dFR(d.date)} · ${fmt(d.montant)} : ${r.refus}`); return; }
-        lot.push({ depense_id: id, d, type: "paiement", md: r.md, taux: r.taux, devise: x.devise, saisie: x.devise === "dollars" ? null : { montant: x.montant, taux: x.taux } });
+        const dv = deviseDe(c) === "dollars" ? (x.devise || "dollars") : deviseDe(c);
+        lot.push({ depense_id: id, d, type: "paiement", md: r.md, taux: r.taux, devise: dv, saisie: deviseDe(c) === "dollars" && dv !== "dollars" ? { montant: x.montant, taux: x.taux } : null });
       } else lot.push({ depense_id: id, d, type: "frais", sorte: String(x.sorte || "").trim() });
     }
     const refus = critiqueRattachement(c, lot, db.depenses);
     if (refus) { uAlert(refus); return; }
     const texte = lot.map((x) => x.type === "paiement"
-      ? `• ${dFR(x.d.date)} · ${fmt(x.d.montant)} → paiement de ${fmtDevise(x.md)} (taux ${x.taux} F / $)`
+      ? `• ${dFR(x.d.date)} · ${fmt(x.d.montant)} → paiement de ${fmtCmd(c, x.md)}${estCfa(c) ? "" : ` (taux ${x.taux} F / ${symboleDe(c)})`}`
       : `• ${dFR(x.d.date)} · ${fmt(x.d.montant)} → frais « ${x.sorte} »`).join("\n");
     if (!await uConfirm(`Rattacher ${lot.length} dépense(s) à la commande ${c.numero} ?\n\n${texte}\n\nRien n'est dépensé de nouveau : les dépenses existent déjà. Elles ne se modifieront plus depuis 📤 Dépenses.`)) return;
     const marque = (x) => ({ fournisseur_id: c0.fournisseur_id, fournisseur: c0.fournisseur_nom, commande_id: c.id, numero: c.numero, type: x.type, rattachee: { le: today(), par: profile.nom } });
@@ -242,7 +258,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     const parId = Object.fromEntries(lot.map((x) => [x.depense_id, x]));
     save((etat) => ({ ...ecrireCommande(etat, c0.fournisseur_id, c.id, (x) => ({ ...x, paiements: [...(x.paiements || []), ...paiements], frais: [...(x.frais || []), ...frais] })),
       depenses: (etat.depenses || []).map((d) => (parId[d.id] ? { ...d, commande_import: marque(parId[d.id]) } : d)) }),
-    `🔗 Commande ${c.numero} : ${lot.length} dépense(s) déjà payée(s) rattachée(s) — ${lot.map((x) => `${fmt(x.d.montant)} (${x.type === "paiement" ? fmtDevise(x.md) : x.sorte})`).join(" ; ")}`);
+    `🔗 Commande ${c.numero} : ${lot.length} dépense(s) déjà payée(s) rattachée(s) — ${lot.map((x) => `${fmt(x.d.montant)} (${x.type === "paiement" ? fmtCmd(c, x.md) : x.sorte})`).join(" ; ")}`);
     setRattache(null);
   };
 
@@ -288,7 +304,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     const nouveaux = lignes.filter((l) => !l.produit);
     const texte = lignes.map((l) => `• ${l.qte} × ${l.nom} : revient à ${fmt(l.cout)}${l.mode === MODE_CONNU ? " (prix connu)" : ""}${l.produit ? ` → prix d'achat ${fmt(l.prix_moyen)}${l.stock_avant > 0 && l.prix_avant > 0 ? ` (moyenne avec ${l.stock_avant} en stock à ${fmt(l.prix_avant)})` : ""}` : " → nouvel article"}`).join("\n");
     const manque = (c.lignes || []).filter((l) => (qtes[l.id] ?? l.qte) < l.qte).map((l) => `${l.qte - (qtes[l.id] ?? l.qte)} × ${l.nom}`);
-    if (!await uConfirm(`Réceptionner la commande ${c.numero} à ${libelleCaisse(c.lieu)} ?\n\nTaux retenu : ${Number.isFinite(calc.taux) ? Math.round(calc.taux * 100) / 100 : "—"} F / $ · frais répartis : ${fmt(calc.frais)}\n\n${texte}`
+    if (!await uConfirm(`Réceptionner la commande ${c.numero} à ${libelleCaisse(c.lieu)} ?\n\n${estCfa(c) ? "Commande en francs (aucun taux)" : `Taux retenu : ${Number.isFinite(calc.taux) ? Math.round(calc.taux * 100) / 100 : "—"} F / ${symboleDe(c)}`} · frais répartis : ${fmt(calc.frais)}\n\n${texte}`
       + (manque.length ? `\n\n⚠ Pas reçu : ${manque.join(", ")} — à régler avec le fournisseur.` : "")
       + (calc.fraisPerdus ? "\n\n⚠ Aucun article « à calculer » : les frais ne sont répartis sur aucun prix." : "")
       + (nouveaux.length ? `\n\n🆕 ${nouveaux.length} article(s) seront créés dans le stock avec un prix de vente à 0 F : fixez leur prix de vente dans 📦 Stocks avant de les vendre.` : "")
@@ -357,7 +373,11 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
                       <option value="frais">Un frais (fret, douane…)</option>
                     </select>
                   </Field>
-                  {(x.type || "paiement") === "paiement" ? (<>
+                  {(x.type || "paiement") === "paiement" ? (estCfa(c) ? (
+                    <div data-paiement-cfa className="text-xs text-slate-600 self-end sm:col-span-3">Commande en francs : la dépense ({fmt(d.montant)}) est le paiement, aucun taux.</div>
+                  ) : deviseDe(c) === "yuan" ? (
+                    <Field label="Montant reçu par le fournisseur (¥)"><input type="number" step="0.01" className={inputCls} value={x.montant || ""} onChange={(e) => fixeChoix(d.id, { montant: e.target.value })} /></Field>
+                  ) : (<>
                     <Field label="Montant dit">
                       <select data-devise-rattachement className={inputCls} value={x.devise || "dollars"} onChange={(e) => fixeChoix(d.id, { devise: e.target.value })}>
                         {DEVISES_SAISIE.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -365,7 +385,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
                     </Field>
                     {(x.devise || "dollars") !== "cfa" && <Field label={(x.devise || "dollars") === "yuan" ? "Montant (¥)" : "Montant ($)"}><input type="number" step="0.01" className={inputCls} value={x.montant || ""} onChange={(e) => fixeChoix(d.id, { montant: e.target.value })} /></Field>}
                     {(x.devise || "dollars") !== "dollars" && <Field label={x.devise === "yuan" ? "Taux (¥ pour 1 $)" : "Taux (F pour 1 $)"}><input type="number" step="0.01" className={inputCls} value={x.taux || ""} onChange={(e) => fixeChoix(d.id, { taux: e.target.value })} /></Field>}
-                  </>) : (
+                  </>)) : (
                     <Field label="Quel frais ?">
                       <select className={inputCls} value={SORTES_FRAIS.includes(x.sorte) || !x.sorte ? (x.sorte || "") : "autre"} onChange={(e) => fixeChoix(d.id, { sorte: e.target.value === "autre" ? " " : e.target.value })}>
                         <option value="">— Choisir —</option>
@@ -399,7 +419,8 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
           <span className="font-bold">{c.numero}</span>
           <span className="text-slate-700">{c.fournisseur_nom}</span>
           <span className="text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-semibold">{c.annulee ? "✖ Annulée" : libelleEtape(c.etape)}</span>
-          <span className="text-sm tabular-nums">{fmtDevise(ep.total)} · payé {fmtDevise(ep.payeDevise)}{ep.resteDevise > 0 && !c.annulee && c.etape !== "recue" ? <span className="text-red-600"> · reste {fmtDevise(ep.resteDevise)}</span> : null}</span>
+          <span className="text-sm tabular-nums">{fmtCmd(c, ep.total)} · payé {fmtCmd(c, ep.payeDevise)}{ep.resteDevise > 0 && !c.annulee && c.etape !== "recue" ? <span className="text-red-600"> · reste {fmtCmd(c, ep.resteDevise)}</span> : null}</span>
+          {deviseDe(c) !== "dollars" && <span data-devise-commande className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold">en {motDevise(c)}</span>}
           {ef.total > 0 && <span className="text-sm text-slate-600">frais {fmt(ef.total)}</span>}
           {prixAAppliquer(c) && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">💲 prix à appliquer</span>}
           <span className="text-xs text-slate-500 ml-auto">{dFR(c.le)} · {libelleCaisse(c.lieu)}</span>
@@ -408,21 +429,21 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
           <div className="px-3 pb-3 space-y-3 text-sm">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px]">
-                <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix $", "Total $", "Prix"].map((h) => <th key={h} className="text-left px-2 py-1">{h}</th>)}</tr></thead>
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", `Prix ${symboleDe(c)}`, `Total ${symboleDe(c)}`, "Prix"].map((h) => <th key={h} className="text-left px-2 py-1">{h}</th>)}</tr></thead>
                 <tbody>{(c.lignes || []).map((l) => {
                   const r = c.reception?.lignes?.find((x) => x.ligne_id === l.id);
                   return (<tr key={l.id} className="border-t border-slate-100">
                     <td className="px-2 py-1">{l.nom}{!l.produit_id && <span className="text-xs text-slate-500"> · nouvel article</span>}</td>
                     <td className="px-2 py-1 tabular-nums">{l.qte}{r && r.qte !== l.qte ? <span className="text-amber-700"> (reçu {r.qte})</span> : null}</td>
-                    <td className="px-2 py-1 tabular-nums">{fmtDevise(l.pu)}</td>
-                    <td className="px-2 py-1 tabular-nums">{fmtDevise(l.qte * l.pu)}</td>
+                    <td className="px-2 py-1 tabular-nums">{fmtCmd(c, l.pu)}</td>
+                    <td className="px-2 py-1 tabular-nums">{fmtCmd(c, l.qte * l.pu)}</td>
                     <td className="px-2 py-1">{l.mode === MODE_CONNU ? <span>connu : {fmt(l.prix_connu)}</span> : <span className="text-slate-500">à calculer</span>}{r ? <div data-prix-revient className="text-xs font-semibold text-green-700">revient à {fmt(r.cout)}{r.part_frais ? ` (dont ${fmt(Math.round(r.part_frais / Math.max(1, r.qte)))} de frais)` : ""}</div> : null}</td>
                   </tr>);
                 })}</tbody>
               </table>
             </div>
             {c.note && <div className="text-slate-600">📝 {c.note}</div>}
-            {(c.modifications || []).length > 0 && <div className="text-xs text-slate-500">✏️ Modifiée {c.modifications.length} fois — dernière le {dFR(c.modifications[c.modifications.length - 1].le)} par {c.modifications[c.modifications.length - 1].par} ({fmtDevise(c.modifications[c.modifications.length - 1].total_avant)} → {fmtDevise(c.modifications[c.modifications.length - 1].total_apres)})</div>}
+            {(c.modifications || []).length > 0 && <div className="text-xs text-slate-500">✏️ Modifiée {c.modifications.length} fois — dernière le {dFR(c.modifications[c.modifications.length - 1].le)} par {c.modifications[c.modifications.length - 1].par} ({fmtCmd({ devise: c.modifications[c.modifications.length - 1].devise_avant || deviseDe(c) }, c.modifications[c.modifications.length - 1].total_avant)} → {fmtCmd(c, c.modifications[c.modifications.length - 1].total_apres)})</div>}
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <div className="font-semibold mb-1">💳 Paiements au fournisseur</div>
@@ -430,14 +451,14 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
                 {(c.paiements || []).map((p) => {
                   const e = etatDeLaDepense(db.depenses, p.depense_id);
                   return (<div key={p.id} className="flex items-center gap-2">
-                    <span className="tabular-nums">{dFR(p.le)} · {fmtDevise(p.montant_devise)} × {p.taux} = {fmt(p.montant_f)}</span>
+                    <span className="tabular-nums">{dFR(p.le)} · {estCfa(c) ? fmt(p.montant_f) : <>{fmtCmd(c, p.montant_devise)} pour {fmt(p.montant_f)} <span className="text-slate-500">(taux {p.taux} F / {symboleDe(c)})</span></>}</span>
                     {p.rattachee && <span data-paiement-rattache className="text-xs text-slate-500">🔗 dépense rattachée{p.saisie ? ` (${p.devise_saisie === "yuan" ? `${p.saisie.montant} ¥ à ${p.saisie.taux} ¥ / $` : `taux ${p.saisie.taux} F / $`})` : ""}</span>}
                     {e === "attente" && <span className="text-xs text-amber-700">⏳ à valider par le DG</span>}
                     {e === "rejetee" && <span className="text-xs text-red-700">✖ rejeté</span>}
                     {admin && c.etape !== "recue" && <BoutonRond icone={p.rattachee ? "⛓" : "🗑"} teinte="rouge" titre={p.rattachee ? "Détacher cette dépense (elle reste dans 📤 Dépenses)" : "Retirer ce paiement"} onClick={() => retirer(c, "paiements", p)} />}
                   </div>);
                 })}
-                <div className="text-xs text-slate-600 mt-1">Payé : {fmt(ep.payeF)}{ep.payeDevise > 0 ? ` (taux moyen ${Math.round(ep.tauxMoyen * 100) / 100} F / $)` : ""}</div>
+                <div className="text-xs text-slate-600 mt-1">Payé : {fmt(ep.payeF)}{ep.payeDevise > 0 && !estCfa(c) ? ` (taux moyen ${Math.round(ep.tauxMoyen * 100) / 100} F / ${symboleDe(c)})` : ""}</div>
               </div>
               <div>
                 <div className="font-semibold mb-1">🚢 Frais (fret, transitaire, douane…)</div>
@@ -476,7 +497,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
                     </Field>
                   ))}
                   {resteAPayerAuTaux(c, db.depenses) && (
-                    <Field label="Taux du jour pour la part pas encore payée (F / $)">
+                    <Field label={`Taux du jour pour la part pas encore payée (F / ${symboleDe(c)})`}>
                       <input type="number" className={inputCls} value={reception.taux} onChange={(e) => setReception({ ...reception, taux: e.target.value })} />
                     </Field>
                   )}
@@ -489,7 +510,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
             )}
             {c.reception && (
               <div className="text-xs text-slate-600">
-                Reçue le {dFR(c.reception.le)} par {c.reception.par} · taux {Math.round(Number(c.reception.taux || 0) * 100) / 100} F / $ · frais {fmt(c.reception.frais)}
+                Reçue le {dFR(c.reception.le)} par {c.reception.par}{estCfa(c) ? "" : ` · taux ${Math.round(Number(c.reception.taux || 0) * 100) / 100} F / ${symboleDe(c)}`} · frais {fmt(c.reception.frais)}
                 {c.reception.prix_appliques_le ? ` · prix appliqués le ${dFR(c.reception.prix_appliques_le)} par ${c.reception.prix_appliques_par}` : ""}
               </div>
             )}
@@ -507,13 +528,13 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     <div data-commandes-import className="rounded-xl p-4 bg-white border border-slate-200 space-y-3">
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <div className="font-bold">🛒 Commandes à l'étranger (Alibaba…) {enCours.length ? <span className="text-sm font-normal text-slate-500">· {enCours.length} en cours</span> : null}</div>
-        {!forme && <button onClick={() => setForme({ fournisseur_id: fournisseurs[0]?.id || "", lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], note: "" })} className={btnDark}>➕ Nouvelle commande</button>}
+        {!forme && <button onClick={() => setForme({ fournisseur_id: fournisseurs[0]?.id || "", devise: "dollars", lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], note: "" })} className={btnDark}>➕ Nouvelle commande</button>}
       </div>
 
       {forme && (
         <PanneauQuiSeMontre cle="nouvelle-commande-import" onFermer={() => setForme(null)} data-nouvelle-commande-import="" className="rounded-lg border-2 border-sky-300 p-3 space-y-3">
           <div className="flex items-center justify-between"><div className="font-semibold">{forme.modif ? `✏️ Modifier la commande ${(commandesDe(fournisseurs).find((x) => x.id === forme.modif) || {}).numero || ""}` : "Nouvelle commande"}</div><button onClick={() => setForme(null)} className="px-3 py-1 rounded-lg border border-slate-300 text-sm font-semibold">Fermer</button></div>
-          <div className="grid sm:grid-cols-3 gap-3">
+          <div className="grid sm:grid-cols-4 gap-3">
             <Field label="Fournisseur">
               <select className={inputCls} disabled={!!forme.modif} title={forme.modif ? "Le fournisseur d'une commande ne change pas" : undefined} value={forme.fournisseur_id} onChange={(e) => setForme({ ...forme, fournisseur_id: e.target.value })}>
                 <option value="">— Choisir —</option>
@@ -523,6 +544,11 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
             <Field label="Reçue à">
               <select className={inputCls} value={forme.lieu} onChange={(e) => setForme({ ...forme, lieu: e.target.value })}>
                 {lieux.map((b) => <option key={b.nom} value={b.nom}>{libelleCaisse(b.nom)}{b.depot ? " (magasin)" : ""}</option>)}
+              </select>
+            </Field>
+            <Field label="Monnaie de la commande">
+              <select data-devise-nouvelle-commande className={inputCls} disabled={!!forme.verrouDevise} title={forme.verrouDevise ? "La commande porte déjà des paiements : sa monnaie ne change plus" : undefined} value={deviseDe(forme)} onChange={(e) => setForme({ ...forme, devise: e.target.value })}>
+                {DEVISES_COMMANDE.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             </Field>
             <Field label="Note"><input className={inputCls} value={forme.note} onChange={(e) => setForme({ ...forme, note: e.target.value })} placeholder="N° de commande Alibaba…" /></Field>
@@ -539,7 +565,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
                   </Field>
                 </div>
                 <Field label="Quantité"><input type="number" min="1" className={inputCls} value={l.qte} onChange={(e) => fixeLigne(i, { qte: e.target.value })} /></Field>
-                <Field label="Prix unitaire ($)"><input type="number" step="0.01" className={inputCls} value={l.pu} onChange={(e) => fixeLigne(i, { pu: e.target.value })} /></Field>
+                <Field label={`Prix unitaire (${symboleDe(forme)})`}><input type="number" step="0.01" className={inputCls} value={l.pu} onChange={(e) => fixeLigne(i, { pu: e.target.value })} /></Field>
                 <Field label="Prix d'achat">
                   <select className={inputCls} value={l.mode} onChange={(e) => fixeLigne(i, { mode: e.target.value })}>
                     <option value={MODE_CALCUL}>À calculer</option>
@@ -555,10 +581,10 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setForme({ ...forme, lignes: [...forme.lignes, LIGNE_VIDE()] })} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold">➕ Article</button>
-            <span className="text-sm text-slate-600">Total : {fmtDevise(forme.lignes.reduce((s, l) => s + (nombreSaisi(l.qte) || 0) * (nombreSaisi(l.pu) || 0), 0))}</span>
+            <span className="text-sm text-slate-600">Total : {fmtCmd(forme, forme.lignes.reduce((s, l) => s + (nombreSaisi(l.qte) || 0) * (nombreSaisi(l.pu) || 0), 0))}</span>
             <button onClick={enregistrerCommande} className={`ml-auto ${btnDark}`}>{forme.modif ? "Enregistrer les modifications" : "Enregistrer la commande"}</button>
           </div>
-          <div className="text-xs text-slate-500">« Prix connu » : le prix rendu Lomé est gardé tel quel, aucun frais ne s'y ajoute. « À calculer » : prix en dollars × taux, plus sa part des frais (au prorata de la valeur).</div>
+          <div className="text-xs text-slate-500">« Prix connu » : le prix rendu Lomé est gardé tel quel, aucun frais ne s'y ajoute. « À calculer » : {estCfa(forme) ? "prix en francs" : `prix en ${motDevise(forme)} × taux (calculé sur les reçus des paiements)`}, plus sa part des frais (au prorata de la valeur).</div>
         </PanneauQuiSeMontre>
       )}
 

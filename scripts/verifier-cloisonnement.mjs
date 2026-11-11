@@ -18254,9 +18254,36 @@ titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la val
     test("★★ « 4b » : le nouveau prix d'achat = la MOYENNE avec le stock restant (5 à 30 000 + 10 à 45 000 → 40 000) ; rien en stock → le prix de revient",
       L.prixMoyen(5, 30000, 10, 45000) === 40000 && L.prixMoyen(0, 30000, 10, 45000) === 45000 && L.prixMoyen(5, 0, 10, 45000) === 45000);
     test("★ on ne paie pas plus que le reste en dollars ; un frais ou un paiement après la réception est refusé",
-      /dépasse/.test(L.critiquePaiement(c, { montant_devise: 1, taux: 600 }, dep))
+      /dépasse/.test(L.critiquePaiement(c, { montant_devise: 1, montant_f: 600 }, dep))
       && /déjà reçue/.test(L.critiqueFrais({ ...c, etape: "recue" }, { sorte: "Douane", montant: 1000 }))
-      && /déjà reçue/.test(L.critiquePaiement({ ...c, etape: "recue" }, { montant_devise: 1, taux: 600 }, dep)));
+      && /déjà reçue/.test(L.critiquePaiement({ ...c, etape: "recue" }, { montant_devise: 1, montant_f: 600 }, dep)));
+    // 💱 « a et b » (11/11/2026) : une commande en FRANCS n'a aucun taux ; une
+    // commande en $ ou ¥ se paie par les deux chiffres du reçu, le taux se calcule.
+    const cF = { id: "cf", numero: "IMP-2026-0009", devise: "cfa", etape: "douane", lignes: [{ id: "a", nom: "Panneau", qte: 10, pu: 40000, mode: "calcul" }],
+      paiements: [{ montant_devise: 100000, taux: 1, montant_f: 100000, depense_id: "p1" }], frais: [{ montant: 50000, depense_id: "f1" }] };
+    test("★★ « a » : une commande en francs CFA — aucun taux exigé, ni au paiement ni à la réception ; prix de revient = prix + frais (40 000 + 5 000)",
+      L.critiquePaiement(cF, { montant_f: "300000" }, dep) === "" && !L.resteAPayerAuTaux(cF, dep) && L.critiqueReception(cF, dep, {}) === ""
+      && L.calculerCouts(cF, dep, {}).taux === 1 && L.calculerCouts(cF, dep, {}).lignes[0].cout === 45000 && /^1\D500 F$/.test(L.fmtCmd(cF, 1500)));
+    test("★★ « b » : une commande en $ payée en francs — les francs sortis ET le montant reçu sont exigés, le taux se lit sur le reçu (330 000 ÷ 500 = 660)",
+      /reçu par le fournisseur/.test(L.critiquePaiement({ ...c, paiements: [] }, { montant_f: "330000" }, dep))
+      && /sorti de la caisse/.test(L.critiquePaiement({ ...c, paiements: [] }, { montant_devise: "500" }, dep))
+      && L.critiquePaiement({ ...c, paiements: [] }, { montant_f: "330000", montant_devise: "500" }, dep) === "" && L.tauxDuRecu(330000, 500) === 660);
+    test("★ une commande d'avant (sans monnaie) reste en dollars ; une commande en ¥ dit ses yuans ; la monnaie ne change plus une fois un paiement posé",
+      L.deviseDe(c) === "dollars" && L.symboleDe({ devise: "yuan" }) === "¥" && /yuans/.test(L.critiquePaiement({ ...c, devise: "yuan", paiements: [] }, { montant_f: "1000" }, dep))
+      && /monnaie ne change plus/.test(L.critiqueModification(c, { lieu: "DEMAKPOE", lignes: c.lignes.map((l) => ({ ...l })), devise: "cfa" }, dep)));
+    {
+      const compP = readFileSync("src/components/CommandesImport.jsx", "utf8");
+      const corps = compP.slice(compP.indexOf("const payer = async"), compP.indexOf("// ---- 4. UN FRAIS"));
+      test("★★ 💳 Payer ne demande PLUS le taux : les francs sortis, puis (hors francs) le montant reçu ; le taux = tauxDuRecu",
+        !/Taux du jour/.test(corps) && /Montant sorti de la caisse, en FRANCS/.test(corps) && /Montant reçu par le fournisseur/.test(corps)
+        && /tauxDuRecu\(mf, md\)/.test(corps) && /if \(!cfa\)/.test(corps));
+      const dbF = { boutiques: [{ nom: "DEMAKPOE" }], produits: [], users: [], depenses: dep, fournisseurs: [{ id: "f1", nom: "AGENT LOME", doit: 0, paye: 0, commandes_import: [cF] }] };
+      const htmlF = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(dbF, { id: "a", nom: "TIMO", role: "gerant" }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
+      test("★ RENDU : une commande en francs se lit en francs (« 400 000 F », pastille « en francs »), jamais en dollars",
+        /data-devise-commande[^>]*>en francs/.test(htmlF) && /400\D000 F · payé 100\D000 F/.test(htmlF) && !/400\D000 \$/.test(htmlF));
+      test("★ la nouvelle commande choisit sa monnaie (dollars d'office) ; grisée une fois un paiement posé",
+        /data-devise-nouvelle-commande/.test(compP) && /disabled=\{!!forme\.verrouDevise\}/.test(compP) && /devise: deviseDe\(forme\)/.test(compP));
+    }
     test("le numéro suit le plus grand déjà donné (IMP-2026-0002)", L.prochainNumeroCommande([{ commandes_import: [c] }], "2026") === "IMP-2026-0002");
     test("★ les frais d'importation sortent du Résultat (achat de stock), ne se saisissent pas à la main, et vont en 6015 au journal ; « Commande en Chine » en 601",
       F.CATEGORIES_ACHAT_STOCK.includes(F.CATEGORIE_FRAIS_IMPORT) && !F.CATEGORIES.includes(F.CATEGORIE_FRAIS_IMPORT)

@@ -47,6 +47,22 @@ const arrondi = (n) => Math.round(Number(n) || 0);
 const centimes = (n) => Math.round((Number(n) || 0) * 100) / 100;
 export const fmtDevise = (n) => `${centimes(n).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} $`;
 
+// ---- LA MONNAIE DE LA COMMANDE (11/11/2026, « Lance a et b ») ----
+// Timo : « en franc cfa… plus besoin de calculer le taux, l'application
+// connaît et utilise déjà le cfa ». « a » : une commande se passe en dollars
+// (d'office — toute commande d'avant), en yuans ou en FRANCS CFA ; en francs,
+// aucun taux, jamais (le taux vaut 1). « b » : une commande en $ ou en ¥ payée
+// en francs ne demande plus le taux, mais les DEUX chiffres du reçu — les
+// francs sortis et ce que le fournisseur a reçu ; le taux se calcule.
+export const DEVISES_COMMANDE = [["dollars", "Dollars ($)"], ["yuan", "Yuans (¥)"], ["cfa", "Francs CFA (F)"]];
+export const deviseDe = (c) => (c?.devise === "cfa" || c?.devise === "yuan" ? c.devise : "dollars");
+export const estCfa = (c) => deviseDe(c) === "cfa";
+export const symboleDe = (c) => ({ dollars: "$", yuan: "¥", cfa: "F" })[deviseDe(c)];
+export const motDevise = (c) => ({ dollars: "dollars", yuan: "yuans", cfa: "francs" })[deviseDe(c)];
+export const fmtCmd = (c, n) => `${centimes(n).toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${symboleDe(c)}`;
+// « b » : le taux se lit sur le reçu — francs sortis ÷ ce que le fournisseur a reçu.
+export const tauxDuRecu = (francs, recu) => (Number(recu) > 0 ? Math.round((Number(francs) / Number(recu)) * 100) / 100 : 0);
+
 // Toutes les commandes d'une liste de fournisseurs (déjà filtrée par l'espace).
 export const commandesDe = (fournisseurs) => (fournisseurs || []).flatMap((fo) =>
   (fo?.commandes_import || []).map((c) => ({ ...c, fournisseur_id: fo.id, fournisseur_nom: fo.nom })));
@@ -64,22 +80,22 @@ export function prochainNumeroCommande(fournisseurs, annee) {
 }
 
 // ---- LES LIGNES ----
-export function critiqueLigne(l) {
+export function critiqueLigne(l, mot = "dollars") {
   if (!String(l?.nom || "").trim()) return "Indiquez l'article.";
   const q = nombreSaisi(l.qte);
   if (!(q > 0) || !Number.isInteger(q)) return `« ${l.nom} » : la quantité doit être un nombre entier positif.`;
   const pu = nombreSaisi(l.pu);
-  if (!(pu >= 0)) return `« ${l.nom} » : indiquez le prix unitaire en dollars (0 si offert).`;
+  if (!(pu >= 0)) return `« ${l.nom} » : indiquez le prix unitaire en ${mot} (0 si offert).`;
   if (l.mode === MODE_CONNU) {
     const p = nombreSaisi(l.prix_connu);
     if (!(p > 0)) return `« ${l.nom} » : indiquez le prix rendu Lomé que vous connaissez (en francs).`;
   }
   return "";
 }
-export function critiqueCommande({ lieu, lignes }) {
+export function critiqueCommande({ lieu, lignes, devise }) {
   if (!lieu) return "Choisissez où la marchandise sera reçue (boutique ou magasin).";
   if (!(lignes || []).length) return "Ajoutez au moins un article à la commande.";
-  for (const l of lignes) { const r = critiqueLigne(l); if (r) return r; }
+  for (const l of lignes) { const r = critiqueLigne(l, motDevise({ devise })); if (r) return r; }
   const vus = new Set();
   for (const l of lignes) {
     const k = l.produit_id || sans(l.nom);
@@ -133,15 +149,17 @@ export function etatFrais(c, depenses) {
   return { total: arrondi(total), attente: arrondi(attente) };
 }
 
-export function critiquePaiement(c, { montant_devise, taux }, depenses) {
+// `montant_f` : les francs sortis de la caisse ; `montant_devise` : ce que le
+// fournisseur a reçu, dans la monnaie de la commande (en francs : le même).
+export function critiquePaiement(c, { montant_devise, montant_f }, depenses) {
   if (!c || c.annulee) return "Cette commande n'existe plus.";
   if (c.etape === "recue") return "Cette commande est déjà reçue : un paiement au fournisseur après la réception se saisit dans 📤 Dépenses.";
-  const m = nombreSaisi(montant_devise);
-  if (!(m > 0)) return "Indiquez le montant payé en dollars.";
-  const t = nombreSaisi(taux);
-  if (!(t > 0)) return "Indiquez le taux du jour (combien de francs pour 1 dollar).";
+  const f = nombreSaisi(montant_f);
+  if (!(f > 0)) return "Indiquez le montant sorti de la caisse, en francs.";
+  const m = estCfa(c) ? f : nombreSaisi(montant_devise);
+  if (!(m > 0)) return `Indiquez le montant reçu par le fournisseur, en ${motDevise(c)} (il est sur le reçu du transfert).`;
   const e = etatPaiements(c, depenses);
-  if (m > e.resteDevise + 0.009) return `Le montant dépasse ce qui reste à payer sur cette commande : ${fmtDevise(e.resteDevise)}.`;
+  if (m > e.resteDevise + 0.009) return `Le montant dépasse ce qui reste à payer sur cette commande : ${fmtCmd(c, e.resteDevise)}.`;
   return "";
 }
 export function critiqueFrais(c, { sorte, montant }) {
@@ -158,13 +176,14 @@ export function critiqueFrais(c, { sorte, montant }) {
 // Le taux des articles « à calculer » = ce qui a VRAIMENT été payé en francs,
 // plus le reste au taux du jour, divisé par le total en dollars.
 export function tauxDeLaCommande(c, depenses, tauxReste) {
+  if (estCfa(c)) return 1; // « a » : en francs, aucun taux
   const e = etatPaiements(c, depenses);
   if (!(e.total > 0)) return 0;
   const reste = centimes(e.total - e.payeDevise);
   if (reste > 0.009 && !(Number(tauxReste) > 0)) return NaN;
   return (e.payeF + (reste > 0 ? reste * Number(tauxReste) : 0)) / e.total;
 }
-export const resteAPayerAuTaux = (c, depenses) => { const e = etatPaiements(c, depenses); return centimes(e.total - e.payeDevise) > 0.009; };
+export const resteAPayerAuTaux = (c, depenses) => { if (estCfa(c)) return false; const e = etatPaiements(c, depenses); return centimes(e.total - e.payeDevise) > 0.009; };
 
 export function calculerCouts(c, depenses, { qtes = {}, tauxReste } = {}) {
   const taux = tauxDeLaCommande(c, depenses, tauxReste);
@@ -210,7 +229,7 @@ export function critiqueReception(c, depenses, { qtes = {}, tauxReste } = {}) {
     const q = Number(qtes[l.id] ?? l.qte);
     if (!Number.isFinite(q) || q < 0 || !Number.isInteger(q)) return `« ${l.nom} » : la quantité reçue doit être un nombre entier (0 si rien n'est arrivé).`;
   }
-  if (Number.isNaN(tauxDeLaCommande(c, depenses, tauxReste))) return "Une partie de la commande n'est pas encore payée : indiquez le taux du jour pour la calculer.";
+  if (Number.isNaN(tauxDeLaCommande(c, depenses, tauxReste))) return `Une partie de la commande n'est pas encore payée : indiquez le taux du jour (francs pour 1 ${symboleDe(c)}) pour la calculer.`;
   const attente = etatPaiements(c, depenses).attenteDevise > 0 || etatFrais(c, depenses).attente > 0;
   if (attente) return "Un paiement ou un frais de cette commande attend encore la validation du DG : le prix de revient ne peut pas être calculé avant sa décision.";
   return "";
@@ -223,15 +242,18 @@ export const prixAAppliquer = (c) => !!c?.reception && !c.reception.prix_appliqu
 // Tout sauf le fournisseur : articles, quantités, prix en dollars, mode,
 // lieu, note — tant qu'elle n'est ni reçue ni annulée. Le nouveau total ne
 // descend jamais sous ce qui est déjà payé (ou attend le DG).
-export function critiqueModification(c, { lieu, lignes }, depenses) {
+export function critiqueModification(c, { lieu, lignes, devise }, depenses) {
   if (!c || c.annulee) return "Cette commande n'existe plus.";
   if (c.etape === "recue") return "Cette commande est déjà reçue : ses prix de revient sont calculés, elle ne se modifie plus.";
-  const refus = critiqueCommande({ lieu, lignes });
+  const dv = devise ? deviseDe({ devise }) : deviseDe(c);
+  if (dv !== deviseDe(c) && (c.paiements || []).length) return "Cette commande porte déjà des paiements : sa monnaie ne change plus. Retirez d'abord ses paiements.";
+  const refus = critiqueCommande({ lieu, lignes, devise: dv });
   if (refus) return refus;
   const e = etatPaiements(c, depenses);
   const deja = centimes(e.payeDevise + e.attenteDevise);
   const nouveau = totalDevise({ lignes: lignes.map(ligneRangee) });
-  if (nouveau + 0.009 < deja) return `Le nouveau total (${fmtDevise(nouveau)}) est plus bas que ce qui est déjà payé sur cette commande (${fmtDevise(deja)}). Retirez d'abord un paiement.`;
+  const cv = { devise: dv };
+  if (nouveau + 0.009 < deja) return `Le nouveau total (${fmtCmd(cv, nouveau)}) est plus bas que ce qui est déjà payé sur cette commande (${fmtCmd(cv, deja)}). Retirez d'abord un paiement.`;
   return "";
 }
 
@@ -289,6 +311,6 @@ export function critiqueRattachement(c, choix, depenses) {
   }
   const e = etatPaiements(c, depenses);
   const ajout = centimes((choix || []).filter((x) => x.type === "paiement").reduce((s, x) => s + Number(x.md || 0), 0));
-  if (ajout > e.resteDevise + 0.009) return `Ces paiements (${fmtDevise(ajout)}) dépassent ce qui reste à payer sur la commande : ${fmtDevise(e.resteDevise)}.`;
+  if (ajout > e.resteDevise + 0.009) return `Ces paiements (${fmtCmd(c, ajout)}) dépassent ce qui reste à payer sur la commande : ${fmtCmd(c, e.resteDevise)}.`;
   return "";
 }
