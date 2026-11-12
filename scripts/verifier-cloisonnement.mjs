@@ -18264,6 +18264,29 @@ titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la val
     test("★★ « a » : une commande en francs CFA — aucun taux exigé, ni au paiement ni à la réception ; prix de revient = prix + frais (40 000 + 5 000)",
       L.critiquePaiement(cF, { montant_f: "300000" }, dep) === "" && !L.resteAPayerAuTaux(cF, dep) && L.critiqueReception(cF, dep, {}) === ""
       && L.calculerCouts(cF, dep, {}).taux === 1 && L.calculerCouts(cF, dep, {}).lignes[0].cout === 45000 && /^1\D500 F$/.test(L.fmtCmd(cF, 1500)));
+    // 📦 « a » (12/11/2026) : les frais d'envoi du fournisseur jusqu'à l'agent,
+    // dans la monnaie de la commande, payés au fournisseur avec les articles.
+    const cE = { ...c, frais_envoi: 60, paiements: [{ montant_devise: 1260, taux: 600, montant_f: 756000, depense_id: "p1" }] };
+    const rE = L.calculerCouts(cE, dep, {});
+    const coutE = (n) => rE.lignes.find((l) => l.nom === n);
+    test("★★ 📦 les frais d'envoi du fournisseur ENTRENT dans le total et le reste à payer (1 200 + 60 = 1 260 $ ; payé 1 200 → reste 60)",
+      L.totalDevise(cE) === 1260 && L.etatPaiements({ ...cE, paiements: c.paiements }, dep).resteDevise === 60
+      && L.critiquePaiement({ ...cE, paiements: c.paiements }, { montant_f: "36000", montant_devise: "60" }, dep) === ""
+      && /dépasse/.test(L.critiquePaiement({ ...cE, paiements: c.paiements }, { montant_f: "36600", montant_devise: "61" }, dep)));
+    test("★★ 📦 ils se répartissent dans le prix de revient, au taux de la commande, comme les autres frais (60 $ × 600 = 36 000 ; panneau 45 500, câble 910, prix connu intact)",
+      rE.taux === 600 && rE.envoiF === 36000 && rE.frais === 186000
+      && coutE("Panneau 550W").cout === 45500 && coutE("Câble").cout === 910 && coutE("Batterie").cout === 400000);
+    test("★ 📦 un montant illisible est refusé ; ✏️ Modifier ne descend pas le total (frais d'envoi compris) sous ce qui est payé",
+      /Frais d'envoi/.test(L.critiqueCommande({ lieu: "X", lignes: [{ nom: "A", qte: 1, pu: 1 }], frais_envoi: "abc" }))
+      && /plus bas que ce qui est déjà payé/.test(L.critiqueModification(cE, { lieu: "DEMAKPOE", lignes: cE.lignes.map((l) => ({ ...l })), frais_envoi: "" }, dep))
+      && L.critiqueModification(cE, { lieu: "DEMAKPOE", lignes: cE.lignes.map((l) => ({ ...l })), frais_envoi: "60" }, dep) === "");
+    {
+      const compE = readFileSync("src/components/CommandesImport.jsx", "utf8");
+      test("★ 📦 le formulaire porte la ligne des frais d'envoi SOUS les articles, dans la monnaie de la commande ; la commande l'affiche",
+        /data-frais-envoi\b/.test(compE) && /symboleDe\(forme\)\}\)`\}><input[^>]*frais_envoi/.test(compE)
+        && compE.indexOf("data-ligne-commande") < compE.indexOf("data-frais-envoi ") && /data-frais-envoi-commande/.test(compE)
+        && /frais_envoi: fraisEnvoiRange\(forme\.frais_envoi\)/.test(compE) && /frais_envoi: envoi,/.test(compE));
+    }
     test("★★ « b » : une commande en $ payée en francs — les francs sortis ET le montant reçu sont exigés, le taux se lit sur le reçu (330 000 ÷ 500 = 660)",
       /reçu par le fournisseur/.test(L.critiquePaiement({ ...c, paiements: [] }, { montant_f: "330000" }, dep))
       && /sorti de la caisse/.test(L.critiquePaiement({ ...c, paiements: [] }, { montant_devise: "500" }, dep))

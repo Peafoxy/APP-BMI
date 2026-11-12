@@ -92,8 +92,9 @@ export function critiqueLigne(l, mot = "dollars") {
   }
   return "";
 }
-export function critiqueCommande({ lieu, lignes, devise }) {
+export function critiqueCommande({ lieu, lignes, devise, frais_envoi }) {
   if (!lieu) return "Choisissez où la marchandise sera reçue (boutique ou magasin).";
+  if (String(frais_envoi ?? "").trim() !== "" && !(nombreSaisi(frais_envoi) >= 0)) return `Frais d'envoi du fournisseur : indiquez un montant en ${motDevise({ devise })} (vide ou 0 s'il n'y en a pas).`;
   if (!(lignes || []).length) return "Ajoutez au moins un article à la commande.";
   for (const l of lignes) { const r = critiqueLigne(l, motDevise({ devise })); if (r) return r; }
   const vus = new Set();
@@ -110,7 +111,14 @@ export const ligneRangee = (l) => ({
   mode: l.mode === MODE_CONNU ? MODE_CONNU : MODE_CALCUL,
   ...(l.mode === MODE_CONNU ? { prix_connu: arrondi(nombreSaisi(l.prix_connu)) } : {}),
 });
-export const totalDevise = (c) => centimes((c?.lignes || []).reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu || 0), 0));
+export const totalArticles = (c) => centimes((c?.lignes || []).reduce((s, l) => s + Number(l.qte || 0) * Number(l.pu || 0), 0));
+// 📦 LES FRAIS D'ENVOI DU FOURNISSEUR (12/11/2026, « a ») : ce que le
+// fournisseur facture avec la marchandise pour l'envoyer jusqu'à l'agent en
+// Chine — dans la monnaie de la commande, payé AU FOURNISSEUR (donc dans le
+// total et le reste à payer), réparti dans le prix de revient comme les frais.
+export const fraisEnvoiDe = (c) => { const n = nombreSaisi(c?.frais_envoi); return n > 0 ? centimes(n) : 0; };
+export const fraisEnvoiRange = (v) => fraisEnvoiDe({ frais_envoi: v });
+export const totalDevise = (c) => centimes(totalArticles(c) + fraisEnvoiDe(c));
 
 // ---- LES DÉPENSES LIÉES (paiements et frais) ----
 // Une dépense compte si elle existe et n'est pas rejetée ; en attente du DG,
@@ -187,7 +195,10 @@ export const resteAPayerAuTaux = (c, depenses) => { if (estCfa(c)) return false;
 
 export function calculerCouts(c, depenses, { qtes = {}, tauxReste } = {}) {
   const taux = tauxDeLaCommande(c, depenses, tauxReste);
-  const frais = etatFrais(c, depenses).total;
+  // Les frais d'envoi du fournisseur, convertis au taux de la commande,
+  // s'ajoutent aux frais répartis.
+  const envoiF = fraisEnvoiDe(c) > 0 && Number.isFinite(taux) ? arrondi(fraisEnvoiDe(c) * taux) : 0;
+  const frais = arrondi(etatFrais(c, depenses).total + envoiF);
   const lignes = (c?.lignes || []).map((l) => {
     const q = Math.max(0, Math.round(Number(qtes[l.id] ?? l.qte) || 0));
     return { ligne_id: l.id, produit_id: l.produit_id || null, nom: l.nom, mode: l.mode, qte: q, pu: Number(l.pu || 0),
@@ -205,7 +216,7 @@ export function calculerCouts(c, depenses, { qtes = {}, tauxReste } = {}) {
     const part = baseValeur > 0 ? frais * (l.valeur / baseValeur) : (baseQte > 0 ? frais * (l.qte / baseQte) : 0);
     return { ...l, part_frais: arrondi(part), cout: arrondi((l.valeur + part) / l.qte) };
   });
-  return { taux, frais, lignes: sorties, fraisPerdus: frais > 0 && aCalculer.length === 0 };
+  return { taux, frais, envoiF, lignes: sorties, fraisPerdus: frais > 0 && aCalculer.length === 0 };
 }
 
 // « 4b » : la moyenne entre ce qu'il reste en stock (à l'ancien prix) et ce
@@ -242,16 +253,16 @@ export const prixAAppliquer = (c) => !!c?.reception && !c.reception.prix_appliqu
 // Tout sauf le fournisseur : articles, quantités, prix en dollars, mode,
 // lieu, note — tant qu'elle n'est ni reçue ni annulée. Le nouveau total ne
 // descend jamais sous ce qui est déjà payé (ou attend le DG).
-export function critiqueModification(c, { lieu, lignes, devise }, depenses) {
+export function critiqueModification(c, { lieu, lignes, devise, frais_envoi }, depenses) {
   if (!c || c.annulee) return "Cette commande n'existe plus.";
   if (c.etape === "recue") return "Cette commande est déjà reçue : ses prix de revient sont calculés, elle ne se modifie plus.";
   const dv = devise ? deviseDe({ devise }) : deviseDe(c);
   if (dv !== deviseDe(c) && (c.paiements || []).length) return "Cette commande porte déjà des paiements : sa monnaie ne change plus. Retirez d'abord ses paiements.";
-  const refus = critiqueCommande({ lieu, lignes, devise: dv });
+  const refus = critiqueCommande({ lieu, lignes, devise: dv, frais_envoi });
   if (refus) return refus;
   const e = etatPaiements(c, depenses);
   const deja = centimes(e.payeDevise + e.attenteDevise);
-  const nouveau = totalDevise({ lignes: lignes.map(ligneRangee) });
+  const nouveau = totalDevise({ lignes: lignes.map(ligneRangee), frais_envoi });
   const cv = { devise: dv };
   if (nouveau + 0.009 < deja) return `Le nouveau total (${fmtCmd(cv, nouveau)}) est plus bas que ce qui est déjà payé sur cette commande (${fmtCmd(cv, deja)}). Retirez d'abord un paiement.`;
   return "";

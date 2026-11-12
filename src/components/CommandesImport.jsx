@@ -25,7 +25,7 @@ import { critiqueSortieTiroir, fondsAVerser } from "../lib/versements";
 import {
   ETAPES_COMMANDE, libelleEtape, etapeSuivante, MODE_CALCUL, MODE_CONNU, SORTES_FRAIS,
   nombreSaisi, commandesDe, estEnCours, prochainNumeroCommande, critiqueCommande, ligneRangee,
-  totalDevise, etatPaiements, etatFrais, etatDeLaDepense, critiquePaiement, critiqueFrais, calculerCouts,
+  totalDevise, fraisEnvoiDe, fraisEnvoiRange, etatPaiements, etatFrais, etatDeLaDepense, critiquePaiement, critiqueFrais, calculerCouts,
   prixMoyen, critiqueReception, resteAPayerAuTaux, prixAAppliquer,
   critiqueModification, depensesRattachables, DEVISES_SAISIE, dollarsDepuis, critiqueRattachement, CATEGORIES_RATTACHABLES,
   DEVISES_COMMANDE, deviseDe, estCfa, symboleDe, motDevise, fmtCmd, tauxDuRecu,
@@ -59,7 +59,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
   // Ouvrir le formulaire depuis la ligne d'un fournisseur (bouton 🛒).
   useEffect(() => {
     if (!commandePour) return;
-    setForme({ fournisseur_id: commandePour, devise: "dollars", lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], note: "" });
+    setForme({ fournisseur_id: commandePour, devise: "dollars", lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], frais_envoi: "", note: "" });
     onCommandePourFini?.();
   }, [commandePour]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -81,11 +81,11 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     if (!fo) { uAlert("Choisissez le fournisseur."); return; }
     const lignes = forme.lignes.filter((l) => String(l.nom).trim() || l.qte || l.pu);
     if (forme.modif) { modifierCommande(fo, lignes); return; }
-    const refus = critiqueCommande({ lieu: forme.lieu, lignes, devise: forme.devise });
+    const refus = critiqueCommande({ lieu: forme.lieu, lignes, devise: forme.devise, frais_envoi: forme.frais_envoi });
     if (refus) { uAlert(refus); return; }
     const numero = prochainNumeroCommande(db.fournisseurs, today().slice(0, 4));
     const cmd = { id: uid(), numero, le: today(), par: profile.nom, par_id: profile.id ?? null, lieu: forme.lieu, devise: deviseDe(forme),
-      etape: "commandee", etapes: {}, lignes: lignes.map(ligneRangee), paiements: [], frais: [], note: String(forme.note || "").trim() };
+      etape: "commandee", etapes: {}, lignes: lignes.map(ligneRangee), frais_envoi: fraisEnvoiRange(forme.frais_envoi), paiements: [], frais: [], note: String(forme.note || "").trim() };
     save({ ...db, fournisseurs: db.fournisseurs.map((x) => (x.id === fo.id ? { ...x, commandes_import: [...(x.commandes_import || []), cmd] } : x)) },
       `🛒 Commande ${numero} chez ${fo.nom} : ${cmd.lignes.length} article(s), ${fmtCmd(cmd, totalDevise(cmd))} — réception à ${forme.lieu}`);
     setForme(null);
@@ -99,19 +99,20 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     const c = commandeFraiche(c0);
     if (!c || c.annulee || c.etape === "recue") { uAlert("Cette commande ne se modifie plus (reçue ou annulée)."); return; }
     setReception(null); setRattache(null);
-    setForme({ modif: c.id, fournisseur_id: c0.fournisseur_id, devise: deviseDe(c), verrouDevise: (c.paiements || []).length > 0, lieu: c.lieu, note: c.note || "",
+    setForme({ modif: c.id, fournisseur_id: c0.fournisseur_id, devise: deviseDe(c), verrouDevise: (c.paiements || []).length > 0, lieu: c.lieu, note: c.note || "", frais_envoi: fraisEnvoiDe(c) ? String(fraisEnvoiDe(c)) : "",
       lignes: (c.lignes || []).map((l) => ({ id: l.id, produit_id: l.produit_id || null, nom: l.nom, qte: String(l.qte), pu: String(l.pu), mode: l.mode || MODE_CALCUL, prix_connu: l.prix_connu != null ? String(l.prix_connu) : "" })) });
   };
   const modifierCommande = async (fo, lignes) => {
     const c = (fo.commandes_import || []).find((x) => x.id === forme.modif);
-    const refus = critiqueModification(c, { lieu: forme.lieu, lignes, devise: forme.devise }, db.depenses);
+    const refus = critiqueModification(c, { lieu: forme.lieu, lignes, devise: forme.devise, frais_envoi: forme.frais_envoi }, db.depenses);
     if (refus) { uAlert(refus); return; }
     const nouvelles = lignes.map(ligneRangee);
-    const avant = totalDevise(c), apres = totalDevise({ lignes: nouvelles });
+    const envoi = fraisEnvoiRange(forme.frais_envoi);
+    const avant = totalDevise(c), apres = totalDevise({ lignes: nouvelles, frais_envoi: envoi });
     const cv = { devise: deviseDe(forme) };
     if (!await uConfirm(`Enregistrer les modifications de la commande ${c.numero} ?\n\nTotal : ${fmtCmd(c, avant)} → ${fmtCmd(cv, apres)} · ${nouvelles.length} article(s) · réception à ${libelleCaisse(forme.lieu)}.`)) return;
     const trace = { le: today(), par: profile.nom, total_avant: avant, total_apres: apres, ...(deviseDe(c) !== cv.devise ? { devise_avant: deviseDe(c), devise_apres: cv.devise } : {}) };
-    save((etat) => ecrireCommande(etat, fo.id, c.id, (x) => ({ ...x, devise: cv.devise, lieu: forme.lieu, note: String(forme.note || "").trim(), lignes: nouvelles,
+    save((etat) => ecrireCommande(etat, fo.id, c.id, (x) => ({ ...x, devise: cv.devise, lieu: forme.lieu, note: String(forme.note || "").trim(), lignes: nouvelles, frais_envoi: envoi,
       modifications: [...(x.modifications || []), trace] })),
     `✏️ Commande ${c.numero} (${fo.nom}) modifiée : ${fmtCmd(c, avant)} → ${fmtCmd(cv, apres)}, ${nouvelles.length} article(s), réception à ${forme.lieu}`);
     setForme(null);
@@ -304,7 +305,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     const nouveaux = lignes.filter((l) => !l.produit);
     const texte = lignes.map((l) => `• ${l.qte} × ${l.nom} : revient à ${fmt(l.cout)}${l.mode === MODE_CONNU ? " (prix connu)" : ""}${l.produit ? ` → prix d'achat ${fmt(l.prix_moyen)}${l.stock_avant > 0 && l.prix_avant > 0 ? ` (moyenne avec ${l.stock_avant} en stock à ${fmt(l.prix_avant)})` : ""}` : " → nouvel article"}`).join("\n");
     const manque = (c.lignes || []).filter((l) => (qtes[l.id] ?? l.qte) < l.qte).map((l) => `${l.qte - (qtes[l.id] ?? l.qte)} × ${l.nom}`);
-    if (!await uConfirm(`Réceptionner la commande ${c.numero} à ${libelleCaisse(c.lieu)} ?\n\n${estCfa(c) ? "Commande en francs (aucun taux)" : `Taux retenu : ${Number.isFinite(calc.taux) ? Math.round(calc.taux * 100) / 100 : "—"} F / ${symboleDe(c)}`} · frais répartis : ${fmt(calc.frais)}\n\n${texte}`
+    if (!await uConfirm(`Réceptionner la commande ${c.numero} à ${libelleCaisse(c.lieu)} ?\n\n${estCfa(c) ? "Commande en francs (aucun taux)" : `Taux retenu : ${Number.isFinite(calc.taux) ? Math.round(calc.taux * 100) / 100 : "—"} F / ${symboleDe(c)}`} · frais répartis : ${fmt(calc.frais)}${calc.envoiF ? ` (dont ${fmt(calc.envoiF)} d'envoi du fournisseur)` : ""}\n\n${texte}`
       + (manque.length ? `\n\n⚠ Pas reçu : ${manque.join(", ")} — à régler avec le fournisseur.` : "")
       + (calc.fraisPerdus ? "\n\n⚠ Aucun article « à calculer » : les frais ne sont répartis sur aucun prix." : "")
       + (nouveaux.length ? `\n\n🆕 ${nouveaux.length} article(s) seront créés dans le stock avec un prix de vente à 0 F : fixez leur prix de vente dans 📦 Stocks avant de les vendre.` : "")
@@ -440,6 +441,11 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
                     <td className="px-2 py-1">{l.mode === MODE_CONNU ? <span>connu : {fmt(l.prix_connu)}</span> : <span className="text-slate-500">à calculer</span>}{r ? <div data-prix-revient className="text-xs font-semibold text-green-700">revient à {fmt(r.cout)}{r.part_frais ? ` (dont ${fmt(Math.round(r.part_frais / Math.max(1, r.qte)))} de frais)` : ""}</div> : null}</td>
                   </tr>);
                 })}</tbody>
+                {fraisEnvoiDe(c) > 0 && <tfoot><tr data-frais-envoi-commande className="border-t border-slate-200 text-slate-700">
+                  <td className="px-2 py-1" colSpan={3}>📦 Frais d'envoi du fournisseur (jusqu'à l'agent en Chine)</td>
+                  <td className="px-2 py-1 tabular-nums">{fmtCmd(c, fraisEnvoiDe(c))}</td>
+                  <td className="px-2 py-1 text-xs text-slate-500">répartis dans le prix de revient</td>
+                </tr></tfoot>}
               </table>
             </div>
             {c.note && <div className="text-slate-600">📝 {c.note}</div>}
@@ -528,7 +534,7 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
     <div data-commandes-import className="rounded-xl p-4 bg-white border border-slate-200 space-y-3">
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <div className="font-bold">🛒 Commandes à l'étranger (Alibaba…) {enCours.length ? <span className="text-sm font-normal text-slate-500">· {enCours.length} en cours</span> : null}</div>
-        {!forme && <button onClick={() => setForme({ fournisseur_id: fournisseurs[0]?.id || "", devise: "dollars", lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], note: "" })} className={btnDark}>➕ Nouvelle commande</button>}
+        {!forme && <button onClick={() => setForme({ fournisseur_id: fournisseurs[0]?.id || "", devise: "dollars", lieu: lieux[0]?.nom || "", lignes: [LIGNE_VIDE()], frais_envoi: "", note: "" })} className={btnDark}>➕ Nouvelle commande</button>}
       </div>
 
       {forme && (
@@ -579,12 +585,16 @@ export function CommandesImport({ db, save, profile, fournisseurs, commandePour,
               </div>
             ))}
           </div>
+          <div data-frais-envoi className="grid grid-cols-2 sm:grid-cols-6 gap-2 items-end border-t border-slate-100 pt-2">
+            <div className="col-span-2 sm:col-span-4 text-sm text-slate-700 pb-2">📦 Frais d'envoi du fournisseur (jusqu'à l'agent en Chine) — payés au fournisseur avec les articles</div>
+            <Field label={`Montant (${symboleDe(forme)})`}><input type="number" step="0.01" min="0" className={inputCls} value={forme.frais_envoi ?? ""} onChange={(e) => setForme({ ...forme, frais_envoi: e.target.value })} placeholder="0" /></Field>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setForme({ ...forme, lignes: [...forme.lignes, LIGNE_VIDE()] })} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold">➕ Article</button>
-            <span className="text-sm text-slate-600">Total : {fmtCmd(forme, forme.lignes.reduce((s, l) => s + (nombreSaisi(l.qte) || 0) * (nombreSaisi(l.pu) || 0), 0))}</span>
+            <span className="text-sm text-slate-600">Total : {fmtCmd(forme, forme.lignes.reduce((s, l) => s + (nombreSaisi(l.qte) || 0) * (nombreSaisi(l.pu) || 0), 0) + fraisEnvoiRange(forme.frais_envoi))}</span>
             <button onClick={enregistrerCommande} className={`ml-auto ${btnDark}`}>{forme.modif ? "Enregistrer les modifications" : "Enregistrer la commande"}</button>
           </div>
-          <div className="text-xs text-slate-500">« Prix connu » : le prix rendu Lomé est gardé tel quel, aucun frais ne s'y ajoute. « À calculer » : {estCfa(forme) ? "prix en francs" : `prix en ${motDevise(forme)} × taux (calculé sur les reçus des paiements)`}, plus sa part des frais (au prorata de la valeur).</div>
+          <div className="text-xs text-slate-500">« Prix connu » : le prix rendu Lomé est gardé tel quel, aucun frais ne s'y ajoute. « À calculer » : {estCfa(forme) ? "prix en francs" : `prix en ${motDevise(forme)} × taux (calculé sur les reçus des paiements)`}, plus sa part des frais (au prorata de la valeur) — les frais d'envoi du fournisseur compris.</div>
         </PanneauQuiSeMontre>
       )}
 
