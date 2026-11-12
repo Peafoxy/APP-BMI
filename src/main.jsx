@@ -59,6 +59,9 @@ async function afficherFenetreMaj(recharger) {
 
   const fond = document.createElement("div");
   fond.id = "bmi-maj";
+  // 🌗 En mode sombre, la fenêtre garde ses couleurs (capture Timo,
+  // 12/11/2026 : bandeau pâle, corps noir, bouton délavé) — comme le verrou.
+  fond.setAttribute("data-garder-clair", "");
   fond.style.cssText =
     "position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.6);" +
     "display:flex;align-items:center;justify-content:center;padding:16px;" +

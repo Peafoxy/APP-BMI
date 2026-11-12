@@ -18778,6 +18778,10 @@ titre("🌗 Le mode clair / sombre (Timo, 12/11/2026, « Aa, Ba, C clair, D lais
     && /<aside data-garder-clair className="hidden lg:flex lg:flex-col w-64/.test(app)
     && /data-garder-clair className="fixed inset-0 z-\[10000\]/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8"))
     && /data-garder-clair className="portail-impression/.test(readFileSync("src/components/ui.jsx", "utf8")));
+  // Capture Timo, 12/11/2026 : « Nouvelle version disponible » à moitié retournée.
+  const mainJsx = readFileSync("src/main.jsx", "utf8");
+  test("★ la fenêtre « Nouvelle version disponible » garde ses couleurs en mode sombre (data-garder-clair sur son fond)",
+    /fond\.id = "bmi-maj";[\s\S]{0,300}fond\.setAttribute\("data-garder-clair", ""\)/.test(mainJsx));
   // Le crochet est AVANT le premier `return` anticipé (écran blanc sinon).
   const iTheme = app.indexOf("const [appareilSombre"), iRetour = app.indexOf("if (!db) return");
   test("★ les crochets du mode sombre sont posés AVANT tout `return` anticipé d'App.jsx", iTheme > 0 && iRetour > 0 && iTheme < iRetour, `${iTheme} / ${iRetour}`);
