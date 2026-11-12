@@ -8146,7 +8146,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       Pi.INTERFACES.join(",") === "barre,icones,colonne" && Pi.interfaceDe({ interface: "colonne" }) === "colonne" && Pi.interfaceDe({ interface: "colonne", interface_imposee: "icones" }) === "icones"
       && Pi.critiqueChoixInterface({}, "colonne") === "" && Pi.aQuelqueChoseEnAttente([["a", "💰 Ventes"], ["b", "📋 Dettes (3)"]]) && !Pi.aQuelqueChoseEnAttente([["a", "💰 Ventes"], ["b", "📋 Dettes"]]));
     test("★★ 📌 App.jsx : ordinateur, la colonne toujours ouverte ; téléphone, le bouton ☰ avec son point rouge, les icônes repliées après le choix, au toucher à côté, par ✕ et par la touche retour ; les deux choix (personne, administrateur) proposent les TROIS",
-      /const options = INTERFACES;/.test(appOo) && /<aside data-colonne-icones className=\{`hidden lg:flex/.test(appOo) // RETOURNÉ le 08/11/2026 : la classe suit la couleur réglée
+      /const options = INTERFACES;/.test(appOo) && /<aside data-colonne-icones data-garder-clair className=\{`hidden lg:flex/.test(appOo) // RETOURNÉ le 08/11/2026 : la classe suit la couleur réglée
       && /data-bouton-colonne onClick=\{ouvrirColonne\}/.test(appOo) // RETOURNÉ le 09/11/2026 : l'ouverture mesure d'abord le bas de l'en-tête && /\{aQuelqueChoseEnAttente\(tabsAutorises\) && <span data-point-rouge/.test(appOo)
       && /const choisirDansLaColonne = \(id\) => \{ setTab\(id\); setColonneOuverte\(false\); \};/.test(appOo) && /onChoisir=\{choisirDansLaColonne\}/.test(appOo)
       && /<div className="absolute inset-0 bg-black\/40" onClick=\{\(\) => setColonneOuverte\(false\)\} \/>/.test(appOo) && /data-fermer-colonne onClick=\{\(\) => setColonneOuverte\(false\)\}/.test(appOo)
@@ -8167,12 +8167,12 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
       && !/data-colonne-ouverte className="lg:hidden fixed inset-0/.test(appOo)
       && /absolute left-0 top-0 bottom-0 w-\[72px\]/.test(appOo) && /absolute left-\[72px\] top-3/.test(appOo) && !/w-\[88px\]/.test(appOo));
     test("★★ 📌 ordinateur : la colonne d'icônes commence juste sous la ligne de la loupe et longe le nom de l'écran (posé à sa droite, écrit une fois) ; en barre et en page d'icônes, le nom reste en haut",
-      /<aside data-colonne-icones className=\{`hidden lg:flex lg:flex-col w-24 shrink-0 \$\{classeColonneIcones\} sticky top-0 h-screen`\} style=\{\{ \.\.\.styleColonneIcones, top: hautEnTete, height: `calc\(100vh - \$\{hautEnTete\}px\)` \}\}>/.test(appOo) // RETOURNÉ le 10/11/2026 : collée SOUS le bandeau fixé
+      /<aside data-colonne-icones data-garder-clair className=\{`hidden lg:flex lg:flex-col w-24 shrink-0 \$\{classeColonneIcones\} sticky top-0 h-screen`\} style=\{\{ \.\.\.styleColonneIcones, top: hautEnTete, height: `calc\(100vh - \$\{hautEnTete\}px\)` \}\}>/.test(appOo) // RETOURNÉ le 10/11/2026 : collée SOUS le bandeau fixé
       && !/top-\[49px\]/.test(appOo)
       && (appOo.match(/data-titre-ecran/g) || []).length === 1
       && (appOo.match(/\{!surAccueil && !modeColonne && barreTitre\}/g) || []).length === 1
       && /<div data-droite-colonne className="flex-1 min-w-0 flex flex-col">\s*\{!surAccueil && barreTitre\}\s*<main/.test(appOo)
-      && appOo.indexOf("data-colonne-icones className") < appOo.indexOf("data-droite-colonne"));
+      && appOo.indexOf("data-colonne-icones data-garder-clair className") < appOo.indexOf("data-droite-colonne"));
     // 📌 Timo (10/11/2026) : « en affichage page d'icône ou colonne d'icône,
     // fixer le bandeau d'en haut… qu'il ne disparaisse pas au défilement ».
     test("★★ 📌 le bandeau d'en-tête unique reste en haut au défilement (sticky), sa hauteur MESURÉE ; le nom de l'écran et la colonne se collent juste dessous ; la barre d'onglets n'est pas touchée",
@@ -18759,5 +18759,26 @@ titre("⚡ La connexion rapide (Timo, 10/11/2026, « les 4… si un souci, on re
   test("★ aucune politique de contenu stricte (script-src, default-src) qui couperait Supabase, les cartes ou les polices sans essai",
     !/default-src|script-src|connect-src/.test(val("Content-Security-Policy")));
 }
+titre("🌗 Le mode clair / sombre (Timo, 12/11/2026, « Aa, Ba, C clair, D laisse comme ça »)");
+{
+  const MS = await import(pathToFileURL(join(process.cwd(), "src/lib/modeSombre.js")).href);
+  test("★ clair d'office : une fiche sans choix est en mode clair", MS.themeDe({}) === "clair" && MS.themeDe(null) === "clair" && MS.themeDe({ theme: "bidule" }) === "clair");
+  test("★ trois choix : clair, sombre, automatique (« B a »)", MS.THEMES.join(",") === "clair,sombre,auto");
+  test("★ automatique suit l'appareil, sombre reste sombre, clair reste clair",
+    MS.themeApplique("auto", true) === "sombre" && MS.themeApplique("auto", false) === "clair"
+    && MS.themeApplique("sombre", false) === "sombre" && MS.themeApplique("clair", true) === "clair");
+  const app = readFileSync("src/App.jsx", "utf8");
+  test("★ « A a » : la personne le choisit dans 🧭 Affichage, rangé sur SA fiche (`theme`), jamais fixé par l'administrateur",
+    /QUOI_COULEURS/.test(app) && /\{ \.\.\.u, theme: valeur \}/.test(app) && !/theme_impose/.test(app));
+  test("★ « D » : la page d'icônes ne bascule pas (surLaPageIcones), la colonne et le verrou restent tels quels (data-garder-clair)",
+    /themeAffiche === THEME_SOMBRE && !surLaPageIcones/.test(app)
+    && (app.match(/data-garder-clair/g) || []).length === 2
+    && /data-garder-clair className="fixed inset-0 z-\[10000\]/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8"))
+    && /data-garder-clair className="portail-impression/.test(readFileSync("src/components/ui.jsx", "utf8")));
+  // Le crochet est AVANT le premier `return` anticipé (écran blanc sinon).
+  const iTheme = app.indexOf("const [appareilSombre"), iRetour = app.indexOf("if (!db) return");
+  test("★ les crochets du mode sombre sont posés AVANT tout `return` anticipé d'App.jsx", iTheme > 0 && iRetour > 0 && iTheme < iRetour, `${iTheme} / ${iRetour}`);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

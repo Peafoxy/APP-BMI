@@ -230,5 +230,55 @@ test("★ donc PLUS AUCUNE `transition-*` écrite dans l'application — douze l
 test("★ la règle qui donne son retour visuel à chaque bouton est TOUJOURS là (c'est elle qui mange les transitions, et elle vaut mieux qu'elles)",
   /button:not\(:disabled\) \{[\s\S]*transition: filter/.test(readFileSync("src/index.css", "utf8")));
 
+// ============================================================
+// 🌗 LE MODE SOMBRE (12/11/2026, « Aa, Ba, C clair, D laisse comme ça »),
+// mesuré dans Chromium avec le VRAI CSS construit : la marque sur <html>
+// retourne les couleurs, les photos et les cadres `data-garder-clair` sont
+// remis à l'endroit, une fenêtre `fixed` reste à sa place, et sans la marque
+// RIEN ne change (le mode clair = l'application telle qu'elle est).
+// ============================================================
+console.log("\n🌗 Le mode sombre, mesuré dans Chromium");
+{
+  const pageS = join(mkdtempSync(join(tmpdir(), "bmi-sombre-")), "s.html");
+  const corps = (theme) => `<!doctype html><html ${theme ? `data-theme="${theme}"` : ""}><head><meta charset="utf-8">
+<link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}"></head>
+<body class="bg-white"><div style="height:3000px"><p id="txt" class="text-slate-900">Texte</p>
+<img id="photo" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="10" height="10">
+<div id="garde" data-garder-clair class="bg-white"><img id="dedans" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="10" height="10"></div></div>
+<div id="fixe" style="position:fixed;top:8px;left:0;width:40px;height:40px"></div></body></html>`;
+  const nav = await chromium.launch();
+  const lire = async (theme) => {
+    writeFileSync(pageS, corps(theme));
+    const p = await nav.newPage({ viewport: { width: 400, height: 600 } });
+    await p.goto(`file://${pageS}`);
+    await p.evaluate(() => window.scrollTo(0, 1500));
+    const r = await p.evaluate(() => ({
+      html: getComputedStyle(document.documentElement).filter,
+      photo: getComputedStyle(document.getElementById("photo")).filter,
+      garde: getComputedStyle(document.getElementById("garde")).filter,
+      dedans: getComputedStyle(document.getElementById("dedans")).filter,
+      fixeTop: Math.round(document.getElementById("fixe").getBoundingClientRect().top),
+    }));
+    await p.emulateMedia({ media: "print" });
+    r.impression = await p.evaluate(() => getComputedStyle(document.documentElement).filter);
+    await p.close();
+    return r;
+  };
+  const clair = await lire(""), sombre = await lire("sombre");
+  await nav.close();
+  test("★ mode clair (sans marque) : AUCUN filtre nulle part — l'application telle qu'elle est",
+    clair.html === "none" && clair.photo === "none" && clair.garde === "none", JSON.stringify(clair));
+  test("★ mode sombre : la page entière est retournée (invert + hue-rotate)",
+    /invert\(1\)/.test(sombre.html) && /hue-rotate\(180deg\)/.test(sombre.html), sombre.html);
+  test("★ une photo et un cadre `data-garder-clair` (verrou, colonne d'icônes, aperçu d'impression) sont remis à l'endroit",
+    /invert\(1\)/.test(sombre.photo) && /invert\(1\)/.test(sombre.garde), JSON.stringify(sombre));
+  test("★ une photo DANS un cadre gardé clair n'est pas retournée une seconde fois",
+    sombre.dedans === "none", sombre.dedans);
+  test("★ une fenêtre `fixed` reste à sa place après défilement (le filtre est sur <html>)",
+    sombre.fixeTop === 8, String(sombre.fixeTop));
+  test("★ à l'impression, aucun filtre : un document sort toujours clair",
+    sombre.impression === "none", sombre.impression);
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

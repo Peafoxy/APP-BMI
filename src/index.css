@@ -313,3 +313,31 @@ html[data-espace="formation"] {
   [data-rangee-boutons] > button { width: 100%; }
   [data-rangee-boutons] > input, [data-rangee-boutons] > select, [data-rangee-boutons] > label, [data-rangee-boutons] > div { grid-column: 1 / -1; }
 }
+
+/* 🌗 LE MODE SOMBRE (12/11/2026, « Aa, Ba, C clair, D oui laisse comme ça »).
+   Le mode CLAIR est l'application telle qu'elle est (rien n'est touché sans
+   cette marque). Le SOMBRE est posé par App.jsx (`data-theme="sombre"` sur la
+   page, lib/modeSombre.js) et retourne TOUTES les couleurs d'un coup : plus de
+   2 000 couleurs claires sont écrites dans les écrans, les repeindre une à une
+   serait la retouche en masse qui a déjà abîmé des fichiers ici.
+   - invert + hue-rotate : le clair devient foncé, mais chaque teinte garde son
+     sens (bleu reste bleu, violet en formation, vert payé, rouge refusé) ;
+   - contrast(.88) : un gris très foncé plutôt qu'un noir pur, plus doux à lire.
+   ⚠ Posé sur <html> : une fenêtre `fixed` reste à sa place (mesuré).
+   CE QUI EST REMIS À L'ENDROIT (le filtre inverse, dans l'ordre inverse) :
+   les photos (img, vidéo, dessins), et tout cadre `data-garder-clair` — la
+   fenêtre de verrou et la colonne d'icônes gardent leur fond (« D »), l'aperçu
+   avant impression montre le document tel qu'il sera imprimé. La page d'icônes
+   ne bascule pas du tout (App.jsx). Rien de tout ça ne touche un PDF ni un
+   reçu : ils sont fabriqués à part, toujours clairs. */
+html[data-theme="sombre"] {
+  filter: invert(1) hue-rotate(180deg) contrast(0.88);
+  background: #fff;
+}
+html[data-theme="sombre"] :is(img, video, canvas, [data-garder-clair]):not([data-garder-clair] *) {
+  filter: contrast(1.1364) hue-rotate(180deg) invert(1);
+}
+@media print {
+  html[data-theme="sombre"] { filter: none; }
+  html[data-theme="sombre"] :is(img, video, canvas, [data-garder-clair]) { filter: none; }
+}

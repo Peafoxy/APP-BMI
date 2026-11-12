@@ -1089,7 +1089,7 @@ export function PrintHost() {
   useRetour(!!html, () => setHtml(null));
   if (!html) return null;
   return createPortal(
-    <div className="portail-impression fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-3">
+    <div data-garder-clair className="portail-impression fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-3">
       <style>{`@media print {
         /* Le PrintHost est rendu par un portail DIRECTEMENT sous <body>
            (hors de #root) : on peut donc masquer toute l'application par

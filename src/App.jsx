@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from
 import { createPortal } from "react-dom";
 import { Login } from "./screens/Connexion";
 import { PageIcones, LibelleOnglet, ColonneIcones } from "./components/PageIcones";
+import { THEME_CLAIR, THEME_SOMBRE, THEMES, LIBELLES_THEME, themeDe, themeApplique, critiqueChoixTheme } from "./lib/modeSombre";
 import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, INTERFACE_COLONNE, INTERFACES, aQuelqueChoseEnAttente, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface, couleurFondIcones, texteClairSurIcones, FOND_ICONES } from "./lib/pageIcones";
 import { Dashboard } from "./screens/Dashboard";
 import { Ventes } from "./screens/Ventes";
@@ -1050,6 +1051,30 @@ export default function App() {
     return () => { delete racine.dataset.espace; };
   }, [db, profile, regardeFormation]);
 
+  // 🌗 LE MODE CLAIR / SOMBRE de la personne (12/11/2026, lib/modeSombre.js).
+  // « Automatique » suit le réglage de l'appareil, et le suit s'il change.
+  // « D » : sur la page d'icônes, rien ne bascule (elle garde son fond).
+  const [appareilSombre, setAppareilSombre] = useState(() => {
+    try { return !!window.matchMedia?.("(prefers-color-scheme: dark)").matches; } catch { return false; }
+  });
+  useEffect(() => {
+    let mq;
+    try { mq = window.matchMedia?.("(prefers-color-scheme: dark)"); } catch { mq = null; }
+    if (!mq) return undefined;
+    const suivre = (e) => setAppareilSombre(!!e.matches);
+    mq.addEventListener?.("change", suivre);
+    return () => mq.removeEventListener?.("change", suivre);
+  }, []);
+  const ficheTheme = db && profile ? (db.users || []).find((u) => u.id === profile.id) || profile : null;
+  const themeAffiche = ficheTheme ? themeApplique(themeDe(ficheTheme), appareilSombre) : THEME_CLAIR;
+  const surLaPageIcones = !!ficheTheme && tab === ACCUEIL && interfaceDe(ficheTheme) === INTERFACE_ICONES;
+  useEffect(() => {
+    const racine = document.documentElement;
+    if (themeAffiche === THEME_SOMBRE && !surLaPageIcones) racine.dataset.theme = THEME_SOMBRE;
+    else delete racine.dataset.theme;
+    return () => { delete racine.dataset.theme; };
+  }, [themeAffiche, surLaPageIcones]);
+
   // ⚠ PLACÉ AVANT TOUT POINT DE SORTIE de ce composant — il y en a DEUX :
   // l'écran de chargement juste en dessous (« if (!db) »), puis l'écran de
   // connexion plus bas. Un `useEffect` déclaré après l'un ou l'autre n'existe
@@ -1399,7 +1424,14 @@ export default function App() {
     const d = ongletParDefaut(profile.role);
     setTab(tabsAutorises.some(([id]) => id === d) ? d : tabsAutorises[0][0]);
   }
+  // 🧭 Affichage pose d'abord la question : la disposition (barre, icônes,
+  // colonne) ou les couleurs (clair, sombre, automatique — 12/11/2026).
+  const QUOI_DISPOSITION = "🧭 Disposition (barre, icônes ou colonne)";
+  const QUOI_COULEURS = "🌗 Couleurs (mode clair ou sombre)";
   const choisirAffichage = async () => {
+    const quoi = await uChoix("🧭 Mon affichage\n\nQue voulez-vous régler ?", [QUOI_DISPOSITION, QUOI_COULEURS]);
+    if (quoi === QUOI_COULEURS) { await choisirTheme(); return; }
+    if (quoi !== QUOI_DISPOSITION) return;
     const fixe = interfaceImposee(maFiche);
     if (fixe) { uAlert(critiqueChoixInterface(maFiche, fixe)); return; }
     const options = INTERFACES;
@@ -1413,9 +1445,20 @@ export default function App() {
     save({ ...db, users: db.users.map((u) => (u.id === profile.id ? { ...u, interface: valeur } : u)) });
     if (valeur === INTERFACE_ICONES) setTab(ACCUEIL);
   };
+  const choisirTheme = async () => {
+    const actuel = themeDe(maFiche || profile);
+    const libelle = (v) => LIBELLES_THEME[v] + (v === actuel ? " (actuel)" : "");
+    const choix = await uChoix(`🌗 Mes couleurs\n\nActuellement : ${LIBELLES_THEME[actuel]}.\n\nLe mode clair est l'affichage habituel. Les reçus, devis et autres documents restent toujours clairs.\n\nVotre choix vous suit sur tous vos appareils.`, THEMES.map(libelle));
+    if (choix === null || choix === undefined) return;
+    const valeur = THEMES.find((v) => choix === libelle(v));
+    if (!valeur || valeur === actuel || !maFiche) return;
+    const refus = critiqueChoixTheme(valeur);
+    if (refus) { uAlert(refus); return; }
+    save({ ...db, users: db.users.map((u) => (u.id === profile.id ? { ...u, theme: valeur } : u)) });
+  };
   const boutonAffichage = (classe) => (
     <button type="button" data-choix-affichage onClick={choisirAffichage} className={classe}
-      title={interfaceImposee(maFiche) ? "Affichage fixé par l'administrateur" : "Choisir mon affichage : barre d'onglets, page d'icônes ou colonne d'icônes"}>🧭<span className="hidden sm:inline"> Affichage</span></button>
+      title={interfaceImposee(maFiche) ? "Affichage fixé par l'administrateur" : "Choisir mon affichage : barre d'onglets, page d'icônes ou colonne d'icônes, mode clair ou sombre"}>🧭<span className="hidden sm:inline"> Affichage</span></button>
   );
   // 🔲 La page d'icônes (06/11/2026) : elle n'existe que hors période de
   // sortie, s'il reste au moins un onglet, et dans l'affichage « icônes ».
@@ -1970,7 +2013,7 @@ export default function App() {
             {/* 📌 Ordinateur : la colonne d'icônes toujours ouverte, à gauche,
                 collée sous la ligne de la loupe (elle longe le nom de l'écran). */}
             {!enSortie && (
-              <aside data-colonne-icones className={`hidden lg:flex lg:flex-col w-24 shrink-0 ${classeColonneIcones} sticky top-0 h-screen`} style={{ ...styleColonneIcones, top: hautEnTete, height: `calc(100vh - ${hautEnTete}px)` }}>
+              <aside data-colonne-icones data-garder-clair className={`hidden lg:flex lg:flex-col w-24 shrink-0 ${classeColonneIcones} sticky top-0 h-screen`} style={{ ...styleColonneIcones, top: hautEnTete, height: `calc(100vh - ${hautEnTete}px)` }}>
                 <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={setTab} onReordonner={reordonnerOnglets} className="flex-1" clair={texteIconesClair} />
               </aside>
             )}
@@ -1993,7 +2036,7 @@ export default function App() {
       {modeColonne && colonneOuverte && !enSortie && (
         <div data-colonne-ouverte className="lg:hidden fixed inset-x-0 bottom-0 z-40" style={{ top: hautColonne }}>
           <div className="absolute inset-0 bg-black/40" onClick={() => setColonneOuverte(false)} />
-          <aside className={`absolute left-0 top-0 bottom-0 w-[72px] flex flex-col ${classeColonneIcones} shadow-2xl`} style={styleColonneIcones}>
+          <aside data-garder-clair className={`absolute left-0 top-0 bottom-0 w-[72px] flex flex-col ${classeColonneIcones} shadow-2xl`} style={styleColonneIcones}>
             <ColonneIcones tabs={tabsAutorises} tab={tab} onChoisir={choisirDansLaColonne} onReordonner={reordonnerOnglets} className="flex-1" clair={texteIconesClair} />
           </aside>
           <button type="button" data-fermer-colonne onClick={() => setColonneOuverte(false)} aria-label="Replier les icônes"

@@ -183,7 +183,7 @@ export function EcranVerrou({ profile, db, apparence, motif = "inactivite", onDe
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] overflow-y-auto" role="dialog" aria-modal="true" aria-label="Session verrouillée"
+    <div data-garder-clair className="fixed inset-0 z-[10000] overflow-y-auto" role="dialog" aria-modal="true" aria-label="Session verrouillée"
       onPointerDown={(e) => { if (e.target?.tagName !== "BUTTON" && e.target?.tagName !== "INPUT") focaliser(); }}
       onClick={() => setTimeout(diagnostiquer, 50)}>
       <FondAccueil decor={decor} className="min-h-full">

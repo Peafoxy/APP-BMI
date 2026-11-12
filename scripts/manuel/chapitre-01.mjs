@@ -3,7 +3,7 @@
 //
 // Des MOTS, rien d'autre : la mise en page vit dans scripts/manuel-formation.mjs.
 // Chaque bouton, chaque chiffre vient du code (Connexion.jsx, EcranVerrou.jsx,
-// lib/verrou.js, api/_verrouillage.js, App.jsx, main.jsx, src/retour.js) — jamais de mémoire.
+// lib/verrou.js, api/_verrouillage.js, App.jsx, main.jsx, src/retour.js, lib/modeSombre.js) — jamais de mémoire.
 // Le **gras** s'écrit entre deux étoiles.
 // ============================================================
 export const CHAPITRE = {
@@ -64,6 +64,8 @@ export const CHAPITRE = {
       ["p", "Une seule fois, un mot de bienvenue explique en quelques lignes ce que BMI garde comme informations sur la personne, et qui peut les voir. Il se ferme avec **« J'ai compris »**. Il ne revient pas."],
       ["h3", "C. Se repérer"],
       ["p", "**Trois affichages, au choix de chacun** (depuis le 06/11/2026, le troisième depuis le 08/11/2026). Le bouton **« 🧭 Affichage »**, en haut, propose : **📋 Barre d'onglets** (d'office) — sur ordinateur, la colonne sombre à gauche avec un onglet par écran ; sur téléphone, la bande d'onglets qui défile sous l'en-tête —, **🔲 Page d'icônes** ou **📌 Colonne d'icônes**. Le choix est rangé sur votre fiche : il vous suit sur tous vos appareils, sans rien changer pour les autres. Si l'administrateur a **fixé** votre affichage, le bouton 🧭 vous le dit et vous ne pouvez pas en changer."],
+      ["p", "**Le mode clair ou sombre** (depuis le 12/11/2026). « 🧭 Affichage » demande d'abord ce que vous voulez régler : **« 🧭 Disposition »** (les trois affichages ci-dessus) ou **« 🌗 Couleurs »** : **☀️ Mode clair** (d'office — l'application habituelle, avec les couleurs réglées dans ⚙ Paramètres), **🌙 Mode sombre** (fonds foncés, textes clairs, plus doux le soir) ou **📱 Automatique** (il suit le réglage du téléphone ou du PC). Ce choix est le vôtre : il vous suit sur vos appareils, l'administrateur ne le fixe pas. Le bleu (réel) et le violet (formation) gardent leur sens, comme le vert, le rouge et l'ambre."],
+      ["note", "En mode sombre, **la page d'icônes, la colonne d'icônes et la fenêtre de verrou gardent leur fond**, et **les reçus, devis, proformas, contrats et autres documents restent toujours clairs** (à l'écran d'aperçu, à l'impression et en PDF). Les photos ne changent pas de couleur."],
       ["p", "**La barre d'onglets** : on **touche un onglet**, l'écran s'ouvre ; l'onglet ouvert est marqué, et la barre se place d'elle-même sur lui."],
       ["p", "**La page d'icônes** : chaque écran est une **icône**, avec son nom dessous et, s'il y a quelque chose à voir, un **chiffre rouge** (messages non lus, devis nouveaux, dépenses à valider…). On **touche une icône** : l'écran s'ouvre, avec son nom en haut. Sur ordinateur, les icônes sont regroupées au centre de l'écran ; sur téléphone, 5 par ligne, serrées pour que toutes tiennent sur un écran sans défiler. Elles sont posées sur un fond bleu nuit aux vagues claires (depuis le 08/11/2026, celui de l'image choisie par la direction), sauf si l'administrateur principal a choisi une **couleur de fond** (⚙ Paramètres → 🎨 Apparence, depuis le 08/11/2026) : la page d'icônes et la colonne d'icônes prennent alors cette couleur, pour tout le monde, et les noms s'écrivent en blanc sur une couleur sombre, en foncé sur une couleur claire."],
       ["p", "**Les dessins** (depuis le 08/11/2026) : chaque écran a **son dessin en couleur** (un chariot pour Ventes, une caisse enregistreuse pour Caisse, un camion pour Fournisseurs…), sans carré derrière, le même dans les trois affichages ; dans la barre d'onglets, il prend la place de l'emoji, à sa taille. Quelques écrans gardent leur emoji (✅ Tâches, 🚚 Ravitaillement, 🔁 Transfert, les primes…)."],
@@ -120,7 +122,7 @@ export const CHAPITRE = {
         ["Logo BMI / « ← Accueil »", "En haut à gauche / à côté du nom de l'écran", "Affichage « page d'icônes » : ramène aux icônes, depuis n'importe quel écran."],
         ["Une icône", "Page d'icônes", "Ouvre son écran. Appui long : la déplacer."],
         ["Un onglet", "Barre d'onglets", "Ouvre son écran. Appui long : le déplacer."],
-        ["« 🧭 Affichage »", "En haut", "Choisir entre la barre d'onglets, la page d'icônes et la colonne d'icônes (sauf si l'administrateur l'a fixé)."],
+        ["« 🧭 Affichage »", "En haut", "Choisir la disposition (barre d'onglets, page d'icônes, colonne d'icônes — sauf si l'administrateur l'a fixée) ou les couleurs (mode clair, sombre ou automatique)."],
         ["☰ (trois tirets)", "Téléphone, en haut à gauche (colonne d'icônes)", "Ouvre la colonne d'icônes ; un point rouge s'il y a quelque chose en attente. ✕ la replie."],
         ["« Se déconnecter »", "En haut (deuxième ligne), carte de verrouillage", "Ferme la session. Prévient s'il reste des opérations à envoyer."],
         ["« ⟳ Synchroniser »", "En haut (deuxième ligne)", "Redemande les données au serveur tout de suite, sans attendre."],
