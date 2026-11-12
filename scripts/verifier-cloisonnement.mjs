@@ -8176,7 +8176,7 @@ titre("☰ L'ordre des onglets, au choix de chacun — appui long et on déplace
     // 📌 Timo (10/11/2026) : « en affichage page d'icône ou colonne d'icône,
     // fixer le bandeau d'en haut… qu'il ne disparaisse pas au défilement ».
     test("★★ 📌 le bandeau d'en-tête unique reste en haut au défilement (sticky), sa hauteur MESURÉE ; le nom de l'écran et la colonne se collent juste dessous ; la barre d'onglets n'est pas touchée",
-      /<header ref=\{refEnTete\} data-en-tete-unique className="sticky top-0 z-30 /.test(appOo)
+      /<header ref=\{refEnTete\} data-en-tete-unique data-garder-clair className="sticky top-0 z-30 /.test(appOo)
       && /const mesurer = \(\) => setHautEnTete\(Math\.round\(el\.getBoundingClientRect\(\)\.height\)\);/.test(appOo) && /new ResizeObserver\(mesurer\)/.test(appOo)
       && /data-titre-ecran className="[^"]*sticky top-0 z-20[^"]*" style=\{enTeteUnique \? \{ top: hautEnTete \} : undefined\}/.test(appOo)
       && appOo.indexOf("const [hautEnTete") < appOo.indexOf("if (!db) return"));
@@ -18772,7 +18772,10 @@ titre("🌗 Le mode clair / sombre (Timo, 12/11/2026, « Aa, Ba, C clair, D lais
     /QUOI_COULEURS/.test(app) && /\{ \.\.\.u, theme: valeur \}/.test(app) && !/theme_impose/.test(app));
   test("★ « D » : la page d'icônes ne bascule pas (surLaPageIcones), la colonne et le verrou restent tels quels (data-garder-clair)",
     /themeAffiche === THEME_SOMBRE && !surLaPageIcones/.test(app)
-    && (app.match(/data-garder-clair/g) || []).length === 2
+    && (app.match(/data-garder-clair/g) || []).length === 5 // RETOURNÉ le 12/11/2026 : les bandeaux d'en-tête et la barre latérale gardent aussi leurs couleurs
+    && /data-en-tete-unique data-garder-clair className=/.test(app)
+    && /<header data-garder-clair className="lg:hidden bg-gradient-to-r/.test(app)
+    && /<aside data-garder-clair className="hidden lg:flex lg:flex-col w-64/.test(app)
     && /data-garder-clair className="fixed inset-0 z-\[10000\]/.test(readFileSync("src/components/EcranVerrou.jsx", "utf8"))
     && /data-garder-clair className="portail-impression/.test(readFileSync("src/components/ui.jsx", "utf8")));
   // Le crochet est AVANT le premier `return` anticipé (écran blanc sinon).

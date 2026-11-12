@@ -1933,7 +1933,7 @@ export default function App() {
           Synchroniser, Se déconnecter) est dans l'en-tête, pour tous. */}
       <div className={`min-w-0 min-h-screen flex flex-col${surAccueil && fondPageIcones.classe ? ` ${fondPageIcones.classe}` : ""}`}
         style={surAccueil ? fondPageIcones.style : undefined}>
-        <header ref={refEnTete} data-en-tete-unique className="sticky top-0 z-30 bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
+        <header ref={refEnTete} data-en-tete-unique data-garder-clair className="sticky top-0 z-30 bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
           <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {/* « B1 » : le logo ramène à la page d'icônes, depuis n'importe quel écran. */}
@@ -2047,7 +2047,7 @@ export default function App() {
       )}
       </>) : (<>
       {/* ══ Barre latérale professionnelle (grand écran) ══ */}
-      <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 text-white h-screen sticky top-0">
+      <aside data-garder-clair className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-gradient-to-b from-slate-950 via-sky-950 to-slate-900 text-white h-screen sticky top-0">
         <div className="px-4 py-4 flex items-center gap-3 border-b border-white/10">
           {/* ⚠ Version CLAIRE, posée directement sur le menu — plus de plaque
               blanche. Le logo est déjà sans fond ; c'était `bg-white` qui lui
@@ -2093,7 +2093,7 @@ export default function App() {
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* ══ En-tête compact (petit écran) ══ */}
-        <header className="lg:hidden bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
+        <header data-garder-clair className="lg:hidden bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
           <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <img src={LOGO_CLAIR} alt="BMI Togo" className="h-10 w-auto shrink-0" />
