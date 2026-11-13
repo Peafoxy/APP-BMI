@@ -1,5 +1,6 @@
 // ============================================================
-// lib/commissionsDues.js — LES COMMISSIONS DEVENUES DUES, À ANNONCER
+// lib/commissionsDues.js — LES COMMISSIONS DEVENUES DUES, PUIS PAYÉES, À ANNONCER
+// (💰 la commission PAYÉE, 13/11/2026 : voir en bas du fichier)
 // (Timo, 03/10/2026 : « pour une commission due » → « 2 due, commercial et
 // technicien, parrain et apporteur externe » ; « 3 oui » : le message part le
 // jour où l'administrateur principal ouvre l'application).
@@ -24,11 +25,11 @@
 // récente de : la vente, le dernier versement de sa dette, la réception de son
 // chantier.
 // ============================================================
-import { commissionBloquee, commissionPour, partParrainBloquee, posesAvecApporteur, detteDeVente, boutiquesFormation, venteSoldee, statutChantier, resteAPayer } from "./calculs";
+import { commissionBloquee, commissionPour, partParrainBloquee, posesAvecApporteur, detteDeVente, boutiquesFormation, venteSoldee, statutChantier, resteAPayer, estCompteFormation } from "./calculs";
 import { chantierDeFormation } from "./rappelEntretien";
-import { envoiCommissionDue } from "./whatsappModeles";
+import { envoiCommissionDue, envoiCommissionPayee, pourCommissionPayee } from "./whatsappModeles";
 import { memeNumero } from "./identiteClient";
-import { fmt } from "./core";
+import { fmt, dFR } from "./core";
 
 export const DEBUT_AVIS_COMMISSION = "2026-10-04";
 
@@ -156,4 +157,79 @@ export function marquerCommissionAvisee(db, ref, quand) {
     ventes: (db.ventes || []).map((v) => (v.id !== ref.id ? v
       : ref.qui === "apporteur" ? { ...v, apporteur: { ...v.apporteur, avise_le: quand } } : { ...v, [champ]: quand })),
   };
+}
+
+// ---------------------------------------------------------------
+// 💰 LA COMMISSION PAYÉE (Timo, 13/11/2026 : « lorsque c'est payé, l'apporteur
+// ou le commercial ne reçoit pas de nouveau message ? » — le commercial avait un
+// message dans l'application, l'apporteur externe et le parrain RIEN DU TOUT —
+// → « A a, B texte ok, lance » : tout le monde, le texte proposé).
+// ---------------------------------------------------------------
+// Les trois paiements de 👑 Mon équipe écrivent chacun UNE dépense
+// « Commissions » (`auto` : commission, commission_equipe, commission_ext) et
+// tamponnent ce qu'elle a payé (`commission_dep`, `override_dep`,
+// `apporteur.dep_id`). Le message se lit sur ELLE — écrit UNE fois : l'envoi
+// juste après le paiement ET le détail relu dans 📲 WhatsApp
+// (lib/lignesPrivees.js) y passent. Rend { tel, nom, envoi, apporteur,
+// formation } (envoi null sans numéro), ou null : pas un paiement de
+// commission, ou plus rien ne s'y rattache (un règlement annulé).
+// ⚠ LE MUR (`formation`) : la caisse qui a payé, une vente ou une pose payée, ou
+// le compte du bénéficiaire en formation → rien ne part. C'est l'espace de la
+// DONNÉE qui décide, jamais celui de la personne qui clique.
+export const AUTOS_COMMISSION_PAYEE = ["commission", "commission_equipe", "commission_ext"];
+export function envoiDeCommissionPayee(db, depense, { tel: telDuFil = "" } = {}) {
+  const dep = typeof depense === "string" ? (db.depenses || []).find((d) => d.id === depense) : depense;
+  if (!dep || !AUTOS_COMMISSION_PAYEE.includes(dep.auto)) return null;
+  const formationBq = boutiquesFormation(db);
+  const enFormation = (x) => !!x && (x.formation === true || formationBq.has(x.boutique));
+  // Le moyen tel que la dépense le range (`paiement`, posé par nouvelleDepense).
+  const commun = { montant: Number(dep.montant || 0), date: dep.date, moyen: dep.paiement, fmt, dFR };
+  if (dep.auto === "commission_ext") {
+    const ventes = (db.ventes || []).filter((v) => v.apporteur && v.apporteur.dep_id === dep.id);
+    const poses = (db.dettes || []).filter((d) => d.apporteur && d.apporteur.dep_id === dep.id);
+    const a = (ventes[0] || poses[0])?.apporteur;
+    if (!a || !a.nom) return null;
+    const tel = a.tel || telDuFil;
+    const clients = new Set([...ventes, ...poses].map((x) => String(x.client || "").trim().toLowerCase()).filter(Boolean)).size;
+    // Un parrain est un client : il a son espace. Un apporteur externe qui a un
+    // compte client sur ce numéro aussi (la même règle que la commission due).
+    const espace = !!a.parrain_user_id || contexte(db).aEspace(a.tel);
+    const envoi = envoiCommissionPayee({ ...commun, beneficiaire: a.nom, tel, espace, clients,
+      pour: pourCommissionPayee({ ventes: ventes.map((v) => v.client), poses: poses.map((d) => d.client) }) });
+    return { tel, nom: a.nom, envoi, apporteur: true,
+      formation: formationBq.has(dep.boutique) || ventes.some(enFormation) || poses.some(enFormation) };
+  }
+  const u = (db.users || []).find((x) => x.id === dep.user_id);
+  if (!u) return null;
+  const ventes = (db.ventes || []).filter((v) => (dep.auto === "commission" ? v.commission_dep : v.override_dep) === dep.id);
+  const tel = u.tel || telDuFil;
+  const envoi = envoiCommissionPayee({ ...commun, beneficiaire: u.nom_complet || u.nom, tel, espace: true,
+    pour: dep.auto === "commission_equipe" ? pourCommissionPayee({ equipe: true }) : pourCommissionPayee({ ventes: ventes.map((v) => v.client) }) });
+  return { tel, nom: u.nom, envoi, apporteur: false,
+    formation: formationBq.has(dep.boutique) || ventes.some(enFormation) || estCompteFormation(db, u) };
+}
+
+// L'envoi, juste APRÈS l'enregistrement du paiement : tout seul, sans question
+// et sans repli (comme la part d'installation payée — WhatsApp ne s'ouvre
+// jamais). `db` = l'état APRÈS le paiement (la dépense et ce qu'elle a
+// tamponné) ; `formation` = ce que l'écran sait en plus (l'espace regardé). La
+// ligne du fil est PRIVÉE (celui qui a payé et l'administrateur principal). Le
+// message interne de 💬 Messages, lui, ne change pas. Rend la phrase à ajouter à
+// la confirmation ("" si rien à dire : formation, rien à annoncer).
+export async function envoyerAvisCommissionPayee({ db, save, profile, depense, formation = false }) {
+  const e = envoiDeCommissionPayee(db, depense);
+  if (!e) return "";
+  const mur = !!formation || e.formation;
+  if (!e.envoi) {
+    if (mur) return "";
+    return e.apporteur
+      ? `📲 Aucun avis WhatsApp : aucun numéro n'est noté pour ${e.nom} sur ses ventes.`
+      : `📲 Aucun avis WhatsApp : la fiche de ${e.nom} n'a pas de numéro (👥 Utilisateurs → ⋯ Gérer → 📞 Téléphone).`;
+  }
+  const { envoyerRecuSansQuestion } = await import("../whatsapp.js");
+  return envoyerRecuSansQuestion({
+    envoi: e.envoi, tel: e.tel, nom: e.nom, espaceFormation: mur, save, profile,
+    ref: { depense_id: typeof depense === "string" ? depense : depense?.id },
+    noms: { titre: "Avis de paiement", sujet: "L'avis de paiement" },
+  });
 }

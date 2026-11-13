@@ -20,7 +20,11 @@
 // Rabais offert, 🤝 apporteur externe, parrain du client),
 // screens/Utilisateurs.jsx (💰 Commission, ⭐ Équipe, Nommer chef, 🤝 Parrain),
 // screens/Parametres.jsx (🤝 Taux de parrainage par défaut),
-// screens/EspaceClient.jsx (🤝 Parrainez vos proches), App.jsx (onglets).
+// screens/EspaceClient.jsx (🤝 Parrainez vos proches), App.jsx (onglets),
+// lib/commissionsDues.js (le message « commission due » ; et, depuis le
+// 13/11/2026, la commission PAYÉE : envoiDeCommissionPayee,
+// envoyerAvisCommissionPayee), lib/whatsappModeles.js (commission_due,
+// commission_payee), lib/lignesPrivees.js (le détail dans 📲 WhatsApp).
 // Les frais d'installation se répartissent au chapitre 15 ; l'apporteur
 // nommé dans un devis au chapitre 13 ; la retenue d'un outil perdu au 19.
 // ============================================================
@@ -102,19 +106,19 @@ export const CHAPITRE = {
         { titre: "Choisir la période", texte: "Ce mois, Cette année, ou Depuis le début : elle règle le **chiffre d'affaires**, le **nombre de ventes** et le **« déjà payé »**. La **commission due**, elle, montre **toujours tout ce qui reste à payer**, quelle que soit la date de la vente : une vente d'octobre devenue due en novembre apparaît sur « Ce mois ». Elle ne compte que les ventes **pas encore réglées** et **exigibles**." },
         { titre: "✓ Marquer payé", texte: "Sur la ligne du commercial. Choisir le **moyen de paiement** (la banque de sa fiche est rappelée), puis **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** demande aussi d'où il part — 🏦 BANQUE, et en réel 👤 Chez le DG ou 🧾 Chez le comptable. **C'est la seule question** : payée chez le DG, par la BANQUE ou chez le comptable, la dépense reste dans CETTE caisse — elle ne sort du tiroir d'aucune boutique et ne pèse sur le résultat d'aucune ; elle se lit dans 📤 Dépenses (cadres « 👤 Payées chez le DG » et « 🏦 Payées par la BANQUE », ou l'onglet 🧾 Chez le comptable) et dans le relevé de la caisse. En formation, un virement part de la BANQUE et demande à quelle boutique compter la charge." },
         { titre: "Lire la confirmation", texte: "Montant, nombre de ventes, taux ; et ce qui **n'est pas** payé aujourd'hui (⏳ réception, 💰 client qui doit encore). **Action définitive** pour ces ventes." },
-        { titre: "Ce qui s'écrit", texte: "Une dépense **« Commissions »** dans la caisse choisie ; le montant exact est inscrit sur chaque vente ; le commercial reçoit un message ; le vendeur (ou le comptable) de la caisse est prévenu." },
+        { titre: "Ce qui s'écrit", texte: "Une dépense **« Commissions »** dans la caisse choisie ; le montant exact est inscrit sur chaque vente ; le commercial reçoit un message dans 💬 Messages **et un WhatsApp du numéro BMI** (« commission payée », plus bas) ; le vendeur (ou le comptable) de la caisse est prévenu." },
       ]],
       ["attention", "**Seules les ventes exigibles sont marquées payées.** Une vente gelée reste en attente : le jour de la réception, sa commission revient d'elle-même dans « Commission due ». Si un paiement a été fait par erreur, **↩ Annuler paiement** (administrateur) remet les ventes « à payer » et retire la dépense — **depuis la même période** que celle du paiement, sinon l'application refuse (« Depuis le début » pour tout annuler)."],
       ["h3", "D. Le chef d'équipe ⭐"],
       ["etapes", [
         { titre: "Devenir chef", texte: "**Automatiquement à 5 recrues** (commerciaux ou techniciens dont il est le parrain — 👥 Utilisateurs → 🤝 Parrain), ou **nommé** par l'administrateur (« Nommer chef »). Un technicien BMI peut être nommé chef." },
         { titre: "Sa part", texte: "Un pourcentage de la commission de chaque recrue (**10 %** d'office, « ⭐ Équipe … % »). Même règle de gel : rien tant que la vente de la recrue est gelée." },
-        { titre: "✓ Payer (cadre ⭐ Chefs d'équipe)", texte: "Moyen, « D'où sort l'argent ? », confirmation : une dépense « Commissions » (commission d'équipe), un message au chef." },
+        { titre: "✓ Payer (cadre ⭐ Chefs d'équipe)", texte: "Moyen, « D'où sort l'argent ? », confirmation : une dépense « Commissions » (commission d'équipe), un message au chef dans 💬 Messages et un WhatsApp du numéro BMI." },
       ]],
       ["h3", "E. L'apporteur externe 🤝"],
       ["etapes", [
         { titre: "Il se déclare sur la vente ou dans le devis", texte: "Nom, téléphone, **3 %** grisé (chapitres 5 et 13). Il n'a **pas de compte** : il n'existe que sur ses ventes." },
-        { titre: "✓ Payer (cadre 🤝 Apporteurs externes)", texte: "**Aucune question sur le moyen** : il est payé **par le moyen avec lequel le client a payé** (« 💳 Mobile Money (Flooz) — comme le client a payé »). La confirmation le nomme. Puis « D'où sort l'argent ? », comme pour les autres paiements." },
+        { titre: "✓ Payer (cadre 🤝 Apporteurs externes)", texte: "**Aucune question sur le moyen** : il est payé **par le moyen avec lequel le client a payé** (« 💳 Mobile Money (Flooz) — comme le client a payé »). La confirmation le nomme. Puis « D'où sort l'argent ? », comme pour les autres paiements. Il n'a pas de compte, donc pas de 💬 Messages : c'est **le WhatsApp du numéro BMI** qui lui dit qu'il a été payé (plus bas), avec le numéro noté sur ses ventes." },
         { titre: "✏️ Moyen", texte: "Pour le payer autrement : on choisit une fois, c'est retenu (« choisi »)." },
         { titre: "🎖 Promouvoir commercial (administrateur)", texte: "À partir de **5 clients apportés** (« 🎖 Éligible commercial ») : un compte commercial est créé, avec identifiant, mot de passe provisoire et taux." },
       ]],
@@ -122,7 +126,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Le client parraine", texte: "🏠 Mon espace → **🤝 Parrainez vos proches** : nom et numéro du proche ; un compte est créé pour lui, et WhatsApp s'ouvre pour le prévenir." },
         { titre: "Le filleul achète une installation", texte: "À l'encaissement du devis, le parrain est posé comme **apporteur** de la vente, à son taux (3 % d'office)." },
-        { titre: "Il voit ses gains", texte: "« À vous verser », « En attente », « Déjà reçu » dans son espace. Il est payé comme un apporteur externe, depuis 👑 Équipe." },
+        { titre: "Il voit ses gains", texte: "« À vous verser », « En attente », « Déjà reçu » dans son espace. Il est payé comme un apporteur externe, depuis 👑 Équipe, et reçoit le même WhatsApp « commission payée », qui le renvoie à son espace." },
       ]],
       ["h3", "Le message « commission due »"],
       ["etapes", [
@@ -130,6 +134,13 @@ export const CHAPITRE = {
         { titre: "Ce qu'il dit", texte: "Le montant et le client. Un employé ou un parrain qui a un compte est renvoyé à son espace ; **un apporteur externe est invité à passer à la boutique de la vente**, avec son numéro." },
         { titre: "Le technicien, pour sa part des frais d'installation", texte: "Une fois la répartition faite (🏠 Clients installés → 🔧 Frais), le chantier **réceptionné** et le client **soldé**, chaque technicien de l'équipe dont la part n'est pas encore payée reçoit le même message avec **sa part** et le nom du client. Une part de 0 F n'envoie rien ; refaire la répartition sans changer sa part ne le renvoie pas." },
         { titre: "Il ne promet pas le paiement du jour", texte: "« Elle vous sera réglée prochainement » : le paiement reste le geste ✓ Payer ci-dessus. Une commission annoncée ne l'est jamais deux fois ; en formation, rien ne part." },
+      ]],
+      ["h3", "Le message « commission payée »"],
+      ["etapes", [
+        { titre: "Il part tout seul, juste après le paiement", texte: "Dès que ✓ Marquer payé ou ✓ Payer est confirmé, le message « Commission BMI TOGO » part **du numéro WhatsApp BMI**, **sans question**, au commercial ou au technicien, au chef d'équipe, à l'apporteur externe ou au parrain — vers le numéro de sa fiche (pour un employé) ou celui noté sur ses ventes (apporteur, parrain). La confirmation du paiement dit « 📲 Avis de paiement envoyé du numéro BMI à … »." },
+        { titre: "Ce qu'il dit", texte: "Le montant, **pour quoi** (« pour la vente de MR ERIC », « pour 3 ventes », « d'équipe sur vos recrues » pour un chef, « pour le chantier de … » pour une pose seule), la date et le moyen (« en espèces », « par Mobile Money (Flooz) », « par virement bancaire »). Qui a un compte (employé, parrain) est renvoyé à **son espace** ; un apporteur externe est **remercié** de nous avoir recommandé ce client (ou ces clients)." },
+        { titre: "Quand il ne part pas", texte: "Sans numéro, rien ne part et la confirmation le dit ; le numéro d'un employé se saisit dans 👥 Utilisateurs → ⋯ Gérer → 📞 Téléphone. **En formation, rien ne part.** Tant que Meta n'a pas approuvé le modèle, rien ne part non plus, et la confirmation le dit. Le message dans 💬 Messages, lui, part comme avant." },
+        { titre: "Dans 📲 WhatsApp", texte: "La ligne est **privée** : seuls celui qui a payé et l'administrateur principal lisent le montant ; les autres lisent « 🔒 Avis de commission payée envoyé ». Un paiement annulé (↩ Annuler paiement) laisse la ligne sans détail." },
       ]],
       ["h3", "G. Les primes d'installation"],
       ["etapes", [
@@ -146,11 +157,11 @@ export const CHAPITRE = {
     { titre: "Boutons et fonctions", blocs: [
       ["table", { entetes: ["Bouton", "Où", "Ce qu'il fait"], largeurs: [2800, 2300, 4200], lignes: [
         ["Ce mois / Cette année / Depuis le début", "👑 Équipe, 💵 Ma commission", "Choisit la période du chiffre d'affaires, des ventes et du « déjà payé ». La commission à payer montre toujours tout ce qui reste dû."],
-        ["✓ Marquer payé", "👑 Équipe → Performances", "Paie la commission due d'un commercial ; dépense « Commissions »."],
+        ["✓ Marquer payé", "👑 Équipe → Performances", "Paie la commission due d'un commercial ; dépense « Commissions » ; le WhatsApp « commission payée » part tout seul."],
         ["↩ Annuler paiement", "👑 Équipe → Performances", "Remet les ventes réglées de la période « à payer » et retire la dépense (administrateur)."],
         ["✅ / 🗂 (boutons ronds)", "👑 Équipe → Performances", "Assigne une tâche ; montre les tâches d'un membre. À l'assignation puis à la validation, le membre reçoit un WhatsApp du numéro BMI (« tache_assignee », « tache_validee ») ; rouvrir une tâche n'envoie rien. Sans numéro sur sa fiche, l'écran le dit."],
-        ["✓ Payer", "⭐ Chefs d'équipe", "Paie la commission d'équipe d'un chef."],
-        ["✓ Payer", "🤝 Apporteurs externes", "Paie l'apporteur par le moyen du client (ou son moyen choisi)."],
+        ["✓ Payer", "⭐ Chefs d'équipe", "Paie la commission d'équipe d'un chef ; le WhatsApp « commission payée » part tout seul."],
+        ["✓ Payer", "🤝 Apporteurs externes", "Paie l'apporteur par le moyen du client (ou son moyen choisi) ; le WhatsApp « commission payée » part tout seul."],
         ["✏️ Moyen", "🤝 Apporteurs externes", "Change le moyen de paiement d'un apporteur ; retenu ensuite."],
         ["🎖 Promouvoir commercial", "🤝 Apporteurs externes", "Crée un compte commercial à un apporteur de 5 clients ou plus."],
         ["📄 Exporter les commissions", "🎯 Commerciaux", "Exporte le classement de la période (CSV)."],
@@ -167,7 +178,7 @@ export const CHAPITRE = {
         "**À la réception** d'un chantier (PV signé, forcé, ou automatique à 7 jours), la commission du commercial et la part du parrain ou de l'apporteur sont **débloquées**. Le parrain reçoit un message : « maintenant due » si son filleul a fini de payer, sinon « deviendra due dès que votre filleul aura fini de payer ».",
         "**Au solde de la dette**, la commission gelée « 💰 » passe d'elle-même dans « Commission due ».",
         "**Un rattrapage**, à l'ouverture de l'application par un compte de BMI, débloque les chantiers déjà réceptionnés dont la vente était restée gelée. C'est lui qui débloque un PV **signé par le client** (dans son espace ou sur bmitogo.com) : l'appareil d'un client ne touche jamais une vente.",
-        "**Chaque paiement** crée une dépense (« Commissions », « Prime d'installation »), prévient le bénéficiaire et le vendeur ou le comptable de la caisse qui paie.",
+        "**Chaque paiement** crée une dépense (« Commissions », « Prime d'installation »), prévient le bénéficiaire et le vendeur ou le comptable de la caisse qui paie. Le bénéficiaire reçoit aussi **un WhatsApp du numéro BMI** (commission payée, ou part d'installation payée) — en réel seulement.",
         "**Un paiement relit la base** juste avant d'écrire : si quelqu'un a payé la même chose sur un autre appareil, rien n'est enregistré.",
         "**Le montant versé est inscrit sur la vente** : changer un taux plus tard ne change pas ce qui a déjà été payé.",
       ]],
@@ -194,6 +205,7 @@ export const CHAPITRE = {
         "Avant de payer, lire les lignes ⏳ et 💰 : elles ne sont pas payées aujourd'hui.",
         "La **caisse débitée** est la bonne, et elle contient l'argent.",
         "Le moyen de l'apporteur externe convient (sinon ✏️ Moyen).",
+        "Après le paiement, la confirmation dit « 📲 Avis de paiement envoyé » ; sinon, elle dit pourquoi (souvent : pas de numéro).",
         "Une prime d'installation est demandée à la bonne boutique.",
       ]],
     ]},
@@ -216,7 +228,7 @@ export const CHAPITRE = {
         { situation: "KOFFI (taux 5 %) vend 1 000 000 F d'articles au comptoir, comptant, et offre 10 000 F de rabais au client.", reponse: "Le client paie 990 000 F. Commission : 1 000 000 × 5 % = 50 000 F, moins les 10 000 F de rabais = **40 000 F**, due tout de suite." },
         { situation: "La même vente est née d'un devis d'installation, et le client a payé 300 000 F.", reponse: "Gelée : « ⏳ à la réception ». Après le PV, toujours gelée : « 💰 — client doit 690 000 F ». Due le jour où la dette est soldée." },
         { situation: "KOFFI a été recruté par AMA, chef d'équipe à 10 %.", reponse: "AMA touche 10 % des 40 000 F = **4 000 F**, dans le cadre ⭐ Chefs d'équipe, aux mêmes conditions de gel." },
-        { situation: "Un apporteur externe amène une vente comptant de 600 000 F payée par Flooz.", reponse: "3 % = **18 000 F**, payés par Flooz sans question (✏️ Moyen pour changer)." },
+        { situation: "Un apporteur externe amène une vente comptant de 600 000 F payée par Flooz.", reponse: "3 % = **18 000 F**, payés par Flooz sans question (✏️ Moyen pour changer). Il reçoit tout seul le WhatsApp : « Votre commission de 18 000 F pour la vente de … vous a été payée le … (par Mobile Money (Flooz)). Merci de nous avoir recommandé ce client. »" },
         { situation: "Le technicien KOSSI a une part de 26 532 F et doit 10 000 F pour un outil perdu.", reponse: "Au paiement dans 💰 Primes remises, la retenue est annoncée : il reçoit **16 532 F**, la caisse sort 16 532 F." },
         { situation: "Un commercial dit : « ma commission est en attente de réception, mais le client a signé le PV hier ».", reponse: "Regarder 💵 Ma commission : si le cadre dit « 💰 en attente du paiement du client », c'est la dette qui n'est pas soldée." },
         { situation: "Une vente du 30 octobre, avec un apporteur externe, est réceptionnée le 12 novembre ; l'apporteur reçoit « votre commission est due ».", reponse: "👑 Équipe, sur **« Ce mois »** : il a sa ligne avec sa commission à payer, même si sa vente est d'octobre (0 vente et 0 F de CA apporté ce mois-ci). La commission due ne dépend jamais de la période." },
@@ -257,6 +269,7 @@ export const CHAPITRE = {
         "Qui paie une prime d'installation demandée à une boutique ?",
         "Que fait ↩ Annuler paiement, et pourquoi faut-il la même période ?",
         "Que voit un client parrain dans son espace ?",
+        "Qui reçoit un WhatsApp quand une commission est payée, et quand rien ne part ?",
       ]],
     ]},
   ],
@@ -270,7 +283,7 @@ export const CHAPITRE = {
       "Choisit la bonne caisse et le bon moyen",
       "Sait où se règle le taux qui paie",
       "Fait payer et suit une prime d'installation",
-      "Répond juste aux huit questions de la rubrique 12",
+      "Répond juste aux neuf questions de la rubrique 12",
     ],
   },
 };

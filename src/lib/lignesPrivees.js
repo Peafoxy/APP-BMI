@@ -22,7 +22,7 @@ import { fmt, dFR, numeroBulletin, numeroDuRecuDeVente } from "./core";
 import { envoisRecuDeVente } from "./recuDeVente";
 import { bonsRepriseDeVente, bonRetour, retoursDeVente } from "./bons";
 import { libelleMoisFR } from "./calculs";
-import { envoiDeCommission } from "./commissionsDues";
+import { envoiDeCommission, envoiDeCommissionPayee } from "./commissionsDues";
 
 // Les deux reçus d'une vente : la fabrique vit dans lib/recuDeVente.js depuis
 // le 19/10/2026 (le serveur la relit pour relayer un `recu_pdf` refusé).
@@ -84,12 +84,21 @@ export function texteLignePrivee(m, db) {
     if (!c || !e || !e.paye) return "";
     const dep = e.dep_id ? (db?.depenses || []).find((d) => d.id === e.dep_id) : null;
     const net = dep ? Number(dep.montant || 0) : 0;
-    const x = envoiPrimeInstallationPayee({ employe: u?.nom_complet || u?.nom || e.nom, tel: m.wa_numero || u?.tel || "0", client: [c.nom, c.prenom].filter(Boolean).join(" "), date: e.date_paiement, montant: net, moyen: dep?.moyen, retenue: Math.max(0, Number(e.montant || 0) - net), fmt, dFR });
+    // ⚠ 13/11/2026 : le moyen se lit dans `paiement` — une dépense ne porte pas
+    // de `moyen` (nouvelleDepense le range sous `paiement`). Le détail disait
+    // donc toujours « en espèces », même pour une part payée par Flooz.
+    const x = envoiPrimeInstallationPayee({ employe: u?.nom_complet || u?.nom || e.nom, tel: m.wa_numero || u?.tel || "0", client: [c.nom, c.prenom].filter(Boolean).join(" "), date: e.date_paiement, montant: net, moyen: dep?.paiement, retenue: Math.max(0, Number(e.montant || 0) - net), fmt, dFR });
     return x ? ligneEnvoiModele(x.modele, x.variables) : "";
   }
   // 💰 L'avis de commission due : recomposé depuis la vente ou la dette de pose.
   if (m.wa_modele === "commission_due") {
     const e = envoiDeCommission(db || {}, m.commission_ref)?.envoi;
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // 💰 L'avis de commission PAYÉE (13/11/2026) : recomposé depuis la dépense du
+  // paiement et ce qu'elle a payé — la même fabrique que l'envoi.
+  if (m.wa_modele === "commission_payee") {
+    const e = envoiDeCommissionPayee(db || {}, m.depense_id, { tel: m.wa_numero })?.envoi;
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   // 🧾 L'avis de décision du DG sur une dépense : recomposé depuis la dépense.

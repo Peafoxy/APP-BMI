@@ -117,6 +117,8 @@ const ATTENDU = {
   rappel_confirmation_salaire: { categorie: "utility", n: 5 },
   // 03/10/2026 : la commission devenue due (texte de Timo).
   commission_due: { categorie: "utility", n: 4 },
+  // 13/11/2026 (« A a, B texte ok ») : la commission PAYÉE, juste après « ✓ Payer ».
+  commission_payee: { categorie: "utility", n: 6 },
   avancement_employe: { categorie: "utility", n: 5 },
   anniversaire_employe: { categorie: "marketing", n: 1 },
   rappel_anniversaire: { categorie: "utility", n: 2 },
@@ -160,7 +162,7 @@ const ATTENDU = {
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les soixante et un modèles sont là, et eux seuls (RETOURNÉ le 10/11/2026 : + `dotation_caisse` et `dotation_caisse_recue`, la dotation de caisse ; le 31/10/2026 : + `rappel_loyer_disponible`, le rappel au propriétaire ; + `rappel_confirmation_salaire`, la relance d'un salaire pas confirmé reçu ; le 29/10/2026 : + `remise_apres_vente`, la remise accordée après l'encaissement ; le 22/10/2026 : + `fonds_remis`, l'argent remis directement à quelqu'un ; le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les soixante-deux modèles sont là, et eux seuls (RETOURNÉ le 13/11/2026 : + `commission_payee`, la commission payée ; le 10/11/2026 : + `dotation_caisse` et `dotation_caisse_recue`, la dotation de caisse ; le 31/10/2026 : + `rappel_loyer_disponible`, le rappel au propriétaire ; + `rappel_confirmation_salaire`, la relance d'un salaire pas confirmé reçu ; le 29/10/2026 : + `remise_apres_vente`, la remise accordée après l'encaissement ; le 22/10/2026 : + `fonds_remis`, l'argent remis directement à quelqu'un ; le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1423,8 +1425,8 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 (nuit) : treize — les deux bons.
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
-  test("★ les modèles à ligne (RETOURNÉ le 10/11/2026 : + les deux avis de la dotation de caisse ; le 31/10/2026 : + le rappel du loyer disponible ; + la relance de confirmation d'un salaire ; le 29/10/2026 : + la remise après-vente ; le 22/10/2026 : + l'argent remis directement ; le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,demande_avis,depense_rejetee4,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,dotation_caisse,dotation_caisse_recue,fonds_remis,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,proforma_pdf,rappel_confirmation_salaire,rappel_dette,rappel_echeance,rappel_entretien,rappel_loyer_disponible,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,remise_apres_vente,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+  test("★ les modèles à ligne (RETOURNÉ le 13/11/2026 : + l'avis de commission payée ; le 10/11/2026 : + les deux avis de la dotation de caisse ; le 31/10/2026 : + le rappel du loyer disponible ; + la relance de confirmation d'un salaire ; le 29/10/2026 : + la remise après-vente ; le 22/10/2026 : + l'argent remis directement ; le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,commission_payee,demande_avis,depense_rejetee4,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,dotation_caisse,dotation_caisse_recue,fonds_remis,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,proforma_pdf,rappel_confirmation_salaire,rappel_dette,rappel_echeance,rappel_entretien,rappel_loyer_disponible,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,remise_apres_vente,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3275,8 +3277,8 @@ test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni
   && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
   && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
 // RETOURNÉ le 03/10/2026 : + l'avis de salaire (un salaire ne se lit pas par les collègues).
-test("★ les dix-huit modèles privés (RETOURNÉ le 31/10/2026 : + la relance de confirmation d'un salaire ; le 29/10/2026 : + la remise après-vente ; le 22/10/2026 : + l'argent remis directement à quelqu'un ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement, la remise après-vente — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
-  M.MODELES_PRIVES.slice().sort().join(",") === "attestation_disponible,avancement_employe,bon_reprise,bon_retour,commission_due,depense_rejetee4,depense_validee,fonds_remis,prime_installation_payee,rappel_confirmation_salaire,recu_depot_chantier,recu_vente,recu_vente_detail,remise_apres_vente,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+test("★ les dix-neuf modèles privés (RETOURNÉ le 13/11/2026 : + la commission payée ; le 31/10/2026 : + la relance de confirmation d'un salaire ; le 29/10/2026 : + la remise après-vente ; le 22/10/2026 : + l'argent remis directement à quelqu'un ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement, la remise après-vente — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "attestation_disponible,avancement_employe,bon_reprise,bon_retour,commission_due,commission_payee,depense_rejetee4,depense_validee,fonds_remis,prime_installation_payee,rappel_confirmation_salaire,recu_depot_chantier,recu_vente,recu_vente_detail,remise_apres_vente,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
 {
   // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE (Timo, 03/10/2026, son texte).
   const eS = M.envoiVirementSalaire({ employe: "AKPOSSOGNA Kossiwa", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-202610-ROBS", initiateur: { role: "Comptable", tel: "91123456" }, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
@@ -7566,6 +7568,151 @@ titre("82 🚫 PERSONNE N'ÉCRIT DE SON PROPRE NUMÉRO, SAUF L'ADMINISTRATEUR (0
     /if \(!lienMediaPermis\(media\.lien\)\)[\s\S]*?fetch\(media\.lien, \{ headers: \{ "X-API-Key"/.test(code)
     && /const lu = await lireAvecLimite\(reponse\)/.test(code) && !/arrayBuffer\(\)\);\s*if \(paquet\.length > TAILLE_MAX/.test(code));
   try { rmSync(dossier, { recursive: true, force: true }); } catch {}
+}
+// ── 84 · 💰 La commission PAYÉE s'annonce du numéro BMI (13/11/2026, « A a, B texte ok, lance ») ──
+// Timo : « lorsque c'est payé, l'apporteur ou le commercial ne reçoit pas de
+// nouveau message ? » — le commercial avait un message dans l'application,
+// l'apporteur externe et le parrain RIEN. Désormais tout le monde (« A a »),
+// tout seul, juste après « ✓ Payer », par LA règle lue sur la dépense du paiement.
+{
+  console.log("\n84 · 💰 La commission payée : l'avis WhatsApp du numéro BMI à tous (commercial, chef d'équipe, apporteur externe, parrain)");
+  const f84 = (n) => `${n} F`;
+  test("★★ `commission_payee` : UTILITY, six trous DANS L'ORDRE (bénéficiaire, montant, pour quoi, date, moyen, suite), en service, PRIVÉ, avec sa ligne dans le fil — la ligne rangée ne porte aucun chiffre",
+    M.MODELES.commission_payee?.variables.join(",") === "beneficiaire,montant,pour,date,moyen,suite" && M.MODELES.commission_payee.categorie === "utility"
+    && M.MODELES_EN_SERVICE.includes("commission_payee") && M.lignePrivee("commission_payee") && M.MODELES_AVEC_LIGNE.includes("commission_payee")
+    && /^🔒 Avis de commission payée envoyé/.test(M.ligneMasquee("commission_payee")) && !/\d/.test(M.ligneMasquee("commission_payee")));
+  const ePay = M.envoiCommissionPayee({ beneficiaire: "CLAUDE", tel: "90333333", montant: 45405, pour: "pour la vente de TSEVIE CLIEN", date: "2026-11-13", moyen: "Espèces", espace: false, clients: 1, fmt: f84, dFR });
+  const textePay = ePay ? ePay.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), M.TEXTE_COMMISSION_PAYEE) : "";
+  test("★★ le texte accepté par Timo, mot pour mot, trous remplis — CLAUDE, apporteur externe : le merci, jamais « votre espace »",
+    textePay === "Bonjour CLAUDE,\n\nCommission BMI TOGO\n\nVotre commission de 45405 F pour la vente de TSEVIE CLIEN vous a été payée le 13/11/2026 (en espèces).\nMerci de nous avoir recommandé ce client.\n\nBMI TOGO — E-mail : contact@bmitogo.com\nTel: +228 99 96 84 88 / +228 91 13 05 11", textePay);
+  test("★ sans numéro rien, sans montant rien ; deux clients : « ces clients » ; qui a un compte lit la suite de SON espace ; le moyen dit « par Mobile Money (Flooz) »",
+    M.envoiCommissionPayee({ beneficiaire: "X", tel: "", montant: 1000 }) === null
+    && M.envoiCommissionPayee({ beneficiaire: "X", tel: "90112233", montant: 0 }) === null
+    && M.envoiCommissionPayee({ beneficiaire: "X", tel: "90112233", montant: 1000, clients: 2 }).variables[5] === "Merci de nous avoir recommandé ces clients."
+    && M.envoiCommissionPayee({ beneficiaire: "X", tel: "90112233", montant: 1000, espace: true }).variables[5] === M.SUITE_ESPACE
+    && M.envoiCommissionPayee({ beneficiaire: "X", tel: "90112233", montant: 1000, moyen: "Mobile Money (Flooz)" }).variables[4] === "par Mobile Money (Flooz)");
+  test("★ le trou 3 : une vente nommée, un chantier nommé, un client non renseigné compté, plusieurs comptées, la part d'un chef « d'équipe sur vos recrues »",
+    M.pourCommissionPayee({ ventes: ["MR ERIC"] }) === "pour la vente de MR ERIC"
+    && M.pourCommissionPayee({ poses: ["POUDAMA"] }) === "pour le chantier de POUDAMA"
+    && M.pourCommissionPayee({ ventes: ["Client non renseigné"] }) === "pour 1 vente"
+    && M.pourCommissionPayee({ ventes: ["A", "B", "C"] }) === "pour 3 ventes"
+    && M.pourCommissionPayee({ ventes: ["A", "B"], poses: ["C"] }) === "pour 2 ventes et 1 chantier"
+    && M.pourCommissionPayee({ equipe: true }) === "d'équipe sur vos recrues");
+
+  // ── La VRAIE règle et la VRAIE chaîne d'envoi, le serveur joué.
+  const dossier84 = mkdtempSync(join(tmpdir(), "bmi-compayee-"));
+  const faux84 = join(dossier84, "fauxClient.mjs");
+  writeFileSync(faux84, "export async function whatsappEnLigne(c) { (globalThis.__appels84 = globalThis.__appels84 || []).push(c); return { id: \"Y84\", wamid: \"W84\" }; }");
+  const entree84 = join(dossier84, "entree.mjs");
+  writeFileSync(entree84, `export * from ${JSON.stringify(join(process.cwd(), "src/lib/commissionsDues.js"))};\nexport { texteLignePrivee } from ${JSON.stringify(join(process.cwd(), "src/lib/lignesPrivees.js"))};\n`);
+  // ⚠ Le paquet s'écrit DANS le projet : `react` (laissé dehors) doit se retrouver.
+  const sortie84 = join("node_modules", ".cache", `bmi-compayee-${process.pid}.mjs`);
+  let CD84 = null;
+  try {
+    await build({ entryPoints: [entree84], bundle: true, format: "esm", platform: "node", outfile: sortie84, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"],
+      plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: faux84 })); } }] });
+    CD84 = await import(pathToFileURL(sortie84).href);
+  } catch (e) { console.log("   (build de commissionsDues.js : " + (e?.message || e) + ")"); }
+  const J = "2026-11-13";
+  const db84 = {
+    boutiques: [{ nom: "BMI DEMAKPOE", tel: "91000000" }, { nom: "DFORMATION", formation: true }],
+    users: [
+      { id: "TIMO", nom: "TIMO", role: "admin", tel: "91130511" },
+      { id: "k", nom: "KOSSI", nom_complet: "KOSSI Mensah", role: "commercial", taux_commission: 5, tel: "90111111" },
+      { id: "ch", nom: "ALI", role: "commercial", tel: "90121212" },
+      { id: "sans", nom: "SANSNUM", role: "commercial", tel: "" },
+      { id: "fo", nom: "FORMA", role: "commercial", tel: "90131313", boutique: "DFORMATION" },
+      { id: "c", nom: "AYOKO", role: "client", tel: "90222222" },
+    ],
+    ventes: [
+      { id: "v1", boutique: "BMI DEMAKPOE", client: "MR ERIC", commercial: "KOSSI", commission_payee: true, commission_dep: "D1" },
+      { id: "v2", boutique: "BMI DEMAKPOE", client: "MME A", commercial: "KOSSI", commission_payee: true, commission_dep: "D1", override_payee: true, override_dep: "D2" },
+      { id: "v3", boutique: "BMI DEMAKPOE", client: "TSEVIE CLIEN", apporteur: { nom: "CLAUDE", tel: "90333333", montant: 45405, payee: true, dep_id: "D3" } },
+      { id: "v4", boutique: "BMI DEMAKPOE", client: "KOFFIVI", apporteur: { nom: "AYOKO", tel: "90222222", montant: 10000, payee: true, dep_id: "D4", parrain_user_id: "c" } },
+      { id: "v5", boutique: "DFORMATION", client: "ELEVE", apporteur: { nom: "CLAUDE", tel: "90333333", montant: 5000, payee: true, dep_id: "D5" } },
+    ],
+    dettes: [{ id: "dp", pose_seule: true, boutique: "TERRAIN", client: "POUDAMA", montant: 300000, paye: 300000, apporteur: { nom: "CLAUDE", tel: "90333333", montant: 9000, payee: true, dep_id: "D6" } }],
+    depenses: [
+      { id: "D1", date: J, boutique: "BMI DEMAKPOE", categorie: "Commissions", montant: 25000, paiement: "Mobile Money (Flooz)", auto: "commission", user_id: "k" },
+      { id: "D2", date: J, boutique: "BMI DEMAKPOE", categorie: "Commissions", montant: 1200, paiement: "Espèces", auto: "commission_equipe", user_id: "ch" },
+      { id: "D3", date: J, boutique: "BMI DEMAKPOE", categorie: "Commissions", montant: 45405, paiement: "Espèces", auto: "commission_ext" },
+      { id: "D4", date: J, boutique: "BMI DEMAKPOE", categorie: "Commissions", montant: 10000, paiement: "Virement bancaire", auto: "commission_ext" },
+      { id: "D5", date: J, boutique: "DFORMATION", categorie: "Commissions", montant: 5000, paiement: "Espèces", auto: "commission_ext" },
+      { id: "D6", date: J, boutique: "BMI DEMAKPOE", categorie: "Commissions", montant: 9000, paiement: "Espèces", auto: "commission_ext" },
+      { id: "D7", date: J, boutique: "BMI DEMAKPOE", categorie: "Commissions", montant: 3000, paiement: "Espèces", auto: "commission", user_id: "sans" },
+      { id: "D8", date: J, boutique: "BMI DEMAKPOE", categorie: "Commissions", montant: 3000, paiement: "Espèces", auto: "commission", user_id: "fo" },
+      { id: "D9", date: J, boutique: "BMI DEMAKPOE", categorie: "Salaires", montant: 60000, paiement: "Espèces", auto: "salaire", user_id: "k" },
+    ],
+    messages: [],
+  };
+  const esp = (s) => String(s || "").replace(/[  ]/g, " ");
+  const vars = (id) => esp(CD84?.envoiDeCommissionPayee(db84, id)?.envoi?.variables.join("|"));
+  if (CD84) {
+    test("★★★ commercial : SON nom complet, le montant de la dépense, « pour 2 ventes », le moyen RANGÉ sur la dépense (Flooz), la suite de son espace",
+      vars("D1") === `KOSSI Mensah|25 000 F|pour 2 ventes|13/11/2026|par Mobile Money (Flooz)|${M.SUITE_ESPACE}`, vars("D1"));
+    test("★★★ chef d'équipe : « d'équipe sur vos recrues », la suite de son espace",
+      vars("D2") === `ALI|1 200 F|d'équipe sur vos recrues|13/11/2026|en espèces|${M.SUITE_ESPACE}`, vars("D2"));
+    test("★★★ apporteur externe (CLAUDE, la capture de Timo) : la vente nommée, le MERCI — il n'a pas d'espace",
+      vars("D3") === "CLAUDE|45 405 F|pour la vente de TSEVIE CLIEN|13/11/2026|en espèces|Merci de nous avoir recommandé ce client.", vars("D3"));
+    test("★★★ parrain (un client qui a son compte) : la suite de SON espace ; un virement se dit « par virement bancaire »",
+      vars("D4") === `AYOKO|10 000 F|pour la vente de KOFFIVI|13/11/2026|par virement bancaire|${M.SUITE_ESPACE}`, vars("D4"));
+    test("★★ l'apporteur d'une pose seule : « pour le chantier de POUDAMA »",
+      vars("D6") === "CLAUDE|9 000 F|pour le chantier de POUDAMA|13/11/2026|en espèces|Merci de nous avoir recommandé ce client.", vars("D6"));
+    test("★★★ LE MUR : une caisse ou une vente de formation, un compte de formation → `formation` ; le réel ne l'est jamais",
+      CD84.envoiDeCommissionPayee(db84, "D5")?.formation === true && CD84.envoiDeCommissionPayee(db84, "D8")?.formation === true
+      && ["D1", "D2", "D3", "D4", "D6"].every((id) => CD84.envoiDeCommissionPayee(db84, id)?.formation === false));
+    test("★★ une dépense qui n'est pas une commission, ou inconnue → rien ; un bénéficiaire sans numéro → pas de message (envoi vide)",
+      CD84.envoiDeCommissionPayee(db84, "D9") === null && CD84.envoiDeCommissionPayee(db84, "ZZ") === null
+      && CD84.envoiDeCommissionPayee(db84, "D7")?.envoi === null && CD84.envoiDeCommissionPayee(db84, "D7")?.nom === "SANSNUM");
+
+    // L'envoi, tout seul, sans question : le serveur joué.
+    globalThis.__appels84 = [];
+    let etat = { ...db84, messages: [] };
+    const save84 = (x) => { etat = typeof x === "function" ? x(etat) : x; };
+    const timo = { id: "TIMO", nom: "TIMO", role: "admin" };
+    const phrase = await CD84.envoyerAvisCommissionPayee({ db: db84, save: save84, profile: timo, depense: db84.depenses.find((d) => d.id === "D3") });
+    const ligne = etat.messages.find((m) => m.wa_modele === "commission_payee") || {};
+    test("★★★ LA VRAIE CHAÎNE : l'avis part du numéro BMI SANS question vers le numéro de l'apporteur, la phrase le dit, UNE ligne PRIVÉE entre dans le fil (la dépense, aucun montant, aucun propriétaire)",
+      globalThis.__appels84.length === 1 && globalThis.__appels84[0].modele === "commission_payee" && /90333333/.test(String(globalThis.__appels84[0].tel))
+      && /^📲 Avis de paiement envoyé du numéro BMI à CLAUDE/.test(phrase)
+      && ligne.wa_prive === true && ligne.depense_id === "D3" && !/45/.test(ligne.texte || "") && !ligne.proprietaire_id && etat.messages.filter((m) => m.wa_modele === "commission_payee").length === 1,
+      `${JSON.stringify(globalThis.__appels84.map((c) => c.modele))} | ${phrase} | ${JSON.stringify(ligne)}`);
+    test("★★★ le détail se RECOMPOSE depuis la dépense (même fabrique que l'envoi) pour celui qui a payé et le principal ; règlement annulé (dépense retirée) → plus de détail",
+      esp(CD84.texteLignePrivee(ligne, db84)) === esp(M.ligneEnvoiModele("commission_payee", CD84.envoiDeCommissionPayee(db84, "D3").envoi.variables))
+      && /^📲 Envoyé du numéro BMI — Avis de commission payée envoyé à CLAUDE : 45.405 F pour la vente de TSEVIE CLIEN, payée le 13\/11\/2026 \(en espèces\)\.$/.test(esp(CD84.texteLignePrivee(ligne, db84)))
+      && CD84.texteLignePrivee(ligne, { ...db84, depenses: db84.depenses.filter((d) => d.id !== "D3") }) === "", esp(CD84.texteLignePrivee(ligne, db84)));
+    globalThis.__appels84 = [];
+    etat = { ...db84, messages: [] };
+    const phraseForm = await CD84.envoyerAvisCommissionPayee({ db: db84, save: save84, profile: timo, depense: "D5" });
+    const phraseRegard = await CD84.envoyerAvisCommissionPayee({ db: db84, save: save84, profile: timo, depense: "D3", formation: true });
+    test("★★★ LE MUR, joué : un paiement de formation (ou l'espace regardé en formation) n'envoie RIEN, n'écrit rien, ne dit rien",
+      globalThis.__appels84.length === 0 && etat.messages.length === 0 && phraseForm === "" && phraseRegard === "", `${globalThis.__appels84.length} | ${phraseForm} | ${phraseRegard}`);
+    const phraseSans = await CD84.envoyerAvisCommissionPayee({ db: db84, save: save84, profile: timo, depense: "D7" });
+    test("★★ sans numéro : rien ne part, et la confirmation le DIT (où le saisir)",
+      globalThis.__appels84.length === 0 && /Aucun avis WhatsApp : la fiche de SANSNUM n'a pas de numéro \(👥 Utilisateurs → ⋯ Gérer → 📞 Téléphone\)/.test(phraseSans), phraseSans);
+    // 🔧 Défaut réparé au passage (13/11/2026) : le détail d'une part d'installation payée
+    // relisait `dep.moyen`, qu'une dépense ne porte pas — il disait toujours « en espèces ».
+    const dbPI = {
+      users: [{ id: "t", nom: "TECH", role: "technicien", tel: "90444444" }],
+      clients_installes: [{ id: "c1", nom: "MR", prenom: "POSE", equipe: [{ user_id: "t", nom: "TECH", montant: 40000, paye: true, dep_id: "DP", date_paiement: J }] }],
+      depenses: [{ id: "DP", date: J, montant: 40000, paiement: "Mobile Money (Flooz)", auto: "installation", user_id: "t" }],
+    };
+    test("★★ 🔧 le détail d'une part d'installation payée dit le VRAI moyen de la dépense (Flooz), plus « en espèces » d'office",
+      /\(par Mobile Money \(Flooz\)\) le 13\/11\/2026/.test(esp(CD84.texteLignePrivee({ wa_prive: true, wa_modele: "prime_installation_payee", chantier_id: "c1", prime_user_id: "t", wa_numero: "90444444" }, dbPI))),
+      esp(CD84.texteLignePrivee({ wa_prive: true, wa_modele: "prime_installation_payee", chantier_id: "c1", prime_user_id: "t", wa_numero: "90444444" }, dbPI)));
+  } else test("★★★ le module des commissions se construit pour le banc", false);
+  try { rmSync(dossier84, { recursive: true, force: true }); rmSync(sortie84, { force: true }); } catch {}
+
+  // Les trois gestes de 👑 Mon équipe : l'avis APRÈS l'enregistrement, sur l'état APRÈS le paiement.
+  const eqS = lire("src/screens/MonEquipe.jsx");
+  const corps = (debut, fin) => eqS.slice(eqS.indexOf(debut), eqS.indexOf(fin, eqS.indexOf(debut)));
+  const gestes = [corps("const payerCommissionEquipe = async", "const clientsApportes"), corps("const payerApporteur = async", "const changerMoyenApporteur"), corps("const payerCommission = async", "const aValider")];
+  test("★★★ les TROIS paiements (commercial, chef d'équipe, apporteur externe / parrain) envoient l'avis APRÈS `save(next)`, sur `next`, avec SA dépense et l'espace regardé, et la confirmation le dit",
+    gestes.every((g) => g.includes("save(next,") && g.indexOf("save(next,") < g.indexOf("envoyerAvisCommissionPayee(")
+      && /envoyerAvisCommissionPayee\(\{ db: next, save, profile, depense: dep, formation: regardeFormation \}\)/.test(g) && /\$\{avis \? `\\n\\n\$\{avis\}` : ""\}`\);/.test(g)),
+    gestes.map((g) => g.length).join(","));
+  test("★★ les trois boutons « 💵 Payer » restent gris jusqu'à la fin du geste (paiement ET message : `BoutonRond envoi`)",
+    (eqS.match(/<BoutonRond envoi icone="💵" teinte="vert" onClick=\{\(\) => payer(Commission|CommissionEquipe|Apporteur)\((st|c|a)\)\}/g) || []).length === 3);
 }
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

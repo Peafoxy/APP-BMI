@@ -14,6 +14,7 @@ import { mentionVirement } from "../lib/banques";
 import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache, ROLES_TACHES} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 import { versEcran } from "../lib/cibleNotification";
+import { envoyerAvisCommissionPayee } from "../lib/commissionsDues";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
 export function MonEquipe({ db, save, profile, cible = null }) {
@@ -302,7 +303,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
       ...mentionVirement(c.u, moyen),
       ...src.champs,
     });
-    save({
+    const next = {
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id)
         // On inscrit la part réellement versée : « Déjà payé » la relira au
@@ -316,8 +317,11 @@ export function MonEquipe({ db, save, profile, cible = null }) {
         ...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, c.u.nom, c.due) : []),
         ...(db.messages || []),
       ],
-    }, `Commission d'équipe payée à ${c.u.nom} : ${fmt(c.due)}`);
-    uAlert(`✅ ${fmt(c.due)} payés à ${c.u.nom}. Sortie : ${src.libelle}.`);
+    };
+    save(next, `Commission d'équipe payée à ${c.u.nom} : ${fmt(c.due)}`);
+    // 📲 L'avis WhatsApp du numéro BMI (13/11/2026, « A a, B texte ok »), APRÈS l'enregistrement.
+    const avis = await envoyerAvisCommissionPayee({ db: next, save, profile, depense: dep, formation: regardeFormation });
+    uAlert(`✅ ${fmt(c.due)} payés à ${c.u.nom}. Sortie : ${src.libelle}.${avis ? `\n\n${avis}` : ""}`);
   };
 
   // Nombre de CLIENTS DISTINCTS apportés depuis toujours (pas seulement sur la période)
@@ -413,7 +417,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
       montant: a.due, moyen, auto: "commission_ext",
       ...src.champs,
     });
-    save({
+    const next = {
       ...db,
       // ⚠ LE PAIEMENT N'ÉCRIT PLUS DE MOYEN RETENU (21/09/2026) : il figerait
       // le moyen du jour pour toujours, et la déduction depuis le client ne
@@ -422,8 +426,12 @@ export function MonEquipe({ db, save, profile, cible = null }) {
       dettes: (db.dettes || []).map((d) => (idsPoses.has(d.id) ? { ...d, apporteur: { ...d.apporteur, payee: true, date_paiement: today(), par: profile.nom, dep_id: dep.id } } : d)),
       depenses: [dep, ...db.depenses],
       messages: [...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, a.nom, a.due) : []), ...(db.messages || [])],
-    }, `Commission de ${fmt(a.due)} payée à l'apporteur externe ${a.nom}`);
-    uAlert(`✅ ${fmt(a.due)} payés à ${a.nom}. Dépense enregistrée — sortie : ${src.libelle}.`);
+    };
+    save(next, `Commission de ${fmt(a.due)} payée à l'apporteur externe ${a.nom}`);
+    // 📲 L'avis WhatsApp du numéro BMI (13/11/2026, « A a ») : l'apporteur
+    // externe et le parrain n'avaient AUCUN message de leur paiement.
+    const avis = await envoyerAvisCommissionPayee({ db: next, save, profile, depense: dep, formation: regardeFormation });
+    uAlert(`✅ ${fmt(a.due)} payés à ${a.nom}. Dépense enregistrée — sortie : ${src.libelle}.${avis ? `\n\n${avis}` : ""}`);
   };
 
   // ✏️ Changer le moyen d'un apporteur — la SEULE porte pour sortir du moyen
@@ -501,7 +509,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
       montant: st.commissionDue, moyen, auto: "commission", user_id: st.u.id,
       ...src.champs,
     });
-    save({
+    const next = {
       ...db,
       ventes: db.ventes.map((v) => (ids.has(v.id)
         ? { ...v, commission_payee: true, commission_dep: dep.id, commission_montant: commissionVente(v, tauxU, db) }
@@ -515,8 +523,11 @@ export function MonEquipe({ db, save, profile, cible = null }) {
         ...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, st.u.nom, st.commissionDue) : []),
         ...(db.messages || []),
       ],
-    }, `Commission payée à ${st.u.nom} : ${fmt(st.commissionDue)} (validée par ${profile.nom})`);
-    uAlert(`✅ ${fmt(st.commissionDue)} payés à ${st.u.nom}. Dépense « Commissions » enregistrée — sortie : ${src.libelle}.`);
+    };
+    save(next, `Commission payée à ${st.u.nom} : ${fmt(st.commissionDue)} (validée par ${profile.nom})`);
+    // 📲 L'avis WhatsApp du numéro BMI (13/11/2026, « A a, B texte ok »), APRÈS l'enregistrement.
+    const avis = await envoyerAvisCommissionPayee({ db: next, save, profile, depense: dep, formation: regardeFormation });
+    uAlert(`✅ ${fmt(st.commissionDue)} payés à ${st.u.nom}. Dépense « Commissions » enregistrée — sortie : ${src.libelle}.${avis ? `\n\n${avis}` : ""}`);
   };
 
   // ---- VALIDATION DES TÂCHES ----
@@ -672,7 +683,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
                 <CelluleActions>
                   {(st.u.taches || []).length > 0 && <BoutonRond icone="🗂" teinte="gris" onClick={() => setMembreTaches(membreTaches === st.u.id ? null : st.u.id)} titre={`🗂 voir ses tâches (${(st.u.taches || []).length})`} />}
                   {ROLES_TACHES.includes(profile.role) && aDroit(db, profile, "act_taches") && <BoutonRond icone="✅" onClick={() => assignerTache(st)} titre="✅ Tâche — assigner une tâche" />}
-                  {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <BoutonRond icone="💵" teinte="vert" onClick={() => payerCommission(st)} titre="✓ Marquer payé — payer la commission due" />}
+                  {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerCommission(st)} titre="✓ Marquer payé — payer la commission due" />}
                   {estAdmin && st.nbReglees > 0 && <BoutonRond icone="↩" teinte="rouge" onClick={() => annulerPaiement(st)} titre="↩ Annuler paiement" />}
                 </CelluleActions>
               </tr>
@@ -703,7 +714,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
                   </td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(c.versees)}</td>
                   <CelluleActions>
-                    {c.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond icone="💵" teinte="vert" onClick={() => payerCommissionEquipe(c)} titre="✓ Payer la commission d'équipe" />}
+                    {c.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerCommissionEquipe(c)} titre="✓ Payer la commission d'équipe" />}
                   </CelluleActions>
                 </tr>
               ))}
@@ -747,7 +758,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
                   <td className="px-3 py-2 tabular-nums font-bold text-red-600">{fmt(a.due)}</td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(a.payee)}</td>
                   <CelluleActions>
-                    {a.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond icone="💵" teinte="vert" onClick={() => payerApporteur(a)} titre="✓ Payer la commission de l'apporteur" />}
+                    {a.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerApporteur(a)} titre="✓ Payer la commission de l'apporteur" />}
                     {aDroit(db, profile, "act_commission") && <BoutonRond icone="💳" onClick={() => changerMoyenApporteur(a)} titre="✏️ Moyen — changer son moyen de paiement habituel" />}
                     {estAdmin && clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <BoutonRond icone="🎖" teinte="ambre" onClick={() => promouvoir(a)} titre="🎖 Promouvoir commercial" />}
                   </CelluleActions>

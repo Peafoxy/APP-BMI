@@ -233,6 +233,13 @@ export const MODELES = {
   // trou 4 = « Détail dans votre espace… » pour qui a un compte, « Passez à
   // la boutique … » pour un apporteur externe (sa décision du jour).
   commission_due: { categorie: "utility", variables: ["beneficiaire", "montant", "client", "suite"] },
+  // 💰 13/11/2026, Timo (« A a, B texte ok, lance ») : la commission PAYÉE, juste
+  // après « ✓ Payer » de 👑 Mon équipe — au commercial, au technicien à
+  // commission, au chef d'équipe, à l'apporteur externe et au parrain (« A a » :
+  // tout le monde). UTILITY (un paiement fait). Le trou 3 = pour QUOI (« pour la
+  // vente de MR ERIC », « pour 3 ventes », « d'équipe sur vos recrues ») ; le trou
+  // 6 = « Détail dans votre espace… » pour qui a un compte, un merci sinon.
+  commission_payee: { categorie: "utility", variables: ["beneficiaire", "montant", "pour", "date", "moyen", "suite"] },
   // 📈 03/10/2026, Timo : « un avancement d'un employé » → « 3 avec
   // montants » → « on garde le texte que tu as proposé ». UTILITY : une
   // décision sur sa rémunération. Envoyé de 👥 Utilisateurs, après question,
@@ -389,6 +396,9 @@ export const MODELES_EN_SERVICE = [
   // 03/10/2026 : la commission devenue due (envoyée à l'ouverture de
   // l'application par l'administrateur principal, lib/commissionsDues.js).
   "commission_due",
+  // 13/11/2026 : la commission PAYÉE (👑 Mon équipe → ✓ Payer). En service
+  // AVANT l'accord de Meta : d'ici là rien ne part (aucun repli), et l'écran le dit.
+  "commission_payee",
   // 03/10/2026 : l'avis d'avancement (👥 Utilisateurs → Salaire).
   "avancement_employe",
   // 07/10/2026 : la part des frais d'installation payée. En service AVANT
@@ -511,7 +521,7 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "rappel_confirmation_salaire", "commission_due", "avancement_employe", "prime_installation_payee", "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "rappel_confirmation_salaire", "commission_due", "commission_payee", "avancement_employe", "prime_installation_payee", "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente"];
 const LIGNES_MASQUEES = {
   depense_rejetee4: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
@@ -531,6 +541,7 @@ const LIGNES_MASQUEES = {
   virement_salaire_credit: "🔒 Avis de paiement de salaire envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   rappel_confirmation_salaire: "🔒 Relance de confirmation de salaire envoyée — détail réservé à celui qui l'a envoyée et à l'administrateur principal.",
   commission_due: "🔒 Avis de commission due envoyé — détail réservé à l'administrateur principal.",
+  commission_payee: "🔒 Avis de commission payée envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
   avancement_employe: "🔒 Avis d'avancement envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
 };
 export const lignePrivee = (modele) => MODELES_PRIVES.includes(modele);
@@ -979,6 +990,7 @@ const LIGNES_ENVOI = {
   avancement_employe: ([employe, ancien, nouveau, mois]) => `Avis d'avancement envoyé à ${employe} : salaire ${ancien} → ${nouveau} à compter de ${mois}.`,
   prime_installation_payee: ([employe, client, date, montant, moyen, retenue]) => `Avis de paiement envoyé à ${employe} : part d'installation du chantier ${client}, ${montant} (${moyen}) le ${date}. ${retenue}`,
   commission_due: ([beneficiaire, montant, client]) => `Avis de commission due envoyé à ${beneficiaire} : ${montant} (client ${client}).`,
+  commission_payee: ([beneficiaire, montant, pour, date, moyen]) => `Avis de commission payée envoyé à ${beneficiaire} : ${montant} ${pour}, payée le ${date} (${moyen}).`,
   virement_salaire_credit: ([employe, mois, date, salaire, retenue, montant, moyen, reference, reste]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : salaire ${salaire}, retenue crédit BMI ${retenue}, versé ${montant} ${moyen}, payé le ${date} (référence ${reference}) ; reste à rembourser ${reste}.`,
   rappel_confirmation_salaire: ([employe, mois, montant, date, moyen]) => `Relance de confirmation envoyée à ${employe} : salaire de ${mois}, ${montant} FCFA payé le ${date} (${moyen}), pas encore confirmé reçu.`,
   virement_salaire: ([employe, mois, date, montant, moyen, reference]) => `Avis de salaire du mois de ${mois} envoyé à ${employe} : ${montant} ${moyen}, payé le ${date} (référence ${reference}).`,
@@ -2155,6 +2167,67 @@ export function envoiCommissionDue({ nom, tel, montant, client, espace, boutique
       f(m),
       texteVariable(client) || "votre client",
       espace ? SUITE_ESPACE : suiteBoutique(boutique),
+    ],
+  };
+}
+
+// ---------------------------------------------------------------
+// 💰 LA COMMISSION PAYÉE — `commission_payee` (13/11/2026)
+// ---------------------------------------------------------------
+// Timo : « lorsque c'est payé, l'apporteur ou le commercial ne reçoit pas de
+// nouveau message ? » → non (le commercial avait un message dans l'application,
+// l'apporteur externe et le parrain RIEN) → « A a, B texte ok, lance ». Le texte
+// proposé ce jour-là, accepté tel quel, mot pour mot chez Meta.
+export const TEXTE_COMMISSION_PAYEE = [
+  "Bonjour {{1}},",
+  "",
+  "Commission BMI TOGO",
+  "",
+  "Votre commission de {{2}} {{3}} vous a été payée le {{4}} ({{5}}).",
+  "{{6}}",
+  "",
+  "BMI TOGO — E-mail : contact@bmitogo.com",
+  "Tel: +228 99 96 84 88 / +228 91 13 05 11",
+].join("\n");
+// Le trou 3 : pour QUOI elle est payée. `ventes` / `poses` = le NOM du client de
+// chaque vente / pose seule payée. Une seule → on la nomme (« pour la vente de
+// MR ERIC », « pour le chantier de X ») ; plusieurs → on les compte. La part d'un
+// chef d'équipe se prend sur les commissions de ses recrues.
+export function pourCommissionPayee({ ventes = [], poses = [], equipe = false } = {}) {
+  if (equipe) return "d'équipe sur vos recrues";
+  const nv = ventes.length, np = poses.length;
+  if (nv + np === 1) {
+    const client = nomClientRecu(nv ? ventes[0] : poses[0]);
+    if (client !== "cher client") return nv ? `pour la vente de ${client}` : `pour le chantier de ${client}`;
+    return nv ? "pour 1 vente" : "pour 1 chantier";
+  }
+  const parts = [];
+  if (nv) parts.push(`${nv} vente${nv > 1 ? "s" : ""}`);
+  if (np) parts.push(`${np} chantier${np > 1 ? "s" : ""}`);
+  return parts.length ? `pour ${parts.join(" et ")}` : "pour vos ventes";
+}
+// Le trou 6 : qui a un compte lit le détail dans SON espace ; un apporteur
+// externe n'en a pas — on le remercie (un client, ou plusieurs).
+export const merciApporteur = (clients) => (Number(clients) > 1
+  ? "Merci de nous avoir recommandé ces clients."
+  : "Merci de nous avoir recommandé ce client.");
+// `moyen` = le moyen tel que la dépense le range (« Espèces », « Mobile Money
+// (Flooz) »…). Rend null sans numéro ou sans montant.
+export function envoiCommissionPayee({ beneficiaire, tel, montant, pour, date, moyen, espace, clients = 1, fmt, dFR }) {
+  if (!String(tel || "").replace(/\D/g, "")) return null;
+  const m = Number(montant);
+  if (!Number.isFinite(m) || m <= 0) return null;
+  const f = typeof fmt === "function" ? fmt : (n) => `${n} F`;
+  const d = typeof dFR === "function" ? dFR : (x) => String(x || "");
+  return {
+    modele: "commission_payee",
+    variables: [
+      texteVariable(beneficiaire) || "cher partenaire",
+      f(m),
+      texteVariable(pour) || "pour vos ventes",
+      texteVariable(d(date)) || "aujourd'hui",
+      moyenVersement(moyen),
+      espace ? SUITE_ESPACE : merciApporteur(clients),
     ],
   };
 }

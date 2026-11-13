@@ -88,14 +88,14 @@ export const GUIDE = {
 
     ["h3", "Ma commission — 💵 Ma commission"],
     ["regle", "**Une commission n'est due qu'après DEUX choses** : la réception des travaux par le client **et** le solde de sa dette. « Un franc ne sort pas de la caisse avant d'y être entré. »"],
-    ["p", "L'écran le dit ligne par ligne : ⏳ en attente de la réception, 💰 réceptionnée mais pas encore payée par le client. Le chiffre affiché est une **estimation** ; le paiement est validé par l'administration ou le chef d'équipe (chapitre 16)."],
+    ["p", "L'écran le dit ligne par ligne : ⏳ en attente de la réception, 💰 réceptionnée mais pas encore payée par le client. Le chiffre affiché est une **estimation** ; le paiement est validé par l'administration ou le chef d'équipe (chapitre 16). Le jour où elle m'est payée, je reçois un message dans 💬 Messages **et un WhatsApp du numéro BMI** : le montant, pour quelles ventes, la date et le moyen."],
 
     ["h3", "Diriger une équipe — 👑 Mon équipe"],
     ["p", "**Le responsable commercial l'a toujours ; un commercial seulement s'il est chef d'équipe ⭐** (c'est l'administrateur qui nomme un chef)."],
     ["ul", [
       "La vue d'ensemble : chaque membre, son chiffre d'affaires, sa commission due et pourquoi elle attend.",
       "**« ✅ Tâche »** sur la ligne d'un membre lui donne un travail ; quand il l'a terminée, je la **« ✅ Valider »**, ou « ↩ Rouvrir » si elle n'est pas faite.",
-      "**🤝 Apporteurs externes** : « ✓ Payer » — le moyen de paiement est celui par lequel le client a payé, la confirmation le dit ; « ✏️ Moyen » pour en choisir un autre.",
+      "**🤝 Apporteurs externes** : « ✓ Payer » — le moyen de paiement est celui par lequel le client a payé, la confirmation le dit ; « ✏️ Moyen » pour en choisir un autre. L'apporteur reçoit tout seul un WhatsApp du numéro BMI qui lui dit qu'il a été payé (le chef d'équipe payé aussi).",
       "**Réassigner** un prospect à un collègue (congé, départ) : 🧲 Prospects, bouton « Réassigner », avec le pouvoir « 🔁 Réaffecter les prospects ».",
     ]],
 
