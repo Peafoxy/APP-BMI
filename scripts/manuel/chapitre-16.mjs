@@ -69,7 +69,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
         ["👑 Équipe / 👑 Mon équipe", "Période (Ce mois / Cette année / Depuis le début) ; les tâches à valider ; **Performances par commercial** ; **⭐ Chefs d'équipe** ; **🤝 Apporteurs externes**."],
-        ["💵 Ma commission", "Chiffre d'affaires non réglé, taux, commission à payer ; les sommes en attente ; mon équipe ; mes paiements reçus ; mes primes d'installation ; le détail des ventes."],
+        ["💵 Ma commission", "Chiffre d'affaires de la période, taux, commission à payer (tout ce qui reste dû, quelle que soit la période) ; les sommes en attente ; mon équipe ; mes paiements reçus ; mes primes d'installation ; le détail des ventes en attente."],
         ["🎯 Commerciaux", "Les agents, leur zone, leur objectif mensuel, et un classement par chiffre d'affaires."],
         ["💰 Primes remises", "Les demandes de prime adressées à la caisse de SA boutique, et l'historique des primes payées."],
         ["💰 Primes reçues", "Toutes mes primes : parts d'installation, 🎁 primes sur chantier et primes sur salaire — en attente, déjà payées. 💵 Ma commission et 💵 Mon salaire gardent aussi les leurs."],
@@ -99,7 +99,7 @@ export const CHAPITRE = {
       ]],
       ["h3", "C. Payer la commission d'un commercial (👑 Équipe)"],
       ["etapes", [
-        { titre: "Choisir la période", texte: "Ce mois, Cette année, ou Depuis le début. La commission due ne compte que les ventes **pas encore réglées** et **exigibles**." },
+        { titre: "Choisir la période", texte: "Ce mois, Cette année, ou Depuis le début : elle règle le **chiffre d'affaires**, le **nombre de ventes** et le **« déjà payé »**. La **commission due**, elle, montre **toujours tout ce qui reste à payer**, quelle que soit la date de la vente : une vente d'octobre devenue due en novembre apparaît sur « Ce mois ». Elle ne compte que les ventes **pas encore réglées** et **exigibles**." },
         { titre: "✓ Marquer payé", texte: "Sur la ligne du commercial. Choisir le **moyen de paiement** (la banque de sa fiche est rappelée), puis **« D'où sort l'argent ? »** : la caisse d'une boutique de l'espace (en espèces, pas plus que ce qu'elle contient), et en réel 👤 Chez le DG ou 🧾 Chez le comptable ; un **virement bancaire** demande aussi d'où il part — 🏦 BANQUE, et en réel 👤 Chez le DG ou 🧾 Chez le comptable. **C'est la seule question** : payée chez le DG, par la BANQUE ou chez le comptable, la dépense reste dans CETTE caisse — elle ne sort du tiroir d'aucune boutique et ne pèse sur le résultat d'aucune ; elle se lit dans 📤 Dépenses (cadres « 👤 Payées chez le DG » et « 🏦 Payées par la BANQUE », ou l'onglet 🧾 Chez le comptable) et dans le relevé de la caisse. En formation, un virement part de la BANQUE et demande à quelle boutique compter la charge." },
         { titre: "Lire la confirmation", texte: "Montant, nombre de ventes, taux ; et ce qui **n'est pas** payé aujourd'hui (⏳ réception, 💰 client qui doit encore). **Action définitive** pour ces ventes." },
         { titre: "Ce qui s'écrit", texte: "Une dépense **« Commissions »** dans la caisse choisie ; le montant exact est inscrit sur chaque vente ; le commercial reçoit un message ; le vendeur (ou le comptable) de la caisse est prévenu." },
@@ -145,7 +145,7 @@ export const CHAPITRE = {
     // ── 5
     { titre: "Boutons et fonctions", blocs: [
       ["table", { entetes: ["Bouton", "Où", "Ce qu'il fait"], largeurs: [2800, 2300, 4200], lignes: [
-        ["Ce mois / Cette année / Depuis le début", "👑 Équipe, 💵 Ma commission", "Choisit la période des ventes comptées."],
+        ["Ce mois / Cette année / Depuis le début", "👑 Équipe, 💵 Ma commission", "Choisit la période du chiffre d'affaires, des ventes et du « déjà payé ». La commission à payer montre toujours tout ce qui reste dû."],
         ["✓ Marquer payé", "👑 Équipe → Performances", "Paie la commission due d'un commercial ; dépense « Commissions »."],
         ["↩ Annuler paiement", "👑 Équipe → Performances", "Remet les ventes réglées de la période « à payer » et retire la dépense (administrateur)."],
         ["✅ / 🗂 (boutons ronds)", "👑 Équipe → Performances", "Assigne une tâche ; montre les tâches d'un membre. À l'assignation puis à la validation, le membre reçoit un WhatsApp du numéro BMI (« tache_assignee », « tache_validee ») ; rouvrir une tâche n'envoie rien. Sans numéro sur sa fiche, l'écran le dit."],
@@ -219,6 +219,7 @@ export const CHAPITRE = {
         { situation: "Un apporteur externe amène une vente comptant de 600 000 F payée par Flooz.", reponse: "3 % = **18 000 F**, payés par Flooz sans question (✏️ Moyen pour changer)." },
         { situation: "Le technicien KOSSI a une part de 26 532 F et doit 10 000 F pour un outil perdu.", reponse: "Au paiement dans 💰 Primes remises, la retenue est annoncée : il reçoit **16 532 F**, la caisse sort 16 532 F." },
         { situation: "Un commercial dit : « ma commission est en attente de réception, mais le client a signé le PV hier ».", reponse: "Regarder 💵 Ma commission : si le cadre dit « 💰 en attente du paiement du client », c'est la dette qui n'est pas soldée." },
+        { situation: "Une vente du 30 octobre, avec un apporteur externe, est réceptionnée le 12 novembre ; l'apporteur reçoit « votre commission est due ».", reponse: "👑 Équipe, sur **« Ce mois »** : il a sa ligne avec sa commission à payer, même si sa vente est d'octobre (0 vente et 0 F de CA apporté ce mois-ci). La commission due ne dépend jamais de la période." },
       ]],
     ]},
 

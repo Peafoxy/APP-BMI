@@ -18800,5 +18800,81 @@ titre("🌗 Le mode clair / sombre (Timo, 12/11/2026, « Aa, Ba, C clair, D lais
   test("★ les crochets du mode sombre sont posés AVANT tout `return` anticipé d'App.jsx", iTheme > 0 && iRetour > 0 && iTheme < iRetour, `${iTheme} / ${iRetour}`);
 }
 
+titre("💰 Une commission due se voit quelle que soit la période (Timo, 13/11/2026, « a, lance »)");
+// Capture Timo : CLAUDE, apporteur de TSEVIE CLIEN (vente du 30/10, réceptionnée
+// le 12/11), recevait « votre commission est due » ; 👑 Mon équipe s'ouvrait sur
+// « Ce mois » et la vente d'octobre en sortait — sa commission n'apparaissait
+// nulle part. On REND les deux écrans sur « Ce mois », avec des ventes du mois
+// d'avant, devenues dues.
+{
+  const sortieEq = join("node_modules", ".cache", `bmi-equipe-${process.pid}.mjs`);
+  let E = null, err = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-equipe.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieEq, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      // 👑 Mon équipe embarque 🧲 Prospects, qui embarque la CARTE (Leaflet : il
+      // lui faut un navigateur). Elle n'est pas ce qu'on mesure ici : une coquille.
+      plugins: [{ name: "sans-carte", setup(b) {
+        b.onResolve({ filter: /\/Carte(\.jsx)?$/ }, () => ({ path: "carte", namespace: "coquille" }));
+        b.onLoad({ filter: /.*/, namespace: "coquille" }, () => ({ contents: "export function CarteChoixPosition() { return null; }", loader: "js" }));
+      } }],
+      external: ["react", "react-dom", "react-dom/server"] });
+    E = await import(pathToFileURL(sortieEq).href);
+  } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieEq); } catch {}
+  test("👑 Mon équipe et 💵 Ma commission se montent dans le banc" + (err ? ` (${err})` : ""), !!E);
+  if (E) {
+    const auj = E.today();
+    // Une date du MOIS D'AVANT (deux jours avant le 1er du mois en cours).
+    const avant = new Date(Date.parse(auj.slice(0, 7) + "-01T00:00:00Z") - 2 * 86400000).toISOString().slice(0, 10);
+    const timo = { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true, actif: true };
+    const kossi = { id: "u_kossi", nom: "KOSSI", role: "commercial", actif: true, taux_commission: 5 };
+    const db = {
+      boutiques: [{ id: "b1", nom: "DEMAKPOE" }, { id: "b2", nom: "TERRAIN", terrain: true }],
+      users: [timo, kossi],
+      ventes: [
+        // CLAUDE : la vente d'octobre, comptant, réceptionnée — due.
+        { id: "vc", boutique: "DEMAKPOE", date: avant, client: "CLIEN", tel: "000000", paiement: "Espèces", articles: [{ qte: 1, pu: 504500 }], apporteur: { nom: "CLAUDE", tel: "90000001", taux: 9, montant: 45405 } },
+        // PASSY : une vente de ce mois.
+        { id: "vp", boutique: "DEMAKPOE", date: auj, client: "SEB", tel: "91000000", paiement: "Espèces", articles: [{ qte: 1, pu: 493700 }], apporteur: { nom: "PASSY", tel: "93496511", taux: 3, montant: 14811 } },
+        // VIEUX : déjà payé, le mois d'avant — rien à montrer sur « Ce mois ».
+        { id: "vv", boutique: "DEMAKPOE", date: avant, client: "ANCIEN", tel: "92000000", paiement: "Espèces", articles: [{ qte: 1, pu: 100000 }], apporteur: { nom: "VIEUX", tel: "92222222", taux: 3, montant: 3000, payee: true } },
+        // KOSSI : une vente du mois d'avant et une de ce mois, aucune réglée (5 %).
+        { id: "vk1", boutique: "DEMAKPOE", date: avant, client: "A", tel: "93000000", paiement: "Espèces", commercial: "KOSSI", articles: [{ qte: 1, pu: 100000 }] },
+        { id: "vk2", boutique: "DEMAKPOE", date: auj, client: "B", tel: "94000000", paiement: "Espèces", commercial: "KOSSI", articles: [{ qte: 1, pu: 200000 }] },
+      ],
+      // AFI : apporteur d'une POSE SEULE du mois d'avant, réceptionnée et soldée.
+      dettes: [{ id: "dp", boutique: "TERRAIN", boutique_pose: "DEMAKPOE", pose_seule: true, date: avant, client: "POSE", tel: "95000000", montant: 300000, paye: 300000, apporteur: { nom: "AFI", tel: "91111111", taux: 3, montant: 9000 } }],
+      clients_installes: [{ id: "chp", nom: "POSE", dette_id: "dp", statut: "receptionne", receptionne_le: avant, formation: false }],
+      depenses: [], messages: [], prospects: [], commandes: [], commerciaux: [],
+    };
+    let html = "", errR = "";
+    try { html = E.rendreEquipe(db, timo); } catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
+    const ligne = (nom) => (html.split("<tr").find((r) => r.includes(`>${nom}<`)) || "");
+    test("★★ 👑 sur « Ce mois », CLAUDE (vente du mois d'AVANT, devenue due) a sa ligne avec ses 45 405 F à payer — la capture de Timo" + (errR ? ` (${errR})` : ""),
+      !errR && ligne("CLAUDE").includes(E.fmt(45405)));
+    test("★ 👑 …et sa ligne dit 0 vente et 0 F de CA apporté sur « Ce mois » (la période règle l'activité, pas le dû)",
+      /<td[^>]*>0<\/td>/.test(ligne("CLAUDE")) && ligne("CLAUDE").includes(E.fmt(0)));
+    test("★ 👑 l'apporteur d'une POSE SEULE du mois d'avant, devenue due, a aussi sa ligne (9 000 F)",
+      ligne("AFI").includes(E.fmt(9000)));
+    test("★ 👑 un apporteur déjà payé, sans rien dans la période, n'a PAS de ligne (rien de dû, rien à montrer)",
+      !html.includes(">VIEUX<"));
+    test("★ 👑 « À payer » des apporteurs = 45 405 + 14 811 + 9 000 = 69 216 F",
+      html.includes(E.fmt(69216)));
+    test("★★ 👑 KOSSI : commission due sur TOUTES ses ventes non réglées (5 % de 300 000 = 15 000), chiffre d'affaires de « Ce mois » seulement (200 000)",
+      ligne("KOSSI").includes(E.fmt(15000)) && ligne("KOSSI").includes(E.fmt(200000)) && !ligne("KOSSI").includes(E.fmt(300000)));
+    test("★ 👑 l'écran DIT la règle sous les boutons de période",
+      /data-note-periode-equipe/.test(html) && html.includes("tout ce qui reste dû"));
+    let htmlK = "", errK = "";
+    try { htmlK = E.rendreMaCommission(db, kossi); } catch (e) { errK = String(e && e.message || e).split("\n")[0]; }
+    test("★★ 💵 Ma commission de KOSSI sur « Ce mois » : « Commission à payer » 15 000 (ses deux ventes), « Chiffre d'affaires de la période » 200 000, et ses DEUX ventes dans le détail" + (errK ? ` (${errK})` : ""),
+      !errK && htmlK.includes("Chiffre d&#x27;affaires de la période") && htmlK.includes(E.fmt(15000)) && htmlK.includes(E.fmt(200000))
+      && /Détail de mes ventes en attente \((<!-- -->)?2(<!-- -->)?\)/.test(htmlK));
+    test("★ 💵 …et l'écran DIT la règle sous les boutons de période",
+      /data-note-periode-commission/.test(htmlK) && htmlK.includes("tout ce qui vous reste dû"));
+  }
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

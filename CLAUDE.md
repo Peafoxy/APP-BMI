@@ -788,6 +788,19 @@ lit mal est pire qu'un banc absent).
 - **Une commission n'est due qu'après DEUX choses** : réception des travaux
   **et** solde de la dette (« un franc ne sort pas de la caisse avant d'y
   être entré »). Part du parrain et apporteur externe : même règle.
+- **💰 UNE COMMISSION DUE SE VOIT QUELLE QUE SOIT LA PÉRIODE** (13/11/2026,
+  capture Timo : CLAUDE, apporteur de TSEVIE CLIEN — vente du 30/10,
+  réceptionnée le 12/11, message « commission due » reçu — absent de
+  👑 Mon équipe, qui s'ouvre sur « Ce mois » → « a, lance »). 👑 Mon équipe
+  ET 💵 Ma commission : la commission due et ce qui attend la réception ou le
+  paiement du client (employés, part d'un chef, apporteur d'une vente ou d'une
+  pose seule) lisent TOUTES les ventes non réglées de l'espace ; la période ne
+  règle que le chiffre d'affaires, le nombre de ventes, les rabais et le
+  « déjà payé ». Un apporteur sans rien dans la période ni rien de dû n'a pas
+  de ligne. L'écran le dit sous les boutons de période. 🎯 Commerciaux (une
+  estimation de la période) n'a pas bougé. Rien à coller. Banc (+10, les deux
+  écrans RENDUS — `scripts/_rendu-equipe.jsx`, la carte remplacée par une
+  coquille), éprouvé (8 tombent sur l'ancien code). Chapitre 16.
 - Le plan de règlement se choisit **à la signature du contrat**, pas du PV ;
   date de première échéance **libre**.
 - L'appareil d'un client ne télécharge que ses données : les politiques RLS
@@ -2489,7 +2502,10 @@ lit mal est pire qu'un banc absent).
   encaissés dans la caisse CHANTIER : … — pas dans ce tiroir »). 📋 Dettes de
   la boutique du devis liste ses dettes de chantier (`boutiqueDuDocument` :
   `boutique_vente`, `boutique_pose`, sinon `boutique`), badge « caisse 🏗
-  CHANTIER » ; le reçu porte la fiche de la boutique du devis.
+  CHANTIER » ; le reçu porte la fiche de la boutique du devis. ⚠ **📋 Clients
+  aussi, depuis le 13/11/2026** (capture Timo : KOFFIVI, 799 750 F dans
+  📋 Dettes, « 0 F » dans 📋 Clients) : `clientsConnus` lit la même règle —
+  donc aussi le « doit encore » des propositions de Ventes, Dettes, Travaux.
 - **Clôture FACULTATIVE** (sa décision) : `joursAClôturer` rend [] pour une
   caisse `terrain` — rien ne bloque, la tournée de 7 h n'en parle pas ; on
   peut la clôturer et la verser (gérant, administrateur) comme une autre.

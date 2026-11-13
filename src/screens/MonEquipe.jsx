@@ -59,9 +59,18 @@ export function MonEquipe({ db, save, profile, cible = null }) {
     ventesDe(u.nom).length > 0
   ));
 
+  // 💰 CE QUI RESTE À PAYER NE DÉPEND PAS DE LA PÉRIODE (Timo, 13/11/2026,
+  // « a, lance »). Capture : CLAUDE (apporteur de TSEVIE CLIEN) recevait
+  // « votre commission est due », mais l'écran s'ouvrait sur « Ce mois » et la
+  // vente datait du 30/10 : sa commission n'apparaissait nulle part. Une
+  // commission due est de l'argent qu'on doit — elle se voit quelle que soit
+  // la période. La période ne règle plus que le chiffre d'affaires, le nombre
+  // de ventes et le « déjà payé ». Vaut pour les employés, les chefs d'équipe,
+  // les apporteurs externes et les poses seules (ci-dessous).
   const stats = equipe.map((u) => {
-    const ventes = ventesDe(u.nom).filter((v) => inP(v.date, debut, fin));
-    const enAttente = ventes.filter((v) => !v.commission_payee);
+    const sesVentes = ventesDe(u.nom);
+    const ventes = sesVentes.filter((v) => inP(v.date, debut, fin));
+    const enAttente = sesVentes.filter((v) => !v.commission_payee);
     const reglees = ventes.filter((v) => v.commission_payee);
     // ⚠ Une vente issue d'un devis ne rapporte RIEN tant que le client n'a pas
     // réceptionné l'installation (commissionBloquee). Elle ne compte donc pas
@@ -164,37 +173,59 @@ export function MonEquipe({ db, save, profile, cible = null }) {
   // pour ne jamais gonfler la commission d'un apporteur externe.
   const apporteursExt = (() => {
     const g = {};
-    ventesDeMonEspace.filter((v) => v.apporteur && v.apporteur.nom && inP(v.date, debut, fin)).forEach((v) => {
-      const cle = `${v.apporteur.nom}|${v.apporteur.tel || ""}`;
-      if (!g[cle]) g[cle] = { nom: v.apporteur.nom, tel: v.apporteur.tel || "", taux: Number(v.apporteur.taux || 0), nb: 0, ca: 0, due: 0, payee: 0, ventes: [], poses: [] };
+    const groupe = (a) => {
+      const cle = `${a.nom}|${a.tel || ""}`;
+      if (!g[cle]) g[cle] = { nom: a.nom, tel: a.tel || "", taux: Number(a.taux || 0), nb: 0, ca: 0, due: 0, payee: 0, ventes: [], poses: [] };
+      return g[cle];
+    };
+    // 💰 La COMMISSION DUE se lit sur TOUTES ses ventes de l'espace, quelle que
+    // soit la période (Timo, 13/11/2026, « a ») — la vente du 30/10 de TSEVIE
+    // CLIEN, devenue due le 12/11, disparaissait de « Ce mois ». La période ne
+    // règle que les ventes, le CA apporté et le « déjà payé ». Un apporteur
+    // sans rien dans la période et sans rien de dû n'a pas de ligne.
+    ventesDeMonEspace.filter((v) => v.apporteur && v.apporteur.nom).forEach((v) => {
+      const dansPeriode = inP(v.date, debut, fin);
       const m = Number(v.apporteur.montant || 0);
-      g[cle].nb += 1;
-      g[cle].ca += totalVente(v);
       // Une part bloquée n'est pas encore exigible — deux raisons possibles :
       // l'installation n'est pas réceptionnée, ou le client n'a pas fini de
       // payer (règle posée par Timo le 29/08/2026 : « pour le parrain, c'est
       // lorsque le client a soldé sa dette »).
-      if (v.apporteur.payee) g[cle].payee += m;
-      else if (partParrainBloquee(v, db)) {
-        g[cle].attente = (g[cle].attente || 0) + m;
-        if (!v.apporteur.a_la_reception) g[cle].attentePaiement = (g[cle].attentePaiement || 0) + m;
-      } else { g[cle].due += m; g[cle].ventes.push(v.id); }
+      const bloquee = !v.apporteur.payee && partParrainBloquee(v, db);
+      const due = !v.apporteur.payee && !bloquee;
+      if (!dansPeriode && !due) return;
+      const l = groupe(v.apporteur);
+      if (dansPeriode) {
+        l.nb += 1;
+        l.ca += totalVente(v);
+        if (v.apporteur.payee) l.payee += m;
+        else if (bloquee) {
+          l.attente = (l.attente || 0) + m;
+          if (!v.apporteur.a_la_reception) l.attentePaiement = (l.attentePaiement || 0) + m;
+        }
+      }
+      if (due) { l.due += m; l.ventes.push(v.id); }
     });
     // 🤝 LA POSE SEULE (29/09/2026) : pas de vente, l'apporteur nommé dans son
     // devis vit sur la DETTE de pose. Même règle : dû après la réception ET le
     // solde (posesAvecApporteur). Les dettes et chantiers passent DÉJÀ filtrés.
-    posesDeMonEspace.filter((x) => inP(x.dette.date, debut, fin)).forEach((x) => {
+    // Même partage que les ventes : le dû sur toutes, le reste sur la période.
+    posesDeMonEspace.forEach((x) => {
       const d = x.dette;
-      const cle = `${d.apporteur.nom}|${d.apporteur.tel || ""}`;
-      if (!g[cle]) g[cle] = { nom: d.apporteur.nom, tel: d.apporteur.tel || "", taux: Number(d.apporteur.taux || 0), nb: 0, ca: 0, due: 0, payee: 0, ventes: [], poses: [] };
+      const dansPeriode = inP(d.date, debut, fin);
       const m = Number(d.apporteur.montant || 0);
-      g[cle].nb += 1;
-      g[cle].ca += Number(d.montant || 0);
-      if (d.apporteur.payee) g[cle].payee += m;
-      else if (x.bloquee) {
-        g[cle].attente = (g[cle].attente || 0) + m;
-        if (x.receptionne) g[cle].attentePaiement = (g[cle].attentePaiement || 0) + m;
-      } else { g[cle].due += m; g[cle].poses.push(d.id); }
+      const due = !d.apporteur.payee && !x.bloquee;
+      if (!dansPeriode && !due) return;
+      const l = groupe(d.apporteur);
+      if (dansPeriode) {
+        l.nb += 1;
+        l.ca += Number(d.montant || 0);
+        if (d.apporteur.payee) l.payee += m;
+        else if (x.bloquee) {
+          l.attente = (l.attente || 0) + m;
+          if (x.receptionne) l.attentePaiement = (l.attentePaiement || 0) + m;
+        }
+      }
+      if (due) { l.due += m; l.poses.push(d.id); }
     });
     // ---- 💳 PAR QUOI ON LE PAIE, SANS RIEN DEMANDER (Timo, 21/09/2026) ----
     // « Moyen utilisé avec le client, automatiquement utilisé pour payer
@@ -237,9 +268,12 @@ export function MonEquipe({ db, save, profile, cible = null }) {
         // la vente partait quand même dans ventesDues — donc tamponnée
         // « payée » alors que le chef n'avait rien touché. À la réception, sa
         // part se débloquait sur une vente déjà close : perdue.
-        const r = repartirCommissionEquipe(
+        // 💰 Ce qui reste à payer (dû, gelé) sur TOUTES ses ventes ; le « déjà
+        // payé » sur celles de la période (13/11/2026, « a »).
+        const r = repartirCommissionEquipe(ventesDe(fu.nom), tu, tauxEq, db);
+        const rPeriode = repartirCommissionEquipe(
           ventesDe(fu.nom).filter((v) => inP(v.date, debut, fin)), tu, tauxEq, db);
-        due += r.due; versees += r.versees; gelee += r.gelee;
+        due += r.due; versees += rPeriode.versees; gelee += r.gelee;
         ventesDues.push(...r.idsAPayer);
         Object.assign(partParVente, r.partParVente);
       });
@@ -443,7 +477,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
   const payerCommission = async (st) => {
     if (bloquerSiLecture(db, profile)) return;
     if (!aDroit(db, profile, "act_commission")) { uAlert("Payer une commission : ce pouvoir vous a été retiré (🔐 Pouvoirs)."); return; }
-    if (st.commissionDue === 0) { uAlert("Aucune commission en attente pour " + st.u.nom + " sur cette période."); return; }
+    if (st.commissionDue === 0) { uAlert("Aucune commission à payer pour " + st.u.nom + "."); return; }
     const moyen = await demanderMoyenPaiement(`pour ${st.u.nom}`, "Espèces", "Moyen de paiement", st.u);
     if (moyen === null) return;
     const src = await choisirSourcePaiementG(db, st.u, `Commission de ${fmt(st.commissionDue)} à ${st.u.nom}`, profile, moyen, st.commissionDue);
@@ -477,7 +511,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
         // Le bénéficiaire est prévenu DIRECTEMENT — sans ce message, le
         // paiement n'apparaissait que dans la caisse, jamais chez lui.
         nouveauMessage(profile, { a_id: st.u.id, vers: versEcran("commission"),
-          texte: `💰 Votre commission vous a été payée : ${fmt(st.commissionDue)} (${normPaiement(moyen)}) — ${ids.size} vente(s) de la période. Retrouvez le détail dans « Ma commission ».` }),
+          texte: `💰 Votre commission vous a été payée : ${fmt(st.commissionDue)} (${normPaiement(moyen)}) — ${ids.size} vente(s). Retrouvez le détail dans « Ma commission ».` }),
         ...(src.notifier ? messagesNotifPaiementCommission(db, profile, src.notifier, st.u.nom, st.commissionDue) : []),
         ...(db.messages || []),
       ],
@@ -592,6 +626,9 @@ export function MonEquipe({ db, save, profile, cible = null }) {
             <button key={id} onClick={() => setPeriode(id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${periode === id ? "bg-sky-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{label}</button>
           ))}
         </div>
+        <div className="text-xs text-slate-500 -mt-2 mb-3" data-note-periode-equipe>
+          La période règle le chiffre d'affaires, le nombre de ventes et le « déjà payé ». Les <b>commissions à payer</b> montrent toujours <b>tout ce qui reste dû</b>, quelle que soit la date de la vente.
+        </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <Stat label="Commerciaux actifs" valeur={equipe.length} nature="neutre" />
           <Stat label="CA de l'équipe" valeur={fmt(totalCA)} nature="entree" />
@@ -681,7 +718,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
           <span className="text-xs font-semibold text-slate-600">À payer : <b className="text-red-600 tabular-nums">{fmt(totalExtDu)}</b></span>
         </div>
         {apporteursExt.length === 0 ? (
-          <div className="text-sm text-slate-400 text-center py-6">Aucun apporteur externe sur cette période. Renseignez-le au moment de la vente (💰 Ventes → 🤝 Apporteur externe).</div>
+          <div className="text-sm text-slate-400 text-center py-6">Aucun apporteur externe sur cette période, et aucune commission d'apporteur à payer. Renseignez-le au moment de la vente (💰 Ventes → 🤝 Apporteur externe).</div>
         ) : (
           <table className="w-full text-sm min-w-[620px]">
             <thead><tr className="text-xs text-slate-500 uppercase">{["Apporteur", "Téléphone", "Clients apportés", "Ventes", "CA apporté", "Commission due", "Déjà payé", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
@@ -726,7 +763,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
           🎓 <b>Espace formation.</b> Cet écran ne montre que l'équipe et les chiffres d'entraînement. Les commerciaux, les commissions et les apporteurs de l'entreprise réelle n'y figurent pas.
         </div>
       )}
-      <div className="text-xs text-slate-400">Le chiffre d'affaires inclut toutes les ventes de la période ; la commission due ne compte que les ventes pas encore réglées. ⏳ = en attente de la réception de l'installation ; 💰 = réceptionnée, mais le client n'a pas fini de payer (règle : un franc ne sort pas de la caisse avant d'y être entré). 🔧 = technicien, ⭐ = chef d'équipe. Le paiement d'un apporteur externe est enregistré en dépense.</div>
+      <div className="text-xs text-slate-400">Le chiffre d'affaires, les ventes et le « déjà payé » suivent la période choisie ; la commission due compte TOUTES les ventes pas encore réglées, quelle que soit leur date. ⏳ = en attente de la réception de l'installation ; 💰 = réceptionnée, mais le client n'a pas fini de payer (règle : un franc ne sort pas de la caisse avant d'y être entré). 🔧 = technicien, ⭐ = chef d'équipe. Le paiement d'un apporteur externe est enregistré en dépense.</div>
     </div>
   );
 }

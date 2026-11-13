@@ -49,15 +49,26 @@ export function MaCommission({ db, profile }) {
   // voyait donc AUCUNE de ses ventes d'entraînement. C'est l'espace REGARDÉ qui
   // décide (filtreEspaceAffichage), comme dans 👑 Mon équipe.
   const ventesDeMonEspace = (db.ventes || []).filter(filtreEspaceAffichage(db, profile));
-  const mesVentesTotales = ventesDeMonEspace.filter((v) => (v.commercial === profile.nom || v.responsable === profile.nom) && inP(v.date, debut, fin));
-  const mesVentes = mesVentesTotales.filter((v) => !v.commission_payee);
+  // 💰 CE QUI RESTE À PAYER NE DÉPEND PAS DE LA PÉRIODE (Timo, 13/11/2026,
+  // « a, lance » — la règle de 👑 Mon équipe). Le message WhatsApp « votre
+  // commission est due… détail dans votre espace » envoie ICI : une vente du
+  // mois d'avant, réceptionnée ce mois-ci, ne doit pas disparaître de
+  // « Ce mois ». La commission à payer, ce qui attend la réception ou le
+  // paiement du client et le détail des ventes en attente lisent TOUTES mes
+  // ventes non réglées ; la période ne règle que le chiffre d'affaires, les
+  // rabais et le « déjà réglé ».
+  const mesVentesToutes = ventesDeMonEspace.filter((v) => v.commercial === profile.nom || v.responsable === profile.nom);
+  const mesVentesTotales = mesVentesToutes.filter((v) => inP(v.date, debut, fin));
+  const mesVentes = mesVentesToutes.filter((v) => !v.commission_payee);
     // ⚠ DÉFAUT TROUVÉ EN AUDIT (29/08/2026) : « chiffre d'affaires » était
     // calculé avec totalVente (ce que le client a payé), alors que la
     // commission, elle, se calcule sur caVente (qui exclut les lignes « hors
     // boutique »). Le commercial lisait donc un CA qui ne correspondait pas à
     // ce qu'on lui versait — de quoi discuter longtemps sans que personne ait
     // tort. Les deux partent maintenant de la même base.
-  const ca = mesVentes.reduce((s, v) => s + caVente(v), 0);
+  // Le chiffre d'affaires est une ACTIVITÉ : il suit la période (toutes mes
+  // ventes de la période, réglées ou non).
+  const ca = mesVentesTotales.reduce((s, v) => s + caVente(v), 0);
   const taux = Number(profile.taux_commission || 0);
   const commission = mesVentes.reduce((s, v) => s + commissionPour(v, profile.nom, taux, db), 0);
   // Gagné, mais pas encore exigible. DEUX raisons, dites séparément (30/09/2026 :
@@ -75,11 +86,13 @@ export function MaCommission({ db, profile }) {
   const jeSuisChef = estChefEquipe(db, moiLive);
   const tauxEquipe = Number(moiLive.taux_equipe ?? TAUX_EQUIPE_DEFAUT);
   const detailEquipe = monEquipe.map((u) => {
-    const ventesU = ventesDeMonEspace.filter((v) => v.commercial === u.nom && inP(v.date, debut, fin));
+    const sesVentesU = ventesDeMonEspace.filter((v) => v.commercial === u.nom);
+    const ventesU = sesVentesU.filter((v) => inP(v.date, debut, fin));
     const tu = Number(u.taux_commission || 0);
-    const comDue = ventesU.filter((v) => !v.commission_payee).reduce((s, v) => s + commissionVente(v, tu, db), 0);
+    const comDue = sesVentesU.filter((v) => !v.commission_payee).reduce((s, v) => s + commissionVente(v, tu, db), 0);
     const comTotale = ventesU.reduce((s, v) => s + commissionVente(v, tu, db), 0);
-    const monOverride = ventesU.filter((v) => !v.override_payee).reduce((s, v) => s + Math.round((commissionVente(v, tu, db) * tauxEquipe) / 100), 0);
+    // Ma part d'équipe en attente : sur TOUTES leurs ventes, comme ma commission (13/11/2026).
+    const monOverride = sesVentesU.filter((v) => !v.override_payee).reduce((s, v) => s + Math.round((commissionVente(v, tu, db) * tauxEquipe) / 100), 0);
     return { u, nbVentes: ventesU.length, comDue, comTotale, monOverride };
   });
   const commissionEquipe = detailEquipe.reduce((s, x) => s + x.monOverride, 0);
@@ -126,8 +139,9 @@ export function MaCommission({ db, profile }) {
   );
 
   const parBoutique = {};
-  // Idem : la répartition par boutique est une répartition de CA.
-  mesVentes.forEach((v) => { parBoutique[v.boutique] = (parBoutique[v.boutique] || 0) + caVente(v); });
+  // Idem : la répartition par boutique est une répartition de CA — elle suit
+  // la période, comme le chiffre d'affaires.
+  mesVentesTotales.forEach((v) => { parBoutique[v.boutique] = (parBoutique[v.boutique] || 0) + caVente(v); });
 
   return (
     <div className="space-y-4">
@@ -162,9 +176,12 @@ export function MaCommission({ db, profile }) {
             <Field label="Au"><input type="date" className={inputCls} value={pb} onChange={(e) => setPb(e.target.value)} /></Field>
           </div>
         )}
+        <div className="text-xs text-slate-500 -mt-2 mb-3" data-note-periode-commission>
+          La période règle le chiffre d'affaires, les rabais et le « déjà réglé ». La <b>commission à payer</b> montre toujours <b>tout ce qui vous reste dû</b>, quelle que soit la date de la vente.
+        </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-sky-700">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Chiffre d'affaires (non réglé)</div>
+            <div className="text-xs font-semibold text-slate-500 uppercase">Chiffre d'affaires de la période</div>
             <div className="text-2xl font-bold tabular-nums mt-1">{fmt(ca)}</div>
           </div>
           <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-sky-700">
@@ -256,7 +273,7 @@ export function MaCommission({ db, profile }) {
         <table className="w-full text-sm">
           <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "N° reçu", "Boutique", "Articles", "Total"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
-            {mesVentes.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">Aucune vente sur cette période.</td></tr>}
+            {mesVentes.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">Aucune vente en attente de commission.</td></tr>}
             {mesVentes.map((v) => (
               <tr key={v.id} className="border-t border-slate-100 hover:bg-sky-50">
                 <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date)}</td>
