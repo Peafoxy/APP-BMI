@@ -138,9 +138,29 @@ export const TEINTES_STAT = {
 // `accent`  : à n'utiliser que si la couleur dépend du CHIFFRE et non de sa
 //             nature — un taux de marge sous les 15 %, par exemple.
 // `compact` : version resserrée, pour les grilles denses (CNSS).
-export const Stat = ({ label, value, valeur, nature = "neutre", accent, compact }) => {
+// Timo (13/11/2026, « A et C oui, lance ») — deux formes de plus, pour le
+// 📊 Tableau de bord : `grand` (la carte d'une période : icône, libellé, gros
+// chiffre ; `teinte` = vert / rouge / ambre / bleu, couleurs dans src/index.css,
+// claires ET sombres) et `ligne` (un total « Depuis le début » : le libellé à
+// gauche, le chiffre à droite). Sans elles, la carte d'avant, inchangée.
+export const Stat = ({ label, value, valeur, nature = "neutre", accent, compact, grand, icone, teinte = "bleu", ligne }) => {
   const t = TEINTES_STAT[nature] || TEINTES_STAT.neutre;
   const contenu = value !== undefined ? value : valeur;
+  if (ligne) return (
+    <div className="tdb-ligne flex justify-between items-baseline gap-3 py-2.5 border-t border-slate-200 text-sm" data-stat-ligne>
+      <span className="text-slate-500">{label}</span>
+      <b className="tabular-nums whitespace-nowrap text-slate-800">{contenu}</b>
+    </div>
+  );
+  if (grand) {
+    return (
+      <div className={`tdb-kpi tdb-${teinte}`} data-stat-grand={teinte}>
+        {icone && <div className="tdb-kpi-icone" aria-hidden="true">{icone}</div>}
+        <div className="tdb-kpi-libelle"><span className="tdb-kpi-point"></span>{label}</div>
+        <div className="tdb-kpi-valeur tabular-nums">{contenu}</div>
+      </div>
+    );
+  }
   return (
     <div className={`rounded-xl border shadow-sm ${compact ? "p-3" : "p-4"} ${t.fond}`}>
       <div className={`text-xs font-semibold uppercase tracking-wide ${t.titre}`}>{label}</div>

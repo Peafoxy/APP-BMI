@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 3084 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 3085 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -67,7 +67,7 @@ npm run verifier-ecran-proforma  # 22  : ✏️ la proforma modifiée jouée dan
 npm run verifier-ecran-solaire   # 37  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET), en liste déroulante étroite entre la boutique et le panneau : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape, un F5 sur un brouillon déjà posé en localStorage retrouve le mode et ses chiffres ; 📱 la rangée des métiers en grille à 2 colonnes sur téléphone (sept métiers, 375 px, colonnes de largeur égale), reste comme avant sur ordinateur (1300 px)
 npm run verifier-onglets-deplacables # 37 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt), la page d'icônes et la colonne d'icônes ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
-npm run verifier-champs          # 32  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`) ; 📱 une rangée de boutons de choix (`data-rangee-boutons`) en grille à 2 colonnes sur téléphone, en ligne sur ordinateur (un témoin sans la marque) ; 🌗 le mode sombre (la page retournée, photos et cadres `data-garder-clair` remis à l'endroit, `fixed` à sa place, impression sans filtre)
+npm run verifier-champs          # 36  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`) ; 📱 une rangée de boutons de choix (`data-rangee-boutons`) en grille à 2 colonnes sur téléphone, en ligne sur ordinateur (un témoin sans la marque) ; 🌗 le mode sombre (la page retournée, photos et cadres `data-garder-clair` remis à l'endroit, `fixed` à sa place, impression sans filtre)
 npm run verifier-ecran-qui-se-montre # 44 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran ; une notification mène à SA ligne (la ligne visible, marquée, jamais la copie en veille) ; un tableau long montre 6 lignes puis défile (`TableauDefilant`)
 npm run verifier-infobulle       # 39  : la description d'un bouton dans SA fenêtre, mesurée dans Chromium (fond pâle de la couleur du bouton, plusieurs lignes, 280 px au plus, au-dessus en bas de l'écran, jamais hors de l'écran ; le `title` mis de côté puis rendu, celui de la LIGNE aussi ; rien au doigt ; un TÉMOIN sans l'hôte)
 npm run verifier-mot-information # 36  : le mot d'information de la première ouverture (les mots qui mettent mal à l'aise, la fenêtre mesurée dans Chromium : un seul bouton « J'ai compris », aucun rouge, les deux bouts atteignables)
@@ -10319,7 +10319,30 @@ lit mal est pire qu'un banc absent).
   rien » → « a ») : les cartes restent seules ; les trois chiffres se lisent
   dans la synthèse par période. L'avertissement ambre (`data-sans-prix-achat`)
   RESTE. Ne pas remettre d'explication sous les cartes sans sa demande.
-- **Le tableau de bord reste tel qu'il est** (pastel, sélecteur entre les
+- **📊 LE TABLEAU DE BORD : NOUVEL HABILLAGE, CLAIR ET VRAI SOMBRE** (13/11/2026,
+  « Ce tableau de bord est-il vraiment pro ? … Moi je parle de design » → trois
+  aperçus jetables → **« A et C oui, lance »**). RETOURNE « reste tel qu'il est »
+  pour la disposition ; les pastels restent, les cartes blanches restent refusées.
+  **L'ordre** : pastilles · « Période : » · **quatre grandes cartes de la période**
+  (`Stat grand icone teinte`, ui.jsx — Ventes vert, Dépenses rouge, Résultat vert
+  ou rouge selon son signe, Dettes en cours ambre ; ⚠ **toujours NOMMÉES par la
+  période**, « Résultat — Aujourd'hui » : sa crainte devant l'aperçu) ·
+  l'avertissement ambre · le graphique des 6 mois (une couleur par boutique) À
+  CÔTÉ du cadre **« Depuis le début »** (`data-depuis-le-debut`, les totaux en
+  LIGNES, `Stat ligne`) · puis tout le reste INCHANGÉ (Top 5, paiements, synthèse,
+  exports, cadres par boutique). Les caisses (DG, BANQUE, mobile, comptable) sont
+  rangées dans `data-caisses` et ne changent pas. **« C »** : l'écran porte
+  `data-tableau-de-bord` ; en sombre, ses cadres (enfants directs `.rounded-xl`,
+  ceux de ses grilles, `.tdb-kpi`) sont REMIS À L'ENDROIT et reçoivent des couleurs
+  choisies pour le noir (src/index.css, variables `--tdb-*`, sous `@media screen`) ;
+  les couleurs des BOUTIQUES gardent le retournement. ⚠ Un NOUVEAU cadre du
+  tableau de bord est un enfant direct `rounded-xl` (ou d'une grille) : il prend
+  l'habillage tout seul ; une couleur claire nouvelle DANS un cadre se remappe
+  dans index.css. ⚠ Les autres écrans restent en retournement (dit à Timo). Rien
+  à coller. Bancs : `verifier-champs` (+4, Chromium : clair, sombre, caisses non
+  touchées, impression ; éprouvé), `verifier-cloisonnement` (+1, l'écran RENDU ;
+  éprouvé). Chapitre 22 à jour. Ce qui suit est l'histoire :
+- **Le tableau de bord restait tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :
   **TOUTES** (en majuscules ; l'écran tel quel) / chaque boutique / TERRAIN / « Chez le

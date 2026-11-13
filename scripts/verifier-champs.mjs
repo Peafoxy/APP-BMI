@@ -245,6 +245,8 @@ console.log("\n🌗 Le mode sombre, mesuré dans Chromium");
 <body class="bg-white"><div style="height:3000px"><p id="txt" class="text-slate-900">Texte</p>
 <img id="photo" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="10" height="10">
 <div id="garde" data-garder-clair class="bg-white"><img id="dedans" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="10" height="10"></div></div>
+<div data-tableau-de-bord><div id="cadre" class="bg-white rounded-xl"><span id="encre" class="text-slate-800">x</span></div>
+<div data-caisses><div id="caisse" class="bg-white rounded-xl">x</div></div><div id="kpi" class="tdb-kpi tdb-vert">x</div></div>
 <div id="fixe" style="position:fixed;top:8px;left:0;width:40px;height:40px"></div></body></html>`;
   const nav = await chromium.launch();
   const lire = async (theme) => {
@@ -258,9 +260,14 @@ console.log("\n🌗 Le mode sombre, mesuré dans Chromium");
       garde: getComputedStyle(document.getElementById("garde")).filter,
       dedans: getComputedStyle(document.getElementById("dedans")).filter,
       fixeTop: Math.round(document.getElementById("fixe").getBoundingClientRect().top),
+      cadre: getComputedStyle(document.getElementById("cadre")).filter, cadreFond: getComputedStyle(document.getElementById("cadre")).backgroundColor,
+      encre: getComputedStyle(document.getElementById("encre")).color,
+      caisse: getComputedStyle(document.getElementById("caisse")).filter, caisseFond: getComputedStyle(document.getElementById("caisse")).backgroundColor,
+      kpi: getComputedStyle(document.getElementById("kpi")).filter, kpiFond: getComputedStyle(document.getElementById("kpi")).backgroundColor,
     }));
     await p.emulateMedia({ media: "print" });
     r.impression = await p.evaluate(() => getComputedStyle(document.documentElement).filter);
+    r.cadreImpression = await p.evaluate(() => getComputedStyle(document.getElementById("cadre")).filter + " " + getComputedStyle(document.getElementById("cadre")).backgroundColor);
     await p.close();
     return r;
   };
@@ -278,6 +285,16 @@ console.log("\n🌗 Le mode sombre, mesuré dans Chromium");
     sombre.fixeTop === 8, String(sombre.fixeTop));
   test("★ à l'impression, aucun filtre : un document sort toujours clair",
     sombre.impression === "none", sombre.impression);
+  // 📊 LE TABLEAU DE BORD (Timo, 13/11/2026, « A et C oui ») : en sombre, ses cadres sont remis
+  // à l'endroit et prennent des couleurs CHOISIES pour le noir ; les caisses restent comme le reste.
+  test("★ 📊 tableau de bord en CLAIR : aucun filtre, le cadre reste blanc, la carte de la période est en pastel vert",
+    clair.cadre === "none" && clair.cadreFond === "rgb(255, 255, 255)" && clair.kpi === "none" && clair.kpiFond === "rgb(227, 246, 234)", JSON.stringify(clair));
+  test("★ 📊 tableau de bord en SOMBRE : le cadre est remis à l'endroit, fond bleu nuit, texte clair ; la carte de la période en vert sombre",
+    /invert\(1\)/.test(sombre.cadre) && sombre.cadreFond === "rgb(17, 26, 44)" && sombre.encre === "rgb(241, 245, 249)" && /invert\(1\)/.test(sombre.kpi) && sombre.kpiFond === "rgb(15, 42, 30)", JSON.stringify(sombre));
+  test("★ 📊 les caisses (`data-caisses` : DG, BANQUE, comptable) ne sont PAS touchées : ni filtre, ni fond sombre",
+    sombre.caisse === "none" && sombre.caisseFond === "rgb(255, 255, 255)", sombre.caisse + " " + sombre.caisseFond);
+  test("★ 📊 à l'impression, le cadre du tableau de bord redevient clair, sans filtre",
+    sombre.cadreImpression === "none rgb(255, 255, 255)", sombre.cadreImpression);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

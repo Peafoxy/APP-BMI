@@ -324,7 +324,7 @@ export function Dashboard({ db, profile, save }) {
   const totalPai = Math.max(1, repPaiements.reduce((s, x) => s + x[1], 0));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-tableau-de-bord>
       {enFormation && (
         <div className="rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3">
           <div className="font-bold text-amber-900">🎓 Chiffres de l'espace FORMATION</div>
@@ -350,6 +350,12 @@ export function Dashboard({ db, profile, save }) {
         {comptableChoisi && <span className="text-xs text-slate-500">🧾 La caisse du comptable ne vend pas : voici ce qui y entre, ce qui en sort, et ses sorties.</span>}
         {caisseSeule && <span className="text-xs text-slate-500">{dgChoisi ? "👤 Deux relevés : la caisse de BMI que vous gardez en main, et votre compte d'exploitant (ce que BMI vous doit, ou ce que vous avez retiré)." : `${banqueChoisi ? "🏦" : "📱"} Cette caisse ne vend pas : voici ce qui y entre, ce qui en sort, et le solde.`}</span>}
       </div>
+      {/* Timo (13/11/2026, « A et C oui, lance ») : le nouvel habillage. Les cartes
+          de la PÉRIODE en haut, en grand ; le graphique et, à côté, les totaux
+          « Depuis le début » en lignes. Les caisses (DG, BANQUE, mobile, comptable)
+          gardent leur cadre : elles sont rangées à part (`data-caisses`), hors du
+          vrai mode sombre de src/index.css (`data-tableau-de-bord`). */}
+      {caisseChoisie && (<div className="space-y-5" data-caisses>
       {/* Timo (12/09/2026) : « séparer chacun… avoir les onglets DG, BANQUE et
           COMPTABLE ». Trois caisses LUES (rien d'écrit, lib/caissesCentrales.js),
           une par pastille, sur les boutiques de l'espace regardé, par UNE carte
@@ -373,23 +379,8 @@ export function Dashboard({ db, profile, save }) {
         <CarteCaisse titre={`🧾 ${CAISSE_COMPTABLE}`} caisse={CAISSE_COMPTABLE} periode={getPeriod()[0]} releve={releve(c, getPeriod()[1], getPeriod()[2])}
           note={`Entre : les versements « Chez le comptable » qu'il a pointés « Encaissé ». Sort : les sorties de sa caisse qu'il a pointées « Remis ». En attente de son pointage : à encaisser ${fmt(c.aEncaisser)}, à remettre ${fmt(c.aRemettre)} (voir 🧾 Chez le comptable).`} />
       ); })()}
+      </div>)}
       {!caisseChoisie && (<>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {!sansVentes && <Stat label="Total des ventes" value={fmt(totalVentes)} nature="entree" />}
-        <Stat label="Total des dépenses" value={fmt(totalDepenses)} nature="sortie" />
-        {(!sansVentes || terrainChoisi) && <Stat label="Total des dettes" value={fmt(totalDettes)} nature="du" />}
-        {!sansVentes && <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} nature="du" />}
-        {!sansVentes && <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} nature="regle" />}
-        {(totalFraisInstallation + totalFraisTransport) > 0 && (
-          <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} nature="entree" />
-        )}
-        {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} nature="attente" />}
-        {totalEnDepot > 0 && <Stat label={`${LIBELLE_DEPOT} — pas encore des ventes`} value={fmt(totalEnDepot)} nature="attente" />}
-        {!sansVentes && <Stat label="Clients uniques" value={nbClients} nature="neutre" />}
-      </div>
-
-      {terrainChoisi && <DepotsChantier depots={depotsEnCours} />}
-
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="flex flex-wrap items-center gap-3">
           {selecteurPeriode}
@@ -405,10 +396,10 @@ export function Dashboard({ db, profile, save }) {
           ne voit pas les ventes d'aujourd'hui » — ces cartes affichaient toujours
           le mois. Elles suivent maintenant la période choisie, nommée dessus. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {!sansVentes && <Stat label={`Ventes — ${customRow.label}`} value={fmt(somme(customRow.v))} nature="entree" />}
-        <Stat label={`Dépenses — ${customRow.label}`} value={fmt(somme(customRow.d))} nature="sortie" />
-        {!sansVentes && <Stat label={`Résultat — ${customRow.label}`} value={fmt(resCustom)} nature={resCustom >= 0 ? "regle" : "du"} />}
-        {(!sansVentes || terrainChoisi) && <Stat label="Dettes en cours" value={fmt(somme(dettes))} nature="du" />}
+        {!sansVentes && <Stat label={`Ventes — ${customRow.label}`} value={fmt(somme(customRow.v))} grand icone="💰" teinte="vert" nature="entree" />}
+        <Stat label={`Dépenses — ${customRow.label}`} value={fmt(somme(customRow.d))} grand icone="📤" teinte="rouge" nature="sortie" />
+        {!sansVentes && <Stat label={`Résultat — ${customRow.label}`} value={fmt(resCustom)} grand icone="📈" teinte={resCustom >= 0 ? "vert" : "rouge"} nature={resCustom >= 0 ? "regle" : "du"} />}
+        {(!sansVentes || terrainChoisi) && <Stat label="Dettes en cours" value={fmt(somme(dettes))} grand icone="📋" teinte="ambre" nature="du" />}
       </div>
       {/* Timo (14/10/2026, « a ») : « ces descriptifs… surchargent les cartes pour
           rien » — la ligne des échanges et celle du calcul du résultat sont
@@ -420,6 +411,7 @@ export function Dashboard({ db, profile, save }) {
         </div>
       )}
 
+      <div className={`grid gap-3 ${sansVentes ? "" : "lg:grid-cols-[1.55fr_1fr]"}`}>
       {!sansVentes && <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div className="font-bold text-slate-800">Ventes des 6 derniers mois</div>
@@ -429,10 +421,10 @@ export function Dashboard({ db, profile, save }) {
             ))}
           </div>
         </div>
-        <div className="flex items-end gap-2 h-40">
+        <div className="flex items-end gap-2 h-40 lg:h-60">
           {mois6.map((x) => (
             <div key={x.nom} className="flex-1 flex flex-col items-center gap-1">
-              <div className="w-full flex items-end justify-center gap-1 h-32">
+              <div className="w-full flex items-end justify-center gap-1 h-32 lg:h-52">
                 {NOMS_GRAPHE.map((b) => (
                   <div key={b} className="rounded-t" title={`${b} : ${fmt(x.vals[b])}`}
                     style={{ width: `${Math.max(8, 30 / Math.max(1, NOMS_GRAPHE.length))}%`, backgroundColor: col(b), height: `${(Math.max(0, x.vals[b]) / maxV) * 100}%`, minHeight: x.vals[b] > 0 ? 3 : 0 }}></div>
@@ -443,6 +435,23 @@ export function Dashboard({ db, profile, save }) {
           ))}
         </div>
       </div>}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-depuis-le-debut>
+        <div className="font-bold text-slate-800 mb-1">Depuis le début</div>
+        {!sansVentes && <Stat label="Total des ventes" value={fmt(totalVentes)} ligne nature="entree" />}
+        <Stat label="Total des dépenses" value={fmt(totalDepenses)} ligne nature="sortie" />
+        {(!sansVentes || terrainChoisi) && <Stat label="Total des dettes" value={fmt(totalDettes)} ligne nature="du" />}
+        {!sansVentes && <Stat label="Commissions dues (non payées)" value={fmt(totalCommissionsDues)} ligne nature="du" />}
+        {!sansVentes && <Stat label="Commissions déjà payées" value={fmt(totalCommissionsPayees)} ligne nature="regle" />}
+        {(totalFraisInstallation + totalFraisTransport) > 0 && (
+          <Stat label="Frais d'installation/transport encaissés" value={fmt(totalFraisInstallation + totalFraisTransport)} ligne nature="entree" />
+        )}
+        {totalAvances > 0 && <Stat label="Avances clients à livrer" value={fmt(totalAvances)} ligne nature="attente" />}
+        {totalEnDepot > 0 && <Stat label={`${LIBELLE_DEPOT} — pas encore des ventes`} value={fmt(totalEnDepot)} ligne nature="attente" />}
+        {!sansVentes && <Stat label="Clients uniques" value={nbClients} ligne nature="neutre" />}
+      </div>
+      </div>
+
+      {terrainChoisi && <DepotsChantier depots={depotsEnCours} />}
 
       {!sansVentes && <div className="grid md:grid-cols-2 gap-3">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">

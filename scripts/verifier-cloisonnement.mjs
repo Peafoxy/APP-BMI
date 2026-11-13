@@ -14921,6 +14921,13 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
       try { hP = R.rendreDepots([{ id: "vK", numero: "BMIA-2026-0003", client: "KLOMEGAN", date: aujD, boutique: "APESSITO", devis: 450000, paye: 450000, puise: 160000, resteVendu: 0, enDepot: 290000, enAttente: 0, receptionne_le: null }]).replace(/[\u202f\u00a0]/g, " "); } catch (e) { hP = "ERREUR " + e.message; }
       test("★★ 📊 le tableau de bord RENDU : « Total des ventes » = la vente du comptoir (40 000) + l'achat puisé (160 000) = 200 000 — jamais le dépôt (400 000) ; le dépôt dit à part « pas encore des ventes » (290 000)",
         />Total des ventes<[^]*?200 000 F/.test(hD) && !/>Total des ventes<[^]*?(600 000|440 000) F/.test(hD) && /Dépôt chantier — pas encore des ventes[^]*?290 000 F/.test(hD), hD.slice(0, 300));
+      // 📊 Le nouvel habillage (Timo, 13/11/2026, « A et C oui ») : les cartes de la PÉRIODE en grand,
+      // nommées par leur période (« Résultat — Aujourd'hui », sa crainte du jour même), les totaux en lignes.
+      test("★★ 📊 l'habillage RENDU : les cartes de la période en grand, NOMMÉES par la période (« Ventes — Aujourd'hui », « Résultat — Aujourd'hui »), le Résultat positif en vert ; les totaux en lignes sous « Depuis le début » ; le graphique et la synthèse toujours là",
+        /data-stat-grand="vert"[^>]*>(?:(?!data-stat-grand)[^])*?Ventes — Aujourd'hui/.test(hD) && /data-stat-grand="rouge"[^>]*>(?:(?!data-stat-grand)[^])*?Dépenses — Aujourd'hui/.test(hD)
+        && /data-stat-grand="vert"[^>]*>(?:(?!data-stat-grand)[^])*?Résultat — Aujourd'hui/.test(hD) && /data-stat-grand="ambre"[^>]*>(?:(?!data-stat-grand)[^])*?Dettes en cours/.test(hD)
+        && /data-depuis-le-debut[^]*?Depuis le début[^]*?data-stat-ligne[^]*?Total des ventes/.test(hD) && !/data-stat-grand[^>]*>(?:(?!data-stat-grand)[^])*?Total des ventes/.test(hD.split("data-depuis-le-debut")[0])
+        && /data-tableau-de-bord/.test(hD) && /Ventes des 6 derniers mois/.test(hD) && /Synthèse par période/.test(hD) && /Exporter les données/.test(hD), hD.slice(0, 300));
       test("★ la pastille 🏗 DÉPÔT CHANTIER RENDUE : son tableau (data-depots-chantier), la ligne du client, déposé, puisé, reste en dépôt",
         /data-depots-chantier/.test(hP) && /data-ligne-depot/.test(hP) && /KLOMEGAN/.test(hP) && /Reste en dépôt/.test(hP) && /290 000 F/.test(hP) && /160 000 F/.test(hP), hP.slice(0, 200));
     }
