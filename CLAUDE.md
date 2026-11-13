@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 3042 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 3078 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -64,7 +64,7 @@ npm run verifier-ecran-loyer     # 43  : « 💵 Payer le loyer » joué dans Ch
 npm run verifier-ecran-achat-chantier # 23 : 🏗 la case « Chantier » de 💰 Ventes jouée dans Chromium (le chantier choisi, l'argent du chantier, une écriture : stock sorti, achat rangé, aucune vente ; stock insuffisant, remise > 3 %, la vendeuse sans la case ; 🔒 la vente au comptoir qui prend du matériel réservé : la question, Annuler, OK ; 🏷 la case UNIQUE de remise, en % ou libre)
 npm run verifier-ecran-echange   # 19  : 🔄 l'échange d'un article joué dans Chromium (plus cher : le client paie ; moins cher, au SAV : BMI rend ; le tiroir qui ne suffit pas ; la vendeuse sans le bouton ; la ligne « avoir » ; l'ancienne ligne dit où est partie la valeur ; 🧾 rouvre le reçu de l'échange ; la vente née de l'échange grisée)
 npm run verifier-ecran-solaire   # 37  : le volet solaire monté dans Chromium (après le mode Libre, toutes les lignes repartent du stock de la boutique) ; et le volet Autre : une ligne hors stock d'un devis repris, nom ou prix changé, « Valider » passe et garde la quantité ; et un devis ou brouillon repris quand l'écran est DÉJÀ ouvert : ses « Autres équipements » arrivent, ceux du précédent partent (Solaire, Portail) ; un appareil à 0 repris reste à 0 ; 🔌 la consommation connue (facture CEET), en liste déroulante étroite entre la boutique et le panneau : le mode se bascule sans rien perdre, les deux chemins (consommation mensuelle ÷ 30, ou puissance × heures) donnent chacun le bon Wh/jour affiché et changent le matériel proposé, la ligne libre se tape, un F5 sur un brouillon déjà posé en localStorage retrouve le mode et ses chiffres ; 📱 la rangée des métiers en grille à 2 colonnes sur téléphone (sept métiers, 375 px, colonnes de largeur égale), reste comme avant sur ordinateur (1300 px)
-npm run verifier-onglets-deplacables # 36 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt), la page d'icônes et la colonne d'icônes ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
+npm run verifier-onglets-deplacables # 37 : l'appui long qui déplace un onglet, dans un vrai navigateur (souris et doigt), la page d'icônes et la colonne d'icônes ; et l'appui long qui DÉCLENCHE (supprimer une conversation de 📲 WhatsApp)
 npm run verifier-retour-android  # 64  : la touche retour d'Android jouée dans Chromium (history.back) : le profil, puis la conversation, puis l'onglet d'avant ; une fenêtre de question = Annuler ; la marque d'une chose fermée par l'écran retirée ; verrouillée, rien ne bouge ; seul src/retour.js touche la liste du téléphone
 npm run verifier-champs          # 32  : la LARGEUR des champs, mesurée dans Chromium (la ligne de recherche bridée sur PC, pleine sur téléphone ; les DEUX témoins qui prouvent qu'un max-w sur un champ et une transition sur un bouton ne commandent rien) ; les cases d'une même rangée alignées par le bas (Field, un témoin `block`) ; 📱 une rangée de boutons de choix (`data-rangee-boutons`) en grille à 2 colonnes sur téléphone, en ligne sur ordinateur (un témoin sans la marque) ; 🌗 le mode sombre (la page retournée, photos et cadres `data-garder-clair` remis à l'endroit, `fixed` à sa place, impression sans filtre)
 npm run verifier-ecran-qui-se-montre # 44 : ce qu'on ouvre se voit (Chromium : clic en bas d'une liste → le panneau est à l'écran, « Fermer » ramène sur la ligne ; un TÉMOIN sans la règle), chaque panneau relevé y passe, personne ne défile à sa façon ; un fil de messages s'ouvre sur sa FIN ; une fenêtre de question (uChoix, uAlert…) ne dépasse jamais l'écran ; une notification mène à SA ligne (la ligne visible, marquée, jamais la copie en veille) ; un tableau long montre 6 lignes puis défile (`TableauDefilant`)
@@ -74,9 +74,9 @@ npm run verifier-whatsapp        # 1456 : l'envoi WhatsApp du numéro BMI (l'ord
 npm run verifier-partage         # 9   : le PDF partagé, mesuré dans Chromium (A4 quelle que soit la largeur de l'écran, pages, marges rognées au contenu, étiquette ; le PDF du VRAI reçu, une page, moins de 400 Ko)
 npm run tester-conversations     # 86  : qui REÇOIT quelle conversation WhatsApp, la fiche légère qui ne porte rien, RIEN pour un compte de formation, et la corbeille des conversations au principal seul (serveur, base jetable)
 npm run tester-faire-part        # 14  : les faire-part de suppression (serveur)
-npm run tester-argent            # 319 : les règles de rôle sur l'argent (serveur)
+npm run tester-argent            # 324 : les règles de rôle sur l'argent (serveur)
 npm run tester-comptes           # 120 : les règles de rôle sur les comptes (serveur)
-npm run tester-devis-chantiers   # 129 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
+npm run tester-devis-chantiers   # 136 : devis, chantiers, prospects, boutiques, groupes, corbeille (serveur)
 npm run tester-rendez-vous       # 50  : la table des rendez-vous (serveur, base jetable) : un privé ne descend que chez son auteur, l'administrateur non plus ; un pro chez tout le personnel de l'espace ; un participant ne fait que « fait » ; création à son nom seul ; le mur ; la lecture seule ; appliquer_lot accepte la table
 npm run tester-connexion         # 12  : la fonction qui retrouve le compte sécurisé (connexion rapide, serveur seul, base jetable)
 npm run tester-espace-travaux # 12 : les 🛠 travaux à crédit rangés dans leur espace (espace-7, base jetable) : une fiche sans vente ni dette suit sa boutique, puis sa marque ; le trou d'avant rejoué
@@ -9215,6 +9215,64 @@ lit mal est pire qu'un banc absent).
   ligne non privée, « en espèces » remis) ; trois contrôles RETOURNÉS
   (soixante-deux modèles, modèles à ligne, dix-neuf privés). Chapitre 16 et
   guide commercial à jour.
+
+### 🧾 L'HISTORIQUE DES PAIEMENTS DE COMMISSION, TÉLÉCHARGEABLE EN PDF (13/11/2026, « A c, B b, C oui, lance »)
+- Timo : « EST CE ON A UN HISTORIQUE DE PAIEMENT DE COMMISSION ? TELECHARGEABLE
+  EN PDF » — non : seule une petite liste « 💰 Mes paiements de commission
+  reçus » dans 💵 Ma commission, sans PDF. Règle pure
+  **`lib/historiqueCommissions.js`**, affichage écrit UNE fois
+  **`components/HistoriquePaiements.jsx`**, PDF `genererHistoriqueCommissions`
+  (src/pdf.js — le septième document des briques communes).
+- **RELU, rien d'écrit** (`paiementsDeCommission`), dans les paiements déjà
+  enregistrés : les dépenses « Commissions » (`auto` commission /
+  commission_equipe / commission_ext + `user_id` ; les tampons
+  `commission_dep`, `override_dep`, `apporteur.dep_id` des ventes et des
+  dettes de pose ; un parrain par `apporteur.parrain_user_id`) et « Prime
+  d'installation » (lue d'abord sur la LIGNE DE L'ÉQUIPE : `paye`,
+  `date_paiement`, `dep_id` — "" = tout retenu pour un outil perdu, 0 F
+  versé ; une prime dont le chantier est à la corbeille reste par sa
+  dépense). Une vieille dépense « Commissions » sans `auto` se relit dans sa
+  description. ⚠ **Vérifié** : ces marques existent depuis le 25/07/2026 —
+  les anciens paiements retrouvent leur bénéficiaire. **Un paiement annulé
+  (↩ Annuler) n'y est plus** (sa dépense est retirée).
+- **« B b »** : les commissions (sur ventes, d'équipe, apporteurs externes,
+  parrains) ET les primes d'installation (parts des frais, 🎁 primes de
+  chantier). Une part réduite pour un outil perdu le dit sous le montant.
+- **« A c »** : **👑 Mon équipe**, en bas (« 🧾 Historique des paiements de
+  commission » : la période de l'écran, « Toutes les personnes » ou une
+  seule, « 📄 Télécharger en PDF » / « 📄 Relevé de cette personne (PDF) »,
+  « Excel ») ET **💵 Ma commission** (« 🧾 Historique de mes paiements »,
+  « 📄 Télécharger mon relevé (PDF) » — il REMPLACE « 💰 Mes paiements de
+  commission reçus »). **« C oui »** : le bouton rond **📄** sur la ligne
+  d'une personne (Performances, ⭐ Chefs d'équipe, 🤝 Apporteurs externes)
+  télécharge SON relevé — un apporteur externe n'a pas de compte : c'est le
+  papier qu'on lui remet ; il n'apparaît que si elle a un paiement sur la
+  période.
+- **Qui voit quoi** : `ROLES_HISTORIQUE_COMPLET` (administrateur, resp.
+  commercial, gérant) → tout ; **un chef d'équipe → les siens et ceux de ses
+  recrues** (`clesDuChef(moi, filleulsDe(…))`). ⚠ **Dit à Timo** : le RESTE
+  de 👑 Mon équipe montre tout le monde à un chef (je lui avais annoncé
+  autrement) — pas changé sans sa demande.
+- **Le mur** : la règle reçoit les listes DÉJÀ filtrées
+  (`filtreEspaceAffichage` pour dépenses, ventes, dettes ;
+  `chantiersDeLEspaceRegarde` ; `utilisateursDeLEspace`), jamais `db` entier.
+  Clés : `u:<id>` pour un compte, `a:<cleApporteur(nom, tel)>` pour un
+  apporteur ou un parrain.
+- **UN constructeur** pour l'écran, le PDF et l'Excel (`lignesHistorique`,
+  `entetesHistorique`, `resumePaiements`) : le PDF ne calcule rien — A4
+  paysage, logo, période, quatre cases (total versé, paiements, commissions,
+  primes), le tableau dans l'ordre des dates, le total UNE fois en bas,
+  colonnes de largeur fixe (`LARGEURS_HISTORIQUE` — sans elles « CLAUDE
+  (90000001) » se coupait), aucune ligne coupée entre deux pages. L'écran
+  suit la règle des lignes (première colonne figée, une ligne dépliée,
+  `TexteDepliable`, `PastillePaiement`, `HistoriqueArchive`).
+- Rien à coller. Banc `verifier-cloisonnement` (+24 : la règle, les deux
+  écrans RENDUS par `scripts/_rendu-equipe.jsx`, le PDF LU), éprouvé (sept
+  fautes : prime lue deux fois, chef qui voit tout, mur ouvert dans les deux
+  écrans, lignes dans le désordre, 📄 retiré, largeurs retirées) ; trois
+  contrôles RETOURNÉS (sept PDF, six `enteteSociete` / `bandeauTitre`).
+  Regardé dans Chromium (1300 et 390 px). Chapitre 16 et les guides
+  commercial, technicien, gérant, administrateur à jour.
 
 ### 📈 L'AVIS D'AVANCEMENT D'UN EMPLOYÉ — `avancement_employe` (03/10/2026, « 3 avec montants », « on garde le texte que tu as proposé »)
 - Modèle **`avancement_employe`** (UTILITY, 5 trous : nom, ancien salaire,

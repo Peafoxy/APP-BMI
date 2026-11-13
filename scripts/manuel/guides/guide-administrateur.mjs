@@ -35,7 +35,7 @@ export const GUIDE = {
       ["📤 Dépenses · 🧾 Chez le comptable · 💵 Salaires", "L'argent qui sort, la caisse du comptable, la paie et la CNSS (chapitres 17 et 18)."],
       ["📦 Stocks · 🚚 Fournisseurs", "Les articles, leurs prix, le magasin, les fournisseurs (chapitres 8, 9 et 10)."],
       ["🏠 Clients installés · 🛠 Travaux à crédit · 🧰 Outillage", "Les chantiers, leur programmation, leurs frais ; les travaux à crédit ; le registre des outils (chapitres 15 et 19)."],
-      ["🎯 Commerciaux · 👑 Équipe", "Les objectifs, les commissions, les chefs d'équipe, les apporteurs externes (chapitre 16)."],
+      ["🎯 Commerciaux · 👑 Équipe", "Les objectifs, les commissions, les chefs d'équipe, les apporteurs externes ; l'historique des paiements et le relevé d'une personne en PDF (chapitre 16)."],
       ["💬 Messages · 📲 WhatsApp", "L'équipe, et toutes les conversations du numéro BMI (chapitre 20)."],
       ["👥 Utilisateurs · ⚙ Paramètres", "Les comptes, les rôles, les pouvoirs ; les boutiques et tous les réglages (chapitres 2 et 23)."],
     ] }],

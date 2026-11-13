@@ -808,6 +808,75 @@ export function genererReleve(r, { caisse, periode, logo, formation = false, edi
   return null;
 }
 
+// ============ 🧾 L'HISTORIQUE DES PAIEMENTS DE COMMISSION (13/11/2026) ============
+// Timo : « EST CE ON A UN HISTORIQUE DE PAIEMENT DE COMMISSION ? TELECHARGEABLE
+// EN PDF » → « A c, B b, C oui ». Le PDF reprend l'écran TEL QUEL : les lignes
+// viennent de `lignesHistorique`, le total de `resumePaiements`
+// (lib/historiqueCommissions.js) — AUCUN calcul ici. Le même dessin pour
+// l'historique de 👑 Mon équipe (toutes les personnes) et pour le relevé d'UNE
+// personne (son bouton 📄, ou 💵 Ma commission), avec les briques communes.
+// En paysage : huit colonnes. `h` : { entetes, lignes, resume: { nb, total,
+// commissions, primes } } ; `fichier` : { type, client, numero } pour le nom.
+const LARGEURS_HISTORIQUE = { "Date": 27, "Bénéficiaire": 44, "Type": 32, "Montant versé": 24, "Moyen": 30, "Caisse": 40, "Payé par": 20 };
+export function genererHistoriqueCommissions(h, { titre = "HISTORIQUE DES PAIEMENTS DE COMMISSION", beneficiaire = "", periode = "", logo, formation = false, edite = "", fichier = {} } = {}, retournerDoc = false) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true });
+  const largeur = doc.internal.pageSize.getWidth();
+  const hauteur = doc.internal.pageSize.getHeight();
+  const entetes = h.entetes || [];
+  const lignes = h.lignes || [];
+  const r = h.resume || {};
+  const iMontant = entetes.indexOf("Montant versé");
+
+  enteteSociete(doc, logo, largeur);
+  const yApres = bandeauTitre(doc, largeur, texteSurPdf(titre), formation);
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(texteSurPdf(`Période : ${periode || "Depuis le début"}`), 14, yApres + 7);
+  if (edite) doc.text(`Édité le ${edite}`, largeur - 14, yApres + 7, { align: "right" });
+  let yInfo = yApres + 7;
+  if (beneficiaire) { yInfo += 5; doc.text(texteSurPdf(`Bénéficiaire : ${beneficiaire}`), 14, yInfo); }
+
+  const y = grandesCases(doc, yInfo + 5, largeur, [
+    [`${fmtMontant(r.total)} F`, "Total versé"],
+    [String(Number(r.nb || 0)), "Paiements"],
+    [`${fmtMontant(r.commissions)} F`, "Commissions"],
+    [`${fmtMontant(r.primes)} F`, "Primes d'installation"],
+  ]);
+  // Chaque colonne a sa largeur (mesuré : laissées libres, « CLAUDE (90000001) »
+  // et « La caisse de DEMAKPOE » se coupaient en deux) ; « Pour » prend le reste.
+  const columnStyles = {};
+  entetes.forEach((t, i) => {
+    if (LARGEURS_HISTORIQUE[t]) columnStyles[i] = { cellWidth: LARGEURS_HISTORIQUE[t], ...(i === iMontant ? { halign: "right" } : {}) };
+  });
+  autoTable(doc, {
+    head: [entetes.map((t, i) => enTete(texteSurPdf(t), i === iMontant ? "right" : "left"))],
+    body: lignes.length
+      ? lignes.map((l) => l.map((c, i) => (i === iMontant ? fmtMontant(c) : texteSurPdf(c))))
+      : [[{ content: "Aucun paiement sur cette période.", colSpan: Math.max(1, entetes.length) }]],
+    foot: iMontant > 0
+      ? [[{ content: "Total versé sur la période", colSpan: iMontant }, { content: fmtMontant(r.total), styles: { halign: "right" } }, ...entetes.slice(iMontant + 1).map(() => "")]]
+      : undefined,
+    // Le total une fois, à la fin ; une ligne n'est jamais coupée entre deux pages.
+    showFoot: "lastPage",
+    rowPageBreak: "avoid",
+    startY: y + 2,
+    styles: { fontSize: 8, cellPadding: 1.6 },
+    headStyles: { fillColor: BLEU, textColor: 255, fontSize: 8 },
+    footStyles: { fillColor: GRIS_CLAIR, textColor: GRIS_TEXTE, fontStyle: "bold" },
+    columnStyles,
+    margin: { left: 14, right: 14 },
+    didDrawPage: () => piedDePage(doc, largeur, hauteur),
+  });
+  // Ce que disent ces montants — écrit sous le tableau, jamais deviné.
+  const yNote = placePour(doc, (doc.lastAutoTable?.finalY || y) + 6, hauteur, 8);
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GRIS_TEXTE);
+  doc.text(texteSurPdf("Montants réellement versés. Une part d'installation retenue pour un outil perdu est indiquée sur sa ligne. Un paiement annulé n'apparaît pas."), 14, yNote);
+  if (retournerDoc) return doc;
+  doc.save(fichierPdf(fichier.type || "Historique des commissions", { client: fichier.client, numero: fichier.numero }));
+  return null;
+}
+
 // ============ 📋 L'INVENTAIRE DES VENTES D'UNE BOUTIQUE (10/10/2026) ============
 // Timo : « D a » — l'inventaire de 💰 Ventes s'imprime. La structure vient
 // de lib/inventaireVentes.js ; ici on ne fait que la DESSINER, avec les

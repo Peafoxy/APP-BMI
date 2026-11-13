@@ -89,6 +89,7 @@ export const GUIDE = {
     ["h3", "Ma commission — 💵 Ma commission"],
     ["regle", "**Une commission n'est due qu'après DEUX choses** : la réception des travaux par le client **et** le solde de sa dette. « Un franc ne sort pas de la caisse avant d'y être entré. »"],
     ["p", "L'écran le dit ligne par ligne : ⏳ en attente de la réception, 💰 réceptionnée mais pas encore payée par le client. Le chiffre affiché est une **estimation** ; le paiement est validé par l'administration ou le chef d'équipe (chapitre 16). Le jour où elle m'est payée, je reçois un message dans 💬 Messages **et un WhatsApp du numéro BMI** : le montant, pour quelles ventes, la date et le moyen."],
+    ["p", "Plus bas, **🧾 Historique de mes paiements** : chaque commission (et chaque prime d'installation) qu'on m'a **réellement versée** sur la période choisie — la date, pour quelles ventes, le montant, le moyen, la caisse, et qui m'a payé. **« 📄 Télécharger mon relevé (PDF) »** me donne le document à garder ; « Excel » le même tableau."],
 
     ["h3", "Diriger une équipe — 👑 Mon équipe"],
     ["p", "**Le responsable commercial l'a toujours ; un commercial seulement s'il est chef d'équipe ⭐** (c'est l'administrateur qui nomme un chef)."],
@@ -96,6 +97,7 @@ export const GUIDE = {
       "La vue d'ensemble : chaque membre, son chiffre d'affaires, sa commission due et pourquoi elle attend.",
       "**« ✅ Tâche »** sur la ligne d'un membre lui donne un travail ; quand il l'a terminée, je la **« ✅ Valider »**, ou « ↩ Rouvrir » si elle n'est pas faite.",
       "**🤝 Apporteurs externes** : « ✓ Payer » — le moyen de paiement est celui par lequel le client a payé, la confirmation le dit ; « ✏️ Moyen » pour en choisir un autre. L'apporteur reçoit tout seul un WhatsApp du numéro BMI qui lui dit qu'il a été payé (le chef d'équipe payé aussi).",
+      "**🧾 Historique des paiements de commission**, en bas de l'écran : les paiements déjà faits sur la période, une personne au choix, **« 📄 Télécharger en PDF »** et « Excel ». Le bouton rond **📄** sur la ligne d'une personne (un apporteur externe par exemple) télécharge **son relevé seul**, à lui remettre. Le responsable commercial voit les paiements de tout le monde ; **un commercial chef d'équipe, les siens et ceux de ses recrues**.",
       "**Réassigner** un prospect à un collègue (congé, départ) : 🧲 Prospects, bouton « Réassigner », avec le pouvoir « 🔁 Réaffecter les prospects ».",
     ]],
 

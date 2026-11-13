@@ -24,7 +24,12 @@
 // lib/commissionsDues.js (le message « commission due » ; et, depuis le
 // 13/11/2026, la commission PAYÉE : envoiDeCommissionPayee,
 // envoyerAvisCommissionPayee), lib/whatsappModeles.js (commission_due,
-// commission_payee), lib/lignesPrivees.js (le détail dans 📲 WhatsApp).
+// commission_payee), lib/lignesPrivees.js (le détail dans 📲 WhatsApp),
+// lib/historiqueCommissions.js et components/HistoriquePaiements.jsx (🧾
+// l'historique des paiements, 13/11/2026 : paiementsDeCommission — relu dans
+// les dépenses « Commissions » et « Prime d'installation » —,
+// voitTousLesPaiements, clesDuChef, telechargerHistorique), src/pdf.js
+// (genererHistoriqueCommissions — le PDF).
 // Les frais d'installation se répartissent au chapitre 15 ; l'apporteur
 // nommé dans un devis au chapitre 13 ; la retenue d'un outil perdu au 19.
 // ============================================================
@@ -59,6 +64,7 @@ export const CHAPITRE = {
         ["✓ Marquer payé / ✓ Payer / ✏️ Moyen", "Ceux qui ont l'écran **et** le pouvoir « 💰 Valider / payer les commissions » (retirable dans 🔐 Pouvoirs)."],
         ["↩ Annuler paiement", "**L'administrateur.**"],
         ["🎖 Promouvoir commercial (un apporteur externe)", "**L'administrateur.**"],
+        ["🧾 Historique des paiements (👑 Mon équipe) : lire, PDF, Excel, 📄 relevé d'une personne", "**L'administrateur, le responsable commercial, le gérant** : les paiements de tout le monde. **Un chef d'équipe ⭐** : les siens et ceux de **ses recrues**, rien d'autre."],
         ["💵 Ma commission", "Commercial, technicien, technicien BMI, responsable commercial — et **tout employé qui a un taux ou des ventes à son nom**."],
         ["🎯 Commerciaux (agents, performance)", "**L'administrateur.**"],
         ["Fixer un taux de commission, un taux d'équipe, nommer un chef, donner un parrain", "**L'administrateur** (👥 Utilisateurs → ⋯ Gérer)."],
@@ -72,15 +78,15 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["👑 Équipe / 👑 Mon équipe", "Période (Ce mois / Cette année / Depuis le début) ; les tâches à valider ; **Performances par commercial** ; **⭐ Chefs d'équipe** ; **🤝 Apporteurs externes**."],
-        ["💵 Ma commission", "Chiffre d'affaires de la période, taux, commission à payer (tout ce qui reste dû, quelle que soit la période) ; les sommes en attente ; mon équipe ; mes paiements reçus ; mes primes d'installation ; le détail des ventes en attente."],
+        ["👑 Équipe / 👑 Mon équipe", "Période (Ce mois / Cette année / Depuis le début) ; les tâches à valider ; **Performances par commercial** ; **⭐ Chefs d'équipe** ; **🤝 Apporteurs externes** ; en bas, **🧾 Historique des paiements de commission** (PDF, Excel, et le relevé d'une personne)."],
+        ["💵 Ma commission", "Chiffre d'affaires de la période, taux, commission à payer (tout ce qui reste dû, quelle que soit la période) ; les sommes en attente ; mon équipe ; **🧾 Historique de mes paiements** (commissions et primes d'installation, avec **📄 Télécharger mon relevé (PDF)**) ; mes primes d'installation ; le détail des ventes en attente."],
         ["🎯 Commerciaux", "Les agents, leur zone, leur objectif mensuel, et un classement par chiffre d'affaires."],
         ["💰 Primes remises", "Les demandes de prime adressées à la caisse de SA boutique, et l'historique des primes payées."],
         ["💰 Primes reçues", "Toutes mes primes : parts d'installation, 🎁 primes sur chantier et primes sur salaire — en attente, déjà payées. 💵 Ma commission et 💵 Mon salaire gardent aussi les leurs."],
         ["💰 Ventes (formulaire)", "Le **Commercial** de la vente, le **Rabais offert**, la case **🤝 apporteur externe**."],
         ["🏠 Mon espace (client)", "Le cadre **🤝 Parrainez vos proches** et ses gains."],
       ]}],
-      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans 🎯 Commerciaux et 👑 Mon équipe, le **nom reste figé à gauche** (la médaille du classement devant) et les gestes sont des **boutons ronds**, le nom au survol : ✏️ modifier, ⏸ désactiver / ▶ réactiver, 🗑 supprimer ; 🗂 voir les tâches (la ligne se marque en bleu), ✅ assigner une tâche, 💵 marquer payé / payer, ↩ annuler un paiement, 💳 changer le moyen d'un apporteur, 🎖 promouvoir commercial. Le statut d'un agent est une pastille (Actif / Inactif). Dans le partage des frais, 📤 demander le paiement et ✓ valider et payer sont aussi des boutons ronds."],
+      ["note", "**La règle des lignes de toute l'application** (Timo, 15/10/2026 : « en faire une règle générale pour l'application ») : dans 🎯 Commerciaux et 👑 Mon équipe, le **nom reste figé à gauche** (la médaille du classement devant) et les gestes sont des **boutons ronds**, le nom au survol : ✏️ modifier, ⏸ désactiver / ▶ réactiver, 🗑 supprimer ; 🗂 voir les tâches (la ligne se marque en bleu), ✅ assigner une tâche, 💵 marquer payé / payer, ↩ annuler un paiement, 💳 changer le moyen d'un apporteur, 🎖 promouvoir commercial, 📄 le relevé de ses paiements (PDF). Le statut d'un agent est une pastille (Actif / Inactif). Dans le partage des frais, 📤 demander le paiement et ✓ valider et payer sont aussi des boutons ronds."],
     ]},
 
     // ── 4
@@ -151,6 +157,16 @@ export const CHAPITRE = {
         { titre: "💰 Primes reçues (toute personne qui peut recevoir une prime)", texte: "« En attente de paiement », « Déjà payé » ; puis **🔧 Mes primes de chantier** — pour chaque chantier : répartition enregistrée, demandée au paiement, ou payée le … (une 🎁 prime sur chantier est dite « prise sur la part de BMI ») ; puis **💵 Mes primes sur salaire** — le mois, le motif, qui l'a accordée, « versée avec le salaire du mois » ou « sera versée ». Un remboursement de frais avancés n'y figure pas : ce n'est pas une prime (il reste dans 💵 Mon salaire)." },
         { titre: "🎁 La prime de chantier d'un employé de boutique (administrateur)", texte: "Un gérant, un vendeur ou un magasinier qui a suivi un chantier : 👥 Utilisateurs → ⋯ Gérer → Paie → **+ Prime → « 🏠 Prime sur chantier »**. La liste montre les chantiers liés à **sa boutique**, dont le partage des frais est validé depuis **moins de 3 mois**, et sans prime déjà posée pour lui. Le montant est **pris sur la part de BMI** — jamais au-delà, les parts des techniciens ne bougent pas. Elle se paie ensuite **comme une part de technicien** (📤 Demander le paiement, puis ✓ Valider et payer) ; **personne ne valide le paiement de sa propre prime**. L'employé la voit dans **💵 Ma commission** (« 🎁 prime de chantier »), rien à valider de son côté. Refaire le partage garde les primes posées." },
       ]],
+      ["h3", "H. 🧾 L'historique des paiements, et le relevé d'une personne"],
+      ["etapes", [
+        { titre: "Où", texte: "**👑 Mon équipe**, tout en bas : « 🧾 Historique des paiements de commission ». **💵 Ma commission** : « 🧾 Historique de mes paiements » — chacun y lit les siens." },
+        { titre: "Ce qu'il montre", texte: "Chaque paiement **réellement fait** : les commissions (sur ventes, d'équipe, apporteurs externes, parrains) **et** les primes d'installation (parts des frais, 🎁 primes de chantier). Pour chacun : la date et l'heure, qui a été payé, le type, **pour quoi** (« 1 vente : MR ERIC », « Chantier KOFFIVI MASSA (chef de chantier) - 30 % »), le **montant versé**, le moyen et la caisse, et qui a payé. Une part réduite pour un outil perdu le dit sous le montant (« part … − … retenus (outil perdu) ») ; une part entièrement retenue apparaît à 0 F." },
+        { titre: "La période", texte: "Il suit la période de l'écran (Ce mois, Cette année, Depuis le début ; dans 💵 Ma commission aussi « Personnalisée »). Le total versé et le nombre de paiements sont écrits dans son titre. Pour tout voir : « Depuis le début »." },
+        { titre: "Une personne", texte: "La liste « Toutes les personnes » ne garde que la personne choisie ; le bouton devient « 📄 Relevé de cette personne (PDF) ». C'est le chemin pour quelqu'un qui n'a pas de ligne dans les tableaux du dessus — un technicien payé seulement de parts d'installation, par exemple." },
+        { titre: "📄 Le PDF et l'Excel", texte: "« 📄 Télécharger en PDF » : le logo, la période, quatre cases (total versé, nombre de paiements, commissions, primes d'installation), le tableau dans l'ordre des dates et le total. « Excel » : le même tableau. Les deux reprennent exactement ce que l'écran montre." },
+        { titre: "Le bouton rond 📄 sur la ligne d'une personne", texte: "Dans Performances, ⭐ Chefs d'équipe et 🤝 Apporteurs externes : il télécharge **le relevé de cette personne seule** sur la période. **Un apporteur externe n'a pas de compte** : c'est ce papier qu'on lui remet s'il demande ce qu'il a reçu. Le bouton n'apparaît que si la personne a un paiement sur la période." },
+      ]],
+      ["note", "**Qui voit quoi** : l'administrateur, le responsable commercial et le gérant voient les paiements de tout le monde ; **un chef d'équipe ⭐ voit les siens et ceux de ses recrues**, rien d'autre. Le mur formation / réel s'applique. **Un paiement annulé (↩ Annuler paiement) n'y figure plus.** Rien n'est écrit : l'historique est relu dans les paiements déjà enregistrés (les dépenses « Commissions » et « Prime d'installation »). Au-delà des 20 plus récents, les paiements de plus de 3 mois passent dans « 📁 Paiements archivés »."],
     ]},
 
     // ── 5
@@ -164,6 +180,9 @@ export const CHAPITRE = {
         ["✓ Payer", "🤝 Apporteurs externes", "Paie l'apporteur par le moyen du client (ou son moyen choisi) ; le WhatsApp « commission payée » part tout seul."],
         ["✏️ Moyen", "🤝 Apporteurs externes", "Change le moyen de paiement d'un apporteur ; retenu ensuite."],
         ["🎖 Promouvoir commercial", "🤝 Apporteurs externes", "Crée un compte commercial à un apporteur de 5 clients ou plus."],
+        ["📄 (bouton rond)", "👑 Mon équipe → Performances, ⭐ Chefs d'équipe, 🤝 Apporteurs externes", "Télécharge le relevé d'UNE personne sur la période (PDF) — celui qu'on remet à un apporteur externe."],
+        ["📄 Télécharger en PDF / Excel", "👑 Mon équipe → 🧾 Historique des paiements de commission", "L'historique de la période : toutes les personnes, ou celle choisie dans la liste (« 📄 Relevé de cette personne (PDF) »)."],
+        ["📄 Télécharger mon relevé (PDF) / Excel", "💵 Ma commission → 🧾 Historique de mes paiements", "Mes commissions et mes primes d'installation versées sur la période."],
         ["📄 Exporter les commissions", "🎯 Commerciaux", "Exporte le classement de la période (CSV)."],
         ["✏️ / ⏸ / 🗑 (boutons ronds)", "🎯 Commerciaux", "Objectif mensuel d'un agent ; activer ou retirer. Le taux ne s'y change pas."],
         ["✓ Valider et payer", "💰 Primes remises", "Paie une prime d'installation depuis la caisse de la boutique."],
@@ -207,6 +226,7 @@ export const CHAPITRE = {
         "Le moyen de l'apporteur externe convient (sinon ✏️ Moyen).",
         "Après le paiement, la confirmation dit « 📲 Avis de paiement envoyé » ; sinon, elle dit pourquoi (souvent : pas de numéro).",
         "Une prime d'installation est demandée à la bonne boutique.",
+        "Avant de remettre un relevé, la **période** est la bonne (« Depuis le début » pour tout ce qu'une personne a reçu).",
       ]],
     ]},
 
@@ -232,6 +252,7 @@ export const CHAPITRE = {
         { situation: "Le technicien KOSSI a une part de 26 532 F et doit 10 000 F pour un outil perdu.", reponse: "Au paiement dans 💰 Primes remises, la retenue est annoncée : il reçoit **16 532 F**, la caisse sort 16 532 F." },
         { situation: "Un commercial dit : « ma commission est en attente de réception, mais le client a signé le PV hier ».", reponse: "Regarder 💵 Ma commission : si le cadre dit « 💰 en attente du paiement du client », c'est la dette qui n'est pas soldée." },
         { situation: "Une vente du 30 octobre, avec un apporteur externe, est réceptionnée le 12 novembre ; l'apporteur reçoit « votre commission est due ».", reponse: "👑 Équipe, sur **« Ce mois »** : il a sa ligne avec sa commission à payer, même si sa vente est d'octobre (0 vente et 0 F de CA apporté ce mois-ci). La commission due ne dépend jamais de la période." },
+        { situation: "Un apporteur externe passe à la boutique : « combien m'avez-vous payé cette année ? »", reponse: "👑 Mon équipe → **« Cette année »** → le bouton rond **📄** sur sa ligne dans 🤝 Apporteurs externes (ou le choisir dans la liste de l'historique, en bas). Son relevé PDF donne chaque paiement — la date, la vente, le montant, le moyen — et le total. On le lui remet." },
       ]],
     ]},
 
@@ -242,7 +263,7 @@ export const CHAPITRE = {
         "(Administrateur) Fixer à 5 % le taux d'un commercial d'entraînement dans 👥 Utilisateurs.",
         "Encaisser une vente comptant à son nom avec un rabais ; calculer la commission à la main, puis la lire dans 👑 Équipe.",
         "Encaisser une vente à crédit à son nom ; constater « 💰 client doit … » ; solder la dette ; constater que la commission est due.",
-        "Payer la commission (✓ Marquer payé) ; retrouver la dépense et le paiement dans 💵 Ma commission du commercial.",
+        "Payer la commission (✓ Marquer payé) ; retrouver le paiement dans l'historique en bas de 👑 Mon équipe, puis dans « 🧾 Historique de mes paiements » de 💵 Ma commission du commercial ; télécharger son relevé (PDF).",
         "Encaisser une vente avec un apporteur externe par Mobile Money ; le payer ; lire le moyen repris.",
         "(Administrateur) Demander le paiement d'une prime d'installation à une boutique ; (vendeur ou gérant) la valider dans 💰 Primes remises.",
       ]],
@@ -257,7 +278,8 @@ export const CHAPITRE = {
         "explique les deux conditions (réception, solde) et lit ⏳ et 💰 ;",
         "paie une commission, une commission d'équipe, un apporteur, en choisissant la bonne caisse ;",
         "sait où se change le taux qui paie ;",
-        "fait payer et suit une prime d'installation.",
+        "fait payer et suit une prime d'installation ;",
+        "télécharge l'historique des paiements et le relevé d'une personne.",
       ]],
       ["h3", "Questions de contrôle"],
       ["questions", [
@@ -270,6 +292,7 @@ export const CHAPITRE = {
         "Que fait ↩ Annuler paiement, et pourquoi faut-il la même période ?",
         "Que voit un client parrain dans son espace ?",
         "Qui reçoit un WhatsApp quand une commission est payée, et quand rien ne part ?",
+        "Où télécharge-t-on le relevé de ce qu'un apporteur externe a reçu, et qu'y lit-on ?",
       ]],
     ]},
   ],
@@ -283,7 +306,8 @@ export const CHAPITRE = {
       "Choisit la bonne caisse et le bon moyen",
       "Sait où se règle le taux qui paie",
       "Fait payer et suit une prime d'installation",
-      "Répond juste aux neuf questions de la rubrique 12",
+      "Télécharge l'historique et le relevé d'une personne",
+      "Répond juste aux dix questions de la rubrique 12",
     ],
   },
 };

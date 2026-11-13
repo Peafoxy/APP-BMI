@@ -60,7 +60,7 @@ export const GUIDE = {
       { titre: "La réception", texte: "Le client **signe le PV** depuis son espace ou par le lien ; sans signature, BMI peut constater la réception. **C'est la réception qui débloque les parts** de l'équipe et les commissions." },
       { titre: "Ma part", texte: "L'administrateur répartit les frais d'installation entre les techniciens présents (le chef touche un peu plus). La part est payée par la caisse d'une boutique ; je suis prévenu dans 💬 Messages." },
     ]],
-    ["note", "Ma part se lit dans **💰 Primes reçues** (« ⏳ En attente de paiement », « ✅ Déjà payé »), à commission comme salarié. Elle se lit aussi dans **💵 Ma commission** (« ⏳ À percevoir »)."],
+    ["note", "Ma part se lit dans **💰 Primes reçues** (« ⏳ En attente de paiement », « ✅ Déjà payé »), à commission comme salarié. Elle se lit aussi dans **💵 Ma commission** (« ⏳ À percevoir ») ; une fois payée, elle entre dans **🧾 Historique de mes paiements** (la date, le chantier, le montant versé, le moyen, qui m'a payé — et la retenue s'il y a eu un outil perdu), avec **« 📄 Télécharger mon relevé (PDF) »**."],
 
     ["h3", "Mes dépenses de chantier — 📤 Dépenses"],
     ["ul", [

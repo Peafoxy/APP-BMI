@@ -15,11 +15,14 @@ import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifS
 import { Commerciaux } from "./Commerciaux";
 import { versEcran } from "../lib/cibleNotification";
 import { envoyerAvisCommissionPayee } from "../lib/commissionsDues";
+import { paiementsDeCommission, filtrerPaiements, voitTousLesPaiements, clesDuChef, cleUtilisateur, cleDApporteur } from "../lib/historiqueCommissions";
+import { HistoriquePaiements, telechargerHistorique, periodeHistorique } from "../components/HistoriquePaiements";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
-export function MonEquipe({ db, save, profile, cible = null }) {
+// `periodeInitiale` : pour le banc seul (l'écran s'ouvre toujours sur « Ce mois »).
+export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "mois" }) {
   const estAdmin = profile.role === "admin";
-  const [periode, setPeriode] = useState("mois");
+  const [periode, setPeriode] = useState(periodeInitiale);
   const bornes = () => {
     if (periode === "mois") return [today().slice(0, 7) + "-01", today()];
     if (periode === "annee") return [today().slice(0, 4) + "-01-01", today()];
@@ -283,6 +286,30 @@ export function MonEquipe({ db, save, profile, cible = null }) {
     .filter((c) => c.due > 0 || c.versees > 0 || c.gelee > 0);
 
   const totalEquipeDu = chefs.reduce((s, c) => s + c.due, 0);
+
+  // ---- 🧾 L'HISTORIQUE DES PAIEMENTS (Timo, 13/11/2026, « A c, B b, C oui ») ----
+  // Commissions (sur ventes, d'équipe, apporteurs, parrains) ET primes
+  // d'installation, relues dans les paiements déjà enregistrés
+  // (lib/historiqueCommissions.js). ⚠ LE MUR : les listes passent DÉJÀ
+  // filtrées par l'espace regardé. L'administrateur, le responsable
+  // commercial et le gérant voient tout ; un chef d'équipe, les siens et ceux
+  // de ses recrues. Il suit la période de l'écran.
+  const personnesDeMonEspace = utilisateursDeLEspace(db, profile);
+  const moiDansLEspace = personnesDeMonEspace.find((u) => u.id === profile.id) || profile;
+  const clesVisibles = voitTousLesPaiements(profile) ? null : clesDuChef(moiDansLEspace, filleulsDe(db, moiDansLEspace));
+  const periodeH = periodeHistorique(periode, debut, fin);
+  const paiementsVisibles = filtrerPaiements(paiementsDeCommission({
+    depenses: (db.depenses || []).filter(filtreEspaceAffichage(db, profile)),
+    ventes: ventesDeMonEspace, dettes: dettesDeMonEspace,
+    chantiers: chantiersDeLEspaceRegarde(db, profile), personnes: personnesDeMonEspace,
+  }), { du: debut, au: fin, cles: clesVisibles });
+  // 📄 Le relevé d'UNE personne (« C oui ») : le bouton n'existe que si elle a
+  // un paiement sur la période — et seulement pour qui peut le lire.
+  const aDesPaiements = (cle) => paiementsVisibles.some((p) => p.cle === cle);
+  const releve = (cle) => telechargerHistorique({ paiements: paiementsVisibles, cle, periode: periodeH, formation: regardeFormation });
+  const boutonReleve = (cle) => aDesPaiements(cle) && (
+    <BoutonRond icone="📄" onClick={() => releve(cle)} titre={`📄 Relevé de ses paiements (PDF) — ${periodeH.libelle}`} data-releve-personne={cle} />
+  );
 
   const payerCommissionEquipe = async (c) => {
     if (bloquerSiLecture(db, profile)) return;
@@ -638,7 +665,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
           ))}
         </div>
         <div className="text-xs text-slate-500 -mt-2 mb-3" data-note-periode-equipe>
-          La période règle le chiffre d'affaires, le nombre de ventes et le « déjà payé ». Les <b>commissions à payer</b> montrent toujours <b>tout ce qui reste dû</b>, quelle que soit la date de la vente.
+          La période règle le chiffre d'affaires, le nombre de ventes, le « déjà payé » et l'historique des paiements. Les <b>commissions à payer</b> montrent toujours <b>tout ce qui reste dû</b>, quelle que soit la date de la vente.
         </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <Stat label="Commerciaux actifs" valeur={equipe.length} nature="neutre" />
@@ -685,6 +712,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
                   {ROLES_TACHES.includes(profile.role) && aDroit(db, profile, "act_taches") && <BoutonRond icone="✅" onClick={() => assignerTache(st)} titre="✅ Tâche — assigner une tâche" />}
                   {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerCommission(st)} titre="✓ Marquer payé — payer la commission due" />}
                   {estAdmin && st.nbReglees > 0 && <BoutonRond icone="↩" teinte="rouge" onClick={() => annulerPaiement(st)} titre="↩ Annuler paiement" />}
+                  {boutonReleve(cleUtilisateur(st.u.id))}
                 </CelluleActions>
               </tr>
             ))}
@@ -715,6 +743,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(c.versees)}</td>
                   <CelluleActions>
                     {c.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerCommissionEquipe(c)} titre="✓ Payer la commission d'équipe" />}
+                    {boutonReleve(cleUtilisateur(c.u.id))}
                   </CelluleActions>
                 </tr>
               ))}
@@ -761,6 +790,7 @@ export function MonEquipe({ db, save, profile, cible = null }) {
                     {a.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerApporteur(a)} titre="✓ Payer la commission de l'apporteur" />}
                     {aDroit(db, profile, "act_commission") && <BoutonRond icone="💳" onClick={() => changerMoyenApporteur(a)} titre="✏️ Moyen — changer son moyen de paiement habituel" />}
                     {estAdmin && clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <BoutonRond icone="🎖" teinte="ambre" onClick={() => promouvoir(a)} titre="🎖 Promouvoir commercial" />}
+                    {boutonReleve(cleDApporteur(a.nom, a.tel))}
                   </CelluleActions>
                 </tr>
               ))}
@@ -768,6 +798,10 @@ export function MonEquipe({ db, save, profile, cible = null }) {
           </table>
         )}
       </div>
+
+      {/* 🧾 L'historique des paiements (13/11/2026, « A c, B b, C oui ») : la période de l'écran, une personne au choix, le PDF et l'Excel. */}
+      <HistoriquePaiements paiements={paiementsVisibles} periode={periodeH} formation={regardeFormation}
+        note={clesVisibles ? "Vous voyez vos paiements et ceux de vos recrues." : "Le bouton 📄 sur la ligne d'une personne télécharge son relevé seul."} />
 
       {regardeFormation && (
         <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">

@@ -29,7 +29,7 @@ export const GUIDE = {
       ["🧾 Dettes · 👤 Clients · 🙋 Créer un client", "Les clients (chapitres 3 et 7)."],
       ["🔒 Caisse", "La clôture du jour, le **versement des fonds**, les avances de frais à rembourser (chapitre 6)."],
       ["🚚 Fournisseurs", "Ce que la boutique doit à ses fournisseurs, et ce qu'elle leur paie (chapitre 10)."],
-      ["👑 Mon équipe", "Les commissions calculées par l'application — commerciaux, chefs d'équipe, apporteurs externes : je vois ce qui est dû et je le paie (chapitre 16)."],
+      ["👑 Mon équipe", "Les commissions calculées par l'application — commerciaux, chefs d'équipe, apporteurs externes : je vois ce qui est dû et je le paie ; en bas, l'historique des paiements déjà faits, et le relevé d'une personne en PDF (chapitre 16)."],
       ["🛠 Travaux à crédit", "Les chantiers qu'on avance avant de facturer (chapitre 15)."],
       ["💰 Primes remises", "Payer la part d'installation d'un technicien quand l'administrateur la demande à la caisse de ma boutique (chapitre 16)."],
       ["💬 Messages · 📲 WhatsApp · 💵 Salaire", "L'équipe, les clients, ma paie (chapitres 18 et 20)."],

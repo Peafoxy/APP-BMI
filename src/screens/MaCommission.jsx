@@ -6,11 +6,14 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { resumeArticles, totalVente, caVente, numeroRecu, fmt, today, dFR, inP } from "../lib/core";
 import { Field, inputCls, Badge, Panel } from "../components/ui";
-import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionPour, commissionBrute, motifBlocageCommission, filtreEspaceAffichage } from "../lib/calculs";
+import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionPour, commissionBrute, motifBlocageCommission, filtreEspaceAffichage, chantiersDeLEspaceRegarde, espaceDuCompte } from "../lib/calculs";
+import { paiementsDeCommission, filtrerPaiements, cleUtilisateur } from "../lib/historiqueCommissions";
+import { HistoriquePaiements, periodeHistorique } from "../components/HistoriquePaiements";
 
 // ============ MA COMMISSION (commerciaux et techniciens) ============
-export function MaCommission({ db, profile }) {
-  const [periode, setPeriode] = useState("mois");
+// `periodeInitiale` : pour le banc seul (l'écran s'ouvre toujours sur « Ce mois »).
+export function MaCommission({ db, profile, periodeInitiale = "mois" }) {
+  const [periode, setPeriode] = useState(periodeInitiale);
   // ---- Mes primes d'installation : parts des frais de chantier qui me
   // reviennent (répartition validée par l'admin), à percevoir ou payées.
   // Sans cette section, un paiement de prime passait totalement inaperçu
@@ -23,13 +26,11 @@ export function MaCommission({ db, profile }) {
   const partsPayees = mesParts.filter((x) => x.part.paye);
   const totalAPercevoir = partsAPercevoir.reduce((s, x) => s + Number(x.part.montant), 0);
   const totalPercu = partsPayees.reduce((s, x) => s + Number(x.part.montant), 0);
-  // ---- Mes paiements de commission reçus : la trace de CHAQUE règlement
-  // (montant exact touché, date, moyen), reconstituée depuis les dépenses
-  // générées par les paiements — la même source que la caisse et l'Historique.
-  const mesPaiements = (db.depenses || [])
-    .filter((d) => d.user_id === profile.id && (d.auto === "commission" || d.auto === "commission_equipe"))
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  const totalCommissionsRecues = mesPaiements.reduce((s, d) => s + Number(d.montant || 0), 0);
+  // ---- 🧾 L'HISTORIQUE DE MES PAIEMENTS (Timo, 13/11/2026, « A c, B b,
+  // C oui ») — il REMPLACE la liste « 💰 Mes paiements de commission reçus » :
+  // mes commissions ET mes primes d'installation, relues dans les paiements
+  // déjà enregistrés (lib/historiqueCommissions.js), sur la période de
+  // l'écran, et mon relevé en PDF. Plus bas, une fois la période connue.
   const [pa, setPa] = useState(today().slice(0, 8) + "01");
   const [pb, setPb] = useState(today());
 
@@ -96,6 +97,17 @@ export function MaCommission({ db, profile }) {
     return { u, nbVentes: ventesU.length, comDue, comTotale, monOverride };
   });
   const commissionEquipe = detailEquipe.reduce((s, x) => s + x.monOverride, 0);
+
+  // 🧾 MES PAIEMENTS (13/11/2026) : mes commissions ET mes primes
+  // d'installation, dans l'espace REGARDÉ, sur la période de l'écran. Le PDF
+  // est MON relevé (« A c » : chacun télécharge le sien).
+  const periodeH = periodeHistorique(periode, debut, fin);
+  const mesPaiements = filtrerPaiements(paiementsDeCommission({
+    depenses: (db.depenses || []).filter(filtreEspaceAffichage(db, profile)).filter((d) => d.user_id === profile.id),
+    ventes: ventesDeMonEspace,
+    chantiers: chantiersDeLEspaceRegarde(db, profile),
+    personnes: [moiLive],
+  }), { du: debut, au: fin, cle: cleUtilisateur(profile.id) });
 
   const blocEquipe = (
     <>
@@ -177,7 +189,7 @@ export function MaCommission({ db, profile }) {
           </div>
         )}
         <div className="text-xs text-slate-500 -mt-2 mb-3" data-note-periode-commission>
-          La période règle le chiffre d'affaires, les rabais et le « déjà réglé ». La <b>commission à payer</b> montre toujours <b>tout ce qui vous reste dû</b>, quelle que soit la date de la vente.
+          La période règle le chiffre d'affaires, les rabais, le « déjà réglé » et l'historique de mes paiements. La <b>commission à payer</b> montre toujours <b>tout ce qui vous reste dû</b>, quelle que soit la date de la vente.
         </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-sky-700">
@@ -219,24 +231,10 @@ export function MaCommission({ db, profile }) {
         </Panel>
       )}
 
-      {mesPaiements.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <div className="font-bold text-slate-800 mb-2">💰 Mes paiements de commission reçus
-            <span className="ml-2 text-xs font-semibold text-green-700">total perçu : {fmt(totalCommissionsRecues)}</span>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto space-y-1">
-            {mesPaiements.map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-                <div>
-                  <b>{fmt(d.montant)}</b> — {dFR(d.date)}{d.paiement ? ` · ${d.paiement}` : ""}
-                  <div className="text-xs text-slate-500">{d.auto === "commission_equipe" ? "Commission d'équipe" : "Commission sur ventes"}{d.description ? ` — ${d.description}` : ""}</div>
-                </div>
-                <span className="text-xs font-bold text-green-700 whitespace-nowrap">✅ Payée</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* 🧾 L'historique de mes paiements (13/11/2026, « A c, B b ») : il remplace « 💰 Mes paiements de commission reçus ». */}
+      <HistoriquePaiements paiements={mesPaiements} periode={periodeH} formation={espaceDuCompte(db, profile) === true}
+        avecBeneficiaire={false} personne={{ nom: moiLive.nom_complet || moiLive.nom, tel: moiLive.tel || "" }}
+        titre="🧾 Historique de mes paiements" />
 
       {mesParts.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">

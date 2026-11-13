@@ -3746,8 +3746,9 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
   // 18/09/2026 : le DOSSIER PERSONNEL d'un client (droit d'accès) — quatre.
   // RETOURNÉ le 10/10/2026 : l'INVENTAIRE de 💰 Ventes (« D a ») — cinq.
   // RETOURNÉ le 11/11/2026 : la DEMANDE DE PRIX à un fournisseur — six.
-  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire, demande de prix) suivent la même règle",
-    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 6 && !/doc\.save\(`/.test(pdf));
+  // RETOURNÉ le 13/11/2026 : l'HISTORIQUE DES PAIEMENTS DE COMMISSION (« A c, B b, C oui ») — sept.
+  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire, demande de prix, historique des commissions) suivent la même règle",
+    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 7 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
     // RETOURNÉ le 15/10/2026 : un bouton rond, « 📄 Devis PDF » en libellé (au survol).
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes('<BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />'));
@@ -5503,12 +5504,14 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
   // mais il pose son pied de page lui-même sur la dernière page.
   // ⚠ RETOURNÉ le 10/10/2026 : l'INVENTAIRE de 💰 Ventes est le CINQUIÈME
   // (entête, bandeau de titre ; son pied de page se pose à chaque page).
-  test("★ le devis, le proforma, le relevé, le dossier personnel ET l'inventaire passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
+  // ⚠ RETOURNÉ le 13/11/2026 : l'HISTORIQUE DES PAIEMENTS DE COMMISSION est le
+  // SIXIÈME (entête, bandeau de titre ; son pied de page se pose à chaque page).
+  test("★ le devis, le proforma, le relevé, le dossier personnel, l'inventaire ET l'historique des commissions passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
     // RETOURNÉ le 26/09/2026 : le devis et la proforma passent la fiche de
     // leur boutique à l'en-tête (`d.bq` / `p.bq`) — toujours LA même brique.
-    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 5
+    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 6
     && /enteteSociete\(doc, logo, largeur, p\.bq\);/.test(pdf) && /enteteSociete\(doc, logo, largeur, d\.bq\);/.test(pdf)
-    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 5
+    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 6
     // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
@@ -18873,6 +18876,193 @@ titre("💰 Une commission due se voit quelle que soit la période (Timo, 13/11/
       && /Détail de mes ventes en attente \((<!-- -->)?2(<!-- -->)?\)/.test(htmlK));
     test("★ 💵 …et l'écran DIT la règle sous les boutons de période",
       /data-note-periode-commission/.test(htmlK) && htmlK.includes("tout ce qui vous reste dû"));
+  }
+}
+
+titre("🧾 L'historique des paiements de commission, téléchargeable en PDF (Timo, 13/11/2026, « A c, B b, C oui »)");
+// « EST CE ON A UN HISTORIQUE DE PAIEMENT DE COMMISSION ? TELECHARGEABLE EN PDF »
+// → A c : 👑 Mon équipe ET 💵 Ma commission ; B b : les primes d'installation
+// aussi ; C oui : un relevé par personne. Rien n'est écrit : l'historique se
+// RELIT dans les dépenses de paiement. On exerce la règle, on REND les deux
+// écrans, on FABRIQUE le PDF et on le lit.
+{
+  const sortieH = join("node_modules", ".cache", `bmi-historique-com-${process.pid}.mjs`);
+  let E = null, err = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-equipe.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieH, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      plugins: [{ name: "sans-carte", setup(b) {
+        b.onResolve({ filter: /\/Carte(\.jsx)?$/ }, () => ({ path: "carte", namespace: "coquille" }));
+        b.onLoad({ filter: /.*/, namespace: "coquille" }, () => ({ contents: "export function CarteChoixPosition() { return null; }", loader: "js" }));
+      } }],
+      external: ["react", "react-dom", "react-dom/server"] });
+    E = await import(pathToFileURL(sortieH).href);
+  } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieH); } catch {}
+  test("🧾 la règle, le cadre, le PDF et les deux écrans se montent dans le banc" + (err ? ` (${err})` : ""), !!E && !!E.H && typeof E.genererHistoriqueCommissions === "function");
+  if (E && E.H) {
+    const H = E.H;
+    const auj = E.today();
+    const avant = new Date(Date.parse(auj.slice(0, 7) + "-01T00:00:00Z") - 2 * 86400000).toISOString().slice(0, 10);
+    const timo = { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true, actif: true };
+    const ama = { id: "u_ama", nom: "AMA", nom_complet: "AMA Kossiwa", role: "commercial", actif: true, chef_equipe: true, taux_commission: 5, taux_equipe: 10, tel: "90111111" };
+    const kossi = { id: "u_kossi", nom: "KOSSI", role: "commercial", actif: true, taux_commission: 5, parrain_id: "u_ama", tel: "90222222" };
+    const yao = { id: "u_yao", nom: "YAO", role: "commercial", actif: true, taux_commission: 5 };
+    const esso = { id: "u_esso", nom: "ESSO", role: "technicien", actif: true };
+    const kodjo = { id: "u_kodjo", nom: "KODJO", role: "technicien", actif: true };
+    const angele = { id: "u_angele", nom: "ANGELE", nom_complet: "AKPOSSOGNA Kossiwa", role: "vendeur", boutique: "DEMAKPOE", actif: true };
+    const pierre = { id: "u_pierre", nom: "PIERRE", role: "commercial", actif: true, taux_commission: 5 };
+    const ayoko = { id: "u_ayoko", nom: "AYOKO", role: "client", actif: true };
+    const dep = (id, extra) => ({ id, date: auj, boutique: "DEMAKPOE", categorie: "Commissions", paiement: "Espèces", par: "TIMO", ...extra });
+    const db = {
+      boutiques: [{ id: "b1", nom: "DEMAKPOE" }, { id: "b2", nom: "TERRAIN", terrain: true }, { id: "b3", nom: "DFORMATION", formation: true }],
+      users: [timo, ama, kossi, yao, esso, kodjo, angele, ayoko, pierre],
+      ventes: [
+        { id: "v1", boutique: "DEMAKPOE", date: auj, client: "MR ERIC", tel: "93000000", paiement: "Espèces", commercial: "KOSSI", articles: [{ qte: 1, pu: 300000 }],
+          commission_payee: true, commission_dep: "dK", override_payee: true, override_dep: "dA" },
+        { id: "v2", boutique: "DEMAKPOE", date: auj, client: "TSEVIE CLIEN", tel: "94000000", paiement: "Espèces", articles: [{ qte: 1, pu: 504500 }],
+          apporteur: { nom: "CLAUDE", tel: "90000001", taux: 9, montant: 45405, payee: true, dep_id: "dC" } },
+        { id: "v3", boutique: "DEMAKPOE", date: auj, client: "FILLEUL", tel: "95000000", paiement: "Espèces", articles: [{ qte: 1, pu: 200000 }],
+          apporteur: { nom: "AYOKO", tel: "96000000", parrain_user_id: "u_ayoko", montant: 6000, payee: true, dep_id: "dP" } },
+        { id: "v4", boutique: "DEMAKPOE", date: auj, client: "CLIENT YAO", tel: "97000000", paiement: "Espèces", commercial: "YAO", articles: [{ qte: 1, pu: 140000 }],
+          commission_payee: true, commission_dep: "dY" },
+      ],
+      dettes: [{ id: "dp", boutique: "TERRAIN", pose_seule: true, date: auj, client: "POSE", tel: "98000000", montant: 300000, paye: 300000,
+        apporteur: { nom: "AFI", tel: "91111111", montant: 9000, payee: true, dep_id: "dAfi" } }],
+      clients_installes: [{ id: "ch1", nom: "KOFFIVI", prenom: "MASSA", vente_id: "v1", statut: "receptionne", formation: false, equipe: [
+        { user_id: "u_esso", nom: "ESSO", montant: 30000, pct: 30, chef: true, paye: true, date_paiement: auj, dep_id: "dI" },
+        { user_id: "u_kodjo", nom: "KODJO", montant: 10000, pct: 10, paye: true, date_paiement: auj, dep_id: "" },
+        { user_id: "u_angele", nom: "ANGELE", montant: 5000, pct: 0, prime_employe: true, paye: true, date_paiement: auj, dep_id: "dE" },
+        { user_id: "u_x", nom: "X", montant: 8000, pct: 8, paye: false },
+      ] }],
+      depenses: [
+        dep("dK", { auto: "commission", user_id: "u_kossi", montant: 15000, paiement: "Mobile Money (Flooz)", heure: "10:15", description: "Commission — KOSSI (1 vente(s))" }),
+        dep("dA", { auto: "commission_equipe", user_id: "u_ama", montant: 1500, boutique: "Chez le DG", paye_avec: "dg", description: "Commission d'équipe — AMA (10 % sur 1 recrue(s))" }),
+        dep("dC", { auto: "commission_ext", montant: 45405, description: "Commission apporteur externe — CLAUDE (90000001)" }),
+        dep("dP", { auto: "commission_ext", montant: 6000, boutique: "BANQUE", paiement: "Virement bancaire", description: "Commission apporteur externe — AYOKO (96000000)" }),
+        dep("dAfi", { auto: "commission_ext", montant: 9000, description: "Commission apporteur externe — AFI (91111111)" }),
+        dep("dY", { auto: "commission", user_id: "u_yao", montant: 7000, description: "Commission — YAO (1 vente(s))" }),
+        dep("dI", { auto: "installation", categorie: "Prime d'installation", user_id: "u_esso", montant: 25000, description: "Installation KOFFIVI — ESSO (chef de chantier) · 30 % — retenue outil perdu : 5 000 F" }),
+        dep("dE", { auto: "installation", categorie: "Prime d'installation", user_id: "u_angele", montant: 5000, description: "Installation KOFFIVI — ANGELE · 0 %" }),
+        dep("dOrph", { auto: "installation", categorie: "Prime d'installation", user_id: "u_esso", montant: 12000, description: "Installation ANCIEN — ESSO · 20 %" }),
+        dep("dOld", { auto: "commission", user_id: "u_kossi", montant: 4000, date: avant, description: "Commission — KOSSI (1 vente(s))" }),
+        dep("dF", { auto: "commission", user_id: "u_kossi", montant: 99999, boutique: "DFORMATION", description: "Commission — KOSSI (formation)" }),
+        dep("dS", { auto: "virement", categorie: "Salaires", user_id: "u_kossi", montant: 50000, description: "Salaire" }),
+      ],
+      messages: [], prospects: [], commandes: [], commerciaux: [],
+    };
+    const reels = db.depenses.filter((d) => d.boutique !== "DFORMATION");
+    const tous = H.paiementsDeCommission({ depenses: reels, ventes: db.ventes, dettes: db.dettes, chantiers: db.clients_installes, personnes: db.users });
+    const parId = (id) => tous.find((p) => p.id === id) || {};
+    const prime = (uid) => tous.find((p) => p.id === `prime:ch1:${uid}`) || {};
+    test("★★ la règle relit ONZE paiements (6 commissions, 3 primes du chantier, 1 prime orpheline, 1 du mois d'avant) ; le salaire n'en est pas un",
+      tous.length === 11 && !tous.some((p) => p.depense_id === "dS"), tous.map((p) => p.id).join(" "));
+    test("★★ une prime payée est lue UNE fois (la ligne de l'équipe, jamais encore sa dépense) : ESSO 25 000 versés sur une part de 30 000, 5 000 retenus (outil perdu)",
+      prime("u_esso").montant === 25000 && prime("u_esso").part === 30000 && prime("u_esso").retenue === 5000 && !tous.some((p) => p.id === "dep:dI")
+      && /retenus \(outil perdu\)/.test(prime("u_esso").detail));
+    test("★ une part ENTIÈREMENT retenue (aucune dépense) figure à 0 F versé ; la prime de chantier d'une vendeuse a son type ; une ligne non payée n'y est pas",
+      prime("u_kodjo").montant === 0 && prime("u_kodjo").retenue === 10000 && prime("u_angele").type === "prime_chantier" && prime("u_angele").beneficiaire === "AKPOSSOGNA Kossiwa"
+      && !tous.some((p) => p.id === "prime:ch1:u_x"));
+    test("★ une prime dont le chantier n'est plus là (corbeille) est gardée par sa dépense : rien ne se perd",
+      parId("dep:dOrph").type === "installation" && parId("dep:dOrph").montant === 12000 && parId("dep:dOrph").cle === "u:u_esso");
+    test("★ chaque type a son bénéficiaire et son « pour » : KOSSI (1 vente : MR ERIC), AMA (commission d'équipe sur la vente de sa recrue KOSSI), CLAUDE (apporteur), AYOKO (parrainage), AFI (la pose seule)",
+      parId("dep:dK").type === "commission" && parId("dep:dK").pour === "1 vente : MR ERIC" && parId("dep:dK").cle === "u:u_kossi"
+      && parId("dep:dA").type === "commission_equipe" && parId("dep:dA").pour === "1 vente de ses recrues (KOSSI)" && parId("dep:dA").beneficiaire === "AMA Kossiwa"
+      && parId("dep:dC").type === "apporteur" && parId("dep:dC").cle === "a:CLAUDE|90000001" && parId("dep:dC").pour === "1 vente : TSEVIE CLIEN"
+      && parId("dep:dP").type === "parrain" && parId("dep:dP").libelleType === "Parrainage"
+      && parId("dep:dAfi").pour === "1 pose seule : POSE" && parId("dep:dAfi").beneficiaire === "AFI");
+    test("★ le moyen, la caisse et qui a payé se lisent sur la dépense : Flooz de la caisse de DEMAKPOE (10:15), la caisse du DG, la BANQUE par virement",
+      parId("dep:dK").moyen === "Mobile Money (Flooz)" && parId("dep:dK").caisse === "La caisse de DEMAKPOE" && parId("dep:dK").heure === "10:15" && parId("dep:dK").par === "TIMO"
+      && parId("dep:dA").caisse === "La caisse du DG" && /BANQUE/.test(parId("dep:dP").caisse) && parId("dep:dP").moyen === "Virement bancaire");
+    const ceMois = H.filtrerPaiements(tous, { du: auj.slice(0, 7) + "-01", au: auj });
+    const resTout = H.resumePaiements(tous), resMois = H.resumePaiements(ceMois);
+    test("★ la période : « Ce mois » laisse le paiement du mois d'avant ; le total est la somme des lignes (129 905 en tout, 125 905 ce mois), commissions et primes à part (87 905 / 42 000)",
+      ceMois.length === 10 && !ceMois.some((p) => p.id === "dep:dOld") && resTout.total === 129905 && resMois.total === 125905
+      && resTout.commissions === 87905 && resTout.primes === 42000 && resTout.nb === 11);
+    const clesAma = H.clesDuChef(ama, [kossi]);
+    const vuAma = H.filtrerPaiements(tous, { cles: clesAma });
+    test("★★ un chef d'équipe ne lit que SES paiements et ceux de SES recrues (AMA : sa commission d'équipe, et les deux de KOSSI) — jamais YAO, ni un apporteur, ni une prime",
+      vuAma.length === 3 && vuAma.every((p) => ["u:u_ama", "u:u_kossi"].includes(p.cle)) && H.voitTousLesPaiements(timo)
+      && H.voitTousLesPaiements({ role: "gerant" }) && H.voitTousLesPaiements({ role: "resp_commercial" }) && !H.voitTousLesPaiements(ama));
+    const lignes = H.lignesHistorique(tous);
+    test("★ les lignes du PDF et de l'Excel : dans l'ordre des dates (le mois d'avant en premier), le bénéficiaire avec son numéro, le montant en NOMBRE",
+      lignes.length === 11 && lignes[0][1].startsWith("KOSSI") && lignes[0][4] === 4000 && lignes.some((l) => l[1] === "CLAUDE (90000001)" && l[4] === 45405)
+      && H.entetesHistorique().join("|") === "Date|Bénéficiaire|Type|Pour|Montant versé|Moyen|Caisse|Payé par"
+      && H.entetesHistorique({ avecBeneficiaire: false }).join("|") === "Date|Type|Pour|Montant versé|Moyen|Caisse|Payé par");
+    // ---- 👑 Mon équipe, RENDU ----
+    let html = "", errR = "";
+    try { html = E.rendreEquipe(db, timo, "tout"); } catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
+    const hist = html.slice(html.indexOf("data-historique-paiements"));
+    test("★★ 👑 Mon équipe (administrateur, « Depuis le début ») : le cadre « 🧾 Historique des paiements de commission » avec le total versé 129 905 et ses lignes — CLAUDE 45 405, le parrainage d'AYOKO, la retenue d'ESSO" + (errR ? ` (${errR})` : ""),
+      !errR && /data-historique-paiements="equipe"/.test(html) && hist.includes("🧾 Historique des paiements de commission")
+      && hist.includes(E.fmt(129905)) && hist.includes(E.fmt(45405)) && hist.includes("Parrainage") && /data-retenue-paiement/.test(hist));
+    test("★★ 👑 LE MUR : la commission de 99 999 F payée par une caisse de FORMATION n'apparaît nulle part dans l'historique du réel",
+      !!hist && !hist.includes(E.fmt(99999)) && !html.includes("99 999") && !html.includes("99\u202f999"));
+    test("★★ « C oui » : le bouton 📄 du relevé est sur la ligne de KOSSI, du chef AMA et de l'apporteur CLAUDE — pas sur celle de PIERRE, qui n'a aucun paiement",
+      /data-releve-personne="u:u_kossi"/.test(html) && /data-releve-personne="u:u_ama"/.test(html) && /data-releve-personne="a:CLAUDE\|90000001"/.test(html)
+      && html.includes(">PIERRE<") && !/data-releve-personne="u:u_pierre"/.test(html));
+    test("★ le choix d'une personne liste les bénéficiaires de la période (CLAUDE, AYOKO, ANGELE par son nom complet…), et les deux boutons : 📄 Télécharger en PDF et Excel",
+      /data-choix-personne/.test(html) && html.includes(">Toutes les personnes (") && hist.includes("AKPOSSOGNA Kossiwa") && /data-pdf-historique/.test(html) && /data-excel-historique/.test(html)
+      && html.includes("Télécharger en PDF"));
+    let htmlMois = "";
+    try { htmlMois = E.rendreEquipe(db, timo, "mois"); } catch {}
+    test("★ 👑 sur « Ce mois », le paiement du mois d'avant sort de l'historique : total versé 125 905 F",
+      htmlMois.slice(htmlMois.indexOf("data-historique-paiements")).includes(E.fmt(125905)) && !htmlMois.slice(htmlMois.indexOf("data-historique-paiements")).includes(E.fmt(129905)));
+    let htmlAma = "", errA = "";
+    try { htmlAma = E.rendreEquipe(db, ama, "tout"); } catch (e) { errA = String(e && e.message || e).split("\n")[0]; }
+    const histAma = htmlAma.slice(htmlAma.indexOf("data-historique-paiements"));
+    test("★★ 👑 vu par AMA (chef d'équipe) : ses paiements et ceux de KOSSI seulement (20 500 F) — ni YAO, ni CLAUDE, ni la prime d'ESSO ; le bouton 📄 sur la ligne de KOSSI, pas sur celle de YAO" + (errA ? ` (${errA})` : ""),
+      !errA && histAma.includes(E.fmt(20500)) && !histAma.includes(E.fmt(45405)) && !histAma.includes(E.fmt(7000)) && !histAma.includes(E.fmt(25000))
+      && /data-releve-personne="u:u_kossi"/.test(htmlAma) && !/data-releve-personne="u:u_yao"/.test(htmlAma) && !/data-releve-personne="a:CLAUDE/.test(htmlAma)
+      && histAma.includes("Vous voyez vos paiements et ceux de vos recrues"));
+    // ---- 💵 Ma commission, RENDU ----
+    let htmlK = "", errK = "";
+    try { htmlK = E.rendreMaCommission(db, kossi, "tout"); } catch (e) { errK = String(e && e.message || e).split("\n")[0]; }
+    const histK = htmlK.slice(htmlK.indexOf("data-historique-paiements"));
+    test("★★ 💵 Ma commission de KOSSI (« Depuis le début ») : « 🧾 Historique de mes paiements », ses DEUX paiements (19 000 F), jamais la commission d'équipe d'AMA, jamais la formation, et « Télécharger mon relevé (PDF) »" + (errK ? ` (${errK})` : ""),
+      !errK && /data-historique-paiements="moi"/.test(htmlK) && htmlK.includes("🧾 Historique de mes paiements") && histK.includes(E.fmt(19000))
+      && !histK.includes(E.fmt(1500)) && !histK.includes(E.fmt(99999)) && !histK.includes(E.fmt(50000)) && htmlK.includes("Télécharger mon relevé (PDF)")
+      && !/data-choix-personne/.test(htmlK) && !htmlK.includes("Mes paiements de commission reçus"));
+    let htmlE = "";
+    try { htmlE = E.rendreMaCommission(db, esso, "tout"); } catch {}
+    test("★ 💵 Ma commission d'ESSO (technicien) : ses primes d'installation y sont (« B b ») — 25 000 avec sa retenue, et la prime orpheline de 12 000 (37 000 F en tout)",
+      htmlE.slice(htmlE.indexOf("data-historique-paiements")).includes(E.fmt(37000)) && /data-retenue-paiement/.test(htmlE) && htmlE.includes("Prime d&#x27;installation"));
+    // ---- Le PDF, FABRIQUÉ et LU ----
+    const textesH = (doc) => { const t = []; for (let p = 1; p <= doc.internal.getNumberOfPages(); p++) for (const l of doc.internal.pages[p].join("\n").split("\n")) { const m = l.match(/\((.*?)\)\s*Tj/); if (m) t.push(m[1]); } return t.join(" | "); };
+    let docH = null, errP = "";
+    try { docH = E.genererHistoriqueCommissions({ entetes: H.entetesHistorique(), lignes, resume: resTout }, { periode: "Depuis le début", edite: "13/11/2026" }, true); } catch (e) { errP = String(e && e.message || e).split("\n")[0]; }
+    const tH = docH ? textesH(docH) : "";
+    test("★★ le PDF de l'historique : en paysage, entête BMI, titre, période, « Édité le », les quatre cases (129 905 F versés, 11 paiements, 87 905 F de commissions, 42 000 F de primes), les lignes dans l'ordre des dates, le total, la note, le pied de page" + (errP ? ` (${errP})` : ""),
+      !!docH && docH.internal.pageSize.getWidth() > docH.internal.pageSize.getHeight() && /BMI TOGO/.test(tH) && /HISTORIQUE DES PAIEMENTS DE COMMISSION/.test(tH)
+      && /P\S+riode : Depuis le d/.test(tH) && /dit\S* le 13\/11\/2026/.test(tH) && /129 905 F/.test(tH) && /87 905 F/.test(tH) && /42 000 F/.test(tH) && / 11 /.test(` ${tH.split(" | ").join(" ")} `)
+      && tH.indexOf("4 000") > 0 && tH.indexOf("4 000") < tH.indexOf("45 405") && /CLAUDE \\?\(90000001\\?\)/.test(tH) && /Total vers\S* sur la p/.test(tH)
+      && /Montants r\S+ellement vers/.test(tH) && /BMI-Gestions/.test(tH));
+    test("★ la mise en page tient : le total une seule fois (à la fin), « CLAUDE (90000001) » et « La caisse de DEMAKPOE » jamais coupés en deux",
+      (tH.match(/Total vers\S* sur la p/g) || []).length === 1 && /CLAUDE \\?\(90000001\\?\)/.test(tH) && /La caisse de DEMAKPOE/.test(tH) && !/La caisse de \| DEMAKPOE/.test(tH));
+    const releveClaude = H.filtrerPaiements(tous, { cle: "a:CLAUDE|90000001" });
+    let docC = null;
+    try { docC = E.genererHistoriqueCommissions({ entetes: H.entetesHistorique({ avecBeneficiaire: false }), lignes: H.lignesHistorique(releveClaude, { avecBeneficiaire: false }), resume: H.resumePaiements(releveClaude) },
+      { titre: "RELEVÉ DES COMMISSIONS - CLAUDE", beneficiaire: "CLAUDE - Tél : 90000001", periode: "Depuis le début", edite: "13/11/2026" }, true); } catch {}
+    const tC = docC ? textesH(docC) : "";
+    test("★★ « C oui » : le relevé de CLAUDE seul — son titre, « Bénéficiaire : CLAUDE », sa ligne de 45 405, rien d'un autre, pas de colonne Bénéficiaire",
+      !!docC && /RELEV\S* DES COMMISSIONS - CLAUDE/.test(tC) && /B\S+n\S+ficiaire : CLAUDE - T\S+l : 90000001/.test(tC) && /45 405/.test(tC)
+      && !/15 000/.test(tC) && !/KOSSI/.test(tC) && !/\| B\S+n\S+ficiaire \|/.test(tC));
+    let docV = null, docF = null;
+    try { docV = E.genererHistoriqueCommissions({ entetes: H.entetesHistorique(), lignes: [], resume: H.resumePaiements([]) }, { periode: "Ce mois" }, true); } catch {}
+    try { docF = E.genererHistoriqueCommissions({ entetes: H.entetesHistorique(), lignes, resume: resTout }, { periode: "Ce mois", formation: true }, true); } catch {}
+    test("★ un historique vide se fabrique quand même (« Aucun paiement sur cette période. ») ; en formation, le bandeau DOCUMENT DE FORMATION",
+      !!docV && /Aucun paiement sur cette p/.test(textesH(docV)) && !!docF && /DOCUMENT DE FORMATION/.test(textesH(docF)));
+    // ---- Le geste, lu dans le code ----
+    const hp = readFileSync("src/components/HistoriquePaiements.jsx", "utf8");
+    const pdfH = readFileSync("src/pdf.js", "utf8");
+    const meq = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+    test("★ UNE fabrique : le PDF et l'Excel reprennent les MÊMES lignes que l'écran (lignesHistorique), le fichier suit la règle des documents, et le PDF ne calcule rien",
+      /const lignes = lignesHistorique\(liste, \{ avecBeneficiaire \}\);/.test(hp) && /exportCSV\(nom, entetes, lignes,/.test(hp) && /genererHistoriqueCommissions\(\{ entetes, lignes, resume: resumePaiements\(liste\) \}/.test(hp)
+      && /doc\.save\(fichierPdf\(fichier\.type \|\| "Historique des commissions"/.test(pdfH) && !/reduce\(/.test(pdfH.slice(pdfH.indexOf("export function genererHistoriqueCommissions"), pdfH.indexOf("export function genererInventaire"))));
+    test("★ LE MUR, lu dans 👑 Mon équipe : les dépenses passent par le filtre d'espace, les personnes par utilisateursDeLEspace, et un chef ne reçoit que ses clés",
+      /depenses: \(db\.depenses \|\| \[\]\)\.filter\(filtreEspaceAffichage\(db, profile\)\)/.test(meq) && /const personnesDeMonEspace = utilisateursDeLEspace\(db, profile\);/.test(meq)
+      && /const clesVisibles = voitTousLesPaiements\(profile\) \? null : clesDuChef\(moiDansLEspace, filleulsDe\(db, moiDansLEspace\)\);/.test(meq));
   }
 }
 
