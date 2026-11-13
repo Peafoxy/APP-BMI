@@ -10307,6 +10307,19 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
     && /^sans numéro/.test(props.find((p) => p.valeur === "PASSANT").detail));
   test("une base vide ne fait pas tomber la règle (aucune vente, aucune dette)",
     CC.clientsConnus({}, "DEMAKPOE").length === 0 && CC.propositionsClients([]).length === 0);
+  // 🏗 LA DETTE D'UN DEVIS (capture Timo, 13/11/2026 : KOFFIVI, 799 750 F dans
+  // 📋 Dettes, « 0 F » dans 📋 Clients) : sa caisse est le DÉPÔT CHANTIER, sa
+  // boutique celle du devis (`boutique_vente`) — LA règle de 📋 Dettes.
+  {
+    const dbK = {
+      ventes: [{ id: "vk", boutique: "DEMAKPOE", caisse: "TERRAIN", date: "2026-11-02", client: "KOFFIVI", tel: "90619471", paiement: "Crédit (dette)", articles: [{ qte: 1, pu: 2585972 }], frais_installation: 314028 }],
+      dettes: [{ id: "dk", boutique: "TERRAIN", boutique_vente: "DEMAKPOE", vente_id: "vk", date: "2026-11-02", client: "KOFFIVI", tel: "90619471", montant: 2900000, paye: 2100250 }],
+    };
+    const kDem = CC.clientsConnus(dbK, "DEMAKPOE").find((c) => c.nom === "KOFFIVI");
+    const kApe = CC.clientsConnus(dbK, "APESSITO").find((c) => c.nom === "KOFFIVI");
+    test("★ 🏗 la dette d'un DEVIS (caisse DÉPÔT CHANTIER, `boutique_vente` = DEMAKPOE) compte dans 📋 Clients de DEMAKPOE : 799 750 F, une seule fois — et jamais dans une autre boutique",
+      kDem?.dette === 799750 && kDem?.achats === 1 && CC.clientsConnus(dbK, "DEMAKPOE").filter((c) => c.nom === "KOFFIVI").length === 1 && !kApe);
+  }
 
   // ⭐ LES FIDÈLES (03/10/2026, « lance le filtre des fidèles dans Clients »)
   {

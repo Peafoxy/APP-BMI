@@ -22,6 +22,7 @@
 
 import { telDigits, totalVente } from "./core.js";
 import { dettesClassiques } from "./calculs.js";
+import { boutiqueDuDocument } from "./constants.js";
 import { chiffresTel, numeroComparable } from "./identiteClient.js";
 import { sansAccents } from "./suggestions.js";
 
@@ -77,7 +78,12 @@ export function clientsConnus(db, boutique) {
 
   // Les réservations prépayées ne sont pas une dette (règle de 👥 Clients,
   // reprise telle quelle) : elles ne comptent donc pas dans `dette`.
-  dettesClassiques(db || {}).filter((d) => d.boutique === boutique && (d.client || d.tel)).forEach((d) => {
+  // 🏗 Une dette née d'un DEVIS a sa caisse dans le DÉPÔT CHANTIER (depuis le
+  // 08/10/2026) mais appartient à la boutique du devis (`boutique_vente`) :
+  // LA règle de 📋 Dettes (`boutiqueDuDocument`), jamais une seconde. Avant
+  // (capture Timo, 13/11/2026), KOFFIVI devait 799 750 F dans 📋 Dettes et
+  // « 0 F » dans 📋 Clients.
+  dettesClassiques(db || {}).filter((d) => (d.boutique === boutique || boutiqueDuDocument(d) === boutique) && (d.client || d.tel)).forEach((d) => {
     const c = ligne(d.client, d.tel, d.date);
     c.dette += Math.max(0, Number(d.montant || 0) - Number(d.paye || 0));
   });

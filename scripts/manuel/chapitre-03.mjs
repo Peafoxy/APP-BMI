@@ -131,7 +131,7 @@ export const CHAPITRE = {
         ["Rechercher un client…", "Filtre la liste par le nom ou le numéro."],
         ["Achats", "Le nombre de ventes de cette boutique à ce client."],
         ["Total acheté", "La somme de ces ventes."],
-        ["Dette en cours", "Ce qui reste à payer sur ses dettes ordinaires (les réservations prépayées ne sont pas une dette). Rouge si > 0."],
+        ["Dette en cours", "Ce qui reste à payer sur ses dettes ordinaires, y compris celle d'un devis dont l'argent est rangé dans la caisse 🏗 DÉPÔT CHANTIER (comme dans 🧾 Dettes). Les réservations prépayées ne sont pas une dette. Rouge si > 0."],
         ["Dernier achat", "La date de sa vente ou de sa dette la plus récente. C'est aussi cette ligne-là qui dit comment son nom s'écrit aujourd'hui."],
         ["WhatsApp", "Ouvre une conversation vide avec lui, depuis votre appareil."],
         ["Pagination", "50 clients par page."],
