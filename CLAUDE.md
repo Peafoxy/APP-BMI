@@ -6379,6 +6379,11 @@ lit mal est pire qu'un banc absent).
   réenregistrée, ni reposée) ; Annuler → enregistrée seulement. Sans numéro ou en
   formation : aucune question, l'écran dit « 🖨️ Réimprimer ». « 🧾 Proforma
   WhatsApp » pendant la modification envoie aussi ce message (question « Renvoyer… »).
+  ⚠ APRÈS l'enregistrement, la modification est finie : « 🧾 Proforma WhatsApp »
+  fabriquerait une NOUVELLE proforma (autre numéro) — le chapitre 13 le dit (une
+  première version y conseillait ce bouton : corrigée en 2.101.738). Aucun bouton ne
+  renvoie plus tard une proforma telle quelle : un « 📲 Renvoyer » sur sa ligne a été
+  proposé à Timo, pas demandé — ne pas le construire sans lui.
 - **La chaîne** : `envoyerPdfsDansLOrdre` (src/whatsapp.js, UN chemin) — essaie
   `proforma_modifiee_pdf` puis `proforma_pdf`, sans repli, le même PDF ; une
   CONNEXION COUPÉE arrête les essais (on ne sait pas si le premier est parti) ;
