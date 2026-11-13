@@ -4,7 +4,7 @@
 // message WhatsApp du reçu. printApi vit dans components/ui.jsx
 // (liaisons « live » des modules ES — voir le commentaire là-bas).
 // ============================================================
-import { today, dFR, fmt, fmtFcfa, pctRemiseLisible, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp, estDepotChantier, numeroDuRecuDeVente } from "./core";
+import { today, dFR, fmt, fmtFcfa, pctRemiseLisible, numeroBulletin, totalVente, brutVente, lignesVente, numeroRecu, numeroRecuDette, titreRecuDette, documentDeVente, telDigits, nomDocument, envoyerWhatsApp, estDepotChantier, numeroDuRecuDeVente, mentionModificationProforma, phraseValiditeProforma } from "./core";
 import { TITRE_RECU_DEPOT } from "./depotChantier";
 import { TYPE_BON_REPRISE, texteBon } from "./bons";
 import { LOGO, CACHET_BMI_DEFAUT } from "./constants";
@@ -501,6 +501,10 @@ export function imprimerReleveTravaux(c, bq = {}, auteur = "", aujourdhui = toda
 // ⚠ 26/09/2026 : la proforma lit la fiche de la boutique (`bq`), comme le
 // reçu — adresse, téléphone, e-mail. Sans fiche, l'en-tête d'avant.
 export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
+  // ✏️ 13/11/2026 (Timo, « C oui ») : une proforma MODIFIÉE garde sa date
+  // d'origine et le DIT (lib/core.js, la même phrase que le PDF).
+  const modifiee = mentionModificationProforma(p);
+  const validite = phraseValiditeProforma(p);
   const html = `
   <style>
   #zone-impression .prf-doc{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;max-width:680px;margin:0 auto}
@@ -512,6 +516,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
   #zone-impression .prf-doc .soc .legal{font-size:10px;color:#777}
   #zone-impression .prf-doc h1{text-align:center;font-size:17px;letter-spacing:2px;margin:10px 0 12px;color:#1e5a8a;border-bottom:3px solid #1e5a8a;padding-bottom:8px}
   #zone-impression .prf-doc .meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;background:#f2f6fa;border:1px solid #d5e2ee;border-radius:6px;padding:8px 10px;margin-bottom:10px}
+  #zone-impression .prf-doc .modifiee{color:#b45309;font-weight:bold;margin:-4px 0 10px}
   #zone-impression .prf-doc .btitre{font-weight:bold;color:#1e5a8a;border-bottom:1px solid #d5e2ee;margin:10px 0 4px;font-size:12px;letter-spacing:1px}
   #zone-impression .prf-doc .client div{padding:2px 0}
   #zone-impression .prf-doc table.articles{width:100%;border-collapse:collapse;margin:10px 0 6px}
@@ -537,6 +542,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
       ${p.boutique ? `<div><b>Boutique :</b> ${esc(p.boutique)}</div>` : ""}
       ${p.par ? `<div><b>Établi par :</b> ${esc(p.par)}</div>` : ""}
     </div>
+    ${modifiee ? `<div class="modifiee" data-proforma-modifiee-doc>${esc(modifiee)}</div>` : ""}
     <div class="btitre">CLIENT</div>
     <div class="client">
       <div><b>${esc(identiteClient(p).titre || "—")}</b></div>
@@ -558,7 +564,7 @@ export function imprimerProforma(p, logo, estFormation = false, bq = {}) {
     </table>
     <div class="mentions">
       Ce document est une facture proforma : il constitue une offre de prix et n'a pas de valeur comptable.<br>
-      Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.${p.validite ? ` Offre valable ${esc(p.validite)}.` : ""}
+      Il ne vaut pas reçu de paiement. Prix indicatifs, susceptibles de variation.${validite ? ` ${esc(validite)}` : ""}
     </div>
   </div>`;
   if (printApi) printApi.open(html, nomDocument("Proforma", { client: p.client, numero: p.numero }));

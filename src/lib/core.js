@@ -236,6 +236,23 @@ export const proformaPourDocument = (pf) => {
   const sousTotal = pf?.sous_total != null ? Number(pf.sous_total) : lignes.reduce((s, l) => s + Number(l.total || 0), 0);
   return { ...pf, lignes, sous_total: sousTotal, remise_montant: Number(pf?.remise_montant || 0), validite: pf?.validite || "15 jours" };
 };
+// ✏️ 13/11/2026 (Timo : « Proforma modifié… » → « C oui ») : une proforma
+// MODIFIÉE garde sa date d'origine (son numéro aussi), et ses documents — le
+// PDF envoyé, l'impression, la réimpression — le DISENT : le jour de la
+// modification, et qu'elle remplace la version précédente. La validité se
+// compte depuis la modification, comme le message WhatsApp (« valable
+// jusqu'au … » = modification + 15 jours). Lu sur `modifie_le` (posé par
+// `proformaModifiee`, calculs.js) : une proforma jamais modifiée ne change pas.
+export const dateModificationProforma = (pf) => (pf && pf.modifie_le ? dFR(String(pf.modifie_le).slice(0, 10)) : "");
+export const mentionModificationProforma = (pf) => {
+  const le = dateModificationProforma(pf);
+  return le ? `Modifiée le ${le} — remplace la version précédente` : "";
+};
+export const phraseValiditeProforma = (pf) => {
+  if (!pf || !pf.validite) return "";
+  const le = dateModificationProforma(pf);
+  return `Offre valable ${pf.validite}${le ? ` à compter du ${le}` : ""}.`;
+};
 export const remisesDeLignes = (lignes) => (lignes || []).reduce((s, l) => s + Number(l.remise_ligne || 0), 0);
 export const lignesVente = (v) => (v.articles && v.articles.length ? v.articles : [{ produit_id: v.produit_id, article: v.article, qte: v.qte, pu: v.pu }]);
 // ⚠ CORRECTIF 2.99.50 : brutVente() ignorait les remises PAR LIGNE

@@ -631,6 +631,31 @@ export async function envoyerRecuPdf({ envoi, numero, fabriquer, tel, nom, espac
   return { auto: true, motif: "" };
 }
 
+// ---------------------------------------------------------------
+// 📎 DES PDF ESSAYÉS DANS L'ORDRE (13/11/2026, la proforma MODIFIÉE)
+// ---------------------------------------------------------------
+// Timo : « Proforma modifié… un modèle de message à renvoyer au client avec
+// pdf » → « A a, C oui, texte ok, lance ». Une proforma modifiée essaie
+// d'abord SON message (`proforma_modifiee_pdf`), puis la proforma PDF
+// ordinaire (tant que Meta n'a pas approuvé le nouveau modèle) ; une proforma
+// neuve n'a que la seconde. Le PREMIER qui part arrête tout.
+// ⚠ SANS REPLI : c'est l'écran qui décide de la suite (le message texte).
+// ⚠ Une connexion COUPÉE arrête les essais : on ne sait pas si le PDF est
+// parti, le client le recevrait deux fois.
+// Rend { auto, essai, id, wamid, motif, reseau, refus } — `refus` = chaque essai
+// refusé, dans l'ordre ({ modele, motif, reseau }), pour que l'écran le DISE.
+export async function envoyerPdfsDansLOrdre({ essais, tel, fichier, espaceFormation }) {
+  const refus = [];
+  for (const essai of (essais || []).filter(Boolean)) {
+    const r = await envoyerModele({ tel, modele: essai.modele, variables: essai.variables, espaceFormation: !!espaceFormation, sansRepli: true, fichier });
+    if (r.auto) return { ...r, essai, refus };
+    refus.push({ modele: essai.modele, motif: r.motif || "", reseau: !!r.reseau });
+    if (r.reseau) break;
+  }
+  const dernier = refus[refus.length - 1] || { motif: "", reseau: false };
+  return { auto: false, essai: null, motif: dernier.motif, reseau: dernier.reseau, refus };
+}
+
 // `apresEnvoi(etat)` (22/10/2026) : ce que l'écran pose en plus, DANS la même
 // écriture que la ligne du fil, seulement si le message est parti (la marque
 // « déjà prévenu » d'une dépense payée directement).

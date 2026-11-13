@@ -28,7 +28,9 @@ import { MODELES, ligneEnvoiModele, ligneMasquee, lignePriveeEnvoi } from "./wha
 import { CANAL_WA, construireEntete } from "./whatsappConversations.js";
 import { envoisRecuDeVente } from "./recuDeVente.js";
 
-export const MODELES_PDF_RELAYES = ["recu_pdf", "proforma_pdf"];
+// ✏️ 13/11/2026 : la proforma MODIFIÉE en PDF (`proforma_modifiee_pdf`) se
+// relaie de même, par le message `proforma` rangé sur sa ligne.
+export const MODELES_PDF_RELAYES = ["recu_pdf", "proforma_pdf", "proforma_modifiee_pdf"];
 // Les seuls messages texte qu'un relais peut faire partir.
 export const MODELES_TEXTE_RELAIS = ["recu_vente_detail", "recu_vente", "recu_reglement", "recu_reservation", "proforma"];
 export const SUITE_LIGNE_RELAIS_RECU = " (le PDF n'a pas été accepté par WhatsApp : message envoyé sans PDF)";

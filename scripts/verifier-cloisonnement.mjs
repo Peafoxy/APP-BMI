@@ -9399,6 +9399,66 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     }
     test("★ 📋 Tous les devis passe la fiche de la boutique du devis (sinon celle de son auteur)",
       /bq: \(db\.boutiques \|\| \[\]\)\.find\(\(b\) => b\.nom === d\.boutique\)/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
+    // ✏️ 13/11/2026 (Timo, « Proforma modifiée… un modèle de message à renvoyer
+    // au client avec pdf » → « A a, C oui, texte ok, lance ») — « C oui » : une
+    // proforma MODIFIÉE garde sa date d'origine, dit « Modifiée le … — remplace
+    // la version précédente », et son offre court « à compter du » jour de la
+    // modification. Le PDF est RENDU et lu ; l'impression aussi (printApi
+    // remplacé par un témoin).
+    {
+      const CkM = await import(pathToFileURL("src/lib/core.js").href);
+      const modif = { modifie_le: "2026-11-13T10:00:00.000Z", validite: "15 jours" };
+      test("★★ la règle (lib/core.js, UNE pour le PDF et l'impression) : « Modifiée le 13/11/2026 — remplace la version précédente » et « Offre valable 15 jours à compter du 13/11/2026. » ; une proforma jamais modifiée ne dit rien de plus",
+        CkM.dateModificationProforma(modif) === "13/11/2026"
+        && CkM.mentionModificationProforma(modif) === "Modifiée le 13/11/2026 — remplace la version précédente"
+        && CkM.phraseValiditeProforma(modif) === "Offre valable 15 jours à compter du 13/11/2026."
+        && CkM.mentionModificationProforma({ validite: "15 jours" }) === "" && CkM.phraseValiditeProforma({ validite: "15 jours" }) === "Offre valable 15 jours."
+        && CkM.phraseValiditeProforma({}) === "" && CkM.dateModificationProforma(null) === "");
+      const pfOrig = { numero: "PRF-ABC123", date: "10/11/2026", boutique: "BMI DEMAKPOE", client: "KOFFI", tel: "90112233", par: "AFI",
+        lignes: [{ article: "PANNEAU 550W", qte: 2, pu: 80000, total: 160000 }, { article: "ONDULEUR 3KW", qte: 1, pu: 120000, total: 120000 }],
+        total: 280000, validite: "15 jours", bq: bqEssai };
+      const pdfModif = Pdf.genererProforma({ ...pfOrig, modifie_le: "2026-11-13T10:00:00.000Z" }, null, true);
+      const pdfNeuf = Pdf.genererProforma(pfOrig, null, true);
+      const tModif = texteDuPdf(pdfModif), tNeuf = texteDuPdf(pdfNeuf);
+      test("★★★ le PDF d'une proforma MODIFIÉE : sa date d'ORIGINE (10/11/2026), « Modifiée le 13/11/2026 - remplace la version précédente », l'offre « à compter du 13/11/2026 » ; UNE page, rien ne chevauche",
+        tModif.includes("10/11/2026") && tModif.includes("Modifiée le 13/11/2026 - remplace la version précédente")
+        && tModif.includes("Offre valable 15 jours à compter du 13/11/2026.") && !tModif.includes("Date : 13/11/2026")
+        && pdfModif.internal.getNumberOfPages() === 1 && chevauchements(pdfModif) === 0, tModif.slice(0, 600));
+      test("★★ le PDF d'une proforma JAMAIS modifiée reste celui d'avant : pas de « Modifiée », l'offre « 15 jours. » sans « à compter »",
+        !/Modifiée/.test(tNeuf) && tNeuf.includes("Offre valable 15 jours.") && !/à compter/.test(tNeuf) && chevauchements(pdfNeuf) === 0);
+      // L'IMPRESSION (🖨️, et 🖨️ Réimprimer qui passe par proformaPourDocument).
+      const entreePf = join("node_modules", ".cache", `bmi-pfmod-imp-${process.pid}.js`);
+      const sortiePf = join("node_modules", ".cache", `bmi-pfmod-imp-${process.pid}.mjs`);
+      writeFileSync(entreePf, `export * from "${process.cwd()}/src/lib/impression.js";\nexport { proformaPourDocument } from "${process.cwd()}/src/lib/core.js";\n`);
+      await build({
+        entryPoints: [entreePf], bundle: true, format: "esm", platform: "node", outfile: sortiePf,
+        logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom", "html2canvas", "jspdf", "jspdf-autotable"],
+        plugins: [{ name: "ui-temoin", setup(b) {
+          b.onResolve({ filter: /components\/ui(\.jsx)?$/ }, (a) => a.importer.endsWith("impression.js") ? { path: "ui-temoin", namespace: "temoin" } : undefined);
+          b.onLoad({ filter: /.*/, namespace: "temoin" }, () => ({ resolveDir: process.cwd(), loader: "js",
+            contents: 'export * from "./src/components/ui.jsx"; export const printApi = { open: (h) => { globalThis.__pfModif = h; } };' }));
+        } }],
+      });
+      const ImpPf = await import(pathToFileURL(sortiePf).href);
+      unlinkSync(sortiePf); unlinkSync(entreePf);
+      const nzPf = (t) => String(t).replace(/<[^>]+>/g, " ").replace(/[  ]/g, " ").replace(/\s+/g, " ");
+      const rangeePf = { ...pfOrig, date: "2026-11-10", modifie_le: "2026-11-13T10:00:00.000Z", modifie_par: "AFI", nb_modifications: 1 };
+      globalThis.__pfModif = ""; try { ImpPf.imprimerProforma({ ...ImpPf.proformaPourDocument(rangeePf), date: "10/11/2026" }, "", false, bqEssai); } catch (e) { globalThis.__pfModif = String(e); }
+      const htmlModif = globalThis.__pfModif;
+      globalThis.__pfModif = ""; try { ImpPf.imprimerProforma({ ...pfOrig }, "", false, bqEssai); } catch (e) { globalThis.__pfModif = String(e); }
+      const htmlNeuf = globalThis.__pfModif;
+      test("★★★ la proforma IMPRIMÉE (et réimprimée) d'une proforma modifiée : la date d'origine, la ligne « Modifiée le 13/11/2026 — remplace la version précédente » (data-proforma-modifiee-doc), l'offre « à compter du 13/11/2026 »",
+        /Date :<\/b> 10\/11\/2026/.test(htmlModif) && /data-proforma-modifiee-doc>Modifiée le 13\/11\/2026 — remplace la version précédente</.test(htmlModif)
+        && nzPf(htmlModif).includes("Offre valable 15 jours à compter du 13/11/2026."), nzPf(htmlModif).slice(0, 500));
+      test("★★ une proforma jamais modifiée s'imprime comme avant (aucune ligne « Modifiée », l'offre sans « à compter »)",
+        htmlNeuf.length > 0 && !/data-proforma-modifiee-doc|Modifiée le/.test(htmlNeuf) && nzPf(htmlNeuf).includes("Offre valable 15 jours.") && !/à compter/.test(htmlNeuf));
+      const vePf = readFileSync("src/screens/Ventes.jsx", "utf8");
+      test("★★ 💰 Ventes : la proforma qui part (PDF, impression, WhatsApp) est la proforma RANGÉE — sa date d'origine et sa date de modification — jamais celle reconstruite le jour même",
+        /const proformaDuDocument = \(pf, rangee\) => \(\{\s*\.\.\.pf,\s*date: dFR\(rangee\.date\) \|\| pf\.date,\s*\.\.\.\(rangee\.modifie_le \? \{ modifie_le: rangee\.modifie_le \} : \{\}\),\s*\}\);/.test(vePf)
+        && (vePf.match(/const pf = proformaDuDocument\(brute, rangee\);/g) || []).length === 2
+        && /pf = proformaDuDocument\(brute, rangee\);/.test(vePf.slice(vePf.indexOf("const proformaWhatsApp = async")))
+        && /`✏️ \$\{mentionModificationProforma\(pf\)\}`/.test(vePf));
+    }
   }
   // ⚠ Capture Timo (11/09/2026) : le bandeau TOTAL était posé PAR-DESSUS
   // « Frais d'installation ». Le contrôle du chevauchement de TEXTES ne l'a
@@ -14648,9 +14708,13 @@ titre("✏️ Modifier une proforma (30/09/2026, « a, 2 oui, 3 oui »)");
     /const refus = critiqueModifProforma\(db, avant, profile\);/.test(corps)
     && /proformas: \(db\.proformas \|\| \[\]\)\.map\(\(x\) => \(x\.id === avant\.id \? nouvelle : x\)\)/.test(corps)
     && /Proforma \$\{avant\.numero\} modifiée par/.test(corps) && /par: profile\.nom, par_id: profile\.id/.test(corps));
-  test("★ le numéro est gardé, 🧾 et 🖨️ n'envoient rien si l'enregistrement est refusé, l'encaissement est masqué pendant la modification",
+  // RETOURNÉ le 13/11/2026 (proforma modifiée renvoyée avec son PDF) : les trois
+  // gestes (💾, 🧾, 🖨️) gardent la proforma RANGÉE — sa date d'origine et sa
+  // date de modification vont sur le document — et s'arrêtent toujours si
+  // l'enregistrement est refusé.
+  test("★ le numéro est gardé, 💾, 🧾 et 🖨️ n'envoient rien si l'enregistrement est refusé, l'encaissement est masqué pendant la modification",
     /numero: proformaEnModif\?\.numero \|\| numeroProforma\(\)/.test(ve)
-    && (ve.match(/if \(!enregistrerProforma\(pf\)\) return;/g) || []).length === 3
+    && (ve.match(/const rangee = enregistrerProforma\(brute\);\s*\n\s*if \(!rangee\) return;/g) || []).length === 3
     && /\{proformaEnModif \? \(/.test(ve) && /data-proforma-en-modif/.test(ve) && /data-proforma-modifiee/.test(ve));
   test("★ un article introuvable dans le stock refuse la modification (il disparaîtrait de l'offre en silence)",
     /if \(r\.introuvables\.length\) \{ uAlert\(`🔒 La proforma N° \$\{pf\.numero\} porte des articles introuvables/.test(ve));

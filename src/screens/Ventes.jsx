@@ -16,7 +16,7 @@ import { LOGO, PAIEMENTS, caisseDeVente, LIBELLE_CAISSE_CHANTIER, MOYENS_ENCAISS
 import { ROLES_VERSEMENT, versementDeVente, etatVersementOrigine, moyenVersable, montantEncaisseVente, ORIGINE_VENTE, versementGeneralQuiEmporte, mentionVersementGeneral, idsVentesVerseesValidees, fondsAVerser, critiqueSortieTiroir } from "../lib/versements";
 import { verserDepuisOrigine } from "../components/verserOrigine";
 import { prochainNumeroAchatChantier, estDepotChantier, numeroDuRecuDeVente } from "../lib/core";
-import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, montantRemiseApresVente, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT, proformaPourDocument, pctRemiseLisible, fichierPdf } from "../lib/core";
+import { uid, estVenteACredit, qteVente, resumeArticles, lignesVente, totalVente, prefixeBoutique, prochainNumeroVente, prochainNumeroDette, numeroRecu, numeroRecuDette, fmt, today, dFR, heureCourte, telDigits, col, normPaiement, inP, ouvrirWhatsAppApresAnnonce, montantRepris, montantRemiseApresVente, avanceDeVente, resteAPayerVente, montantSaisi, pctEquivalent, MODE_REMISE_MONTANT, proformaPourDocument, pctRemiseLisible, fichierPdf, dateModificationProforma, mentionModificationProforma } from "../lib/core";
 import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
@@ -44,9 +44,9 @@ import { SelecteurArticle } from "../components/SelecteurArticle";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
 import { motifBlocageVente } from "../lib/cloture";
-import { envoyerModele, signalerEnvoiImpossible, messagesAvecLigneEnvoi, envoyerRecuSansQuestion, envoyerRecuPdf, PHRASE_PDF_LENT, PHRASE_PDF_LENT_RIEN } from "../whatsapp";
+import { envoyerModele, signalerEnvoiImpossible, messagesAvecLigneEnvoi, envoyerRecuSansQuestion, envoyerRecuPdf, envoyerPdfsDansLOrdre, PHRASE_PDF_LENT, PHRASE_PDF_LENT_RIEN } from "../whatsapp";
 import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
-import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite, proformaPdfDepuis, lignePdfNonParti, envoiRemiseApresVente, situationRemiseApresVente } from "../lib/whatsappModeles";
+import { motifAttendu, envoiRecuReservation, envoiBon, envoiProforma, finDeValidite, proformaPdfDepuis, proformaModifieePdfDepuis, dateProformaPourMessage, noteProformaModifieeNonPartie, lignePdfNonParti, envoiRemiseApresVente, situationRemiseApresVente } from "../lib/whatsappModeles";
 import { lierFacture, champsTravauxDocument, propositionsStock, produitSaisi } from "../lib/travaux";
 import { peutEchanger, chiffresEchange, construireEchange, appliquerEchange, montantReprisHorsEchange, echangesDeLaVente, DESTINATION_STOCK, DESTINATION_SAV } from "../lib/echanges";
 import { peutVoirInventaire, peutVoirInventaireGeneral } from "../lib/inventaireVentes";
@@ -466,20 +466,22 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     validite: "15 jours",
   });
 
-  // Rend false si l'enregistrement est refusé (modification refusée) : le
-  // PDF et le message WhatsApp ne partent alors pas.
+  // Rend la proforma RANGÉE, ou null si l'enregistrement est refusé
+  // (modification refusée) : le PDF et le message WhatsApp ne partent alors
+  // pas. ✏️ 13/11/2026 : la proforma rangée, et non plus `true` — une
+  // proforma MODIFIÉE garde sa date d'origine, ses documents la lisent là.
   const enregistrerProforma = (pf) => {
     // ✏️ Une modification REMPLACE la proforma (même id, même numéro) et
     // laisse sa trace — revérifiée DANS le geste, sur la fiche fraîche.
     if (proformaEnModif) {
       const avant = (db.proformas || []).find((x) => x.id === proformaEnModif.id);
       const refus = critiqueModifProforma(db, avant, profile);
-      if (refus) { uAlert(`🔒 ${refus}`); return false; }
+      if (refus) { uAlert(`🔒 ${refus}`); return null; }
       const nouvelle = proformaModifiee(avant, { ...pf, ...champsIdentite(pf) }, profile);
       save({ ...db, proformas: (db.proformas || []).map((x) => (x.id === avant.id ? nouvelle : x)) },
         `✏️ Proforma ${avant.numero} modifiée par ${profile.nom} (${fmt(avant.total)} → ${fmt(nouvelle.total)})`);
       setProformaEnModif(null);
-      return true;
+      return nouvelle;
     }
     // On garde une trace (liste visible par vendeur / resp. commercial / admin).
     const ligne = { id: uid(), date: today(), ts: maintenantISO(),
@@ -490,8 +492,19 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ...(pf.remise_mode ? { remise_mode: pf.remise_mode } : {}),
       total: pf.total, lignes: pf.lignes, par: profile.nom, par_id: profile.id };
     save({ ...db, proformas: [ligne, ...(db.proformas || [])] }, `Proforma ${pf.numero} émis par ${profile.nom} (${fmt(pf.total)})`);
-    return true;
+    return ligne;
   };
+
+  // ✏️ La proforma telle que ses DOCUMENTS la montrent (13/11/2026, Timo,
+  // « C oui ») : le panier qu'on vient d'enregistrer, à la date RANGÉE — celle
+  // d'origine pour une proforma modifiée, jamais celle du jour — et avec sa
+  // modification (`modifie_le`), que le PDF et l'impression écrivent
+  // (« Modifiée le … — remplace la version précédente », lib/core.js).
+  const proformaDuDocument = (pf, rangee) => ({
+    ...pf,
+    date: dFR(rangee.date) || pf.date,
+    ...(rangee.modifie_le ? { modifie_le: rangee.modifie_le } : {}),
+  });
 
   // ---- ✏️ MODIFIER UNE PROFORMA (Timo, 30/09/2026, « a, 2 oui, 3 oui ») ----
   // Règle pure : critiqueModifProforma (calculs.js). Le panier se remplit
@@ -516,14 +529,34 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     remonterEnHaut(true);
   };
 
-  const enregistrerModifProforma = () => {
+  // ✏️ 13/11/2026 (Timo : « Proforma modifié… un modèle de message à renvoyer
+  // au client avec pdf » → « A a ») : enregistrée, la proforma MODIFIÉE se
+  // RENVOIE au client après UNE question — « Renvoyer… avec son PDF ? ». Oui :
+  // `proformaWhatsApp` la renvoie (le PDF, puis le numéro BMI) sans la
+  // réenregistrer ni reposer la question. Non : elle est seulement enregistrée.
+  // Sans numéro, ou en formation, aucune question (rien ne partirait du numéro
+  // BMI) : l'écran dit comment la remettre.
+  const enregistrerModifProforma = async () => {
     if (panier.length === 0) { setMsg("Une proforma porte au moins un article."); return; }
     if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
-    const pf = construireProforma();
-    if (!enregistrerProforma(pf)) return;
-    setMsg(`✅ Proforma ${pf.numero} modifiée (même numéro). Pour la remettre au client : 🧾 Proformas → 🖨️ Réimprimer. Pour l'envoyer tout de suite, « 🧾 Proforma WhatsApp » pendant la modification enregistre ET envoie.`);
+    const brute = construireProforma();
+    const rangee = enregistrerProforma(brute);
+    if (!rangee) return;
+    const pf = proformaDuDocument(brute, rangee);
+    const bqPf = infoBq(pf.boutique);
+    const surPapier = "Pour la remettre au client sur papier : 🧾 Proformas → 🖨️ Réimprimer.";
+    if (!envoiDeLaProforma(pf, bqPf) || bqPf.formation) {
+      setMsg(`✅ Proforma ${pf.numero} modifiée (même numéro). ${bqPf.formation ? "🎓 Espace formation : aucun message WhatsApp ne part d'ici." : "Aucun numéro sur cette proforma : rien n'est renvoyé au client."} ${surPapier}`);
+      return;
+    }
+    setMsg(`✅ Proforma ${pf.numero} modifiée (même numéro).`);
+    if (!await uConfirm(`✅ Proforma N° ${pf.numero} modifiée (même numéro).\n\nRenvoyer la proforma modifiée à ${pf.client || "ce client"} (${pf.tel}) du numéro WhatsApp BMI, avec son PDF ?\n\nAnnuler : elle reste enregistrée, rien n'est envoyé au client.`)) {
+      setMsg(`✅ Proforma ${pf.numero} modifiée (même numéro). Rien n'est envoyé au client. ${surPapier}`);
+      return;
+    }
+    await proformaWhatsApp({ pf });
   };
 
   // ---- 🛒 REPRENDRE UNE PROFORMA (Timo, 11/09/2026) ----
@@ -617,16 +650,44 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     remonterEnHaut(true);
   };
 
-  const proformaWhatsApp = async () => {
-    if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
-    if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
-    { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
-    { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
-    const pf = construireProforma();
-    if (!enregistrerProforma(pf)) return;
+  // Le message `proforma` (ses huit trous, lib/whatsappModeles.js) ; null sans
+  // numéro. ✏️ 13/11/2026 : une proforma MODIFIÉE garde sa date d'origine dans
+  // le message, suivie de la modification (« du 13/11/2026, modifiée le
+  // 14/11/2026 ») ; son offre court 15 jours depuis la MODIFICATION — comme
+  // son PDF (« à compter du ») et le message `proforma_modifiee_pdf`.
+  const envoiDeLaProforma = (pf, bqPf) => envoiProforma({
+    proforma: { ...pf, date: dateProformaPourMessage(pf.date, dateModificationProforma(pf)) },
+    boutique: bqPf,
+    fin: dFR(finDeValidite(pf.modifie_le ? String(pf.modifie_le).slice(0, 10) : today(), 15)),
+    fmt,
+  });
+
+  // ✏️ 13/11/2026 (« A a ») : `renvoi` = { pf } quand « 💾 Enregistrer la
+  // proforma modifiée » vient de l'enregistrer et que « Renvoyer… ? » a eu
+  // « Oui » : on ne la réenregistre pas, on ne repose pas la question. Sans
+  // `renvoi` (🧾), on vérifie, on enregistre, puis la question — comme avant.
+  // ⚠ Le bouton 🧾 l'appelle par `() => proformaWhatsApp()` : le clic ne doit
+  // jamais être pris pour un renvoi.
+  const proformaWhatsApp = async (renvoi = null) => {
+    let pf = renvoi ? renvoi.pf : null;
+    if (!renvoi) {
+      if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
+      if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
+      { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+      { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
+      const brute = construireProforma();
+      const rangee = enregistrerProforma(brute);
+      if (!rangee) return;
+      // ✏️ « C oui » : le document d'une proforma MODIFIÉE garde sa date
+      // d'origine et dit sa modification — lues sur la proforma RANGÉE.
+      pf = proformaDuDocument(brute, rangee);
+    }
+    // ✏️ Le jour de la modification ("" pour une proforma jamais modifiée).
+    const modifiee = dateModificationProforma(pf);
     const lignes = [
       `*FACTURE PROFORMA* — BMI TOGO`,
       `N° ${pf.numero} · ${pf.date}`,
+      ...(modifiee ? [`✏️ ${mentionModificationProforma(pf)}`] : []),
       ``,
       // 🧾 19/10/2026 : la remise d'un article se lit sur sa ligne, et la
       // remise générale par LA règle des documents (« 4,76 % », rien en libre).
@@ -635,7 +696,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ...(pf.remise_montant > 0 ? [`Sous-total : ${pf.sous_total.toLocaleString("fr-FR")} F`, `Remise${pctRemiseLisible(pf)} : -${pf.remise_montant.toLocaleString("fr-FR")} F`] : []),
       `*TOTAL : ${pf.total.toLocaleString("fr-FR")} FCFA*`,
       ``,
-      `Ceci est une offre de prix (proforma), sans valeur de reçu. Valable ${pf.validite}.`,
+      `Ceci est une offre de prix (proforma), sans valeur de reçu. Valable ${pf.validite}${modifiee ? ` à compter du ${modifiee}` : ""}.`,
       `BMI TOGO — Les bâtiments modernes et intelligents`,
       // 26/09/2026 : le numéro de la boutique, comme sur le reçu.
       ...(infoBq(pf.boutique).tel ? [`${pf.boutique} — Tél : ${infoBq(pf.boutique).tel}`] : []),
@@ -655,10 +716,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     docPf.save(nomPdfPf);
     const base64Pf = String(docPf.output("datauristring") || "").split(",")[1] || "";
     const fichierPf = base64Pf ? { nom: nomPdfPf, mime: "application/pdf", taille: Math.floor(base64Pf.length * 3 / 4), donnees: base64Pf } : null;
-    setMsg(`✅ Proforma ${pf.numero} émis (non comptabilisé).`);
+    const etatPf = modifiee ? "modifiée (même numéro)" : "émis";
+    setMsg(`✅ Proforma ${pf.numero} ${etatPf} (non comptabilisé).`);
     const annonceAppareil = num
-      ? `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAppuyez sur OK : WhatsApp s'ouvre sur le numéro du client. Joignez-y le PDF.`
-      : `✅ Proforma ${pf.numero} émis : le PDF est téléchargé sur l'appareil.\n\nAucun numéro sur cette commande. Appuyez sur OK : WhatsApp s'ouvre sans destinataire : choisissez le client, puis joignez le PDF.`;
+      ? `✅ Proforma ${pf.numero} ${etatPf} : le PDF est téléchargé sur l'appareil.\n\nAppuyez sur OK : WhatsApp s'ouvre sur le numéro du client. Joignez-y le PDF.`
+      : `✅ Proforma ${pf.numero} ${etatPf} : le PDF est téléchargé sur l'appareil.\n\nAucun numéro sur cette commande. Appuyez sur OK : WhatsApp s'ouvre sans destinataire : choisissez le client, puis joignez le PDF.`;
     // 🧾 30/09/2026 (Timo, son texte) : la proforma part du NUMÉRO BMI, par le
     // modèle `proforma`, APRÈS une question (la règle des relances : un clic à
     // côté ne se rattrape pas). ⚠ LE MUR : l'espace de la BOUTIQUE de la
@@ -666,21 +728,35 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     // le numéro BMI ne peut pas envoyer : l'ouverture WhatsApp d'aujourd'hui,
     // texte complet et PDF à joindre — le motif dit AVANT, jamais après.
     // La ligne entre dans 📲 WhatsApp sans donner la conversation (comme un reçu).
-    const envoi = envoiProforma({ proforma: pf, boutique: bqPf, fin: dFR(finDeValidite(today(), 15)), fmt });
+    const envoi = envoiDeLaProforma(pf, bqPf);
+    // « Envoyée » la première fois, « renvoyée » une fois modifiée.
+    const partie = modifiee ? "Proforma modifiée N° " : "Proforma N° ";
+    const verbe = modifiee ? "renvoyée" : "envoyée";
     if (envoi && !bqPf.formation) {
-      if (!await uConfirm(`Envoyer la proforma N° ${pf.numero} à ${pf.client || "ce client"} (${pf.tel}) du numéro WhatsApp BMI ?\n\nLe PDF est déjà téléchargé sur l'appareil.`)) return;
+      const question = modifiee
+        ? `Renvoyer la proforma modifiée N° ${pf.numero} à ${pf.client || "ce client"} (${pf.tel}) du numéro WhatsApp BMI, avec son PDF ?\n\nLe PDF est déjà téléchargé sur l'appareil.`
+        : `Envoyer la proforma N° ${pf.numero} à ${pf.client || "ce client"} (${pf.tel}) du numéro WhatsApp BMI ?\n\nLe PDF est déjà téléchargé sur l'appareil.`;
+      if (!renvoi && !await uConfirm(question)) return;
       // 📎 « C b » : la proforma AVEC SON PDF d'abord, sans repli ; refusée
       // (pas encore approuvée par Meta…), le modèle `proforma` d'aujourd'hui.
+      // ✏️ 13/11/2026 : une proforma MODIFIÉE essaie d'abord SON message
+      // (`proforma_modifiee_pdf` : « modifiée le …, remplace la précédente »),
+      // puis la proforma PDF ordinaire (sa date dit « modifiée le »), puis le
+      // texte. La chaîne est écrite UNE fois (`envoyerPdfsDansLOrdre`,
+      // src/whatsapp.js) : une connexion coupée y arrête les essais.
       const envoiPdf = proformaPdfDepuis(envoi);
       let notePdf = "";
-      if (envoiPdf && fichierPf) {
-        const rp = await envoyerModele({ tel: pf.tel, modele: envoiPdf.modele, variables: envoiPdf.variables, espaceFormation: !!bqPf.formation, sansRepli: true, fichier: fichierPf });
+      if (fichierPf) {
+        const rp = await envoyerPdfsDansLOrdre({ essais: [modifiee ? proformaModifieePdfDepuis(envoi, modifiee) : null, envoiPdf], tel: pf.tel, fichier: fichierPf, espaceFormation: !!bqPf.formation });
+        // Le message « proforma modifiée » pas parti (pas encore approuvé…) : on le DIT.
+        const refusModifiee = rp.refus.find((x) => x.modele === "proforma_modifiee_pdf" && !x.reseau);
+        const noteModifiee = refusModifiee ? noteProformaModifieeNonPartie(refusModifiee.motif, modifiee) : "";
         if (rp.auto) {
           save((e) => ({
             ...e,
-            messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: pf.tel, nom: pf.client, modele: envoiPdf.modele, variables: envoiPdf.variables, ref: { proforma_numero: pf.numero }, envoi: rp, relais: envoi }),
+            messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: pf.tel, nom: pf.client, modele: rp.essai.modele, variables: rp.essai.variables, ref: { proforma_numero: pf.numero }, envoi: rp, relais: envoi }),
           }));
-          await uAlert(`✅ Proforma N° ${pf.numero} envoyée du numéro BMI à ${pf.client || "ce client"}, avec son PDF.`);
+          await uAlert(`✅ ${partie}${pf.numero} ${verbe} du numéro BMI à ${pf.client || "ce client"}, avec son PDF.${noteModifiee ? `\n\n${noteModifiee}` : ""}`);
           return;
         }
         notePdf = rp.reseau ? lignePdfNonParti("", true) : (rp.motif && !motifAttendu(rp.motif) ? lignePdfNonParti(rp.motif) : "");
@@ -694,7 +770,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           ...e,
           messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: pf.tel, nom: pf.client, modele: envoi.modele, variables: envoi.variables, ref: { proforma_numero: pf.numero }, envoi: r }),
         }));
-        await uAlert(`✅ Proforma N° ${pf.numero} envoyée du numéro BMI à ${pf.client || "ce client"}.\n\nLe PDF est aussi téléchargé sur l'appareil, si le client le demande.${notePdf ? `\n\n${notePdf}` : ""}`);
+        await uAlert(`✅ ${partie}${pf.numero} ${verbe} du numéro BMI à ${pf.client || "ce client"}.\n\nLe PDF est aussi téléchargé sur l'appareil, si le client le demande.${notePdf ? `\n\n${notePdf}` : ""}`);
       }
       return;
     }
@@ -706,10 +782,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
-    const pf = construireProforma();
-    if (!enregistrerProforma(pf)) return;
+    const brute = construireProforma();
+    const rangee = enregistrerProforma(brute);
+    if (!rangee) return;
+    // ✏️ « C oui » : imprimée pendant une modification, elle garde sa date
+    // d'origine et dit « Modifiée le … — remplace la version précédente ».
+    const pf = proformaDuDocument(brute, rangee);
     imprimerProforma({ ...pf, lignes: lignesAvecFiche(pf.lignes, db.produits, pf.boutique) }, LOGO, db.boutiques.find((b) => b.nom === pf.boutique)?.formation, infoBq(pf.boutique));
-    setMsg(`✅ Proforma ${pf.numero} imprimé (non comptabilisé).`);
+    setMsg(`✅ Proforma ${pf.numero} ${dateModificationProforma(pf) ? "modifiée (même numéro) et imprimée" : "imprimé"} (non comptabilisé).`);
   };
 
   // ⚠ Décision Timo (09/09/2026) : une journée passée avec des ventes et
@@ -2155,13 +2235,14 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
             {proformaEnModif && (
               <div className="mt-4 rounded-lg border-2 border-amber-400 bg-amber-50 p-3 text-sm text-amber-900" data-proforma-en-modif>
                 ✏️ <b>Vous modifiez la proforma N° {proformaEnModif.numero}.</b> Corrigez le panier, le client ou la remise, puis enregistrez :
-                elle garde son numéro, et la modification est notée. 🧾 et 🖨️ l'enregistrent aussi avant de l'envoyer ou de l'imprimer.
+                elle garde son numéro et sa date, et la modification est notée. Enregistrée, elle peut être renvoyée au client avec son PDF (une question vous est posée). 🧾 et 🖨️ l'enregistrent aussi avant de l'envoyer ou de l'imprimer.
               </div>
             )}
             <div className="mt-4 flex items-center gap-4 flex-wrap">
               {proformaEnModif ? (
                 <>
-                  <button onClick={enregistrerModifProforma} className="px-6 py-2.5 rounded-lg bg-amber-600 text-white font-bold text-sm hover:bg-amber-700 shadow-sm">💾 Enregistrer la proforma modifiée</button>
+                  {/* ✏️ 13/11/2026 (« A a ») : il peut RENVOYER la proforma du numéro BMI (une question) — un bouton qui envoie passe par BoutonEnvoi. */}
+                  <BoutonEnvoi onClick={enregistrerModifProforma} data-enregistrer-proforma-modifiee className="px-6 py-2.5 rounded-lg bg-amber-600 text-white font-bold text-sm hover:bg-amber-700 shadow-sm">💾 Enregistrer la proforma modifiée</BoutonEnvoi>
                   <button onClick={() => { setProformaEnModif(null); setMsg("Modification abandonnée : la proforma n'a pas changé."); }} className="text-xs font-bold text-slate-600 underline">Annuler la modification</button>
                 </>
               ) : enAchatChantier ? (
@@ -2170,7 +2251,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               <button onClick={encaisserVente} className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800 shadow-sm">💳 Encaisser la vente</button>
               )}
               {!enAchatChantier && <>
-              <BoutonEnvoi onClick={proformaWhatsApp} title="Envoyer une offre de prix au client (non comptabilisée)" className="px-4 py-2.5 rounded-lg bg-white border-2 border-sky-400 text-sky-700 font-bold text-sm hover:bg-sky-50">🧾 Proforma WhatsApp</BoutonEnvoi>
+              <BoutonEnvoi onClick={() => proformaWhatsApp()} title="Envoyer une offre de prix au client (non comptabilisée)" className="px-4 py-2.5 rounded-lg bg-white border-2 border-sky-400 text-sky-700 font-bold text-sm hover:bg-sky-50">🧾 Proforma WhatsApp</BoutonEnvoi>
               <button onClick={proformaPDF} title="Imprimer une offre de prix (non comptabilisée)" className="px-3 py-2.5 rounded-lg bg-white border-2 border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50">🖨️</button>
               </>}
               <span className="text-base font-bold tabular-nums">Total{fraisInstallDevis > 0 || fraisTransportDevis > 0 ? " articles" : ""} : {fmt(enAchatChantier ? totalPanierAchat : total)}{remise > 0 && <span className="text-red-600 text-sm font-semibold"> (remise −{fmt(remise)})</span>}</span>

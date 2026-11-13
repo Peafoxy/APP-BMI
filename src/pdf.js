@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { fichierPdf, pctRemiseLisible, dFR, today, remisesDeLignes } from "./lib/core";
+import { fichierPdf, pctRemiseLisible, dFR, today, remisesDeLignes, mentionModificationProforma, phraseValiditeProforma } from "./lib/core";
 import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
 import { identiteClient } from "./lib/clientEntreprise";
 import { groupesEquipement } from "./lib/lignesDevis";
@@ -234,6 +234,18 @@ export function genererProforma(p, logo, retournerDoc = false) {
   // colonne (le PDF ne la montrait nulle part : prix × qté ne donnait pas le
   // total, sans un mot) — seulement s'il y en a une.
   const avecRemiseLigne = remisesDeLignes(p.lignes) > 0;
+  // ✏️ 13/11/2026 (Timo, « C oui ») : une proforma MODIFIÉE garde sa date
+  // d'origine (ligne « Date ») et le DIT sur sa propre ligne, en ambre, juste
+  // au-dessus des articles : « Modifiée le … — remplace la version précédente ».
+  let debutTableau = yApresPf + (idPf.coordonnees || p.par ? 27 : 24);
+  const modifiee = mentionModificationProforma(p);
+  if (modifiee) {
+    doc.setFontSize(9);
+    doc.setTextColor(180, 83, 9);
+    doc.text(texteSurPdf(modifiee), 14, debutTableau + 2);
+    doc.setTextColor(60, 60, 60);
+    debutTableau += 6;
+  }
   autoTable(doc, {
     // Un titre de colonne porte son alignement (il ne reçoit pas columnStyles).
     head: [[enTete("Article"), enTete("Qté", "center"), enTete("Prix unitaire", "right"),
@@ -250,7 +262,7 @@ export function genererProforma(p, logo, retournerDoc = false) {
         `${fmtMontant(l.total)} F`,
       ];
     }),
-    startY: yApresPf + (idPf.coordonnees || p.par ? 27 : 24),
+    startY: debutTableau,
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [30, 90, 138], textColor: 255 },
     alternateRowStyles: { fillColor: [245, 247, 250] },
@@ -279,7 +291,9 @@ export function genererProforma(p, logo, retournerDoc = false) {
   // Mentions légales du proforma
   y += 12;
   mentionsOffre(doc, y, "une facture proforma");
-  if (p.validite) doc.text(`Offre valable ${p.validite}.`, 14, y + 8);
+  // ✏️ Modifiée : « à compter du » jour de la modification (phraseValiditeProforma).
+  const validite = phraseValiditeProforma(p);
+  if (validite) doc.text(texteSurPdf(validite), 14, y + 8);
   piedDePage(doc, largeur, hauteur);
 
   if (retournerDoc) return doc;

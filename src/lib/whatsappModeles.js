@@ -56,6 +56,13 @@ export const MODELES = {
   // à chaque proforma (« C b », sans case), `proforma` en relais.
   recu_pdf: { categorie: "utility", variables: ["client", "numero", "date", "detail"], entete: "document" },
   proforma_pdf: { categorie: "marketing", variables: ["client", "numero", "date", "montant", "fin"], entete: "document" },
+  // ✏️ 13/11/2026 (Timo : « Proforma modifié… un modèle de message à renvoyer
+  // au client avec pdf » → « A a, C oui, texte ok, lance ») : la proforma
+  // MODIFIÉE renvoyée avec son PDF, qui dit qu'elle REMPLACE la précédente.
+  // MARKETING (une offre, comme `proforma_pdf`). {{3}} = le jour de la
+  // MODIFICATION, {{5}} = la fin de l'offre, 15 jours après lui. Essayé
+  // d'abord ; refusé (pas encore approuvé…), `proforma_pdf` puis `proforma`.
+  proforma_modifiee_pdf: { categorie: "marketing", variables: ["client", "numero", "date_modification", "montant", "fin"], entete: "document" },
   // « Bonjour {{1}}, nous revenons vers vous au sujet du devis {{2}} de {{3}}
   //   que nous vous avons envoyé le {{4}}. … »
   relance_devis: { categorie: "marketing", variables: ["client", "domaine", "montant", "date"] },
@@ -346,6 +353,10 @@ export const MODELES_EN_SERVICE = [
   // l'accord de Meta : d'ici là ils sont refusés, et le reçu en texte ou le
   // modèle `proforma` partent à leur place.
   "recu_pdf", "proforma_pdf",
+  // ✏️ 13/11/2026 : la proforma MODIFIÉE renvoyée avec son PDF. En service
+  // AVANT l'accord de Meta : d'ici là elle est refusée, et `proforma_pdf`
+  // (puis `proforma`) part à sa place — le PDF dit quand même « Modifiée le ».
+  "proforma_modifiee_pdf",
   // 📋 Dettes, 20/09/2026 (décision « c ») : la relance d'une dette part
   // du numéro BMI. Mis en service AVANT l'accord de Meta (d'ici là, repli
   // sur l'ouverture WhatsApp, refus dit en français) pour éviter un second
@@ -962,6 +973,7 @@ const LIGNES_ENVOI = {
   devis_pdf: ([client, domaine, montant]) => `Devis ${domaine} de ${montant} envoyé à ${client}, 📎 PDF joint.`,
   recu_pdf: ([client, numero, date, detail]) => `Reçu N° ${numero} du ${date} envoyé à ${client}, 📎 PDF joint — ${detail}`,
   proforma_pdf: ([client, numero, date, montant, fin]) => `Proforma N° ${numero} du ${date} (${montant}, valable jusqu'au ${fin}) envoyée à ${client}, 📎 PDF joint.`,
+  proforma_modifiee_pdf: ([client, numero, date, montant, fin]) => `Proforma N° ${numero} modifiée le ${date} (nouveau montant ${montant}, valable jusqu'au ${fin}) renvoyée à ${client}, 📎 PDF joint.`,
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
   demande_avis: ([client, installation]) => `Demande d'avis Google envoyée à ${client} (installation ${installation}).`,
   rappel_entretien: ([client, installation, date]) => `Rappel automatique de l'entretien de l'installation ${installation} de ${client}, prévu le ${date}.`,
@@ -1529,6 +1541,19 @@ export const TEXTE_PROFORMA_PDF = [
   "Pour toute question ou tout éclaircissement :",
   ...BLOC_CONTACT_COURT,
 ].join("\n");
+// ✏️ 13/11/2026 (Timo, « texte ok ») : la proforma MODIFIÉE, à créer chez
+// YCloud sous le nom `proforma_modifiee_pdf`, catégorie MARKETING, langue fr,
+// en-tête « Document », MOT POUR MOT. {{3}} = le jour de la modification.
+export const TEXTE_PROFORMA_MODIFIEE_PDF = [
+  "Bonjour {{1}}, votre proforma BMI TOGO N° {{2}} a été modifiée le {{3}}.",
+  "",
+  "Nouveau montant : {{4}}",
+  "",
+  "Cette nouvelle version, en pièce jointe, remplace la précédente. Offre valable jusqu'au {{5}}, sans valeur de reçu. Pour la confirmer, passez en boutique ou répondez à ce message.",
+  "",
+  "Pour toute question ou tout éclaircissement :",
+  ...BLOC_CONTACT_COURT,
+].join("\n");
 // Le reçu PDF se DÉDUIT du reçu en texte qui serait parti — jamais une
 // seconde fabrique : mêmes mots, même montant, même formule. `numero` = le
 // numéro écrit SUR le PDF (une vente à crédit remet le reçu de SA dette).
@@ -1551,6 +1576,33 @@ export function proformaPdfDepuis(envoi) {
   const v = envoi.variables;
   return { modele: "proforma_pdf", variables: [v[0], v[1], v[2], v[5], v[6]] };
 }
+// ✏️ 13/11/2026 : la proforma MODIFIÉE se déduit, elle aussi, de l'envoi
+// `proforma` (mêmes client, numéro, montant, fin de l'offre) ; seul {{3}}
+// change : le jour de la MODIFICATION. Rien sans ce jour (on n'annonce pas
+// « modifiée le » sans date).
+export function proformaModifieePdfDepuis(envoi, dateModification) {
+  const p = proformaPdfDepuis(envoi);
+  const le = texteVariable(dateModification);
+  if (!p || !le) return null;
+  const v = p.variables;
+  return { modele: "proforma_modifiee_pdf", variables: [v[0], v[1], le, v[3], v[4]] };
+}
+// ✏️ La date d'une proforma MODIFIÉE dans les messages qui ne disent pas
+// « modifiée » (`proforma_pdf`, `proforma` — le relais tant que Meta n'a pas
+// approuvé le nouveau modèle) : sa date d'origine, comme son PDF (« C oui »),
+// suivie du jour de la modification — le client sait que c'est une autre
+// version. « du 13/11/2026, modifiée le 14/11/2026 ». ⚠ Même modifiée le jour
+// même, elle le dit (comme son PDF) : le client a reçu une première version.
+export const dateProformaPourMessage = (dateOrigine, dateModification) => {
+  const d = texteVariable(dateOrigine);
+  const m = texteVariable(dateModification);
+  return d && m ? `${d}, modifiée le ${m}` : d || m;
+};
+// ✏️ Ce que l'écran DIT quand le message « proforma modifiée » n'est pas parti
+// (pas encore approuvé par Meta…) mais que la proforma est partie quand même,
+// par le message habituel : on ne le cache pas, et le PDF le dit déjà.
+export const noteProformaModifieeNonPartie = (motif, dateModification) =>
+  `ℹ️ Le message « proforma modifiée » n'est pas parti (${String(motif || "WhatsApp ne l'a pas accepté").replace(/\.$/, "")}) : la proforma est partie avec le message habituel. Son PDF dit bien « Modifiée le ${dateModification} ».`;
 export const ADRESSE_SIGNATURE_PV = "https://bmitogo.com/signature/";
 export const ADRESSE_AVENANT = "https://bmitogo.com/avenant/";
 export const TEXTE_LIEN_SIGNATURE_PV = [
@@ -1878,7 +1930,7 @@ export function envoiBon({ bon, boutique, fmt, dFR }) {
 // Le texte lisible d'un envoi, quel que soit le reçu.
 export function texteRecu(envoi) {
   if (!envoi) return "";
-  const t = { proforma: TEXTE_PROFORMA, recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_depot_chantier: TEXTE_RECU_DEPOT_CHANTIER, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR, recu_pdf: TEXTE_RECU_PDF, proforma_pdf: TEXTE_PROFORMA_PDF }[envoi.modele];
+  const t = { proforma: TEXTE_PROFORMA, recu_vente: TEXTE_RECU_VENTE, recu_vente_detail: TEXTE_RECU_VENTE_DETAIL, recu_depot_chantier: TEXTE_RECU_DEPOT_CHANTIER, recu_reglement: TEXTE_RECU_REGLEMENT, recu_reservation: TEXTE_RECU_RESERVATION, bon_reprise: TEXTE_BON_REPRISE, bon_retour: TEXTE_BON_RETOUR, recu_pdf: TEXTE_RECU_PDF, proforma_pdf: TEXTE_PROFORMA_PDF, proforma_modifiee_pdf: TEXTE_PROFORMA_MODIFIEE_PDF }[envoi.modele];
   return t ? envoi.variables.reduce((x, v, i) => x.replace(`{{${i + 1}}}`, v), t) : "";
 }
 
