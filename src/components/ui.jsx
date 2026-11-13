@@ -156,8 +156,10 @@ export const Stat = ({ label, value, valeur, nature = "neutre", accent, compact,
     return (
       <div className={`tdb-kpi tdb-${teinte}`} data-stat-grand={teinte}>
         {icone && <div className="tdb-kpi-icone" aria-hidden="true">{icone}</div>}
-        <div className="tdb-kpi-libelle"><span className="tdb-kpi-point"></span>{label}</div>
-        <div className="tdb-kpi-valeur tabular-nums">{contenu}</div>
+        <div className="min-w-0">
+          <div className="tdb-kpi-libelle"><span className="tdb-kpi-point"></span>{label}</div>
+          <div className="tdb-kpi-valeur tabular-nums">{contenu}</div>
+        </div>
       </div>
     );
   }

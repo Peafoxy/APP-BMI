@@ -358,21 +358,22 @@ html[data-theme="sombre"] :is(img, video, canvas, [data-garder-clair]):not([data
   --tdb-ambre:#fdf1d7; --tdb-ambre-p:#d97706; --tdb-bleu:#e3edfd; --tdb-bleu-p:#2563eb; }
 [data-tableau-de-bord] > .rounded-xl, [data-tableau-de-bord] > .grid > .rounded-xl {
   border-radius: 18px; box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 16px rgba(15,23,42,.06); }
-.tdb-kpi { border-radius: 18px; padding: 18px 18px 20px; min-width: 0; border: 1px solid transparent;
-  box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 6px 16px rgba(15,23,42,.06); color: var(--tdb-ink); }
-.tdb-kpi-icone { width: 38px; height: 38px; border-radius: 11px; background: var(--tdb-chip); display: grid; place-items: center; font-size: 19px; margin-bottom: 14px; }
-.tdb-kpi-libelle { font-size: 12.5px; font-weight: 600; color: var(--tdb-muted); text-transform: uppercase; letter-spacing: .04em; }
-.tdb-kpi-point { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
-.tdb-kpi-valeur { font-size: 30px; font-weight: 800; letter-spacing: -.02em; margin-top: 6px; white-space: nowrap; }
-.tdb-kpi-valeur i { font-style: normal; font-size: 16px; font-weight: 600; color: var(--tdb-muted); margin-left: 5px; }
+/* Timo (13/11/2026, capture du soir même) : « les cartes sont trop grosses » — l'icône
+   passe À CÔTÉ du texte (plus au-dessus), le chiffre et les marges rétrécissent. */
+.tdb-kpi { border-radius: 16px; padding: 12px 14px; min-width: 0; border: 1px solid transparent; display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.05); color: var(--tdb-ink); }
+.tdb-kpi-icone { flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--tdb-chip); display: grid; place-items: center; font-size: 18px; }
+.tdb-kpi-libelle { font-size: 11.5px; font-weight: 600; color: var(--tdb-muted); text-transform: uppercase; letter-spacing: .04em; }
+.tdb-kpi-point { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.tdb-kpi-valeur { font-size: 22px; font-weight: 800; letter-spacing: -.01em; margin-top: 2px; white-space: nowrap; }
 .tdb-vert { background: var(--tdb-vert); } .tdb-vert .tdb-kpi-point { background: var(--tdb-vert-p); }
 .tdb-rouge { background: var(--tdb-rouge); } .tdb-rouge .tdb-kpi-point { background: var(--tdb-rouge-p); }
 .tdb-ambre { background: var(--tdb-ambre); } .tdb-ambre .tdb-kpi-point { background: var(--tdb-ambre-p); }
 .tdb-bleu { background: var(--tdb-bleu); } .tdb-bleu .tdb-kpi-point { background: var(--tdb-bleu-p); }
 [data-depuis-le-debut] > .tdb-ligne:nth-child(2) { border-top: 0; }
 @media (max-width: 700px) {
-  .tdb-kpi { padding: 14px; } .tdb-kpi-valeur { font-size: 21px; } .tdb-kpi-valeur i { font-size: 12px; }
-  .tdb-kpi-icone { width: 32px; height: 32px; font-size: 16px; margin-bottom: 10px; } .tdb-kpi-libelle { font-size: 10.5px; }
+  .tdb-kpi { padding: 10px; gap: 8px; } .tdb-kpi-valeur { font-size: 17px; }
+  .tdb-kpi-icone { width: 28px; height: 28px; font-size: 14px; border-radius: 8px; } .tdb-kpi-libelle { font-size: 9.5px; }
 }
 @media screen {
   html[data-theme="sombre"] [data-tableau-de-bord] {

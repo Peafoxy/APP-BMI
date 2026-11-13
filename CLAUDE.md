@@ -10341,7 +10341,10 @@ lit mal est pire qu'un banc absent).
   dans index.css. ⚠ Les autres écrans restent en retournement (dit à Timo). Rien
   à coller. Bancs : `verifier-champs` (+4, Chromium : clair, sombre, caisses non
   touchées, impression ; éprouvé), `verifier-cloisonnement` (+1, l'écran RENDU ;
-  éprouvé). Chapitre 22 à jour. Ce qui suit est l'histoire :
+  éprouvé). Chapitre 22 à jour. ⚠ **Les cartes de la période sont BASSES**
+  (capture Timo le soir même, 2.101.741 : « les cartes sont trop grosses ») :
+  l'icône À CÔTÉ du texte, chiffre à 22 px — ne pas remettre l'icône au-dessus.
+  Ce qui suit est l'histoire :
 - **Le tableau de bord restait tel qu'il est** (pastel, sélecteur entre les
   deux rangées) : l'habillage « cartes blanches » a été refusé. Ne pas le
   reproposer. Depuis le 09/09/2026, une rangée de pastilles en haut :
