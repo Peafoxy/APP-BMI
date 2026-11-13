@@ -470,6 +470,24 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // (modification refusée) : le PDF et le message WhatsApp ne partent alors
   // pas. ✏️ 13/11/2026 : la proforma rangée, et non plus `true` — une
   // proforma MODIFIÉE garde sa date d'origine, ses documents la lisent là.
+  // 🧹 13/11/2026 (Timo : « pourquoi le panier n'est pas vidé à la suite d'un
+  // proforma » → « a, lance ») : une proforma ENREGISTRÉE (émise ou modifiée,
+  // WhatsApp, impression ou 💾) vide le panier, le client et la remise, comme
+  // une vente — sinon le client suivant héritait du panier d'avant, et un
+  // second clic fabriquait une seconde proforma. Si le client achète tout de
+  // suite : 🧾 Proformas → 🛒 Vendre la remet au panier. ⚠ Jamais quand le
+  // panier vient d'un devis, d'une commande ou de travaux à encaisser : il
+  // attend son encaissement. Les documents lisent la proforma, jamais le panier.
+  const viderApresProforma = () => {
+    if (origineDevis || origineCommande || origineTravaux) return;
+    setPanier([]);
+    setCarteVente(null);
+    setOrigineProforma(null);
+    setF({ ...identiteDe(null), client: "", tel: "", remise: "", remiseMode: "pct", remiseMontant: "", paiement: PAIEMENTS[0], avance: "", statutArticle: "", commercial: profile.role === "commercial" ? profile.nom : "", rabais: "" });
+    setExt({ actif: false, nom: "", tel: "", taux: "", montant: "" });
+    setApporteurConverti(null);
+  };
+
   const enregistrerProforma = (pf) => {
     // ✏️ Une modification REMPLACE la proforma (même id, même numéro) et
     // laisse sa trace — revérifiée DANS le geste, sur la fiche fraîche.
@@ -481,6 +499,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       save({ ...db, proformas: (db.proformas || []).map((x) => (x.id === avant.id ? nouvelle : x)) },
         `✏️ Proforma ${avant.numero} modifiée par ${profile.nom} (${fmt(avant.total)} → ${fmt(nouvelle.total)})`);
       setProformaEnModif(null);
+      viderApresProforma();
       return nouvelle;
     }
     // On garde une trace (liste visible par vendeur / resp. commercial / admin).
@@ -492,6 +511,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       ...(pf.remise_mode ? { remise_mode: pf.remise_mode } : {}),
       total: pf.total, lignes: pf.lignes, par: profile.nom, par_id: profile.id };
     save({ ...db, proformas: [ligne, ...(db.proformas || [])] }, `Proforma ${pf.numero} émis par ${profile.nom} (${fmt(pf.total)})`);
+    viderApresProforma();
     return ligne;
   };
 

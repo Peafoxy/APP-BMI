@@ -102,6 +102,8 @@ const modifier = async (page) => {
   const champ = page.locator("input[placeholder='Scannez ou tapez, puis Entrée…']");
   await champ.fill("ONDUL3"); await champ.press("Enter"); await attendre(300);
 };
+// 🧹 Le panier affiché : « 🛒 Panier (N article…) » ; absent = vide.
+const panierAffiche = async (page) => { const t = propre(await page.locator("text=/🛒 Panier \\(/").first().innerText().catch(() => "")); return /\(0 article\)/.test(t) ? "" : t; };
 const etat = (page) => page.evaluate(() => ({ envois: window.envois || [], db: window.etat || null, saves: (window.saves || []).length }));
 const aujourdhui = new Date().toISOString().slice(0, 10).split("-").reverse().join("/");
 
@@ -168,6 +170,9 @@ console.log("\n✏️ La proforma modifiée renvoyée avec son PDF, jouée dans 
   const msg = propre(await page.locator("span.text-red-600", { hasText: "PRF-ABC123" }).first().innerText().catch(() => ""));
   test("★★ « Annuler » : la modification est enregistrée (total 280 000), AUCUN envoi, et l'écran dit comment la remettre sur papier",
     s.envois.length === 0 && (s.db?.proformas || [])[0]?.total === 280000 && /Rien n'est envoyé au client/.test(msg) && /🖨️ Réimprimer/.test(msg), `${s.envois.length} | ${msg}`);
+  test("★★ 🧹 « a » : la proforma enregistrée, le panier, le client et le numéro sont VIDÉS (prêt pour le client suivant), et le bandeau de modification a disparu",
+    (await panierAffiche(page)) === "" && (await page.locator("input[placeholder='+228 ...']").first().inputValue().catch(() => "x")) === "" && (await page.locator("[data-proforma-en-modif]").count()) === 0,
+    `${await panierAffiche(page)} | ${await page.locator("input[placeholder='+228 ...']").first().inputValue().catch(() => "?")}`);
   test("aucune erreur dans la page (annuler)", erreurs.length === 0, erreurs.join(" | "));
   await fermer();
 }
@@ -215,6 +220,14 @@ console.log("\n✏️ La proforma modifiée renvoyée avec son PDF, jouée dans 
   test("★ une proforma NEUVE : « Envoyer la proforma N° … » (pas « renvoyer »), puis `proforma_pdf` seul — rien ne dit « modifiée »",
     /Envoyer la proforma N° PRF-/.test(q) && !/modifiée/.test(q) && s.envois.length === 1 && s.envois[0].modele === "proforma_pdf" && !/modifiée/.test(s.envois[0].variables?.[2] || ""),
     `${q} | ${JSON.stringify(s.envois.map((x) => [x.modele, x.variables?.[2]]))}`);
+  test("★★ 🧹 une proforma NEUVE envoyée vide aussi le panier et le client ; un second clic sur 🧾 ne fabrique PAS une seconde proforma (« Ajoutez au moins un article »)",
+    await (async () => {
+      const vide = (await panierAffiche(page)) === "" && (await page.locator("input[placeholder='+228 ...']").first().inputValue().catch(() => "x")) === "";
+      if (await page.locator("[data-dialogue-boutons] button").count()) { await page.locator("[data-dialogue-boutons] button").last().click(); await attendre(300); }
+      await page.locator("button", { hasText: "🧾 Proforma WhatsApp" }).first().click(); await attendre(400);
+      const s2 = await etat(page);
+      return vide && (s2.db?.proformas || []).length === (s.db?.proformas || []).length && s2.envois.length === 1;
+    })());
   test("aucune erreur dans la page (neuve)", erreurs.length === 0, erreurs.join(" | "));
   await fermer();
 }
