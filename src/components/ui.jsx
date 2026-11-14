@@ -452,7 +452,7 @@ export const Badge = ({ boutique }) => (
 );
 
 export const Panel = ({ boutique, children }) => (
-  <div className="rounded-xl p-4 border-2" style={{ borderColor: col(boutique), backgroundColor: light(boutique) }}>{children}</div>
+  <div className="rounded-xl p-4 border-2" data-fond-boutique style={{ borderColor: col(boutique), backgroundColor: light(boutique), "--fond-bq": light(boutique) }}>{children}</div>
 );
 
 // ============ CE QU'ON OUVRE SE VOIT ============

@@ -314,32 +314,50 @@ html[data-espace="formation"] {
   [data-rangee-boutons] > input, [data-rangee-boutons] > select, [data-rangee-boutons] > label, [data-rangee-boutons] > div { grid-column: 1 / -1; }
 }
 
-/* 🌗 LE MODE SOMBRE (12/11/2026, « Aa, Ba, C clair, D oui laisse comme ça »).
-   Le mode CLAIR est l'application telle qu'elle est (rien n'est touché sans
-   cette marque). Le SOMBRE est posé par App.jsx (`data-theme="sombre"` sur la
-   page, lib/modeSombre.js) et retourne TOUTES les couleurs d'un coup : plus de
-   2 000 couleurs claires sont écrites dans les écrans, les repeindre une à une
-   serait la retouche en masse qui a déjà abîmé des fichiers ici.
-   - invert + hue-rotate : le clair devient foncé, mais chaque teinte garde son
-     sens (bleu reste bleu, violet en formation, vert payé, rouge refusé) ;
-   - contrast(.88) : un gris très foncé plutôt qu'un noir pur, plus doux à lire.
-   ⚠ Posé sur <html> : une fenêtre `fixed` reste à sa place (mesuré).
-   CE QUI EST REMIS À L'ENDROIT (le filtre inverse, dans l'ordre inverse) :
-   les photos (img, vidéo, dessins), et tout cadre `data-garder-clair` — la
-   fenêtre de verrou et la colonne d'icônes gardent leur fond (« D »), l'aperçu
-   avant impression montre le document tel qu'il sera imprimé. La page d'icônes
-   ne bascule pas du tout (App.jsx). Rien de tout ça ne touche un PDF ni un
-   reçu : ils sont fabriqués à part, toujours clairs. */
-html[data-theme="sombre"] {
-  filter: invert(1) hue-rotate(180deg) contrast(0.88);
-  background: #fff;
-}
-html[data-theme="sombre"] :is(img, video, canvas, [data-garder-clair]):not([data-garder-clair] *) {
-  filter: contrast(1.1364) hue-rotate(180deg) invert(1);
-}
-@media print {
-  html[data-theme="sombre"] { filter: none; }
-  html[data-theme="sombre"] :is(img, video, canvas, [data-garder-clair]) { filter: none; }
+/* 🌗 LE MODE SOMBRE (12/11/2026, « Aa, Ba, C clair, D oui laisse comme ça » ;
+   refait le 14/11/2026, « b, lance » : un VRAI sombre sur tous les écrans).
+   Le mode CLAIR est l'application telle qu'elle est. Le SOMBRE est posé par
+   App.jsx (`data-theme="sombre"` sur la page, lib/modeSombre.js).
+   ⚠ PLUS AUCUN FILTRE ne retourne la page (c'était invert + hue-rotate) :
+   chaque couleur de Tailwind a sa couleur de NUIT, écrite UNE fois dans
+   scripts/sombre-css.mjs (trois tables : --nf-* les fonds, --nt-* les textes,
+   --nl-* les traits). Ici ne restent que les réglages que cette table ne peut
+   pas porter. Les photos ne sont donc plus touchées du tout.
+   CE QUI RESTE CLAIR : tout cadre `data-garder-clair` (bandeau d'en-tête,
+   fenêtre de verrou, colonne d'icônes, aperçu avant impression) — la table y
+   est remise à zéro. La page d'icônes ne bascule pas (App.jsx). Un PDF, un
+   reçu, une impression : fabriqués à part, toujours clairs.
+   ⚠ Un cadre dont le fond est écrit EN DUR (style ou couleur entre crochets)
+   garde ce fond : s'il est clair, il porte `data-garder-clair`, ou sa couleur
+   de nuit s'écrit ici (📲 WhatsApp, les cadres aux couleurs d'une boutique). */
+@media screen {
+  html[data-theme="sombre"] { color-scheme: dark; background: #0b1220; }
+  html[data-theme="sombre"] body { background: #0b1220; color: #f1f5f9; }
+  html[data-theme="sombre"] [data-garder-clair] { color-scheme: light; }
+  /* Un cadre gardé clair ne doit pas hériter du texte clair de la page. Dans la
+     couche de base : une classe de couleur posée sur le cadre garde la main. */
+  @layer base { html[data-theme="sombre"] [data-garder-clair] { color: #0f172a; } }
+  /* Le fond de la page, derrière les cadres : plus sombre qu'eux. */
+  html[data-theme="sombre"] .min-h-screen.bg-slate-100 { background-color: #0b1220; }
+  /* Un cadre aux couleurs d'une boutique : sa teinte pâle devient une teinte de nuit. */
+  html[data-theme="sombre"] [data-fond-boutique] { background-color: color-mix(in oklab, var(--fond-bq) 16%, #111a2c) !important; }
+  /* Un chiffre écrit dans la couleur d'une boutique : éclairci, une couleur foncée ne se lirait pas. */
+  html[data-theme="sombre"] td[style*="color"]:not([data-garder-clair] *) { filter: brightness(1.7) saturate(.85); }
+  /* Une ombre portée ne se voit pas sur du noir : un trait fin la remplace. */
+  html[data-theme="sombre"] :is(.shadow-sm, .shadow, .shadow-md):not([data-garder-clair], [data-garder-clair] *) { box-shadow: 0 0 0 1px #22304a; }
+  /* 📲 WhatsApp : les couleurs de nuit de WhatsApp lui-même. */
+  html[data-theme="sombre"] {
+    & .bg-\[\#efeae2\] { background-color: #0b141a; }
+    & .bg-\[\#f0f2f5\] { background-color: #202c33; }
+    & .bg-\[\#f5f6f6\] { background-color: #182229; }
+    & .bg-\[\#dfe5e7\] { background-color: #2a3942; }
+    & .bg-\[\#d9fdd3\] { background-color: #005c4b; }
+    & .border-\[\#d9fdd3\] { border-color: #005c4b; }
+    & .bg-\[\#e7f8ec\] { background-color: #103529; }
+    & .bg-\[\#fff5c4\] { background-color: #3a3312; }
+    & .text-\[\#54656f\] { color: #8696a0; }
+    & .text-\[\#008069\], & .text-\[\#1fa855\], & .text-\[\#0b5c4a\] { color: #25d366; }
+  }
 }
 
 /* 📊 LE TABLEAU DE BORD : SON HABILLAGE, CLAIR ET VRAI SOMBRE (Timo, 13/11/2026,
@@ -348,10 +366,9 @@ html[data-theme="sombre"] :is(img, video, canvas, [data-garder-clair]):not([data
    ceux de ses grilles, et les cartes `.tdb-kpi` (Stat `grand`, ui.jsx).
    - CLAIR (« A ») : coins plus ronds, ombre douce, les cartes de la période en
      pastel plein (vert ce qui entre, rouge ce qui sort, ambre ce qui est dû).
-   - SOMBRE (« C ») : ces cadres sont REMIS À L'ENDROIT (le filtre inverse de
-     la page, comme `data-garder-clair`) et reçoivent des couleurs CHOISIES pour
-     le noir — plus le retournement. Les couleurs des BOUTIQUES (barres, pastille)
-     gardent le retournement : une couleur foncée resterait illisible sur du noir.
+   - SOMBRE (« C ») : ces cadres reçoivent des couleurs CHOISIES pour le noir.
+     Depuis le 14/11/2026 toute l'application a son vrai sombre (plus de
+     filtre) ; ce bloc ne garde que les couleurs propres au tableau de bord.
    Les caisses (`data-caisses`) et le reste de l'application ne sont pas touchés. */
 [data-tableau-de-bord] { --tdb-surf:#fff; --tdb-line:#e2e8f0; --tdb-ink:#0f172a; --tdb-muted:#64748b; --tdb-chip:#fff;
   --tdb-vert:#e3f6ea; --tdb-vert-p:#16a34a; --tdb-rouge:#fde8e8; --tdb-rouge-p:#dc2626;
@@ -380,9 +397,9 @@ html[data-theme="sombre"] :is(img, video, canvas, [data-garder-clair]):not([data
     --tdb-surf:#111a2c; --tdb-line:#22304a; --tdb-ink:#f1f5f9; --tdb-muted:#94a3b8; --tdb-chip:rgba(255,255,255,.07);
     --tdb-vert:#0f2a1e; --tdb-vert-p:#4ade80; --tdb-rouge:#321618; --tdb-rouge-p:#f87171;
     --tdb-ambre:#33260d; --tdb-ambre-p:#fbbf24; --tdb-bleu:#132644; --tdb-bleu-p:#60a5fa;
-    & .tdb-kpi { filter: contrast(1.1364) hue-rotate(180deg) invert(1); box-shadow: none; border-color: var(--tdb-line); }
+    & .tdb-kpi { box-shadow: none; border-color: var(--tdb-line); }
     & > .rounded-xl, & > .grid > .rounded-xl {
-      filter: contrast(1.1364) hue-rotate(180deg) invert(1); box-shadow: none;
+      box-shadow: none;
       background-color: var(--tdb-surf); border-color: var(--tdb-line); color: var(--tdb-ink);
       & :is(.text-slate-900, .text-slate-800, .text-slate-700) { color: var(--tdb-ink); }
       & :is(.text-slate-600, .text-slate-500, .text-slate-400) { color: var(--tdb-muted); }
@@ -395,8 +412,6 @@ html[data-theme="sombre"] :is(img, video, canvas, [data-garder-clair]):not([data
       & .bg-sky-700 { background-color: #60a5fa; }
       & .bg-green-600 { background-color: #4ade80; }
       & tr:hover { background-color: #16233b; }
-      & :is([style*="background-color"], td[style*="color"]) { filter: invert(1) hue-rotate(180deg); }
-      & :is(img, video, canvas) { filter: none; }
     }
   }
 }

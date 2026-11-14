@@ -134,7 +134,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/contactGoogle.js` | 📇 Enregistrer un client WhatsApp dans les contacts Google de BMI (bmitogo.info) : numéro international, refus, corps envoyé à Google, trace sur la fiche ; quand chercher tout seul le nom d'un client qui écrit |
 | `lib/ordreOnglets.js` | L'ordre des onglets, au choix de chacun (aussi en grille : la page d'icônes) |
 | `lib/pageIcones.js` | La page d'icônes : nom, icône et chiffre d'un onglet, couleur pâle de chaque icône ; le choix de l'affichage (barre d'onglets / icônes, fixé par l'administrateur) |
-| `lib/modeSombre.js` | Le mode clair / sombre / automatique de chaque personne (champ `theme` de sa fiche) ; la règle CSS vit dans `src/index.css` (`html[data-theme="sombre"]`, cadres `data-garder-clair`) |
+| `lib/modeSombre.js` | Le mode clair / sombre / automatique de chaque personne (champ `theme` de sa fiche) ; les couleurs de nuit vivent dans `scripts/sombre-css.mjs` (la table, branchée dans `vite.config.js`), les réglages restants dans `src/index.css` (`html[data-theme="sombre"]`, cadres `data-garder-clair`) |
 | `lib/pileRetour.js` | La touche retour d'Android : ce qu'il faut fermer à chaque appui |
 
 ## Les données : charger, fusionner, sauvegarder

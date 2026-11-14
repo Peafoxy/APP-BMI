@@ -231,70 +231,84 @@ test("★ la règle qui donne son retour visuel à chaque bouton est TOUJOURS l�
   /button:not\(:disabled\) \{[\s\S]*transition: filter/.test(readFileSync("src/index.css", "utf8")));
 
 // ============================================================
-// 🌗 LE MODE SOMBRE (12/11/2026, « Aa, Ba, C clair, D laisse comme ça »),
-// mesuré dans Chromium avec le VRAI CSS construit : la marque sur <html>
-// retourne les couleurs, les photos et les cadres `data-garder-clair` sont
-// remis à l'endroit, une fenêtre `fixed` reste à sa place, et sans la marque
-// RIEN ne change (le mode clair = l'application telle qu'elle est).
+// 🌗 LE MODE SOMBRE (12/11/2026, « Aa, Ba, C clair, D laisse comme ça » ; refait
+// le 14/11/2026, « b, lance » : un VRAI sombre sur tous les écrans), mesuré
+// dans Chromium avec le VRAI CSS construit. Plus aucun filtre ne retourne la
+// page : chaque couleur de Tailwind a sa couleur de nuit (scripts/sombre-css.mjs).
+// Sans la marque RIEN ne change ; un cadre `data-garder-clair` reste clair ;
+// à l'impression tout redevient clair.
 // ============================================================
 console.log("\n🌗 Le mode sombre, mesuré dans Chromium");
 {
   const pageS = join(mkdtempSync(join(tmpdir(), "bmi-sombre-")), "s.html");
-  const corps = (theme) => `<!doctype html><html ${theme ? `data-theme="${theme}"` : ""}><head><meta charset="utf-8">
+  const corps = (theme, formation) => `<!doctype html><html ${theme ? `data-theme="${theme}"` : ""} ${formation ? 'data-espace="formation"' : ""}><head><meta charset="utf-8">
 <link rel="stylesheet" href="${join(process.cwd(), "dist/assets", css)}"></head>
-<body class="bg-white"><div style="height:3000px"><p id="txt" class="text-slate-900">Texte</p>
+<body><div class="min-h-screen bg-slate-100" id="page" style="height:3000px"><p id="txt" class="text-slate-900">Texte</p>
+<div id="carte" class="bg-white border border-slate-200"><span id="pastille" class="bg-emerald-50 text-emerald-800">Espèces</span>
+<button id="plein" class="bg-sky-700 text-white">Enregistrer</button><span id="bleu" class="bg-sky-50">x</span></div>
 <img id="photo" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="10" height="10">
-<div id="garde" data-garder-clair class="bg-white"><img id="dedans" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="10" height="10"></div></div>
+<div id="garde" data-garder-clair class="bg-white"><span id="gtxt" class="text-slate-900">x</span><span id="gnu">y</span><img id="dedans" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="10" height="10"></div></div>
 <div data-tableau-de-bord><div id="cadre" class="bg-white rounded-xl"><span id="encre" class="text-slate-800">x</span></div>
 <div data-caisses><div id="caisse" class="bg-white rounded-xl">x</div></div><div id="kpi" class="tdb-kpi tdb-vert">x</div></div>
 <div id="fixe" style="position:fixed;top:8px;left:0;width:40px;height:40px"></div></body></html>`;
   const nav = await chromium.launch();
-  const lire = async (theme) => {
-    writeFileSync(pageS, corps(theme));
+  const lire = async (theme, formation = false) => {
+    writeFileSync(pageS, corps(theme, formation));
     const p = await nav.newPage({ viewport: { width: 400, height: 600 } });
     await p.goto(`file://${pageS}`);
     await p.evaluate(() => window.scrollTo(0, 1500));
-    const r = await p.evaluate(() => ({
-      html: getComputedStyle(document.documentElement).filter,
-      photo: getComputedStyle(document.getElementById("photo")).filter,
-      garde: getComputedStyle(document.getElementById("garde")).filter,
-      dedans: getComputedStyle(document.getElementById("dedans")).filter,
-      fixeTop: Math.round(document.getElementById("fixe").getBoundingClientRect().top),
-      cadre: getComputedStyle(document.getElementById("cadre")).filter, cadreFond: getComputedStyle(document.getElementById("cadre")).backgroundColor,
-      encre: getComputedStyle(document.getElementById("encre")).color,
-      caisse: getComputedStyle(document.getElementById("caisse")).filter, caisseFond: getComputedStyle(document.getElementById("caisse")).backgroundColor,
-      kpi: getComputedStyle(document.getElementById("kpi")).filter, kpiFond: getComputedStyle(document.getElementById("kpi")).backgroundColor,
-    }));
+    const mesure = () => p.evaluate(() => {
+      const cs = (id) => getComputedStyle(document.getElementById(id));
+      return {
+        html: getComputedStyle(document.documentElement).filter, photo: cs("photo").filter, dedans: cs("dedans").filter, garde: cs("garde").filter,
+        page: cs("page").backgroundColor, txt: cs("txt").color, carte: cs("carte").backgroundColor, trait: cs("carte").borderTopColor,
+        pastille: cs("pastille").backgroundColor, pastilleTxt: cs("pastille").color, plein: cs("plein").backgroundColor, pleinTxt: cs("plein").color, bleu: cs("bleu").backgroundColor,
+        gardeFond: cs("garde").backgroundColor, gtxt: cs("gtxt").color, gnu: cs("gnu").color,
+        fixeTop: Math.round(document.getElementById("fixe").getBoundingClientRect().top),
+        cadre: cs("cadre").filter, cadreFond: cs("cadre").backgroundColor, encre: cs("encre").color,
+        caisse: cs("caisse").filter, caisseFond: cs("caisse").backgroundColor, kpi: cs("kpi").filter, kpiFond: cs("kpi").backgroundColor,
+      };
+    });
+    const r = await mesure();
     await p.emulateMedia({ media: "print" });
-    r.impression = await p.evaluate(() => getComputedStyle(document.documentElement).filter);
-    r.cadreImpression = await p.evaluate(() => getComputedStyle(document.getElementById("cadre")).filter + " " + getComputedStyle(document.getElementById("cadre")).backgroundColor);
+    r.imprime = await mesure();
     await p.close();
     return r;
   };
-  const clair = await lire(""), sombre = await lire("sombre");
+  const clair = await lire(""), sombre = await lire("sombre"), violet = await lire("sombre", true);
   await nav.close();
-  test("★ mode clair (sans marque) : AUCUN filtre nulle part — l'application telle qu'elle est",
-    clair.html === "none" && clair.photo === "none" && clair.garde === "none", JSON.stringify(clair));
-  test("★ mode sombre : la page entière est retournée (invert + hue-rotate)",
-    /invert\(1\)/.test(sombre.html) && /hue-rotate\(180deg\)/.test(sombre.html), sombre.html);
-  test("★ une photo et un cadre `data-garder-clair` (verrou, colonne d'icônes, aperçu d'impression) sont remis à l'endroit",
-    /invert\(1\)/.test(sombre.photo) && /invert\(1\)/.test(sombre.garde), JSON.stringify(sombre));
-  test("★ une photo DANS un cadre gardé clair n'est pas retournée une seconde fois",
-    sombre.dedans === "none", sombre.dedans);
-  test("★ une fenêtre `fixed` reste à sa place après défilement (le filtre est sur <html>)",
+  // Une couleur lue en « rgb(r, g, b) » ou en oklch : sa clarté, de 0 (noir) à 1 (blanc).
+  const clarte = (c) => { const o = /oklch\(([\d.]+)/.exec(c); if (o) return Number(o[1]) > 1 ? Number(o[1]) / 100 : Number(o[1]);
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 : NaN; };
+  const BLANC = "rgb(255, 255, 255)", NUIT = "rgb(17, 26, 44)", ENCRE = "rgb(241, 245, 249)";
+  test("★ mode clair (sans marque) : AUCUN filtre, et les couleurs sont celles d'avant — carte blanche, texte foncé, pastille pâle à texte foncé",
+    clair.html === "none" && clair.photo === "none" && clair.garde === "none" && clair.carte === BLANC && clarte(clair.txt) < 0.35
+    && clarte(clair.pastille) > 0.9 && clarte(clair.pastilleTxt) < 0.55 && clarte(clair.page) > 0.9, JSON.stringify(clair));
+  test("★ mode sombre : PLUS AUCUN filtre sur la page ni sur une photo (retourné — c'était invert + hue-rotate)",
+    sombre.html === "none" && sombre.photo === "none" && sombre.dedans === "none" && sombre.garde === "none", JSON.stringify(sombre));
+  test("★ mode sombre : la page est plus sombre que ses cadres, une carte blanche devient bleu nuit, son trait discret, le texte foncé devient clair",
+    sombre.page === "rgb(11, 18, 32)" && sombre.carte === NUIT && sombre.trait === "rgb(34, 48, 74)" && sombre.txt === ENCRE, JSON.stringify(sombre));
+  test("★ mode sombre : une pastille pâle (Espèces) devient une teinte sombre à texte CLAIR — elle ne reste pas claire",
+    clarte(sombre.pastille) < 0.3 && clarte(sombre.pastilleTxt) > 0.7 && sombre.pastille !== sombre.carte, sombre.pastille + " " + sombre.pastilleTxt);
+  test("★ mode sombre : un bouton PLEIN (bleu, texte blanc) garde son fond et son texte blanc",
+    sombre.plein === clair.plein && sombre.pleinTxt === BLANC, sombre.plein + " " + sombre.pleinTxt);
+  test("★ un cadre `data-garder-clair` (bandeau, verrou, aperçu d'impression) reste CLAIR : fond blanc, texte foncé, même sans classe de couleur",
+    sombre.gardeFond === BLANC && sombre.gtxt === clair.gtxt && clarte(sombre.gnu) < 0.3, sombre.gardeFond + " " + sombre.gtxt + " " + sombre.gnu);
+  test("★ en FORMATION, la teinte de nuit du bleu de l'application est VIOLETTE (elle suit l'espace)",
+    violet.bleu !== sombre.bleu && clarte(violet.bleu) < 0.3 && clarte(sombre.bleu) < 0.3, sombre.bleu + " / " + violet.bleu);
+  test("★ une fenêtre `fixed` reste à sa place après défilement",
     sombre.fixeTop === 8, String(sombre.fixeTop));
-  test("★ à l'impression, aucun filtre : un document sort toujours clair",
-    sombre.impression === "none", sombre.impression);
-  // 📊 LE TABLEAU DE BORD (Timo, 13/11/2026, « A et C oui ») : en sombre, ses cadres sont remis
-  // à l'endroit et prennent des couleurs CHOISIES pour le noir ; les caisses restent comme le reste.
+  test("★ à l'impression, tout redevient clair : carte blanche, texte foncé, pastille pâle",
+    sombre.imprime.html === "none" && sombre.imprime.carte === BLANC && sombre.imprime.txt === clair.txt && sombre.imprime.pastille === clair.pastille, JSON.stringify(sombre.imprime));
+  // 📊 LE TABLEAU DE BORD (Timo, 13/11/2026, « A et C oui ») : ses couleurs choisies pour le noir.
   test("★ 📊 tableau de bord en CLAIR : aucun filtre, le cadre reste blanc, la carte de la période est en pastel vert",
-    clair.cadre === "none" && clair.cadreFond === "rgb(255, 255, 255)" && clair.kpi === "none" && clair.kpiFond === "rgb(227, 246, 234)", JSON.stringify(clair));
-  test("★ 📊 tableau de bord en SOMBRE : le cadre est remis à l'endroit, fond bleu nuit, texte clair ; la carte de la période en vert sombre",
-    /invert\(1\)/.test(sombre.cadre) && sombre.cadreFond === "rgb(17, 26, 44)" && sombre.encre === "rgb(241, 245, 249)" && /invert\(1\)/.test(sombre.kpi) && sombre.kpiFond === "rgb(15, 42, 30)", JSON.stringify(sombre));
-  test("★ 📊 les caisses (`data-caisses` : DG, BANQUE, comptable) ne sont PAS touchées : ni filtre, ni fond sombre",
-    sombre.caisse === "none" && sombre.caisseFond === "rgb(255, 255, 255)", sombre.caisse + " " + sombre.caisseFond);
-  test("★ 📊 à l'impression, le cadre du tableau de bord redevient clair, sans filtre",
-    sombre.cadreImpression === "none rgb(255, 255, 255)", sombre.cadreImpression);
+    clair.cadre === "none" && clair.cadreFond === BLANC && clair.kpi === "none" && clair.kpiFond === "rgb(227, 246, 234)", JSON.stringify(clair));
+  test("★ 📊 tableau de bord en SOMBRE : fond bleu nuit, texte clair, la carte de la période en vert sombre — sans filtre",
+    sombre.cadre === "none" && sombre.cadreFond === NUIT && sombre.encre === ENCRE && sombre.kpi === "none" && sombre.kpiFond === "rgb(15, 42, 30)", JSON.stringify(sombre));
+  test("★ 📊 les caisses (`data-caisses` : DG, BANQUE, comptable) sont SOMBRES elles aussi (retourné — toute l'application a son vrai sombre)",
+    sombre.caisse === "none" && sombre.caisseFond === NUIT, sombre.caisse + " " + sombre.caisseFond);
+  test("★ 📊 à l'impression, le cadre du tableau de bord redevient clair",
+    sombre.imprime.cadre === "none" && sombre.imprime.cadreFond === BLANC, sombre.imprime.cadreFond);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

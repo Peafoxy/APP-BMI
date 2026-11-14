@@ -5,6 +5,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import { readFileSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
+import sombreCss from "./scripts/sombre-css.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -33,6 +34,9 @@ function ecrireVersionJson() {
 
 export default defineConfig({
   base: "./",
+  // 🌗 Le vrai mode sombre : chaque couleur de Tailwind reçoit sa couleur de
+  // nuit, écrite UNE fois dans scripts/sombre-css.mjs.
+  css: { postcss: { plugins: [sombreCss()] } },
   plugins: [
     ecrireVersionJson(),
     react(),
