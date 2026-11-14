@@ -36,6 +36,7 @@ import { champsEnvoi } from "./lib/suiviEnvoi";
 import { champRelaisTexte } from "./lib/relaisRecuPdf";
 import { MOTIFS_CONTACT_GOOGLE } from "./lib/contactGoogle";
 import { motifReseau } from "./lib/motifReseau";
+import { critiqueStop } from "./lib/stopCommercial";
 // 🔁 Le même message ne part pas deux fois (18/10/2026, « les deux, lance »).
 import { creerRegistre, cleEnvoi, critiqueDoublon, marquerEnCours, marquerParti, oublierEnvoi, nettoyerRegistre } from "./lib/antiDoublonEnvoi";
 
@@ -229,6 +230,17 @@ export async function envoyerModele({ tel, modele, variables, espaceFormation, p
       parti: await ouvrirWhatsAppApresAnnonce({ tel, texte: texteRepli, annonce: texteAnnonce, prevenir, demanderConfirmation }),
     };
   };
+
+  // 🔕 LE CLIENT A DIT STOP (14/11/2026) : un message COMMERCIAL ne part plus
+  // vers son numéro. ⚠ AUCUN REPLI : ouvrir WhatsApp sur l'appareil ferait
+  // partir exactement ce qu'il a refusé. On le DIT, et rien ne part. Le
+  // serveur (api/whatsapp.js) le revérifie sur la base.
+  const stop = critiqueStop({ modele, tel });
+  if (stop) {
+    const dire = !sansRepli && typeof prevenir === "function";
+    if (dire) await prevenir(stop);
+    return { auto: false, parti: false, motif: stop, stop: true, annonce: dire, reseau: false };
+  }
 
   const refus = critiqueEnvoiAuto({ modele, variables, tel, espaceFormation, premierContact, enLigne: enLigne(), avecDocument: !!fichier });
   if (refus) return repli(refus, false, !enLigne() && !premierContact && !espaceFormation);

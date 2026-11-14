@@ -7836,5 +7836,102 @@ titre("85 ✏️ LA PROFORMA MODIFIÉE RENVOYÉE AVEC SON PDF — `proforma_modi
     && /if \(!envoiDeLaProforma\(pf, bqPf\) \|\| bqPf\.formation\) \{/.test(corpsEnr) && /if \(!renvoi && !await uConfirm\(question\)\) return;/.test(V85)
     && /<BoutonEnvoi onClick=\{\(\) => proformaWhatsApp\(\)\}/.test(V85));
 }
+
+// ════════════════════════════════════════════════════════════════════
+titre("86 🔕 « NE PLUS ENVOYER DE MESSAGES COMMERCIAUX » (14/11/2026, « Les deux, lance ») — la règle, la vraie fonction d'envoi, le serveur, les écrans");
+{
+  const S = await import("../src/lib/stopCommercial.js");
+  const C86 = await import("../src/lib/whatsappConversations.js");
+  const Corb = await import("../src/lib/corbeille.js");
+  const admin86 = { id: "u-timo", nom: "TIMO", role: "admin" };
+  const vend86 = { id: "u-ama", nom: "AMA", role: "vendeur" };
+  const L = S.ligneStop({ tel: "+228 90 11 22 33", actif: true, profile: vend86, maintenant: "2026-11-14T10:00:00.000Z" });
+  test("★★★ la ligne d'un STOP : rangée par NUMÉRO (8 chiffres), sur le canal de la fiche légère (elle descend chez tout le personnel), SANS `wa_tel` (elle n'appartient à aucune conversation) et sans nom",
+    L.id === "wastop_90112233" && L.canal === C86.CANAL_WA_ENTETE && L.canal === S.CANAL_STOP && L.wa_tel === undefined && L.actif === true
+    && L.par === "AMA" && L.par_id === "u-ama" && !("stop_nom" in L) && !("texte" in L) && S.ligneStop({ tel: "123", actif: true }) === null);
+  const msgs = S.messagesAvecStop([{ id: "m1", canal: "whatsapp", wa_tel: "90112233", texte: "Bonjour" }, { id: "waent_90112233", canal: "whatsapp_entete", wa_tel: "90112233" }], { tel: "90112233", actif: true, profile: vend86, maintenant: "2026-11-14T10:00:00.000Z" });
+  test("★★ lue de trois façons d'écrire le numéro ; une fiche légère de conversation n'est JAMAIS prise pour un STOP",
+    S.numeroEnStopDans(msgs, "90112233") && S.numeroEnStopDans(msgs, "+228 90 11 22 33") && S.numeroEnStopDans(msgs, "0022890112233")
+    && !S.numeroEnStopDans(msgs, "90112234") && S.numerosStop(msgs).size === 1 && !S.estLigneStop(msgs.find((m) => m.id === "waent_90112233")));
+  test("★★★ seuls les modèles COMMERCIAUX sont arrêtés : fidélité, relances, prise de contact, prospects, demande d'avis — JAMAIS un reçu, un devis, une proforma, des accès, un rappel de dette, le lien du PV",
+    ["mot_fidelite", "mot_fidelite_simple", "relance_devis", "relance_devis_expiration", "prise_de_contact", "accueil_prospect", "relance_prospect", "demande_avis"].every((m) => S.critiqueStop({ modele: m, tel: "90112233", numeros: S.numerosStop(msgs) }) === S.MOTIF_STOP)
+    && ["recu_vente", "recu_vente_detail", "recu_pdf", "recu_reglement", "devis_disponible", "devis_pdf", "proforma", "proforma_pdf", "espace", "espace_portail", "rappel_dette", "rappel_echeance", "lien_signature_pv", "rappel_entretien", "installation_programmee", "bon_reprise"].every((m) => S.critiqueStop({ modele: m, tel: "90112233", numeros: S.numerosStop(msgs) }) === "")
+    && S.critiqueStop({ modele: "mot_fidelite", tel: "90999999", numeros: S.numerosStop(msgs) }) === ""
+    && S.MODELES_COMMERCIAUX.every((m) => !!M.MODELES[m]));
+  test("★★★ QUI : cocher = tout employé qui a 📲 WhatsApp ; ROUVRIR = l'administrateur seul ; jamais un client ni le comptable",
+    S.critiqueStopGeste(vend86, { actif: true, tel: "90112233" }) === "" && S.critiqueStopGeste(vend86, { actif: false, tel: "90112233" }) !== ""
+    && S.critiqueStopGeste(admin86, { actif: false, tel: "90112233" }) === "" && S.critiqueStopGeste({ role: "client" }, { actif: true, tel: "90112233" }) !== ""
+    && S.critiqueStopGeste({ role: "comptable" }, { actif: true, tel: "90112233" }) !== "" && S.critiqueStopGeste(vend86, { actif: true, tel: "12" }) !== "");
+  const rouvert = S.messagesAvecStop(msgs, { tel: "90112233", actif: false, profile: admin86, maintenant: "2026-11-15T08:00:00.000Z" });
+  test("★★ rouvrir REMPLACE la ligne (jamais deux), garde qui et quand ; le numéro n'est plus arrêté",
+    rouvert.filter((m) => S.estLigneStop(m)).length === 1 && !S.numeroEnStopDans(rouvert, "90112233") && S.stopDuNumero(rouvert, "90112233").par === "TIMO" && S.phraseStop(S.stopDuNumero(rouvert, "90112233")) === ""
+    && /noté le 14\/11\/2026 par AMA/.test(S.phraseStop(S.stopDuNumero(msgs, "90112233"))));
+  // ⚠ La corbeille : supprimer la conversation n'emporte PAS le STOP, et la liste de 📲 WhatsApp ne le prend pas pour une conversation.
+  const apres = Corb.mettreConversationALaCorbeille({ messages: msgs }, "90112233", admin86, "2026-11-16T00:00:00.000Z");
+  test("★★★ LA CONVERSATION SUPPRIMÉE (corbeille) N'EMPORTE PAS LE STOP : il reste dans les messages, toujours actif — et 📲 WhatsApp ne le montre jamais comme une conversation",
+    S.numeroEnStopDans(apres.messages, "90112233") && (apres.corbeille_conversation_wa || []).every((m) => !S.estLigneStop(m)) && (apres.corbeille_conversation_wa || []).length === 2
+    && C86.conversationsWa(msgs, admin86, {}).length === 1 && C86.conversationsWa(apres.messages, admin86, {}).length === 0);
+
+  // ── LA VRAIE FONCTION D'ENVOI (`envoyerModele`), le serveur joué.
+  const dossier86 = mkdtempSync(join(tmpdir(), "bmi-stop-"));
+  const faux86 = join(dossier86, "fauxClient.mjs");
+  writeFileSync(faux86, `export async function whatsappEnLigne(c) { (globalThis.__appels86 = globalThis.__appels86 || []).push(c.modele); return { id: "Y86", wamid: "W86" }; }\nexport async function appelAvecJeton() { return {}; }\n`);
+  const sortie86 = join(dossier86, "wa.mjs");
+  let W86 = null;
+  try {
+    // Une entrée qui rend l'envoi ET le registre du STOP du MÊME paquet (le registre vit dans le module).
+    const entree86 = join(dossier86, "entree.mjs");
+    writeFileSync(entree86, `export * from ${JSON.stringify(join(process.cwd(), "src/whatsapp.js"))};\nexport * as __stop from ${JSON.stringify(join(process.cwd(), "src/lib/stopCommercial.js"))};\n`);
+    await build({ entryPoints: [entree86], bundle: true, format: "esm", platform: "node", outfile: sortie86, logLevel: "silent",
+      plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: faux86 })); } }] });
+    W86 = await import(pathToFileURL(sortie86).href);
+  } catch (e) { console.log("   (build de whatsapp.js : " + (e?.message || e) + ")"); }
+  if (W86) {
+    W86.poserContexteEnvoi({ profile: admin86, save: () => {} });
+    W86.__stop.poserNumerosStop(S.numerosStop(msgs));
+    const dits = [];
+    globalThis.__appels86 = [];
+    const r1 = await W86.envoyerModele({ tel: "90112233", modele: "mot_fidelite_simple", variables: ["KOFFI"], espaceFormation: false, texteRepli: "x", prevenir: async (t) => { dits.push(t); }, demanderConfirmation: async () => true });
+    test("★★★ JOUÉ : un mot de fidélité vers un numéro qui a dit STOP — AUCUN appel au serveur, WhatsApp ne s'ouvre PAS (aucun repli), et la fenêtre de l'écran DIT pourquoi",
+      r1.auto === false && r1.parti === false && r1.stop === true && r1.annonce === true && globalThis.__appels86.length === 0 && dits.length === 1 && dits[0] === S.MOTIF_STOP, JSON.stringify(r1));
+    const r2 = await W86.envoyerModele({ tel: "90112233", modele: "recu_reglement", variables: ["KOFFI", "5 000 F", "14/11/2026", "en espèces", "BMID-DET-2026-0001", "il reste 1 000 F sur un total de 6 000 F", "90000000"], espaceFormation: false, sansRepli: true });
+    test("★★★ JOUÉ : son reçu de versement PART quand même (ce n'est pas de la publicité)", r2.auto === true && globalThis.__appels86.join(",") === "recu_reglement", JSON.stringify(r2));
+    const r3 = await W86.envoyerModele({ tel: "90445566", modele: "mot_fidelite_simple", variables: ["AYOKO"], espaceFormation: false, texteRepli: "x", demanderConfirmation: async () => true });
+    test("★★ JOUÉ : un autre numéro reçoit toujours le mot de fidélité", r3.auto === true, JSON.stringify(r3));
+    W86.__stop.poserNumerosStop(new Set());
+  } else test("★★★ src/whatsapp.js se construit pour le banc", false);
+  try { rmSync(dossier86, { recursive: true, force: true }); } catch {}
+  delete globalThis.__appels86;
+
+  // ── LE SERVEUR : la vraie barrière.
+  const sansCom = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const apiW = sansCom(lire("api/whatsapp.js")), apiT = sansCom(lire("api/_tables.js")), apiM = sansCom(lire("api/rappels-du-matin.js")), apiR = sansCom(lire("api/_relanceAssistant.js"));
+  test("★★★ LE SERVEUR REVÉRIFIE SUR LA BASE : `api/whatsapp.js` refuse un modèle commercial vers un numéro en STOP AVANT tout dépôt et tout envoi — la ligne est lue PAR SON ID, jamais la table entière",
+    /if \(!reponseLibre && estModeleCommercial\(nom\) && await numeroEnStopSurLaBase\(admin, tel\)\) \{\s*return res\.status\(409\)\.json\(\{ error: MOTIF_STOP, stop: true \}\);/.test(apiW)
+    && apiW.indexOf("numeroEnStopSurLaBase(admin, tel)") < apiW.indexOf("televerserYCloud(") && apiW.indexOf("numeroEnStopSurLaBase(admin, tel)") < apiW.indexOf("envoyerYCloud(")
+    && /from\("messages"\)\.select\("id, data"\)\.eq\("id", id\);/.test(apiT) && /stopActif\(/.test(apiT));
+  test("★★★ LES TOURNÉES : la relance du 8e jour et la demande d'avis écartent un numéro en STOP ; l'assistant ne le relance pas",
+    /const stop = numerosStop\(db\.messages\);\s*const liste = relancesAutoDuJour\(db, aujourdhui\)\.filter\(\(r\) => !stop\.has\(cleStop\(r\.tel\)\)\);/.test(apiM)
+    && /const stop = numerosStop\(db\.messages\);\s*const liste = demandesAvisDuJour\(db, aujourdhui\)\.filter\(\(r\) => !stop\.has\(cleStop\(r\.tel\)\)\);/.test(apiM)
+    && /if \(await numeroEnStopSurLaBase\(admin, c\.cle\)\) \{ essais\.push\(.*\); continue; \}/.test(apiR) && apiR.indexOf("numeroEnStopSurLaBase(admin, c.cle)") < apiR.indexOf("wa_relance_pour: d.marque"));
+  test("★★ la règle n'importe RIEN (le serveur la lit), et la base garde déjà ce canal (securite-41 : la fiche légère descend chez tout le personnel)",
+    !/^import /m.test(lire("src/lib/stopCommercial.js")) && /coalesce\(data ->> 'canal', ''\) = 'whatsapp_entete'/.test(lire("supabase/securite-41-lignes-automatiques-whatsapp.sql")));
+
+  // ── LES ÉCRANS.
+  const W = sansCom(lire("src/screens/Whatsapp.jsx")), Cl = sansCom(lire("src/screens/Clients.jsx")), App86 = sansCom(lire("src/App.jsx")), Wa = sansCom(lire("src/whatsapp.js"));
+  const corpsStop = (W.match(/const reglerStop = async \(\) => \{[\s\S]*?\n  \};/) || [""])[0];
+  test("★★★ 📲 WhatsApp → fiche du contact : le geste revérifie le droit (`critiqueStopGeste`) AVANT la question, relit la ligne FRAÎCHE dans l'enregistrement, et laisse sa trace au journal",
+    corpsStop.indexOf("critiqueStopGeste(profile") > 0 && corpsStop.indexOf("critiqueStopGeste(profile") < corpsStop.indexOf("uConfirm(")
+    && /save\(\(etat\) => \{[\s\S]*stopActif\(stopDuNumero\(etat\.messages, ouverte\.tel\)\)[\s\S]*messagesAvecStop\(etat\.messages/.test(corpsStop)
+    && /data-stop-commercial/.test(W) && /data-stop-bouton/.test(W) && /\{peutRouvrir && \(\s*<button data-rouvrir-commercial/.test(W));
+  test("★★ 📋 Clients : le mot de fidélité est refusé AVANT la question, « 🔕 » se lit sous le numéro, et le bouton pour rouvrir n'existe que pour l'administrateur",
+    Cl.indexOf("if (stopActif(stopDuNumero(db.messages, c.tel))) { uAlert(MOTIF_STOP); return; }") > 0
+    && Cl.indexOf("if (stopActif(stopDuNumero(db.messages, c.tel))) { uAlert(MOTIF_STOP); return; }") < Cl.indexOf("Envoyer le mot de fidélité à")
+    && /data-stop-client/.test(Cl) && /\(!enStop \|\| profile\.role === "admin"\) && <BoutonRond/.test(Cl) && /critiqueStopGeste\(profile, \{ actif, tel: c\.tel \}\)/.test(Cl));
+  test("★★ App.jsx pose le registre à chaque rendu (sans hook), et l'envoi le lit AVANT toute autre vérification, sans repli",
+    /poserNumerosStop\(numerosStop\(db\.messages\)\);/.test(App86)
+    && Wa.indexOf("const stop = critiqueStop({ modele, tel });") > 0 && Wa.indexOf("const stop = critiqueStop({ modele, tel });") < Wa.indexOf("const refus = critiqueEnvoiAuto(")
+    && /if \(stop\) \{[^}]*await prevenir\(stop\);\s*return \{ auto: false, parti: false, motif: stop, stop: true/.test(Wa));
+}
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

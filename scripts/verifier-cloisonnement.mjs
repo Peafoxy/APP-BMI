@@ -19137,5 +19137,39 @@ titre("🧾 L'historique des paiements de commission, téléchargeable en PDF (T
   }
 }
 
+titre("⚖️ LA PAGE « INFORMATIONS LÉGALES ET CONFIDENTIALITÉ » (14/11/2026, « Les deux, lance » — mentions légales, confidentialité, conditions d'utilisation)");
+{
+  const sortieIl = join("node_modules", ".cache", `bmi-rendu-infos-legales-${process.pid}.mjs`);
+  let IL = null;
+  try {
+    await build({ entryPoints: ["scripts/_rendu-infos-legales.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieIl, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    IL = await import(pathToFileURL(sortieIl).href);
+  } catch (e) { console.log("   (rendu de la page légale : " + (e?.message || e) + ")"); }
+  test("★★★ la page se REND (aucun écran blanc), fermée elle n'est qu'un lien", !!IL && /data-infos-legales/.test(IL.rendrePage(6)) && /data-lien-infos-legales/.test(IL.rendreLien()) && !/data-infos-legales-contenu/.test(IL.rendreLien()));
+  if (IL) {
+    const html = IL.rendrePage(4), txt = html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
+    const Cons = await import("../src/lib/conservation.js");
+    test("★★★ elle dit QUI édite (BMI TOGO, NIF, RCCM, Lomé), QUI héberge (Vercel, Supabase, WhatsApp / YCloud) et comment nous écrire — les mêmes numéros que les documents",
+      /BMI TOGO — Les Bâtiments Modernes et Intelligents/.test(txt) && /NIF 1001790098/.test(txt) && /RCCM TG-LFW-01-2022-A10-01523/.test(txt) && /Lomé \(Togo\)/.test(txt)
+      && /Vercel/.test(txt) && /Supabase/.test(txt) && /YCloud/.test(txt) && /contact@bmitogo\.com/.test(txt)
+      && /NIF : 1001790098/.test(readFileSync("src/pdf.js", "utf8")) && /RCCM : TG-LFW-01-2022-A10-01523/.test(readFileSync("src/pdf.js", "utf8")));
+    test("★★★ LA DURÉE n'est pas recopiée : c'est LA phrase de lib/conservation.js, avec la durée RÉGLÉE (4 ans ici, jamais le 6 d'office)",
+      html.includes(Cons.phraseConservation(4).replace(/&/g, "&amp;").replace(/'/g, "&#x27;")) && !/conservées 6 ans/.test(txt) && /conservées 4 ans/.test(txt)
+      && /conservées 6 ans/.test(IL.rendrePage(undefined)));
+    test("★★ elle dit ses DROITS au client (loi n° 2019-014, « 🔒 Mes données »), le STOP des messages commerciaux, et qu'il n'y a ni cookie publicitaire ni mesure d'audience",
+      /loi n° 2019-014/.test(txt) && /🔒 Mes données/.test(txt) && /répondez STOP/.test(txt) && /aucun cookie publicitaire et aucun outil de mesure d'audience/.test(txt)
+      && /assistant automatique .* programme, pas une personne/.test(txt));
+    const tout = IL.sectionsLegales({ duree: 6 }).flatMap((x) => [x.titre, ...x.lignes]).join(" ");
+    test("★★ dix sections ; ce qu'elle promet est VRAI dans le code : aucun outil de mesure d'audience ni cookie dans l'application, et les mots « hors du Togo » n'y sont pas (décision du 24/09/2026)",
+      IL.sectionsLegales({}).length === 10 && !/hors du Togo|à l'étranger/i.test(tout)
+      && ["index.html", "src/main.jsx", "src/App.jsx"].every((f) => !/gtag|google-analytics|googletagmanager|plausible|hotjar|document\.cookie/.test(readFileSync(f, "utf8"))));
+  }
+  const cnx = readFileSync("src/screens/Connexion.jsx", "utf8"), mes = readFileSync("src/screens/MesDonnees.jsx", "utf8"), app = readFileSync("api/apparence.js", "utf8");
+  test("★★★ lisible SANS être connecté (écran de connexion) ET depuis l'espace du client (🔒 Mes données) ; la durée arrive aussi sur un appareil neuf (api/apparence.js ne publie qu'elle en plus)",
+    /<LienInfosLegales duree=\{dureeConservation\(\{ boutiques: \[\.\.\.\(db\?\.boutiques \|\| \[\]\), apparence \|\| \{\}\] \}\)\} \/>/.test(cnx)
+    && /<LienInfosLegales duree=\{dureeConservation\(db\)\} \/>/.test(mes) && /"duree_conservation_ans",\n\];/.test(app));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

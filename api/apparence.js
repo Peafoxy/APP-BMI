@@ -48,6 +48,10 @@ const CHAMPS_APPARENCE = [
   "accueil_etoiles",
   "accueil_couleur_bulles",
   "accueil_image_etendue",
+  // ⚖️ La durée de conservation des données (14/11/2026) : un chiffre de
+  // POLITIQUE, que la page « Informations légales » dit à tout le monde,
+  // même sur un appareil neuf. Rien de sensible.
+  "duree_conservation_ans",
 ];
 
 export default async function handler(req, res) {

@@ -27,7 +27,8 @@
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
-import { lireConversation } from "./_tables.js";
+import { lireConversation, numeroEnStopSurLaBase } from "./_tables.js";
+import { estModeleCommercial, MOTIF_STOP } from "../src/lib/stopCommercial.js";
 import { estCompteFormation } from "../src/lib/espace.js";
 import { MODELES, LANGUE_MODELES, critiqueModele, numeroWhatsApp, texteVariable, modeleAvecDocument, MOTIF_PDF_MANQUANT } from "../src/lib/whatsappModeles.js";
 import { CANAL_WA, cleConversation, fenetre, filDeLaConversation, libelleFenetre, critiqueFichier, typeEnvoiFichier, TAILLE_MAX_ENVOI, estNoteVocale } from "../src/lib/whatsappConversations.js";
@@ -122,6 +123,13 @@ export default async function handler(req, res) {
     const boutiques = (bqs || []).map((b) => b.data || {});
     if (estCompteFormation({ users: [compte], boutiques }, compte)) {
       return res.status(403).json({ error: "Espace formation : aucun vrai message WhatsApp ne part d'ici." });
+    }
+
+    // 🔕 LE CLIENT A DIT STOP (14/11/2026) : un modèle COMMERCIAL ne part plus
+    // vers son numéro. L'écran le sait d'après ce que l'appareil a reçu ; ici
+    // on le relit sur la base — c'est la vraie barrière.
+    if (!reponseLibre && estModeleCommercial(nom) && await numeroEnStopSurLaBase(admin, tel)) {
+      return res.status(409).json({ error: MOTIF_STOP, stop: true });
     }
 
     // ⚠⚠ LA FENÊTRE DE 24 H SE REVÉRIFIE SUR LA BASE, jamais sur parole.

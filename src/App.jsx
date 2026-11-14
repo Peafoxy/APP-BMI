@@ -102,6 +102,7 @@ import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BO
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import { adminPrincipal, utilisateursDeLEspace } from "./lib/calculs";
 import { poserPersonnesDesDocuments } from "./lib/nomSurDocument";
+import { poserNumerosStop, numerosStop } from "./lib/stopCommercial";
 import { poserContexteEnvoi, relancerEnvoisGardes } from "./whatsapp";
 import { posesAEncaisser } from "./lib/poseSeule";
 import { CLES_CORBEILLE, aPurger, purgerCorbeille, nomDeLaFiche } from "./lib/corbeille";
@@ -1217,6 +1218,9 @@ export default function App() {
   // fiches où chercher = les personnes de l'espace regardé (le mur), plus le
   // compte connecté. Aucun hook ici (rien après un return anticipé).
   poserPersonnesDesDocuments([...utilisateursDeLEspace(db, profile), profile]);
+  // 🔕 Les numéros qui ont dit STOP (14/11/2026) : l'envoi (src/whatsapp.js)
+  // les lit avant tout message commercial. Aucun hook ici non plus.
+  poserNumerosStop(numerosStop(db.messages));
 
   // ---- DÉCONNEXION AVEC PURGE SÉCURISÉE ----
   // Objectif : plus jamais d'anciennes données affichées après un changement

@@ -14,6 +14,8 @@ import { Field, inputCls } from "../components/ui";
 import { souhaitsDuJour } from "../lib/calculs";
 import { synchroniserAuth, chercherCompteEnLigne, ouvrirSessionPreparee, poserOuvertureSession } from "../supabaseClient";
 import { CONNEXION_RAPIDE } from "../lib/constants";
+import { LienInfosLegales } from "../components/InfosLegales";
+import { dureeConservation } from "../lib/conservation";
 import { demanderPermissionPush } from "../push";
 import { enregistrerCompteLocal, oublierCompteLocal } from "../db";
 import { fondCarteVerrou, texteClairSur, COULEUR_CARTE_VERROU_DEFAUT } from "../lib/verrou";
@@ -169,6 +171,11 @@ export function Login({ db, apparence, onLogin, save }) {
       {err && <div className="text-xs text-red-600 font-semibold">{err}</div>}
       <button onClick={go} disabled={connexionEnCours} className="w-full py-2.5 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900 disabled:opacity-60">{connexionEnCours ? "Connexion…" : "Se connecter"}</button>
       <div className="text-center text-[11px] text-slate-400">Version {VERSION}</div>
+      {/* ⚖️ Lisible SANS être connecté (14/11/2026). La durée vient des
+          boutiques de l'appareil, sinon de l'apparence servie par le serveur. */}
+      <div className="text-center text-[11px] text-slate-500">
+        <LienInfosLegales duree={dureeConservation({ boutiques: [...(db?.boutiques || []), apparence || {}] })} />
+      </div>
     </CarteAccueil>
   );
 }

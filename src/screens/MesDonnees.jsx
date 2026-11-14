@@ -34,6 +34,7 @@ import { dossierPersonnel, resumePourLeClient, texteDemandeDonnees } from "../li
 import { dureeConservation } from "../lib/conservation";
 import { genererDossierPersonnel } from "../pdf";
 import { LOGO } from "../lib/constants";
+import { LienInfosLegales } from "../components/InfosLegales";
 
 export function MesDonnees({ db, profile }) {
   const moi = (db.users || []).find((u) => u.id === profile.id) || profile;
@@ -127,6 +128,9 @@ export function MesDonnees({ db, profile }) {
           <button onClick={() => demanderSurMesDonnees("suppression")} className="px-4 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">
             Demander la suppression
           </button>
+        </div>
+        <div className="mt-3 text-xs text-sky-800 font-bold">
+          <LienInfosLegales duree={dureeConservation(db)} />
         </div>
         <div className="text-[11px] text-slate-400 mt-2">
           Votre demande part par WhatsApp vers le numéro BMI ({NUMERO_BMI_PRINCIPAL}) — vous la relisez avant de l'envoyer. Vous pouvez aussi nous écrire depuis l'onglet 💬 Messages.

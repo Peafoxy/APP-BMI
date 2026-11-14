@@ -113,6 +113,7 @@ export const CHAPITRE = {
         ["« Utilisateur »", "Écran de connexion", "Votre nom, tel qu'il a été créé. Les majuscules ne comptent pas."],
         ["« Mot de passe » + œil", "Écran de connexion, carte de verrouillage", "Le mot de passe ; l'œil l'affiche pour vérifier ce qu'on tape."],
         ["« Se connecter »", "Écran de connexion", "Vérifie le compte et ouvre l'application. Affiche « Connexion… » pendant la vérification."],
+        ["⚖️ Informations légales et confidentialité", "Écran de connexion, sous le numéro de version", "Ouvre une page lisible sans être connecté : qui est BMI TOGO, qui héberge l'application, ce qui est gardé sur un client, combien de temps, ses droits, comment ne plus recevoir de messages commerciaux. « Fermer » revient à la connexion."],
         ["« J'ai compris »", "Mot de bienvenue", "Ferme le mot d'information de la première ouverture."],
         ["« Verrouiller » / 🔐", "En haut (ordinateur / téléphone)", "Couvre l'écran tout de suite. La session reste ouverte derrière."],
         ["« 🔓 Déverrouiller »", "Carte de verrouillage", "Rouvre l'écran avec le mot de passe du compte connecté."],

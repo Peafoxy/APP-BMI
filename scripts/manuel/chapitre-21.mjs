@@ -132,6 +132,7 @@ export const CHAPITRE = {
         ["🤝 Parrainer", "Parrainage", "Crée le compte du filleul et le prévient du téléphone du client."],
         ["Changer mon mot de passe", "🔑 Mon mot de passe", "Un nouveau mot de passe."],
         ["🖨 Télécharger mes données (PDF)", "🔒 Mes données", "Le dossier de tout ce que BMI garde sur lui."],
+        ["⚖️ Informations légales et confidentialité", "🔒 Mes données (et l'écran de connexion)", "La page qui dit qui est BMI TOGO, ce qui est gardé, combien de temps, ses droits, et comment ne plus recevoir de messages commerciaux (répondre STOP)."],
       ]}],
     ]},
 

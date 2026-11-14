@@ -5,6 +5,8 @@
 // lit tout, page par page (1 000 lignes à la fois), et rend chaque ligne avec
 // son id. Jamais appelé depuis le navigateur.
 // ============================================================
+import { idStop, stopActif } from "../src/lib/stopCommercial.js";
+
 export async function lireTable(admin, table) {
   const lignes = [];
   const PAGE = 1000;
@@ -40,4 +42,18 @@ export async function lireConversation(admin, cle, champs = "id, data") {
     if (!data || data.length < PAGE) break;
   }
   return lignes;
+}
+
+// ------------------------------------------------------------
+// 🔕 LES NUMÉROS QUI ONT DIT STOP (14/11/2026) — src/lib/stopCommercial.js
+// ------------------------------------------------------------
+// Une ligne par numéro, id « wastop_<8 chiffres> », lue PAR SON ID (jamais la
+// table entière). La tournée de 7 h, qui a déjà toute la table, lit
+// `numerosStop(db.messages)`.
+export async function numeroEnStopSurLaBase(admin, tel) {
+  const id = idStop(tel);
+  if (id.length < "wastop_".length + 8) return false;
+  const { data, error } = await admin.from("messages").select("id, data").eq("id", id);
+  if (error) throw error;
+  return !!(data && data[0] && stopActif({ ...(data[0].data || {}), id: data[0].id }));
 }

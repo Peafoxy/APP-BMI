@@ -30,6 +30,7 @@ import { HistoriqueArchive } from "../components/HistoriqueArchive";
 import { correspond } from "../lib/suggestions";
 import { utilisateursDeLEspace, estCompteFormation, espaceDuCompte, estAdminPrincipal, refuserSaufAdminPrincipal, bloquerSiLecture, comptesAvecCeNumero } from "../lib/calculs";
 import { lignesDeLaConversation, mettreConversationALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
+import { stopDuNumero, stopActif, critiqueStopGeste, messagesAvecStop, phraseStop } from "../lib/stopCommercial";
 import { motsDuNumero } from "../lib/clientsConnus";
 import { separerNonLues } from "../lib/conversations";
 import { estLigneAssistant, NOM_ASSISTANT, attenteConseiller, libelleAttente, assistantActif, assistantEnRetrait } from "../lib/assistantWhatsapp";
@@ -326,7 +327,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     let r;
     try { r = await repondreWhatsApp({ tel: ouverte.tel, texte: t, fichier: piece }); }
     finally { verrouEnvoi.current = false; setEnvoi(false); }
-    if (!r.parti) { uAlert(r.motif || "Le message n'est pas parti."); return; }
+    if (!r.parti) { if (!r.annonce) uAlert(r.motif || "Le message n'est pas parti."); return; }
     // ⚠ La ligne garde le NOM du fichier, jamais le fichier (décision du
     // 20/09/2026 : on ne range pas de fichiers dans la base).
     const m = nouveauMessage(profile, {
@@ -524,6 +525,29 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
     }) }, nom
       ? `📲 WhatsApp — conversation ${ouverte.tel} nommée « ${nom} »${avant ? ` (avant : « ${avant} »)` : ""} par ${profile.nom}`
       : `📲 WhatsApp — nom « ${avant} » retiré de la conversation ${ouverte.tel} par ${profile.nom}`);
+  };
+
+  // ---- 🔕 « NE PLUS LUI ENVOYER DE MESSAGES COMMERCIAUX » (14/11/2026) ----
+  // Le client l'a demandé (« STOP ») : tout employé qui a 📲 WhatsApp coche ;
+  // seul l'administrateur rouvre. Revérifié DANS le geste, sur la ligne
+  // FRAÎCHE. La règle : lib/stopCommercial.js.
+  const reglerStop = async () => {
+    if (!ouverte) return;
+    if (bloquerSiLecture(db, profile)) return;
+    const actif = !stopActif(stopDuNumero(db.messages, ouverte.tel));
+    const refus = critiqueStopGeste(profile, { actif, tel: ouverte.tel });
+    if (refus) { uAlert(refus); return; }
+    const qui = ouverte.nomAffiche || ouverte.tel;
+    if (!await uConfirm(actif
+      ? `🔕 Ne plus envoyer de messages commerciaux à ${qui} (${ouverte.tel}) ?\n\nNe partiront plus vers ce numéro : le mot de fidélité, les relances de devis et de prospect, la demande d'avis, « ✍️ Écrire », la relance de l'assistant.\n\nContinuent de partir : ses devis, ses reçus, ses rappels de paiement, tout ce qui suit une affaire en cours.\n\nSeul l'administrateur pourra rouvrir.`
+      : `🔔 Rouvrir les messages commerciaux pour ${qui} (${ouverte.tel}) ?\n\nNe le faites que si le client l'a demandé.`)) return;
+    save((etat) => {
+      const encore = stopActif(stopDuNumero(etat.messages, ouverte.tel));
+      if (encore === actif) return etat;
+      return { ...etat, messages: messagesAvecStop(etat.messages || [], { tel: ouverte.tel, actif, profile, maintenant: maintenantISO() }) };
+    }, actif
+      ? `🔕 WhatsApp — ${ouverte.tel} ne reçoit plus de messages commerciaux (noté par ${profile.nom})`
+      : `🔔 WhatsApp — messages commerciaux rouverts pour ${ouverte.tel} par ${profile.nom}`);
   };
 
   // ---- 📇 ENREGISTRER LE CONTACT DANS LE COMPTE GOOGLE DE BMI (09/10/2026, « b2 ») ----
@@ -785,6 +809,7 @@ export function Whatsapp({ db, save, profile, cleInitiale = null, rechercheIniti
                   )}
                   <button onClick={reattribuer} className="text-xs font-bold text-[#008069] whitespace-nowrap">🔁 Confier</button>
                 </>)}
+                stop={stopDuNumero(db.messages, ouverte.tel)} reglerStop={reglerStop} peutRouvrir={profile.role === "admin"}
                 enregistrer={peutEnregistrerContact(profile) ? enregistrerContact : null}
                 enregistre={enregistre} />
             )}
@@ -998,7 +1023,7 @@ const ORIGINE_NOM = {
   google: "nom des contacts Google de BMI",
   whatsapp: "nom que le client s'est donné dans son WhatsApp",
 };
-function ProfilWa({ c, fil, comptes = [], onFermer, actions, enregistrer, enregistre }) {
+function ProfilWa({ c, fil, comptes = [], onFermer, actions, enregistrer, enregistre, stop = null, reglerStop = null, peutRouvrir = false }) {
   const entrants = fil.filter((m) => m.wa_entrant);
   const premier = entrants[0];
   const dernier = fil[fil.length - 1];
@@ -1036,6 +1061,21 @@ function ProfilWa({ c, fil, comptes = [], onFermer, actions, enregistrer, enregi
           {ligne("Messages", `${fil.length} dans la conversation (${entrants.length} du client)`)}
           {ligne("Fenêtre de 24 h", libelleFenetre(c.fenetre))}
         </div>
+        {reglerStop && (
+          <div data-stop-commercial={stopActif(stop) ? "actif" : "non"} className="mt-2 bg-white px-4 py-3">
+            <div className="text-[11px] uppercase tracking-wide text-slate-400">Messages commerciaux</div>
+            {stopActif(stop) ? (<>
+              <div className="text-sm text-rose-700 mt-1 font-semibold">{phraseStop(stop)}.</div>
+              <div className="text-xs text-slate-500 mt-1">Fidélité, relances, demande d'avis ne partent plus vers ce numéro. Ses devis, ses reçus et ses rappels de paiement continuent.</div>
+              {peutRouvrir && (
+                <button data-rouvrir-commercial onClick={reglerStop} className="mt-2 px-4 py-2 rounded-full text-sm font-bold text-slate-700 border border-slate-300">🔔 Rouvrir les messages commerciaux</button>
+              )}
+            </>) : (<>
+              <div className="text-sm text-slate-600 mt-1">Ce client reçoit nos messages commerciaux (fidélité, relances, demande d'avis).</div>
+              <button data-stop-bouton onClick={reglerStop} className="mt-2 px-4 py-2 rounded-full text-sm font-bold text-rose-700 border border-rose-300">🔕 Ne plus lui en envoyer (il a dit STOP)</button>
+            </>)}
+          </div>
+        )}
         <div className="mt-2 bg-white px-4 py-3 mb-4">
           <div className="text-[11px] uppercase tracking-wide text-slate-400">Contacts Google de BMI ({COMPTE_CONTACTS_BMI})</div>
           {g ? (

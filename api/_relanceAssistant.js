@@ -24,6 +24,7 @@ import { champsEnvoi } from "../src/lib/suiviEnvoi.js";
 import { configIA, appelerIA } from "./_assistantIA.js";
 import { signalerPanneIA } from "./_alertePanneIA.js";
 import { configYCloud, envoyerYCloud, corpsTexte } from "./_ycloud.js";
+import { numeroEnStopSurLaBase } from "./_tables.js";
 
 const HEURES_LUES = 25;
 
@@ -64,6 +65,8 @@ export async function relancerLesConversations(admin, { boutiques = null, limite
       const proprietaire = proprietaireDe(fil);
       const d = relanceAFaire({ fil, maintenant, proprietaireId: proprietaire.id });
       if (!d.relancer) { essais.push({ cle: c.cle, pourquoi: d.pourquoi }); continue; }
+      // 🔕 Un client qui a dit STOP n'est pas relancé (14/11/2026).
+      if (await numeroEnStopSurLaBase(admin, c.cle)) { essais.push({ cle: c.cle, pourquoi: "le client a refusé les messages commerciaux" }); continue; }
 
       // ---- RÉSERVER la relance sur la fiche légère ----
       const fiche = tout.find((m) => m.id === idEntete(c.cle) && estEnteteWa(m)) || null;

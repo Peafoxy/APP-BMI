@@ -28,6 +28,8 @@ import {
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite } from "../lib/whatsappModeles";
 import { useRetour } from "../retour";
+import { maintenantISO } from "../lib/horloge";
+import { stopDuNumero, stopActif, critiqueStopGeste, messagesAvecStop, MOTIF_STOP, numerosStop, cleStop } from "../lib/stopCommercial";
 
 // ============ CRÉER UN CLIENT (parrainage employé) ============
 // Onglet dédié, ouvert à tous les employés SAUF l'admin (qui a 👥 Utilisateurs)
@@ -246,6 +248,8 @@ export function Clients({ db, save, profile }) {
   const contacter = async (c) => {
     const num = telDigits(c.tel);
     if (!num) { uAlert("Aucun numéro enregistré pour ce client."); return; }
+    // 🔕 Il a dit STOP (14/11/2026) : on le dit AVANT la question, rien ne part.
+    if (stopActif(stopDuNumero(db.messages, c.tel))) { uAlert(MOTIF_STOP); return; }
     // 🖨 Une fiche SANS ACCÈS n'a pas d'espace client : le mot sans les lignes de l'espace.
     const compte = comptesAvecCeNumero(db, profile, c.tel).find((u) => u.role === "client" && !estSansAcces(u)) || null;
     const nom = compte ? (compte.nom_base || compte.nom) : c.nom;
@@ -275,10 +279,31 @@ export function Clients({ db, save, profile }) {
     uAlert(`✅ Mot de fidélité envoyé du numéro BMI à ${nom}.`);
   };
 
+  // ---- 🔕 « NE PLUS LUI ENVOYER DE MESSAGES COMMERCIAUX » (14/11/2026) ----
+  // Le même geste que dans 📲 WhatsApp → fiche du contact, pour un client qui
+  // n'y a pas encore de conversation. Cocher : tout employé ; rouvrir :
+  // l'administrateur. Revérifié sur la ligne FRAÎCHE (lib/stopCommercial.js).
+  const reglerStop = async (c) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const actif = !stopActif(stopDuNumero(db.messages, c.tel));
+    const refus = critiqueStopGeste(profile, { actif, tel: c.tel });
+    if (refus) { uAlert(refus); return; }
+    if (!await uConfirm(actif
+      ? `🔕 Ne plus envoyer de messages commerciaux à ${c.nom} (${c.tel}) ?\n\nNe partiront plus vers ce numéro : le mot de fidélité, les relances, la demande d'avis.\nContinuent de partir : ses devis, ses reçus, ses rappels de paiement.\n\nSeul l'administrateur pourra rouvrir.`
+      : `🔔 Rouvrir les messages commerciaux pour ${c.nom} (${c.tel}) ?\n\nNe le faites que si le client l'a demandé.`)) return;
+    save((etat) => {
+      if (stopActif(stopDuNumero(etat.messages, c.tel)) === actif) return etat;
+      return { ...etat, messages: messagesAvecStop(etat.messages || [], { tel: c.tel, actif, profile, maintenant: maintenantISO() }) };
+    }, actif
+      ? `🔕 ${c.tel} ne reçoit plus de messages commerciaux (noté par ${profile.nom})`
+      : `🔔 Messages commerciaux rouverts pour ${c.tel} par ${profile.nom}`);
+  };
+
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
+  const stops = numerosStop(db.messages);
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="clients" db={db} value={bq} onChange={setBq} profile={profile} />}
@@ -302,6 +327,7 @@ export function Clients({ db, save, profile }) {
               const ouverte = ficheOuverte === c.cle;
               const ouvrable = !sansIdentite(c);
               const carte = carteDuClient(c);
+              const enStop = !!c.tel && stops.has(cleStop(c.tel));
               return (
               <React.Fragment key={c.cle || i}>
               <tr onClick={ouvrable ? () => setFicheOuverte((o) => (o === c.cle ? null : c.cle)) : undefined}
@@ -309,12 +335,13 @@ export function Clients({ db, save, profile }) {
                 title={ouvrable ? (ouverte ? "Cliquer pour refermer la fiche" : "Cliquer pour ouvrir la fiche du client") : "Ventes sans nom : ce n'est pas un client, pas de fiche"} data-ligne-client>
                 {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo, 25/09/2026 : « dans Clients aussi figer le nom du client »), par LA règle commune. */}
                 <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{c.nom}{ouvrable && <span className="ml-1 text-[10px] font-normal text-slate-400">{ouverte ? "▴" : "▾"}</span>}{carte && <div data-carte-client className="text-[11px] font-bold text-emerald-700">💳 {carte.numero} · {libellePctCarte(carte, pctCommunCarte(db.boutiques))}</div>}</td>
-                <td className="px-3 py-2">{c.tel || "—"}</td>
+                <td className="px-3 py-2">{c.tel || "—"}{enStop && <div data-stop-client className="text-[11px] font-bold text-rose-700">🔕 plus de messages commerciaux</div>}</td>
                 <td className="px-3 py-2 tabular-nums">{c.achats}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(c.totalAchats)}</td>
                 <td className={`px-3 py-2 tabular-nums font-bold ${c.dette > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(c.dette)}</td>
                 <td className="px-3 py-2">{dFR(c.derniere)}</td>
                 <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}><div className="flex items-center gap-2">{c.tel && <BoutonEnvoi onClick={(e) => { e.stopPropagation(); return contacter(c); }} className="text-xs font-bold text-green-700 underline">WhatsApp</BoutonEnvoi>}
+                  {c.tel && typeof save === "function" && (!enStop || profile.role === "admin") && <BoutonRond icone={enStop ? "🔔" : "🔕"} teinte={enStop ? "gris" : "rose"} titre={enStop ? "Rouvrir les messages commerciaux pour ce client (administrateur)" : "Il a dit STOP : ne plus lui envoyer de messages commerciaux"} onClick={() => reglerStop(c)} />}
                   {principal && c.tel && <BoutonRond icone="💳" teinte="vert" titre={carte ? "Sa carte de fidélité : imprimer, changer la remise, remplacer, retirer" : "Lui donner une carte de fidélité"} onClick={() => carteDepuisClientComptoir({ db, save, profile, client: c, comptesDuNumero: comptesAvecCeNumero(db, profile, c.tel), boutique })} />}</div></td>
               </tr>
               {ouverte && <tr><td colSpan={7} className="p-0"><FicheClient db={db} profile={profile} cible={{ nom: c.nom, tel: c.tel }} /></td></tr>}

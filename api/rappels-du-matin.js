@@ -50,6 +50,7 @@ import { idsAdmins } from "../src/lib/espace.js";
 import { fmt, dFR } from "../src/lib/core.js";
 import { randomUUID } from "node:crypto";
 import { lireTable } from "./_tables.js";
+import { numerosStop, cleStop } from "../src/lib/stopCommercial.js";
 import { estSupprime } from "../src/lib/corbeille.js";
 import { anniversairesDuJour, ligneAnniversaire, enteteApresAnniversaire, MODELE_ANNIVERSAIRE } from "../src/lib/anniversaires.js";
 import { rappelFinsDeContrat } from "../src/lib/contratTravail.js";
@@ -131,7 +132,9 @@ export default async function handler(req, res) {
 // Rend { a_relancer, envoyees, refusees }. Rien n'est écrit tant que
 // WhatsApp n'a pas accepté (un fil qui ment est pire qu'un fil vide).
 async function relancerLesDevis(admin, db, aujourdhui) {
-  const liste = relancesAutoDuJour(db, aujourdhui);
+  // 🔕 Un client qui a dit STOP ne reçoit plus de relance (14/11/2026).
+  const stop = numerosStop(db.messages);
+  const liste = relancesAutoDuJour(db, aujourdhui).filter((r) => !stop.has(cleStop(r.tel)));
   const bilan = { a_relancer: liste.length, envoyees: 0, refusees: 0 };
   if (!liste.length) return bilan;
   const { cle, expediteurBrut } = configYCloud();
@@ -287,7 +290,9 @@ async function avertirDeLaTache(admin, db, membre, tache, bilan) {
 // Rend { a_demander, envoyees, refusees }. Rien n'est écrit tant que
 // WhatsApp n'a pas accepté ; refusée, on retente le lendemain.
 async function demanderLesAvis(admin, db, aujourdhui) {
-  const liste = demandesAvisDuJour(db, aujourdhui);
+  // 🔕 Un client qui a dit STOP ne reçoit pas de demande d'avis (14/11/2026).
+  const stop = numerosStop(db.messages);
+  const liste = demandesAvisDuJour(db, aujourdhui).filter((r) => !stop.has(cleStop(r.tel)));
   const bilan = { a_demander: liste.length, envoyees: 0, refusees: 0 };
   if (!liste.length) return bilan;
   const { cle, expediteurBrut } = configYCloud();
