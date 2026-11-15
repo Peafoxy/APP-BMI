@@ -25,8 +25,9 @@ import { totalVente, fmt, dFR } from "./core.js";
 import { devisRelancable } from "./comptesClients.js";
 import { estSupprime } from "./corbeille.js";
 import { VALIDITE_OFFRE_JOURS } from "./constants.js";
-import { estCompteFormation, boutiqueEstFormation, idsDeLaBoutique, idsParRole, idsAdmins, idsAssistants } from "./espace.js";
+import { estCompteFormation, boutiqueEstFormation, idsDeLaBoutique, idsParRole, idsAdmins, idsAssistants, idsChefDe, personnesDeLEspace } from "./espace.js";
 import { nettoyerCible } from "./cibleNotification.js";
+import { alerteProspection, JOURS_SANS_PROSPECTION, JOURS_RETARD_RELANCE } from "./activiteProspection.js";
 
 export const SEUIL_RELANCE_JOURS = 15;
 export const RETARD_DETTE_JOURS = 30;
@@ -153,6 +154,34 @@ export function rappelsDuMatin(db, aujourdhui) {
       }));
     });
   });
+
+  // 4. 🧲 La prospection (15/11/2026, « G c, H, I b ») : un commercial sans
+  //    prospect enregistré ni contact noté depuis 4 jours, et les relances
+  //    laissées 2 jours en retard — le jour où le seuil est ATTEINT. Au
+  //    responsable commercial, aux administrateurs, et à SON chef d'équipe ⭐
+  //    (son parrain). ⚠ LE MUR : les prospects de l'espace du commercial.
+  [false, true].forEach((formation) => personnesDeLEspace(db, formation).forEach((u) => {
+    if (u.role !== "commercial" || u.bloque) return;
+    const prospects = (db.prospects || []).filter((p) => p && !estSupprime(p) && !!p.formation === formation);
+    const a = alerteProspection({ personne: u, prospects, aujourdhui });
+    const destinataires = [...idsParRole(db, formation, ["resp_commercial"]), ...idsAdmins(db, formation), ...idsChefDe(db, u)]
+      .filter((id) => id !== u.id);
+    if (a.inactif) {
+      envois.push(fabriquerEnvoi({
+        destinataires, titre: `🧲 ${u.nom} — aucune prospection depuis ${JOURS_SANS_PROSPECTION} jours`,
+        texte: `${u.nom} n'a enregistré aucun prospect ni noté aucun contact depuis le ${dFR(a.depuis)}. À voir avec lui dans 👑 Mon équipe.`,
+        ecran: "equipe", tag: `prospection:${u.id}:${aujourdhui}`, formation, cible: { membre: u.id },
+      }));
+    }
+    if (a.enRetard.length) {
+      const detail = a.enRetard.slice(0, 3).map((p) => p.nom).join(", ");
+      envois.push(fabriquerEnvoi({
+        destinataires, titre: `🔔 ${u.nom} — ${a.enRetard.length} relance${a.enRetard.length > 1 ? "s" : ""} en retard`,
+        texte: `${a.enRetard.length} prospect${a.enRetard.length > 1 ? "s attendent" : " attend"} sa relance depuis ${JOURS_RETARD_RELANCE} jours : ${detail}${a.enRetard.length > 3 ? "…" : ""}.`,
+        ecran: "prospects", tag: `relances:${u.id}:${aujourdhui}`, formation, cible: { ligne: a.enRetard[0].id },
+      }));
+    }
+  }));
 
   return envois.filter(Boolean);
 }

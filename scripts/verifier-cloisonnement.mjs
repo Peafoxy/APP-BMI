@@ -19258,7 +19258,70 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
       !/data-filtre-commercial/.test(hC) && !/data-commercial-du-prospect/.test(hC) && /KOFFI-UN/.test(hC) && !/AMA-UN/.test(hC));
     const ligneK = (hE.match(/<tr[^>]*data-prospection-de="KOFFI"[\s\S]*?<\/tr>/) || [""])[0].replace(/<[^>]+>/g, "|");
     test("★★★ 👑 Mon équipe : le tableau « 🧲 Prospection » donne, pour KOFFI ce mois, 1 enregistré · 1 contact · 1 visite · 1 devis · 1 gagné · 2 actifs · 🔔 1 ; AMA y est aussi",
-      /data-activite-prospection/.test(hE) && /KOFFI\|+1\|+1\|+1\|+1\|+1\|+2\|+🔔 1\|/.test(ligneK) && /data-prospection-de="AMA"/.test(hE), ligneK);
+      /data-activite-prospection/.test(hE) && /* RETOURNÉ le 15/11/2026 : la colonne « Objectif du mois » précède. */ /KOFFI\|+—\|+1\|+1\|+1\|+1\|+1\|+2\|+🔔 1\|/.test(ligneK) && /data-prospection-de="AMA"/.test(hE), ligneK);
+
+    // ---- 4, 5, 6 (15/11/2026, « Ab, Ba, Cb, Da, Ea, Fb, Gc, H 4 et 2, Ib ») ----
+    const m1 = AP.marqueTerrain("10:42", { lat: 6.1312345678, lng: 1.2212345, precision: 12.4 }), m0 = AP.marqueTerrain("10:42", null);
+    test("★★★ 📍 « B a » : une position donnée se garde (6 décimales, précision) avec l'heure ; refusée ou absente, la marque DIT « sans position » — jamais un 0,0 pris pour un endroit",
+      m1.heure === "10:42" && m1.lat === 6.131235 && m1.lng === 1.221235 && m1.precision === 12 && AP.aUnePosition(m1) && /maps\?q=6\.131235,1\.221235/.test(AP.lienCarteTerrain(m1))
+      && m0.sans_position === true && !AP.aUnePosition(m0) && AP.lienCarteTerrain(m0) === "" && AP.marqueTerrain("x", { lat: 0, lng: 0 }).sans_position === true);
+    const srcP = readFileSync("src/screens/Prospects.jsx", "utf8"), srcPos = readFileSync("src/position.js", "utf8");
+    test("★★ 📍 « A b » : l'enregistrement d'un prospect ET « Je l'ai contacté » demandent la position SANS attendre pour enregistrer (la marque est complétée ensuite) ; navigator.geolocation ne lève jamais",
+      (srcP.match(/const attentePosition = positionActuelle\(\)/g) || []).length === 2 && (srcP.match(/attentePosition\.then\(/g) || []).length === 2
+      && !/await attentePosition/.test(srcP) && /catch \{ rendre\(null\); \}/.test(srcPos) && /\(\) => rendre\(null\)/.test(srcPos));
+    const dbT = { ...db, prospects: db.prospects.map((p) => (p.id === "k1" ? { ...p, saisie: m1, contacts: [{ id: "c1", date: auj, heure: "11:05", par: "KOFFI", note: "rappeler", lieu: m0 }] } : p)) };
+    let hT = "", hTC = "";
+    try { hT = E.rendreProspects(dbT, resp); hTC = E.rendreProspects(dbT, koffi); } catch (e) { hT = String(e); }
+    test("★★★ 📍 « C b » : le responsable lit l'heure et « 📍 où il était » sous la date ; le commercial ne voit pas ces marques, mais il LIT qu'elles sont notées",
+      /data-saisie-terrain[^>]*>[\s\S]{0,80}10:42[\s\S]{0,200}maps\?q=6\.131235/.test(hT) && !/data-saisie-terrain/.test(hTC));
+    test("★★ 🎯 « F b » : l'objectif commun se lit sur les boutiques, celui d'une personne (sur SA fiche) passe devant ; 0 ou vide = aucun ; un texte ou plus de 500 est refusé",
+      AP.objectifCommun([{ nom: "A" }, { nom: "B", objectif_prospection: 20 }]) === 20 && AP.objectifCommun([{ nom: "A" }]) === 0
+      && AP.objectifDe({ objectif_prospection: 8 }, [{ objectif_prospection: 20 }]).nombre === 8 && AP.objectifDe({ objectif_prospection: 8 }, []).aLui === true
+      && AP.objectifDe({}, [{ objectif_prospection: 20 }]).nombre === 20 && AP.critiqueObjectif("") === "" && AP.critiqueObjectif("12") === ""
+      && AP.critiqueObjectif("douze") !== "" && AP.critiqueObjectif("501") !== "");
+    const av = AP.avancementObjectif({ personne: koffi, prospects: reelles, boutiques: [{ objectif_prospection: 1 }], aujourdhui: auj });
+    test("★★★ 🎯 « D a » : l'avancement ne compte que les prospects ENREGISTRÉS ce mois-ci (KOFFI : 1 — ni celui du mois d'avant, ni le contact, ni le devis)",
+      av.fait === 1 && av.objectif === 1 && av.atteint === true, JSON.stringify(av));
+    const dbO = { ...db, boutiques: [{ id: "b1", nom: "DEMAKPOE", objectif_prospection: 20 }], users: db.users.map((u) => (u.id === "u_ama" ? { ...u, objectif_prospection: 5 } : u)) };
+    let hO = "", hOA = "", hOK = "";
+    try { hO = E.rendreEquipe(dbO, resp); hOA = E.rendreEquipe(dbO, timo); hOK = E.rendreProspects(dbO, koffi); } catch (e) { hO = String(e); }
+    const ligneKO = (hO.match(/<tr[^>]*data-prospection-de="KOFFI"[\s\S]*?<\/tr>/) || [""])[0].replace(/<[^>]+>/g, "|");
+    const ligneAO = (hO.match(/<tr[^>]*data-prospection-de="AMA"[\s\S]*?<\/tr>/) || [""])[0].replace(/<[^>]+>/g, "|");
+    test("★★★ 🎯 👑 Mon équipe : « 1 / 20 » pour KOFFI (objectif commun), « 1 / 5 (à lui) » pour AMA ; « E a » : seul l'administrateur a ✏️ Changer et le 🎯 de la ligne ; le commercial lit « Mon objectif du mois : 1 / 20 » dans 🧲 Prospects",
+      /1 \/ 20/.test(ligneKO) && /1 \/ 5/.test(ligneAO) && /à lui/.test(ligneAO) && !/✏️ Changer/.test(hO) && /✏️ Changer/.test(hOA)
+      && /Objectif de prospection de cette personne/.test(hOA) && !/Objectif de prospection de cette personne/.test(hO)
+      && /data-mon-objectif[^>]*>[\s\S]{0,120}<b>1 \/ 20<\/b>/.test(hOK), ligneKO + " ## " + ligneAO);
+    const srcE = readFileSync("src/screens/MonEquipe.jsx", "utf8");
+    test("★★ 🎯 « E a » : les deux gestes de l'objectif revérifient l'administrateur DANS le geste",
+      /const reglerObjectifCommun = async \(\) => \{\s*if \(refuserSaufAdmin\(profile/.test(srcE) && /const reglerObjectifDe = async \(u\) => \{\s*if \(refuserSaufAdmin\(profile/.test(srcE));
+    // 6 — la tournée de 7 h.
+    const RP = await import(pathToFileURL(join(process.cwd(), "src/lib/rappels.js")).href);
+    const j = (n) => new Date(Date.parse(auj + "T00:00:00Z") - n * 86400000).toISOString().slice(0, 10);
+    const chef = { id: "u_chef", nom: "CHEF", role: "commercial", actif: true, chef_equipe: true };
+    const kossi = { id: "u_kossi", nom: "KOSSI", role: "commercial", actif: true, parrain_id: "u_chef" };
+    const dbA = { boutiques: [], ventes: [], dettes: [], depenses: [], clotures: [],
+      users: [timo, resp, chef, kossi, { ...fama, parrain_id: "u_chef" }],
+      prospects: [
+        pr("z1", { commercial: "KOSSI", nom: "INACTIF-DEPUIS", date: j(9), contacts: [{ date: j(4), par: "KOSSI", note: "x" }] }),
+        pr("z2", { commercial: "KOSSI", nom: "RELANCE-EN-RETARD", date: j(9), relance: j(2) }),
+        pr("z3", { commercial: "KOSSI", nom: "RELANCE-D-HIER", date: j(9), relance: j(1) }),
+        pr("z4", { commercial: "KOSSI", nom: "A-LA-CORBEILLE", date: auj, supprime_le: auj }),
+        pr("z5", { commercial: "FAMA", nom: "FORMATION", date: j(4), formation: true }),
+        pr("z6", { commercial: "CHEF", nom: "DU-CHEF", date: auj }),
+      ] };
+    const env = RP.rappelsDuMatin(dbA, auj);
+    const inact = env.find((e) => /KOSSI — aucune prospection depuis 4 jours/.test(e.titre)), ret = env.find((e) => /KOSSI — 1 relance en retard/.test(e.titre));
+    test("★★★ 🔔 « G c, H » : KOSSI, sans prospect ni contact depuis 4 jours, est signalé ; sa relance en retard de 2 jours aussi (pas celle d'hier) ; un prospect à la corbeille ne compte pas comme une activité",
+      !!inact && !!ret && /RELANCE-EN-RETARD/.test(ret.texte) && !/RELANCE-D-HIER/.test(ret.texte) && inact.ecran === "equipe" && ret.ecran === "prospects" && ret.cible.ligne === "z2",
+      JSON.stringify(env.map((e) => e.titre)));
+    test("★★★ 🔔 « I b » : le responsable commercial, l'administrateur et SON chef d'équipe ⭐ sont prévenus — jamais le commercial lui-même ; LE MUR : FAMA (formation) ne prévient pas le responsable du réel",
+      !!inact && ["u_resp", "u_timo", "u_chef"].every((id) => inact.destinataires.includes(id)) && !inact.destinataires.includes("u_kossi")
+      && !env.some((e) => /FAMA/.test(e.titre) && e.destinataires.includes("u_resp")));
+    test("★★ 🔔 le seuil est ATTEINT une fois : le lendemain (5 jours), plus d'alerte d'inactivité ; un commercial actif aujourd'hui n'en a aucune",
+      !RP.rappelsDuMatin(dbA, new Date(Date.parse(auj + "T00:00:00Z") + 86400000).toISOString().slice(0, 10)).some((e) => /KOSSI — aucune prospection/.test(e.titre))
+      && !env.some((e) => /CHEF — aucune prospection/.test(e.titre)));
+    test("★★ 🔔 la tournée de 7 h lit la table des prospects",
+      /const TABLES = \[[^\]]*"prospects"/.test(readFileSync("api/rappels-du-matin.js", "utf8")));
   }
 }
 

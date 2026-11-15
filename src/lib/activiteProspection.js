@@ -69,3 +69,94 @@ export function activitesDeLEquipe({ personnes, ...reste }) {
     .sort((a, b) => (b.enregistres - a.enregistres) || (b.contacts - a.contacts)
       || texte(a.personne.nom).localeCompare(texte(b.personne.nom), "fr", { sensitivity: "base" }));
 }
+
+// ============================================================
+// 4, 5 ET 6 (Timo, 15/11/2026 : « Ab, Ba, Cb, Da, Ea, Fb, Gc, H 4 jours sans
+// activité et 2 jours de retard, Ib »).
+// ============================================================
+
+// ---- 4. LA POSITION ET L'HEURE RÉELLES ----
+// « A b » : à l'enregistrement d'un prospect ET à chaque « Je l'ai contacté ».
+// « B a » : si le téléphone ne donne pas la position, on enregistre quand
+// même, et c'est DIT (`sans_position`). Une seule position, au moment du
+// geste — jamais un suivi permanent. `pos` vient de src/position.js.
+export function marqueTerrain(heure, pos) {
+  const lat = Number(pos && pos.lat), lng = Number(pos && pos.lng);
+  if (pos && Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) {
+    const precision = Math.round(Number(pos.precision));
+    return { heure: texte(heure), lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, ...(Number.isFinite(precision) && precision > 0 ? { precision } : {}) };
+  }
+  return { heure: texte(heure), sans_position: true };
+}
+export const aUnePosition = (m) => !!m && Number.isFinite(Number(m.lat)) && Number.isFinite(Number(m.lng)) && !m.sans_position;
+export const lienCarteTerrain = (m) => (aUnePosition(m) ? `https://www.google.com/maps?q=${m.lat},${m.lng}` : "");
+// « C b » : l'administrateur, le responsable commercial et le chef d'équipe ⭐
+// — ceux qui voient toute l'équipe. L'écran passe `voitTout`.
+export const PHRASE_POSITION_NOTEE = "📍 L'heure et l'endroit où vous êtes sont notés avec ce geste (une seule fois, au moment où vous enregistrez), pour votre responsable.";
+
+// ---- 5. L'OBJECTIF DE PROSPECTION DU MOIS ----
+// « D a » : un seul chiffre, les prospects ENREGISTRÉS dans le mois.
+// « F b » : un objectif commun (sur les boutiques, comme la limite de
+// remise), modifiable personne par personne (sur SA fiche). 0 = aucun.
+export const OBJECTIF_MAX = 500;
+export const lireObjectif = (v) => {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, OBJECTIF_MAX) : 0;
+};
+export const objectifCommun = (boutiques) => {
+  const b = (boutiques || []).find((x) => lireObjectif(x && x.objectif_prospection) > 0);
+  return b ? lireObjectif(b.objectif_prospection) : 0;
+};
+export const objectifDe = (personne, boutiques) => {
+  const aLui = lireObjectif(personne && personne.objectif_prospection);
+  return aLui > 0 ? { nombre: aLui, aLui: true } : { nombre: objectifCommun(boutiques), aLui: false };
+};
+// Rend "" si la valeur est acceptable, sinon le refus en français.
+export function critiqueObjectif(valeur) {
+  const t = texte(valeur);
+  if (t === "") return "";
+  if (!/^\d+$/.test(t)) return "L'objectif est un nombre entier de prospects par mois (0 = aucun objectif).";
+  if (Number(t) > OBJECTIF_MAX) return `L'objectif ne dépasse pas ${OBJECTIF_MAX} prospects par mois.`;
+  return "";
+}
+export const debutDuMois = (aujourdhui) => `${String(aujourdhui).slice(0, 7)}-01`;
+// Où en est UNE personne ce mois-ci : { objectif, fait, aLui, atteint }.
+export function avancementObjectif({ personne, prospects, boutiques, aujourdhui }) {
+  const o = objectifDe(personne, boutiques);
+  const fait = prospectsDuCommercial(prospects, personne.nom).filter((p) => dansLaPeriode(p.date, debutDuMois(aujourdhui), String(aujourdhui).slice(0, 10))).length;
+  return { objectif: o.nombre, aLui: o.aLui, fait, atteint: o.nombre > 0 && fait >= o.nombre };
+}
+export const ROLES_AVEC_OBJECTIF = ROLES_PROSPECTION;
+
+// ---- 6. L'ALERTE AU RESPONSABLE (tournée de 7 h) ----
+// « G c » : un commercial sans prospect enregistré ni contact noté, ET des
+// relances laissées en retard. « H » : 4 jours sans activité, 2 jours de
+// retard. Le jour où le seuil est ATTEINT, une seule fois (comme une dette
+// qui passe les 30 jours) — pas tous les matins.
+export const JOURS_SANS_PROSPECTION = 4;
+export const JOURS_RETARD_RELANCE = 2;
+const joursEntre = (de, a) => {
+  const t0 = Date.parse(String(de || "").slice(0, 10)), t1 = Date.parse(String(a || "").slice(0, 10));
+  return Number.isNaN(t0) || Number.isNaN(t1) ? null : Math.floor((t1 - t0) / 86400000);
+};
+// Le dernier jour où la personne a enregistré un prospect ou noté un contact.
+export function derniereProspection(personne, prospects) {
+  let dernier = "";
+  (prospects || []).forEach((p) => {
+    if (!p) return;
+    if (texte(p.commercial) === texte(personne.nom) && String(p.date || "").slice(0, 10) > dernier) dernier = String(p.date).slice(0, 10);
+    (p.contacts || []).forEach((c) => {
+      if (c && texte(c.par) === texte(personne.nom) && String(c.date || "").slice(0, 10) > dernier) dernier = String(c.date).slice(0, 10);
+    });
+  });
+  return dernier;
+}
+// `prospects` : ceux de l'espace de la personne, corbeille écartée. Rend
+// { inactif (jours, 0 sinon), depuis, enRetard: [prospects] }.
+export function alerteProspection({ personne, prospects, aujourdhui }) {
+  const depuis = derniereProspection(personne, prospects);
+  const jours = depuis ? joursEntre(depuis, aujourdhui) : null;
+  const enRetard = prospectsDuCommercial(prospects, personne.nom)
+    .filter((p) => prospectActif(p) && !!p.relance && joursEntre(p.relance, aujourdhui) === JOURS_RETARD_RELANCE);
+  return { inactif: jours === JOURS_SANS_PROSPECTION ? jours : 0, depuis, enRetard };
+}

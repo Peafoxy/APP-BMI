@@ -63,7 +63,7 @@ import { relancesSalaireDuJour, notificationRelanceSalaire, paieApresRelance, li
 
 import { rappelsProformaDuJour, ligneRappelProforma, enteteApresRappelProforma, proformaApresRappel, MODELE_RAPPEL_PROFORMA } from "../src/lib/rappelProforma.js";
 
-const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes", "proformas"];
+const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes", "proformas", "prospects"];
 
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;

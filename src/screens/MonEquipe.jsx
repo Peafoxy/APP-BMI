@@ -11,10 +11,10 @@ import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
-import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, estDormant, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache, ROLES_TACHES} from "../lib/calculs";
+import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, estDormant, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache, ROLES_TACHES, refuserSaufAdmin} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 import { versEcran } from "../lib/cibleNotification";
-import { activitesDeLEquipe } from "../lib/activiteProspection";
+import { activitesDeLEquipe, avancementObjectif, objectifCommun, lireObjectif, critiqueObjectif, ROLES_AVEC_OBJECTIF } from "../lib/activiteProspection";
 import { rendezVousVisibles } from "../lib/rendezVous";
 import { envoyerAvisCommissionPayee } from "../lib/commissionsDues";
 import { paiementsDeCommission, filtrerPaiements, voitTousLesPaiements, clesDuChef, cleUtilisateur, cleDApporteur } from "../lib/historiqueCommissions";
@@ -129,6 +129,37 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
     devis: personnesDeLEspace.filter((u) => u.role === "client").flatMap((u) => u.devis || []),
     debut, fin, aujourdhui: today(), estDormant,
   });
+
+  // 🎯 L'OBJECTIF DE PROSPECTION DU MOIS (15/11/2026, « D a, E a, F b ») : les
+  // prospects enregistrés ce mois-ci, contre un objectif commun (réglé sur les
+  // boutiques) ou propre à la personne (sur SA fiche). L'administrateur seul.
+  const objectifCommunRegle = objectifCommun(db.boutiques);
+  const objectifPour = (u) => (ROLES_AVEC_OBJECTIF.includes(u.role)
+    ? avancementObjectif({ personne: u, prospects: prospectsDeMonEspace, boutiques: db.boutiques, aujourdhui: today() }) : null);
+  const reglerObjectifCommun = async () => {
+    if (refuserSaufAdmin(profile, "Fixer l'objectif de prospection")) return;
+    const v = await uPrompt("🎯 Objectif de prospection commun\n\nCombien de prospects chaque commercial doit-il enregistrer par mois ?\n(0 ou vide = aucun objectif. Une personne peut avoir le sien : bouton 🎯 sur sa ligne.)", objectifCommunRegle ? String(objectifCommunRegle) : "");
+    if (v === null) return;
+    const refus = critiqueObjectif(v);
+    if (refus) { uAlert(refus); return; }
+    const n = lireObjectif(v);
+    save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, objectif_prospection: n })) },
+      `🎯 Objectif de prospection commun : ${n > 0 ? `${n} prospects par mois` : "aucun"} (avant : ${objectifCommunRegle || "aucun"})`);
+  };
+  const reglerObjectifDe = async (u) => {
+    if (refuserSaufAdmin(profile, "Fixer l'objectif de prospection d'une personne")) return;
+    const fiche = personnesDeLEspace.find((x) => x.id === u.id);
+    if (!fiche) return;
+    const avant = lireObjectif(fiche.objectif_prospection);
+    const v = await uPrompt(`🎯 Objectif de prospection de ${fiche.nom}\n\nCombien de prospects par mois, pour cette personne ?\n(0 ou vide = suivre l'objectif commun${objectifCommunRegle ? `, ${objectifCommunRegle} par mois` : ""}.)`, avant ? String(avant) : "");
+    if (v === null) return;
+    const refus = critiqueObjectif(v);
+    if (refus) { uAlert(refus); return; }
+    const n = lireObjectif(v);
+    if (n === avant) return;
+    save({ ...db, users: db.users.map((x) => (x.id === fiche.id ? { ...x, objectif_prospection: n } : x)) },
+      `🎯 Objectif de prospection de ${fiche.nom} : ${n > 0 ? `${n} par mois (à lui)` : "l'objectif commun"}`);
+  };
 
   const totalCA = stats.reduce((s, x) => s + x.ca, 0);
   const totalDu = stats.reduce((s, x) => s + x.commissionDue, 0);
@@ -739,14 +770,25 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto" data-activite-prospection>
           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
             <div className="font-bold text-slate-800">🧲 Prospection — {periode === "mois" ? "ce mois" : periode === "annee" ? "cette année" : "depuis le début"}</div>
-            <div className="text-xs text-slate-500 mt-0.5">Ce que chacun a fait sur la période. « À relancer » et « Dormants » montrent la situation d'<b>aujourd'hui</b>.</div>
+            <div className="text-xs text-slate-500 mt-0.5">Ce que chacun a fait sur la période. « Objectif du mois », « À relancer » et « Dormants » montrent la situation d'<b>aujourd'hui</b>.</div>
+            <div className="text-xs text-slate-600 mt-1" data-objectif-commun>
+              🎯 Objectif commun : <b>{objectifCommunRegle > 0 ? `${objectifCommunRegle} prospects enregistrés par mois` : "aucun"}</b>
+              {estAdmin && <button type="button" onClick={reglerObjectifCommun} className="ml-2 font-bold text-sky-800 underline">✏️ Changer</button>}
+            </div>
           </div>
-          <table className="w-full text-sm min-w-[760px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Prospects enregistrés", "Contacts notés", "Visites faites", "Devis établis", "Clients gagnés", "Prospects actifs", "À relancer", "Dormants"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+          <table className="w-full text-sm min-w-[860px]">
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Objectif du mois", "Prospects enregistrés", "Contacts notés", "Visites faites", "Devis établis", "Clients gagnés", "Prospects actifs", "À relancer", "Dormants", ...(estAdmin ? [""] : [])].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
             <tbody>
               {prospection.map((a, i) => (
                 <tr key={a.personne.id} data-prospection-de={a.personne.nom} className={`border-t border-slate-100 ${classeLigneDepliable(false, i)}`}>
                   <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(false, i), false)}`}>{a.personne.nom}{a.personne.chef_equipe ? " ⭐" : ""}</td>
+                  <td className="px-3 py-2 tabular-nums whitespace-nowrap" data-objectif-du-mois>
+                    {(() => {
+                      const o = objectifPour(a.personne);
+                      if (!o || !o.objectif) return <span className="text-slate-400">—</span>;
+                      return <span className={`font-bold ${o.atteint ? "text-green-700" : "text-slate-800"}`}>{o.fait} / {o.objectif}{o.atteint ? " ✅" : ""}{o.aLui ? <span className="font-normal text-xs text-slate-500"> (à lui)</span> : ""}</span>;
+                    })()}
+                  </td>
                   <td className="px-3 py-2 tabular-nums font-bold">{a.enregistres}</td>
                   <td className="px-3 py-2 tabular-nums">{a.contacts}</td>
                   <td className="px-3 py-2 tabular-nums">{a.visites}</td>
@@ -755,6 +797,11 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
                   <td className="px-3 py-2 tabular-nums">{a.actifs}</td>
                   <td className={`px-3 py-2 tabular-nums ${a.aRelancer > 0 ? "font-bold text-orange-700" : "text-slate-400"}`}>{a.aRelancer > 0 ? `🔔 ${a.aRelancer}` : "—"}</td>
                   <td className={`px-3 py-2 tabular-nums ${a.dormants > 0 ? "font-bold text-slate-700" : "text-slate-400"}`}>{a.dormants > 0 ? `💤 ${a.dormants}` : "—"}</td>
+                  {estAdmin && (
+                    <CelluleActions>
+                      {ROLES_AVEC_OBJECTIF.includes(a.personne.role) && <BoutonRond icone="🎯" onClick={() => reglerObjectifDe(a.personne)} titre="🎯 Objectif de prospection de cette personne" />}
+                    </CelluleActions>
+                  )}
                 </tr>
               ))}
             </tbody>

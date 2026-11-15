@@ -99,7 +99,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/contrat.js` | Le contrat et le PV de réception |
 | `lib/reglement.js` | Comment le client va solder son installation (le plan de règlement) |
 | `lib/prospects.js` | Un prospect devient client |
-| `lib/activiteProspection.js` | Suivre les commerciaux qui prospectent : le filtre par commercial de 🧲 Prospects, et l'activité de la période par personne dans 👑 Mon équipe (prospects enregistrés, contacts notés, visites faites, devis établis, clients gagnés, à relancer, dormants) |
+| `lib/activiteProspection.js` | Suivre les commerciaux qui prospectent : le filtre par commercial de 🧲 Prospects, et l'activité de la période par personne dans 👑 Mon équipe (prospects enregistrés, contacts notés, visites faites, devis établis, clients gagnés, à relancer, dormants) ; la marque de l'heure et de l'endroit d'un geste de terrain (la position vient de `src/position.js`), l'objectif de prospection du mois, l'alerte au responsable de la tournée de 7 h |
 | `lib/comptesClients.js` | Les identifiants automatiques d'un compte client, les relances de devis |
 | `lib/identiteClient.js` | L'identifiant et le mot de passe d'un client, et **la comparaison de deux identifiants de connexion** (`memeIdentifiant`, lue par l'écran ET par le serveur) — **n'importe RIEN** |
 | `lib/clientsConnus.js` | Les clients que la boutique connaît déjà (proposés dans Ventes, Dettes, Travaux) |

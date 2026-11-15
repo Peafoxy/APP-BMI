@@ -9,7 +9,7 @@ import { Clients } from "../screens/Clients";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
 import { CarteChoixPosition } from "../components/Carte";
 import { chiffresTel, identifiantClient, motDePasseClient, resoudreMotDePasseClient, fabriquerCompteClient, messagesNouveauClient, estSansAcces, ouvrirAcces, motDePasseConnu } from "../lib/comptesClients";
-import { uid, fmt, today, dFR, col } from "../lib/core";
+import { uid, fmt, today, dFR, col, heureCourte } from "../lib/core";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { messageIdentifiants, texteEnvoi, envoiAccueilProspect, envoiRelanceProspect, projetDansLaPhrase, texteVariable } from "../lib/whatsappModeles";
@@ -18,7 +18,8 @@ import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
 import { rendezVousVisibles, visitesDuProspect, libelleStatut } from "../lib/rendezVous";
-import { commerciauxDesProspects, prospectsDuCommercial } from "../lib/activiteProspection";
+import { commerciauxDesProspects, prospectsDuCommercial, marqueTerrain, aUnePosition, lienCarteTerrain, PHRASE_POSITION_NOTEE, avancementObjectif, ROLES_AVEC_OBJECTIF } from "../lib/activiteProspection";
+import { positionActuelle } from "../position";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
@@ -79,14 +80,31 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     }
   };
 
+  // 📍 Ce qu'on lit d'un geste de terrain : l'heure, et le lien de la carte —
+  // ou, dit tout haut, que le téléphone n'a pas donné la position.
+  const lieuDuGeste = (m) => (
+    <span>
+      🕓 {m.heure || "—"}{" · "}
+      {aUnePosition(m)
+        ? <a href={lienCarteTerrain(m)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-sky-700 underline">📍 où il était</a>
+        : m.en_attente ? <span className="text-slate-400">📍 position en cours…</span> : <span className="text-orange-700 font-semibold">📍 position non donnée</span>}
+    </span>
+  );
+
   // ---- Enregistrement d'un prospect ----
   const ajouter = async () => {
     if (!f.nom.trim() || !f.tel.trim()) { uAlert("Le nom et le numéro du prospect sont obligatoires."); return; }
     // ⚠ Cloisonnement : un prospect n'appartient à aucune boutique — sans
     // cette marque, une fiche inventée pendant un entraînement entrait dans
     // la vraie file de relance des commerciaux.
-    const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, ...f, projet: texteVariable(f.projet), ...marqueEspace(db, profile, f.boutique) };
+    // 📍 L'heure et l'endroit du geste (15/11/2026, « A b, B a ») : la position
+    // est demandée tout de suite, la fiche s'enregistre SANS l'attendre, et la
+    // marque est complétée dès que le téléphone répond (ou « non donnée »).
+    const heureSaisie = heureCourte();
+    const attentePosition = positionActuelle();
+    const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, saisie: { heure: heureSaisie, en_attente: true }, ...f, projet: texteVariable(f.projet), ...marqueEspace(db, profile, f.boutique) };
     save({ ...db, prospects: [p, ...db.prospects] }, `Nouveau prospect « ${f.nom} » (${f.categorie}) — ${profile.nom}`);
+    attentePosition.then((pos) => save((e) => ({ ...e, prospects: (e.prospects || []).map((x) => (x.id === p.id ? { ...x, saisie: marqueTerrain(heureSaisie, pos) } : x)) })));
     setF(vide);
     setNouveauOuvert(false);
     setProjetLibre(false);
@@ -125,13 +143,16 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // paraître mort alors qu'il est activement suivi.
   const contacte = async (p) => {
     if (refuserSaufProprietaire(profile, p.commercial, "Noter un contact avec un prospect")) return;
+    const heureContact = heureCourte();
+    const attentePosition = positionActuelle();
     const note = await uPrompt(
-      `Vous venez de contacter « ${p.nom} » ?\n\nCe que ça a donné (facultatif) :`,
+      `Vous venez de contacter « ${p.nom} » ?\n\n${PHRASE_POSITION_NOTEE}\n\nCe que ça a donné (facultatif) :`,
       ""
     );
     if (note === null) return;
+    const idContact = uid();
     const historique = [
-      { date: today(), par: profile.nom, note: note.trim() || "Contacté" },
+      { id: idContact, date: today(), heure: heureContact, par: profile.nom, note: note.trim() || "Contacté", lieu: { heure: heureContact, en_attente: true } },
       ...(p.contacts || []),
     ].slice(0, 20);
     save({
@@ -140,6 +161,9 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
         ? { ...x, maj_le: today(), contacts: historique }
         : x)),
     }, `📞 ${p.nom} contacté par ${profile.nom}${note.trim() ? " — " + note.trim() : ""}`);
+    attentePosition.then((pos) => save((e) => ({ ...e, prospects: (e.prospects || []).map((x) => (x.id === p.id
+      ? { ...x, contacts: (x.contacts || []).map((c) => (c.id === idContact ? { ...c, lieu: marqueTerrain(heureContact, pos) } : c)) }
+      : x)) })));
   };
 
   // ---- 🤖 UNE DEMANDE DE L'ASSISTANT WHATSAPP SE PREND EN CHARGE (24/09/2026) ----
@@ -347,6 +371,10 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   const espace = espaceDuCompte(db, profile);
   const rdvVisibles = rendezVousVisibles(db.rendez_vous, profile, espace === true);
   const prospectsDeLEspace = (db.prospects || []).filter((p) => espace === undefined || !!p.formation === espace);
+  // 🎯 Mon objectif du mois (15/11/2026, « D a ») : les prospects enregistrés.
+  const monObjectif = ROLES_AVEC_OBJECTIF.includes(profile.role)
+    ? avancementObjectif({ personne: utilisateursDeLEspace(db, profile).find((u) => u.id === profile.id) || profile, prospects: prospectsDeLEspace, boutiques: db.boutiques, aujourdhui: today() })
+    : null;
   const commerciaux = voitTout ? commerciauxDesProspects(prospectsDeLEspace) : [];
   // Un nom qui n'a plus de prospect (réassigné entre-temps) ne filtre rien.
   const commercialRegarde = voitTout && commerciaux.includes(commercialChoisi) ? commercialChoisi : "";
@@ -429,6 +457,11 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
             <div className="text-xs text-slate-500 mt-1">✅ Taux de conversion</div>
           </div>
         </div>
+        {monObjectif && monObjectif.objectif > 0 && (
+          <div data-mon-objectif className={`mt-3 rounded-lg border px-3 py-2 text-sm font-semibold ${monObjectif.atteint ? "border-green-300 bg-green-50 text-green-800" : "border-sky-200 bg-sky-50 text-sky-900"}`}>
+            🎯 Mon objectif du mois : <b>{monObjectif.fait} / {monObjectif.objectif}</b> prospects enregistrés{monObjectif.atteint ? " — atteint ✅" : ` — encore ${monObjectif.objectif - monObjectif.fait}`}
+          </div>
+        )}
         {aRelancerAujourdhui > 0 && (
           <button onClick={() => setFiltreRelance(true)} className="mt-3 text-xs font-bold text-orange-700 underline">Voir les {aRelancerAujourdhui} prospect(s) à relancer →</button>
         )}
@@ -523,6 +556,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                 </Field>
                 <Field label="Date de relance"><input type="date" className={inputCls} value={f.relance} onChange={(e) => setF({ ...f, relance: e.target.value })} /></Field>
               </div>
+              <div className="mt-2 text-xs text-slate-500" data-position-notee>{PHRASE_POSITION_NOTEE}</div>
               {carteOuverte && (
                 <div className="mt-3">
                   <CarteChoixPosition lat={f.lat} lng={f.lng} onChoisir={(lat, lng) => setF((prev) => ({ ...prev, lat, lng }))} />
@@ -582,7 +616,10 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                     {p.nom}
                     {estDemandeAssistant(p) && <div className="text-xs font-semibold text-violet-700" data-demande-assistant>🤖 Demande de l'assistant WhatsApp</div>}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{dFR(p.date)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {dFR(p.date)}
+                    {voitTout && p.saisie && <div className="text-xs text-slate-500" data-saisie-terrain>{lieuDuGeste(p.saisie)}</div>}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">{p.tel}</td>
                   <td className="px-3 py-2 text-slate-500">
                     {p.categorie}
@@ -664,6 +701,17 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                     <td colSpan={10} className="px-3 pb-2 pt-0 text-xs text-slate-600">
                       {visitesDuProspect(rdvVisibles, p.id).map((r) => (
                         <div key={r.id}>📅 Visite du {dFR(r.date)} à {r.heure} — {libelleStatut(r.statut)}{r.compte_rendu ? <> · <b>📝 {r.compte_rendu}</b></> : ""}</div>
+                      ))}
+                    </td>
+                  </tr>
+                )}
+                {/* 📞 Les contacts notés, avec l'heure et l'endroit (15/11/2026, « C b » :
+                    ceux qui voient toute l'équipe), sur la ligne dépliée. */}
+                {voitTout && deplie && (p.contacts || []).length > 0 && (
+                  <tr className={fondLigneDepliable(deplie, i, fond)} data-contacts-prospect>
+                    <td colSpan={10} className="px-3 pb-2 pt-0 text-xs text-slate-600">
+                      {(p.contacts || []).map((c, k) => (
+                        <div key={c.id || k}>📞 {dFR(c.date)} — {c.par} : {c.note}{c.lieu ? <> · {lieuDuGeste(c.lieu)}</> : ""}</div>
                       ))}
                     </td>
                   </tr>

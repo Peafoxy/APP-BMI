@@ -49,6 +49,18 @@ export const idsParRole = (db, formation, roles) =>
 // matin) — jamais ce qui attend une décision de l'administrateur.
 export const idsAssistants = (db, formation) => idsParRole(db, formation, ["assistant_direction"]);
 
+// 🧲 Le chef d'équipe ⭐ d'une personne (15/11/2026, « I b ») : son parrain,
+// s'il est chef — désigné, ou à partir de 5 recrues (la règle de calculs.js,
+// `estChefEquipe`) — et du MÊME espace. Rend [] ou [son id].
+const SEUIL_CHEF = 5;
+export const idsChefDe = (db, u) => {
+  const equipe = personnesDeLEspace(db, estCompteFormation(db, u));
+  const parrain = equipe.find((x) => x.id === (u && u.parrain_id));
+  if (!parrain) return [];
+  const recrues = equipe.filter((x) => x.parrain_id === parrain.id && (x.role === "commercial" || x.role === "technicien")).length;
+  return parrain.chef_equipe === true || recrues >= SEUIL_CHEF ? [parrain.id] : [];
+};
+
 export const idsAdmins = (db, formation) => [...new Set([
   ...idsParRole(db, formation, ["admin"]),
   ...(db.users || []).filter(estAdminPrincipalActif).map((u) => u.id),
