@@ -1965,7 +1965,9 @@ titre("㉑ 🧲 LA DEMANDE DE L'ASSISTANT SE PREND EN CHARGE, ET SON DEVIS SE PR
     && /const refus = critiquePriseEnCharge\(p, profile\);\s*if \(refus\) \{ uAlert\(refus\); return; \}/.test(prospectsJsx)
     && /prendreEnCharge\(x, profile\)/.test(prospectsJsx) && /🙋 Prendre en charge/.test(prospectsJsx) && /data-demande-assistant/.test(prospectsJsx));
   test("★★ « Préparer le devis » : le droit revérifié, les appareils LUS par la règle avec le VRAI catalogue, le compte cherché par le mur (jamais db.users)",
-    /const preparerDevis = async \(p\) => \{\s*if \(refuserSaufProprietaire\(profile, p\.commercial/.test(prospectsJsx)
+    // RETOURNÉ le 15/11/2026 (« Les trois, lance ») : le droit passe par LA règle
+    // (commercial de la fiche, administrateur, resp. commercial pour son équipe).
+    /const preparerDevis = async \(p\) => \{[\s\S]{0,500}?if \(!peutPreparerDevisDuProspect\(profile, p, personnes, auteurs\)\) \{/.test(prospectsJsx)
     && /lireAppareils\(p\.nature \|\| "", catalogueAppareils\(db, profile\)\)/.test(prospectsJsx)
     && /comptesAvecCeNumero\(db, profile, p\.tel\)\.find\(\(u\) => u\.role === "client"\)/.test(prospectsJsx)
     && /resumeLecture\(appareils\)/.test(prospectsJsx)

@@ -103,6 +103,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/comptesClients.js` | Les identifiants automatiques d'un compte client, les relances de devis |
 | `lib/identiteClient.js` | L'identifiant et le mot de passe d'un client, et **la comparaison de deux identifiants de connexion** (`memeIdentifiant`, lue par l'écran ET par le serveur) — **n'importe RIEN** |
 | `lib/clientsConnus.js` | Les clients que la boutique connaît déjà (proposés dans Ventes, Dettes, Travaux) |
+| `lib/commercialDuProspect.js` | 🧲 Le devis d'un prospect reste à son commercial : qui prépare le devis depuis la fiche (le responsable commercial pour son équipe), au nom de qui il est proposé, et le prospect d'un autre signalé à l'envoi |
 | `lib/typeClient.js` | 🛒 Client comptoir ou 🏗 client installation : le type lu sur chaque vente (devis, travaux, pose seule = installation), les deux listes de 📋 Clients, la coupe du total vendu dans 📋 Inventaire |
 | `lib/clientEntreprise.js` | Le prénom du client et l'entreprise qu'il représente (son répondant) : sur la fiche, la vente, la proforma, le devis, le reçu et le contrat |
 | `lib/libellesStatuts.js` | Les mots des statuts d'un devis et d'un chantier, écrits une fois (Tous les devis, Clients installés, fiche client) |

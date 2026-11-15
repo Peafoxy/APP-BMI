@@ -48,6 +48,7 @@ export const CHAPITRE = {
         ["Voir **ses** prospects", "Chaque commercial voit les siens"],
         ["Voir **tous** les prospects de l'espace", "Administrateur, responsable commercial, et tout **chef d'équipe** ⭐"],
         ["📅 Planifier une visite · 📞 Contacté · Relance · 📱 Relancer · 📦 Archiver · ↩ Réactiver · ✅ Convertir en client · 🗑 Supprimer", "**Le commercial rattaché au prospect**, et l'administrateur. Un chef d'équipe voit le prospect d'un autre, mais ne fait pas ces gestes à sa place."],
+        ["🔆 Préparer le devis", "**Le commercial rattaché au prospect**, l'administrateur, et **le responsable commercial pour les prospects de ses commerciaux** (ceux dont il est le parrain). Préparé par l'administrateur ou le responsable, le devis s'ouvre **au nom du commercial qui a enregistré le prospect** (« 👥 Devis établi pour », modifiable) : c'est ce nom qui porte la commission de la vente."],
         ["Réassigner à un autre commercial", "Administrateur, responsable commercial, chef d'équipe ⭐ — **avec le pouvoir « 🔁 Réaffecter les prospects »** (retirable dans 🔐 Pouvoirs, chapitre 2)"],
         ["Ajouter ou supprimer une **catégorie** de prospects", "**L'administrateur seul**"],
       ]}],

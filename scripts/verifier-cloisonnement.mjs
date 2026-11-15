@@ -14587,7 +14587,7 @@ titre("🏢 Le prénom du client et l'entreprise qu'il représente — son répo
     /\{clientDevis && \(\s*<div className="mt-2">\s*<ChampsEntreprise valeur=\{nouvClient\.entreprise\}/.test(pa) && /libelle="🏢 Entreprise cliente"/.test(pa)
     && /formulaireDepuisEntreprise\(c && c\.entreprise\)/.test(pa));
   test("★ le devis porte le prénom et l'entreprise, et la fiche du client aussi (ficheAvecIdentite, revérifié dans resoudreClientDevis)",
-    /const devis = devisEtabliPour\(\{ \.\.\.construire\(\), \.\.\.identite, \.\.\.\(prepare \? \{ prepare_par: prepare \} : \{\}\) \}, auteurChoisi, profile\);/.test(pa) /* RETOURNÉ 12/10/2026 : « Devis établi pour » */ && /ficheAvecIdentite\(compte, identite\)/.test(resoudre) && /critiqueEntreprise\(nouvClient\.entreprise\)/.test(resoudre));
+    /const devis = devisEtabliPour\(\{ \.\.\.construire\(\), \.\.\.identite, \.\.\.\(prepare \? \{ prepare_par: prepare \} : \{\}\) \}, auteurForce \|\| auteurChoisi, profile\);/.test(pa) /* RETOURNÉ 12/10/2026 : « Devis établi pour » ; 15/11/2026 : l'auteur choisi dans la question du prospect d'un autre */ && /ficheAvecIdentite\(compte, identite\)/.test(resoudre) && /critiqueEntreprise\(nouvClient\.entreprise\)/.test(resoudre));
   test("★ les accès vont au numéro du RÉPONDANT : l'envoi garde `compte.tel || nouvClient.tel`, jamais celui de l'entreprise",
     /const telClient = compte\.tel \|\| nouvClient\.tel;/.test(pa) && !/entreprise\.tel/.test(pa));
   const ve = lireE("src/screens/Ventes.jsx");
@@ -19391,6 +19391,53 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     test("★★ 🔔 la tournée de 7 h lit la table des prospects",
       /const TABLES = \[[^\]]*"prospects"/.test(readFileSync("api/rappels-du-matin.js", "utf8")));
   }
+}
+
+// ============ 🧲 LE DEVIS D'UN PROSPECT RESTE À SON COMMERCIAL (15/11/2026) ============
+{
+  const CP = await import(pathToFileURL(join(process.cwd(), "src/lib/commercialDuProspect.js")).href);
+  const timo = { id: "u_t", nom: "TIMO", role: "admin", actif: true };
+  const resp = { id: "u_r", nom: "RESP", role: "resp_commercial", actif: true };
+  const koffi = { id: "u_k", nom: "KOFFI", role: "commercial", actif: true, parrain_id: "u_r" };
+  const ama = { id: "u_a", nom: "AMA", role: "commercial", actif: true };
+  const personnes = [timo, resp, koffi, ama, { id: "c1", nom: "KOFFI", role: "client", actif: true }];
+  const auteursResp = [koffi];                    // ses commerciaux (parrain)
+  const auteursAdmin = [resp, koffi, ama];
+  const pK = { id: "p1", nom: "MR ERIC", tel: "+228 90 11 22 33", commercial: "KOFFI", date: "2026-11-10" };
+  const pA = { id: "p2", nom: "MME AFI", tel: "91000000", commercial: "AMA", date: "2026-11-11" };
+  test("★★★ 🧲 « 1 » : le responsable commercial prépare le devis d'un prospect de SON équipe (KOFFI), jamais celui d'un commercial qui n'est pas le sien (AMA) ; l'administrateur et le commercial de la fiche comme avant ; un autre commercial non",
+    CP.peutPreparerDevisDuProspect(resp, pK, personnes, auteursResp) === true
+    && CP.peutPreparerDevisDuProspect(resp, pA, personnes, auteursResp) === false
+    && CP.peutPreparerDevisDuProspect(timo, pA, personnes, auteursAdmin) === true
+    && CP.peutPreparerDevisDuProspect(koffi, pK, personnes, []) === true
+    && CP.peutPreparerDevisDuProspect(ama, pK, personnes, []) === false);
+  test("★★★ 🧲 « 2 » : préparé depuis la fiche par l'administrateur ou le responsable, le devis est PROPOSÉ au nom du commercial de la fiche ; par le commercial lui-même, rien ; un compte client du même nom n'est pas pris pour lui ; entre deux employés homonymes on ne devine pas",
+    CP.auteurProposePourProspect(timo, pK, personnes, auteursAdmin) === "u_k"
+    && CP.auteurProposePourProspect(resp, pK, personnes, auteursResp) === "u_k"
+    && CP.auteurProposePourProspect(koffi, pK, personnes, []) === ""
+    && CP.auteurProposePourProspect(resp, pA, personnes, auteursResp) === ""
+    && CP.compteDuCommercial(pK, personnes)?.id === "u_k"
+    && CP.compteDuCommercial(pK, [...personnes, { id: "u_k2", nom: "koffi", role: "vendeur", actif: true }]) === null);
+  const liste = [pK, pA, { id: "p3", tel: "90112233", commercial: "KOFFI", archive: true, date: "2026-11-12" },
+    { id: "p4", tel: "92000000", commercial: "Assistant BMI TOGO", source: "assistant_whatsapp", date: "2026-11-12" }];
+  test("★★★ 🧲 « 3 » : un devis au nom de RESP pour le numéro du prospect de KOFFI est signalé (8 derniers chiffres) ; au nom de KOFFI, rien ; une fiche archivée, une demande de l'assistant non prise, un numéro trop court ne signalent rien",
+    CP.prospectDUnAutre(liste, "90 11 22 33", resp)?.id === "p1"
+    && CP.prospectDUnAutre(liste, "90112233", koffi) === null
+    && CP.prospectDUnAutre([liste[2]], "90112233", resp) === null
+    && CP.prospectDUnAutre(liste, "92000000", resp) === null
+    && CP.prospectDUnAutre(liste, "2233", resp) === null);
+  const P = readFileSync("src/screens/Prospects.jsx", "utf8"), Pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
+  test("★★ 🧲 🧲 Prospects : le bouton 🔆 et le geste lisent LA règle (peutPreparerDevisDuProspect), et le devis part avec `auteur_propose`",
+    /onPreparerDevis && peutPreparer && \(/.test(P) && /if \(!peutPreparerDevisDuProspect\(profile, p, personnes, auteurs\)\)/.test(P) && /auteur_propose: auteurPropose/.test(P));
+  test("★★★ 🧲 le volet du devis pose l'auteur proposé (case « Devis établi pour »), et l'ENVOI comme l'IMPRESSION vérifient le prospect d'un autre AVANT de créer le compte ; l'auteur choisi dans la question est celui du devis",
+    /useState\(\(\) => auteurPropose\(devisAReprendre\)\)/.test(Pa)
+    && (Pa.match(/const autre = await verifierProspectDUnAutre\(\);\s*if \(!autre\) return;\s*const resolu = await resoudreClientDevis/g) || []).length === 2
+    && (Pa.match(/preparerLeDevis\(resolu, construire, autre\.auteur\)/g) || []).length === 2
+    && /\}, auteurForce \|\| auteurChoisi, profile\);/.test(Pa)
+    && /if \(devisStocke \|\| proprioBrouillon\) return \{ auteur: null \};/.test(Pa));
+  test("★★ 🧲 la règle n'importe rien, et la question dit à qui va la commission",
+    !/^import /m.test(readFileSync("src/lib/commercialDuProspect.js", "utf8"))
+    && /prospect de KOFFI/.test(CP.questionProspectDUnAutre(pK, "RESP", true)) && /commission/.test(CP.questionProspectDUnAutre(pK, "RESP", false)));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

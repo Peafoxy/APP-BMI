@@ -20,9 +20,11 @@ import { catalogueAppareils } from "../lib/appareils";
 import { rendezVousVisibles, visitesDuProspect, libelleStatut } from "../lib/rendezVous";
 import { commerciauxDesProspects, prospectsDuCommercial, marqueTerrain, aUnePosition, lienCarteTerrain, PHRASE_POSITION_NOTEE, PHRASE_POSITION_MAISON, positionMaisonDepuisGeste, avancementObjectif, ROLES_AVEC_OBJECTIF } from "../lib/activiteProspection";
 import { positionActuelle } from "../position";
+import { peutPreparerDevisDuProspect, auteurProposePourProspect } from "../lib/commercialDuProspect";
+import { auteursPossibles } from "./dimensionnement/devisCommun";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
-import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour, envoyerAvisNouveauContact } from "../lib/calculs";
+import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour, envoyerAvisNouveauContact, ONGLETS_ROLE } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
 // `commercialInitial` : pour le banc seul (l'écran rendu avec un commercial choisi).
@@ -187,13 +189,26 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // ⚠ LE MUR : le compte du client est cherché par `comptesAvecCeNumero`
   // (l'espace regardé), jamais dans db.users en entier.
   const preparerDevis = async (p) => {
-    if (refuserSaufProprietaire(profile, p.commercial, "Préparer le devis d'un prospect")) return;
+    // 🧲 15/11/2026 (« Les trois, lance ») : l'administrateur, le commercial de
+    // la fiche, et le responsable commercial pour un commercial de SON équipe —
+    // revérifié DANS le geste, sur la liste de l'espace regardé.
+    const personnes = utilisateursDeLEspace(db, profile);
+    const auteurs = auteursPossibles(personnes, profile, ONGLETS_ROLE);
+    if (!peutPreparerDevisDuProspect(profile, p, personnes, auteurs)) {
+      uAlert(`🔒 Préparer le devis d'un prospect : réservé à l'administrateur, au commercial rattaché${p.commercial ? ` (${p.commercial})` : ""} et à son responsable commercial.`);
+      return;
+    }
     if (!onPreparerDevis) return;
+    // Le devis est PROPOSÉ au nom du commercial de la fiche : c'est ce nom qui
+    // porte la commission. La case reste modifiable dans le devis.
+    const auteurPropose = auteurProposePourProspect(profile, p, personnes, auteurs);
+    const nomAuteur = auteurPropose ? (auteurs.find((u) => u.id === auteurPropose)?.nom || p.commercial) : "";
     const appareils = lireAppareils(p.nature || "", catalogueAppareils(db, profile));
     const compte = p.tel ? comptesAvecCeNumero(db, profile, p.tel).find((u) => u.role === "client") : null;
-    if (!await uConfirm(`Préparer le devis solaire de « ${p.nom} » ?\n\n${resumeLecture(appareils)}\n\n${compte ? `Client : le compte ${compte.nom}.` : "Le client n'a pas encore de compte : il sera créé à l'envoi du devis."}`)) return;
+    if (!await uConfirm(`Préparer le devis solaire de « ${p.nom} » ?\n\n${resumeLecture(appareils)}\n\n${compte ? `Client : le compte ${compte.nom}.` : "Le client n'a pas encore de compte : il sera créé à l'envoi du devis."}${nomAuteur ? `\n\n👥 Le devis sera établi au nom de ${nomAuteur}, qui a enregistré ce prospect : la commission lui revient. Vous pouvez le changer dans « Devis établi pour ».` : ""}`)) return;
     onPreparerDevis({
       depuis_prospect: true,
+      auteur_propose: auteurPropose,
       prospect_id: p.id,
       client: compte ? compte : { nom: p.nom, tel: p.tel },
       devis: { type_devis: "solaire", besoins: { appareils: appareils.map(({ nom, puissance, heures, qte }) => ({ nom, puissance, heures, qte })) } },
@@ -375,6 +390,9 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // TOUT — retrouvait la vraie file de relance de l'entreprise.
   const espace = espaceDuCompte(db, profile);
   const rdvVisibles = rendezVousVisibles(db.rendez_vous, profile, espace === true);
+  // 🧲 Qui prépare le devis d'un prospect (15/11/2026) : calculé UNE fois.
+  const personnesDevis = utilisateursDeLEspace(db, profile);
+  const auteursDevis = auteursPossibles(personnesDevis, profile, ONGLETS_ROLE);
   const prospectsDeLEspace = (db.prospects || []).filter((p) => espace === undefined || !!p.formation === espace);
   // 🎯 Mon objectif du mois (15/11/2026, « D a ») : les prospects enregistrés.
   const monObjectif = ROLES_AVEC_OBJECTIF.includes(profile.role)
@@ -607,6 +625,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
               const deplie = besoinDeplie === p.id;
               const fond = enRetard ? "bg-orange-50" : "";
               const sien = isAdmin || p.commercial === profile.nom;
+              const peutPreparer = peutPreparerDevisDuProspect(profile, p, personnesDevis, auteursDevis);
               return (
                 <Fragment key={p.id}>
                 {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026,
@@ -675,7 +694,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                     {estDemandeAssistant(p) && !p.archive && (
                       <BoutonRond icone="🙋" teinte="violet" titre="🙋 Prendre en charge" onClick={() => prendre(p)} />
                     )}
-                    {!p.archive && !p.converti && onPreparerDevis && sien && (
+                    {!p.archive && !p.converti && onPreparerDevis && peutPreparer && (
                       <BoutonRond icone="🔆" titre="🔆 Préparer le devis — le dimensionnement solaire s'ouvre avec les appareils lus dans le besoin" onClick={() => preparerDevis(p)} />
                     )}
                     {/* 📅 « Planifier une visite » (12/10/2026, Rendez-vous « G ») : ouvre

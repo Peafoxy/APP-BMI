@@ -15,6 +15,7 @@ import { envoiDevisDisponible, accesDejaEnvoyes, traceEnvoi, motifAttendu, messa
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { devisACompleter } from "../../lib/devisCfVisite";
 import { prospectAvecDevis } from "../../lib/prospects";
+import { prospectDUnAutre, questionProspectDUnAutre, CHOIX_AU_NOM_DE, CHOIX_GARDER } from "../../lib/commercialDuProspect";
 import { versEcran } from "../../lib/cibleNotification";
 import { apporteurVide, apporteurDepuisDevis, apporteurDuFormulaire, critiqueApporteur, baseApporteurSaisie, commissionApporteur, TAUX_APPORTEUR_DEFAUT } from "../../lib/apporteurDevis";
 
@@ -41,7 +42,7 @@ export function useEcrireBrouillonVolet(volet, profile, etat) {
   }, [volet, profile.id, texte]);
 }
 export const effacerBrouillonVolet = (volet, profile) => brouillonEffacer(cleBrouillonVolet(volet, profile));
-import { Field, inputCls, uAlert, uConfirm, uPrompt, ChampQuiGrandit, BoutonEnvoi, LIBELLE_ENVOI_EN_COURS } from "../../components/ui";
+import { Field, inputCls, uAlert, uConfirm, uPrompt, uChoix, ChampQuiGrandit, BoutonEnvoi, LIBELLE_ENVOI_EN_COURS } from "../../components/ui";
 import { ChampsEntreprise } from "../../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiquePrenom, critiqueEntreprise, champsCompteClient, champsIdentite, ficheAvecIdentite, nettoyerPrenom } from "../../lib/clientEntreprise";
 import { marqueEspace, memeNumero, remiseExigeAdmin, plafondRemise, bloquerSiLecture, refuserSaufAdmin, espaceDuCompte, espaceDeLaFiche, estBoutiqueFormation, stockActuel, idsClientsArchives, utilisateursDeLEspace, ONGLETS_ROLE } from "../../lib/calculs";
@@ -497,7 +498,14 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
   const devisStocke = idAReprendre
     ? ((db.users || []).find((u) => u.id === devisAReprendre?.client?.id)?.devis || []).find((x) => x.id === idAReprendre) || null
     : null;
-  const [auteurId, setAuteurId] = useState("");
+  // 🧲 Un devis préparé depuis la fiche d'un prospect (15/11/2026) est PROPOSÉ
+  // au nom du commercial qui l'a enregistré — la case reste modifiable.
+  const auteurPropose = (r) => (r?.depuis_prospect && r.auteur_propose && auteurs.some((u) => u.id === r.auteur_propose) ? r.auteur_propose : "");
+  const [auteurId, setAuteurId] = useState(() => auteurPropose(devisAReprendre));
+  useEffect(() => {
+    if (devisAReprendre?.depuis_prospect) setAuteurId(auteurPropose(devisAReprendre));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devisAReprendre]);
   // 📎 « Joindre le PDF du devis » : COCHÉE pour chaque devis (Timo, 23/10/2026,
   // « cocher joindre pdf par défaut » — RETOURNE le « A a » du 17/10, décochée).
   // Cochée, le devis part par `devis_pdf` avec son PDF ; si ça ne part pas, il
@@ -530,14 +538,42 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     return false;
   };
 
+  // 🧲 LE PROSPECT D'UN AUTRE (15/11/2026, « Les trois, lance ») : avant qu'un
+  // devis NEUF parte, si le numéro du client est celui d'un prospect enregistré
+  // par quelqu'un d'autre que l'auteur du devis, on le DIT — la commission va
+  // à celui dont le devis porte le nom. Qui peut établir pour autrui choisit
+  // (« au nom de KOFFI » / « garder ») ; les autres confirment. Une correction
+  // (l'auteur est fixé) et le brouillon d'un autre ne sont pas questionnés.
+  // Rend : false = on arrête ; sinon { auteur } (l'auteur à poser, ou null).
+  const verifierProspectDUnAutre = async () => {
+    if (devisStocke || proprioBrouillon) return { auteur: null };
+    const tel = clientDevis === "__nouveau__" ? nouvClient.tel
+      : (comptesClients.find((u) => u.id === clientDevis)?.tel || "");
+    const auteurActuel = auteurChoisi || profile;
+    const espace = espaceDevis;
+    const prospects = (db.prospects || []).filter((p) => espace === undefined || !!p.formation === espace);
+    const p = prospectDUnAutre(prospects, tel, auteurActuel);
+    if (!p) return { auteur: null };
+    const sonCompte = auteurs.find((u) => String(u.nom || "").trim().toLowerCase() === String(p.commercial || "").trim().toLowerCase()) || null;
+    if (sonCompte) {
+      const pourLui = CHOIX_AU_NOM_DE(sonCompte.nom), garder = CHOIX_GARDER(auteurActuel.nom);
+      const choix = await uChoix(questionProspectDUnAutre(p, auteurActuel.nom, true), [pourLui, garder]);
+      if (choix === pourLui) { setAuteurId(sonCompte.id); return { auteur: sonCompte }; }
+      return choix === garder ? { auteur: null } : false;
+    }
+    return (await uConfirm(questionProspectDUnAutre(p, auteurActuel.nom, false))) ? { auteur: null } : false;
+  };
+
   const envoyer = async ({ totalDevis, messageVide, construire, ligneEntete }) => {
     if (bloquerSiLecture(db, profile)) return;
     if (totalDevis <= 0) { uAlert(messageVide); return; }
     if (refusApporteur()) return;
     if (refusAuteur()) return;
+    const autre = await verifierProspectDUnAutre();
+    if (!autre) return;
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique);
     if (!resolu) return;
-    const prep = await preparerLeDevis(resolu, construire);
+    const prep = await preparerLeDevis(resolu, construire, autre.auteur);
     if (!prep) return;
     const { compte, motDePasse } = resolu;
     const { devis, idRemplace, dbEnvoi } = prep;
@@ -552,12 +588,12 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
 
   // Ce qui est commun à l'envoi et à l'impression : le devis au nom de son
   // auteur, le devis corrigé qu'un brouillon remplace, le brouillon retiré.
-  const preparerLeDevis = async (resolu, construire) => {
+  const preparerLeDevis = async (resolu, construire, auteurForce = null) => {
     const { compte, dbApres, identite } = resolu;
     // 📨 Un brouillon confié garde « préparé par » ; il part au nom de celui
     // qui l'envoie (décision Timo, 05/10/2026 : « celui qui envoie »).
     const prepare = brouillonRepris ? devisAReprendre?.devis?.prepare_par : null;
-    const devis = devisEtabliPour({ ...construire(), ...identite, ...(prepare ? { prepare_par: prepare } : {}) }, auteurChoisi, profile);
+    const devis = devisEtabliPour({ ...construire(), ...identite, ...(prepare ? { prepare_par: prepare } : {}) }, auteurForce || auteurChoisi, profile);
     // ✏️ Le brouillon d'une CORRECTION remplace le devis qu'il corrige (12/10/2026)
     // — s'il est encore modifiable chez ce client ; sinon il part comme un nouveau.
     let idRemplace = idAReprendre;
@@ -611,9 +647,11 @@ export function useEnvoiDevis({ db, save, profile, boutique, volet, devisARepren
     if (refusApporteur()) return;
     if (refusAuteur()) return;
     if (!clientDevis) { uAlert("Choisissez le client, ou « ➕ Nouveau client » avec son nom, son prénom et son numéro."); return; }
+    const autre = await verifierProspectDUnAutre();
+    if (!autre) return;
     const resolu = await resoudreClientDevis(db, clientDevis, nouvClient, profile, boutique, { sansAcces: true });
     if (!resolu) return;
-    const prep = await preparerLeDevis(resolu, construire);
+    const prep = await preparerLeDevis(resolu, construire, autre.auteur);
     if (!prep) return;
     const { compte } = resolu;
     const nom = compte.nom_base || compte.nom;
