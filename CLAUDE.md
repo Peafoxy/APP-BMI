@@ -52,11 +52,11 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 3112 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 3114 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
-npm run tester-notifications     # 107 : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret ; un clic mène à SA source : la cible, le repli, la personne visée ; un message automatique mène où l'on agit)
+npm run tester-notifications     # 108 : les notifications (liste A = messages, liste B = pour information, tournée du matin, le mur, un seul chemin, rien de secret ; un clic mène à SA source : la cible, le repli, la personne visée ; un message automatique mène où l'on agit)
 npm run verifier-ecran-stocks    # 21  : l'écran Stocks (liste Catégorie, Toutes d'office, colonne Article figée sur téléphone ; 🔒 Matériel réservé rendu, le mur, la réappro sur le disponible)
 npm run verifier-ecran-ventes    # 52  : l'argent dans l'écran Ventes, sa liste mesurée dans Chromium (clic, logo WhatsApp), une dette affichée pareil, l'historique qui défile et s'archive, « 💸 versée » dépliée : la ligne grandit, la colonne ne bouge pas
 npm run verifier-ecran-travaux   # 23  : l'écran 🛠 Travaux à crédit monté dans Chromium (chiffres, prestation, choix de l'article en tapant, titres des cases, colonnes unité / total, la remise sur un article jouée)
@@ -10845,6 +10845,9 @@ lit mal est pire qu'un banc absent).
   photos dedans, l'impression qui attend des photos servies en 1,5 s), éprouvé
   (les deux défauts remis : deux tombent) ; un contrôle RETOURNÉ dans
   `verifier-whatsapp` (trois documents qui se rendent). Aucun chapitre concerné.
+
+### 🛒 « VENDEUR DESTINATAIRE » : TOUTE PERSONNE QUI ENCAISSE AU COMPTOIR (15/11/2026)
+- Capture Timo (🛒 Nouvelle commande, la liste vide) : « actuellement pour les boutiques, c'est les gérants qui vendent… afficher toute personne capable d'encaisser une vente au comptoir (vendeur, gérant, administrateur) ». UNE règle, `destinatairesCommande(db, boutique)` / `ROLES_ENCAISSENT_COMPTOIR` (lib/espace.js) : les vendeurs et gérants de CETTE boutique, puis les administrateurs de son espace ; jamais un compte désactivé ou bloqué. Lue par l'écran (chaque nom avec son rôle, « — N'importe qui à la boutique — » d'office ; plus de lecture brute de `db.users` dans Commandes.jsx) ET par la notification (la personne visée + le gérant). 📥 Commandes reçues n'a pas bougé (l'administrateur voit tout ; les autres, les commandes sans destinataire ou à leur nom). Rien à coller. Bancs `verifier-cloisonnement` (+2, un RETOURNÉ — 0 lecture brute), `tester-notifications` (+1), éprouvés. Chapitre 5.
 
 ### 🧲 SUIVRE LES COMMERCIAUX QUI PROSPECTENT (15/11/2026, « Lance 1, 2 et 3 »)
 - Timo : « un responsable a-t-il tout ce qu'il faut pour suivre son équipe sur le terrain ?… je parle des commerciaux qui prospectent » → six manques dits, trois lancés. Règle pure **`lib/activiteProspection.js`** (sans import, rien d'écrit ; elle reçoit des listes DÉJÀ filtrées par l'espace regardé).

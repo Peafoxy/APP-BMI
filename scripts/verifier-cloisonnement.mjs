@@ -4722,7 +4722,28 @@ titre("Toute liste de PERSONNES passe par utilisateursDeLEspace (Salaires, Prosp
   // Utilisateurs : dernier admin actif ×2, bascule en masse (traverse exprès), suppression,
   // restreindre les admins, mots de passe en clair. MonEquipe : plus aucune (09/09/2026, les deux
   // listes passent par utilisateursDeLEspace). Parametres : sécurité (comptes auth), réinitialisation formation ×2.
-  const permis = { "Utilisateurs.jsx": 6, "Commandes.jsx": 1, "Clients.jsx": 1, "EspaceClient.jsx": 1, "Parametres.jsx": 3,
+  // 🛒 « Vendeur destinataire » (Timo, 15/11/2026) : toute personne qui peut
+  // encaisser au comptoir — vendeurs et gérants de LA boutique, puis les
+  // administrateurs de son espace ; jamais un bloqué, un désactivé, un autre
+  // espace, une autre boutique. UNE règle, lue par l'écran et la notification.
+  {
+    const E = await import("../src/lib/espace.js");
+    const dbC = { boutiques: [{ nom: "A" }, { nom: "B" }, { nom: "F", formation: true }], users: [
+      { id: "v", nom: "VEND", role: "vendeur", boutique: "A" }, { id: "g", nom: "GER", role: "gerant", boutique: "A" },
+      { id: "ad", nom: "ADM", role: "admin" }, { id: "gb", nom: "GERB", role: "gerant", boutique: "B" },
+      { id: "x", nom: "BLOQ", role: "gerant", boutique: "A", bloque: true }, { id: "y", nom: "OFF", role: "vendeur", boutique: "A", actif: false },
+      { id: "m", nom: "MAG", role: "magasinier", boutique: "A" }, { id: "af", nom: "ADMF", role: "admin", formation: true },
+      { id: "c", nom: "CLI", role: "client" } ] };
+    test("★ 🛒 Vendeur destinataire : vendeurs et gérants de la boutique, puis les administrateurs de son espace — rien d'autre",
+      E.destinatairesCommande(dbC, "A").map((u) => u.id).join() === "v,g,ad"
+      && E.destinatairesCommande(dbC, "B").map((u) => u.id).join() === "gb,ad"
+      && E.destinatairesCommande(dbC, "F").map((u) => u.id).join() === "af");
+    const cmdSrc = lit("src/screens/Commandes.jsx");
+    test("🛒 l'écran et la notification lisent CETTE règle (plus de liste maison de vendeurs)",
+      /const vendeursBoutique = destinatairesCommande\(db, boutique\)/.test(cmdSrc) && !/role === "vendeur" && u\.boutique === boutique/.test(cmdSrc)
+      && /destinatairesCommande\(apres, c\.boutique\)/.test(lit("src/lib/notifications.js")));
+  }
+  const permis = { "Utilisateurs.jsx": 6, "Commandes.jsx": 0, "Clients.jsx": 1, "EspaceClient.jsx": 1, "Parametres.jsx": 3,
     "ClientsInstalles.jsx": 1, "Messagerie.jsx": 0, "MonEquipe.jsx": 0, "Salaires.jsx": 0, "Prospects.jsx": 0 };
   const brut = /(?:db\.users|\(db\.users \|\| \[\]\))\.filter\(/g;
   for (const [f, n] of Object.entries(permis)) {

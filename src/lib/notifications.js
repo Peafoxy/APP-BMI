@@ -27,7 +27,7 @@ import { fmt, dFR, totalVente } from "./core";
 import { demandesDe, stockActuel, construireIndexDb, peutVoirFilClient } from "./calculs";
 import { clotureDepassee, estCloturee } from "./cloture";
 import { payeeParLeComptable } from "./validationDepenses";
-import { estCompteFormation, boutiqueEstFormation, personnesDeLEspace, idsDeLaBoutique, idsParRole, idsAdmins, idsAssistants } from "./espace";
+import { estCompteFormation, boutiqueEstFormation, personnesDeLEspace, idsDeLaBoutique, idsParRole, idsAdmins, idsAssistants, destinatairesCommande } from "./espace";
 import { fabriquerEnvoi, CAISSE_COMPTABLE } from "./rappels";
 import { TYPE_TRANSFERT_STOCK, STATUT_ATTENTE, STATUT_VALIDE, STATUT_REFUSE, libelleLignes } from "./transfertsStock";
 import { fiche as ficheArgent, soldeDuRetour, caissesDuRetour, nomDossier } from "./argentChantier";
@@ -175,15 +175,16 @@ export function infosDepuisDiff(avant, apres) {
     });
   }
 
-  // 2. Une commande d'un commercial, à valider par la boutique (le vendeur
-  //    visé s'il y en a un, sinon tous les vendeurs ; le gérant toujours).
+  // 2. Une commande d'un commercial, à valider par la boutique (la personne
+  //    visée s'il y en a une — vendeur, gérant ou administrateur, 15/11/2026 —,
+  //    sinon tous les vendeurs ; le gérant toujours).
   if (apres.commandes !== avant.commandes) {
     const deja = parId(avant.commandes);
     (apres.commandes || []).forEach((c) => {
       if (deja.has(c.id) || c.statut !== "en_attente") return;
       const formation = boutiqueEstFormation(apres, c.boutique);
       const vendeurs = c.vendeur_cible
-        ? personnesDeLEspace(apres, formation).filter((u) => u.role === "vendeur" && (u.id === c.vendeur_cible || u.nom === c.vendeur_cible)).map((u) => u.id)
+        ? destinatairesCommande(apres, c.boutique).filter((u) => u.id === c.vendeur_cible || u.nom === c.vendeur_cible).map((u) => u.id)
         : idsDeLaBoutique(apres, c.boutique, ["vendeur"]);
       const total = (c.articles || []).reduce((s, l) => s + Number(l.qte || 0) * Number(l.prix || l.prix_vente || 0), 0) - Number(c.remise || 0);
       pousser({

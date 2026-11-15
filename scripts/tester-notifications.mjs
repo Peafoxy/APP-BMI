@@ -149,6 +149,8 @@ titre("LISTE B — ravitaillement, transfert, commande, prime");
   test("★ commande sans vendeur visé → tous les vendeurs actifs de la boutique + le gérant (pas le compte bloqué, pas les admins), écran commandes, montant", eC.length === 1 && memes(eC[0].destinataires, ["vendD1", "vendD2", "gerantD"]) && eC[0].ecran === "commandes" && /200 000 F/.test(eC[0].texte.replace(/ | /g, " ")));
   const eC2 = seul(envoisDe(avant, avec(avant, { commandes: [{ ...cmd, id: "c2", vendeur_cible: "VEND D2" }] }), { id: "com1" }), "commande:");
   test("commande avec un vendeur visé → lui + le gérant seulement", eC2.length === 1 && memes(eC2[0].destinataires, ["vendD2", "gerantD"]));
+  const eC3 = seul(envoisDe(avant, avec(avant, { commandes: [{ ...cmd, id: "c3", vendeur_cible: "ADMIN R" }] }), { id: "com1" }), "commande:");
+  test("★ commande destinée à un ADMINISTRATEUR → lui + le gérant (15/11/2026)", eC3.length === 1 && memes(eC3[0].destinataires, ["adminR", "gerantD"]));
   test("une commande validée (changement de statut) n'est pas une nouvelle commande", seul(envoisDe(avec(avant, { commandes: [cmd] }), avec(avant, { commandes: [{ ...cmd, statut: "validee" }] })), "commande:").length === 0);
 
   const ch = { id: "ch1", nom: "Mensah", prenom: "Yao", equipe: [{ user_id: "tech1", nom: "TECH1", montant: 15000 }] };

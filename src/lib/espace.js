@@ -37,6 +37,19 @@ export const idsDeLaBoutique = (db, boutique, roles) =>
     .filter((u) => u.boutique === boutique && roles.includes(u.role))
     .map((u) => u.id);
 
+// 🛒 À QUI un commercial peut destiner sa commande (Timo, 15/11/2026 : « afficher
+// toute personne capable d'encaisser une vente au comptoir… vendeur, gérant,
+// administrateur » — dans ses boutiques ce sont les gérants qui vendent, la
+// liste « Vendeur destinataire » restait vide). Les vendeurs et gérants de
+// CETTE boutique, puis les administrateurs de son espace ; jamais un compte
+// désactivé ou bloqué. Lue par l'écran ET par la notification.
+export const ROLES_ENCAISSENT_COMPTOIR = ["vendeur", "gerant", "admin"];
+export const destinatairesCommande = (db, boutique) =>
+  personnesDeLEspace(db, boutiqueEstFormation(db, boutique))
+    .filter((u) => !u.bloque && (u.role === "admin" || ((u.role === "vendeur" || u.role === "gerant") && u.boutique === boutique)))
+    .sort((a, b) => ROLES_ENCAISSENT_COMPTOIR.indexOf(a.role) - ROLES_ENCAISSENT_COMPTOIR.indexOf(b.role)
+      || String(a.nom || "").localeCompare(String(b.nom || ""), "fr", { sensitivity: "base" }));
+
 // Les rôles demandés dans tout un espace (magasiniers, comptables, resp. commercial…).
 export const idsParRole = (db, formation, roles) =>
   personnesDeLEspace(db, formation).filter((u) => roles.includes(u.role)).map((u) => u.id);

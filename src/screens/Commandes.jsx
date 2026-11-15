@@ -11,6 +11,8 @@ import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, ListeArticles, PastillePaiement, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, plafondRemise } from "../lib/calculs";
+import { destinatairesCommande } from "../lib/espace";
+import { libelleRoleEmploye } from "../lib/comptesClients";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { SelecteurArticle } from "../components/SelecteurArticle";
 import { posesAEncaisser, libelleEncaissementPose, ACOMPTE_POSE_PCT } from "../lib/poseSeule";
@@ -75,7 +77,11 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preRempli]);
 
-  const vendeursBoutique = db.users.filter((u) => u.role === "vendeur" && u.boutique === boutique && u.actif !== false);
+  // 🛒 Toute personne qui peut encaisser au comptoir de CETTE boutique (Timo,
+  // 15/11/2026) : vendeurs, gérants, puis les administrateurs de son espace.
+  // UNE règle (lib/espace.js), lue aussi par la notification — et plus de
+  // lecture brute de db.users.
+  const vendeursBoutique = destinatairesCommande(db, boutique);
   const produitsFiltres = cat ? produits.filter((p) => (p.categorie || "Autre") === cat) : produits;
   const dansPanier = (pid) => panier.reduce((s, l) => s + (l.produit_id === pid ? Number(l.qte) : 0), 0);
   const dispoRestant = (p) => stockActuel(db, p) - dansPanier(p.id);
@@ -126,7 +132,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     const plafond = plafondRemise(db);
     if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
     setMsg("");
-    const dest = f.vendeurCible || "un vendeur disponible";
+    const dest = f.vendeurCible || "la première personne disponible à la boutique";
     if (!await uConfirm(`Envoyer cette commande (${panier.length} article(s), ${fmt(total)}) à ${boutique} pour ${dest} ?`)) return;
 
     const commande = {
@@ -219,9 +225,9 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
                 </select>
               </Field>
               <Field label="Vendeur destinataire">
-                <select className={inputCls} value={f.vendeurCible} onChange={(e) => setF({ ...f, vendeurCible: e.target.value })}>
-                  <option value="">— N'importe quel vendeur —</option>
-                  {vendeursBoutique.map((v) => <option key={v.id} value={v.nom}>{v.nom}</option>)}
+                <select data-vendeur-destinataire className={inputCls} value={f.vendeurCible} onChange={(e) => setF({ ...f, vendeurCible: e.target.value })}>
+                  <option value="">— N'importe qui à la boutique —</option>
+                  {vendeursBoutique.map((v) => <option key={v.id} value={v.nom}>{v.nom} — {libelleRoleEmploye(v)}</option>)}
                 </select>
               </Field>
               {Number(profile.taux_commission || 0) > 0 && (
