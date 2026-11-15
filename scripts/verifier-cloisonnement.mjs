@@ -19185,5 +19185,82 @@ titre("⚖️ LA PAGE « INFORMATIONS LÉGALES ET CONFIDENTIALITÉ » (14/11/202
     && /<LienInfosLegales duree=\{dureeConservation\(db\)\} \/>/.test(mes) && /"duree_conservation_ans",\n\];/.test(app));
 }
 
+// ============================================================
+// 🧲 SUIVRE LES COMMERCIAUX QUI PROSPECTENT (Timo, 15/11/2026 : « un
+// responsable a-t-il tout ce qu'il faut pour suivre son équipe sur le
+// terrain ? » → « Lance 1, 2 et 3 »)
+// ============================================================
+titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 👥 Commercial » de 🧲 Prospects, l'activité de la période dans 👑 Mon équipe");
+{
+  const sortieAP = join("node_modules", ".cache", `bmi-prospection-${process.pid}.mjs`);
+  let E = null, err = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-equipe.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieAP, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      plugins: [{ name: "sans-carte", setup(b) {
+        b.onResolve({ filter: /\/Carte(\.jsx)?$/ }, () => ({ path: "carte", namespace: "coquille" }));
+        b.onLoad({ filter: /.*/, namespace: "coquille" }, () => ({ contents: "export function CarteChoixPosition() { return null; }", loader: "js" }));
+      } }],
+      external: ["react", "react-dom", "react-dom/server"] });
+    E = await import(pathToFileURL(sortieAP).href);
+  } catch (e) { err = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieAP); } catch {}
+  test("🧲 la règle et les deux écrans se montent dans le banc" + (err ? ` (${err})` : ""), !!E && !!E.AP && typeof E.rendreProspects === "function");
+  if (E && E.AP) {
+    const AP = E.AP, auj = E.today();
+    const avant = new Date(Date.parse(auj.slice(0, 7) + "-01T00:00:00Z") - 2 * 86400000).toISOString().slice(0, 10);
+    const hier = new Date(Date.parse(auj + "T00:00:00Z") - 86400000).toISOString().slice(0, 10);
+    const timo = { id: "u_timo", nom: "TIMO", role: "admin", admin_principal: true, actif: true };
+    const resp = { id: "u_resp", nom: "RESP", role: "resp_commercial", actif: true };
+    const koffi = { id: "u_koffi", nom: "KOFFI", role: "commercial", actif: true };
+    const ama = { id: "u_ama", nom: "AMA", role: "commercial", actif: true };
+    const fama = { id: "u_fama", nom: "FAMA", role: "commercial", actif: true, formation: true };
+    const client = { id: "u_cli", nom: "AYOKO", role: "client", actif: true,
+      devis: [{ id: "d1", date: auj, par: "KOFFI", par_id: "u_koffi", statut: "propose", total: 100000 }, { id: "d2", date: avant, par: "KOFFI", par_id: "u_koffi", statut: "propose", total: 50000 }] };
+    const pr = (id, extra) => ({ id, nom: "P-" + id, tel: "9000000" + id.length, categorie: "Particulier", statut: "Favorable", interet: "Intéressé", date: auj, maj_le: auj, ...extra });
+    const db = {
+      boutiques: [{ id: "b1", nom: "DEMAKPOE" }], categories_prospects: [{ id: "c1", nom: "Particulier", actif: true }],
+      users: [timo, resp, koffi, ama, fama, client], ventes: [], dettes: [], depenses: [], messages: [], commandes: [], commerciaux: [], clients_installes: [],
+      prospects: [
+        pr("k1", { commercial: "KOFFI", nom: "KOFFI-UN", relance: hier, contacts: [{ date: auj, par: "KOFFI", note: "rappeler" }, { date: avant, par: "KOFFI", note: "vieux" }] }),
+        pr("k2", { commercial: "KOFFI", nom: "KOFFI-DEUX", date: avant, maj_le: avant }),
+        pr("k3", { commercial: "KOFFI", nom: "KOFFI-GAGNE", date: avant, converti: true, date_conversion: auj }),
+        pr("a1", { commercial: "AMA", nom: "AMA-UN" }),
+        pr("f1", { commercial: "FAMA", nom: "FORMATION-UN", formation: true }),
+      ],
+      rendez_vous: [
+        { id: "r1", type: "pro", visite: true, statut: "fait", date: auj, heure: "09:00", par_id: "u_resp", participants: ["u_koffi"], prospect_id: "k1", formation: false },
+        { id: "r2", type: "pro", visite: true, statut: "a_venir", date: auj, heure: "15:00", par_id: "u_resp", participants: ["u_koffi"], formation: false },
+      ],
+    };
+    const reelles = db.prospects.filter((p) => !p.formation);
+    const debut = auj.slice(0, 7) + "-01";
+    const a = AP.activiteProspection({ personne: koffi, prospects: reelles, rendezVous: db.rendez_vous, devis: client.devis, debut, fin: auj, aujourdhui: auj, estDormant: () => false });
+    test("★★★ l'activité de KOFFI sur le mois : 1 prospect enregistré (pas celui du mois d'avant), 1 contact noté, 1 visite FAITE (pas celle à venir), 1 devis établi, 1 client gagné ; aujourd'hui 2 actifs dont 1 à relancer",
+      a.enregistres === 1 && a.contacts === 1 && a.visites === 1 && a.devis === 1 && a.acquis === 1 && a.actifs === 2 && a.aRelancer === 1,
+      JSON.stringify({ ...a, personne: undefined }));
+    test("★★ la liste des commerciaux vient des prospects reçus (ordre alphabétique) ; un nom choisi ne garde que les siens, aucun nom = tous",
+      AP.commerciauxDesProspects(reelles).join(",") === "AMA,KOFFI" && AP.prospectsDuCommercial(reelles, "AMA").length === 1 && AP.prospectsDuCommercial(reelles, "").length === 4);
+    let hR = "", hK = "", hC = "", hE = "", errR = "";
+    try { hR = E.rendreProspects(db, resp); hK = E.rendreProspects(db, resp, "KOFFI"); hC = E.rendreProspects(db, koffi); hE = E.rendreEquipe(db, resp); }
+    catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
+    test("★★★ 🧲 Prospects, RESPONSABLE COMMERCIAL : la colonne « Commercial » et la liste « 👥 Commercial » sont là (avant : l'administrateur seul voyait à qui est chaque prospect)" + (errR ? ` (${errR})` : ""),
+      /data-filtre-commercial/.test(hR) && /data-commercial-du-prospect[^>]*>KOFFI</.test(hR) && /data-commercial-du-prospect[^>]*>AMA</.test(hR) && />Commercial<\/th>/.test(hR)
+      && /<option value="KOFFI">KOFFI \(3\)<\/option>/.test(hR));
+    test("★★★ KOFFI choisi : la liste ET les chiffres du haut ne comptent que les siens (2 actifs, plus AMA-UN) ; le titre le nomme",
+      /Tableau de bord commercial — KOFFI/.test(hK) && /Prospects de KOFFI \(2\)/.test(hK) && /KOFFI-UN/.test(hK) && !/AMA-UN/.test(hK)
+      && /text-slate-800">2<\/div><div class="text-xs text-slate-500 mt-1">Prospects actifs/.test(hK)
+      && /text-slate-800">3<\/div><div class="text-xs text-slate-500 mt-1">Prospects actifs/.test(hR));
+    test("★★ LE MUR : ni la liste ni le tableau ne montrent un prospect de formation à qui regarde le réel",
+      !/FORMATION-UN/.test(hR) && !/value="FAMA"/.test(hR) && !/data-prospection-de="FAMA"/.test(hE));
+    test("★★ un commercial ne voit que SES prospects : ni liste « 👥 Commercial », ni colonne",
+      !/data-filtre-commercial/.test(hC) && !/data-commercial-du-prospect/.test(hC) && /KOFFI-UN/.test(hC) && !/AMA-UN/.test(hC));
+    const ligneK = (hE.match(/<tr[^>]*data-prospection-de="KOFFI"[\s\S]*?<\/tr>/) || [""])[0].replace(/<[^>]+>/g, "|");
+    test("★★★ 👑 Mon équipe : le tableau « 🧲 Prospection » donne, pour KOFFI ce mois, 1 enregistré · 1 contact · 1 visite · 1 devis · 1 gagné · 2 actifs · 🔔 1 ; AMA y est aussi",
+      /data-activite-prospection/.test(hE) && /KOFFI\|+1\|+1\|+1\|+1\|+1\|+2\|+🔔 1\|/.test(ligneK) && /data-prospection-de="AMA"/.test(hE), ligneK);
+  }
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

@@ -18,12 +18,14 @@ import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
 import { rendezVousVisibles, visitesDuProspect, libelleStatut } from "../lib/rendezVous";
+import { commerciauxDesProspects, prospectsDuCommercial } from "../lib/activiteProspection";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
-export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirDevis, onPlanifierVisite }) {
+// `commercialInitial` : pour le banc seul (l'écran rendu avec un commercial choisi).
+export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirDevis, onPlanifierVisite, commercialInitial = "" }) {
   const estChef = !!profile.chef_equipe;
   const voitTout = isAdmin || estChef || profile.role === "resp_commercial";
   const categories = db.categories_prospects.filter((c) => c.actif !== false);
@@ -49,6 +51,10 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     return texteVariable(t);
   };
   const [filtreRelance, setFiltreRelance] = useState(false);
+  // 👥 UN SEUL COMMERCIAL À LA FOIS (Timo, 15/11/2026, « Lance 1, 2 et 3 ») :
+  // pour ceux qui voient toute l'équipe. « Tous » à chaque ouverture, rien de
+  // mémorisé ; le choix filtre la liste ET les quatre chiffres du haut.
+  const [commercialChoisi, setCommercialChoisi] = useState(commercialInitial);
   const [q, setQ] = useState("");
   // Le besoin d'UN prospect déplié à la fois (règle de dépliage de 💰 Ventes).
   const [besoinDeplie, setBesoinDeplie] = useState(null);
@@ -340,7 +346,11 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // TOUT — retrouvait la vraie file de relance de l'entreprise.
   const espace = espaceDuCompte(db, profile);
   const rdvVisibles = rendezVousVisibles(db.rendez_vous, profile, espace === true);
-  const tousProspects = (db.prospects || []).filter((p) => espace === undefined || !!p.formation === espace);
+  const prospectsDeLEspace = (db.prospects || []).filter((p) => espace === undefined || !!p.formation === espace);
+  const commerciaux = voitTout ? commerciauxDesProspects(prospectsDeLEspace) : [];
+  // Un nom qui n'a plus de prospect (réassigné entre-temps) ne filtre rien.
+  const commercialRegarde = voitTout && commerciaux.includes(commercialChoisi) ? commercialChoisi : "";
+  const tousProspects = prospectsDuCommercial(prospectsDeLEspace, commercialRegarde);
   const acquis = tousProspects.filter((p) => p.converti);
   const archives = tousProspects.filter((p) => p.archive && !p.converti);
   const dormants = tousProspects.filter(estDormant);
@@ -378,6 +388,8 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   // Du plus NOUVEAU au plus ancien (capture Timo, 03/10/2026 : « classer du
   // plus nouveau au plus ancien ») : la date du dernier devis, décroissante.
   const comptesAvecDevis = clientsSansSuiteDeLEspace(db, profile).filter((c) => prospectVisiblePour(c, profile, voitTout) && periode.dans(c.reference))
+    // 👥 Un commercial choisi : les comptes dont IL a établi un devis.
+    .filter((c) => !commercialRegarde || devisDuProspect(c.compte).some((d) => d.par === commercialRegarde))
     .sort((a, b) => String(b.reference).localeCompare(String(a.reference)));
   const [voirComptesDevis, setVoirComptesDevis] = useState(true);
 
@@ -387,7 +399,18 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     <div className="space-y-4">
       {/* ═══ Tableau de bord commercial ═══ */}
       <Panel>
-        <div className="font-bold mb-3">📊 Tableau de bord commercial</div>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div className="font-bold">📊 Tableau de bord commercial{commercialRegarde ? ` — ${commercialRegarde}` : ""}</div>
+          {voitTout && commerciaux.length > 1 && (
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+              👥 Commercial
+              <select data-filtre-commercial className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-800" value={commercialRegarde} onChange={(e) => setCommercialChoisi(e.target.value)}>
+                <option value="">Tous ({prospectsDeLEspace.length})</option>
+                {commerciaux.map((n) => <option key={n} value={n}>{n} ({prospectsDuCommercial(prospectsDeLEspace, n).length})</option>)}
+              </select>
+            </label>
+          )}
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
             <div className="text-2xl font-extrabold text-slate-800">{actifs.length}</div>
@@ -514,7 +537,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
-          <span className="font-bold text-slate-800">{isAdmin ? "Tous les prospects" : "Mes prospects"} ({liste.length})</span>
+          <span className="font-bold text-slate-800">{commercialRegarde ? `Prospects de ${commercialRegarde}` : voitTout ? "Tous les prospects" : "Mes prospects"} ({liste.length})</span>
           <div className="flex items-center gap-2 flex-wrap">
             <input className={champRecherche} placeholder="Rechercher…" value={q} onChange={(e) => setQ(e.target.value)} />
             {periode.selecteur}
@@ -537,7 +560,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
           </div>
         </div>
         <table className="w-full text-sm min-w-[900px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Date", "Numéro", "Catégorie / projet", "Localisation", "Avis", "Intérêt", "Relance", ...(isAdmin ? ["Commercial"] : []), ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Date", "Numéro", "Catégorie / projet", "Localisation", "Avis", "Intérêt", "Relance", ...(voitTout ? ["Commercial"] : []), ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</td></tr>}
             {listePage.map((p, i) => {
@@ -595,7 +618,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.interet === "Intéressé" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}>{p.interet}</span>
                   </td>
                   <td className={`px-3 py-2 whitespace-nowrap ${enRetard ? "text-orange-700 font-bold" : ""}`}>{p.relance ? dFR(p.relance) : "—"}</td>
-                  {isAdmin && <td className="px-3 py-2">{p.commercial}</td>}
+                  {voitTout && <td className="px-3 py-2" data-commercial-du-prospect>{p.commercial}</td>}
                   {/* Les gestes passent à la ligne au lieu de courir à droite
                       (capture Timo, 25/09/2026 : « ArchiverSuppr. » collés). */}
                   <CelluleActions largeur="min-w-[150px] max-w-[230px]">

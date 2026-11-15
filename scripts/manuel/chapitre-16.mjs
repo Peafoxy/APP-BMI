@@ -78,7 +78,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["👑 Équipe / 👑 Mon équipe", "Période (Ce mois / Cette année / Depuis le début) ; les tâches à valider ; **Performances par commercial** ; **⭐ Chefs d'équipe** ; **🤝 Apporteurs externes** ; en bas, **🧾 Historique des paiements de commission** (PDF, Excel, et le relevé d'une personne)."],
+        ["👑 Équipe / 👑 Mon équipe", "Période (Ce mois / Cette année / Depuis le début) ; les tâches à valider ; **Performances par commercial** ; **🧲 Prospection** (par personne, sur la période : prospects enregistrés, contacts notés, visites faites, devis établis, clients gagnés ; et la situation d'aujourd'hui : prospects actifs, 🔔 à relancer, 💤 dormants — une lecture, rien à saisir) ; **⭐ Chefs d'équipe** ; **🤝 Apporteurs externes** ; en bas, **🧾 Historique des paiements de commission** (PDF, Excel, et le relevé d'une personne)."],
         ["💵 Ma commission", "Chiffre d'affaires de la période, taux, commission à payer (tout ce qui reste dû, quelle que soit la période) ; les sommes en attente ; mon équipe ; **🧾 Historique de mes paiements** (commissions et primes d'installation, avec **📄 Télécharger mon relevé (PDF)**) ; mes primes d'installation ; le détail des ventes en attente."],
         ["🎯 Commerciaux", "Les agents, leur zone, leur objectif mensuel, et un classement par chiffre d'affaires."],
         ["💰 Primes remises", "Les demandes de prime adressées à la caisse de SA boutique, et l'historique des primes payées."],

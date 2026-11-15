@@ -35,7 +35,7 @@ export const GUIDE = {
       ["🛒 Nouvelle commande", "**Commercial** : composer le panier d'un client et l'envoyer à la boutique qui encaisse (chapitre 5)."],
       ["💰 Ventes", "**Responsable commercial** : vendre, faire une proforma, reprendre une vente pour en faire un devis (chapitre 5)."],
       ["🏠 Clients installés · ✅ Mes tâches", "Le chantier après la signature ; les tâches qu'on me donne (chapitre 15)."],
-      ["👑 Mon équipe", "**Responsable commercial**, et **commercial chef d'équipe ⭐** : les membres, leurs commissions, les apporteurs externes, les tâches (chapitre 16)."],
+      ["👑 Mon équipe", "**Responsable commercial**, et **commercial chef d'équipe ⭐** : les membres, leurs commissions, les apporteurs externes, les tâches, et le tableau **🧲 Prospection** qui dit ce que chacun a fait sur la période (chapitre 16). Dans 🧲 Prospects, la liste **« 👥 Commercial »** montre les prospects d'un seul commercial."],
       ["💵 Ma commission", "Ce qui m'est dû, et pourquoi c'est encore en attente (chapitre 16)."],
       ["🙋 Créer un client · 💬 Messages · 📲 WhatsApp", "Les clients et les conversations (chapitres 3 et 20)."],
       ["💵 Salaire", "**Responsable commercial** : sa paie (chapitre 18)."],

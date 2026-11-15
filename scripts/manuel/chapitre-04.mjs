@@ -51,15 +51,15 @@ export const CHAPITRE = {
         ["Réassigner à un autre commercial", "Administrateur, responsable commercial, chef d'équipe ⭐ — **avec le pouvoir « 🔁 Réaffecter les prospects »** (retirable dans 🔐 Pouvoirs, chapitre 2)"],
         ["Ajouter ou supprimer une **catégorie** de prospects", "**L'administrateur seul**"],
       ]}],
-      ["note", "Un prospect **appartient à un commercial** : celui qui l'a enregistré, ou celui à qui on l'a réassigné. C'est ce nom, colonne « Commercial » chez l'administrateur, qui décide qui peut le relancer, l'archiver, le convertir."],
+      ["note", "Un prospect **appartient à un commercial** : celui qui l'a enregistré, ou celui à qui on l'a réassigné. C'est ce nom, colonne « Commercial » chez ceux qui voient toute l'équipe (administrateur, responsable commercial, chef d'équipe ⭐), qui décide qui peut le relancer, l'archiver, le convertir."],
     ]},
 
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
-        ["**🧲 Prospects**, en haut", "« 📊 Tableau de bord commercial » : quatre cases — Prospects actifs · 🔔 À relancer aujourd'hui · 💤 Dormants · ✅ Taux de conversion — et le lien « Voir les N prospect(s) à relancer → »."],
+        ["**🧲 Prospects**, en haut", "« 📊 Tableau de bord commercial » : quatre cases — Prospects actifs · 🔔 À relancer aujourd'hui · 💤 Dormants · ✅ Taux de conversion — et le lien « Voir les N prospect(s) à relancer → ». **Pour qui voit toute l'équipe**, à droite du titre, la liste **« 👥 Commercial »** : « Tous » d'office ; un nom choisi ne garde que SES prospects — dans la liste comme dans les quatre cases — et le titre le nomme (« Prospects de KOFFI »). Rien n'est mémorisé."],
         ["**🧲 Prospects**, cadre du milieu", "Pour l'administrateur : « Catégories de prospects (gérées par l'administrateur) », les pastilles avec leur ×, « Nouvelle catégorie… » et « Ajouter ». Pour les autres : le formulaire **« Nouveau prospect »** et son bouton « ➕ Enregistrer le prospect »."],
-        ["**🧲 Prospects**, la liste", "« Mes prospects (N) » (ou « Tous les prospects (N) » pour l'administrateur), « Rechercher… », la liste de période (« Toute période » d'office), les boutons « Afficher les clients acquis (N) », « 💤 Dormants (N) », « 📦 Archivés (N) », « 🔔 À relancer (N) », puis le tableau, 50 lignes par page."],
+        ["**🧲 Prospects**, la liste", "« Mes prospects (N) » (ou « Tous les prospects (N) » pour qui voit toute l'équipe, « Prospects de KOFFI (N) » quand un commercial est choisi), « Rechercher… », la liste de période (« Toute période » d'office), les boutons « Afficher les clients acquis (N) », « 💤 Dormants (N) », « 📦 Archivés (N) », « 🔔 À relancer (N) », puis le tableau, 50 lignes par page."],
         ["**🙋 Créer un client**", "La case « Prospect » y crée un compte client ET une fiche de prospect en même temps (chapitre 3)."],
         ["**☀️ Dimensionnement / 📋 Tous les devis**", "Un devis validé pose « ⏳ Devis validé — attend le paiement » sur la fiche du prospect ; un devis encaissé le fait passer « Client acquis »."],
       ]}],
@@ -142,7 +142,7 @@ export const CHAPITRE = {
         ["Afficher les clients acquis (N)", "Remet les convertis dans la liste."],
         ["💤 Dormants (N) / 📦 Archivés (N) / 🔔 À relancer (N)", "Trois filtres ; un second clic revient à la liste active."],
         ["Le filtre de période", "Liste **« Toute période »** (d'office, à chaque ouverture), Aujourd'hui, Cette semaine, Ce mois, Cette année, ou **« ✏️ Personnaliser… »** avec deux dates, sur la DATE du prospect. La liste et son nombre la suivent, et les « Comptes avec devis » suivent la date de leur DERNIER devis. Le compteur « 🔔 À relancer (N) » regarde toujours tout : une relance en retard ne se cache pas derrière une période."],
-        ["Colonnes", "Nom (figé quand on fait défiler) · Date · Numéro · Catégorie / projet · Localisation (+ carte) · Avis (+ pastilles d'état) · Intérêt · Relance · Commercial (administrateur seulement) · les boutons."],
+        ["Colonnes", "Nom (figé quand on fait défiler) · Date · Numéro · Catégorie / projet · Localisation (+ carte) · Avis (+ pastilles d'état) · Intérêt · Relance · Commercial (administrateur, responsable commercial, chef d'équipe ⭐) · les boutons."],
         ["Relance", "Change la date de relance (pas pour l'administrateur)."],
         ["📱 Relancer", "N'apparaît que si la relance est en retard et que le prospect a un numéro. Une question, puis le message du numéro BMI, nommant le projet ; note automatique."],
         ["🎯 Projet", "Change le projet de la fiche (son commercial, l'administrateur)."],

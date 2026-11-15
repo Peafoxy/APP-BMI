@@ -22,3 +22,9 @@ export { genererHistoriqueCommissions } from "../src/pdf.js";
 import { HistoriquePaiements } from "../src/components/HistoriquePaiements.jsx";
 export { periodeHistorique } from "../src/components/HistoriquePaiements.jsx";
 export const rendreHistorique = (props) => renderToStaticMarkup(React.createElement(HistoriquePaiements, props));
+
+// 🧲 Suivre les commerciaux qui prospectent (15/11/2026, « Lance 1, 2 et 3 »).
+import { Prospects } from "../src/screens/Prospects.jsx";
+export * as AP from "../src/lib/activiteProspection.js";
+export const rendreProspects = (db, profile, commercialInitial = "") =>
+  renderToStaticMarkup(React.createElement(Prospects, { db, save: () => {}, profile, isAdmin: profile.role === "admin", commercialInitial }));

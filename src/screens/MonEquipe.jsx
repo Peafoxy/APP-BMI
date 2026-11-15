@@ -11,9 +11,11 @@ import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
 import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
-import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache, ROLES_TACHES} from "../lib/calculs";
+import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, estDormant, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache, ROLES_TACHES} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
 import { versEcran } from "../lib/cibleNotification";
+import { activitesDeLEquipe } from "../lib/activiteProspection";
+import { rendezVousVisibles } from "../lib/rendezVous";
 import { envoyerAvisCommissionPayee } from "../lib/commissionsDues";
 import { paiementsDeCommission, filtrerPaiements, voitTousLesPaiements, clesDuChef, cleUtilisateur, cleDApporteur } from "../lib/historiqueCommissions";
 import { HistoriquePaiements, telechargerHistorique, periodeHistorique } from "../components/HistoriquePaiements";
@@ -113,6 +115,20 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
       commandesAttente: commandesDeMonEspace.filter((c) => c.commercial === u.nom && c.statut === "en_attente").length,
     };
   }).sort((a, b) => b.ca - a.ca);
+
+  // 🧲 L'ACTIVITÉ DE PROSPECTION, PAR PERSONNE (Timo, 15/11/2026, « Lance 1, 2
+  // et 3 ») : ce qui a été FAIT sur la période — prospects enregistrés,
+  // contacts notés, visites faites, devis établis, clients gagnés — et ce qui
+  // attend aujourd'hui (à relancer, dormants). Une LECTURE (règle pure
+  // lib/activiteProspection.js), sur les listes de l'espace regardé.
+  const personnesDeLEspace = utilisateursDeLEspace(db, profile);
+  const prospection = activitesDeLEquipe({
+    personnes: personnesDeLEspace,
+    prospects: prospectsDeMonEspace,
+    rendezVous: rendezVousVisibles(db.rendez_vous, profile, regardeFormation),
+    devis: personnesDeLEspace.filter((u) => u.role === "client").flatMap((u) => u.devis || []),
+    debut, fin, aujourdhui: today(), estDormant,
+  });
 
   const totalCA = stats.reduce((s, x) => s + x.ca, 0);
   const totalDu = stats.reduce((s, x) => s + x.commissionDue, 0);
@@ -719,6 +735,32 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
           </tbody>
         </table>
       </div>
+      {prospection.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto" data-activite-prospection>
+          <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+            <div className="font-bold text-slate-800">🧲 Prospection — {periode === "mois" ? "ce mois" : periode === "annee" ? "cette année" : "depuis le début"}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Ce que chacun a fait sur la période. « À relancer » et « Dormants » montrent la situation d'<b>aujourd'hui</b>.</div>
+          </div>
+          <table className="w-full text-sm min-w-[760px]">
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Prospects enregistrés", "Contacts notés", "Visites faites", "Devis établis", "Clients gagnés", "Prospects actifs", "À relancer", "Dormants"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+            <tbody>
+              {prospection.map((a, i) => (
+                <tr key={a.personne.id} data-prospection-de={a.personne.nom} className={`border-t border-slate-100 ${classeLigneDepliable(false, i)}`}>
+                  <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(false, i), false)}`}>{a.personne.nom}{a.personne.chef_equipe ? " ⭐" : ""}</td>
+                  <td className="px-3 py-2 tabular-nums font-bold">{a.enregistres}</td>
+                  <td className="px-3 py-2 tabular-nums">{a.contacts}</td>
+                  <td className="px-3 py-2 tabular-nums">{a.visites}</td>
+                  <td className="px-3 py-2 tabular-nums">{a.devis}</td>
+                  <td className="px-3 py-2 tabular-nums font-bold text-green-700">{a.acquis}</td>
+                  <td className="px-3 py-2 tabular-nums">{a.actifs}</td>
+                  <td className={`px-3 py-2 tabular-nums ${a.aRelancer > 0 ? "font-bold text-orange-700" : "text-slate-400"}`}>{a.aRelancer > 0 ? `🔔 ${a.aRelancer}` : "—"}</td>
+                  <td className={`px-3 py-2 tabular-nums ${a.dormants > 0 ? "font-bold text-slate-700" : "text-slate-400"}`}>{a.dormants > 0 ? `💤 ${a.dormants}` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {chefs.length > 0 && (
         <div className="bg-white rounded-xl border border-amber-200 shadow-sm overflow-x-auto">
           <div className="px-4 py-3 font-bold text-amber-800 border-b border-amber-200 bg-amber-50 flex flex-wrap justify-between gap-2">

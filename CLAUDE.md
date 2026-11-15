@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 3092 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 3100 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -10845,6 +10845,12 @@ lit mal est pire qu'un banc absent).
   photos dedans, l'impression qui attend des photos servies en 1,5 s), éprouvé
   (les deux défauts remis : deux tombent) ; un contrôle RETOURNÉ dans
   `verifier-whatsapp` (trois documents qui se rendent). Aucun chapitre concerné.
+
+### 🧲 SUIVRE LES COMMERCIAUX QUI PROSPECTENT (15/11/2026, « Lance 1, 2 et 3 »)
+- Timo : « un responsable a-t-il tout ce qu'il faut pour suivre son équipe sur le terrain ?… je parle des commerciaux qui prospectent » → six manques dits, trois lancés. Règle pure **`lib/activiteProspection.js`** (sans import, rien d'écrit ; elle reçoit des listes DÉJÀ filtrées par l'espace regardé).
+- **« 1 »** 🧲 Prospects : la colonne « Commercial » pour tous ceux qui voient toute l'équipe (`voitTout` : administrateur, resp. commercial, chef d'équipe ⭐ — avant, l'administrateur seul). **« 2 » et « 3 »** : liste **« 👥 Commercial »** à droite de « 📊 Tableau de bord commercial » (`data-filtre-commercial`, dès deux noms ; « Tous » à chaque ouverture, rien de mémorisé) — elle filtre la liste, les quatre cases, les dormants / archivés / acquis et les « comptes avec devis » (par l'auteur du devis) ; le titre nomme le commercial. Prop `commercialInitial` pour le banc seul.
+- 👑 Mon équipe : tableau **« 🧲 Prospection — ce mois / cette année / depuis le début »** (`data-activite-prospection`, `activitesDeLEquipe`) : par personne, sur la période — prospects enregistrés (date de la fiche), contacts notés (« Je l'ai contacté », `contacts[].par`), visites FAITES où elle participait (📅 Rendez-vous), devis établis (`par_id`, sinon le nom), clients gagnés (`date_conversion`) — et AUJOURD'HUI : prospects actifs, 🔔 à relancer, 💤 dormants. Lignes : commerciaux et resp. commerciaux, plus toute personne qui a un prospect ou une activité.
+- ⚠ Limites dites à Timo : un contact n'est compté que si le commercial appuie sur « Je l'ai contacté » (20 gardés par prospect) ; une relance WhatsApp seule n'est pas un contact noté. **Pas construits (proposés, pas demandés)** : la position et l'heure réelles à l'enregistrement (« 4 », une forme de surveillance — à lui de trancher), un objectif de prospection (« 5 »), une alerte au responsable (« 6 »). Rien à coller. Banc `verifier-cloisonnement` (+8, les deux écrans RENDUS), éprouvé (colonne remise à l'administrateur seul, filtre retiré : deux tombent). Chapitres 4 et 16, guide commercial.
 
 ### ⌛ LE RAPPEL D'EXPIRATION D'UNE PROFORMA, AU 13e JOUR (15/11/2026, « Je veux juste un seul message à relancer entre 13ème et 14ème jour »)
 - Timo : « informer les clients qui ont demandé un proforma qu'après 15ème jour, le proforma devient caduc et que les prix sont à confirmer » → trois choix proposés → **un seul message, entre le 13e et le 14e jour**. Règle pure **`lib/rappelProforma.js`** (lisible par le serveur), envoyée par la **tournée de 7 h** (`rappelerLesProformas`, api/rappels-du-matin.js, qui lit désormais `proformas`). Modèle **`rappel_proforma_expiration`** (MARKETING, 5 trous : client, numéro, date — « 10/11/2026, modifiée le 13/11/2026 » si modifiée —, montant, fin ; `TEXTE_RAPPEL_PROFORMA`, **le texte proposé le 14/11, accepté par Timo : « Texte ok »**). **Serveur seul.**
