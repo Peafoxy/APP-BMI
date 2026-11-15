@@ -10433,6 +10433,40 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
       && /data-filtre-fideles/.test(ecranCl) && !/\.achats\s*>=/.test(ecranCl));
   }
 
+  // 🛒 / 🏗 CLIENT COMPTOIR OU CLIENT INSTALLATION (15/11/2026, « A a, B dans les 2 listes avec la valeur de chacune, C b et c »)
+  {
+    const TC = await import(pathToFileURL(join(process.cwd(), "src/lib/typeClient.js")).href);
+    const dbT = {
+      clients_installes: [{ id: "ch1", vente_id: "v4" }],
+      ventes: [
+        { id: "v1", boutique: "APESSITO", client: "KOFFI", tel: "90112233", date: "2026-11-01", articles: [{ nom: "Câble", qte: 1, pu: 5000 }] },
+        { id: "v2", boutique: "APESSITO", client: "KOFFI", tel: "90112233", date: "2026-11-03", caisse: "TERRAIN", articles: [{ nom: "Panneau", qte: 2, pu: 100000 }] },
+        { id: "v3", boutique: "APESSITO", client: "AMA", tel: "91000000", date: "2026-11-02", articles: [{ nom: "Lampe", qte: 1, pu: 3000 }] },
+        { id: "v4", boutique: "APESSITO", client: "ERIC", tel: "92000000", date: "2026-11-02", articles: [{ nom: "Batterie", qte: 1, pu: 400000 }] },
+        { id: "v5", boutique: "APESSITO", client: "SENA", tel: "93000000", date: "2026-11-04", depot_chantier: true, articles: [{ nom: "Convertisseur", qte: 1, pu: 250000, au_chantier: true }] },
+      ],
+      dettes: [{ id: "d1", boutique: "TERRAIN", boutique_pose: "APESSITO", pose_seule: true, client: "POUDAMA", tel: "94000000", date: "2026-11-05", montant: 300000, paye: 210000 }],
+    };
+    const cl = CC.clientsConnus(dbT, "APESSITO");
+    const de = (n) => cl.find((c) => c.nom === n);
+    const comptoir = TC.clientsDuType(cl, TC.TYPE_COMPTOIR), install = TC.clientsDuType(cl, TC.TYPE_INSTALLATION);
+    test("★ 🛒 / 🏗 une vente de devis (caisse DÉPÔT CHANTIER, dépôt chantier, ou citée par une fiche de chantier) est une INSTALLATION, le reste est du COMPTOIR ; une pose seule (une dette, sans vente) est une installation",
+      de("KOFFI").comptoir.total === 5000 && de("KOFFI").installation.total === 200000 && de("AMA").installation.total === 0 && de("AMA").comptoir.total === 3000
+      && de("ERIC").installation.total === 400000 && de("ERIC").comptoir.total === 0 && de("SENA").installation.total === 250000
+      && de("POUDAMA").installation.total === 300000 && de("POUDAMA").totalAchats === 300000 && de("POUDAMA").dette === 90000);
+    test("★ 🛒 / 🏗 « B » : un client qui a fait les deux est dans les DEUX listes, chacune avec SA valeur ; comptoir + installation = le total acheté de chacun",
+      comptoir.map((c) => c.nom).join(",") === "KOFFI,AMA" && comptoir[0].totalAchats === 5000 && comptoir[0].achats === 1
+      && install.map((c) => c.nom).join(",") === "ERIC,POUDAMA,SENA,KOFFI" && install.find((c) => c.nom === "KOFFI").totalAchats === 200000
+      && cl.every((c) => c.comptoir.total + c.installation.total === c.totalAchats)
+      && TC.totalDuType(cl, TC.TYPE_COMPTOIR) === 8000 && TC.totalDuType(cl, TC.TYPE_INSTALLATION) === 1150000);
+    const ecranT = readFileSync("src/screens/Clients.jsx", "utf8");
+    test("★ 🛒 / 🏗 « A a » : 📋 Clients propose « Clients comptoir » et « Clients installation » par LA règle (lib/typeClient.js, sans import), dit le total du type, et montre les deux parts sous le total d'un client qui a une installation",
+      /<option value=\{-2\}>🛒 Clients comptoir/.test(ecranT) && /<option value=\{-3\}>🏗 Clients installation/.test(ecranT)
+      && /clientsDuType\(connus, TYPE_COMPTOIR\)/.test(ecranT) && /clientsDuType\(connus, TYPE_INSTALLATION\)/.test(ecranT)
+      && /data-total-type/.test(ecranT) && /data-parts-client/.test(ecranT)
+      && !/^import /m.test(readFileSync("src/lib/typeClient.js", "utf8")));
+  }
+
   // ⚠ Timo, 15/09/2026 : « la présélection n'est pas possible avec le
   // numéro ? » — taper le numéro marchait dans la case du NOM, mais la case
   // du NUMÉRO ne proposait rien. C'est pourtant là qu'on tape un numéro.
@@ -17166,6 +17200,12 @@ titre("📋 L'inventaire de 💰 Ventes : ventes, recettes, dépenses, versement
       && inv.ventes.chantier.nb === 1 && inv.ventes.chantier.montant === 50000
       && inv.ventes.lignes.map((l) => `${l.moyen}:${l.nb}:${l.montant}`).join("|") === "Espèces:3:72000|Mobile Money (Flooz):1:8000|Crédit (dette):1:30000",
       JSON.stringify(inv.ventes.lignes));
+    test("★ 🛒 / 🏗 « C b » : le total vendu se coupe en COMPTOIR (60 000 F, 4 ventes) et INSTALLATION (la vente de devis, 50 000 F) — les deux parts font le total, et l'écran les écrit",
+      inv.ventes.parType.comptoir.montant === 60000 && inv.ventes.parType.comptoir.nb === 4
+      && inv.ventes.parType.installation.montant === 50000 && inv.ventes.parType.installation.nb === 1
+      && inv.ventes.parType.comptoir.montant + inv.ventes.parType.installation.montant === inv.ventes.total
+      && /data-inv-par-type/.test(readFileSync("src/screens/InventaireVentes.jsx", "utf8")),
+      JSON.stringify(inv.ventes.parType));
     const p = RI.deuxPoches(dbI, BQ, RI.totalVente, { du: J1, au: J2 });
     test("★★ les RECETTES : l'argent ENTRÉ (espèces 27 000 = ventes payées 22 000 + règlement 5 000 ; Flooz 8 000) — ni le crédit, ni la vente de devis ; la ligne Espèces est, au franc près, celle du tiroir (deuxPoches)",
       inv.recettes.total === 35000 && inv.recettes.especes === 27000 && inv.recettes.ventes === 30000 && inv.recettes.reglements === 5000

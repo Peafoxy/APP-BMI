@@ -25,6 +25,7 @@ import { dettesClassiques } from "./calculs.js";
 import { boutiqueDuDocument } from "./constants.js";
 import { chiffresTel, numeroComparable } from "./identiteClient.js";
 import { sansAccents } from "./suggestions.js";
+import { idsVentesDeChantier, typeDeVente, TYPE_INSTALLATION } from "./typeClient.js";
 
 // La clé qui regroupe deux lignes sous le MÊME client : le numéro d'abord
 // (les 8 derniers chiffres, `numeroComparable` — « +228 90 11 22 33 » et
@@ -55,7 +56,9 @@ export function clientsConnus(db, boutique) {
   const map = {};
   const ligne = (nom, tel, date) => {
     const cle = cleClient(nom, tel);
-    const c = (map[cle] ||= { cle, nom: nom || "(sans nom)", tel: tel || "", achats: 0, totalAchats: 0, dette: 0, derniere: date || "" });
+    const c = (map[cle] ||= { cle, nom: nom || "(sans nom)", tel: tel || "", achats: 0, totalAchats: 0, dette: 0, derniere: date || "",
+      // 🛒 / 🏗 La part de chaque TYPE (15/11/2026, lib/typeClient.js) : comptoir + installation = le total.
+      comptoir: { achats: 0, total: 0 }, installation: { achats: 0, total: 0 } });
     // Un client peut avoir été enregistré une fois sans numéro : dès qu'on
     // le connaît, on le garde.
     if (!c.tel && tel) c.tel = tel;
@@ -70,10 +73,14 @@ export function clientsConnus(db, boutique) {
     return c;
   };
 
+  const idsChantier = idsVentesDeChantier(db?.clients_installes);
   (db?.ventes || []).filter((v) => v.boutique === boutique && (v.client || v.tel)).forEach((v) => {
     const c = ligne(v.client, v.tel, v.date);
     c.achats += 1;
     c.totalAchats += totalVente(v);
+    const part = c[typeDeVente(v, idsChantier)];
+    part.achats += 1;
+    part.total += totalVente(v);
   });
 
   // Les réservations prépayées ne sont pas une dette (règle de 👥 Clients,
@@ -86,6 +93,13 @@ export function clientsConnus(db, boutique) {
   dettesClassiques(db || {}).filter((d) => (d.boutique === boutique || boutiqueDuDocument(d) === boutique) && (d.client || d.tel)).forEach((d) => {
     const c = ligne(d.client, d.tel, d.date);
     c.dette += Math.max(0, Number(d.montant || 0) - Number(d.paye || 0));
+    // 🔧 Une POSE SEULE n'a pas de vente : sa dette EST l'installation. Elle
+    // entre dans la part « installation » et dans le total acheté.
+    if (d.pose_seule) {
+      c[TYPE_INSTALLATION].achats += 1;
+      c[TYPE_INSTALLATION].total += Number(d.montant || 0);
+      c.totalAchats += Number(d.montant || 0);
+    }
   });
 
   return Object.values(map).sort((a, b) => String(b.derniere).localeCompare(String(a.derniere)));

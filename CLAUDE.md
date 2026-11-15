@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 3114 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 3118 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -2923,6 +2923,12 @@ lit mal est pire qu'un banc absent).
   coller. Banc (2 contrôles, éprouvé : dette comptée, tri retiré) ; un
   contrôle RETOURNÉ (la liste passe par `clientsFideles`). Chapitre 3 à jour
   (et son étape « WhatsApp » qui décrivait encore une conversation vide).
+
+### 🛒 / 🏗 CLIENT COMPTOIR OU CLIENT INSTALLATION (15/11/2026, « A a ; B il apparaît dans les 2 listes avec la valeur de chacune ; C b et c »)
+- Timo : « peut-on séparer les 2 types de client ? client au comptoir qui paie article et celui issu d'un devis d'installation ? ». Règle pure **`lib/typeClient.js`** (sans import), **rien d'écrit** : le type se LIT sur chaque vente. **Installation** = vente née d'un devis (`caisse` ≠ boutique, dépôt chantier, ou citée par une fiche de 🏠 Clients installés — `idsVentesDeChantier`), vente de 🛠 travaux, achat « 🏗 Chantier », reste d'un dépôt réceptionné, et une POSE SEULE (sa dette, sans vente) ; **comptoir** = le reste. ⚠ Un devis de matériel SEUL encaissé compte en installation (dit à Timo).
+- **« A a »** 📋 Clients seulement : la liste gagne « 🛒 Clients comptoir (N) » (−2) et « 🏗 Clients installation (N) » (−3) — `clientsDuType`, le total du type à côté du titre (`data-total-type`), la colonne renommée. **« B »** : `clientsConnus` porte `comptoir` et `installation` ({ achats, total }) ; un client qui a fait les deux est dans les DEUX listes avec SA valeur ; dans « Tous », les deux parts sous son total (`data-parts-client`). ⚠ Une pose seule entre désormais dans « Total acheté » (elle valait 0).
+- **« C b »** : 📋 Inventaire (et l'inventaire général, le CSV), bloc 1 : `ventes.parType` — « 🛒 Comptoir » et « 🏗 Installation », deux parts qui font le total vendu (`data-inv-par-type`). ⚠ Le tableau de bord et le PDF de l'inventaire ne les portent PAS (proposé). **« C c »** (des messages différents) : PAS construit — il faut des textes Meta, proposés à Timo, en attente.
+- Rien à coller. Banc `verifier-cloisonnement` (+4), éprouvé (la caisse DÉPÔT CHANTIER ignorée : trois tombent). Chapitres 3 et 5.
 
 ### 🗂 LA FICHE D'UN CLIENT DANS 📋 CLIENTS (05/10/2026, « b, lance »)
 - Capture Timo : « possible d'avoir l'historique des achats du client et

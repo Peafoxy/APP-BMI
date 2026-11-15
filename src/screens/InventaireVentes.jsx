@@ -129,6 +129,12 @@ export function InventaireVentes({ db, boutique, general = false, noms = [], ave
             {ventes.reprises.nb > 0 && <tr className="text-amber-800"><td className="py-1 pr-2">↩ Reprises faites dans la période</td><td className={montant}>{ventes.reprises.nb}</td><td className={montant}>− {fmt(ventes.reprises.montant)}</td></tr>}
             {ventes.reprises.nb > 0 && <tr className="font-bold"><td className="py-1 pr-2">Net</td><td /><td className={montant}>{fmt(ventes.net)}</td></tr>}
           </>} vide="Aucune vente sur cette période." />
+        {ventes.parType && ventes.nb > 0 && (
+          <div className="text-sm text-slate-800 mt-2 flex flex-wrap gap-x-6 gap-y-1" data-inv-par-type>
+            <span>🛒 Comptoir : <b>{fmt(ventes.parType.comptoir.montant)}</b> <span className="text-xs text-slate-500">({ventes.parType.comptoir.nb} vente{ventes.parType.comptoir.nb > 1 ? "s" : ""})</span></span>
+            <span>🏗 Installation : <b>{fmt(ventes.parType.installation.montant)}</b> <span className="text-xs text-slate-500">({ventes.parType.installation.nb} — devis, travaux, matériel de chantier)</span></span>
+          </div>
+        )}
         {ventes.chantier.nb > 0 && (
           <div className="text-xs text-slate-600 mt-1" data-inv-ventes-chantier>
             🏗 Dont {ventes.chantier.nb} vente{ventes.chantier.nb > 1 ? "s" : ""} issue{ventes.chantier.nb > 1 ? "s" : ""} d'un devis ({fmt(ventes.chantier.montant)}) : leur argent va dans la caisse 🏗 DÉPÔT CHANTIER, pas dans le tiroir de la boutique{general ? " (il est donc dans les recettes de la caisse DÉPÔT CHANTIER)" : ""}.

@@ -32,6 +32,7 @@ import { ventesParMoyen, activiteDuJour, clotureDe, DEBUT_REGLE_CLOTURE } from "
 import { deuxPoches, fondsAVerser, versementsDe, validationVersement, estRejete, libelleDestination, montantEncaisseVente, SOURCE_ESPECES } from "./versements.js";
 import { soldesMobiles } from "./caissesMobiles.js";
 import { caisseDeVente, boutiqueDuDocument, libelleCaisse, CATEGORIES_HORS_CHARGES, CATEGORIE_VERSEMENT, CATEGORIE_FONDS_CAISSE, CATEGORIE_REMISE_TIROIR, PAIEMENTS } from "./constants.js";
+import { idsVentesDeChantier, estVenteInstallation } from "./typeClient.js";
 import { estEnAttente, estRejetee, montantOrigine, sortDuTiroir } from "./validationDepenses.js";
 import { detteEnRetard, resteDette, joursDeDette } from "./rappels.js";
 import { ventesAuChiffre, estDepotChantier } from "./depotChantier.js";
@@ -127,7 +128,17 @@ export function inventaireVentes(db, boutique, totalVente, bornes, aujourdhui) {
   const reprises = toutesVentes.flatMap((v) => (Array.isArray(v.reprises) ? v.reprises : [])
     .filter((r) => dans(r.date) && !r.echange).map((r) => ({ ...r, vente: v.numero })));
   const montantReprises = somme(reprises, (r) => r.montant);
+  // 🛒 / 🏗 Le même total, coupé en deux (15/11/2026, « C b ») : ce qui est vendu
+  // au COMPTOIR et ce qui vient d'une INSTALLATION (devis, travaux, matériel
+  // puisé dans un dépôt chantier, reste d'un dépôt réceptionné).
+  const idsChantier = idsVentesDeChantier(db?.clients_installes);
+  const vInstall = ventes.filter((v) => estVenteInstallation(v, idsChantier));
+  const vComptoir = ventes.filter((v) => !estVenteInstallation(v, idsChantier));
   const sectionVentes = {
+    parType: {
+      comptoir: { nb: vComptoir.length, montant: ventesParMoyen(vComptoir, [], totalVente).totalVendu },
+      installation: { nb: vInstall.length, montant: ventesParMoyen(vInstall, [], totalVente).totalVendu },
+    },
     nb: ventes.length,
     lignes: vm.lignes.map((l) => ({ moyen: l.moyen, nb: l.nbVentes, montant: l.vendu })),
     total: vm.totalVendu,
@@ -328,6 +339,10 @@ export function inventaireGeneral(db, noms, totalVente, bornes, aujourdhui, { av
 
   // ---- 1. Ventes ----
   const ventes = {
+    parType: {
+      comptoir: { nb: tous((i) => i.ventes.parType.comptoir.nb), montant: tous((i) => i.ventes.parType.comptoir.montant) },
+      installation: { nb: tous((i) => i.ventes.parType.installation.nb), montant: tous((i) => i.ventes.parType.installation.montant) },
+    },
     nb: tous((i) => i.ventes.nb),
     lignes: fusionner(parBq.map((i) => i.ventes.lignes), "moyen", ["nb", "montant"]).sort(parMoyen),
     total: tous((i) => i.ventes.total),
@@ -473,6 +488,10 @@ export function lignesCsvInventaire(inv, dFR = (x) => x) {
   }
   inv.ventes.lignes.forEach((l) => r("Ventes", l.moyen, l.nb, l.montant));
   r("Ventes", "Total vendu", inv.ventes.nb, inv.ventes.total);
+  if (inv.ventes.parType) {
+    r("Ventes", "dont comptoir", inv.ventes.parType.comptoir.nb, inv.ventes.parType.comptoir.montant);
+    r("Ventes", "dont installation (devis, travaux, chantier)", inv.ventes.parType.installation.nb, inv.ventes.parType.installation.montant);
+  }
   if (inv.ventes.reprises.nb) r("Ventes", "Reprises faites dans la période", inv.ventes.reprises.nb, -inv.ventes.reprises.montant);
   r("Ventes", "Net", null, inv.ventes.net);
   if (inv.ventes.chantier.nb) r("Ventes", "dont devis encaissés dans la caisse DÉPÔT CHANTIER", inv.ventes.chantier.nb, inv.ventes.chantier.montant);
