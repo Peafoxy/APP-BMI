@@ -19266,6 +19266,13 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
       m1.heure === "10:42" && m1.lat === 6.131235 && m1.lng === 1.221235 && m1.precision === 12 && AP.aUnePosition(m1) && /maps\?q=6\.131235,1\.221235/.test(AP.lienCarteTerrain(m1))
       && m0.sans_position === true && !AP.aUnePosition(m0) && AP.lienCarteTerrain(m0) === "" && AP.marqueTerrain("x", { lat: 0, lng: 0 }).sans_position === true);
     const srcP = readFileSync("src/screens/Prospects.jsx", "utf8"), srcPos = readFileSync("src/position.js", "utf8");
+    // « c » (15/11/2026) : la position du geste remplit celle de la MAISON si rien n'a été choisi sur la carte.
+    const pm = AP.positionMaisonDepuisGeste({ id: "x" }, m1), pmVide = AP.positionMaisonDepuisGeste({ id: "x", lat: "", lng: "" }, m1);
+    test("★★★ 📍 « c » : sans point choisi sur la carte, l'endroit du geste devient la position du prospect (marquée automatique) ; un point choisi à la main n'est JAMAIS remplacé ; sans position, rien n'est posé",
+      pm.lat === 6.131235 && pm.lng === 1.221235 && pm.position_auto === true && pmVide.position_auto === true
+      && Object.keys(AP.positionMaisonDepuisGeste({ lat: 6.2, lng: 1.3 }, m1)).length === 0
+      && Object.keys(AP.positionMaisonDepuisGeste({}, m0)).length === 0
+      && /saisie: m, \.\.\.positionMaisonDepuisGeste\(x, m\)/.test(srcP) && /data-position-maison=\{p\.position_auto \? "auto" : "choisie"\}/.test(srcP) && /PHRASE_POSITION_MAISON\}/.test(srcP));
     test("★★ 📍 « A b » : l'enregistrement d'un prospect ET « Je l'ai contacté » demandent la position SANS attendre pour enregistrer (la marque est complétée ensuite) ; navigator.geolocation ne lève jamais",
       (srcP.match(/const attentePosition = positionActuelle\(\)/g) || []).length === 2 && (srcP.match(/attentePosition\.then\(/g) || []).length === 2
       && !/await attentePosition/.test(srcP) && /catch \{ rendre\(null\); \}/.test(srcPos) && /\(\) => rendre\(null\)/.test(srcPos));

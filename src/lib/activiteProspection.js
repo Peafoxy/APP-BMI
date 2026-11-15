@@ -90,9 +90,20 @@ export function marqueTerrain(heure, pos) {
 }
 export const aUnePosition = (m) => !!m && Number.isFinite(Number(m.lat)) && Number.isFinite(Number(m.lng)) && !m.sans_position;
 export const lienCarteTerrain = (m) => (aUnePosition(m) ? `https://www.google.com/maps?q=${m.lat},${m.lng}` : "");
+// « c » (15/11/2026) : la position de la MAISON (le point « 📍 Choisir sur la
+// carte », qui existe depuis toujours) se remplit d'office avec l'endroit du
+// geste quand le commercial n'a rien posé lui-même. Un point choisi à la main
+// n'est JAMAIS remplacé. `position_auto` dit d'où vient le point.
+export function positionMaisonDepuisGeste(prospect, marque) {
+  const p = prospect || {};
+  const dejaPose = Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)) && p.lat !== "" && p.lng !== "" && p.lat != null && p.lng != null;
+  if (dejaPose || !aUnePosition(marque)) return {};
+  return { lat: marque.lat, lng: marque.lng, position_auto: true };
+}
 // « C b » : l'administrateur, le responsable commercial et le chef d'équipe ⭐
 // — ceux qui voient toute l'équipe. L'écran passe `voitTout`.
 export const PHRASE_POSITION_NOTEE = "📍 L'heure et l'endroit où vous êtes sont notés avec ce geste (une seule fois, au moment où vous enregistrez), pour votre responsable.";
+export const PHRASE_POSITION_MAISON = "Sans point choisi sur la carte, l'endroit où vous êtes devient la position du prospect.";
 
 // ---- 5. L'OBJECTIF DE PROSPECTION DU MOIS ----
 // « D a » : un seul chiffre, les prospects ENREGISTRÉS dans le mois.

@@ -18,7 +18,7 @@ import { lireAppareils, resumeLecture } from "../lib/besoinSolaire";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
 import { catalogueAppareils } from "../lib/appareils";
 import { rendezVousVisibles, visitesDuProspect, libelleStatut } from "../lib/rendezVous";
-import { commerciauxDesProspects, prospectsDuCommercial, marqueTerrain, aUnePosition, lienCarteTerrain, PHRASE_POSITION_NOTEE, avancementObjectif, ROLES_AVEC_OBJECTIF } from "../lib/activiteProspection";
+import { commerciauxDesProspects, prospectsDuCommercial, marqueTerrain, aUnePosition, lienCarteTerrain, PHRASE_POSITION_NOTEE, PHRASE_POSITION_MAISON, positionMaisonDepuisGeste, avancementObjectif, ROLES_AVEC_OBJECTIF } from "../lib/activiteProspection";
 import { positionActuelle } from "../position";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
@@ -104,7 +104,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     const attentePosition = positionActuelle();
     const p = { id: uid(), date: today(), maj_le: today(), commercial: profile.nom, saisie: { heure: heureSaisie, en_attente: true }, ...f, projet: texteVariable(f.projet), ...marqueEspace(db, profile, f.boutique) };
     save({ ...db, prospects: [p, ...db.prospects] }, `Nouveau prospect « ${f.nom} » (${f.categorie}) — ${profile.nom}`);
-    attentePosition.then((pos) => save((e) => ({ ...e, prospects: (e.prospects || []).map((x) => (x.id === p.id ? { ...x, saisie: marqueTerrain(heureSaisie, pos) } : x)) })));
+    attentePosition.then((pos) => save((e) => ({ ...e, prospects: (e.prospects || []).map((x) => (x.id === p.id ? (() => { const m = marqueTerrain(heureSaisie, pos); return { ...x, saisie: m, ...positionMaisonDepuisGeste(x, m) }; })() : x)) })));
     setF(vide);
     setNouveauOuvert(false);
     setProjetLibre(false);
@@ -556,7 +556,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                 </Field>
                 <Field label="Date de relance"><input type="date" className={inputCls} value={f.relance} onChange={(e) => setF({ ...f, relance: e.target.value })} /></Field>
               </div>
-              <div className="mt-2 text-xs text-slate-500" data-position-notee>{PHRASE_POSITION_NOTEE}</div>
+              <div className="mt-2 text-xs text-slate-500" data-position-notee>{PHRASE_POSITION_NOTEE} {PHRASE_POSITION_MAISON}</div>
               {carteOuverte && (
                 <div className="mt-3">
                   <CarteChoixPosition lat={f.lat} lng={f.lng} onChoisir={(lat, lng) => setF((prev) => ({ ...prev, lat, lng }))} />
@@ -628,7 +628,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                   <td className="px-3 py-2">
                     {p.localisation || (p.lat ? "" : "—")}
                     {p.lat && p.lng && (
-                      <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-1 text-sky-700 underline text-xs whitespace-nowrap">📍 Voir sur la carte</a>
+                      <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-1 text-sky-700 underline text-xs whitespace-nowrap" data-position-maison={p.position_auto ? "auto" : "choisie"} title={p.position_auto ? "Position prise à l'enregistrement du prospect" : "Position choisie sur la carte"}>📍 Voir sur la carte{p.position_auto ? " (prise à l'enregistrement)" : ""}</a>
                     )}
                   </td>
                   <td className="px-3 py-2">
