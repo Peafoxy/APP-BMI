@@ -22,7 +22,7 @@ import { commerciauxDesProspects, prospectsDuCommercial, marqueTerrain, aUnePosi
 import { positionActuelle } from "../position";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
-import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour } from "../lib/calculs";
+import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour, envoyerAvisNouveauContact } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
 // `commercialInitial` : pour le banc seul (l'écran rendu avec un commercial choisi).
@@ -124,6 +124,9 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
       save((e) => ({ ...e, messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: f.tel, nom: f.nom, modele: envoi.modele, variables: envoi.variables, ref: { prospect_id: p.id }, donnerAuSender: true, envoi: r }) }));
       await uAlert(`✅ Prospect « ${f.nom} » enregistré.\n\n📲 Le message d'accueil est parti du numéro BMI.`);
     }
+    // 🆕 15/11/2026 : le chef d'équipe, le responsable commercial et les
+    // administrateurs sont prévenus par WhatsApp (jamais en formation).
+    envoyerAvisNouveauContact({ db: { ...db, prospects: [p, ...db.prospects] }, save, profile, type: "prospect", id: p.id, formation: !!p.formation });
   };
 
   const supprimer = async (p) => {
@@ -270,6 +273,8 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: user, envoi: r }) }));
     // ⚠ L'écran ne décrit jamais autre chose que ce qui vient de se passer
     // (leçon du 19/09) : la phrase dépend du chemin réellement emprunté.
+    // 🆕 15/11/2026 : l'encadrement est prévenu du nouveau client.
+    envoyerAvisNouveauContact({ db: { ...db, users: [...db.users, user], prospects: db.prospects.map((x) => (x.id === p.id ? prospectAcquis(x, { client_user_id: user.id }) : x)) }, save, profile, type: "client", id: user.id, formation: !!user.formation });
     uAlert(`✅ ${p.nom} est désormais client.${messageIdentifiants(p.nom, r) ? `\n\n${messageIdentifiants(p.nom, r)}` : ""}`);
   };
 

@@ -10,7 +10,8 @@
 import { PERTES_PCT_DEFAUT } from "./pompes.js";
 import { PRIX_RAIL_DEFAUT, LONGUEUR_RAIL_DEFAUT, prixRailDesBoutiques, longueurRailDesBoutiques } from "./choixSolaire.js";
 import { uid, normPaiement, lignesVente, caVente, totalVente, montantRepris, rabaisImpute, fmt, today, dFR, prochainNumeroDette, memeContenu, nouveauMessage, nouvelleDepense, SYSTEME, numeroBulletin } from "./core";
-import { envoiVirementSalaire, envoiPrimeInstallationPayee, envoiTacheAssignee, envoiTacheValidee } from "./whatsappModeles";
+import { envoiVirementSalaire, envoiPrimeInstallationPayee, envoiTacheAssignee, envoiTacheValidee, envoiNouveauContact } from "./whatsappModeles";
+import { destinatairesNouveauContact, contactDepuisRef } from "./nouveauContact";
 import { versEcran } from "./cibleNotification";
 import { libelleRoleEmploye } from "./comptesClients";
 import { mentionVirement, ficheParId } from "./banques";
@@ -1210,6 +1211,37 @@ export async function envoyerAvisTache({ db, save, profile, membre, tache, valid
     ref: { tache_user_id: fiche.id, tache_id: tache.id },
     noms: valide ? { titre: "Avis de tâche validée", sujet: "L'avis de tâche validée" } : { titre: "Avis de tâche", sujet: "L'avis de tâche" },
   });
+}
+
+// 🆕 L'AVIS D'UN NOUVEAU PROSPECT OU CLIENT (15/11/2026, « A a, B a, C b ») :
+// du numéro BMI, sans question ni repli, au chef ⭐ de celui qui enregistre,
+// au responsable commercial et aux administrateurs (lib/nouveauContact.js).
+// `db` = l'état APRÈS l'enregistrement (la fiche y est). ⚠ Le mur : rien en
+// formation. Pas de réseau → gardé 24 h, il repart seul (règle du 07/11) ;
+// un refus de WhatsApp (modèle pas encore approuvé…) ne dérange personne.
+// Rend le nombre d'avis partis.
+export async function envoyerAvisNouveauContact({ db, save, profile, type, id, formation }) {
+  if (formation) return 0;
+  const ref = { contact_type: type, contact_id: id };
+  const contact = contactDepuisRef(db, ref);
+  if (!contact) return 0;
+  const { envoyerModele, messagesAvecLigneEnvoi, signalerEnvoiImpossible } = await import("../whatsapp.js");
+  let partis = 0;
+  for (const u of destinatairesNouveauContact(db, profile, false)) {
+    try {
+      const envoi = envoiNouveauContact({ destinataire: u.nom_complet || u.nom, tel: u.tel, ...contact });
+      if (!envoi) continue;
+      const refLigne = { ...ref, contact_pour_id: u.id };
+      const r = await envoyerModele({ tel: u.tel, modele: envoi.modele, variables: envoi.variables, espaceFormation: false, sansRepli: true });
+      if (r.auto) {
+        partis += 1;
+        save((e) => ({ ...e, messages: messagesAvecLigneEnvoi(e.messages, { profile, tel: u.tel, nom: u.nom, modele: envoi.modele, variables: envoi.variables, ref: refLigne, envoi: r }) }));
+      } else if (r.reseau) {
+        await signalerEnvoiImpossible({ tel: u.tel, envoi, motif: r.motif, reessayable: true, ligne: { nom: u.nom, ref: refLigne, ecran: type === "prospect" ? "prospects" : "utilisateurs", cible: id } });
+      }
+    } catch (err) { console.error("[whatsapp] avis nouveau contact :", err); }
+  }
+  return partis;
 }
 
 // Toutes les demandes de prime en attente de validation, aplaties depuis

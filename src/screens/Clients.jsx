@@ -13,7 +13,7 @@ import { clientsConnus, clientsFideles, SEUILS_FIDELES } from "../lib/clientsCon
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonEnvoi, BoutonRond } from "../components/ui";
 import { FicheClient } from "../components/FicheClient";
-import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, estAdminPrincipal } from "../lib/calculs";
+import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, estAdminPrincipal, envoyerAvisNouveauContact } from "../lib/calculs";
 import { carteDe, porteursDeCarte, libellePctCarte, pctCommunCarte } from "../lib/carteFidelite";
 import { carteDepuisClientComptoir } from "../components/carteFidelite";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
@@ -102,6 +102,9 @@ export function CreerClient({ db, save, profile }) {
     const r = await envoyerIdentifiantsDuNumeroBmi({ nomAffiche: nom, identifiant, motDePasse, tel, role: "client", espaceFormation: !!user.formation, demanderConfirmation: uConfirm, prevenir: uAlert });
     if (r && r.auto) save((etat) => ({ ...etat, messages: messagesAvecLigneAcces(etat.messages, { profile, client: client, envoi: r }) }));
     const m = messageIdentifiants(nom, r); if (m) uAlert(m);
+    // 🆕 15/11/2026 : le chef d'équipe, le responsable commercial et les
+    // administrateurs sont prévenus par WhatsApp (jamais en formation).
+    envoyerAvisNouveauContact({ db: { ...db, users: [...db.users, client], prospects: nouveauxProspects }, save, profile, type: "client", id: client.id, formation: !!client.formation });
     // Le cadre vert dit PAR OÙ les accès sont partis : il écrivait « WhatsApp
     // s'est ouvert » en dur, faux depuis que le message part du numéro BMI
     // (22/09/2026 — la règle du 19/09 : l'écran ne décrit que ce qui vient de

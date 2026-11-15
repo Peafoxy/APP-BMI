@@ -118,7 +118,7 @@ export const CHAPITRE = {
         ["Numéro WhatsApp", "Le numéro du client, celui qui reçoit ses accès. Au moins 4 chiffres. Dès qu'il est reconnu : « ⚠ Déjà client : … »."],
         ["Client décidé", "Un compte, rien d'autre. Le client suivra son devis ou son installation."],
         ["Prospect", "Un compte **et** une fiche dans 🧲 Prospects (statut « Favorable », intérêt « Intéressé », note « Amené par VOUS »). Il entre dans la file de relance des commerciaux et en sort à son paiement."],
-        ["🙋 Créer + envoyer", "Crée le compte, prévient les administrateurs, envoie les accès."],
+        ["🙋 Créer + envoyer", "Crée le compte, envoie les accès, et prévient par WhatsApp (du numéro BMI) votre chef d'équipe ⭐, le responsable commercial et les administrateurs — jamais en formation."],
         ["Sera créé — 👤 … · 🔑 …", "L'aperçu de l'identifiant et du mot de passe, avant de cliquer."],
         ["✅ NOM créé — 👤 … · 🔑 …", "Le récapitulatif après création, avec la façon dont les accès sont partis."],
         ["Les clients que j'ai amenés (N)", "Vos clients à vous, avec « ↻ Renvoyer ses accès »."],

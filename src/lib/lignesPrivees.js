@@ -13,8 +13,9 @@
 // vente) : la ligne dit ce qui est parti ce jour-là, pas ce que la dette est
 // devenue depuis.
 // ============================================================
-import { envoiBon, envoiVirementSalaire, envoiRappelConfirmationSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, envoiFondsRemis, envoiRemiseApresVente, situationRemiseApresVente, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
+import { envoiBon, envoiVirementSalaire, envoiRappelConfirmationSalaire, envoiAvancement, envoiPrimeInstallationPayee, envoiDepenseRejetee, envoiDepenseValidee, envoiTacheAssignee, envoiTacheValidee, envoiAttestationDisponible, envoiFondsRemis, envoiRemiseApresVente, situationRemiseApresVente, envoiNouveauContact, ligneEnvoiModele, recuPdfDepuis } from "./whatsappModeles";
 import { remisParDe } from "./payeDirectement";
+import { contactDepuisRef } from "./nouveauContact";
 import { attestationDe, momentFermeture, nomDocument } from "./attestationSortie";
 import { suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense } from "./validationDepenses";
 import { libelleCaisse } from "./constants";
@@ -133,6 +134,14 @@ export function texteLignePrivee(m, db) {
     if (!u || !a) return "";
     const f = momentFermeture(a);
     const e = envoiAttestationDisponible({ employe: u.nom_complet || u.nom, tel: m.wa_numero || u.tel || "90000000", document: nomDocument(a), date: f.date, heure: f.heure });
+    return e ? ligneEnvoiModele(e.modele, e.variables) : "";
+  }
+  // 🆕 L'avis d'un nouveau prospect / client : recomposé depuis sa fiche.
+  if (m.wa_modele === "nouveau_contact") {
+    const pour = (db?.users || []).find((x) => x.id === m.contact_pour_id);
+    const c = contactDepuisRef(db || {}, m);
+    if (!pour || !c) return "";
+    const e = envoiNouveauContact({ destinataire: pour.nom_complet || pour.nom, tel: m.wa_numero || pour.tel || "90000000", ...c });
     return e ? ligneEnvoiModele(e.modele, e.variables) : "";
   }
   // ✅ L'avis d'une tâche : recomposé depuis la tâche, sur la fiche de la personne.

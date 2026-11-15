@@ -328,6 +328,10 @@ export const MODELES = {
   // — la personne qui a reçu l'argent est prévenue (lib/payeDirectement.js).
   fonds_remis: { categorie: "utility", variables: ["beneficiaire", "montant", "date", "moyen", "pour", "remis_par"] },
   tache_assignee: { categorie: "utility", variables: ["employe", "par", "tache", "details", "echeance"] },
+  // 🆕 15/11/2026 (« A a, B a, C b, texte ok ») : un prospect ou un client vient
+  // d'être enregistré — au chef d'équipe du commercial, au responsable
+  // commercial et aux administrateurs (lib/nouveauContact.js).
+  nouveau_contact: { categorie: "utility", variables: ["destinataire", "type", "nom", "tel", "par", "detail"] },
   // 💵 10/11/2026 (« A b, B les trois, C a, D… ») : l'argent remis par le DG
   // DANS le tiroir d'une boutique — au gérant à l'enregistrement, aux
   // administrateurs principaux quand il confirme l'avoir reçu. UTILITY.
@@ -445,6 +449,9 @@ export const MODELES_EN_SERVICE = [
   // service AVANT l'accord de Meta : d'ici là rien ne part (aucun repli), et
   // l'écran le dit.
   "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee",
+  // 15/11/2026 : l'avis d'un nouveau prospect / client à l'encadrement. En
+  // service AVANT l'accord de Meta : d'ici là rien ne part (aucun repli).
+  "nouveau_contact",
   // 22/10/2026 : l'argent remis directement à quelqu'un hors du personnel.
   // Rien ne part d'ici l'accord de Meta, et l'écran le dit.
   "fonds_remis",
@@ -538,12 +545,13 @@ export function texteAccesAffiche(m, lecteur, acces) {
 // ⚠ Décision « a : non » : les lignes écrites AVANT restent telles quelles.
 // 💸 03/10/2026 : l'avis de salaire aussi — un salaire ne se lit pas par les
 // collègues qui voient la conversation (celui qui a payé et le principal).
-export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "rappel_confirmation_salaire", "commission_due", "commission_payee", "avancement_employe", "prime_installation_payee", "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente"];
+export const MODELES_PRIVES = ["recu_vente", "recu_vente_detail", "recu_depot_chantier", "bon_reprise", "bon_retour", "virement_salaire", "virement_salaire_credit", "rappel_confirmation_salaire", "commission_due", "commission_payee", "avancement_employe", "prime_installation_payee", "depense_rejetee4", "depense_validee", "tache_assignee", "tache_validee", "attestation_disponible", "fonds_remis", "remise_apres_vente", "nouveau_contact"];
 const LIGNES_MASQUEES = {
   depense_rejetee4: "🔒 Avis de dépense rejetée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   depense_validee: "🔒 Avis de dépense validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   fonds_remis: "🔒 Avis d'argent remis envoyé — détail réservé à celui qui a saisi la dépense, à celui qui l'a envoyé et à l'administrateur principal.",
   tache_assignee: "🔒 Avis de tâche assignée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
+  nouveau_contact: "🔒 Avis de nouveau prospect ou client envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   tache_validee: "🔒 Avis de tâche validée envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   attestation_disponible: "🔒 Avis d'attestation de fin de contrat envoyé — détail réservé à celui qui l'a envoyé et à l'administrateur principal.",
   prime_installation_payee: "🔒 Avis de paiement d'une part d'installation envoyé — détail réservé à celui qui a payé et à l'administrateur principal.",
@@ -1049,6 +1057,7 @@ const LIGNES_ENVOI = {
   fonds_remis: ([beneficiaire, montant, date, moyen, pour, remisPar]) => `Avis d'argent remis envoyé à ${beneficiaire} : ${montant} le ${date}, en ${moyen}, pour : ${pour}. Remis par ${remisPar}.`,
   tache_assignee: ([employe, par, tache, details, echeance]) => `Avis de tâche envoyé à ${employe} (par ${par}) : ${tache}. Détails : ${details}. Échéance : ${echeance}.`,
   tache_validee: ([employe, par, tache]) => `Avis de tâche validée envoyé à ${employe} (par ${par}) : ${tache}.`,
+  nouveau_contact: ([destinataire, type, nom, tel, par, detail]) => `Avis de nouveau ${type} envoyé à ${destinataire} : ${nom}, numéro ${tel}, enregistré par ${par}. Détail : ${detail}.`,
   dotation_caisse: ([gerant, par, montant, boutique, source, motif]) => `Dotation de caisse annoncée à ${gerant} : ${montant} pour ${boutique} (${source}), par ${par}. Motif : ${motif}.`,
   dotation_caisse_recue: ([admin, gerant, montant, boutique, quand]) => `Avis envoyé à ${admin} : ${gerant} a confirmé avoir reçu la dotation de caisse de ${montant} pour ${boutique} le ${quand}.`,
   attestation_disponible: ([employe, document, date, heure]) => `Avis envoyé à ${employe} : son ${document} est disponible dans son espace ; accès fermé le ${date} à ${heure}.`,
@@ -2661,6 +2670,18 @@ export function envoiTacheAssignee({ employe, tel, tache, dFR }) {
   const details = sansPointFinal(tache.detail) || "aucun";
   const echeance = tache.echeance ? (texteVariable(d(tache.echeance)) || "aucune date fixée") : "aucune date fixée";
   return { modele: "tache_assignee", variables: [nom, par, titre, details, echeance] };
+}
+// ---- 🆕 UN NOUVEAU PROSPECT OU CLIENT (15/11/2026, « A a, B a, C b, texte ok ») ----
+// Le texte proposé et accepté par Timo, mot pour mot chez Meta. UTILITY.
+// {{2}} « prospect » ou « client » ; {{6}} son projet et son lieu, ou
+// « compte client créé ». Meta refuse un trou vide : « non précisé ».
+export const TEXTE_NOUVEAU_CONTACT = "Bonjour {{1}}, un nouveau {{2}} vient d'être enregistré dans BMI-Gestion : {{3}}, numéro {{4}}. Enregistré par {{5}}. Détail : {{6}}. Ouvrez l'application pour le suivre. BMI TOGO";
+export function envoiNouveauContact({ destinataire, tel, type, nom, telContact, par, detail }) {
+  const pour = texteVariable(destinataire), n = texteVariable(nom);
+  if (!pour || !n || !numeroWhatsApp(tel)) return null;
+  const t = type === "client" ? "client" : "prospect";
+  return { modele: "nouveau_contact", variables: [pour, t, n, texteVariable(telContact) || "non renseigné", texteVariable(par) || "BMI TOGO",
+    texteVariable(detail).replace(/[.\s]+$/, "") || "non précisé"] };
 }
 // ---- 📄 L'ATTESTATION DE FIN DE CONTRAT DISPONIBLE (14/10/2026, « C ok ») ----
 // Le texte proposé et accepté par Timo (« C ok »), mot pour mot chez Meta —

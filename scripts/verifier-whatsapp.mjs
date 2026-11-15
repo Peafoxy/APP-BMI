@@ -153,6 +153,8 @@ const ATTENDU = {
   // 22/10/2026 (« Ab, Bb, Cb, texte ok ») : l'argent remis directement à quelqu'un.
   fonds_remis: { categorie: "utility", n: 6 },
   tache_assignee: { categorie: "utility", n: 5 },
+  // 15/11/2026 (« A a, B a, C b, texte ok ») : un nouveau prospect / client, à l'encadrement.
+  nouveau_contact: { categorie: "utility", n: 6 },
   // 💵 10/11/2026 : la dotation de caisse (au gérant, puis au DG à la réception).
   dotation_caisse: { categorie: "utility", n: 6 },
   dotation_caisse_recue: { categorie: "utility", n: 6 },
@@ -165,7 +167,7 @@ const ATTENDU = {
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les soixante-quatre modèles sont là, et eux seuls (RETOURNÉ le 15/11/2026 : + `rappel_proforma_expiration`, le rappel d'expiration d'une proforma ; le 13/11/2026 au soir : + `proforma_modifiee_pdf`, la proforma modifiée renvoyée avec son PDF ; le 13/11/2026 : + `commission_payee`, la commission payée ; le 10/11/2026 : + `dotation_caisse` et `dotation_caisse_recue`, la dotation de caisse ; le 31/10/2026 : + `rappel_loyer_disponible`, le rappel au propriétaire ; + `rappel_confirmation_salaire`, la relance d'un salaire pas confirmé reçu ; le 29/10/2026 : + `remise_apres_vente`, la remise accordée après l'encaissement ; le 22/10/2026 : + `fonds_remis`, l'argent remis directement à quelqu'un ; le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les soixante-cinq modèles sont là, et eux seuls (RETOURNÉ le 15/11/2026 au soir : + `nouveau_contact`, l'avis d'un nouveau prospect / client ; le 15/11/2026 : + `rappel_proforma_expiration`, le rappel d'expiration d'une proforma ; le 13/11/2026 au soir : + `proforma_modifiee_pdf`, la proforma modifiée renvoyée avec son PDF ; le 13/11/2026 : + `commission_payee`, la commission payée ; le 10/11/2026 : + `dotation_caisse` et `dotation_caisse_recue`, la dotation de caisse ; le 31/10/2026 : + `rappel_loyer_disponible`, le rappel au propriétaire ; + `rappel_confirmation_salaire`, la relance d'un salaire pas confirmé reçu ; le 29/10/2026 : + `remise_apres_vente`, la remise accordée après l'encaissement ; le 22/10/2026 : + `fonds_remis`, l'argent remis directement à quelqu'un ; le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -1429,7 +1431,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 13/11/2026 au soir : + la proforma modifiée renvoyée avec son PDF ; le 13/11/2026 : + l'avis de commission payée ; le 10/11/2026 : + les deux avis de la dotation de caisse ; le 31/10/2026 : + le rappel du loyer disponible ; + la relance de confirmation d'un salaire ; le 29/10/2026 : + la remise après-vente ; le 22/10/2026 : + l'argent remis directement ; le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,commission_payee,demande_avis,depense_rejetee4,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,dotation_caisse,dotation_caisse_recue,fonds_remis,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,proforma_modifiee_pdf,proforma_pdf,rappel_confirmation_salaire,rappel_dette,rappel_echeance,rappel_entretien,rappel_loyer_disponible,rappel_proforma_expiration,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,remise_apres_vente,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,commission_payee,demande_avis,depense_rejetee4,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,dotation_caisse,dotation_caisse_recue,fonds_remis,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,nouveau_contact,prime_installation_payee,proforma,proforma_modifiee_pdf,proforma_pdf,rappel_confirmation_salaire,rappel_dette,rappel_echeance,rappel_entretien,rappel_loyer_disponible,rappel_proforma_expiration,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,remise_apres_vente,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3286,8 +3288,8 @@ test("★★ la ligne RANGÉE ne porte aucun détail (ni montant, ni article, ni
   && !/200 000|Panneau|espèces|BMID-2026-0099/.test(JSON.stringify(recu))
   && bon.wa_prive === true && bon.bon_vente_id === "V9" && bon.bon_numero === "REP-BMID-2026-0099-1" && /^🔒 Bon de reprise/.test(bon.texte || "") && !/50 000|Ne veut plus/.test(bon.texte || ""));
 // RETOURNÉ le 03/10/2026 : + l'avis de salaire (un salaire ne se lit pas par les collègues).
-test("★ les dix-neuf modèles privés (RETOURNÉ le 13/11/2026 : + la commission payée ; le 31/10/2026 : + la relance de confirmation d'un salaire ; le 29/10/2026 : + la remise après-vente ; le 22/10/2026 : + l'argent remis directement à quelqu'un ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement, la remise après-vente — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
-  M.MODELES_PRIVES.slice().sort().join(",") === "attestation_disponible,avancement_employe,bon_reprise,bon_retour,commission_due,commission_payee,depense_rejetee4,depense_validee,fonds_remis,prime_installation_payee,rappel_confirmation_salaire,recu_depot_chantier,recu_vente,recu_vente_detail,remise_apres_vente,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
+test("★ les vingt modèles privés (RETOURNÉ le 15/11/2026 : + l'avis d'un nouveau prospect / client ; le 13/11/2026 : + la commission payée ; le 31/10/2026 : + la relance de confirmation d'un salaire ; le 29/10/2026 : + la remise après-vente ; le 22/10/2026 : + l'argent remis directement à quelqu'un ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + le reçu de dépôt chantier ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avancement) : les deux reçus de vente, le bon de reprise, le bon de retour, les deux avis de salaire, la commission due, l'avancement, la remise après-vente — PAS le reçu d'un versement ni d'une réservation (décision de Timo)",
+  M.MODELES_PRIVES.slice().sort().join(",") === "attestation_disponible,avancement_employe,bon_reprise,bon_retour,commission_due,commission_payee,depense_rejetee4,depense_validee,fonds_remis,nouveau_contact,prime_installation_payee,rappel_confirmation_salaire,recu_depot_chantier,recu_vente,recu_vente_detail,remise_apres_vente,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit" && !M.lignePrivee("recu_reglement") && !M.lignePrivee("recu_reservation"));
 {
   // 💸 L'AVIS DE PAIEMENT D'UN SALAIRE (Timo, 03/10/2026, son texte).
   const eS = M.envoiVirementSalaire({ employe: "AKPOSSOGNA Kossiwa", tel: "90112233", mois: "octobre 2026", date: "2026-10-03", montant: 35000, moyen: "Espèces", reference: "BP-202610-ROBS", initiateur: { role: "Comptable", tel: "91123456" }, fmt: (n) => `${n} F`, dFR: (x) => x.split("-").reverse().join("/") });
@@ -8003,6 +8005,92 @@ console.log("\n87 ⌛ le rappel d'expiration d'une proforma, au 13e jour");
     && /"api\/rappels-du-matin\.js": \{ "maxDuration": 60 \}/.test(lire("vercel.json")) && /PDF joint/.test(ligne.texte));
   test("★ l'écran : « 🤖 Client prévenu de l'expiration le … » sous la proforma (💰 Ventes → 🧾 Proformas)",
     /data-proforma-rappel>\{phraseRappelProforma\(pf\)\}/.test(lire("src/screens/Ventes.jsx")));
+}
+
+// ---- 88 🆕 UN NOUVEAU PROSPECT OU CLIENT : L'ENCADREMENT EST PRÉVENU (15/11/2026, « A a, B a, C b, texte ok ») ----
+console.log("\n88 🆕 Nouveau prospect / client : l'avis WhatsApp au chef d'équipe, au responsable commercial, aux administrateurs");
+{
+  const NC = await import(pathToFileURL(join(process.cwd(), "src/lib/nouveauContact.js")).href);
+  const db88 = {
+    boutiques: [{ nom: "BMI DEMAKPOE" }, { nom: "DFORMATION", formation: true }],
+    users: [
+      { id: "TIMO", nom: "TIMO", role: "admin", principal: true, tel: "91130511" },
+      { id: "ad2", nom: "ADMIN2", nom_complet: "ADMIN Deux", role: "admin", tel: "90000002" },
+      { id: "rc", nom: "RESPCOM", role: "resp_commercial", tel: "90000003" },
+      { id: "chef", nom: "ALI", role: "commercial", chef_equipe: true, tel: "90000004" },
+      { id: "chef2", nom: "AUTRECHEF", role: "commercial", chef_equipe: true, tel: "90000005" },
+      { id: "k", nom: "KOSSI", role: "commercial", parrain_id: "chef", tel: "90000006" },
+      { id: "adoff", nom: "ADMINOFF", role: "admin", actif: false, tel: "90000007" },
+      { id: "adsans", nom: "ADMINSANS", role: "admin", tel: "" },
+      { id: "adform", nom: "ADMINFORM", role: "admin", formation: true, tel: "90000008" },
+      { id: "ge", nom: "ANGELE", role: "gerant", boutique: "BMI DEMAKPOE", tel: "90000009" },
+      { id: "cl", nom: "AYOKO90", nom_base: "AYOKO", role: "client", tel: "90222222", cree_par: "KOSSI" },
+    ],
+    prospects: [{ id: "p1", nom: "MR ERIC", tel: "90333333", commercial: "KOSSI", projet: "Installation solaire", localisation: "Agoè" }],
+    messages: [],
+  };
+  const kossi = db88.users.find((u) => u.id === "k");
+  const idsDe = (l) => l.map((u) => u.id).sort().join(",");
+  test("★★★ « A a, B a » : le chef ⭐ de CELUI QUI ENREGISTRE (pas l'autre chef), le responsable commercial, tous les administrateurs ; jamais un gérant, un compte désactivé, sans numéro ou de formation",
+    idsDe(NC.destinatairesNouveauContact(db88, kossi, false)) === "TIMO,ad2,chef,rc", idsDe(NC.destinatairesNouveauContact(db88, kossi, false)));
+  test("★★ jamais à celui qui enregistre lui-même ; un même numéro une seule fois",
+    idsDe(NC.destinatairesNouveauContact(db88, db88.users[0], false)) === "ad2,rc"
+    && idsDe(NC.destinatairesNouveauContact({ ...db88, users: db88.users.map((u) => (u.id === "rc" ? { ...u, tel: "+228 90 00 00 02" } : u)) }, kossi, false)).split(",").length === 3);
+  const c88 = NC.contactDepuisRef(db88, { contact_type: "prospect", contact_id: "p1" });
+  const e88 = M.envoiNouveauContact({ destinataire: "ADMIN Deux", tel: "90000002", ...c88 });
+  const remplir88 = (e, t) => e.variables.reduce((x, v, i) => x.split(`{{${i + 1}}}`).join(v), t);
+  test("★★★ le texte accepté par Timo, mot pour mot, six trous dans l'ordre (prospect : son projet et son lieu)",
+    remplir88(e88, M.TEXTE_NOUVEAU_CONTACT) === "Bonjour ADMIN Deux, un nouveau prospect vient d'être enregistré dans BMI-Gestion : MR ERIC, numéro 90333333. Enregistré par KOSSI. Détail : Installation solaire, Agoè. Ouvrez l'application pour le suivre. BMI TOGO",
+    remplir88(e88, M.TEXTE_NOUVEAU_CONTACT));
+  const cc88 = NC.contactDepuisRef(db88, { contact_type: "client", contact_id: "cl" });
+  test("★★ un client : « client », son nom d'origine, « compte client créé » (« prospect converti en client » après Convertir) ; un trou vide ne part jamais ; sans numéro du destinataire → rien",
+    M.envoiNouveauContact({ destinataire: "X", tel: "90000002", ...cc88 }).variables.join("|") === "X|client|AYOKO|90222222|KOSSI|compte client créé"
+    && NC.contactDepuisRef({ ...db88, prospects: [{ id: "p2", client_user_id: "cl", date_conversion: "2026-11-15" }] }, { contact_type: "client", contact_id: "cl" }).detail === "prospect converti en client"
+    && M.envoiNouveauContact({ destinataire: "X", tel: "90000002", type: "prospect", nom: "Y" }).variables.join("|") === "X|prospect|Y|non renseigné|BMI TOGO|non précisé"
+    && M.envoiNouveauContact({ destinataire: "X", tel: "", type: "prospect", nom: "Y" }) === null
+    && NC.contactDepuisRef(db88, { contact_type: "prospect", contact_id: "zz" }) === null);
+
+  // La VRAIE chaîne, le serveur joué.
+  const dossier88 = mkdtempSync(join(tmpdir(), "bmi-contact-"));
+  const faux88 = join(dossier88, "fauxClient.mjs");
+  writeFileSync(faux88, "export async function whatsappEnLigne(c) { (globalThis.__appels88 = globalThis.__appels88 || []).push(c); return { id: \"Y88\" + globalThis.__appels88.length, wamid: \"W88\" }; }");
+  const entree88 = join(dossier88, "entree.mjs");
+  writeFileSync(entree88, `export { envoyerAvisNouveauContact } from ${JSON.stringify(join(process.cwd(), "src/lib/calculs.js"))};\nexport { texteLignePrivee } from ${JSON.stringify(join(process.cwd(), "src/lib/lignesPrivees.js"))};\n`);
+  const sortie88 = join("node_modules", ".cache", `bmi-contact-${process.pid}.mjs`);
+  let C88 = null;
+  try {
+    await build({ entryPoints: [entree88], bundle: true, format: "esm", platform: "node", outfile: sortie88, logLevel: "silent", loader: { ".js": "jsx" }, external: ["react", "react-dom"],
+      plugins: [{ name: "faux-client", setup(b) { b.onResolve({ filter: /supabaseClient$/ }, () => ({ path: faux88 })); } }] });
+    C88 = await import(pathToFileURL(sortie88).href);
+  } catch (e) { console.log("   (build de l'avis nouveau contact : " + (e?.message || e) + ")"); }
+  test("le paquet de l'avis se construit", !!C88);
+  if (C88) {
+    globalThis.__appels88 = [];
+    let etat = { ...db88 };
+    const save88 = (x) => { etat = typeof x === "function" ? x(etat) : x; };
+    const n = await C88.envoyerAvisNouveauContact({ db: db88, save: save88, profile: kossi, type: "prospect", id: "p1", formation: false });
+    const lignes = (etat.messages || []).filter((m) => m.wa_modele === "nouveau_contact");
+    test("★★★ LA VRAIE CHAÎNE : quatre avis partent du numéro BMI sans question (chef, responsable commercial, deux administrateurs), une ligne PRIVÉE chacun, sans le nom ni le numéro du prospect",
+      n === 4 && globalThis.__appels88.length === 4 && globalThis.__appels88.every((c) => c.modele === "nouveau_contact")
+      && lignes.length === 4 && lignes.every((m) => m.wa_prive === true && m.contact_id === "p1" && m.contact_type === "prospect" && !!m.contact_pour_id && !/ERIC|90333333/.test(m.texte || "") && !m.proprietaire_id),
+      `${n} | ${globalThis.__appels88.length} | ${JSON.stringify(lignes[0] || {})}`);
+    const l88 = lignes.find((m) => m.contact_pour_id === "ad2") || {};
+    test("★★ le détail se RECOMPOSE depuis la fiche du prospect (même fabrique que l'envoi) ; fiche disparue → plus de détail",
+      /Avis de nouveau prospect envoyé à ADMIN Deux : MR ERIC, numéro 90333333, enregistré par KOSSI\. Détail : Installation solaire, Agoè\.$/.test(C88.texteLignePrivee(l88, etat))
+      && C88.texteLignePrivee(l88, { ...etat, prospects: [] }) === "", C88.texteLignePrivee(l88, etat));
+    globalThis.__appels88 = [];
+    // ⚠ Une AUTRE fiche : le même message serait refusé par le filet anti-doublon, et le contrôle passerait sans rien prouver.
+    const dbF88 = { ...db88, prospects: [...db88.prospects, { id: "pf", nom: "ELEVE ESSAI", tel: "90444444", commercial: "KOSSI", projet: "Forage", formation: true }] };
+    const nf = await C88.envoyerAvisNouveauContact({ db: dbF88, save: save88, profile: kossi, type: "prospect", id: "pf", formation: true });
+    test("★★★ LE MUR : une fiche de formation n'envoie rien", nf === 0 && globalThis.__appels88.length === 0);
+  }
+  const ecP = lire("src/screens/Prospects.jsx"), ecC = lire("src/screens/Clients.jsx");
+  test("★★ « C b » : l'avis part de 🧲 Prospects (nouveau prospect, Convertir) et de 🙋 Créer un client, avec l'espace de la FICHE — et de nulle part ailleurs",
+    /envoyerAvisNouveauContact\(\{[^;]*type: "prospect", id: p\.id, formation: !!p\.formation \}\)/.test(ecP)
+    && /envoyerAvisNouveauContact\(\{[^;]*type: "client", id: user\.id, formation: !!user\.formation \}\)/.test(ecP)
+    && /envoyerAvisNouveauContact\(\{[^;]*type: "client", id: client\.id, formation: !!client\.formation \}\)/.test(ecC)
+    && ["Utilisateurs.jsx", "ClientsInstalles.jsx", "dimensionnement/Partages.jsx"].every((f) => !/envoyerAvisNouveauContact/.test(lire(`src/screens/${f}`)))
+    && !/nouveau_contact|envoyerAvisNouveauContact/.test(lire("api/whatsapp-entrant.js")));
 }
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

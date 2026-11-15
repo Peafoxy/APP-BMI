@@ -426,6 +426,7 @@ export function messagesAvecLigneEnvoi(messages, { profile, tel, nom, modele, va
     ...(ref && ref.rdv_id ? { rdv_id: ref.rdv_id } : {}),
     ...(ref && ref.depense_id ? { depense_id: ref.depense_id } : {}),
     ...(ref && ref.tache_id ? { tache_user_id: ref.tache_user_id, tache_id: ref.tache_id } : {}),
+    ...(ref && ref.contact_id ? { contact_type: ref.contact_type, contact_id: ref.contact_id, contact_pour_id: ref.contact_pour_id } : {}),
     ...(ref && ref.prime_user_id ? { chantier_id: ref.chantier_id, prime_user_id: ref.prime_user_id } : {}),
     // 🏗 07/11/2026 : le lien du PV, l'avenant… gardent leur chantier — la
     // fiche sait ainsi si son lien est vraiment parti du numéro BMI.
