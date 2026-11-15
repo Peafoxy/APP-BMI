@@ -161,10 +161,11 @@ const ATTENDU = {
   attestation_disponible: { categorie: "utility", n: 5 },
   visite_chef: { categorie: "utility", n: 9 },
   rappel_visite_chef: { categorie: "utility", n: 8 },
+  rappel_proforma_expiration: { categorie: "marketing", n: 5 },
 };
 // ⚠ RETOURNÉ le 23/09/2026 : DIX modèles — les trois de Timo (mot de fidélité
 // avec et sans espace, reçu de vente) s'ajoutent aux sept.
-test("les soixante-trois modèles sont là, et eux seuls (RETOURNÉ le 13/11/2026 au soir : + `proforma_modifiee_pdf`, la proforma modifiée renvoyée avec son PDF ; le 13/11/2026 : + `commission_payee`, la commission payée ; le 10/11/2026 : + `dotation_caisse` et `dotation_caisse_recue`, la dotation de caisse ; le 31/10/2026 : + `rappel_loyer_disponible`, le rappel au propriétaire ; + `rappel_confirmation_salaire`, la relance d'un salaire pas confirmé reçu ; le 29/10/2026 : + `remise_apres_vente`, la remise accordée après l'encaissement ; le 22/10/2026 : + `fonds_remis`, l'argent remis directement à quelqu'un ; le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
+test("les soixante-quatre modèles sont là, et eux seuls (RETOURNÉ le 15/11/2026 : + `rappel_proforma_expiration`, le rappel d'expiration d'une proforma ; le 13/11/2026 au soir : + `proforma_modifiee_pdf`, la proforma modifiée renvoyée avec son PDF ; le 13/11/2026 : + `commission_payee`, la commission payée ; le 10/11/2026 : + `dotation_caisse` et `dotation_caisse_recue`, la dotation de caisse ; le 31/10/2026 : + `rappel_loyer_disponible`, le rappel au propriétaire ; + `rappel_confirmation_salaire`, la relance d'un salaire pas confirmé reçu ; le 29/10/2026 : + `remise_apres_vente`, la remise accordée après l'encaissement ; le 22/10/2026 : + `fonds_remis`, l'argent remis directement à quelqu'un ; le 19/10/2026 : + `recu_pdf` et `proforma_pdf`, le reçu et la proforma avec leur PDF ; le 17/10/2026 : + `devis_pdf`, le devis avec son PDF ; le 14/10/2026 : + `espace_portail`, puis + l'avis d'une tâche assignée et validée, puis + l'attestation de fin de contrat disponible ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, puis + l'avis et le rappel du chef d'une visite, puis + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les cinq des rendez-vous ; le 12/10/2026 : + l'affectation à un chantier, son changement, le rappel de la veille au chef, puis l'avis au client et son changement de date ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire, puis sa version avec crédit, puis la commission due, puis l'avis d'avancement, puis les vœux d'anniversaire, puis le rappel de la veille à l'administrateur ; le 01/10/2026 : + PV, avenant, accueil et relance d'un prospect ; le 30/09/2026 : + la proforma ; le 29/09/2026 : + le rappel du solde de pose ; le 26/09/2026 : + la relance automatique du 8e jour, puis + le rappel d'entretien, puis + la demande d'avis ; avant : dix + l'alerte + les deux reçus de dette et de réservation, le reçu de vente détaillé, les deux bons ; `devis_premier` RETIRÉ, refusé par Meta)", M.NOMS_MODELES.join(",") === Object.keys(ATTENDU).join(","));
 for (const [nom, a] of Object.entries(ATTENDU)) {
   test(`★ « ${nom} » : ${a.n} trous, catégorie ${a.categorie}`,
     M.MODELES[nom]?.variables.length === a.n && M.MODELES[nom]?.categorie === a.categorie);
@@ -202,7 +203,7 @@ test("★★ rappel_echeance est en service, et ne part QUE sur une échéance r
 // aussi, envoyée par le SERVEUR seul (la tournée de 7 h).
 // RETOURNÉ encore le 26/09/2026 : le rappel d'entretien aussi (même tournée).
 // RETOURNÉ le 29/09/2026 : + le rappel du solde d'une pose (tournée de 7 h).
-const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe", "rappel_anniversaire", "rappel_installation", "rappel_rendez_vous", "rappel_rendez_vous_prive", "rappel_visite_chef"]; /* RETOURNÉ le 13/10/2026 : + le rappel du chef d'une visite ; le 12/10/2026 au soir : + les deux rappels de rendez-vous (tournées de 14 h et de 7 h) ; le 12/10/2026 : + le rappel d'installation de la veille au chef (tournée de 17 h) ; le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h), + le rappel de la veille (tournée de 17 h) */
+const SERVEUR_SEUL = ["alerte_conseiller", "relance_devis_expiration", "rappel_entretien", "demande_avis", "rappel_solde_pose", "anniversaire_employe", "rappel_anniversaire", "rappel_installation", "rappel_rendez_vous", "rappel_rendez_vous_prive", "rappel_visite_chef", "rappel_proforma_expiration"]; /* RETOURNÉ le 15/11/2026 : + le rappel d'expiration d'une proforma (tournée de 7 h) ; le 13/10/2026 : + le rappel du chef d'une visite ; le 12/10/2026 au soir : + les deux rappels de rendez-vous (tournées de 14 h et de 7 h) ; le 12/10/2026 : + le rappel d'installation de la veille au chef (tournée de 17 h) ; le 03/10/2026 : + les vœux d'anniversaire (tournée de 7 h), + le rappel de la veille (tournée de 17 h) */
 test("tous les modèles sont en service pour les écrans, sauf ceux du serveur seul (l'alerte, la relance automatique, le rappel d'entretien, la demande d'avis)",
   M.NOMS_MODELES.filter((n) => !SERVEUR_SEUL.includes(n)).every((n) => M.MODELES_EN_SERVICE.includes(n))
   && SERVEUR_SEUL.every((n) => !M.MODELES_EN_SERVICE.includes(n)));
@@ -1428,7 +1429,7 @@ titre("⑱ 📲 UN ENVOI PAR MODÈLE S'ÉCRIT DANS LA CONVERSATION, QUI REMONTE 
   // ⚠ RETOURNÉ le 25/09/2026 : quatorze — le premier devis ; puis treize à nouveau, il a été retiré (refusé par Meta).
   // RETOURNÉ le 26/09/2026 : quatorze, avec la relance automatique.
   test("★ les modèles à ligne (RETOURNÉ le 13/11/2026 au soir : + la proforma modifiée renvoyée avec son PDF ; le 13/11/2026 : + l'avis de commission payée ; le 10/11/2026 : + les deux avis de la dotation de caisse ; le 31/10/2026 : + le rappel du loyer disponible ; + la relance de confirmation d'un salaire ; le 29/10/2026 : + la remise après-vente ; le 22/10/2026 : + l'argent remis directement ; le 01/10/2026 : + PV, avenant, accueil et relance prospect ; le 30/09/2026 : + la proforma) : devis, relance automatique, dette, mot de fidélité, les quatre reçus, les deux bons, le rappel d'entretien, la demande d'avis (RETOURNÉ le 26/09/2026) — jamais espace ni prise_de_contact",
-    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,commission_payee,demande_avis,depense_rejetee4,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,dotation_caisse,dotation_caisse_recue,fonds_remis,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,proforma_modifiee_pdf,proforma_pdf,rappel_confirmation_salaire,rappel_dette,rappel_echeance,rappel_entretien,rappel_loyer_disponible,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,remise_apres_vente,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
+    M.MODELES_AVEC_LIGNE.slice().sort().join(",") === "accueil_prospect,affectation_chantier,anniversaire_employe,attestation_disponible,avancement_employe,avenant_reserves,bon_reprise,bon_retour,changement_affectation,commission_due,commission_payee,demande_avis,depense_rejetee4,depense_validee,devis_disponible,devis_pdf,devis_valide_paiement,dotation_caisse,dotation_caisse_recue,fonds_remis,installation_deplacee,installation_programmee,lien_signature_pv,loyer_disponible,mot_fidelite,mot_fidelite_simple,prime_installation_payee,proforma,proforma_modifiee_pdf,proforma_pdf,rappel_confirmation_salaire,rappel_dette,rappel_echeance,rappel_entretien,rappel_loyer_disponible,rappel_proforma_expiration,rappel_solde_pose,recu_depot_chantier,recu_pdf,recu_reglement,recu_reservation,recu_vente,recu_vente_detail,relance_devis,relance_devis_expiration,relance_prospect,remise_apres_vente,rendez_vous_equipe,rendez_vous_modifie,tache_assignee,tache_validee,virement_salaire,virement_salaire_credit,visite_chef,visite_client"); /* RETOURNÉ le 19/10/2026 : + recu_pdf, proforma_pdf ; le 17/10/2026 : + devis_pdf ; le 14/10/2026 : + les deux avis d'une tâche, + l'attestation de fin de contrat ; le 13/10/2026 : + les deux avis de décision du DG sur une dépense, + l'avis au chef d'une visite (son rappel, serveur, n'écrit rien), + le reçu de dépôt chantier ; le 12/10/2026 au soir : + les trois avis de rendez-vous envoyés par l'écran (les deux rappels du serveur n'écrivent rien) ; le 12/10/2026 : + l'affectation et son changement (le rappel de la veille n'écrit rien) ; le 10/10/2026 : + le loyer disponible ; le 07/10/2026 : + la part d'installation payée ; le 03/10/2026 : + l'avis de salaire (avec et sans crédit), + la commission due, + les vœux d'anniversaire, + l'avancement */
 
   // LA VRAIE CHAÎNE : la ligne dans le fil, la conversation qui remonte,
   // le propriétaire qui ne bouge pas.
@@ -3196,7 +3197,7 @@ test("★ …refusé sans date, ou avec une prochaine date qui ne vient pas apr�
 const srvR = lire("api/rappels-du-matin.js");
 const corpsR = srvR.slice(srvR.indexOf("async function rappelerLesEntretiens"));
 test("★★ le serveur : la tournée lit les chantiers, envoie le modèle, et n'écrit la ligne du fil QU'APRÈS l'accord de WhatsApp",
-  /"clients_installes"\]/.test(srvR) && /rappelsEntretienDuJour\(db, aujourdhui\)/.test(corpsR)
+  /* RETOURNÉ le 15/11/2026 : la liste des tables se poursuit par les proformas. */ /const TABLES = \[[^\]]*"clients_installes"/.test(srvR) && /rappelsEntretienDuJour\(db, aujourdhui\)/.test(corpsR)
   && corpsR.indexOf("envoyerYCloud(") > 0 && corpsR.indexOf("if (!envoi.ok)") > corpsR.indexOf("envoyerYCloud(")
   && corpsR.indexOf('from("messages").insert') > corpsR.indexOf("if (!envoi.ok)"));
 test("★ …la tâche : la fiche du responsable est RELUE et revérifiée avant d'écrire ; la marque ne se pose pas sur une date changée entre-temps ; les notifications rejoignent la tournée",
@@ -4789,7 +4790,7 @@ titre("55 📎 LE DEVIS AVEC SON PDF — `devis_pdf`, la case « Joindre le PDF 
   const sansComm = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   test("★ `devis_pdf` : UTILITY (RETOURNÉ le 17/10/2026 — soumis en marketing, Meta l'a rangé en utility), les TROIS trous de devis_disponible dans le même ordre, et un EN-TÊTE DOCUMENT (RETOURNÉ le 19/10/2026 : le reçu et la proforma en portent un aussi ; le 13/11/2026 : + la proforma MODIFIÉE ; et eux seuls)",
     M.MODELES.devis_pdf?.categorie === "utility" && M.MODELES.devis_pdf.variables.join(",") === M.MODELES.devis_disponible.variables.join(",")
-    && M.modeleAvecDocument("devis_pdf") === true && M.NOMS_MODELES.filter((n) => M.modeleAvecDocument(n)).join(",") === "devis_pdf,recu_pdf,proforma_pdf,proforma_modifiee_pdf"
+    && M.modeleAvecDocument("devis_pdf") === true && M.NOMS_MODELES.filter((n) => M.modeleAvecDocument(n)).join(",") === "devis_pdf,recu_pdf,proforma_pdf,proforma_modifiee_pdf,rappel_proforma_expiration" /* RETOURNÉ le 15/11/2026 : + le rappel d'expiration, avec le PDF de la proforma */
     && M.MODELES_EN_SERVICE.includes("devis_pdf"));
   test("★ le texte du modèle (celui à créer chez YCloud) : trois trous dans l'ordre, la pièce jointe et l'espace client dits",
     (M.TEXTE_DEVIS_PDF.match(/\{\{\d\}\}/g) || []).join("") === "{{1}}{{2}}{{3}}" && /pièce jointe/.test(M.TEXTE_DEVIS_PDF) && /gestion\.bmitogo\.com/.test(M.TEXTE_DEVIS_PDF));
@@ -7854,7 +7855,7 @@ titre("86 🔕 « NE PLUS ENVOYER DE MESSAGES COMMERCIAUX » (14/11/2026, « Les
     S.numeroEnStopDans(msgs, "90112233") && S.numeroEnStopDans(msgs, "+228 90 11 22 33") && S.numeroEnStopDans(msgs, "0022890112233")
     && !S.numeroEnStopDans(msgs, "90112234") && S.numerosStop(msgs).size === 1 && !S.estLigneStop(msgs.find((m) => m.id === "waent_90112233")));
   test("★★★ seuls les modèles COMMERCIAUX sont arrêtés : fidélité, relances, prise de contact, prospects, demande d'avis — JAMAIS un reçu, un devis, une proforma, des accès, un rappel de dette, le lien du PV",
-    ["mot_fidelite", "mot_fidelite_simple", "relance_devis", "relance_devis_expiration", "prise_de_contact", "accueil_prospect", "relance_prospect", "demande_avis"].every((m) => S.critiqueStop({ modele: m, tel: "90112233", numeros: S.numerosStop(msgs) }) === S.MOTIF_STOP)
+    ["mot_fidelite", "mot_fidelite_simple", "relance_devis", "relance_devis_expiration", "prise_de_contact", "accueil_prospect", "relance_prospect", "demande_avis", "rappel_proforma_expiration"].every((m) => S.critiqueStop({ modele: m, tel: "90112233", numeros: S.numerosStop(msgs) }) === S.MOTIF_STOP)
     && ["recu_vente", "recu_vente_detail", "recu_pdf", "recu_reglement", "devis_disponible", "devis_pdf", "proforma", "proforma_pdf", "espace", "espace_portail", "rappel_dette", "rappel_echeance", "lien_signature_pv", "rappel_entretien", "installation_programmee", "bon_reprise"].every((m) => S.critiqueStop({ modele: m, tel: "90112233", numeros: S.numerosStop(msgs) }) === "")
     && S.critiqueStop({ modele: "mot_fidelite", tel: "90999999", numeros: S.numerosStop(msgs) }) === ""
     && S.MODELES_COMMERCIAUX.every((m) => !!M.MODELES[m]));
@@ -7932,6 +7933,76 @@ titre("86 🔕 « NE PLUS ENVOYER DE MESSAGES COMMERCIAUX » (14/11/2026, « Les
     /poserNumerosStop\(numerosStop\(db\.messages\)\);/.test(App86)
     && Wa.indexOf("const stop = critiqueStop({ modele, tel });") > 0 && Wa.indexOf("const stop = critiqueStop({ modele, tel });") < Wa.indexOf("const refus = critiqueEnvoiAuto(")
     && /if \(stop\) \{[^}]*await prevenir\(stop\);\s*return \{ auto: false, parti: false, motif: stop, stop: true/.test(Wa));
+}
+
+// ============================================================
+// 87 ⌛ LE RAPPEL D'EXPIRATION D'UNE PROFORMA (Timo, 15/11/2026 : « un seul
+// message à relancer entre 13ème et 14ème jour pour informer le client que
+// son proforma expire »).
+// ============================================================
+console.log("\n87 ⌛ le rappel d'expiration d'une proforma, au 13e jour");
+{
+  const R = await import(pathToFileURL(join(process.cwd(), "src/lib/rappelProforma.js")).href);
+  const S87 = await import(pathToFileURL(join(process.cwd(), "src/lib/stopCommercial.js")).href);
+  const pf = { id: "PF1", numero: "BMID-PF-2026-0007", date: "2026-11-01", boutique: "DEMAKPOE", client: "KOFFI", tel: "90112233", total: 250000, lignes: [] };
+  const base = { boutiques: [{ nom: "DEMAKPOE" }, { nom: "DFORMATION", formation: true }], proformas: [pf], ventes: [], messages: [] };
+  const ids = (l) => l.map((r) => r.proforma.id).join(",");
+  test("★★ le modèle : MARKETING, cinq trous dans l'ordre client, numéro, date, montant, fin ; serveur seul ; un message commercial (le STOP l'arrête)",
+    M.MODELES.rappel_proforma_expiration?.categorie === "marketing"
+    && M.MODELES.rappel_proforma_expiration.variables.join(",") === "client,numero,date,montant,fin"
+    && !M.MODELES_EN_SERVICE.includes("rappel_proforma_expiration") && S87.estModeleCommercial("rappel_proforma_expiration")
+    && [1, 2, 3, 4, 5].every((n) => M.TEXTE_RAPPEL_PROFORMA.includes(`{{${n}}}`)) && !M.TEXTE_RAPPEL_PROFORMA.includes("{{6}}")
+    && /devient caduque et les prix devront être confirmés/.test(M.TEXTE_RAPPEL_PROFORMA));
+  test("★★ la fenêtre : rien le 12e jour, le message le 13e, le 14e rattrape, plus rien le 15e",
+    ids(R.rappelsProformaDuJour(base, "2026-11-13")) === "" && ids(R.rappelsProformaDuJour(base, "2026-11-14")) === "PF1"
+    && ids(R.rappelsProformaDuJour(base, "2026-11-15")) === "PF1" && ids(R.rappelsProformaDuJour(base, "2026-11-16")) === "");
+  const liste = R.rappelsProformaDuJour(base, "2026-11-14");
+  test("★ les trous : KOFFI, le numéro, 01/11/2026, 250 000 F, la fin = le 16/11/2026 (date + 15 jours)",
+    liste[0].envoi.modele === "rappel_proforma_expiration" && liste[0].envoi.variables[0] === "KOFFI" && liste[0].envoi.variables[1] === "BMID-PF-2026-0007"
+    && liste[0].envoi.variables[2] === "01/11/2026" && /250.000.F/.test(liste[0].envoi.variables[3]) && liste[0].envoi.variables[4] === "16/11/2026",
+    JSON.stringify(liste[0].envoi.variables));
+  test("★★ il NE PART PAS : proforma encaissée, boutique de formation, sans numéro",
+    ids(R.rappelsProformaDuJour({ ...base, ventes: [{ id: "V1", proforma_id: "PF1" }] }, "2026-11-14")) === ""
+    && ids(R.rappelsProformaDuJour({ ...base, proformas: [{ ...pf, boutique: "DFORMATION" }] }, "2026-11-14")) === ""
+    && ids(R.rappelsProformaDuJour({ ...base, proformas: [{ ...pf, tel: "" }] }, "2026-11-14")) === "");
+  const ligne = R.ligneRappelProforma({ id: "L1", tel: liste[0].tel, proforma: pf, variables: liste[0].envoi.variables, ts: "2026-11-14T07:00:00.000Z" });
+  const marquee = R.proformaApresRappel(pf, "2026-11-14");
+  test("★★ UN SEUL message : la marque sur la proforma l'arrête, et la ligne du fil aussi (le 14e jour ne renvoie rien)",
+    !!ligne && ligne.wa_modele === "rappel_proforma_expiration" && ligne.proforma_id === "PF1" && ligne.proforma_debut === "2026-11-01" && !ligne.proprietaire_id
+    && /expire le 16\/11\/2026/.test(ligne.texte)
+    && ids(R.rappelsProformaDuJour({ ...base, proformas: [marquee] }, "2026-11-15")) === ""
+    && ids(R.rappelsProformaDuJour({ ...base, messages: [ligne] }, "2026-11-15")) === ""
+    && R.phraseRappelProforma(marquee) === "🤖 Client prévenu de l'expiration le 14/11/2026" && R.phraseRappelProforma(pf) === "");
+  const modifiee = { ...marquee, modifie_le: "2026-11-10T09:00:00.000Z", total: 300000 };
+  const lm = R.rappelsProformaDuJour({ ...base, proformas: [modifiee], messages: [ligne] }, "2026-11-23");
+  test("★ une proforma MODIFIÉE repart pour 15 jours : rien avant son 13e jour, un nouveau rappel ensuite, qui dit « modifiée le » et la nouvelle fin",
+    ids(R.rappelsProformaDuJour({ ...base, proformas: [modifiee], messages: [ligne] }, "2026-11-14")) === ""
+    && ids(lm) === "PF1" && lm[0].envoi.variables[2] === "01/11/2026, modifiée le 10/11/2026" && lm[0].envoi.variables[4] === "25/11/2026"
+    && R.phraseRappelProforma(modifiee) === "", JSON.stringify(lm[0]?.envoi?.variables));
+  const apiM87 = lire("api/rappels-du-matin.js");
+  test("★★ la tournée de 7 h : lit les proformas, écarte le STOP, n'écrit qu'APRÈS l'accord de WhatsApp, relit la proforma avant de la marquer",
+    /const TABLES = \[[^\]]*"proformas"/.test(apiM87)
+    && /const stop = numerosStop\(db\.messages\);\s*const liste = rappelsProformaDuJour\(db, aujourdhui\)\.filter\(\(r\) => !stop\.has\(cleStop\(r\.tel\)\)\);/.test(apiM87)
+    && /name: MODELE_RAPPEL_PROFORMA/.test(apiM87)
+    && apiM87.indexOf('if (!envoi.ok) { bilan.refusees++; console.error("[rappels-du-matin] rappel proforma refusé"') < apiM87.indexOf("ligneRappelProforma({ id: randomUUID()")
+    && /from\("proformas"\)\.select\("id, data"\)\.eq\("id", r\.proforma\.id\)/.test(apiM87) && /const proformas = await rappelerLesProformas\(admin, db, aujourdhui\);/.test(apiM87));
+  // 📎 « Texte ok MAIS AUSSI LIER à nouveau le PDF du proforma ».
+  const PdfS = await import(pathToFileURL(join(process.cwd(), "api/_pdfProforma.js")).href);
+  const piece87 = PdfS.fichierProformaServeur({ ...pf, lignes: [{ article: "PANNEAU 550W", qte: 2, pu: 125000, total: 250000 }], sous_total: 250000 }, { boutiques: [{ nom: "DEMAKPOE", adresse: "Lomé", telephone: "90 00 00 00" }], produits: [] });
+  test("★★ 📎 le PDF est fabriqué PAR LE SERVEUR avec LA fabrique de l'écran : un vrai PDF, léger (< 300 Ko), nommé « Proforma - client - numéro » ; une proforma sans numéro n'en a pas",
+    !!piece87 && piece87.mime === "application/pdf" && piece87.octets.slice(0, 5).toString() === "%PDF-" && piece87.octets.length > 20000 && piece87.octets.length < 300000
+    && /^Proforma - KOFFI - BMID-PF-2026-0007\.pdf$/.test(piece87.nom) && PdfS.fichierProformaServeur({ ...pf, numero: "" }) === null
+    && /import \{ genererProforma \} from "\.\.\/src\/pdf\.js";/.test(lire("api/_pdfProforma.js")), piece87 && `${piece87.nom} ${piece87.octets.length}`);
+  test("★★ 📎 le modèle porte un EN-TÊTE DOCUMENT ; la tournée dépose le PDF AVANT d'envoyer, le cite dans le modèle, et sans PDF rien ne part (retenté le lendemain) ; la fabrique est chargée à la demande",
+    M.modeleAvecDocument("rappel_proforma_expiration")
+    && apiM87.indexOf("const depot = await televerserYCloud(cle, expediteur, piece);") > 0
+    && apiM87.indexOf("const depot = await televerserYCloud(cle, expediteur, piece);") < apiM87.indexOf("template: { name: MODELE_RAPPEL_PROFORMA")
+    && /components: \[composantDocument\(depot\.id, piece\.nom\), \{ type: "body"/.test(apiM87)
+    && /if \(!piece\) \{ bilan\.refusees\+\+;[^}]*continue; \}/.test(apiM87) && /if \(!depot\.ok\) \{ bilan\.refusees\+\+;[^}]*continue; \}/.test(apiM87)
+    && /fabrique = \(await import\("\.\/_pdfProforma\.js"\)\)\.fichierProformaServeur;/.test(apiM87) && !/^import .*_pdfProforma/m.test(apiM87)
+    && /"api\/rappels-du-matin\.js": \{ "maxDuration": 60 \}/.test(lire("vercel.json")) && /PDF joint/.test(ligne.texte));
+  test("★ l'écran : « 🤖 Client prévenu de l'expiration le … » sous la proforma (💰 Ventes → 🧾 Proformas)",
+    /data-proforma-rappel>\{phraseRappelProforma\(pf\)\}/.test(lire("src/screens/Ventes.jsx")));
 }
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

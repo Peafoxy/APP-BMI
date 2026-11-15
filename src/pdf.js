@@ -1,13 +1,13 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { fichierPdf, pctRemiseLisible, dFR, today, remisesDeLignes, mentionModificationProforma, phraseValiditeProforma } from "./lib/core";
-import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants";
-import { identiteClient } from "./lib/clientEntreprise";
-import { groupesEquipement } from "./lib/lignesDevis";
-import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite";
-import { nomSurDocument, nomCourtSurDocument } from "./lib/nomSurDocument";
-import { qteAppareil } from "./lib/solaire";
-import { motsPdf } from "./lib/demandesPrix";
+import { fichierPdf, pctRemiseLisible, dFR, today, remisesDeLignes, mentionModificationProforma, phraseValiditeProforma } from "./lib/core.js";
+import { VALIDITE_OFFRE_JOURS, libelleCaisse } from "./lib/constants.js";
+import { identiteClient } from "./lib/clientEntreprise.js";
+import { groupesEquipement } from "./lib/lignesDevis.js";
+import { estLigneCfVisite, devisACompleter, MENTION_CF_VISITE, PHRASE_A_COMPLETER } from "./lib/devisCfVisite.js";
+import { nomSurDocument, nomCourtSurDocument } from "./lib/nomSurDocument.js";
+import { qteAppareil } from "./lib/solaire.js";
+import { motsPdf } from "./lib/demandesPrix.js";
 // La phrase d'un devis à compléter tient sur UNE ligne sous le bandeau (toute
 // la largeur : rien d'autre n'est écrit là). Le banc mesure qu'elle y tient.
 const LARGEUR_PHRASE_CF = 176;

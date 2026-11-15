@@ -41,7 +41,7 @@ import { configurerWebPush, envoyerAuxPersonnes } from "./_push.js";
 import { relancesAutoDuJour, ligneRelanceAuto, enteteApresRelance, compteApresRelance, MODELE_RELANCE_AUTO } from "../src/lib/relanceAutoDevis.js";
 import { idEntete, cleConversation } from "../src/lib/whatsappConversations.js";
 import { numeroWhatsApp, LANGUE_MODELES } from "../src/lib/whatsappModeles.js";
-import { configYCloud, envoyerYCloud } from "./_ycloud.js";
+import { configYCloud, envoyerYCloud, televerserYCloud, composantDocument } from "./_ycloud.js";
 import { champsEnvoi } from "../src/lib/suiviEnvoi.js";
 import { rappelsEntretienDuJour, ligneRappelEntretien, enteteApresRappel, chantierApresRappel, tacheEntretien, notificationTache, tacheEntretienExiste, MODELE_RAPPEL_ENTRETIEN, avisTacheEntretien, ligneAvisTache, enteteApresAvisTache, MODELE_TACHE_ASSIGNEE } from "../src/lib/rappelEntretien.js";
 import { demandesAvisDuJour, ligneDemandeAvis, enteteApresAvis, chantierApresAvis, MODELE_DEMANDE_AVIS } from "../src/lib/demandeAvis.js";
@@ -61,7 +61,9 @@ import { relancerLesConversations } from "./_relanceAssistant.js";
 import { purgerVocauxStockes } from "./_vocauxStockes.js";
 import { relancesSalaireDuJour, notificationRelanceSalaire, paieApresRelance, ligneRelanceSalaire, enteteApresRelanceSalaire, MODELE_RELANCE_SALAIRE } from "../src/lib/relanceSalaire.js";
 
-const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes"];
+import { rappelsProformaDuJour, ligneRappelProforma, enteteApresRappelProforma, proformaApresRappel, MODELE_RAPPEL_PROFORMA } from "../src/lib/rappelProforma.js";
+
+const TABLES = ["users", "boutiques", "ventes", "dettes", "depenses", "clotures", "messages", "clients_installes", "proformas"];
 
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
@@ -93,6 +95,8 @@ export default async function handler(req, res) {
     // ⚠ La relance ne dépend pas des notifications : l'une en panne
     // n'empêche pas l'autre.
     const relances = await relancerLesDevis(admin, db, aujourdhui);
+    // ⌛ Le rappel d'expiration d'une proforma, au 13e jour (15/11/2026).
+    const proformas = await rappelerLesProformas(admin, db, aujourdhui);
     // 🔧 Les entretiens : le message au client et la tâche du chef. Les
     // notifications des tâches rejoignent celles de la tournée.
     const entretiens = await rappelerLesEntretiens(admin, db, aujourdhui);
@@ -118,11 +122,11 @@ export default async function handler(req, res) {
     // 🎤 Les notes vocales envoyées par BMI ne se gardent que 30 jours
     // (21/10/2026) : les jours plus vieux s'effacent de l'espace privé.
     const vocaux = await purgerVocauxStockes(admin, aujourdhui);
-    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux, salaires: salaires.bilan });
+    if (!configurerWebPush()) return res.status(500).json({ error: "Notifications non configurées sur le serveur (VAPID_PRIVATE_KEY).", relances, proformas, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux, salaires: salaires.bilan });
     const envois = [...rappelsDuMatin(db, aujourdhui), ...entretiens.notifications, ...salaires.notifications, ...soldes.notifications, ...attestations.notifications,
       ...(finsDeContrat ? [fabriquerEnvoi({ ...finsDeContrat, ecran: "users" })].filter(Boolean) : [])];
     const bilan = envois.length ? await envoyerAuxPersonnes(admin, envois) : { appareils: 0, envoyes: 0, retires: 0 };
-    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux, salaires: salaires.bilan });
+    return res.status(200).json({ ok: true, jour: aujourdhui, rappels: envois.length, ...bilan, relances, proformas, entretiens: entretiens.bilan, avis, soldes: soldes.bilan, anniversaires, rendez_vous, attestations: attestations.bilan, relances_assistant, vocaux, salaires: salaires.bilan });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Erreur serveur" });
   }
@@ -174,6 +178,71 @@ async function relancerLesDevis(admin, db, aujourdhui) {
       }
     } catch (e) {
       console.error("[rappels-du-matin] relance auto", e?.message || e);
+    }
+  }
+  return bilan;
+}
+
+// ---- ⌛ LE RAPPEL D'EXPIRATION D'UNE PROFORMA (13e jour) ----
+// Rend { a_rappeler, envoyees, refusees }. Rien n'est écrit tant que WhatsApp
+// n'a pas accepté ; refusé (modèle pas encore approuvé…), on retente le
+// lendemain (le 14e jour), puis plus rien.
+async function rappelerLesProformas(admin, db, aujourdhui) {
+  // 🔕 Un client qui a dit STOP ne reçoit pas ce rappel (un message commercial).
+  const stop = numerosStop(db.messages);
+  const liste = rappelsProformaDuJour(db, aujourdhui).filter((r) => !stop.has(cleStop(r.tel)));
+  const bilan = { a_rappeler: liste.length, envoyees: 0, refusees: 0 };
+  if (!liste.length) return bilan;
+  const { cle, expediteurBrut } = configYCloud();
+  const expediteur = numeroWhatsApp(expediteurBrut);
+  if (!cle || !expediteur) { console.error("[rappels-du-matin] rappel proforma : WhatsApp non configuré sur le serveur"); return bilan; }
+  // 📎 Le PDF de la proforma part AVEC le message (en-tête Document du
+  // modèle) : fabriqué ici par LA fabrique de l'écran, déposé chez YCloud,
+  // jamais rangé chez nous. Sans PDF (fabrique ou dépôt en panne), le message
+  // ne part pas ce matin : on retente le lendemain, et le journal le dit.
+  let fabrique = null, produits = [];
+  try {
+    fabrique = (await import("./_pdfProforma.js")).fichierProformaServeur;
+    produits = await lireTable(admin, "produits");
+  } catch (e) {
+    console.error("[rappels-du-matin] rappel proforma : fabrique du PDF indisponible", e?.message || e);
+    bilan.refusees = liste.length;
+    return bilan;
+  }
+  for (const r of liste) {
+    try {
+      const piece = fabrique(r.proforma, { boutiques: db.boutiques, produits });
+      if (!piece) { bilan.refusees++; console.error("[rappels-du-matin] rappel proforma : PDF non fabriqué", r.proforma.numero); continue; }
+      const depot = await televerserYCloud(cle, expediteur, piece);
+      if (!depot.ok) { bilan.refusees++; console.error("[rappels-du-matin] rappel proforma : dépôt du PDF refusé", depot.motif); continue; }
+      const envoi = await envoyerYCloud(cle, {
+        from: expediteur, to: r.tel, type: "template",
+        template: { name: MODELE_RAPPEL_PROFORMA, language: { code: LANGUE_MODELES }, components: [composantDocument(depot.id, piece.nom), { type: "body", parameters: r.envoi.variables.map((text) => ({ type: "text", text })) }] },
+      });
+      if (!envoi.ok) { bilan.refusees++; console.error("[rappels-du-matin] rappel proforma refusé", envoi.code_whatsapp, envoi.motif); continue; }
+      bilan.envoyees++;
+      const ts = new Date().toISOString();
+      const ligneBase = ligneRappelProforma({ id: randomUUID(), tel: r.tel, proforma: r.proforma, variables: r.envoi.variables, ts });
+      const ligne = ligneBase ? { ...ligneBase, ...champsEnvoi(envoi) } : null;
+      if (ligne) {
+        const { error } = await admin.from("messages").insert({ id: ligne.id, data: ligne, updated_at: ts });
+        if (error) console.error("[rappels-du-matin] rappel proforma : ligne du fil non écrite", error.message);
+        const entete = (db.messages || []).find((m) => m.id === idEntete(cleConversation(r.tel)));
+        const fiche = enteteApresRappelProforma({ tel: r.tel, proforma: r.proforma, ts, entete });
+        if (fiche) {
+          const { error: e2 } = await admin.from("messages").upsert({ id: fiche.id, data: fiche, updated_at: ts });
+          if (e2) console.error("[rappels-du-matin] rappel proforma : fiche légère non posée", e2.message);
+        }
+      }
+      // La marque sur la proforma : RELUE juste avant d'écrire.
+      const { data: frais } = await admin.from("proformas").select("id, data").eq("id", r.proforma.id).maybeSingle();
+      if (frais?.data) {
+        const data = { ...proformaApresRappel({ ...frais.data, id: frais.id }, aujourdhui), updated_at: ts };
+        const { error: e3 } = await admin.from("proformas").update({ data, updated_at: ts }).eq("id", frais.id);
+        if (e3) console.error("[rappels-du-matin] rappel proforma : marque non posée", e3.message);
+      }
+    } catch (e) {
+      console.error("[rappels-du-matin] rappel proforma", e?.message || e);
     }
   }
   return bilan;

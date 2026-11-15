@@ -39,6 +39,8 @@ export const MODELES_COMMERCIAUX = [
   "prise_de_contact",
   "accueil_prospect", "relance_prospect",
   "demande_avis",
+  // ⌛ 15/11/2026 : le rappel d'expiration d'une proforma (une offre).
+  "rappel_proforma_expiration",
 ];
 export const estModeleCommercial = (modele) => MODELES_COMMERCIAUX.includes(String(modele || ""));
 

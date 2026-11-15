@@ -4,6 +4,7 @@
 //
 // Extrait de App.jsx (refactorisation) — copié tel quel.
 // ============================================================
+import { phraseRappelProforma } from "../lib/rappelProforma";
 import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useState, useEffect } from "react";
 import { maintenantISO } from "../lib/horloge";
@@ -2378,7 +2379,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{pf.numero}</td>
                   <td className="px-3 py-2"><ListeArticles lignes={(pf.lignes || []).map((l) => ({ qte: l.qte, article: l.article || l.nom }))} deplie={ouverte} /></td>
                   <td className="px-3 py-2 text-right font-semibold tabular-nums whitespace-nowrap">{fmt(pf.total)}</td>
-                  <td className="px-3 py-2 text-slate-500">{pf.par}{pf.modifie_le && <div className="text-xs text-amber-700 font-semibold" data-proforma-modifiee>✏️ Modifiée le {dFR(String(pf.modifie_le).slice(0, 10))} par {pf.modifie_par}{Number(pf.nb_modifications || 0) > 1 ? ` (${pf.nb_modifications} fois)` : ""}</div>}</td>
+                  <td className="px-3 py-2 text-slate-500">{pf.par}{pf.modifie_le && <div className="text-xs text-amber-700 font-semibold" data-proforma-modifiee>✏️ Modifiée le {dFR(String(pf.modifie_le).slice(0, 10))} par {pf.modifie_par}{Number(pf.nb_modifications || 0) > 1 ? ` (${pf.nb_modifications} fois)` : ""}</div>}{phraseRappelProforma(pf) && <div className="text-xs text-slate-500" data-proforma-rappel>{phraseRappelProforma(pf)}</div>}</td>
                   {/* Ce que la proforma est DEVENUE (Timo, 11/09/2026) : combien
                       de tes offres aboutissent, et le reçu qui en est né. */}
                   <td className="px-3 py-2">{vs.length

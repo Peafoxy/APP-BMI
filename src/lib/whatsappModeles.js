@@ -339,6 +339,12 @@ export const MODELES = {
   attestation_disponible: { categorie: "utility", variables: ["employe", "document", "date_fermeture", "heure_fermeture", "contact"] },
   visite_chef: { categorie: "utility", variables: ["employe", "auteur", "objet", "date", "heure", "lieu", "client", "telephone_client", "equipe"] },
   rappel_visite_chef: { categorie: "utility", variables: ["employe", "objet", "date", "heure", "lieu", "client", "telephone_client", "equipe"] },
+  // ⌛ 15/11/2026 (Timo : « un seul message à relancer entre 13ème et 14ème
+  // jour pour informer le client que son proforma expire »). MARKETING (une
+  // offre). SERVEUR SEUL (tournée de 7 h) : pas dans MODELES_EN_SERVICE.
+  // 📎 EN-TÊTE DOCUMENT (« Texte ok MAIS AUSSI LIER à nouveau le PDF du
+  // proforma ») : le PDF est fabriqué et déposé par la tournée elle-même.
+  rappel_proforma_expiration: { categorie: "marketing", variables: ["client", "numero", "date", "montant", "fin"], entete: "document" },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -703,6 +709,25 @@ export function envoiRelanceExpiration({ devis, compte, fin, fmt, dFR }) {
   };
 }
 
+// ⌛ LE RAPPEL D'EXPIRATION D'UNE PROFORMA (15/11/2026) — le texte proposé le
+// 14/11 et accepté par Timo (« Texte ok »), avec le PDF de la proforma en
+// EN-TÊTE DOCUMENT du modèle chez YCloud.
+// Les dates arrivent déjà en JJ/MM/AAAA ; une proforma modifiée dit
+// « 10/11/2026, modifiée le 13/11/2026 » dans le trou de la date.
+export const TEXTE_RAPPEL_PROFORMA =
+  "Bonjour {{1}}, votre proforma BMI TOGO N° {{2}} du {{3}}, d'un montant de {{4}}, est valable jusqu'au {{5}}. "
+  + "Passé cette date, elle devient caduque et les prix devront être confirmés. Pour en profiter, passez en boutique "
+  + "ou répondez simplement à ce message. Merci de votre confiance. BMI TOGO";
+export function envoiRappelProforma({ proforma, fin, fmt, dFR }) {
+  if (!proforma || !proforma.numero || !fin) return null;
+  const modif = proforma.modifie_le ? dFR(String(proforma.modifie_le).slice(0, 10)) : "";
+  return {
+    modele: "rappel_proforma_expiration",
+    variables: [texteVariable(proforma.client) || "cher client", texteVariable(proforma.numero),
+      dateProformaPourMessage(dFR(proforma.date), modif), texteVariable(fmt(proforma.total)), texteVariable(dFR(fin))],
+  };
+}
+
 // 🔧 LE RAPPEL D'ENTRETIEN — le texte validé par Timo (« 5d texte ok »),
 // mot pour mot chez Meta (26/09/2026).
 export const TEXTE_RAPPEL_ENTRETIEN =
@@ -977,6 +1002,7 @@ const LIGNES_ENVOI = {
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
   demande_avis: ([client, installation]) => `Demande d'avis Google envoyée à ${client} (installation ${installation}).`,
   rappel_entretien: ([client, installation, date]) => `Rappel automatique de l'entretien de l'installation ${installation} de ${client}, prévu le ${date}.`,
+  rappel_proforma_expiration: ([client, numero, date, montant, fin]) => `Rappel automatique : la proforma N° ${numero} du ${date} (${montant}) de ${client} expire le ${fin}, 📎 PDF joint.`,
   relance_devis_expiration: ([client, domaine, montant, date, fin]) => `Relance automatique du devis ${domaine} de ${montant} (établi le ${date}) à ${client} : offre valable jusqu'au ${fin}.`,
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,
   rappel_echeance: ([client, date, montant, reste, boutique]) => `Rappel d'échéance du ${date} à ${client} : ${montant} attendu, reste à régler ${reste} (boutique ${boutique}).`,
