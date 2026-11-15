@@ -4941,9 +4941,10 @@ titre("Solaire : supports et étriers ont leur case de quantité, et tout survit
     JSON.stringify(SolEcran.supportsDuStock(stockSupports).map((p) => p.id)) === JSON.stringify(["s8", "s10", "c"]) && SolEcran.supportsDuStock([]).length === 0);
   test("★ UNE liste déroulante des supports, affichée TOUJOURS (même avec un seul), le premier d'office, le nombre trouvé dit à côté ; le choix suit le brouillon",
     /const articlesSupportsStock = supportsDuStock\(produitsBoutique\);/.test(sol)
-    && /const articleSupportsStock = articlesSupportsStock\.find\(\(p\) => p\.id === supportId\) \|\| articlesSupportsStock\[0\] \|\| null;/.test(sol)
+    // RETOURNÉ le 15/11/2026 : en mode Libre la ligne est une spécification (fixationLibre), sur une boutique rien ne change.
+    && /const articleSupportsStock = modeLibre \? fixationLibre\("supports", "Supports de rail"\) : \(articlesSupportsStock\.find\(\(p\) => p\.id === supportId\) \|\| articlesSupportsStock\[0\] \|\| null\);/.test(sol)
     && /<select className=[^\n]*aria-label="Modèle de support" data-choix="support">/.test(sol) && /articlesSupportsStock\.map\(\(p\) => <option key=\{p\.id\} value=\{p\.id\}>/.test(sol)
-    && !/articlesSupportsStock\.length > 1 \? \(/.test(sol) && /\{cle === "supports" && article \? \(/.test(sol) && /dans le stock de \{boutique\}<\/div>/.test(sol)
+    && !/articlesSupportsStock\.length > 1 \? \(/.test(sol) && /\{cle === "supports" && article && !article\.libre \? \(/.test(sol) && /dans le stock de \{boutique\}<\/div>/.test(sol)
     && /brouillon\.supportId/.test(sol) && !/propositionsStock/.test(sol) && !/produitsBoutique\.find\(\(p\) => \/support\/i/.test(sol));
   test("★ un devis repris retrouve SON modèle de support par son nom (M10 reste M10), sinon le premier s'applique",
     SolEcran.supportDepuisLignes([{ categorie: "Supports de rail", article: "support rail m10", qte: 22 }], stockSupports)?.id === "s10"

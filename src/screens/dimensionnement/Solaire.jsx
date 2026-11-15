@@ -626,8 +626,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const articlesSupportsStock = supportsDuStock(produitsBoutique);
   const [supportId, setSupportId] = useState(() =>
     (lignesReprises.length ? supportDepuisLignes(lignesReprises, produitsBoutique)?.id : (choixDuBrouillon ? brouillon.supportId : null)) || null);
-  const articleSupportsStock = articlesSupportsStock.find((p) => p.id === supportId) || articlesSupportsStock[0] || null;
-  const articleEtriersStock = etrierDuStock(produitsBoutique);
+  // ⚠ MODE LIBRE (capture Timo, 15/11/2026 : « en mode libre les étriers et
+  // supports ne sont pas calculés ») : il n'y a pas de stock à chercher — les
+  // deux lignes sont des SPÉCIFICATIONS, comme les panneaux : la quantité de
+  // la règle (un support par mètre de rail, (panneaux × 2) + 8 étriers), un
+  // prix à taper (0 d'office), aucun lien au stock.
+  const fixationLibre = (cle, nom) => ({ id: null, nom, prix_vente: Number(prixLibre[cle]) || 0, libre: true });
+  const articleSupportsStock = modeLibre ? fixationLibre("supports", "Supports de rail") : (articlesSupportsStock.find((p) => p.id === supportId) || articlesSupportsStock[0] || null);
+  const articleEtriersStock = modeLibre ? fixationLibre("etriers", "Étriers") : etrierDuStock(produitsBoutique);
   // Chaque ligne a sa case de quantité (demande Timo, 08/09/2026) : la
   // valeur calculée est proposée, on peut la corriger ou la mettre à 0 pour
   // s'en passer. Une correction est mémorisée AVEC la base qui l'a produite
@@ -1046,14 +1052,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
               <tr key={libelle} className="border-t border-slate-100 bg-amber-50/40">
                 <td className="px-3 py-2 font-semibold whitespace-nowrap">{libelle}</td>
                 <td className="px-3 py-2 text-xs text-slate-500">
-                  {cle === "supports" && article ? (
+                  {cle === "supports" && article && !article.libre ? (
                     <div>
                       <select className={`${inputCls} w-auto`} value={article.id} onChange={(e) => setSupportId(e.target.value)} aria-label="Modèle de support" data-choix="support">
                         {articlesSupportsStock.map((p) => <option key={p.id} value={p.id}>{p.nom} — {fmt(Number(p.prix_vente || 0))}</option>)}
                       </select>
                       <div className="mt-1">{calcul} · {articlesSupportsStock.length} support{articlesSupportsStock.length > 1 ? "s" : ""} dans le stock de {boutique}</div>
                     </div>
-                  ) : article ? <>{article.nom} — {calcul}</> : <span className="text-slate-400">Aucun article « {libelle.toLowerCase()} » dans le stock de {boutique} : non ajouté au devis.</span>}
+                  ) : article?.libre ? <span data-fixation-libre={cle}>{calcul}</span> : article ? <>{article.nom} — {calcul}</> : <span className="text-slate-400">Aucun article « {libelle.toLowerCase()} » dans le stock de {boutique} : non ajouté au devis.</span>}
                 </td>
                 <td className="px-3 py-2 text-slate-400">—</td>
                 <td className="px-3 py-2">
@@ -1065,7 +1071,9 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
                     </>
                   ) : "—"}
                 </td>
-                <td className="px-3 py-2 tabular-nums whitespace-nowrap">{article ? fmt(Number(article.prix_vente || 0)) : "—"}</td>
+                <td className="px-3 py-2 tabular-nums whitespace-nowrap">{article?.libre
+                  ? <input type="number" min="0" className={`${inputCls} w-24`} value={prixLibre[cle] ?? ""} placeholder="0" aria-label={`Prix unitaire — ${libelle}`} onChange={(e) => setPrixLibre({ ...prixLibre, [cle]: e.target.value })} />
+                  : article ? fmt(Number(article.prix_vente || 0)) : "—"}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{article ? fmt(sousTotal) : "—"}</td>
                 <td className="px-3 py-2"></td>
               </tr>

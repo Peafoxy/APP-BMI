@@ -195,6 +195,27 @@ console.log("\nLe chemin de Timo : choix à la main, mode Libre, retour sur la b
   await attendre(400);
   const convLibre = await etat("Convertisseur");
   test("en mode Libre, la ligne Convertisseur est la spécification du mode Libre (sans liste)", convLibre.select === 0 && /Convertisseur hybride 48V/.test(convLibre.texte), JSON.stringify(convLibre));
+  // 🔩 15/11/2026 (deux captures de Timo, mode Libre) : 15 panneaux proposés
+  // (un nombre impair au-delà de 10), et « Supports de rail » / « Étriers »
+  // disaient « aucun article dans le stock » au lieu d'être calculés.
+  {
+    const qteDe = async (label) => Number(await ligne(label).locator("input[type=number]").nth(label === "Panneaux solaires" ? 1 : 0).inputValue());
+    const nbPan = await qteDe("Panneaux solaires");
+    const metres = Number(await page.locator("tbody tr", { hasText: "Rails de fixation" }).first().locator("input[type=number]").first().inputValue());
+    const sup = await etat("Supports de rail");
+    const etr = await etat("Étriers");
+    const qSup = Number(await ligne("Supports de rail").locator("input[type=number]").first().inputValue());
+    const qEtr = Number(await ligne("Étriers").locator("input[type=number]").first().inputValue());
+    test("★ mode Libre : au-delà de 10, les panneaux vont par paire (jamais un nombre impair)", nbPan <= 10 || nbPan % 2 === 0, String(nbPan));
+    test("★ mode Libre : les SUPPORTS sont calculés (un par mètre de rail) et les ÉTRIERS aussi ((panneaux × 2) + 8) — plus de « aucun article dans le stock »",
+      nbPan > 0 && metres > 0 && qSup === metres && qEtr === nbPan * 2 + 8 && !/Aucun article/.test(sup.texte) && !/Aucun article/.test(etr.texte),
+      JSON.stringify({ nbPan, metres, qSup, qEtr, sup: sup.texte.slice(0, 80) }));
+    await ligne("Supports de rail").locator("input[type=number]").nth(1).fill("500");
+    await attendre(250);
+    const supPrix = await etat("Supports de rail");
+    test("★ mode Libre : le prix d'un support se tape, et le total de la ligne suit (quantité × 500)",
+      supPrix.texte.replace(/[\s\u202f\u00a0]/g, "").includes(String(qSup * 500)), supPrix.texte);
+  }
   await page.click("button:text-is('LOME')");
   await attendre(500);
   const conv = await etat("Convertisseur");
