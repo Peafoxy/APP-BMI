@@ -35,6 +35,8 @@ export const idStop = (tel) => `${PREFIXE}${cleStop(tel)}`;
 // vendre ou se rappeler au client. Un modèle absent d'ici part toujours.
 export const MODELES_COMMERCIAUX = [
   "mot_fidelite", "mot_fidelite_simple",
+  // 🏗 15/11/2026 : le mot aux clients d'installation (une offre de service).
+  "suivi_installation",
   "relance_devis", "relance_devis_expiration",
   "prise_de_contact",
   "accueil_prospect", "relance_prospect",

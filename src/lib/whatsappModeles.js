@@ -139,6 +139,9 @@ export const MODELES = {
   // un client sans compte n'a pas d'espace, on ne lui en annonce pas un.
   mot_fidelite: { categorie: "marketing", variables: ["client"] },
   mot_fidelite_simple: { categorie: "marketing", variables: ["client"] },
+  // 🏗 LE MOT AUX CLIENTS D'INSTALLATION (15/11/2026, « texte ok, lance ») :
+  // le client, SON installation, les AUTRES métiers de BMI.
+  suivi_installation: { categorie: "marketing", variables: ["client", "installation", "autres"] },
   // 🧾 LE REÇU AUTOMATIQUE À L'ENCAISSEMENT (23/09/2026, nouveauté 2 : « à
   // chaque encaissement lors d'une vente, qu'un message WhatsApp soit
   // automatiquement envoyé au client… sans validation »). UTILITY : il porte
@@ -382,7 +385,7 @@ export const MODELES_EN_SERVICE = [
   // 23/09/2026 : les deux nouveautés de Timo. En service AVANT l'accord de
   // Meta (d'ici là : repli sur l'ouverture WhatsApp pour le mot de
   // fidélité ; RIEN pour le reçu de vente, qui ne dérange jamais le vendeur).
-  "mot_fidelite", "mot_fidelite_simple", "recu_vente",
+  "mot_fidelite", "mot_fidelite_simple", "suivi_installation", "recu_vente",
   // 25/09/2026 : le reçu AVEC la liste des articles. Tenté D'ABORD ; tant
   // que Meta ne l'a pas approuvé, l'écran retombe sur `recu_vente`.
   "recu_vente_detail",
@@ -1018,6 +1021,7 @@ const LIGNES_ENVOI = {
   rappel_solde_pose: ([client, date, reste, total]) => `Rappel automatique du solde de pose à ${client} : reste ${reste} à régler sur ${total} (réception le ${date}).`,
   mot_fidelite: ([client]) => `Mot de fidélité envoyé à ${client}.`,
   mot_fidelite_simple: ([client]) => `Mot de fidélité envoyé à ${client}.`,
+  suivi_installation: ([client, installation, autres]) => `Mot de suivi envoyé à ${client} : son installation ${installation} ; autres projets proposés : ${autres}.`,
   recu_vente: ([client, date, boutique, recu, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique}, ${montant}, ${paiement}.`,
   recu_vente_detail: ([client, date, boutique, recu, articles, montant, paiement]) => `Reçu N° ${recu} envoyé à ${client} : achat du ${date} à ${boutique} (${articles}), ${montant}, ${paiement}.`,
   recu_depot_chantier: ([client, date, boutique, recu, montant, paiement]) => `Reçu de dépôt chantier N° ${recu} envoyé à ${client} : dépôt du ${date} à ${boutique}, devis de ${montant}, ${paiement}.`,
@@ -1729,6 +1733,62 @@ export function projetDansLaPhrase(projet) {
   if (/^(de |d'|d’)/.test(bas)) return bas;
   return /^[aeiouyh]/.test(sansAccent) ? `d'${bas}` : `de ${bas}`;
 }
+
+// ---------------------------------------------------------------
+// 🏗 LE MOT AUX CLIENTS D'INSTALLATION — `suivi_installation` (15/11/2026).
+// Timo : « merci de nous avoir confié votre installation {{solaire}}… ou pour
+// autre projet de {{garage}} ; {{pompage}}… ajouter les contacts de BMI » →
+// le texte mis au propre, accepté (« texte ok, lance »). MARKETING, fr, trois
+// trous DANS L'ORDRE : 1 le client, 2 SON installation (« solaire
+// résidentiel », « de portail », « de forage »), 3 les AUTRES métiers de BMI
+// sur une ligne (« garage, forage, vidéosurveillance »). C'est CE texte qui
+// se crée chez YCloud, mot pour mot ; les contacts sont le bloc court commun.
+export const TEXTE_SUIVI_INSTALLATION = [
+  "Bonjour {{1}},",
+  "Merci de nous avoir confié votre installation {{2}}. Notre équipe reste à votre disposition pour l'entretien, ou pour un autre projet : {{3}}.",
+  "Répondez simplement à ce message.",
+  "",
+  ...BLOC_CONTACT_COURT,
+].join("\n");
+// {{2}} : le devis dit le métier (portail, métier d'un devis sans calcul) ;
+// sinon le type noté sur le chantier ; rien de connu → « BMI TOGO » (Meta
+// refuse un trou vide), la règle du rappel d'entretien.
+export function installationDuSuivi({ chantier, devis, nomMetier } = {}) {
+  if (devis && devis.type_devis === "garage") return "de portail";
+  if (devis && devis.type_devis === "autre") {
+    const m = texteVariable(nomMetier);
+    if (m && !/^autre$/i.test(m)) return projetDansLaPhrase(m);
+  }
+  return installationPourRappel(chantier && chantier.type_installation);
+}
+// {{3}} : les métiers réglés dans ⚙ Paramètres, sans « Autre » ni celui que le
+// client a déjà (`deja` = l'identifiant de son métier : "solaire", "garage",
+// ou celui d'un devis sans calcul). Aucun autre métier → une formule sûre.
+export const AUTRES_PROJETS_DEFAUT = "solaire, portail, domotique";
+export function autresProjets(domaines, deja) {
+  const d = String(deja || "").toLowerCase();
+  const noms = (Array.isArray(domaines) ? domaines : [])
+    .filter((x) => x && x.id && String(x.id).toLowerCase() !== "autre" && String(x.id).toLowerCase() !== d)
+    .map((x) => texteVariable(String(x.nom || x.id)).toLowerCase())
+    .filter((n) => n && n !== "autre");
+  return [...new Set(noms)].join(", ") || AUTRES_PROJETS_DEFAUT;
+}
+// Le métier DÉJÀ pris, pour ne pas le reproposer.
+export const metierDuSuivi = ({ devis } = {}) =>
+  !devis ? "solaire" : devis.type_devis === "garage" ? "garage" : devis.type_devis === "autre" ? String(devis.domaine || "autre") : "solaire";
+export function envoiSuiviInstallation({ nom, chantier, devis, nomMetier, domaines }) {
+  return {
+    modele: "suivi_installation",
+    variables: [
+      texteVariable(nom) || "cher client",
+      installationDuSuivi({ chantier, devis, nomMetier }),
+      autresProjets(domaines, metierDuSuivi({ devis })),
+    ],
+  };
+}
+// Le texte de repli, mot pour mot celui du modèle.
+export const texteSuiviInstallation = (envoi) =>
+  TEXTE_SUIVI_INSTALLATION.replace("{{1}}", envoi.variables[0]).replace("{{2}}", envoi.variables[1]).replace("{{3}}", envoi.variables[2]);
 
 // Le texte lisible (pour le fil, le banc, un jour un repli à la main).
 export function texteRecuVente(envoi) {

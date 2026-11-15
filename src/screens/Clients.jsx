@@ -13,7 +13,7 @@ import { clientsConnus, clientsFideles, SEUILS_FIDELES } from "../lib/clientsCon
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
 import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonEnvoi, BoutonRond } from "../components/ui";
 import { FicheClient } from "../components/FicheClient";
-import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, estAdminPrincipal, envoyerAvisNouveauContact } from "../lib/calculs";
+import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, estAdminPrincipal, envoyerAvisNouveauContact, chantiersDeLEspaceRegarde, domaineParId, domainesDefinis } from "../lib/calculs";
 import { clientsDuType, totalDuType, TYPE_COMPTOIR, TYPE_INSTALLATION } from "../lib/typeClient";
 import { carteDe, porteursDeCarte, libellePctCarte, pctCommunCarte } from "../lib/carteFidelite";
 import { carteDepuisClientComptoir } from "../components/carteFidelite";
@@ -27,7 +27,7 @@ import {
 } from "../lib/comptesClients";
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
-import { messageIdentifiants, envoiMotFidelite, texteMotFidelite } from "../lib/whatsappModeles";
+import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiSuiviInstallation, texteSuiviInstallation } from "../lib/whatsappModeles";
 import { useRetour } from "../retour";
 import { maintenantISO } from "../lib/horloge";
 import { stopDuNumero, stopActif, critiqueStopGeste, messagesAvecStop, MOTIF_STOP, numerosStop, cleStop } from "../lib/stopCommercial";
@@ -263,10 +263,27 @@ export function Clients({ db, save, profile }) {
     // 🖨 Une fiche SANS ACCÈS n'a pas d'espace client : le mot sans les lignes de l'espace.
     const compte = comptesAvecCeNumero(db, profile, c.tel).find((u) => u.role === "client" && !estSansAcces(u)) || null;
     const nom = compte ? (compte.nom_base || compte.nom) : c.nom;
-    const envoi = envoiMotFidelite({ nom, avecCompte: !!compte });
+    // 🏗 Depuis la liste « Clients installation » (15/11/2026) : le mot de
+    // SUIVI (`suivi_installation`) — son installation, les autres métiers de
+    // BMI. Partout ailleurs, le mot de fidélité, comme avant.
+    const suivi = typeChoisi === TYPE_INSTALLATION;
+    let envoi = envoiMotFidelite({ nom, avecCompte: !!compte });
+    let texteRepli = texteMotFidelite({ nom, avecCompte: !!compte });
+    if (suivi) {
+      // Le chantier le plus récent de ce numéro, dans l'espace regardé (le mur) ; son devis sur SES comptes.
+      const chantier = chantiersDeLEspaceRegarde(db, profile).filter((x) => x.tel && memeNumero(x.tel, c.tel))
+        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))[0] || null;
+      const devis = chantier && chantier.devis_id
+        ? comptesAvecCeNumero(db, profile, c.tel).flatMap((u) => (Array.isArray(u.devis) ? u.devis : [])).find((d) => d.id === chantier.devis_id) || null : null;
+      envoi = envoiSuiviInstallation({ nom, chantier, devis, nomMetier: devis && devis.domaine ? (domaineParId(db, devis.domaine) || {}).nom : "", domaines: domainesDefinis(db) });
+      texteRepli = texteSuiviInstallation(envoi);
+    }
+    const leMot = suivi ? "le mot de suivi d'installation" : "le mot de fidélité";
     // Une question avant l'envoi : un clic sur une ligne part vite, et un
     // message au nom de BMI ne se rattrape pas.
-    if (!await uConfirm(`Envoyer le mot de fidélité à ${nom} du numéro BMI ?`)) return;
+    if (!await uConfirm(suivi
+      ? `Envoyer ${leMot} à ${nom} du numéro BMI ?\n\nInstallation : ${envoi.variables[1]}\nAutres projets proposés : ${envoi.variables[2]}`
+      : `Envoyer le mot de fidélité à ${nom} du numéro BMI ?`)) return;
     const bqRegardee = (db.boutiques || []).find((b) => b.nom === boutique) || {};
     const r = await envoyerModele({
       ligne: { nom, ecran: "clients" },
@@ -274,7 +291,7 @@ export function Clients({ db, save, profile }) {
       modele: envoi.modele,
       variables: envoi.variables,
       espaceFormation: !!bqRegardee.formation,
-      texteRepli: texteMotFidelite({ nom, avecCompte: !!compte }),
+      texteRepli,
       demanderConfirmation: uConfirm,
       prevenir: uAlert,
     });
@@ -284,9 +301,9 @@ export function Clients({ db, save, profile }) {
       save((etat) => ({
         ...etat,
         messages: messagesAvecLigneEnvoi(etat.messages, { profile, tel: c.tel, nom, modele: envoi.modele, variables: envoi.variables, donnerAuSender: true, envoi: r }),
-      }), `Mot de fidélité envoyé du numéro BMI à ${nom} — ${profile.nom}`);
+      }), `${suivi ? "Mot de suivi d'installation" : "Mot de fidélité"} envoyé du numéro BMI à ${nom} — ${profile.nom}`);
     }
-    uAlert(`✅ Mot de fidélité envoyé du numéro BMI à ${nom}.`);
+    uAlert(`✅ ${suivi ? "Mot de suivi d'installation" : "Mot de fidélité"} envoyé du numéro BMI à ${nom}.`);
   };
 
   // ---- 🔕 « NE PLUS LUI ENVOYER DE MESSAGES COMMERCIAUX » (14/11/2026) ----
