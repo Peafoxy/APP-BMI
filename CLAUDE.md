@@ -52,7 +52,7 @@ captures d'écran.
 ```
 npm run build                    # refuse de passer si le JSX est cassé
 npm run verifier-imports         # aucune variable non définie (le build ne le voit PAS — écran blanc 2.101.59)
-npm run verifier-cloisonnement   # 3091 contrôles : la séparation formation / réel, et tout ce qui a été fermé
+npm run verifier-cloisonnement   # 3092 contrôles : la séparation formation / réel, et tout ce qui a été fermé
 npm run tester-verrouillage      # 41  : le blocage des connexions
 npm run tester-reglement         # 43  : les échéanciers client (et le paiement d'un devis à acompte, prérempli à l'encaissement)
 npm run tester-parrainage        # 23  : la création de filleuls
@@ -834,6 +834,12 @@ lit mal est pire qu'un banc absent).
   `choixDuStock`, donc aussi l'estimation de l'assistant) ; une quantité
   TAPÉE reste telle quelle ; les panneaux d'une POMPE (`panneauxPourPompe`)
   n'y passent pas ; rien d'écrit à l'écran. Rails, supports, étriers suivent.
+  ⚠ **PRÉCISÉ le 15/11/2026** (capture Timo du mode Libre : 15 panneaux ; « Mode
+  paire s'applique au cas où le nombre excède 10 panneaux ») : jusqu'à 10 le
+  nombre calculé reste (3 reste 3) ; AU-DELÀ de 10 il monte au pair (11 → 12,
+  15 → 16) — `panneauxParPaire` / `SEUIL_PANNEAUX_PAIRS`, lue par `qtePanneaux`.
+  **Le mode Libre y passe aussi** (`specLibre` faisait son propre arrondi : le
+  défaut de la capture). Banc (un RETOURNÉ, +1), éprouvé. Chapitre 11.
   **étriers = (panneaux × 2) + 8** (07/09/2026) ; lignes ajoutées seulement
   si l'article est en stock, au prix du stock, liées à lui pour la sortie.
   **Le MODÈLE de support se choisit dans le devis, dans UNE liste déroulante

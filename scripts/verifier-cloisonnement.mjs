@@ -4855,11 +4855,20 @@ titre("Solaire : les supports de rail et les étriers suivent les rails (règles
     const bat = CSp.ROLES_EQUIPEMENT.find((r) => r.id === "batterie");
     const stockP = [{ id: "pn", nom: "Panneau 550W", categorie: "Panneaux solaires", prix_vente: 1 },
       { id: "bt", nom: "Batterie lithium 48V 100Ah", categorie: "Batteries", prix_vente: 1 }];
-    test("★★ panneaux en nombre PAIR : 1 → 2, 3 → 4, 4 reste 4 ; le choix du stock arrondit les panneaux (1 650 Wc / 550 = 3 → 4), jamais les batteries",
+    // RETOURNÉ le 15/11/2026 (« Mode paire s'applique au cas où le nombre excède
+    // 10 panneaux ») : jusqu'à 10 le nombre calculé reste ; au-delà il monte au pair.
+    test("★★ panneaux par PAIRE au-delà de 10 seulement : 3 reste 3, 9 reste 9, 10 reste 10, 11 → 12, 15 → 16, 16 reste 16 ; le choix du stock suit (1 650 Wc / 550 = 3 ; 5 834 Wc / 550 = 11 → 12), jamais les batteries",
       CSp.nombrePair(1) === 2 && CSp.nombrePair(3) === 4 && CSp.nombrePair(4) === 4 && CSp.nombrePair(0) === 0
-      && CSp.choixDuStock(stockP, pan, 1650, { tension: "48" })?.qte === 4
-      && CSp.choixDuStock(stockP, pan, 2200, { tension: "48" })?.qte === 4
+      && CSp.SEUIL_PANNEAUX_PAIRS === 10
+      && CSp.panneauxParPaire(3) === 3 && CSp.panneauxParPaire(9) === 9 && CSp.panneauxParPaire(10) === 10
+      && CSp.panneauxParPaire(11) === 12 && CSp.panneauxParPaire(15) === 16 && CSp.panneauxParPaire(16) === 16
+      && CSp.qtePanneaux(5834, 400) === 16
+      && CSp.choixDuStock(stockP, pan, 1650, { tension: "48" })?.qte === 3
+      && CSp.choixDuStock(stockP, pan, 5834, { tension: "48" })?.qte === 12
       && CSp.choixDuStock(stockP, bat, 300, { tension: "48", typeBatterie: "lifepo4" })?.qte === 3);
+    test("★ le mode Libre passe par LA règle des panneaux (capture Timo, 15/11/2026 : 15 panneaux proposés), jamais un arrondi à lui",
+      /const qte = Math\.max\(1, qtePanneaux\(besoin, Math\.max\(1, Number\(pxPanneauLibre\) \|\| 550\)\)\)/.test(readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8"))
+      && !/Math\.ceil\(besoin \/ Math\.max\(1, Number\(pxPanneauLibre\)/.test(readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8")));
     const srcSol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
     test("★ choisir un autre panneau recalcule en pair ; une quantité TAPÉE reste telle quelle ; rien d'écrit à l'écran ; les panneaux d'une pompe n'y passent pas",
       /roleId === "panneau" \? qtePanneaux\(besoin, utile\)/.test(srcSol)
@@ -18065,10 +18074,14 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
     // 🖨 17/10/2026 (Timo : « ces clients sans compte ne figurent pas dans les
     // comptes prospects » → « a ») : le bouton les COMPTAIT, la liste les
     // écartait. Rendu sur l'onglet, puis par la recherche.
+    // ⚠ La date des devis SUIT le calendrier (il y a 5 jours) : écrite en dur
+    // (16/10), elle a eu 30 jours le 15/11/2026 — les deux comptes passaient
+    // « archivés » et le contrôle tombait sans qu'aucun défaut n'existe.
+    const ilYA5j = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
     const fermee = { id: "c_klira", nom: "KLIRA", role: "client", tel: "90000001", sans_acces: true, actif: true,
-      devis: [{ id: "dv1", date: "2026-10-16", statut: "propose", total: 5100000, imprime: { le: "2026-10-16" } }] };
+      devis: [{ id: "dv1", date: ilYA5j, statut: "propose", total: 5100000, imprime: { le: ilYA5j } }] };
     const prospectOuvert = { id: "c_ama", nom: "AMA", role: "client", tel: "90000002", actif: true,
-      devis: [{ id: "dv2", date: "2026-10-16", statut: "propose", total: 300000 }] };
+      devis: [{ id: "dv2", date: ilYA5j, statut: "propose", total: 300000 }] };
     const acheteur = { id: "c_esso", nom: "ESSO", role: "client", tel: "90000003", actif: true };
     const dbSA = { ...db, users: [timo, adm2, ang, fermee, prospectOuvert, acheteur],
       ventes: [{ id: "v1", boutique: "DEMAKPOE", client: "ESSO", tel: "90000003", date: "2026-10-10", articles: [], paiement: "Espèces" }] };

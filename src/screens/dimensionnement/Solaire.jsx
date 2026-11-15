@@ -329,7 +329,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     if (besoin <= 0) return null;
     const prix = Number(prixLibre[role.id]) || 0;
     if (role.id === "panneau") {
-      const qte = Math.max(1, Math.ceil(besoin / Math.max(1, Number(pxPanneauLibre) || 550)));
+      // ⚠ Au-delà de 10, les panneaux vont par PAIRE, en mode Libre aussi (règle
+      // du 08/11/2026, précisée le 15/11 devant 15 panneaux proposés ici) — LA
+      // règle commune, jamais un calcul à part.
+      const qte = Math.max(1, qtePanneaux(besoin, Math.max(1, Number(pxPanneauLibre) || 550)));
       return { type: "manuel", nom: `Panneaux solaires — ${pxPanneauLibre} Wc`, prix, qte, libre: true };
     }
     if (role.id === "batterie") {

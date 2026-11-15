@@ -51,7 +51,16 @@ export const nombrePair = (n) => {
   const x = Math.max(0, Math.ceil(Number(n) || 0));
   return x % 2 === 0 ? x : x + 1;
 };
-export const qtePanneaux = (besoin, valeurUnitaire) => nombrePair(quantiteNecessaire(besoin, valeurUnitaire));
+// ⚠ PRÉCISÉ le 15/11/2026 (Timo : « Mode paire s'applique au cas où le nombre
+// excède 10 panneaux ») : jusqu'à 10 panneaux, le nombre calculé reste tel
+// quel (3 reste 3, 9 reste 9) ; AU-DELÀ de 10, il monte au pair (11 → 12,
+// 15 → 16). Le mode Libre y passe aussi (il proposait 15).
+export const SEUIL_PANNEAUX_PAIRS = 10;
+export const panneauxParPaire = (n) => {
+  const x = Math.max(0, Math.ceil(Number(n) || 0));
+  return x > SEUIL_PANNEAUX_PAIRS ? nombrePair(x) : x;
+};
+export const qtePanneaux = (besoin, valeurUnitaire) => panneauxParPaire(quantiteNecessaire(besoin, valeurUnitaire));
 
 // ---- « BATERIE » reconnu (relevé par Timo, 18/08/2026) ----
 // Mots simplifiés : sans accent, sans lettres doublées.
