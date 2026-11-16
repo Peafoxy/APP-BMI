@@ -1,6 +1,6 @@
 import { idb, TABLES, compterEnAttente } from "./db";
 import { messagesASigner } from "./lib/ecritPar";
-import { planAbandon, suppressionsParasitesDePrime, suppressionsParasitesDeCorrection, chantiersARedresserDePrime, ventesRefuseesAuClient } from "./lib/abandonLot";
+import { planAbandon, suppressionsParasitesDePrime, suppressionsParasitesDeCorrection, chantiersARedresserDePrime, ventesRefuseesAuClient, suitesRefuseesAuClient } from "./lib/abandonLot";
 import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
@@ -325,6 +325,17 @@ export async function synchroniser(options = {}) {
         await idb.meta.delete("derniere_sync:ventes");
         await idb.meta.delete("derniere_sync:messages");
         console.warn(`${refuseesClient.size} écriture(s) de vente retirée(s) de la file : un compte client n'écrit pas les ventes, elles sont relues.`);
+      }
+      // …la dette et les frais du chantier écrits par un CLIENT qui accepte un
+      // devis corrigé (16/11/2026) : la base les refuse ; on les retire, et les
+      // deux tables sont relues. Un administrateur les mettra à jour.
+      const suitesClient = new Set(suitesRefuseesAuClient(ops, roleSession));
+      if (suitesClient.size) {
+        for (const seq of suitesClient) await idb.outbox.delete(seq);
+        ops = ops.filter((op) => !suitesClient.has(op.seq));
+        await idb.meta.delete("derniere_sync:dettes");
+        await idb.meta.delete("derniere_sync:clients_installes");
+        console.warn(`${suitesClient.size} écriture(s) retirée(s) de la file : un compte client n'écrit ni une dette ni les frais d'un chantier.`);
       }
       // …et les deux champs refusés au vendeur et au gérant sont retirés des
       // chantiers en attente (et de la copie locale, sinon le prochain geste

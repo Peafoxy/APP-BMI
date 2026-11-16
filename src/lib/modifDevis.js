@@ -159,8 +159,11 @@ export function accepterDevisCorrige(db, clientId, devisId, { signature, plan, d
   const planRevalide = planSource
     ? { ...planSource, statut: PLAN_EN_ATTENTE, decide_le: "", decide_par: "", motif_rejet: "" }
     : planSource;
-  const ch = chantierDuDevis(db, devis);
-  const dette = detteDuDevis(db, devis);
+  // ⚠ 16/11/2026 : l'appareil du CLIENT n'écrit NI la dette NI les frais du
+  // chantier — la base le lui refuse (un client ne modifie pas une dette, les
+  // frais d'un chantier sont à l'administrateur) et tout son lot restait
+  // coincé. Il re-signe son devis, rien d'autre ; la dette et le chantier
+  // suivent sur l'appareil d'un administrateur (`suitesDevisCorriges`).
   return {
     db: {
       ...db,
@@ -168,19 +171,48 @@ export function accepterDevisCorrige(db, clientId, devisId, { signature, plan, d
         statut: "valide", contrat_signature: signature, contrat_date_signature: date,
         accepte_corrige_le: date, plan_reglement: planRevalide, demande_bmi: null,
       }),
-      dettes: dette ? (db.dettes || []).map((x) => (x.id === dette.id
-        // Une pose seule garde ses 70 % d'acompte sur le NOUVEAU montant.
-        ? { ...x, montant: Number(devis.total || 0), ...(x.acompte_attendu ? { acompte_attendu: acomptePose(devis.total) } : {}),
-            // 🤝 La commission de l'apporteur suit le nouveau montant — sauf déjà payée.
-            ...(x.pose_seule && !(x.apporteur && x.apporteur.payee) ? { apporteur: apporteurPourDettePose(devis) } : {}) }
-        : x)) : db.dettes,
-      clients_installes: ch && ch.pose_seule
-        ? (db.clients_installes || []).map((c) => (c.id === ch.id ? { ...c, frais_installation: Number(devis.total || 0) } : c))
-        : db.clients_installes,
       messages: [nouveauMessage(client, { a_id: devis.par_id, devis_id: devis.id, vers: versEcran("tous_devis", "", devis.id), 
         texte: `✅ Le client ACCEPTE le devis corrigé (${fmt(devis.total)}) et l'a re-signé.${planRevalide ? " Le plan de règlement est à revalider." : ""}` }), ...(db.messages || [])],
     },
     journal: `Devis corrigé ${fmt(devis.total)} ACCEPTÉ et re-signé par ${acteur?.nom || client.nom}${planRevalide ? " — plan de règlement à revalider" : ""}`,
+  };
+}
+
+// 4 bis. LA SUITE d'un devis corrigé accepté (16/11/2026) : la dette et les
+// frais du chantier d'une pose seule SUIVENT le nouveau montant. Ce n'est pas
+// le téléphone du client qui l'écrit (la base le refuse) : c'est l'appareil
+// d'un ADMINISTRATEUR, à son ouverture (App.jsx). `chantiers` = ceux de SON
+// espace (le mur). Une marque sur le chantier (`devis_corrige_applique`)
+// empêche de le refaire — un frais corrigé ensuite à la main n'est pas écrasé.
+// Rend null s'il n'y a rien à faire.
+export const marqueDevisCorrige = (devis) => `${devis?.accepte_corrige_le || ""}|${Number(devis?.total || 0)}`;
+export function suitesDevisCorriges(db, chantiers) {
+  const devisParId = new Map();
+  for (const u of db?.users || []) for (const d of u.devis || []) devisParId.set(d.id, d);
+  const aFaire = (chantiers || []).filter((c) => {
+    const d = c.devis_id ? devisParId.get(c.devis_id) : null;
+    return !!d && !!d.accepte_corrige_le && (d.statut || "") === "valide"
+      && !c.supprime_le && c.statut !== "receptionne"
+      && c.devis_corrige_applique !== marqueDevisCorrige(d);
+  });
+  if (!aFaire.length) return null;
+  const parChantier = new Map(aFaire.map((c) => [c.id, devisParId.get(c.devis_id)]));
+  const parDette = new Map(aFaire.filter((c) => c.dette_id).map((c) => [c.dette_id, devisParId.get(c.devis_id)]));
+  return {
+    noms: aFaire.map((c) => `${c.nom || ""} ${c.prenom || ""}`.trim()),
+    dettes: (db.dettes || []).map((x) => {
+      const devis = parDette.get(x.id);
+      if (!devis) return x;
+      // Une pose seule garde ses 70 % d'acompte sur le NOUVEAU montant.
+      return { ...x, montant: Number(devis.total || 0), ...(x.acompte_attendu ? { acompte_attendu: acomptePose(devis.total) } : {}),
+        // 🤝 La commission de l'apporteur suit le nouveau montant — sauf déjà payée.
+        ...(x.pose_seule && !(x.apporteur && x.apporteur.payee) ? { apporteur: apporteurPourDettePose(devis) } : {}) };
+    }),
+    clients_installes: (db.clients_installes || []).map((c) => {
+      const devis = parChantier.get(c.id);
+      if (!devis) return c;
+      return { ...c, ...(c.pose_seule ? { frais_installation: Number(devis.total || 0) } : {}), devis_corrige_applique: marqueDevisCorrige(devis) };
+    }),
   };
 }
 

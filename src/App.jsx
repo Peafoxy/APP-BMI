@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import { suitesDevisCorriges } from "./lib/modifDevis";
 import { createPortal } from "react-dom";
 import { Login } from "./screens/Connexion";
 import { PageIcones, LibelleOnglet, ColonneIcones } from "./components/PageIcones";
@@ -353,6 +354,19 @@ export default function App() {
     save(next, traces.join(" · "));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, syncInitiale, db?.clients_installes]);
+  // ---- ✏️ LA SUITE D'UN DEVIS CORRIGÉ ACCEPTÉ (16/11/2026) : le téléphone du
+  // client ne peut écrire ni la dette ni les frais du chantier (la base le
+  // refuse). C'est l'appareil d'un ADMINISTRATEUR qui les aligne sur le
+  // nouveau montant, à son ouverture — les chantiers de SON espace seulement.
+  useEffect(() => {
+    if (!db || !profile || syncInitiale) return;
+    if (profile.role !== "admin" || !peutEcrire(dbRef.current, profile)) return;
+    const suite = suitesDevisCorriges(db, chantiersDeMonEspace(db, profile));
+    if (!suite) return;
+    save({ ...db, dettes: suite.dettes, clients_installes: suite.clients_installes },
+      `Devis corrigé accepté par le client : dette et frais du chantier alignés sur le nouveau montant — ${suite.noms.join(", ")}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, syncInitiale, db?.users, db?.clients_installes]);
   // ---- 💰 LES COMMISSIONS DEVENUES DUES (Timo, 03/10/2026 : « 2 due,
   // commercial et technicien, parrain et apporteur externe », « 3 oui » : le
   // message part le jour où l'administrateur PRINCIPAL ouvre l'application).

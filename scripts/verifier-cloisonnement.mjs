@@ -5946,9 +5946,38 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     const dbPose = { ...dbM, clients_installes: [{ id: "ch3", devis_id: "d1", dette_id: "de2", pose_seule: true, frais_installation: 1000000 }],
       dettes: [{ id: "de2", montant: 1000000, paiements: [] }], users: [{ ...clientM, devis: [corrige] }] };
     const poseOk = Mod.accepterDevisCorrige(dbPose, "c1", "d1", { signature: "SIG-2" });
-    test("★ pose seule : la dette et les frais du chantier SUIVENT le nouveau montant — jamais une dette qui contredit son devis, jamais un chantier en double",
-      poseOk.db.dettes[0].montant === 1200000 && poseOk.db.clients_installes[0].frais_installation === 1200000
-      && poseOk.db.clients_installes.length === 1);
+    // RETOURNÉ le 16/11/2026 : le téléphone du CLIENT n'écrit ni la dette ni les
+    // frais du chantier (la base le refuse, son lot restait coincé) ; c'est
+    // l'appareil d'un ADMINISTRATEUR qui les aligne (suitesDevisCorriges).
+    test("★ pose seule, devis corrigé accepté : le geste du CLIENT ne touche NI la dette NI le chantier (la base le lui refuse) — il re-signe, rien d'autre",
+      poseOk.db.dettes === dbPose.dettes && poseOk.db.clients_installes === dbPose.clients_installes
+      && poseOk.db.users[0].devis[0].statut === "valide" && !!poseOk.db.users[0].devis[0].accepte_corrige_le);
+    const suiteM = Mod.suitesDevisCorriges(poseOk.db, poseOk.db.clients_installes);
+    const apresSuite = suiteM ? { ...poseOk.db, dettes: suiteM.dettes, clients_installes: suiteM.clients_installes } : poseOk.db;
+    test("★ …et sur l'appareil d'un administrateur, la dette et les frais du chantier SUIVENT le nouveau montant — une seule fois (la marque), jamais un chantier en double, jamais hors des chantiers passés (le mur)",
+      !!suiteM && apresSuite.dettes[0].montant === 1200000 && apresSuite.clients_installes[0].frais_installation === 1200000
+      && apresSuite.clients_installes.length === 1
+      && Mod.suitesDevisCorriges(apresSuite, apresSuite.clients_installes) === null
+      && Mod.suitesDevisCorriges(poseOk.db, []) === null
+      // un devis encore « corrigé » (pas accepté) ne bouge rien
+      && Mod.suitesDevisCorriges(dbPose, dbPose.clients_installes) === null);
+    {
+      const appM = readFileSync("src/App.jsx", "utf8");
+      const syncM = readFileSync("src/sync.js", "utf8");
+      const Abandon = await import(pathToFileURL("src/lib/abandonLot.js").href + "?corrige");
+      const ops = [
+        { seq: 1, lot: "L1", table: "messages", op: "put", data: { texte: "✅ Le client ACCEPTE le devis corrigé (1 200 000 F) et l'a re-signé." } },
+        { seq: 2, lot: "L1", table: "dettes", op: "put", data: {} },
+        { seq: 3, lot: "L1", table: "clients_installes", op: "put", data: {} },
+        { seq: 4, lot: "L1", table: "users", op: "put", data: {} },
+        { seq: 5, lot: "L2", table: "dettes", op: "put", data: {} },
+      ];
+      test("★ le rattrapage ne tourne que chez un ADMINISTRATEUR, sur les chantiers de SON espace ; et la file d'un client déjà coincé perd la dette et le chantier de CE lot seulement (l'accord et la signature partent)",
+        /if \(profile\.role !== "admin" \|\| !peutEcrire\(dbRef\.current, profile\)\) return;\n    const suite = suitesDevisCorriges\(db, chantiersDeMonEspace\(db, profile\)\);/.test(appM)
+        && /suitesRefuseesAuClient\(ops, roleSession\)/.test(syncM)
+        && JSON.stringify(Abandon.suitesRefuseesAuClient(ops, "client")) === "[2,3]"
+        && Abandon.suitesRefuseesAuClient(ops, "gerant").length === 0);
+    }
     const tldM = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
     const ecM = readFileSync("src/screens/EspaceClient.jsx", "utf8");
     test("★ les deux écrans passent par les règles pures, et le geste du vendeur se revérifie DANS le geste ; le client re-signe par accepterDevisCorrige, jamais par validerDevis (qui créerait un second chantier)",

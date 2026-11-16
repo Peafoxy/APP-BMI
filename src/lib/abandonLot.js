@@ -80,6 +80,20 @@ export function ventesRefuseesAuClient(ops, role) {
     .map((op) => op.seq);
 }
 
+// ⚠ UN DEVIS CORRIGÉ ACCEPTÉ DEPUIS LE TÉLÉPHONE DU CLIENT (16/11/2026) :
+// avant le correctif, ce geste écrivait aussi la DETTE et les FRAIS du
+// chantier — que la base refuse à un client ; tout le lot restait coincé. On
+// reconnaît le lot à son message (« Le client ACCEPTE le devis corrigé ») et
+// on en retire ces deux écritures : l'accord et la signature partent, la dette
+// et le chantier suivront sur l'appareil d'un administrateur.
+export const DEBUT_ACCORD_CORRIGE = "✅ Le client ACCEPTE le devis corrigé";
+export function suitesRefuseesAuClient(ops, role) {
+  if (role !== "client") return [];
+  const lots = new Set((ops || []).filter((op) => op?.op !== "delete" && op?.table === "messages" && op.lot
+    && String(op.data?.texte || "").startsWith(DEBUT_ACCORD_CORRIGE)).map((op) => op.lot));
+  return (ops || []).filter((op) => lots.has(op?.lot) && (op.table === "dettes" || op.table === "clients_installes")).map((op) => op.seq);
+}
+
 // ⚠⚠ LES EFFACEMENTS PARASITES D'UN PAIEMENT DE PART D'INSTALLATION
 // (07/10/2026, capture Timo : ANGELE, « 538 opération(s) n'arrivent pas »).
 // `construirePaiementPrime` remplaçait la liste des messages par les deux
