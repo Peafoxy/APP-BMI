@@ -3747,8 +3747,9 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
   // RETOURNÉ le 10/10/2026 : l'INVENTAIRE de 💰 Ventes (« D a ») — cinq.
   // RETOURNÉ le 11/11/2026 : la DEMANDE DE PRIX à un fournisseur — six.
   // RETOURNÉ le 13/11/2026 : l'HISTORIQUE DES PAIEMENTS DE COMMISSION (« A c, B b, C oui ») — sept.
-  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire, demande de prix, historique des commissions) suivent la même règle",
-    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 7 && !/doc\.save\(`/.test(pdf));
+  // RETOURNÉ le 16/11/2026 : le DOCUMENT TECHNIQUE d'un devis solaire — huit.
+  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire, demande de prix, historique des commissions, document technique) suivent la même règle",
+    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 8 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
     // RETOURNÉ le 15/10/2026 : un bouton rond, « 📄 Devis PDF » en libellé (au survol).
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes('<BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />'));
@@ -5537,12 +5538,13 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
   // (entête, bandeau de titre ; son pied de page se pose à chaque page).
   // ⚠ RETOURNÉ le 13/11/2026 : l'HISTORIQUE DES PAIEMENTS DE COMMISSION est le
   // SIXIÈME (entête, bandeau de titre ; son pied de page se pose à chaque page).
+  // RETOURNÉ le 16/11/2026 : le DOCUMENT TECHNIQUE est le SEPTIÈME (mêmes briques).
   test("★ le devis, le proforma, le relevé, le dossier personnel, l'inventaire ET l'historique des commissions passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
     // RETOURNÉ le 26/09/2026 : le devis et la proforma passent la fiche de
     // leur boutique à l'en-tête (`d.bq` / `p.bq`) — toujours LA même brique.
-    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 6
+    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 7
     && /enteteSociete\(doc, logo, largeur, p\.bq\);/.test(pdf) && /enteteSociete\(doc, logo, largeur, d\.bq\);/.test(pdf)
-    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 6
+    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 7
     // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
@@ -5550,7 +5552,8 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
     // RETOURNÉ le 11/11/2026 : la demande de prix pose son pied de page sur la
     // page ajoutée après son tableau — quatre (son en-tête est en ANGLAIS :
     // elle écrit son propre bandeau, mais lit les mêmes NIF_BMI / RCCM_BMI).
-    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 4);
+    // RETOURNÉ le 16/11/2026 : le document technique pose le sien sur chaque page — cinq.
+    && (pdf.match(/piedDePage\(doc, largeur, hauteur\);/g) || []).length === 5);
   test("★ chaque document garde son titre et sa nature : « FACTURE PROFORMA » / « une facture proforma », « DEVIS — … » / « un devis »",
     /bandeauTitre\(doc, largeur, "FACTURE PROFORMA", p\.formation\)/.test(pdf) && /mentionsOffre\(doc, y, "une facture proforma"\)/.test(pdf)
     && /bandeauTitre\(doc, largeur, `DEVIS — \$\{d\.titre \|\| ""\}`\.trim\(\), d\.formation\)/.test(pdf)
@@ -19527,6 +19530,86 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     && /paye: Number\(dette\.paye \|\| 0\) \+ m, paiements: \[\.\.\.\(dette\.paiements \|\| \[\]\), paiement\]/.test(Ep));
   test("★★ 🔒 le script ne remplace aucune règle existante et ne finit pas par un rollback",
     !/function public\.ventes_regles_roles|function public\.proformas_regles_remise|function public\.dettes_regles_roles/.test(sansCom) && !/rollback\s*;/i.test(sansCom));
+}
+
+// 📑 LE DOCUMENT TECHNIQUE D'UN DEVIS SOLAIRE (Timo, 16/11/2026, « ta recommandation, lance »).
+{
+  const DT = await import(pathToFileURL("src/lib/documentTechnique.js").href);
+  const SO = await import(pathToFileURL("src/lib/solaire.js").href);
+  const sortieDt = join("node_modules", ".cache", `bmi-pdf-dt-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/pdf.js"], bundle: true, format: "esm", platform: "node", outfile: sortieDt, logLevel: "silent", loader: { ".js": "jsx" } });
+  const PdfDt = await import(pathToFileURL(sortieDt).href);
+  unlinkSync(sortieDt);
+  const texte = (doc) => JSON.stringify(doc.internal.pages).replace(/\\\\\(/g, "(").replace(/\\\\\)/g, ")");
+  const devis = { id: "abcdef12", boutique: "APESSITO", total: 1000000, date: "16/11/2026",
+    lignes: [
+      { categorie: "Panneaux solaires", article: "PANNEAU 550W", qte: 4, pu: 100000, total: 400000 },
+      { categorie: "Batteries", article: "BATTERIE 51.2V 300Ah", qte: 2, pu: 350000, total: 700000 },
+      { categorie: "Convertisseur", article: "CONVERTISSEUR HYBRIDE 6KW", qte: 1, pu: 400000, total: 400000 },
+      { categorie: "Supports de rail", article: "SUPPORT M8", qte: 9, pu: 1000, total: 9000 },
+      { categorie: "Remise", article: "Remise (3 %)", qte: 1, pu: -100000, total: -100000 },
+      { categorie: "Frais d'installation", article: "Frais d'installation (10 %)", qte: 1, pu: 90000, total: 90000 },
+    ],
+    besoins: { wh_jour: 3000, puissance_simultanee: 450, autonomie: 1, soleil: 5, tension: 48, type_batterie: "lifepo4", raccordement: "tri",
+      appareils: [{ nom: "Téléviseur", puissance: 100, heures: 5, qte: 2 }, { nom: "Congélateur", puissance: 250, heures: 8, qte: 1 }] } };
+  const produits = [{ id: "p1", boutique: "APESSITO", nom: "PANNEAU 550W", garantie_fabricant: "12 ans", garantie_boutique: "2 ans", prix_achat: 55555, notes: "SECRET-INTERNE", fournisseur: "FOURNISSEUR-SECRET" }];
+  const t = DT.documentTechnique(devis, { produits, implantation: "Dalle du bâtiment A ; local technique au magasin ; 30 m" });
+  const portail = { ...devis, besoins: { ...devis.besoins, type_ouvrant: "portail_coulissant" } };
+  test("★ 📑 seul un devis SOLAIRE a un document technique (un portail, un devis sans calcul ou vide : non)",
+    DT.estDevisSolaire(devis) && !DT.estDevisSolaire(portail) && !DT.estDevisSolaire({ ...devis, besoins: null }) && !DT.estDevisSolaire(null)
+    && DT.documentTechnique(portail) === null);
+  test("★ 📑 les chiffres du calcul sont CEUX de l'application (panneaux, batteries, convertisseur : mêmes fonctions que l'écran)",
+    t.calcul.some((c) => c.libelle === "Panneaux nécessaires" && c.valeur === `${SO.wcPanneaux(3000, 5)} Wc`)
+    && t.calcul.some((c) => c.libelle === "Convertisseur nécessaire" && c.valeur === `${SO.wConvertisseur(450) / 1000} kW`.replace(".", ","))
+    && t.calcul.some((c) => c.libelle === "Batteries nécessaires" && c.valeur.startsWith(`${SO.ahBatterie(3000, 1, SO.tensionDeCalcul("lifepo4", 48), SO.profondeurDecharge("lifepo4"))} Ah`)));
+  test("★ 📑 le tableau des appareils : puissance cumulée et consommation justes (somme des lignes, jamais une somme de puissances unitaires)",
+    t.totalCumulee === 450 && t.totalWh === SO.consommationJour(devis.besoins.appareils) && t.appareils[0].cumulee === 200 && t.appareils[0].wh === 1000);
+  test("★ 📑 le matériel retenu : panneaux 4 x 550 W = 2,2 kWc, batteries 2 x 300 Ah en 51,2 V, convertisseur 6 kW (un 5000 VA vaut 4 kW) ; les frais et la remise n'y sont PAS ; un article sans caractéristique lisible n'est pas compté",
+    t.materiel.length === 4 && !t.materiel.some((m) => /remise|frais/i.test(m.categorie + m.article))
+    && t.couverture.some((c) => c.libelle === "Panneaux retenus" && c.valeur === "2,2 kWc")
+    && t.couverture.some((c) => c.libelle === "Batteries retenues" && c.valeur === "30,7 kWh")
+    && t.couverture.some((c) => c.libelle === "Convertisseurs retenus" && c.valeur === "6 kW")
+    && DT.materielRetenu([{ categorie: "Convertisseur", article: "ONDULEUR 5000VA", qte: 2 }], 51.2).w === 8000
+    && DT.materielRetenu([{ categorie: "Batteries", article: "BATTERIE LITHIUM", qte: 2 }], 51.2).kwhBatterie === 0);
+  test("★ 📑 la garantie vient de la FICHE de l'article de SA boutique ; un article sans fiche n'en a pas (rien d'inventé)",
+    t.materiel[0].garantie === "boutique : 2 ans · fabricant : 12 ans" && t.materiel[1].garantie === ""
+    && DT.documentTechnique(devis, { produits: [{ ...produits[0], boutique: "AUTRE" }] }).materiel[0].garantie === "");
+  test("★ 📑 le régulateur n'est dit que si le devis en porte un (un convertisseur hybride a le sien : aucun chiffre de régulateur)",
+    !t.calcul.some((c) => /Régulateur/.test(c.libelle))
+    && DT.documentTechnique({ ...devis, lignes: [...devis.lignes, { categorie: "Régulateur MPPT", article: "REGULATEUR 60A", qte: 1 }] }).calcul.some((c) => c.libelle === "Régulateur solaire"));
+  test("★ 📑 les heures de soleil : celles du devis ; un devis d'avant n'en porte pas → la valeur d'office, et le document le DIT",
+    t.soleil === 5 && !t.soleilNonRange
+    && DT.documentTechnique({ ...devis, besoins: { ...devis.besoins, soleil: undefined } }).soleilNonRange === true
+    && DT.documentTechnique({ ...devis, besoins: { ...devis.besoins, soleil: 6 } }).soleil === 6);
+  const donneesPdf = { numero: "ABCDEF12", date: "16/11/2026", boutique: "APESSITO", client: "KOFFI AGBEKO", titre: "Solaire", tel: "90112233", formation: false, bq: null };
+  const docT = PdfDt.genererDocumentTechnique(t, donneesPdf, null, true);
+  const txT = texte(docT);
+  test("★ 📑 le PDF FABRIQUÉ : titre, numéro du devis, appareils, calcul, matériel, implantation tapée, plan d'entretien",
+    /DOCUMENT TECHNIQUE/.test(txT) && /ABCDEF12/.test(txT) && /Téléviseur/.test(txT) && /PANNEAU 550W/.test(txT) && /Dalle du bâtiment A/.test(txT)
+    && /Vérification des parafoudres AC \/ DC/.test(txT) && /Heures de soleil retenues : 5 h/.test(txT) && /Raccordement : Triphasé/.test(txT) && docT.internal.getNumberOfPages() <= 3);
+  test("★★ 📑 AUCUN PRIX dans le document (ni prix unitaire, ni total, ni FCFA, ni remise) — et rien d'interne (prix d'achat, fournisseur, notes)",
+    !/100 000|350 000|400 000|1 000 000|90 000|FCFA|TOTAL/.test(txT) && !/55555|55 555|SECRET/.test(txT));
+  test("★ 📑 sans phrase d'implantation, le document dit « à confirmer lors de la visite technique » ; en formation, le bandeau violet",
+    /à confirmer lors de la visite technique/.test(texte(PdfDt.genererDocumentTechnique(DT.documentTechnique(devis, { produits }), donneesPdf, null, true)))
+    && /DOCUMENT DE FORMATION/.test(texte(PdfDt.genererDocumentTechnique(t, { ...donneesPdf, formation: true }, null, true))));
+  test("★ 📑 une consommation connue (facture CEET) sort aussi : sans liste d'appareils, la phrase de la facture",
+    /Consommation mensuelle \(facture CEET\) : 600 kWh/.test(texte(PdfDt.genererDocumentTechnique(
+      DT.documentTechnique({ ...devis, besoins: { ...devis.besoins, appareils: [], conso_connue: { consommation_mensuelle_kwh: 600 } } }, { produits }), donneesPdf, null, true))));
+  // Le code : rien d'écrit, aucun prix lu, aucune table brute, le devis inchangé.
+  const sansCommDt = (x) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const srcDt = sansCommDt(readFileSync("src/lib/documentTechnique.js", "utf8"));
+  test("★★ 📑 la règle ne lit AUCUN prix (ni pu, ni total), ne reçoit jamais db et n'écrit rien",
+    !/\.pu\b|\.total\b|\.prix_achat|\.fournisseur|\bdb\b|\bsave\b/.test(srcDt));
+  const srcTd = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
+  const geste = (srcTd.match(/const telechargerDocTech = async[\s\S]*?\n  \};/) || [""])[0];
+  test("★★ 📑 le bouton ne s'offre que sur un devis solaire, le geste n'enregistre rien (aucun save) et ne lit que le stock de la boutique du devis",
+    /estDevisSolaire\(d\) && \(\s*<BoutonRond data-document-technique/.test(srcTd) && geste.length > 50 && !/\bsave\(/.test(geste)
+    && /\(db\.produits \|\| \[\]\)\.filter\(\(p\) => p\.boutique === d\.boutique\)/.test(srcTd));
+  test("★ 📑 le volet solaire range les heures de soleil retenues avec le devis ; le PDF du devis, son calcul et son envoi ne sont pas touchés (la fabrique du devis est la même)",
+    /soleil: Number\(soleil\) > 0 \? Number\(soleil\) : null/.test(readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8"))
+    && /genererDevis\(donneesPdfDuDevis\(db, d\), LOGO\)/.test(srcTd) && !/genererDocumentTechnique/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
+  test("★ 📑 le PDF du devis solaire sort toujours avec son TOTAL et ses signatures (non-régression)",
+    /TOTAL DU PROJET/.test(texte(PdfDt.genererDevis({ ...devis, numero: "ABCDEF12", client: "KOFFI AGBEKO", pct_acompte: 60, montant_acompte: 600000, delai_installation: "3 semaines" }, null, true))));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

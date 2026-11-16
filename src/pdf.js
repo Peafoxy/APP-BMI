@@ -769,6 +769,127 @@ export function genererDevis(d, logo, retournerDoc = false) {
   doc.save(fichierPdf("Devis", { client: d.client, numero: d.numero }));
 }
 
+// ============ LE DOCUMENT TECHNIQUE D'UN DEVIS SOLAIRE (Timo, 16/11/2026) ============
+// Un second PDF qui SUIT le devis : mêmes briques (en-tête, bandeau, pied de
+// page, bandeau de formation), aucun prix. `t` = lib/documentTechnique.js ;
+// `d` = les données du devis (numéro, client, boutique…). Le PDF ne calcule
+// rien : il écrit ce que la règle lui donne.
+export function genererDocumentTechnique(t, d, logo, retournerDoc = false) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+  const largeur = doc.internal.pageSize.getWidth();
+  const hauteur = doc.internal.pageSize.getHeight();
+  enteteSociete(doc, logo, largeur, d.bq);
+  let y = bandeauTitre(doc, largeur, `${t.titre} — ${d.titre || "Solaire"}`.trim(), d.formation);
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(`Devis N° ${d.numero}`, 14, y + 6.5);
+  doc.text(`Date : ${d.date}`, 14, y + 10.5);
+  if (d.boutique) doc.text(`Boutique : ${d.boutique}`, 14, y + 14.5);
+  const idDv = identiteClient(d);
+  doc.text(texteSurPdf(`Client : ${idDv.titre || "—"}`), largeur - 14, y + 6.5, { align: "right" });
+  if (d.tel) doc.text(`Tél : ${d.tel}`, largeur - 14, y + 10.5, { align: "right" });
+  y += 22;
+
+  const paragraphe = (texte, taille = 8.5) => {
+    doc.setFontSize(taille);
+    doc.setTextColor(...GRIS_TEXTE);
+    const l = doc.splitTextToSize(texteSurPdf(texte), largeur - 28);
+    y = placePour(doc, y, hauteur, 4 * l.length + 2);
+    doc.text(l, 14, y);
+    y += 4 * l.length + 1.5;
+  };
+  const styles = { fontSize: 7.5, cellPadding: 1, textColor: GRIS_TEXTE };
+  const headStyles = { fillColor: GRIS_CLAIR, textColor: GRIS_TEXTE, fontStyle: "bold" };
+
+  y = titreBloc(doc, y, "1. Résumé");
+  t.resume.forEach((p) => paragraphe(p));
+  paragraphe(`Raccordement : ${t.libelleRaccordement}.`);
+  y += 2;
+
+  y = placePour(doc, y, hauteur, 30);
+  y = titreBloc(doc, y, "2. Données recensées");
+  if (t.appareils.length > 0) {
+    autoTable(doc, {
+      head: [[enTete("Appareil"), enTete("Puissance (W)", "right"), enTete("Qté", "center"), enTete("Puissance cumulée (W)", "right"), enTete("Heures / jour", "center"), enTete("Consommation (Wh)", "right")]],
+      body: t.appareils.map((a) => [texteSurPdf(a.nom), fmtMontant(a.puissance), String(a.qte), fmtMontant(a.cumulee), nb(a.heures), fmtMontant(a.wh)]),
+      foot: [["Total", "", "", { content: `${fmtMontant(t.totalCumulee)} W`, styles: { halign: "right" } }, "", { content: `${fmtMontant(t.totalWh)} Wh`, styles: { halign: "right" } }]],
+      startY: y, styles, headStyles,
+      footStyles: { fillColor: [255, 255, 255], textColor: GRIS_TEXTE, fontStyle: "bold" },
+      columnStyles: { 1: { halign: "right" }, 2: { halign: "center" }, 3: { halign: "right" }, 4: { halign: "center" }, 5: { halign: "right" } },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 5;
+  } else if (t.consoConnue) {
+    const c = t.consoConnue;
+    paragraphe([
+      c.consommation_mensuelle_kwh ? `Consommation mensuelle (facture CEET) : ${fmtMontant(c.consommation_mensuelle_kwh)} kWh.` : "",
+      !c.consommation_mensuelle_kwh && c.puissance_cumulee_kw && c.heures_utilisation ? `Puissance cumulée : ${nb(c.puissance_cumulee_kw)} kW, ${nb(c.heures_utilisation)} h par jour.` : "",
+      c.description ? `Équipements du client : ${c.description}` : "",
+    ].filter(Boolean).join(" "));
+  }
+
+  y = placePour(doc, y, hauteur, 30);
+  y = titreBloc(doc, y, "3. Dimensionnement");
+  paragraphe(`Heures de soleil retenues : ${nb(t.soleil)} h par jour${t.soleilNonRange ? " (valeur d'office : ce devis ne les avait pas enregistrées)" : ""}.`);
+  autoTable(doc, {
+    head: [[enTete("Élément"), enTete("Besoin calculé", "right"), enTete("Comment")]],
+    body: t.calcul.map((c) => [c.libelle, c.valeur, texteSurPdf(c.detail)]),
+    startY: y, styles, headStyles,
+    columnStyles: { 0: { cellWidth: 42 }, 1: { halign: "right", cellWidth: 38 } },
+    margin: { left: 14, right: 14 },
+  });
+  y = doc.lastAutoTable.finalY + 5;
+
+  y = placePour(doc, y, hauteur, 30);
+  y = titreBloc(doc, y, "4. Matériel retenu");
+  if (t.materiel.length > 0) {
+    autoTable(doc, {
+      head: [[enTete("Catégorie"), enTete("Article"), enTete("Qté", "center"), enTete("Caractéristiques"), enTete("Garantie")]],
+      body: t.materiel.map((m) => [texteSurPdf(m.categorie), texteSurPdf(m.article), String(nb(m.qte)), texteSurPdf(m.fiche), texteSurPdf(m.garantie)]),
+      startY: y, styles, headStyles,
+      columnStyles: { 2: { halign: "center", cellWidth: 12 } },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 4;
+  }
+  if (t.couverture.length > 0) {
+    autoTable(doc, {
+      head: [[enTete("Ce que le matériel apporte"), enTete("Retenu", "right"), enTete("Comment")]],
+      body: t.couverture.map((c) => [c.libelle, c.valeur, texteSurPdf(c.detail)]),
+      startY: y, styles, headStyles,
+      columnStyles: { 0: { cellWidth: 42 }, 1: { halign: "right", cellWidth: 30 } },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 3;
+    paragraphe("Le matériel retenu peut s'écarter du besoin calculé : les articles se vendent par modèle entier et le choix tient compte du site.", 7.5);
+  }
+  y += 2;
+
+  y = placePour(doc, y, hauteur, 30);
+  y = titreBloc(doc, y, "5. Implantation et câblage");
+  paragraphe(t.implantation ? `Implantation : ${t.implantation}` : `Implantation (emplacement du champ, local technique, distances) : ${PHRASE_A_CONFIRMER_PDF}`);
+  paragraphe(t.cablage);
+  y += 2;
+
+  y = placePour(doc, y, hauteur, 40);
+  y = titreBloc(doc, y, "6. Entretien");
+  autoTable(doc, {
+    head: [[enTete("N°", "center"), enTete("Activité d'entretien"), ...["1 mois", "6 mois", "1 an"].map((m) => enTete(m, "center"))]],
+    body: t.maintenance.map((m, i) => [String(i + 1), texteSurPdf(m.activite), ...["1 mois", "6 mois", "1 an"].map((q) => (m.quand === q ? "X" : ""))]),
+    startY: y, styles, headStyles,
+    columnStyles: { 0: { halign: "center", cellWidth: 9 }, 2: { halign: "center", cellWidth: 16 }, 3: { halign: "center", cellWidth: 16 }, 4: { halign: "center", cellWidth: 16 } },
+    margin: { left: 14, right: 14 },
+  });
+  y = doc.lastAutoTable.finalY + 4;
+  paragraphe("Les garanties applicables sont celles indiquées pour chaque article au paragraphe 4. Ce document ne contient aucun prix : les prix figurent sur le devis.", 7.5);
+
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) { doc.setPage(i); piedDePage(doc, largeur, hauteur); }
+  if (retournerDoc) return doc;
+  doc.save(fichierPdf("Document technique", { client: d.client, numero: d.numero }));
+}
+const PHRASE_A_CONFIRMER_PDF = "à confirmer lors de la visite technique.";
+
 // ============ LE RELEVÉ D'UNE CAISSE CENTRALE (Timo, 12/09/2026) ============
 // « Vous avez dit que c'est comme un relevé… pourquoi c'est impossible
 // d'exporter pour imprimer ? » — le relevé de Chez le DG, BANQUE ou Chez le

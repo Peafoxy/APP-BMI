@@ -729,6 +729,10 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         wh_jour: whParJour,
         puissance_simultanee: puissanceSimultanee,
         autonomie: Number(autonomie || 1),
+        // ☀️ 16/11/2026 : les heures de soleil retenues partent avec le devis,
+        // pour que le 📑 Document technique dise celles du calcul (un devis
+        // d'avant n'en porte pas : il retombe sur la valeur d'office).
+        soleil: Number(soleil) > 0 ? Number(soleil) : null,
         tension: Number(tension),
         type_batterie: typeBatterie,
         raccordement,

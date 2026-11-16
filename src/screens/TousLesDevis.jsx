@@ -6,7 +6,8 @@
 import { Fragment, useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
-import { genererDevis } from "../pdf";
+import { genererDevis, genererDocumentTechnique } from "../pdf";
+import { documentTechnique, estDevisSolaire, IMPLANTATION_MAX } from "../lib/documentTechnique";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, heureCourte, envoyerWhatsApp, fichierPdf } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
@@ -141,6 +142,23 @@ function donneesPdfDuDevis(db, d) {
 
 export function genererPdfDuDevis(db, d) {
   genererDevis(donneesPdfDuDevis(db, d), LOGO);
+}
+
+// 📑 Le DOCUMENT TECHNIQUE qui suit un devis solaire (16/11/2026) : écrit UNE
+// fois, comme « 📄 Devis PDF » — le bouton de 📋 Tous les devis ET (devis validé
+// ou payé) celui de l'espace client. Rien n'est enregistré ni refait : la règle
+// (lib/documentTechnique.js) LIT le devis et les fiches du stock de SA boutique.
+// `implantation` : la phrase tapée au moment du téléchargement (facultative).
+// Un devis qui n'est pas solaire rend false (le bouton ne s'offre pas).
+export function genererDocumentTechniqueDuDevis(db, d, implantation = "") {
+  if (!estDevisSolaire(d)) return false;
+  const doc = documentTechnique(d, {
+    produits: d.boutique ? (db.produits || []).filter((p) => p.boutique === d.boutique) : [],
+    implantation,
+  });
+  if (!doc) return false;
+  genererDocumentTechnique(doc, donneesPdfDuDevis(db, d), LOGO);
+  return true;
 }
 
 // 📎 Le PDF du devis en FICHIER, pour le joindre au message WhatsApp du numéro
@@ -603,6 +621,17 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
   };
 
   const telechargerPDF = (d) => genererPdfDuDevis(db, d);
+  // 📑 Document technique : UNE question facultative (où est posé le champ, où
+  // est le local technique, quelle distance), non rangée ; vide = « à confirmer ».
+  const telechargerDocTech = async (d) => {
+    const phrase = await uPrompt(`📑 Document technique du devis de ${d.client?.nom_base || d.client?.nom || "ce client"}.\n\nImplantation (facultatif) : où se pose le champ solaire, où est le local technique, quelle distance entre les deux ? ${IMPLANTATION_MAX} caractères au plus. Laissez vide : le document dira « à confirmer lors de la visite ».`, "");
+    if (phrase === null) return;
+    try {
+      if (!genererDocumentTechniqueDuDevis(db, d, phrase)) uAlert("Ce devis n'est pas un devis solaire : il n'a pas de document technique.");
+    } catch (e) {
+      uAlert("Le document technique n'a pas pu être fabriqué. Réessayez ; le devis, lui, n'est pas touché.");
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -800,6 +829,9 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                         titre="✍️ Compléter le devis — chiffrer les éléments « cf. visite », les lignes déjà chiffrées ne changent pas" />
                     )}
                     <BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />
+                    {estDevisSolaire(d) && (
+                      <BoutonRond data-document-technique icone="📑" onClick={() => telechargerDocTech(d)} titre="📑 Document technique — besoins, calcul, matériel et entretien, sans aucun prix" />
+                    )}
                     {peutClasserDevis(d, profile) && (d.statut || "propose") === "propose" && (
                       <BoutonRond data-classer-sans-suite icone="📁" teinte="gris" onClick={() => classerDevis(d)} titre="📁 Classer sans suite — le devis reste entier mais sort de la liste active" />
                     )}
