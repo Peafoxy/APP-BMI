@@ -108,6 +108,10 @@ echo "▸ Le prix sous le stock, la dette protégée, la vente figée : supabase
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -c "$(cat supabase/securite-53-prix-dette-vente-figee.sql)" >/dev/null 2>&1 || echo "   ❌ securite-53 refusé par la base"
 VERIF53=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-53-prix-dette-vente-figee.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF53" = "t|t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-53 répond true | true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-53 répond : $VERIF53"; exit 1; fi
+echo "▸ Une vente se crée à son nom : supabase/securite-54-vente-a-son-nom.sql"
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -c "$(cat supabase/securite-54-vente-a-son-nom.sql)" >/dev/null 2>&1 || echo "   ❌ securite-54 refusé par la base"
+VERIF54=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-54-vente-a-son-nom.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF54" = "t" ]; then echo "   ✓ la phrase de vérification de securite-54 répond true"; else echo "   ❌ la phrase de vérification de securite-54 répond : $VERIF54"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -708,6 +712,20 @@ essai "★ le prix monte à 15 000 : une vente faite hors connexion à l'ANCIEN 
 essai "★ … mais 11 000 ne passe pas (sous l'ancien prix aussi)" "REFUSE" "$VENDEUR" "$MONTE $(UPS ventes zw10 "$(V53 zw10 11000)")"
 essai "★ la base a noté l'ancien prix elle-même" "PERMIS" "$ADMIN" "$MONTE select count(*) from public.produits where id='zp1' and (data->>'prix_vente_avant')::numeric = 12000 and data ? 'prix_change_le';"
 essai "★ personne n'écrit un « ancien prix » à la main pour ouvrir la porte" "REFUSE" "$VENDEUR" "set local request.jwt.claims = '$GERANT'; $(UPS produits zp1 '{"id":"zp1","boutique":"APESSITO","nom":"BATTERIE","initial":10,"seuil":2,"prix_achat":8000,"prix_vente":12000,"entrees":0,"prix_vente_avant":1,"prix_change_le":"2099-01-01"}') set local request.jwt.claims = '$VENDEUR'; $(UPS ventes zw11 "$(V53 zw11 5)")"
+
+echo
+echo "── 🔒 securite-54 : UNE VENTE SE CRÉE À SON NOM ──"
+V54() { echo "{\"id\":\"$1\",\"boutique\":\"${3:-APESSITO}\",\"client\":\"X\",\"remise_pct\":0,\"paiement\":\"Espèces\",\"par\":\"$2\",\"date\":\"2026-11-16\",\"articles\":[{\"produit_id\":\"zp1\",\"article\":\"BATTERIE\",\"qte\":1,\"pu\":12000}]}"; }
+essai "★ KOSSI (vendeur) enregistre une vente à SON nom" "PERMIS" "$VENDEUR" "$(UPS ventes zn1 "$(V54 zn1 KOSSI)")"
+essai "★ … son nom écrit autrement (minuscules, espaces) reste le sien" "PERMIS" "$VENDEUR" "$(UPS ventes zn2 "$(V54 zn2 ' kossi ')")"
+essai "★ KOSSI enregistre une vente au nom de TIMO (l'administrateur)" "REFUSE" "$VENDEUR" "$(UPS ventes zn3 "$(V54 zn3 TIMO)")"
+essai "★ KOSSI enregistre une vente au nom de PAUL (magasinier, autre lieu)" "REFUSE" "$VENDEUR" "$(UPS ventes zn3 "$(V54 zn3 PAUL)")"
+essai "★ KOSSI enregistre une vente au nom d'une personne qui n'existe pas" "REFUSE" "$VENDEUR" "$(UPS ventes zn3 "$(V54 zn3 FANTOME)")"
+essai "★ poste partagé : une vente d'ALI (gérant de la MÊME boutique) part sous la session de KOSSI" "PERMIS" "$VENDEUR" "$(UPS ventes zn4 "$(V54 zn4 ALI)")"
+essai "★ … mais pas pour une AUTRE boutique que celle d'ALI" "REFUSE" "$VENDEUR" "$(UPS ventes zn5 "$(V54 zn5 ALI DEMAKPOE)")"
+essai "★ l'administrateur enregistre une vente au nom d'un autre (il corrige)" "PERMIS" "$ADMIN2" "$(UPS ventes zn6 "$(V54 zn6 KOSSI)")"
+essai "★ une vente sans nom de vendeur n'imite personne" "PERMIS" "$VENDEUR" "$(UPS ventes zn7 '{"id":"zn7","boutique":"APESSITO","remise_pct":0,"articles":[]}')"
+essai "★ un upsert sur une vente qui EXISTE n'est pas une création (le vendeur y est figé par securite-53)" "PERMIS" "$VENDEUR" "set local request.jwt.claims = '$ADMIN'; $(UPS ventes zn8 "$(V54 zn8 TIMO)") set local request.jwt.claims = '$VENDEUR'; $(UPS ventes zn8 "$(V54 zn8 TIMO)")"
 
 echo
 echo "── 🔒 securite-53 : UNE VENTE ENCAISSÉE NE SE RÉÉCRIT PLUS ──"

@@ -132,6 +132,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/vocauxStockes.js` | 🎤 Les notes vocales ENVOYÉES par BMI, rangées 30 jours dans l'espace de fichiers PRIVÉ de Supabase (« vocaux-wa ») : le chemin « jour/clé_hasard.ext », ce qui se range (le micro seulement), 30 jours, l'écoute refusée pour une autre conversation (sans import, lue par le serveur) |
 | `lib/oggOpus.js` | 🎤 Une note vocale WebM / Opus (Chrome) remise dans une boîte Ogg, la seule que WhatsApp lit comme note vocale — sans recoder ; durée lisible « 0:07 » (`src/enregistreurVocal.js` est le seul à toucher le micro) |
 | `lib/notifications.js` | Ce qui part en notification à chaque enregistrement |
+| `lib/notifClient.js` | 🔒 Ce qu'un compte CLIENT a le droit de notifier (il a écrit, il a validé un devis) : titre refait par le serveur, personnel seulement — lu par api/notifier.js |
 | `lib/rappels.js` | Les rappels « pour information » qui dépendent du temps (tournée du matin) |
 | `lib/conversations.js` | L'ordre de la liste des conversations de 💬 Messages |
 | `lib/contactGoogle.js` | 📇 Enregistrer un client WhatsApp dans les contacts Google de BMI (bmitogo.info) : numéro international, refus, corps envoyé à Google, trace sur la fiche ; quand chercher tout seul le nom d'un client qui écrit |

@@ -9,12 +9,25 @@
 // appareils des destinataires et envoie. Il n'écrit rien d'autre.
 //
 // Un compte bloqué ou inconnu ne peut rien envoyer. Un compte client peut
-// appeler (il écrit dans son fil support) : ses envois sont bornés comme
-// les autres.
+// appeler (il écrit dans son fil, il valide un devis) : ses envois passent
+// EN PLUS par lib/notifClient.js — deux sortes d'envoi seulement, titre
+// refait par le serveur, personnel seulement (16/11/2026).
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { poserCors } from "./_cors.js";
 import { configurerWebPush, nettoyerEnvoi, envoyerAuxPersonnes, MAX_ENVOIS } from "./_push.js";
+import { estCompteClient, envoisPermisAuClient } from "../src/lib/notifClient.js";
+
+// Les fiches des destinataires demandés sont RELUES sur la base : c'est le
+// serveur qui dit qui est du personnel, jamais l'appareil du client.
+export async function bornerPourUnClient(admin, envois, compte) {
+  const ids = [...new Set(envois.flatMap((e) => e.destinataires))];
+  if (!ids.length) return [];
+  const { data, error } = await admin.from("users").select("id, data").in("id", ids);
+  if (error) throw error;
+  const fiches = new Map((data || []).map((l) => [l.id, l.data || {}]));
+  return envoisPermisAuClient(envois, compte, fiches);
+}
 
 export default async function handler(req, res) {
   if (poserCors(req, res, "POST, OPTIONS")) return res.status(200).end();
@@ -41,7 +54,11 @@ export default async function handler(req, res) {
     if (!compte || compte.actif === false) return res.status(403).json({ error: "Ce compte ne peut pas envoyer de notification." });
 
     // Personne ne se notifie soi-même par ce chemin.
-    const sansMoi = propres.map((e) => ({ ...e, destinataires: e.destinataires.filter((d) => d !== id) })).filter((e) => e.destinataires.length);
+    let sansMoi = propres.map((e) => ({ ...e, destinataires: e.destinataires.filter((d) => d !== id) })).filter((e) => e.destinataires.length);
+    // Un compte CLIENT (16/11/2026) : seulement « il a écrit » ou « il a validé
+    // un devis », titre refait par le serveur, et vers le personnel seulement.
+    if (estCompteClient(compte)) sansMoi = await bornerPourUnClient(admin, sansMoi, compte);
+    if (!sansMoi.length) return res.status(200).json({ ok: true, envoyes: 0 });
     const bilan = await envoyerAuxPersonnes(admin, sansMoi);
     return res.status(200).json({ ok: true, ...bilan });
   } catch (e) {

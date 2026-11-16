@@ -491,5 +491,62 @@ titre("📍 Un message automatique mène où l'on agit");
     && /aValiderDG\.map\(\(d\) => \(\n\s*<div key=\{d\.id\} data-ligne=\{d\.id\}/.test(src("src/screens/Caisse.jsx")));
 }
 
+titre("🔒 Un compte CLIENT ne notifie que ce qu'il a le droit de notifier (16/11/2026)");
+{
+  const NC = await import(pathToFileURL("src/lib/notifClient.js").href);
+  const Serveur = await import(pathToFileURL("api/notifier.js").href);
+  const client = { id: "cli1", nom: "KOFFI", role: "client", actif: true };
+  const fichesBase = [
+    { id: "timo", data: { id: "timo", nom: "TIMO", role: "admin", actif: true } },
+    { id: "com1", data: { id: "com1", nom: "COM1", role: "commercial", actif: true } },
+    { id: "cli2", data: { id: "cli2", nom: "AMA", role: "client", actif: true } },
+    { id: "parti", data: { id: "parti", nom: "PARTI", role: "vendeur", actif: false } },
+  ];
+  // Un faux serveur de base : il ne rend que les fiches demandées.
+  let demandes = null;
+  const admin = { from: () => ({ select: () => ({ in: async (_c, ids) => { demandes = ids; return { data: fichesBase.filter((l) => ids.includes(l.id)), error: null }; } }) }) };
+  const borner = (envois, compte = client) => Serveur.bornerPourUnClient(admin, envois, compte);
+
+  const message = { destinataires: ["timo", "com1"], titre: "💬 KOFFI", texte: "J'ai une question", ecran: "messages", tag: "message:m1", cible: null };
+  const r1 = await borner([message]);
+  test("★ le client écrit dans 💬 Messages : la notification part au personnel, comme avant",
+    r1.length === 1 && memes(r1[0].destinataires, ["timo", "com1"]) && r1[0].titre === "💬 KOFFI" && r1[0].texte === "J'ai une question" && r1[0].ecran === "messages");
+  const r2 = await borner([{ ...message, titre: "⚠ BMI TOGO : votre compte est bloqué, tapez votre mot de passe" }]);
+  test("★ un titre fabriqué est REFAIT par le serveur avec le vrai nom du compte", r2.length === 1 && r2[0].titre === "💬 KOFFI");
+  const r3 = await borner([{ ...message, destinataires: ["cli2", "timo", "parti", "inconnu"] }]);
+  test("★ jamais vers un autre client, un compte désactivé ou un inconnu : le personnel actif seulement — et c'est la BASE qui le dit",
+    r3.length === 1 && memes(r3[0].destinataires, ["timo"]) && memes(demandes, ["cli2", "timo", "parti", "inconnu"]));
+  const r4 = await borner([{ ...message, destinataires: ["cli2"] }]);
+  test("★ un envoi qui ne vise que d'autres clients ne part pas du tout", r4.length === 0);
+  const r5 = await borner([
+    { ...message, tag: "remise_tiroir:x", titre: "💵 Dotation de caisse", ecran: "caisse" },
+    { ...message, tag: "transfert_stock:y" }, { ...message, tag: "" },
+  ]);
+  test("★ toute autre sorte d'envoi (dotation, transfert, sans étiquette) est refusée à un client", r5.length === 0);
+  const r6 = await borner([{ ...message, tag: "commande:c1", titre: "n'importe quoi", ecran: "parametres" }]);
+  test("★ il valide un devis : la commande à préparer part, titre et écran refaits",
+    r6.length === 1 && r6[0].titre === "🛒 Commande à valider — KOFFI" && r6[0].ecran === "commandes");
+  const r7 = await borner([{ ...message, ecran: "tous_devis" }, { ...message, ecran: "salaires" }]);
+  test("un écran prévu reste (📋 Tous les devis), un autre retombe sur 💬 Messages", r7.length === 2 && r7[0].ecran === "tous_devis" && r7[1].ecran === "messages");
+  const r8 = await borner([message], { ...client, formation: true });
+  test("un client de formation garde sa marque 🎓", r8.length === 1 && r8[0].titre === "🎓 💬 KOFFI");
+  test("la règle ne s'applique qu'à un compte client (un employé n'y passe pas)", NC.envoiPermisAuClient(message, { id: "timo", role: "admin" }, new Map()) === null && !NC.estCompteClient({ role: "vendeur" }));
+  // La vraie chaîne : ce que l'application fabrique pour un message du client passe tel quel.
+  const avant = base();
+  const fiche = { id: "ci9", user_id: "cli1", commercial: "COM1", equipe: [{ user_id: "tech1", nom: "TECH1" }] };
+  const avantC = avec(avant, { clients_installes: [fiche] });
+  const m = { id: "m77", de_id: "cli1", de_nom: "CLIENT1", canal: "support", client_id: "cli1", texte: "Bonjour" };
+  const fabrique = N.envoisDepuisSave(avantC, avec(avantC, { messages: [m] }), { id: "cli1" });
+  const fichesReelles = new Map(avant.users.map((u) => [u.id, u]));
+  const passe = NC.envoisPermisAuClient(fabrique, avant.users.find((u) => u.id === "cli1"), fichesReelles);
+  test("★ la vraie notification d'un message de client (fabriquée par l'application) passe la règle sans rien perdre",
+    fabrique.length === 1 && passe.length === 1 && memes(passe[0].destinataires, ["timo", "adminR", "tech1", "com1"]) && passe[0].titre === "💬 CLIENT1" && passe[0].tag === "message:m77" && passe[0].texte === "Bonjour");
+  const src = (f) => readFileSync(f, "utf8");
+  const srv = src("api/notifier.js");
+  test("★ le serveur applique la règle à tout compte client, APRÈS avoir relu sa fiche, et lit la règle (jamais une copie)",
+    /if \(estCompteClient\(compte\)\) sansMoi = await bornerPourUnClient\(admin, sansMoi, compte\);/.test(srv)
+    && /from "\.\.\/src\/lib\/notifClient\.js"/.test(srv) && !/^import /m.test(src("src/lib/notifClient.js")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);
