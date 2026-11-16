@@ -7,7 +7,7 @@
 import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, heureCourte, totalVente } from "../lib/core";
-import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
+import { articleParCode, mettreAuPanier as ajouterAuPanierCommun, refusPrixSousLeStock } from "../lib/panier";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, ListeArticles, PastillePaiement, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, plafondRemise } from "../lib/calculs";
@@ -99,6 +99,8 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     const q = Number(sel.qte);
     if (!p || !q || q <= 0 || !sel.pu) { setMsg("Choisissez un article, la quantité et le prix."); return; }
     if (q > dispoRestant(p)) { setMsg(`Stock insuffisant : il reste ${dispoRestant(p)} pour « ${p.nom} ».`); return; }
+    // 🔒 16/11/2026 : hors administrateur, aucun article sous le prix du stock.
+    { const refusP = refusPrixSousLeStock(profile, [{ produit_id: p.id, article: p.nom, pu: sel.pu }], db.produits); if (refusP) { setMsg(refusP); uAlert(`🔒 ${refusP}`); return; } }
     setMsg("");
     mettreAuPanier(p, q, sel.pu);
     setSel({ produit_id: "", qte: "", pu: "" });
@@ -127,6 +129,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
     if (bloquerSiLecture(db, profile)) return;
     if (panier.length === 0) { setMsg("Le panier est vide : ajoutez au moins un article."); return; }
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
+    { const refusP = refusPrixSousLeStock(profile, panier, db.produits); if (refusP) { setMsg(refusP); uAlert(`🔒 ${refusP}`); return; } }
     // Décision Timo (04/09/2026) : au-delà de la limite de remise (réglable
     // dans ⚙ Paramètres, 3 % d'office), l'administrateur seul.
     const plafond = plafondRemise(db);

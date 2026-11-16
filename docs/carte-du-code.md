@@ -68,7 +68,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 | `lib/attestationSortie.js` | L'attestation de fin de contrat mise à la disposition de l'employé (CDI au clic, CDD par la tournée), son accès fermé 24 h après ; la ligne privée et la notification de la tournée |
 | `lib/infobulle.js` | La description d'un bouton dans sa fenêtre : la couleur du bouton, la place à l'écran (sans import ; l'hôte `InfobulleHost` vit dans ui.jsx) |
 | `lib/horloge.js` | L'heure du SERVEUR : l'écart de l'horloge de l'appareil, retiré de toute date et heure écrite (sans import) |
-| `lib/panier.js` | Le panier d'une vente ou d'une commande |
+| `lib/panier.js` | Le panier d'une vente ou d'une commande ; 🔒 le prix sous le stock (hors administrateur, jamais sous `prix_vente`) |
 | `lib/transfertsStock.js` | Le transfert de stock entre boutiques (la boutique qui reçoit valide) |
 | `lib/importStock.js` | L'importation d'articles en stock (Excel ou texte collé) |
 | `lib/travaux.js` | 🛠 Travaux à crédit : les prestations hors devis |

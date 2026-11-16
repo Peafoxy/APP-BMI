@@ -5485,7 +5485,7 @@ titre("Doublons A5, A6, A7 : numéro de série, même fiche, code-barres et pani
   for (const f of ["src/screens/Ventes.jsx", "src/screens/Commandes.jsx"]) {
     const src = readFileSync(f, "utf8");
     test(`★ ${f} lit le code-barres et fusionne le panier par lib/panier.js, sans copie locale`,
-      /import \{ articleParCode, mettreAuPanier as ajouterAuPanierCommun \} from "\.\.\/lib\/panier";/.test(src)
+      /import \{ articleParCode, mettreAuPanier as ajouterAuPanierCommun, refusPrixSousLeStock \} from "\.\.\/lib\/panier";/.test(src)
       && /const p = articleParCode\(produits, c\);/.test(src) && /setPanier\(\(pan\) => ajouterAuPanierCommun\(pan, p, q, pu/.test(src)
       && !/pan\.findIndex\(\(l\) => l\.produit_id === p\.id/.test(src));
   }
@@ -19438,6 +19438,66 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
   test("★★ 🧲 la règle n'importe rien, et la question dit à qui va la commission",
     !/^import /m.test(readFileSync("src/lib/commercialDuProspect.js", "utf8"))
     && /prospect de KOFFI/.test(CP.questionProspectDUnAutre(pK, "RESP", true)) && /commission/.test(CP.questionProspectDUnAutre(pK, "RESP", false)));
+}
+
+// ============ 🔒 LE PRIX SOUS LE STOCK, LA DETTE PROTÉGÉE, LA VENTE FIGÉE (16/11/2026) ============
+// Timo : « 1, 2 et 3 », après l'audit « les données de l'appareil sont-elles
+// contrôlées par la base ? ». La case Prix unitaire se tapait librement : la
+// limite de remise se contournait en tapant un prix plus bas.
+{
+  const PN = await import(pathToFileURL(join(process.cwd(), "src/lib/panier.js")).href);
+  const stock = [{ id: "p1", nom: "BATTERIE 200Ah", prix_vente: 100000 }, { id: "p2", nom: "CABLE", prix_vente: 0 }];
+  const vendeur = { id: "u1", nom: "KOSSI", role: "vendeur" }, gerant = { id: "u2", nom: "ALI", role: "gerant" }, admin = { id: "u3", nom: "TIMO", role: "admin" };
+  const bas = [{ produit_id: "p1", article: "BATTERIE 200Ah", qte: 1, pu: 60000 }];
+  test("★★ 🔒 un vendeur ET un gérant ne valident pas un article sous le prix du stock ; l'administrateur oui ; plus cher reste libre",
+    /BATTERIE 200Ah/.test(PN.refusPrixSousLeStock(vendeur, bas, stock)) && /100 000 F/.test(PN.refusPrixSousLeStock(vendeur, bas, stock)) && /60 000 F/.test(PN.refusPrixSousLeStock(vendeur, bas, stock))
+    && PN.refusPrixSousLeStock(gerant, bas, stock) !== ""
+    && PN.refusPrixSousLeStock(admin, bas, stock) === ""
+    && PN.refusPrixSousLeStock(vendeur, [{ produit_id: "p1", qte: 1, pu: 100000 }, { produit_id: "p1", qte: 1, pu: 130000 }], stock) === "");
+  test("★★ 🔒 ne sont jamais comparées : une ligne hors boutique, sans article lié, déjà sortie (travaux), un article sans prix",
+    PN.lignesSousLePrix([
+      { produit_id: "p1", pu: 1, hors_boutique: true }, { produit_id: null, pu: 1 }, { produit_id: "p1", pu: 1, deja_sorti: true },
+      { produit_id: "p2", pu: 1 }, { produit_id: "inconnu", pu: 1 }], stock).length === 0);
+  test("★★ 🔒 une proforma reprise garde SES prix (et pas un franc de moins)",
+    PN.refusPrixSousLeStock(vendeur, [{ produit_id: "p1", pu: 90000 }], stock, [{ produit_id: "p1", pu: 90000 }]) === ""
+    && PN.refusPrixSousLeStock(vendeur, [{ produit_id: "p1", pu: 80000 }], stock, [{ produit_id: "p1", pu: 90000 }]) !== "");
+  test("★★ 🔒 la règle n'importe rien, et renvoie à la case Remise",
+    !/^import /m.test(readFileSync("src/lib/panier.js", "utf8")) && /case Remise/.test(PN.motifPrixSousLeStock(PN.lignesSousLePrix(bas, stock))));
+  const Vt = readFileSync("src/screens/Ventes.jsx", "utf8"), Cm = readFileSync("src/screens/Commandes.jsx", "utf8");
+  test("★★ 🔒 💰 Ventes revérifie le prix : à l'ajout au panier, aux trois gestes de proforma, à l'achat chantier et à l'encaissement (jamais pour un devis, une commande, des travaux, une remise accordée)",
+    (Vt.match(/refusPrix\(/g) || []).length === 6
+    && /refusPrix\(\[\{ produit_id: p\.id, article: p\.nom, pu: sel\.pu \}\]/.test(Vt)
+    && (Vt.match(/refusPrix\(panier, lignesDeLaProforma\(proformaEnModif\?\.id\)\)/g) || []).length === 3
+    && /if \(!origineDevis && !origineCommande && !origineTravaux && !autorisation\) \{\s*const refusP = refusPrix\(panier, lignesDeLaProforma\(origineProforma\?\.id\)\);/.test(Vt));
+  test("★★ 🔒 🛒 Nouvelle commande revérifie le prix à l'ajout ET à l'envoi",
+    (Cm.match(/refusPrixSousLeStock\(profile, /g) || []).length === 2
+    && /refusPrixSousLeStock\(profile, panier, db\.produits\)/.test(Cm));
+  const S53 = readFileSync("supabase/securite-53-prix-dette-vente-figee.sql", "utf8");
+  const sansCom = S53.split("\n").filter((l) => !/^\s*--/.test(l)).join("\n");
+  test("★★ 🔒 LE COUPLE : la base redit le prix plancher (ventes, proformas, commandes) avec les MÊMES exceptions que l'écran",
+    /create trigger ventes_regles_prix_gel_trg/.test(sansCom) && /create trigger proformas_regles_prix_trg/.test(sansCom) && /create trigger commandes_regles_prix_trg/.test(sansCom)
+    && /hors_boutique/.test(sansCom) && /commande_id/.test(sansCom) && /travaux_id/.test(sansCom) && /reservation_id/.test(sansCom)
+    && /remise_autorisee_par_admin\(new\.id, new\.data\)/.test(sansCom) && /proforma_id/.test(sansCom) && /origine_devis/.test(sansCom));
+  test("★★ 🔒 la base retient l'ancien prix 7 jours (une vente faite hors connexion ne reste pas coincée) et personne ne l'écrit à la main",
+    /create trigger produits_memoire_prix_trg/.test(sansCom) && /interval '7 days'/.test(sansCom)
+    && /new\.data - 'prix_vente_avant' - 'prix_change_le'/.test(sansCom));
+  test("★★ 🔒 une vente encaissée est figée hors administrateur : articles, paiement, remises, date, boutique, caisse, vendeur, commercial",
+    /array\['articles','paiement','remise','remise_pct','rabais','frais_installation','frais_transport',\s*'boutique','caisse','date','par','commercial','responsable'\]/.test(sansCom));
+  // Aucun geste de l'application ne réécrit un champ figé d'une vente (sinon le lot resterait coincé).
+  const fichiersSrc = (function lister(d) { return readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? lister(join(d, e.name)) : (/\.(js|jsx)$/.test(e.name) ? [join(d, e.name)] : [])); })("src");
+  const reecrit = fichiersSrc.filter((f) => /\{ \.\.\.v,[^{}]*\b(articles|paiement|rabais|remise_pct|caisse|boutique|commercial|responsable|par|date):/.test(readFileSync(f, "utf8")));
+  test(`★★ 🔒 aucun geste de l'application ne réécrit un champ figé d'une vente${reecrit.length ? " — " + reecrit.join(", ") : ""}`, reecrit.length === 0);
+  test("★★ 🔒 une dette : versements intacts, « payé » jamais sans sa ligne, montant figé (remise après-vente du gérant, pose seule corrigée avant versement)",
+    /create trigger dettes_regles_argent_trg/.test(sansCom) && /if not \(ln @> la\)/.test(sansCom)
+    && /somme_paiements\(ln\) - public\.somme_paiements\(la\)/.test(sansCom)
+    && /r = 'gerant' and mn < ma/.test(sansCom) && /'pose_seule'\) = 'true' and pa = 0/.test(sansCom));
+  // Les deux gestes qui encaissent une dette posent le versement AVEC « payé ».
+  const Dt = readFileSync("src/screens/Dettes.jsx", "utf8"), Ep = readFileSync("src/components/encaissementPose.js", "utf8");
+  test("★★ 🔒 les deux gestes qui encaissent une dette écrivent « payé » ET la ligne du versement (sinon la base refuserait)",
+    /paye: Number\(d\.paye\) \+ m, paiements: \[\.\.\.\(d\.paiements \|\| \[\]\), paiement\]/.test(Dt)
+    && /paye: Number\(dette\.paye \|\| 0\) \+ m, paiements: \[\.\.\.\(dette\.paiements \|\| \[\]\), paiement\]/.test(Ep));
+  test("★★ 🔒 le script ne remplace aucune règle existante et ne finit pas par un rollback",
+    !/function public\.ventes_regles_roles|function public\.proformas_regles_remise|function public\.dettes_regles_roles/.test(sansCom) && !/rollback\s*;/i.test(sansCom));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

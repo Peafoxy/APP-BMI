@@ -24,7 +24,7 @@ import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, a
 import { estCodeCarte, trouverCarte, carteDe, critiqueRemiseCarte, traceCarteSurLaVente, carteEffective, pctCommunCarte } from "../lib/carteFidelite";
 import { autorisationPour, demandeDeLOffre, construireDemandeRemise, critiqueDemandeRemise, poserDemandeRemise, critiqueDecisionRemise, accorderRemise, refuserRemise, annulerDemandeRemise, traceSurLaVente, marquerUtilisee, demandesAAutoriser, mesDemandesRemise, demandesRemiseDe, STATUT_ATTENTE_REMISE, STATUT_REFUSEE_REMISE, STATUT_ACCORDEE, LIBELLE_STATUT_REMISE } from "../lib/autorisationRemise";
 import { ROLES_REMISE_APRES_VENTE, plafondRemiseApresVente, construireRemiseApresVente, appliquerRemiseApresVente } from "../lib/remiseApresVente";
-import { articleParCode, mettreAuPanier as ajouterAuPanierCommun } from "../lib/panier";
+import { articleParCode, mettreAuPanier as ajouterAuPanierCommun, refusPrixSousLeStock } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
 import { mettreVenteALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
@@ -145,6 +145,11 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // 29/10/2026, Timo : la limite de remise sans administrateur se règle
   // désormais dans ⚙ Paramètres (plafondRemise), 3 % d'office.
   const plafond = plafondRemise(db);
+  // 🔒 16/11/2026 : hors administrateur, aucun article du stock sous son prix
+  // (lib/panier.js ; la base redit la même chose, securite-53). `toleres` :
+  // les lignes d'une proforma qui portaient déjà ce prix.
+  const lignesDeLaProforma = (id) => (id ? ((db.proformas || []).find((x) => x.id === id)?.lignes || []) : []);
+  const refusPrix = (lignes, toleres = []) => refusPrixSousLeStock(profile, lignes, db.produits, toleres);
   const ficheBoutique = (db.boutiques || []).find((b) => b.nom === boutique) || null;
   const commerciaux = apporteursPossibles(db, profile);
   // ⚠ Filtre par DOMAINE (demande Timo, 18/08/2026) — des familles comme
@@ -315,6 +320,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     const p = produits.find((x) => x.id === sel.produit_id);
     const q = Number(sel.qte);
     if (!p || !q || q <= 0 || !sel.pu) { setMsg("Choisissez un article, la quantité et le prix."); return; }
+    { const refusP = refusPrix([{ produit_id: p.id, article: p.nom, pu: sel.pu }], lignesDeLaProforma(proformaEnModif?.id || origineProforma?.id)); if (refusP) { setMsg(refusP); uAlert(`🔒 ${refusP}`); return; } }
     // ⚠ Demande Timo (vraie insuffisance) : un article en rupture ne doit PAS
     // bloquer l'ajout au panier — un vendeur suivant un devis déjà signé par
     // le client doit pouvoir continuer la vente ; c'est SEULEMENT au moment
@@ -561,6 +567,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (panier.length === 0) { setMsg("Une proforma porte au moins un article."); return; }
     if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    { const refusP = refusPrix(panier, lignesDeLaProforma(proformaEnModif?.id)); if (refusP) { uAlert(`🔒 ${refusP}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const brute = construireProforma();
     const rangee = enregistrerProforma(brute);
@@ -695,6 +702,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
       if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
       if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
       { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    { const refusP = refusPrix(panier, lignesDeLaProforma(proformaEnModif?.id)); if (refusP) { uAlert(`🔒 ${refusP}`); return; } }
       { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
       const brute = construireProforma();
       const rangee = enregistrerProforma(brute);
@@ -802,6 +810,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (panier.length === 0) { setMsg("Ajoutez au moins un article avant d'émettre un proforma."); return; }
     if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { uAlert(`🔒 ${refusR}`); return; } }
+    { const refusP = refusPrix(panier, lignesDeLaProforma(proformaEnModif?.id)); if (refusP) { uAlert(`🔒 ${refusP}`); return; } }
     { const refusE = critiqueEntreprise(f.entreprise); if (refusE) { uAlert(refusE); return; } }
     const brute = construireProforma();
     const rangee = enregistrerProforma(brute);
@@ -936,6 +945,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     if (refus) { setMsg(refus); uAlert(refus); return; }
     if (remisePct < 0 || remisePct > 100) { setMsg("La remise doit être comprise entre 0 et 100 %."); return; }
     { const refusR = critiqueRemises(panier, remisePct, remise, profile.role, plafond); if (refusR) { setMsg(refusR); uAlert(`🔒 ${refusR}`); return; } }
+    { const refusP = refusPrix(panier); if (refusP) { setMsg(refusP); uAlert(`🔒 ${refusP}`); return; } }
     if (remiseExigeAdmin(remisePct, plafond) && profile.role !== "admin") { uAlert(`🔒 Une remise supérieure à ${plafond} % est réservée à l'administrateur.`); return; }
     const gratuits = panier.filter((l) => !(Number(l.pu) > 0));
     if (gratuits.length && !await uConfirm(`⚠ ${gratuits.length} article(s) sont à 0 F :\n${gratuits.map((l) => `• ${l.article}`).join("\n")}\n\nIls sortiront quand même du stock. Continuer ?`)) return;
@@ -1042,6 +1052,12 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     }
     const offreRemise = { panier, remisePct, tel: f.tel };
     const autorisation = profile.role !== "admin" && !carte ? autorisationPour(ficheBoutique, db.ventes, offreRemise) : null;
+    // 🔒 Le prix sous le stock : jamais pour une vente née d'un devis, d'une
+    // commande, de travaux ou d'une remise accordée (leurs prix viennent de là).
+    if (!origineDevis && !origineCommande && !origineTravaux && !autorisation) {
+      const refusP = refusPrix(panier, lignesDeLaProforma(origineProforma?.id));
+      if (refusP) { setMsg(refusP); uAlert(`🔒 ${refusP}`); return; }
+    }
     {
       const refusR = critiqueRemises(panier, remisePct, remise, remiseDeLaProforma || autorisation || carte ? "admin" : profile.role, plafond);
       if (refusR) {

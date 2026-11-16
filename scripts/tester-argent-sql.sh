@@ -103,6 +103,11 @@ echo "▸ La dotation remise à un gérant désigné : supabase/securite-52-dota
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-52-dotation-gerant-designe.sql >/dev/null 2>&1 || echo "   ❌ securite-52 refusé par la base"
 VERIF52=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-52-dotation-gerant-designe.sql | grep -v '^\s*--')" | tr -d ' ')
 if [ "$VERIF52" = "t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-52 répond true | true | true"; else echo "   ❌ la phrase de vérification de securite-52 répond : $VERIF52"; exit 1; fi
+echo "▸ Le prix sous le stock, la dette protégée, la vente figée : supabase/securite-53-prix-dette-vente-figee.sql"
+# ⚠ Envoyé EN UN SEUL ENVOI, comme l'éditeur de Supabase (leçon du 20/10/2026).
+psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -c "$(cat supabase/securite-53-prix-dette-vente-figee.sql)" >/dev/null 2>&1 || echo "   ❌ securite-53 refusé par la base"
+VERIF53=$($P -c "$(sed -n '/^select$/,/;$/p' supabase/securite-53-prix-dette-vente-figee.sql | grep -v '^\s*--')" | tr -d ' ')
+if [ "$VERIF53" = "t|t|t|t|t" ]; then echo "   ✓ la phrase de vérification de securite-53 répond true | true | true | true | true"; else echo "   ❌ la phrase de vérification de securite-53 répond : $VERIF53"; exit 1; fi
 echo "▸ Le retour sous garantie ouvert au gérant : supabase/securite-17-retour-gerant.sql"
 psql -h /tmp -p $PORT -U postgres -d bmi -q -v ON_ERROR_STOP=1 -f supabase/securite-17-retour-gerant.sql >/dev/null 2>&1 || echo "   ❌ securite-17 refusé par la base"
 
@@ -170,7 +175,7 @@ essai "l'admin supprime une dette" "PERMIS" "$ADMIN" "$(SUPPR dettes zd1)"
 essai "un gérant supprime une dépense" "REFUSE" "$GERANT" "$(SUPPR depenses zx1)"
 essai "l'admin supprime une dépense" "PERMIS" "$ADMIN" "$(SUPPR depenses zx1)"
 essai "un vendeur ENCAISSE une vente sans remise (le quotidien passe)" "PERMIS" "$VENDEUR" "$(INS ventes zv9 '{"id":"zv9","boutique":"APESSITO","client":"X","remise_pct":0}')"
-essai "un vendeur encaisse un versement sur une dette (le quotidien passe)" "PERMIS" "$VENDEUR" "$(MAJ dettes "jsonb_set(data,'{paye}','10000')" zd1)"
+essai "un vendeur encaisse un versement sur une dette, avec sa ligne (le quotidien passe)" "PERMIS" "$VENDEUR" "$(MAJ dettes "data || '{\"paye\":10000,\"paiements\":[{\"id\":\"pm1\",\"montant\":10000,\"paiement\":\"Espèces\",\"par\":\"KOSSI\"}]}'::jsonb" zd1)"
 
 echo
 echo "── LE POINTAGE DU COMPTABLE : son seul geste, et rien d'autre ──"
@@ -678,6 +683,63 @@ essai "★ AMA, l'AUTRE gérant de la même boutique, confirme la dotation remis
 essai "★ AMA confirme en changeant le gérant désigné à son nom" "REFUSE" "$GERANT_ICI2" "$(PAR_DGP "$GERANT_ICI2") $(UPS depenses zrt9 "$(echo "$RTP_RECUE" | sed 's/"pour_id":"zg_ali","pour_nom":"ALI"/"pour_id":"zg_ama","pour_nom":"AMA"/')")"
 essai "★ une dotation d'AVANT (sans gérant désigné) reste confirmable par AMA" "PERMIS" "$GERANT_ICI2" "$(PAR_DG "$GERANT_ICI2") $(UPS depenses zrt1 "$RT_RECUE")"
 essai "★ le quotidien passe : un vendeur enregistre une dépense ordinaire (securite-51 compris)" "PERMIS" "$VENDEUR" "$(UPS depenses zd_ord3 '{"id":"zd_ord3","boutique":"APESSITO","categorie":"Transport","montant":1500,"paiement":"Espèces","par":"KOSSI","paye_avec":"caisse"}')"
+echo
+echo "── 🔒 securite-53 : LE PRIX SOUS LE STOCK (ventes, proformas, commandes) ──"
+V53() { echo "{\"id\":\"$1\",\"boutique\":\"APESSITO\",\"client\":\"X\",\"remise_pct\":0,\"paiement\":\"Espèces\",\"par\":\"KOSSI\",\"date\":\"2026-11-16\",\"articles\":[{\"produit_id\":\"zp1\",\"article\":\"BATTERIE\",\"qte\":1,\"pu\":$2}]${3:-}}"; }
+essai "★ un vendeur vend la batterie à son prix (12 000)" "PERMIS" "$VENDEUR" "$(UPS ventes zw1 "$(V53 zw1 12000)")"
+essai "★ un vendeur vend la batterie PLUS cher (15 000)" "PERMIS" "$VENDEUR" "$(UPS ventes zw2 "$(V53 zw2 15000)")"
+essai "★ un vendeur tape 9 000 au lieu de 12 000 (le contournement de la limite de remise)" "REFUSE" "$VENDEUR" "$(UPS ventes zw3 "$(V53 zw3 9000)")"
+essai "★ un gérant tape 9 000 au lieu de 12 000" "REFUSE" "$GERANT" "$(UPS ventes zw3 "$(V53 zw3 9000)")"
+essai "★ un administrateur vend à 9 000 (il fixe les prix)" "PERMIS" "$ADMIN2" "$(UPS ventes zw4 "$(V53 zw4 9000)")"
+essai "★ une ligne hors boutique à 1 F n'est pas comparée au stock" "PERMIS" "$VENDEUR" "$(UPS ventes zw5 '{"id":"zw5","boutique":"APESSITO","remise_pct":0,"articles":[{"produit_id":"zp1","article":"HB","qte":1,"pu":1,"hors_boutique":true},{"produit_id":null,"article":"Frais","qte":1,"pu":500}]}')"
+essai "★ une vente née d'une COMMANDE qui existe garde ses prix" "PERMIS" "$VENDEUR" "$(UPS ventes zw6 "$(V53 zw6 9000 ',"commande_id":"zcmA"')")"
+essai "★ citer une commande qui n'existe pas n'ouvre rien" "REFUSE" "$VENDEUR" "$(UPS ventes zw7 "$(V53 zw7 9000 ',"commande_id":"fantome"')")"
+essai "★ une vente de devis (caisse DÉPÔT CHANTIER) garde les prix du devis" "PERMIS" "$VENDEUR" "$(UPS ventes zw8 "$(V53 zw8 9000 ',"caisse":"TERRAIN"')")"
+PF53="set local request.jwt.claims = '$ADMIN'; $(UPS proformas zpf53 '{"id":"zpf53","boutique":"APESSITO","remise_pct":0,"lignes":[{"produit_id":"zp1","article":"BATTERIE","qte":1,"pu":10000}]}') set local request.jwt.claims = '$VENDEUR';"
+essai "★ une proforma faite à 10 000 par l'administrateur se vend à 10 000 par le vendeur" "PERMIS" "$VENDEUR" "$PF53 $(UPS ventes zw9 "$(V53 zw9 10000 ',"proforma_id":"zpf53"')")"
+essai "★ … mais pas à 8 000 (plus bas que la proforma)" "REFUSE" "$VENDEUR" "$PF53 $(UPS ventes zw9 "$(V53 zw9 8000 ',"proforma_id":"zpf53"')")"
+essai "★ un vendeur émet une proforma à 9 000" "REFUSE" "$VENDEUR" "$(UPS proformas zpf54 '{"id":"zpf54","boutique":"APESSITO","remise_pct":0,"lignes":[{"produit_id":"zp1","article":"BATTERIE","qte":1,"pu":9000}]}')"
+essai "★ un vendeur émet une proforma au prix du stock" "PERMIS" "$VENDEUR" "$(UPS proformas zpf55 '{"id":"zpf55","boutique":"APESSITO","remise_pct":0,"lignes":[{"produit_id":"zp1","article":"BATTERIE","qte":1,"pu":12000}]}')"
+essai "★ un commercial passe une commande à 9 000" "REFUSE" "$COMMERCIAL" "$(UPS commandes zcm53 '{"id":"zcm53","boutique":"APESSITO","remise_pct":0,"articles":[{"produit_id":"zp1","nom":"BATTERIE","qte":1,"pu":9000}]}')"
+essai "★ une commande née d'un devis garde les prix du devis" "PERMIS" "$COMMERCIAL" "$(UPS commandes zcm54 '{"id":"zcm54","boutique":"APESSITO","remise_pct":0,"origine_devis":{"client_id":"zc_ama","devis_id":"dv5"},"articles":[{"produit_id":"zp1","nom":"BATTERIE","qte":1,"pu":9000}]}')"
+# La mémoire du prix : l'administrateur MONTE le prix, une vendeuse hors connexion vend à l'ancien.
+MONTE="set local request.jwt.claims = '$ADMIN'; $(UPS produits zp1 '{"id":"zp1","boutique":"APESSITO","nom":"BATTERIE","initial":10,"seuil":2,"prix_achat":8000,"prix_vente":15000,"entrees":0}') set local request.jwt.claims = '$VENDEUR';"
+essai "★ le prix monte à 15 000 : une vente faite hors connexion à l'ANCIEN prix (12 000) passe pendant 7 jours" "PERMIS" "$VENDEUR" "$MONTE $(UPS ventes zw10 "$(V53 zw10 12000)")"
+essai "★ … mais 11 000 ne passe pas (sous l'ancien prix aussi)" "REFUSE" "$VENDEUR" "$MONTE $(UPS ventes zw10 "$(V53 zw10 11000)")"
+essai "★ la base a noté l'ancien prix elle-même" "PERMIS" "$ADMIN" "$MONTE select count(*) from public.produits where id='zp1' and (data->>'prix_vente_avant')::numeric = 12000 and data ? 'prix_change_le';"
+essai "★ personne n'écrit un « ancien prix » à la main pour ouvrir la porte" "REFUSE" "$VENDEUR" "set local request.jwt.claims = '$GERANT'; $(UPS produits zp1 '{"id":"zp1","boutique":"APESSITO","nom":"BATTERIE","initial":10,"seuil":2,"prix_achat":8000,"prix_vente":12000,"entrees":0,"prix_vente_avant":1,"prix_change_le":"2099-01-01"}') set local request.jwt.claims = '$VENDEUR'; $(UPS ventes zw11 "$(V53 zw11 5)")"
+
+echo
+echo "── 🔒 securite-53 : UNE VENTE ENCAISSÉE NE SE RÉÉCRIT PLUS ──"
+VF='{"id":"zwf","boutique":"APESSITO","client":"X","remise_pct":0,"remise":0,"paiement":"Espèces","par":"KOSSI","date":"2026-11-16","articles":[{"produit_id":"zp1","article":"BATTERIE","qte":2,"pu":12000}]}'
+POSEE="set local request.jwt.claims = '$VENDEUR'; $(UPS ventes zwf "$VF")"
+essai "★ la même vente renvoyée telle quelle (synchronisation) passe" "PERMIS" "$VENDEUR" "$POSEE $(UPS ventes zwf "$VF")"
+essai "★ un vendeur change le PRIX d'une vente encaissée" "REFUSE" "$VENDEUR" "$POSEE $(UPS ventes zwf "$(echo "$VF" | sed 's/"pu":12000/"pu":13000/')")"
+essai "★ un vendeur retire un article d'une vente encaissée" "REFUSE" "$VENDEUR" "$POSEE $(UPS ventes zwf "$(echo "$VF" | sed 's/"qte":2/"qte":1/')")"
+essai "★ un gérant change le moyen de paiement après coup" "REFUSE" "$GERANT" "$POSEE set local request.jwt.claims = '$GERANT'; $(UPS ventes zwf "$(echo "$VF" | sed 's/Espèces/Virement bancaire/')")"
+essai "★ un vendeur met la vente au nom d'un autre" "REFUSE" "$VENDEUR" "$POSEE $(UPS ventes zwf "$(echo "$VF" | sed 's/"par":"KOSSI"/"par":"ALI"/')")"
+essai "★ un vendeur change la date d'une vente" "REFUSE" "$VENDEUR" "$POSEE $(UPS ventes zwf "$(echo "$VF" | sed 's/2026-11-16/2026-11-10/')")"
+essai "★ payer la commission (un autre champ) passe toujours" "PERMIS" "$GERANT" "$POSEE set local request.jwt.claims = '$GERANT'; $(UPS ventes zwf "$(echo "$VF" | sed 's/"remise":0/"remise":0,"commission_payee":true,"commission_dep":"d1"/')")"
+essai "★ la trace d'un reçu WhatsApp (un autre champ) passe toujours" "PERMIS" "$VENDEUR" "$POSEE $(UPS ventes zwf "$(echo "$VF" | sed 's/"remise":0/"remise":0,"client_user_id":"zc_ama","caisse":null/')")"
+essai "★ l'administrateur corrige une vente encaissée" "PERMIS" "$ADMIN2" "$POSEE set local request.jwt.claims = '$ADMIN2'; $(UPS ventes zwf "$(echo "$VF" | sed 's/Espèces/Virement bancaire/')")"
+
+echo
+echo "── 🔒 securite-53 : UNE DETTE PROTÉGÉE (versements, payé, montant) ──"
+DT='{"id":"zdt","boutique":"APESSITO","client":"AMA","montant":50000,"paye":10000,"paiements":[{"id":"p1","montant":10000,"paiement":"Espèces","par":"KOSSI"}]}'
+DTP="set local request.jwt.claims = '$VENDEUR'; $(UPS dettes zdt "$DT")"
+essai "★ la même dette renvoyée telle quelle passe" "PERMIS" "$VENDEUR" "$DTP $(UPS dettes zdt "$DT")"
+essai "★ un vendeur encaisse 5 000 avec sa ligne de versement" "PERMIS" "$VENDEUR" "$DTP $(UPS dettes zdt "$(echo "$DT" | sed 's/"paye":10000/"paye":15000/; s/"par":"KOSSI"}/"par":"KOSSI"},{"id":"p2","montant":5000,"paiement":"Espèces","par":"KOSSI"}/')")"
+essai "★ un vendeur marque la dette PAYÉE sans aucun versement" "REFUSE" "$VENDEUR" "$DTP $(UPS dettes zdt "$(echo "$DT" | sed 's/"paye":10000/"paye":50000/')")"
+essai "★ un vendeur baisse le MONTANT de la dette" "REFUSE" "$VENDEUR" "$DTP $(UPS dettes zdt "$(echo "$DT" | sed 's/"montant":50000/"montant":20000/')")"
+essai "★ un vendeur efface un versement inscrit" "REFUSE" "$VENDEUR" "$DTP $(UPS dettes zdt "$(echo "$DT" | sed 's/"paye":10000,"paiements":\[.*\]/"paye":0,"paiements":[]/')")"
+essai "★ un vendeur réécrit le montant d'un versement inscrit" "REFUSE" "$VENDEUR" "$DTP $(UPS dettes zdt "$(echo "$DT" | sed 's/"id":"p1","montant":10000/"id":"p1","montant":1000/')")"
+essai "★ un gérant accorde une remise après-vente : la dette baisse AVEC son entrée" "PERMIS" "$GERANT" "$DTP set local request.jwt.claims = '$GERANT'; $(UPS dettes zdt "$(echo "$DT" | sed 's/"montant":50000/"montant":45000,"remises_apres_vente":[{"ref":"RAV-1","montant":5000}]/')")"
+essai "★ un gérant baisse le montant sans remise après-vente" "REFUSE" "$GERANT" "$DTP set local request.jwt.claims = '$GERANT'; $(UPS dettes zdt "$(echo "$DT" | sed 's/"montant":50000/"montant":45000/')")"
+essai "★ un vendeur passe par la porte de la remise après-vente" "REFUSE" "$VENDEUR" "$DTP $(UPS dettes zdt "$(echo "$DT" | sed 's/"montant":50000/"montant":45000,"remises_apres_vente":[{"ref":"RAV-1","montant":5000}]/')")"
+DPS='{"id":"zdps","boutique":"TERRAIN","client":"AMA","montant":300000,"paye":0,"pose_seule":true}'
+essai "★ un devis de pose seule corrigé : la dette suit tant que rien n'est versé" "PERMIS" "$COMMERCIAL" "set local request.jwt.claims = '$VENDEUR'; $(UPS dettes zdps "$DPS") set local request.jwt.claims = '$COMMERCIAL'; $(UPS dettes zdps "$(echo "$DPS" | sed 's/300000/250000/')")"
+essai "★ l'administrateur corrige le montant d'une dette (une reprise)" "PERMIS" "$ADMIN" "$DTP set local request.jwt.claims = '$ADMIN'; $(UPS dettes zdt "$(echo "$DT" | sed 's/"montant":50000/"montant":20000/')")"
+essai "★ un autre champ (la trace d'une relance) passe toujours" "PERMIS" "$VENDEUR" "$DTP $(UPS dettes zdt "$(echo "$DT" | sed 's/"client":"AMA"/"client":"AMA","envoi_whatsapp":{"par":"KOSSI"}/')")"
 echo
 echo "── L'ÉDITEUR SQL (jeton vide) n'est jamais gêné ──"
 essai "l'éditeur SQL supprime une vente" "PERMIS" "$ADMIN" "set local request.jwt.claims = ''; set local role postgres; $(SUPPR ventes zv1)"

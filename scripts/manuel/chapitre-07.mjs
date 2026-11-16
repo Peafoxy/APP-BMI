@@ -53,6 +53,7 @@ export const CHAPITRE = {
         ["Relancer par WhatsApp (bouton au logo vert)", "**Vendeur, gérant, administrateur** — le message part du numéro BMI"],
         ["« ✅ Créer la réservation », « 📦 Livrer », « Annuler » une réservation", "**Vendeur, gérant, administrateur**"],
         ["🗑 Supprimer une dette", "**L'administrateur seul** — le bouton n'apparaît que pour lui. **Jamais une dette qui a déjà reçu de l'argent.** Elle part à la corbeille 30 jours ; seul l'administrateur principal la restaure"],
+        ["Changer le montant d'une dette, effacer ou modifier un versement inscrit", "**Personne par l'écran**, et le serveur le refuse (hors administrateur). Un versement s'ajoute, il ne se réécrit pas ; « payé » ne monte qu'avec la ligne de son versement. Le montant ne baisse que par une ↩ Reprise ou une ✏️ Remise après-vente."],
         ["« ✅ Accepter » / « ❌ Rejeter » un plan de règlement (📋 Tous les devis)", "**L'administrateur PRINCIPAL seul** — les autres lisent « Seul l'administrateur PRINCIPAL peut accepter ou rejeter ce plan. »"],
         ["Proposer un plan de règlement", "**Le client**, dans son espace, au moment de signer le contrat (chapitres 14 et 21)"],
       ]}],
