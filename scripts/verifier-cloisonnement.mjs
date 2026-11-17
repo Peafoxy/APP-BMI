@@ -17481,7 +17481,7 @@ titre("🏗 La caisse CHANTIER, étape 2 : le matériel qui part au chantier (11
   const sol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
   test("★ la case est dans la fin commune des trois volets (BlocsFinDevis), revient à la reprise (appliquerConditionsReprises), repart d'office avec « 🆕 Nouveau devis »",
     /<BlocAvecInstallation r=\{r\} \/>\n\s*<BlocApporteurDevis r=\{r\} \/>/.test(part) && /if \(s\.setAvecInstallation\) s\.setAvecInstallation\(devis\.avec_installation === true \|\| devis\.avec_installation === false \? devis\.avec_installation : null\);/.test(part)
-    && /setNb, setTitreDevis, setAvecInstallation,\n/.test(part) && /r\.setNb\(""\); r\.setTitreDevis\(""\); r\.setAvecInstallation\(null\);/.test(sol) && /if \(r\.poseSeule\) return null;/.test(part));
+    && /setNb, setTitreDevis, setAvecInstallation, setComplement,\n/.test(part) && /r\.setNb\(""\); r\.setComplement\(\{\}\); r\.setTitreDevis\(""\); r\.setAvecInstallation\(null\);/.test(sol) && /if \(r\.poseSeule\) return null;/.test(part));
 
   // ---- Le stock : la vente du devis ne le sort pas, l'achat le sort ----
   const pA = { id: "p1", nom: "Panneau 550W", boutique: "BMI DEMAKPOE", prix_achat: 60000, prix_vente: 80000, initial: 10, seuil: 1 };
@@ -19553,7 +19553,9 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     besoins: { wh_jour: 3000, puissance_simultanee: 450, autonomie: 1, soleil: 5, tension: 48, type_batterie: "lifepo4", raccordement: "tri",
       appareils: [{ nom: "Téléviseur", puissance: 100, heures: 5, qte: 2 }, { nom: "Congélateur", puissance: 250, heures: 8, qte: 1 }] } };
   const produits = [{ id: "p1", boutique: "APESSITO", nom: "PANNEAU 550W", garantie_fabricant: "12 ans", garantie_boutique: "2 ans", prix_achat: 55555, notes: "SECRET-INTERNE", fournisseur: "FOURNISSEUR-SECRET" }];
-  const t = DT.documentTechnique(devis, { produits, implantation: "Dalle du bâtiment A ; local technique au magasin ; 30 m" });
+  const devisC = { ...devis, complement_technique: { implantation: { support: "Toiture en dalle", local: "Dalle du bâtiment A ; local technique au magasin", distance_champ_local: 30 },
+    cables: { pv: { section: 6, longueur: 30 } }, protections: { parafoudre_dc: { prevu: true, calibre: "40 kA" } }, montage: { serie: 2, parallele: 2 }, par: "ANGELE", le: "2026-11-17" } };
+  const t = DT.documentTechnique(devisC, { produits });
   const portail = { ...devis, besoins: { ...devis.besoins, type_ouvrant: "portail_coulissant" } };
   test("★ 📑 seul un devis SOLAIRE a un document technique (un portail, un devis sans calcul ou vide : non)",
     DT.estDevisSolaire(devis) && !DT.estDevisSolaire(portail) && !DT.estDevisSolaire({ ...devis, besoins: null }) && !DT.estDevisSolaire(null)
@@ -19610,7 +19612,7 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
   test("★★ 📑 la règle ne lit AUCUN prix (ni pu, ni total), ne reçoit jamais db et n'écrit rien",
     !/\.pu\b|\.total\b|\.prix_achat|\.fournisseur|\bdb\b|\bsave\b/.test(srcDt));
   const srcTd = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
-  const geste = (srcTd.match(/const telechargerDocTech = async[\s\S]*?\n  \};/) || [""])[0];
+  const geste = (srcTd.match(/const telechargerDocTech = \(d\) => \{[\s\S]*?\n  \};/) || [""])[0];
   test("★★ 📑 le bouton ne s'offre que sur un devis solaire, le geste n'enregistre rien (aucun save) et ne lit que le stock de la boutique du devis",
     /estDevisSolaire\(d\) && \(\s*<BoutonRond data-document-technique/.test(srcTd) && geste.length > 50 && !/\bsave\(/.test(geste)
     && /\(db\.produits \|\| \[\]\)\.filter\(\(p\) => p\.boutique === d\.boutique\)/.test(srcTd));
@@ -19619,6 +19621,86 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     && /genererDevis\(donneesPdfDuDevis\(db, d\), LOGO\)/.test(srcTd) && !/genererDocumentTechnique/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")));
   test("★ 📑 le PDF du devis solaire sort toujours avec son TOTAL et ses signatures (non-régression)",
     /TOTAL DU PROJET/.test(texte(PdfDt.genererDevis({ ...devis, numero: "ABCDEF12", client: "KOFFI AGBEKO", pct_acompte: 60, montant_acompte: 600000, delai_installation: "3 semaines" }, null, true))));
+
+  // 🧩 LE COMPLÉMENT DE LA FICHE (Timo, 17/11/2026, « A a, B après, C liste, D oui »).
+  const CT = await import(pathToFileURL("src/lib/complementTechnique.js").href);
+  const sortieCT = join("node_modules", ".cache", `bmi-ct-${process.pid}.mjs`);
+  await build({ entryPoints: ["src/screens/dimensionnement/devisCommun.js"], bundle: true, format: "esm", platform: "node", outfile: sortieCT, logLevel: "silent", loader: { ".js": "jsx" } });
+  const DCt = await import(pathToFileURL(sortieCT).href);
+  unlinkSync(sortieCT);
+  const brut = { implantation: { support: "Toiture en dalle", orientation: "Plein ciel", inclinaison: "120", local: "  Local   derrière le magasin ", distance_champ_local: "0" },
+    montage: { serie: "2,6", parallele: "0" }, cables: { pv: { section: "7", longueur: "-3" }, batterie: { section: "16", longueur: "4,5" } },
+    protections: { parafoudre_dc: { prevu: true, calibre: "40 kA" }, differentiel: { prevu: false, calibre: "30 mA" }, inconnue: { prevu: true } }, autres: "  RAS " };
+  const propre = CT.nettoyerComplement(brut);
+  test("★ 🧩 le complément est remis au propre : ce qui n'est pas dans la liste ou hors limites est ÉCARTÉ (une section hors liste, une orientation inventée, 120°, une longueur négative, une protection inconnue, une case décochée)",
+    propre.implantation.support === "Toiture en dalle" && propre.implantation.orientation === undefined && propre.implantation.inclinaison === undefined
+    && propre.implantation.local === "Local derrière le magasin" && propre.implantation.distance_champ_local === undefined
+    && propre.montage.serie === 3 && propre.montage.parallele === undefined
+    && propre.cables.pv === undefined && propre.cables.batterie.section === 16 && propre.cables.batterie.longueur === 4.5
+    && propre.protections.parafoudre_dc.calibre === "40 kA" && !propre.protections.differentiel && !propre.protections.inconnue && propre.autres === "RAS"
+    && CT.complementVide({}) && CT.complementVide(null) && CT.complementVide({ cables: { pv: { section: "7" } } }) && !CT.complementVide(brut));
+  test("★ 🧩 une valeur illisible est DITE, jamais écartée en silence (inclinaison, distance, série, parallèle, longueur, section hors liste)",
+    /degrés/.test(CT.critiqueComplement({ implantation: { inclinaison: "120" } })) && /mètres/.test(CT.critiqueComplement({ implantation: { distance_champ_local: "abc" } }))
+    && /série/.test(CT.critiqueComplement({ montage: { serie: "0" } })) && /parallèle/.test(CT.critiqueComplement({ montage: { parallele: "200" } }))
+    && /Câble batterie/.test(CT.critiqueComplement({ cables: { batterie: { longueur: "-2" } } })) && /liste/.test(CT.critiqueComplement({ cables: { pv: { section: "7" } } }))
+    && CT.critiqueComplement({}) === "" && CT.critiqueComplement({ cables: { pv: { section: "6", longueur: "30" } } }) === "");
+  const validé = { ...devis, id: "dv1", par: "ANGELE", par_id: "u-ang", statut: "valide" };
+  test("★★ 🧩 qui complète (A a) : celui qui a établi le devis, l'administrateur, le responsable commercial — pas un autre vendeur ni le comptable ; et même un devis ✅ validé ou 💰 payé (B après)",
+    CT.peutCompleterFiche(validé, { id: "u-ang", role: "vendeur" }) && CT.peutCompleterFiche(validé, { id: "x", role: "admin" }) && CT.peutCompleterFiche(validé, { id: "y", role: "resp_commercial" })
+    && !CT.peutCompleterFiche(validé, { id: "z", role: "vendeur" }) && !CT.peutCompleterFiche(validé, { id: "w", role: "comptable" }) && !CT.peutCompleterFiche(validé, { id: "v", role: "gerant" })
+    && CT.peutCompleterFiche({ ...validé, statut: "paye" }, { id: "u-ang", role: "vendeur" }) && /ANGELE/.test(CT.motifRefusComplement(validé, { id: "z", role: "vendeur" })));
+  const apresC = CT.appliquerComplement(validé, { cables: { pv: { section: 6, longueur: 30 } } }, { id: "x", nom: "TIMO" }, "2026-11-17");
+  test("★★ 🧩 ranger le complément ne touche NI le matériel, NI le prix, NI le statut ; la trace dit qui et quand ; le vider le retire",
+    JSON.stringify(apresC.lignes) === JSON.stringify(validé.lignes) && apresC.total === validé.total && apresC.statut === "valide" && apresC.id === validé.id
+    && apresC.complement_technique.par === "TIMO" && apresC.complement_technique.le === "2026-11-17" && apresC.complement_technique.cables.pv.section === 6
+    && !("complement_technique" in CT.appliquerComplement(apresC, {}, { id: "x", nom: "TIMO" }, "2026-11-18")));
+  const reglagesCt = { ...DCt.calculerTotaux({ totalArticles: 100000, pctRemise: "0", pctInstall: "10", pctTransport: "0", pctAcompte: "100" }), totalArticles: 100000, pctRemise: "0", pctInstall: "10", pctTransport: "0", pctAcompte: "100", delaiInstallation: "", nb: "", poseSeule: false };
+  const dvCt = DCt.construireDevis({ profile: { id: "u1", nom: "KOSSI", role: "vendeur" }, boutique: "APESSITO", besoins: { wh_jour: 3000 }, panierMetier: [], lignesMetier: [], autres: [], reglages: { ...reglagesCt, complement: { cables: { pv: { section: 10, longueur: 12 } } } } });
+  const dvSansCt = DCt.construireDevis({ profile: { id: "u1", nom: "KOSSI", role: "vendeur" }, boutique: "APESSITO", besoins: { wh_jour: 3000 }, panierMetier: [], lignesMetier: [], autres: [], reglages: reglagesCt });
+  test("★★ 🧩 le devis construit par le volet porte le complément (avec sa trace) ; sans complément, AUCUN champ de plus : un devis d'avant ou d'un autre volet est identique",
+    dvCt.complement_technique.cables.pv.section === 10 && dvCt.complement_technique.par === "KOSSI" && dvCt.complement_technique.par_id === "u1"
+    && !("complement_technique" in dvSansCt));
+  test("★ 🧩 le montage série × parallèle est comparé aux panneaux du devis : l'écran avertit, ne refuse pas (3 × 2 = 6 pour 4 panneaux)",
+    CT.panneauxDuDevis(devis) === 4 && CT.avertissementMontage({ montage: { serie: 3, parallele: 2 } }, 4).includes("6 panneaux") && CT.avertissementMontage({ montage: { serie: 2, parallele: 2 } }, 4) === ""
+    && CT.avertissementMontage({ montage: { serie: 3 } }, 4) === "" && CT.critiqueComplement({ montage: { serie: 3, parallele: 2 } }) === "");
+  const txC = texte(PdfDt.genererDocumentTechnique(t, donneesPdf, null, true));
+  test("★★ 🧩 le document porte le complément : implantation, montage, câbles (section et longueur), protections (prévue, calibre) ; ce qui manque reste « à confirmer » ; la phrase « à valider par le technicien »",
+    /Toiture en dalle/.test(txC) && /Dalle du bâtiment A/.test(txC) && /2 panneaux en série par ligne, 2 lignes en parallèle \(4 panneaux\)/.test(txC)
+    && /6 mm²/.test(txC) && /30 m/.test(txC) && /40 kA/.test(txC) && /Parafoudre DC/.test(txC) && /Câble batterie/.test(txC) && /à confirmer/.test(txC)
+    && /à valider par le technicien/.test(txC) && !/5\. IMPLANTATION ET CÂBLAGE/i.test(txC) && /5\. IMPLANTATION, CÂBLAGE ET PROTECTIONS/i.test(txC));
+  test("★ 🧩 sans complément, le document est celui d'avant (« à confirmer lors de la visite technique » + la phrase des câbles) ; un devis qui porte un complément vide aussi",
+    /à confirmer lors de la visite technique/.test(texte(PdfDt.genererDocumentTechnique(DT.documentTechnique(devis, { produits }), donneesPdf, null, true)))
+    && DT.documentTechnique({ ...devis, complement_technique: { cables: { pv: { section: 7 } } } }).complement.vide === true);
+  const sortieRC = join("node_modules", ".cache", `bmi-rc-${process.pid}.mjs`);
+  let RC = null, errRC = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-complement.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRC, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"] });
+    RC = await import(pathToFileURL(sortieRC).href);
+  } catch (e) { errRC = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieRC); } catch {}
+  test("★★ 🧩 le formulaire et ses deux endroits se RENDENT (volet solaire, 📋 Tous les devis)" + (errRC ? ` — ${errRC}` : ""), !!RC);
+  if (RC) {
+    const htmlF = RC.rendreFormulaire({ montage: { serie: 3, parallele: 2 }, cables: { pv: { section: 6, longueur: 30 } }, protections: { terre: { prevu: true, calibre: "R < 10 Ω" } } }, 4);
+    test("★★ 🧩 le formulaire : une liste de sections par câble (4 à 95 mm²), les trois câbles, sept protections en cases (le calibre n'apparaît qu'une fois la case cochée), l'avertissement de montage, « tout est facultatif »",
+      (htmlF.match(/data-cable="/g) || []).length === 3 && (htmlF.match(/data-protection="/g) || []).length === 7 && /95 mm²/.test(htmlF) && /<option value="6" selected/.test(htmlF)
+      && /data-avertissement-montage/.test(htmlF) && /6 panneaux/.test(htmlF) && (htmlF.match(/data-complement="calibre-/g) || []).length === 1 && /Tout est facultatif/.test(htmlF));
+    test("★ 🧩 le bouton du volet : fermé il dit ce qui est renseigné, vide il dit que c'est facultatif ; le panneau d'un devis a son bouton d'enregistrement",
+      /Renseigné : 1 câble/.test(RC.rendreBloc({ cables: { pv: { section: 6 } } })) && /Facultatif/.test(RC.rendreBloc({})) && !/data-formulaire-complement/.test(RC.rendreBloc({}))
+      && /data-enregistrer-complement/.test(RC.rendrePanneau({ id: "d" }, {})) && /Retirer le complément/.test(RC.rendrePanneau({ id: "d", complement_technique: { cables: { pv: { section: 6 } } } }, {})));
+  }
+  const srcCt = sansCommDt(readFileSync("src/lib/complementTechnique.js", "utf8"));
+  const srcBlocs = readFileSync("src/components/ComplementTechnique.jsx", "utf8");
+  const srcSol = readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8");
+  const gesteCt = (srcTd.match(/const enregistrerComplement = async[\s\S]*?\n  \};/) || [""])[0];
+  test("★★ 🧩 le code : la règle n'importe rien et ne lit ni db ni prix ; le volet solaire (et lui seul) montre le bouton ; 📋 Tous les devis ne l'offre qu'à qui a le droit, sur un devis solaire ; le geste revérifie sur la fiche FRAÎCHE (droit, valeurs, solaire) avant d'écrire ; le client n'y touche pas",
+    !/^\s*import\s/m.test(srcCt) && !/\bdb\b|\.pu\b|\.total\b|prix_achat/.test(srcCt)
+    && /<BlocsFinDevis r=\{r\}[^>]*\/>\s*<BlocComplementTechnique r=\{r\} panneaux=\{nombrePanneaux\} \/>/.test(srcSol)
+    && !/BlocComplementTechnique/.test(readFileSync("src/screens/dimensionnement/Garage.jsx", "utf8")) && !/BlocComplementTechnique/.test(readFileSync("src/screens/dimensionnement/Autre.jsx", "utf8"))
+    && /estDevisSolaire\(d\) && peutCompleterFiche\(d, profile\) && \(\s*<BoutonRond data-bouton-complement/.test(srcTd)
+    && gesteCt.length > 100 && /bloquerSiLecture\(db, profile\)/.test(gesteCt) && /devisDans\(db, d\.client\.id, d\.id\)/.test(gesteCt) && /motifRefusComplement\(frais, profile\)/.test(gesteCt)
+    && /critiqueComplement\(valeur\)/.test(gesteCt) && /avecDevis\(db, d\.client\.id, d\.id, \(x\) => appliquerComplement\(x, valeur, profile, today\(\)\)\)/.test(gesteCt)
+    && !/ComplementTechnique/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")) && /FormulaireComplement/.test(srcBlocs));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

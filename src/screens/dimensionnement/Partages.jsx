@@ -11,6 +11,7 @@ import { ADRESSE_APP, chiffresTel, identifiantClient, motDePasseClient, fabrique
 import { fmt, dFR, telDigits, col, brouillonLire, brouillonEcrire, brouillonEffacer, uid, today, heureCourte, nouveauMessage } from "../../lib/core";
 import { envoyerModele, envoyerAccesSansRepli, messagesAvecLigneEnvoi, messagesAvecLigneAcces } from "../../whatsapp";
 import { messagesApresCorrectionDevis } from "../../lib/whatsappConversations";
+import { complementDuDevis } from "../../lib/complementTechnique";
 import { envoiDevisDisponible, accesDejaEnvoyes, traceEnvoi, motifAttendu, messageDevisEnvoye, MOTIF_PDF_MANQUANT } from "../../lib/whatsappModeles";
 import { marquerDevisCorrige } from "../../lib/modifDevis";
 import { devisACompleter } from "../../lib/devisCfVisite";
@@ -88,6 +89,9 @@ export function appliquerConditionsReprises(devis, s) {
   // 🔧 La case « Avec installation » (11/10/2026) : un devis d'avant ne la
   // porte pas — elle repart d'office (cochée s'il y a des frais d'installation).
   if (s.setAvecInstallation) s.setAvecInstallation(devis.avec_installation === true || devis.avec_installation === false ? devis.avec_installation : null);
+  // 🧩 Le complément de la fiche technique (17/11/2026) revient avec le devis
+  // repris ou le brouillon ; un devis sans complément le vide.
+  if (s.setComplement) s.setComplement(devis.complement_technique ? complementDuDevis(devis) : {});
   // « Pose seule » : le montant de main d'œuvre est un montant FIXE, pas un
   // pourcentage — il est rangé dans frais_installation, et pct_installation
   // vaut null. On rétablit la case ET son montant, sinon le devis repris
@@ -275,10 +279,12 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
   // 🔧 « Avec installation » : null = d'office (cochée dès qu'il y a des frais
   // d'installation) ; vrai / faux = choisi par celui qui établit le devis.
   const [avecInstallation, setAvecInstallation] = useState(null);
+  // 🧩 Le complément de la fiche technique (17/11/2026, volet ☀️ Solaire seulement).
+  const [complement, setComplement] = useState({});
   useEffect(() => {
     appliquerConditionsReprises(devisAReprendre?.devis, {
       setPctRemise, setPctInstall, setPctTransport, setPctAcompte,
-      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur, setNb, setTitreDevis, setAvecInstallation,
+      setDelaiInstallation, setPoseSeule, setMontantPoseFixe, setApporteur, setNb, setTitreDevis, setAvecInstallation, setComplement,
       setModeRemise, setMontantRemise, setModeInstall, setMontantInstall, setModeTransport, setMontantTransport,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -291,7 +297,7 @@ export function useReglagesDevis(totalArticles, initial = {}, devisAReprendre, {
     modeTransport, setModeTransport, montantTransport, setMontantTransport,
     poseSeule, setPoseSeule, montantPoseFixe, setMontantPoseFixe,
     pctAcompte, setPctAcompte, delaiInstallation, setDelaiInstallation, ...totaux,
-    apporteur, setApporteur, principal, nb, setNb, avecInstallation, setAvecInstallation,
+    apporteur, setApporteur, principal, nb, setNb, avecInstallation, setAvecInstallation, complement, setComplement,
     titreDevis, setTitreDevis, titreAuto,
   };
 }

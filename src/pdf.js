@@ -866,9 +866,47 @@ export function genererDocumentTechnique(t, d, logo, retournerDoc = false) {
   y += 2;
 
   y = placePour(doc, y, hauteur, 30);
-  y = titreBloc(doc, y, "5. Implantation et câblage");
-  paragraphe(t.implantation ? `Implantation : ${t.implantation}` : `Implantation (emplacement du champ, local technique, distances) : ${PHRASE_A_CONFIRMER_PDF}`);
-  paragraphe(t.cablage);
+  y = titreBloc(doc, y, "5. Implantation, câblage et protections");
+  const co = t.complement;
+  if (co.vide) {
+    paragraphe(`Implantation (emplacement du champ, local technique, distances) : ${PHRASE_A_CONFIRMER_PDF}`);
+    paragraphe(t.cablage);
+  } else {
+    if (co.implantation.length > 0) {
+      autoTable(doc, {
+        head: [[enTete("Implantation"), enTete("Valeur")]],
+        body: co.implantation.map((i) => [texteSurPdf(i.libelle), texteSurPdf(i.valeur)]),
+        startY: y, styles, headStyles,
+        columnStyles: { 0: { cellWidth: 70 } },
+        margin: { left: 14, right: 14 },
+      });
+      y = doc.lastAutoTable.finalY + 4;
+    } else {
+      paragraphe(`Implantation (emplacement du champ, local technique, distances) : ${PHRASE_A_CONFIRMER_PDF}`);
+    }
+    if (co.montage) paragraphe(`Montage des panneaux : ${co.montage}`);
+    // Un tableau ne commence jamais seul en bas de page (son titre sans ses lignes).
+    y = placePour(doc, y, hauteur, 32);
+    autoTable(doc, {
+      head: [[enTete("Câble"), enTete("Trajet"), enTete("Section", "right"), enTete("Longueur", "right")]],
+      body: co.cables.map((c) => [texteSurPdf(c.libelle), texteSurPdf(c.trajet), c.section || PHRASE_A_CONFIRMER_COURT, c.longueur || PHRASE_A_CONFIRMER_COURT]),
+      startY: y, styles, headStyles,
+      columnStyles: { 2: { halign: "right", cellWidth: 28 }, 3: { halign: "right", cellWidth: 28 } },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 4;
+    y = placePour(doc, y, hauteur, 50);
+    autoTable(doc, {
+      head: [[enTete("Protection"), enTete("Prévue", "center"), enTete("Calibre", "right")]],
+      body: co.protections.map((p) => [texteSurPdf(p.libelle), p.prevue ? "Oui" : PHRASE_A_CONFIRMER_COURT, p.calibre || (p.prevue ? "—" : "")]),
+      startY: y, styles, headStyles,
+      columnStyles: { 1: { halign: "center", cellWidth: 28 }, 2: { halign: "right", cellWidth: 28 } },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 4;
+    if (co.autres) paragraphe(`Précisions : ${co.autres}`);
+    paragraphe(co.phrase, 7.5);
+  }
   y += 2;
 
   y = placePour(doc, y, hauteur, 40);
@@ -913,6 +951,7 @@ export function genererDocumentTechnique(t, d, logo, retournerDoc = false) {
   doc.save(fichierPdf("Document technique", { client: d.client, numero: d.numero }));
 }
 const PHRASE_A_CONFIRMER_PDF = "à confirmer lors de la visite technique.";
+const PHRASE_A_CONFIRMER_COURT = "à confirmer";
 
 // ============ LE RELEVÉ D'UNE CAISSE CENTRALE (Timo, 12/09/2026) ============
 // « Vous avez dit que c'est comme un relevé… pourquoi c'est impossible

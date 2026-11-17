@@ -21,6 +21,7 @@ import { apporteurDuFormulaire } from "../../lib/apporteurDevis";
 import { avecInstallationDuDevis } from "../../lib/achatsChantier";
 import { estLigneFrais } from "../../lib/lignesDevis";
 import { titreARanger } from "../../lib/titreDevis";
+import { nettoyerComplement } from "../../lib/complementTechnique";
 import { CATEGORIE_CF_VISITE, estLigneCfVisite, lignesCfVisite, critiqueCompletion, nombreSaisi } from "../../lib/devisCfVisite";
 
 // ---- Les « autres équipements » (saisie libre) ----
@@ -205,6 +206,12 @@ export function construireDevis({ profile, boutique, typeDevis, complement = {},
     besoins,
     lignes: [...lignesMetier, ...lignesAutres(autres), ...lignesFrais(reglages)],
     ...champsReglages(reglages),
+    // 🧩 Le complément de la fiche technique (17/11/2026) : rangé SUR le devis,
+    // avec sa trace, seulement s'il est renseigné (un devis d'un autre volet,
+    // ou sans complément, n'en porte aucun).
+    ...(Object.keys(nettoyerComplement(reglages.complement)).length
+      ? { complement_technique: { ...nettoyerComplement(reglages.complement), par: profile.nom, par_id: profile.id, le: h.date } }
+      : {}),
   };
 }
 

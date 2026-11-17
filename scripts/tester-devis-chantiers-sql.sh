@@ -133,10 +133,14 @@ UPS() { echo "with x as (insert into public.$1 (id, data) values ('$2', '$3') on
 echo
 echo "── LES DEVIS DANS LA FICHE CLIENT : « validé » et plan de règlement → admin PRINCIPAL ──"
 essai "un vendeur pose « validé » sur le devis d'un client" "REFUSE" "$VENDEUR" "$(MAJ users "$(SET devis,0,statut '"valide"')" zc_ama)"
+# 🧩 Le complément de la fiche technique (17/11/2026) : rangé SUR le devis, il ne regarde ni la
+# validation ni le plan de règlement — la base le laisse passer au vendeur, même sur un devis validé.
+essai "un vendeur range le complément de la fiche technique sur un devis" "PERMIS" "$VENDEUR" "$(MAJ users "$(SET devis,0,complement_technique '{"cables":{"pv":{"section":6,"longueur":30}},"par":"VENDEUR"}')" zc_ama)"
 essai "un admin secondaire fait signer en boutique (devis → validé)" "REFUSE" "$CALEB" "$(MAJ users "$(SET devis,0,statut '"valide"')" zc_ama)"
 essai "l'admin principal fait signer en boutique" "PERMIS" "$PRINCIPAL" "$(MAJ users "$(SET devis,0,statut '"valide"')" zc_ama)"
 essai "le client valide SON devis depuis son espace" "PERMIS" "$CLIENT" "$(MAJ users "$(SET devis,0,statut '"valide"')" zc_ama)"
 essai "un vendeur encaisse le devis (statut → payé) — le quotidien passe" "PERMIS" "$VENDEUR" "$(MAJ users "$(SET devis,0,statut '"paye"')" zc_ama)"
+essai "un vendeur corrige le complément d'un devis déjà payé" "PERMIS" "$VENDEUR" "$(MAJ users "$(SET devis,0,complement_technique '{"protections":{"terre":{"prevu":true}}}')" zc_ama)"
 essai "un commercial range un NOUVEAU devis dans la fiche" "PERMIS" "$COM" "$(MAJ users "jsonb_set(data,'{devis}', data->'devis' || '[{\"id\":\"dv2\",\"statut\":\"propose\",\"total\":5000}]')" zc_ama)"
 essai "un admin secondaire ACCEPTE un plan de règlement" "REFUSE" "$CALEB" "$(MAJ users "$(SET devis,0,plan_reglement,statut '"accepte"')" zc_ama)"
 essai "un commercial REJETTE un plan de règlement" "REFUSE" "$COM" "$(MAJ users "$(SET devis,0,plan_reglement,statut '"rejete"')" zc_ama)"

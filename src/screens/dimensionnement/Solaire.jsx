@@ -10,6 +10,7 @@ import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimen
 import { besoinsSolaires, besoinsDepuisConsommationConnue, sourceWhJourConsommationConnue, supportsPourRails, etriersPourPanneaux, barresDeRail, qteAppareil } from "../../lib/solaire";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
+import { BlocComplementTechnique } from "../../components/ComplementTechnique";
 import { specDepuisNom, BlocAutresEquipements, BlocEnvoiDevisClient, quantiteNecessaire, puissanceUtileW, contientLeMot, memeFamille, lireBrouillonVolet, useEcrireBrouillonVolet, effacerBrouillonVolet, useAutresEquipements, useReglagesDevis, BlocsFinDevis, useEnvoiDevis } from "./Partages";
 import { construireDevis, panierAutres, brouillonManuelDe } from "./devisCommun";
 import { apporteurVide } from "../../lib/apporteurDevis";
@@ -697,7 +698,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
     setRaccordement(RACCORDEMENT_DEFAUT);
     reprendreAutres([]);
     envoi.setClientDevis(""); envoi.setNouvClient({ nom: "", prenom: "", tel: "", entreprise: ENTREPRISE_VIDE() });
-    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide()); r.setNb(""); r.setTitreDevis(""); r.setAvecInstallation(null); r.setModeRemise("pct"); r.setMontantRemise(""); r.setModeInstall("pct"); r.setMontantInstall(""); r.setModeTransport("pct"); r.setMontantTransport("");
+    r.setPctRemise("0"); r.setPctInstall("10"); r.setPctTransport("0"); r.setPoseSeule(false); r.setMontantPoseFixe(""); r.setPctAcompte("100"); r.setDelaiInstallation(""); r.setApporteur(apporteurVide()); r.setNb(""); r.setComplement({}); r.setTitreDevis(""); r.setAvecInstallation(null); r.setModeRemise("pct"); r.setMontantRemise(""); r.setModeInstall("pct"); r.setMontantInstall(""); r.setModeTransport("pct"); r.setMontantTransport("");
     if (devisAReprendre && onDevisRepriseConsomme) onDevisRepriseConsomme();
   };
   const { clientDevis, setClientDevis, nouvClient, setNouvClient, comptesClients } = envoi;
@@ -1092,6 +1093,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         />
 
         <BlocsFinDevis r={r} onConvertir={convertir} aCompleter={aCompleter} />
+        <BlocComplementTechnique r={r} panneaux={nombrePanneaux} />
       </div>
 
       {/* ---- ENVOYER LE DEVIS AU CLIENT ---- */}

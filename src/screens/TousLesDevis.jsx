@@ -7,7 +7,9 @@ import { Fragment, useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis, genererDocumentTechnique } from "../pdf";
-import { documentTechnique, estDevisSolaire, IMPLANTATION_MAX } from "../lib/documentTechnique";
+import { documentTechnique, estDevisSolaire } from "../lib/documentTechnique";
+import { ComplementDuDevis } from "../components/ComplementTechnique";
+import { peutCompleterFiche, motifRefusComplement, critiqueComplement, appliquerComplement, complementDuDevis, resumeComplement, panneauxDuDevis } from "../lib/complementTechnique";
 import { LOGO, CACHET_BMI_DEFAUT } from "../lib/constants";
 import { fmt, dFR, today, heureCourte, envoyerWhatsApp, fichierPdf } from "../lib/core";
 import { envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
@@ -148,13 +150,12 @@ export function genererPdfDuDevis(db, d) {
 // fois, comme « 📄 Devis PDF » — le bouton de 📋 Tous les devis ET (devis validé
 // ou payé) celui de l'espace client. Rien n'est enregistré ni refait : la règle
 // (lib/documentTechnique.js) LIT le devis et les fiches du stock de SA boutique.
-// `implantation` : la phrase tapée au moment du téléchargement (facultative).
+// Le complément de la fiche (implantation, câbles, protections) est LU sur le devis.
 // Un devis qui n'est pas solaire rend false (le bouton ne s'offre pas).
-export function genererDocumentTechniqueDuDevis(db, d, implantation = "") {
+export function genererDocumentTechniqueDuDevis(db, d) {
   if (!estDevisSolaire(d)) return false;
   const doc = documentTechnique(d, {
     produits: d.boutique ? (db.produits || []).filter((p) => p.boutique === d.boutique) : [],
-    implantation,
   });
   if (!doc) return false;
   genererDocumentTechnique(doc, donneesPdfDuDevis(db, d), LOGO);
@@ -621,16 +622,34 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
   };
 
   const telechargerPDF = (d) => genererPdfDuDevis(db, d);
-  // 📑 Document technique : UNE question facultative (où est posé le champ, où
-  // est le local technique, quelle distance), non rangée ; vide = « à confirmer ».
-  const telechargerDocTech = async (d) => {
-    const phrase = await uPrompt(`📑 Document technique du devis de ${d.client?.nom_base || d.client?.nom || "ce client"}.\n\nImplantation (facultatif) : où se pose le champ solaire, où est le local technique, quelle distance entre les deux ? ${IMPLANTATION_MAX} caractères au plus. Laissez vide : le document dira « à confirmer lors de la visite ».`, "");
-    if (phrase === null) return;
+  // 📑 Document technique : aucune question — le complément de la fiche (🧩) est
+  // lu sur le devis ; vide, le document écrit « à confirmer ».
+  const telechargerDocTech = (d) => {
     try {
-      if (!genererDocumentTechniqueDuDevis(db, d, phrase)) uAlert("Ce devis n'est pas un devis solaire : il n'a pas de document technique.");
+      if (!genererDocumentTechniqueDuDevis(db, d)) uAlert("Ce devis n'est pas un devis solaire : il n'a pas de document technique.");
     } catch (e) {
       uAlert("Le document technique n'a pas pu être fabriqué. Réessayez ; le devis, lui, n'est pas touché.");
     }
+  };
+  // 🧩 Le complément de la fiche technique, après coup (17/11/2026, décisions
+  // « A a » et « B après ») : celui qui a établi le devis, l'administrateur, le
+  // responsable commercial — même validé ou payé. Revérifié sur la fiche FRAÎCHE ;
+  // le matériel, le prix et le statut ne bougent jamais.
+  const [complementDe, setComplementDe] = useState(null);
+  const enregistrerComplement = async (d, valeur) => {
+    if (bloquerSiLecture(db, profile)) return;
+    const frais = devisDans(db, d.client.id, d.id) || d;
+    const refus = motifRefusComplement(frais, profile) || critiqueComplement(valeur) || (estDevisSolaire(frais) ? "" : "Ce devis n'est pas un devis solaire.");
+    if (refus) { await uAlert(refus); return; }
+    const nomClient = d.client?.nom_base || d.client?.nom || "ce client";
+    const apres = appliquerComplement(frais, valeur, profile, today());
+    const resume = resumeComplement(apres.complement_technique);
+    save(avecDevis(db, d.client.id, d.id, (x) => appliquerComplement(x, valeur, profile, today())),
+      resume
+        ? `🧩 Fiche technique complétée — devis de ${nomClient} du ${dFR(d.date)} (${resume}) — par ${profile.nom}`
+        : `🧩 Complément de la fiche technique retiré — devis de ${nomClient} du ${dFR(d.date)} — par ${profile.nom}`);
+    setComplementDe(null);
+    uAlert(resume ? `✅ Complément enregistré (${resume}). Il apparaît dans le 📑 Document technique de ce devis.` : "Le complément de la fiche technique est retiré.");
   };
 
   return (
@@ -832,6 +851,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                     {estDevisSolaire(d) && (
                       <BoutonRond data-document-technique icone="📑" onClick={() => telechargerDocTech(d)} titre="📑 Document technique — besoins, calcul, matériel et entretien, sans aucun prix" />
                     )}
+                    {estDevisSolaire(d) && peutCompleterFiche(d, profile) && (
+                      <BoutonRond data-bouton-complement icone="🧩" teinte="bleu" onClick={() => { setComplementDe(complementDe === d.id ? null : d.id); if (!deplie) ouvrirDevis(d); }}
+                        titre={d.complement_technique ? "🧩 Complément de la fiche technique (déjà renseigné) — câbles, protections, implantation" : "🧩 Complément de la fiche technique — câbles, protections, implantation (facultatif)"} />
+                    )}
                     {peutClasserDevis(d, profile) && (d.statut || "propose") === "propose" && (
                       <BoutonRond data-classer-sans-suite icone="📁" teinte="gris" onClick={() => classerDevis(d)} titre="📁 Classer sans suite — le devis reste entier mais sort de la liste active" />
                     )}
@@ -920,6 +943,10 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                         ))}
                       </tbody>
                     </table>
+                    {complementDe === d.id && estDevisSolaire(d) && peutCompleterFiche(d, profile) && (
+                      <ComplementDuDevis devis={d} valeurInitiale={complementDuDevis(d)} panneaux={panneauxDuDevis(d)}
+                        onAnnuler={() => setComplementDe(null)} onEnregistrer={(v) => enregistrerComplement(d, v)} />
+                    )}
                     {completion === d.id && peutCompleterDevis(d, profile) && (
                       <CompleterDevis devis={d} produits={(db.produits || []).filter((p) => p.boutique === d.boutique)}
                         onAnnuler={() => setCompletion(null)} onEnregistrer={(saisie) => completerEtEnvoyer(d, saisie)} />

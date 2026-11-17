@@ -6,7 +6,9 @@
 // puissances… ce qui se fait aujourd'hui reste inchangé… juste en
 // additionnel, la possibilité de télécharger un document technique qui suit
 // le devis » → « ta recommandation, lance » : A a (ceux qui sortent déjà le
-// PDF du devis), B b (l'implantation est une phrase libre), C a (pas de
+// PDF du devis), B b (l'implantation est une phrase libre — REMPLACÉE le
+// 17/11/2026 par le « complément de la fiche », lib/complementTechnique.js,
+// rangé SUR le devis), C a (pas de
 // photos ni de plans), D b (garanties lues sur les fiches + tableau de
 // maintenance standard), AUCUN prix, le solaire d'abord.
 //
@@ -22,11 +24,10 @@
 import { besoinsDepuisConsommation, qteAppareil, RENDEMENT_SYSTEME } from "./solaire.js";
 import { specDepuisNom, puissanceUtileW, estHybrideTexte, SOLEIL_DEFAUT, LIBELLE_RACCORDEMENT } from "./choixSolaire.js";
 import { ligneGrise } from "./ficheArticle.js";
+import { complementDuDevis, CABLES, PROTECTIONS, PHRASE_A_VALIDER } from "./complementTechnique.js";
 
 export const TITRE_DOCUMENT = "DOCUMENT TECHNIQUE";
 export const PHRASE_A_CONFIRMER = "À confirmer lors de la visite technique.";
-export const IMPLANTATION_MAX = 300;
-export const nettoyerImplantation = (t) => String(t ?? "").replace(/\s+/g, " ").trim().slice(0, IMPLANTATION_MAX);
 
 // Un devis SOLAIRE = des besoins qui portent la consommation du jour (un
 // portail porte `type_ouvrant`, un devis sans calcul porte une catégorie).
@@ -145,9 +146,39 @@ export function materielRetenu(materiel, tensionCalcul) {
   return { wc, ah, w, kwhBatterie, sansSpec };
 }
 
-// Tout le document, en données. `implantation` : la phrase tapée au moment du
-// téléchargement (rien n'est rangé) ; vide = « à confirmer ».
-export function documentTechnique(devis, { produits = [], implantation = "" } = {}) {
+// Le complément de la fiche (implantation, montage, câbles, protections), lu SUR
+// le devis, mis en phrases pour le document. Ce qui n'est pas renseigné reste
+// « à confirmer » : on n'écrit jamais une valeur que personne n'a donnée.
+function complementPourDocument(devis) {
+  const c = complementDuDevis(devis);
+  if (!Object.keys(c).length) return { vide: true, implantation: [], montage: "", cables: [], protections: [], autres: "", phrase: PHRASE_A_VALIDER };
+  const imp = c.implantation || {};
+  const implantation = [
+    imp.support ? { libelle: "Support", valeur: imp.support } : null,
+    imp.orientation ? { libelle: "Orientation", valeur: imp.orientation } : null,
+    imp.inclinaison !== undefined ? { libelle: "Inclinaison", valeur: `${virg(imp.inclinaison)} °` } : null,
+    imp.local ? { libelle: "Local technique", valeur: imp.local } : null,
+    imp.distance_champ_local ? { libelle: "Distance champ solaire → local technique", valeur: `${virg(imp.distance_champ_local)} m` } : null,
+  ].filter(Boolean);
+  const m = c.montage || {};
+  const montage = m.serie && m.parallele
+    ? `${m.serie} panneau${m.serie > 1 ? "x" : ""} en série par ligne, ${m.parallele} ligne${m.parallele > 1 ? "s" : ""} en parallèle (${m.serie * m.parallele} panneaux).`
+    : m.serie ? `${m.serie} panneau${m.serie > 1 ? "x" : ""} en série par ligne ; nombre de lignes en parallèle à confirmer.`
+    : m.parallele ? `${m.parallele} ligne${m.parallele > 1 ? "s" : ""} en parallèle ; nombre de panneaux en série à confirmer.` : "";
+  const cables = CABLES.map(({ id, libelle, trajet }) => {
+    const l = (c.cables || {})[id] || {};
+    return { libelle, trajet, section: l.section ? `${l.section} mm²` : "", longueur: l.longueur ? `${virg(l.longueur)} m` : "" };
+  });
+  const protections = PROTECTIONS.map(({ id, libelle }) => {
+    const p = (c.protections || {})[id];
+    return { libelle, prevue: !!p, calibre: p && p.calibre ? p.calibre : "" };
+  });
+  return { vide: false, implantation, montage, cables, protections, autres: c.autres || "", phrase: PHRASE_A_VALIDER };
+}
+
+// Tout le document, en données. Le complément de la fiche est LU sur le devis
+// (rien n'est demandé au téléchargement) ; vide = « à confirmer ».
+export function documentTechnique(devis, { produits = [] } = {}) {
   if (!estDevisSolaire(devis)) return null;
   const b = devis.besoins;
   const soleilRange = Number(b.soleil) > 0;
@@ -208,7 +239,7 @@ export function documentTechnique(devis, { produits = [], implantation = "" } = 
     calcul,
     couverture,
     materiel,
-    implantation: nettoyerImplantation(implantation),
+    complement: complementPourDocument(devis),
     maintenance: MAINTENANCE,
     cablage: PHRASE_CABLAGE,
     sansSpec: retenu.sansSpec,
