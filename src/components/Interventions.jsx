@@ -12,6 +12,9 @@
 import { useState } from "react";
 import { Field, inputCls, uAlert, BoutonEnvoi } from "./ui";
 import { today, dFR } from "../lib/core";
+import { LOGO } from "../lib/constants";
+import { exportCSV } from "../lib/export";
+import { genererHistoriqueInterventions } from "../pdf";
 import { bloquerSiLecture, espaceDuChantier } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
 import { envoiInterventionOuverte, envoiInterventionResolue } from "../lib/whatsappModeles";
@@ -20,6 +23,7 @@ import {
   interventionsDe, interventionsRecentes, resumeInterventions, estResolue,
   motifRefusNote, peutNoter, peutLire, critiqueIntervention, nouvelleIntervention,
   critiqueResolution, resoudreIntervention, avecIntervention, avecResolution, statistiquesInterventions,
+  peutVoirStatistiques, peutTelechargerAvecCause, historiqueInstallation, ENTETES_EXPORT_INTERVENTIONS, lignesExportInterventions,
 } from "../lib/interventions";
 
 const titre = "text-xs font-bold uppercase tracking-wide text-slate-500 mt-3 mb-1";
@@ -67,6 +71,32 @@ export async function resoudreUneIntervention({ db, save, profile, chantierId, i
     `Intervention résolue sur « ${c.prenom || ""} ${c.nom} » — ${libelleElement(resolue.element)} : ${resolue.solution}`);
   const compte = c.user_id ? ficheParId(db.users, c.user_id) : null;
   return avisAuClient({ db, save, profile, c, envoi: envoiInterventionResolue({ chantier: c, compte, intervention: resolue, dFR }) });
+}
+
+// 📄 L'historique d'UNE installation en PDF. Sans `avecCause`, c'est celui qu'on
+// remet au client (la cause probable n'y est jamais) ; avec, c'est le document
+// de l'administration. Le droit est revérifié DANS le geste, sur la fiche fraîche.
+export function telechargerHistoriqueInstallation({ db, profile, chantierId, boutique, avecCause = false }, retournerDoc = false) {
+  const c = (db.clients_installes || []).find((x) => x.id === chantierId);
+  if (!peutLire(c, profile, boutique)) { uAlert("🔒 Vous ne pouvez pas télécharger l'historique de cette installation."); return null; }
+  if (avecCause && !peutTelechargerAvecCause(profile)) { uAlert("🔒 La version avec la cause probable est réservée à l'administrateur, au responsable commercial et au gérant."); return null; }
+  const client = `${c.prenom || ""} ${c.nom || ""}`.trim();
+  const h = historiqueInstallation(c, { avecCause, dFR });
+  return genererHistoriqueInterventions(h, {
+    client, installation: c.type_installation || "", avecCause, logo: LOGO,
+    formation: espaceDuChantier(db, c, profile) === true, edite: dFR(today()),
+    fichier: { type: avecCause ? "Historique des interventions (interne)" : "Historique des interventions", client, numero: c.type_installation || "" },
+  }, retournerDoc);
+}
+
+// 📥 L'export Excel de la période : toutes les interventions, la cause comprise.
+// Réservé à ceux qui voient 📊 Pannes ; `chantiers` est déjà filtré par l'écran.
+export function exporterInterventions({ profile, chantiers, dans, libelle = "", boutiqueDe }) {
+  if (!peutVoirStatistiques(profile)) { uAlert("🔒 L'export des interventions est réservé à l'administrateur, au responsable commercial et au gérant."); return null; }
+  const lignes = lignesExportInterventions(chantiers, { dans, dFR, boutiqueDe });
+  if (!lignes.length) { uAlert("Aucune intervention à exporter sur cette période."); return null; }
+  exportCSV("interventions", ENTETES_EXPORT_INTERVENTIONS, lignes, String(libelle || "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, ""));
+  return lignes;
 }
 
 const saisieVide = (profile) => ({
@@ -117,11 +147,25 @@ export function InterventionsDuChantier({ c, db, profile, save, boutique }) {
             {r.total === 0 ? "aucune notée" : `${r.total} au total${r.ouvertes ? ` — ${r.ouvertes} ouverte${r.ouvertes > 1 ? "s" : ""}` : ""}`}
           </span>
         </div>
-        {peut && !ouvert && (
-          <button type="button" className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-sm font-semibold text-sky-900" onClick={() => { setOuvert(true); setMessage(""); }} data-noter-intervention>
-            ➕ Noter une intervention
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {r.total > 0 && (
+            <button type="button" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700" onClick={() => telechargerHistoriqueInstallation({ db, profile, chantierId: c.id, boutique })} data-pdf-interventions="client"
+              title="L'historique à remettre au client : sans la cause probable.">
+              📄 Historique (PDF)
+            </button>
+          )}
+          {r.total > 0 && peutTelechargerAvecCause(profile) && (
+            <button type="button" className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-800" onClick={() => telechargerHistoriqueInstallation({ db, profile, chantierId: c.id, boutique, avecCause: true })} data-pdf-interventions="administration"
+              title="Version interne, avec la cause probable : à ne pas remettre au client.">
+              📄 Version administration
+            </button>
+          )}
+          {peut && !ouvert && (
+            <button type="button" className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-sm font-semibold text-sky-900" onClick={() => { setOuvert(true); setMessage(""); }} data-noter-intervention>
+              ➕ Noter une intervention
+            </button>
+          )}
+        </div>
       </div>
       {message && <div className="mt-2 whitespace-pre-line text-sm text-green-800" data-message-intervention>{message}</div>}
 
@@ -218,7 +262,7 @@ export function InterventionsDuChantier({ c, db, profile, save, boutique }) {
 
 // 📊 Les statistiques. `chantiers` = déjà filtrés par l'espace regardé (et la
 // boutique du gérant) ; `dans` = le filtre de période.
-export function StatistiquesPannes({ chantiers, dans, libellePeriode, onFermer }) {
+export function StatistiquesPannes({ chantiers, dans, libellePeriode, onFermer, profile = null, boutiqueDe }) {
   const s = statistiquesInterventions(chantiers, dans);
   const carre = (valeur, nom, cle) => (
     <div className="rounded-lg border border-slate-200 bg-white p-3 text-center" data-stat-pannes={cle}>
@@ -230,7 +274,15 @@ export function StatistiquesPannes({ chantiers, dans, libellePeriode, onFermer }
     <div className="rounded-xl border-2 border-sky-300 bg-white p-4" data-statistiques-pannes>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="font-bold text-sky-900">📊 Pannes et interventions{libellePeriode ? ` — ${libellePeriode}` : ""}</div>
-        <button type="button" className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600" onClick={onFermer}>Fermer</button>
+        <div className="flex flex-wrap items-center gap-2">
+          {profile && peutVoirStatistiques(profile) && s.total > 0 && (
+            <button type="button" className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700" onClick={() => exporterInterventions({ profile, chantiers, dans, libelle: libellePeriode, boutiqueDe })} data-excel-interventions
+              title="Toutes les interventions de la période, avec la cause probable.">
+              📥 Excel
+            </button>
+          )}
+          <button type="button" className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600" onClick={onFermer}>Fermer</button>
+        </div>
       </div>
       {s.total === 0 ? (
         <div className="text-sm text-slate-500" data-stat-vide>Aucune intervention notée sur cette période. Les statistiques ne comptent que ce qui est saisi : les pannes d'avant la mise en place ne sont nulle part.</div>

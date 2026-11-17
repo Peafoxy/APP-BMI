@@ -6,10 +6,14 @@
 // ============================================================
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { InterventionsDuChantier, StatistiquesPannes, noterIntervention, resoudreUneIntervention } from "../src/components/Interventions.jsx";
+import { InterventionsDuChantier, StatistiquesPannes, noterIntervention, resoudreUneIntervention, telechargerHistoriqueInstallation, exporterInterventions } from "../src/components/Interventions.jsx";
 
 export const rendreJournal = (c, db, profile, boutique) => renderToStaticMarkup(React.createElement(InterventionsDuChantier, { c, db, profile, save() {}, boutique }));
-export const rendreStats = (chantiers, dans = () => true) => renderToStaticMarkup(React.createElement(StatistiquesPannes, { chantiers, dans, libellePeriode: "Ce mois", onFermer() {} }));
+export const rendreStats = (chantiers, dans = () => true, profile = null) => renderToStaticMarkup(React.createElement(StatistiquesPannes, { chantiers, dans, libellePeriode: "Ce mois", onFermer() {}, profile, boutiqueDe: () => "BMI DEMAKPOE" }));
+
+// Les téléchargements : le PDF rendu (jamais enregistré), et l'export Excel (rend ses lignes).
+export const pdfHistorique = (db, profile, chantierId, boutique, avecCause) => telechargerHistoriqueInstallation({ db, profile, chantierId, boutique, avecCause }, true);
+export const exportExcel = (profile, chantiers, dans = () => true) => exporterInterventions({ profile, chantiers, dans, libelle: "Ce mois", boutiqueDe: () => "BMI DEMAKPOE" });
 
 // Joue un geste : rend { db apres, journal, phrase, sauvegardes }.
 export async function jouerNote(db, profile, chantierId, saisie) {

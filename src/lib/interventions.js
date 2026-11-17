@@ -192,3 +192,60 @@ export function statistiquesInterventions(chantiers, dans = () => true) {
     recurrentes: Object.values(parInstallation).filter((x) => x.total > 1).sort((a, b) => b.total - a.total || a.nom.localeCompare(b.nom, "fr")),
   };
 }
+
+// ---- Les téléchargements (17/11/2026, « les deux, lance… en plus du fichier
+// qu'on peut remettre au client, un téléchargement pour l'administration, sur
+// lequel il y aura la cause probable ») ----------------------------------------
+// DEUX documents PDF par installation : la version CLIENT (jamais la cause
+// probable — elle est interne) et la version ADMINISTRATION (avec la cause, à ne
+// pas remettre). Un export Excel de la période pour ceux qui voient 📊 Pannes.
+// Les lignes sont fabriquées ICI, une fois : le PDF et l'Excel ne calculent rien.
+
+// Qui peut télécharger la version AVEC la cause : ceux qui voient les
+// statistiques (administrateur, responsable commercial, gérant). L'équipe du
+// chantier, elle, n'a que la version client.
+export const peutTelechargerAvecCause = (profile) => peutVoirStatistiques(profile);
+
+const ouVide = (x) => String(x || "").trim() || "-";
+const solutionEtMateriel = (i) => {
+  const s = String(i.solution || "").trim();
+  const m = String(i.materiel || "").trim();
+  if (!s && !m) return "-";
+  return [s, m ? `Matériel : ${m}` : ""].filter(Boolean).join(" - ");
+};
+
+// `dFR` est passé par l'appelant (ce fichier n'importe rien).
+export function historiqueInstallation(chantier, { avecCause = false, dFR = (x) => x } = {}) {
+  const liste = interventionsRecentes(chantier);
+  const entetes = ["Date", "Élément", "Panne", ...(avecCause ? ["Cause probable"] : []), "Technicien", "Solution", "État"];
+  const lignes = liste.map((i) => [
+    dFR(i.date), libelleElement(i.element) || "-", ouVide(i.panne),
+    ...(avecCause ? [ouVide(i.cause)] : []),
+    ouVide(i.technicien_nom), solutionEtMateriel(i),
+    estResolue(i) ? `Résolue le ${dFR(i.resolu_le || i.date)}` : "En cours",
+  ]);
+  const s = statistiquesInterventions([chantier]);
+  return { entetes, lignes, resume: { total: s.total, resolues: s.resolues, ouvertes: s.ouvertes, delaiMoyenJours: s.delaiMoyenJours } };
+}
+
+// L'export Excel de la période : UNE ligne par intervention, la cause comprise
+// (réservé à ceux qui voient les statistiques). `chantiers` = déjà filtrés par
+// l'écran (espace regardé, boutique du gérant) ; `dans(date)` = la période.
+export const ENTETES_EXPORT_INTERVENTIONS = ["Client", "Installation", "Boutique", "Date", "Élément", "Panne", "Cause probable", "Technicien", "Matériel", "Solution", "État", "Résolue le", "Délai (jours)"];
+export function lignesExportInterventions(chantiers, { dans = () => true, dFR = (x) => x, boutiqueDe = () => "" } = {}) {
+  const lignes = [];
+  for (const c of Array.isArray(chantiers) ? chantiers : []) {
+    for (const i of interventionsDe(c)) {
+      if (!dans(i.date)) continue;
+      const delai = estResolue(i) ? joursEntreDates(i.date, i.resolu_le) : null;
+      lignes.push({ tri: String(i.date || ""), ligne: [
+        `${c.prenom || ""} ${c.nom || ""}`.trim() || "-", c.type_installation || "-", boutiqueDe(c) || "-",
+        dFR(i.date), libelleElement(i.element) || "-", ouVide(i.panne), ouVide(i.cause),
+        ouVide(i.technicien_nom), ouVide(i.materiel), ouVide(i.solution),
+        estResolue(i) ? "Résolue" : "En cours", estResolue(i) ? dFR(i.resolu_le || i.date) : "",
+        delai !== null && delai >= 0 ? delai : "",
+      ] });
+    }
+  }
+  return lignes.sort((a, b) => b.tri.localeCompare(a.tri)).map((x) => x.ligne);
+}

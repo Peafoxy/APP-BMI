@@ -3748,8 +3748,9 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
   // RETOURNÉ le 11/11/2026 : la DEMANDE DE PRIX à un fournisseur — six.
   // RETOURNÉ le 13/11/2026 : l'HISTORIQUE DES PAIEMENTS DE COMMISSION (« A c, B b, C oui ») — sept.
   // RETOURNÉ le 16/11/2026 : le DOCUMENT TECHNIQUE d'un devis solaire — huit.
-  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire, demande de prix, historique des commissions, document technique) suivent la même règle",
-    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 8 && !/doc\.save\(`/.test(pdf));
+  // RETOURNÉ le 17/11/2026 : l'HISTORIQUE DES INTERVENTIONS d'une installation — neuf.
+  test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire, demande de prix, historique des commissions, document technique, historique des interventions) suivent la même règle",
+    (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 9 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
     // RETOURNÉ le 15/10/2026 : un bouton rond, « 📄 Devis PDF » en libellé (au survol).
     readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes('<BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />'));
@@ -5542,9 +5543,10 @@ titre("Doublons A8 et A9 : prospect devenu client, entête / total / pied des PD
   test("★ le devis, le proforma, le relevé, le dossier personnel, l'inventaire ET l'historique des commissions passent par ces briques (enteteSociete, bandeauTitre, piedDePage — bandeauTotal et mentionsOffre pour les deux offres de prix)",
     // RETOURNÉ le 26/09/2026 : le devis et la proforma passent la fiche de
     // leur boutique à l'en-tête (`d.bq` / `p.bq`) — toujours LA même brique.
-    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 7
+    // RETOURNÉ le 17/11/2026 : l'HISTORIQUE DES INTERVENTIONS est le HUITIÈME (mêmes briques).
+    (pdf.match(/enteteSociete\(doc, logo, largeur(, (d|p)\.bq)?\);/g) || []).length === 8
     && /enteteSociete\(doc, logo, largeur, p\.bq\);/.test(pdf) && /enteteSociete\(doc, logo, largeur, d\.bq\);/.test(pdf)
-    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 7
+    && (pdf.match(/= bandeauTitre\(doc, largeur, /g) || []).length === 8
     // Retourné deux fois le 11/09/2026 : le devis a d'abord eu un second
     // rendu, puis UNE seule charpente pour les trois volets — on revient donc
     // à deux passages par brique (le devis, le proforma), sans recopie.
@@ -19805,6 +19807,46 @@ titre("🔩 Le journal des interventions : panne, cause (interne), solution ; de
     test("★★ 🔩 le geste de résoudre, JOUÉ : l'ouverte devient résolue (une seule fois) ; une déjà résolue est refusée",
       reso.enregistre.length === 1 && reso.enregistre[0].db.clients_installes[0].interventions.find((i) => i.id === ouverte.id).statut === "resolue" && /Intervention résolue/.test(reso.enregistre[0].journal)
       && deja.enregistre.length === 0 && deja.phrase === null);
+  }
+  if (RI) {
+    const lirePdfIV = (doc) => { const t = []; for (let p = 1; p <= doc.internal.getNumberOfPages(); p++) for (const l of doc.internal.pages[p].join("\n").split("\n")) { const m = l.match(/\((.*?)\)\s*Tj/); if (m) t.push(m[1]); } return t.join(" | "); };
+    const platIV = (t) => String(t).replace(/[\s|]+/g, "");
+    const chExp = { ...chantier, tel: "90112233", interventions: [
+      { ...IV.resoudreIntervention({ ...ouverte, id: "i1", cause: "Surcharge probable", materiel: "Fusible 30A" }, { solution: "Câble resserré", date: "2026-11-12" }, chef) },
+      { ...ouverte, id: "i2", date: "2026-11-14", panne: "Panneau encrassé", cause: "Poussière du harmattan", element: "panneaux" }] };
+    const dbExp = { users: [chef], clients_installes: [chExp], boutiques: [], ventes: [], dettes: [], messages: [] };
+    const docClient = RI.pdfHistorique(dbExp, chef, "c1", "BMI DEMAKPOE", false);
+    const docAdmin = RI.pdfHistorique(dbExp, admin, "c1", "BMI DEMAKPOE", true);
+    const tClient = docClient ? lirePdfIV(docClient) : ""; const tAdmin = docAdmin ? lirePdfIV(docAdmin) : "";
+    test("★★ 📄 le PDF qu'on remet au CLIENT : titre, client, les deux interventions, la solution et le matériel — JAMAIS la cause probable, jamais la mention « interne »",
+      !!docClient && /HISTORIQUE DES INTERVENTIONS/.test(tClient) && /KOFFIVI MASSA/.test(tClient) && /L'onduleur s'éteint le soir/.test(tClient) && /Panneau encrass/.test(tClient)
+      && /Câble resserré/.test(tClient) && /Fusible 30A/.test(tClient) && /Résolue le \| 12\/11\/2026|Résolue le 12\/11\/2026/.test(tClient)
+      // ⚠ Un texte coupé lettre par lettre (colonne trop étroite) échappait à une simple recherche : on lit le PDF à plat, sans espaces ni barres.
+      && !/Surcharge/i.test(platIV(tClient)) && !/Poussi/i.test(platIV(tClient)) && !/Causeprobable/i.test(platIV(tClient)) && !/INTERNE/i.test(platIV(tClient))
+      && !IV.historiqueInstallation(chExp, { avecCause: false }).entetes.includes("Cause probable")
+      && !JSON.stringify(IV.historiqueInstallation(chExp, { avecCause: false }).lignes).includes("Surcharge")
+      && JSON.stringify(IV.historiqueInstallation(chExp, { avecCause: true }).lignes).includes("Surcharge probable"));
+    test("★★ 📄 le PDF de l'ADMINISTRATION : la cause probable de chaque panne, et la mention « DOCUMENT INTERNE » qui dit de ne pas le remettre au client",
+      !!docAdmin && /Cause probable/.test(tAdmin) && /Surcharge probable/.test(tAdmin) && /Poussi/.test(tAdmin) && /DOCUMENT INTERNE/.test(tAdmin) && /L'onduleur s'éteint le soir/.test(tAdmin));
+    test("★★ 📄 le droit est revérifié DANS le geste : l'équipe du chantier ne peut PAS télécharger la version avec la cause ; un gérant d'ailleurs, un technicien étranger et un client n'ont aucun des deux",
+      RI.pdfHistorique(dbExp, chef, "c1", "BMI DEMAKPOE", true) === null && RI.pdfHistorique(dbExp, gerantAilleurs, "c1", "BMI DEMAKPOE", false) === null
+      && RI.pdfHistorique(dbExp, autreTech, "c1", "BMI DEMAKPOE", false) === null && RI.pdfHistorique(dbExp, client, "c1", "BMI DEMAKPOE", false) === null
+      && !!RI.pdfHistorique(dbExp, gerant, "c1", "BMI DEMAKPOE", true) && IV.peutTelechargerAvecCause(resp) && !IV.peutTelechargerAvecCause(chef));
+    const htmlAdmin = RI.rendreJournal(chExp, dbExp, admin, "BMI DEMAKPOE"); const htmlChefEx = RI.rendreJournal(chExp, dbExp, chef, "BMI DEMAKPOE");
+    test("★★ 📄 les boutons : « Historique (PDF) » pour qui lit, « Version administration » pour l'administration seule ; rien à télécharger tant qu'aucune intervention n'est notée",
+      /data-pdf-interventions="client"/.test(htmlAdmin) && /data-pdf-interventions="administration"/.test(htmlAdmin)
+      && /data-pdf-interventions="client"/.test(htmlChefEx) && !/data-pdf-interventions="administration"/.test(htmlChefEx)
+      && !/data-pdf-interventions/.test(RI.rendreJournal({ ...chantier, interventions: [] }, dbExp, admin, "BMI DEMAKPOE")));
+    const lignesX = RI.exportExcel(admin, [chExp], (d) => d >= "2026-11-01");
+    test("★★ 📥 l'export Excel de la période : une ligne par intervention (la plus récente d'abord), la cause probable, le matériel, la boutique, le délai en jours ; la période est respectée",
+      Array.isArray(lignesX) && lignesX.length === 2 && lignesX[0][4] === "Panneaux solaires" && lignesX[0][6] === "Poussière du harmattan" && lignesX[0][10] === "En cours"
+      && lignesX[1][2] === "BMI DEMAKPOE" && lignesX[1][8] === "Fusible 30A" && lignesX[1][12] === 2 && lignesX[1][0] === "KOFFIVI MASSA"
+      && IV.ENTETES_EXPORT_INTERVENTIONS.length === 13 && IV.ENTETES_EXPORT_INTERVENTIONS.length === lignesX[0].length
+      && RI.exportExcel(admin, [chExp], (d) => d >= "2027-01-01") === null);
+    test("★★ 📥 l'export est réservé à ceux qui voient les statistiques ; le bouton Excel n'est dessiné que pour eux, et seulement s'il y a des interventions",
+      RI.exportExcel(chef, [chExp]) === null && !!RI.exportExcel(gerant, [chExp])
+      && /data-excel-interventions/.test(RI.rendreStats([chExp], () => true, admin)) && !/data-excel-interventions/.test(RI.rendreStats([chExp], () => true, chef))
+      && !/data-excel-interventions/.test(RI.rendreStats([chExp]) ) && !/data-excel-interventions/.test(RI.rendreStats([], () => true, admin)));
   }
   const srcInt = readFileSync("src/components/Interventions.jsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const gesteNote = (srcInt.match(/export async function noterIntervention[\s\S]*?\n\}/) || [""])[0];

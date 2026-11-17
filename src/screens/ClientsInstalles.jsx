@@ -1485,7 +1485,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
           <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">Période : {periodePannes.selecteur}</div>
           <StatistiquesPannes
             chantiers={profile.role === "gerant" ? mesChantiers.filter((c) => boutiqueDuChantier(db, c) === profile.boutique) : mesChantiers}
-            dans={periodePannes.dans} libellePeriode={periodePannes.libelle} onFermer={() => setStatsPannes(false)} />
+            dans={periodePannes.dans} libellePeriode={periodePannes.libelle} onFermer={() => setStatsPannes(false)}
+            profile={profile} boutiqueDe={(c) => boutiqueDuChantier(db, c)} />
         </PanneauQuiSeMontre>
       )}
 

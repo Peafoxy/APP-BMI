@@ -1075,6 +1075,73 @@ export function genererHistoriqueCommissions(h, { titre = "HISTORIQUE DES PAIEME
   return null;
 }
 
+// ============ 🔩 L'HISTORIQUE DES INTERVENTIONS D'UNE INSTALLATION (17/11/2026) ============
+// Timo : « les deux, lance… en plus du fichier qu'on peut remettre au client,
+// ajouter le téléchargement pour l'administration, sur lequel il y aura la cause
+// probable ». Les lignes viennent de lib/interventions.js (`historiqueInstallation`) :
+// ici on ne fait que les DESSINER. Avec la cause (`avecCause`), le document est
+// INTERNE et le dit en rouge sous le bandeau ; sans, c'est celui qu'on remet au
+// client — la cause n'y est jamais. `h` : { entetes, lignes, resume }.
+const LARGEURS_INTERVENTIONS = {
+  sans: { "Date": 22, "Élément": 32, "Panne": 76, "Technicien": 30, "Solution": 76, "État": 33 },
+  avec: { "Date": 22, "Élément": 28, "Panne": 52, "Cause probable": 52, "Technicien": 28, "Solution": 52, "État": 35 },
+};
+export function genererHistoriqueInterventions(h, { client = "", installation = "", avecCause = false, logo, formation = false, edite = "", fichier = {} } = {}, retournerDoc = false) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true });
+  const largeur = doc.internal.pageSize.getWidth();
+  const hauteur = doc.internal.pageSize.getHeight();
+  const entetes = h.entetes || [];
+  const lignes = h.lignes || [];
+  const r = h.resume || {};
+
+  enteteSociete(doc, logo, largeur);
+  const yApres = bandeauTitre(doc, largeur, texteSurPdf("HISTORIQUE DES INTERVENTIONS"), formation);
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(texteSurPdf(`Client : ${client || "-"}${installation ? `  -  Installation : ${installation}` : ""}`), 14, yApres + 7);
+  if (edite) doc.text(`Édité le ${edite}`, largeur - 14, yApres + 7, { align: "right" });
+  let yInfo = yApres + 7;
+  if (avecCause) {
+    yInfo += 5;
+    doc.setFontSize(9);
+    doc.setTextColor(185, 28, 28);
+    doc.text(texteSurPdf("DOCUMENT INTERNE - contient la cause probable des pannes - à ne pas remettre au client"), 14, yInfo);
+    doc.setTextColor(60, 60, 60);
+  }
+  const delai = r.delaiMoyenJours === null || r.delaiMoyenJours === undefined ? "-" : `${String(r.delaiMoyenJours).replace(".", ",")} j`;
+  const y = grandesCases(doc, yInfo + 5, largeur, [
+    [String(Number(r.total || 0)), "Interventions"],
+    [String(Number(r.resolues || 0)), "Résolues"],
+    [String(Number(r.ouvertes || 0)), "En cours"],
+    [delai, "Délai moyen de résolution"],
+  ]);
+  const largeurs = LARGEURS_INTERVENTIONS[avecCause ? "avec" : "sans"];
+  const columnStyles = {};
+  entetes.forEach((t, i) => { if (largeurs[t]) columnStyles[i] = { cellWidth: largeurs[t] }; });
+  autoTable(doc, {
+    head: [entetes.map((t) => enTete(texteSurPdf(t)))],
+    body: lignes.length
+      ? lignes.map((l) => l.map((c) => texteSurPdf(c)))
+      : [[{ content: "Aucune intervention notée sur cette installation.", colSpan: Math.max(1, entetes.length) }]],
+    rowPageBreak: "avoid",
+    startY: y + 2,
+    styles: { fontSize: 8, cellPadding: 1.6, overflow: "linebreak" },
+    headStyles: { fillColor: BLEU, textColor: 255, fontSize: 8 },
+    columnStyles,
+    margin: { left: 14, right: 14 },
+    didDrawPage: () => piedDePage(doc, largeur, hauteur),
+  });
+  const yNote = placePour(doc, (doc.lastAutoTable?.finalY || y) + 6, hauteur, 8);
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GRIS_TEXTE);
+  doc.text(texteSurPdf(avecCause
+    ? "Document réservé à l'administration de BMI TOGO. La cause probable est une hypothèse du technicien, pas un constat."
+    : "Historique des interventions de BMI TOGO sur votre installation. Pour toute question, contactez-nous."), 14, yNote);
+  if (retournerDoc) return doc;
+  doc.save(fichierPdf(fichier.type || "Historique des interventions", { client: fichier.client, numero: fichier.numero }));
+  return null;
+}
+
 // ============ 📋 L'INVENTAIRE DES VENTES D'UNE BOUTIQUE (10/10/2026) ============
 // Timo : « D a » — l'inventaire de 💰 Ventes s'imprime. La structure vient
 // de lib/inventaireVentes.js ; ici on ne fait que la DESSINER, avec les
