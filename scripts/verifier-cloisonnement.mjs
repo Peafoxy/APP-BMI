@@ -9108,7 +9108,7 @@ titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans
     // ⚠ RETOURNÉ le 23/10/2026 : les reçus ne passent plus par nomSurDocument (identifiant) ; le devis passe par nomCourtSurDocument.
     test("★ les documents passent par nomSurDocument (bons, facture d'achat chantier, relevé des travaux, bon de ravitaillement, PV, contrat, inventaire) — JAMAIS les reçus ; le devis par nomCourtSurDocument ; App.jsx pose les personnes de l'espace regardé (le mur) plus le compte connecté ; « B b » : le texte WhatsApp du reçu garde l'identifiant",
       (impN.match(/nomSurDocument\(/g) || []).length === 6 && !/Vendeur\$\{v\.par \? ` : \$\{esc\(nomSurDocument/.test(impN) && !/esc\(nomSurDocument\((dernier|d\.par|p\.par)/.test(impN)
-      && (srcPdf.match(/nomCourtSurDocument\(/g) || []).length === 2 && /nomSurDocumentDans\(\[initiateur\]/.test(impN) && /nomSurDocumentDans\(chefCompte \? \[chefCompte\] : \[\]/.test(impN)
+      && (srcPdf.match(/nomCourtSurDocument\(/g) || []).length === 3 && /nomSurDocumentDans\(\[initiateur\]/.test(impN) && /nomSurDocumentDans\(chefCompte \? \[chefCompte\] : \[\]/.test(impN)
       && /poserPersonnesDesDocuments\(\[\.\.\.utilisateursDeLEspace\(db, profile\), profile\]\);/.test(appN)
       && /`Vendeur : \$\{v\.par \|\| ""\}`/.test(impN) && (srcPdf.match(/nomSurDocument\(/g) || []).length === 2
       && /par: d\.par, par_id: d\.par_id \|\| null,/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
@@ -19587,6 +19587,15 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
   test("★ 📑 le PDF FABRIQUÉ : titre, numéro du devis, appareils, calcul, matériel, implantation tapée, plan d'entretien",
     /DOCUMENT TECHNIQUE/.test(txT) && /ABCDEF12/.test(txT) && /Téléviseur/.test(txT) && /PANNEAU 550W/.test(txT) && /Dalle du bâtiment A/.test(txT)
     && /Vérification des parafoudres AC \/ DC/.test(txT) && /Heures de soleil retenues : 5 h/.test(txT) && /Raccordement : Triphasé/.test(txT) && docT.internal.getNumberOfPages() <= 3);
+  test("★ 📑 les CARACTÉRISTIQUES ne restent plus vides : à défaut de fiche, ce que le NOM dit (550 W ; 51,2 V · 300 Ah ; 6 kW · hybride) ; la fiche de l'article, quand elle existe, passe AVANT le nom ; un nom muet laisse la case vide",
+    t.materiel[0].caracteristiques === "550 W" && t.materiel[1].caracteristiques === "51,2 V · 300 Ah" && /51,2 V · 300 Ah/.test(txT) && /6 kW · hybride/.test(txT)
+    && t.materiel[2].caracteristiques === "6 kW · hybride (régulateur intégré)" && t.materiel[3].caracteristiques === ""
+    && DT.documentTechnique(devis, { produits: [{ ...produits[0], tension: 48 }] }).materiel[0].caracteristiques === "48 V"
+    && DT.documentTechnique(devis, { produits: [{ ...produits[0], fiche_technique: "https://exemple.test/fiche.pdf" }] }).materiel[0].caracteristiques === "550 W · fiche technique disponible"
+    && !/exemple\.test/.test(texte(PdfDt.genererDocumentTechnique(DT.documentTechnique(devis, { produits: [{ ...produits[0], fiche_technique: "https://exemple.test/fiche.pdf" }] }), donneesPdf, null, true))));
+  test("★ 📑 le PDF porte un bloc VALIDATION : « Établi par — pour BMI Togo » (le nom de celui qui l'a élaboré) et « Lu et approuvé — le client », dans le même document que le devis qu'il suit",
+    /7\. VALIDATION/i.test(txT) && /Établi par/.test(txT) && /Lu et approuvé/.test(txT) && /ANGELE/.test(texte(PdfDt.genererDocumentTechnique(t, { ...donneesPdf, par: "ANGELE" }, null, true)))
+    && /Ce document technique accompagne le devis N° ABCDEF12/.test(txT));
   test("★★ 📑 AUCUN PRIX dans le document (ni prix unitaire, ni total, ni FCFA, ni remise) — et rien d'interne (prix d'achat, fournisseur, notes)",
     !/100 000|350 000|400 000|1 000 000|90 000|FCFA|TOTAL/.test(txT) && !/55555|55 555|SECRET/.test(txT));
   test("★ 📑 sans phrase d'implantation, le document dit « à confirmer lors de la visite technique » ; en formation, le bandeau violet",

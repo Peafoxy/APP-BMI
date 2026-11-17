@@ -20,7 +20,7 @@
 // filtrée par l'espace (le mur). Module PUR, deux imports (règles de calcul).
 // ============================================================
 import { besoinsDepuisConsommation, qteAppareil, RENDEMENT_SYSTEME } from "./solaire.js";
-import { specDepuisNom, puissanceUtileW, SOLEIL_DEFAUT, LIBELLE_RACCORDEMENT } from "./choixSolaire.js";
+import { specDepuisNom, puissanceUtileW, estHybrideTexte, SOLEIL_DEFAUT, LIBELLE_RACCORDEMENT } from "./choixSolaire.js";
 import { ligneGrise } from "./ficheArticle.js";
 
 export const TITRE_DOCUMENT = "DOCUMENT TECHNIQUE";
@@ -79,6 +79,35 @@ const phraseGarantie = (p) => {
 
 const LIBELLE_BATTERIE = { lifepo4: "Lithium LiFePO4", gel: "Gel", plomb: "Plomb" };
 
+// 📋 Les caractéristiques d'une ligne (Timo, 17/11/2026, « les insuffisances ») :
+// la colonne restait VIDE tant que la fiche de l'article n'était pas remplie.
+// D'abord LA FICHE de l'article (puissance, tension, cases d'un convertisseur…,
+// lue par `ligneGrise` — la même règle que 📦 Stocks) ; à défaut, ce que le NOM
+// de l'article dit (« 550W », « 51.2V 300Ah », « 6KW ») — jamais un chiffre
+// deviné : un nom qui ne dit rien laisse la case vide. Une fiche technique
+// rangée sur l'article s'annonce (« fiche technique disponible »), sans son lien.
+export function caracteristiquesDeLaLigne(categorie, article, p) {
+  const bouts = [];
+  const fiche = p ? ligneGrise(p) : "";
+  if (fiche) bouts.push(fiche);
+  else {
+    const cat = sansAccents(categorie);
+    const spec = specDepuisNom(article);
+    const tension = String(article || "").match(/(\d+(?:[.,]\d+)?)\s*v\b/i);
+    if (/panneau/.test(cat) && spec && (spec.unite === "w" || spec.unite === "wc")) bouts.push(`${virg(spec.valeur, 0)} W`);
+    else if (/batterie/.test(cat)) {
+      if (tension) bouts.push(`${virg(parseFloat(tension[1].replace(",", ".")))} V`);
+      if (spec && spec.unite === "ah") bouts.push(`${virg(spec.valeur, 0)} Ah`);
+    } else if (/convertisseur/.test(cat)) {
+      const w = puissanceUtileW(spec);
+      if (w > 0) bouts.push(`${virg(w / 1000)} kW`);
+      if (estHybrideTexte(article)) bouts.push("hybride (régulateur intégré)");
+    }
+  }
+  if (p && p.fiche_technique) bouts.push("fiche technique disponible");
+  return bouts.join(" · ");
+}
+
 // Les lignes du matériel, SANS aucun prix, ni les frais, ni un élément « cf.
 // visite » (sans chiffre : il n'est pas encore du matériel retenu).
 export function lignesMateriel(devis, produits) {
@@ -93,6 +122,7 @@ export function lignesMateriel(devis, produits) {
         article: String(l.article || ""),
         qte: Number(l.qte || 0),
         fiche: p ? ligneGrise(p) : "",
+        caracteristiques: caracteristiquesDeLaLigne(l.categorie, l.article, p),
         garantie: phraseGarantie(p),
       };
     });

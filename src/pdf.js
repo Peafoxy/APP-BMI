@@ -845,7 +845,7 @@ export function genererDocumentTechnique(t, d, logo, retournerDoc = false) {
   if (t.materiel.length > 0) {
     autoTable(doc, {
       head: [[enTete("Catégorie"), enTete("Article"), enTete("Qté", "center"), enTete("Caractéristiques"), enTete("Garantie")]],
-      body: t.materiel.map((m) => [texteSurPdf(m.categorie), texteSurPdf(m.article), String(nb(m.qte)), texteSurPdf(m.fiche), texteSurPdf(m.garantie)]),
+      body: t.materiel.map((m) => [texteSurPdf(m.categorie), texteSurPdf(m.article), String(nb(m.qte)), texteSurPdf(m.caracteristiques), texteSurPdf(m.garantie)]),
       startY: y, styles, headStyles,
       columnStyles: { 2: { halign: "center", cellWidth: 12 } },
       margin: { left: 14, right: 14 },
@@ -882,6 +882,30 @@ export function genererDocumentTechnique(t, d, logo, retournerDoc = false) {
   });
   y = doc.lastAutoTable.finalY + 4;
   paragraphe("Les garanties applicables sont celles indiquées pour chaque article au paragraphe 4. Ce document ne contient aucun prix : les prix figurent sur le devis.", 7.5);
+
+  // 7. Validation : le document ENGAGE la maison comme le devis. Mêmes cadres,
+  // même cachet, même signature personnelle que « Pour BMI Togo » du devis ;
+  // à droite, le cadre du client. Un bloc insécable (jamais coupé en deux pages).
+  y += 2;
+  y = placePour(doc, y, hauteur, 52);
+  y = titreBloc(doc, y, "7. Validation");
+  paragraphe(`Ce document technique accompagne le devis N° ${d.numero}. Il se lit avec lui.`, 7.5);
+  const L = 88, H = 34, xG = 14, xD = largeur - 14 - L;
+  doc.setDrawColor(...GRIS_TEXTE);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(xG, y, L, H, 1.5, 1.5, "S");
+  doc.roundedRect(xD, y, L, H, 1.5, 1.5, "S");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GRIS_TEXTE);
+  doc.text("Établi par — pour BMI Togo", xG + 2.5, y + 4.5);
+  if (d.par) doc.text(texteSurPdf(nomCourtSurDocument(d.par, d.par_id)), xG + 2.5, y + 8.5);
+  imageDansCadre(doc, d.signature, xG + 2, y + 10, 38, 22);
+  imageDansCadre(doc, d.cachet, xG + 44, y + 9, 40, 24);
+  doc.text("Lu et approuvé — le client", xD + 2.5, y + 4.5);
+  doc.text("Nom : ______________________________", xD + 2.5, y + 14);
+  doc.text("Signature :", xD + 2.5, y + 22);
+  doc.text("Date : ____ / ____ / ________", xD + 2.5, y + H - 3);
+  y += H + 2;
 
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) { doc.setPage(i); piedDePage(doc, largeur, hauteur); }
