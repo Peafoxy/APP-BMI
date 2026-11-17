@@ -352,6 +352,13 @@ export const MODELES = {
   // 📎 EN-TÊTE DOCUMENT (« Texte ok MAIS AUSSI LIER à nouveau le PDF du
   // proforma ») : le PDF est fabriqué et déposé par la tournée elle-même.
   rappel_proforma_expiration: { categorie: "marketing", variables: ["client", "numero", "date", "montant", "fin"], entete: "document" },
+  // 🔩 17/11/2026 (Timo : « alerter le client de la panne et de sa résolution »,
+  // « textes ok », « A non » : la cause probable ne part JAMAIS). UTILITY : un
+  // service sur une installation existante. Deux temps : la panne prise en
+  // charge, puis sa résolution (celle-ci peut partir SEULE : une intervention
+  // résolue d'un coup n'envoie que « résolue »). lib/interventions.js.
+  intervention_ouverte: { categorie: "utility", variables: ["client", "installation", "panne", "technicien"] },
+  intervention_resolue: { categorie: "utility", variables: ["client", "installation", "date", "solution"] },
 };
 
 export const NOMS_MODELES = Object.keys(MODELES);
@@ -370,6 +377,8 @@ export const MODELES_EN_SERVICE = [
   // AVANT l'accord de Meta : d'ici là elle est refusée, et `proforma_pdf`
   // (puis `proforma`) part à sa place — le PDF dit quand même « Modifiée le ».
   "proforma_modifiee_pdf",
+  // 🔩 17/11/2026 : les deux avis d'une intervention. En service AVANT l'accord de Meta : refusés d'ici là, la fenêtre le dit.
+  "intervention_ouverte", "intervention_resolue",
   // 📋 Dettes, 20/09/2026 (décision « c ») : la relance d'une dette part
   // du numéro BMI. Mis en service AVANT l'accord de Meta (d'ici là, repli
   // sur l'ouverture WhatsApp, refus dit en français) pour éviter un second
@@ -760,6 +769,33 @@ export function envoiRappelEntretien({ chantier, compte, dFR }) {
   };
 }
 
+// 🔩 LES DEUX AVIS D'UNE INTERVENTION (17/11/2026) — « textes ok » (Timo). C'est
+// CE texte qui se crée chez Meta, mot pour mot. ⚠ La CAUSE probable n'y est
+// jamais (décision « A non ») : seulement la panne, puis la solution.
+export const TEXTE_INTERVENTION_OUVERTE =
+  "Bonjour {{1}}, BMI TOGO a pris en charge l'incident signalé sur votre installation {{2}} : {{3}}. "
+  + "{{4}} s'en occupe. Nous vous tenons informé.";
+export const TEXTE_INTERVENTION_RESOLUE =
+  "Bonjour {{1}}, l'incident sur votre installation {{2}} est résolu le {{3}} : {{4}}. "
+  + "N'hésitez pas à nous contacter si besoin.";
+const clientDeIntervention = (chantier, compte) => (compte ? nomPourClient(compte) : texteVariable(`${chantier?.prenom || ""} ${chantier?.nom || ""}`.trim()) || "cher client");
+export function envoiInterventionOuverte({ chantier, compte, intervention }) {
+  if (!intervention || !String(intervention.panne || "").trim()) return null;
+  return {
+    modele: "intervention_ouverte",
+    variables: [clientDeIntervention(chantier, compte), installationPourRappel(chantier?.type_installation),
+      texteVariable(intervention.panne), texteVariable(intervention.technicien_nom) || "Un technicien BMI TOGO"],
+  };
+}
+export function envoiInterventionResolue({ chantier, compte, intervention, dFR }) {
+  if (!intervention || !String(intervention.solution || "").trim()) return null;
+  return {
+    modele: "intervention_resolue",
+    variables: [clientDeIntervention(chantier, compte), installationPourRappel(chantier?.type_installation),
+      texteVariable(dFR(intervention.resolu_le || intervention.date)), texteVariable(intervention.solution)],
+  };
+}
+
 // 🔧 LE RAPPEL DU SOLDE D'UNE POSE — le texte de Timo (29/09/2026), deux
 // fautes de frappe corrigées (« Veuillez », « comme » après la virgule) et le
 // lien écrit en clair. C'est CE texte qui se crée chez Meta, mot pour mot.
@@ -1013,6 +1049,8 @@ const LIGNES_ENVOI = {
   relance_devis: ([client, domaine, montant, date]) => `Relance du devis ${domaine} de ${montant} (envoyé le ${date}) à ${client}.`,
   demande_avis: ([client, installation]) => `Demande d'avis Google envoyée à ${client} (installation ${installation}).`,
   rappel_entretien: ([client, installation, date]) => `Rappel automatique de l'entretien de l'installation ${installation} de ${client}, prévu le ${date}.`,
+  intervention_ouverte: ([client, installation, panne, technicien]) => `Intervention prise en charge sur l'installation ${installation} de ${client} : ${panne} (${technicien}).`,
+  intervention_resolue: ([client, installation, date, solution]) => `Intervention résolue le ${date} sur l'installation ${installation} de ${client} : ${solution}`,
   rappel_proforma_expiration: ([client, numero, date, montant, fin]) => `Rappel automatique : la proforma N° ${numero} du ${date} (${montant}) de ${client} expire le ${fin}, 📎 PDF joint.`,
   relance_devis_expiration: ([client, domaine, montant, date, fin]) => `Relance automatique du devis ${domaine} de ${montant} (établi le ${date}) à ${client} : offre valable jusqu'au ${fin}.`,
   devis_valide_paiement: ([client, montant, contrat, boutique]) => `Devis validé de ${montant} (contrat ${contrat}) : merci envoyé à ${client}, paiement en boutique ${boutique}.`,

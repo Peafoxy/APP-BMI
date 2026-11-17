@@ -19703,5 +19703,121 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     && !/ComplementTechnique/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")) && /FormulaireComplement/.test(srcBlocs));
 }
 
+titre("🔩 Le journal des interventions : panne, cause (interne), solution ; deux avis au client ; les statistiques (Timo, 17/11/2026)");
+{
+  const IV = await import(pathToFileURL("src/lib/interventions.js").href);
+  const WM = await import(pathToFileURL("src/lib/whatsappModeles.js").href);
+  const chef = { id: "t1", nom: "AGBEKO", role: "technicien_bmi", boutique: "" };
+  const autreTech = { id: "t9", nom: "KOFFI", role: "technicien", boutique: "" };
+  const admin = { id: "a1", nom: "TIMO", role: "admin" };
+  const resp = { id: "r1", nom: "RESP", role: "resp_commercial" };
+  const gerant = { id: "g1", nom: "AMA", role: "gerant", boutique: "BMI DEMAKPOE" };
+  const gerantAilleurs = { id: "g2", nom: "BEN", role: "gerant", boutique: "BMI APESSITO" };
+  const client = { id: "k1", nom: "ESSO", role: "client" };
+  const chantier = { id: "c1", nom: "MASSA", prenom: "KOFFIVI", tel: "", type_installation: "Solaire résidentiel", equipe: [{ user_id: "t1", nom: "AGBEKO", chef: true }] };
+  const saisie = { date: "2026-11-10", element: "convertisseur", panne: "L'onduleur s'éteint le soir", cause: "Surcharge probable", technicien_id: "t1", technicien_nom: "AGBEKO" };
+  test("★ qui note : l'équipe du chantier, l'administrateur, le resp. commercial — jamais un technicien étranger au chantier, un gérant, un client",
+    IV.peutNoter(chantier, chef) && IV.peutNoter(chantier, admin) && IV.peutNoter(chantier, resp)
+    && !IV.peutNoter(chantier, autreTech) && !IV.peutNoter(chantier, gerant) && !IV.peutNoter(chantier, client)
+    && /équipe de ce chantier/.test(IV.motifRefusNote(chantier, autreTech)));
+  test("★ qui lit : les mêmes, plus le gérant DE LA BOUTIQUE de l'installation — pas un gérant d'ailleurs, pas un client",
+    IV.peutLire(chantier, chef, "BMI DEMAKPOE") && IV.peutLire(chantier, gerant, "BMI DEMAKPOE")
+    && !IV.peutLire(chantier, gerantAilleurs, "BMI DEMAKPOE") && !IV.peutLire(chantier, client, "BMI DEMAKPOE") && !IV.peutLire(chantier, autreTech, "BMI DEMAKPOE"));
+  test("★ qui voit les statistiques : l'administrateur, le resp. commercial, le gérant — jamais un technicien",
+    IV.peutVoirStatistiques(admin) && IV.peutVoirStatistiques(resp) && IV.peutVoirStatistiques(gerant) && !IV.peutVoirStatistiques(chef) && !IV.peutVoirStatistiques(client));
+  test("★ la saisie : date, panne, élément dans la liste et technicien exigés ; rien n'est écarté en silence",
+    IV.critiqueIntervention(saisie) === "" && /panne/.test(IV.critiqueIntervention({ ...saisie, panne: " " })) && /élément/.test(IV.critiqueIntervention({ ...saisie, element: "" }))
+    && /élément/.test(IV.critiqueIntervention({ ...saisie, element: "n'importe quoi" })) && /date/.test(IV.critiqueIntervention({ ...saisie, date: "" })) && /technicien/.test(IV.critiqueIntervention({ ...saisie, technicien_nom: "" })));
+  const ouverte = IV.nouvelleIntervention(saisie, chef, "2026-11-10");
+  const resolueDemblee = IV.nouvelleIntervention({ ...saisie, solution: "Câble resserré", solution_date: "2026-11-11" }, chef, "2026-11-10");
+  test("★ sans solution l'intervention naît OUVERTE ; avec une solution, RÉSOLUE d'un coup (date de résolution, auteur)",
+    ouverte.statut === "ouverte" && !ouverte.solution && resolueDemblee.statut === "resolue" && resolueDemblee.solution === "Câble resserré" && resolueDemblee.resolu_le === "2026-11-11" && resolueDemblee.resolu_par_id === "t1");
+  test("★ une résolution ne se fait QU'UNE fois, exige la solution et la date ; la liste ne rétrécit jamais",
+    IV.critiqueResolution(resolueDemblee, { solution: "x", date: "2026-11-12" }) !== "" && /solution/.test(IV.critiqueResolution(ouverte, { solution: "", date: "2026-11-12" }))
+    && IV.critiqueResolution(ouverte, { solution: "Remplacé", date: "2026-11-12" }) === ""
+    && IV.interventionsDe(IV.avecIntervention(IV.avecIntervention(chantier, ouverte), resolueDemblee)).length === 2
+    && IV.interventionsDe(IV.avecResolution(IV.avecIntervention(chantier, ouverte), ouverte.id, IV.resoudreIntervention(ouverte, { solution: "Remplacé", date: "2026-11-12" }, chef))).length === 1);
+  test("★ une liste du plus récent au plus ancien",
+    IV.interventionsRecentes({ interventions: [{ id: "a", date: "2026-01-01" }, { id: "b", date: "2026-03-01" }, { id: "c", date: "2026-02-01" }] }).map((i) => i.id).join("") === "bca");
+  // ---- les deux messages (textes de Timo, « textes ok »)
+  const dFR = (d) => String(d).split("-").reverse().join("/");
+  const eo = WM.envoiInterventionOuverte({ chantier, compte: null, intervention: ouverte });
+  const er = WM.envoiInterventionResolue({ chantier, compte: null, intervention: IV.resoudreIntervention(ouverte, { solution: "Câble resserré", date: "2026-11-12" }, chef), dFR });
+  test("★ les deux modèles : UTILITY, quatre trous chacun, EN SERVICE ; le texte est celui de Timo, mot pour mot",
+    WM.MODELES.intervention_ouverte.categorie === "utility" && WM.MODELES.intervention_ouverte.variables.join(",") === "client,installation,panne,technicien"
+    && WM.MODELES.intervention_resolue.variables.join(",") === "client,installation,date,solution"
+    && WM.MODELES_EN_SERVICE.includes("intervention_ouverte") && WM.MODELES_EN_SERVICE.includes("intervention_resolue")
+    && WM.TEXTE_INTERVENTION_OUVERTE === "Bonjour {{1}}, BMI TOGO a pris en charge l'incident signalé sur votre installation {{2}} : {{3}}. {{4}} s'en occupe. Nous vous tenons informé."
+    && WM.TEXTE_INTERVENTION_RESOLUE === "Bonjour {{1}}, l'incident sur votre installation {{2}} est résolu le {{3}} : {{4}}. N'hésitez pas à nous contacter si besoin.");
+  test("★ l'avis d'ouverture porte la PANNE et le technicien ; l'avis de résolution la date et la SOLUTION — JAMAIS la cause probable",
+    eo.modele === "intervention_ouverte" && eo.variables.join("|") === "KOFFIVI MASSA|solaire résidentiel|L'onduleur s'éteint le soir|AGBEKO"
+    && er.modele === "intervention_resolue" && er.variables.join("|") === "KOFFIVI MASSA|solaire résidentiel|12/11/2026|Câble resserré"
+    && !JSON.stringify(eo).includes("Surcharge") && !JSON.stringify(er).includes("Surcharge")
+    && WM.envoiInterventionOuverte({ chantier, intervention: { panne: "" } }) === null && WM.envoiInterventionResolue({ chantier, intervention: ouverte, dFR }) === null);
+  // ---- les statistiques
+  const j = (ch, liste) => ({ ...ch, interventions: liste });
+  const chA = j({ id: "A", nom: "ALPHA", prenom: "A" }, [
+    { id: "1", date: "2026-11-02", element: "batterie", technicien_id: "t1", technicien_nom: "AGBEKO", statut: "resolue", resolu_le: "2026-11-04" },
+    { id: "2", date: "2026-11-09", element: "batterie", technicien_id: "t1", technicien_nom: "AGBEKO", statut: "ouverte" }]);
+  const chB = j({ id: "B", nom: "BETA", prenom: "B" }, [{ id: "3", date: "2026-11-03", element: "convertisseur", technicien_id: "t9", technicien_nom: "KOFFI", statut: "resolue", resolu_le: "2026-11-09" },
+    { id: "4", date: "2025-01-01", element: "pompe", technicien_id: "t9", technicien_nom: "KOFFI", statut: "ouverte" }]);
+  const st = IV.statistiquesInterventions([chA, chB], (d) => d >= "2026-11-01" && d <= "2026-11-30");
+  test("★ les statistiques : le total de la PÉRIODE, résolues / ouvertes, le délai moyen (2 j et 6 j → 4 j), les éléments les plus fréquents, les techniciens, les installations qui reviennent",
+    st.total === 3 && st.resolues === 2 && st.ouvertes === 1 && st.delaiMoyenJours === 4
+    && st.elements[0].id === "batterie" && st.elements[0].n === 2 && st.techniciens[0].nom === "AGBEKO" && st.techniciens[0].total === 2
+    && st.recurrentes.length === 1 && st.recurrentes[0].nom === "A ALPHA" && st.recurrentes[0].total === 2
+    && IV.statistiquesInterventions([chA, chB]).total === 4 && IV.statistiquesInterventions([]).total === 0 && IV.statistiquesInterventions([chA, chB]).delaiMoyenJours === 4);
+  // ---- l'écran RENDU et les gestes JOUÉS
+  const sortieRI = join("node_modules", ".cache", `bmi-ri-${process.pid}.mjs`);
+  let RI = null; let errRI = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-interventions.jsx"], bundle: true, format: "esm", platform: "node", outfile: sortieRI, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' }, external: ["react", "react-dom", "react-dom/server"], nodePaths: [join(process.cwd(), "node_modules")] });
+    RI = await import(pathToFileURL(sortieRI).href);
+  } catch (e) { errRI = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieRI); } catch {}
+  test("★★ 🔩 le journal et les statistiques se RENDENT" + (errRI ? ` — ${errRI}` : ""), !!RI);
+  if (RI) {
+    const db = { users: [chef, { id: "t2", nom: "ZOUMA", role: "technicien" }], clients_installes: [j(chantier, [ouverte, resolueDemblee])], boutiques: [], ventes: [], dettes: [], messages: [] };
+    const htmlChef = RI.rendreJournal(db.clients_installes[0], db, chef, "BMI DEMAKPOE");
+    test("★★ 🔩 l'équipe voit le bouton, le résumé, les deux lignes (ouverte, résolue), « Marquer résolue » sur l'ouverte seule, la cause marquée interne",
+      /data-noter-intervention/.test(htmlChef) && /2 au total — 1 ouverte/.test(htmlChef) && (htmlChef.match(/data-intervention-ligne=/g) || []).length === 2
+      && (htmlChef.match(/data-resoudre-intervention/g) || []).length === 1 && /Cause probable/.test(htmlChef) && /interne/.test(htmlChef) && /Câble resserré/.test(htmlChef));
+    const htmlGerant = RI.rendreJournal(db.clients_installes[0], db, gerant, "BMI DEMAKPOE");
+    test("★★ 🔩 le gérant de la boutique LIT sans pouvoir noter ; un gérant d'ailleurs, un technicien étranger au chantier et un client ne voient rien",
+      /data-intervention-ligne=/.test(htmlGerant) && !/data-noter-intervention/.test(htmlGerant) && !/data-resoudre-intervention/.test(htmlGerant) && /Lecture seule/.test(htmlGerant)
+      && RI.rendreJournal(db.clients_installes[0], db, gerantAilleurs, "BMI DEMAKPOE") === "" && RI.rendreJournal(db.clients_installes[0], db, autreTech, "BMI DEMAKPOE") === "" && RI.rendreJournal(db.clients_installes[0], db, client, "BMI DEMAKPOE") === "");
+    const htmlStats = RI.rendreStats([chA, chB], (d) => d >= "2026-11-01" && d <= "2026-11-30");
+    test("★★ 📊 le panneau des statistiques : quatre chiffres, les éléments, les techniciens, les installations qui reviennent ; sans rien, il le DIT",
+      /data-stat-pannes="total"/.test(htmlStats) && /data-stat-elements/.test(htmlStats) && /data-stat-techniciens/.test(htmlStats) && /data-stat-recurrentes/.test(htmlStats) && /4 j/.test(htmlStats)
+      && /data-stat-vide/.test(RI.rendreStats([])));
+    const note = await RI.jouerNote(db, chef, "c1", saisie);
+    const apres = note.enregistre[0] && note.enregistre[0].db.clients_installes[0];
+    test("★★ 🔩 le geste de noter, JOUÉ : l'intervention s'ajoute à la fiche (les anciennes restent), une ligne de journal ; le client sans numéro est PRÉVENU que rien n'est parti",
+      note.enregistre.length === 1 && apres.interventions.length === 3 && apres.interventions[2].statut === "ouverte" && apres.interventions[2].cause === "Surcharge probable"
+      && /Intervention ouverte/.test(note.enregistre[0].journal) && /pas de numéro/.test(note.phrase));
+    const refus = await RI.jouerNote(db, autreTech, "c1", saisie);
+    const refus2 = await RI.jouerNote(db, chef, "c1", { ...saisie, panne: "" });
+    test("★★ 🔩 le geste revérifie : un technicien étranger au chantier, une saisie incomplète → RIEN n'est enregistré",
+      refus.enregistre.length === 0 && refus.phrase === null && refus2.enregistre.length === 0 && refus2.phrase === null);
+    const reso = await RI.jouerResolution(db, chef, "c1", ouverte.id, { solution: "Batterie remplacée", date: "2026-11-12" });
+    const deja = await RI.jouerResolution(db, chef, "c1", resolueDemblee.id, { solution: "Autre", date: "2026-11-12" });
+    test("★★ 🔩 le geste de résoudre, JOUÉ : l'ouverte devient résolue (une seule fois) ; une déjà résolue est refusée",
+      reso.enregistre.length === 1 && reso.enregistre[0].db.clients_installes[0].interventions.find((i) => i.id === ouverte.id).statut === "resolue" && /Intervention résolue/.test(reso.enregistre[0].journal)
+      && deja.enregistre.length === 0 && deja.phrase === null);
+  }
+  const srcInt = readFileSync("src/components/Interventions.jsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const gesteNote = (srcInt.match(/export async function noterIntervention[\s\S]*?\n\}/) || [""])[0];
+  const srcCi = readFileSync("src/screens/ClientsInstalles.jsx", "utf8");
+  const srcLibInt = readFileSync("src/lib/interventions.js", "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  test("★★ 🔩 le code : la règle n'importe rien ; la CAUSE ne sort jamais dans un avis ; résolue d'un coup = SEUL l'avis « résolue » ; le mur (espace du chantier) et le compte bloqué ; 🏠 et 🛠 montrent le journal, les statistiques sont réservées",
+    !/^\s*import\s/m.test(srcLibInt) && !/\bdb\b/.test(srcLibInt)
+    && !/cause/.test((readFileSync("src/lib/whatsappModeles.js", "utf8").match(/export function envoiInterventionOuverte[\s\S]*?\n\}\nexport function envoiInterventionResolue[\s\S]*?\n\}/) || ["cause"])[0])
+    && gesteNote.length > 100 && /estResolue\(intervention\)\s*\?\s*envoiInterventionResolue/.test(gesteNote) && /bloquerSiLecture\(db, profile\)/.test(gesteNote) && /motifRefusNote\(c, profile\)/.test(gesteNote)
+    && /espaceDuChantier\(db, c, profile\) === true/.test(srcInt) && /compte\.bloque/.test(srcInt)
+    && /<InterventionsDuChantier c=\{c\} db=\{db\} profile=\{profile\} save=\{save\}/.test(srcCi) && /<InterventionsDuChantier c=\{c\}/.test(readFileSync("src/screens/Travaux.jsx", "utf8"))
+    && /peutVoirStatistiques\(profile\) &&/.test(srcCi) && /boutiqueDuChantier\(db, c\) === profile\.boutique/.test(srcCi));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

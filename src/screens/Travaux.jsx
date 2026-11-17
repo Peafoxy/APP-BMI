@@ -21,6 +21,7 @@ import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { depensesDuChantier, depenseCompteAuChantier, totalDepensesChantier } from "../lib/depensesChantier";
 import { refusSuppressionRemise } from "../lib/argentChantier";
 import { ArgentDuChantier } from "../components/ArgentChantier";
+import { InterventionsDuChantier } from "../components/Interventions";
 import { imprimerReleveTravaux } from "../lib/impression";
 import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFiche, nouveauTravail, ajouterArticleStock, ajouterArticleHB, retirerArticle, critiquePrestation, totalArticles, coutArticles, montantPrestation, totalAFacturer, coutTravaux, factureDe, detteDe, factureMontant, encaisse, resteDu, critiqueFacturation, preRempliPourFacture, critiqueSuppression, ROLES_EQUIPE, critiqueEquipe, composerEquipe, libelleEquipe, propositionsStock, produitSaisi, remiseDe, brutLigne, montantLigne, totalRemises, lireRemise, poserRemise, critiqueFacturationRemises, remiseTravauxExigeAdmin } from "../lib/travaux";
 
@@ -258,6 +259,8 @@ export function Travaux({ db, save, profile, onFacturer }) {
                     <Chiffre label="Encaissé" valeur={encaisse(db, c)} />
                     <Chiffre label="Reste dû" valeur={vente ? resteDu(db, c) : totalAFacturer(c)} />
                   </div>
+                  {/* 🔩 17/11/2026 : le journal des interventions vaut aussi pour des travaux à crédit (décision « 4 oui »). */}
+                  <InterventionsDuChantier c={c} db={db} profile={profile} save={save} boutique={boutique} />
                   {(c.tel || c.adresse) && <div className="text-xs text-slate-600">{c.tel ? `📞 ${c.tel}` : ""}{c.tel && c.adresse ? " · " : ""}{c.adresse ? `📍 ${c.adresse}` : ""}</div>}
 
                   {/* ---- Équipe ---- */}

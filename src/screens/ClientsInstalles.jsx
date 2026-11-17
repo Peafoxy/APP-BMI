@@ -19,12 +19,15 @@ import { changementsAffectation } from "../lib/affectationChantier";
 import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
-import { Field, inputCls, Panel, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, Panel, PanneauQuiSeMontre, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, BoutonEnvoi } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { estPrimeChantier, primesDuChantier, totalPrimesChantier } from "../lib/primeChantier";
 import { choisirBoutiqueDebitG, caisseDuChantier, primeParLeDepot, messagesNotifSortieCaisse, boutiquesVenteDuChantier, bloquerSiLecture, refuserSaufAdmin, refuserSaufRoles, refuserSaufProprietaire, ROLES_PROGRAMMATION, statutChantier, debloquerCommissionsReception, construirePaiementPrime, envoyerAvisPrimePayee, envoyerAvisTache, primeDejaPayee, retenueOutilPourPrime, resteAPayer, memeNumero, marqueEspace, chantiersDeLEspaceRegarde, boutiqueDuChantier, techniciensDeLEspace, utilisateursDeLEspace, espaceDuChantier, estCompteFormation } from "../lib/calculs";
 import { ficheParId } from "../lib/banques";
+import { InterventionsDuChantier, StatistiquesPannes } from "../components/Interventions";
+import { useFiltrePeriode } from "../components/FiltrePeriode";
+import { peutVoirStatistiques, resumeInterventions } from "../lib/interventions";
 import { etatPose, libelleEncaissementPose, critiqueProgrammationPose, peutEncaisserPose } from "../lib/poseSeule";
 import { encaisserDettePose } from "../components/encaissementPose";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
@@ -348,6 +351,10 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
 
   // Le dossier détaillé, ouvert fiche par fiche
   const [dossierOuvert, setDossierOuvert] = useState(null);
+  // 📊 Les statistiques des pannes (17/11/2026) : fermées d'office, période libre.
+  const [statsPannes, setStatsPannes] = useState(false);
+  const periodePannes = useFiltrePeriode();
+  useRetour(statsPannes, () => setStatsPannes(false));
   // ⬅ La touche retour referme le dossier (Timo, 13/10/2026, « A a »).
   useRetour(!!dossierOuvert, () => setDossierOuvert(null));
 
@@ -1189,6 +1196,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
               <Info label="👷 Équipe" valeur={(c.equipe || []).length ? c.equipe.map((e) => `${e.chef ? "⭐ " : ""}${e.nom}`).join(", ") : "Non affectée"} />
             </div>
 
+            {/* 🔩 Le journal des interventions (17/11/2026) : panne, cause probable
+                (interne), solution ; le client est prévenu à l'ouverture et à
+                la résolution. L'entretien reste un geste à part. */}
+            <InterventionsDuChantier c={c} db={db} profile={profile} save={save} boutique={boutiqueDuChantier(db, c)} />
+
             {/* ADRESSE FORMELLE + GARANTIE — éditables ici, pas seulement à
                 la création : même défaut repéré pour la garantie que pour
                 l'adresse (Timo, en vérifiant après le correctif précédent).
@@ -1468,10 +1480,24 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
         );
       })()}
 
+      {statsPannes && peutVoirStatistiques(profile) && (
+        <PanneauQuiSeMontre cle="stats-pannes" onFermer={() => setStatsPannes(false)}>
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">Période : {periodePannes.selecteur}</div>
+          <StatistiquesPannes
+            chantiers={profile.role === "gerant" ? mesChantiers.filter((c) => boutiqueDuChantier(db, c) === profile.boutique) : mesChantiers}
+            dans={periodePannes.dans} libellePeriode={periodePannes.libelle} onFermer={() => setStatsPannes(false)} />
+        </PanneauQuiSeMontre>
+      )}
+
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
           <span className="font-bold text-slate-800">Clients installés ({liste.length})</span>
           <div className="flex gap-2 items-center flex-wrap">
+            {peutVoirStatistiques(profile) && (
+              <button onClick={() => setStatsPannes(!statsPannes)} data-bouton-stats-pannes className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${statsPannes ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                📊 Pannes
+              </button>
+            )}
             <button onClick={() => setFiltreEntretien(!filtreEntretien)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${filtreEntretien ? "bg-orange-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
               🔔 Entretien dû{entretiensDus ? ` (${entretiensDus})` : ""}
             </button>
@@ -1526,6 +1552,9 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     <div className={`text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 ${(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).couleur}`}>
                       {(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).label}
                     </div>
+                    {resumeInterventions(c).ouvertes > 0 && (
+                      <div className="text-[10px] font-bold text-amber-800 mt-1" data-interventions-ouvertes>🔩 {resumeInterventions(c).ouvertes} intervention{resumeInterventions(c).ouvertes > 1 ? "s" : ""} ouverte{resumeInterventions(c).ouvertes > 1 ? "s" : ""}</div>
+                    )}
                     {c.travaux && (
                       <div className="text-[10px] text-slate-600 mt-1">Facturé {fmt(factureMontant(db, c))}{c.facture_numero ? ` · reçu ${c.facture_numero}` : ""} · coût {fmt(coutTravaux(db, c))} · marge {fmt(margeTravaux(db, c))}</div>
                     )}
