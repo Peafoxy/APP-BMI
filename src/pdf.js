@@ -365,7 +365,7 @@ function besoinSolaire(doc, d, largeur, hauteur, y) {
   y = titreBloc(doc, y, "Votre besoin");
   y = grandesCases(doc, y, largeur, [
     [kWh(b.wh_jour), "Besoin estimé par jour"],
-    [kW(b.puissance_simultanee), "Puissance simultanée"],
+    [kW(b.puissance_simultanee), "Puissance cumulée"],
     [`${Number(b.autonomie || 1)} jour${Number(b.autonomie || 1) > 1 ? "s" : ""}`, "Autonomie souhaitée"],
   ]);
   y = ligneDetail(doc, y, [

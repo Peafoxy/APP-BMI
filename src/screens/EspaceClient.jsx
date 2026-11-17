@@ -543,7 +543,7 @@ export function EspaceClient({ db, profile, save, setTab, devisOuvertInitial = n
                     {d.besoins && d.type_devis !== "garage" && d.type_devis !== "autre" && (
                       <div className="grid sm:grid-cols-3 gap-2 my-3">
                         <Info label="Besoin quotidien" valeur={`${Math.round(d.besoins.wh_jour)} Wh/jour`} />
-                        <Info label="Puissance simultanée" valeur={`${Math.round(d.besoins.puissance_simultanee)} W`} />
+                        <Info label="Puissance cumulée" valeur={`${Math.round(d.besoins.puissance_simultanee)} W`} />
                         <Info label="Autonomie" valeur={`${d.besoins.autonomie} jour(s)`} />
                       </div>
                     )}

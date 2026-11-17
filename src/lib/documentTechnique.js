@@ -206,10 +206,10 @@ export function documentTechnique(devis, { produits = [] } = {}) {
   const raccordement = b.raccordement === "tri" ? "tri" : "mono";
   const calcul = [
     { libelle: "Consommation par jour", valeur: `${virg(whJour / 1000)} kWh`, detail: b.conso_connue ? "d'après la consommation connue du client" : "somme des appareils (puissance x quantité x heures)" },
-    { libelle: "Puissance en même temps", valeur: `${Math.round(simultanee)} W`, detail: "ce que le client peut tirer d'un coup" },
+    { libelle: "Puissance cumulée", valeur: `${Math.round(simultanee)} W`, detail: "ce que le client peut tirer d'un coup" },
     { libelle: "Panneaux nécessaires", valeur: `${Math.round(base.wcPanneaux)} Wc`, detail: `${virg(whJour / 1000)} kWh / ${soleil} h de soleil / ${Math.round(RENDEMENT_SYSTEME * 100)} % de rendement (pertes de câbles, poussière, température)` },
     { libelle: "Batteries nécessaires", valeur: `${Math.round(base.ahBatterie)} Ah (${virg((base.ahBatterie * base.tensionCalcul) / 1000)} kWh)`, detail: `${autonomie} jour${autonomie > 1 ? "s" : ""} d'autonomie, ${LIBELLE_BATTERIE[reglages.typeBatterie] || reglages.typeBatterie}, ${virg(base.tensionCalcul)} V, décharge admise ${Math.round(base.dod * 100)} %` },
-    { libelle: "Convertisseur nécessaire", valeur: `${virg(base.wConvertisseur / 1000)} kW`, detail: "deux fois la puissance en même temps : marge pour les démarrages (moteurs, compresseurs)" },
+    { libelle: "Convertisseur nécessaire", valeur: `${virg(base.wConvertisseur / 1000)} kW`, detail: "deux fois la puissance cumulée : marge pour les démarrages (moteurs, compresseurs)" },
     // Le régulateur n'est dit que si le devis en porte un (un convertisseur
     // hybride a le sien intégré : le chiffre n'aurait aucun sens).
     ...(base.aRegulateur > 0 && materiel.some((m) => /regulateur|mppt/.test(sansAccents(m.categorie))) ? [{ libelle: "Régulateur solaire", valeur: `${Math.round(base.aRegulateur)} A`, detail: "courant côté batterie, majoré de 25 % de sécurité" }] : []),
@@ -218,10 +218,10 @@ export function documentTechnique(devis, { produits = [] } = {}) {
   const couverture = [];
   if (retenu.wc > 0) couverture.push({ libelle: "Panneaux retenus", valeur: `${virg(retenu.wc / 1000)} kWc`, detail: production > 0 ? `production estimée ${virg(production)} kWh par jour pour ${virg(whJour / 1000)} kWh consommés` : "" });
   if (retenu.kwhBatterie > 0) couverture.push({ libelle: "Batteries retenues", valeur: `${virg(retenu.kwhBatterie)} kWh`, detail: utilisable > 0 && whJour > 0 ? `${virg(utilisable)} kWh utilisables, soit ${Math.round((utilisable * 1000 / whJour) * 100)} % d'une journée de consommation` : "" });
-  if (retenu.w > 0) couverture.push({ libelle: "Convertisseurs retenus", valeur: `${virg(retenu.w / 1000)} kW`, detail: simultanee > 0 ? `pour ${Math.round(simultanee)} W en même temps` : "" });
+  if (retenu.w > 0) couverture.push({ libelle: "Convertisseurs retenus", valeur: `${virg(retenu.w / 1000)} kW`, detail: simultanee > 0 ? `pour ${Math.round(simultanee)} W de puissance cumulée` : "" });
 
   const resume = [
-    `Installation solaire ${raccordement === "tri" ? "triphasée" : "monophasée"} pour une consommation d'environ ${virg(whJour / 1000)} kWh par jour et une puissance de ${Math.round(simultanee)} W en même temps.`,
+    `Installation solaire ${raccordement === "tri" ? "triphasée" : "monophasée"} pour une consommation d'environ ${virg(whJour / 1000)} kWh par jour et une puissance cumulée de ${Math.round(simultanee)} W.`,
     `Le calcul retient ${soleil} h de soleil par jour, ${autonomie} jour${autonomie > 1 ? "s" : ""} d'autonomie et un système en ${Math.round(reglages.tension)} V.`,
   ];
 
