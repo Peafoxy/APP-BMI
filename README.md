@@ -31,7 +31,10 @@ avec le nombre de modifications en attente d'envoi.
 
 1. Créez un projet sur https://supabase.com/dashboard
 2. Ouvrez **SQL Editor** → **New query**
-3. Copiez tout le contenu du fichier `supabase/schema.sql` et cliquez **Run**
+3. Les scripts de la base se collent dans l'ordre indiqué par
+   `supabase/A-DEPLOYER-DANS-SUPABASE.md`. **N'utilisez jamais** les fichiers
+   de `supabase/archives/` (ils ouvrent la base à tout le monde). Le premier
+   administrateur se crée côté serveur : `docs/installation-premier-administrateur.md`.
 4. Allez dans **Settings → API** et notez :
    - **Project URL** (ex : `https://abcd1234.supabase.co`)
    - **anon public key**
@@ -138,12 +141,18 @@ internet** (les fichiers sont mis en cache sur l'appareil).
 
 ## 8. Sécurité — à savoir
 
-- Les politiques SQL fournies donnent un accès complet à toute personne
-  possédant la clé `anon`. C'est acceptable pour un usage interne privé,
-  mais **ne publiez jamais cette clé** en dehors de l'équipe.
-- Les mots de passe des utilisateurs de l'app (admin/vendeurs) sont un
-  contrôle d'accès *interne à l'application*, pas une sécurité forte.
-- Évolution recommandée plus tard : Supabase Auth + politiques RLS par rôle.
+- **La clé `anon` est publique** : elle est visible par tout visiteur du site
+  (c'est normal). À elle seule, elle ne donne accès à aucune donnée. L'accès
+  passe par une session sécurisée ouverte avec le mot de passe du compte, et
+  la base applique ses règles par rôle et par espace (formation / réel).
+- **La clé `service_role` ne va JAMAIS dans `.env`** ni dans un fichier envoyé
+  au navigateur : elle n'existe que dans Vercel (variables d'environnement,
+  sans préfixe `VITE_`). Il en va de même pour toutes les autres clés
+  secrètes (WhatsApp, IA, Google, notifications).
+- Les mots de passe sont vérifiés par le serveur et rangés sous forme
+  d'empreinte (jamais en clair).
+- Avant de partager le dossier (archive, assistant extérieur…), retirez le
+  fichier `.env`.
 
 ## 9. Données de démonstration
 
