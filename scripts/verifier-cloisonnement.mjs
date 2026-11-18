@@ -6197,6 +6197,18 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
         && /html\[data-animations="non"\] \.anim-ecran \{ animation: none; \}/.test(cssA);
     })());
   // Timo (18/11/2026) : « on dirait un livre » — 🔒 Caisse : un tableau, des carrés courts.
+  // Timo (18/11/2026) : « les 2 cartes côte à côte, compacter » — 🔒 Caisse.
+  test("★ 🔒 Caisse compacte : DG et Avances côte à côte dans une grille (une colonne sur téléphone, un bloc seul prend les deux), un bloc VIDE = UNE ligne (TitreCompact), l'explication des avances derrière un « i », les dotations en TABLEAU, versements traités repliés ; l'ordre : grille, dotations, verser les fonds, clôture",
+    (() => {
+      const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
+      const iG = cs.indexOf("data-blocs-caisse"), iD = cs.indexOf("data-remises-tiroir"), iV = cs.indexOf(">💸 Verser les fonds"), iC = cs.indexOf(">Clôture du jour");
+      const grille = cs.slice(iG, cs.indexOf("data-remises-tiroir"));
+      return iG > 0 && iG < iD && iD < iV && iV < iC
+        && /grid-cols-1 lg:grid-cols-2/.test(cs) && /only-child\]:col-span-2/.test(cs) && /data-bloc-dg/.test(grille) && /Avances de frais à rembourser/.test(grille)
+        && (cs.match(/<TitreCompact /g) || []).length === 2 && /function TitreCompact/.test(cs) && /data-titre-info/.test(cs)
+        && !/<div className="text-xs text-slate-500 mt-2">En espèces : gérant ou administrateur/.test(cs)
+        && /data-dotations-tableau/.test(cs) && /data-versements-traites-repli/.test(cs);
+    })());
   test("★ 🔒 Caisse : « Derniers versements traités » est un TABLEAU (origine figée, date, de → vers, montant à droite, pastille de statut), plus une phrase par ligne ; les carrés de chiffres passent par Carre (libellé court, grand chiffre, UNE ligne de détail, explication derrière le « i »), sans trait de couleur",
     (() => {
       const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
@@ -6791,7 +6803,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     /if \(refuserSaufRoles\(profile, ROLES_VERSEMENT, "Verser les fonds"\)\) return;\n\s+if \(bloquerSiLecture\(db, profile\)\) return;/.test(cs)
     && /if \(refuserSaufAdminPrincipal\(db, profile, "Valider un versement de fonds \(DG\)"\)\) return;/.test(cs)
     && /const nomsDG = jeSuisDG \? boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\)\.filter\(\(n\) => n === boutique\) : \[\];/.test(cs) && /versementsAValiderParDG\(db, nomsDG\)/.test(cs)
-    && /Versements à valider par le DG \(\{aValiderDG\.length\}\) <Badge boutique=\{boutique\} \/>/.test(cs)
+    && /Versements à valider par le DG \(\$\{aValiderDG\.length\}\)/.test(cs) && /<TitreCompact vide=\{aValiderDG\.length === 0\}[\s\S]{0,120}?badge=\{<Badge boutique=\{boutique\} \/>\}/.test(cs) /* 18/11/2026 : titre compact */
     // Captures Timo (10/09/2026) : montant en gras chez le DG ; les tableaux de la caisse défilent de droite à gauche sur téléphone.
     // RETOURNÉ le 05/11/2026 : les versements passent par TableauDefilant (6 lignes, puis défilement).
     && /<b className="text-base tabular-nums">\{fmt\(d\.montant\)\}<\/b>/.test(cs) && /bg-white overflow-x-auto">\s*(\{\/\*[^]*?\*\/\}\s*)?<div[^>]*>Versements de \{libelleCaisse\(boutique\)\}<\/div>\s*<TableauDefilant>\s*<table className="w-full text-sm min-w-\[640px\]">/.test(cs)
@@ -8112,7 +8124,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && /const COLONNES_DEPENSES = \["Catégorie", "Date", "Description", "Montant", "Paiement", "Statut", "Chantier \/ remis à", ""\];/.test(dpV) /* ⚠ RETOURNÉ le 10/10/2026 : « remis à » se lit aussi sans chantier ; RETOURNÉ le 15/10/2026 : la catégorie en tête, « payé avec » sous la pastille du paiement, « saisi par » sous la pastille du statut */
     && /<PastillePaiement paiement=\{x\.paiement\} \/>\s*<div data-paye-avec[^>]*>\{libellePayeAvecDe\(x\)\}<\/div>/.test(dpV) && /<td data-depense-statut className="px-3 py-2"><PastilleStatut x=\{x\} \/>\s*<div className="text-xs text-slate-500 mt-0\.5">par \{x\.par \|\| "—"\}<\/div>/.test(dpV) && /<BadgeValidation x=\{x\} \/>/.test(dpV) && (dpV.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 /* 13/09/2026 : l'en-tête reste collé en haut du cadre qui défile (HistoriqueArchive) */);
   test("★ écran Caisse : l'encadré « Avances de frais à rembourser » (gérant, admin), les trois façons, le mois demandé par demanderMois, critiqueRemboursement puis rembourserAvance, users et messages écrits",
-    /const avances = avancesARembourser\(db, boutique\);/.test(csVd) && /Avances de frais à rembourser \(\{avances\.length\}\)/.test(csVd) && /MOYENS_REMBOURSEMENT\.map\(\(\[code, libelle\]\)/.test(csVd)
+    /const avances = avancesARembourser\(db, boutique\);/.test(csVd) && /Avances de frais à rembourser \(\$\{avances\.length\}\)/.test(csVd) && /MOYENS_REMBOURSEMENT\.map\(\(\[code, libelle\]\)/.test(csVd)
     && /await demanderMois\(`Sur quelle paie porter le remboursement/.test(csVd) && (csVd.match(/critiqueRemboursement\(d, moyen, profile/g) || []).length === 2 && /const r = rembourserAvance\(db, profile, d, moyen, today\(\), \{ mois \}\);/.test(csVd)
     && /save\(\{ \.\.\.db, depenses: r\.depenses, users: r\.users, messages: \[\.\.\.r\.messages, \.\.\.\(db\.messages \|\| \[\]\)\] \}, r\.journal\);/.test(csVd));
   test("★ écran 💵 Mon salaire : l'employé voit ses avances de frais (avancesDe), leur état (attente, rejetée, à me rembourser, remboursée) et le total à lui rembourser",

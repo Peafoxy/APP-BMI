@@ -41,6 +41,23 @@ function Carre({ label, valeur, valeurClass = "", detail = null, explication = n
   );
 }
 
+// Timo (18/11/2026) : un bloc vide se réduit à UNE ligne (titre + « Aucun… »),
+// et l'explication longue est derrière un « i » (survol, clic ou toucher).
+function TitreCompact({ titre, badge = null, vide = false, resume = "", explication = null, tonAttente = false }) {
+  const [ouvert, setOuvert] = useState(false);
+  return (
+    <div className="mb-1">
+      <div className={`font-bold flex items-center gap-2 flex-wrap ${tonAttente ? "text-amber-900" : "text-slate-800"}`}>
+        <span>{titre}</span>{badge}
+        {explication && <button type="button" data-titre-info title={explication} aria-label="Explication" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
+          className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold leading-none">i</button>}
+        {vide && resume ? <span className="font-normal text-sm text-slate-400">— {resume}</span> : null}
+      </div>
+      {ouvert && explication ? <div data-titre-explication className="text-xs text-slate-600 mt-1">{explication}</div> : null}
+    </div>
+  );
+}
+
 // ============ CAISSE ============
 export function Caisse({ db, save, profile, detailTiroirInitial = false, cible = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "caisse" });
@@ -415,10 +432,13 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
       {!resume && (<>
       {/* Timo (09/09/2026) : « sans versement, rien n'apparaît » — l'encadré
           du DG est PERMANENT : vide, il le dit, et montre les derniers validés. */}
+      {/* Timo (18/11/2026) : « mettre les 2 cartes côte à côte… compacter » — sur ordinateur les petits blocs vont par deux ; un bloc VIDE se réduit à une ligne ; téléphone : l'un sous l'autre. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start lg:[&>*:only-child]:col-span-2" data-blocs-caisse>
       {jeSuisDG && (
-        <div className={`bg-white rounded-xl border-2 shadow-sm p-4 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`}>
-          <div className={`font-bold mb-2 ${aValiderDG.length > 0 ? "text-amber-900" : "text-slate-800"}`}>💸 Versements à valider par le DG ({aValiderDG.length}) <Badge boutique={boutique} /></div>
-          {aValiderDG.length === 0 && <div className="text-sm text-slate-400">Aucun versement en attente de votre validation (Chez le DG, BANQUE).</div>}
+        <div className={`bg-white rounded-xl border-2 shadow-sm p-3 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`} data-bloc-dg>
+          <TitreCompact vide={aValiderDG.length === 0} tonAttente={aValiderDG.length > 0} badge={<Badge boutique={boutique} />}
+            titre={`💸 Versements à valider par le DG (${aValiderDG.length})`} resume="Aucun en attente"
+            explication="Aucun versement en attente de votre validation (Chez le DG, BANQUE)." />
           <div className="space-y-1">
             {aValiderDG.map((d) => (
               <div key={d.id} data-ligne={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
@@ -433,9 +453,9 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
             ))}
           </div>
           {validesDG.length > 0 && (
-            <div className="mt-3">
-              <div className="text-xs font-bold text-slate-500 uppercase mb-1">Derniers versements traités</div>
-              <div className="max-h-[260px] overflow-auto" data-versements-traites>
+            <details className="mt-2 group" data-versements-traites-repli>
+              <summary className="text-xs font-bold text-slate-500 uppercase cursor-pointer select-none">Derniers versements traités ({Math.min(validesDG.length, 10)}) <span className="font-normal normal-case">— cliquer pour voir</span></summary>
+              <div className="max-h-[260px] overflow-auto mt-1" data-versements-traites>
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 z-10"><tr className="text-[11px] text-slate-500 uppercase bg-slate-100">
                     <th className={`text-left px-3 py-2 whitespace-nowrap ${enTeteFige()}`}>Origine</th>
@@ -458,9 +478,108 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
                   </tbody>
                 </table>
               </div>
-            </div>
+            </details>
           )}
         </div>
+      )}
+      {(avances.length > 0 || ROLES_REMB_CAISSE.includes(profile.role)) && (
+        <Panel boutique={boutique}>
+          <TitreCompact vide={avances.length === 0} badge={<Badge boutique={boutique} />} titre={`💼 Avances de frais à rembourser (${avances.length})`}
+            resume={`Aucune pour ${libelleCaisse(boutique)}`}
+            explication="En espèces : gérant ou administrateur, la sortie compte dans le tiroir du jour (ce n'est pas une nouvelle charge). Avec le salaire ou par le DG : administrateur. L'employé est prévenu." />
+          <div className="space-y-1">
+            {avances.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm">
+                <div><b>{d.par}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.categorie}{d.description ? ` — ${d.description}` : ""}
+                  <div className="text-xs text-slate-500">dépense du {dFR(d.date)} · payée de sa poche</div>
+                </div>
+                <div className="flex gap-1 shrink-0 flex-wrap">
+                  {MOYENS_REMBOURSEMENT.map(([code, libelle]) => (
+                    <button key={code} onClick={() => rembourser(d, code)} title={libelle}
+                      className={`text-xs font-bold rounded px-2 py-1 whitespace-nowrap ${code === "caisse" ? "text-white bg-green-700 hover:bg-green-800" : "text-slate-800 bg-slate-100 border border-slate-300 hover:bg-slate-200"}`}>
+                      {code === "caisse" ? "💵 Rembourser en espèces" : code === "salaire" ? "🧾 Avec le salaire" : "👤 Par le DG"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+      </div>
+      {/* 💵 LA REMISE DU DG AU TIROIR (Timo, 10/11/2026) — le principal
+          enregistre, le gérant de la boutique confirme « ✅ Reçu ». */}
+      {voitRemises && (
+        <Panel boutique={boutique}>
+          <div className="font-bold mb-2 flex items-center gap-2 flex-wrap" data-remises-tiroir>💵 Dotations de caisse ({remises.filter(remiseEnAttente).length} en attente) <Badge boutique={boutique} />{remises.length === 0 && <span className="font-normal text-sm text-slate-400">— Aucune pour {libelleCaisse(boutique)}</span>}</div>
+          {jeSuisDG && (
+            <FormulaireRepliable ouvert={remiseOuverte} onOuvrir={() => setRemiseOuverte(true)} onFermer={() => setRemiseOuverte(false)}
+              bouton="💵 Dotation de caisse" titre={`Dotation de caisse — ${libelleCaisse(boutique)}`}>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3" data-formulaire-remise-tiroir>
+                <Field label="Montant de la dotation (F)"><input type="number" inputMode="numeric" className={inputCls} value={rem.montant} onChange={(e) => setRem({ ...rem, montant: e.target.value })} /></Field>
+                <Field label="D'où vient l'argent ?">
+                  <select className={inputCls} value={rem.source} data-choix="source-remise" onChange={(e) => setRem({ ...rem, source: e.target.value, banque: "" })}>
+                    {sourcesRemise.map((x) => <option key={x} value={x}>{x}</option>)}
+                  </select>
+                </Field>
+                {rem.source === DEST_BANQUE && (banquesReglees(db).length > 0 ? (
+                  <Field label="Banque">
+                    <select className={inputCls} value={rem.banque} onChange={(e) => setRem({ ...rem, banque: e.target.value })}>
+                      <option value="">— Choisir la banque —</option>
+                      {banquesReglees(db).map((b) => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </Field>
+                ) : <Field label="Nom de la banque"><input className={inputCls} value={rem.banque} onChange={(e) => setRem({ ...rem, banque: e.target.value })} /></Field>)}
+                {gerantsBq.length > 1 && (
+                  <Field label="Remise à">
+                    <select className={inputCls} value={rem.gerantId} data-choix="gerant-remise" onChange={(e) => setRem({ ...rem, gerantId: e.target.value })}>
+                      <option value="">— Choisir —</option>
+                      {gerantsBq.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
+                    </select>
+                  </Field>
+                )}
+                <div className="sm:col-span-2 lg:col-span-3"><Field label="Motif"><input className={inputCls} value={rem.motif} placeholder="Ex : monnaie pour rendre" onChange={(e) => setRem({ ...rem, motif: e.target.value })} /></Field></div>
+                <div className="flex items-end"><button onClick={enregistrerRemise} className={btnDark}>💵 Enregistrer</button></div>
+              </div>
+              <div className="text-xs text-slate-500 mt-2">{gerantsBq.length ? `${gerantsBq.length > 1 ? "Le gérant choisi" : gerantsBq[0].nom} devra confirmer « ✅ Reçu » : rien ne compte avant (ni dans le tiroir, ni dans la caisse d'où vient l'argent). L'argent entre tout entier dans le tiroir, pas dans l'enveloppe du fonds de caisse.` : `⚠ ${libelleCaisse(boutique)} n'a aucun gérant actif : personne ne pourrait confirmer.`}</div>
+            </FormulaireRepliable>
+          )}
+          {remises.length > 0 && (
+          <div className="overflow-x-auto mt-2" data-dotations-tableau>
+            <table className="w-full text-sm">
+              <thead><tr className="text-[11px] text-slate-500 uppercase bg-slate-100">
+                <th className={`text-left px-3 py-2 whitespace-nowrap ${enTeteFige()}`}>Source</th>
+                <th className="text-left px-3 py-2">Date</th><th className="text-left px-3 py-2">Motif</th>
+                <th className="text-right px-3 py-2">Montant</th><th className="text-left px-3 py-2">Statut</th></tr></thead>
+              <tbody>
+                {remises.slice(0, 15).map((d) => {
+                  const e = etatRemise(d);
+                  const r = d.remise_tiroir;
+                  return (
+                    <tr key={d.id} data-ligne={d.id} data-remise-tiroir={e} className={`border-t border-slate-100 ${e === "attente" ? "bg-amber-50" : e === "annulee" ? "text-slate-500" : ""}`}>
+                      <td className={`px-3 py-2 font-semibold ${celluleFigee(e === "attente" ? "bg-amber-50" : "bg-white")}`}>{libelleSourceRemise(r)}<div className="text-xs font-normal text-slate-500">remis par {d.par}{nomDuDesigne(d) ? ` à ${nomDuDesigne(d)}` : ""}</div></td>
+                      <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
+                      <td className="px-3 py-2">{r.motif}</td>
+                      <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${e === "annulee" ? "line-through" : ""}`}>{fmt(montantRemise(d))}</td>
+                      <td className="px-3 py-2">
+                        {e === "attente" && <><span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">⏳ En attente</span><div className="text-xs text-amber-800">de la confirmation {nomDuDesigne(d) ? `de ${nomDuDesigne(d)}` : "du gérant"} — ne compte pas encore</div></>}
+                        {e === "recue" && <><span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✔ Reçu</span><div className="text-xs text-slate-500">{dFR(r.recue_le)}{r.recue_heure ? ` ${r.recue_heure}` : ""} · {r.recue_par} · dans le tiroir</div></>}
+                        {e === "annulee" && <><span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">✖ Annulée</span><div className="text-xs text-slate-500">{dFR(r.annulee_le)} · {r.annulee_par} — {r.annulee_motif}</div></>}
+                        {e === "attente" && (
+                          <div className="flex gap-1 mt-1">
+                            {jeSuisGerantIci && (!r.pour_id || String(r.pour_id) === String(profile.id)) && <BoutonEnvoi onClick={() => confirmerReception(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap" data-confirmer-remise>✅ Reçu</BoutonEnvoi>}
+                            {jeSuisDG && <button onClick={() => annulerLaRemise(d)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-1 hover:bg-red-800 whitespace-nowrap">✕ Annuler</button>}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          )}
+        </Panel>
       )}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
@@ -591,94 +710,6 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
           </div>
         )}
       </Panel>
-      {/* 💵 LA REMISE DU DG AU TIROIR (Timo, 10/11/2026) — le principal
-          enregistre, le gérant de la boutique confirme « ✅ Reçu ». */}
-      {voitRemises && (
-        <Panel boutique={boutique}>
-          <div className="font-bold mb-2 flex items-center gap-2" data-remises-tiroir>💵 Dotations de caisse ({remises.filter(remiseEnAttente).length} en attente) <Badge boutique={boutique} /></div>
-          {jeSuisDG && (
-            <FormulaireRepliable ouvert={remiseOuverte} onOuvrir={() => setRemiseOuverte(true)} onFermer={() => setRemiseOuverte(false)}
-              bouton="💵 Dotation de caisse" titre={`Dotation de caisse — ${libelleCaisse(boutique)}`}>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3" data-formulaire-remise-tiroir>
-                <Field label="Montant de la dotation (F)"><input type="number" inputMode="numeric" className={inputCls} value={rem.montant} onChange={(e) => setRem({ ...rem, montant: e.target.value })} /></Field>
-                <Field label="D'où vient l'argent ?">
-                  <select className={inputCls} value={rem.source} data-choix="source-remise" onChange={(e) => setRem({ ...rem, source: e.target.value, banque: "" })}>
-                    {sourcesRemise.map((x) => <option key={x} value={x}>{x}</option>)}
-                  </select>
-                </Field>
-                {rem.source === DEST_BANQUE && (banquesReglees(db).length > 0 ? (
-                  <Field label="Banque">
-                    <select className={inputCls} value={rem.banque} onChange={(e) => setRem({ ...rem, banque: e.target.value })}>
-                      <option value="">— Choisir la banque —</option>
-                      {banquesReglees(db).map((b) => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </Field>
-                ) : <Field label="Nom de la banque"><input className={inputCls} value={rem.banque} onChange={(e) => setRem({ ...rem, banque: e.target.value })} /></Field>)}
-                {gerantsBq.length > 1 && (
-                  <Field label="Remise à">
-                    <select className={inputCls} value={rem.gerantId} data-choix="gerant-remise" onChange={(e) => setRem({ ...rem, gerantId: e.target.value })}>
-                      <option value="">— Choisir —</option>
-                      {gerantsBq.map((g) => <option key={g.id} value={g.id}>{g.nom}</option>)}
-                    </select>
-                  </Field>
-                )}
-                <div className="sm:col-span-2 lg:col-span-3"><Field label="Motif"><input className={inputCls} value={rem.motif} placeholder="Ex : monnaie pour rendre" onChange={(e) => setRem({ ...rem, motif: e.target.value })} /></Field></div>
-                <div className="flex items-end"><button onClick={enregistrerRemise} className={btnDark}>💵 Enregistrer</button></div>
-              </div>
-              <div className="text-xs text-slate-500 mt-2">{gerantsBq.length ? `${gerantsBq.length > 1 ? "Le gérant choisi" : gerantsBq[0].nom} devra confirmer « ✅ Reçu » : rien ne compte avant (ni dans le tiroir, ni dans la caisse d'où vient l'argent). L'argent entre tout entier dans le tiroir, pas dans l'enveloppe du fonds de caisse.` : `⚠ ${libelleCaisse(boutique)} n'a aucun gérant actif : personne ne pourrait confirmer.`}</div>
-            </FormulaireRepliable>
-          )}
-          {remises.length === 0 && <div className="text-sm text-slate-400 mt-2">Aucune dotation de caisse pour {libelleCaisse(boutique)}.</div>}
-          <div className="space-y-1 mt-2">
-            {remises.slice(0, 15).map((d) => {
-              const e = etatRemise(d);
-              const r = d.remise_tiroir;
-              return (
-                <div key={d.id} data-ligne={d.id} data-remise-tiroir={e} className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${e === "attente" ? "border-amber-300 bg-amber-50" : e === "annulee" ? "border-slate-200 bg-slate-50 text-slate-500" : "border-slate-200 bg-white"}`}>
-                  <div>
-                    <b className={`tabular-nums ${e === "annulee" ? "line-through" : ""}`}>{fmt(montantRemise(d))}</b> — {libelleSourceRemise(r)} · remis par {d.par}{nomDuDesigne(d) ? ` à ${nomDuDesigne(d)}` : ""} le {dFR(d.date)}
-                    <div className="text-xs text-slate-500">{r.motif}{" · "}
-                      {e === "attente" && <span className="text-amber-800 font-semibold">⏳ en attente de la confirmation {nomDuDesigne(d) ? `de ${nomDuDesigne(d)}` : "du gérant"} — ne compte pas encore</span>}
-                      {e === "recue" && <span className="text-green-700">✅ reçu le {dFR(r.recue_le)}{r.recue_heure ? ` à ${r.recue_heure}` : ""} par {r.recue_par} — dans le tiroir</span>}
-                      {e === "annulee" && <span className="text-red-700">✖ annulée le {dFR(r.annulee_le)} par {r.annulee_par} — {r.annulee_motif}</span>}
-                    </div>
-                  </div>
-                  {e === "attente" && (
-                    <div className="flex gap-1 shrink-0">
-                      {jeSuisGerantIci && (!r.pour_id || String(r.pour_id) === String(profile.id)) && <BoutonEnvoi onClick={() => confirmerReception(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap" data-confirmer-remise>✅ Reçu</BoutonEnvoi>}
-                      {jeSuisDG && <button onClick={() => annulerLaRemise(d)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-1 hover:bg-red-800 whitespace-nowrap">✕ Annuler</button>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Panel>
-      )}
-      {(avances.length > 0 || ROLES_REMB_CAISSE.includes(profile.role)) && (
-        <Panel boutique={boutique}>
-          <div className="font-bold mb-2 flex items-center gap-2">💼 Avances de frais à rembourser ({avances.length}) <Badge boutique={boutique} /></div>
-          {avances.length === 0 && <div className="text-sm text-slate-400">Aucune avance personnelle à rembourser pour {libelleCaisse(boutique)}.</div>}
-          <div className="space-y-1">
-            {avances.map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm">
-                <div><b>{d.par}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.categorie}{d.description ? ` — ${d.description}` : ""}
-                  <div className="text-xs text-slate-500">dépense du {dFR(d.date)} · payée de sa poche</div>
-                </div>
-                <div className="flex gap-1 shrink-0 flex-wrap">
-                  {MOYENS_REMBOURSEMENT.map(([code, libelle]) => (
-                    <button key={code} onClick={() => rembourser(d, code)} title={libelle}
-                      className={`text-xs font-bold rounded px-2 py-1 whitespace-nowrap ${code === "caisse" ? "text-white bg-green-700 hover:bg-green-800" : "text-slate-800 bg-slate-100 border border-slate-300 hover:bg-slate-200"}`}>
-                      {code === "caisse" ? "💵 Rembourser en espèces" : code === "salaire" ? "🧾 Avec le salaire" : "👤 Par le DG"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-xs text-slate-500 mt-2">En espèces : gérant ou administrateur, la sortie compte dans le tiroir du jour (ce n'est pas une nouvelle charge). Avec le salaire ou par le DG : administrateur. L'employé est prévenu.</div>
-        </Panel>
-      )}
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">Clôture du jour {t === aujourdhui ? "" : `— ${dFR(t)}`} <Badge boutique={boutique} /></div>
         {enRetard.length > 0 && (
