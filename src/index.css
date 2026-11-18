@@ -435,3 +435,6 @@ html[data-espace="formation"] {
 @media print {
   .anim-ecran { animation: none; }
 }
+
+/* ✨ Choix de la personne (🧭 Affichage → Animation des écrans) : coupé. */
+html[data-animations="non"] .anim-ecran { animation: none; }

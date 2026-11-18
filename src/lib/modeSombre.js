@@ -46,3 +46,14 @@ export function themeApplique(theme, appareilSombre) {
 export function critiqueChoixTheme(valeur) {
   return estTheme(valeur) ? "" : "Mode inconnu.";
 }
+
+// ✨ L'ANIMATION DES ÉCRANS (18/11/2026, « ajoute ça dans Affichage ») : chaque
+// personne peut couper l'apparition en fondu des écrans. Le choix vit sur SA
+// fiche (`animation` : "oui" / "non"), comme `theme` — rien à coller. Allumée
+// tant que personne ne l'a coupée.
+export const LIBELLES_ANIMATION = {
+  oui: "✨ Écrans animés (apparition en fondu)",
+  non: "⏹ Sans animation",
+};
+export const animationActive = (fiche) => fiche?.animation !== "non";
+export const critiqueChoixAnimation = (valeur) => (valeur === "oui" || valeur === "non" ? "" : "Choix inconnu.");

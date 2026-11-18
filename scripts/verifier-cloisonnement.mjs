@@ -6186,6 +6186,16 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
         && /opacity/.test(bloc) && /translateY/.test(bloc) && !/blur|filter/.test(bloc)
         && /prefers-reduced-motion: reduce\) \{\s*\.anim-ecran \{ animation: none/.test(cssIdx) && /@media print \{\s*\.anim-ecran \{ animation: none/.test(cssIdx);
     })());
+  // Timo (18/11/2026) : « ajoute ça dans Affichage » — chaque personne coupe l'animation des écrans.
+  test("★ 🧭 Affichage propose « ✨ Animation des écrans » : allumée d'office, coupée par le champ `animation` de SA fiche, qui pose data-animations sur la page ; le CSS la coupe",
+    (() => {
+      const ms = readFileSync("src/lib/modeSombre.js", "utf8");
+      const cssA = readFileSync("src/index.css", "utf8");
+      return /animationActive = \(fiche\) => fiche\?\.animation !== "non"/.test(ms)
+        && /QUOI_ANIMATION\]\);/.test(app) && /\{ \.\.\.u, animation: valeur \}/.test(app) && /critiqueChoixAnimation\(valeur\)/.test(app)
+        && /racine\.dataset\.animations = "non"/.test(app)
+        && /html\[data-animations="non"\] \.anim-ecran \{ animation: none; \}/.test(cssA);
+    })());
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
     /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
   // Timo (09/09/2026) : « avoir le réglage des couleurs de la carte de

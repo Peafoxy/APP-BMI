@@ -3,7 +3,7 @@ import { suitesDevisCorriges } from "./lib/modifDevis";
 import { createPortal } from "react-dom";
 import { Login } from "./screens/Connexion";
 import { PageIcones, LibelleOnglet, ColonneIcones } from "./components/PageIcones";
-import { THEME_CLAIR, THEME_SOMBRE, THEMES, LIBELLES_THEME, themeDe, themeApplique, critiqueChoixTheme } from "./lib/modeSombre";
+import { THEME_CLAIR, THEME_SOMBRE, THEMES, LIBELLES_THEME, themeDe, themeApplique, critiqueChoixTheme, LIBELLES_ANIMATION, animationActive, critiqueChoixAnimation } from "./lib/modeSombre";
 import { ACCUEIL, INTERFACE_BARRE, INTERFACE_ICONES, INTERFACE_COLONNE, INTERFACES, aQuelqueChoseEnAttente, LIBELLES_INTERFACE, interfaceDe, interfaceImposee, critiqueChoixInterface, couleurFondIcones, texteClairSurIcones, FOND_ICONES } from "./lib/pageIcones";
 import { Dashboard } from "./screens/Dashboard";
 import { Ventes } from "./screens/Ventes";
@@ -1090,6 +1090,15 @@ export default function App() {
     return () => { delete racine.dataset.theme; };
   }, [themeAffiche, surLaPageIcones]);
 
+  // ✨ L'animation des écrans, au choix de la personne (src/index.css).
+  const animationsOn = ficheTheme ? animationActive(ficheTheme) : true;
+  useEffect(() => {
+    const racine = document.documentElement;
+    if (!animationsOn) racine.dataset.animations = "non";
+    else delete racine.dataset.animations;
+    return () => { delete racine.dataset.animations; };
+  }, [animationsOn]);
+
   // ⚠ PLACÉ AVANT TOUT POINT DE SORTIE de ce composant — il y en a DEUX :
   // l'écran de chargement juste en dessous (« if (!db) »), puis l'écran de
   // connexion plus bas. Un `useEffect` déclaré après l'un ou l'autre n'existe
@@ -1446,8 +1455,21 @@ export default function App() {
   // colonne) ou les couleurs (clair, sombre, automatique — 12/11/2026).
   const QUOI_DISPOSITION = "🧭 Disposition (barre, icônes ou colonne)";
   const QUOI_COULEURS = "🌗 Couleurs (mode clair ou sombre)";
+  const QUOI_ANIMATION = "✨ Animation des écrans";
+  const choisirAnimation = async () => {
+    const actuel = animationActive(maFiche || profile) ? "oui" : "non";
+    const libelle = (v) => LIBELLES_ANIMATION[v] + (v === actuel ? " (actuel)" : "");
+    const choix = await uChoix(`✨ Animation des écrans\n\nActuellement : ${LIBELLES_ANIMATION[actuel]}.\n\nQuand vous changez d'écran, le nouvel écran apparaît en fondu. Votre choix vous suit sur tous vos appareils.`, ["oui", "non"].map(libelle));
+    if (choix === null || choix === undefined) return;
+    const valeur = ["oui", "non"].find((v) => choix === libelle(v));
+    if (!valeur || valeur === actuel || !maFiche) return;
+    const refus = critiqueChoixAnimation(valeur);
+    if (refus) { uAlert(refus); return; }
+    save({ ...db, users: db.users.map((u) => (u.id === profile.id ? { ...u, animation: valeur } : u)) });
+  };
   const choisirAffichage = async () => {
-    const quoi = await uChoix("🧭 Mon affichage\n\nQue voulez-vous régler ?", [QUOI_DISPOSITION, QUOI_COULEURS]);
+    const quoi = await uChoix("🧭 Mon affichage\n\nQue voulez-vous régler ?", [QUOI_DISPOSITION, QUOI_COULEURS, QUOI_ANIMATION]);
+    if (quoi === QUOI_ANIMATION) { await choisirAnimation(); return; }
     if (quoi === QUOI_COULEURS) { await choisirTheme(); return; }
     if (quoi !== QUOI_DISPOSITION) return;
     const fixe = interfaceImposee(maFiche);
