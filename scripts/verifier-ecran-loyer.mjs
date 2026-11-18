@@ -109,7 +109,7 @@ console.log("\n💵 Payer le loyer : du clic à la dépense enregistrée (géran
   test("★ la gérante est prévenue : en attente de validation par le DG", /en attente de validation par le DG/.test(await dialogue(page)), await dialogue(page));
   await ok_(page);
   const t = propre(await page.innerText("#r"));
-  test("★ le cadre du loyer lit la dépense : « en attente de la validation du DG » ; le formulaire « Nouvelle dépense » n'a pas été ouvert", /en attente de la validation du DG/.test(t) && (await page.$("[data-categorie-depense]")) === null, t.slice(0, 500));
+  test("★ le cadre du loyer lit la dépense : « en attente de la validation du DG » ; le formulaire « Nouvelle dépense » n'a pas été ouvert", /En attente/.test(t) && /Validation du DG/.test(t) /* 18/11/2026 : carte courte, la phrase entière est derrière le « i » */ && (await page.$("[data-categorie-depense]")) === null, t.slice(0, 500));
   test("★ aucune erreur dans la page", erreurs.length === 0, erreurs.join(" | "));
   await page.close();
 }
@@ -197,7 +197,7 @@ console.log("\n📲 Prévenir le propriétaire que le loyer l'attend (Timo, 10/1
 {
   const { page, erreurs } = await ouvrir("valide");
   const zone = propre(await page.$eval("[data-loyer-a-remettre]", (e) => e.innerText).catch(() => ""));
-  test("★★ un paiement VALIDÉ en espèces : le bouton est là, avec le montant, le mois et la date", /Prévenir le propriétaire/.test(zone) && /90 000 F/.test(zone) && /payé en espèces le/.test(zone), zone);
+  test("★★ un paiement VALIDÉ en espèces : le bouton est là, avec le montant, le mois et la date", /Prévenir le propriétaire/.test(zone) && /90 000 F/.test(zone) && /À remettre/.test(zone) && /Payé en espèces le/.test(await page.$eval("[data-loyer-a-remettre] span[title]", (e) => e.title).catch(() => "")) /* 18/11/2026 : la date est dans la bulle du texte */, zone);
   await page.click("[data-prevenir-proprietaire]"); await attendre(150);
   const q = await dialogue(page);
   test("★★ la question nomme le propriétaire, son numéro, le montant, le mois, la gérante qui clique (« B b ») et la boutique ; elle dit que le message part du numéro BMI",

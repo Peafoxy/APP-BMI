@@ -8,7 +8,7 @@ import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { LIGNE_CLOTURES_DEPASSEES } from "../lib/cibleNotification";
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente, heureCourte } from "../lib/core";
-import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois, FormulaireRepliable, TableauDefilant, BoutonEnvoi, enTeteFige, celluleFigee } from "../components/ui";
+import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois, FormulaireRepliable, TableauDefilant, BoutonEnvoi, enTeteFige, celluleFigee, Carre, CarteRepliable, NoteDepliable } from "../components/ui";
 // Timo (12/09/2026) : la clôture est impossible tant qu'une dépense en
 // espèces attend la validation du DG ; les avances de frais se remboursent ici.
 import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
@@ -21,60 +21,6 @@ import { soldesMobiles, phraseNumeroMobile } from "../lib/caissesMobiles";
 import { banquesReglees } from "../lib/banques";
 import { remisesDe, remiseEnAttente, etatRemise, montantRemise, sourcesRemisePour, gerantsDeLaBoutique, gerantDesigne, destinatairesRemise, nomDuDesigne, critiqueRemiseTiroir, construireRemiseTiroir, critiqueConfirmation, confirmerRemise, critiqueAnnulation, annulerRemise, libelleSourceRemise } from "../lib/remiseTiroir";
 import { envoiRemiseTiroir, envoiRemiseTiroirRecue } from "../lib/whatsappModeles";
-
-// Timo (18/11/2026) : un carré de chiffre = un libellé COURT, un grand chiffre,
-// une seule ligne de détail. L'explication longue est derrière le « i »
-// (survol à la souris, clic ou toucher pour la déplier) — pas de trait de couleur.
-function Carre({ label, valeur, valeurClass = "", detail = null, explication = null, className = "", ...reste }) {
-  const [ouvert, setOuvert] = useState(false);
-  return (
-    <div className={`bg-white rounded-lg p-3 border border-slate-200 ${className}`} {...reste}>
-      <div className="text-[11px] text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
-        <span>{label}</span>
-        {explication && <button type="button" data-carre-info title={explication} aria-label="Explication" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
-          className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold leading-none normal-case">i</button>}
-      </div>
-      <div className={`font-bold tabular-nums text-xl ${valeurClass}`}>{valeur}</div>
-      {detail ? <div className="text-xs text-slate-400">{detail}</div> : null}
-      {ouvert && explication ? <div data-carre-explication className="text-xs text-slate-600 mt-1">{explication}</div> : null}
-    </div>
-  );
-}
-
-// Timo (18/11/2026) : une carte est repliable — un clic sur son EN-TÊTE la
-// replie (il ne reste que le titre) ou la rouvre. Vide, elle tient sur UNE
-// ligne (« Aucun… ») ; l'explication longue est derrière un « i ».
-function CarteRepliable({ titre, badge = null, vide = false, resume = "", explication = null, tonAttente = false, ouvertParDefaut = true, children = null }) {
-  const [ouvert, setOuvert] = useState(ouvertParDefaut);
-  const [info, setInfo] = useState(false);
-  const basculer = () => setOuvert((o) => !o);
-  return (
-    <div data-carte-repliable>
-      <div role="button" tabIndex={0} data-carte-entete aria-expanded={ouvert} onClick={basculer}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); basculer(); } }}
-        className={`font-bold flex items-center gap-2 flex-wrap cursor-pointer select-none ${ouvert && !vide ? "mb-2" : ""} ${tonAttente ? "text-amber-900" : "text-slate-800"}`}>
-        <span aria-hidden="true" className="text-slate-400 text-xs w-3">{ouvert ? "▾" : "▸"}</span>
-        <span>{titre}</span>{badge}
-        {explication && <button type="button" data-titre-info title={explication} aria-label="Explication" aria-expanded={info} onClick={(e) => { e.stopPropagation(); setInfo((o) => !o); }}
-          className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold leading-none">i</button>}
-        {vide && resume ? <span className="font-normal text-sm text-slate-400">— {resume}</span> : null}
-      </div>
-      {info && explication ? <div data-titre-explication className="text-xs text-slate-600 mb-2">{explication}</div> : null}
-      {ouvert ? children : null}
-    </div>
-  );
-}
-
-// Une phrase d'explication d'un tableau : cachée derrière « ⓘ », dépliée au clic.
-function NoteDepliable({ libelle, children }) {
-  const [ouvert, setOuvert] = useState(false);
-  return (
-    <div className="px-3 py-1.5 text-xs text-slate-500 border-t border-slate-100">
-      <button type="button" data-note-depliable aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)} className="text-slate-500 hover:text-slate-700">ⓘ {libelle}</button>
-      {ouvert ? <div className="mt-1">{children}</div> : null}
-    </div>
-  );
-}
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile, detailTiroirInitial = false, cible = null }) {

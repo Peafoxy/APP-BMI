@@ -6201,11 +6201,12 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ 🔒 Caisse compacte : DG et Avances côte à côte dans une grille (une colonne sur téléphone, un bloc seul prend les deux), un bloc VIDE = UNE ligne et un clic sur l'en-tête REPLIE la carte (CarteRepliable), l'explication des avances derrière un « i », les dotations en TABLEAU, versements traités repliés ; l'ordre : grille, dotations, verser les fonds, clôture",
     (() => {
       const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
+      const uiC = readFileSync("src/components/ui.jsx", "utf8");
       const iG = cs.indexOf("data-blocs-caisse"), iD = cs.indexOf("data-remises-tiroir"), iV = cs.indexOf('titre="💸 Verser les fonds"'), iC = cs.indexOf("Clôture du jour $");
       const grille = cs.slice(iG, cs.indexOf("data-remises-tiroir"));
       return iG > 0 && iG < iD && iD < iV && iV < iC
         && /grid-cols-1 lg:grid-cols-2/.test(cs) && /only-child\]:col-span-2/.test(cs) && /data-bloc-dg/.test(grille) && /Avances de frais à rembourser/.test(grille)
-        && (cs.match(/<CarteRepliable /g) || []).length === 5 && /function CarteRepliable/.test(cs) && /data-titre-info/.test(cs) && /data-carte-entete/.test(cs) && /aria-expanded=\{ouvert\}/.test(cs) && /function NoteDepliable/.test(cs)
+        && (cs.match(/<CarteRepliable /g) || []).length === 5 && /export function CarteRepliable/.test(uiC) && /data-titre-info/.test(uiC) && /data-carte-entete/.test(uiC) && /aria-expanded=\{ouvert\}/.test(uiC) && /export function NoteDepliable/.test(uiC) && /<CarteRepliable /.test(cs)
         && !/<div className="text-xs text-slate-500 mt-2">En espèces : gérant ou administrateur/.test(cs)
         && /data-dotations-tableau/.test(cs) && /data-versements-traites-repli/.test(cs);
     })());
@@ -6219,10 +6220,19 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
         && /grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3/.test(cs) && !/<Carre className="col-span-2"/.test(cs)
         && /export const Panel = \(\{ boutique, children, className = "", \.\.\.reste \}\)/.test(ui);
     })());
+  // Timo (18/11/2026) : « Dépenses, lance » — compacter 📤 Dépenses.
+  test("★ 📤 Dépenses compacte : DG et loyer côte à côte (même taille), le DG en TABLEAU avec Valider / Rejeter, ses « tranchées » repliées, le loyer en cartes courtes, les cadres repliables d'un clic, et les notes (formulaire, modification, pied de tableau, caisses centrales) derrière « ⓘ »",
+    (() => {
+      const dp = readFileSync("src/screens/Depenses.jsx", "utf8");
+      return /data-blocs-depenses/.test(dp) && /grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch/.test(dp) && (dp.match(/h-full/g) || []).length >= 2
+        && /data-a-valider-dg/.test(dp) && /data-traitees-repli/.test(dp) && /<CarteRepliable /.test(dp) && (dp.match(/<CarteRepliable /g) || []).length >= 3
+        && (dp.match(/<NoteDepliable /g) || []).length >= 6 && /<Carre data-dernier-mois-paye/.test(dp)
+        && !/<div className="text-xs text-slate-500 mt-2">Le chantier se change seulement/.test(dp) && !/<div className="text-sm text-slate-400">Aucune dépense de \{boutique\} en attente/.test(dp);
+    })());
   test("★ 🔒 Caisse : « Derniers versements traités » est un TABLEAU (origine figée, date, de → vers, montant à droite, pastille de statut), plus une phrase par ligne ; les carrés de chiffres passent par Carre (libellé court, grand chiffre, UNE ligne de détail, explication derrière le « i »), sans trait de couleur",
     (() => {
       const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
-      const carre = (cs.match(/function Carre\([\s\S]*?\n\}\n/) || [""])[0];
+      const carre = (readFileSync("src/components/ui.jsx", "utf8").match(/function Carre\([\s\S]*?\n\}\n/) || [""])[0];
       return /data-versements-traites/.test(cs) && /celluleFigee\("bg-white"\)/.test(cs) && !/validé le \{dFR\(d\.versement_valide_le\)\} par/.test(cs)
         && carre.length > 200 && /data-carre-info/.test(carre) && /aria-expanded/.test(carre) && !/border-l-4|border-l-\[|border-t-4/.test(carre)
         && (cs.match(/<Carre /g) || []).length >= 13 && !/<div className="text-xs text-slate-500">Total versé/.test(cs);
@@ -8127,7 +8137,7 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     /optionsPayeAvec\(caissesPossibles, boutique, \{ avecComptable: !afficheChiffresFormation\(db, profile\), fonds: propositionFonds, seulementPoche: sansCaisse \}\)\.map/.test(dpV) /* ⚠ RETOURNÉ le 10/10/2026 : + seulementPoche (un technicien ne choisit aucune caisse) */ /* 13/09/2026 : la caisse du comptable, réel seulement */ && /const r = construireDepenseSaisie\(db, profile, \{ \.\.\.f, \.\.\.choixCaisse \}, today\(\)\);/.test(dpV) && !/id: uid\(\), date: today\(\), boutique, \.\.\.f/.test(dpV)
     && /doitEtreValidee\(f\.montant\) && !jeSuisDG/.test(dpV) && /en attente de validation \(non comptées\)/.test(dpV));
   test("★ écran Dépenses : l'encadré PERMANENT « Dépenses à valider par le DG » (principal seul, la boutique regardée seule, « Ailleurs, en attente »), valider / rejeter revérifiés DANS le geste (refuserSaufAdminPrincipal ×2, critiqueDecision ×2), motif demandé, badge d'état et colonnes « Payé avec » / « Validation » dans LE tableau commun",
-    /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /data-ailleurs-dg/.test(dpV) /* ⚠ RETOURNÉ le 10/11/2026 : « Ailleurs, en attente » → une phrase et des boutons qui mènent à la caisse */
+    /const jeSuisDG = estAdminPrincipal\(db, profile\);/.test(dpV) && /Dépenses à valider par le DG \(\$\{aValiderDG\.length\}\)/.test(dpV) && /nomsEspace\.filter\(\(n\) => n === boutique\)/.test(dpV) && /data-ailleurs-dg/.test(dpV) /* ⚠ RETOURNÉ le 10/11/2026 : « Ailleurs, en attente » → une phrase et des boutons qui mènent à la caisse */
     && (dpV.match(/refuserSaufAdminPrincipal\(db, profile, "(Valider|Rejeter) une dépense \(DG\)"\)/g) || []).length === 2 && (dpV.match(/critiqueDecision\(d, \{ estPrincipal: true \}/g) || []).length === 2
     && /const motif = await uPrompt\(`Rejeter la dépense/.test(dpV) && /export function BadgeValidation/.test(dpV)
     // 13/09/2026 : la colonne « Chantier » (dépense rattachée à un chantier de devis) s'ajoute au tableau commun.
@@ -14342,7 +14352,7 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
   }
   test("★★ la fiche porte la ligne « Dernier mois payé » (calendrier mois / année)",
     /<Field label="Dernier mois payé"><input type="month"/.test(psrc) && /dernier_mois_paye: String\(s\.dernier_mois_paye \|\| ""\)\.slice\(0, 7\)/.test(src));
-  test("★ le cadre affiche le dernier mois payé, les arriérés et le payé d'avance", /data-dernier-mois-paye/.test(dsrc) && /payé d'avance jusqu'à/.test(dsrc) && /Arriérés : \$\{loyer\.moisEnRetard\} mois/.test(dsrc));
+  test("★ le cadre affiche le dernier mois payé, les arriérés et le payé d'avance", /data-dernier-mois-paye/.test(dsrc) && / d'avance jusqu'à/.test(dsrc) && /Arriérés : \$\{loyer\.moisEnRetard\} mois/.test(dsrc));
   // ✏️ Modifier une dépense : catégorie et description, l'administrateur principal seul.
   {
     const Vd = await import("../src/lib/validationDepenses.js");
@@ -16309,7 +16319,7 @@ titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dett
     && execSync("grep -rl 'function PastillePaiement' src || true").toString().trim() === "src/components/ui.jsx"
     && execSync("grep -rl 'function TexteDepliable' src || true").toString().trim() === "src/components/ui.jsx"
     // RETOURNÉ le 15/10/2026 (« Tous, lance ») : 💰 Ventes importe aussi le bouton rond et sa cellule.
-    && /\bPastillePaiement\b[^}]*\} from "\.\.\/components\/ui";/.test(vsP) && /PastillePaiement, TexteDepliable, BoutonEnvoi \} from "\.\.\/components\/ui";/.test(dpP) /* RETOURNÉ le 18/10/2026 : + BoutonEnvoi */);
+    && /\bPastillePaiement\b[^}]*\} from "\.\.\/components\/ui";/.test(vsP) && /PastillePaiement, TexteDepliable, BoutonEnvoi(?:, [A-Za-z]+)* \} from "\.\.\/components\/ui";/.test(dpP) /* RETOURNÉ le 18/10/2026 : + BoutonEnvoi */);
   test("★ 📤 Dépenses : la ligne se déplie au clic (UNE à la fois, classeLigneDepliable), les boutons ✏️ / 🗑 sont ronds (boutonAction) dans une cellule qui ne déplie pas",
     /const \[depliee, setDepliee\] = useState\(deplieeInitiale\);/.test(dpP) && /onClick=\{\(\) => setDepliee\(\(d\) => \(d === x\.id \? null : x\.id\)\)\}/.test(dpP)
     && /classeLigneDepliable\(ouverte, i, fond\)/.test(dpP) && /<td className="px-3 py-2 whitespace-nowrap" onClick=\{\(e\) => e\.stopPropagation\(\)\}>/.test(dpP)

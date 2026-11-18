@@ -12,7 +12,7 @@ import { CATEGORIES, CATEGORIE_CHANTIER, MOYENS_ENCAISSEMENT, horsVersements, de
 // Timo (12/09/2026) : validation des dépenses par le DG à partir de 5 000 F,
 // origine des fonds, avances de frais — règle pure dans lib/validationDepenses.js.
 import { PAYE_AVEC_CAISSE, SEUIL_VALIDATION_DEPENSE, doitEtreValidee, construireDepenseSaisie, depensesAValider, depensesTraitees, nbAValiderParBoutique, critiqueDecision, validerDepense, rejeterDepense, estEnAttente, estValidee, estRejetee, montantOrigine, libellePayeAvec, libellePayeAvecDe, libellePayeAvecDeDansPhrase, critiqueModifDepense, modifierDepense, depenseModifiable, neVoitQueSesDepenses, depensesVisibles, optionsPayeAvec, interpreterPayeAvec, libelleChoixPayeAvec, libellePayeAvecDansPhrase, PAYE_AVEC_DG, payeeParLeComptable, fondsProposable, PAYE_AVEC_FONDS, ROLES_FONDS_CAISSE, retenueDuSalaire, payeDeSaPocheSeulement, PAYE_AVEC_AVANCE, MOTIF_DE_SA_POCHE, suiteRejetDepense, suiteValidationDepense, auteurDeLaDepense, paieAvecDepotChantier, AVERTISSEMENT_DEPOT_CHANTIER, confirmationDepotChantier } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, boutonAction, PastillePaiement, TexteDepliable, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, AucuneBoutique, enTeteFige, celluleFigee, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, boutonAction, PastillePaiement, TexteDepliable, BoutonEnvoi, Carre, CarteRepliable, NoteDepliable } from "../components/ui";
 // Timo (13/09/2026) : « appliquer la règle d'archivage aussi à l'historique des
 // dépenses » — LE composant commun (10 lignes, puis défilement ; archives
 // après 3 mois au-delà des 20 plus récentes). Plus de pagination ici.
@@ -216,8 +216,10 @@ function useModifDepense(db, save, profile) {
                 <Field label="Son numéro"><input className={inputCls} inputMode="tel" value={modif.payeTel} placeholder="Facultatif" onChange={(e) => setModif({ ...modif, payeTel: e.target.value })} data-modif-paye-tel /></Field>
               </>)}
             </div>
-            <div className="text-xs text-slate-500 mt-2">Le chantier se change seulement tant que le chantier n'est pas réceptionné (ni soldé, ni ses techniciens payés).</div>
-            <div className="text-xs text-slate-500 mt-2">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>
+            <NoteDepliable className="mt-2 text-xs text-slate-500" libelle="Ce qui se modifie ici, et ce qui ne se modifie pas">
+            <div className="mt-1">Le chantier se change seulement tant que le chantier n'est pas réceptionné (ni soldé, ni ses techniciens payés).</div>
+            <div className="mt-1">Le montant, le paiement et « Payé avec » ne se modifient pas : pour un montant faux, supprimez la dépense et ressaisissez-la.</div>
+            </NoteDepliable>
             <div className="flex gap-2 mt-2">
               <button onClick={enregistrerModif} className={btnDark}>Enregistrer</button>
               <button onClick={() => setModif(null)} className="text-sm font-bold text-slate-600 underline">Annuler</button>
@@ -624,26 +626,39 @@ export function Depenses({ db, save, profile, cible = null }) {
       {/* Timo (12/09/2026) : le DG valide les dépenses de 5 000 F et plus —
           l'encadré est PERMANENT (vide, il le dit), sur la boutique regardée
           seule, et dit où il en reste ailleurs sans les mélanger. */}
+      {/* Timo (18/11/2026) : « compacter » — sur ordinateur le bloc du DG et le loyer vont côte à côte (même taille) ; un bloc vide tient sur une ligne ; un clic sur l'en-tête replie la carte ; les explications sont derrière un « i ». */}
+      {(jeSuisDG || loyer) && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch lg:[&>*:only-child]:col-span-2" data-blocs-depenses>
       {jeSuisDG && (
-        <div className={`bg-white rounded-xl border-2 shadow-sm p-4 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`}>
-          <div className={`font-bold mb-2 ${aValiderDG.length > 0 ? "text-amber-900" : "text-slate-800"}`}>⏳ Dépenses à valider par le DG ({aValiderDG.length}) <Badge boutique={boutique} /></div>
-          {aValiderDG.length === 0 && <div className="text-sm text-slate-400">Aucune dépense de {boutique} en attente de votre validation (à partir de {fmt(SEUIL_VALIDATION_DEPENSE)}).</div>}
-          <div className="space-y-1">
-            {aValiderDG.map((d) => (
-              <div key={d.id} data-ligne={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-                <div><b>{dFR(d.date)}</b> — <b className="text-base tabular-nums">{fmt(d.montant)}</b> — {d.categorie}{d.description ? ` — ${d.description}` : ""}
-                  <div className="text-xs text-slate-500">saisie par {d.par} · {d.paiement} · payée avec : {libellePayeAvecDeDansPhrase(d)}</div>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>
-                  <button onClick={() => rejeterDG(d)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-1 hover:bg-red-800 whitespace-nowrap">✖ Rejeter</button>
-                </div>
+        <div className={`bg-white rounded-xl border-2 shadow-sm p-4 h-full lg:has-[details[open]]:col-span-2 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`} data-bloc-dg>
+          <CarteRepliable vide={aValiderDG.length === 0} tonAttente={aValiderDG.length > 0} badge={<Badge boutique={boutique} />}
+            titre={`⏳ Dépenses à valider par le DG (${aValiderDG.length})`} resume="Aucune en attente"
+            explication={`Aucune dépense de ${boutique} en attente de votre validation (à partir de ${fmt(SEUIL_VALIDATION_DEPENSE)}).`}>
+            {aValiderDG.length > 0 && (
+              <div className="overflow-x-auto" data-a-valider-dg>
+                <table className="w-full text-sm min-w-[480px]">
+                  <thead><tr className="text-[11px] text-slate-500 uppercase bg-slate-100">
+                    <th className={`text-left px-3 py-2 ${enTeteFige()}`}>Dépense</th><th className="text-left px-3 py-2">Date</th>
+                    <th className="text-right px-3 py-2">Montant</th><th className="text-left px-3 py-2">Saisie par</th><th className="px-3 py-2"></th></tr></thead>
+                  <tbody>
+                    {aValiderDG.map((d) => (
+                      <tr key={d.id} data-ligne={d.id} className="border-t border-amber-100 bg-amber-50">
+                        <td className={`px-3 py-2 font-semibold ${celluleFigee("bg-amber-50")}`}>{d.categorie}{d.description ? <div className="text-xs font-normal text-slate-500 whitespace-normal">{d.description}</div> : null}<div className="text-xs font-normal text-slate-500 whitespace-normal">payée avec : {libellePayeAvecDeDansPhrase(d)}</div></td>
+                        <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap">{fmt(d.montant)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{d.par}<div className="text-xs text-slate-500">{d.paiement}</div></td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="flex gap-1">
+                            <button onClick={() => validerDG(d)} className="text-xs font-bold text-white bg-green-700 rounded px-2 py-1 hover:bg-green-800 whitespace-nowrap">✅ Valider</button>
+                            <button onClick={() => rejeterDG(d)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-1 hover:bg-red-800 whitespace-nowrap">✖ Rejeter</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
-          {/* Capture Timo (10/11/2026, « Ailleurs en attente… j'ai pas compris ») :
-              la caisse NOMMÉE à l'écran (jamais « TERRAIN »), et un bouton qui y mène
-              au lieu de « choisissez la boutique en haut ». */}
+            )}
           {ailleursDG.length > 0 && (
             <div className="mt-2 text-xs text-amber-800 flex flex-wrap items-center gap-1.5" data-ailleurs-dg>
               <span>{ailleursDG.reduce((t, x) => t + x.n, 0) > 1 ? "D'autres dépenses attendent" : "Une dépense attend"} aussi votre validation dans :</span>
@@ -654,66 +669,63 @@ export function Depenses({ db, save, profile, cible = null }) {
               ))}
             </div>
           )}
-          {traiteesDG.length > 0 && (
-            <div className="mt-3">
-              <div className="text-xs font-bold text-slate-500 uppercase mb-1">Dernières dépenses tranchées</div>
-              <div className="max-h-[200px] overflow-y-auto space-y-1">
-                {traiteesDG.slice(0, 10).map((d) => (
-                  <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
-                    {dFR(d.date)} — <b className={`text-base tabular-nums ${estRejetee(d) ? "line-through text-red-700" : "text-slate-900"}`}>{fmt(montantOrigine(d))}</b> — {d.categorie} · {d.par} <BadgeValidation x={d} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            {traiteesDG.length > 0 && (
+              <details className="mt-2" data-traitees-repli>
+                <summary className="text-xs font-bold text-slate-500 uppercase cursor-pointer select-none">Dernières dépenses tranchées ({Math.min(traiteesDG.length, 10)}) <span className="font-normal normal-case">— cliquer pour voir</span></summary>
+                <div className="max-h-[220px] overflow-auto mt-1">
+                  <table className="w-full text-sm min-w-[460px]">
+                    <thead className="sticky top-0"><tr className="text-[11px] text-slate-500 uppercase bg-slate-100"><th className="text-left px-3 py-2">Dépense</th><th className="text-left px-3 py-2">Date</th><th className="text-right px-3 py-2">Montant</th><th className="text-left px-3 py-2">Statut</th></tr></thead>
+                    <tbody>
+                      {traiteesDG.slice(0, 10).map((d) => (
+                        <tr key={d.id} className="border-t border-slate-100">
+                          <td className="px-3 py-2">{d.categorie}<div className="text-xs text-slate-500">{d.par}</div></td>
+                          <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
+                          <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${estRejetee(d) ? "line-through text-red-700" : "text-slate-900"}`}>{fmt(montantOrigine(d))}</td>
+                          <td className="px-3 py-2"><BadgeValidation x={d} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )}
+          </CarteRepliable>
         </div>
       )}
-      {loyer && (
-        <div className={`bg-white rounded-xl border-2 shadow-sm p-4 ${loyer.statut === "retard" ? "border-red-300" : loyer.statut === "paye" ? "border-green-300" : "border-amber-300"}`} data-loyer={loyer.statut}>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <div className="font-bold text-slate-800">🏠 Loyer de la boutique <Badge boutique={boutique} /></div>
-              <div className="text-sm text-slate-600 mt-1">
-                <b className="tabular-nums">{fmt(loyer.montant)}</b> par mois · payé à terme échu, le <b>{Number(fiche.jour)}</b> du mois suivant
-                {fiche.proprietaire && <> · propriétaire : <b>{fiche.proprietaire}</b></>}{fiche.tel && <> ({fiche.tel})</>}
-              </div>
-              {(fiche.debut || fiche.caution > 0 || fiche.note) && (
-                <div className="text-xs text-slate-500 mt-0.5">
-                  {fiche.debut && <>Bail depuis le {dFR(fiche.debut)}</>}{fiche.debut && fiche.caution > 0 && " · "}
-                  {fiche.caution > 0 && <>caution versée : {fmt(fiche.caution)}</>}
-                  {fiche.note && <div>{fiche.note}</div>}
-                </div>
-              )}
-              <div className="text-sm text-slate-700 mt-1" data-dernier-mois-paye>
-                Dernier mois payé : <b>{loyer.dernierPaye ? libelleMois(loyer.dernierPaye) : "—"}</b>
-                {loyer.avance && <span className="text-green-700 font-semibold"> · payé d'avance jusqu'à {libelleMois(loyer.avance)}</span>}
-              </div>
-              <div className={`text-sm font-bold mt-2 ${loyer.statut === "retard" ? "text-red-700" : loyer.statut === "paye" ? "text-green-700" : "text-amber-700"}`}>
-                {loyer.statut === "paye" && `✅ ${libelleMois(loyer.mois)} : payé${loyer.derniere ? ` le ${dFR(loyer.derniere.date)}` : ""}`}
-                {loyer.statut === "attente" && `⏳ Le loyer dû est saisi, en attente de la validation du DG`}
-                {loyer.statut === "a_payer" && `⏳ ${libelleMois(loyer.prochain.mois)} : ${fmt(loyer.prochain.reste)} à payer avant le ${dFR(loyer.prochain.echeance)}${loyer.suivant ? ` · puis ${libelleMois(loyer.suivant.mois)} avant le ${dFR(loyer.suivant.echeance)}` : ""}`}
-                {loyer.statut === "retard" && `⚠ Arriérés : ${loyer.moisEnRetard} mois (${libellePeriodeLoyer(loyer.dus.filter((x) => !x.attente && x.enRetard).map((x) => x.mois), { avecNombre: false })}) — ${fmt(loyer.resteEnRetard)} en retard${loyer.reste > loyer.resteEnRetard ? ` (${fmt(loyer.reste)} en tout avec le mois en cours)` : ""} · en retard de ${loyer.joursRetard} jour${loyer.joursRetard > 1 ? "s" : ""} (échéance du plus ancien : ${dFR(loyer.dus.find((x) => !x.attente && x.enRetard).echeance)})`}
-              </div>
+      {loyer && (() => {
+        const phraseLoyer = (loyer.statut === "paye" ? `✅ ${libelleMois(loyer.mois)} : payé${loyer.derniere ? ` le ${dFR(loyer.derniere.date)}` : ""}`
+  : loyer.statut === "attente" ? `⏳ Le loyer dû est saisi, en attente de la validation du DG`
+  : loyer.statut === "a_payer" ? `⏳ ${libelleMois(loyer.prochain.mois)} : ${fmt(loyer.prochain.reste)} à payer avant le ${dFR(loyer.prochain.echeance)}${loyer.suivant ? ` · puis ${libelleMois(loyer.suivant.mois)} avant le ${dFR(loyer.suivant.echeance)}` : ""}`
+  : `⚠ Arriérés : ${loyer.moisEnRetard} mois (${libellePeriodeLoyer(loyer.dus.filter((x) => !x.attente && x.enRetard).map((x) => x.mois), { avecNombre: false })}) — ${fmt(loyer.resteEnRetard)} en retard${loyer.reste > loyer.resteEnRetard ? ` (${fmt(loyer.reste)} en tout avec le mois en cours)` : ""} · en retard de ${loyer.joursRetard} jour${loyer.joursRetard > 1 ? "s" : ""} (échéance du plus ancien : ${dFR(loyer.dus.find((x) => !x.attente && x.enRetard).echeance)})`);
+        const bail = [fiche.debut ? `Bail depuis le ${dFR(fiche.debut)}` : "", fiche.caution > 0 ? `caution versée : ${fmt(fiche.caution)}` : "", fiche.note || ""].filter(Boolean).join(" · ");
+        return (
+        <div className={`bg-white rounded-xl border-2 shadow-sm p-4 h-full ${loyer.statut === "retard" ? "border-red-300" : loyer.statut === "paye" ? "border-green-300" : "border-amber-300"}`} data-loyer={loyer.statut}>
+          <CarteRepliable titre="🏠 Loyer de la boutique" badge={<Badge boutique={boutique} />} explication={bail || null}
+            action={<button onClick={payerLoyer} className={btnDark} data-payer-loyer>{loyer.statut === "a_payer" || loyer.statut === "retard" ? "💵 Payer le loyer" : "💵 Payer d'avance"}</button>}>
+            <div className="text-sm text-slate-600">
+              <b className="tabular-nums">{fmt(loyer.montant)}</b> par mois · à terme échu, le <b>{Number(fiche.jour)}</b> du mois suivant
+              {fiche.proprietaire && <> · propriétaire : <b>{fiche.proprietaire}</b></>}{fiche.tel && <> ({fiche.tel})</>}
             </div>
-            <button onClick={payerLoyer} className={btnDark} data-payer-loyer>
-              {loyer.statut === "a_payer" || loyer.statut === "retard" ? "💵 Payer le loyer" : "💵 Payer d'avance"}
-            </button>
-          </div>
-          {/* Ce que le cadre a COMPTÉ (Timo, 25/09/2026 : « pourquoi 85 000 en
-              retard ? ») : un chiffre qui surprend doit montrer sa source. */}
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Carre data-dernier-mois-paye label="Dernier mois payé" valeur={loyer.dernierPaye ? libelleMois(loyer.dernierPaye) : "—"} detail={loyer.avance ? `Payé d'avance jusqu'à ${libelleMois(loyer.avance)}` : null} />
+              {loyer.statut === "paye" && <Carre label={`Loyer de ${libelleMois(loyer.mois)}`} valeur="✅ Payé" valeurClass="text-green-700" detail={loyer.derniere ? `Le ${dFR(loyer.derniere.date)}` : null} explication={phraseLoyer} />}
+              {loyer.statut === "attente" && <Carre label="Loyer dû" valeur="⏳ En attente" valeurClass="text-amber-700" detail="Validation du DG" explication={phraseLoyer} />}
+              {loyer.statut === "a_payer" && <Carre label="À payer" valeur={fmt(loyer.prochain.reste)} valeurClass="text-amber-700" detail={`${libelleMois(loyer.prochain.mois)} · avant le ${dFR(loyer.prochain.echeance)}`} explication={phraseLoyer} />}
+              {loyer.statut === "retard" && <Carre label="En retard" valeur={fmt(loyer.resteEnRetard)} valeurClass="text-red-700" detail={`${loyer.moisEnRetard} mois · ${loyer.joursRetard} jour${loyer.joursRetard > 1 ? "s" : ""}`} explication={phraseLoyer} />}
+            </div>
           {loyer.lignes.length > 0 && (
-            <div className="mt-2 text-xs text-slate-600" data-loyer-compte>
+            <NoteDepliable className="mt-2 text-xs text-slate-600" libelle={`Déjà compté (${loyer.lignes.length})`}><div data-loyer-compte>
               Déjà compté :{" "}
               {loyer.lignes.map((d) => `${fmt(d.montant)} le ${dFR(d.date)} pour ${libellePeriodeLoyer(moisDeLaDepense(d))}${d.par ? ` (saisi par ${d.par})` : ""}${d?.validation?.statut === "attente" ? " — en attente du DG" : ""}`).join(" · ")}
               {loyer.statut !== "paye" && " — si ce n'était pas le loyer, l'administrateur supprime la dépense et la ressaisit dans la bonne catégorie."}
-            </div>
+            </div></NoteDepliable>
           )}
           {loyerARemettre && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600" data-loyer-a-remettre>
               {/* « b » (14/10/2026) : une fois prévenu, le même geste s'appelle « Le rappeler ». */}
               <BoutonEnvoi onClick={prevenirProprietaire} className="rounded-lg border border-green-600 px-3 py-1.5 text-sm font-semibold text-green-800 bg-green-50" data-prevenir-proprietaire>{dejaPrevenu ? "📲 Le rappeler" : "📲 Prévenir le propriétaire"}</BoutonEnvoi>
               <button onClick={remettreAuProprietaire} className="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-semibold text-slate-700 bg-white" data-loyer-remis-bouton>✅ Remis au propriétaire</button>
-              <span>de venir chercher {fmt(loyerARemettre.montant)} ({libellePeriodeLoyer(moisDeLaDepense(loyerARemettre))}, payé en espèces le {dFR(loyerARemettre.date)})</span>
+              <span title={`Payé en espèces le ${dFR(loyerARemettre.date)}`}>À remettre : <b>{fmt(loyerARemettre.montant)}</b> ({libellePeriodeLoyer(moisDeLaDepense(loyerARemettre))})</span>
               {dejaPrevenu && <span className="text-green-700 font-semibold" data-proprietaire-prevenu>· 📲 {dejaPrevenu.wa_modele === "rappel_loyer_disponible" ? "rappelé" : "prévenu"} le {dFR(dejaPrevenu.date)}{dejaPrevenu.de_nom ? ` par ${dejaPrevenu.de_nom}` : ""}</span>}
             </div>
           )}
@@ -722,7 +734,11 @@ export function Depenses({ db, save, profile, cible = null }) {
               ✅ {fmt(Number(loyerDejaRemis.montant))} ({libellePeriodeLoyer(moisDeLaDepense(loyerDejaRemis))}) remis au propriétaire le {dFR(loyerDejaRemis.loyer_remis.le)}{loyerDejaRemis.loyer_remis.heure ? ` à ${loyerDejaRemis.loyer_remis.heure}` : ""}{loyerDejaRemis.loyer_remis.par ? ` par ${loyerDejaRemis.loyer_remis.par}` : ""}
             </div>
           )}
+          </CarteRepliable>
         </div>
+        );
+      })()}
+      </div>
       )}
       <Panel boutique={boutique}>
         <FormulaireRepliable ouvert={depenseOuverte} onOuvrir={() => setDepenseOuverte(true)} onFermer={() => setDepenseOuverte(false)}
@@ -771,13 +787,17 @@ export function Depenses({ db, save, profile, cible = null }) {
         </div>
         {propositionFonds.possible && <div className="mt-2 text-xs text-amber-800" data-fonds="propose">💼 Le tiroir de {boutique} ne contient que {fmt(Math.max(0, poches.montant))} : le <b>fonds de caisse</b> peut compléter. Le tiroir paiera {fmt(Math.max(0, poches.montant))} et l'enveloppe {fmt(propositionFonds.manqueAuTiroir)} (il y reste {fmt(propositionFonds.reste)}). Choisissez « Le fonds de caisse » dans « Payé avec » ; les prochaines recettes le rembourseront.</div>}
         {f.categorie === CATEGORIE_CHANTIER && !f.chantier_id && <div className="mt-2 text-xs font-bold text-red-700" data-chantier-obligatoire>🏗 Catégorie « Chantier » : choisissez le chantier dans « Chantier à rattacher » (obligatoire).</div>}
-        {f.chantier_id && <div className="mt-2 text-xs text-purple-800">🏠 Cette dépense sera déduite des frais d'installation du chantier avant le partage entre techniciens (une fois qu'elle compte).</div>}
+        {(f.chantier_id || (caseRemise && f.remis_a && f.remis_a !== REMIS_A_PERSONNE) || sansCaisse || (!sansCaisse && f.paye_avec === "avance")) && (
+          <NoteDepliable className="mt-2 text-xs text-slate-500" libelle="Explications sur cette dépense">
+          {f.chantier_id && <div className="mt-1 text-xs text-purple-800">🏠 Cette dépense sera déduite des frais d'installation du chantier avant le partage entre techniciens (une fois qu'elle compte).</div>}
+          {caseRemise && f.remis_a && f.remis_a !== REMIS_A_PERSONNE && <div className="mt-1 text-xs text-purple-800" data-remise-annoncee>💼 La personne choisie expliquera dans son onglet « 💼 Argent reçu » à quoi l'argent a servi, et rendra le reste (vous validez ce qu'elle rend ici, dans 📤 Dépenses).</div>}
+          {sansCaisse && <div className="mt-1 text-xs text-slate-600" data-de-sa-poche>💼 Vous saisissez ici une dépense payée de <b>votre poche</b> : elle vous sera remboursée une fois qu'elle compte. L'argent que vous avez <b>reçu</b> s'explique dans l'onglet « 💼 Argent reçu », pas ici.</div>}
+          {!sansCaisse && f.paye_avec === "avance" && <div className="mt-1 text-xs text-slate-500">Une avance personnelle ne sort pas du tiroir : elle vous sera remboursée (caisse, salaire ou DG) une fois qu'elle compte.</div>}
+          </NoteDepliable>
+        )}
         {f.montant !== "" && doitEtreValidee(f.montant) && !jeSuisDG && (
           <div className="mt-2 text-sm font-bold text-amber-700">⏳ À partir de {fmt(SEUIL_VALIDATION_DEPENSE)}, la dépense est soumise à la validation du DG : elle ne comptera (caisse, tableau de bord) qu'une fois validée.</div>
         )}
-        {caseRemise && f.remis_a && f.remis_a !== REMIS_A_PERSONNE && <div className="mt-2 text-xs text-purple-800" data-remise-annoncee>💼 La personne choisie expliquera dans son onglet « 💼 Argent reçu » à quoi l'argent a servi, et rendra le reste (vous validez ce qu'elle rend ici, dans 📤 Dépenses).</div>}
-        {sansCaisse && <div className="mt-2 text-xs text-slate-600" data-de-sa-poche>💼 Vous saisissez ici une dépense payée de <b>votre poche</b> : elle vous sera remboursée une fois qu'elle compte. L'argent que vous avez <b>reçu</b> s'explique dans l'onglet « 💼 Argent reçu », pas ici.</div>}
-        {!sansCaisse && f.paye_avec === "avance" && <div className="mt-2 text-xs text-slate-500">Une avance personnelle ne sort pas du tiroir : elle vous sera remboursée (caisse, salaire ou DG) une fois qu'elle compte.</div>}
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Enregistrer la dépense</button>
         </FormulaireRepliable>
       </Panel>
@@ -795,11 +815,11 @@ export function Depenses({ db, save, profile, cible = null }) {
         {panneauModif}
         <TableauDepenses liste={listeAffichee} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide={periode.actif ? "Aucune dépense sur cette période." : mesSeules ? "Vous n'avez enregistré aucune dépense pour cette boutique." : "Aucune dépense enregistrée."} />
         {/* On ne cache pas l'argent : on dit où il est allé. */}
-        <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">
+        <NoteDepliable className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100" libelle="Où sont passés les versements, fonds de caisse et prêts ?"><div>
           Les <b>versements de fonds</b> et les <b>fonds de caisse remis par le DG</b> ne sont pas des dépenses : ils ne comptent pas ici.
           Retrouvez-les dans <b>🔒 Caisse</b> et dans l'export « Versements » du tableau de bord. Les <b>prêts au personnel</b> et leurs remboursements sont dans la liste (ils font bouger la caisse) mais ne comptent pas dans « Ce mois » ; leur suivi est dans <b>👥 Utilisateurs → 🏦 Crédits BMI</b>.
           L'<b>argent rendu au client</b> (reprise ou échange) est aussi dans la liste, sans compter dans « Ce mois ».
-        </div>
+        </div></NoteDepliable>
       </div>
 
       {voitCaissesCentrales && (
@@ -821,10 +841,10 @@ export function Depenses({ db, save, profile, cible = null }) {
               </div>
             );
           })}
-          <div className="px-1 text-xs text-slate-500" data-note-centrales>
+          <NoteDepliable className="px-1 text-xs text-slate-500" libelle="Les sorties payées chez le DG ou par la banque : où les lire ?"><div data-note-centrales>
             Les sorties payées <b>chez le DG</b> ou <b>par la banque</b> ne sortent du tiroir d'aucune boutique et ne pèsent sur le résultat d'aucune : elles comptent dans les dépenses de BMI et dans le relevé de 📊 → 👤 DG ou 🏦 BANQUE.
             {listeCentrale.length === 0 ? " Aucune pour l'instant." : ""} Les sorties payées <b>chez le comptable</b> sont dans <b>🧾 Chez le comptable</b>.
-          </div>
+          </div></NoteDepliable>
         </div>
       )}
     </div>
@@ -913,11 +933,9 @@ export function ChezComptable({ db, save, profile }) {
     <div className="space-y-4">
       {/* ═══ Décaissements : à remettre / remis ═══ */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <div className="font-bold text-slate-800 mb-2">💰 Décaissements de ma caisse
-          <span className="ml-2 text-xs font-semibold text-red-600">à remettre : {aRemettre.length}</span>
-          <span className="ml-2 text-xs font-semibold text-green-700">remis : {dejaRemis.length}</span>
-        </div>
-        {aRemettre.length === 0 && <div className="text-sm text-slate-400">Rien en attente : tout ce qui est passé par la caisse « Chez le comptable » a été remis.</div>}
+        <CarteRepliable vide={aRemettre.length === 0} titre="💰 Décaissements de ma caisse" resume="Rien en attente"
+          explication="Tout ce qui est passé par la caisse « Chez le comptable » a été remis."
+          action={<span className="text-xs font-semibold"><span className="text-red-600">à remettre : {aRemettre.length}</span><span className="ml-2 text-green-700">remis : {dejaRemis.length}</span></span>}>
         <div className="max-h-[300px] overflow-y-auto space-y-1">
           {aRemettre.map((x) => (
             <div key={x.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
@@ -950,11 +968,7 @@ export function ChezComptable({ db, save, profile }) {
             </div>
           </div>
         )}
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <div className="font-bold text-slate-800 mb-1">🧾 Sorties de caisse confiées au comptable</div>
-        <div className="text-xs text-slate-500">Commissions, salaires ou autres sorties payées « Chez le comptable » plutôt que débitées d'une boutique.</div>
+        </CarteRepliable>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
@@ -969,6 +983,7 @@ export function ChezComptable({ db, save, profile }) {
         </div>
         {panneauModif}
         <TableauDepenses liste={liste.filter((x) => periode.dans(x.date))} profile={profile} onSupprimer={supprimerDepense} onModifier={ouvrirModif} vide="Aucune sortie de caisse « Chez le comptable » pour l'instant." />
+        <NoteDepliable className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100" libelle="Sorties de caisse confiées au comptable">Commissions, salaires ou autres sorties payées « Chez le comptable » plutôt que débitées d'une boutique.</NoteDepliable>
       </div>
     </div>
   );
