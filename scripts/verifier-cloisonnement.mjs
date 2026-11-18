@@ -3957,6 +3957,13 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
         && /data-reglage="assistant-whatsapp"[^]*?<CarteRepliable titre="🤖 Assistant du numéro WhatsApp BMI"/.test(pa)
         && ["choix-bmi", "alerte-conseiller", "avis-google"].every((k) => new RegExp(`data-reglage="${k}">\\s*<CarteRepliable[^>]*ouvertParDefaut=\\{false\\}`).test(pa))
         && /data-reglage="banques">\s*<CarteRepliable/.test(pa); })());
+  test("★★ ⚙ Paramètres → 🔌 Appareils COMPACT (18/11/2026) : « À classer » à côté de la liste, liste avec recherche (règle commune, autres noms compris), six lignes puis défilement, nom figé, gestes en boutons ronds, cartes sur téléphone",
+    (() => { const pa = readFileSync("src/screens/Parametres.jsx", "utf8");
+      return /data-blocs-appareils/.test(pa) && /data-a-classer/.test(pa) && /data-catalogue-appareils/.test(pa)
+        && /correspond\(`\$\{a\.nom\} \$\{\(a\.autres \|\| \[\]\)\.join\(" "\)\}`, qApp\)/.test(pa)
+        && /<TableauDefilant>/.test(pa) && /celluleFigee\("bg-white"\)/.test(pa) && /data-appareils-cartes/.test(pa)
+        && /icone="✏️" titre="Corriger l'appareil"/.test(pa) && /icone="🗑" titre="Retirer l'appareil"/.test(pa)
+        && !/text-xs text-sky-800 underline mr-3">✏️ Corriger/.test(pa); })());
   test("★★ LE COUPLE (29/10/2026) : le serveur (securite-42) lit le MÊME champ `plafond_remise_pct` que celui écrit par ⚙ Paramètres — sans lui, l'écran laisserait passer une remise que la base refuserait encore",
     (() => { const s42 = readFileSync("supabase/securite-42-plafond-remise-reglable.sql", "utf8");
       return /b\.data ->> 'plafond_remise_pct'/.test(s42) && /plafond_remise_boutique/.test(s42)
@@ -11949,8 +11956,8 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
     const usages = execSync("grep -rn 'className={champRecherche}' src/screens src/components | wc -l").toString().trim();
     const fenetres = execSync("grep -rn 'className={champRechercheFenetre}' src/screens src/components | wc -l").toString().trim();
-    test("★ les 13 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
-      Number(usages) === 12 && Number(fenetres) === 1
+    test("★ les 14 lignes de recherche de l'application y passent TOUTES — plus une seule largeur écrite à la main (w-48, w-52, w-56, w-64, max-w-[220px]…)",
+      Number(usages) === 13 && Number(fenetres) === 1
       && lignes.length >= 8
       && lignes.every((x) => /className=\{champRecherche(Fenetre)?\}/.test(x.l))
       && !lignes.some((x) => /\bw-\d|max-w-\[|max-w-xs|w-full/.test(x.l.replace(/champRecherche(Fenetre)?/g, "")))

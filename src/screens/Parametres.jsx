@@ -16,7 +16,7 @@ import { PALETTE, LOGO, MOYENS_MOBILES } from "../lib/constants";
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable, CarteRepliable, NoteDepliable, BoutonRond, CelluleActions } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable, CarteRepliable, NoteDepliable, BoutonRond, CelluleActions, TableauDefilant, enTeteFige, celluleFigee } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
 import { pctCommunCarte, carteDe, aSaRemise, critiquePctCarte, PCT_CARTE_MAX } from "../lib/carteFidelite";
 import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe, plafondRemise, PLAFOND_REMISE_PCT_DEFAUT } from "../lib/calculs";
@@ -98,6 +98,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // l'espace regardé que la liste ne connaît pas (dérivé, jamais écrit).
   const catalogueApp = catalogueAppareils(db, profile);
   const aClasser = appareilsAClasser(utilisateursDeLEspace(db, profile), catalogueApp);
+  // La recherche d'un appareil passe par LA règle commune ; elle regarde aussi ses autres noms.
+  const appareilsVus = qApp.trim() ? catalogueApp.filter((a) => correspond(`${a.nom} ${(a.autres || []).join(" ")}`, qApp)) : catalogueApp;
   const persoApp = (boutiquesVisibles(db, profile, db.boutiques || []).find((x) => Array.isArray(x.appareils_catalogue))?.appareils_catalogue) || [];
   const ecrireCatalogue = (liste, journal) => {
     const visibles = new Set(boutiquesVisibles(db, profile, db.boutiques || []).map((b) => b.nom));
@@ -190,6 +192,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // Toute la règle vit dans lib/effacementClient.js ; cet écran ne fait que
   // MONTRER ce qui va partir et demander le motif.
   const [qEff, setQEff] = useState("");
+  const [qApp, setQApp] = useState("");
+  const [aClasserTout, setAClasserTout] = useState(false);
   const [cibleEff, setCibleEff] = useState(null);   // { nom, tel }
   // ⏳ La durée de conservation (Timo, 19/09/2026 : « 6 ans après le dernier
   // achat. On peut à tout moment changer cette durée »).
@@ -2221,52 +2225,71 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
       </div>
 
       </div>
-      <div className="space-y-4" style={{ display: onglet === "appareils" ? undefined : "none" }}>
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-          <div className="font-bold mb-1">🔌 Appareils proposés dans le volet solaire</div>
-          <div className="text-xs text-slate-500 mb-3">
-            Quand un vendeur tape « tv », « frigo » ou « clim » dans les besoins du client, l'application propose l'appareil et
-            pré-remplit sa puissance typique. Chaque appareil a ses autres noms et abréviations : c'est ce qui permet de le
-            reconnaître quelle que soit la façon de l'écrire. Un appareil hors liste reste possible en saisie libre.
-          </div>
-          <button onClick={() => ajouterAppareilCatalogue()} className={btnDark}>➕ Ajouter un appareil</button>
-          <div className="overflow-x-auto mt-3">
-            <table className="w-full text-sm min-w-[640px]">
-              <thead><tr className="text-xs text-slate-500 uppercase">{["Appareil", "Puissance", "Reconnu aussi sous", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-              <tbody>
-                {catalogueApp.map((a) => (
-                  <tr key={a.id} className="border-t border-slate-100">
-                    <td className="px-3 py-2 font-semibold whitespace-nowrap">{a.nom}</td>
-                    <td className="px-3 py-2 tabular-nums whitespace-nowrap">{a.puissance} W</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{(a.autres || []).join(", ")}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <button onClick={() => corrigerAppareilCatalogue(a)} className="text-xs text-sky-800 underline mr-3">✏️ Corriger</button>
-                      <button onClick={() => retirerAppareilCatalogue(a)} className="text-xs text-red-600 underline">Retirer</button>
-                    </td>
-                  </tr>
+      {/* 🔌 Appareils, façon « carnet » (Timo, 18/11/2026 : « Construit, lance ») :
+          « À classer » à gauche (c'est lui qui demande un geste), la liste à droite
+          avec recherche, six lignes puis défilement, nom figé. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start" style={{ display: onglet === "appareils" ? undefined : "none" }} data-blocs-appareils>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-a-classer>
+          <CarteRepliable titre="🗂 À classer"
+            badge={aClasser.length ? <span className="text-xs font-bold bg-amber-600 text-white rounded-full px-2">{aClasser.length}</span> : null}
+            vide={aClasser.length === 0} resume="Rien à classer ✓"
+            explication="Les appareils tapés dans les devis que la liste ne connaît pas encore, avec la puissance la plus souvent saisie. Ajoutez-les d'un clic : la prochaine fois, ils seront proposés avec leur puissance.">
+            {aClasser.length === 0 ? null : (
+              <div className="space-y-1">
+                {(aClasserTout ? aClasser : aClasser.slice(0, 3)).map((x) => (
+                  <div key={x.nom} className="flex items-center justify-between gap-2 border-t border-slate-100 py-1.5 text-sm">
+                    <span><b>{x.nom}</b><span className="block text-xs text-slate-500">{x.puissance ? `${x.puissance} W` : "puissance non saisie"} · {x.devis} devis</span></span>
+                    <button onClick={() => ajouterAppareilCatalogue({ nom: x.nom, puissance: x.puissance })} className="text-xs font-bold text-white bg-sky-800 rounded px-2 py-1 whitespace-nowrap">➕ Ajouter</button>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                {aClasser.length > 3 && (
+                  <button onClick={() => setAClasserTout(!aClasserTout)} className="text-xs font-semibold text-slate-600 underline">{aClasserTout ? "Réduire" : `+ ${aClasser.length - 3} autre(s)…`}</button>
+                )}
+              </div>
+            )}
+          </CarteRepliable>
         </div>
-        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-          <div className="font-bold mb-1">🗂 À classer{aClasser.length ? ` (${aClasser.length})` : ""}</div>
-          <div className="text-xs text-slate-500 mb-3">
-            Les appareils tapés dans les devis que la liste ne connaît pas encore, avec la puissance la plus souvent saisie.
-            Ajoutez-les d'un clic : la prochaine fois, ils seront proposés avec leur puissance.
-          </div>
-          {aClasser.length === 0 ? (
-            <div className="text-sm text-slate-500">Rien à classer : tous les appareils des devis sont dans la liste.</div>
-          ) : (
-            <div className="space-y-1">
-              {aClasser.map((x) => (
-                <div key={x.nom} className="flex items-center justify-between gap-2 flex-wrap border-t border-slate-100 py-1.5 text-sm">
-                  <span><b>{x.nom}</b> <span className="text-xs text-slate-500">— {x.puissance ? `${x.puissance} W` : "puissance non saisie"} · {x.devis} devis</span></span>
-                  <button onClick={() => ajouterAppareilCatalogue({ nom: x.nom, puissance: x.puissance })} className="text-xs font-bold text-white bg-sky-800 rounded px-2 py-0.5">➕ Ajouter à la liste</button>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm lg:col-span-2" data-catalogue-appareils>
+          <CarteRepliable titre={`🔌 Appareils proposés (${catalogueApp.length})`}
+            explication="Quand un vendeur tape « tv », « frigo » ou « clim » dans les besoins du client, l'application propose l'appareil et pré-remplit sa puissance typique. Chaque appareil a ses autres noms et abréviations : c'est ce qui permet de le reconnaître quelle que soit la façon de l'écrire. Un appareil hors liste reste possible en saisie libre."
+            action={<button onClick={() => ajouterAppareilCatalogue()} className={btnDark}>➕ Ajouter un appareil</button>}>
+            <input className={champRecherche} placeholder="🔍 Rechercher un appareil…" value={qApp} onChange={(e) => setQApp(e.target.value)} />
+            {appareilsVus.length === 0 ? (
+              <div className="text-sm text-slate-500 mt-2">{qApp.trim() ? "Aucun appareil ne correspond." : "Aucun appareil dans la liste."}</div>
+            ) : (<>
+              <div className="hidden sm:block mt-2">
+                <TableauDefilant>
+                  <table className="w-full text-sm min-w-[520px]">
+                    <thead><tr className="text-xs text-slate-500 uppercase">{["Appareil", "Puissance", "Reconnu aussi sous", ""].map((h, i) => <th key={i} className={`text-left px-3 py-2 ${i === 0 ? enTeteFige("bg-white") : ""}`}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {appareilsVus.map((a) => (
+                        <tr key={a.id} className="border-t border-slate-100">
+                          <td className={`px-3 py-2 font-semibold whitespace-nowrap ${celluleFigee("bg-white")}`}>{a.nom}</td>
+                          <td className="px-3 py-2 tabular-nums whitespace-nowrap">{a.puissance} W</td>
+                          <td className="px-3 py-2 text-xs text-slate-500">{(a.autres || []).join(", ")}</td>
+                          <CelluleActions>
+                            <BoutonRond icone="✏️" titre="Corriger l'appareil" teinte="bleu" onClick={() => corrigerAppareilCatalogue(a)} />
+                            <BoutonRond icone="🗑" titre="Retirer l'appareil" teinte="rouge" onClick={() => retirerAppareilCatalogue(a)} />
+                          </CelluleActions>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </TableauDefilant>
+              </div>
+              <div className="sm:hidden mt-2" data-appareils-cartes>
+                {appareilsVus.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between gap-2 border-t border-slate-100 py-2 text-sm">
+                    <span className="min-w-0"><b>{a.nom}</b> · {a.puissance} W<span className="block text-xs text-slate-500 truncate">{(a.autres || []).join(", ")}</span></span>
+                    <span className="flex gap-1.5 shrink-0">
+                      <BoutonRond icone="✏️" titre="Corriger l'appareil" teinte="bleu" onClick={() => corrigerAppareilCatalogue(a)} />
+                      <BoutonRond icone="🗑" titre="Retirer l'appareil" teinte="rouge" onClick={() => retirerAppareilCatalogue(a)} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>)}
+          </CarteRepliable>
         </div>
       </div>
       {/* ⚠ 🔒 DONNÉES PERSONNELLES — LE DROIT À L'EFFACEMENT (Timo, 18/09/2026).

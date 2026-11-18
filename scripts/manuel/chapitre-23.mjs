@@ -126,7 +126,7 @@ export const CHAPITRE = {
       ["note", "Ce que l'assistant dit et ne dit pas est au chapitre 20."],
 
       ["h3", "F. Les appareils du volet solaire"],
-      ["p", "🔌 Appareils : **➕ Ajouter un appareil**, **✏️ Corriger**, **Retirer**. Chaque appareil a sa puissance et ses autres noms (« tv », « télé »). **À classer** liste ce que les vendeurs ont tapé et que la liste ne connaît pas, avec la puissance la plus saisie : **➕ Ajouter à la liste**."],
+      ["p", "🔌 Appareils (présentation du 18/11/2026) : **« 🗂 À classer »** est à gauche — ce que les vendeurs ont tapé et que la liste ne connaît pas, avec la puissance la plus saisie ; **➕ Ajouter** l'ajoute d'un clic (trois lignes d'abord, puis « + N autre(s) » ; vide, il tient en une ligne « Rien à classer ✓ »). À droite, **« 🔌 Appareils proposés (N) »** : une case **🔍 Rechercher** (elle trouve aussi par les autres noms : « frigo » ramène le réfrigérateur), un tableau qui montre **six lignes puis défile** (le nom reste figé), **➕ Ajouter un appareil** en haut, et **✏️ Corriger** / **🗑 Retirer** en boutons ronds. Chaque appareil a sa puissance et ses autres noms (« tv », « télé »). Sur téléphone, une ligne par appareil."],
 
       ["h3", "G. Sauvegarder"],
       ["etapes", [
