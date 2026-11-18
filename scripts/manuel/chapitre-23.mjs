@@ -84,6 +84,7 @@ export const CHAPITRE = {
       ]],
 
       ["h3", "C. Les boutons d'une boutique"],
+      ["p", "**Présentation (18/11/2026).** Chaque boutique porte ses boutons **en toutes lettres, rangés sur trois lignes** : **Identité** (🖼 Logo, 🎨 Couleur, 📍 Infos reçu), **Lieu** (📌 Position GPS, 🏠 Loyer) et **Argent** (💼 Fonds de caisse, 📱 Comptes mobiles, ⋯ Plus). Un bouton **vert** veut dire « déjà réglé », avec sa valeur écrite dessus. **⋯ Plus** ouvre les gestes rares : en faire un magasin ou une boutique, retirer le logo, supprimer. Sur téléphone, une carte par boutique. « 👁 Je regarde » tient sur une ligne (son explication est derrière le « ⓘ ») et « Ajouter une boutique » est à côté."],
       ["table", { entetes: ["Bouton", "Ce qu'il règle"], largeurs: [2600, 6700], lignes: [
         ["🖼 Logo / Retirer", "Le logo imprimé sur les reçus de cette boutique (sinon le logo BMI)."],
         ["📍 Infos reçu", "Adresse, téléphone, e-mail, message en bas du reçu, et **1 ou 2 exemplaires** (client + DUPLICATA boutique)."],

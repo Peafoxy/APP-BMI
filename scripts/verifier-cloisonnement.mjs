@@ -3166,7 +3166,7 @@ titre("Les ecrans d'ADMINISTRATION suivent l'espace regarde, eux aussi");
     && /\{boutiquesDuTableau\.map\(\(b\) => \(/.test(par)
     && !/\{db\.boutiques\.map\(\(b\) => \(/.test(par));
   test("★ le compteur « Boutiques (n) » compte la liste filtree, pas toutes",
-    /Boutiques \(\{boutiquesDuTableau\.length\}\)/.test(par));
+    /titre=\{`Boutiques \(\$\{boutiquesDuTableau\.length\}\)`\}/.test(par));
   test("★ Utilisateurs part de utilisateursDeLEspace",
     /const dansMonEspace = utilisateursDeLEspace\(db, profile\)/.test(uti)
     && !/const utilisateursVisibles = jeSuisAdminPrincipal \? db\.users :/.test(uti));
@@ -15442,7 +15442,7 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
   const par = readFileSync("src/screens/Parametres.jsx", "utf8");
   test("🚐 le tableau des boutiques de ⚙ Paramètres écarte la caisse de terrain",
     /const boutiquesDuTableau = boutiquesDeLEcran\.filter\(\(b\) => !b\.terrain\)/.test(par) && /\{boutiquesDuTableau\.map\(\(b\) =>/.test(par) && !/\{boutiquesDeLEcran\.map\(/.test(par));
-  test("🚐 le compte « Boutiques (N) » ne compte pas la caisse de terrain", /Boutiques \(\{boutiquesDuTableau\.length\}\)/.test(par));
+  test("🚐 le compte « Boutiques (N) » ne compte pas la caisse de terrain", /titre=\{`Boutiques \(\$\{boutiquesDuTableau\.length\}\)`\}/.test(par));
   const debut = par.indexOf("{caissesTerrain.map((b) =>");
   const cadre = debut > 0 ? par.slice(debut, par.indexOf("{loyerPour && (", debut)) : "";
   test("🚐 la caisse de terrain a son cadre à part, qui dit ce qu'elle est", /data-caisse-terrain/.test(cadre) && /Ce n'est pas une boutique/.test(cadre));
@@ -15455,6 +15455,19 @@ titre("📘 Les guides par poste suivent les VRAIS onglets de leur poste (01/10/
     test(`🚐 ${g} refuse la caisse de terrain DANS le geste`, /if \(b\.terrain\) \{ uAlert\(MOTIF_TERRAIN\); return; \}/.test(corps(g)));
   }
 }
+
+// Timo (18/11/2026) : « Construit, lance » — ⚙ Paramètres → 🏪 Boutiques compact.
+test("★ ⚙ Paramètres → 🏪 Boutiques compact : « Je regarde » sur UNE ligne (explication derrière un « i ») à côté de « Ajouter une boutique » (même taille), boutons EN TOUTES LETTRES sur 3 lignes Identité · Lieu · Argent (vert = déjà réglé), « ⋯ Plus » pour les gestes rares, cartes sur téléphone, caisse des chantiers repliable",
+  (() => {
+    const par = readFileSync("src/screens/Parametres.jsx", "utf8");
+    return /data-blocs-boutiques/.test(par) && /data-je-regarde/.test(par) && /<NoteDepliable className="mt-2">/.test(par) && /items-stretch/.test(par)
+      && /etiquetteLigne\("Identité"\)/.test(par) && /etiquetteLigne\("Lieu"\)/.test(par) && /etiquetteLigne\("Argent"\)/.test(par)
+      && /data-reglages-boutique/.test(par) && /data-plus-boutique-bouton/.test(par) && /data-plus-boutique>/.test(par) && /data-boutiques-cartes/.test(par)
+      && /\{reglagesDe\(b\)\}/.test(par) && (par.match(/\{reglagesDe\(b\)\}/g) || []).length === 2
+      && !/<button onClick=\{\(\) => chargerLogo\(b\)\} className="text-xs font-bold text-blue-700 underline mr-2">/.test(par)
+      && (() => { const i = par.indexOf("data-plus-boutique>"); const z = par.slice(i, i + 900); return /basculerDepot\(b\)/.test(z) && /supprimer\(b\)/.test(z) && /supprimerAvecDonnees\(b\)/.test(z); })()
+      && /data-caisse-terrain[\s\S]{0,400}<CarteRepliable titre="Caisse des chantiers"/.test(par);
+  })());
 
 // ── 📅 Le premier mois de paie suivi (capture Timo, 04/10/2026 : le bulletin
 // d'avril 2026 d'ANGELE disait « reste à percevoir 60 000 F ») ──

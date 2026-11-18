@@ -16,7 +16,7 @@ import { PALETTE, LOGO, MOYENS_MOBILES } from "../lib/constants";
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable, CarteRepliable, NoteDepliable } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
 import { pctCommunCarte, carteDe, aSaRemise, critiquePctCarte, PCT_CARTE_MAX } from "../lib/carteFidelite";
 import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe, plafondRemise, PLAFOND_REMISE_PCT_DEFAUT } from "../lib/calculs";
@@ -412,6 +412,62 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // caisse terrain est venue comme boutique ? ») : elle a son cadre à part,
   // sans « En faire un magasin », ni suppression, ni loyer, ni logo.
   const boutiquesDuTableau = boutiquesDeLEcran.filter((b) => !b.terrain);
+  // Timo (18/11/2026) : « boutons en toutes lettres, rangés sur 3 lignes » — Identité · Lieu · Argent.
+  // Ce sont des FONCTIONS qui rendent du JSX (jamais des composants définis ici : la saisie perdrait son curseur).
+  const btnReglage = (fait) => `px-2 py-1 rounded-md border text-[11.5px] font-bold whitespace-nowrap ${fait ? "border-green-300 bg-green-50 text-green-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`;
+  const etiquetteLigne = (t) => <span className="w-14 shrink-0 text-[10px] font-bold uppercase text-slate-400">{t}</span>;
+  const identiteDe = (b) => (
+    <>
+      <Badge boutique={b.nom} />
+      <div className="text-xs font-bold mt-1">{b.depot ? <span className="text-purple-700">🏭 Magasin (dépôt)</span> : <span className="text-slate-400">Boutique de vente</span>}</div>
+      {b.formation && <div className="text-xs font-bold mt-0.5 text-amber-700">🎓 Formation — jamais dans les chiffres réels</div>}
+    </>
+  );
+  const coordonneesDe = (b) => (
+    <>
+      <div>{b.adresse || "Lomé, Togo"}</div>
+      <div className="mt-1">
+        Numéros de reçu : <b>{prefixeDe(db, b.nom)}-…</b>
+        <button onClick={() => changerPrefixe(b)} className="ml-2 text-xs font-bold text-sky-800 underline">modifier</button>
+        {prefixesPartages.some(([, noms]) => noms.includes(b.nom)) && (
+          <span className="block text-xs font-bold text-amber-700 mt-0.5">
+            ⚠ Ce préfixe est partagé avec {prefixesPartages.find(([, noms]) => noms.includes(b.nom))[1].filter((n) => n !== b.nom).join(", ")} — un reçu ne dit pas de quelle boutique il vient.
+          </span>
+        )}
+      </div>
+      {b.tel ? <div>Tél : {b.tel}</div> : <div className="text-amber-700">⚠ Sans téléphone : le reçu WhatsApp automatique indiquera le numéro BMI principal.</div>}
+      {b.email && <div>{b.email}</div>}
+    </>
+  );
+  const reglagesDe = (b) => {
+    const nbMobiles = MOYENS_MOBILES.filter((m) => b[m.champ]).length;
+    return (
+      <div className="flex flex-col gap-1.5 min-w-[280px]" data-reglages-boutique>
+        <div className="flex flex-wrap items-center gap-1.5">{etiquetteLigne("Identité")}
+          <button onClick={() => chargerLogo(b)} className={btnReglage(!!b.logo)}>🖼 Logo</button>
+          <button onClick={() => setCouleurPour(b)} className={btnReglage(false)}>🎨 Couleur</button>
+          <button onClick={() => modifierInfos(b)} className={btnReglage(!!(b.adresse || b.tel))}>📍 Infos reçu</button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">{etiquetteLigne("Lieu")}
+          <button onClick={() => setPositionPour(b)} className={btnReglage(!!b.lat)}>📌 {b.lat ? "Position GPS ✓" : "Position GPS"}</button>
+          <button onClick={() => ouvrirLoyer(b)} className={btnReglage(!!ficheLoyer(b))} data-bouton-loyer>🏠 Loyer{ficheLoyer(b) ? ` ${fmt(ficheLoyer(b).montant)}` : ""}</button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">{etiquetteLigne("Argent")}
+          {!b.depot && <button onClick={() => modifierFondsFixe(b)} className={btnReglage(b.fonds_caisse_fixe > 0)}>💼 Fonds de caisse{b.fonds_caisse_fixe > 0 ? ` ${fmt(b.fonds_caisse_fixe)}` : ""}</button>}
+          {!b.depot && <button onClick={() => modifierComptesMobiles(b)} className={btnReglage(nbMobiles > 0)}>📱 Comptes mobiles{nbMobiles ? ` (${nbMobiles})` : ""}</button>}
+          <button onClick={() => setPlusOuvert(plusOuvert === b.id ? null : b.id)} className={btnReglage(false)} data-plus-boutique-bouton aria-expanded={plusOuvert === b.id}>⋯ Plus</button>
+        </div>
+        {plusOuvert === b.id && (
+          <div className="flex flex-wrap items-center gap-1.5 pl-[3.75rem]" data-plus-boutique>
+            <button onClick={() => basculerDepot(b)} className={btnReglage(false)}>{b.depot ? "→ En faire une boutique" : "→ En faire un magasin"}</button>
+            {b.logo && <button onClick={() => retirerLogo(b)} className={btnReglage(false)}>Retirer le logo</button>}
+            <button onClick={() => supprimer(b)} className="px-2 py-1 rounded-md border border-red-300 text-red-700 text-[11.5px] font-bold hover:bg-red-50">Suppr.</button>
+            {utilisee(b.nom) && <button onClick={() => supprimerAvecDonnees(b)} className="px-2 py-1 rounded-md text-[11.5px] font-bold text-white bg-red-700 hover:bg-red-800">Suppr. avec ses données</button>}
+          </div>
+        )}
+      </div>
+    );
+  };
   const caissesTerrain = boutiquesDeLEcran.filter((b) => b.terrain);
   const MOTIF_TERRAIN = "La caisse 🏗 DÉPÔT CHANTIER n'est pas une boutique : elle reçoit l'argent des chantiers (poses seules, ventes issues d'un devis). Ce geste ne la concerne pas.";
   const [accueilTexte, setAccueilTexte] = useState(boutiqueRef.accueil_texte || "");
@@ -860,6 +916,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
     changerEspaceRegarde(profile.id, v);
   };
   const monEspaceFormation = estCompteFormation(db, profile);
+  const [plusOuvert, setPlusOuvert] = useState(null); // « ⋯ Plus » ouvert sur CETTE boutique (gestes rares)
   const [f, setF] = useState({ nom: "", couleur: PALETTE[0][1], depot: false,
     formation: voitLesDeuxEspaces(db, profile) ? false : estCompteFormation(db, profile),
     adresse: "", tel: "", loyer: LOYER_VIDE });
@@ -1682,30 +1739,33 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           Le basculement RECHARGE la page : les écrans déjà visités restent
           montés en veille, et ne se reconstruisaient qu'au fil des re-rendus.
           D'où les vingt secondes d'attente qu'il a signalées. */}
+      {/* Timo (18/11/2026) : « Je regarde » sur UNE ligne, l'explication derrière un « i » ; « Ajouter une boutique » à côté (même taille). */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch lg:[&>*:only-child]:col-span-2" data-blocs-boutiques>
       {peutRegarderLaFormation && (
-        <div className={`rounded-xl p-4 border-2 ${enFormation ? "bg-violet-50 border-violet-300" : "bg-sky-50 border-sky-300"}`}>
-          <div className="font-bold mb-1">👁 Je regarde</div>
-          <div className="text-xs text-slate-600 mb-3">
+        <div className={`rounded-xl p-4 border-2 h-full ${enFormation ? "bg-violet-50 border-violet-300" : "bg-sky-50 border-sky-300"}`} data-je-regarde>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="font-bold">👁 Je regarde</div>
+            <div className="flex gap-2 ml-auto">
+              <button onClick={() => changerEspace(false)} disabled={!enFormation}
+                className={`px-3 py-1.5 rounded-lg text-sm font-bold ${!enFormation ? "bg-sky-800 text-white" : "bg-white border-2 border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+                💼 Le réel{!enFormation ? " ✓" : ""}
+              </button>
+              <button onClick={() => changerEspace(true)} disabled={enFormation}
+                className={`px-3 py-1.5 rounded-lg text-sm font-bold ${enFormation ? "bg-violet-700 text-white" : "bg-white border-2 border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
+                🎓 L'entraînement{enFormation ? " ✓" : ""}
+              </button>
+            </div>
+          </div>
+          <NoteDepliable className="mt-2">
             Décide de TOUT ce que vous voyez et de tout ce que vous créez : chiffres, boutiques,
             comptes, listes déroulantes. L'application devient <b>violette</b> dans l'entraînement.
             Le réglage vous suit d'un écran à l'autre et survit au rechargement ; il revient au réel
-            à votre déconnexion.
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => changerEspace(false)} disabled={!enFormation}
-              className={`flex-1 px-3 py-2 rounded-lg text-sm font-bold ${!enFormation ? "bg-sky-800 text-white" : "bg-white border-2 border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-              💼 Le réel{!enFormation ? " ✓" : ""}
-            </button>
-            <button onClick={() => changerEspace(true)} disabled={enFormation}
-              className={`flex-1 px-3 py-2 rounded-lg text-sm font-bold ${enFormation ? "bg-violet-700 text-white" : "bg-white border-2 border-slate-300 text-slate-600 hover:bg-slate-50"}`}>
-              🎓 L'entraînement{enFormation ? " ✓" : ""}
-            </button>
-          </div>
-          <div className="text-[11px] text-slate-500 mt-2">La page se recharge aussitôt, pour que tous les écrans suivent d'un coup.</div>
+            à votre déconnexion. La page se recharge aussitôt, pour que tous les écrans suivent d'un coup.
+          </NoteDepliable>
         </div>
       )}
 
-      <div className="rounded-xl p-4 bg-white border border-slate-200">
+      <div className="rounded-xl p-4 bg-white border border-slate-200 h-full">
         <FormulaireRepliable ouvert={boutiqueOuverte} onOuvrir={() => setBoutiqueOuverte(true)} onFermer={() => setBoutiqueOuverte(false)}
           bouton="➕ Ajouter une boutique" titre="Ajouter une boutique">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1742,71 +1802,57 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
         <button onClick={ajouter} className={`mt-3 ${btnDark}`}>Créer</button>
         </FormulaireRepliable>
       </div>
+      </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Boutiques ({boutiquesDuTableau.length})</div>
-        <table className="w-full text-sm min-w-[480px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Logo", "Coordonnées reçu", "Couleur", "Données", ""].map((h) => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr></thead>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <CarteRepliable titre={`Boutiques (${boutiquesDuTableau.length})`} explication="Un bouton VERT = déjà réglé, avec sa valeur écrite dessus. « ⋯ Plus » ouvre les gestes rares : en faire un magasin ou une boutique, retirer le logo, supprimer.">
+        <div className="hidden sm:block overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Coordonnées reçu", "Couleur", "Contenu", "Réglages"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
           <tbody>
             {boutiquesDuTableau.map((b) => (
-              <tr key={b.id} data-ligne={b.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-4 py-2"><Badge boutique={b.nom} />
-                  <div className="text-xs font-bold mt-1">{b.depot ? <span className="text-purple-700">🏭 Magasin (dépôt)</span> : <span className="text-slate-400">Boutique de vente</span>}</div>
-                  {b.formation && <div className="text-xs font-bold mt-0.5 text-amber-700">🎓 Formation — jamais dans les chiffres réels</div>}
-                  <button onClick={() => basculerDepot(b)} className="text-xs font-bold text-sky-800 underline">{b.depot ? "→ En faire une boutique" : "→ En faire un magasin"}</button>
-                </td>
-                <td className="px-4 py-2">{b.logo ? <img src={b.logo} alt="" className="h-9 w-auto rounded border border-slate-200 bg-white" /> : <span className="text-xs text-slate-400">Logo BMI (défaut)</span>}</td>
-                <td className="px-4 py-2 text-xs text-slate-600">
-                  <div>{b.adresse || "Lomé, Togo"}</div>
-                  <div className="mt-1">
-                    Numéros de reçu : <b>{prefixeDe(db, b.nom)}-…</b>
-                    <button onClick={() => changerPrefixe(b)} className="ml-2 text-xs font-bold text-sky-800 underline">modifier</button>
-                    {prefixesPartages.some(([, noms]) => noms.includes(b.nom)) && (
-                      <span className="block text-xs font-bold text-amber-700 mt-0.5">
-                        ⚠ Ce préfixe est partagé avec {prefixesPartages.find(([, noms]) => noms.includes(b.nom))[1].filter((n) => n !== b.nom).join(", ")} — un reçu ne dit pas de quelle boutique il vient.
-                      </span>
-                    )}
-                  </div>
-                  {b.tel ? <div>Tél : {b.tel}</div> : <div className="text-amber-700">⚠ Sans téléphone : le reçu WhatsApp automatique indiquera le numéro BMI principal.</div>}
-                  {b.email && <div>{b.email}</div>}
-                </td>
-                <td className="px-4 py-2"><span className="inline-flex items-center gap-2"><span className="w-4 h-4 rounded-full inline-block border border-slate-200" style={{ backgroundColor: b.couleur }}></span>{nomCouleur(b.couleur)}</span></td>
-                <td className="px-4 py-2 text-xs text-slate-500">{utilisee(b.nom) ? "Contient des données" : "Vide"}</td>
-                <td className="px-4 py-2 whitespace-nowrap">
-                  <button onClick={() => chargerLogo(b)} className="text-xs font-bold text-blue-700 underline mr-2">🖼 Logo</button>
-                  {b.logo && <button onClick={() => retirerLogo(b)} className="text-xs text-slate-500 underline mr-2">Retirer</button>}
-                  <button onClick={() => modifierInfos(b)} className="text-xs font-bold text-sky-800 underline mr-2">📍 Infos reçu</button>
-                  <button onClick={() => setPositionPour(b)} className={`text-xs font-bold underline mr-2 ${b.lat ? "text-green-700" : "text-sky-800"}`}>📌 {b.lat ? "Position GPS ✓" : "Position GPS"}</button>
-                  <button onClick={() => setCouleurPour(b)} className="text-xs font-bold text-sky-800 underline mr-2">Couleur</button>
-                  <button onClick={() => ouvrirLoyer(b)} className={`text-xs font-bold underline mr-2 ${ficheLoyer(b) ? "text-green-700" : "text-sky-800"}`} data-bouton-loyer>🏠 Loyer{ficheLoyer(b) ? ` ${fmt(ficheLoyer(b).montant)}` : ""}</button>
-                  {!b.depot && <button onClick={() => modifierFondsFixe(b)} className={`text-xs font-bold underline mr-2 ${b.fonds_caisse_fixe > 0 ? "text-green-700" : "text-sky-800"}`}>💼 Fonds de caisse{b.fonds_caisse_fixe > 0 ? ` ${fmt(b.fonds_caisse_fixe)}` : ""}</button>}
-                  {!b.depot && <button onClick={() => modifierComptesMobiles(b)} className={`text-xs font-bold underline mr-2 ${MOYENS_MOBILES.some((m) => b[m.champ]) ? "text-green-700" : "text-sky-800"}`}>📱 Comptes mobiles{MOYENS_MOBILES.filter((m) => b[m.champ]).length ? ` (${MOYENS_MOBILES.filter((m) => b[m.champ]).length})` : ""}</button>}
-                  <button onClick={() => supprimer(b)} className="text-xs text-red-600 underline mr-2">Suppr.</button>
-                  {utilisee(b.nom) && <button onClick={() => supprimerAvecDonnees(b)} className="text-xs font-bold text-white bg-red-700 rounded px-2 py-0.5 hover:bg-red-800">Suppr. avec ses données</button>}
-                </td>
+              <tr key={b.id} data-ligne={b.id} className="border-t border-slate-100 hover:bg-sky-50 align-top">
+                <td className="px-3 py-2">{identiteDe(b)}</td>
+                <td className="px-3 py-2 text-xs text-slate-600">{coordonneesDe(b)}</td>
+                <td className="px-3 py-2"><span className="inline-flex items-center gap-2"><span className="w-4 h-4 rounded-full inline-block border border-slate-200" style={{ backgroundColor: b.couleur }}></span>{nomCouleur(b.couleur)}</span></td>
+                <td className="px-3 py-2 text-xs text-slate-500">{utilisee(b.nom) ? "Contient des données" : "Vide"}</td>
+                <td className="px-3 py-2">{reglagesDe(b)}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
+        <div className="sm:hidden space-y-3" data-boutiques-cartes>
+          {boutiquesDuTableau.map((b) => (
+            <div key={b.id} data-ligne={b.id} className="rounded-lg border border-slate-200 p-3">
+              {identiteDe(b)}
+              <div className="text-xs text-slate-600 mt-2">{coordonneesDe(b)}</div>
+              <div className="text-xs text-slate-500 mt-1 inline-flex items-center gap-2"><span className="w-3 h-3 rounded-full inline-block border border-slate-200" style={{ backgroundColor: b.couleur }}></span>{nomCouleur(b.couleur)} · {utilisee(b.nom) ? "Contient des données" : "Vide"}</div>
+              <div className="mt-2">{reglagesDe(b)}</div>
+            </div>
+          ))}
+        </div>
+        </CarteRepliable>
       </div>
       {caissesTerrain.map((b) => (
         <div key={b.id} data-ligne={b.id} data-caisse-terrain className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <div className="font-bold text-slate-800">Caisse des chantiers <Badge boutique={b.nom} /></div>
-          <div className="text-xs text-slate-600 mt-1">Ce n'est pas une boutique : elle reçoit l'argent des chantiers — les poses seules et leurs versements, et les ventes issues d'un devis (le stock sort de la boutique, l'argent entre ici), qui que ce soit qui encaisse. On n'y vend rien et elle n'a pas de stock. Sa clôture est facultative : rien n'est bloqué, aucun rappel.</div>
-          {b.formation && <div className="text-xs font-bold mt-1 text-amber-700">🎓 Formation — jamais dans les chiffres réels</div>}
-          <div className="text-xs text-slate-600 mt-2 space-y-0.5">
-            <div>
+          <CarteRepliable titre="Caisse des chantiers" badge={<Badge boutique={b.nom} />}
+            explication="Ce n'est pas une boutique : elle reçoit l'argent des chantiers — les poses seules et leurs versements, et les ventes issues d'un devis (le stock sort de la boutique, l'argent entre ici), qui que ce soit qui encaisse. On n'y vend rien et elle n'a pas de stock. Sa clôture est facultative : rien n'est bloqué, aucun rappel.">
+          {b.formation && <div className="text-xs font-bold mb-1 text-amber-700">🎓 Formation — jamais dans les chiffres réels</div>}
+          <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span>
               Numéros de reçu : <b>{prefixeDe(db, b.nom)}-…</b>
               <button onClick={() => changerPrefixe(b)} className="ml-2 text-xs font-bold text-sky-800 underline">modifier</button>
-            </div>
-            {b.tel ? <div>Tél : {b.tel}</div> : <div className="text-amber-700">⚠ Sans téléphone : ses reçus WhatsApp indiqueront le numéro BMI principal.</div>}
-            <div className="inline-flex items-center gap-2">Couleur : <span className="w-4 h-4 rounded-full inline-block border border-slate-200" style={{ backgroundColor: col(b.nom) }}></span>Gris (d'office)</div>
+            </span>
+            {b.tel ? <span>Tél : {b.tel}</span> : <span className="text-amber-700">⚠ Sans téléphone : ses reçus WhatsApp indiqueront le numéro BMI principal.</span>}
+            <span className="inline-flex items-center gap-2">Couleur : <span className="w-4 h-4 rounded-full inline-block border border-slate-200" style={{ backgroundColor: col(b.nom) }}></span>Gris (d'office)</span>
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
-            <button onClick={() => modifierInfos(b)} className="text-xs font-bold text-sky-800 underline">📍 Infos reçu</button>
-            <button onClick={() => modifierFondsFixe(b)} className={`text-xs font-bold underline ${b.fonds_caisse_fixe > 0 ? "text-green-700" : "text-sky-800"}`}>💼 Fonds de caisse{b.fonds_caisse_fixe > 0 ? ` ${fmt(b.fonds_caisse_fixe)}` : ""}</button>
-            <button onClick={() => modifierComptesMobiles(b)} className={`text-xs font-bold underline ${MOYENS_MOBILES.some((m) => b[m.champ]) ? "text-green-700" : "text-sky-800"}`}>📱 Comptes mobiles{MOYENS_MOBILES.filter((m) => b[m.champ]).length ? ` (${MOYENS_MOBILES.filter((m) => b[m.champ]).length})` : ""}</button>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <button onClick={() => modifierInfos(b)} className={btnReglage(!!(b.adresse || b.tel))}>📍 Infos reçu</button>
+            <button onClick={() => modifierFondsFixe(b)} className={btnReglage(b.fonds_caisse_fixe > 0)}>💼 Fonds de caisse{b.fonds_caisse_fixe > 0 ? ` ${fmt(b.fonds_caisse_fixe)}` : ""}</button>
+            <button onClick={() => modifierComptesMobiles(b)} className={btnReglage(MOYENS_MOBILES.some((m) => b[m.champ]))}>📱 Comptes mobiles{MOYENS_MOBILES.filter((m) => b[m.champ]).length ? ` (${MOYENS_MOBILES.filter((m) => b[m.champ]).length})` : ""}</button>
           </div>
+          </CarteRepliable>
         </div>
       ))}
       {loyerPour && (<PanneauQuiSeMontre cle={loyerPour.id || loyerPour.nom} retour={loyerPour.id} onFermer={() => setLoyerPour(null)}>
