@@ -1613,7 +1613,7 @@ export default function App() {
               même devant un REFUS du serveur, où se reconnecter ne change rien. */}
           <div className="text-xs mt-1 text-red-700" data-envoi-bloque={sync.refus ? "refus" : "reessai"}>{sync.refus
             ? `Une règle du serveur refuse ce geste : réessayer n'y changera rien, et ce qui attend derrière reste sur cet appareil. ${estAdminPrincipal(db, profile) ? "Abandonnez-le avec le bouton ci-dessus, puis refaites-le correctement." : "Prévenez l'administrateur principal : lui seul peut l'abandonner."} Rien n'est perdu : tout est enregistré sur cet appareil.`
-            : "L'application réessaie toute seule toutes les 20 secondes. Rien n'est perdu : vos opérations sont enregistrées sur cet appareil et partiront dès que le serveur répondra."}</div>
+            : "L'application réessaie toute seule toutes les minutes. Rien n'est perdu : vos opérations sont enregistrées sur cet appareil et partiront dès que le serveur répondra."}</div>
         </div>
       )}
       {/* ⚠ Vague 3 : le serveur ne connaît l'administrateur principal que par

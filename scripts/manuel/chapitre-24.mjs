@@ -6,7 +6,7 @@
 // rouge « opération(s) n'arrivent pas à partir », 🗑 Abandonner ce geste
 // refusé, la bande orange « Rétablir », « 📤 N à envoyer — se déconnecter »,
 // la réparation des numéros de reçu), src/sync.js (la file d'envoi, l'essai
-// toutes les 20 secondes, au retour du réseau et au réveil de l'appareil),
+// toutes les minutes, au retour du réseau et au réveil de l'appareil),
 // src/db.js (la copie locale, compterEnAttente), screens/Connexion.jsx
 // (la connexion sans réseau), src/push.js (la file des notifications,
 // 24 h), src/whatsapp.js (le repli WhatsApp), src/main.jsx (« Nouvelle
@@ -66,7 +66,7 @@ export const CHAPITRE = {
       ["etapes", [
         { titre: "Le badge passe à 🔌 Hors ligne", texte: "Rien à faire : on continue de travailler. Chaque geste s'ajoute au compteur « N en attente »." },
         { titre: "On vend, on encaisse, on saisit", texte: "Ventes, reçus, dettes et versements, dépenses, clôture du jour, stock, messages internes : tout s'enregistre sur l'appareil. Le reçu s'imprime normalement." },
-        { titre: "Internet revient", texte: "L'application envoie tout, **dans l'ordre**, toute seule — au retour du réseau, toutes les 20 secondes, et quand on revient sur l'application. Le badge repasse à 🟢 En ligne et le compteur redescend à zéro." },
+        { titre: "Internet revient", texte: "L'application envoie tout, **dans l'ordre**, toute seule — au retour du réseau, toutes les minutes, et quand on revient sur l'application. Le badge repasse à 🟢 En ligne et le compteur redescend à zéro." },
       ]],
       ["attention", "**Hors ligne, l'appareil ne voit pas ce que font les autres.** Le stock affiché est celui de la dernière synchronisation : une boutique qui vend le même article au même moment ne le saura qu'au retour du réseau."],
 
@@ -84,7 +84,7 @@ export const CHAPITRE = {
       ["h3", "C. La bande rouge : un envoi qui ne part pas"],
       ["p", "Elle n'apparaît qu'**en ligne**, quand des opérations restent bloquées. Deux cas, et la bande dit lequel :"],
       ["ul", [
-        "**Le serveur ne répond pas** (réseau trop faible) : « L'application réessaie toute seule toutes les 20 secondes. Rien n'est perdu. » On attend.",
+        "**Le serveur ne répond pas** (réseau trop faible) : « L'application réessaie toute seule toutes les minutes. Rien n'est perdu. » On attend.",
         "**Une règle du serveur refuse le geste** (⛔ « Le serveur REFUSE cet enregistrement… se reconnecter n'y changera rien ») : ce qui attend derrière reste aussi sur l'appareil. On **prévient l'administrateur principal** en lui montrant le message ; lui seul peut **🗑 Abandonner ce geste refusé** — l'appareil revient à l'état d'avant, puis on refait le geste correctement.",
       ]],
 
@@ -125,10 +125,10 @@ export const CHAPITRE = {
     { titre: "Ce qui se passe automatiquement derrière", blocs: [
       ["ul", [
         "**Chaque geste est écrit deux fois** : dans la copie de l'appareil, et dans une file d'envoi qui garde l'ordre.",
-        "**L'envoi se retente** au retour du réseau, toutes les 20 secondes, et au réveil de l'appareil ; la session est renouvelée au passage.",
+        "**L'envoi se retente** au retour du réseau, toutes les minutes, et au réveil de l'appareil ; la session est renouvelée au passage.",
         "**À chaque synchronisation**, l'appareil reçoit ce que les autres ont fait, et retire ce que le serveur ne lui accorde plus.",
         "**Après une mise à jour**, chaque appareil se resynchronise en entier au premier démarrage.",
-        "**Les heures écrites** sont celles du serveur, à l'heure de Lomé, même si l'horloge de l'appareil est fausse : l'heure est demandée à la base de données à **chaque synchronisation (toutes les 20 secondes)**, et **le dernier écart mesuré reste appliqué hors connexion**. Seul un appareil qui ne s'est jamais connecté depuis la version 2.101.556 écrit avec sa propre horloge. Sur ordinateur, l'heure du serveur se lit dans la barre du haut (« 🕓 Heure serveur »).",
+        "**Les heures écrites** sont celles du serveur, à l'heure de Lomé, même si l'horloge de l'appareil est fausse : l'heure est demandée à la base de données à **chaque synchronisation (toutes les minutes)**, et **le dernier écart mesuré reste appliqué hors connexion**. Seul un appareil qui ne s'est jamais connecté depuis la version 2.101.556 écrit avec sa propre horloge. Sur ordinateur, l'heure du serveur se lit dans la barre du haut (« 🕓 Heure serveur »).",
         "**Les numéros de reçu en double** sont renumérotés tout seuls, avec une trace.",
       ]],
     ]},

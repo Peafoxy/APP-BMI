@@ -487,7 +487,7 @@ titre("📍 Un message automatique mène où l'on agit");
     /ecranOuConversation\(permis, ecran, c\)/.test(src("src/App.jsx")) && !/ecranPour\(permis/.test(src("src/App.jsx"))
     && /useCible\(cible, "dimensionnement", \(\) => setMode\("brouillons"\)\)/.test(src("src/screens/dimensionnement/index.jsx")) && /<M\.Dimensionnement db=\{db\} profile=\{profile\} save=\{save\} cible=\{cible\}/.test(src("src/App.jsx"))
     && (src("src/screens/dimensionnement/Brouillons.jsx").match(/data-ligne=\{b\.id\}/g) || []).length === 2
-    && /aValiderDG\.map\(\(d\) => \(\n\s*<div key=\{d\.id\} data-ligne=\{d\.id\}/.test(src("src/screens/Depenses.jsx"))
+    && /aValiderDG\.map\(\(d\) => \(\n\s*<tr key=\{d\.id\} data-ligne=\{d\.id\}/.test(src("src/screens/Depenses.jsx")) /* 18/11/2026 : en tableau */
     && /aValiderDG\.map\(\(d\) => \(\n\s*<div key=\{d\.id\} data-ligne=\{d\.id\}/.test(src("src/screens/Caisse.jsx")));
 }
 

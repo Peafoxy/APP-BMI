@@ -15306,13 +15306,13 @@ titre("🔌 Hors connexion : ce que l'écran dit quand un envoi ne part pas (01/
   test("★★ plus jamais « déconnectez-vous puis reconnectez-vous » pour un envoi bloqué (bande rouge, motif d'envoi, session expirée)",
     ![app, syn, cli].some((t) => /déconnectez-vous puis reconnectez-vous/.test(t)));
   test("★ la bande rouge distingue un REFUS du serveur (réessayer n'y change rien, le principal l'abandonne) d'un simple réessai",
-    /data-envoi-bloque=\{sync\.refus \? "refus" : "reessai"\}/.test(app) && /réessayer n'y changera rien/.test(app) && /réessaie toute seule toutes les 20 secondes/.test(app));
+    /data-envoi-bloque=\{sync\.refus \? "refus" : "reessai"\}/.test(app) && /réessayer n'y changera rien/.test(app) && /réessaie toute seule toutes les minutes/.test(app));
   test("★ une session sécurisée expirée renvoie vers « Rétablir » et le mot de passe",
     /appuyez sur « Rétablir » en haut de l'écran/.test(syn) && /appuyez sur « Rétablir » en haut de l'écran/.test(cli));
   test("★ une panne de réseau ne s'affiche plus en anglais : le détail part dans la console",
     !/derniereErreur = `Envoi vers le serveur impossible : \$\{/.test(syn) && /Le serveur ne répond pas \(réseau coupé ou trop faible\)/.test(syn));
-  test("★ la synchronisation réessaie bien toutes les 20 secondes (ce que la bande annonce)",
-    /setInterval\(ecouteurEnLigne, 20000\)/.test(syn));
+  test("★ la synchronisation réessaie bien toutes les minutes (ce que la bande annonce ; 60 s depuis le 18/11/2026, quota de journaux)",
+    /INTERVALLE_SYNC_MS = 60000/.test(syn) && /setInterval\(ecouteurEnLigne, INTERVALLE_SYNC_MS\)/.test(syn));
 }
 
 titre("🧯 Incidents : la bande des notifications bloquées (01/10/2026, chapitre 25 du manuel)");

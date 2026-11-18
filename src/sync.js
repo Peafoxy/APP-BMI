@@ -83,6 +83,7 @@ export async function abandonnerGesteRefuse(refus) {
 let ecouteurEnLigne = null;
 let ecouteurHorsLigne = null;
 let ecouteurReveil = null;
+export const INTERVALLE_SYNC_MS = 60000;
 
 export function demarrerSync(callback) {
   arreterSync(); // on ne démarre jamais deux fois
@@ -97,7 +98,11 @@ export function demarrerSync(callback) {
   window.addEventListener("online", ecouteurEnLigne);
   window.addEventListener("offline", ecouteurHorsLigne);
   document.addEventListener("visibilitychange", ecouteurReveil);
-  minuterie = setInterval(ecouteurEnLigne, 20000); // toutes les 20 secondes
+  // 18/11/2026 (quota de journaux Supabase à 95 %) : toutes les 60 secondes, plus 20.
+  // Chaque passage lit ~25 tables = ~28 lignes de journal ; trois fois moins de
+  // passages = trois fois moins de journaux. Un changement arrive chez les autres
+  // en 1 min au plus (au réveil de l'appareil ou après une écriture : tout de suite).
+  minuterie = setInterval(ecouteurEnLigne, INTERVALLE_SYNC_MS);
   ecouteurEnLigne();
 }
 

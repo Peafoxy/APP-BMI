@@ -139,7 +139,7 @@ export const CHAPITRE = {
     // ── 6
     { titre: "Ce qui se passe automatiquement derrière", blocs: [
       ["ul", [
-        "**Les envois réessaient tout seuls** toutes les 20 secondes, au retour du réseau et au réveil de l'appareil.",
+        "**Les envois réessaient tout seuls** toutes les minutes, au retour du réseau et au réveil de l'appareil.",
         "**Deux reçus au même numéro** (deux téléphones hors ligne) : l'un reçoit tout seul le numéro suivant ; l'ancien numéro reste noté sur la vente et dans 🕘 Historique.",
         "**La session sécurisée est renouvelée** au réveil de l'appareil et avant son expiration : la bande orange reste rare.",
         "**Un refus de WhatsApp est traduit en français** (« pas encore approuvé », « numéro illisible »…). Un motif inconnu reste tel quel, précédé de « WhatsApp a refusé le message : ».",
