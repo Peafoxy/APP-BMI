@@ -1643,28 +1643,28 @@ export default function App() {
       })()}
 
       {ongletsVisites.dashboard && (isAdmin || isComptable || isAssistant) && (
-        <div style={{ display: tab === "dashboard" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "dashboard" ? "block" : "none" }}>
           <M.Dashboard db={db} profile={profile} save={save} />
         </div>
       )}
       {ongletsVisites.ventes && !isCommercial && (
-        <div style={{ display: tab === "ventes" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "ventes" ? "block" : "none" }}>
           <M.Ventes db={db} save={save} profile={profile} cible={cible} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)}
             onTransformerEnDevis={(pseudoDevis) => { setDevisAReprendre(pseudoDevis); setTab("dimensionnement"); }} />
         </div>
       )}
       {ongletsVisites.commande && (isCommercial || isTechnicien) && (
-        <div style={{ display: tab === "commande" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "commande" ? "block" : "none" }}>
           <M.NouvelleCommande db={db} save={save} profile={profile} preRempli={preRempli} onPreRempliConsomme={() => setPreRempli(null)} />
         </div>
       )}
       {ongletsVisites.commandes && !isCommercial && (
-        <div style={{ display: tab === "commandes" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "commandes" ? "block" : "none" }}>
           <M.CommandesRecues db={db} save={save} profile={profile} cible={cible} onValider={(boutique, panier, commercial, responsable, rabais, origineDevis, remisePct, client, tel, commandeId) => { setPreRempli({ boutique, panier, commercial, responsable, rabais, origineDevis, remise: remisePct, client, tel, commandeId }); setTab("ventes"); }} />
         </div>
       )}
       {ongletsVisites.dimensionnement && (
-        <div style={{ display: tab === "dimensionnement" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "dimensionnement" ? "block" : "none" }}>
           <M.Dimensionnement db={db} profile={profile} save={save} cible={cible} devisAReprendre={devisAReprendre} onDevisRepriseConsomme={() => setDevisAReprendre(null)} onConvertirEnVente={(boutique, panier, remise, apporteur) => {
             if (isTechnicienBMI) { uAlert("Un compte Technicien BMI ne peut pas convertir un devis en vente. Transmettez le devis à un vendeur ou à l'administration."); return; }
             // 🤝 L'apporteur nommé dans le volet suit le panier jusqu'à 💰 Ventes
@@ -1676,98 +1676,98 @@ export default function App() {
         </div>
       )}
       {ongletsVisites.tous_devis && (
-        <div style={{ display: tab === "tous_devis" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "tous_devis" ? "block" : "none" }}>
           <M.TousLesDevis db={db} save={save} profile={profile} onModifierDevis={(devis, client) => { setDevisAReprendre({ devis, client }); setTab("dimensionnement"); }}
             onEncaisserCommande={(pre) => { setPreRempli(pre); setTab("ventes"); }} />
         </div>
       )}
       {ongletsVisites.depenses && (
-        <div style={{ display: tab === "depenses" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "depenses" ? "block" : "none" }}>
           <M.Depenses db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.chez_comptable && (
-        <div style={{ display: tab === "chez_comptable" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "chez_comptable" ? "block" : "none" }}>
           <M.ChezComptable db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.dettes && (
-        <div style={{ display: tab === "dettes" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "dettes" ? "block" : "none" }}>
           <M.Dettes db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.clients && (
-        <div style={{ display: tab === "clients" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "clients" ? "block" : "none" }}>
           <M.Clients db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.nouveau_client && (
-        <div style={{ display: tab === "nouveau_client" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "nouveau_client" ? "block" : "none" }}>
           <M.CreerClient db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.caisse && (
-        <div style={{ display: tab === "caisse" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "caisse" ? "block" : "none" }}>
           <M.Caisse db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.stocks && (isAdmin || isMagasinier || isGerant || isComptable || isAssistant) && (
-        <div style={{ display: tab === "stocks" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "stocks" ? "block" : "none" }}>
           <M.Stocks db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.fournisseurs && (isAdmin || isGerant || isAssistant) && (
-        <div style={{ display: tab === "fournisseurs" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "fournisseurs" ? "block" : "none" }}>
           <M.Fournisseurs db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.commerciaux && isAdmin && (
-        <div style={{ display: tab === "commerciaux" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "commerciaux" ? "block" : "none" }}>
           <M.Commerciaux db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.rentabilite && (isAdmin || isComptable) && (
-        <div style={{ display: tab === "rentabilite" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "rentabilite" ? "block" : "none" }}>
           <M.Rentabilite db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.salaires && isAdmin && (
-        <div style={{ display: tab === "salaires" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "salaires" ? "block" : "none" }}>
           <M.SalairesAdmin db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.users && isAdmin && (
-        <div style={{ display: tab === "users" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "users" ? "block" : "none" }}>
           <M.Users db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.historique && (isAdmin || isComptable) && (
-        <div style={{ display: tab === "historique" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "historique" ? "block" : "none" }}>
           <M.Historique db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.commission && (jeSuisApporteur || aUnePrimeDeChantier || isTechnicienBMI || isRespCom || isCommercial || isTechnicien) && (
-        <div style={{ display: tab === "commission" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "commission" ? "block" : "none" }}>
           <M.MaCommission db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.equipe && (isAdmin || isRespCom || isGerant || ((isCommercial || isTechnicien || isTechnicienBMI) && estChefEquipe(db, profile))) && (
-        <div style={{ display: tab === "equipe" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "equipe" ? "block" : "none" }}>
           <M.MonEquipe db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.taches && (isCommercial || isTechnicien || isTechnicienBMI || isRespCom || isGerant || isAssistant) && (
-        <div style={{ display: tab === "taches" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "taches" ? "block" : "none" }}>
           <M.MesTaches db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.parc && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom || isVendeur || isAssistant) && (
-        <div style={{ display: tab === "parc" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "parc" ? "block" : "none" }}>
           <M.ClientsInstalles db={db} save={save} profile={profile} isAdmin={isAdmin} />
         </div>
       )}
       {ongletsVisites.travaux && (isAdmin || isGerant || isVendeur || isMagasinier) && (
-        <div style={{ display: tab === "travaux" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "travaux" ? "block" : "none" }}>
           <M.Travaux db={db} save={save} profile={profile} onFacturer={(pre) => { setPreRempli(pre); setTab("ventes"); }} />
         </div>
       )}
@@ -1775,7 +1775,7 @@ export default function App() {
           et le CHEF des techniciens (⭐), jamais un technicien ordinaire :
           celui qui prend l'outil ne s'enregistre pas lui-même. */}
       {ongletsVisites.outillage && (isAdmin || isMagasinier || isTechnicien || isTechnicienBMI) && (
-        <div style={{ display: tab === "outillage" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "outillage" ? "block" : "none" }}>
           <M.Outillage db={db} save={save} profile={profile} />
         </div>
       )}
@@ -1783,73 +1783,73 @@ export default function App() {
           07/10/2026 : le gérant recevait la notification « Prime à payer »
           sans avoir l'onglet pour la payer). */}
       {ongletsVisites.primes_remises && (isVendeur || isGerant) && (
-        <div style={{ display: tab === "primes_remises" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "primes_remises" ? "block" : "none" }}>
           <M.PrimesRemises db={db} save={save} profile={profile} />
         </div>
       )}
       {/* 📅 Rendez-vous (12/10/2026) : tout le personnel, jamais un client. */}
       {ongletsVisites.rendez_vous && !isClient && (
-        <div style={{ display: tab === "rendez_vous" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "rendez_vous" ? "block" : "none" }}>
           <M.RendezVous db={db} save={save} profile={profile} preRempli={rdvPreRempli} onPreRempliLu={() => setRdvPreRempli(null)} />
         </div>
       )}
       {ongletsVisites.argent_recu && aDeLArgentRecu && (
-        <div style={{ display: tab === "argent_recu" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "argent_recu" ? "block" : "none" }}>
           <M.ArgentRecu db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.primes_recues && ROLES_PRIMES_RECUES.includes(profile.role) && (
-        <div style={{ display: tab === "primes_recues" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "primes_recues" ? "block" : "none" }}>
           <M.PrimesRecues db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.contrats && (isAdmin || isRespCom || isCommercial || isTechnicien || isTechnicienBMI || isGerant || isVendeur) && (
-        <div style={{ display: tab === "contrats" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "contrats" ? "block" : "none" }}>
           <M.ContratsInstallation db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.mes_contrats && isClient && (
-        <div style={{ display: tab === "mes_contrats" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "mes_contrats" ? "block" : "none" }}>
           <M.ContratsInstallation db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.messages && (
-        <div style={{ display: tab === "messages" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "messages" ? "block" : "none" }}>
           <M.Messagerie db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.whatsapp && (
-        <div style={{ display: tab === "whatsapp" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "whatsapp" ? "block" : "none" }}>
           <M.Whatsapp db={db} save={save} profile={profile} cible={cible} />
         </div>
       )}
       {ongletsVisites.ravitaillement && profile.boutique && (
-        <div style={{ display: tab === "ravitaillement" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "ravitaillement" ? "block" : "none" }}>
           <M.DemandeRavitaillement db={db} save={save} profile={profile} boutique={profile.boutique} marquerVues />
         </div>
       )}
       {ongletsVisites.transfert && profile.boutique && (
-        <div style={{ display: tab === "transfert" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "transfert" ? "block" : "none" }}>
           <M.DemandesTransfertRecues db={db} save={save} profile={profile} boutique={profile.boutique} />
         </div>
       )}
       {ongletsVisites.salaire && SALARIES.includes(profile.role) && (
-        <div style={{ display: tab === "salaire" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "salaire" ? "block" : "none" }}>
           <M.Salaire db={db} save={save} profile={profile} />
         </div>
       )}
       {ongletsVisites.espace_client && isClient && (
-        <div style={{ display: tab === "espace_client" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "espace_client" ? "block" : "none" }}>
           <M.EspaceClient db={db} profile={profile} save={save} setTab={setTab} />
         </div>
       )}
       {ongletsVisites.mes_donnees && isClient && (
-        <div style={{ display: tab === "mes_donnees" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "mes_donnees" ? "block" : "none" }}>
           <M.MesDonnees db={db} profile={profile} />
         </div>
       )}
       {ongletsVisites.prospects && (isAdmin || isCommercial || isTechnicien || isTechnicienBMI || isRespCom) && (
-        <div style={{ display: tab === "prospects" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "prospects" ? "block" : "none" }}>
           <M.Prospects db={db} save={save} profile={profile} isAdmin={isAdmin}
             onPreparerDevis={(pseudoDevis) => { setDevisAReprendre(pseudoDevis); setTab("dimensionnement"); }}
             onPlanifierVisite={(prospect) => { setRdvPreRempli({ prospect }); setTab("rendez_vous"); }}
@@ -1857,7 +1857,7 @@ export default function App() {
         </div>
       )}
       {ongletsVisites.parametres && isAdmin && (
-        <div style={{ display: tab === "parametres" ? "block" : "none" }}>
+        <div className="anim-ecran" style={{ display: tab === "parametres" ? "block" : "none" }}>
           <M.Parametres db={db} save={save} setDb={setDb} profile={profile} dossierAuto={dossierAuto} setDossierAuto={setDossierAuto} dernierAuto={dernierAuto} />
         </div>
       )}
@@ -2050,7 +2050,7 @@ export default function App() {
         ) : (
         <main className="w-full max-w-[1600px] mx-auto px-4 py-5">
           {contenu}
-          {surAccueil && <PageIcones tabs={tabsAutorises} onChoisir={setTab} onReordonner={reordonnerOnglets} nom={profile?.nom || ""} clair={texteIconesClair} />}
+          {surAccueil && <div className="anim-ecran"><PageIcones tabs={tabsAutorises} onChoisir={setTab} onReordonner={reordonnerOnglets} nom={profile?.nom || ""} clair={texteIconesClair} /></div>}
         </main>
         )}
       </div>

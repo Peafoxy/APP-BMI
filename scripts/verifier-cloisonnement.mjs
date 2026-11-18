@@ -6175,6 +6175,17 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     // ⚠ RETOURNÉ le 06/11/2026 (🧭 « 1b ») : la barre d'onglets revient au choix, avec sa barre latérale et son BadgeSync ; les deux affichages ont « Verrouiller ».
     /<button onClick=\{verrouiller\} className="hidden lg:inline-block [^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && /<button onClick=\{verrouiller\} className="px-3 py-1\.5 rounded-lg bg-sky-800 [^"]*" title="[^"]*">Verrouiller<\/button>/.test(app)
     && /<BadgeSync sombre \/>/.test(app) && /rounded-full bg-green-500[^>]*\/>En ligne/.test(app) && !/🟢/.test(app.replace(/\/\/.*$/gm, "")));
+  // Timo (18/11/2026) : l'apparition d'un écran (fondu + petit mouvement vers le haut).
+  test("★ l'effet d'apparition : chaque écran en veille (display none / block) et la page d'icônes portent anim-ecran ; opacité et décalage seulement, jamais de flou ; coupé en « moins d'animations » et à l'impression",
+    (() => {
+      const cssIdx = readFileSync("src/index.css", "utf8");
+      const bloc = (cssIdx.match(/@keyframes bmi-apparition \{[\s\S]*?\n\}/) || [""])[0];
+      const veilles = (app.match(/display: tab === "[a-z_]+" \? "block" : "none"/g) || []).length;
+      const avec = (app.match(/<div className="anim-ecran" style=\{\{ display: tab === /g) || []).length;
+      return veilles >= 30 && veilles === avec && /<div className="anim-ecran"><PageIcones /.test(app)
+        && /opacity/.test(bloc) && /translateY/.test(bloc) && !/blur|filter/.test(bloc)
+        && /prefers-reduced-motion: reduce\) \{\s*\.anim-ecran \{ animation: none/.test(cssIdx) && /@media print \{\s*\.anim-ecran \{ animation: none/.test(cssIdx);
+    })());
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
     /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
   // Timo (09/09/2026) : « avoir le réglage des couleurs de la carte de

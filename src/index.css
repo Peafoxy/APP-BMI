@@ -415,3 +415,23 @@ html[data-espace="formation"] {
     }
   }
 }
+
+
+/* Timo (18/11/2026) : un écran qui s'affiche apparaît en fondu avec un petit
+   mouvement vers le haut (0,28 s). Seuls l'opacité et le décalage bougent —
+   jamais de flou, trop lourd pour les petits téléphones. Un écran « en
+   veille » passe de display:none à affiché : l'animation repart à chaque
+   changement d'onglet. Rien ne reste appliqué après (pas de fill-mode), donc
+   aucune fenêtre `fixed` n'est déplacée. Coupé pour qui a demandé moins
+   d'animations. */
+@keyframes bmi-apparition {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.anim-ecran { animation: bmi-apparition 0.28s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .anim-ecran { animation: none; }
+}
+@media print {
+  .anim-ecran { animation: none; }
+}
