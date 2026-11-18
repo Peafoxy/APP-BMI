@@ -171,8 +171,8 @@ function complementPourDocument(devis) {
   });
   const protections = PROTECTIONS.map(({ id, libelle }) => {
     const p = (c.protections || {})[id];
-    return { libelle, prevue: !!p, calibre: p && p.calibre ? p.calibre : "" };
-  });
+    return { libelle, prevue: !!p, calibre: p && p.calibre ? p.calibre : "", qte: p && p.qte ? p.qte : "" };
+  }).concat((c.protections_libres || []).map((l) => ({ libelle: l.nom, prevue: true, calibre: l.calibre || "", qte: l.qte || "" })));
   return { vide: false, implantation, montage, cables, protections, autres: c.autres || "", phrase: PHRASE_A_VALIDER };
 }
 

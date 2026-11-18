@@ -897,10 +897,10 @@ export function genererDocumentTechnique(t, d, logo, retournerDoc = false) {
     y = doc.lastAutoTable.finalY + 4;
     y = placePour(doc, y, hauteur, 50);
     autoTable(doc, {
-      head: [[enTete("Protection"), enTete("Prévue", "center"), enTete("Calibre", "right")]],
-      body: co.protections.map((p) => [texteSurPdf(p.libelle), p.prevue ? "Oui" : PHRASE_A_CONFIRMER_COURT, p.calibre || (p.prevue ? "—" : "")]),
+      head: [[enTete("Protection"), enTete("Prévue", "center"), enTete("Calibre", "right"), enTete("Qté", "right")]],
+      body: co.protections.map((p) => [texteSurPdf(p.libelle), p.prevue ? "Oui" : PHRASE_A_CONFIRMER_COURT, p.calibre || (p.prevue ? "—" : ""), p.qte ? String(p.qte) : (p.prevue ? "—" : "")]),
       startY: y, styles, headStyles,
-      columnStyles: { 1: { halign: "center", cellWidth: 28 }, 2: { halign: "right", cellWidth: 28 } },
+      columnStyles: { 1: { halign: "center", cellWidth: 28 }, 2: { halign: "right", cellWidth: 28 }, 3: { halign: "right", cellWidth: 16 } },
       margin: { left: 14, right: 14 },
     });
     y = doc.lastAutoTable.finalY + 4;

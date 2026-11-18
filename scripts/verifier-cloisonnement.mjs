@@ -19641,6 +19641,14 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     && propre.cables.pv === undefined && propre.cables.batterie.section === 16 && propre.cables.batterie.longueur === 4.5
     && propre.protections.parafoudre_dc.calibre === "40 kA" && !propre.protections.differentiel && !propre.protections.inconnue && propre.autres === "RAS"
     && CT.complementVide({}) && CT.complementVide(null) && CT.complementVide({ cables: { pv: { section: "7" } } }) && !CT.complementVide(brut));
+  const douze = Array.from({ length: 12 }, (_, i) => ({ nom: `Protection ${i + 1}`, calibre: "16 A", qte: i + 1 }));
+  const proL = CT.nettoyerComplement({ protections: { fusible_dc: { prevu: true, calibre: "15 A", qte: "4" }, terre: { prevu: true, qte: "0" } }, protections_libres: [...douze, { nom: "   ", calibre: "x", qte: "2" }, { nom: "Relais", qte: "abc" }] });
+  test("★★ 🧩 le fusible DC garde calibre et quantité ; les protections ajoutées librement ne sont PAS limitées (14 gardées), une ligne sans nom est écartée, une quantité illisible aussi",
+    CT.PROTECTIONS.some((p) => p.id === "fusible_dc") && proL.protections.fusible_dc.qte === 4 && proL.protections.fusible_dc.calibre === "15 A" && proL.protections.terre.qte === undefined
+    && proL.protections_libres.length === 13 && proL.protections_libres[11].qte === 12 && proL.protections_libres[12].nom === "Relais" && proL.protections_libres[12].qte === undefined);
+  test("★ 🧩 une protection ajoutée sans nom ou une quantité illisible est DITE (jamais écartée en silence)",
+    /pas de nom/.test(CT.critiqueComplement({ protections_libres: [{ nom: "", calibre: "10 A" }] })) && /quantité/.test(CT.critiqueComplement({ protections_libres: [{ nom: "Relais", qte: "abc" }] }))
+    && /quantité/.test(CT.critiqueComplement({ protections: { fusible_dc: { prevu: true, qte: "0" } } })) && CT.critiqueComplement({ protections_libres: [{ nom: "", calibre: "", qte: "" }] }) === "");
   test("★ 🧩 une valeur illisible est DITE, jamais écartée en silence (inclinaison, distance, série, parallèle, longueur, section hors liste)",
     /degrés/.test(CT.critiqueComplement({ implantation: { inclinaison: "120" } })) && /mètres/.test(CT.critiqueComplement({ implantation: { distance_champ_local: "abc" } }))
     && /série/.test(CT.critiqueComplement({ montage: { serie: "0" } })) && /parallèle/.test(CT.critiqueComplement({ montage: { parallele: "200" } }))
@@ -19670,6 +19678,9 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     /Toiture en dalle/.test(txC) && /Dalle du bâtiment A/.test(txC) && /2 panneaux en série par ligne, 2 lignes en parallèle \(4 panneaux\)/.test(txC)
     && /6 mm²/.test(txC) && /30 m/.test(txC) && /40 kA/.test(txC) && /Parafoudre DC/.test(txC) && /Câble batterie/.test(txC) && /à confirmer/.test(txC)
     && /à valider par le technicien/.test(txC) && !/5\. IMPLANTATION ET CÂBLAGE/i.test(txC) && /5\. IMPLANTATION, CÂBLAGE ET PROTECTIONS/i.test(txC));
+  const txL = texte(PdfDt.genererDocumentTechnique(DT.documentTechnique({ ...devis, complement_technique: { protections: { fusible_dc: { prevu: true, calibre: "15 A", qte: 4 } }, protections_libres: [{ nom: "Boîte de jonction", qte: 2 }] } }, { produits }), donneesPdf, null, true));
+  test("★★ 🧩 le document écrit le fusible DC avec son calibre et sa quantité, et les protections libres (nom, quantité)",
+    /Fusible DC/.test(txL) && /15 A/.test(txL) && /Boîte de jonction/.test(txL) && /Qté/.test(txL));
   test("★ 🧩 sans complément, le document est celui d'avant (« à confirmer lors de la visite technique » + la phrase des câbles) ; un devis qui porte un complément vide aussi",
     /à confirmer lors de la visite technique/.test(texte(PdfDt.genererDocumentTechnique(DT.documentTechnique(devis, { produits }), donneesPdf, null, true)))
     && DT.documentTechnique({ ...devis, complement_technique: { cables: { pv: { section: 7 } } } }).complement.vide === true);
@@ -19684,9 +19695,13 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
   test("★★ 🧩 le formulaire et ses deux endroits se RENDENT (volet solaire, 📋 Tous les devis)" + (errRC ? ` — ${errRC}` : ""), !!RC);
   if (RC) {
     const htmlF = RC.rendreFormulaire({ montage: { serie: 3, parallele: 2 }, cables: { pv: { section: 6, longueur: 30 } }, protections: { terre: { prevu: true, calibre: "R < 10 Ω" } } }, 4);
-    test("★★ 🧩 le formulaire : une liste de sections par câble (4 à 95 mm²), les trois câbles, sept protections en cases (le calibre n'apparaît qu'une fois la case cochée), l'avertissement de montage, « tout est facultatif »",
-      (htmlF.match(/data-cable="/g) || []).length === 3 && (htmlF.match(/data-protection="/g) || []).length === 7 && /95 mm²/.test(htmlF) && /<option value="6" selected/.test(htmlF)
+    test("★★ 🧩 le formulaire : une liste de sections par câble (4 à 95 mm²), les trois câbles, huit protections en cases (dont Fusible DC) (le calibre n'apparaît qu'une fois la case cochée), l'avertissement de montage, « tout est facultatif »",
+      (htmlF.match(/data-cable="/g) || []).length === 3 && (htmlF.match(/data-protection="/g) || []).length === 8 && /Fusible DC/.test(htmlF) && /95 mm²/.test(htmlF) && /<option value="6" selected/.test(htmlF)
       && /data-avertissement-montage/.test(htmlF) && /6 panneaux/.test(htmlF) && (htmlF.match(/data-complement="calibre-/g) || []).length === 1 && /Tout est facultatif/.test(htmlF));
+    const htmlL = RC.rendreFormulaire({ protections: { fusible_dc: { prevu: true, calibre: "15 A", qte: 4 } }, protections_libres: [{ nom: "Boîte de jonction", calibre: "", qte: 2 }, { nom: "Relais", calibre: "10 A", qte: "" }] }, 4);
+    test("★★ 🧩 « Fusible DC » a sa case, sa quantité ; « ➕ Autre protection » ajoute des lignes libres (nom, calibre, quantité, ✕ pour retirer)",
+      /data-complement="qte-fusible_dc"/.test(htmlL) && /data-complement="libre-ajouter"/.test(htmlL) && (htmlL.match(/data-protection-libre="/g) || []).length === 2
+      && /data-complement="libre-retirer-1"/.test(htmlL) && /Boîte de jonction/.test(htmlL) && !/data-complement="qte-parafoudre_dc"/.test(htmlL));
     test("★ 🧩 le bouton du volet : fermé il dit ce qui est renseigné, vide il dit que c'est facultatif ; le panneau d'un devis a son bouton d'enregistrement",
       /Renseigné : 1 câble/.test(RC.rendreBloc({ cables: { pv: { section: 6 } } })) && /Facultatif/.test(RC.rendreBloc({})) && !/data-formulaire-complement/.test(RC.rendreBloc({}))
       && /data-enregistrer-complement/.test(RC.rendrePanneau({ id: "d" }, {})) && /Retirer le complément/.test(RC.rendrePanneau({ id: "d", complement_technique: { cables: { pv: { section: 6 } } } }, {})));

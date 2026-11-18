@@ -34,6 +34,7 @@ export const PROTECTIONS = [
   { id: "parafoudre_dc", libelle: "Parafoudre DC (côté panneaux)" },
   { id: "parafoudre_ac", libelle: "Parafoudre AC" },
   { id: "disjoncteur_dc", libelle: "Disjoncteur ou sectionneur DC (panneaux)" },
+  { id: "fusible_dc", libelle: "Fusible DC" },
   { id: "disjoncteur_batterie", libelle: "Disjoncteur batterie" },
   { id: "disjoncteur_ac", libelle: "Disjoncteur AC" },
   { id: "differentiel", libelle: "Différentiel" },
@@ -45,6 +46,8 @@ export const ORIENTATIONS = ["Sud", "Sud-Est", "Sud-Ouest", "Est", "Ouest", "Nor
 export const LOCAL_MAX = 80;
 export const CALIBRE_MAX = 20;
 export const AUTRES_MAX = 200;
+export const NOM_PROTECTION_MAX = 60;
+export const QTE_PROTECTION_MAX = 1000;
 
 export const PHRASE_A_VALIDER = "Renseigné par BMI TOGO d'après les informations disponibles ; à valider par le technicien lors de l'installation.";
 
@@ -93,10 +96,24 @@ export function nettoyerComplement(c) {
   for (const { id } of PROTECTIONS) {
     const p = (src.protections || {})[id];
     if (!p || !p.prevu) continue;
-    const calibre = texte(p.calibre, CALIBRE_MAX);
-    protections[id] = calibre ? { prevu: true, calibre } : { prevu: true };
+    const ligne = { prevu: true };
+    const calibre = texte(p.calibre, CALIBRE_MAX); if (calibre) ligne.calibre = calibre;
+    const q = entier(p.qte); if (q !== null && q >= 1 && q <= QTE_PROTECTION_MAX) ligne.qte = q;
+    protections[id] = ligne;
   }
   if (Object.keys(protections).length) sortie.protections = protections;
+
+  // Les protections AJOUTÉES librement (bouton « Autre ») : une liste, SANS
+  // limite de nombre (Timo, 18/11/2026) ; une ligne sans nom n'existe pas.
+  const libres = (Array.isArray(src.protections_libres) ? src.protections_libres : []).map((l) => {
+    const nom = texte(l && l.nom, NOM_PROTECTION_MAX);
+    if (!nom) return null;
+    const ligne = { nom };
+    const calibre = texte(l.calibre, CALIBRE_MAX); if (calibre) ligne.calibre = calibre;
+    const q = entier(l.qte); if (q !== null && q >= 1 && q <= QTE_PROTECTION_MAX) ligne.qte = q;
+    return ligne;
+  }).filter(Boolean);
+  if (libres.length) sortie.protections_libres = libres;
 
   const autres = texte(src.autres, AUTRES_MAX); if (autres) sortie.autres = autres;
   return sortie;
@@ -115,6 +132,16 @@ export function critiqueComplement(c) {
   if (hors(imp.distance_champ_local, 0.1, 1000)) return "La distance champ solaire → local technique se donne en mètres (plus de 0, 1 000 m au plus).";
   if (hors(mon.serie, 1, 100)) return "Le nombre de panneaux en série se donne en nombre entier, de 1 à 100.";
   if (hors(mon.parallele, 1, 100)) return "Le nombre de lignes en parallèle se donne en nombre entier, de 1 à 100.";
+  for (const { id, libelle } of PROTECTIONS) {
+    const p = (src.protections || {})[id];
+    if (p && p.prevu && hors(p.qte, 1, QTE_PROTECTION_MAX)) return `La quantité de « ${libelle} » se donne en nombre entier, de 1 à ${QTE_PROTECTION_MAX}.`;
+  }
+  for (const l of (Array.isArray(src.protections_libres) ? src.protections_libres : [])) {
+    const nom = texte(l && l.nom, NOM_PROTECTION_MAX);
+    const rempli = l && (String(l.calibre ?? "").trim() !== "" || String(l.qte ?? "").trim() !== "");
+    if (!nom && rempli) return "Une protection ajoutée a un calibre ou une quantité mais pas de nom : donnez-lui un nom, ou retirez-la.";
+    if (nom && hors(l.qte, 1, QTE_PROTECTION_MAX)) return `La quantité de « ${nom} » se donne en nombre entier, de 1 à ${QTE_PROTECTION_MAX}.`;
+  }
   for (const { id, libelle } of CABLES) {
     const l = (src.cables || {})[id] || {};
     if (hors(l.longueur, 0.1, 1000)) return `La longueur du « ${libelle} » se donne en mètres (plus de 0, 1 000 m au plus).`;
@@ -173,7 +200,7 @@ export function resumeComplement(c) {
   if (!Object.keys(p).length) return "";
   const bouts = [];
   const nbCables = Object.keys(p.cables || {}).length;
-  const nbProt = Object.keys(p.protections || {}).length;
+  const nbProt = Object.keys(p.protections || {}).length + (p.protections_libres || []).length;
   if (p.implantation) bouts.push("implantation");
   if (p.montage) bouts.push("montage");
   if (nbCables) bouts.push(`${nbCables} câble${nbCables > 1 ? "s" : ""}`);

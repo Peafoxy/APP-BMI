@@ -12,7 +12,7 @@
 import { useState } from "react";
 import { Field, inputCls } from "./ui";
 import {
-  CABLES, PROTECTIONS, SECTIONS_CABLE, SUPPORTS, ORIENTATIONS, LOCAL_MAX, CALIBRE_MAX, AUTRES_MAX,
+  CABLES, PROTECTIONS, SECTIONS_CABLE, SUPPORTS, ORIENTATIONS, LOCAL_MAX, CALIBRE_MAX, AUTRES_MAX, NOM_PROTECTION_MAX,
   resumeComplement, avertissementMontage, nettoyerComplement,
 } from "../lib/complementTechnique";
 
@@ -24,6 +24,8 @@ export function FormulaireComplement({ valeur, onChange, panneaux = null }) {
   const majSous = (groupe, id, cle, v) => onChange({ ...c, [groupe]: { ...(c[groupe] || {}), [id]: { ...((c[groupe] || {})[id] || {}), [cle]: v } } });
   const imp = c.implantation || {};
   const mon = c.montage || {};
+  const libres = Array.isArray(c.protections_libres) ? c.protections_libres : [];
+  const majLibre = (i, cle, v) => onChange({ ...c, protections_libres: libres.map((l, j) => (j === i ? { ...l, [cle]: v } : l)) });
   const avertissement = avertissementMontage(c, panneaux);
   return (
     <div data-formulaire-complement>
@@ -95,11 +97,23 @@ export function FormulaireComplement({ valeur, onChange, panneaux = null }) {
                 {libelle}
               </label>
               {p.prevu && (
-                <input className="rounded border border-slate-300 px-2 py-1 text-sm w-40" maxLength={CALIBRE_MAX} value={p.calibre || ""} onChange={(e) => majSous("protections", id, "calibre", e.target.value)} placeholder="Calibre (ex : 63 A)" data-complement={`calibre-${id}`} />
+                <>
+                  <input className="rounded border border-slate-300 px-2 py-1 text-sm w-40" maxLength={CALIBRE_MAX} value={p.calibre || ""} onChange={(e) => majSous("protections", id, "calibre", e.target.value)} placeholder="Calibre (ex : 63 A)" data-complement={`calibre-${id}`} />
+                  <input type="number" min="1" step="1" className="rounded border border-slate-300 px-2 py-1 text-sm w-24" value={p.qte ?? ""} onChange={(e) => majSous("protections", id, "qte", e.target.value)} placeholder="Quantité" data-complement={`qte-${id}`} />
+                </>
               )}
             </div>
           );
         })}
+        {libres.map((l, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-2" data-protection-libre={i}>
+            <input className="rounded border border-slate-300 px-2 py-1 text-sm w-64" maxLength={NOM_PROTECTION_MAX} value={l.nom || ""} onChange={(e) => majLibre(i, "nom", e.target.value)} placeholder="Nom de la protection" data-complement={`libre-nom-${i}`} />
+            <input className="rounded border border-slate-300 px-2 py-1 text-sm w-40" maxLength={CALIBRE_MAX} value={l.calibre || ""} onChange={(e) => majLibre(i, "calibre", e.target.value)} placeholder="Calibre (ex : 63 A)" data-complement={`libre-calibre-${i}`} />
+            <input type="number" min="1" step="1" className="rounded border border-slate-300 px-2 py-1 text-sm w-24" value={l.qte ?? ""} onChange={(e) => majLibre(i, "qte", e.target.value)} placeholder="Quantité" data-complement={`libre-qte-${i}`} />
+            <button type="button" className="rounded-full border border-red-300 text-red-700 w-7 h-7 text-sm" title="Retirer cette protection" aria-label="Retirer cette protection" onClick={() => onChange({ ...c, protections_libres: libres.filter((_, j) => j !== i) })} data-complement={`libre-retirer-${i}`}>✕</button>
+          </div>
+        ))}
+        <button type="button" className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-900 mt-1" onClick={() => onChange({ ...c, protections_libres: [...libres, { nom: "", calibre: "", qte: "" }] })} data-complement="libre-ajouter">➕ Autre protection</button>
       </div>
 
       <div className={titre}>📝 Autres précisions</div>
