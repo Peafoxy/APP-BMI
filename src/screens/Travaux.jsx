@@ -11,7 +11,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, dFR, today } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, FormulaireRepliable, enTeteFige, celluleFigee, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, FormulaireRepliable, enTeteFige, celluleFigee, fondLigneDepliable, BoutonRond, CelluleActions, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable } from "../components/ui";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
@@ -45,6 +45,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
   const [hb, setHb] = useState(hbVide);
   const [prest, setPrest] = useState(null); // { mode, valeur } en cours d'édition
   const [equipeForm, setEquipeForm] = useState(null); // { id, ids, chef } en cours d'édition
+  const [formArt, setFormArt] = useState(null); // { id, stock, hb } : les formulaires d'article ouverts (18/11/2026)
   const jeSuisPrincipal = estAdminPrincipal(db, profile);
   // Les techniciens de l'espace regardé (technicien, technicien BMI), actifs.
   const techniciens = utilisateursDeLEspace(db, profile).filter((u) => ["technicien", "technicien_bmi"].includes(u.role) && u.actif !== false);
@@ -84,7 +85,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
       if (q && !await uConfirm(q)) return; }
     if (!await uConfirm(`Sortir ${stockForm.qte} × ${p.nom} du stock de ${boutique} pour les travaux de ${c.prenom || ""} ${c.nom} ?\n\nLe stock baisse tout de suite. Facturé ${fmt(p.prix_vente)} l'unité (prix de la boutique).`)) return;
     majFiche(r.fiche, r.journal, { ajustements: [r.ajustement, ...(db.ajustements || [])] });
-    setStockForm(stockVide);
+    setStockForm(stockVide); setFormArt((f) => (f ? { ...f, stock: false } : null));
   };
 
   const ajouterHB = (c) => {
@@ -93,7 +94,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
     const r = ajouterArticleHB(profile, c, hb, today());
     if (r.refus) { uAlert(r.refus); return; }
     majFiche(r.fiche, r.journal);
-    setHb(hbVide);
+    setHb(hbVide); setFormArt((f) => (f ? { ...f, hb: false } : null));
   };
 
   const retirer = async (c, ligne) => {
@@ -234,7 +235,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
           <span>🛠 Travaux à crédit — {boutique} ({liste.length})</span>
-          <span className="text-xs font-normal text-slate-500">Une fiche soldée quitte cette liste et se range dans 🏠 Clients installés.</span>
+          <NoteDepliable libelle="Une fiche soldée ?" className="text-xs font-normal text-slate-500">Une fiche soldée quitte cette liste et se range dans 🏠 Clients installés.</NoteDepliable>
         </div>
         {liste.length === 0 && <div className="px-4 py-6 text-center text-slate-400">Aucun travail en cours pour {boutique}.</div>}
         {liste.map((c) => {
@@ -263,11 +264,27 @@ export function Travaux({ db, save, profile, onFacturer }) {
                   <InterventionsDuChantier c={c} db={db} profile={profile} save={save} boutique={boutique} />
                   {(c.tel || c.adresse) && <div className="text-xs text-slate-600">{c.tel ? `📞 ${c.tel}` : ""}{c.tel && c.adresse ? " · " : ""}{c.adresse ? `📍 ${c.adresse}` : ""}</div>}
 
-                  {/* ---- Équipe ---- */}
-                  <div>
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">👷 Équipe — {(c.equipe || []).length ? libelleEquipe(c) : "aucune"}</div>
-                    {ROLES_EQUIPE.includes(profile.role) && (equipeForm && equipeForm.id === c.id ? (
-                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                  {/* 🔤 LES GESTES EN TOUTES LETTRES, SUR TROIS LIGNES (18/11/2026, « Construit, lance ») :
+                      Facture · Chantier · Autres. Mêmes gestes, mêmes droits qu'avant. */}
+                  <div className="flex flex-col gap-1.5" data-gestes-travaux>
+                    <LigneGestes nom="Facture">
+                      {!vente && ROLES_FACTURER.includes(profile.role) && <BoutonGeste data-releve-bouton icone="🧾" nom="Relevé des travaux" onClick={() => releve(c)} titre="Le détail des travaux et le total à venir, à remettre au client pour qu'il vérifie — ce n'est pas une facture" />}
+                      {!vente && ROLES_FACTURER.includes(profile.role) && <BoutonGeste icone="🧾" teinte="vert" nom="Facturer le client (vers 💰 Ventes)" onClick={() => facturer(c)} titre="Préparer le panier de 💰 Ventes avec ces travaux" />}
+                    </LigneGestes>
+                    <LigneGestes nom="Chantier">
+                      {ROLES_EQUIPE.includes(profile.role) && <BoutonGeste icone="👷" teinte="violet" nom={(c.equipe || []).length ? "Modifier l'équipe" : "Composer l'équipe"} onClick={() => setEquipeForm({ id: c.id, ids: (c.equipe || []).map((e) => e.user_id), chef: (c.equipe || []).find((e) => e.chef)?.user_id || "" })} titre="Cochez les techniciens, puis désignez le responsable ⭐" />}
+                      {!vente && ROLES_FICHE.includes(profile.role) && <BoutonGeste icone="🛠" nom="Frais de prestation" onClick={() => setPrest({ id: c.id, mode: c.prestation?.mode || "pct", valeur: String(c.prestation?.valeur ?? 0) })} titre="✏️ Fixer les frais de prestation" />}
+                      {!vente && ROLES_ARTICLES.includes(profile.role) && <BoutonGeste icone="➕" nom="Sortir un article" onClick={() => setFormArt({ id: c.id, stock: !(formArt && formArt.id === c.id && formArt.stock), hb: !!(formArt && formArt.id === c.id && formArt.hb) })} titre="Sortir un article de la boutique (le stock baisse tout de suite, prix de la boutique)" />}
+                      {!vente && ROLES_FICHE.includes(profile.role) && <BoutonGeste icone="➕" nom="Article hors boutique" onClick={() => setFormArt({ id: c.id, hb: !(formArt && formArt.id === c.id && formArt.hb), stock: !!(formArt && formArt.id === c.id && formArt.stock) })} titre="Article HB (acheté dehors : câble, tuyau…) — pas de stock" />}
+                    </LigneGestes>
+                    <LigneGestes nom="Autres">
+                      {jeSuisPrincipal && !vente && <BoutonGeste icone="🗑" teinte="rouge" nom="Supprimer ces travaux" onClick={() => supprimer(c)} titre="Possible tant qu'aucun article n'est rattaché ; les dépenses liées restent dans 📤 Dépenses" />}
+                    </LigneGestes>
+                  </div>
+
+                  {/* ---- Les formulaires ne s'ouvrent qu'au clic sur leur geste ---- */}
+                  {ROLES_EQUIPE.includes(profile.role) && equipeForm && equipeForm.id === c.id && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
                         <div className="text-xs text-slate-500 mb-2">Cochez les techniciens, puis désignez le responsable ⭐.</div>
                         {techniciens.length === 0 && <div className="text-sm text-slate-400">Aucun technicien actif dans cet espace.</div>}
                         <div className="space-y-1">
@@ -286,13 +303,63 @@ export function Travaux({ db, save, profile, onFacturer }) {
                           <button onClick={() => setEquipeForm(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-sm">Annuler</button>
                         </div>
                       </div>
-                    ) : (
-                      <button onClick={() => setEquipeForm({ id: c.id, ids: (c.equipe || []).map((e) => e.user_id), chef: (c.equipe || []).find((e) => e.chef)?.user_id || "" })} className="text-xs font-bold text-sky-800 underline">👷 {(c.equipe || []).length ? "Modifier l'équipe" : "Composer l'équipe"}</button>
-                    ))}
-                  </div>
+                  )}
+                  {!vente && ROLES_FICHE.includes(profile.role) && prest && prest.id === c.id && (
+                    <div className="flex flex-wrap items-end gap-2">
+                        <select className={inputCls} value={prest.mode} onChange={(e) => setPrest({ ...prest, mode: e.target.value })}>
+                          <option value="pct">Pourcentage de tous les articles</option>
+                          <option value="montant">Montant libre</option>
+                        </select>
+                        <input type="number" min="0" className={`${inputCls} w-32`} value={prest.valeur} onChange={(e) => setPrest({ ...prest, valeur: e.target.value })} />
+                        <span className="text-sm text-slate-500">{prest.mode === "pct" ? "%" : "F"}</span>
+                        <button onClick={() => enregistrerPrestation(c)} className={btnDark}>Enregistrer</button>
+                        <button onClick={() => setPrest(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-sm">Annuler</button>
+                      </div>
+                  )}
+                  {!vente && ROLES_ARTICLES.includes(profile.role) && formArt && formArt.id === c.id && formArt.stock && (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+                            <div className="text-xs font-bold text-emerald-800 mb-2">Sortir un article de la boutique (le stock baisse tout de suite, prix de la boutique)</div>
+                            {/* Captures Timo (13/09/2026) : « les lignes ne sont pas
+                                nommées au-dessus… on devrait avoir Article, Quantité »
+                                et « la ligne de quantité s'élargit » (la case suivait la
+                                hauteur de la ligne d'aide) : titres, et la ligne d'aide
+                                SOUS la grille, pas dans la colonne. */}
+                            <div className="grid grid-cols-3 gap-2 items-start">
+                              <div className="col-span-2">
+                                <Field label="Article">
+                                  <ChampSuggestions className={inputCls} placeholder="Article du stock : tapez son nom…"
+                                    valeur={stockForm.saisie}
+                                    suggestions={propositionsStock(db, produits)}
+                                    onChange={(v) => setStockForm({ ...stockForm, saisie: v, produit_id: produitSaisi(produits, v)?.id || "" })}
+                                    onChoisir={(s) => setStockForm({ ...stockForm, saisie: s.valeur, produit_id: s.produit_id })} />
+                                </Field>
+                              </div>
+                              <Field label="Quantité"><input type="number" min="1" className={inputCls} value={stockForm.qte} onChange={(e) => setStockForm({ ...stockForm, qte: e.target.value })} /></Field>
+                            </div>
+                            {stockForm.produit_id ? (
+                              <div className="text-[11px] text-emerald-700 mt-1">✓ {stockActuel(db, produits.find((p) => p.id === stockForm.produit_id))} en stock · {fmt(produits.find((p) => p.id === stockForm.produit_id)?.prix_vente)} l'unité</div>
+                            ) : stockForm.saisie ? (
+                              <div className="text-[11px] text-orange-600 mt-1">Aucun article du stock ne porte exactement ce nom : cliquez une proposition.</div>
+                            ) : null}
+                            <button onClick={() => sortirArticle(c)} className={`mt-2 ${btnDark}`}>📦 Sortir du stock</button>
+                          </div>
+                  )}
+                  {!vente && ROLES_FICHE.includes(profile.role) && formArt && formArt.id === c.id && formArt.hb && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                            <div className="text-xs font-bold text-amber-800 mb-2">Article HB (acheté dehors : câble, tuyau…) — pas de stock</div>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 items-start">
+                              <Field label="Article"><input className={inputCls} placeholder="Nom" value={hb.nom} onChange={(e) => setHb({ ...hb, nom: e.target.value })} /></Field>
+                              <Field label="Quantité"><input type="number" min="1" className={inputCls} value={hb.qte} onChange={(e) => setHb({ ...hb, qte: e.target.value })} /></Field>
+                              <Field label="Prix payé (F)"><input type="number" min="0" className={inputCls} value={hb.pu_achat} onChange={(e) => setHb({ ...hb, pu_achat: e.target.value })} /></Field>
+                              <Field label="Prix facturé (F)"><input type="number" min="0" className={inputCls} value={hb.pu_vente} onChange={(e) => setHb({ ...hb, pu_vente: e.target.value })} /></Field>
+                            </div>
+                            <button onClick={() => ajouterHB(c)} className={`mt-2 ${btnDark}`}>+ Ajouter l'article HB</button>
+                          </div>
+                  )}
 
-                  {/* ---- Articles ---- */}
-                  <div>
+                  <div className="grid lg:grid-cols-2 gap-4 items-start" data-blocs-travaux>
+                    {/* ---- Articles ---- */}
+                    <div>
                     <div className="text-xs font-bold text-slate-500 uppercase mb-1">📦 Articles ({(c.articles_travaux || []).length}) — {fmt(totalArticles(c))} facturés{totalRemises(c) > 0 ? ` (remises : −${fmt(totalRemises(c))})` : ""}, coût {fmt(coutArticles(c))}</div>
                     {(c.articles_travaux || []).length > 0 && (
                       <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
@@ -326,76 +393,20 @@ export function Travaux({ db, save, profile, onFacturer }) {
                         </table>
                       </div>
                     )}
-                    {!vente && (
-                      <div className="grid lg:grid-cols-2 gap-3 mt-2">
-                        {ROLES_ARTICLES.includes(profile.role) && (
-                          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
-                            <div className="text-xs font-bold text-emerald-800 mb-2">Sortir un article de la boutique (le stock baisse tout de suite, prix de la boutique)</div>
-                            {/* Captures Timo (13/09/2026) : « les lignes ne sont pas
-                                nommées au-dessus… on devrait avoir Article, Quantité »
-                                et « la ligne de quantité s'élargit » (la case suivait la
-                                hauteur de la ligne d'aide) : titres, et la ligne d'aide
-                                SOUS la grille, pas dans la colonne. */}
-                            <div className="grid grid-cols-3 gap-2 items-start">
-                              <div className="col-span-2">
-                                <Field label="Article">
-                                  <ChampSuggestions className={inputCls} placeholder="Article du stock : tapez son nom…"
-                                    valeur={stockForm.saisie}
-                                    suggestions={propositionsStock(db, produits)}
-                                    onChange={(v) => setStockForm({ ...stockForm, saisie: v, produit_id: produitSaisi(produits, v)?.id || "" })}
-                                    onChoisir={(s) => setStockForm({ ...stockForm, saisie: s.valeur, produit_id: s.produit_id })} />
-                                </Field>
-                              </div>
-                              <Field label="Quantité"><input type="number" min="1" className={inputCls} value={stockForm.qte} onChange={(e) => setStockForm({ ...stockForm, qte: e.target.value })} /></Field>
-                            </div>
-                            {stockForm.produit_id ? (
-                              <div className="text-[11px] text-emerald-700 mt-1">✓ {stockActuel(db, produits.find((p) => p.id === stockForm.produit_id))} en stock · {fmt(produits.find((p) => p.id === stockForm.produit_id)?.prix_vente)} l'unité</div>
-                            ) : stockForm.saisie ? (
-                              <div className="text-[11px] text-orange-600 mt-1">Aucun article du stock ne porte exactement ce nom : cliquez une proposition.</div>
-                            ) : null}
-                            <button onClick={() => sortirArticle(c)} className={`mt-2 ${btnDark}`}>📦 Sortir du stock</button>
-                          </div>
-                        )}
-                        {ROLES_FICHE.includes(profile.role) && (
-                          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                            <div className="text-xs font-bold text-amber-800 mb-2">Article HB (acheté dehors : câble, tuyau…) — pas de stock</div>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 items-start">
-                              <Field label="Article"><input className={inputCls} placeholder="Nom" value={hb.nom} onChange={(e) => setHb({ ...hb, nom: e.target.value })} /></Field>
-                              <Field label="Quantité"><input type="number" min="1" className={inputCls} value={hb.qte} onChange={(e) => setHb({ ...hb, qte: e.target.value })} /></Field>
-                              <Field label="Prix payé (F)"><input type="number" min="0" className={inputCls} value={hb.pu_achat} onChange={(e) => setHb({ ...hb, pu_achat: e.target.value })} /></Field>
-                              <Field label="Prix facturé (F)"><input type="number" min="0" className={inputCls} value={hb.pu_vente} onChange={(e) => setHb({ ...hb, pu_vente: e.target.value })} /></Field>
-                            </div>
-                            <button onClick={() => ajouterHB(c)} className={`mt-2 ${btnDark}`}>+ Ajouter l'article HB</button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* ---- Frais de prestation ---- */}
-                  <div>
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">🛠 Frais de prestation — {fmt(montantPrestation(c))} {c.prestation?.mode === "pct" ? `(${Number(c.prestation?.valeur || 0)} % de tous les articles)` : "(montant fixé)"}</div>
-                    <div className="text-xs text-slate-500 mb-1">Ils couvrent carburant, nourriture et main-d'œuvre : ces petites dépenses ne se facturent pas à part.</div>
-                    {!vente && ROLES_FICHE.includes(profile.role) && (prest && prest.id === c.id ? (
-                      <div className="flex flex-wrap items-end gap-2">
-                        <select className={inputCls} value={prest.mode} onChange={(e) => setPrest({ ...prest, mode: e.target.value })}>
-                          <option value="pct">Pourcentage de tous les articles</option>
-                          <option value="montant">Montant libre</option>
-                        </select>
-                        <input type="number" min="0" className={`${inputCls} w-32`} value={prest.valeur} onChange={(e) => setPrest({ ...prest, valeur: e.target.value })} />
-                        <span className="text-sm text-slate-500">{prest.mode === "pct" ? "%" : "F"}</span>
-                        <button onClick={() => enregistrerPrestation(c)} className={btnDark}>Enregistrer</button>
-                        <button onClick={() => setPrest(null)} className="px-3 py-2 rounded-lg border border-slate-300 text-sm">Annuler</button>
+                    <div className="space-y-3">
+                      {/* ---- Équipe et frais de prestation : une ligne chacun ---- */}
+                      <div className="text-sm"><b>👷 Équipe</b> — {(c.equipe || []).length ? libelleEquipe(c) : "aucune"}</div>
+                      <div className="text-sm" data-prestation><b>🛠 Frais de prestation</b> — {fmt(montantPrestation(c))} {c.prestation?.mode === "pct" ? `(${Number(c.prestation?.valeur || 0)} % de tous les articles)` : "(montant fixé)"}
+                        <NoteDepliable libelle="Pourquoi pas de carburant à part ?" className="text-xs text-slate-500">Ils couvrent carburant, nourriture et main-d'œuvre : ces petites dépenses ne se facturent pas à part.</NoteDepliable>
                       </div>
-                    ) : (
-                      <button onClick={() => setPrest({ id: c.id, mode: c.prestation?.mode || "pct", valeur: String(c.prestation?.valeur ?? 0) })} className="text-xs font-bold text-sky-800 underline">✏️ Fixer les frais de prestation</button>
-                    ))}
-                  </div>
 
-                  {/* ---- Petites dépenses rattachées ---- */}
-                  <div>
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">🧾 Petites dépenses rattachées — {fmt(totalDepensesChantier(db, c.id))}</div>
-                    {deps.length === 0
+                      {/* ---- Petites dépenses rattachées ---- */}
+                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                        <CarteRepliable titre={`🧾 Petites dépenses rattachées — ${fmt(totalDepensesChantier(db, c.id))}`} ouvertParDefaut={deps.length > 0} vide={deps.length === 0}
+                          resume={`aucune (saisissez-les dans 📤 Dépenses avec la ligne « Chantier à rattacher » : 🛠 ${c.prenom} ${c.nom})`}>
+                          {deps.length === 0
                       ? <div className="text-xs text-slate-500">Aucune. Saisissez-les dans 📤 Dépenses avec la ligne « Chantier à rattacher » : 🛠 {c.prenom} {c.nom}.</div>
                       : <ul className="space-y-1" data-depenses-rattachees>
                           {deps.map((d) => (
@@ -409,10 +420,13 @@ export function Travaux({ db, save, profile, onFacturer }) {
                             </li>
                           ))}
                         </ul>}
-                    <ArgentDuChantier db={db} profile={profile} chantierId={c.id} />
+                        </CarteRepliable>
+                      </div>
+                      <ArgentDuChantier db={db} profile={profile} chantierId={c.id} />
+                    </div>
                   </div>
 
-                  {/* ---- Facture ---- */}
+{/* ---- Facture ---- */}
                   <div className="rounded-lg border border-slate-300 bg-white p-3">
                     {vente ? (
                       <div className="text-sm">
@@ -424,20 +438,9 @@ export function Travaux({ db, save, profile, onFacturer }) {
                     ) : (
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="text-sm">Total à facturer : <b className="tabular-nums text-base">{fmt(totalAFacturer(c))}</b> <span className="text-xs text-slate-500">(articles {fmt(totalArticles(c))} + prestation {fmt(montantPrestation(c))})</span></div>
-                        {ROLES_FACTURER.includes(profile.role) && (
-                          <div className="flex flex-wrap gap-2">
-                            <button onClick={() => releve(c)} className="px-3 py-2 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-700 hover:bg-slate-50" data-releve-bouton title="Le détail des travaux et le total à venir, à remettre au client pour qu'il vérifie — ce n'est pas une facture">🧾 Relevé des travaux</button>
-                            <button onClick={() => facturer(c)} className={btnDark}>🧾 Facturer le client (vers 💰 Ventes)</button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
-                  {jeSuisPrincipal && !vente && (
-                    <div className="text-right">
-                      <button onClick={() => supprimer(c)} className="text-xs font-bold text-red-700 underline" title="Possible tant qu'aucun article n'est rattaché ; les dépenses liées restent dans 📤 Dépenses">🗑 Supprimer ces travaux</button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>

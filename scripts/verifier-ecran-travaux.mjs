@@ -87,9 +87,18 @@ console.log("\nL'écran se monte et lit la fiche");
   test("★ les frais de prestation se lisent : 25 000 F (10 % de tous les articles)", /Frais de prestation — 25 000 F \(10 % de tous les articles\)/.test(t2));
 }
 
+// 🔤 « Construit, lance » (18/11/2026) : les gestes en toutes lettres sur trois lignes, les formulaires fermés d'office.
+{
+  const gestes = propre(await page.$eval("[data-gestes-travaux]", (e) => e.innerText));
+  test("★ les gestes sont en TOUTES LETTRES sur trois lignes : Facture (Relevé, Facturer) · Chantier (équipe, frais, sortir un article, article hors boutique) · Autres (Supprimer)",
+    /Facture/.test(gestes) && /Chantier/.test(gestes) && /Autres/.test(gestes) && /Relevé des travaux/.test(gestes) && /Facturer le client \(vers 💰 Ventes\)/.test(gestes) && /Composer l'équipe/.test(gestes) && /Frais de prestation/.test(gestes) && /Sortir un article/.test(gestes) && /Article hors boutique/.test(gestes) && /Supprimer ces travaux/.test(gestes) && (await page.$$("[data-gestes-travaux] [data-ligne-gestes]")).length === 3, gestes);
+  test("★ les deux formulaires de sortie d'article NE SONT PAS étalés : ils ne s'ouvrent qu'au clic sur leur geste", !(await page.$("input[placeholder^='Article du stock']")) && !(await page.$("input[placeholder='Nom']")));
+}
+
 console.log("\nChanger les frais de prestation en montant libre");
 {
-  await page.click("text=✏️ Fixer les frais de prestation");
+  // RETOURNÉ le 18/11/2026 : un geste en toutes lettres.
+  await page.click("[data-gestes-travaux] >> text=Frais de prestation");
   await attendre(150);
   await page.selectOption("select >> nth=-1", "montant");
   const champs = await page.$$("input[type=number]");
@@ -120,6 +129,10 @@ console.log("\nChoisir l'article à sortir en tapant son nom (capture Timo, 13/0
   // lie ; « Sortir du stock » passe par la confirmation (sans fenêtre ici,
   // uConfirm ne répond pas) — on mesure la liaison, pas la sortie.
   test("★ plus aucune liste déroulante « Article du stock » dans l'écran", !(await page.$("select >> text=— Article du stock —")) && (await page.$$eval("select", (l) => l.filter((x) => /Article du stock/.test(x.textContent)).length)) === 0);
+  // RETOURNÉ le 18/11/2026 : les deux formulaires s'ouvrent par leur geste (« Sortir un article », « Article hors boutique »).
+  await page.click("[data-gestes-travaux] >> text=Sortir un article");
+  await page.click("[data-gestes-travaux] >> text=Article hors boutique");
+  await attendre(150);
   const champ = await page.$("input[placeholder^='Article du stock']");
   test("★ le champ « Article du stock : tapez son nom… » est là", !!champ);
   await champ.click();

@@ -10215,7 +10215,7 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     && Tv.chefTravaux({ equipe: eq }).user_id === "t2" && Tv.libelleEquipe({ equipe: eq }) === "KOSSI, ⭐ AMA D.");
   const tvJ = readFileSync("src/screens/Travaux.jsx", "utf8");
   test("★ l'écran : « 🗑 Supprimer ces travaux » pour le PRINCIPAL seul (refuserSaufAdminPrincipal + critiqueSuppression, corbeille, dépenses conservées dites), l'équipe pour l'admin (refuserSaufRoles ROLES_EQUIPE, composerEquipe) parmi les techniciens de l'espace regardé",
-    /refuserSaufAdminPrincipal\(db, profile, "Supprimer des travaux"\)/.test(tvJ) && /const refus = critiqueSuppression\(c\);/.test(tvJ) && /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(tvJ) && /RESTENT dans 📤 Dépenses/.test(tvJ) && /\{jeSuisPrincipal && !vente && \(/.test(tvJ)
+    /refuserSaufAdminPrincipal\(db, profile, "Supprimer des travaux"\)/.test(tvJ) && /const refus = critiqueSuppression\(c\);/.test(tvJ) && /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(tvJ) && /RESTENT dans 📤 Dépenses/.test(tvJ) && /* RETOURNÉ le 18/11/2026 : un geste en toutes lettres. */ /\{jeSuisPrincipal && !vente && <BoutonGeste icone="🗑" teinte="rouge" nom="Supprimer ces travaux"/.test(tvJ)
     && /refuserSaufRoles\(profile, ROLES_EQUIPE, "Composer l'équipe des travaux"\)/.test(tvJ) && /const equipe = composerEquipe\(techniciens, equipeForm\.ids, equipeForm\.chef\);/.test(tvJ)
     && /const techniciens = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => \["technicien", "technicien_bmi"\]\.includes\(u\.role\) && u\.actif !== false\);/.test(tvJ));
   // Timo (07/10/2026) : « petite dépense rattachée… en gras, l'utilisateur qui
