@@ -5,7 +5,7 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, dFR } from "../lib/core";
-import { Panel, uAlert, uConfirm, uPrompt, demanderMoyenPaiement } from "../components/ui";
+import { Panel, uAlert, uConfirm, uPrompt, demanderMoyenPaiement, CarteRepliable } from "../components/ui";
 import { ficheParId } from "../lib/banques";
 import { bloquerSiLecture, primesEnAttente, construirePaiementPrime, envoyerAvisPrimePayee, primeDejaPayee, retenueOutilPourPrime } from "../lib/calculs";
 
@@ -13,7 +13,6 @@ export function PrimesRemises({ db, save, profile }) {
   const isAdmin = profile.role === "admin";
   const [bq, setBq] = useState(profile.boutique || "");
   const boutique = profile.boutique || bq;
-  const [historiqueOuvert, setHistoriqueOuvert] = useState(false);
 
   if (!boutique) {
     return <Panel><div className="text-slate-500 text-sm">Aucune boutique rattachée à votre compte — cet onglet est réservé au vendeur ou au gérant d'une boutique précise.</div></Panel>;
@@ -52,45 +51,73 @@ export function PrimesRemises({ db, save, profile }) {
     uAlert((ret.montant > 0 ? `✅ ${fmt(net)} payés à ${e.nom} (${fmt(ret.montant)} retenus pour outil perdu).` : `✅ ${fmt(e.montant)} payés à ${e.nom}.`) + (avis ? `\n\n${avis}` : ""));
   };
 
+  // 💰 FAÇON CARNET (18/11/2026, aperçu validé par Timo, « Construit, lance ») :
+  // un tableau (sur téléphone : une carte par demande), le geste écrit en mots,
+  // l'explication derrière « ⓘ », l'historique replié et en tableau.
+  const geste = (c, e) => (
+    <button onClick={() => valider({ client: c, entree: e })} data-geste className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-lg px-3 py-1.5 hover:bg-emerald-100">✓ Valider et payer</button>
+  );
+  const nomPrime = (e) => <>{e.nom}{e.chef ? " ⭐" : ""}{e.prime_employe ? " 🎁 prime de chantier" : ""}</>;
+
   return (
     <div className="space-y-4">
       <Panel>
-        <div className="font-bold mb-1">💰 Primes remises — {boutique}</div>
-        <div className="text-xs text-slate-500 mb-3">Demandes de paiement de prime d'installation adressées à la caisse de cette boutique. Valider déclenche la vraie sortie de caisse et prévient le technicien.</div>
-
-        {enAttente.length === 0 && <div className="text-sm text-slate-400 py-4 text-center">Aucune demande en attente pour l'instant.</div>}
-
-        <div className="space-y-2">
-          {enAttente.map(({ client: c, entree: e }) => (
-            <div key={`${c.id}-${e.user_id}`} data-ligne={`${c.id}:${e.user_id}`} className="flex items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 flex-wrap">
-              <div>
-                <div className="font-semibold text-sm">{e.nom}{e.chef ? " ⭐" : ""}{e.prime_employe ? " 🎁 prime de chantier" : ""} <span className="text-slate-400 font-normal">· chantier {c.nom} {c.prenom || ""}</span></div>
-                <div className="text-xs text-slate-500">Demandé le {dFR(e.prime_demandee_le)} par {e.prime_demandee_par}</div>
+        <CarteRepliable titre={`💰 Primes remises — ${boutique}`} badge={<span className="text-xs font-normal text-slate-500">— {enAttente.length} demande{enAttente.length > 1 ? "s" : ""} en attente</span>}
+          explication="Demandes de paiement de prime d'installation adressées à la caisse de cette boutique. Valider déclenche la vraie sortie de caisse et prévient le technicien.">
+          {enAttente.length === 0 && <div className="text-sm text-slate-400 py-4 text-center">Aucune demande en attente pour l'instant.</div>}
+          {enAttente.length > 0 && (
+            <>
+              <div className="hidden sm:block overflow-x-auto" data-primes-remises-table>
+                <table className="w-full text-sm">
+                  <thead><tr className="text-xs text-slate-500 uppercase">{["Technicien", "Chantier", "Demandé", "Montant", "Geste"].map((h) => <th key={h} className={`px-3 py-2 ${h === "Montant" ? "text-right" : "text-left"}`}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {enAttente.map(({ client: c, entree: e }) => (
+                      <tr key={`${c.id}-${e.user_id}`} data-ligne={`${c.id}:${e.user_id}`} className="border-t border-slate-100 bg-sky-50">
+                        <td className="px-3 py-2 font-semibold">{nomPrime(e)}</td>
+                        <td className="px-3 py-2">{c.nom} {c.prenom || ""}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{dFR(e.prime_demandee_le)} par {e.prime_demandee_par}</td>
+                        <td className="px-3 py-2 text-right font-bold tabular-nums">{fmt(e.montant)}</td>
+                        <td className="px-3 py-2">{geste(c, e)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold tabular-nums">{fmt(e.montant)}</span>
-                <button onClick={() => valider({ client: c, entree: e })} className="text-xs font-bold text-white bg-emerald-700 rounded-lg px-3 py-1.5 hover:bg-emerald-800">✓ Valider et payer</button>
+              <div className="sm:hidden space-y-2" data-primes-remises-cartes>
+                {enAttente.map(({ client: c, entree: e }) => (
+                  <div key={`${c.id}-${e.user_id}`} data-ligne={`${c.id}:${e.user_id}`} className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2"><div className="font-semibold text-sm">{nomPrime(e)}</div><span className="font-bold tabular-nums">{fmt(e.montant)}</span></div>
+                    <div className="text-xs text-slate-500">{c.nom} {c.prenom || ""} · demandé le {dFR(e.prime_demandee_le)} par {e.prime_demandee_par}</div>
+                    <div className="mt-2">{geste(c, e)}</div>
+                  </div>
+                ))}
               </div>
-            </div>
-          ))}
-        </div>
+            </>
+          )}
+        </CarteRepliable>
       </Panel>
 
       <Panel>
-        <button onClick={() => setHistoriqueOuvert(!historiqueOuvert)} className="font-bold text-sm text-slate-700">
-          {historiqueOuvert ? "▾" : "▸"} Historique des primes déjà payées par cette boutique ({historique.length})
-        </button>
-        {historiqueOuvert && (
-          <div className="mt-3 space-y-1">
-            {historique.length === 0 && <div className="text-sm text-slate-400">Aucune prime payée par cette boutique pour l'instant.</div>}
-            {historique.map(({ client: c, entree: e }) => (
-              <div key={`${c.id}-${e.user_id}`} data-ligne={`${c.id}:${e.user_id}`} className="flex items-center justify-between text-sm border-t border-slate-100 py-2">
-                <span>{e.nom} · chantier {c.nom} {c.prenom || ""} <span className="text-slate-400">— payé le {dFR(e.date_paiement)}</span></span>
-                <span className="font-bold tabular-nums">{fmt(e.montant)}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <CarteRepliable titre={`Historique des primes déjà payées par cette boutique (${historique.length})`} ouvertParDefaut={false}>
+          {historique.length === 0 && <div className="text-sm text-slate-400">Aucune prime payée par cette boutique pour l'instant.</div>}
+          {historique.length > 0 && (
+            <div className="overflow-x-auto" data-primes-historique-table>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Technicien", "Chantier", "Payé le", "Montant"].map((h) => <th key={h} className={`px-3 py-2 ${h === "Montant" ? "text-right" : "text-left"}`}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {historique.map(({ client: c, entree: e }) => (
+                    <tr key={`${c.id}-${e.user_id}`} data-ligne={`${c.id}:${e.user_id}`} className="border-t border-slate-100">
+                      <td className="px-3 py-2">{e.nom}</td>
+                      <td className="px-3 py-2">{c.nom} {c.prenom || ""}</td>
+                      <td className="px-3 py-2 text-slate-500">{dFR(e.date_paiement)}</td>
+                      <td className="px-3 py-2 text-right font-bold tabular-nums">{fmt(e.montant)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CarteRepliable>
       </Panel>
     </div>
   );

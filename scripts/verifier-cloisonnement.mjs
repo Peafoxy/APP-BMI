@@ -15096,6 +15096,25 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
         !errR && (html.match(/data-prime-chantier-recue/g) || []).length === 1 && (html.match(/data-prime-salaire-recue/g) || []).length === 2
         && html.includes("🎁 prime sur chantier") && !html.includes("remboursement taxi") && html.includes("bon mois")
         && html.includes(Core.fmt(12000)) && html.includes(Core.fmt(10000)));
+      // 💰 FAÇON CARNET (18/11/2026) : totaux en cartes, deux tableaux côte à côte (+ une carte par prime sur téléphone).
+      test("★ 💰 Primes reçues façon carnet : deux cartes de totaux, les deux blocs CÔTE À CÔTE en tableaux, et une carte par prime pour le téléphone",
+        /data-cartes-primes/.test(html) && /data-primes-colonnes/.test(html) && /lg:grid-cols-2/.test(html)
+        && /data-primes-chantier-table/.test(html) && /data-primes-salaire-table/.test(html)
+        && (html.match(/data-prime-chantier-carte/g) || []).length === 1 && (html.match(/data-prime-salaire-carte/g) || []).length === 2
+        && !/Mon salaire reste|rounded-lg border px-3 py-2 flex-wrap/.test(html));
+      {
+        const dbR = { boutiques: [{ id: "b1", nom: "DEMAKPOE" }], users: [{ id: "u_ag", nom: "AGBEKO", role: "technicien", actif: true }, ang],
+          clients_installes: [
+            { id: "c1", nom: "KOFFIVI", prenom: "MASSA", boutique: "DEMAKPOE", equipe: [{ user_id: "u_ag", nom: "AGBEKO", chef: true, pct: 10, montant: 85000, paye: false, demande_prime: true, prime_boutique: "DEMAKPOE", prime_demandee_le: "2026-11-12", prime_demandee_par: "ANGELE" }] },
+            { id: "c2", nom: "ERIC", boutique: "DEMAKPOE", equipe: [{ user_id: "u_ag", nom: "AGBEKO", pct: 8, montant: 40000, paye: true, date_paiement: "2026-11-02", prime_boutique: "DEMAKPOE" }] }],
+          ventes: [], dettes: [], depenses: [], messages: [] };
+        let hR = "", errRem = "";
+        try { hR = P.rendrePrimesRemises(dbR, { id: "u_ang", nom: "ANGELE", role: "gerant", boutique: "DEMAKPOE" }); } catch (e) { errRem = String(e && e.message || e).split("\n")[0]; }
+        test("★ 💰 Primes remises façon carnet : la demande en TABLEAU (Technicien, Chantier, Demandé, Montant, Geste) + une carte téléphone, le geste ÉCRIT « ✓ Valider et payer », l'explication derrière « ⓘ », l'historique REPLIÉ" + (errRem ? ` (${errRem})` : ""),
+          !errRem && /data-primes-remises-table/.test(hR) && /data-primes-remises-cartes/.test(hR) && (hR.match(/✓ Valider et payer/g) || []).length === 2
+          && ["Technicien", "Chantier", "Demandé", "Montant", "Geste"].every((m) => hR.includes(`>${m}<`)) && hR.includes("data-titre-info")
+          && hR.includes("1 demande en attente") && !/data-primes-historique-table/.test(hR) && hR.includes("Historique des primes déjà payées par cette boutique (1)"));
+      }
       let htmlVide = "";
       try { htmlVide = P.rendrePrimes({ boutiques: [], users: [], clients_installes: [] }, { id: "x", nom: "X", role: "magasinier" }); } catch (e) { htmlVide = ""; }
       test("★ 💰 « B a » une fiche sans aucune prime (un magasinier, base nue) : l'écran se rend et DIT « Aucune prime » des deux côtés, jamais un écran blanc",

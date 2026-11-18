@@ -418,7 +418,8 @@ titre("🔔 Une notification mène à sa source");
     && /data-ligne=\{LIGNE_CLOTURES_DEPASSEES\}/.test(lireE("src/screens/Caisse.jsx")) && /<tr data-ligne=\{d\.id\} onClick=\{\(\) => setDetteDepliee/.test(lireE("src/screens/Dettes.jsx"))
     && /data-ligne=\{c\.id\} data-commande-attente/.test(lireE("src/screens/Commandes.jsx")) && /data-ligne=\{d\.id\} onClick=\{\(\) => ouvrirDevis\(d\)\}/.test(lireE("src/screens/TousLesDevis.jsx"))
     && /data-ligne=\{t\.id\}/.test(lireE("src/screens/MesTaches.jsx")) && /data-ligne=\{t\.id\}/.test(lireE("src/screens/MonEquipe.jsx"))
-    && (lireE("src/screens/PrimesRemises.jsx").match(/data-ligne=\{`\$\{c\.id\}:\$\{e\.user_id\}`\}/g) || []).length === 2
+    && // RETOURNÉ le 18/11/2026 (façon carnet) : 3 = demande (tableau + carte téléphone) + historique ; un seul des deux premiers est visible à la fois.
+    (lireE("src/screens/PrimesRemises.jsx").match(/data-ligne=\{`\$\{c\.id\}:\$\{e\.user_id\}`\}/g) || []).length === 3
     && /data-ligne=\{d\.id\}/.test(lireE("src/screens/EspaceClient.jsx")) && /data-ligne=\{x\.retour\.id\}/.test(lireE("src/components/ArgentChantier.jsx")) && /data-ligne=\{r\.id\}/.test(lireE("src/components/ArgentChantier.jsx"))
     && /data-ligne=\{a\.id\}/.test(lireE("src/components/AchatsChantier.jsx")));
   test("★ le serveur aussi : 📲 la conversation du client qui écrit, 🔧 le chantier du solde de pose, 🔧 la tâche d'entretien",

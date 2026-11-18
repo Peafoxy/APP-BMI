@@ -9,3 +9,7 @@ import { PrimesRecues } from "../src/screens/PrimesRecues.jsx";
 export { ROLES_PRIMES_RECUES, primesSurSalaire, ONGLETS_ROLE } from "../src/lib/calculs.js";
 
 export const rendrePrimes = (db, profile) => renderToStaticMarkup(React.createElement(PrimesRecues, { db, profile }));
+
+// 💰 PRIMES REMISES (18/11/2026, façon carnet) : l'écran de celui qui paie.
+import { PrimesRemises } from "../src/screens/PrimesRemises.jsx";
+export const rendrePrimesRemises = (db, profile) => renderToStaticMarkup(React.createElement(PrimesRemises, { db, save: () => {}, profile }));
