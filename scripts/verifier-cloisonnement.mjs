@@ -11618,7 +11618,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ l'ÉCRAN : le bouton 🏗 sur un outil sorti, la même question dans « Mes outils », la saisie libre TOUJOURS proposée, et la colonne Chantier qui lit le chantier EN COURS",
       /async function nouveauChantierPour\(outil, ouverts, profile, jour\)/.test(ecrC)
       && /const LIBRE = "✏️ Saisir un chantier \(nom libre\)";/.test(ecrC)
-      && /jePeux && etat === "sorti" && <button title="Changer le chantier \(sans le ramener\)"/.test(ecrC)
+      && /* RETOURNÉ le 18/11/2026 : un geste en toutes lettres. */ /jePeux && etat === "sorti" && <BoutonGeste icone="🏗" titre="Changer le chantier \(sans le ramener\)" nom="Changer le chantier"/.test(ecrC)
       && /🏗 Changer le chantier/.test(ecrC)
       && /\{chantierEnCours\(o\) \|\| "—"\}/.test(ecrC)
       && /chantiersOuvertsPourOutil\(db, profile\)/.test(ecrC));
@@ -11839,7 +11839,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       test("★ l'ÉCRAN : ✖ n'est offert qu'au PRINCIPAL sur un outil rangé, la liste d'une caisse ne se règle que rangée, et les fiches retirées se voient (elles reviennent d'un clic)",
         /refuserSaufAdminPrincipal\(db, profile, "Supprimer un outil du registre"\)/.test(ecrC)
         && /refuserSaufAdminPrincipal\(db, profile, "Remettre un outil au registre"\)/.test(ecrC)
-        && /\{jeSuisPrincipal && outilRange\(o\) && <button title="Retirer cette fiche du registre/.test(ecrC)
+        && /* RETOURNÉ le 18/11/2026 : un geste en toutes lettres. */ /\{jeSuisPrincipal && outilRange\(o\) && <BoutonGeste icone="✖" teinte="rouge" titre="Retirer cette fiche du registre/.test(ecrC)
         && /\{jeSuisAdmin && outilRange\(o\) && <button onClick=\{\(\) => corrigerLigne\(o, l\)\}/.test(ecrC)
         && /\{jeSuisAdmin && outilRange\(o\) && <button onClick=\{\(\) => retirerDuContenu\(o, l\)\}/.test(ecrC)
         && /const bloque = critiqueOutilRange\(boite, "vous pourrez corriger sa liste"\);/.test(ecrC)
@@ -18510,6 +18510,19 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
         && /data-bloc-materiel/.test(hD) && /data-bloc-photos/.test(hD) && /data-bloc-observations/.test(hD) && /aucun matériel enregistré/.test(hD) && /aucune photo/.test(hD) && !/Adresse formelle/.test(hD), hD.slice(0, 200));
       let hD2 = "";
       try { hD2 = Ch.rendreChantiers(baseCh, timoC, { dossierInitial: "ci2" }); } catch (e) { hD2 = "ERREUR " + String(e && e.message || e).slice(0, 200); }
+      // 🧰 OUTILLAGE « LISIBLE COMME UN LIVRE » (18/11/2026) : l'écran rendu pour de vrai.
+      {
+        const perceuse = { id: "o1", nom: "Perceuse BOSCH", numero: "BMI-007", categorie: "Électroportatif", boite: false, prix_achat: 90000, lieu: "DEMAKPOE", mouvements: [{ id: "m1", type: "sortie", le: "2026-11-12", user_id: "t1", user: "KOSSI", chantier: "MR ERIC", retour_prevu: "2026-11-15", par_id: "u_timo", par: "TIMO" }] };
+        const caisse = { id: "o2", nom: "Caisse électricien", numero: "BMI-011", categorie: "Caisse", boite: true, contenu: [{ id: "l1", nom: "Pince", quantite: 2, valeur: 2000 }], prix_achat: 50000, lieu: "DEMAKPOE", mouvements: [] };
+        const dbO = { ...baseCh, users: [timoC, { id: "t1", nom: "KOSSI", role: "technicien", actif: true }], boutiques: [{ id: "b1", nom: "DEMAKPOE", outillage: { outils: [perceuse, caisse], appels: [] } }] };
+        let hO = "";
+        try { hO = Ch.rendreOutillage(dbO, timoC); } catch (e) { hO = "ERREUR " + String(e && e.message || e).slice(0, 200); }
+        test("★ 🧰 Outillage se rend : le tableau pour l'ordinateur, une carte par outil pour le téléphone, les gestes en TOUTES LETTRES sur des lignes nommées (Mouvement · Atelier · Fiche, celle qui n'a aucun bouton ne s'affiche pas)",
+          !hO.startsWith("ERREUR") && /hidden sm:block[^"]*" data-outils-table/.test(hO) && /sm:hidden[^"]*" data-outils-cartes/.test(hO) && /data-carte-outil="o1"/.test(hO)
+          && />Mouvement</.test(hO) && />Atelier</.test(hO) && !/>Fiche</.test(hO) /* la ligne Fiche n'a aucun bouton dans la vue « Dehors » : elle ne s'affiche pas */ && />📥 Retour</.test(hO) && />🏗 Changer le chantier</.test(hO) && />⚠ Perdu</.test(hO) && />🗑 Réformer</.test(hO), hO.slice(0, 200));
+        test("★ 🧰 la phrase « Où se range un outil ? » est derrière un petit bouton, jamais étalée ; la liste n'a plus de petits ronds de geste",
+          /data-note-depliable[^>]*>ⓘ Où se range un outil/.test(hO) && !/boutonAction|w-8 h-8 rounded-full/.test(hO.slice(hO.indexOf("data-outils-table"), hO.indexOf("data-outils-cartes"))), hO.slice(0, 200));
+      }
       test("★ 📁 un dossier qui a du matériel et une observation les montre ouverts ; sans programmation à faire, « Programmer » reste replié",
         !hD2.startsWith("ERREUR") && /Moteur/.test(hD2) && /Accès difficile/.test(hD2));
     }

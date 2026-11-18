@@ -20,7 +20,7 @@ import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp, totalVente } fro
 import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
 import { chiffresTel } from "../lib/identiteClient";
 import { ficheParId } from "../lib/banques";
-import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp, champRecherche, PanneauQuiSeMontre } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp, champRecherche, PanneauQuiSeMontre, BoutonGeste, LigneGestes, NoteDepliable } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { correspond } from "../lib/suggestions";
 // ⚠ La dépense de réparation passe par LA fabrique des dépenses : validation
@@ -902,11 +902,91 @@ export function Outillage({ db, save, profile }) {
     .map((b) => ({ b, fait: appelDeLaSemaine(b, jour), manquants: manquantsDuDernierAppel(b, registre) }))
     .filter((x) => x.fait);
 
+  // 🔤 LES GESTES D'UN OUTIL EN TOUTES LETTRES, SUR TROIS LIGNES (18/11/2026,
+  // « Construit, lance ») : Mouvement · Atelier · Fiche. Mêmes gestes, mêmes
+  // droits qu'avant — seul l'habillage change ; une ligne vide ne s'affiche pas.
+  // Écrit UNE fois : lu par le tableau (ordinateur) ET la carte (téléphone).
+  const gestesOutil = (o, etat, perte, mode) => (
+    <div className="flex flex-col gap-1.5" data-gestes-outil>
+      <LigneGestes nom="Mouvement">
+        {jePeux && (etat === "sorti" || etat === "reparation") && (
+          <BoutonGeste icone="📥" teinte="vert" titre={etat === "reparation" ? "Revenu de réparation" : "Enregistrer le retour"} nom={etat === "reparation" ? "Revenu de réparation" : "Retour"}
+            onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
+              ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: payeAvecDOffice(o) })
+              : rendre(o))} />
+        )}
+        {jePeux && etat === "sorti" && <BoutonGeste icone="🏗" titre="Changer le chantier (sans le ramener)" nom="Changer le chantier" onClick={() => changerLeChantier(o)} />}
+        {peutCompterBoite(o, profile) && etat === "sorti" && <BoutonGeste icone="🔢" titre="Compter la boîte" nom="Compter la boîte" onClick={() => setCompter({ outil_id: o.id, pourRetour: false, valeurs: {} })} />}
+      </LigneGestes>
+      <LigneGestes nom="Atelier">
+        {vue === "perdus" && jeSuisAdmin && perte && <BoutonGeste icone="✏️" titre="Combien lui demander ?" nom="Combien lui demander" onClick={() => fixerMontant(o)} />}
+        {vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir(perte) > 0 && <BoutonGeste icone="💵" teinte="rouge" titre="Retenir sur son salaire" nom="Retenir sur son salaire" onClick={() => retenir(o)} />}
+        {jePeux && etat === "en_boutique" && <BoutonGeste icone="🔧" teinte="ambre" titre="Partir en réparation" nom="Réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: payeAvecDOffice(o) })} />}
+        {jePeux && !["perdu", "reforme"].includes(etat) && <BoutonGeste icone="⚠" teinte="rouge" titre="Déclarer perdu" nom="Perdu" onClick={() => perdre(o)} />}
+        {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <BoutonGeste icone="🗑" titre="Réformer (usé, cassé)" nom="Réformer" onClick={() => reformer(o)} />}
+      </LigneGestes>
+      <LigneGestes nom="Fiche">
+        {jeSuisAdmin && vue === "tous" && outilRange(o) && (
+          <BoutonGeste icone="✏️" titre="Corriger la fiche (nom, numéro gravé, prix…)" nom="Corriger"
+            onClick={() => setFiche({ outil_id: o.id, nom: o.nom || "", numero: o.numero || "", categorie: o.categorie || "", achete_le: o.achete_le || "", prix_achat: String(o.prix_achat || "") })} />
+        )}
+        {estBoite(o) && !["perdu", "reforme"].includes(etat) && (
+          <BoutonGeste icone="🧰" titre="Ce que contient la boîte" nom="Contenu" onClick={() => setContenu({ outil_id: o.id, nom: "", quantite: "1", valeur: "" })} />
+        )}
+        {jeSuisPrincipal && outilRange(o) && <BoutonGeste icone="✖" teinte="rouge" titre="Retirer cette fiche du registre (créée par erreur)" nom="Retirer la fiche" onClick={() => supprimer(o)} />}
+      </LigneGestes>
+    </div>
+  );
+
+  // 🕘 L'histoire d'un outil (écrite une fois : la ligne dépliée ET la carte téléphone).
+  const histoireDe = (o, perte) => (
+    <>
+                            <div className="text-xs font-bold text-sky-900 mb-2">🕘 Histoire de « {o.nom} »{o.numero ? ` — N° ${o.numero}` : ""}</div>
+                            {o.categorie || o.achete_le || o.prix_achat ? (
+                              <div className="text-xs text-slate-600 mb-2">
+                                {o.categorie && <>Catégorie : <b>{o.categorie}</b> · </>}
+                                {o.achete_le && <>acheté le <b>{dFR(o.achete_le)}</b> · </>}
+                                {o.prix_achat ? <>prix d'achat <b>{fmt(o.prix_achat)}</b></> : null}
+                              </div>
+                            ) : null}
+                            {perte && retenuesDe(perte).length > 0 && (
+                              <div className="text-sm mb-2">
+                                <div className="text-xs font-bold text-sky-900 mb-1">💵 Ce qui a déjà été retenu à {perte.user || "—"}</div>
+                                {retenuesDe(perte).map((r) => (
+                                  <div key={r.id} className="text-slate-700">— {fmt(r.montant)} {libelleRetenue(r.sur)}{r.mois ? ` (${r.mois})` : ""}{r.ref ? ` · ${r.ref}` : ""} · le {dFR(r.le)}{r.par ? ` · par ${r.par}` : ""}</div>
+                                ))}
+                                <div className="text-slate-800 font-bold mt-1">Reste à payer : {fmt(resteARetenir(perte))}</div>
+                              </div>
+                            )}
+                            {justificationsDeLaSortie(o).length > 0 && (
+                              <div className="text-sm mb-2">
+                                {justificationsDeLaSortie(o).map((j) => (
+                                  <div key={j.id} className="text-slate-700">⏳ <b>{j.par}</b> le {dFR(j.le)} : {j.texte}</div>
+                                ))}
+                              </div>
+                            )}
+                            {histoireOutil(o).length === 0 ? (
+                              <div className="text-sm text-slate-500">Cet outil n'a encore jamais bougé.</div>
+                            ) : (
+                              <div className="space-y-1">
+                                {histoireOutil(o).map((h) => (
+                                  <div key={h.id} className="text-sm flex flex-wrap gap-x-2 items-baseline">
+                                    <span className="tabular-nums text-slate-500 w-24 shrink-0">{dFR(h.le)}</span>
+                                    <span className="font-bold text-slate-800 w-28 shrink-0">{h.quoi}</span>
+                                    <span className="text-slate-800"><span className="text-slate-500">{h.role}</span> <b>{h.qui}</b></span>
+                                    {h.detail && <span className="text-slate-600">— {h.detail}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+    </>
+  );
+
   return (
     <div className="space-y-4">
       <Panel>
         <div className="font-bold text-slate-800 text-lg mb-1">🧰 Le matériel de travail de BMI</div>
-        <div className="text-xs text-slate-500 mb-3">Un outil n'appartient pas à une boutique : il est à la maison. C'est la personne qui le reçoit qui dit où il se range — sa boutique, ou le magasin.</div>
+        <NoteDepliable libelle="Où se range un outil ?" className="text-xs text-slate-500 mb-3">Un outil n'appartient pas à une boutique : il est à la maison. C'est la personne qui le reçoit qui dit où il se range — sa boutique, ou le magasin.</NoteDepliable>
         {/* ⚠ Timo, 18/09/2026 : chaque carré s'OUVRE. Le carré choisi porte
             un cadre épais — on doit voir lequel on regarde. */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -944,7 +1024,7 @@ export function Outillage({ db, save, profile }) {
                 </button>
               ))}
             </div>
-            <div className="text-xs text-amber-800 mt-2">On ne coche que ce qu'on a physiquement sous la main : chaque lieu fait le sien.</div>
+            <NoteDepliable libelle="Comment faire l'appel ?" className="text-xs text-amber-800 mt-2">On ne coche que ce qu'on a physiquement sous la main : chaque lieu fait le sien.</NoteDepliable>
           </div>
         )}
         {jePeux && !appel && appelsFaits.map(({ b, fait, manquants }) => (
@@ -1201,7 +1281,8 @@ export function Outillage({ db, save, profile }) {
           {affichee.length === 0 ? (
             <div className="text-sm text-slate-500">{VIDE_VUE[vue]}</div>
           ) : (
-            <div className="border rounded-lg overflow-auto max-h-[30rem]">
+            <>
+            <div className="hidden sm:block border rounded-lg overflow-auto max-h-[30rem]" data-outils-table>
               <table className="w-full text-sm">
                 <thead className="bg-slate-100 sticky top-0 z-10">
                   <tr className="text-left">
@@ -1318,74 +1399,14 @@ export function Outillage({ db, save, profile }) {
                           <td className="px-3 py-2 text-right text-slate-400">—</td>
                         </>}
 
-                        <td className="px-3 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          {vue === "perdus" && jeSuisAdmin && perte && <button title="Combien lui demander ?" onClick={() => fixerMontant(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>✏️</button>}
-                          {vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir(perte) > 0 && <button title="Retenir sur son salaire" onClick={() => retenir(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>💵</button>}
-                          {jePeux && (etat === "sorti" || etat === "reparation") && (
-                            <button title={etat === "reparation" ? "Revenu de réparation" : "Enregistrer le retour"}
-                              onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
-                                ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: payeAvecDOffice(o) })
-                                : rendre(o))}
-                              className={`${boutonAction("border-emerald-300 text-emerald-700 hover:bg-emerald-50")} mr-1`}>📥</button>
-                          )}
-                          {jePeux && etat === "sorti" && <button title="Changer le chantier (sans le ramener)" onClick={() => changerLeChantier(o)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🏗</button>}
-                          {jePeux && etat === "en_boutique" && <button title="Partir en réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: payeAvecDOffice(o) })} className={`${boutonAction("border-amber-300 text-amber-700 hover:bg-amber-50")} mr-1`}>🔧</button>}
-                          {jePeux && !["perdu", "reforme"].includes(etat) && <button title="Déclarer perdu" onClick={() => perdre(o)} className={`${boutonAction("border-red-300 text-red-700 hover:bg-red-50")} mr-1`}>⚠</button>}
-                          {jeSuisAdmin && vue === "tous" && outilRange(o) && (
-                            <button title="Corriger la fiche (nom, numéro gravé, prix…)"
-                              onClick={() => setFiche({ outil_id: o.id, nom: o.nom || "", numero: o.numero || "", categorie: o.categorie || "", achete_le: o.achete_le || "", prix_achat: String(o.prix_achat || "") })}
-                              className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>✏️</button>
-                          )}
-                          {estBoite(o) && !["perdu", "reforme"].includes(etat) && (
-                            <button title="Ce que contient la boîte" onClick={() => setContenu({ outil_id: o.id, nom: "", quantite: "1", valeur: "" })}
-                              className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🧰</button>
-                          )}
-                          {peutCompterBoite(o, profile) && etat === "sorti" && <button title="Compter la boîte" onClick={() => setCompter({ outil_id: o.id, pourRetour: false, valeurs: {} })} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`}>🔢</button>}
-                          {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <button title="Réformer (usé, cassé)" onClick={() => reformer(o)} className={`${boutonAction("border-slate-300 text-slate-600 hover:bg-slate-100")} mr-1`}>🗑</button>}
-                          {jeSuisPrincipal && outilRange(o) && <button title="Retirer cette fiche du registre (créée par erreur)" onClick={() => supprimer(o)} className={boutonAction("border-red-300 text-red-700 hover:bg-red-50")}>✖</button>}
+                        <td className="px-3 py-2 min-w-[250px]" data-cellule-actions onClick={(e) => e.stopPropagation()}>
+                          {gestesOutil(o, etat, perte, mode)}
                         </td>
                       </tr>
                       {deplie && (
                         <tr className="bg-sky-50">
                           <td colSpan={10} className="px-4 py-3">
-                            <div className="text-xs font-bold text-sky-900 mb-2">🕘 Histoire de « {o.nom} »{o.numero ? ` — N° ${o.numero}` : ""}</div>
-                            {o.categorie || o.achete_le || o.prix_achat ? (
-                              <div className="text-xs text-slate-600 mb-2">
-                                {o.categorie && <>Catégorie : <b>{o.categorie}</b> · </>}
-                                {o.achete_le && <>acheté le <b>{dFR(o.achete_le)}</b> · </>}
-                                {o.prix_achat ? <>prix d'achat <b>{fmt(o.prix_achat)}</b></> : null}
-                              </div>
-                            ) : null}
-                            {perte && retenuesDe(perte).length > 0 && (
-                              <div className="text-sm mb-2">
-                                <div className="text-xs font-bold text-sky-900 mb-1">💵 Ce qui a déjà été retenu à {perte.user || "—"}</div>
-                                {retenuesDe(perte).map((r) => (
-                                  <div key={r.id} className="text-slate-700">— {fmt(r.montant)} {libelleRetenue(r.sur)}{r.mois ? ` (${r.mois})` : ""}{r.ref ? ` · ${r.ref}` : ""} · le {dFR(r.le)}{r.par ? ` · par ${r.par}` : ""}</div>
-                                ))}
-                                <div className="text-slate-800 font-bold mt-1">Reste à payer : {fmt(resteARetenir(perte))}</div>
-                              </div>
-                            )}
-                            {justificationsDeLaSortie(o).length > 0 && (
-                              <div className="text-sm mb-2">
-                                {justificationsDeLaSortie(o).map((j) => (
-                                  <div key={j.id} className="text-slate-700">⏳ <b>{j.par}</b> le {dFR(j.le)} : {j.texte}</div>
-                                ))}
-                              </div>
-                            )}
-                            {histoireOutil(o).length === 0 ? (
-                              <div className="text-sm text-slate-500">Cet outil n'a encore jamais bougé.</div>
-                            ) : (
-                              <div className="space-y-1">
-                                {histoireOutil(o).map((h) => (
-                                  <div key={h.id} className="text-sm flex flex-wrap gap-x-2 items-baseline">
-                                    <span className="tabular-nums text-slate-500 w-24 shrink-0">{dFR(h.le)}</span>
-                                    <span className="font-bold text-slate-800 w-28 shrink-0">{h.quoi}</span>
-                                    <span className="text-slate-800"><span className="text-slate-500">{h.role}</span> <b>{h.qui}</b></span>
-                                    {h.detail && <span className="text-slate-600">— {h.detail}</span>}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            {histoireDe(o, perte)}
                           </td>
                         </tr>
                       )}
@@ -1395,6 +1416,49 @@ export function Outillage({ db, save, profile }) {
                 </tbody>
               </table>
             </div>
+            {/* 📱 Sur téléphone : une CARTE par outil (18/11/2026), les mêmes trois lignes de gestes. */}
+            <div className="sm:hidden space-y-2" data-outils-cartes>
+              {affichee.map((o) => {
+                const etat = etatOutil(o);
+                const d = detenteurOutil(o);
+                const so = sortieEnCours(o);
+                const rep = reparationEnCours(o);
+                const just = derniereJustification(o);
+                const ouLu = lieuOutil(o);
+                const perte = perteDe(o);
+                const reforme = reformeDe(o);
+                const qui = perte && perte.user_id ? ficheParId(db.users, perte.user_id) : null;
+                const mode = modeRetenue(qui);
+                const tard = enRetard(o, jour);
+                const deplie = outilDeplie === o.id;
+                return (
+                  <div key={o.id} data-carte-outil={o.id} className={`rounded-lg border p-3 ${deplie ? "border-sky-300 bg-sky-50" : tard ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"}`}>
+                    <div role="button" tabIndex={0} className="cursor-pointer" onClick={() => setOutilDeplie(deplie ? "" : o.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOutilDeplie(deplie ? "" : o.id); } }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-semibold">{o.nom}</div>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 ${(ETATS_OUTIL[etat] || {}).teinte || ""}`}>{libelleEtat(etat)}</span>
+                      </div>
+                      <div className="text-xs text-slate-500">{o.numero ? `N° ${o.numero}` : ""}{o.categorie ? ` · ${o.categorie}` : ""}</div>
+                      {estBoite(o) && <div className={`text-xs ${manquesEnCours(o).length ? "text-red-700 font-bold" : "text-slate-500"}`}>🧰 boîte — {nbContenu(o)} pièce(s){manquesEnCours(o).length ? ` · il en manque ${manquesEnCours(o).reduce((t, m) => t + m.manque, 0)}` : ""}</div>}
+                      <div className="text-sm mt-1">
+                        {vue === "tous" && (ouLu.type === "personne" ? <>chez <b>{ouLu.nom}</b>{lieuDeRangement(o) ? ` · revient à ${lieuDeRangement(o)}` : ""}</> : <>{ouLu.nom || "—"}</>)}
+                        {(vue === "dehors" || vue === "retard") && so && <>chez <b>{so.user}</b>{vue === "dehors" && chantierEnCours(o) ? ` · ${chantierEnCours(o)}` : ""}</>}
+                        {vue === "reparation" && <>{(rep && rep.reparateur) || "—"}{rep && rep.panne ? ` · ${rep.panne}` : ""}{rep && rep.prix ? ` · ${fmt(rep.prix)}` : ""}</>}
+                        {vue === "perdus" && perte && <>{perte.user || "personne (il était rangé)"} · {fmt(perte.valeur)}</>}
+                        {vue === "perdus" && reforme && <>{reforme.par || "—"} · {reforme.motif || "—"}</>}
+                      </div>
+                      {vue === "dehors" && so && <div className="text-xs text-slate-500">Depuis le {dFR(so.le)} ({joursDehors(o, jour)} j) · retour prévu {so.retour_prevu ? dFR(so.retour_prevu) : "—"}{tard ? " · ⚠ en retard" : ""}</div>}
+                      {vue === "retard" && so && <div className="text-xs"><span className="text-red-700 font-bold">{joursDeRetard(o, jour)} j de retard</span> · {just ? just.texte : <span className="text-red-700 font-semibold">⏳ Pas encore justifié</span>}</div>}
+                      {vue === "perdus" && perte && <div className="text-xs text-slate-500">À rembourser : {aRembourser(perte) ? fmt(aRembourser(perte)) : "à la charge de BMI"} · reste {resteARetenir(perte) ? fmt(resteARetenir(perte)) : "—"}</div>}
+                    </div>
+                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesOutil(o, etat, perte, mode)}</div>
+                    {deplie && <div className="mt-2 pt-2 border-t border-sky-200 text-xs">{histoireDe(o, perte)}</div>}
+                  </div>
+                );
+              })}
+            </div>
+            </>
           )}
 
           {/* 🗑 LES FICHES RETIRÉES — rien n'est jeté (Timo, 18/09/2026 :

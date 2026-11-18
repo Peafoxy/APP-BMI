@@ -9,3 +9,8 @@ import { ClientsInstalles } from "../src/screens/ClientsInstalles.jsx";
 
 export const rendreChantiers = (db, profile, autres = {}) =>
   renderToStaticMarkup(React.createElement(ClientsInstalles, { db, save: () => {}, profile, isAdmin: profile.role === "admin", ...autres }));
+
+// 🧰 OUTILLAGE, rendu pour de vrai (18/11/2026).
+import { Outillage } from "../src/screens/Outillage.jsx";
+export const rendreOutillage = (db, profile) =>
+  renderToStaticMarkup(React.createElement(Outillage, { db, save: () => {}, profile }));

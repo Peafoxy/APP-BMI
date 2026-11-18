@@ -70,6 +70,7 @@ export const CHAPITRE = {
         ["En réparation", "🔧 Chez quel réparateur, **son numéro** (logo WhatsApp), la panne, le prix, depuis quand."],
         ["Perdus / Hors d'usage", "⚠ Les perdus d'abord (qui, pourquoi, valeur, à rembourser, déjà retenu, reste à payer), puis 🗑 les hors d'usage."],
       ]}],
+      ["p", "**Présentation (18/11/2026).** La phrase « Où se range un outil ? » et celle de l'appel (« Comment faire l'appel ? ») sont derrière un petit bouton ⓘ. **Les gestes d'un outil sont écrits en toutes lettres, sur trois lignes** : **Mouvement** (📥 Retour — ou Revenu de réparation —, 🏗 Changer le chantier, 🔢 Compter la boîte), **Atelier** (🔧 Réparation, ⚠ Perdu, 🗑 Réformer ; dans la vue « Perdus » : Combien lui demander, Retenir sur son salaire) et **Fiche** (✏️ Corriger, 🧰 Contenu, Retirer la fiche). Seuls s'affichent ceux qui s'appliquent à l'outil et que vous avez le droit d'utiliser ; une ligne sans bouton ne s'affiche pas. **Sur téléphone**, le tableau devient **une carte par outil** (nom, numéro, état, chez qui, chantier, dates), avec les mêmes lignes de gestes et l'histoire de l'outil au toucher. Les règles et les droits n'ont pas changé."],
       ["note", "Le carré regardé porte un **cadre épais**. La liste déroulante « **Tous les lieux (N)** » filtre les cinq vues par boutique ou magasin. **Un clic sur une ligne** ouvre l'histoire de l'outil."],
     ]},
 
