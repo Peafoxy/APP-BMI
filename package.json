@@ -1,7 +1,7 @@
 {
   "name": "bmi-gestion-boutiques",
   "private": true,
-  "version": "2.101.777",
+  "version": "2.101.778",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -51,6 +51,7 @@
     "verifier-ecran-proforma": "node scripts/verifier-ecran-proforma.mjs",
     "tester-espace-travaux": "bash scripts/tester-espace7-sql.sh",
     "tester-heure": "bash scripts/tester-heure-sql.sh",
+    "tester-modifs": "bash scripts/tester-modifs-sql.sh",
     "tester-connexion": "bash scripts/tester-connexion-sql.sh",
     "tester-catalogue": "bash scripts/tester-catalogue-sql.sh",
     "tester-vocaux": "bash scripts/tester-vocaux-sql.sh"

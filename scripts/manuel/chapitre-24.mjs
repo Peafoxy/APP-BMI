@@ -126,6 +126,7 @@ export const CHAPITRE = {
       ["ul", [
         "**Chaque geste est écrit deux fois** : dans la copie de l'appareil, et dans une file d'envoi qui garde l'ordre.",
         "**L'envoi se retente** au retour du réseau, toutes les minutes, et au réveil de l'appareil ; la session est renouvelée au passage.",
+        "**La réception est économe** (18/11/2026) : à chaque passage, l'appareil pose UNE question à la base (« quelles tables ont changé ? ») et ne relit que celles dont la date a avancé — au moins une relecture complète toutes les 10 minutes par prudence. Tant que le script de la base n'est pas collé, il lit toutes les tables comme avant (rien ne casse).",
         "**À chaque synchronisation**, l'appareil reçoit ce que les autres ont fait, et retire ce que le serveur ne lui accorde plus.",
         "**Après une mise à jour**, chaque appareil se resynchronise en entier au premier démarrage.",
         "**Les heures écrites** sont celles du serveur, à l'heure de Lomé, même si l'horloge de l'appareil est fausse : l'heure est demandée à la base de données à **chaque synchronisation (toutes les minutes)**, et **le dernier écart mesuré reste appliqué hors connexion**. Seul un appareil qui ne s'est jamais connecté depuis la version 2.101.556 écrit avec sa propre horloge. Sur ordinateur, l'heure du serveur se lit dans la barre du haut (« 🕓 Heure serveur »).",

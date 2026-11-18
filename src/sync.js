@@ -5,7 +5,7 @@ import { fusionner } from "./lib/fusion";
 import { creerVerrou } from "./lib/fileUnique";
 import { supabase, supabaseConfigure, assurerSession, etatAuth, marquerSessionPerdue, aDesIdentifiants } from "./supabaseClient";
 import { sessionPerdueSelon, MESSAGE_SESSION_PERDUE } from "./lib/verrou";
-import { prendreVersionServeur, horodatee, CLE_RELECTURE_HORLOGE, fautTelecharger, SEUIL_LECTURE_DIRECTE } from "./lib/versionDistante";
+import { prendreVersionServeur, horodatee, CLE_RELECTURE_HORLOGE, fautTelecharger, SEUIL_LECTURE_DIRECTE, peutSauterLaLecture } from "./lib/versionDistante";
 import { mesurerParLaBase } from "./horloge";
 
 // Moteur de synchronisation :
@@ -84,6 +84,26 @@ let ecouteurEnLigne = null;
 let ecouteurHorsLigne = null;
 let ecouteurReveil = null;
 export const INTERVALLE_SYNC_MS = 60000;
+// ⚡ 18/11/2026 : le moment de la dernière LECTURE réelle de chaque table (dans
+// cette page) et l'état de la fonction `dernieres_modifs` de la base.
+const lecturesTables = new Map();
+let baseSansModifs = false; // vrai si le SQL n'est pas collé : on lit comme avant
+
+// Une seule question à la base : la dernière modification de chaque table.
+// Ne lève jamais ; null = pas de réponse, on lit tout comme avant.
+async function lireDernieresModifs() {
+  if (baseSansModifs) return null;
+  try {
+    const { data, error } = await supabase.rpc("dernieres_modifs");
+    if (error) {
+      if (error.code === "PGRST202" || error.code === "42883" || /dernieres_modifs/.test(error.message || "")) baseSansModifs = true;
+      return null;
+    }
+    return data && typeof data === "object" ? data : null;
+  } catch {
+    return null;
+  }
+}
 
 export function demarrerSync(callback) {
   arreterSync(); // on ne démarre jamais deux fois
@@ -107,6 +127,7 @@ export function demarrerSync(callback) {
 }
 
 export function arreterSync() {
+  lecturesTables.clear(); // un autre compte ne reprend jamais les « déjà lue » du précédent
   if (minuterie) clearInterval(minuterie);
   if (ecouteurEnLigne) window.removeEventListener("online", ecouteurEnLigne);
   if (ecouteurHorsLigne) window.removeEventListener("offline", ecouteurHorsLigne);
@@ -694,6 +715,9 @@ export async function synchroniser(options = {}) {
       // synchronisation passager gardait des données manquantes pour toujours.
       const curseurDe = async (cle) => (await idb.meta.get(cle))?.valeur || "1970-01-01T00:00:00Z";
 
+      // ⚡ Un seul contrôle avant de lire : la base dit où en est chaque table.
+      const modifs = await lireDernieresModifs();
+
       // 2a) Les suppressions distantes
       // Isolée dans son propre essai : sur un appareil neuf sans session encore
       // établie, cette lecture peut échouer (table verrouillée aux sessions
@@ -704,7 +728,9 @@ export async function synchroniser(options = {}) {
         const curseur = await curseurDe("derniere_sync:tombstones");
         const depuis = reculer(curseur, MARGE_HORLOGE_MS); // marge anti-décalage d'horloge
         let maxVu = curseur;
-        const morts = await lireTout("tombstones", "deleted_at", depuis);
+        const sauterMorts = peutSauterLaLecture({ maxServeur: modifs ? modifs.tombstones : undefined, curseur, derniereLectureMs: lecturesTables.get("tombstones"), maintenantMs: Date.now(), secuMs: MARGE_HORLOGE_MS });
+        const morts = sauterMorts ? [] : await lireTout("tombstones", "deleted_at", depuis);
+        if (!sauterMorts) lecturesTables.set("tombstones", Date.now());
         for (const m of morts) {
           if (m.table_name === "*") {
             // Réinitialisation générale : cet appareil vide sa base locale ET sa
@@ -791,6 +817,8 @@ export async function synchroniser(options = {}) {
         const cle = `derniere_sync:${t}`;
         try {
           const curseur = await curseurDe(cle);
+          // ⚡ Rien de nouveau d'après la base, et lue il y a moins de 10 min : on passe.
+          if (peutSauterLaLecture({ maxServeur: modifs ? modifs[t] : undefined, curseur, derniereLectureMs: lecturesTables.get(t), maintenantMs: Date.now(), secuMs: MARGE_HORLOGE_MS })) return;
           const depuis = reculer(curseur, MARGE_HORLOGE_MS);
           let maxVu = curseur;
           // 📉 04/11/2026 : l'étiquette d'abord, la ligne entière seulement si
@@ -823,6 +851,7 @@ export async function synchroniser(options = {}) {
           if (aRanger.length) { await idb.table(t).bulkPut(aRanger); recuQuelqueChose = true; }
           // Le curseur de CETTE table n'avance que si CETTE table a réussi.
           await idb.meta.put({ cle, valeur: maxVu });
+          lecturesTables.set(t, Date.now()); // lue pour de vrai (le filet des 10 min repart)
           await idb.meta.delete(cleTableAbsente(t));
         } catch (e) {
           // 📅 Une table NOUVELLE pas encore créée sur le serveur (son SQL

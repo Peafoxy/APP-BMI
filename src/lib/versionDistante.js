@@ -82,3 +82,41 @@ export const signatureCompteSynchro = (u) => (u ? JSON.stringify([
 ]) : "");
 // Faut-il tout redemander ? Oui si rien n'est noté, ou si la signature diffère.
 export const faitRepartirDeZero = (noteeSurAppareil, u) => !noteeSurAppareil || noteeSurAppareil !== signatureCompteSynchro(u);
+
+// ============================================================
+// ⚡ UN SEUL CONTRÔLE AVANT DE LIRE (18/11/2026, quota de journaux Supabase)
+// ============================================================
+// La base répond, en UNE question (`dernieres_modifs`, supabase/sync-1-…sql),
+// à « quelle est la dernière modification de chaque table ? » — en
+// microsecondes. L'appareil ne relit une table que si cette date a dépassé son
+// curseur, et au moins une fois toutes les `secuMs` (la marge de prudence de
+// 10 min : une ligne validée tardivement avec une heure plus ancienne).
+
+// « 2026-11-18T10:00:00.123456+00:00 » → microsecondes depuis 1970 (sans
+// perdre les 3 derniers chiffres que Date ignore). null si illisible.
+export function microsecondes(iso) {
+  const m = /^(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)(?:\.(\d+))?(Z|[+-]\d+:?\d+)?$/.exec(String(iso || ""));
+  if (!m) return null;
+  let decalageMin = 0;
+  if (m[8] && m[8] !== "Z") {
+    const d = /^([+-])(\d\d):?(\d\d)$/.exec(m[8]);
+    if (!d) return null;
+    decalageMin = (d[1] === "-" ? -1 : 1) * (Number(d[2]) * 60 + Number(d[3]));
+  }
+  const base = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])) - decalageMin * 60000;
+  if (Number.isNaN(base)) return null;
+  const frac = Number(`${m[7] || "0"}`.padEnd(6, "0").slice(0, 6));
+  return base * 1000 + frac;
+}
+
+// Peut-on se passer de lire cette table ce passage-ci ?
+//  maxServeur : ce que la base a répondu pour elle (undefined = pas de réponse,
+//               null = table visible mais sans aucune ligne, sinon microsecondes)
+export function peutSauterLaLecture({ maxServeur, curseur, derniereLectureMs, maintenantMs, secuMs }) {
+  if (maxServeur === undefined || typeof maxServeur === "string") return false; // pas de réponse fiable : on lit
+  if (derniereLectureMs === undefined || maintenantMs - derniereLectureMs >= secuMs) return false; // filet : jamais plus de 10 min sans lire
+  if (maxServeur === null) return true; // rien du tout à lire
+  if (typeof maxServeur !== "number") return false;
+  const vu = microsecondes(curseur);
+  return vu !== null && maxServeur <= vu;
+}

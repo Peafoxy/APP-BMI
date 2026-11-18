@@ -15315,6 +15315,46 @@ titre("🔌 Hors connexion : ce que l'écran dit quand un envoi ne part pas (01/
     /INTERVALLE_SYNC_MS = 60000/.test(syn) && /setInterval\(ecouteurEnLigne, INTERVALLE_SYNC_MS\)/.test(syn));
 }
 
+titre("⚡ Un seul contrôle avant de lire (18/11/2026, quota de journaux Supabase)");
+{
+  const VD = await import(pathToFileURL("src/lib/versionDistante.js").href);
+  const sync = readFileSync("src/sync.js", "utf8");
+  const sql = readFileSync("supabase/sync-1-derniers-changements.sql", "utf8");
+  const MIN = 600000, maintenant = 10_000_000;
+  const µ = (iso) => VD.microsecondes(iso);
+  test("★ les microsecondes sont lues sans rien perdre (3 derniers chiffres compris, zéros de fin, fuseau)",
+    µ("2026-11-18T10:00:00.123456+00:00") === Date.parse("2026-11-18T10:00:00Z") * 1000 + 123456
+    && µ("2026-11-18T10:00:00.12+00:00") === Date.parse("2026-11-18T10:00:00Z") * 1000 + 120000
+    && µ("2026-11-18T10:00:00+00:00") === Date.parse("2026-11-18T10:00:00Z") * 1000 && µ("1970-01-01T00:00:00Z") === 0 && µ("n'importe quoi") === null);
+  const cur = "2026-11-18T10:00:00.123456+00:00";
+  const base = { curseur: cur, derniereLectureMs: maintenant - 1000, maintenantMs: maintenant, secuMs: MIN };
+  test("★ rien de plus récent que le curseur, lue il y a peu → on SAUTE la lecture",
+    VD.peutSauterLaLecture({ ...base, maxServeur: µ(cur) }) === true && VD.peutSauterLaLecture({ ...base, maxServeur: µ(cur) - 5 }) === true);
+  test("★★ même une seule microseconde de plus → on LIT (la seconde ligne de la même milliseconde ne se perd pas)",
+    VD.peutSauterLaLecture({ ...base, maxServeur: µ(cur) + 1 }) === false);
+  test("★ pas de réponse de la base, ou réponse illisible → on lit comme avant",
+    VD.peutSauterLaLecture({ ...base, maxServeur: undefined }) === false && VD.peutSauterLaLecture({ ...base, maxServeur: "2026-11-18" }) === false && VD.peutSauterLaLecture({ ...base, maxServeur: NaN }) === false);
+  test("★★ le filet : jamais plus de 10 minutes sans une vraie lecture, ni lecture jamais faite sur cette page",
+    VD.peutSauterLaLecture({ ...base, maxServeur: µ(cur), derniereLectureMs: maintenant - MIN }) === false
+    && VD.peutSauterLaLecture({ ...base, maxServeur: µ(cur), derniereLectureMs: undefined }) === false);
+  test("★ une table visible mais vide (null) est sautée aussi, même au curseur de départ",
+    VD.peutSauterLaLecture({ ...base, curseur: "1970-01-01T00:00:00Z", maxServeur: null }) === true
+    && VD.peutSauterLaLecture({ ...base, curseur: "1970-01-01T00:00:00Z", maxServeur: µ(cur) }) === false);
+  test("★ sync.js : UNE question à la base avant les lectures, branchée sur les tables ET les suppressions, filet de 10 min, lecture réelle notée, mémoire vidée à l'arrêt",
+    /supabase\.rpc\("dernieres_modifs"\)/.test(sync) && /const modifs = await lireDernieresModifs\(\)/.test(sync)
+    && /peutSauterLaLecture\(\{ maxServeur: modifs \? modifs\[t\] : undefined/.test(sync) && /peutSauterLaLecture\(\{ maxServeur: modifs \? modifs\.tombstones : undefined/.test(sync)
+    && (sync.match(/secuMs: MARGE_HORLOGE_MS/g) || []).length === 2 && /lecturesTables\.set\(t, Date\.now\(\)\)/.test(sync) && /lecturesTables\.clear\(\)/.test(sync));
+  test("★ le SQL absent (PGRST202 / 42883) ne casse rien : on lit comme avant et on ne redemande plus",
+    /error\.code === "PGRST202" \|\| error\.code === "42883"/.test(sync) && /baseSansModifs = true/.test(sync) && /if \(baseSansModifs\) return null/.test(sync));
+  test("★ le SQL : lecture seule, avec les droits de la personne (invoker), fermée au visiteur, une table illisible OMISE, vingt tables + les suppressions = celles de l'application",
+    /security invoker/.test(sql) && /revoke all on function public\.dernieres_modifs\(\) from anon/.test(sql) && /exception when others then/.test(sql) && !/security definer/.test(sql)
+    && (() => { const tabs = [...sql.match(/array\[([\s\S]*?)\]/)[1].matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
+      const db = readFileSync("src/db.js", "utf8"); const noms = [...(db.match(/TABLES_V1 = \[([\s\S]*?)\]/)[1] + db.match(/export const TABLES = \[\.\.\.TABLES_V1, ([\s\S]*?)\];/)[1].replace(/\/\/.*$/gm, "")).matchAll(/"(\w+)"/g)].map((m) => m[1]).sort();
+      return JSON.stringify(tabs) === JSON.stringify(noms); })());
+  test("★ le banc de la base jetable existe et le script porte sa vérification",
+    existsSync("scripts/tester-modifs-sql.sh") && /"tester-modifs": "bash scripts\/tester-modifs-sql\.sh"/.test(readFileSync("package.json", "utf8")) && /doit répondre true \| true \| true/.test(sql));
+}
+
 titre("🧯 Incidents : la bande des notifications bloquées (01/10/2026, chapitre 25 du manuel)");
 {
   // ⚠ Trouvé en écrivant le chapitre 25 : la bande demandait de se
