@@ -348,6 +348,44 @@ export function BoutonRond({ icone, titre, teinte = "bleu", onClick, envoi = fal
     </button>
   );
 }
+// 🔤 UN GESTE EN TOUTES LETTRES (18/11/2026, capture Timo de 🏠 Clients installés :
+// « à la place des logos, faire 3 lignes comme tu l'as fait dans Boutiques »).
+// Même contrat que BoutonRond (`envoi` le grise pendant le geste, `titre` = la
+// description au survol), mais le NOM est écrit sur le bouton. `LigneGestes`
+// range les boutons d'un thème sur UNE ligne, son nom à gauche.
+const TEINTES_GESTE = {
+  bleu: "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+  rouge: "border-red-300 bg-white text-red-700 hover:bg-red-50",
+  vert: "border-green-300 bg-green-50 text-green-800 hover:bg-green-100",
+  orange: "border-orange-300 bg-orange-50 text-orange-800 hover:bg-orange-100",
+  violet: "border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100",
+  ambre: "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100",
+  gris: "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+  rose: "border-pink-300 bg-pink-50 text-pink-700 hover:bg-pink-100",
+};
+export function BoutonGeste({ icone, nom, titre, teinte = "bleu", onClick, envoi = false, ...autres }) {
+  const [enCours, lancer] = useEnvoiEnCours();
+  const occupe = envoi && enCours;
+  return (
+    <button type="button" {...autres} data-geste data-envoi-en-cours={occupe ? "oui" : undefined} aria-busy={occupe || undefined}
+      disabled={autres.disabled || occupe}
+      onClick={envoi ? (e) => lancer(() => onClick && onClick(e)) : onClick}
+      title={occupe ? LIBELLE_ENVOI_EN_COURS : titre} aria-label={titre || nom}
+      className={`px-2 py-1 rounded-md border text-[11.5px] font-bold whitespace-nowrap ${TEINTES_GESTE[teinte] || TEINTES_GESTE.bleu}${occupe ? " opacity-60 cursor-wait" : ""}`}>
+      {occupe ? "⏳ Envoi en cours…" : `${icone} ${nom}`}
+    </button>
+  );
+}
+export function LigneGestes({ nom, children }) {
+  const enfants = (Array.isArray(children) ? children : [children]).flat(Infinity).filter(Boolean);
+  if (enfants.length === 0) return null;
+  return (
+    <div data-ligne-gestes className="flex flex-wrap items-center gap-1.5">
+      <span className="w-16 shrink-0 text-[10px] font-bold uppercase text-slate-400">{nom}</span>
+      {enfants}
+    </div>
+  );
+}
 export function CelluleActions({ children, className = "", largeur = "" }) {
   return (
     <td data-cellule-actions className={`px-3 py-2 whitespace-nowrap ${className}`} onClick={(e) => e.stopPropagation()}>

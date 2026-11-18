@@ -10262,8 +10262,8 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     /\.filter\(\(c\) => !c\.travaux \|\| travauxSolde\(db, c\)\)/.test(ciT) && /\{ id: "travaux", label: "🛠 Travaux soldés", test: \(c\) => !!c\.travaux \}/.test(ciT)
     // RETOURNÉ le 05/10/2026 : les mots des statuts vivent dans lib/libellesStatuts.js.
     && /travaux: \{ label: "🛠 Travaux — soldés"/.test(readFileSync("src/lib/libellesStatuts.js", "utf8")) && /import \{ STATUT_CHANTIER \} from "\.\.\/lib\/libellesStatuts"/.test(ciT) && /Facturé \{fmt\(factureMontant\(db, c\)\)\}/.test(ciT)
-    // RETOURNÉ le 15/10/2026 (la règle des lignes) : les gestes sont des boutons ronds.
-    && /\{!c\.travaux && \(\n\s*<BoutonRond icone="🔧" teinte="violet" onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /statutChantier\(c\) !== "receptionne" && !c\.travaux && \(/.test(ciT) && /\{!c\.travaux && <BoutonRond icone="📅" onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT));
+    // RETOURNÉ le 18/11/2026 : les gestes de 🏠 Clients installés sont des boutons en toutes lettres (BoutonGeste, trois lignes).
+    && /\{!c\.travaux && \(\n\s*<BoutonGeste icone="🔧" teinte="violet" onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /statutChantier\(c\) !== "receptionne" && !c\.travaux && \(/.test(ciT) && /\{!c\.travaux && <BoutonGeste icone="📅" onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT));
   test("★ le stock : stockVendu et l'index ignorent deja_sorti ; le rattachement d'une dépense refuse des travaux soldés",
     /* RETOURNÉ le 11/10/2026 : + au_chantier */ /l\.produit_id === pid && !l\.deja_sorti && !l\.au_chantier/.test(calT) && /if \(l\.produit_id && !l\.deja_sorti && !l\.au_chantier\) venduParProduit/.test(calT)
     && /Ces travaux sont soldés/.test(readFileSync("src/lib/depensesChantier.js", "utf8")) && /!travauxSolde\(db, c\)\)/.test(readFileSync("src/lib/depensesChantier.js", "utf8")));
@@ -16567,7 +16567,8 @@ titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, 
   test("★ chaque écran revu porte la première colonne figée ET la ligne qui se déplie (classeLigneDepliable / fondLigneDepliable)",
     ["Prospects", "TousLesDevis", "ClientsInstalles", "Commandes", "Stocks", "Fournisseurs", "Salaires", "Commerciaux", "MonEquipe"].every((n) => {
       const src = readFileSync(`src/screens/${n}.jsx`, "utf8");
-      return /enTeteFige\(/.test(src) && /celluleFigee\(fondLigneDepliable\(/.test(src) && /classeLigneDepliable\(/.test(src) && /<CelluleActions/.test(src);
+      // RETOURNÉ le 18/11/2026 : 🏠 Clients installés porte ses gestes en toutes lettres (LigneGestes) au lieu de la cellule de boutons ronds.
+      return /enTeteFige\(/.test(src) && /celluleFigee\(fondLigneDepliable\(/.test(src) && /classeLigneDepliable\(/.test(src) && (/<CelluleActions/.test(src) || (n === "ClientsInstalles" && /<LigneGestes/.test(src)));
     }));
 }
 
@@ -18472,6 +18473,45 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
         && /data-mon-credit/.test(hM) && !/Envoyer ma demande/.test(hM) && /data-mon-avancement/.test(hM) && !/Ancien salaire/.test(hM), hM.slice(0, 160));
       test("★ 💵 Mon salaire : le message « bulletin fermé » est derrière un petit bouton, jamais étalé",
         /data-note-depliable/.test(hM) && !/data-bulletin-ferme/.test(hM));
+    }
+  }
+  // 🏠 CLIENTS INSTALLÉS « LISIBLE COMME UN LIVRE » (18/11/2026, « Construit, lance ») : l'écran RENDU pour de vrai.
+  {
+    const sortieCh = join("node_modules", ".cache", `bmi-chantiers-${process.pid}.mjs`);
+    let Ch = null, errCh = "";
+    try {
+      await build({ entryPoints: ["scripts/_rendu-chantiers.jsx"], bundle: true, format: "esm",
+        platform: "node", outfile: sortieCh, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx", ".png": "dataurl", ".css": "empty" }, plugins: [{ name: "leaflet-vide", setup(b) { b.onResolve({ filter: /^leaflet$/ }, () => ({ path: resolve("scripts/_leaflet-vide.mjs") })); } }],
+        define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+        external: ["react", "react-dom", "react-dom/server", "xlsx", "html2canvas", "jspdf", "jspdf-autotable"] });
+      Ch = await import(pathToFileURL(sortieCh).href);
+    } catch (e) { errCh = String(e && e.message || e).split("\n")[0]; }
+    try { unlinkSync(sortieCh); } catch {}
+    test("🏠 Clients installés se monte dans le banc" + (errCh ? ` (${errCh})` : ""), !!Ch);
+    if (Ch) {
+      const timoC = { id: "u_timo", nom: "TIMO", role: "admin", principal: true, actif: true };
+      const koffi = { id: "ci1", nom: "MENSAH", prenom: "KOFFI", tel: "90112233", type_installation: "Solaire 3 kW", localisation: "Agoè", commercial: "ANGELE", statut: "en_cours", a_programmer: true, date_entretien: "2026-12-12", equipe: [{ user_id: "t1", nom: "AGBEKO", chef: true }], materiel: [], photos: [], observations: [], interventions: [{ id: "i1", date: "2026-11-15", element: "convertisseur", panne: "panne", technicien: "AGBEKO", statut: "ouverte" }] };
+      const poud = { id: "ci2", nom: "POUDAMA", prenom: "KODJO", tel: "92001122", type_installation: "Pose portail", localisation: "Lomé", commercial: "TIMO", statut: "receptionne", contrat_statut: "signe", date_entretien: "2026-11-01", equipe: [], materiel: [{ nom: "Moteur", qte: 1, serie: "X1" }], photos: [], observations: [{ id: "o1", texte: "Accès difficile", par: "AGBEKO", date: "2026-10-20" }] };
+      const baseCh = { users: [timoC], clients_installes: [koffi, poud], ventes: [], dettes: [], depenses: [], messages: [], produits: [], boutiques: [], ajustements: [], audits: [], devis: [] };
+      let hL = "", hD = "";
+      try { hL = Ch.rendreChantiers(baseCh, timoC); } catch (e) { hL = "ERREUR " + String(e && e.message || e).slice(0, 200); }
+      try { hD = Ch.rendreChantiers(baseCh, timoC, { dossierInitial: "ci1" }); } catch (e) { hD = "ERREUR " + String(e && e.message || e).slice(0, 200); }
+      const nbL = (re) => (hL.match(re) || []).length;
+      test("★ 🏠 la liste se rend : six colonnes (Client · Installation · Installé le · Entretien · À suivre · Gestes), le numéro sous le nom, le tableau pour l'ordinateur et une carte par client pour le téléphone",
+        !hL.startsWith("ERREUR") && /hidden sm:block[^"]*" data-clients-table/.test(hL) && /sm:hidden[^"]*" data-clients-cartes/.test(hL) && nbL(/data-carte-chantier=/g) === 2
+        && ["Client", "Installation", "Installé le", "Entretien", "À suivre", "Gestes"].every((h) => hL.includes(`>${h}</th>`)) && !/>Numéro<\/th>/.test(hL) && !/>Commercial<\/th>/.test(hL), hL.slice(0, 200));
+      test("★ 🔤 les gestes sont en TOUTES LETTRES sur trois lignes (Suivi · Entretien · Autres) : « Frais d'installation », « Entretien », « Supprimer »… ; aucun bouton rond de geste dans la liste",
+        nbL(/data-ligne-gestes/g) >= 6 && />🔧 Frais d&#x27;installation</.test(hL) && />Suivi</.test(hL) && />Entretien</.test(hL) && />Autres</.test(hL) && /📅 Entretien/.test(hL) && /🗑 Supprimer/.test(hL) && /✅ Entretien fait/.test(hL) && /🏁 Marquer terminé/.test(hL)
+        && !/data-cellule-actions[^>]*>\s*<div[^>]*><button[^>]*rounded-full/.test(hL));
+      test("★ 🔔 « À suivre » : la pastille « À PROGRAMMER » et l'intervention ouverte sont sur la ligne, jamais cachées",
+        /À PROGRAMMER/.test(hL) && nbL(/data-interventions-ouvertes/g) >= 1);
+      test("★ 📁 le dossier se rend ouvert : les quatre petites cartes, puis Adresse repliée, Programmer ouvert (rien n'est programmé), Matériel / Photos / Observations en blocs repliables — le vide tient en une ligne (« aucun matériel enregistré »)",
+        !hD.startsWith("ERREUR") && /data-panneau="dossier"/.test(hD) && /data-bloc-adresse/.test(hD) && /data-bloc-programmer/.test(hD) && /Équipe — cochez/.test(hD) && /data-blocs-dossier/.test(hD)
+        && /data-bloc-materiel/.test(hD) && /data-bloc-photos/.test(hD) && /data-bloc-observations/.test(hD) && /aucun matériel enregistré/.test(hD) && /aucune photo/.test(hD) && !/Adresse formelle/.test(hD), hD.slice(0, 200));
+      let hD2 = "";
+      try { hD2 = Ch.rendreChantiers(baseCh, timoC, { dossierInitial: "ci2" }); } catch (e) { hD2 = "ERREUR " + String(e && e.message || e).slice(0, 200); }
+      test("★ 📁 un dossier qui a du matériel et une observation les montre ouverts ; sans programmation à faire, « Programmer » reste replié",
+        !hD2.startsWith("ERREUR") && /Moteur/.test(hD2) && /Accès difficile/.test(hD2));
     }
   }
   // 📅 « le mois précédent du 1er au 15 » (22/10/2026) : les salaires de septembre payés début octobre étaient rangés sur octobre.

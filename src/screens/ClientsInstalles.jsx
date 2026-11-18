@@ -19,7 +19,7 @@ import { changementsAffectation } from "../lib/affectationChantier";
 import { uid, lignesVente, totalVente, fmt, today, dFR, col, compresserPhoto, genererJetonSignature, telDigits, nouveauMessage } from "../lib/core";
 import { imprimerPV } from "../lib/impression";
 import { critiquePrenom, champsCompteClient } from "../lib/clientEntreprise";
-import { Field, inputCls, Panel, PanneauQuiSeMontre, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, Panel, PanneauQuiSeMontre, uAlert, uConfirm, uPrompt, uChoix, Info, demanderMoyenPaiement, demanderDate, champRecherche, useMontrerALOuverture, revenirSurLaLigne, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, BoutonEnvoi, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable } from "../components/ui";
 import { numeroPv, champsLienPv } from "../lib/contrat";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { estPrimeChantier, primesDuChantier, totalPrimesChantier } from "../lib/primeChantier";
@@ -130,7 +130,8 @@ const fraisRepartis = (c) => (c.equipe || []).reduce((s, e) => s + Number(e.mont
 
 // ============ CLIENTS INSTALLÉS (parc client) ============
 
-export function ClientsInstalles({ db, save, profile, isAdmin }) {
+// `dossierInitial` : pour le banc seul (le dossier d'un chantier rendu ouvert).
+export function ClientsInstalles({ db, save, profile, isAdmin, dossierInitial = null }) {
   const estChef = !!profile.chef_equipe;
   // 30/09/2026 (chapitre 15 du manuel) : le technicien BMI aussi — il n'était
   // pas compté, et un technicien BMI de l'équipe (non chef) ne voyait pas le
@@ -350,7 +351,7 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   };
 
   // Le dossier détaillé, ouvert fiche par fiche
-  const [dossierOuvert, setDossierOuvert] = useState(null);
+  const [dossierOuvert, setDossierOuvert] = useState(dossierInitial);
   // 📊 Les statistiques des pannes (17/11/2026) : fermées d'office, période libre.
   const [statsPannes, setStatsPannes] = useState(false);
   const periodePannes = useFiltrePeriode();
@@ -1037,6 +1038,106 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
   const listeTriee = [...liste].sort((a, b) => indexCategorie(a) - indexCategorie(b));
   const listeGroupee = ongletChantier === "tout" ? listeTriee : listeTriee.filter((c) => categorieDe(c) === ongletChantier);
 
+  // 🔔 « À SUIVRE » (18/11/2026) : ce que le chantier attend ou porte, en
+  // PASTILLES — écrit UNE fois, lu par le tableau (ordinateur) ET la carte
+  // (téléphone). Les alertes (à programmer, lien du PV pas parti, signature
+  // attendue…) restent visibles sur la ligne.
+  const alertesDe = (c) => {
+    const pastille = "inline-block rounded border px-1.5 py-0.5 text-[10.5px] font-bold mr-1 mb-1";
+    const dette = c.pose_seule ? (db.dettes || []).find((x) => x.id === c.dette_id) : null;
+    const nbInter = resumeInterventions(c).ouvertes;
+    return (
+      <div className="leading-snug">
+        {c.a_programmer && !c.date_installation && <span className={`${pastille} bg-red-50 text-red-700 border-red-300 animate-pulse`}>🔔 À PROGRAMMER</span>}
+        {nbInter > 0 && <span data-interventions-ouvertes className={`${pastille} bg-amber-50 text-amber-800 border-amber-300`}>🔩 {nbInter} intervention{nbInter > 1 ? "s" : ""} ouverte{nbInter > 1 ? "s" : ""}</span>}
+        {c.contrat_force_par && (
+          <span className={`${pastille} bg-red-50 text-red-700 border-red-300`} title="Aucun contrat signé n'existe pour ce chantier">
+            ⚠ Réceptionné SANS SIGNATURE par {c.contrat_force_par}, le {dFR(c.contrat_force_le)}
+          </span>
+        )}
+        {statutChantier(c) === "termine" && c.contrat_statut === "attente_signature" && (isAdmin && lienPvPasParti(c, db.messages)
+          ? <span className={`${pastille} bg-red-50 text-red-700 border-red-300`} data-lien-pv-pas-parti>⚠ Lien du PV pas encore parti du numéro BMI — renvoyez-le</span>
+          : <span className={`${pastille} bg-sky-50 text-sky-700 border-sky-200`}>📤 En attente de signature</span>)}
+        {statutChantier(c) === "reserves" && c.avenant_statut === "attente_signature" && <span className={`${pastille} bg-sky-50 text-sky-700 border-sky-200`}>📤 Avenant en attente de signature</span>}
+        {dette && resteAPayer(dette) <= 0 && <span className={`${pastille} bg-emerald-50 text-emerald-700 border-emerald-200`}>✅ Pose soldée</span>}
+        {depensesDuChantier(db, c.id).length > 0 && (
+          <span className={`${pastille} bg-purple-50 text-purple-800 border-purple-200`} title="Petites dépenses rattachées à ce chantier (📤 Dépenses) — déduites des frais avant le partage">
+            🧾 Dépenses rattachées : {fmt(totalDepensesChantier(db, c.id))}
+          </span>
+        )}
+        {/* 🏗 Le matériel parti pour ce chantier (11/10/2026) : ses achats (💰 Ventes, case « 🏗 Chantier »). */}
+        {c.stock_au_chantier && (() => {
+          const ar = argentDuChantier({ chantier: c, vente: venteDuChantier(c, db.ventes), dette: detteDuChantier(c, db.dettes) });
+          return (
+            <span className={`${pastille} bg-orange-50 text-orange-800 border-orange-200`} data-materiel-chantier title="Le matériel remis aux techniciens pour ce chantier, payé par l'argent du chantier">
+              🏗 Matériel acheté : {fmt(ar.achete)}{ar.enAttente > 0 ? ` (⏳ ${fmt(ar.enAttente)} en attente)` : ""}{ar.depasseMateriel ? " ⚠ dépasse la part matériel du devis" : ""}
+            </span>
+          );
+        })()}
+        {/* ⭐ 26/09/2026 : la demande d'avis Google partie, une fois, dix jours après la réception. */}
+        {c.avis_demande_le && <span data-avis-demande className={`${pastille} bg-amber-50 text-amber-700 border-amber-200`}>⭐ Avis demandé le {dFR(c.avis_demande_le)}</span>}
+        {statutChantier(c) === "reserves" && <div className="text-[11px] text-red-600 italic">« {c.reserves} »</div>}
+      </div>
+    );
+  };
+
+  // 🔤 LES GESTES EN TOUTES LETTRES, SUR TROIS LIGNES (18/11/2026, « à la place des
+  // logos, faire 3 lignes comme dans Boutiques ») : Suivi · Entretien · Autres.
+  // Mêmes gestes, mêmes droits qu'avant — seul l'habillage change. Une ligne
+  // sans bouton ne s'affiche pas.
+  const gestesDe = (c) => {
+    const dette = c.pose_seule ? (db.dettes || []).find((x) => x.id === c.dette_id) : null;
+    const reste = dette ? resteAPayer(dette) : 0;
+    const e = dette ? etatPose(dette) : null;
+    return (
+      <div className="flex flex-col gap-1.5" data-gestes-chantier>
+        <LigneGestes nom="Suivi">
+          {peutTerminer(c, profile, isAdmin) && (
+            <BoutonGeste icone="🏁" teinte="ambre" envoi onClick={() => marquerTermine(c)} titre="🏁 Marquer terminé" nom="Marquer terminé" />
+          )}
+          {statutChantier(c) === "termine" && isAdmin && c.contrat_statut !== "attente_signature" && (
+            <BoutonGeste icone="📤" envoi onClick={() => envoyerPourSignature(c)} titre="📤 Envoyer pour signature" nom="Envoyer pour signature" />
+          )}
+          {statutChantier(c) === "termine" && c.contrat_statut === "attente_signature" && isAdmin && (
+            <BoutonGeste icone="📤" envoi onClick={() => envoyerPourSignature(c)} titre="📤 En attente de signature — renvoyer le lien" nom="Renvoyer le lien" />
+          )}
+          {statutChantier(c) === "reserves" && isAdmin && c.avenant_statut !== "attente_signature" && (
+            <BoutonGeste icone="📤" teinte="rouge" envoi onClick={() => envoyerAvenant(c)} titre="📤 Envoyer l'avenant (réserves corrigées)" nom="Envoyer l'avenant" />
+          )}
+          {(c.contrat_statut === "signe" || c.avenant_statut === "signe" || c.contrat_force_par) && (
+            <BoutonGeste icone="📄" teinte="gris" onClick={() => imprimerPV(c, db)} titre="📄 Voir le PV" nom="Voir le PV" />
+          )}
+          {c.pose_seule && peutEncaisserPose(c, profile) && reste > 0 && (
+            <BoutonGeste data-encaisser-pose icone="💰" teinte="vert" onClick={() => encaisserPose(c)}
+              titre={`💰 ${e && e.acompte ? libelleEncaissementPose(dette) : "Encaisser"} (reste ${fmt(e && e.etape === "acompte" ? e.resteAcompte : reste)})`} nom="Encaisser" />
+          )}
+          {statutChantier(c) === "termine" && isAdmin && (
+            <BoutonGeste icone="⚠" teinte="rouge" onClick={() => forcerReceptionSansSignature(c)} titre="⚠ Forcer sans signature — cas exceptionnel, aucun PV n'existera" nom="Forcer sans signature" />
+          )}
+        </LigneGestes>
+        <LigneGestes nom="Entretien">
+          {!c.travaux && (
+            <BoutonGeste icone="🔧" teinte="violet" onClick={() => ouvrirRepartition(c)} titre={`🔧 Frais d'installation${Number(c.frais_installation || 0) > 0 ? ` (${fmt(c.frais_installation)})` : ""}`} nom="Frais d'installation" />
+          )}
+          {!c.travaux && <BoutonGeste icone="📅" onClick={() => modifierEntretien(c)} titre="📅 Entretien — la date du prochain entretien" nom="Entretien" />}
+          {isAdmin && !c.travaux && c.date_entretien && <BoutonGeste data-entretien-fait icone="✅" teinte="vert" onClick={() => entretienFait(c)} titre="✅ Entretien fait" nom="Entretien fait" />}
+        </LigneGestes>
+        <LigneGestes nom="Autres">
+          {/* 🎁 Réservé à l'administrateur : offrir un cadeau au client. */}
+          {isAdmin && (
+            c.cadeau && !c.cadeau.retire ? (
+              <BoutonGeste icone="🎁" teinte="rose" onClick={() => marquerRetire(c)} titre={`🎁 En attente de retrait — ${c.cadeau.quoi} à retirer à ${c.cadeau.boutique} (cliquer quand il est retiré)`} nom="Cadeau à retirer" />
+            ) : (
+              <BoutonGeste icone="🎁" teinte="gris" onClick={() => offrirCadeau(c)} titre={`🎁 ${c.cadeau?.retire ? "Offrir à nouveau un cadeau" : "Offrir un cadeau"} à ce client`} nom="Cadeau" />
+            )
+          )}
+          {isAdmin && !c.user_id && <BoutonGeste icone="🔗" onClick={() => lierCompte(c)} titre="🔗 Lier un compte" nom="Lier un compte" />}
+          {(isAdmin || c.commercial === profile.nom) && <BoutonGeste icone="🗑" teinte="rouge" onClick={() => supprimer(c)} titre="🗑 Supprimer" nom="Supprimer" />}
+        </LigneGestes>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {noteRecuWa && <div data-recu-whatsapp className="text-xs text-slate-600">{noteRecuWa}</div>}
@@ -1206,8 +1307,12 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                 l'adresse (Timo, en vérifiant après le correctif précédent).
                 Les chantiers créés avant ces champs (ou toute fiche à
                 corriger) doivent pouvoir les renseigner après coup. */}
+            {/* 18/11/2026 : Matériel, photos, observations et adresse sont des blocs
+                repliables côte à côte (le vide tient en une ligne) — voir plus bas. */}
             {isAdmin && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mb-3 grid sm:grid-cols-2 gap-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mb-3" data-bloc-adresse>
+              <CarteRepliable titre="🏠 Adresse et garantie (pour le PV)" ouvertParDefaut={false}>
+              <div className="grid sm:grid-cols-2 gap-3">
                 <Field label="🏠 Adresse formelle (numéro, rue/quartier, ville) — pour le PV">
                   <div className="flex gap-2">
                     <input className={inputCls} defaultValue={c.adresse_contrat || ""} placeholder="Ex : 12 Rue des Palmiers, Bè, Lomé"
@@ -1238,13 +1343,15 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                   </Field>
                 )}
               </div>
+              </CarteRepliable>
+              </div>
             )}
 
             {/* PROGRAMMATION — admin et responsable commercial */}
             {peutProgrammer && statutChantier(c) !== "receptionne" && !c.travaux && (
-              <div className="rounded-lg border-2 border-purple-300 bg-purple-50 p-3 mb-3">
-                <div className="font-bold text-sm text-purple-900 mb-1">📅 Programmer l'installation</div>
-                <div className="text-xs text-slate-600 mb-3">Fixez la date et composez l'équipe. Le chef ⭐ pourra ensuite déclarer les travaux terminés.</div>
+              <div className="rounded-lg border-2 border-purple-300 bg-purple-50 p-3 mb-3" data-bloc-programmer>
+              <CarteRepliable titre="📅 Programmer l'installation" ouvertParDefaut={!c.date_installation}
+                explication="Fixez la date et composez l'équipe. Le chef ⭐ pourra ensuite déclarer les travaux terminés.">
 
                 <Field label="Date d'installation">
                   <input type="date" className={inputCls + " sm:w-80"} value={progDe(c).date} onChange={(e) => setProgDe(c, { date: e.target.value })} />
@@ -1280,19 +1387,19 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                 <button onClick={() => enregistrerProgrammation(c)} className="mt-3 px-5 py-2 rounded-lg bg-purple-700 text-white font-bold text-sm hover:bg-purple-800">
                   {c.date_installation ? "✅ Mettre à jour la programmation" : "✅ Programmer l'installation"}
                 </button>
+              </CarteRepliable>
               </div>
             )}
 
+            {/* 18/11/2026 : trois blocs repliables côte à côte — le vide tient en une ligne. */}
+            <div className="grid lg:grid-cols-2 gap-3 items-start" data-blocs-dossier>
             {/* MATÉRIEL POSÉ */}
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 mb-3">
-              <div className="font-bold text-sm text-emerald-900 mb-2">🔩 Matériel posé</div>
-              {(c.materiel || []).length === 0 ? (
-                <div className="text-xs text-slate-500">Aucun matériel enregistré. C'est l'information la plus précieuse dans deux ans, au moment d'un dépannage.</div>
-              ) : (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3" data-bloc-materiel>
+              <CarteRepliable titre={`🔩 Matériel posé (${(c.materiel || []).length})`} ouvertParDefaut={(c.materiel || []).length > 0} vide={(c.materiel || []).length === 0} resume="aucun matériel enregistré (c'est l'information la plus précieuse dans deux ans, au moment d'un dépannage)">
                 <table className="w-full text-sm">
                   <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-2 py-1">Matériel</th><th className="text-left px-2 py-1">Qté</th><th className="text-left px-2 py-1">N° de série</th></tr></thead>
                   <tbody>
-                    {c.materiel.map((m, i) => (
+                    {(c.materiel || []).map((m, i) => (
                       <tr key={i} className="border-t border-emerald-100">
                         <td className="px-2 py-1 font-semibold">{m.nom}</td>
                         <td className="px-2 py-1 tabular-nums">{m.qte}</td>
@@ -1301,26 +1408,21 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     ))}
                   </tbody>
                 </table>
-              )}
+              </CarteRepliable>
             </div>
 
             {/* PHOTOS */}
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mb-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <div className="font-bold text-sm text-slate-800">📷 Photos du chantier ({(c.photos || []).length} / {MAX_PHOTOS})</div>
-                {peutEcrireDossier && (c.photos || []).length < MAX_PHOTOS && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" data-bloc-photos>
+              <CarteRepliable titre={`📷 Photos du chantier (${(c.photos || []).length} / ${MAX_PHOTOS})`} ouvertParDefaut={(c.photos || []).length > 0} vide={(c.photos || []).length === 0} resume="aucune photo (les photos avant/après protègent en cas de contestation)"
+                action={peutEcrireDossier && (c.photos || []).length < MAX_PHOTOS ? (
                   <label className="px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-bold hover:bg-slate-900 cursor-pointer">
                     + Ajouter une photo
                     <input type="file" accept="image/*" capture="environment" className="hidden"
                       onChange={(e) => { ajouterPhoto(c, e.target.files?.[0]); e.target.value = ""; }} />
                   </label>
-                )}
-              </div>
-              {(c.photos || []).length === 0 ? (
-                <div className="text-xs text-slate-500">Aucune photo. Les photos avant/après protègent en cas de contestation.</div>
-              ) : (
+                ) : null}>
                 <div className="flex flex-wrap gap-2">
-                  {c.photos.map((ph) => (
+                  {(c.photos || []).map((ph) => (
                     <div key={ph.id} className="relative">
                       <a href={ph.data} target="_blank" rel="noreferrer">
                         <img src={ph.data} alt="" className="h-24 w-32 object-cover rounded-lg border border-slate-300" />
@@ -1330,29 +1432,25 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     </div>
                   ))}
                 </div>
-              )}
+              </CarteRepliable>
             </div>
 
             {/* OBSERVATIONS */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <div className="font-bold text-sm text-amber-900">📝 Observations du technicien</div>
-                {peutEcrireDossier && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 lg:col-span-2" data-bloc-observations>
+              <CarteRepliable titre={`📝 Observations du technicien (${(c.observations || []).length})`} ouvertParDefaut={(c.observations || []).length > 0} vide={(c.observations || []).length === 0} resume="aucune observation (notez ce qui servira au prochain technicien : accès difficile, matériel particulier, conseil donné au client)"
+                action={peutEcrireDossier ? (
                   <button onClick={() => ecrireObservation(c)} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">+ Ajouter une observation</button>
-                )}
-              </div>
-              {(c.observations || []).length === 0 ? (
-                <div className="text-xs text-slate-500">Aucune observation. Notez ici tout ce qui servira au prochain technicien : difficulté d'accès, matériel particulier, conseil donné au client.</div>
-              ) : (
+                ) : null}>
                 <div className="space-y-2">
-                  {c.observations.map((o) => (
+                  {(c.observations || []).map((o) => (
                     <div key={o.id} className="rounded-lg bg-white border border-amber-100 p-2">
                       <div className="text-sm text-slate-800">{o.texte}</div>
                       <div className="text-[10px] text-slate-500 mt-1">{o.par} · {dFR(o.date)}</div>
                     </div>
                   ))}
                 </div>
-              )}
+              </CarteRepliable>
+            </div>
             </div>
           </div>
         );
@@ -1520,11 +1618,11 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
             );
           })}
         </div>
-        <div className="max-h-[625px] overflow-y-auto overflow-x-auto">
-        <table className="w-full text-sm min-w-[820px]">
-          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Client", "Numéro", "Installation", "Installé le", "Entretien", "Localisation", "Commercial", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}</tr></thead>
+        <div className="hidden sm:block max-h-[625px] overflow-y-auto overflow-x-auto" data-clients-table>
+        <table className="w-full text-sm min-w-[900px]">
+          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Client", "Installation", "Installé le", "Entretien", "À suivre", "Gestes"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
-            {listeGroupee.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun client installé{q ? " ne correspond à la recherche" : ongletChantier !== "tout" ? " dans cette catégorie" : " pour l'instant"}.</td></tr>}
+            {listeGroupee.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">Aucun client installé{q ? " ne correspond à la recherche" : ongletChantier !== "tout" ? " dans cette catégorie" : " pour l'instant"}.</td></tr>}
             {listeGroupee.map((c, idx) => {
               const cat = categorieDe(c);
               const catPrecedente = idx > 0 ? categorieDe(listeGroupee[idx - 1]) : null;
@@ -1534,15 +1632,14 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                 <Fragment key={c.id}>
                   {ongletChantier === "tout" && cat !== catPrecedente && (
                     <tr className="bg-slate-100 border-t-2 border-slate-200">
-                      <td colSpan={8} className="px-3 py-1.5 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                      <td colSpan={6} className="px-3 py-1.5 text-xs font-bold text-slate-600 uppercase tracking-wide">
                         {infoCat.label} ({listeGroupee.filter((x) => categorieDe(x) === cat).length})
                       </td>
                     </tr>
                   )}
                 {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026,
                     « Tous, lance ») : un clic ouvre le DOSSIER du chantier (un seul
-                    à la fois, la ligne reste marquée), le client reste figé, les
-                    gestes sont des boutons ronds — le libellé au survol. */}
+                    à la fois, la ligne reste marquée), le client reste figé. */}
                 <tr key={c.id} data-ligne={c.id} onClick={() => setDossierOuvert(dossierOuvert === c.id ? null : c.id)}
                   className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(dossierOuvert === c.id, idx, entretienDu ? "bg-orange-50" : "")}`}>
                   <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(fondLigneDepliable(dossierOuvert === c.id, idx, entretienDu ? "bg-orange-50" : ""), dossierOuvert === c.id)}`}>{c.prenom} {c.nom}{c.user_id ? " 🔑" : ""}
@@ -1550,61 +1647,23 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                         plus que l'espace REGARDÉ, donc une fiche de formation
                         n'apparaît que lorsque TOUT l'écran est en formation —
                         le badge ne commandait plus rien. */}
+                    <div className="text-xs font-normal text-slate-500 whitespace-nowrap">{c.tel}</div>
                     <div className={`text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 ${(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).couleur}`}>
                       {(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).label}
                     </div>
-                    {resumeInterventions(c).ouvertes > 0 && (
-                      <div className="text-[10px] font-bold text-amber-800 mt-1" data-interventions-ouvertes>🔩 {resumeInterventions(c).ouvertes} intervention{resumeInterventions(c).ouvertes > 1 ? "s" : ""} ouverte{resumeInterventions(c).ouvertes > 1 ? "s" : ""}</div>
-                    )}
                     {c.travaux && (
-                      <div className="text-[10px] text-slate-600 mt-1">Facturé {fmt(factureMontant(db, c))}{c.facture_numero ? ` · reçu ${c.facture_numero}` : ""} · coût {fmt(coutTravaux(db, c))} · marge {fmt(margeTravaux(db, c))}</div>
+                      <div className="text-[10px] font-normal text-slate-600 mt-1">Facturé {fmt(factureMontant(db, c))}{c.facture_numero ? ` · reçu ${c.facture_numero}` : ""} · coût {fmt(coutTravaux(db, c))} · marge {fmt(margeTravaux(db, c))}</div>
                     )}
-                    {c.contrat_force_par && (
-                      <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-red-50 text-red-700 border-red-300 ml-1" title="Aucun contrat signé n'existe pour ce chantier">
-                        ⚠ Réceptionné SANS SIGNATURE par {c.contrat_force_par}, le {dFR(c.contrat_force_le)}
-                      </div>
-                    )}
-                    {c.a_programmer && !c.date_installation && (
-                      <div className="text-[10px] font-bold mt-1 inline-block rounded border px-1.5 py-0.5 bg-red-50 text-red-700 border-red-300 ml-1 animate-pulse">
-                        🔔 À PROGRAMMER
-                      </div>
-                    )}
-                    {statutChantier(c) === "reserves" && <div className="text-[10px] text-red-600 mt-0.5 italic">« {c.reserves} »</div>}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{c.tel}</td>
                   <td className="px-3 py-2">
                     {c.type_installation}
-                    {/* Ce que le chantier attend ou porte : de courtes lignes sous l'installation. */}
-                    <div className="text-[11px] leading-snug mt-0.5 space-y-0.5">
-                      {statutChantier(c) === "termine" && c.contrat_statut === "attente_signature" && (isAdmin && lienPvPasParti(c, db.messages)
-                        ? <div className="font-bold text-red-700" data-lien-pv-pas-parti>⚠ Lien du PV pas encore parti du numéro BMI — renvoyez-le</div>
-                        : <div className="font-bold text-sky-700">📤 En attente de signature</div>)}
-                      {statutChantier(c) === "reserves" && c.avenant_statut === "attente_signature" && <div className="font-bold text-sky-700">📤 Avenant en attente de signature</div>}
-                      {c.pose_seule && (() => {
-                        const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
-                        return dette && resteAPayer(dette) <= 0 ? <div className="font-bold text-emerald-700">✅ Pose soldée</div> : null;
-                      })()}
-                      {depensesDuChantier(db, c.id).length > 0 && (
-                        <div className="font-semibold text-purple-800" title="Petites dépenses rattachées à ce chantier (📤 Dépenses) — déduites des frais avant le partage">
-                          🧾 Dépenses rattachées : {fmt(totalDepensesChantier(db, c.id))}
-                        </div>
-                      )}
-                      {/* 🏗 Le matériel parti pour ce chantier (11/10/2026) : ses achats (💰 Ventes, case « 🏗 Chantier »). */}
-                      {c.stock_au_chantier && (() => {
-                        const ar = argentDuChantier({ chantier: c, vente: venteDuChantier(c, db.ventes), dette: detteDuChantier(c, db.dettes) });
-                        return (
-                          <div className="font-semibold text-orange-800" data-materiel-chantier title="Le matériel remis aux techniciens pour ce chantier, payé par l'argent du chantier">
-                            🏗 Matériel acheté : {fmt(ar.achete)}{ar.enAttente > 0 ? ` (⏳ ${fmt(ar.enAttente)} en attente)` : ""}{ar.depasseMateriel ? " ⚠ dépasse la part matériel du devis" : ""}
-                          </div>
-                        );
-                      })()}
+                    <div className="text-xs text-slate-500">
+                      {c.localisation || "—"}
+                      {c.lat && c.lng && <a href={`https://www.google.com/maps?q=${c.lat},${c.lng}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-1 text-sky-700 underline whitespace-nowrap">📍 Carte</a>}
+                      {c.commercial ? ` · com. ${c.commercial}` : ""}
                     </div>
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {c.date_installation ? dFR(c.date_installation) : "—"}
-                    {/* ⭐ 26/09/2026 : la demande d'avis Google partie, une fois, dix jours après la réception. */}
-                    {c.avis_demande_le && <div className="text-[11px] text-amber-700" data-avis-demande>⭐ Avis demandé le {dFR(c.avis_demande_le)}</div>}
-                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">{c.date_installation ? dFR(c.date_installation) : "—"}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {c.date_entretien ? <span className={entretienDu ? "font-bold text-orange-700" : ""}>{entretienDu ? "⚠ " : ""}{dFR(c.date_entretien)}</span> : "—"}
                     {/* 🔧 26/09/2026 : ce que la tournée de 7 h a déjà fait pour CETTE date. */}
@@ -1616,55 +1675,8 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
                     )}
                     {dernierEntretien(c) && <div className="text-[11px] text-slate-500">Dernier : {dFR(dernierEntretien(c).le)}</div>}
                   </td>
-                  <td className="px-3 py-2">
-                    {c.localisation || "—"}
-                    {c.lat && c.lng && <a href={`https://www.google.com/maps?q=${c.lat},${c.lng}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-1 text-sky-700 underline text-xs whitespace-nowrap">📍 Carte</a>}
-                  </td>
-                  <td className="px-3 py-2">{c.commercial || "—"}</td>
-                  <CelluleActions largeur="min-w-[120px] max-w-[200px]">
-                    {/* 🎁 Réservé à l'administrateur : offrir un cadeau au client. */}
-                    {isAdmin && (
-                      c.cadeau && !c.cadeau.retire ? (
-                        <BoutonRond icone="🎁" teinte="rose" onClick={() => marquerRetire(c)} titre={`🎁 En attente de retrait — ${c.cadeau.quoi} à retirer à ${c.cadeau.boutique} (cliquer quand il est retiré)`} />
-                      ) : (
-                        <BoutonRond icone="🎁" teinte="gris" onClick={() => offrirCadeau(c)} titre={`🎁 ${c.cadeau?.retire ? "Offrir à nouveau un cadeau" : "Offrir un cadeau"} à ce client`} />
-                      )
-                    )}
-                    {peutTerminer(c, profile, isAdmin) && (
-                      <BoutonRond icone="🏁" teinte="ambre" envoi onClick={() => marquerTermine(c)} titre="🏁 Marquer terminé" />
-                    )}
-                    {statutChantier(c) === "termine" && isAdmin && c.contrat_statut !== "attente_signature" && (
-                      <BoutonRond icone="📤" envoi onClick={() => envoyerPourSignature(c)} titre="📤 Envoyer pour signature" />
-                    )}
-                    {statutChantier(c) === "termine" && c.contrat_statut === "attente_signature" && isAdmin && (
-                      <BoutonRond icone="📤" envoi onClick={() => envoyerPourSignature(c)} titre="📤 En attente de signature — renvoyer le lien" />
-                    )}
-                    {statutChantier(c) === "termine" && isAdmin && (
-                      <BoutonRond icone="⚠" teinte="rouge" onClick={() => forcerReceptionSansSignature(c)} titre="⚠ Forcer sans signature — cas exceptionnel, aucun PV n'existera" />
-                    )}
-                    {statutChantier(c) === "reserves" && isAdmin && c.avenant_statut !== "attente_signature" && (
-                      <BoutonRond icone="📤" teinte="rouge" envoi onClick={() => envoyerAvenant(c)} titre="📤 Envoyer l'avenant (réserves corrigées)" />
-                    )}
-                    {(c.contrat_statut === "signe" || c.avenant_statut === "signe" || c.contrat_force_par) && (
-                      <BoutonRond icone="📄" teinte="gris" onClick={() => imprimerPV(c, db)} titre="📄 Voir le PV" />
-                    )}
-                    {c.pose_seule && peutEncaisserPose(c, profile) && (() => {
-                      const dette = (db.dettes || []).find((x) => x.id === c.dette_id);
-                      const reste = dette ? resteAPayer(dette) : 0;
-                      const e = etatPose(dette);
-                      return reste > 0 ? (
-                        <BoutonRond data-encaisser-pose icone="💰" teinte="vert" onClick={() => encaisserPose(c)}
-                          titre={`💰 ${e && e.acompte ? libelleEncaissementPose(dette) : "Encaisser"} (reste ${fmt(e && e.etape === "acompte" ? e.resteAcompte : reste)})`} />
-                      ) : null;
-                    })()}
-                    {!c.travaux && (
-                      <BoutonRond icone="🔧" teinte="violet" onClick={() => ouvrirRepartition(c)} titre={`🔧 Frais d'installation${Number(c.frais_installation || 0) > 0 ? ` (${fmt(c.frais_installation)})` : ""}`} />
-                    )}
-                    {!c.travaux && <BoutonRond icone="📅" onClick={() => modifierEntretien(c)} titre="📅 Entretien — la date du prochain entretien" />}
-                    {isAdmin && !c.travaux && c.date_entretien && <BoutonRond data-entretien-fait icone="✅" teinte="vert" onClick={() => entretienFait(c)} titre="✅ Entretien fait" />}
-                    {isAdmin && !c.user_id && <BoutonRond icone="🔗" onClick={() => lierCompte(c)} titre="🔗 Lier un compte" />}
-                    {(isAdmin || c.commercial === profile.nom) && <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(c)} titre="🗑 Supprimer" />}
-                  </CelluleActions>
+                  <td className="px-3 py-2 text-[11px] min-w-[150px] max-w-[260px]">{alertesDe(c)}</td>
+                  <td className="px-3 py-2 min-w-[300px]" data-cellule-actions onClick={(e) => e.stopPropagation()}>{gestesDe(c)}</td>
                 </tr>
                 </Fragment>
               );
@@ -1672,8 +1684,32 @@ export function ClientsInstalles({ db, save, profile, isAdmin }) {
           </tbody>
         </table>
         </div>
+        {/* 📱 Sur téléphone : une CARTE par client (18/11/2026). */}
+        <div className="sm:hidden p-3 space-y-2" data-clients-cartes>
+          {listeGroupee.length === 0 && <div className="px-2 py-4 text-center text-slate-400 text-sm">Aucun client installé{q ? " ne correspond à la recherche" : ongletChantier !== "tout" ? " dans cette catégorie" : " pour l'instant"}.</div>}
+          {listeGroupee.map((c) => {
+            const entretienDu = c.date_entretien && c.date_entretien <= today();
+            const ouvert = dossierOuvert === c.id;
+            return (
+              <div key={c.id} data-carte-chantier={c.id} className={`rounded-lg border p-3 ${ouvert ? "border-sky-300 bg-sky-50" : entretienDu ? "border-orange-300 bg-orange-50" : "border-slate-200 bg-white"}`}>
+                <div role="button" tabIndex={0} className="cursor-pointer" onClick={() => setDossierOuvert(ouvert ? null : c.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDossierOuvert(ouvert ? null : c.id); } }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold">{c.prenom} {c.nom}{c.user_id ? " 🔑" : ""}</div>
+                    <div className={`text-[10px] font-bold rounded border px-1.5 py-0.5 shrink-0 ${(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).couleur}`}>{(STATUT_CHANTIER[statutChantier(c)] || STATUT_CHANTIER.en_cours).label}</div>
+                  </div>
+                  <div className="text-xs text-slate-500">{c.tel}</div>
+                  <div className="text-sm mt-1">{c.type_installation}{c.localisation ? ` · ${c.localisation}` : ""}</div>
+                  <div className="text-xs text-slate-500">Installé le {c.date_installation ? dFR(c.date_installation) : "—"} · Entretien {c.date_entretien ? `${entretienDu ? "⚠ " : ""}${dFR(c.date_entretien)}` : "—"}</div>
+                  <div className="mt-1 text-[11px]">{alertesDe(c)}</div>
+                </div>
+                <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesDe(c)}</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div className="text-xs text-slate-400">🔑 = fiche liée à un compte d'accès client. ⚠ fond orange = entretien dû. Un clic sur une ligne ouvre le dossier du chantier ; les boutons ronds disent leur geste au survol. Les commerciaux et les techniciens ne voient que leurs propres fiches et les chantiers où ils interviennent ; l'administrateur et les chefs d'équipe voient tout le parc.</div>
+      <NoteDepliable libelle="Légende et règles de cet écran" className="text-xs text-slate-400">🔑 = fiche liée à un compte d'accès client. ⚠ fond orange = entretien dû. Un clic sur une ligne ouvre le dossier du chantier ; les boutons ronds disent leur geste au survol. Les commerciaux et les techniciens ne voient que leurs propres fiches et les chantiers où ils interviennent ; l'administrateur et les chefs d'équipe voient tout le parc.</NoteDepliable>
     </div>
   );
 }

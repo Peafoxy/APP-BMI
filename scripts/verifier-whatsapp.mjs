@@ -3239,8 +3239,8 @@ const ecranCI = lire("src/screens/ClientsInstalles.jsx");
 const corpsFait = ecranCI.slice(ecranCI.indexOf("const entretienFait = async"), ecranCI.indexOf("const lierCompte = async"));
 test("★ l'écran : « ✅ Entretien fait » (administrateur, revérifié dans le geste), la tâche automatique de cette date se ferme, ce que la tournée a fait se lit sous la date",
   /if \(refuserSaufAdmin\(profile, "Noter un entretien fait"\)\) return;/.test(corpsFait) && /critiqueEntretienFait\(c,/.test(corpsFait)
-  // RETOURNÉ le 15/10/2026 (la règle des lignes) : un bouton rond.
-  && /statut: "validee"/.test(corpsFait) && /\{isAdmin && !c\.travaux && c\.date_entretien && <BoutonRond data-entretien-fait icone="✅" teinte="vert" onClick=\{\(\) => entretienFait\(c\)\}/.test(ecranCI)
+  // RETOURNÉ le 18/11/2026 : un bouton en toutes lettres (BoutonGeste).
+  && /statut: "validee"/.test(corpsFait) && /\{isAdmin && !c\.travaux && c\.date_entretien && <BoutonGeste data-entretien-fait icone="✅" teinte="vert" onClick=\{\(\) => entretienFait\(c\)\}/.test(ecranCI)
   && /data-rappel-entretien/.test(ecranCI));
 test("rien de secret : aucune clé dans la règle, et le texte du modèle est celui validé par Timo",
   !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/rappelEntretien.js"))

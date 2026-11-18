@@ -184,7 +184,7 @@ Si vous voyez une ligne fausse, c'est un défaut : on la corrige.
 
 | Fichier | À quoi il sert |
 |---|---|
-| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`), le bouton qui se grise pendant un envoi (`BoutonEnvoi`, `useEnvoiEnCours`), la fenêtre de description d'un bouton au survol (`InfobulleHost`), et le tableau qui montre 6 lignes puis défile (`TableauDefilant`) |
+| `ui.jsx` | Les briques de toute l'application : champs, boutons, fenêtres, questions, partage PDF, colonnes figées, `allerALaLigne` (une notification mène à sa ligne), la règle des lignes (ligne dépliable, pastilles, texte qui se déplie, `BoutonRond`, `CelluleActions`, `BoutonGeste` + `LigneGestes` = les gestes en toutes lettres), le bouton qui se grise pendant un envoi (`BoutonEnvoi`, `useEnvoiEnCours`), la fenêtre de description d'un bouton au survol (`InfobulleHost`), et le tableau qui montre 6 lignes puis défile (`TableauDefilant`) |
 | `cibleEcran.js` | 🔔 Ce qu'un écran fait d'une notification cliquée : `useCible`, la boutique visée (`useCibleBoutique`, jamais un employé déplacé hors de sa boutique) |
 | `ChampSuggestions.jsx` | LE champ à suggestions (le seul ; plus de `<datalist>`) |
 | `InfosLegales.jsx` | ⚖️ La fenêtre « Informations légales et confidentialité » et son lien (écran de connexion, 🔒 Mes données) |
