@@ -22,7 +22,7 @@ import { envoisRecuDeVente } from "../lib/lignesPrivees";
 import { prospectAcquis } from "../lib/prospects";
 import { lignesReprenables, montantDuChoix, moyenParDefaut, construireReprise, appliquerReprise, MOYENS_REMBOURSEMENT } from "../lib/reprises";
 import { estCodeCarte, trouverCarte, carteDe, critiqueRemiseCarte, traceCarteSurLaVente, carteEffective, pctCommunCarte } from "../lib/carteFidelite";
-import { autorisationPour, demandeDeLOffre, construireDemandeRemise, critiqueDemandeRemise, poserDemandeRemise, critiqueDecisionRemise, accorderRemise, refuserRemise, annulerDemandeRemise, traceSurLaVente, marquerUtilisee, demandesAAutoriser, mesDemandesRemise, demandesRemiseDe, STATUT_ATTENTE_REMISE, STATUT_REFUSEE_REMISE, STATUT_ACCORDEE, LIBELLE_STATUT_REMISE } from "../lib/autorisationRemise";
+import { autorisationPour, demandeDeLOffre, construireDemandeRemise, critiqueDemandeRemise, poserDemandeRemise, critiqueDecisionRemise, accorderRemise, refuserRemise, annulerDemandeRemise, traceSurLaVente, marquerUtilisee, demandesAAutoriser, mesDemandesRemise, demandesRemiseDe, accordExpire, VALIDITE_ACCORD_MIN, STATUT_ATTENTE_REMISE, STATUT_REFUSEE_REMISE, STATUT_ACCORDEE, LIBELLE_STATUT_REMISE } from "../lib/autorisationRemise";
 import { ROLES_REMISE_APRES_VENTE, plafondRemiseApresVente, construireRemiseApresVente, appliquerRemiseApresVente } from "../lib/remiseApresVente";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun, refusPrixSousLeStock } from "../lib/panier";
 import { ChampsEntreprise } from "../components/ChampsEntreprise";
@@ -220,6 +220,9 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // déjà été visité avant qu'un devis soit converti, le panier du devis
   // n'arrivait plus jamais. Signalé par Timo : « convertir en vente un
   // devis ne ramène rien dans le panier du vendeur ».
+  // ⏱ Un accord de remise ne vaut que 10 minutes : l'écran se met à jour tout seul.
+  const [, setTicRemise] = useState(0);
+  useEffect(() => { const t = setInterval(() => setTicRemise((n) => n + 1), 20000); return () => clearInterval(t); }, []);
   useEffect(() => {
     if (!preRempli) return;
     if (preRempli.boutique) setBq(preRempli.boutique);
@@ -649,7 +652,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
     remonterEnHaut(true);
   };
   const annulerMaDemande = async (d) => {
-    if (!await uConfirm(`Annuler votre demande de remise pour ${d.client} ?`)) return;
+    const vivante = d.statut === STATUT_ATTENTE_REMISE || (d.statut === STATUT_ACCORDEE && !accordExpire(d));
+    if (vivante && !await uConfirm(`Annuler votre demande de remise pour ${d.client} ?`)) return;
     save({ ...db, boutiques: annulerDemandeRemise(db.boutiques, d) }, `🏷 Demande de remise pour ${d.client} annulée par ${profile.nom} — ${d.boutique}`);
   };
 
@@ -2067,10 +2071,10 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                   <span className="font-semibold">{d.client}</span>
                   <span className="text-xs text-slate-500">{d.remise_mode === MODE_REMISE_MONTANT ? fmt(d.remise_montant) : `${d.remise_pct} %`} sur {fmt(d.sous_total)}</span>
                   <span className={`text-xs font-bold ${d.statut === STATUT_ACCORDEE ? "text-emerald-700" : d.statut === STATUT_REFUSEE_REMISE ? "text-red-700" : "text-amber-700"}`}>
-                    {LIBELLE_STATUT_REMISE[d.statut]}{d.decide_par ? ` par ${d.decide_par}` : ""}{d.motif_refus ? ` — ${d.motif_refus}` : ""}
+                    {d.statut === STATUT_ACCORDEE && accordExpire(d) ? `⌛ Accordée par ${d.decide_par}, expirée (${VALIDITE_ACCORD_MIN} min) — refaites une demande` : <>{LIBELLE_STATUT_REMISE[d.statut]}{d.decide_par ? ` par ${d.decide_par}` : ""}{d.motif_refus ? ` — ${d.motif_refus}` : ""}{d.statut === STATUT_ACCORDEE ? ` (valable ${VALIDITE_ACCORD_MIN} min)` : ""}</>}
                   </span>
-                  {d.statut === STATUT_ACCORDEE && <BoutonRond icone="🛒" teinte="vert" titre="Remettre ce panier, avec sa remise accordée" onClick={() => remettreAuPanier(d)} />}
-                  {d.statut === STATUT_ATTENTE_REMISE && <BoutonRond icone="✕" teinte="gris" titre="Annuler ma demande" onClick={() => annulerMaDemande(d)} />}
+                  {d.statut === STATUT_ACCORDEE && !accordExpire(d) && <BoutonRond icone="🛒" teinte="vert" titre="Remettre ce panier, avec sa remise accordée" onClick={() => remettreAuPanier(d)} />}
+                  <BoutonRond icone="✕" teinte="gris" titre={d.statut === STATUT_ATTENTE_REMISE || (d.statut === STATUT_ACCORDEE && !accordExpire(d)) ? "Annuler ma demande" : "Retirer cette ligne"} onClick={() => annulerMaDemande(d)} />
                 </div>
               ))}
             </div>

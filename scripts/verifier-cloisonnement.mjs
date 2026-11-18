@@ -7431,6 +7431,22 @@ titre("🏷 La remise ponctuelle autorisée À DISTANCE par un administrateur (T
     Ar.autorisationPour(bq2[0], [{ id: "x", remise_autorisee: { id: dem.id } }], offre) === null
     && (() => { const t = Ar.traceSurLaVente(bq2[0].remises_autorisees[0]); return t.id === dem.id && t.par === "CALEB" && t.motif === "client fidèle"; })()
     && Ar.marquerUtilisee(bq2, "APESSITO", dem.id, "vte1")[0].demandes_remise[0].statut === "utilisee");
+  test("★★ ⏱ l'accord ne vaut que 10 minutes (heure de Lomé) : valable à 9 min, mort à 11 min ; et le ✕ du vendeur sur une demande accordée le ferme pour de bon",
+    (() => {
+      const a = bq2[0].remises_autorisees[0];
+      const t0 = Date.parse(`${a.date}T${a.heure}:00Z`);
+      const annulee = Ar.annulerDemandeRemise(bq2, bq2[0].demandes_remise[0]);
+      return Ar.VALIDITE_ACCORD_MIN === 10
+        && Ar.autorisationPour(bq2[0], [], offre, t0 + 9 * 60000)?.id === dem.id
+        && Ar.autorisationPour(bq2[0], [], offre, t0 + 11 * 60000) === null
+        && Ar.accordExpire(bq2[0].demandes_remise[0], t0 + 11 * 60000) === true
+        && Ar.accordExpire(bq2[0].demandes_remise[0], t0 + 5 * 60000) === false
+        && Ar.autorisationPour(annulee[0], [], offre, t0) === null;
+    })());
+  test("★ écran 💰 Ventes : le ✕ se voit sur une demande en attente, accordée, refusée ou expirée ; 🛒 jamais sur une expirée ; l'écran se rafraîchit seul (minuteur)",
+    /accordExpire\(d\)/.test(readFileSync("src/screens/Ventes.jsx", "utf8")) && /<BoutonRond icone="✕" teinte="gris" titre=\{d\.statut === STATUT_ATTENTE_REMISE/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
+    && /statut === STATUT_ACCORDEE && !accordExpire\(d\) && <BoutonRond/.test(readFileSync("src/screens/Ventes.jsx", "utf8"))
+    && /setTicRemise/.test(readFileSync("src/screens/Ventes.jsx", "utf8")));
   test("★ refusé : la demande garde le motif ; aucun accord n'est rangé",
     (() => { const b = Ar.refuserRemise(bq1, dem, caleb, "trop"); return b[0].demandes_remise[0].statut === "refusee" && b[0].demandes_remise[0].motif_refus === "trop" && !b[0].remises_autorisees; })());
   test("★ le MUR : demandesAAutoriser ne lit QUE les boutiques qu'on lui passe (l'écran passe boutiquesVisibles)",

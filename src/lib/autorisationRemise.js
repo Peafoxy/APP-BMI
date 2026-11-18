@@ -29,6 +29,7 @@
 // `demandes_remise`). Sans lui, l'écran laisse passer et la base refuse.
 // ============================================================
 import { uid, today, heureCourte } from "./core";
+import { maintenantMs } from "./horloge";
 import { panierNormalise, remiseExigeAdmin, remiseLigneExigeAdmin } from "./calculs";
 
 export const STATUT_ATTENTE_REMISE = "en_attente";
@@ -60,12 +61,32 @@ export const memeOffre = (a, { panier, remisePct, tel }) => !!a
 export const besoinAutorisation = ({ panier, remisePct, plafond, role }) => role !== "admin"
   && (remiseExigeAdmin(remisePct, plafond) || (panier || []).some((l) => remiseLigneExigeAdmin(l, plafond)));
 
+// ⏱ UN ACCORD NE VAUT QUE 10 MINUTES (Timo, 18/11/2026 : « Validité de 10min
+// et le × sur la ligne ») : une remise accordée qui traîne ne doit pas servir
+// une heure plus tard à un autre moment. L'heure est celle de Lomé (GMT+0).
+// ⚠ C'est l'application qui le garde ; la base ne regarde que le panier, le
+// %, le client et « une seule fois ».
+export const VALIDITE_ACCORD_MIN = 10;
+const debutAccord = (x) => {
+  const jour = x && (x.decide_le || x.date);
+  const heure = x && (x.decide_heure || x.heure);
+  if (!jour || !heure) return null;
+  const t = Date.parse(`${jour}T${String(heure).slice(0, 5)}:00Z`);
+  return Number.isFinite(t) ? t : null;
+};
+export const accordExpire = (x, maintenant = maintenantMs()) => {
+  const t = debutAccord(x);
+  return t !== null && maintenant > t + VALIDITE_ACCORD_MIN * 60000;
+};
+
 // Un accord est-il déjà consommé par une vente ?
 const dejaUtilise = (ventes, id) => (ventes || []).some((v) => v.remise_autorisee?.id === id);
 
 // L'accord VALABLE pour ce panier, dans cette boutique : jamais un déjà utilisé.
-export const autorisationPour = (ficheBoutique, ventes, offre) => remisesAutoriseesDe(ficheBoutique)
-  .find((a) => memeOffre(a, offre) && !dejaUtilise(ventes, a.id)) || null;
+// Ni un accord de plus de 10 minutes, ni celui dont le vendeur a annulé la demande.
+export const autorisationPour = (ficheBoutique, ventes, offre, maintenant = maintenantMs()) => remisesAutoriseesDe(ficheBoutique)
+  .find((a) => memeOffre(a, offre) && !dejaUtilise(ventes, a.id) && !accordExpire(a, maintenant)
+    && !demandesRemiseDe(ficheBoutique).some((d) => d.id === a.id && d.statut === STATUT_ANNULEE_REMISE)) || null;
 
 // La demande de ce panier qui attend encore, ou la dernière refusée.
 export const demandeDeLOffre = (ficheBoutique, offre, statut) => [...demandesRemiseDe(ficheBoutique)]

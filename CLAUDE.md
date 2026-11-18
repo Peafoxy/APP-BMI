@@ -11250,3 +11250,6 @@ s'est arrêté, mot pour mot.
 
 Quand un chantier avance, on met à jour SON fichier dans `docs/`, et ce
 tableau seulement si l'état change.
+
+- **⏱ UN ACCORD DE REMISE NE VAUT QUE 10 MINUTES, ET LE ✕ SUR SA LIGNE** (18/11/2026, capture « Accordée par TIMO » restée affichée : « Validité de 10min et le × sur la ligne »). `VALIDITE_ACCORD_MIN` / `accordExpire` (lib/autorisationRemise.js, heure de Lomé, sur `decide_le` / `decide_heure`) ; `autorisationPour` ignore un accord expiré ET celui dont le vendeur a annulé la demande ; « Mes demandes de remise » (💰 Ventes) montre « ⌛ expirée » sans 🛒, et un ✕ sur chaque ligne (annuler une demande en attente ou accordée, retirer une refusée ou expirée) ; l'écran se rafraîchit seul (20 s). ⚠ L'application seule garde le délai (la base ne regarde que panier, %, client, une fois). Rien à coller. Banc `verifier-cloisonnement` (+2, 3198), éprouvé (limite retirée : il tombe). Chapitre 5 à jour.
+- ✅ `intervention_ouverte` et `intervention_resolue` : créés et approuvés par Meta (17/11/2026).
