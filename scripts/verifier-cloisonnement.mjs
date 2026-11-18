@@ -3950,7 +3950,7 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
   test("★★ ⚙ Paramètres → 🗂 Catalogue & devis COMPACT (18/11/2026) : six réglages en cases de même taille (carteReglage, h-full), domaines en tableau qui se déplie (et cartes sur téléphone), banques et note repliables, l'assistant en blocs repliés — explications derrière le « i », droits inchangés",
     (() => { const pa = readFileSync("src/screens/Parametres.jsx", "utf8");
       const cartes = (pa.match(/\{(?:jeSuisPrincipal && )?carteReglage\("/g) || []).length;
-      return cartes === 6 && /data-blocs-reglages/.test(pa) && /data-blocs-catalogue/.test(pa)
+      return cartes === 9 && /data-blocs-reglages/.test(pa) && /data-blocs-catalogue/.test(pa)
         && /const carteReglage = \(cle, titre, explication, contenu\) => \(\s*<div className="[^"]*h-full" data-reglage=\{cle\}>/.test(pa)
         && /const \[domaineDeplie, setDomaineDeplie\] = useState\(null\);/.test(pa) && /data-domaines-cartes/.test(pa) && /data-domaine-detail=/.test(pa)
         && /<CarteRepliable titre="☀️ Note affichée sous le dimensionnement" ouvertParDefaut=\{false\}/.test(pa)
@@ -3964,6 +3964,14 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
         && /<TableauDefilant>/.test(pa) && /celluleFigee\("bg-white"\)/.test(pa) && /data-appareils-cartes/.test(pa)
         && /icone="✏️" titre="Corriger l'appareil"/.test(pa) && /icone="🗑" titre="Retirer l'appareil"/.test(pa)
         && !/text-xs text-sky-800 underline mr-3">✏️ Corriger/.test(pa); })());
+  test("★★ ⚙ Paramètres → 🎨 Apparence COMPACT (18/11/2026) : trois cases (fond des icônes, fenêtre de verrouillage, cachet) puis l'écran de connexion en quatre sous-blocs, tout dans le seul bloc réservé à l'administrateur principal",
+    (() => { const pa = readFileSync("src/screens/Parametres.jsx", "utf8");
+      const i = pa.indexOf('display: onglet === "apparence"'), j = pa.indexOf('display: onglet === "securite"', i);
+      const t = pa.slice(i, j);
+      return /data-blocs-apparence/.test(t) && /data-reglage-fond-icones/.test(t) && ["fond-icones", "verrou", "cachet"].every((k) => new RegExp(`carteReglage\\("${k}"`).test(t))
+        && /data-ecran-connexion/.test(t) && ["bandeau", "ambiance", "messages", "image"].every((k) => t.includes(`data-sous-bloc="${k}"`))
+        && (t.match(/estAdminPrincipal\(db, profile\)/g) || []).length === 1
+        && /enregistrerAccueil\(\{ accueil_texte: accueilTexte\.trim\(\) \}\)/.test(t) && /onClick=\{reinitialiserAccueil\}/.test(t); })());
   test("★★ LE COUPLE (29/10/2026) : le serveur (securite-42) lit le MÊME champ `plafond_remise_pct` que celui écrit par ⚙ Paramètres — sans lui, l'écran laisserait passer une remise que la base refuserait encore",
     (() => { const s42 = readFileSync("supabase/securite-42-plafond-remise-reglable.sql", "utf8");
       return /b\.data ->> 'plafond_remise_pct'/.test(s42) && /plafond_remise_boutique/.test(s42)
@@ -15111,7 +15119,7 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
       let hPa = "", errPa = "";
       try { PA.setRegardeFormation(false); hPa = PA.rendreParametres(dbP, timoP); } catch (e) { errPa = String(e && e.message || e).split("\n")[0]; }
       test("★★ ⚙ Paramètres RENDU (principal, base nue) : l'écran se monte — jamais un écran blanc — avec ses blocs Boutiques, Catalogue (cases de réglage, domaines) et Appareils" + (errPa ? ` (${errPa})` : ""),
-        !errPa && /data-blocs-boutiques/.test(hPa) && /data-blocs-reglages/.test(hPa) && /data-blocs-catalogue/.test(hPa) && /data-blocs-appareils/.test(hPa) && /data-a-classer/.test(hPa));
+        !errPa && /data-blocs-boutiques/.test(hPa) && /data-blocs-reglages/.test(hPa) && /data-blocs-catalogue/.test(hPa) && /data-blocs-appareils/.test(hPa) && /data-a-classer/.test(hPa) && /data-blocs-apparence/.test(hPa) && /data-ecran-connexion/.test(hPa));
     } else test("★★ ⚙ Paramètres se monte dans le banc" + (errB ? ` (${errB})` : ""), false);
   }
   const sortieRap = join("node_modules", ".cache", `bmi-rapports-${process.pid}.mjs`);

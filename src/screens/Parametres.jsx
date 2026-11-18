@@ -2704,6 +2704,221 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
 
       </div>
       <div className="space-y-4" style={{ display: onglet === "apparence" ? undefined : "none" }}>
+      {/* 🎨 Apparence, façon « carnet » (Timo, 18/11/2026 : « Construit, lance ») : trois petites
+          cases (fond des icônes, fenêtre de verrouillage, cachet), puis l'écran de connexion
+          en quatre sous-blocs. Réservé à l'administrateur principal, comme avant. */}
+      {estAdminPrincipal(db, profile) && (<>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch" data-blocs-apparence>
+          {carteReglage("fond-icones", "🔲 Fond de la page d'icônes",
+            lireCouleurHex(boutiqueRef.icones_couleur_fond)
+              ? "La page d'icônes et la colonne d'icônes prennent cette couleur, pour tout le monde. Sur une couleur sombre les noms s'écrivent en blanc, sur une couleur claire en foncé."
+              : "Aujourd'hui la page d'icônes et la colonne d'icônes ont le fond bleu aux vagues claires. Choisir une couleur le remplace, pour tout le monde.",
+            <div data-reglage-fond-icones className="flex flex-wrap items-end gap-3">
+              <Field label="Couleur du fond">
+                <input type="color" value={lireCouleurHex(boutiqueRef.icones_couleur_fond) || "#0f172a"} onChange={(e) => enregistrerAccueil({ icones_couleur_fond: e.target.value })} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+              </Field>
+              {lireCouleurHex(boutiqueRef.icones_couleur_fond) && (
+                <button type="button" onClick={() => enregistrerAccueil({ icones_couleur_fond: "" })} className="h-10 px-3 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700">↺ Reprendre le fond bleu</button>
+              )}
+            </div>)}
+
+          {carteReglage("verrou", "🔒 Fenêtre de verrouillage",
+            "La photo de fond et les bulles de la fenêtre de verrouillage sont celles de l'écran de connexion. Une carte sombre passe son texte en clair d'elle-même.",
+            <div className="flex flex-wrap gap-3">
+              <Field label="Couleur de la carte">
+                <input type="color" value={boutiqueRef.verrou_couleur_carte || "#ffffff"} onChange={(e) => enregistrerAccueil({ verrou_couleur_carte: e.target.value })} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+              </Field>
+              <Field label="Transparence de la carte">
+                <select className={inputCls} value={boutiqueRef.verrou_opacite_carte ?? ""} onChange={(e) => enregistrerAccueil({ verrou_opacite_carte: e.target.value })}>
+                  <option value="">Opaque (par défaut)</option>
+                  <option value="85">Léger voile (85 %)</option>
+                  <option value="60">Moyen (60 %)</option>
+                  <option value="30">Fort (30 %)</option>
+                  <option value="15">Presque invisible (15 %)</option>
+                  <option value="0">Totalement transparent</option>
+                </select>
+              </Field>
+            </div>)}
+
+          {carteReglage("cachet", "🏷️ Cachet BMI Togo",
+            "Utilisé automatiquement sur tous les contrats d'installation, quel que soit l'initiateur (commercial, technicien, vous-même…). Un seul cachet pour toute l'entreprise.",
+            <>
+              <input type="file" accept="image/*" onChange={(e) => chargerCachet(e.target.files?.[0])} disabled={cachetEnCours} className="text-sm" />
+              {cachetEnCours && <div className="text-xs text-slate-400 mt-1">Compression de l'image…</div>}
+              {db.boutiques[0]?.cachet_bmi && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img src={db.boutiques[0].cachet_bmi} alt="Cachet BMI Togo" className="h-16 rounded-lg border border-slate-300 bg-white p-1" />
+                  <button onClick={() => { if (bloquerSiLecture(db, profile)) return; save({ ...db, boutiques: db.boutiques.map((b) => ({ ...b, cachet_bmi: "" })) }, "Cachet BMI Togo retiré"); }} className="text-xs font-semibold text-red-600 underline">Retirer le cachet</button>
+                </div>
+              )}
+            </>)}
+        </div>
+
+        <div className="rounded-xl p-4 bg-white border-2 border-purple-200" data-ecran-connexion>
+          <CarteRepliable titre="🎉 Personnaliser l'écran de connexion"
+            explication="Pour souhaiter une bonne fête (Noël, Nouvel An…) à tous ceux qui se connectent. Visible par tout le monde, sur tous les appareils, dès la prochaine synchronisation."
+            action={<button onClick={reinitialiserAccueil} className="px-3 py-1.5 rounded-lg border-2 border-slate-300 text-slate-600 font-bold text-xs hover:bg-slate-50">↺ Revenir à l'écran normal</button>}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" data-sous-bloc="bandeau">
+                <CarteRepliable titre="Bandeau">
+                  <div className="space-y-3">
+                    <Field label="Texte du bandeau (vide = « BIENVENUE SUR NOTRE SYSTÈME »)">
+                      <div className="flex gap-2">
+                        <input className={inputCls} maxLength={60} placeholder="Ex. : Joyeux Noël !" value={accueilTexte} onChange={(e) => setAccueilTexte(e.target.value)} />
+                        <button onClick={() => enregistrerAccueil({ accueil_texte: accueilTexte.trim() })} className="px-4 py-2 rounded-lg bg-purple-700 text-white text-sm font-bold hover:bg-purple-800 whitespace-nowrap">Enregistrer</button>
+                      </div>
+                    </Field>
+                    <div className="flex flex-wrap gap-4">
+                      <Field label="Couleur du bandeau">
+                        <input type="color" value={accueilBadge} onChange={(e) => { setAccueilBadge(e.target.value); enregistrerAccueil({ accueil_couleur_badge: e.target.value }); }} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+                      </Field>
+                      <Field label="Couleur de fond de la carte">
+                        <input type="color" value={accueilFond} onChange={(e) => { setAccueilFond(e.target.value); enregistrerAccueil({ accueil_couleur_fond: e.target.value }); }} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+                      </Field>
+                    </div>
+                  </div>
+                </CarteRepliable>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" data-sous-bloc="ambiance">
+                <CarteRepliable titre="Cadres et ambiance"
+                  explication={<>
+                    ⭐ Les étoiles habillent le grand espace autour de la carte — surtout visible sur PC, où la fenêtre est large. Elles restent DERRIÈRE la carte : elles ne gênent jamais la saisie.
+                    <div className="mt-1">💡 Plus le voile est léger, plus l'image se voit — mais plus le texte devient difficile à lire sur une image claire. Regardez l'écran de connexion avant de laisser comme ça. Un léger flou protège la lecture tant qu'il reste un voile ; à « totalement transparent », l'image est parfaitement nette. « Par défaut » remet l'écran d'origine.</div>
+                  </>}>
+                  <div className="flex flex-wrap gap-4">
+                    <Field label="Transparence des cadres">
+                      <select className={inputCls} value={boutiqueRef.accueil_opacite_cadres ?? ""} onChange={(e) => enregistrerAccueil({ accueil_opacite_cadres: e.target.value })}>
+                        <option value="">Par défaut</option>
+                        <option value="100">Opaque — cadres blancs pleins</option>
+                        <option value="85">Léger voile (85 %)</option>
+                        <option value="60">Moyen (60 %)</option>
+                        <option value="30">Fort (30 %)</option>
+                        <option value="20">Très fort (20 %)</option>
+                        <option value="15">Presque invisible (15 %)</option>
+                        <option value="0">Totalement transparent</option>
+                      </select>
+                    </Field>
+                    <Field label="Ciel étoilé autour de la carte">
+                      <label className="flex items-center gap-2 h-10 px-3 rounded-lg border border-slate-300 bg-white cursor-pointer">
+                        <input type="checkbox" checked={boutiqueRef.accueil_etoiles === true} onChange={(e) => enregistrerAccueil({ accueil_etoiles: e.target.checked })} />
+                        <span className="text-sm font-semibold text-slate-700">{boutiqueRef.accueil_etoiles === true ? "Activé" : "Désactivé"}</span>
+                      </label>
+                    </Field>
+                    <Field label="Bulles animées dans les cadres">
+                      <label className="flex items-center gap-2 h-10 px-3 rounded-lg border border-slate-300 bg-white cursor-pointer">
+                        <input type="checkbox" checked={boutiqueRef.accueil_bulles === true} onChange={(e) => enregistrerAccueil({ accueil_bulles: e.target.checked })} />
+                        <span className="text-sm font-semibold text-slate-700">{boutiqueRef.accueil_bulles === true ? "Activées" : "Désactivées"}</span>
+                      </label>
+                    </Field>
+                    {boutiqueRef.accueil_bulles === true && (
+                      <Field label="Couleur des bulles">
+                        <input type="color" value={boutiqueRef.accueil_couleur_bulles || boutiqueRef.accueil_couleur_badge || "#0284c7"} onChange={(e) => enregistrerAccueil({ accueil_couleur_bulles: e.target.value })} className="h-10 w-16 rounded-lg border border-slate-300 cursor-pointer" />
+                      </Field>
+                    )}
+                  </div>
+                </CarteRepliable>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" data-sous-bloc="messages">
+                <CarteRepliable titre="Messages et anniversaires"
+                  explication="Les messages montent doucement du bas de l'écran de connexion, un par un. Pour les anniversaires : renseignez le jour et le mois sur chaque fiche employé (onglet Utilisateurs, bouton « Anniversaire ») ; les employés dont c'est l'anniversaire sont alors souhaités automatiquement, chaque année. L'année de naissance n'est jamais demandée.">
+                  <div className="space-y-3">
+                    <Field label="Messages qui montent à l'écran (un par ligne, 6 maximum)">
+                      <textarea
+                        className={`${inputCls} h-24`}
+                        placeholder={"Joyeuses fêtes de fin d'année !\nBonne et heureuse année à tous"}
+                        defaultValue={boutiqueRef.accueil_messages || ""}
+                        onBlur={(e) => {
+                          if ((e.target.value || "") !== (boutiqueRef.accueil_messages || "")) {
+                            enregistrerAccueil({ accueil_messages: e.target.value });
+                          }
+                        }}
+                      />
+                    </Field>
+                    <Field label="Souhaiter les anniversaires du jour">
+                      <label className="flex items-center gap-2 h-10 px-3 rounded-lg border border-slate-300 bg-white cursor-pointer">
+                        <input type="checkbox" checked={boutiqueRef.accueil_anniversaires === true} onChange={(e) => enregistrerAccueil({ accueil_anniversaires: e.target.checked })} />
+                        <span className="text-sm font-semibold text-slate-700">{boutiqueRef.accueil_anniversaires === true ? "Activé" : "Désactivé"}</span>
+                      </label>
+                    </Field>
+                  </div>
+                </CarteRepliable>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" data-sous-bloc="image">
+                <CarteRepliable titre="Image de fond" explication="Remplace la couleur de fond si elle est présente. Les trois choix de pose n'apparaissent qu'une fois l'image choisie.">
+                  <div className="space-y-3">
+                    <Field label="Image de fond">
+                      <input type="file" accept="image/*" onChange={(e) => chargerImageAccueil(e.target.files?.[0])} disabled={imageEnCours} className="text-sm" />
+                      {imageEnCours && <div className="text-xs text-slate-400 mt-1">Compression de l'image…</div>}
+                      {boutiqueRef.accueil_image && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <img src={boutiqueRef.accueil_image} alt="Aperçu" className="h-16 rounded-lg border border-slate-300" />
+                          <button onClick={() => enregistrerAccueil({ accueil_image: "" })} className="text-xs font-semibold text-red-600 underline">Retirer l'image</button>
+                        </div>
+                      )}
+                    </Field>
+                    {boutiqueRef.accueil_image && (
+                      <div className="flex flex-wrap gap-4">
+                        <Field label="Comment l'image se pose">
+                          <select className={inputCls} value={boutiqueRef.accueil_image_ajustement || "remplir"} onChange={(e) => enregistrerAccueil({ accueil_image_ajustement: e.target.value })}>
+                            <option value="remplir">Remplir la carte (bords recadrés)</option>
+                            <option value="entier">Image entière (rien de coupé)</option>
+                            <option value="etirer">Étirer (peut déformer)</option>
+                          </select>
+                        </Field>
+                        <Field label="Où poser l'image">
+                          <select className={inputCls} value={boutiqueRef.accueil_image_etendue === true ? "ecran" : "carte"} onChange={(e) => enregistrerAccueil({ accueil_image_etendue: e.target.value === "ecran" })}>
+                            <option value="carte">Dans la carte seulement</option>
+                            <option value="ecran">Sur tout l'écran (recommandé sur PC)</option>
+                          </select>
+                        </Field>
+                        <Field label="Partie de l'image à privilégier">
+                          <select className={inputCls} value={boutiqueRef.accueil_image_position || "centre"} onChange={(e) => enregistrerAccueil({ accueil_image_position: e.target.value })}>
+                            <option value="haut">Le haut</option>
+                            <option value="centre">Le centre</option>
+                            <option value="bas">Le bas</option>
+                          </select>
+                        </Field>
+                      </div>
+                    )}
+                  </div>
+                </CarteRepliable>
+              </div>
+            </div>
+          </CarteRepliable>
+        </div>
+      </>)}
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "securite" ? undefined : "none" }}>
+      {/* ---- ADMINISTRATEUR PRINCIPAL ---- */}
+      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+        <div className="font-bold mb-1">👑 Administrateur principal</div>
+        <div className="text-xs text-slate-500 mb-3">
+          Lui seul voit les deux espaces (👁 Je regarde), change le mot de passe ou le rôle d'un autre compte, valide les versements vers le DG et la banque et les dépenses à valider (il est le DG), restaure une sauvegarde, gère la corbeille et les données personnelles, et réinitialise l'application. Les autres administrateurs gardent tous leurs autres pouvoirs.
+        </div>
+        <div className="text-sm mb-3">
+          Actuellement : <b className="text-sky-800">{adminPrincipal(db)?.nom || "aucun"}</b>
+          {estAdminPrincipal(db, profile) && <span className="ml-2 text-xs font-bold text-green-700">(c'est vous)</span>}
+        </div>
+        {estAdminPrincipal(db, profile) && (
+          <div className="flex gap-2 flex-wrap items-end">
+            <Field label="Transférer à un autre administrateur">
+              <select className={inputCls} value={nouveauPrincipal} onChange={(e) => setNouveauPrincipal(e.target.value)}>
+                <option value="">— Choisir —</option>
+                {utilisateursDeLEspace(db, profile).filter((u) => u.role === "admin" && u.actif !== false && u.id !== profile.id).map((u) => (
+                  <option key={u.id} value={u.id}>{u.nom}</option>
+                ))}
+              </select>
+            </Field>
+            <button onClick={transfererPrincipal} className="px-4 py-2 rounded-lg border-2 border-amber-500 text-amber-700 font-bold text-sm hover:bg-amber-50">⚠ Transférer</button>
+          </div>
+        )}
+      </div>
+
+      </div>
+      <div className="space-y-4" style={{ display: onglet === "apparence" ? undefined : "none" }}>
       {/* ---- PERSONNALISATION DE L'ÉCRAN DE CONNEXION (fêtes, etc.) ---- */}
       {estAdminPrincipal(db, profile) && (
         <div className="rounded-xl p-4 bg-white border-2 border-purple-200">
