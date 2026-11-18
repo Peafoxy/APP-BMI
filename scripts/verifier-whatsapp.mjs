@@ -7761,7 +7761,7 @@ titre("82 🚫 PERSONNE N'ÉCRIT DE SON PROPRE NUMÉRO, SAUF L'ADMINISTRATEUR (0
       && /envoyerAvisCommissionPayee\(\{ db: next, save, profile, depense: dep, formation: regardeFormation \}\)/.test(g) && /\$\{avis \? `\\n\\n\$\{avis\}` : ""\}`\);/.test(g)),
     gestes.map((g) => g.length).join(","));
   test("★★ les trois boutons « 💵 Payer » restent gris jusqu'à la fin du geste (paiement ET message : `BoutonRond envoi`)",
-    (eqS.match(/<BoutonRond envoi icone="💵" teinte="vert" onClick=\{\(\) => payer(Commission|CommissionEquipe|Apporteur)\((st|c|a)\)\}/g) || []).length === 3);
+    (eqS.match(/<BoutonGeste envoi icone="💵" nom="[^"]+" teinte="vert" onClick=\{\(\) => payer(Commission|CommissionEquipe|Apporteur)\((st|c|a)\)\}/g) || []).length === 3);
 }
 
 titre("85 ✏️ LA PROFORMA MODIFIÉE RENVOYÉE AVEC SON PDF — `proforma_modifiee_pdf` (13/11/2026, « A a, C oui, texte ok, lance ») — la chaîne jouée sur la vraie fonction d'envoi");

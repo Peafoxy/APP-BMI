@@ -11228,7 +11228,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
       && C.pouvoirsDuRole("gerant").some(([id]) => id === "act_commission")
       && /isGerant\s*\n?\s*\? \[\[.*\["equipe", labelMonEquipe\]/.test(appC)
       && (meC.match(/if \(!aDroit\(db, profile, "act_commission"\)\) \{ uAlert\("Payer une commission/g) || []).length === 3
-      && /ROLES_TACHES\.includes\(profile\.role\) && aDroit\(db, profile, "act_taches"\) && <BoutonRond icone="✅"/.test(meC)
+      && /ROLES_TACHES\.includes\(profile\.role\) && aDroit\(db, profile, "act_taches"\) && <BoutonGeste icone="✅"/.test(meC) /* RETOURNÉ le 18/11/2026 : un geste écrit en mots */
       && /estAdmin && clientsApportes\(a\) >= SEUIL_COMMERCIAL/.test(meC));
   }
 
@@ -19381,8 +19381,9 @@ titre("💰 Une commission due se voit quelle que soit la période (Timo, 13/11/
       html.includes(E.fmt(69216)));
     test("★★ 👑 KOSSI : commission due sur TOUTES ses ventes non réglées (5 % de 300 000 = 15 000), chiffre d'affaires de « Ce mois » seulement (200 000)",
       ligne("KOSSI").includes(E.fmt(15000)) && ligne("KOSSI").includes(E.fmt(200000)) && !ligne("KOSSI").includes(E.fmt(300000)));
-    test("★ 👑 l'écran DIT la règle sous les boutons de période",
-      /data-note-periode-equipe/.test(html) && html.includes("tout ce qui reste dû"));
+    // RETOURNÉ le 18/11/2026 (façon carnet) : la phrase est derrière « ⓘ Que règle la période ? » (dépliée au clic).
+    test("★ 👑 l'écran DIT la règle sous les boutons de période (derrière « ⓘ », dépliée au clic)",
+      /data-note-periode-equipe/.test(html) && html.includes("Que règle la période ?") && /tout ce qui reste dû/.test(readFileSync("src/screens/MonEquipe.jsx", "utf8")));
     let htmlK = "", errK = "";
     try { htmlK = E.rendreMaCommission(db, kossi, "mois", true); } catch (e) { errK = String(e && e.message || e).split("\n")[0]; }
     test("★★ 💵 Ma commission de KOSSI sur « Ce mois » : « Commission à payer » 15 000 (ses deux ventes), « Chiffre d'affaires » 200 000, et ses DEUX ventes dans le détail" + (errK ? ` (${errK})` : ""),
@@ -19516,8 +19517,18 @@ titre("🧾 L'historique des paiements de commission, téléchargeable en PDF (T
     try { html = E.rendreEquipe(db, timo, "tout"); } catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
     const hist = html.slice(html.indexOf("data-historique-paiements"));
     test("★★ 👑 Mon équipe (administrateur, « Depuis le début ») : le cadre « 🧾 Historique des paiements de commission » avec le total versé 129 905 et ses lignes — CLAUDE 45 405, le parrainage d'AYOKO, la retenue d'ESSO" + (errR ? ` (${errR})` : ""),
-      !errR && /data-historique-paiements="equipe"/.test(html) && hist.includes("🧾 Historique des paiements de commission")
+      !errR && /data-historique-paiements="equipe"/.test(html) && html.includes("🧾 Historique des paiements de commission")
       && hist.includes(E.fmt(129905)) && hist.includes(E.fmt(45405)) && hist.includes("Parrainage") && /data-retenue-paiement/.test(hist));
+    // 👑 FAÇON CARNET (18/11/2026) : l'écran tel qu'il s'ouvre (blocs secondaires REPLIÉS), gestes écrits en mots sur deux lignes.
+    let htmlF = "", errF = "";
+    try { htmlF = E.rendreEquipe(db, timo, "tout", false); } catch (e) { errF = String(e && e.message || e).split("\n")[0]; }
+    test("★★ 👑 Mon équipe façon carnet : « Performances par commercial » en TABLEAU + une carte téléphone, les gestes ÉCRITS (« Assigner une tâche », « Relevé », « Payer la commission » quand il y a un dû) sur deux lignes Suivi / Argent, plus aucune icône ronde" + (errF ? ` (${errF})` : ""),
+      !errF && /data-performances-table/.test(htmlF) && /data-performances-cartes/.test(htmlF) && htmlF.includes("Performances par commercial (")
+      && /data-ligne-gestes/.test(htmlF) && htmlF.includes(">Suivi<") && htmlF.includes(">Argent<") && htmlF.includes(">✅ Assigner une tâche<") && htmlF.includes(">📄 Relevé<") && !/<button[^>]*rounded-full/.test(htmlF));
+    test("★★ 👑 les blocs secondaires sont REPLIÉS à l'ouverture (chefs d'équipe, apporteurs externes, historique : le titre et le montant à payer se lisent, le tableau non), la prospection reste ouverte" + (errF ? ` (${errF})` : ""),
+      !errF && /data-chefs-equipe/.test(htmlF) && /data-apporteurs-externes/.test(htmlF) && /data-bloc-historique/.test(htmlF)
+      && htmlF.includes("Chefs d&#x27;équipe — commissions sur leurs recrues") && htmlF.includes("Apporteurs externes") && !/data-historique-paiements/.test(htmlF)
+      && !/data-moyen-apporteur/.test(htmlF) && !htmlF.includes(">Taux d&#x27;équipe<") && /data-activite-prospection/.test(htmlF) && htmlF.includes("À payer"));
     test("★★ 👑 LE MUR : la commission de 99 999 F payée par une caisse de FORMATION n'apparaît nulle part dans l'historique du réel",
       !!hist && !hist.includes(E.fmt(99999)) && !html.includes("99 999") && !html.includes("99\u202f999"));
     test("★★ « C oui » : le bouton 📄 du relevé est sur la ligne de KOSSI, du chef AMA et de l'apporteur CLAUDE — pas sur celle de PIERRE, qui n'a aucun paiement",

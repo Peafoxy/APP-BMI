@@ -10,8 +10,9 @@ import { MonEquipe } from "../src/screens/MonEquipe.jsx";
 import { MaCommission } from "../src/screens/MaCommission.jsx";
 export { today, fmt } from "../src/lib/core.js";
 
-export const rendreEquipe = (db, profile, periodeInitiale = "mois") =>
-  renderToStaticMarkup(React.createElement(MonEquipe, { db, save: () => {}, profile, periodeInitiale }));
+// `blocsOuverts` (18/11/2026, façon carnet) : chefs, apporteurs et historique sont REPLIÉS à l'écran ; les anciens contrôles les lisent ouverts.
+export const rendreEquipe = (db, profile, periodeInitiale = "mois", blocsOuverts = true) =>
+  renderToStaticMarkup(React.createElement(MonEquipe, { db, save: () => {}, profile, periodeInitiale, blocsOuverts }));
 export const rendreMaCommission = (db, profile, periodeInitiale = "mois", blocsOuverts = false) =>
   renderToStaticMarkup(React.createElement(MaCommission, { db, profile, periodeInitiale, blocsOuverts }));
 

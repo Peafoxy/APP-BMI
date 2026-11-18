@@ -9,7 +9,7 @@ import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
-import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
+import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable, CelluleActions } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
 import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, estDormant, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache, ROLES_TACHES, refuserSaufAdmin} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
@@ -21,8 +21,8 @@ import { paiementsDeCommission, filtrerPaiements, voitTousLesPaiements, clesDuCh
 import { HistoriquePaiements, telechargerHistorique, periodeHistorique } from "../components/HistoriquePaiements";
 
 // ============ MON ÉQUIPE (chef d'équipe commercial) ============
-// `periodeInitiale` : pour le banc seul (l'écran s'ouvre toujours sur « Ce mois »).
-export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "mois" }) {
+// `periodeInitiale`, `blocsOuverts` : pour le banc seul (l'écran s'ouvre toujours sur « Ce mois »).
+export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "mois", blocsOuverts = false }) {
   const estAdmin = profile.role === "admin";
   const [periode, setPeriode] = useState(periodeInitiale);
   const bornes = () => {
@@ -355,7 +355,7 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
   const aDesPaiements = (cle) => paiementsVisibles.some((p) => p.cle === cle);
   const releve = (cle) => telechargerHistorique({ paiements: paiementsVisibles, cle, periode: periodeH, formation: regardeFormation });
   const boutonReleve = (cle) => aDesPaiements(cle) && (
-    <BoutonRond icone="📄" onClick={() => releve(cle)} titre={`📄 Relevé de ses paiements (PDF) — ${periodeH.libelle}`} data-releve-personne={cle} />
+    <BoutonGeste icone="📄" nom="Relevé" onClick={() => releve(cle)} titre={`📄 Relevé de ses paiements (PDF) — ${periodeH.libelle}`} data-releve-personne={cle} />
   );
 
   const payerCommissionEquipe = async (c) => {
@@ -635,6 +635,37 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
       `Tâche de ${tv.membre.nom} rouverte par ${profile.nom} : ${tv.titre} (${motif.trim()})`);
   };
 
+  // 👑 Les gestes d'un commercial, ÉCRITS EN MOTS sur deux lignes (Suivi / Argent) :
+  // le tableau (ordinateur) et la carte (téléphone) appellent la même fonction.
+  const gestesCommercial = (st) => (
+    <div className="space-y-1">
+      <LigneGestes nom="Suivi">
+        {(st.u.taches || []).length > 0 && <BoutonGeste icone="🗂" nom={`Ses tâches (${(st.u.taches || []).length})`} teinte="gris" onClick={() => setMembreTaches(membreTaches === st.u.id ? null : st.u.id)} titre={`🗂 voir ses tâches (${(st.u.taches || []).length})`} />}
+        {ROLES_TACHES.includes(profile.role) && aDroit(db, profile, "act_taches") && <BoutonGeste icone="✅" nom="Assigner une tâche" onClick={() => assignerTache(st)} titre="✅ Tâche — assigner une tâche" />}
+      </LigneGestes>
+      <LigneGestes nom="Argent">
+        {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <BoutonGeste envoi icone="💵" nom="Payer la commission" teinte="vert" onClick={() => payerCommission(st)} titre="✓ Marquer payé — payer la commission due" />}
+        {boutonReleve(cleUtilisateur(st.u.id))}
+        {estAdmin && st.nbReglees > 0 && <BoutonGeste icone="↩" nom="Annuler un paiement" teinte="rouge" onClick={() => annulerPaiement(st)} titre="↩ Annuler paiement" />}
+      </LigneGestes>
+    </div>
+  );
+  // La commission due d'un commercial et ce qui l'attend (réception, paiement du client) : écrit UNE fois.
+  const gelesDe = (st) => (<>
+    {st.geleReception > 0 && (
+      <div className="text-xs font-semibold text-amber-600 whitespace-nowrap" title="Ventes issues d'un devis : la commission n'est due qu'à la réception de l'installation par le client.">
+        ⏳ + {fmt(st.geleReception)} à la réception
+      </div>
+    )}
+    {st.gelePaiement > 0 && (
+      <div className="text-xs font-semibold text-orange-700 whitespace-nowrap"
+           title={`${st.nbPaiement} vente(s) réceptionnée(s), mais le client n'a pas fini de payer. La commission deviendra due d'elle-même dès que la dette sera soldée.`}>
+        💰 + {fmt(st.gelePaiement)} — client doit {fmt(st.resteClients)}
+      </div>
+    )}
+  </>);
+  const dueDe = (st) => (<>{fmt(st.commissionDue)}{gelesDe(st)}</>);
+
   return (
     <div className="space-y-4">
       {(() => {
@@ -704,15 +735,23 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
           </div>
         </Panel>
       )}
+      {/* 👑 FAÇON CARNET (18/11/2026, aperçu validé par Timo, « Construit, lance ») :
+          titre, période et cartes sur UNE zone, la note derrière « ⓘ », les gestes
+          écrits en mots, les blocs secondaires repliés. Les chiffres et les règles
+          n'ont pas bougé. */}
       <Panel>
-        <div className="font-bold mb-3">👑 Mon équipe — vue d'ensemble</div>
-        <div data-rangee-boutons className="flex flex-wrap gap-2 mb-4">
-          {[["mois", "Ce mois"], ["annee", "Cette année"], ["tout", "Depuis le début"]].map(([id, label]) => (
-            <button key={id} onClick={() => setPeriode(id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${periode === id ? "bg-sky-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{label}</button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="font-bold">👑 Mon équipe — vue d'ensemble</div>
+          <div data-rangee-boutons className="flex flex-wrap gap-2">
+            {[["mois", "Ce mois"], ["annee", "Cette année"], ["tout", "Depuis le début"]].map(([id, label]) => (
+              <button key={id} onClick={() => setPeriode(id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${periode === id ? "bg-sky-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{label}</button>
+            ))}
+          </div>
         </div>
-        <div className="text-xs text-slate-500 -mt-2 mb-3" data-note-periode-equipe>
-          La période règle le chiffre d'affaires, le nombre de ventes, le « déjà payé » et l'historique des paiements. Les <b>commissions à payer</b> montrent toujours <b>tout ce qui reste dû</b>, quelle que soit la date de la vente.
+        <div data-note-periode-equipe className="mb-3">
+          <NoteDepliable className="text-xs text-slate-500" libelle="Que règle la période ?">
+            La période règle le chiffre d'affaires, le nombre de ventes, le « déjà payé » et l'historique des paiements. Les <b>commissions à payer</b> montrent toujours <b>tout ce qui reste dû</b>, quelle que soit la date de la vente.
+          </NoteDepliable>
         </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <Stat label="Commerciaux actifs" valeur={equipe.length} nature="neutre" />
@@ -723,12 +762,11 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
         </div>
       </Panel>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Performances par commercial</div>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-performances>
+        <CarteRepliable titre={`Performances par commercial (${stats.length})`}>
+        <div className="hidden sm:block overflow-x-auto" data-performances-table>
         <table className="w-full text-sm min-w-[760px]">
-          {/* 🧾 La règle des lignes (15/10/2026) : le nom figé, les gestes en
-              boutons ronds ; « 🗂 » ouvre les tâches du membre et marque sa ligne. */}
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Ventes", "Chiffre d'affaires", "Commission due", "Prospects", "Commandes en attente", "Tâches", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Ventes", "Chiffre d'affaires", "Commission due", "Prospects", "Commandes en attente", "Tâches", "Gestes"].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
             {stats.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">Aucun commercial actif.</td></tr>}
             {stats.map((st, i) => (
@@ -736,35 +774,29 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
                 <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(membreTaches === st.u.id, i), membreTaches === st.u.id)}`}>{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}</td>
                 <td className="px-3 py-2 tabular-nums">{st.nbVentes}</td>
                 <td className="px-3 py-2 tabular-nums font-bold">{fmt(st.ca)}</td>
-                <td className="px-3 py-2 tabular-nums font-bold text-green-700">{fmt(st.commissionDue)}
-                  {st.geleReception > 0 && (
-                    <div className="text-xs font-semibold text-amber-600 whitespace-nowrap" title="Ventes issues d'un devis : la commission n'est due qu'à la réception de l'installation par le client.">
-                      ⏳ + {fmt(st.geleReception)} à la réception
-                    </div>
-                  )}
-                  {st.gelePaiement > 0 && (
-                    <div className="text-xs font-semibold text-orange-700 whitespace-nowrap"
-                         title={`${st.nbPaiement} vente(s) réceptionnée(s), mais le client n'a pas fini de payer. La commission deviendra due d'elle-même dès que la dette sera soldée.`}>
-                      💰 + {fmt(st.gelePaiement)} — client doit {fmt(st.resteClients)}
-                    </div>
-                  )}
-                </td>
+                <td className="px-3 py-2 tabular-nums font-bold text-green-700">{dueDe(st)}</td>
                 <td className="px-3 py-2 tabular-nums">{st.prospects}</td>
                 <td className="px-3 py-2 tabular-nums">{st.commandesAttente}</td>
                 <td className="px-3 py-2 tabular-nums whitespace-nowrap">
                   {tachesOuvertes(st.u).length > 0 ? <span className="font-bold text-amber-600">{tachesOuvertes(st.u).length} en cours</span> : <span className="text-slate-400">—</span>}
                 </td>
-                <CelluleActions>
-                  {(st.u.taches || []).length > 0 && <BoutonRond icone="🗂" teinte="gris" onClick={() => setMembreTaches(membreTaches === st.u.id ? null : st.u.id)} titre={`🗂 voir ses tâches (${(st.u.taches || []).length})`} />}
-                  {ROLES_TACHES.includes(profile.role) && aDroit(db, profile, "act_taches") && <BoutonRond icone="✅" onClick={() => assignerTache(st)} titre="✅ Tâche — assigner une tâche" />}
-                  {st.commissionDue > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerCommission(st)} titre="✓ Marquer payé — payer la commission due" />}
-                  {estAdmin && st.nbReglees > 0 && <BoutonRond icone="↩" teinte="rouge" onClick={() => annulerPaiement(st)} titre="↩ Annuler paiement" />}
-                  {boutonReleve(cleUtilisateur(st.u.id))}
-                </CelluleActions>
+                <CelluleActions>{gestesCommercial(st)}</CelluleActions>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
+        <div className="sm:hidden space-y-2" data-performances-cartes>
+          {stats.map((st) => (
+            <div key={st.u.id} data-ligne={st.u.id} className="rounded-lg border border-slate-200 px-3 py-2">
+              <div className="flex items-center justify-between gap-2"><span className="font-semibold text-sm">{st.u.nom}{st.u.chef_equipe ? " ⭐" : ""}{st.u.role === "technicien" ? " 🔧" : ""}{st.u.role === "technicien_bmi" ? " 🔧 (salarié)" : ""}</span><span className="font-bold tabular-nums text-green-700">{fmt(st.commissionDue)}</span></div>
+              <div className="text-xs text-slate-500">{st.nbVentes} vente(s) · CA {fmt(st.ca)} · {st.prospects} prospect(s) · {tachesOuvertes(st.u).length > 0 ? `${tachesOuvertes(st.u).length} tâche(s) en cours` : "aucune tâche"}</div>
+              {(st.geleReception > 0 || st.gelePaiement > 0) && <div className="mt-1">{gelesDe(st)}</div>}
+              <div className="mt-2">{gestesCommercial(st)}</div>
+            </div>
+          ))}
+        </div>
+        </CarteRepliable>
       </div>
       {prospection.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto" data-activite-prospection>
@@ -773,7 +805,7 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
             <div className="text-xs text-slate-500 mt-0.5">Ce que chacun a fait sur la période. « Objectif du mois », « À relancer » et « Dormants » montrent la situation d'<b>aujourd'hui</b>.</div>
             <div className="text-xs text-slate-600 mt-1" data-objectif-commun>
               🎯 Objectif commun : <b>{objectifCommunRegle > 0 ? `${objectifCommunRegle} prospects enregistrés par mois` : "aucun"}</b>
-              {estAdmin && <button type="button" onClick={reglerObjectifCommun} className="ml-2 font-bold text-sky-800 underline">✏️ Changer</button>}
+              {estAdmin && <span className="ml-2"><BoutonGeste icone="✏️" nom="Changer" onClick={reglerObjectifCommun} /></span>}
             </div>
           </div>
           <table className="w-full text-sm min-w-[860px]">
@@ -799,7 +831,7 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
                   <td className={`px-3 py-2 tabular-nums ${a.dormants > 0 ? "font-bold text-slate-700" : "text-slate-400"}`}>{a.dormants > 0 ? `💤 ${a.dormants}` : "—"}</td>
                   {estAdmin && (
                     <CelluleActions>
-                      {ROLES_AVEC_OBJECTIF.includes(a.personne.role) && <BoutonRond icone="🎯" onClick={() => reglerObjectifDe(a.personne)} titre="🎯 Objectif de prospection de cette personne" />}
+                      {ROLES_AVEC_OBJECTIF.includes(a.personne.role) && <BoutonGeste icone="🎯" nom="Objectif" onClick={() => reglerObjectifDe(a.personne)} titre="🎯 Objectif de prospection de cette personne" />}
                     </CelluleActions>
                   )}
                 </tr>
@@ -809,11 +841,9 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
         </div>
       )}
       {chefs.length > 0 && (
-        <div className="bg-white rounded-xl border border-amber-200 shadow-sm overflow-x-auto">
-          <div className="px-4 py-3 font-bold text-amber-800 border-b border-amber-200 bg-amber-50 flex flex-wrap justify-between gap-2">
-            <span>⭐ Chefs d'équipe — commissions sur leurs recrues</span>
-            <span className="text-xs font-semibold text-slate-600">À payer : <b className="text-red-600 tabular-nums">{fmt(totalEquipeDu)}</b></span>
-          </div>
+        <div className="bg-white rounded-xl border border-amber-200 shadow-sm p-4 overflow-x-auto" data-chefs-equipe>
+          <CarteRepliable titre="⭐ Chefs d'équipe — commissions sur leurs recrues" ouvertParDefaut={blocsOuverts} tonAttente
+            badge={<span className="text-xs font-semibold text-slate-600">· À payer : <b className="text-red-600 tabular-nums">{fmt(totalEquipeDu)}</b></span>}>
           <table className="w-full text-sm min-w-[620px]">
             <thead><tr className="text-xs text-slate-500 uppercase">{["Chef d'équipe", "Recrues", "Taux d'équipe", "Commission due", "Déjà payé", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
             <tbody>
@@ -831,21 +861,20 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
                   </td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(c.versees)}</td>
                   <CelluleActions>
-                    {c.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerCommissionEquipe(c)} titre="✓ Payer la commission d'équipe" />}
+                    {c.due > 0 && aDroit(db, profile, "act_commission") && <BoutonGeste envoi icone="💵" nom="Payer" teinte="vert" onClick={() => payerCommissionEquipe(c)} titre="✓ Payer la commission d'équipe" />}
                     {boutonReleve(cleUtilisateur(c.u.id))}
                   </CelluleActions>
                 </tr>
               ))}
             </tbody>
           </table>
+          </CarteRepliable>
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap justify-between gap-2">
-          <span>🤝 Apporteurs externes</span>
-          <span className="text-xs font-semibold text-slate-600">À payer : <b className="text-red-600 tabular-nums">{fmt(totalExtDu)}</b></span>
-        </div>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 overflow-x-auto" data-apporteurs-externes>
+        <CarteRepliable titre="🤝 Apporteurs externes" ouvertParDefaut={blocsOuverts}
+          badge={<span className="text-xs font-semibold text-slate-600">· À payer : <b className="text-red-600 tabular-nums">{fmt(totalExtDu)}</b></span>}>
         {apporteursExt.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-6">Aucun apporteur externe sur cette période, et aucune commission d'apporteur à payer. Renseignez-le au moment de la vente (💰 Ventes → 🤝 Apporteur externe).</div>
         ) : (
@@ -876,9 +905,9 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
                   <td className="px-3 py-2 tabular-nums font-bold text-red-600">{fmt(a.due)}</td>
                   <td className="px-3 py-2 tabular-nums text-green-700">{fmt(a.payee)}</td>
                   <CelluleActions>
-                    {a.due > 0 && aDroit(db, profile, "act_commission") && <BoutonRond envoi icone="💵" teinte="vert" onClick={() => payerApporteur(a)} titre="✓ Payer la commission de l'apporteur" />}
-                    {aDroit(db, profile, "act_commission") && <BoutonRond icone="💳" onClick={() => changerMoyenApporteur(a)} titre="✏️ Moyen — changer son moyen de paiement habituel" />}
-                    {estAdmin && clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <BoutonRond icone="🎖" teinte="ambre" onClick={() => promouvoir(a)} titre="🎖 Promouvoir commercial" />}
+                    {a.due > 0 && aDroit(db, profile, "act_commission") && <BoutonGeste envoi icone="💵" nom="Payer" teinte="vert" onClick={() => payerApporteur(a)} titre="✓ Payer la commission de l'apporteur" />}
+                    {aDroit(db, profile, "act_commission") && <BoutonGeste icone="💳" nom="Moyen" onClick={() => changerMoyenApporteur(a)} titre="✏️ Moyen — changer son moyen de paiement habituel" />}
+                    {estAdmin && clientsApportes(a) >= SEUIL_COMMERCIAL && !dejaUtilisateur(a) && <BoutonGeste icone="🎖" nom="Promouvoir" teinte="ambre" onClick={() => promouvoir(a)} titre="🎖 Promouvoir commercial" />}
                     {boutonReleve(cleDApporteur(a.nom, a.tel))}
                   </CelluleActions>
                 </tr>
@@ -886,11 +915,16 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
             </tbody>
           </table>
         )}
+        </CarteRepliable>
       </div>
 
       {/* 🧾 L'historique des paiements (13/11/2026, « A c, B b, C oui ») : la période de l'écran, une personne au choix, le PDF et l'Excel. */}
-      <HistoriquePaiements paiements={paiementsVisibles} periode={periodeH} formation={regardeFormation}
-        note={clesVisibles ? "Vous voyez vos paiements et ceux de vos recrues." : "Le bouton 📄 sur la ligne d'une personne télécharge son relevé seul."} />
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-bloc-historique>
+        <CarteRepliable titre="🧾 Historique des paiements de commission" ouvertParDefaut={blocsOuverts}>
+          <HistoriquePaiements paiements={paiementsVisibles} periode={periodeH} formation={regardeFormation}
+        titre="Paiements de la période" note={clesVisibles ? "Vous voyez vos paiements et ceux de vos recrues." : "Le bouton 📄 sur la ligne d'une personne télécharge son relevé seul."} />
+        </CarteRepliable>
+      </div>
 
       {regardeFormation && (
         <div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
