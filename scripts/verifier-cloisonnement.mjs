@@ -16,7 +16,7 @@ import { build } from "esbuild";
 import { pathToFileURL } from "node:url";
 import { unlinkSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 // lib/calculs.js importe les boîtes de dialogue (JSX + React) : on bundle
 // plutôt que d'importer directement, pour n'avoir rien à simuler à la main.
@@ -15093,6 +15093,26 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
       test("★ 💰 « B a » une fiche sans aucune prime (un magasinier, base nue) : l'écran se rend et DIT « Aucune prime » des deux côtés, jamais un écran blanc",
         htmlVide.includes("Aucune prime de chantier") && htmlVide.includes("Aucune prime sur salaire"));
     }
+  }
+  {
+    const sortiePa = join("node_modules", ".cache", `bmi-parametres-${process.pid}.mjs`);
+    let PA = null, errB = "";
+    try {
+      await build({ entryPoints: ["scripts/_rendu-parametres.jsx"], bundle: true, format: "esm",
+        platform: "node", outfile: sortiePa, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx", ".png": "dataurl", ".css": "empty" }, plugins: [{ name: "leaflet-vide", setup(b) { b.onResolve({ filter: /^leaflet$/ }, () => ({ path: resolve("scripts/_leaflet-vide.mjs") })); } }],
+        define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+        external: ["react", "react-dom", "react-dom/server"] });
+      PA = await import(pathToFileURL(sortiePa).href);
+    } catch (e) { errB = String(e && e.message || e).split("\n")[0]; }
+    try { unlinkSync(sortiePa); } catch {}
+    if (PA) {
+      const timoP = { id: "u1", nom: "TIMO", role: "admin", admin_principal: true, actif: true, boutique: "" };
+      const dbP = { boutiques: [{ id: "b1", nom: "APESSITO" }], users: [timoP], produits: [], ventes: [], depenses: [], dettes: [], clients_installes: [], ajustements: [], entrees: [], commandes: [], proformas: [], messages: [], prospects: [], audits: [], fournisseurs: [], demandes: [] };
+      let hPa = "", errPa = "";
+      try { PA.setRegardeFormation(false); hPa = PA.rendreParametres(dbP, timoP); } catch (e) { errPa = String(e && e.message || e).split("\n")[0]; }
+      test("★★ ⚙ Paramètres RENDU (principal, base nue) : l'écran se monte — jamais un écran blanc — avec ses blocs Boutiques, Catalogue (cases de réglage, domaines) et Appareils" + (errPa ? ` (${errPa})` : ""),
+        !errPa && /data-blocs-boutiques/.test(hPa) && /data-blocs-reglages/.test(hPa) && /data-blocs-catalogue/.test(hPa) && /data-blocs-appareils/.test(hPa) && /data-a-classer/.test(hPa));
+    } else test("★★ ⚙ Paramètres se monte dans le banc" + (errB ? ` (${errB})` : ""), false);
   }
   const sortieRap = join("node_modules", ".cache", `bmi-rapports-${process.pid}.mjs`);
   let R = null, erreur = "";

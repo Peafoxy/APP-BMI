@@ -98,6 +98,8 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // l'espace regardé que la liste ne connaît pas (dérivé, jamais écrit).
   const catalogueApp = catalogueAppareils(db, profile);
   const aClasser = appareilsAClasser(utilisateursDeLEspace(db, profile), catalogueApp);
+  const [qApp, setQApp] = useState("");
+  const [aClasserTout, setAClasserTout] = useState(false);
   // La recherche d'un appareil passe par LA règle commune ; elle regarde aussi ses autres noms.
   const appareilsVus = qApp.trim() ? catalogueApp.filter((a) => correspond(`${a.nom} ${(a.autres || []).join(" ")}`, qApp)) : catalogueApp;
   const persoApp = (boutiquesVisibles(db, profile, db.boutiques || []).find((x) => Array.isArray(x.appareils_catalogue))?.appareils_catalogue) || [];
@@ -192,8 +194,6 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // Toute la règle vit dans lib/effacementClient.js ; cet écran ne fait que
   // MONTRER ce qui va partir et demander le motif.
   const [qEff, setQEff] = useState("");
-  const [qApp, setQApp] = useState("");
-  const [aClasserTout, setAClasserTout] = useState(false);
   const [cibleEff, setCibleEff] = useState(null);   // { nom, tel }
   // ⏳ La durée de conservation (Timo, 19/09/2026 : « 6 ans après le dernier
   // achat. On peut à tout moment changer cette durée »).
