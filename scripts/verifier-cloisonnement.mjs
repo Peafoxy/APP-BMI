@@ -6229,6 +6229,15 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
         && (dp.match(/<NoteDepliable /g) || []).length >= 6 && /<Carre data-dernier-mois-paye/.test(dp)
         && !/<div className="text-xs text-slate-500 mt-2">Le chantier se change seulement/.test(dp) && !/<div className="text-sm text-slate-400">Aucune dépense de \{boutique\} en attente/.test(dp);
     })());
+  // Timo (18/11/2026) : « Stocks, lance » — compacter 📦 Stocks.
+  test("★ 📦 Stocks compacte : blocs du haut par deux (même taille), transferts et demandes envoyés en TABLEAUX avec ✕, chaque carte repliable au clic sur l'en-tête, les notes derrière un « i »",
+    (() => {
+      const st = readFileSync("src/screens/Stocks.jsx", "utf8");
+      return /data-blocs-stocks/.test(st) && /data-blocs-transferts/.test(st) && (st.match(/items-stretch/g) || []).length >= 2
+        && (st.match(/<CarteRepliable /g) || []).length >= 4 && (st.match(/<NoteDepliable /g) || []).length >= 4
+        && /<table[^>]*>[\s\S]{0,200}"Vers", "Date · par"/.test(st) && /"Auprès de", "Date · par"/.test(st)
+        && !/<ul className="text-sm space-y-2">\s*\{envoisEnAttente/.test(st) && !/<div className="text-xs text-slate-500 mb-3">Comptez les articles/.test(st);
+    })());
   test("★ 🔒 Caisse : « Derniers versements traités » est un TABLEAU (origine figée, date, de → vers, montant à droite, pastille de statut), plus une phrase par ligne ; les carrés de chiffres passent par Carre (libellé court, grand chiffre, UNE ligne de détail, explication derrière le « i »), sans trait de couleur",
     (() => {
       const cs = readFileSync("src/screens/Caisse.jsx", "utf8");

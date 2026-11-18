@@ -12,7 +12,7 @@ import { estPompe, ficheLisible, CHAMPS_POMPE } from "../lib/pompes.js";
 import { estCategorieConvertisseur } from "../lib/choixSolaire.js";
 import { NOTE_ASSISTANT_MAX } from "../lib/assistantWhatsapp.js";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
-import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
+import { Field, ChampQuiGrandit, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, uChoix, AucuneBoutique, Stat, enTeteFige, celluleFigee, champRecherche, montrerALecran, PanneauQuiSeMontre, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions, CarteRepliable, NoteDepliable } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { imprimerBonRavitaillement, imprimerEtiquetteProduit, largeurBarreMm, BARRE_LA_PLUS_FINE_MM, LONGUEUR_MAX_CODE } from "../lib/impression";
 import { LIGNE_A_REAPPROVISIONNER } from "../lib/cibleNotification";
@@ -928,21 +928,19 @@ export function Stocks({ db, save, profile, cible = null }) {
       {/* Timo (10/09/2026) : « la liste de tous les articles à approvisionner » —
           TOUS, du plus urgent au moins urgent, exportable, et sur une boutique
           la demande au magasin se pré-remplit avec le manque. */}
-      <div data-ligne={LIGNE_A_REAPPROVISIONNER} className={`rounded-xl p-4 bg-white border-2 ${aReapprovisionner.length ? "border-red-200" : "border-slate-200"}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <div className={`font-bold ${aReapprovisionner.length ? "text-red-700" : "text-slate-800"}`}>⚠ À réapprovisionner ({aReapprovisionner.length}) <Badge boutique={bq} /></div>
-          {aReapprovisionner.length > 0 && (
+      {/* Timo (18/11/2026) : « Stocks, lance » — les blocs du haut vont par deux (même taille), un bloc vide tient sur une ligne, un clic sur l'en-tête replie la carte, les notes sont derrière un « i ». */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch lg:[&>*:only-child]:col-span-2" data-blocs-stocks>
+      <div data-ligne={LIGNE_A_REAPPROVISIONNER} className={`rounded-xl p-4 bg-white border-2 h-full ${aReapprovisionner.length ? "border-red-200 lg:col-span-2" : "border-slate-200"}`}>
+        <CarteRepliable vide={aReapprovisionner.length === 0} badge={<Badge boutique={bq} />} titre={`⚠ À réapprovisionner (${aReapprovisionner.length})`} resume="Aucun article au seuil"
+          explication={aReapprovisionner.length === 0 ? <>Aucun article de {bq} n'est au seuil ou en dessous, ni ne manquera d'ici {couverture} jours au rythme des ventes.</> : <span data-reappro-rythme>Du plus urgent au moins urgent. <b>À commander</b> = ce qui se vendra en {couverture} jours au rythme des {JOURS_RYTHME_VENTES} derniers jours, moins ce qui reste — jamais moins que ce qu'il faut pour remonter au <b>stock à atteindre</b> de la fiche (sinon au seuil). C'est la quantité proposée dans la demande, modifiable avant l'envoi. La durée se règle dans ⚙ Paramètres (administrateur). <b>Disponible</b> = le stock moins le matériel 🔒 réservé pour un chantier.</span>}
+          action={aReapprovisionner.length > 0 ? (
             <div className="flex gap-2">
               <button onClick={exporterAReapprovisionner} className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50">📤 Exporter</button>
               {!estMagasin && magasinsDe(db).length > 0 && <button onClick={demanderCeRavitaillement} className="px-3 py-1.5 rounded-lg bg-blue-700 text-white text-xs font-bold hover:bg-blue-800">🚚 Demander ce ravitaillement</button>}
             </div>
-          )}
-        </div>
-        {aReapprovisionner.length === 0
-          ? <div className="text-sm text-slate-400">Aucun article de {bq} n'est au seuil ou en dessous, ni ne manquera d'ici {couverture} jours au rythme des ventes.</div>
-          : (
+          ) : null}>
+          {aReapprovisionner.length > 0 && (
             <>
-              <div className="text-xs text-slate-500 mb-3" data-reappro-rythme>Du plus urgent au moins urgent. <b>À commander</b> = ce qui se vendra en {couverture} jours au rythme des {JOURS_RYTHME_VENTES} derniers jours, moins ce qui reste — jamais moins que ce qu'il faut pour remonter au <b>stock à atteindre</b> de la fiche (sinon au seuil). C'est la quantité proposée dans la demande, modifiable avant l'envoi. La durée se règle dans ⚙ Paramètres (administrateur). <b>Disponible</b> = le stock moins le matériel 🔒 réservé pour un chantier.</div>
               {/* Timo (10/09/2026) : « au plus 8 ou 10 lignes, et une barre de
                   défilement pour voir le reste » — cadre à hauteur fixe, en-tête collé. */}
               <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
@@ -971,15 +969,16 @@ export function Stocks({ db, save, profile, cible = null }) {
               </div>
             </>
           )}
+        </CarteRepliable>
       </div>
 
       {/* 🔒 Timo (12/10/2026) : « une interface dans stock où voir les articles
           réservés par rapport à leur stock ». Calculé (lib/achatsChantier.js) :
           les devis « Avec installation » payés, moins les achats « 🏗 Chantier ». */}
       {(lignesReservees.length > 0 || receptionnesNonSortis.length > 0) && (
-        <div className={`rounded-xl p-4 bg-white border-2 ${lignesReservees.some((l) => l.disponible < 0) || receptionnesNonSortis.length || lignesReservees.some((l) => l.pour.some((x) => x.termine)) ? "border-red-200" : "border-violet-200"}`} data-materiel-reserve>
-          <div className="font-bold text-violet-800 mb-1">🔒 Matériel réservé pour des installations ({lignesReservees.length}) <Badge boutique={bq} /></div>
-          <div className="text-xs text-slate-500 mb-3">Payé par le client d'un devis « 🔧 Avec installation », pas encore sorti du stock (il sortira par l'achat « 🏗 Chantier » de 💰 Ventes). <b>Disponible</b> = ce qu'on peut vendre au comptoir sans prendre le matériel d'un chantier.</div>
+        <div className={`rounded-xl p-4 bg-white border-2 h-full ${lignesReservees.some((l) => l.disponible < 0) || receptionnesNonSortis.length || lignesReservees.some((l) => l.pour.some((x) => x.termine)) ? "border-red-200" : "border-violet-200"}`} data-materiel-reserve>
+          <CarteRepliable badge={<Badge boutique={bq} />} titre={`🔒 Matériel réservé pour des installations (${lignesReservees.length})`}
+            explication={<>Payé par le client d'un devis « 🔧 Avec installation », pas encore sorti du stock (il sortira par l'achat « 🏗 Chantier » de 💰 Ventes). <b>Disponible</b> = ce qu'on peut vendre au comptoir sans prendre le matériel d'un chantier.</>}>
           {lignesReservees.length > 0 && (
             <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
               <table className="w-full text-sm min-w-[720px]">
@@ -1013,45 +1012,62 @@ export function Stocks({ db, save, profile, cible = null }) {
               ))}
             </div>
           )}
+          </CarteRepliable>
         </div>
       )}
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch lg:[&>*:only-child]:col-span-2" data-blocs-transferts>
       {envoisEnAttente.length > 0 && (
-        <div className="rounded-xl p-4 bg-white border-2 border-amber-200" data-transferts="envoyes">
-          <div className="font-bold mb-1 text-amber-800">⏳ Transferts de stock envoyés, en attente de validation ({envoisEnAttente.length})</div>
-          <div className="text-xs text-slate-500 mb-3">L'article reste dans le stock de {bq} tant que la boutique qui reçoit n'a pas validé dans 🔁 Transfert.</div>
-          <ul className="text-sm space-y-2">
-            {envoisEnAttente.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                <span>{libelleLignes(t)} → <b>{t.vers}</b> <span className="text-xs text-slate-400">— {dFR(t.date)}, par {t.par}</span></span>
-                <button onClick={() => annulerEnvoi(t)} className="text-xs text-red-600 underline">Annuler</button>
-              </li>
-            ))}
-          </ul>
+        <div className="rounded-xl p-4 bg-white border-2 border-amber-200 h-full" data-transferts="envoyes">
+          <CarteRepliable titre={`⏳ Transferts de stock envoyés, en attente (${envoisEnAttente.length})`} explication={<>L'article reste dans le stock de {bq} tant que la boutique qui reçoit n'a pas validé dans 🔁 Transfert.</>}>
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
+              <table className="w-full text-sm min-w-[420px]">
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Vers", "Date · par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                <tbody>
+                  {envoisEnAttente.map((t) => (
+                    <tr key={t.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2 font-semibold">{libelleLignes(t)}</td>
+                      <td className="px-3 py-2"><b>{t.vers}</b></td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{dFR(t.date)}, par {t.par}</td>
+                      <td className="px-3 py-2 text-right"><BoutonRond icone="✕" teinte="rouge" onClick={() => annulerEnvoi(t)} titre="Annuler le transfert" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CarteRepliable>
         </div>
       )}
 
       {demandesEnvoyees.length > 0 && (
-        <div className="rounded-xl p-4 bg-white border-2 border-purple-200" data-demandes-transfert="envoyees">
-          <div className="font-bold mb-1 text-purple-800">📨 Demandes de transfert envoyées, en attente ({demandesEnvoyees.length})</div>
-          <div className="text-xs text-slate-500 mb-3">L'autre boutique les voit dans son 🔁 Transfert ; le stock arrive quand elle les valide.</div>
-          <ul className="text-sm space-y-2">
-            {demandesEnvoyees.map((d) => (
-              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2">
-                <span>{libelleLignes(d)} ← <b>{d.aupres}</b> <span className="text-xs text-slate-400">— {dFR(d.date)}, par {d.par}</span></span>
-                <BoutonRond icone="✕" teinte="rouge" onClick={() => annulerDemande(d)} titre="Annuler la demande" />
-              </li>
-            ))}
-          </ul>
+        <div className="rounded-xl p-4 bg-white border-2 border-purple-200 h-full" data-demandes-transfert="envoyees">
+          <CarteRepliable titre={`📨 Demandes de transfert envoyées, en attente (${demandesEnvoyees.length})`} explication={<>L'autre boutique les voit dans son 🔁 Transfert ; le stock arrive quand elle les valide.</>}>
+            <div className="overflow-x-auto rounded-lg border border-slate-100">
+              <table className="w-full text-sm min-w-[420px]">
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Auprès de", "Date · par", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                <tbody>
+                  {demandesEnvoyees.map((d) => (
+                    <tr key={d.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2 font-semibold">{libelleLignes(d)}</td>
+                      <td className="px-3 py-2"><b>{d.aupres}</b></td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{dFR(d.date)}, par {d.par}</td>
+                      <td className="px-3 py-2 text-right"><BoutonRond icone="✕" teinte="rouge" onClick={() => annulerDemande(d)} titre="Annuler la demande" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CarteRepliable>
         </div>
       )}
+      </div>
 
       <DemandesTransfertRecues db={db} save={save} profile={profile} boutique={bq} />
 
       {estMagasin && demandesRecues.length > 0 && (
         <div className="rounded-xl p-4 bg-white border-2 border-blue-300">
-          <div className="font-bold mb-1 text-blue-800">📥 Demandes des boutiques ({demandesRecues.length})</div>
-          <div className="text-xs text-slate-500 mb-3">Cliquez sur « Préparer le bon » : les articles demandés sont chargés automatiquement dans le bon de ravitaillement ci-dessous.</div>
+          <CarteRepliable titre={`📥 Demandes des boutiques (${demandesRecues.length})`} explication="Cliquez sur « Préparer le bon » : les articles demandés sont chargés automatiquement dans le bon de ravitaillement ci-dessous.">
           <div className="space-y-3">
             {demandesRecues.map((dm) => (
               <div key={dm.d.id} data-ligne={dm.d.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -1069,13 +1085,14 @@ export function Stocks({ db, save, profile, cible = null }) {
               </div>
             ))}
           </div>
+          </CarteRepliable>
         </div>
       )}
 
       {estMagasin && alertesDesBoutiques.length > 0 && (
         <div className="rounded-xl p-4 bg-white border-2 border-red-200">
           <div className="font-bold mb-1 text-red-700">⚠ Alertes de stock dans les boutiques ({alertesDesBoutiques.length})</div>
-          <div className="text-xs text-slate-500 mb-3">Articles passés sous leur seuil. Anticipez le ravitaillement sans attendre la demande.</div>
+          <NoteDepliable className="mb-3">Articles passés sous leur seuil. Anticipez le ravitaillement sans attendre la demande.</NoteDepliable>
           <div className="overflow-x-auto overflow-y-auto max-h-[360px] rounded-lg border border-slate-100">
             <table className="w-full text-sm min-w-[440px]">
               <thead className="sticky top-0 z-10 bg-white"><tr className="text-xs text-slate-500 uppercase">{["Boutique", "Article", "Reste", "Seuil"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
@@ -1132,7 +1149,7 @@ export function Stocks({ db, save, profile, cible = null }) {
               </div>
             </div>
           )}
-          <div className="text-xs text-slate-500 mb-4">Préparez le bon, validez : le stock sort du magasin, entre en boutique, et le bon s'imprime.</div>
+          <NoteDepliable className="mb-3">Préparez le bon, validez : le stock sort du magasin, entre en boutique, et le bon s'imprime.</NoteDepliable>
 
           {cibles.length === 0 ? (
             <div className="text-sm text-slate-400">Aucune boutique de vente disponible. Créez-en une dans ⚙ Paramètres.</div>
@@ -1439,7 +1456,7 @@ export function Stocks({ db, save, profile, cible = null }) {
             <div className="font-bold text-emerald-800">📋 Inventaire physique — {bq}</div>
             <div className="text-xs text-slate-500">{ecartsInventaire().length} / {db.produits.filter((p) => p.boutique === bq).length} article(s) comptés</div>
           </div>
-          <div className="text-xs text-slate-500 mb-3">Comptez les articles un par un et saisissez la quantité réelle. Laissez vide ce que vous ne comptez pas.</div>
+          <NoteDepliable className="mb-3">Comptez les articles un par un et saisissez la quantité réelle. Laissez vide ce que vous ne comptez pas.</NoteDepliable>
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[560px]">
               <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Stock théorique", "Quantité comptée", "Écart", "Valeur écart"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
@@ -1484,7 +1501,7 @@ export function Stocks({ db, save, profile, cible = null }) {
       {profile.role === "admin" && retoursEnSav(db).filter((a) => a.boutique === bq).length > 0 && (
         <div className="rounded-xl p-4 bg-white border-2 border-amber-300">
           <div className="font-bold text-amber-800 mb-1">🔧 Défectueux / SAV — {bq}</div>
-          <div className="text-xs text-slate-500 mb-3">Articles rendus en panne (🔁 Retour sous garantie, ou 🔄 Échanger « au SAV »). Ils ne sont pas dans le stock vendable. Indiquez leur sort :</div>
+          <NoteDepliable className="mb-3">Articles rendus en panne (🔁 Retour sous garantie, ou 🔄 Échanger « au SAV »). Ils ne sont pas dans le stock vendable. Indiquez leur sort :</NoteDepliable>
           <div className="space-y-2">
             {retoursEnSav(db).filter((a) => a.boutique === bq).map((a) => (
               <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">

@@ -464,7 +464,7 @@ export function Carre({ label, valeur, valeurClass = "", detail = null, explicat
     <div className={`bg-white rounded-lg p-3 border border-slate-200 ${className}`} {...reste}>
       <div className="text-[11px] text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
         <span>{label}</span>
-        {explication && <button type="button" data-carre-info title={explication} aria-label="Explication" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
+        {explication && <button type="button" data-carre-info title={typeof explication === "string" ? explication : undefined} aria-label="Explication" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
           className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold leading-none normal-case">i</button>}
       </div>
       <div className={`font-bold tabular-nums text-xl ${valeurClass}`}>{valeur}</div>
@@ -488,7 +488,7 @@ export function CarteRepliable({ titre, badge = null, vide = false, resume = "",
         className={`font-bold flex items-center gap-2 flex-wrap cursor-pointer select-none ${ouvert && !vide ? "mb-2" : ""} ${tonAttente ? "text-amber-900" : "text-slate-800"}`}>
         <span aria-hidden="true" className="text-slate-400 text-xs w-3">{ouvert ? "▾" : "▸"}</span>
         <span>{titre}</span>{badge}
-        {explication && <button type="button" data-titre-info title={explication} aria-label="Explication" aria-expanded={info} onClick={(e) => { e.stopPropagation(); setInfo((o) => !o); }}
+        {explication && <button type="button" data-titre-info title={typeof explication === "string" ? explication : undefined} aria-label="Explication" aria-expanded={info} onClick={(e) => { e.stopPropagation(); setInfo((o) => !o); }}
           className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold leading-none">i</button>}
         {vide && resume ? <span className="font-normal text-sm text-slate-400">— {resume}</span> : null}
         {action ? <span className="ml-auto" onClick={(e) => e.stopPropagation()}>{action}</span> : null}
