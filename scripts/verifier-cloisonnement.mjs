@@ -6196,6 +6196,15 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
         && /racine\.dataset\.animations = "non"/.test(app)
         && /html\[data-animations="non"\] \.anim-ecran \{ animation: none; \}/.test(cssA);
     })());
+  // Timo (18/11/2026) : « on dirait un livre » — 🔒 Caisse : un tableau, des carrés courts.
+  test("★ 🔒 Caisse : « Derniers versements traités » est un TABLEAU (origine figée, date, de → vers, montant à droite, pastille de statut), plus une phrase par ligne ; les carrés de chiffres passent par Carre (libellé court, grand chiffre, UNE ligne de détail, explication derrière le « i »), sans trait de couleur",
+    (() => {
+      const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
+      const carre = (cs.match(/function Carre\([\s\S]*?\n\}\n/) || [""])[0];
+      return /data-versements-traites/.test(cs) && /celluleFigee\("bg-white"\)/.test(cs) && !/validé le \{dFR\(d\.versement_valide_le\)\} par/.test(cs)
+        && carre.length > 200 && /data-carre-info/.test(carre) && /aria-expanded/.test(carre) && !/border-l-4|border-l-\[|border-t-4/.test(carre)
+        && (cs.match(/<Carre /g) || []).length === 5 && !/<div className="text-xs text-slate-500">Total versé/.test(cs);
+    })());
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
     /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
   // Timo (09/09/2026) : « avoir le réglage des couleurs de la carte de
@@ -6528,7 +6537,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       && /const aVerser = fondsAVerser\(db, boutique, totalVente\);/.test(csR) /* 13/09/2026 : au-delà du fonds fixe, TOUJOURS depuis le début */
       && /value=\{resume \? "" : bq\} onChange=\{\(nom\) => \{ setBq\(nom\); setResume\(false\); \}\}/.test(csR) /* en mode RÉSUMÉ, aucune boutique allumée (capture 13/09/2026) */ && /historiqueVersements = resume \? boutiquesResume\.flatMap\(\(b\) => versementsDe\(db, b\)\)\.filter\(\(d\) => !periode/.test(csR));
     test("★ écran Caisse : le carré « Total versé » (totalVerse) à côté de « Fonds à verser », le bouton « 📊 RÉSUMÉ » dans la rangée des boutiques (extra de BoutiqueTabs), le tableau (resumeCaisses) avec les quatre colonnes — plus « Fonds de caisse » depuis le 14/09/2026 —, le retard de clôture par boutique et la ligne TOTAL ; rien de tout ça dans le tableau de bord",
-      /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR) && /Total versé\{depuisLeDebut \? "" : ` · \$\{libellePeriode\}`\}<\/div><div className="font-bold tabular-nums">\{fmt\(verse\.total\)\}/.test(csR) /* 13/09/2026 : les carrés suivent la période */
+      /const verse = totalVerse\(db, boutique, aujourdhui, periode\);/.test(csR) && /<Carre label=\{`Total versé\$\{depuisLeDebut \? "" : ` · \$\{libellePeriode\}`\}`\} valeur=\{fmt\(verse\.total\)\}/.test(csR) /* 13/09/2026 : les carrés suivent la période ; 18/11/2026 : un carré = libellé court + grand chiffre (Carre) */
       && /extra=\{<>\n\s*<button onClick=\{\(\) => setResume\(\(r\) => !r\)\}[^\n]*📊 RÉSUMÉ<\/button>\n(?:[^\n]*\n){3}\s*<div className="flex items-center gap-2"><div className="font-bold text-slate-800">Période :<\/div>\n\s*<select className="rounded-lg border border-slate-300 px-3 py-1\.5 text-sm bg-white"[^\n]*\n[^\n]*\n[^\n]*<\/select>\n\s*<\/div>\n\s*<\/>\}/.test(csR) /* « Période : » + liste, comme au tableau de bord, à DROITE de RÉSUMÉ, même ligne (Timo, 13/09/2026 : « ramener période devant résumé » → option 1) */ && /resumeCaisses\(db, boutiquesResume, totalVente, aujourdhui, periode\)/.test(csR)
       && /\["Fonds à verser", "text-right"\], \["Fonds de caisse", "text-right"\], \["Total versé", "text-right"\], \["Entrées", "text-right"\], \["Sorties \(versements compris\)", "text-right"\]/.test(csR) && /sans clôture/.test(csR) && /<td className="px-3 py-2">TOTAL<\/td>/.test(csR)
       && /boutiquesVisibles\(db, profile, \[\.\.\.boutiquesVente\(db\), \.\.\.\(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => b\.terrain\)\]\)/.test(csR)
@@ -6586,7 +6595,7 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
       // ne sert plus qu'à le calculer et à afficher le tiroir dans la liste
       // « D'où part l'argent ? ». Ce qui est protégé est le même : jamais
       // `aVerser.montant`, jamais le mot « conservé ».
-      (csF.match(/aVerser\.aVerser/g) || []).length === 2 && (csF.match(/attenduVersement/g) || []).length === 4 && !/attendu: aVerser\.montant/.test(csF) && !/conservé/.test(csF) && /le fonds de caisse est gardé à part : il n'est pas là-dedans/.test(csF) && !/au-delà du fonds de caisse/.test(csF) && /solde \{fmt\(l\.solde\)\}<\/div>/.test(csF) && !/fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
+      (csF.match(/aVerser\.aVerser/g) || []).length === 2 && (csF.match(/attenduVersement/g) || []).length === 4 && !/attendu: aVerser\.montant/.test(csF) && !/conservé/.test(csF) && /Le fonds de caisse est gardé à part : il n'est pas là-dedans/.test(csF) /* 18/11/2026 : la phrase est derrière le « i » du carré */ && !/au-delà du fonds de caisse/.test(csF) && /solde \{fmt\(l\.solde\)\}<\/div>/.test(csF) && !/fonds fixe \{fmt\(l\.fondsFixe\)\}/.test(csF)
       && /refuserSaufAdmin\(profile, "Régler le fonds de caisse fixe d'une boutique"\)/.test(paF) && /\{!b\.depot && <button onClick=\{\(\) => modifierFondsFixe\(b\)\}/.test(paF) && /\{ \.\.\.x, fonds_caisse_fixe: plan\.fondsApres \}/.test(paF));
   }
   // Timo (14/09/2026), captures d'APESSITO : 348 000 d'entrées, 50 000 de

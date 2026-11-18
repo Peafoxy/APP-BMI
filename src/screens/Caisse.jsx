@@ -8,7 +8,7 @@ import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { LIGNE_CLOTURES_DEPASSEES } from "../lib/cibleNotification";
 import { useState } from "react";
 import { uid, fmt, today, dFR, totalVente, heureCourte } from "../lib/core";
-import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois, FormulaireRepliable, TableauDefilant, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, ChampQuiGrandit, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, demanderMois, FormulaireRepliable, TableauDefilant, BoutonEnvoi, enTeteFige, celluleFigee } from "../components/ui";
 // Timo (12/09/2026) : la clôture est impossible tant qu'une dépense en
 // espèces attend la validation du DG ; les avances de frais se remboursent ici.
 import { depensesBloquantCloture, motifBlocageCloture, rejetsDuJour, avancesARembourser, MOYENS_REMBOURSEMENT, MOYEN_REMB_SALAIRE, ROLES_REMB_CAISSE, critiqueRemboursement, rembourserAvance, libelleMoyenRemb } from "../lib/validationDepenses";
@@ -21,6 +21,25 @@ import { soldesMobiles, phraseNumeroMobile } from "../lib/caissesMobiles";
 import { banquesReglees } from "../lib/banques";
 import { remisesDe, remiseEnAttente, etatRemise, montantRemise, sourcesRemisePour, gerantsDeLaBoutique, gerantDesigne, destinatairesRemise, nomDuDesigne, critiqueRemiseTiroir, construireRemiseTiroir, critiqueConfirmation, confirmerRemise, critiqueAnnulation, annulerRemise, libelleSourceRemise } from "../lib/remiseTiroir";
 import { envoiRemiseTiroir, envoiRemiseTiroirRecue } from "../lib/whatsappModeles";
+
+// Timo (18/11/2026) : un carré de chiffre = un libellé COURT, un grand chiffre,
+// une seule ligne de détail. L'explication longue est derrière le « i »
+// (survol à la souris, clic ou toucher pour la déplier) — pas de trait de couleur.
+function Carre({ label, valeur, valeurClass = "", detail = null, explication = null, className = "", ...reste }) {
+  const [ouvert, setOuvert] = useState(false);
+  return (
+    <div className={`bg-white rounded-lg p-3 border border-slate-200 ${className}`} {...reste}>
+      <div className="text-[11px] text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+        <span>{label}</span>
+        {explication && <button type="button" data-carre-info title={explication} aria-label="Explication" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
+          className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold leading-none normal-case">i</button>}
+      </div>
+      <div className={`font-bold tabular-nums text-xl ${valeurClass}`}>{valeur}</div>
+      {detail ? <div className="text-xs text-slate-400">{detail}</div> : null}
+      {ouvert && explication ? <div data-carre-explication className="text-xs text-slate-600 mt-1">{explication}</div> : null}
+    </div>
+  );
+}
 
 // ============ CAISSE ============
 export function Caisse({ db, save, profile, detailTiroirInitial = false, cible = null }) {
@@ -416,15 +435,28 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
           {validesDG.length > 0 && (
             <div className="mt-3">
               <div className="text-xs font-bold text-slate-500 uppercase mb-1">Derniers versements traités</div>
-              <div className="max-h-[200px] overflow-y-auto space-y-1">
-                {validesDG.slice(0, 10).map((d) => (
-                  <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
-                    {libelleVersementDu(d)} — <b className={`text-base tabular-nums ${rejetVersement(d) ? "line-through text-red-700" : "text-slate-900"}`}>{fmt(d.versement.montant)}</b> — {d.boutique} → {libelleDestination(d.versement)}{libelleEcart(d.versement) ? ` · ${libelleEcart(d.versement)}` : ""}
-                    {rejetVersement(d)
-                      ? <span className="ml-2 text-xs text-red-700">✖ rejeté le {dFR(d.versement_rejete_le)} par {d.versement_rejete_par} — {d.versement_rejet_motif}</span>
-                      : <span className="ml-2 text-xs text-green-700">✅ validé le {dFR(d.versement_valide_le)} par {d.versement_valide_par}</span>}
-                  </div>
-                ))}
+              <div className="max-h-[260px] overflow-auto" data-versements-traites>
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10"><tr className="text-[11px] text-slate-500 uppercase bg-slate-100">
+                    <th className={`text-left px-3 py-2 whitespace-nowrap ${enTeteFige()}`}>Origine</th>
+                    <th className="text-left px-3 py-2">Date</th><th className="text-left px-3 py-2 whitespace-nowrap">De → Vers</th>
+                    <th className="text-right px-3 py-2">Montant</th><th className="text-left px-3 py-2">Statut</th></tr></thead>
+                  <tbody>
+                    {validesDG.slice(0, 10).map((d) => (
+                      <tr key={d.id} className="border-t border-slate-100">
+                        <td className={`px-3 py-2 font-semibold ${celluleFigee("bg-white")}`}>{libelleVersementDu(d)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{d.boutique} <span className="text-slate-400">→</span> {libelleDestination(d.versement)}{libelleEcart(d.versement) ? <div className="text-xs text-red-600">{libelleEcart(d.versement)}</div> : null}</td>
+                        <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${rejetVersement(d) ? "line-through text-red-700" : "text-slate-900"}`}>{fmt(d.versement.montant)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {rejetVersement(d)
+                            ? <><span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">✖ Rejeté</span><div className="text-xs text-slate-500">{dFR(d.versement_rejete_le)} · {d.versement_rejete_par}</div>{d.versement_rejet_motif ? <div className="text-xs text-slate-500 whitespace-normal max-w-[220px]">{d.versement_rejet_motif}</div> : null}</>
+                            : <><span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">✔ Validé</span><div className="text-xs text-slate-500">{dFR(d.versement_valide_le)} · {d.versement_valide_par}</div></>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -433,18 +465,24 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
       <Panel boutique={boutique}>
         <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
-          <div className="bg-white rounded-lg p-3 border border-slate-200 col-span-2"><div className="text-xs text-slate-500">Fonds à verser (le tiroir{depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}{aVerserPeriode.dernierVersement ? ` — dernier versement le ${dFR(aVerserPeriode.dernierVersement)}` : ""})</div><div className={`font-bold tabular-nums text-lg ${aVerserPeriode.montant < 0 ? "text-red-600" : ""}`}>{fmt(aVerserPeriode.montant)}</div>{aVerserPeriode.fondsPlafond > 0 && <div className="text-xs text-slate-400">le fonds de caisse est gardé à part : il n'est pas là-dedans</div>}</div>
+          <Carre className="col-span-2" label="Fonds à verser" valeur={fmt(aVerserPeriode.montant)} valeurClass={aVerserPeriode.montant < 0 ? "text-red-600" : ""}
+            detail={`Tiroir${depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}${aVerserPeriode.dernierVersement ? ` · depuis le ${dFR(aVerserPeriode.dernierVersement)}` : ""}`}
+            explication={`Le tiroir : ce qui doit s'y trouver${depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}${aVerserPeriode.dernierVersement ? `, depuis le dernier versement du ${dFR(aVerserPeriode.dernierVersement)}` : ""}.${aVerserPeriode.fondsPlafond > 0 ? " Le fonds de caisse est gardé à part : il n'est pas là-dedans." : ""}`} />
           {/* Timo (14/09/2026) : « il ne faut pas mélanger le fonds de caisse avec ce
               qu'on va verser » — le fonds a SON carré : ce qu'il en reste dans le tiroir. */}
           {(aVerserPeriode.fondsFixe > 0 || aVerserPeriode.fondsRemis > 0) && (
-            <div className="bg-white rounded-lg p-3 border border-slate-200" data-carre="fonds-de-caisse"><div className="text-xs text-slate-500">💼 Fonds de caisse{aVerserPeriode.fondsFixe > 0 ? ` (fixe ${fmt(aVerserPeriode.fondsFixe)})` : ""}</div>
-              <div className={`font-bold tabular-nums ${aVerserPeriode.fondsFixe > 0 && aVerserPeriode.fondsEntame > 0 ? "text-amber-700" : ""}`}>{aVerserPeriode.fondsFixe > 0 ? fmt(aVerserPeriode.resteFonds) : "—"}</div>
-              <div className="text-xs text-slate-400">gardé à part, jamais dans le tiroir · {aVerserPeriode.fondsFixe > 0 ? (aVerserPeriode.fondsIntact ? "intact" : `il en reste ${fmt(aVerserPeriode.resteFonds)} · entamé de ${fmt(aVerserPeriode.fondsEntame)}`) : "aucun fonds réglé (⚙ Paramètres → Boutiques → 💼 Fonds de caisse)"}{aVerserPeriode.fondsRemis > 0 ? ` · remis par le DG ${fmt(aVerserPeriode.fondsRemis)}${aVerserPeriode.derniereRemise ? ` (le ${dFR(aVerserPeriode.derniereRemise)})` : ""}` : ""}</div></div>
+            <Carre data-carre="fonds-de-caisse" label="Fonds de caisse" valeur={aVerserPeriode.fondsFixe > 0 ? fmt(aVerserPeriode.resteFonds) : "—"}
+              valeurClass={aVerserPeriode.fondsFixe > 0 && aVerserPeriode.fondsEntame > 0 ? "text-amber-700" : ""}
+              detail={aVerserPeriode.fondsFixe > 0 ? `Fixe ${fmt(aVerserPeriode.fondsFixe)} · ${aVerserPeriode.fondsIntact ? "intact" : `entamé de ${fmt(aVerserPeriode.fondsEntame)}`}` : "Aucun fonds réglé"}
+              explication={`Gardé à part, jamais dans le tiroir · ${aVerserPeriode.fondsFixe > 0 ? (aVerserPeriode.fondsIntact ? "intact" : `il en reste ${fmt(aVerserPeriode.resteFonds)} · entamé de ${fmt(aVerserPeriode.fondsEntame)}`) : "aucun fonds réglé (⚙ Paramètres → Boutiques → 💼 Fonds de caisse)"}${aVerserPeriode.fondsRemis > 0 ? ` · remis par le DG ${fmt(aVerserPeriode.fondsRemis)}${aVerserPeriode.derniereRemise ? ` (le ${dFR(aVerserPeriode.derniereRemise)})` : ""}` : ""}`} />
           )}
           {/* Timo (13/09/2026) : « ajouter un carré présentant le total versé » — rejetés exclus. */}
-          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Total versé{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">{fmt(verse.total)}</div><div className="text-xs text-slate-400">{depuisLeDebut ? `ce mois ${fmt(verse.ceMois)}` : ""}{verse.enAttente > 0 ? <span className="text-amber-700">{depuisLeDebut ? " · " : ""}en attente {fmt(verse.enAttente)}</span> : null}</div></div>
-          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Entrées{depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums text-emerald-700">{fmt(aVerserPeriode.ventes + aVerserPeriode.reglements)}</div>{aVerserPeriode.fondsRemis > 0 && <div className="text-xs text-slate-400">hors fonds de caisse remis {fmt(aVerserPeriode.fondsRemis)} (il va dans l'enveloppe)</div>}</div>
-          <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties (versements compris){depuisLeDebut ? "" : ` · ${libellePeriode}`}</div><div className="font-bold tabular-nums">− {fmt(aVerserPeriode.depenses)}</div>{aVerserPeriode.retraits > 0 && <div className="text-xs text-slate-400">dont {fmt(aVerserPeriode.retraits)} entrés depuis un compte mobile (comptés en Entrées)</div>}</div>
+          <Carre label={`Total versé${depuisLeDebut ? "" : ` · ${libellePeriode}`}`} valeur={fmt(verse.total)}
+            detail={(depuisLeDebut || verse.enAttente > 0) ? <>{depuisLeDebut ? `Ce mois : ${fmt(verse.ceMois)}` : ""}{verse.enAttente > 0 ? <span className="text-amber-700">{depuisLeDebut ? " · " : ""}en attente {fmt(verse.enAttente)}</span> : null}</> : null} />
+          <Carre label={`Entrées${depuisLeDebut ? "" : ` · ${libellePeriode}`}`} valeur={fmt(aVerserPeriode.ventes + aVerserPeriode.reglements)} valeurClass="text-emerald-700"
+            detail="Ventes et règlements" explication={aVerserPeriode.fondsRemis > 0 ? `Hors fonds de caisse remis ${fmt(aVerserPeriode.fondsRemis)} (il va dans l'enveloppe).` : null} />
+          <Carre label={`Sorties${depuisLeDebut ? "" : ` · ${libellePeriode}`}`} valeur={`− ${fmt(aVerserPeriode.depenses)}`}
+            detail="Dépenses et versements" explication={aVerserPeriode.retraits > 0 ? `Versements compris. Dont ${fmt(aVerserPeriode.retraits)} entrés depuis un compte mobile (comptés en Entrées).` : "Versements compris."} />
           {/* ---- 📱 LES COMPTES MOBILES (Timo, 21/09/2026) ----
               « Comment savoir que sur T-Money il reste 120 mil et non 160 mil…
               et que l'administrateur aussi, sans sortir sa calculatrice, ait

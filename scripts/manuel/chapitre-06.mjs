@@ -63,7 +63,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3300, 6000], lignes: [
         ["**🔒 Caisse**, en haut", "La rangée des boutiques (+ 🏗 DÉPÔT CHANTIER), le bouton **📊 RÉSUMÉ**, et « **Période :** » (Aujourd'hui · Cette semaine · Ce mois · Cette année · **Depuis le début**, d'office)."],
-        ["**🔒 Caisse**, « 💸 Versements à valider par le DG (N) »", "Administrateur principal seul, **toujours affiché** : vide, il le dit. « ✅ Valider » / « ✖ Rejeter », puis « Derniers versements traités »."],
+        ["**🔒 Caisse**, « 💸 Versements à valider par le DG (N) »", "Administrateur principal seul, **toujours affiché** : vide, il le dit. « ✅ Valider » / « ✖ Rejeter », puis « Derniers versements traités » : un **tableau** — Origine (figée à gauche), Date, De → Vers, Montant, Statut (pastille « ✔ Validé » ou « ✖ Rejeté », avec la date et la personne)."],
         ["**🔒 Caisse**, cadre « 💸 Verser les fonds »", "Les carrés : Fonds à verser · 💼 Fonds de caisse · Total versé · Entrées · Sorties (versements compris) · 📱 Flooz · 📱 Mixx/T-Money. Le bouton **« 🔍 Détail du tiroir »** (gérant, administrateur) ouvre le tiroir ligne par ligne depuis le dernier versement général. Le formulaire, fermé d'office, s'ouvre par le bouton **« 💸 Faire un versement »** (« Fermer » le replie, il se replie seul une fois le versement enregistré) : « D'où part l'argent ? » (si la boutique a un compte mobile) · Montant versé (F) · Destination · (BANQUE) Banque, N° du bordereau de versement · Note (justification) · « 💸 Verser ». Puis « Versements de BOUTIQUE »."],
         ["**🔒 Caisse**, cadre « 💵 Dotations de caisse (N en attente) »", "L'administrateur principal y trouve le bouton **« 💵 Dotation de caisse »** ; le gérant à qui elle est remise y confirme **« ✅ Reçu »**. Chaque ligne dit le montant, d'où vient l'argent, le motif et l'état : ⏳ en attente · ✅ reçu · ✖ annulée."],
         ["**🔒 Caisse**, cadre « 💼 Avances de frais à rembourser (N) »", "Une ligne par avance qui compte, trois boutons : « 💵 Rembourser en espèces », « 🧾 Avec le salaire », « 👤 Par le DG »."],
@@ -138,9 +138,10 @@ export const CHAPITRE = {
     // ── 5
     { titre: "Explication de chaque bouton et champ", blocs: [
       ["h3", "Les carrés du cadre « 💸 Verser les fonds »"],
+      ["p", "Chaque carré montre un **libellé court**, un **grand chiffre** et **une ligne de détail**. L'explication longue est derrière le petit **« i »** : survolez-le à la souris, ou cliquez / touchez-le pour la déplier sous le carré."],
       ["table", { entetes: ["Élément", "À quoi il sert"], largeurs: [3000, 6300], lignes: [
         ["Fonds à verser (le tiroir)", "La recette en espèces qui dort dans la boutique : ventes et règlements en espèces, moins ce qu'ils ont payé, moins les versements. Rouge si négatif (une dépense saisie avant la vente qui la couvre). Avec une période : le tiroir à la fin de la période."],
-        ["💼 Fonds de caisse (fixe X F)", "Ce qu'il reste dans **l'enveloppe** : « intact », ou « il en reste … · entamé de … ». « gardé à part, jamais dans le tiroir ». S'affiche seulement si un fonds est réglé ou a été remis. Sans fonds : « aucun fonds réglé (⚙ Paramètres → Boutiques → 💼 Fonds de caisse) »."],
+        ["💼 Fonds de caisse (fixe X F)", "Ce qu'il reste dans **l'enveloppe**. Détail : « Fixe X F · intact » ou « … · entamé de … ». Derrière le « i » : « gardé à part, jamais dans le tiroir », « il en reste … », « remis par le DG … ». S'affiche seulement si un fonds est réglé ou a été remis. Sans fonds : « aucun fonds réglé (⚙ Paramètres → Boutiques → 💼 Fonds de caisse) »."],
         ["Total versé", "Tous les versements de la boutique, **rejetés exclus** ; « ce mois … », « en attente … » en ambre."],
         ["Entrées", "Ventes + règlements en espèces (de la période). « hors fonds de caisse remis … (il va dans l'enveloppe) »."],
         ["Sorties (versements compris)", "Dépenses en espèces + versements. « dont … entrés depuis un compte mobile (comptés en Entrées) » quand il y a eu un retrait."],
