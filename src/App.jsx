@@ -1962,7 +1962,7 @@ export default function App() {
               <div className="min-w-0">
                 <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
                 <div className="text-xs text-slate-400 truncate flex items-center gap-2 flex-wrap">
-                  {profile?.nom && <span className="font-bold text-orange-500">👤 {profile.nom}</span>}
+                  {profile?.nom && <span className="font-bold text-orange-500 lg:hidden">👤 {profile.nom}</span>}
                   <span>v{VERSION}</span>
                 </div>
               </div>
@@ -1993,17 +1993,22 @@ export default function App() {
           <div className="px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
             <button onClick={() => setRechercheOuverte(true)} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold" aria-label="Rechercher">🔍<span className="hidden lg:inline"> Rechercher…</span></button>
             {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
+            {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}
+            <button onClick={load} disabled={syncEnCours} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold disabled:opacity-70 whitespace-nowrap">
+              <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
+            </button>
+            {profile.boutique && <span className="shrink-0 hidden sm:flex lg:hidden items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
+            <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
             <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap">
               {sync.enLigne && sync.supabaseOk
                 ? <span className="text-xs font-semibold text-green-400 whitespace-nowrap">🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>
                 : <span className="text-xs font-semibold text-amber-400 whitespace-nowrap">🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>}
             </span>
-            {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}
-            <button onClick={load} disabled={syncEnCours} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold disabled:opacity-70 whitespace-nowrap">
-              <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
-            </button>
-            {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
-            <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
+            {/* Timo (18/11/2026) : sur ordinateur, le nom et la boutique passent à droite de la ligne des boutons, sous « Verrouiller » et la date. */}
+            <span data-nom-boutique-droite className="hidden lg:flex shrink-0 items-center gap-3 ml-auto">
+              {profile?.nom && <span className="font-bold text-orange-500 text-xs">👤 {profile.nom}</span>}
+              {profile.boutique && <Badge boutique={profile.boutique} />}
+            </span>
           </div>
         </header>
 
@@ -2118,7 +2123,7 @@ export default function App() {
               <div className="min-w-0">
                 <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
                 <div className="text-xs text-slate-400 truncate flex items-center gap-2 flex-wrap">
-                  {profile?.nom && <span className="font-bold text-orange-500">👤 {profile.nom}</span>}
+                  {profile?.nom && <span className="font-bold text-orange-500 lg:hidden">👤 {profile.nom}</span>}
                   <span>v{VERSION}</span>
                 </div>
               </div>
@@ -2151,7 +2156,7 @@ export default function App() {
             <button onClick={load} disabled={syncEnCours} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold disabled:opacity-70 whitespace-nowrap">
               <span className={`inline-block ${syncEnCours ? "animate-spin" : ""}`}>⟳</span> {syncEnCours ? "Synchronisation…" : "Synchroniser"}
             </button>
-            {profile.boutique && <span className="shrink-0 hidden sm:flex items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
+            {profile.boutique && <span className="shrink-0 hidden sm:flex lg:hidden items-center gap-2 text-slate-300"><Badge boutique={profile.boutique} /></span>}
             <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
           </div>
           <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="horizontal" contenu={LibelleOnglet}

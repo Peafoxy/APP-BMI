@@ -73,7 +73,7 @@ export const CHAPITRE = {
       ["p", "**Revenir aux icônes** (affichage « page d'icônes ») : le **logo BMI en haut à gauche** (ou « ← Accueil » à côté du nom de l'écran), depuis n'importe quel écran. Sur téléphone, la touche retour d'Android ramène aussi à l'écran d'avant."],
       ["table", { entetes: ["En haut de chaque écran", "Ce qu'on y trouve"], lignes: [
         ["Première ligne", "Le **logo BMI** (retour aux icônes, dans l'affichage « page d'icônes »), « BMI-GESTION SYSTÈME », votre nom et la version ; à droite, sur ordinateur, l'**heure du serveur**, le bouton **« Verrouiller »** et la date ; sur téléphone, le cadenas **🔐**. La pastille violette **« 🎓 Formation »** apparaît quand on regarde l'espace formation."],
-        ["Deuxième ligne", "La loupe **🔍**, **« 🧭 Affichage »**, l'état du réseau, **« ⟳ Synchroniser »**, votre boutique, **« Se déconnecter »**."],
+        ["Deuxième ligne", "À gauche : la loupe **🔍**, **« 🧭 Affichage »**, **« ⟳ Synchroniser »**, **« Se déconnecter »**, puis l'état du réseau. Sur ordinateur, **votre nom et votre boutique** sont à **droite** de cette ligne, juste sous « Verrouiller » et la date (sur téléphone, le nom reste sous le titre)."],
       ]}],
       ["ul", [
         "**« 🟢 En ligne »** ou **« 🔌 Hors ligne »** : l'état du réseau, avec le nombre d'opérations qui attendent d'être envoyées (« 3 à envoyer »).",
