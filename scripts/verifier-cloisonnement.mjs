@@ -18449,9 +18449,29 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
         avances: [{ id: "a9", mois: "2026-10", montant: 5000, motif: "transport", date: "2026-10-02", par: "TIMO", depense_id: "d9" }] };
       let h = "";
       try { h = S.rendreSalaires({ users: [timoR, angS], depenses: [], boutiques: [] }, timoR, { moisInitial: "2026-10", employeDeplieInitial: "u_ang" }); } catch (e) { h = "ERREUR " + String(e && e.message || e).slice(0, 160); }
-      const nb = (re) => (h.match(re) || []).length;
+      // RETOURNÉ le 18/11/2026 : sur téléphone une carte porte le même détail ; le contrôle lit la partie TABLEAU (ordinateur).
+      const hT = h.includes("data-salaires-cartes") ? h.slice(0, h.indexOf("data-salaires-cartes")) : h;
+      const nb = (re) => (hT.match(re) || []).length;
       test("★ rendu : la ligne dépliée montre trois primes et une avance, un 🗑 « Retirer cette prime » sur les DEUX primes ordinaires (pas sur le remboursement de frais) et un 🗑 sur l'avance",
         !h.startsWith("ERREUR") && nb(/data-prime-salaire/g) === 3 && nb(/title="🗑 Retirer cette prime/g) === 2 && nb(/data-avance-salaire/g) === 1 && nb(/title="🗑 Retirer cette avance/g) === 1, h.slice(0, 160));
+      // 💵 SALAIRES « LISIBLE COMME UN LIVRE » (18/11/2026, « Lance »).
+      test("★ 💵 Salaires : le mois se choisit sur la ligne du titre (derrière un « i » l'explication), les cinq cartes restent côte à côte, le détail par employé se replie",
+        !h.startsWith("ERREUR") && /data-masse-salariale/.test(h) && /data-mois-salaires/.test(h) && /data-titre-info/.test(h) && /data-detail-par-employe/.test(h) && (h.match(/data-carte-repliable/g) || []).length >= 2, h.slice(0, 160));
+      test("★ 📱 sur téléphone : une CARTE par employé (nom, net, versé, reste, statut), dépliée avec son détail ; le tableau reste pour l'ordinateur",
+        /data-salaires-table/.test(h) && /class="[^"]*hidden sm:block[^"]*" data-salaires-table/.test(h) && /data-salaires-cartes/.test(h) && (h.match(/data-carte-salaire="deplie"/g) || []).length === 1 && /data-salaires-cartes-total/.test(h));
+      let hM = "";
+      const moisCourantM = new Date().toISOString().slice(0, 7); // l'écran s'ouvre sur le mois en cours
+      const angM = { ...angS, salaire_base: 120000, evolutions_salaire: [{ date: "2026-09-01", ancien: 100000, nouveau: 120000, motif: "avancement" }],
+        credits: [],
+        primes: [{ id: "p1", mois: moisCourantM, montant: 10000, motif: "objectif", par: "TIMO" }],
+        virements: [{ id: "v1", mois: moisCourantM, montant: 50000, statut: "en_attente", date_envoi: moisCourantM + "-28", moyen: "Flooz", par: "TIMO" }] };
+      try { hM = S.rendreMonSalaire({ users: [timoR, angM], depenses: [], boutiques: [] }, angM); } catch (e) { hM = "ERREUR " + String(e && e.message || e).slice(0, 160); }
+      test("★ 💵 Mon salaire se monte dans le banc (l'écran de l'employé rendu pour de vrai)", !hM.startsWith("ERREUR") && hM.length > 500, hM.slice(0, 160));
+      test("★ 💵 Mon salaire : le bloc ambre « Confirmer la réception » reste ouvert ; Paiements | Primes et avances côte à côte ; crédit, avancement repliés (leur titre seul, aucun formulaire)",
+        /Confirmer la réception/.test(hM) && /data-salaire-colonnes[^>]*lg:grid-cols-2/.test(hM) && /Primes et avances — /.test(hM) && /Paiements de salaire/.test(hM)
+        && /data-mon-credit/.test(hM) && !/Envoyer ma demande/.test(hM) && /data-mon-avancement/.test(hM) && !/Ancien salaire/.test(hM), hM.slice(0, 160));
+      test("★ 💵 Mon salaire : le message « bulletin fermé » est derrière un petit bouton, jamais étalé",
+        /data-note-depliable/.test(hM) && !/data-bulletin-ferme/.test(hM));
     }
   }
   // 📅 « le mois précédent du 1er au 15 » (22/10/2026) : les salaires de septembre payés début octobre étaient rangés sur octobre.

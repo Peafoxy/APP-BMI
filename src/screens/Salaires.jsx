@@ -10,7 +10,7 @@ import { envoiRelanceSalaire, virementAConfirmer, phraseRelances } from "../lib/
 import { texteRappelConfirmationSalaire } from "../lib/whatsappModeles";
 // Timo (12/09/2026) : l'employé voit où en sont ses avances de frais.
 import { avancesDe, estEnAttente, estRejetee, libelleMoyenRemb } from "../lib/validationDepenses";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, Stat, uPrompt, demanderMoyenPaiement, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, CarteRepliable, NoteDepliable } from "../components/ui";
 import { resteCredit, creditsEnCours, envoyerVirementG, aDroit, paieMois, libelleMoisFR, choisirBoutiqueDebitG, messagesNotifSortieCaisse, bloquerSiLecture, utilisateursDeLEspace, premierMoisPaie, moisPaieProposes, moisRecents, moisSuiviPour, moisDePaiePropose, refuserSaufAdmin, estCompteFormation, critiqueRetraitPrime, retirerPrime, critiqueRetraitAvance, retirerAvance, depenseDeLAvance, refusSuppressionDepense } from "../lib/calculs";
 import { imprimerBulletin } from "../lib/impression";
 import { phraseContrat } from "../lib/contratTravail";
@@ -141,6 +141,43 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
     save({ ...db, users: r.users, depenses: r.depenses }, r.journal);
   };
 
+  // Le détail d'un employé (primes, avances, paiements du mois) : écrit UNE fois,
+  // lu par la ligne du tableau (ordinateur) ET par la carte (téléphone).
+  const detailEmploye = (u, p, primesMois, avancesMois) => (
+    <div className="grid sm:grid-cols-3 gap-3 max-w-[900px]">
+                        <div>
+                          <div className="font-bold text-slate-800 mb-0.5">Primes de {libelleMoisFR(mois)}</div>
+                          {primesMois.length === 0 ? <div className="text-slate-400">Aucune.</div> : primesMois.map((x, k) => (
+                            <div key={x.id || k} data-prime-salaire className="flex items-center gap-1.5 py-0.5">
+                              <span>+ {fmt(x.montant)} — {x.motif || "prime"}{x.hors_cnss ? " (remboursement, hors CNSS)" : ""}</span>
+                              {!x.hors_cnss && x.auto !== "avance_frais" && <BoutonRond icone="🗑" teinte="rouge" onClick={() => retirerUnePrime(u, x)} titre="🗑 Retirer cette prime (saisie par erreur)" />}
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 mb-0.5">Avances</div>
+                          {avancesMois.length === 0 ? <div className="text-slate-400">Aucune.</div> : avancesMois.map((x, k) => (
+                            <div key={x.id || k} data-avance-salaire className="flex items-center gap-1.5 py-0.5">
+                              <span>− {fmt(x.montant)} — {x.motif || "avance"}</span>
+                              <BoutonRond icone="🗑" teinte="rouge" onClick={() => retirerUneAvance(u, x)} titre="🗑 Retirer cette avance (saisie par erreur) — sa sortie de caisse aussi" />
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-800 mb-0.5">Paiements</div>
+                          {p.virements.length === 0 ? <div className="text-slate-400">Aucun paiement ce mois-ci.</div> : p.virements.map((v) => (
+                            <div key={v.id} data-paiement-salaire className="py-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span>{dFR(v.date_envoi)} · <b className="tabular-nums">{fmt(v.montant)}</b> · {v.moyen || "—"}{v.ref ? ` · ${v.ref}` : ""} — {v.statut === "accepte" ? "✅ reçu confirmé" : "⏳ à confirmer"}</span>
+                                {virementAConfirmer(v) && <BoutonRond icone="📲" teinte="vert" envoi onClick={() => relancerConfirmation(u, v)} titre="📲 Relancer : lui demander de confirmer la réception (WhatsApp du numéro BMI)" />}
+                              </div>
+                              {phraseRelances(v, dFR) && <div data-relance-salaire className="text-slate-500">{phraseRelances(v, dFR)}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
@@ -151,36 +188,34 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
         <PanneauCNSS db={db} save={save} profile={profile} employes={employes} mois={mois} setMois={setMois} options={options} />
       ) : (
       <>
-      <div className="rounded-xl p-4 bg-white border border-slate-200">
-        <div className="font-bold mb-1">💵 Masse salariale — {libelleMoisFR(mois)}</div>
-        <div className="text-xs text-slate-500 mb-3">Vue d'ensemble de la paie du mois. Les salaires payés d'ici sont enregistrés en dépense « Salaires ».</div>
-        <Field label="Mois">
-          <select className={inputCls} value={mois} onChange={(e) => setMois(e.target.value)}>
+      <div className="rounded-xl p-4 bg-white border border-slate-200" data-masse-salariale>
+        <CarteRepliable titre={`💵 Masse salariale — ${libelleMoisFR(mois)}`}
+          explication="Vue d'ensemble de la paie du mois. Les salaires payés d'ici sont enregistrés en dépense « Salaires »."
+          action={<select data-mois-salaires aria-label="Mois" className="border border-slate-300 rounded-lg px-2 py-1 text-sm font-normal bg-white" value={mois} onChange={(e) => setMois(e.target.value)}>
             {options.map((m) => <option key={m} value={m}>{libelleMoisFR(m)}</option>)}
-          </select>
-        </Field>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
-          <Stat label="Masse salariale (net)" valeur={fmt(masse)} nature="sortie" />
-          <Stat label="Déjà versé" valeur={fmt(verse)} nature="regle" />
-          <Stat label="Reste à verser" valeur={fmt(reste)} nature="du" />
-          <Stat label="À confirmer par l'employé" valeur={fmt(attente)} nature="attente" />
-          <Stat label="Encours crédits BMI" valeur={fmt(encoursCredit)} nature="du" />
-        </div>
+          </select>}>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Stat label="Masse salariale (net)" valeur={fmt(masse)} nature="sortie" />
+            <Stat label="Déjà versé" valeur={fmt(verse)} nature="regle" />
+            <Stat label="Reste à verser" valeur={fmt(reste)} nature="du" />
+            <Stat label="À confirmer par l'employé" valeur={fmt(attente)} nature="attente" />
+            <Stat label="Encours crédits BMI" valeur={fmt(encoursCredit)} nature="du" />
+          </div>
+        </CarteRepliable>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
-          <span>Détail par employé</span>
-          <button className={btnDark} onClick={() => exportCSV(`salaires_${mois}`,
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-detail-par-employe>
+        <CarteRepliable titre="Détail par employé"
+          action={<button className={btnDark} onClick={() => exportCSV(`salaires_${mois}`,
             ["Employé", "Rôle", "Boutique", "Salaire de base", "Primes", "Avances", "Retenue crédit", "Retenue CNSS", "Net à percevoir", "Versé", "Reste à verser", "Crédit en cours"],
             lignes.map(({ u, p, credit }) => [u.nom, libelleRoleEmploye(u), u.boutique || "Toutes", p.base, p.primes, p.avances, p.retenueCredit, p.retenueCNSS || 0, p.net, p.verse, Math.max(0, p.reste), credit]),
-            `Paie ${libelleMoisFR(mois)}`)}>📄 Exporter</button>
-        </div>
+            `Paie ${libelleMoisFR(mois)}`)}>📄 Exporter</button>}>
         {pasEncoreSuivis > 0 && <div data-pas-encore-suivis className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100">📅 {pasEncoreSuivis} employé(s) pas encore suivi(s) dans l'application en {libelleMoisFR(mois)} : ce mois-là a été payé hors de l'application, il n'est pas compté ici (👥 Utilisateurs → ⋯ Gérer → 📅 Paie suivie depuis).</div>}
         {lignes.length === 0 ? (
           <div className="text-sm text-slate-400 text-center py-6">{pasEncoreSuivis > 0 ? `Aucun employé suivi dans l'application en ${libelleMoisFR(mois)}.` : "Aucun employé salarié actif. Créez des comptes Vendeur, Gérant, Magasinier, Technicien BMI, Responsable commercial, Comptable ou Assistant(e) de direction."}</div>
         ) : (
-          <div className="max-h-[460px] overflow-y-auto overflow-x-auto">
+          <>
+          <div className="hidden sm:block max-h-[460px] overflow-y-auto overflow-x-auto" data-salaires-table>
           <table className="w-full text-sm min-w-[860px]">
             {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026) :
                 l'employé figé, un clic montre ses primes, avances et paiements
@@ -216,38 +251,7 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
                 {deplie && (
                   <tr className="bg-slate-50" data-detail-salaire>
                     <td colSpan={COLONNES_SALAIRES.length} className="px-4 py-2 text-xs text-slate-700">
-                      <div className="grid sm:grid-cols-3 gap-3 max-w-[900px]">
-                        <div>
-                          <div className="font-bold text-slate-800 mb-0.5">Primes de {libelleMoisFR(mois)}</div>
-                          {primesMois.length === 0 ? <div className="text-slate-400">Aucune.</div> : primesMois.map((x, k) => (
-                            <div key={x.id || k} data-prime-salaire className="flex items-center gap-1.5 py-0.5">
-                              <span>+ {fmt(x.montant)} — {x.motif || "prime"}{x.hors_cnss ? " (remboursement, hors CNSS)" : ""}</span>
-                              {!x.hors_cnss && x.auto !== "avance_frais" && <BoutonRond icone="🗑" teinte="rouge" onClick={() => retirerUnePrime(u, x)} titre="🗑 Retirer cette prime (saisie par erreur)" />}
-                            </div>
-                          ))}
-                        </div>
-                        <div>
-                          <div className="font-bold text-slate-800 mb-0.5">Avances</div>
-                          {avancesMois.length === 0 ? <div className="text-slate-400">Aucune.</div> : avancesMois.map((x, k) => (
-                            <div key={x.id || k} data-avance-salaire className="flex items-center gap-1.5 py-0.5">
-                              <span>− {fmt(x.montant)} — {x.motif || "avance"}</span>
-                              <BoutonRond icone="🗑" teinte="rouge" onClick={() => retirerUneAvance(u, x)} titre="🗑 Retirer cette avance (saisie par erreur) — sa sortie de caisse aussi" />
-                            </div>
-                          ))}
-                        </div>
-                        <div>
-                          <div className="font-bold text-slate-800 mb-0.5">Paiements</div>
-                          {p.virements.length === 0 ? <div className="text-slate-400">Aucun paiement ce mois-ci.</div> : p.virements.map((v) => (
-                            <div key={v.id} data-paiement-salaire className="py-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <span>{dFR(v.date_envoi)} · <b className="tabular-nums">{fmt(v.montant)}</b> · {v.moyen || "—"}{v.ref ? ` · ${v.ref}` : ""} — {v.statut === "accepte" ? "✅ reçu confirmé" : "⏳ à confirmer"}</span>
-                                {virementAConfirmer(v) && <BoutonRond icone="📲" teinte="vert" envoi onClick={() => relancerConfirmation(u, v)} titre="📲 Relancer : lui demander de confirmer la réception (WhatsApp du numéro BMI)" />}
-                              </div>
-                              {phraseRelances(v, dFR) && <div data-relance-salaire className="text-slate-500">{phraseRelances(v, dFR)}</div>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      {detailEmploye(u, p, primesMois, avancesMois)}
                     </td>
                   </tr>
                 )}
@@ -270,7 +274,49 @@ export function SalairesAdmin({ db, save, profile, moisInitial, employeDeplieIni
             </tbody>
           </table>
           </div>
+          {/* 📱 Sur téléphone : une CARTE par employé (nom, net, versé, reste, statut),
+              qui s'ouvre au clic sur ses primes, avances et paiements (18/11/2026). */}
+          <div className="sm:hidden space-y-2" data-salaires-cartes>
+            {lignes.map(({ u, p, credit }) => {
+              const deplie = employeDeplie === u.id;
+              const primesMois = (u.primes || []).filter((x) => x.mois === mois);
+              const avancesMois = (u.avances || []).filter((x) => x.mois === mois);
+              return (
+                <div key={u.id} data-carte-salaire={deplie ? "deplie" : "replie"} className={`rounded-lg border p-3 ${deplie ? "border-sky-300 bg-sky-50" : "border-slate-200 bg-white"}`}>
+                  <div role="button" tabIndex={0} onClick={() => setEmployeDeplie(deplie ? null : u.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEmployeDeplie(deplie ? null : u.id); } }} className="cursor-pointer">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold">{u.nom_complet || u.nom}</div>
+                        <div className="text-xs text-slate-500">{libelleRoleEmploye(u)} · {u.boutique || "Toutes boutiques"}</div>
+                        {credit > 0 && <div className="text-xs font-bold text-purple-700">🏦 Crédit : reste {fmt(credit)}</div>}
+                      </div>
+                      {statut(p)}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                      <div><div className="text-slate-500">Net</div><b className="tabular-nums">{fmt(p.net)}</b></div>
+                      <div><div className="text-slate-500">Versé</div><b className="tabular-nums text-green-700">{fmt(p.verse)}</b></div>
+                      <div><div className="text-slate-500">Reste</div><b className={`tabular-nums ${p.reste > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(Math.max(0, p.reste))}</b></div>
+                    </div>
+                  </div>
+                  {deplie && (
+                    <div className="mt-3 pt-2 border-t border-sky-200 space-y-2">
+                      <div className="flex gap-2">
+                        {p.reste > 0 && <BoutonRond icone="💸" teinte="vert" onClick={() => envoyerVirementG(db, save, profile, u, mois)} titre="💸 Payer le salaire" />}
+                        <BoutonRond icone="🖨" onClick={() => imprimerBulletin(u, mois, db)} titre="🖨 Bulletin" />
+                      </div>
+                      <div className="text-xs text-slate-700 space-y-2">{detailEmploye(u, p, primesMois, avancesMois)}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div data-salaires-cartes-total className="rounded-lg bg-slate-50 border border-slate-300 p-3 text-xs font-bold">
+              TOTAL — net {fmt(masse)} · versé {fmt(verse)} · reste {fmt(reste)}
+            </div>
+          </div>
+          </>
         )}
+        </CarteRepliable>
       </div>
       </>
       )}
@@ -593,37 +639,46 @@ export function Salaire({ db, save, profile }) {
     uAlert("✅ Réception confirmée. Merci !");
   };
 
+  const aPaiements = p.virements.length > 0;
+  const aDetail = primes.length > 0 || avances.length > 0;
+  const carte = "bg-white rounded-xl border border-slate-200 shadow-sm";
+  const statutCredit = enExamen.length > 0 ? <span className="font-normal text-xs text-purple-700">📩 demande en examen</span>
+    : enCours.length > 0 ? <span className="font-normal text-xs text-blue-700">crédit en cours</span> : null;
+
   return (
     <div className="space-y-4">
       <Panel>
-        <div className="font-bold mb-1">💵 Mon salaire — {moi.nom_complet || moi.nom}</div>
-        {moi.piece_num && <div className="text-xs text-slate-400 mb-1">{moi.piece_type || "Pièce"} n° {moi.piece_num}</div>}
-        {phraseContrat(moi, CODES_TYPE_ASSURE) && <div data-mon-contrat className="text-xs text-slate-500 mb-1">📄 Contrat : {phraseContrat(moi, CODES_TYPE_ASSURE)}</div>}
-        <div className="text-xs text-slate-500 mb-4">Informations indicatives, mois par mois. Pour toute question sur votre paie, adressez-vous à l'administration.{Number(moi.taux_avancement || 0) > 0 ? ` Taux d'avancement annuel : ${moi.taux_avancement} %.` : ""}</div>
-        <Field label="Mois">
-          <select className={inputCls} value={mois} onChange={(e) => setMois(e.target.value)}>
-            {options.map((m) => <option key={m} value={m}>{libelleMois(m)}</option>)}
-          </select>
-        </Field>
-        <div className="mt-3">
-          {BULLETIN_EMPLOYE_OUVERT
-            ? <button onClick={() => imprimerBulletin(moi, mois, db)} className={btnDark}>🖨 Imprimer mon bulletin de paie</button>
-            : <div data-bulletin-ferme className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3">{MESSAGE_BULLETIN_FERME}</div>}
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
-          {/* ⚠ Ici la lecture se fait du point de vue de L'EMPLOYÉ : ce qui
-              s'ajoute à sa paie est une entrée, ce qui lui est retenu est une
-              sortie. C'est l'inverse du point de vue de l'entreprise, et
-              c'est voulu — cet écran est le sien. */}
-          <Stat label="Salaire de base" valeur={base > 0 ? fmt(base) : "—"} nature="entree" />
-          <Stat label="Primes du mois" valeur={totalPrimes ? "+" + fmt(totalPrimes) : fmt(0)} nature="regle" />
-          <Stat label="Avances perçues" valeur={totalAvances ? "−" + fmt(totalAvances) : fmt(0)} nature="attente" />
-          <Stat label="Retenue crédit BMI" valeur={p.retenueCredit ? "−" + fmt(p.retenueCredit) : fmt(0)} nature="du" />
-          {moi.cnss_assujetti && (
-            <Stat label="Retenue CNSS (9%)" valeur={p.retenueCNSS ? "−" + fmt(p.retenueCNSS) : fmt(0)} nature="du" />
+        <CarteRepliable titre={`💵 Mon salaire — ${moi.nom_complet || moi.nom}`}
+          explication={`Informations indicatives, mois par mois. Pour toute question sur votre paie, adressez-vous à l'administration.${Number(moi.taux_avancement || 0) > 0 ? ` Taux d'avancement annuel : ${moi.taux_avancement} %.` : ""}`}
+          action={<span className="flex items-center gap-2 flex-wrap justify-end">
+            <select data-mois-salaire aria-label="Mois" className="border border-slate-300 rounded-lg px-2 py-1 text-sm font-normal bg-white" value={mois} onChange={(e) => setMois(e.target.value)}>
+              {options.map((m) => <option key={m} value={m}>{libelleMois(m)}</option>)}
+            </select>
+            {BULLETIN_EMPLOYE_OUVERT
+              ? <button onClick={() => imprimerBulletin(moi, mois, db)} className={btnDark}>🖨 Bulletin</button>
+              : <NoteDepliable libelle="🖨 Bulletin de paie" className="font-normal"><div data-bulletin-ferme className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3 max-w-[320px]">{MESSAGE_BULLETIN_FERME}</div></NoteDepliable>}
+          </span>}>
+          {(moi.piece_num || phraseContrat(moi, CODES_TYPE_ASSURE)) && (
+            <div className="text-xs text-slate-500 mb-2 space-y-0.5">
+              {moi.piece_num && <div className="text-slate-400">{moi.piece_type || "Pièce"} n° {moi.piece_num}</div>}
+              {phraseContrat(moi, CODES_TYPE_ASSURE) && <div data-mon-contrat>📄 Contrat : {phraseContrat(moi, CODES_TYPE_ASSURE)}</div>}
+            </div>
           )}
-          <Stat label="Net à percevoir" valeur={fmt(net)} nature="regle" />
-        </div>
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+            {/* ⚠ Ici la lecture se fait du point de vue de L'EMPLOYÉ : ce qui
+                s'ajoute à sa paie est une entrée, ce qui lui est retenu est une
+                sortie. C'est l'inverse du point de vue de l'entreprise, et
+                c'est voulu — cet écran est le sien. */}
+            <Stat label="Salaire de base" valeur={base > 0 ? fmt(base) : "—"} nature="entree" />
+            <Stat label="Primes du mois" valeur={totalPrimes ? "+" + fmt(totalPrimes) : fmt(0)} nature="regle" />
+            <Stat label="Avances perçues" valeur={totalAvances ? "−" + fmt(totalAvances) : fmt(0)} nature="attente" />
+            <Stat label="Retenue crédit BMI" valeur={p.retenueCredit ? "−" + fmt(p.retenueCredit) : fmt(0)} nature="du" />
+            {moi.cnss_assujetti && (
+              <Stat label="Retenue CNSS (9%)" valeur={p.retenueCNSS ? "−" + fmt(p.retenueCNSS) : fmt(0)} nature="du" />
+            )}
+            <Stat label="Net à percevoir" valeur={fmt(net)} nature="regle" />
+          </div>
+        </CarteRepliable>
       </Panel>
 
       {enAttente.length > 0 && (
@@ -649,94 +704,102 @@ export function Salaire({ db, save, profile }) {
         </div>
       )}
 
-      {p.virements.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap justify-between gap-2">
-            <span>💸 Paiements de salaire — {libelleMois(mois)}</span>
-            <span className="text-xs font-semibold text-slate-600">
-              Versé : <b className="tabular-nums">{fmt(p.verse)}</b> · Reste à percevoir : <b className={`tabular-nums ${p.reste > 0 ? "text-orange-600" : "text-green-700"}`}>{fmt(Math.max(0, p.reste))}</b>
-            </span>
-          </div>
-          <table className="w-full text-sm">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Date d'envoi", "Montant", "Moyen", "Référence", "Statut"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-            <tbody>
-              {p.virements.map((v) => (
-                <tr key={v.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date_envoi)}</td>
-                  <td className="px-3 py-2 tabular-nums font-bold text-blue-700">{fmt(v.montant)}</td>
-                  <td className="px-3 py-2">{v.moyen || "—"}</td>
-                  <td className="px-3 py-2 text-xs text-slate-500">{v.ref || "—"}</td>
-                  <td className="px-3 py-2">
-                    {v.statut === "accepte"
-                      ? <span className="text-xs font-bold text-green-700">✅ Reçu confirmé le {dFR(v.date_acceptation)}</span>
-                      : <span className="text-xs font-bold text-amber-600">⏳ En attente de votre confirmation</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Paiements | Primes et avances du mois : côte à côte (18/11/2026). */}
+      {(aPaiements || aDetail) && (
+        <div data-salaire-colonnes className={`grid gap-4 items-start ${aPaiements && aDetail ? "lg:grid-cols-2" : ""}`}>
+          {aPaiements && (
+            <div className={`${carte} overflow-x-auto`}>
+              <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex flex-wrap justify-between gap-2">
+                <span>💸 Paiements de salaire — {libelleMois(mois)}</span>
+                <span className="text-xs font-semibold text-slate-600">
+                  Versé : <b className="tabular-nums">{fmt(p.verse)}</b> · Reste à percevoir : <b className={`tabular-nums ${p.reste > 0 ? "text-orange-600" : "text-green-700"}`}>{fmt(Math.max(0, p.reste))}</b>
+                </span>
+              </div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Date d'envoi", "Montant", "Moyen", "Référence", "Statut"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                <tbody>
+                  {p.virements.map((v) => (
+                    <tr key={v.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date_envoi)}</td>
+                      <td className="px-3 py-2 tabular-nums font-bold text-blue-700">{fmt(v.montant)}</td>
+                      <td className="px-3 py-2">{v.moyen || "—"}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{v.ref || "—"}</td>
+                      <td className="px-3 py-2">
+                        {v.statut === "accepte"
+                          ? <span className="text-xs font-bold text-green-700">✅ Reçu confirmé le {dFR(v.date_acceptation)}</span>
+                          : <span className="text-xs font-bold text-amber-600">⏳ En attente de votre confirmation</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {aDetail && (
+            <div className={`${carte} overflow-x-auto`}>
+              <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Primes et avances — {libelleMois(mois)}</div>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Type", "Motif", "Enregistré par", "Montant"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                <tbody>
+                  {primes.map((p, i) => (
+                    <tr key={"p" + i} className="border-t border-slate-100">
+                      <td className="px-3 py-2"><span className="text-xs font-bold text-green-700">PRIME</span></td>
+                      <td className="px-3 py-2">{p.motif || "—"}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{p.par || "—"}</td>
+                      <td className="px-3 py-2 tabular-nums font-bold text-green-700">+{fmt(Number(p.montant || 0))}</td>
+                    </tr>
+                  ))}
+                  {avances.map((a, i) => (
+                    <tr key={"a" + i} className="border-t border-slate-100">
+                      <td className="px-3 py-2"><span className="text-xs font-bold text-orange-600">AVANCE</span></td>
+                      <td className="px-3 py-2">{a.motif || "—"}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{a.par || "—"}</td>
+                      <td className="px-3 py-2 tabular-nums font-bold text-orange-600">−{fmt(Number(a.montant || 0))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+      )}
+      {!aPaiements && !aDetail && (
+        <div data-salaire-rien className="text-sm text-slate-400 px-1">💸 Aucun paiement, prime ni avance en {libelleMois(mois)}.</div>
       )}
 
       {mesAvances.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
-            <span>💼 Mes avances de frais</span>
-            <span className="text-sm font-semibold text-slate-500">à me rembourser : {fmt(avancesDues.reduce((s, d) => s + Number(d.montant || 0), 0))}</span>
-          </div>
-          <table className="w-full text-sm min-w-[560px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Dépense", "Boutique", "Montant", "État"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-            <tbody>
-              {mesAvances.slice(0, 30).map((d) => (
-                <tr key={d.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2">{dFR(d.date)}</td>
-                  <td className="px-3 py-2">{d.categorie}{d.description ? ` — ${d.description}` : ""}</td>
-                  <td className="px-3 py-2">{d.boutique}</td>
-                  <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(d) ? " line-through text-red-700" : ""}`}>{fmt(estRejetee(d) ? d.validation.montant : d.montant)}</td>
-                  <td className="px-3 py-2 text-xs font-bold">
-                    {estEnAttente(d) ? <span className="text-amber-700">⏳ en attente de validation par le DG</span>
-                      : estRejetee(d) ? <span className="text-red-700">✖ rejetée — {d.validation.motif}</span>
-                      : d.remboursement ? <span className="text-green-700">✅ remboursée le {dFR(d.remboursement.le)} — {libelleMoyenRemb(d.remboursement.moyen).toLowerCase()}{d.remboursement.mois ? ` (${d.remboursement.mois})` : ""}</span>
-                      : <span className="text-sky-700">💵 à me rembourser</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100">Une avance est remboursée en espèces par le gérant ou l'administrateur, avec le salaire du mois, ou directement par le DG.</div>
-        </div>
-      )}
-      {(primes.length > 0 || avances.length > 0) && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Détail — {libelleMois(mois)}</div>
-          <table className="w-full text-sm">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Type", "Motif", "Enregistré par", "Montant"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-            <tbody>
-              {primes.map((p, i) => (
-                <tr key={"p" + i} className="border-t border-slate-100">
-                  <td className="px-3 py-2"><span className="text-xs font-bold text-green-700">PRIME</span></td>
-                  <td className="px-3 py-2">{p.motif || "—"}</td>
-                  <td className="px-3 py-2 text-xs text-slate-500">{p.par || "—"}</td>
-                  <td className="px-3 py-2 tabular-nums font-bold text-green-700">+{fmt(Number(p.montant || 0))}</td>
-                </tr>
-              ))}
-              {avances.map((a, i) => (
-                <tr key={"a" + i} className="border-t border-slate-100">
-                  <td className="px-3 py-2"><span className="text-xs font-bold text-orange-600">AVANCE</span></td>
-                  <td className="px-3 py-2">{a.motif || "—"}</td>
-                  <td className="px-3 py-2 text-xs text-slate-500">{a.par || "—"}</td>
-                  <td className="px-3 py-2 tabular-nums font-bold text-orange-600">−{fmt(Number(a.montant || 0))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={`${carte} p-4`} data-mes-avances-frais>
+          <CarteRepliable titre="💼 Mes avances de frais" ouvertParDefaut={false}
+            badge={<span className="font-normal text-sm text-slate-500">à me rembourser : {fmt(avancesDues.reduce((s, d) => s + Number(d.montant || 0), 0))}</span>}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Dépense", "Boutique", "Montant", "État"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                <tbody>
+                  {mesAvances.slice(0, 30).map((d) => (
+                    <tr key={d.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2">{dFR(d.date)}</td>
+                      <td className="px-3 py-2">{d.categorie}{d.description ? ` — ${d.description}` : ""}</td>
+                      <td className="px-3 py-2">{d.boutique}</td>
+                      <td className={`px-3 py-2 tabular-nums font-bold${estRejetee(d) ? " line-through text-red-700" : ""}`}>{fmt(estRejetee(d) ? d.validation.montant : d.montant)}</td>
+                      <td className="px-3 py-2 text-xs font-bold">
+                        {estEnAttente(d) ? <span className="text-amber-700">⏳ en attente de validation par le DG</span>
+                          : estRejetee(d) ? <span className="text-red-700">✖ rejetée — {d.validation.motif}</span>
+                          : d.remboursement ? <span className="text-green-700">✅ remboursée le {dFR(d.remboursement.le)} — {libelleMoyenRemb(d.remboursement.moyen).toLowerCase()}{d.remboursement.mois ? ` (${d.remboursement.mois})` : ""}</span>
+                          : <span className="text-sky-700">💵 à me rembourser</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="pt-2 text-xs text-slate-500 border-t border-slate-100">Une avance est remboursée en espèces par le gérant ou l'administrateur, avec le salaire du mois, ou directement par le DG.</div>
+          </CarteRepliable>
         </div>
       )}
 
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-        <div className="font-bold mb-1">🏦 Crédit BMI</div>
-        <div className="text-xs text-slate-500 mb-4">Vous pouvez demander un crédit à l'entreprise. L'administration examine votre demande et fixe le montant accordé.</div>
-
+      <div className={`${carte} p-4`} data-mon-credit>
+        <CarteRepliable titre="🏦 Crédit BMI" ouvertParDefaut={false} badge={statutCredit}
+          explication="Vous pouvez demander un crédit à l'entreprise. L'administration examine votre demande et fixe le montant accordé.">
         {!aDroit(db, profile, "act_credit") && (
           <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-600">
             🔒 La demande de crédit a été désactivée pour votre compte par l'administration.
@@ -816,33 +879,37 @@ export function Salaire({ db, save, profile }) {
             </table>
           </div>
         )}
+        </CarteRepliable>
       </div>
 
       {(moi.evolutions_salaire || []).length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">📈 Mon avancement</div>
-          <table className="w-full text-sm">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Ancien salaire", "Nouveau salaire", "Évolution", "%", "Motif"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-            <tbody>
-              {[...moi.evolutions_salaire].reverse().map((e, i) => {
-                const delta = Number(e.nouveau) - Number(e.ancien);
-                const pct = e.pct != null ? e.pct : (Number(e.ancien) > 0 ? Math.round(((Number(e.nouveau) - Number(e.ancien)) / Number(e.ancien)) * 1000) / 10 : null);
-                return (
-                  <tr key={i} className="border-t border-slate-100">
-                    <td className="px-3 py-2 whitespace-nowrap">{dFR(e.date)}</td>
-                    <td className="px-3 py-2 tabular-nums">{e.ancien ? fmt(e.ancien) : "—"}</td>
-                    <td className="px-3 py-2 tabular-nums font-bold">{fmt(e.nouveau)}</td>
-                    <td className={`px-3 py-2 tabular-nums font-bold ${delta >= 0 ? "text-green-700" : "text-red-600"}`}>{delta >= 0 ? "+" : ""}{fmt(delta)}</td>
-                    <td className={`px-3 py-2 tabular-nums font-bold ${pct == null ? "text-slate-400" : pct >= 0 ? "text-green-700" : "text-red-600"}`}>
-                      {pct == null ? "—" : `${pct >= 0 ? "+" : ""}${pct} %`}
-                      {e.taux_prevu ? <span className="block text-[10px] font-normal text-slate-400">taux fixé : {e.taux_prevu} %</span> : null}
-                    </td>
-                    <td className="px-3 py-2">{e.motif || "—"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className={`${carte} p-4`} data-mon-avancement>
+          <CarteRepliable titre="📈 Mon avancement" ouvertParDefaut={false}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Ancien salaire", "Nouveau salaire", "Évolution", "%", "Motif"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                <tbody>
+                  {[...moi.evolutions_salaire].reverse().map((e, i) => {
+                    const delta = Number(e.nouveau) - Number(e.ancien);
+                    const pct = e.pct != null ? e.pct : (Number(e.ancien) > 0 ? Math.round(((Number(e.nouveau) - Number(e.ancien)) / Number(e.ancien)) * 1000) / 10 : null);
+                    return (
+                      <tr key={i} className="border-t border-slate-100">
+                        <td className="px-3 py-2 whitespace-nowrap">{dFR(e.date)}</td>
+                        <td className="px-3 py-2 tabular-nums">{e.ancien ? fmt(e.ancien) : "—"}</td>
+                        <td className="px-3 py-2 tabular-nums font-bold">{fmt(e.nouveau)}</td>
+                        <td className={`px-3 py-2 tabular-nums font-bold ${delta >= 0 ? "text-green-700" : "text-red-600"}`}>{delta >= 0 ? "+" : ""}{fmt(delta)}</td>
+                        <td className={`px-3 py-2 tabular-nums font-bold ${pct == null ? "text-slate-400" : pct >= 0 ? "text-green-700" : "text-red-600"}`}>
+                          {pct == null ? "—" : `${pct >= 0 ? "+" : ""}${pct} %`}
+                          {e.taux_prevu ? <span className="block text-[10px] font-normal text-slate-400">taux fixé : {e.taux_prevu} %</span> : null}
+                        </td>
+                        <td className="px-3 py-2">{e.motif || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CarteRepliable>
         </div>
       )}
 
@@ -851,28 +918,29 @@ export function Salaire({ db, save, profile }) {
       )}
 
       {moi.cnss_assujetti && (
-        <div className="rounded-xl p-4 bg-white border border-slate-200">
-          <div className="font-bold mb-3">🏦 Mes informations CNSS — {libelleMois(mois)}</div>
-          <div className="grid sm:grid-cols-2 gap-2 text-sm mb-4">
-            <div><span className="text-slate-500">Matricule :</span> <b>{moi.cnss_matricule || "—"}</b></div>
-            <div><span className="text-slate-500">N° Assurance CNSS :</span> <b>{moi.cnss_numero_assurance || "—"}</b></div>
-            <div><span className="text-slate-500">Date d'embauche :</span> <b>{moi.cnss_date_embauche ? dFR(moi.cnss_date_embauche) : "—"}</b></div>
-            <div><span className="text-slate-500">Type de contrat :</span> <b>{phraseContrat(moi, CODES_TYPE_ASSURE) || "non renseigné"}</b></div>
-          </div>
-          {(() => {
-            const donneesMois = (moi.cnss_mensuel || {})[mois];
-            if (!donneesMois?.jours) return <div className="text-xs text-slate-400">Jours travaillés non encore renseignés pour ce mois par l'administration.</div>;
-            const remuneration = base + totalPrimes;
-            const c = cotisationsCNSS(remuneration);
-            return (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <Stat label="Jours travaillés" valeur={String(donneesMois.jours)} nature="neutre" compact />
-                <Stat label="Rémunération déclarée" valeur={fmt(remuneration)} nature="sortie" compact />
-                <Stat label="Cotisation pensions vieillesse (16,5%)" valeur={fmt(c.PV)} nature="sortie" compact />
-              </div>
-            );
-          })()}
-          <div className="text-xs text-slate-400 mt-3">Ces informations sont renseignées et mises à jour chaque mois par l'administration.</div>
+        <div className={`${carte} p-4`} data-mes-infos-cnss>
+          <CarteRepliable titre={`🏦 Mes informations CNSS — ${libelleMois(mois)}`} ouvertParDefaut={false}>
+            <div className="grid sm:grid-cols-2 gap-2 text-sm mb-4">
+              <div><span className="text-slate-500">Matricule :</span> <b>{moi.cnss_matricule || "—"}</b></div>
+              <div><span className="text-slate-500">N° Assurance CNSS :</span> <b>{moi.cnss_numero_assurance || "—"}</b></div>
+              <div><span className="text-slate-500">Date d'embauche :</span> <b>{moi.cnss_date_embauche ? dFR(moi.cnss_date_embauche) : "—"}</b></div>
+              <div><span className="text-slate-500">Type de contrat :</span> <b>{phraseContrat(moi, CODES_TYPE_ASSURE) || "non renseigné"}</b></div>
+            </div>
+            {(() => {
+              const donneesMois = (moi.cnss_mensuel || {})[mois];
+              if (!donneesMois?.jours) return <div className="text-xs text-slate-400">Jours travaillés non encore renseignés pour ce mois par l'administration.</div>;
+              const remuneration = base + totalPrimes;
+              const c = cotisationsCNSS(remuneration);
+              return (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <Stat label="Jours travaillés" valeur={String(donneesMois.jours)} nature="neutre" compact />
+                  <Stat label="Rémunération déclarée" valeur={fmt(remuneration)} nature="sortie" compact />
+                  <Stat label="Cotisation pensions vieillesse (16,5%)" valeur={fmt(c.PV)} nature="sortie" compact />
+                </div>
+              );
+            })()}
+            <div className="text-xs text-slate-400 mt-3">Ces informations sont renseignées et mises à jour chaque mois par l'administration.</div>
+          </CarteRepliable>
         </div>
       )}
     </div>

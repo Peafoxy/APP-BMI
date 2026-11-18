@@ -5,7 +5,11 @@
 // ============================================================
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SalairesAdmin } from "../src/screens/Salaires.jsx";
+import { SalairesAdmin, Salaire } from "../src/screens/Salaires.jsx";
 
 export const rendreSalaires = (db, profile, autres = {}) =>
   renderToStaticMarkup(React.createElement(SalairesAdmin, { db, save: () => {}, profile, ...autres }));
+
+// 💵 « Mon salaire » de l'employé, rendu pour de vrai (18/11/2026).
+export const rendreMonSalaire = (db, profile) =>
+  renderToStaticMarkup(React.createElement(Salaire, { db, save: () => {}, profile }));
