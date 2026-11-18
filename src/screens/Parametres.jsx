@@ -2884,7 +2884,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             <div className="mt-4 pt-3 border-t border-sky-100">
               <div className="text-xs font-bold text-slate-500 uppercase mb-1.5">🔑 Format des mots de passe enregistrés</div>
               <div className="flex flex-wrap gap-1.5 text-xs font-semibold">
-                <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-800 border border-green-200">🟢 Hachage fort : {forts.length}</span>
+                <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-800 border border-green-200"><span aria-hidden="true" className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1.5 align-middle" />Hachage fort : {forts.length}</span>
                 <span className={`px-2 py-0.5 rounded-full border ${anciens.length ? "bg-amber-50 text-amber-800 border-amber-300" : "bg-slate-50 text-slate-400 border-slate-200"}`}>🟠 Ancien hachage : {anciens.length}</span>
                 <span className={`px-2 py-0.5 rounded-full border ${enClair.length ? "bg-red-50 text-red-800 border-red-300" : "bg-slate-50 text-slate-400 border-slate-200"}`}>🔴 En clair : {enClair.length}</span>
                 {fantomes.length > 0 && <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">👻 Restes à nettoyer : {fantomes.length}</span>}

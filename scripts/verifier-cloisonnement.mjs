@@ -6174,7 +6174,7 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
   test("★ barre du haut (ordinateur) : un bouton « Verrouiller » sans cadenas qui pose le verrou ; l'état En ligne / Hors ligne dans l'en-tête unique",
     // ⚠ RETOURNÉ le 06/11/2026 (🧭 « 1b ») : la barre d'onglets revient au choix, avec sa barre latérale et son BadgeSync ; les deux affichages ont « Verrouiller ».
     /<button onClick=\{verrouiller\} className="hidden lg:inline-block [^"]*" title="[^"]*">Verrouiller<\/button>/.test(app) && /<button onClick=\{verrouiller\} className="px-3 py-1\.5 rounded-lg bg-sky-800 [^"]*" title="[^"]*">Verrouiller<\/button>/.test(app)
-    && /<BadgeSync sombre \/>/.test(app) && /🟢 En ligne/.test(app));
+    && /<BadgeSync sombre \/>/.test(app) && /rounded-full bg-green-500[^>]*\/>En ligne/.test(app) && !/🟢/.test(app.replace(/\/\/.*$/gm, "")));
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
     /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
   // Timo (09/09/2026) : « avoir le réglage des couleurs de la carte de

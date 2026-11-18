@@ -1521,7 +1521,7 @@ export default function App() {
     <span className="inline-flex flex-col shrink-0">
       <span className="inline-flex items-center gap-1.5">
         {sync.enLigne && sync.supabaseOk
-          ? <span className={`text-xs font-semibold whitespace-nowrap ${sombre ? "text-green-400" : "text-green-700"}`}>🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente} à envoyer` : ""}</span>
+          ? <span className={`text-xs font-semibold whitespace-nowrap ${sombre ? "text-green-400" : "text-green-700"}`}><span aria-hidden="true" className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1.5 align-middle" />En ligne{sync.enAttente ? ` · ${sync.enAttente} à envoyer` : ""}</span>
           : <span className={`text-xs font-semibold whitespace-nowrap ${sombre ? "text-amber-400" : "text-amber-600"}`}>🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente} en attente` : ""}</span>}
         {/* La version : maintenant déjà affichée en haut à côté de « Lomé, Togo »
             (visible partout, y compris sur téléphone). Ici, on ne la garde en double
@@ -1626,7 +1626,7 @@ export default function App() {
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
                 <div className={`font-bold ${dispo ? "text-green-800" : "text-slate-600"}`}>
-                  {dispo ? "🟢 Vous êtes DISPONIBLE" : "⛔ Vous êtes INDISPONIBLE"}
+                  {dispo ? <><span aria-hidden="true" className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1.5 align-middle" />Vous êtes DISPONIBLE</> : "⛔ Vous êtes INDISPONIBLE"}
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
                   {dispo
@@ -2001,7 +2001,7 @@ export default function App() {
             <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
             <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap">
               {sync.enLigne && sync.supabaseOk
-                ? <span className="text-xs font-semibold text-green-400 whitespace-nowrap">🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>
+                ? <span className="text-xs font-semibold text-green-400 whitespace-nowrap"><span aria-hidden="true" className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1.5 align-middle" />En ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>
                 : <span className="text-xs font-semibold text-amber-400 whitespace-nowrap">🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>}
             </span>
             {/* Timo (18/11/2026) : sur ordinateur, le nom et la boutique passent à droite de la ligne des boutons, sous « Verrouiller » et la date. */}
@@ -2149,7 +2149,7 @@ export default function App() {
             {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
             <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap">
               {sync.enLigne && sync.supabaseOk
-                ? <span className="text-xs font-semibold text-green-400 whitespace-nowrap">🟢 En ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>
+                ? <span className="text-xs font-semibold text-green-400 whitespace-nowrap"><span aria-hidden="true" className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1.5 align-middle" />En ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>
                 : <span className="text-xs font-semibold text-amber-400 whitespace-nowrap">🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>}
             </span>
             {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}
