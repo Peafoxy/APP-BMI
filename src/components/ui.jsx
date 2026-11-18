@@ -451,8 +451,8 @@ export const Badge = ({ boutique }) => (
   <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ backgroundColor: col(boutique) }}>{libelleCaisse(boutique)}</span>
 );
 
-export const Panel = ({ boutique, children }) => (
-  <div className="rounded-xl p-4 border-2" data-fond-boutique style={{ borderColor: col(boutique), backgroundColor: light(boutique), "--fond-bq": light(boutique) }}>{children}</div>
+export const Panel = ({ boutique, children, className = "", ...reste }) => (
+  <div className={`rounded-xl p-4 border-2${className ? ` ${className}` : ""}`} data-fond-boutique style={{ borderColor: col(boutique), backgroundColor: light(boutique), "--fond-bq": light(boutique) }} {...reste}>{children}</div>
 );
 
 // ============ CE QU'ON OUVRE SE VOIT ============

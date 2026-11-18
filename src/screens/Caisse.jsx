@@ -451,9 +451,9 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
       {/* Timo (09/09/2026) : « sans versement, rien n'apparaît » — l'encadré
           du DG est PERMANENT : vide, il le dit, et montre les derniers validés. */}
       {/* Timo (18/11/2026) : « mettre les 2 cartes côte à côte… compacter » — sur ordinateur les petits blocs vont par deux ; un bloc VIDE se réduit à une ligne ; téléphone : l'un sous l'autre. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start lg:[&>*:only-child]:col-span-2" data-blocs-caisse>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch lg:[&>*:only-child]:col-span-2" data-blocs-caisse>
       {jeSuisDG && (
-        <div className={`bg-white rounded-xl border-2 shadow-sm p-3 lg:has-[details[open]]:col-span-2 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`} data-bloc-dg>
+        <Panel boutique={boutique} className="h-full lg:has-[details[open]]:col-span-2" data-bloc-dg>
           <CarteRepliable vide={aValiderDG.length === 0} tonAttente={aValiderDG.length > 0} badge={<Badge boutique={boutique} />}
             titre={`💸 Versements à valider par le DG (${aValiderDG.length})`} resume="Aucun en attente"
             explication="Aucun versement en attente de votre validation (Chez le DG, BANQUE).">
@@ -499,10 +499,10 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
             </details>
           )}
           </CarteRepliable>
-        </div>
+        </Panel>
       )}
       {(avances.length > 0 || ROLES_REMB_CAISSE.includes(profile.role)) && (
-        <Panel boutique={boutique}>
+        <Panel boutique={boutique} className="h-full">
           <CarteRepliable vide={avances.length === 0} badge={<Badge boutique={boutique} />} titre={`💼 Avances de frais à rembourser (${avances.length})`}
             resume={`Aucune pour ${libelleCaisse(boutique)}`}
             explication="En espèces : gérant ou administrateur, la sortie compte dans le tiroir du jour (ce n'est pas une nouvelle charge). Avec le salaire ou par le DG : administrateur. L'employé est prévenu.">
@@ -605,8 +605,8 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
       )}
       <Panel boutique={boutique}>
         <CarteRepliable titre="💸 Verser les fonds" badge={<Badge boutique={boutique} />}>
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
-          <Carre className="col-span-2" label="Fonds à verser" valeur={fmt(aVerserPeriode.montant)} valeurClass={aVerserPeriode.montant < 0 ? "text-red-600" : ""}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+          <Carre label="Fonds à verser" valeur={fmt(aVerserPeriode.montant)} valeurClass={aVerserPeriode.montant < 0 ? "text-red-600" : ""}
             detail={`Tiroir${depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}${aVerserPeriode.dernierVersement ? ` · depuis le ${dFR(aVerserPeriode.dernierVersement)}` : ""}`}
             explication={`Le tiroir : ce qui doit s'y trouver${depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}${aVerserPeriode.dernierVersement ? `, depuis le dernier versement du ${dFR(aVerserPeriode.dernierVersement)}` : ""}.${aVerserPeriode.fondsPlafond > 0 ? " Le fonds de caisse est gardé à part : il n'est pas là-dedans." : ""}`} />
           {/* Timo (14/09/2026) : « il ne faut pas mélanger le fonds de caisse avec ce

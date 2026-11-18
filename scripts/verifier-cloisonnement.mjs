@@ -6209,6 +6209,16 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
         && !/<div className="text-xs text-slate-500 mt-2">En espèces : gérant ou administrateur/.test(cs)
         && /data-dotations-tableau/.test(cs) && /data-versements-traites-repli/.test(cs);
     })());
+  // Timo (18/11/2026) : « les cartes doivent avoir la même taille ».
+  test("★ 🔒 Caisse : les deux cartes du haut (DG, Avances) sont le MÊME Panel pleine hauteur dans une grille qui étire, et les cinq carrés de « Verser les fonds » ont la même largeur (grille de 5, aucun col-span)",
+    (() => {
+      const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
+      const ui = readFileSync("src/components/ui.jsx", "utf8");
+      return /<Panel boutique=\{boutique\} className="h-full lg:has-\[details\[open\]\]:col-span-2" data-bloc-dg>/.test(cs) && /<Panel boutique=\{boutique\} className="h-full">\s*<CarteRepliable vide=\{avances\.length === 0\}/.test(cs)
+        && /items-stretch/.test(cs) && !/items-start lg:\[&>\*:only-child\]/.test(cs)
+        && /grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3/.test(cs) && !/<Carre className="col-span-2"/.test(cs)
+        && /export const Panel = \(\{ boutique, children, className = "", \.\.\.reste \}\)/.test(ui);
+    })());
   test("★ 🔒 Caisse : « Derniers versements traités » est un TABLEAU (origine figée, date, de → vers, montant à droite, pastille de statut), plus une phrase par ligne ; les carrés de chiffres passent par Carre (libellé court, grand chiffre, UNE ligne de détail, explication derrière le « i »), sans trait de couleur",
     (() => {
       const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
