@@ -12,8 +12,8 @@ export { today, fmt } from "../src/lib/core.js";
 
 export const rendreEquipe = (db, profile, periodeInitiale = "mois") =>
   renderToStaticMarkup(React.createElement(MonEquipe, { db, save: () => {}, profile, periodeInitiale }));
-export const rendreMaCommission = (db, profile, periodeInitiale = "mois") =>
-  renderToStaticMarkup(React.createElement(MaCommission, { db, profile, periodeInitiale }));
+export const rendreMaCommission = (db, profile, periodeInitiale = "mois", blocsOuverts = false) =>
+  renderToStaticMarkup(React.createElement(MaCommission, { db, profile, periodeInitiale, blocsOuverts }));
 
 // 🧾 L'HISTORIQUE DES PAIEMENTS DE COMMISSION (13/11/2026, « A c, B b, C oui ») :
 // la règle, le cadre et le PDF, dans le même paquet que les deux écrans.

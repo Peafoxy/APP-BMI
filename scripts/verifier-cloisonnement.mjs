@@ -19308,12 +19308,19 @@ titre("💰 Une commission due se voit quelle que soit la période (Timo, 13/11/
     test("★ 👑 l'écran DIT la règle sous les boutons de période",
       /data-note-periode-equipe/.test(html) && html.includes("tout ce qui reste dû"));
     let htmlK = "", errK = "";
-    try { htmlK = E.rendreMaCommission(db, kossi); } catch (e) { errK = String(e && e.message || e).split("\n")[0]; }
-    test("★★ 💵 Ma commission de KOSSI sur « Ce mois » : « Commission à payer » 15 000 (ses deux ventes), « Chiffre d'affaires de la période » 200 000, et ses DEUX ventes dans le détail" + (errK ? ` (${errK})` : ""),
-      !errK && htmlK.includes("Chiffre d&#x27;affaires de la période") && htmlK.includes(E.fmt(15000)) && htmlK.includes(E.fmt(200000))
+    try { htmlK = E.rendreMaCommission(db, kossi, "mois", true); } catch (e) { errK = String(e && e.message || e).split("\n")[0]; }
+    test("★★ 💵 Ma commission de KOSSI sur « Ce mois » : « Commission à payer » 15 000 (ses deux ventes), « Chiffre d'affaires » 200 000, et ses DEUX ventes dans le détail" + (errK ? ` (${errK})` : ""),
+      !errK && htmlK.includes("Chiffre d&#x27;affaires") && htmlK.includes(E.fmt(15000)) && htmlK.includes(E.fmt(200000))
       && /Détail de mes ventes en attente \((<!-- -->)?2(<!-- -->)?\)/.test(htmlK));
-    test("★ 💵 …et l'écran DIT la règle sous les boutons de période",
-      /data-note-periode-commission/.test(htmlK) && htmlK.includes("tout ce qui vous reste dû"));
+    // RETOURNÉ le 18/11/2026 (« OUI », façon carnet) : la phrase est derrière « ⓘ Que règle la période ? » (dépliée au clic).
+    test("★ 💵 …et l'écran DIT la règle sous les boutons de période (derrière « ⓘ », dépliée au clic)",
+      /data-note-periode-commission/.test(htmlK) && htmlK.includes("Que règle la période ?")
+      && /tout ce qui vous reste dû/.test(readFileSync("src/screens/MaCommission.jsx", "utf8")));
+    const htmlKferme = E.rendreMaCommission(db, kossi);
+    test("★★ 💵 Ma commission façon carnet : cinq cartes sur une rangée, répartition et primes côte à côte, historique et détail REPLIÉS (leur contenu n'est pas dans la page)",
+      (htmlK.match(/data-carte-commission=/g) || []).length === 5 && /grid-cols-2 lg:grid-cols-5/.test(htmlK)
+      && /data-bloc-historique/.test(htmlKferme) && !/data-historique-paiements/.test(htmlKferme) && !/<table/.test(htmlKferme.slice(htmlKferme.indexOf("data-bloc-ventes-attente")))
+      && /Détail de mes ventes en attente/.test(htmlKferme) && /data-historique-paiements/.test(htmlK));
   }
 }
 
@@ -19456,14 +19463,14 @@ titre("🧾 L'historique des paiements de commission, téléchargeable en PDF (T
       && histAma.includes("Vous voyez vos paiements et ceux de vos recrues"));
     // ---- 💵 Ma commission, RENDU ----
     let htmlK = "", errK = "";
-    try { htmlK = E.rendreMaCommission(db, kossi, "tout"); } catch (e) { errK = String(e && e.message || e).split("\n")[0]; }
+    try { htmlK = E.rendreMaCommission(db, kossi, "tout", true); } catch (e) { errK = String(e && e.message || e).split("\n")[0]; }
     const histK = htmlK.slice(htmlK.indexOf("data-historique-paiements"));
     test("★★ 💵 Ma commission de KOSSI (« Depuis le début ») : « 🧾 Historique de mes paiements », ses DEUX paiements (19 000 F), jamais la commission d'équipe d'AMA, jamais la formation, et « Télécharger mon relevé (PDF) »" + (errK ? ` (${errK})` : ""),
       !errK && /data-historique-paiements="moi"/.test(htmlK) && htmlK.includes("🧾 Historique de mes paiements") && histK.includes(E.fmt(19000))
       && !histK.includes(E.fmt(1500)) && !histK.includes(E.fmt(99999)) && !histK.includes(E.fmt(50000)) && htmlK.includes("Télécharger mon relevé (PDF)")
       && !/data-choix-personne/.test(htmlK) && !htmlK.includes("Mes paiements de commission reçus"));
     let htmlE = "";
-    try { htmlE = E.rendreMaCommission(db, esso, "tout"); } catch {}
+    try { htmlE = E.rendreMaCommission(db, esso, "tout", true); } catch {}
     test("★ 💵 Ma commission d'ESSO (technicien) : ses primes d'installation y sont (« B b ») — 25 000 avec sa retenue, et la prime orpheline de 12 000 (37 000 F en tout)",
       htmlE.slice(htmlE.indexOf("data-historique-paiements")).includes(E.fmt(37000)) && /data-retenue-paiement/.test(htmlE) && htmlE.includes("Prime d&#x27;installation"));
     // ---- Le PDF, FABRIQUÉ et LU ----

@@ -5,14 +5,14 @@
 import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { resumeArticles, totalVente, caVente, numeroRecu, fmt, today, dFR, inP } from "../lib/core";
-import { Field, inputCls, Badge, Panel } from "../components/ui";
+import { Field, inputCls, Badge, Panel, CarteRepliable, NoteDepliable } from "../components/ui";
 import { SEUIL_CHEF_EQUIPE, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, commissionPour, commissionBrute, motifBlocageCommission, filtreEspaceAffichage, chantiersDeLEspaceRegarde, espaceDuCompte } from "../lib/calculs";
 import { paiementsDeCommission, filtrerPaiements, cleUtilisateur } from "../lib/historiqueCommissions";
 import { HistoriquePaiements, periodeHistorique } from "../components/HistoriquePaiements";
 
 // ============ MA COMMISSION (commerciaux et techniciens) ============
-// `periodeInitiale` : pour le banc seul (l'écran s'ouvre toujours sur « Ce mois »).
-export function MaCommission({ db, profile, periodeInitiale = "mois" }) {
+// `periodeInitiale`, `blocsOuverts` : pour le banc seul (l'écran s'ouvre toujours sur « Ce mois »).
+export function MaCommission({ db, profile, periodeInitiale = "mois", blocsOuverts = false }) {
   const [periode, setPeriode] = useState(periodeInitiale);
   // ---- Mes primes d'installation : parts des frais de chantier qui me
   // reviennent (répartition validée par l'admin), à percevoir ou payées.
@@ -155,134 +155,143 @@ export function MaCommission({ db, profile, periodeInitiale = "mois" }) {
   // la période, comme le chiffre d'affaires.
   mesVentesTotales.forEach((v) => { parBoutique[v.boutique] = (parBoutique[v.boutique] || 0) + caVente(v); });
 
+  // 💵 FAÇON CARNET (18/11/2026, aperçu validé par Timo, « OUI ») : la période
+  // sur la ligne du titre, cinq cartes sur UNE rangée, les explications
+  // derrière un « i », répartition et primes côte à côte, historique et détail
+  // repliés. Les chiffres et les règles n'ont pas bougé.
+  const ouv = blocsOuverts;
+  const carte = (cle, etiq, valeur, ton, extra = null, info = null) => (
+    <div key={cle} data-carte-commission={cle} className={`rounded-xl p-3 border shadow-sm border-l-4 ${ton}`}>
+      <div className="text-[11px] font-semibold uppercase text-slate-500 flex items-center gap-1">{etiq}{info}</div>
+      <div className="text-xl font-bold tabular-nums mt-1">{valeur}</div>
+      {extra}
+    </div>
+  );
   return (
     <div className="space-y-4">
       <Panel>
-        <div className="font-bold mb-3">💵 Ma commission — {profile.nom}</div>
-
-        {enAttenteReception > 0 && (
-          <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-3" data-attente="reception">
-            <div className="font-bold text-amber-900">⏳ {fmt(enAttenteReception)} en attente de réception</div>
-            <div className="text-xs text-slate-600 mt-1">
-              Cette commission est acquise, mais elle ne devient exigible que le jour où le client <b>réceptionne son installation</b> — et a fini de payer. Elle s'ajoutera alors d'elle-même à votre dû.
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="font-bold">💵 Ma commission — {profile.nom}</div>
+          <div data-rangee-boutons className="flex flex-wrap gap-2">
+            {[["mois", "Ce mois"], ["annee", "Cette année"], ["tout", "Depuis le début"], ["perso", "Personnalisée"]].map(([id, label]) => (
+              <button key={id} onClick={() => setPeriode(id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${periode === id ? "bg-sky-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{label}</button>
+            ))}
           </div>
-        )}
-        {enAttentePaiement > 0 && (
-          <div className="mb-4 rounded-xl border-2 border-orange-300 bg-orange-50 p-3" data-attente="paiement">
-            <div className="font-bold text-orange-900">💰 {fmt(enAttentePaiement)} en attente du paiement du client</div>
-            <div className="text-xs text-slate-600 mt-1">
-              Le client n'a pas fini de payer (sa dette n'est pas soldée). Un franc ne sort pas de la caisse avant d'y être entré : cette commission deviendra due d'elle-même dès que la dette sera soldée.
-            </div>
-          </div>
-        )}
-
-        <div data-rangee-boutons className="flex flex-wrap gap-2 mb-4">
-          {[["mois", "Ce mois"], ["annee", "Cette année"], ["tout", "Depuis le début"], ["perso", "Personnalisée"]].map(([id, label]) => (
-            <button key={id} onClick={() => setPeriode(id)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${periode === id ? "bg-sky-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{label}</button>
-          ))}
         </div>
         {periode === "perso" && (
-          <div className="flex gap-2 mb-4 flex-wrap">
+          <div className="flex gap-2 mb-3 flex-wrap">
             <Field label="Du"><input type="date" className={inputCls} value={pa} onChange={(e) => setPa(e.target.value)} /></Field>
             <Field label="Au"><input type="date" className={inputCls} value={pb} onChange={(e) => setPb(e.target.value)} /></Field>
           </div>
         )}
-        <div className="text-xs text-slate-500 -mt-2 mb-3" data-note-periode-commission>
-          La période règle le chiffre d'affaires, les rabais, le « déjà réglé » et l'historique de mes paiements. La <b>commission à payer</b> montre toujours <b>tout ce qui vous reste dû</b>, quelle que soit la date de la vente.
+        <div data-note-periode-commission className="mb-3">
+          <NoteDepliable className="text-xs text-slate-500" libelle="Que règle la période ?">
+            La période règle le chiffre d'affaires, les rabais, le « déjà réglé » et l'historique de mes paiements. La <b>commission à payer</b> montre toujours <b>tout ce qui vous reste dû</b>, quelle que soit la date de la vente.
+          </NoteDepliable>
         </div>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-sky-700">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Chiffre d'affaires de la période</div>
-            <div className="text-2xl font-bold tabular-nums mt-1">{fmt(ca)}</div>
-          </div>
-          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm border-l-4 border-l-sky-700">
-            <div className="text-xs font-semibold text-slate-500 uppercase">Taux de commission</div>
-            <div className="text-2xl font-bold tabular-nums mt-1">{taux} %</div>
-          </div>
-          <div className="rounded-xl p-4 bg-green-50 border border-green-200 shadow-sm border-l-4 border-l-green-600">
-            <div className="text-xs font-semibold text-green-700 uppercase">Commission à payer</div>
-            <div className="text-2xl font-bold tabular-nums mt-1 text-green-800">{fmt(commission)}</div>
-            {jeSuisChef && commissionEquipe > 0 && <div className="text-xs font-bold text-amber-600 mt-1">+ {fmt(commissionEquipe)} de commission d'équipe</div>}
-          </div>
+        <div data-cartes-commission className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {carte("ca", "Chiffre d'affaires", fmt(ca), "bg-white border-slate-200 border-l-sky-700")}
+          {carte("taux", "Taux", `${taux} %`, "bg-white border-slate-200 border-l-sky-700")}
+          {carte("a-payer", "Commission à payer", <span className="text-green-800">{fmt(commission)}</span>, "bg-green-50 border-green-200 border-l-green-600",
+            jeSuisChef && commissionEquipe > 0 ? <div className="text-xs font-bold text-amber-600 mt-1">+ {fmt(commissionEquipe)} d'équipe</div> : null)}
+          {carte("reception", "⏳ En attente de réception", <span className="text-amber-900">{fmt(enAttenteReception)}</span>, "bg-amber-50 border-amber-300 border-l-amber-500")}
+          {carte("paiement", "💰 En attente du paiement", <span className="text-orange-900">{fmt(enAttentePaiement)}</span>, "bg-orange-50 border-orange-300 border-l-orange-500")}
         </div>
-        {rabaisAccordes > 0 && (
-          <div className="text-xs font-bold text-orange-600 mt-2">
-            🏷 Rabais accordés à vos clients sur cette période : −{fmt(rabaisAccordes)} — déduits de votre commission.
-          </div>
-        )}
-        {dejaRegle > 0 && <div className="text-xs text-slate-500 mt-2">Sur cette période, {fmt(dejaRegle)} de ventes ont déjà donné lieu à une commission réglée.</div>}
-        <div className="text-xs text-slate-400 mt-2">Le règlement des commissions est validé par l'administration ou votre chef d'équipe.</div>
+        <div data-explications-attentes className="mt-2 space-y-1">
+          {enAttenteReception > 0 && (
+            <div data-attente="reception"><NoteDepliable className="text-xs text-amber-900" libelle={`${fmt(enAttenteReception)} en attente de réception`}>
+              Cette commission est acquise, mais elle ne devient exigible que le jour où le client <b>réceptionne son installation</b> — et a fini de payer. Elle s'ajoutera alors d'elle-même à votre dû.
+            </NoteDepliable></div>
+          )}
+          {enAttentePaiement > 0 && (
+            <div data-attente="paiement"><NoteDepliable className="text-xs text-orange-900" libelle={`${fmt(enAttentePaiement)} en attente du paiement du client`}>
+              Le client n'a pas fini de payer (sa dette n'est pas soldée). Un franc ne sort pas de la caisse avant d'y être entré : cette commission deviendra due d'elle-même dès que la dette sera soldée.
+            </NoteDepliable></div>
+          )}
+        </div>
+        <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {rabaisAccordes > 0 && <span className="font-bold text-orange-600">🏷 Rabais accordés sur cette période : −{fmt(rabaisAccordes)} — déduits de votre commission.</span>}
+          {dejaRegle > 0 && <span>Sur cette période, {fmt(dejaRegle)} de ventes ont déjà donné lieu à une commission réglée.</span>}
+          <span className="text-slate-400">Le règlement des commissions est validé par l'administration ou votre chef d'équipe.</span>
+        </div>
       </Panel>
 
       {blocEquipe}
 
-      {Object.keys(parBoutique).length > 0 && (
-        <Panel>
-          <div className="font-bold mb-3">Répartition par boutique</div>
-          <div className="space-y-2">
-            {Object.entries(parBoutique).sort((a, b) => b[1] - a[1]).map(([nom, montant]) => (
-              <div key={nom} className="flex items-center justify-between text-sm">
-                <Badge boutique={nom} />
-                <span className="font-bold tabular-nums">{fmt(montant)}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      {/* 🧾 L'historique de mes paiements (13/11/2026, « A c, B b ») : il remplace « 💰 Mes paiements de commission reçus ». */}
-      <HistoriquePaiements paiements={mesPaiements} periode={periodeH} formation={espaceDuCompte(db, profile) === true}
-        avecBeneficiaire={false} personne={{ nom: moiLive.nom_complet || moiLive.nom, tel: moiLive.tel || "" }}
-        titre="🧾 Historique de mes paiements" />
-
-      {mesParts.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <div className="font-bold text-slate-800 mb-2">🔧 Mes primes d'installation
-            <span className="ml-2 text-xs font-semibold text-red-600">à percevoir : {fmt(totalAPercevoir)}</span>
-            <span className="ml-2 text-xs font-semibold text-green-700">déjà perçu : {fmt(totalPercu)}</span>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto space-y-1">
-            {partsAPercevoir.map((x) => (
-              <div key={x.chantier.id + "-att"} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-                <div>
-                  <b>{fmt(x.part.montant)}</b> — chantier {x.chantier.nom} {x.chantier.prenom || ""}{x.part.prime_employe && <span data-prime-chantier className="ml-1 text-xs font-semibold text-purple-700">🎁 prime de chantier</span>}
-                  <div className="text-xs text-slate-500">{x.part.pct} % des frais d'installation{x.part.chef ? " · ⭐ chef de chantier" : ""}</div>
+      {(Object.keys(parBoutique).length > 0 || mesParts.length > 0) && (
+        <div data-repartition-primes className="grid lg:grid-cols-2 gap-4 items-start">
+          {Object.keys(parBoutique).length > 0 && (
+            <Panel>
+              <CarteRepliable titre="Répartition par boutique">
+                <div className="space-y-2">
+                  {Object.entries(parBoutique).sort((a, b) => b[1] - a[1]).map(([nom, montant]) => (
+                    <div key={nom} className="flex items-center justify-between text-sm">
+                      <Badge boutique={nom} />
+                      <span className="font-bold tabular-nums">{fmt(montant)}</span>
+                    </div>
+                  ))}
                 </div>
-                <span className="text-xs font-bold text-amber-700 whitespace-nowrap">⏳ À percevoir</span>
-              </div>
-            ))}
-            {partsPayees.map((x) => (
-              <div key={x.chantier.id + "-pay"} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
-                <div>
-                  {fmt(x.part.montant)} — chantier {x.chantier.nom} {x.chantier.prenom || ""}{x.part.prime_employe && <span className="ml-1 text-xs font-semibold text-purple-700">🎁 prime de chantier</span>}
-                  <span className="ml-2 text-xs text-slate-400">{x.part.pct} %{x.part.chef ? " · ⭐ chef" : ""}</span>
+              </CarteRepliable>
+            </Panel>
+          )}
+          {mesParts.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-mes-primes-installation>
+              <CarteRepliable titre={`🔧 Mes primes d'installation (${mesParts.length})`}
+                badge={<><span className="ml-2 text-xs font-semibold text-red-600">à percevoir : {fmt(totalAPercevoir)}</span><span className="ml-2 text-xs font-semibold text-green-700">déjà perçu : {fmt(totalPercu)}</span></>}
+                explication="La prime devient payable une fois la répartition validée par l'administration ; le paiement vous est notifié dans Messages.">
+                <div className="max-h-[300px] overflow-y-auto space-y-1">
+                  {partsAPercevoir.map((x) => (
+                    <div key={x.chantier.id + "-att"} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                      <div>
+                        <b>{fmt(x.part.montant)}</b> — chantier {x.chantier.nom} {x.chantier.prenom || ""}{x.part.prime_employe && <span data-prime-chantier className="ml-1 text-xs font-semibold text-purple-700">🎁 prime de chantier</span>}
+                        <div className="text-xs text-slate-500">{x.part.pct} % des frais d'installation{x.part.chef ? " · ⭐ chef de chantier" : ""}</div>
+                      </div>
+                      <span className="text-xs font-bold text-amber-700 whitespace-nowrap">⏳ À percevoir</span>
+                    </div>
+                  ))}
+                  {partsPayees.map((x) => (
+                    <div key={x.chantier.id + "-pay"} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
+                      <div>
+                        {fmt(x.part.montant)} — chantier {x.chantier.nom} {x.chantier.prenom || ""}{x.part.prime_employe && <span className="ml-1 text-xs font-semibold text-purple-700">🎁 prime de chantier</span>}
+                        <span className="ml-2 text-xs text-slate-400">{x.part.pct} %{x.part.chef ? " · ⭐ chef" : ""}</span>
+                      </div>
+                      <span className="text-xs font-bold text-green-700 whitespace-nowrap">✅ Payée{x.part.date_paiement ? ` le ${dFR(x.part.date_paiement)}` : ""}</span>
+                    </div>
+                  ))}
                 </div>
-                <span className="text-xs font-bold text-green-700 whitespace-nowrap">✅ Payée{x.part.date_paiement ? ` le ${dFR(x.part.date_paiement)}` : ""}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-xs text-slate-400">La prime devient payable une fois la répartition validée par l'administration ; le paiement vous est notifié dans Messages.</div>
+              </CarteRepliable>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Détail de mes ventes en attente ({mesVentes.length})</div>
-        <table className="w-full text-sm">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "N° reçu", "Boutique", "Articles", "Total"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-          <tbody>
-            {mesVentes.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">Aucune vente en attente de commission.</td></tr>}
-            {mesVentes.map((v) => (
-              <tr key={v.id} className="border-t border-slate-100 hover:bg-sky-50">
-                <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date)}</td>
-                <td className="px-3 py-2 font-mono text-xs">{numeroRecu(v)}</td>
-                <td className="px-3 py-2"><Badge boutique={v.boutique} /></td>
-                <td className="px-3 py-2">{resumeArticles(v)}</td>
-                <td className="px-3 py-2 tabular-nums font-bold">{fmt(totalVente(v))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* 🧾 L'historique de mes paiements (13/11/2026, « A c, B b ») : il remplace « 💰 Mes paiements de commission reçus ». Replié (18/11/2026). */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4" data-bloc-historique>
+        <CarteRepliable titre="🧾 Historique de mes paiements" ouvertParDefaut={ouv}>
+          <HistoriquePaiements paiements={mesPaiements} periode={periodeH} formation={espaceDuCompte(db, profile) === true}
+            avecBeneficiaire={false} personne={{ nom: moiLive.nom_complet || moiLive.nom, tel: moiLive.tel || "" }}
+            titre="Paiements de la période" />
+        </CarteRepliable>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 overflow-x-auto" data-bloc-ventes-attente>
+        <CarteRepliable titre={`Détail de mes ventes en attente (${mesVentes.length})`} ouvertParDefaut={ouv}>
+          <table className="w-full text-sm">
+            <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "N° reçu", "Boutique", "Articles", "Total"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+            <tbody>
+              {mesVentes.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">Aucune vente en attente de commission.</td></tr>}
+              {mesVentes.map((v) => (
+                <tr key={v.id} className="border-t border-slate-100 hover:bg-sky-50">
+                  <td className="px-3 py-2 whitespace-nowrap">{dFR(v.date)}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{numeroRecu(v)}</td>
+                  <td className="px-3 py-2"><Badge boutique={v.boutique} /></td>
+                  <td className="px-3 py-2">{resumeArticles(v)}</td>
+                  <td className="px-3 py-2 tabular-nums font-bold">{fmt(totalVente(v))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CarteRepliable>
       </div>
       <div className="text-xs text-slate-400">La commission affichée est une estimation calculée automatiquement (chiffre d'affaires × taux). Elle ne constitue pas un document de paie officiel.</div>
     </div>
