@@ -5360,7 +5360,9 @@ titre("61 🏠 L'ASSISTANT GUIDE LE CLIENT DANS SON ESPACE, ÉCRAN PAR ÉCRAN (1
   // Chaque bouton nommé existe VRAIMENT à l'écran (sinon l'assistant guide vers un bouton fantôme).
   const ecrans = ["src/screens/EspaceClient.jsx", "src/screens/Connexion.jsx", "src/screens/Messagerie.jsx", "src/screens/MesDonnees.jsx", "src/screens/ContratsInstallation.jsx", "src/App.jsx"].map(lire).join("\n");
   const cites = [...new Set(G.SUJETS_GUIDE.flatMap((k) => [...G.texteGuide(k).matchAll(/« ([^»]+) »/g)].map((m) => m[1].trim())))].filter((b) => b !== "conseiller");
-  const signer = (b) => b === "✍️ Signer la réception" ? /✍️ Signer \{estAvenant \? "l'avenant" : "la réception"\}/.test(ecrans) : ecrans.includes(b);
+  // RETOURNÉ le 18/11/2026 (façon carnet) : un geste peut s'écrire en deux morceaux, `<BoutonGeste icone="📄" nom="Voir le contrat" />` — le texte affiché est le même.
+  const enGeste = (b) => { const m = b.match(/^(\S+) (.+)$/); return !!m && ecrans.includes(`icone="${m[1]}"`) && ecrans.includes(`nom="${m[2]}"`); };
+  const signer = (b) => b === "✍️ Signer la réception" ? /✍️ Signer \{estAvenant \? "l'avenant" : "la réception"\}/.test(ecrans) : (ecrans.includes(b) || enGeste(b));
   const fantomes = cites.filter((b) => !signer(b));
   test(`★★★ chaque bouton, onglet ou case nommé par le mode d'emploi existe à l'écran${fantomes.length ? ` — introuvable : ${fantomes.join(" | ")}` : ""}`, cites.length >= 30 && fantomes.length === 0);
   const tous = G.SUJETS_GUIDE.map(G.texteGuide).join("\n");

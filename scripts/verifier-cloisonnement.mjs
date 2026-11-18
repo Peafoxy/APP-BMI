@@ -15157,6 +15157,21 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
           && (hD.match(/>📄 PDF de la demande</g) || []).length === 2 && hD.includes(">✍️ Noter l&#x27;offre<") && hD.includes("WhatsApp") && hD.includes("Retenir les offres") && hD.includes("Clore sans commander")
           && hD.includes("Comment lire les couleurs ?") && !/En vert : le moins cher/.test(hD) && /data-moins-cher/.test(hD) && (hD.match(/data-geste/g) || []).length >= 8);
       }
+      // 📄 CONTRATS façon carnet (18/11/2026) : le tableau, l'état en UNE colonne, les gestes écrits ; le client sans Client ni Par.
+      {
+        const dv = (id, num, extra) => ({ id, contrat_numero: num, contrat_signature: "data:x", contrat_date_signature: "2026-11-12", par: "KOSSI", total: 1803200, type_devis: "solaire", statut: "paye", ...extra });
+        const dbC = { boutiques: [], produits: [], ventes: [], dettes: [], depenses: [], messages: [], clients_installes: [],
+          users: [{ id: "u_k", nom: "KOFFIVI", role: "client", devis: [dv("d1", "CT-2026-0012", { contrat_signe_en_boutique: true }), dv("d2", "CT-2026-0011", { statut: "propose", type_devis: "garage", par: "ANGELE" }), dv("d3", "CT-2026-0010", { contrat_papier: true, contrat_papier_boutique: "DEMAKPOE" })] }] };
+        const adminC = { id: "u_t", nom: "TIMO", role: "admin", principal: true, signature_personnelle: "data:image/png;base64,AAAA" };
+        let hA = "", hC = "", errC = "";
+        try { hA = P.rendreContrats(dbC, adminC); hC = P.rendreContrats(dbC, { id: "u_k", nom: "KOFFIVI", role: "client" }); } catch (e) { errC = String(e && e.message || e).split("\n")[0]; }
+        test("★ 📄 Contrats façon carnet (administrateur) : le tableau (N° contrat, Client, Type, Signé le, Par, Total, État, Gestes), les trois états rangés dans la colonne État, « Voir le contrat » écrit en mots, « Ma signature » sur une ligne avec « Modifier ma signature »" + (errC ? ` (${errC})` : ""),
+          !errC && /data-contrats-table/.test(hA) && /data-contrats-cartes/.test(hA) && ["N° contrat", "Client", "Type", "Signé le", "Par", "Total", "État", "Gestes"].every((m) => hA.includes(`>${m}<`))
+          && hA.includes("Contrats d&#x27;installation (3)") && hA.includes("En attente de paiement") && hA.includes("Signé sur papier") && hA.includes("Signé en boutique")
+          && (hA.match(/>📄 Voir le contrat</g) || []).length === 6 && !/underline/.test(hA) && /data-ma-signature/.test(hA) && hA.includes(">✍️ Modifier ma signature<"));
+        test("★ 📄 Mes contrats (le client) : le même tableau SANS les colonnes Client et Par, titré « Mes contrats »" + (errC ? ` (${errC})` : ""),
+          !errC && hC.includes("Mes contrats (3)") && !hC.includes(">Client<") && !hC.includes(">Par<") && hC.includes(">État<") && !/data-ma-signature/.test(hC));
+      }
       let htmlVide = "";
       try { htmlVide = P.rendrePrimes({ boutiques: [], users: [], clients_installes: [] }, { id: "x", nom: "X", role: "magasinier" }); } catch (e) { htmlVide = ""; }
       test("★ 💰 « B a » une fiche sans aucune prime (un magasinier, base nue) : l'écran se rend et DIT « Aucune prime » des deux côtés, jamais un écran blanc",

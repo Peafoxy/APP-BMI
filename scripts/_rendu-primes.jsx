@@ -23,3 +23,7 @@ export const rendreTransfert = (db, profile) => renderToStaticMarkup(React.creat
 import { DemandesPrix } from "../src/components/DemandesPrix.jsx";
 export const rendreDemandesPrix = (db, profile, demandeOuverteInitiale = null) =>
   renderToStaticMarkup(React.createElement(DemandesPrix, { db, save: () => {}, profile, fournisseurs: db.fournisseurs || [], demandePour: null, onDemandePourFini: () => {}, demandeOuverteInitiale }));
+
+// 📄 CONTRATS D'INSTALLATION (18/11/2026, façon carnet) : l'écran RENDU, vu par l'administrateur et par le client.
+import { ContratsInstallation } from "../src/screens/ContratsInstallation.jsx";
+export const rendreContrats = (db, profile) => renderToStaticMarkup(React.createElement(ContratsInstallation, { db, save: () => {}, profile }));

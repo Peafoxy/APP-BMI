@@ -73,7 +73,7 @@ export const CHAPITRE = {
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
         ["📄 Contrats → ✍️ Ma signature", "Votre signature personnelle : l'enregistrer, la voir, la modifier."],
-        ["📄 Contrats → Contrats d'installation", "La liste des contrats signés, du plus récent au plus ancien, avec 📄 Voir le contrat et 📄 Voir le PV."],
+        ["📄 Contrats → Contrats d'installation", "Un **tableau** des contrats signés, du plus récent au plus ancien : N° contrat, Client, Type, Signé le, Par, Total, **État** (les pastilles) et Gestes (📄 Voir le contrat, 📄 Voir le PV). Le client voit le même tableau sans les colonnes Client et Par. Sur téléphone, une carte par contrat."],
         ["📋 Tous les devis → la ligne d'un devis Proposé", "Le cadre « Le client est en boutique et n'utilise pas l'application ? » (administrateur principal). Pour un devis « 🖨 Sans compte » : « Devis imprimé sans compte : le client signe le contrat sur papier » (tout administrateur ; sans « ✍️ Faire signer ici »)."],
         ["📋 Tous les devis → la ligne d'un devis signé", "Le cadre « 💰 Plan de règlement proposé par le client » et ses boutons ✅ Accepter / ❌ Rejeter."],
         ["Espace client → 🏠 Mon espace", "Le devis, « ✅ JE VALIDE », puis « 💰 Où en est votre paiement »."],
@@ -85,7 +85,7 @@ export const CHAPITRE = {
     { titre: "Procédure pas à pas", blocs: [
       ["h3", "A. Enregistrer sa signature (une seule fois)"],
       ["etapes", [
-        { titre: "Ouvrir 📄 Contrats", texte: "Le premier cadre s'appelle **✍️ Ma signature**." },
+        { titre: "Ouvrir 📄 Contrats", texte: "La première ligne s'appelle **✍️ Ma signature** : la signature en petit, et le bouton **« ✍️ Modifier ma signature »** (ou « ✍️ Enregistrer ma signature » tant qu'il n'y en a pas). La phrase qui dit pourquoi elle est obligatoire est derrière « ⓘ Pourquoi ? »." },
         { titre: "✍️ Enregistrer ma signature", texte: "Signer avec le doigt (ou la souris) dans le cadre. **Effacer** pour recommencer." },
         { titre: "✍️ Enregistrer", texte: "Message : « ✅ Signature enregistrée — elle sera utilisée automatiquement sur vos futurs contrats. » Elle apparaît sur le contrat **à côté du cachet de BMI Togo**, et sur le PDF de vos devis." },
       ]],
@@ -142,7 +142,7 @@ export const CHAPITRE = {
         ["✅ Accepter / ❌ Rejeter", "📋 Tous les devis", "Décide du plan de règlement (administrateur principal)."],
         ["📄 Télécharger mon contrat", "Espace client", "Le client télécharge son contrat une fois payé."],
       ]}],
-      ["h3", "Les pastilles d'un contrat"],
+      ["h3", "Les pastilles d'un contrat (colonne « État »)"],
       ["table", { entetes: ["Pastille", "Ce qu'elle dit"], largeurs: [3100, 6200], lignes: [
         ["En attente de paiement (ambre)", "Le règlement n'est pas soldé : pour un devis d'installation, il n'est pas encore encaissé ; pour une pose seule, sa dette n'est pas à zéro."],
         ["📝 Signé sur papier", "L'original est archivé à la boutique indiquée (au survol)."],

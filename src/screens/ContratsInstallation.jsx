@@ -7,7 +7,7 @@
 import { useState, useRef } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
 import { fmt, dFR } from "../lib/core";
-import { Panel, uAlert } from "../components/ui";
+import { Panel, uAlert, BoutonGeste, CarteRepliable, NoteDepliable } from "../components/ui";
 import { contratsInstallation, pvDuContrat, bloquerSiLecture, resteAPayer, espaceDuCompte } from "../lib/calculs";
 import { imprimerContratInstallation, imprimerPV } from "../lib/impression";
 import { useRetour } from "../retour";
@@ -105,68 +105,91 @@ export function ContratsInstallation({ db, save, profile }) {
     }
   };
 
+  // 📄 FAÇON CARNET (18/11/2026, aperçu validé par Timo, « Construit, lance ») :
+  // « Ma signature » tient sur une ligne, les contrats se lisent en TABLEAU
+  // (sur téléphone : une carte par contrat), les trois pastilles sont rangées
+  // dans UNE colonne « État », les gestes sont écrits en mots. Les règles
+  // (téléchargeable une fois le paiement encaissé…) n'ont pas bougé.
+  const typeContrat = (d) => (d.type_devis === "garage" ? "Motorisation portail/garage" : d.type_devis === "autre" ? (d.besoins?.categorie || "Devis") : "Installation solaire");
+  const etatContrat = (d) => (
+    <span className="flex flex-wrap gap-1">
+      {!contratRegle(d) && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">⏳ En attente de paiement</span>}
+      {d.contrat_papier && <span className="text-[10px] font-bold text-slate-700 bg-slate-100 rounded-full px-2 py-0.5" title={`Original archivé à ${d.contrat_papier_boutique || "—"}`}>📝 Signé sur papier</span>}
+      {d.contrat_signe_en_boutique && <span className="text-[10px] font-bold text-sky-800 bg-sky-100 rounded-full px-2 py-0.5">🏪 Signé en boutique</span>}
+      {contratRegle(d) && !d.contrat_papier && !d.contrat_signe_en_boutique && <span className="text-xs text-slate-400">—</span>}
+    </span>
+  );
+  const gestesContrat = (client, d) => {
+    const fichePv = pvDuContrat(db, d.id);
+    const pvSigne = fichePv && (fichePv.contrat_statut === "signe" || fichePv.avenant_statut === "signe" || fichePv.contrat_force_par);
+    return (
+      <span className="flex flex-wrap gap-1.5">
+        <BoutonGeste icone="📄" nom="Voir le contrat" onClick={() => voirContrat(client, d)} />
+        {pvSigne && <BoutonGeste icone="📄" nom="Voir le PV" teinte="vert" onClick={() => voirPvDepuisContrat(client, fichePv)} />}
+      </span>
+    );
+  };
+  const colonnes = ["N° contrat", ...(isClient ? [] : ["Client"]), "Type", "Signé le", ...(isClient ? [] : ["Par"]), "Total", "État", "Gestes"];
+  const explicationContrats = isClient
+    ? "Vos contrats signés apparaissent ici — téléchargeables une fois le paiement encaissé."
+    : isAdmin
+      ? "Tous les contrats signés, quel que soit le statut de paiement."
+      : isSupervision
+        ? "Tous les contrats signés, tous initiateurs confondus — téléchargeables une fois encaissés."
+        : "Les contrats signés sur vos propres devis — téléchargeables une fois encaissés.";
+
   return (
     <div className="space-y-4">
       {!isClient && (
         <Panel>
-          <div className="font-bold mb-1">✍️ Ma signature</div>
-          <div className="text-xs text-slate-500 mb-3">Enregistrée une seule fois, elle est réutilisée automatiquement sur tous vos contrats — obligatoire avant de pouvoir envoyer un devis.</div>
-          {profile.signature_personnelle
-            ? (
-              <div className="flex items-center gap-3">
-                <img src={profile.signature_personnelle} alt="Ma signature" className="h-14 border border-slate-200 rounded bg-white" />
-                <button onClick={() => setCaptureOuverte(true)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50">Modifier ma signature</button>
-              </div>
-            )
-            : (
-              <button onClick={() => setCaptureOuverte(true)} className="px-4 py-2 rounded-lg bg-sky-800 text-white font-bold text-sm hover:bg-sky-900">✍️ Enregistrer ma signature</button>
-            )}
+          <div className="flex flex-wrap items-center gap-3" data-ma-signature>
+            <span className="font-bold">✍️ Ma signature</span>
+            <NoteDepliable className="text-xs text-slate-500" libelle="Pourquoi ?">Enregistrée une seule fois, elle est réutilisée automatiquement sur tous vos contrats — obligatoire avant de pouvoir envoyer un devis.</NoteDepliable>
+            {profile.signature_personnelle
+              ? (<>
+                <img src={profile.signature_personnelle} alt="Ma signature" className="h-10 border border-slate-200 rounded bg-white" />
+                <BoutonGeste icone="✍️" nom="Modifier ma signature" onClick={() => setCaptureOuverte(true)} />
+              </>)
+              : <BoutonGeste icone="✍️" nom="Enregistrer ma signature" teinte="vert" onClick={() => setCaptureOuverte(true)} />}
+          </div>
         </Panel>
       )}
 
       <Panel>
-        <div className="font-bold mb-1">📄 {isClient ? "Mes contrats" : "Contrats d'installation"}</div>
-        <div className="text-xs text-slate-500 mb-3">
-          {isClient
-            ? "Vos contrats signés apparaissent ici — téléchargeables une fois le paiement encaissé."
-            : isAdmin
-              ? "Tous les contrats signés, quel que soit le statut de paiement."
-              : isSupervision
-                ? "Tous les contrats signés, tous initiateurs confondus — téléchargeables une fois encaissés."
-                : "Les contrats signés sur vos propres devis — téléchargeables une fois encaissés."}
-        </div>
-
-        {contrats.length === 0 && <div className="text-sm text-slate-400 py-4 text-center">Aucun contrat signé pour l'instant.</div>}
-
-        <div className="space-y-2">
-          {contrats.map(({ client, devis: d }) => {
-            const fichePv = pvDuContrat(db, d.id);
-            const pvSigne = fichePv && (fichePv.contrat_statut === "signe" || fichePv.avenant_statut === "signe" || fichePv.contrat_force_par);
-            return (
-            <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 flex-wrap">
-              <div>
-                <div className="font-semibold text-sm">
-                  {d.contrat_numero || "—"}
-                  {!isClient && <span className="text-slate-400 font-normal"> · {client.nom}</span>}
-                  {!contratRegle(d) && <span className="ml-2 text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">⏳ En attente de paiement</span>}
-                  {d.contrat_papier && <span className="ml-2 text-[10px] font-bold text-slate-700 bg-slate-100 rounded-full px-2 py-0.5" title={`Original archivé à ${d.contrat_papier_boutique || "—"}`}>📝 Signé sur papier</span>}
-                  {d.contrat_signe_en_boutique && <span className="ml-2 text-[10px] font-bold text-sky-800 bg-sky-100 rounded-full px-2 py-0.5">🏪 Signé en boutique</span>}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {d.type_devis === "garage" ? "Motorisation portail/garage" : d.type_devis === "autre" ? (d.besoins?.categorie || "Devis") : "Installation solaire"}
-                  {" · "}Signé le {dFR(d.contrat_date_signature)}
-                  {!isClient && ` · par ${d.par}`}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold tabular-nums">{fmt(d.total)}</span>
-                <button onClick={() => voirContrat(client, d)} className="text-xs font-bold text-sky-800 underline">📄 Voir le contrat</button>
-                {pvSigne && <button onClick={() => voirPvDepuisContrat(client, fichePv)} className="text-xs font-bold text-emerald-700 underline">📄 Voir le PV</button>}
-              </div>
+        <CarteRepliable titre={`📄 ${isClient ? "Mes contrats" : "Contrats d'installation"} (${contrats.length})`} explication={explicationContrats}>
+          {contrats.length === 0 && <div className="text-sm text-slate-400 py-4 text-center">Aucun contrat signé pour l'instant.</div>}
+          {contrats.length > 0 && (<>
+            <div className="hidden sm:block overflow-x-auto" data-contrats-table>
+              <table className="w-full text-sm">
+                <thead><tr className="text-xs text-slate-500 uppercase">{colonnes.map((h) => <th key={h} className={`px-3 py-2 ${h === "Total" ? "text-right" : "text-left"}`}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {contrats.map(({ client, devis: d }) => (
+                    <tr key={d.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2 font-semibold whitespace-nowrap">{d.contrat_numero || "—"}</td>
+                      {!isClient && <td className="px-3 py-2">{client.nom}</td>}
+                      <td className="px-3 py-2">{typeContrat(d)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{dFR(d.contrat_date_signature)}</td>
+                      {!isClient && <td className="px-3 py-2">{d.par}</td>}
+                      <td className="px-3 py-2 text-right font-bold tabular-nums">{fmt(d.total)}</td>
+                      <td className="px-3 py-2">{etatContrat(d)}</td>
+                      <td className="px-3 py-2">{gestesContrat(client, d)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            );
-          })}
-        </div>
+            <div className="sm:hidden space-y-2" data-contrats-cartes>
+              {contrats.map(({ client, devis: d }) => (
+                <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2"><span className="font-semibold text-sm">{d.contrat_numero || "—"}</span><span className="font-bold tabular-nums">{fmt(d.total)}</span></div>
+                  <div className="text-xs text-slate-500">{!isClient && `${client.nom} · `}{typeContrat(d)} · signé le {dFR(d.contrat_date_signature)}{!isClient && ` · par ${d.par}`}</div>
+                  <div className="mt-1">{etatContrat(d)}</div>
+                  <div className="mt-2">{gestesContrat(client, d)}</div>
+                </div>
+              ))}
+            </div>
+          </>)}
+        </CarteRepliable>
       </Panel>
 
       {captureOuverte && (
