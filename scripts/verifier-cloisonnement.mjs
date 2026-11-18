@@ -3946,7 +3946,17 @@ titre("Vague 3, étape 2 (application) : chaque geste d'argent revérifie son r�
     /const \[plafondRemiseSaisi, setPlafondRemiseSaisi\] = useState\(String\(plafondRemise\(db\)\)\);/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
     && /const enregistrerPlafondRemise = \(\) => \{\s*if \(refuserSaufAdmin\(profile, "Modifier la limite de remise sans administrateur"\)\) return;/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
     && /plafond_remise_pct: v/.test(readFileSync("src/screens/Parametres.jsx", "utf8"))
-    && /data-reglage="plafond-remise"/.test(readFileSync("src/screens/Parametres.jsx", "utf8")));
+    && /carteReglage\("plafond-remise"/.test(readFileSync("src/screens/Parametres.jsx", "utf8")));
+  test("★★ ⚙ Paramètres → 🗂 Catalogue & devis COMPACT (18/11/2026) : six réglages en cases de même taille (carteReglage, h-full), domaines en tableau qui se déplie (et cartes sur téléphone), banques et note repliables, l'assistant en blocs repliés — explications derrière le « i », droits inchangés",
+    (() => { const pa = readFileSync("src/screens/Parametres.jsx", "utf8");
+      const cartes = (pa.match(/\{(?:jeSuisPrincipal && )?carteReglage\("/g) || []).length;
+      return cartes === 6 && /data-blocs-reglages/.test(pa) && /data-blocs-catalogue/.test(pa)
+        && /const carteReglage = \(cle, titre, explication, contenu\) => \(\s*<div className="[^"]*h-full" data-reglage=\{cle\}>/.test(pa)
+        && /const \[domaineDeplie, setDomaineDeplie\] = useState\(null\);/.test(pa) && /data-domaines-cartes/.test(pa) && /data-domaine-detail=/.test(pa)
+        && /<CarteRepliable titre="☀️ Note affichée sous le dimensionnement" ouvertParDefaut=\{false\}/.test(pa)
+        && /data-reglage="assistant-whatsapp"[^]*?<CarteRepliable titre="🤖 Assistant du numéro WhatsApp BMI"/.test(pa)
+        && ["choix-bmi", "alerte-conseiller", "avis-google"].every((k) => new RegExp(`data-reglage="${k}">\\s*<CarteRepliable[^>]*ouvertParDefaut=\\{false\\}`).test(pa))
+        && /data-reglage="banques">\s*<CarteRepliable/.test(pa); })());
   test("★★ LE COUPLE (29/10/2026) : le serveur (securite-42) lit le MÊME champ `plafond_remise_pct` que celui écrit par ⚙ Paramètres — sans lui, l'écran laisserait passer une remise que la base refuserait encore",
     (() => { const s42 = readFileSync("supabase/securite-42-plafond-remise-reglable.sql", "utf8");
       return /b\.data ->> 'plafond_remise_pct'/.test(s42) && /plafond_remise_boutique/.test(s42)
@@ -7675,7 +7685,7 @@ titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code b
     /'a_lui'\)::boolean, false\)/.test(s46) && /pct_commun_carte\(vente ->> 'boutique'\)/.test(s46) && /'fidelite_pct_commun'/.test(s46) && /\), 3\)/.test(s46)
     && !/rollback;\s*$/.test(s46) && /fidelite_pct_commun/.test(readFileSync("src/lib/carteFidelite.js", "utf8"))
     && /refuserSaufAdminPrincipal\(db, profile, "Régler la remise commune de la carte de fidélité"\)/.test(pa)
-    && /boutiques: db\.boutiques\.map\(\(b\) => \(\{ \.\.\.b, fidelite_pct_commun: v \}\)\)/.test(pa) && /\{jeSuisPrincipal && \(\s*\n\s*<div [^>]*data-reglage="remise-carte"/.test(pa)
+    && /boutiques: db\.boutiques\.map\(\(b\) => \(\{ \.\.\.b, fidelite_pct_commun: v \}\)\)/.test(pa) && /\{jeSuisPrincipal && carteReglage\("remise-carte"/.test(pa)
     && /-f supabase\/securite-46-remise-commune-carte\.sql/.test(ta) && /son ancien pourcentage de fiche \(10 %\) ne vaut plus : refusé" "REFUSE"/.test(ta));
 }
 

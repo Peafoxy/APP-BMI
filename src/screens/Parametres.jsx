@@ -4,7 +4,7 @@
 // principal et réinitialisation (réservée au logiciel Windows
 // et à l'admin principal — helpers dans lib/calculs.js).
 // ============================================================
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { CarteChoixPosition } from "../components/Carte";
 import { chargerTout, marquerSauvegarde, forcerResynchronisation, memoriserDossier, oublierDossier, viderLocal } from "../db";
@@ -16,7 +16,7 @@ import { PALETTE, LOGO, MOYENS_MOBILES } from "../lib/constants";
 // choses différentes… je le préfère dans la fiche de la boutique » — UN geste.
 import { ORIGINES_FONDS, DEST_BANQUE, DEST_DG, planFondsCaisse, SENS_REPRISE, manqueRemises, totalRemisesFonds, construireRemiseFonds, corrigerDateRemise, remisesFondsDe, libelleOrigineFonds, fondsCaisseFixe } from "../lib/versements";
 import { uid, verifierMotDePasse, col, compresserPhoto, fmt, prefixeDe, today, dFR } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable, CarteRepliable, NoteDepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderDate, champRecherche, PanneauQuiSeMontre, ChampQuiGrandit, FormulaireRepliable, CarteRepliable, NoteDepliable, BoutonRond, CelluleActions } from "../components/ui";
 import { PERTES_PCT_DEFAUT } from "../lib/pompes.js";
 import { pctCommunCarte, carteDe, aSaRemise, critiquePctCarte, PCT_CARTE_MAX } from "../lib/carteFidelite";
 import { couvertureStockJours, pertesTuyauPct, tauxParrainageDefaut, NOTE_DIM_DEFAUT, noteDimensionnement, prixRailMetre, PRIX_RAIL_DEFAUT, longueurRailBarre, estAppWindows, boutiquesVisibles, changerEspaceRegarde, adminPrincipal, estAdminPrincipal, refuserSaufAdmin, refuserSaufAdminPrincipal, codeConfirmation, bloquerSiLecture, boutiquesFormation, voitLesDeuxEspaces, estCompteFormation, domainesDefinis, idDepuisNom, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, chantiersDeLEspaceRegarde, evaluationsDe, plafondRemise, PLAFOND_REMISE_PCT_DEFAUT } from "../lib/calculs";
@@ -671,6 +671,34 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
   // replié après l'enregistrement.
   const [domaineOuvert, setDomaineOuvert] = useState(false);
   const [nouvFam, setNouvFam] = useState({});
+  // Un domaine se déplie au clic sur sa ligne (ses familles et la case d'ajout).
+  const [domaineDeplie, setDomaineDeplie] = useState(null);
+  // 🗂 Une case de réglage à un chiffre : titre, « i », contenu — toutes de même taille.
+  // Fonctions simples appelées en JSX (jamais des composants : un champ perdrait le curseur).
+  const carteReglage = (cle, titre, explication, contenu) => (
+    <div className="rounded-xl p-3 bg-white border border-slate-200 shadow-sm h-full" data-reglage={cle}>
+      <CarteRepliable titre={titre} explication={explication}>{contenu}</CarteRepliable>
+    </div>
+  );
+  const detailDomaine = (d) => (
+    <div data-domaine-detail={d.id}>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {(d.familles || []).length === 0 && <span className="text-xs text-slate-400">Aucune famille pour l'instant.</span>}
+        {(d.familles || []).map((f) => (
+          <span key={f} className="text-xs bg-slate-100 rounded px-2 py-1 flex items-center gap-1.5">
+            {f}
+            <button onClick={() => retirerFamille(d, f)} className="font-bold text-slate-400 hover:text-red-600" title="Retirer">×</button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        <input className={inputCls + " w-56"} placeholder="Ex : Câbles, Parafoudre…"
+               value={nouvFam[d.id] || ""} onChange={(e) => setNouvFam({ ...nouvFam, [d.id]: e.target.value })}
+               onKeyDown={(e) => { if (e.key === "Enter") ajouterFamille(d); }} />
+        <button onClick={() => ajouterFamille(d)} className="text-xs font-bold text-sky-800 underline">➕ Ajouter cette famille</button>
+      </div>
+    </div>
+  );
 
   const enregistrerDomaines = (liste, trace) => {
     if (refuserSaufAdmin(profile, "Modifier les domaines")) return;
@@ -1868,200 +1896,208 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
 
       </div>
       <div className="space-y-4" style={{ display: onglet === "catalogue" ? undefined : "none" }}>
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-        <div className="font-bold mb-1">🤝 Taux de parrainage par défaut</div>
-        <div className="text-xs text-slate-500 mb-3">
-          Ce que touche un client qui en parraine un autre, sur l'installation de son filleul — dû quand l'installation est réceptionnée ET entièrement payée. Un client peut avoir un taux personnel (👥 Utilisateurs → 💰 Commission) : celui-ci prime alors sur cette valeur.
-        </div>
-        <div className="flex gap-2 items-end flex-wrap">
-          <Field label="Taux (%)">
-            <input type="number" min="0" max="100" step="0.5" className={inputCls + " w-32"} value={tauxParr} onChange={(e) => setTauxParr(e.target.value)} />
-          </Field>
-          <button onClick={enregistrerTauxParrainage} className={btnDark}>✅ Enregistrer le taux</button>
-        </div>
+
+      {/* 🗂 Catalogue & devis, façon « carnet » (Timo, 18/11/2026 : « Construit, lance ») :
+          six réglages à un chiffre en cases de même taille, domaines en tableau,
+          banques et note repliables, l'assistant en blocs repliés. Explications
+          derrière le « i » ; rien ne change dans les droits ni les règles. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch" data-blocs-reglages>
+        {carteReglage("parrainage", "🤝 Parrainage par défaut",
+          "Ce que touche un client qui en parraine un autre, sur l'installation de son filleul — dû quand l'installation est réceptionnée ET entièrement payée. Un client peut avoir un taux personnel (👥 Utilisateurs → 💰 Commission) : celui-ci prime alors sur cette valeur.",
+          <div className="flex gap-2 items-end flex-wrap">
+            <Field label="Taux (%)">
+              <input type="number" min="0" max="100" step="0.5" className={inputCls + " w-24"} value={tauxParr} onChange={(e) => setTauxParr(e.target.value)} />
+            </Field>
+            <button onClick={enregistrerTauxParrainage} className={btnDark}>✅ Enregistrer le taux</button>
+          </div>)}
+
+        {carteReglage("plafond-remise", "🏷 Limite de remise sans administrateur",
+          <>
+            Au-delà de cette limite, une remise — générale, sur un article, sur un devis, une vente, une proforma, une commande ou des travaux à crédit — est réservée à l'administrateur. L'une ou l'autre : une remise sur un article interdit déjà la remise générale, quel que soit le pourcentage.
+            <div className="mt-1">Exemple : une vente de 240 000 F avec {Number(plafondRemiseSaisi) || PLAFOND_REMISE_PCT_DEFAUT} % de remise ({fmt(Math.round((240000 * (Number(plafondRemiseSaisi) || PLAFOND_REMISE_PCT_DEFAUT)) / 100))}) passe pour tout le monde ; au-delà, le gérant et le vendeur sont refusés.</div>
+          </>,
+          <>
+            <div className="flex gap-2 items-end flex-wrap">
+              <Field label="Limite (%)">
+                <input type="number" min="0" max="100" step="0.5" className={inputCls + " w-24"} value={plafondRemiseSaisi} onChange={(e) => setPlafondRemiseSaisi(e.target.value)} />
+              </Field>
+              <button onClick={enregistrerPlafondRemise} className={btnDark}>✅ Enregistrer la limite</button>
+            </div>
+            {Number(plafondRemiseSaisi) !== PLAFOND_REMISE_PCT_DEFAUT && (
+              <button onClick={() => setPlafondRemiseSaisi(String(PLAFOND_REMISE_PCT_DEFAUT))} className="mt-2 text-xs font-semibold text-slate-500 underline">
+                Revenir à la limite d'origine ({PLAFOND_REMISE_PCT_DEFAUT} %)
+              </button>
+            )}
+          </>)}
+
+        {jeSuisPrincipal && carteReglage("remise-carte", "💳 Remise de la carte de fidélité",
+          <>La remise que donne une carte de fidélité au scan, pour tous les clients qui la suivent ({cartesQuiSuivent} carte(s) aujourd'hui). Une carte peut avoir sa remise à lui : 👥 Utilisateurs ou 📋 Clients → 💳 → ✏️ Changer la remise. {PCT_CARTE_MAX} % au plus.</>,
+          <div className="flex gap-2 items-end flex-wrap">
+            <Field label="Remise commune (%)">
+              <input type="number" min="0" max={PCT_CARTE_MAX} step="0.5" className={inputCls + " w-24"} value={pctCarteSaisi} onChange={(e) => setPctCarteSaisi(e.target.value)} />
+            </Field>
+            <button onClick={enregistrerPctCarte} className={btnDark}>✅ Enregistrer la remise</button>
+          </div>)}
+
+        {carteReglage("couverture-stock", "📦 Stock à prévoir (jours de ventes)",
+          <>« À réapprovisionner » (📦 Stocks) propose de quoi tenir ce nombre de jours, au rythme des ventes des 30 derniers jours. Exemple : 1 vendu par jour, 6 en stock, {Number(couvertureStock) || 21} jours → <b>{Math.max((Number(couvertureStock) || 21) - 6, 0)} à commander</b>.</>,
+          <div className="flex gap-2 items-end flex-wrap">
+            <Field label="Jours de ventes">
+              <input type="number" min="1" max="180" step="1" className={inputCls + " w-24"} value={couvertureStock} onChange={(e) => setCouvertureStock(e.target.value)} />
+            </Field>
+            <button onClick={enregistrerCouvertureStock} className={btnDark}>✅ Enregistrer</button>
+          </div>)}
+
+        {carteReglage("pertes-tuyau", "💧 Forage — frottements du tuyau",
+          <>
+            Exemple : 60 m de tuyau → <b>{Math.round(60 * (Number(pertesTuyau) || PERTES_PCT_DEFAUT)) / 100} m</b> ajoutés à la hauteur à vaincre.
+            <div className="mt-1">⚠ C'est une <b>estimation</b> : le chiffre exact dépend du diamètre du tuyau, que l'application ne demande pas. Elle sert au calcul « 💧 Quelle pompe pour ce forage ? » dans le devis.</div>
+          </>,
+          <div className="flex gap-2 items-end flex-wrap">
+            <Field label="Frottements (%)">
+              <input type="number" min="1" max="50" step="1" className={inputCls + " w-24"} value={pertesTuyau} onChange={(e) => setPertesTuyau(e.target.value)} />
+            </Field>
+            <button onClick={enregistrerPertesTuyau} className={btnDark}>✅ Enregistrer</button>
+          </div>)}
+
+        {carteReglage("rail", "🔩 Rail de fixation (au mètre)",
+          <>
+            Utilisé par ☀️ Dimensionnement solaire, qui compte <b>2,2 mètres de rail par panneau</b>. Ce prix s'applique aux prochains devis — les devis déjà envoyés gardent le prix auquel ils ont été établis.
+            <div className="mt-1">Le stock compte des barres : le devis arrondit les mètres calculés aux barres entamées, le client paie ces barres au prix du mètre, et le stock perd ce nombre de barres à l'encaissement.</div>
+            {Number(prixRail) > 0 && Number(longueurRail) > 0 && (() => { const ex = barresDeRail(22, Number(longueurRail)); return (
+              <div className="mt-1">Exemple : 10 panneaux → 22 m → <b>{ex.barres} barres de {ex.longueurBarre} m</b> = {ex.metresFactures} m facturés → <b>{fmt(ex.barres * Math.round(ex.longueurBarre * Number(prixRail)))}</b></div>
+            ); })()}
+          </>,
+          <>
+            <div className="flex gap-2 items-end flex-wrap">
+              <Field label="Prix du mètre (F)">
+                <input type="number" min="0" step="100" className={inputCls + " w-28"} value={prixRail} onChange={(e) => setPrixRail(e.target.value)} />
+              </Field>
+              <button onClick={enregistrerPrixRail} className={btnDark}>✅ Enregistrer le prix</button>
+            </div>
+            <div className="flex gap-2 items-end flex-wrap mt-2" data-reglage="longueur-rail">
+              <Field label="Longueur d'une barre (m)">
+                <input type="number" min="0" step="0.1" className={inputCls + " w-28"} value={longueurRail} onChange={(e) => setLongueurRail(e.target.value)} />
+              </Field>
+              <button onClick={enregistrerLongueurRail} className={btnDark}>✅ Enregistrer la longueur</button>
+            </div>
+            {Number(prixRail) !== PRIX_RAIL_DEFAUT && (
+              <button onClick={() => setPrixRail(String(PRIX_RAIL_DEFAUT))} className="mt-2 text-xs font-semibold text-slate-500 underline">
+                Revenir au prix d'origine ({fmt(PRIX_RAIL_DEFAUT)} le mètre)
+              </button>
+            )}
+          </>)}
       </div>
 
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-        <div className="font-bold mb-1">🗂 Domaines de produits et leurs familles</div>
-        <div className="text-xs text-slate-500 mb-3">
-          Un <b>domaine</b> est un métier : Solaire, Garage, Caméra… Chaque domaine porte ses <b>familles</b> de produits.
-          C'est ce que vous choisirez à la création d'un article, au lieu de taper la catégorie à la main — c'est cette
-          saisie libre qui laissait passer « BATERIE » et empêchait l'application de retrouver vos articles.
-          <br />
-          <b>Solaire</b> et <b>Garage</b> savent calculer (puissances, capacités, courants). Un domaine que vous créez
-          sera de type <b>libre</b> : pas de calcul automatique, mais vos familles, vos articles et votre devis.
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start" data-blocs-catalogue>
+        <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+          <CarteRepliable titre={`🗂 Domaines et familles (${domaines.length})`}
+            explication={<>
+              Un <b>domaine</b> est un métier : Solaire, Garage, Caméra… Chaque domaine porte ses <b>familles</b> de produits.
+              C'est ce que vous choisirez à la création d'un article, au lieu de taper la catégorie à la main — c'est cette
+              saisie libre qui laissait passer « BATERIE » et empêchait l'application de retrouver vos articles.
+              <br />
+              <b>Solaire</b> et <b>Garage</b> savent calculer (puissances, capacités, courants). Un domaine que vous créez
+              sera de type <b>libre</b> : pas de calcul automatique, mais vos familles, vos articles et votre devis.
+            </>}>
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm min-w-[420px]">
+                <thead><tr className="text-xs text-slate-500 uppercase">{["Domaine", "Calcul", "Articles", "Familles", ""].map((h, i) => <th key={i} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+                <tbody>
+                  {domaines.map((d) => { const deplie = domaineDeplie === d.id; const fams = d.familles || []; return (
+                    <Fragment key={d.id}>
+                      <tr data-domaine={d.id} onClick={() => setDomaineDeplie(deplie ? null : d.id)}
+                        className={`border-t border-slate-100 cursor-pointer ${deplie ? "bg-sky-50" : "hover:bg-slate-50"}`}>
+                        <td className="px-3 py-2 font-semibold whitespace-nowrap">{d.icone} {d.nom}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border ${d.calcul === "libre" ? "bg-slate-50 text-slate-600 border-slate-200" : "bg-sky-50 text-sky-800 border-sky-200"}`}>{d.calcul === "libre" ? "libre" : "calcul"}</span>
+                        </td>
+                        <td className="px-3 py-2 tabular-nums">{db.produits.filter((p) => p.domaine === d.id).length}</td>
+                        <td className="px-3 py-2 text-xs text-slate-600">{fams.length === 0 ? <span className="text-slate-400">aucune</span> : <>{fams.slice(0, 2).join(", ")}{fams.length > 2 ? ` + ${fams.length - 2}` : ""}</>}</td>
+                        <CelluleActions>
+                          {d.calcul === "libre" && <BoutonRond icone="🗑" titre="Supprimer le domaine" teinte="rouge" onClick={() => supprimerDomaine(d)} />}
+                        </CelluleActions>
+                      </tr>
+                      {deplie && <tr><td colSpan={5} className="px-3 py-2 bg-sky-50/50">{detailDomaine(d)}</td></tr>}
+                    </Fragment>
+                  ); })}
+                </tbody>
+              </table>
+            </div>
+            <div className="sm:hidden space-y-2" data-domaines-cartes>
+              {domaines.map((d) => { const deplie = domaineDeplie === d.id; const fams = d.familles || []; return (
+                <div key={d.id} className="rounded-lg border border-slate-200 p-2">
+                  <div className="flex items-center gap-2 flex-wrap cursor-pointer" onClick={() => setDomaineDeplie(deplie ? null : d.id)}>
+                    <span className="font-semibold text-sm">{d.icone} {d.nom}</span>
+                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border ${d.calcul === "libre" ? "bg-slate-50 text-slate-600 border-slate-200" : "bg-sky-50 text-sky-800 border-sky-200"}`}>{d.calcul === "libre" ? "libre" : "calcul"}</span>
+                    <span className="text-xs text-slate-500">{db.produits.filter((p) => p.domaine === d.id).length} article(s) · {fams.length} famille(s)</span>
+                    {d.calcul === "libre" && <span className="ml-auto" onClick={(e) => e.stopPropagation()}><BoutonRond icone="🗑" titre="Supprimer le domaine" teinte="rouge" onClick={() => supprimerDomaine(d)} /></span>}
+                  </div>
+                  {deplie && <div className="mt-2">{detailDomaine(d)}</div>}
+                </div>
+              ); })}
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-200">
+              <FormulaireRepliable ouvert={domaineOuvert} onOuvrir={() => setDomaineOuvert(true)} onFermer={() => setDomaineOuvert(false)}
+                bouton="➕ Nouveau domaine" titre="Nouveau domaine">
+              <div className="flex gap-2 items-end flex-wrap">
+                <Field label="Icône">
+                  <input className={inputCls + " w-16 text-center"} maxLength={2} value={nouvDom.icone}
+                         onChange={(e) => setNouvDom({ ...nouvDom, icone: e.target.value })} />
+                </Field>
+                <Field label="Nom du domaine">
+                  <input className={inputCls + " w-48"} placeholder="Ex : Caméra" value={nouvDom.nom}
+                         onChange={(e) => setNouvDom({ ...nouvDom, nom: e.target.value })} />
+                </Field>
+                <button onClick={ajouterDomaine} className={btnDark}>Créer le domaine</button>
+              </div>
+              <div className="text-xs text-slate-400 mt-2">
+                Il apparaît tout de suite dans ☀️ Dimensionnement, comme un volet sans calcul (un besoin, puis l'article proposé).
+              </div>
+              </FormulaireRepliable>
+            </div>
+          </CarteRepliable>
         </div>
 
         <div className="space-y-3">
-          {domaines.map((d) => (
-            <div key={d.id} className="rounded-lg border border-slate-200 p-3">
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                <div className="font-bold text-sm">
-                  {d.icone} {d.nom}
-                  <span className={`ml-2 text-xs font-semibold px-1.5 py-0.5 rounded border ${d.calcul === "libre" ? "bg-slate-50 text-slate-600 border-slate-200" : "bg-sky-50 text-sky-800 border-sky-200"}`}>
-                    {d.calcul === "libre" ? "sans calcul" : "avec calcul automatique"}
-                  </span>
-                  <span className="ml-2 text-xs text-slate-400">{db.produits.filter((p) => p.domaine === d.id).length} article(s)</span>
-                </div>
-                {d.calcul === "libre" && (
-                  <button onClick={() => supprimerDomaine(d)} className="text-xs font-semibold text-red-600 underline">Supprimer</button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {(d.familles || []).length === 0 && <span className="text-xs text-slate-400">Aucune famille pour l'instant.</span>}
-                {(d.familles || []).map((f) => (
-                  <span key={f} className="text-xs bg-slate-100 rounded px-2 py-1 flex items-center gap-1.5">
-                    {f}
-                    <button onClick={() => retirerFamille(d, f)} className="font-bold text-slate-400 hover:text-red-600" title="Retirer">×</button>
+          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="banques">
+            <CarteRepliable titre={`🏦 Banques (${banques.length})`}
+              explication={<>La liste proposée au <b>versement des fonds vers BANQUE</b> et sur la <b>fiche de chaque employé</b> (👥 Utilisateurs → ⋯ Gérer → 🏦 Banque). Plus de nom retapé, plus de faute de frappe.</>}>
+              <div className="flex flex-wrap gap-2">
+                {banques.length === 0 && <div className="text-xs text-slate-400">Aucune banque pour l'instant : le nom se tape librement au versement et sur les fiches, comme avant.</div>}
+                {banques.map((b) => (
+                  <span key={b} className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-300 bg-slate-50 text-sm font-semibold text-slate-700">
+                    {b}
+                    <button onClick={() => retirerUneBanque(b)} className="text-red-600 font-bold" title={`Retirer ${b} de la liste`} aria-label={`Retirer ${b}`}>✖</button>
                   </span>
                 ))}
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <input className={inputCls + " w-56"} placeholder="Ex : Câbles, Parafoudre…"
-                       value={nouvFam[d.id] || ""} onChange={(e) => setNouvFam({ ...nouvFam, [d.id]: e.target.value })}
-                       onKeyDown={(e) => { if (e.key === "Enter") ajouterFamille(d); }} />
-                <button onClick={() => ajouterFamille(d)} className="text-xs font-bold text-sky-800 underline">➕ Ajouter cette famille</button>
+              <div className="flex gap-2 items-end flex-wrap mt-3">
+                <Field label="Nom de la banque">
+                  <input className={inputCls + " w-56"} value={nouvelleBanque} onChange={(e) => setNouvelleBanque(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && ajouterUneBanque()} placeholder="Ex : Ecobank" />
+                </Field>
+                <button onClick={ajouterUneBanque} className={btnDark}>➕ Ajouter</button>
               </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 pt-3 border-t border-slate-200">
-          <FormulaireRepliable ouvert={domaineOuvert} onOuvrir={() => setDomaineOuvert(true)} onFermer={() => setDomaineOuvert(false)}
-            bouton="➕ Nouveau domaine" titre="Nouveau domaine">
-          <div className="flex gap-2 items-end flex-wrap">
-            <Field label="Icône">
-              <input className={inputCls + " w-16 text-center"} maxLength={2} value={nouvDom.icone}
-                     onChange={(e) => setNouvDom({ ...nouvDom, icone: e.target.value })} />
-            </Field>
-            <Field label="Nom du domaine">
-              <input className={inputCls + " w-48"} placeholder="Ex : Caméra" value={nouvDom.nom}
-                     onChange={(e) => setNouvDom({ ...nouvDom, nom: e.target.value })} />
-            </Field>
-            <button onClick={ajouterDomaine} className={btnDark}>Créer le domaine</button>
+            </CarteRepliable>
           </div>
-          <div className="text-xs text-slate-400 mt-2">
-            Il apparaît tout de suite dans ☀️ Dimensionnement, comme un volet sans calcul (un besoin, puis l'article proposé).
+
+          <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+            <CarteRepliable titre="☀️ Note affichée sous le dimensionnement" ouvertParDefaut={false}
+              badge={<span className="font-normal text-xs text-slate-400">{note.length} caractère(s)</span>}
+              explication="Ce texte apparaît sous le tableau « Équipements proposés ». Modifiez-le librement — ou videz-le pour ne rien afficher.">
+              <textarea
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm min-h-[110px]"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Laissez vide pour n'afficher aucune note."
+              />
+              <div className="flex gap-2 flex-wrap mt-3">
+                <button onClick={enregistrerNote} className={btnDark}>✅ Enregistrer la note</button>
+                <button onClick={retablirNote} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">↺ Rétablir le texte d'origine</button>
+              </div>
+            </CarteRepliable>
           </div>
-          </FormulaireRepliable>
-        </div>
-      </div>
-
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-        <div className="font-bold mb-1">🔩 Prix du rail de fixation (au mètre)</div>
-        <div className="text-xs text-slate-500 mb-3">
-          Utilisé par ☀️ Dimensionnement solaire, qui compte <b>2,2 mètres de rail par panneau</b>. Ce prix s'applique aux prochains devis — les devis déjà envoyés gardent le prix auquel ils ont été établis.
-        </div>
-        <div className="flex gap-2 items-end flex-wrap">
-          <Field label="Prix du mètre (F)">
-            <input type="number" min="0" step="100" className={inputCls + " w-36"} value={prixRail} onChange={(e) => setPrixRail(e.target.value)} />
-          </Field>
-          <button onClick={enregistrerPrixRail} className={btnDark}>✅ Enregistrer le prix</button>
-        </div>
-        <div className="flex gap-2 items-end flex-wrap mt-3" data-reglage="longueur-rail">
-          <Field label="Longueur d'une barre (m)">
-            <input type="number" min="0" step="0.1" className={inputCls + " w-36"} value={longueurRail} onChange={(e) => setLongueurRail(e.target.value)} />
-          </Field>
-          <button onClick={enregistrerLongueurRail} className={btnDark}>✅ Enregistrer la longueur</button>
-          {Number(prixRail) > 0 && Number(longueurRail) > 0 && (() => { const ex = barresDeRail(22, Number(longueurRail)); return (
-            <div className="text-xs text-slate-500 pb-2">
-              Exemple : 10 panneaux → 22 m → <b>{ex.barres} barres de {ex.longueurBarre} m</b> = {ex.metresFactures} m facturés → <b>{fmt(ex.barres * Math.round(ex.longueurBarre * Number(prixRail)))}</b>
-            </div>
-          ); })()}
-        </div>
-        <div className="text-xs text-slate-500 mt-2">
-          Le stock compte des barres : le devis arrondit les mètres calculés aux barres entamées, le client paie ces barres au prix du mètre, et le stock perd ce nombre de barres à l'encaissement.
-        </div>
-        <div className="flex gap-2 items-end flex-wrap mt-4 pt-3 border-t border-slate-200" data-reglage="couverture-stock">
-          <Field label="📦 Stock à prévoir (jours de ventes)">
-            <input type="number" min="1" max="180" step="1" className={inputCls + " w-36"} value={couvertureStock} onChange={(e) => setCouvertureStock(e.target.value)} />
-          </Field>
-          <button onClick={enregistrerCouvertureStock} className={btnDark}>✅ Enregistrer</button>
-          <div className="text-xs text-slate-500 pb-2">
-            « À réapprovisionner » (📦 Stocks) propose de quoi tenir ce nombre de jours, au rythme des ventes des 30 derniers jours. Exemple : 1 vendu par jour, 6 en stock, {Number(couvertureStock) || 21} jours → <b>{Math.max((Number(couvertureStock) || 21) - 6, 0)} à commander</b>.
-          </div>
-        </div>
-        <div className="flex gap-2 items-end flex-wrap mt-4 pt-3 border-t border-slate-200" data-reglage="pertes-tuyau">
-          <Field label="💧 Forage — frottements dans le tuyau (%)">
-            <input type="number" min="1" max="50" step="1" className={inputCls + " w-36"} value={pertesTuyau} onChange={(e) => setPertesTuyau(e.target.value)} />
-          </Field>
-          <button onClick={enregistrerPertesTuyau} className={btnDark}>✅ Enregistrer</button>
-          <div className="text-xs text-slate-500 pb-2">
-            Exemple : 60 m de tuyau → <b>{Math.round(60 * (Number(pertesTuyau) || PERTES_PCT_DEFAUT)) / 100} m</b> ajoutés à la hauteur à vaincre.
-          </div>
-        </div>
-        <div className="text-xs text-slate-500 mt-2">
-          ⚠ C'est une <b>estimation</b> : le chiffre exact dépend du diamètre du tuyau, que l'application ne demande pas. Elle sert au calcul « 💧 Quelle pompe pour ce forage ? » dans le devis.
-        </div>
-        {Number(prixRail) !== PRIX_RAIL_DEFAUT && (
-          <button
-            onClick={() => setPrixRail(String(PRIX_RAIL_DEFAUT))}
-            className="mt-2 text-xs font-semibold text-slate-500 underline"
-          >
-            Revenir au prix d'origine ({fmt(PRIX_RAIL_DEFAUT)} le mètre)
-          </button>
-        )}
-      </div>
-
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="plafond-remise">
-        <div className="font-bold mb-1">🏷 Limite de remise sans administrateur (%)</div>
-        <div className="text-xs text-slate-500 mb-3">
-          Au-delà de cette limite, une remise — générale, sur un article, sur un devis, une vente, une proforma, une commande ou des travaux à crédit — est réservée à l'administrateur. L'une ou l'autre : une remise sur un article interdit déjà la remise générale, quel que soit le pourcentage.
-        </div>
-        <div className="flex gap-2 items-end flex-wrap">
-          <Field label="Limite (%)">
-            <input type="number" min="0" max="100" step="0.5" className={inputCls + " w-36"} value={plafondRemiseSaisi} onChange={(e) => setPlafondRemiseSaisi(e.target.value)} />
-          </Field>
-          <button onClick={enregistrerPlafondRemise} className={btnDark}>✅ Enregistrer la limite</button>
-        </div>
-        <div className="text-xs text-slate-500 mt-2">
-          Exemple : une vente de 240 000 F avec {Number(plafondRemiseSaisi) || PLAFOND_REMISE_PCT_DEFAUT} % de remise ({fmt(Math.round((240000 * (Number(plafondRemiseSaisi) || PLAFOND_REMISE_PCT_DEFAUT)) / 100))}) passe pour tout le monde ; au-delà, le gérant et le vendeur sont refusés.
-        </div>
-        {Number(plafondRemiseSaisi) !== PLAFOND_REMISE_PCT_DEFAUT && (
-          <button
-            onClick={() => setPlafondRemiseSaisi(String(PLAFOND_REMISE_PCT_DEFAUT))}
-            className="mt-2 text-xs font-semibold text-slate-500 underline"
-          >
-            Revenir à la limite d'origine ({PLAFOND_REMISE_PCT_DEFAUT} %)
-          </button>
-        )}
-      </div>
-
-      {jeSuisPrincipal && (
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="remise-carte">
-        <div className="font-bold mb-1">💳 Remise de la carte de fidélité (%)</div>
-        <div className="text-xs text-slate-500 mb-3">
-          La remise que donne une carte de fidélité au scan, pour tous les clients qui la suivent ({cartesQuiSuivent} carte(s) aujourd'hui). Une carte peut avoir sa remise à lui : 👥 Utilisateurs ou 📋 Clients → 💳 → ✏️ Changer la remise. {PCT_CARTE_MAX} % au plus.
-        </div>
-        <div className="flex gap-2 items-end flex-wrap">
-          <Field label="Remise commune (%)">
-            <input type="number" min="0" max={PCT_CARTE_MAX} step="0.5" className={inputCls + " w-36"} value={pctCarteSaisi} onChange={(e) => setPctCarteSaisi(e.target.value)} />
-          </Field>
-          <button onClick={enregistrerPctCarte} className={btnDark}>✅ Enregistrer la remise</button>
-        </div>
-      </div>
-      )}
-
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="banques">
-        <div className="font-bold mb-1">🏦 Banques</div>
-        <div className="text-xs text-slate-500 mb-3">
-          La liste proposée au <b>versement des fonds vers BANQUE</b> et sur la <b>fiche de chaque employé</b> (👥 Utilisateurs → ⋯ Gérer → 🏦 Banque). Plus de nom retapé, plus de faute de frappe.
-        </div>
-        <div className="flex gap-2 items-end flex-wrap">
-          <Field label="Nom de la banque">
-            <input className={inputCls + " w-56"} value={nouvelleBanque} onChange={(e) => setNouvelleBanque(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && ajouterUneBanque()} placeholder="Ex : Ecobank" />
-          </Field>
-          <button onClick={ajouterUneBanque} className={btnDark}>➕ Ajouter</button>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {banques.length === 0 && <div className="text-xs text-slate-400">Aucune banque pour l'instant : le nom se tape librement au versement et sur les fiches, comme avant.</div>}
-          {banques.map((b) => (
-            <span key={b} className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-300 bg-slate-50 text-sm font-semibold text-slate-700">
-              {b}
-              <button onClick={() => retirerUneBanque(b)} className="text-red-600 font-bold" title={`Retirer ${b} de la liste`} aria-label={`Retirer ${b}`}>✖</button>
-            </span>
-          ))}
         </div>
       </div>
 
@@ -2069,8 +2105,9 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           avec ses lignes de menu, ce qu'il a le droit de dire, et son mot
           d'accueil). Règle pure lib/assistantWhatsapp.js, lue par le serveur. */}
       <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm" data-reglage="assistant-whatsapp">
-        <div className="font-bold mb-1">🤖 Assistant du numéro WhatsApp BMI</div>
-        <div className="text-xs text-slate-500 mb-3">
+        <CarteRepliable titre="🤖 Assistant du numéro WhatsApp BMI"
+          badge={<span className={`text-xs font-bold ${assistantOn ? "text-emerald-700" : "text-slate-500"}`}>{assistantOn ? "● En service" : "○ Coupé"}</span>}
+          explication={<>
           Quand un client écrit au numéro BMI et que la conversation n'est à personne, l'assistant répond tout seul.
           <b> En conversation par IA</b>, il discute en phrases et pose ses questions ; tout ce qu'il affirme vient de l'application :
           prix et disponibilité d'un article (jamais la quantité en stock), le <b>total</b> d'une quantité ou de plusieurs articles (calculé par l'application au prix du stock, articles seuls, hors pose et transport), demande de devis (une fiche dans 🧲 Prospects, le devis reste à faire par un vendeur), passage à un conseiller,
@@ -2079,7 +2116,7 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <b> En menu à chiffres</b>, il propose les huit choix de votre mot d'accueil.
           <b> Il se tait</b> dans les deux cas sur une conversation qui a déjà quelqu'un (confiée, ou née d'un devis parti du numéro BMI), dès qu'un employé a répondu (pendant 24 h), et après une demande de conseiller, de SAV ou de devis.
           Coût : environ 4 F par réponse WhatsApp (1 000 offertes par mois à partir du 1er octobre 2026), plus quelques francs par réponse pour le service d'IA, facturés par son fournisseur.
-        </div>
+          </>}>
         <div className="flex flex-wrap items-center gap-3">
           <span className={`text-sm font-bold ${assistantOn ? "text-emerald-700" : "text-slate-500"}`} data-assistant-etat={assistantOn ? "actif" : "coupe"}>{assistantOn ? "● En service" : "○ Coupé"}</span>
           {jeSuisPrincipal && <button onClick={basculerAssistant} className={btnDark}>{assistantOn ? "Couper l'assistant" : "Remettre l'assistant"}</button>}
@@ -2101,13 +2138,15 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
             Chaque nouvelle conversation commence par cette phrase, que l'IA ne peut pas oublier : « {PHRASE_PRESENTATION} »
           </div>
         )}
-        <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="choix-bmi">
-          <div className="font-semibold text-sm">📝 Nos choix BMI — ce que l'assistant recommande</div>
-          <div className="text-xs text-slate-500 mt-1">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start mt-3">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" data-reglage="choix-bmi">
+            <CarteRepliable titre="📝 Nos choix BMI" ouvertParDefaut={false}
+              badge={memoActuel ? <span className="font-normal text-xs text-emerald-700">● {memoActuel.length} caractères</span> : <span className="font-normal text-xs text-slate-500">○ vide</span>}
+              explication={<>
             Écrivez ce que BMI TOGO recommande ou installe (par exemple : « Nous installons en 48 V. Nous recommandons les batteries lithium. Pour un portail coulissant de plus de 400 kg, moteur… »).
             En conversation par IA, l'assistant conseille selon ces choix plutôt qu'en général, et dit que c'est ce que BMI recommande.
             <b> Pas de prix ici</b> : les prix viennent toujours du stock. {MEMO_ASSISTANT_MAX} caractères au plus.
-          </div>
+              </>}>
           <div className="mt-2">
             <ChampQuiGrandit valeur={memoSaisi} onChange={setMemoSaisi} placeholder="Nous installons en 48 V…" maxLignes={20} />
           </div>
@@ -2117,14 +2156,16 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               {memoActuel ? <span className="text-emerald-700 font-bold">● {memoActuel.length} caractères en service</span> : <span className="text-slate-500">○ Aucun choix écrit : conseil général seulement</span>}
             </span>
           </div>
-        </div>
-        <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="alerte-conseiller">
-          <div className="font-semibold text-sm">👨‍💼 Alerte WhatsApp aux conseillers quand un client demande un conseiller</div>
-          <div className="text-xs text-slate-500 mt-1">
+            </CarteRepliable>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" data-reglage="alerte-conseiller">
+            <CarteRepliable titre="👨‍💼 Alerte conseillers" ouvertParDefaut={false}
+              badge={conseillersActuels.length ? <span className="font-normal text-xs text-emerald-700">● {conseillersActuels.length} conseiller(s)</span> : <span className="font-normal text-xs text-slate-500">○ coupée</span>}
+              explication={<>
             Le numéro BMI envoie ce message à chaque conseiller de la liste ({MAX_CONSEILLERS_ALERTE} au plus), chacun avec son nom — une fois par demande, pas à chaque message du client.
             La conversation reste au support : le premier disponible répond. Choisissez des personnes qui ont l'onglet 📲 WhatsApp, sinon elles ne pourront pas l'ouvrir.
             Une demande de devis n'en envoie pas : elle arrive dans 🧲 Prospects. Liste vide = alerte coupée. Environ 4 F par alerte et par conseiller.
-          </div>
+              </>}>
           <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded p-2 mt-2">{TEXTE_ALERTE_CONSEILLER}</div>
           <div className="mt-2 space-y-2" data-liste-conseillers>
             {conseillers.map((c, i) => (
@@ -2149,13 +2190,15 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
               : <span className="text-slate-500">○ Aucune alerte WhatsApp</span>}
           </div>
           <div className="text-xs text-slate-500 mt-1">🎂 Le rappel des anniversaires de la veille (17 h) part au numéro de votre propre fiche (👥 Utilisateurs), pas à cette liste.</div>
-        </div>
-        <div className="mt-4 pt-3 border-t border-slate-100" data-reglage="avis-google">
-          <div className="font-semibold text-sm">⭐ Demande d'avis Google après la réception</div>
-          <div className="text-xs text-slate-500 mt-1">
+            </CarteRepliable>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3" data-reglage="avis-google">
+            <CarteRepliable titre="⭐ Avis Google" ouvertParDefaut={false}
+              badge={lienAvisActuel ? <span className="font-normal text-xs text-emerald-700">● en service</span> : <span className="font-normal text-xs text-slate-500">○ coupée</span>}
+              explication={<>
             {JOURS_APRES_RECEPTION} jours après la réception d'un chantier (PV signé, forcé ou réception automatique), le numéro BMI envoie une fois ce message au client (modèle « demande_avis », à faire approuver chez YCloud, environ 14 F).
             Jamais en formation, jamais à un compte bloqué ; un chantier réceptionné depuis plus de 40 jours ne la reçoit pas.
-          </div>
+              </>}>
           <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded p-2 mt-2 whitespace-pre-line">{TEXTE_DEMANDE_AVIS}</div>
           <div className="flex flex-wrap items-end gap-2 mt-2">
             <Field label="Lien de votre fiche Google (« Demander des avis »)">
@@ -2167,29 +2210,14 @@ export function Parametres({ db, save, setDb, profile, dossierAuto, setDossierAu
           <div className="text-xs mt-1" data-avis-etat={lienAvisActuel ? "actif" : "coupe"}>
             {lienAvisActuel ? <span className="text-emerald-700 font-bold">● En service — {lienAvisActuel}</span> : <span className="text-slate-500">○ Coupée : aucune demande d'avis ne part</span>}
           </div>
+            </CarteRepliable>
+          </div>
         </div>
         <details className="mt-2">
           <summary className="text-xs text-slate-500 cursor-pointer">Le message d'accueil du menu à chiffres (votre texte, figé dans l'application)</summary>
           <div className="text-sm text-slate-700 whitespace-pre-wrap mt-1 rounded-lg bg-slate-50 border border-slate-200 p-3">{TEXTE_ACCUEIL}</div>
         </details>
-      </div>
-
-      <div className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-        <div className="font-bold mb-1">☀️ Note affichée sous le dimensionnement</div>
-        <div className="text-xs text-slate-500 mb-3">
-          Ce texte apparaît sous le tableau « Équipements proposés ». Modifiez-le librement — ou videz-le pour ne rien afficher.
-        </div>
-        <textarea
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm min-h-[110px]"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Laissez vide pour n'afficher aucune note."
-        />
-        <div className="text-xs text-slate-400 mt-1">{note.length} caractère(s)</div>
-        <div className="flex gap-2 flex-wrap mt-3">
-          <button onClick={enregistrerNote} className={btnDark}>✅ Enregistrer la note</button>
-          <button onClick={retablirNote} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600 hover:bg-slate-50">↺ Rétablir le texte d'origine</button>
-        </div>
+        </CarteRepliable>
       </div>
 
       </div>
