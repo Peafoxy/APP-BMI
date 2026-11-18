@@ -6198,14 +6198,14 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
     })());
   // Timo (18/11/2026) : « on dirait un livre » — 🔒 Caisse : un tableau, des carrés courts.
   // Timo (18/11/2026) : « les 2 cartes côte à côte, compacter » — 🔒 Caisse.
-  test("★ 🔒 Caisse compacte : DG et Avances côte à côte dans une grille (une colonne sur téléphone, un bloc seul prend les deux), un bloc VIDE = UNE ligne (TitreCompact), l'explication des avances derrière un « i », les dotations en TABLEAU, versements traités repliés ; l'ordre : grille, dotations, verser les fonds, clôture",
+  test("★ 🔒 Caisse compacte : DG et Avances côte à côte dans une grille (une colonne sur téléphone, un bloc seul prend les deux), un bloc VIDE = UNE ligne et un clic sur l'en-tête REPLIE la carte (CarteRepliable), l'explication des avances derrière un « i », les dotations en TABLEAU, versements traités repliés ; l'ordre : grille, dotations, verser les fonds, clôture",
     (() => {
       const cs = readFileSync("src/screens/Caisse.jsx", "utf8");
-      const iG = cs.indexOf("data-blocs-caisse"), iD = cs.indexOf("data-remises-tiroir"), iV = cs.indexOf(">💸 Verser les fonds"), iC = cs.indexOf(">Clôture du jour");
+      const iG = cs.indexOf("data-blocs-caisse"), iD = cs.indexOf("data-remises-tiroir"), iV = cs.indexOf('titre="💸 Verser les fonds"'), iC = cs.indexOf("Clôture du jour $");
       const grille = cs.slice(iG, cs.indexOf("data-remises-tiroir"));
       return iG > 0 && iG < iD && iD < iV && iV < iC
         && /grid-cols-1 lg:grid-cols-2/.test(cs) && /only-child\]:col-span-2/.test(cs) && /data-bloc-dg/.test(grille) && /Avances de frais à rembourser/.test(grille)
-        && (cs.match(/<TitreCompact /g) || []).length === 2 && /function TitreCompact/.test(cs) && /data-titre-info/.test(cs)
+        && (cs.match(/<CarteRepliable /g) || []).length === 5 && /function CarteRepliable/.test(cs) && /data-titre-info/.test(cs) && /data-carte-entete/.test(cs) && /aria-expanded=\{ouvert\}/.test(cs) && /function NoteDepliable/.test(cs)
         && !/<div className="text-xs text-slate-500 mt-2">En espèces : gérant ou administrateur/.test(cs)
         && /data-dotations-tableau/.test(cs) && /data-versements-traites-repli/.test(cs);
     })());
@@ -6215,7 +6215,7 @@ titre("🔒 Le verrou d'inactivité remplace la déconnexion automatique (Timo, 
       const carre = (cs.match(/function Carre\([\s\S]*?\n\}\n/) || [""])[0];
       return /data-versements-traites/.test(cs) && /celluleFigee\("bg-white"\)/.test(cs) && !/validé le \{dFR\(d\.versement_valide_le\)\} par/.test(cs)
         && carre.length > 200 && /data-carre-info/.test(carre) && /aria-expanded/.test(carre) && !/border-l-4|border-l-\[|border-t-4/.test(carre)
-        && (cs.match(/<Carre /g) || []).length === 5 && !/<div className="text-xs text-slate-500">Total versé/.test(cs);
+        && (cs.match(/<Carre /g) || []).length >= 13 && !/<div className="text-xs text-slate-500">Total versé/.test(cs);
     })());
   test("★ téléphone : un bouton 🔐 sur la ligne du titre BMI-GESTION SYSTÈME pose le verrou",
     /<div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME<\/div>[\s\S]{0,1500}?<button onClick=\{verrouiller\} className="shrink-0 [^"]*" aria-label="Verrouiller la session" title="[^"]*">🔐<\/button>/.test(app));
@@ -6803,11 +6803,11 @@ titre("💸 Versement des fonds par les boutiques (Timo, 09/09/2026 : Chez le DG
     /if \(refuserSaufRoles\(profile, ROLES_VERSEMENT, "Verser les fonds"\)\) return;\n\s+if \(bloquerSiLecture\(db, profile\)\) return;/.test(cs)
     && /if \(refuserSaufAdminPrincipal\(db, profile, "Valider un versement de fonds \(DG\)"\)\) return;/.test(cs)
     && /const nomsDG = jeSuisDG \? boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\.map\(\(b\) => b\.nom\)\.filter\(\(n\) => n === boutique\) : \[\];/.test(cs) && /versementsAValiderParDG\(db, nomsDG\)/.test(cs)
-    && /Versements à valider par le DG \(\$\{aValiderDG\.length\}\)/.test(cs) && /<TitreCompact vide=\{aValiderDG\.length === 0\}[\s\S]{0,120}?badge=\{<Badge boutique=\{boutique\} \/>\}/.test(cs) /* 18/11/2026 : titre compact */
+    && /Versements à valider par le DG \(\$\{aValiderDG\.length\}\)/.test(cs) && /<CarteRepliable vide=\{aValiderDG\.length === 0\}[\s\S]{0,160}?badge=\{<Badge boutique=\{boutique\} \/>\}/.test(cs) /* 18/11/2026 : titre compact */
     // Captures Timo (10/09/2026) : montant en gras chez le DG ; les tableaux de la caisse défilent de droite à gauche sur téléphone.
     // RETOURNÉ le 05/11/2026 : les versements passent par TableauDefilant (6 lignes, puis défilement).
     && /<b className="text-base tabular-nums">\{fmt\(d\.montant\)\}<\/b>/.test(cs) && /bg-white overflow-x-auto">\s*(\{\/\*[^]*?\*\/\}\s*)?<div[^>]*>Versements de \{libelleCaisse\(boutique\)\}<\/div>\s*<TableauDefilant>\s*<table className="w-full text-sm min-w-\[640px\]">/.test(cs)
-    && /bg-white overflow-x-auto">\s*<div[^>]*>Détail des encaissements/.test(cs) && !/bg-white overflow-hidden/.test(cs)
+    && /bg-white overflow-x-auto">\s*<div[^>]*>(?:<span[^>]*>)?Détail des encaissements/.test(cs) && !/bg-white overflow-hidden/.test(cs)
     && /messages: \[\.\.\.messagesVersement\(db, profile, r\.sortie\), \.\.\.\(db\.messages \|\| \[\]\)\]/.test(cs) && /\{vers\.destination === DEST_BANQUE && \(/.test(cs));
 }
 
@@ -7794,7 +7794,7 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     /const blocageCloture = motifBlocageVente\(db, boutique, today\(\), totalVente, dFR\);/.test(vt) && /if \(blocageCloture\) \{ uAlert\(blocageCloture\); return; \}/.test(vt) && /\{blocageCloture && !enAchatChantier && <div/.test(vt) /* RETOURNÉ le 11/10/2026 : caché pendant un achat pour un chantier, qui n'est pas une vente */);
   const csC = readFileSync("src/screens/Caisse.jsx", "utf8");
   test("★ Caisse : les chiffres passent par activiteDuJour (plus de calcul local), un jour PASSÉ en retard se choisit et se clôture (le plus ancien d'abord), la clôture en retard est datée du jour clôturé et notée",
-    /activiteDuJour\(db, boutique, t, totalVente\)/.test(csC) && !/especesVentes = db\.ventes\.filter/.test(csC) && /Montant attendu dans le tiroir/.test(csC) && /versements \{fmt\(versementsDuJour\)\} — ne créent pas d'écart/.test(csC) && /const enRetard = joursAClôturer\(db, boutique, aujourdhui, totalVente\);/.test(csC)
+    /activiteDuJour\(db, boutique, t, totalVente\)/.test(csC) && !/especesVentes = db\.ventes\.filter/.test(csC) && /Attendu dans le tiroir/.test(csC) && /versements \$\{fmt\(versementsDuJour\)\} — ne créent pas d'écart/.test(csC) /* 18/11/2026 : carrés courts, détail derrière le « i » */ && /const enRetard = joursAClôturer\(db, boutique, aujourdhui, totalVente\);/.test(csC)
     && /\(enRetard\[0\] \|\| aujourdhui\)/.test(csC) && /date: t, boutique, theorique, compte: Number\(compte\), notes, par: profile\.nom, cloture_le: aujourdhui/.test(csC) && /clôturée en retard/.test(csC));
   // Timo (09/09/2026) : « Clôture de caisse, c'est journalier : recette du
   // jour théorique contre montant du tiroir » et « une dépense n'est pas un
@@ -7815,7 +7815,7 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     rp.map((r) => `${r.nom}:${r.nbVentes}:${r.especes}:${r.autresMoyens}:${r.encaissements}`).join("|") === "KOSSI:1:1000:0:0|AMA:2:500:900:0|TIMO:0:300:0:300"
     && Cl.activiteDuJour(dbv, "V", "2026-09-09", tv).recetteParPersonne.length === 0 && rp.reduce((s, r) => s + r.especes, 0) === Cl.activiteDuJour(dbv, "V", "2026-09-11", tv).recetteDuJour);
   test("★ écran Caisse : le tableau « Recette du … par vendeur » est dans la clôture (UNE clôture, la même caisse), vendeur / ventes / espèces / autres moyens, et rien n'est clôturé par personne",
-    /recetteParPersonne\.length > 0 && \(/.test(csC) && /Recette du \{dFR\(t\)\} par vendeur — admin, gérant ou vendeur : la même caisse/.test(csC) && /\{fmt\(r\.especes\)\}/.test(csC) && !/cloture.*par_vendeur|clotures_vendeur/.test(csC));
+    /recetteParPersonne\.length > 0 && \(/.test(csC) && /Recette du \{dFR\(t\)\} par vendeur<\/span>/.test(csC) && /\{fmt\(r\.especes\)\}/.test(csC) && !/cloture.*par_vendeur|clotures_vendeur/.test(csC));
   // ⚠ TROUVÉ AVEC TIMO le 11/09/2026, en remontant un « 880 000 » qu'il ne
   // comprenait pas. Sa boutique : clôture du 10/09 à 410 000, puis une vente
   // espèces de 225 000 à 17h10 — APRÈS la clôture. Le tiroir contenait donc
@@ -7869,7 +7869,7 @@ titre("🔒 Caisse non clôturée = ventes bloquées le lendemain (décision Tim
     && /alerteRecette \? "\\n\\n" \+ alerteRecette : ""/.test(csC)
     && /Dans le tiroir hier soir : \$\{fmt\(fondsHier\)\}/.test(csC) && /\+ Recette du jour \(ventes et encaissements\) : \$\{fmt\(recetteDuJour\)\}/.test(csC)
     && /− Sorties du jour \(dépenses, versements\) : \$\{fmt\(sortiesJustifiees\)\}/.test(csC) && /= À trouver dans le tiroir : \$\{fmt\(theorique\)\}/.test(csC)
-    && /Dans le tiroir hier soir/.test(csC) && /la recette — le fonds de caisse n'est pas dedans/.test(csC) && /Recette du jour \(espèces\)/.test(csC) && /Sorties justifiées du jour/.test(csC) && /Écart de caisse \(manque ou surplus\)/.test(csC) && !/Espèces comptées \(F\)/.test(csC));
+    && /Dans le tiroir hier soir/.test(csC) && /La recette — le fonds de caisse n'est pas dedans/.test(csC) && /Recette du jour \(espèces\)/.test(csC) && /label="Sorties justifiées"/.test(csC) && /label="Écart de caisse"/.test(csC) /* 18/11/2026 */ && !/Espèces comptées \(F\)/.test(csC));
   const uiG = readFileSync("src/components/ui.jsx", "utf8");
   test("★ la remarque de clôture tient sur UNE case (plus de lg:col-span-2) et passe par LE champ qui grandit avec le texte, écrit une fois dans ui.jsx",
     /<Field label="Remarques"><ChampQuiGrandit valeur=\{notes\} onChange=\{setNotes\} placeholder="Ex : Monnaie rendue…" \/><\/Field>/.test(csC)
@@ -10751,7 +10751,7 @@ titre("📦 Transfert de stock : la boutique qui reçoit VALIDE, l'article ne bo
   test("★ ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : le fonds de caisse est gardé À PART — il n'est PAS dans le tiroir) : le fonds remis n'est ni une sortie négative ni une entrée du tiroir — le tiroir attendu vaut 0 + 800 − 10 000, et l'enveloppe porte les 50 000 à part",
     jF.theorique === -9200 && jF.fondsHier === 0 && jF.fondsPlafond === 50000 && jF.fondsReste === 50000 && jF.fondsIntact === true);
   test("★ ⚠ RETOURNÉ le 15/09/2026 (Timo, réponse B : le fonds de caisse est gardé À PART — il n'est PAS dans le tiroir) : la case « Recette du jour » montre recetteDuJour SEUL, et le fonds a sa case d'ENVELOPPE (gardé à part, PAS dans le tiroir), jamais une case « remis dans le tiroir »",
-    /Recette du jour \(espèces\)<\/div><div className="font-bold tabular-nums text-emerald-700">\+ \{fmt\(recetteDuJour\)\}/.test(csC2)
+    /<Carre label="Recette du jour \(espèces\)" valeur=\{`\+ \$\{fmt\(recetteDuJour\)\}`\}/.test(csC2) /* 18/11/2026 : carré court */
     && !/fmt\(recetteDuJour \+ fondsRemisDuJour\)/.test(csC2) && !/data-carte="fonds-remis"/.test(csC2)
     && /\{fondsPlafond > 0 && \(/.test(csC2) && /data-carte="enveloppe-fonds"/.test(csC2)
     && /PAS dans le tiroir/.test(csC2) && /pris dessus ce jour-là/.test(csC2));
@@ -14051,7 +14051,7 @@ titre("📊 LA CLÔTURE DU JOUR : TOUS LES MOYENS DE PAIEMENT APPARAISSENT (Timo
 
   // ── LE NOM : décision « c » (21/09/2026).
   test("★★ « Clôture du jour » partout où on le lit — plus « clôture de caisse »",
-    />Clôture du jour \{t === aujourdhui/.test(cs) && />Clôturer le jour<\/button>/.test(cs)
+    /Clôture du jour \$\{t === aujourdhui/.test(cs) && />Clôturer le jour<\/button>/.test(cs)
     && /refuserSaufRoles\(profile, ROLES_CAISSE, "Faire la clôture du jour"\)/.test(cs)
     && !/Clôturer la caisse/.test(cs) && !/>Clôture de caisse /.test(cs));
   test("★ le blocage des ventes et la tournée du matin parlent de la JOURNÉE, plus de « la caisse »",

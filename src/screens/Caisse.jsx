@@ -41,19 +41,37 @@ function Carre({ label, valeur, valeurClass = "", detail = null, explication = n
   );
 }
 
-// Timo (18/11/2026) : un bloc vide se réduit à UNE ligne (titre + « Aucun… »),
-// et l'explication longue est derrière un « i » (survol, clic ou toucher).
-function TitreCompact({ titre, badge = null, vide = false, resume = "", explication = null, tonAttente = false }) {
-  const [ouvert, setOuvert] = useState(false);
+// Timo (18/11/2026) : une carte est repliable — un clic sur son EN-TÊTE la
+// replie (il ne reste que le titre) ou la rouvre. Vide, elle tient sur UNE
+// ligne (« Aucun… ») ; l'explication longue est derrière un « i ».
+function CarteRepliable({ titre, badge = null, vide = false, resume = "", explication = null, tonAttente = false, ouvertParDefaut = true, children = null }) {
+  const [ouvert, setOuvert] = useState(ouvertParDefaut);
+  const [info, setInfo] = useState(false);
+  const basculer = () => setOuvert((o) => !o);
   return (
-    <div className="mb-1">
-      <div className={`font-bold flex items-center gap-2 flex-wrap ${tonAttente ? "text-amber-900" : "text-slate-800"}`}>
+    <div data-carte-repliable>
+      <div role="button" tabIndex={0} data-carte-entete aria-expanded={ouvert} onClick={basculer}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); basculer(); } }}
+        className={`font-bold flex items-center gap-2 flex-wrap cursor-pointer select-none ${ouvert && !vide ? "mb-2" : ""} ${tonAttente ? "text-amber-900" : "text-slate-800"}`}>
+        <span aria-hidden="true" className="text-slate-400 text-xs w-3">{ouvert ? "▾" : "▸"}</span>
         <span>{titre}</span>{badge}
-        {explication && <button type="button" data-titre-info title={explication} aria-label="Explication" aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}
+        {explication && <button type="button" data-titre-info title={explication} aria-label="Explication" aria-expanded={info} onClick={(e) => { e.stopPropagation(); setInfo((o) => !o); }}
           className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold leading-none">i</button>}
         {vide && resume ? <span className="font-normal text-sm text-slate-400">— {resume}</span> : null}
       </div>
-      {ouvert && explication ? <div data-titre-explication className="text-xs text-slate-600 mt-1">{explication}</div> : null}
+      {info && explication ? <div data-titre-explication className="text-xs text-slate-600 mb-2">{explication}</div> : null}
+      {ouvert ? children : null}
+    </div>
+  );
+}
+
+// Une phrase d'explication d'un tableau : cachée derrière « ⓘ », dépliée au clic.
+function NoteDepliable({ libelle, children }) {
+  const [ouvert, setOuvert] = useState(false);
+  return (
+    <div className="px-3 py-1.5 text-xs text-slate-500 border-t border-slate-100">
+      <button type="button" data-note-depliable aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)} className="text-slate-500 hover:text-slate-700">ⓘ {libelle}</button>
+      {ouvert ? <div className="mt-1">{children}</div> : null}
     </div>
   );
 }
@@ -435,10 +453,10 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
       {/* Timo (18/11/2026) : « mettre les 2 cartes côte à côte… compacter » — sur ordinateur les petits blocs vont par deux ; un bloc VIDE se réduit à une ligne ; téléphone : l'un sous l'autre. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start lg:[&>*:only-child]:col-span-2" data-blocs-caisse>
       {jeSuisDG && (
-        <div className={`bg-white rounded-xl border-2 shadow-sm p-3 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`} data-bloc-dg>
-          <TitreCompact vide={aValiderDG.length === 0} tonAttente={aValiderDG.length > 0} badge={<Badge boutique={boutique} />}
+        <div className={`bg-white rounded-xl border-2 shadow-sm p-3 lg:has-[details[open]]:col-span-2 ${aValiderDG.length > 0 ? "border-amber-300" : "border-slate-200"}`} data-bloc-dg>
+          <CarteRepliable vide={aValiderDG.length === 0} tonAttente={aValiderDG.length > 0} badge={<Badge boutique={boutique} />}
             titre={`💸 Versements à valider par le DG (${aValiderDG.length})`} resume="Aucun en attente"
-            explication="Aucun versement en attente de votre validation (Chez le DG, BANQUE)." />
+            explication="Aucun versement en attente de votre validation (Chez le DG, BANQUE).">
           <div className="space-y-1">
             {aValiderDG.map((d) => (
               <div key={d.id} data-ligne={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
@@ -456,7 +474,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
             <details className="mt-2 group" data-versements-traites-repli>
               <summary className="text-xs font-bold text-slate-500 uppercase cursor-pointer select-none">Derniers versements traités ({Math.min(validesDG.length, 10)}) <span className="font-normal normal-case">— cliquer pour voir</span></summary>
               <div className="max-h-[260px] overflow-auto mt-1" data-versements-traites>
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[680px]">
                   <thead className="sticky top-0 z-10"><tr className="text-[11px] text-slate-500 uppercase bg-slate-100">
                     <th className={`text-left px-3 py-2 whitespace-nowrap ${enTeteFige()}`}>Origine</th>
                     <th className="text-left px-3 py-2">Date</th><th className="text-left px-3 py-2 whitespace-nowrap">De → Vers</th>
@@ -464,7 +482,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
                   <tbody>
                     {validesDG.slice(0, 10).map((d) => (
                       <tr key={d.id} className="border-t border-slate-100">
-                        <td className={`px-3 py-2 font-semibold ${celluleFigee("bg-white")}`}>{libelleVersementDu(d)}</td>
+                        <td className={`px-3 py-2 font-semibold ${celluleFigee("bg-white")}`}>{libelleVersementDu(d).replace(/ du \d{2}\/\d{2}\/\d{4}$/, "")}</td>
                         <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
                         <td className="px-3 py-2 whitespace-nowrap">{d.boutique} <span className="text-slate-400">→</span> {libelleDestination(d.versement)}{libelleEcart(d.versement) ? <div className="text-xs text-red-600">{libelleEcart(d.versement)}</div> : null}</td>
                         <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${rejetVersement(d) ? "line-through text-red-700" : "text-slate-900"}`}>{fmt(d.versement.montant)}</td>
@@ -480,13 +498,14 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
               </div>
             </details>
           )}
+          </CarteRepliable>
         </div>
       )}
       {(avances.length > 0 || ROLES_REMB_CAISSE.includes(profile.role)) && (
         <Panel boutique={boutique}>
-          <TitreCompact vide={avances.length === 0} badge={<Badge boutique={boutique} />} titre={`💼 Avances de frais à rembourser (${avances.length})`}
+          <CarteRepliable vide={avances.length === 0} badge={<Badge boutique={boutique} />} titre={`💼 Avances de frais à rembourser (${avances.length})`}
             resume={`Aucune pour ${libelleCaisse(boutique)}`}
-            explication="En espèces : gérant ou administrateur, la sortie compte dans le tiroir du jour (ce n'est pas une nouvelle charge). Avec le salaire ou par le DG : administrateur. L'employé est prévenu." />
+            explication="En espèces : gérant ou administrateur, la sortie compte dans le tiroir du jour (ce n'est pas une nouvelle charge). Avec le salaire ou par le DG : administrateur. L'employé est prévenu.">
           <div className="space-y-1">
             {avances.map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm">
@@ -504,6 +523,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
               </div>
             ))}
           </div>
+          </CarteRepliable>
         </Panel>
       )}
       </div>
@@ -511,7 +531,8 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
           enregistre, le gérant de la boutique confirme « ✅ Reçu ». */}
       {voitRemises && (
         <Panel boutique={boutique}>
-          <div className="font-bold mb-2 flex items-center gap-2 flex-wrap" data-remises-tiroir>💵 Dotations de caisse ({remises.filter(remiseEnAttente).length} en attente) <Badge boutique={boutique} />{remises.length === 0 && <span className="font-normal text-sm text-slate-400">— Aucune pour {libelleCaisse(boutique)}</span>}</div>
+          <CarteRepliable vide={remises.length === 0} badge={<Badge boutique={boutique} />} titre={`💵 Dotations de caisse (${remises.filter(remiseEnAttente).length} en attente)`} resume={`Aucune pour ${libelleCaisse(boutique)}`}>
+          <span data-remises-tiroir hidden />
           {jeSuisDG && (
             <FormulaireRepliable ouvert={remiseOuverte} onOuvrir={() => setRemiseOuverte(true)} onFermer={() => setRemiseOuverte(false)}
               bouton="💵 Dotation de caisse" titre={`Dotation de caisse — ${libelleCaisse(boutique)}`}>
@@ -579,10 +600,11 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
             </table>
           </div>
           )}
+          </CarteRepliable>
         </Panel>
       )}
       <Panel boutique={boutique}>
-        <div className="font-bold mb-3 flex items-center gap-2">💸 Verser les fonds <Badge boutique={boutique} /></div>
+        <CarteRepliable titre="💸 Verser les fonds" badge={<Badge boutique={boutique} />}>
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
           <Carre className="col-span-2" label="Fonds à verser" valeur={fmt(aVerserPeriode.montant)} valeurClass={aVerserPeriode.montant < 0 ? "text-red-600" : ""}
             detail={`Tiroir${depuisLeDebut ? "" : ` à la fin de : ${libellePeriode}`}${aVerserPeriode.dernierVersement ? ` · depuis le ${dFR(aVerserPeriode.dernierVersement)}` : ""}`}
@@ -709,9 +731,10 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
             </TableauDefilant>
           </div>
         )}
+        </CarteRepliable>
       </Panel>
       <Panel boutique={boutique}>
-        <div className="font-bold mb-3 flex items-center gap-2">Clôture du jour {t === aujourdhui ? "" : `— ${dFR(t)}`} <Badge boutique={boutique} /></div>
+        <CarteRepliable titre={`Clôture du jour ${t === aujourdhui ? "" : `— ${dFR(t)}`}`} badge={<Badge boutique={boutique} />}>
         {enRetard.length > 0 && (
           <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
             <div className="font-bold">🔒 {enRetard.length === 1 ? "Une journée" : `${enRetard.length} journées`} sans clôture : {enRetard.map(dFR).join(", ")}</div>
@@ -784,9 +807,9 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
                     </tr>
                   </tbody>
                 </table>
-                <div className="px-3 py-2 text-xs text-slate-500 border-t border-slate-100">
+                <NoteDepliable libelle="Vendu / Encaissé : comment lire ce tableau">
                   <b>Vendu</b> = ce qui a été vendu ce jour-là, crédit compris. <b>Encaissé</b> = ce qui est réellement entré (ventes payées + règlements de dettes) ; une vente à crédit n'y met rien, son avance y figure sous le moyen dont elle a été payée. Les deux colonnes ne s'additionnent pas.
-                </div>
+                </NoteDepliable>
               </div>
             )}
             {/* La phrase que le vendeur doit lire d'un coup d'œil. */}
@@ -800,7 +823,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
                   théorique contre montant du tiroir ». La journée se lit de gauche à droite :
                   fonds d'hier soir + recette du jour − sorties justifiées = attendu dans le tiroir.
                   Les dépenses et les versements sont déjà déduits : ils ne créent JAMAIS d'écart. */}
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Dans le tiroir hier soir</div><div className={`font-bold tabular-nums ${fondsHier < 0 ? "text-red-600" : ""}`}>{fmt(fondsHier)}</div><div className="text-[11px] text-slate-400">la recette — le fonds de caisse n'est pas dedans</div></div>
+              <Carre label="Dans le tiroir hier soir" valeur={fmt(fondsHier)} valeurClass={fondsHier < 0 ? "text-red-600" : ""} explication="La recette — le fonds de caisse n'est pas dedans." />
               {/* ⚠ Timo, 15/09/2026 : « pourquoi tu additionnes le fonds de caisse aux
                   ventes ? J'avais dit de ne pas mélanger le fonds de caisse aux ventes. »
                   Le fonds remis par le DG était additionné DANS la case « Recette du
@@ -808,31 +831,30 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
                   ventes + encaissements), c'est l'affichage qui mentait. Le fonds a
                   maintenant SA case, à part, et seulement les jours où le DG a
                   réellement remis de l'argent. */}
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Recette du jour (espèces)</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(recetteDuJour)}</div><div className="text-[11px] text-slate-400">ventes {fmt(especesVentes)} · encaissements {fmt(especesReglements)}</div></div>
+              <Carre label="Recette du jour (espèces)" valeur={`+ ${fmt(recetteDuJour)}`} valeurClass="text-emerald-700" explication={`Ventes ${fmt(especesVentes)} · encaissements ${fmt(especesReglements)}.`} />
               {remisesDgDuJour > 0 && (
-                <div className="bg-white rounded-lg p-3 border border-slate-200" data-carte="remise-dg-jour"><div className="text-xs text-slate-500">💵 Dotation de caisse</div><div className="font-bold tabular-nums text-emerald-700">+ {fmt(remisesDgDuJour)}</div><div className="text-[11px] text-slate-400">confirmé par le gérant — ni une vente, ni une recette</div></div>
+                <Carre data-carte="remise-dg-jour" label="💵 Dotation de caisse" valeur={`+ ${fmt(remisesDgDuJour)}`} valeurClass="text-emerald-700" explication="Confirmé par le gérant — ni une vente, ni une recette." />
               )}
               {rembourseAuFonds > 0 && (
-                <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Rendu au fonds de caisse</div><div className="font-bold tabular-nums">− {fmt(rembourseAuFonds)}</div><div className="text-[11px] text-slate-400">la recette rembourse ce que le fonds avait avancé</div></div>
+                <Carre label="Rendu au fonds de caisse" valeur={`− ${fmt(rembourseAuFonds)}`} explication="La recette rembourse ce que le fonds avait avancé." />
               )}
-              <div className="bg-white rounded-lg p-3 border border-slate-200"><div className="text-xs text-slate-500">Sorties justifiées du jour</div><div className="font-bold tabular-nums">− {fmt(sortiesJustifiees)}</div><div className="text-[11px] text-slate-400">dépenses {fmt(especesDepenses)} · versements {fmt(versementsDuJour)} — ne créent pas d'écart</div></div>
+              <Carre label="Sorties justifiées" valeur={`− ${fmt(sortiesJustifiees)}`} explication={`Dépenses ${fmt(especesDepenses)} · versements ${fmt(versementsDuJour)} — ne créent pas d'écart.`} />
               {/* 💼 L'ENVELOPPE, à part : elle n'entre dans aucune des quatre
                   cases ci-dessus (Timo, 15/09/2026, réponse B). */}
               {fondsPlafond > 0 && (
-                <div className="bg-white rounded-lg p-3 border border-amber-300" data-carte="enveloppe-fonds"><div className="text-xs text-slate-500">💼 Fonds de caisse (gardé à part)</div><div className={`font-bold tabular-nums ${fondsEntame > 0 ? "text-amber-700" : ""}`}>{fmt(fondsReste)}</div><div className="text-[11px] text-slate-400">{fondsIntact ? "intact" : `entamé de ${fmt(fondsEntame)}`} · PAS dans le tiroir{depensesSurFonds > 0 ? ` · ${fmt(depensesSurFonds)} pris dessus ce jour-là` : ""}{fondsRemisDuJour > 0 ? ` · ${fmt(fondsRemisDuJour)} remis par le DG` : ""}</div></div>
+                <Carre data-carte="enveloppe-fonds" label="💼 Fonds de caisse" valeur={fmt(fondsReste)} valeurClass={fondsEntame > 0 ? "text-amber-700" : ""}
+                  detail={fondsIntact ? "Intact" : `Entamé de ${fmt(fondsEntame)}`}
+                  explication={`Gardé à part, PAS dans le tiroir${depensesSurFonds > 0 ? ` · ${fmt(depensesSurFonds)} pris dessus ce jour-là` : ""}${fondsRemisDuJour > 0 ? ` · ${fmt(fondsRemisDuJour)} remis par le DG` : ""}.`} />
               )}
-              <div className="bg-white rounded-lg p-3 border-2 border-slate-300"><div className="text-xs text-slate-500">Montant attendu dans le tiroir</div><div className={`font-bold tabular-nums ${theorique < 0 ? "text-red-600" : ""}`}>{fmt(theorique)}</div></div>
-              <div className="bg-white rounded-lg p-3 border border-slate-200">
-                <div className="text-xs text-slate-500">Écart de caisse (manque ou surplus)</div>
-                <div className={`font-bold tabular-nums ${ecart === null ? "text-slate-400" : ecart === 0 ? "text-green-700" : "text-red-600"}`}>{ecart === null ? "—" : fmt(ecart)}</div>
-              </div>
+              <Carre className="border-2! border-slate-300!" label="Attendu dans le tiroir" valeur={fmt(theorique)} valeurClass={theorique < 0 ? "text-red-600" : ""} explication="Le montant que le tiroir doit contenir ce soir : tiroir d'hier + recette du jour − sorties justifiées." />
+              <Carre label="Écart de caisse" valeur={ecart === null ? "—" : fmt(ecart)} valeurClass={ecart === null ? "text-slate-400" : ecart === 0 ? "text-green-700" : "text-red-600"} explication="Manque ou surplus : ce que vous avez compté moins le montant attendu." />
             </div>
             {/* Timo (11/09/2026) : « 2 est bon pour le moment » — UNE caisse, UNE
                 clôture, et la recette du jour lue par personne (admin, gérant ou
                 vendeur : la même caisse). Règle pure : activiteDuJour.recetteParPersonne. */}
             {recetteParPersonne.length > 0 && (
               <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
-                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Recette du {dFR(t)} par vendeur — admin, gérant ou vendeur : la même caisse</div>
+                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200"><span title="Admin, gérant ou vendeur : la même caisse">Recette du {dFR(t)} par vendeur</span></div>
                 <table className="w-full text-sm min-w-[520px]">
                   <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Vendeur</th><th className="text-left px-3 py-1.5">Ventes</th><th className="text-left px-3 py-1.5">Espèces encaissées</th><th className="text-left px-3 py-1.5">Autres moyens</th></tr></thead>
                   <tbody>
@@ -856,7 +878,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
             )}
             {detailReglements.length > 0 && (
               <div className="mb-3 rounded-lg border border-slate-200 bg-white overflow-x-auto">
-                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200">Détail des encaissements du {dFR(t)} — qui a payé quoi</div>
+                <div className="px-3 py-2 text-xs font-bold text-slate-600 bg-slate-50 border-b border-slate-200"><span title="Qui a payé quoi">Détail des encaissements du {dFR(t)}</span></div>
                 <table className="w-full text-sm min-w-[560px]">
                   <thead><tr className="text-xs text-slate-500 uppercase"><th className="text-left px-3 py-1.5">Heure</th><th className="text-left px-3 py-1.5">Client</th><th className="text-left px-3 py-1.5">Motif</th><th className="text-left px-3 py-1.5">Montant</th><th className="text-left px-3 py-1.5">Encaissé par</th></tr></thead>
                   <tbody>
@@ -916,6 +938,7 @@ export function Caisse({ db, save, profile, detailTiroirInitial = false, cible =
             <button onClick={cloturer} disabled={!!blocageCloture} className={`mt-3 ${btnDark}${blocageCloture ? " opacity-50 cursor-not-allowed" : ""}`}>Clôturer le jour</button>
           </>
         )}
+        </CarteRepliable>
       </Panel>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
