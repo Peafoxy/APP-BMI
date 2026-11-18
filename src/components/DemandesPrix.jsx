@@ -11,7 +11,7 @@
 import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, ouvrirWhatsAppApresAnnonce } from "../lib/core";
 import { libelleCaisse, LOGO } from "../lib/constants";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, BoutonRond, PanneauQuiSeMontre, IconeWhatsApp } from "./ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, BoutonRond, BoutonGeste, CarteRepliable, NoteDepliable, PanneauQuiSeMontre, IconeWhatsApp } from "./ui";
 import { ChampSuggestions } from "./ChampSuggestions";
 import { bloquerSiLecture, refuserSaufRoles, ROLES_FOURNISSEURS, boutiquesVisibles, stockActuel, espaceDuCompte } from "../lib/calculs";
 import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
@@ -24,9 +24,9 @@ import {
 const LIGNE_VIDE = () => ({ id: uid(), produit_id: null, nom: "", qte: "", precision: "" });
 const STATUTS = { ouverte: "📨 En attente des offres", commandee: "✅ Commandée", close: "✖ Close sans suite" };
 
-export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onDemandePourFini }) {
+export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onDemandePourFini, demandeOuverteInitiale = null }) {
   const [forme, setForme] = useState(null);
-  const [ouverte, setOuverte] = useState(null); // numéro de la demande dépliée
+  const [ouverte, setOuverte] = useState(demandeOuverteInitiale); // numéro de la demande dépliée (`demandeOuverteInitiale` : pour le banc seul)
   const [voirFinies, setVoirFinies] = useState(false);
   const [saisie, setSaisie] = useState(null); // { numero, fid, prix, delai, validite, note, decline }
   const [choix, setChoix] = useState(null); // { numero, parLigne }
@@ -150,35 +150,52 @@ export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onD
   const suggestions = forme ? produitsDuLieu(forme.lieu).map((p) => ({ cle: p.id, produit_id: p.id, valeur: p.nom, detail: `${stockActuel(db, p)} en stock` })) : [];
   const nomCopie = (c) => c.fournisseur_nom;
 
+  // 📨 FAÇON CARNET (18/11/2026, aperçu validé par Timo, « Construit, lance ») :
+  // la liste des demandes se lit comme un TABLEAU (N°, Fournisseurs, État,
+  // Articles, Offres, Date — sur téléphone, chaque ligne s'empile), la demande
+  // dépliée liste ses fournisseurs avec leurs gestes ÉCRITS EN MOTS, la phrase
+  // sur le vert est derrière « ⓘ ». Les règles n'ont pas bougé.
+  const COLONNES = "sm:grid-cols-[130px_1fr_150px_70px_70px_150px]";
+  const enteteListe = (
+    <div className={`hidden sm:grid ${COLONNES} gap-x-3 px-3 py-1 text-[10px] font-bold uppercase text-slate-400`} data-demandes-entete>
+      {["N°", "Fournisseurs", "État", "Articles", "Offres", "Date"].map((h) => <span key={h}>{h}</span>)}
+    </div>
+  );
   const carte = (g) => {
     const deplie = ouverte === g.numero;
     const comp = comparaison(g);
     const repondus = g.copies.filter((c) => c.reponse).length;
     const ch = choix?.numero === g.numero ? choix : null;
     return (
-      <div key={g.numero} data-demande-prix={g.numero} className="border border-slate-200 rounded-lg">
-        <button onClick={() => setOuverte(deplie ? null : g.numero)} className="w-full text-left px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div key={g.numero} data-demande-prix={g.numero} className={`border rounded-lg ${deplie ? "border-violet-300 bg-violet-50/30" : "border-slate-200"}`}>
+        <button onClick={() => setOuverte(deplie ? null : g.numero)} aria-expanded={deplie} className={`w-full text-left px-3 py-2 grid ${COLONNES} gap-x-3 gap-y-1 items-center`}>
           <span className="font-bold">{g.numero}</span>
           <span className="text-slate-700">{g.copies.map(nomCopie).join(", ")}</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 font-semibold">{STATUTS[g.statut]}</span>
-          <span className="text-sm text-slate-600">{g.lignes.length} article(s) · {repondus}/{g.copies.length} offre(s)</span>
-          <span className="text-xs text-slate-500 ml-auto">{dFR(g.le)} · {g.langue === "fr" ? "Français" : "English"}</span>
+          <span><span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 font-semibold">{STATUTS[g.statut]}</span></span>
+          <span className="text-sm text-slate-600"><span className="sm:hidden">Articles : </span>{g.lignes.length}</span>
+          <span className="text-sm text-slate-600"><span className="sm:hidden">Offres : </span>{repondus} / {g.copies.length}</span>
+          <span className="text-xs text-slate-500">{dFR(g.le)} · {g.langue === "fr" ? "Français" : "English"}</span>
         </button>
         {deplie && (
           <div className="px-3 pb-3 space-y-3 text-sm">
             {g.note && <div className="text-slate-600">📝 {g.note}</div>}
-            <div className="space-y-2">
+            <div className="space-y-2" data-copies-demande>
+              <div className="hidden sm:grid sm:grid-cols-[150px_1fr_180px_1fr] gap-x-3 px-3 text-[10px] font-bold uppercase text-slate-400">
+                {["Fournisseur", "Envoi", "Offre", "Gestes"].map((h) => <span key={h}>{h}</span>)}
+              </div>
               {g.copies.map((c) => (
                 <div key={c.fournisseur_id} data-copie-demande={c.fournisseur_nom} className="rounded-lg bg-slate-50 px-3 py-2">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid sm:grid-cols-[150px_1fr_180px_1fr] gap-x-3 gap-y-1 items-center">
                     <span className="font-semibold">{c.fournisseur_nom}</span>
                     <span className="text-xs text-slate-500">{(c.envois || []).length ? `📨 envoyée le ${dFR(c.envois[c.envois.length - 1].le)} par ${c.envois[c.envois.length - 1].par} (${c.envois[c.envois.length - 1].moyen})` : "pas encore envoyée"}</span>
-                    {c.reponse && <span className="text-xs font-semibold text-green-700">{c.reponse.decline ? "✖ pas d'offre" : `✅ offre notée le ${dFR(c.reponse.le)}`}</span>}
-                    {estOuverte(g) && <span className="ml-auto flex gap-1">
-                      <BoutonRond icone="📄" titre="📄 Télécharger le PDF de la demande (à joindre sur Alibaba ou par e-mail)" onClick={() => pdf(g, c)} />
-                      {peutEcrireDeSonNumero(profile) && <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="vert" titre="WhatsApp — le PDF est téléchargé, le message est écrit : joignez le PDF" onClick={() => whatsapp(g, c)} />}
-                      <BoutonRond icone="✍️" teinte="ambre" titre="✍️ Noter l'offre reçue" onClick={() => ouvrirSaisie(g, c)} />
-                    </span>}
+                    <span className="text-xs font-semibold text-green-700">{c.reponse ? (c.reponse.decline ? "✖ pas d'offre" : `✅ offre notée le ${dFR(c.reponse.le)}`) : <span className="text-slate-400">en attente</span>}</span>
+                    <span className="flex flex-wrap gap-1.5">
+                      {estOuverte(g) && <>
+                        <BoutonGeste icone="📄" nom="PDF de la demande" titre="📄 Télécharger le PDF de la demande (à joindre sur Alibaba ou par e-mail)" onClick={() => pdf(g, c)} />
+                        {peutEcrireDeSonNumero(profile) && <BoutonGeste icone={<IconeWhatsApp taille={14} />} nom="WhatsApp" teinte="vert" titre="WhatsApp — le PDF est téléchargé, le message est écrit : joignez le PDF" onClick={() => whatsapp(g, c)} />}
+                        <BoutonGeste icone="✍️" nom="Noter l'offre" teinte="ambre" titre="✍️ Noter l'offre reçue" onClick={() => ouvrirSaisie(g, c)} />
+                      </>}
+                    </span>
                   </div>
                   {c.reponse && !c.reponse.decline && (c.reponse.delai || c.reponse.validite || c.reponse.note) && (
                     <div className="text-xs text-slate-600 mt-1">{[c.reponse.delai && `délai : ${c.reponse.delai}`, c.reponse.validite && `validité : ${c.reponse.validite}`, c.reponse.note].filter(Boolean).join(" · ")}</div>
@@ -244,18 +261,18 @@ export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onD
                     {ch && <td />}
                   </tr></tfoot>
                 </table>
-                <div className="text-xs text-slate-500 mt-1">En vert : le moins cher de chaque article, et le meilleur total parmi les fournisseurs qui proposent TOUT. Prix hors frais (fret, douane…).</div>
+                <NoteDepliable libelle="Comment lire les couleurs ?" className="mt-1 text-xs text-slate-500">En vert : le moins cher de chaque article, et le meilleur total parmi les fournisseurs qui proposent TOUT. Prix hors frais (fret, douane…).</NoteDepliable>
               </div>
             )}
 
             {estOuverte(g) && (
               <div className="flex flex-wrap gap-2">
-                {comp.offres.length > 0 && !ch && <button data-retenir-offres onClick={() => setChoix({ numero: g.numero, parLigne: choixParDefaut(g) })} className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white text-sm font-semibold">✅ Retenir les offres</button>}
+                {comp.offres.length > 0 && !ch && <BoutonGeste data-retenir-offres icone="✅" nom="Retenir les offres" teinte="vert" onClick={() => setChoix({ numero: g.numero, parLigne: choixParDefaut(g) })} />}
                 {ch && <>
-                  <button data-commander-offres onClick={() => commander(g)} className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white text-sm font-semibold">🛒 Commander</button>
-                  <button onClick={() => setChoix(null)} className="px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-semibold">Annuler</button>
+                  <BoutonGeste data-commander-offres icone="🛒" nom="Commander" teinte="vert" onClick={() => commander(g)} />
+                  <BoutonGeste icone="✖" nom="Annuler" onClick={() => setChoix(null)} />
                 </>}
-                <button onClick={() => clore(g)} className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-sm font-semibold">✖ Clore sans commander</button>
+                <BoutonGeste icone="✖" nom="Clore sans commander" teinte="rouge" onClick={() => clore(g)} />
               </div>
             )}
             {g.statut === "close" && g.copies[0]?.close && <div className="text-xs text-red-700">Close le {dFR(g.copies[0].close.le)} par {g.copies[0].close.par} : {g.copies[0].close.motif}</div>}
@@ -268,10 +285,9 @@ export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onD
 
   return (
     <div data-demandes-prix className="rounded-xl p-4 bg-white border border-slate-200 space-y-3">
-      <div className="flex flex-wrap items-center gap-2 justify-between">
-        <div className="font-bold">📨 Demandes de prix {enCours.length ? <span className="text-sm font-normal text-slate-500">· {enCours.length} en attente</span> : null}</div>
-        {!forme && <button onClick={() => setForme(nouvelle())} className={btnDark}>➕ Nouvelle demande de prix</button>}
-      </div>
+      <CarteRepliable titre="📨 Demandes de prix" badge={enCours.length ? <span className="text-sm font-normal text-slate-500">· {enCours.length} en attente</span> : null}
+        explication="Les prix des offres sont en dollars. Ce qui est retenu devient une 🛒 commande à l'étranger, un fournisseur par commande."
+        action={!forme ? <button onClick={() => setForme(nouvelle())} className={btnDark}>➕ Nouvelle demande de prix</button> : null}>
 
       {forme && (
         <PanneauQuiSeMontre cle="nouvelle-demande-prix" onFermer={() => setForme(null)} data-nouvelle-demande-prix="" className="rounded-lg border-2 border-violet-300 p-3 space-y-3">
@@ -337,14 +353,14 @@ export function DemandesPrix({ db, save, profile, fournisseurs, demandePour, onD
       )}
 
       {enCours.length === 0 && !forme && <div className="text-sm text-slate-500">Aucune demande en attente.</div>}
-      <div className="space-y-2">{enCours.map(carte)}</div>
+      {enCours.length > 0 && <div className="space-y-2" data-demandes-liste>{enteteListe}{enCours.map(carte)}</div>}
       {finies.length > 0 && (
         <div>
           <button onClick={() => setVoirFinies(!voirFinies)} className="text-sm font-semibold text-slate-700">{voirFinies ? "▾" : "▸"} Demandes commandées ou closes ({finies.length})</button>
-          {voirFinies && <div className="space-y-2 mt-2">{finies.map(carte)}</div>}
+          {voirFinies && <div className="space-y-2 mt-2">{enteteListe}{finies.map(carte)}</div>}
         </div>
       )}
-      <div className="text-xs text-slate-500">Les prix des offres sont en dollars. Ce qui est retenu devient une 🛒 commande à l'étranger, un fournisseur par commande.</div>
+      </CarteRepliable>
     </div>
   );
 }

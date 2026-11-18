@@ -15138,6 +15138,25 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
           && /data-demandes-transfert-table/.test(hTr) && /data-demandes-transfert-cartes/.test(hTr) && (hTr.match(/✅ Valider/g) || []).length === 2
           && !/data-demandes-transfert-historique/.test(hTr) && hTr.includes("Historique récent (1)") && !/<ul/.test(hTr));
       }
+      // 📨 DEMANDES DE PRIX façon carnet (18/11/2026) : la liste en tableau, la demande dépliée, les gestes ÉCRITS.
+      {
+        const copie = (fid, nom, extra) => ({ id: `x_${fid}`, numero: "DP-2026-0007", le: "2026-11-14", par: "TIMO", lieu: "MAGASIN", langue: "en", note: "",
+          lignes: [{ id: "l1", nom: "Panneau 550W", qte: 20, precision: "" }, { id: "l2", nom: "Câble 6 mm", qte: 5, precision: "" }], ...extra });
+        const dbD = { boutiques: [{ id: "b1", nom: "MAGASIN", depot: true }], users: [], produits: [], ventes: [], dettes: [], depenses: [], messages: [], ajustements: [], clients_installes: [],
+          fournisseurs: [
+            { id: "f1", nom: "Shenzhen Solar", demandes_prix: [copie("f1", "Shenzhen Solar", { envois: [{ le: "2026-11-14", par: "TIMO", moyen: "WhatsApp" }], reponse: { le: "2026-11-16", prix: { l1: 78, l2: 2 } } })] },
+            { id: "f2", nom: "Ningbo Power", demandes_prix: [copie("f2", "Ningbo Power", { reponse: { le: "2026-11-16", prix: { l1: 81, l2: 1.5 } } })] }] };
+        const adminD = { id: "u_t", nom: "TIMO", role: "admin", principal: true };
+        let hL = "", hD = "", errD = "";
+        try { hL = P.rendreDemandesPrix(dbD, adminD); hD = P.rendreDemandesPrix(dbD, adminD, "DP-2026-0007"); } catch (e) { errD = String(e && e.message || e).split("\n")[0]; }
+        test("★ 📨 Demandes de prix façon carnet : la liste a ses colonnes (N°, Fournisseurs, État, Articles, Offres, Date), « Nouvelle demande de prix » sur la ligne du titre, l'explication derrière « ⓘ »" + (errD ? ` (${errD})` : ""),
+          !errD && /data-demandes-liste/.test(hL) && /data-demandes-entete/.test(hL) && ["N°", "Fournisseurs", "État", "Articles", "Offres", "Date"].every((m) => hL.includes(`>${m}<`))
+          && hL.includes("DP-2026-0007") && hL.includes("2 / 2") && hL.includes("➕ Nouvelle demande de prix") && hL.includes("data-titre-info"));
+        test("★ 📨 la demande dépliée : ses fournisseurs en colonnes (Fournisseur, Envoi, Offre, Gestes), les gestes ÉCRITS (« PDF de la demande », « WhatsApp », « Noter l'offre »), « Retenir les offres » / « Clore sans commander » écrits, la phrase du vert derrière « ⓘ », plus aucune icône ronde de geste" + (errD ? ` (${errD})` : ""),
+          !errD && /data-copies-demande/.test(hD) && ["Fournisseur", "Envoi", "Offre", "Gestes"].every((m) => hD.includes(`>${m}<`))
+          && (hD.match(/>📄 PDF de la demande</g) || []).length === 2 && hD.includes(">✍️ Noter l&#x27;offre<") && hD.includes("WhatsApp") && hD.includes("Retenir les offres") && hD.includes("Clore sans commander")
+          && hD.includes("Comment lire les couleurs ?") && !/En vert : le moins cher/.test(hD) && /data-moins-cher/.test(hD) && (hD.match(/data-geste/g) || []).length >= 8);
+      }
       let htmlVide = "";
       try { htmlVide = P.rendrePrimes({ boutiques: [], users: [], clients_installes: [] }, { id: "x", nom: "X", role: "magasinier" }); } catch (e) { htmlVide = ""; }
       test("★ 💰 « B a » une fiche sans aucune prime (un magasinier, base nue) : l'écran se rend et DIT « Aucune prime » des deux côtés, jamais un écran blanc",
@@ -18888,7 +18907,7 @@ titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la val
       && /DEMANDE DE PRIX/.test(txtDoc(docFr)) && !/REQUEST FOR/.test(txtDoc(docFr)) && D.LANGUE_DEFAUT === "en");
     const dpc = readFileSync("src/components/DemandesPrix.jsx", "utf8");
     test("★★ « B a » : chaque geste revérifie ROLES_FOURNISSEURS ; le WhatsApp ne s'offre qu'à qui peut écrire de son numéro (l'administrateur) ; les lieux = l'espace regardé",
-      /refuserSaufRoles\(profile, ROLES_FOURNISSEURS, geste\)/.test(dpc) && /peutEcrireDeSonNumero\(profile\) && <BoutonRond/.test(dpc)
+      /refuserSaufRoles\(profile, ROLES_FOURNISSEURS, geste\)/.test(dpc) && /peutEcrireDeSonNumero\(profile\) && <BoutonGeste/.test(dpc)
       && /ouvrirWhatsAppApresAnnonce\(/.test(dpc) && /boutiquesVisibles\(db, profile,/.test(dpc));
     test("★ commander crée les commandes par LA fabrique des commandes (numéro IMP suivant, lignes rangées, rien de payé)",
       /prochainNumeroCommande\(fos,/.test(dpc) && /ligneRangee\(/.test(dpc) && /paiements: \[\], frais: \[\]/.test(dpc));

@@ -18,3 +18,8 @@ export const rendrePrimesRemises = (db, profile) => renderToStaticMarkup(React.c
 import { DemandeRavitaillement, DemandesTransfertRecues } from "../src/screens/Ravitaillement.jsx";
 export const rendreRavitaillement = (db, profile) => renderToStaticMarkup(React.createElement(DemandeRavitaillement, { db, save: () => {}, profile }));
 export const rendreTransfert = (db, profile) => renderToStaticMarkup(React.createElement(DemandesTransfertRecues, { db, save: () => {}, profile }));
+
+// 📨 DEMANDES DE PRIX (18/11/2026, façon carnet) : la liste et la demande dépliée, RENDUES.
+import { DemandesPrix } from "../src/components/DemandesPrix.jsx";
+export const rendreDemandesPrix = (db, profile, demandeOuverteInitiale = null) =>
+  renderToStaticMarkup(React.createElement(DemandesPrix, { db, save: () => {}, profile, fournisseurs: db.fournisseurs || [], demandePour: null, onDemandePourFini: () => {}, demandeOuverteInitiale }));

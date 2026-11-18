@@ -372,7 +372,7 @@ export function BoutonGeste({ icone, nom, titre, teinte = "bleu", onClick, envoi
       onClick={envoi ? (e) => lancer(() => onClick && onClick(e)) : onClick}
       title={occupe ? LIBELLE_ENVOI_EN_COURS : titre} aria-label={titre || nom}
       className={`px-2 py-1 rounded-md border text-[11.5px] font-bold whitespace-nowrap ${TEINTES_GESTE[teinte] || TEINTES_GESTE.bleu}${occupe ? " opacity-60 cursor-wait" : ""}`}>
-      {occupe ? "⏳ Envoi en cours…" : `${icone} ${nom}`}
+      {occupe ? "⏳ Envoi en cours…" : typeof icone === "string" ? `${icone} ${nom}` : <span className="inline-flex items-center gap-1">{icone}{nom}</span>}
     </button>
   );
 }
