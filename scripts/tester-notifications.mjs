@@ -413,7 +413,7 @@ titre("🔔 Une notification mène à sa source");
     && /const permise = sectionsBrutes\.some/.test(lireE("src/screens/Messagerie.jsx")) && /if \(conv && !conv\.verrouillee\) ouvrir\(conv\);/.test(lireE("src/screens/Whatsapp.jsx"))
     && /if \(c\.membre && equipe\.some\(\(u\) => u\.id === c\.membre\)\) setMembreTaches\(c\.membre\);/.test(lireE("src/screens/MonEquipe.jsx")));
   test("★ les lignes visées existent à l'écran (data-ligne) : transferts et demandes, demandes des boutiques, « À réapprovisionner », clôtures dépassées, dettes, commandes, devis, tâches, primes, devis du client, argent rendu, achats chantier",
-    /<div key=\{t\.id\} data-ligne=\{t\.id\}/.test(lireE("src/screens/Ravitaillement.jsx")) && /<div key=\{d\.id\} data-ligne=\{d\.id\}/.test(lireE("src/screens/Ravitaillement.jsx"))
+    /<(div|tr) key=\{t\.id\} data-ligne=\{t\.id\}/.test(lireE("src/screens/Ravitaillement.jsx")) && /<(div|tr) key=\{d\.id\} data-ligne=\{d\.id\}/.test(lireE("src/screens/Ravitaillement.jsx")) /* RETOURNÉ le 18/11/2026 : une ligne de tableau (ordinateur) et une carte (téléphone) */
     && /data-ligne=\{dm\.d\.id\}/.test(lireE("src/screens/Stocks.jsx")) && /data-ligne=\{LIGNE_A_REAPPROVISIONNER\}/.test(lireE("src/screens/Stocks.jsx"))
     && /data-ligne=\{LIGNE_CLOTURES_DEPASSEES\}/.test(lireE("src/screens/Caisse.jsx")) && /<tr data-ligne=\{d\.id\} onClick=\{\(\) => setDetteDepliee/.test(lireE("src/screens/Dettes.jsx"))
     && /data-ligne=\{c\.id\} data-commande-attente/.test(lireE("src/screens/Commandes.jsx")) && /data-ligne=\{d\.id\} onClick=\{\(\) => ouvrirDevis\(d\)\}/.test(lireE("src/screens/TousLesDevis.jsx"))

@@ -13,3 +13,8 @@ export const rendrePrimes = (db, profile) => renderToStaticMarkup(React.createEl
 // 💰 PRIMES REMISES (18/11/2026, façon carnet) : l'écran de celui qui paie.
 import { PrimesRemises } from "../src/screens/PrimesRemises.jsx";
 export const rendrePrimesRemises = (db, profile) => renderToStaticMarkup(React.createElement(PrimesRemises, { db, save: () => {}, profile }));
+
+// 🚚 RAVITAILLEMENT et 🔁 TRANSFERT (18/11/2026, façon carnet) : les deux écrans RENDUS.
+import { DemandeRavitaillement, DemandesTransfertRecues } from "../src/screens/Ravitaillement.jsx";
+export const rendreRavitaillement = (db, profile) => renderToStaticMarkup(React.createElement(DemandeRavitaillement, { db, save: () => {}, profile }));
+export const rendreTransfert = (db, profile) => renderToStaticMarkup(React.createElement(DemandesTransfertRecues, { db, save: () => {}, profile }));

@@ -15115,6 +15115,29 @@ titre("📊 Tableau de bord, 📈 Rentabilité, 🕘 Historique : l'espace regar
           && ["Technicien", "Chantier", "Demandé", "Montant", "Geste"].every((m) => hR.includes(`>${m}<`)) && hR.includes("data-titre-info")
           && hR.includes("1 demande en attente") && !/data-primes-historique-table/.test(hR) && hR.includes("Historique des primes déjà payées par cette boutique (1)"));
       }
+      // 🚚 / 🔁 FAÇON CARNET (18/11/2026) : les écrans de ravitaillement et de transfert, RENDUS pour de vrai.
+      {
+        const dbT = { boutiques: [{ id: "b1", nom: "DEMAKPOE", demandes: [
+            { id: "d1", date: "2026-11-18", par: "ANGELE", lignes: [{ nom: "Câble 6 mm", qte: 10 }, { nom: "Disjoncteur 32 A", qte: 4 }], statut: "en_attente", type: "ravitaillement" },
+            { id: "d2", date: "2026-11-12", par: "ANGELE", lignes: [{ nom: "Onduleur 5 kW", qte: 2 }], statut: "servie", numero_bon: "BON-0041", type: "ravitaillement" },
+            { id: "d3", date: "2026-11-05", par: "ANGELE", lignes: [{ nom: "Étrier", qte: 20 }], statut: "refusee", motif: "rupture", type: "ravitaillement" },
+            { id: "t1", date: "2026-11-17", demandeur: "APESSITO", par: "KOSSI", lignes: [{ nom: "Panneau 550W", qte: 6 }], statut: "en_attente", type: "transfert", note: "urgent" },
+            { id: "t2", date: "2026-11-10", demandeur: "APESSITO", par: "KOSSI", lignes: [{ nom: "Câble", qte: 1 }], statut: "servie", traite_par: "ANGELE", type: "transfert" }] },
+          { id: "b2", nom: "APESSITO" }, { id: "b3", nom: "MAGASIN", depot: true }],
+          users: [], produits: [], ventes: [], dettes: [], depenses: [], messages: [], ajustements: [], clients_installes: [] };
+        const gerante = { id: "u_ang", nom: "ANGELE", role: "gerant", boutique: "DEMAKPOE" };
+        let hRav = "", hTr = "", errT = "";
+        const dbRav = { ...dbT, boutiques: dbT.boutiques.map((b) => (b.nom === "DEMAKPOE" ? { ...b, demandes: b.demandes.filter((d) => d.type === "ravitaillement") } : b)) };
+        try { hRav = P.rendreRavitaillement(dbRav, gerante); hTr = P.rendreTransfert(dbT, gerante); } catch (e) { errT = String(e && e.message || e).split("\n")[0]; }
+        test("★ 🚚 Ravitaillement façon carnet : « Mes demandes au magasin (3) » en TABLEAU (Date, Articles, État, Geste) + une carte téléphone, « Annuler » ÉCRIT en mot sur la seule demande en attente, l'explication derrière « ⓘ »" + (errT ? ` (${errT})` : ""),
+          !errT && /data-ravitaillement/.test(hRav) && hRav.includes("Mes demandes au magasin (3)") && /data-demandes-table/.test(hRav) && /data-demandes-cartes/.test(hRav)
+          && ["Date", "Articles", "État", "Geste"].every((m) => hRav.includes(`>${m}<`)) && (hRav.match(/✖ Annuler/g) || []).length === 2 && hRav.includes("data-titre-info")
+          && hRav.includes("BON-0041") && !/underline/.test(hRav));
+        test("★ 🔁 Transfert façon carnet : les deux blocs CÔTE À CÔTE, un transfert à valider en tableau (De, Articles, Envoyé, Gestes) + carte téléphone, « ✅ Valider la réception » / « Refuser » écrits en mots, historiques REPLIÉS" + (errT ? ` (${errT})` : ""),
+          !errT && /data-transferts-colonnes/.test(hTr) && /lg:grid-cols-2/.test(hTr) && /data-transferts="a-valider"/.test(hTr) && /data-transferts="demandes-recues"/.test(hTr)
+          && /data-demandes-transfert-table/.test(hTr) && /data-demandes-transfert-cartes/.test(hTr) && (hTr.match(/✅ Valider/g) || []).length === 2
+          && !/data-demandes-transfert-historique/.test(hTr) && hTr.includes("Historique récent (1)") && !/<ul/.test(hTr));
+      }
       let htmlVide = "";
       try { htmlVide = P.rendrePrimes({ boutiques: [], users: [], clients_installes: [] }, { id: "x", nom: "X", role: "magasinier" }); } catch (e) { htmlVide = ""; }
       test("★ 💰 « B a » une fiche sans aucune prime (un magasinier, base nue) : l'écran se rend et DIT « Aucune prime » des deux côtés, jamais un écran blanc",

@@ -5,7 +5,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { uid, today, dFR } from "../lib/core";
-import { Field, inputCls, uAlert, uConfirm, uPrompt, FormulaireRepliable } from "../components/ui";
+import { Field, inputCls, uAlert, uConfirm, uPrompt, FormulaireRepliable, CarteRepliable, BoutonGeste } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { bloquerSiLecture, demandesDe, estDepot, magasinsDe, stockActuel, boutiquesVisibles, boutiquesDuMemeEspace, refuserSaufRoles, ROLES_STOCK, chantiersDeLEspaceRegarde } from "../lib/calculs";
 import { reservations, avertissementReserve } from "../lib/achatsChantier";
@@ -79,12 +79,20 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
       `Demande de ravitaillement annulée — ${bq}`);
   };
 
+  // 🚚 FAÇON CARNET (18/11/2026, aperçu validé par Timo, « Construit, lance ») :
+  // un seul bloc « Mes demandes au magasin », l'explication derrière « ⓘ »,
+  // les demandes en TABLEAU (sur téléphone : une carte par demande), les
+  // gestes écrits en mots. Les règles n'ont pas bougé.
+  const etat = (d) => (d.statut === "en_attente" ? <span className="text-xs font-bold text-amber-600">⏳ En attente</span>
+    : d.statut === "servie" ? <span className="text-xs font-bold text-green-700">✅ Servie {d.numero_bon ? `(${d.numero_bon})` : ""}</span>
+    : <span className="text-xs font-bold text-red-600">❌ Refusée{d.motif ? ` — ${d.motif}` : ""}</span>);
+  const geste = (d) => (d.statut === "en_attente" ? <BoutonGeste icone="✖" nom="Annuler" teinte="rouge" onClick={() => annulerDemande(d)} /> : null);
   return (
-    <div className="rounded-xl p-4 bg-white border-2 border-blue-200">
+    <div className="rounded-xl p-4 bg-white border-2 border-blue-200" data-ravitaillement>
+      <CarteRepliable titre={<span className="text-blue-800">{`🚚 Mes demandes au magasin (${mesDemandes.length})`}</span>}
+        explication={`Listez ce dont la boutique ${bq} a besoin. Le magasinier reçoit la demande et prépare le bon.`}>
       <FormulaireRepliable ouvert={demandeOuverte} onOuvrir={() => setDemandeOuverte(true)} onFermer={() => setDemandeOuverte(false)}
         bouton="🚚 Demander un ravitaillement" titre={<span className="text-blue-800">🚚 Demander un ravitaillement au magasin</span>}>
-      <div className="text-xs text-slate-500 mb-4">Listez ce dont la boutique {bq} a besoin. Le magasinier reçoit la demande et prépare le bon.</div>
-
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Field label="Article souhaité">
           <select className={inputCls} value={dem.nom} onChange={(e) => {
@@ -117,7 +125,7 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
             {panierDem.map((l, i) => (
               <li key={i} className="flex justify-between gap-2">
                 <span><b>{l.qte}</b> × {l.nom}{l.categorie ? ` (${l.categorie})` : ""}</span>
-                <button onClick={() => setPanierDem(panierDem.filter((_, j) => j !== i))} className="text-xs text-red-600 underline">Retirer</button>
+                <BoutonGeste icone="✖" nom="Retirer" teinte="rouge" onClick={() => setPanierDem(panierDem.filter((_, j) => j !== i))} />
               </li>
             ))}
           </ul>
@@ -132,29 +140,34 @@ export function DemandeRavitaillement({ db, save, profile, boutique, marquerVues
       </FormulaireRepliable>
 
       {mesDemandes.length > 0 && (
-        <div className="mt-4 overflow-x-auto">
-          <div className="text-xs font-bold text-slate-500 uppercase mb-2">Mes demandes</div>
-          <table className="w-full text-sm min-w-[520px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Articles", "Statut", ""].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
-            <tbody>
-              {[...mesDemandes].reverse().slice(0, 10).map((d) => (
-                <tr key={d.id} className="border-t border-slate-100 align-top">
-                  <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
-                  <td className="px-3 py-2">{d.lignes.map((l) => `${l.qte} × ${l.nom}`).join(", ")}</td>
-                  <td className="px-3 py-2">
-                    {d.statut === "en_attente" ? <span className="text-xs font-bold text-amber-600">⏳ En attente</span>
-                      : d.statut === "servie" ? <span className="text-xs font-bold text-green-700">✅ Servie {d.numero_bon ? `(${d.numero_bon})` : ""}</span>
-                      : <span className="text-xs font-bold text-red-600">❌ Refusée{d.motif ? ` — ${d.motif}` : ""}</span>}
-                  </td>
-                  <td className="px-3 py-2">
-                    {d.statut === "en_attente" && <button onClick={() => annulerDemande(d)} className="text-xs text-red-600 underline">Annuler</button>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-4">
+          <div className="hidden sm:block overflow-x-auto" data-demandes-table>
+            <table className="w-full text-sm min-w-[520px]">
+              <thead><tr className="text-xs text-slate-500 uppercase">{["Date", "Articles", "État", "Geste"].map((h) => <th key={h} className="text-left px-3 py-2">{h}</th>)}</tr></thead>
+              <tbody>
+                {[...mesDemandes].reverse().slice(0, 10).map((d) => (
+                  <tr key={d.id} className="border-t border-slate-100 align-top">
+                    <td className="px-3 py-2 whitespace-nowrap">{dFR(d.date)}</td>
+                    <td className="px-3 py-2">{d.lignes.map((l) => `${l.qte} × ${l.nom}`).join(", ")}</td>
+                    <td className="px-3 py-2">{etat(d)}</td>
+                    <td className="px-3 py-2">{geste(d)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="sm:hidden space-y-2" data-demandes-cartes>
+            {[...mesDemandes].reverse().slice(0, 10).map((d) => (
+              <div key={d.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                <div className="flex items-center justify-between gap-2"><span className="text-xs text-slate-500">{dFR(d.date)}</span>{etat(d)}</div>
+                <div className="text-sm mt-1">{d.lignes.map((l) => `${l.qte} × ${l.nom}`).join(", ")}</div>
+                {d.statut === "en_attente" && <div className="mt-2">{geste(d)}</div>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
+      </CarteRepliable>
     </div>
   );
 }
@@ -250,92 +263,133 @@ export function DemandesTransfertRecues({ db, save, profile, boutique }) {
 
   if (!bq) return <div className="text-sm text-slate-400 text-center py-6">Votre compte n'est rattaché à aucune boutique.</div>;
 
+  // 🔁 FAÇON CARNET (18/11/2026, aperçu validé par Timo, « Construit, lance ») :
+  // les deux blocs côte à côte, en tableaux (sur téléphone : une carte par
+  // ligne), les gestes écrits en mots, les phrases d'explication derrière « ⓘ »,
+  // les historiques repliés et en tableau. Les règles n'ont pas bougé.
+  const statutStock = (t) => (t.statut === STATUT_VALIDE
+    ? <span className="text-green-700 font-semibold">✅ Reçu, validé par {t.traite_par}{t.numero_bon ? ` (${t.numero_bon})` : ""}</span>
+    : t.statut === STATUT_REFUSE
+      ? <span className="text-red-600 font-semibold">❌ Refusé par {t.traite_par}{t.motif ? ` (${t.motif})` : ""}</span>
+      : <span className="text-slate-500 font-semibold">↩ Annulé par {t.traite_par}</span>);
+  const statutDemande = (d) => (d.statut === "servie"
+    ? <span className="text-green-700 font-semibold">✅ Servie par {d.traite_par}</span>
+    : d.statut === "annule"
+      ? <span className="text-slate-500 font-semibold">↩ Annulée par {d.demandeur}</span>
+      : <span className="text-red-600 font-semibold">❌ Refusée par {d.traite_par}{d.motif ? ` (${d.motif})` : ""}</span>);
+  const gestesStock = (t) => (<>
+    <BoutonGeste icone="✅" nom="Valider la réception" teinte="vert" onClick={() => validerStock(t)} />
+    <BoutonGeste icone="✖" nom="Refuser" teinte="rouge" onClick={() => refuserStock(t)} />
+  </>);
+  const gestesDemande = (d) => (<>
+    <BoutonGeste icone="✅" nom="Valider" teinte="vert" onClick={() => servirDemandeTransfert(d)} />
+    <BoutonGeste icone="✖" nom="Refuser" teinte="rouge" onClick={() => refuserDemandeTransfert(d)} />
+  </>);
   return (
-    <div className="space-y-4">
+    <div className="grid lg:grid-cols-2 gap-4 items-start" data-transferts-colonnes>
     <div className="rounded-xl p-4 bg-white border-2 border-blue-200" data-transferts="a-valider">
-      <div className="font-bold mb-1 text-blue-800">📦 Transferts de stock à valider {stockAValider.length > 0 ? `(${stockAValider.length})` : ""}</div>
-      <div className="text-xs text-slate-500 mb-4">Une autre boutique vous envoie des articles. Tant que vous n'avez pas validé, ils restent dans SON stock : validez quand le colis est bien arrivé.</div>
+      <CarteRepliable titre={<span className="text-blue-800">{`📦 Transferts de stock à valider ${stockAValider.length > 0 ? `(${stockAValider.length})` : ""}`}</span>}
+        explication="Une autre boutique vous envoie des articles. Tant que vous n'avez pas validé, ils restent dans SON stock : validez quand le colis est bien arrivé.">
       {stockAValider.length === 0 ? (
         <div className="text-sm text-slate-400 text-center py-4">Aucun transfert de stock en attente.</div>
       ) : (
-        <div className="space-y-3">
-          {stockAValider.map((t) => (
-            <div key={t.id} data-ligne={t.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm">
-                  <b>{t.de}</b> envoie : {libelleLignes(t)}
-                  <div className="text-xs text-slate-400 mt-1">{dFR(t.date)}{t.heure ? ` ${t.heure}` : ""} — par {t.par}</div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => validerStock(t)} className="px-3 py-1.5 rounded-lg bg-blue-700 text-white text-xs font-bold hover:bg-blue-800">✅ Valider la réception</button>
-                  <button onClick={() => refuserStock(t)} className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Refuser</button>
-                </div>
+        <>
+          <div className="hidden sm:block overflow-x-auto" data-transferts-stock-table>
+            <table className="w-full text-sm">
+              <thead><tr className="text-xs text-slate-500 uppercase">{["De", "Articles", "Envoyé", "Gestes"].map((h) => <th key={h} className="text-left px-2 py-2">{h}</th>)}</tr></thead>
+              <tbody>
+                {stockAValider.map((t) => (
+                  <tr key={t.id} data-ligne={t.id} className="border-t border-slate-100 bg-blue-50 align-top">
+                    <td className="px-2 py-2 font-semibold">{t.de}</td>
+                    <td className="px-2 py-2">{libelleLignes(t)}</td>
+                    <td className="px-2 py-2 text-xs text-slate-500">{dFR(t.date)}{t.heure ? ` ${t.heure}` : ""} — par {t.par}</td>
+                    <td className="px-2 py-2"><div className="flex flex-wrap gap-1.5">{gestesStock(t)}</div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="sm:hidden space-y-2" data-transferts-stock-cartes>
+            {stockAValider.map((t) => (
+              <div key={t.id} data-ligne={t.id} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <div className="flex items-center justify-between gap-2"><b className="text-sm">{t.de}</b><span className="text-xs text-slate-500">{dFR(t.date)} · {t.par}</span></div>
+                <div className="text-sm mt-1">{libelleLignes(t)}</div>
+                <div className="mt-2 flex flex-wrap gap-1.5">{gestesStock(t)}</div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
       {historiqueStock.length > 0 && (
         <div className="mt-4">
-          <div className="text-xs font-bold text-slate-500 uppercase mb-2">Historique récent</div>
-          <ul className="text-xs text-slate-500 space-y-1">
-            {historiqueStock.map((t) => (
-              <li key={t.id}>
-                {t.de} (envoyé par {t.par}) — {libelleLignes(t)} —{" "}
-                {t.statut === STATUT_VALIDE
-                  ? <span className="text-green-700 font-semibold">✅ Reçu, validé par {t.traite_par}{t.numero_bon ? ` (${t.numero_bon})` : ""}</span>
-                  : t.statut === STATUT_REFUSE
-                    ? <span className="text-red-600 font-semibold">❌ Refusé par {t.traite_par}{t.motif ? ` (${t.motif})` : ""}</span>
-                    : <span className="text-slate-500 font-semibold">↩ Annulé par {t.traite_par}</span>}
-              </li>
-            ))}
-          </ul>
+          <CarteRepliable titre={`Historique récent (${historiqueStock.length})`} ouvertParDefaut={false}>
+            <div className="overflow-x-auto" data-transferts-stock-historique>
+              <table className="w-full text-xs text-slate-500">
+                <thead><tr className="uppercase">{["De", "Envoyé par", "Articles", "Suite"].map((h) => <th key={h} className="text-left px-2 py-1">{h}</th>)}</tr></thead>
+                <tbody>
+                  {historiqueStock.map((t) => (
+                    <tr key={t.id} className="border-t border-slate-100"><td className="px-2 py-1">{t.de}</td><td className="px-2 py-1">{t.par}</td><td className="px-2 py-1">{libelleLignes(t)}</td><td className="px-2 py-1">{statutStock(t)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CarteRepliable>
         </div>
       )}
+      </CarteRepliable>
     </div>
-    <div className="rounded-xl p-4 bg-white border-2 border-purple-200">
-      <div className="font-bold mb-1 text-purple-800">🔁 Demandes de transfert reçues {demandesTransfertRecues.length > 0 ? `(${demandesTransfertRecues.length})` : ""}</div>
-      <div className="text-xs text-slate-500 mb-4">Une autre boutique a besoin de ces articles — probablement pour finaliser une vente en attente. Validez simplement si vous les avez en stock.</div>
+    <div className="rounded-xl p-4 bg-white border-2 border-purple-200" data-transferts="demandes-recues">
+      <CarteRepliable titre={<span className="text-purple-800">{`🔁 Demandes de transfert reçues ${demandesTransfertRecues.length > 0 ? `(${demandesTransfertRecues.length})` : ""}`}</span>}
+        explication="Une autre boutique a besoin de ces articles — probablement pour finaliser une vente en attente. Validez simplement si vous les avez en stock.">
       {demandesTransfertRecues.length === 0 ? (
         <div className="text-sm text-slate-400 text-center py-4">Aucune demande de transfert en attente.</div>
       ) : (
-        <div className="space-y-3">
-          {demandesTransfertRecues.map((d) => (
-            <div key={d.id} data-ligne={d.id} className="rounded-lg border border-purple-200 bg-purple-50 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-sm">
-                  <b>{d.demandeur}</b> demande : {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}
-                  {d.note && <div className="text-xs text-slate-500 mt-1">{d.note}</div>}
-                  <div className="text-xs text-slate-400 mt-1">{dFR(d.date)} — par {d.par}</div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => servirDemandeTransfert(d)} className="px-3 py-1.5 rounded-lg bg-purple-700 text-white text-xs font-bold hover:bg-purple-800">✅ Valider</button>
-                  <button onClick={() => refuserDemandeTransfert(d)} className="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 text-xs font-bold hover:bg-red-50">Refuser</button>
-                </div>
+        <>
+          <div className="hidden sm:block overflow-x-auto" data-demandes-transfert-table>
+            <table className="w-full text-sm">
+              <thead><tr className="text-xs text-slate-500 uppercase">{["De", "Articles", "Demandé", "Gestes"].map((h) => <th key={h} className="text-left px-2 py-2">{h}</th>)}</tr></thead>
+              <tbody>
+                {demandesTransfertRecues.map((d) => (
+                  <tr key={d.id} data-ligne={d.id} className="border-t border-slate-100 bg-purple-50 align-top">
+                    <td className="px-2 py-2 font-semibold">{d.demandeur}</td>
+                    <td className="px-2 py-2">{d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}{d.note && <div className="text-xs text-slate-500 mt-1">{d.note}</div>}</td>
+                    <td className="px-2 py-2 text-xs text-slate-500">{dFR(d.date)} — par {d.par}</td>
+                    <td className="px-2 py-2"><div className="flex flex-wrap gap-1.5">{gestesDemande(d)}</div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="sm:hidden space-y-2" data-demandes-transfert-cartes>
+            {demandesTransfertRecues.map((d) => (
+              <div key={d.id} data-ligne={d.id} className="rounded-lg border border-purple-200 bg-purple-50 p-3">
+                <div className="flex items-center justify-between gap-2"><b className="text-sm">{d.demandeur}</b><span className="text-xs text-slate-500">{dFR(d.date)} · {d.par}</span></div>
+                <div className="text-sm mt-1">{d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}</div>
+                {d.note && <div className="text-xs text-slate-500 mt-1">{d.note}</div>}
+                <div className="mt-2 flex flex-wrap gap-1.5">{gestesDemande(d)}</div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
       {historique.length > 0 && (
         <div className="mt-4">
-          <div className="text-xs font-bold text-slate-500 uppercase mb-2">Historique récent</div>
-          <ul className="text-xs text-slate-500 space-y-1">
-            {historique.map((d) => (
-              <li key={d.id}>
-                {d.demandeur} (demandé par {d.par}) — {d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")} —{" "}
-                {d.statut === "servie"
-                  ? <span className="text-green-700 font-semibold">✅ Servie par {d.traite_par}</span>
-                  : d.statut === "annule"
-                  ? <span className="text-slate-500 font-semibold">↩ Annulée par {d.demandeur}</span>
-                  : <span className="text-red-600 font-semibold">❌ Refusée par {d.traite_par}{d.motif ? ` (${d.motif})` : ""}</span>}
-              </li>
-            ))}
-          </ul>
+          <CarteRepliable titre={`Historique récent (${historique.length})`} ouvertParDefaut={false}>
+            <div className="overflow-x-auto" data-demandes-transfert-historique>
+              <table className="w-full text-xs text-slate-500">
+                <thead><tr className="uppercase">{["De", "Demandé par", "Articles", "Suite"].map((h) => <th key={h} className="text-left px-2 py-1">{h}</th>)}</tr></thead>
+                <tbody>
+                  {historique.map((d) => (
+                    <tr key={d.id} className="border-t border-slate-100"><td className="px-2 py-1">{d.demandeur}</td><td className="px-2 py-1">{d.par}</td><td className="px-2 py-1">{d.lignes.map((l) => `${l.qte}× ${l.nom}`).join(", ")}</td><td className="px-2 py-1">{statutDemande(d)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CarteRepliable>
         </div>
       )}
+      </CarteRepliable>
     </div>
     </div>
   );
 }
-
