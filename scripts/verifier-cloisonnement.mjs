@@ -3752,8 +3752,8 @@ titre("Le nom des documents : UNE règle — Type - Client - Numéro");
   test("les PDF téléchargés (devis, proforma, relevé, dossier personnel, inventaire, demande de prix, historique des commissions, document technique, historique des interventions) suivent la même règle",
     (pdf.match(/doc\.save\(fichierPdf\(/g) || []).length === 9 && !/doc\.save\(`/.test(pdf));
   test("le bouton du devis s'appelle « Devis PDF » (pour ne pas le confondre avec le contrat)",
-    // RETOURNÉ le 15/10/2026 : un bouton rond, « 📄 Devis PDF » en libellé (au survol).
-    readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes('<BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />'));
+    // RETOURNÉ le 15/10/2026 : un bouton rond, « 📄 Devis PDF » en libellé (au survol) ; RETOURNÉ le 18/11/2026 : « Tous les devis façon carnet », le geste s'écrit en mots (BoutonGeste).
+    readFileSync("src/screens/TousLesDevis.jsx", "utf8").includes('<BoutonGeste data-devis-pdf icone="📄" nom="Devis PDF" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />'));
 }
 
 titre("🏦 Les banques : une liste dans Paramètres, la banque sur la fiche, le moyen en boutons (14/09/2026)");
@@ -4329,6 +4329,28 @@ titre("👥 Le devis établi POUR un autre, et « TOUS LES DEVIS DE … » (12/1
     /data-titre-tous-devis[^>]*>📋 TOUS MES DEVIS</.test(hA) && /data-filtre-auteur-devis/.test(hA) && /KOFFI — [^<]*\(1\)/.test(hA) && /ANGELE — [^<]*\(1\)/.test(hA)
     && /data-filtre-auteur-devis/.test(hR) && /KOFFI — [^<]*\(1\)/.test(hR) && !/>ANGELE — /.test(hR) && /par (<!-- -->)?KOFFI/.test(hR) && /par (<!-- -->)?ANGELE/.test(hR)
     && /TOUS MES DEVIS/.test(hK) && !/data-filtre-auteur-devis/.test(hK), [hA, hR].map((h) => h.slice(0, 120)).join(" | "));
+  // 📋 Tous les devis FAÇON CARNET (18/11/2026, « Construit, lance ») : joué avec
+  // le vrai écran — la ligne ne porte que LE geste du moment et « Détail » ;
+  // tous les autres gestes sont écrits en mots dans le détail ; sur téléphone,
+  // une carte par devis, et JAMAIS les deux mises en page à la fois.
+  const rendreTx = (p, extra) => { const e0 = console.error; console.error = () => {}; try { return String(renderToStaticMarkup(React.createElement(EP.TousLesDevis, { db: dbT, save() {}, profile: p, onModifierDevis() {}, ...extra }))); } catch (e) { return "ERREUR " + String(e).slice(0, 120); } finally { console.error = e0; } };
+  const hAd = EP ? rendreTx(admin, { ouvertInitial: "d1" }) : "", hAt = EP ? rendreTx(admin, { telephoneInitial: true }) : "", hAtd = EP ? rendreTx(admin, { telephoneInitial: true, ouvertInitial: "d1" }) : "";
+  const nb = (h, re) => (h.match(re) || []).length;
+  test("★★ 📋 Tous les devis (façon carnet) : la LIGNE n'a que le geste du moment et « Détail » (colonne « À faire »), aucun bouton rond, le PDF et les autres gestes ne sont pas sur la ligne",
+    /À faire/.test(hA) && /data-detail-devis-bouton/.test(hA) && !/data-devis-pdf/.test(hA) && !/data-supprimer-devis/.test(hA) && !/data-classer-sans-suite/.test(hA)
+    && nb(hA, /data-detail-devis-bouton/g) === nb(hA, /data-ligne-devis="replie"/g) && !/data-gestes-devis/.test(hA), hA.slice(0, 120));
+  test("★★ 📋 Tous les devis (façon carnet) : un devis déplié écrit ses gestes en MOTS, rangés par thème (Client, Documents, Modifier, Classer), les pastilles toutes dans le détail, et le geste du moment n'y est pas répété",
+    /data-gestes-devis/.test(hAd) && /data-pastilles-detail|data-gestes-devis/.test(hAd) && nb(hAd, /data-devis-pdf/g) === 1 && />📄 Devis PDF</.test(hAd) && />Documents</.test(hAd) && />Classer</.test(hAd) && />Modifier</.test(hAd)
+    && /📁 Classer sans suite</.test(hAd) && !/data-bouton-rond|aria-label="📄 Devis PDF" title="📄 Devis PDF" class="[^"]*rounded-full/.test(hAd)
+    && nb(hAd, /Relancer par WhatsApp/g) <= 1 + 1, hAd.slice(0, 120));
+  test("★★ 📋 Tous les devis (façon carnet) : sur téléphone, une CARTE par devis (nom, total, statut, geste du moment, « Détail ») et PAS le tableau ; sur ordinateur, le tableau et pas de cartes ; jamais les deux",
+    /data-devis-cartes/.test(hAt) && nb(hAt, /data-devis-carte[ =]/g) >= 2 && !/min-w-\[860px\]/.test(hAt) && !/<table/.test(hAt)
+    && !/data-devis-cartes/.test(hA) && /<table/.test(hA) && /data-detail-devis-bouton/.test(hAt), hAt.slice(0, 120));
+  test("★★ 📋 Tous les devis (façon carnet) : la carte dépliée porte son détail UNE seule fois (gestes écrits, articles) ; un devis déplié ne double pas ses formulaires",
+    nb(hAtd, /data-gestes-devis/g) === 1 && nb(hAtd, /data-detail-devis(?!-)/g) === 1 && /data-devis-pdf/.test(hAtd), hAtd.slice(0, 120));
+  test("★★ 📋 Tous les devis (façon carnet) : les filtres tiennent sur une ligne (recherche, type, période) et la bande « sans réponse » a son bouton écrit + l'explication derrière ⓘ",
+    /placeholder="Rechercher un client ou un vendeur…"/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")) && /\{periode\.selecteur\}\s*<\/div>/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
+    && /data-bande-relance/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")) && /nom=\{relanceSeule \? "Voir tous les devis" : "Voir seulement ceux-là"\}/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")) && /<NoteDepliable libelle="Qui est compté \?"/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8")));
   // ✏️ LE GESTE JOUÉ (pas seulement lu) : TIMO corrige le devis déjà envoyé
   // de KOFFI et l'enregistre en brouillon → il arrive dans les brouillons de
   // KOFFI, avec le devis qu'il corrige ; KOFFI est prévenu ; TIMO n'a rien.
@@ -4670,7 +4692,7 @@ titre("La corbeille des fiches supprimées : mise de côté 30 jours, restaurabl
       && /motif : \$\{String\(motif\)\.trim\(\)\}/.test(corpsSupp)
       && corpsSupp.indexOf("refuserSaufAdminPrincipal") < corpsSupp.indexOf("save("));
     test("★ devis : le bouton 🗑 ne s'affiche qu'au principal, sur un devis ⏳ Proposé",
-      /\{peutDeciderDuPlan && !critiqueSuppressionDevis\(d\) && \(\s*<BoutonRond data-supprimer-devis icone="🗑" teinte="rouge" onClick=\{\(\) => supprimerDevis\(d\)\}/.test(tdj)
+      /peutDeciderDuPlan && !critiqueSuppressionDevis\(d\) \? \(\s*<BoutonGeste data-supprimer-devis icone="🗑" nom="Supprimer" teinte="rouge" onClick=\{\(\) => supprimerDevis\(d\)\}/.test(tdj)
       && /const peutDeciderDuPlan = estAdminPrincipal\(db, profile\);/.test(tdj));
     const R = await import(pathToFileURL(join(process.cwd(), "src/lib/rappels.js")).href);
     const vieux = { id: "dz", date: "2026-09-01", total: 1, statut: "propose" };
@@ -5900,7 +5922,7 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
         && deux.modifie_par === "TIMO" && deux.modifie_par_id === "u3" && deux.nb_modifications === 2 && deux.total === 800000;
     })());
   test("★ l'écran n'ouvre le bouton que par la règle, et le geste se REVÉRIFIE dedans (un bouton caché n'est pas une barrière) ; la trace s'affiche sur la ligne du devis",
-    /\{peutModifierDevis\(d, profile\) && onModifierDevis && \(/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
+    /peutModifierDevis\(d, profile\) && onModifierDevis \? \(/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
     && /const refus = motifRefusModification\(d, profile\);\n    if \(refus\) \{ uAlert\(refus\); return; \}/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
     && /✏️ Modifié le \{dFR\(d\.modifie_le\)\} par \{d\.modifie_par/.test(readFileSync("src/screens/TousLesDevis.jsx", "utf8"))
     // RETOURNÉ le 12/10/2026 : la correction GARDE l'auteur du devis d'origine (sa commission).
@@ -6012,7 +6034,7 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     const ecM = readFileSync("src/screens/EspaceClient.jsx", "utf8");
     test("★ les deux écrans passent par les règles pures, et le geste du vendeur se revérifie DANS le geste ; le client re-signe par accepterDevisCorrige, jamais par validerDevis (qui créerait un second chantier)",
       // RETOURNÉ le 15/10/2026 : jamais pour un devis imprimé sans compte (le client ne peut pas accepter).
-      /peutDemanderModif\(db, d, profile\) && !estSansAcces\(d\.client\) && \(/.test(tldM)
+      /peutDemanderModif\(db, d, profile\) && !estSansAcces\(d\.client\) \? \(/.test(tldM)
       && /const refus = motifRefusDemandeModif\(db, d, profile\);/.test(tldM)
       && /poserDemandeModif\(db, d\.client, d, profile, motif, today\(\)\)/.test(tldM)
       && /repondreDemandeModif\(db, moi, d, accepte, today\(\)\)/.test(ecM)
@@ -6042,14 +6064,14 @@ titre("Relance WhatsApp des devis sans réponse (Timo, 09/09/2026 : seuil 15 jou
     && /texteRepli: texte,/.test(tld) && /demanderConfirmation: uConfirm,/.test(tld) && !/wa\.me/.test(tld)
     && /relance_le: today\(\), relance_par: profile\.nom, nb_relances: \(x\.nb_relances \|\| 0\) \+ 1/.test(tld)
     // RETOURNÉ le 15/10/2026 : ni bouton ni geste pour un devis imprimé sans compte.
-    && /\{devisRelancable\(d\) && !estSansAcces\(d\.client\) && \(\s*<BoutonRond icone=\{<IconeWhatsApp taille=\{16\} \/>\} teinte="vert" envoi onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld) /* RETOURNÉ le 18/10/2026 : le bouton se grise pendant l'envoi (`envoi`) */
+    && /devisRelancable\(d\) && !estSansAcces\(d\.client\) \? \(\s*<BoutonGeste icone=\{<IconeWhatsApp taille=\{16\} \/>\} nom="Relancer par WhatsApp" teinte="vert" envoi onClick=\{\(\) => relancerDevis\(d\)\}/.test(tld) /* RETOURNÉ le 18/10/2026 : le bouton se grise pendant l'envoi (`envoi`) */
     && /if \(estSansAcces\(d\.client\)\) \{ uAlert\(RELANCE_SANS_ACCES\); return; \}\n    const texte = texteRelanceDevis/.test(tld));
   test("★ rien n'est noté si le client n'a rien reçu (ni du numéro BMI, ni par WhatsApp) ; un client sans téléphone est refusé avec son motif",
     /if \(!r\.parti\) return;/.test(tld) && /if \(!d\.client\?\.tel\) \{ uAlert\("Ce client n'a pas de numéro de téléphone enregistré\."\); return; \}/.test(tld));
   test("★ la trace « du n° BMI » ne s'écrit QUE si le message est vraiment parti tout seul — une ouverture WhatsApp ne prouve rien",
     /const trace = r\.auto \? traceEnvoi\(/.test(tld) && /\.\.\.\(trace \? \{ envoi_whatsapp: trace \} : \{\}\)/.test(tld));
   test("★ la liste montre « Sans réponse depuis N j » (N depuis la dernière relance) et « 📲 Relancé le … » une fois relancé ; le bandeau parle des proposés ou validés non payés",
-    /⚠️ Sans réponse depuis \{joursSansReponse\(d\)\} j/.test(tld) && /📲 Relancé le \{dFR\(d\.relance_le\)\}/.test(tld) && /validé\{nbARelancer > 1 \? "s" : ""\} non payé/.test(tld));
+    /⚠️ Sans réponse depuis \{joursSansReponse\(d\)\} j/.test(tld) && /📲 Relancé le \{dFR\(d\.relance_le\)\}/.test(tld) && /Les devis proposés ou validés, non payés, restés sans réponse depuis plus de/.test(tld));
 }
 
 titre("L'onglet 🔁 Transfert n'est plus au vendeur (Timo, 09/09/2026 : « retire l'onglet au vendeur »)");
@@ -14519,8 +14541,8 @@ titre("💳 L'APPORTEUR EXTERNE EST PAYÉ PAR LE MOYEN DU CLIENT (Timo, 21/09/20
       && /devisAvantStatut\.filter\(\(d\) => dansOnglet\(d, filtreStatut\)\)/.test(tdj2)
       && /\[STATUT_SANS_SUITE, "📁 Sans suite"\]/.test(tdj2) && /data-sans-suite/.test(tdj2));
     test("★ 📋 Tous les devis : les boutons ne s'affichent qu'à qui peut (peutClasserDevis), sur un Proposé / un classé",
-      /\{peutClasserDevis\(d, profile\) && \(d\.statut \|\| "propose"\) === "propose" && \(\s*<BoutonRond data-classer-sans-suite icone="📁" teinte="gris" onClick=\{\(\) => classerDevis\(d\)\}/.test(tdj2)
-      && /\{peutClasserDevis\(d, profile\) && estSansSuite\(d\) && \(\s*<BoutonRond data-rouvrir-devis icone="↩" onClick=\{\(\) => rouvrirDevisClasse\(d\)\}/.test(tdj2));
+      /peutClasserDevis\(d, profile\) && \(d\.statut \|\| "propose"\) === "propose" \? \(\s*<BoutonGeste data-classer-sans-suite icone="📁" nom="Classer sans suite" teinte="gris" onClick=\{\(\) => classerDevis\(d\)\}/.test(tdj2)
+      && /peutClasserDevis\(d, profile\) && estSansSuite\(d\) \? \(\s*<BoutonGeste data-rouvrir-devis icone="↩" nom="Rouvrir le devis" onClick=\{\(\) => rouvrirDevisClasse\(d\)\}/.test(tdj2));
     const ec = readFileSync("src/screens/EspaceClient.jsx", "utf8");
     test("★ espace client : un devis classé sans suite ne se valide pas (le cadre de validation ne regarde que « propose »), et le dit SANS le motif interne",
       /\{\(!d\.statut \|\| d\.statut === "propose"\) && \(/.test(ec)
@@ -19968,7 +19990,7 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
   const srcTd = readFileSync("src/screens/TousLesDevis.jsx", "utf8");
   const geste = (srcTd.match(/const telechargerDocTech = \(d\) => \{[\s\S]*?\n  \};/) || [""])[0];
   test("★★ 📑 le bouton ne s'offre que sur un devis solaire, le geste n'enregistre rien (aucun save) et ne lit que le stock de la boutique du devis",
-    /estDevisSolaire\(d\) && \(\s*<BoutonRond data-document-technique/.test(srcTd) && geste.length > 50 && !/\bsave\(/.test(geste)
+    /estDevisSolaire\(d\) \? \(\s*<BoutonGeste data-document-technique/.test(srcTd) && geste.length > 50 && !/\bsave\(/.test(geste)
     && /\(db\.produits \|\| \[\]\)\.filter\(\(p\) => p\.boutique === d\.boutique\)/.test(srcTd));
   test("★ 📑 le volet solaire range les heures de soleil retenues avec le devis ; le PDF du devis, son calcul et son envoi ne sont pas touchés (la fabrique du devis est la même)",
     /soleil: Number\(soleil\) > 0 \? Number\(soleil\) : null/.test(readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8"))
@@ -20066,7 +20088,7 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     !/^\s*import\s/m.test(srcCt) && !/\bdb\b|\.pu\b|\.total\b|prix_achat/.test(srcCt)
     && /<BlocsFinDevis r=\{r\}[^>]*\/>\s*<BlocComplementTechnique r=\{r\} panneaux=\{nombrePanneaux\} \/>/.test(srcSol)
     && !/BlocComplementTechnique/.test(readFileSync("src/screens/dimensionnement/Garage.jsx", "utf8")) && !/BlocComplementTechnique/.test(readFileSync("src/screens/dimensionnement/Autre.jsx", "utf8"))
-    && /estDevisSolaire\(d\) && peutCompleterFiche\(d, profile\) && \(\s*<BoutonRond data-bouton-complement/.test(srcTd)
+    && /estDevisSolaire\(d\) && peutCompleterFiche\(d, profile\) \? \(\s*<BoutonGeste data-bouton-complement/.test(srcTd)
     && gesteCt.length > 100 && /bloquerSiLecture\(db, profile\)/.test(gesteCt) && /devisDans\(db, d\.client\.id, d\.id\)/.test(gesteCt) && /motifRefusComplement\(frais, profile\)/.test(gesteCt)
     && /critiqueComplement\(valeur\)/.test(gesteCt) && /avecDevis\(db, d\.client\.id, d\.id, \(x\) => appliquerComplement\(x, valeur, profile, today\(\)\)\)/.test(gesteCt)
     && !/ComplementTechnique/.test(readFileSync("src/screens/EspaceClient.jsx", "utf8")) && /FormulaireComplement/.test(srcBlocs));

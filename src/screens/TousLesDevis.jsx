@@ -3,7 +3,7 @@
 // responsable commercial, élaborateur) : filtres, statuts, relance,
 // reprise d'un devis pour modification.
 // ============================================================
-import { Fragment, useState, useRef } from "react";
+import { Fragment, useState, useRef, useEffect } from "react";
 import { ZoneSignature } from "../components/ZoneSignature";
 import { soldeApresAcompte, resumePlan, engagementDuContrat, echeancier, critiquePlan, finDuMoisCourant, PLAN_EN_ATTENTE, PLAN_ACCEPTE, PLAN_REJETE } from "../lib/reglement";
 import { genererDevis, genererDocumentTechnique } from "../pdf";
@@ -21,7 +21,7 @@ import { CompleterDevis } from "../components/CompleterDevis";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, libelleRoleEmploye, estSansAcces } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
-import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
+import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonGeste, LigneGestes, NoteDepliable, CelluleActions, IconeWhatsApp } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { etatRelanceAuto } from "../lib/relanceAutoDevis";
 import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE, remiseExigeAdmin, plafondRemise, domaineParId } from "../lib/calculs";
@@ -44,7 +44,7 @@ export function libelleTypeDevis(d) {
 }
 
 // Les colonnes de 📋 Tous les devis (15/10/2026, la règle des lignes).
-export const COLONNES_DEVIS = ["Client", "Date", "Total", "Statut", "Suivi", ""];
+export const COLONNES_DEVIS = ["Client", "Date", "Total", "Statut", "Suivi", "À faire"];
 
 const BadgeStatutDevis = ({ statut }) => {
   const [label, cls] = STATUT_DEVIS[statut || "propose"] || STATUT_DEVIS.propose;
@@ -173,7 +173,7 @@ export function fichierPdfDuDevis(db, d) {
   return { nom: fichierPdf("Devis", { client: donnees.client, numero: donnees.numero }), mime: "application/pdf", taille: Math.floor(base64.length * 3 / 4), donnees: base64 };
 }
 
-export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCommande = null, ouvertInitial = null }) {
+export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCommande = null, ouvertInitial = null, telephoneInitial = false }) {
   // 🗂 + l'assistant(e) de direction (01/11/2026) : elle / il regarde tout, en lecture seule.
   const voitTout = profile.role === "admin" || profile.role === "resp_commercial" || profile.role === "assistant_direction";
 
@@ -294,6 +294,17 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
   };
 
   const [ouvert, setOuvert] = useState(ouvertInitial); // ouvertInitial : pour le banc seul
+  // 📱 Sur téléphone, une CARTE par devis (le tableau de 860 px défilait de côté) ;
+  // UNE seule des deux mises en page est dans la page — jamais les deux (un devis
+  // déplié ne porte pas deux fois ses formulaires). telephoneInitial : banc seul.
+  const [telephone, setTelephone] = useState(() => telephoneInitial || (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 639px)").matches));
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mq = window.matchMedia("(max-width: 639px)");
+    const suit = () => setTelephone(telephoneInitial || mq.matches);
+    mq.addEventListener?.("change", suit);
+    return () => mq.removeEventListener?.("change", suit);
+  }, [telephoneInitial]);
   // ✍️ Le devis en cours de complétion après la visite (08/10/2026).
   const [completion, setCompletion] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState("");
@@ -652,119 +663,39 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
     uAlert(resume ? `✅ Complément enregistré (${resume}). Il apparaît dans le 📑 Document technique de ce devis.` : "Le complément de la fiche technique est retiré.");
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          {peutEtablirPourAutrui(profile) && (
-            <select className={`${inputCls} sm:w-72`} value={auteurFiltre ? filtreAuteur : ""} onChange={(e) => setFiltreAuteur(e.target.value)} data-filtre-auteur-devis>
-              <option value="">👥 Utilisateur — tous</option>
-              {auteursListe.map((u) => (
-                <option key={u.id} value={u.id}>{u.nom} — {libelleRoleEmploye(u)} ({devisDeLEspace.filter((d) => devisDeLAuteur(d, u)).length})</option>
-              ))}
-            </select>
-          )}
-          <div className="font-bold text-slate-800" data-titre-tous-devis>📋 {auteurFiltre ? `TOUS LES DEVIS DE ${String(auteurFiltre.nom || "").toUpperCase()}` : "TOUS MES DEVIS"}</div>
-        </div>
-        {peutEtablirPourAutrui(profile) && auteursListe.length === 0 && profile.role !== "admin" && (
-          <div className="text-xs text-slate-500 -mt-2 mb-3">Aucun commercial n'est sous votre responsabilité (👥 Utilisateurs → ⋯ Gérer → Parrain).</div>
-        )}
-        {/* ⚠ Demande Timo : de VRAIS boutons cliquables pour filtrer par statut,
-            juste sous le titre — pas un simple classement passif de la liste. */}
-        <div data-rangee-boutons className="flex flex-wrap gap-2 mb-3">
-          {[["", "📋 Tous"], ["propose", "⏳ Proposé"], [ONGLET_A_COMPLETER, "📋 À compléter"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"], [STATUT_SANS_SUITE, "📁 Sans suite"]].map(([id, label]) => (
-            <button key={id || "tous"} onClick={() => setFiltreStatut(id)}
-              className={`px-3 py-1.5 rounded-full text-sm font-bold border ${filtreStatut === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
-              {label} <span className={`ml-1 ${filtreStatut === id ? "text-sky-200" : "text-slate-400"}`}>({compteStatut(id)})</span>
-            </button>
-          ))}
-        </div>
-        {nbARelancer > 0 && (
-          <button onClick={() => setRelanceSeule((v) => !v)} className={`mb-3 w-full text-left rounded-lg border px-3 py-2 text-sm font-semibold ${relanceSeule ? "bg-amber-100 border-amber-400 text-amber-900" : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"}`}>
-            ⚠️ {nbARelancer} devis sans réponse depuis plus de {SEUIL_RELANCE_JOURS} jours (proposé{nbARelancer > 1 ? "s" : ""} ou validé{nbARelancer > 1 ? "s" : ""} non payé{nbARelancer > 1 ? "s" : ""}) — {relanceSeule ? "voir tous les devis" : "voir uniquement ceux-ci"}
-          </button>
-        )}
-        <div className="grid sm:grid-cols-2 gap-2">
-          <input className={champRecherche} placeholder="Rechercher un client ou un vendeur…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
-          <select className={inputCls} value={filtreType} onChange={(e) => setFiltreType(e.target.value)}>
-            <option value="">Tous les types</option>
-            <option value="solaire">☀️ Solaire</option>
-            <option value="garage">🚪 Garage</option>
-            <option value="autre">📦 Autre</option>
-          </select>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 mt-2">{periode.selecteur}</div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        {devisFiltres.length === 0 ? (
-          <div className="p-6 text-center text-sm text-slate-400">{periode.actif ? "Aucun devis sur cette période." : <>Aucun devis{auteurFiltre ? ` de ${auteurFiltre.nom}` : voitTout ? "" : " établi par vous"} pour l'instant.</>}</div>
-        ) : (
-          <div className="max-h-[455px] overflow-auto">
-            {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026,
-                « Tous, lance ») : le client figé en première colonne, un clic
-                déplie le devis (une ligne à la fois), les gestes en boutons
-                ronds — le libellé au survol. */}
-            <table className="w-full text-sm min-w-[860px]">
-              <thead className="sticky top-0 z-30 bg-white">
-                <tr className="text-xs text-slate-500 uppercase border-b border-slate-200">
-                  {COLONNES_DEVIS.map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-            {devisPage.map((d, i) => {
-              const deplie = ouvert === d.id;
-              return (
-              <Fragment key={d.id}>
-                <tr data-ligne-devis={deplie ? "deplie" : "replie"} data-ligne={d.id} onClick={() => ouvrirDevis(d)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
-                  <td className={`px-3 py-2 min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)}`}>
-                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                      {d.client?.nom_base || d.client?.nom || "Client"}
-                      {!(d.vu_par || []).includes(profile.id) && (
-                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0" title="Nouveau — pas encore ouvert"></span>
-                      )}
-                    </div>
-                    <div className="text-xs text-slate-500">{libelleTypeDevis(d)}</div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div>{dFR(d.date)}</div>
-                    <div className="text-xs text-slate-500">par {d.par}{d.prepare_par && d.prepare_par !== d.par ? <span data-prepare-par> · préparé par {d.prepare_par}</span> : null}</div>
-                    <div className="text-xs text-slate-400">{d.boutique}</div>
-                  </td>
-                  <td className="px-3 py-2 text-right font-bold text-sky-800 whitespace-nowrap tabular-nums">{fmt(d.total)}</td>
-                  <td className="px-3 py-2"><BadgeStatutDevis statut={d.statut} /></td>
-                  <td className="px-3 py-2 min-w-[240px]">
-                    <div className="flex flex-wrap gap-1 max-w-[380px]">
-                      {enAttenteDeRelance(d) && (
+  // 🏷 Les pastilles d'un devis, écrites UNE fois (18/11/2026, « Tous les devis
+  // façon carnet ») : la ligne en montre deux, le détail les montre toutes.
+  const pastillesDe = (d) => [
+                      enAttenteDeRelance(d) && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-red-50 text-red-700 border-red-300" title={d.relance_le ? `Relancé le ${dFR(d.relance_le)}, toujours sans réponse` : "Devis sans réponse depuis longtemps"}>
                           ⚠️ Sans réponse depuis {joursSansReponse(d)} j
                         </span>
-                      )}
-                      {d.relance_le && devisRelancable(d) && !enAttenteDeRelance(d) && (
+                      ),
+                      d.relance_le && devisRelancable(d) && !enAttenteDeRelance(d) && (
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${d.envoi_whatsapp ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}
                           title={d.envoi_whatsapp ? libelleTrace(d.envoi_whatsapp) : `Relancé par ${d.relance_par || "?"}`}>
                           📲 Relancé le {dFR(d.relance_le)}{d.envoi_whatsapp ? " — du n° BMI" : ""}
                         </span>
-                      )}
-                      {(() => {
+                      ),
+                      (() => {
                           // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
                           // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
                           const e = dernierEnvoiPour(db.messages, { devis_id: d.id });
                           return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
-                        })()}
-                      {offreExpiree(d, today()) && (
+                        })(),
+                      offreExpiree(d, today()) && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-offre-expiree
                           title={`${phraseOffreExpiree(d)}. Le client peut toujours le valider.`}>
                           ⌛ Offre expirée — prix à confirmer
                         </span>
-                      )}
-                      {d.offre_expiree_a_validation && (d.statut === "valide" || d.statut === "paye") && (
+                      ),
+                      d.offre_expiree_a_validation && (d.statut === "valide" || d.statut === "paye") && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
                           title="Le client a validé après la fin de l'offre (15 jours) : le prix est à confirmer avec lui.">
                           ⌛ Validé après expiration — prix à confirmer
                         </span>
-                      )}
-                      {d.relance_auto_le && (d.statut || "propose") === "propose" && (() => {
+                      ),
+                      d.relance_auto_le && (d.statut || "propose") === "propose" && (() => {
                         // ❌ Une relance automatique NON REÇUE ne s'écrit pas « relancé »
                         // (16/10/2026, capture d'ONG, « les deux, lance ») : la dernière
                         // ligne du fil décide (lib/relanceAutoDevis.js).
@@ -781,41 +712,41 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                             🤖 Relancé automatiquement le {dFR(d.relance_auto_le)}
                           </span>
                         );
-                      })()}
-                      {demandeModifEnCours(d) && (
+                      })(),
+                      demandeModifEnCours(d) && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
                           title={`Motif : ${d.demande_bmi.motif}`}>
                           ⏳ Modification demandée au client
                         </span>
-                      )}
-                      {demandeModifAcceptee(d) && (
+                      ),
+                      demandeModifAcceptee(d) && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-green-50 text-green-800 border-green-300">
                           ✅ Le client a accepté — à corriger
                         </span>
-                      )}
-                      {cyclesModif(d) > 0 && (
+                      ),
+                      cyclesModif(d) > 0 && (
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${cyclesModif(d) >= MAX_CYCLES_MODIF ? "bg-red-50 text-red-800 border-red-300" : "bg-slate-50 text-slate-600 border-slate-300"}`}>
                           🔁 {cyclesModif(d)}/{MAX_CYCLES_MODIF} aller-retour{cyclesModif(d) > 1 ? "s" : ""}
                         </span>
-                      )}
-                      {d.modifie_le && (
+                      ),
+                      d.modifie_le && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300"
                           title={`Devis corrigé par ${d.modifie_par || "?"}${d.nb_modifications > 1 ? ` — ${d.nb_modifications} corrections` : ""}`}>
                           ✏️ Modifié le {dFR(d.modifie_le)} par {d.modifie_par || "?"}{d.nb_modifications > 1 ? ` (${d.nb_modifications}×)` : ""}
                         </span>
-                      )}
-                      {devisACompleter(d) && (
+                      ),
+                      devisACompleter(d) && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-amber-50 text-amber-800 border-amber-300" data-badge-cf-visite
                           title={PHRASE_A_COMPLETER}>
                           📋 À compléter après la visite
                         </span>
-                      )}
-                      {d.complete_le && (
+                      ),
+                      d.complete_le && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-emerald-50 text-emerald-800 border-emerald-300" data-badge-complete>
                           ✍️ Complété le {dFR(d.complete_le)} par {d.complete_par || "?"}
                         </span>
-                      )}
-                      {estSansAcces(d.client) ? (
+                      ),
+                      estSansAcces(d.client) ? (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-100 text-slate-700 border-slate-400" data-badge-sans-compte
                           title={`Devis imprimé${d.imprime ? ` le ${dFR(d.imprime.le)} par ${d.imprime.par}` : ""} : le client n'a pas d'accès à l'application, rien ne lui est envoyé.`}>
                           🖨 Sans compte
@@ -824,53 +755,68 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-50 text-slate-600 border-slate-300" data-badge-imprime>
                           🖨 Imprimé le {dFR(d.imprime.le)}
                         </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <CelluleActions largeur="min-w-[120px] max-w-[200px]">
-                    {/* 💰 Encaisser (« b ») : l'administrateur, devis validé dont la commande attend. */}
-                    {profile.role === "admin" && onEncaisserCommande && commandeAEncaisser(db, d) && (
-                      <BoutonRond data-encaisser-devis icone="💰" teinte="vert" onClick={() => encaisserDevis(d)}
-                        titre={`💰 Encaisser — ouvre 💰 Ventes avec ce devis (commande à ${commandeAEncaisser(db, d).boutique})`} />
-                    )}
-                    {devisRelancable(d) && !estSansAcces(d.client) && (
-                      <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="vert" envoi onClick={() => relancerDevis(d)}
-                        titre={`📲 Relancer sur WhatsApp${d.relance_le ? ` (déjà le ${dFR(d.relance_le)}${d.nb_relances > 1 ? `, ${d.nb_relances} fois` : ""})` : ""} — ${(d.statut || "propose") === "valide" ? "rappeler au client qu'il reste à régler" : "rappeler le devis au client"}`} />
-                    )}
-                    {peutModifierDevis(d, profile) && onModifierDevis && (
-                      <BoutonRond icone="✏️" teinte="ambre" onClick={() => modifierDevis(d)} titre={estSansAcces(d.client) ? "✏️ Modifier (puis réimprimer)" : "✏️ Modifier et renvoyer"} />
-                    )}
-                    {peutDemanderModif(db, d, profile) && !estSansAcces(d.client) && (
-                      <BoutonRond icone="📝" teinte="ambre" onClick={() => demanderModifAuClient(d)} titre="✏️ Demander une modification au client — ce devis est signé : le client doit accepter avant toute correction" />
-                    )}
-                    {peutCompleterDevis(d, profile) && (
-                      <BoutonRond data-bouton-completer icone="✍️" teinte="ambre" onClick={() => { setCompletion(completion === d.id ? null : d.id); if (!deplie) ouvrirDevis(d); }}
-                        titre="✍️ Compléter le devis — chiffrer les éléments « cf. visite », les lignes déjà chiffrées ne changent pas" />
-                    )}
-                    <BoutonRond data-devis-pdf icone="📄" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />
-                    {estDevisSolaire(d) && (
-                      <BoutonRond data-document-technique icone="📑" onClick={() => telechargerDocTech(d)} titre="📑 Document technique — besoins, calcul, matériel et entretien, sans aucun prix" />
-                    )}
-                    {estDevisSolaire(d) && peutCompleterFiche(d, profile) && (
-                      <BoutonRond data-bouton-complement icone="🧩" teinte="bleu" onClick={() => { setComplementDe(complementDe === d.id ? null : d.id); if (!deplie) ouvrirDevis(d); }}
-                        titre={d.complement_technique ? "🧩 Complément de la fiche technique (déjà renseigné) — câbles, protections, implantation" : "🧩 Complément de la fiche technique — câbles, protections, implantation (facultatif)"} />
-                    )}
-                    {peutClasserDevis(d, profile) && (d.statut || "propose") === "propose" && (
-                      <BoutonRond data-classer-sans-suite icone="📁" teinte="gris" onClick={() => classerDevis(d)} titre="📁 Classer sans suite — le devis reste entier mais sort de la liste active" />
-                    )}
-                    {peutClasserDevis(d, profile) && estSansSuite(d) && (
-                      <BoutonRond data-rouvrir-devis icone="↩" onClick={() => rouvrirDevisClasse(d)} titre="↩ Rouvrir le devis — il redevient ⏳ Proposé" />
-                    )}
-                    {peutDeciderDuPlan && !critiqueSuppressionDevis(d) && (
-                      <BoutonRond data-supprimer-devis icone="🗑" teinte="rouge" onClick={() => supprimerDevis(d)} titre={`🗑 Supprimer — le devis part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours`} />
-                    )}
-                  </CelluleActions>
-                </tr>
+                      ) : null,
+  ].filter(Boolean);
 
-                {deplie && (
-                  <tr className="bg-slate-50" data-detail-devis><td colSpan={COLONNES_DEVIS.length} className="px-4 pt-2 pb-4">
-                  {/* Sur téléphone, le détail tient dans l'écran (le tableau, lui, défile). */}
+  // 🖐 Les gestes d'un devis, écrits en mots et UNE fois. Le « geste du moment »
+  // (encaisser, compléter ou relancer) est sur la ligne ; les autres sont dans
+  // le détail, rangés par thème (LigneGestes).
+  const gestesDe = (d, deplie) => ({
+    encaisser: profile.role === "admin" && onEncaisserCommande && commandeAEncaisser(db, d) ? (
+      <BoutonGeste data-encaisser-devis icone="💰" nom="Encaisser" teinte="vert" onClick={() => encaisserDevis(d)}
+        titre={`💰 Encaisser — ouvre 💰 Ventes avec ce devis (commande à ${commandeAEncaisser(db, d).boutique})`} />
+    ) : null,
+    relancer: devisRelancable(d) && !estSansAcces(d.client) ? (
+      <BoutonGeste icone={<IconeWhatsApp taille={16} />} nom="Relancer par WhatsApp" teinte="vert" envoi onClick={() => relancerDevis(d)}
+        titre={`📲 Relancer sur WhatsApp${d.relance_le ? ` (déjà le ${dFR(d.relance_le)}${d.nb_relances > 1 ? `, ${d.nb_relances} fois` : ""})` : ""} — ${(d.statut || "propose") === "valide" ? "rappeler au client qu'il reste à régler" : "rappeler le devis au client"}`} />
+    ) : null,
+    modifier: peutModifierDevis(d, profile) && onModifierDevis ? (
+      <BoutonGeste icone="✏️" nom={estSansAcces(d.client) ? "Modifier (puis réimprimer)" : "Modifier et renvoyer"} teinte="ambre" onClick={() => modifierDevis(d)} titre={estSansAcces(d.client) ? "✏️ Modifier (puis réimprimer)" : "✏️ Modifier et renvoyer"} />
+    ) : null,
+    demander: peutDemanderModif(db, d, profile) && !estSansAcces(d.client) ? (
+      <BoutonGeste icone="📝" nom="Demander une modification au client" teinte="ambre" onClick={() => demanderModifAuClient(d)} titre="✏️ Demander une modification au client — ce devis est signé : le client doit accepter avant toute correction" />
+    ) : null,
+    completer: peutCompleterDevis(d, profile) ? (
+      <BoutonGeste data-bouton-completer icone="✍️" nom="Compléter le devis" teinte="ambre" onClick={() => { setCompletion(completion === d.id ? null : d.id); if (!deplie) ouvrirDevis(d); }}
+        titre="✍️ Compléter le devis — chiffrer les éléments « cf. visite », les lignes déjà chiffrées ne changent pas" />
+    ) : null,
+    pdf: <BoutonGeste data-devis-pdf icone="📄" nom="Devis PDF" onClick={() => telechargerPDF(d)} titre="📄 Devis PDF" />,
+    doctech: estDevisSolaire(d) ? (
+      <BoutonGeste data-document-technique icone="📑" nom="Document technique" onClick={() => telechargerDocTech(d)} titre="📑 Document technique — besoins, calcul, matériel et entretien, sans aucun prix" />
+    ) : null,
+    complement: estDevisSolaire(d) && peutCompleterFiche(d, profile) ? (
+      <BoutonGeste data-bouton-complement icone="🧩" nom="Complément de la fiche" teinte="bleu" onClick={() => { setComplementDe(complementDe === d.id ? null : d.id); if (!deplie) ouvrirDevis(d); }}
+        titre={d.complement_technique ? "🧩 Complément de la fiche technique (déjà renseigné) — câbles, protections, implantation" : "🧩 Complément de la fiche technique — câbles, protections, implantation (facultatif)"} />
+    ) : null,
+    classer: peutClasserDevis(d, profile) && (d.statut || "propose") === "propose" ? (
+      <BoutonGeste data-classer-sans-suite icone="📁" nom="Classer sans suite" teinte="gris" onClick={() => classerDevis(d)} titre="📁 Classer sans suite — le devis reste entier mais sort de la liste active" />
+    ) : null,
+    rouvrir: peutClasserDevis(d, profile) && estSansSuite(d) ? (
+      <BoutonGeste data-rouvrir-devis icone="↩" nom="Rouvrir le devis" onClick={() => rouvrirDevisClasse(d)} titre="↩ Rouvrir le devis — il redevient ⏳ Proposé" />
+    ) : null,
+    supprimer: peutDeciderDuPlan && !critiqueSuppressionDevis(d) ? (
+      <BoutonGeste data-supprimer-devis icone="🗑" nom="Supprimer" teinte="rouge" onClick={() => supprimerDevis(d)} titre={`🗑 Supprimer — le devis part dans la corbeille ${DUREE_CORBEILLE_JOURS} jours`} />
+    ) : null,
+  });
+  // Le geste du moment : celui que la personne cherche d'abord sur CE devis.
+  const gesteDuMoment = (g, d) => (g.encaisser ? "encaisser" : g.completer ? "completer" : g.relancer && enAttenteDeRelance(d) ? "relancer" : g.relancer ? "relancer" : null);
+
+  const detailDe = (d, deplie) => {
+    const g = gestesDe(d, deplie);
+    const moment = gesteDuMoment(g, d);
+    const reste = { ...g, ...(moment ? { [moment]: null } : {}) };
+    const pastilles = pastillesDe(d);
+    return (
                   <div className="max-w-[min(900px,calc(100vw-56px))]">
+                    {pastilles.length > 0 && (
+                      <div data-pastilles-detail className="mb-3 flex flex-wrap gap-1">{pastilles.map((x, k) => <Fragment key={k}>{x}</Fragment>)}</div>
+                    )}
+                    <div data-gestes-devis className="mb-3 space-y-1.5">
+                      <LigneGestes nom="Client">{reste.relancer}{reste.demander}{reste.encaisser}</LigneGestes>
+                      <LigneGestes nom="Documents">{reste.pdf}{reste.doctech}</LigneGestes>
+                      <LigneGestes nom="Modifier">{reste.modifier}{reste.completer}{reste.complement}</LigneGestes>
+                      <LigneGestes nom="Classer">{reste.classer}{reste.rouvrir}{reste.supprimer}</LigneGestes>
+                    </div>
                     {estSansSuite(d) && (
                       <div className="mb-3 rounded-xl border-2 border-slate-300 bg-white p-3 text-sm" data-sans-suite>
                         <div className="font-bold text-slate-800">📁 Classé sans suite le {dFR(d.sans_suite?.le)} par {d.sans_suite?.par || "?"}</div>
@@ -963,6 +909,147 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                       </div>
                     )}
                   </div>
+    );
+  };
+
+  // 🧾 Une ligne : client, date, total, statut, deux pastilles et LE geste du moment.
+  const celluleSuivi = (d) => {
+    const pastilles = pastillesDe(d);
+    return (
+      <>
+        <div className="flex flex-wrap gap-1 max-w-[380px]">{pastilles.slice(0, 2).map((x, k) => <Fragment key={k}>{x}</Fragment>)}</div>
+        {pastilles.length > 2 && <div data-pastilles-plus className="text-[11px] text-slate-500 mt-1">+ {pastilles.length - 2} autre{pastilles.length - 2 > 1 ? "s" : ""} dans le détail</div>}
+      </>
+    );
+  };
+  const gestesDeLaLigne = (d, deplie) => {
+    const g = gestesDe(d, deplie);
+    const moment = gesteDuMoment(g, d);
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {moment && g[moment]}
+        <BoutonGeste data-detail-devis-bouton icone={deplie ? "▾" : "▸"} nom="Détail" onClick={() => ouvrirDevis(d)} titre="Voir les articles, les pastilles et tous les gestes de ce devis" />
+      </div>
+    );
+  };
+
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {peutEtablirPourAutrui(profile) && (
+            <select className={`${inputCls} sm:w-72`} value={auteurFiltre ? filtreAuteur : ""} onChange={(e) => setFiltreAuteur(e.target.value)} data-filtre-auteur-devis>
+              <option value="">👥 Utilisateur — tous</option>
+              {auteursListe.map((u) => (
+                <option key={u.id} value={u.id}>{u.nom} — {libelleRoleEmploye(u)} ({devisDeLEspace.filter((d) => devisDeLAuteur(d, u)).length})</option>
+              ))}
+            </select>
+          )}
+          <div className="font-bold text-slate-800" data-titre-tous-devis>📋 {auteurFiltre ? `TOUS LES DEVIS DE ${String(auteurFiltre.nom || "").toUpperCase()}` : "TOUS MES DEVIS"}</div>
+        </div>
+        {peutEtablirPourAutrui(profile) && auteursListe.length === 0 && profile.role !== "admin" && (
+          <div className="text-xs text-slate-500 -mt-2 mb-3">Aucun commercial n'est sous votre responsabilité (👥 Utilisateurs → ⋯ Gérer → Parrain).</div>
+        )}
+        {/* ⚠ Demande Timo : de VRAIS boutons cliquables pour filtrer par statut,
+            juste sous le titre — pas un simple classement passif de la liste. */}
+        <div data-rangee-boutons className="flex flex-wrap gap-2 mb-3">
+          {[["", "📋 Tous"], ["propose", "⏳ Proposé"], [ONGLET_A_COMPLETER, "📋 À compléter"], ["valide", "✅ Validé"], ["paye", "💰 Payé"], ["modification", "✏️ Modification"], ["rejete", "❌ Rejeté"], [STATUT_SANS_SUITE, "📁 Sans suite"]].map(([id, label]) => (
+            <button key={id || "tous"} onClick={() => setFiltreStatut(id)}
+              className={`px-3 py-1.5 rounded-full text-sm font-bold border ${filtreStatut === id ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+              {label} <span className={`ml-1 ${filtreStatut === id ? "text-sky-200" : "text-slate-400"}`}>({compteStatut(id)})</span>
+            </button>
+          ))}
+        </div>
+        {nbARelancer > 0 && (
+          <div data-bande-relance className={`mb-3 rounded-lg border px-3 py-2 text-sm ${relanceSeule ? "bg-amber-100 border-amber-400 text-amber-900" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">⚠️ {nbARelancer} devis sans réponse depuis plus de {SEUIL_RELANCE_JOURS} jours</span>
+              <BoutonGeste icone="🔎" nom={relanceSeule ? "Voir tous les devis" : "Voir seulement ceux-là"} teinte="ambre" onClick={() => setRelanceSeule((v) => !v)} />
+            </div>
+            <NoteDepliable libelle="Qui est compté ?" className="mt-1">Les devis proposés ou validés, non payés, restés sans réponse depuis plus de {SEUIL_RELANCE_JOURS} jours (comptés depuis la dernière relance, sinon depuis le devis).</NoteDepliable>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <input className={champRecherche} placeholder="Rechercher un client ou un vendeur…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+          <select className={`${inputCls} sm:w-48`} value={filtreType} onChange={(e) => setFiltreType(e.target.value)}>
+            <option value="">Tous les types</option>
+            <option value="solaire">☀️ Solaire</option>
+            <option value="garage">🚪 Garage</option>
+            <option value="autre">📦 Autre</option>
+          </select>
+          {periode.selecteur}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {devisFiltres.length === 0 ? (
+          <div className="p-6 text-center text-sm text-slate-400">{periode.actif ? "Aucun devis sur cette période." : <>Aucun devis{auteurFiltre ? ` de ${auteurFiltre.nom}` : voitTout ? "" : " établi par vous"} pour l'instant.</>}</div>
+        ) : (
+          <div className="max-h-[455px] overflow-auto">
+            {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026,
+                « Tous, lance ») : le client figé en première colonne, un clic
+                déplie le devis (une ligne à la fois), les gestes en boutons
+                ronds — le libellé au survol. */}
+            {telephone ? (
+              <div data-devis-cartes className="p-2 space-y-2">
+                {devisPage.map((d) => {
+                  const deplie = ouvert === d.id;
+                  return (
+                    <div key={d.id} data-devis-carte data-ligne-devis={deplie ? "deplie" : "replie"} data-ligne={d.id} onClick={() => ouvrirDevis(d)}
+                      className={`rounded-xl border p-3 cursor-pointer ${deplie ? "border-sky-400 bg-sky-50" : "border-slate-200 bg-white"}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                          {d.client?.nom_base || d.client?.nom || "Client"}
+                          {!(d.vu_par || []).includes(profile.id) && <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0" title="Nouveau — pas encore ouvert"></span>}
+                        </div>
+                        <div className="font-bold text-sky-800 tabular-nums whitespace-nowrap">{fmt(d.total)}</div>
+                      </div>
+                      <div className="text-xs text-slate-500">{libelleTypeDevis(d)} · {dFR(d.date)} · par {d.par}</div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1"><BadgeStatutDevis statut={d.statut} /></div>
+                      <div className="mt-1.5">{celluleSuivi(d)}</div>
+                      <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesDeLaLigne(d, deplie)}</div>
+                      {deplie && <div onClick={(e) => e.stopPropagation()} className="mt-3" data-detail-devis>{detailDe(d, deplie)}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+            <table className="w-full text-sm min-w-[860px]">
+              <thead className="sticky top-0 z-30 bg-white">
+                <tr className="text-xs text-slate-500 uppercase border-b border-slate-200">
+                  {COLONNES_DEVIS.map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+            {devisPage.map((d, i) => {
+              const deplie = ouvert === d.id;
+              return (
+              <Fragment key={d.id}>
+                <tr data-ligne-devis={deplie ? "deplie" : "replie"} data-ligne={d.id} onClick={() => ouvrirDevis(d)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
+                  <td className={`px-3 py-2 min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)}`}>
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      {d.client?.nom_base || d.client?.nom || "Client"}
+                      {!(d.vu_par || []).includes(profile.id) && (
+                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0" title="Nouveau — pas encore ouvert"></span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500">{libelleTypeDevis(d)}</div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div>{dFR(d.date)}</div>
+                    <div className="text-xs text-slate-500">par {d.par}{d.prepare_par && d.prepare_par !== d.par ? <span data-prepare-par> · préparé par {d.prepare_par}</span> : null}</div>
+                    <div className="text-xs text-slate-400">{d.boutique}</div>
+                  </td>
+                  <td className="px-3 py-2 text-right font-bold text-sky-800 whitespace-nowrap tabular-nums">{fmt(d.total)}</td>
+                  <td className="px-3 py-2"><BadgeStatutDevis statut={d.statut} /></td>
+                  <td className="px-3 py-2 min-w-[240px]">{celluleSuivi(d)}</td>
+                  <CelluleActions largeur="min-w-[200px] max-w-[260px]">{gestesDeLaLigne(d, deplie)}</CelluleActions>
+                </tr>
+
+                {deplie && (
+                  <tr className="bg-slate-50" data-detail-devis><td colSpan={COLONNES_DEVIS.length} className="px-4 pt-2 pb-4">
+                  {detailDe(d, deplie)}
                   </td></tr>
                 )}
               </Fragment>
@@ -970,6 +1057,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
             })}
               </tbody>
             </table>
+            )}
           </div>
         )}
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
