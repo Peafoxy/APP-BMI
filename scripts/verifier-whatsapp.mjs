@@ -2611,19 +2611,21 @@ titre("㉗ 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE FOIS (25/09
   test("★★ la case Localisation ne porte QUE le lieu (ni le besoin, ni l'estimation)",
     cellLoc.length > 0 && !/p\.nature/.test(cellLoc) && !/estimation_assistant/.test(cellLoc));
   test("★★ le besoin a SA ligne sur toute la largeur, deux lignes au plus, un clic l'ouvre, un second le replie (un seul déplié)",
-    /<td colSpan=\{nbColonnes\}/.test(P) && /line-clamp-2/.test(P) && /setBesoinDeplie\(deplie \? null : p\.id\)/.test(P)
-    && /const deplie = besoinDeplie === p\.id;/.test(P) && /data-besoin-prospect/.test(P));
+    // RETOURNÉ le 19/11/2026 : la ligne du besoin vit dans `sousLignes` de ListeCarnet (toute la largeur : colSpan de la sous-ligne).
+    /sousLignes=\{/.test(P) && /colSpan=\{colonnes\.length\}/.test(lire("src/components/ListeCarnet.jsx")) && /line-clamp-2/.test(P) && /setBesoinDeplie\(deplie \? null : p\.id\)/.test(P)
+    && /onBasculer=\{\(p\) => setBesoinDeplie\(besoinDeplie === p\.id \? null : p\.id\)\}/.test(P) && /data-besoin-prospect/.test(P));
   test("★ l'estimation n'apparaît qu'UNE fois sur l'écran, en pastille",
     (P.match(/data-estimation-assistant/g) || []).length === 1);
   // ⚠ RETOURNÉ le 15/10/2026 (« Tous, lance ») : la ligne se déplie au clic,
   // la cellule figée porte le fond de la ligne (orange en retard, bleu dépliée).
   test("★★ le NOM reste figé pendant le défilement horizontal (« comme dans stock ») : première colonne, par LA règle commune enTeteFige / celluleFigee, fond de la ligne gardé (orange sur une relance en retard, bleu dépliée)",
-    /\{\["Nom", "Numéro", "Catégorie \/ projet",/.test(P) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(P)
-    && /const fond = enRetard \? "bg-orange-50" : "";/.test(P)
-    && /<td className=\{`px-3 py-2 min-w-\[170px\] \$\{celluleFigee\(fondLigneDepliable\(deplie, i, fond\), deplie\)\}`\}>\{nomEtLieu\(p\)\}/.test(P) && /<div className="font-semibold">\{p\.nom\}<\/div>/.test(P)
+    // RETOURNÉ le 19/11/2026 : la colonne figée et le fond de la ligne sont écrits UNE fois dans ListeCarnet.
+    /\{ titre: "Nom", figee: true, cellule: \(p\) => nomEtLieu\(p\) \}/.test(P) && /titre: "Catégorie \/ projet"/.test(P)
+    && /fond=\{\(p\) => \(p\.relance && p\.relance <= today\(\) \? "bg-orange-50" : ""\)\}/.test(P)
+    && /enTeteFige\(enTeteFond\)/.test(lire("src/components/ListeCarnet.jsx")) && /celluleFigee\(fondLigneDepliable\(deplie, i, f\), deplie\)/.test(lire("src/components/ListeCarnet.jsx")) && /<div className="font-semibold">\{p\.nom\}<\/div>/.test(P)
     && !/sticky left-0/.test(P));
   test("★ les gestes sont des boutons ronds qui passent à la ligne (RETOURNÉ le 15/10/2026 : CelluleActions bridée)",
-    /<CelluleActions largeur="min-w-\[200px\] max-w-\[260px\]">\{gestesDeLaLigne\(p, deplie\)\}<\/CelluleActions>/.test(P) /* RETOURNÉ le 18/11/2026 : gestes écrits en mots (BoutonGeste) */ && !/className="text-xs[^"]*underline/.test(P.slice(P.indexOf("<table"), P.indexOf("</table>"))));
+    /\{ titre: "À faire", actions: true \}/.test(P) && /gestes=\{\(p, deplie\) => gestesDeLaLigne\(p, deplie\)\}/.test(P) && /<CelluleActions\b/.test(lire("src/components/ListeCarnet.jsx")) /* RETOURNÉ le 19/11/2026 : la cellule des gestes vient de ListeCarnet */ && !/className="text-xs[^"]*underline/.test(P.slice(P.indexOf("<ListeCarnet"), P.indexOf("<Pagination"))));
   const capture = "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour. Estimation donnée : ~34,2 kWh/jour, 22 panneaux 400W, 4 batteries 200Ah 48V, convertisseur 5,5 kW, entre 4 600 000 et 6 250 000 F CFA.";
   test("★★ le besoin enregistré par l'assistant ne garde QUE ce que le client a dit (la phrase de sa capture)",
     I.besoinSansEstimation(capture) === "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour."

@@ -3,7 +3,7 @@
 // vue Admin) : catégories, contact WhatsApp, position sur carte,
 // détection des dormants, conversion en client.
 // ============================================================
-import { Fragment, useState, useEffect } from "react";
+import { useState } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
@@ -23,7 +23,8 @@ import { positionActuelle } from "../position";
 import { peutPreparerDevisDuProspect, auteurProposePourProspect } from "../lib/commercialDuProspect";
 import { auteursPossibles } from "./dimensionnement/devisCommun";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
+import { ListeCarnet, useTelephone } from "../components/ListeCarnet";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, FormulaireRepliable, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour, envoyerAvisNouveauContact, ONGLETS_ROLE } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -444,14 +445,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     .sort((a, b) => String(b.reference).localeCompare(String(a.reference)));
   // 📱 Sur téléphone, une CARTE par prospect (le tableau de 900 px défilait de côté) ;
   // UNE seule des deux mises en page est dans la page. telephoneInitial : banc seul.
-  const [telephone, setTelephone] = useState(() => telephoneInitial || (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 639px)").matches));
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const mq = window.matchMedia("(max-width: 639px)");
-    const suit = () => setTelephone(telephoneInitial || mq.matches);
-    mq.addEventListener?.("change", suit);
-    return () => mq.removeEventListener?.("change", suit);
-  }, [telephoneInitial]);
+  const telephone = useTelephone(telephoneInitial);
 
   const aRelancerAujourdhui = (voitTout ? actifs : actifs.filter((p) => p.commercial === profile.nom)).filter((p) => p.relance && p.relance <= today()).length;
 
@@ -548,7 +542,6 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                         {p.estimation_assistant && <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 font-semibold whitespace-nowrap" data-estimation-assistant title="Estimation indicative, pose comprise, donnée au client par l'assistant WhatsApp">🤖 Estimation donnée le {dFR(p.estimation_assistant.le)} : {fmt(p.estimation_assistant.bas)} – {fmt(p.estimation_assistant.haut)}</span>}
                       </div>
   );
-  const nbColonnes = 6 + (voitTout ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -719,93 +712,67 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
             </button>
           ))}
         </div>
-        {telephone ? (
-          <div data-prospects-cartes className="p-2 space-y-2">
-            {liste.length === 0 && <div className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</div>}
-            {listePage.map((p) => {
-              const enRetard = p.relance && p.relance <= today();
-              const deplie = besoinDeplie === p.id;
-              return (
-                <div key={p.id} data-prospect-carte data-ligne-prospect={deplie ? "deplie" : "replie"} onClick={() => setBesoinDeplie(deplie ? null : p.id)}
-                  className={`rounded-xl border p-3 cursor-pointer ${deplie ? "border-sky-400 bg-sky-50" : enRetard ? "border-orange-300 bg-orange-50" : "border-slate-200 bg-white"}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>{nomEtLieu(p)}</div>
-                    {p.relance && <div className={`text-xs whitespace-nowrap ${enRetard ? "text-orange-700 font-bold" : "text-slate-500"}`}>{enRetard ? "⚠ " : ""}relance {dFR(p.relance)}</div>}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">{p.tel}{p.categorie ? ` · ${p.categorie}` : ""}</div>
-                  {p.projet && <div className="text-xs font-semibold text-sky-800" data-projet>🎯 {p.projet}</div>}
-                  <div className="mt-1.5">{avisDe(p)} {interetDe(p)}</div>
-                  {voitTout && <div className="text-xs text-slate-500 mt-1" data-commercial-du-prospect>{p.commercial}</div>}
-                  {visitesDuProspect(rdvVisibles, p.id).length > 0 && <div className="mt-1 text-xs text-slate-600" data-visites-prospect>{lignesVisites(p)}</div>}
-                  <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesDeLaLigne(p, deplie)}</div>
-                  {deplie && (
-                    <div onClick={(e) => e.stopPropagation()} className="mt-3 space-y-2" data-detail-prospect>
-                      {voitTout && (p.contacts || []).length > 0 && <div className="text-xs text-slate-600" data-contacts-prospect>{lignesContacts(p)}</div>}
-                      {(p.nature || p.estimation_assistant) && <div data-besoin-prospect="deplie">{blocBesoin(p, deplie)}</div>}
-                      {gestesDuDetail(p)}
-                    </div>
-                  )}
+        <ListeCarnet
+          items={listePage} telephone={telephone} ouvert={besoinDeplie} onBasculer={(p) => setBesoinDeplie(besoinDeplie === p.id ? null : p.id)}
+          marques={{ cartes: "data-prospects-cartes", carte: "data-prospect-carte", etat: "data-ligne-prospect", detail: "data-detail-prospect" }}
+          aucun={<div className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</div>}
+          fond={(p) => (p.relance && p.relance <= today() ? "bg-orange-50" : "")}
+          carteClasse={(p) => (p.relance && p.relance <= today() ? "border-orange-300 bg-orange-50" : "")}
+          colonnes={[
+            { titre: "Nom", figee: true, cellule: (p) => nomEtLieu(p) },
+            { titre: "Numéro", classe: "whitespace-nowrap", cellule: (p) => p.tel },
+            { titre: "Catégorie / projet", classe: "text-slate-500", cellule: (p) => (
+              <>
+                {p.categorie}
+                {p.projet && <div className="text-xs font-semibold text-sky-800" data-projet>🎯 {p.projet}</div>}
+              </>
+            ) },
+            { titre: "Avis · intérêt", cellule: (p) => (
+              <>
+                {avisDe(p)}
+                <div className="mt-1">{interetDe(p)}</div>
+              </>
+            ) },
+            { titre: "Relance", classe: "whitespace-nowrap", cellule: (p) => <span className={p.relance && p.relance <= today() ? "text-orange-700 font-bold" : ""}>{p.relance ? dFR(p.relance) : "—"}</span> },
+            ...(voitTout ? [{ titre: "Commercial", cellule: (p) => <div data-commercial-du-prospect>{p.commercial}</div> }] : []),
+            { titre: "À faire", actions: true },
+          ]}
+          carte={(p) => {
+            const enRetard = p.relance && p.relance <= today();
+            return (
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <div>{nomEtLieu(p)}</div>
+                  {p.relance && <div className={`text-xs whitespace-nowrap ${enRetard ? "text-orange-700 font-bold" : "text-slate-500"}`}>{enRetard ? "⚠ " : ""}relance {dFR(p.relance)}</div>}
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-        <table className="w-full text-sm min-w-[860px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Numéro", "Catégorie / projet", "Avis · intérêt", "Relance", ...(voitTout ? ["Commercial"] : []), "À faire"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
-          <tbody>
-            {liste.length === 0 && <tr><td colSpan={nbColonnes} className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</td></tr>}
-            {listePage.map((p, i) => {
-              const enRetard = p.relance && p.relance <= today();
-              const deplie = besoinDeplie === p.id;
-              const fond = enRetard ? "bg-orange-50" : "";
-              return (
-                <Fragment key={p.id}>
-                {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes : un clic la déplie,
-                    une seule à la fois. « Prospects façon carnet » (18/11/2026) : la ligne ne
-                    porte que le geste du moment ; les autres gestes sont écrits dans le détail. */}
-                <tr data-ligne-prospect={deplie ? "deplie" : "replie"} onClick={() => setBesoinDeplie(deplie ? null : p.id)} className={`border-t border-slate-100 cursor-pointer ${classeLigneDepliable(deplie, i, fond)}`}>
-                  <td className={`px-3 py-2 min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i, fond), deplie)}`}>{nomEtLieu(p)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{p.tel}</td>
-                  <td className="px-3 py-2 text-slate-500">
-                    {p.categorie}
-                    {p.projet && <div className="text-xs font-semibold text-sky-800" data-projet>🎯 {p.projet}</div>}
-                  </td>
-                  <td className="px-3 py-2">
-                    {avisDe(p)}
-                    <div className="mt-1">{interetDe(p)}</div>
-                  </td>
-                  <td className={`px-3 py-2 whitespace-nowrap ${enRetard ? "text-orange-700 font-bold" : ""}`}>{p.relance ? dFR(p.relance) : "—"}</td>
-                  {voitTout && <td className="px-3 py-2" data-commercial-du-prospect>{p.commercial}</td>}
-                  <CelluleActions largeur="min-w-[200px] max-w-[260px]">{gestesDeLaLigne(p, deplie)}</CelluleActions>
-                </tr>
-                {/* 📅 Les visites de ce prospect et leur compte rendu (Rendez-vous « G »). */}
-                {visitesDuProspect(rdvVisibles, p.id).length > 0 && (
-                  <tr className={fondLigneDepliable(deplie, i, fond)} data-visites-prospect>
-                    <td colSpan={nbColonnes} className="px-3 pb-2 pt-0 text-xs text-slate-600">{lignesVisites(p)}</td>
-                  </tr>
-                )}
-                {/* 📞 Les contacts notés, avec l'heure et l'endroit (ceux qui voient toute l'équipe), sur la ligne dépliée. */}
-                {voitTout && deplie && (p.contacts || []).length > 0 && (
-                  <tr className={fondLigneDepliable(deplie, i, fond)} data-contacts-prospect>
-                    <td colSpan={nbColonnes} className="px-3 pb-2 pt-0 text-xs text-slate-600">{lignesContacts(p)}</td>
-                  </tr>
-                )}
-                {(p.nature || p.estimation_assistant) && (
-                  <tr className={`${fondLigneDepliable(deplie, i, fond)} cursor-pointer`} onClick={() => setBesoinDeplie(deplie ? null : p.id)} data-besoin-prospect={deplie ? "deplie" : "replie"}>
-                    <td colSpan={nbColonnes} className="px-3 pb-2 pt-0">{blocBesoin(p, deplie)}</td>
-                  </tr>
-                )}
-                {deplie && (
-                  <tr className={fondLigneDepliable(deplie, i, fond)} data-detail-prospect>
-                    <td colSpan={nbColonnes} className="px-3 pb-3 pt-1">{gestesDuDetail(p)}</td>
-                  </tr>
-                )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-        )}
+                <div className="text-xs text-slate-500 mt-1">{p.tel}{p.categorie ? ` · ${p.categorie}` : ""}</div>
+                {p.projet && <div className="text-xs font-semibold text-sky-800" data-projet>🎯 {p.projet}</div>}
+                <div className="mt-1.5">{avisDe(p)} {interetDe(p)}</div>
+                {voitTout && <div className="text-xs text-slate-500 mt-1" data-commercial-du-prospect>{p.commercial}</div>}
+                {visitesDuProspect(rdvVisibles, p.id).length > 0 && <div className="mt-1 text-xs text-slate-600" data-visites-prospect>{lignesVisites(p)}</div>}
+              </>
+            );
+          }}
+          gestes={(p, deplie) => gestesDeLaLigne(p, deplie)}
+          sousLignes={(p, deplie) => (telephone ? null : (
+            <>
+              {/* 📅 Les visites de ce prospect et leur compte rendu (Rendez-vous « G »). */}
+              {visitesDuProspect(rdvVisibles, p.id).length > 0 && <div className="pb-2 text-xs text-slate-600" data-visites-prospect>{lignesVisites(p)}</div>}
+              {/* 📞 Les contacts notés, avec l'heure et l'endroit (ceux qui voient toute l'équipe), sur la ligne dépliée. */}
+              {voitTout && deplie && (p.contacts || []).length > 0 && <div className="pb-2 text-xs text-slate-600" data-contacts-prospect>{lignesContacts(p)}</div>}
+              {(p.nature || p.estimation_assistant) && (
+                <div className="pb-2 cursor-pointer" onClick={() => setBesoinDeplie(deplie ? null : p.id)} data-besoin-prospect={deplie ? "deplie" : "replie"}>{blocBesoin(p, deplie)}</div>
+              )}
+            </>
+          ))}
+          detail={(p, deplie) => (telephone ? (
+            <>
+              {voitTout && (p.contacts || []).length > 0 && <div className="text-xs text-slate-600" data-contacts-prospect>{lignesContacts(p)}</div>}
+              {(p.nature || p.estimation_assistant) && <div data-besoin-prospect="deplie">{blocBesoin(p, deplie)}</div>}
+              {gestesDuDetail(p)}
+            </>
+          ) : gestesDuDetail(p))}
+        />
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
       {comptesAvecDevis.length > 0 && (

@@ -21,7 +21,8 @@ import { CompleterDevis } from "../components/CompleterDevis";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, libelleRoleEmploye, estSansAcces } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
-import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonGeste, LigneGestes, NoteDepliable, CelluleActions, IconeWhatsApp } from "../components/ui";
+import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, BoutonGeste, LigneGestes, NoteDepliable, IconeWhatsApp } from "../components/ui";
+import { ListeCarnet, useTelephone } from "../components/ListeCarnet";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { etatRelanceAuto } from "../lib/relanceAutoDevis";
 import { normNom, espaceDuCompte, espaceDuDevis, bloquerSiLecture, estAdminPrincipal, boutiquesVente, boutiquesVisibles , refuserSaufAdminPrincipal, refuserSaufAdmin, utilisateursDeLEspace, ONGLETS_ROLE, remiseExigeAdmin, plafondRemise, domaineParId } from "../lib/calculs";
@@ -44,7 +45,6 @@ export function libelleTypeDevis(d) {
 }
 
 // Les colonnes de 📋 Tous les devis (15/10/2026, la règle des lignes).
-export const COLONNES_DEVIS = ["Client", "Date", "Total", "Statut", "Suivi", "À faire"];
 
 const BadgeStatutDevis = ({ statut }) => {
   const [label, cls] = STATUT_DEVIS[statut || "propose"] || STATUT_DEVIS.propose;
@@ -297,14 +297,7 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
   // 📱 Sur téléphone, une CARTE par devis (le tableau de 860 px défilait de côté) ;
   // UNE seule des deux mises en page est dans la page — jamais les deux (un devis
   // déplié ne porte pas deux fois ses formulaires). telephoneInitial : banc seul.
-  const [telephone, setTelephone] = useState(() => telephoneInitial || (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 639px)").matches));
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const mq = window.matchMedia("(max-width: 639px)");
-    const suit = () => setTelephone(telephoneInitial || mq.matches);
-    mq.addEventListener?.("change", suit);
-    return () => mq.removeEventListener?.("change", suit);
-  }, [telephoneInitial]);
+  const telephone = useTelephone(telephoneInitial);
   // ✍️ Le devis en cours de complétion après la visite (08/10/2026).
   const [completion, setCompletion] = useState(null);
   const [filtreStatut, setFiltreStatut] = useState("");
@@ -991,43 +984,13 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                 « Tous, lance ») : le client figé en première colonne, un clic
                 déplie le devis (une ligne à la fois), les gestes en boutons
                 ronds — le libellé au survol. */}
-            {telephone ? (
-              <div data-devis-cartes className="p-2 space-y-2">
-                {devisPage.map((d) => {
-                  const deplie = ouvert === d.id;
-                  return (
-                    <div key={d.id} data-devis-carte data-ligne-devis={deplie ? "deplie" : "replie"} data-ligne={d.id} onClick={() => ouvrirDevis(d)}
-                      className={`rounded-xl border p-3 cursor-pointer ${deplie ? "border-sky-400 bg-sky-50" : "border-slate-200 bg-white"}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                          {d.client?.nom_base || d.client?.nom || "Client"}
-                          {!(d.vu_par || []).includes(profile.id) && <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0" title="Nouveau — pas encore ouvert"></span>}
-                        </div>
-                        <div className="font-bold text-sky-800 tabular-nums whitespace-nowrap">{fmt(d.total)}</div>
-                      </div>
-                      <div className="text-xs text-slate-500">{libelleTypeDevis(d)} · {dFR(d.date)} · par {d.par}</div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1"><BadgeStatutDevis statut={d.statut} /></div>
-                      <div className="mt-1.5">{celluleSuivi(d)}</div>
-                      <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesDeLaLigne(d, deplie)}</div>
-                      {deplie && <div onClick={(e) => e.stopPropagation()} className="mt-3" data-detail-devis>{detailDe(d, deplie)}</div>}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-            <table className="w-full text-sm min-w-[860px]">
-              <thead className="sticky top-0 z-30 bg-white">
-                <tr className="text-xs text-slate-500 uppercase border-b border-slate-200">
-                  {COLONNES_DEVIS.map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-            {devisPage.map((d, i) => {
-              const deplie = ouvert === d.id;
-              return (
-              <Fragment key={d.id}>
-                <tr data-ligne-devis={deplie ? "deplie" : "replie"} data-ligne={d.id} onClick={() => ouvrirDevis(d)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
-                  <td className={`px-3 py-2 min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)}`}>
+            <ListeCarnet
+              items={devisPage} telephone={telephone} ouvert={ouvert} onBasculer={ouvrirDevis}
+              marques={{ cartes: "data-devis-cartes", carte: "data-devis-carte", etat: "data-ligne-devis", detail: "data-detail-devis" }}
+              enTeteFond="bg-white"
+              colonnes={[
+                { titre: "Client", figee: true, cellule: (d) => (
+                  <>
                     <div className="font-bold text-slate-800 flex items-center gap-1.5">
                       {d.client?.nom_base || d.client?.nom || "Client"}
                       {!(d.vu_par || []).includes(profile.id) && (
@@ -1035,29 +998,37 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                       )}
                     </div>
                     <div className="text-xs text-slate-500">{libelleTypeDevis(d)}</div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  </>
+                ) },
+                { titre: "Date", classe: "whitespace-nowrap", cellule: (d) => (
+                  <>
                     <div>{dFR(d.date)}</div>
                     <div className="text-xs text-slate-500">par {d.par}{d.prepare_par && d.prepare_par !== d.par ? <span data-prepare-par> · préparé par {d.prepare_par}</span> : null}</div>
                     <div className="text-xs text-slate-400">{d.boutique}</div>
-                  </td>
-                  <td className="px-3 py-2 text-right font-bold text-sky-800 whitespace-nowrap tabular-nums">{fmt(d.total)}</td>
-                  <td className="px-3 py-2"><BadgeStatutDevis statut={d.statut} /></td>
-                  <td className="px-3 py-2 min-w-[240px]">{celluleSuivi(d)}</td>
-                  <CelluleActions largeur="min-w-[200px] max-w-[260px]">{gestesDeLaLigne(d, deplie)}</CelluleActions>
-                </tr>
-
-                {deplie && (
-                  <tr className="bg-slate-50" data-detail-devis><td colSpan={COLONNES_DEVIS.length} className="px-4 pt-2 pb-4">
-                  {detailDe(d, deplie)}
-                  </td></tr>
-                )}
-              </Fragment>
-              );
-            })}
-              </tbody>
-            </table>
-            )}
+                  </>
+                ) },
+                { titre: "Total", classe: "text-right font-bold text-sky-800 whitespace-nowrap tabular-nums", cellule: (d) => fmt(d.total) },
+                { titre: "Statut", cellule: (d) => <BadgeStatutDevis statut={d.statut} /> },
+                { titre: "Suivi", classe: "min-w-[240px]", cellule: (d) => celluleSuivi(d) },
+                { titre: "À faire", actions: true },
+              ]}
+              carte={(d) => (
+                <>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      {d.client?.nom_base || d.client?.nom || "Client"}
+                      {!(d.vu_par || []).includes(profile.id) && <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0" title="Nouveau — pas encore ouvert"></span>}
+                    </div>
+                    <div className="font-bold text-sky-800 tabular-nums whitespace-nowrap">{fmt(d.total)}</div>
+                  </div>
+                  <div className="text-xs text-slate-500">{libelleTypeDevis(d)} · {dFR(d.date)} · par {d.par}</div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1"><BadgeStatutDevis statut={d.statut} /></div>
+                  <div className="mt-1.5">{celluleSuivi(d)}</div>
+                </>
+              )}
+              gestes={(d, deplie) => gestesDeLaLigne(d, deplie)}
+              detail={(d, deplie) => detailDe(d, deplie)}
+            />
           </div>
         )}
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />

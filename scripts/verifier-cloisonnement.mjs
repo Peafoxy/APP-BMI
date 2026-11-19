@@ -16690,6 +16690,8 @@ titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, 
     ["Prospects", "TousLesDevis", "ClientsInstalles", "Commandes", "Stocks", "Fournisseurs", "Salaires", "Commerciaux", "MonEquipe"].every((n) => {
       const src = readFileSync(`src/screens/${n}.jsx`, "utf8");
       // RETOURNÉ le 18/11/2026 : 🏠 Clients installés porte ses gestes en toutes lettres (LigneGestes) au lieu de la cellule de boutons ronds.
+      // RETOURNÉ le 19/11/2026 : 📋 Tous les devis et 🧲 Prospects passent par ListeCarnet, qui écrit la colonne figée, la ligne dépliable et la cellule des gestes.
+      if (n === "TousLesDevis" || n === "Prospects") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
       return /enTeteFige\(/.test(src) && /celluleFigee\(fondLigneDepliable\(/.test(src) && /classeLigneDepliable\(/.test(src) && (/<CelluleActions/.test(src) || (n === "ClientsInstalles" && /<LigneGestes/.test(src)));
     }));
 }
