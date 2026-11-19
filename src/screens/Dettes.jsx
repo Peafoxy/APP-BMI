@@ -66,6 +66,9 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
   const ajouter = () => {
     if (!f.client || !f.montant) { uAlert("Veuillez saisir le nom du client et le montant."); return; }
     const acompte = Math.max(0, Number(f.paye || 0));
+    // 🔒 Timo, 19/11/2026 (deux dettes de 954 500 F « payées » 3 185 000 F, saisies par erreur) :
+    // le « Déjà payé » ne dépasse jamais le montant de la dette.
+    if (acompte > Number(f.montant)) { uAlert(`Le « Déjà payé » (${fmt(acompte)}) dépasse le montant de la dette (${fmt(Number(f.montant))}) : ce n'est pas cohérent. Corrigez l'un des deux chiffres.`); return; }
     // ⚠ DÉFAUT TROUVÉ EN AUDIT (20/08/2026) : le « Déjà payé » était inscrit
     // sur la dette (champ `paye`) mais SANS ligne de paiement. Or la caisse du
     // jour ne compte que les lignes de paiement (Caisse.jsx). Cet argent était

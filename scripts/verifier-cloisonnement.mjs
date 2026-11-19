@@ -20407,6 +20407,13 @@ titre("💵 SALAIRES (administrateur) suit la charte (19/11/2026, « Oui, lance 
     /envoyerVirementG\(db, save, profile, u, mois\)/.test(sSa) && /imprimerBulletin\(u, mois, db\)/.test(sSa) && (sSa.match(/refuserSaufAdmin\(profile, "(Retirer une prime|Retirer une avance sur salaire|Relancer la confirmation d'un salaire)"\)/g) || []).length === 3);
 }
 
+titre("📋 Dettes : le « Déjà payé » d'une nouvelle dette ne dépasse jamais son montant (19/11/2026, NOE BISSARI)");
+{
+  const sD = readFileSync("src/screens/Dettes.jsx", "utf8");
+  const corps = sD.slice(sD.indexOf("const ajouter = () => {"), sD.indexOf("const encaisser = async"));
+  test("★ ajouter une dette refuse un acompte supérieur au montant, AVANT toute écriture", /if \(acompte > Number\(f\.montant\)\)/.test(corps) && corps.indexOf("acompte > Number(f.montant)") < corps.indexOf("save("));
+}
+
 titre("🏠 CLIENTS INSTALLÉS suit la charte (19/11/2026, « Oui, lance les trois suivants »)");
 {
   const sCi = readFileSync("src/screens/ClientsInstalles.jsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
