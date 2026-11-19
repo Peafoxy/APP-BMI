@@ -5636,7 +5636,7 @@ titre("64 ⏳ UN ENVOI WHATSAPP NE PART PAS DEUX FOIS (18/10/2026, « les deux, 
     // et « 💾 Enregistrer la proforma modifiée » peut RENVOYER la proforma (« A a ») : il se grise aussi.
     ["src/screens/Ventes.jsx", /<BoutonEnvoi onClick=\{\(\) => proformaWhatsApp\(\)\}/],
     ["src/screens/Ventes.jsx", /<BoutonEnvoi onClick=\{enregistrerModifProforma\} data-enregistrer-proforma-modifiee/],
-    ["src/screens/Utilisateurs.jsx", /<BoutonEnvoi libelleEnvoi="⏳" onClick=\{\(\) => \(u\.role === "client" \? envoyerFidelite\(u\)/],
+    ["src/screens/Utilisateurs.jsx", /<BoutonEnvoi libelleEnvoi="⏳" onClick=\{\(e\) => \{ e\.stopPropagation\(\); return \(u\.role === "client" \? envoyerFidelite\(u\)/ /* RETOURNÉ le 19/11/2026 : le clic ne déplie pas la ligne */],
     ["src/screens/Utilisateurs.jsx", /<BoutonEnvoi onClick=\{creer\} className=\{btnDark\}>Créer<\/BoutonEnvoi>/],
     ["src/screens/Clients.jsx", /<BoutonEnvoi onClick=\{creer\}/],
     ["src/screens/Clients.jsx", /<BoutonEnvoi onClick=\{\(\) => renvoyer\(c\)\}/],

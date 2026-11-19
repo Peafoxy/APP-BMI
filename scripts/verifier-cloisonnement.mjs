@@ -2810,7 +2810,7 @@ titre("Personne ne modifie les pouvoirs de SA PROPRE fiche — l'app et la base 
   const sql = readFileSync("supabase/securite-2-role-inviolable.sql", "utf8");
 
   test("★ le bouton « Bloquer » n'apparait plus sur sa propre fiche",
-    /\{!surMaPropreFiche\(u\) && <button onClick=\{\(\) => toggleActif\(u\)\}/.test(u));
+    /bloquer: !surMaPropreFiche\(u\)\n\s*\? <BoutonGeste data-geste-bloquer[^>]*onClick=\{\(\) => toggleActif\(u\)\}/.test(u)); // RETOURNÉ le 19/11/2026 : le geste est un BoutonGeste écrit en mots
   test("★ le bouton « passer en formation » non plus",
     /jeSuisAdminPrincipal && !surMaPropreFiche\(u\) &&[\s\S]{0,120}?basculerFormation\(u\)/.test(u));
   test("★ …et les trois gestes se gardent eux-memes, pas seulement les boutons",
@@ -8967,10 +8967,10 @@ titre("📦 Le rapport de stocks est classé par boutique, par catégorie et par
 titre("👥 La liste des utilisateurs, lisible : quatre boutons ronds + « ⋯ Gérer » (capture Timo, 12/09/2026)");
 {
   const ul = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
-  test("★ chaque ligne garde ses quatre gestes fréquents en boutons ronds (Pouvoirs, Identité, Mot de passe = principal, Bloquer/Réactiver hors sa propre fiche) et un bouton « ⋯ Gérer » qui ouvre un panneau SOUS la ligne (jamais un voile)",
-    /<button onClick=\{\(\) => setPouvoirsPour\(u\.id\)\} className=\{boutonRond\(/.test(ul) && /<button onClick=\{\(\) => changerIdentite\(u\)\} className=\{boutonRond\(/.test(ul)
-    && /\{jeSuisAdminPrincipal && <button onClick=\{\(\) => changerPwd\(u\)\} className=\{boutonRond\(/.test(ul) && /\{!surMaPropreFiche\(u\) && <button onClick=\{\(\) => toggleActif\(u\)\} className=\{boutonRond\(/.test(ul)
-    && /setGererOuvert\(gererOuvert === u\.id \? null : u\.id\)/.test(ul) && /\{gererOuvert === u\.id && \(\n\s*<tr className="bg-slate-50/.test(ul) && !/fixed inset-0[^\n]*gererOuvert/.test(ul));
+  test("★ chaque ligne garde ses quatre gestes d'accès (Pouvoirs, Identité, Mot de passe = principal, Bloquer/Réactiver hors sa propre fiche), écrits EN MOTS dans le détail ; le geste du moment est sur la ligne ; le panneau « Gérer » se déplie SOUS la ligne (jamais un voile) — RETOURNÉ le 19/11/2026 (charte des listes : plus de bouton rond, ListeCarnet)",
+    /<BoutonGeste data-geste-pouvoirs[\s\S]*?onClick=\{\(\) => setPouvoirsPour\(u\.id\)\}/.test(ul) && /<BoutonGeste data-geste-identite[^>]*onClick=\{\(\) => changerIdentite\(u\)\}/.test(ul)
+    && /mdp: jeSuisAdminPrincipal \? <BoutonGeste data-geste-mdp[^>]*onClick=\{\(\) => changerPwd\(u\)\}/.test(ul) && /bloquer: !surMaPropreFiche\(u\)\n\s*\? <BoutonGeste data-geste-bloquer[^>]*onClick=\{\(\) => toggleActif\(u\)\}/.test(ul)
+    && /<ListeCarnet\b/.test(ul) && /onBasculer=\{\(u\) => setGererOuvert\(gererOuvert === u\.id \? null : u\.id\)\}/.test(ul) && /<GestesDetail g=\{g\} moment=\{gesteDuMomentU\(g, u\)\}/.test(ul) && !/fixed inset-0[^\n]*gererOuvert/.test(ul) && !/boutonRond|boutonAction/.test(ul));
   test("★ le panneau « Gérer » range TOUS les autres gestes par thème (Compte, Paie, Commercial, Client), chacun avec la même garde qu'avant : rôle et formation au principal hors sa fiche, paie aux salariés, commercial hors clients, chat libre aux clients",
     // 12/09/2026 (capture Timo, « classer les actions par ligne et non par colonne ») : un thème = UNE ligne, son nom à gauche, ses boutons à la suite.
     ["Compte", "Paie", "Commercial", "Client"].every((t) => ul.includes(`<div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">${t}</div>`))
@@ -8984,7 +8984,7 @@ titre("👥 La liste des utilisateurs, lisible : quatre boutons ronds + « ⋯ G
     /teinteRole\(u\.role\)/.test(ul) && /border-slate-200">Toutes<\/span>/.test(ul) && /🎓 Formation<\/span>/.test(ul) && /title="Identité non renseignée : bouton 🆔 Identité">⚠ Identité<\/div>/.test(ul)
     && /Actions groupées/.test(ul) && /\{jeSuisAdminPrincipal && \(\n\s*<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">\n\s*<div className="font-bold text-slate-800 mb-1">⚠ Actions groupées/.test(ul)
     && /\{roleAffiche === "admin" && !enRecherche && \(\n\s*<button onClick=\{restreindreAdminsExistants\}/.test(ul) && !/className="text-xs font-bold text-amber-700 underline">\n\s*🎓 Passer tous les comptes/.test(ul)
-    && ul.indexOf("Actions groupées") > ul.indexOf("</table>"));
+    && ul.indexOf("Actions groupées") > ul.indexOf("<ListeCarnet")); // RETOURNÉ le 19/11/2026 : la liste est un ListeCarnet
 }
 
 titre("Le devis PDF : nom du client dans le fichier, charge dimensionnée dedans");
@@ -15821,7 +15821,7 @@ test("★ ⚙ Paramètres → 🏪 Boutiques compact : « Je regarde » sur UNE 
       /^const changerIdentite = async \(u\) => \{\n\s*if \(refuserSaufAdmin\(profile, "Modifier l'identité d'un compte"\)\) return;/.test(gId) && /const frais = db\.users\.find/.test(gId)
       && /uChoix\(`Sexe de \$\{u\.nom\}/.test(gId) && gId.indexOf("uChoix(`Sexe de") > gId.indexOf("Nom et prénom(s) officiels") && gId.indexOf("uChoix(`Sexe de") < gId.indexOf("Type de pièce")
       && /critiqueSexe\(sexe\)/.test(gId) && /\.\.\.\(sexeChange \? \{ sexe \} : \{\}\)/.test(gId) && / — sexe : /.test(gId)
-      && !/changerSexe|nom="⚧ Sexe"/.test(us) && /<button onClick=\{\(\) => changerIdentite\(u\)\}/.test(us));
+      && !/changerSexe|nom="⚧ Sexe"/.test(us) && /<BoutonGeste data-geste-identite[^>]*onClick=\{\(\) => changerIdentite\(u\)\}/.test(us)); // RETOURNÉ le 19/11/2026 : BoutonGeste
     test("★ ⚧ la case « Sexe » du formulaire de création (facultative) va sur le compte client ET sur le compte employé",
       /data-sexe-creation/.test(us) && /\.\.\.champsCompteClient\(f\.nom, f\.prenom, entCli\), \.\.\.\(f\.sexe \? \{ sexe: f\.sexe \} : \{\}\)/.test(us)
       && /nom_complet: `\$\{f\.nom\.trim\(\)\} \$\{f\.prenom\.trim\(\)\}`\.trim\(\) \} : \{\}\),\n\s*\.\.\.\(f\.sexe \? \{ sexe: f\.sexe \} : \{\}\),/.test(us)
@@ -18502,6 +18502,17 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
     const hCl = rendreSA({ roleInitial: "client" });
     test("★ la liste « Clients » ne la montre pas (ni prospect, ni acheteur) : ESSO seul",
       !hCl.startsWith("ERREUR") && />ESSO</.test(hCl) && !/KLIRA/.test(hCl) && !/>AMA</.test(hCl), hCl.slice(0, 160));
+    // 📖 La charte des listes (19/11/2026) : 👥 Utilisateurs RENDU — ordinateur replié / déplié, et téléphone.
+    const hAd = rendreSA({ roleInitial: "admin" });
+    const hDe = rendreSA({ roleInitial: "admin", gererInitial: "u_adm2" });
+    const hTe = rendreSA({ roleInitial: "admin", telephoneInitial: true, gererInitial: "u_adm2" });
+    test("★★ charte : replié, la ligne ne porte QUE le geste du moment et « ▸ Détail » (colonne « À faire ») — ni Mot de passe, ni Bloquer, ni panneau « Gérer »",
+      !hAd.startsWith("ERREUR") && /À faire/.test(hAd) && /data-detail-utilisateur-bouton/.test(hAd) && /data-geste-pouvoirs|data-geste-identite/.test(hAd)
+      && !/data-geste-mdp/.test(hAd) && !/data-geste-bloquer/.test(hAd) && !/data-detail-utilisateur/.test(hAd.replace(/data-detail-utilisateur-bouton/g, "")), hAd.slice(0, 160));
+    test("★★ charte : déplié, tous les gestes d'accès sont écrits en mots (Changer le mot de passe, Bloquer ce compte) puis le panneau « Gérer » ; une seule ligne dépliée",
+      !hDe.startsWith("ERREUR") && /Changer le mot de passe/.test(hDe) && /Bloquer ce compte/.test(hDe) && /data-detail-utilisateur/.test(hDe) && (hDe.match(/data-detail-utilisateur(?!-)/g) || []).length === 1 && /Compte<\/div>/.test(hDe), hDe.slice(0, 160));
+    test("★★ charte : sur téléphone, une CARTE par compte (jamais un tableau qui défile de côté), et le détail déplié y est aussi",
+      !hTe.startsWith("ERREUR") && /data-utilisateurs-cartes/.test(hTe) && (hTe.match(/data-utilisateur-carte/g) || []).length >= 2 && !/<table[^>]*min-w-\[760px\]/.test(hTe) && /Changer le mot de passe/.test(hTe), hTe.slice(0, 160));
     const brancheC = us.slice(us.indexOf('if (f.role === "client") {', us.indexOf("const creer = async")), us.indexOf('if (refuserSaufAdmin(profile, "Créer un compte employé"))'));
     const iDoublon = brancheC.search(/const compteOuvert = !ficheFermee && utilisateursDeLEspace\(db, profile\)\.find\(\(u\) => u\.role === "client" && !estSansAcces\(u\) && u\.tel && memeNumero\(u\.tel, f\.tel\)\);\s*if \(compteOuvert\) \{\s*setMsg\(`Un compte existe déjà pour ce numéro/);
     test("★ « oui refuse aussi le doublon » : un compte OUVERT sur ce numéro (8 derniers chiffres, espace regardé) arrête la création AVANT toute fabrication de compte",
@@ -20302,7 +20313,7 @@ titre("📖 LA CHARTE DES LISTES (Timo, 18/11/2026, « Oui, fais les trois couch
   const ronds = (f) => /<BoutonRond|boutonAction\(/.test(readFileSync(f, "utf8"));
   const adoptes = tous.filter((f) => readFileSync(f, "utf8").includes("<ListeCarnet"));
   // À REPRENDRE : ces écrans portent encore des boutons ronds. Quand l'un est refait avec ListeCarnet, on le RETIRE d'ici (le contrôle tombe s'il reste dans la liste sans en avoir besoin).
-  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Clients.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Commandes.jsx", "src/screens/Commerciaux.jsx", "src/screens/Depenses.jsx", "src/screens/Fournisseurs.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Salaires.jsx", "src/screens/Stocks.jsx", "src/screens/Travaux.jsx", "src/screens/Utilisateurs.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
+  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Clients.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Commandes.jsx", "src/screens/Commerciaux.jsx", "src/screens/Depenses.jsx", "src/screens/Fournisseurs.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Salaires.jsx", "src/screens/Stocks.jsx", "src/screens/Travaux.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
   const enRonds = tous.filter(ronds).sort();
   const nouveaux = enRonds.filter((f) => !A_REPRENDRE.includes(f) && !adoptes.includes(f));
   const refaits = A_REPRENDRE.filter((f) => !ronds(f));

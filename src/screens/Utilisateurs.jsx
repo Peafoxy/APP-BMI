@@ -14,9 +14,10 @@ import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, 
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiAvancement, envoiAttestationDisponible } from "../lib/whatsappModeles";
 import { uid, normPaiement, definirMotDePasse, fmt, today, dFR, col, nouvelleDepense, telDigits, envoyerWhatsApp } from "../lib/core";
 import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, mentionVirement } from "../lib/banques";
+import { ListeCarnet, useTelephone, GestesLigne, GestesDetail } from "../components/ListeCarnet";
 import { gererCarteFidelite } from "../components/carteFidelite";
 import { INTERFACES, LIBELLES_INTERFACE, interfaceDe, interfaceImposee } from "../lib/pageIcones";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, boutonAction, BoutonGerer, FormulaireRepliable, IconeWhatsApp, champRecherche, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, BoutonGerer, BoutonGeste, FormulaireRepliable, IconeWhatsApp, champRecherche, BoutonEnvoi } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
@@ -46,8 +47,6 @@ const ROLES_CHANGEABLES = ["vendeur", "gerant", "magasinier", "commercial", "tec
 // ---- La liste des utilisateurs, lisible (capture Timo, 12/09/2026) ----
 // Un bouton d'action rond (icône seule, libellé au survol), un bouton du
 // panneau « Gérer », et la couleur de la pastille de rôle.
-// Le bouton rond commun (ui.jsx), avec `relative` pour la pastille d'alerte.
-const boutonRond = (teinte) => `relative ${boutonAction(teinte)}`;
 const teinteRole = (role) => (role === "admin" ? "bg-slate-800 text-white border-slate-800"
   : role === "gerant" ? "bg-sky-100 text-sky-800 border-sky-200"
   : role === "vendeur" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
@@ -58,7 +57,7 @@ const teinteRole = (role) => (role === "admin" ? "bg-slate-800 text-white border
   : "bg-orange-100 text-orange-800 border-orange-200");
 
 // `roleInitial` et `rechercheInitiale` ne servent qu'au banc (l'écran rendu sur un onglet ou une recherche).
-export function Users({ db, save, profile, connexionsInitiales, roleInitial, rechercheInitiale }) {
+export function Users({ db, save, profile, connexionsInitiales, roleInitial, rechercheInitiale, telephoneInitial = false, gererInitial = null }) {
   const premiere = boutiquesVente(db)[0]?.nom || "";
   // Changer OU consulter un mot de passe est réservé à l'administrateur
   // PRINCIPAL — jamais aux autres administrateurs, même avec le pouvoir
@@ -69,7 +68,8 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
   // boutons ronds toujours visibles, le reste dans un panneau « ⋯ Gérer » sous
   // la ligne (jamais un voile sur l'écran), rangé par thème. Mêmes gestes,
   // mêmes gardes.
-  const [gererOuvert, setGererOuvert] = useState(null);
+  const [gererOuvert, setGererOuvert] = useState(gererInitial);
+  const telephone = useTelephone(telephoneInitial);
   // ⬅ La touche retour referme « ⋯ Gérer » (Timo, 13/10/2026, « A a »).
   useRetour(!!gererOuvert, () => setGererOuvert(null));
   // ---- Liste classée par rôle : un bouton par rôle, ~5 lignes visibles
@@ -1581,6 +1581,248 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
     .flatMap((u) => creditsDe(u).map((c) => ({ u, c })))
     .sort((a, b) => (rang[a.c.statut] ?? 9) - (rang[b.c.statut] ?? 9) || String(b.c.date_demande).localeCompare(String(a.c.date_demande)));
 
+  // 📖 La charte des listes (19/11/2026) : la ligne ne porte que le geste du moment ;
+  // les quatre gestes d'accès (Pouvoirs, Identité, Mot de passe, Bloquer) et tout
+  // « ⋯ Gérer » sont écrits en mots dans le détail, une seule ligne dépliée à la fois.
+  const celluleNom = (u) => (
+    <>
+      {u.nom}
+                  {idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold align-middle" data-client-archive>📁 Archivé</span>}
+                  {idsSansSuite.has(u.id) && !idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-bold align-middle" data-compte-prospect>🧲 Prospect</span>}
+                  {sansActiviteParId.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold align-middle" data-compte-sans-activite>🆕 Sans activité</span>}
+                  {estSansAcces(u) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold align-middle" data-fiche-sans-acces>🖨 Sans compte</span>}
+                  {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
+                  {estSansAcces(u) && (
+                    <div className="text-xs font-normal text-slate-500" data-fiche-sans-acces-aide>
+                      Devis imprimé sans compte : aucun accès à l'application. Pour lui ouvrir son espace (le même compte, son devis dedans) :
+                      ➕ Nouvel utilisateur → Client avec son numéro, ou 📲 Envoyer par WhatsApp son devis.
+                    </div>
+                  )}
+                  {sansActiviteParId.has(u.id) && (() => { const c = sansActiviteParId.get(u.id); return (
+                    <div className="text-xs font-normal text-slate-500" data-ligne-sans-activite>
+                      Créé le {c.creeLe ? dFR(c.creeLe) : "— date inconnue"}{c.parNom ? ` par ${c.parNom}` : ""} · aucun devis, aucun achat
+                    </div>
+                  ); })()}
+                  {sansSuiteParId.has(u.id) && (() => { const c = sansSuiteParId.get(u.id); return (
+                    <div className="text-xs font-normal text-slate-500" data-ligne-sans-suite>
+                      Dernier devis le {dFR(c.reference)} · {c.archive
+                        ? <>archivé le {dFR(c.archiveLe)} · {c.effacable ? <b className="text-amber-700">effacement proposé depuis le {dFR(c.effacableLe)}</b> : <>effacement proposé à partir du {dFR(c.effacableLe)}</>}</>
+                        : <>archivé le {dFR(c.archiveLe)} s'il reste sans suite</>}
+                    </div>
+                  ); })()}
+                  {["commercial", "technicien"].includes(u.role) && filleulsDe(db, u).length > 0 && (
+                    <div className={`text-xs font-bold ${estChefEquipe(db, u) ? "text-amber-600" : "text-slate-500"}`}>
+                      {estChefEquipe(db, u) ? "⭐ Chef d'équipe" : "👥"} — {filleulsDe(db, u).length} recrue(s){!estChefEquipe(db, u) ? ` / ${SEUIL_CHEF_EQUIPE}` : ""}
+                    </div>
+                  )}
+                  {u.parrain_id && <div className="text-xs font-normal text-slate-400">Recruté par {(db.users.find((x) => x.id === u.parrain_id) || {}).nom || "?"}</div>}
+                  {/* Les avis des clients : ils ne servent que s'ils remontent jusqu'ici.
+                      ⚠ evaluationsDe() agrège les DEUX emplacements — l'ancien
+                      (fiche de l'employé) et le nouveau (fiche du client qui a
+                      noté, seule qu'il ait le droit d'écrire depuis la
+                      fermeture de l'annuaire). Voir lib/calculs.js. */}
+                  {noteMoyenne(db, u) !== null && (
+                    <button onClick={(e) => { e.stopPropagation(); setAvisOuvert(avisOuvert === u.id ? null : u.id); }} className="text-xs font-bold text-amber-600 hover:underline">
+                      {etoiles(noteMoyenne(db, u))} {noteMoyenne(db, u).toFixed(1)}/5 ({evaluationsDe(db, u).length} avis)
+                    </button>
+                  )}
+                  {avisOuvert === u.id && (
+                    <div className="mt-2 rounded-lg border border-purple-200 bg-purple-50 p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                      {CRITERES_NOTE.map((c) => {
+                        const evs = evaluationsDe(db, u);
+                        const moy = evs.length ? evs.reduce((sm, e) => sm + Number(e[c.id] || 0), 0) / evs.length : 0;
+                        return (
+                          <div key={c.id} className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600">{c.emoji} {c.label}</span>
+                            <span className="font-bold text-amber-600">{etoiles(moy)} {moy.toFixed(1)}</span>
+                          </div>
+                        );
+                      })}
+                      {evaluationsDe(db, u).filter((e) => e.commentaire).slice(0, 5).map((e) => (
+                        <div key={e.id} className="text-xs bg-white rounded border border-slate-200 p-2">
+                          <div className="text-slate-700">« {e.commentaire} »</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{e.client_nom} · {dFR(e.date)} · {moyenneNote(e).toFixed(1)}/5</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {peutAvoirAffectation(u) && String(u.affectation || "").trim() && <div data-ligne-affectation className="text-xs font-normal text-slate-500">📍 {u.affectation}</div>}
+                  {u.role !== "client" && (() => {
+                    const e = etatFinContrat(u, today());
+                    if (!e) return null;
+                    const couleur = e.jours < 0 ? "text-red-600" : e.jours <= 15 ? "text-amber-700" : "text-slate-500";
+                    return <div data-fin-contrat className={`text-xs font-normal ${couleur}`}>📄 {phraseFinContrat(u, today())}</div>;
+                  })()}
+                  {u.role !== "client" && u.cnss_date_sortie && <div data-ligne-sortie className="text-xs font-normal text-slate-500">🚪 Sorti le {dFR(u.cnss_date_sortie)}</div>}
+                  {u.piece_num
+                    ? <div className="text-xs font-normal text-slate-400">{u.piece_type || "Pièce"} n° {u.piece_num}</div>
+                    : u.role !== "client" && <div className="text-xs font-normal text-orange-500" title="Identité non renseignée : bouton 🆔 Identité">⚠ Identité</div>}
+                  {/* Timo (16/09/2026) : « un client créé par un utilisateur,
+                      l'administrateur principal n'a pas la possibilité de voir
+                      son numéro de téléphone ». Le numéro était ENREGISTRÉ (il
+                      sert à fabriquer l'identifiant et à joindre la personne)
+                      mais n'était affiché NULLE PART : pas de colonne ici, et
+                      📋 Clients ne liste que ceux qui ont déjà acheté. Il se lit
+                      maintenant sous le nom, comme la pièce d'identité, pour
+                      tout le monde. Le logo WhatsApp passe par `envoyerWhatsApp`
+                      — aucun écran n'ouvre WhatsApp lui-même. */}
+                  {voitConnexions && (() => {
+                    const e = connexionDe(u);
+                    const couleur = e.etat === "ouvert" ? "text-emerald-700" : e.etat === "jamais" ? "text-amber-700 font-semibold" : "text-slate-400";
+                    return <div data-connexion-compte={e.etat} className={`text-xs font-normal ${couleur}`}>{libelleConnexion(e)}</div>;
+                  })()}
+                  {u.tel && (
+                    <div className="text-xs font-normal text-slate-500 flex items-center gap-1.5">
+                      <span>📞 {u.tel}</span>
+                      {/* 💙 Sur un CLIENT, le mot de fidélité part du numéro BMI
+                          (Timo, 25/09/2026 : « il reste les messages WhatsApp dans
+                          utilisateur… ça ouvre toujours le WhatsApp sur
+                          l'ordinateur »), comme dans 📋 Clients. Sur un EMPLOYÉ,
+                          une conversation vide s'ouvre, comme avant. */}
+                      <BoutonEnvoi libelleEnvoi="⏳" onClick={(e) => { e.stopPropagation(); return (u.role === "client" ? envoyerFidelite(u) : envoyerWhatsApp(telDigits(u.tel), "")); }} title={u.role === "client" ? `Envoyer le mot de fidélité à ${u.nom} du numéro BMI` : `Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></BoutonEnvoi>
+                    </div>
+                  )}
+    </>
+  );
+  const pastilleRole = (u) => <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinteRole(u.role)}`}>{u.role === "assistant_direction" ? `🗂 ${libelleAssistantDirection(u)}` : u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</span>;
+  const celluleBoutique = (u) => (
+    <>
+      {u.boutique
+                    ? <Badge boutique={u.boutique} />
+                    : u.role === "vendeur"
+                    ? <span className="text-xs font-semibold text-orange-600">⚠ Boutique supprimée</span>
+                    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">Toutes</span>}
+    </>
+  );
+  const celluleSalaire = (u) => (
+    <>
+      {SALARIES.includes(u.role) ? (
+                    <div className="leading-tight">
+                      <div className="font-semibold tabular-nums">{Number(u.salaire_base || 0) > 0 ? fmt(u.salaire_base) : <span className="text-slate-400">Non défini</span>}</div>
+                      <div className="text-xs text-slate-500">
+                        {Number(u.taux_avancement || 0) > 0 ? `Avancement : ${u.taux_avancement} %/an` : "Taux d'avancement non fixé"}
+                      </div>
+                      {(u.virements || []).some((v) => v.statut !== "accepte") && (
+                        <div className="text-xs font-bold text-amber-600">⏳ {(u.virements || []).filter((v) => v.statut !== "accepte").length} virement(s) en attente</div>
+                      )}
+                      {creditsEnAttente(u).length > 0 && (
+                        <div className="text-xs font-bold text-purple-700">📩 {creditsEnAttente(u).length} demande(s) de crédit</div>
+                      )}
+                      {creditsEnCours(u).length > 0 && (
+                        <div className="text-xs font-bold text-red-600">🏦 Crédit : reste {fmt(creditsEnCours(u).reduce((s, c) => s + resteCredit(c), 0))}</div>
+                      )}
+                    </div>
+                  ) : ["commercial", "technicien"].includes(u.role) ? (
+                    <span className="text-xs text-slate-500">Commission {u.taux_commission ?? 0} %</span>
+                  ) : <span className="text-slate-400">—</span>}
+    </>
+  );
+  const celluleStatut = (u) => (
+    <>
+      {u.actif === false ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">Bloqué</span> : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Actif</span>}
+                  {u.formation && <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-800 border border-violet-200">🎓 Formation</span>}
+    </>
+  );
+  const gestesAcces = (u) => {
+    const n = (u.droits_off || []).length;
+    return {
+      pouvoirs: <BoutonGeste data-geste-pouvoirs icone="🔐" nom={`Pouvoirs${n ? ` (${n} retiré${n > 1 ? "s" : ""})` : ""}`} teinte="violet" onClick={() => setPouvoirsPour(u.id)} titre="🔐 Pouvoirs — les écrans et gestes que cette personne a ou n'a pas" />,
+      identite: <BoutonGeste data-geste-identite icone="🆔" nom="Identité" onClick={() => changerIdentite(u)} titre="🆔 Identité (nom complet, sexe, pièce)" />,
+      mdp: jeSuisAdminPrincipal ? <BoutonGeste data-geste-mdp icone="🔑" nom="Changer le mot de passe" onClick={() => changerPwd(u)} titre="🔑 Changer le mot de passe" /> : null,
+      bloquer: !surMaPropreFiche(u)
+        ? <BoutonGeste data-geste-bloquer icone={u.actif === false ? "✅" : "⛔"} nom={u.actif === false ? "Réactiver ce compte" : "Bloquer ce compte"} teinte={u.actif === false ? "vert" : "rouge"} onClick={() => toggleActif(u)} titre={u.actif === false ? "✅ Réactiver ce compte" : "⛔ Bloquer ce compte"} />
+        : null,
+    };
+  };
+  const gesteDuMomentU = (g, u) => {
+    const cle = u.actif === false ? "bloquer" : (u.role !== "client" && !u.piece_num) ? "identite" : "pouvoirs";
+    return g[cle] ? cle : "pouvoirs";
+  };
+  const panneauGerer = (u) => (
+    <>
+      <div className="mb-1 text-[10px] font-bold uppercase text-slate-400" data-titre-gerer>⋯ Gérer</div>
+                      {/* Timo (12/09/2026, capture) : « classer les actions par ligne et non
+                      par colonne » — un thème = UNE ligne : son nom à gauche, ses
+                      boutons à la suite sur la même ligne (ils passent à la ligne
+                      seulement si la place manque). Mêmes gestes, mêmes gardes. */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Compte</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                  {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <BoutonGerer onClick={() => changerRole(u)} titre={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"} nom="🎭 Rôle" />}
+                  {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
+                    <BoutonGerer onClick={() => basculerFormation(u)} nom={u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"} />
+                  )}
+                  {SALARIES_BOUTIQUE.includes(u.role) && <BoutonGerer onClick={() => changerBoutique(u)} info={() => infoGerer(u, "boutique")} nom="🏬 Boutique" />}
+                  {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} info={() => infoGerer(u, "affectation")} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
+                  {!surMaPropreFiche(u) && <BoutonGerer data-fixer-affichage onClick={() => fixerAffichage(u)} info={() => infoGerer(u, "affichage")} titre="Barre d'onglets ou page d'icônes — l'administrateur peut le fixer" nom="🧭 Affichage" />}
+                  {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} info={() => infoGerer(u, "telephone")} nom="📞 Téléphone" />}
+                  {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} info={() => infoGerer(u, "anniversaire")} nom="🎂 Anniversaire" />}
+                  {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Voir le mot de passe" />}
+                  <BoutonGerer onClick={() => supprimerU(u)} ton="danger" nom="🗑 Supprimer" />
+                      </div>
+                    </div>
+                    {SALARIES.includes(u.role) && (
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Paie</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                  <BoutonGerer onClick={() => changerSalaire(u)} info={() => infoGerer(u, "salaire")} nom="💵 Salaire" />
+                  <BoutonGerer onClick={() => changerTauxAvancement(u)} info={() => infoGerer(u, "taux")} nom="📈 Taux %" />
+                  <BoutonGerer data-debut-paie onClick={() => changerDebutPaie(u)} info={() => infoGerer(u, "debutPaie")} titre="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application" nom="📅 Paie suivie depuis" />
+                  <BoutonGerer data-embauche-contrat onClick={() => changerEmbaucheContrat(u)} info={() => infoGerer(u, "contrat")} titre="La date d'embauche, le type de contrat et sa durée : la fin se calcule toute seule. Imprimés sur le bulletin, repris par la déclaration CNSS" nom="📅 Embauche et contrat" />
+                  {peutRenouveler(u, today()) && <BoutonGerer data-renouveler onClick={() => renouvelerContrat(u)} titre="Prolonge le contrat à partir du lendemain de sa fin ; s'affiche 15 jours avant la fin, jusqu'à un mois après" nom="🔁 Renouveler" />}
+                  <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "prime")} nom="+ Prime" />
+                  <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "avance")} nom="− Avance" />
+                  <BoutonGerer onClick={() => changerBanque(u)} info={() => infoGerer(u, "banque")} nom="🏦 Banque" />
+                  <BoutonGerer onClick={() => envoyerVirement(u)} nom="💸 Payer le salaire" />
+                  {(u.virements || []).some((v) => v.statut !== "accepte") && <BoutonGerer onClick={() => annulerVirement(u)} ton="attention" nom="Annuler le paiement" />}
+                  {/* 🚪 En bout de ligne (Timo, 05/10/2026, « sortie b ») : un départ n'est pas un geste de tous les jours. */}
+                  <BoutonGerer data-sortie onClick={() => changerSortie(u)} info={() => infoGerer(u, "sortie")} titre="Date et motif de sortie, repris par la déclaration CNSS" nom="🚪 Sortie" />
+                      </div>
+                    </div>
+                    )}
+                    {SALARIES.includes(u.role) && jeSuisAdminPrincipal && (
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1" data-ligne-documents>
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Documents</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                  {documentPropose(u, today()) === "attestation"
+                    ? <BoutonGerer data-attestation-travail onClick={() => delivrerDocument(u)} titre="Pour une banque, un visa, un logement : il travaille chez BMI depuis le…, comme…" nom="📄 Attestation de travail" />
+                    : <BoutonGerer data-document-fin onClick={() => delivrerDocument(u)} titre="Certificat de travail (CDI, CDD), attestation de fin d'apprentissage ou attestation de stage, selon son contrat" nom="📄 Document de fin de contrat" />}
+                  {documentPropose(u, today()) !== "attestation" && !attestationDe(u) && (
+                    <BoutonGerer data-mettre-a-disposition onClick={() => mettreADisposition(u)} titre="Il le télécharge depuis son espace pendant 24 heures, puis son accès se ferme" nom="📤 Mettre à disposition" />
+                  )}
+                  {attestationDe(u) && (
+                    <span data-attestation-dispo className="text-xs text-slate-600">
+                      {accesFerme(u, maintenantMs()) ? `🔒 Accès fermé le ${momentFermeture(attestationDe(u)).date} à ${momentFermeture(attestationDe(u)).heure}` : `📤 À sa disposition — accès fermé le ${momentFermeture(attestationDe(u)).date} à ${momentFermeture(attestationDe(u)).heure}`}
+                    </span>
+                  )}
+                      </div>
+                    </div>
+                    )}
+                    {u.role !== "client" && (
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Commercial</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                  <BoutonGerer onClick={() => changerTauxCommission(u)} info={() => infoGerer(u, "commission")} nom="💰 Commission" />
+                  {["commercial", "technicien"].includes(u.role) && <BoutonGerer onClick={() => changerParrain(u)} info={() => infoGerer(u, "parrain")} nom="🤝 Parrain" />}
+                  {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <BoutonGerer onClick={() => changerTauxEquipe(u)} info={() => infoGerer(u, "equipe")} nom="⭐ Équipe" />}
+                  {["commercial", "technicien", "technicien_bmi"].includes(u.role) && <BoutonGerer onClick={() => basculerChef(u)} nom={u.chef_equipe ? "Retirer chef" : "Nommer chef"} />}
+                      </div>
+                    </div>
+                    )}
+                    {u.role === "client" && (
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Client</div>
+                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                  <BoutonGerer onClick={() => basculerChatLibre(u)} nom={u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"} />
+                  {/* 💳 La carte de fidélité (29/10/2026) : l'administrateur principal seul la met en place. */}
+                  {jeSuisAdminPrincipal && <BoutonGerer data-carte-fidelite onClick={() => gererCarteFidelite({ db, save, profile, compte: u })} titre="Créer, changer la remise, remplacer, retirer ou imprimer sa carte" nom="💳 Carte de fidélité" />}
+                      </div>
+                    </div>
+                    )}
+                  </div>
+    </>
+  );
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4 bg-white border border-slate-200">
@@ -1765,243 +2007,34 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
           )}
         </div>
         <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
-        <table className="w-full text-sm min-w-[760px]">
-          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">{["Nom", "Rôle", "Boutique", "Salaire / Taux", "Statut", "Actions"].map((h) => <th key={h} className={`${h === "Actions" ? "text-right" : "text-left"} px-4 py-2 whitespace-nowrap`}>{h}</th>)}</tr></thead>
-          <tbody>
-            {listeAffichee.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">{listeDuRole.length > 0 ? "Aucun compte de cette liste dans ce filtre." : enRecherche ? "Aucun utilisateur ne correspond à cette recherche." : "Aucun compte pour ce rôle."}</td></tr>}
-            {listeAffichee.map((u, i) => (
-              <React.Fragment key={u.id}>
-              <tr className={`border-t border-slate-100 hover:bg-sky-50 align-middle ${i % 2 ? "bg-slate-50/60" : "bg-white"}`}>
-                <td className="px-4 py-2 font-semibold">{u.nom}
-                  {idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold align-middle" data-client-archive>📁 Archivé</span>}
-                  {idsSansSuite.has(u.id) && !idsArchives.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-bold align-middle" data-compte-prospect>🧲 Prospect</span>}
-                  {sansActiviteParId.has(u.id) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold align-middle" data-compte-sans-activite>🆕 Sans activité</span>}
-                  {estSansAcces(u) && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold align-middle" data-fiche-sans-acces>🖨 Sans compte</span>}
-                  {u.nom_complet && <div className="text-xs font-normal text-slate-600">{u.nom_complet}</div>}
-                  {estSansAcces(u) && (
-                    <div className="text-xs font-normal text-slate-500" data-fiche-sans-acces-aide>
-                      Devis imprimé sans compte : aucun accès à l'application. Pour lui ouvrir son espace (le même compte, son devis dedans) :
-                      ➕ Nouvel utilisateur → Client avec son numéro, ou 📲 Envoyer par WhatsApp son devis.
-                    </div>
-                  )}
-                  {sansActiviteParId.has(u.id) && (() => { const c = sansActiviteParId.get(u.id); return (
-                    <div className="text-xs font-normal text-slate-500" data-ligne-sans-activite>
-                      Créé le {c.creeLe ? dFR(c.creeLe) : "— date inconnue"}{c.parNom ? ` par ${c.parNom}` : ""} · aucun devis, aucun achat
-                    </div>
-                  ); })()}
-                  {sansSuiteParId.has(u.id) && (() => { const c = sansSuiteParId.get(u.id); return (
-                    <div className="text-xs font-normal text-slate-500" data-ligne-sans-suite>
-                      Dernier devis le {dFR(c.reference)} · {c.archive
-                        ? <>archivé le {dFR(c.archiveLe)} · {c.effacable ? <b className="text-amber-700">effacement proposé depuis le {dFR(c.effacableLe)}</b> : <>effacement proposé à partir du {dFR(c.effacableLe)}</>}</>
-                        : <>archivé le {dFR(c.archiveLe)} s'il reste sans suite</>}
-                    </div>
-                  ); })()}
-                  {["commercial", "technicien"].includes(u.role) && filleulsDe(db, u).length > 0 && (
-                    <div className={`text-xs font-bold ${estChefEquipe(db, u) ? "text-amber-600" : "text-slate-500"}`}>
-                      {estChefEquipe(db, u) ? "⭐ Chef d'équipe" : "👥"} — {filleulsDe(db, u).length} recrue(s){!estChefEquipe(db, u) ? ` / ${SEUIL_CHEF_EQUIPE}` : ""}
-                    </div>
-                  )}
-                  {u.parrain_id && <div className="text-xs font-normal text-slate-400">Recruté par {(db.users.find((x) => x.id === u.parrain_id) || {}).nom || "?"}</div>}
-                  {/* Les avis des clients : ils ne servent que s'ils remontent jusqu'ici.
-                      ⚠ evaluationsDe() agrège les DEUX emplacements — l'ancien
-                      (fiche de l'employé) et le nouveau (fiche du client qui a
-                      noté, seule qu'il ait le droit d'écrire depuis la
-                      fermeture de l'annuaire). Voir lib/calculs.js. */}
-                  {noteMoyenne(db, u) !== null && (
-                    <button onClick={() => setAvisOuvert(avisOuvert === u.id ? null : u.id)} className="text-xs font-bold text-amber-600 hover:underline">
-                      {etoiles(noteMoyenne(db, u))} {noteMoyenne(db, u).toFixed(1)}/5 ({evaluationsDe(db, u).length} avis)
-                    </button>
-                  )}
-                  {avisOuvert === u.id && (
-                    <div className="mt-2 rounded-lg border border-purple-200 bg-purple-50 p-2 space-y-2">
-                      {CRITERES_NOTE.map((c) => {
-                        const evs = evaluationsDe(db, u);
-                        const moy = evs.length ? evs.reduce((sm, e) => sm + Number(e[c.id] || 0), 0) / evs.length : 0;
-                        return (
-                          <div key={c.id} className="flex items-center justify-between text-xs">
-                            <span className="text-slate-600">{c.emoji} {c.label}</span>
-                            <span className="font-bold text-amber-600">{etoiles(moy)} {moy.toFixed(1)}</span>
-                          </div>
-                        );
-                      })}
-                      {evaluationsDe(db, u).filter((e) => e.commentaire).slice(0, 5).map((e) => (
-                        <div key={e.id} className="text-xs bg-white rounded border border-slate-200 p-2">
-                          <div className="text-slate-700">« {e.commentaire} »</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">{e.client_nom} · {dFR(e.date)} · {moyenneNote(e).toFixed(1)}/5</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {peutAvoirAffectation(u) && String(u.affectation || "").trim() && <div data-ligne-affectation className="text-xs font-normal text-slate-500">📍 {u.affectation}</div>}
-                  {u.role !== "client" && (() => {
-                    const e = etatFinContrat(u, today());
-                    if (!e) return null;
-                    const couleur = e.jours < 0 ? "text-red-600" : e.jours <= 15 ? "text-amber-700" : "text-slate-500";
-                    return <div data-fin-contrat className={`text-xs font-normal ${couleur}`}>📄 {phraseFinContrat(u, today())}</div>;
-                  })()}
-                  {u.role !== "client" && u.cnss_date_sortie && <div data-ligne-sortie className="text-xs font-normal text-slate-500">🚪 Sorti le {dFR(u.cnss_date_sortie)}</div>}
-                  {u.piece_num
-                    ? <div className="text-xs font-normal text-slate-400">{u.piece_type || "Pièce"} n° {u.piece_num}</div>
-                    : u.role !== "client" && <div className="text-xs font-normal text-orange-500" title="Identité non renseignée : bouton 🆔 Identité">⚠ Identité</div>}
-                  {/* Timo (16/09/2026) : « un client créé par un utilisateur,
-                      l'administrateur principal n'a pas la possibilité de voir
-                      son numéro de téléphone ». Le numéro était ENREGISTRÉ (il
-                      sert à fabriquer l'identifiant et à joindre la personne)
-                      mais n'était affiché NULLE PART : pas de colonne ici, et
-                      📋 Clients ne liste que ceux qui ont déjà acheté. Il se lit
-                      maintenant sous le nom, comme la pièce d'identité, pour
-                      tout le monde. Le logo WhatsApp passe par `envoyerWhatsApp`
-                      — aucun écran n'ouvre WhatsApp lui-même. */}
-                  {voitConnexions && (() => {
-                    const e = connexionDe(u);
-                    const couleur = e.etat === "ouvert" ? "text-emerald-700" : e.etat === "jamais" ? "text-amber-700 font-semibold" : "text-slate-400";
-                    return <div data-connexion-compte={e.etat} className={`text-xs font-normal ${couleur}`}>{libelleConnexion(e)}</div>;
-                  })()}
-                  {u.tel && (
-                    <div className="text-xs font-normal text-slate-500 flex items-center gap-1.5">
-                      <span>📞 {u.tel}</span>
-                      {/* 💙 Sur un CLIENT, le mot de fidélité part du numéro BMI
-                          (Timo, 25/09/2026 : « il reste les messages WhatsApp dans
-                          utilisateur… ça ouvre toujours le WhatsApp sur
-                          l'ordinateur »), comme dans 📋 Clients. Sur un EMPLOYÉ,
-                          une conversation vide s'ouvre, comme avant. */}
-                      <BoutonEnvoi libelleEnvoi="⏳" onClick={() => (u.role === "client" ? envoyerFidelite(u) : envoyerWhatsApp(telDigits(u.tel), ""))} title={u.role === "client" ? `Envoyer le mot de fidélité à ${u.nom} du numéro BMI` : `Écrire à ${u.nom} sur WhatsApp`} aria-label="WhatsApp" className="hover:opacity-70"><IconeWhatsApp taille={14} /></BoutonEnvoi>
-                    </div>
-                  )}
-                </td>
-                <td className="px-4 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${teinteRole(u.role)}`}>{u.role === "assistant_direction" ? `🗂 ${libelleAssistantDirection(u)}` : u.role === "admin" ? "Administrateur" : u.role === "commercial" ? `Commercial (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien" ? `Technicien (${u.taux_commission ?? 0}%)${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "technicien_bmi" ? `🔧 Technicien BMI (salarié)${Number(u.taux_commission || 0) > 0 ? ` — commission ${u.taux_commission}%` : ""}${u.chef_equipe ? " ⭐ Chef" : ""}` : u.role === "resp_commercial" ? `👑 Responsable Commercial${Number(u.taux_commission || 0) > 0 ? ` (${u.taux_commission}%)` : ""}` : u.role === "comptable" ? "📒 Comptable (lecture seule)" : u.role === "gerant" ? "Gérant de boutique" : u.role === "magasinier" ? "Magasinier" : u.role === "client" ? "Client" : "Vendeur"}</span></td>
-                <td className="px-4 py-2">
-                  {u.boutique
-                    ? <Badge boutique={u.boutique} />
-                    : u.role === "vendeur"
-                    ? <span className="text-xs font-semibold text-orange-600">⚠ Boutique supprimée</span>
-                    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">Toutes</span>}
-                </td>
-                <td className="px-4 py-2">
-                  {SALARIES.includes(u.role) ? (
-                    <div className="leading-tight">
-                      <div className="font-semibold tabular-nums">{Number(u.salaire_base || 0) > 0 ? fmt(u.salaire_base) : <span className="text-slate-400">Non défini</span>}</div>
-                      <div className="text-xs text-slate-500">
-                        {Number(u.taux_avancement || 0) > 0 ? `Avancement : ${u.taux_avancement} %/an` : "Taux d'avancement non fixé"}
-                      </div>
-                      {(u.virements || []).some((v) => v.statut !== "accepte") && (
-                        <div className="text-xs font-bold text-amber-600">⏳ {(u.virements || []).filter((v) => v.statut !== "accepte").length} virement(s) en attente</div>
-                      )}
-                      {creditsEnAttente(u).length > 0 && (
-                        <div className="text-xs font-bold text-purple-700">📩 {creditsEnAttente(u).length} demande(s) de crédit</div>
-                      )}
-                      {creditsEnCours(u).length > 0 && (
-                        <div className="text-xs font-bold text-red-600">🏦 Crédit : reste {fmt(creditsEnCours(u).reduce((s, c) => s + resteCredit(c), 0))}</div>
-                      )}
-                    </div>
-                  ) : ["commercial", "technicien"].includes(u.role) ? (
-                    <span className="text-xs text-slate-500">Commission {u.taux_commission ?? 0} %</span>
-                  ) : <span className="text-slate-400">—</span>}
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap">
-                  {u.actif === false ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">Bloqué</span> : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Actif</span>}
-                  {u.formation && <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-800 border border-violet-200">🎓 Formation</span>}
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap text-right">
-                  <div className="inline-flex items-center gap-1">
-                    <button onClick={() => setPouvoirsPour(u.id)} className={boutonRond("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title={`🔐 Pouvoirs${(u.droits_off || []).length ? ` (${(u.droits_off || []).length} retiré${(u.droits_off || []).length > 1 ? "s" : ""})` : ""}`} aria-label="Pouvoirs">🔐{(u.droits_off || []).length ? <span className="absolute -top-1 -right-1 text-[10px] font-bold bg-purple-700 text-white rounded-full w-4 h-4 flex items-center justify-center">{(u.droits_off || []).length}</span> : null}</button>
-                    <button onClick={() => changerIdentite(u)} className={boutonRond("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="🆔 Identité (nom complet, sexe, pièce)" aria-label="Identité">🆔</button>
-                    {jeSuisAdminPrincipal && <button onClick={() => changerPwd(u)} className={boutonRond("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="🔑 Changer le mot de passe" aria-label="Mot de passe">🔑</button>}
-                    {!surMaPropreFiche(u) && <button onClick={() => toggleActif(u)} className={boutonRond(u.actif === false ? "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100" : "text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title={u.actif === false ? "✅ Réactiver ce compte" : "⛔ Bloquer ce compte"} aria-label={u.actif === false ? "Réactiver" : "Bloquer"}>{u.actif === false ? "✅" : "⛔"}</button>}
-                    <button onClick={() => setGererOuvert(gererOuvert === u.id ? null : u.id)} className={`px-3 h-8 rounded-full border text-xs font-bold ${gererOuvert === u.id ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"}`} title="Tous les gestes sur ce compte">⋯ Gérer</button>
-                  </div>
-                </td>
-              </tr>
-              {gererOuvert === u.id && (
-              <tr className="bg-slate-50 border-t border-slate-100">
-                <td colSpan={6} className="px-4 py-3">
-                  {/* Timo (12/09/2026, capture) : « classer les actions par ligne et non
-                      par colonne » — un thème = UNE ligne : son nom à gauche, ses
-                      boutons à la suite sur la même ligne (ils passent à la ligne
-                      seulement si la place manque). Mêmes gestes, mêmes gardes. */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Compte</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
-                  {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <BoutonGerer onClick={() => changerRole(u)} titre={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"} nom="🎭 Rôle" />}
-                  {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
-                    <BoutonGerer onClick={() => basculerFormation(u)} nom={u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"} />
-                  )}
-                  {SALARIES_BOUTIQUE.includes(u.role) && <BoutonGerer onClick={() => changerBoutique(u)} info={() => infoGerer(u, "boutique")} nom="🏬 Boutique" />}
-                  {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} info={() => infoGerer(u, "affectation")} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
-                  {!surMaPropreFiche(u) && <BoutonGerer data-fixer-affichage onClick={() => fixerAffichage(u)} info={() => infoGerer(u, "affichage")} titre="Barre d'onglets ou page d'icônes — l'administrateur peut le fixer" nom="🧭 Affichage" />}
-                  {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} info={() => infoGerer(u, "telephone")} nom="📞 Téléphone" />}
-                  {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} info={() => infoGerer(u, "anniversaire")} nom="🎂 Anniversaire" />}
-                  {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Voir le mot de passe" />}
-                  <BoutonGerer onClick={() => supprimerU(u)} ton="danger" nom="🗑 Supprimer" />
-                      </div>
-                    </div>
-                    {SALARIES.includes(u.role) && (
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Paie</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
-                  <BoutonGerer onClick={() => changerSalaire(u)} info={() => infoGerer(u, "salaire")} nom="💵 Salaire" />
-                  <BoutonGerer onClick={() => changerTauxAvancement(u)} info={() => infoGerer(u, "taux")} nom="📈 Taux %" />
-                  <BoutonGerer data-debut-paie onClick={() => changerDebutPaie(u)} info={() => infoGerer(u, "debutPaie")} titre="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application" nom="📅 Paie suivie depuis" />
-                  <BoutonGerer data-embauche-contrat onClick={() => changerEmbaucheContrat(u)} info={() => infoGerer(u, "contrat")} titre="La date d'embauche, le type de contrat et sa durée : la fin se calcule toute seule. Imprimés sur le bulletin, repris par la déclaration CNSS" nom="📅 Embauche et contrat" />
-                  {peutRenouveler(u, today()) && <BoutonGerer data-renouveler onClick={() => renouvelerContrat(u)} titre="Prolonge le contrat à partir du lendemain de sa fin ; s'affiche 15 jours avant la fin, jusqu'à un mois après" nom="🔁 Renouveler" />}
-                  <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "prime")} nom="+ Prime" />
-                  <BoutonGerer onClick={() => ajouterMouvementSalaire(u, "avance")} nom="− Avance" />
-                  <BoutonGerer onClick={() => changerBanque(u)} info={() => infoGerer(u, "banque")} nom="🏦 Banque" />
-                  <BoutonGerer onClick={() => envoyerVirement(u)} nom="💸 Payer le salaire" />
-                  {(u.virements || []).some((v) => v.statut !== "accepte") && <BoutonGerer onClick={() => annulerVirement(u)} ton="attention" nom="Annuler le paiement" />}
-                  {/* 🚪 En bout de ligne (Timo, 05/10/2026, « sortie b ») : un départ n'est pas un geste de tous les jours. */}
-                  <BoutonGerer data-sortie onClick={() => changerSortie(u)} info={() => infoGerer(u, "sortie")} titre="Date et motif de sortie, repris par la déclaration CNSS" nom="🚪 Sortie" />
-                      </div>
-                    </div>
-                    )}
-                    {SALARIES.includes(u.role) && jeSuisAdminPrincipal && (
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1" data-ligne-documents>
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Documents</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
-                  {documentPropose(u, today()) === "attestation"
-                    ? <BoutonGerer data-attestation-travail onClick={() => delivrerDocument(u)} titre="Pour une banque, un visa, un logement : il travaille chez BMI depuis le…, comme…" nom="📄 Attestation de travail" />
-                    : <BoutonGerer data-document-fin onClick={() => delivrerDocument(u)} titre="Certificat de travail (CDI, CDD), attestation de fin d'apprentissage ou attestation de stage, selon son contrat" nom="📄 Document de fin de contrat" />}
-                  {documentPropose(u, today()) !== "attestation" && !attestationDe(u) && (
-                    <BoutonGerer data-mettre-a-disposition onClick={() => mettreADisposition(u)} titre="Il le télécharge depuis son espace pendant 24 heures, puis son accès se ferme" nom="📤 Mettre à disposition" />
-                  )}
-                  {attestationDe(u) && (
-                    <span data-attestation-dispo className="text-xs text-slate-600">
-                      {accesFerme(u, maintenantMs()) ? `🔒 Accès fermé le ${momentFermeture(attestationDe(u)).date} à ${momentFermeture(attestationDe(u)).heure}` : `📤 À sa disposition — accès fermé le ${momentFermeture(attestationDe(u)).date} à ${momentFermeture(attestationDe(u)).heure}`}
-                    </span>
-                  )}
-                      </div>
-                    </div>
-                    )}
-                    {u.role !== "client" && (
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Commercial</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
-                  <BoutonGerer onClick={() => changerTauxCommission(u)} info={() => infoGerer(u, "commission")} nom="💰 Commission" />
-                  {["commercial", "technicien"].includes(u.role) && <BoutonGerer onClick={() => changerParrain(u)} info={() => infoGerer(u, "parrain")} nom="🤝 Parrain" />}
-                  {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <BoutonGerer onClick={() => changerTauxEquipe(u)} info={() => infoGerer(u, "equipe")} nom="⭐ Équipe" />}
-                  {["commercial", "technicien", "technicien_bmi"].includes(u.role) && <BoutonGerer onClick={() => basculerChef(u)} nom={u.chef_equipe ? "Retirer chef" : "Nommer chef"} />}
-                      </div>
-                    </div>
-                    )}
-                    {u.role === "client" && (
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Client</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
-                  <BoutonGerer onClick={() => basculerChatLibre(u)} nom={u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"} />
-                  {/* 💳 La carte de fidélité (29/10/2026) : l'administrateur principal seul la met en place. */}
-                  {jeSuisAdminPrincipal && <BoutonGerer data-carte-fidelite onClick={() => gererCarteFidelite({ db, save, profile, compte: u })} titre="Créer, changer la remise, remplacer, retirer ou imprimer sa carte" nom="💳 Carte de fidélité" />}
-                      </div>
-                    </div>
-                    )}
-                  </div>
-                </td>
-              </tr>
-              )}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
+        <ListeCarnet
+          items={listeAffichee} telephone={telephone} ouvert={gererOuvert} onBasculer={(u) => setGererOuvert(gererOuvert === u.id ? null : u.id)}
+          marques={{ cartes: "data-utilisateurs-cartes", carte: "data-utilisateur-carte", detail: "data-detail-utilisateur" }}
+          largeurMin="min-w-[760px]" enTeteFond="bg-slate-100" enTeteClasse="sticky top-0 z-30 bg-slate-100"
+          aucun={listeDuRole.length > 0 ? "Aucun compte de cette liste dans ce filtre." : enRecherche ? "Aucun utilisateur ne correspond à cette recherche." : "Aucun compte pour ce rôle."}
+          colonnes={[
+            { titre: "Nom", figee: true, cellule: (u) => celluleNom(u) },
+            { titre: "Rôle", cellule: (u) => pastilleRole(u) },
+            { titre: "Boutique", cellule: (u) => celluleBoutique(u) },
+            { titre: "Salaire / Taux", cellule: (u) => celluleSalaire(u) },
+            { titre: "Statut", classe: "whitespace-nowrap", cellule: (u) => celluleStatut(u) },
+            { titre: "À faire", align: "right", actions: true, largeur: "justify-end" },
+          ]}
+          carte={(u) => (
+            <>
+              {celluleNom(u)}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">{pastilleRole(u)}{celluleBoutique(u)}{celluleStatut(u)}</div>
+              <div className="mt-2">{celluleSalaire(u)}</div>
+            </>
+          )}
+          gestes={(u, deplie) => { const g = gestesAcces(u); return <GestesLigne g={g} moment={gesteDuMomentU(g, u)} deplie={deplie} aDroite onDetail={() => setGererOuvert(gererOuvert === u.id ? null : u.id)} marque="data-detail-utilisateur-bouton" />; }}
+          detail={(u) => { const g = gestesAcces(u); return (
+            <div className="space-y-2">
+              <GestesDetail g={g} moment={gesteDuMomentU(g, u)} lignes={[["Accès", ["pouvoirs", "identite", "mdp", "bloquer"]]]} />
+              {panneauGerer(u)}
+            </div>
+          ); }}
+        />
         </div>
       </div>
 
