@@ -10231,8 +10231,8 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
   test("★★ l'écran : « Remise » sur chaque ligne (gérant, administrateur), revérifié DANS le geste sur la fiche FRAÎCHE ; facturer revérifie « C a » ; la colonne Remise et le total net",
     /refuserSaufRoles\(profile, ROLES_FICHE, "Accorder une remise/.test(corpsR) && /\(db\.clients_installes \|\| \[\]\)\.find\(\(x\) => x\.id === c\.id\)/.test(corpsR) && /poserRemise\(profile, fraiche/.test(corpsR)
     && /critiqueFacturation\(c\) \|\| critiqueFacturationRemises\(c, profile\.role, plafondRemise\(db\)\)/.test(srcTvR) && /data-remise-ligne/.test(srcTvR)
-    // RETOURNÉ le 15/10/2026 (la règle des lignes) : un bouton rond.
-    && /!vente && ROLES_FICHE\.includes\(profile\.role\) && <BoutonRond data-remiser icone="🏷" onClick=\{\(\) => remiser\(c, l\)\}/.test(srcTvR) && /\{fmt\(montantLigne\(l\)\)\}/.test(srcTvR));
+    // RETOURNÉ le 15/10/2026 (la règle des lignes) : un bouton rond ; RETOURNÉ le 19/11/2026 (la charte) : un bouton écrit en mots.
+    && /!vente && ROLES_FICHE\.includes\(profile\.role\) && <BoutonGeste data-remiser icone="🏷" nom=\{remiseDe\(l\) > 0 \? "Modifier la remise" : "Remise"\} onClick=\{\(\) => remiser\(c, l\)\}/.test(srcTvR) && /\{fmt\(montantLigne\(l\)\)\}/.test(srcTvR));
   const pre = Tv.preRempliPourFacture(c2);
   test("★ preRempliPourFacture : boutique, panier, travauxId, client et téléphone", pre.boutique === "LOME" && pre.travauxId === c0.id && pre.client === "Paul MENSAH" && pre.tel === "90" && pre.panier.length === 3);
   test("★ critiqueFacturation : déjà facturé refusé, rien à facturer refusé, sinon accord", /déjà facturés/.test(Tv.critiqueFacturation({ ...c2, vente_id: "v" })) && /Rien à facturer/.test(Tv.critiqueFacturation(c0)) && Tv.critiqueFacturation(c2) === null);
@@ -10262,7 +10262,7 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     && Tv.chefTravaux({ equipe: eq }).user_id === "t2" && Tv.libelleEquipe({ equipe: eq }) === "KOSSI, ⭐ AMA D.");
   const tvJ = readFileSync("src/screens/Travaux.jsx", "utf8");
   test("★ l'écran : « 🗑 Supprimer ces travaux » pour le PRINCIPAL seul (refuserSaufAdminPrincipal + critiqueSuppression, corbeille, dépenses conservées dites), l'équipe pour l'admin (refuserSaufRoles ROLES_EQUIPE, composerEquipe) parmi les techniciens de l'espace regardé",
-    /refuserSaufAdminPrincipal\(db, profile, "Supprimer des travaux"\)/.test(tvJ) && /const refus = critiqueSuppression\(c\);/.test(tvJ) && /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(tvJ) && /RESTENT dans 📤 Dépenses/.test(tvJ) && /* RETOURNÉ le 18/11/2026 : un geste en toutes lettres. */ /\{jeSuisPrincipal && !vente && <BoutonGeste icone="🗑" teinte="rouge" nom="Supprimer ces travaux"/.test(tvJ)
+    /refuserSaufAdminPrincipal\(db, profile, "Supprimer des travaux"\)/.test(tvJ) && /const refus = critiqueSuppression\(c\);/.test(tvJ) && /save\(mettreALaCorbeille\(db, "clients_installes", c\.id, profile\)/.test(tvJ) && /RESTENT dans 📤 Dépenses/.test(tvJ) && /* RETOURNÉ le 18/11/2026 : un geste en toutes lettres ; le 19/11/2026 : rangé dans l'objet des gestes de la charte. */ /supprimer: jeSuisPrincipal && !vente && <BoutonGeste icone="🗑" teinte="rouge" nom="Supprimer ces travaux"/.test(tvJ)
     && /refuserSaufRoles\(profile, ROLES_EQUIPE, "Composer l'équipe des travaux"\)/.test(tvJ) && /const equipe = composerEquipe\(techniciens, equipeForm\.ids, equipeForm\.chef\);/.test(tvJ)
     && /const techniciens = utilisateursDeLEspace\(db, profile\)\.filter\(\(u\) => \["technicien", "technicien_bmi"\]\.includes\(u\.role\) && u\.actif !== false\);/.test(tvJ));
   // Timo (07/10/2026) : « petite dépense rattachée… en gras, l'utilisateur qui
@@ -10310,7 +10310,8 @@ titre("🛠 Travaux à crédit : la règle pure, exercée avec des chiffres, et 
     // RETOURNÉ le 05/10/2026 : les mots des statuts vivent dans lib/libellesStatuts.js.
     && /travaux: \{ label: "🛠 Travaux — soldés"/.test(readFileSync("src/lib/libellesStatuts.js", "utf8")) && /import \{ STATUT_CHANTIER \} from "\.\.\/lib\/libellesStatuts"/.test(ciT) && /Facturé \{fmt\(factureMontant\(db, c\)\)\}/.test(ciT)
     // RETOURNÉ le 18/11/2026 : les gestes de 🏠 Clients installés sont des boutons en toutes lettres (BoutonGeste, trois lignes).
-    && /\{!c\.travaux && \(\n\s*<BoutonGeste icone="🔧" teinte="violet" onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /statutChantier\(c\) !== "receptionne" && !c\.travaux && \(/.test(ciT) && /\{!c\.travaux && <BoutonGeste icone="📅" onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT));
+    // RETOURNÉ le 19/11/2026 (la charte des listes) : les gestes sont les clés de l'objet `gestesDe`, rangées dans « ▸ Détail ».
+    && /frais: !c\.travaux && \(\n\s*<BoutonGeste icone="🔧" teinte="violet" onClick=\{\(\) => ouvrirRepartition\(c\)\}/.test(ciT) && /entretien: !c\.travaux && <BoutonGeste icone="📅" onClick=\{\(\) => modifierEntretien\(c\)\}/.test(ciT) && /entretienFait: isAdmin && !c\.travaux/.test(ciT));
   test("★ le stock : stockVendu et l'index ignorent deja_sorti ; le rattachement d'une dépense refuse des travaux soldés",
     /* RETOURNÉ le 11/10/2026 : + au_chantier */ /l\.produit_id === pid && !l\.deja_sorti && !l\.au_chantier/.test(calT) && /if \(l\.produit_id && !l\.deja_sorti && !l\.au_chantier\) venduParProduit/.test(calT)
     && /Ces travaux sont soldés/.test(readFileSync("src/lib/depensesChantier.js", "utf8")) && /!travauxSolde\(db, c\)\)/.test(readFileSync("src/lib/depensesChantier.js", "utf8")));
@@ -16691,8 +16692,8 @@ titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, 
     ["Prospects", "TousLesDevis", "ClientsInstalles", "Commandes", "Stocks", "Fournisseurs", "Salaires", "Commerciaux", "MonEquipe"].every((n) => {
       const src = readFileSync(`src/screens/${n}.jsx`, "utf8");
       // RETOURNÉ le 18/11/2026 : 🏠 Clients installés porte ses gestes en toutes lettres (LigneGestes) au lieu de la cellule de boutons ronds.
-      // RETOURNÉ le 19/11/2026 : 📋 Tous les devis, 🧲 Prospects et 🧾 Commandes passent par ListeCarnet, qui écrit la colonne figée, la ligne dépliable et la cellule des gestes.
-      if (n === "TousLesDevis" || n === "Prospects" || n === "Commandes" || n === "Fournisseurs" || n === "Commerciaux") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
+      // RETOURNÉ le 19/11/2026 : 💵 Salaires aussi ; 📋 Tous les devis, 🧲 Prospects et 🧾 Commandes passent par ListeCarnet, qui écrit la colonne figée, la ligne dépliable et la cellule des gestes.
+      if (n === "TousLesDevis" || n === "Prospects" || n === "Commandes" || n === "Fournisseurs" || n === "Commerciaux" || n === "Salaires" || n === "ClientsInstalles") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
       return /enTeteFige\(/.test(src) && /celluleFigee\(fondLigneDepliable\(/.test(src) && /classeLigneDepliable\(/.test(src) && (/<CelluleActions/.test(src) || (n === "ClientsInstalles" && /<LigneGestes/.test(src)));
     }));
 }
@@ -17136,7 +17137,8 @@ titre("💸 L'argent remis HORS chantier, à tout le personnel : chaque somme à
   test("★ « B a » : une part qui sort du 🏗 DÉPÔT CHANTIER ne se valide que par l'administrateur — revérifié DANS le geste, et le bouton ✓ Valider et payer ne s'affiche pas au vendeur ; l'écran dit la caisse par son libellé",
     /if \(!isAdmin && \(primeParLeDepot\(e\.prime_boutique\) \|\| profile\.boutique !== e\.prime_boutique\)\)/.test(ciP)
     // RETOURNÉ le 15/10/2026 (la règle des lignes) : un bouton rond.
-    && /\(isAdmin \|\| \(!primeParLeDepot\(e\.prime_boutique\) && profile\.boutique === e\.prime_boutique\)\) && <BoutonRond icone="✓" teinte="vert" onClick=\{\(\) => validerPaiementPrime\(c, e\)\}/.test(ciP)
+    // RETOURNÉ le 19/11/2026 (charte) : un bouton écrit en mots.
+    && /\(isAdmin \|\| \(!primeParLeDepot\(e\.prime_boutique\) && profile\.boutique === e\.prime_boutique\)\) && <BoutonGeste icone="✓" teinte="vert" nom="Valider et payer" onClick=\{\(\) => validerPaiementPrime\(c, e\)\}/.test(ciP)
     && /📤 Demandé — \{libelleCaisse\(e\.prime_boutique\)\}/.test(ciP) && !/Sortie de caisse \$\{e\.prime_boutique\}/.test(ciP));
 }
 
@@ -18564,7 +18566,7 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
   const sal = readFileSync("src/screens/Salaires.jsx", "utf8");
   const ut = readFileSync("src/screens/Utilisateurs.jsx", "utf8");
   test("★ 💵 Salaires : un 🗑 sur chaque prime (jamais sur un remboursement de frais) et chaque avance de la ligne dépliée ; l'administrateur, la fiche FRAÎCHE, le motif obligatoire ; l'avance part avec sa dépense",
-    /data-prime-salaire[\s\S]{0,400}\{!x\.hors_cnss && x\.auto !== "avance_frais" && <BoutonRond icone="🗑"[^>]*onClick=\{\(\) => retirerUnePrime\(u, x\)\}/.test(sal)
+    /data-prime-salaire[\s\S]{0,400}\{!x\.hors_cnss && x\.auto !== "avance_frais" && <BoutonGeste icone="🗑"[^>]*nom="Retirer"[^>]*onClick=\{\(\) => retirerUnePrime\(u, x\)\}/.test(sal) /* RETOURNÉ le 19/11/2026 : un bouton écrit en mots (charte) */
     && /data-avance-salaire[\s\S]{0,300}onClick=\{\(\) => retirerUneAvance\(u, x\)\}/.test(sal)
     && /const retirerUnePrime = async[\s\S]{0,200}refuserSaufAdmin\(profile, "Retirer une prime"\)[\s\S]{0,200}const frais = \(db\.users \|\| \[\]\)\.find/.test(sal)
     && /const retirerUneAvance = async[\s\S]{0,200}refuserSaufAdmin\(profile, "Retirer une avance sur salaire"\)/.test(sal)
@@ -18586,16 +18588,20 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
         avances: [{ id: "a9", mois: "2026-10", montant: 5000, motif: "transport", date: "2026-10-02", par: "TIMO", depense_id: "d9" }] };
       let h = "";
       try { h = S.rendreSalaires({ users: [timoR, angS], depenses: [], boutiques: [] }, timoR, { moisInitial: "2026-10", employeDeplieInitial: "u_ang" }); } catch (e) { h = "ERREUR " + String(e && e.message || e).slice(0, 160); }
-      // RETOURNÉ le 18/11/2026 : sur téléphone une carte porte le même détail ; le contrôle lit la partie TABLEAU (ordinateur).
-      const hT = h.includes("data-salaires-cartes") ? h.slice(0, h.indexOf("data-salaires-cartes")) : h;
+      // RETOURNÉ le 18/11/2026 : sur téléphone une carte porte le même détail ; RETOURNÉ le 19/11/2026 : la charte n'écrit qu'UNE des deux mises en page — `h` est celle de l'ordinateur.
+      const hT = h;
       const nb = (re) => (hT.match(re) || []).length;
       test("★ rendu : la ligne dépliée montre trois primes et une avance, un 🗑 « Retirer cette prime » sur les DEUX primes ordinaires (pas sur le remboursement de frais) et un 🗑 sur l'avance",
         !h.startsWith("ERREUR") && nb(/data-prime-salaire/g) === 3 && nb(/title="🗑 Retirer cette prime/g) === 2 && nb(/data-avance-salaire/g) === 1 && nb(/title="🗑 Retirer cette avance/g) === 1, h.slice(0, 160));
       // 💵 SALAIRES « LISIBLE COMME UN LIVRE » (18/11/2026, « Lance »).
       test("★ 💵 Salaires : le mois se choisit sur la ligne du titre (derrière un « i » l'explication), les cinq cartes restent côte à côte, le détail par employé se replie",
         !h.startsWith("ERREUR") && /data-masse-salariale/.test(h) && /data-mois-salaires/.test(h) && /data-titre-info/.test(h) && /data-detail-par-employe/.test(h) && (h.match(/data-carte-repliable/g) || []).length >= 2, h.slice(0, 160));
-      test("★ 📱 sur téléphone : une CARTE par employé (nom, net, versé, reste, statut), dépliée avec son détail ; le tableau reste pour l'ordinateur",
-        /data-salaires-table/.test(h) && /class="[^"]*hidden sm:block[^"]*" data-salaires-table/.test(h) && /data-salaires-cartes/.test(h) && (h.match(/data-carte-salaire="deplie"/g) || []).length === 1 && /data-salaires-cartes-total/.test(h));
+      test("★ 📱 sur téléphone : une CARTE par employé (nom, net, versé, reste, statut), dépliée avec son détail ; le tableau reste pour l'ordinateur (une seule des deux mises en page est dans la page — la charte)",
+        (() => {
+          let hP = "";
+          try { hP = S.rendreSalaires({ users: [timoR, angS], depenses: [], boutiques: [] }, timoR, { moisInitial: "2026-10", employeDeplieInitial: "u_ang", telephoneInitial: true }); } catch (e) { hP = "ERREUR " + String(e && e.message || e).slice(0, 160); }
+          return /data-salaires-table/.test(h) && !/data-salaires-cartes/.test(h) && !hP.startsWith("ERREUR") && /data-salaires-cartes/.test(hP) && !/data-salaires-table/.test(hP) && /data-carte-salaire/.test(hP) && (hP.match(/data-ligne-salaire="deplie"/g) || []).length === 1 && /data-salaires-cartes-total/.test(hP) && /data-prime-salaire/.test(hP);
+        })());
       let hM = "";
       const moisCourantM = new Date().toISOString().slice(0, 7); // l'écran s'ouvre sur le mois en cours
       const angM = { ...angS, salaire_base: 120000, evolutions_salaire: [{ date: "2026-09-01", ancien: 100000, nouveau: 120000, motif: "avancement" }],
@@ -18633,11 +18639,16 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
       try { hL = Ch.rendreChantiers(baseCh, timoC); } catch (e) { hL = "ERREUR " + String(e && e.message || e).slice(0, 200); }
       try { hD = Ch.rendreChantiers(baseCh, timoC, { dossierInitial: "ci1" }); } catch (e) { hD = "ERREUR " + String(e && e.message || e).slice(0, 200); }
       const nbL = (re) => (hL.match(re) || []).length;
-      test("★ 🏠 la liste se rend : six colonnes (Client · Installation · Installé le · Entretien · À suivre · Gestes), le numéro sous le nom, le tableau pour l'ordinateur et une carte par client pour le téléphone",
-        !hL.startsWith("ERREUR") && /hidden sm:block[^"]*" data-clients-table/.test(hL) && /sm:hidden[^"]*" data-clients-cartes/.test(hL) && nbL(/data-carte-chantier=/g) === 2
-        && ["Client", "Installation", "Installé le", "Entretien", "À suivre", "Gestes"].every((h) => hL.includes(`>${h}</th>`)) && !/>Numéro<\/th>/.test(hL) && !/>Commercial<\/th>/.test(hL), hL.slice(0, 200));
-      test("★ 🔤 les gestes sont en TOUTES LETTRES sur trois lignes (Suivi · Entretien · Autres) : « Frais d'installation », « Entretien », « Supprimer »… ; aucun bouton rond de geste dans la liste",
-        nbL(/data-ligne-gestes/g) >= 6 && />🔧 Frais d&#x27;installation</.test(hL) && />Suivi</.test(hL) && />Entretien</.test(hL) && />Autres</.test(hL) && /📅 Entretien/.test(hL) && /🗑 Supprimer/.test(hL) && /✅ Entretien fait/.test(hL) && /🏁 Marquer terminé/.test(hL)
+      const nbD = (re) => (hD.match(re) || []).length;
+      // RETOURNÉ le 19/11/2026 (la charte des listes) : la dernière colonne s'appelle « À faire » ; UNE seule des deux mises en page est dans la page ; les gestes en mots sont dans « ▸ Détail ».
+      let hLT = "";
+      try { hLT = Ch.rendreChantiers(baseCh, timoC, { telephoneInitial: true }); } catch (e) { hLT = "ERREUR " + String(e && e.message || e).slice(0, 200); }
+      test("★ 🏠 la liste se rend : six colonnes (Client · Installation · Installé le · Entretien · À suivre · À faire), le numéro sous le nom, le tableau pour l'ordinateur OU une carte par client pour le téléphone (jamais les deux)",
+        !hL.startsWith("ERREUR") && /data-clients-table/.test(hL) && !/data-clients-cartes/.test(hL) && !hLT.startsWith("ERREUR") && /data-clients-cartes/.test(hLT) && !/data-clients-table/.test(hLT) && (hLT.match(/data-carte-chantier=/g) || []).length === 2
+        && ["Client", "Installation", "Installé le", "Entretien", "À suivre", "À faire"].every((h) => hL.includes(`>${h}</th>`)) && !/>Numéro<\/th>/.test(hL) && !/>Commercial<\/th>/.test(hL), hL.slice(0, 200));
+      test("★ 🔤 « À faire » = LE geste du moment sur la ligne (🏁 Marquer terminé) ; les autres gestes sont en TOUTES LETTRES sur trois lignes dans « ▸ Détail » (Suivi · Entretien · Autres) : « Frais d'installation », « Entretien », « Supprimer »… ; aucun bouton rond de geste",
+        />🏁 Marquer terminé</.test(hL) && /data-detail-chantier-bouton/.test(hL) && !/data-gestes-chantier/.test(hL)
+        && /data-gestes-chantier/.test(hD) && !/>🏁 Marquer terminé<[\s\S]*data-gestes-chantier/.test(hD.slice(hD.indexOf("data-gestes-chantier")) ) && nbD(/data-ligne-gestes/g) >= 2 && />🔧 Frais d&#x27;installation</.test(hD) && />Entretien</.test(hD) && />Autres</.test(hD) && /📅 Entretien/.test(hD) && /🗑 Supprimer/.test(hD) && /✅ Entretien fait/.test(hD)
         && !/data-cellule-actions[^>]*>\s*<div[^>]*><button[^>]*rounded-full/.test(hL));
       test("★ 🔔 « À suivre » : la pastille « À PROGRAMMER » et l'intervention ouverte sont sur la ligne, jamais cachées",
         /À PROGRAMMER/.test(hL) && nbL(/data-interventions-ouvertes/g) >= 1);
@@ -20319,7 +20330,7 @@ titre("📖 LA CHARTE DES LISTES (Timo, 18/11/2026, « Oui, fais les trois couch
   const ronds = (f) => /<BoutonRond|boutonAction\(/.test(readFileSync(f, "utf8"));
   const adoptes = tous.filter((f) => readFileSync(f, "utf8").includes("<ListeCarnet"));
   // À REPRENDRE : ces écrans portent encore des boutons ronds. Quand l'un est refait avec ListeCarnet, on le RETIRE d'ici (le contrôle tombe s'il reste dans la liste sans en avoir besoin).
-  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Depenses.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Salaires.jsx", "src/screens/Stocks.jsx", "src/screens/Travaux.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
+  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Depenses.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Stocks.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
   const enRonds = tous.filter(ronds).sort();
   const nouveaux = enRonds.filter((f) => !A_REPRENDRE.includes(f) && !adoptes.includes(f));
   const refaits = A_REPRENDRE.filter((f) => !ronds(f));
@@ -20375,6 +20386,35 @@ titre("🎯📋🚚 COMMERCIAUX, CLIENTS ET FOURNISSEURS suivent la charte (19/1
       /moment="regler"/.test(srcFo) && /lignes=\{\[\["Commande", \["demande", "importer", "commande"\]\], \["Fiche", \["modifier"\]\], \["Classer", \["supprimer"\]\]\]\}/.test(srcFo)
       && !/<BoutonRond|CelluleActions/.test(srcFo) && (srcFo.match(/refuserSaufRoles\(profile, ROLES_FOURNISSEURS/g) || []).length >= 4);
   }
+}
+
+titre("🛠 TRAVAUX À CRÉDIT suit la charte (19/11/2026, « Oui, lance les trois suivants »)");
+{
+  const sTv = readFileSync("src/screens/Travaux.jsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  test("★ 🛠 Travaux : ListeCarnet, « À faire » = Facturer (geste du moment), relevé / équipe / frais / articles / suppression rangés dans « ▸ Détail », plus aucun bouton rond",
+    /<ListeCarnet /.test(sTv) && /moment="facturer"/.test(sTv) && /<GestesDetail g=\{gestesTravaux\(c\)\} moment="facturer"/.test(sTv) && !/BoutonRond|boutonAction\(|CelluleActions/.test(sTv));
+  test("★ 🛠 Travaux : chaque geste garde sa revérification de rôle (facturer ROLES_FACTURER, équipe ROLES_EQUIPE, frais ROLES_FICHE, sortir ROLES_ARTICLES, suppression du principal seul), et la remise / « Retirer » des articles sont écrits en mots",
+    /facturer: !vente && ROLES_FACTURER\.includes\(profile\.role\)/.test(sTv) && /equipe: ROLES_EQUIPE\.includes\(profile\.role\)/.test(sTv) && /supprimer: jeSuisPrincipal/.test(sTv)
+    && /refuserSaufRoles\(profile, ROLES_FACTURER, "Facturer des travaux"\)/.test(sTv) && /<BoutonGeste data-retirer-article icone="✕" teinte="rouge" nom="Retirer"/.test(sTv));
+}
+
+titre("💵 SALAIRES (administrateur) suit la charte (19/11/2026, « Oui, lance les trois suivants »)");
+{
+  const sSa = readFileSync("src/screens/Salaires.jsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  test("★ 💵 Salaires : ListeCarnet, « À faire » = 💸 Payer le salaire (seulement s'il reste quelque chose), bulletin dans « ▸ Détail », TOTAL en pied, plus aucun bouton rond dans tout le fichier",
+    /<ListeCarnet /.test(sSa) && /moment="payer"/.test(sSa) && /payer: p\.reste > 0 && <BoutonGeste icone="💸"/.test(sSa) && /pied=\{\(/.test(sSa) && !/BoutonRond|boutonAction\(|CelluleActions/.test(sSa));
+  test("★ 💵 Salaires : le paiement, le bulletin, le retrait d'une prime ou d'une avance et la relance gardent leur revérification (envoyerVirementG, imprimerBulletin, refuserSaufAdmin ×3)",
+    /envoyerVirementG\(db, save, profile, u, mois\)/.test(sSa) && /imprimerBulletin\(u, mois, db\)/.test(sSa) && (sSa.match(/refuserSaufAdmin\(profile, "(Retirer une prime|Retirer une avance sur salaire|Relancer la confirmation d'un salaire)"\)/g) || []).length === 3);
+}
+
+titre("🏠 CLIENTS INSTALLÉS suit la charte (19/11/2026, « Oui, lance les trois suivants »)");
+{
+  const sCi = readFileSync("src/screens/ClientsInstalles.jsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  test("★ 🏠 Clients installés : ListeCarnet, « À faire » = le geste du moment (terminer, signature, avenant, encaisser), les autres en mots dans « ▸ Détail », titres de catégorie par `titreGroupe`, plus aucun bouton rond",
+    /<ListeCarnet /.test(sCi) && /moment=\{momentDe\(c\)\}/.test(sCi) && /titreGroupe=\{/.test(sCi) && /LIGNES_GESTES_CHANTIER/.test(sCi) && !/BoutonRond|boutonAction\(|CelluleActions/.test(sCi));
+  test("★ 🏠 Clients installés : chaque geste garde sa revérification (marquerTermine : peutTerminer ; signature, avenant, forcer, cadeau, lier : isAdmin ; encaisser : peutEncaisserPose ; supprimer : administrateur ou son commercial)",
+    /terminer: peutTerminer\(c, profile, isAdmin\)/.test(sCi) && /signature: statutChantier\(c\) === "termine" && isAdmin/.test(sCi) && /encaisser: c\.pose_seule && peutEncaisserPose\(c, profile\)/.test(sCi)
+    && /supprimer: \(isAdmin \|\| c\.commercial === profile\.nom\)/.test(sCi) && /forcer: statutChantier\(c\) === "termine" && isAdmin/.test(sCi));
 }
 
 titre("🧾 COMMANDES : les quatre listes suivent la charte (19/11/2026, « Oui, lance Commandes »)");

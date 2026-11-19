@@ -308,7 +308,9 @@ const src = (f) => sansCommentaires(lire(f));
 const CI = src("src/screens/ClientsInstalles.jsx");
 test("🏠 Clients installés : le Dossier et les Frais viennent à l'écran, « Fermer » ramène sur la ligne",
   /ref=\{refDossier\}/.test(CI) && /ref=\{refFrais\}/.test(CI) && /useMontrerALOuverture\(dossierOuvert\)/.test(CI) && /useMontrerALOuverture\(chantier\)/.test(CI)
-  && (CI.match(/revenirSurLaLigne\(c\.id\)/g) || []).length === 2 && /data-ligne=\{c\.id\}/.test(CI));
+  && (CI.match(/revenirSurLaLigne\(c\.id\)/g) || []).length === 2
+  // RETOURNÉ le 19/11/2026 (la charte des listes) : la ligne porte data-ligne par ListeCarnet (cle={(c) => c.id}), qui l'écrit sur la ligne ET la carte.
+  && /<ListeCarnet[\s\S]{0,120}cle=\{\(c\) => c\.id\}/.test(CI) && /data-ligne=\{cle\(x\)\}/.test(sansCommentaires(lire("src/components/ListeCarnet.jsx"))));
 const ME = src("src/screens/MonEquipe.jsx");
 test("👑 Mon équipe : les tâches d'un membre viennent à l'écran", /ref=\{refTaches\}/.test(ME) && /useMontrerALOuverture\(membreTaches\)/.test(ME) && /data-ligne=\{st\.u\.id\}/.test(ME));
 const OU = src("src/screens/Outillage.jsx");

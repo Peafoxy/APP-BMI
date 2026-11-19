@@ -11,7 +11,8 @@
 // ============================================================
 import { useState } from "react";
 import { fmt, dFR, today } from "../lib/core";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, FormulaireRepliable, enTeteFige, celluleFigee, fondLigneDepliable, BoutonRond, CelluleActions, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, FormulaireRepliable, enTeteFige, celluleFigee, fondLigneDepliable, BoutonGeste, TexteDepliable, CarteRepliable, NoteDepliable } from "../components/ui";
+import { ListeCarnet, useTelephone, GestesLigne, GestesDetail } from "../components/ListeCarnet";
 import { BoutiqueTabs } from "../components/SelecteurBoutique";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { clientsConnus, propositionsClients, propositionsNumeros } from "../lib/clientsConnus";
@@ -28,7 +29,7 @@ import { ROLES_FICHE, ROLES_ARTICLES, ROLES_FACTURER, travauxEnCours, critiqueFi
 const ficheVide = { nom: "", prenom: "", tel: "", lieu: "", description: "" };
 const hbVide = { nom: "", qte: "1", pu_achat: "", pu_vente: "" };
 
-export function Travaux({ db, save, profile, onFacturer }) {
+export function Travaux({ db, save, profile, onFacturer, telephoneInitial = false, ouverteInitiale = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "travaux" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   const boutique = boutiqueRetenue(db, profile, bq, { ecran: "travaux" });
@@ -36,7 +37,8 @@ export function Travaux({ db, save, profile, onFacturer }) {
   // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
   // replié après l'enregistrement.
   const [nouveauOuvert, setNouveauOuvert] = useState(false);
-  const [ouverte, setOuverte] = useState(null);
+  const [ouverte, setOuverte] = useState(ouverteInitiale);
+  const telephone = useTelephone(telephoneInitial);
   // saisie = ce qui est tapé dans le champ Article (jamais transformé) ;
   // produit_id = l'article lié : par un CLIC sur une proposition, ou parce
   // que le nom tapé correspond exactement à un article de la boutique.
@@ -193,6 +195,8 @@ export function Travaux({ db, save, profile, onFacturer }) {
     imprimerReleveTravaux(c, (db.boutiques || []).find((b) => b.nom === c.boutique) || {}, profile.nom);
   };
 
+  // 📖 La charte des listes (19/11/2026) : chaque geste est écrit UNE fois ici, en toutes
+  // lettres ; « À faire » de la ligne = Facturer, le reste est rangé dans « ▸ Détail ».
   const Chiffre = ({ label, valeur, fort }) => (
     <div className={`bg-white rounded-lg p-2 border ${fort ? "border-slate-300" : "border-slate-200"}`}>
       <div className="text-[11px] text-slate-500">{label}</div>
@@ -200,60 +204,24 @@ export function Travaux({ db, save, profile, onFacturer }) {
     </div>
   );
 
-  return (
+  const gestesTravaux = (c) => {
+    const vente = factureDe(db, c);
+    return {
+      facturer: !vente && ROLES_FACTURER.includes(profile.role) && <BoutonGeste icone="🧾" teinte="vert" nom="Facturer le client (vers 💰 Ventes)" onClick={() => facturer(c)} titre="Préparer le panier de 💰 Ventes avec ces travaux" />,
+      releve: !vente && ROLES_FACTURER.includes(profile.role) && <BoutonGeste data-releve-bouton icone="🧾" nom="Relevé des travaux" onClick={() => releve(c)} titre="Le détail des travaux et le total à venir, à remettre au client pour qu'il vérifie — ce n'est pas une facture" />,
+      equipe: ROLES_EQUIPE.includes(profile.role) && <BoutonGeste icone="👷" teinte="violet" nom={(c.equipe || []).length ? "Modifier l'équipe" : "Composer l'équipe"} onClick={() => setEquipeForm({ id: c.id, ids: (c.equipe || []).map((e) => e.user_id), chef: (c.equipe || []).find((e) => e.chef)?.user_id || "" })} titre="Cochez les techniciens, puis désignez le responsable ⭐" />,
+      prestation: !vente && ROLES_FICHE.includes(profile.role) && <BoutonGeste icone="🛠" nom="Frais de prestation" onClick={() => setPrest({ id: c.id, mode: c.prestation?.mode || "pct", valeur: String(c.prestation?.valeur ?? 0) })} titre="✏️ Fixer les frais de prestation" />,
+      sortir: !vente && ROLES_ARTICLES.includes(profile.role) && <BoutonGeste icone="➕" nom="Sortir un article" onClick={() => setFormArt({ id: c.id, stock: !(formArt && formArt.id === c.id && formArt.stock), hb: !!(formArt && formArt.id === c.id && formArt.hb) })} titre="Sortir un article de la boutique (le stock baisse tout de suite, prix de la boutique)" />,
+      hb: !vente && ROLES_FICHE.includes(profile.role) && <BoutonGeste icone="➕" nom="Article hors boutique" onClick={() => setFormArt({ id: c.id, hb: !(formArt && formArt.id === c.id && formArt.hb), stock: !!(formArt && formArt.id === c.id && formArt.stock) })} titre="Article HB (acheté dehors : câble, tuyau…) — pas de stock" />,
+      supprimer: jeSuisPrincipal && !vente && <BoutonGeste icone="🗑" teinte="rouge" nom="Supprimer ces travaux" onClick={() => supprimer(c)} titre="Possible tant qu'aucun article n'est rattaché ; les dépenses liées restent dans 📤 Dépenses" />,
+    };
+  };
+  const detailTravaux = (c) => {
+    const vente = factureDe(db, c);
+    const dette = detteDe(db, c);
+    const deps = depensesDuChantier(db, c.id);
+    return (
     <div className="space-y-4">
-      {!profile.boutique && <BoutiqueTabs ecran="travaux" db={db} value={bq} onChange={setBq} profile={profile} />}
-      {ROLES_FICHE.includes(profile.role) && (
-        <Panel boutique={boutique}>
-          <FormulaireRepliable ouvert={nouveauOuvert} onOuvrir={() => setNouveauOuvert(true)} onFermer={() => setNouveauOuvert(false)}
-            bouton="➕ Nouveaux travaux" titre={<>Nouveaux travaux <Badge boutique={boutique} /></>}>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <Field label="Nom du client *">
-              {/* Timo (15/09/2026) : le client déjà connu de la boutique se
-                  propose — un clic remplit le nom ET le numéro. Le prénom
-                  reste libre : la liste ne connaît que le nom enregistré. */}
-              <ChampSuggestions valeur={f.nom} onChange={(v) => setF({ ...f, nom: v })}
-                onChoisir={(c) => setF({ ...f, nom: c.valeur, tel: c.tel || f.tel })}
-                suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
-                placeholder="Nom, ou numéro du client" />
-            </Field>
-            <Field label="Prénom"><input className={inputCls} value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} /></Field>
-            <Field label="Téléphone">
-              <ChampSuggestions type="tel" valeur={f.tel} onChange={(v) => setF({ ...f, tel: v })}
-                onChoisir={(c) => setF({ ...f, tel: c.valeur, nom: c.nom || f.nom })}
-                suggestions={propositionsNumeros(clientsConnus(db, boutique), { fmt, dFR })}
-                placeholder="+228 ..." />
-            </Field>
-            <Field label="Lieu des travaux"><input className={inputCls} value={f.lieu} onChange={(e) => setF({ ...f, lieu: e.target.value })} /></Field>
-            <Field label="Description"><input className={inputCls} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Plomberie, câblage…" /></Field>
-          </div>
-          <button onClick={ouvrir} className={`mt-3 ${btnDark}`}>Ouvrir les travaux</button>
-          </FormulaireRepliable>
-        </Panel>
-      )}
-
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
-          <span>🛠 Travaux à crédit — {boutique} ({liste.length})</span>
-          <NoteDepliable libelle="Une fiche soldée ?" className="text-xs font-normal text-slate-500">Une fiche soldée quitte cette liste et se range dans 🏠 Clients installés.</NoteDepliable>
-        </div>
-        {liste.length === 0 && <div className="px-4 py-6 text-center text-slate-400">Aucun travail en cours pour {boutique}.</div>}
-        {liste.map((c) => {
-          const estOuverte = ouverte === c.id;
-          const vente = factureDe(db, c);
-          const dette = detteDe(db, c);
-          const deps = depensesDuChantier(db, c.id);
-          return (
-            <div key={c.id} className="border-t border-slate-100">
-              <button onClick={() => setOuverte(estOuverte ? null : c.id)} className={`w-full text-left px-4 py-3 flex flex-wrap items-center justify-between gap-2 ${estOuverte ? "bg-sky-100" : "hover:bg-sky-50"}`}>
-                <div>
-                  <div className="font-bold text-slate-800">🛠 {c.prenom} {c.nom} <span className="text-xs font-normal text-slate-500">· ouvert le {dFR(c.date)} par {c.par}{c.description ? ` · ${c.description}` : ""}</span></div>
-                  <div className="text-xs text-slate-600">{(c.articles_travaux || []).length} article(s) · prestation {fmt(montantPrestation(c))} · {vente ? `facturé ${fmt(factureMontant(db, c))}, reste dû ${fmt(resteDu(db, c))}` : `à facturer ${fmt(totalAFacturer(c))}`}</div>
-                </div>
-                <span className="text-xs font-bold text-slate-500">{estOuverte ? "▴ Replier" : "▾ Ouvrir"}</span>
-              </button>
-              {estOuverte && (
-                <div className="px-4 pb-4 space-y-4 bg-slate-50/60">
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                     <Chiffre label="Coût (articles + petites dépenses)" valeur={coutTravaux(db, c)} />
                     <Chiffre label={vente ? "Facturé" : "À facturer"} valeur={vente ? factureMontant(db, c) : totalAFacturer(c)} fort />
@@ -264,23 +232,9 @@ export function Travaux({ db, save, profile, onFacturer }) {
                   <InterventionsDuChantier c={c} db={db} profile={profile} save={save} boutique={boutique} />
                   {(c.tel || c.adresse) && <div className="text-xs text-slate-600">{c.tel ? `📞 ${c.tel}` : ""}{c.tel && c.adresse ? " · " : ""}{c.adresse ? `📍 ${c.adresse}` : ""}</div>}
 
-                  {/* 🔤 LES GESTES EN TOUTES LETTRES, SUR TROIS LIGNES (18/11/2026, « Construit, lance ») :
-                      Facture · Chantier · Autres. Mêmes gestes, mêmes droits qu'avant. */}
-                  <div className="flex flex-col gap-1.5" data-gestes-travaux>
-                    <LigneGestes nom="Facture">
-                      {!vente && ROLES_FACTURER.includes(profile.role) && <BoutonGeste data-releve-bouton icone="🧾" nom="Relevé des travaux" onClick={() => releve(c)} titre="Le détail des travaux et le total à venir, à remettre au client pour qu'il vérifie — ce n'est pas une facture" />}
-                      {!vente && ROLES_FACTURER.includes(profile.role) && <BoutonGeste icone="🧾" teinte="vert" nom="Facturer le client (vers 💰 Ventes)" onClick={() => facturer(c)} titre="Préparer le panier de 💰 Ventes avec ces travaux" />}
-                    </LigneGestes>
-                    <LigneGestes nom="Chantier">
-                      {ROLES_EQUIPE.includes(profile.role) && <BoutonGeste icone="👷" teinte="violet" nom={(c.equipe || []).length ? "Modifier l'équipe" : "Composer l'équipe"} onClick={() => setEquipeForm({ id: c.id, ids: (c.equipe || []).map((e) => e.user_id), chef: (c.equipe || []).find((e) => e.chef)?.user_id || "" })} titre="Cochez les techniciens, puis désignez le responsable ⭐" />}
-                      {!vente && ROLES_FICHE.includes(profile.role) && <BoutonGeste icone="🛠" nom="Frais de prestation" onClick={() => setPrest({ id: c.id, mode: c.prestation?.mode || "pct", valeur: String(c.prestation?.valeur ?? 0) })} titre="✏️ Fixer les frais de prestation" />}
-                      {!vente && ROLES_ARTICLES.includes(profile.role) && <BoutonGeste icone="➕" nom="Sortir un article" onClick={() => setFormArt({ id: c.id, stock: !(formArt && formArt.id === c.id && formArt.stock), hb: !!(formArt && formArt.id === c.id && formArt.hb) })} titre="Sortir un article de la boutique (le stock baisse tout de suite, prix de la boutique)" />}
-                      {!vente && ROLES_FICHE.includes(profile.role) && <BoutonGeste icone="➕" nom="Article hors boutique" onClick={() => setFormArt({ id: c.id, hb: !(formArt && formArt.id === c.id && formArt.hb), stock: !!(formArt && formArt.id === c.id && formArt.stock) })} titre="Article HB (acheté dehors : câble, tuyau…) — pas de stock" />}
-                    </LigneGestes>
-                    <LigneGestes nom="Autres">
-                      {jeSuisPrincipal && !vente && <BoutonGeste icone="🗑" teinte="rouge" nom="Supprimer ces travaux" onClick={() => supprimer(c)} titre="Possible tant qu'aucun article n'est rattaché ; les dépenses liées restent dans 📤 Dépenses" />}
-                    </LigneGestes>
-                  </div>
+                  <div data-gestes-travaux><GestesDetail g={gestesTravaux(c)} moment="facturer" lignes={[["Facture", ["releve"]], ["Chantier", ["equipe", "prestation", "sortir", "hb"]], ["Autres", ["supprimer"]]]} /></div>
+
+
 
                   {/* ---- Les formulaires ne s'ouvrent qu'au clic sur leur geste ---- */}
                   {ROLES_EQUIPE.includes(profile.role) && equipeForm && equipeForm.id === c.id && (
@@ -370,7 +324,7 @@ export function Travaux({ db, save, profile, onFacturer }) {
                         <table className="w-full text-sm min-w-[760px]" data-articles-travaux>
                           {/* 🧾 La règle des lignes (15/10/2026) : l'article figé, les
                               gestes (remise, retirer) en boutons ronds. */}
-                          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix unitaire facturé", "Remise", "Coût unitaire", "Total facturé", "Total coût", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-1.5${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+                          <thead><tr className="text-xs text-slate-500 uppercase">{["Article", "Qté", "Prix unitaire facturé", "Remise", "Coût unitaire", "Total facturé", "Total coût", "À faire"].map((h, i) => <th key={h || i} className={`text-left px-3 py-1.5${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
                           <tbody>
                             {(c.articles_travaux || []).map((l, i) => (
                               <tr key={l.id} className={`border-t border-slate-100 ${fondLigneDepliable(false, i)}`}>
@@ -383,10 +337,10 @@ export function Travaux({ db, save, profile, onFacturer }) {
                                 <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(l.pu_achat)}</td>
                                 <td className="px-3 py-1.5 tabular-nums font-bold">{fmt(montantLigne(l))}</td>
                                 <td className="px-3 py-1.5 tabular-nums text-slate-500">{fmt(Number(l.qte) * Number(l.pu_achat))}</td>
-                                <CelluleActions className="!py-1">
-                                  {!vente && ROLES_FICHE.includes(profile.role) && <BoutonRond data-remiser icone="🏷" onClick={() => remiser(c, l)} titre={remiseDe(l) > 0 ? "🏷 Modifier la remise" : "🏷 Remise sur cet article"} />}
-                                  {!vente && ROLES_ARTICLES.includes(profile.role) && <BoutonRond data-retirer-article icone="✕" teinte="rouge" onClick={() => retirer(c, l)} titre="Retirer l'article (il revient en stock)" />}
-                                </CelluleActions>
+                                <td className="px-3 py-1.5"><div className="flex flex-wrap gap-1.5">
+                                  {!vente && ROLES_FICHE.includes(profile.role) && <BoutonGeste data-remiser icone="🏷" nom={remiseDe(l) > 0 ? "Modifier la remise" : "Remise"} onClick={() => remiser(c, l)} titre={remiseDe(l) > 0 ? "🏷 Modifier la remise" : "🏷 Remise sur cet article"} />}
+                                  {!vente && ROLES_ARTICLES.includes(profile.role) && <BoutonGeste data-retirer-article icone="✕" teinte="rouge" nom="Retirer" onClick={() => retirer(c, l)} titre="Retirer l'article (il revient en stock)" />}
+                                </div></td>
                               </tr>
                             ))}
                           </tbody>
@@ -441,11 +395,68 @@ export function Travaux({ db, save, profile, onFacturer }) {
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+    </div>
+    );
+  };
+
+
+  return (
+    <div className="space-y-4">
+      {!profile.boutique && <BoutiqueTabs ecran="travaux" db={db} value={bq} onChange={setBq} profile={profile} />}
+      {ROLES_FICHE.includes(profile.role) && (
+        <Panel boutique={boutique}>
+          <FormulaireRepliable ouvert={nouveauOuvert} onOuvrir={() => setNouveauOuvert(true)} onFermer={() => setNouveauOuvert(false)}
+            bouton="➕ Nouveaux travaux" titre={<>Nouveaux travaux <Badge boutique={boutique} /></>}>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <Field label="Nom du client *">
+              {/* Timo (15/09/2026) : le client déjà connu de la boutique se
+                  propose — un clic remplit le nom ET le numéro. Le prénom
+                  reste libre : la liste ne connaît que le nom enregistré. */}
+              <ChampSuggestions valeur={f.nom} onChange={(v) => setF({ ...f, nom: v })}
+                onChoisir={(c) => setF({ ...f, nom: c.valeur, tel: c.tel || f.tel })}
+                suggestions={propositionsClients(clientsConnus(db, boutique), { fmt, dFR })}
+                placeholder="Nom, ou numéro du client" />
+            </Field>
+            <Field label="Prénom"><input className={inputCls} value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} /></Field>
+            <Field label="Téléphone">
+              <ChampSuggestions type="tel" valeur={f.tel} onChange={(v) => setF({ ...f, tel: v })}
+                onChoisir={(c) => setF({ ...f, tel: c.valeur, nom: c.nom || f.nom })}
+                suggestions={propositionsNumeros(clientsConnus(db, boutique), { fmt, dFR })}
+                placeholder="+228 ..." />
+            </Field>
+            <Field label="Lieu des travaux"><input className={inputCls} value={f.lieu} onChange={(e) => setF({ ...f, lieu: e.target.value })} /></Field>
+            <Field label="Description"><input className={inputCls} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Plomberie, câblage…" /></Field>
+          </div>
+          <button onClick={ouvrir} className={`mt-3 ${btnDark}`}>Ouvrir les travaux</button>
+          </FormulaireRepliable>
+        </Panel>
+      )}
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-1">
+          <span>🛠 Travaux à crédit — {boutique} ({liste.length})</span>
+          <NoteDepliable libelle="Une fiche soldée ?" className="text-xs font-normal text-slate-500">Une fiche soldée quitte cette liste et se range dans 🏠 Clients installés.</NoteDepliable>
+        </div>
+        <ListeCarnet items={liste} cle={(c) => c.id} telephone={telephone} ouvert={ouverte}
+          onBasculer={(c) => setOuverte(ouverte === c.id ? null : c.id)}
+          marques={{ cartes: "data-cartes-travaux", carte: "data-carte-travaux", etat: "data-ligne-travaux", detail: "data-detail-travaux" }}
+          aucun={`Aucun travail en cours pour ${boutique}.`} largeurMin="min-w-[860px]"
+          colonnes={[
+            { titre: "Client", figee: true, cellule: (c) => <><div className="font-bold text-slate-800">🛠 {c.prenom} {c.nom}</div><div className="text-xs font-normal text-slate-500">ouvert le {dFR(c.date)} par {c.par}</div></> },
+            { titre: "Travaux", classe: "min-w-[160px]", cellule: (c, i, deplie) => <TexteDepliable texte={c.description || "—"} deplie={deplie} largeur="max-w-[220px]" /> },
+            { titre: "Articles", cellule: (c) => <span className="text-xs text-slate-600">{(c.articles_travaux || []).length} article(s) · prestation {fmt(montantPrestation(c))}</span> },
+            { titre: "Facturation", align: "right", classe: "tabular-nums", cellule: (c) => <span className="text-xs text-slate-700">{factureDe(db, c) ? `facturé ${fmt(factureMontant(db, c))}, reste dû ${fmt(resteDu(db, c))}` : `à facturer ${fmt(totalAFacturer(c))}`}</span> },
+            { titre: "À faire", actions: true, largeur: "min-w-[200px] max-w-[260px]" },
+          ]}
+          carte={(c) => (
+            <div>
+              <div className="font-bold text-slate-800">🛠 {c.prenom} {c.nom}</div>
+              <div className="text-xs text-slate-500">ouvert le {dFR(c.date)} par {c.par}{c.description ? ` · ${c.description}` : ""}</div>
+              <div className="text-xs text-slate-600 mt-1">{(c.articles_travaux || []).length} article(s) · prestation {fmt(montantPrestation(c))} · {factureDe(db, c) ? `facturé ${fmt(factureMontant(db, c))}, reste dû ${fmt(resteDu(db, c))}` : `à facturer ${fmt(totalAFacturer(c))}`}</div>
             </div>
-          );
-        })}
+          )}
+          gestes={(c, deplie) => <GestesLigne g={gestesTravaux(c)} moment="facturer" deplie={deplie} onDetail={() => setOuverte(deplie ? null : c.id)} marque="data-detail-travaux-bouton" />}
+          detail={(c) => detailTravaux(c)} />
       </div>
     </div>
   );

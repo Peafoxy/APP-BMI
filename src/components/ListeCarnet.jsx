@@ -59,6 +59,8 @@ export function ListeCarnet({
   ouvert, onBasculer, telephone = false, marques = {},
   fond = () => "", carteClasse = () => "", carte, gestes, sousLignes = null, detail = null,
   largeurMin = "min-w-[860px]", enTeteFond = "bg-white", enTeteClasse = "sticky top-0 z-30 bg-white",
+  pied = null, // lignes de total (ordinateur seulement) : <tr>…</tr>, posées dans un <tfoot>
+  titreGroupe = null, // (x, i) → texte du titre à poser AVANT cette ligne (changement de catégorie), ou null
 }) {
   const marque = (nom, valeur = true) => (nom ? { [nom]: valeur } : {});
   const etat = (deplie) => marque(marques.etat, deplie ? "deplie" : "replie");
@@ -71,14 +73,18 @@ export function ListeCarnet({
           const deplie = ouvert === cle(x);
           const sous = sousLignes ? sousLignes(x, deplie) : null;
           const det = deplie && detail ? detail(x, deplie) : null;
+          const titre = titreGroupe ? titreGroupe(x, items.indexOf(x)) : null;
           return (
-            <div key={cle(x)} {...marque(marques.carte)} {...etat(deplie)} data-ligne={cle(x)} onClick={() => onBasculer(x)}
+            <Fragment key={cle(x)}>
+            {titre && <div className="px-1 pt-2 text-xs font-bold text-slate-600 uppercase tracking-wide">{titre}</div>}
+            <div {...marque(marques.carte)} {...etat(deplie)} data-ligne={cle(x)} onClick={() => onBasculer(x)}
               className={`rounded-xl border p-3 cursor-pointer ${deplie ? "border-sky-400 bg-sky-50" : (carteClasse(x) || "border-slate-200 bg-white")}`}>
               {carte(x, deplie)}
               {sous && <div className="mt-1">{sous}</div>}
               {gestes && <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestes(x, deplie)}</div>}
               {det && <div onClick={(e) => e.stopPropagation()} className="mt-3 space-y-2" {...marque(marques.detail)}>{det}</div>}
             </div>
+            </Fragment>
           );
         })}
       </div>
@@ -99,8 +105,10 @@ export function ListeCarnet({
           const f = fond(x);
           const sous = sousLignes ? sousLignes(x, deplie) : null;
           const det = deplie && detail ? detail(x, deplie) : null;
+          const titre = titreGroupe ? titreGroupe(x, i) : null;
           return (
             <Fragment key={cle(x)}>
+              {titre && <tr className="bg-slate-100 border-t-2 border-slate-200"><td colSpan={colonnes.length} className="px-3 py-1.5 text-xs font-bold text-slate-600 uppercase tracking-wide">{titre}</td></tr>}
               <tr {...etat(deplie)} data-ligne={cle(x)} onClick={() => onBasculer(x)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i, f)}`}>
                 {colonnes.map((c, k) => (c.actions
                   ? <CelluleActions key={c.titre || k} largeur={c.largeur || "min-w-[200px] max-w-[260px]"}>{gestes(x, deplie)}</CelluleActions>
@@ -112,6 +120,7 @@ export function ListeCarnet({
           );
         })}
       </tbody>
+      {pied && <tfoot>{pied}</tfoot>}
     </table>
   );
 }

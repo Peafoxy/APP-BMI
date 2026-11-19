@@ -3243,7 +3243,7 @@ const corpsFait = ecranCI.slice(ecranCI.indexOf("const entretienFait = async"), 
 test("★ l'écran : « ✅ Entretien fait » (administrateur, revérifié dans le geste), la tâche automatique de cette date se ferme, ce que la tournée a fait se lit sous la date",
   /if \(refuserSaufAdmin\(profile, "Noter un entretien fait"\)\) return;/.test(corpsFait) && /critiqueEntretienFait\(c,/.test(corpsFait)
   // RETOURNÉ le 18/11/2026 : un bouton en toutes lettres (BoutonGeste).
-  && /statut: "validee"/.test(corpsFait) && /\{isAdmin && !c\.travaux && c\.date_entretien && <BoutonGeste data-entretien-fait icone="✅" teinte="vert" onClick=\{\(\) => entretienFait\(c\)\}/.test(ecranCI)
+  && /statut: "validee"/.test(corpsFait) && /entretienFait: isAdmin && !c\.travaux && c\.date_entretien && <BoutonGeste data-entretien-fait icone="✅" teinte="vert" onClick=\{\(\) => entretienFait\(c\)\}/.test(ecranCI) /* RETOURNÉ le 19/11/2026 : une clé de l'objet des gestes (charte des listes) */
   && /data-rappel-entretien/.test(ecranCI));
 test("rien de secret : aucune clé dans la règle, et le texte du modèle est celui validé par Timo",
   !/YCLOUD_API_KEY|VITE_/.test(lire("src/lib/rappelEntretien.js"))
@@ -7488,7 +7488,7 @@ console.log("\n81 — ⏳ la relance d'un salaire payé pas encore confirmé re�
   test("★★ « a » le bouton 📲 : administrateur, fiche FRAÎCHE, une QUESTION avant l'envoi, le mur = le compte de l'employé, la trace seulement si parti du numéro BMI",
     /refuserSaufAdmin\(profile/.test(corpsB) && /virementAConfirmer\(frais\)/.test(corpsB)
     && corpsB.indexOf("uConfirm(") < corpsB.indexOf("envoyerModele(") && /espaceFormation: estCompteFormation\(db, fiche\)/.test(corpsB)
-    && /if \(!r\.auto\) return;/.test(corpsB) && /virementAConfirmer\(v\) && <BoutonRond icone="📲"[^>]*envoi/.test(ecr));
+    && /if \(!r\.auto\) return;/.test(corpsB) && /virementAConfirmer\(v\) && <BoutonGeste icone="📲"[^>]*envoi/.test(ecr)); // RETOURNÉ le 19/11/2026 : un bouton écrit en mots (charte des listes)
   test("★ le repli = le texte du modèle, mot pour mot",
     M.texteRappelConfirmationSalaire(r3.envoi.variables).startsWith("Bonjour AKPOSSOGNA Kossiwa,") && /salaire du mois de octobre 2026 a été enregistré/.test(M.texteRappelConfirmationSalaire(r3.envoi.variables)) && /Montant : 60000 FCFA\nDate de paiement : 27\/10\/2026\nMode de paiement : Espèces/.test(M.texteRappelConfirmationSalaire(r3.envoi.variables)) && /Administration – BMI TOGO$/.test(M.texteRappelConfirmationSalaire(r3.envoi.variables)));
   test("★ la relance s'écrit sous le paiement (auto et à la main)",

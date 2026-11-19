@@ -66,8 +66,9 @@ const texte = async () => propre(await page.innerText("#r"));
 console.log("\nL'écran se monte et lit la fiche");
 {
   const t = await texte();
-  test("★ l'écran se monte sans erreur, la fiche est listée avec ses chiffres : 2 articles, prestation 25 000 F (10 % de 250 000), à facturer 275 000 F", erreurs.length === 0 && /Travaux à crédit — LOME \(1\)/.test(t) && /Paul MENSAH/.test(t) && /2 article\(s\) · prestation 25 000 F · à facturer 275 000 F/.test(t), erreurs.join(" | ") || t.slice(0, 300));
-  await page.click("text=▾ Ouvrir");
+  test("★ l'écran se monte sans erreur, la fiche est listée avec ses chiffres : 2 articles, prestation 25 000 F (10 % de 250 000), à facturer 275 000 F", erreurs.length === 0 && /Travaux à crédit — LOME \(1\)/.test(t) && /Paul MENSAH/.test(t) && /2 article\(s\) · prestation 25 000 F\s+à facturer 275 000 F/.test(t), erreurs.join(" | ") || t.slice(0, 300));
+  // RETOURNÉ le 19/11/2026 (la charte des listes) : la ligne s'ouvre par « ▸ Détail » (ou un clic sur la ligne).
+  await page.click("[data-detail-travaux-bouton]");
   await attendre(200);
   const t2 = await texte();
   test("★ ouverte : coût = 2 × 70 000 + 30 000 + 8 000 de dépense rattachée = 178 000 F ; à facturer 275 000 F ; encaissé 0 ; reste dû 275 000 F",
@@ -90,8 +91,9 @@ console.log("\nL'écran se monte et lit la fiche");
 // 🔤 « Construit, lance » (18/11/2026) : les gestes en toutes lettres sur trois lignes, les formulaires fermés d'office.
 {
   const gestes = propre(await page.$eval("[data-gestes-travaux]", (e) => e.innerText));
+  // RETOURNÉ le 19/11/2026 (la charte) : « Facturer » est le geste du moment, sur la LIGNE (« À faire ») ; le détail garde les autres.
   test("★ les gestes sont en TOUTES LETTRES sur trois lignes : Facture (Relevé, Facturer) · Chantier (équipe, frais, sortir un article, article hors boutique) · Autres (Supprimer)",
-    /Facture/.test(gestes) && /Chantier/.test(gestes) && /Autres/.test(gestes) && /Relevé des travaux/.test(gestes) && /Facturer le client \(vers 💰 Ventes\)/.test(gestes) && /Composer l'équipe/.test(gestes) && /Frais de prestation/.test(gestes) && /Sortir un article/.test(gestes) && /Article hors boutique/.test(gestes) && /Supprimer ces travaux/.test(gestes) && (await page.$$("[data-gestes-travaux] [data-ligne-gestes]")).length === 3, gestes);
+    /Facture/.test(gestes) && /Chantier/.test(gestes) && /Autres/.test(gestes) && /Relevé des travaux/.test(gestes) && /Facturer le client \(vers 💰 Ventes\)/.test(propre(await page.$eval("[data-ligne-travaux]", (e) => e.innerText))) && !/Facturer le client/.test(gestes) && /Composer l'équipe/.test(gestes) && /Frais de prestation/.test(gestes) && /Sortir un article/.test(gestes) && /Article hors boutique/.test(gestes) && /Supprimer ces travaux/.test(gestes) && (await page.$$("[data-gestes-travaux] [data-ligne-gestes]")).length === 3, gestes);
   test("★ les deux formulaires de sortie d'article NE SONT PAS étalés : ils ne s'ouvrent qu'au clic sur leur geste", !(await page.$("input[placeholder^='Article du stock']")) && !(await page.$("input[placeholder='Nom']")));
 }
 
