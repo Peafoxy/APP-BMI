@@ -19714,6 +19714,24 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     let hR = "", hK = "", hC = "", hE = "", errR = "";
     try { hR = E.rendreProspects(db, resp); hK = E.rendreProspects(db, resp, "KOFFI"); hC = E.rendreProspects(db, koffi); hE = E.rendreEquipe(db, resp); }
     catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
+    // 🧲 Prospects FAÇON CARNET (18/11/2026, « Construit, lance ») : joué avec le vrai écran.
+    const rP = (profil, extra) => { try { return E.rendreProspects(db, profil, "", extra); } catch (e) { return "ERREUR " + String(e).slice(0, 120); } };
+    const nbP = (h, re) => (h.match(re) || []).length;
+    const pT0 = rP(timo, {}), pT1 = rP(timo, { ouvertInitial: "k1" }), pT2 = rP(timo, { telephoneInitial: true }), pT3 = rP(timo, { telephoneInitial: true, ouvertInitial: "k1" }), pT4 = rP(timo, { blocsOuverts: true });
+    test("★★ 🧲 Prospects (façon carnet) : la LIGNE n'a que le geste du moment et « Détail » (colonne « À faire ») ; ni « Supprimer » ni « Archiver » ni « Convertir » sur la ligne ; les filtres sont des pastilles ; les catégories (administrateur) sont repliées",
+      /À faire/.test(pT0) && /data-filtre-prospect="actifs"/.test(pT0) && /data-detail-prospect-bouton/.test(pT0) && !/data-gestes-prospect/.test(pT0)
+      && nbP(pT0, /Relancer par WhatsApp<\/span>/g) === 1 && !/>🗑 Supprimer</.test(pT0) && !/>✅ Convertir en client</.test(pT0)
+      && /Catégories de prospects \(1\)/.test(pT0) && !/Nouvelle catégorie/.test(pT0) && /Nouvelle catégorie/.test(pT4), pT0.slice(0, 120));
+    test("★★ 🧲 Prospects (façon carnet) : un prospect déplié écrit ses gestes en MOTS sur quatre lignes (Relancer, Suite, Dossier, Classer), le geste du moment n'y est pas répété, les contacts notés sont lus",
+      /data-gestes-prospect/.test(pT1) && />Relancer</.test(pT1) && />Suite</.test(pT1) && />Dossier</.test(pT1) && />Classer</.test(pT1)
+      && />✅ Convertir en client</.test(pT1) && />🗑 Supprimer</.test(pT1) && />📞 Marquer contacté</.test(pT1) && nbP(pT1, /Relancer par WhatsApp<\/span>/g) === 1 && /data-contacts-prospect/.test(pT1), pT1.slice(0, 120));
+    { const dbArc = { ...db, prospects: [...db.prospects, pr("z1", { commercial: "KOFFI", nom: "KOFFI-ARCHIVE", archive: true, archive_le: auj, archive_motif: "Perdu" })] };
+      let hArc = ""; try { hArc = E.rendreProspects(dbArc, timo); } catch (e) { hArc = String(e); }
+      test("★★ 🧲 Prospects (façon carnet) : la pastille « 📦 Archivés (N) » n'apparaît que s'il y en a, et « ✅ Clients acquis » aussi (KOFFI-GAGNE)",
+        /data-filtre-prospect="archives"/.test(hArc) && /Archivés/.test(hArc) && !/data-filtre-prospect="archives"/.test(pT0) && /data-filtre-prospect="acquis"/.test(pT0)); }
+    test("★★ 🧲 Prospects (façon carnet) : sur téléphone, une CARTE par prospect et PAS le tableau ; sur ordinateur le tableau et pas de cartes ; la carte dépliée porte son détail UNE seule fois",
+      /data-prospects-cartes/.test(pT2) && nbP(pT2, /data-prospect-carte[ =]/g) >= 3 && !/<table/.test(pT2) && !/data-prospects-cartes/.test(pT0) && /<table/.test(pT0)
+      && nbP(pT3, /data-gestes-prospect/g) === 1, pT2.slice(0, 120));
     test("★★★ 🧲 Prospects, RESPONSABLE COMMERCIAL : la colonne « Commercial » et la liste « 👥 Commercial » sont là (avant : l'administrateur seul voyait à qui est chaque prospect)" + (errR ? ` (${errR})` : ""),
       /data-filtre-commercial/.test(hR) && /data-commercial-du-prospect[^>]*>KOFFI</.test(hR) && /data-commercial-du-prospect[^>]*>AMA</.test(hR) && />Commercial<\/th>/.test(hR)
       && /<option value="KOFFI">KOFFI \(3\)<\/option>/.test(hR));
@@ -19836,7 +19854,7 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
     && CP.prospectDUnAutre(liste, "2233", resp) === null);
   const P = readFileSync("src/screens/Prospects.jsx", "utf8"), Pa = readFileSync("src/screens/dimensionnement/Partages.jsx", "utf8");
   test("★★ 🧲 🧲 Prospects : le bouton 🔆 et le geste lisent LA règle (peutPreparerDevisDuProspect), et le devis part avec `auteur_propose`",
-    /onPreparerDevis && peutPreparer && \(/.test(P) && /if \(!peutPreparerDevisDuProspect\(profile, p, personnes, auteurs\)\)/.test(P) && /auteur_propose: auteurPropose/.test(P));
+    /onPreparerDevis && peutPreparer \? </.test(P) /* RETOURNÉ le 18/11/2026 : « Prospects façon carnet », le geste s'écrit en mots (BoutonGeste) */ && /if \(!peutPreparerDevisDuProspect\(profile, p, personnes, auteurs\)\)/.test(P) && /auteur_propose: auteurPropose/.test(P));
   test("★★★ 🧲 le volet du devis pose l'auteur proposé (case « Devis établi pour »), et l'ENVOI comme l'IMPRESSION vérifient le prospect d'un autre AVANT de créer le compte ; l'auteur choisi dans la question est celui du devis",
     /useState\(\(\) => auteurPropose\(devisAReprendre\)\)/.test(Pa)
     && (Pa.match(/const autre = await verifierProspectDUnAutre\(\);\s*if \(!autre\) return;\s*const resolu = await resoudreClientDevis/g) || []).length === 2

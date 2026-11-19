@@ -3,7 +3,7 @@
 // vue Admin) : catégories, contact WhatsApp, position sur carte,
 // détection des dormants, conversion en client.
 // ============================================================
-import { Fragment, useState } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { correspond } from "../lib/suggestions";
 import { Clients } from "../screens/Clients";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
@@ -23,12 +23,12 @@ import { positionActuelle } from "../position";
 import { peutPreparerDevisDuProspect, auteurProposePourProspect } from "../lib/commercialDuProspect";
 import { auteursPossibles } from "./dimensionnement/devisCommun";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, enTeteFige, celluleFigee, FormulaireRepliable, classeLigneDepliable, fondLigneDepliable, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable, CelluleActions, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour, envoyerAvisNouveauContact, ONGLETS_ROLE } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
 // `commercialInitial` : pour le banc seul (l'écran rendu avec un commercial choisi).
-export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirDevis, onPlanifierVisite, commercialInitial = "" }) {
+export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirDevis, onPlanifierVisite, commercialInitial = "", telephoneInitial = false, blocsOuverts = false, ouvertInitial = null }) {
   const estChef = !!profile.chef_equipe;
   const voitTout = isAdmin || estChef || profile.role === "resp_commercial";
   const categories = db.categories_prospects.filter((c) => c.actif !== false);
@@ -60,7 +60,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
   const [commercialChoisi, setCommercialChoisi] = useState(commercialInitial);
   const [q, setQ] = useState("");
   // Le besoin d'UN prospect déplié à la fois (règle de dépliage de 💰 Ventes).
-  const [besoinDeplie, setBesoinDeplie] = useState(null);
+  const [besoinDeplie, setBesoinDeplie] = useState(ouvertInitial);
   // 📅 LE filtre de période (05/10/2026, « ajoute aussi le filtre de période
   // dans Prospects ») : « Toute période » à chaque ouverture. Il suit la date
   // du prospect, et celle du dernier devis pour les comptes avec devis ; le
@@ -442,9 +442,113 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     // 👥 Un commercial choisi : les comptes dont IL a établi un devis.
     .filter((c) => !commercialRegarde || devisDuProspect(c.compte).some((d) => d.par === commercialRegarde))
     .sort((a, b) => String(b.reference).localeCompare(String(a.reference)));
-  const [voirComptesDevis, setVoirComptesDevis] = useState(true);
+  // 📱 Sur téléphone, une CARTE par prospect (le tableau de 900 px défilait de côté) ;
+  // UNE seule des deux mises en page est dans la page. telephoneInitial : banc seul.
+  const [telephone, setTelephone] = useState(() => telephoneInitial || (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 639px)").matches));
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mq = window.matchMedia("(max-width: 639px)");
+    const suit = () => setTelephone(telephoneInitial || mq.matches);
+    mq.addEventListener?.("change", suit);
+    return () => mq.removeEventListener?.("change", suit);
+  }, [telephoneInitial]);
 
   const aRelancerAujourdhui = (voitTout ? actifs : actifs.filter((p) => p.commercial === profile.nom)).filter((p) => p.relance && p.relance <= today()).length;
+
+  // 🖐 Les gestes d'un prospect, écrits en mots et UNE fois (18/11/2026, « Prospects
+  // façon carnet »). Le geste du moment est sur la ligne ; les autres sont dans le
+  // détail, rangés par thème (LigneGestes).
+  const gestesDe = (p) => {
+    const enRetard = p.relance && p.relance <= today();
+    const sien = isAdmin || p.commercial === profile.nom;
+    const peutPreparer = peutPreparerDevisDuProspect(profile, p, personnesDevis, auteursDevis);
+    const g = {
+      date: !isAdmin ? <BoutonGeste icone="📆" nom="Changer la date de relance" titre="Changer la date de relance" onClick={() => modifierRelance(p)} /> : null,
+      relancer: enRetard && p.tel && sien ? <BoutonGeste icone={<IconeWhatsApp taille={16} />} nom="Relancer par WhatsApp" teinte="orange" titre="📱 Relancer par WhatsApp" envoi onClick={() => relancerWhatsApp(p)} /> : null,
+      projet: !p.archive && !p.converti && sien ? <BoutonGeste icone="🎯" nom="Changer le projet" titre="🎯 Projet" onClick={() => changerProjet(p)} /> : null,
+      reassigner: voitTout && aDroit(db, profile, "act_reaffecter") ? <BoutonGeste icone="🔀" nom="Réassigner à un autre commercial" titre="Réassigner à un autre commercial" onClick={() => reassigner(p)} /> : null,
+      prendre: estDemandeAssistant(p) && !p.archive ? <BoutonGeste icone="🙋" nom="Prendre en charge" teinte="violet" titre="🙋 Prendre en charge" onClick={() => prendre(p)} /> : null,
+      preparer: !p.archive && !p.converti && onPreparerDevis && peutPreparer ? <BoutonGeste icone="🔆" nom="Préparer le devis" titre="🔆 Préparer le devis — le dimensionnement solaire s'ouvre avec les appareils lus dans le besoin" onClick={() => preparerDevis(p)} /> : null,
+      planifier: !p.archive && !p.converti && onPlanifierVisite && (isAdmin || p.commercial === profile.nom) ? <BoutonGeste data-planifier-visite icone="📅" nom="Planifier une visite" titre="📅 Planifier une visite" onClick={() => onPlanifierVisite(p)} /> : null,
+      contacte: !p.archive && !p.converti && sien ? <BoutonGeste icone="📞" nom="Marquer contacté" titre={`📞 Contacté — dernière activité : ${dFR(derniereActivite(p))}`} onClick={() => contacte(p)} /> : null,
+      convertir: !p.archive && !p.converti && sien ? <BoutonGeste icone="✅" nom="Convertir en client" teinte="vert" titre="✅ Convertir en client" envoi onClick={() => convertirEnClient(p)} /> : null,
+      reactiver: p.archive && sien ? <BoutonGeste icone="↩" nom="Réactiver" teinte="vert" titre="↩ Réactiver" onClick={() => reactiver(p)} /> : null,
+      archiver: !p.archive && sien && !p.converti ? <BoutonGeste icone="📦" nom="Archiver" teinte="ambre" titre="📦 Archiver" onClick={() => archiver(p)} /> : null,
+      supprimer: sien ? <BoutonGeste icone="🗑" nom="Supprimer" teinte="rouge" titre="🗑 Supprimer" onClick={() => supprimer(p)} /> : null,
+    };
+    const moment = g.prendre ? "prendre" : g.relancer ? "relancer" : g.contacte ? "contacte" : g.reactiver ? "reactiver" : null;
+    return { g, moment };
+  };
+  const gestesDeLaLigne = (p, deplie) => {
+    const { g, moment } = gestesDe(p);
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {moment && g[moment]}
+        <BoutonGeste data-detail-prospect-bouton icone={deplie ? "▾" : "▸"} nom="Détail" titre="Voir le besoin, les contacts et tous les gestes de ce prospect" onClick={() => setBesoinDeplie(deplie ? null : p.id)} />
+      </div>
+    );
+  };
+  const gestesDuDetail = (p) => {
+    const { g, moment } = gestesDe(p);
+    const r = { ...g, ...(moment ? { [moment]: null } : {}) };
+    return (
+      <div data-gestes-prospect className="space-y-1.5">
+        <LigneGestes nom="Relancer">{r.relancer}{r.contacte}{r.date}</LigneGestes>
+        <LigneGestes nom="Suite">{r.preparer}{r.planifier}{r.convertir}</LigneGestes>
+        <LigneGestes nom="Dossier">{r.projet}{r.reassigner}{r.prendre}</LigneGestes>
+        <LigneGestes nom="Classer">{r.reactiver}{r.archiver}{r.supprimer}</LigneGestes>
+      </div>
+    );
+  };
+  const avisDe = (p) => (
+    <div className="flex flex-wrap gap-1">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.statut === "Favorable" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{p.statut}</span>
+                    {estDormant(p) && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600 border border-slate-300 whitespace-nowrap" title={`Aucune activité depuis ${joursSansActivite(p)} jours`}>
+                        💤 Dormant — {Math.floor(joursSansActivite(p) / 30)} mois
+                      </span>
+                    )}
+                    {p.archive && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300" title={`Archivé le ${dFR(p.archive_le)}`}>
+                        📦 {p.archive_motif}
+                      </span>
+                    )}
+                    {p.devis_valide && !p.converti && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300" title={`Devis de ${fmt(p.devis_total)} validé le ${dFR(p.devis_valide_le)} — paiement prévu à ${p.devis_boutique}`}>
+                        ⏳ Devis validé — attend le paiement
+                      </span>
+                    )}
+                    </div>
+  );
+  const lienPosition = (p) => (
+    <>
+      {p.lat && p.lng && (
+                      <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-1 text-sky-700 underline text-xs whitespace-nowrap" data-position-maison={p.position_auto ? "auto" : "choisie"} title={p.position_auto ? "Position prise à l'enregistrement du prospect" : "Position choisie sur la carte"}>📍 Voir sur la carte{p.position_auto ? " (prise à l'enregistrement)" : ""}</a>
+                    )}
+    </>
+  );
+  const nomEtLieu = (p) => (
+    <>
+      <div className="font-semibold">{p.nom}</div>
+      {estDemandeAssistant(p) && <div className="text-xs font-semibold text-violet-700" data-demande-assistant>🤖 Demande de l'assistant WhatsApp</div>}
+      <div className="text-xs font-normal text-slate-500">{dFR(p.date)}{p.localisation ? ` · ${p.localisation}` : ""}{lienPosition(p)}</div>
+      {voitTout && p.saisie && <div className="text-xs font-normal text-slate-500" data-saisie-terrain>{lieuDuGeste(p.saisie)}</div>}
+    </>
+  );
+  const interetDe = (p) => <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.interet === "Intéressé" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}>{p.interet}</span>;
+  const lignesVisites = (p) => visitesDuProspect(rdvVisibles, p.id).map((r) => (
+    <div key={r.id}>📅 Visite du {dFR(r.date)} à {r.heure} — {libelleStatut(r.statut)}{r.compte_rendu ? <> · <b>📝 {r.compte_rendu}</b></> : ""}</div>
+  ));
+  const lignesContacts = (p) => (p.contacts || []).map((c, k) => (
+    <div key={c.id || k}>📞 {dFR(c.date)} — {c.par} : {c.note}{c.lieu ? <> · {lieuDuGeste(c.lieu)}</> : ""}</div>
+  ));
+  const blocBesoin = (p, deplie) => (
+    <div className="flex flex-wrap items-start gap-2 text-xs">
+                        {p.nature && <span className={`flex-1 min-w-[240px] text-slate-600 ${deplie ? "whitespace-pre-wrap" : "line-clamp-2"}`} title={deplie ? "Cliquer pour replier" : "Cliquer pour tout lire"}><b className="text-slate-700 not-italic">🔧 Besoin :</b> {p.nature}</span>}
+                        {p.estimation_assistant && <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 font-semibold whitespace-nowrap" data-estimation-assistant title="Estimation indicative, pose comprise, donnée au client par l'assistant WhatsApp">🤖 Estimation donnée le {dFR(p.estimation_assistant.le)} : {fmt(p.estimation_assistant.bas)} – {fmt(p.estimation_assistant.haut)}</span>}
+                      </div>
+  );
+  const nbColonnes = 6 + (voitTout ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -486,12 +590,12 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
           </div>
         )}
         {aRelancerAujourdhui > 0 && (
-          <button onClick={() => setFiltreRelance(true)} className="mt-3 text-xs font-bold text-orange-700 underline">Voir les {aRelancerAujourdhui} prospect(s) à relancer →</button>
+          <div className="mt-3"><BoutonGeste icone="🔔" nom={`Voir les ${aRelancerAujourdhui} prospect(s) à relancer`} teinte="orange" onClick={() => setFiltreRelance(true)} /></div>
         )}
       </Panel>
       {isAdmin && (
         <Panel>
-          <div className="font-bold mb-3">Catégories de prospects <span className="text-xs font-normal text-slate-500">(gérées par l'administrateur)</span></div>
+          <CarteRepliable titre={`Catégories de prospects (${db.categories_prospects.length})`} ouvertParDefaut={blocsOuverts} explication="Gérées par l'administrateur : elles servent à classer les prospects à l'enregistrement.">
           <div className="flex flex-wrap gap-2 mb-3">
             {db.categories_prospects.map((c) => (
               <span key={c.id} className="inline-flex items-center gap-2 bg-white rounded-full border border-slate-300 px-3 py-1 text-sm">
@@ -504,6 +608,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
             <input className={inputCls} placeholder="Nouvelle catégorie…" value={nouvelleCat} onChange={(e) => setNouvelleCat(e.target.value)} />
             <button onClick={ajouterCategorie} className={btnDark}>Ajouter</button>
           </div>
+          </CarteRepliable>
         </Panel>
       )}
 
@@ -598,156 +703,101 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
           <div className="flex items-center gap-2 flex-wrap">
             <input className={champRecherche} placeholder="Rechercher…" value={q} onChange={(e) => setQ(e.target.value)} />
             {periode.selecteur}
-            {acquis.length > 0 && (
-              <button onClick={() => setVoirAcquis(!voirAcquis)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${voirAcquis ? "bg-green-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-                {voirAcquis ? "✅ Clients acquis affichés" : `Afficher les clients acquis (${acquis.length})`}
-              </button>
-            )}
-            <button onClick={() => setVue(vue === "dormants" ? "actifs" : "dormants")} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${vue === "dormants" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-              💤 Dormants{dormants.length > 0 ? ` (${dormants.length})` : ""}
-            </button>
-            {archives.length > 0 && (
-              <button onClick={() => setVue(vue === "archives" ? "actifs" : "archives")} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${vue === "archives" ? "bg-amber-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-                📦 Archivés ({archives.length})
-              </button>
-            )}
-            <button onClick={() => setFiltreRelance(!filtreRelance)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${filtreRelance ? "bg-orange-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-              🔔 À relancer{aRelancerAujourdhui > 0 ? ` (${aRelancerAujourdhui})` : ""}
-            </button>
           </div>
         </div>
-        <table className="w-full text-sm min-w-[900px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Date", "Numéro", "Catégorie / projet", "Localisation", "Avis", "Intérêt", "Relance", ...(voitTout ? ["Commercial"] : []), ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
+        <div data-rangee-boutons data-filtres-prospects className="px-4 py-2 border-b border-slate-200 flex flex-wrap gap-2">
+          {[
+            ["actifs", "🧲 Actifs", vue === "actifs", () => setVue("actifs"), `(${actifs.length})`],
+            ["relancer", "🔔 À relancer", filtreRelance, () => setFiltreRelance(!filtreRelance), aRelancerAujourdhui > 0 ? `(${aRelancerAujourdhui})` : ""],
+            ["dormants", "💤 Dormants", vue === "dormants", () => setVue(vue === "dormants" ? "actifs" : "dormants"), dormants.length > 0 ? `(${dormants.length})` : ""],
+            ...(archives.length > 0 ? [["archives", "📦 Archivés", vue === "archives", () => setVue(vue === "archives" ? "actifs" : "archives"), `(${archives.length})`]] : []),
+            ...(acquis.length > 0 ? [["acquis", "✅ Clients acquis", voirAcquis, () => setVoirAcquis(!voirAcquis), `(${acquis.length})`]] : []),
+          ].map(([id, libelle, actif, onClick, nb]) => (
+            <button key={id} data-filtre-prospect={id} onClick={onClick}
+              className={`px-3 py-1.5 rounded-full text-sm font-bold border ${actif ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+              {libelle}{nb ? <span className={`ml-1 ${actif ? "text-sky-200" : "text-slate-400"}`}>{nb}</span> : null}
+            </button>
+          ))}
+        </div>
+        {telephone ? (
+          <div data-prospects-cartes className="p-2 space-y-2">
+            {liste.length === 0 && <div className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</div>}
+            {listePage.map((p) => {
+              const enRetard = p.relance && p.relance <= today();
+              const deplie = besoinDeplie === p.id;
+              return (
+                <div key={p.id} data-prospect-carte data-ligne-prospect={deplie ? "deplie" : "replie"} onClick={() => setBesoinDeplie(deplie ? null : p.id)}
+                  className={`rounded-xl border p-3 cursor-pointer ${deplie ? "border-sky-400 bg-sky-50" : enRetard ? "border-orange-300 bg-orange-50" : "border-slate-200 bg-white"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>{nomEtLieu(p)}</div>
+                    {p.relance && <div className={`text-xs whitespace-nowrap ${enRetard ? "text-orange-700 font-bold" : "text-slate-500"}`}>{enRetard ? "⚠ " : ""}relance {dFR(p.relance)}</div>}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">{p.tel}{p.categorie ? ` · ${p.categorie}` : ""}</div>
+                  {p.projet && <div className="text-xs font-semibold text-sky-800" data-projet>🎯 {p.projet}</div>}
+                  <div className="mt-1.5">{avisDe(p)} {interetDe(p)}</div>
+                  {voitTout && <div className="text-xs text-slate-500 mt-1" data-commercial-du-prospect>{p.commercial}</div>}
+                  {visitesDuProspect(rdvVisibles, p.id).length > 0 && <div className="mt-1 text-xs text-slate-600" data-visites-prospect>{lignesVisites(p)}</div>}
+                  <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesDeLaLigne(p, deplie)}</div>
+                  {deplie && (
+                    <div onClick={(e) => e.stopPropagation()} className="mt-3 space-y-2" data-detail-prospect>
+                      {voitTout && (p.contacts || []).length > 0 && <div className="text-xs text-slate-600" data-contacts-prospect>{lignesContacts(p)}</div>}
+                      {(p.nature || p.estimation_assistant) && <div data-besoin-prospect="deplie">{blocBesoin(p, deplie)}</div>}
+                      {gestesDuDetail(p)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+        <table className="w-full text-sm min-w-[860px]">
+          <thead><tr className="text-xs text-slate-500 uppercase">{["Nom", "Numéro", "Catégorie / projet", "Avis · intérêt", "Relance", ...(voitTout ? ["Commercial"] : []), "À faire"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
           <tbody>
-            {liste.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</td></tr>}
+            {liste.length === 0 && <tr><td colSpan={nbColonnes} className="px-4 py-6 text-center text-slate-400">{periode.actif ? "Aucun prospect sur cette période." : "Aucun prospect pour l'instant."}</td></tr>}
             {listePage.map((p, i) => {
               const enRetard = p.relance && p.relance <= today();
               const deplie = besoinDeplie === p.id;
               const fond = enRetard ? "bg-orange-50" : "";
-              const sien = isAdmin || p.commercial === profile.nom;
-              const peutPreparer = peutPreparerDevisDuProspect(profile, p, personnesDevis, auteursDevis);
               return (
                 <Fragment key={p.id}>
-                {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026,
-                    « Tous, lance ») : un clic la déplie (le besoin en entier), un
-                    second la replie, une seule à la fois ; les gestes sont des
-                    boutons ronds, le libellé au survol. */}
+                {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes : un clic la déplie,
+                    une seule à la fois. « Prospects façon carnet » (18/11/2026) : la ligne ne
+                    porte que le geste du moment ; les autres gestes sont écrits dans le détail. */}
                 <tr data-ligne-prospect={deplie ? "deplie" : "replie"} onClick={() => setBesoinDeplie(deplie ? null : p.id)} className={`border-t border-slate-100 cursor-pointer ${classeLigneDepliable(deplie, i, fond)}`}>
-                  {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo,
-                      25/09/2026 : « figer le nom du client… comme dans stock ») :
-                      il passe en PREMIÈRE colonne, par LA règle commune. */}
-                  <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i, fond), deplie)}`}>
-                    {p.nom}
-                    {estDemandeAssistant(p) && <div className="text-xs font-semibold text-violet-700" data-demande-assistant>🤖 Demande de l'assistant WhatsApp</div>}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {dFR(p.date)}
-                    {voitTout && p.saisie && <div className="text-xs text-slate-500" data-saisie-terrain>{lieuDuGeste(p.saisie)}</div>}
-                  </td>
+                  <td className={`px-3 py-2 min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i, fond), deplie)}`}>{nomEtLieu(p)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{p.tel}</td>
                   <td className="px-3 py-2 text-slate-500">
                     {p.categorie}
                     {p.projet && <div className="text-xs font-semibold text-sky-800" data-projet>🎯 {p.projet}</div>}
                   </td>
                   <td className="px-3 py-2">
-                    {p.localisation || (p.lat ? "" : "—")}
-                    {p.lat && p.lng && (
-                      <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-1 text-sky-700 underline text-xs whitespace-nowrap" data-position-maison={p.position_auto ? "auto" : "choisie"} title={p.position_auto ? "Position prise à l'enregistrement du prospect" : "Position choisie sur la carte"}>📍 Voir sur la carte{p.position_auto ? " (prise à l'enregistrement)" : ""}</a>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.statut === "Favorable" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{p.statut}</span>
-                    {estDormant(p) && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600 border border-slate-300 whitespace-nowrap" title={`Aucune activité depuis ${joursSansActivite(p)} jours`}>
-                        💤 Dormant — {Math.floor(joursSansActivite(p) / 30)} mois
-                      </span>
-                    )}
-                    {p.archive && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300" title={`Archivé le ${dFR(p.archive_le)}`}>
-                        📦 {p.archive_motif}
-                      </span>
-                    )}
-                    {p.devis_valide && !p.converti && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300" title={`Devis de ${fmt(p.devis_total)} validé le ${dFR(p.devis_valide_le)} — paiement prévu à ${p.devis_boutique}`}>
-                        ⏳ Devis validé — attend le paiement
-                      </span>
-                    )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.interet === "Intéressé" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}>{p.interet}</span>
+                    {avisDe(p)}
+                    <div className="mt-1">{interetDe(p)}</div>
                   </td>
                   <td className={`px-3 py-2 whitespace-nowrap ${enRetard ? "text-orange-700 font-bold" : ""}`}>{p.relance ? dFR(p.relance) : "—"}</td>
                   {voitTout && <td className="px-3 py-2" data-commercial-du-prospect>{p.commercial}</td>}
-                  {/* Les gestes passent à la ligne au lieu de courir à droite
-                      (capture Timo, 25/09/2026 : « ArchiverSuppr. » collés). */}
-                  <CelluleActions largeur="min-w-[150px] max-w-[230px]">
-                    {!isAdmin && <BoutonRond icone="📆" titre="Changer la date de relance" onClick={() => modifierRelance(p)} />}
-                    {enRetard && p.tel && sien && (
-                      <BoutonRond icone={<IconeWhatsApp taille={16} />} teinte="orange" titre="📱 Relancer par WhatsApp" envoi onClick={() => relancerWhatsApp(p)} />
-                    )}
-                    {!p.archive && !p.converti && sien && (
-                      <BoutonRond icone="🎯" titre="🎯 Projet" onClick={() => changerProjet(p)} />
-                    )}
-                    {voitTout && aDroit(db, profile, "act_reaffecter") && <BoutonRond icone="🔀" titre="Réassigner à un autre commercial" onClick={() => reassigner(p)} />}
-                    {estDemandeAssistant(p) && !p.archive && (
-                      <BoutonRond icone="🙋" teinte="violet" titre="🙋 Prendre en charge" onClick={() => prendre(p)} />
-                    )}
-                    {!p.archive && !p.converti && onPreparerDevis && peutPreparer && (
-                      <BoutonRond icone="🔆" titre="🔆 Préparer le devis — le dimensionnement solaire s'ouvre avec les appareils lus dans le besoin" onClick={() => preparerDevis(p)} />
-                    )}
-                    {/* 📅 « Planifier une visite » (12/10/2026, Rendez-vous « G ») : ouvre
-                        📅 Rendez-vous avec une visite pro déjà rattachée à CE prospect. */}
-                    {!p.archive && !p.converti && onPlanifierVisite && (isAdmin || p.commercial === profile.nom) && (
-                      <BoutonRond data-planifier-visite icone="📅" titre="📅 Planifier une visite" onClick={() => onPlanifierVisite(p)} />
-                    )}
-                    {!p.archive && !p.converti && sien && (
-                      <BoutonRond icone="📞" titre={`📞 Contacté — dernière activité : ${dFR(derniereActivite(p))}`} onClick={() => contacte(p)} />
-                    )}
-                    {!p.archive && !p.converti && sien && (
-                      <BoutonRond icone="✅" teinte="vert" titre="✅ Convertir en client" envoi onClick={() => convertirEnClient(p)} />
-                    )}
-                    {p.archive
-                      ? sien && <BoutonRond icone="↩" teinte="vert" titre="↩ Réactiver" onClick={() => reactiver(p)} />
-                      : sien && !p.converti && <BoutonRond icone="📦" teinte="ambre" titre="📦 Archiver" onClick={() => archiver(p)} />}
-                    {sien && <BoutonRond icone="🗑" teinte="rouge" titre="🗑 Supprimer" onClick={() => supprimer(p)} />}
-                  </CelluleActions>
+                  <CelluleActions largeur="min-w-[200px] max-w-[260px]">{gestesDeLaLigne(p, deplie)}</CelluleActions>
                 </tr>
-                {/* 🔧 LE BESOIN SUR SA PROPRE LIGNE (capture Timo, 25/09/2026 : « ce
-                    n'est pas agréable à regarder… tous les détails dans
-                    localisation ? »). Toute la largeur, deux lignes au plus, un
-                    clic l'ouvre en entier, un second le replie. L'estimation de
-                    l'assistant y est une pastille, une seule fois. */}
                 {/* 📅 Les visites de ce prospect et leur compte rendu (Rendez-vous « G »). */}
                 {visitesDuProspect(rdvVisibles, p.id).length > 0 && (
                   <tr className={fondLigneDepliable(deplie, i, fond)} data-visites-prospect>
-                    <td colSpan={10} className="px-3 pb-2 pt-0 text-xs text-slate-600">
-                      {visitesDuProspect(rdvVisibles, p.id).map((r) => (
-                        <div key={r.id}>📅 Visite du {dFR(r.date)} à {r.heure} — {libelleStatut(r.statut)}{r.compte_rendu ? <> · <b>📝 {r.compte_rendu}</b></> : ""}</div>
-                      ))}
-                    </td>
+                    <td colSpan={nbColonnes} className="px-3 pb-2 pt-0 text-xs text-slate-600">{lignesVisites(p)}</td>
                   </tr>
                 )}
-                {/* 📞 Les contacts notés, avec l'heure et l'endroit (15/11/2026, « C b » :
-                    ceux qui voient toute l'équipe), sur la ligne dépliée. */}
+                {/* 📞 Les contacts notés, avec l'heure et l'endroit (ceux qui voient toute l'équipe), sur la ligne dépliée. */}
                 {voitTout && deplie && (p.contacts || []).length > 0 && (
                   <tr className={fondLigneDepliable(deplie, i, fond)} data-contacts-prospect>
-                    <td colSpan={10} className="px-3 pb-2 pt-0 text-xs text-slate-600">
-                      {(p.contacts || []).map((c, k) => (
-                        <div key={c.id || k}>📞 {dFR(c.date)} — {c.par} : {c.note}{c.lieu ? <> · {lieuDuGeste(c.lieu)}</> : ""}</div>
-                      ))}
-                    </td>
+                    <td colSpan={nbColonnes} className="px-3 pb-2 pt-0 text-xs text-slate-600">{lignesContacts(p)}</td>
                   </tr>
                 )}
                 {(p.nature || p.estimation_assistant) && (
                   <tr className={`${fondLigneDepliable(deplie, i, fond)} cursor-pointer`} onClick={() => setBesoinDeplie(deplie ? null : p.id)} data-besoin-prospect={deplie ? "deplie" : "replie"}>
-                    <td colSpan={10} className="px-3 pb-2 pt-0">
-                      <div className="flex flex-wrap items-start gap-2 text-xs">
-                        {p.nature && <span className={`flex-1 min-w-[240px] text-slate-600 ${deplie ? "whitespace-pre-wrap" : "line-clamp-2"}`} title={deplie ? "Cliquer pour replier" : "Cliquer pour tout lire"}><b className="text-slate-700 not-italic">🔧 Besoin :</b> {p.nature}</span>}
-                        {p.estimation_assistant && <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 font-semibold whitespace-nowrap" data-estimation-assistant title="Estimation indicative, pose comprise, donnée au client par l'assistant WhatsApp">🤖 Estimation donnée le {dFR(p.estimation_assistant.le)} : {fmt(p.estimation_assistant.bas)} – {fmt(p.estimation_assistant.haut)}</span>}
-                      </div>
-                    </td>
+                    <td colSpan={nbColonnes} className="px-3 pb-2 pt-0">{blocBesoin(p, deplie)}</td>
+                  </tr>
+                )}
+                {deplie && (
+                  <tr className={fondLigneDepliable(deplie, i, fond)} data-detail-prospect>
+                    <td colSpan={nbColonnes} className="px-3 pb-3 pt-1">{gestesDuDetail(p)}</td>
                   </tr>
                 )}
                 </Fragment>
@@ -755,19 +805,14 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
             })}
           </tbody>
         </table>
+        )}
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
       {comptesAvecDevis.length > 0 && (
         <Panel>
           <div data-comptes-avec-devis>
-            <button onClick={() => setVoirComptesDevis((x) => !x)} className="font-bold text-slate-800">
-              📄 Comptes avec devis, rien acheté ({comptesAvecDevis.length}) {voirComptesDevis ? "▴" : "▾"}
-            </button>
-            <div className="text-xs text-slate-500 mt-0.5 mb-2">
-              Ils ont reçu un devis, n'en ont validé aucun et n'ont rien acheté : ce sont encore des prospects. Ils deviennent
-              clients tout seuls au premier devis validé ou au premier achat. Pour relancer ou corriger un devis : 📋 Tous les devis.
-            </div>
-            {voirComptesDevis && (
+            <CarteRepliable titre={`📄 Comptes avec devis, rien acheté (${comptesAvecDevis.length})`} ouvertParDefaut={blocsOuverts}
+              explication="Ils ont reçu un devis, n'en ont validé aucun et n'ont rien acheté : ce sont encore des prospects. Ils deviennent clients tout seuls au premier devis validé ou au premier achat. Pour relancer ou corriger un devis : 📋 Tous les devis.">
               <div className="max-h-80 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
                 {comptesAvecDevis.map((c) => {
                   const devis = devisDuProspect(c.compte);
@@ -788,7 +833,7 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
                   );
                 })}
               </div>
-            )}
+            </CarteRepliable>
           </div>
         </Panel>
       )}

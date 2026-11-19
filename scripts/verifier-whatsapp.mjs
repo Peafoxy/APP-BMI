@@ -2606,23 +2606,24 @@ titre("㉗ 🧲 PROSPECTS : LE BESOIN SUR SA LIGNE, L'ESTIMATION UNE FOIS (25/09
 {
   const I = await import("../src/lib/assistantIA.js");
   const P = lire("src/screens/Prospects.jsx");
-  const cellLoc = (() => { const i = P.indexOf("{p.localisation || (p.lat"); return P.slice(i, P.indexOf("</td>", i)); })();
+  // RETOURNÉ le 18/11/2026 (« Prospects façon carnet ») : le lieu vit dans nomEtLieu (sous le nom).
+  const cellLoc = (() => { const i = P.indexOf("const nomEtLieu = (p) => ("); return P.slice(i, P.indexOf("const interetDe", i)); })();
   test("★★ la case Localisation ne porte QUE le lieu (ni le besoin, ni l'estimation)",
     cellLoc.length > 0 && !/p\.nature/.test(cellLoc) && !/estimation_assistant/.test(cellLoc));
   test("★★ le besoin a SA ligne sur toute la largeur, deux lignes au plus, un clic l'ouvre, un second le replie (un seul déplié)",
-    /<td colSpan=\{10\}/.test(P) && /line-clamp-2/.test(P) && /setBesoinDeplie\(deplie \? null : p\.id\)/.test(P)
+    /<td colSpan=\{nbColonnes\}/.test(P) && /line-clamp-2/.test(P) && /setBesoinDeplie\(deplie \? null : p\.id\)/.test(P)
     && /const deplie = besoinDeplie === p\.id;/.test(P) && /data-besoin-prospect/.test(P));
   test("★ l'estimation n'apparaît qu'UNE fois sur l'écran, en pastille",
     (P.match(/data-estimation-assistant/g) || []).length === 1);
   // ⚠ RETOURNÉ le 15/10/2026 (« Tous, lance ») : la ligne se déplie au clic,
   // la cellule figée porte le fond de la ligne (orange en retard, bleu dépliée).
   test("★★ le NOM reste figé pendant le défilement horizontal (« comme dans stock ») : première colonne, par LA règle commune enTeteFige / celluleFigee, fond de la ligne gardé (orange sur une relance en retard, bleu dépliée)",
-    /\{\["Nom", "Date", "Numéro",/.test(P) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(P)
+    /\{\["Nom", "Numéro", "Catégorie \/ projet",/.test(P) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(P)
     && /const fond = enRetard \? "bg-orange-50" : "";/.test(P)
-    && /<td className=\{`px-3 py-2 font-semibold min-w-\[170px\] \$\{celluleFigee\(fondLigneDepliable\(deplie, i, fond\), deplie\)\}`\}>\s*\{p\.nom\}/.test(P)
+    && /<td className=\{`px-3 py-2 min-w-\[170px\] \$\{celluleFigee\(fondLigneDepliable\(deplie, i, fond\), deplie\)\}`\}>\{nomEtLieu\(p\)\}/.test(P) && /<div className="font-semibold">\{p\.nom\}<\/div>/.test(P)
     && !/sticky left-0/.test(P));
   test("★ les gestes sont des boutons ronds qui passent à la ligne (RETOURNÉ le 15/10/2026 : CelluleActions bridée)",
-    /<CelluleActions largeur="min-w-\[150px\] max-w-\[230px\]">/.test(P) && !/className="text-xs[^"]*underline/.test(P.slice(P.indexOf("<table"), P.indexOf("</table>"))));
+    /<CelluleActions largeur="min-w-\[200px\] max-w-\[260px\]">\{gestesDeLaLigne\(p, deplie\)\}<\/CelluleActions>/.test(P) /* RETOURNÉ le 18/11/2026 : gestes écrits en mots (BoutonGeste) */ && !/className="text-xs[^"]*underline/.test(P.slice(P.indexOf("<table"), P.indexOf("</table>"))));
   const capture = "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour. Estimation donnée : ~34,2 kWh/jour, 22 panneaux 400W, 4 batteries 200Ah 48V, convertisseur 5,5 kW, entre 4 600 000 et 6 250 000 F CFA.";
   test("★★ le besoin enregistré par l'assistant ne garde QUE ce que le client a dit (la phrase de sa capture)",
     I.besoinSansEstimation(capture) === "Installation solaire pour : clim 2 CV 13h/jour, frigo 24h/24, 7 ampoules 10h/jour, ventilateur 13h/jour, TV 9h/jour."

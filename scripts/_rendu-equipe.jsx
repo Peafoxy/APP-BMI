@@ -27,5 +27,5 @@ export const rendreHistorique = (props) => renderToStaticMarkup(React.createElem
 // 🧲 Suivre les commerciaux qui prospectent (15/11/2026, « Lance 1, 2 et 3 »).
 import { Prospects } from "../src/screens/Prospects.jsx";
 export * as AP from "../src/lib/activiteProspection.js";
-export const rendreProspects = (db, profile, commercialInitial = "") =>
-  renderToStaticMarkup(React.createElement(Prospects, { db, save: () => {}, profile, isAdmin: profile.role === "admin", commercialInitial }));
+export const rendreProspects = (db, profile, commercialInitial = "", extra = {}) =>
+  renderToStaticMarkup(React.createElement(Prospects, { db, save: () => {}, profile, isAdmin: profile.role === "admin", commercialInitial, ...extra }));
