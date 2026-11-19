@@ -5,10 +5,10 @@
 // ============================================================
 import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
-import { useState, Fragment } from "react";
+import { useState, Fragment, useEffect } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette, statutDette, FILTRES_STATUT_DETTE, detteDansFiltre } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable, BoutonRond, BoutonEnvoi, CelluleActions } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable, CelluleActions } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecu, imprimerRecuVersement, fichierRecuVersement } from "../lib/impression";
 import { avecInfoTravaux } from "../lib/travaux";
@@ -26,7 +26,7 @@ import { verserDepuisOrigine, choisirDestination } from "../components/verserOri
 import { critiqueSuppressionDette, mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
 // ============ DETTES ============
-export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible = null }) {
+export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible = null, telephoneInitial = false, blocsOuverts = false }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "dettes" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -58,6 +58,17 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
   // 📋 Le statut (Timo, 12/10/2026) : « Tout » d'office = en cours et partielles
   // seulement — une dette payée n'est plus une dette ; « Payée » se choisit.
   const [filtreStatut, setFiltreStatut] = useState("Tout");
+  // 📱 Sur téléphone, une CARTE par dette (le tableau de 900 px défilait de côté) ;
+  // UNE seule des deux mises en page est dans la page. telephoneInitial : banc seul.
+  const [telephone, setTelephone] = useState(() => telephoneInitial || (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 639px)").matches));
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mq = window.matchMedia("(max-width: 639px)");
+    const suit = () => setTelephone(telephoneInitial || mq.matches);
+    mq.addEventListener?.("change", suit);
+    return () => mq.removeEventListener?.("change", suit);
+  }, [telephoneInitial]);
+  const [retardSeul, setRetardSeul] = useState(false);
 
   const ajouter = () => {
     if (!f.client || !f.montant) { uAlert("Veuillez saisir le nom du client et le montant."); return; }
@@ -362,7 +373,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
   // Ce qui est AFFICHÉ. ⚠ Une vieille dette impayée sort de la liste quand on
   // choisit une période : l'argent dû hors de la période se DIT sous le titre
   // (horsPeriode), on ne le perd jamais de vue.
-  const listeAffichee = liste.filter((x) => periode.dans(x.date) && detteDansFiltre(x, filtreStatut));
+  const listeAffichee = liste.filter((x) => periode.dans(x.date) && detteDansFiltre(x, filtreStatut) && (!retardSeul || detteEnRetard(x, today())));
   const horsPeriode = periode.actif ? liste.filter((x) => !periode.dans(x.date) && Math.max(0, x.montant - x.paye) > 0) : [];
   const { pageItems: listePage, page, setPage, totalPages } = usePagination(listeAffichee, 50);
   const mesReservations = db.dettes.filter((x) => x.boutique === boutique && estReservation(x) && x.statut !== "annulee");
@@ -377,6 +388,84 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
+  // 🖐 Les gestes d'une dette, écrits en mots et UNE fois (18/11/2026, « Dettes façon
+  // carnet »). Le geste du moment est sur la ligne ; les autres sont dans le détail.
+  const gestesDe = (d) => {
+    const st = statut(d);
+    const estRetard = detteEnRetard(d, today());
+    const g = {
+      recu: <BoutonGeste icone="🖨" nom="Reçu" teinte="bleu" onClick={() => imprimerRecuVersement(avecInfoTravaux(db, d), bqDe(boutiqueDuDocument(d)), { produits: db.produits })} titre="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" />,
+      paiement: st !== "Payée" ? <BoutonGeste icone="💵" nom="Enregistrer un paiement" teinte="vert" onClick={() => encaisser(d)} titre="+ Paiement : enregistrer un versement du client" /> : null,
+      relancer: st !== "Payée" ? <BoutonGeste icone={<IconeWhatsApp taille={16} />} nom="Relancer par WhatsApp" teinte="vert" envoi onClick={() => relancer(d)} titre="Relancer le client par WhatsApp" /> : null,
+      supprimer: profile.role === "admin" ? <BoutonGeste icone="🗑" nom="Supprimer" teinte="rouge" onClick={() => supprimerDette(d)} titre="Supprimer cette dette" /> : null,
+    };
+    const moment = estRetard && g.relancer ? "relancer" : g.paiement ? "paiement" : "recu";
+    return { g, moment };
+  };
+  const gestesDeLaLigne = (d, deplie) => {
+    const { g, moment } = gestesDe(d);
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        {g[moment]}
+        <BoutonGeste data-detail-dette-bouton icone={deplie ? "▾" : "▸"} nom="Détail" titre="Voir les règlements, la trace WhatsApp et tous les gestes de cette dette" onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} />
+      </div>
+    );
+  };
+  const gestesDuDetail = (d) => {
+    const { g, moment } = gestesDe(d);
+    const r = { ...g, [moment]: null };
+    return (
+      <div data-gestes-dette className="space-y-1.5">
+        <LigneGestes nom="Client">{r.relancer}</LigneGestes>
+        <LigneGestes nom="Argent">{r.paiement}{r.recu}</LigneGestes>
+        <LigneGestes nom="Classer">{r.supprimer}</LigneGestes>
+      </div>
+    );
+  };
+  const traceDe = (d) => (
+    <>
+      {d.envoi_whatsapp && <div className="text-xs mt-0.5 text-emerald-700">📲 {libelleTrace(d.envoi_whatsapp)}</div>}
+                    <div className="mt-0.5">{(() => {
+                      // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
+                      // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
+                      const e = dernierEnvoiPour(db.messages, { dette_id: d.id });
+                      return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
+                    })()}</div>
+    </>
+  );
+  const blocReglements = (d, reglements) => (
+    <>
+      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Règlements</div>
+                      <div className="space-y-1">
+                        {reglements.map((p, k) => {
+                          const cle = cleReglement(d, p, k);
+                          // 🩶 10/10/2026 (Timo, « fais pareil pour les règlements versés ») : versé
+                          // à part ET validé → la ligne du règlement se grise, comme une vente versée.
+                          const grise = reglementsGrises.has(cle);
+                          const e = etatVersementOrigine(db, versementDeReglement(db, cle));
+                          const moyen = p.paiement || "Espèces";
+                          // 09/10/2026 : un règlement fait AVANT un versement général de la caisse est
+                          // déjà parti avec lui (mention grise) ; fait APRÈS, il garde son bouton.
+                          const peutEtreVerse = ROLES_VERSEMENT.includes(profile.role) && !e && moyenVersable(moyen) && Number(p.montant || 0) > 0;
+                          const general = peutEtreVerse ? versementGeneralQuiEmporte(db, { caisse: d.boutique, source: moyen, quand: p }) : null;
+                          const versable = peutEtreVerse && !general;
+                          return (
+                            <div key={cle} data-reglement data-reglement-grise={grise ? "" : undefined} className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-sm${grise ? " bg-slate-200 rounded px-2 py-0.5 text-slate-500! [&_*]:text-slate-500!" : ""}`}>
+                              <span className="text-slate-600 whitespace-nowrap">{dFR(p.date)}{p.heure ? ` ${p.heure}` : ""}</span>
+                              <span className="font-semibold tabular-nums whitespace-nowrap">{fmt(Number(p.montant || 0))}</span>
+                              <span className="text-slate-500">{moyen}{p.par ? ` · par ${p.par}` : ""}</span>
+                              {e && <span data-reglement-verse className={`text-xs font-semibold ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versé {e.texte}</span>}
+                              {general && <span data-reglement-dans-versement className="text-xs text-slate-400">{mentionVersementGeneral(general)}</span>}
+                              {versable && (
+                                <BoutonGeste icone="💸" nom="Verser ce règlement" teinte="vert" onClick={(ev) => { ev.stopPropagation(); verserDepuisOrigine({ db, save, profile, boutique: d.boutique, montant: Number(p.montant || 0), source: moyen, quand: p, origine: { type: ORIGINE_REGLEMENT, reglement: cle, dette_id: d.id, numero: d.numero || "", client: d.client || "" } }); }}
+                                  titre="💸 Verser : l'argent de ce règlement est remis au DG, à la BANQUE ou au comptable (sans bande noire)" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+    </>
+  );
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
   return (
     <div className="space-y-4">
@@ -423,7 +512,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
                   <tr key={i} className="border-b border-emerald-100">
                     <td className="py-1 font-semibold">{l.qte} × {l.nom}</td>
                     <td className="py-1 text-right tabular-nums">{fmt(l.qte * l.pu)}</td>
-                    <td className="py-1 text-right"><BoutonRond icone="✕" teinte="rouge" titre="Retirer de la liste" onClick={() => setPanierRes(panierRes.filter((_, j) => j !== i))} /></td>
+                    <td className="py-1 text-right"><BoutonGeste icone="✕" nom="Retirer" teinte="rouge" titre="Retirer de la liste" onClick={() => setPanierRes(panierRes.filter((_, j) => j !== i))} /></td>
                   </tr>
                 ))}
                 <tr className="font-bold"><td className="pt-2">TOTAL RÉSERVÉ</td><td className="pt-2 text-right tabular-nums text-emerald-800">{fmt(totalRes)}</td><td></td></tr>
@@ -444,7 +533,9 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
         </FormulaireRepliable>
 
         {mesReservations.length > 0 && (
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4" data-reservations>
+          <CarteRepliable titre={`Réservations prépayées (${mesReservations.length})`} ouvertParDefaut={blocsOuverts}>
+          <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[720px]">
               {/* 🧾 La règle des lignes (15/10/2026) : le client figé, les articles
                   sur deux lignes puis la suite au clic, le statut en pastille, les
@@ -469,10 +560,10 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
                           : <span className={`${pastille} bg-amber-100 text-amber-700 border-amber-200`}>⏳ En cours</span>}
                     </td>
                     <CelluleActions>
-                      <BoutonRond icone="🖨" onClick={() => imprimerRecuVersement(r, db.boutiques.find((b) => b.nom === r.boutique) || {}, { produits: db.produits })} titre="🖨 Reçu — avec le filigrane NON LIVRÉ si pas encore livrée" />
-                      {r.statut !== "livree" && <BoutonRond icone="💵" teinte="vert" onClick={() => encaisser(r)} titre="+ Versement" />}
-                      {r.statut !== "livree" && <BoutonRond icone="📦" teinte="vert" onClick={() => livrer(r)} titre="📦 Livrer" />}
-                      {r.statut !== "livree" && <BoutonRond icone="✕" teinte="rouge" onClick={() => annulerReservation(r)} titre="Annuler la réservation" />}
+                      <BoutonGeste icone="🖨" nom="Reçu" onClick={() => imprimerRecuVersement(r, db.boutiques.find((b) => b.nom === r.boutique) || {}, { produits: db.produits })} titre="🖨 Reçu — avec le filigrane NON LIVRÉ si pas encore livrée" />
+                      {r.statut !== "livree" && <BoutonGeste icone="💵" nom="Enregistrer un versement" teinte="vert" onClick={() => encaisser(r)} titre="+ Versement" />}
+                      {r.statut !== "livree" && <BoutonGeste icone="📦" nom="Livrer" teinte="vert" onClick={() => livrer(r)} titre="📦 Livrer" />}
+                      {r.statut !== "livree" && <BoutonGeste icone="✕" nom="Annuler" teinte="rouge" onClick={() => annulerReservation(r)} titre="Annuler la réservation" />}
                     </CelluleActions>
                   </tr>
                   );
@@ -480,14 +571,18 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
               </tbody>
             </table>
           </div>
+          </CarteRepliable>
+          </div>
         )}
       </div>
 
       {dettesEnRetard.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <span className="text-sm font-semibold text-red-700">
-            ⚠ {dettesEnRetard.length} dette(s) de plus de {RETARD_DETTE_JOURS} jours à relancer
-          </span>
+        <div data-bande-retard className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-red-700">⚠ {dettesEnRetard.length} dette(s) de plus de {RETARD_DETTE_JOURS} jours à relancer</span>
+            <BoutonGeste icone="🔎" nom={retardSeul ? "Voir toutes les dettes" : "Voir seulement celles-là"} teinte="rouge" onClick={() => setRetardSeul((v) => !v)} />
+          </div>
+          <NoteDepliable libelle="Qui est compté ?" className="mt-1">Les dettes non soldées dont l'ancienneté dépasse {RETARD_DETTE_JOURS} jours, dans la boutique regardée (même règle que la tournée de 7 h).</NoteDepliable>
         </div>
       )}
 
@@ -531,11 +626,20 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
           <span>Dettes — {boutique} <span className="text-sm font-normal text-slate-500">· Reste total{periode.actif ? ` (${periode.libelle})` : ""} : {fmt(listeAffichee.reduce((s, d) => s + Math.max(0, d.montant - d.paye), 0))}</span></span>
           <span className="flex flex-wrap items-center gap-2">
-            <select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)} data-filtre-statut-dette className={`${inputCls} sm:w-36`} aria-label="Statut des dettes">
-              {FILTRES_STATUT_DETTE.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
             {periode.selecteur}
           </span>
+        </div>
+        <div data-rangee-boutons data-filtre-statut-dette className="px-4 py-2 border-b border-slate-200 flex flex-wrap gap-2">
+          {FILTRES_STATUT_DETTE.map((f) => {
+            const nb = liste.filter((x) => periode.dans(x.date) && detteDansFiltre(x, f)).length;
+            const actif = filtreStatut === f;
+            return (
+              <button key={f} data-filtre-statut={f} onClick={() => setFiltreStatut(f)}
+                className={`px-3 py-1.5 rounded-full text-sm font-bold border ${actif ? "bg-sky-800 text-white border-sky-800" : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+                {f === "Tout" ? "📋 Tout" : f}<span className={`ml-1 ${actif ? "text-sky-200" : "text-slate-400"}`}>({nb})</span>
+              </button>
+            );
+          })}
         </div>
         {horsPeriode.length > 0 && (
           <div className="px-4 py-2 text-xs font-semibold text-amber-800 bg-amber-50 border-b border-amber-200" data-dettes-hors-periode>
@@ -548,12 +652,50 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
             CLIC sur la ligne), montants à droite, statut en pastille avec
             l'ancienneté dessous, boutons ronds. Mêmes gestes, mêmes droits :
             seule la présentation change. */}
-        <table className="w-full text-sm min-w-[900px]">
+        {telephone ? (
+          <div data-dettes-cartes className="p-2 space-y-2">
+            {listeAffichee.length === 0 && <div className="px-4 py-6 text-center text-slate-400">{filtreStatut === "Tout" ? "Aucune dette à régler" : `Aucune dette « ${filtreStatut} »`}{periode.actif ? " sur cette période" : ""}</div>}
+            {listePage.map((d) => {
+              const st = statut(d);
+              const jours = joursDeDette(d, today());
+              const estRetard = detteEnRetard(d, today());
+              const reste = Math.max(0, d.montant - d.paye);
+              const lignes = lignesDette(d);
+              const reglements = d.paiements || [];
+              const deplie = detteDepliee === d.id;
+              return (
+                <div key={d.id} data-dette-carte data-ligne={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))}
+                  className={`rounded-xl border p-3 cursor-pointer ${deplie ? "border-sky-400 bg-sky-50" : estRetard ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</div>
+                    <div className={`text-sm font-bold tabular-nums whitespace-nowrap ${reste > 0 ? "text-orange-600" : "text-green-700"}`}>{reste > 0 ? `${fmt(reste)} restants` : "Soldée"}</div>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">{dFR(d.date)}{d.numero ? ` · ${d.numero}` : ""}</div>
+                  <div className="text-xs text-slate-600 mt-0.5 tabular-nums">{fmt(d.montant)} dû · {fmt(d.paye)} payé</div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${st === "Payée" ? "bg-green-100 text-green-700 border-green-200" : st === "Partielle" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}`}>{st}</span>
+                    <span className={`text-xs ${estRetard ? "text-red-600 font-bold" : "text-slate-400"}`}>{jours} jour{jours > 1 ? "s" : ""}{estRetard ? " ⚠" : ""}</span>
+                  </div>
+                  <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesDeLaLigne(d, deplie)}</div>
+                  {deplie && (
+                    <div onClick={(e) => e.stopPropagation()} className="mt-3 space-y-3" data-detail-dette>
+                      {lignes.length > 0 && <ListeArticles lignes={lignes} deplie />}
+                      {traceDe(d)}
+                      {reglements.length > 0 && <div data-reglements-dette>{blocReglements(d, reglements)}</div>}
+                      {gestesDuDetail(d)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+        <table className="w-full text-sm min-w-[860px]">
           <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">
-            {[["Client", "text-left"], ["Date", "text-left"], ["Motif", "text-left"], ["Dette", "text-right"], ["Payé", "text-right"], ["Reste", "text-right"], ["Statut", "text-left"], ["Actions", "text-right"]].map(([h, al], i) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}
+            {[["Client", "text-left"], ["Date", "text-left"], ["Motif", "text-left"], ["Dette", "text-right"], ["Payé", "text-right"], ["Reste", "text-right"], ["Statut", "text-left"], ["À faire", "text-right"]].map(([h, al], i) => <th key={h} className={`${al} px-3 py-2 font-semibold${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {listeAffichee.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{filtreStatut === "Tout" ? "Aucune dette à régler" : `Aucune dette « ${filtreStatut} »`}{periode.actif ? " sur cette période" : ""}.{filtreStatut === "Tout" && liste.some((x) => statutDette(x) === "Payée") ? " Les dettes soldées sont sous « Payée »." : ""}</td></tr>}
+            {listeAffichee.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{filtreStatut === "Tout" ? "Aucune dette à régler" : `Aucune dette « ${filtreStatut} »`}{periode.actif ? " sur cette période" : ""}</td></tr>}
             {listePage.map((d, i) => {
               const st = statut(d);
               const jours = joursDeDette(d, today());
@@ -563,9 +705,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
               const reglements = d.paiements || [];
               return (
                 <Fragment key={d.id}>
-                <tr data-ligne={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`} title={lignes.length > ARTICLES_VISIBLES || reglements.length ? (detteDepliee === d.id ? "Cliquer pour replier" : "Cliquer pour voir les articles et les règlements") : undefined}>
-                  {/* Timo (13/09/2026) : la première colonne reste figée (Stocks, Dépenses, Dettes — ordinateur aussi) ; la ligne dépliée garde sa barre bleue.
-                      25/09/2026 : « dans Dettes aussi figer le nom du client » — le CLIENT passe en première colonne, la date juste après. */}
+                <tr data-ligne={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`}>
                   <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : ""), detteDepliee === d.id)}`}><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</td>
                   <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(d.date)}</div>{d.numero && <div className="text-xs text-slate-400 font-mono">{d.numero}</div>}</td>
                   <td className="px-3 py-2 min-w-[240px]">{lignes.length ? <ListeArticles lignes={lignes} deplie={detteDepliee === d.id} /> : <span className="text-slate-400">—</span>}</td>
@@ -575,67 +715,20 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
                   <td className="px-3 py-2 whitespace-nowrap">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${st === "Payée" ? "bg-green-100 text-green-700 border-green-200" : st === "Partielle" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}`}>{st}</span>
                     <div className={`text-xs mt-0.5 ${estRetard ? "text-red-600 font-bold" : "text-slate-400"}`}>{jours} jour{jours > 1 ? "s" : ""}{estRetard ? " ⚠" : ""}</div>
-                    {/* ⚠ Une trace qui ne se lit nulle part ne sert à rien (leçon du
-                        registre d'outillage, 18/09). Elle dit qui, quand — jamais
-                        « livré » ni « lu », qu'on ne sait pas. */}
-                    {d.envoi_whatsapp && <div className="text-xs mt-0.5 text-emerald-700">📲 {libelleTrace(d.envoi_whatsapp)}</div>}
-                    <div className="mt-0.5">{(() => {
-                      // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
-                      // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
-                      const e = dernierEnvoiPour(db.messages, { dette_id: d.id });
-                      return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
-                    })()}</div>
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="inline-flex items-center gap-1">
-                      <button onClick={() => imprimerRecuVersement(avecInfoTravaux(db, d), bqDe(boutiqueDuDocument(d)), { produits: db.produits })} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title="Imprimer le reçu (avec mention 'déjà livrée' si la marchandise est déjà partie)" aria-label="Imprimer le reçu">🖨</button>
-                      {st !== "Payée" && (
-                        <>
-                          <button onClick={() => encaisser(d)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="+ Paiement : enregistrer un versement du client" aria-label="Paiement">💵</button>
-                          <BoutonEnvoi libelleEnvoi="⏳" onClick={() => relancer(d)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Relancer le client par WhatsApp" aria-label="Relancer"><IconeWhatsApp /></BoutonEnvoi>
-                        </>
-                      )}
-                      {profile.role === "admin" && (
-                        <button onClick={() => supprimerDette(d)} className={boutonAction("text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title="Supprimer cette dette" aria-label="Supprimer">🗑</button>
-                      )}
-                    </div>
-                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>{gestesDeLaLigne(d, detteDepliee === d.id)}</td>
                 </tr>
                 {detteDepliee === d.id && reglements.length > 0 && (
-                  // 💸 Les RÈGLEMENTS de la dette, chacun versable une fois (Timo,
-                  // 09/10/2026 : « souvent ce sont les ventes à crédit… il part et
-                  // ensuite remet l'argent au DG »).
+                  // 💸 Les RÈGLEMENTS de la dette, chacun versable une fois (Timo, 09/10/2026).
                   <tr data-reglements-dette className="bg-sky-50/40">
-                    <td colSpan={8} className="px-3 py-2">
-                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Règlements</div>
-                      <div className="space-y-1">
-                        {reglements.map((p, k) => {
-                          const cle = cleReglement(d, p, k);
-                          // 🩶 10/10/2026 (Timo, « fais pareil pour les règlements versés ») : versé
-                          // à part ET validé → la ligne du règlement se grise, comme une vente versée.
-                          const grise = reglementsGrises.has(cle);
-                          const e = etatVersementOrigine(db, versementDeReglement(db, cle));
-                          const moyen = p.paiement || "Espèces";
-                          // 09/10/2026 : un règlement fait AVANT un versement général de la caisse est
-                          // déjà parti avec lui (mention grise) ; fait APRÈS, il garde son bouton.
-                          const peutEtreVerse = ROLES_VERSEMENT.includes(profile.role) && !e && moyenVersable(moyen) && Number(p.montant || 0) > 0;
-                          const general = peutEtreVerse ? versementGeneralQuiEmporte(db, { caisse: d.boutique, source: moyen, quand: p }) : null;
-                          const versable = peutEtreVerse && !general;
-                          return (
-                            <div key={cle} data-reglement data-reglement-grise={grise ? "" : undefined} className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-sm${grise ? " bg-slate-200 rounded px-2 py-0.5 text-slate-500! [&_*]:text-slate-500!" : ""}`}>
-                              <span className="text-slate-600 whitespace-nowrap">{dFR(p.date)}{p.heure ? ` ${p.heure}` : ""}</span>
-                              <span className="font-semibold tabular-nums whitespace-nowrap">{fmt(Number(p.montant || 0))}</span>
-                              <span className="text-slate-500">{moyen}{p.par ? ` · par ${p.par}` : ""}</span>
-                              {e && <span data-reglement-verse className={`text-xs font-semibold ${e.valide ? "text-green-700" : "text-amber-700"}`}>💸 versé {e.texte}</span>}
-                              {general && <span data-reglement-dans-versement className="text-xs text-slate-400">{mentionVersementGeneral(general)}</span>}
-                              {versable && (
-                                <button onClick={(ev) => { ev.stopPropagation(); verserDepuisOrigine({ db, save, profile, boutique: d.boutique, montant: Number(p.montant || 0), source: moyen, quand: p, origine: { type: ORIGINE_REGLEMENT, reglement: cle, dette_id: d.id, numero: d.numero || "", client: d.client || "" } }); }}
-                                  className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="💸 Verser : l'argent de ce règlement est remis au DG, à la BANQUE ou au comptable (sans bande noire)" aria-label="Verser">💸</button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                    <td colSpan={8} className="px-3 py-2">{blocReglements(d, reglements)}</td>
+                  </tr>
+                )}
+                {detteDepliee === d.id && (
+                  <tr data-detail-dette className="bg-sky-50/40">
+                    <td colSpan={8} className="px-3 pb-3 pt-1 space-y-2">
+                      {traceDe(d)}
+                      {gestesDuDetail(d)}
                     </td>
                   </tr>
                 )}
@@ -644,6 +737,7 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
             })}
           </tbody>
         </table>
+        )}
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>

@@ -5627,7 +5627,7 @@ titre("64 ⏳ UN ENVOI WHATSAPP NE PART PAS DEUX FOIS (18/10/2026, « les deux, 
     /export const LIBELLE_ENVOI_EN_COURS = "⏳ Envoi en cours…";/.test(ui) && /export function BoutonEnvoi\(/.test(ui) && /disabled=\{disabled \|\| enCours\}/.test(ui)
     && /\{occupe \? "⏳" : icone\}/.test(ui) && /disabled=\{autres\.disabled \|\| occupe\}/.test(ui));
   const boutons = [
-    ["src/screens/Dettes.jsx", /<BoutonEnvoi libelleEnvoi="⏳" onClick=\{\(\) => relancer\(d\)\}/],
+    ["src/screens/Dettes.jsx", /nom="Relancer par WhatsApp" teinte="vert" envoi onClick=\{\(\) => relancer\(d\)\}/], // RETOURNÉ le 18/11/2026 : « Dettes façon carnet », le geste s'écrit en mots (BoutonGeste envoi)
     ["src/screens/TousLesDevis.jsx", /teinte="vert" envoi onClick=\{\(\) => relancerDevis\(d\)\}/],
     ["src/screens/Ventes.jsx", /<BoutonEnvoi libelleEnvoi="⏳" onClick=\{\(\) => envoyerRecuLigne\(v\)\}/],
     // RETOURNÉ le 13/11/2026 : 🧾 appelle `proformaWhatsApp()` (le clic n'est jamais pris pour un renvoi),

@@ -4433,7 +4433,7 @@ titre("📋 Le statut des dettes : Tout (en cours + partielles), En cours, Parti
   const fDs = readFileSync("src/screens/Dettes.jsx", "utf8");
   test("★★ l'écran : « Tout » d'office, la liste à côté de « Toute période », la liste affichée passe par LA règle, le statut de la pastille aussi",
     /const \[filtreStatut, setFiltreStatut\] = useState\("Tout"\);/.test(fDs)
-    && /data-filtre-statut-dette[\s\S]{0,200}FILTRES_STATUT_DETTE\.map[\s\S]{0,120}<\/select>\s*\{periode\.selecteur\}/.test(fDs)
+    && /data-filtre-statut-dette[\s\S]{0,200}FILTRES_STATUT_DETTE\.map/.test(fDs) && /\{periode\.selecteur\}/.test(fDs) /* RETOURNÉ le 18/11/2026 : « Dettes façon carnet », des pastilles avec leur nombre à la place de la liste */
     && /const statut = statutDette;/.test(fDs) && !/"Payée" : d\.paye > 0/.test(fDs));
   const sortieSt = join("node_modules", ".cache", `bmi-rendu-dettes-st-${process.pid}.mjs`);
   let RdS = null;
@@ -4448,9 +4448,33 @@ titre("📋 Le statut des dettes : Tout (en cours + partielles), En cours, Parti
     dettes: [{ ...enC, boutique: BQs, client: "KOFFI ENCOURS", date: "2026-10-11" }, { ...part, boutique: BQs, client: "AMA PARTIELLE", date: "2026-10-10" }, { ...pay, boutique: BQs, client: "POUDAMA PAYEE", date: "2026-09-29", paiements: [{ id: "pp", date: "2026-10-07", montant: 354900, paiement: "Espèces" }] }] };
   const e0 = console.error; console.error = () => {};
   let hS = ""; try { hS = String(RdS?.rendreDettes(dbS, gs) || ""); } catch {} finally { console.error = e0; }
+  // 📋 Dettes FAÇON CARNET (18/11/2026, « Construit, lance ») : joué avec le vrai écran.
+  const rD = (extra, ouvert = null) => { const e1 = console.error; console.error = () => {}; try { return String(RdS?.rendreDettes(dbS, gs, ouvert, extra) || ""); } catch (e) { return "ERREUR " + String(e).slice(0, 120); } finally { console.error = e1; } };
+  const nbD = (h, re) => (h.match(re) || []).length;
+  const dD0 = rD({}), dD1 = rD({}, "d-enc"), dD2 = rD({ telephoneInitial: true }), dD3 = rD({ telephoneInitial: true }, "d-enc");
+  const idEnC = dbS.dettes[0].id;
+  const dD1b = rD({}, idEnC), dD3b = rD({ telephoneInitial: true }, idEnC);
+  const segGestes = (h) => (h.match(/data-gestes-dette[\s\S]{0,2200}/) || [""])[0];
+  const adminD = { id: "adm", nom: "TIMO", role: "admin", admin_principal: true };
+  const dD1a = (() => { const e1 = console.error; console.error = () => {}; try { return String(RdS?.rendreDettes(dbS, adminD, idEnC, {}) || ""); } catch (e) { return "ERREUR " + String(e).slice(0, 120); } finally { console.error = e1; } })();
+  test("★★ 📋 Dettes (façon carnet) : la LIGNE n'a que le geste du moment et « Détail » (colonne « À faire ») ; les statuts sont des pastilles avec leur nombre ; ni « Reçu » ni « Supprimer » sur la ligne d'une dette non soldée",
+    /À faire/.test(dD0) && /data-filtre-statut="Partielle"/.test(dD0) && /data-filtre-statut="Payée"/.test(dD0) && !/data-gestes-dette/.test(dD0)
+    && nbD(dD0, /data-detail-dette-bouton/g) === 2 && nbD(dD0, /💵 Enregistrer un paiement<\/button>|Relancer par WhatsApp<\/span>/g) === 2
+    && !/>🖨 Reçu</.test(dD0) && !/>🗑 Supprimer</.test(dD0) && !/<select[^>]*data-filtre-statut-dette/.test(dD0), dD0.slice(0, 120));
+  test("★★ 📋 Dettes (façon carnet) : une dette dépliée écrit ses gestes en MOTS (Argent, Classer pour l'administrateur), le geste du moment n'y est pas répété, et les gestes sont dans le détail",
+    /data-detail-dette/.test(dD1b) && />Argent</.test(segGestes(dD1b)) && /💵 Enregistrer un paiement/.test(segGestes(dD1b)) && />🖨 Reçu</.test(segGestes(dD1b)) && !/Relancer par WhatsApp/.test(segGestes(dD1b))
+    && />Classer</.test(segGestes(dD1a)) && />🗑 Supprimer</.test(segGestes(dD1a)) && !/>🗑 Supprimer</.test(segGestes(dD1b)), segGestes(dD1b).slice(0, 120));
+  { const srcDe = readFileSync("src/screens/Dettes.jsx", "utf8");
+    test("★★ 📋 Dettes (façon carnet) : la bande des retards a son bouton écrit « Voir seulement celles-là » et l'explication derrière ⓘ ; les réservations sont repliées et leurs gestes écrits en mots",
+      /data-bande-retard/.test(dD0) && /Voir seulement celles-là/.test(dD0)
+      && /<CarteRepliable titre=\{`Réservations prépayées \(\$\{mesReservations\.length\}\)`\} ouvertParDefaut=\{blocsOuverts\}>/.test(srcDe)
+      && /nom="Enregistrer un versement"/.test(srcDe) && /nom="Livrer"/.test(srcDe) && /nom="Annuler"/.test(srcDe) && !/BoutonRond/.test(srcDe) && !/boutonAction\(/.test(srcDe.replace(/boutonAction, /, ""))); }
+  test("★★ 📋 Dettes (façon carnet) : sur téléphone, une CARTE par dette et PAS le tableau ; sur ordinateur le tableau et pas de cartes ; la carte dépliée porte son détail UNE fois",
+    /data-dettes-cartes/.test(dD2) && nbD(dD2, /data-dette-carte[ =]/g) >= 2 && !/<table/.test(dD2.replace(/<table[^>]*>[\s\S]*?<\/table>/g, "")) && !/min-w-\[860px\]/.test(dD2)
+    && !/data-dettes-cartes/.test(dD0) && /min-w-\[860px\]/.test(dD0) && nbD(dD3b, /data-gestes-dette/g) === 1, dD2.slice(0, 120));
   test("★★ l'écran RENDU : à l'ouverture la dette payée n'est PAS listée, les deux autres oui, « Tout » est choisi",
     hS !== "" && /KOFFI ENCOURS/.test(hS) && /AMA PARTIELLE/.test(hS) && !/POUDAMA PAYEE/.test(hS)
-    && /data-filtre-statut-dette[^>]*>[\s\S]*?<option value="Tout" selected="">Tout<\/option>/.test(hS));
+    && /data-filtre-statut-dette[\s\S]*?data-filtre-statut="Tout"[^>]*bg-sky-800/.test(hS) /* RETOURNÉ le 18/11/2026 : pastilles */);
 }
 
 titre("🗑 Une dette supprimée part à la corbeille, une dette qui a reçu de l'argent ne se supprime pas (12/10/2026, « a+b »)");
@@ -7249,7 +7273,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && JSON.stringify(Core.lignesDette({ motif: "Réparation, pièces et main-d'œuvre" })) === JSON.stringify([{ qte: null, article: "Réparation, pièces et main-d'œuvre" }])
       && Core.lignesDette({ motif: "" }).length === 0 && Core.lignesDette({}).length === 0);
     test("★ écran Dettes : la ligne se déplie au clic (detteDepliee, une seule, un clic sur une autre la déplie directement), surbrillance commune (classeLigneDepliable, retard en rouge pâle), ListeArticles sur lignesDette, montants à droite, boutons ronds (🖨, 💵 Paiement, Relancer = logo WhatsApp, 🗑 admin) dans une cellule qui ne déplie pas ; mêmes gestes, mêmes gardes",
-      /const \[detteDepliee, setDetteDepliee\] = useState\(detteDeplieeInitiale\);/.test(dj) && /detteDeplieeInitiale = null, cible = null \}\) \{/.test(dj) /* RETOURNÉ 16/10/2026 : la cible d'une notification cliquée */ /* RETOURNÉ 10/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
+      /const \[detteDepliee, setDetteDepliee\] = useState\(detteDeplieeInitiale\);/.test(dj) && /detteDeplieeInitiale = null, cible = null, telephoneInitial = false, blocsOuverts = false \}\) \{/.test(dj) /* RETOURNÉ 18/11/2026 : « Dettes façon carnet » (cartes sur téléphone, blocs repliés) */ /* RETOURNÉ 16/10/2026 : la cible d'une notification cliquée */ /* RETOURNÉ 10/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
       && /classeLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\)/.test(dj)
       // 13/09/2026 : la première colonne reste figée, ordinateur aussi ; Dépenses pareil (Date, fond de la ligne gardé) ; plus aucun lg:static dans l'application.
       // RETOURNÉ le 25/09/2026 (« dans Dettes aussi figer le nom du client ») : dans Dettes la colonne figée est le CLIENT, la date vient après.
@@ -7263,9 +7287,9 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && /<td data-depense-categorie className=\{`px-3 py-2 min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i, fond\), ouverte\)\}`\}>/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
       && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
       && /<ListeArticles lignes=\{lignes\} deplie=\{detteDepliee === d\.id\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
-      && (dj.match(/tabular-nums text-right whitespace-nowrap/g) || []).length === 3 && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(dj)
-      && /aria-label="Imprimer le reçu">🖨<\/button>/.test(dj) && /\{st !== "Payée" && \(/.test(dj) && /onClick=\{\(\) => encaisser\(d\)\}[^\n]*aria-label="Paiement">💵<\/button>/.test(dj) && /onClick=\{\(\) => relancer\(d\)\}[^\n]*aria-label="Relancer"><IconeWhatsApp \/><\/BoutonEnvoi>/.test(dj) /* RETOURNÉ le 18/10/2026 : BoutonEnvoi */
-      && /\{profile\.role === "admin" && \(\n\s*<button onClick=\{\(\) => supprimerDette\(d\)\}[^\n]*aria-label="Supprimer">🗑<\/button>/.test(dj) && !/underline mr-2">🖨 Reçu/.test(dj));
+      && (dj.match(/tabular-nums text-right whitespace-nowrap/g) || []).length === 3 && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\{gestesDeLaLigne\(d, detteDepliee === d\.id\)\}<\/td>/.test(dj)
+      && /<BoutonGeste icone="🖨" nom="Reçu"/.test(dj) && /paiement: st !== "Payée" \? <BoutonGeste icone="💵" nom="Enregistrer un paiement" teinte="vert" onClick=\{\(\) => encaisser\(d\)\}/.test(dj) && /relancer: st !== "Payée" \? <BoutonGeste icone=\{<IconeWhatsApp taille=\{16\} \/>\} nom="Relancer par WhatsApp" teinte="vert" envoi onClick=\{\(\) => relancer\(d\)\}/.test(dj) /* RETOURNÉ le 18/11/2026 : gestes écrits en mots (BoutonGeste) */
+      && /supprimer: profile\.role === "admin" \? <BoutonGeste icone="🗑" nom="Supprimer" teinte="rouge" onClick=\{\(\) => supprimerDette\(d\)\}/.test(dj) && !/underline mr-2">🖨 Reçu/.test(dj));
   }
   const s13 = readFileSync("supabase/securite-13-reprise.sql", "utf8");
   const ta13 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
@@ -13559,7 +13583,7 @@ titre("✏️ Personnaliser la période (💰 Ventes)");
       && (depP.match(/listeAffichee/g) || []).length === 4);
     // RETOURNÉ le 12/10/2026 : la liste suit AUSSI le statut (Tout / En cours / Partielle / Payée).
     test("★★ 📅 Dettes : la liste et le reste total suivent la période, l'argent dû HORS période se DIT, et le retard regarde toutes les dettes",
-      /const listeAffichee = liste\.filter\(\(x\) => periode\.dans\(x\.date\) && detteDansFiltre\(x, filtreStatut\)\);/.test(detP)
+      /const listeAffichee = liste\.filter\(\(x\) => periode\.dans\(x\.date\) && detteDansFiltre\(x, filtreStatut\) && \(!retardSeul \|\| detteEnRetard\(x, today\(\)\)\)\);/.test(detP)
       && /usePagination\(listeAffichee, 50\)/.test(detP)
       && /fmt\(listeAffichee\.reduce\(\(s, d\) => s \+ Math\.max\(0, d\.montant - d\.paye\), 0\)\)/.test(detP)
       && /const horsPeriode = periode\.actif \? liste\.filter\(\(x\) => !periode\.dans\(x\.date\) && Math\.max\(0, x\.montant - x\.paye\) > 0\) : \[\];/.test(detP)
