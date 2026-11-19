@@ -16690,8 +16690,8 @@ titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, 
     ["Prospects", "TousLesDevis", "ClientsInstalles", "Commandes", "Stocks", "Fournisseurs", "Salaires", "Commerciaux", "MonEquipe"].every((n) => {
       const src = readFileSync(`src/screens/${n}.jsx`, "utf8");
       // RETOURNÉ le 18/11/2026 : 🏠 Clients installés porte ses gestes en toutes lettres (LigneGestes) au lieu de la cellule de boutons ronds.
-      // RETOURNÉ le 19/11/2026 : 📋 Tous les devis et 🧲 Prospects passent par ListeCarnet, qui écrit la colonne figée, la ligne dépliable et la cellule des gestes.
-      if (n === "TousLesDevis" || n === "Prospects") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
+      // RETOURNÉ le 19/11/2026 : 📋 Tous les devis, 🧲 Prospects et 🧾 Commandes passent par ListeCarnet, qui écrit la colonne figée, la ligne dépliable et la cellule des gestes.
+      if (n === "TousLesDevis" || n === "Prospects" || n === "Commandes") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
       return /enTeteFige\(/.test(src) && /celluleFigee\(fondLigneDepliable\(/.test(src) && /classeLigneDepliable\(/.test(src) && (/<CelluleActions/.test(src) || (n === "ClientsInstalles" && /<LigneGestes/.test(src)));
     }));
 }
@@ -20313,7 +20313,7 @@ titre("📖 LA CHARTE DES LISTES (Timo, 18/11/2026, « Oui, fais les trois couch
   const ronds = (f) => /<BoutonRond|boutonAction\(/.test(readFileSync(f, "utf8"));
   const adoptes = tous.filter((f) => readFileSync(f, "utf8").includes("<ListeCarnet"));
   // À REPRENDRE : ces écrans portent encore des boutons ronds. Quand l'un est refait avec ListeCarnet, on le RETIRE d'ici (le contrôle tombe s'il reste dans la liste sans en avoir besoin).
-  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Clients.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Commandes.jsx", "src/screens/Commerciaux.jsx", "src/screens/Depenses.jsx", "src/screens/Fournisseurs.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Salaires.jsx", "src/screens/Stocks.jsx", "src/screens/Travaux.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
+  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Clients.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Commerciaux.jsx", "src/screens/Depenses.jsx", "src/screens/Fournisseurs.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Salaires.jsx", "src/screens/Stocks.jsx", "src/screens/Travaux.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
   const enRonds = tous.filter(ronds).sort();
   const nouveaux = enRonds.filter((f) => !A_REPRENDRE.includes(f) && !adoptes.includes(f));
   const refaits = A_REPRENDRE.filter((f) => !ronds(f));
@@ -20322,6 +20322,57 @@ titre("📖 LA CHARTE DES LISTES (Timo, 18/11/2026, « Oui, fais les trois couch
   test("★ charte des listes : aucun NOUVEL écran avec des boutons ronds hors de la liste « à reprendre » (il suit la charte : ListeCarnet + BoutonGeste)" + (nouveaux.length ? " — FAUTIFS : " + nouveaux.join(", ") : ""), nouveaux.length === 0);
   test("★ charte des listes : un écran refait (plus de bouton rond) est RETIRÉ de la liste « à reprendre »" + (refaits.length ? " — À RETIRER : " + refaits.join(", ") : ""), refaits.length === 0);
   test("★ charte des listes : ListeCarnet écrit la table (colonne figée, À faire, détail) ET la carte du téléphone, une seule des deux dans la page", /\bif \(telephone\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /<table/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /enTeteFige\(/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /<CelluleActions/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")));
+}
+
+titre("🧾 COMMANDES : les quatre listes suivent la charte (19/11/2026, « Oui, lance Commandes »)");
+{
+  const sortieC = join("node_modules", ".cache", `bmi-commandes-listes-${process.pid}.mjs`);
+  let K = null, errK = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-commandes.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieC, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server"] });
+    K = await import(pathToFileURL(sortieC).href);
+  } catch (e) { errK = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieC); } catch {}
+  test("🧾 Commandes se monte dans le banc" + (errK ? ` (${errK})` : ""), !!K);
+  if (K) {
+    const BQ = "BMI DEMAKPOE";
+    const art = [{ produit_id: "p1", article: "Panneau 550W", qte: 2, pu: 100000 }, { produit_id: "p2", article: "Câble 6mm", qte: 1, pu: 5000 }];
+    const base = { id: "c", date: "2026-11-18", heure: "10:12", boutique: BQ, commercial: "COM1", articles: art, paiement: "Espèces", client: "MR ERIC", tel: "90112233" };
+    const db = {
+      boutiques: [{ id: "b1", nom: BQ, type: "vente" }],
+      users: [{ id: "ad", nom: "TIMO", role: "admin", admin_principal: true }, { id: "com", nom: "COM1", role: "commercial" }],
+      produits: [{ id: "p1", boutique: BQ, nom: "Panneau 550W", prix_vente: 100000, quantite_initiale: 10 }],
+      ventes: [], dettes: [], clients_installes: [], ajustements: [], entrees: [], proformas: [], messages: [], audits: [], clotures: [], depenses: [],
+      commandes: [
+        { ...base, id: "cA", statut: "en_attente", vendeur_cible: "ANGELE", remise: 5000, remise_pct: 2 },
+        { ...base, id: "cB", statut: "refusee", client: "MME AMA", motif_refus: "Prix périmé" },
+        { ...base, id: "cC", statut: "validee", suivi_vente: true, client: "MR KOFFI" },
+      ],
+    };
+    const admin = db.users[0], com = db.users[1];
+    const rendre = (f, ...a) => { const e0 = console.error; console.error = () => {}; try { return f(...a); } catch (e) { return "ERREUR " + String(e && e.message || e).slice(0, 160); } finally { console.error = e0; } };
+    const pc = rendre(K.rendreRecues, db, admin);
+    test("★ 🧾 commandes reçues (ordinateur) : la commande en attente porte « ✅ Valider et encaisser » sur sa ligne, « Refuser » n'y est PAS (il est dans le détail), aucun bouton rond",
+      !/^ERREUR/.test(pc) && /data-commande-attente="replie"/.test(pc) && /Valider et encaisser/.test(pc) && !/❌ Refuser/.test(pc) && !/data-bouton-rond/.test(pc) && /data-detail-commande-bouton/.test(pc));
+    const pd = rendre(K.rendreRecues, db, admin, { ouvertInitial: "cA" });
+    test("★ 🧾 la ligne dépliée montre « Refuser » en toutes lettres dans le détail, avec « Valider » laissé sur la ligne",
+      /data-commande-attente="deplie"/.test(pd) && /data-detail-commande/.test(pd) && /❌ Refuser/.test(pd));
+    const pt = rendre(K.rendreRecues, db, admin, { telephoneInitial: true });
+    test("★ 🧾 sur téléphone : une CARTE par commande, aucun tableau dans la page",
+      /data-commandes-attente-cartes/.test(pt) && /data-commande-attente-carte/.test(pt) && !/<table/.test(pt.slice(pt.indexOf("Commandes en attente"), pt.indexOf("Historique récent") > 0 ? pt.indexOf("Historique récent") : undefined)));
+    test("★ 🧾 l'historique : les commandes refusée et validée y sont, la validée jamais encaissée est signalée et porte « Reprendre l'encaissement »",
+      /data-ligne-historique-commande/.test(pc) && /Prix périmé/.test(pc) && /NON ENCAISSÉE/.test(pc) && /Reprendre l(?:'|&#x27;)encaissement/.test(pc));
+    const pe = rendre(K.rendreEnvoyees, db, com);
+    test("★ 🛒 « Mes commandes envoyées » : lecture seule, une ligne par commande, pas de colonne « À faire »",
+      !/^ERREUR/.test(pe) && /data-ligne-commande="replie"/.test(pe) && !/À faire/.test(pe));
+    const pet = rendre(K.rendreEnvoyees, db, com, { telephoneInitial: true });
+    test("★ 🛒 sur téléphone : une carte par commande envoyée", /data-commandes-envoyees-cartes/.test(pet) && (pet.match(/data-commande-envoyee-carte/g) || []).length === 3);
+  }
+  const srcCmd = readFileSync("src/screens/Commandes.jsx", "utf8");
+  test("★ 🧾 Commandes n'écrit plus aucun bouton rond ; son seul tableau écrit à la main est le petit panier (le bouton « Retirer » y est un BoutonGeste) ; les quatre listes passent par ListeCarnet", !/<BoutonRond|CelluleActions/.test(srcCmd) && (srcCmd.match(/<table/g) || []).length === 1 && /<BoutonGeste icone="✕" nom="Retirer"/.test(srcCmd) && (srcCmd.match(/<ListeCarnet\b/g) || []).length === 4);
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

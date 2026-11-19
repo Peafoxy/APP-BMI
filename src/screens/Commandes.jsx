@@ -9,7 +9,8 @@ import { useState, useEffect } from "react";
 import { uid, fmt, today, dFR, heureCourte, totalVente } from "../lib/core";
 import { articleParCode, mettreAuPanier as ajouterAuPanierCommun, refusPrixSousLeStock } from "../lib/panier";
 import { PAIEMENTS } from "../lib/constants";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, ListeArticles, PastillePaiement, TexteDepliable, BoutonRond, CelluleActions } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, AucuneBoutique, ListeArticles, PastillePaiement, TexteDepliable, BoutonGeste } from "../components/ui";
+import { ListeCarnet, useTelephone, GestesLigne, GestesDetail } from "../components/ListeCarnet";
 import { stockActuel, boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, utilisateursDeLEspace, boutiqueRetenue, remiseExigeAdmin, plafondRemise } from "../lib/calculs";
 import { destinatairesCommande } from "../lib/espace";
 import { libelleRoleEmploye } from "../lib/comptesClients";
@@ -29,9 +30,16 @@ const PastilleCommande = ({ statut }) => {
   return <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-amber-100 text-amber-700 border-amber-200 whitespace-nowrap">⏳ En attente</span>;
 };
 const lignesCommande = (c) => (c.articles || []).map((l) => ({ qte: l.qte, article: l.article }));
+// Le client (nom, numéro dessous) : écrit une fois pour les quatre listes.
+const celluleClient = (c) => (
+  <>
+    <div className="font-bold text-slate-800">{c.client || <span className="text-slate-400 font-normal">—</span>}</div>
+    {c.tel && <div className="text-xs text-slate-500">{c.tel}</div>}
+  </>
+);
 const totalCommande = (c) => (c.articles || []).reduce((s, l) => s + l.qte * l.pu, 0) - (c.remise || 0);
 
-export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliConsomme }) {
+export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliConsomme, telephoneInitial = false, ouvertInitial = null }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "commandes-nouvelle" });
   const [bq, setBq] = useState(preRempli?.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -164,7 +172,8 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
   };
 
   const mesCommandes = (db.commandes || []).filter((c) => c.commercial === profile.nom);
-  const [depliee, setDepliee] = useState(null);
+  const [depliee, setDepliee] = useState(ouvertInitial);
+  const telephone = useTelephone(telephoneInitial);
 
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
@@ -211,7 +220,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
                       <td className="px-3 py-2 tabular-nums">{l.qte}</td>
                       <td className="px-3 py-2 tabular-nums">{fmt(l.pu)}</td>
                       <td className="px-3 py-2 tabular-nums font-bold">{fmt(l.qte * l.pu)}</td>
-                      <td className="px-3 py-2"><BoutonRond icone="✕" teinte="rouge" titre="Retirer de la liste" onClick={() => retirer(i)} /></td>
+                      <td className="px-3 py-2"><BoutonGeste icone="✕" nom="Retirer" teinte="rouge" titre="Retirer de la liste" onClick={() => retirer(i)} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -262,29 +271,28 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">Mes commandes envoyées ({mesCommandes.length})</div>
         {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026) :
             le client figé, deux articles puis la suite au clic, le statut en pastille. */}
-        <table className="w-full text-sm min-w-[700px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Date", "Boutique", "Articles", "Total", "Vendeur ciblé", "Statut"].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
-          <tbody>
-            {mesCommandes.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">Aucune commande envoyée pour l'instant.</td></tr>}
-            {mesCommandes.map((c, i) => {
-              const ouverte = depliee === c.id;
-              return (
-              <tr key={c.id} data-ligne-commande={ouverte ? "deplie" : "replie"} onClick={() => setDepliee(ouverte ? null : c.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
-                <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>
-                  <div className="font-bold text-slate-800">{c.client || <span className="text-slate-400 font-normal">—</span>}</div>
-                  {c.tel && <div className="text-xs text-slate-500">{c.tel}</div>}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">{dFR(c.date)}{c.heure && <div className="text-xs text-slate-500">{c.heure}</div>}</td>
-                <td className="px-3 py-2"><Badge boutique={c.boutique} /></td>
-                <td className="px-3 py-2"><ListeArticles lignes={lignesCommande(c)} deplie={ouverte} /></td>
-                <td className="px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap">{fmt(totalCommande(c))}</td>
-                <td className="px-3 py-2">{c.vendeur_cible || "N'importe qui"}</td>
-                <td className="px-3 py-2"><PastilleCommande statut={c.statut} /></td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <ListeCarnet items={mesCommandes} telephone={telephone} ouvert={depliee}
+          onBasculer={(c) => setDepliee(depliee === c.id ? null : c.id)}
+          marques={{ cartes: "data-commandes-envoyees-cartes", carte: "data-commande-envoyee-carte", etat: "data-ligne-commande" }}
+          largeurMin="min-w-[700px]"
+          aucun={<div className="px-4 py-6 text-center text-slate-400">Aucune commande envoyée pour l'instant.</div>}
+          colonnes={[
+            { titre: "Client", figee: true, cellule: (c) => celluleClient(c) },
+            { titre: "Date", classe: "whitespace-nowrap", cellule: (c) => <>{dFR(c.date)}{c.heure && <div className="text-xs text-slate-500">{c.heure}</div>}</> },
+            { titre: "Boutique", cellule: (c) => <Badge boutique={c.boutique} /> },
+            { titre: "Articles", cellule: (c, i, deplie) => <ListeArticles lignes={lignesCommande(c)} deplie={deplie} /> },
+            { titre: "Total", align: "right", classe: "tabular-nums font-bold whitespace-nowrap", cellule: (c) => fmt(totalCommande(c)) },
+            { titre: "Vendeur ciblé", cellule: (c) => c.vendeur_cible || "N'importe qui" },
+            { titre: "Statut", cellule: (c) => <PastilleCommande statut={c.statut} /> },
+          ]}
+          carte={(c, deplie) => (
+            <div className="space-y-1">
+              <div className="flex items-start justify-between gap-2"><div>{celluleClient(c)}</div><PastilleCommande statut={c.statut} /></div>
+              <div className="text-xs text-slate-500">{dFR(c.date)}{c.heure ? ` · ${c.heure}` : ""} · <Badge boutique={c.boutique} /> · Vendeur : {c.vendeur_cible || "N'importe qui"}</div>
+              <ListeArticles lignes={lignesCommande(c)} deplie={deplie} />
+              <div className="text-right font-bold tabular-nums">{fmt(totalCommande(c))}</div>
+            </div>
+          )} />
       </div>
     </div>
   );
@@ -294,7 +302,7 @@ export function NouvelleCommande({ db, save, profile, preRempli, onPreRempliCons
 // Le vendeur voit les commandes envoyées par les commerciaux pour sa
 // boutique, et les valide pour finaliser la vente (encaissement dans
 // l'onglet Ventes, panier déjà prêt).
-export function CommandesRecues({ db, save, profile, onValider, cible = null }) {
+export function CommandesRecues({ db, save, profile, onValider, cible = null, telephoneInitial = false, ouvertInitial = null }) {
   const isAdmin = profile.role === "admin";
   const premiere = boutiqueParDefaut(db, profile, { ecran: "commandes-recues" });
   const [bq, setBq] = useState(profile.boutique || premiere);
@@ -363,6 +371,12 @@ export function CommandesRecues({ db, save, profile, onValider, cible = null }) 
     save(next, `Commande de ${c.commercial || "client"} refusée par ${profile.nom}${motif ? " (" + motif + ")" : ""}${od ? " — devis rendu au client" : ""}`);
   };
 
+  const reprendre = (c) => {
+    const panier = panierDeReprise(c);
+    if (panier.length === 0) { uAlert("Aucun article retrouvé pour cette commande (ni sur la commande, ni sur le devis d'origine). Contactez l'administrateur pour vérifier ce dossier avant d'encaisser."); return; }
+    onValider(c.boutique, panier, c.commercial, c.responsable, c.rabais, c.origine_devis, c.remise_pct || 0, c.client || "", c.tel || "", c.id);
+  };
+
   // Le panier « figé » sur la commande peut être vide ou périmé (ancien
   // enregistrement, resynchronisation…) : on reconstruit depuis le devis
   // d'origine — la source la plus fiable — et on ne retombe sur celui de
@@ -382,9 +396,47 @@ export function CommandesRecues({ db, save, profile, onValider, cible = null }) 
   // dette que sur le chantier (🏠 Clients installés) : le premier qui encaisse
   // ferme pour tout le monde. 🏗 L'argent entre dans la caisse CHANTIER
   // (08/10/2026), pas dans le tiroir de cette boutique : on le range à part.
+  // Ce que disent les cellules : écrit une fois, lu par le tableau ET par la carte du téléphone.
+  const nomPose = (p) => p.dette.client || `${p.chantier.prenom || ""} ${p.chantier.nom || ""}`.trim();
+  const ouEnEstLaPose = (p) => (p.etat.etape === "acompte"
+    ? `Acompte ${ACOMPTE_POSE_PCT} % : ${fmt(p.etat.acompte)} — reste ${fmt(p.etat.resteAcompte)} avant de programmer`
+    : `Acompte versé — solde à la signature du PV : ${fmt(p.etat.reste)}`);
+  const commercialEtDestinee = (c) => (
+    <>
+      <div className="font-semibold text-slate-800">{c.commercial}</div>
+      {c.vendeur_cible && <div className="text-xs font-semibold text-sky-700">Destinée à : {c.vendeur_cible}</div>}
+    </>
+  );
+  const totalEtRemise = (c) => (
+    <>
+      <div className="font-bold tabular-nums">{fmt(totalCommande(c))}</div>
+      {c.remise ? <div className="text-xs text-red-600">remise {c.remise_pct} %</div> : null}
+    </>
+  );
+  const gestesCommande = (c) => ({
+    valider: <BoutonGeste icone="✅" nom="Valider et encaisser" teinte="vert" titre="✅ Valider et encaisser" onClick={() => valider(c)} />,
+    refuser: <BoutonGeste icone="❌" nom="Refuser" teinte="rouge" titre="❌ Refuser" onClick={() => refuser(c)} />,
+  });
+  const statutHistorique = (c, deplie) => {
+    const vente = c.suivi_vente ? (db.ventes || []).find((v) => v.commande_id === c.id) : null;
+    return (
+      <>
+        <PastilleCommande statut={c.statut} />
+        {c.statut !== "validee" && c.motif_refus && <div className="text-xs text-red-600 mt-0.5"><TexteDepliable texte={`Motif : ${c.motif_refus}`} deplie={deplie} largeur="max-w-[220px]" /></div>}
+        {vente && (
+          <div className="mt-1 text-[10px] text-slate-500">
+            ✅ Encaissée — vente N° {vente.numero} du {dFR(vente.date)} ({fmt(totalVente(vente))})
+            {deplie && <><br />{(vente.articles || []).map((l) => `${l.qte}× ${l.article}`).join(", ")}</>}
+          </div>
+        )}
+        {venteEnSuspens(c) && <div className="mt-1 text-[10px] font-bold text-amber-700">⚠ Commande validée mais NON ENCAISSÉE</div>}
+      </>
+    );
+  };
   const [noteRecuWa, setNoteRecuWa] = useState("");
-  const [depliee, setDepliee] = useState(null);
+  const [depliee, setDepliee] = useState(ouvertInitial);
   const [poseDepliee, setPoseDepliee] = useState(null);
+  const telephone = useTelephone(telephoneInitial);
   const poses = boutique ? posesAEncaisser(db.dettes, db.clients_installes, boutique) : [];
   const encaisserPose = async (p) => {
     const note = await encaisserDettePose({ db, save, profile, chantier: p.chantier, enBoutique: true });
@@ -404,30 +456,31 @@ export function CommandesRecues({ db, save, profile, onValider, cible = null }) 
         <div className="bg-white rounded-xl border border-emerald-200 shadow-sm overflow-x-auto" data-poses-a-encaisser>
           <div className="px-4 py-3 font-bold text-slate-800 border-b border-emerald-200 bg-emerald-50 flex items-center gap-2">🔧 Poses à encaisser <Badge boutique={boutique} /><span className="text-sm font-normal text-slate-500">({poses.length})</span></div>
           <div className="px-4 pt-2 text-xs text-slate-500">Contrat de pose : {ACOMPTE_POSE_PCT} % avant les travaux (l'installation ne se programme pas avant), le reste à la signature du PV. Le client peut aussi payer sur le terrain, au chef de chantier. 🏗 L'argent reçu entre dans la caisse CHANTIER, pas dans le tiroir de la boutique : rangez-le à part.</div>
-          <table className="w-full text-sm min-w-[640px] mt-2">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Motif", "Total", "Déjà versé", "Où on en est", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
-            <tbody>
-            {poses.map((p, i) => {
-              const ouverte = poseDepliee === p.dette.id;
-              return (
-              <tr key={p.dette.id} onClick={() => setPoseDepliee(ouverte ? null : p.dette.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
-                <td className={`px-3 py-2 font-bold text-slate-800 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{p.dette.client || `${p.chantier.prenom || ""} ${p.chantier.nom || ""}`.trim()}</td>
-                <td className="px-3 py-2 text-slate-600 min-w-[200px]"><TexteDepliable texte={p.dette.motif} deplie={ouverte} largeur="max-w-[280px]" /></td>
-                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(p.dette.montant)}</td>
-                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(p.dette.paye || 0)}</td>
-                <td className="px-3 py-2 text-xs font-semibold text-emerald-800">
-                  {p.etat.etape === "acompte"
-                    ? `Acompte ${ACOMPTE_POSE_PCT} % : ${fmt(p.etat.acompte)} — reste ${fmt(p.etat.resteAcompte)} avant de programmer`
-                    : `Acompte versé — solde à la signature du PV : ${fmt(p.etat.reste)}`}
-                </td>
-                <CelluleActions>
-                  <BoutonRond icone="💰" teinte="vert" onClick={() => encaisserPose(p)} titre={`💰 ${libelleEncaissementPose(p.dette)}`} />
-                </CelluleActions>
-              </tr>
-              );
-            })}
-            </tbody>
-          </table>
+          <ListeCarnet items={poses} cle={(p) => p.dette.id} telephone={telephone} ouvert={poseDepliee}
+            onBasculer={(p) => setPoseDepliee(poseDepliee === p.dette.id ? null : p.dette.id)}
+            marques={{ cartes: "data-poses-cartes", carte: "data-pose-carte", etat: "data-ligne-pose" }}
+            largeurMin="min-w-[640px]"
+            colonnes={[
+              { titre: "Client", figee: true, classe: "font-bold text-slate-800", cellule: (p) => nomPose(p) },
+              { titre: "Motif", classe: "text-slate-600 min-w-[200px]", cellule: (p, i, deplie) => <TexteDepliable texte={p.dette.motif} deplie={deplie} largeur="max-w-[280px]" /> },
+              { titre: "Total", align: "right", classe: "tabular-nums whitespace-nowrap", cellule: (p) => fmt(p.dette.montant) },
+              { titre: "Déjà versé", align: "right", classe: "tabular-nums whitespace-nowrap", cellule: (p) => fmt(p.dette.paye || 0) },
+              { titre: "Où on en est", classe: "text-xs font-semibold text-emerald-800", cellule: (p) => ouEnEstLaPose(p) },
+              { titre: "À faire", actions: true },
+            ]}
+            carte={(p, deplie) => (
+              <div className="space-y-1">
+                <div className="font-bold text-slate-800">{nomPose(p)}</div>
+                <div className="text-sm text-slate-600"><TexteDepliable texte={p.dette.motif} deplie={deplie} largeur="max-w-full" /></div>
+                <div className="text-xs tabular-nums text-slate-600">Total {fmt(p.dette.montant)} · déjà versé {fmt(p.dette.paye || 0)}</div>
+                <div className="text-xs font-semibold text-emerald-800">{ouEnEstLaPose(p)}</div>
+              </div>
+            )}
+            gestes={(p, deplie) => (
+              <GestesLigne deplie={deplie} marque="data-detail-pose-bouton" moment="encaisser"
+                onDetail={() => setPoseDepliee(deplie ? null : p.dette.id)}
+                g={{ encaisser: <BoutonGeste icone="💰" nom={libelleEncaissementPose(p.dette)} teinte="vert" titre={`💰 ${libelleEncaissementPose(p.dette)}`} onClick={() => encaisserPose(p)} /> }} />
+            )} />
         </div>
       )}
 
@@ -436,84 +489,60 @@ export function CommandesRecues({ db, save, profile, onValider, cible = null }) 
         {enAttente.length === 0 ? (
           <div className="px-4 py-6 text-center text-slate-400">Aucune commande en attente pour {boutique}.</div>
         ) : (
-          <table className="w-full text-sm min-w-[760px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Date", "Commercial", "Articles", "Total", "Paiement", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
-            <tbody>
-            {enAttente.map((c, i) => {
-              const totalC = totalCommande(c);
-              const ouverte = depliee === c.id;
-              return (
-                <tr key={c.id} data-ligne={c.id} data-commande-attente onClick={() => setDepliee(ouverte ? null : c.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
-                  <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>
-                    <div className="font-bold text-slate-800">{c.client || <span className="text-slate-400 font-normal">—</span>}</div>
-                    {c.tel && <div className="text-xs text-slate-500">{c.tel}</div>}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{dFR(c.date)}{c.heure && <div className="text-xs text-slate-500">{c.heure}</div>}</td>
-                  <td className="px-3 py-2">
-                    <div className="font-semibold text-slate-800">{c.commercial}</div>
-                    {c.vendeur_cible && <div className="text-xs font-semibold text-sky-700">Destinée à : {c.vendeur_cible}</div>}
-                  </td>
-                  <td className="px-3 py-2"><ListeArticles lignes={lignesCommande(c)} deplie={ouverte} /></td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <div className="font-bold tabular-nums">{fmt(totalC)}</div>
-                    {c.remise ? <div className="text-xs text-red-600">remise {c.remise_pct} %</div> : null}
-                  </td>
-                  <td className="px-3 py-2"><PastillePaiement paiement={c.paiement} /></td>
-                  <CelluleActions>
-                    <BoutonRond icone="✅" teinte="vert" onClick={() => valider(c)} titre="✅ Valider et encaisser" />
-                    <BoutonRond icone="❌" teinte="rouge" onClick={() => refuser(c)} titre="❌ Refuser" />
-                  </CelluleActions>
-                </tr>
-              );
-            })}
-            </tbody>
-          </table>
+          <ListeCarnet items={enAttente} telephone={telephone} ouvert={depliee}
+            onBasculer={(c) => setDepliee(depliee === c.id ? null : c.id)}
+            marques={{ cartes: "data-commandes-attente-cartes", carte: "data-commande-attente-carte", etat: "data-commande-attente", detail: "data-detail-commande" }}
+            largeurMin="min-w-[760px]"
+            colonnes={[
+              { titre: "Client", figee: true, cellule: (c) => celluleClient(c) },
+              { titre: "Date", classe: "whitespace-nowrap", cellule: (c) => <>{dFR(c.date)}{c.heure && <div className="text-xs text-slate-500">{c.heure}</div>}</> },
+              { titre: "Commercial", cellule: (c) => commercialEtDestinee(c) },
+              { titre: "Articles", cellule: (c, i, deplie) => <ListeArticles lignes={lignesCommande(c)} deplie={deplie} /> },
+              { titre: "Total", align: "right", classe: "whitespace-nowrap", cellule: (c) => totalEtRemise(c) },
+              { titre: "Paiement", cellule: (c) => <PastillePaiement paiement={c.paiement} /> },
+              { titre: "À faire", actions: true },
+            ]}
+            carte={(c, deplie) => (
+              <div className="space-y-1">
+                <div className="flex items-start justify-between gap-2"><div>{celluleClient(c)}</div><PastillePaiement paiement={c.paiement} /></div>
+                <div className="text-xs text-slate-500">{dFR(c.date)}{c.heure ? ` · ${c.heure}` : ""}</div>
+                {commercialEtDestinee(c)}
+                <ListeArticles lignes={lignesCommande(c)} deplie={deplie} />
+                <div className="text-right">{totalEtRemise(c)}</div>
+              </div>
+            )}
+            gestes={(c, deplie) => <GestesLigne g={gestesCommande(c)} moment="valider" deplie={deplie} onDetail={() => setDepliee(deplie ? null : c.id)} marque="data-detail-commande-bouton" />}
+            detail={(c) => <GestesDetail g={gestesCommande(c)} moment="valider" lignes={[["Décision", ["refuser"]]]} />} />
         )}
       </div>
 
       {historique.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
           <div className="px-4 py-3 font-bold text-slate-700 border-b border-slate-200 bg-slate-50 text-sm">Historique récent</div>
-          <table className="w-full text-sm min-w-[700px]">
-            <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Date", "Commercial", "Articles", "Statut", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
-            <tbody>
-              {historique.map((c, i) => {
-                const ouverte = depliee === c.id;
-                const vente = c.suivi_vente ? (db.ventes || []).find((v) => v.commande_id === c.id) : null;
-                return (
-                <tr key={c.id} onClick={() => setDepliee(ouverte ? null : c.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(ouverte, i)}`}>
-                  <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>
-                    <div className="font-bold text-slate-800">{c.client || <span className="text-slate-400 font-normal">—</span>}</div>
-                    {c.tel && <div className="text-xs text-slate-500">{c.tel}</div>}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{dFR(c.date)}</td>
-                  <td className="px-3 py-2">{c.commercial}</td>
-                  <td className="px-3 py-2"><ListeArticles lignes={lignesCommande(c)} deplie={ouverte} /></td>
-                  <td className="px-3 py-2">
-                    <PastilleCommande statut={c.statut} />
-                    {c.statut !== "validee" && c.motif_refus && <div className="text-xs text-red-600 mt-0.5"><TexteDepliable texte={`Motif : ${c.motif_refus}`} deplie={ouverte} largeur="max-w-[220px]" /></div>}
-                    {vente && (
-                      <div className="mt-1 text-[10px] text-slate-500">
-                        ✅ Encaissée — vente N° {vente.numero} du {dFR(vente.date)} ({fmt(totalVente(vente))})
-                        {ouverte && <><br />{(vente.articles || []).map((l) => `${l.qte}× ${l.article}`).join(", ")}</>}
-                      </div>
-                    )}
-                    {venteEnSuspens(c) && <div className="mt-1 text-[10px] font-bold text-amber-700">⚠ Commande validée mais NON ENCAISSÉE</div>}
-                  </td>
-                  <CelluleActions>
-                    {venteEnSuspens(c) && (
-                      <BoutonRond icone="↻" teinte="ambre" titre="↻ Reprendre l'encaissement" onClick={() => {
-                        const panier = panierDeReprise(c);
-                        if (panier.length === 0) { uAlert("Aucun article retrouvé pour cette commande (ni sur la commande, ni sur le devis d'origine). Contactez l'administrateur pour vérifier ce dossier avant d'encaisser."); return; }
-                        onValider(c.boutique, panier, c.commercial, c.responsable, c.rabais, c.origine_devis, c.remise_pct || 0, c.client || "", c.tel || "", c.id);
-                      }} />
-                    )}
-                  </CelluleActions>
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <ListeCarnet items={historique} telephone={telephone} ouvert={depliee}
+            onBasculer={(c) => setDepliee(depliee === c.id ? null : c.id)}
+            marques={{ cartes: "data-historique-commandes-cartes", carte: "data-historique-commande-carte", etat: "data-ligne-historique-commande" }}
+            largeurMin="min-w-[700px]"
+            colonnes={[
+              { titre: "Client", figee: true, cellule: (c) => celluleClient(c) },
+              { titre: "Date", classe: "whitespace-nowrap", cellule: (c) => dFR(c.date) },
+              { titre: "Commercial", cellule: (c) => c.commercial },
+              { titre: "Articles", cellule: (c, i, deplie) => <ListeArticles lignes={lignesCommande(c)} deplie={deplie} /> },
+              { titre: "Statut", cellule: (c, i, deplie) => statutHistorique(c, deplie) },
+              { titre: "À faire", actions: true },
+            ]}
+            carte={(c, deplie) => (
+              <div className="space-y-1">
+                <div>{celluleClient(c)}</div>
+                <div className="text-xs text-slate-500">{dFR(c.date)} · {c.commercial}</div>
+                <ListeArticles lignes={lignesCommande(c)} deplie={deplie} />
+                {statutHistorique(c, deplie)}
+              </div>
+            )}
+            gestes={(c, deplie) => {
+              const g = { reprendre: venteEnSuspens(c) ? <BoutonGeste icone="↻" nom="Reprendre l'encaissement" teinte="ambre" titre="↻ Reprendre l'encaissement" onClick={() => reprendre(c)} /> : null };
+              return <GestesLigne g={g} moment="reprendre" deplie={deplie} onDetail={() => setDepliee(deplie ? null : c.id)} marque="data-detail-historique-bouton" />;
+            }} />
         </div>
       )}
     </div>

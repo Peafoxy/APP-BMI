@@ -76,7 +76,7 @@ export function ListeCarnet({
               className={`rounded-xl border p-3 cursor-pointer ${deplie ? "border-sky-400 bg-sky-50" : (carteClasse(x) || "border-slate-200 bg-white")}`}>
               {carte(x, deplie)}
               {sous && <div className="mt-1">{sous}</div>}
-              <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestes(x, deplie)}</div>
+              {gestes && <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestes(x, deplie)}</div>}
               {det && <div onClick={(e) => e.stopPropagation()} className="mt-3 space-y-2" {...marque(marques.detail)}>{det}</div>}
             </div>
           );
