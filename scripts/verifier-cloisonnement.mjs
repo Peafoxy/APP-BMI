@@ -7281,8 +7281,9 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && /\{ titre: "Client", figee: true/.test(dj) && /\{ titre: "Date", classe: "whitespace-nowrap"/.test(dj)
       // 25/09/2026 : « dans Clients aussi figer le nom du client » — 📋 Clients fige sa première colonne (le client) par la même règle.
       // RETOURNÉ le 05/10/2026 : la ligne de 📋 Clients se déplie (sa fiche) — la cellule figée porte le fond de la ligne dépliée.
-      && /<td className=\{`px-3 py-2 font-semibold min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i\), ouverte\)\}`\}>\{c\.nom\}/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
-      && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Clients.jsx", "utf8")) && /enTeteFond="bg-slate-100"/.test(dj) && /enTeteFige\(enTeteFond\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8"))
+      // RETOURNÉ le 19/11/2026 : 📋 Clients passe par ListeCarnet (nom figé écrit par la charte).
+      && /\{ titre: "Client", figee: true, classe: "font-semibold", cellule: \(c, i, deplie\) => nomClient\(c, deplie\) \}/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
+      && /<ListeCarnet\b/.test(readFileSync("src/screens/Clients.jsx", "utf8")) && /enTeteFond="bg-slate-100"/.test(dj) && /enTeteFige\(enTeteFond\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8"))
       // RETOURNÉ le 15/10/2026 (« ramener catégorie en première colonne et figer ») : dans Dépenses la colonne figée est la CATÉGORIE, la ligne se déplie, son fond est gardé.
       && /<td data-depense-categorie className=\{`px-3 py-2 min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i, fond\), ouverte\)\}`\}>/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
       && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
@@ -7729,7 +7730,7 @@ titre("💳 La carte de fidélité à code-barres (Timo, 29/10/2026, « B code b
   const gc = readFileSync("src/components/carteFidelite.js", "utf8");
   test("★ « F » et « 3 non » : 👥 Utilisateurs et 📋 Clients n'offrent le 💳 qu'à l'administrateur PRINCIPAL (le vendeur n'imprime rien) ; les gestes le revérifient ; un client de comptoir reçoit une fiche FERMÉE (sans_acces) ; ⭐ Fidèles montre les porteurs de carte",
     /\{jeSuisAdminPrincipal && <BoutonGerer data-carte-fidelite onClick=\{\(\) => gererCarteFidelite\(/.test(ut)
-    && /\{principal && c\.tel && <BoutonRond icone="💳"/.test(cl) && /const principal = estAdminPrincipal\(db, profile\);/.test(cl)
+    && /carte: principal && c\.tel\s*\?\s*<BoutonGeste icone="💳"/.test(cl) /* RETOURNÉ le 19/11/2026 : la charte des listes */ && /const principal = estAdminPrincipal\(db, profile\);/.test(cl)
     && (gc.match(/critiqueGesteCarte\(profile, estAdminPrincipal\(db, profile\)\)/g) || []).length === 2
     && /sans_acces: true/.test(gc) && /porteursDeCarte\(utilisateursDeLEspace\(db, profile\)\)/.test(cl) && /💳 Porteurs de carte/.test(cl));
   // ⚠ LE COUPLE.
@@ -15079,9 +15080,9 @@ titre("🗂 La fiche d'un client dans 📋 Clients : tout son historique, toutes
   test("★★ 📋 Clients : un clic sur la ligne ouvre la fiche dessous, un second la referme (une seule à la fois) ; le lien WhatsApp ne l'ouvre pas",
     /setFicheOuverte\(\(o\) => \(o === c\.cle \? null : c\.cle\)\)/.test(cl)
     && /onClick=\{\(e\) => \{ e\.stopPropagation\(\); return contacter\(c\); \}\}/.test(cl) /* RETOURNÉ le 18/10/2026 : la promesse est rendue (le bouton reste gris pendant l'envoi) */
-    && /\{ouverte && <tr><td colSpan=\{7\}[^]*<FicheClient db=\{db\} profile=\{profile\}/.test(cl));
+    && /detail=\{\(c\) => \([^]*<FicheClient db=\{db\} profile=\{profile\}/.test(cl) /* RETOURNÉ le 19/11/2026 : la fiche est le détail de ListeCarnet */);
   test("★ « Client non renseigné » ne s'ouvre pas : ce n'est pas un client",
-    /const ouvrable = !sansIdentite\(c\)/.test(cl) && /onClick=\{ouvrable \?/.test(cl));
+    /onBasculer=\{\(c\) => \{ if \(!sansIdentite\(c\)\) setFicheOuverte/.test(cl) /* RETOURNÉ le 19/11/2026 */);
   test("★★ UNE source : la fiche passe par ficheClientDeLEspace → dossierClient, sur les listes de l'espace regardé — jamais db.ventes ni db.users en entier",
     /const d = ficheClientDeLEspace\(db, profile, cible\)/.test(fc) && !/db\.(ventes|users|dettes)\b/.test(fc.replace(/\/\/.*$/gm, ""))
     && /export const ficheClientDeLEspace[^]*?dossierClient\(\{\s*comptes: utilisateursDeLEspace\(db, profile\),\s*ventes: \(db\?\.ventes \|\| \[\]\)\.filter\(f\)/.test(readFileSync("src/lib/calculs.js", "utf8")));
@@ -16691,7 +16692,7 @@ titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, 
       const src = readFileSync(`src/screens/${n}.jsx`, "utf8");
       // RETOURNÉ le 18/11/2026 : 🏠 Clients installés porte ses gestes en toutes lettres (LigneGestes) au lieu de la cellule de boutons ronds.
       // RETOURNÉ le 19/11/2026 : 📋 Tous les devis, 🧲 Prospects et 🧾 Commandes passent par ListeCarnet, qui écrit la colonne figée, la ligne dépliable et la cellule des gestes.
-      if (n === "TousLesDevis" || n === "Prospects" || n === "Commandes") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
+      if (n === "TousLesDevis" || n === "Prospects" || n === "Commandes" || n === "Fournisseurs" || n === "Commerciaux") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
       return /enTeteFige\(/.test(src) && /celluleFigee\(fondLigneDepliable\(/.test(src) && /classeLigneDepliable\(/.test(src) && (/<CelluleActions/.test(src) || (n === "ClientsInstalles" && /<LigneGestes/.test(src)));
     }));
 }
@@ -18785,19 +18786,24 @@ titre("La fiche d'un fournisseur se modifie ; le représentant ; le dû au princ
       && /boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)/.test(ecran));
     const db = { boutiques: [{ nom: "DEMAKPOE" }], produits: [], users: [], fournisseurs: [{ id: "f1", nom: "SOLAR PLUS", tel: "90000000", representant: "KOFFI", representant_tel: "91112233", doit: 0, paye: 0 }] };
     const html = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "admin" }); } catch { return ""; } finally { console.error = e0; } })();
-    test("★ RENDU : le représentant se lit sous le nom, avec son numéro et le logo WhatsApp ; le bouton ✏️ Modifier est sur la ligne",
+    // RETOURNÉ le 19/11/2026 (charte des listes) : « ✏️ Modifier » se lit dans « ▸ Détail », ligne dépliée.
+    const htmlOuvert = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "admin" }, { ouvertInitial: "f1" }); } catch { return ""; } finally { console.error = e0; } })();
+    test("★ RENDU : le représentant se lit sous le nom, avec son numéro et le logo WhatsApp ; « ✏️ Modifier la fiche » est dans le détail de la ligne",
       /data-representant-fournisseur/.test(html) && /👤 KOFFI · 91112233/.test(html) && /wa\.me\/22891112233/.test(html)
-      && /✏️ Modifier la fiche du fournisseur/.test(html));
+      && /✏️ Modifier la fiche du fournisseur/.test(htmlOuvert) && !/✏️ Modifier la fiche du fournisseur/.test(html));
     // 📱 Timo, 11/11/2026 (capture, « b ») : sur téléphone, les six gestes
     // s'empilaient à droite et chaque ligne faisait un écran ; ils passent SOUS
     // le nom, sur une seule ligne, à leur taille (32 px, mesuré dans Chromium :
     // ligne de 555 → 96 px). Sur ordinateur, la colonne de droite comme avant.
-    const sousNom = (html.match(/<div data-gestes-telephone[^>]*>([\s\S]*?)<\/div><\/td>/) || [])[0] || "";
-    const cellule = (html.match(/<td data-cellule-actions[^>]*>[\s\S]*?<\/td>/) || [])[0] || "";
-    test("★ 📱 RENDU : les six gestes d'un fournisseur sont SOUS le nom sur téléphone (une ligne, sm:hidden, sans rétrécir), la colonne de droite cachée sur téléphone seulement",
-      (sousNom.match(/<button/g) || []).length === 6 && /sm:hidden/.test(sousNom) && /flex-nowrap/.test(sousNom) && /\[&amp;&gt;button\]:shrink-0|\[&>button\]:shrink-0/.test(sousNom)
-      && (cellule.match(/<button/g) || []).length === 6 && /hidden sm:table-cell/.test(cellule)
-      && /max-sm:min-w-\[250px\] max-sm:max-w-\[250px\]/.test(ecran));
+    // RETOURNÉ le 19/11/2026 (charte des listes) : sur téléphone, UNE CARTE par fournisseur (jamais un
+    // tableau), le geste du moment (💵 Régler) et « ▸ Détail » ; dépliée, les cinq autres gestes en
+    // toutes lettres. Plus de six boutons ronds alignés sous le nom.
+    const htmlTel = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "admin" }, { telephoneInitial: true }); } catch { return ""; } finally { console.error = e0; } })();
+    const htmlTelOuvert = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "admin" }, { telephoneInitial: true, ouvertInitial: "f1" }); } catch { return ""; } finally { console.error = e0; } })();
+    test("★ 📱 RENDU : sur téléphone, une CARTE par fournisseur (le geste du moment + « ▸ Détail », pas de tableau) ; dépliée, les six gestes se lisent en toutes lettres",
+      /data-cartes-fournisseurs/.test(htmlTel) && /data-carte-fournisseur/.test(htmlTel) && !/<table/.test(htmlTel) && /💵 Régler/.test(htmlTel) && /data-detail-fournisseur-bouton/.test(htmlTel)
+      && (htmlTelOuvert.match(/<button[^>]*data-geste/g) || []).length >= 7 /* six gestes + « Détail » */ && /data-ligne-gestes/.test(htmlTelOuvert)
+      && /Marchandise reçue à régler/.test(htmlTelOuvert) && /Supprimer/.test(htmlTelOuvert));
   }
 }
 
@@ -18911,8 +18917,8 @@ titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la val
     test("★ le gérant et l'administrateur (« 1b ») : chaque geste revérifie ROLES_FOURNISSEURS ; les lieux = l'espace regardé (boutiquesVisibles)",
       /refuserSaufRoles\(profile, ROLES_FOURNISSEURS, geste\)/.test(comp) && /boutiquesVisibles\(db, profile, \(db\.boutiques \|\| \[\]\)\.filter\(\(b\) => !b\.terrain\)\)/.test(comp));
     const db = { boutiques: [{ nom: "DEMAKPOE" }], produits: [], users: [], depenses: dep, fournisseurs: [{ id: "f1", nom: "ALIBABA", doit: 0, paye: 0, commandes_import: [c] }] };
-    const html = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "gerant" }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
-    test("★ RENDU : le cadre « 🛒 Commandes à l'étranger » montre la commande en cours, et le bouton 🛒 est sur la ligne du fournisseur",
+    const html = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(db, { id: "a", nom: "TIMO", role: "gerant" }, { ouvertInitial: "f1" }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
+    test("★ RENDU : le cadre « 🛒 Commandes à l'étranger » montre la commande en cours, et le bouton 🛒 est dans le détail de la ligne du fournisseur (charte, 19/11/2026)",
       /data-commandes-import/.test(html) && /IMP-2026-0001/.test(html) && /1 en cours/.test(html) && /Nouvelle commande à l&#x27;étranger/.test(html));
 
     // ✏️ MODIFIER une commande, 🔗 RATTACHER des dépenses déjà payées (11/11/2026, « A a, B a, C $ / CFA / ¥, D a »)
@@ -18986,8 +18992,8 @@ titre("🛒 Les commandes à l'étranger : paiements en dollars, frais à la val
     test("★ commander crée les commandes par LA fabrique des commandes (numéro IMP suivant, lignes rangées, rien de payé)",
       /prochainNumeroCommande\(fos,/.test(dpc) && /ligneRangee\(/.test(dpc) && /paiements: \[\], frais: \[\]/.test(dpc));
     const dbDp = { boutiques: [{ nom: "DEMAKPOE" }], produits: [], users: [], depenses: [], fournisseurs: fos.map((f) => ({ ...f, doit: 0, paye: 0 })) };
-    const htmlDp = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(dbDp, { id: "a", nom: "TIMO", role: "gerant" }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
-    test("★ RENDU : le cadre « 📨 Demandes de prix » montre la demande en attente, et le bouton 📨 est sur la ligne du fournisseur",
+    const htmlDp = (() => { const e0 = console.error; console.error = () => {}; try { return F.rendreFournisseurs(dbDp, { id: "a", nom: "TIMO", role: "gerant" }, { ouvertInitial: fos[0].id }); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } })();
+    test("★ RENDU : le cadre « 📨 Demandes de prix » montre la demande en attente, et le bouton 📨 est dans le détail de la ligne du fournisseur (charte, 19/11/2026)",
       /data-demandes-prix/.test(htmlDp) && /DP-2026-0001/.test(htmlDp) && /1 en attente/.test(htmlDp) && /Nouvelle demande de prix à ce fournisseur/.test(htmlDp));
     test("★★ les fournisseurs se CHOISISSENT dans une ligne (liste déroulante), jamais des cases à cocher ; AUCUN d'office, même ouverte par 📨 (11/11/2026)",
       /<select data-choix-fournisseur/.test(dpc) && /— Choisir un fournisseur —/.test(dpc) && /data-fournisseurs-choisis/.test(dpc)
@@ -20313,7 +20319,7 @@ titre("📖 LA CHARTE DES LISTES (Timo, 18/11/2026, « Oui, fais les trois couch
   const ronds = (f) => /<BoutonRond|boutonAction\(/.test(readFileSync(f, "utf8"));
   const adoptes = tous.filter((f) => readFileSync(f, "utf8").includes("<ListeCarnet"));
   // À REPRENDRE : ces écrans portent encore des boutons ronds. Quand l'un est refait avec ListeCarnet, on le RETIRE d'ici (le contrôle tombe s'il reste dans la liste sans en avoir besoin).
-  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Clients.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Commerciaux.jsx", "src/screens/Depenses.jsx", "src/screens/Fournisseurs.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Salaires.jsx", "src/screens/Stocks.jsx", "src/screens/Travaux.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
+  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Depenses.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Salaires.jsx", "src/screens/Stocks.jsx", "src/screens/Travaux.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
   const enRonds = tous.filter(ronds).sort();
   const nouveaux = enRonds.filter((f) => !A_REPRENDRE.includes(f) && !adoptes.includes(f));
   const refaits = A_REPRENDRE.filter((f) => !ronds(f));
@@ -20322,6 +20328,53 @@ titre("📖 LA CHARTE DES LISTES (Timo, 18/11/2026, « Oui, fais les trois couch
   test("★ charte des listes : aucun NOUVEL écran avec des boutons ronds hors de la liste « à reprendre » (il suit la charte : ListeCarnet + BoutonGeste)" + (nouveaux.length ? " — FAUTIFS : " + nouveaux.join(", ") : ""), nouveaux.length === 0);
   test("★ charte des listes : un écran refait (plus de bouton rond) est RETIRÉ de la liste « à reprendre »" + (refaits.length ? " — À RETIRER : " + refaits.join(", ") : ""), refaits.length === 0);
   test("★ charte des listes : ListeCarnet écrit la table (colonne figée, À faire, détail) ET la carte du téléphone, une seule des deux dans la page", /\bif \(telephone\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /<table/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /enTeteFige\(/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /<CelluleActions/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")));
+}
+
+titre("🎯📋🚚 COMMERCIAUX, CLIENTS ET FOURNISSEURS suivent la charte (19/11/2026, « Oui, lance les trois suivants »)");
+{
+  const sortieQ = join("node_modules", ".cache", `bmi-commerciaux-clients-${process.pid}.mjs`);
+  let Q = null, errQ = "";
+  try {
+    await build({ entryPoints: ["scripts/_rendu-commerciaux-clients.jsx"], bundle: true, format: "esm",
+      platform: "node", outfile: sortieQ, logLevel: "silent", jsx: "automatic", loader: { ".js": "jsx" },
+      define: { "import.meta.env": '{"VITE_SUPABASE_URL":"https://exemple.supabase.co","VITE_SUPABASE_ANON_KEY":"x","MODE":"test"}' },
+      external: ["react", "react-dom", "react-dom/server"] });
+    Q = await import(pathToFileURL(sortieQ).href);
+  } catch (e) { errQ = String(e && e.message || e).split("\n")[0]; }
+  try { unlinkSync(sortieQ); } catch {}
+  test("🎯 Commerciaux et 📋 Clients se montent dans le banc" + (errQ ? ` (${errQ})` : ""), !!Q);
+  if (Q) {
+    const rendre = (f) => { const e0 = console.error; console.error = () => {}; try { return f(); } catch (e) { return "ERREUR " + e.message; } finally { console.error = e0; } };
+    const admin = { id: "a1", nom: "TIMO", role: "admin" };
+    const dbC = { boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", type: "vente" }], produits: [], users: [{ id: "u1", nom: "KOFFI", role: "commercial", taux: 5 }], ventes: [], dettes: [],
+      commerciaux: [{ id: "c1", nom: "KOFFI", zone: "Lomé", objectif: 100000, actif: true }, { id: "c2", nom: "AMA", zone: "Kara", objectif: 0, actif: false }] };
+    const hC = rendre(() => Q.rendreCommerciaux(dbC, admin));
+    const hCo = rendre(() => Q.rendreCommerciaux(dbC, admin, { ouvertInitial: "c1" }));
+    const hCt = rendre(() => Q.rendreCommerciaux(dbC, admin, { telephoneInitial: true }));
+    const hCto = rendre(() => Q.rendreCommerciaux(dbC, admin, { telephoneInitial: true, ouvertInitial: "c2" }));
+    test("★ 🎯 Commerciaux (ordinateur) : une colonne « À faire » avec ✏️ Modifier en toutes lettres, aucun bouton rond ; Désactiver et Supprimer se lisent dans le détail déplié",
+      /data-etat-commercial="replie"/.test(hC) && /À faire/.test(hC) && /✏️ Modifier \(zone, objectif\)/.test(hC) && /data-detail-commercial-bouton/.test(hC)
+      && !/data-detail-commercial[ >]/.test(hC) && !/⏸ Désactiver|🗑 Supprimer/.test(hC.replace(/title="[^"]*"/g, ""))
+      && /data-detail-commercial/.test(hCo) && /Désactiver/.test(hCo) && /Supprimer/.test(hCo) && !/class="[^"]*rounded-full[^"]*w-8/.test(hC));
+    test("★ 🎯 Commerciaux (téléphone) : une CARTE par commercial (pas de tableau), le statut en pastille ; dépliée, « Réactiver » pour un inactif",
+      /data-cartes-commerciaux/.test(hCt) && /data-carte-commercial/.test(hCt) && !/<table/.test(hCt) && /Actif/.test(hCt) && /Inactif/.test(hCt) && /Réactiver/.test(hCto));
+    const dbK = { boutiques: [{ id: "b1", nom: "BMI DEMAKPOE", type: "vente" }], produits: [], users: [], dettes: [{ id: "d1", client: "MR ERIC", tel: "90112233", boutique: "BMI DEMAKPOE", montant: 50000, paye: 0, date: "2026-11-10" }],
+      ventes: [{ id: "v1", date: "2026-11-10", heure: "10:00", boutique: "BMI DEMAKPOE", client: "MR ERIC", tel: "90112233", paiement: "Espèces", articles: [{ nom: "Câble", qte: 1, pu: 5000 }], par: "COM1" }] };
+    const hK = rendre(() => Q.rendreClients(dbK, admin));
+    const hKt = rendre(() => Q.rendreClients(dbK, admin, { telephoneInitial: true }));
+    test("★ 📋 Clients (ordinateur) : la ligne porte WhatsApp et « ▸ Détail », la colonne Client est figée ; la fiche s'ouvre dans le détail",
+      /data-ligne-client="replie"/.test(hK) && /MR ERIC/.test(hK) && /À faire/.test(hK) && /WhatsApp/.test(hK) && /data-detail-client-bouton/.test(hK) && !/<BoutonRond/.test(hK));
+    test("★ 📋 Clients (téléphone) : une carte par client (achats, total, dette, dernier achat), pas de tableau",
+      /data-cartes-clients/.test(hKt) && /data-carte-client-ligne/.test(hKt) && !/<table/.test(hKt) && /MR ERIC/.test(hKt) && /Dette en cours/.test(hKt));
+    const srcCl = readFileSync("src/screens/Clients.jsx", "utf8");
+    test("★ 📋 Clients : 🔕 STOP et 💳 carte restent revérifiés dans le geste et réservés comme avant (le geste STOP exige le droit, la carte le principal), maintenant écrits en mots dans le détail",
+      /stop: c\.tel && typeof save === "function" && \(!enStop \|\| profile\.role === "admin"\)/.test(srcCl) && /carte: principal && c\.tel/.test(srcCl) && /critiqueStopGeste\(profile, \{ actif, tel: c\.tel \}\)/.test(srcCl)
+      && /lignes=\{\[\["Messages", \["stop"\]\], \["Carte", \["carte"\]\]\]\}/.test(srcCl));
+    const srcFo = readFileSync("src/screens/Fournisseurs.jsx", "utf8");
+    test("★ 🚚 Fournisseurs : « À faire » = 💵 Régler ; commandes, fiche et suppression dans le détail ; chaque geste garde sa revérification de rôle",
+      /moment="regler"/.test(srcFo) && /lignes=\{\[\["Commande", \["demande", "importer", "commande"\]\], \["Fiche", \["modifier"\]\], \["Classer", \["supprimer"\]\]\]\}/.test(srcFo)
+      && !/<BoutonRond|CelluleActions/.test(srcFo) && (srcFo.match(/refuserSaufRoles\(profile, ROLES_FOURNISSEURS/g) || []).length >= 4);
+  }
 }
 
 titre("🧾 COMMANDES : les quatre listes suivent la charte (19/11/2026, « Oui, lance Commandes »)");

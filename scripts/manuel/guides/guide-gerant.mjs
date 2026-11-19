@@ -76,7 +76,7 @@ export const GUIDE = {
     ["p", "Dans 📦 Stocks, sous « ⚠ À réapprovisionner », **« 🚚 Demander ce ravitaillement »** prépare la demande au magasin avec ces articles et ces quantités ; je retire ou j'ajoute une ligne, puis « 📤 Envoyer la demande ». En bas de l'écran, « 🚚 Demander un ravitaillement au magasin » fait la même chose à la main. **C'est le magasinier qui valide le bon** : le stock entre dans ma boutique à ce moment-là, je n'ai rien à valider. Je contrôle la marchandise contre le bon qui l'accompagne (chapitre 9)."],
 
     ["h3", "Les fournisseurs — 🚚 Fournisseurs"],
-    ["p", "**« + Commande »** quand la boutique s'engage auprès d'un fournisseur ; **« + Règlement »** quand je le paie — la dépense « Achat marchandises » est créée toute seule. On ne règle jamais plus que ce qui est dû (chapitre 10)."],
+    ["p", "**« 📦 Marchandise reçue à régler »** (dans « ▸ Détail » de la ligne) quand la boutique s'engage auprès d'un fournisseur ; **« 💵 Régler »** (sur la ligne) quand je le paie — la dépense « Achat marchandises » est créée toute seule. On ne règle jamais plus que ce qui est dû (chapitre 10)."],
 
     ["h3", "Le service après-vente"],
     ["p", "Un article défectueux sous garantie : sur la ligne de la vente dans 💰 Ventes, le bouton **🔁** (« Retour / échange sous garantie »). Un échange n'est **jamais** une vente ; le défectueux part dans un stock SAV à part ; un **bon de retour** sort pour le client. La **↩ Reprise** (le client ne veut plus l'article) reste à l'administrateur principal (chapitre 5)."],

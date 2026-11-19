@@ -7965,7 +7965,7 @@ titre("86 🔕 « NE PLUS ENVOYER DE MESSAGES COMMERCIAUX » (14/11/2026, « Les
   test("★★ 📋 Clients : le mot de fidélité est refusé AVANT la question, « 🔕 » se lit sous le numéro, et le bouton pour rouvrir n'existe que pour l'administrateur",
     Cl.indexOf("if (stopActif(stopDuNumero(db.messages, c.tel))) { uAlert(MOTIF_STOP); return; }") > 0
     && Cl.indexOf("if (stopActif(stopDuNumero(db.messages, c.tel))) { uAlert(MOTIF_STOP); return; }") < Cl.indexOf("Envoyer le mot de fidélité à")
-    && /data-stop-client/.test(Cl) && /\(!enStop \|\| profile\.role === "admin"\) && <BoutonRond/.test(Cl) && /critiqueStopGeste\(profile, \{ actif, tel: c\.tel \}\)/.test(Cl));
+    && /data-stop-client/.test(Cl) && /\(!enStop \|\| profile\.role === "admin"\)\s*\? <BoutonGeste/.test(Cl) /* RETOURNÉ le 19/11/2026 : la charte des listes */ && /critiqueStopGeste\(profile, \{ actif, tel: c\.tel \}\)/.test(Cl));
   test("★★ App.jsx pose le registre à chaque rendu (sans hook), et l'envoi le lit AVANT toute autre vérification, sans repli",
     /poserNumerosStop\(numerosStop\(db\.messages\)\);/.test(App86)
     && Wa.indexOf("const stop = critiqueStop({ modele, tel });") > 0 && Wa.indexOf("const stop = critiqueStop({ modele, tel });") < Wa.indexOf("const refus = critiqueEnvoiAuto(")

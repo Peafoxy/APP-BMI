@@ -7,12 +7,13 @@ import { useState } from "react";
 import { Ventes } from "../screens/Ventes";
 import { uid, caVente, fmt, today, dFR, telDigits, inP, lienWhatsApp } from "../lib/core";
 import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, CelluleActions, IconeWhatsApp } from "../components/ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, Stat, FormulaireRepliable, BoutonGeste, IconeWhatsApp } from "../components/ui";
+import { ListeCarnet, useTelephone, GestesLigne, GestesDetail } from "../components/ListeCarnet";
 import { periodes , ventesDuCommercial, bloquerSiLecture, marqueEspace, espaceDuCompte, refuserSaufAdmin, utilisateursDeLEspace, compteDeLAgent, tauxDeLAgent } from "../lib/calculs";
 import { exportCSV } from "../lib/export";
 
 // ============ COMMERCIAUX ============
-export function Commerciaux({ db, save, profile }) {
+export function Commerciaux({ db, save, profile, telephoneInitial = false, ouvertInitial = null }) {
   const [f, setF] = useState({ nom: "", tel: "", zone: "", objectif: "" });
   // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
   // replié après l'enregistrement.
@@ -102,6 +103,34 @@ export function Commerciaux({ db, save, profile }) {
   const medaille = (i) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}ᵉ`);
 
 
+  const telephone = useTelephone(telephoneInitial);
+  const [ouvert, setOuvert] = useState(ouvertInitial);
+  const nomCommercial = (c, i) => (
+    <>
+      <span className="font-bold mr-1">{medaille(i)}</span>{c.nom}
+      {c.tel && peutEcrireDeSonNumero(profile) && <a href={lienWhatsApp(c.tel)} target="_blank" rel="noreferrer" title={`WhatsApp — ${c.tel}`} onClick={(e) => e.stopPropagation()} className="ml-2 inline-block align-middle"><IconeWhatsApp taille={16} /></a>}
+    </>
+  );
+  const tauxCellule = (s) => (s.compte ? `${s.taux}%` : <span className="text-xs text-slate-500">— sans compte</span>);
+  const progression = (s) => (s.pct === null ? "—" : (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${s.pct >= 100 ? "bg-green-500" : s.pct >= 60 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${Math.min(100, s.pct)}%` }}></div>
+      </div>
+      <span className="text-xs font-bold tabular-nums">{s.pct}%</span>
+    </div>
+  ));
+  const pastillePerf = (s) => { const perf = badgePerf(s.pct); return perf ? <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${perf[1]}`}>{perf[0]}</span> : "—"; };
+  const pastilleStatut = (c) => (c.actif === false
+    ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-red-100 text-red-700 border-red-200">Inactif</span>
+    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-700 border-green-200">Actif</span>);
+  // Les gestes, écrits en toutes lettres ; qui y a droit se vérifie DANS chacun.
+  const gestesCommercial = (c) => ({
+    modifier: <BoutonGeste icone="✏️" nom="Modifier (zone, objectif)" teinte="ambre" titre="✏️ Modifier (zone, objectif)" onClick={() => modifier(c)} />,
+    activer: <BoutonGeste icone={c.actif === false ? "▶" : "⏸"} nom={c.actif === false ? "Réactiver" : "Désactiver"} teinte={c.actif === false ? "vert" : "gris"} titre={c.actif === false ? "▶ Réactiver" : "⏸ Désactiver"} onClick={() => toggleActif(c)} />,
+    supprimer: <BoutonGeste icone="🗑" nom="Supprimer" teinte="rouge" titre="🗑 Supprimer" onClick={() => supprimer(c)} />,
+  });
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4 bg-white border border-slate-200">
@@ -157,52 +186,47 @@ export function Commerciaux({ db, save, profile }) {
               classement.map(({ c, s }, i) => [i + 1, c.nom, c.zone, `${dFR(debutP)} au ${dFR(finP)}`, s.nb, s.ca, s.panier, s.taux, s.commission, s.objectifP ?? "", s.pct ?? ""]))}
           >📄 Exporter les commissions</button>
         </div>
-        <table className="w-full text-sm min-w-[1080px]">
-          {/* 🧾 La règle des lignes (15/10/2026) : le commercial figé en
-              première colonne (sa médaille devant), statut en pastille, les
-              gestes en boutons ronds. */}
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Commercial", "Zone", "Ventes", "CA", "Panier moyen", "Taux", "Commission", "Objectif période", "Progression", "Performance", "Statut", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
-          <tbody>
-            {classement.length === 0 && <tr><td colSpan={12} className="px-4 py-6 text-center text-slate-400">Aucun commercial.</td></tr>}
-            {classement.map(({ c, s }, i) => {
-              const perf = badgePerf(s.pct);
-              return (
-                <tr key={c.id} className={`border-t border-slate-100 ${classeLigneDepliable(false, i)}`}>
-                  <td className={`px-3 py-2 font-semibold min-w-[170px] ${celluleFigee(fondLigneDepliable(false, i))}`}>
-                    <span className="font-bold mr-1">{medaille(i)}</span>{c.nom}
-                    {c.tel && peutEcrireDeSonNumero(profile) && <a href={lienWhatsApp(c.tel)} target="_blank" rel="noreferrer" title={`WhatsApp — ${c.tel}`} className="ml-2 inline-block align-middle"><IconeWhatsApp taille={16} /></a>}
-                  </td>
-                  <td className="px-3 py-2">{c.zone || "—"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{s.nb}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-bold">{fmt(s.ca)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{s.nb ? fmt(s.panier) : "—"}</td>
-                  <td className="px-3 py-2 tabular-nums" title="Taux de la fiche d'employé (👥 Utilisateurs → 💰 Commission)">{s.compte ? `${s.taux}%` : <span className="text-xs text-slate-500">— sans compte</span>}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-bold text-blue-700">{fmt(s.commission)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{s.objectifP ? fmt(s.objectifP) : "—"}</td>
-                  <td className="px-3 py-2 w-32">
-                    {s.pct === null ? "—" : (
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${s.pct >= 100 ? "bg-green-500" : s.pct >= 60 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${Math.min(100, s.pct)}%` }}></div>
-                        </div>
-                        <span className="text-xs font-bold tabular-nums">{s.pct}%</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">{perf ? <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${perf[1]}`}>{perf[0]}</span> : "—"}</td>
-                  <td className="px-3 py-2">{c.actif === false
-                    ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-red-100 text-red-700 border-red-200">Inactif</span>
-                    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-700 border-green-200">Actif</span>}</td>
-                  <CelluleActions>
-                    <BoutonRond icone="✏️" teinte="ambre" onClick={() => modifier(c)} titre="✏️ Modifier (zone, objectif)" />
-                    <BoutonRond icone={c.actif === false ? "▶" : "⏸"} teinte={c.actif === false ? "vert" : "gris"} onClick={() => toggleActif(c)} titre={c.actif === false ? "▶ Réactiver" : "⏸ Désactiver"} />
-                    <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(c)} titre="🗑 Supprimer" />
-                  </CelluleActions>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {/* 📖 La charte des listes (19/11/2026) : le commercial figé en première
+            colonne (sa médaille devant), « À faire » = ✏️ Modifier, tout le reste
+            (activer / désactiver, supprimer) dans « ▸ Détail », une carte par
+            commercial sur téléphone. Les droits restent dans les gestes. */}
+        <ListeCarnet items={classement} cle={(x) => x.c.id} telephone={telephone} ouvert={ouvert}
+          onBasculer={(x) => setOuvert(ouvert === x.c.id ? null : x.c.id)}
+          marques={{ cartes: "data-cartes-commerciaux", carte: "data-carte-commercial", etat: "data-etat-commercial", detail: "data-detail-commercial" }}
+          aucun="Aucun commercial." largeurMin="min-w-[1080px]"
+          colonnes={[
+            { titre: "Commercial", figee: true, cellule: ({ c }, i) => nomCommercial(c, i) },
+            { titre: "Zone", cellule: ({ c }) => c.zone || "—" },
+            { titre: "Ventes", align: "right", classe: "tabular-nums", cellule: ({ s }) => s.nb },
+            { titre: "CA", align: "right", classe: "tabular-nums font-bold", cellule: ({ s }) => fmt(s.ca) },
+            { titre: "Panier moyen", align: "right", classe: "tabular-nums", cellule: ({ s }) => (s.nb ? fmt(s.panier) : "—") },
+            { titre: "Taux", classe: "tabular-nums", cellule: ({ s }) => tauxCellule(s) },
+            { titre: "Commission", align: "right", classe: "tabular-nums font-bold text-blue-700", cellule: ({ s }) => fmt(s.commission) },
+            { titre: "Objectif période", align: "right", classe: "tabular-nums", cellule: ({ s }) => (s.objectifP ? fmt(s.objectifP) : "—") },
+            { titre: "Progression", classe: "w-32", cellule: ({ s }) => progression(s) },
+            { titre: "Performance", cellule: ({ s }) => pastillePerf(s) },
+            { titre: "Statut", cellule: ({ c }) => pastilleStatut(c) },
+            { titre: "À faire", actions: true, largeur: "min-w-[200px]" },
+          ]}
+          carte={({ c, s }, i) => (
+            <div>
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-semibold text-slate-800">{nomCommercial(c, i)}</div>
+                {pastilleStatut(c)}
+              </div>
+              <div className="text-xs text-slate-500">{c.zone || "Zone non renseignée"}</div>
+              <div className="mt-1 grid grid-cols-2 gap-x-3 text-sm">
+                <span className="text-slate-500">Ventes</span><span className="text-right tabular-nums">{s.nb}</span>
+                <span className="text-slate-500">CA</span><span className="text-right tabular-nums font-bold">{fmt(s.ca)}</span>
+                <span className="text-slate-500">Taux</span><span className="text-right tabular-nums">{tauxCellule(s)}</span>
+                <span className="text-slate-500">Commission</span><span className="text-right tabular-nums font-bold text-blue-700">{fmt(s.commission)}</span>
+              </div>
+              <div className="mt-1">{progression(s)}</div>
+              <div className="mt-1">{pastillePerf(s)}</div>
+            </div>
+          )}
+          gestes={({ c }, deplie) => <GestesLigne g={gestesCommercial(c)} moment="modifier" deplie={deplie} onDetail={() => setOuvert(deplie ? null : c.id)} marque="data-detail-commercial-bouton" />}
+          detail={({ c }) => <GestesDetail g={gestesCommercial(c)} moment="modifier" lignes={[["Statut", ["activer"]], ["Classer", ["supprimer"]]]} />} />
       </div>
     </div>
   );

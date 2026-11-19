@@ -11,7 +11,7 @@ import { correspond } from "../lib/suggestions";
 // (Timo, 15/09/2026). Cet écran avait sa propre copie.
 import { clientsConnus, clientsFideles, SEUILS_FIDELES } from "../lib/clientsConnus";
 import { uid, fmt, today, dFR, telDigits } from "../lib/core";
-import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonEnvoi, BoutonRond } from "../components/ui";
+import { Field, inputCls, Panel, uAlert, uConfirm, usePagination, Pagination, AucuneBoutique, champRecherche, BoutonEnvoi, BoutonGeste } from "../components/ui";
 import { FicheClient } from "../components/FicheClient";
 import { boutiquesVente, bloquerSiLecture, boutiquesVisibles, boutiqueParDefaut, estCompteFormation, marqueEspace, boutiqueRetenue, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, estAdminPrincipal, envoyerAvisNouveauContact, chantiersDeLEspaceRegarde, domaineParId, domainesDefinis } from "../lib/calculs";
 import { clientsDuType, totalDuType, TYPE_COMPTOIR, TYPE_INSTALLATION } from "../lib/typeClient";
@@ -28,6 +28,7 @@ import {
 // 🔑 Les identifiants partent du numéro BMI (22/09/2026), repli WhatsApp à la main.
 import { envoyerIdentifiantsDuNumeroBmi, messagesAvecLigneAcces, envoyerModele, messagesAvecLigneEnvoi } from "../whatsapp";
 import { messageIdentifiants, envoiMotFidelite, texteMotFidelite, envoiSuiviInstallation, texteSuiviInstallation } from "../lib/whatsappModeles";
+import { ListeCarnet, useTelephone, GestesLigne, GestesDetail } from "../components/ListeCarnet";
 import { useRetour } from "../retour";
 import { maintenantISO } from "../lib/horloge";
 import { stopDuNumero, stopActif, critiqueStopGeste, messagesAvecStop, MOTIF_STOP, numerosStop, cleStop } from "../lib/stopCommercial";
@@ -206,7 +207,7 @@ export function CreerClient({ db, save, profile }) {
   );
 }
 
-export function Clients({ db, save, profile }) {
+export function Clients({ db, save, profile, telephoneInitial = false }) {
   const premiere = boutiqueParDefaut(db, profile, { ecran: "clients" });
   const [bq, setBq] = useState(profile.boutique || premiere);
   // ⚠ Voir boutiqueRetenue (lib/calculs.js) : la valeur mémorisée peut être
@@ -326,11 +327,32 @@ export function Clients({ db, save, profile }) {
       : `🔔 Messages commerciaux rouverts pour ${c.tel} par ${profile.nom}`);
   };
 
+  const telephone = useTelephone(telephoneInitial);
+  const nomClient = (c, deplie) => {
+    const carte = carteDuClient(c);
+    return (<>{c.nom}{!sansIdentite(c) && <span className="ml-1 text-[10px] font-normal text-slate-400">{deplie ? "▴" : "▾"}</span>}{carte && <div data-carte-client className="text-[11px] font-bold text-emerald-700">💳 {carte.numero} · {libellePctCarte(carte, pctCommunCarte(db.boutiques))}</div>}</>);
+  };
+  const stops = numerosStop(db.messages);
+  const telClient = (c) => (<>{c.tel || "—"}{!!c.tel && stops.has(cleStop(c.tel)) && <div data-stop-client className="text-[11px] font-bold text-rose-700">🔕 plus de messages commerciaux</div>}</>);
+  const totalClient = (c) => (<>{fmt(c.totalAchats)}
+    {!typeChoisi && c.comptoir && c.installation && c.installation.total > 0 && <div className="text-[11px] font-normal text-slate-600 whitespace-nowrap" data-parts-client>{c.comptoir.total > 0 && <>🛒 {fmt(c.comptoir.total)} · </>}🏗 {fmt(c.installation.total)}</div>}</>);
+  // Les gestes en toutes lettres ; le droit de chacun se revérifie DANS le geste.
+  const gestesClient = (c) => {
+    const enStop = !!c.tel && stops.has(cleStop(c.tel));
+    const carte = carteDuClient(c);
+    return {
+      whatsapp: c.tel ? <BoutonEnvoi onClick={(e) => { e.stopPropagation(); return contacter(c); }} className="px-2 py-1 rounded-md border text-[11.5px] font-bold whitespace-nowrap border-green-300 bg-green-50 text-green-800">WhatsApp</BoutonEnvoi> : null,
+      stop: c.tel && typeof save === "function" && (!enStop || profile.role === "admin")
+        ? <BoutonGeste icone={enStop ? "🔔" : "🔕"} nom={enStop ? "Rouvrir les messages commerciaux" : "Plus de messages commerciaux"} teinte={enStop ? "gris" : "rose"} titre={enStop ? "Rouvrir les messages commerciaux pour ce client (administrateur)" : "Il a dit STOP : ne plus lui envoyer de messages commerciaux"} onClick={() => reglerStop(c)} /> : null,
+      carte: principal && c.tel
+        ? <BoutonGeste icone="💳" nom={carte ? "Sa carte de fidélité" : "Lui donner une carte de fidélité"} teinte="vert" titre={carte ? "Sa carte de fidélité : imprimer, changer la remise, remplacer, retirer" : "Lui donner une carte de fidélité"} onClick={() => carteDepuisClientComptoir({ db, save, profile, client: c, comptesDuNumero: comptesAvecCeNumero(db, profile, c.tel), boutique })} /> : null,
+    };
+  };
+
   // ⚠ Cloisonnement : aucune boutique de l'espace du compte connecté —
   // on n'affiche PAS le formulaire, plutôt que de le laisser écrire dans la
   // boutique de repli (voir boutiqueParDefaut dans lib/calculs.js).
   if (!boutique) return <AucuneBoutique formation={estCompteFormation(db, profile)} />;
-  const stops = numerosStop(db.messages);
   return (
     <div className="space-y-4">
       {!profile.boutique && <BoutiqueTabs ecran="clients" db={db} value={bq} onChange={setBq} profile={profile} />}
@@ -349,38 +371,42 @@ export function Clients({ db, save, profile }) {
             <input className={champRecherche} placeholder="Rechercher un client…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
         </div>
-        <table className="w-full text-sm min-w-[720px]">
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Client", "Téléphone", "Achats", typeChoisi === TYPE_COMPTOIR ? "Acheté au comptoir" : typeChoisi === TYPE_INSTALLATION ? "Installation" : "Total acheté", "Dette en cours", "Dernier achat", ""].map((h, i) => <th key={h} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}`}>{h}</th>)}</tr></thead>
-          <tbody>
-            {clients.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-400">{typeChoisi === TYPE_COMPTOIR ? "Aucun client n'a encore acheté au comptoir de cette boutique." : typeChoisi === TYPE_INSTALLATION ? "Aucun client d'installation (devis encaissé, pose seule, travaux) dans cette boutique." : seuilFideles === -1 ? "Aucune carte de fidélité dans cet espace : l'administrateur principal en crée une avec le bouton 💳 d'un client." : seuilFideles > 0 ? `Aucun client n'a encore acheté ${seuilFideles} fois dans cette boutique.` : "Aucun client trouvé."}</td></tr>}
-            {clientsPage.map((c, i) => {
-              const ouverte = ficheOuverte === c.cle;
-              const ouvrable = !sansIdentite(c);
-              const carte = carteDuClient(c);
-              const enStop = !!c.tel && stops.has(cleStop(c.tel));
-              return (
-              <React.Fragment key={c.cle || i}>
-              <tr onClick={ouvrable ? () => setFicheOuverte((o) => (o === c.cle ? null : c.cle)) : undefined}
-                className={`border-t border-slate-100 align-middle ${ouvrable ? "cursor-pointer" : ""} ${classeLigneDepliable(ouverte, i)}`}
-                title={ouvrable ? (ouverte ? "Cliquer pour refermer la fiche" : "Cliquer pour ouvrir la fiche du client") : "Ventes sans nom : ce n'est pas un client, pas de fiche"} data-ligne-client>
-                {/* Le NOM reste FIGÉ pendant le défilement horizontal (Timo, 25/09/2026 : « dans Clients aussi figer le nom du client »), par LA règle commune. */}
-                <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(ouverte, i), ouverte)}`}>{c.nom}{ouvrable && <span className="ml-1 text-[10px] font-normal text-slate-400">{ouverte ? "▴" : "▾"}</span>}{carte && <div data-carte-client className="text-[11px] font-bold text-emerald-700">💳 {carte.numero} · {libellePctCarte(carte, pctCommunCarte(db.boutiques))}</div>}</td>
-                <td className="px-3 py-2">{c.tel || "—"}{enStop && <div data-stop-client className="text-[11px] font-bold text-rose-700">🔕 plus de messages commerciaux</div>}</td>
-                <td className="px-3 py-2 tabular-nums">{c.achats}</td>
-                <td className="px-3 py-2 tabular-nums font-bold">{fmt(c.totalAchats)}
-                  {!typeChoisi && c.comptoir && c.installation && c.installation.total > 0 && <div className="text-[11px] font-normal text-slate-600 whitespace-nowrap" data-parts-client>{c.comptoir.total > 0 && <>🛒 {fmt(c.comptoir.total)} · </>}🏗 {fmt(c.installation.total)}</div>}</td>
-                <td className={`px-3 py-2 tabular-nums font-bold ${c.dette > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(c.dette)}</td>
-                <td className="px-3 py-2">{dFR(c.derniere)}</td>
-                <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}><div className="flex items-center gap-2">{c.tel && <BoutonEnvoi onClick={(e) => { e.stopPropagation(); return contacter(c); }} className="text-xs font-bold text-green-700 underline">WhatsApp</BoutonEnvoi>}
-                  {c.tel && typeof save === "function" && (!enStop || profile.role === "admin") && <BoutonRond icone={enStop ? "🔔" : "🔕"} teinte={enStop ? "gris" : "rose"} titre={enStop ? "Rouvrir les messages commerciaux pour ce client (administrateur)" : "Il a dit STOP : ne plus lui envoyer de messages commerciaux"} onClick={() => reglerStop(c)} />}
-                  {principal && c.tel && <BoutonRond icone="💳" teinte="vert" titre={carte ? "Sa carte de fidélité : imprimer, changer la remise, remplacer, retirer" : "Lui donner une carte de fidélité"} onClick={() => carteDepuisClientComptoir({ db, save, profile, client: c, comptesDuNumero: comptesAvecCeNumero(db, profile, c.tel), boutique })} />}</div></td>
-              </tr>
-              {ouverte && <tr><td colSpan={7} className="p-0"><FicheClient db={db} profile={profile} cible={{ nom: c.nom, tel: c.tel }} /></td></tr>}
-              </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+        {/* 📖 La charte des listes (19/11/2026) : le client figé, « À faire » = son
+            WhatsApp (mot de fidélité ou de suivi), « ▸ Détail » ouvre sa fiche et
+            range 🔕 STOP et 💳 carte en toutes lettres ; une carte par client sur
+            téléphone. Un « client » sans nom ni numéro n'a pas de fiche. */}
+        <ListeCarnet items={clientsPage} cle={(c) => c.cle} telephone={telephone} ouvert={ficheOuverte}
+          onBasculer={(c) => { if (!sansIdentite(c)) setFicheOuverte((o) => (o === c.cle ? null : c.cle)); }}
+          marques={{ cartes: "data-cartes-clients", carte: "data-carte-client-ligne", etat: "data-ligne-client", detail: "data-detail-client" }}
+          aucun={<>{typeChoisi === TYPE_COMPTOIR ? "Aucun client n'a encore acheté au comptoir de cette boutique." : typeChoisi === TYPE_INSTALLATION ? "Aucun client d'installation (devis encaissé, pose seule, travaux) dans cette boutique." : seuilFideles === -1 ? "Aucune carte de fidélité dans cet espace : l'administrateur principal en crée une avec le bouton 💳 d'un client." : seuilFideles > 0 ? `Aucun client n'a encore acheté ${seuilFideles} fois dans cette boutique.` : "Aucun client trouvé."}</>} largeurMin="min-w-[720px]"
+          colonnes={[
+            { titre: "Client", figee: true, classe: "font-semibold", cellule: (c, i, deplie) => nomClient(c, deplie) },
+            { titre: "Téléphone", cellule: (c) => telClient(c) },
+            { titre: "Achats", classe: "tabular-nums", cellule: (c) => c.achats },
+            { titre: typeChoisi === TYPE_COMPTOIR ? "Acheté au comptoir" : typeChoisi === TYPE_INSTALLATION ? "Installation" : "Total acheté", classe: "tabular-nums font-bold", cellule: (c) => totalClient(c) },
+            { titre: "Dette en cours", classe: "tabular-nums font-bold", cellule: (c) => <span className={c.dette > 0 ? "text-red-600" : "text-green-700"}>{fmt(c.dette)}</span> },
+            { titre: "Dernier achat", cellule: (c) => dFR(c.derniere) },
+            { titre: "À faire", actions: true, largeur: "min-w-[180px]" },
+          ]}
+          carte={(c, deplie) => (
+            <div>
+              <div className="font-semibold text-slate-800">{nomClient(c, deplie)}</div>
+              <div className="text-xs text-slate-500">{telClient(c)}</div>
+              <div className="mt-1 grid grid-cols-2 gap-x-3 text-sm">
+                <span className="text-slate-500">Achats</span><span className="text-right tabular-nums">{c.achats}</span>
+                <span className="text-slate-500">Total acheté</span><span className="text-right tabular-nums font-bold">{totalClient(c)}</span>
+                <span className="text-slate-500">Dette en cours</span><span className={`text-right tabular-nums font-bold ${c.dette > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(c.dette)}</span>
+                <span className="text-slate-500">Dernier achat</span><span className="text-right">{dFR(c.derniere)}</span>
+              </div>
+            </div>
+          )}
+          gestes={(c, deplie) => <GestesLigne g={gestesClient(c)} moment="whatsapp" deplie={deplie && !sansIdentite(c)} onDetail={() => { if (!sansIdentite(c)) setFicheOuverte(deplie ? null : c.cle); }} marque="data-detail-client-bouton" />}
+          detail={(c) => (
+            <div className="space-y-2">
+              <GestesDetail g={gestesClient(c)} moment="whatsapp" lignes={[["Messages", ["stop"]], ["Carte", ["carte"]]]} />
+              <FicheClient db={db} profile={profile} cible={{ nom: c.nom, tel: c.tel }} />
+            </div>
+          )} />
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>

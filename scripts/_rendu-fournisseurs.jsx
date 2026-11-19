@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Fournisseurs } from "../src/screens/Fournisseurs.jsx";
 export * as R from "../src/lib/fournisseurs.js";
 
-export const rendreFournisseurs = (db, profile) => renderToStaticMarkup(React.createElement(Fournisseurs, { db, save() {}, profile }));
+export const rendreFournisseurs = (db, profile, extra = {}) => renderToStaticMarkup(React.createElement(Fournisseurs, { db, save() {}, profile, ...extra }));
 // 🛒 Les commandes à l'étranger (10/11/2026) : la règle, et ce qui protège leurs dépenses.
 export * as CI from "../src/lib/commandesImport.js";
 export * as DP from "../src/lib/demandesPrix.js";

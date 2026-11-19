@@ -5,8 +5,9 @@
 import { useState } from "react";
 import { uid, fmt, today, normPaiement, lienWhatsApp } from "../lib/core";
 import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
-import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement, FormulaireRepliable, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, TexteDepliable, BoutonRond, CelluleActions, PanneauQuiSeMontre, IconeWhatsApp } from "../components/ui";
+import { Field, inputCls, btnDark, uAlert, uConfirm, uPrompt, demanderMoyenPaiement, FormulaireRepliable, TexteDepliable, BoutonGeste, PanneauQuiSeMontre, IconeWhatsApp } from "../components/ui";
 import { bloquerSiLecture, choisirBoutiqueDebitG, marqueEspace, espaceDuCompte, refuserSaufRoles, ROLES_FOURNISSEURS, estAdminPrincipal, boutiquesVisibles } from "../lib/calculs";
+import { ListeCarnet, useTelephone, GestesLigne, GestesDetail } from "../components/ListeCarnet";
 import { CommandesImport } from "../components/CommandesImport";
 import { DemandesPrix } from "../components/DemandesPrix";
 import { demandesGroupees, estOuverte as demandeOuverte } from "../lib/demandesPrix";
@@ -16,12 +17,12 @@ import { critiqueModifFournisseur, changementsFournisseur, fournisseurModifie, a
 const FICHE_VIDE = { nom: "", tel: "", adresse: "", site_web: "", produits: "", representant: "", representant_tel: "", doit: "", paye: "" };
 
 // ============ FOURNISSEURS ============
-export function Fournisseurs({ db, save, profile }) {
+export function Fournisseurs({ db, save, profile, telephoneInitial = false, ouvertInitial = null }) {
   const [f, setF] = useState(FICHE_VIDE);
   // ➕ Formulaire fermé d'office (règle commune FormulaireRepliable, 06/10/2026),
   // replié après l'enregistrement.
   const [nouveauOuvert, setNouveauOuvert] = useState(false);
-  const [ouvert, setOuvert] = useState(null); // la ligne dépliée (15/10/2026)
+  const [ouvert, setOuvert] = useState(ouvertInitial); // la ligne dépliée (15/10/2026)
   // ✏️ La fiche en cours de modification (Timo, 23/10/2026) : son id et la saisie.
   const [edition, setEdition] = useState(null);
   const [fe, setFe] = useState(FICHE_VIDE);
@@ -141,6 +142,30 @@ export function Fournisseurs({ db, save, profile }) {
   const liste = (db.fournisseurs || []).filter((x) => espace === undefined || !!x.formation === espace);
   const resteTotal = liste.reduce((s, x) => s + Math.max(0, x.doit - x.paye), 0);
 
+  const telephone = useTelephone(telephoneInitial);
+  const nomFournisseur = (fo) => (
+    <>
+      {fo.nom}
+      {(fo.representant || fo.representant_tel) && (
+        <div data-representant-fournisseur className="text-xs font-normal text-slate-500 mt-0.5">
+          👤 {fo.representant || "Représentant"}{fo.representant_tel ? ` · ${fo.representant_tel}` : ""}
+          {fo.representant_tel && peutEcrireDeSonNumero(profile) && <a href={lienWhatsApp(fo.representant_tel)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={`WhatsApp — ${fo.representant_tel}`} className="ml-1.5 inline-block align-middle"><IconeWhatsApp taille={14} /></a>}
+        </div>
+      )}
+    </>
+  );
+  const siteFournisseur = (fo) => (fo.site_web ? <a href={fo.site_web.startsWith("http") ? fo.site_web : "https://" + fo.site_web} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-700 underline">Visiter</a> : "—");
+  const resteFournisseur = (fo) => { const r = Math.max(0, fo.doit - fo.paye); return <span className={r > 0 ? "text-red-600" : "text-green-700"}>{fmt(r)}</span>; };
+  // Les gestes, écrits en toutes lettres ; qui y a droit se vérifie DANS chacun.
+  const gestesFournisseur = (fo) => ({
+    regler: <BoutonGeste icone="💵" nom="Régler" teinte="vert" titre="+ Règlement" onClick={() => payer(fo)} />,
+    demande: <BoutonGeste icone="📨" nom="Demande de prix" teinte="violet" titre="📨 Nouvelle demande de prix à ce fournisseur" onClick={() => setDemandePour(fo.id)} />,
+    importer: <BoutonGeste icone="🛒" nom="Commande à l'étranger" teinte="violet" titre="🛒 Nouvelle commande à l'étranger (Alibaba…)" onClick={() => setCommandePour(fo.id)} />,
+    commande: <BoutonGeste icone="📦" nom="Marchandise reçue à régler" titre="+ Commande — une marchandise reçue à régler" onClick={() => nouvelleDette(fo)} />,
+    modifier: <BoutonGeste icone="✏️" nom="Modifier la fiche" teinte="ambre" titre="✏️ Modifier la fiche du fournisseur" onClick={() => ouvrirModif(fo)} />,
+    supprimer: <BoutonGeste icone="🗑" nom="Supprimer" teinte="rouge" titre="🗑 Supprimer le fournisseur" onClick={() => supprimer(fo)} />,
+  });
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl p-4 bg-white border border-slate-200">
@@ -190,52 +215,38 @@ export function Fournisseurs({ db, save, profile }) {
         <div className="px-4 py-3 font-bold text-slate-800 border-b border-slate-200 bg-slate-50">
           Fournisseurs <span className="text-sm font-normal text-slate-500">· Reste à régler : {fmt(resteTotal)}</span>
         </div>
-        <table className="w-full text-sm min-w-[900px]">
-          {/* 🧾 La ligne suit la règle de 💰 Ventes et 📋 Dettes (15/10/2026) :
-              le fournisseur figé, ses produits sur deux lignes puis le reste au
-              clic, les gestes en boutons ronds. */}
-          <thead><tr className="text-xs text-slate-500 uppercase">{["Fournisseur", "Téléphone", "Adresse", "Site", "Produits", "Dû", "Réglé", "Reste", ""].map((h, i) => <th key={h || i} className={`text-left px-3 py-2${i === 0 ? ` ${enTeteFige("bg-white")}` : ""}${i === 8 ? " hidden sm:table-cell" : ""}`}>{h}</th>)}</tr></thead>
-          <tbody>
-            {liste.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-slate-400">Aucun fournisseur.</td></tr>}
-            {liste.map((fo, i) => {
-              const reste = Math.max(0, fo.doit - fo.paye);
-              const deplie = ouvert === fo.id;
-              // 📱 Sur téléphone, les gestes passent SOUS le nom, sur une seule
-              // ligne (Timo, 11/11/2026, « b ») ; sur ordinateur, la colonne
-              // de droite comme avant. Une seule liste de boutons, écrite ici.
-              const gestes = (fo) => (<>
-                    <BoutonRond icone="📨" teinte="violet" onClick={() => setDemandePour(fo.id)} titre="📨 Nouvelle demande de prix à ce fournisseur" />
-                    <BoutonRond icone="🛒" teinte="violet" onClick={() => setCommandePour(fo.id)} titre="🛒 Nouvelle commande à l'étranger (Alibaba…)" />
-                    <BoutonRond icone="📦" onClick={() => nouvelleDette(fo)} titre="+ Commande — une marchandise reçue à régler" />
-                    <BoutonRond icone="💵" teinte="vert" onClick={() => payer(fo)} titre="+ Règlement" />
-                    <BoutonRond icone="✏️" teinte="ambre" onClick={() => ouvrirModif(fo)} titre="✏️ Modifier la fiche du fournisseur" />
-                    <BoutonRond icone="🗑" teinte="rouge" onClick={() => supprimer(fo)} titre="🗑 Supprimer le fournisseur" />
-              </>);
-              return (
-                <tr key={fo.id} data-ligne={fo.id} data-ligne-fournisseur={deplie ? "deplie" : "replie"} onClick={() => setOuvert(deplie ? null : fo.id)} className={`border-t border-slate-100 cursor-pointer align-top ${classeLigneDepliable(deplie, i)}`}>
-                  <td className={`px-3 py-2 font-semibold min-w-[150px] ${celluleFigee(fondLigneDepliable(deplie, i), deplie)} max-sm:min-w-[250px] max-sm:max-w-[250px]`}>
-                    {fo.nom}
-                    {(fo.representant || fo.representant_tel) && (
-                      <div data-representant-fournisseur className="text-xs font-normal text-slate-500 mt-0.5">
-                        👤 {fo.representant || "Représentant"}{fo.representant_tel ? ` · ${fo.representant_tel}` : ""}
-                        {fo.representant_tel && peutEcrireDeSonNumero(profile) && <a href={lienWhatsApp(fo.representant_tel)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={`WhatsApp — ${fo.representant_tel}`} className="ml-1.5 inline-block align-middle"><IconeWhatsApp taille={14} /></a>}
-                      </div>
-                    )}
-                    <div data-gestes-telephone className="sm:hidden mt-2 flex flex-nowrap items-center gap-1.5 font-normal [&>button]:shrink-0" onClick={(e) => e.stopPropagation()}>{gestes(fo)}</div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{fo.tel || "—"}</td>
-                  <td className="px-3 py-2 min-w-[140px]"><TexteDepliable texte={fo.adresse} deplie={deplie} largeur="max-w-[200px]" /></td>
-                  <td className="px-3 py-2">{fo.site_web ? <a href={fo.site_web.startsWith("http") ? fo.site_web : "https://" + fo.site_web} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-700 underline">Visiter</a> : "—"}</td>
-                  <td className="px-3 py-2 min-w-[180px]"><TexteDepliable texte={fo.produits} deplie={deplie} largeur="max-w-[260px]" /></td>
-                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(fo.doit)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fmt(fo.paye)}</td>
-                  <td className={`px-3 py-2 text-right tabular-nums font-bold whitespace-nowrap ${reste > 0 ? "text-red-600" : "text-green-700"}`}>{fmt(reste)}</td>
-                  <CelluleActions className="hidden sm:table-cell">{gestes(fo)}</CelluleActions>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {/* 📖 La charte des listes (19/11/2026) : le fournisseur figé, « À faire » =
+            💵 Régler (ou le geste du moment), le reste en toutes lettres dans
+            « ▸ Détail » (commandes, fiche, supprimer), une carte par fournisseur
+            sur téléphone. Les droits restent dans chaque geste. */}
+        <ListeCarnet items={liste} cle={(fo) => fo.id} telephone={telephone} ouvert={ouvert}
+          onBasculer={(fo) => setOuvert(ouvert === fo.id ? null : fo.id)}
+          marques={{ cartes: "data-cartes-fournisseurs", carte: "data-carte-fournisseur", etat: "data-ligne-fournisseur", detail: "data-detail-fournisseur" }}
+          aucun="Aucun fournisseur." largeurMin="min-w-[900px]"
+          colonnes={[
+            { titre: "Fournisseur", figee: true, classe: "font-semibold", cellule: (fo) => nomFournisseur(fo) },
+            { titre: "Téléphone", classe: "whitespace-nowrap", cellule: (fo) => fo.tel || "—" },
+            { titre: "Adresse", classe: "min-w-[140px]", cellule: (fo, i, deplie) => <TexteDepliable texte={fo.adresse} deplie={deplie} largeur="max-w-[200px]" /> },
+            { titre: "Site", cellule: (fo) => siteFournisseur(fo) },
+            { titre: "Produits", classe: "min-w-[180px]", cellule: (fo, i, deplie) => <TexteDepliable texte={fo.produits} deplie={deplie} largeur="max-w-[260px]" /> },
+            { titre: "Dû", align: "right", classe: "tabular-nums whitespace-nowrap", cellule: (fo) => fmt(fo.doit) },
+            { titre: "Réglé", align: "right", classe: "tabular-nums whitespace-nowrap", cellule: (fo) => fmt(fo.paye) },
+            { titre: "Reste", align: "right", classe: "tabular-nums font-bold whitespace-nowrap", cellule: (fo) => resteFournisseur(fo) },
+            { titre: "À faire", actions: true, largeur: "min-w-[200px] max-w-[260px]" },
+          ]}
+          carte={(fo) => (
+            <div>
+              <div className="font-semibold text-slate-800">{nomFournisseur(fo)}</div>
+              <div className="text-xs text-slate-500">{fo.tel || "Téléphone non renseigné"}{fo.adresse ? ` · ${fo.adresse}` : ""}</div>
+              <div className="mt-1 grid grid-cols-2 gap-x-3 text-sm">
+                <span className="text-slate-500">Dû</span><span className="text-right tabular-nums">{fmt(fo.doit)}</span>
+                <span className="text-slate-500">Réglé</span><span className="text-right tabular-nums">{fmt(fo.paye)}</span>
+                <span className="text-slate-500">Reste</span><span className="text-right tabular-nums font-bold">{resteFournisseur(fo)}</span>
+              </div>
+            </div>
+          )}
+          gestes={(fo, deplie) => <GestesLigne g={gestesFournisseur(fo)} moment="regler" deplie={deplie} onDetail={() => setOuvert(deplie ? null : fo.id)} marque="data-detail-fournisseur-bouton" />}
+          detail={(fo) => <GestesDetail g={gestesFournisseur(fo)} moment="regler" lignes={[["Commande", ["demande", "importer", "commande"]], ["Fiche", ["modifier"]], ["Classer", ["supprimer"]]]} />} />
       </div>
     </div>
   );
