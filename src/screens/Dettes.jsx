@@ -5,7 +5,7 @@
 // ============================================================
 import { useCible, useCibleBoutique } from "../components/cibleEcran";
 import { useFiltrePeriode } from "../components/FiltrePeriode";
-import { useState, Fragment, useEffect } from "react";
+import { useState, Fragment } from "react";
 import { uid, fmt, today, dFR, heureCourte, telDigits, normPaiement, prochainNumeroVente, prochainNumeroDette, numeroRecuDette, lignesDette, statutDette, FILTRES_STATUT_DETTE, detteDansFiltre } from "../lib/core";
 import { PAIEMENTS } from "../lib/constants";
 import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uPrompt, usePagination, Pagination, AucuneBoutique, demanderMoyenPaiement, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, IconeWhatsApp, enTeteFige, celluleFigee, fondLigneDepliable, CochesEnvoi, FormulaireRepliable, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable, CelluleActions } from "../components/ui";
@@ -22,6 +22,7 @@ import { soldeApresAcompte, prochaineEcheance, PLAN_ACCEPTE } from "../lib/regle
 import { envoyerModele, messagesAvecLigneEnvoi, envoyerRecuSansQuestion } from "../whatsapp";
 import { ROLES_VERSEMENT, cleReglement, versementDeReglement, etatVersementOrigine, moyenVersable, versementGeneralQuiEmporte, mentionVersementGeneral, ORIGINE_REGLEMENT, construireVersementOrigine, messagesVersement, libelleDestination, DEST_COMPTABLE, clesReglementsVersesValides } from "../lib/versements";
 import { mobileParMoyen } from "../lib/constants";
+import { ListeCarnet, GestesLigne, GestesDetail, useTelephone } from "../components/ListeCarnet";
 import { verserDepuisOrigine, choisirDestination } from "../components/verserOrigine";
 import { critiqueSuppressionDette, mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 
@@ -58,16 +59,8 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
   // 📋 Le statut (Timo, 12/10/2026) : « Tout » d'office = en cours et partielles
   // seulement — une dette payée n'est plus une dette ; « Payée » se choisit.
   const [filtreStatut, setFiltreStatut] = useState("Tout");
-  // 📱 Sur téléphone, une CARTE par dette (le tableau de 900 px défilait de côté) ;
-  // UNE seule des deux mises en page est dans la page. telephoneInitial : banc seul.
-  const [telephone, setTelephone] = useState(() => telephoneInitial || (typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 639px)").matches));
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const mq = window.matchMedia("(max-width: 639px)");
-    const suit = () => setTelephone(telephoneInitial || mq.matches);
-    mq.addEventListener?.("change", suit);
-    return () => mq.removeEventListener?.("change", suit);
-  }, [telephoneInitial]);
+  // 📱 Sur téléphone, une CARTE par dette (la charte des listes : components/ListeCarnet.jsx).
+  const telephone = useTelephone(telephoneInitial);
   const [retardSeul, setRetardSeul] = useState(false);
 
   const ajouter = () => {
@@ -404,23 +397,11 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
   };
   const gestesDeLaLigne = (d, deplie) => {
     const { g, moment } = gestesDe(d);
-    return (
-      <div className="flex flex-wrap items-center justify-end gap-1.5">
-        {g[moment]}
-        <BoutonGeste data-detail-dette-bouton icone={deplie ? "▾" : "▸"} nom="Détail" titre="Voir les règlements, la trace WhatsApp et tous les gestes de cette dette" onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} />
-      </div>
-    );
+    return <GestesLigne g={g} moment={moment} deplie={deplie} aDroite marque="data-detail-dette-bouton" onDetail={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} />;
   };
   const gestesDuDetail = (d) => {
     const { g, moment } = gestesDe(d);
-    const r = { ...g, [moment]: null };
-    return (
-      <div data-gestes-dette className="space-y-1.5">
-        <LigneGestes nom="Client">{r.relancer}</LigneGestes>
-        <LigneGestes nom="Argent">{r.paiement}{r.recu}</LigneGestes>
-        <LigneGestes nom="Classer">{r.supprimer}</LigneGestes>
-      </div>
-    );
+    return <GestesDetail g={g} moment={moment} marque="data-gestes-dette" lignes={[["Client", ["relancer"]], ["Argent", ["paiement", "recu"]], ["Classer", ["supprimer"]]]} />;
   };
   const traceDe = (d) => (
     <>
@@ -652,92 +633,49 @@ export function Dettes({ db, save, profile, detteDeplieeInitiale = null, cible =
             CLIC sur la ligne), montants à droite, statut en pastille avec
             l'ancienneté dessous, boutons ronds. Mêmes gestes, mêmes droits :
             seule la présentation change. */}
-        {telephone ? (
-          <div data-dettes-cartes className="p-2 space-y-2">
-            {listeAffichee.length === 0 && <div className="px-4 py-6 text-center text-slate-400">{filtreStatut === "Tout" ? "Aucune dette à régler" : `Aucune dette « ${filtreStatut} »`}{periode.actif ? " sur cette période" : ""}</div>}
-            {listePage.map((d) => {
-              const st = statut(d);
-              const jours = joursDeDette(d, today());
-              const estRetard = detteEnRetard(d, today());
-              const reste = Math.max(0, d.montant - d.paye);
-              const lignes = lignesDette(d);
-              const reglements = d.paiements || [];
-              const deplie = detteDepliee === d.id;
-              return (
-                <div key={d.id} data-dette-carte data-ligne={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))}
-                  className={`rounded-xl border p-3 cursor-pointer ${deplie ? "border-sky-400 bg-sky-50" : estRetard ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</div>
-                    <div className={`text-sm font-bold tabular-nums whitespace-nowrap ${reste > 0 ? "text-orange-600" : "text-green-700"}`}>{reste > 0 ? `${fmt(reste)} restants` : "Soldée"}</div>
-                  </div>
-                  <div className="text-xs text-slate-500 mt-0.5">{dFR(d.date)}{d.numero ? ` · ${d.numero}` : ""}</div>
-                  <div className="text-xs text-slate-600 mt-0.5 tabular-nums">{fmt(d.montant)} dû · {fmt(d.paye)} payé</div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${st === "Payée" ? "bg-green-100 text-green-700 border-green-200" : st === "Partielle" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}`}>{st}</span>
-                    <span className={`text-xs ${estRetard ? "text-red-600 font-bold" : "text-slate-400"}`}>{jours} jour{jours > 1 ? "s" : ""}{estRetard ? " ⚠" : ""}</span>
-                  </div>
-                  <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesDeLaLigne(d, deplie)}</div>
-                  {deplie && (
-                    <div onClick={(e) => e.stopPropagation()} className="mt-3 space-y-3" data-detail-dette>
-                      {lignes.length > 0 && <ListeArticles lignes={lignes} deplie />}
-                      {traceDe(d)}
-                      {reglements.length > 0 && <div data-reglements-dette>{blocReglements(d, reglements)}</div>}
-                      {gestesDuDetail(d)}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-        <table className="w-full text-sm min-w-[860px]">
-          <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">
-            {[["Client", "text-left"], ["Date", "text-left"], ["Motif", "text-left"], ["Dette", "text-right"], ["Payé", "text-right"], ["Reste", "text-right"], ["Statut", "text-left"], ["À faire", "text-right"]].map(([h, al], i) => <th key={h} className={`${al} px-3 py-2 font-semibold${i === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}
-          </tr></thead>
-          <tbody>
-            {listeAffichee.length === 0 && <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-400">{filtreStatut === "Tout" ? "Aucune dette à régler" : `Aucune dette « ${filtreStatut} »`}{periode.actif ? " sur cette période" : ""}</td></tr>}
-            {listePage.map((d, i) => {
-              const st = statut(d);
-              const jours = joursDeDette(d, today());
-              const estRetard = detteEnRetard(d, today());
-              const reste = Math.max(0, d.montant - d.paye);
-              const lignes = lignesDette(d);
-              const reglements = d.paiements || [];
-              return (
-                <Fragment key={d.id}>
-                <tr data-ligne={d.id} onClick={() => setDetteDepliee((x) => (x === d.id ? null : d.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : "")}`}>
-                  <td className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(detteDepliee === d.id, i, estRetard ? "bg-red-50" : ""), detteDepliee === d.id)}`}><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</td>
-                  <td className="px-3 py-2 whitespace-nowrap"><div className="font-semibold text-slate-800">{dFR(d.date)}</div>{d.numero && <div className="text-xs text-slate-400 font-mono">{d.numero}</div>}</td>
-                  <td className="px-3 py-2 min-w-[240px]">{lignes.length ? <ListeArticles lignes={lignes} deplie={detteDepliee === d.id} /> : <span className="text-slate-400">—</span>}</td>
-                  <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap">{fmt(d.montant)}</td>
-                  <td className="px-3 py-2 tabular-nums text-right whitespace-nowrap text-green-700">{fmt(d.paye)}</td>
-                  <td className={`px-3 py-2 tabular-nums text-right whitespace-nowrap font-bold ${reste > 0 ? "text-orange-600" : "text-green-700"}`}>{fmt(reste)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${st === "Payée" ? "bg-green-100 text-green-700 border-green-200" : st === "Partielle" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}`}>{st}</span>
-                    <div className={`text-xs mt-0.5 ${estRetard ? "text-red-600 font-bold" : "text-slate-400"}`}>{jours} jour{jours > 1 ? "s" : ""}{estRetard ? " ⚠" : ""}</div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>{gestesDeLaLigne(d, detteDepliee === d.id)}</td>
-                </tr>
-                {detteDepliee === d.id && reglements.length > 0 && (
-                  // 💸 Les RÈGLEMENTS de la dette, chacun versable une fois (Timo, 09/10/2026).
-                  <tr data-reglements-dette className="bg-sky-50/40">
-                    <td colSpan={8} className="px-3 py-2">{blocReglements(d, reglements)}</td>
-                  </tr>
-                )}
-                {detteDepliee === d.id && (
-                  <tr data-detail-dette className="bg-sky-50/40">
-                    <td colSpan={8} className="px-3 pb-3 pt-1 space-y-2">
-                      {traceDe(d)}
-                      {gestesDuDetail(d)}
-                    </td>
-                  </tr>
-                )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-        )}
+        <ListeCarnet items={listePage} telephone={telephone} ouvert={detteDepliee} onBasculer={(d) => setDetteDepliee((x) => (x === d.id ? null : d.id))}
+          marques={{ cartes: "data-dettes-cartes", carte: "data-dette-carte", detail: "data-detail-dette" }}
+          enTeteClasse="sticky top-0 z-10 bg-slate-100" enTeteFond="bg-slate-100"
+          aucun={`${filtreStatut === "Tout" ? "Aucune dette à régler" : `Aucune dette « ${filtreStatut} »`}${periode.actif ? " sur cette période" : ""}`}
+          fond={(d) => (detteEnRetard(d, today()) ? "bg-red-50" : "")}
+          carteClasse={(d) => (detteEnRetard(d, today()) ? "border-red-300 bg-red-50" : "")}
+          colonnes={[
+            { titre: "Client", figee: true, cellule: (d) => (<><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</>) },
+            { titre: "Date", classe: "whitespace-nowrap", cellule: (d) => (<><div className="font-semibold text-slate-800">{dFR(d.date)}</div>{d.numero && <div className="text-xs text-slate-400 font-mono">{d.numero}</div>}</>) },
+            { titre: "Motif", classe: "min-w-[240px]", cellule: (d, i, deplie) => { const lignes = lignesDette(d); return lignes.length ? <ListeArticles lignes={lignes} deplie={deplie} /> : <span className="text-slate-400">—</span>; } },
+            { titre: "Dette", align: "right", classe: "tabular-nums whitespace-nowrap", cellule: (d) => fmt(d.montant) },
+            { titre: "Payé", align: "right", classe: "tabular-nums whitespace-nowrap text-green-700", cellule: (d) => fmt(d.paye) },
+            { titre: "Reste", align: "right", classe: "tabular-nums whitespace-nowrap font-bold", cellule: (d) => { const reste = Math.max(0, d.montant - d.paye); return <span className={reste > 0 ? "text-orange-600" : "text-green-700"}>{fmt(reste)}</span>; } },
+            { titre: "Statut", classe: "whitespace-nowrap", cellule: (d) => { const st = statut(d); const jours = joursDeDette(d, today()); const estRetard = detteEnRetard(d, today()); return (<><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${st === "Payée" ? "bg-green-100 text-green-700 border-green-200" : st === "Partielle" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}`}>{st}</span><div className={`text-xs mt-0.5 ${estRetard ? "text-red-600 font-bold" : "text-slate-400"}`}>{jours} jour{jours > 1 ? "s" : ""}{estRetard ? " ⚠" : ""}</div></>); } },
+            { titre: "À faire", align: "right", actions: true, largeur: "justify-end" },
+          ]}
+          gestes={(d, deplie) => gestesDeLaLigne(d, deplie)}
+          carte={(d) => {
+            const st = statut(d); const jours = joursDeDette(d, today()); const estRetard = detteEnRetard(d, today()); const reste = Math.max(0, d.montant - d.paye);
+            return (<>
+              <div className="flex items-start justify-between gap-2">
+                <div><div className="font-semibold text-slate-800">{d.client}</div>{d.tel ? <div className="text-xs text-slate-500">{d.tel}</div> : null}{estNomCaisseChantier(d.boutique) && <div data-dette-chantier className="text-[11px] font-semibold text-amber-700">caisse {libelleCaisse(d.boutique)}</div>}</div>
+                <div className={`text-sm font-bold tabular-nums whitespace-nowrap ${reste > 0 ? "text-orange-600" : "text-green-700"}`}>{reste > 0 ? `${fmt(reste)} restants` : "Soldée"}</div>
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">{dFR(d.date)}{d.numero ? ` · ${d.numero}` : ""}</div>
+              <div className="text-xs text-slate-600 mt-0.5 tabular-nums">{fmt(d.montant)} dû · {fmt(d.paye)} payé</div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${st === "Payée" ? "bg-green-100 text-green-700 border-green-200" : st === "Partielle" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-red-100 text-red-700 border-red-200"}`}>{st}</span>
+                <span className={`text-xs ${estRetard ? "text-red-600 font-bold" : "text-slate-400"}`}>{jours} jour{jours > 1 ? "s" : ""}{estRetard ? " ⚠" : ""}</span>
+              </div>
+            </>);
+          }}
+          detail={(d) => {
+            const reglements = d.paiements || [];
+            const lignes = lignesDette(d);
+            return (<>
+              {telephone && lignes.length > 0 && <ListeArticles lignes={lignes} deplie />}
+              {reglements.length > 0 && <div data-reglements-dette>{blocReglements(d, reglements)}</div>}
+              {traceDe(d)}
+              {gestesDuDetail(d)}
+            </>);
+          }}
+        />
         <Pagination page={page} setPage={setPage} totalPages={totalPages} />
       </div>
     </div>

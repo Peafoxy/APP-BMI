@@ -415,7 +415,7 @@ titre("🔔 Une notification mène à sa source");
   test("★ les lignes visées existent à l'écran (data-ligne) : transferts et demandes, demandes des boutiques, « À réapprovisionner », clôtures dépassées, dettes, commandes, devis, tâches, primes, devis du client, argent rendu, achats chantier",
     /<(div|tr) key=\{t\.id\} data-ligne=\{t\.id\}/.test(lireE("src/screens/Ravitaillement.jsx")) && /<(div|tr) key=\{d\.id\} data-ligne=\{d\.id\}/.test(lireE("src/screens/Ravitaillement.jsx")) /* RETOURNÉ le 18/11/2026 : une ligne de tableau (ordinateur) et une carte (téléphone) */
     && /data-ligne=\{dm\.d\.id\}/.test(lireE("src/screens/Stocks.jsx")) && /data-ligne=\{LIGNE_A_REAPPROVISIONNER\}/.test(lireE("src/screens/Stocks.jsx"))
-    && /data-ligne=\{LIGNE_CLOTURES_DEPASSEES\}/.test(lireE("src/screens/Caisse.jsx")) && /<tr data-ligne=\{d\.id\} onClick=\{\(\) => setDetteDepliee/.test(lireE("src/screens/Dettes.jsx"))
+    && /data-ligne=\{LIGNE_CLOTURES_DEPASSEES\}/.test(lireE("src/screens/Caisse.jsx")) && /data-ligne=\{cle\(x\)\}/.test(lireE("src/components/ListeCarnet.jsx")) && /<ListeCarnet /.test(lireE("src/screens/Dettes.jsx")) /* RETOURNÉ 18/11/2026 : la ligne porte data-ligne dans ListeCarnet */
     && /data-ligne=\{c\.id\} data-commande-attente/.test(lireE("src/screens/Commandes.jsx")) && /data-ligne=\{d\.id\} onClick=\{\(\) => ouvrirDevis\(d\)\}/.test(lireE("src/screens/TousLesDevis.jsx"))
     && /data-ligne=\{t\.id\}/.test(lireE("src/screens/MesTaches.jsx")) && /data-ligne=\{t\.id\}/.test(lireE("src/screens/MonEquipe.jsx"))
     && // RETOURNÉ le 18/11/2026 (façon carnet) : 3 = demande (tableau + carte téléphone) + historique ; un seul des deux premiers est visible à la fois.

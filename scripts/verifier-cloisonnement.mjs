@@ -7273,21 +7273,21 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && JSON.stringify(Core.lignesDette({ motif: "Réparation, pièces et main-d'œuvre" })) === JSON.stringify([{ qte: null, article: "Réparation, pièces et main-d'œuvre" }])
       && Core.lignesDette({ motif: "" }).length === 0 && Core.lignesDette({}).length === 0);
     test("★ écran Dettes : la ligne se déplie au clic (detteDepliee, une seule, un clic sur une autre la déplie directement), surbrillance commune (classeLigneDepliable, retard en rouge pâle), ListeArticles sur lignesDette, montants à droite, boutons ronds (🖨, 💵 Paiement, Relancer = logo WhatsApp, 🗑 admin) dans une cellule qui ne déplie pas ; mêmes gestes, mêmes gardes",
-      /const \[detteDepliee, setDetteDepliee\] = useState\(detteDeplieeInitiale\);/.test(dj) && /detteDeplieeInitiale = null, cible = null, telephoneInitial = false, blocsOuverts = false \}\) \{/.test(dj) /* RETOURNÉ 18/11/2026 : « Dettes façon carnet » (cartes sur téléphone, blocs repliés) */ /* RETOURNÉ 16/10/2026 : la cible d'une notification cliquée */ /* RETOURNÉ 10/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onClick=\{\(\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj)
-      && /classeLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\)/.test(dj)
+      /const \[detteDepliee, setDetteDepliee\] = useState\(detteDeplieeInitiale\);/.test(dj) && /detteDeplieeInitiale = null, cible = null, telephoneInitial = false, blocsOuverts = false \}\) \{/.test(dj) /* RETOURNÉ 18/11/2026 : « Dettes façon carnet » (cartes sur téléphone, blocs repliés) */ /* RETOURNÉ 16/10/2026 : la cible d'une notification cliquée */ /* RETOURNÉ 10/10/2026 : repliée d'office, la valeur de départ n'existe que pour le banc */ && /onBasculer=\{\(d\) => setDetteDepliee\(\(x\) => \(x === d\.id \? null : d\.id\)\)\}/.test(dj) /* RETOURNÉ le 18/11/2026 : le clic passe par ListeCarnet */
+      && /fond=\{\(d\) => \(detteEnRetard\(d, today\(\)\) \? "bg-red-50" : ""\)\}/.test(dj) && /classeLigneDepliable\(deplie, i, f\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) /* RETOURNÉ le 18/11/2026 : la charte des listes (ListeCarnet) porte la ligne */
       // 13/09/2026 : la première colonne reste figée, ordinateur aussi ; Dépenses pareil (Date, fond de la ligne gardé) ; plus aucun lg:static dans l'application.
       // RETOURNÉ le 25/09/2026 (« dans Dettes aussi figer le nom du client ») : dans Dettes la colonne figée est le CLIENT, la date vient après.
-      && /celluleFigee\(fondLigneDepliable\(detteDepliee === d\.id, i, estRetard \? "bg-red-50" : ""\), detteDepliee === d\.id\)\}`\}><div className="font-semibold text-slate-800">\{d\.client\}<\/div>/.test(dj)
-      && /\{\[\["Client", "text-left"\], \["Date", "text-left"\]/.test(dj)
+      && /\{ titre: "Client", figee: true, cellule: \(d\) => \(<><div className="font-semibold text-slate-800">\{d\.client\}<\/div>/.test(dj) && /celluleFigee\(fondLigneDepliable\(deplie, i, f\), deplie\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8"))
+      && /\{ titre: "Client", figee: true/.test(dj) && /\{ titre: "Date", classe: "whitespace-nowrap"/.test(dj)
       // 25/09/2026 : « dans Clients aussi figer le nom du client » — 📋 Clients fige sa première colonne (le client) par la même règle.
       // RETOURNÉ le 05/10/2026 : la ligne de 📋 Clients se déplie (sa fiche) — la cellule figée porte le fond de la ligne dépliée.
       && /<td className=\{`px-3 py-2 font-semibold min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i\), ouverte\)\}`\}>\{c\.nom\}/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
-      && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Clients.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(dj)
+      && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Clients.jsx", "utf8")) && /enTeteFond="bg-slate-100"/.test(dj) && /enTeteFige\(enTeteFond\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8"))
       // RETOURNÉ le 15/10/2026 (« ramener catégorie en première colonne et figer ») : dans Dépenses la colonne figée est la CATÉGORIE, la ligne se déplie, son fond est gardé.
       && /<td data-depense-categorie className=\{`px-3 py-2 min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i, fond\), ouverte\)\}`\}>/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
       && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
-      && /<ListeArticles lignes=\{lignes\} deplie=\{detteDepliee === d\.id\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
-      && (dj.match(/tabular-nums text-right whitespace-nowrap/g) || []).length === 3 && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\{gestesDeLaLigne\(d, detteDepliee === d\.id\)\}<\/td>/.test(dj)
+      && /<ListeArticles lignes=\{lignes\} deplie=\{deplie\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
+      && (dj.match(/align: "right", classe: "tabular-nums whitespace-nowrap/g) || []).length === 3 && /\{ titre: "À faire", align: "right", actions: true/.test(dj) && /gestes=\{\(d, deplie\) => gestesDeLaLigne\(d, deplie\)\}/.test(dj)
       && /<BoutonGeste icone="🖨" nom="Reçu"/.test(dj) && /paiement: st !== "Payée" \? <BoutonGeste icone="💵" nom="Enregistrer un paiement" teinte="vert" onClick=\{\(\) => encaisser\(d\)\}/.test(dj) && /relancer: st !== "Payée" \? <BoutonGeste icone=\{<IconeWhatsApp taille=\{16\} \/>\} nom="Relancer par WhatsApp" teinte="vert" envoi onClick=\{\(\) => relancer\(d\)\}/.test(dj) /* RETOURNÉ le 18/11/2026 : gestes écrits en mots (BoutonGeste) */
       && /supprimer: profile\.role === "admin" \? <BoutonGeste icone="🗑" nom="Supprimer" teinte="rouge" onClick=\{\(\) => supprimerDette\(d\)\}/.test(dj) && !/underline mr-2">🖨 Reçu/.test(dj));
   }
@@ -20290,6 +20290,25 @@ titre("🔩 Le journal des interventions : panne, cause (interne), solution ; de
     && /espaceDuChantier\(db, c, profile\) === true/.test(srcInt) && /compte\.bloque/.test(srcInt)
     && /<InterventionsDuChantier c=\{c\} db=\{db\} profile=\{profile\} save=\{save\}/.test(srcCi) && /<InterventionsDuChantier c=\{c\}/.test(readFileSync("src/screens/Travaux.jsx", "utf8"))
     && /peutVoirStatistiques\(profile\) &&/.test(srcCi) && /boutiqueDuChantier\(db, c\) === profile\.boutique/.test(srcCi));
+}
+
+titre("📖 LA CHARTE DES LISTES (Timo, 18/11/2026, « Oui, fais les trois couches ») : un écran qui l'a adoptée n'a plus de bouton rond ; la liste des écrans encore à reprendre est écrite, et tout nouveau venu fait tomber le contrôle");
+{
+  const { readdirSync, statSync } = await import("node:fs");
+  const fichiers = (dir) => readdirSync(dir).flatMap((n) => { const c = join(dir, n); return statSync(c).isDirectory() ? fichiers(c) : (c.endsWith(".jsx") ? [c] : []); });
+  const tous = [...fichiers("src/screens"), ...fichiers("src/components")].filter((f) => !f.endsWith("ui.jsx") && !f.endsWith("ListeCarnet.jsx"));
+  const ronds = (f) => /<BoutonRond|boutonAction\(/.test(readFileSync(f, "utf8"));
+  const adoptes = tous.filter((f) => readFileSync(f, "utf8").includes("<ListeCarnet"));
+  // À REPRENDRE : ces écrans portent encore des boutons ronds. Quand l'un est refait avec ListeCarnet, on le RETIRE d'ici (le contrôle tombe s'il reste dans la liste sans en avoir besoin).
+  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Clients.jsx", "src/screens/ClientsInstalles.jsx", "src/screens/Commandes.jsx", "src/screens/Commerciaux.jsx", "src/screens/Depenses.jsx", "src/screens/Fournisseurs.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Salaires.jsx", "src/screens/Stocks.jsx", "src/screens/Travaux.jsx", "src/screens/Utilisateurs.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
+  const enRonds = tous.filter(ronds).sort();
+  const nouveaux = enRonds.filter((f) => !A_REPRENDRE.includes(f) && !adoptes.includes(f));
+  const refaits = A_REPRENDRE.filter((f) => !ronds(f));
+  console.log(`   ℹ️  écrans qui suivent la charte : ${adoptes.map((f) => f.replace("src/screens/", "")).join(", ") || "aucun"} — encore à reprendre (${A_REPRENDRE.length}) : ${A_REPRENDRE.map((f) => f.replace(/^src\/(screens|components)\//, "").replace(".jsx", "")).join(", ")}`);
+  test("★ charte des listes : un écran qui utilise ListeCarnet n'a plus aucun bouton rond (BoutonRond, boutonAction)", adoptes.length >= 1 && adoptes.every((f) => !ronds(f)));
+  test("★ charte des listes : aucun NOUVEL écran avec des boutons ronds hors de la liste « à reprendre » (il suit la charte : ListeCarnet + BoutonGeste)" + (nouveaux.length ? " — FAUTIFS : " + nouveaux.join(", ") : ""), nouveaux.length === 0);
+  test("★ charte des listes : un écran refait (plus de bouton rond) est RETIRÉ de la liste « à reprendre »" + (refaits.length ? " — À RETIRER : " + refaits.join(", ") : ""), refaits.length === 0);
+  test("★ charte des listes : ListeCarnet écrit la table (colonne figée, À faire, détail) ET la carte du téléphone, une seule des deux dans la page", /\bif \(telephone\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /<table/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /enTeteFige\(/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")) && /<CelluleActions/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8")));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
