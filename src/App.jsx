@@ -17,7 +17,7 @@ import { Stocks } from "./screens/Stocks";
 import { BoutiqueTabs } from "./components/SelecteurBoutique";
 import { SelecteurArticle } from "./components/SelecteurArticle";
 import { CarteChoixPosition } from "./components/Carte";
-import { RechercheGlobale } from "./components/RechercheGlobale";
+import { RechercheGlobale, BarreRecherche } from "./components/RechercheGlobale";
 // Timo (12/09/2026) : « appui long et on déplace, tout court » — l'ordre des
 // onglets est personnel (fiche, `ordre_onglets`), règle pure lib/ordreOnglets.js.
 import { OngletsDeplacables } from "./components/OngletsDeplacables";
@@ -1990,11 +1990,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-            {/* 🔍 Timo (21/11/2026) : sur ordinateur, la recherche est une barre arrondie au milieu de la première ligne ; un clic ouvre la même fenêtre qu'avant. */}
-            {BARRE_RECHERCHE && <button type="button" data-barre-recherche onClick={() => setRechercheOuverte(true)} aria-label="Rechercher"
-              className="hidden lg:flex flex-1 min-w-0 max-w-xs mx-auto items-center gap-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 text-sm text-slate-400 text-left">
-              <span aria-hidden="true">🔍</span><span className="truncate">Rechercher un article…</span>
-            </button>}
             <div className="flex items-center gap-3 shrink-0">
               {peutRegarderLaFormation && regardeFormation && (
                 <span className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold bg-violet-600 text-white"
@@ -2019,6 +2014,7 @@ export default function App() {
           {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
               plutôt qu'un empilement désordonné quand tout ne tient pas. */}
           <div className="px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
+            {BARRE_RECHERCHE && <span className="hidden lg:block shrink-0"><BarreRecherche db={db} profile={profile} onNaviguer={(t) => setTab(t)} /></span>}
             <button onClick={() => setRechercheOuverte(true)} className={`shrink-0 ${BARRE_RECHERCHE ? "lg:hidden" : ""} px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold`} aria-label="Rechercher">🔍{!BARRE_RECHERCHE && <span className="hidden lg:inline"> Rechercher…</span>}</button>
             {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
             {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}

@@ -3,7 +3,7 @@
 // produits, devis, clients, prospects) avec la même visibilité que
 // les écrans respectifs. Aiguillage rapide, pas un rapport complet.
 // ============================================================
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { libelleTypeDevis } from "../screens/TousLesDevis";
 import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
@@ -138,14 +138,8 @@ export function grouperProduitsParBoutique(produits, maBoutique = "") {
     .map(([boutique, items]) => ({ boutique, items: [...items].sort((x, y) => comparerFr(x.nom, y.nom)).slice(0, PRODUITS_PAR_BOUTIQUE) }));
 }
 
-// Modale de recherche globale : ouverte depuis la loupe toujours visible en
-// haut de l'application. Cherche en direct dans plusieurs catégories à la
-// fois, et amène à l'onglet correspondant d'un clic.
-// `texteInitial` : pour le banc seul (l'écran RENDU avec une recherche tapée).
-export function RechercheGlobale({ db, profile, onFermer, onNaviguer, texteInitial = "" }) {
-  const [texte, setTexte] = useState(texteInitial);
-  const resultats = rechercherGlobalement(db, profile, texte);
-
+// Les résultats eux-mêmes : écrits UNE fois, lus par la fenêtre de la loupe ET par la barre de l'en-tête.
+function ResultatsRecherche({ db, texte, resultats, onNaviguer }) {
   const Categorie = ({ titre, tab, items, rendu }) => items.length === 0 ? null : (
     <div className="mb-3">
       <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">{titre}</div>
@@ -158,6 +152,97 @@ export function RechercheGlobale({ db, profile, onFermer, onNaviguer, texteIniti
       </div>
     </div>
   );
+
+  return (
+    <>
+      {texte.trim().length < 2 ? (
+        <div className="text-sm text-slate-400 text-center py-8">Tapez au moins 2 lettres pour lancer la recherche.</div>
+      ) : resultats.total === 0 ? (
+        <div className="text-sm text-slate-400 text-center py-8">Aucun résultat pour « {texte} ».</div>
+      ) : (
+        <>
+          <Categorie titre="👤 Clients" tab="clients" items={resultats.clients} rendu={(u) => (
+            <>
+              <span className="font-semibold text-sm">{u.nom_base || u.nom}</span>
+              <span className="text-xs text-slate-400">{u.tel || ""}</span>
+            </>
+          )} />
+          <Categorie titre="🧾 Ventes" tab="ventes" items={resultats.ventes} rendu={(v) => (
+            <>
+              <span className="text-sm"><span className="font-mono text-xs text-slate-500">{numeroRecu(v)}</span> — <span className="font-semibold">{v.client || "Client"}</span></span>
+              <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(totalVente(v))}</span>
+            </>
+          )} />
+          <Categorie titre="📄 Proformas" tab="ventes" items={resultats.proformas} rendu={(pf) => (
+            <>
+              <span className="text-sm"><span className="font-mono text-xs text-slate-500">{pf.numero}</span> — <span className="font-semibold">{pf.client || "Client"}</span></span>
+              <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(pf.total)}</span>
+            </>
+          )} />
+          {resultats.produits.length > 0 && (
+            <div className="mb-3" data-produits-par-boutique>
+              <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">📦 Produits</div>
+              {resultats.produitsParBoutique.map((g) => (
+                <div key={g.boutique} className="mb-2" data-groupe-boutique={g.boutique}>
+                  <div className="px-1 mb-1"><Badge boutique={g.boutique} /></div>
+                  <div className="space-y-1">
+                    {g.items.map((p, i) => (
+                      <button key={p.id || i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100 flex items-center justify-between gap-2">
+                        {/* Le prix et le stock accompagnent l'article (Timo, 08/09/2026 :
+                            « le prix n'est pas accompagné »). */}
+                        <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span></span>
+                        <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(p.prix_vente)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {resultats.autresBoutiques.length > 0 && (
+            <div className="mb-3" data-stock-autres-boutiques>
+              <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">📍 Stock des autres boutiques</div>
+              {resultats.autresBoutiques.map((g) => (
+                <div key={g.boutique} className="mb-2" data-autre-boutique={g.boutique}>
+                  <div className="px-1 mb-1"><Badge boutique={g.boutique} /></div>
+                  <div className="space-y-1">
+                    {g.items.map((a, i) => (
+                      <button key={i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100 flex items-center justify-between gap-2" data-stock-ailleurs>
+                        <span className="text-sm"><span className="font-semibold">{a.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {a.stock} en stock</span></span>
+                        {!a.chezMoi && <span className="text-xs text-amber-700 whitespace-nowrap" data-pas-chez-moi>pas chez vous</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="text-xs text-slate-400 px-1 mt-1">Pour en obtenir : 📦 Stocks → ⇄ → « 📨 Demander à une autre boutique », ou depuis une vente.</div>
+            </div>
+          )}
+          <Categorie titre="📋 Devis" tab="tous_devis" items={resultats.devis} rendu={(d) => (
+            <>
+              <span className="text-sm"><span className="font-semibold">{d.client?.nom_base || d.client?.nom}</span> — {libelleTypeDevis(d)}</span>
+              <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(d.total)}</span>
+            </>
+          )} />
+          <Categorie titre="🧲 Prospects" tab="prospects" items={resultats.prospects} rendu={(p) => (
+            <>
+              <span className="font-semibold text-sm">{p.nom}</span>
+              <span className="text-xs text-slate-400">{p.tel || ""}</span>
+            </>
+          )} />
+        </>
+      )}
+    </>
+  );
+}
+
+// Modale de recherche globale : ouverte depuis la loupe toujours visible en
+// haut de l'application. Cherche en direct dans plusieurs catégories à la
+// fois, et amène à l'onglet correspondant d'un clic.
+// `texteInitial` : pour le banc seul (l'écran RENDU avec une recherche tapée).
+export function RechercheGlobale({ db, profile, onFermer, onNaviguer, texteInitial = "" }) {
+  const [texte, setTexte] = useState(texteInitial);
+  const resultats = rechercherGlobalement(db, profile, texte);
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 flex items-start justify-center p-4 pt-16 sm:pt-24" onClick={onFermer}>
@@ -174,85 +259,58 @@ export function RechercheGlobale({ db, profile, onFermer, onNaviguer, texteIniti
           <button onClick={onFermer} className="px-2 py-1 rounded-lg text-slate-400 hover:bg-slate-100 text-sm">✕</button>
         </div>
         <div className="overflow-y-auto p-3">
-          {texte.trim().length < 2 ? (
-            <div className="text-sm text-slate-400 text-center py-8">Tapez au moins 2 lettres pour lancer la recherche.</div>
-          ) : resultats.total === 0 ? (
-            <div className="text-sm text-slate-400 text-center py-8">Aucun résultat pour « {texte} ».</div>
-          ) : (
-            <>
-              <Categorie titre="👤 Clients" tab="clients" items={resultats.clients} rendu={(u) => (
-                <>
-                  <span className="font-semibold text-sm">{u.nom_base || u.nom}</span>
-                  <span className="text-xs text-slate-400">{u.tel || ""}</span>
-                </>
-              )} />
-              <Categorie titre="🧾 Ventes" tab="ventes" items={resultats.ventes} rendu={(v) => (
-                <>
-                  <span className="text-sm"><span className="font-mono text-xs text-slate-500">{numeroRecu(v)}</span> — <span className="font-semibold">{v.client || "Client"}</span></span>
-                  <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(totalVente(v))}</span>
-                </>
-              )} />
-              <Categorie titre="📄 Proformas" tab="ventes" items={resultats.proformas} rendu={(pf) => (
-                <>
-                  <span className="text-sm"><span className="font-mono text-xs text-slate-500">{pf.numero}</span> — <span className="font-semibold">{pf.client || "Client"}</span></span>
-                  <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(pf.total)}</span>
-                </>
-              )} />
-              {resultats.produits.length > 0 && (
-                <div className="mb-3" data-produits-par-boutique>
-                  <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">📦 Produits</div>
-                  {resultats.produitsParBoutique.map((g) => (
-                    <div key={g.boutique} className="mb-2" data-groupe-boutique={g.boutique}>
-                      <div className="px-1 mb-1"><Badge boutique={g.boutique} /></div>
-                      <div className="space-y-1">
-                        {g.items.map((p, i) => (
-                          <button key={p.id || i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100 flex items-center justify-between gap-2">
-                            {/* Le prix et le stock accompagnent l'article (Timo, 08/09/2026 :
-                                « le prix n'est pas accompagné »). */}
-                            <span className="text-sm"><span className="font-semibold">{p.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {stockActuel(db, p)} en stock</span></span>
-                            <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(p.prix_vente)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {resultats.autresBoutiques.length > 0 && (
-                <div className="mb-3" data-stock-autres-boutiques>
-                  <div className="text-xs font-bold text-slate-500 uppercase px-1 mb-1">📍 Stock des autres boutiques</div>
-                  {resultats.autresBoutiques.map((g) => (
-                    <div key={g.boutique} className="mb-2" data-autre-boutique={g.boutique}>
-                      <div className="px-1 mb-1"><Badge boutique={g.boutique} /></div>
-                      <div className="space-y-1">
-                        {g.items.map((a, i) => (
-                          <button key={i} onClick={() => onNaviguer("stocks")} className="w-full text-left px-3 py-2 rounded-lg hover:bg-sky-50 border border-slate-100 flex items-center justify-between gap-2" data-stock-ailleurs>
-                            <span className="text-sm"><span className="font-semibold">{a.nom}</span> <span className="text-xs text-slate-500 whitespace-nowrap">— {a.stock} en stock</span></span>
-                            {!a.chezMoi && <span className="text-xs text-amber-700 whitespace-nowrap" data-pas-chez-moi>pas chez vous</span>}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  <div className="text-xs text-slate-400 px-1 mt-1">Pour en obtenir : 📦 Stocks → ⇄ → « 📨 Demander à une autre boutique », ou depuis une vente.</div>
-                </div>
-              )}
-              <Categorie titre="📋 Devis" tab="tous_devis" items={resultats.devis} rendu={(d) => (
-                <>
-                  <span className="text-sm"><span className="font-semibold">{d.client?.nom_base || d.client?.nom}</span> — {libelleTypeDevis(d)}</span>
-                  <span className="text-xs font-bold text-sky-800 whitespace-nowrap">{fmt(d.total)}</span>
-                </>
-              )} />
-              <Categorie titre="🧲 Prospects" tab="prospects" items={resultats.prospects} rendu={(p) => (
-                <>
-                  <span className="font-semibold text-sm">{p.nom}</span>
-                  <span className="text-xs text-slate-400">{p.tel || ""}</span>
-                </>
-              )} />
-            </>
-          )}
+          <ResultatsRecherche db={db} texte={texte} resultats={resultats} onNaviguer={onNaviguer} />
         </div>
       </div>
+    </div>
+  );
+}
+
+// 🔍 Timo (21/11/2026) : « une vraie barre de recherche : on tape directement dans la barre ».
+// Une VRAIE case de saisie dans l'en-tête (ordinateur) ; les résultats tombent juste dessous
+// (même contenu que la fenêtre de la loupe : ResultatsRecherche). Un clic ailleurs, Échap ou le
+// choix d'un résultat referme la liste. `texteInitial` / `ouverteInitiale` : pour le banc seul.
+export function BarreRecherche({ db, profile, onNaviguer, texteInitial = "", ouverteInitiale = false }) {
+  const [texte, setTexte] = useState(texteInitial);
+  const [ouverte, setOuverte] = useState(ouverteInitiale);
+  const [pos, setPos] = useState(null);
+  const racine = useRef(null);
+  const resultats = rechercherGlobalement(db, profile, texte);
+  const placer = () => {
+    const r = racine.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 8 - Math.min(576, window.innerWidth - 16))) });
+  };
+  useEffect(() => {
+    if (!ouverte) return undefined;
+    const dehors = (e) => { if (racine.current && !racine.current.contains(e.target)) setOuverte(false); };
+    document.addEventListener("mousedown", dehors);
+    window.addEventListener("resize", placer);
+    return () => { document.removeEventListener("mousedown", dehors); window.removeEventListener("resize", placer); };
+  }, [ouverte]);
+  const aller = (t) => { setOuverte(false); setTexte(""); onNaviguer(t); };
+  return (
+    <div ref={racine} data-barre-recherche className="relative w-80 shrink-0">
+      <div className="flex items-center gap-2 rounded-full bg-slate-800 border border-slate-600 px-4 py-1.5 focus-within:border-sky-400">
+        <span aria-hidden="true" className="text-slate-400">🔍</span>
+        <input
+          type="text"
+          data-barre-recherche-champ
+          aria-label="Rechercher"
+          className="flex-1 min-w-0 bg-transparent outline-none text-sm text-white placeholder:text-slate-400"
+          placeholder="Rechercher un client, un article, un devis…"
+          value={texte}
+          onFocus={() => { placer(); setOuverte(true); }}
+          onChange={(e) => { setTexte(e.target.value); placer(); setOuverte(true); }}
+          onKeyDown={(e) => { if (e.key === "Escape") { setOuverte(false); setTexte(""); e.currentTarget.blur(); } }}
+        />
+        {texte && <button type="button" aria-label="Effacer la recherche" onClick={() => { setTexte(""); setOuverte(false); }} className="text-slate-400 hover:text-white text-xs">✕</button>}
+      </div>
+      {ouverte && texte.trim().length >= 2 && (
+        <div data-barre-recherche-resultats className="fixed z-[60] bg-white text-slate-800 rounded-xl shadow-xl border border-slate-200 max-h-[70vh] overflow-y-auto p-3"
+             style={{ top: (pos || { top: 0 }).top, left: (pos || { left: 0 }).left, width: Math.min(576, (typeof window !== "undefined" ? window.innerWidth : 600) - 16) }}>
+          <ResultatsRecherche db={db} texte={texte} resultats={resultats} onNaviguer={aller} />
+        </div>
+      )}
     </div>
   );
 }

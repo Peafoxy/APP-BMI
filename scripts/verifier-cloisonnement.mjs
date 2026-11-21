@@ -16648,6 +16648,11 @@ titre("📍 LA LOUPE MONTRE LE STOCK DES AUTRES BOUTIQUES À QUI A UNE BOUTIQUE 
   const ang = { id: "g1", nom: "ANGELE", role: "gerant", boutique: "BMI DEMAKPOE" };
   const r = RRa?.rechercherGlobalement ? RRa.rechercherGlobalement(db, ang, "moteur") : null;
   const h = (() => { try { return String(RRa?.rendreRecherche(db, ang, "moteur") || ""); } catch (e) { return "ERREUR " + e.message; } })();
+  const hb = (() => { try { return String(RRa?.rendreBarre(db, ang, "moteur", true) || ""); } catch (e) { return "ERREUR " + e.message; } })();
+  const hbFerme = (() => { try { return String(RRa?.rendreBarre(db, ang, "moteur", false) || ""); } catch (e) { return "ERREUR " + e.message; } })();
+  const hbCourt = (() => { try { return String(RRa?.rendreBarre(db, ang, "m", true) || ""); } catch (e) { return "ERREUR " + e.message; } })();
+  test("★ 🔍 la barre RENDUE : une vraie case de saisie qui porte le texte tapé, et sous elle les MÊMES résultats que la fenêtre (articles de SA boutique d'abord, puis le stock des autres)", /<input[^>]*data-barre-recherche-champ[^>]*value="moteur"/.test(hb) && hb.includes("data-barre-recherche-resultats") && hb.includes("data-produits-par-boutique") && hb.includes('data-groupe-boutique="BMI DEMAKPOE"') && hb.indexOf('data-groupe-boutique="BMI DEMAKPOE"') < hb.indexOf('data-autre-boutique="BMI APESSITO"'));
+  test("★ 🔍 la barre : la liste ne s'ouvre pas tant qu'on n'a pas tapé 2 lettres, ni quand elle est refermée", !hbFerme.includes("data-barre-recherche-resultats") && !hbCourt.includes("data-barre-recherche-resultats"));
   // ⚠ RETOURNÉ le 31/10/2026 (« faire afficher sa boutique d'abord, ensuite le stock d'ailleurs ») :
   // plus de « 📍 Ailleurs » sous SES lignes — un bloc À PART, après sa boutique, rangé par boutique.
   const posMien = h.indexOf('data-produits-par-boutique'), posAutres = h.indexOf('data-stock-autres-boutiques');
@@ -20479,7 +20484,7 @@ titre("🧾 COMMANDES : les quatre listes suivent la charte (19/11/2026, « Oui,
 {
   const app = readFileSync("src/App.jsx", "utf8");
   const cst = readFileSync("src/lib/constants.js", "utf8");
-  test("★ 🔍 la barre de recherche (ordinateur) est posée dans la première ligne de l'en-tête, avant le bloc « Verrouiller », et ouvre LA fenêtre de recherche", /BARRE_RECHERCHE && <button type="button" data-barre-recherche onClick=\{\(\) => setRechercheOuverte\(true\)\}/.test(app) && app.indexOf("data-barre-recherche") < app.indexOf("<HeureServeur sombre"));
+  test("★ 🔍 la barre de recherche (ordinateur) est une VRAIE case de saisie posée sur la MÊME ligne que Synchroniser / Se déconnecter, après la loupe cachée sur ordinateur, et on tape directement dedans (plus de fenêtre)", /<BarreRecherche db=\{db\} profile=\{profile\}/.test(app) && app.indexOf("<BarreRecherche") > app.indexOf("Écran d'accueil") && app.indexOf("<BarreRecherche") < app.indexOf("Synchronisation…") && /<input\s+type="text"\s+data-barre-recherche-champ/.test(readFileSync("src/components/RechercheGlobale.jsx", "utf8")) && !/data-barre-recherche onClick/.test(app));
   test("★ 🔍 l'interrupteur BARRE_RECHERCHE existe (true) et, à false, l'ancien bouton « 🔍 Rechercher… » de la deuxième ligne revient (retour à la loupe sans rien d'autre à toucher)", /export const BARRE_RECHERCHE = true;/.test(cst) && /\$\{BARRE_RECHERCHE \? "lg:hidden" : ""\}/.test(app) && /!BARRE_RECHERCHE && <span className="hidden lg:inline"> Rechercher…<\/span>/.test(app));
 }
 
