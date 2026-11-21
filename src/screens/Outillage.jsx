@@ -20,7 +20,8 @@ import { fmt, dFR, today, uid, nouveauMessage, envoyerWhatsApp, totalVente } fro
 import { peutEcrireDeSonNumero } from "../lib/numeroPersonnel";
 import { chiffresTel } from "../lib/identiteClient";
 import { ficheParId } from "../lib/banques";
-import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, boutonAction, enTeteFige, celluleFigee, classeLigneDepliable, IconeWhatsApp, champRecherche, PanneauQuiSeMontre, BoutonGeste, LigneGestes, NoteDepliable } from "../components/ui";
+import { ListeCarnet, useTelephone, GestesLigne, GestesDetail } from "../components/ListeCarnet";
+import { Field, inputCls, btnDark, Panel, Stat, uAlert, uConfirm, uPrompt, uChoix, demanderMois, AucuneBoutique, IconeWhatsApp, champRecherche, PanneauQuiSeMontre, BoutonGeste, NoteDepliable } from "../components/ui";
 import { ChampSuggestions } from "../components/ChampSuggestions";
 import { correspond } from "../lib/suggestions";
 // ⚠ La dépense de réparation passe par LA fabrique des dépenses : validation
@@ -289,7 +290,7 @@ function PanneauComptage({ outil, compte, setCompte, pourRetour, onValider, onAn
   );
 }
 
-export function Outillage({ db, save, profile }) {
+export function Outillage({ db, save, profile, telephoneInitial = false, outilDeplieInitial = "" }) {
   const [f, setF] = useState(sortieVide);
   const [neuf, setNeuf] = useState(null);      // formulaire « ➕ Ajouter un outil »
   const [q, setQ] = useState("");
@@ -298,7 +299,8 @@ export function Outillage({ db, save, profile }) {
   // ⚠ Timo, 18/09/2026 : « à qui on rend l'outil n'est pas mentionné ». La
   // personne était enregistrée mais invisible. UN clic sur la ligne ouvre
   // l'histoire de l'outil — la règle du dépliage de 💰 Ventes et 📋 Dettes.
-  const [outilDeplie, setOutilDeplie] = useState("");
+  const [outilDeplie, setOutilDeplie] = useState(outilDeplieInitial);
+  const telephone = useTelephone(telephoneInitial);
   // ⚠ Timo, 18/09/2026 (capture des carrés) : « lorsqu'on clique dessus » —
   // chaque carré ouvre SA liste, avec les colonnes qui répondent à SA
   // question. « Dehors » d'office : c'est ce qu'on regarde tous les jours.
@@ -906,37 +908,36 @@ export function Outillage({ db, save, profile }) {
   // « Construit, lance ») : Mouvement · Atelier · Fiche. Mêmes gestes, mêmes
   // droits qu'avant — seul l'habillage change ; une ligne vide ne s'affiche pas.
   // Écrit UNE fois : lu par le tableau (ordinateur) ET la carte (téléphone).
-  const gestesOutil = (o, etat, perte, mode) => (
-    <div className="flex flex-col gap-1.5" data-gestes-outil>
-      <LigneGestes nom="Mouvement">
-        {jePeux && (etat === "sorti" || etat === "reparation") && (
-          <BoutonGeste icone="📥" teinte="vert" titre={etat === "reparation" ? "Revenu de réparation" : "Enregistrer le retour"} nom={etat === "reparation" ? "Revenu de réparation" : "Retour"}
-            onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
-              ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: payeAvecDOffice(o) })
-              : rendre(o))} />
-        )}
-        {jePeux && etat === "sorti" && <BoutonGeste icone="🏗" titre="Changer le chantier (sans le ramener)" nom="Changer le chantier" onClick={() => changerLeChantier(o)} />}
-        {peutCompterBoite(o, profile) && etat === "sorti" && <BoutonGeste icone="🔢" titre="Compter la boîte" nom="Compter la boîte" onClick={() => setCompter({ outil_id: o.id, pourRetour: false, valeurs: {} })} />}
-      </LigneGestes>
-      <LigneGestes nom="Atelier">
-        {vue === "perdus" && jeSuisAdmin && perte && <BoutonGeste icone="✏️" titre="Combien lui demander ?" nom="Combien lui demander" onClick={() => fixerMontant(o)} />}
-        {vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir(perte) > 0 && <BoutonGeste icone="💵" teinte="rouge" titre="Retenir sur son salaire" nom="Retenir sur son salaire" onClick={() => retenir(o)} />}
-        {jePeux && etat === "en_boutique" && <BoutonGeste icone="🔧" teinte="ambre" titre="Partir en réparation" nom="Réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: payeAvecDOffice(o) })} />}
-        {jePeux && !["perdu", "reforme"].includes(etat) && <BoutonGeste icone="⚠" teinte="rouge" titre="Déclarer perdu" nom="Perdu" onClick={() => perdre(o)} />}
-        {jeSuisAdmin && !["perdu", "reforme"].includes(etat) && <BoutonGeste icone="🗑" titre="Réformer (usé, cassé)" nom="Réformer" onClick={() => reformer(o)} />}
-      </LigneGestes>
-      <LigneGestes nom="Fiche">
-        {jeSuisAdmin && vue === "tous" && outilRange(o) && (
-          <BoutonGeste icone="✏️" titre="Corriger la fiche (nom, numéro gravé, prix…)" nom="Corriger"
-            onClick={() => setFiche({ outil_id: o.id, nom: o.nom || "", numero: o.numero || "", categorie: o.categorie || "", achete_le: o.achete_le || "", prix_achat: String(o.prix_achat || "") })} />
-        )}
-        {estBoite(o) && !["perdu", "reforme"].includes(etat) && (
-          <BoutonGeste icone="🧰" titre="Ce que contient la boîte" nom="Contenu" onClick={() => setContenu({ outil_id: o.id, nom: "", quantite: "1", valeur: "" })} />
-        )}
-        {jeSuisPrincipal && outilRange(o) && <BoutonGeste icone="✖" teinte="rouge" titre="Retirer cette fiche du registre (créée par erreur)" nom="Retirer la fiche" onClick={() => supprimer(o)} />}
-      </LigneGestes>
-    </div>
-  );
+  // 📖 La charte « carnet » (21/11/2026, « Oui, lance les trois ») : les gestes d'un outil sont un OBJET ;
+  // « À faire » porte celui du moment (le retour d'un outil sorti, le montant d'une perte), le reste
+  // est dans « ▸ Détail », rangé en trois lignes. Les droits (jePeux, jeSuisAdmin, jeSuisPrincipal,
+  // peutCompterBoite, outilRange) sont ceux d'avant, revérifiés dans chaque geste.
+  const infosOutil = (o) => { const perte = perteDe(o); return { etat: etatOutil(o), perte, mode: modeRetenue(perte && perte.user_id ? ficheParId(db.users, perte.user_id) : null) }; };
+  const gestesOutil = (o) => {
+    const { etat, perte, mode } = infosOutil(o);
+    return {
+      retour: jePeux && (etat === "sorti" || etat === "reparation") ? (
+        <BoutonGeste data-geste-retour icone="📥" teinte="vert" titre={etat === "reparation" ? "Revenu de réparation" : "Enregistrer le retour"} nom={etat === "reparation" ? "Revenu de réparation" : "Retour"}
+          onClick={() => (etat === "reparation" && !depenseDeLaReparation(o)
+            ? setRetourRep({ outil_id: o.id, prix: String((reparationEnCours(o) || {}).prix || ""), paiement: "Espèces", paye_avec: payeAvecDOffice(o) })
+            : rendre(o))} />) : null,
+      chantier: jePeux && etat === "sorti" ? <BoutonGeste icone="🏗" titre="Changer le chantier (sans le ramener)" nom="Changer le chantier" onClick={() => changerLeChantier(o)} /> : null,
+      compter: peutCompterBoite(o, profile) && etat === "sorti" ? <BoutonGeste icone="🔢" titre="Compter la boîte" nom="Compter la boîte" onClick={() => setCompter({ outil_id: o.id, pourRetour: false, valeurs: {} })} /> : null,
+      montant: vue === "perdus" && jeSuisAdmin && perte ? <BoutonGeste icone="✏️" titre="Combien lui demander ?" nom="Combien lui demander" onClick={() => fixerMontant(o)} /> : null,
+      retenir: vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir(perte) > 0 ? <BoutonGeste icone="💵" teinte="rouge" titre="Retenir sur son salaire" nom="Retenir sur son salaire" onClick={() => retenir(o)} /> : null,
+      reparation: jePeux && etat === "en_boutique" ? <BoutonGeste icone="🔧" teinte="ambre" titre="Partir en réparation" nom="Réparation" onClick={() => setRepar({ outil_id: o.id, reparateur: "", tel: "", panne: "", prix: "", paiement: "Espèces", paye_avec: payeAvecDOffice(o) })} /> : null,
+      perdu: jePeux && !["perdu", "reforme"].includes(etat) ? <BoutonGeste icone="⚠" teinte="rouge" titre="Déclarer perdu" nom="Perdu" onClick={() => perdre(o)} /> : null,
+      reformer: jeSuisAdmin && !["perdu", "reforme"].includes(etat) ? <BoutonGeste icone="🗑" titre="Réformer (usé, cassé)" nom="Réformer" onClick={() => reformer(o)} /> : null,
+      corriger: jeSuisAdmin && vue === "tous" && outilRange(o) ? (
+        <BoutonGeste icone="✏️" titre="Corriger la fiche (nom, numéro gravé, prix…)" nom="Corriger"
+          onClick={() => setFiche({ outil_id: o.id, nom: o.nom || "", numero: o.numero || "", categorie: o.categorie || "", achete_le: o.achete_le || "", prix_achat: String(o.prix_achat || "") })} />) : null,
+      contenu: estBoite(o) && !["perdu", "reforme"].includes(etat) ? <BoutonGeste icone="🧰" titre="Ce que contient la boîte" nom="Contenu" onClick={() => setContenu({ outil_id: o.id, nom: "", quantite: "1", valeur: "" })} /> : null,
+      retirer: jeSuisPrincipal && outilRange(o) ? <BoutonGeste icone="✖" teinte="rouge" titre="Retirer cette fiche du registre (créée par erreur)" nom="Retirer la fiche" onClick={() => supprimer(o)} /> : null,
+    };
+  };
+  const LIGNES_GESTES_OUTIL = [["Mouvement", ["retour", "chantier", "compter"]], ["Atelier", ["montant", "retenir", "reparation", "perdu", "reformer"]], ["Fiche", ["corriger", "contenu", "retirer"]]];
+  // Le geste du moment : le retour d'un outil sorti (ou revenu de réparation) ; dans les perdus, le montant demandé.
+  const momentOutil = (o) => { const g = gestesOutil(o); return g.retour ? "retour" : g.montant ? "montant" : null; };
 
   // 🕘 L'histoire d'un outil (écrite une fois : la ligne dépliée ET la carte téléphone).
   const histoireDe = (o, perte) => (
@@ -981,6 +982,84 @@ export function Outillage({ db, save, profile }) {
                             )}
     </>
   );
+
+  const nomOutil = (o) => (<div className="font-semibold">{o.nom}{o.numero && <div className="text-xs font-normal text-slate-500">N° {o.numero}</div>}
+    {estBoite(o) && <div className={`text-xs font-normal ${manquesEnCours(o).length ? "text-red-700 font-bold" : "text-slate-500"}`}>🧰 boîte — {nbContenu(o)} pièce(s){manquesEnCours(o).length ? ` · il en manque ${manquesEnCours(o).reduce((t, m) => t + m.manque, 0)}` : ""}</div>}</div>);
+  const pastilleEtat = (o) => { const etat = etatOutil(o); return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${(ETATS_OUTIL[etat] || {}).teinte || ""}`}>{libelleEtat(etat)}</span>; };
+  const COLONNES_VUE = {
+    tous: [
+      { titre: "N°", classe: "text-slate-600", cellule: (o) => o.numero || "—" },
+      { titre: "Catégorie", classe: "text-slate-600", cellule: (o) => o.categorie || "—" },
+      { titre: "État", cellule: (o) => pastilleEtat(o) },
+      { titre: "Où", cellule: (o) => { const ouLu = lieuOutil(o); return (<>{ouLu.type === "personne" ? <span className="text-sky-800 font-semibold">chez {ouLu.nom}</span> : <span className="text-slate-700">{ouLu.nom || "—"}</span>}
+        {ouLu.type === "personne" && lieuDeRangement(o) && <div className="text-xs text-slate-500">revient à {lieuDeRangement(o)}</div>}</>); } },
+      { titre: "Chez qui / rendu à", cellule: (o) => { const d = detenteurOutil(o); const rendu = dernierRetour(o); return d ? <>{d.nom}</> : rendu ? <span className="text-slate-600">rendu à <b>{rendu.par || "—"}</b><div className="text-xs text-slate-500">le {dFR(rendu.le)}</div></span> : "—"; } },
+      { titre: "Prix d'achat", align: "right", classe: "tabular-nums", cellule: (o) => (o.prix_achat ? fmt(o.prix_achat) : "—") },
+    ],
+    dehors: [
+      { titre: "Chez qui", classe: "font-semibold", cellule: (o) => { const so = sortieEnCours(o); return so ? <>{so.user}<div className="text-xs font-normal text-slate-500">remis par {so.par || "—"}{lieuDeRangement(o) ? ` · revient à ${lieuDeRangement(o)}` : ""}</div></> : "—"; } },
+      { titre: "Chantier", classe: "text-slate-600", cellule: (o) => <>{chantierEnCours(o) || "—"}{chantiersDeLaSortie(o).length > 0 && <div className="text-xs text-slate-400">changé {chantiersDeLaSortie(o).length} fois</div>}</> },
+      { titre: "Depuis", classe: "tabular-nums", cellule: (o) => { const so = sortieEnCours(o); return so ? <>{dFR(so.le)}<div className="text-xs text-slate-500">{joursDehors(o, jour)} j</div></> : "—"; } },
+      { titre: "Retour prévu", cellule: (o) => { const so = sortieEnCours(o); const tard = enRetard(o, jour); return <span className={`tabular-nums ${tard ? "text-red-700 font-bold" : ""}`}>{so && so.retour_prevu ? dFR(so.retour_prevu) : "—"}{tard && <div className="text-xs">⚠ en retard</div>}</span>; } },
+    ],
+    retard: [
+      { titre: "Chez qui", classe: "font-semibold", cellule: (o) => (sortieEnCours(o) || {}).user || "—" },
+      { titre: "Retour prévu", classe: "tabular-nums text-red-700 font-bold", cellule: (o) => { const so = sortieEnCours(o); return so ? dFR(so.retour_prevu) : "—"; } },
+      { titre: "Retard", classe: "tabular-nums text-red-700 font-bold", cellule: (o) => `${joursDeRetard(o, jour)} j` },
+      { titre: "Pourquoi ce n'est pas rentré", cellule: (o) => { const just = derniereJustification(o); return just ? <span className="text-slate-800">{just.texte}<div className="text-xs text-slate-500">dit par {just.par} le {dFR(just.le)}</div></span> : <span className="text-red-700 font-semibold">⏳ Pas encore justifié</span>; } },
+    ],
+    reparation: [
+      { titre: "Chez quel réparateur", classe: "font-semibold", cellule: (o) => (reparationEnCours(o) || {}).reparateur || "—" },
+      { titre: "Son numéro", cellule: (o) => { const rep = reparationEnCours(o); return rep && rep.tel ? (
+        <span className="inline-flex items-center gap-2">{rep.tel}
+          {peutEcrireDeSonNumero(profile) && <BoutonGeste icone={<IconeWhatsApp taille={14} />} nom="WhatsApp" teinte="vert" titre="Écrire sur WhatsApp" onClick={(e) => { e.stopPropagation(); envoyerWhatsApp(chiffresTel(rep.tel), ""); }} />}
+        </span>) : "—"; } },
+      { titre: "La panne", classe: "text-slate-600", cellule: (o) => (reparationEnCours(o) || {}).panne || "—" },
+      { titre: "Prix", align: "right", classe: "tabular-nums", cellule: (o) => { const rep = reparationEnCours(o); return rep && rep.prix ? fmt(rep.prix) : "—"; } },
+      { titre: "Depuis", classe: "tabular-nums", cellule: (o) => { const rep = reparationEnCours(o); return rep ? dFR(rep.le) : "—"; } },
+    ],
+    perdus: [
+      { titre: "Qui / décidé par", classe: "font-semibold", cellule: (o) => { const { perte, mode } = infosOutil(o); const reforme = reformeDe(o);
+        return perte ? <>{perte.user || <span className="font-normal text-slate-500">personne (il était rangé)</span>}{perte.user && <div className="text-xs font-normal text-slate-500">retenue {libelleRetenue(mode)}</div>}</> : reforme ? (reforme.par || "—") : "—"; } },
+      { titre: "Le", classe: "tabular-nums", cellule: (o) => { const { perte } = infosOutil(o); const reforme = reformeDe(o); return perte ? <>{dFR(perte.le)}<div className="text-xs text-slate-500">déclaré par {perte.par || "—"}</div></> : reforme ? dFR(reforme.le) : "—"; } },
+      { titre: "Pourquoi", classe: "text-slate-600", cellule: (o) => { const { perte } = infosOutil(o); const reforme = reformeDe(o); return (perte ? perte.motif : reforme ? reforme.motif : "") || "—"; } },
+      { titre: "Valeur", align: "right", classe: "tabular-nums", cellule: (o) => { const { perte } = infosOutil(o); return perte ? fmt(perte.valeur) : (o.prix_achat ? <>{fmt(o.prix_achat)}<div className="text-xs font-normal text-slate-500">prix d'achat</div></> : "—"); } },
+      { titre: "À rembourser", align: "right", classe: "tabular-nums", cellule: (o) => { const { perte } = infosOutil(o); return perte ? (aRembourser(perte) ? fmt(aRembourser(perte)) : <span className="text-slate-500">à la charge de BMI</span>) : <span className="text-slate-400">—</span>; } },
+      { titre: "Déjà retenu", align: "right", classe: "tabular-nums text-emerald-700 font-semibold", cellule: (o) => { const { perte } = infosOutil(o); return perte ? (dejaRetenu(perte) ? fmt(dejaRetenu(perte)) : "—") : <span className="text-slate-400">—</span>; } },
+      { titre: "Reste à payer", align: "right", classe: "tabular-nums font-bold", cellule: (o) => { const { perte, mode } = infosOutil(o); return perte ? (<span className={resteARetenir(perte) ? "text-red-700" : "text-emerald-700"}>{resteARetenir(perte) ? fmt(resteARetenir(perte)) : (aRembourser(perte) ? "soldé ✅" : "—")}
+        {resteARetenir(perte) > 0 && mode === "commission" && <div className="text-xs font-normal text-slate-500">sur sa prochaine part</div>}</span>) : <span className="text-slate-400">—</span>; } },
+    ],
+  };
+  const colonnesOutil = [
+    { titre: "Outil", figee: true, cellule: (o) => nomOutil(o) },
+    ...(COLONNES_VUE[vue] || COLONNES_VUE.tous),
+    { titre: "À faire", actions: true, largeur: "min-w-[220px] max-w-[300px]" },
+  ];
+  // 📱 La carte téléphone : le nom, l'état, ce qui compte dans la vue.
+  const carteOutil = (o) => {
+    const etat = etatOutil(o); const so = sortieEnCours(o); const rep = reparationEnCours(o); const just = derniereJustification(o); const ouLu = lieuOutil(o);
+    const { perte } = infosOutil(o); const reforme = reformeDe(o); const tard = enRetard(o, jour);
+    return (
+      <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="font-semibold">{o.nom}</div>
+          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 ${(ETATS_OUTIL[etat] || {}).teinte || ""}`}>{libelleEtat(etat)}</span>
+        </div>
+        <div className="text-xs text-slate-500">{o.numero ? `N° ${o.numero}` : ""}{o.categorie ? ` · ${o.categorie}` : ""}</div>
+        {estBoite(o) && <div className={`text-xs ${manquesEnCours(o).length ? "text-red-700 font-bold" : "text-slate-500"}`}>🧰 boîte — {nbContenu(o)} pièce(s){manquesEnCours(o).length ? ` · il en manque ${manquesEnCours(o).reduce((t, m) => t + m.manque, 0)}` : ""}</div>}
+        <div className="text-sm mt-1">
+          {vue === "tous" && (ouLu.type === "personne" ? <>chez <b>{ouLu.nom}</b>{lieuDeRangement(o) ? ` · revient à ${lieuDeRangement(o)}` : ""}</> : <>{ouLu.nom || "—"}</>)}
+          {(vue === "dehors" || vue === "retard") && so && <>chez <b>{so.user}</b>{vue === "dehors" && chantierEnCours(o) ? ` · ${chantierEnCours(o)}` : ""}</>}
+          {vue === "reparation" && <>{(rep && rep.reparateur) || "—"}{rep && rep.panne ? ` · ${rep.panne}` : ""}{rep && rep.prix ? ` · ${fmt(rep.prix)}` : ""}</>}
+          {vue === "perdus" && perte && <>{perte.user || "personne (il était rangé)"} · {fmt(perte.valeur)}</>}
+          {vue === "perdus" && reforme && <>{reforme.par || "—"} · {reforme.motif || "—"}</>}
+        </div>
+        {vue === "dehors" && so && <div className="text-xs text-slate-500">Depuis le {dFR(so.le)} ({joursDehors(o, jour)} j) · retour prévu {so.retour_prevu ? dFR(so.retour_prevu) : "—"}{tard ? " · ⚠ en retard" : ""}</div>}
+        {vue === "retard" && so && <div className="text-xs"><span className="text-red-700 font-bold">{joursDeRetard(o, jour)} j de retard</span> · {just ? just.texte : <span className="text-red-700 font-semibold">⏳ Pas encore justifié</span>}</div>}
+        {vue === "perdus" && perte && <div className="text-xs text-slate-500">À rembourser : {aRembourser(perte) ? fmt(aRembourser(perte)) : "à la charge de BMI"} · reste {resteARetenir(perte) ? fmt(resteARetenir(perte)) : "—"}</div>}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -1213,8 +1292,8 @@ export function Outillage({ db, save, profile }) {
                         <span className="font-semibold text-slate-800 min-w-[10rem]">{l.nom}</span>
                         <span className="text-slate-600">× {l.quantite}</span>
                         <span className="text-slate-500 text-xs">{l.valeur ? `${fmt(l.valeur)} pièce` : "valeur non renseignée"}</span>
-                        {jeSuisAdmin && outilRange(o) && <button onClick={() => corrigerLigne(o, l)} className={`${boutonAction("border-sky-300 text-sky-800 hover:bg-sky-50")} mr-1`} title="Corriger cette ligne">✏️</button>}
-                        {jeSuisAdmin && outilRange(o) && <button onClick={() => retirerDuContenu(o, l)} className={boutonAction("border-red-300 text-red-700 hover:bg-red-50")} title="Retirer de la liste">🗑</button>}
+                        {jeSuisAdmin && outilRange(o) && <BoutonGeste icone="✏️" nom="Corriger" teinte="ambre" titre="Corriger cette ligne" onClick={() => corrigerLigne(o, l)} />}
+                        {jeSuisAdmin && outilRange(o) && <BoutonGeste icone="🗑" nom="Retirer" teinte="rouge" titre="Retirer de la liste" onClick={() => retirerDuContenu(o, l)} />}
                       </div>
                     ))}
                   </div>
@@ -1281,184 +1360,23 @@ export function Outillage({ db, save, profile }) {
           {affichee.length === 0 ? (
             <div className="text-sm text-slate-500">{VIDE_VUE[vue]}</div>
           ) : (
-            <>
-            <div className="hidden sm:block border rounded-lg overflow-auto max-h-[30rem]" data-outils-table>
-              <table className="w-full text-sm">
-                <thead className="bg-slate-100 sticky top-0 z-10">
-                  <tr className="text-left">
-                    <th className={`px-3 py-2 ${enTeteFige()}`}>Outil</th>
-                    {vue === "tous" && <><th className="px-3 py-2">N°</th><th className="px-3 py-2">Catégorie</th><th className="px-3 py-2">État</th><th className="px-3 py-2">Où</th><th className="px-3 py-2">Chez qui / rendu à</th><th className="px-3 py-2 text-right">Prix d'achat</th></>}
-                    {vue === "dehors" && <><th className="px-3 py-2">Chez qui</th><th className="px-3 py-2">Chantier</th><th className="px-3 py-2">Depuis</th><th className="px-3 py-2">Retour prévu</th></>}
-                    {vue === "retard" && <><th className="px-3 py-2">Chez qui</th><th className="px-3 py-2">Retour prévu</th><th className="px-3 py-2">Retard</th><th className="px-3 py-2">Pourquoi ce n'est pas rentré</th></>}
-                    {vue === "reparation" && <><th className="px-3 py-2">Chez quel réparateur</th><th className="px-3 py-2">Son numéro</th><th className="px-3 py-2">La panne</th><th className="px-3 py-2 text-right">Prix</th><th className="px-3 py-2">Depuis</th></>}
-                    {vue === "perdus" && <><th className="px-3 py-2">Qui / décidé par</th><th className="px-3 py-2">Le</th><th className="px-3 py-2">Pourquoi</th><th className="px-3 py-2 text-right">Valeur</th><th className="px-3 py-2 text-right">À rembourser</th><th className="px-3 py-2 text-right">Déjà retenu</th><th className="px-3 py-2 text-right">Reste à payer</th></>}
-                    <th className="px-3 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {affichee.map((o, i) => {
-                    const etat = etatOutil(o);
-                    const d = detenteurOutil(o);
-                    const so = sortieEnCours(o);
-                    const rep = reparationEnCours(o);
-                    const rendu = dernierRetour(o);
-                    const just = derniereJustification(o);
-                    const ouLu = lieuOutil(o);
-                    const perte = perteDe(o);
-                    const reforme = reformeDe(o);
-                    // Dans le carré « Perdus / Hors d'usage », une ligne de titre
-                    // ouvre chaque bloc : la liste arrive perdus PUIS réformés.
-                    const ouvreBloc = vue === "perdus" && (i === 0 || etatOutil(affichee[i - 1]) !== etat);
-                    const qui = perte && perte.user_id ? ficheParId(db.users, perte.user_id) : null;
-                    const mode = modeRetenue(qui);
-                    const tard = enRetard(o, jour);
-                    const deplie = outilDeplie === o.id;
-                    const fond = deplie ? "bg-sky-200" : (vue !== "tous" && tard ? "bg-red-50" : (i % 2 ? "bg-slate-50/60" : "bg-white"));
-                    return (
-                      <Fragment key={o.id}>
-                      {ouvreBloc && (
-                        <tr className={etat === "perdu" ? "bg-red-100" : "bg-slate-100"}>
-                          <td colSpan={9} className={`px-3 py-1.5 text-xs font-bold ${etat === "perdu" ? "text-red-900" : "text-slate-700"}`}>
-                            {etat === "perdu"
-                              ? "⚠ Perdus — quelqu'un en répondait : il peut y avoir un remboursement"
-                              : "🗑 Hors d'usage — usés ou cassés : plus rien à rembourser de personne"}
-                          </td>
-                        </tr>
-                      )}
-                      <tr data-ligne={o.id} className={`cursor-pointer ${deplie ? classeLigneDepliable(true, i) : (vue !== "tous" && tard ? "bg-red-50 hover:bg-red-100" : classeLigneDepliable(false, i))}`}
-                        onClick={() => setOutilDeplie(deplie ? "" : o.id)} title="Cliquez pour voir l'histoire de cet outil">
-                        <td className={`px-3 py-2 font-semibold ${celluleFigee(fond, deplie)}`}>{o.nom}{o.numero && <div className="text-xs font-normal text-slate-500">N° {o.numero}</div>}
-                          {estBoite(o) && <div className={`text-xs font-normal ${manquesEnCours(o).length ? "text-red-700 font-bold" : "text-slate-500"}`}>🧰 boîte — {nbContenu(o)} pièce(s){manquesEnCours(o).length ? ` · il en manque ${manquesEnCours(o).reduce((t, m) => t + m.manque, 0)}` : ""}</div>}</td>
-
-                        {vue === "tous" && <>
-                          <td className="px-3 py-2 text-slate-600">{o.numero || "—"}</td>
-                          <td className="px-3 py-2 text-slate-600">{o.categorie || "—"}</td>
-                          <td className="px-3 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${(ETATS_OUTIL[etat] || {}).teinte || ""}`}>{libelleEtat(etat)}</span></td>
-                          <td className="px-3 py-2">{ouLu.type === "personne"
-                            ? <span className="text-sky-800 font-semibold">chez {ouLu.nom}</span>
-                            : <span className="text-slate-700">{ouLu.nom || "—"}</span>}
-                            {ouLu.type === "personne" && lieuDeRangement(o) && <div className="text-xs text-slate-500">revient à {lieuDeRangement(o)}</div>}</td>
-                          <td className="px-3 py-2">{d ? <>{d.nom}</> : rendu ? <span className="text-slate-600">rendu à <b>{rendu.par || "—"}</b><div className="text-xs text-slate-500">le {dFR(rendu.le)}</div></span> : "—"}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{o.prix_achat ? fmt(o.prix_achat) : "—"}</td>
-                        </>}
-
-                        {vue === "dehors" && <>
-                          <td className="px-3 py-2 font-semibold">{so.user}<div className="text-xs font-normal text-slate-500">remis par {so.par || "—"}{lieuDeRangement(o) ? ` · revient à ${lieuDeRangement(o)}` : ""}</div></td>
-                          <td className="px-3 py-2 text-slate-600">{chantierEnCours(o) || "—"}{chantiersDeLaSortie(o).length > 0 && <div className="text-xs text-slate-400">changé {chantiersDeLaSortie(o).length} fois</div>}</td>
-                          <td className="px-3 py-2 tabular-nums">{dFR(so.le)}<div className="text-xs text-slate-500">{joursDehors(o, jour)} j</div></td>
-                          <td className={`px-3 py-2 tabular-nums ${tard ? "text-red-700 font-bold" : ""}`}>{so.retour_prevu ? dFR(so.retour_prevu) : "—"}{tard && <div className="text-xs">⚠ en retard</div>}</td>
-                        </>}
-
-                        {vue === "retard" && <>
-                          <td className="px-3 py-2 font-semibold">{so.user}</td>
-                          <td className="px-3 py-2 tabular-nums text-red-700 font-bold">{dFR(so.retour_prevu)}</td>
-                          <td className="px-3 py-2 tabular-nums text-red-700 font-bold">{joursDeRetard(o, jour)} j</td>
-                          <td className="px-3 py-2">
-                            {just
-                              ? <span className="text-slate-800">{just.texte}<div className="text-xs text-slate-500">dit par {just.par} le {dFR(just.le)}</div></span>
-                              : <span className="text-red-700 font-semibold">⏳ Pas encore justifié</span>}
-                          </td>
-                        </>}
-
-                        {vue === "reparation" && <>
-                          <td className="px-3 py-2 font-semibold">{(rep && rep.reparateur) || "—"}</td>
-                          <td className="px-3 py-2">
-                            {rep && rep.tel ? (
-                              <span className="inline-flex items-center gap-2">{rep.tel}
-                                {peutEcrireDeSonNumero(profile) && <button title="Écrire sur WhatsApp" onClick={(e) => { e.stopPropagation(); envoyerWhatsApp(chiffresTel(rep.tel), ""); }} className={boutonAction("border-emerald-300 hover:bg-emerald-50")}><IconeWhatsApp taille={14} /></button>}
-                              </span>
-                            ) : "—"}
-                          </td>
-                          <td className="px-3 py-2 text-slate-600">{(rep && rep.panne) || "—"}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{rep && rep.prix ? fmt(rep.prix) : "—"}</td>
-                          <td className="px-3 py-2 tabular-nums">{rep ? dFR(rep.le) : "—"}</td>
-                        </>}
-
-                        {vue === "perdus" && perte && <>
-                          <td className="px-3 py-2 font-semibold">{perte.user || <span className="font-normal text-slate-500">personne (il était rangé)</span>}
-                            {perte.user && <div className="text-xs font-normal text-slate-500">retenue {libelleRetenue(mode)}</div>}</td>
-                          <td className="px-3 py-2 tabular-nums">{dFR(perte.le)}<div className="text-xs text-slate-500">déclaré par {perte.par || "—"}</div></td>
-                          <td className="px-3 py-2 text-slate-600">{perte.motif || "—"}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{fmt(perte.valeur)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{aRembourser(perte) ? fmt(aRembourser(perte)) : <span className="text-slate-500">à la charge de BMI</span>}</td>
-                          <td className="px-3 py-2 text-right tabular-nums text-emerald-700 font-semibold">{dejaRetenu(perte) ? fmt(dejaRetenu(perte)) : "—"}</td>
-                          <td className={`px-3 py-2 text-right tabular-nums font-bold ${resteARetenir(perte) ? "text-red-700" : "text-emerald-700"}`}>
-                            {resteARetenir(perte) ? fmt(resteARetenir(perte)) : (aRembourser(perte) ? "soldé ✅" : "—")}
-                            {resteARetenir(perte) > 0 && mode === "commission" && <div className="text-xs font-normal text-slate-500">sur sa prochaine part</div>}
-                          </td>
-                        </>}
-
-                        {vue === "perdus" && reforme && <>
-                          <td className="px-3 py-2 font-semibold">{reforme.par || "—"}</td>
-                          <td className="px-3 py-2 tabular-nums">{dFR(reforme.le)}</td>
-                          <td className="px-3 py-2 text-slate-600">{reforme.motif || "—"}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{o.prix_achat ? fmt(o.prix_achat) : "—"}
-                            {o.prix_achat ? <div className="text-xs font-normal text-slate-500">prix d'achat</div> : null}</td>
-                          <td className="px-3 py-2 text-right text-slate-400">—</td>
-                          <td className="px-3 py-2 text-right text-slate-400">—</td>
-                          <td className="px-3 py-2 text-right text-slate-400">—</td>
-                        </>}
-
-                        <td className="px-3 py-2 min-w-[250px]" data-cellule-actions onClick={(e) => e.stopPropagation()}>
-                          {gestesOutil(o, etat, perte, mode)}
-                        </td>
-                      </tr>
-                      {deplie && (
-                        <tr className="bg-sky-50">
-                          <td colSpan={10} className="px-4 py-3">
-                            {histoireDe(o, perte)}
-                          </td>
-                        </tr>
-                      )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="border rounded-lg overflow-auto max-h-[30rem]" data-outils-table>
+              <ListeCarnet items={affichee} cle={(o) => o.id} colonnes={colonnesOutil} ouvert={outilDeplie || null}
+                onBasculer={(o) => setOutilDeplie(outilDeplie === o.id ? "" : o.id)} telephone={telephone}
+                marques={{ cartes: "data-outils-cartes", carte: "data-carte-outil", etat: "data-ligne-outil", detail: "data-detail-outil" }}
+                fond={(o) => (vue !== "tous" && enRetard(o, jour) ? "bg-red-50" : "")} carteClasse={(o) => (enRetard(o, jour) ? "border-red-300 bg-red-50" : "")}
+                enTeteFond="bg-slate-100" enTeteClasse="bg-slate-100 sticky top-0 z-10" largeurMin="min-w-[860px]"
+                titreGroupe={(o, i) => {
+                  // Dans le carré « Perdus / Hors d'usage », une ligne de titre ouvre chaque bloc : la liste arrive perdus PUIS réformés.
+                  if (vue !== "perdus") return null;
+                  const etat = etatOutil(o);
+                  if (i > 0 && etatOutil(affichee[i - 1]) === etat) return null;
+                  return etat === "perdu" ? "⚠ Perdus — quelqu'un en répondait : il peut y avoir un remboursement" : "🗑 Hors d'usage — usés ou cassés : plus rien à rembourser de personne";
+                }}
+                carte={(o, deplie) => carteOutil(o)}
+                gestes={(o, deplie) => <GestesLigne g={gestesOutil(o)} moment={momentOutil(o)} deplie={deplie} onDetail={() => setOutilDeplie(deplie ? "" : o.id)} marque="data-detail-outil-bouton" />}
+                detail={(o) => (<>{histoireDe(o, perteDe(o))}<GestesDetail g={gestesOutil(o)} moment={momentOutil(o)} lignes={LIGNES_GESTES_OUTIL} marque="data-gestes-outil" /></>)} />
             </div>
-            {/* 📱 Sur téléphone : une CARTE par outil (18/11/2026), les mêmes trois lignes de gestes. */}
-            <div className="sm:hidden space-y-2" data-outils-cartes>
-              {affichee.map((o) => {
-                const etat = etatOutil(o);
-                const d = detenteurOutil(o);
-                const so = sortieEnCours(o);
-                const rep = reparationEnCours(o);
-                const just = derniereJustification(o);
-                const ouLu = lieuOutil(o);
-                const perte = perteDe(o);
-                const reforme = reformeDe(o);
-                const qui = perte && perte.user_id ? ficheParId(db.users, perte.user_id) : null;
-                const mode = modeRetenue(qui);
-                const tard = enRetard(o, jour);
-                const deplie = outilDeplie === o.id;
-                return (
-                  <div key={o.id} data-carte-outil={o.id} className={`rounded-lg border p-3 ${deplie ? "border-sky-300 bg-sky-50" : tard ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"}`}>
-                    <div role="button" tabIndex={0} className="cursor-pointer" onClick={() => setOutilDeplie(deplie ? "" : o.id)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOutilDeplie(deplie ? "" : o.id); } }}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-semibold">{o.nom}</div>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 ${(ETATS_OUTIL[etat] || {}).teinte || ""}`}>{libelleEtat(etat)}</span>
-                      </div>
-                      <div className="text-xs text-slate-500">{o.numero ? `N° ${o.numero}` : ""}{o.categorie ? ` · ${o.categorie}` : ""}</div>
-                      {estBoite(o) && <div className={`text-xs ${manquesEnCours(o).length ? "text-red-700 font-bold" : "text-slate-500"}`}>🧰 boîte — {nbContenu(o)} pièce(s){manquesEnCours(o).length ? ` · il en manque ${manquesEnCours(o).reduce((t, m) => t + m.manque, 0)}` : ""}</div>}
-                      <div className="text-sm mt-1">
-                        {vue === "tous" && (ouLu.type === "personne" ? <>chez <b>{ouLu.nom}</b>{lieuDeRangement(o) ? ` · revient à ${lieuDeRangement(o)}` : ""}</> : <>{ouLu.nom || "—"}</>)}
-                        {(vue === "dehors" || vue === "retard") && so && <>chez <b>{so.user}</b>{vue === "dehors" && chantierEnCours(o) ? ` · ${chantierEnCours(o)}` : ""}</>}
-                        {vue === "reparation" && <>{(rep && rep.reparateur) || "—"}{rep && rep.panne ? ` · ${rep.panne}` : ""}{rep && rep.prix ? ` · ${fmt(rep.prix)}` : ""}</>}
-                        {vue === "perdus" && perte && <>{perte.user || "personne (il était rangé)"} · {fmt(perte.valeur)}</>}
-                        {vue === "perdus" && reforme && <>{reforme.par || "—"} · {reforme.motif || "—"}</>}
-                      </div>
-                      {vue === "dehors" && so && <div className="text-xs text-slate-500">Depuis le {dFR(so.le)} ({joursDehors(o, jour)} j) · retour prévu {so.retour_prevu ? dFR(so.retour_prevu) : "—"}{tard ? " · ⚠ en retard" : ""}</div>}
-                      {vue === "retard" && so && <div className="text-xs"><span className="text-red-700 font-bold">{joursDeRetard(o, jour)} j de retard</span> · {just ? just.texte : <span className="text-red-700 font-semibold">⏳ Pas encore justifié</span>}</div>}
-                      {vue === "perdus" && perte && <div className="text-xs text-slate-500">À rembourser : {aRembourser(perte) ? fmt(aRembourser(perte)) : "à la charge de BMI"} · reste {resteARetenir(perte) ? fmt(resteARetenir(perte)) : "—"}</div>}
-                    </div>
-                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>{gestesOutil(o, etat, perte, mode)}</div>
-                    {deplie && <div className="mt-2 pt-2 border-t border-sky-200 text-xs">{histoireDe(o, perte)}</div>}
-                  </div>
-                );
-              })}
-            </div>
-            </>
           )}
 
           {/* 🗑 LES FICHES RETIRÉES — rien n'est jeté (Timo, 18/09/2026 :

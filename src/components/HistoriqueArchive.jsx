@@ -22,7 +22,17 @@ export const HAUTEUR_LIGNE = 36;
 //   `archivesEnHaut` : la ligne « 📁 Archivées (N) » se pose EN TÊTE, comme
 //     dans WhatsApp, et ouverte elle montre les archives seules ;
 //   `sansCadre` : pas de hauteur à 10 lignes — c'est le panneau qui défile.
-export function HistoriqueArchive({ lignes, dateDe, aujourdhui, rendre, entete, vide = "Aucune ligne.", titreArchives = "Archives", classeTable = "w-full text-sm", toujoursVisibles = [], archivesEnHaut = false, sansCadre = false }) {
+export function HistoriqueArchive({ lignes, dateDe, aujourdhui, rendre, entete, vide = "Aucune ligne.", titreArchives = "Archives", classeTable = "w-full text-sm", toujoursVisibles = [], archivesEnHaut = false, sansCadre = false, rendreLignes = null }) {
+  // `rendreLignes(lignes)` : l'écran dessine LUI-MÊME la liste (la charte « carnet », ListeCarnet) ; l'archivage reste ici.
+  const corps = (liste, classe = classeTable) => rendreLignes ? rendreLignes(liste) : (
+    <table className={classe}>
+      {entete}
+      <tbody>
+        {liste.length === 0 && <tr><td colSpan={99} className="px-4 py-4 text-center text-slate-400">{vide}</td></tr>}
+        {liste.map(rendre)}
+      </tbody>
+    </table>
+  );
   const [archivesOuvertes, setArchivesOuvertes] = useState(false);
   const { visibles: recentes, archives } = separerArchives(lignes, { aujourdhui, dateDe });
   const visibles = toujoursVisibles.length
@@ -61,13 +71,7 @@ export function HistoriqueArchive({ lignes, dateDe, aujourdhui, rendre, entete, 
   return (
     <div>
       <div className="overflow-y-auto overflow-x-auto" style={cadre} data-historique="visibles">
-        <table className={classeTable}>
-          {entete}
-          <tbody>
-            {visibles.length === 0 && <tr><td colSpan={99} className="px-4 py-4 text-center text-slate-400">{vide}</td></tr>}
-            {visibles.map(rendre)}
-          </tbody>
-        </table>
+        {corps(visibles)}
       </div>
       {archives.length > 0 && (
         <div className="border-t border-slate-200 px-3 py-2">
@@ -78,7 +82,7 @@ export function HistoriqueArchive({ lignes, dateDe, aujourdhui, rendre, entete, 
             <div key={g.mois} className="mt-2" data-historique="archives">
               <div className="text-xs font-bold text-slate-500 uppercase px-1 py-1 bg-slate-50">{g.libelle} · {g.lignes.length}</div>
               <div className="overflow-y-auto overflow-x-auto" style={cadre}>
-                <table className={classeTable}>{entete}<tbody>{g.lignes.map(rendre)}</tbody></table>
+                {rendreLignes ? rendreLignes(g.lignes) : <table className={classeTable}>{entete}<tbody>{g.lignes.map(rendre)}</tbody></table>}
               </div>
             </div>
           ))}

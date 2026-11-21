@@ -5744,7 +5744,7 @@ titre("Doublons B2, B3, B5 : fabriquer un message, fabriquer une dépense automa
     && !/<b>remboursements de reprise<\/b> ne sont pas des dépenses/.test(dep));
   // RETOURNÉ le 05/10/2026 : un troisième usage, les sorties payées chez le DG ou par la BANQUE.
   test("★ Dépenses : le tableau est écrit UNE fois (TableauDepenses) et affiché trois fois (boutique, chez le comptable, DG / BANQUE)",
-    (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 && (dep.match(/<TableauDepenses /g) || []).length === 3
+    /* RETOURNÉ le 21/11/2026 : la charte « carnet » écrit l'en-tête */ (dep.match(/<ListeCarnet\b/g) || []).length === 1 && (dep.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 0 && (dep.match(/<TableauDepenses /g) || []).length === 3
     // 13/09/2026 : « appliquer la règle d'archivage aussi à l'historique des dépenses » — LE composant commun, plus de pagination.
     && /<HistoriqueArchive lignes=\{liste\} dateDe=\{\(x\) => x\.date\} aujourdhui=\{today\(\)\} vide=\{vide\} titreArchives="Dépenses archivées"/.test(dep) && !/usePagination|<Pagination /.test(dep)
     // 13/09/2026 : le texte « vide » de la boutique dépend du rôle (technicien : « Vous n'avez enregistré aucune dépense… »).
@@ -7285,7 +7285,7 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
       && /\{ titre: "Client", figee: true, classe: "font-semibold", cellule: \(c, i, deplie\) => nomClient\(c, deplie\) \}/.test(readFileSync("src/screens/Clients.jsx", "utf8"))
       && /<ListeCarnet\b/.test(readFileSync("src/screens/Clients.jsx", "utf8")) && /enTeteFond="bg-slate-100"/.test(dj) && /enTeteFige\(enTeteFond\)/.test(readFileSync("src/components/ListeCarnet.jsx", "utf8"))
       // RETOURNÉ le 15/10/2026 (« ramener catégorie en première colonne et figer ») : dans Dépenses la colonne figée est la CATÉGORIE, la ligne se déplie, son fond est gardé.
-      && /<td data-depense-categorie className=\{`px-3 py-2 min-w-\[150px\] \$\{celluleFigee\(fondLigneDepliable\(ouverte, i, fond\), ouverte\)\}`\}>/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
+      && /* RETOURNÉ le 21/11/2026 : dans Dépenses la colonne figée (la CATÉGORIE) est écrite par la charte */ /\{ titre: "Catégorie", figee: true, cellule: \(x\) => \(<div data-depense-categorie>/.test(readFileSync("src/screens/Depenses.jsx", "utf8")) && /<ListeCarnet\b/.test(readFileSync("src/screens/Depenses.jsx", "utf8"))
       && execSync("grep -rl 'lg:static' src || true").toString().trim() === "" && (execSync("grep -rl 'sticky left-0' src --include=*.jsx || true").toString().trim() === "src/components/ui.jsx")
       && /<ListeArticles lignes=\{lignes\} deplie=\{deplie\} \/>/.test(dj) && /const lignes = lignesDette\(d\);/.test(dj)
       && (dj.match(/align: "right", classe: "tabular-nums whitespace-nowrap/g) || []).length === 3 && /\{ titre: "À faire", align: "right", actions: true/.test(dj) && /gestes=\{\(d, deplie\) => gestesDeLaLigne\(d, deplie\)\}/.test(dj)
@@ -8222,8 +8222,8 @@ titre("⏳ La validation des dépenses par le DG, l'origine des fonds, les avanc
     && (dpV.match(/refuserSaufAdminPrincipal\(db, profile, "(Valider|Rejeter) une dépense \(DG\)"\)/g) || []).length === 2 && (dpV.match(/critiqueDecision\(d, \{ estPrincipal: true \}/g) || []).length === 2
     && /const motif = await uPrompt\(`Rejeter la dépense/.test(dpV) && /export function BadgeValidation/.test(dpV)
     // 13/09/2026 : la colonne « Chantier » (dépense rattachée à un chantier de devis) s'ajoute au tableau commun.
-    && /const COLONNES_DEPENSES = \["Catégorie", "Date", "Description", "Montant", "Paiement", "Statut", "Chantier \/ remis à", ""\];/.test(dpV) /* ⚠ RETOURNÉ le 10/10/2026 : « remis à » se lit aussi sans chantier ; RETOURNÉ le 15/10/2026 : la catégorie en tête, « payé avec » sous la pastille du paiement, « saisi par » sous la pastille du statut */
-    && /<PastillePaiement paiement=\{x\.paiement\} \/>\s*<div data-paye-avec[^>]*>\{libellePayeAvecDe\(x\)\}<\/div>/.test(dpV) && /<td data-depense-statut className="px-3 py-2"><PastilleStatut x=\{x\} \/>\s*<div className="text-xs text-slate-500 mt-0\.5">par \{x\.par \|\| "—"\}<\/div>/.test(dpV) && /<BadgeValidation x=\{x\} \/>/.test(dpV) && (dpV.match(/<thead className="sticky top-0 bg-white">/g) || []).length === 1 /* 13/09/2026 : l'en-tête reste collé en haut du cadre qui défile (HistoriqueArchive) */);
+    && /\{ titre: "Catégorie", figee: true[\s\S]*?\{ titre: "Date"[\s\S]*?\{ titre: "Description"[\s\S]*?\{ titre: "Montant"[\s\S]*?\{ titre: "Paiement"[\s\S]*?\{ titre: "Statut"[\s\S]*?\{ titre: "Chantier \/ remis à"[\s\S]*?\{ titre: "À faire", actions: true \}/.test(dpV) /* RETOURNÉ le 21/11/2026 : les colonnes sont celles de la charte, « À faire » en dernier */ /* ⚠ RETOURNÉ le 10/10/2026 : « remis à » se lit aussi sans chantier ; RETOURNÉ le 15/10/2026 : la catégorie en tête, « payé avec » sous la pastille du paiement, « saisi par » sous la pastille du statut */
+    && /<PastillePaiement paiement=\{x\.paiement\} \/>\s*<div data-paye-avec[^>]*>\{libellePayeAvecDe\(x\)\}<\/div>/.test(dpV) && /<div data-depense-statut><PastilleStatut x=\{x\} \/><div className="text-xs text-slate-500 mt-0\.5">par \{x\.par \|\| "—"\}<\/div><\/div>/.test(dpV) && /<BadgeValidation x=\{x\} \/>/.test(dpV) /* RETOURNÉ le 21/11/2026 : l'en-tête collé en haut est celui de ListeCarnet */);
   test("★ écran Caisse : l'encadré « Avances de frais à rembourser » (gérant, admin), les trois façons, le mois demandé par demanderMois, critiqueRemboursement puis rembourserAvance, users et messages écrits",
     /const avances = avancesARembourser\(db, boutique\);/.test(csVd) && /Avances de frais à rembourser \(\$\{avances\.length\}\)/.test(csVd) && /MOYENS_REMBOURSEMENT\.map\(\(\[code, libelle\]\)/.test(csVd)
     && /await demanderMois\(`Sur quelle paie porter le remboursement/.test(csVd) && (csVd.match(/critiqueRemboursement\(d, moyen, profile/g) || []).length === 2 && /const r = rembourserAvance\(db, profile, d, moyen, today\(\), \{ mois \}\);/.test(csVd)
@@ -11538,7 +11538,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       !/BoutiqueTabs/.test(ecrC)
       && /const lieux = lieuxDuRegistre\(boutiquesVisibles\(db, profile, db\.boutiques \|\| \[\]\)\);/.test(ecrC)
       && /const registre = registreUnifie\(lieux\);/.test(ecrC)
-      && /<th className="px-3 py-2">Où<\/th>/.test(ecrC)
+      && /\{ titre: "Où", cellule:/.test(ecrC) /* RETOURNÉ le 21/11/2026 : les colonnes sont celles de la charte */
       && /<Field label="Où est-il rangé \?">/.test(ecrC)
       && /Dites où l'outil est rangé : une boutique ou un magasin\./.test(ecrC));
 
@@ -11666,7 +11666,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     test("★ l'ÉCRAN : le bouton 🏗 sur un outil sorti, la même question dans « Mes outils », la saisie libre TOUJOURS proposée, et la colonne Chantier qui lit le chantier EN COURS",
       /async function nouveauChantierPour\(outil, ouverts, profile, jour\)/.test(ecrC)
       && /const LIBRE = "✏️ Saisir un chantier \(nom libre\)";/.test(ecrC)
-      && /* RETOURNÉ le 18/11/2026 : un geste en toutes lettres. */ /jePeux && etat === "sorti" && <BoutonGeste icone="🏗" titre="Changer le chantier \(sans le ramener\)" nom="Changer le chantier"/.test(ecrC)
+      && /* RETOURNÉ le 21/11/2026 : un geste de l'objet des gestes (charte « carnet »). */ /chantier: jePeux && etat === "sorti" \? <BoutonGeste icone="🏗" titre="Changer le chantier \(sans le ramener\)" nom="Changer le chantier"/.test(ecrC)
       && /🏗 Changer le chantier/.test(ecrC)
       && /\{chantierEnCours\(o\) \|\| "—"\}/.test(ecrC)
       && /chantiersOuvertsPourOutil\(db, profile\)/.test(ecrC));
@@ -11735,7 +11735,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       // et l'écran ne propose la caisse QUE sur une caisse
       && /checked=\{!!neuf\.boite\}/.test(ecrC)
       && /C'est une caisse ou une boîte à outils/.test(ecrC)
-      && /\{estBoite\(o\) && !\["perdu", "reforme"\]\.includes\(etat\) && \(/.test(ecrC)
+      && /contenu: estBoite\(o\) && !\["perdu", "reforme"\]\.includes\(etat\) \? <BoutonGeste/.test(ecrC) /* RETOURNÉ le 21/11/2026 */
       && !/En faire une boîte à outils/.test(ecrC)
       && /déjà dans la liste/.test(Out.critiqueLigneContenu(bte, { nom: "tournevis PLAT", quantite: 1 }))
       && /Donnez un nom/.test(Out.critiqueLigneContenu(bte, { nom: " ", quantite: 1 }))
@@ -11887,9 +11887,9 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       test("★ l'ÉCRAN : ✖ n'est offert qu'au PRINCIPAL sur un outil rangé, la liste d'une caisse ne se règle que rangée, et les fiches retirées se voient (elles reviennent d'un clic)",
         /refuserSaufAdminPrincipal\(db, profile, "Supprimer un outil du registre"\)/.test(ecrC)
         && /refuserSaufAdminPrincipal\(db, profile, "Remettre un outil au registre"\)/.test(ecrC)
-        && /* RETOURNÉ le 18/11/2026 : un geste en toutes lettres. */ /\{jeSuisPrincipal && outilRange\(o\) && <BoutonGeste icone="✖" teinte="rouge" titre="Retirer cette fiche du registre/.test(ecrC)
-        && /\{jeSuisAdmin && outilRange\(o\) && <button onClick=\{\(\) => corrigerLigne\(o, l\)\}/.test(ecrC)
-        && /\{jeSuisAdmin && outilRange\(o\) && <button onClick=\{\(\) => retirerDuContenu\(o, l\)\}/.test(ecrC)
+        && /* RETOURNÉ le 21/11/2026 : un geste de l'objet des gestes. */ /retirer: jeSuisPrincipal && outilRange\(o\) \? <BoutonGeste icone="✖" teinte="rouge" titre="Retirer cette fiche du registre/.test(ecrC)
+        && /\{jeSuisAdmin && outilRange\(o\) && <BoutonGeste icone="✏️" nom="Corriger" teinte="ambre" titre="Corriger cette ligne" onClick=\{\(\) => corrigerLigne\(o, l\)\}/.test(ecrC) /* RETOURNÉ le 21/11/2026 : un geste en toutes lettres, plus un petit rond */
+        && /\{jeSuisAdmin && outilRange\(o\) && <BoutonGeste icone="🗑" nom="Retirer" teinte="rouge" titre="Retirer de la liste" onClick=\{\(\) => retirerDuContenu\(o, l\)\}/.test(ecrC)
         && /const bloque = critiqueOutilRange\(boite, "vous pourrez corriger sa liste"\);/.test(ecrC)
         && /🗑 Fiches retirées du registre/.test(ecrC)
         && /♻️ Remettre au registre/.test(ecrC)
@@ -11960,7 +11960,7 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
 
       test("★ l'ÉCRAN : le ✏️ de la fiche n'est offert qu'à l'administrateur, sur un outil rangé, et il DIT que le lieu ne s'y corrige pas",
         /refuserSaufAdmin\(profile, "Corriger la fiche d'un outil"\)/.test(ecrC)
-        && /\{jeSuisAdmin && vue === "tous" && outilRange\(o\) && \(/.test(ecrC)
+        && /corriger: jeSuisAdmin && vue === "tous" && outilRange\(o\) \? \(/.test(ecrC) /* RETOURNÉ le 21/11/2026 */
         && /<Field label="Numéro gravé"><input className=\{inputCls\} value=\{fiche\.numero\}/.test(ecrC)
         && /Le lieu ne se corrige pas ici<\/b>/.test(ecrC)
         && /critiqueCorrectionOutil\(registre, outil, fiche\)/.test(ecrC));
@@ -12102,12 +12102,12 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
           && l[0].role === "sous la responsabilité de" && l[0].qui === "AFI" && /déclaré par CHEF BMI/.test(l[0].detail); })());
     test("★ et l'ÉCRAN le montre : la colonne dit « Chez qui / rendu à », un CLIC sur la ligne ouvre l'histoire (la règle de dépliage de 💰 Ventes et 📋 Dettes), la question du retour nomme celui qui reçoit, et le journal aussi",
       /Chez qui \/ rendu à/.test(ecrC)
-      && /classeLigneDepliable\(true, i\)/.test(ecrC) && /setOutilDeplie\(deplie \? "" : o\.id\)/.test(ecrC)
+      && /<ListeCarnet items=\{affichee\}/.test(ecrC) /* RETOURNÉ le 21/11/2026 : la ligne dépliée est celle de la charte */ && /setOutilDeplie\(deplie \? "" : o\.id\)/.test(ecrC)
       && /🕘 Histoire de/.test(ecrC) && /rendu à <b>\{rendu\.par \|\| "—"\}<\/b>/.test(ecrC)
       && /vous est rendu — reçu par \$\{profile\.nom\}/.test(ecrC)
       && /🧰 Retour — \$\{outil\.nom\} rendu à \$\{profile\.nom\}/.test(ecrC)
       && /remis par \{so\.par \|\| "—"\}/.test(ecrC)
-      && /onClick=\{\(e\) => e\.stopPropagation\(\)\}/.test(ecrC));
+      && /detail=\{\(o\) => \(<>\{histoireDe\(o, perteDe\(o\)\)\}<GestesDetail/.test(ecrC));
   }
 
   // ═══ LES QUATRE CARRÉS S'OUVRENT (Timo, 18/09/2026, capture) ═══
@@ -12179,9 +12179,9 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       test("★ et l'écran montre les DEUX blocs, chacun titré, avec les colonnes d'un réformé (décidé par, le, pourquoi, prix d'achat)",
         /⚠ Perdus — quelqu'un en répondait/.test(ecrC)
         && /🗑 Hors d'usage — usés ou cassés : plus rien à rembourser de personne/.test(ecrC)
-        && /const ouvreBloc = vue === "perdus" && \(i === 0 \|\| etatOutil\(affichee\[i - 1\]\) !== etat\)/.test(ecrC)
+        && /titreGroupe=\{\(o, i\) => \{[\s\S]*?if \(vue !== "perdus"\) return null;[\s\S]*?etatOutil\(affichee\[i - 1\]\) === etat/.test(ecrC) /* RETOURNÉ le 21/11/2026 : le titre de chaque bloc est posé par ListeCarnet (titreGroupe) */
         && /\{vue === "perdus" && reforme && <>/.test(ecrC)
-        && /<th className="px-3 py-2">Qui \/ décidé par<\/th>/.test(ecrC)
+        && /\{ titre: "Qui \/ décidé par"/.test(ecrC)
         && /Perdus \/ Hors d'usage/.test(ecrC)
         && /hors d'usage<\/div>/.test(ecrC));
     }
@@ -12190,16 +12190,16 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
     // doivent exister, et le numéro du réparateur doit s'appeler par LA règle
     // WhatsApp commune (jamais un wa.me écrit à la main).
     test("★ 🔧 EN RÉPARATION montre les QUATRE colonnes demandées — chez quel réparateur, son numéro (avec le vrai logo WhatsApp), la panne, le prix — et les quatre cases existent au formulaire",
-      /<th className="px-3 py-2">Chez quel réparateur<\/th><th className="px-3 py-2">Son numéro<\/th><th className="px-3 py-2">La panne<\/th><th className="px-3 py-2 text-right">Prix<\/th>/.test(ecrC)
+      /\{ titre: "Chez quel réparateur"[\s\S]*?\{ titre: "Son numéro"[\s\S]*?\{ titre: "La panne"[\s\S]*?\{ titre: "Prix", align: "right"/.test(ecrC) /* RETOURNÉ le 21/11/2026 */
       && /<Field label="Chez quel réparateur">/.test(ecrC) && /<Field label="Son numéro">/.test(ecrC)
       && /<Field label="La panne">/.test(ecrC) && /<Field label="Prix de réparation \(F\)">/.test(ecrC)
       && /envoyerWhatsApp\(chiffresTel\(rep\.tel\), ""\)/.test(ecrC) && !/wa\.me/.test(ecrC)
       && /<IconeWhatsApp taille=\{14\} \/>/.test(ecrC));
 
     test("★ ⏰ EN RETARD montre chez qui, la date promise, le retard en jours, et POURQUOI — ou dit tout haut que ce n'est pas encore justifié",
-      /<th className="px-3 py-2">Chez qui<\/th><th className="px-3 py-2">Retour prévu<\/th><th className="px-3 py-2">Retard<\/th><th className="px-3 py-2">Pourquoi ce n'est pas rentré<\/th>/.test(ecrC)
+      /\{ titre: "Chez qui", classe: "font-semibold", cellule: \(o\) => \(sortieEnCours\(o\) \|\| \{\}\)\.user[\s\S]*?\{ titre: "Retour prévu"[\s\S]*?\{ titre: "Retard"[\s\S]*?\{ titre: "Pourquoi ce n'est pas rentré"/.test(ecrC) /* RETOURNÉ le 21/11/2026 */
       && /⏳ Pas encore justifié/.test(ecrC)
-      && /<th className="px-3 py-2">Chez qui<\/th><th className="px-3 py-2">Chantier<\/th><th className="px-3 py-2">Depuis<\/th><th className="px-3 py-2">Retour prévu<\/th>/.test(ecrC));
+      && /\{ titre: "Chez qui", classe: "font-semibold", cellule: \(o\) => \{ const so[\s\S]*?\{ titre: "Chantier"[\s\S]*?\{ titre: "Depuis"[\s\S]*?\{ titre: "Retour prévu"/.test(ecrC));
 
     test("★ les quatre carrés sont des BOUTONS qui OUVRENT leur liste, et celui qu'on regarde se voit (cadre épais)",
       /onClick=\{\(\) => \{ setVue\(id\); setOutilDeplie\(""\); \}\}/.test(ecrC)
@@ -12414,13 +12414,13 @@ titre("🧰 Le matériel de travail : un outil est toujours sous le nom de quelq
       test("★ LE CARRÉ « PERDUS » S'OUVRE COMME LES QUATRE AUTRES (il était le seul à ne pas être un bouton) et montre SES colonnes : qui, quand, pourquoi, valeur, à rembourser, déjà retenu, reste à payer",
         /\["perdus", "Perdus \/ Hors d'usage", \(/.test(ecrC)
         && !/<Stat label="Perdus"/.test(ecrC)
-        && /<th className="px-3 py-2">Qui \/ décidé par<\/th><th className="px-3 py-2">Le<\/th><th className="px-3 py-2">Pourquoi<\/th><th className="px-3 py-2 text-right">Valeur<\/th><th className="px-3 py-2 text-right">À rembourser<\/th><th className="px-3 py-2 text-right">Déjà retenu<\/th><th className="px-3 py-2 text-right">Reste à payer<\/th>/.test(ecrC)
+        && /\{ titre: "Qui \/ décidé par"[\s\S]*?\{ titre: "Le"[\s\S]*?\{ titre: "Pourquoi"[\s\S]*?\{ titre: "Valeur", align: "right"[\s\S]*?\{ titre: "À rembourser", align: "right"[\s\S]*?\{ titre: "Déjà retenu", align: "right"[\s\S]*?\{ titre: "Reste à payer", align: "right"/.test(ecrC) /* RETOURNÉ le 21/11/2026 */
         && /retenue \{libelleRetenue\(mode\)\}/.test(ecrC)
         && /💵 Ce qui a déjà été retenu à/.test(ecrC)
         && /perdus: "⚠ Perdus et 🗑 hors d'usage"/.test(ecrC));
 
       test("★ le bouton 💵 « Retenir » n'est proposé QUE là où il agit : administrateur, mode SALAIRE, et seulement s'il reste quelque chose à payer — pour un technicien à commission l'écran DIT que ça se prend sur sa prochaine part, il ne fait pas semblant",
-        /vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir\(perte\) > 0/.test(ecrC)
+        /retenir: vue === "perdus" && jeSuisAdmin && perte && mode === "salaire" && resteARetenir\(perte\) > 0/.test(ecrC) /* RETOURNÉ le 21/11/2026 */
         && /est payé à la commission : la retenue se prend toute seule sur sa prochaine part d'installation/.test(ecrC)
         && /sur sa prochaine part/.test(ecrC)
         && /refuserSaufAdmin\(profile, "Retenir sur un salaire"\)/.test(ecrC)
@@ -16551,11 +16551,11 @@ titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dett
     && execSync("grep -rl 'function TexteDepliable' src || true").toString().trim() === "src/components/ui.jsx"
     // RETOURNÉ le 15/10/2026 (« Tous, lance ») : 💰 Ventes importe aussi le bouton rond et sa cellule.
     && /\bPastillePaiement\b[^}]*\} from "\.\.\/components\/ui";/.test(vsP) && /PastillePaiement, TexteDepliable, BoutonEnvoi(?:, [A-Za-z]+)* \} from "\.\.\/components\/ui";/.test(dpP) /* RETOURNÉ le 18/10/2026 : + BoutonEnvoi */);
-  test("★ 📤 Dépenses : la ligne se déplie au clic (UNE à la fois, classeLigneDepliable), les boutons ✏️ / 🗑 sont ronds (boutonAction) dans une cellule qui ne déplie pas",
-    /const \[depliee, setDepliee\] = useState\(deplieeInitiale\);/.test(dpP) && /onClick=\{\(\) => setDepliee\(\(d\) => \(d === x\.id \? null : x\.id\)\)\}/.test(dpP)
-    && /classeLigneDepliable\(ouverte, i, fond\)/.test(dpP) && /<td className="px-3 py-2 whitespace-nowrap" onClick=\{\(e\) => e\.stopPropagation\(\)\}>/.test(dpP)
-    && /className=\{boutonAction\("border-sky-200[^"]*"\)\} data-modifier-depense>✏️<\/button>/.test(dpP) && /className=\{boutonAction\("border-red-200[^"]*"\)\} data-supprimer-depense>🗑<\/button>/.test(dpP)
-    && !/className="text-xs text-red-600 underline">Suppr\./.test(dpP));
+  // RETOURNÉ le 21/11/2026 (« Oui, lance les trois ») : 📤 Dépenses passe par la charte « carnet » — « À faire » = ✏️ Modifier, 🗑 Supprimer dans « ▸ Détail », plus aucun bouton rond.
+  test("★ 📤 Dépenses : la ligne se déplie au clic (UNE à la fois), ✏️ Modifier / 🗑 Supprimer sont des BoutonGeste écrits en mots (mêmes droits : depenseModifiable, administrateur), plus aucun bouton rond",
+    /const \[depliee, setDepliee\] = useState\(deplieeInitiale\);/.test(dpP) && /const bascule = \(x\) => setDepliee\(\(d\) => \(d === x\.id \? null : x\.id\)\);/.test(dpP)
+    && /modifier: onModifier && depenseModifiable\(x\) \? <BoutonGeste data-modifier-depense icone="✏️" nom="Modifier"/.test(dpP) && /supprimer: profile\.role === "admin" \? <BoutonGeste data-supprimer-depense icone="🗑" nom="Supprimer"/.test(dpP)
+    && /moment=\{momentDe\(x\)\}/.test(dpP) && !/<BoutonRond|CelluleActions|boutonAction/.test(dpP));
   const sortieDp = join("node_modules", ".cache", `bmi-rendu-depenses-${process.pid}.mjs`);
   let RDp = null;
   try {
@@ -16579,10 +16579,21 @@ titre("🧾 📤 Dépenses suit la règle des lignes de 💰 Ventes et 📋 Dett
     && /<th[^>]*sticky left-0[^>]*>Catégorie<\/th><th[^>]*>Date<\/th>/.test(hR) && /15\/10\/2026<div[^>]*>09:12<\/div>/.test(ligne1(hR)));
   test("★★ RENDU : la description tient sur DEUX lignes repliée (line-clamp-2), ENTIÈRE dépliée ; une seule ligne dépliée",
     /data-texte-depliable="replie"[^>]*line-clamp-2/.test(ligne1(hR)) && /data-texte-depliable="deplie"/.test(ligne1(hD)) && !/line-clamp-2/.test(ligne1(hD).match(/data-texte-depliable[^>]*/)?.[0] || "x")
-    && (hD.match(/data-depense-depliee="oui"/g) || []).length === 1 && !/data-depense-depliee/.test(hR));
+    && (hD.match(/data-ligne-depense="deplie"/g) || []).length === 1 && !/data-ligne-depense="deplie"/.test(hR));
   test("★★ RENDU : le paiement en PASTILLE (« Flooz »), « payé avec » dessous ; le statut en pastille (« ✅ Validée »), « par ANGELE » dessous ; la décision du DG en entier seulement dépliée",
     /<span title="Mobile Money \(Flooz\)"[^>]*rounded-full[^>]*>Flooz<\/span><div data-paye-avec/.test(ligne1(hR)) && /✅ Validée<\/span><div[^>]*>par ANGELE<\/div>/.test(ligne1(hR))
-    && !/data-depense-decision/.test(ligne1(hR)) && /data-depense-decision[\s\S]*validée le 15\/10\/2026 par TIMO/.test(ligne1(hD)));
+    && !/data-depense-decision/.test(hR) && /data-depense-decision[\s\S]*validée le 15\/10\/2026 par TIMO/.test(hD));
+  // 📖 21/11/2026 (« Oui, lance les trois ») : 📤 Dépenses suit la charte « carnet ».
+  {
+    const hT = (() => { const e0 = console.error; console.error = () => {}; try { return String(RDp?.rendreTableauDepenses(liste, admin, null, true) || ""); } catch { return ""; } finally { console.error = e0; } })();
+    const hTD = (() => { const e0 = console.error; console.error = () => {}; try { return String(RDp?.rendreTableauDepenses(liste, admin, "dp1", true) || ""); } catch { return ""; } finally { console.error = e0; } })();
+    test("★★ 📖 Dépenses : sur ordinateur la dernière colonne s'appelle « À faire » et porte « ✏️ Modifier » puis « ▸ Détail » ; l'en-tête est collé en haut",
+      /<th[^>]*>À faire<\/th>/.test(hR) && /data-modifier-depense/.test(ligne1(hR)) && /✏️ Modifier/.test(ligne1(hR)) && /data-detail-depense-bouton/.test(ligne1(hR)) && /sticky top-0/.test(hR));
+    test("★★ 📖 Dépenses : dépliée, la ligne montre « 🗑 Supprimer » (administrateur) dans « Classer », pas sur la ligne repliée",
+      /data-gestes-depense/.test(hD) && /🗑 Supprimer/.test(hD) && !/data-supprimer-depense/.test(ligne1(hR)));
+    test("★★ 📖 Dépenses : sur téléphone UNE CARTE par dépense (jamais un tableau), avec la catégorie, le montant et « ▸ Détail » ; dépliée, ses gestes",
+      hT !== "" && /data-depenses-cartes/.test(hT) && /data-carte-depense/.test(hT) && !/<table/.test(hT) && /data-detail-depense-bouton/.test(hT) && /data-gestes-depense/.test(hTD));
+  }
   // 🏗 10/11/2026 (« b ») : l'ÉCRAN entier rendu — le principal voit la pastille 🏗 DÉPÔT CHANTIER et la ligne « attend aussi votre validation ».
   const principalDp = { id: "a1", nom: "TIMO", role: "admin", boutique: "", admin_principal: true, actif: true };
   const gerantDp = { id: "g1", nom: "ANGELE", role: "gerant", boutique: "BMI DEMAKPOE", actif: true };
@@ -16698,7 +16709,7 @@ titre("🧾 LA RÈGLE DES LIGNES DANS TOUTE L'APPLICATION (15/10/2026, « Tous, 
       const src = readFileSync(`src/screens/${n}.jsx`, "utf8");
       // RETOURNÉ le 18/11/2026 : 🏠 Clients installés porte ses gestes en toutes lettres (LigneGestes) au lieu de la cellule de boutons ronds.
       // RETOURNÉ le 19/11/2026 : 💵 Salaires aussi ; 📋 Tous les devis, 🧲 Prospects et 🧾 Commandes passent par ListeCarnet, qui écrit la colonne figée, la ligne dépliable et la cellule des gestes.
-      if (n === "TousLesDevis" || n === "Prospects" || n === "Commandes" || n === "Fournisseurs" || n === "Commerciaux" || n === "Salaires" || n === "ClientsInstalles") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
+      if (n === "TousLesDevis" || n === "Prospects" || n === "Commandes" || n === "Stocks" || n === "Fournisseurs" || n === "Commerciaux" || n === "Salaires" || n === "ClientsInstalles") { const lc = readFileSync("src/components/ListeCarnet.jsx", "utf8"); return /<ListeCarnet\b/.test(src) && /actions: true/.test(src) && /enTeteFige\(/.test(lc) && /celluleFigee\(fondLigneDepliable\(/.test(lc) && /classeLigneDepliable\(/.test(lc) && /<CelluleActions/.test(lc); }
       return /enTeteFige\(/.test(src) && /celluleFigee\(fondLigneDepliable\(/.test(src) && /classeLigneDepliable\(/.test(src) && (/<CelluleActions/.test(src) || (n === "ClientsInstalles" && /<LigneGestes/.test(src)));
     }));
 }
@@ -18669,11 +18680,17 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
         const dbO = { ...baseCh, users: [timoC, { id: "t1", nom: "KOSSI", role: "technicien", actif: true }], boutiques: [{ id: "b1", nom: "DEMAKPOE", outillage: { outils: [perceuse, caisse], appels: [] } }] };
         let hO = "";
         try { hO = Ch.rendreOutillage(dbO, timoC); } catch (e) { hO = "ERREUR " + String(e && e.message || e).slice(0, 200); }
-        test("★ 🧰 Outillage se rend : le tableau pour l'ordinateur, une carte par outil pour le téléphone, les gestes en TOUTES LETTRES sur des lignes nommées (Mouvement · Atelier · Fiche, celle qui n'a aucun bouton ne s'affiche pas)",
-          !hO.startsWith("ERREUR") && /hidden sm:block[^"]*" data-outils-table/.test(hO) && /sm:hidden[^"]*" data-outils-cartes/.test(hO) && /data-carte-outil="o1"/.test(hO)
-          && />Mouvement</.test(hO) && />Atelier</.test(hO) && !/>Fiche</.test(hO) /* la ligne Fiche n'a aucun bouton dans la vue « Dehors » : elle ne s'affiche pas */ && />📥 Retour</.test(hO) && />🏗 Changer le chantier</.test(hO) && />⚠ Perdu</.test(hO) && />🗑 Réformer</.test(hO), hO.slice(0, 200));
+        let hOD = "", hOT = "";
+        try { hOD = Ch.rendreOutillage(dbO, timoC, { outilDeplieInitial: "o1" }); } catch (e) { hOD = "ERREUR " + String(e && e.message || e).slice(0, 200); }
+        try { hOT = Ch.rendreOutillage(dbO, timoC, { telephoneInitial: true, outilDeplieInitial: "o1" }); } catch (e) { hOT = "ERREUR " + String(e && e.message || e).slice(0, 200); }
+        // RETOURNÉ le 21/11/2026 (charte « carnet ») : ordinateur = un tableau dont la dernière colonne s'appelle « À faire » (le geste du moment + « ▸ Détail ») ;
+        // dépliée, les autres gestes en TOUTES LETTRES sur des lignes nommées ; téléphone = une carte par outil, jamais un tableau.
+        test("★ 🧰 Outillage se rend : un tableau pour l'ordinateur (« À faire » : 📥 Retour + ▸ Détail), une carte par outil pour le téléphone, les autres gestes en TOUTES LETTRES dans le détail (Mouvement · Atelier — la ligne Fiche, sans bouton, ne s'affiche pas)",
+          !hO.startsWith("ERREUR") && !hOD.startsWith("ERREUR") && !hOT.startsWith("ERREUR") && /data-outils-table/.test(hO) && /<th[^>]*>À faire<\/th>/.test(hO) && /data-geste-retour/.test(hO) && /data-detail-outil-bouton/.test(hO) && !/data-outils-cartes/.test(hO)
+          && />Mouvement</.test(hOD) && />Atelier</.test(hOD) && !/>Fiche</.test(hOD) && />📥 Retour</.test(hOD) && />🏗 Changer le chantier</.test(hOD) && />⚠ Perdu</.test(hOD) && />🗑 Réformer</.test(hOD)
+          && /data-outils-cartes/.test(hOT) && /data-carte-outil="true"/.test(hOT) && /data-ligne="o1"/.test(hOT) && !/<table/.test(hOT) && /data-detail-outil-bouton/.test(hOT) && />Mouvement</.test(hOT), hO.slice(0, 200));
         test("★ 🧰 la phrase « Où se range un outil ? » est derrière un petit bouton, jamais étalée ; la liste n'a plus de petits ronds de geste",
-          /data-note-depliable[^>]*>ⓘ Où se range un outil/.test(hO) && !/boutonAction|w-8 h-8 rounded-full/.test(hO.slice(hO.indexOf("data-outils-table"), hO.indexOf("data-outils-cartes"))), hO.slice(0, 200));
+          /data-note-depliable[^>]*>ⓘ Où se range un outil/.test(hO) && !/boutonAction|w-8 h-8 rounded-full/.test(hO.slice(hO.indexOf("data-outils-table"))), hO.slice(0, 200));
       }
       test("★ 📁 un dossier qui a du matériel et une observation les montre ouverts ; sans programmation à faire, « Programmer » reste replié",
         !hD2.startsWith("ERREUR") && /Moteur/.test(hD2) && /Accès difficile/.test(hD2));
@@ -20335,7 +20352,7 @@ titre("📖 LA CHARTE DES LISTES (Timo, 18/11/2026, « Oui, fais les trois couch
   const ronds = (f) => /<BoutonRond|boutonAction\(/.test(readFileSync(f, "utf8"));
   const adoptes = tous.filter((f) => readFileSync(f, "utf8").includes("<ListeCarnet"));
   // À REPRENDRE : ces écrans portent encore des boutons ronds. Quand l'un est refait avec ListeCarnet, on le RETIRE d'ici (le contrôle tombe s'il reste dans la liste sans en avoir besoin).
-  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Depenses.jsx", "src/screens/Outillage.jsx", "src/screens/Parametres.jsx", "src/screens/Stocks.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
+  const A_REPRENDRE = ["src/components/AchatsChantier.jsx", "src/components/CommandesImport.jsx", "src/components/DemandesPrix.jsx", "src/components/FicheClient.jsx", "src/components/TachesConfiees.jsx", "src/screens/Parametres.jsx", "src/screens/Ventes.jsx", "src/screens/Mon équipe.jsx"].filter((f) => f !== "src/screens/Mon équipe.jsx");
   const enRonds = tous.filter(ronds).sort();
   const nouveaux = enRonds.filter((f) => !A_REPRENDRE.includes(f) && !adoptes.includes(f));
   const refaits = A_REPRENDRE.filter((f) => !ronds(f));
@@ -20488,6 +20505,16 @@ titre("🧾 COMMANDES : les quatre listes suivent la charte (19/11/2026, « Oui,
   test("★ 🔍 la barre de recherche (ordinateur) est une VRAIE case de saisie, sur la MÊME ligne que Synchroniser / Se déconnecter, AU MILIEU de cette ligne (centrée, avant le nom et la boutique) — pas en première position —, et on tape directement dedans", /<span className="hidden lg:flex flex-1 min-w-0 justify-center"><BarreRecherche db=\{db\} profile=\{profile\}/.test(app) && app.indexOf("<BarreRecherche") > app.indexOf("Synchronisation…") && app.indexOf("<BarreRecherche") > app.indexOf("En ligne") && app.indexOf("<BarreRecherche") < app.indexOf("data-nom-boutique-droite") && /<input\s+type="text"\s+data-barre-recherche-champ/.test(rgSrc) && !/data-barre-recherche onClick/.test(app));
   test("★ 🔍 la liste des résultats est un fond translucide FLOUTÉ (backdrop-blur), posée hors de l'en-tête (portail) pour suivre le mode clair / sombre — l'en-tête garde ses couleurs fixes —, sans fond plein blanc", /bg-white\/70[^"]*backdrop-blur-xl|backdrop-blur-xl[^"]*bg-white\/70/.test(rgSrc) && /createPortal\(liste, document\.body\)/.test(rgSrc) && !/data-barre-recherche-resultats className="[^"]*\bbg-white\b(?!\/)/.test(rgSrc));
   test("★ 🔍 l'interrupteur BARRE_RECHERCHE existe (true) et, à false, l'ancien bouton « 🔍 Rechercher… » de la deuxième ligne revient (retour à la loupe sans rien d'autre à toucher)", /export const BARRE_RECHERCHE = true;/.test(cst) && /\$\{BARRE_RECHERCHE \? "lg:hidden" : ""\}/.test(app) && /!BARRE_RECHERCHE && <span className="hidden lg:inline"> Rechercher…<\/span>/.test(app));
+}
+
+// ── 📖 21/11/2026 (« Oui, lance les trois ») : 📦 Stocks passe par la charte « carnet » ───────────────────
+{
+  const stk2 = readFileSync("src/screens/Stocks.jsx", "utf8");
+  test("★ 📦 Stocks : la liste des articles passe par ListeCarnet — « À faire » = ➕ Entrée puis « ▸ Détail » ; ajuster, transférer, corriger la fiche, code, fournisseur, étiquette et 🗑 Supprimer (administrateur seul) sont écrits en mots dans le détail ; plus aucun bouton rond",
+    /<ListeCarnet items=\{listeAffichee\}/.test(stk2) && /moment="entree"/.test(stk2) && /supprimer: profile\.role === "admin" \? <BoutonGeste icone="🗑" nom="Supprimer"/.test(stk2)
+    && /\{ titre: "Article", figee: true/.test(stk2) && /\{ titre: "À faire", actions: true/.test(stk2) && !/<BoutonRond|CelluleActions|boutonAction/.test(stk2));
+  test("★ 📦 Stocks : une CARTE par article sur téléphone (le nom, le stock, l'état, le prix de vente), la ligne en alerte en rouge pâle, la fiche (pompe, lien, notes) gardée sous le nom",
+    /const carteArticle = \(p, deplie\) =>/.test(stk2) && /stockActuel\(db, p\) <= Number\(p\.seuil\) \? "border-red-200 bg-red-50"/.test(stk2) && /ficheLisible\(p\) && <div className="text-xs font-normal text-sky-800">/.test(stk2) && /useTelephone\(telephoneInitial\)/.test(stk2));
 }
 
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);

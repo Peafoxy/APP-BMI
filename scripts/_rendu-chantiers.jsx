@@ -12,5 +12,6 @@ export const rendreChantiers = (db, profile, autres = {}) =>
 
 // 🧰 OUTILLAGE, rendu pour de vrai (18/11/2026).
 import { Outillage } from "../src/screens/Outillage.jsx";
-export const rendreOutillage = (db, profile) =>
-  renderToStaticMarkup(React.createElement(Outillage, { db, save: () => {}, profile }));
+// `props` : pour le banc seul (téléphone, ligne dépliée).
+export const rendreOutillage = (db, profile, props = {}) =>
+  renderToStaticMarkup(React.createElement(Outillage, { db, save: () => {}, profile, ...props }));
