@@ -7585,7 +7585,7 @@ titre("82 🚫 PERSONNE N'ÉCRIT DE SON PROPRE NUMÉRO, SAUF L'ADMINISTRATEUR (0
   test("★★ les liens WhatsApp d'un représentant, d'un agent, d'un réparateur ne s'affichent qu'à qui peut écrire de son numéro",
     /representant_tel && peutEcrireDeSonNumero\(profile\) &&/.test(lire("src/screens/Fournisseurs.jsx"))
     && /c\.tel && peutEcrireDeSonNumero\(profile\) &&/.test(lire("src/screens/Commerciaux.jsx"))
-    && /\{peutEcrireDeSonNumero\(profile\) && <button title="Écrire sur WhatsApp"/.test(lire("src/screens/Outillage.jsx")));
+    && /* RETOURNÉ le 21/11/2026 : un geste écrit en mots (charte « carnet »). */ /\{peutEcrireDeSonNumero\(profile\) && <BoutonGeste icone=\{<IconeWhatsApp taille=\{14\} \/>\} nom="WhatsApp" teinte="vert" titre="Écrire sur WhatsApp"/.test(lire("src/screens/Outillage.jsx")));
   test("★★ la fiche du chantier dit « Lien du PV pas encore parti » à l'administrateur tant qu'aucune ligne du lien n'a suivi",
     /data-lien-pv-pas-parti/.test(lire("src/screens/ClientsInstalles.jsx")) && /export const lienPvPasParti = /.test(lire("src/screens/ClientsInstalles.jsx")));
   test("★★ App.jsx pose le compte et relance les messages gardés (ouverture, retour du réseau, chaque minute)",
