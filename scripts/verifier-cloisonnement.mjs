@@ -20475,5 +20475,13 @@ titre("🧾 COMMANDES : les quatre listes suivent la charte (19/11/2026, « Oui,
   test("★ 🧾 Commandes n'écrit plus aucun bouton rond ; son seul tableau écrit à la main est le petit panier (le bouton « Retirer » y est un BoutonGeste) ; les quatre listes passent par ListeCarnet", !/<BoutonRond|CelluleActions/.test(srcCmd) && (srcCmd.match(/<table/g) || []).length === 1 && /<BoutonGeste icone="✕" nom="Retirer"/.test(srcCmd) && (srcCmd.match(/<ListeCarnet\b/g) || []).length === 4);
 }
 
+// ── 🔍 La barre de recherche de l'en-tête (21/11/2026) ─────────────────────────────
+{
+  const app = readFileSync("src/App.jsx", "utf8");
+  const cst = readFileSync("src/lib/constants.js", "utf8");
+  test("★ 🔍 la barre de recherche (ordinateur) est posée dans la première ligne de l'en-tête, avant le bloc « Verrouiller », et ouvre LA fenêtre de recherche", /BARRE_RECHERCHE && <button type="button" data-barre-recherche onClick=\{\(\) => setRechercheOuverte\(true\)\}/.test(app) && app.indexOf("data-barre-recherche") < app.indexOf("<HeureServeur sombre"));
+  test("★ 🔍 l'interrupteur BARRE_RECHERCHE existe (true) et, à false, l'ancien bouton « 🔍 Rechercher… » de la deuxième ligne revient (retour à la loupe sans rien d'autre à toucher)", /export const BARRE_RECHERCHE = true;/.test(cst) && /\$\{BARRE_RECHERCHE \? "lg:hidden" : ""\}/.test(app) && /!BARRE_RECHERCHE && <span className="hidden lg:inline"> Rechercher…<\/span>/.test(app));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

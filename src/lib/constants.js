@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.803";
+export const VERSION = "2.101.804";
 
 // ⚡ LA CONNEXION RAPIDE (10/11/2026, Timo : « les 4… si un souci se passe à
 // l'usage, on revient à la vieille méthode »). Vrai : le téléphone ne refait
@@ -77,6 +77,11 @@ export const VERSION = "2.101.803";
 // méthode, telle qu'elle était, sans rien d'autre à toucher (« b » a son
 // propre repli, côté serveur).
 export const CONNEXION_RAPIDE = true;
+
+// 🔍 Timo (21/11/2026) : sur ordinateur, la recherche est une BARRE arrondie au milieu de l'en-tête.
+// « Avec possibilité de revenir à la loupe si ça ne tenait pas » : à `false`, l'ancien bouton
+// « 🔍 Rechercher… » de la deuxième ligne revient, sans rien d'autre à toucher.
+export const BARRE_RECHERCHE = true;
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =
