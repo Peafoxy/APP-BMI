@@ -4,6 +4,7 @@
 // les écrans respectifs. Aiguillage rapide, pas un rapport complet.
 // ============================================================
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { libelleTypeDevis } from "../screens/TousLesDevis";
 import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
@@ -275,6 +276,7 @@ export function BarreRecherche({ db, profile, onNaviguer, texteInitial = "", ouv
   const [ouverte, setOuverte] = useState(ouverteInitiale);
   const [pos, setPos] = useState(null);
   const racine = useRef(null);
+  const panneau = useRef(null);
   const resultats = rechercherGlobalement(db, profile, texte);
   const placer = () => {
     const r = racine.current?.getBoundingClientRect();
@@ -282,12 +284,21 @@ export function BarreRecherche({ db, profile, onNaviguer, texteInitial = "", ouv
   };
   useEffect(() => {
     if (!ouverte) return undefined;
-    const dehors = (e) => { if (racine.current && !racine.current.contains(e.target)) setOuverte(false); };
+    const dehors = (e) => { if (racine.current && !racine.current.contains(e.target) && !(panneau.current && panneau.current.contains(e.target))) setOuverte(false); };
     document.addEventListener("mousedown", dehors);
     window.addEventListener("resize", placer);
     return () => { document.removeEventListener("mousedown", dehors); window.removeEventListener("resize", placer); };
   }, [ouverte]);
   const aller = (t) => { setOuverte(false); setTexte(""); onNaviguer(t); };
+  // 🌗 Timo (21/11/2026) : la liste suit le mode clair / sombre et se lit à travers un fond flouté.
+  // L'en-tête garde ses couleurs (`data-garder-clair`) : la liste est donc posée HORS de lui (portail),
+  // sinon elle resterait claire la nuit. Sans navigateur (le banc), elle reste sous la barre.
+  const liste = ouverte && texte.trim().length >= 2 && (
+    <div ref={panneau} data-barre-recherche-resultats className="fixed z-[60] rounded-2xl border border-white/30 bg-white/70 text-slate-800 shadow-2xl backdrop-blur-xl max-h-[70vh] overflow-y-auto p-4"
+         style={{ top: (pos || { top: 0 }).top, left: (pos || { left: 0 }).left, width: Math.min(576, (typeof window !== "undefined" ? window.innerWidth : 600) - 16) }}>
+      <ResultatsRecherche db={db} texte={texte} resultats={resultats} onNaviguer={aller} />
+    </div>
+  );
   return (
     <div ref={racine} data-barre-recherche className="relative w-80 shrink-0">
       <div className="flex items-center gap-2 rounded-full bg-slate-800 border border-slate-600 px-4 py-1.5 focus-within:border-sky-400">
@@ -305,12 +316,7 @@ export function BarreRecherche({ db, profile, onNaviguer, texteInitial = "", ouv
         />
         {texte && <button type="button" aria-label="Effacer la recherche" onClick={() => { setTexte(""); setOuverte(false); }} className="text-slate-400 hover:text-white text-xs">✕</button>}
       </div>
-      {ouverte && texte.trim().length >= 2 && (
-        <div data-barre-recherche-resultats className="fixed z-[60] bg-white text-slate-800 rounded-xl shadow-xl border border-slate-200 max-h-[70vh] overflow-y-auto p-3"
-             style={{ top: (pos || { top: 0 }).top, left: (pos || { left: 0 }).left, width: Math.min(576, (typeof window !== "undefined" ? window.innerWidth : 600) - 16) }}>
-          <ResultatsRecherche db={db} texte={texte} resultats={resultats} onNaviguer={aller} />
-        </div>
-      )}
+      {typeof document !== "undefined" && liste ? createPortal(liste, document.body) : liste}
     </div>
   );
 }
