@@ -2003,12 +2003,11 @@ export default function App() {
                 </button>
               )}
               {/* 🕓 Timo (14/10/2026) : l'heure du serveur, à gauche de « Verrouiller » (ordinateur). */}
-              <span className="hidden lg:inline"><HeureServeur sombre /></span>
+              <span className="hidden lg:inline"><HeureServeur sombre avecDate /></span>
               {/* Téléphone (Timo, 09/09/2026) : juste le cadenas, sur la ligne du titre. */}
               <button onClick={verrouiller} className="shrink-0 lg:hidden px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-base leading-none" aria-label="Verrouiller la session" title="Verrouiller la session maintenant">🔐</button>
               {/* Ordinateur (capture Timo, 09/09/2026) : un bouton « Verrouiller », sans cadenas. */}
               <button onClick={verrouiller} className="hidden lg:inline-block px-3 py-1.5 rounded-lg bg-sky-700 text-white text-xs font-bold hover:bg-sky-600" title="Verrouiller la session maintenant (mot de passe pour reprendre)">Verrouiller</button>
-              <span className="hidden lg:inline text-xs text-slate-400">{dFR(today())}</span>
             </div>
           </div>
           {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
@@ -2032,7 +2031,6 @@ export default function App() {
             {/* Timo (18/11/2026) : sur ordinateur, le nom et la boutique passent à droite de la ligne des boutons, sous « Verrouiller » et la date. */}
             <span data-nom-boutique-droite className="hidden lg:flex shrink-0 items-center gap-3 ml-auto">
               {profile?.nom && <span className="font-bold text-orange-500 text-xs">👤 {profile.nom}</span>}
-              {profile.boutique && <Badge boutique={profile.boutique} />}
             </span>
           </div>
         </header>

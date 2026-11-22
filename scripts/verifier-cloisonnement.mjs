@@ -18270,7 +18270,7 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
     appH.indexOf("surveillerHorloge();") > 0 && appH.indexOf("surveillerHorloge();") < appH.indexOf("if (!db) return")
     // ⚠ RETOURNÉ le 06/11/2026 : l'en-tête unique (fond sombre) — l'heure à
     // gauche de « Verrouiller », en clair (`sombre`).
-    && /<HeureServeur sombre \/><\/span>[\s\S]{0,700}<button onClick=\{verrouiller\} className="hidden lg:inline-block/.test(appH)
+    && /<HeureServeur sombre avecDate \/><\/span>[\s\S]{0,700}<button onClick=\{verrouiller\} className="hidden lg:inline-block/.test(appH)
     && /heureCourte\(\)/.test(hsv) && /Heure serveur/.test(hsv) && /setInterval/.test(hsv));
   const mes = readFileSync("src/horloge.js", "utf8");
   // ⚠ RETOURNÉ le 15/10/2026 : la mesure ne lit plus « Age », et l'écart gardé
