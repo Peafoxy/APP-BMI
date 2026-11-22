@@ -4154,6 +4154,15 @@ titre("🔒 La validation d'un devis ne se perd pas quand un autre appareil renv
   test("★ la correction de l'ordinateur reste (la ligne ajoutée, le compteur)", d.lignes.length === 2 && d.nb_modifications === 2);
   test("un devis encaissé ailleurs (payé) l'emporte sur un devis encore validé chez nous",
     Fus.fusionner("users", { ...base, devis: [valide] }, { ...base, devis: [{ ...valide, nb_modifications: 3 }] }, { ...base, devis: [{ ...valide, statut: "paye" }] }).devis[0].statut === "paye");
+  // Le cas réel : l'ordinateur ENCAISSE sur sa copie qui n'avait pas la validation
+  // (statut payé chez nous, sans contrat) ; le serveur porte le contrat signé.
+  const payeSansContrat = { ...devisBase, statut: "paye", nb_modifications: 2 };
+  const fe = Fus.fusionner("users", base, { ...base, devis: [payeSansContrat] }, distant).devis[0];
+  test("★ un devis encaissé chez nous SANS contrat reprend le contrat signé du serveur",
+    fe.contrat_signature === "data:image/png;base64,AAA" && fe.contrat_numero === "CTR-2026-ABCD1234" && fe.commande_id === "cmd1");
+  test("★ …et reste « payé » (le statut ne redescend jamais à « validé »)", fe.statut === "paye");
+  test("un devis qu'on vient de CORRIGER (signature vidée exprès) ne reprend pas l'ancienne signature",
+    Fus.fusionner("users", { ...base, devis: [valide] }, { ...base, devis: [{ ...valide, statut: "corrige", contrat_signature: "", contrat_date_signature: "" }] }, distant).devis[0].contrat_signature === "");
   test("un montant corrigé ≠ montant signé : on ne colle PAS la signature (notre version reste)",
     Fus.fusionner("users", base, { ...base, devis: [{ ...devisBase, total: 3100000 }] }, distant).devis[0].contrat_signature === undefined);
   test("un champ de validation que NOUS avons changé garde notre valeur",

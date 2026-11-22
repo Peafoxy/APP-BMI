@@ -138,13 +138,26 @@ export function fusionnerDevis(base, local, distant) {
   const distantParId = new Map(tableau(distant).filter((x) => x?.id).map((x) => [x.id, x]));
   return tableau(local).map((l) => {
     const d = l?.id ? distantParId.get(l.id) : null;
-    if (!d || rangDevis(d) <= rangDevis(l)) return l;
+    // Le serveur doit avoir une validation (validé ou payé) ; sinon rien à reprendre.
+    if (!d || rangDevis(d) < 1) return l;
     if (Number(d.total || 0) !== Number(l.total || 0)) return l;
     const b = baseParId.get(l.id);
     const sortie = { ...l };
     for (const c of Object.keys(d)) {
       if (!estChampValidation(c)) continue;
-      if (b && !memeValeur(l[c], b[c])) continue; // nous l'avons touché : le nôtre reste
+      // Le statut n'avance que dans le sens validé → payé : un devis déjà
+      // « payé » chez nous ne redescend jamais à « validé », mais il reprend
+      // le contrat que le client a signé (cas de KOFFIVI : encaissé sur une
+      // copie qui n'avait pas encore reçu la validation).
+      if (c === "statut" && rangDevis(d) <= rangDevis(l)) continue;
+      if (b && !memeValeur(l[c], b[c])) {
+        // Nous avons touché ce champ : le nôtre reste, sauf s'il est VIDE
+        // alors que le serveur porte une valeur (contrat effacé par erreur).
+        const vide = l[c] === undefined || l[c] === null || l[c] === "";
+        // Seulement pour un devis déjà validé / payé chez nous : un devis qu'on
+        // vient de corriger (signature vidée exprès) ne reprend pas l'ancienne.
+        if (!(vide && c !== "statut" && rangDevis(l) >= 1)) continue;
+      }
       if (!memeValeur(d[c], l[c])) sortie[c] = d[c];
     }
     return sortie;
