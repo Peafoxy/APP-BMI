@@ -15,7 +15,7 @@
 // composant ne décide d'aucun droit, il ne fait que les ranger.
 // ============================================================
 import React, { Fragment, useState, useEffect } from "react";
-import { BoutonGeste, LigneGestes, GrilleGestes, CelluleActions, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable } from "./ui";
+import { useBlocDeplieVisible, BoutonGeste, LigneGestes, GrilleGestes, CelluleActions, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable } from "./ui";
 
 // 📱 Vrai sur téléphone (écran de moins de 640 px). `initial` : pour le banc seul.
 export function useTelephone(initial = false) {
@@ -62,6 +62,7 @@ export function ListeCarnet({
   pied = null, // lignes de total (ordinateur seulement) : <tr>…</tr>, posées dans un <tfoot>
   titreGroupe = null, // (x, i) → texte du titre à poser AVANT cette ligne (changement de catégorie), ou null
 }) {
+  useBlocDeplieVisible(ouvert); // 22/11/2026 : la ligne qu'on ouvre est amenée à l'écran, détail compris
   const marque = (nom, valeur = true) => (nom ? { [nom]: valeur } : {});
   const etat = (deplie) => marque(marques.etat, deplie ? "deplie" : "replie");
 

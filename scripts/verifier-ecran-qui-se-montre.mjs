@@ -37,6 +37,7 @@ const entree = join(dossier, "entree.jsx");
 writeFileSync(entree, `
 import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
+import { ListeCarnet } from "${process.cwd()}/src/components/ListeCarnet.jsx";
 import { PanneauQuiSeMontre, useMontrerALOuverture, revenirSurLaLigne, remonterEnHaut, useFilSurSaFin, DialogHost, uChoix, uAlert, allerALaLigne, TableauDefilant, LIGNES_DEFILANT } from "${process.cwd()}/src/components/ui.jsx";
 const LIGNES = Array.from({ length: 60 }, (_, i) => "L" + i);
 function Liste({ ouvrir }) {
@@ -89,6 +90,14 @@ function Fil({ regle }) {
     </div>}
   </div>;
 }
+// 📖 22/11/2026 : une LIGNE du carnet qui se déplie (ligne + détail) est amenée à l'écran.
+function Carnet() {
+  const [o, setO] = useState(null);
+  const items = Array.from({ length: 40 }, (_, i) => ({ id: "C" + i }));
+  return <ListeCarnet items={items} cle={(x) => x.id} ouvert={o} onBasculer={(x) => setO(o === x.id ? null : x.id)}
+    colonnes={[{ titre: "Nom", figee: true, cellule: (x) => x.id }, { titre: "À faire", actions: true }]} gestes={() => null}
+    detail={(x) => <div data-detail-carnet style={{ height: 260 }}>détail de {x.id}</div>} />;
+}
 window.remonterEnHaut = remonterEnHaut;
 // 🔔 Une notification mène à SA ligne (16/10/2026) : un écran EN VEILLE
 // (masqué) porte la même ligne, et la liste visible n'arrive qu'après un
@@ -118,7 +127,7 @@ function Defilant({ regle }) {
 }
 window.LIGNES_DEFILANT = LIGNES_DEFILANT;
 const quoi = new URLSearchParams(location.search).get("q");
-createRoot(document.getElementById("r")).render(quoi === "defilant" ? <Defilant regle /> : quoi === "defilanttemoin" ? <Defilant /> : quoi === "notif" ? <Notification /> : quoi === "dialogue" ? <DialogHost /> : quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
+createRoot(document.getElementById("r")).render(quoi === "carnet" ? <Carnet /> : quoi === "defilant" ? <Defilant regle /> : quoi === "defilanttemoin" ? <Defilant /> : quoi === "notif" ? <Notification /> : quoi === "dialogue" ? <DialogHost /> : quoi === "fil" ? <Fil regle /> : quoi === "filtemoin" ? <Fil /> : quoi === "crochet" ? <AvecCrochet /> : quoi === "temoin" ? <Temoin /> : <AvecCadre />);
 `);
 const sortie = join(dossier, "bundle.js");
 await build({ entryPoints: [entree], bundle: true, format: "iife", outfile: sortie, logLevel: "silent", loader: { ".js": "jsx", ".jsx": "jsx" }, jsx: "automatic", nodePaths: [join(process.cwd(), "node_modules")], define: { "process.env.NODE_ENV": '"production"', "import.meta.env": "{}" } });
@@ -298,6 +307,19 @@ for (const [f, n] of [["src/screens/Caisse.jsx", 2], ["src/screens/Rentabilite.j
   test(`${f} : ${n} tableau(x) passent par TableauDefilant (clôtures, versements / produits dormants)`, (s.match(/<TableauDefilant>/g) || []).length === n);
 }
 
+
+// 📖 Le carnet : le détail d'une ligne qu'on ouvre en bas de l'écran vient à l'écran, entier.
+{
+  const page = await nav.newPage({ viewport: { width: 1100, height: 700 } });
+  await page.goto(`file://${html}?q=carnet`); await attendre(200);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => { const l = document.querySelector('[data-ligne="C30"]'); window.scrollTo(0, l.getBoundingClientRect().top + window.scrollY - 560); });
+  await attendre(150);
+  await page.click('[data-ligne="C30"] td:first-child'); await attendre(900);
+  const r = await page.evaluate(() => { const d = document.querySelector("[data-detail-carnet]"); const b = d ? d.getBoundingClientRect() : null; const l = document.querySelector('[data-ligne="C30"]').getBoundingClientRect(); return { haut: b && b.top, bas: b && b.bottom, h: window.innerHeight, ligneHaut: l.top }; });
+  test("★ 📖 le détail d'une ligne ouverte en bas de l'écran vient à l'écran, ENTIER (la ligne aussi)", r.bas !== null && r.bas <= r.h && r.haut >= 0 && r.ligneHaut >= 0, JSON.stringify(r));
+  await page.close();
+}
 await nav.close();
 
 // ─────────────────────────── 2. CHAQUE PANNEAU RELEVÉ PASSE PAR LA RÈGLE

@@ -570,6 +570,31 @@ export function montrerALecran(el, bloc = "start") {
   try { el.style.scrollMarginTop = `${MARGE_HAUT_PANNEAU}px`; } catch { /* sans style : on défile quand même */ }
   el.scrollIntoView({ behavior: "smooth", block: bloc });
 }
+// 22/11/2026 (Timo : « il faut toujours que le détail remonte à l'écran… que ce qu'on veut afficher soit
+// visible à tout moment »). Une ligne qui se DÉPLIE (ligne + son détail, ou carte) est amenée à l'écran :
+// tout le bloc si l'écran le permet, sinon le haut du bloc (jamais caché sous la barre collée du haut).
+// `ligne` = la rangée (ou la carte) ouverte ; son détail = les rangées qui la suivent jusqu'à la ligne suivante.
+export function montrerBlocDeplie(ligne) {
+  if (!ligne || typeof window === "undefined") return;
+  let fin = ligne;
+  if (ligne.tagName === "TR") {
+    while (fin.nextElementSibling && !fin.nextElementSibling.hasAttribute("data-ligne") && !fin.nextElementSibling.hasAttribute("data-ligne-vente") && !fin.nextElementSibling.hasAttribute("data-bande-versement")) fin = fin.nextElementSibling;
+  }
+  const haut = ligne.getBoundingClientRect().top;
+  const bas = fin.getBoundingClientRect().bottom;
+  const hauteurDispo = window.innerHeight - MARGE_HAUT_PANNEAU - 8;
+  if (haut >= MARGE_HAUT_PANNEAU && bas <= window.innerHeight - 8) return; // déjà entièrement visible
+  if (bas - haut > hauteurDispo) montrerALecran(ligne, "start");
+  else if (haut < MARGE_HAUT_PANNEAU) montrerALecran(ligne, "start");
+  else montrerALecran(fin, "end");
+}
+export function useBlocDeplieVisible(ouvert, selecteur = (id) => `[data-ligne="${String(id).replace(/"/g, '\\"')}"]`) {
+  useEffect(() => {
+    if (!ouvert) return undefined;
+    const t = setTimeout(() => montrerBlocDeplie(document.querySelector(selecteur(ouvert))), 60);
+    return () => clearTimeout(t);
+  }, [ouvert]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 // `cle` : ce qui ouvre le panneau (un id, un booléen) — la page vient à lui
 // chaque fois que la clé CHANGE vers une valeur vraie (ouvrir un autre
 // dossier ramène aussi). Rend la référence à poser sur le panneau.

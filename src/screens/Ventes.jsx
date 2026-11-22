@@ -29,7 +29,7 @@ import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
 import { mettreVenteALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { paiementDuDevis } from "../lib/reglement";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, BoutonEnvoi, CelluleActions, BoutonGeste, GrilleGestes } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, BoutonEnvoi, CelluleActions, BoutonGeste, GrilleGestes, useBlocDeplieVisible } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp, fichierRecuDeVente, fichierRecuVersement } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
@@ -179,6 +179,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
   // (et replie la précédente) ; seul un clic sur la ligne ouverte la referme.
   // `venteDeplieeInitiale` : pour le banc seul (lire une ligne dépliée), comme `cleInitiale` de 📲 WhatsApp.
   const [venteDepliee, setVenteDepliee] = useState(venteDeplieeInitiale);
+  useBlocDeplieVisible(venteDepliee, (id) => `[data-ligne-vente="${id}"]`); // 22/11/2026 : la vente ouverte est amenée à l'écran, détail compris
   const [proformaDepliee, setProformaDepliee] = useState(null); // la ligne dépliée d'une proforma (15/10/2026)
   // ⚠ Demande Timo, après correction du parcours : une demande de transfert
   // NE VIDE PLUS le panier — le vendeur reclique sur "Encaisser la vente"
@@ -2455,7 +2456,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
               </tr>
             ) : (
               <Fragment key={v.id}>
-              <tr data-vente-grisee={ventesGrisees.has(v.id) ? "" : undefined} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i, ventesGrisees.has(v.id) ? FOND_GRISE : "")}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
+              <tr data-ligne-vente={v.id} data-vente-grisee={ventesGrisees.has(v.id) ? "" : undefined} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i, ventesGrisees.has(v.id) ? FOND_GRISE : "")}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
                 <td data-vente-client className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(venteDepliee === v.id, i, ventesGrisees.has(v.id) ? FOND_GRISE : ""), venteDepliee === v.id)}${texteGrise(v)}`}>{v.client && v.client !== "Client non renseigné" ? <div className="font-semibold text-slate-800">{v.client}</div> : <div className="text-slate-400">—</div>}{v.tel ? <div className="text-xs text-slate-500">{v.tel}</div> : null}</td>
                 <td className={`px-3 py-2 whitespace-nowrap${texteGrise(v)}`}><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
                 <td className={`px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600${texteGrise(v)}`}>{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
