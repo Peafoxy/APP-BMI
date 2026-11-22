@@ -117,6 +117,40 @@ export const unirEquipe = (local, distant) => {
 // avons changé : pour tout le reste, c'est la version du serveur qui reste.
 const memeValeur = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
 
+// ⚠ LA VALIDATION D'UN DEVIS NE SE PERD PAS (22/11/2026, devis de KOFFIVI : le
+// client valide et signe son contrat à 12:40 ; l'ordinateur qui avait corrigé
+// le devis le renvoie ensuite SANS avoir reçu cette validation, et `unirParId`
+// garde NOTRE copie entière — statut, numéro et signature du contrat
+// disparaissent ; l'encaissement pose « payé » sur une fiche sans contrat).
+// Un devis présent des deux côtés garde ce que NOUS avons corrigé (lignes,
+// prix…), mais reprend du serveur sa VALIDATION quand elle est plus avancée
+// que la nôtre : statut, contrat, boutique de paiement, commande, plan de
+// règlement. Seulement si nous n'avons pas touché ces champs depuis la base,
+// et seulement si le montant est le même — on ne colle jamais une signature
+// sur un autre montant que celui que le client a signé.
+const RANG_STATUT_DEVIS = { valide: 1, paye: 2 };
+const rangDevis = (d) => RANG_STATUT_DEVIS[d?.statut] || 0;
+const CHAMPS_VALIDATION_DEVIS = ["statut", "valide_le", "commande_id", "plan_reglement", "accepte_corrige_le"];
+const estChampValidation = (c) => CHAMPS_VALIDATION_DEVIS.includes(c) || c.startsWith("contrat_") || c.startsWith("boutique_");
+
+export function fusionnerDevis(base, local, distant) {
+  const baseParId = new Map(tableau(base).filter((x) => x?.id).map((x) => [x.id, x]));
+  const distantParId = new Map(tableau(distant).filter((x) => x?.id).map((x) => [x.id, x]));
+  return tableau(local).map((l) => {
+    const d = l?.id ? distantParId.get(l.id) : null;
+    if (!d || rangDevis(d) <= rangDevis(l)) return l;
+    if (Number(d.total || 0) !== Number(l.total || 0)) return l;
+    const b = baseParId.get(l.id);
+    const sortie = { ...l };
+    for (const c of Object.keys(d)) {
+      if (!estChampValidation(c)) continue;
+      if (b && !memeValeur(l[c], b[c])) continue; // nous l'avons touché : le nôtre reste
+      if (!memeValeur(d[c], l[c])) sortie[c] = d[c];
+    }
+    return sortie;
+  });
+}
+
 export function fusionner(table, base, local, distant) {
   const strategie = STRATEGIES[table] || {};
   // Pas de version distante : rien à fusionner.
@@ -143,6 +177,12 @@ export function fusionner(table, base, local, distant) {
     if (uni.length > 0 || local?.[champ] !== undefined || distant?.[champ] !== undefined) {
       sortie[champ] = uni;
     }
+  }
+
+  // La validation d'un devis (voir fusionnerDevis) : seulement sur la fiche d'un
+  // compte, et seulement s'il y a une liste de devis des deux côtés.
+  if (table === "users" && Array.isArray(sortie.devis) && Array.isArray(distant?.devis)) {
+    sortie.devis = fusionnerDevis(base?.devis, sortie.devis, distant.devis);
   }
 
   for (const champ of strategie.equipes || []) {

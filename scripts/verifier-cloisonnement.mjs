@@ -4135,6 +4135,37 @@ titre("La fusion à l'envoi ne renvoie plus une vieille copie d'un champ qu'on n
     Fus.fusionner("ventes", undefined, { id: "v", x: 2 }, { id: "v", x: 3 }).x === 2);
 }
 
+titre("🔒 La validation d'un devis ne se perd pas quand un autre appareil renvoie sa correction (22/11/2026, devis de KOFFIVI)");
+{
+  // Le cas exact : l'ordinateur corrige le devis (proposé), le client le valide
+  // et signe son contrat sur son téléphone, puis l'ordinateur envoie.
+  const devisBase = { id: "dv", statut: "propose", total: 2900000, lignes: [{ id: "l1" }], nb_modifications: 1 };
+  const base = { id: "c", nom: "KOFFIVI", devis: [devisBase] };
+  const local = { ...base, devis: [{ ...devisBase, nb_modifications: 2, lignes: [{ id: "l1" }, { id: "l2" }] }] };
+  const valide = { ...devisBase, statut: "valide", valide_le: "2026-11-02", contrat_numero: "CTR-2026-ABCD1234",
+    contrat_signature: "data:image/png;base64,AAA", contrat_date_signature: "2026-11-02",
+    boutique_paiement: "BMI DEMAKPOE", commande_id: "cmd1" };
+  const distant = { ...base, devis: [valide] };
+  const f = Fus.fusionner("users", base, local, distant);
+  const d = f.devis[0];
+  test("★ le statut validé, le numéro et la signature du contrat sont gardés",
+    d.statut === "valide" && d.contrat_numero === "CTR-2026-ABCD1234" && d.contrat_signature === "data:image/png;base64,AAA" && d.valide_le === "2026-11-02");
+  test("★ la boutique de paiement et la commande sont gardées", d.boutique_paiement === "BMI DEMAKPOE" && d.commande_id === "cmd1");
+  test("★ la correction de l'ordinateur reste (la ligne ajoutée, le compteur)", d.lignes.length === 2 && d.nb_modifications === 2);
+  test("un devis encaissé ailleurs (payé) l'emporte sur un devis encore validé chez nous",
+    Fus.fusionner("users", { ...base, devis: [valide] }, { ...base, devis: [{ ...valide, nb_modifications: 3 }] }, { ...base, devis: [{ ...valide, statut: "paye" }] }).devis[0].statut === "paye");
+  test("un montant corrigé ≠ montant signé : on ne colle PAS la signature (notre version reste)",
+    Fus.fusionner("users", base, { ...base, devis: [{ ...devisBase, total: 3100000 }] }, distant).devis[0].contrat_signature === undefined);
+  test("un champ de validation que NOUS avons changé garde notre valeur",
+    Fus.fusionner("users", base, { ...base, devis: [{ ...devisBase, statut: "propose", boutique_paiement: "NOTRE" }] }, distant).devis[0].boutique_paiement === "NOTRE");
+  test("un devis déjà validé chez nous n'est pas touché par une version moins avancée",
+    Fus.fusionner("users", { ...base, devis: [valide] }, { ...base, devis: [{ ...valide, nb_modifications: 5 }] }, { ...base, devis: [devisBase] }).devis[0].statut === "valide");
+  test("un autre devis du même client n'est pas touché",
+    Fus.fusionner("users", base, { ...base, devis: [local.devis[0], { id: "autre", statut: "propose", total: 1 }] }, distant).devis[1].statut === "propose");
+  test("la fusion n'agit que sur la table des comptes",
+    Fus.fusionner("ventes", base, local, distant).devis[0].contrat_signature === undefined);
+}
+
 titre("💲 Remise, frais d'installation, transport : en % ou en montant LIBRE ; « Avec installation » décochée = aucun frais (12/10/2026, « lance »)");
 {
   const sortieML = join("node_modules", ".cache", `bmi-mode-libre-${process.pid}.mjs`);
