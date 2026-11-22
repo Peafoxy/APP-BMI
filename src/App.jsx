@@ -2030,7 +2030,8 @@ export default function App() {
             {BARRE_RECHERCHE && <span data-barre-centree className="hidden lg:flex flex-1 min-w-0 justify-center xl:flex-none xl:absolute xl:left-1/2 xl:top-1/2 xl:-translate-x-1/2 xl:-translate-y-[calc(50%+4px)]"><BarreRecherche db={db} profile={profile} onNaviguer={(t) => setTab(t)} /></span>}
             {/* Timo (18/11/2026) : sur ordinateur, le nom et la boutique passent à droite de la ligne des boutons, sous « Verrouiller » et la date. */}
             <span data-nom-boutique-droite className="hidden lg:flex shrink-0 items-center gap-3 ml-auto">
-              {profile?.nom && <span className="font-bold text-orange-500 text-xs">👤 {profile.nom}</span>}
+              {profile?.nom && <span className="font-bold text-orange-500 text-xs">{profile.nom}</span>}
+              {profile.boutique && <Badge boutique={profile.boutique} />}
             </span>
           </div>
         </header>
