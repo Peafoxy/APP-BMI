@@ -376,13 +376,20 @@ export function BoutonGeste({ icone, nom, titre, teinte = "bleu", onClick, envoi
     </button>
   );
 }
-export function LigneGestes({ nom, children }) {
+// 22/11/2026 (Timo) : « tu n'as pas besoin de classer les boutons par catégories… aligne-les sur toute
+// la ligne… réduis drastiquement leur taille ». LigneGestes ne dessine plus de nom de thème ni de ligne
+// à part : ses boutons s'ajoutent simplement à la GRILLE (GrilleGestes) qui les contient.
+export function LigneGestes({ children }) {
   const enfants = (Array.isArray(children) ? children : [children]).flat(Infinity).filter(Boolean);
   if (enfants.length === 0) return null;
+  return <div data-ligne-gestes className="contents">{enfants}</div>;
+}
+// UNE grille pour tous les gestes d'un détail : boutons de même hauteur (26 px) et de même largeur, alignés
+// en colonnes, qui remplissent la largeur (112 px au moins) ; deux colonnes sur téléphone.
+export function GrilleGestes({ children, className = "", ...autres }) {
   return (
-    <div data-ligne-gestes className="flex flex-wrap items-center gap-1.5">
-      <span className="w-16 shrink-0 text-[10px] font-bold uppercase text-slate-400">{nom}</span>
-      {enfants}
+    <div {...autres} data-grille-gestes className={`grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-1.5 [&_[data-geste]]:h-[26px] [&_[data-geste]]:w-full [&_[data-geste]]:min-w-0 [&_[data-geste]]:overflow-hidden [&_[data-geste]]:text-ellipsis [&_[data-geste]]:px-1.5 [&_[data-geste]]:py-0 [&_[data-geste]]:text-[10.5px] ${className}`}>
+      {children}
     </div>
   );
 }

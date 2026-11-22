@@ -24,7 +24,7 @@ import { peutPreparerDevisDuProspect, auteurProposePourProspect } from "../lib/c
 import { auteursPossibles } from "./dimensionnement/devisCommun";
 import { mettreALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { ListeCarnet, useTelephone } from "../components/ListeCarnet";
-import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, FormulaireRepliable, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, btnDark, Panel, uAlert, uConfirm, uPrompt, uChoix, usePagination, Pagination, demanderDate, champRecherche, FormulaireRepliable, BoutonGeste, LigneGestes, GrilleGestes, CarteRepliable, NoteDepliable, IconeWhatsApp, BoutonEnvoi } from "../components/ui";
 import { derniereActivite, joursSansActivite, estDormant, toucher, aDroit, bloquerSiLecture, refuserSaufAdmin, refuserSaufProprietaire, refuserSaufReaffectation, marqueEspace, espaceDuCompte, memeNumero, comptesAvecCeNumero, utilisateursDeLEspace, domainesDefinis, clientsSansSuiteDeLEspace, devisDuProspect, prospectVisiblePour, envoyerAvisNouveauContact, ONGLETS_ROLE } from "../lib/calculs";
 
 // ============ PROSPECTS (rôle Commercial + vue Admin) ============
@@ -486,12 +486,12 @@ export function Prospects({ db, save, profile, isAdmin, onPreparerDevis, onVoirD
     const { g, moment } = gestesDe(p);
     const r = { ...g, ...(moment ? { [moment]: null } : {}) };
     return (
-      <div data-gestes-prospect className="space-y-1.5">
+      <GrilleGestes data-gestes-prospect>
         <LigneGestes nom="Relancer">{r.relancer}{r.contacte}{r.date}</LigneGestes>
         <LigneGestes nom="Suite">{r.preparer}{r.planifier}{r.convertir}</LigneGestes>
         <LigneGestes nom="Dossier">{r.projet}{r.reassigner}{r.prendre}</LigneGestes>
         <LigneGestes nom="Classer">{r.reactiver}{r.archiver}{r.supprimer}</LigneGestes>
-      </div>
+      </GrilleGestes>
     );
   };
   const avisDe = (p) => (

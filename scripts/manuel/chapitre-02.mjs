@@ -45,7 +45,7 @@ export const CHAPITRE = {
       ["ul", [
         "**👥 Utilisateurs** : l'onglet, réservé à l'administrateur. En haut, le bouton **« ➕ Nouvel utilisateur »** : le formulaire de création n'est PAS affiché d'office, il s'ouvre au clic (« Fermer » le replie, et il se replie tout seul après une création réussie) — la même règle vaut pour tous les formulaires de création de l'application (fournisseur, dette, prospect, article, boutique…), sauf 💰 Ventes et 🛒 Nouvelle commande ; en dessous, la liste, avec une pastille par rôle (« Vendeur (3) », « Client (42) »…) et la ligne de recherche.",
         "**🔐 Pouvoirs** : un bouton écrit en toutes lettres dans le détail du compte (clic sur la ligne, ou « ▸ Détail »), ligne « Accès ». Si c'est le geste du moment du compte, il est directement sur la ligne.",
-        "**⋯ Gérer** : le panneau qui s'ouvre sous le compte quand on clique sur sa ligne (ou « ▸ Détail », dernière colonne « À faire »), rangé par thème (Compte, Paie, Documents — l'attestation de travail et le document de fin de contrat, administrateur principal, chapitre 18 —, Commercial, Client).",
+        "**⋯ Gérer** : le panneau qui s'ouvre sous le compte quand on clique sur sa ligne (ou « ▸ Détail », dernière colonne « À faire »), rangé en petits boutons alignés (les noms de thème qui suivent ne s'affichent plus, seul l'ordre reste : Compte, Paie, Documents — l'attestation de travail et le document de fin de contrat, administrateur principal, chapitre 18 —, Commercial, Client).",
         "**⚙ Paramètres → 👑 Administrateur principal** : le transfert du rôle principal.",
         "**🙋 Créer un client** : l'onglet de tous les employés pour créer un client en trente secondes.",
       ]],

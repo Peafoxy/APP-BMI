@@ -93,7 +93,7 @@ console.log("\nL'écran se monte et lit la fiche");
   const gestes = propre(await page.$eval("[data-gestes-travaux]", (e) => e.innerText));
   // RETOURNÉ le 19/11/2026 (la charte) : « Facturer » est le geste du moment, sur la LIGNE (« À faire ») ; le détail garde les autres.
   test("★ les gestes sont en TOUTES LETTRES sur trois lignes : Facture (Relevé, Facturer) · Chantier (équipe, frais, sortir un article, article hors boutique) · Autres (Supprimer)",
-    /Facture/.test(gestes) && /Chantier/.test(gestes) && /Autres/.test(gestes) && /Relevé des travaux/.test(gestes) && /Facturer le client \(vers 💰 Ventes\)/.test(propre(await page.$eval("[data-ligne-travaux]", (e) => e.innerText))) && !/Facturer le client/.test(gestes) && /Composer l'équipe/.test(gestes) && /Frais de prestation/.test(gestes) && /Sortir un article/.test(gestes) && /Article hors boutique/.test(gestes) && /Supprimer ces travaux/.test(gestes) && (await page.$$("[data-gestes-travaux] [data-ligne-gestes]")).length === 3, gestes);
+    /Relevé des travaux/.test(gestes) /* RETOURNÉ 22/11/2026 : plus de noms de thème, une grille de gestes */ && /Facturer le client \(vers 💰 Ventes\)/.test(propre(await page.$eval("[data-ligne-travaux]", (e) => e.innerText))) && !/Facturer le client/.test(gestes) && /Composer l'équipe/.test(gestes) && /Frais de prestation/.test(gestes) && /Sortir un article/.test(gestes) && /Article hors boutique/.test(gestes) && /Supprimer ces travaux/.test(gestes) && (await page.$$("[data-gestes-travaux] [data-ligne-gestes]")).length === 3, gestes);
   test("★ les deux formulaires de sortie d'article NE SONT PAS étalés : ils ne s'ouvrent qu'au clic sur leur geste", !(await page.$("input[placeholder^='Article du stock']")) && !(await page.$("input[placeholder='Nom']")));
 }
 

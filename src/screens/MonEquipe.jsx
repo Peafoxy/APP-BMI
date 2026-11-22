@@ -9,7 +9,7 @@ import { Ventes } from "../screens/Ventes";
 import { Clients } from "../screens/Clients";
 import { Prospects } from "../screens/Prospects";
 import { uid, normPaiement, totalVente, definirMotDePasse, fmt, today, inP, dFR, nouveauMessage, nouvelleDepense } from "../lib/core";
-import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, BoutonGeste, LigneGestes, CarteRepliable, NoteDepliable, CelluleActions } from "../components/ui";
+import { Panel, uAlert, uConfirm, uPrompt, Stat, demanderMoyenPaiement, demanderDate, useMontrerALOuverture, revenirSurLaLigne, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable, BoutonRond, BoutonGeste, LigneGestes, GrilleGestes, CarteRepliable, NoteDepliable, CelluleActions } from "../components/ui";
 import { mentionVirement } from "../lib/banques";
 import { choisirSourcePaiementG, messagesNotifPaiementCommission, messagesNotifSortieCaisse, toucher, SEUIL_COMMERCIAL, TAUX_EQUIPE_DEFAUT, filleulsDe, estChefEquipe, commissionVente, montantVerse, repartirCommissions, repartirCommissionEquipe, estDormant, partParrainBloquee, posesAvecApporteur, chantiersDeLEspaceRegarde, aDroit, bloquerSiLecture, refuserSaufTaches, tachesOuvertes, tachesAValider, espaceDuCompte, utilisateursDeLEspace, filtreEspaceAffichage, marqueEspace, cleApporteur, moyenHabituelApporteur, moyenDuClientPourApporteur, poserMoyenApporteur, envoyerAvisTache, ROLES_TACHES, refuserSaufAdmin} from "../lib/calculs";
 import { Commerciaux } from "./Commerciaux";
@@ -638,7 +638,7 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
   // 👑 Les gestes d'un commercial, ÉCRITS EN MOTS sur deux lignes (Suivi / Argent) :
   // le tableau (ordinateur) et la carte (téléphone) appellent la même fonction.
   const gestesCommercial = (st) => (
-    <div className="space-y-1">
+    <GrilleGestes>
       <LigneGestes nom="Suivi">
         {(st.u.taches || []).length > 0 && <BoutonGeste icone="🗂" nom={`Ses tâches (${(st.u.taches || []).length})`} teinte="gris" onClick={() => setMembreTaches(membreTaches === st.u.id ? null : st.u.id)} titre={`🗂 voir ses tâches (${(st.u.taches || []).length})`} />}
         {ROLES_TACHES.includes(profile.role) && aDroit(db, profile, "act_taches") && <BoutonGeste icone="✅" nom="Assigner une tâche" onClick={() => assignerTache(st)} titre="✅ Tâche — assigner une tâche" />}
@@ -648,7 +648,7 @@ export function MonEquipe({ db, save, profile, cible = null, periodeInitiale = "
         {boutonReleve(cleUtilisateur(st.u.id))}
         {estAdmin && st.nbReglees > 0 && <BoutonGeste icone="↩" nom="Annuler un paiement" teinte="rouge" onClick={() => annulerPaiement(st)} titre="↩ Annuler paiement" />}
       </LigneGestes>
-    </div>
+    </GrilleGestes>
   );
   // La commission due d'un commercial et ce qui l'attend (réception, paiement du client) : écrit UNE fois.
   const gelesDe = (st) => (<>

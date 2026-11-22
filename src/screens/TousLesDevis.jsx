@@ -21,7 +21,7 @@ import { CompleterDevis } from "../components/CompleterDevis";
 import { texteRelanceDevis, devisRelancable, motDePasseConnu, peutModifierDevis, motifRefusModification, ADRESSE_APP, libelleRoleEmploye, estSansAcces } from "../lib/comptesClients";
 import { devisARelancer, joursSansReponse as joursSansReponseDepuis, SEUIL_RELANCE_JOURS, offreExpiree, phraseOffreExpiree } from "../lib/rappels";
 import { peutDemanderModif, motifRefusDemandeModif, poserDemandeModif, demandeModifEnCours, demandeModifAcceptee, cyclesModif, MAX_CYCLES_MODIF } from "../lib/modifDevis";
-import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, BoutonGeste, LigneGestes, NoteDepliable, IconeWhatsApp } from "../components/ui";
+import { inputCls, usePagination, Pagination, uAlert, uConfirm, uPrompt, champRecherche, CochesEnvoi, BoutonGeste, LigneGestes, GrilleGestes, NoteDepliable, IconeWhatsApp } from "../components/ui";
 import { ListeCarnet, useTelephone } from "../components/ListeCarnet";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { etatRelanceAuto } from "../lib/relanceAutoDevis";
@@ -804,12 +804,12 @@ export function TousLesDevis({ db, save, profile, onModifierDevis, onEncaisserCo
                     {pastilles.length > 0 && (
                       <div data-pastilles-detail className="mb-3 flex flex-wrap gap-1">{pastilles.map((x, k) => <Fragment key={k}>{x}</Fragment>)}</div>
                     )}
-                    <div data-gestes-devis className="mb-3 space-y-1.5">
+                    <GrilleGestes data-gestes-devis className="mb-3">
                       <LigneGestes nom="Client">{reste.relancer}{reste.demander}{reste.encaisser}</LigneGestes>
                       <LigneGestes nom="Documents">{reste.pdf}{reste.doctech}</LigneGestes>
                       <LigneGestes nom="Modifier">{reste.modifier}{reste.completer}{reste.complement}</LigneGestes>
                       <LigneGestes nom="Classer">{reste.classer}{reste.rouvrir}{reste.supprimer}</LigneGestes>
-                    </div>
+                    </GrilleGestes>
                     {estSansSuite(d) && (
                       <div className="mb-3 rounded-xl border-2 border-slate-300 bg-white p-3 text-sm" data-sans-suite>
                         <div className="font-bold text-slate-800">📁 Classé sans suite le {dFR(d.sans_suite?.le)} par {d.sans_suite?.par || "?"}</div>

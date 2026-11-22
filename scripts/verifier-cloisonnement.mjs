@@ -4340,9 +4340,14 @@ titre("👥 Le devis établi POUR un autre, et « TOUS LES DEVIS DE … » (12/1
     /À faire/.test(hA) && /data-detail-devis-bouton/.test(hA) && !/data-devis-pdf/.test(hA) && !/data-supprimer-devis/.test(hA) && !/data-classer-sans-suite/.test(hA)
     && nb(hA, /data-detail-devis-bouton/g) === nb(hA, /data-ligne-devis="replie"/g) && !/data-gestes-devis/.test(hA), hA.slice(0, 120));
   test("★★ 📋 Tous les devis (façon carnet) : un devis déplié écrit ses gestes en MOTS, rangés par thème (Client, Documents, Modifier, Classer), les pastilles toutes dans le détail, et le geste du moment n'y est pas répété",
-    /data-gestes-devis/.test(hAd) && /data-pastilles-detail|data-gestes-devis/.test(hAd) && nb(hAd, /data-devis-pdf/g) === 1 && />📄 Devis PDF</.test(hAd) && />Documents</.test(hAd) && />Classer</.test(hAd) && />Modifier</.test(hAd)
+    /data-gestes-devis/.test(hAd) && /data-pastilles-detail|data-gestes-devis/.test(hAd) && nb(hAd, /data-devis-pdf/g) === 1 && />📄 Devis PDF</.test(hAd) && /data-grille-gestes/.test(hAd) /* RETOURNÉ 22/11/2026 : plus de noms de thème, une grille de gestes alignés */
     && /📁 Classer sans suite</.test(hAd) && !/data-bouton-rond|aria-label="📄 Devis PDF" title="📄 Devis PDF" class="[^"]*rounded-full/.test(hAd)
     && nb(hAd, /Relancer par WhatsApp/g) <= 1 + 1, hAd.slice(0, 120));
+  { const uiG = readFileSync("src/components/ui.jsx", "utf8"); const lcG = readFileSync("src/components/ListeCarnet.jsx", "utf8");
+    test("★★ 🔲 LES GESTES D'UN DÉTAIL : UNE grille (GrilleGestes) — plus de noms de thème, boutons de 26 px de haut et de même largeur, qui remplissent la ligne (112 px au moins), deux colonnes sur téléphone ; LigneGestes ne dessine plus de libellé et GestesDetail, Devis, Prospects, 👑 Équipe passent par la grille (Timo, 22/11/2026)",
+      /export function GrilleGestes/.test(uiG) && /sm:grid-cols-\[repeat\(auto-fill,minmax\(112px,1fr\)\)\]/.test(uiG) && /\[&_\[data-geste\]\]:h-\[26px\]/.test(uiG)
+      && !/uppercase text-slate-400">\{nom\}/.test(uiG) && /<GrilleGestes/.test(lcG)
+      && ["src/screens/TousLesDevis.jsx", "src/screens/Prospects.jsx", "src/screens/MonEquipe.jsx"].every((f) => /<GrilleGestes/.test(readFileSync(f, "utf8")))); }
   test("★★ 📋 Tous les devis (façon carnet) : sur téléphone, une CARTE par devis (nom, total, statut, geste du moment, « Détail ») et PAS le tableau ; sur ordinateur, le tableau et pas de cartes ; jamais les deux",
     /data-devis-cartes/.test(hAt) && nb(hAt, /data-devis-carte[ =]/g) >= 2 && !/min-w-\[860px\]/.test(hAt) && !/<table/.test(hAt)
     && !/data-devis-cartes/.test(hA) && /<table/.test(hA) && /data-detail-devis-bouton/.test(hAt), hAt.slice(0, 120));
@@ -4462,8 +4467,8 @@ titre("📋 Le statut des dettes : Tout (en cours + partielles), En cours, Parti
     && nbD(dD0, /data-detail-dette-bouton/g) === 2 && nbD(dD0, /💵 Enregistrer un paiement<\/button>|Relancer par WhatsApp<\/span>/g) === 2
     && !/>🖨 Reçu</.test(dD0) && !/>🗑 Supprimer</.test(dD0) && !/<select[^>]*data-filtre-statut-dette/.test(dD0), dD0.slice(0, 120));
   test("★★ 📋 Dettes (façon carnet) : une dette dépliée écrit ses gestes en MOTS (Argent, Classer pour l'administrateur), le geste du moment n'y est pas répété, et les gestes sont dans le détail",
-    /data-detail-dette/.test(dD1b) && />Argent</.test(segGestes(dD1b)) && /💵 Enregistrer un paiement/.test(segGestes(dD1b)) && />🖨 Reçu</.test(segGestes(dD1b)) && !/Relancer par WhatsApp/.test(segGestes(dD1b))
-    && />Classer</.test(segGestes(dD1a)) && />🗑 Supprimer</.test(segGestes(dD1a)) && !/>🗑 Supprimer</.test(segGestes(dD1b)), segGestes(dD1b).slice(0, 120));
+    /data-detail-dette/.test(dD1b) && /💵 Enregistrer un paiement/.test(segGestes(dD1b)) && />🖨 Reçu</.test(segGestes(dD1b)) && !/Relancer par WhatsApp/.test(segGestes(dD1b))
+    && />🗑 Supprimer</.test(segGestes(dD1a)) && !/>🗑 Supprimer</.test(segGestes(dD1b)), segGestes(dD1b).slice(0, 120));
   { const srcDe = readFileSync("src/screens/Dettes.jsx", "utf8");
     test("★★ 📋 Dettes (façon carnet) : la bande des retards a son bouton écrit « Voir seulement celles-là » et l'explication derrière ⓘ ; les réservations sont repliées et leurs gestes écrits en mots",
       /data-bande-retard/.test(dD0) && /Voir seulement celles-là/.test(dD0)
@@ -18664,7 +18669,7 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
         && ["Client", "Installation", "Installé le", "Entretien", "À suivre", "À faire"].every((h) => hL.includes(`>${h}</th>`)) && !/>Numéro<\/th>/.test(hL) && !/>Commercial<\/th>/.test(hL), hL.slice(0, 200));
       test("★ 🔤 « À faire » = LE geste du moment sur la ligne (🏁 Marquer terminé) ; les autres gestes sont en TOUTES LETTRES sur trois lignes dans « ▸ Détail » (Suivi · Entretien · Autres) : « Frais d'installation », « Entretien », « Supprimer »… ; aucun bouton rond de geste",
         />🏁 Marquer terminé</.test(hL) && /data-detail-chantier-bouton/.test(hL) && !/data-gestes-chantier/.test(hL)
-        && /data-gestes-chantier/.test(hD) && !/>🏁 Marquer terminé<[\s\S]*data-gestes-chantier/.test(hD.slice(hD.indexOf("data-gestes-chantier")) ) && nbD(/data-ligne-gestes/g) >= 2 && />🔧 Frais d&#x27;installation</.test(hD) && />Entretien</.test(hD) && />Autres</.test(hD) && /📅 Entretien/.test(hD) && /🗑 Supprimer/.test(hD) && /✅ Entretien fait/.test(hD)
+        && /data-gestes-chantier/.test(hD) && !/>🏁 Marquer terminé<[\s\S]*data-gestes-chantier/.test(hD.slice(hD.indexOf("data-gestes-chantier")) ) && nbD(/data-ligne-gestes/g) >= 2 && />🔧 Frais d&#x27;installation</.test(hD) && /📅 Entretien/.test(hD) && /🗑 Supprimer/.test(hD) && /✅ Entretien fait/.test(hD)
         && !/data-cellule-actions[^>]*>\s*<div[^>]*><button[^>]*rounded-full/.test(hL));
       test("★ 🔔 « À suivre » : la pastille « À PROGRAMMER » et l'intervention ouverte sont sur la ligne, jamais cachées",
         /À PROGRAMMER/.test(hL) && nbL(/data-interventions-ouvertes/g) >= 1);
@@ -18687,8 +18692,8 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
         // dépliée, les autres gestes en TOUTES LETTRES sur des lignes nommées ; téléphone = une carte par outil, jamais un tableau.
         test("★ 🧰 Outillage se rend : un tableau pour l'ordinateur (« À faire » : 📥 Retour + ▸ Détail), une carte par outil pour le téléphone, les autres gestes en TOUTES LETTRES dans le détail (Mouvement · Atelier — la ligne Fiche, sans bouton, ne s'affiche pas)",
           !hO.startsWith("ERREUR") && !hOD.startsWith("ERREUR") && !hOT.startsWith("ERREUR") && /data-outils-table/.test(hO) && /<th[^>]*>À faire<\/th>/.test(hO) && /data-geste-retour/.test(hO) && /data-detail-outil-bouton/.test(hO) && !/data-outils-cartes/.test(hO)
-          && />Mouvement</.test(hOD) && />Atelier</.test(hOD) && !/>Fiche</.test(hOD) && />📥 Retour</.test(hOD) && />🏗 Changer le chantier</.test(hOD) && />⚠ Perdu</.test(hOD) && />🗑 Réformer</.test(hOD)
-          && /data-outils-cartes/.test(hOT) && /data-carte-outil="true"/.test(hOT) && /data-ligne="o1"/.test(hOT) && !/<table/.test(hOT) && /data-detail-outil-bouton/.test(hOT) && />Mouvement</.test(hOT), hO.slice(0, 200));
+          && !/>Fiche</.test(hOD) && />📥 Retour</.test(hOD) && />🏗 Changer le chantier</.test(hOD) && />⚠ Perdu</.test(hOD) && />🗑 Réformer</.test(hOD)
+          && /data-outils-cartes/.test(hOT) && /data-carte-outil="true"/.test(hOT) && /data-ligne="o1"/.test(hOT) && !/<table/.test(hOT) && /data-detail-outil-bouton/.test(hOT), hO.slice(0, 200));
         test("★ 🧰 la phrase « Où se range un outil ? » est derrière un petit bouton, jamais étalée ; la liste n'a plus de petits ronds de geste",
           /data-note-depliable[^>]*>ⓘ Où se range un outil/.test(hO) && !/boutonAction|w-8 h-8 rounded-full/.test(hO.slice(hO.indexOf("data-outils-table"))), hO.slice(0, 200));
       }
@@ -19622,7 +19627,7 @@ titre("🧾 L'historique des paiements de commission, téléchargeable en PDF (T
     try { htmlF = E.rendreEquipe(db, timo, "tout", false); } catch (e) { errF = String(e && e.message || e).split("\n")[0]; }
     test("★★ 👑 Mon équipe façon carnet : « Performances par commercial » en TABLEAU + une carte téléphone, les gestes ÉCRITS (« Assigner une tâche », « Relevé », « Payer la commission » quand il y a un dû) sur deux lignes Suivi / Argent, plus aucune icône ronde" + (errF ? ` (${errF})` : ""),
       !errF && /data-performances-table/.test(htmlF) && /data-performances-cartes/.test(htmlF) && htmlF.includes("Performances par commercial (")
-      && /data-ligne-gestes/.test(htmlF) && htmlF.includes(">Suivi<") && htmlF.includes(">Argent<") && htmlF.includes(">✅ Assigner une tâche<") && htmlF.includes(">📄 Relevé<") && !/<button[^>]*rounded-full/.test(htmlF));
+      && /data-ligne-gestes/.test(htmlF) && htmlF.includes(">✅ Assigner une tâche<") && htmlF.includes(">📄 Relevé<") && !/<button[^>]*rounded-full/.test(htmlF));
     test("★★ 👑 les blocs secondaires sont REPLIÉS à l'ouverture (chefs d'équipe, apporteurs externes, historique : le titre et le montant à payer se lisent, le tableau non), la prospection reste ouverte" + (errF ? ` (${errF})` : ""),
       !errF && /data-chefs-equipe/.test(htmlF) && /data-apporteurs-externes/.test(htmlF) && /data-bloc-historique/.test(htmlF)
       && htmlF.includes("Chefs d&#x27;équipe — commissions sur leurs recrues") && htmlF.includes("Apporteurs externes") && !/data-historique-paiements/.test(htmlF)
@@ -19799,7 +19804,7 @@ titre("🧲 Suivre les commerciaux qui prospectent : la colonne et le filtre « 
       && nbP(pT0, /Relancer par WhatsApp<\/span>/g) === 1 && !/>🗑 Supprimer</.test(pT0) && !/>✅ Convertir en client</.test(pT0)
       && /Catégories de prospects \(1\)/.test(pT0) && !/Nouvelle catégorie/.test(pT0) && /Nouvelle catégorie/.test(pT4), pT0.slice(0, 120));
     test("★★ 🧲 Prospects (façon carnet) : un prospect déplié écrit ses gestes en MOTS sur quatre lignes (Relancer, Suite, Dossier, Classer), le geste du moment n'y est pas répété, les contacts notés sont lus",
-      /data-gestes-prospect/.test(pT1) && />Relancer</.test(pT1) && />Suite</.test(pT1) && />Dossier</.test(pT1) && />Classer</.test(pT1)
+      /data-gestes-prospect/.test(pT1) /* RETOURNÉ 22/11/2026 : plus de noms de thème, une grille */
       && />✅ Convertir en client</.test(pT1) && />🗑 Supprimer</.test(pT1) && />📞 Marquer contacté</.test(pT1) && nbP(pT1, /Relancer par WhatsApp<\/span>/g) === 1 && /data-contacts-prospect/.test(pT1), pT1.slice(0, 120));
     { const dbArc = { ...db, prospects: [...db.prospects, pr("z1", { commercial: "KOFFI", nom: "KOFFI-ARCHIVE", archive: true, archive_le: auj, archive_motif: "Perdu" })] };
       let hArc = ""; try { hArc = E.rendreProspects(dbArc, timo); } catch (e) { hArc = String(e); }

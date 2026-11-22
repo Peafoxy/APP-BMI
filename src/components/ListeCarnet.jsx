@@ -15,7 +15,7 @@
 // composant ne décide d'aucun droit, il ne fait que les ranger.
 // ============================================================
 import React, { Fragment, useState, useEffect } from "react";
-import { BoutonGeste, LigneGestes, CelluleActions, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable } from "./ui";
+import { BoutonGeste, LigneGestes, GrilleGestes, CelluleActions, enTeteFige, celluleFigee, classeLigneDepliable, fondLigneDepliable } from "./ui";
 
 // 📱 Vrai sur téléphone (écran de moins de 640 px). `initial` : pour le banc seul.
 export function useTelephone(initial = false) {
@@ -46,9 +46,9 @@ export function GestesLigne({ g, moment, deplie, onDetail, marque, aDroite = fal
 export function GestesDetail({ g, moment, lignes, marque }) {
   const reste = { ...g, ...(moment ? { [moment]: null } : {}) };
   return (
-    <div {...(marque ? { [marque]: true } : {})} className="space-y-1.5">
-      {lignes.map(([nom, cles]) => <LigneGestes key={nom} nom={nom}>{cles.map((c) => reste[c])}</LigneGestes>)}
-    </div>
+    <GrilleGestes {...(marque ? { [marque]: true } : {})}>
+      {lignes.map(([nom, cles]) => <LigneGestes key={nom}>{cles.map((c) => reste[c])}</LigneGestes>)}
+    </GrilleGestes>
   );
 }
 
