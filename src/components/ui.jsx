@@ -249,7 +249,7 @@ export function BoutonGerer({ nom, onClick, titre, ton, info, ...autres }) {
     const ok = await uInfo(`${t || nom}\n\n${vues.length ? vues.join("\n") : PAS_RENSEIGNE}`, vues.length ? "✏️ Modifier" : "✏️ Saisir");
     if (ok) onClick?.();
   };
-  return <button {...autres} onClick={appui} title={titre} className={CLASSE_BOUTON_GERER + (TON_BOUTON_GERER[ton] || "")}>{String(nom)}</button>;
+  return <button {...autres} data-bouton-gerer onClick={appui} title={titre} className={CLASSE_BOUTON_GERER + (TON_BOUTON_GERER[ton] || "")}>{String(nom)}</button>;
 }
 
 // LE MOYEN DE PAIEMENT EN PASTILLE : vert espèces, ambre crédit, bleu mobile
@@ -379,16 +379,16 @@ export function BoutonGeste({ icone, nom, titre, teinte = "bleu", onClick, envoi
 // 22/11/2026 (Timo) : « tu n'as pas besoin de classer les boutons par catégories… aligne-les sur toute
 // la ligne… réduis drastiquement leur taille ». LigneGestes ne dessine plus de nom de thème ni de ligne
 // à part : ses boutons s'ajoutent simplement à la GRILLE (GrilleGestes) qui les contient.
-export function LigneGestes({ children }) {
+export function LigneGestes({ children, ...autres }) {
   const enfants = (Array.isArray(children) ? children : [children]).flat(Infinity).filter(Boolean);
   if (enfants.length === 0) return null;
-  return <div data-ligne-gestes className="contents">{enfants}</div>;
+  return <div {...autres} data-ligne-gestes className="contents">{enfants}</div>;
 }
 // UNE grille pour tous les gestes d'un détail : boutons de même hauteur (26 px) et de même largeur, alignés
 // en colonnes, qui remplissent la largeur (112 px au moins) ; deux colonnes sur téléphone.
 export function GrilleGestes({ children, className = "", ...autres }) {
   return (
-    <div {...autres} data-grille-gestes className={`grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-1.5 [&_[data-geste]]:h-[26px] [&_[data-geste]]:w-full [&_[data-geste]]:min-w-0 [&_[data-geste]]:overflow-hidden [&_[data-geste]]:text-ellipsis [&_[data-geste]]:px-1.5 [&_[data-geste]]:py-0 [&_[data-geste]]:text-[10.5px] ${className}`}>
+    <div {...autres} data-grille-gestes className={`grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-1.5 [&_:is([data-geste],[data-bouton-gerer])]:h-[26px] [&_:is([data-geste],[data-bouton-gerer])]:w-full [&_:is([data-geste],[data-bouton-gerer])]:min-w-0 [&_:is([data-geste],[data-bouton-gerer])]:overflow-hidden [&_:is([data-geste],[data-bouton-gerer])]:text-ellipsis [&_:is([data-geste],[data-bouton-gerer])]:px-1.5 [&_:is([data-geste],[data-bouton-gerer])]:py-0 [&_:is([data-geste],[data-bouton-gerer])]:text-[10.5px] ${className}`}>
       {children}
     </div>
   );

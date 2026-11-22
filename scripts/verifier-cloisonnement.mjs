@@ -4345,7 +4345,7 @@ titre("👥 Le devis établi POUR un autre, et « TOUS LES DEVIS DE … » (12/1
     && nb(hAd, /Relancer par WhatsApp/g) <= 1 + 1, hAd.slice(0, 120));
   { const uiG = readFileSync("src/components/ui.jsx", "utf8"); const lcG = readFileSync("src/components/ListeCarnet.jsx", "utf8");
     test("★★ 🔲 LES GESTES D'UN DÉTAIL : UNE grille (GrilleGestes) — plus de noms de thème, boutons de 26 px de haut et de même largeur, qui remplissent la ligne (112 px au moins), deux colonnes sur téléphone ; LigneGestes ne dessine plus de libellé et GestesDetail, Devis, Prospects, 👑 Équipe passent par la grille (Timo, 22/11/2026)",
-      /export function GrilleGestes/.test(uiG) && /sm:grid-cols-\[repeat\(auto-fill,minmax\(112px,1fr\)\)\]/.test(uiG) && /\[&_\[data-geste\]\]:h-\[26px\]/.test(uiG)
+      /export function GrilleGestes/.test(uiG) && /sm:grid-cols-\[repeat\(auto-fill,minmax\(120px,1fr\)\)\]/.test(uiG) && /\[&_:is\(\[data-geste\],\[data-bouton-gerer\]\)\]:h-\[26px\]/.test(uiG)
       && !/uppercase text-slate-400">\{nom\}/.test(uiG) && /<GrilleGestes/.test(lcG)
       && ["src/screens/TousLesDevis.jsx", "src/screens/Prospects.jsx", "src/screens/MonEquipe.jsx"].every((f) => /<GrilleGestes/.test(readFileSync(f, "utf8")))); }
   test("★★ 📋 Tous les devis (façon carnet) : sur téléphone, une CARTE par devis (nom, total, statut, geste du moment, « Détail ») et PAS le tableau ; sur ordinateur, le tableau et pas de cartes ; jamais les deux",
@@ -8979,11 +8979,12 @@ titre("👥 La liste des utilisateurs, lisible : quatre boutons ronds + « ⋯ G
     && /<ListeCarnet\b/.test(ul) && /onBasculer=\{\(u\) => setGererOuvert\(gererOuvert === u\.id \? null : u\.id\)\}/.test(ul) && /<GestesDetail g=\{g\} moment=\{gesteDuMomentU\(g, u\)\}/.test(ul) && !/fixed inset-0[^\n]*gererOuvert/.test(ul) && !/boutonRond|boutonAction/.test(ul));
   test("★ le panneau « Gérer » range TOUS les autres gestes par thème (Compte, Paie, Commercial, Client), chacun avec la même garde qu'avant : rôle et formation au principal hors sa fiche, paie aux salariés, commercial hors clients, chat libre aux clients",
     // 12/09/2026 (capture Timo, « classer les actions par ligne et non par colonne ») : un thème = UNE ligne, son nom à gauche, ses boutons à la suite.
-    ["Compte", "Paie", "Commercial", "Client"].every((t) => ul.includes(`<div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">${t}</div>`))
-    && /<div className="space-y-2 text-sm">/.test(ul) && !/grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm/.test(ul)
+    // RETOURNÉ 22/11/2026 (Timo : « pas besoin de classer les boutons par catégories ») : plus de noms de thème, UNE grille de petits boutons alignés.
+    !/w-24 shrink-0 pt-1\.5 text-\[11px\] font-bold uppercase text-slate-500/.test(ul) && /<GrilleGestes data-grille-gerer>/.test(ul) && (ul.match(/<LigneGestes[ >]/g) || []).length === 5
+    && /<GrilleGestes data-grille-gerer>/.test(ul) && !/grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm/.test(ul)
     && /\{jeSuisAdminPrincipal && u\.role !== "client" && !surMaPropreFiche\(u\) && <BoutonGerer onClick=\{\(\) => changerRole\(u\)\}/.test(ul)
     && /\{jeSuisAdminPrincipal && !surMaPropreFiche\(u\) && \(\n\s*<BoutonGerer onClick=\{\(\) => basculerFormation\(u\)\}/.test(ul)
-    && /\{SALARIES\.includes\(u\.role\) && \(\n\s*<div className="flex flex-wrap items-start gap-x-3 gap-y-1">\n\s*<div className="w-24 shrink-0 pt-1\.5 text-\[11px\] font-bold uppercase text-slate-500">Paie/.test(ul)
+    && /\{SALARIES\.includes\(u\.role\) && \(\n\s*<LigneGestes>/.test(ul)
     && ["changerBoutique(u)", "changerAnniversaire(u)", "voirPwd(u)", "supprimerU(u)", "changerSalaire(u)", "changerTauxAvancement(u)", 'ajouterMouvementSalaire(u, "prime")', 'ajouterMouvementSalaire(u, "avance")', "envoyerVirement(u)", "annulerVirement(u)", "changerTauxCommission(u)", "changerParrain(u)", "changerTauxEquipe(u)", "basculerChef(u)", "basculerChatLibre(u)"].every((g) => ul.includes(`onClick={() => ${g}}`))
     && /\{jeSuisAdminPrincipal && <BoutonGerer onClick=\{\(\) => voirPwd\(u\)\}/.test(ul) && /\{SALARIES_BOUTIQUE\.includes\(u\.role\) && <BoutonGerer onClick=\{\(\) => changerBoutique\(u\)\}/.test(ul));
   test("★ rôle, boutique (« Toutes ») et statut en pastilles (+ 🎓 Formation), identité manquante discrète ; les deux gestes graves (formation en masse, retirer Historique + Paramètres) sont en bas dans « Actions groupées », mêmes gardes, plus de lien souligné au-dessus de la liste",
@@ -15841,7 +15842,7 @@ test("★ ⚙ Paramètres → 🏪 Boutiques compact : « Je regarde » sur UNE 
         corpsF(s38).replace(bloc, "") === corpsF(s37) && corpsF(s38).indexOf("Modifier le sexe") < corpsF(s38).indexOf("if cible_client then return new;"));
     }
     test("★ 📄 la ligne « Documents » de ⋯ Gérer n'existe que pour un salarié ET l'administrateur principal, avec UN bouton : l'attestation en poste, le document de fin une fois sorti",
-      /\{SALARIES\.includes\(u\.role\) && jeSuisAdminPrincipal && \(\n\s*<div [^>]*data-ligne-documents>/.test(us)
+      /\{SALARIES\.includes\(u\.role\) && jeSuisAdminPrincipal && \(\n\s*<LigneGestes data-ligne-documents>/.test(us) /* RETOURNÉ 22/11/2026 : plus de titre de thème, la grille */
       && /\{documentPropose\(u, today\(\)\) === "attestation"\n\s*\? <BoutonGerer data-attestation-travail onClick=\{\(\) => delivrerDocument\(u\)\}/.test(us)
       && /: <BoutonGerer data-document-fin onClick=\{\(\) => delivrerDocument\(u\)\}/.test(us));
   }
@@ -18534,9 +18535,9 @@ titre("👥 QUI A DÉJÀ OUVERT SON COMPTE — 👥 Utilisateurs, l'administrate
       !hAd.startsWith("ERREUR") && /À faire/.test(hAd) && /data-detail-utilisateur-bouton/.test(hAd) && /data-geste-pouvoirs|data-geste-identite/.test(hAd)
       && !/data-geste-mdp/.test(hAd) && !/data-geste-bloquer/.test(hAd) && !/data-detail-utilisateur/.test(hAd.replace(/data-detail-utilisateur-bouton/g, "")), hAd.slice(0, 160));
     test("★★ charte : déplié, tous les gestes d'accès sont écrits en mots (Changer le mot de passe, Bloquer ce compte) puis le panneau « Gérer » ; une seule ligne dépliée",
-      !hDe.startsWith("ERREUR") && /Changer le mot de passe/.test(hDe) && /Bloquer ce compte/.test(hDe) && /data-detail-utilisateur/.test(hDe) && (hDe.match(/data-detail-utilisateur(?!-)/g) || []).length === 1 && /Compte<\/div>/.test(hDe), hDe.slice(0, 160));
+      !hDe.startsWith("ERREUR") && /Mot de passe/.test(hDe) && /Bloquer/.test(hDe) && /data-detail-utilisateur/.test(hDe) && (hDe.match(/data-detail-utilisateur(?!-)/g) || []).length === 1 && /data-grille-gerer/.test(hDe) /* RETOURNÉ 22/11/2026 : noms courts, plus de titres de thème */, hDe.slice(0, 160));
     test("★★ charte : sur téléphone, une CARTE par compte (jamais un tableau qui défile de côté), et le détail déplié y est aussi",
-      !hTe.startsWith("ERREUR") && /data-utilisateurs-cartes/.test(hTe) && (hTe.match(/data-utilisateur-carte/g) || []).length >= 2 && !/<table[^>]*min-w-\[760px\]/.test(hTe) && /Changer le mot de passe/.test(hTe), hTe.slice(0, 160));
+      !hTe.startsWith("ERREUR") && /data-utilisateurs-cartes/.test(hTe) && (hTe.match(/data-utilisateur-carte/g) || []).length >= 2 && !/<table[^>]*min-w-\[760px\]/.test(hTe) && /Mot de passe/.test(hTe), hTe.slice(0, 160));
     const brancheC = us.slice(us.indexOf('if (f.role === "client") {', us.indexOf("const creer = async")), us.indexOf('if (refuserSaufAdmin(profile, "Créer un compte employé"))'));
     const iDoublon = brancheC.search(/const compteOuvert = !ficheFermee && utilisateursDeLEspace\(db, profile\)\.find\(\(u\) => u\.role === "client" && !estSansAcces\(u\) && u\.tel && memeNumero\(u\.tel, f\.tel\)\);\s*if \(compteOuvert\) \{\s*setMsg\(`Un compte existe déjà pour ce numéro/);
     test("★ « oui refuse aussi le doublon » : un compte OUVERT sur ce numéro (8 derniers chiffres, espace regardé) arrête la création AVANT toute fabrication de compte",

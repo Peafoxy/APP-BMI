@@ -17,7 +17,7 @@ import { banquesReglees, banqueDe, compteDe, libelleBanque, nettoyerNomBanque, m
 import { ListeCarnet, useTelephone, GestesLigne, GestesDetail } from "../components/ListeCarnet";
 import { gererCarteFidelite } from "../components/carteFidelite";
 import { INTERFACES, LIBELLES_INTERFACE, interfaceDe, interfaceImposee } from "../lib/pageIcones";
-import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, BoutonGerer, BoutonGeste, FormulaireRepliable, IconeWhatsApp, champRecherche, BoutonEnvoi } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, uAlert, uConfirm, uPrompt, uChoix, demanderMoyenPaiement, demanderMois, demanderDate, BoutonGerer, BoutonGeste, GrilleGestes, LigneGestes, FormulaireRepliable, IconeWhatsApp, champRecherche, BoutonEnvoi } from "../components/ui";
 // 🏢 Le prénom et l'entreprise d'un CLIENT (29/09/2026) : UNE règle, UN bloc.
 import { JOURS_AVANT_ARCHIVE } from "../lib/conservation";
 import { ENTREPRISE_VIDE, critiquePrenom, critiqueEntreprise, champsCompteClient } from "../lib/clientEntreprise";
@@ -1726,11 +1726,11 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
   const gestesAcces = (u) => {
     const n = (u.droits_off || []).length;
     return {
-      pouvoirs: <BoutonGeste data-geste-pouvoirs icone="🔐" nom={`Pouvoirs${n ? ` (${n} retiré${n > 1 ? "s" : ""})` : ""}`} teinte="violet" onClick={() => setPouvoirsPour(u.id)} titre="🔐 Pouvoirs — les écrans et gestes que cette personne a ou n'a pas" />,
+      pouvoirs: <BoutonGeste data-geste-pouvoirs icone="🔐" nom={`Pouvoirs${n ? ` (${n})` : ""}`} teinte="violet" onClick={() => setPouvoirsPour(u.id)} titre="🔐 Pouvoirs — les écrans et gestes que cette personne a ou n'a pas" />,
       identite: <BoutonGeste data-geste-identite icone="🆔" nom="Identité" onClick={() => changerIdentite(u)} titre="🆔 Identité (nom complet, sexe, pièce)" />,
-      mdp: jeSuisAdminPrincipal ? <BoutonGeste data-geste-mdp icone="🔑" nom="Changer le mot de passe" onClick={() => changerPwd(u)} titre="🔑 Changer le mot de passe" /> : null,
+      mdp: jeSuisAdminPrincipal ? <BoutonGeste data-geste-mdp icone="🔑" nom="Mot de passe" onClick={() => changerPwd(u)} titre="🔑 Changer le mot de passe" /> : null,
       bloquer: !surMaPropreFiche(u)
-        ? <BoutonGeste data-geste-bloquer icone={u.actif === false ? "✅" : "⛔"} nom={u.actif === false ? "Réactiver ce compte" : "Bloquer ce compte"} teinte={u.actif === false ? "vert" : "rouge"} onClick={() => toggleActif(u)} titre={u.actif === false ? "✅ Réactiver ce compte" : "⛔ Bloquer ce compte"} />
+        ? <BoutonGeste data-geste-bloquer icone={u.actif === false ? "✅" : "⛔"} nom={u.actif === false ? "Réactiver" : "Bloquer"} teinte={u.actif === false ? "vert" : "rouge"} onClick={() => toggleActif(u)} titre={u.actif === false ? "✅ Réactiver ce compte" : "⛔ Bloquer ce compte"} />
         : null,
     };
   };
@@ -1745,27 +1745,22 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
                       par colonne » — un thème = UNE ligne : son nom à gauche, ses
                       boutons à la suite sur la même ligne (ils passent à la ligne
                       seulement si la place manque). Mêmes gestes, mêmes gardes. */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Compte</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                  <GrilleGestes data-grille-gerer>
+                    <LigneGestes>
                   {jeSuisAdminPrincipal && u.role !== "client" && !surMaPropreFiche(u) && <BoutonGerer onClick={() => changerRole(u)} titre={u.role_avant ? `Avant : ${LIBELLE_ROLE_EMPLOYE[u.role_avant] || u.role_avant}, changé le ${dFR(u.role_change_le)}` : "Changer le rôle de ce compte"} nom="🎭 Rôle" />}
                   {jeSuisAdminPrincipal && !surMaPropreFiche(u) && (
-                    <BoutonGerer onClick={() => basculerFormation(u)} nom={u.formation ? "🎓 Formation — passer en réel" : "💼 Réel — passer en formation"} />
+                    <BoutonGerer onClick={() => basculerFormation(u)} nom={u.formation ? "🎓 Passer en réel" : "💼 Passer en formation"} />
                   )}
                   {SALARIES_BOUTIQUE.includes(u.role) && <BoutonGerer onClick={() => changerBoutique(u)} info={() => infoGerer(u, "boutique")} nom="🏬 Boutique" />}
                   {peutAvoirAffectation(u) && <BoutonGerer data-affectation onClick={() => changerAffectation(u)} info={() => infoGerer(u, "affectation")} titre="Où travaille cet employé sans boutique — sur sa fiche et son bulletin, sans aucun droit" nom="📍 Lieu d'affectation" />}
                   {!surMaPropreFiche(u) && <BoutonGerer data-fixer-affichage onClick={() => fixerAffichage(u)} info={() => infoGerer(u, "affichage")} titre="Barre d'onglets ou page d'icônes — l'administrateur peut le fixer" nom="🧭 Affichage" />}
                   {u.role !== "client" && <BoutonGerer onClick={() => changerTelephone(u)} info={() => infoGerer(u, "telephone")} nom="📞 Téléphone" />}
                   {u.role !== "client" && <BoutonGerer onClick={() => changerAnniversaire(u)} info={() => infoGerer(u, "anniversaire")} nom="🎂 Anniversaire" />}
-                  {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Voir le mot de passe" />}
+                  {jeSuisAdminPrincipal && <BoutonGerer onClick={() => voirPwd(u)} nom="👁 Mot de passe" />}
                   <BoutonGerer onClick={() => supprimerU(u)} ton="danger" nom="🗑 Supprimer" />
-                      </div>
-                    </div>
+                    </LigneGestes>
                     {SALARIES.includes(u.role) && (
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Paie</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                    <LigneGestes>
                   <BoutonGerer onClick={() => changerSalaire(u)} info={() => infoGerer(u, "salaire")} nom="💵 Salaire" />
                   <BoutonGerer onClick={() => changerTauxAvancement(u)} info={() => infoGerer(u, "taux")} nom="📈 Taux %" />
                   <BoutonGerer data-debut-paie onClick={() => changerDebutPaie(u)} info={() => infoGerer(u, "debutPaie")} titre="Avant ce mois, aucun mois de salaire n'est proposé : il a été payé hors de l'application" nom="📅 Paie suivie depuis" />
@@ -1778,13 +1773,10 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
                   {(u.virements || []).some((v) => v.statut !== "accepte") && <BoutonGerer onClick={() => annulerVirement(u)} ton="attention" nom="Annuler le paiement" />}
                   {/* 🚪 En bout de ligne (Timo, 05/10/2026, « sortie b ») : un départ n'est pas un geste de tous les jours. */}
                   <BoutonGerer data-sortie onClick={() => changerSortie(u)} info={() => infoGerer(u, "sortie")} titre="Date et motif de sortie, repris par la déclaration CNSS" nom="🚪 Sortie" />
-                      </div>
-                    </div>
+                    </LigneGestes>
                     )}
                     {SALARIES.includes(u.role) && jeSuisAdminPrincipal && (
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1" data-ligne-documents>
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Documents</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                    <LigneGestes data-ligne-documents>
                   {documentPropose(u, today()) === "attestation"
                     ? <BoutonGerer data-attestation-travail onClick={() => delivrerDocument(u)} titre="Pour une banque, un visa, un logement : il travaille chez BMI depuis le…, comme…" nom="📄 Attestation de travail" />
                     : <BoutonGerer data-document-fin onClick={() => delivrerDocument(u)} titre="Certificat de travail (CDI, CDD), attestation de fin d'apprentissage ou attestation de stage, selon son contrat" nom="📄 Document de fin de contrat" />}
@@ -1792,35 +1784,28 @@ export function Users({ db, save, profile, connexionsInitiales, roleInitial, rec
                     <BoutonGerer data-mettre-a-disposition onClick={() => mettreADisposition(u)} titre="Il le télécharge depuis son espace pendant 24 heures, puis son accès se ferme" nom="📤 Mettre à disposition" />
                   )}
                   {attestationDe(u) && (
-                    <span data-attestation-dispo className="text-xs text-slate-600">
+                    <span data-attestation-dispo className="col-span-full text-xs text-slate-600">
                       {accesFerme(u, maintenantMs()) ? `🔒 Accès fermé le ${momentFermeture(attestationDe(u)).date} à ${momentFermeture(attestationDe(u)).heure}` : `📤 À sa disposition — accès fermé le ${momentFermeture(attestationDe(u)).date} à ${momentFermeture(attestationDe(u)).heure}`}
                     </span>
                   )}
-                      </div>
-                    </div>
+                    </LigneGestes>
                     )}
                     {u.role !== "client" && (
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Commercial</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                    <LigneGestes>
                   <BoutonGerer onClick={() => changerTauxCommission(u)} info={() => infoGerer(u, "commission")} nom="💰 Commission" />
                   {["commercial", "technicien"].includes(u.role) && <BoutonGerer onClick={() => changerParrain(u)} info={() => infoGerer(u, "parrain")} nom="🤝 Parrain" />}
                   {["commercial", "technicien"].includes(u.role) && estChefEquipe(db, u) && <BoutonGerer onClick={() => changerTauxEquipe(u)} info={() => infoGerer(u, "equipe")} nom="⭐ Équipe" />}
                   {["commercial", "technicien", "technicien_bmi"].includes(u.role) && <BoutonGerer onClick={() => basculerChef(u)} nom={u.chef_equipe ? "Retirer chef" : "Nommer chef"} />}
-                      </div>
-                    </div>
+                    </LigneGestes>
                     )}
                     {u.role === "client" && (
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-                      <div className="w-24 shrink-0 pt-1.5 text-[11px] font-bold uppercase text-slate-500">Client</div>
-                      <div className="flex flex-wrap gap-1.5 min-w-0">
+                    <LigneGestes>
                   <BoutonGerer onClick={() => basculerChatLibre(u)} nom={u.chat_libre ? "Retirer chat libre" : "Autoriser chat libre"} />
                   {/* 💳 La carte de fidélité (29/10/2026) : l'administrateur principal seul la met en place. */}
                   {jeSuisAdminPrincipal && <BoutonGerer data-carte-fidelite onClick={() => gererCarteFidelite({ db, save, profile, compte: u })} titre="Créer, changer la remise, remplacer, retirer ou imprimer sa carte" nom="💳 Carte de fidélité" />}
-                      </div>
-                    </div>
+                    </LigneGestes>
                     )}
-                  </div>
+                  </GrilleGestes>
     </>
   );
   return (
