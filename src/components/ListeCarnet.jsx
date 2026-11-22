@@ -115,7 +115,8 @@ export function ListeCarnet({
                   : <td key={c.titre || k} className={`px-3 py-2${c.figee ? ` min-w-[170px] ${celluleFigee(fondLigneDepliable(deplie, i, f), deplie)}` : ""}${c.align === "right" ? " text-right" : ""}${c.classe ? ` ${c.classe}` : ""}`}>{c.cellule(x, i, deplie)}</td>))}
               </tr>
               {sous && <tr className={fondLigneDepliable(deplie, i, f)}><td colSpan={colonnes.length} className="px-3 pb-2 pt-0">{sous}</td></tr>}
-              {det && <tr className="bg-slate-50" {...marque(marques.detail)}><td colSpan={colonnes.length} className="px-4 pt-2 pb-4">{det}</td></tr>}
+              {/* 22/11/2026 (Timo : « les délimitations entre le détail de TIMO1 et la fiche de TIMO sont presque mélangées ») : le détail est un BLOC À PART — fond bleu clair, la même barre bleue que la ligne ouverte à gauche, et un gros trait de fermeture dessous. */}
+              {det && <tr className="bg-sky-50" {...marque(marques.detail)}><td colSpan={colonnes.length} className="px-4 pt-2 pb-4 shadow-[inset_6px_0_0_0_var(--color-sky-700)] border-b-[3px] border-slate-400">{det}</td></tr>}
             </Fragment>
           );
         })}

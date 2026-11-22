@@ -2545,8 +2545,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 </td>
               </tr>
               {venteDepliee === v.id && (
-                <tr data-detail-vente className="bg-blue-50/60">
-                  <td colSpan={10} className="px-3 py-2 border-l-4 border-blue-500">
+                <tr data-detail-vente className="bg-sky-50">
+                  <td colSpan={10} className="px-3 py-2 shadow-[inset_6px_0_0_0_var(--color-sky-700)] border-b-[3px] border-slate-400">
                     <GrilleGestes data-gestes-vente>
                       <BoutonGeste envoi data-geste-whatsapp icone={<IconeWhatsApp />} nom="Reçu WhatsApp" teinte="vert" onClick={() => envoyerRecuLigne(v)} titre="Envoyer le reçu par WhatsApp (du numéro BMI)" />
                       {bonsDeVente(v).length > 0 && <BoutonGeste icone="🧾" nom="Bons" teinte="gris" onClick={() => ouvrirBons(v)} titre="🧾 Bon de reprise / bon de retour / reçu d'un échange : imprimer ou envoyer par WhatsApp" />}
