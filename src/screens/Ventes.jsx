@@ -6,7 +6,7 @@
 // ============================================================
 import { phraseRappelProforma } from "../lib/rappelProforma";
 import { useCible, useCibleBoutique } from "../components/cibleEcran";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { maintenantISO } from "../lib/horloge";
 import { correspond } from "../lib/suggestions";
 import { genererProforma } from "../pdf";
@@ -29,7 +29,7 @@ import { ChampsEntreprise } from "../components/ChampsEntreprise";
 import { ENTREPRISE_VIDE, formulaireDepuisEntreprise, critiqueEntreprise, champsIdentite, ficheAvecIdentite } from "../lib/clientEntreprise";
 import { mettreVenteALaCorbeille, DUREE_CORBEILLE_JOURS } from "../lib/corbeille";
 import { paiementDuDevis } from "../lib/reglement";
-import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, BoutonEnvoi, CelluleActions } from "../components/ui";
+import { Field, inputCls, btnDark, Badge, Panel, uAlert, uConfirm, uChoix, uPrompt, AucuneBoutique, IconeWhatsApp, ListeArticles, ARTICLES_VISIBLES, boutonAction, classeLigneDepliable, champRecherche, CochesEnvoi, remonterEnHaut, enTeteFige, celluleFigee, fondLigneDepliable, PastillePaiement, BoutonRond, BoutonEnvoi, CelluleActions, BoutonGeste, GrilleGestes } from "../components/ui";
 import { dernierEnvoiPour } from "../lib/suiviEnvoi";
 import { imprimerRecuDeVente, imprimerProforma, recuWhatsApp, imprimerRecuVersement, imprimerBon, bonWhatsApp, fichierRecuDeVente, fichierRecuVersement } from "../lib/impression";
 // Timo (14/09/2026) : « bon de reprise et bon de retour, les deux » — un
@@ -2432,7 +2432,7 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
           <thead className="sticky top-0 z-10"><tr className="text-xs text-slate-500 uppercase bg-slate-100">
             {/* 09/10/2026 (Timo, « a et b oui, lance ») : le CLIENT en première colonne, FIGÉ pendant le
                 défilement (la règle de 📋 Dettes), son numéro dessous ; « Reste à payer » après Paiement. */}
-            {[["Client", "text-left"], ["Date", "text-left"], ["N° reçu", "text-left"], ["Articles", "text-left"], ["Qté", "text-right"], ["Total", "text-right"], ["Paiement", "text-left"], ["Reste à payer", "text-right"], ["Commercial", "text-left"], ["Actions", "text-right"]].map(([h, al], k) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap${k === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}
+            {[["Client", "text-left"], ["Date", "text-left"], ["N° reçu", "text-left"], ["Articles", "text-left"], ["Qté", "text-right"], ["Total", "text-right"], ["Paiement", "text-left"], ["Reste à payer", "text-right"], ["Commercial", "text-left"], ["À faire", "text-right"]].map(([h, al], k) => <th key={h} className={`${al} px-3 py-2 whitespace-nowrap${k === 0 ? ` ${enTeteFige("bg-slate-100")}` : ""}`}>{h}</th>)}
           </tr></thead>
           <tbody>
             {listeFiltree.length === 0 && <tr><td colSpan={10} className="px-4 py-6 text-center text-slate-400">{qListe ? "Aucune vente ne correspond à la recherche." : "Aucune vente pour l'instant."}</td></tr>}
@@ -2454,7 +2454,8 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 </td>
               </tr>
             ) : (
-              <tr key={v.id} data-vente-grisee={ventesGrisees.has(v.id) ? "" : undefined} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i, ventesGrisees.has(v.id) ? FOND_GRISE : "")}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
+              <Fragment key={v.id}>
+              <tr data-vente-grisee={ventesGrisees.has(v.id) ? "" : undefined} onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className={`border-t border-slate-100 align-middle cursor-pointer ${classeLigneDepliable(venteDepliee === v.id, i, ventesGrisees.has(v.id) ? FOND_GRISE : "")}`} title={lignesVente(v).length > ARTICLES_VISIBLES ? (venteDepliee === v.id ? "Cliquer pour replier" : "Cliquer pour voir tous les articles") : undefined}>
                 <td data-vente-client className={`px-3 py-2 min-w-[150px] ${celluleFigee(fondLigneDepliable(venteDepliee === v.id, i, ventesGrisees.has(v.id) ? FOND_GRISE : ""), venteDepliee === v.id)}${texteGrise(v)}`}>{v.client && v.client !== "Client non renseigné" ? <div className="font-semibold text-slate-800">{v.client}</div> : <div className="text-slate-400">—</div>}{v.tel ? <div className="text-xs text-slate-500">{v.tel}</div> : null}</td>
                 <td className={`px-3 py-2 whitespace-nowrap${texteGrise(v)}`}><div className="font-semibold text-slate-800">{dFR(v.date)}</div>{v.heure && <div className="text-xs text-slate-400">{v.heure}</div>}</td>
                 <td className={`px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-600${texteGrise(v)}`}>{numeroRecu(v)}{v.numero_avant_collision && <span title={`Renuméroté après collision hors ligne — le reçu papier remis au client porte le n° ${v.numero_avant_collision}`} className="ml-1 px-1 rounded bg-amber-100 text-amber-800 font-sans font-semibold">ex {v.numero_avant_collision}</span>}</td>
@@ -2530,42 +2531,37 @@ export function Ventes({ db, save, profile, preRempli, onPreRempliConsomme, onTr
                 })()}</td>
                 <td className={`px-3 py-2 text-slate-600${texteGrise(v)}`}>{v.commercial || <span className="text-slate-300">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="inline-flex items-center gap-1">
-                    <button onClick={() => imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)} className={boutonAction("text-sky-800 bg-sky-50 border-sky-200 hover:bg-sky-100")} title={estVenteACredit(v) ? "Imprimer le reçu de la dette (reçu de dette, de versement ou définitif)" : "Imprimer le reçu"} aria-label="Imprimer le reçu">🖨</button>
-                    <BoutonEnvoi libelleEnvoi="⏳" onClick={() => envoyerRecuLigne(v)} className={boutonAction("text-green-700 bg-green-50 border-green-200 hover:bg-green-100")} title="Envoyer le reçu par WhatsApp (du numéro BMI)" aria-label="WhatsApp"><IconeWhatsApp /></BoutonEnvoi>
+                  {/* 22/11/2026 (Timo : « les ventes ont toujours les icônes ») : « À faire » = LE geste du moment, écrit en mots (🖨 Reçu), puis « ▸ Détail » qui ouvre TOUS les autres gestes en une grille de petits boutons. */}
+                  <div className="inline-flex flex-col items-end gap-1">
+                    <BoutonGeste data-geste-recu icone="🖨" nom="Reçu" teinte="bleu" onClick={() => imprimerRecuDeVente(db, v, infoBq(v.boutique), db.produits)} titre={estVenteACredit(v) ? "Imprimer le reçu de la dette (reçu de dette, de versement ou définitif)" : "Imprimer le reçu"} />
                     {(() => {
                       // ✓✓ Le dernier message parti du numéro BMI pour cette ligne,
                       // et où il en est (lib/suiviEnvoi.js, 26/09/2026).
                       const e = dernierEnvoiPour(db.messages, { vente_id: v.id });
                       return e ? <span data-suivi-envoi className="text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap bg-white text-slate-600 border-slate-200">📲 n° BMI<CochesEnvoi statut={e.wa_statut} /></span> : null;
                     })()}
-                    {bonsDeVente(v).length > 0 && (
-                      <button onClick={() => ouvrirBons(v)} className={boutonAction("text-slate-700 bg-slate-50 border-slate-300 hover:bg-slate-100")} title="🧾 Bon de reprise / bon de retour / reçu d'un échange : imprimer ou envoyer par WhatsApp" aria-label="Bons">🧾</button>
-                    )}
-                    {peutVerserVente(v) && (
-                      <button onClick={() => verserVente(v)} className={boutonAction("text-emerald-800 bg-emerald-50 border-emerald-200 hover:bg-emerald-100")} title="💸 Verser : l'argent de cette vente est remis au DG, à la BANQUE ou au comptable (sans bande noire)" aria-label="Verser">💸</button>
-                    )}
-                    {peutTransformerEnDevis(v) && onTransformerEnDevis && (
-                      <button onClick={() => transformerEnDevis(v)} className={boutonAction("text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100")} title="📋 Devis : reprendre cette vente pour en faire un devis d'installation" aria-label="Devis">📋</button>
-                    )}
-                    {ROLES_RETOUR_GARANTIE.includes(profile.role) && (
-                      <button onClick={() => ouvrirRetour(v)} className={boutonAction("text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100")} title="🔁 Retour : échange sous garantie, sortie de stock SANS vente ni facturation (ou frais partiels)" aria-label="Retour">🔁</button>
-                    )}
-                    {peutEchanger(profile) && lignesReprenables(v).length > 0 && !v.depot_chantier && !v.travaux_id && (
-                      <button data-bouton-echange onClick={() => ouvrirEchange(v)} className={boutonAction("text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100")} title="🔄 Échanger : le client rend un article et en prend un autre — il paie la différence, ou BMI la lui rend" aria-label="Échanger">🔄</button>
-                    )}
-                    {jeSuisPrincipal && lignesReprenables(v).length > 0 && (
-                      <button onClick={() => ouvrirReprise(v)} className={boutonAction("text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100")} title="↩ Reprise de l'article par BMI : le client ne le prend pas — retour au stock, argent rendu ou dette réduite" aria-label="Reprise">↩</button>
-                    )}
-                    {ROLES_REMISE_APRES_VENTE.includes(profile.role) && plafondRemiseApresVente(v) > 0 && (
-                      <button data-bouton-remise-apres-vente onClick={() => remiseApresVente(v)} className={boutonAction("text-pink-700 bg-pink-50 border-pink-200 hover:bg-pink-100")} title="✏️ Remise après-vente : réduit le montant d'une vente déjà encaissée, sans article rendu — la dette diminue, ou l'argent est rendu" aria-label="Remise après-vente">✏️</button>
-                    )}
-                    {profile.role === "admin" && (
-                      <button onClick={() => supprimerVente(v)} className={boutonAction("text-red-600 bg-red-50 border-red-200 hover:bg-red-100")} title="Supprimer cette vente" aria-label="Supprimer">🗑</button>
-                    )}
+                    <button type="button" data-detail-vente-bouton onClick={() => setVenteDepliee((d) => (d === v.id ? null : v.id))} className="text-[11px] font-bold text-blue-700">{venteDepliee === v.id ? "▾ Détail" : "▸ Détail"}</button>
                   </div>
                 </td>
               </tr>
+              {venteDepliee === v.id && (
+                <tr data-detail-vente className="bg-blue-50/60">
+                  <td colSpan={10} className="px-3 py-2 border-l-4 border-blue-500">
+                    <GrilleGestes data-gestes-vente>
+                      <BoutonGeste envoi data-geste-whatsapp icone={<IconeWhatsApp />} nom="Reçu WhatsApp" teinte="vert" onClick={() => envoyerRecuLigne(v)} titre="Envoyer le reçu par WhatsApp (du numéro BMI)" />
+                      {bonsDeVente(v).length > 0 && <BoutonGeste icone="🧾" nom="Bons" teinte="gris" onClick={() => ouvrirBons(v)} titre="🧾 Bon de reprise / bon de retour / reçu d'un échange : imprimer ou envoyer par WhatsApp" />}
+                      {peutVerserVente(v) && <BoutonGeste icone="💸" nom="Verser" teinte="vert" onClick={() => verserVente(v)} titre="💸 Verser : l'argent de cette vente est remis au DG, à la BANQUE ou au comptable (sans bande noire)" />}
+                      {peutTransformerEnDevis(v) && onTransformerEnDevis && <BoutonGeste icone="📋" nom="En devis" teinte="violet" onClick={() => transformerEnDevis(v)} titre="📋 Devis : reprendre cette vente pour en faire un devis d'installation" />}
+                      {ROLES_RETOUR_GARANTIE.includes(profile.role) && <BoutonGeste icone="🔁" nom="Retour garantie" teinte="ambre" onClick={() => ouvrirRetour(v)} titre="🔁 Retour : échange sous garantie, sortie de stock SANS vente ni facturation (ou frais partiels)" />}
+                      {peutEchanger(profile) && lignesReprenables(v).length > 0 && !v.depot_chantier && !v.travaux_id && <BoutonGeste data-bouton-echange icone="🔄" nom="Échanger" teinte="vert" onClick={() => ouvrirEchange(v)} titre="🔄 Échanger : le client rend un article et en prend un autre — il paie la différence, ou BMI la lui rend" />}
+                      {jeSuisPrincipal && lignesReprenables(v).length > 0 && <BoutonGeste icone="↩" nom="Reprise BMI" teinte="orange" onClick={() => ouvrirReprise(v)} titre="↩ Reprise de l'article par BMI : le client ne le prend pas — retour au stock, argent rendu ou dette réduite" />}
+                      {ROLES_REMISE_APRES_VENTE.includes(profile.role) && plafondRemiseApresVente(v) > 0 && <BoutonGeste data-bouton-remise-apres-vente icone="✏️" nom="Remise" teinte="rose" onClick={() => remiseApresVente(v)} titre="✏️ Remise après-vente : réduit le montant d'une vente déjà encaissée, sans article rendu — la dette diminue, ou l'argent est rendu" />}
+                      {profile.role === "admin" && <BoutonGeste icone="🗑" nom="Supprimer" teinte="rouge" onClick={() => supprimerVente(v)} titre="Supprimer cette vente" />}
+                    </GrilleGestes>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

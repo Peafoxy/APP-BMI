@@ -5631,7 +5631,7 @@ titre("64 ⏳ UN ENVOI WHATSAPP NE PART PAS DEUX FOIS (18/10/2026, « les deux, 
   const boutons = [
     ["src/screens/Dettes.jsx", /nom="Relancer par WhatsApp" teinte="vert" envoi onClick=\{\(\) => relancer\(d\)\}/], // RETOURNÉ le 18/11/2026 : « Dettes façon carnet », le geste s'écrit en mots (BoutonGeste envoi)
     ["src/screens/TousLesDevis.jsx", /teinte="vert" envoi onClick=\{\(\) => relancerDevis\(d\)\}/],
-    ["src/screens/Ventes.jsx", /<BoutonEnvoi libelleEnvoi="⏳" onClick=\{\(\) => envoyerRecuLigne\(v\)\}/],
+    ["src/screens/Ventes.jsx", /<BoutonGeste envoi data-geste-whatsapp icone=\{<IconeWhatsApp \/>\} nom="Reçu WhatsApp" teinte="vert" onClick=\{\(\) => envoyerRecuLigne\(v\)\}/], // RETOURNÉ 22/11/2026 : BoutonGeste envoi, dans le détail de la vente
     // RETOURNÉ le 13/11/2026 : 🧾 appelle `proformaWhatsApp()` (le clic n'est jamais pris pour un renvoi),
     // et « 💾 Enregistrer la proforma modifiée » peut RENVOYER la proforma (« A a ») : il se grise aussi.
     ["src/screens/Ventes.jsx", /<BoutonEnvoi onClick=\{\(\) => proformaWhatsApp\(\)\}/],

@@ -3544,7 +3544,7 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
       /* RETOURNÉ le 25/09/2026 : après le geste, le bon part d'abord du numéro BMI (apresGeste) ; « Envoyer par WhatsApp » ne s'offre plus s'il est déjà parti, et depuis la ligne il passe par le numéro BMI (verifier-whatsapp ㉙) */
       /await proposerBon\(bonReprise\(dbApres, r\.vente, r\.reprise\), infoBq\(r\.vente\.boutique\), \{ apresGeste: true \}\);/.test(vB) && /const retourFait = retoursDeVente\(dbApres, r\.vente\)\.find\(\(x\) => x\.ref === ref\);\n\s*await proposerBon\(bonRetour\(dbApres, r\.vente, retourFait\), infoBq\(r\.vente\.boutique\), \{ apresGeste: true \}\);/.test(vB)
       && /const options = \["🖨 Imprimer", \.\.\.\(bon\.tel && !parti \? \["Envoyer par WhatsApp"\] : \[\]\), "Plus tard"\];/.test(vB) && /if \(choix === "🖨 Imprimer"\) imprimerBon\(bon, bq\);\n\s*else if \(choix === "Envoyer par WhatsApp"\) \{/.test(vB)
-      && /\{bonsDeVente\(v\)\.length > 0 && \(\n\s*<button onClick=\{\(\) => ouvrirBons\(v\)\}/.test(vB) && /aria-label="Bons">🧾<\/button>/.test(vB) && (vB.match(/proposerBon\(/g) || []).length === 3 /* reprise, retour, ligne */
+      && /\{bonsDeVente\(v\)\.length > 0 && <BoutonGeste icone="🧾" nom="Bons" teinte="gris" onClick=\{\(\) => ouvrirBons\(v\)\}/.test(vB) /* RETOURNÉ 22/11/2026 : les gestes de la vente sont des BoutonGeste dans le détail (À faire / ▸ Détail) */ && (vB.match(/proposerBon\(/g) || []).length === 3 /* reprise, retour, ligne */
       && !/imprimerBon\(|bonWhatsApp\(/.test(vB.replace(/const proposerBon = async[^]*?\n  \};/, "")) /* les deux documents ne partent que par proposerBon */);
   }
   // Timo (14/09/2026, deux captures de l'aperçu) : « sur tous les fichiers
@@ -3576,7 +3576,7 @@ titre("Retour sous garantie : un échange n'est JAMAIS une vente");
     const s17 = readFileSync("supabase/securite-17-retour-gerant.sql", "utf8");
     const ta17 = readFileSync("scripts/tester-argent-sql.sh", "utf8");
     test("★ le retour sous garantie est ouvert au GÉRANT (Timo, 14/09/2026) : ROLES_RETOUR_GARANTIE = gérant + admin ; dans Ventes le bouton 🔁 suit ce rôle et le geste le revérifie deux fois (refuserSaufRoles) ; statuer sur le défectueux reste admin (Stocks) ; serveur securite-17 (ligne relue, statut par upsert refusé au gérant), banc tester-argent : gérant permis, vendeur refusé, statut par upsert refusé",
-      C.ROLES_RETOUR_GARANTIE.join() === "gerant,admin" && /\{ROLES_RETOUR_GARANTIE\.includes\(profile\.role\) && \(\n\s*<button onClick=\{\(\) => ouvrirRetour\(v\)\}/.test(vG)
+      C.ROLES_RETOUR_GARANTIE.join() === "gerant,admin" && /\{ROLES_RETOUR_GARANTIE\.includes\(profile\.role\) && <BoutonGeste icone="🔁" nom="Retour garantie" teinte="ambre" onClick=\{\(\) => ouvrirRetour\(v\)\}/.test(vG) /* RETOURNÉ 22/11/2026 : les gestes de la vente sont des BoutonGeste dans le détail (À faire / ▸ Détail) */
       && (vG.match(/refuserSaufRoles\(profile, ROLES_RETOUR_GARANTIE, "Enregistrer un retour sous garantie"\)/g) || []).length === 2 && !/refuserSaufAdmin\(profile, "Enregistrer un retour sous garantie"\)/.test(vG)
       && (readFileSync("src/screens/Stocks.jsx", "utf8").match(/refuserSaufAdmin\(profile, "Statuer sur un article défectueux"\)/g) || []).length === 2
       && /if r not in \('gerant', 'admin'\) then perform public\.refus_role\('Retour sous garantie', 'le gérant, l''administrateur'\); end if;/.test(s17) && /select a\.data into avant from public\.ajustements a where a\.id = new\.id;/.test(s17)
@@ -7238,10 +7238,10 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
     K2.horsVersements([{ categorie: "Remboursement client", montant: 1 }, { categorie: "Versement de fonds" }, { categorie: "Remboursement d'avance de frais" }, { categorie: "Transport" }]).length === 1 && K2.CATEGORIES_HORS_CHARGES.join("|") === "Versement de fonds|Remboursement client|Rendu sur échange|Remboursement d'avance de frais|Fonds de caisse remis|Apport de l'exploitant|Prélèvement de l'exploitant|Prêt au personnel|Dotation de caisse" /* RETOURNÉ le 10/11/2026 : la dotation de caisse non plus (ni une vente ni une charge) ; 03/10/2026 : un prêt au personnel non plus (une créance, compte 421) ; 14/09/2026 : le fonds remis par le DG non plus ; 23/09/2026 : ni l'apport ni le prélèvement de l'exploitant (un prélèvement ne baisse jamais le résultat) ; RETOURNÉ le 14/10/2026 : la différence rendue à un échange non plus */);
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ les MOTS (Timo, 14/09/2026, capture : « Reprise d'un article par BMI ou par le client ? » → « Reprise de l'article par BMI ») : la fenêtre, l'infobulle et le journal disent que BMI reprend ; plus jamais « par le client »",
-    /↩ Reprise d'articles par BMI<\/div>/.test(vs) /* RETOURNÉ le 06/10/2026 : plusieurs articles d'un coup, le titre dit « d'articles » ; BMI reprend toujours */ && /title="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) && !/Reprise d'un article par le client|repris par le client/.test(vs)
+    /↩ Reprise d'articles par BMI<\/div>/.test(vs) /* RETOURNÉ le 06/10/2026 : plusieurs articles d'un coup, le titre dit « d'articles » ; BMI reprend toujours */ && /titre="↩ Reprise de l'article par BMI : le client ne le prend pas/.test(vs) /* RETOURNÉ 22/11/2026 : les gestes de la vente sont des BoutonGeste dans le détail (À faire / ▸ Détail) */ && !/Reprise d'un article par le client|repris par le client/.test(vs)
     && /repris par BMI \(reçu/.test(readFileSync("src/lib/reprises.js", "utf8")) && !/repris par le client/.test(readFileSync("src/lib/reprises.js", "utf8")));
   test("★ écran Ventes : « ↩ Reprise » pour l'administrateur PRINCIPAL seul (estAdminPrincipal à l'affichage, refuserSaufAdminPrincipal dans le geste, deux fois), fenêtre avec article / quantité / motif / moyen, aperçu du montant et de la dette, confirmation qui dit que le reçu ne change pas, écriture par appliquerReprise ; la ligne montre « ↩ N repris »",
-    /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && \(/.test(vs) && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
+    /const jeSuisPrincipal = estAdminPrincipal\(db, profile\);/.test(vs) && /\{jeSuisPrincipal && lignesReprenables\(v\)\.length > 0 && <BoutonGeste/.test(vs) /* RETOURNÉ 22/11/2026 : les gestes de la vente sont des BoutonGeste dans le détail (À faire / ▸ Détail) */ && (vs.match(/refuserSaufAdminPrincipal\(db, profile, "Reprendre un article vendu"\)/g) || []).length === 2
     // RETOURNÉ le 06/10/2026 (« 1 oui, 2 oui ») : une case par ligne de la vente, sur la vente FRAÎCHE.
     && /const r = construireReprise\(db, venteFraiche, choixReprise\(reprise\), profile, today\(\)\);/.test(vs) && /data-reprise-lignes/.test(vs)
     && /const dbApres = appliquerReprise\(db, r\);\n\s*save\(dbApres, r\.journal\);/.test(vs) /* 14/09/2026 : le bon de reprise est proposé juste après */ && /Le reçu et le total encaissé ne changent pas/.test(vs) && /MOYENS_REMBOURSEMENT\.map/.test(vs)
@@ -7258,8 +7258,8 @@ titre("↩ Reprise de l'article par BMI (Timo, 10/09/2026 : « Reprise pour l'ad
     // Timo (12/09/2026) : « une sélection forte bien visible pour la ligne sélectionnée » — fond bleu soutenu + barre à gauche, couleur de l'espace.
     // 13/09/2026 : la surbrillance est écrite UNE fois (classeLigneDepliable, ui.jsx) — Ventes et Dettes y passent.
     && /classeLigneDepliable\(venteDepliee === v\.id, i, ventesGrisees\.has\(v\.id\) \? FOND_GRISE : ""\)/.test(vs) /* RETOURNÉ 10/10/2026 : le fond gris d'une vente versée et validée */ && /export const classeLigneDepliable = \(deplie, i, fondSinon = ""\) => deplie \? "bg-sky-200 shadow-\[inset_6px_0_0_0_var\(--color-sky-700\)\]"/.test(readFileSync("src/components/ui.jsx", "utf8"))
-    && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\n\s*<div className="inline-flex items-center gap-1">/.test(vs)
-    && /aria-label="WhatsApp"><IconeWhatsApp \/><\/BoutonEnvoi>/.test(vs) /* RETOURNÉ le 18/10/2026 : BoutonEnvoi, gris pendant l'envoi */ && !/aria-label="WhatsApp">💬/.test(vs)
+    && /text-right" onClick=\{\(e\) => e\.stopPropagation\(\)\}>[\s\S]{0,400}?<div className="inline-flex flex-col items-end gap-1">/.test(vs)
+    && /<BoutonGeste envoi data-geste-whatsapp icone=\{<IconeWhatsApp \/>\} nom="Reçu WhatsApp"/.test(vs) /* RETOURNÉ le 22/11/2026 : BoutonGeste envoi (gris pendant l'envoi), dans le détail */ && !/aria-label="WhatsApp">💬/.test(vs)
     // RETOURNÉ le 06/11/2026 : une couleur réglable (blanc sur la tuile verte de la page d'icônes), vert d'office.
     && /export const IconeWhatsApp = \(\{ taille = 18, couleur = "#25D366" \}\) =>/.test(readFileSync("src/components/ui.jsx", "utf8")) && /fill=\{couleur\}/.test(readFileSync("src/components/ui.jsx", "utf8")));
   // Timo (13/09/2026, capture de 📋 Dettes) : « appliquer la même règle que
@@ -7405,7 +7405,7 @@ titre("🔄 Échanger un article contre un autre (Timo, 14/10/2026, « A c, B c,
   // L'écran.
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran 💰 Ventes : « 🔄 » pour le gérant et l'administrateur (peutEchanger à l'affichage ET dans le geste, deux fois), sur la vente FRAÎCHE, la différence rendue en espèces bornée par le tiroir (critiqueSortieTiroir), la question du matériel réservé, puis appliquerEchange ; le reçu de l'échange proposé à l'impression",
-    /\{peutEchanger\(profile\) && lignesReprenables\(v\)\.length > 0 && !v\.depot_chantier && !v\.travaux_id && \(/.test(vs) && (vs.match(/if \(!peutEchanger\(profile\)\) \{ uAlert/g) || []).length === 2
+    /\{peutEchanger\(profile\) && lignesReprenables\(v\)\.length > 0 && !v\.depot_chantier && !v\.travaux_id && <BoutonGeste data-bouton-echange/.test(vs) /* RETOURNÉ 22/11/2026 : les gestes de la vente sont des BoutonGeste dans le détail (À faire / ▸ Détail) */ && (vs.match(/if \(!peutEchanger\(profile\)\) \{ uAlert/g) || []).length === 2
     && /const r = construireEchange\(db, venteFraiche, choixEchange\(echange\), \{ produits: prods, stock: \(p\) => stockActuel\(db, p\), profile/.test(vs)
     && /if \(c\.aRendre > 0 && r\.moyen === "Espèces"\) \{[\s\S]{0,400}critiqueSortieTiroir\(/.test(vs) && /questionReserve\(r\.nouvelleVente\.articles\)/.test(vs)
     && /const dbApres = appliquerEchange\(db, r\);\n\s*save\(dbApres, r\.journal\);/.test(vs) && /imprimerRecuDeVente\(dbApres, r\.nouvelleVente/.test(vs)
@@ -7524,7 +7524,7 @@ titre("✏️ La remise après-vente (gérant, administrateur) : un montant reti
   // L'écran.
   const vs = readFileSync("src/screens/Ventes.jsx", "utf8");
   test("★ écran 💰 Ventes : « ✏️ » pour ROLES_REMISE_APRES_VENTE seulement, tant qu'il reste quelque chose à offrir (plafondRemiseApresVente > 0) ; revérifié DANS le geste sur la vente FRAÎCHE, construit puis appliqué, une confirmation qui nomme ce qui bouge, et l'avis WhatsApp part SANS QUESTION (envoyerRecuSansQuestion)",
-    /\{ROLES_REMISE_APRES_VENTE\.includes\(profile\.role\) && plafondRemiseApresVente\(v\) > 0 && \(/.test(vs)
+    /\{ROLES_REMISE_APRES_VENTE\.includes\(profile\.role\) && plafondRemiseApresVente\(v\) > 0 && <BoutonGeste data-bouton-remise-apres-vente/.test(vs) /* RETOURNÉ 22/11/2026 : les gestes de la vente sont des BoutonGeste dans le détail (À faire / ▸ Détail) */
     && /if \(!ROLES_REMISE_APRES_VENTE\.includes\(profile\.role\)\) \{ uAlert/.test(vs)
     && /const venteFraiche = \(db\.ventes \|\| \[\]\)\.find\(\(x\) => x\.id === v\.id\) \|\| v;\s*\n\s*const plafond = plafondRemiseApresVente\(venteFraiche\);/.test(vs)
     && /const r = construireRemiseApresVente\(db, venteFraiche, \{ montant, motif, moyen \}, profile, today\(\)\);/.test(vs)
@@ -7844,7 +7844,7 @@ titre("🛒 Reprendre une proforma dans le panier (Timo, 11/09/2026)");
     && /NOUVELLE vente, avec un nouveau numéro de reçu/.test(vtP) && /Vendre de nouveau à partir de cette proforma \?/.test(vtP)
     // Timo (11/09/2026) : « reprise » ne doit désigner QUE l'article rendu par le client.
     // 12/09/2026 (liste des ventes lisible) : les boutons sont ronds, l'icône seule — les trois mots distincts vivent dans le libellé au survol.
-    && !/🛒 Reprendre/.test(vtP) && /title="↩ Reprise de l'article par BMI : /.test(vtP) /* 14/09/2026 : « Reprise de l'article par BMI » */ && /title="🔁 Retour : /.test(vtP) && /title="📋 Devis : /.test(vtP) && /aria-label="Reprise"/.test(vtP) && /aria-label="Retour"/.test(vtP)
+    && !/🛒 Reprendre/.test(vtP) && /titre="↩ Reprise de l'article par BMI : /.test(vtP) /* 14/09/2026 : « Reprise de l'article par BMI » */ && /titre="🔁 Retour : /.test(vtP) && /titre="📋 Devis : /.test(vtP) && /nom="Reprise BMI"/.test(vtP) && /nom="Retour garantie"/.test(vtP) /* RETOURNÉ 22/11/2026 : les gestes de la vente sont des BoutonGeste dans le détail (À faire / ▸ Détail) */
     && /proforma_id: origineProforma\.id, proforma_numero: origineProforma\.numero/.test(vtP)
     && /setOrigineProforma\(null\);   \/\/ consommée/.test(vtP)
     && /const numero = prochainNumeroVente\(db, boutique\);/.test(vtP));
@@ -16482,11 +16482,11 @@ titre("💸 Verser UNE vente ou UN règlement (09/10/2026, « un bouton Verser s
   const rendre = (db, prof, deplie = null) => { const e0 = console.error; console.error = () => {}; try { return String(Ro?.rendreVentes(db, prof, deplie) || "").replace(/[  ]/g, " "); } catch { return ""; } finally { console.error = e0; } };
   const hG = rendre(dbO, angele), hS = rendre(dbApres, angele), hVd = rendre(dbO, { ...angele, id: "vd", nom: "AFI", role: "vendeur" });
   test("★★ l'écran RENDU : le bouton 💸 sur la vente PAYÉE en espèces seulement (ni la vente à crédit, ni le virement) ; jamais chez le vendeur",
-    (hG.match(/aria-label="Verser"/g) || []).length === 1 && hVd !== "" && !/aria-label="Verser"/.test(hVd));
+    (dbO.ventes || []).reduce((n, v) => n + (rendre(dbO, angele, v.id).match(/aria-label="💸 Verser/g) || []).length, 0) === 1 && hVd !== "" && (dbO.ventes || []).every((v) => !/aria-label="💸 Verser/.test(rendre(dbO, { ...angele, id: "vd", nom: "AFI", role: "vendeur" }, v.id)))); /* RETOURNÉ 22/11/2026 : le bouton est dans le détail, on déplie chaque vente */
   test("★★ versée, la vente perd son bouton et DIT où est l'argent sous son paiement",
     // RETOURNÉ (09/10/2026, « afficher juste versée… dès qu'on clique, le reste apparaît ») : le mot court seul,
     // le détail seulement sur la ligne DÉPLIÉE.
-    !/aria-label="Verser"/.test(hS) && /data-vente-versee="true"[^>]*>💸 versée<\/div>/.test(hS) && !/data-vente-versee-detail/.test(hS)
+    (dbApres.ventes || []).every((v) => !/aria-label="💸 Verser/.test(rendre(dbApres, angele, v.id))) && /data-vente-versee="true"[^>]*>💸 versée<\/div>/.test(hS) && !/data-vente-versee-detail/.test(hS)
     && /data-vente-versee-detail="true"[^>]*>Chez le DG — ⏳ en attente<\/div>/.test(rendre(dbApres, angele, "s48")));
   // 🩶 10/10/2026 (Timo, « A a, B b ») : la ligne d'une vente versée à part ET validée se grise.
   const dbValide = { ...dbO, depenses: [{ ...rV.sortie, versement_valide_le: j, versement_valide_par: "TIMO" }] };

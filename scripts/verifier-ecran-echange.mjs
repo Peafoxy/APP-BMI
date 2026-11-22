@@ -73,6 +73,7 @@ const ouvrir = async (quoi = "") => {
 const dialogue = async (page) => propre(await page.$eval("[data-dialogue]", (e) => e.innerText).catch(() => ""));
 const bouton = async (page, texte) => { await page.locator("[data-dialogue-boutons] button", { hasText: texte }).click(); await attendre(250); };
 const remplir = async (page, { article, destination = "stock", motif = "préfère un autre modèle" }) => {
+  if (!(await page.locator("[data-bouton-echange]").count())) { await page.click("[data-detail-vente-bouton]"); await attendre(150); } // 22/11/2026 : les gestes sont dans le détail (▸ Détail)
   await page.click("[data-bouton-echange]"); await attendre(200);
   await page.selectOption("[data-echange-destination]", destination); await attendre(100);
   const champ = page.locator("[data-echange-nouveau] input").first();
@@ -84,7 +85,8 @@ const remplir = async (page, { article, destination = "stock", motif = "préfèr
 console.log("\n🔄 L'échange d'un article, joué dans Chromium");
 {
   const { page, erreurs } = await ouvrir("");
-  test("le gérant voit « 🔄 » sur la ligne de la vente", (await page.locator("[data-bouton-echange]").count()) === 1);
+  await page.click("[data-detail-vente-bouton]"); await attendre(150); // RETOURNÉ 22/11/2026 : « 🔄 » est dans le détail de la vente (▸ Détail)
+  test("le gérant voit « 🔄 » dans le détail de la vente", (await page.locator("[data-bouton-echange]").count()) === 1);
   await remplir(page, { article: "Onduleur 3kW" });
   const apercu = propre(await page.innerText("[data-echange-apercu]"));
   test("★ l'aperçu dit : valeur rendue 80 000, nouvel article 120 000, le client paie 40 000", /Valeur rendue .*80 000 F/.test(apercu) && /Nouvel article .*120 000 F/.test(apercu) && /Le client paie : 40 000 F/.test(apercu), apercu);
@@ -128,8 +130,15 @@ console.log("\n🔄 L'échange d'un article, joué dans Chromium");
   // « le bon d'échange n'est plus visible à télécharger » : 🧾 sur l'ancienne ligne ET sur la nouvelle.
   const trA = page.locator("tr", { hasText: "🔄 article rendu" }).first();
   const trN = page.locator("tr", { hasText: "🔄 avoir BMID-2026-0040" }).first();
-  test("★ 🧾 sur l'ancienne ligne ET sur la nouvelle (le reçu de l'échange se retrouve)", (await trA.locator('button[aria-label="Bons"]').count()) === 1 && (await trN.locator('button[aria-label="Bons"]').count()) === 1);
-  await trA.locator('button[aria-label="Bons"]').click(); await attendre(400);
+  const bonsDe = (tr) => tr.locator("xpath=following-sibling::tr[1]").locator('button[aria-label^="🧾"]'); // RETOURNÉ 22/11/2026 : « 🧾 Bons » est dans le détail, sous la ligne
+  const ouvrirDetail = async (tr) => { if (!(await tr.locator("xpath=following-sibling::tr[1]").locator("[data-gestes-vente]").count())) { await tr.locator("[data-detail-vente-bouton]").click(); await attendre(150); } };
+  await ouvrirDetail(trA);
+  const bonsA = await bonsDe(trA).count();
+  await ouvrirDetail(trN);
+  const bonsN = await bonsDe(trN).count();
+  test("★ 🧾 sur l'ancienne ligne ET sur la nouvelle (le reçu de l'échange se retrouve)", bonsA === 1 && bonsN === 1);
+  await ouvrirDetail(trA);
+  await bonsDe(trA).click(); await attendre(400);
   const apercu1 = propre(await page.innerText("#zone-impression").catch(() => ""));
   test("★ 🧾 de l'ancienne ligne ouvre le REÇU DE L'ÉCHANGE (nouveau reçu 0041 : « Échange du reçu n° BMID-2026-0040 », l'article rendu, payé par le client)",
     /BMID-2026-0041/.test(apercu1) && /Échange du reçu n° BMID-2026-0040/.test(apercu1) && /Panneau 550W/.test(apercu1) && /PAYÉ PAR LE CLIENT/i.test(apercu1), apercu1.slice(0, 400));
@@ -175,6 +184,7 @@ console.log("\n🔄 L'échange d'un article, joué dans Chromium");
 }
 {
   const { page } = await ouvrir("vendeuse");
+  await page.click("[data-detail-vente-bouton]"); await attendre(150);
   test("★ « C b » : la vendeuse n'a pas le bouton 🔄", (await page.locator("[data-bouton-echange]").count()) === 0);
   await page.close();
 }
