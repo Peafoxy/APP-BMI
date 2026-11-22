@@ -1556,7 +1556,7 @@ export default function App() {
           Visible partout — y compris sur téléphone où la barre latérale est cachée. */}
       {profile?.nom && (
         <span className="inline-flex items-center gap-1.5">
-          <span className="text-xs font-bold text-orange-300">{profile.nom}</span>
+          <span className="text-xs font-bold text-orange-500 [text-shadow:0_0_6px_rgba(249,115,22,0.95),0_0_14px_rgba(249,115,22,0.6)]">{profile.nom}</span>
           {nonLus > 0 && (
             <button
               onClick={() => setTab("messages")}
@@ -1985,7 +1985,7 @@ export default function App() {
               <div className="min-w-0">
                 <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
                 <div className="text-xs text-slate-400 truncate flex items-center gap-2 flex-wrap">
-                  {profile?.nom && <span className="font-bold text-orange-300 lg:hidden">{profile.nom}</span>}
+                  {profile?.nom && <span className="font-bold text-orange-500 lg:hidden [text-shadow:0_0_6px_rgba(249,115,22,0.95),0_0_14px_rgba(249,115,22,0.6)]">{profile.nom}</span>}
                   <span>v{VERSION}</span>
                 </div>
               </div>
@@ -2030,7 +2030,7 @@ export default function App() {
             {BARRE_RECHERCHE && <span data-barre-centree className="hidden lg:flex flex-1 min-w-0 justify-center xl:flex-none xl:absolute xl:left-1/2 xl:top-1/2 xl:-translate-x-1/2 xl:-translate-y-[calc(50%+4px)]"><BarreRecherche db={db} profile={profile} onNaviguer={(t) => setTab(t)} /></span>}
             {/* Timo (18/11/2026) : sur ordinateur, le nom et la boutique passent à droite de la ligne des boutons, sous « Verrouiller » et la date. */}
             <span data-nom-boutique-droite className="hidden lg:flex shrink-0 items-center gap-3 ml-auto">
-              {profile?.nom && <span className="font-bold text-orange-300 text-sm">{profile.nom}</span>}
+              {profile?.nom && <span className="font-bold text-orange-500 text-sm [text-shadow:0_0_6px_rgba(249,115,22,0.95),0_0_14px_rgba(249,115,22,0.6)]">{profile.nom}</span>}
               {profile.boutique && <Badge boutique={profile.boutique} />}
             </span>
           </div>
@@ -2147,7 +2147,7 @@ export default function App() {
               <div className="min-w-0">
                 <div className="font-bold text-lg leading-tight truncate">BMI-GESTION SYSTÈME</div>
                 <div className="text-xs text-slate-400 truncate flex items-center gap-2 flex-wrap">
-                  {profile?.nom && <span className="font-bold text-orange-300 lg:hidden">{profile.nom}</span>}
+                  {profile?.nom && <span className="font-bold text-orange-500 lg:hidden [text-shadow:0_0_6px_rgba(249,115,22,0.95),0_0_14px_rgba(249,115,22,0.6)]">{profile.nom}</span>}
                   <span>v{VERSION}</span>
                 </div>
               </div>
