@@ -93,7 +93,7 @@ test("le bouton d'ajout NOMME la boutique (« ➕ Nouvel article dans BMI APESSI
   /data-ouvrir-formulaire[^>]*>➕ Nouvel article dans <span[^>]*>BMI APESSITO<\/span>/.test(html) && !html.includes("Ajouter à"));
 test("l'importation Excel est là (fichier, modèle, texte collé)",
   html.includes("Importer un fichier Excel") && html.includes("Modèle Excel") && html.includes("Coller du texte"));
-test("le bouton de correction d'un article est là", html.includes("Corriger"));
+test("le bouton de correction d'un article est là", /nom="Corriger la fiche"/.test(readFileSync("src/screens/Stocks.jsx", "utf8")) /* RETOURNÉ 21/11/2026 : le geste est écrit en mots dans le détail (ListeCarnet) */);
 // ⚠ L'admin PRINCIPAL voit volontairement les deux espaces (dérogation
 // « tous ») : c'est un compte de FORMATION qui prouve le cloisonnement.
 // C'est ici que l'écran, et non plus seulement les calculs, est mis à
@@ -125,6 +125,7 @@ test("le stock affiché ne montre que les articles de la boutique en cours",
 // danger — la fiche en double qui coupe le stock en deux — est refusé au
 // moment d'Ajouter, avec explication.
 const src = readFileSync("src/screens/Stocks.jsx", "utf8");
+const sansCommentairesLC = readFileSync("src/components/ListeCarnet.jsx", "utf8");
 // Capture Timo (13/09/2026) : plus de mur de pastilles — UNE liste « Catégorie »
 // sur la ligne du titre, « Toutes » d'office (les DEUX articles d'APESSITO sont
 // listés, pas seulement la première catégorie), ordre alphabétique.
@@ -165,8 +166,7 @@ test("★ les deux listes (à réapprovisionner, alertes des boutiques) tiennent
 test("★ la première colonne reste FIGÉE pendant le défilement horizontal — téléphone ET ordinateur (Timo, 13/09/2026 : « sur Windows aussi ») — dans le tableau du stock (fond rouge pâle gardé sur une ligne en alerte) et dans « À réapprovisionner », par LA règle commune enTeteFige / celluleFigee (ui.jsx), plus aucun lg:static",
   // RETOURNÉ le 15/10/2026 (la règle des lignes) : la cellule figée porte le fond de SA ligne —
   // rouge pâle en alerte, zébrée sinon, bleue quand la ligne est dépliée.
-  /\$\{i === 0 \? ` \$\{enTeteFige\("bg-slate-100"\)\}` : ""\}/.test(src) && /const fond = al \? "bg-red-50" : "";/.test(src)
-  && /<td className=\{`px-3 py-2 font-semibold \$\{celluleFigee\(fondLigneDepliable\(deplie, i, fond\), deplie\)\}`\}>/.test(src)
+  /{ titre: "Article", figee: true, cellule: \(p, i, deplie\) => nomArticle\(p, deplie\) }/.test(src) /* RETOURNÉ 21/11/2026 : le tableau principal passe par ListeCarnet, qui écrit la colonne figée (enTeteFige / celluleFigee) */ && /<ListeCarnet/.test(src) && /enTeteFige/.test(sansCommentairesLC) && /celluleFigee/.test(sansCommentairesLC)
   && /\$\{i === 0 \? ` \$\{enTeteFige\("bg-white"\)\}` : ""\}/.test(src) && /<td className=\{`px-3 py-2 font-semibold \$\{celluleFigee\("bg-white"\)\}`\}>\{p\.nom\}<\/td>/.test(src)
   && !/lg:static/.test(src) && /<td class="[^"]*sticky left-0 z-\[5\] bg-(white|slate-50) shadow-\[2px_0_0_0_#e2e8f0\] max-w-\[180px\]">REGULATEUR MPPT 60A/.test(htmlPlat)
   && /export const enTeteFige = \(fond = "bg-slate-100"\) => `sticky left-0 z-20 \$\{fond\} shadow-\[2px_0_0_0_#e2e8f0\]`;/.test(readFileSync("src/components/ui.jsx", "utf8")));

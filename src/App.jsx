@@ -2013,7 +2013,7 @@ export default function App() {
           </div>
           {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
               plutôt qu'un empilement désordonné quand tout ne tient pas. */}
-          <div className="px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
+          <div className="relative px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
                         <button onClick={() => setRechercheOuverte(true)} className={`shrink-0 ${BARRE_RECHERCHE ? "lg:hidden" : ""} px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold`} aria-label="Rechercher">🔍{!BARRE_RECHERCHE && <span className="hidden lg:inline"> Rechercher…</span>}</button>
             {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
             {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}
@@ -2028,7 +2028,7 @@ export default function App() {
                 : <span className="text-xs font-semibold text-amber-400 whitespace-nowrap">🔌 Hors ligne{sync.enAttente ? ` · ${sync.enAttente}` : ""}</span>}
             </span>
             {/* 🔍 Timo (21/11/2026) : la barre reste AU MILIEU (là où elle était), mais sur la ligne des boutons ; on tape dedans. */}
-            {BARRE_RECHERCHE && <span className="hidden lg:flex flex-1 min-w-0 justify-center"><BarreRecherche db={db} profile={profile} onNaviguer={(t) => setTab(t)} /></span>}
+            {BARRE_RECHERCHE && <span data-barre-centree className="hidden lg:flex flex-1 min-w-0 justify-center xl:flex-none xl:absolute xl:left-1/2 xl:-translate-x-1/2"><BarreRecherche db={db} profile={profile} onNaviguer={(t) => setTab(t)} /></span>}
             {/* Timo (18/11/2026) : sur ordinateur, le nom et la boutique passent à droite de la ligne des boutons, sous « Verrouiller » et la date. */}
             <span data-nom-boutique-droite className="hidden lg:flex shrink-0 items-center gap-3 ml-auto">
               {profile?.nom && <span className="font-bold text-orange-500 text-xs">👤 {profile.nom}</span>}
