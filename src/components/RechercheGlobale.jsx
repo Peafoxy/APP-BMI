@@ -301,7 +301,7 @@ export function BarreRecherche({ db, profile, onNaviguer, texteInitial = "", ouv
   );
   return (
     <div ref={racine} data-barre-recherche className="relative w-80 shrink-0">
-      <div className="flex items-center gap-2 rounded-full bg-slate-800 border border-slate-600 px-4 py-1.5 focus-within:border-sky-400">
+      <div className="flex items-center gap-2 rounded-full bg-white/10 border border-white/25 px-4 py-1.5 focus-within:border-sky-300 focus-within:bg-white/15">
         <span aria-hidden="true" className="text-slate-400">🔍</span>
         <input
           type="text"
