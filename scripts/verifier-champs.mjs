@@ -44,6 +44,12 @@ const app = readFileSync("src/App.jsx", "utf8");
 const mc = app.match(/<main className="(w-full max-w-[^"]+)">/);
 if (!mc) { console.log("❌ Le cadre <main> d'App.jsx n'a pas la forme attendue."); process.exit(1); }
 const cadreCls = mc[1];
+// 23/11/2026 : les lignes du BANDEAU figé portent la même marge que le contenu (8 px sur téléphone) —
+// leurs classes sont LUES dans App.jsx, jamais recopiées.
+const mTitre = app.match(/data-titre-ecran className="([^"]+)"/);
+const mBandeau = app.match(/<header ref=\{refEnTete\}[^>]*>\s*<div className="([^"]+)"/);
+if (!mTitre || !mBandeau) { console.log("❌ Le bandeau d'App.jsx n'a pas la forme attendue."); process.exit(1); }
+const titreCls = mTitre[1], bandeauCls = mBandeau[1];
 // ⚠ La case d'un formulaire (Field, ui.jsx) est LUE, jamais recopiée (23/10/2026,
 // capture Timo de 📦 Stocks : « corriger les alignements »).
 const mfld = ui.match(/export const Field = \(\{ label, children \}\) => \(\n  <label className="([^"]+)">\n    <span className="([^"]+)">\{label\}<\/span>\n    <div className="([^"]+)">\{children\}<\/div>/);
@@ -84,6 +90,7 @@ writeFileSync(page, `<!doctype html><html><head><meta charset="utf-8">
 <div id="rangee" data-rangee-boutons class="flex gap-2 flex-wrap" style="width:100%"><button id="rb1" class="px-4 py-1.5 rounded-full text-sm font-bold">TOUTES</button><button id="rb2" class="px-4 py-1.5 rounded-full text-sm font-bold">BMI APESSITO</button><button id="rb3" class="px-4 py-1.5 rounded-full text-sm font-bold">🏗 DÉPÔT CHANTIER</button><select id="rsel"><option>Période</option></select></div>
 <div id="rangeeTemoin" class="flex gap-2 flex-wrap" style="width:100%"><button id="rt1" class="px-4 py-1.5 rounded-full text-sm font-bold">TOUTES</button><button id="rt2" class="px-4 py-1.5 rounded-full text-sm font-bold">BMI APESSITO</button></div>
 <main id="cadre" class="${cadreCls}"><div id="dedans" style="width:100%"></div></main>
+<div id="bandeau" class="${bandeauCls}"><span id="bandeauDedans" style="display:block;width:100%">x</span></div><div id="titreEcran" class="${titreCls}"><span id="titreDedans" style="display:block;width:100%">x</span></div>
 <!-- La fenêtre du sélecteur d'article, telle qu'elle s'ouvre vraiment -->
 <div class="fixed inset-0 flex items-end sm:items-center justify-center">
   <div id="panneau" class="bg-white rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
@@ -111,6 +118,9 @@ const mesurer = async (largeur) => {
     listeFenetre: Math.round(document.getElementById("listeFenetre").getBoundingClientRect().width),
     cadre: Math.round(document.getElementById("cadre").getBoundingClientRect().width),
     dedans: Math.round(document.getElementById("dedans").getBoundingClientRect().width),
+    margeBandeau: Math.round(document.getElementById("bandeau").getBoundingClientRect().left + parseFloat(getComputedStyle(document.getElementById("bandeau")).paddingLeft)),
+    margeTitre: Math.round(parseFloat(getComputedStyle(document.getElementById("titreEcran")).paddingLeft)),
+    margeContenu: Math.round(parseFloat(getComputedStyle(document.getElementById("cadre")).paddingLeft)),
     rangee: ["rb1", "rb2", "rb3", "rsel", "rt1", "rt2"].reduce((o, id) => { const r = document.getElementById(id).getBoundingClientRect(); return { ...o, [id]: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width) } }; }, {}),
     largeurPage: document.documentElement.clientWidth,
     cases: ["fCourt", "fLong", "fCourt2", "fLong2", "tCourt", "tLong"].reduce((o, id) => ({ ...o, [id]: Math.round(document.getElementById(id).getBoundingClientRect().top) }), {}),
@@ -169,6 +179,9 @@ test("★★ sur TÉLÉPHONE (390 px) la marge de la page est de 8 px de chaque 
 test("★ sur tablette (700 px) et ordinateur (1400 px) la marge reste de 16 px de chaque côté",
   tablette.cadre - tablette.dedans === 32 && pc.cadre - pc.dedans === 32,
   `mesuré : tablette ${tablette.cadre - tablette.dedans} px, ordinateur ${pc.cadre - pc.dedans} px au total`);
+test("★★ le BANDEAU figé et la barre du titre ont la MÊME marge que le contenu : 8 px sur téléphone, 16 px sur tablette (alignés sur le bord gauche)",
+  tel.margeBandeau === tel.margeContenu && tel.margeTitre === tel.margeContenu && tel.margeContenu === 8 && tablette.margeBandeau === 16 && tablette.margeTitre === 16 && tablette.margeContenu === 16,
+  `mesuré à 390 px : bandeau ${tel.margeBandeau}, titre ${tel.margeTitre}, contenu ${tel.margeContenu} ; à 700 px : ${tablette.margeBandeau} / ${tablette.margeTitre} / ${tablette.margeContenu}`);
 test("★ la limite EXISTE quand même : un moniteur immense n'étale pas un formulaire sur toute sa largeur",
   grandEcran.cadre < 1920);
 

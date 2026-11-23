@@ -1889,7 +1889,7 @@ export default function App() {
 
   // Le nom de l'écran ouvert, écrit UNE fois (en haut, ou à droite de la colonne d'icônes).
   const barreTitre = (
-          <div data-titre-ecran className="flex items-center gap-3 bg-white border-b border-slate-200 px-4 lg:px-6 py-2.5 sticky top-0 z-20 shadow-sm" style={enTeteUnique ? { top: hautEnTete } : undefined}>
+          <div data-titre-ecran className="flex items-center gap-3 bg-white border-b border-slate-200 px-2 sm:px-4 lg:px-6 py-2.5 sticky top-0 z-20 shadow-sm" style={enTeteUnique ? { top: hautEnTete } : undefined}>
             {/* 📌 Téléphone : le bouton ☰ (Timo, 08/11/2026 : « menu classique en
                 3 tirets », en haut à gauche, « oui avec le point rouge »). */}
             {modeColonne && !enSortie && (
@@ -1975,7 +1975,7 @@ export default function App() {
       <div className={`min-w-0 min-h-screen flex flex-col${surAccueil && fondPageIcones.classe ? ` ${fondPageIcones.classe}` : ""}`}
         style={surAccueil ? fondPageIcones.style : undefined}>
         <header ref={refEnTete} data-en-tete-unique data-garder-clair className="sticky top-0 z-30 bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
-          <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
+          <div className="px-2 sm:px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
               {/* « B1 » : le logo ramène à la page d'icônes, depuis n'importe quel écran. */}
               <button type="button" data-logo-accueil onClick={allerAccueil} aria-label={modeColonne ? "Écran d'accueil" : "Accueil : toutes les icônes"}
@@ -2012,7 +2012,7 @@ export default function App() {
           </div>
           {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
               plutôt qu'un empilement désordonné quand tout ne tient pas. */}
-          <div className="relative px-4 pt-1 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
+          <div className="relative px-2 sm:px-4 pt-1 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
                         <button onClick={() => setRechercheOuverte(true)} className={`shrink-0 ${BARRE_RECHERCHE ? "lg:hidden" : ""} px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold`} aria-label="Rechercher">🔍{!BARRE_RECHERCHE && <span className="hidden lg:inline"> Rechercher…</span>}</button>
             {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
             {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}
@@ -2141,7 +2141,7 @@ export default function App() {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* ══ En-tête compact (petit écran) ══ */}
         <header data-garder-clair className="lg:hidden bg-gradient-to-r from-slate-900 via-sky-950 to-sky-900 text-white shadow-md">
-          <div className="px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
+          <div className="px-2 sm:px-4 pt-3 pb-2 flex items-center gap-3 justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <img src={LOGO_CLAIR} alt="BMI Togo" className="h-10 w-auto shrink-0" />
               <div className="min-w-0">
@@ -2168,7 +2168,7 @@ export default function App() {
           </div>
           {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
               plutôt qu'un empilement désordonné quand tout ne tient pas. */}
-          <div className="px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
+          <div className="px-2 sm:px-4 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
             <button onClick={() => setRechercheOuverte(true)} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold" aria-label="Rechercher">🔍</button>
             {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
             <span className="shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap">
@@ -2184,7 +2184,7 @@ export default function App() {
             <button onClick={() => deconnexion(false)} title={sync.enAttente > 0 ? "Des opérations restent à envoyer — vous pouvez vous déconnecter : elles partiront à la prochaine connexion" : ""} className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${sync.enAttente > 0 ? "bg-amber-600 text-white opacity-90 hover:opacity-100" : "bg-slate-700 hover:bg-slate-600"}`}>{sync.enAttente > 0 ? `📤 ${sync.enAttente} à envoyer — se déconnecter` : "Se déconnecter"}</button>
           </div>
           <OngletsDeplacables tabs={tabsAutorises} tab={enSortie ? ONGLET_ATTESTATION[0] : tab} onChoisir={setTab} onReordonner={reordonnerOnglets} sens="horizontal" contenu={LibelleOnglet}
-            className="px-4 flex gap-1 overflow-x-auto"
+            className="px-2 sm:px-4 flex gap-1 overflow-x-auto"
             classeBouton={(id, actif) => `px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-t-lg ${actif ? "bg-slate-100 text-slate-900" : "text-slate-300 hover:text-white"}`} />
         </header>
 
