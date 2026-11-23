@@ -55,7 +55,7 @@ export const CHAPITRE = {
     // ── 3
     { titre: "Accès dans APP-BMI", blocs: [
       ["table", { entetes: ["Où", "Ce qu'on y trouve"], largeurs: [3100, 6200], lignes: [
-        ["📅 Rendez-vous (N)", "**N** = vos rendez-vous d'AUJOURD'HUI encore à venir (vous en êtes l'auteur ou un participant). En haut, la liste « 💼 Rendez-vous pro / 🔒 Rendez-vous privé »."],
+        ["📅 Rendez-vous (N)", "**N** = vos rendez-vous d'AUJOURD'HUI encore à venir (vous en êtes l'auteur ou un participant). La liste montre **tous vos rendez-vous, pro et privés ensemble**, chacun avec sa catégorie (« 💼 Pro » ou « 🔒 Privé »). Trois boutons au-dessus de la liste filtrent : **📅 Tout** (d'office), **💼 Pro**, **🔒 Privé**, chacun avec son nombre. En haut, la liste « Nouveau : » ne sert qu'à choisir le type du rendez-vous à créer."],
         ["🧲 Prospects (ch. 4)", "Sur la ligne d'un prospect : « **📅 Planifier une visite** » (administrateur ou son commercial). Sous la ligne : chaque visite et son **compte rendu**."],
         ["📲 WhatsApp (ch. 20)", "Les avis envoyés du numéro BMI (participant ajouté, changement, visite au client) s'y lisent."],
       ]}],
@@ -66,7 +66,7 @@ export const CHAPITRE = {
     { titre: "Procédure pas à pas", blocs: [
       ["h3", "A. Noter un rendez-vous privé"],
       ["etapes", [
-        { titre: "Choisir « 🔒 Rendez-vous privé »", texte: "Dans la liste en haut de l'écran." },
+        { titre: "Choisir « 🔒 Rendez-vous privé »", texte: "Dans la liste « Nouveau : » en haut de l'écran (elle ne sert qu'à choisir ce qu'on crée ; la liste des rendez-vous, elle, montre tout)." },
         { titre: "➕ Nouveau rendez-vous privé", texte: "« Date », « Heure », « Objet » (obligatoires), « Lieu »." },
         { titre: "📅 Enregistrer le rendez-vous", texte: "Une confirmation résume le rendez-vous. Il ne prévient personne. La veille à 14 h et le jour même à 7 h, un WhatsApp du numéro BMI vous le rappelle **sans dire l'objet** : « vous avez un rendez-vous personnel le … à … »." },
       ]],

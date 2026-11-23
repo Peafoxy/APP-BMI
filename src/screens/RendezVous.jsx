@@ -32,6 +32,8 @@ const VIDE = { date: "", heure: "", objet: "", lieu: "", visite: false, particip
 
 export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
   const [vue, setVue] = useState(TYPE_PRO);
+  // Filtre de la LISTE (Timo, 23/11/2026) : « tout » d'office, rien de mémorisé.
+  const [filtre, setFiltre] = useState("tout");
   const [ouvert, setOuvert] = useState(false);
   const [edition, setEdition] = useState(null); // le rendez-vous qu'on modifie
   const [f, setF] = useState(VIDE);
@@ -61,8 +63,12 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
   const nomDe = (id) => (personnes.find((u) => u.id === id) || (db.users || []).find((u) => u.id === id) || {}).nom || "";
   const ficheDe = (id) => personnes.find((u) => u.id === id) || null;
   const tous = rendezVousVisibles(db.rendez_vous, profile, formation);
-  const duType = tous.filter((r) => r.type === vue);
-  const groupes = rangerParJour(duType, aujourdhui);
+  // 23/11/2026 (Timo : « on peut afficher et les rendez-vous pro et privé,
+  // en mentionnant pour chacun la catégorie ») : la liste montre TOUT ce que
+  // la personne a le droit de voir (`rendezVousVisibles` : ses privés, les pro
+  // de l'espace) ; la liste déroulante ne choisit plus que le type du NOUVEAU.
+  const affiches = filtre === "tout" ? tous : tous.filter((r) => r.type === filtre);
+  const groupes = rangerParJour(affiches, aujourdhui);
   // L'organisateur est proposé aussi (13/10/2026) : il se coche s'il y va.
   const { techniciens, autres } = participantsProposes(personnes);
   const organisateurId = edition ? edition.par_id : profile.id;
@@ -223,6 +229,7 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
           <div className="text-xs text-slate-500">{jourEnClair(r.date)}{r.lieu ? ` · 📍 ${r.lieu}` : ""}</div>
         </div>
         <div className="flex flex-wrap gap-1 text-xs font-semibold">
+          <span data-categorie-rdv={r.type} className={`px-2 py-0.5 rounded-lg border ${r.type === TYPE_PRIVE ? "bg-violet-50 text-violet-800 border-violet-200" : "bg-indigo-50 text-indigo-800 border-indigo-200"}`}>{r.type === TYPE_PRIVE ? "🔒 Privé" : "💼 Pro"}</span>
           {r.visite && <span className="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200">🔎 Visite</span>}
           <span className={`px-2 py-0.5 rounded-lg border ${r.statut === STATUT_A_VENIR ? "bg-amber-50 text-amber-800 border-amber-200" : r.statut === "fait" ? "bg-green-50 text-green-700 border-green-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>{libelleStatut(r.statut)}</span>
         </div>
@@ -259,10 +266,13 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="font-bold">📅 Rendez-vous</div>
-          <select data-type-rendez-vous value={vue} onChange={(e) => { setVue(e.target.value); fermer(); }} className={`${inputCls} sm:w-56`}>
-            <option value={TYPE_PRO}>💼 Rendez-vous pro</option>
-            <option value={TYPE_PRIVE}>🔒 Rendez-vous privé</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 font-semibold">Nouveau :</span>
+            <select data-type-rendez-vous value={vue} onChange={(e) => { setVue(e.target.value); fermer(); }} className={`${inputCls} sm:w-56`}>
+              <option value={TYPE_PRO}>💼 Rendez-vous pro</option>
+              <option value={TYPE_PRIVE}>🔒 Rendez-vous privé</option>
+            </select>
+          </div>
         </div>
         <div className="text-xs text-slate-500 mb-3">
           {vue === TYPE_PRO
@@ -332,6 +342,12 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
       </Panel>
 
       <Panel>
+        <div data-filtre-rendez-vous data-rangee-boutons className="flex flex-wrap gap-2 mb-3">
+          {[["tout", "📅 Tout", tous.length], [TYPE_PRO, "💼 Pro", tous.filter((r) => r.type === TYPE_PRO).length], [TYPE_PRIVE, "🔒 Privé", tous.filter((r) => r.type === TYPE_PRIVE).length]].map(([k, nom, n]) => (
+            <button key={k} type="button" data-filtre={k} onClick={() => setFiltre(k)}
+              className={`px-3 py-1.5 rounded-lg border text-sm font-semibold ${filtre === k ? "bg-sky-700 text-white border-sky-700" : "bg-white text-slate-700 border-slate-300"}`}>{nom} ({n})</button>
+          ))}
+        </div>
         {TITRES_GROUPES.some(([k]) => groupes[k].length)
           ? TITRES_GROUPES.filter(([k]) => groupes[k].length).map(([k, titre]) => (
             <div key={k} data-groupe-rendez-vous={k} className="mb-4">
@@ -339,7 +355,7 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
               <div className="grid lg:grid-cols-2 gap-2">{groupes[k].map(carte)}</div>
             </div>
           ))
-          : <div className="text-sm text-slate-500">Aucun rendez-vous {vue === TYPE_PRO ? "pro" : "privé"} à venir.</div>}
+          : <div className="text-sm text-slate-500">Aucun rendez-vous à venir.</div>}
       </Panel>
 
       {groupes.passes.length > 0 && (

@@ -18216,11 +18216,20 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
     const db = { users: [tim, kos, agb, ang, cpt, cli], boutiques: [{ id: "b", nom: "DEMAKPOE" }], rendez_vous: [pro, privK, proF], prospects: [], clients_installes: [] };
     let hK = "", hT = "", hC = "", hNu = "", errR = "";
     try { hK = R.rendreRdv(db, kos); hT = R.rendreRdv(db, tim); hC = R.rendreRdv(db, cpt); hNu = R.rendreRdv({ users: [ang], boutiques: [] }, ang); } catch (e) { errR = String(e && e.message || e).split("\n")[0]; }
-    test("★★ l'écran RENDU : la liste « 💼 pro / 🔒 privé », le pro d'office ; l'administrateur principal ne voit ni le privé de KOSSI ni la formation" + (errR ? ` (${errR})` : ""),
-      !errR && /data-type-rendez-vous/.test(hK) && hK.includes("Visite chez MR ERIC") && !hK.includes("Banque") && hT.includes("Visite chez MR ERIC") && !hT.includes("Banque") && !hT.includes("Visite d'essai"));
+    // ⚠ RETOURNÉ le 23/11/2026 (Timo : « afficher et les rendez-vous pro et privé, avec la catégorie ») :
+    // la liste montre TOUT ce que la personne peut voir ; la liste déroulante ne choisit plus que le type du NOUVEAU.
+    test("★★ l'écran RENDU : pro ET privé ensemble, chacun avec sa catégorie ; l'administrateur principal ne voit ni le privé de KOSSI ni la formation (RETOURNÉ le 23/11/2026)" + (errR ? ` (${errR})` : ""),
+      !errR && /data-type-rendez-vous/.test(hK) && hK.includes("Visite chez MR ERIC") && hK.includes("Banque")
+      && /data-categorie-rdv="pro"/.test(hK) && /data-categorie-rdv="prive"/.test(hK) && hK.includes("🔒 Privé") && hK.includes("💼 Pro")
+      && hT.includes("Visite chez MR ERIC") && !hT.includes("Banque") && !hT.includes("Visite d'essai") && !/data-categorie-rdv="prive"/.test(hT));
+    test("★ le filtre Tout / Pro / Privé : « Tout » d'office, trois boutons avec leurs nombres, rien de mémorisé",
+      /data-filtre-rendez-vous/.test(hK) && /data-filtre="tout"/.test(hK) && /data-filtre="pro"/.test(hK) && /data-filtre="prive"/.test(hK)
+      && /bg-sky-700[^"]*"[^>]*>📅 Tout|data-filtre="tout"[^>]*bg-sky-700/.test(hK)
+      && /useState\("tout"\)/.test(readFileSync("src/screens/RendezVous.jsx", "utf8"))
+      && !/localStorage/.test(readFileSync("src/screens/RendezVous.jsx", "utf8")));
     test("★ « H a » le comptable lit les rendez-vous pro, sans bouton pour en créer ni en modifier",
       hC.includes("Visite chez MR ERIC") && /lecture seule/.test(hC) && !hC.includes("➕ Nouveau rendez-vous") && !hC.includes("✏️ Modifier"));
-    test("★ une base NUE (aucun rendez-vous reçu) : l'écran se rend et le DIT, jamais un écran blanc", hNu.includes("Aucun rendez-vous pro à venir"));
+    test("★ une base NUE (aucun rendez-vous reçu) : l'écran se rend et le DIT, jamais un écran blanc", hNu.includes("Aucun rendez-vous à venir"));  // RETOURNÉ le 23/11/2026 : plus de « pro » dans la phrase
     // ⚠ RETOURNÉ le 13/10/2026 : l'organisateur est proposé aussi (il se coche s'il y va).
     test("★ « F b » les propositions : les techniciens d'abord, puis le reste du personnel — jamais un client ; l'organisateur proposé aussi (RETOURNÉ le 13/10/2026)",
       (() => { const p = R.participantsProposes([tim, kos, agb, ang, cli], kos); return p.techniciens.map((u) => u.nom).join(",") === "AGBEKO" && p.autres.map((u) => u.nom).join(",") === "ANGELE,KOSSI,TIMO"; })());
