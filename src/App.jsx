@@ -100,6 +100,7 @@ import { compterTransfertsStockAValider } from "./lib/transfertsStock";
 import { genererPDF, genererDevis, genererProforma } from "./pdf";
 import { LOGO_CLAIR, SEED, VERSION, PAIEMENTS, CATEGORIES, SALARIES, SALARIES_BOUTIQUE, PALETTE, COMPTE_TRESORERIE, COMPTE_CHARGE, TYPES_INSTALLATION,
   BARRE_RECHERCHE,
+  BANDEAU_A_BUTEES,
 } from "./lib/constants";
 import { uid, normPaiement, lignesJournal, lignesVente, brutVente, qteVente, resumeArticles, totalVente, hacher, PBKDF2_ITERATIONS, genererSelHex, hacherFort, definirMotDePasse, verifierMotDePasse, prefixeBoutique, prochainNumeroVente, repararNumerosVentes, numeroRecu, fmt, today, dFR, telDigits, inP, COLORS, col, light, setColors } from "./lib/core";
 import { adminPrincipal, utilisateursDeLEspace } from "./lib/calculs";
@@ -2012,7 +2013,7 @@ export default function App() {
           </div>
           {/* Une seule ligne, qui défile sur le côté si l'écran est trop étroit —
               plutôt qu'un empilement désordonné quand tout ne tient pas. */}
-          <div className="relative px-2 sm:px-4 pt-1 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
+          <div data-bandeau-butees={BANDEAU_A_BUTEES ? "oui" : undefined} className="relative px-2 sm:px-4 pt-1 pb-3 flex items-center gap-2 text-sm overflow-x-auto">
                         <button onClick={() => setRechercheOuverte(true)} className={`shrink-0 ${BARRE_RECHERCHE ? "lg:hidden" : ""} px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold`} aria-label="Rechercher">🔍{!BARRE_RECHERCHE && <span className="hidden lg:inline"> Rechercher…</span>}</button>
             {boutonAffichage("shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold whitespace-nowrap")}
             {saveStatus === "error" && <span className="shrink-0 text-xs text-red-400 whitespace-nowrap">⚠ Erreur locale</span>}

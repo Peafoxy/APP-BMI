@@ -67,7 +67,7 @@ export const SEED = {
 // Version affichée dans l'application, à côté du nom.
 // Elle permet de vérifier d'un coup d'œil QUELLE version tourne réellement
 // après un déploiement — sans avoir à deviner.
-export const VERSION = "2.101.828";
+export const VERSION = "2.101.829";
 
 // ⚡ LA CONNEXION RAPIDE (10/11/2026, Timo : « les 4… si un souci se passe à
 // l'usage, on revient à la vieille méthode »). Vrai : le téléphone ne refait
@@ -82,6 +82,11 @@ export const CONNEXION_RAPIDE = true;
 // « Avec possibilité de revenir à la loupe si ça ne tenait pas » : à `false`, l'ancien bouton
 // « 🔍 Rechercher… » de la deuxième ligne revient, sans rien d'autre à toucher.
 export const BARRE_RECHERCHE = true;
+
+// 📱 Timo (23/11/2026) : sur téléphone, la rangée de boutons du bandeau a des ARRÊTS
+// sur les bords (aimant sur chaque bouton, butée à 8 px, la page ne glisse plus de
+// côté, une ombre montre qu'il y a une suite). RETOUR à l'ancien bandeau : `false`.
+export const BANDEAU_A_BUTEES = true;
 
 // 05/10/2026 (Timo) : « temporairement bloquer le téléchargement du bulletin
 // chez l'employé… lui informer de se référer à l'administration ». Faux =

@@ -438,3 +438,16 @@ html[data-espace="formation"] {
 
 /* ✨ Choix de la personne (🧭 Affichage → Animation des écrans) : coupé. */
 html[data-animations="non"] .anim-ecran { animation: none; }
+
+/* 📱 Timo (23/11/2026) : arrêts sur les bords de la rangée de boutons du bandeau (téléphone).
+   Aimant sur chaque bouton, butée à 8 px, la page ne suit pas le glissement. Retour à l'ancien : BANDEAU_A_BUTEES = false (constants.js). */
+@media (max-width: 1023px) {
+  [data-bandeau-butees] {
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 8px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  [data-bandeau-butees]::-webkit-scrollbar { display: none; }
+  [data-bandeau-butees] > * { scroll-snap-align: start; }
+}
