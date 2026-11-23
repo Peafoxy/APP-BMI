@@ -18222,9 +18222,10 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
       !errR && /data-type-rendez-vous/.test(hK) && hK.includes("Visite chez MR ERIC") && hK.includes("Banque")
       && /data-categorie-rdv="pro"/.test(hK) && /data-categorie-rdv="prive"/.test(hK) && hK.includes("🔒 Privé") && hK.includes("💼 Pro")
       && hT.includes("Visite chez MR ERIC") && !hT.includes("Banque") && !hT.includes("Visite d'essai") && !/data-categorie-rdv="prive"/.test(hT));
-    test("★ le filtre Tout / Pro / Privé : « Tout » d'office, trois boutons avec leurs nombres, rien de mémorisé",
-      /data-filtre-rendez-vous/.test(hK) && /data-filtre="tout"/.test(hK) && /data-filtre="pro"/.test(hK) && /data-filtre="prive"/.test(hK)
-      && /bg-sky-700[^"]*"[^>]*>📅 Tout|data-filtre="tout"[^>]*bg-sky-700/.test(hK)
+    // ⚠ RETOURNÉ le 23/11/2026 (Timo : « une ligne qu'on déroule et on choisit », pas des boutons)
+    test("★ le filtre Tout / Pro / Privé est une LISTE DÉROULANTE : « Tout » d'office, trois choix avec leurs nombres, rien de mémorisé (RETOURNÉ le 23/11/2026)",
+      /data-filtre-liste/.test(hK) && />📅 Tout \(\d+\)</.test(hK) && />💼 Pro \(\d+\)</.test(hK) && />🔒 Privé \(\d+\)</.test(hK)
+      && !/data-filtre="tout"/.test(hK)
       && /useState\("tout"\)/.test(readFileSync("src/screens/RendezVous.jsx", "utf8"))
       && !/localStorage/.test(readFileSync("src/screens/RendezVous.jsx", "utf8")));
     test("★ « H a » le comptable lit les rendez-vous pro, sans bouton pour en créer ni en modifier",

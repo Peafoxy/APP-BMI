@@ -342,11 +342,13 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
       </Panel>
 
       <Panel>
-        <div data-filtre-rendez-vous data-rangee-boutons className="flex flex-wrap gap-2 mb-3">
-          {[["tout", "📅 Tout", tous.length], [TYPE_PRO, "💼 Pro", tous.filter((r) => r.type === TYPE_PRO).length], [TYPE_PRIVE, "🔒 Privé", tous.filter((r) => r.type === TYPE_PRIVE).length]].map(([k, nom, n]) => (
-            <button key={k} type="button" data-filtre={k} onClick={() => setFiltre(k)}
-              className={`px-3 py-1.5 rounded-lg border text-sm font-semibold ${filtre === k ? "bg-sky-700 text-white border-sky-700" : "bg-white text-slate-700 border-slate-300"}`}>{nom} ({n})</button>
-          ))}
+        <div data-filtre-rendez-vous className="flex items-center gap-2 mb-3">
+          <span className="text-xs text-slate-500 font-semibold">Afficher :</span>
+          <select data-filtre-liste value={filtre} onChange={(e) => setFiltre(e.target.value)} className={`${inputCls} sm:w-56`}>
+            <option value="tout">📅 Tout ({tous.length})</option>
+            <option value={TYPE_PRO}>💼 Pro ({tous.filter((r) => r.type === TYPE_PRO).length})</option>
+            <option value={TYPE_PRIVE}>🔒 Privé ({tous.filter((r) => r.type === TYPE_PRIVE).length})</option>
+          </select>
         </div>
         {TITRES_GROUPES.some(([k]) => groupes[k].length)
           ? TITRES_GROUPES.filter(([k]) => groupes[k].length).map(([k, titre]) => (
