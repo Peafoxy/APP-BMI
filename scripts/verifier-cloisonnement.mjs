@@ -18231,9 +18231,12 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
       && !/localStorage/.test(readFileSync("src/screens/RendezVous.jsx", "utf8")));
     // La liste est posée sur la ligne du titre de CHAQUE groupe, juste après « Plus tard · 2 » (23/11/2026).
     // Jeu d'essai : deux rendez-vous À VENIR (le pro et le privé de KOSSI, loin dans le futur).
-    const hF = R.rendreRdv({ ...db, rendez_vous: [{ ...pro, id: "futur1", date: "2099-01-01", statut: "a_venir" }, { ...privK, id: "futur2", date: "2099-01-02", statut: "a_venir" }] }, kos);
+    const hF = R.rendreRdv({ ...db, rendez_vous: [{ ...pro, id: "futur1", date: "2099-01-01", statut: "a_venir" }, { ...privK, id: "futur2", date: "2099-01-02", statut: "a_venir" }, pro] }, kos);
     test("★ le filtre est sur la ligne du titre du groupe, juste après « Plus tard · 2 » ; les deux catégories s'y lisent",
-      /<span[^>]*uppercase[^>]*>Plus tard · 2<\/span><select data-filtre-liste/.test(hF) && /data-categorie-rdv="pro"/.test(hF) && /data-categorie-rdv="prive"/.test(hF));
+      /<span[^>]*uppercase[^>]*>Plus tard · 2<\/span><select data-filtre-liste/.test(hF) && /data-categorie-rdv="pro"/.test(hF) && /data-categorie-rdv="prive"/.test(hF)
+      // à droite du titre, sans mention « Afficher » ; les nombres ne comptent QUE les rendez-vous à venir (le passé n'y est pas)
+      && !/Afficher\s*:/.test(hF) && />📅 Tout \(2\)</.test(hF) && />💼 Pro \(1\)</.test(hF) && />🔒 Privé \(1\)</.test(hF)
+      && /data-filtre-rendez-vous[^>]*justify-between/.test(hF) && hF.includes("Visite chez MR ERIC"));
     test("★ « H a » le comptable lit les rendez-vous pro, sans bouton pour en créer ni en modifier",
       hC.includes("Visite chez MR ERIC") && /lecture seule/.test(hC) && !hC.includes("➕ Nouveau rendez-vous") && !hC.includes("✏️ Modifier"));
     test("★ une base NUE (aucun rendez-vous reçu) : l'écran se rend et le DIT, jamais un écran blanc", hNu.includes("Aucun rendez-vous à venir"));  // RETOURNÉ le 23/11/2026 : plus de « pro » dans la phrase

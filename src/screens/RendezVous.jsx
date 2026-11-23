@@ -67,8 +67,13 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
   // en mentionnant pour chacun la catégorie ») : la liste montre TOUT ce que
   // la personne a le droit de voir (`rendezVousVisibles` : ses privés, les pro
   // de l'espace) ; la liste déroulante ne choisit plus que le type du NOUVEAU.
+  // Le filtre ne porte QUE sur les rendez-vous à venir (Timo, 23/11/2026 :
+  // « ne pas mélanger ceux qui sont déjà passés ») : les nombres de la liste les
+  // comptent seuls, et « Passés, faits ou annulés » reste entier quel que soit le choix.
+  const tousGroupes = rangerParJour(tous, aujourdhui);
+  const aVenir = TITRES_GROUPES.flatMap(([k]) => tousGroupes[k]);
   const affiches = filtre === "tout" ? tous : tous.filter((r) => r.type === filtre);
-  const groupes = rangerParJour(affiches, aujourdhui);
+  const groupes = { ...rangerParJour(affiches, aujourdhui), passes: tousGroupes.passes };
   // L'organisateur est proposé aussi (13/10/2026) : il se coche s'il y va.
   const { techniciens, autres } = participantsProposes(personnes);
   const organisateurId = edition ? edition.par_id : profile.id;
@@ -263,10 +268,10 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
   // Le filtre de la liste (23/11/2026) : posé sur la ligne du titre de CHAQUE groupe,
   // juste après « CETTE SEMAINE · 3 » (Timo). Un seul état, la même liste partout.
   const filtreListe = (
-    <select data-filtre-liste value={filtre} onChange={(e) => setFiltre(e.target.value)} className={`${inputCls} sm:w-44 py-1 text-xs`}>
-      <option value="tout">📅 Tout ({tous.length})</option>
-      <option value={TYPE_PRO}>💼 Pro ({tous.filter((r) => r.type === TYPE_PRO).length})</option>
-      <option value={TYPE_PRIVE}>🔒 Privé ({tous.filter((r) => r.type === TYPE_PRIVE).length})</option>
+    <select data-filtre-liste value={filtre} onChange={(e) => setFiltre(e.target.value)} className={`${inputCls} w-40! py-1 text-xs`}>
+      <option value="tout">📅 Tout ({aVenir.length})</option>
+      <option value={TYPE_PRO}>💼 Pro ({aVenir.filter((r) => r.type === TYPE_PRO).length})</option>
+      <option value={TYPE_PRIVE}>🔒 Privé ({aVenir.filter((r) => r.type === TYPE_PRIVE).length})</option>
     </select>
   );
 
@@ -354,7 +359,7 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
         {TITRES_GROUPES.some(([k]) => groupes[k].length)
           ? TITRES_GROUPES.filter(([k]) => groupes[k].length).map(([k, titre]) => (
             <div key={k} data-groupe-rendez-vous={k} className="mb-4">
-              <div data-filtre-rendez-vous className="flex flex-wrap items-center gap-2 mb-2">
+              <div data-filtre-rendez-vous className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-xs font-bold text-slate-500 uppercase">{titre} · {groupes[k].length}</span>
                 {filtreListe}
               </div>
