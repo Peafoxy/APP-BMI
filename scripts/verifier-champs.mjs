@@ -110,6 +110,7 @@ const mesurer = async (largeur) => {
     dansFenetre: Math.round(document.getElementById("dansFenetre").getBoundingClientRect().width),
     listeFenetre: Math.round(document.getElementById("listeFenetre").getBoundingClientRect().width),
     cadre: Math.round(document.getElementById("cadre").getBoundingClientRect().width),
+    dedans: Math.round(document.getElementById("dedans").getBoundingClientRect().width),
     rangee: ["rb1", "rb2", "rb3", "rsel", "rt1", "rt2"].reduce((o, id) => { const r = document.getElementById(id).getBoundingClientRect(); return { ...o, [id]: { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width) } }; }, {}),
     largeurPage: document.documentElement.clientWidth,
     cases: ["fCourt", "fLong", "fCourt2", "fLong2", "tCourt", "tLong"].reduce((o, id) => ({ ...o, [id]: Math.round(document.getElementById(id).getBoundingClientRect().top) }), {}),
@@ -161,6 +162,13 @@ test("★ sur un ordinateur ordinaire (1400 px), le cadre prend TOUT — aucune 
 test("★★ sur TÉLÉPHONE (390 px) RIEN ne change : la limite n'a jamais rogné un téléphone",
   tel.cadre >= 380 && tel.cadre <= 390, `mesuré : ${tel.cadre} px`);
 test("★ et sur tablette non plus", tablette.cadre >= 690 && tablette.cadre <= 700, `mesuré : ${tablette.cadre} px`);
+// 23/11/2026 (Timo : « il reste encore un peu de marge sur les bords » → option 1) : la marge de la
+// PAGE passe de 16 à 8 px sur téléphone (`px-2 sm:px-4`) ; dès 640 px elle reste à 16 px.
+test("★★ sur TÉLÉPHONE (390 px) la marge de la page est de 8 px de chaque côté : le contenu fait 374 px (et non 358)",
+  tel.cadre - tel.dedans === 16, `mesuré : cadre ${tel.cadre} px, contenu ${tel.dedans} px`);
+test("★ sur tablette (700 px) et ordinateur (1400 px) la marge reste de 16 px de chaque côté",
+  tablette.cadre - tablette.dedans === 32 && pc.cadre - pc.dedans === 32,
+  `mesuré : tablette ${tablette.cadre - tablette.dedans} px, ordinateur ${pc.cadre - pc.dedans} px au total`);
 test("★ la limite EXISTE quand même : un moniteur immense n'étale pas un formulaire sur toute sa largeur",
   grandEcran.cadre < 1920);
 

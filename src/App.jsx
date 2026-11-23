@@ -2066,13 +2066,13 @@ export default function App() {
             )}
             <div data-droite-colonne className="flex-1 min-w-0 flex flex-col">
               {!surAccueil && barreTitre}
-              <main className="flex-1 min-w-0 w-full max-w-[1600px] mx-auto px-4 py-5">
+              <main className="flex-1 min-w-0 w-full max-w-[1600px] mx-auto px-2 sm:px-4 py-5">
                 {contenu}
               </main>
             </div>
           </div>
         ) : (
-        <main className="w-full max-w-[1600px] mx-auto px-4 py-5">
+        <main className="w-full max-w-[1600px] mx-auto px-2 sm:px-4 py-5">
           {contenu}
           {surAccueil && <div className="anim-ecran"><PageIcones tabs={tabsAutorises} onChoisir={setTab} onReordonner={reordonnerOnglets} nom={profile?.nom || ""} clair={texteIconesClair} /></div>}
         </main>
@@ -2217,7 +2217,7 @@ export default function App() {
             ⚠ Ici `max-w-*` COMMANDE (c'est un bloc) — le piège du § 5 ne vaut
             que pour les champs de saisie. Le banc MESURE la largeur obtenue
             dans Chromium, il ne lit pas la classe. */}
-        <main className="w-full max-w-[1600px] mx-auto px-4 py-5">
+        <main className="w-full max-w-[1600px] mx-auto px-2 sm:px-4 py-5">
           {contenu}
         </main>
       </div>
