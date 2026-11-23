@@ -18226,8 +18226,14 @@ titre("📅 RENDEZ-VOUS — pro ou privé, la visite et ses participants, le mur
     test("★ le filtre Tout / Pro / Privé est une LISTE DÉROULANTE : « Tout » d'office, trois choix avec leurs nombres, rien de mémorisé (RETOURNÉ le 23/11/2026)",
       /data-filtre-liste/.test(hK) && />📅 Tout \(\d+\)</.test(hK) && />💼 Pro \(\d+\)</.test(hK) && />🔒 Privé \(\d+\)</.test(hK)
       && !/data-filtre="tout"/.test(hK)
+      && /data-filtre-liste/.test(hNu)
       && /useState\("tout"\)/.test(readFileSync("src/screens/RendezVous.jsx", "utf8"))
       && !/localStorage/.test(readFileSync("src/screens/RendezVous.jsx", "utf8")));
+    // La liste est posée sur la ligne du titre de CHAQUE groupe, juste après « Plus tard · 2 » (23/11/2026).
+    // Jeu d'essai : deux rendez-vous À VENIR (le pro et le privé de KOSSI, loin dans le futur).
+    const hF = R.rendreRdv({ ...db, rendez_vous: [{ ...pro, id: "futur1", date: "2099-01-01", statut: "a_venir" }, { ...privK, id: "futur2", date: "2099-01-02", statut: "a_venir" }] }, kos);
+    test("★ le filtre est sur la ligne du titre du groupe, juste après « Plus tard · 2 » ; les deux catégories s'y lisent",
+      /<span[^>]*uppercase[^>]*>Plus tard · 2<\/span><select data-filtre-liste/.test(hF) && /data-categorie-rdv="pro"/.test(hF) && /data-categorie-rdv="prive"/.test(hF));
     test("★ « H a » le comptable lit les rendez-vous pro, sans bouton pour en créer ni en modifier",
       hC.includes("Visite chez MR ERIC") && /lecture seule/.test(hC) && !hC.includes("➕ Nouveau rendez-vous") && !hC.includes("✏️ Modifier"));
     test("★ une base NUE (aucun rendez-vous reçu) : l'écran se rend et le DIT, jamais un écran blanc", hNu.includes("Aucun rendez-vous à venir"));  // RETOURNÉ le 23/11/2026 : plus de « pro » dans la phrase

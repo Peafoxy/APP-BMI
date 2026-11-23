@@ -260,6 +260,15 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
     </label>
   );
   const typeForm = edition ? edition.type : vue;
+  // Le filtre de la liste (23/11/2026) : posé sur la ligne du titre de CHAQUE groupe,
+  // juste après « CETTE SEMAINE · 3 » (Timo). Un seul état, la même liste partout.
+  const filtreListe = (
+    <select data-filtre-liste value={filtre} onChange={(e) => setFiltre(e.target.value)} className={`${inputCls} sm:w-44 py-1 text-xs`}>
+      <option value="tout">📅 Tout ({tous.length})</option>
+      <option value={TYPE_PRO}>💼 Pro ({tous.filter((r) => r.type === TYPE_PRO).length})</option>
+      <option value={TYPE_PRIVE}>🔒 Privé ({tous.filter((r) => r.type === TYPE_PRIVE).length})</option>
+    </select>
+  );
 
   return (
     <div className="space-y-4" data-ecran-rendez-vous>
@@ -342,22 +351,17 @@ export function RendezVous({ db, save, profile, preRempli, onPreRempliLu }) {
       </Panel>
 
       <Panel>
-        <div data-filtre-rendez-vous className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-slate-500 font-semibold">Afficher :</span>
-          <select data-filtre-liste value={filtre} onChange={(e) => setFiltre(e.target.value)} className={`${inputCls} sm:w-56`}>
-            <option value="tout">📅 Tout ({tous.length})</option>
-            <option value={TYPE_PRO}>💼 Pro ({tous.filter((r) => r.type === TYPE_PRO).length})</option>
-            <option value={TYPE_PRIVE}>🔒 Privé ({tous.filter((r) => r.type === TYPE_PRIVE).length})</option>
-          </select>
-        </div>
         {TITRES_GROUPES.some(([k]) => groupes[k].length)
           ? TITRES_GROUPES.filter(([k]) => groupes[k].length).map(([k, titre]) => (
             <div key={k} data-groupe-rendez-vous={k} className="mb-4">
-              <div className="text-xs font-bold text-slate-500 uppercase mb-2">{titre} · {groupes[k].length}</div>
+              <div data-filtre-rendez-vous className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-xs font-bold text-slate-500 uppercase">{titre} · {groupes[k].length}</span>
+                {filtreListe}
+              </div>
               <div className="grid lg:grid-cols-2 gap-2">{groupes[k].map(carte)}</div>
             </div>
           ))
-          : <div className="text-sm text-slate-500">Aucun rendez-vous à venir.</div>}
+          : <div data-filtre-rendez-vous className="flex flex-wrap items-center gap-2 text-sm text-slate-500">{filtreListe}<span>Aucun rendez-vous à venir.</span></div>}
       </Panel>
 
       {groupes.passes.length > 0 && (
