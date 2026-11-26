@@ -20583,5 +20583,23 @@ titre("🧾 COMMANDES : les quatre listes suivent la charte (19/11/2026, « Oui,
     /const carteArticle = \(p, deplie\) =>/.test(stk2) && /stockActuel\(db, p\) <= Number\(p\.seuil\) \? "border-red-200 bg-red-50"/.test(stk2) && /ficheLisible\(p\) && <div className="text-xs font-normal text-sky-800">/.test(stk2) && /useTelephone\(telephoneInitial\)/.test(stk2));
 }
 
+titre("☀️ HEURES EN PLEIN SOLEIL / HORS PLEIN SOLEIL (26/11/2026) : les batteries ne portent que ce qui tourne hors plein soleil");
+{
+  const app = [
+    { nom: "Clim", puissance: 1100, heures: 6, heures_soleil: 5, qte: 2 },
+    { nom: "Ampoule", puissance: 15, heures: 12, heures_soleil: 0, qte: 10 },
+    { nom: "Congélateur", puissance: 200, heures: 24, heures_soleil: 5, qte: 1 },
+  ];
+  const r = { autonomie: 1, soleil: 5, tension: 48, typeBatterie: "lifepo4" };
+  const avant = Sol.besoinsSolaires(app, r);
+  const apres = Sol.besoinsSolaires(app, { ...r, heuresSeparees: true });
+  test("★ 19 800 Wh dans les deux cas, les panneaux ne changent pas (toute la journée ÷ soleil)", avant.whParJour === 19800 && apres.whParJour === 19800 && avant.wcPanneaux === apres.wcPanneaux, JSON.stringify([avant.wcPanneaux, apres.wcPanneaux]));
+  test("★ hors plein soleil = 7 800 Wh ; les batteries tombent (Ah calculés sur ce chiffre)", apres.whHorsSoleil === 7800 && apres.ahBatterie < avant.ahBatterie && apres.ahBatterie === Sol.ahBatterie(7800, 1, apres.tensionCalcul, apres.dod), JSON.stringify([avant.ahBatterie, apres.ahBatterie]));
+  test("le convertisseur ne change pas", avant.wConvertisseur === apres.wConvertisseur);
+  test("un ancien appareil (sans heures_soleil) compte tout hors plein soleil : batteries comme avant", (() => { const v = app.map(({ heures_soleil, ...a }) => a); return Sol.besoinsSolaires(v, { ...r, heuresSeparees: true }).ahBatterie === avant.ahBatterie; })());
+  test("les heures en plein soleil ne dépassent jamais le soleil réglé ni les heures de l'appareil", Sol.heuresPleinSoleil({ heures: 8, heures_soleil: 8 }, 5) === 5 && Sol.heuresPleinSoleil({ heures: 2, heures_soleil: 4 }, 5) === 2);
+  test("interrupteur HEURES_SOLEIL_SEPAREES posé dans constants.js et lu par l'écran", /export const HEURES_SOLEIL_SEPAREES = (true|false);/.test(readFileSync("src/lib/constants.js", "utf8")) && /heuresSeparees: HEURES_SOLEIL_SEPAREES/.test(readFileSync("src/screens/dimensionnement/Solaire.jsx", "utf8")));
+}
+
 console.log(`\n${ko === 0 ? "✅" : "❌"}  ${ok} vérification(s) passée(s), ${ko} en échec.\n`);
 process.exit(ko === 0 ? 0 : 1);

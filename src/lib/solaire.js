@@ -68,6 +68,17 @@ export const consommationJour = (appareils) => (appareils || [])
 export const puissanceSimultanee = (appareils) => (appareils || [])
   .reduce((s, a) => s + Number(a.puissance || 0) * qteAppareil(a), 0);
 
+// ☀️ Timo (26/11/2026) : seules les heures « HORS plein soleil » (matin tôt, soir,
+// nuit) demandent de l'énergie aux batteries ; en plein soleil l'appareil est
+// alimenté directement. `heures_soleil` = heures en plein soleil, jamais plus que
+// les heures de l'appareil ni que l'ensoleillement réglé. Sans `heures_soleil`
+// (appareil d'un ancien devis) toutes les heures comptent hors plein soleil :
+// le cas prudent, les batteries restent comme avant.
+export const heuresPleinSoleil = (a, soleil) => Math.max(0, Math.min(
+  Number(a?.heures_soleil || 0), Number(a?.heures || 0), Number(soleil) > 0 ? Number(soleil) : 0));
+export const consommationHorsSoleil = (appareils, soleil) => (appareils || [])
+  .reduce((s, a) => s + Number(a.puissance || 0) * (Number(a.heures || 0) - heuresPleinSoleil(a, soleil)) * qteAppareil(a), 0);
+
 // Puissance crête à installer : la consommation journalière, divisée par le
 // nombre d'heures de soleil utiles, puis majorée des pertes du système.
 export const wcPanneaux = (whParJour, soleil) => (Number(soleil) > 0
@@ -96,7 +107,7 @@ export const aRegulateur = (wc, tensionCalcul) => (Number(tensionCalcul) > 0
 // une liste d'appareils détaillée, ou une consommation connue (25/10/2026,
 // voir plus bas). Tout le reste (panneaux, batteries, convertisseur,
 // régulateur) ne dépend que de ces deux chiffres.
-export function besoinsDepuisConsommation(whParJour, simultanee, { autonomie, soleil, tension, typeBatterie }) {
+export function besoinsDepuisConsommation(whParJour, simultanee, { autonomie, soleil, tension, typeBatterie, whBatterie }) {
   const dod = profondeurDecharge(typeBatterie);
   const tensionCalcul = tensionDeCalcul(typeBatterie, tension);
   const wc = wcPanneaux(whParJour, soleil);
@@ -107,7 +118,8 @@ export function besoinsDepuisConsommation(whParJour, simultanee, { autonomie, so
     dod,
     tensionCalcul,
     wcPanneaux: wc,
-    ahBatterie: ahBatterie(whParJour, autonomie, tensionCalcul, dod),
+    whHorsSoleil: whBatterie ?? whParJour,
+    ahBatterie: ahBatterie(whBatterie ?? whParJour, autonomie, tensionCalcul, dod),
     wConvertisseur: w,
     kwConvertisseur: w / 1000,
     aRegulateur: aRegulateur(wc, tensionCalcul),
@@ -117,7 +129,10 @@ export function besoinsDepuisConsommation(whParJour, simultanee, { autonomie, so
 // Tout le dimensionnement en une fois, à partir d'une liste d'appareils —
 // c'est ce que l'écran affiche par défaut.
 export function besoinsSolaires(appareils, reglages) {
-  return besoinsDepuisConsommation(consommationJour(appareils), puissanceSimultanee(appareils), reglages);
+  // `heuresSeparees` (HEURES_SOLEIL_SEPAREES, constants.js) : les batteries ne sont
+  // calculées que sur la consommation hors plein soleil. Absent = l'ancien calcul.
+  const whBatterie = reglages?.heuresSeparees ? consommationHorsSoleil(appareils, reglages.soleil) : undefined;
+  return besoinsDepuisConsommation(consommationJour(appareils), puissanceSimultanee(appareils), { ...reglages, whBatterie });
 }
 
 // ---- 🔌 Consommation connue (facture CEET), 25/10/2026 ----

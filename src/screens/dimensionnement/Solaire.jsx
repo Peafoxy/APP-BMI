@@ -8,6 +8,7 @@ import { Field, inputCls, Badge, Panel, uAlert, uConfirm, AucuneBoutique, Stat, 
 import { ENTREPRISE_VIDE } from "../../lib/clientEntreprise";
 import { toucher, boutiquesVente, boutiquesVisibles, bloquerSiLecture, noteDimensionnement, estCompteFormation, espaceDuCompte, estBoutiqueFormation, boutiqueRetenue, prixRailMetre, longueurRailBarre, domainesDefinis, memoriserBoutique, estAdminPrincipal } from "../../lib/calculs";
 import { besoinsSolaires, besoinsDepuisConsommationConnue, sourceWhJourConsommationConnue, supportsPourRails, etriersPourPanneaux, barresDeRail, qteAppareil } from "../../lib/solaire";
+import { HEURES_SOLEIL_SEPAREES } from "../../lib/constants";
 import { catalogueAppareils, suggestionsAppareils, appareilDuCatalogue } from "../../lib/appareils";
 import { ChampSuggestions } from "../../components/ChampSuggestions";
 import { BlocComplementTechnique } from "../../components/ComplementTechnique";
@@ -117,7 +118,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const brouillon = lireBrouillonVolet("solaire", profile, !!besoinsRepris);
   const [appareils, setAppareils] = useState(() =>
     besoinsRepris?.appareils?.length
-      ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(qteAppareil(a)) }))
+      ? besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), heures_soleil: a.heures_soleil ? String(a.heures_soleil) : "", qte: String(qteAppareil(a)) }))
       : brouillon?.appareils?.length
         ? brouillon.appareils
         : [{ id: uid(), nom: "", puissance: "", heures: "", qte: "1" }]
@@ -145,6 +146,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   // devis repris et le brouillon le gardent.
   const [raccordement, setRaccordement] = useState(() => raccordementSur(besoinsRepris?.raccordement || brouillon?.raccordement || RACCORDEMENT_DEFAUT));
 
+  // ☀️ Deux cases d'heures : `heures` reste le TOTAL (devis, PDF, reprises n'y changent
+  // rien), `heures_soleil` en est la part en plein soleil.
+  const nombreOuVide = (x) => (x === "" || x === undefined || x === null ? 0 : Number(x) || 0);
+  const horsSoleilDe = (a) => Math.max(0, nombreOuVide(a.heures) - nombreOuVide(a.heures_soleil));
+  const majHeuresSoleil = (id, v) => setAppareils((liste) => liste.map((a) => (a.id === id
+    ? { ...a, heures_soleil: v, heures: v === "" && horsSoleilDe(a) === 0 ? "" : String(horsSoleilDe(a) + nombreOuVide(v)) } : a)));
+  const majHeuresHors = (id, v) => setAppareils((liste) => liste.map((a) => (a.id === id
+    ? { ...a, heures: v === "" && nombreOuVide(a.heures_soleil) === 0 ? "" : String(nombreOuVide(a.heures_soleil) + nombreOuVide(v)) } : a)));
   const majAppareil = (id, champ, val) => setAppareils(appareils.map((a) => (a.id === id ? { ...a, [champ]: val } : a)));
   // Le catalogue (lib/appareils.js) est PROPOSÉ sous le champ ; la
   // puissance ne se pré-remplit que quand la personne CLIQUE une
@@ -169,8 +178,8 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
   const consoConnue = { consommationMensuelle, puissanceCumulee, heuresUtilisation };
   const besoins = modeConsommation
     ? besoinsDepuisConsommationConnue(consoConnue, { autonomie, soleil, tension, typeBatterie })
-    : besoinsSolaires(appareils, { autonomie, soleil, tension, typeBatterie });
-  const { whParJour, puissanceSimultanee, dod, tensionCalcul,
+    : besoinsSolaires(appareils, { autonomie, soleil, tension, typeBatterie, heuresSeparees: HEURES_SOLEIL_SEPAREES });
+  const { whParJour, whHorsSoleil, puissanceSimultanee, dod, tensionCalcul,
           wcPanneaux, ahBatterie, wConvertisseur, kwConvertisseur } = besoins;
   const aRegulateur = besoins.aRegulateur;
 
@@ -429,7 +438,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       setModeConsommation(false);
       setConsommationMensuelle(""); setPuissanceCumulee(""); setHeuresUtilisation(""); setDescriptionAppareils("");
       if (besoinsRepris?.appareils?.length) {
-        setAppareils(besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), qte: String(qteAppareil(a)) })));
+        setAppareils(besoinsRepris.appareils.map((a) => ({ id: uid(), nom: a.nom, puissance: String(a.puissance), heures: String(a.heures), heures_soleil: a.heures_soleil ? String(a.heures_soleil) : "", qte: String(qteAppareil(a)) })));
       }
     }
     if (besoinsRepris?.autonomie) setAutonomie(String(besoinsRepris.autonomie));
@@ -728,6 +737,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       profile, boutique, typeDevis: undefined, complement: {},
       besoins: {
         wh_jour: whParJour,
+        ...(HEURES_SOLEIL_SEPAREES && !modeConsommation && whHorsSoleil < whParJour ? { wh_hors_soleil: Math.round(whHorsSoleil) } : {}),
         puissance_simultanee: puissanceSimultanee,
         autonomie: Number(autonomie || 1),
         // ☀️ 16/11/2026 : les heures de soleil retenues partent avec le devis,
@@ -739,6 +749,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
         raccordement,
         appareils: modeConsommation ? [] : appareils.filter((a) => a.nom && a.puissance).map((a) => ({
           nom: a.nom, puissance: Number(a.puissance), heures: Number(a.heures || 0), qte: qteAppareil(a),
+          ...(HEURES_SOLEIL_SEPAREES && Number(a.heures_soleil) > 0 ? { heures_soleil: Number(a.heures_soleil) } : {}),
         })),
         // 🔌 Consommation connue (25/10/2026) : présent seulement dans ce
         // mode — le PDF du devis le lit pour afficher le bon bloc.
@@ -849,10 +860,14 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
           <>
             <div className="space-y-2">
               {appareils.map((a) => (
-                <div key={a.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
+                <div key={a.id} className={`grid grid-cols-2 ${HEURES_SOLEIL_SEPAREES ? "sm:grid-cols-6" : "sm:grid-cols-5"} gap-2 items-end`}>
                   <Field label="Appareil"><ChampSuggestions placeholder="Ex : tv, frigo, clim…" valeur={a.nom} suggestions={propositionsAppareils} onChange={(v) => majAppareil(a.id, "nom", v)} onChoisir={(s) => choisirAppareil(a.id, s)} /></Field>
                   <Field label="Puissance (W)"><input type="number" className={inputCls} value={a.puissance} onChange={(e) => majAppareil(a.id, "puissance", e.target.value)} /></Field>
-                  <Field label="Heures/jour"><input type="number" className={inputCls} value={a.heures} onChange={(e) => majAppareil(a.id, "heures", e.target.value)} /></Field>
+                  {HEURES_SOLEIL_SEPAREES ? (<>
+                    <Field label="☀️ Heures en plein soleil"><input type="number" min="0" data-heures-soleil className={inputCls} value={a.heures_soleil ?? ""} onChange={(e) => majHeuresSoleil(a.id, e.target.value)} /></Field>
+                    <Field label="🌙 Heures hors plein soleil"><input type="number" min="0" data-heures-hors className={inputCls} value={a.heures === "" || a.heures === undefined ? "" : String(horsSoleilDe(a))} onChange={(e) => majHeuresHors(a.id, e.target.value)} /></Field>
+                  </>) : (
+                  <Field label="Heures/jour"><input type="number" className={inputCls} value={a.heures} onChange={(e) => majAppareil(a.id, "heures", e.target.value)} /></Field>)}
                   <Field label="Quantité"><input type="number" min="0" className={inputCls} value={a.qte} onChange={(e) => majAppareil(a.id, "qte", e.target.value)} /></Field>
                   <button onClick={() => retirerAppareil(a.id)} className="text-xs text-red-600 underline pb-2">Retirer</button>
                 </div>
@@ -899,7 +914,7 @@ export function DimensionnementSolaire({ db, profile, save, onConvertirEnVente, 
       </Panel>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label={<>Consommation</>} valeur={<>{Math.round(whParJour)} Wh/j</>} nature="technique" />
+        <Stat label={<>Consommation</>} valeur={<>{Math.round(whParJour)} Wh/j{HEURES_SOLEIL_SEPAREES && !modeConsommation && whHorsSoleil < whParJour ? <span data-hors-soleil className="block text-[11px] font-normal text-slate-500">dont {Math.round(whHorsSoleil)} Wh hors plein soleil (batteries)</span> : null}</>} nature="technique" />
         <Stat label={<>Panneaux nécessaires</>} valeur={<>{wcPanneaux} Wc</>} nature="technique" />
         <Stat label={<>Batterie ({tension}V)</>} valeur={<>{ahBatterie} Ah</>} nature="technique" />
         <Stat label={<>Convertisseur{!convertisseurEstHybride ? " / MPPT" : ""}{estTriphase(raccordement) ? " (triphasé)" : ""}</>} valeur={<>{kwConvertisseur.toFixed(2)} kW{!convertisseurEstHybride ? ` · ${aRegulateur} A` : ""}</>} nature="technique" />

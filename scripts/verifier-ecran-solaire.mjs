@@ -275,8 +275,8 @@ console.log("\nUn appareil à 0 dans un brouillon repris reste à 0 (le brouillo
   await attendre(400);
   const nombres = await zone.locator("input[type=number]").evaluateAll((els) => els.map((e) => e.value));
   test("★ repris, « Climatiseur 1.5 CV » et « Congélateur coffre » gardent leur quantité 0 (jamais 1)",
-    nombres[2] === "0" && nombres[5] === "0", JSON.stringify(nombres.slice(0, 9)));
-  test("une quantité ABSENTE vaut toujours 1 (la Télévision)", nombres[8] === "1", JSON.stringify(nombres.slice(0, 9)));
+    nombres[3] === "0" && nombres[7] === "0" /* RETOURNÉ 26/11/2026 : quatre cases par appareil (puissance, ☀️, 🌙, quantité) */, JSON.stringify(nombres.slice(0, 12)));
+  test("une quantité ABSENTE vaut toujours 1 (la Télévision)", nombres[11] === "1", JSON.stringify(nombres.slice(0, 12)));
 }
 test("aucune erreur pendant les reprises", erreurs.length === 0, erreurs.join(" | "));
 
